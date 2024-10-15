@@ -29,6 +29,7 @@ import static androidx.media3.test.session.common.MediaBrowserConstants.ROOT_ID_
 import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_CONNECT_REJECTED;
 import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_GET_CHILDREN;
 import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_GET_CHILDREN_FATAL_AUTHENTICATION_ERROR;
+import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_GET_CHILDREN_INCREASE_NUMBER_OF_CHILDREN_WITH_EACH_CALL;
 import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_GET_CHILDREN_NON_FATAL_AUTHENTICATION_ERROR;
 import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_GET_CHILDREN_WITH_NULL_LIST;
 import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_GET_LIBRARY_ROOT;
@@ -197,6 +198,7 @@ public class MockMediaBrowserServiceCompat extends MediaBrowserServiceCompat {
         return;
       }
     }
+    super.onLoadChildren(parentId, result, Bundle.EMPTY);
   }
 
   @Override
@@ -301,6 +303,9 @@ public class MockMediaBrowserServiceCompat extends MediaBrowserServiceCompat {
           break;
         case TEST_SUBSCRIBE_THEN_REJECT_ON_LOAD_CHILDREN:
           setProxyForSubscribeAndRejectGetChildren();
+          break;
+        case TEST_GET_CHILDREN_INCREASE_NUMBER_OF_CHILDREN_WITH_EACH_CALL:
+          setProxyForGetChildrenIncreaseNumberOfChildrenWithEachCall();
           break;
         default:
           throw new IllegalArgumentException("Unknown testName: " + testName);
@@ -595,6 +600,31 @@ public class MockMediaBrowserServiceCompat extends MediaBrowserServiceCompat {
                 }
               }
               return new BrowserRoot(ROOT_ID, ROOT_EXTRAS);
+            }
+          });
+    }
+
+    private void setProxyForGetChildrenIncreaseNumberOfChildrenWithEachCall() {
+      setMediaBrowserServiceProxy(
+          new MockMediaBrowserServiceCompat.Proxy() {
+            private int callCount;
+
+            @Override
+            public BrowserRoot onGetRoot(
+                String clientPackageName, int clientUid, @Nullable Bundle rootHints) {
+              return new BrowserRoot(ROOT_ID, ROOT_EXTRAS);
+            }
+
+            @Override
+            public void onLoadChildren(String parentId, Result<List<MediaItem>> result) {
+              super.onLoadChildren(parentId, result, Bundle.EMPTY);
+            }
+
+            @Override
+            public void onLoadChildren(
+                String parentId, Result<List<MediaItem>> result, Bundle options) {
+              result.sendResult(MediaTestUtils.createBrowserItems(callCount + 1));
+              callCount++;
             }
           });
     }

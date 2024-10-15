@@ -25,6 +25,8 @@ public class MediaBrowserServiceCompatConstants {
   public static final String TEST_GET_CHILDREN = "getChildren_correctMetadataExtras";
   public static final String TEST_GET_CHILDREN_WITH_NULL_LIST =
       "onChildrenChanged_withNullChildrenListInLegacyService_convertedToSessionError";
+  public static final String TEST_GET_CHILDREN_INCREASE_NUMBER_OF_CHILDREN_WITH_EACH_CALL =
+      "onChildrenChanged_cacheChildrenOfSubscribeCall_serviceCalledOnceOnly";
   public static final String TEST_GET_CHILDREN_FATAL_AUTHENTICATION_ERROR =
       "getLibraryRoot_fatalAuthenticationError_receivesPlaybackException";
   public static final String TEST_GET_CHILDREN_NON_FATAL_AUTHENTICATION_ERROR =

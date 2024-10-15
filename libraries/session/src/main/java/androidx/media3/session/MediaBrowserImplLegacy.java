@@ -199,10 +199,52 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
       return Futures.immediateFuture(LibraryResult.ofError(ERROR_SESSION_DISCONNECTED));
     }
 
-    SettableFuture<LibraryResult<ImmutableList<MediaItem>>> future = SettableFuture.create();
     Bundle options = createOptionsWithPagingInfo(params, page, pageSize);
-    browserCompat.subscribe(parentId, options, new GetChildrenCallback(future, parentId));
+    SettableFuture<LibraryResult<ImmutableList<MediaItem>>> future = SettableFuture.create();
+    // Try to get the cached children in case this is the first call right after subscribing.
+    List<MediaBrowserCompat.MediaItem> childrenFromCache =
+        getChildrenFromSubscription(parentId, page);
+    // Always evict to avoid memory leaks. We've done what we can.
+    evictChildrenFromSubscription(parentId);
+    if (childrenFromCache != null) {
+      future.set(
+          LibraryResult.ofItemList(
+              LegacyConversions.convertBrowserItemListToMediaItemList(childrenFromCache),
+              new LibraryParams.Builder().setExtras(options).build()));
+    } else {
+      GetChildrenCallback getChildrenCallback = new GetChildrenCallback(future, parentId);
+      browserCompat.subscribe(parentId, options, getChildrenCallback);
+    }
     return future;
+  }
+
+  @Nullable
+  private List<MediaBrowserCompat.MediaItem> getChildrenFromSubscription(
+      String parentId, int page) {
+    List<SubscribeCallback> callbacks = subscribeCallbacks.get(parentId);
+    if (callbacks == null) {
+      return null;
+    }
+    for (int i = 0; i < callbacks.size(); i++) {
+      if (callbacks.get(i).canServeGetChildrenRequest(parentId, page)) {
+        return callbacks.get(i).receivedChildren;
+      }
+    }
+    return null;
+  }
+
+  private void evictChildrenFromSubscription(String parentId) {
+    List<SubscribeCallback> callbacks = subscribeCallbacks.get(parentId);
+    if (callbacks == null) {
+      return;
+    }
+    for (int i = 0; i < callbacks.size(); i++) {
+      if (callbacks.get(i).receivedChildren != null) {
+        // Evict the first cached children we find.
+        callbacks.get(i).receivedChildren = null;
+        return;
+      }
+    }
   }
 
   @Override
@@ -471,6 +513,8 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
     private final Bundle subscriptionOptions;
     private final SettableFuture<LibraryResult<Void>> future;
 
+    @Nullable private List<MediaBrowserCompat.MediaItem> receivedChildren;
+
     public SubscribeCallback(
         String subscriptionParentId,
         Bundle subscriptionOptions,
@@ -535,23 +579,42 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
         // Browser is closed.
         return;
       }
-      int itemCount;
-      if (children != null) {
-        itemCount = children.size();
-      } else {
-        // Currently no way to tell failures in MediaBrowser#subscribe().
+      if (children == null) {
+        // Note this doesn't happen except possibly when someone is using a very old OS (change
+        // landed in Android tree at 2016-02-23). Recent Android versions turn children=null into an
+        // error and `onError` of this `SubscriptionCallback` is called instead of
+        // `onChildrenLoaded` (see `MediaBrowser.onLoadChildren`). We should do the same here to be
+        // consistent again.
+        onError(subscriptionParentId, subscriptionOptions);
         return;
       }
 
       LibraryParams params =
           LegacyConversions.convertToLibraryParams(
               context, browserCompat.getNotifyChildrenChangedOptions());
+      receivedChildren = children;
       getInstance()
           .notifyBrowserListener(
               listener -> {
-                listener.onChildrenChanged(getInstance(), parentId, itemCount, params);
+                listener.onChildrenChanged(getInstance(), parentId, children.size(), params);
               });
       future.set(LibraryResult.ofVoid());
+    }
+
+    /**
+     * Returns true if the cached children can be served for a request for the given parent ID and
+     * paging options.
+     *
+     * @param parentId The media ID of the parent of the requested children.
+     * @param pageIndex The requested page index.
+     * @return True if the request can be served with the cached children of the subscription
+     *     callback.
+     */
+    public boolean canServeGetChildrenRequest(String parentId, int pageIndex) {
+      return subscriptionParentId.equals(parentId)
+          && receivedChildren != null
+          && pageIndex
+              == subscriptionOptions.getInt(MediaBrowserCompat.EXTRA_PAGE, /* defaultValue= */ 0);
     }
   }
 

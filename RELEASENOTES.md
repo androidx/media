@@ -139,6 +139,9 @@
     *   Fix bug where a `MediaBrowser` connected to a legacy browser service,
         didn't receive an error sent by the service after the browser has
         subscribed to a `parentid`.
+    *   Improve interoperability behavior, so that a Media3 browser that is
+        connected to a legacy `MediaBrowserService` doesn't request the children
+        of a `parentId` twice when subscribing to a parent.
 *   UI:
     *   Make the stretched/cropped video in
         `PlayerView`-in-Compose-`AndroidView` workaround opt-in, due to issues

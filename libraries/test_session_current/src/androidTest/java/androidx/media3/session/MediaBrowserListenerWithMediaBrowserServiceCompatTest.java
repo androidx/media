@@ -29,6 +29,7 @@ import static androidx.media3.test.session.common.MediaBrowserConstants.ROOT_ID_
 import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_CONNECT_REJECTED;
 import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_GET_CHILDREN;
 import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_GET_CHILDREN_FATAL_AUTHENTICATION_ERROR;
+import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_GET_CHILDREN_INCREASE_NUMBER_OF_CHILDREN_WITH_EACH_CALL;
 import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_GET_CHILDREN_NON_FATAL_AUTHENTICATION_ERROR;
 import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_GET_CHILDREN_WITH_NULL_LIST;
 import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_GET_LIBRARY_ROOT;
@@ -378,6 +379,60 @@ public class MediaBrowserListenerWithMediaBrowserServiceCompatTest {
     assertThat(resultForSubscribe.sessionError.code).isEqualTo(SessionError.ERROR_UNKNOWN);
     assertThat(resultForSubscribe.sessionError.message)
         .isEqualTo(SessionError.DEFAULT_ERROR_MESSAGE);
+  }
+
+  @Test
+  public void onChildrenChanged_cacheChildrenOfSubscribeCall_serviceCalledOnceOnly()
+      throws Exception {
+    String testParentId = TEST_GET_CHILDREN_INCREASE_NUMBER_OF_CHILDREN_WITH_EACH_CALL;
+    remoteService.setProxyForTest(TEST_GET_CHILDREN_INCREASE_NUMBER_OF_CHILDREN_WITH_EACH_CALL);
+    CountDownLatch latch = new CountDownLatch(/* count= */ 1);
+    MediaBrowser browser =
+        createBrowser(
+            new MediaBrowser.Listener() {
+              @Override
+              public void onChildrenChanged(
+                  MediaBrowser browser,
+                  String parentId,
+                  int itemCount,
+                  @Nullable LibraryParams params) {
+                latch.countDown();
+              }
+            });
+    // Subscribing causes the first call to the legacy `onLoadChildren()` that we want to cache.
+    LibraryResult<Void> resultForSubscribe =
+        threadTestRule
+            .getHandler()
+            .postAndSync(() -> browser.subscribe(testParentId, null))
+            .get(TIMEOUT_MS, MILLISECONDS);
+    assertThat(resultForSubscribe.resultCode).isEqualTo(RESULT_SUCCESS);
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+
+    LibraryResult<ImmutableList<MediaItem>> resultGetChildren =
+        threadTestRule
+            .getHandler()
+            .postAndSync(
+                () ->
+                    browser.getChildren(
+                        testParentId, /* page= */ 0, /* pageSize= */ 12, /* params= */ null))
+            .get(TIMEOUT_MS, MILLISECONDS);
+
+    assertThat(resultGetChildren.resultCode).isEqualTo(RESULT_SUCCESS);
+    // If caching in `MediaBrowserImplLegacy` doesn't work, the children would be delivered by a
+    // second call to the service which would have two items.
+    assertThat(resultGetChildren.value).hasSize(1);
+
+    // Cache is cleared after delivery. We call the service again that now delivers two items.
+    LibraryResult<ImmutableList<MediaItem>> resultGetChildrenAgain =
+        threadTestRule
+            .getHandler()
+            .postAndSync(
+                () ->
+                    browser.getChildren(
+                        testParentId, /* page= */ 0, /* pageSize= */ 12, /* params= */ null))
+            .get(TIMEOUT_MS, MILLISECONDS);
+
+    assertThat(resultGetChildrenAgain.value).hasSize(2);
   }
 
   @Test
