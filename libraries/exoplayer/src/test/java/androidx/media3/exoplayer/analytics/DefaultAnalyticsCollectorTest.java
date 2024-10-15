@@ -132,7 +132,6 @@ import java.io.IOException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -149,7 +148,8 @@ public final class DefaultAnalyticsCollectorTest {
   // Deprecated event constants.
   private static final long EVENT_PLAYER_STATE_CHANGED = 1L << 63;
   private static final long EVENT_SEEK_STARTED = 1L << 62;
-  private static final int DEPRECATED_EVENT_LOAD_STARTED = Integer.MIN_VALUE;
+  // Start from +1 of the MIN because it will collide with 1L << 63
+  private static final long DEPRECATED_EVENT_LOAD_STARTED = Long.MIN_VALUE + 1;
 
   private static final UUID DRM_SCHEME_UUID =
       UUID.nameUUIDFromBytes(TestUtil.createByteArray(7, 8, 9));
