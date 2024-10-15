@@ -347,10 +347,6 @@ public interface AnalyticsListener {
 
   /** A source started loading data. */
   @UnstableApi
-  int EVENT_ON_LOAD_STARTED = 999;
-
-  /** A source started loading data. */
-  @UnstableApi
   int EVENT_LOAD_STARTED = 1000; // Intentional gap to leave space for new Player events
 
   /** A source started completed loading data. */
