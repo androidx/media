@@ -408,8 +408,6 @@ public final class DashPlaybackTest {
   @Test
   public void playVideo_usingWithinGopSampleDependencies_withSeekAfterEoS() throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
-    CapturingRenderersFactory capturingRenderersFactory =
-        new CapturingRenderersFactory(applicationContext);
     BundledChunkExtractor.Factory chunkExtractorFactory =
         new BundledChunkExtractor.Factory().experimentalParseWithinGopSampleDependencies(true);
     DataSource.Factory defaultDataSourceFactory = new DefaultDataSource.Factory(applicationContext);
@@ -419,7 +417,7 @@ public final class DashPlaybackTest {
                 chunkExtractorFactory, defaultDataSourceFactory, /* maxSegmentsPerLoad= */ 1),
             /* manifestDataSourceFactory= */ defaultDataSourceFactory);
     ExoPlayer player =
-        new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
+        new ExoPlayer.Builder(applicationContext)
             .setMediaSourceFactory(dashMediaSourceFactory)
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))
             .build();
