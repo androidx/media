@@ -134,6 +134,9 @@
         `MediaBrowserCompat` when connecting to a legacy `MediaBrowserCompat`.
         The service can receive the connection hints passed in as root hints
         with the first call to `onGetRoot()`.
+    *   Fix bug where a `MediaBrowser` connected to a legacy browser service,
+        didn't receive an error sent by the service after the browser has
+        subscribed to a `parentid`.
 *   UI:
     *   Make the stretched/cropped video in
         `PlayerView`-in-Compose-`AndroidView` workaround opt-in, due to issues

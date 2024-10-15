@@ -42,6 +42,7 @@ import static androidx.media3.test.session.common.MediaBrowserConstants.MEDIA_ID
 import static androidx.media3.test.session.common.MediaBrowserConstants.MEDIA_ID_GET_ITEM_WITH_METADATA;
 import static androidx.media3.test.session.common.MediaBrowserConstants.MEDIA_ID_GET_PLAYABLE_ITEM;
 import static androidx.media3.test.session.common.MediaBrowserConstants.PARENT_ID;
+import static androidx.media3.test.session.common.MediaBrowserConstants.PARENT_ID_ALLOW_FIRST_ON_GET_CHILDREN;
 import static androidx.media3.test.session.common.MediaBrowserConstants.PARENT_ID_AUTH_EXPIRED_ERROR;
 import static androidx.media3.test.session.common.MediaBrowserConstants.PARENT_ID_AUTH_EXPIRED_ERROR_DEPRECATED;
 import static androidx.media3.test.session.common.MediaBrowserConstants.PARENT_ID_AUTH_EXPIRED_ERROR_KEY_ERROR_RESOLUTION_ACTION_LABEL;
@@ -227,6 +228,7 @@ public class MockMediaLibraryService extends MediaLibraryService {
       playlistAddExtras.putString("key-1", "playlist_add");
       Bundle radioExtras = new Bundle();
       radioExtras.putString("key-1", "radio");
+      Log.d("notifyChildrenChanged", "new TestLibrarySessionCallback()");
       session =
           new MediaLibrarySession.Builder(
                   MockMediaLibraryService.this,
@@ -283,6 +285,8 @@ public class MockMediaLibraryService extends MediaLibraryService {
   }
 
   private class TestLibrarySessionCallback implements MediaLibrarySession.Callback {
+
+    private int getChildrenCallCount = 0;
 
     @Override
     public MediaSession.ConnectionResult onConnect(
@@ -351,6 +355,7 @@ public class MockMediaLibraryService extends MediaLibraryService {
       }
       switch (mediaId) {
         case MEDIA_ID_GET_BROWSABLE_ITEM:
+        case PARENT_ID_ALLOW_FIRST_ON_GET_CHILDREN:
         case SUBSCRIBE_PARENT_ID_2:
           return Futures.immediateFuture(
               LibraryResult.ofItem(createBrowsableMediaItem(mediaId), /* params= */ null));
@@ -380,6 +385,7 @@ public class MockMediaLibraryService extends MediaLibraryService {
         int page,
         int pageSize,
         @Nullable LibraryParams params) {
+      getChildrenCallCount++;
       assertLibraryParams(params);
       if (Objects.equals(parentId, PARENT_ID_NO_CHILDREN)) {
         return Futures.immediateFuture(LibraryResult.ofItemList(ImmutableList.of(), params));
@@ -399,6 +405,15 @@ public class MockMediaLibraryService extends MediaLibraryService {
         errorBundle.putString("key", "value");
         return Futures.immediateFuture(
             LibraryResult.ofError(new SessionError(ERROR_BAD_VALUE, "error message", errorBundle)));
+      } else if (Objects.equals(parentId, PARENT_ID_ALLOW_FIRST_ON_GET_CHILDREN)) {
+        return getChildrenCallCount == 1
+            ? Futures.immediateFuture(
+                LibraryResult.ofItemList(
+                    getPaginatedResult(GET_CHILDREN_RESULT, page, pageSize), params))
+            : Futures.immediateFuture(
+                LibraryResult.ofError(
+                    LibraryResult.RESULT_ERROR_SESSION_AUTHENTICATION_EXPIRED,
+                    new LibraryParams.Builder().build()));
       } else if (Objects.equals(parentId, PARENT_ID_AUTH_EXPIRED_ERROR)
           || Objects.equals(parentId, PARENT_ID_AUTH_EXPIRED_ERROR_DEPRECATED)
           || Objects.equals(parentId, PARENT_ID_SKIP_LIMIT_REACHED_ERROR)) {

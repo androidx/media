@@ -35,6 +35,7 @@ import static androidx.media3.test.session.common.MediaBrowserServiceCompatConst
 import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_MEDIA_ITEMS_WITH_BROWSE_ACTIONS;
 import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_ON_CHILDREN_CHANGED_SUBSCRIBE_AND_UNSUBSCRIBE;
 import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_SEND_CUSTOM_COMMAND;
+import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_SUBSCRIBE_THEN_REJECT_ON_LOAD_CHILDREN;
 import static java.lang.Math.min;
 
 import android.content.Intent;
@@ -100,7 +101,6 @@ public class MockMediaBrowserServiceCompat extends MediaBrowserServiceCompat {
     sessionCompat.setCallback(new MediaSessionCompat.Callback() {});
     sessionCompat.setActive(true);
     setSessionToken(sessionCompat.getSessionToken());
-
     testBinder = new RemoteMediaBrowserServiceCompatStub(sessionCompat);
   }
 
@@ -299,6 +299,9 @@ public class MockMediaBrowserServiceCompat extends MediaBrowserServiceCompat {
         case TEST_MEDIA_ITEMS_WITH_BROWSE_ACTIONS:
           setProxyForMediaItemsWithBrowseActions(session);
           break;
+        case TEST_SUBSCRIBE_THEN_REJECT_ON_LOAD_CHILDREN:
+          setProxyForSubscribeAndRejectGetChildren();
+          break;
         default:
           throw new IllegalArgumentException("Unknown testName: " + testName);
       }
@@ -452,6 +455,45 @@ public class MockMediaBrowserServiceCompat extends MediaBrowserServiceCompat {
                 session.setExtras(resultBundle);
                 result.sendResult(resultBundle);
               }
+            }
+          });
+    }
+
+    private void setProxyForSubscribeAndRejectGetChildren() {
+      setMediaBrowserServiceProxy(
+          new MockMediaBrowserServiceCompat.Proxy() {
+
+            private boolean isSubscribed;
+
+            @Override
+            public void onLoadChildren(String parentId, Result<List<MediaItem>> result) {
+              onLoadChildren(parentId, result, new Bundle());
+            }
+
+            @Override
+            public void onLoadChildren(
+                String parentId, Result<List<MediaItem>> result, Bundle options) {
+              if (isSubscribed) {
+                // Accept the first call that a Media3 browser interprets as a successful
+                // subscription. Then reject any further access to onLoadChildren().
+                result.sendResult(null);
+                return;
+              }
+              isSubscribed = true;
+              result.sendResult(
+                  ImmutableList.of(
+                      new MediaItem(
+                          new MediaDescriptionCompat.Builder()
+                              .setMediaUri(Uri.parse("http://www.example.com/1"))
+                              .setMediaId("mediaId1")
+                              .build(),
+                          MediaItem.FLAG_PLAYABLE),
+                      new MediaItem(
+                          new MediaDescriptionCompat.Builder()
+                              .setMediaUri(Uri.parse("http://www.example.com/2"))
+                              .setMediaId("mediaId2")
+                              .build(),
+                          MediaItem.FLAG_PLAYABLE)));
             }
           });
     }

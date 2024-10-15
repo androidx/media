@@ -35,6 +35,7 @@ import static androidx.media3.test.session.common.MediaBrowserServiceCompatConst
 import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_MEDIA_ITEMS_WITH_BROWSE_ACTIONS;
 import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_ON_CHILDREN_CHANGED_SUBSCRIBE_AND_UNSUBSCRIBE;
 import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_SEND_CUSTOM_COMMAND;
+import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_SUBSCRIBE_THEN_REJECT_ON_LOAD_CHILDREN;
 import static androidx.media3.test.session.common.TestUtils.TIMEOUT_MS;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -65,6 +66,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
 import org.junit.Before;
@@ -140,6 +142,7 @@ public class MediaBrowserListenerWithMediaBrowserServiceCompatTest {
   @Test
   public void connect_useConnectionHints_connectionHintsPassedToLegacyServerOnGetRootAsRootHints()
       throws Exception {
+    remoteService.setProxyForTest(TEST_GET_CHILDREN);
     Bundle connectionHints = new Bundle();
     connectionHints.putBoolean(EXTRAS_KEY_SEND_ROOT_HINTS_AS_SESSION_EXTRAS, true);
     CountDownLatch latch = new CountDownLatch(/* count= */ 1);
@@ -609,5 +612,48 @@ public class MediaBrowserListenerWithMediaBrowserServiceCompatTest {
     assertThat(sessionResultRef.get()).isNotNull();
     assertThat(sessionResultRef.get().resultCode).isEqualTo(SessionResult.RESULT_ERROR_UNKNOWN);
     assertThat(sessionResultRef.get().extras.getString("key-1")).isEqualTo("error-from-service");
+  }
+
+  @Test
+  public void
+      subscribe_thenNullListOnLoadChildren_exceptionConvertedToOnChildrenChangedIntegerMaxValue()
+          throws Exception {
+    remoteService.setProxyForTest(TEST_SUBSCRIBE_THEN_REJECT_ON_LOAD_CHILDREN);
+    CountDownLatch onChildrenChangedLatch = new CountDownLatch(2);
+    AtomicBoolean onErrorCalled = new AtomicBoolean();
+    List<String> changedParentIds = new ArrayList<>();
+    List<Integer> changedItemCounts = new ArrayList<>();
+    MediaBrowser browser =
+        createBrowser(
+            new MediaBrowser.Listener() {
+              @Override
+              public void onChildrenChanged(
+                  MediaBrowser browser,
+                  String parentId,
+                  int itemCount,
+                  @Nullable LibraryParams params) {
+                changedParentIds.add(parentId);
+                changedItemCounts.add(itemCount);
+                onChildrenChangedLatch.countDown();
+              }
+
+              @Override
+              public void onError(MediaController controller, SessionError sessionError) {
+                onErrorCalled.set(true);
+              }
+            });
+
+    ListenableFuture<LibraryResult<Void>> future =
+        threadTestRule
+            .getHandler()
+            .postAndSync(() -> browser.subscribe("parentId", new LibraryParams.Builder().build()));
+    // Trigger calling onLoadChildren that is rejected.
+    remoteService.notifyChildrenChanged("parentId");
+
+    assertThat(future.get().resultCode).isEqualTo(RESULT_SUCCESS);
+    assertThat(onChildrenChangedLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(changedParentIds).containsExactly("parentId", "parentId");
+    assertThat(changedItemCounts).containsExactly(2, Integer.MAX_VALUE).inOrder();
+    assertThat(onErrorCalled.get()).isFalse();
   }
 }

@@ -36,6 +36,7 @@ import static androidx.media3.test.session.common.MediaBrowserConstants.CHILDREN
 import static androidx.media3.test.session.common.MediaBrowserConstants.CONNECTION_HINTS_KEY_LIBRARY_ERROR_REPLICATION_MODE;
 import static androidx.media3.test.session.common.MediaBrowserConstants.CUSTOM_ACTION;
 import static androidx.media3.test.session.common.MediaBrowserConstants.CUSTOM_ACTION_EXTRAS;
+import static androidx.media3.test.session.common.MediaBrowserConstants.EXTRAS_KEY_NOTIFY_CHILDREN_CHANGED_MEDIA_ID;
 import static androidx.media3.test.session.common.MediaBrowserConstants.GET_CHILDREN_RESULT;
 import static androidx.media3.test.session.common.MediaBrowserConstants.LONG_LIST_COUNT;
 import static androidx.media3.test.session.common.MediaBrowserConstants.MEDIA_ID_GET_BROWSABLE_ITEM;
@@ -43,6 +44,7 @@ import static androidx.media3.test.session.common.MediaBrowserConstants.MEDIA_ID
 import static androidx.media3.test.session.common.MediaBrowserConstants.MEDIA_ID_GET_ITEM_WITH_METADATA;
 import static androidx.media3.test.session.common.MediaBrowserConstants.MEDIA_ID_GET_PLAYABLE_ITEM;
 import static androidx.media3.test.session.common.MediaBrowserConstants.PARENT_ID;
+import static androidx.media3.test.session.common.MediaBrowserConstants.PARENT_ID_ALLOW_FIRST_ON_GET_CHILDREN;
 import static androidx.media3.test.session.common.MediaBrowserConstants.PARENT_ID_AUTH_EXPIRED_ERROR;
 import static androidx.media3.test.session.common.MediaBrowserConstants.PARENT_ID_AUTH_EXPIRED_ERROR_DEPRECATED;
 import static androidx.media3.test.session.common.MediaBrowserConstants.PARENT_ID_AUTH_EXPIRED_ERROR_KEY_ERROR_RESOLUTION_ACTION_LABEL;
@@ -670,7 +672,7 @@ public class MediaBrowserCompatWithMediaLibraryServiceTest
   @Test
   public void getChildren_emptyResult() throws Exception {
     String testParentId = PARENT_ID_NO_CHILDREN;
-    connectAndWait(/* rootHints= */ Bundle.EMPTY);
+    connectAndWait(/* rootHints= */ null);
     CountDownLatch latch = new CountDownLatch(1);
     AtomicReference<List<MediaItem>> childrenRef = new AtomicReference<>();
 
@@ -712,8 +714,7 @@ public class MediaBrowserCompatWithMediaLibraryServiceTest
   }
 
   @Test
-  public void getChildren_browserNotifyChildrenChanged_callsOnChildrenLoadedTwice()
-      throws Exception {
+  public void subscribe_browserNotifyChildrenChanged_callsOnChildrenLoadedTwice() throws Exception {
     String testParentId = SUBSCRIBE_PARENT_ID_2;
     connectAndWait(/* rootHints= */ Bundle.EMPTY);
     CountDownLatch latch = new CountDownLatch(2);
@@ -741,6 +742,53 @@ public class MediaBrowserCompatWithMediaLibraryServiceTest
     assertThat(childrenList).hasSize(2);
     assertThat(childrenList.get(0)).hasSize(12);
     assertThat(childrenList.get(1)).hasSize(12);
+  }
+
+  @Test
+  public void subscribe_onChildrenChangedWithMaxValue_convertedToOnError() throws Exception {
+    String testParentId = PARENT_ID_ALLOW_FIRST_ON_GET_CHILDREN;
+    connectAndWait(/* rootHints= */ Bundle.EMPTY);
+    CountDownLatch latch = new CountDownLatch(2);
+    List<String> parentIds = new ArrayList<>();
+    List<Bundle> optionsList = new ArrayList<>();
+    List<List<MediaItem>> childrenList = new ArrayList<>();
+    Bundle requestNotifyChildrenWithDelayBundle =
+        createNotifyChildrenChangedBundle(
+            testParentId,
+            /* itemCount= */ Integer.MAX_VALUE,
+            /* delayMs= */ 100L,
+            /* broadcast= */ false);
+    requestNotifyChildrenWithDelayBundle.putInt(MediaBrowserCompat.EXTRA_PAGE_SIZE, 12);
+
+    browserCompat.subscribe(
+        testParentId,
+        requestNotifyChildrenWithDelayBundle,
+        new SubscriptionCallback() {
+          @Override
+          public void onChildrenLoaded(String parentId, List<MediaItem> children, Bundle options) {
+            parentIds.add(parentId);
+            childrenList.add(children);
+            optionsList.add(options);
+            latch.countDown();
+          }
+
+          @Override
+          public void onError(String parentId, Bundle options) {
+            parentIds.add(parentId);
+            optionsList.add(options);
+            latch.countDown();
+          }
+        });
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(parentIds).containsExactly(testParentId, testParentId);
+    assertThat(childrenList).hasSize(1);
+    assertThat(childrenList.get(0)).hasSize(12);
+    assertThat(optionsList).hasSize(2);
+    assertThat(optionsList.get(0).getString(EXTRAS_KEY_NOTIFY_CHILDREN_CHANGED_MEDIA_ID))
+        .isEqualTo(PARENT_ID_ALLOW_FIRST_ON_GET_CHILDREN);
+    assertThat(optionsList.get(1).getString(EXTRAS_KEY_NOTIFY_CHILDREN_CHANGED_MEDIA_ID))
+        .isEqualTo(PARENT_ID_ALLOW_FIRST_ON_GET_CHILDREN);
   }
 
   @Test

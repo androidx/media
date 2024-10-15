@@ -151,15 +151,16 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
     if (browserCompat == null) {
       return Futures.immediateFuture(LibraryResult.ofError(ERROR_SESSION_DISCONNECTED));
     }
+    Bundle options = createOptionsForSubscription(params);
     SettableFuture<LibraryResult<Void>> future = SettableFuture.create();
-    SubscribeCallback callback = new SubscribeCallback(future);
+    SubscribeCallback callback = new SubscribeCallback(parentId, options, future);
     List<SubscribeCallback> list = subscribeCallbacks.get(parentId);
     if (list == null) {
       list = new ArrayList<>();
       subscribeCallbacks.put(parentId, list);
     }
     list.add(callback);
-    browserCompat.subscribe(parentId, createOptions(params), callback);
+    browserCompat.subscribe(parentId, options, callback);
     return future;
   }
 
@@ -199,7 +200,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
     }
 
     SettableFuture<LibraryResult<ImmutableList<MediaItem>>> future = SettableFuture.create();
-    Bundle options = createOptions(params, page, pageSize);
+    Bundle options = createOptionsWithPagingInfo(params, page, pageSize);
     browserCompat.subscribe(parentId, options, new GetChildrenCallback(future, parentId));
     return future;
   }
@@ -295,7 +296,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
     }
 
     SettableFuture<LibraryResult<ImmutableList<MediaItem>>> future = SettableFuture.create();
-    Bundle options = createOptions(params, page, pageSize);
+    Bundle options = createOptionsWithPagingInfo(params, page, pageSize);
     options.putInt(MediaBrowserCompat.EXTRA_PAGE, page);
     options.putInt(MediaBrowserCompat.EXTRA_PAGE_SIZE, pageSize);
     browserCompat.search(
@@ -367,12 +368,13 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
     return browserCompats.get(extras);
   }
 
-  private static Bundle createOptions(@Nullable LibraryParams params) {
+  private static Bundle createOptionsForSubscription(@Nullable LibraryParams params) {
     return params == null ? new Bundle() : new Bundle(params.extras);
   }
 
-  private static Bundle createOptions(@Nullable LibraryParams params, int page, int pageSize) {
-    Bundle options = createOptions(params);
+  private static Bundle createOptionsWithPagingInfo(
+      @Nullable LibraryParams params, int page, int pageSize) {
+    Bundle options = createOptionsForSubscription(params);
     options.putInt(MediaBrowserCompat.EXTRA_PAGE, page);
     options.putInt(MediaBrowserCompat.EXTRA_PAGE_SIZE, pageSize);
     return options;
@@ -465,26 +467,33 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
 
   private class SubscribeCallback extends SubscriptionCallback {
 
+    private final String subscriptionParentId;
+    private final Bundle subscriptionOptions;
     private final SettableFuture<LibraryResult<Void>> future;
 
-    public SubscribeCallback(SettableFuture<LibraryResult<Void>> future) {
+    public SubscribeCallback(
+        String subscriptionParentId,
+        Bundle subscriptionOptions,
+        SettableFuture<LibraryResult<Void>> future) {
+      this.subscriptionParentId = subscriptionParentId;
+      this.subscriptionOptions = subscriptionOptions;
       this.future = future;
     }
 
     @Override
     public void onError(@Nullable String parentId) {
-      onErrorInternal();
+      onError(subscriptionParentId, subscriptionOptions);
     }
 
     @Override
     public void onError(@Nullable String parentId, @Nullable Bundle options) {
-      onErrorInternal();
+      onErrorInternal(subscriptionParentId, subscriptionOptions);
     }
 
     @Override
     public void onChildrenLoaded(
         @Nullable String parentId, @Nullable List<MediaBrowserCompat.MediaItem> children) {
-      onChildrenLoadedInternal(parentId, children);
+      onChildrenLoadedInternal(subscriptionParentId, children);
     }
 
     @Override
@@ -492,17 +501,31 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
         @Nullable String parentId,
         @Nullable List<MediaBrowserCompat.MediaItem> children,
         @Nullable Bundle options) {
-      onChildrenLoadedInternal(parentId, children);
+      onChildrenLoadedInternal(subscriptionParentId, children);
     }
 
-    private void onErrorInternal() {
+    private void onErrorInternal(String parentId, Bundle options) {
+      if (future.isDone()) {
+        // Delegate to the browser by calling `onChildrenChanged` that makes the app call
+        // `getChildren()` for which the service can return the appropriate error code. This makes a
+        // redundant call to `subscribe` that can be expected to be not expensive as it just returns
+        // an exception.
+        getInstance()
+            .notifyBrowserListener(
+                listener ->
+                    listener.onChildrenChanged(
+                        getInstance(),
+                        parentId,
+                        Integer.MAX_VALUE,
+                        new LibraryParams.Builder().setExtras(options).build()));
+      }
       // Don't need to unsubscribe here, because MediaBrowserServiceCompat can notify children
       // changed after the initial failure and MediaBrowserCompat could receive the changes.
       future.set(LibraryResult.ofError(ERROR_UNKNOWN));
     }
 
     private void onChildrenLoadedInternal(
-        @Nullable String parentId, @Nullable List<MediaBrowserCompat.MediaItem> children) {
+        String parentId, @Nullable List<MediaBrowserCompat.MediaItem> children) {
       if (TextUtils.isEmpty(parentId)) {
         Log.w(TAG, "SubscribeCallback.onChildrenLoaded(): Ignoring empty parentId");
         return;
@@ -526,7 +549,6 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
       getInstance()
           .notifyBrowserListener(
               listener -> {
-                // TODO(b/193193565): Cache children result for later getChildren() calls.
                 listener.onChildrenChanged(getInstance(), parentId, itemCount, params);
               });
       future.set(LibraryResult.ofVoid());

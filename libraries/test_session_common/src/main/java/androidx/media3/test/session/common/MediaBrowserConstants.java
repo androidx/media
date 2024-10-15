@@ -50,6 +50,8 @@ public class MediaBrowserConstants {
       "parent_auth_expired_error_non_fatal";
   public static final String PARENT_ID_AUTH_EXPIRED_ERROR_KEY_ERROR_RESOLUTION_ACTION_LABEL =
       "parent_auth_expired_error_label";
+  public static final String PARENT_ID_ALLOW_FIRST_ON_GET_CHILDREN =
+      "parent_allow_first_on_get_children";
 
   public static final List<String> GET_CHILDREN_RESULT = new ArrayList<>();
   public static final int CHILDREN_COUNT = 100;
