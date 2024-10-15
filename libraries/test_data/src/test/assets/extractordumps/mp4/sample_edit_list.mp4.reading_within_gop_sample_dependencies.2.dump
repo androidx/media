@@ -7,8 +7,8 @@ seekMap:
   getPosition(2548333) = [[timeUs=1680000, position=34939]]
 numberOfTracks = 2
 track 0:
-  total output bytes = 1019852
-  sample count = 28
+  total output bytes = 1115896
+  sample count = 30
   format 0:
     id = 1
     sampleMimeType = video/dolby-vision
@@ -138,8 +138,16 @@ track 0:
     data = length 23136, hash 8AF1C1AD
   sample 27:
     time = 2446666
-    flags = 536870912
+    flags = 0
     data = length 26792, hash 3157758F
+  sample 28:
+    time = 2613333
+    flags = 0
+    data = length 62711, hash EF9AC8F5
+  sample 29:
+    time = 2546666
+    flags = 536870912
+    data = length 33333, hash 567D33D6
 track 1:
   total output bytes = 15570
   sample count = 39

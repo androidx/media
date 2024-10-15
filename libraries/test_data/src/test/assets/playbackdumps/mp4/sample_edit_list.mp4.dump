@@ -793,7 +793,7 @@ MediaCodecAdapter (exotest.audio.aac):
       rendered = false
 MediaCodecAdapter (exotest.video.hevc):
   inputBuffers:
-    count = 84
+    count = 86
     input buffer #0:
       timeUs = 999999545000
       contents = length 78829, hash 9265686F
@@ -1044,11 +1044,17 @@ MediaCodecAdapter (exotest.video.hevc):
       timeUs = 1000002446666
       contents = length 26792, hash 3157758F
     input buffer #83:
+      timeUs = 1000002613333
+      contents = length 62711, hash EF9AC8F5
+    input buffer #84:
+      timeUs = 1000002546666
+      contents = length 33333, hash 567D33D6
+    input buffer #85:
       timeUs = 0
       flags = 4
       contents = length 0, hash 1
   outputBuffers:
-    count = 83
+    count = 85
     output buffer #0:
       timeUs = 999999545000
       size = 78829
@@ -1380,6 +1386,14 @@ MediaCodecAdapter (exotest.video.hevc):
     output buffer #82:
       timeUs = 1000002446666
       size = 26792
+      rendered = true
+    output buffer #83:
+      timeUs = 1000002613333
+      size = 62711
+      rendered = true
+    output buffer #84:
+      timeUs = 1000002546666
+      size = 33333
       rendered = true
 AudioSink:
   buffer count = 112

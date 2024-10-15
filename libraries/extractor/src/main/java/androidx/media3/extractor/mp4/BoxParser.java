@@ -717,22 +717,39 @@ public final class BoxParser {
             Util.scaleLargeTimestamp(
                 track.editListDurations[i], track.timescale, track.movieTimescale);
         // The timestamps array is in the order read from the media, which might not be strictly
-        // sorted, but will ensure that a) all sync frames are in-order and b) any out-of-order
-        // frames are after their respective sync frames. This means that although the result of
-        // this binary search might be slightly incorrect (due to out-of-order timestamps), the loop
-        // below that walks backward to find the previous sync frame will result in a correct start
-        // index.
+        // sorted. However, all sync frames are guaranteed to be in order, and any out-of-order
+        // frames appear after their respective sync frames. This ensures that although the result
+        // of the binary search might not be entirely accurate (due to the out-of-order timestamps),
+        // the following logic ensures correctness for both start and end indices.
+        //
+        // The startIndices calculation finds the largest timestamp that is less than or equal to
+        // editMediaTime. It then walks backward to ensure the index points to a sync frame, since
+        // decoding must start from a keyframe.
         startIndices[i] =
             Util.binarySearchFloor(
                 timestamps, editMediaTime, /* inclusive= */ true, /* stayInBounds= */ true);
+        while (startIndices[i] >= 0 && (flags[startIndices[i]] & C.BUFFER_FLAG_KEY_FRAME) == 0) {
+          startIndices[i]--;
+        }
+        // The endIndices calculation finds the smallest timestamp that is greater than
+        // editMediaTime + editDuration, except when omitZeroDurationClippedSample is true, in which
+        // case it finds the smallest timestamp that is greater than or equal to editMediaTime +
+        // editDuration.
         endIndices[i] =
             Util.binarySearchCeil(
                 timestamps,
                 editMediaTime + editDuration,
                 /* inclusive= */ omitZeroDurationClippedSample,
                 /* stayInBounds= */ false);
-        while (startIndices[i] >= 0 && (flags[startIndices[i]] & C.BUFFER_FLAG_KEY_FRAME) == 0) {
-          startIndices[i]--;
+        if (track.type == C.TRACK_TYPE_VIDEO) {
+          // To account for out-of-order video frames that may have timestamps smaller than or equal
+          // to editMediaTime + editDuration, but still fall within the valid range, the loop walks
+          // forward through the timestamps array to ensure all frames with timestamps within the
+          // edit duration are included.
+          while (endIndices[i] < timestamps.length - 1
+              && timestamps[endIndices[i] + 1] <= (editMediaTime + editDuration)) {
+            endIndices[i]++;
+          }
         }
         editedSampleCount += endIndices[i] - startIndices[i];
         copyMetadata |= nextSampleIndex != startIndices[i];

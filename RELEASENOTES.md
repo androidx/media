@@ -78,6 +78,8 @@
         timescale, `media_time` is now properly scaled using the track
         timescale, as specified by the MP4 format standard
         ([#1792](https://github.com/androidx/media/issues/1792)).
+    *   Handle out-of-order frames in `endIndices` calculation for MP4 with edit
+        list ([#1797](https://github.com/androidx/media/issues/1797)).
 *   DataSource:
 *   Audio:
     *   Fix pop sounds that may occur during seeks.
