@@ -111,6 +111,7 @@ public final class Transformer {
     private boolean removeVideo;
     private boolean flattenForSlowMotion;
     private boolean trimOptimizationEnabled;
+    private boolean portraitEncodingEnabled;
     private boolean fileStartsOnVideoFrameEnabled;
     private long maxDelayBetweenMuxerSamplesMs;
     private int maxFramesInEncoder;
@@ -156,6 +157,7 @@ public final class Transformer {
       this.removeAudio = transformer.removeAudio;
       this.removeVideo = transformer.removeVideo;
       this.trimOptimizationEnabled = transformer.trimOptimizationEnabled;
+      this.portraitEncodingEnabled = transformer.portraitEncodingEnabled;
       this.fileStartsOnVideoFrameEnabled = transformer.fileStartsOnVideoFrameEnabled;
       this.maxDelayBetweenMuxerSamplesMs = transformer.maxDelayBetweenMuxerSamplesMs;
       this.maxFramesInEncoder = transformer.maxFramesInEncoder;
@@ -331,6 +333,24 @@ public final class Transformer {
     @CanIgnoreReturnValue
     public Builder experimentalSetTrimOptimizationEnabled(boolean enabled) {
       trimOptimizationEnabled = enabled;
+      return this;
+    }
+
+    /**
+     * Sets whether to encode portrait videos in portrait orientation.
+     *
+     * <p>The default value is {@code false}. In this case, portrait videos will be rotated by 90
+     * degrees before being encoded, and metadata will be added to the output file to indicate that
+     * the video should be rotated back when played. This is done because encoding landscape videos
+     * is more largely supported. Enabling portrait encoding should therefore be done carefully
+     * because it is likely to result in more failures.
+     *
+     * @param enabled Whether to encode portrait videos in portrait orientation.
+     * @return This builder.
+     */
+    @CanIgnoreReturnValue
+    public Builder setPortraitEncodingEnabled(boolean enabled) {
+      portraitEncodingEnabled = enabled;
       return this;
     }
 
@@ -615,6 +635,7 @@ public final class Transformer {
           removeVideo,
           flattenForSlowMotion,
           trimOptimizationEnabled,
+          portraitEncodingEnabled,
           fileStartsOnVideoFrameEnabled,
           maxDelayBetweenMuxerSamplesMs,
           maxFramesInEncoder,
@@ -868,6 +889,7 @@ public final class Transformer {
   private final boolean removeVideo;
   private final boolean flattenForSlowMotion;
   private final boolean trimOptimizationEnabled;
+  private final boolean portraitEncodingEnabled;
   private final boolean fileStartsOnVideoFrameEnabled;
   private final long maxDelayBetweenMuxerSamplesMs;
   private final int maxFramesInEncoder;
@@ -906,6 +928,7 @@ public final class Transformer {
       boolean removeVideo,
       boolean flattenForSlowMotion,
       boolean trimOptimizationEnabled,
+      boolean portraitEncodingEnabled,
       boolean fileStartsOnVideoFrameEnabled,
       long maxDelayBetweenMuxerSamplesMs,
       int maxFramesInEncoder,
@@ -927,6 +950,7 @@ public final class Transformer {
     this.removeVideo = removeVideo;
     this.flattenForSlowMotion = flattenForSlowMotion;
     this.trimOptimizationEnabled = trimOptimizationEnabled;
+    this.portraitEncodingEnabled = portraitEncodingEnabled;
     this.fileStartsOnVideoFrameEnabled = fileStartsOnVideoFrameEnabled;
     this.maxDelayBetweenMuxerSamplesMs = maxDelayBetweenMuxerSamplesMs;
     this.maxFramesInEncoder = maxFramesInEncoder;
@@ -1639,6 +1663,7 @@ public final class Transformer {
             audioMixerFactory,
             videoFrameProcessorFactory,
             encoderFactory,
+            portraitEncodingEnabled,
             maxFramesInEncoder,
             muxerWrapper,
             componentListener,

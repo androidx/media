@@ -29,6 +29,7 @@ import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_PHOTOS_TRIM_
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_WITH_SHORTER_AUDIO;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_PORTRAIT_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_TRIM_OPTIMIZATION;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_TRIM_OPTIMIZATION_180;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_TRIM_OPTIMIZATION_270;
@@ -469,6 +470,50 @@ public class TransformerEndToEndTest {
 
     assertThat(result.exportResult.videoFrameCount).isEqualTo(expectedFrameCount);
     assertThat(new File(result.filePath).length()).isGreaterThan(0);
+  }
+
+  @Test
+  public void videoEditing_withPortraitEncodingDisabled_rotatesVideoBeforeEncoding()
+      throws Exception {
+    Format inputFormat = checkNotNull(MP4_PORTRAIT_ASSET.videoFormat);
+    Format outputFormat =
+        inputFormat.buildUpon().setWidth(inputFormat.height).setHeight(inputFormat.width).build();
+    assumeFormatsSupported(context, testId, inputFormat, outputFormat);
+    // Portrait encoding is disabled by default.
+    Transformer transformer =
+        new Transformer.Builder(context)
+            .setEncoderFactory(new AndroidTestUtil.ForceEncodeEncoderFactory(context))
+            .build();
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_PORTRAIT_ASSET.uri));
+    EditedMediaItem editedMediaItem = new EditedMediaItem.Builder(mediaItem).build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, editedMediaItem);
+
+    assertThat(result.exportResult.width).isEqualTo(outputFormat.width);
+  }
+
+  @Test
+  public void videoEditing_withPortraitEncodingEnabled_doesNotRotateVideoBeforeEncoding()
+      throws Exception {
+    Format inputFormat = checkNotNull(MP4_PORTRAIT_ASSET.videoFormat);
+    assumeFormatsSupported(context, testId, inputFormat, /* outputFormat= */ inputFormat);
+    Transformer transformer =
+        new Transformer.Builder(context)
+            .setEncoderFactory(new AndroidTestUtil.ForceEncodeEncoderFactory(context))
+            .setPortraitEncodingEnabled(true)
+            .build();
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_PORTRAIT_ASSET.uri));
+    EditedMediaItem editedMediaItem = new EditedMediaItem.Builder(mediaItem).build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, editedMediaItem);
+
+    assertThat(result.exportResult.width).isEqualTo(inputFormat.width);
   }
 
   @Test

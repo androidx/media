@@ -290,9 +290,6 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
     }
     checkArgument(format.width != Format.NO_VALUE);
     checkArgument(format.height != Format.NO_VALUE);
-    // According to interface Javadoc, format.rotationDegrees should be 0. The video should always
-    // be encoded in landscape orientation.
-    checkArgument(format.height <= format.width);
     checkArgument(format.rotationDegrees == 0);
 
     checkStateNotNull(videoEncoderSelector);
