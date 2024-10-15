@@ -15,10 +15,12 @@
  */
 package androidx.media3.exoplayer.text;
 
+import androidx.media3.common.Format;
 import androidx.media3.common.text.Cue;
 import androidx.media3.common.text.CueGroup;
 import androidx.media3.common.util.UnstableApi;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /** Receives text output. */
 @UnstableApi
@@ -42,4 +44,18 @@ public interface TextOutput {
    * in the cues. You should only implement one or the other.
    */
   void onCues(CueGroup cueGroup);
+
+  default void onSubtitleDecoderError(SubtitleDecoderErrorInfo subtitleDecoderErrorInfo) {}
+
+  class SubtitleDecoderErrorInfo {
+    @Nullable public final Format streamingFormat;
+    public final Throwable throwable;
+
+    public SubtitleDecoderErrorInfo(
+        @Nullable final Format streamingFormat,
+        final Throwable throwable) {
+      this.streamingFormat = streamingFormat;
+      this.throwable = throwable;
+    }
+  }
 }
