@@ -70,6 +70,7 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
  *         <li>H.263
  *         <li>H.264 (AVC)
  *         <li>H.265 (HEVC)
+ *         <li>VP9
  *       </ul>
  *   <li>Audio Codecs:
  *       <ul>
