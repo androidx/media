@@ -1853,16 +1853,21 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     return BoxUtils.wrapIntoBox("dOps", contents);
   }
 
-  /** Packs a three-letter language code into a short, packing 3x5 bits. */
+  /**
+   * Packs a three-letter language code into a short, packing 3x5 bits.
+   *
+   * <p>A default value 0 is returned if the {@code code} is not recognized.
+   */
   private static short languageCodeFromString(@Nullable String code) {
+    short defaultLanguageCode = 0;
     if (code == null) {
-      return 0;
+      return defaultLanguageCode;
     }
 
     byte[] bytes = Util.getUtf8Bytes(code);
 
     if (bytes.length != 3) {
-      throw new IllegalArgumentException("Non-length-3 language code: " + code);
+      return defaultLanguageCode;
     }
 
     // Take only last 5 bits of each letter.
