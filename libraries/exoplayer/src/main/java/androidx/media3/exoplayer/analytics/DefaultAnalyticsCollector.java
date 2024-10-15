@@ -406,7 +406,7 @@ public class DefaultAnalyticsCollector implements AnalyticsCollector {
     EventTime eventTime = generateMediaPeriodEventTime(windowIndex, mediaPeriodId);
     sendEvent(
         eventTime,
-        AnalyticsListener.EVENT_LOAD_STARTED,
+        C.INDEX_UNSET,
         listener -> listener.onLoadStarted(eventTime, loadEventInfo, mediaLoadData));
   }
 
@@ -420,7 +420,7 @@ public class DefaultAnalyticsCollector implements AnalyticsCollector {
     EventTime eventTime = generateMediaPeriodEventTime(windowIndex, mediaPeriodId);
     sendEvent(
         eventTime,
-        AnalyticsListener.EVENT_ON_LOAD_STARTED,
+        AnalyticsListener.EVENT_LOAD_STARTED,
         listener -> listener.onLoadStarted(eventTime, loadEventInfo, mediaLoadData, retryCount));
   }
 
