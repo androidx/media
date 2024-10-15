@@ -445,30 +445,6 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
   }
 
   @Override
-  public void onLoadStarted(
-      int windowIndex,
-      @Nullable MediaPeriodId mediaPeriodId,
-      LoadEventInfo loadEventInfo,
-      MediaLoadData mediaLoadData,
-      int retryCount) {
-    @Nullable
-    MediaPeriodImpl mediaPeriod =
-        getMediaPeriodForEvent(mediaPeriodId, mediaLoadData, /* useLoadingPeriod= */ true);
-    if (mediaPeriod == null) {
-      mediaSourceEventDispatcherWithoutId.loadStarted(loadEventInfo, mediaLoadData, retryCount);
-    } else {
-      mediaPeriod.sharedPeriod.onLoadStarted(loadEventInfo, mediaLoadData);
-      mediaPeriod.mediaSourceEventDispatcher.loadStarted(
-          loadEventInfo,
-          correctMediaLoadData(
-              mediaPeriod,
-              mediaLoadData,
-              checkNotNull(adPlaybackStates.get(mediaPeriod.mediaPeriodId.periodUid))),
-          retryCount);
-    }
-  }
-
-  @Override
   public void onLoadCompleted(
       int windowIndex,
       @Nullable MediaPeriodId mediaPeriodId,
@@ -775,10 +751,6 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
               correctMediaLoadData(loadingPeriod, loadData.second, adPlaybackState));
           mediaPeriod.mediaSourceEventDispatcher.loadStarted(
               loadData.first, correctMediaLoadData(mediaPeriod, loadData.second, adPlaybackState));
-          mediaPeriod.mediaSourceEventDispatcher.loadStarted(
-              loadData.first,
-              correctMediaLoadData(mediaPeriod, loadData.second, adPlaybackState),
-              /* retryCount= */ 0);
         }
       }
       this.loadingPeriod = mediaPeriod;
