@@ -2025,19 +2025,15 @@ public class TransformerEndToEndTest {
     FakeTrackOutput audioTrack = fakeExtractorOutput.trackOutputs.get(0);
     int expectedSampleCount = 68;
     audioTrack.assertSampleCount(expectedSampleCount);
-    // TODO: b/324903070 - InAppMuxer doesn't write edit lists to support gapless audio muxing.
-    //  Output incorrectly starts at encoderDelay 0, PTS 0
     assertThat(audioTrack.lastFormat.encoderDelay).isEqualTo(0);
-    assertThat(audioTrack.getSampleTimeUs(/* index= */ 0)).isEqualTo(0);
+    assertThat(audioTrack.getSampleTimeUs(/* index= */ 0)).isEqualTo(-16833);
     // TODO: b/270583563 - InAppMuxer always uses 1 / 48_000 timebase for audio.
     //  The audio file in this test is 44_100 Hz, with timebase for audio of 1 / 44_100 and
     //  each sample duration is exactly 1024 / 44_100, with no rounding errors.
     //  Since InAppMuxer uses a different timebase for audio, some rounding errors are introduced
     //  and MP4 sample durations are off.
-    // TODO: b/324903070 - expectedLastSampleTimeUs & expectedDurationUs are incorrect.
-    //  Last sample time cannot be greater than total duration.
     assertThat(audioTrack.getSampleTimeUs(/* index= */ expectedSampleCount - 1))
-        .isEqualTo(1_556_354);
+        .isEqualTo(1_539_520);
   }
 
   @Test

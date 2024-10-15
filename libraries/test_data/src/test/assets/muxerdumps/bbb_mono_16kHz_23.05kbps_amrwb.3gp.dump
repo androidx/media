@@ -15,6 +15,7 @@ track 0:
     maxInputSize = 89
     channelCount = 1
     sampleRate = 16000
+    encoderDelay = 80
     language = und
     metadata = entries=[Mp4Timestamp: creation time=100000000, modification time=500000000, timescale=10000]
   sample 0:

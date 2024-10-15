@@ -544,7 +544,7 @@ track 1:
     initializationData:
       data = length 2, hash 560
   sample 0:
-    time = 0
+    time = 43000
     flags = 1
     data = length 682, hash 34C58E7C
   sample 1:

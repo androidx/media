@@ -326,9 +326,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     List<Integer> sampleDurations =
         Boxes.convertPresentationTimestampsToDurationsVu(
             pendingSamplesBufferInfo,
-            /* firstSamplePresentationTimeUs= */ currentFragmentSequenceNumber == 1
-                ? minInputPresentationTimeUs
-                : pendingSamplesBufferInfo.get(0).presentationTimeUs,
             track.videoUnitTimebase(),
             LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER_OR_DUPLICATE_PREVIOUS,
             track.endOfStreamTimestampUs);
