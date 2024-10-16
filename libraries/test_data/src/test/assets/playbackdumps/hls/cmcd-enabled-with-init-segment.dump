@@ -424,123 +424,123 @@ MediaCodecAdapter (exotest.video.hevc):
     output buffer #0:
       timeUs = 1000000000000
       size = 29543
-      rendered = false
+      rendered = true
     output buffer #1:
       timeUs = 1000000033366
       size = 13331
-      rendered = false
+      rendered = true
     output buffer #2:
       timeUs = 1000000066733
       size = 13421
-      rendered = false
+      rendered = true
     output buffer #3:
       timeUs = 1000000100100
       size = 13246
-      rendered = false
+      rendered = true
     output buffer #4:
       timeUs = 1000000133466
       size = 13222
-      rendered = false
+      rendered = true
     output buffer #5:
       timeUs = 1000000166833
       size = 13347
-      rendered = false
+      rendered = true
     output buffer #6:
       timeUs = 1000000200200
       size = 13297
-      rendered = false
+      rendered = true
     output buffer #7:
       timeUs = 1000000233566
       size = 13230
-      rendered = false
+      rendered = true
     output buffer #8:
       timeUs = 1000000266933
       size = 13352
-      rendered = false
+      rendered = true
     output buffer #9:
       timeUs = 1000000300300
       size = 13325
-      rendered = false
+      rendered = true
     output buffer #10:
       timeUs = 1000000333666
       size = 13358
-      rendered = false
+      rendered = true
     output buffer #11:
       timeUs = 1000000367033
       size = 13357
-      rendered = false
+      rendered = true
     output buffer #12:
       timeUs = 1000000400400
       size = 13232
-      rendered = false
+      rendered = true
     output buffer #13:
       timeUs = 1000000433766
       size = 13303
-      rendered = false
+      rendered = true
     output buffer #14:
       timeUs = 1000000467133
       size = 13136
-      rendered = false
+      rendered = true
     output buffer #15:
       timeUs = 1000000500500
       size = 13268
-      rendered = false
+      rendered = true
     output buffer #16:
       timeUs = 1000000533866
       size = 13229
-      rendered = false
+      rendered = true
     output buffer #17:
       timeUs = 1000000567233
       size = 13280
-      rendered = false
+      rendered = true
     output buffer #18:
       timeUs = 1000000600600
       size = 13143
-      rendered = false
+      rendered = true
     output buffer #19:
       timeUs = 1000000633966
       size = 13174
-      rendered = false
+      rendered = true
     output buffer #20:
       timeUs = 1000000667333
       size = 13198
-      rendered = false
+      rendered = true
     output buffer #21:
       timeUs = 1000000700700
       size = 13156
-      rendered = false
+      rendered = true
     output buffer #22:
       timeUs = 1000000734066
       size = 13130
-      rendered = false
+      rendered = true
     output buffer #23:
       timeUs = 1000000767433
       size = 13085
-      rendered = false
+      rendered = true
     output buffer #24:
       timeUs = 1000000800800
       size = 13156
-      rendered = false
+      rendered = true
     output buffer #25:
       timeUs = 1000000834166
       size = 13240
-      rendered = false
+      rendered = true
     output buffer #26:
       timeUs = 1000000867533
       size = 13162
-      rendered = false
+      rendered = true
     output buffer #27:
       timeUs = 1000000900900
       size = 13121
-      rendered = false
+      rendered = true
     output buffer #28:
       timeUs = 1000000934266
       size = 13140
-      rendered = false
+      rendered = true
     output buffer #29:
       timeUs = 1000000967633
       size = 13141
-      rendered = false
+      rendered = true
 AudioSink:
   buffer count = 45
   config:
