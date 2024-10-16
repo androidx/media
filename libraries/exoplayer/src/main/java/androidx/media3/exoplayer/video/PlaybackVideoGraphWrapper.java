@@ -18,6 +18,7 @@ package androidx.media3.exoplayer.video;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
+import static androidx.media3.exoplayer.video.VideoSink.INPUT_TYPE_SURFACE;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.content.Context;
@@ -334,8 +335,9 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
 
   @Override
   public void onOutputSizeChanged(int width, int height) {
-    // We forward output size changes to render control even if we are still flushing.
-    videoFrameRenderControl.onOutputSizeChanged(width, height);
+    // We forward output size changes to the sink even if we are still flushing.
+    Format format = new Format.Builder().setWidth(width).setHeight(height).build();
+    defaultVideoSink.onInputStreamChanged(INPUT_TYPE_SURFACE, format);
   }
 
   @Override

@@ -33,11 +33,14 @@ import java.util.concurrent.Executor;
   private final VideoFrameReleaseControl videoFrameReleaseControl;
   private final VideoFrameRenderControl videoFrameRenderControl;
 
+  private Format inputFormat;
+
   public DefaultVideoSink(
       VideoFrameReleaseControl videoFrameReleaseControl,
       VideoFrameRenderControl videoFrameRenderControl) {
     this.videoFrameReleaseControl = videoFrameReleaseControl;
     this.videoFrameRenderControl = videoFrameRenderControl;
+    inputFormat = new Format.Builder().build();
   }
 
   @Override
@@ -149,7 +152,10 @@ import java.util.concurrent.Executor;
 
   @Override
   public void onInputStreamChanged(@InputType int inputType, Format format) {
-    throw new UnsupportedOperationException();
+    if (format.width != inputFormat.width || format.height != inputFormat.height) {
+      videoFrameRenderControl.onOutputSizeChanged(format.width, format.height);
+    }
+    inputFormat = format;
   }
 
   @Override

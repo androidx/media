@@ -25,7 +25,6 @@ import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.util.LongArrayQueue;
 import androidx.media3.common.util.TimedValueQueue;
-import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.ExoPlaybackException;
 
 /** Controls rendering of video frames. */
@@ -181,10 +180,7 @@ import androidx.media3.exoplayer.ExoPlaybackException;
 
   /** Called when the size of the available frames has changed. */
   public void onOutputSizeChanged(int width, int height) {
-    VideoSize newVideoSize = new VideoSize(width, height);
-    if (!Util.areEqual(pendingOutputVideoSize, newVideoSize)) {
-      pendingOutputVideoSize = newVideoSize;
-    }
+    pendingOutputVideoSize = new VideoSize(width, height);
   }
 
   /**
