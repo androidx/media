@@ -37,7 +37,7 @@
     *   Add playlist preloading for the next item in the playlist. Apps can
         enable preloading by calling
         `ExoPlayer.setPreloadConfiguration(PreloadConfiguration)` accordingly.
-        By default preloading is disabled. When opted-in and to not interfer
+        By default preloading is disabled. When opted-in and to not interfere
         with playback, `DefaultLoadControl` restricts preloading to start and
         continue only when the player is not loading for playback. Apps can
         change this behaviour by implementing
