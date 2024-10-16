@@ -17,10 +17,14 @@ package androidx.media3.muxer;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.muxer.AndroidMuxerTestUtil.feedInputDataToMuxer;
+import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
+import androidx.annotation.Nullable;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.container.Mp4TimestampData;
 import androidx.media3.extractor.mp4.Mp4Extractor;
+import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.FakeExtractorOutput;
 import androidx.media3.test.utils.TestUtil;
@@ -78,5 +82,35 @@ public class Mp4MuxerEndToEndNonParameterizedAndroidTest {
         context,
         fakeExtractorOutput,
         AndroidMuxerTestUtil.getExpectedDumpFilePath("partial_" + H265_HDR10_MP4));
+  }
+
+  @Test
+  public void createMp4File_fromVp9Mp4InputFileSampleData_matchesExpected() throws Exception {
+    // Contains CSD in vpcC format.
+    String vp9Mp4 = "bbb_800x640_768kbps_30fps_vp9.mp4";
+    @Nullable Mp4Muxer mp4Muxer = null;
+
+    try {
+      mp4Muxer = new Mp4Muxer.Builder(checkNotNull(outputStream)).build();
+      mp4Muxer.addMetadataEntry(
+          new Mp4TimestampData(
+              /* creationTimestampSeconds= */ 100_000_000L,
+              /* modificationTimestampSeconds= */ 500_000_000L));
+      feedInputDataToMuxer(context, mp4Muxer, checkNotNull(vp9Mp4));
+    } finally {
+      if (mp4Muxer != null) {
+        mp4Muxer.close();
+      }
+    }
+
+    FakeExtractorOutput fakeExtractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(
+            new Mp4Extractor(new DefaultSubtitleParserFactory()), checkNotNull(outputPath));
+    // Only one VP9 video track should be present.
+    assertThat(fakeExtractorOutput.trackOutputs.get(0).lastFormat.sampleMimeType)
+        .isEqualTo(MimeTypes.VIDEO_VP9);
+    // TODO: b/373822496 - The produced dump file is different on different SDK versions.
+    /*DumpFileAsserts.assertOutput(
+    context, fakeExtractorOutput, AndroidMuxerTestUtil.getExpectedDumpFilePath(vp9Mp4));*/
   }
 }
