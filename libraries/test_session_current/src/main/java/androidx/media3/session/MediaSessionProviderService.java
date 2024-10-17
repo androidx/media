@@ -623,6 +623,24 @@ public class MediaSessionProviderService extends Service {
     }
 
     @Override
+    @SuppressWarnings("FutureReturnValueIgnored")
+    public void setMediaButtonPreferences(String sessionId, List<Bundle> mediaButtonPreferences)
+        throws RemoteException {
+      if (mediaButtonPreferences == null) {
+        return;
+      }
+      runOnHandler(
+          () -> {
+            ImmutableList.Builder<CommandButton> builder = new ImmutableList.Builder<>();
+            for (Bundle bundle : mediaButtonPreferences) {
+              builder.add(CommandButton.fromBundle(bundle, MediaSessionStub.VERSION_INT));
+            }
+            MediaSession session = sessionMap.get(sessionId);
+            session.setMediaButtonPreferences(builder.build());
+          });
+    }
+
+    @Override
     public void setSessionExtras(String sessionId, Bundle extras) throws RemoteException {
       runOnHandler(() -> sessionMap.get(sessionId).setSessionExtras(extras));
     }

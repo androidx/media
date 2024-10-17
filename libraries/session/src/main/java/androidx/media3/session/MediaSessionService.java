@@ -761,7 +761,8 @@ public abstract class MediaSessionService extends Service {
                         request.libraryVersion,
                         request.controllerInterfaceVersion,
                         isTrusted,
-                        new MediaSessionStub.Controller2Cb(caller),
+                        new MediaSessionStub.Controller2Cb(
+                            caller, request.controllerInterfaceVersion),
                         request.connectionHints,
                         request.maxCommandsForMediaItems);
 

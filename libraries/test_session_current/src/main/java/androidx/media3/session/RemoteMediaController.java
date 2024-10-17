@@ -389,6 +389,17 @@ public class RemoteMediaController {
     return customLayout.build();
   }
 
+  public ImmutableList<CommandButton> getMediaButtonPreferences() throws RemoteException {
+    Bundle mediaButtonPreferencesBundle = binder.getMediaButtonPreferences(controllerId);
+    ArrayList<Bundle> list =
+        mediaButtonPreferencesBundle.getParcelableArrayList(KEY_COMMAND_BUTTON_LIST);
+    ImmutableList.Builder<CommandButton> mediaButtonPreferences = new ImmutableList.Builder<>();
+    for (Bundle bundle : list) {
+      mediaButtonPreferences.add(CommandButton.fromBundle(bundle, MediaSessionStub.VERSION_INT));
+    }
+    return mediaButtonPreferences.build();
+  }
+
   public Player.Commands getAvailableCommands() throws RemoteException {
     Bundle commandsBundle = binder.getAvailableCommands(controllerId);
     return Player.Commands.fromBundle(commandsBundle);

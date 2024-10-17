@@ -867,6 +867,20 @@ public class MediaControllerProviderService extends Service {
     }
 
     @Override
+    public Bundle getMediaButtonPreferences(String controllerId) throws RemoteException {
+      MediaController controller = mediaControllerMap.get(controllerId);
+      ArrayList<Bundle> mediaButtonPreferences = new ArrayList<>();
+      ImmutableList<CommandButton> commandButtons =
+          runOnHandler(controller::getMediaButtonPreferences);
+      for (CommandButton button : commandButtons) {
+        mediaButtonPreferences.add(button.toBundle());
+      }
+      Bundle bundle = new Bundle();
+      bundle.putParcelableArrayList(KEY_COMMAND_BUTTON_LIST, mediaButtonPreferences);
+      return bundle;
+    }
+
+    @Override
     public Bundle getAvailableCommands(String controllerId) throws RemoteException {
       MediaController controller = mediaControllerMap.get(controllerId);
       return runOnHandler(controller::getAvailableCommands).toBundle();

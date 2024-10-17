@@ -31,6 +31,7 @@ interface IRemoteMediaController {
   Bundle getConnectedSessionToken(String controllerId);
   Bundle getSessionExtras(String controllerId);
   Bundle getCustomLayout(String controllerId);
+  Bundle getMediaButtonPreferences(String controllerId);
   Bundle getAvailableCommands(String controllerId);
   PendingIntent getSessionActivity(String controllerId);
   void play(String controllerId);

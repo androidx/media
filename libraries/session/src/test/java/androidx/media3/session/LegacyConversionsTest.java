@@ -1080,12 +1080,12 @@ public final class LegacyConversionsTest {
   }
 
   @Test
-  public void convertToCustomLayout_withNull_returnsEmptyList() {
-    assertThat(LegacyConversions.convertToCustomLayout(null)).isEmpty();
+  public void convertToMediaButtonPreferences_withNull_returnsEmptyList() {
+    assertThat(LegacyConversions.convertToMediaButtonPreferences(null)).isEmpty();
   }
 
   @Test
-  public void convertToCustomLayout_withoutIconConstantInExtras() {
+  public void convertToMediaButtonPreferences_withoutIconConstantInExtras() {
     String extraKey = "key";
     String extraValue = "value";
     String actionStr = "action";
@@ -1107,7 +1107,7 @@ public final class LegacyConversionsTest {
             .addCustomAction(action)
             .build();
 
-    ImmutableList<CommandButton> buttons = LegacyConversions.convertToCustomLayout(state);
+    ImmutableList<CommandButton> buttons = LegacyConversions.convertToMediaButtonPreferences(state);
 
     assertThat(buttons).hasSize(1);
     CommandButton button = buttons.get(0);
@@ -1120,7 +1120,7 @@ public final class LegacyConversionsTest {
   }
 
   @Test
-  public void convertToCustomLayout_withIconConstantInExtras() {
+  public void convertToMediaButtonPreferences_withIconConstantInExtras() {
     String actionStr = "action";
     String displayName = "display_name";
     int iconRes = 21;
@@ -1140,7 +1140,7 @@ public final class LegacyConversionsTest {
             .addCustomAction(action)
             .build();
 
-    ImmutableList<CommandButton> buttons = LegacyConversions.convertToCustomLayout(state);
+    ImmutableList<CommandButton> buttons = LegacyConversions.convertToMediaButtonPreferences(state);
 
     assertThat(buttons).hasSize(1);
     CommandButton button = buttons.get(0);

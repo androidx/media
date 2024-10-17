@@ -202,7 +202,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
             maskedPlayerInfo,
             controllerInfo.availableSessionCommands,
             controllerInfo.availablePlayerCommands,
-            controllerInfo.customLayout,
+            controllerInfo.mediaButtonPreferences,
             controllerInfo.sessionExtras,
             /* sessionError= */ null);
     updateStateMaskedControllerInfo(
@@ -268,7 +268,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
                 /* playerError= */ null),
             controllerInfo.availableSessionCommands,
             controllerInfo.availablePlayerCommands,
-            controllerInfo.customLayout,
+            controllerInfo.mediaButtonPreferences,
             controllerInfo.sessionExtras,
             /* sessionError= */ null);
     updateStateMaskedControllerInfo(
@@ -391,7 +391,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
             maskedPlayerInfo,
             controllerInfo.availableSessionCommands,
             controllerInfo.availablePlayerCommands,
-            controllerInfo.customLayout,
+            controllerInfo.mediaButtonPreferences,
             controllerInfo.sessionExtras,
             /* sessionError= */ null);
     updateStateMaskedControllerInfo(
@@ -432,8 +432,8 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
   }
 
   @Override
-  public ImmutableList<CommandButton> getCustomLayout() {
-    return controllerInfo.customLayout;
+  public ImmutableList<CommandButton> getMediaButtonPreferences() {
+    return controllerInfo.mediaButtonPreferences;
   }
 
   @Override
@@ -556,7 +556,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
               controllerInfo.playerInfo.copyWithPlaybackParameters(playbackParameters),
               controllerInfo.availableSessionCommands,
               controllerInfo.availablePlayerCommands,
-              controllerInfo.customLayout,
+              controllerInfo.mediaButtonPreferences,
               controllerInfo.sessionExtras,
               /* sessionError= */ null);
       updateStateMaskedControllerInfo(
@@ -577,7 +577,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
               controllerInfo.playerInfo.copyWithPlaybackParameters(new PlaybackParameters(speed)),
               controllerInfo.availableSessionCommands,
               controllerInfo.availablePlayerCommands,
-              controllerInfo.customLayout,
+              controllerInfo.mediaButtonPreferences,
               controllerInfo.sessionExtras,
               /* sessionError= */ null);
       updateStateMaskedControllerInfo(
@@ -671,7 +671,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
             maskedPlayerInfo,
             controllerInfo.availableSessionCommands,
             controllerInfo.availablePlayerCommands,
-            controllerInfo.customLayout,
+            controllerInfo.mediaButtonPreferences,
             controllerInfo.sessionExtras,
             /* sessionError= */ null);
     updateStateMaskedControllerInfo(
@@ -736,7 +736,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
             maskedPlayerInfo,
             controllerInfo.availableSessionCommands,
             controllerInfo.availablePlayerCommands,
-            controllerInfo.customLayout,
+            controllerInfo.mediaButtonPreferences,
             controllerInfo.sessionExtras,
             /* sessionError= */ null);
     updateStateMaskedControllerInfo(
@@ -790,7 +790,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
             maskedPlayerInfo,
             controllerInfo.availableSessionCommands,
             controllerInfo.availablePlayerCommands,
-            controllerInfo.customLayout,
+            controllerInfo.mediaButtonPreferences,
             controllerInfo.sessionExtras,
             /* sessionError= */ null);
     updateStateMaskedControllerInfo(
@@ -858,7 +858,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
             maskedPlayerInfo,
             controllerInfo.availableSessionCommands,
             controllerInfo.availablePlayerCommands,
-            controllerInfo.customLayout,
+            controllerInfo.mediaButtonPreferences,
             controllerInfo.sessionExtras,
             /* sessionError= */ null);
     updateStateMaskedControllerInfo(
@@ -972,7 +972,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
               controllerInfo.playerInfo.copyWithRepeatMode(repeatMode),
               controllerInfo.availableSessionCommands,
               controllerInfo.availablePlayerCommands,
-              controllerInfo.customLayout,
+              controllerInfo.mediaButtonPreferences,
               controllerInfo.sessionExtras,
               /* sessionError= */ null);
       updateStateMaskedControllerInfo(
@@ -1000,7 +1000,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
               controllerInfo.playerInfo.copyWithShuffleModeEnabled(shuffleModeEnabled),
               controllerInfo.availableSessionCommands,
               controllerInfo.availablePlayerCommands,
-              controllerInfo.customLayout,
+              controllerInfo.mediaButtonPreferences,
               controllerInfo.sessionExtras,
               /* sessionError= */ null);
       updateStateMaskedControllerInfo(
@@ -1137,7 +1137,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
               controllerInfo.playerInfo.copyWithDeviceVolume(volume, isDeviceMuted),
               controllerInfo.availableSessionCommands,
               controllerInfo.availablePlayerCommands,
-              controllerInfo.customLayout,
+              controllerInfo.mediaButtonPreferences,
               controllerInfo.sessionExtras,
               /* sessionError= */ null);
       updateStateMaskedControllerInfo(
@@ -1170,7 +1170,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
               controllerInfo.playerInfo.copyWithDeviceVolume(volume + 1, isDeviceMuted),
               controllerInfo.availableSessionCommands,
               controllerInfo.availablePlayerCommands,
-              controllerInfo.customLayout,
+              controllerInfo.mediaButtonPreferences,
               controllerInfo.sessionExtras,
               /* sessionError= */ null);
       updateStateMaskedControllerInfo(
@@ -1202,7 +1202,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
               controllerInfo.playerInfo.copyWithDeviceVolume(volume - 1, isDeviceMuted),
               controllerInfo.availableSessionCommands,
               controllerInfo.availablePlayerCommands,
-              controllerInfo.customLayout,
+              controllerInfo.mediaButtonPreferences,
               controllerInfo.sessionExtras,
               /* sessionError= */ null);
       updateStateMaskedControllerInfo(
@@ -1237,7 +1237,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
               controllerInfo.playerInfo.copyWithDeviceVolume(volume, muted),
               controllerInfo.availableSessionCommands,
               controllerInfo.availablePlayerCommands,
-              controllerInfo.customLayout,
+              controllerInfo.mediaButtonPreferences,
               controllerInfo.sessionExtras,
               /* sessionError= */ null);
       updateStateMaskedControllerInfo(
@@ -1276,7 +1276,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
                 Player.PLAYBACK_SUPPRESSION_REASON_NONE),
             controllerInfo.availableSessionCommands,
             controllerInfo.availablePlayerCommands,
-            controllerInfo.customLayout,
+            controllerInfo.mediaButtonPreferences,
             controllerInfo.sessionExtras,
             /* sessionError= */ null);
     updateStateMaskedControllerInfo(
@@ -1625,13 +1625,18 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
 
     if (notifyConnected) {
       getInstance().notifyAccepted();
-      if (!oldControllerInfo.customLayout.equals(newControllerInfo.customLayout)) {
+      if (!oldControllerInfo.mediaButtonPreferences.equals(
+          newControllerInfo.mediaButtonPreferences)) {
         getInstance()
             .notifyControllerListener(
                 listener -> {
                   ignoreFuture(
-                      listener.onSetCustomLayout(getInstance(), newControllerInfo.customLayout));
-                  listener.onCustomLayoutChanged(getInstance(), newControllerInfo.customLayout);
+                      listener.onSetCustomLayout(
+                          getInstance(), newControllerInfo.mediaButtonPreferences));
+                  listener.onCustomLayoutChanged(
+                      getInstance(), newControllerInfo.mediaButtonPreferences);
+                  listener.onMediaButtonPreferencesChanged(
+                      getInstance(), newControllerInfo.mediaButtonPreferences);
                 });
       }
       return;
@@ -1758,13 +1763,18 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
                   listener.onAvailableSessionCommandsChanged(
                       getInstance(), newControllerInfo.availableSessionCommands));
     }
-    if (!oldControllerInfo.customLayout.equals(newControllerInfo.customLayout)) {
+    if (!oldControllerInfo.mediaButtonPreferences.equals(
+        newControllerInfo.mediaButtonPreferences)) {
       getInstance()
           .notifyControllerListener(
               listener -> {
                 ignoreFuture(
-                    listener.onSetCustomLayout(getInstance(), newControllerInfo.customLayout));
-                listener.onCustomLayoutChanged(getInstance(), newControllerInfo.customLayout);
+                    listener.onSetCustomLayout(
+                        getInstance(), newControllerInfo.mediaButtonPreferences));
+                listener.onCustomLayoutChanged(
+                    getInstance(), newControllerInfo.mediaButtonPreferences);
+                listener.onMediaButtonPreferencesChanged(
+                    getInstance(), newControllerInfo.mediaButtonPreferences);
               });
     }
     if (newControllerInfo.sessionError != null) {
@@ -1913,7 +1923,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
               controllerInfo.playerInfo,
               controllerInfo.availableSessionCommands,
               controllerInfo.availablePlayerCommands,
-              controllerInfo.customLayout,
+              controllerInfo.mediaButtonPreferences,
               extras,
               /* sessionError= */ null);
       getInstance()
@@ -1988,7 +1998,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
     boolean shuffleModeEnabled;
     SessionCommands availableSessionCommands;
     Commands availablePlayerCommands;
-    ImmutableList<CommandButton> customLayout;
+    ImmutableList<CommandButton> mediaButtonPreferences;
 
     boolean isQueueChanged = oldLegacyPlayerInfo.queue != newLegacyPlayerInfo.queue;
     currentTimeline =
@@ -2074,11 +2084,12 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
       availableSessionCommands =
           LegacyConversions.convertToSessionCommands(
               newLegacyPlayerInfo.playbackStateCompat, isSessionReady);
-      customLayout =
-          LegacyConversions.convertToCustomLayout(newLegacyPlayerInfo.playbackStateCompat);
+      mediaButtonPreferences =
+          LegacyConversions.convertToMediaButtonPreferences(
+              newLegacyPlayerInfo.playbackStateCompat);
     } else {
       availableSessionCommands = oldControllerInfo.availableSessionCommands;
-      customLayout = oldControllerInfo.customLayout;
+      mediaButtonPreferences = oldControllerInfo.mediaButtonPreferences;
     }
     // Note: Sets the available player command here although it can be obtained before session is
     // ready. It's to follow the decision on MediaController to disallow any commands before
@@ -2164,7 +2175,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
         shuffleModeEnabled,
         availableSessionCommands,
         availablePlayerCommands,
-        customLayout,
+        mediaButtonPreferences,
         newLegacyPlayerInfo.sessionExtras,
         playerError,
         sessionError,
@@ -2334,7 +2345,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
       boolean shuffleModeEnabled,
       SessionCommands availableSessionCommands,
       Commands availablePlayerCommands,
-      ImmutableList<CommandButton> customLayout,
+      ImmutableList<CommandButton> mediaButtonPreferences,
       Bundle sessionExtras,
       @Nullable PlaybackException playerError,
       @Nullable SessionError sessionError,
@@ -2411,7 +2422,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
         playerInfo,
         availableSessionCommands,
         availablePlayerCommands,
-        customLayout,
+        mediaButtonPreferences,
         sessionExtras,
         sessionError);
   }
@@ -2622,7 +2633,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
     public final PlayerInfo playerInfo;
     public final SessionCommands availableSessionCommands;
     public final Commands availablePlayerCommands;
-    public final ImmutableList<CommandButton> customLayout;
+    public final ImmutableList<CommandButton> mediaButtonPreferences;
     public final Bundle sessionExtras;
     @Nullable public final SessionError sessionError;
 
@@ -2630,7 +2641,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
       playerInfo = PlayerInfo.DEFAULT.copyWithTimeline(QueueTimeline.DEFAULT);
       availableSessionCommands = SessionCommands.EMPTY;
       availablePlayerCommands = Commands.EMPTY;
-      customLayout = ImmutableList.of();
+      mediaButtonPreferences = ImmutableList.of();
       sessionExtras = Bundle.EMPTY;
       sessionError = null;
     }
@@ -2639,13 +2650,13 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
         PlayerInfo playerInfo,
         SessionCommands availableSessionCommands,
         Commands availablePlayerCommands,
-        ImmutableList<CommandButton> customLayout,
+        ImmutableList<CommandButton> mediaButtonPreferences,
         @Nullable Bundle sessionExtras,
         @Nullable SessionError sessionError) {
       this.playerInfo = playerInfo;
       this.availableSessionCommands = availableSessionCommands;
       this.availablePlayerCommands = availablePlayerCommands;
-      this.customLayout = customLayout;
+      this.mediaButtonPreferences = mediaButtonPreferences;
       this.sessionExtras = sessionExtras == null ? Bundle.EMPTY : sessionExtras;
       this.sessionError = sessionError;
     }

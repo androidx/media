@@ -553,6 +553,74 @@ public class MediaControllerListenerWithMediaSessionCompatTest {
   }
 
   @Test
+  public void getMediaButtonPreferences() throws Exception {
+    CommandButton button1 =
+        new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
+            .setDisplayName("button1")
+            .setIconResId(R.drawable.media3_notification_small_icon)
+            .setSessionCommand(new SessionCommand("command1", Bundle.EMPTY))
+            .build();
+    CommandButton button2 =
+        new CommandButton.Builder(CommandButton.ICON_FAST_FORWARD)
+            .setDisplayName("button2")
+            .setSessionCommand(new SessionCommand("command2", Bundle.EMPTY))
+            .build();
+    ConditionVariable onMediaButtonPreferencesChangedCalled = new ConditionVariable();
+    List<List<CommandButton>> onMediaButtonPreferencesChangedArguments = new ArrayList<>();
+    List<List<CommandButton>> mediaButtonPreferencesFromGetter = new ArrayList<>();
+    controllerTestRule.createController(
+        session.getSessionToken(),
+        new MediaController.Listener() {
+          @Override
+          public void onMediaButtonPreferencesChanged(
+              MediaController controller, List<CommandButton> mediaButtonPreferences) {
+            onMediaButtonPreferencesChangedArguments.add(mediaButtonPreferences);
+            mediaButtonPreferencesFromGetter.add(controller.getMediaButtonPreferences());
+            onMediaButtonPreferencesChangedCalled.open();
+          }
+        });
+    Bundle extras1 = new Bundle();
+    extras1.putString("key", "value-1");
+    PlaybackStateCompat.CustomAction customAction1 =
+        new PlaybackStateCompat.CustomAction.Builder(
+                "command1", "button1", /* icon= */ R.drawable.media3_notification_small_icon)
+            .setExtras(extras1)
+            .build();
+    Bundle extras2 = new Bundle();
+    extras2.putString("key", "value-2");
+    extras2.putInt(
+        MediaConstants.EXTRAS_KEY_COMMAND_BUTTON_ICON_COMPAT, CommandButton.ICON_FAST_FORWARD);
+    PlaybackStateCompat.CustomAction customAction2 =
+        new PlaybackStateCompat.CustomAction.Builder(
+                "command2", "button2", /* icon= */ R.drawable.media3_icon_fast_forward)
+            .setExtras(extras2)
+            .build();
+    PlaybackStateCompat.Builder playbackState1 =
+        new PlaybackStateCompat.Builder()
+            .addCustomAction(customAction1)
+            .addCustomAction(customAction2);
+    PlaybackStateCompat.Builder playbackState2 =
+        new PlaybackStateCompat.Builder().addCustomAction(customAction1);
+
+    session.setPlaybackState(playbackState1.build());
+    assertThat(onMediaButtonPreferencesChangedCalled.block(TIMEOUT_MS)).isTrue();
+    onMediaButtonPreferencesChangedCalled.close();
+    session.setPlaybackState(playbackState2.build());
+    assertThat(onMediaButtonPreferencesChangedCalled.block(TIMEOUT_MS)).isTrue();
+
+    ImmutableList<CommandButton> expectedFirstMediaButtonPreferences =
+        ImmutableList.of(button1.copyWithIsEnabled(true), button2.copyWithIsEnabled(true));
+    ImmutableList<CommandButton> expectedSecondMediaButtonPreferences =
+        ImmutableList.of(button1.copyWithIsEnabled(true));
+    assertThat(onMediaButtonPreferencesChangedArguments)
+        .containsExactly(expectedFirstMediaButtonPreferences, expectedSecondMediaButtonPreferences)
+        .inOrder();
+    assertThat(mediaButtonPreferencesFromGetter)
+        .containsExactly(expectedFirstMediaButtonPreferences, expectedSecondMediaButtonPreferences)
+        .inOrder();
+  }
+
+  @Test
   public void getCurrentPosition_unknownPlaybackPosition_convertedToZero() throws Exception {
     session.setPlaybackState(
         new PlaybackStateCompat.Builder()

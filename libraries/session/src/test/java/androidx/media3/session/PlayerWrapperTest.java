@@ -47,7 +47,8 @@ public class PlayerWrapperTest {
         new PlayerWrapper(
             player,
             /* playIfSuppressed= */ true,
-            ImmutableList.of(),
+            /* customLayout= */ ImmutableList.of(),
+            /* mediaButtonPreferences= */ ImmutableList.of(),
             SessionCommands.EMPTY,
             Player.Commands.EMPTY,
             /* legacyExtras= */ null);

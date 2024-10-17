@@ -1495,13 +1495,12 @@ import java.util.concurrent.TimeoutException;
   }
 
   /**
-   * Converts {@link CustomAction} in the {@link PlaybackStateCompat} to the custom layout which is
-   * the list of the {@link CommandButton}.
+   * Converts {@link CustomAction} in the {@link PlaybackStateCompat} to media button preferences.
    *
-   * @param state playback state
-   * @return custom layout. Always non-null.
+   * @param state The {@link PlaybackStateCompat}.
+   * @return The media button preferences.
    */
-  public static ImmutableList<CommandButton> convertToCustomLayout(
+  public static ImmutableList<CommandButton> convertToMediaButtonPreferences(
       @Nullable PlaybackStateCompat state) {
     if (state == null) {
       return ImmutableList.of();
@@ -1510,7 +1509,7 @@ import java.util.concurrent.TimeoutException;
     if (customActions == null) {
       return ImmutableList.of();
     }
-    ImmutableList.Builder<CommandButton> layout = new ImmutableList.Builder<>();
+    ImmutableList.Builder<CommandButton> mediaButtonPreferences = new ImmutableList.Builder<>();
     for (CustomAction customAction : customActions) {
       String action = customAction.getAction();
       @Nullable Bundle extras = customAction.getExtras();
@@ -1521,15 +1520,16 @@ import java.util.concurrent.TimeoutException;
                   MediaConstants.EXTRAS_KEY_COMMAND_BUTTON_ICON_COMPAT,
                   /* defaultValue= */ CommandButton.ICON_UNDEFINED)
               : CommandButton.ICON_UNDEFINED;
+      // TODO: b/332877990 - Set appropriate slots based on available player commands.
       CommandButton button =
           new CommandButton.Builder(icon, customAction.getIcon())
               .setSessionCommand(new SessionCommand(action, extras == null ? Bundle.EMPTY : extras))
               .setDisplayName(customAction.getName())
               .setEnabled(true)
               .build();
-      layout.add(button);
+      mediaButtonPreferences.add(button);
     }
-    return layout.build();
+    return mediaButtonPreferences.build();
   }
 
   /** Converts {@link AudioAttributesCompat} into {@link AudioAttributes}. */

@@ -51,7 +51,6 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Arrays;
-import java.util.List;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -299,19 +298,20 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
   @Override
   public final MediaNotification createNotification(
       MediaSession mediaSession,
-      ImmutableList<CommandButton> customLayout,
+      ImmutableList<CommandButton> mediaButtonPreferences,
       MediaNotification.ActionFactory actionFactory,
       Callback onNotificationChangedCallback) {
     ensureNotificationChannel();
 
-    ImmutableList.Builder<CommandButton> customLayoutWithEnabledCommandButtonsOnly =
+    // TODO: b/332877990 - More accurately reflect media button preferences in the notification.
+    ImmutableList.Builder<CommandButton> mediaButtonPreferencesWithEnabledCommandButtonsOnly =
         new ImmutableList.Builder<>();
-    for (int i = 0; i < customLayout.size(); i++) {
-      CommandButton button = customLayout.get(i);
+    for (int i = 0; i < mediaButtonPreferences.size(); i++) {
+      CommandButton button = mediaButtonPreferences.get(i);
       if (button.sessionCommand != null
           && button.sessionCommand.commandCode == SessionCommand.COMMAND_CODE_CUSTOM
           && button.isEnabled) {
-        customLayoutWithEnabledCommandButtonsOnly.add(customLayout.get(i));
+        mediaButtonPreferencesWithEnabledCommandButtonsOnly.add(mediaButtonPreferences.get(i));
       }
     }
     Player player = mediaSession.getPlayer();
@@ -325,7 +325,7 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
             getMediaButtons(
                 mediaSession,
                 player.getAvailableCommands(),
-                customLayoutWithEnabledCommandButtonsOnly.build(),
+                mediaButtonPreferencesWithEnabledCommandButtonsOnly.build(),
                 !Util.shouldShowPlayButton(
                     player, mediaSession.getShowPlayButtonIfPlaybackIsSuppressed())),
             builder,
@@ -424,18 +424,18 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
    * be customized by defining the index of the command in compact view of up to 3 commands in their
    * extras with key {@link DefaultMediaNotificationProvider#COMMAND_KEY_COMPACT_VIEW_INDEX}.
    *
-   * <p>To make the custom layout and commands work, you need to {@linkplain
-   * MediaSession#setCustomLayout(List) set the custom layout of commands} and add the custom
+   * <p>To make the media button preferences and custom commands work, you need to {@linkplain
+   * MediaSession#setMediaButtonPreferences set the media button preferences} and add the custom
    * commands to the available commands when a controller {@linkplain
    * MediaSession.Callback#onConnect(MediaSession, MediaSession.ControllerInfo) connects to the
-   * session}. Controllers that connect after you called {@link MediaSession#setCustomLayout(List)}
-   * need the custom command set in {@link MediaSession.Callback#onPostConnect(MediaSession,
-   * MediaSession.ControllerInfo)} also.
+   * session}. Controllers that connect after you called {@link
+   * MediaSession#setMediaButtonPreferences} need the custom command set in {@link
+   * MediaSession.Callback#onPostConnect(MediaSession, MediaSession.ControllerInfo)} too.
    *
    * @param session The media session.
    * @param playerCommands The available player commands.
-   * @param customLayout The {@linkplain MediaSession#setCustomLayout(List) custom layout of
-   *     commands}.
+   * @param mediaButtonPreferences The {@linkplain MediaSession#setMediaButtonPreferences media
+   *     button preferences}.
    * @param showPauseButton Whether the notification should show a pause button (e.g., because the
    *     player is currently playing content), otherwise show a play button to start playback.
    * @return The ordered list of command buttons to be placed on the notification.
@@ -443,7 +443,7 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
   protected ImmutableList<CommandButton> getMediaButtons(
       MediaSession session,
       Player.Commands playerCommands,
-      ImmutableList<CommandButton> customLayout,
+      ImmutableList<CommandButton> mediaButtonPreferences,
       boolean showPauseButton) {
     // Skip to previous action.
     ImmutableList.Builder<CommandButton> commandButtons = new ImmutableList.Builder<>();
@@ -488,8 +488,8 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
               .setDisplayName(context.getString(R.string.media3_controls_seek_to_next_description))
               .build());
     }
-    for (int i = 0; i < customLayout.size(); i++) {
-      CommandButton button = customLayout.get(i);
+    for (int i = 0; i < mediaButtonPreferences.size(); i++) {
+      CommandButton button = mediaButtonPreferences.get(i);
       if (button.sessionCommand != null
           && button.sessionCommand.commandCode == SessionCommand.COMMAND_CODE_CUSTOM) {
         commandButtons.add(button);

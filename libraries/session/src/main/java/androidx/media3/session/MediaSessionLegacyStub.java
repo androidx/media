@@ -1116,6 +1116,11 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     }
 
     @Override
+    public void setMediaButtonPreferences(int seq, List<CommandButton> mediaButtonPreferences) {
+      updateLegacySessionPlaybackState(sessionImpl.getPlayerWrapper());
+    }
+
+    @Override
     public void onSessionExtrasChanged(int seq, Bundle sessionExtras) {
       sessionCompat.setExtras(sessionExtras);
       sessionImpl.getPlayerWrapper().setLegacyExtras(sessionExtras);

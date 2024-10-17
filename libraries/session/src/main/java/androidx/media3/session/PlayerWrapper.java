@@ -87,6 +87,7 @@ import java.util.List;
   @Nullable private LegacyError legacyError;
   @Nullable private Bundle legacyExtras;
   private ImmutableList<CommandButton> customLayout;
+  private ImmutableList<CommandButton> mediaButtonPreferences;
   private SessionCommands availableSessionCommands;
   private Commands availablePlayerCommands;
 
@@ -94,12 +95,14 @@ import java.util.List;
       Player player,
       boolean playIfSuppressed,
       ImmutableList<CommandButton> customLayout,
+      ImmutableList<CommandButton> mediaButtonPreferences,
       SessionCommands availableSessionCommands,
       Commands availablePlayerCommands,
       @Nullable Bundle legacyExtras) {
     super(player);
     this.playIfSuppressed = playIfSuppressed;
     this.customLayout = customLayout;
+    this.mediaButtonPreferences = mediaButtonPreferences;
     this.availableSessionCommands = availableSessionCommands;
     this.availablePlayerCommands = availablePlayerCommands;
     this.legacyExtras = legacyExtras;
@@ -123,8 +126,16 @@ import java.util.List;
     this.customLayout = customLayout;
   }
 
+  public void setMediaButtonPreferences(ImmutableList<CommandButton> mediaButtonPreferences) {
+    this.mediaButtonPreferences = mediaButtonPreferences;
+  }
+
   /* package */ ImmutableList<CommandButton> getCustomLayout() {
     return customLayout;
+  }
+
+  /* package */ ImmutableList<CommandButton> getMediaButtonPreferences() {
+    return mediaButtonPreferences;
   }
 
   public void setLegacyExtras(@Nullable Bundle extras) {
@@ -1061,8 +1072,11 @@ import java.util.List;
             .setBufferedPosition(compatBufferedPosition)
             .setExtras(extras);
 
-    for (int i = 0; i < customLayout.size(); i++) {
-      CommandButton commandButton = customLayout.get(i);
+    // TODO: b/332877990 - More accurately reflect media button preferences as custom actions.
+    List<CommandButton> buttonsForCustomActions =
+        mediaButtonPreferences.isEmpty() ? customLayout : mediaButtonPreferences;
+    for (int i = 0; i < buttonsForCustomActions.size(); i++) {
+      CommandButton commandButton = buttonsForCustomActions.get(i);
       SessionCommand sessionCommand = commandButton.sessionCommand;
       if (sessionCommand != null
           && commandButton.isEnabled
