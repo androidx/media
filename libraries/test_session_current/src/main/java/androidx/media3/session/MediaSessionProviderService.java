@@ -278,12 +278,12 @@ public class MediaSessionProviderService extends Service {
                       SessionCommand customCommand,
                       Bundle args) {
                     SessionResult sessionResult =
-                        new SessionResult(SessionResult.RESULT_ERROR_NOT_SUPPORTED);
+                        new SessionResult(SessionError.ERROR_NOT_SUPPORTED);
                     if (customCommand.equals(playlistAddButton.sessionCommand)
                         || customCommand.equals(radioButton.sessionCommand)) {
                       Bundle extras = new Bundle();
                       String receivedMediaId = args.getString(MediaConstants.EXTRA_KEY_MEDIA_ID);
-                      @SessionResult.Code int resultCode = SessionResult.RESULT_ERROR_BAD_VALUE;
+                      @SessionResult.Code int resultCode = SessionError.ERROR_BAD_VALUE;
                       if (receivedMediaId != null) {
                         extras.putString(MediaConstants.EXTRA_KEY_MEDIA_ID, receivedMediaId);
                         resultCode = SessionResult.RESULT_SUCCESS;

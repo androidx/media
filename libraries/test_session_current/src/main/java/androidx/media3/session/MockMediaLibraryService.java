@@ -412,7 +412,7 @@ public class MockMediaLibraryService extends MediaLibraryService {
                     getPaginatedResult(GET_CHILDREN_RESULT, page, pageSize), params))
             : Futures.immediateFuture(
                 LibraryResult.ofError(
-                    LibraryResult.RESULT_ERROR_SESSION_AUTHENTICATION_EXPIRED,
+                    SessionError.ERROR_SESSION_AUTHENTICATION_EXPIRED,
                     new LibraryParams.Builder().build()));
       } else if (Objects.equals(parentId, PARENT_ID_AUTH_EXPIRED_ERROR)
           || Objects.equals(parentId, PARENT_ID_AUTH_EXPIRED_ERROR_DEPRECATED)
