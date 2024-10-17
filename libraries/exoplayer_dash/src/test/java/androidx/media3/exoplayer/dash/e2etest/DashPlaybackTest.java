@@ -16,33 +16,44 @@
 package androidx.media3.exoplayer.dash.e2etest;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
+import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.run;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
 import android.graphics.SurfaceTexture;
+import android.net.Uri;
 import android.view.Surface;
+import androidx.annotation.Nullable;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.ParserException;
 import androidx.media3.common.Player;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DefaultDataSource;
+import androidx.media3.datasource.ResolvingDataSource;
 import androidx.media3.exoplayer.DecoderCounters;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.RenderersFactory;
+import androidx.media3.exoplayer.analytics.AnalyticsListener;
 import androidx.media3.exoplayer.dash.DashMediaSource;
 import androidx.media3.exoplayer.dash.DefaultDashChunkSource;
 import androidx.media3.exoplayer.metadata.MetadataDecoderFactory;
 import androidx.media3.exoplayer.metadata.MetadataRenderer;
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
+import androidx.media3.exoplayer.source.LoadEventInfo;
+import androidx.media3.exoplayer.source.MediaLoadData;
 import androidx.media3.exoplayer.source.chunk.BundledChunkExtractor;
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector;
 import androidx.media3.test.utils.CapturingRenderersFactory;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.FakeClock;
+import androidx.media3.test.utils.ThrowingSubtitleParserFactory;
 import androidx.media3.test.utils.robolectric.PlaybackOutput;
 import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
 import androidx.media3.test.utils.robolectric.TestPlayerRunHelper;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import java.io.IOException;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -79,6 +90,88 @@ public final class DashPlaybackTest {
 
     DumpFileAsserts.assertOutput(
         applicationContext, playbackOutput, "playbackdumps/dash/standalone-webvtt.dump");
+  }
+
+  @Test
+  public void webvttStandaloneFile_loadError_playbackContinuesErrorReported() throws Exception {
+    Context applicationContext = ApplicationProvider.getApplicationContext();
+    CapturingRenderersFactory capturingRenderersFactory =
+        new CapturingRenderersFactory(applicationContext);
+    ResolvingDataSource.Factory webvttNotFoundDataSourceFactory =
+        new ResolvingDataSource.Factory(
+            new DefaultDataSource.Factory(applicationContext),
+            dataSpec ->
+                dataSpec.uri.getPath().endsWith(".vtt")
+                    ? dataSpec.buildUpon().setUri("asset:///file/not/found").build()
+                    : dataSpec);
+    ExoPlayer player =
+        new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
+            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setMediaSourceFactory(new DefaultMediaSourceFactory(webvttNotFoundDataSourceFactory))
+            .build();
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
+    AnalyticsListenerImpl analyticsListener = new AnalyticsListenerImpl();
+    player.addAnalyticsListener(analyticsListener);
+    PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
+
+    // Ensure the subtitle track is selected.
+    DefaultTrackSelector trackSelector =
+        checkNotNull((DefaultTrackSelector) player.getTrackSelector());
+    trackSelector.setParameters(trackSelector.buildUponParameters().setPreferredTextLanguage("en"));
+    player.setMediaItem(MediaItem.fromUri("asset:///media/dash/standalone-webvtt/sample.mpd"));
+    player.prepare();
+    player.play();
+    run(player).ignoringNonFatalErrors().untilState(Player.STATE_ENDED);
+    player.release();
+    surface.release();
+
+    assertThat(analyticsListener.loadErrorEventInfo.uri)
+        .isEqualTo(Uri.parse("asset:///file/not/found"));
+    DumpFileAsserts.assertOutput(
+        applicationContext, playbackOutput, "playbackdumps/dash/standalone-webvtt_load-error.dump");
+  }
+
+  @Test
+  public void webvttStandaloneFile_parseError_playbackContinuesErrorReported() throws Exception {
+    Context applicationContext = ApplicationProvider.getApplicationContext();
+    CapturingRenderersFactory capturingRenderersFactory =
+        new CapturingRenderersFactory(applicationContext);
+    ExoPlayer player =
+        new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
+            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setMediaSourceFactory(
+                new DefaultMediaSourceFactory(applicationContext)
+                    .setSubtitleParserFactory(
+                        new ThrowingSubtitleParserFactory(
+                            () -> new IllegalStateException("test subtitle parsing error"))))
+            .build();
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
+    AnalyticsListenerImpl analyticsListener = new AnalyticsListenerImpl();
+    player.addAnalyticsListener(analyticsListener);
+    PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
+
+    // Ensure the subtitle track is selected.
+    DefaultTrackSelector trackSelector =
+        checkNotNull((DefaultTrackSelector) player.getTrackSelector());
+    trackSelector.setParameters(trackSelector.buildUponParameters().setPreferredTextLanguage("en"));
+    player.setMediaItem(MediaItem.fromUri("asset:///media/dash/standalone-webvtt/sample.mpd"));
+    player.prepare();
+    player.play();
+    run(player).ignoringNonFatalErrors().untilState(Player.STATE_ENDED);
+    player.release();
+    surface.release();
+
+    assertThat(analyticsListener.loadError).isInstanceOf(ParserException.class);
+    assertThat(analyticsListener.loadError)
+        .hasCauseThat()
+        .hasMessageThat()
+        .isEqualTo("test subtitle parsing error");
+    DumpFileAsserts.assertOutput(
+        applicationContext,
+        playbackOutput,
+        "playbackdumps/dash/standalone-webvtt_parse-error.dump");
   }
 
   @Test
@@ -158,6 +251,85 @@ public final class DashPlaybackTest {
 
     DumpFileAsserts.assertOutput(
         applicationContext, playbackOutput, "playbackdumps/dash/ttml-in-mp4.dump");
+  }
+
+  @Test
+  public void ttmlInMp4_loadError_playbackContinuesErrorReported() throws Exception {
+    Context applicationContext = ApplicationProvider.getApplicationContext();
+    CapturingRenderersFactory capturingRenderersFactory =
+        new CapturingRenderersFactory(applicationContext);
+    ResolvingDataSource.Factory ttmlNotFoundDataSourceFactory =
+        new ResolvingDataSource.Factory(
+            new DefaultDataSource.Factory(applicationContext),
+            dataSpec ->
+                dataSpec.uri.getPath().endsWith(".text.mp4")
+                    ? dataSpec.buildUpon().setUri("asset:///file/not/found").build()
+                    : dataSpec);
+    ExoPlayer player =
+        new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
+            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setMediaSourceFactory(new DefaultMediaSourceFactory(ttmlNotFoundDataSourceFactory))
+            .build();
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
+    AnalyticsListenerImpl analyticsListener = new AnalyticsListenerImpl();
+    player.addAnalyticsListener(analyticsListener);
+    PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
+
+    // Ensure the subtitle track is selected.
+    DefaultTrackSelector trackSelector =
+        checkNotNull((DefaultTrackSelector) player.getTrackSelector());
+    trackSelector.setParameters(trackSelector.buildUponParameters().setPreferredTextLanguage("en"));
+    player.setMediaItem(MediaItem.fromUri("asset:///media/dash/ttml-in-mp4/sample.mpd"));
+    player.prepare();
+    player.play();
+    run(player).ignoringNonFatalErrors().untilState(Player.STATE_ENDED);
+    player.release();
+    surface.release();
+
+    assertThat(analyticsListener.loadErrorEventInfo.uri)
+        .isEqualTo(Uri.parse("asset:///file/not/found"));
+    DumpFileAsserts.assertOutput(
+        applicationContext, playbackOutput, "playbackdumps/dash/ttml-in-mp4_load-error.dump");
+  }
+
+  @Test
+  public void ttmlInMp4_parseError_playbackContinuesErrorReported() throws Exception {
+    Context applicationContext = ApplicationProvider.getApplicationContext();
+    CapturingRenderersFactory capturingRenderersFactory =
+        new CapturingRenderersFactory(applicationContext);
+    ExoPlayer player =
+        new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
+            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setMediaSourceFactory(
+                new DefaultMediaSourceFactory(applicationContext)
+                    .setSubtitleParserFactory(
+                        new ThrowingSubtitleParserFactory(
+                            () -> new IllegalStateException("test subtitle parsing error"))))
+            .build();
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
+    AnalyticsListenerImpl analyticsListener = new AnalyticsListenerImpl();
+    player.addAnalyticsListener(analyticsListener);
+    PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
+
+    // Ensure the subtitle track is selected.
+    DefaultTrackSelector trackSelector =
+        checkNotNull((DefaultTrackSelector) player.getTrackSelector());
+    trackSelector.setParameters(trackSelector.buildUponParameters().setPreferredTextLanguage("en"));
+    player.setMediaItem(MediaItem.fromUri("asset:///media/dash/ttml-in-mp4/sample.mpd"));
+    player.prepare();
+    player.play();
+    run(player).ignoringNonFatalErrors().untilState(Player.STATE_ENDED);
+    player.release();
+    surface.release();
+
+    assertThat(analyticsListener.loadError)
+        .hasCauseThat()
+        .hasMessageThat()
+        .isEqualTo("test subtitle parsing error");
+    DumpFileAsserts.assertOutput(
+        applicationContext, playbackOutput, "playbackdumps/dash/ttml-in-mp4_parse-error.dump");
   }
 
   /**
@@ -460,5 +632,22 @@ public final class DashPlaybackTest {
 
     DumpFileAsserts.assertOutput(
         applicationContext, playbackOutput, "playbackdumps/dash/multi-period-with-offset.dump");
+  }
+
+  private static class AnalyticsListenerImpl implements AnalyticsListener {
+
+    @Nullable private LoadEventInfo loadErrorEventInfo;
+    @Nullable private IOException loadError;
+
+    @Override
+    public void onLoadError(
+        EventTime eventTime,
+        LoadEventInfo loadEventInfo,
+        MediaLoadData mediaLoadData,
+        IOException error,
+        boolean wasCanceled) {
+      this.loadErrorEventInfo = loadEventInfo;
+      this.loadError = error;
+    }
   }
 }

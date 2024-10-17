@@ -65,6 +65,16 @@
         subtitles (those added with
         `MediaItem.LocalConfiguration.subtitleConfigurations`), which may appear
         as duplicate load events emitted from `AnalyticsListener`.
+    *   Prevent subtitle & metadata errors from completely stopping playback.
+        Instead the problematic track is disabled and playback of the remaining
+        tracks continues
+        ([#1722](https://github.com/google/ExoPlayer/issues/1722)).
+        *   In new subtitle handling (during extraction), associated parse (e.g.
+            invalid subtitle data) and load errors (e.g. HTTP 404) are emitted
+            via `onLoadError` callbacks.
+        *   In legacy subtitle handling (during rendering), only associated load
+            errors are emitted via `onLoadError` callbacks while parse errors
+            are silently ignored (this is pre-existing behaviour).
 *   Transformer:
     *   Make setting the image duration using
         `MediaItem.Builder.setImageDurationMs` mandatory for image export.
