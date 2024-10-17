@@ -185,6 +185,8 @@
 *   Test Utilities:
 *   Demo app:
 *   Remove deprecated symbols:
+    *   Remove deprecated `DefaultEncoderFactory` constructors. Use
+        `DefaultEncoderFactory.Builder` instead.
 
 ## 1.5
 

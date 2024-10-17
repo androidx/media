@@ -180,42 +180,6 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
   private final boolean enableFallback;
   private final @C.Priority int codecPriority;
 
-  /**
-   * @deprecated Use {@link Builder} instead.
-   */
-  @Deprecated
-  public DefaultEncoderFactory(Context context) {
-    this(new Builder(context));
-  }
-
-  /**
-   * @deprecated Use {@link Builder} instead.
-   */
-  @Deprecated
-  public DefaultEncoderFactory(
-      Context context, EncoderSelector videoEncoderSelector, boolean enableFallback) {
-    this(
-        new Builder(context)
-            .setVideoEncoderSelector(videoEncoderSelector)
-            .setEnableFallback(enableFallback));
-  }
-
-  /**
-   * @deprecated Use {@link Builder} instead.
-   */
-  @Deprecated
-  public DefaultEncoderFactory(
-      Context context,
-      EncoderSelector videoEncoderSelector,
-      VideoEncoderSettings requestedVideoEncoderSettings,
-      boolean enableFallback) {
-    this(
-        new Builder(context)
-            .setVideoEncoderSelector(videoEncoderSelector)
-            .setEnableFallback(enableFallback)
-            .setRequestedVideoEncoderSettings(requestedVideoEncoderSettings));
-  }
-
   private DefaultEncoderFactory(Builder builder) {
     this.context = builder.context;
     this.videoEncoderSelector = builder.videoEncoderSelector;
