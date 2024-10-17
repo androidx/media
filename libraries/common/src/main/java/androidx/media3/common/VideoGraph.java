@@ -33,7 +33,7 @@ public interface VideoGraph {
      * @param width The new output width in pixels.
      * @param height The new output width in pixels.
      */
-    void onOutputSizeChanged(int width, int height);
+    default void onOutputSizeChanged(int width, int height) {}
 
     /**
      * Called when an output frame with the given {@code framePresentationTimeUs} becomes available
@@ -41,14 +41,14 @@ public interface VideoGraph {
      *
      * @param framePresentationTimeUs The presentation time of the frame, in microseconds.
      */
-    void onOutputFrameAvailableForRendering(long framePresentationTimeUs);
+    default void onOutputFrameAvailableForRendering(long framePresentationTimeUs) {}
 
     /**
      * Called after the {@link VideoGraph} has rendered its final output frame.
      *
      * @param finalFramePresentationTimeUs The timestamp of the last output frame, in microseconds.
      */
-    void onEnded(long finalFramePresentationTimeUs);
+    default void onEnded(long finalFramePresentationTimeUs) {}
 
     /**
      * Called when an exception occurs during video frame processing.
@@ -56,7 +56,7 @@ public interface VideoGraph {
      * <p>If this is called, the calling {@link VideoGraph} must immediately be {@linkplain
      * #release() released}.
      */
-    void onError(VideoFrameProcessingException exception);
+    default void onError(VideoFrameProcessingException exception) {}
   }
 
   /**

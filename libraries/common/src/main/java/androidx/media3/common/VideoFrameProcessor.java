@@ -143,8 +143,8 @@ public interface VideoFrameProcessor {
      * @param effects The list of {@link Effect effects} to apply to the new input stream.
      * @param frameInfo The {@link FrameInfo} of the new input stream.
      */
-    void onInputStreamRegistered(
-        @InputType int inputType, List<Effect> effects, FrameInfo frameInfo);
+    default void onInputStreamRegistered(
+        @InputType int inputType, List<Effect> effects, FrameInfo frameInfo) {}
 
     /**
      * Called when the output size changes.
@@ -155,7 +155,7 @@ public interface VideoFrameProcessor {
      * <p>The output size may differ from the size specified using {@link
      * #setOutputSurfaceInfo(SurfaceInfo)}.
      */
-    void onOutputSizeChanged(int width, int height);
+    default void onOutputSizeChanged(int width, int height) {}
 
     /**
      * Called when an output frame with the given {@code presentationTimeUs} becomes available for
@@ -163,7 +163,7 @@ public interface VideoFrameProcessor {
      *
      * @param presentationTimeUs The presentation time of the frame, in microseconds.
      */
-    void onOutputFrameAvailableForRendering(long presentationTimeUs);
+    default void onOutputFrameAvailableForRendering(long presentationTimeUs) {}
 
     /**
      * Called when an exception occurs during asynchronous video frame processing.
@@ -171,10 +171,10 @@ public interface VideoFrameProcessor {
      * <p>If this is called, the calling {@link VideoFrameProcessor} must immediately be {@linkplain
      * VideoFrameProcessor#release() released}.
      */
-    void onError(VideoFrameProcessingException exception);
+    default void onError(VideoFrameProcessingException exception) {}
 
     /** Called after the {@link VideoFrameProcessor} has rendered its final output frame. */
-    void onEnded();
+    default void onEnded() {}
   }
 
   /**

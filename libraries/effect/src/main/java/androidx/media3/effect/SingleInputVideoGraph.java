@@ -25,15 +25,12 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DebugViewProvider;
-import androidx.media3.common.Effect;
-import androidx.media3.common.FrameInfo;
 import androidx.media3.common.SurfaceInfo;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.VideoGraph;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.util.concurrent.MoreExecutors;
-import java.util.List;
 import java.util.concurrent.Executor;
 
 /** A {@link VideoGraph} that handles one input stream. */
@@ -111,12 +108,6 @@ public abstract class SingleInputVideoGraph implements VideoGraph {
             /* listenerExecutor= */ MoreExecutors.directExecutor(),
             new VideoFrameProcessor.Listener() {
               private long lastProcessedFramePresentationTimeUs;
-
-              @Override
-              public void onInputStreamRegistered(
-                  @VideoFrameProcessor.InputType int inputType,
-                  List<Effect> effects,
-                  FrameInfo frameInfo) {}
 
               @Override
               public void onOutputSizeChanged(int width, int height) {

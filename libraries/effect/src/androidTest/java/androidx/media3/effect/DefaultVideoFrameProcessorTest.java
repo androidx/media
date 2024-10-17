@@ -96,18 +96,9 @@ public class DefaultVideoFrameProcessorTest {
               }
 
               @Override
-              public void onOutputSizeChanged(int width, int height) {}
-
-              @Override
-              public void onOutputFrameAvailableForRendering(long presentationTimeUs) {}
-
-              @Override
               public void onError(VideoFrameProcessingException exception) {
                 videoFrameProcessingException.set(exception);
               }
-
-              @Override
-              public void onEnded() {}
             });
 
     CountDownLatch videoFrameProcessorConfigurationCountDownLatch = new CountDownLatch(1);
@@ -158,18 +149,9 @@ public class DefaultVideoFrameProcessorTest {
               }
 
               @Override
-              public void onOutputSizeChanged(int width, int height) {}
-
-              @Override
-              public void onOutputFrameAvailableForRendering(long presentationTimeUs) {}
-
-              @Override
               public void onError(VideoFrameProcessingException exception) {
                 videoFrameProcessingException.set(exception);
               }
-
-              @Override
-              public void onEnded() {}
             });
 
     InputStreamInfo stream1 =
@@ -229,9 +211,6 @@ public class DefaultVideoFrameProcessorTest {
                   FrameInfo frameInfo) {
                 inputStreamRegisteredCondition.open();
               }
-
-              @Override
-              public void onOutputSizeChanged(int width, int height) {}
 
               @Override
               public void onOutputFrameAvailableForRendering(long presentationTimeUs) {
@@ -312,9 +291,6 @@ public class DefaultVideoFrameProcessorTest {
                   FrameInfo frameInfo) {
                 inputStreamRegisteredCountDownLatch.countDown();
               }
-
-              @Override
-              public void onOutputSizeChanged(int width, int height) {}
 
               @Override
               public void onOutputFrameAvailableForRendering(long presentationTimeUs) {

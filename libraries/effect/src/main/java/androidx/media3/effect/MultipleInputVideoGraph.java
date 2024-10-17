@@ -249,17 +249,6 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
                 listenerExecutor,
                 new VideoFrameProcessor.Listener() {
                   // All of this listener's methods are called on the sharedExecutorService.
-                  @Override
-                  public void onInputStreamRegistered(
-                      @VideoFrameProcessor.InputType int inputType,
-                      List<Effect> effects,
-                      FrameInfo frameInfo) {}
-
-                  @Override
-                  public void onOutputSizeChanged(int width, int height) {}
-
-                  @Override
-                  public void onOutputFrameAvailableForRendering(long presentationTimeUs) {}
 
                   @Override
                   public void onError(VideoFrameProcessingException exception) {
