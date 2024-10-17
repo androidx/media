@@ -452,6 +452,25 @@ public abstract class Mp4Box {
   @SuppressWarnings("ConstantCaseForConstants")
   public static final int TYPE_edvd = 0x65647664;
 
+  @SuppressWarnings("ConstantCaseForConstants")
+  public static final int TYPE_ap4x = 0x61703478;
+
+  @SuppressWarnings("ConstantCaseForConstants")
+  public static final int TYPE_ap4h = 0x61703468;
+
+  @SuppressWarnings("ConstantCaseForConstants")
+  public static final int TYPE_apch = 0x61706368;
+
+  @SuppressWarnings("ConstantCaseForConstants")
+  public static final int TYPE_apcn = 0x6170636e;
+
+  @SuppressWarnings("ConstantCaseForConstants")
+  public static final int TYPE_apcs = 0x61706373;
+
+  @SuppressWarnings("ConstantCaseForConstants")
+  public static final int TYPE_apco = 0x6170636f;
+
+
   public final int type;
 
   // private to only allow sub-classing from within this file.
