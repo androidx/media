@@ -119,6 +119,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final Allocator allocator;
   @Nullable private final String customCacheKey;
   private final long continueLoadingCheckIntervalBytes;
+  private final boolean suppressPrepareError;
   private final long singleSampleDurationUs;
   private final Loader loader;
   private final ProgressiveMediaExtractor progressiveMediaExtractor;
@@ -172,6 +173,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    *     indexing. May be null.
    * @param continueLoadingCheckIntervalBytes The number of bytes that should be loaded between each
    *     invocation of {@link Callback#onContinueLoadingRequested(SequenceableLoader)}.
+   * @param suppressPrepareError True if an error that would be thrown from {@link
+   *     #maybeThrowPrepareError()} should instead be suppressed and allow preparation to
+   *     {@linkplain Callback#onPrepared complete}.
    * @param singleSampleDurationUs The duration of media with a single sample in microseconds.
    * @param downloadExecutor An optional externally provided {@link ReleasableExecutor} for loading
    *     and extracting media.
@@ -190,6 +194,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       Allocator allocator,
       @Nullable String customCacheKey,
       int continueLoadingCheckIntervalBytes,
+      boolean suppressPrepareError,
       long singleSampleDurationUs,
       @Nullable ReleasableExecutor downloadExecutor) {
     this.uri = uri;
@@ -202,6 +207,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.allocator = allocator;
     this.customCacheKey = customCacheKey;
     this.continueLoadingCheckIntervalBytes = continueLoadingCheckIntervalBytes;
+    this.suppressPrepareError = suppressPrepareError;
     loader =
         downloadExecutor != null
             ? new Loader(downloadExecutor)
@@ -254,7 +260,17 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @Override
   public void maybeThrowPrepareError() throws IOException {
-    maybeThrowError();
+    try {
+      maybeThrowError();
+    } catch (IOException e) {
+      if (suppressPrepareError) {
+        Log.e(TAG, "Suppressing preparation error because suppressPrepareError=true", e);
+        sampleQueuesBuilt = true;
+        setSeekMap(new Unseekable(C.TIME_UNSET));
+      } else {
+        throw e;
+      }
+    }
     if (loadingFinished && !prepared) {
       throw ParserException.createForMalformedContainer(
           "Loading finished before preparation is complete.", /* cause= */ null);

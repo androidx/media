@@ -69,6 +69,7 @@ public final class ProgressiveMediaSource extends BaseMediaSource
     private LoadErrorHandlingPolicy loadErrorHandlingPolicy;
     private int continueLoadingCheckIntervalBytes;
     @Nullable private Supplier<ReleasableExecutor> downloadExecutorSupplier;
+    private boolean suppressPrepareError;
 
     /**
      * Creates a new factory for {@link ProgressiveMediaSource}s.
@@ -189,6 +190,21 @@ public final class ProgressiveMediaSource extends BaseMediaSource
       return this;
     }
 
+    /**
+     * Allow {@link MediaPeriod} preparation to {@linkplain
+     * MediaPeriod.Callback#onPrepared(MediaPeriod) complete} despite an error that would have
+     * otherwise blocked it.
+     *
+     * <p>If set to true, an error that would normally be thrown from {@link
+     * MediaPeriod#maybeThrowPrepareError()} (e.g. a {@link DataSource#open} error like HTTP 404) is
+     * instead suppressed and preparation is completed with no tracks.
+     */
+    @CanIgnoreReturnValue
+    public Factory setSuppressPrepareError(boolean suppressPrepareError) {
+      this.suppressPrepareError = suppressPrepareError;
+      return this;
+    }
+
     @CanIgnoreReturnValue
     @Override
     public Factory setDrmSessionManagerProvider(
@@ -236,6 +252,7 @@ public final class ProgressiveMediaSource extends BaseMediaSource
           drmSessionManagerProvider.get(mediaItem),
           loadErrorHandlingPolicy,
           continueLoadingCheckIntervalBytes,
+          suppressPrepareError,
           downloadExecutorSupplier);
     }
 
@@ -256,7 +273,7 @@ public final class ProgressiveMediaSource extends BaseMediaSource
   private final DrmSessionManager drmSessionManager;
   private final LoadErrorHandlingPolicy loadableLoadErrorHandlingPolicy;
   private final int continueLoadingCheckIntervalBytes;
-
+  private final boolean suppressPrepareError;
   @Nullable private final Supplier<ReleasableExecutor> downloadExecutorSupplier;
 
   private boolean timelineIsPlaceholder;
@@ -275,6 +292,7 @@ public final class ProgressiveMediaSource extends BaseMediaSource
       DrmSessionManager drmSessionManager,
       LoadErrorHandlingPolicy loadableLoadErrorHandlingPolicy,
       int continueLoadingCheckIntervalBytes,
+      boolean suppressPrepareError,
       @Nullable Supplier<ReleasableExecutor> downloadExecutorSupplier) {
     this.mediaItem = mediaItem;
     this.dataSourceFactory = dataSourceFactory;
@@ -282,6 +300,7 @@ public final class ProgressiveMediaSource extends BaseMediaSource
     this.drmSessionManager = drmSessionManager;
     this.loadableLoadErrorHandlingPolicy = loadableLoadErrorHandlingPolicy;
     this.continueLoadingCheckIntervalBytes = continueLoadingCheckIntervalBytes;
+    this.suppressPrepareError = suppressPrepareError;
     this.timelineIsPlaceholder = true;
     this.timelineDurationUs = C.TIME_UNSET;
     this.downloadExecutorSupplier = downloadExecutorSupplier;
@@ -340,6 +359,7 @@ public final class ProgressiveMediaSource extends BaseMediaSource
         allocator,
         localConfiguration.customCacheKey,
         continueLoadingCheckIntervalBytes,
+        suppressPrepareError,
         Util.msToUs(localConfiguration.imageDurationMs),
         downloadExecutorSupplier != null ? downloadExecutorSupplier.get() : null);
   }
