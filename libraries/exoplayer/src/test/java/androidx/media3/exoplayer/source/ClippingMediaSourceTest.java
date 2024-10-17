@@ -610,8 +610,7 @@ public final class ClippingMediaSourceTest {
       ClippingMediaSource clippingMediaSource,
       Timeline... additionalTimelines)
       throws IOException {
-    MediaSourceTestRunner testRunner =
-        new MediaSourceTestRunner(clippingMediaSource, /* allocator= */ null);
+    MediaSourceTestRunner testRunner = new MediaSourceTestRunner(clippingMediaSource);
     Timeline[] clippedTimelines = new Timeline[additionalTimelines.length + 1];
     try {
       clippedTimelines[0] = testRunner.prepareSource();

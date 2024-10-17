@@ -99,7 +99,7 @@ public class MergingMediaSourceTest {
       mediaSources[i] = new FakeMediaSource(new FakeTimeline(/* windowCount= */ 2));
     }
     MergingMediaSource mediaSource = new MergingMediaSource(mediaSources);
-    MediaSourceTestRunner testRunner = new MediaSourceTestRunner(mediaSource, null);
+    MediaSourceTestRunner testRunner = new MediaSourceTestRunner(mediaSource);
     try {
       testRunner.prepareSource();
       testRunner.assertPrepareAndReleaseAllPeriods();
@@ -124,8 +124,7 @@ public class MergingMediaSourceTest {
     }
     MergingMediaSource mergingMediaSource =
         new MergingMediaSource(/* adjustPeriodTimeOffsets= */ false, clipDurations, mediaSources);
-    MediaSourceTestRunner testRunner =
-        new MediaSourceTestRunner(mergingMediaSource, /* allocator= */ null);
+    MediaSourceTestRunner testRunner = new MediaSourceTestRunner(mergingMediaSource);
     try {
       Timeline timeline = testRunner.prepareSource();
       testRunner.releaseSource();
