@@ -15,6 +15,7 @@
  */
 package androidx.media3.common.audio;
 
+import static androidx.media3.common.audio.SonicTestingUtils.calculateAccumulatedTruncationErrorForResampling;
 import static androidx.media3.test.utils.TestUtil.generateFloatInRange;
 import static com.google.common.truth.Truth.assertThat;
 import static java.lang.Math.max;
@@ -163,31 +164,18 @@ public final class RandomParameterizedSonicTest {
     }
     sonic.flush();
 
-    BigDecimal bigSampleRate = new BigDecimal(SAMPLE_RATE);
     BigDecimal bigLength = new BigDecimal(String.valueOf(streamLength));
     // The scale of expectedSize will be bigLength.scale() - speed.scale(). Thus, the result should
     // always yield an integer.
     BigDecimal expectedSize = bigLength.divide(speed, RoundingMode.HALF_EVEN);
 
-    // Calculate number of times that Sonic accumulates truncation error. Set scale to 20 decimal
-    // places, so that division doesn't return an integral.
-    BigDecimal errorCount =
-        bigLength.divide(bigSampleRate, /* scale= */ 20, RoundingMode.HALF_EVEN);
-
-    // Calculate what truncation error Sonic is accumulating, calculated as:
-    // inputSampleRate / speed - (int) inputSampleRate / speed. Set scale to 20 decimal places, so
-    // that division doesn't return an integral.
-    BigDecimal individualError =
-        bigSampleRate.divide(speed, /* scale */ 20, RoundingMode.HALF_EVEN);
-    individualError =
-        individualError.subtract(individualError.setScale(/* newScale= */ 0, RoundingMode.FLOOR));
-    // Calculate total accumulated error = (int) floor(errorCount * individualError).
-    BigDecimal accumulatedError =
-        errorCount.multiply(individualError).setScale(/* newScale= */ 0, RoundingMode.FLOOR);
+    long accumulatedTruncationError =
+        calculateAccumulatedTruncationErrorForResampling(
+            bigLength, new BigDecimal(SAMPLE_RATE), speed);
 
     assertThat(readSampleCount)
         .isWithin(1)
-        .of(expectedSize.longValueExact() - accumulatedError.longValueExact());
+        .of(expectedSize.longValueExact() - accumulatedTruncationError);
   }
 
   @Test
