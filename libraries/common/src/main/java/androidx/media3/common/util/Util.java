@@ -1909,6 +1909,8 @@ public final class Util {
    * @param divisor The divisor.
    * @return The scaled timestamp.
    */
+  // TODO: b/372204124 - Consider switching this (and impls below) to HALF_UP rounding to reduce
+  //   round-trip errors when switching between time bases with different resolutions.
   @UnstableApi
   public static long scaleLargeTimestamp(long timestamp, long multiplier, long divisor) {
     return scaleLargeValue(timestamp, multiplier, divisor, RoundingMode.DOWN);

@@ -1309,6 +1309,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
 
   /** Converts video units to microseconds, using the provided timebase. */
   private static long usFromVu(long timestampVu, long videoUnitTimebase) {
+    // TODO: b/372204124 - Switch to scaleLargeTimestamp when it uses HALF_UP rounding.
     return Util.scaleLargeValue(
         timestampVu, C.MICROS_PER_SECOND, videoUnitTimebase, RoundingMode.HALF_UP);
   }
@@ -1908,6 +1909,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
 
   /** Converts microseconds to video units, using the provided timebase. */
   private static long vuFromUs(long timestampUs, long videoUnitTimebase) {
+    // TODO: b/372204124 - Switch to scaleLargeTimestamp when it uses HALF_UP rounding.
     return Util.scaleLargeValue(
         timestampUs, videoUnitTimebase, C.MICROS_PER_SECOND, RoundingMode.HALF_UP);
   }
