@@ -19,6 +19,7 @@ import static androidx.media3.test.utils.robolectric.RobolectricUtil.DEFAULT_TIM
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
+import android.os.SystemClock;
 import androidx.annotation.Nullable;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Timeline;
@@ -154,16 +155,24 @@ public class ProgressiveMediaSourceTest {
     CountDownLatch preparedLatch =
         mediaSourceTestRunner.preparePeriod(mediaPeriod, /* positionUs= */ 0);
     assertThat(loadErrorReported.await(DEFAULT_TIMEOUT_MS, MILLISECONDS)).isTrue();
-    AtomicReference<Throwable> prepareError = new AtomicReference<>();
-    mediaSourceTestRunner.runOnPlaybackThread(
-        () -> {
-          try {
-            mediaPeriod.maybeThrowPrepareError();
-          } catch (Throwable e) {
-            prepareError.set(e);
-          }
-        });
-    assertThat(prepareError.get()).isNull();
+    // Call maybeThrowPrepareError() in a loop until preparation completes (preparation is not
+    // unblocked until the error is caught and suppressed inside maybeThrowPrepareError()). This
+    // mimics the behaviour of ExoPlayerImplInternal which calls maybeThrowPrepareError() on
+    // un-prepared MediaPeriods on every doSomeWork() iteration.
+    long startTime = SystemClock.elapsedRealtime();
+    do {
+      AtomicReference<Throwable> prepareError = new AtomicReference<>();
+      mediaSourceTestRunner.runOnPlaybackThread(
+          () -> {
+            try {
+              mediaPeriod.maybeThrowPrepareError();
+            } catch (Throwable e) {
+              prepareError.set(e);
+            }
+          });
+      assertThat(prepareError.get()).isNull();
+    } while (preparedLatch.getCount() > 0
+        && (SystemClock.elapsedRealtime() - startTime) < DEFAULT_TIMEOUT_MS);
     assertThat(preparedLatch.await(DEFAULT_TIMEOUT_MS, MILLISECONDS)).isTrue();
 
     mediaSourceTestRunner.releasePeriod(mediaPeriod);
