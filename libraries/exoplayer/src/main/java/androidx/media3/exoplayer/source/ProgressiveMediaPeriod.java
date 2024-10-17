@@ -447,6 +447,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     positionUs = seekMap.isSeekable() ? positionUs : 0;
 
     notifyDiscontinuity = false;
+    boolean isSameAsLastSeekPosition = lastSeekPositionUs == positionUs;
     lastSeekPositionUs = positionUs;
     if (isPendingReset()) {
       // A reset is already pending. We only need to update its position.
@@ -458,7 +459,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     // and seek within the existing buffer instead of restarting the load.
     if (dataType != C.DATA_TYPE_MEDIA_PROGRESSIVE_LIVE
         && (loadingFinished || loader.isLoading())
-        && seekInsideBufferUs(trackIsAudioVideoFlags, positionUs)) {
+        && seekInsideBufferUs(trackIsAudioVideoFlags, positionUs, isSameAsLastSeekPosition)) {
       return positionUs;
     }
 
@@ -927,12 +928,18 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    *
    * @param trackIsAudioVideoFlags Whether each track is audio/video.
    * @param positionUs The seek position in microseconds.
+   * @param isSameAsLastSeekPosition Whether new seek position is same as that last called with
+   *     {@link #seekToUs}.
    * @return Whether the in-buffer seek was successful.
    */
-  private boolean seekInsideBufferUs(boolean[] trackIsAudioVideoFlags, long positionUs) {
+  private boolean seekInsideBufferUs(
+      boolean[] trackIsAudioVideoFlags, long positionUs, boolean isSameAsLastSeekPosition) {
     int trackCount = sampleQueues.length;
     for (int i = 0; i < trackCount; i++) {
       SampleQueue sampleQueue = sampleQueues[i];
+      if (sampleQueue.getReadIndex() == 0 && isSameAsLastSeekPosition) {
+        continue;
+      }
       boolean seekInsideQueue =
           isSingleSample
               ? sampleQueue.seekTo(sampleQueue.getFirstIndex())
