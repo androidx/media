@@ -59,6 +59,12 @@
         The new
         `DefaultLoadControl.calculateTargetBufferBytes(ExoTrackSelection[])`
         should be used instead.
+    *   Report `MediaSourceEventListener` events from secondary sources in
+        `MergingMediaSource`. This will result in load
+        start/error/cancelled/completed events being reported for sideloaded
+        subtitles (those added with
+        `MediaItem.LocalConfiguration.subtitleConfigurations`), which may appear
+        as duplicate load events emitted from `AnalyticsListener`.
 *   Transformer:
     *   Make setting the image duration using
         `MediaItem.Builder.setImageDurationMs` mandatory for image export.
