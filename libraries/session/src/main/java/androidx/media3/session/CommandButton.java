@@ -571,11 +571,12 @@ public final class CommandButton {
     }
 
     /**
-     * Sets a content {@link Uri} for the icon of this button.
+     * Sets a {@linkplain ContentResolver#SCHEME_CONTENT content} or {@linkplain
+     * ContentResolver#SCHEME_ANDROID_RESOURCE resource} {@link Uri} for the icon of this button.
      *
      * <p>Note that this {@link Uri} may be used when the predefined {@link Icon} is not available
      * or set to {@link #ICON_UNDEFINED}. It can be used in addition to {@link #setCustomIconResId}
-     * for consumers that are capable of loading the content {@link Uri}.
+     * for consumers that are capable of loading the content or resource {@link Uri}.
      *
      * @param uri The uri to an icon.
      * @return This builder for chaining.
@@ -584,8 +585,9 @@ public final class CommandButton {
     @CanIgnoreReturnValue
     public Builder setIconUri(Uri uri) {
       checkArgument(
-          Objects.equal(uri.getScheme(), ContentResolver.SCHEME_CONTENT),
-          "Only content Uris are supported for CommandButton");
+          Objects.equal(uri.getScheme(), ContentResolver.SCHEME_CONTENT)
+              || Objects.equal(uri.getScheme(), ContentResolver.SCHEME_ANDROID_RESOURCE),
+          "Only content or resource Uris are supported for CommandButton");
       this.iconUri = uri;
       return this;
     }
@@ -711,11 +713,13 @@ public final class CommandButton {
   @DrawableRes public final int iconResId;
 
   /**
-   * The content {@link Uri} for the icon of the button that is used when the predefined {@link
-   * #icon} is not available or set to {@link #ICON_UNDEFINED}. Can be {@code null}.
+   * The {@linkplain ContentResolver#SCHEME_CONTENT content} or {@linkplain
+   * ContentResolver#SCHEME_ANDROID_RESOURCE resource} {@link Uri} for the icon of the button that
+   * is used when the predefined {@link #icon} is not available or set to {@link #ICON_UNDEFINED}.
+   * Can be {@code null}.
    *
    * <p>Note that this value can be used in addition to {@link #iconResId} for consumers that are
-   * capable of loading the content {@link Uri}.
+   * capable of loading the content or resource {@link Uri}.
    */
   @UnstableApi @Nullable public final Uri iconUri;
 
@@ -938,7 +942,9 @@ public final class CommandButton {
     if (playerCommand != Player.COMMAND_INVALID) {
       builder.setPlayerCommand(playerCommand);
     }
-    if (iconUri != null && Objects.equal(iconUri.getScheme(), ContentResolver.SCHEME_CONTENT)) {
+    if (iconUri != null
+        && (Objects.equal(iconUri.getScheme(), ContentResolver.SCHEME_CONTENT)
+            || Objects.equal(iconUri.getScheme(), ContentResolver.SCHEME_ANDROID_RESOURCE))) {
       builder.setIconUri(iconUri);
     }
     return builder
