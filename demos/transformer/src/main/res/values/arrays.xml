@@ -30,6 +30,7 @@
     <item>Custom Text Overlay</item>
     <item>Clock Overlay</item>
     <item>Confetti Overlay</item>
+    <item>Animated logo</item>
   </string-array>
   <string-array name="audio_effects_names">
     <item>High pitched</item>

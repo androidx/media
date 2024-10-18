@@ -654,6 +654,9 @@ public final class TransformerActivity extends AppCompatActivity {
     if (selectedEffects[ConfigurationActivity.CONFETTI_OVERLAY_INDEX]) {
       overlaysBuilder.add(new ConfettiOverlay());
     }
+    if (selectedEffects[ConfigurationActivity.ANIMATING_LOGO_OVERLAY]) {
+      overlaysBuilder.add(new AnimatedLogoOverlay(this.getApplicationContext()));
+    }
 
     ImmutableList<TextureOverlay> overlays = overlaysBuilder.build();
     return overlays.isEmpty() ? null : new OverlayEffect(overlays);

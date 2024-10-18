@@ -116,6 +116,7 @@ public final class ConfigurationActivity extends AppCompatActivity {
   public static final int TEXT_OVERLAY_INDEX = 12;
   public static final int CLOCK_OVERLAY_INDEX = 13;
   public static final int CONFETTI_OVERLAY_INDEX = 14;
+  public static final int ANIMATING_LOGO_OVERLAY = 15;
 
   // Audio effect selections.
   public static final int HIGH_PITCHED_INDEX = 0;
