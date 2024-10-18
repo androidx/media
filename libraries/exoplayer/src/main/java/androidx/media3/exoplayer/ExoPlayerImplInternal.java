@@ -495,7 +495,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
   @Override
   public void onPlaylistUpdateRequested() {
-    handler.removeMessages(MSG_DO_SOME_WORK);
     handler.sendEmptyMessage(MSG_PLAYLIST_UPDATE_REQUESTED);
   }
 
@@ -2121,7 +2120,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
         pendingInitialSeekPosition = null;
       }
       handleLoadingMediaPeriodChanged(/* loadingTrackSelectionChanged= */ false);
-      handler.sendEmptyMessage(MSG_DO_SOME_WORK);
     }
   }
 
