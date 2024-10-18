@@ -1879,7 +1879,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
         // The reselection did not change any prepared periods.
         return;
       }
-      newTrackSelectorResult = periodHolder.selectTracks(playbackSpeed, playbackInfo.timeline);
+      newTrackSelectorResult =
+          periodHolder.selectTracks(
+              playbackSpeed, playbackInfo.timeline, playbackInfo.playWhenReady);
       if (periodHolder == queue.getPlayingPeriod()) {
         newPlayingPeriodTrackSelectorResult = newTrackSelectorResult;
       }
@@ -2563,7 +2565,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
       if (preloadHolder != null) {
         checkState(!preloadHolder.prepared);
         preloadHolder.handlePrepared(
-            mediaClock.getPlaybackParameters().speed, playbackInfo.timeline);
+            mediaClock.getPlaybackParameters().speed,
+            playbackInfo.timeline,
+            playbackInfo.playWhenReady);
         if (queue.isPreloading(mediaPeriod)) {
           maybeContinuePreloading();
         }
@@ -2575,7 +2579,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
       throws ExoPlaybackException {
     if (!loadingPeriodHolder.prepared) {
       loadingPeriodHolder.handlePrepared(
-          mediaClock.getPlaybackParameters().speed, playbackInfo.timeline);
+          mediaClock.getPlaybackParameters().speed,
+          playbackInfo.timeline,
+          playbackInfo.playWhenReady);
     }
     updateLoadControlTrackSelection(
         loadingPeriodHolder.info.id,
