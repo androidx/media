@@ -28,6 +28,8 @@
     <item>Overlay logo and timer</item>
     <item>Custom Bitmap Overlay</item>
     <item>Custom Text Overlay</item>
+    <item>Clock Overlay</item>
+    <item>Confetti Overlay</item>
   </string-array>
   <string-array name="audio_effects_names">
     <item>High pitched</item>
