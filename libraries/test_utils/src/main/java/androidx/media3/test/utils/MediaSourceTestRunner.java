@@ -77,7 +77,7 @@ public class MediaSourceTestRunner {
   public MediaSourceTestRunner(MediaSource mediaSource) {
     this.mediaSource = mediaSource;
     this.allocator = new DefaultAllocator(true, C.DEFAULT_BUFFER_SEGMENT_SIZE);
-    playbackThread = new HandlerThread("TestHandler");
+    playbackThread = new HandlerThread("TestPlaybackThread");
     playbackThread.start();
     Looper playbackLooper = playbackThread.getLooper();
     playbackHandler = new Handler(playbackLooper);
