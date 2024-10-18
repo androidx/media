@@ -73,7 +73,7 @@ public abstract class TextureOverlay {
    * @param presentationTimeUs The presentation timestamp of the current frame, in microseconds.
    */
   public OverlaySettings getOverlaySettings(long presentationTimeUs) {
-    return new OverlaySettings.Builder().build();
+    return new OverlaySettings() {};
   }
 
   /**

@@ -43,7 +43,7 @@ public abstract class TextOverlay extends BitmapOverlay {
 
   /**
    * Creates a {@link TextOverlay} that shows the {@code overlayText} with the same default settings
-   * in {@link OverlaySettings} throughout the whole video.
+   * in {@link StaticOverlaySettings} throughout the whole video.
    */
   public static TextOverlay createStaticTextOverlay(SpannableString overlayText) {
     return new TextOverlay() {
@@ -56,14 +56,14 @@ public abstract class TextOverlay extends BitmapOverlay {
 
   /**
    * Creates a {@link TextOverlay} that shows the {@code overlayText} with the same {@link
-   * OverlaySettings} throughout the whole video.
+   * StaticOverlaySettings} throughout the whole video.
    *
    * @param overlayText The text to overlay on the video.
-   * @param overlaySettings The {@link OverlaySettings} configuring how the overlay is displayed on
-   *     the frames.
+   * @param overlaySettings The {@link StaticOverlaySettings} configuring how the overlay is
+   *     displayed on the frames.
    */
   public static TextOverlay createStaticTextOverlay(
-      SpannableString overlayText, OverlaySettings overlaySettings) {
+      SpannableString overlayText, StaticOverlaySettings overlaySettings) {
     return new TextOverlay() {
       @Override
       public SpannableString getText(long presentationTimeUs) {

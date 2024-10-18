@@ -21,6 +21,7 @@ import android.text.SpannableString;
 import android.text.style.ForegroundColorSpan;
 import androidx.media3.common.C;
 import androidx.media3.effect.OverlaySettings;
+import androidx.media3.effect.StaticOverlaySettings;
 import androidx.media3.effect.TextOverlay;
 import androidx.media3.effect.TextureOverlay;
 import java.util.Locale;
@@ -31,11 +32,11 @@ import java.util.Locale;
  */
 /* package */ final class TimerOverlay extends TextOverlay {
 
-  private final OverlaySettings overlaySettings;
+  private final StaticOverlaySettings overlaySettings;
 
   public TimerOverlay() {
     overlaySettings =
-        new OverlaySettings.Builder()
+        new StaticOverlaySettings.Builder()
             // Place the timer in the bottom left corner of the screen with some padding from the
             // edges.
             .setOverlayFrameAnchor(/* x= */ -1f, /* y= */ -1f)

@@ -71,13 +71,13 @@ import androidx.media3.effect.GlShaderProgram;
 import androidx.media3.effect.HslAdjustment;
 import androidx.media3.effect.LanczosResample;
 import androidx.media3.effect.OverlayEffect;
-import androidx.media3.effect.OverlaySettings;
 import androidx.media3.effect.Presentation;
 import androidx.media3.effect.RgbAdjustment;
 import androidx.media3.effect.RgbFilter;
 import androidx.media3.effect.RgbMatrix;
 import androidx.media3.effect.ScaleAndRotateTransformation;
 import androidx.media3.effect.SingleColorLut;
+import androidx.media3.effect.StaticOverlaySettings;
 import androidx.media3.effect.TextOverlay;
 import androidx.media3.effect.TextureOverlay;
 import androidx.media3.exoplayer.DefaultLoadControl;
@@ -599,8 +599,8 @@ public final class TransformerActivity extends AppCompatActivity {
   private OverlayEffect createOverlayEffectFromBundle(Bundle bundle, boolean[] selectedEffects) {
     ImmutableList.Builder<TextureOverlay> overlaysBuilder = new ImmutableList.Builder<>();
     if (selectedEffects[ConfigurationActivity.OVERLAY_LOGO_AND_TIMER_INDEX]) {
-      OverlaySettings logoSettings =
-          new OverlaySettings.Builder()
+      StaticOverlaySettings logoSettings =
+          new StaticOverlaySettings.Builder()
               // Place the logo in the bottom left corner of the screen with some padding from the
               // edges.
               .setOverlayFrameAnchor(/* x= */ -1f, /* y= */ -1f)
@@ -619,8 +619,8 @@ public final class TransformerActivity extends AppCompatActivity {
       overlaysBuilder.add(logoOverlay, timerOverlay);
     }
     if (selectedEffects[ConfigurationActivity.BITMAP_OVERLAY_INDEX]) {
-      OverlaySettings overlaySettings =
-          new OverlaySettings.Builder()
+      StaticOverlaySettings overlaySettings =
+          new StaticOverlaySettings.Builder()
               .setAlphaScale(
                   bundle.getFloat(
                       ConfigurationActivity.BITMAP_OVERLAY_ALPHA, /* defaultValue= */ 1))
@@ -633,8 +633,8 @@ public final class TransformerActivity extends AppCompatActivity {
       overlaysBuilder.add(bitmapOverlay);
     }
     if (selectedEffects[ConfigurationActivity.TEXT_OVERLAY_INDEX]) {
-      OverlaySettings overlaySettings =
-          new OverlaySettings.Builder()
+      StaticOverlaySettings overlaySettings =
+          new StaticOverlaySettings.Builder()
               .setAlphaScale(
                   bundle.getFloat(ConfigurationActivity.TEXT_OVERLAY_ALPHA, /* defaultValue= */ 1))
               .build();

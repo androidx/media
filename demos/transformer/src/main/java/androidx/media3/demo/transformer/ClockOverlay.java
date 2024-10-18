@@ -25,6 +25,7 @@ import android.graphics.PorterDuff;
 import android.graphics.RectF;
 import androidx.media3.effect.CanvasOverlay;
 import androidx.media3.effect.OverlaySettings;
+import androidx.media3.effect.StaticOverlaySettings;
 
 /* package */ final class ClockOverlay extends CanvasOverlay {
   private static final int CLOCK_COLOR = Color.WHITE;
@@ -96,7 +97,7 @@ import androidx.media3.effect.OverlaySettings;
 
   @Override
   public OverlaySettings getOverlaySettings(long presentationTimeUs) {
-    return new OverlaySettings.Builder()
+    return new StaticOverlaySettings.Builder()
         .setBackgroundFrameAnchor(
             BOTTOM_RIGHT_ANCHOR_X - ANCHOR_INSET_X, BOTTOM_RIGHT_ANCHOR_Y - ANCHOR_INSET_Y)
         .setOverlayFrameAnchor(BOTTOM_RIGHT_ANCHOR_X, BOTTOM_RIGHT_ANCHOR_Y)

@@ -24,6 +24,7 @@ import android.text.style.ForegroundColorSpan;
 import android.text.style.TypefaceSpan;
 import androidx.media3.effect.OverlayEffect;
 import androidx.media3.effect.OverlaySettings;
+import androidx.media3.effect.StaticOverlaySettings;
 import androidx.media3.effect.TextOverlay;
 import com.google.common.collect.ImmutableList;
 
@@ -74,7 +75,7 @@ import com.google.common.collect.ImmutableList;
 
     @Override
     public OverlaySettings getOverlaySettings(long presentationTimeUs) {
-      return new OverlaySettings.Builder().setBackgroundFrameAnchor(x, y).build();
+      return new StaticOverlaySettings.Builder().setBackgroundFrameAnchor(x, y).build();
     }
   }
 }

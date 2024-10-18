@@ -42,6 +42,7 @@ import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.effect.OverlaySettings;
 import androidx.media3.effect.Presentation;
 import androidx.media3.effect.ScaleAndRotateTransformation;
+import androidx.media3.effect.StaticOverlaySettings;
 import androidx.media3.effect.VideoCompositorSettings;
 import androidx.test.core.app.ApplicationProvider;
 import com.google.common.collect.ImmutableList;
@@ -190,13 +191,13 @@ public final class TransformerMultiSequenceCompositionTest {
           public OverlaySettings getOverlaySettings(int inputId, long presentationTimeUs) {
             if (inputId == 0) {
               // This tests all OverlaySettings builder variables.
-              return new OverlaySettings.Builder()
+              return new StaticOverlaySettings.Builder()
                   .setScale(.25f, .25f)
                   .setOverlayFrameAnchor(1, -1)
                   .setBackgroundFrameAnchor(.9f, -.7f)
                   .build();
             } else {
-              return new OverlaySettings.Builder().build();
+              return new StaticOverlaySettings.Builder().build();
             }
           }
         };

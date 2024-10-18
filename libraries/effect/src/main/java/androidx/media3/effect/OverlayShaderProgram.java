@@ -149,7 +149,7 @@ import java.io.IOException;
           } else if (hdrTypes[texUnitIndex - 1] == HDR_TYPE_TEXT) {
             float[] luminanceMatrix = GlUtil.create4x4IdentityMatrix();
             float multiplier =
-                overlay.getOverlaySettings(presentationTimeUs).hdrLuminanceMultiplier;
+                overlay.getOverlaySettings(presentationTimeUs).getHdrLuminanceMultiplier();
             Matrix.scaleM(luminanceMatrix, /* mOffset= */ 0, multiplier, multiplier, multiplier);
             glProgram.setFloatsUniform(
                 formatInvariant("uLuminanceMatrix%d", texUnitIndex), luminanceMatrix);
@@ -169,7 +169,7 @@ import java.io.IOException;
             formatInvariant("uTransformationMatrix%d", texUnitIndex),
             samplerOverlayMatrixProvider.getTransformationMatrix(overlaySize, overlaySettings));
         glProgram.setFloatUniform(
-            formatInvariant("uOverlayAlphaScale%d", texUnitIndex), overlaySettings.alphaScale);
+            formatInvariant("uOverlayAlphaScale%d", texUnitIndex), overlaySettings.getAlphaScale());
       }
 
       glProgram.setSamplerTexIdUniform("uVideoTexSampler0", inputTexId, /* texUnitIndex= */ 0);

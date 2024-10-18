@@ -45,7 +45,7 @@ public interface VideoCompositorSettings {
          */
         @Override
         public OverlaySettings getOverlaySettings(int inputId, long presentationTimeUs) {
-          return new OverlaySettings.Builder().build();
+          return new OverlaySettings() {};
         }
       };
 

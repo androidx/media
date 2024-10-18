@@ -71,14 +71,14 @@ public abstract class DrawableOverlay extends BitmapOverlay {
 
   /**
    * Creates a {@link DrawableOverlay} that shows the {@link Drawable} with the same {@link
-   * OverlaySettings} throughout the whole video.
+   * StaticOverlaySettings} throughout the whole video.
    *
    * @param drawable The {@link Drawable} to be displayed.
-   * @param overlaySettings The {@link OverlaySettings} configuring how the overlay is displayed on
-   *     the frames.
+   * @param overlaySettings The {@link StaticOverlaySettings} configuring how the overlay is
+   *     displayed on the frames.
    */
   public static DrawableOverlay createStaticDrawableOverlay(
-      Drawable drawable, OverlaySettings overlaySettings) {
+      Drawable drawable, StaticOverlaySettings overlaySettings) {
     return new DrawableOverlay() {
       @Override
       public Drawable getDrawable(long presentationTimeUs) {
