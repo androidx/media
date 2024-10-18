@@ -52,6 +52,7 @@ tmp
 
 # External native builds
 .externalNativeBuild
+.cxx
 
 # VP9 extension
 extensions/vp9/src/main/jni/libvpx
