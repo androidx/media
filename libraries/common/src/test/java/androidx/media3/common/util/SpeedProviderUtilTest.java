@@ -46,6 +46,6 @@ public class SpeedProviderUtilTest {
             /* startTimesUs= */ new long[] {0, 113}, /* speeds= */ new float[] {2, 1});
 
     assertThat(getDurationAfterSpeedProviderApplied(speedProvider, /* durationUs= */ 113))
-        .isEqualTo(57);
+        .isEqualTo(56);
   }
 }

@@ -15,8 +15,8 @@
  */
 package androidx.media3.common.util;
 
+import static java.lang.Math.floor;
 import static java.lang.Math.min;
-import static java.lang.Math.round;
 
 import androidx.media3.common.C;
 import androidx.media3.common.audio.SpeedProvider;
@@ -45,6 +45,7 @@ public class SpeedProviderUtil {
               / (double) speedProvider.getSpeed(speedChangeTimeUs);
       speedChangeTimeUs = nextSpeedChangeTimeUs;
     }
-    return round(outputDurationUs);
+    // Use floor to be consistent with Util#scaleLargeTimestamp().
+    return (long) floor(outputDurationUs);
   }
 }
