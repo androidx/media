@@ -593,8 +593,6 @@ public final class DashPlaybackTest {
             .setMediaSourceFactory(dashMediaSourceFactory)
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))
             .build();
-    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
-    player.setVideoSurface(surface);
 
     player.setMediaItem(MediaItem.fromUri("asset:///media/dash/standalone-webvtt/sample.mpd"));
     player.seekTo(50_000L);
@@ -602,7 +600,6 @@ public final class DashPlaybackTest {
     player.play();
     TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
     player.release();
-    surface.release();
 
     DecoderCounters decoderCounters = checkNotNull(player.getVideoDecoderCounters());
     assertThat(decoderCounters.skippedInputBufferCount).isEqualTo(13);
