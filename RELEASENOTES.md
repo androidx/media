@@ -140,7 +140,7 @@ This release includes the following changes since the
         was known as `Custom browse actions` with the legacy library with
         `MediaBrowserCompat`. Note that with Media3 command buttons for media
         items are available for both, `MediaBrowser` and `MediaController`. See
-        [Custom Browse actions of AAOS](https://developer.android.com/training/cars/media#custom_browse_actions)
+        [Custom Browse actions of AAOS](https://developer.android.com/training/cars/media#custom_browse_actions).
     *   Fix bug where a Media3 controller was sometimes unable to let a session
         app start a foreground service after requesting `play()`.
     *   Restrict `CommandButton.Builder.setIconUri` to only accept content Uris.
