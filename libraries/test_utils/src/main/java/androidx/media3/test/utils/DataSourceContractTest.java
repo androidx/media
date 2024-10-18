@@ -44,6 +44,7 @@ import androidx.media3.datasource.TransferListener;
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.errorprone.annotations.ForOverride;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
@@ -80,6 +81,7 @@ public abstract class DataSourceContractTest {
    * <p>Only one of {@link #createDataSource()} and {@link #createDataSources()} should be
    * implemented.
    */
+  @ForOverride
   protected DataSource createDataSource() throws Exception {
     throw new UnsupportedOperationException();
   }
@@ -90,6 +92,7 @@ public abstract class DataSourceContractTest {
    * <p>Only one of {@link #createDataSource()} and {@link #createDataSources()} should be
    * implemented.
    */
+  @ForOverride
   protected List<DataSource> createDataSources() throws Exception {
     throw new UnsupportedOperationException();
   }
@@ -100,6 +103,7 @@ public abstract class DataSourceContractTest {
    * same {@link DataSource} then {@code null} can be returned.
    */
   @Nullable
+  @ForOverride
   protected DataSource getTransferListenerDataSource() {
     return null;
   }
@@ -108,6 +112,7 @@ public abstract class DataSourceContractTest {
    * Returns whether the {@link DataSource} will continue reading indefinitely for unbounded {@link
    * DataSpec DataSpecs}.
    */
+  @ForOverride
   protected boolean unboundedReadsAreIndefinite() {
     return false;
   }
@@ -121,6 +126,7 @@ public abstract class DataSourceContractTest {
    * <p>If multiple resources are returned, it's recommended to disambiguate them using {@link
    * TestResource.Builder#setName(String)}.
    */
+  @ForOverride
   protected abstract ImmutableList<TestResource> getTestResources() throws Exception;
 
   /**
@@ -128,6 +134,7 @@ public abstract class DataSourceContractTest {
    *
    * <p>This is used to test how a {@link DataSource} handles nonexistent data.
    */
+  @ForOverride
   protected abstract Uri getNotFoundUri();
 
   @Test
