@@ -85,7 +85,7 @@ import java.util.List;
 
   private final boolean playIfSuppressed;
   @Nullable private LegacyError legacyError;
-  @Nullable private Bundle legacyExtras;
+  private Bundle legacyExtras;
   private ImmutableList<CommandButton> customLayout;
   private ImmutableList<CommandButton> mediaButtonPreferences;
   private SessionCommands availableSessionCommands;
@@ -98,7 +98,7 @@ import java.util.List;
       ImmutableList<CommandButton> mediaButtonPreferences,
       SessionCommands availableSessionCommands,
       Commands availablePlayerCommands,
-      @Nullable Bundle legacyExtras) {
+      Bundle legacyExtras) {
     super(player);
     this.playIfSuppressed = playIfSuppressed;
     this.customLayout = customLayout;
@@ -138,15 +138,12 @@ import java.util.List;
     return mediaButtonPreferences;
   }
 
-  public void setLegacyExtras(@Nullable Bundle extras) {
-    if (extras != null) {
-      checkArgument(!extras.containsKey(EXTRAS_KEY_PLAYBACK_SPEED_COMPAT));
-      checkArgument(!extras.containsKey(EXTRAS_KEY_MEDIA_ID_COMPAT));
-    }
+  public void setLegacyExtras(Bundle extras) {
+    checkArgument(!extras.containsKey(EXTRAS_KEY_PLAYBACK_SPEED_COMPAT));
+    checkArgument(!extras.containsKey(EXTRAS_KEY_MEDIA_ID_COMPAT));
     this.legacyExtras = extras;
   }
 
-  @Nullable
   public Bundle getLegacyExtras() {
     return legacyExtras;
   }
@@ -1020,9 +1017,7 @@ import java.util.List;
     LegacyError legacyError = this.legacyError;
     if (legacyError != null && legacyError.isFatal) {
       Bundle extras = new Bundle(legacyError.extras);
-      if (legacyExtras != null) {
-        extras.putAll(legacyExtras);
-      }
+      extras.putAll(legacyExtras);
       return new PlaybackStateCompat.Builder()
           .setState(
               PlaybackStateCompat.STATE_ERROR,
@@ -1052,9 +1047,7 @@ import java.util.List;
     float playbackSpeed = getPlaybackParameters().speed;
     float sessionPlaybackSpeed = isPlaying() ? playbackSpeed : 0f;
     Bundle extras = legacyError != null ? new Bundle(legacyError.extras) : new Bundle();
-    if (legacyExtras != null && !legacyExtras.isEmpty()) {
-      extras.putAll(legacyExtras);
-    }
+    extras.putAll(legacyExtras);
     extras.putFloat(EXTRAS_KEY_PLAYBACK_SPEED_COMPAT, playbackSpeed);
     @Nullable MediaItem currentMediaItem = getCurrentMediaItemWithCommandCheck();
     if (currentMediaItem != null && !MediaItem.DEFAULT_MEDIA_ID.equals(currentMediaItem.mediaId)) {
