@@ -205,6 +205,7 @@ public final class RtpPacket {
     byte version = (byte) (firstByte >> 6);
     boolean padding = ((firstByte >> 5) & 0x1) == 1;
     byte csrcCount = (byte) (firstByte & 0xF);
+    boolean hasExtension = ((firstByte & 0x10) >> 4) == 1;
 
     if (version != RTP_VERSION) {
       return null;
@@ -231,6 +232,16 @@ public final class RtpPacket {
       }
     } else {
       csrc = EMPTY;
+    }
+
+    //Extension.
+    if (hasExtension) {
+      int headerExtensionProfileData = packetBuffer.readShort();
+      int headerExtensionPayloadLength = packetBuffer.readShort();
+      if (headerExtensionPayloadLength != 0) {
+        byte[] extensionPayload = new byte[headerExtensionPayloadLength * 4];
+        packetBuffer.readBytes(extensionPayload, 0, headerExtensionPayloadLength * 4);
+      }
     }
 
     // Everything else will be RTP payload.
