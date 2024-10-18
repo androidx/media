@@ -1,6 +1,11 @@
 # Release notes
 
-### Unreleased changes
+## 1.5
+
+### 1.5.0-beta01 (2024-10-30)
+
+This release includes the following changes since the
+[1.5.0-alpha01 release](#150-2024-09-06):
 
 *   Common Library:
     *   Remove `@DoNotInline` annotations from manually out-of-lined inner
@@ -21,9 +26,6 @@
     *   Fix `MediaCodec.CryptoException` sometimes being reported as an
         "unexpected runtime error" when `MediaCodec` is operated in asynchronous
         mode (default behaviour on API 31+).
-    *   Deprecated `MediaCodecUtil.getCodecProfileAndLevel`. Use
-        `androidx.media3.common.util.CodecSpecificDataUtil.getCodecProfileAndLevel`
-        instead.
     *   Pass `bufferedDurationUs` instead of `bufferedPositionUs` with
         `PreloadMediaSource.PreloadControl.onContinueLoadingRequested()`. Also
         changes `DefaultPreloadManager.Status.STAGE_LOADED_TO_POSITION_MS` to
@@ -96,7 +98,6 @@
         ([#1792](https://github.com/androidx/media/issues/1792)).
     *   Handle out-of-order frames in `endIndices` calculation for MP4 with edit
         list ([#1797](https://github.com/androidx/media/issues/1797)).
-*   DataSource:
 *   Audio:
     *   Fix pop sounds that may occur during seeks.
     *   Fix truncation error accumulation for Sonic's
@@ -117,14 +118,10 @@
 *   Metadata:
     *   Assign the `C.TRACK_TYPE_METADATA` type to tracks containing icy or
         vnd.dvb.ait content.
-*   Image:
-*   DataSource:
 *   DRM:
     *   Fix `IllegalStateException` from
         `DefaultDrmSession.requiresSecureDecoder` after opening a DRM session
         failed. This issue was introduced in `1.5.0-alpha01`.
-*   Effect:
-*   Muxers:
 *   IMA extension:
     *   Fix bug where server-side inserted DAI streams without a preroll can
         result in an `ArrayIndexOutOfBoundsException` when playing past the last
@@ -143,8 +140,7 @@
         was known as `Custom browse actions` with the legacy library with
         `MediaBrowserCompat`. Note that with Media3 command buttons for media
         items are available for both, `MediaBrowser` and `MediaController`. See
-        <a href="https://developer.android.com/training/cars/media#custom_browse_actions">Custom
-        Browse actions of AAOS</a>.
+        [Custom Browse actions of AAOS](https://developer.android.com/training/cars/media#custom_browse_actions)
     *   Fix bug where a Media3 controller was sometimes unable to let a session
         app start a foreground service after requesting `play()`.
     *   Restrict `CommandButton.Builder.setIconUri` to only accept content Uris.
@@ -173,12 +169,6 @@
         [#184](https://github.com/androidx/media/issues/184)).
     *   Fix bug where the "None" choice in the text selection is not working if
         there are app-defined text track selection preferences.
-*   Downloads:
-*   OkHttp Extension:
-*   Cronet Extension:
-*   RTMP Extension:
-*   HLS Extension:
-*   DASH Extension:
 *   Smooth Streaming Extension:
     *   Fix a `Bad magic number for Bundle` error when playing SmoothStreaming
         streams with text tracks
@@ -189,8 +179,6 @@
 *   Decoder Extensions (FFmpeg, VP9, AV1, etc.):
     *   Add 16 KB page support for decoder extensions on Android 15
         ([#1685](https://github.com/androidx/media/issues/1685)).
-*   MIDI extension:
-*   Leanback extension:
 *   Cast Extension:
     *   Stop cleaning the timeline after the CastSession disconnects, which
         enables the sender app to resume playback locally after a disconnection.
@@ -198,13 +186,9 @@
         enables linking the `MediaSession` to a `RoutingSession`, which is
         necessary for integrating Output Switcher
         ([#1056](https://github.com/androidx/media/issues/1056)).
-*   Test Utilities:
-*   Demo app:
 *   Remove deprecated symbols:
     *   Remove deprecated `DefaultEncoderFactory` constructors. Use
         `DefaultEncoderFactory.Builder` instead.
-
-## 1.5
 
 ### 1.5.0-alpha01 (2024-09-06)
 
