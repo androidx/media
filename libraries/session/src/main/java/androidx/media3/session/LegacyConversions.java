@@ -621,7 +621,8 @@ import java.util.concurrent.TimeoutException;
         getFirstString(
             metadataCompat,
             MediaMetadataCompat.METADATA_KEY_DISPLAY_ICON_URI,
-            MediaMetadataCompat.METADATA_KEY_ALBUM_ART_URI);
+            MediaMetadataCompat.METADATA_KEY_ALBUM_ART_URI,
+            MediaMetadataCompat.METADATA_KEY_ART_URI);
     if (artworkUriString != null) {
       builder.setArtworkUri(Uri.parse(artworkUriString));
     }
@@ -631,7 +632,8 @@ import java.util.concurrent.TimeoutException;
         getFirstBitmap(
             metadataCompat,
             MediaMetadataCompat.METADATA_KEY_DISPLAY_ICON,
-            MediaMetadataCompat.METADATA_KEY_ALBUM_ART);
+            MediaMetadataCompat.METADATA_KEY_ALBUM_ART,
+            MediaMetadataCompat.METADATA_KEY_ART);
     if (artworkBitmap != null) {
       try {
         byte[] artworkData = convertToByteArray(artworkBitmap);
@@ -752,6 +754,7 @@ import java.util.concurrent.TimeoutException;
           MediaMetadataCompat.METADATA_KEY_DISPLAY_ICON_URI, metadata.artworkUri.toString());
       builder.putString(
           MediaMetadataCompat.METADATA_KEY_ALBUM_ART_URI, metadata.artworkUri.toString());
+      builder.putString(MediaMetadataCompat.METADATA_KEY_ART_URI, metadata.artworkUri.toString());
     }
 
     if (artworkBitmap != null) {
