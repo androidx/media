@@ -421,7 +421,8 @@ public class ExoPlayerTest {
       throws Exception {
     Timeline timeline = new FakeTimeline(/* windowCount= */ 1);
     ExoPlayer player = parameterizeTestExoPlayerBuilder(new TestExoPlayerBuilder(context)).build();
-    player.setVideoSurface(new Surface(new SurfaceTexture(/* texName= */ 0)));
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 0));
+    player.setVideoSurface(surface);
     Player.Listener mockPlayerListener = mock(Player.Listener.class);
     player.addListener(mockPlayerListener);
     AnalyticsListener mockAnalyticsListener = mock(AnalyticsListener.class);
@@ -451,6 +452,7 @@ public class ExoPlayerTest {
     runUntilPlaybackState(player, Player.STATE_ENDED);
     videoSizesFromGetter.add(player.getVideoSize());
     player.release();
+    surface.release();
     ShadowLooper.runMainLooperToNextTask();
 
     InOrder playerListenerOrder = inOrder(mockPlayerListener);

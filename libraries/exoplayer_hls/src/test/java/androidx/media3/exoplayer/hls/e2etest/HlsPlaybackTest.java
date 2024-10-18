@@ -68,7 +68,8 @@ public final class HlsPlaybackTest {
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))
             .build();
-    player.setVideoSurface(new Surface(new SurfaceTexture(/* texName= */ 1)));
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
     PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
 
     player.setMediaItem(
@@ -77,6 +78,7 @@ public final class HlsPlaybackTest {
     player.play();
     TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
     player.release();
+    surface.release();
 
     DumpFileAsserts.assertOutput(
         applicationContext, playbackOutput, "playbackdumps/hls/standalone-webvtt.dump");
@@ -166,7 +168,8 @@ public final class HlsPlaybackTest {
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))
             .build();
-    player.setVideoSurface(new Surface(new SurfaceTexture(/* texName= */ 1)));
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
     PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
 
     player.setMediaItem(
@@ -175,6 +178,7 @@ public final class HlsPlaybackTest {
     player.play();
     TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
     player.release();
+    surface.release();
 
     DumpFileAsserts.assertOutput(
         applicationContext, playbackOutput, "playbackdumps/hls/ttml-in-mp4.dump");
@@ -272,7 +276,8 @@ public final class HlsPlaybackTest {
                     .experimentalParseSubtitlesDuringExtraction(false))
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))
             .build();
-    player.setVideoSurface(new Surface(new SurfaceTexture(/* texName= */ 1)));
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
     PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
 
     player.setMediaItem(MediaItem.fromUri("asset:///media/hls/cea608/manifest.m3u8"));
@@ -280,6 +285,7 @@ public final class HlsPlaybackTest {
     player.play();
     TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
     player.release();
+    surface.release();
 
     DumpFileAsserts.assertOutput(
         applicationContext, playbackOutput, "playbackdumps/hls/cea608.dump");
@@ -304,7 +310,8 @@ public final class HlsPlaybackTest {
                     .experimentalParseSubtitlesDuringExtraction(true))
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))
             .build();
-    player.setVideoSurface(new Surface(new SurfaceTexture(/* texName= */ 1)));
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
     PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
 
     player.setMediaItem(MediaItem.fromUri("asset:///media/hls/cea608/manifest.m3u8"));
@@ -312,6 +319,7 @@ public final class HlsPlaybackTest {
     player.play();
     TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
     player.release();
+    surface.release();
 
     DumpFileAsserts.assertOutput(
         applicationContext, playbackOutput, "playbackdumps/hls/cea608.dump");
@@ -332,7 +340,8 @@ public final class HlsPlaybackTest {
                         /* backBufferDurationMs= */ 10000, /* retainBackBufferFromKeyframe= */ true)
                     .build())
             .build();
-    player.setVideoSurface(new Surface(new SurfaceTexture(/* texName= */ 1)));
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
     PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
     // Play media fully (with back buffer) to ensure we have all the segment data available.
     player.setMediaItem(MediaItem.fromUri("asset:///media/hls/multi-segment/playlist.m3u8"));
@@ -346,6 +355,7 @@ public final class HlsPlaybackTest {
     player.play();
     TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
     player.release();
+    surface.release();
 
     // Output only starts at 550ms (the first sample in the second segment)
     DumpFileAsserts.assertOutput(

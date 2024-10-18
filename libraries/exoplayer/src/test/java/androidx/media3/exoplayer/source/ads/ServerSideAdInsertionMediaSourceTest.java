@@ -411,7 +411,8 @@ public final class ServerSideAdInsertionMediaSourceTest {
         new ExoPlayer.Builder(context, renderersFactory)
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))
             .build();
-    player.setVideoSurface(new Surface(new SurfaceTexture(/* texName= */ 1)));
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
     PlaybackOutput playbackOutput = PlaybackOutput.register(player, renderersFactory);
 
     AdPlaybackState adPlaybackState = new AdPlaybackState(/* adsId= */ new Object());
@@ -458,6 +459,7 @@ public final class ServerSideAdInsertionMediaSourceTest {
     player.play();
     runUntilPlaybackState(player, Player.STATE_ENDED);
     player.release();
+    surface.release();
 
     // Assert all samples have been played.
     DumpFileAsserts.assertOutput(
@@ -484,7 +486,8 @@ public final class ServerSideAdInsertionMediaSourceTest {
         new ExoPlayer.Builder(context, renderersFactory)
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))
             .build();
-    player.setVideoSurface(new Surface(new SurfaceTexture(/* texName= */ 1)));
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
     PlaybackOutput playbackOutput = PlaybackOutput.register(player, renderersFactory);
 
     AdPlaybackState firstAdPlaybackState =
@@ -535,6 +538,7 @@ public final class ServerSideAdInsertionMediaSourceTest {
     player.play();
     runUntilPlaybackState(player, Player.STATE_ENDED);
     player.release();
+    surface.release();
 
     // Assert all samples have been played.
     DumpFileAsserts.assertOutput(
@@ -563,7 +567,8 @@ public final class ServerSideAdInsertionMediaSourceTest {
         new ExoPlayer.Builder(context, renderersFactory)
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))
             .build();
-    player.setVideoSurface(new Surface(new SurfaceTexture(/* texName= */ 1)));
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
     PlaybackOutput playbackOutput = PlaybackOutput.register(player, renderersFactory);
 
     AdPlaybackState firstAdPlaybackState =
@@ -614,6 +619,7 @@ public final class ServerSideAdInsertionMediaSourceTest {
     player.play();
     runUntilPlaybackState(player, Player.STATE_ENDED);
     player.release();
+    surface.release();
 
     // Assert all samples have been played.
     DumpFileAsserts.assertOutput(
@@ -637,7 +643,8 @@ public final class ServerSideAdInsertionMediaSourceTest {
     Context context = ApplicationProvider.getApplicationContext();
     ExoPlayer player =
         new ExoPlayer.Builder(context).setClock(new FakeClock(/* isAutoAdvancing= */ true)).build();
-    player.setVideoSurface(new Surface(new SurfaceTexture(/* texName= */ 1)));
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
 
     AdPlaybackState adPlaybackState = new AdPlaybackState(/* adsId= */ new Object());
     adPlaybackState =
@@ -689,6 +696,7 @@ public final class ServerSideAdInsertionMediaSourceTest {
     player.play();
     runUntilPlaybackState(player, Player.STATE_ENDED);
     player.release();
+    surface.release();
 
     // Assert playback has been reported with ads: [ad0][content] seek [ad1][content][ad2][content]
     // 6*2(audio+video) format changes, 4 auto-transitions between parts, 1 seek with adjustment.

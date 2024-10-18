@@ -75,7 +75,8 @@ public final class DashPlaybackTest {
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))
             .build();
-    player.setVideoSurface(new Surface(new SurfaceTexture(/* texName= */ 1)));
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
     PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
 
     // Ensure the subtitle track is selected.
@@ -87,6 +88,7 @@ public final class DashPlaybackTest {
     player.play();
     TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
     player.release();
+    surface.release();
 
     DumpFileAsserts.assertOutput(
         applicationContext, playbackOutput, "playbackdumps/dash/standalone-webvtt.dump");
@@ -183,7 +185,8 @@ public final class DashPlaybackTest {
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))
             .build();
-    player.setVideoSurface(new Surface(new SurfaceTexture(/* texName= */ 1)));
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
     PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
 
     // Ensure the subtitle track is selected.
@@ -195,6 +198,7 @@ public final class DashPlaybackTest {
     player.play();
     TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
     player.release();
+    surface.release();
 
     DumpFileAsserts.assertOutput(
         applicationContext, playbackOutput, "playbackdumps/dash/standalone-ttml.dump");
@@ -210,7 +214,8 @@ public final class DashPlaybackTest {
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))
             .build();
-    player.setVideoSurface(new Surface(new SurfaceTexture(/* texName= */ 1)));
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
     PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
 
     // Ensure the subtitle track is selected.
@@ -222,6 +227,7 @@ public final class DashPlaybackTest {
     player.play();
     TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
     player.release();
+    surface.release();
 
     DumpFileAsserts.assertOutput(
         applicationContext, playbackOutput, "playbackdumps/dash/webvtt-in-mp4.dump");
@@ -236,7 +242,8 @@ public final class DashPlaybackTest {
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))
             .build();
-    player.setVideoSurface(new Surface(new SurfaceTexture(/* texName= */ 1)));
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
     PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
 
     // Ensure the subtitle track is selected.
@@ -248,6 +255,7 @@ public final class DashPlaybackTest {
     player.play();
     TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
     player.release();
+    surface.release();
 
     DumpFileAsserts.assertOutput(
         applicationContext, playbackOutput, "playbackdumps/dash/ttml-in-mp4.dump");
@@ -351,7 +359,8 @@ public final class DashPlaybackTest {
                     .experimentalParseSubtitlesDuringExtraction(false))
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))
             .build();
-    player.setVideoSurface(new Surface(new SurfaceTexture(/* texName= */ 1)));
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
     PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
 
     // Ensure the subtitle track is selected.
@@ -363,6 +372,7 @@ public final class DashPlaybackTest {
     player.play();
     TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
     player.release();
+    surface.release();
 
     DumpFileAsserts.assertOutput(
         applicationContext, playbackOutput, "playbackdumps/dash/cea608.dump");
@@ -387,7 +397,8 @@ public final class DashPlaybackTest {
                     .experimentalParseSubtitlesDuringExtraction(true))
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))
             .build();
-    player.setVideoSurface(new Surface(new SurfaceTexture(/* texName= */ 1)));
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
     PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
 
     // Ensure the subtitle track is selected.
@@ -399,6 +410,7 @@ public final class DashPlaybackTest {
     player.play();
     TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
     player.release();
+    surface.release();
 
     DumpFileAsserts.assertOutput(
         applicationContext, playbackOutput, "playbackdumps/dash/cea608.dump");
@@ -414,7 +426,8 @@ public final class DashPlaybackTest {
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))
             .build();
-    player.setVideoSurface(new Surface(new SurfaceTexture(/* texName= */ 1)));
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
     PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
 
     player.setMediaItem(MediaItem.fromUri("asset:///media/dash/emsg/sample.mpd"));
@@ -422,6 +435,7 @@ public final class DashPlaybackTest {
     player.play();
     TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
     player.release();
+    surface.release();
 
     DumpFileAsserts.assertOutput(
         applicationContext, playbackOutput, "playbackdumps/dash/emsg.dump");
@@ -441,7 +455,8 @@ public final class DashPlaybackTest {
         new ExoPlayer.Builder(applicationContext, renderersFactory)
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))
             .build();
-    player.setVideoSurface(new Surface(new SurfaceTexture(/* texName= */ 1)));
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
     CapturingRenderersFactory capturingRenderersFactory =
         new CapturingRenderersFactory(applicationContext);
     PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
@@ -451,6 +466,7 @@ public final class DashPlaybackTest {
     player.play();
     TestPlayerRunHelper.playUntilPosition(player, /* mediaItemIndex= */ 0, /* positionMs= */ 500);
     player.release();
+    surface.release();
 
     // Ensure output contains metadata up to the playback position.
     DumpFileAsserts.assertOutput(
@@ -477,7 +493,8 @@ public final class DashPlaybackTest {
         new ExoPlayer.Builder(applicationContext, renderersFactory)
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))
             .build();
-    player.setVideoSurface(new Surface(new SurfaceTexture(/* texName= */ 1)));
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
     CapturingRenderersFactory capturingRenderersFactory =
         new CapturingRenderersFactory(applicationContext);
     PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
@@ -487,6 +504,7 @@ public final class DashPlaybackTest {
     player.play();
     TestPlayerRunHelper.playUntilPosition(player, /* mediaItemIndex= */ 0, /* positionMs= */ 500);
     player.release();
+    surface.release();
 
     // Ensure output contains all metadata irrespective of the playback position.
     DumpFileAsserts.assertOutput(
@@ -617,7 +635,8 @@ public final class DashPlaybackTest {
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))
             .build();
-    player.setVideoSurface(new Surface(new SurfaceTexture(/* texName= */ 1)));
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
     PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
 
     player.setMediaItem(
@@ -626,6 +645,7 @@ public final class DashPlaybackTest {
     player.play();
     TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
     player.release();
+    surface.release();
 
     DumpFileAsserts.assertOutput(
         applicationContext, playbackOutput, "playbackdumps/dash/multi-period-with-offset.dump");
