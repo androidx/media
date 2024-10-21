@@ -37,6 +37,11 @@ public class ForwardingTrackOutput implements TrackOutput {
   }
 
   @Override
+  public void durationUs(long durationUs) {
+    trackOutput.durationUs(durationUs);
+  }
+
+  @Override
   public void format(Format format) {
     trackOutput.format(format);
   }

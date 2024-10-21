@@ -147,6 +147,13 @@ public interface TrackOutput {
   int SAMPLE_DATA_PART_SUPPLEMENTAL = 2;
 
   /**
+   * Called to set the duration of the track in microseconds.
+   *
+   * @param durationUs The duration of the track in microseconds.
+   */
+  default void durationUs(long durationUs) {}
+
+  /**
    * Called when the {@link Format} of the track has been extracted from the stream.
    *
    * @param format The extracted {@link Format}.
