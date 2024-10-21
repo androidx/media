@@ -16174,6 +16174,79 @@ public class ExoPlayerTest {
     assertThat(deviceVolumeChanged.get()).isFalse();
   }
 
+  @Test
+  public void playWhenReadyChanges_areForwardedToTrackSelection() throws Exception {
+    ArrayList<Boolean> reportedPlayWhenReadyChanges = new ArrayList<>();
+    ArrayList<Boolean> playWhenReadyStatesInTrackSelector = new ArrayList<>();
+    ExoPlayer player =
+        new TestExoPlayerBuilder(context)
+            .setTrackSelector(
+                new FakeTrackSelector(
+                    new FakeTrackSelector.FakeTrackSelectionFactory(
+                        /* mayReuseTrackSelection= */ false) {
+                      @Override
+                      protected ExoTrackSelection createTrackSelection(TrackGroup trackGroup) {
+                        return new FakeTrackSelection(trackGroup) {
+                          @Override
+                          public void onPlayWhenReadyChanged(boolean playWhenReady) {
+                            super.onPlayWhenReadyChanged(playWhenReady);
+                            reportedPlayWhenReadyChanges.add(playWhenReady);
+                            playWhenReadyStatesInTrackSelector.add(getPlayWhenReady());
+                          }
+                        };
+                      }
+                    }))
+            .build();
+    player.setMediaSource(
+        new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT));
+
+    player.setPlayWhenReady(true);
+    player.prepare();
+    run(player).untilState(Player.STATE_READY);
+    player.setPlayWhenReady(false);
+    player.setPlayWhenReady(true);
+    run(player).untilPendingCommandsAreFullyHandled();
+    player.release();
+
+    assertThat(reportedPlayWhenReadyChanges).containsExactly(true, false, true).inOrder();
+    assertThat(playWhenReadyStatesInTrackSelector).containsExactly(true, false, true).inOrder();
+  }
+
+  @Test
+  public void playbackSpeedChanges_areForwardedToTrackSelection() throws Exception {
+    ArrayList<Float> reportedSpeedChanges = new ArrayList<>();
+    ExoPlayer player =
+        new TestExoPlayerBuilder(context)
+            .setTrackSelector(
+                new FakeTrackSelector(
+                    new FakeTrackSelector.FakeTrackSelectionFactory(
+                        /* mayReuseTrackSelection= */ false) {
+                      @Override
+                      protected ExoTrackSelection createTrackSelection(TrackGroup trackGroup) {
+                        return new FakeTrackSelection(trackGroup) {
+                          @Override
+                          public void onPlaybackSpeed(float playbackSpeed) {
+                            super.onPlaybackSpeed(playbackSpeed);
+                            reportedSpeedChanges.add(playbackSpeed);
+                          }
+                        };
+                      }
+                    }))
+            .build();
+    player.setMediaSource(
+        new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT));
+
+    player.setPlaybackSpeed(2f);
+    player.prepare();
+    run(player).untilState(Player.STATE_READY);
+    player.setPlaybackSpeed(1.5f);
+    player.setPlaybackSpeed(1f);
+    run(player).untilPendingCommandsAreFullyHandled();
+    player.release();
+
+    assertThat(reportedSpeedChanges).containsExactly(2f, 1.5f, 1f).inOrder();
+  }
+
   // Internal methods.
 
   private void addWatchAsSystemFeature() {
