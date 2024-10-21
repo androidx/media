@@ -5,7 +5,7 @@
 ## 1.5.0-rc01 (2024-11-13)
 
 This release includes the following changes since the
-[1.5.0-beta01 release](#150-2024-10-30):
+[1.5.0-beta01 release](#150-beta01-2024-10-30):
 
 *   Extractors:
     *   Fix media duration parsing in `mdhd` box of MP4 files to handle `-1`
@@ -27,7 +27,7 @@ This release includes the following changes since the
 ### 1.5.0-beta01 (2024-10-30)
 
 This release includes the following changes since the
-[1.5.0-alpha01 release](#150-2024-09-06):
+[1.5.0-alpha01 release](#150-alpha01-2024-09-06):
 
 *   Common Library:
     *   Remove `@DoNotInline` annotations from manually out-of-lined inner
