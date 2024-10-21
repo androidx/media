@@ -1,5 +1,44 @@
 # Release notes
 
+### Unreleased changes
+
+*   Common Library:
+*   ExoPlayer:
+*   Transformer:
+*   Extractors:
+    *   Fix media duration parsing in `mdhd` box of MP4 files to handle `-1`
+        values ([#1819](https://github.com/androidx/media/issues/1819)).
+*   DataSource:
+    *   `DataSourceContractTest`: Assert that `DataSource.getUri()` returns the
+        resolved URI (as documented). Where this is different to the requested
+        URI, tests can indicate this using the new
+        `DataSourceContractTest.TestResource.Builder.setResolvedUri()` method.
+*   Audio:
+*   Video:
+*   Text:
+*   Metadata:
+*   Image:
+*   DRM:
+*   Effect:
+*   Muxers:
+*   IMA extension:
+*   UI:
+*   Downloads:
+*   OkHttp Extension:
+*   Cronet Extension:
+*   RTMP Extension:
+*   HLS Extension:
+*   DASH Extension:
+*   Smooth Streaming Extension:
+*   RTSP Extension:
+*   Decoder Extensions (FFmpeg, VP9, AV1, etc.):
+*   MIDI extension:
+*   Leanback extension:
+*   Cast Extension:
+*   Test Utilities:
+*   Demo app:
+*   Remove deprecated symbols:
+
 ## 1.5
 
 ### 1.5.0-beta01 (2024-10-30)
@@ -122,6 +161,11 @@ This release includes the following changes since the
     *   Fix `IllegalStateException` from
         `DefaultDrmSession.requiresSecureDecoder` after opening a DRM session
         failed. This issue was introduced in `1.5.0-alpha01`.
+*   Effect:
+    *   Moved the functionality of `OverlaySettings` into
+        `StaticOverlaySettings`. `OverlaySettings` can be subclassed to allow
+        dynamic overlay settings.
+*   Muxers:
 *   IMA extension:
     *   Fix bug where server-side inserted DAI streams without a preroll can
         result in an `ArrayIndexOutOfBoundsException` when playing past the last
