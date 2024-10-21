@@ -45,6 +45,8 @@
 *   Test Utilities:
 *   Demo app:
 *   Remove deprecated symbols:
+    *   Remove deprecated `AudioMixer.create()` method. Use
+        `DefaultAudioMixer.Factory().create()` instead.
 
 ## 1.5
 

@@ -60,16 +60,6 @@ public interface AudioMixer {
   }
 
   /**
-   * @deprecated Use {@link DefaultAudioMixer.Factory#create()}.
-   */
-  @Deprecated
-  static AudioMixer create() {
-    return new DefaultAudioMixer.Factory(
-            /* outputSilenceWithNoSources= */ true, /* clipFloatOutput= */ true)
-        .create();
-  }
-
-  /**
    * Configures the mixer.
    *
    * <p>The mixer must be configured before use and can only be reconfigured after a call to {@link
