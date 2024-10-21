@@ -9,6 +9,7 @@ numberOfTracks = 1
 track 0:
   total output bytes = 1536
   sample count = 1
+  track duration = 288333
   format 0:
     averageBitrate = 384000
     peakBitrate = 384000

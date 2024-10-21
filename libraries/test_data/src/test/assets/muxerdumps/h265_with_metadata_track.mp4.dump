@@ -9,6 +9,7 @@ numberOfTracks = 3
 track 0:
   total output bytes = 387
   sample count = 3
+  track duration = 100100
   format 0:
     id = 1
     sampleMimeType = application/meta
@@ -29,6 +30,7 @@ track 0:
 track 1:
   total output bytes = 1726
   sample count = 3
+  track duration = 80700
   format 0:
     averageBitrate = 192000
     peakBitrate = 192000
@@ -57,6 +59,7 @@ track 1:
 track 2:
   total output bytes = 678996
   sample count = 3
+  track duration = 100100
   format 0:
     id = 3
     sampleMimeType = video/hevc

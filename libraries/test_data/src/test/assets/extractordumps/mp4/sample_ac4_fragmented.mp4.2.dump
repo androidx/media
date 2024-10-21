@@ -9,6 +9,7 @@ numberOfTracks = 1
 track 0:
   total output bytes = 3081
   sample count = 7
+  track duration = 760000
   format 0:
     id = 1
     sampleMimeType = audio/ac4

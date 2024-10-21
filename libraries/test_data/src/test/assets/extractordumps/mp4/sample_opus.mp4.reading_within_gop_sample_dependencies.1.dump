@@ -9,6 +9,7 @@ numberOfTracks = 1
 track 0:
   total output bytes = 3504
   sample count = 52
+  track duration = 1460000
   format 0:
     id = 1
     sampleMimeType = audio/opus

@@ -9,6 +9,7 @@ numberOfTracks = 2
 track 0:
   total output bytes = 7944083
   sample count = 127
+  track duration = 4236600
   format 0:
     id = 1
     sampleMimeType = video/hevc
@@ -538,6 +539,7 @@ track 0:
 track 1:
   total output bytes = 133209
   sample count = 195
+  track duration = 4159900
   format 0:
     averageBitrate = 256000
     peakBitrate = 256000

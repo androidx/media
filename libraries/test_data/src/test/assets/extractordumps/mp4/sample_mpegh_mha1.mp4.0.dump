@@ -9,6 +9,7 @@ numberOfTracks = 1
 track 0:
   total output bytes = 104853
   sample count = 58
+  track duration = 1168020
   format 0:
     id = 1
     sampleMimeType = audio/mha1

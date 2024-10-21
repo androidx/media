@@ -9,6 +9,7 @@ numberOfTracks = 1
 track 0:
   total output bytes = 22430
   sample count = 84
+  track duration = 499875
   format 0:
     id = 1
     sampleMimeType = audio/iamf

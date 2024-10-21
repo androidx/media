@@ -9,6 +9,7 @@ numberOfTracks = 2
 track 0:
   total output bytes = 85933
   sample count = 30
+  track duration = 1068000
   format 0:
     id = 1
     sampleMimeType = video/avc
@@ -145,6 +146,7 @@ track 0:
 track 1:
   total output bytes = 10
   sample count = 1
+  track duration = 1068000
   format 0:
     averageBitrate = 136736
     peakBitrate = 145976

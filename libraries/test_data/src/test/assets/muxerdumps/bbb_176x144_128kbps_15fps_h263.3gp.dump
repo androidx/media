@@ -9,6 +9,7 @@ numberOfTracks = 1
 track 0:
   total output bytes = 50100
   sample count = 15
+  track duration = 1000000
   format 0:
     id = 1
     sampleMimeType = video/3gpp

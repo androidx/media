@@ -9,6 +9,7 @@ numberOfTracks = 1
 track 0:
   total output bytes = 22738
   sample count = 8
+  track duration = 418333
   format 0:
     id = 1
     sampleMimeType = audio/true-hd

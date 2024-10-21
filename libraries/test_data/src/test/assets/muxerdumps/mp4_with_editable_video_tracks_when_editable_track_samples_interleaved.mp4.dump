@@ -9,6 +9,7 @@ numberOfTracks = 2
 track 0:
   total output bytes = 280
   sample count = 5
+  track duration = 0
   format 0:
     id = 1
     sampleMimeType = video/avc
@@ -50,6 +51,7 @@ track 0:
 track 1:
   total output bytes = 280
   sample count = 5
+  track duration = 0
   format 0:
     id = 2
     sampleMimeType = video/avc

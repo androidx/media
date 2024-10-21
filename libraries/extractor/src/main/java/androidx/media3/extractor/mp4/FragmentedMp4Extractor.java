@@ -690,11 +690,11 @@ public class FragmentedMp4Extractor implements Extractor {
       for (int i = 0; i < trackCount; i++) {
         TrackSampleTable sampleTable = sampleTables.get(i);
         Track track = sampleTable.track;
+        TrackOutput output = extractorOutput.track(i, track.type);
+        output.durationUs(track.durationUs);
         TrackBundle trackBundle =
             new TrackBundle(
-                extractorOutput.track(i, track.type),
-                sampleTable,
-                getDefaultSampleValues(defaultSampleValuesArray, track.id));
+                output, sampleTable, getDefaultSampleValues(defaultSampleValuesArray, track.id));
         trackBundles.put(track.id, trackBundle);
         durationUs = max(durationUs, track.durationUs);
       }

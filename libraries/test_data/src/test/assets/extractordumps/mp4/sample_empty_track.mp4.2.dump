@@ -9,6 +9,7 @@ numberOfTracks = 2
 track 0:
   total output bytes = 301392
   sample count = 30
+  track duration = 967600
   format 0:
     id = 1
     sampleMimeType = video/avc
@@ -151,6 +152,7 @@ track 0:
 track 1:
   total output bytes = 3776
   sample count = 17
+  track duration = 1065600
   format 0:
     id = 3
     sampleMimeType = audio/mp4a-latm

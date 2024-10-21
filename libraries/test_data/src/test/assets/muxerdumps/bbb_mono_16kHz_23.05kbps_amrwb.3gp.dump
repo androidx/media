@@ -9,6 +9,7 @@ numberOfTracks = 1
 track 0:
   total output bytes = 8850
   sample count = 150
+  track duration = 3000000
   format 0:
     id = 1
     sampleMimeType = audio/amr-wb

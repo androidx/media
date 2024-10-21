@@ -9,6 +9,7 @@ numberOfTracks = 1
 track 0:
   total output bytes = 4832
   sample count = 151
+  track duration = 3020000
   format 0:
     id = 1
     sampleMimeType = audio/3gpp

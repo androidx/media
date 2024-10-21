@@ -9,6 +9,7 @@ numberOfTracks = 1
 track 0:
   total output bytes = 378802
   sample count = 90
+  track duration = 3000000
   format 0:
     id = 1
     sampleMimeType = video/x-vnd.on2.vp9

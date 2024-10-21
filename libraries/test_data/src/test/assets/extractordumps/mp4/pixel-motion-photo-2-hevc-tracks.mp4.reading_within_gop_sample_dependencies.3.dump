@@ -9,6 +9,7 @@ numberOfTracks = 4
 track 0:
   total output bytes = 209513
   sample count = 2
+  track duration = 2100700
   format 0:
     id = 1
     sampleMimeType = video/hevc
@@ -39,6 +40,7 @@ track 0:
 track 1:
   total output bytes = 151315
   sample count = 1
+  track duration = 466800
   format 0:
     id = 2
     sampleMimeType = video/hevc
@@ -65,6 +67,7 @@ track 1:
 track 2:
   total output bytes = 450
   sample count = 1
+  track duration = 2100700
   format 0:
     id = 3
     sampleMimeType = application/microvideo-meta-stream
@@ -77,6 +80,7 @@ track 2:
 track 3:
   total output bytes = 59
   sample count = 1
+  track duration = 1133700
   format 0:
     id = 4
     sampleMimeType = application/motionphoto-image-meta

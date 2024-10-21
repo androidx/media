@@ -9,6 +9,7 @@ numberOfTracks = 1
 track 0:
   total output bytes = 942
   sample count = 30
+  track duration = 1000000
   format 0:
     id = 1
     sampleMimeType = video/av01
