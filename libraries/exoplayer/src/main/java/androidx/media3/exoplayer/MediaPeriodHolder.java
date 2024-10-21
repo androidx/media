@@ -203,12 +203,14 @@ import java.io.IOException;
    *
    * @param playbackSpeed The current factor by which playback is sped up.
    * @param timeline The current {@link Timeline}.
+   * @param playWhenReady The current value of whether playback should proceed when ready.
    * @throws ExoPlaybackException If an error occurs during track selection.
    */
-  public void handlePrepared(float playbackSpeed, Timeline timeline) throws ExoPlaybackException {
+  public void handlePrepared(float playbackSpeed, Timeline timeline, boolean playWhenReady)
+      throws ExoPlaybackException {
     prepared = true;
     trackGroups = mediaPeriod.getTrackGroups();
-    TrackSelectorResult selectorResult = selectTracks(playbackSpeed, timeline);
+    TrackSelectorResult selectorResult = selectTracks(playbackSpeed, timeline, playWhenReady);
     long requestedStartPositionUs = info.startPositionUs;
     if (info.durationUs != C.TIME_UNSET && requestedStartPositionUs >= info.durationUs) {
       // Make sure start position doesn't exceed period duration.
@@ -254,11 +256,12 @@ import java.io.IOException;
    *
    * @param playbackSpeed The current factor by which playback is sped up.
    * @param timeline The current {@link Timeline}.
+   * @param playWhenReady The current value of whether playback should proceed when ready.
    * @return The {@link TrackSelectorResult}.
    * @throws ExoPlaybackException If an error occurs during track selection.
    */
-  public TrackSelectorResult selectTracks(float playbackSpeed, Timeline timeline)
-      throws ExoPlaybackException {
+  public TrackSelectorResult selectTracks(
+      float playbackSpeed, Timeline timeline, boolean playWhenReady) throws ExoPlaybackException {
     TrackSelectorResult selectorResult =
         trackSelector.selectTracks(rendererCapabilities, getTrackGroups(), info.id, timeline);
     for (int i = 0; i < selectorResult.length; i++) {
@@ -273,6 +276,7 @@ import java.io.IOException;
     for (ExoTrackSelection trackSelection : selectorResult.selections) {
       if (trackSelection != null) {
         trackSelection.onPlaybackSpeed(playbackSpeed);
+        trackSelection.onPlayWhenReadyChanged(playWhenReady);
       }
     }
     return selectorResult;

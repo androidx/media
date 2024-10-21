@@ -33,7 +33,7 @@ import java.util.List;
  * of calls to its methods.
  */
 @UnstableApi
-public final class FakeTrackSelection extends BaseTrackSelection {
+public class FakeTrackSelection extends BaseTrackSelection {
 
   private final TrackGroup rendererTrackGroup;
   private final int selectedIndex;
