@@ -23,6 +23,7 @@ import static androidx.media3.transformer.ExportResult.CONVERSION_PROCESS_NA;
 import static androidx.media3.transformer.ExportResult.CONVERSION_PROCESS_TRANSMUXED;
 import static androidx.media3.transformer.ExportResult.OPTIMIZATION_ABANDONED_KEYFRAME_PLACEMENT_OPTIMAL_FOR_TRIM;
 import static androidx.media3.transformer.ExportResult.OPTIMIZATION_FAILED_EXTRACTION_FAILED;
+import static androidx.media3.transformer.ExportResult.OPTIMIZATION_NONE;
 import static androidx.media3.transformer.TestUtil.ASSET_URI_PREFIX;
 import static androidx.media3.transformer.TestUtil.FILE_AUDIO_AMR_NB;
 import static androidx.media3.transformer.TestUtil.FILE_AUDIO_AMR_WB;
@@ -216,7 +217,7 @@ public final class MediaItemExportTest {
   }
 
   @Test
-  public void start_trimOptimizationEnabled_clippingConfigurationUnset_outputMatchesOriginal()
+  public void start_trimOptimizationEnabled_clippingConfigurationUnset_doesNotOptimize()
       throws Exception {
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ false);
     Transformer transformer =
@@ -231,50 +232,7 @@ public final class MediaItemExportTest {
     transformer.start(mediaItem, outputDir.newFile().getPath());
     ExportResult result = TransformerTestRunner.runLooper(transformer);
 
-    assertThat(result.optimizationResult)
-        .isEqualTo(OPTIMIZATION_ABANDONED_KEYFRAME_PLACEMENT_OPTIMAL_FOR_TRIM);
-    // Asserts against file generated when experimentalSetTrimOptimizationEnabled is set to false.
-    DumpFileAsserts.assertOutput(
-        context,
-        muxerFactory.getCreatedMuxer(),
-        getDumpFileName(/* originalFileName= */ FILE_AUDIO_VIDEO_INCREASING_TIMESTAMPS_15S));
-    assertThat(result.videoConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSMUXED);
-    assertThat(result.audioConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSMUXED);
-  }
-
-  @Test
-  public void
-      start_trimOptimizationEnabled_clippingConfigurationUnsetAndRotated_outputMatchesOriginalRotated()
-          throws Exception {
-    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ false);
-
-    Transformer transformer =
-        createTransformerBuilder(muxerFactory, /* enableFallback= */ false)
-            .experimentalSetTrimOptimizationEnabled(true)
-            .build();
-    MediaItem mediaItem =
-        new MediaItem.Builder()
-            .setUri(ASSET_URI_PREFIX + FILE_AUDIO_VIDEO_INCREASING_TIMESTAMPS_15S)
-            .build();
-    ImmutableList<Effect> videoEffects =
-        ImmutableList.of(
-            new ScaleAndRotateTransformation.Builder().setRotationDegrees(180).build());
-    Effects effects = new Effects(/* audioProcessors= */ ImmutableList.of(), videoEffects);
-    EditedMediaItem editedMediaItem =
-        new EditedMediaItem.Builder(mediaItem).setEffects(effects).build();
-
-    transformer.start(editedMediaItem, outputDir.newFile().getPath());
-    ExportResult exportResult = TransformerTestRunner.runLooper(transformer);
-
-    assertThat(exportResult.optimizationResult)
-        .isEqualTo(OPTIMIZATION_ABANDONED_KEYFRAME_PLACEMENT_OPTIMAL_FOR_TRIM);
-    // Asserts against file generated when experimentalSetTrimOptimizationEnabled is set to false.
-    DumpFileAsserts.assertOutput(
-        context,
-        muxerFactory.getCreatedMuxer(),
-        getDumpFileName(
-            /* originalFileName= */ FILE_AUDIO_VIDEO_INCREASING_TIMESTAMPS_15S,
-            /* modifications...= */ "rotated"));
+    assertThat(result.optimizationResult).isEqualTo(OPTIMIZATION_NONE);
   }
 
   @Test

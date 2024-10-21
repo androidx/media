@@ -1084,7 +1084,9 @@ public final class Transformer {
   public void start(Composition composition, String path) {
     verifyApplicationThread();
     initialize(composition, path);
-    if (!trimOptimizationEnabled || isMultiAsset()) {
+    if (shouldOptimizeForTrimming()) {
+      processMediaBeforeFirstSyncSampleAfterTrimStartTime();
+    } else {
       startInternal(
           composition,
           new MuxerWrapper(
@@ -1098,8 +1100,6 @@ public final class Transformer {
           componentListener,
           /* initialTimestampOffsetUs= */ 0,
           /* useDefaultAssetLoaderFactory= */ false);
-    } else {
-      processMediaBeforeFirstSyncSampleAfterTrimStartTime();
     }
   }
 
@@ -1223,6 +1223,26 @@ public final class Transformer {
     return transformerInternal == null
         ? PROGRESS_STATE_NOT_STARTED
         : transformerInternal.getProgress(progressHolder);
+  }
+
+  private boolean shouldOptimizeForTrimming() {
+    if (isMultiAsset()) {
+      return false;
+    }
+
+    MediaItem.ClippingConfiguration clippingConfiguration =
+        checkNotNull(composition)
+            .sequences
+            .get(0)
+            .editedMediaItems
+            .get(0)
+            .mediaItem
+            .clippingConfiguration;
+    if (clippingConfiguration.equals(MediaItem.ClippingConfiguration.UNSET)) {
+      return false;
+    }
+
+    return trimOptimizationEnabled;
   }
 
   private boolean isExportResumed() {
