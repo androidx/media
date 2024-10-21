@@ -49,9 +49,6 @@ public final class SntpClient {
   /** The default maximum time, in milliseconds, to wait for the SNTP request to complete. */
   public static final int DEFAULT_TIMEOUT_MS = 1_000;
 
-  /** Max time to allow before re-initializing with NTP server, default is 10 minutes */
-  private static final long MAX_ELAPSED_MS_TILL_UPDATE = 60 * 10 * 1_000L;
-
   /** Callback for calls to {@link #initialize(Loader, InitializationCallback)}. */
   public interface InitializationCallback {
 
@@ -100,6 +97,9 @@ public final class SntpClient {
   private static int timeoutMs = DEFAULT_TIMEOUT_MS;
 
   @GuardedBy("valueLock")
+  private static long maxElapsedTimeUntilUpdateMs = C.TIME_UNSET;
+
+  @GuardedBy("valueLock")
   private static long lastUpdateElapsedRealtime = C.TIME_UNSET;
 
   private SntpClient() {}
@@ -126,7 +126,6 @@ public final class SntpClient {
       if (!SntpClient.ntpHost.equals(ntpHost)) {
         SntpClient.ntpHost = ntpHost;
         isInitialized = false;
-        lastUpdateElapsedRealtime = C.TIME_UNSET;
       }
     }
   }
@@ -156,6 +155,24 @@ public final class SntpClient {
   }
 
   /**
+   * Sets the maximum time to elapse until the client is re-initialized, in milliseconds.
+   *
+   * <p>The default is {@link C#TIME_UNSET} to never re-initialize.
+   */
+  public static void setMaxElapsedTimeUntilUpdateMs(long maxElapsedTimeUntilUpdateMs) {
+    synchronized (valueLock) {
+      SntpClient.maxElapsedTimeUntilUpdateMs = maxElapsedTimeUntilUpdateMs;
+    }
+  }
+
+  /** Returns the maximum time to elapse until the client is re-initialized, in milliseconds. */
+  public static long getMaxElapsedTimeUntilUpdateMs() {
+    synchronized (valueLock) {
+      return maxElapsedTimeUntilUpdateMs;
+    }
+  }
+
+  /**
    * Returns whether the device time offset has already been loaded.
    *
    * <p>If {@code false}, use {@link #initialize(Loader, InitializationCallback)} to start the
@@ -163,9 +180,10 @@ public final class SntpClient {
    */
   public static boolean isInitialized() {
     synchronized (valueLock) {
-      if (lastUpdateElapsedRealtime != C.TIME_UNSET) {
+      if (lastUpdateElapsedRealtime != C.TIME_UNSET
+          && maxElapsedTimeUntilUpdateMs != C.TIME_UNSET) {
         long deltaLastUpdate = SystemClock.elapsedRealtime() - lastUpdateElapsedRealtime;
-        isInitialized = isInitialized && deltaLastUpdate < MAX_ELAPSED_MS_TILL_UPDATE;
+        isInitialized = isInitialized && deltaLastUpdate < maxElapsedTimeUntilUpdateMs;
       }
       return isInitialized;
     }
