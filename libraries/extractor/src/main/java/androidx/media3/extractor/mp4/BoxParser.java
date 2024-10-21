@@ -958,14 +958,28 @@ public final class BoxParser {
     int version = parseFullBoxVersion(fullAtom);
     mdhd.skipBytes(version == 0 ? 8 : 16);
     long timescale = mdhd.readUnsignedInt();
-    long mediaDuration = version == 0 ? mdhd.readUnsignedInt() : mdhd.readUnsignedLongToLong();
+    boolean mediaDurationUnknown = true;
+    int mediaDurationPosition = mdhd.getPosition();
+    int mediaDurationByteCount = version == 0 ? 4 : 8;
+    for (int i = 0; i < mediaDurationByteCount; i++) {
+      if (mdhd.getData()[mediaDurationPosition + i] != -1) {
+        mediaDurationUnknown = false;
+        break;
+      }
+    }
     long mediaDurationUs;
-    if (mediaDuration == 0) {
-      // 0 duration normally indicates that the file is fully fragmented (i.e. all of the media
-      // samples are in fragments). Treat as unknown.
+    if (mediaDurationUnknown) {
+      mdhd.skipBytes(mediaDurationByteCount);
       mediaDurationUs = C.TIME_UNSET;
     } else {
-      mediaDurationUs = Util.scaleLargeTimestamp(mediaDuration, C.MICROS_PER_SECOND, timescale);
+      long mediaDuration = version == 0 ? mdhd.readUnsignedInt() : mdhd.readUnsignedLongToLong();
+      if (mediaDuration == 0) {
+        // 0 duration normally indicates that the file is fully fragmented (i.e. all of the media
+        // samples are in fragments). Treat as unknown.
+        mediaDurationUs = C.TIME_UNSET;
+      } else {
+        mediaDurationUs = Util.scaleLargeTimestamp(mediaDuration, C.MICROS_PER_SECOND, timescale);
+      }
     }
     int languageCode = mdhd.readUnsignedShort();
     String language =
