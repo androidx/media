@@ -93,8 +93,13 @@ public class HttpDataSourceTestEnv extends ExternalResource {
             "range not supported, length unknown", RANGE_NOT_SUPPORTED_LENGTH_UNKNOWN),
         createTestResource("gzip enabled", GZIP_ENABLED),
         createTestResource("gzip forced", GZIP_FORCED),
-        createTestResource(
-            "302 redirect", REDIRECTS_TO_RANGE_SUPPORTED, /* server= */ redirectionServer));
+        new DataSourceContractTest.TestResource.Builder()
+            .setName("302 redirect")
+            .setUri(
+                Uri.parse(redirectionServer.url(REDIRECTS_TO_RANGE_SUPPORTED.getPath()).toString()))
+            .setResolvedUri(originServer.url(RANGE_SUPPORTED.getPath()).toString())
+            .setExpectedBytes(REDIRECTS_TO_RANGE_SUPPORTED.getData())
+            .build());
   }
 
   public String getNonexistentUrl() {
@@ -142,14 +147,9 @@ public class HttpDataSourceTestEnv extends ExternalResource {
 
   private DataSourceContractTest.TestResource createTestResource(
       String name, WebServerDispatcher.Resource resource) {
-    return createTestResource(name, resource, originServer);
-  }
-
-  private static DataSourceContractTest.TestResource createTestResource(
-      String name, WebServerDispatcher.Resource resource, MockWebServer server) {
     return new DataSourceContractTest.TestResource.Builder()
         .setName(name)
-        .setUri(Uri.parse(server.url(resource.getPath()).toString()))
+        .setUri(Uri.parse(originServer.url(resource.getPath()).toString()))
         .setExpectedBytes(resource.getData())
         .build();
   }

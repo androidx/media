@@ -51,6 +51,7 @@ public class ResolvingDataSourceContractTest extends DataSourceContractTest {
         new TestResource.Builder()
             .setName("simple")
             .setUri(URI)
+            .setResolvedUri(RESOLVED_URI)
             .setExpectedBytes(simpleData)
             .build());
   }

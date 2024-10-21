@@ -6,6 +6,10 @@
 *   ExoPlayer:
 *   Transformer:
 *   DataSource:
+    *   `DataSourceContractTest`: Assert that `DataSource.getUri()` returns the
+        resolved URI (as documented). Where this is different to the requested
+        URI, tests can indicate this using the new
+        `DataSourceContractTest.TestResource.Builder.setResolvedUri()` method.
 *   Audio:
 *   Video:
 *   Text:

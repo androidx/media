@@ -540,7 +540,7 @@ public abstract class DataSourceContractTest {
   }
 
   @Test
-  public void getUri_returnsNonNullValueOnlyWhileOpen() throws Exception {
+  public void getUri_returnsExpectedValueOnlyWhileOpen() throws Exception {
     forAllTestResourcesAndDataSources(
         (resource, dataSource) -> {
           try {
@@ -548,7 +548,7 @@ public abstract class DataSourceContractTest {
 
             dataSource.open(new DataSpec(resource.getUri()));
 
-            assertThat(dataSource.getUri()).isNotNull();
+            assertThat(dataSource.getUri()).isEqualTo(resource.getResolvedUri());
           } finally {
             dataSource.close();
           }
@@ -740,11 +740,13 @@ public abstract class DataSourceContractTest {
 
     @Nullable private final String name;
     private final Uri uri;
+    private final Uri resolvedUri;
     private final byte[] expectedBytes;
 
-    private TestResource(@Nullable String name, Uri uri, byte[] expectedBytes) {
+    private TestResource(@Nullable String name, Uri uri, Uri resolvedUri, byte[] expectedBytes) {
       this.name = name;
       this.uri = uri;
+      this.resolvedUri = resolvedUri;
       this.expectedBytes = expectedBytes;
     }
 
@@ -754,9 +756,17 @@ public abstract class DataSourceContractTest {
       return name;
     }
 
-    /** Returns the URI where the resource is available. */
+    /** Returns the URI where the resource should be requested from. */
     public Uri getUri() {
       return uri;
+    }
+
+    /**
+     * Returns the URI where the resource is served from. This is equal to {@link #getUri()} unless
+     * redirection occurred when opening the resource.
+     */
+    public Uri getResolvedUri() {
+      return resolvedUri;
     }
 
     /** Returns the expected contents of this resource. */
@@ -768,6 +778,7 @@ public abstract class DataSourceContractTest {
     public static final class Builder {
       private @MonotonicNonNull String name;
       private @MonotonicNonNull Uri uri;
+      private @MonotonicNonNull Uri resolvedUri;
       private byte @MonotonicNonNull [] expectedBytes;
 
       /**
@@ -779,16 +790,35 @@ public abstract class DataSourceContractTest {
         return this;
       }
 
-      /** Sets the URI where this resource is located. */
+      /** Sets the URI where this resource should be requested from. */
       @CanIgnoreReturnValue
       public Builder setUri(String uri) {
         return setUri(Uri.parse(uri));
       }
 
-      /** Sets the URI where this resource is located. */
+      /** Sets the URI where this resource should be requested from. */
       @CanIgnoreReturnValue
       public Builder setUri(Uri uri) {
         this.uri = uri;
+        return this;
+      }
+
+      /**
+       * Sets the URI where this resource is served from. This only needs to be explicitly set if
+       * it's different to {@link #setUri(Uri)}. See {@link #getResolvedUri()}.
+       */
+      @CanIgnoreReturnValue
+      public Builder setResolvedUri(String uri) {
+        return setResolvedUri(Uri.parse(uri));
+      }
+
+      /**
+       * Sets the URI where this resource is served from. This only needs to be explicitly set if
+       * it's different to {@link #setUri(Uri)}. See {@link #getResolvedUri()}.
+       */
+      @CanIgnoreReturnValue
+      public Builder setResolvedUri(Uri uri) {
+        this.resolvedUri = uri;
         return this;
       }
 
@@ -805,7 +835,11 @@ public abstract class DataSourceContractTest {
       }
 
       public TestResource build() {
-        return new TestResource(name, checkNotNull(uri), checkNotNull(expectedBytes));
+        return new TestResource(
+            name,
+            checkNotNull(uri),
+            resolvedUri != null ? resolvedUri : uri,
+            checkNotNull(expectedBytes));
       }
     }
   }
