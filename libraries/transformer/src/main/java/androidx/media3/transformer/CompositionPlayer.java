@@ -1155,13 +1155,18 @@ public final class CompositionPlayer extends SimpleBasePlayer
         MappedTrackInfo mappedTrackInfo,
         @RendererCapabilities.Capabilities int[][][] rendererFormatSupports,
         @RendererCapabilities.AdaptiveSupport int[] mixedMimeTypeSupports,
-        Parameters params)
+        Parameters params,
+        @Nullable String selectedAudioLanguage)
         throws ExoPlaybackException {
       if (disableVideoPlayback) {
         return null;
       }
       return super.selectVideoTrack(
-          mappedTrackInfo, rendererFormatSupports, mixedMimeTypeSupports, params);
+          mappedTrackInfo,
+          rendererFormatSupports,
+          mixedMimeTypeSupports,
+          params,
+          selectedAudioLanguage);
     }
 
     @Nullable

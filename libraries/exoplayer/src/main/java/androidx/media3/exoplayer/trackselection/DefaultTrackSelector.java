@@ -343,6 +343,20 @@ public class DefaultTrackSelector extends MappingTrackSelector
       return this;
     }
 
+    @CanIgnoreReturnValue
+    @Override
+    public ParametersBuilder setPreferredVideoLanguage(@Nullable String preferredVideoLanguage) {
+      super.setPreferredVideoLanguage(preferredVideoLanguage);
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    @Override
+    public ParametersBuilder setPreferredVideoLanguages(String... preferredVideoLanguages) {
+      super.setPreferredVideoLanguages(preferredVideoLanguages);
+      return this;
+    }
+
     @SuppressWarnings("deprecation") // Intentionally returning deprecated type
     @CanIgnoreReturnValue
     @Override
@@ -1150,6 +1164,20 @@ public class DefaultTrackSelector extends MappingTrackSelector
       @Override
       public Builder setPreferredVideoMimeTypes(String... mimeTypes) {
         super.setPreferredVideoMimeTypes(mimeTypes);
+        return this;
+      }
+
+      @CanIgnoreReturnValue
+      @Override
+      public Builder setPreferredVideoLanguage(@Nullable String preferredVideoLanguage) {
+        super.setPreferredVideoLanguage(preferredVideoLanguage);
+        return this;
+      }
+
+      @CanIgnoreReturnValue
+      @Override
+      public Builder setPreferredVideoLanguages(String... preferredVideoLanguages) {
+        super.setPreferredVideoLanguages(preferredVideoLanguages);
         return this;
       }
 
@@ -2664,12 +2692,29 @@ public class DefaultTrackSelector extends MappingTrackSelector
         new ExoTrackSelection.Definition[rendererCount];
 
     @Nullable
+    Pair<ExoTrackSelection.Definition, Integer> selectedAudio =
+        selectAudioTrack(
+            mappedTrackInfo,
+            rendererFormatSupports,
+            rendererMixedMimeTypeAdaptationSupports,
+            params);
+    if (selectedAudio != null) {
+      definitions[selectedAudio.second] = selectedAudio.first;
+    }
+    @Nullable
+    String selectedAudioLanguage =
+        selectedAudio == null
+            ? null
+            : selectedAudio.first.group.getFormat(selectedAudio.first.tracks[0]).language;
+
+    @Nullable
     Pair<ExoTrackSelection.Definition, Integer> selectedVideo =
         selectVideoTrack(
             mappedTrackInfo,
             rendererFormatSupports,
             rendererMixedMimeTypeAdaptationSupports,
-            params);
+            params,
+            selectedAudioLanguage);
 
     @Nullable
     Pair<ExoTrackSelection.Definition, Integer> selectedImage =
@@ -2683,22 +2728,6 @@ public class DefaultTrackSelector extends MappingTrackSelector
       definitions[selectedVideo.second] = selectedVideo.first;
     }
 
-    @Nullable
-    Pair<ExoTrackSelection.Definition, Integer> selectedAudio =
-        selectAudioTrack(
-            mappedTrackInfo,
-            rendererFormatSupports,
-            rendererMixedMimeTypeAdaptationSupports,
-            params);
-    if (selectedAudio != null) {
-      definitions[selectedAudio.second] = selectedAudio.first;
-    }
-
-    @Nullable
-    String selectedAudioLanguage =
-        selectedAudio == null
-            ? null
-            : selectedAudio.first.group.getFormat(selectedAudio.first.tracks[0]).language;
     @Nullable
     Pair<ExoTrackSelection.Definition, Integer> selectedText =
         selectTextTrack(mappedTrackInfo, rendererFormatSupports, params, selectedAudioLanguage);
@@ -2732,6 +2761,8 @@ public class DefaultTrackSelector extends MappingTrackSelector
    * @param mixedMimeTypeSupports The {@link AdaptiveSupport} for mixed MIME type adaptation for the
    *     renderer.
    * @param params The selector's current constraint parameters.
+   * @param selectedAudioLanguage The language of the selected audio track. May be null if the
+   *     selected audio track declares no language or no audio track was selected.
    * @return A pair of the selected {@link ExoTrackSelection.Definition} and the corresponding
    *     renderer index, or null if no selection was made.
    * @throws ExoPlaybackException If an error occurs while selecting the tracks.
@@ -2741,7 +2772,8 @@ public class DefaultTrackSelector extends MappingTrackSelector
       MappedTrackInfo mappedTrackInfo,
       @Capabilities int[][][] rendererFormatSupports,
       @AdaptiveSupport int[] mixedMimeTypeSupports,
-      Parameters params)
+      Parameters params,
+      @Nullable String selectedAudioLanguage)
       throws ExoPlaybackException {
     if (params.audioOffloadPreferences.audioOffloadMode == AUDIO_OFFLOAD_MODE_REQUIRED) {
       return null;
@@ -2752,7 +2784,12 @@ public class DefaultTrackSelector extends MappingTrackSelector
         rendererFormatSupports,
         (int rendererIndex, TrackGroup group, @Capabilities int[] support) ->
             VideoTrackInfo.createForTrackGroup(
-                rendererIndex, group, params, support, mixedMimeTypeSupports[rendererIndex]),
+                rendererIndex,
+                group,
+                params,
+                support,
+                selectedAudioLanguage,
+                mixedMimeTypeSupports[rendererIndex]),
         VideoTrackInfo::compareSelections);
   }
 
@@ -3486,6 +3523,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
         TrackGroup trackGroup,
         Parameters params,
         @Capabilities int[] formatSupport,
+        @Nullable String selectedAudioLanguage,
         @AdaptiveSupport int mixedMimeTypeAdaptationSupport) {
       int maxPixelsToRetainForViewport =
           getMaxVideoPixelsToRetainForViewport(
@@ -3506,6 +3544,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
                 /* trackIndex= */ i,
                 params,
                 formatSupport[i],
+                selectedAudioLanguage,
                 mixedMimeTypeAdaptationSupport,
                 isSuitableForViewport));
       }
@@ -3525,8 +3564,11 @@ public class DefaultTrackSelector extends MappingTrackSelector
     private final int bitrate;
     private final int pixelCount;
     private final int preferredMimeTypeMatchIndex;
+    private final int preferredLanguageIndex;
+    private final int preferredLanguageScore;
     private final int preferredRoleFlagsScore;
     private final boolean hasMainOrNoRoleFlag;
+    private final int selectedAudioLanguageScore;
     private final boolean allowMixedMimeTypes;
     private final @SelectionEligibility int selectionEligibility;
     private final boolean usesPrimaryDecoder;
@@ -3539,6 +3581,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
         int trackIndex,
         Parameters parameters,
         @Capabilities int formatSupport,
+        @Nullable String selectedAudioLanguage,
         @AdaptiveSupport int mixedMimeTypeAdaptationSupport,
         boolean isSuitableForViewport) {
       super(rendererIndex, trackGroup, trackIndex);
@@ -3574,9 +3617,29 @@ public class DefaultTrackSelector extends MappingTrackSelector
           format.frameRate != Format.NO_VALUE && format.frameRate >= MIN_REASONABLE_FRAME_RATE;
       bitrate = format.bitrate;
       pixelCount = format.getPixelCount();
+      int bestLanguageIndex = Integer.MAX_VALUE;
+      int bestLanguageScore = 0;
+      for (int i = 0; i < parameters.preferredVideoLanguages.size(); i++) {
+        int score =
+            getFormatLanguageScore(
+                format,
+                parameters.preferredVideoLanguages.get(i),
+                /* allowUndeterminedFormatLanguage= */ false);
+        if (score > 0) {
+          bestLanguageIndex = i;
+          bestLanguageScore = score;
+          break;
+        }
+      }
+      preferredLanguageIndex = bestLanguageIndex;
+      preferredLanguageScore = bestLanguageScore;
       preferredRoleFlagsScore =
           getRoleFlagMatchScore(format.roleFlags, parameters.preferredVideoRoleFlags);
       hasMainOrNoRoleFlag = format.roleFlags == 0 || (format.roleFlags & C.ROLE_FLAG_MAIN) != 0;
+      boolean selectedAudioLanguageUndetermined =
+          normalizeUndeterminedLanguageToNull(selectedAudioLanguage) == null;
+      selectedAudioLanguageScore =
+          getFormatLanguageScore(format, selectedAudioLanguage, selectedAudioLanguageUndetermined);
       int bestMimeTypeMatchIndex = Integer.MAX_VALUE;
       for (int i = 0; i < parameters.preferredVideoMimeTypes.size(); i++) {
         if (format.sampleMimeType != null
@@ -3639,9 +3702,15 @@ public class DefaultTrackSelector extends MappingTrackSelector
               .compareFalseFirst(
                   info1.isWithinRendererCapabilities, info2.isWithinRendererCapabilities)
               // 1. Compare match with specific content preferences set by the parameters.
+              .compare(
+                  info1.preferredLanguageIndex,
+                  info2.preferredLanguageIndex,
+                  Ordering.natural().reverse())
+              .compare(info1.preferredLanguageScore, info2.preferredLanguageScore)
               .compare(info1.preferredRoleFlagsScore, info2.preferredRoleFlagsScore)
               // 2. Compare match with implicit content preferences set by the media.
               .compareFalseFirst(info1.hasMainOrNoRoleFlag, info2.hasMainOrNoRoleFlag)
+              .compare(info1.selectedAudioLanguageScore, info2.selectedAudioLanguageScore)
               // 3. Compare match with 'reasonable' frame rate threshold.
               .compareFalseFirst(info1.hasReasonableFrameRate, info2.hasReasonableFrameRate)
               // 4. Compare match with technical preferences set by the parameters.

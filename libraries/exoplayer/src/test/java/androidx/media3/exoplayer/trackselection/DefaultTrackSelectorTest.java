@@ -744,6 +744,74 @@ public final class DefaultTrackSelectorTest {
   }
 
   /**
+   * Tests that track selector will select a video track with a language that matches the preferred
+   * language given by {@link Parameters}.
+   */
+  @Test
+  public void selectTracksSelectPreferredAudioVideoLanguage() throws Exception {
+    Format.Builder formatBuilder = VIDEO_FORMAT.buildUpon();
+    Format frVideoFormat = formatBuilder.setLanguage("fra").build();
+    Format enVideoFormat = formatBuilder.setLanguage("eng").build();
+    TrackGroupArray trackGroups = wrapFormats(frVideoFormat, enVideoFormat);
+
+    trackSelector.setParameters(defaultParameters.buildUpon().setPreferredVideoLanguage("eng"));
+    TrackSelectorResult result =
+        trackSelector.selectTracks(
+            new RendererCapabilities[] {ALL_VIDEO_FORMAT_EXCEEDED_RENDERER_CAPABILITIES},
+            wrapFormats(frVideoFormat, enVideoFormat),
+            periodId,
+            TIMELINE);
+    assertFixedSelection(result.selections[0], trackGroups, enVideoFormat);
+  }
+
+  /**
+   * Tests that the default track selector will select:
+   *
+   * <ul>
+   *   <li>A main video track matching the selected audio language when a main video track in
+   *       another language is present.
+   *   <li>A main video track that doesn't match the selected audio language when a main video track
+   *       in the selected audio language is not present (but alternate video tracks in this
+   *       language are present).
+   * </ul>
+   */
+  @Test
+  public void defaultVideoTracksInteractWithSelectedAudioLanguageAsExpected()
+      throws ExoPlaybackException {
+    Format.Builder mainVideoBuilder = VIDEO_FORMAT.buildUpon().setRoleFlags(C.ROLE_FLAG_MAIN);
+    Format mainEnglish = mainVideoBuilder.setLanguage("eng").build();
+    Format mainGerman = mainVideoBuilder.setLanguage("deu").build();
+    Format mainNoLanguage = mainVideoBuilder.setLanguage(C.LANGUAGE_UNDETERMINED).build();
+    Format alternateGerman =
+        VIDEO_FORMAT.buildUpon().setRoleFlags(C.ROLE_FLAG_ALTERNATE).setLanguage("deu").build();
+
+    Format noLanguageAudio = AUDIO_FORMAT.buildUpon().setLanguage(null).build();
+    Format germanAudio = AUDIO_FORMAT.buildUpon().setLanguage("deu").build();
+
+    RendererCapabilities[] rendererCapabilities =
+        new RendererCapabilities[] {VIDEO_CAPABILITIES, AUDIO_CAPABILITIES};
+
+    // Neither the audio nor the forced text track define a language. We select them both under the
+    // assumption that they have matching language.
+    TrackGroupArray trackGroups = wrapFormats(noLanguageAudio, mainNoLanguage);
+    TrackSelectorResult result =
+        trackSelector.selectTracks(rendererCapabilities, trackGroups, periodId, TIMELINE);
+    assertFixedSelection(result.selections[0], trackGroups, mainNoLanguage);
+
+    // The audio declares german. The main german track should be selected (in favour of the main
+    // english track).
+    trackGroups = wrapFormats(germanAudio, mainGerman, mainEnglish);
+    result = trackSelector.selectTracks(rendererCapabilities, trackGroups, periodId, TIMELINE);
+    assertFixedSelection(result.selections[0], trackGroups, mainGerman);
+
+    // The audio declares german. The main english track should be selected because there's no
+    // main german track.
+    trackGroups = wrapFormats(germanAudio, alternateGerman, mainEnglish);
+    result = trackSelector.selectTracks(rendererCapabilities, trackGroups, periodId, TIMELINE);
+    assertFixedSelection(result.selections[0], trackGroups, mainEnglish);
+  }
+
+  /**
    * Tests that track selector will prefer tracks that are within renderer's capabilities over track
    * that exceed renderer's capabilities.
    */

@@ -4,6 +4,13 @@
 
 *   Common Library:
 *   ExoPlayer:
+    *   Consider language when selecting a video track. By default select a
+        'main' video track that matches the language of the selected audio
+        track, if available. Explicit video language preferences can be
+        expressed with
+        `TrackSelectionParameters.Builder.setPreferredVideoLanguage(s)`.
+    *   Add `selectedAudioLanguage` parameter to
+        `DefaultTrackSelector.selectVideoTrack()` method.
 *   Transformer:
 *   Extractors:
     *   Fix media duration parsing in `mdhd` box of MP4 files to handle `-1`
