@@ -144,7 +144,8 @@ public class HttpDataSourceTestEnv extends ExternalResource {
             if (getRequestPath(request).equals(REDIRECTS_TO_RANGE_SUPPORTED.getPath())) {
               return new MockResponse()
                   .setResponseCode(302)
-                  .setHeader("Location", originServer.url(RANGE_SUPPORTED.getPath()).toString());
+                  .setHeader(
+                      HttpHeaders.LOCATION, originServer.url(RANGE_SUPPORTED.getPath()).toString());
             } else {
               return new MockResponse().setResponseCode(404);
             }

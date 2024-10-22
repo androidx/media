@@ -36,6 +36,7 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
+import com.google.common.net.HttpHeaders;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
@@ -301,7 +302,7 @@ public class WebServerDispatcher extends Dispatcher {
     }
     byte[] resourceData = resource.getData();
     if (resource.supportsRangeRequests()) {
-      response.setHeader("Accept-Ranges", "bytes");
+      response.setHeader(HttpHeaders.ACCEPT_RANGES, "bytes");
     }
     @Nullable ImmutableMap<String, Float> acceptEncodingHeader = getAcceptEncodingHeader(request);
     @Nullable String preferredContentCoding;
@@ -320,17 +321,17 @@ public class WebServerDispatcher extends Dispatcher {
       return response.setResponseCode(406);
     }
 
-    @Nullable String rangeHeader = request.getHeader("Range");
+    @Nullable String rangeHeader = request.getHeader(HttpHeaders.RANGE);
     if (!resource.supportsRangeRequests() || rangeHeader == null) {
       switch (preferredContentCoding) {
         case "gzip":
           setResponseBody(
               response, Util.gzip(resourceData), /* chunked= */ resource.resolvesToUnknownLength);
-          response.setHeader("Content-Encoding", "gzip");
+          response.setHeader(HttpHeaders.CONTENT_ENCODING, "gzip");
           break;
         case "identity":
           setResponseBody(response, resourceData, /* chunked= */ resource.resolvesToUnknownLength);
-          response.setHeader("Content-Encoding", "identity");
+          response.setHeader(HttpHeaders.CONTENT_ENCODING, "identity");
           break;
         default:
           throw new IllegalStateException("Unexpected content coding: " + preferredContentCoding);
@@ -344,7 +345,7 @@ public class WebServerDispatcher extends Dispatcher {
     if (range == null || (range.first != null && range.first >= resourceData.length)) {
       return response
           .setResponseCode(416)
-          .setHeader("Content-Range", "bytes */" + resourceData.length);
+          .setHeader(HttpHeaders.CONTENT_RANGE, "bytes */" + resourceData.length);
     }
 
     if (range.first == null || range.second == null) {
@@ -355,7 +356,7 @@ public class WebServerDispatcher extends Dispatcher {
           // Can't return the suffix of an unknown-length resource.
           return response
               .setResponseCode(416)
-              .setHeader("Content-Range", "bytes */" + resourceData.length);
+              .setHeader(HttpHeaders.CONTENT_RANGE, "bytes */" + resourceData.length);
         }
         start = max(0, resourceData.length - checkNotNull(range.second));
       } else {
@@ -365,7 +366,7 @@ public class WebServerDispatcher extends Dispatcher {
       response
           .setResponseCode(206)
           .setHeader(
-              "Content-Range",
+              HttpHeaders.CONTENT_RANGE,
               "bytes "
                   + start
                   + "-"
@@ -384,14 +385,14 @@ public class WebServerDispatcher extends Dispatcher {
     if (range.second < range.first) {
       return response
           .setResponseCode(416)
-          .setHeader("Content-Range", "bytes */" + resourceData.length);
+          .setHeader(HttpHeaders.CONTENT_RANGE, "bytes */" + resourceData.length);
     }
 
     int end = min(range.second + 1, resourceData.length);
     response
         .setResponseCode(206)
         .setHeader(
-            "Content-Range",
+            HttpHeaders.CONTENT_RANGE,
             "bytes "
                 + range.first
                 + "-"
@@ -428,7 +429,8 @@ public class WebServerDispatcher extends Dispatcher {
    */
   @Nullable
   private static ImmutableMap<String, Float> getAcceptEncodingHeader(RecordedRequest request) {
-    @Nullable List<String> headers = request.getHeaders().toMultimap().get("Accept-Encoding");
+    @Nullable
+    List<String> headers = request.getHeaders().toMultimap().get(HttpHeaders.ACCEPT_ENCODING);
     if (headers == null) {
       return null;
     }
