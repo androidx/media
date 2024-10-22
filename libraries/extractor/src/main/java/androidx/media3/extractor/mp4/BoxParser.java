@@ -1026,6 +1026,7 @@ public final class BoxParser {
           || childAtomType == Mp4Box.TYPE_hev1
           || childAtomType == Mp4Box.TYPE_s263
           || childAtomType == Mp4Box.TYPE_H263
+          || childAtomType == Mp4Box.TYPE_h263
           || childAtomType == Mp4Box.TYPE_vp08
           || childAtomType == Mp4Box.TYPE_vp09
           || childAtomType == Mp4Box.TYPE_av01

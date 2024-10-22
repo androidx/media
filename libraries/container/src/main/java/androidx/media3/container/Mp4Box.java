@@ -117,6 +117,9 @@ public abstract class Mp4Box {
   public static final int TYPE_H263 = 0x48323633;
 
   @SuppressWarnings("ConstantCaseForConstants")
+  public static final int TYPE_h263 = 0x68323633;
+
+  @SuppressWarnings("ConstantCaseForConstants")
   public static final int TYPE_d263 = 0x64323633;
 
   @SuppressWarnings("ConstantCaseForConstants")
