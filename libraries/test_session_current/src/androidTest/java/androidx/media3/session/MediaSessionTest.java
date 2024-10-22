@@ -991,6 +991,62 @@ public class MediaSessionTest {
     assertThat(isEventHandled).isFalse();
   }
 
+  @Test
+  public void builderSetExtras_doesNotKeepOriginalInstance() {
+    Bundle extras = new Bundle();
+    extras.putString("key", "value");
+
+    MediaSession session = new MediaSession.Builder(context, player).setExtras(extras).build();
+    extras.putString("key", "newValue");
+    String sessionExtraValue = session.getToken().getExtras().getString("key");
+    session.release();
+
+    assertThat(sessionExtraValue).isEqualTo("value");
+  }
+
+  @Test
+  public void builderSetSessionExtras_doesNotKeepOriginalInstance() {
+    Bundle extras = new Bundle();
+    extras.putString("key", "value");
+
+    MediaSession session =
+        new MediaSession.Builder(context, player).setSessionExtras(extras).build();
+    extras.putString("key", "newValue");
+    String sessionExtraValue = session.getSessionExtras().getString("key");
+    session.release();
+
+    assertThat(sessionExtraValue).isEqualTo("value");
+  }
+
+  @Test
+  public void builder_defaultExtras_createsMutableInstance() {
+    MediaSession session = new MediaSession.Builder(context, player).build();
+
+    session.getSessionExtras().putString("key", "value");
+    String sessionExtraValue = session.getSessionExtras().getString("key");
+    session.release();
+
+    assertThat(sessionExtraValue).isEqualTo("value");
+  }
+
+  @Test
+  public void setSessionExtras_doesNotKeepOriginalInstance() throws Exception {
+    MediaSession session = new MediaSession.Builder(context, player).build();
+    Bundle extras = new Bundle();
+    extras.putString("key", "value");
+    AtomicReference<String> sessionExtraValue = new AtomicReference<>();
+
+    handler.postAndSync(
+        () -> {
+          session.setSessionExtras(extras);
+          extras.putString("key", "newValue");
+          sessionExtraValue.set(session.getSessionExtras().getString("key"));
+          session.release();
+        });
+
+    assertThat(sessionExtraValue.get()).isEqualTo("value");
+  }
+
   private static Intent getMediaButtonIntent(int keyCode) {
     Intent intent = new Intent(Intent.ACTION_MEDIA_BUTTON);
     intent.setComponent(
