@@ -298,7 +298,8 @@ public class MediaSessionServiceTest {
     TestServiceRegistry.getInstance().setOnGetSessionHandler(controllerInfo -> mediaSession);
     MediaControllerCompat mediaControllerCompat =
         new MediaControllerCompat(
-            ApplicationProvider.getApplicationContext(), mediaSession.getSessionCompatToken());
+            ApplicationProvider.getApplicationContext(),
+            MediaSessionCompat.Token.fromToken(mediaSession.getPlatformToken()));
     CountDownLatch controllerReady = new CountDownLatch(1);
     mediaControllerCompat.registerCallback(
         new MediaControllerCompat.Callback() {

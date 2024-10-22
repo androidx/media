@@ -164,7 +164,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
 
     controller =
         new RemoteMediaControllerCompat(
-            context, session.getSessionCompatToken(), /* waitForConnection= */ true);
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
     // Invoke any command for session to recognize the controller compat.
     controller.getTransportControls().seekTo(111);
 
@@ -205,7 +207,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
     session.setLegacyControllerConnectionTimeoutMs(0);
     controller =
         new RemoteMediaControllerCompat(
-            context, session.getSessionCompatToken(), /* waitForConnection= */ true);
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
     // Invoke any command for session to recognize the controller compat.
     controller.getTransportControls().seekTo(111);
     assertThat(disconnectedLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
@@ -226,7 +230,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             .build();
     controller =
         new RemoteMediaControllerCompat(
-            context, session.getSessionCompatToken(), /* waitForConnection= */ true);
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
 
     controller.getTransportControls().play();
     player.awaitMethodCalled(MockPlayer.METHOD_PLAY, TIMEOUT_MS);
@@ -245,7 +251,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             .build();
     controller =
         new RemoteMediaControllerCompat(
-            context, session.getSessionCompatToken(), /* waitForConnection= */ true);
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
 
     controller.getTransportControls().play();
     player.awaitMethodCalled(MockPlayer.METHOD_PREPARE, TIMEOUT_MS);
@@ -266,7 +274,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             .build();
     controller =
         new RemoteMediaControllerCompat(
-            context, session.getSessionCompatToken(), /* waitForConnection= */ true);
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
 
     controller.getTransportControls().play();
     player.awaitMethodCalled(MockPlayer.METHOD_PLAY, TIMEOUT_MS);
@@ -285,7 +295,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             .build();
     controller =
         new RemoteMediaControllerCompat(
-            context, session.getSessionCompatToken(), /* waitForConnection= */ true);
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
 
     controller.getTransportControls().play();
     player.awaitMethodCalled(MockPlayer.METHOD_SEEK_TO_DEFAULT_POSITION, TIMEOUT_MS);
@@ -310,7 +322,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             .build();
     controller =
         new RemoteMediaControllerCompat(
-            context, session.getSessionCompatToken(), /* waitForConnection= */ true);
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
 
     controller.getTransportControls().play();
     player.awaitMethodCalled(MockPlayer.METHOD_PLAY, TIMEOUT_MS);
@@ -328,7 +342,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             .build();
     controller =
         new RemoteMediaControllerCompat(
-            context, session.getSessionCompatToken(), /* waitForConnection= */ true);
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
 
     controller.getTransportControls().pause();
     player.awaitMethodCalled(MockPlayer.METHOD_PAUSE, TIMEOUT_MS);
@@ -343,7 +359,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             .build();
     controller =
         new RemoteMediaControllerCompat(
-            context, session.getSessionCompatToken(), /* waitForConnection= */ true);
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
 
     controller.getTransportControls().stop();
     player.awaitMethodCalled(MockPlayer.METHOD_STOP, TIMEOUT_MS);
@@ -358,7 +376,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             .build();
     controller =
         new RemoteMediaControllerCompat(
-            context, session.getSessionCompatToken(), /* waitForConnection= */ true);
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
 
     controller.getTransportControls().prepare();
     player.awaitMethodCalled(MockPlayer.METHOD_PREPARE, TIMEOUT_MS);
@@ -373,7 +393,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             .build();
     controller =
         new RemoteMediaControllerCompat(
-            context, session.getSessionCompatToken(), /* waitForConnection= */ true);
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
     long seekPosition = 12125L;
 
     controller.getTransportControls().seekTo(seekPosition);
@@ -391,7 +413,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             .build();
     controller =
         new RemoteMediaControllerCompat(
-            context, session.getSessionCompatToken(), /* waitForConnection= */ true);
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
     float testSpeed = 2.0f;
 
     controller.getTransportControls().setPlaybackSpeed(testSpeed);
@@ -409,7 +433,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             .build();
     controller =
         new RemoteMediaControllerCompat(
-            context, session.getSessionCompatToken(), /* waitForConnection= */ true);
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
 
     controller.getTransportControls().setPlaybackSpeed(-0.0001f);
     controller.getTransportControls().setPlaybackSpeed(Float.NaN);
@@ -440,7 +466,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             .build();
     controller =
         new RemoteMediaControllerCompat(
-            context, session.getSessionCompatToken(), /* waitForConnection= */ true);
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
 
     handler.postAndSync(
         () -> {
@@ -486,7 +514,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             .build();
     controller =
         new RemoteMediaControllerCompat(
-            context, session.getSessionCompatToken(), /* waitForConnection= */ true);
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
 
     handler.postAndSync(
         () -> {
@@ -532,7 +562,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             .build();
     controller =
         new RemoteMediaControllerCompat(
-            context, session.getSessionCompatToken(), /* waitForConnection= */ true);
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
 
     handler.postAndSync(
         () -> {
@@ -564,7 +596,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             .build();
     controller =
         new RemoteMediaControllerCompat(
-            context, session.getSessionCompatToken(), /* waitForConnection= */ true);
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
 
     List<MediaItem> mediaItems = MediaTestUtils.createMediaItems(/* size= */ 10);
     handler.postAndSync(
@@ -594,7 +628,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             .build();
     controller =
         new RemoteMediaControllerCompat(
-            context, session.getSessionCompatToken(), /* waitForConnection= */ true);
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
 
     controller.getTransportControls().skipToPrevious();
     player.awaitMethodCalled(MockPlayer.METHOD_SEEK_TO_PREVIOUS, TIMEOUT_MS);
@@ -615,7 +651,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             .build();
     controller =
         new RemoteMediaControllerCompat(
-            context, session.getSessionCompatToken(), /* waitForConnection= */ true);
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
 
     controller.getTransportControls().skipToPrevious();
     player.awaitMethodCalled(MockPlayer.METHOD_SEEK_TO_PREVIOUS_MEDIA_ITEM, TIMEOUT_MS);
@@ -630,7 +668,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             .build();
     controller =
         new RemoteMediaControllerCompat(
-            context, session.getSessionCompatToken(), /* waitForConnection= */ true);
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
 
     controller.getTransportControls().skipToNext();
     player.awaitMethodCalled(MockPlayer.METHOD_SEEK_TO_NEXT, TIMEOUT_MS);
@@ -648,7 +688,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             .build();
     controller =
         new RemoteMediaControllerCompat(
-            context, session.getSessionCompatToken(), /* waitForConnection= */ true);
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
 
     controller.getTransportControls().skipToNext();
     player.awaitMethodCalled(MockPlayer.METHOD_SEEK_TO_NEXT_MEDIA_ITEM, TIMEOUT_MS);
@@ -663,7 +705,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             .build();
     controller =
         new RemoteMediaControllerCompat(
-            context, session.getSessionCompatToken(), /* waitForConnection= */ true);
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
 
     handler.postAndSync(
         () -> {
@@ -673,7 +717,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
 
     // Get Queue from local MediaControllerCompat.
     List<QueueItem> queue =
-        new MediaControllerCompat(context, session.getSessionCompatToken()).getQueue();
+        new MediaControllerCompat(
+                context, MediaSessionCompat.Token.fromToken(session.getPlatformToken()))
+            .getQueue();
     int targetIndex = 3;
     controller.getTransportControls().skipToQueueItem(queue.get(targetIndex).getQueueId());
     player.awaitMethodCalled(
@@ -691,7 +737,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             .build();
     controller =
         new RemoteMediaControllerCompat(
-            context, session.getSessionCompatToken(), /* waitForConnection= */ true);
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
     handler.postAndSync(
         () -> {
           player.timeline = MediaTestUtils.createTimeline(/* windowCount= */ 10);
@@ -730,7 +778,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
                 .build()));
     controller =
         new RemoteMediaControllerCompat(
-            context, session.get().getSessionCompatToken(), /* waitForConnection= */ true);
+            context,
+            MediaSessionCompat.Token.fromToken(session.get().getPlatformToken()),
+            /* waitForConnection= */ true);
     KeyEvent keyEvent = new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PLAY);
 
     session.get().getSessionCompat().getController().dispatchMediaButtonEvent(keyEvent);
@@ -760,7 +810,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
     session = new MediaSession.Builder(context, player).setId("dispatchMediaButtonEvent").build();
     controller =
         new RemoteMediaControllerCompat(
-            context, session.getSessionCompatToken(), /* waitForConnection= */ true);
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
     KeyEvent keyEvent = new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PLAY);
 
     session.getSessionCompat().getController().dispatchMediaButtonEvent(keyEvent);
@@ -784,7 +836,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
     session = new MediaSession.Builder(context, player).setId("dispatchMediaButtonEvent").build();
     controller =
         new RemoteMediaControllerCompat(
-            context, session.getSessionCompatToken(), /* waitForConnection= */ true);
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
     KeyEvent keyEvent = new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PLAY);
 
     session.getSessionCompat().getController().dispatchMediaButtonEvent(keyEvent);
@@ -823,7 +877,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             .build();
     controller =
         new RemoteMediaControllerCompat(
-            context, session.getSessionCompatToken(), /* waitForConnection= */ true);
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
     KeyEvent keyEvent = new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PLAY);
 
     session.getSessionCompat().getController().dispatchMediaButtonEvent(keyEvent);
@@ -862,7 +918,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
                 .build()));
     controller =
         new RemoteMediaControllerCompat(
-            context, session.get().getSessionCompatToken(), /* waitForConnection= */ true);
+            context,
+            MediaSessionCompat.Token.fromToken(session.get().getPlatformToken()),
+            /* waitForConnection= */ true);
     KeyEvent keyEvent = new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PLAY);
     Bundle connectionHints = new Bundle();
     connectionHints.putBoolean(MediaController.KEY_MEDIA_NOTIFICATION_CONTROLLER_FLAG, true);
@@ -909,7 +967,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             .build();
     controller =
         new RemoteMediaControllerCompat(
-            context, session.getSessionCompatToken(), /* waitForConnection= */ true);
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
     KeyEvent keyEvent = new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PLAY);
 
     session.getSessionCompat().getController().dispatchMediaButtonEvent(keyEvent);
@@ -940,7 +1000,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
                 .build()));
     controller =
         new RemoteMediaControllerCompat(
-            context, session.get().getSessionCompatToken(), /* waitForConnection= */ true);
+            context,
+            MediaSessionCompat.Token.fromToken(session.get().getPlatformToken()),
+            /* waitForConnection= */ true);
 
     session.get().getSessionCompat().getController().dispatchMediaButtonEvent(keyEvent);
     player.awaitMethodCalled(MockPlayer.METHOD_PLAY, TIMEOUT_MS);
@@ -980,7 +1042,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
         .get();
     controller =
         new RemoteMediaControllerCompat(
-            context, session.get().getSessionCompatToken(), /* waitForConnection= */ true);
+            context,
+            MediaSessionCompat.Token.fromToken(session.get().getPlatformToken()),
+            /* waitForConnection= */ true);
 
     session.get().getSessionCompat().getController().dispatchMediaButtonEvent(keyEvent);
 
@@ -1004,7 +1068,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             .build();
     controller =
         new RemoteMediaControllerCompat(
-            context, session.getSessionCompatToken(), /* waitForConnection= */ true);
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
     @PlaybackStateCompat.ShuffleMode int testShuffleMode = PlaybackStateCompat.SHUFFLE_MODE_GROUP;
 
     controller.getTransportControls().setShuffleMode(testShuffleMode);
@@ -1022,7 +1088,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             .build();
     controller =
         new RemoteMediaControllerCompat(
-            context, session.getSessionCompatToken(), /* waitForConnection= */ true);
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
     int testRepeatMode = Player.REPEAT_MODE_ALL;
 
     controller.getTransportControls().setRepeatMode(testRepeatMode);
@@ -1040,7 +1108,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             .build();
     controller =
         new RemoteMediaControllerCompat(
-            context, session.getSessionCompatToken(), /* waitForConnection= */ true);
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
     MockPlayer remotePlayer =
         new MockPlayer.Builder().setApplicationLooper(handler.getLooper()).build();
     remotePlayer.commands =
@@ -1072,7 +1142,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             .build();
     controller =
         new RemoteMediaControllerCompat(
-            context, session.getSessionCompatToken(), /* waitForConnection= */ true);
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
     MockPlayer remotePlayer =
         new MockPlayer.Builder().setApplicationLooper(handler.getLooper()).build();
     remotePlayer.commands = new Player.Commands.Builder().addAllCommands().build();
@@ -1100,7 +1172,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             .build();
     controller =
         new RemoteMediaControllerCompat(
-            context, session.getSessionCompatToken(), /* waitForConnection= */ true);
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
     MockPlayer remotePlayer =
         new MockPlayer.Builder().setApplicationLooper(handler.getLooper()).build();
     remotePlayer.commands =
@@ -1129,7 +1203,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             .build();
     controller =
         new RemoteMediaControllerCompat(
-            context, session.getSessionCompatToken(), /* waitForConnection= */ true);
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
     MockPlayer remotePlayer =
         new MockPlayer.Builder().setApplicationLooper(handler.getLooper()).build();
     handler.postAndSync(
@@ -1153,7 +1229,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             .build();
     controller =
         new RemoteMediaControllerCompat(
-            context, session.getSessionCompatToken(), /* waitForConnection= */ true);
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
     MockPlayer remotePlayer =
         new MockPlayer.Builder().setApplicationLooper(handler.getLooper()).build();
     remotePlayer.commands =
@@ -1182,7 +1260,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             .build();
     controller =
         new RemoteMediaControllerCompat(
-            context, session.getSessionCompatToken(), /* waitForConnection= */ true);
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
     MockPlayer remotePlayer =
         new MockPlayer.Builder().setApplicationLooper(handler.getLooper()).build();
     remotePlayer.commands = new Player.Commands.Builder().addAllCommands().build();
@@ -1212,7 +1292,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             .build();
     controller =
         new RemoteMediaControllerCompat(
-            context, session.getSessionCompatToken(), /* waitForConnection= */ true);
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
 
     // Here, we intentionally choose STREAM_ALARM in order not to consider
     // 'Do Not Disturb' or 'Volume limit'.
@@ -1262,7 +1344,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             .build();
     controller =
         new RemoteMediaControllerCompat(
-            context, session.getSessionCompatToken(), /* waitForConnection= */ true);
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
 
     // Here, we intentionally choose STREAM_ALARM in order not to consider
     // 'Do Not Disturb' or 'Volume limit'.
@@ -1345,7 +1429,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             .build();
     controller =
         new RemoteMediaControllerCompat(
-            context, session.getSessionCompatToken(), /* waitForConnection= */ true);
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
 
     controller.sendCommand(testCommand, testArgs, /* cb= */ null);
 
@@ -1397,7 +1483,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             .build();
     controller =
         new RemoteMediaControllerCompat(
-            context, session.getSessionCompatToken(), /* waitForConnection= */ true);
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
 
     controller.sendCustomCommand(customCommand, testArgs);
 
@@ -1422,7 +1510,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
     // Session will not accept the controller's commands.
     controller =
         new RemoteMediaControllerCompat(
-            context, session.getSessionCompatToken(), /* waitForConnection= */ true);
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
 
     controller.getTransportControls().play();
 
@@ -1454,7 +1544,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             .build();
     controller =
         new RemoteMediaControllerCompat(
-            context, session.getSessionCompatToken(), /* waitForConnection= */ true);
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
 
     controller.getTransportControls().prepareFromUri(mediaUri, bundle);
 
@@ -1490,7 +1582,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             .build();
     controller =
         new RemoteMediaControllerCompat(
-            context, session.getSessionCompatToken(), /* waitForConnection= */ true);
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
 
     controller.getTransportControls().playFromUri(request, bundle);
 
@@ -1527,7 +1621,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             .build();
     controller =
         new RemoteMediaControllerCompat(
-            context, session.getSessionCompatToken(), /* waitForConnection= */ true);
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
 
     controller.getTransportControls().prepareFromMediaId(request, bundle);
 
@@ -1571,7 +1667,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             .build();
     controller =
         new RemoteMediaControllerCompat(
-            context, session.getSessionCompatToken(), /* waitForConnection= */ true);
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
 
     controller.getTransportControls().prepareFromMediaId(request, bundle);
 
@@ -1609,7 +1707,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             .build();
     controller =
         new RemoteMediaControllerCompat(
-            context, session.getSessionCompatToken(), /* waitForConnection= */ true);
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
 
     controller.getTransportControls().playFromMediaId(mediaId, bundle);
 
@@ -1652,7 +1752,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             .build();
     controller =
         new RemoteMediaControllerCompat(
-            context, session.getSessionCompatToken(), /* waitForConnection= */ true);
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
 
     controller.getTransportControls().playFromMediaId(mediaId, bundle);
 
@@ -1688,7 +1790,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             .build();
     controller =
         new RemoteMediaControllerCompat(
-            context, session.getSessionCompatToken(), /* waitForConnection= */ true);
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
 
     controller.getTransportControls().prepareFromSearch(query, bundle);
 
@@ -1724,7 +1828,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             .build();
     controller =
         new RemoteMediaControllerCompat(
-            context, session.getSessionCompatToken(), /* waitForConnection= */ true);
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
 
     controller.getTransportControls().playFromSearch(query, bundle);
 
@@ -1758,7 +1864,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             .build();
     controller =
         new RemoteMediaControllerCompat(
-            context, session.getSessionCompatToken(), /* waitForConnection= */ true);
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
 
     controller.getTransportControls().prepareFromUri(Uri.parse("foo://bar"), Bundle.EMPTY);
 
@@ -1788,7 +1896,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             .build();
     controller =
         new RemoteMediaControllerCompat(
-            context, session.getSessionCompatToken(), /* waitForConnection= */ true);
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
 
     controller.getTransportControls().playFromUri(Uri.parse("foo://bar"), Bundle.EMPTY);
 
@@ -1822,7 +1932,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             .build();
     controller =
         new RemoteMediaControllerCompat(
-            context, session.getSessionCompatToken(), /* waitForConnection= */ true);
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
 
     controller.getTransportControls().playFromUri(Uri.parse("foo://bar"), Bundle.EMPTY);
 
@@ -1863,7 +1975,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
         new MediaSession.Builder(context, player).setId("setRating").setCallback(callback).build();
     controller =
         new RemoteMediaControllerCompat(
-            context, session.getSessionCompatToken(), /* waitForConnection= */ true);
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
 
     controller.getTransportControls().setRating(rating);
 
@@ -1896,7 +2010,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             .build();
     controller =
         new RemoteMediaControllerCompat(
-            context, session.getSessionCompatToken(), /* waitForConnection= */ true);
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
 
     controller.getTransportControls().pause();
 
@@ -1925,7 +2041,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             .build();
     controller =
         new RemoteMediaControllerCompat(
-            context, session.getSessionCompatToken(), /* waitForConnection= */ true);
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
     // This may hang if deadlock happens.
     handler.postAndSync(
         () -> {
@@ -1960,7 +2078,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             .build();
     controller =
         new RemoteMediaControllerCompat(
-            context, session.getSessionCompatToken(), /* waitForConnection= */ true);
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
     session.release();
     session = null;
 

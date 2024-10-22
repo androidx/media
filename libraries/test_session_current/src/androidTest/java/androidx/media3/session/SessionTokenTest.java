@@ -162,7 +162,8 @@ public class SessionTokenTest {
                 });
 
     SessionToken token =
-        SessionToken.createSessionToken(context, session.getSessionCompatToken())
+        SessionToken.createSessionToken(
+                context, MediaSessionCompat.Token.fromToken(session.getPlatformToken()))
             .get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
 
     assertThat(token.isLegacySession()).isFalse();

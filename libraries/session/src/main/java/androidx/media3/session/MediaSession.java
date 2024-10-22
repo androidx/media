@@ -59,7 +59,6 @@ import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSourceBitmapLoader;
 import androidx.media3.session.MediaLibraryService.LibraryParams;
 import androidx.media3.session.MediaLibraryService.MediaLibrarySession;
-import androidx.media3.session.legacy.LegacyParcelableUtil;
 import androidx.media3.session.legacy.MediaControllerCompat;
 import androidx.media3.session.legacy.MediaSessionCompat;
 import androidx.media3.session.legacy.MediaSessionManager.RemoteUserInfo;
@@ -662,29 +661,6 @@ public class MediaSession {
           /* cb= */ null,
           /* connectionHints= */ Bundle.EMPTY,
           /* maxCommandsForMediaItems= */ 0);
-    }
-
-    /**
-     * @deprecated Use {@link #createTestOnlyControllerInfo(String, int, int, int, int, boolean,
-     *     Bundle)} instead.
-     */
-    @VisibleForTesting(otherwise = PRIVATE)
-    @SuppressWarnings("UnnecessarilyFullyQualified") // Avoiding clash with Media3 RemoteUserInfo.
-    @Deprecated
-    public static ControllerInfo createTestOnlyControllerInfo(
-        androidx.media.MediaSessionManager.RemoteUserInfo remoteUserInfo,
-        int libraryVersion,
-        int interfaceVersion,
-        boolean trusted,
-        Bundle connectionHints) {
-      return createTestOnlyControllerInfo(
-          remoteUserInfo.getPackageName(),
-          remoteUserInfo.getPid(),
-          remoteUserInfo.getUid(),
-          libraryVersion,
-          interfaceVersion,
-          trusted,
-          connectionHints);
     }
 
     /** Returns a {@link ControllerInfo} suitable for use when testing client code. */
@@ -1339,20 +1315,6 @@ public class MediaSession {
 
   /* package */ final MediaSessionCompat getSessionCompat() {
     return impl.getSessionCompat();
-  }
-
-  /**
-   * Returns the legacy {@code android.support.v4.media.session.MediaSessionCompat.Token} of the
-   * {@code android.support.v4.media.session.MediaSessionCompat} created internally by this session.
-   *
-   * @deprecated Use {@link #getPlatformToken()} instead.
-   */
-  @Deprecated
-  @UnstableApi
-  public final android.support.v4.media.session.MediaSessionCompat.Token getSessionCompatToken() {
-    return LegacyParcelableUtil.convert(
-        impl.getSessionCompat().getSessionToken(),
-        android.support.v4.media.session.MediaSessionCompat.Token.CREATOR);
   }
 
   /**

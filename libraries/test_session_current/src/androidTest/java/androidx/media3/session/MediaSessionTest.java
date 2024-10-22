@@ -40,8 +40,6 @@ import android.os.Bundle;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.SystemClock;
-import android.support.v4.media.session.MediaControllerCompat;
-import android.support.v4.media.session.MediaSessionCompat;
 import android.text.TextUtils;
 import android.view.KeyEvent;
 import androidx.media.MediaSessionManager;
@@ -452,50 +450,6 @@ public class MediaSessionTest {
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
   }
 
-  /** Test {@link MediaSession#getSessionCompatToken()}. */
-  @Test
-  public void getSessionCompatToken_returnsCompatibleWithMediaControllerCompat() throws Exception {
-    MediaSession session =
-        sessionTestRule.ensureReleaseAfterTest(
-            new MediaSession.Builder(context, player)
-                .setId("getSessionCompatToken_returnsCompatibleWithMediaControllerCompat")
-                .setCallback(
-                    new MediaSession.Callback() {
-                      @Override
-                      public MediaSession.ConnectionResult onConnect(
-                          MediaSession session, ControllerInfo controller) {
-                        if (TextUtils.equals(
-                            getControllerCallerPackageName(controller),
-                            controller.getPackageName())) {
-                          return MediaSession.Callback.super.onConnect(session, controller);
-                        }
-                        return MediaSession.ConnectionResult.reject();
-                      }
-                    })
-                .build());
-    Object token = session.getSessionCompatToken();
-    assertThat(token).isInstanceOf(MediaSessionCompat.Token.class);
-    MediaControllerCompat controllerCompat =
-        new MediaControllerCompat(context, (MediaSessionCompat.Token) token);
-    CountDownLatch sessionReadyLatch = new CountDownLatch(1);
-    controllerCompat.registerCallback(
-        new MediaControllerCompat.Callback() {
-          @Override
-          public void onSessionReady() {
-            sessionReadyLatch.countDown();
-          }
-        },
-        handler);
-    assertThat(sessionReadyLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
-
-    long testSeekPositionMs = 1234;
-    controllerCompat.getTransportControls().seekTo(testSeekPositionMs);
-
-    player.awaitMethodCalled(MockPlayer.METHOD_SEEK_TO, TIMEOUT_MS);
-    assertThat(player.seekPositionMs).isEqualTo(testSeekPositionMs);
-  }
-
-  /** Test {@link MediaSession#getSessionCompatToken()}. */
   @Test
   public void getPlatformToken_returnsCompatibleWithPlatformMediaController() throws Exception {
     MediaSession session =

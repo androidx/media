@@ -1893,7 +1893,8 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
       throws Exception {
     MediaControllerCompat controllerCompat =
         new MediaControllerCompat(
-            ApplicationProvider.getApplicationContext(), mediaSession.getSessionCompatToken());
+            ApplicationProvider.getApplicationContext(),
+            MediaSessionCompat.Token.fromToken(mediaSession.getPlatformToken()));
     CountDownLatch controllerReady = new CountDownLatch(1);
     controllerCompat.registerCallback(
         new MediaControllerCompat.Callback() {
