@@ -43,12 +43,15 @@ import androidx.media3.datasource.DataSpec;
 import androidx.media3.datasource.TransferListener;
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.ForOverride;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.Ignore;
 import org.junit.Rule;
@@ -570,6 +573,31 @@ public abstract class DataSourceContractTest {
   }
 
   @Test
+  public void getResponseHeaders_returnsExpectedValues() throws Exception {
+    forAllTestResourcesAndDataSources(
+        (resource, dataSource) -> {
+          try {
+            dataSource.open(new DataSpec(resource.getUri()));
+            // Iterate over the expected headers (instead of using Truth's batch
+            // containsAtLeastEntriesIn() method) in order to leverage the case-insensitivity of
+            // the DataSource.getResponseHeaders() implementation.
+            Map<String, List<String>> actualHeaders = dataSource.getResponseHeaders();
+            for (Map.Entry<String, List<String>> expectedHeaders :
+                resource.getResponseHeaders().entrySet()) {
+              assertWithMessage("Header values for key=%s", expectedHeaders.getKey())
+                  .that(actualHeaders.get(expectedHeaders.getKey()))
+                  .isEqualTo(expectedHeaders.getValue());
+            }
+            for (String unexpectedKey : resource.getUnexpectedResponseHeaderKeys()) {
+              assertThat(actualHeaders).doesNotContainKey(unexpectedKey);
+            }
+          } finally {
+            dataSource.close();
+          }
+        });
+  }
+
+  @Test
   public void getResponseHeaders_noNullKeysOrValues() throws Exception {
     forAllTestResourcesAndDataSources(
         (resource, dataSource) -> {
@@ -741,12 +769,22 @@ public abstract class DataSourceContractTest {
     @Nullable private final String name;
     private final Uri uri;
     private final Uri resolvedUri;
+    private final Map<String, List<String>> responseHeaders;
+    private final Set<String> unexpectedResponseHeaderKeys;
     private final byte[] expectedBytes;
 
-    private TestResource(@Nullable String name, Uri uri, Uri resolvedUri, byte[] expectedBytes) {
+    private TestResource(
+        @Nullable String name,
+        Uri uri,
+        Uri resolvedUri,
+        Map<String, List<String>> responseHeaders,
+        Set<String> unexpectedResponseHeaderKeys,
+        byte[] expectedBytes) {
       this.name = name;
       this.uri = uri;
       this.resolvedUri = resolvedUri;
+      this.responseHeaders = responseHeaders;
+      this.unexpectedResponseHeaderKeys = unexpectedResponseHeaderKeys;
       this.expectedBytes = expectedBytes;
     }
 
@@ -769,6 +807,25 @@ public abstract class DataSourceContractTest {
       return resolvedUri;
     }
 
+    /**
+     * Returns the headers associated with this resource that are expected to be present in {@link
+     * DataSource#getResponseHeaders()}.
+     *
+     * <p>This doesn't have to be an exhaustive list, extra headers in {@link
+     * DataSource#getResponseHeaders()} are ignored.
+     */
+    public Map<String, List<String>> getResponseHeaders() {
+      return responseHeaders;
+    }
+
+    /**
+     * Returns the keys that must <b>not</b> be present in {@link DataSource#getResponseHeaders()}
+     * when reading this resource.
+     */
+    public Set<String> getUnexpectedResponseHeaderKeys() {
+      return unexpectedResponseHeaderKeys;
+    }
+
     /** Returns the expected contents of this resource. */
     public byte[] getExpectedBytes() {
       return expectedBytes;
@@ -779,7 +836,14 @@ public abstract class DataSourceContractTest {
       private @MonotonicNonNull String name;
       private @MonotonicNonNull Uri uri;
       private @MonotonicNonNull Uri resolvedUri;
+      private Map<String, List<String>> responseHeaders;
+      private Set<String> unexpectedResponseHeaderKeys;
       private byte @MonotonicNonNull [] expectedBytes;
+
+      public Builder() {
+        responseHeaders = ImmutableMap.of();
+        unexpectedResponseHeaderKeys = ImmutableSet.of();
+      }
 
       /**
        * Sets a human-readable name for this resource which will be shown in test failure messages.
@@ -823,6 +887,29 @@ public abstract class DataSourceContractTest {
       }
 
       /**
+       * Sets the headers associated with this resource that are expected to be present in {@link
+       * DataSource#getResponseHeaders()}.
+       *
+       * <p>This doesn't have to be an exhaustive list, extra headers in {@link
+       * DataSource#getResponseHeaders()} are ignored. Defaults to an empty map.
+       */
+      @CanIgnoreReturnValue
+      public Builder setResponseHeaders(Map<String, List<String>> responseHeaders) {
+        this.responseHeaders = responseHeaders;
+        return this;
+      }
+
+      /**
+       * Sets the keys that must <b>not</b> be present in {@link DataSource#getResponseHeaders()}
+       * when reading this resource. Defaults to an empty set.
+       */
+      @CanIgnoreReturnValue
+      public Builder setUnexpectedResponseHeaderKeys(Set<String> unexpectedResponseHeaderKeys) {
+        this.unexpectedResponseHeaderKeys = unexpectedResponseHeaderKeys;
+        return this;
+      }
+
+      /**
        * Sets the expected contents of this resource.
        *
        * <p>Must be at least 5 bytes.
@@ -839,6 +926,8 @@ public abstract class DataSourceContractTest {
             name,
             checkNotNull(uri),
             resolvedUri != null ? resolvedUri : uri,
+            ImmutableMap.copyOf(responseHeaders),
+            ImmutableSet.copyOf(unexpectedResponseHeaderKeys),
             checkNotNull(expectedBytes));
       }
     }
