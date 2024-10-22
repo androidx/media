@@ -1237,8 +1237,7 @@ public class MediaSession {
    * @param sessionExtras The session extras.
    */
   public final void setSessionExtras(Bundle sessionExtras) {
-    checkNotNull(sessionExtras);
-    impl.setSessionExtras(sessionExtras);
+    impl.setSessionExtras(new Bundle(sessionExtras));
   }
 
   /**
@@ -1259,8 +1258,7 @@ public class MediaSession {
    */
   public final void setSessionExtras(ControllerInfo controller, Bundle sessionExtras) {
     checkNotNull(controller, "controller must not be null");
-    checkNotNull(sessionExtras);
-    impl.setSessionExtras(controller, sessionExtras);
+    impl.setSessionExtras(controller, new Bundle(sessionExtras));
   }
 
   /** Returns the {@link BitmapLoader}. */
@@ -2284,8 +2282,8 @@ public class MediaSession {
       checkArgument(player.canAdvertiseSession());
       id = "";
       this.callback = callback;
-      tokenExtras = Bundle.EMPTY;
-      sessionExtras = Bundle.EMPTY;
+      tokenExtras = new Bundle();
+      sessionExtras = new Bundle();
       customLayout = ImmutableList.of();
       mediaButtonPreferences = ImmutableList.of();
       playIfSuppressed = true;
