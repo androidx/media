@@ -27,12 +27,10 @@ import android.view.Surface;
 import androidx.annotation.Nullable;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
-import androidx.media3.common.FrameInfo;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.OnInputFrameProcessedListener;
 import androidx.media3.common.VideoFrameProcessor;
-import androidx.media3.common.util.Size;
 import androidx.media3.common.util.TimestampIterator;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
@@ -65,7 +63,7 @@ import java.util.concurrent.atomic.AtomicLong;
     boolean isSurfaceAssetLoaderMediaItem = isMediaItemForSurfaceAssetLoader(editedMediaItem);
     durationUs = editedMediaItem.getDurationAfterEffectsApplied(durationUs);
     if (decodedFormat != null) {
-      Size decodedSize = getDecodedSize(decodedFormat);
+      decodedFormat = applyDecoderRotation(decodedFormat);
       ImmutableList<Effect> combinedEffects =
           new ImmutableList.Builder<Effect>()
               .addAll(editedMediaItem.effects.videoEffects)
@@ -75,14 +73,9 @@ import java.util.concurrent.atomic.AtomicLong;
           isSurfaceAssetLoaderMediaItem
               ? VideoFrameProcessor.INPUT_TYPE_SURFACE_AUTOMATIC_FRAME_REGISTRATION
               : getInputTypeForMimeType(checkNotNull(decodedFormat.sampleMimeType)),
+          decodedFormat,
           combinedEffects,
-          new FrameInfo.Builder(
-                  checkNotNull(decodedFormat.colorInfo),
-                  decodedSize.getWidth(),
-                  decodedSize.getHeight())
-              .setPixelWidthHeightRatio(decodedFormat.pixelWidthHeightRatio)
-              .setOffsetToAddUs(initialTimestampOffsetUs + mediaItemOffsetUs.get())
-              .build());
+          /* offsetToAddUs= */ initialTimestampOffsetUs + mediaItemOffsetUs.get());
     }
     mediaItemOffsetUs.addAndGet(durationUs);
   }
@@ -136,11 +129,17 @@ import java.util.concurrent.atomic.AtomicLong;
     videoFrameProcessor.release();
   }
 
-  private static Size getDecodedSize(Format format) {
-    // The decoder rotates encoded frames for display by firstInputFormat.rotationDegrees.
-    int decodedWidth = (format.rotationDegrees % 180 == 0) ? format.width : format.height;
-    int decodedHeight = (format.rotationDegrees % 180 == 0) ? format.height : format.width;
-    return new Size(decodedWidth, decodedHeight);
+  private static Format applyDecoderRotation(Format format) {
+    // The decoder rotates encoded frames for display by format.rotationDegrees.
+    if (format.rotationDegrees % 180 == 0) {
+      return format;
+    }
+    return format
+        .buildUpon()
+        .setWidth(format.height)
+        .setHeight(format.width)
+        .setRotationDegrees(0)
+        .build();
   }
 
   private static @VideoFrameProcessor.InputType int getInputTypeForMimeType(String sampleMimeType) {

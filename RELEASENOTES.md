@@ -12,6 +12,8 @@
     *   Add `selectedAudioLanguage` parameter to
         `DefaultTrackSelector.selectVideoTrack()` method.
 *   Transformer:
+    *   Update parameters of `VideoFrameProcessor.registerInputStream` and
+        `VideoFrameProcessor.Listener.onInputStreamRegistered` to use `Format`.
 *   Extractors:
     *   Fix media duration parsing in `mdhd` box of MP4 files to handle `-1`
         values ([#1819](https://github.com/androidx/media/issues/1819)).

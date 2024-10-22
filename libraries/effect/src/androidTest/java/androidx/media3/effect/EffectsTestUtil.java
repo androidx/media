@@ -31,7 +31,7 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DebugViewProvider;
 import androidx.media3.common.Effect;
-import androidx.media3.common.FrameInfo;
+import androidx.media3.common.Format;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.util.Consumer;
@@ -133,8 +133,8 @@ import java.util.concurrent.atomic.AtomicReference;
                         @Override
                         public void onInputStreamRegistered(
                             @VideoFrameProcessor.InputType int inputType,
-                            List<Effect> effects,
-                            FrameInfo frameInfo) {
+                            Format format,
+                            List<Effect> effects) {
                           videoFrameProcessorReadyCountDownLatch.countDown();
                         }
 
@@ -162,6 +162,11 @@ import java.util.concurrent.atomic.AtomicReference;
       checkNotNull(defaultVideoFrameProcessor)
           .registerInputStream(
               INPUT_TYPE_SURFACE,
+              new Format.Builder()
+                  .setColorInfo(ColorInfo.SDR_BT709_LIMITED)
+                  .setWidth(frameWidth)
+                  .setHeight(frameHeight)
+                  .build(),
               /* effects= */ ImmutableList.of(
                   (GlEffect) (context, useHdr) -> blankFrameProducer,
                   // Use an overlay effect to generate bitmaps with timestamps on it.
@@ -177,7 +182,7 @@ import java.util.concurrent.atomic.AtomicReference;
                             }
                           })),
                   glEffect),
-              new FrameInfo.Builder(ColorInfo.SDR_BT709_LIMITED, frameWidth, frameHeight).build());
+              /* offsetToAddUs= */ 0);
       videoFrameProcessorReadyCountDownLatch.await();
       checkNoVideoFrameProcessingExceptionIsThrown(videoFrameProcessingExceptionReference);
       blankFrameProducer.produceBlankFrames(presentationTimesUs);

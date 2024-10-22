@@ -36,7 +36,6 @@ import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DebugViewProvider;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
-import androidx.media3.common.FrameInfo;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PreviewingVideoGraph;
 import androidx.media3.common.SurfaceInfo;
@@ -859,16 +858,13 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
 
       ArrayList<Effect> effects = new ArrayList<>(videoEffects);
       Format inputFormat = checkNotNull(this.inputFormat);
+      inputFormat =
+          inputFormat
+              .buildUpon()
+              .setColorInfo(getAdjustedInputColorInfo(inputFormat.colorInfo))
+              .build();
       checkStateNotNull(videoFrameProcessor)
-          .registerInputStream(
-              inputType,
-              effects,
-              new FrameInfo.Builder(
-                      getAdjustedInputColorInfo(inputFormat.colorInfo),
-                      inputFormat.width,
-                      inputFormat.height)
-                  .setPixelWidthHeightRatio(inputFormat.pixelWidthHeightRatio)
-                  .build());
+          .registerInputStream(inputType, inputFormat, effects, /* offsetToAddUs= */ 0);
       finalBufferPresentationTimeUs = C.TIME_UNSET;
     }
 

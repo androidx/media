@@ -230,7 +230,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     repeatLastRegisteredFrame = automaticReregistration;
     if (repeatLastRegisteredFrame) {
       lastRegisteredFrame = inputFrameInfo;
-      surfaceTexture.setDefaultBufferSize(inputFrameInfo.width, inputFrameInfo.height);
+      surfaceTexture.setDefaultBufferSize(
+          inputFrameInfo.format.width, inputFrameInfo.format.height);
     }
   }
 
@@ -407,7 +408,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     long presentationTimeUs = (frameTimeNs / 1000) + offsetToAddUs;
     if (experimentalAdjustSurfaceTextureTransformationMatrix) {
       removeSurfaceTextureScaleFromTransformMatrix(
-          textureTransformMatrix, presentationTimeUs, currentFrame.width, currentFrame.height);
+          textureTransformMatrix,
+          presentationTimeUs,
+          currentFrame.format.width,
+          currentFrame.format.height);
     }
 
     checkNotNull(externalShaderProgram).setTextureTransformMatrix(textureTransformMatrix);
@@ -418,8 +422,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                 externalTexId,
                 /* fboId= */ C.INDEX_UNSET,
                 /* rboId= */ C.INDEX_UNSET,
-                currentFrame.width,
-                currentFrame.height),
+                currentFrame.format.width,
+                currentFrame.format.height),
             presentationTimeUs);
     if (!repeatLastRegisteredFrame) {
       checkStateNotNull(pendingFrames.remove());

@@ -41,7 +41,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DebugViewProvider;
 import androidx.media3.common.Effect;
-import androidx.media3.common.FrameInfo;
+import androidx.media3.common.Format;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.SurfaceInfo;
@@ -165,8 +165,8 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
               @Override
               public void onInputStreamRegistered(
                   @VideoFrameProcessor.InputType int inputType,
-                  List<Effect> effects,
-                  FrameInfo frameInfo) {
+                  Format format,
+                  List<Effect> effects) {
                 compositionVideoFrameProcessorInputStreamRegistrationCompleted = true;
                 queueCompositionOutputInternal();
               }
@@ -249,7 +249,6 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
                 listenerExecutor,
                 new VideoFrameProcessor.Listener() {
                   // All of this listener's methods are called on the sharedExecutorService.
-
                   @Override
                   public void onError(VideoFrameProcessingException exception) {
                     handleVideoFrameProcessingException(exception);
@@ -367,12 +366,16 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
       checkNotNull(compositionVideoFrameProcessor)
           .registerInputStream(
               INPUT_TYPE_TEXTURE_ID,
-              compositionEffects,
               // Pre-processing VideoFrameProcessors have converted the inputColor to outputColor
               // already, so use outputColorInfo for the input color to the
               // compositionVideoFrameProcessor.
-              new FrameInfo.Builder(outputColorInfo, outputTexture.width, outputTexture.height)
-                  .build());
+              new Format.Builder()
+                  .setColorInfo(outputColorInfo)
+                  .setWidth(outputTexture.width)
+                  .setHeight(outputTexture.height)
+                  .build(),
+              compositionEffects,
+              /* offsetToAddUs= */ 0);
       compositionVideoFrameProcessorInputStreamRegistered = true;
       // Return as the VideoFrameProcessor rejects input textures until the input is registered.
       return;
