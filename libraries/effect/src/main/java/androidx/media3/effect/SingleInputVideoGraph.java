@@ -115,6 +115,11 @@ public abstract class SingleInputVideoGraph implements VideoGraph {
               }
 
               @Override
+              public void onOutputFrameRateChanged(float frameRate) {
+                listenerExecutor.execute(() -> listener.onOutputFrameRateChanged(frameRate));
+              }
+
+              @Override
               public void onOutputFrameAvailableForRendering(long presentationTimeUs) {
                 if (isEnded) {
                   onError(

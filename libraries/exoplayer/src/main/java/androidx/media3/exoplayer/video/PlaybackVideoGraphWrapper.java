@@ -340,6 +340,11 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
   }
 
   @Override
+  public void onOutputFrameRateChanged(float frameRate) {
+    videoFrameReleaseControl.setFrameRate(frameRate);
+  }
+
+  @Override
   public void onOutputFrameAvailableForRendering(long framePresentationTimeUs) {
     if (pendingFlushCount > 0) {
       // Ignore available frames while flushing
@@ -596,7 +601,6 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
         default:
           throw new UnsupportedOperationException("Unsupported input type " + inputType);
       }
-      videoFrameReleaseControl.setFrameRate(format.frameRate);
       this.inputType = inputType;
       this.inputFormat = format;
 

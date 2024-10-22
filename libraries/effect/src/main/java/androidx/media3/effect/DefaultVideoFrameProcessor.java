@@ -457,6 +457,8 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
   private final List<GlShaderProgram> intermediateGlShaderPrograms;
   private final ConditionVariable inputStreamRegisteredCondition;
 
+  private @MonotonicNonNull InputStreamInfo currentInputStreamInfo;
+
   /**
    * The input stream that is {@linkplain #registerInputStream registered}, but the pipeline has not
    * adapted to processing it.
@@ -515,7 +517,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
               if (pendingInputStreamInfo != null) {
                 InputStreamInfo pendingInputStreamInfo = this.pendingInputStreamInfo;
                 videoFrameProcessingTaskExecutor.submit(
-                    () -> configureEffects(pendingInputStreamInfo, /* forceReconfigure= */ false));
+                    () -> configure(pendingInputStreamInfo, /* forceReconfigure= */ false));
                 this.pendingInputStreamInfo = null;
               }
             }
@@ -659,7 +661,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
         registeredFirstInputStream = true;
         inputStreamRegisteredCondition.close();
         videoFrameProcessingTaskExecutor.submit(
-            () -> configureEffects(pendingInputStreamInfo, /* forceReconfigure= */ true));
+            () -> configure(pendingInputStreamInfo, /* forceReconfigure= */ true));
       } else {
         // Rejects further inputs after signaling EOS and before the next input stream is fully
         // configured.
@@ -988,16 +990,17 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
   }
 
   /**
-   * Configures the {@link GlShaderProgram} instances for {@code effects}.
+   * Configures for a new input stream.
    *
-   * <p>The pipeline will only re-configure if the {@link InputStreamInfo#effects new effects}
-   * doesn't match the {@link #activeEffects}, or when {@code forceReconfigure} is set to {@code
-   * true}.
+   * <p>The effect pipeline will only re-configure if the {@link InputStreamInfo#effects new
+   * effects} don't match the {@link #activeEffects}, or when {@code forceReconfigure} is set to
+   * {@code true}.
    */
-  private void configureEffects(InputStreamInfo inputStreamInfo, boolean forceReconfigure)
+  private void configure(InputStreamInfo inputStreamInfo, boolean forceReconfigure)
       throws VideoFrameProcessingException {
     checkColors(
         /* inputColorInfo= */ checkNotNull(inputStreamInfo.format.colorInfo), outputColorInfo);
+
     if (forceReconfigure || !activeEffects.equals(inputStreamInfo.effects)) {
       if (!intermediateGlShaderPrograms.isEmpty()) {
         for (int i = 0; i < intermediateGlShaderPrograms.size(); i++) {
@@ -1035,10 +1038,17 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
         onInputSurfaceReadyListener = null;
       }
     }
+
     listenerExecutor.execute(
         () ->
             listener.onInputStreamRegistered(
                 inputStreamInfo.inputType, inputStreamInfo.format, inputStreamInfo.effects));
+    if (currentInputStreamInfo == null
+        || inputStreamInfo.format.frameRate != currentInputStreamInfo.format.frameRate) {
+      listenerExecutor.execute(
+          () -> listener.onOutputFrameRateChanged(inputStreamInfo.format.frameRate));
+    }
+    this.currentInputStreamInfo = inputStreamInfo;
   }
 
   /** Checks that color configuration is valid for {@link DefaultVideoFrameProcessor}. */

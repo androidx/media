@@ -158,6 +158,14 @@ public interface VideoFrameProcessor {
     default void onOutputSizeChanged(int width, int height) {}
 
     /**
+     * Called when the output frame rate changes.
+     *
+     * @param frameRate The output frame rate in frames per second, or {@link Format#NO_VALUE} if
+     *     unknown.
+     */
+    default void onOutputFrameRateChanged(float frameRate) {}
+
+    /**
      * Called when an output frame with the given {@code presentationTimeUs} becomes available for
      * rendering.
      *

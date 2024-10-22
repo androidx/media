@@ -177,6 +177,11 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
               }
 
               @Override
+              public void onOutputFrameRateChanged(float frameRate) {
+                listenerExecutor.execute(() -> listener.onOutputFrameRateChanged(frameRate));
+              }
+
+              @Override
               public void onOutputFrameAvailableForRendering(long presentationTimeUs) {
                 if (presentationTimeUs == 0) {
                   hasProducedFrameWithTimestampZero = true;
