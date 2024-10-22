@@ -1530,8 +1530,11 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     ByteBuffer contents = ByteBuffer.allocate(MAX_FIXED_LEAF_BOX_SIZE);
 
     contents.putInt(versionAndFlags);
-    // Default value of videoRange is 0.
-    int videoRange = format.colorInfo != null ? format.colorInfo.colorRange : 0;
+    // Default value of videoRange is limited range (value 0).
+    int videoRange =
+        format.colorInfo != null && format.colorInfo.colorRange != Format.NO_VALUE
+            ? format.colorInfo.colorRange
+            : 0;
     ByteBuffer codecPrivateContent = parseVp9CodecPrivateFromCsd(csd0, videoRange);
     contents.put(codecPrivateContent);
 
@@ -1542,10 +1545,16 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     int matrixCoefficients = 1;
 
     if (format.colorInfo != null) {
-      colourPrimaries = MEDIAFORMAT_STANDARD_TO_PRIMARIES_AND_MATRIX.get(videoRange).get(0);
-      transferCharacteristics =
-          MEDIAFORMAT_TRANSFER_TO_MP4_TRANSFER.get(format.colorInfo.colorTransfer);
-      matrixCoefficients = MEDIAFORMAT_STANDARD_TO_PRIMARIES_AND_MATRIX.get(videoRange).get(1);
+      ColorInfo colorInfo = format.colorInfo;
+      if (colorInfo.colorSpace != Format.NO_VALUE) {
+        colourPrimaries =
+            MEDIAFORMAT_STANDARD_TO_PRIMARIES_AND_MATRIX.get(colorInfo.colorSpace).get(0);
+        matrixCoefficients =
+            MEDIAFORMAT_STANDARD_TO_PRIMARIES_AND_MATRIX.get(colorInfo.colorSpace).get(1);
+      }
+      if (colorInfo.colorTransfer != Format.NO_VALUE) {
+        transferCharacteristics = MEDIAFORMAT_TRANSFER_TO_MP4_TRANSFER.get(colorInfo.colorTransfer);
+      }
     }
 
     contents.put((byte) colourPrimaries);
