@@ -208,10 +208,10 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
     /**
      * Called when the fullscreen button is clicked.
      *
-     * @param isFullScreen {@code true} if the video rendering surface should be fullscreen, {@code
+     * @param isFullscreen {@code true} if the video rendering surface should be fullscreen, {@code
      *     false} otherwise.
      */
-    void onFullscreenButtonClick(boolean isFullScreen);
+    void onFullscreenButtonClick(boolean isFullscreen);
   }
 
   /**
@@ -1957,9 +1957,9 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
     // PlayerControlView.OnFullScreenModeChangedListener implementation
 
     @Override
-    public void onFullScreenModeChanged(boolean isFullScreen) {
+    public void onFullScreenModeChanged(boolean isFullscreen) {
       if (fullscreenButtonClickListener != null) {
-        fullscreenButtonClickListener.onFullscreenButtonClick(isFullScreen);
+        fullscreenButtonClickListener.onFullscreenButtonClick(isFullscreen);
       }
     }
   }
