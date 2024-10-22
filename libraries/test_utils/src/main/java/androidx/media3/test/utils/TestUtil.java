@@ -684,6 +684,14 @@ public class TestUtil {
     return bottom + random.nextFloat() * (top - bottom);
   }
 
+  /**
+   * Returns a long between {@code origin} (inclusive) and {@code bound} (exclusive), given {@code
+   * random}.
+   */
+  public static long generateLong(Random random, long origin, long bound) {
+    return (long) (origin + random.nextFloat() * (bound - origin));
+  }
+
   private static final class NoUidOrShufflingTimeline extends Timeline {
 
     private final Timeline delegate;
