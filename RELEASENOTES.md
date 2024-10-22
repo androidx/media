@@ -8,6 +8,8 @@
 *   Extractors:
     *   Fix media duration parsing in `mdhd` box of MP4 files to handle `-1`
         values ([#1819](https://github.com/androidx/media/issues/1819)).
+    *   Add support for identifying `h263` box in MP4 files for H.263 video
+        ([#1821](https://github.com/androidx/media/issues/1821)).
 *   DataSource:
     *   `DataSourceContractTest`: Assert that `DataSource.getUri()` returns the
         resolved URI (as documented). Where this is different to the requested
