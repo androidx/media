@@ -43,6 +43,9 @@
 *   Smooth Streaming Extension:
 *   RTSP Extension:
 *   Decoder Extensions (FFmpeg, VP9, AV1, etc.):
+    *   Add the MPEG-H decoder module which uses the native MPEG-H decoder
+        module to decode MPEG-H audio
+        ([#1826](https://github.com/androidx/media/pull/1826)).
 *   MIDI extension:
 *   Leanback extension:
 *   Cast Extension:

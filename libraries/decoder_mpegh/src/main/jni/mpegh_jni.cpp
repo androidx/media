@@ -1,3 +1,19 @@
+/*
+ * Copyright 2024 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 #include <android/log.h>
 #include <jni.h>
 
@@ -5,7 +21,7 @@
 #include <cstdio>
 #include <cstring>
 
-#include "mpeghdecoder.h"
+#include "../include/mpeghdecoder.h"
 
 #define LOG_TAG "mpeghdec_jni"
 #define LOGE(...) ((void)__android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__))
@@ -21,7 +37,7 @@
   JNIEXPORT RETURN_TYPE Java_androidx_media3_decoder_mpegh_MpeghDecoderJni_##NAME( \
       JNIEnv *env, jobject obj, ##__VA_ARGS__)
 
-#define EXCEPTION_PATH "androidx/media3/decoder/mpegh/MpeghException"
+#define EXCEPTION_PATH "androidx/media3/decoder/mpegh/MpeghDecoderException"
 
 #define MAX_NUM_FRAMES (6)
 #define MAX_FRAME_LENGTH (3072)
@@ -30,9 +46,9 @@
 #define MAX_OUTBUF_SIZE_SAMPLES (MAX_NUM_FRAMES * MAX_FRAME_LENGTH * MAX_NUM_CHANNELS)
 
 typedef struct DECODER_CONTEXT {
-  int outSampleRate;
-  int outNumChannels;
-  long long outPts;
+  int32_t outSampleRate;
+  int32_t outNumChannels;
+  int64_t outPts;
 
   HANDLE_MPEGH_DECODER_CONTEXT handle;
   int32_t samples[MAX_OUTBUF_SIZE_SAMPLES];
@@ -54,10 +70,10 @@ DECODER_CONTEXT *getContext(JNIEnv *env, jobject obj) {
 }
 
 /*
- * Method:    init
- * will be used to initialize the JNI MPEG-H decoder wrapper
+ * Method: init
+ * will be used to initialize the JNI MPEG-H decoder wrapper.
  */
-DECODER_FUNC(void, init, jint cicpindex, jbyteArray mhaconfig, jint mhaconfiglength) {
+DECODER_FUNC(void, init, jint cicpIndex, jbyteArray mhaConfig, jint mhaConfigLength) {
   // create JNI decoder wrapper context
   auto *ctx = (DECODER_CONTEXT *)calloc(1, sizeof(DECODER_CONTEXT));
   if (ctx == nullptr) {
@@ -68,20 +84,20 @@ DECODER_FUNC(void, init, jint cicpindex, jbyteArray mhaconfig, jint mhaconfiglen
   }
 
   // create MPEG-H decoder
-  ctx->handle = mpeghdecoder_init(cicpindex);
+  ctx->handle = mpeghdecoder_init(cicpIndex);
   if (ctx->handle == nullptr) {
-    LOGE("Cannot create mpeghdecoder with CICP = %d!", cicpindex);
+    LOGE("Cannot create mpeghdecoder with CICP = %d!", cicpIndex);
     jclass atscExCls = env->FindClass(EXCEPTION_PATH);
     env->ThrowNew(atscExCls, "Cannot create mpeghdecoder");
     return;
   }
 
-  if (mhaconfiglength > 0) {
-    auto *cData = (jbyte *)calloc(mhaconfiglength, sizeof(jbyte));
-    env->GetByteArrayRegion(mhaconfig, 0, mhaconfiglength, cData);
+  if (mhaConfigLength > 0) {
+    auto *cData = (jbyte *)calloc(mhaConfigLength, sizeof(jbyte));
+    env->GetByteArrayRegion(mhaConfig, 0, mhaConfigLength, cData);
 
     MPEGH_DECODER_ERROR result =
-        mpeghdecoder_setMhaConfig(ctx->handle, (unsigned char *)cData, (uint32_t)mhaconfiglength);
+        mpeghdecoder_setMhaConfig(ctx->handle, (unsigned char *)cData, (uint32_t)mhaConfigLength);
     free(cData);
     if (result != MPEGH_DEC_OK) {
       LOGE("Cannot set MHA config!");
@@ -96,8 +112,8 @@ DECODER_FUNC(void, init, jint cicpindex, jbyteArray mhaconfig, jint mhaconfiglen
 }
 
 /*
- * Method:    destroy
- * will be called to destroy the JNI MPEG-H decoder wrapper
+ * Method: destroy
+ * will be called to destroy the JNI MPEG-H decoder wrapper.
  */
 DECODER_FUNC(void, destroy) {
   DECODER_CONTEXT *ctx = getContext(env, obj);
@@ -107,16 +123,16 @@ DECODER_FUNC(void, destroy) {
 }
 
 /*
- * Method:    process
- * will be called to pass the received MHAS frame to the decoder
+ * Method: process
+ * will be called to pass the received MHAS frame to the decoder.
  */
-DECODER_FUNC(void, process, jobject in, jint in_len, jlong timestamp) {
+DECODER_FUNC(void, process, jobject inputBuffer, jint inputLength, jlong timestampUs) {
   DECODER_CONTEXT *ctx = getContext(env, obj);
 
-  // get memory pointer to the buffer of the corrsponding JAVA input parameter
-  auto *inData = (const uint8_t *)env->GetDirectBufferAddress(in);
-  auto inDataLen = (uint32_t)in_len;
-  auto ptsIn = (uint64_t)timestamp;
+  // get memory pointer to the buffer of the corresponding JAVA input parameter
+  auto *inData = (const uint8_t *)env->GetDirectBufferAddress(inputBuffer);
+  auto inDataLen = (uint32_t)inputLength;
+  auto ptsIn = (uint64_t)timestampUs;
 
   MPEGH_DECODER_ERROR result = mpeghdecoder_process(ctx->handle, inData, inDataLen, ptsIn * 1000);
   if (result != MPEGH_DEC_OK) {
@@ -127,8 +143,8 @@ DECODER_FUNC(void, process, jobject in, jint in_len, jlong timestamp) {
 }
 
 /*
- * Method:    getSamples
- * will be called to receive the decoded PCM
+ * Method: getSamples
+ * will be called to receive the decoded PCM.
  */
 DECODER_FUNC(jint, getSamples, jobject buffer, jint writePos) {
   DECODER_CONTEXT *ctx = getContext(env, obj);
@@ -170,8 +186,9 @@ DECODER_FUNC(jint, getSamples, jobject buffer, jint writePos) {
 }
 
 /*
- * Method:    flushAndGet
- * will be called to force the decoder to flush the internal PCM buffer
+ * Method: flushAndGet
+ * will be called to force the decoder to flush the internal PCM buffer and write available output
+ * samples into a sample queue.
  */
 DECODER_FUNC(void, flushAndGet) {
   DECODER_CONTEXT *ctx = getContext(env, obj);
@@ -185,8 +202,8 @@ DECODER_FUNC(void, flushAndGet) {
 }
 
 /*
- * Method:    getNumChannels
- * will be called to receive the number of output channels
+ * Method: getNumChannels
+ * will be called to receive the number of output channels.
  */
 DECODER_FUNC(jint, getNumChannels) {
   DECODER_CONTEXT *ctx = getContext(env, obj);
@@ -194,8 +211,8 @@ DECODER_FUNC(jint, getNumChannels) {
 }
 
 /*
- * Method:    getSamplerate
- * will be called to receive the output samplerate
+ * Method: getSamplerate
+ * will be called to receive the output sample rate.
  */
 DECODER_FUNC(jint, getSamplerate) {
   // get wrapper context from JNI env
@@ -204,8 +221,8 @@ DECODER_FUNC(jint, getSamplerate) {
 }
 
 /*
- * Method:    getPts
- * will be called to receive the output PTS
+ * Method: getPts
+ * will be called to receive the output PTS.
  */
 DECODER_FUNC(jlong, getPts) {
   DECODER_CONTEXT *ctx = getContext(env, obj);
@@ -213,8 +230,8 @@ DECODER_FUNC(jlong, getPts) {
 }
 
 /*
- * Method:    flush
- * will be called to force the decoder to flush the internal PCM buffer
+ * Method: flush
+ * will be called to force the decoder to flush the internal PCM buffer.
  */
 DECODER_FUNC(void, flush) {
   DECODER_CONTEXT *ctx = getContext(env, obj);
