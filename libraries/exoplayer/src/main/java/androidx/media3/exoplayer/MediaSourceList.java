@@ -573,8 +573,11 @@ import java.util.Set;
         eventHandler.post(
             () ->
                 eventListener.onLoadStarted(
-                    eventParameters.first, eventParameters.second,
-                    loadEventData, mediaLoadData, retryCount));
+                    eventParameters.first,
+                    eventParameters.second,
+                    loadEventData,
+                    mediaLoadData,
+                    retryCount));
       }
     }
 

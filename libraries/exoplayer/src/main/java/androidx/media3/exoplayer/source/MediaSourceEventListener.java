@@ -46,8 +46,8 @@ public interface MediaSourceEventListener {
    *     LoadEventInfo#uri} won't reflect potential redirection yet and {@link
    *     LoadEventInfo#responseHeaders} will be empty.
    * @param mediaLoadData The {@link MediaLoadData} defining the data being loaded.
-   * @param retryCount The number of failed attempts since this method was first called (this
-   *     is zero for the first load attempt).
+   * @param retryCount The number of failed attempts since this method was first called (this is
+   *     zero for the first load attempt).
    */
   default void onLoadStarted(
       int windowIndex,
@@ -64,8 +64,7 @@ public interface MediaSourceEventListener {
    *     belong to a specific media period.
    * @param loadEventInfo The {@link LoadEventInfo} corresponding to the event. The values of {@link
    *     LoadEventInfo#elapsedRealtimeMs} and {@link LoadEventInfo#bytesLoaded} are relative to the
-   *     corresponding {@link #onLoadStarted}
-   *     event.
+   *     corresponding {@link #onLoadStarted} event.
    * @param mediaLoadData The {@link MediaLoadData} defining the data being loaded.
    */
   default void onLoadCompleted(
@@ -82,8 +81,7 @@ public interface MediaSourceEventListener {
    *     belong to a specific media period.
    * @param loadEventInfo The {@link LoadEventInfo} corresponding to the event. The values of {@link
    *     LoadEventInfo#elapsedRealtimeMs} and {@link LoadEventInfo#bytesLoaded} are relative to the
-   *     corresponding {@link #onLoadStarted}
-   *     event.
+   *     corresponding {@link #onLoadStarted} event.
    * @param mediaLoadData The {@link MediaLoadData} defining the data being loaded.
    */
   default void onLoadCanceled(
@@ -111,8 +109,7 @@ public interface MediaSourceEventListener {
    *     belong to a specific media period.
    * @param loadEventInfo The {@link LoadEventInfo} corresponding to the event. The values of {@link
    *     LoadEventInfo#elapsedRealtimeMs} and {@link LoadEventInfo#bytesLoaded} are relative to the
-   *     corresponding {@link #onLoadStarted}
-   *     event.
+   *     corresponding {@link #onLoadStarted} event.
    * @param mediaLoadData The {@link MediaLoadData} defining the data being loaded.
    * @param error The load error.
    * @param wasCanceled Whether the load was canceled as a result of the error.
@@ -266,9 +263,7 @@ public interface MediaSourceEventListener {
 
     /** Dispatches {@link #onLoadStarted(int, MediaPeriodId, LoadEventInfo, MediaLoadData, int)}. */
     public void loadStarted(
-        LoadEventInfo loadEventInfo,
-        MediaLoadData mediaLoadData,
-        int retryCount) {
+        LoadEventInfo loadEventInfo, MediaLoadData mediaLoadData, int retryCount) {
       dispatchEvent(
           (listener) ->
               listener.onLoadStarted(
