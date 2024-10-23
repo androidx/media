@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer;
 
+import static androidx.media3.common.C.TRACK_TYPE_VIDEO;
 import static androidx.media3.exoplayer.Renderer.STATE_DISABLED;
 import static androidx.media3.exoplayer.Renderer.STATE_ENABLED;
 import static androidx.media3.exoplayer.Renderer.STATE_STARTED;
@@ -438,6 +439,12 @@ import java.io.IOException;
   public void release() {
     renderer.release();
     requiresReset = false;
+  }
+
+  public void setVideoOutput(@Nullable Object videoOutput) throws ExoPlaybackException {
+    if (renderer.getTrackType() == TRACK_TYPE_VIDEO) {
+      renderer.handleMessage(Renderer.MSG_SET_VIDEO_OUTPUT, videoOutput);
+    }
   }
 
   private static boolean isRendererEnabled(Renderer renderer) {

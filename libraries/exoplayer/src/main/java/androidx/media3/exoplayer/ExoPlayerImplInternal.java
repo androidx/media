@@ -154,6 +154,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
   private static final int MSG_UPDATE_MEDIA_SOURCES_WITH_MEDIA_ITEMS = 27;
   private static final int MSG_SET_PRELOAD_CONFIGURATION = 28;
   private static final int MSG_PREPARE = 29;
+  private static final int MSG_SET_VIDEO_OUTPUT = 30;
 
   private static final long BUFFERING_MAXIMUM_INTERVAL_MS =
       Util.usToMs(Renderer.DEFAULT_DURATION_TO_PROGRESS_US);
@@ -466,6 +467,32 @@ import java.util.concurrent.atomic.AtomicBoolean;
   }
 
   /**
+   * Sets the video output.
+   *
+   * <p>If the provided {@code timeoutMs} is {@link C#TIME_UNSET} then this method will not wait on
+   * the message delivery.
+   *
+   * @param videoOutput Surface onto which which video will be rendered.
+   * @param timeoutMs Timeout duration to wait for successful message delivery. If {@link
+   *     C#TIME_UNSET} then the method will not block on the message delivery.
+   * @return Whether the operation succeeded. If false, the operation timed out.
+   */
+  public synchronized boolean setVideoOutput(@Nullable Object videoOutput, long timeoutMs) {
+    if (released || !playbackLooper.getThread().isAlive()) {
+      return true;
+    }
+    AtomicBoolean processedFlag = new AtomicBoolean();
+    handler
+        .obtainMessage(MSG_SET_VIDEO_OUTPUT, new Pair<>(videoOutput, processedFlag))
+        .sendToTarget();
+    if (timeoutMs != C.TIME_UNSET) {
+      waitUninterruptibly(/* condition= */ processedFlag::get, timeoutMs);
+      return processedFlag.get();
+    }
+    return true;
+  }
+
+  /**
    * Releases the player.
    *
    * @return Whether the release succeeded. If false, the release timed out.
@@ -565,6 +592,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
         case MSG_SET_FOREGROUND_MODE:
           setForegroundModeInternal(
               /* foregroundMode= */ msg.arg1 != 0, /* processedFlag= */ (AtomicBoolean) msg.obj);
+          break;
+        case MSG_SET_VIDEO_OUTPUT:
+          Pair<Object, AtomicBoolean> setVideoOutputPayload = (Pair<Object, AtomicBoolean>) msg.obj;
+          setVideoOutputInternal(
+              /* videoOutput= */ setVideoOutputPayload.first,
+              /* processedFlag= */ setVideoOutputPayload.second);
           break;
         case MSG_STOP:
           stopInternal(/* forceResetRenderers= */ false, /* acknowledgeStop= */ true);
@@ -1505,6 +1538,21 @@ import java.util.concurrent.atomic.AtomicBoolean;
         }
       }
     }
+    if (processedFlag != null) {
+      synchronized (this) {
+        processedFlag.set(true);
+        notifyAll();
+      }
+    }
+  }
+
+  private void setVideoOutputInternal(
+      @Nullable Object videoOutput, @Nullable AtomicBoolean processedFlag)
+      throws ExoPlaybackException {
+    for (RendererHolder renderer : renderers) {
+      renderer.setVideoOutput(videoOutput);
+    }
+
     if (processedFlag != null) {
       synchronized (this) {
         processedFlag.set(true);

@@ -35,7 +35,6 @@ import static androidx.media3.exoplayer.Renderer.MSG_SET_SCALING_MODE;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_SKIP_SILENCE_ENABLED;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_VIDEO_EFFECTS;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_VIDEO_FRAME_METADATA_LISTENER;
-import static androidx.media3.exoplayer.Renderer.MSG_SET_VIDEO_OUTPUT;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_VIDEO_OUTPUT_RESOLUTION;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_VOLUME;
 import static java.lang.Math.max;
@@ -124,7 +123,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArraySet;
-import java.util.concurrent.TimeoutException;
 
 /** The default implementation of {@link ExoPlayer}. */
 /* package */ final class ExoPlayerImpl extends BasePlayer
@@ -2702,31 +2700,12 @@ import java.util.concurrent.TimeoutException;
   }
 
   private void setVideoOutputInternal(@Nullable Object videoOutput) {
+    boolean isReplacingVideoOutput = this.videoOutput != null && this.videoOutput != videoOutput;
+    long timeoutMs = isReplacingVideoOutput ? detachSurfaceTimeoutMs : C.TIME_UNSET;
     // Note: We don't turn this method into a no-op if the output is being replaced with itself so
     // as to ensure onRenderedFirstFrame callbacks are still called in this case.
-    List<PlayerMessage> messages = new ArrayList<>();
-    for (Renderer renderer : renderers) {
-      if (renderer.getTrackType() == TRACK_TYPE_VIDEO) {
-        messages.add(
-            createMessageInternal(renderer)
-                .setType(MSG_SET_VIDEO_OUTPUT)
-                .setPayload(videoOutput)
-                .send());
-      }
-    }
-    boolean messageDeliveryTimedOut = false;
-    if (this.videoOutput != null && this.videoOutput != videoOutput) {
-      // We're replacing an output. Block to ensure that this output will not be accessed by the
-      // renderers after this method returns.
-      try {
-        for (PlayerMessage message : messages) {
-          message.blockUntilDelivered(detachSurfaceTimeoutMs);
-        }
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-      } catch (TimeoutException e) {
-        messageDeliveryTimedOut = true;
-      }
+    boolean isSuccess = internalPlayer.setVideoOutput(videoOutput, timeoutMs);
+    if (isReplacingVideoOutput) {
       if (this.videoOutput == ownedSurface) {
         // We're replacing a surface that we are responsible for releasing.
         ownedSurface.release();
@@ -2734,7 +2713,7 @@ import java.util.concurrent.TimeoutException;
       }
     }
     this.videoOutput = videoOutput;
-    if (messageDeliveryTimedOut) {
+    if (!isSuccess) {
       stopInternal(
           ExoPlaybackException.createForUnexpected(
               new ExoTimeoutException(ExoTimeoutException.TIMEOUT_OPERATION_DETACH_SURFACE),
