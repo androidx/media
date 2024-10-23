@@ -33,6 +33,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
+import android.annotation.SuppressLint;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.os.Bundle;
@@ -157,6 +158,9 @@ public class MediaControllerTest {
     }
   }
 
+  // Ignore warning about getCreatorPackage as this is just used as a test assertion to see if the
+  // correct activity has been received by the controller.
+  @SuppressLint("PendingIntentCreator")
   @Test
   public void getSessionActivity() throws Exception {
     RemoteMediaSession session = createRemoteMediaSession(TEST_GET_SESSION_ACTIVITY, null);
