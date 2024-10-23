@@ -698,14 +698,15 @@ public class MediaBrowserListenerWithMediaBrowserServiceCompatTest {
               }
             });
 
-    ListenableFuture<LibraryResult<Void>> future =
+    LibraryResult<Void> result =
         threadTestRule
             .getHandler()
-            .postAndSync(() -> browser.subscribe("parentId", new LibraryParams.Builder().build()));
+            .postAndSync(() -> browser.subscribe("parentId", new LibraryParams.Builder().build()))
+            .get();
     // Trigger calling onLoadChildren that is rejected.
     remoteService.notifyChildrenChanged("parentId");
 
-    assertThat(future.get().resultCode).isEqualTo(RESULT_SUCCESS);
+    assertThat(result.resultCode).isEqualTo(RESULT_SUCCESS);
     assertThat(onChildrenChangedLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(changedParentIds).containsExactly("parentId", "parentId");
     assertThat(changedItemCounts).containsExactly(2, Integer.MAX_VALUE).inOrder();
