@@ -444,8 +444,8 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
    * @param elapsedRealtimeUs {@link android.os.SystemClock#elapsedRealtime()} in microseconds,
    *     taken approximately at the time the playback position was {@code positionUs}.
    */
-  private void render(long positionUs, long elapsedRealtimeUs) throws ExoPlaybackException {
-    videoFrameRenderControl.render(positionUs, elapsedRealtimeUs);
+  private void render(long positionUs, long elapsedRealtimeUs) throws VideoSink.VideoSinkException {
+    defaultVideoSink.render(positionUs, elapsedRealtimeUs);
   }
 
   private void flush(boolean resetPosition) {
@@ -806,12 +806,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
 
     @Override
     public void render(long positionUs, long elapsedRealtimeUs) throws VideoSinkException {
-      try {
-        PlaybackVideoGraphWrapper.this.render(positionUs, elapsedRealtimeUs);
-      } catch (ExoPlaybackException e) {
-        throw new VideoSinkException(
-            e, inputFormat != null ? inputFormat : new Format.Builder().build());
-      }
+      PlaybackVideoGraphWrapper.this.render(positionUs, elapsedRealtimeUs);
     }
 
     @Override

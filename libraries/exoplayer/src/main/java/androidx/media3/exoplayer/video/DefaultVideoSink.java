@@ -21,6 +21,7 @@ import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.TimestampIterator;
+import androidx.media3.exoplayer.ExoPlaybackException;
 import java.util.List;
 import java.util.concurrent.Executor;
 
@@ -177,8 +178,12 @@ import java.util.concurrent.Executor;
   }
 
   @Override
-  public void render(long positionUs, long elapsedRealtimeUs) {
-    throw new UnsupportedOperationException();
+  public void render(long positionUs, long elapsedRealtimeUs) throws VideoSinkException {
+    try {
+      videoFrameRenderControl.render(positionUs, elapsedRealtimeUs);
+    } catch (ExoPlaybackException e) {
+      throw new VideoSinkException(e, inputFormat);
+    }
   }
 
   @Override
