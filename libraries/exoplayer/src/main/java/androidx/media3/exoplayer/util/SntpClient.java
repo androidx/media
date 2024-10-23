@@ -96,6 +96,12 @@ public final class SntpClient {
   @GuardedBy("valueLock")
   private static int timeoutMs = DEFAULT_TIMEOUT_MS;
 
+  @GuardedBy("valueLock")
+  private static long maxElapsedTimeUntilUpdateMs = C.TIME_UNSET;
+
+  @GuardedBy("valueLock")
+  private static long lastUpdateElapsedRealtime = C.TIME_UNSET;
+
   private SntpClient() {}
 
   /** Returns the NTP host address used to retrieve {@link #getElapsedRealtimeOffsetMs()}. */
@@ -149,6 +155,24 @@ public final class SntpClient {
   }
 
   /**
+   * Sets the maximum time to elapse until the client is re-initialized, in milliseconds.
+   *
+   * <p>The default is {@link C#TIME_UNSET} to never re-initialize.
+   */
+  public static void setMaxElapsedTimeUntilUpdateMs(long maxElapsedTimeUntilUpdateMs) {
+    synchronized (valueLock) {
+      SntpClient.maxElapsedTimeUntilUpdateMs = maxElapsedTimeUntilUpdateMs;
+    }
+  }
+
+  /** Returns the maximum time to elapse until the client is re-initialized, in milliseconds. */
+  public static long getMaxElapsedTimeUntilUpdateMs() {
+    synchronized (valueLock) {
+      return maxElapsedTimeUntilUpdateMs;
+    }
+  }
+
+  /**
    * Returns whether the device time offset has already been loaded.
    *
    * <p>If {@code false}, use {@link #initialize(Loader, InitializationCallback)} to start the
@@ -156,6 +180,11 @@ public final class SntpClient {
    */
   public static boolean isInitialized() {
     synchronized (valueLock) {
+      if (lastUpdateElapsedRealtime != C.TIME_UNSET
+          && maxElapsedTimeUntilUpdateMs != C.TIME_UNSET) {
+        long deltaLastUpdate = SystemClock.elapsedRealtime() - lastUpdateElapsedRealtime;
+        isInitialized = isInitialized && deltaLastUpdate < maxElapsedTimeUntilUpdateMs;
+      }
       return isInitialized;
     }
   }
@@ -353,6 +382,7 @@ public final class SntpClient {
         }
         long offsetMs = loadNtpTimeOffsetMs();
         synchronized (valueLock) {
+          lastUpdateElapsedRealtime = SystemClock.elapsedRealtime();
           elapsedRealtimeOffsetMs = offsetMs;
           isInitialized = true;
         }
