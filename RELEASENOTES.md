@@ -7,6 +7,10 @@
 This release includes the following changes since the
 [1.5.0-beta01 release](#150-beta01-2024-10-30):
 
+*   ExoPlayer:
+    *   Add a setter to `SntpClient` to set the max elapsed time since the last
+        update after which the client is re-initialized
+        ([#1794](https://github.com/androidx/media/pull/1794)).
 *   Extractors:
     *   Fix media duration parsing in `mdhd` box of MP4 files to handle `-1`
         values ([#1819](https://github.com/androidx/media/issues/1819)).
