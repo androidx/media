@@ -2971,11 +2971,31 @@ public final class DefaultTrackSelectorTest {
   }
 
   /**
+   * {@link DefaultTrackSelector.Parameters.Builder} must override every method in {@link
+   * TrackSelectionParameters.Builder} in order to 'fix' the return type to correctly allow chaining
+   * the method calls.
+   */
+  @Test
+  public void parametersBuilderOverridesAllTrackSelectionParametersBuilderMethods()
+      throws Exception {
+    List<Method> methods = TestUtil.getPublicMethods(TrackSelectionParameters.Builder.class);
+    for (Method method : methods) {
+      Method declaredMethod =
+          Parameters.Builder.class.getDeclaredMethod(method.getName(), method.getParameterTypes());
+      assertThat(declaredMethod.getDeclaringClass()).isEqualTo(Parameters.Builder.class);
+      if (method.getReturnType().equals(TrackSelectionParameters.Builder.class)) {
+        assertThat(declaredMethod.getReturnType()).isEqualTo(Parameters.Builder.class);
+      }
+    }
+  }
+
+  /**
    * The deprecated {@link DefaultTrackSelector.ParametersBuilder} is implemented by delegating to
    * an instance of {@link DefaultTrackSelector.Parameters.Builder}. However, it <b>also</b> extends
    * {@link TrackSelectionParameters.Builder}, and for the delegation-pattern to work correctly it
    * needs to override <b>every</b> setter method from the superclass (otherwise the setter won't be
-   * propagated to the delegate). This test ensures that invariant.
+   * propagated to the delegate). This test ensures that invariant. It also ensures the return type
+   * is updated to correctly allow chaining the method calls.
    *
    * <p>The test can be removed when the deprecated {@link DefaultTrackSelector.ParametersBuilder}
    * is removed.
@@ -2986,11 +3006,15 @@ public final class DefaultTrackSelectorTest {
       throws Exception {
     List<Method> methods = TestUtil.getPublicMethods(TrackSelectionParameters.Builder.class);
     for (Method method : methods) {
-      assertThat(
-              DefaultTrackSelector.ParametersBuilder.class
-                  .getDeclaredMethod(method.getName(), method.getParameterTypes())
-                  .getDeclaringClass())
+      Method declaredMethod =
+          DefaultTrackSelector.ParametersBuilder.class.getDeclaredMethod(
+              method.getName(), method.getParameterTypes());
+      assertThat(declaredMethod.getDeclaringClass())
           .isEqualTo(DefaultTrackSelector.ParametersBuilder.class);
+      if (method.getReturnType().equals(TrackSelectionParameters.Builder.class)) {
+        assertThat(declaredMethod.getReturnType())
+            .isEqualTo(DefaultTrackSelector.ParametersBuilder.class);
+      }
     }
   }
 
