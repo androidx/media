@@ -155,6 +155,9 @@ import java.util.concurrent.Executor;
     if (format.width != inputFormat.width || format.height != inputFormat.height) {
       videoFrameRenderControl.onOutputSizeChanged(format.width, format.height);
     }
+    if (format.frameRate != inputFormat.frameRate) {
+      videoFrameReleaseControl.setFrameRate(format.frameRate);
+    }
     inputFormat = format;
   }
 

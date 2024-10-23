@@ -236,7 +236,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
   private final Clock clock;
   private final CopyOnWriteArraySet<PlaybackVideoGraphWrapper.Listener> listeners;
 
-  private @MonotonicNonNull Format outputFormat;
+  private Format videoGraphOutputFormat;
   private @MonotonicNonNull VideoFrameMetadataListener videoFrameMetadataListener;
   private @MonotonicNonNull HandlerWrapper handler;
   private @MonotonicNonNull PreviewingVideoGraph videoGraph;
@@ -264,6 +264,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     defaultVideoSink = new DefaultVideoSink(videoFrameReleaseControl, videoFrameRenderControl);
     listeners = new CopyOnWriteArraySet<>();
     state = STATE_CREATED;
+    videoGraphOutputFormat = new Format.Builder().build();
     addListener(inputVideoSink);
   }
 
@@ -335,13 +336,15 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
   @Override
   public void onOutputSizeChanged(int width, int height) {
     // We forward output size changes to the sink even if we are still flushing.
-    Format format = new Format.Builder().setWidth(width).setHeight(height).build();
-    defaultVideoSink.onInputStreamChanged(INPUT_TYPE_SURFACE, format);
+    videoGraphOutputFormat =
+        videoGraphOutputFormat.buildUpon().setWidth(width).setHeight(height).build();
+    defaultVideoSink.onInputStreamChanged(INPUT_TYPE_SURFACE, videoGraphOutputFormat);
   }
 
   @Override
   public void onOutputFrameRateChanged(float frameRate) {
-    videoFrameReleaseControl.setFrameRate(frameRate);
+    videoGraphOutputFormat = videoGraphOutputFormat.buildUpon().setFrameRate(frameRate).build();
+    defaultVideoSink.onInputStreamChanged(INPUT_TYPE_SURFACE, videoGraphOutputFormat);
   }
 
   @Override
@@ -911,9 +914,11 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
 
   private final class FrameRendererImpl implements VideoFrameRenderControl.FrameRenderer {
 
+    private @MonotonicNonNull Format renderedFormat;
+
     @Override
     public void onVideoSizeChanged(VideoSize videoSize) {
-      outputFormat =
+      renderedFormat =
           new Format.Builder()
               .setWidth(videoSize.width)
               .setHeight(videoSize.height)
@@ -936,9 +941,10 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
         }
       }
       if (videoFrameMetadataListener != null) {
-        // TODO b/292111083 - outputFormat is initialized after the first frame is rendered because
-        //  onVideoSizeChanged is announced after the first frame is available for rendering.
-        Format format = outputFormat == null ? new Format.Builder().build() : outputFormat;
+        // TODO b/292111083 - renderedFormat is initialized after the first frame is rendered
+        //  because onVideoSizeChanged is announced after the first frame is available for
+        //  rendering.
+        Format format = renderedFormat == null ? new Format.Builder().build() : renderedFormat;
         videoFrameMetadataListener.onVideoFrameAboutToBeRendered(
             /* presentationTimeUs= */ bufferPresentationTimeUs,
             clock.nanoTime(),
