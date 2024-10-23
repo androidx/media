@@ -34,6 +34,7 @@
 *   Muxers:
 *   IMA extension:
 *   UI:
+    *   Add `PlayerSurface` Composable to `media3-ui-compose` module.
 *   Downloads:
 *   OkHttp Extension:
 *   Cronet Extension:

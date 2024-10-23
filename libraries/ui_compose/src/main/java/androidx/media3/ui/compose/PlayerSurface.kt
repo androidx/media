@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package androidx.media3.demo.compose
+package androidx.media3.ui.compose
 
 import android.view.Surface
 import android.view.SurfaceView
@@ -26,6 +26,7 @@ import androidx.compose.foundation.AndroidExternalSurfaceScope
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
 
 /**
  * Provides a dedicated drawing [Surface] for media playbacks using a [Player].
@@ -40,6 +41,7 @@ import androidx.media3.common.Player
  * [Choosing a surface type](https://developer.android.com/media/media3/ui/playerview#surfacetype)
  * for more information.
  */
+@UnstableApi
 @Composable
 fun PlayerSurface(player: Player, surfaceType: @SurfaceType Int, modifier: Modifier = Modifier) {
   val onSurfaceCreated: (Surface) -> Unit = { surface -> player.setVideoSurface(surface) }
@@ -64,13 +66,13 @@ fun PlayerSurface(player: Player, surfaceType: @SurfaceType Int, modifier: Modif
  * The type of surface view used for media playbacks. One of [SURFACE_TYPE_SURFACE_VIEW] or
  * [SURFACE_TYPE_TEXTURE_VIEW].
  */
-@MustBeDocumented
+@UnstableApi
 @Retention(AnnotationRetention.SOURCE)
 @Target(AnnotationTarget.CLASS, AnnotationTarget.TYPE, AnnotationTarget.TYPE_PARAMETER)
 @IntDef(SURFACE_TYPE_SURFACE_VIEW, SURFACE_TYPE_TEXTURE_VIEW)
 annotation class SurfaceType
 
 /** Surface type equivalent to [SurfaceView] . */
-const val SURFACE_TYPE_SURFACE_VIEW = 1
+@UnstableApi const val SURFACE_TYPE_SURFACE_VIEW = 1
 /** Surface type equivalent to [TextureView]. */
-const val SURFACE_TYPE_TEXTURE_VIEW = 2
+@UnstableApi const val SURFACE_TYPE_TEXTURE_VIEW = 2

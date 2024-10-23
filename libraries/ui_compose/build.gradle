@@ -52,6 +52,9 @@ dependencies {
 
     def composeBom = platform('androidx.compose:compose-bom:2024.01.00')
     implementation composeBom
+
+    implementation 'androidx.compose.foundation:foundation'
+    implementation 'androidx.core:core:' + androidxCoreVersion
 }
 
 ext {
