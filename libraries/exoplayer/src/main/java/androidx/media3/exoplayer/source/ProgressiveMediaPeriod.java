@@ -920,7 +920,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         C.SELECTION_REASON_UNKNOWN,
         /* trackSelectionData= */ null,
         /* mediaStartTimeUs= */ loadable.seekTimeUs,
-        durationUs, /* retryCount= */ 0);
+        durationUs,
+        /* retryCount= */ 0);
   }
 
   /**

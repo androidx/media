@@ -168,7 +168,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         C.SELECTION_REASON_UNKNOWN,
         /* trackSelectionData= */ null,
         /* mediaStartTimeUs= */ 0,
-        durationUs, /* retryCount= */ 0);
+        durationUs,
+        /* retryCount= */ 0);
     return true;
   }
 
@@ -208,8 +209,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   // Loader.Callback implementation.
 
   @Override
-  public void onLoadStarted(SourceLoadable loadable, long elapsedRealtimeMs, long loadDurationMs,
-      int retryCount) {
+  public void onLoadStarted(
+      SourceLoadable loadable, long elapsedRealtimeMs, long loadDurationMs, int retryCount) {
     StatsDataSource dataSource = loadable.dataSource;
     LoadEventInfo loadEventInfo =
         new LoadEventInfo(

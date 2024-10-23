@@ -152,7 +152,8 @@ public final class DefaultHlsPlaylistTracker
             multivariantPlaylistLoadable.loadTaskId,
             multivariantPlaylistLoadable.dataSpec,
             elapsedRealtime),
-        multivariantPlaylistLoadable.type, /* retryCount= */ 0);
+        multivariantPlaylistLoadable.type,
+        /* retryCount= */ 0);
   }
 
   @Override
@@ -261,10 +262,7 @@ public final class DefaultHlsPlaylistTracker
       long loadDurationMs,
       int retryCount) {
     eventDispatcher.loadStarted(
-        new LoadEventInfo(
-            loadable.loadTaskId,
-            loadable.dataSpec,
-            elapsedRealtimeMs),
+        new LoadEventInfo(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs),
         loadable.type,
         retryCount);
   }
@@ -759,7 +757,8 @@ public final class DefaultHlsPlaylistTracker
       eventDispatcher.loadStarted(
           new LoadEventInfo(
               mediaPlaylistLoadable.loadTaskId, mediaPlaylistLoadable.dataSpec, elapsedRealtime),
-          mediaPlaylistLoadable.type, /* retryCount= */ 0);
+          mediaPlaylistLoadable.type,
+          /* retryCount= */ 0);
     }
 
     private void processLoadedPlaylist(
