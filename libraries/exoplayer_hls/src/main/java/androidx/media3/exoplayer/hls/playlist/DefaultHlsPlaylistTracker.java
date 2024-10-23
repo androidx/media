@@ -141,19 +141,10 @@ public final class DefaultHlsPlaylistTracker
             playlistParserFactory.createPlaylistParser());
     Assertions.checkState(initialPlaylistLoader == null);
     initialPlaylistLoader = new Loader("DefaultHlsPlaylistTracker:MultivariantPlaylist");
-    long elapsedRealtime =
-        initialPlaylistLoader.startLoading(
-            multivariantPlaylistLoadable,
-            this,
-            loadErrorHandlingPolicy.getMinimumLoadableRetryCount(
-                multivariantPlaylistLoadable.type));
-    eventDispatcher.loadStarted(
-        new LoadEventInfo(
-            multivariantPlaylistLoadable.loadTaskId,
-            multivariantPlaylistLoadable.dataSpec,
-            elapsedRealtime),
-        multivariantPlaylistLoadable.type,
-        /* retryCount= */ 0);
+    initialPlaylistLoader.startLoading(
+        multivariantPlaylistLoadable,
+        this,
+        loadErrorHandlingPolicy.getMinimumLoadableRetryCount(multivariantPlaylistLoadable.type));
   }
 
   @Override
@@ -262,7 +253,14 @@ public final class DefaultHlsPlaylistTracker
       long loadDurationMs,
       int retryCount) {
     eventDispatcher.loadStarted(
-        new LoadEventInfo(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs),
+        new LoadEventInfo(
+            loadable.loadTaskId,
+            loadable.dataSpec,
+            loadable.getUri(),
+            loadable.getResponseHeaders(),
+            elapsedRealtimeMs,
+            loadDurationMs,
+            /* bytesLoaded= */ 0),
         loadable.type,
         retryCount);
   }
@@ -749,16 +747,10 @@ public final class DefaultHlsPlaylistTracker
               playlistRequestUri,
               C.DATA_TYPE_MANIFEST,
               mediaPlaylistParser);
-      long elapsedRealtime =
           mediaPlaylistLoader.startLoading(
               mediaPlaylistLoadable,
               /* callback= */ this,
               loadErrorHandlingPolicy.getMinimumLoadableRetryCount(mediaPlaylistLoadable.type));
-      eventDispatcher.loadStarted(
-          new LoadEventInfo(
-              mediaPlaylistLoadable.loadTaskId, mediaPlaylistLoadable.dataSpec, elapsedRealtime),
-          mediaPlaylistLoadable.type,
-          /* retryCount= */ 0);
     }
 
     private void processLoadedPlaylist(

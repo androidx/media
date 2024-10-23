@@ -409,7 +409,7 @@ public class DefaultAnalyticsCollector implements AnalyticsCollector {
     EventTime eventTime = generateMediaPeriodEventTime(windowIndex, mediaPeriodId);
     sendEvent(
         eventTime,
-        C.INDEX_UNSET,
+        /* eventFlag= */ C.INDEX_UNSET,
         listener -> listener.onLoadStarted(eventTime, loadEventInfo, mediaLoadData));
     sendEvent(
         eventTime,

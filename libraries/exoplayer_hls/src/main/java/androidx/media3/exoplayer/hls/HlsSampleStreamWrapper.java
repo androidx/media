@@ -808,20 +808,8 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       initMediaChunkLoad((HlsMediaChunk) loadable);
     }
     loadingChunk = loadable;
-    long elapsedRealtimeMs =
-        loader.startLoading(
-            loadable, this, loadErrorHandlingPolicy.getMinimumLoadableRetryCount(loadable.type));
-    // DO NOT SUBMIT is this duplicated with the line in onLoadStarted below on L868?
-    mediaSourceEventDispatcher.loadStarted(
-        new LoadEventInfo(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs),
-        loadable.type,
-        trackType,
-        loadable.trackFormat,
-        loadable.trackSelectionReason,
-        loadable.trackSelectionData,
-        loadable.startTimeUs,
-        loadable.endTimeUs,
-        /* retryCount= */ 0);
+    loader.startLoading(
+        loadable, this, loadErrorHandlingPolicy.getMinimumLoadableRetryCount(loadable.type));
     return true;
   }
 
@@ -866,7 +854,14 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   public void onLoadStarted(
       Chunk loadable, long elapsedRealtimeMs, long loadDurationMs, int retryCount) {
     mediaSourceEventDispatcher.loadStarted(
-        new LoadEventInfo(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs),
+        new LoadEventInfo(
+            loadable.loadTaskId,
+            loadable.dataSpec,
+            loadable.getUri(),
+            loadable.getResponseHeaders(),
+            elapsedRealtimeMs,
+            loadDurationMs,
+            /* bytesLoaded= */ 0),
         loadable.type,
         trackType,
         loadable.trackFormat,

@@ -431,14 +431,14 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
       int retryCount) {
     // TODO file a bug to track updating this.
     if (retryCount == 0) {
-    @Nullable
-    MediaPeriodImpl mediaPeriod =
-        getMediaPeriodForEvent(mediaPeriodId, mediaLoadData, /* useLoadingPeriod= */ true);
-    if (mediaPeriod == null) {
+      @Nullable
+      MediaPeriodImpl mediaPeriod =
+          getMediaPeriodForEvent(mediaPeriodId, mediaLoadData, /* useLoadingPeriod= */ true);
+      if (mediaPeriod == null) {
         mediaSourceEventDispatcherWithoutId.loadStarted(
             loadEventInfo, mediaLoadData, /* retryCount= */ 0);
-    } else {
-      mediaPeriod.sharedPeriod.onLoadStarted(loadEventInfo, mediaLoadData);
+      } else {
+        mediaPeriod.sharedPeriod.onLoadStarted(loadEventInfo, mediaLoadData);
         mediaPeriod.mediaSourceEventDispatcher.loadStarted(
             loadEventInfo,
             correctMediaLoadData(
