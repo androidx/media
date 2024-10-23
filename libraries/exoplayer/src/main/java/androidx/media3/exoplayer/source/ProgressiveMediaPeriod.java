@@ -600,28 +600,26 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   @Override
   public void onLoadStarted(
       ExtractingLoadable loadable, long elapsedRealtimeMs, long loadDurationMs, int retryCount) {
-    if (retryCount > 0) {
-      StatsDataSource dataSource = loadable.dataSource;
-      LoadEventInfo loadEventInfo =
-          new LoadEventInfo(
-              loadable.loadTaskId,
-              loadable.dataSpec,
-              dataSource.getLastOpenedUri(),
-              dataSource.getLastResponseHeaders(),
-              elapsedRealtimeMs,
-              loadDurationMs,
-              dataSource.getBytesRead());
-      mediaSourceEventDispatcher.loadStarted(
-          loadEventInfo,
-          C.DATA_TYPE_MEDIA,
-          C.TRACK_TYPE_UNKNOWN,
-          /* trackFormat= */ null,
-          C.SELECTION_REASON_UNKNOWN,
-          /* trackSelectionData= */ null,
-          /* mediaStartTimeUs= */ loadable.seekTimeUs,
-          durationUs,
-          retryCount);
-    }
+    StatsDataSource dataSource = loadable.dataSource;
+    LoadEventInfo loadEventInfo =
+        new LoadEventInfo(
+            loadable.loadTaskId,
+            loadable.dataSpec,
+            dataSource.getLastOpenedUri(),
+            dataSource.getLastResponseHeaders(),
+            elapsedRealtimeMs,
+            loadDurationMs,
+            /* bytesLoaded= */ 0);
+    mediaSourceEventDispatcher.loadStarted(
+        loadEventInfo,
+        C.DATA_TYPE_MEDIA,
+        C.TRACK_TYPE_UNKNOWN,
+        /* trackFormat= */ null,
+        C.SELECTION_REASON_UNKNOWN,
+        /* trackSelectionData= */ null,
+        /* mediaStartTimeUs= */ loadable.seekTimeUs,
+        durationUs,
+        retryCount);
   }
 
   @Override
@@ -908,20 +906,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       pendingResetPositionUs = C.TIME_UNSET;
     }
     extractedSamplesCountAtStartOfLoad = getExtractedSamplesCount();
-    long elapsedRealtimeMs =
-        loader.startLoading(
-            loadable, this, loadErrorHandlingPolicy.getMinimumLoadableRetryCount(dataType));
-    DataSpec dataSpec = loadable.dataSpec;
-    mediaSourceEventDispatcher.loadStarted(
-        new LoadEventInfo(loadable.loadTaskId, dataSpec, elapsedRealtimeMs),
-        C.DATA_TYPE_MEDIA,
-        C.TRACK_TYPE_UNKNOWN,
-        /* trackFormat= */ null,
-        C.SELECTION_REASON_UNKNOWN,
-        /* trackSelectionData= */ null,
-        /* mediaStartTimeUs= */ loadable.seekTimeUs,
-        durationUs,
-        /* retryCount= */ 0);
+    loader.startLoading(
+        loadable, this, loadErrorHandlingPolicy.getMinimumLoadableRetryCount(dataType));
   }
 
   /**

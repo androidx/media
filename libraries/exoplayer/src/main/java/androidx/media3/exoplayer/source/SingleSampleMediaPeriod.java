@@ -155,21 +155,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       dataSource.addTransferListener(transferListener);
     }
     SourceLoadable loadable = new SourceLoadable(dataSpec, dataSource);
-    long elapsedRealtimeMs =
-        loader.startLoading(
-            loadable,
-            /* callback= */ this,
-            loadErrorHandlingPolicy.getMinimumLoadableRetryCount(C.DATA_TYPE_MEDIA));
-    eventDispatcher.loadStarted(
-        new LoadEventInfo(loadable.loadTaskId, dataSpec, elapsedRealtimeMs),
-        C.DATA_TYPE_MEDIA,
-        C.TRACK_TYPE_UNKNOWN,
-        format,
-        C.SELECTION_REASON_UNKNOWN,
-        /* trackSelectionData= */ null,
-        /* mediaStartTimeUs= */ 0,
-        durationUs,
-        /* retryCount= */ 0);
+    loader.startLoading(
+        loadable,
+        /* callback= */ this,
+        loadErrorHandlingPolicy.getMinimumLoadableRetryCount(C.DATA_TYPE_MEDIA));
     return true;
   }
 
@@ -220,7 +209,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             dataSource.getLastResponseHeaders(),
             elapsedRealtimeMs,
             loadDurationMs,
-            sampleSize);
+            /* bytesLoaded= */ 0);
     eventDispatcher.loadStarted(
         loadEventInfo,
         C.DATA_TYPE_MEDIA,

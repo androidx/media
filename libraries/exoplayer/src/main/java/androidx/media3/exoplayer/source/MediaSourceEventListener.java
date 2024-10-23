@@ -234,7 +234,7 @@ public interface MediaSourceEventListener {
           /* trackSelectionData= */ null,
           /* mediaStartTimeUs= */ C.TIME_UNSET,
           /* mediaEndTimeUs= */ C.TIME_UNSET,
-          /* retryCount= */ retryCount);
+          retryCount);
     }
 
     /** Dispatches {@link #onLoadStarted(int, MediaPeriodId, LoadEventInfo, MediaLoadData, int)}. */

@@ -635,7 +635,14 @@ public final class DashMediaSource extends BaseMediaSource {
       long loadDurationMs,
       int retryCount) {
     manifestEventDispatcher.loadStarted(
-        new LoadEventInfo(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs),
+        new LoadEventInfo(
+            loadable.loadTaskId,
+            loadable.dataSpec,
+            loadable.getUri(),
+            loadable.getResponseHeaders(),
+            elapsedRealtimeMs,
+            loadDurationMs,
+            /* bytesLoaded= */ 0),
         loadable.type,
         retryCount);
   }
@@ -1105,11 +1112,7 @@ public final class DashMediaSource extends BaseMediaSource {
       ParsingLoadable<T> loadable,
       Loader.Callback<ParsingLoadable<T>> callback,
       int minRetryCount) {
-    long elapsedRealtimeMs = loader.startLoading(loadable, callback, minRetryCount);
-    manifestEventDispatcher.loadStarted(
-        new LoadEventInfo(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs),
-        loadable.type,
-        /* retryCount= */ 0);
+    loader.startLoading(loadable, callback, minRetryCount);
   }
 
   private static long getIntervalUntilNextManifestRefreshMs(
