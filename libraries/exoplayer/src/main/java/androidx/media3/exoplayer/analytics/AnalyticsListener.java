@@ -844,11 +844,8 @@ public interface AnalyticsListener {
   default void onPlaylistMetadataChanged(EventTime eventTime, MediaMetadata playlistMetadata) {}
 
   /**
-   * Called when a media source started loading data.
-   *
-   * @param eventTime The event time.
-   * @param loadEventInfo The {@link LoadEventInfo} defining the load event.
-   * @param mediaLoadData The {@link MediaLoadData} defining the data being loaded.
+   * @deprecated Implement {@link #onLoadStarted(EventTime, LoadEventInfo, MediaLoadData, int)}
+   * instead.
    */
   @UnstableApi
   @Deprecated
