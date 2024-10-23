@@ -402,19 +402,6 @@ public class DefaultAnalyticsCollector implements AnalyticsCollector {
       int windowIndex,
       @Nullable MediaPeriodId mediaPeriodId,
       LoadEventInfo loadEventInfo,
-      MediaLoadData mediaLoadData) {
-    EventTime eventTime = generateMediaPeriodEventTime(windowIndex, mediaPeriodId);
-    sendEvent(
-        eventTime,
-        C.INDEX_UNSET,
-        listener -> listener.onLoadStarted(eventTime, loadEventInfo, mediaLoadData));
-  }
-
-  @Override
-  public final void onLoadStarted(
-      int windowIndex,
-      @Nullable MediaPeriodId mediaPeriodId,
-      LoadEventInfo loadEventInfo,
       MediaLoadData mediaLoadData,
       int retryCount) {
     EventTime eventTime = generateMediaPeriodEventTime(windowIndex, mediaPeriodId);

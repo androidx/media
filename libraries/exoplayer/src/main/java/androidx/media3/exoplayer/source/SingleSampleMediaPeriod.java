@@ -168,7 +168,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         C.SELECTION_REASON_UNKNOWN,
         /* trackSelectionData= */ null,
         /* mediaStartTimeUs= */ 0,
-        durationUs);
+        durationUs, /* retryCount= */ 0);
     return true;
   }
 

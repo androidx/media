@@ -46,25 +46,7 @@ public interface MediaSourceEventListener {
    *     LoadEventInfo#uri} won't reflect potential redirection yet and {@link
    *     LoadEventInfo#responseHeaders} will be empty.
    * @param mediaLoadData The {@link MediaLoadData} defining the data being loaded.
-   */
-  @Deprecated
-  default void onLoadStarted(
-      int windowIndex,
-      @Nullable MediaPeriodId mediaPeriodId,
-      LoadEventInfo loadEventInfo,
-      MediaLoadData mediaLoadData) {}
-
-  /**
-   * Called when a load begins.
-   *
-   * @param windowIndex The window index in the timeline of the media source this load belongs to.
-   * @param mediaPeriodId The {@link MediaPeriodId} this load belongs to. Null if the load does not
-   *     belong to a specific media period.
-   * @param loadEventInfo The {@link LoadEventInfo} corresponding to the event. The value of {@link
-   *     LoadEventInfo#uri} won't reflect potential redirection yet and {@link
-   *     LoadEventInfo#responseHeaders} will be empty.
-   * @param mediaLoadData The {@link MediaLoadData} defining the data being loaded.
-   * @param retryCount The number of failed attempts since {@link #onLoadStarted} was called (this
+   * @param retryCount The number of failed attempts since this method was first called (this
    *     is zero for the first load attempt).
    */
   default void onLoadStarted(
@@ -82,7 +64,7 @@ public interface MediaSourceEventListener {
    *     belong to a specific media period.
    * @param loadEventInfo The {@link LoadEventInfo} corresponding to the event. The values of {@link
    *     LoadEventInfo#elapsedRealtimeMs} and {@link LoadEventInfo#bytesLoaded} are relative to the
-   *     corresponding {@link #onLoadStarted(int, MediaPeriodId, LoadEventInfo, MediaLoadData)}
+   *     corresponding {@link #onLoadStarted}
    *     event.
    * @param mediaLoadData The {@link MediaLoadData} defining the data being loaded.
    */
@@ -100,7 +82,7 @@ public interface MediaSourceEventListener {
    *     belong to a specific media period.
    * @param loadEventInfo The {@link LoadEventInfo} corresponding to the event. The values of {@link
    *     LoadEventInfo#elapsedRealtimeMs} and {@link LoadEventInfo#bytesLoaded} are relative to the
-   *     corresponding {@link #onLoadStarted(int, MediaPeriodId, LoadEventInfo, MediaLoadData)}
+   *     corresponding {@link #onLoadStarted}
    *     event.
    * @param mediaLoadData The {@link MediaLoadData} defining the data being loaded.
    */
@@ -129,7 +111,7 @@ public interface MediaSourceEventListener {
    *     belong to a specific media period.
    * @param loadEventInfo The {@link LoadEventInfo} corresponding to the event. The values of {@link
    *     LoadEventInfo#elapsedRealtimeMs} and {@link LoadEventInfo#bytesLoaded} are relative to the
-   *     corresponding {@link #onLoadStarted(int, MediaPeriodId, LoadEventInfo, MediaLoadData)}
+   *     corresponding {@link #onLoadStarted}
    *     event.
    * @param mediaLoadData The {@link MediaLoadData} defining the data being loaded.
    * @param error The load error.
@@ -244,20 +226,6 @@ public interface MediaSourceEventListener {
       }
     }
 
-    /** Dispatches {@link #onLoadStarted(int, MediaPeriodId, LoadEventInfo, MediaLoadData)}. */
-    @Deprecated
-    public void loadStarted(LoadEventInfo loadEventInfo, @DataType int dataType) {
-      loadStarted(
-          loadEventInfo,
-          dataType,
-          /* trackType= */ C.TRACK_TYPE_UNKNOWN,
-          /* trackFormat= */ null,
-          /* trackSelectionReason= */ C.SELECTION_REASON_UNKNOWN,
-          /* trackSelectionData= */ null,
-          /* mediaStartTimeUs= */ C.TIME_UNSET,
-          /* mediaEndTimeUs= */ C.TIME_UNSET);
-    }
-
     /** Dispatches {@link #onLoadStarted(int, MediaPeriodId, LoadEventInfo, MediaLoadData, int)}. */
     public void loadStarted(LoadEventInfo loadEventInfo, @DataType int dataType, int retryCount) {
       loadStarted(
@@ -270,29 +238,6 @@ public interface MediaSourceEventListener {
           /* mediaStartTimeUs= */ C.TIME_UNSET,
           /* mediaEndTimeUs= */ C.TIME_UNSET,
           /* retryCount= */ retryCount);
-    }
-
-    /** Dispatches {@link #onLoadStarted(int, MediaPeriodId, LoadEventInfo, MediaLoadData)}. */
-    @Deprecated
-    public void loadStarted(
-        LoadEventInfo loadEventInfo,
-        @DataType int dataType,
-        @C.TrackType int trackType,
-        @Nullable Format trackFormat,
-        @C.SelectionReason int trackSelectionReason,
-        @Nullable Object trackSelectionData,
-        long mediaStartTimeUs,
-        long mediaEndTimeUs) {
-      loadStarted(
-          loadEventInfo,
-          new MediaLoadData(
-              dataType,
-              trackType,
-              trackFormat,
-              trackSelectionReason,
-              trackSelectionData,
-              usToMs(mediaStartTimeUs),
-              usToMs(mediaEndTimeUs)));
     }
 
     /** Dispatches {@link #onLoadStarted(int, MediaPeriodId, LoadEventInfo, MediaLoadData, int)}. */
@@ -317,15 +262,6 @@ public interface MediaSourceEventListener {
               usToMs(mediaStartTimeUs),
               usToMs(mediaEndTimeUs)),
           retryCount);
-    }
-
-    /** Dispatches {@link #onLoadStarted(int, MediaPeriodId, LoadEventInfo, MediaLoadData)}. */
-    @Deprecated
-    public void loadStarted(LoadEventInfo loadEventInfo, MediaLoadData mediaLoadData) {
-      dispatchEvent(
-          (listener) ->
-              listener.onLoadStarted(
-                  windowIndex, mediaPeriodId, loadEventInfo, mediaLoadData));
     }
 
     /** Dispatches {@link #onLoadStarted(int, MediaPeriodId, LoadEventInfo, MediaLoadData, int)}. */

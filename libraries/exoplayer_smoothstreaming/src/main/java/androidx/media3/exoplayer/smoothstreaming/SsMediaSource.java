@@ -673,6 +673,6 @@ public final class SsMediaSource extends BaseMediaSource
             loadable, this, loadErrorHandlingPolicy.getMinimumLoadableRetryCount(loadable.type));
     manifestEventDispatcher.loadStarted(
         new LoadEventInfo(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs),
-        loadable.type);
+        loadable.type, /* retryCount= */ 0);
   }
 }
