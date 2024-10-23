@@ -811,6 +811,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     long elapsedRealtimeMs =
         loader.startLoading(
             loadable, this, loadErrorHandlingPolicy.getMinimumLoadableRetryCount(loadable.type));
+    // DO NOT SUBMIT is this duplicated with the line in onLoadStarted below on L868?
     mediaSourceEventDispatcher.loadStarted(
         new LoadEventInfo(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs),
         loadable.type,
@@ -819,7 +820,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
         loadable.trackSelectionReason,
         loadable.trackSelectionData,
         loadable.startTimeUs,
-        loadable.endTimeUs);
+        loadable.endTimeUs, /* retryCount= */ 0);
     return true;
   }
 
@@ -872,7 +873,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
         loadable.trackSelectionReason,
         loadable.trackSelectionData,
         loadable.startTimeUs,
-        loadable.endTimeUs);
+        loadable.endTimeUs, retryCount);
   }
 
   @Override

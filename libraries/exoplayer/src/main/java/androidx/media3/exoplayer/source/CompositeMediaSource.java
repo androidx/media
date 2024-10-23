@@ -239,18 +239,6 @@ public abstract class CompositeMediaSource<T> extends BaseMediaSource {
         int windowIndex,
         @Nullable MediaPeriodId mediaPeriodId,
         LoadEventInfo loadEventData,
-        MediaLoadData mediaLoadData) {
-      if (maybeUpdateEventDispatcher(windowIndex, mediaPeriodId)) {
-        mediaSourceEventDispatcher.loadStarted(
-            loadEventData, maybeUpdateMediaLoadData(mediaLoadData, mediaPeriodId));
-      }
-    }
-
-    @Override
-    public void onLoadStarted(
-        int windowIndex,
-        @Nullable MediaPeriodId mediaPeriodId,
-        LoadEventInfo loadEventData,
         MediaLoadData mediaLoadData,
         int retryCount) {
       if (maybeUpdateEventDispatcher(windowIndex, mediaPeriodId)) {

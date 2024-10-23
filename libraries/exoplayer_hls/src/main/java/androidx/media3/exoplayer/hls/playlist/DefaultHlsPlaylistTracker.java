@@ -152,7 +152,7 @@ public final class DefaultHlsPlaylistTracker
             multivariantPlaylistLoadable.loadTaskId,
             multivariantPlaylistLoadable.dataSpec,
             elapsedRealtime),
-        multivariantPlaylistLoadable.type);
+        multivariantPlaylistLoadable.type, /* retryCount= */ 0);
   }
 
   @Override
@@ -759,7 +759,7 @@ public final class DefaultHlsPlaylistTracker
       eventDispatcher.loadStarted(
           new LoadEventInfo(
               mediaPlaylistLoadable.loadTaskId, mediaPlaylistLoadable.dataSpec, elapsedRealtime),
-          mediaPlaylistLoadable.type);
+          mediaPlaylistLoadable.type, /* retryCount= */ 0);
     }
 
     private void processLoadedPlaylist(
