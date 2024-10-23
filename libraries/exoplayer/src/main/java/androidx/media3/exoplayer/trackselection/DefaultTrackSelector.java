@@ -1320,6 +1320,13 @@ public class DefaultTrackSelector extends MappingTrackSelector
         return this;
       }
 
+      @CanIgnoreReturnValue
+      @Override
+      public Builder setAudioOffloadPreferences(AudioOffloadPreferences audioOffloadPreferences) {
+        super.setAudioOffloadPreferences(audioOffloadPreferences);
+        return this;
+      }
+
       /**
        * Sets whether to allow adaptive audio selections where adaptation may not be completely
        * seamless.
@@ -1419,6 +1426,15 @@ public class DefaultTrackSelector extends MappingTrackSelector
       public Builder setDisabledTextTrackSelectionFlags(
           @C.SelectionFlags int disabledTextTrackSelectionFlags) {
         return setIgnoredTextSelectionFlags(disabledTextTrackSelectionFlags);
+      }
+
+      // Image
+
+      @CanIgnoreReturnValue
+      @Override
+      public Builder setPrioritizeImageOverVideoEnabled(boolean isPrioritizeImageOverVideoEnabled) {
+        super.setPrioritizeImageOverVideoEnabled(isPrioritizeImageOverVideoEnabled);
+        return this;
       }
 
       // General
