@@ -2269,7 +2269,7 @@ public final class DefaultAnalyticsCollectorTest {
     @Override
     public void onLoadStarted(
         EventTime eventTime, LoadEventInfo loadEventInfo, MediaLoadData mediaLoadData) {
-      reportedEvents.add(new ReportedEvent(EVENT_LOAD_STARTED, eventTime));
+      reportedEvents.add(new ReportedEvent(DEPRECATED_EVENT_LOAD_STARTED, eventTime));
     }
 
     @Override
@@ -2278,7 +2278,7 @@ public final class DefaultAnalyticsCollectorTest {
         LoadEventInfo loadEventInfo,
         MediaLoadData mediaLoadData,
         int retryCount) {
-      reportedEvents.add(new ReportedEvent(DEPRECATED_EVENT_LOAD_STARTED, eventTime));
+      reportedEvents.add(new ReportedEvent(EVENT_LOAD_STARTED, eventTime));
     }
 
     @Override
