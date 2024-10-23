@@ -845,7 +845,7 @@ public interface AnalyticsListener {
 
   /**
    * @deprecated Implement {@link #onLoadStarted(EventTime, LoadEventInfo, MediaLoadData, int)}
-   * instead.
+   *     instead.
    */
   @UnstableApi
   @Deprecated
