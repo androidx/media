@@ -149,10 +149,6 @@ import java.util.concurrent.TimeoutException;
     private ConversionException(String message) {
       super(message);
     }
-
-    private ConversionException(String message, Throwable cause) {
-      super(message, cause);
-    }
   }
 
   /** Converts {@link PlaybackStateCompat} to {@link PlaybackException}. */
