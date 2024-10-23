@@ -43,6 +43,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
+import android.annotation.SuppressLint;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
@@ -361,6 +362,9 @@ public class MediaControllerWithMediaSessionCompatTest {
     assertThat(controller.getConnectedToken().getSessionVersion()).isLessThan(1_000_000);
   }
 
+  // Ignore warning about getCreatorPackage as this is just used as a test assertion to see if the
+  // correct activity has been received by the controller.
+  @SuppressLint("PendingIntentCreator")
   @Test
   public void getSessionActivity() throws Exception {
     Intent sessionActivity = new Intent(context, MockActivity.class);
