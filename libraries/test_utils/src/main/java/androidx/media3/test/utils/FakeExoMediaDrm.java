@@ -25,6 +25,7 @@ import android.media.MediaCryptoException;
 import android.media.MediaDrmException;
 import android.media.NotProvisionedException;
 import android.media.ResourceBusyException;
+import android.net.Uri;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.os.PersistableBundle;
@@ -34,10 +35,12 @@ import androidx.media3.common.C;
 import androidx.media3.common.DrmInitData;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import androidx.media3.datasource.DataSpec;
 import androidx.media3.decoder.CryptoConfig;
 import androidx.media3.exoplayer.drm.ExoMediaDrm;
 import androidx.media3.exoplayer.drm.MediaDrmCallback;
 import androidx.media3.exoplayer.drm.MediaDrmCallbackException;
+import androidx.media3.exoplayer.source.LoadEventInfo;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -46,6 +49,7 @@ import com.google.common.primitives.Bytes;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -176,6 +180,16 @@ public final class FakeExoMediaDrm implements ExoMediaDrm {
       new ProvisionRequest(TestUtil.createByteArray(7, 8, 9), "bar.test");
   public static final ImmutableList<Byte> VALID_PROVISION_RESPONSE =
       TestUtil.createByteList(4, 5, 6);
+
+  public static final LoadEventInfo FAKE_LOAD_EVENT_INFO =
+      new LoadEventInfo(
+          1,
+          new DataSpec.Builder().setUri(Uri.EMPTY).build(),
+          Uri.EMPTY,
+          Collections.emptyMap(),
+          1000,
+          2000,
+          8192);
 
   /** Key for use with the Map returned from {@link FakeExoMediaDrm#queryKeyStatus(byte[])}. */
   public static final String KEY_STATUS_KEY = "KEY_STATUS";
@@ -547,18 +561,18 @@ public final class FakeExoMediaDrm implements ExoMediaDrm {
     }
 
     @Override
-    public byte[] executeProvisionRequest(UUID uuid, ProvisionRequest request)
+    public KeyResponse executeProvisionRequest(UUID uuid, ProvisionRequest request)
         throws MediaDrmCallbackException {
       receivedProvisionRequests.add(ImmutableList.copyOf(Bytes.asList(request.getData())));
       if (Arrays.equals(request.getData(), FAKE_PROVISION_REQUEST.getData())) {
-        return Bytes.toArray(VALID_PROVISION_RESPONSE);
+        return new KeyResponse(Bytes.toArray(VALID_PROVISION_RESPONSE), FAKE_LOAD_EVENT_INFO);
       } else {
-        return Util.EMPTY_BYTE_ARRAY;
+        return new KeyResponse(Util.EMPTY_BYTE_ARRAY, FAKE_LOAD_EVENT_INFO);
       }
     }
 
     @Override
-    public byte[] executeKeyRequest(UUID uuid, KeyRequest request)
+    public KeyResponse executeKeyRequest(UUID uuid, KeyRequest request)
         throws MediaDrmCallbackException {
       ImmutableList<DrmInitData.SchemeData> schemeDatas =
           KeyRequestData.fromByteArray(request.getData()).schemeDatas;
@@ -573,7 +587,7 @@ public final class FakeExoMediaDrm implements ExoMediaDrm {
       } else {
         response = KEY_DENIED_RESPONSE;
       }
-      return Bytes.toArray(response);
+      return new KeyResponse(Bytes.toArray(response), FAKE_LOAD_EVENT_INFO);
     }
   }
 
