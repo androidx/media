@@ -200,6 +200,7 @@ public final class Mp4Muxer implements Muxer {
     private @LastSampleDurationBehavior int lastSampleDurationBehavior;
     @Nullable private AnnexBToAvccConverter annexBToAvccConverter;
     private boolean sampleCopyEnabled;
+    private boolean sampleBatchingEnabled;
     private boolean attemptStreamableOutputEnabled;
     private @FileFormat int outputFileFormat;
     @Nullable private EditableVideoParameters editableVideoParameters;
@@ -214,6 +215,7 @@ public final class Mp4Muxer implements Muxer {
       lastSampleDurationBehavior =
           LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER_OR_DUPLICATE_PREVIOUS;
       sampleCopyEnabled = true;
+      sampleBatchingEnabled = true;
       attemptStreamableOutputEnabled = true;
       outputFileFormat = FILE_FORMAT_DEFAULT;
     }
@@ -257,6 +259,21 @@ public final class Mp4Muxer implements Muxer {
     @CanIgnoreReturnValue
     public Mp4Muxer.Builder setSampleCopyEnabled(boolean enabled) {
       this.sampleCopyEnabled = enabled;
+      return this;
+    }
+
+    /**
+     * Sets whether to enable sample batching.
+     *
+     * <p>If sample batching is enabled, samples are {@linkplain #writeSampleData(TrackToken,
+     * ByteBuffer, BufferInfo) written} in batches for each track, otherwise samples are written as
+     * they arrive.
+     *
+     * <p>The default value is {@code true}.
+     */
+    @CanIgnoreReturnValue
+    public Mp4Muxer.Builder setSampleBatchingEnabled(boolean enabled) {
+      this.sampleBatchingEnabled = enabled;
       return this;
     }
 
@@ -309,6 +326,7 @@ public final class Mp4Muxer implements Muxer {
           lastSampleDurationBehavior,
           annexBToAvccConverter == null ? AnnexBToAvccConverter.DEFAULT : annexBToAvccConverter,
           sampleCopyEnabled,
+          sampleBatchingEnabled,
           attemptStreamableOutputEnabled,
           outputFileFormat,
           editableVideoParameters);
@@ -322,6 +340,7 @@ public final class Mp4Muxer implements Muxer {
   private final @LastSampleDurationBehavior int lastSampleDurationBehavior;
   private final AnnexBToAvccConverter annexBToAvccConverter;
   private final boolean sampleCopyEnabled;
+  private final boolean sampleBatchingEnabled;
   private final boolean attemptStreamableOutputEnabled;
   private final @FileFormat int outputFileFormat;
   @Nullable private final EditableVideoParameters editableVideoParameters;
@@ -339,6 +358,7 @@ public final class Mp4Muxer implements Muxer {
       @LastSampleDurationBehavior int lastFrameDurationBehavior,
       AnnexBToAvccConverter annexBToAvccConverter,
       boolean sampleCopyEnabled,
+      boolean sampleBatchingEnabled,
       boolean attemptStreamableOutputEnabled,
       @FileFormat int outputFileFormat,
       @Nullable EditableVideoParameters editableVideoParameters) {
@@ -347,6 +367,7 @@ public final class Mp4Muxer implements Muxer {
     this.lastSampleDurationBehavior = lastFrameDurationBehavior;
     this.annexBToAvccConverter = annexBToAvccConverter;
     this.sampleCopyEnabled = sampleCopyEnabled;
+    this.sampleBatchingEnabled = sampleBatchingEnabled;
     this.attemptStreamableOutputEnabled = attemptStreamableOutputEnabled;
     this.outputFileFormat = outputFileFormat;
     this.editableVideoParameters = editableVideoParameters;
@@ -358,6 +379,7 @@ public final class Mp4Muxer implements Muxer {
             annexBToAvccConverter,
             lastFrameDurationBehavior,
             sampleCopyEnabled,
+            sampleBatchingEnabled,
             attemptStreamableOutputEnabled);
     editableVideoTracks = new ArrayList<>();
   }
@@ -415,10 +437,13 @@ public final class Mp4Muxer implements Muxer {
   /**
    * {@inheritDoc}
    *
-   * <p>Samples are written to the file in batches. If {@link Builder#setSampleCopyEnabled(boolean)
-   * sample copying} is disabled, the {@code byteBuffer} and the {@code bufferInfo} must not be
-   * modified after calling this method. Otherwise, they are copied and it is safe to modify them
-   * after this method returns.
+   * <p>When sample batching is {@linkplain Mp4Muxer.Builder#setSampleBatchingEnabled(boolean)
+   * enabled}, provide sample data ({@link ByteBuffer}, {@link BufferInfo}) that won't be modified
+   * after calling the {@link #writeSampleData(TrackToken, ByteBuffer, BufferInfo)} method, unless
+   * sample copying is also {@linkplain Mp4Muxer.Builder#setSampleCopyEnabled(boolean) enabled}.
+   * This ensures data integrity within the batch. If sample copying is {@linkplain
+   * Mp4Muxer.Builder#setSampleCopyEnabled(boolean) enabled}, it's safe to modify the data after the
+   * method returns, as the muxer internally creates a sample copy.
    *
    * @param trackToken The {@link TrackToken} for which this sample is being written.
    * @param byteBuffer The encoded sample. The muxer takes ownership of the buffer if {@link
@@ -522,6 +547,7 @@ public final class Mp4Muxer implements Muxer {
               annexBToAvccConverter,
               lastSampleDurationBehavior,
               sampleCopyEnabled,
+              sampleBatchingEnabled,
               attemptStreamableOutputEnabled);
     }
   }
