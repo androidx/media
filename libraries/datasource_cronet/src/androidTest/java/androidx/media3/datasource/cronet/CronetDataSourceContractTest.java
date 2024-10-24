@@ -15,7 +15,6 @@
  */
 package androidx.media3.datasource.cronet;
 
-import android.net.Uri;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.test.utils.DataSourceContractTest;
 import androidx.media3.test.utils.HttpDataSourceTestEnv;
@@ -66,7 +65,7 @@ public class CronetDataSourceContractTest extends DataSourceContractTest {
   }
 
   @Override
-  protected Uri getNotFoundUri() {
-    return Uri.parse(httpDataSourceTestEnv.getNonexistentUrl());
+  protected List<TestResource> getNotFoundResources() {
+    return httpDataSourceTestEnv.getNotFoundResources();
   }
 }

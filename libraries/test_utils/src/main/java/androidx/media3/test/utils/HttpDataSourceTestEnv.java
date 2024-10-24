@@ -20,9 +20,11 @@ import static androidx.media3.test.utils.WebServerDispatcher.getRequestPath;
 
 import android.net.Uri;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.common.util.Util;
 import androidx.media3.datasource.HttpDataSource;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.net.HttpHeaders;
@@ -119,6 +121,28 @@ public class HttpDataSourceTestEnv extends ExternalResource {
             .build());
   }
 
+  public ImmutableList<DataSourceContractTest.TestResource> getNotFoundResources() {
+    return ImmutableList.of(
+        new DataSourceContractTest.TestResource.Builder()
+            .setName("404")
+            .setUri(Uri.parse(originServer.url("/not/a/real/path").toString()))
+            .setResponseHeaders(
+                ImmutableMap.of(
+                    HttpHeaders.CONTENT_LENGTH,
+                    ImmutableList.of(String.valueOf(WebServerDispatcher.NOT_FOUND_BODY.length()))))
+            .setExpectedBytes(Util.getUtf8Bytes(WebServerDispatcher.NOT_FOUND_BODY))
+            .build(),
+        new DataSourceContractTest.TestResource.Builder()
+            .setName("no-connection")
+            .setUri(Uri.parse("http://not-a-real-server.test/path"))
+            .setUnexpectedResponseHeaderKeys(ImmutableSet.of(HttpHeaders.CONTENT_LENGTH))
+            .build());
+  }
+
+  /**
+   * @deprecated Use {@link #getNotFoundResources()} instead.
+   */
+  @Deprecated
   public String getNonexistentUrl() {
     return originServer.url("/not/a/real/path").toString();
   }

@@ -24,6 +24,14 @@
         resolved URI (as documented). Where this is different to the requested
         URI, tests can indicate this using the new
         `DataSourceContractTest.TestResource.Builder.setResolvedUri()` method.
+    *   `DataSourceContractTest`: Assert that `DataSource.getUri()` and
+        `getResponseHeaders()` return their 'open' value after a failed call to
+        `open()` (due to a 'not found' resource) and before a subsequent
+        `close()` call.
+        *   Overriding `DataSourceContractTest.getNotFoundResources()` allows
+            test sub-classes to provide multiple 'not found' resources, and to
+            provide any expected headers too. This allows to distinguish between
+            HTTP 404 (with headers) and "server not found" (no headers).
 *   Audio:
 *   Video:
 *   Text:

@@ -15,13 +15,13 @@
  */
 package androidx.media3.datasource;
 
-import android.net.Uri;
 import android.net.http.HttpEngine;
 import androidx.media3.test.utils.DataSourceContractTest;
 import androidx.media3.test.utils.HttpDataSourceTestEnv;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.junit.After;
@@ -53,7 +53,7 @@ public class HttpEngineDataSourceContractTest extends DataSourceContractTest {
   }
 
   @Override
-  protected Uri getNotFoundUri() {
-    return Uri.parse(httpDataSourceTestEnv.getNonexistentUrl());
+  protected List<TestResource> getNotFoundResources() {
+    return httpDataSourceTestEnv.getNotFoundResources();
   }
 }
