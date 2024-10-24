@@ -15,10 +15,12 @@
  */
 package androidx.media3.decoder.iamf;
 
+import androidx.media3.common.util.UnstableApi;
 import androidx.media3.decoder.DecoderException;
 
 /** Thrown when an IAMF decoder error occurs. */
-final class IamfDecoderException extends DecoderException {
+@UnstableApi
+public final class IamfDecoderException extends DecoderException {
 
   /* package */ IamfDecoderException(String message) {
     super(message);

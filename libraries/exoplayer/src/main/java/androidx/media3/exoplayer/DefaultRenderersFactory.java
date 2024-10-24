@@ -547,6 +547,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
       // The extension is present, but instantiation failed.
       throw new IllegalStateException("Error instantiating FFmpeg extension", e);
     }
+
     try {
       // Full class names used for constructor args so the LINT rule triggers if any of them move.
       Class<?> clazz = Class.forName("androidx.media3.decoder.iamf.LibiamfAudioRenderer");
@@ -559,6 +560,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
       Renderer renderer =
           (Renderer) constructor.newInstance(context, eventHandler, eventListener, audioSink);
       out.add(extensionRendererIndex++, renderer);
+      Log.i(TAG, "Loaded LibiamfAudioRenderer.");
     } catch (ClassNotFoundException e) {
       // Expected if the app was built without the extension.
     } catch (Exception e) {

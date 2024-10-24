@@ -56,6 +56,9 @@ public final class IamfDecoder
   public IamfDecoder(List<byte[]> initializationData, boolean spatializationSupported)
       throws IamfDecoderException {
     super(new DecoderInputBuffer[1], new SimpleDecoderOutputBuffer[1]);
+    if (!IamfLibrary.isAvailable()) {
+      throw new IamfDecoderException("Failed to load decoder native libraries.");
+    }
     if (initializationData.size() != 1) {
       throw new IamfDecoderException("Initialization data must contain a single element.");
     }
