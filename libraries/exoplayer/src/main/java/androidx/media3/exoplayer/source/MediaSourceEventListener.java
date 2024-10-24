@@ -223,6 +223,15 @@ public interface MediaSourceEventListener {
       }
     }
 
+    /**
+     * @deprecated Use {link {@link #loadStarted(LoadEventInfo, int, int)} instead to pass {@code
+     *     retryCount}.
+     */
+    @Deprecated
+    public void loadStarted(LoadEventInfo loadEventInfo, @DataType int dataType) {
+      loadStarted(loadEventInfo, dataType, /* retryCount= */ 0);
+    }
+
     /** Dispatches {@link #onLoadStarted(int, MediaPeriodId, LoadEventInfo, MediaLoadData, int)}. */
     public void loadStarted(LoadEventInfo loadEventInfo, @DataType int dataType, int retryCount) {
       loadStarted(
@@ -235,6 +244,32 @@ public interface MediaSourceEventListener {
           /* mediaStartTimeUs= */ C.TIME_UNSET,
           /* mediaEndTimeUs= */ C.TIME_UNSET,
           retryCount);
+    }
+
+    /**
+     * @deprecated Use {link {@link #loadStarted(LoadEventInfo, int, int, Format, int, Object, long,
+     *     long, int)} )} instead to pass {@code retryCount}.
+     */
+    @Deprecated
+    public void loadStarted(
+        LoadEventInfo loadEventInfo,
+        @DataType int dataType,
+        @C.TrackType int trackType,
+        @Nullable Format trackFormat,
+        @C.SelectionReason int trackSelectionReason,
+        @Nullable Object trackSelectionData,
+        long mediaStartTimeUs,
+        long mediaEndTimeUs) {
+      loadStarted(
+          loadEventInfo,
+          new MediaLoadData(
+              dataType,
+              trackType,
+              trackFormat,
+              trackSelectionReason,
+              trackSelectionData,
+              usToMs(mediaStartTimeUs),
+              usToMs(mediaEndTimeUs)));
     }
 
     /** Dispatches {@link #onLoadStarted(int, MediaPeriodId, LoadEventInfo, MediaLoadData, int)}. */
@@ -259,6 +294,15 @@ public interface MediaSourceEventListener {
               usToMs(mediaStartTimeUs),
               usToMs(mediaEndTimeUs)),
           retryCount);
+    }
+
+    /**
+     * @deprecated Use {link {@link #loadStarted(LoadEventInfo, MediaLoadData, int)} instead to pass
+     *     {@code retryCount}.
+     */
+    @Deprecated
+    public void loadStarted(LoadEventInfo loadEventInfo, MediaLoadData mediaLoadData) {
+      loadStarted(loadEventInfo, mediaLoadData, /* retryCount= */ 0);
     }
 
     /** Dispatches {@link #onLoadStarted(int, MediaPeriodId, LoadEventInfo, MediaLoadData, int)}. */

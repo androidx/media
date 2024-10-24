@@ -861,7 +861,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
             loadable.getResponseHeaders(),
             elapsedRealtimeMs,
             loadDurationMs,
-            /* bytesLoaded= */ 0),
+            loadable.bytesLoaded()),
         loadable.type,
         trackType,
         loadable.trackFormat,

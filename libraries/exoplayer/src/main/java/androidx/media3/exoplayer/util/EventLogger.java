@@ -484,16 +484,6 @@ public class EventLogger implements AnalyticsListener {
 
   @UnstableApi
   @Override
-  public void onLoadStarted(
-      EventTime eventTime,
-      LoadEventInfo loadEventInfo,
-      MediaLoadData mediaLoadData,
-      int retryCount) {
-    // Do nothing.
-  }
-
-  @UnstableApi
-  @Override
   public void onLoadError(
       EventTime eventTime,
       LoadEventInfo loadEventInfo,

@@ -642,7 +642,7 @@ public final class DashMediaSource extends BaseMediaSource {
             loadable.getResponseHeaders(),
             elapsedRealtimeMs,
             loadDurationMs,
-            /* bytesLoaded= */ 0),
+            loadable.bytesLoaded()),
         loadable.type,
         retryCount);
   }

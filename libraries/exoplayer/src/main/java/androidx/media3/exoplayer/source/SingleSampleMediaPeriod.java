@@ -209,7 +209,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             dataSource.getLastResponseHeaders(),
             elapsedRealtimeMs,
             loadDurationMs,
-            /* bytesLoaded= */ 0);
+            dataSource.getBytesRead());
     eventDispatcher.loadStarted(
         loadEventInfo,
         C.DATA_TYPE_MEDIA,

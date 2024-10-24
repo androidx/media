@@ -146,10 +146,9 @@ import org.mockito.InOrder;
 public final class DefaultAnalyticsCollectorTest {
 
   // Deprecated event constants.
-  private static final long EVENT_PLAYER_STATE_CHANGED = 1L << 63;
-  private static final long EVENT_SEEK_STARTED = 1L << 62;
-  // Start from +1 of the MIN because it will collide with 1L << 63
-  private static final long DEPRECATED_EVENT_LOAD_STARTED = Long.MIN_VALUE + 1;
+  private static final long EVENT_PLAYER_STATE_CHANGED = Long.MIN_VALUE;
+  private static final long EVENT_SEEK_STARTED = Long.MIN_VALUE + 1;
+  private static final long DEPRECATED_EVENT_LOAD_STARTED = Long.MIN_VALUE + 2;
 
   private static final UUID DRM_SCHEME_UUID =
       UUID.nameUUIDFromBytes(TestUtil.createByteArray(7, 8, 9));

@@ -429,7 +429,7 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
       LoadEventInfo loadEventInfo,
       MediaLoadData mediaLoadData,
       int retryCount) {
-    // TODO file a bug to track updating this.
+    // TODO: b/375408535 - Update this to support non-zero retry counts.
     if (retryCount == 0) {
       @Nullable
       MediaPeriodImpl mediaPeriod =
