@@ -109,7 +109,6 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.lang.reflect.Constructor;
-import java.util.Arrays;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -417,20 +416,9 @@ public final class TransformerActivity extends AppCompatActivity {
     if (mixToMono || scaleVolumeToHalf) {
       ChannelMixingAudioProcessor mixingAudioProcessor = new ChannelMixingAudioProcessor();
       for (int inputChannelCount = 1; inputChannelCount <= 6; inputChannelCount++) {
-        ChannelMixingMatrix matrix;
-        if (mixToMono) {
-          float[] mixingCoefficients = new float[inputChannelCount];
-          // Each channel is equally weighted in the mix to mono.
-          Arrays.fill(mixingCoefficients, 1f / inputChannelCount);
-          matrix =
-              new ChannelMixingMatrix(
-                  inputChannelCount, /* outputChannelCount= */ 1, mixingCoefficients);
-        } else {
-          // Identity matrix.
-          matrix =
-              ChannelMixingMatrix.create(
-                  inputChannelCount, /* outputChannelCount= */ inputChannelCount);
-        }
+        ChannelMixingMatrix matrix =
+            ChannelMixingMatrix.createForConstantPower(
+                inputChannelCount, /* outputChannelCount= */ mixToMono ? 1 : inputChannelCount);
 
         // Apply the volume adjustment.
         mixingAudioProcessor.putChannelMixingMatrix(
