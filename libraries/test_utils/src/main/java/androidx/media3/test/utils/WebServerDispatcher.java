@@ -60,6 +60,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 @UnstableApi
 public class WebServerDispatcher extends Dispatcher {
 
+  /** The body associated with a response for an unrecognized path. */
+  public static final String NOT_FOUND_BODY = "Resource not found!";
+
   /** A resource served by {@link WebServerDispatcher}. */
   public static class Resource {
 
@@ -294,7 +297,7 @@ public class WebServerDispatcher extends Dispatcher {
     String requestPath = getRequestPath(request);
     MockResponse response = new MockResponse();
     if (!resourcesByPath.containsKey(requestPath)) {
-      return response.setResponseCode(404);
+      return response.setBody(NOT_FOUND_BODY).setResponseCode(404);
     }
     Resource resource = checkNotNull(resourcesByPath.get(requestPath));
     for (Map.Entry<String, String> extraHeader : resource.getExtraResponseHeaders().entries()) {

@@ -261,7 +261,7 @@ public class DefaultHttpDataSource extends BaseDataSource implements HttpDataSou
   @Nullable private DataSpec dataSpec;
   @Nullable private HttpURLConnection connection;
   @Nullable private InputStream inputStream;
-  private boolean opened;
+  private boolean transferStarted;
   private int responseCode;
   private long bytesToRead;
   private long bytesRead;
@@ -296,7 +296,13 @@ public class DefaultHttpDataSource extends BaseDataSource implements HttpDataSou
   @Override
   @Nullable
   public Uri getUri() {
-    return connection == null ? null : Uri.parse(connection.getURL().toString());
+    if (connection != null) {
+      return Uri.parse(connection.getURL().toString());
+    } else if (dataSpec != null) {
+      return dataSpec.uri;
+    } else {
+      return null;
+    }
   }
 
   @UnstableApi
@@ -372,7 +378,7 @@ public class DefaultHttpDataSource extends BaseDataSource implements HttpDataSou
         long documentSize =
             HttpUtil.getDocumentSize(connection.getHeaderField(HttpHeaders.CONTENT_RANGE));
         if (dataSpec.position == documentSize) {
-          opened = true;
+          transferStarted = true;
           transferStarted(dataSpec);
           return dataSpec.length != C.LENGTH_UNSET ? dataSpec.length : 0;
         }
@@ -442,7 +448,7 @@ public class DefaultHttpDataSource extends BaseDataSource implements HttpDataSou
           HttpDataSourceException.TYPE_OPEN);
     }
 
-    opened = true;
+    transferStarted = true;
     transferStarted(dataSpec);
 
     try {
@@ -493,10 +499,12 @@ public class DefaultHttpDataSource extends BaseDataSource implements HttpDataSou
     } finally {
       inputStream = null;
       closeConnectionQuietly();
-      if (opened) {
-        opened = false;
+      if (transferStarted) {
+        transferStarted = false;
         transferEnded();
       }
+      connection = null;
+      dataSpec = null;
     }
   }
 
@@ -787,7 +795,6 @@ public class DefaultHttpDataSource extends BaseDataSource implements HttpDataSou
       } catch (Exception e) {
         Log.e(TAG, "Unexpected error while disconnecting", e);
       }
-      connection = null;
     }
   }
 

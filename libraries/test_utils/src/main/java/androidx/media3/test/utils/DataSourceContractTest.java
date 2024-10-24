@@ -15,7 +15,6 @@
  */
 package androidx.media3.test.utils;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.castNonNull;
@@ -86,7 +85,8 @@ public abstract class DataSourceContractTest {
    */
   @ForOverride
   protected DataSource createDataSource() throws Exception {
-    throw new UnsupportedOperationException();
+    throw new UnsupportedOperationException(
+        "Either createDataSource or createDataSources must be implemented.");
   }
 
   /**
@@ -97,7 +97,8 @@ public abstract class DataSourceContractTest {
    */
   @ForOverride
   protected List<DataSource> createDataSources() throws Exception {
-    throw new UnsupportedOperationException();
+    throw new UnsupportedOperationException(
+        "Either createDataSource or createDataSources must be implemented.");
   }
 
   /**
@@ -124,7 +125,8 @@ public abstract class DataSourceContractTest {
    * Returns {@link TestResource} instances.
    *
    * <p>Each resource will be used to exercise the {@link DataSource} instance, allowing different
-   * behaviours to be tested.
+   * behaviours to be tested. Every {@link TestResource#getExpectedBytes()} must be at least 5
+   * bytes.
    *
    * <p>If multiple resources are returned, it's recommended to disambiguate them using {@link
    * TestResource.Builder#setName(String)}.
@@ -136,9 +138,34 @@ public abstract class DataSourceContractTest {
    * Returns a {@link Uri} that doesn't resolve.
    *
    * <p>This is used to test how a {@link DataSource} handles nonexistent data.
+   *
+   * <p>Only one of {@link #getNotFoundUri()} and {@link #getNotFoundResources()} should be
+   * implemented.
    */
   @ForOverride
-  protected abstract Uri getNotFoundUri();
+  protected Uri getNotFoundUri() {
+    throw new UnsupportedOperationException(
+        "Either getNotFoundUri or getNotFoundUris must be implemented.");
+  }
+
+  /**
+   * Returns a non-empty list of {@link TestResource} that don't resolve.
+   *
+   * <p>This is used to test how a {@link DataSource} handles nonexistent data. Multiple entries and
+   * the rest of the {@link TestResource} fields can be helpful for situations where the data can be
+   * "not found" for different reasons. For example in HTTP, 'server not found' generally results in
+   * a failed HTTP connection while 'file not found' generally results in a successful connection
+   * with a 404 HTTP error code and some response headers, and the handling code for these two cases
+   * may be different (and therefore worth testing separately).
+   *
+   * <p>Only one of {@link #getNotFoundUri()} and {@link #getNotFoundResources()} should be
+   * implemented.
+   */
+  @ForOverride
+  protected List<TestResource> getNotFoundResources() {
+    throw new UnsupportedOperationException(
+        "Either getNotFoundUri or getNotFoundUris must be implemented.");
+  }
 
   @Test
   public void unboundedDataSpec_readUntilEnd() throws Exception {
@@ -457,9 +484,10 @@ public abstract class DataSourceContractTest {
 
   @Test
   public void resourceNotFound() throws Exception {
-    forAllDataSources(
-        dataSource -> {
-          assertThrows(IOException.class, () -> dataSource.open(new DataSpec(getNotFoundUri())));
+    forAllDataSourcesAndNotFoundResources(
+        (resource, dataSource) -> {
+          assertThrows(IOException.class, () -> dataSource.open(new DataSpec(resource.uri)));
+
           dataSource.close();
         });
   }
@@ -522,8 +550,8 @@ public abstract class DataSourceContractTest {
 
   @Test
   public void resourceNotFound_transferListenerCallbacks() throws Exception {
-    forAllDataSources(
-        dataSource -> {
+    forAllDataSourcesAndNotFoundResources(
+        (resource, dataSource) -> {
           TransferListener listener = mock(TransferListener.class);
           dataSource.addTransferListener(listener);
           @Nullable DataSource callbackSource = getTransferListenerDataSource();
@@ -531,7 +559,7 @@ public abstract class DataSourceContractTest {
             callbackSource = dataSource;
           }
 
-          assertThrows(IOException.class, () -> dataSource.open(new DataSpec(getNotFoundUri())));
+          assertThrows(IOException.class, () -> dataSource.open(new DataSpec(resource.uri)));
 
           // Verify onTransferInitializing() has been called exactly from DataSource.open().
           verify(listener).onTransferInitializing(eq(callbackSource), any(), anyBoolean());
@@ -561,13 +589,12 @@ public abstract class DataSourceContractTest {
 
   @Test
   public void getUri_resourceNotFound_returnsNullIfNotOpened() throws Exception {
-    forAllDataSources(
-        dataSource -> {
+    forAllDataSourcesAndNotFoundResources(
+        (resource, dataSource) -> {
           assertThat(dataSource.getUri()).isNull();
-
-          assertThrows(IOException.class, () -> dataSource.open(new DataSpec(getNotFoundUri())));
+          assertThrows(IOException.class, () -> dataSource.open(new DataSpec(resource.uri)));
+          assertThat(dataSource.getUri()).isEqualTo(resource.uri);
           dataSource.close();
-
           assertThat(dataSource.getUri()).isNull();
         });
   }
@@ -653,11 +680,23 @@ public abstract class DataSourceContractTest {
 
   @Test
   public void getResponseHeaders_resourceNotFound_isEmptyWhileNotOpen() throws Exception {
-    forAllDataSources(
-        dataSource -> {
+    forAllDataSourcesAndNotFoundResources(
+        (resource, dataSource) -> {
           assertThat(dataSource.getResponseHeaders()).isEmpty();
 
-          assertThrows(IOException.class, () -> dataSource.open(new DataSpec(getNotFoundUri())));
+          assertThrows(IOException.class, () -> dataSource.open(new DataSpec(resource.uri)));
+
+          Map<String, List<String>> actualHeaders = dataSource.getResponseHeaders();
+          for (Map.Entry<String, List<String>> expectedHeaders :
+              resource.getResponseHeaders().entrySet()) {
+            assertWithMessage("Header values for key=%s", expectedHeaders.getKey())
+                .that(actualHeaders.get(expectedHeaders.getKey()))
+                .isEqualTo(expectedHeaders.getValue());
+          }
+          for (String unexpectedKey : resource.getUnexpectedResponseHeaderKeys()) {
+            assertThat(actualHeaders).doesNotContainKey(unexpectedKey);
+          }
+
           dataSource.close();
 
           assertThat(dataSource.getResponseHeaders()).isEmpty();
@@ -668,15 +707,14 @@ public abstract class DataSourceContractTest {
     void run(TestResource resource, DataSource dataSource) throws Exception;
   }
 
-  private interface DataSourceTest {
-    void run(DataSource dataSource) throws Exception;
-  }
-
   private void forAllTestResourcesAndDataSources(TestResourceAndDataSourceTest test)
       throws Exception {
     ImmutableList<TestResource> resources = getTestResources();
     Assertions.checkArgument(!resources.isEmpty(), "Must provide at least one test resource.");
     for (int i = 0; i < resources.size(); i++) {
+      checkState(
+          resources.get(i).expectedBytes.length >= 5,
+          "TestResource.expectedBytes must be at least 5 bytes");
       List<DataSource> dataSources = createDataSourcesInternal();
       for (int j = 0; j < dataSources.size(); j++) {
         additionalFailureInfo.setInfo(getFailureLabel(resources, i, dataSources, j));
@@ -686,19 +724,24 @@ public abstract class DataSourceContractTest {
     }
   }
 
-  private void forAllDataSources(DataSourceTest test) throws Exception {
-    List<DataSource> dataSources = createDataSourcesInternal();
-    for (int i = 0; i < dataSources.size(); i++) {
-      additionalFailureInfo.setInfo(getDataSourceLabel(dataSources, i));
-      test.run(dataSources.get(i));
-      additionalFailureInfo.setInfo(null);
+  private void forAllDataSourcesAndNotFoundResources(TestResourceAndDataSourceTest test)
+      throws Exception {
+    List<TestResource> notFoundResources = getNotFoundResourcesInternal();
+    for (int i = 0; i < notFoundResources.size(); i++) {
+      List<DataSource> dataSources = createDataSourcesInternal();
+      for (int j = 0; j < dataSources.size(); j++) {
+        additionalFailureInfo.setInfo(
+            getNotFoundResourceLabel(notFoundResources, i, dataSources, j));
+        test.run(notFoundResources.get(i), dataSources.get(j));
+        additionalFailureInfo.setInfo(null);
+      }
     }
   }
 
   private List<DataSource> createDataSourcesInternal() throws Exception {
     try {
       List<DataSource> dataSources = createDataSources();
-      checkState(!dataSources.isEmpty(), "Must provide at least on DataSource");
+      checkState(!dataSources.isEmpty(), "Must provide at least one DataSource");
       assertThrows(UnsupportedOperationException.class, this::createDataSource);
       return dataSources;
     } catch (UnsupportedOperationException e) {
@@ -707,13 +750,50 @@ public abstract class DataSourceContractTest {
     }
   }
 
+  private List<TestResource> getNotFoundResourcesInternal() {
+    try {
+      List<TestResource> notFoundResources = getNotFoundResources();
+      checkState(!notFoundResources.isEmpty(), "Must provide at least one 'not found' resource");
+      assertThrows(UnsupportedOperationException.class, this::getNotFoundUri);
+      return notFoundResources;
+    } catch (UnsupportedOperationException e) {
+      // Expected if createDataSources is not implemented.
+      return ImmutableList.of(
+          new TestResource.Builder()
+              .setUri(getNotFoundUri())
+              .setExpectedBytes(Util.EMPTY_BYTE_ARRAY)
+              .build());
+    }
+  }
+
+  /**
+   * Build a label to make it clear which not-found resource and data source caused a given test
+   * failure.
+   */
+  private static String getNotFoundResourceLabel(
+      List<TestResource> resources,
+      int resourceIndex,
+      List<DataSource> dataSources,
+      int dataSourceIndex) {
+    return getFailureLabel("not-found", resources, resourceIndex, dataSources, dataSourceIndex);
+  }
+
   /** Build a label to make it clear which resource and data source caused a given test failure. */
   private static String getFailureLabel(
       List<TestResource> resources,
       int resourceIndex,
       List<DataSource> dataSources,
       int dataSourceIndex) {
-    String resourceLabel = getResourceLabel(resources, resourceIndex);
+    return getFailureLabel("resources", resources, resourceIndex, dataSources, dataSourceIndex);
+  }
+
+  private static String getFailureLabel(
+      String resourcesType,
+      List<TestResource> resources,
+      int resourceIndex,
+      List<DataSource> dataSources,
+      int dataSourceIndex) {
+    String resourceLabel = getResourceLabel(resourcesType, resources, resourceIndex);
     String dataSourceLabel = getDataSourceLabel(dataSources, dataSourceIndex);
     if (resourceLabel.isEmpty()) {
       return dataSourceLabel;
@@ -724,13 +804,14 @@ public abstract class DataSourceContractTest {
     }
   }
 
-  private static String getResourceLabel(List<TestResource> resources, int resourceIndex) {
+  private static String getResourceLabel(
+      String resourcesType, List<TestResource> resources, int resourceIndex) {
     if (resources.size() == 1) {
       return "";
     } else if (resources.get(resourceIndex).getName() != null) {
       return "resource name: " + resources.get(resourceIndex).getName();
     } else {
-      return String.format("resource[%s]", resourceIndex);
+      return String.format("%s[%s]", resourcesType, resourceIndex);
     }
   }
 
@@ -838,11 +919,12 @@ public abstract class DataSourceContractTest {
       private @MonotonicNonNull Uri resolvedUri;
       private Map<String, List<String>> responseHeaders;
       private Set<String> unexpectedResponseHeaderKeys;
-      private byte @MonotonicNonNull [] expectedBytes;
+      private byte[] expectedBytes;
 
       public Builder() {
         responseHeaders = ImmutableMap.of();
         unexpectedResponseHeaderKeys = ImmutableSet.of();
+        expectedBytes = Util.EMPTY_BYTE_ARRAY;
       }
 
       /**
@@ -909,15 +991,10 @@ public abstract class DataSourceContractTest {
         return this;
       }
 
-      /**
-       * Sets the expected contents of this resource.
-       *
-       * <p>Must be at least 5 bytes.
-       */
+      /** Sets the expected contents of this resource. Defaults to an empty byte array. */
       @CanIgnoreReturnValue
       public Builder setExpectedBytes(byte[] expectedBytes) {
-        checkArgument(expectedBytes.length >= 5);
-        this.expectedBytes = expectedBytes;
+        this.expectedBytes = checkNotNull(expectedBytes);
         return this;
       }
 
@@ -928,7 +1005,7 @@ public abstract class DataSourceContractTest {
             resolvedUri != null ? resolvedUri : uri,
             ImmutableMap.copyOf(responseHeaders),
             ImmutableSet.copyOf(unexpectedResponseHeaderKeys),
-            checkNotNull(expectedBytes));
+            expectedBytes);
       }
     }
   }
