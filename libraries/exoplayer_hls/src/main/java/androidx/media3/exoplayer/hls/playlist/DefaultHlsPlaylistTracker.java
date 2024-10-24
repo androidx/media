@@ -19,6 +19,7 @@ import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Util.castNonNull;
 import static java.lang.Math.max;
 
+import android.annotation.SuppressLint;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.SystemClock;
@@ -26,6 +27,7 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.Assertions;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSource;
@@ -43,6 +45,7 @@ import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy.LoadErrorInfo;
 import androidx.media3.exoplayer.upstream.Loader;
 import androidx.media3.exoplayer.upstream.Loader.LoadErrorAction;
 import androidx.media3.exoplayer.upstream.ParsingLoadable;
+import androidx.media3.exoplayer.util.SntpClient;
 import com.google.common.collect.Iterables;
 import java.io.IOException;
 import java.util.HashMap;
@@ -53,6 +56,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
 @UnstableApi
 public final class DefaultHlsPlaylistTracker
     implements HlsPlaylistTracker, Loader.Callback<ParsingLoadable<HlsPlaylist>> {
+
+  public static final String TAG = "DefaultHlsPlaylistTracker";
 
   /** Factory for {@link DefaultHlsPlaylistTracker} instances. */
   public static final Factory FACTORY = DefaultHlsPlaylistTracker::new;
@@ -141,6 +146,25 @@ public final class DefaultHlsPlaylistTracker
             playlistParserFactory.createPlaylistParser());
     Assertions.checkState(initialPlaylistLoader == null);
     initialPlaylistLoader = new Loader("DefaultHlsPlaylistTracker:MultivariantPlaylist");
+    SntpClient.InitializationCallback callback =
+        new SntpClient.InitializationCallback() {
+          @Override
+          public void onInitialized() {
+            requestMasterPlaylist(eventDispatcher, multivariantPlaylistLoadable);
+          }
+
+          @SuppressLint("Range")
+          @Override
+          public void onInitializationFailed(IOException error) {
+            Log.w(TAG, "NTP time init failed, use default system time", error);
+            requestMasterPlaylist(eventDispatcher, multivariantPlaylistLoadable);
+          }
+        };
+    SntpClient.initialize(initialPlaylistLoader, callback);
+  }
+
+  private void requestMasterPlaylist(
+      EventDispatcher eventDispatcher, ParsingLoadable<HlsPlaylist> multivariantPlaylistLoadable) {
     long elapsedRealtime =
         initialPlaylistLoader.startLoading(
             multivariantPlaylistLoadable,
@@ -728,6 +752,27 @@ public final class DefaultHlsPlaylistTracker
     }
 
     private void loadPlaylistImmediately(Uri playlistRequestUri) {
+      if (primaryMediaPlaylistUrl == null || playlistRequestUri.equals(primaryMediaPlaylistUrl)) {
+        SntpClient.InitializationCallback callback =
+            new SntpClient.InitializationCallback() {
+              @Override
+              public void onInitialized() {
+                loadAfterTimeSync(playlistRequestUri);
+              }
+
+              @Override
+              public void onInitializationFailed(IOException error) {
+                Log.w(TAG, "NTP time init failed, use default system time", error);
+                loadAfterTimeSync(playlistRequestUri);
+              }
+            };
+        SntpClient.initialize(mediaPlaylistLoader, callback);
+      } else {
+        loadAfterTimeSync(playlistRequestUri);
+      }
+    }
+
+    private void loadAfterTimeSync(Uri playlistRequestUri) {
       ParsingLoadable.Parser<HlsPlaylist> mediaPlaylistParser =
           playlistParserFactory.createPlaylistParser(multivariantPlaylist, playlistSnapshot);
       ParsingLoadable<HlsPlaylist> mediaPlaylistLoadable =
