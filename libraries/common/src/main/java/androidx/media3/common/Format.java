@@ -749,7 +749,7 @@ public final class Format {
     /**
      * Sets {@link Format#tileCountHorizontal}. The default value is {@link #NO_VALUE}.
      *
-     * @param tileCountHorizontal The {@link Format#accessibilityChannel}.
+     * @param tileCountHorizontal The {@link Format#tileCountHorizontal}.
      * @return The builder.
      */
     @CanIgnoreReturnValue
@@ -761,7 +761,7 @@ public final class Format {
     /**
      * Sets {@link Format#tileCountVertical}. The default value is {@link #NO_VALUE}.
      *
-     * @param tileCountVertical The {@link Format#accessibilityChannel}.
+     * @param tileCountVertical The {@link Format#tileCountVertical}.
      * @return The builder.
      */
     @CanIgnoreReturnValue
