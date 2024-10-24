@@ -477,13 +477,6 @@ public class EventLogger implements AnalyticsListener {
 
   @UnstableApi
   @Override
-  public void onLoadStarted(
-      EventTime eventTime, LoadEventInfo loadEventInfo, MediaLoadData mediaLoadData) {
-    // Do nothing.
-  }
-
-  @UnstableApi
-  @Override
   public void onLoadError(
       EventTime eventTime,
       LoadEventInfo loadEventInfo,
@@ -491,27 +484,6 @@ public class EventLogger implements AnalyticsListener {
       IOException error,
       boolean wasCanceled) {
     printInternalError(eventTime, "loadError", error);
-  }
-
-  @UnstableApi
-  @Override
-  public void onLoadCanceled(
-      EventTime eventTime, LoadEventInfo loadEventInfo, MediaLoadData mediaLoadData) {
-    // Do nothing.
-  }
-
-  @UnstableApi
-  @Override
-  public void onLoadCompleted(
-      EventTime eventTime, LoadEventInfo loadEventInfo, MediaLoadData mediaLoadData) {
-    // Do nothing.
-  }
-
-  @UnstableApi
-  @Override
-  public void onBandwidthEstimate(
-      EventTime eventTime, int totalLoadTimeMs, long totalBytesLoaded, long bitrateEstimate) {
-    // Do nothing.
   }
 
   @UnstableApi
