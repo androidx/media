@@ -27,6 +27,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.TraceUtil;
+import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.decoder.CryptoConfig;
 import androidx.media3.decoder.DecoderException;
@@ -36,6 +37,7 @@ import androidx.media3.exoplayer.audio.DecoderAudioRenderer;
 import java.util.Objects;
 
 /** Decodes and renders audio using the native IAMF decoder. */
+@UnstableApi
 public class LibiamfAudioRenderer extends DecoderAudioRenderer<IamfDecoder> {
   private final Context context;
 

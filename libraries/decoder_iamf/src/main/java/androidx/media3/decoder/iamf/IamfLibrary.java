@@ -15,7 +15,6 @@
  */
 package androidx.media3.decoder.iamf;
 
-import androidx.media3.common.C;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.util.LibraryLoader;
 import androidx.media3.common.util.UnstableApi;
@@ -43,12 +42,9 @@ public final class IamfLibrary {
    * it must do so before calling any other method defined by this class, and before instantiating a
    * {@link LibiamfAudioRenderer} instance.
    *
-   * @param cryptoType The {@link C.CryptoType} for which the decoder library supports decrypting
-   *     protected content, or {@link C#CRYPTO_TYPE_UNSUPPORTED} if the library does not support
-   *     decryption.
    * @param libraries The names of the IAMF native libraries.
    */
-  public static void setLibraries(@C.CryptoType int cryptoType, String... libraries) {
+  public static void setLibraries(String... libraries) {
     LOADER.setLibraries(libraries);
   }
 
