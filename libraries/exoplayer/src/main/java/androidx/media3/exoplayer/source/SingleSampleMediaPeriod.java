@@ -40,6 +40,7 @@ import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy.LoadErrorInfo;
 import androidx.media3.exoplayer.upstream.Loader;
 import androidx.media3.exoplayer.upstream.Loader.LoadErrorAction;
 import androidx.media3.exoplayer.upstream.Loader.Loadable;
+import androidx.media3.exoplayer.util.ReleasableExecutor;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -80,7 +81,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       long durationUs,
       LoadErrorHandlingPolicy loadErrorHandlingPolicy,
       EventDispatcher eventDispatcher,
-      boolean treatLoadErrorsAsEndOfStream) {
+      boolean treatLoadErrorsAsEndOfStream,
+      @Nullable ReleasableExecutor downloadExecutor) {
     this.dataSpec = dataSpec;
     this.dataSourceFactory = dataSourceFactory;
     this.transferListener = transferListener;
@@ -91,7 +93,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.treatLoadErrorsAsEndOfStream = treatLoadErrorsAsEndOfStream;
     tracks = new TrackGroupArray(new TrackGroup(format));
     sampleStreams = new ArrayList<>();
-    loader = new Loader("SingleSampleMediaPeriod");
+    loader =
+        downloadExecutor != null
+            ? new Loader(downloadExecutor)
+            : new Loader("SingleSampleMediaPeriod");
   }
 
   public void release() {
