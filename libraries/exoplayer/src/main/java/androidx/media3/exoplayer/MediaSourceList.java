@@ -564,7 +564,8 @@ import java.util.Set;
         int windowIndex,
         @Nullable MediaSource.MediaPeriodId mediaPeriodId,
         LoadEventInfo loadEventData,
-        MediaLoadData mediaLoadData) {
+        MediaLoadData mediaLoadData,
+        int retryCount) {
       @Nullable
       Pair<Integer, MediaSource.@NullableType MediaPeriodId> eventParameters =
           getEventParameters(windowIndex, mediaPeriodId);
@@ -572,7 +573,11 @@ import java.util.Set;
         eventHandler.post(
             () ->
                 eventListener.onLoadStarted(
-                    eventParameters.first, eventParameters.second, loadEventData, mediaLoadData));
+                    eventParameters.first,
+                    eventParameters.second,
+                    loadEventData,
+                    mediaLoadData,
+                    retryCount));
       }
     }
 

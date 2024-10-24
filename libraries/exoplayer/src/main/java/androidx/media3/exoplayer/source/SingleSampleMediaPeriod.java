@@ -155,20 +155,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       dataSource.addTransferListener(transferListener);
     }
     SourceLoadable loadable = new SourceLoadable(dataSpec, dataSource);
-    long elapsedRealtimeMs =
-        loader.startLoading(
-            loadable,
-            /* callback= */ this,
-            loadErrorHandlingPolicy.getMinimumLoadableRetryCount(C.DATA_TYPE_MEDIA));
-    eventDispatcher.loadStarted(
-        new LoadEventInfo(loadable.loadTaskId, dataSpec, elapsedRealtimeMs),
-        C.DATA_TYPE_MEDIA,
-        C.TRACK_TYPE_UNKNOWN,
-        format,
-        C.SELECTION_REASON_UNKNOWN,
-        /* trackSelectionData= */ null,
-        /* mediaStartTimeUs= */ 0,
-        durationUs);
+    loader.startLoading(
+        loadable,
+        /* callback= */ this,
+        loadErrorHandlingPolicy.getMinimumLoadableRetryCount(C.DATA_TYPE_MEDIA));
     return true;
   }
 
@@ -206,6 +196,31 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   // Loader.Callback implementation.
+
+  @Override
+  public void onLoadStarted(
+      SourceLoadable loadable, long elapsedRealtimeMs, long loadDurationMs, int retryCount) {
+    StatsDataSource dataSource = loadable.dataSource;
+    LoadEventInfo loadEventInfo =
+        new LoadEventInfo(
+            loadable.loadTaskId,
+            loadable.dataSpec,
+            dataSource.getLastOpenedUri(),
+            dataSource.getLastResponseHeaders(),
+            elapsedRealtimeMs,
+            loadDurationMs,
+            dataSource.getBytesRead());
+    eventDispatcher.loadStarted(
+        loadEventInfo,
+        C.DATA_TYPE_MEDIA,
+        C.TRACK_TYPE_UNKNOWN,
+        format,
+        C.SELECTION_REASON_UNKNOWN,
+        /* trackSelectionData= */ null,
+        /* mediaStartTimeUs= */ 0,
+        durationUs,
+        retryCount);
+  }
 
   @Override
   public void onLoadCompleted(

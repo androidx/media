@@ -629,6 +629,24 @@ public final class DashMediaSource extends BaseMediaSource {
 
   // Loadable callbacks.
 
+  /* package */ void onManifestLoadStarted(
+      ParsingLoadable<DashManifest> loadable,
+      long elapsedRealtimeMs,
+      long loadDurationMs,
+      int retryCount) {
+    manifestEventDispatcher.loadStarted(
+        new LoadEventInfo(
+            loadable.loadTaskId,
+            loadable.dataSpec,
+            loadable.getUri(),
+            loadable.getResponseHeaders(),
+            elapsedRealtimeMs,
+            loadDurationMs,
+            loadable.bytesLoaded()),
+        loadable.type,
+        retryCount);
+  }
+
   /* package */ void onManifestLoadCompleted(
       ParsingLoadable<DashManifest> loadable, long elapsedRealtimeMs, long loadDurationMs) {
     LoadEventInfo loadEventInfo =
@@ -1094,10 +1112,7 @@ public final class DashMediaSource extends BaseMediaSource {
       ParsingLoadable<T> loadable,
       Loader.Callback<ParsingLoadable<T>> callback,
       int minRetryCount) {
-    long elapsedRealtimeMs = loader.startLoading(loadable, callback, minRetryCount);
-    manifestEventDispatcher.loadStarted(
-        new LoadEventInfo(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs),
-        loadable.type);
+    loader.startLoading(loadable, callback, minRetryCount);
   }
 
   private static long getIntervalUntilNextManifestRefreshMs(
@@ -1388,6 +1403,15 @@ public final class DashMediaSource extends BaseMediaSource {
   }
 
   private final class ManifestCallback implements Loader.Callback<ParsingLoadable<DashManifest>> {
+
+    @Override
+    public void onLoadStarted(
+        ParsingLoadable<DashManifest> loadable,
+        long elapsedRealtimeMs,
+        long loadDurationMs,
+        int retryCount) {
+      onManifestLoadStarted(loadable, elapsedRealtimeMs, loadDurationMs, retryCount);
+    }
 
     @Override
     public void onLoadCompleted(

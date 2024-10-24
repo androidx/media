@@ -139,7 +139,8 @@ public class MergingMediaSourceTest {
               int windowIndex,
               @Nullable MediaPeriodId mediaPeriodId,
               LoadEventInfo loadEventInfo,
-              MediaLoadData mediaLoadData) {
+              MediaLoadData mediaLoadData,
+              int retryCount) {
             if (mediaPeriodId != null) {
               onLoadStartedMediaPeriodUids.add(mediaPeriodId.periodUid);
             }

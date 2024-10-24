@@ -364,7 +364,8 @@ public class MediaSourceTestRunner {
         int windowIndex,
         @Nullable MediaPeriodId mediaPeriodId,
         LoadEventInfo loadEventInfo,
-        MediaLoadData mediaLoadData) {
+        MediaLoadData mediaLoadData,
+        int retryCount) {
       Assertions.checkState(Looper.myLooper() == playbackThread.getLooper());
     }
 

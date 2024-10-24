@@ -11,6 +11,8 @@
         `TrackSelectionParameters.Builder.setPreferredVideoLanguage(s)`.
     *   Add `selectedAudioLanguage` parameter to
         `DefaultTrackSelector.selectVideoTrack()` method.
+    *   Add `retryCount` parameter to `MediaSourceEventListener.onLoadStarted`
+        and corresponding `MediaSourceEventListener.EventDispatcher` methods.
 *   Transformer:
     *   Update parameters of `VideoFrameProcessor.registerInputStream` and
         `VideoFrameProcessor.Listener.onInputStreamRegistered` to use `Format`.
