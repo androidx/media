@@ -22,9 +22,11 @@ import static androidx.media3.common.util.Util.castNonNull;
 
 import android.annotation.SuppressLint;
 import android.media.MediaCodec.BufferInfo;
+import android.media.MediaCodecInfo;
 import android.media.MediaFormat;
 import android.media.MediaMuxer;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
@@ -130,6 +132,10 @@ import java.util.Map;
     if (isVideo) {
       mediaFormat = MediaFormat.createVideoFormat(sampleMimeType, format.width, format.height);
       MediaFormatUtil.maybeSetColorInfo(mediaFormat, format.colorInfo);
+      if (sampleMimeType.equals(MimeTypes.VIDEO_DOLBY_VISION) && SDK_INT >= 33) {
+        mediaFormat.setInteger(MediaFormat.KEY_PROFILE, getDvProfile(format));
+        mediaFormat.setInteger(MediaFormat.KEY_LEVEL, getDvLevel(format));
+      }
       try {
         mediaMuxer.setOrientationHint(format.rotationDegrees);
       } catch (RuntimeException e) {
@@ -308,10 +314,75 @@ import java.util.Map;
     if (SDK_INT >= 24) {
       supportedMimeTypes.add(MimeTypes.VIDEO_H265);
     }
+    if (SDK_INT >= 33) {
+      supportedMimeTypes.add(MimeTypes.VIDEO_DOLBY_VISION);
+    }
     if (SDK_INT >= 34) {
       supportedMimeTypes.add(MimeTypes.VIDEO_AV1);
     }
     return supportedMimeTypes.build();
+  }
+
+  /**
+   * Get Dolby Vision profile
+   *
+   * <p>Refer to <a
+   * href="https://professionalsupport.dolby.com/s/article/What-is-Dolby-Vision-Profile">What
+   * are Dolby Vision profiles and levels</a>.
+   */
+  @RequiresApi(33)
+  private static int getDvProfile(Format format) {
+    // Currently, only profile 8 is supported for encoding
+    // TODO: set profile ID based on format.
+    return MediaCodecInfo.CodecProfileLevel.DolbyVisionProfileDvheSt;
+  }
+
+  /**
+   * Get Dolby Vision level
+   *
+   * <p>Refer to <a
+   * href="https://professionalsupport.dolby.com/s/article/What-is-Dolby-Vision-Profile">What
+   * are Dolby Vision profiles and levels</a>.
+   */
+  @RequiresApi(33)
+  private static int getDvLevel(Format format) {
+    int level = -1;
+    int maxWidthHeight = Math.max(format.width, format.height);
+    float pps = format.width * format.height * format.frameRate;
+
+    if (maxWidthHeight <= 1280) {
+      if (pps <= 22118400) {
+        level = MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelHd24;  // Level 01
+      } else { // pps <= 27648000
+        level = MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelHd30;  // Level 02
+      }
+    } else if (maxWidthHeight <= 1920 && pps <= 49766400) {
+      level = MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelFhd24;  // Level 03
+    } else if (maxWidthHeight <= 2560 && pps <= 62208000) {
+      level = MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelFhd30;  // Level 04
+    } else if (maxWidthHeight <= 3840) {
+      if (pps <= 124416000) {
+        level = MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelFhd60;  // Level 05
+      } else if (pps <= 199065600) {
+        level = MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelUhd24;  // Level 06
+      } else if (pps <= 248832000) {
+        level = MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelUhd30;  // Level 07
+      } else if (pps <= 398131200) {
+        level = MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelUhd48;  // Level 08
+      } else if (pps <= 497664000) {
+        level = MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelUhd60;  // Level 09
+      } else { // pps <= 995328000
+        level = MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelUhd120;  // Level 10
+      }
+    } else if (maxWidthHeight <= 7680) {
+      if (pps <= 995328000) {
+        level = MediaCodecInfo.CodecProfileLevel.DolbyVisionLevel8k30;  // Level 11
+      } else { // pps <= 1990656000
+        level = MediaCodecInfo.CodecProfileLevel.DolbyVisionLevel8k60;  // Level 12
+      }
+    }
+
+    return level;
   }
 
   private static class TrackTokenImpl implements TrackToken {

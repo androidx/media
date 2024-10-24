@@ -46,6 +46,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Default implementation of {@link Codec.DecoderFactory} that uses {@link MediaCodec} for decoding.
@@ -279,6 +280,9 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
     if (SDK_INT >= 31 && requestSdrToneMapping) {
       mediaFormat.setInteger(
           MediaFormat.KEY_COLOR_TRANSFER_REQUEST, MediaFormat.COLOR_TRANSFER_SDR_VIDEO);
+    } else if (SDK_INT >= 31 && Objects.equals(format.sampleMimeType, MimeTypes.VIDEO_DOLBY_VISION)) {
+      mediaFormat.setInteger(
+          MediaFormat.KEY_COLOR_TRANSFER_REQUEST, MediaFormat.COLOR_TRANSFER_HLG);
     }
 
     @Nullable
