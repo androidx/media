@@ -113,4 +113,63 @@ public class Mp4MuxerEndToEndNonParameterizedAndroidTest {
     /*DumpFileAsserts.assertOutput(
     context, fakeExtractorOutput, AndroidMuxerTestUtil.getExpectedDumpFilePath(vp9Mp4));*/
   }
+
+  @Test
+  public void createMp4File_withSampleBatchingDisabled_matchesExpected() throws Exception {
+    @Nullable Mp4Muxer mp4Muxer = null;
+
+    try {
+      mp4Muxer =
+          new Mp4Muxer.Builder(checkNotNull(outputStream)).setSampleBatchingEnabled(false).build();
+      mp4Muxer.addMetadataEntry(
+          new Mp4TimestampData(
+              /* creationTimestampSeconds= */ 100_000_000L,
+              /* modificationTimestampSeconds= */ 500_000_000L));
+      feedInputDataToMuxer(context, mp4Muxer, checkNotNull(H265_HDR10_MP4));
+    } finally {
+      if (mp4Muxer != null) {
+        mp4Muxer.close();
+      }
+    }
+
+    FakeExtractorOutput fakeExtractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(
+            new Mp4Extractor(new DefaultSubtitleParserFactory()), checkNotNull(outputPath));
+    DumpFileAsserts.assertOutput(
+        context,
+        fakeExtractorOutput,
+        AndroidMuxerTestUtil.getExpectedDumpFilePath("sample_batching_disabled_" + H265_HDR10_MP4));
+  }
+
+  @Test
+  public void createMp4File_withSampleBatchingAndAttemptStreamableOutputDisabled_matchesExpected()
+      throws Exception {
+    @Nullable Mp4Muxer mp4Muxer = null;
+
+    try {
+      mp4Muxer =
+          new Mp4Muxer.Builder(checkNotNull(outputStream))
+              .setSampleBatchingEnabled(false)
+              .setAttemptStreamableOutputEnabled(false)
+              .build();
+      mp4Muxer.addMetadataEntry(
+          new Mp4TimestampData(
+              /* creationTimestampSeconds= */ 100_000_000L,
+              /* modificationTimestampSeconds= */ 500_000_000L));
+      feedInputDataToMuxer(context, mp4Muxer, checkNotNull(H265_HDR10_MP4));
+    } finally {
+      if (mp4Muxer != null) {
+        mp4Muxer.close();
+      }
+    }
+
+    FakeExtractorOutput fakeExtractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(
+            new Mp4Extractor(new DefaultSubtitleParserFactory()), checkNotNull(outputPath));
+    DumpFileAsserts.assertOutput(
+        context,
+        fakeExtractorOutput,
+        AndroidMuxerTestUtil.getExpectedDumpFilePath(
+            "sample_batching_and_attempt_streamable_output_disabled_" + H265_HDR10_MP4));
+  }
 }
