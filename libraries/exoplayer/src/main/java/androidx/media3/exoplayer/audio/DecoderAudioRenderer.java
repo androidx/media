@@ -165,6 +165,10 @@ public abstract class DecoderAudioRenderer<
   private final long[] pendingOutputStreamOffsetsUs;
   private int pendingOutputStreamOffsetCount;
   private boolean hasPendingReportedSkippedSilence;
+  private boolean isStarted;
+  private long largestQueuedPresentationTimeUs;
+  private long lastBufferInStreamPresentationTimeUs;
+  private long nextBufferToWritePresentationTimeUs;
 
   public DecoderAudioRenderer() {
     this(/* eventHandler= */ null, /* eventListener= */ null);
@@ -226,12 +230,32 @@ public abstract class DecoderAudioRenderer<
     audioTrackNeedsConfigure = true;
     setOutputStreamOffsetUs(C.TIME_UNSET);
     pendingOutputStreamOffsetsUs = new long[MAX_PENDING_OUTPUT_STREAM_OFFSET_COUNT];
+    largestQueuedPresentationTimeUs = C.TIME_UNSET;
+    lastBufferInStreamPresentationTimeUs = C.TIME_UNSET;
+    nextBufferToWritePresentationTimeUs = C.TIME_UNSET;
   }
 
   @Override
   @Nullable
   public MediaClock getMediaClock() {
     return this;
+  }
+
+  @Override
+  public long getDurationToProgressUs(long positionUs, long elapsedRealtimeUs) {
+    if (nextBufferToWritePresentationTimeUs == C.TIME_UNSET) {
+      return super.getDurationToProgressUs(positionUs, elapsedRealtimeUs);
+    }
+    long durationUs =
+        (long)
+            ((nextBufferToWritePresentationTimeUs - positionUs)
+                / (getPlaybackParameters() != null ? getPlaybackParameters().speed : 1.0f)
+                / 2);
+    if (isStarted) {
+      // Account for the elapsed time since the start of this iteration of the rendering loop.
+      durationUs -= Util.msToUs(getClock().elapsedRealtime()) - elapsedRealtimeUs;
+    }
+    return max(DEFAULT_DURATION_TO_PROGRESS_US, durationUs);
   }
 
   @Override
@@ -279,6 +303,7 @@ public abstract class DecoderAudioRenderer<
     if (outputStreamEnded) {
       try {
         audioSink.playToEndOfStream();
+        nextBufferToWritePresentationTimeUs = lastBufferInStreamPresentationTimeUs;
       } catch (AudioSink.WriteException e) {
         throw createRendererException(
             e, e.format, e.isRecoverable, PlaybackException.ERROR_CODE_AUDIO_TRACK_WRITE_FAILED);
@@ -418,7 +443,6 @@ public abstract class DecoderAudioRenderer<
         processFirstSampleOfStream();
       }
     }
-
     if (outputBuffer.isEndOfStream()) {
       if (decoderReinitializationState == REINITIALIZATION_STATE_WAIT_END_OF_STREAM) {
         // We're waiting to re-initialize the decoder, and have now processed all final buffers.
@@ -438,6 +462,7 @@ public abstract class DecoderAudioRenderer<
       }
       return false;
     }
+    nextBufferToWritePresentationTimeUs = C.TIME_UNSET;
 
     if (audioTrackNeedsConfigure) {
       Format outputFormat =
@@ -464,6 +489,10 @@ public abstract class DecoderAudioRenderer<
       outputBuffer.release();
       outputBuffer = null;
       return true;
+    } else {
+      // Downstream buffers are full, set nextBufferToWritePresentationTimeUs to the presentation
+      // time of the current 'to be written' sample.
+      nextBufferToWritePresentationTimeUs = outputBuffer.timeUs;
     }
 
     return false;
@@ -516,6 +545,10 @@ public abstract class DecoderAudioRenderer<
     FormatHolder formatHolder = getFormatHolder();
     switch (readSource(formatHolder, inputBuffer, /* readFlags= */ 0)) {
       case C.RESULT_NOTHING_READ:
+        if (hasReadStreamToEnd()) {
+          // Notify output queue of the last buffer's timestamp.
+          lastBufferInStreamPresentationTimeUs = largestQueuedPresentationTimeUs;
+        }
         return false;
       case C.RESULT_FORMAT_READ:
         onInputFormatChanged(formatHolder);
@@ -523,6 +556,7 @@ public abstract class DecoderAudioRenderer<
       case C.RESULT_BUFFER_READ:
         if (inputBuffer.isEndOfStream()) {
           inputStreamEnded = true;
+          lastBufferInStreamPresentationTimeUs = largestQueuedPresentationTimeUs;
           decoder.queueInputBuffer(inputBuffer);
           inputBuffer = null;
           return false;
@@ -530,6 +564,10 @@ public abstract class DecoderAudioRenderer<
         if (!firstStreamSampleRead) {
           firstStreamSampleRead = true;
           inputBuffer.addFlag(C.BUFFER_FLAG_FIRST_SAMPLE);
+        }
+        largestQueuedPresentationTimeUs = inputBuffer.timeUs;
+        if (hasReadStreamToEnd() || inputBuffer.isLastSample()) {
+          lastBufferInStreamPresentationTimeUs = largestQueuedPresentationTimeUs;
         }
         inputBuffer.flip();
         inputBuffer.format = inputFormat;
@@ -546,6 +584,7 @@ public abstract class DecoderAudioRenderer<
   private void processEndOfStream() throws AudioSink.WriteException {
     outputStreamEnded = true;
     audioSink.playToEndOfStream();
+    nextBufferToWritePresentationTimeUs = lastBufferInStreamPresentationTimeUs;
   }
 
   private void flushDecoder() throws ExoPlaybackException {
@@ -632,12 +671,14 @@ public abstract class DecoderAudioRenderer<
   @Override
   protected void onStarted() {
     audioSink.play();
+    isStarted = true;
   }
 
   @Override
   protected void onStopped() {
     updateCurrentPosition();
     audioSink.pause();
+    isStarted = false;
   }
 
   @Override
@@ -767,6 +808,8 @@ public abstract class DecoderAudioRenderer<
     outputBuffer = null;
     decoderReinitializationState = REINITIALIZATION_STATE_NONE;
     decoderReceivedBuffers = false;
+    largestQueuedPresentationTimeUs = C.TIME_UNSET;
+    lastBufferInStreamPresentationTimeUs = C.TIME_UNSET;
     if (decoder != null) {
       decoderCounters.decoderReleaseCount++;
       decoder.release();
