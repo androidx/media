@@ -926,10 +926,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
 
     @Override
     public void renderFrame(
-        long renderTimeNs,
-        long bufferPresentationTimeUs,
-        long streamOffsetUs,
-        boolean isFirstFrame) {
+        long renderTimeNs, long bufferPresentationTimeUs, boolean isFirstFrame) {
       if (isFirstFrame && currentSurfaceAndSize != null) {
         for (PlaybackVideoGraphWrapper.Listener listener : listeners) {
           listener.onFirstFrameRendered(PlaybackVideoGraphWrapper.this);

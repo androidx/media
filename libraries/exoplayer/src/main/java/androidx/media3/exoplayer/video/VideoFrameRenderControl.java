@@ -49,11 +49,9 @@ import androidx.media3.exoplayer.ExoPlaybackException;
      *     rendered immediately.
      * @param presentationTimeUs The frame's presentation time, in microseconds, which was announced
      *     with {@link VideoFrameRenderControl#onOutputFrameAvailableForRendering(long)}.
-     * @param streamOffsetUs The stream offset, in microseconds, that is associated with this frame.
      * @param isFirstFrame Whether this is the first frame of the stream.
      */
-    void renderFrame(
-        long renderTimeNs, long presentationTimeUs, long streamOffsetUs, boolean isFirstFrame);
+    void renderFrame(long renderTimeNs, long presentationTimeUs, boolean isFirstFrame);
 
     /**
      * Called to drop the {@linkplain
@@ -218,10 +216,7 @@ import androidx.media3.exoplayer.ExoPlaybackException;
             ? VideoFrameProcessor.RENDER_OUTPUT_FRAME_IMMEDIATELY
             : videoFrameReleaseInfo.getReleaseTimeNs();
     frameRenderer.renderFrame(
-        renderTimeNs,
-        presentationTimeUs,
-        outputStreamOffsetUs,
-        videoFrameReleaseControl.onFrameReleasedIsFirstFrame());
+        renderTimeNs, presentationTimeUs, videoFrameReleaseControl.onFrameReleasedIsFirstFrame());
   }
 
   private boolean maybeUpdateOutputStreamOffset(long presentationTimeUs) {

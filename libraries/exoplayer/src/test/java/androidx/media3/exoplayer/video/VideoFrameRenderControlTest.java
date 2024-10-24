@@ -60,7 +60,6 @@ public class VideoFrameRenderControlTest {
         .renderFrame(
             /* renderTimeNs= */ anyLong(),
             /* presentationTimeUs= */ eq(0L),
-            /* streamOffsetUs= */ eq(0L),
             /* isFirstFrame= */ eq(true));
   }
 
@@ -92,7 +91,6 @@ public class VideoFrameRenderControlTest {
         .renderFrame(
             /* renderTimeNs= */ anyLong(),
             /* presentationTimeUs= */ eq(0L),
-            /* streamOffsetUs= */ eq(0L),
             /* isFirstFrame= */ eq(true));
     inOrder.verifyNoMoreInteractions();
 
@@ -106,7 +104,6 @@ public class VideoFrameRenderControlTest {
         .renderFrame(
             /* renderTimeNs= */ anyLong(),
             /* presentationTimeUs= */ eq(10_000L),
-            /* streamOffsetUs= */ eq(0L),
             /* isFirstFrame= */ eq(false));
     inOrder.verifyNoMoreInteractions();
   }
@@ -135,7 +132,7 @@ public class VideoFrameRenderControlTest {
         .verify(frameRenderer)
         .onVideoSizeChanged(new VideoSize(/* width= */ VIDEO_WIDTH, /* height= */ VIDEO_HEIGHT));
     // First frame has the first stream offset.
-    inOrder.verify(frameRenderer).renderFrame(anyLong(), eq(0L), eq(10_000L), eq(true));
+    inOrder.verify(frameRenderer).renderFrame(anyLong(), eq(0L), eq(true));
     inOrder.verifyNoMoreInteractions();
 
     // 10 milliseconds pass
@@ -151,7 +148,6 @@ public class VideoFrameRenderControlTest {
         .renderFrame(
             /* renderTimeNs= */ anyLong(),
             /* presentationTimeUs= */ eq(10_000L),
-            /* streamOffsetUs= */ eq(20_000L),
             /* isFirstFrame= */ eq(true));
     inOrder.verifyNoMoreInteractions();
   }
@@ -189,7 +185,6 @@ public class VideoFrameRenderControlTest {
         .renderFrame(
             /* renderTimeNs= */ anyLong(),
             /* presentationTimeUs= */ eq(0L),
-            /* streamOffsetUs= */ eq(0L),
             /* isFirstFrame= */ eq(true));
     inOrder.verifyNoMoreInteractions();
 
@@ -233,7 +228,6 @@ public class VideoFrameRenderControlTest {
         .renderFrame(
             /* renderTimeNs= */ anyLong(),
             /* presentationTimeUs= */ eq(10_000L),
-            /* streamOffsetUs= */ eq(0L),
             /* isFirstFrame= */ eq(true));
     inOrder.verifyNoMoreInteractions();
   }
@@ -271,7 +265,6 @@ public class VideoFrameRenderControlTest {
         .renderFrame(
             /* renderTimeNs= */ anyLong(),
             /* presentationTimeUs= */ eq(0L),
-            /* streamOffsetUs= */ eq(0L),
             /* isFirstFrame= */ eq(true));
     assertThat(videoFrameRenderControl.hasReleasedFrame(/* presentationTimeUs= */ 0)).isTrue();
   }
@@ -299,7 +292,6 @@ public class VideoFrameRenderControlTest {
         .renderFrame(
             /* renderTimeNs= */ anyLong(),
             /* presentationTimeUs= */ eq(0L),
-            /* streamOffsetUs= */ eq(0L),
             /* isFirstFrame= */ eq(true));
 
     videoFrameRenderControl.flush();
