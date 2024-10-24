@@ -83,6 +83,8 @@ if (gradle.ext.has('androidxMediaEnableMidiModule') && gradle.ext.androidxMediaE
     include modulePrefix + 'lib-decoder-midi'
     project(modulePrefix + 'lib-decoder-midi').projectDir = new File(rootDir, 'libraries/decoder_midi')
 }
+include modulePrefix + 'lib-decoder-mpegh'
+project(modulePrefix + 'lib-decoder-mpegh').projectDir = new File(rootDir, 'libraries/decoder_mpegh')
 include modulePrefix + 'lib-decoder-opus'
 project(modulePrefix + 'lib-decoder-opus').projectDir = new File(rootDir, 'libraries/decoder_opus')
 include modulePrefix + 'lib-decoder-vp9'

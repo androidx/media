@@ -762,6 +762,10 @@
       {
         "name": "Immersive Audio Format Sample (MP4, IAMF)",
         "uri": "https://github.com/AOMediaCodec/libiamf/raw/main/tests/test_000036_s.mp4"
+      },
+      {
+        "name": "MPEG-H HD (MP4, H265)",
+        "uri": "https://media.githubusercontent.com/media/Fraunhofer-IIS/mpegh-test-content/main/TRI_Fileset_17_514H_D1_D2_D3_O1_24bit1080p50.mp4"
       }
     ]
   },

@@ -567,6 +567,25 @@ public class DefaultRenderersFactory implements RenderersFactory {
       // The extension is present, but instantiation failed.
       throw new IllegalStateException("Error instantiating IAMF extension", e);
     }
+
+    try {
+      // Full class names used for constructor args so the LINT rule triggers if any of them move.
+      Class<?> clazz = Class.forName("androidx.media3.decoder.mpegh.MpeghAudioRenderer");
+      Constructor<?> constructor =
+          clazz.getConstructor(
+              android.os.Handler.class,
+              androidx.media3.exoplayer.audio.AudioRendererEventListener.class,
+              androidx.media3.exoplayer.audio.AudioSink.class);
+      Renderer renderer =
+          (Renderer) constructor.newInstance(eventHandler, eventListener, audioSink);
+      out.add(extensionRendererIndex++, renderer);
+      Log.i(TAG, "Loaded MpeghAudioRenderer.");
+    } catch (ClassNotFoundException e) {
+      // Expected if the app was built without the extension.
+    } catch (Exception e) {
+      // The extension is present, but instantiation failed.
+      throw new IllegalStateException("Error instantiating MPEG-H extension", e);
+    }
   }
 
   /**

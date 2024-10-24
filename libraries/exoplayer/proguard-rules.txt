@@ -33,6 +33,10 @@
 -keepclassmembers class androidx.media3.decoder.midi.MidiRenderer {
   <init>(android.content.Context);
 }
+-dontnote androidx.media3.decoder.mpegh.MpeghAudioRenderer
+-keepclassmembers class androidx.media3.decoder.mpegh.MpeghAudioRenderer {
+  <init>(android.os.Handler, androidx.media3.exoplayer.audio.AudioRendererEventListener, androidx.media3.exoplayer.audio.AudioSink);
+}
 
 # Constructors accessed via reflection in DefaultDownloaderFactory
 -dontnote androidx.media3.exoplayer.dash.offline.DashDownloader
