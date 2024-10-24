@@ -511,9 +511,9 @@ public final class SsMediaSource extends BaseMediaSource
             loadable.getResponseHeaders(),
             elapsedRealtimeMs,
             loadDurationMs,
-            /* bytesLoaded= */ 0),
+            loadable.bytesLoaded()),
         loadable.type,
-        /* retryCount= */ 0);
+        retryCount);
   }
 
   @Override
@@ -678,12 +678,7 @@ public final class SsMediaSource extends BaseMediaSource
     ParsingLoadable<SsManifest> loadable =
         new ParsingLoadable<>(
             manifestDataSource, manifestUri, C.DATA_TYPE_MANIFEST, manifestParser);
-    long elapsedRealtimeMs =
-        manifestLoader.startLoading(
-            loadable, this, loadErrorHandlingPolicy.getMinimumLoadableRetryCount(loadable.type));
-    manifestEventDispatcher.loadStarted(
-        new LoadEventInfo(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs),
-        loadable.type,
-        /* retryCount= */ 0);
+    manifestLoader.startLoading(
+        loadable, this, loadErrorHandlingPolicy.getMinimumLoadableRetryCount(loadable.type));
   }
 }

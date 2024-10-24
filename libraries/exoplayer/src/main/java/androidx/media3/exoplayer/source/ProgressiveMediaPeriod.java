@@ -609,7 +609,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             dataSource.getLastResponseHeaders(),
             elapsedRealtimeMs,
             loadDurationMs,
-            /* bytesLoaded= */ 0);
+            dataSource.getBytesRead());
     mediaSourceEventDispatcher.loadStarted(
         loadEventInfo,
         C.DATA_TYPE_MEDIA,

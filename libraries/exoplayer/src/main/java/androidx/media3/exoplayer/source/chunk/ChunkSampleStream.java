@@ -440,7 +440,7 @@ public class ChunkSampleStream<T extends ChunkSource>
             loadable.getResponseHeaders(),
             elapsedRealtimeMs,
             loadDurationMs,
-            /* bytesLoaded= */ 0),
+            loadable.dataSource.getBytesRead()),
         loadable.type,
         primaryTrackType,
         loadable.trackFormat,

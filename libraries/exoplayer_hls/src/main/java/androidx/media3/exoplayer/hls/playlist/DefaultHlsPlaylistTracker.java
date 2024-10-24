@@ -260,7 +260,7 @@ public final class DefaultHlsPlaylistTracker
             loadable.getResponseHeaders(),
             elapsedRealtimeMs,
             loadDurationMs,
-            /* bytesLoaded= */ 0),
+            loadable.bytesLoaded()),
         loadable.type,
         retryCount);
   }
