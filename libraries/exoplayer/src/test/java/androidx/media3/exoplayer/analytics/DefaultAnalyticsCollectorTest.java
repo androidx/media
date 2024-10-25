@@ -146,8 +146,9 @@ import org.mockito.InOrder;
 public final class DefaultAnalyticsCollectorTest {
 
   // Deprecated event constants.
-  private static final long EVENT_PLAYER_STATE_CHANGED = 1L << 63;
-  private static final long EVENT_SEEK_STARTED = 1L << 62;
+  private static final long EVENT_PLAYER_STATE_CHANGED = Long.MIN_VALUE;
+  private static final long EVENT_SEEK_STARTED = Long.MIN_VALUE + 1;
+  private static final long DEPRECATED_EVENT_LOAD_STARTED = Long.MIN_VALUE + 2;
 
   private static final UUID DRM_SCHEME_UUID =
       UUID.nameUUIDFromBytes(TestUtil.createByteArray(7, 8, 9));
@@ -264,6 +265,9 @@ public final class DefaultAnalyticsCollectorTest {
     assertThat(listener.getEvents(EVENT_LOAD_STARTED))
         .containsExactly(WINDOW_0 /* manifest */, period0 /* media */)
         .inOrder();
+    assertThat(listener.getEvents(DEPRECATED_EVENT_LOAD_STARTED))
+        .containsExactly(WINDOW_0 /* manifest */, period0 /* media */)
+        .inOrder();
     assertThat(listener.getEvents(EVENT_LOAD_COMPLETED))
         .containsExactly(WINDOW_0 /* manifest */, period0 /* media */)
         .inOrder();
@@ -327,6 +331,13 @@ public final class DefaultAnalyticsCollectorTest {
         .containsExactly(period0, period1)
         .inOrder();
     assertThat(listener.getEvents(EVENT_LOAD_STARTED))
+        .containsExactly(
+            WINDOW_0 /* manifest */,
+            WINDOW_1 /* manifest */,
+            period0 /* media */,
+            period1 /* media */)
+        .inOrder();
+    assertThat(listener.getEvents(DEPRECATED_EVENT_LOAD_STARTED))
         .containsExactly(
             WINDOW_0 /* manifest */,
             WINDOW_1 /* manifest */,
@@ -411,6 +422,13 @@ public final class DefaultAnalyticsCollectorTest {
             period0 /* media */,
             period1 /* media */)
         .inOrder();
+    assertThat(listener.getEvents(DEPRECATED_EVENT_LOAD_STARTED))
+        .containsExactly(
+            WINDOW_0 /* manifest */,
+            WINDOW_1 /* manifest */,
+            period0 /* media */,
+            period1 /* media */)
+        .inOrder();
     assertThat(listener.getEvents(EVENT_LOAD_COMPLETED))
         .containsExactly(
             WINDOW_0 /* manifest */,
@@ -487,6 +505,13 @@ public final class DefaultAnalyticsCollectorTest {
         .containsExactly(period0, period1, period1)
         .inOrder();
     assertThat(listener.getEvents(EVENT_LOAD_STARTED))
+        .containsExactly(
+            WINDOW_0 /* manifest */,
+            WINDOW_1 /* manifest */,
+            period0 /* media */,
+            period1 /* media */)
+        .inOrder();
+    assertThat(listener.getEvents(DEPRECATED_EVENT_LOAD_STARTED))
         .containsExactly(
             WINDOW_0 /* manifest */,
             WINDOW_1 /* manifest */,
@@ -583,6 +608,14 @@ public final class DefaultAnalyticsCollectorTest {
         .containsExactly(period0, period1Seq2)
         .inOrder();
     assertThat(listener.getEvents(EVENT_LOAD_STARTED))
+        .containsExactly(
+            WINDOW_0 /* manifest */,
+            WINDOW_1 /* manifest */,
+            period0 /* media */,
+            period1Seq1 /* media */,
+            period1Seq2 /* media */)
+        .inOrder();
+    assertThat(listener.getEvents(DEPRECATED_EVENT_LOAD_STARTED))
         .containsExactly(
             WINDOW_0 /* manifest */,
             WINDOW_1 /* manifest */,
@@ -709,6 +742,13 @@ public final class DefaultAnalyticsCollectorTest {
             WINDOW_0 /* manifest */,
             period0Seq1 /* media */)
         .inOrder();
+    assertThat(listener.getEvents(DEPRECATED_EVENT_LOAD_STARTED))
+        .containsExactly(
+            WINDOW_0 /* manifest */,
+            period0Seq0 /* media */,
+            WINDOW_0 /* manifest */,
+            period0Seq1 /* media */)
+        .inOrder();
     assertThat(listener.getEvents(EVENT_LOAD_COMPLETED))
         .containsExactly(
             WINDOW_0 /* manifest */,
@@ -803,6 +843,13 @@ public final class DefaultAnalyticsCollectorTest {
             WINDOW_0 /* manifest */,
             period0Seq0 /* media */)
         .inOrder();
+    assertThat(listener.getEvents(DEPRECATED_EVENT_LOAD_STARTED))
+        .containsExactly(
+            WINDOW_0 /* manifest */,
+            period0Seq0 /* media */,
+            WINDOW_0 /* manifest */,
+            period0Seq0 /* media */)
+        .inOrder();
     assertThat(listener.getEvents(EVENT_LOAD_COMPLETED))
         .containsExactly(
             WINDOW_0 /* manifest */,
@@ -872,6 +919,10 @@ public final class DefaultAnalyticsCollectorTest {
         .containsExactly(window0Period1Seq0, window0Period1Seq0, period1Seq0, period1Seq0);
     assertThat(listener.getEvents(EVENT_TRACKS_CHANGED)).containsExactly(window0Period1Seq0);
     assertThat(listener.getEvents(EVENT_LOAD_STARTED))
+        .containsExactly(
+            WINDOW_0 /* manifest */, window0Period1Seq0 /* media */, window1Period0Seq1 /* media */)
+        .inOrder();
+    assertThat(listener.getEvents(DEPRECATED_EVENT_LOAD_STARTED))
         .containsExactly(
             WINDOW_0 /* manifest */, window0Period1Seq0 /* media */, window1Period0Seq1 /* media */)
         .inOrder();
@@ -971,6 +1022,9 @@ public final class DefaultAnalyticsCollectorTest {
         .containsExactly(period0Seq0, period0Seq1, period0Seq1)
         .inOrder();
     assertThat(listener.getEvents(EVENT_LOAD_STARTED))
+        .containsExactly(WINDOW_0 /* manifest */, period0Seq0 /* media */, period1Seq1 /* media */)
+        .inOrder();
+    assertThat(listener.getEvents(DEPRECATED_EVENT_LOAD_STARTED))
         .containsExactly(WINDOW_0 /* manifest */, period0Seq0 /* media */, period1Seq1 /* media */)
         .inOrder();
     assertThat(listener.getEvents(EVENT_LOAD_COMPLETED))
@@ -1178,6 +1232,16 @@ public final class DefaultAnalyticsCollectorTest {
             postrollAd,
             contentAfterPostroll)
         .inOrder();
+    assertThat(listener.getEvents(DEPRECATED_EVENT_LOAD_STARTED))
+        .containsExactly(
+            WINDOW_0 /* content manifest */,
+            prerollAd,
+            contentAfterPreroll,
+            midrollAd,
+            contentAfterMidroll,
+            postrollAd,
+            contentAfterPostroll)
+        .inOrder();
     assertThat(listener.getEvents(EVENT_LOAD_COMPLETED))
         .containsExactly(
             WINDOW_0 /* content manifest */,
@@ -1330,6 +1394,14 @@ public final class DefaultAnalyticsCollectorTest {
     assertThat(listener.getEvents(EVENT_TRACKS_CHANGED))
         .containsExactly(contentBeforeMidroll, midrollAd, contentAfterMidroll);
     assertThat(listener.getEvents(EVENT_LOAD_STARTED))
+        .containsExactly(
+            WINDOW_0 /* content manifest */,
+            contentBeforeMidroll,
+            midrollAd,
+            contentAfterMidroll,
+            contentAfterMidroll)
+        .inOrder();
+    assertThat(listener.getEvents(DEPRECATED_EVENT_LOAD_STARTED))
         .containsExactly(
             WINDOW_0 /* content manifest */,
             contentBeforeMidroll,
@@ -1715,7 +1787,7 @@ public final class DefaultAnalyticsCollectorTest {
     ArgumentCaptor<AnalyticsListener.EventTime> individualLoadStartedEventTimes =
         ArgumentCaptor.forClass(AnalyticsListener.EventTime.class);
     verify(listener, atLeastOnce())
-        .onLoadStarted(individualLoadStartedEventTimes.capture(), any(), any());
+        .onLoadStarted(individualLoadStartedEventTimes.capture(), any(), any(), anyInt());
     ArgumentCaptor<AnalyticsListener.EventTime> individualLoadCompletedEventTimes =
         ArgumentCaptor.forClass(AnalyticsListener.EventTime.class);
     verify(listener, atLeastOnce())
@@ -2196,6 +2268,15 @@ public final class DefaultAnalyticsCollectorTest {
     @Override
     public void onLoadStarted(
         EventTime eventTime, LoadEventInfo loadEventInfo, MediaLoadData mediaLoadData) {
+      reportedEvents.add(new ReportedEvent(DEPRECATED_EVENT_LOAD_STARTED, eventTime));
+    }
+
+    @Override
+    public void onLoadStarted(
+        EventTime eventTime,
+        LoadEventInfo loadEventInfo,
+        MediaLoadData mediaLoadData,
+        int retryCount) {
       reportedEvents.add(new ReportedEvent(EVENT_LOAD_STARTED, eventTime));
     }
 

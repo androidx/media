@@ -397,17 +397,23 @@ public class DefaultAnalyticsCollector implements AnalyticsCollector {
 
   // MediaSourceEventListener implementation.
 
+  // Deliberately calling deprecated listener method for backwards compatibility.
+  @SuppressWarnings("deprecation")
   @Override
   public final void onLoadStarted(
       int windowIndex,
       @Nullable MediaPeriodId mediaPeriodId,
       LoadEventInfo loadEventInfo,
-      MediaLoadData mediaLoadData) {
+      MediaLoadData mediaLoadData,
+      int retryCount) {
     EventTime eventTime = generateMediaPeriodEventTime(windowIndex, mediaPeriodId);
     sendEvent(
         eventTime,
         AnalyticsListener.EVENT_LOAD_STARTED,
-        listener -> listener.onLoadStarted(eventTime, loadEventInfo, mediaLoadData));
+        listener -> {
+          listener.onLoadStarted(eventTime, loadEventInfo, mediaLoadData);
+          listener.onLoadStarted(eventTime, loadEventInfo, mediaLoadData, retryCount);
+        });
   }
 
   @Override
