@@ -222,6 +222,7 @@ public final class FlacExtractor implements Extractor {
       @Nullable
       Metadata metadata = streamMetadata.getMetadataCopyWithAppendedEntriesFrom(id3Metadata);
       outputFormat(streamMetadata, metadata, trackOutput);
+      trackOutput.durationUs(streamMetadata.getDurationUs());
     }
   }
 

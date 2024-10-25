@@ -9,6 +9,7 @@ numberOfTracks = 1
 track 0:
   total output bytes = 55652
   sample count = 12
+  track duration = 2741000
   format 0:
     sampleMimeType = audio/flac
     maxInputSize = 5776

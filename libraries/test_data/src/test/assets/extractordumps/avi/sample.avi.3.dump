@@ -9,6 +9,7 @@ numberOfTracks = 2
 track 0:
   total output bytes = 17833
   sample count = 6
+  track duration = 4087416
   format 0:
     id = 0
     sampleMimeType = video/mp4v-es
@@ -42,6 +43,7 @@ track 0:
 track 1:
   total output bytes = 3840
   sample count = 10
+  track duration = 4080000
   format 0:
     id = 1
     sampleMimeType = audio/mpeg

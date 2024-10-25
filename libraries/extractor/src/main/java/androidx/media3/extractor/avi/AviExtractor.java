@@ -519,6 +519,7 @@ public final class AviExtractor implements Extractor {
     if (trackType == C.TRACK_TYPE_AUDIO || trackType == C.TRACK_TYPE_VIDEO) {
       TrackOutput trackOutput = extractorOutput.track(streamId, trackType);
       trackOutput.format(builder.build());
+      trackOutput.durationUs(durationUs);
       ChunkReader chunkReader =
           new ChunkReader(
               streamId, trackType, durationUs, aviStreamHeaderChunk.length, trackOutput);

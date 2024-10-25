@@ -232,6 +232,7 @@ public final class FlacExtractor implements Extractor {
     minFrameSize = max(flacStreamMetadata.minFrameSize, FlacConstants.MIN_FRAME_HEADER_SIZE);
     castNonNull(trackOutput)
         .format(flacStreamMetadata.getFormat(streamMarkerAndInfoBlock, id3Metadata));
+    castNonNull(trackOutput).durationUs(flacStreamMetadata.getDurationUs());
 
     state = STATE_GET_FRAME_START_MARKER;
   }
