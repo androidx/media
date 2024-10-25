@@ -47,6 +47,7 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.LargeTest;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.ImmutableIntArray;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import java.util.ArrayList;
@@ -475,11 +476,16 @@ public class MediaControllerListenerWithMediaSessionCompatTest {
             .setDisplayName("button1")
             .setIconResId(R.drawable.media3_notification_small_icon)
             .setSessionCommand(new SessionCommand("command1", Bundle.EMPTY))
+            .setEnabled(true)
+            .setSlots(
+                CommandButton.SLOT_BACK, CommandButton.SLOT_FORWARD, CommandButton.SLOT_OVERFLOW)
             .build();
     CommandButton button2 =
         new CommandButton.Builder(CommandButton.ICON_FAST_FORWARD)
             .setDisplayName("button2")
             .setSessionCommand(new SessionCommand("command2", Bundle.EMPTY))
+            .setEnabled(true)
+            .setSlots(CommandButton.SLOT_FORWARD, CommandButton.SLOT_OVERFLOW)
             .build();
     ConditionVariable onSetCustomLayoutCalled = new ConditionVariable();
     ConditionVariable onCustomLayoutChangedCalled = new ConditionVariable();
@@ -537,10 +543,8 @@ public class MediaControllerListenerWithMediaSessionCompatTest {
     assertThat(onSetCustomLayoutCalled.block(TIMEOUT_MS)).isTrue();
     assertThat(onCustomLayoutChangedCalled.block(TIMEOUT_MS)).isTrue();
 
-    ImmutableList<CommandButton> expectedFirstCustomLayout =
-        ImmutableList.of(button1.copyWithIsEnabled(true), button2.copyWithIsEnabled(true));
-    ImmutableList<CommandButton> expectedSecondCustomLayout =
-        ImmutableList.of(button1.copyWithIsEnabled(true));
+    ImmutableList<CommandButton> expectedFirstCustomLayout = ImmutableList.of(button1, button2);
+    ImmutableList<CommandButton> expectedSecondCustomLayout = ImmutableList.of(button1);
     assertThat(setCustomLayoutArguments)
         .containsExactly(expectedFirstCustomLayout, expectedSecondCustomLayout)
         .inOrder();
@@ -559,11 +563,16 @@ public class MediaControllerListenerWithMediaSessionCompatTest {
             .setDisplayName("button1")
             .setIconResId(R.drawable.media3_notification_small_icon)
             .setSessionCommand(new SessionCommand("command1", Bundle.EMPTY))
+            .setEnabled(true)
+            .setSlots(
+                CommandButton.SLOT_BACK, CommandButton.SLOT_FORWARD, CommandButton.SLOT_OVERFLOW)
             .build();
     CommandButton button2 =
         new CommandButton.Builder(CommandButton.ICON_FAST_FORWARD)
             .setDisplayName("button2")
             .setSessionCommand(new SessionCommand("command2", Bundle.EMPTY))
+            .setEnabled(true)
+            .setSlots(CommandButton.SLOT_FORWARD, CommandButton.SLOT_OVERFLOW)
             .build();
     ConditionVariable onMediaButtonPreferencesChangedCalled = new ConditionVariable();
     List<List<CommandButton>> onMediaButtonPreferencesChangedArguments = new ArrayList<>();
@@ -609,14 +618,184 @@ public class MediaControllerListenerWithMediaSessionCompatTest {
     assertThat(onMediaButtonPreferencesChangedCalled.block(TIMEOUT_MS)).isTrue();
 
     ImmutableList<CommandButton> expectedFirstMediaButtonPreferences =
-        ImmutableList.of(button1.copyWithIsEnabled(true), button2.copyWithIsEnabled(true));
-    ImmutableList<CommandButton> expectedSecondMediaButtonPreferences =
-        ImmutableList.of(button1.copyWithIsEnabled(true));
+        ImmutableList.of(button1, button2);
+    ImmutableList<CommandButton> expectedSecondMediaButtonPreferences = ImmutableList.of(button1);
     assertThat(onMediaButtonPreferencesChangedArguments)
         .containsExactly(expectedFirstMediaButtonPreferences, expectedSecondMediaButtonPreferences)
         .inOrder();
     assertThat(mediaButtonPreferencesFromGetter)
         .containsExactly(expectedFirstMediaButtonPreferences, expectedSecondMediaButtonPreferences)
+        .inOrder();
+  }
+
+  @Test
+  public void getMediaButtonPreferences_withPrevNextActions() throws Exception {
+    CommandButton button1 =
+        new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
+            .setDisplayName("button1")
+            .setIconResId(R.drawable.media3_notification_small_icon)
+            .setSessionCommand(new SessionCommand("command1", Bundle.EMPTY))
+            .build();
+    CommandButton button2 =
+        new CommandButton.Builder(CommandButton.ICON_FAST_FORWARD)
+            .setDisplayName("button2")
+            .setSessionCommand(new SessionCommand("command2", Bundle.EMPTY))
+            .build();
+    ConditionVariable onMediaButtonPreferencesChangedCalled = new ConditionVariable();
+    List<List<CommandButton>> reportedMediaButtonPreferences = new ArrayList<>();
+    controllerTestRule.createController(
+        session.getSessionToken(),
+        new MediaController.Listener() {
+          @Override
+          public void onMediaButtonPreferencesChanged(
+              MediaController controller, List<CommandButton> mediaButtonPreferences) {
+            reportedMediaButtonPreferences.add(mediaButtonPreferences);
+            onMediaButtonPreferencesChangedCalled.open();
+          }
+        });
+    Bundle extras1 = new Bundle();
+    extras1.putString("key", "value-1");
+    PlaybackStateCompat.CustomAction customAction1 =
+        new PlaybackStateCompat.CustomAction.Builder(
+                "command1", "button1", /* icon= */ R.drawable.media3_notification_small_icon)
+            .setExtras(extras1)
+            .build();
+    Bundle extras2 = new Bundle();
+    extras2.putString("key", "value-2");
+    extras2.putInt(
+        MediaConstants.EXTRAS_KEY_COMMAND_BUTTON_ICON_COMPAT, CommandButton.ICON_FAST_FORWARD);
+    PlaybackStateCompat.CustomAction customAction2 =
+        new PlaybackStateCompat.CustomAction.Builder(
+                "command2", "button2", /* icon= */ R.drawable.media3_icon_fast_forward)
+            .setExtras(extras2)
+            .build();
+    PlaybackStateCompat playbackStatePrev =
+        new PlaybackStateCompat.Builder()
+            .addCustomAction(customAction1)
+            .addCustomAction(customAction2)
+            .setActions(PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS)
+            .build();
+    PlaybackStateCompat playbackStateNext =
+        new PlaybackStateCompat.Builder()
+            .addCustomAction(customAction1)
+            .addCustomAction(customAction2)
+            .setActions(PlaybackStateCompat.ACTION_SKIP_TO_NEXT)
+            .build();
+    PlaybackStateCompat playbackStatePrevNext =
+        new PlaybackStateCompat.Builder()
+            .addCustomAction(customAction1)
+            .addCustomAction(customAction2)
+            .setActions(
+                PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS
+                    | PlaybackStateCompat.ACTION_SKIP_TO_NEXT)
+            .build();
+
+    session.setPlaybackState(playbackStatePrev);
+    assertThat(onMediaButtonPreferencesChangedCalled.block(TIMEOUT_MS)).isTrue();
+    onMediaButtonPreferencesChangedCalled.close();
+    session.setPlaybackState(playbackStateNext);
+    assertThat(onMediaButtonPreferencesChangedCalled.block(TIMEOUT_MS)).isTrue();
+    onMediaButtonPreferencesChangedCalled.close();
+    session.setPlaybackState(playbackStatePrevNext);
+    assertThat(onMediaButtonPreferencesChangedCalled.block(TIMEOUT_MS)).isTrue();
+
+    assertThat(reportedMediaButtonPreferences)
+        .containsExactly(
+            ImmutableList.of(
+                button1.copyWithSlots(
+                    ImmutableIntArray.of(CommandButton.SLOT_FORWARD, CommandButton.SLOT_OVERFLOW)),
+                button2.copyWithSlots(ImmutableIntArray.of(CommandButton.SLOT_OVERFLOW))),
+            ImmutableList.of(
+                button1.copyWithSlots(
+                    ImmutableIntArray.of(CommandButton.SLOT_BACK, CommandButton.SLOT_OVERFLOW)),
+                button2.copyWithSlots(ImmutableIntArray.of(CommandButton.SLOT_OVERFLOW))),
+            ImmutableList.of(
+                button1.copyWithSlots(ImmutableIntArray.of(CommandButton.SLOT_OVERFLOW)),
+                button2.copyWithSlots(ImmutableIntArray.of(CommandButton.SLOT_OVERFLOW))))
+        .inOrder();
+  }
+
+  @Test
+  public void getMediaButtonPreferences_withSlotReservations() throws Exception {
+    CommandButton button1 =
+        new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
+            .setDisplayName("button1")
+            .setIconResId(R.drawable.media3_notification_small_icon)
+            .setSessionCommand(new SessionCommand("command1", Bundle.EMPTY))
+            .build();
+    CommandButton button2 =
+        new CommandButton.Builder(CommandButton.ICON_FAST_FORWARD)
+            .setDisplayName("button2")
+            .setSessionCommand(new SessionCommand("command2", Bundle.EMPTY))
+            .build();
+    ConditionVariable onMediaButtonPreferencesChangedCalled = new ConditionVariable();
+    List<List<CommandButton>> reportedMediaButtonPreferences = new ArrayList<>();
+    controllerTestRule.createController(
+        session.getSessionToken(),
+        new MediaController.Listener() {
+          @Override
+          public void onMediaButtonPreferencesChanged(
+              MediaController controller, List<CommandButton> mediaButtonPreferences) {
+            reportedMediaButtonPreferences.add(mediaButtonPreferences);
+            onMediaButtonPreferencesChangedCalled.open();
+          }
+        });
+    Bundle extras1 = new Bundle();
+    extras1.putString("key", "value-1");
+    PlaybackStateCompat.CustomAction customAction1 =
+        new PlaybackStateCompat.CustomAction.Builder(
+                "command1", "button1", /* icon= */ R.drawable.media3_notification_small_icon)
+            .setExtras(extras1)
+            .build();
+    Bundle extras2 = new Bundle();
+    extras2.putString("key", "value-2");
+    extras2.putInt(
+        MediaConstants.EXTRAS_KEY_COMMAND_BUTTON_ICON_COMPAT, CommandButton.ICON_FAST_FORWARD);
+    PlaybackStateCompat.CustomAction customAction2 =
+        new PlaybackStateCompat.CustomAction.Builder(
+                "command2", "button2", /* icon= */ R.drawable.media3_icon_fast_forward)
+            .setExtras(extras2)
+            .build();
+    PlaybackStateCompat playbackState =
+        new PlaybackStateCompat.Builder()
+            .addCustomAction(customAction1)
+            .addCustomAction(customAction2)
+            .build();
+    Bundle extrasPrevSlotReservation = new Bundle();
+    extrasPrevSlotReservation.putBoolean(
+        androidx.media.utils.MediaConstants.SESSION_EXTRAS_KEY_SLOT_RESERVATION_SKIP_TO_PREV, true);
+    Bundle extrasNextSlotReservation = new Bundle();
+    extrasNextSlotReservation.putBoolean(
+        androidx.media.utils.MediaConstants.SESSION_EXTRAS_KEY_SLOT_RESERVATION_SKIP_TO_NEXT, true);
+    Bundle extrasPrevNextSlotReservation = new Bundle();
+    extrasPrevNextSlotReservation.putBoolean(
+        androidx.media.utils.MediaConstants.SESSION_EXTRAS_KEY_SLOT_RESERVATION_SKIP_TO_PREV, true);
+    extrasPrevNextSlotReservation.putBoolean(
+        androidx.media.utils.MediaConstants.SESSION_EXTRAS_KEY_SLOT_RESERVATION_SKIP_TO_NEXT, true);
+
+    session.setExtras(extrasPrevSlotReservation);
+    session.setPlaybackState(playbackState);
+    assertThat(onMediaButtonPreferencesChangedCalled.block(TIMEOUT_MS)).isTrue();
+    onMediaButtonPreferencesChangedCalled.close();
+    session.setExtras(extrasNextSlotReservation);
+    assertThat(onMediaButtonPreferencesChangedCalled.block(TIMEOUT_MS)).isTrue();
+    onMediaButtonPreferencesChangedCalled.close();
+    session.setExtras(extrasPrevNextSlotReservation);
+    assertThat(onMediaButtonPreferencesChangedCalled.block(TIMEOUT_MS)).isTrue();
+
+    assertThat(reportedMediaButtonPreferences)
+        .containsExactly(
+            ImmutableList.of(
+                button1.copyWithSlots(
+                    ImmutableIntArray.of(CommandButton.SLOT_FORWARD, CommandButton.SLOT_OVERFLOW)),
+                button2.copyWithSlots(ImmutableIntArray.of(CommandButton.SLOT_OVERFLOW))),
+            ImmutableList.of(
+                button1.copyWithSlots(
+                    ImmutableIntArray.of(CommandButton.SLOT_BACK, CommandButton.SLOT_OVERFLOW)),
+                button2.copyWithSlots(ImmutableIntArray.of(CommandButton.SLOT_OVERFLOW))),
+            ImmutableList.of(
+                button1.copyWithSlots(ImmutableIntArray.of(CommandButton.SLOT_OVERFLOW)),
+                button2.copyWithSlots(ImmutableIntArray.of(CommandButton.SLOT_OVERFLOW))))
         .inOrder();
   }
 

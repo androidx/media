@@ -110,6 +110,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
   private boolean connected;
   private LegacyPlayerInfo legacyPlayerInfo;
   private LegacyPlayerInfo pendingLegacyPlayerInfo;
+  private boolean hasPendingExtrasChange;
   private ControllerInfo controllerInfo;
   private long currentPositionMs;
   private long lastSetPlayWhenReadyCalledTimeMs;
@@ -1575,6 +1576,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
             controllerCompat.getRatingType(),
             getInstance().getTimeDiffMs(),
             getRoutingControllerId(controllerCompat),
+            hasPendingExtrasChange,
             context);
     Pair<@NullableType Integer, @NullableType Integer> reasons =
         calculateDiscontinuityAndTransitionReason(
@@ -1589,6 +1591,13 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
         newControllerInfo,
         /* discontinuityReason= */ reasons.first,
         /* mediaItemTransitionReason= */ reasons.second);
+    if (hasPendingExtrasChange) {
+      hasPendingExtrasChange = false;
+      getInstance()
+          .notifyControllerListener(
+              listener ->
+                  listener.onExtrasChanged(getInstance(), newLegacyPlayerInfo.sessionExtras));
+    }
   }
 
   private void updateStateMaskedControllerInfo(
@@ -1918,16 +1927,10 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
 
     @Override
     public void onExtrasChanged(@Nullable Bundle extras) {
-      controllerInfo =
-          new ControllerInfo(
-              controllerInfo.playerInfo,
-              controllerInfo.availableSessionCommands,
-              controllerInfo.availablePlayerCommands,
-              controllerInfo.mediaButtonPreferences,
-              extras,
-              /* sessionError= */ null);
-      getInstance()
-          .notifyControllerListener(listener -> listener.onExtrasChanged(getInstance(), extras));
+      Bundle nonNullExtras = extras == null ? new Bundle() : extras;
+      pendingLegacyPlayerInfo = pendingLegacyPlayerInfo.copyWithSessionExtras(nonNullExtras);
+      hasPendingExtrasChange = true;
+      startWaitingForPendingChanges();
     }
 
     @Override
@@ -1989,6 +1992,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
       @RatingCompat.Style int ratingType,
       long timeDiffMs,
       @Nullable String routingControllerId,
+      boolean hasPendingExtrasChange,
       Context context) {
     QueueTimeline currentTimeline;
     MediaMetadata mediaMetadata;
@@ -2073,24 +2077,6 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
       mediaMetadata = oldControllerInfo.playerInfo.mediaMetadata;
     }
 
-    playlistMetadata =
-        oldLegacyPlayerInfo.queueTitle == newLegacyPlayerInfo.queueTitle
-            ? oldControllerInfo.playerInfo.playlistMetadata
-            : LegacyConversions.convertToMediaMetadata(newLegacyPlayerInfo.queueTitle);
-    repeatMode = LegacyConversions.convertToRepeatMode(newLegacyPlayerInfo.repeatMode);
-    shuffleModeEnabled =
-        LegacyConversions.convertToShuffleModeEnabled(newLegacyPlayerInfo.shuffleMode);
-    if (oldLegacyPlayerInfo.playbackStateCompat != newLegacyPlayerInfo.playbackStateCompat) {
-      availableSessionCommands =
-          LegacyConversions.convertToSessionCommands(
-              newLegacyPlayerInfo.playbackStateCompat, isSessionReady);
-      mediaButtonPreferences =
-          LegacyConversions.convertToMediaButtonPreferences(
-              newLegacyPlayerInfo.playbackStateCompat);
-    } else {
-      availableSessionCommands = oldControllerInfo.availableSessionCommands;
-      mediaButtonPreferences = oldControllerInfo.mediaButtonPreferences;
-    }
     // Note: Sets the available player command here although it can be obtained before session is
     // ready. It's to follow the decision on MediaController to disallow any commands before
     // connection is made.
@@ -2104,6 +2090,28 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
             volumeControlType,
             sessionFlags,
             isSessionReady);
+
+    playlistMetadata =
+        oldLegacyPlayerInfo.queueTitle == newLegacyPlayerInfo.queueTitle
+            ? oldControllerInfo.playerInfo.playlistMetadata
+            : LegacyConversions.convertToMediaMetadata(newLegacyPlayerInfo.queueTitle);
+    repeatMode = LegacyConversions.convertToRepeatMode(newLegacyPlayerInfo.repeatMode);
+    shuffleModeEnabled =
+        LegacyConversions.convertToShuffleModeEnabled(newLegacyPlayerInfo.shuffleMode);
+    if (oldLegacyPlayerInfo.playbackStateCompat != newLegacyPlayerInfo.playbackStateCompat
+        || hasPendingExtrasChange) {
+      availableSessionCommands =
+          LegacyConversions.convertToSessionCommands(
+              newLegacyPlayerInfo.playbackStateCompat, isSessionReady);
+      mediaButtonPreferences =
+          LegacyConversions.convertToMediaButtonPreferences(
+              newLegacyPlayerInfo.playbackStateCompat,
+              availablePlayerCommands,
+              newLegacyPlayerInfo.sessionExtras);
+    } else {
+      availableSessionCommands = oldControllerInfo.availableSessionCommands;
+      mediaButtonPreferences = oldControllerInfo.mediaButtonPreferences;
+    }
 
     PlaybackException playerError =
         LegacyConversions.convertToPlaybackException(newLegacyPlayerInfo.playbackStateCompat);
@@ -2616,6 +2624,19 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
 
     @CheckResult
     public LegacyPlayerInfo copyWithShuffleMode(@PlaybackStateCompat.ShuffleMode int shuffleMode) {
+      return new LegacyPlayerInfo(
+          playbackInfoCompat,
+          playbackStateCompat,
+          mediaMetadataCompat,
+          queue,
+          queueTitle,
+          repeatMode,
+          shuffleMode,
+          sessionExtras);
+    }
+
+    @CheckResult
+    public LegacyPlayerInfo copyWithSessionExtras(Bundle sessionExtras) {
       return new LegacyPlayerInfo(
           playbackInfoCompat,
           playbackStateCompat,

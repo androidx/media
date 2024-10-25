@@ -56,6 +56,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.LargeTest;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.primitives.ImmutableIntArray;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -162,7 +163,6 @@ public class MediaSessionCallbackTest {
             .setSessionCommand(new SessionCommand("command1", Bundle.EMPTY))
             .setEnabled(true)
             .build();
-    CommandButton button1Disabled = button1.copyWithIsEnabled(false);
     CommandButton button2 =
         new CommandButton.Builder(CommandButton.ICON_PAUSE)
             .setDisplayName("button2")
@@ -177,6 +177,7 @@ public class MediaSessionCallbackTest {
             return new AcceptedResultBuilder(session)
                 .setAvailableSessionCommands(
                     new SessionCommands.Builder().add(button2.sessionCommand).build())
+                .setAvailablePlayerCommands(new Player.Commands.Builder().addAllCommands().build())
                 .setCustomLayout(ImmutableList.of(button1, button2))
                 .build();
           }
@@ -198,7 +199,13 @@ public class MediaSessionCallbackTest {
 
     ImmutableList<CommandButton> layout = remoteController.getCustomLayout();
 
-    assertThat(layout).containsExactly(button1Disabled, button2).inOrder();
+    assertThat(layout)
+        .containsExactly(
+            button1
+                .copyWithIsEnabled(false)
+                .copyWithSlots(ImmutableIntArray.of(CommandButton.SLOT_OVERFLOW)),
+            button2.copyWithSlots(ImmutableIntArray.of(CommandButton.SLOT_OVERFLOW)))
+        .inOrder();
     assertThat(remoteController.sendCustomCommand(button1.sessionCommand, Bundle.EMPTY).resultCode)
         .isEqualTo(ERROR_PERMISSION_DENIED);
     assertThat(remoteController.sendCustomCommand(button2.sessionCommand, Bundle.EMPTY).resultCode)

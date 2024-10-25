@@ -27,6 +27,7 @@ import android.text.TextUtils;
 import androidx.annotation.DrawableRes;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
+import androidx.media3.common.C;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -799,6 +800,24 @@ public final class CommandButton {
         slots);
   }
 
+  /** Returns a copy with the new {@link #slots} value. */
+  @CheckReturnValue
+  /* package */ CommandButton copyWithSlots(ImmutableIntArray slots) {
+    if (this.slots.equals(slots)) {
+      return this;
+    }
+    return new CommandButton(
+        sessionCommand,
+        playerCommand,
+        icon,
+        iconResId,
+        iconUri,
+        displayName,
+        new Bundle(extras),
+        isEnabled,
+        slots);
+  }
+
   /** Checks the given command button for equality while ignoring {@link #extras}. */
   @Override
   public boolean equals(@Nullable Object obj) {
@@ -1152,5 +1171,63 @@ public final class CommandButton {
     } else {
       return SLOT_OVERFLOW;
     }
+  }
+
+  /**
+   * Converts a list of buttons defined according to the implicit button placement rules for
+   * {@linkplain MediaSession#getCustomLayout custom layouts} to {@linkplain
+   * MediaSession#getMediaButtonPreferences media button preferences}.
+   *
+   * @param customLayout A list of buttons compatible with the placement rules of custom layouts.
+   * @param availablePlayerCommands The available {@link Player.Commands}.
+   * @param reservationExtras A {@link Bundle} with extras that may contain slot reservations via
+   *     {@link MediaConstants#EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_NEXT} or {@link
+   *     MediaConstants#EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_PREV}. The bundle contents will not be
+   *     modified.
+   * @return The list of buttons as media button preferences.
+   */
+  /* package */ static ImmutableList<CommandButton> getMediaButtonPreferencesFromCustomLayout(
+      List<CommandButton> customLayout,
+      Player.Commands availablePlayerCommands,
+      Bundle reservationExtras) {
+    if (customLayout.isEmpty()) {
+      return ImmutableList.of();
+    }
+    boolean hasDefaultBackCommand =
+        availablePlayerCommands.containsAny(
+            Player.COMMAND_SEEK_TO_PREVIOUS, Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM);
+    boolean hasDefaultForwardCommand =
+        availablePlayerCommands.containsAny(
+            Player.COMMAND_SEEK_TO_NEXT, Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM);
+    boolean hasBackSlotReservation =
+        reservationExtras.getBoolean(
+            MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_PREV, /* defaultValue= */ false);
+    boolean hasForwardSlotReservation =
+        reservationExtras.getBoolean(
+            MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_NEXT, /* defaultValue= */ false);
+    int backButtonIndex = (hasDefaultBackCommand || hasBackSlotReservation) ? C.INDEX_UNSET : 0;
+    int forwardButtonIndex =
+        (hasDefaultForwardCommand || hasForwardSlotReservation)
+            ? C.INDEX_UNSET
+            : (backButtonIndex == 0 ? 1 : 0);
+    ImmutableList.Builder<CommandButton> mediaButtonPreferences = ImmutableList.builder();
+    for (int i = 0; i < customLayout.size(); i++) {
+      CommandButton button = customLayout.get(i);
+      if (i == backButtonIndex) {
+        if (forwardButtonIndex == C.INDEX_UNSET) {
+          mediaButtonPreferences.add(
+              button.copyWithSlots(ImmutableIntArray.of(SLOT_BACK, SLOT_OVERFLOW)));
+        } else {
+          mediaButtonPreferences.add(
+              button.copyWithSlots(ImmutableIntArray.of(SLOT_BACK, SLOT_FORWARD, SLOT_OVERFLOW)));
+        }
+      } else if (i == forwardButtonIndex) {
+        mediaButtonPreferences.add(
+            button.copyWithSlots(ImmutableIntArray.of(SLOT_FORWARD, SLOT_OVERFLOW)));
+      } else {
+        mediaButtonPreferences.add(button.copyWithSlots(ImmutableIntArray.of(SLOT_OVERFLOW)));
+      }
+    }
+    return mediaButtonPreferences.build();
   }
 }

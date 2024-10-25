@@ -1081,7 +1081,10 @@ public final class LegacyConversionsTest {
 
   @Test
   public void convertToMediaButtonPreferences_withNull_returnsEmptyList() {
-    assertThat(LegacyConversions.convertToMediaButtonPreferences(null)).isEmpty();
+    assertThat(
+            LegacyConversions.convertToMediaButtonPreferences(
+                null, Player.Commands.EMPTY, Bundle.EMPTY))
+        .isEmpty();
   }
 
   @Test
@@ -1107,7 +1110,9 @@ public final class LegacyConversionsTest {
             .addCustomAction(action)
             .build();
 
-    ImmutableList<CommandButton> buttons = LegacyConversions.convertToMediaButtonPreferences(state);
+    ImmutableList<CommandButton> buttons =
+        LegacyConversions.convertToMediaButtonPreferences(
+            state, Player.Commands.EMPTY, Bundle.EMPTY);
 
     assertThat(buttons).hasSize(1);
     CommandButton button = buttons.get(0);
@@ -1140,7 +1145,9 @@ public final class LegacyConversionsTest {
             .addCustomAction(action)
             .build();
 
-    ImmutableList<CommandButton> buttons = LegacyConversions.convertToMediaButtonPreferences(state);
+    ImmutableList<CommandButton> buttons =
+        LegacyConversions.convertToMediaButtonPreferences(
+            state, Player.Commands.EMPTY, Bundle.EMPTY);
 
     assertThat(buttons).hasSize(1);
     CommandButton button = buttons.get(0);
