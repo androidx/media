@@ -545,6 +545,203 @@ public class CommandButtonTest {
   }
 
   @Test
+  public void getCustomLayoutFromMediaButtonPreferences_noBackForwardSlots_returnsCorrectButtons() {
+    ImmutableList<CommandButton> mediaButtonPreferences =
+        ImmutableList.of(
+            new CommandButton.Builder(CommandButton.ICON_ALBUM)
+                .setPlayerCommand(Player.COMMAND_PREPARE)
+                .setSlots(CommandButton.SLOT_OVERFLOW, CommandButton.SLOT_BACK)
+                .build(),
+            new CommandButton.Builder(CommandButton.ICON_NEXT)
+                .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
+                .setSlots(CommandButton.SLOT_FORWARD_SECONDARY)
+                .build(),
+            new CommandButton.Builder(CommandButton.ICON_REWIND)
+                .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
+                .setSlots(CommandButton.SLOT_BACK_SECONDARY, CommandButton.SLOT_OVERFLOW)
+                .build());
+    Bundle reservationBundle = new Bundle();
+
+    ImmutableList<CommandButton> customLayout =
+        CommandButton.getCustomLayoutFromMediaButtonPreferences(
+            mediaButtonPreferences, reservationBundle);
+
+    assertThat(customLayout)
+        .containsExactly(
+            new CommandButton.Builder(CommandButton.ICON_ALBUM)
+                .setPlayerCommand(Player.COMMAND_PREPARE)
+                .setSlots(CommandButton.SLOT_OVERFLOW, CommandButton.SLOT_BACK)
+                .build(),
+            new CommandButton.Builder(CommandButton.ICON_REWIND)
+                .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
+                .setSlots(CommandButton.SLOT_BACK_SECONDARY, CommandButton.SLOT_OVERFLOW)
+                .build())
+        .inOrder();
+    assertThat(
+            reservationBundle.getBoolean(MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_PREV))
+        .isTrue();
+    assertThat(
+            reservationBundle.getBoolean(MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_NEXT))
+        .isTrue();
+  }
+
+  @Test
+  public void getCustomLayoutFromMediaButtonPreferences_withBackSlot_returnsCorrectButtons() {
+    ImmutableList<CommandButton> mediaButtonPreferences =
+        ImmutableList.of(
+            new CommandButton.Builder(CommandButton.ICON_ALBUM)
+                .setPlayerCommand(Player.COMMAND_PREPARE)
+                .setSlots(CommandButton.SLOT_OVERFLOW, CommandButton.SLOT_BACK)
+                .build(),
+            new CommandButton.Builder(CommandButton.ICON_PREVIOUS)
+                .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
+                .setSlots(CommandButton.SLOT_BACK, CommandButton.SLOT_OVERFLOW)
+                .build(),
+            new CommandButton.Builder(CommandButton.ICON_NEXT)
+                .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
+                .setSlots(CommandButton.SLOT_FORWARD_SECONDARY)
+                .build(),
+            new CommandButton.Builder(CommandButton.ICON_REWIND)
+                .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
+                .setSlots(CommandButton.SLOT_BACK_SECONDARY, CommandButton.SLOT_OVERFLOW)
+                .build());
+    Bundle reservationBundle = new Bundle();
+
+    ImmutableList<CommandButton> customLayout =
+        CommandButton.getCustomLayoutFromMediaButtonPreferences(
+            mediaButtonPreferences, reservationBundle);
+
+    assertThat(customLayout)
+        .containsExactly(
+            new CommandButton.Builder(CommandButton.ICON_PREVIOUS)
+                .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
+                .setSlots(CommandButton.SLOT_BACK, CommandButton.SLOT_OVERFLOW)
+                .build(),
+            new CommandButton.Builder(CommandButton.ICON_ALBUM)
+                .setPlayerCommand(Player.COMMAND_PREPARE)
+                .setSlots(CommandButton.SLOT_OVERFLOW, CommandButton.SLOT_BACK)
+                .build(),
+            new CommandButton.Builder(CommandButton.ICON_REWIND)
+                .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
+                .setSlots(CommandButton.SLOT_BACK_SECONDARY, CommandButton.SLOT_OVERFLOW)
+                .build())
+        .inOrder();
+    assertThat(
+            reservationBundle.getBoolean(MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_PREV))
+        .isFalse();
+    assertThat(
+            reservationBundle.getBoolean(MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_NEXT))
+        .isTrue();
+  }
+
+  @Test
+  public void getCustomLayoutFromMediaButtonPreferences_withForwardSlot_returnsCorrectButtons() {
+    ImmutableList<CommandButton> mediaButtonPreferences =
+        ImmutableList.of(
+            new CommandButton.Builder(CommandButton.ICON_ALBUM)
+                .setPlayerCommand(Player.COMMAND_PREPARE)
+                .setSlots(CommandButton.SLOT_OVERFLOW, CommandButton.SLOT_FORWARD)
+                .build(),
+            new CommandButton.Builder(CommandButton.ICON_NEXT)
+                .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
+                .setSlots(CommandButton.SLOT_FORWARD, CommandButton.SLOT_OVERFLOW)
+                .build(),
+            new CommandButton.Builder(CommandButton.ICON_NEXT)
+                .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
+                .setSlots(CommandButton.SLOT_FORWARD_SECONDARY)
+                .build(),
+            new CommandButton.Builder(CommandButton.ICON_REWIND)
+                .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
+                .setSlots(CommandButton.SLOT_BACK_SECONDARY, CommandButton.SLOT_OVERFLOW)
+                .build());
+    Bundle reservationBundle = new Bundle();
+
+    ImmutableList<CommandButton> customLayout =
+        CommandButton.getCustomLayoutFromMediaButtonPreferences(
+            mediaButtonPreferences, reservationBundle);
+
+    assertThat(customLayout)
+        .containsExactly(
+            new CommandButton.Builder(CommandButton.ICON_NEXT)
+                .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
+                .setSlots(CommandButton.SLOT_FORWARD, CommandButton.SLOT_OVERFLOW)
+                .build(),
+            new CommandButton.Builder(CommandButton.ICON_ALBUM)
+                .setPlayerCommand(Player.COMMAND_PREPARE)
+                .setSlots(CommandButton.SLOT_OVERFLOW, CommandButton.SLOT_FORWARD)
+                .build(),
+            new CommandButton.Builder(CommandButton.ICON_REWIND)
+                .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
+                .setSlots(CommandButton.SLOT_BACK_SECONDARY, CommandButton.SLOT_OVERFLOW)
+                .build())
+        .inOrder();
+    assertThat(
+            reservationBundle.getBoolean(MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_PREV))
+        .isTrue();
+    assertThat(
+            reservationBundle.getBoolean(MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_NEXT))
+        .isFalse();
+  }
+
+  @Test
+  public void
+      getCustomLayoutFromMediaButtonPreferences_withForwardAndBackSlot_returnsCorrectButtons() {
+    ImmutableList<CommandButton> mediaButtonPreferences =
+        ImmutableList.of(
+            new CommandButton.Builder(CommandButton.ICON_ALBUM)
+                .setPlayerCommand(Player.COMMAND_PREPARE)
+                .setSlots(CommandButton.SLOT_OVERFLOW, CommandButton.SLOT_FORWARD)
+                .build(),
+            new CommandButton.Builder(CommandButton.ICON_NEXT)
+                .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
+                .setSlots(CommandButton.SLOT_FORWARD, CommandButton.SLOT_OVERFLOW)
+                .build(),
+            new CommandButton.Builder(CommandButton.ICON_NEXT)
+                .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
+                .setSlots(CommandButton.SLOT_FORWARD_SECONDARY)
+                .build(),
+            new CommandButton.Builder(CommandButton.ICON_REWIND)
+                .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
+                .setSlots(CommandButton.SLOT_BACK_SECONDARY, CommandButton.SLOT_OVERFLOW)
+                .build(),
+            new CommandButton.Builder(CommandButton.ICON_PREVIOUS)
+                .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
+                .setSlots(CommandButton.SLOT_CENTRAL, CommandButton.SLOT_BACK)
+                .build());
+    Bundle reservationBundle = new Bundle();
+
+    ImmutableList<CommandButton> customLayout =
+        CommandButton.getCustomLayoutFromMediaButtonPreferences(
+            mediaButtonPreferences, reservationBundle);
+
+    assertThat(customLayout)
+        .containsExactly(
+            new CommandButton.Builder(CommandButton.ICON_PREVIOUS)
+                .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
+                .setSlots(CommandButton.SLOT_CENTRAL, CommandButton.SLOT_BACK)
+                .build(),
+            new CommandButton.Builder(CommandButton.ICON_NEXT)
+                .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
+                .setSlots(CommandButton.SLOT_FORWARD, CommandButton.SLOT_OVERFLOW)
+                .build(),
+            new CommandButton.Builder(CommandButton.ICON_ALBUM)
+                .setPlayerCommand(Player.COMMAND_PREPARE)
+                .setSlots(CommandButton.SLOT_OVERFLOW, CommandButton.SLOT_FORWARD)
+                .build(),
+            new CommandButton.Builder(CommandButton.ICON_REWIND)
+                .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
+                .setSlots(CommandButton.SLOT_BACK_SECONDARY, CommandButton.SLOT_OVERFLOW)
+                .build())
+        .inOrder();
+    assertThat(
+            reservationBundle.getBoolean(MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_PREV))
+        .isFalse();
+    assertThat(
+            reservationBundle.getBoolean(MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_NEXT))
+        .isFalse();
+  }
+
+  @Test
   public void
       getMediaButtonPreferencesFromCustomLayout_withPrevAndNextCommands_returnsCorrectSlots() {
     ImmutableList<CommandButton> customLayout =

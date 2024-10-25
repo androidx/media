@@ -106,6 +106,11 @@ import java.util.List;
     this.availableSessionCommands = availableSessionCommands;
     this.availablePlayerCommands = availablePlayerCommands;
     this.legacyExtras = legacyExtras;
+    if (!mediaButtonPreferences.isEmpty()) {
+      this.customLayout =
+          CommandButton.getCustomLayoutFromMediaButtonPreferences(
+              mediaButtonPreferences, this.legacyExtras);
+    }
   }
 
   public void setAvailableCommands(
@@ -126,8 +131,31 @@ import java.util.List;
     this.customLayout = customLayout;
   }
 
-  public void setMediaButtonPreferences(ImmutableList<CommandButton> mediaButtonPreferences) {
+  /**
+   * Sets new media button preferences.
+   *
+   * @param mediaButtonPreferences The list of {@link CommandButton} defining the media button
+   *     preferences.
+   * @return Whether the {@linkplain #getLegacyExtras platform session extras} were updated as a
+   *     result of this change.
+   */
+  public boolean setMediaButtonPreferences(ImmutableList<CommandButton> mediaButtonPreferences) {
     this.mediaButtonPreferences = mediaButtonPreferences;
+    boolean hadPrevReservation =
+        legacyExtras.getBoolean(
+            MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_PREV, /* defaultVale= */ false);
+    boolean hadNextReservation =
+        legacyExtras.getBoolean(
+            MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_NEXT, /* defaultVale= */ false);
+    this.customLayout =
+        CommandButton.getCustomLayoutFromMediaButtonPreferences(
+            mediaButtonPreferences, legacyExtras);
+    return (legacyExtras.getBoolean(
+                MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_PREV, /* defaultVale= */ false)
+            != hadPrevReservation)
+        || (legacyExtras.getBoolean(
+                MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_NEXT, /* defaultVale= */ false)
+            != hadNextReservation);
   }
 
   /* package */ ImmutableList<CommandButton> getCustomLayout() {
@@ -141,6 +169,11 @@ import java.util.List;
   public void setLegacyExtras(Bundle extras) {
     checkArgument(!extras.containsKey(EXTRAS_KEY_PLAYBACK_SPEED_COMPAT));
     checkArgument(!extras.containsKey(EXTRAS_KEY_MEDIA_ID_COMPAT));
+    if (!mediaButtonPreferences.isEmpty()) {
+      // Re-calculate custom layout in case we have to set any additional extras.
+      this.customLayout =
+          CommandButton.getCustomLayoutFromMediaButtonPreferences(mediaButtonPreferences, extras);
+    }
     this.legacyExtras = extras;
   }
 
@@ -1040,6 +1073,14 @@ import java.util.List;
     for (int i = 0; i < availableCommands.size(); i++) {
       actions |= convertCommandToPlaybackStateActions(availableCommands.get(i));
     }
+    if (!mediaButtonPreferences.isEmpty()
+        && !legacyExtras.getBoolean(MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_PREV)) {
+      actions &= ~PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS;
+    }
+    if (!mediaButtonPreferences.isEmpty()
+        && !legacyExtras.getBoolean(MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_NEXT)) {
+      actions &= ~PlaybackStateCompat.ACTION_SKIP_TO_NEXT;
+    }
     long queueItemId =
         isCommandAvailable(COMMAND_GET_TIMELINE)
             ? LegacyConversions.convertToQueueItemId(getCurrentMediaItemIndex())
@@ -1064,18 +1105,14 @@ import java.util.List;
             .setActiveQueueItemId(queueItemId)
             .setBufferedPosition(compatBufferedPosition)
             .setExtras(extras);
-
-    // TODO: b/332877990 - More accurately reflect media button preferences as custom actions.
-    List<CommandButton> buttonsForCustomActions =
-        mediaButtonPreferences.isEmpty() ? customLayout : mediaButtonPreferences;
-    for (int i = 0; i < buttonsForCustomActions.size(); i++) {
-      CommandButton commandButton = buttonsForCustomActions.get(i);
+    for (int i = 0; i < customLayout.size(); i++) {
+      CommandButton commandButton = customLayout.get(i);
       SessionCommand sessionCommand = commandButton.sessionCommand;
       if (sessionCommand != null
           && commandButton.isEnabled
           && sessionCommand.commandCode == SessionCommand.COMMAND_CODE_CUSTOM
           && CommandButton.isButtonCommandAvailable(
-              commandButton, availableSessionCommands, availablePlayerCommands)) {
+              commandButton, availableSessionCommands, availableCommands)) {
         Bundle actionExtras = sessionCommand.customExtras;
         if (commandButton.icon != CommandButton.ICON_UNDEFINED) {
           actionExtras = new Bundle(sessionCommand.customExtras);

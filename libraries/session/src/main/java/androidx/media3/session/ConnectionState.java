@@ -131,11 +131,13 @@ import java.util.List;
                 mediaButtonPreferences, CommandButton::toBundle));
       } else {
         // Controller doesn't support media button preferences, send the list as a custom layout.
-        // TODO: b/332877990 - More accurately reflect media button preferences as custom layout.
+        // Ignore reservation extras as they were not directly supported in older controllers.
+        ImmutableList<CommandButton> customLayout =
+            CommandButton.getCustomLayoutFromMediaButtonPreferences(
+                mediaButtonPreferences, /* reservationExtras= */ new Bundle());
         bundle.putParcelableArrayList(
             FIELD_CUSTOM_LAYOUT,
-            BundleCollectionUtil.toBundleArrayList(
-                mediaButtonPreferences, CommandButton::toBundle));
+            BundleCollectionUtil.toBundleArrayList(customLayout, CommandButton::toBundle));
       }
     }
     if (!commandButtonsForMediaItems.isEmpty()) {

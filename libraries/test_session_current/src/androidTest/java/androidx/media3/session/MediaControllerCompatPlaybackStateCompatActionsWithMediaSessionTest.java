@@ -1640,15 +1640,18 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
             new CommandButton.Builder(CommandButton.ICON_PLAY)
                 .setDisplayName("button1")
                 .setSessionCommand(command1)
+                .setSlots(CommandButton.SLOT_OVERFLOW)
                 .build(),
             new CommandButton.Builder(CommandButton.ICON_PAUSE)
                 .setDisplayName("button2")
                 .setSessionCommand(command2)
+                .setSlots(CommandButton.SLOT_OVERFLOW)
                 .build(),
             new CommandButton.Builder(CommandButton.ICON_PAUSE)
                 .setDisplayName("button3")
                 .setEnabled(false)
                 .setSessionCommand(command3)
+                .setSlots(CommandButton.SLOT_OVERFLOW)
                 .build());
     MediaSession.Callback callback =
         new MediaSession.Callback() {
@@ -1702,10 +1705,12 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
             new CommandButton.Builder(CommandButton.ICON_PLAY)
                 .setDisplayName("button1")
                 .setSessionCommand(command1)
+                .setSlots(CommandButton.SLOT_OVERFLOW)
                 .build(),
             new CommandButton.Builder(CommandButton.ICON_PAUSE)
                 .setDisplayName("button2")
                 .setSessionCommand(command2)
+                .setSlots(CommandButton.SLOT_OVERFLOW)
                 .build());
     MediaSession.Callback callback =
         new MediaSession.Callback() {
@@ -1773,10 +1778,12 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
             new CommandButton.Builder(CommandButton.ICON_PLAY)
                 .setDisplayName("button1")
                 .setSessionCommand(command1)
+                .setSlots(CommandButton.SLOT_OVERFLOW)
                 .build(),
             new CommandButton.Builder(CommandButton.ICON_PAUSE)
                 .setDisplayName("button2")
                 .setSessionCommand(command2)
+                .setSlots(CommandButton.SLOT_OVERFLOW)
                 .build());
     MediaSession.Callback callback =
         new MediaSession.Callback() {
@@ -1829,6 +1836,148 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
         .isEqualTo(CommandButton.ICON_PLAY);
     mediaSession.release();
     releasePlayer(player);
+  }
+
+  @Test
+  public void
+      playerWithMediaButtonPreferences_withBackForwardSlots_overridesPrevNextActionsWhenNeeded()
+          throws Exception {
+    Player player =
+        createPlayer(
+            /* onPostCreationTask= */ createdPlayer -> {
+              createdPlayer.setMediaItems(
+                  ImmutableList.of(
+                      MediaItem.fromUri("asset://media/wav/sample.wav"),
+                      MediaItem.fromUri("asset://media/wav/sample.wav"),
+                      MediaItem.fromUri("asset://media/wav/sample.wav")));
+              createdPlayer.seekToDefaultPosition(/* mediaItemIndex= */ 1);
+            });
+    SessionCommand command1 = new SessionCommand("command1", Bundle.EMPTY);
+    SessionCommand command2 = new SessionCommand("command2", Bundle.EMPTY);
+    SessionCommand command3 = new SessionCommand("command3", Bundle.EMPTY);
+    SessionCommand commandIgnored = new SessionCommand("shouldBeIgnored", Bundle.EMPTY);
+    ImmutableList<CommandButton> mediaButtonPreferencesWithBackForward =
+        ImmutableList.of(
+            new CommandButton.Builder(CommandButton.ICON_PLAY)
+                .setDisplayName("button1")
+                .setSessionCommand(command1)
+                .setSlots(CommandButton.SLOT_OVERFLOW)
+                .build(),
+            new CommandButton.Builder(CommandButton.ICON_PLAY)
+                .setDisplayName("shouldBeIgnored")
+                .setSessionCommand(commandIgnored)
+                .setSlots(CommandButton.SLOT_BACK_SECONDARY)
+                .build(),
+            new CommandButton.Builder(CommandButton.ICON_PAUSE)
+                .setDisplayName("button2")
+                .setSessionCommand(command2)
+                .setSlots(CommandButton.SLOT_FORWARD)
+                .build(),
+            new CommandButton.Builder(CommandButton.ICON_PAUSE)
+                .setDisplayName("button3")
+                .setSessionCommand(command3)
+                .setSlots(CommandButton.SLOT_BACK)
+                .build(),
+            new CommandButton.Builder(CommandButton.ICON_PLAY)
+                .setDisplayName("shouldBeIgnored")
+                .setSessionCommand(commandIgnored)
+                .setSlots(CommandButton.SLOT_BACK)
+                .build());
+    ImmutableList<CommandButton> mediaButtonPreferencesWithoutBackForward =
+        ImmutableList.of(
+            new CommandButton.Builder(CommandButton.ICON_PLAY)
+                .setDisplayName("button1")
+                .setSessionCommand(command1)
+                .setSlots(CommandButton.SLOT_OVERFLOW)
+                .build(),
+            new CommandButton.Builder(CommandButton.ICON_PLAY)
+                .setDisplayName("shouldBeIgnored")
+                .setSessionCommand(commandIgnored)
+                .setSlots(CommandButton.SLOT_BACK_SECONDARY)
+                .build(),
+            new CommandButton.Builder(CommandButton.ICON_PAUSE)
+                .setDisplayName("button2")
+                .setSessionCommand(command2)
+                .setSlots(CommandButton.SLOT_OVERFLOW)
+                .build());
+    MediaSession.Callback callback =
+        new MediaSession.Callback() {
+          @Override
+          public ConnectionResult onConnect(
+              MediaSession session, MediaSession.ControllerInfo controller) {
+            return new AcceptedResultBuilder(session)
+                .setAvailableSessionCommands(
+                    ConnectionResult.DEFAULT_SESSION_COMMANDS
+                        .buildUpon()
+                        .add(command1)
+                        .add(command2)
+                        .add(command3)
+                        .add(commandIgnored)
+                        .build())
+                .build();
+          }
+        };
+    MediaSession mediaSession =
+        new MediaSession.Builder(ApplicationProvider.getApplicationContext(), player)
+            .setCallback(callback)
+            .setMediaButtonPreferences(mediaButtonPreferencesWithBackForward)
+            .build();
+    connectMediaNotificationController(mediaSession);
+    MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
+    CountDownLatch controllerUpdatedLatch = new CountDownLatch(1);
+    MediaControllerCompat.Callback controllerCallback =
+        new MediaControllerCompat.Callback() {
+          @Override
+          public void onPlaybackStateChanged(PlaybackStateCompat state) {
+            controllerUpdatedLatch.countDown();
+          }
+        };
+
+    List<PlaybackStateCompat.CustomAction> customActions1 =
+        controllerCompat.getPlaybackState().getCustomActions();
+    Bundle extras1 = controllerCompat.getExtras();
+    long actions1 = controllerCompat.getPlaybackState().getActions();
+    controllerCompat.registerCallback(controllerCallback, threadTestRule.getHandler());
+    mediaSession.setMediaButtonPreferences(mediaButtonPreferencesWithoutBackForward);
+    controllerUpdatedLatch.await(TIMEOUT_MS, MILLISECONDS);
+    List<PlaybackStateCompat.CustomAction> customActions2 =
+        controllerCompat.getPlaybackState().getCustomActions();
+    Bundle extras2 = controllerCompat.getExtras();
+    long actions2 = controllerCompat.getPlaybackState().getActions();
+    mediaSession.release();
+    releasePlayer(player);
+
+    assertThat(customActions1).hasSize(3);
+    assertThat(customActions1.get(0).getAction()).isEqualTo("command3");
+    assertThat(customActions1.get(1).getAction()).isEqualTo("command2");
+    assertThat(customActions1.get(2).getAction()).isEqualTo("command1");
+    assertThat(
+            extras1.getBoolean(
+                androidx.media.utils.MediaConstants
+                    .SESSION_EXTRAS_KEY_SLOT_RESERVATION_SKIP_TO_PREV))
+        .isFalse();
+    assertThat(
+            extras1.getBoolean(
+                androidx.media.utils.MediaConstants
+                    .SESSION_EXTRAS_KEY_SLOT_RESERVATION_SKIP_TO_NEXT))
+        .isFalse();
+    assertThat(actions1 & PlaybackStateCompat.ACTION_SKIP_TO_NEXT).isEqualTo(0);
+    assertThat(actions1 & PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS).isEqualTo(0);
+    assertThat(customActions2).hasSize(2);
+    assertThat(customActions2.get(0).getAction()).isEqualTo("command1");
+    assertThat(customActions2.get(1).getAction()).isEqualTo("command2");
+    assertThat(
+            extras2.getBoolean(
+                androidx.media.utils.MediaConstants
+                    .SESSION_EXTRAS_KEY_SLOT_RESERVATION_SKIP_TO_PREV))
+        .isTrue();
+    assertThat(
+            extras2.getBoolean(
+                androidx.media.utils.MediaConstants
+                    .SESSION_EXTRAS_KEY_SLOT_RESERVATION_SKIP_TO_NEXT))
+        .isTrue();
+    assertThat(actions2 & PlaybackStateCompat.ACTION_SKIP_TO_NEXT).isNotEqualTo(0);
+    assertThat(actions2 & PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS).isNotEqualTo(0);
   }
 
   /**

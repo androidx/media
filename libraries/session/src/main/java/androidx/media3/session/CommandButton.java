@@ -1174,6 +1174,63 @@ public final class CommandButton {
   }
 
   /**
+   * Converts a list of buttons defined as {@linkplain MediaSession#getMediaButtonPreferences media
+   * button preferences} to the list of buttons for a {@linkplain MediaSession#getCustomLayout
+   * custom layout} according to the implicit button placement rules applied for custom layouts.
+   *
+   * @param mediaButtonPreferences The list of buttons as media button preferences.
+   * @param reservationExtras A writable {@link Bundle} that receives the extras for slot
+   *     reservations via {@link MediaConstants#EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_NEXT} or {@link
+   *     MediaConstants#EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_PREV} to match the returned custom
+   *     layout.
+   * @return A list of buttons compatible with the placement rules of custom layouts.
+   */
+  /* package */ static ImmutableList<CommandButton> getCustomLayoutFromMediaButtonPreferences(
+      List<CommandButton> mediaButtonPreferences, Bundle reservationExtras) {
+    if (mediaButtonPreferences.isEmpty()) {
+      reservationExtras.putBoolean(MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_PREV, true);
+      reservationExtras.putBoolean(MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_NEXT, true);
+      return ImmutableList.of();
+    }
+    int backButtonIndex = C.INDEX_UNSET;
+    int forwardButtonIndex = C.INDEX_UNSET;
+    for (int i = 0; i < mediaButtonPreferences.size(); i++) {
+      CommandButton button = mediaButtonPreferences.get(i);
+      for (int s = 0; s < button.slots.length(); s++) {
+        @Slot int slot = button.slots.get(s);
+        if (slot == SLOT_OVERFLOW) {
+          // Will go into overflow.
+          break;
+        } else if (backButtonIndex == C.INDEX_UNSET && slot == SLOT_BACK) {
+          backButtonIndex = i;
+        } else if (forwardButtonIndex == C.INDEX_UNSET && slot == SLOT_FORWARD) {
+          forwardButtonIndex = i;
+        }
+      }
+    }
+    boolean hasBackButton = backButtonIndex != C.INDEX_UNSET;
+    boolean hasForwardButton = forwardButtonIndex != C.INDEX_UNSET;
+    reservationExtras.putBoolean(
+        MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_PREV, !hasBackButton);
+    reservationExtras.putBoolean(
+        MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_NEXT, !hasForwardButton);
+    ImmutableList.Builder<CommandButton> customLayout = ImmutableList.builder();
+    if (hasBackButton) {
+      customLayout.add(mediaButtonPreferences.get(backButtonIndex));
+    }
+    if (hasForwardButton) {
+      customLayout.add(mediaButtonPreferences.get(forwardButtonIndex));
+    }
+    for (int i = 0; i < mediaButtonPreferences.size(); i++) {
+      CommandButton button = mediaButtonPreferences.get(i);
+      if (i != backButtonIndex && i != forwardButtonIndex && button.slots.contains(SLOT_OVERFLOW)) {
+        customLayout.add(button);
+      }
+    }
+    return customLayout.build();
+  }
+
+  /**
    * Converts a list of buttons defined according to the implicit button placement rules for
    * {@linkplain MediaSession#getCustomLayout custom layouts} to {@linkplain
    * MediaSession#getMediaButtonPreferences media button preferences}.

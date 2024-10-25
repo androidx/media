@@ -526,7 +526,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   public ListenableFuture<SessionResult> setMediaButtonPreferences(
       ControllerInfo controller, ImmutableList<CommandButton> mediaButtonPreferences) {
     if (isMediaNotificationController(controller)) {
-      playerWrapper.setMediaButtonPreferences(mediaButtonPreferences);
+      setLegacyMediaButtonPreferences(mediaButtonPreferences);
       sessionLegacyStub.updateLegacySessionPlaybackState(playerWrapper);
     }
     return dispatchRemoteControllerTask(
@@ -540,7 +540,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    */
   public void setMediaButtonPreferences(ImmutableList<CommandButton> mediaButtonPreferences) {
     this.mediaButtonPreferences = mediaButtonPreferences;
-    playerWrapper.setMediaButtonPreferences(mediaButtonPreferences);
+    setLegacyMediaButtonPreferences(mediaButtonPreferences);
     dispatchRemoteControllerTaskWithoutReturn(
         (controller, seq) -> controller.setMediaButtonPreferences(seq, mediaButtonPreferences));
   }
@@ -722,14 +722,18 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             "Callback.onConnect must return non-null future");
     if (isMediaNotificationController(controller) && connectionResult.isAccepted) {
       isMediaNotificationControllerConnected = true;
-      playerWrapper.setCustomLayout(
-          connectionResult.customLayout != null
-              ? connectionResult.customLayout
-              : instance.getCustomLayout());
-      playerWrapper.setMediaButtonPreferences(
+      ImmutableList<CommandButton> mediaButtonPreferences =
           connectionResult.mediaButtonPreferences != null
               ? connectionResult.mediaButtonPreferences
-              : instance.getMediaButtonPreferences());
+              : instance.getMediaButtonPreferences();
+      if (mediaButtonPreferences.isEmpty()) {
+        playerWrapper.setCustomLayout(
+            connectionResult.customLayout != null
+                ? connectionResult.customLayout
+                : instance.getCustomLayout());
+      } else {
+        setLegacyMediaButtonPreferences(mediaButtonPreferences);
+      }
       setAvailableFrameworkControllerCommands(
           connectionResult.availableSessionCommands, connectionResult.availablePlayerCommands);
     }
@@ -1034,6 +1038,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             }
           },
           this::postOrRunOnApplicationHandler);
+    }
+  }
+
+  private void setLegacyMediaButtonPreferences(
+      ImmutableList<CommandButton> mediaButtonPreferences) {
+    boolean extrasChanged = playerWrapper.setMediaButtonPreferences(mediaButtonPreferences);
+    if (extrasChanged) {
+      sessionLegacyStub.getSessionCompat().setExtras(playerWrapper.getLegacyExtras());
     }
   }
 

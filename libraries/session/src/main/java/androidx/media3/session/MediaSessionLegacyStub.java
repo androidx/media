@@ -1085,9 +1085,12 @@ import org.checkerframework.checker.initialization.qual.Initialized;
         onRepeatModeChanged(seq, newPlayerWrapper.getRepeatMode());
       }
 
-      // Forcefully update playback info to update VolumeProviderCompat attached to the
-      // old player.
+      // Forcefully update device info to update VolumeProviderCompat attached to the old player.
       onDeviceInfoChanged(seq, newPlayerWrapper.getDeviceInfo());
+
+      if (hasChangedSlotReservationExtras(oldPlayerWrapper, newPlayerWrapper)) {
+        sessionCompat.setExtras(newPlayerWrapper.getLegacyExtras());
+      }
 
       // Rest of changes are all notified via PlaybackStateCompat.
       maybeUpdateFlags(newPlayerWrapper);
@@ -1122,8 +1125,9 @@ import org.checkerframework.checker.initialization.qual.Initialized;
 
     @Override
     public void onSessionExtrasChanged(int seq, Bundle sessionExtras) {
-      sessionCompat.setExtras(sessionExtras);
-      sessionImpl.getPlayerWrapper().setLegacyExtras(sessionExtras);
+      PlayerWrapper playerWrapper = sessionImpl.getPlayerWrapper();
+      playerWrapper.setLegacyExtras(sessionExtras);
+      sessionCompat.setExtras(playerWrapper.getLegacyExtras());
       sessionCompat.setPlaybackState(sessionImpl.getPlayerWrapper().createPlaybackStateCompat());
     }
 
@@ -1419,6 +1423,28 @@ import org.checkerframework.checker.initialization.qual.Initialized;
           LegacyConversions.convertToMediaMetadataCompat(
               newMediaMetadata, newMediaId, newMediaUri, newDurationMs, artworkBitmap));
     }
+  }
+
+  private static boolean hasChangedSlotReservationExtras(
+      @Nullable PlayerWrapper oldPlayerWrapper, PlayerWrapper newPlayerWrapper) {
+    if (oldPlayerWrapper == null) {
+      return true;
+    }
+    Bundle oldExtras = oldPlayerWrapper.getLegacyExtras();
+    boolean oldPrevReservation =
+        oldExtras.getBoolean(
+            MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_PREV, /* defaultVale= */ false);
+    boolean oldNextReservation =
+        oldExtras.getBoolean(
+            MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_NEXT, /* defaultVale= */ false);
+    Bundle newExtras = newPlayerWrapper.getLegacyExtras();
+    boolean newPrevReservation =
+        newExtras.getBoolean(
+            MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_PREV, /* defaultVale= */ false);
+    boolean newNextReservation =
+        newExtras.getBoolean(
+            MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_NEXT, /* defaultVale= */ false);
+    return (oldPrevReservation != newPrevReservation) || (oldNextReservation != newNextReservation);
   }
 
   private static class ConnectionTimeoutHandler extends Handler {

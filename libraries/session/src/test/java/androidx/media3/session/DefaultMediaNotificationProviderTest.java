@@ -197,6 +197,60 @@ public class DefaultMediaNotificationProviderTest {
   }
 
   @Test
+  public void getMediaButtons_customButtonsForPrevNextSlots_overridesDefaultPrevNextButtons() {
+    DefaultMediaNotificationProvider defaultMediaNotificationProvider =
+        new DefaultMediaNotificationProvider.Builder(ApplicationProvider.getApplicationContext())
+            .build();
+    Commands commands = new Commands.Builder().addAllCommands().build();
+    SessionCommand customSessionCommand = new SessionCommand("", Bundle.EMPTY);
+    CommandButton customCommandButton =
+        new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
+            .setDisplayName("displayName")
+            .setIconResId(R.drawable.media3_icon_circular_play)
+            .setSessionCommand(customSessionCommand)
+            .build();
+    CommandButton customBackButton =
+        new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
+            .setSlots(CommandButton.SLOT_BACK)
+            .setDisplayName("displayName")
+            .setIconResId(R.drawable.media3_icon_circular_play)
+            .setSessionCommand(customSessionCommand)
+            .build();
+    CommandButton customForwardButton =
+        new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
+            .setSlots(CommandButton.SLOT_FORWARD)
+            .setDisplayName("displayName")
+            .setIconResId(R.drawable.media3_icon_circular_play)
+            .setSessionCommand(customSessionCommand)
+            .build();
+    CommandButton customCentralButton =
+        new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
+            .setSlots(CommandButton.SLOT_CENTRAL)
+            .setDisplayName("displayName")
+            .setIconResId(R.drawable.media3_icon_circular_play)
+            .setSessionCommand(customSessionCommand)
+            .build();
+    Player player = new TestExoPlayerBuilder(context).build();
+    MediaSession mediaSession = new MediaSession.Builder(context, player).build();
+
+    ImmutableList<CommandButton> mediaButtons =
+        defaultMediaNotificationProvider.getMediaButtons(
+            mediaSession,
+            commands,
+            ImmutableList.of(
+                customCommandButton, customForwardButton, customBackButton, customCentralButton),
+            /* showPauseButton= */ true);
+    mediaSession.release();
+    player.release();
+
+    assertThat(mediaButtons).hasSize(4);
+    assertThat(mediaButtons.get(0)).isEqualTo(customBackButton);
+    assertThat(mediaButtons.get(1).playerCommand).isEqualTo(Player.COMMAND_PLAY_PAUSE);
+    assertThat(mediaButtons.get(2)).isEqualTo(customForwardButton);
+    assertThat(mediaButtons.get(3)).isEqualTo(customCommandButton);
+  }
+
+  @Test
   public void addNotificationActions_customCompactViewDeclarations_correctCompactViewIndices() {
     DefaultMediaNotificationProvider defaultMediaNotificationProvider =
         new DefaultMediaNotificationProvider.Builder(ApplicationProvider.getApplicationContext())
