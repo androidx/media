@@ -233,6 +233,7 @@ public final class H264Reader implements ElementaryStreamReader {
                   .setMaxNumReorderSamples(spsData.maxNumReorderFrames)
                   .build());
           hasOutputFormat = true;
+          seiReader.setReorderingQueueSize(spsData.maxNumReorderFrames);
           sampleReader.putSps(spsData);
           sampleReader.putPps(ppsData);
           sps.reset();

@@ -18,6 +18,9 @@
 *   Audio:
 *   Video:
 *   Text:
+    *   Fix CEA-608 subtitles in H.264 MPEG-TS streams not being output (this
+        was broken in `1.5.0-alpha01` by
+        https://github.com/androidx/media/commit/03a205f220ecf7681f85f8a752227e3986e257ff).
 *   Metadata:
 *   Image:
 *   DRM:
