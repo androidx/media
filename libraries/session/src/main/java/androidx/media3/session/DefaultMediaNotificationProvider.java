@@ -448,43 +448,33 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
     // Skip to previous action.
     ImmutableList.Builder<CommandButton> commandButtons = new ImmutableList.Builder<>();
     if (playerCommands.containsAny(COMMAND_SEEK_TO_PREVIOUS, COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)) {
-      Bundle commandButtonExtras = new Bundle();
-      commandButtonExtras.putInt(COMMAND_KEY_COMPACT_VIEW_INDEX, INDEX_UNSET);
       commandButtons.add(
           new CommandButton.Builder(CommandButton.ICON_PREVIOUS)
               .setPlayerCommand(COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
               .setDisplayName(
                   context.getString(R.string.media3_controls_seek_to_previous_description))
-              .setExtras(commandButtonExtras)
               .build());
     }
     if (playerCommands.contains(COMMAND_PLAY_PAUSE)) {
-      Bundle commandButtonExtras = new Bundle();
-      commandButtonExtras.putInt(COMMAND_KEY_COMPACT_VIEW_INDEX, INDEX_UNSET);
       if (showPauseButton) {
         commandButtons.add(
             new CommandButton.Builder(CommandButton.ICON_PAUSE)
                 .setPlayerCommand(COMMAND_PLAY_PAUSE)
-                .setExtras(commandButtonExtras)
                 .setDisplayName(context.getString(R.string.media3_controls_pause_description))
                 .build());
       } else {
         commandButtons.add(
             new CommandButton.Builder(CommandButton.ICON_PLAY)
                 .setPlayerCommand(COMMAND_PLAY_PAUSE)
-                .setExtras(commandButtonExtras)
                 .setDisplayName(context.getString(R.string.media3_controls_play_description))
                 .build());
       }
     }
     // Skip to next action.
     if (playerCommands.containsAny(COMMAND_SEEK_TO_NEXT, COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)) {
-      Bundle commandButtonExtras = new Bundle();
-      commandButtonExtras.putInt(COMMAND_KEY_COMPACT_VIEW_INDEX, INDEX_UNSET);
       commandButtons.add(
           new CommandButton.Builder(CommandButton.ICON_NEXT)
               .setPlayerCommand(COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
-              .setExtras(commandButtonExtras)
               .setDisplayName(context.getString(R.string.media3_controls_seek_to_next_description))
               .build());
     }
@@ -532,7 +522,7 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
     int[] defaultCompactViewIndices = new int[3];
     Arrays.fill(compactViewIndices, INDEX_UNSET);
     Arrays.fill(defaultCompactViewIndices, INDEX_UNSET);
-    int compactViewCommandCount = 0;
+    boolean hasCustomCompactViewIndices = false;
     for (int i = 0; i < mediaButtons.size(); i++) {
       CommandButton commandButton = mediaButtons.get(i);
       if (commandButton.sessionCommand != null) {
@@ -547,28 +537,22 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
                 commandButton.displayName,
                 commandButton.playerCommand));
       }
-      if (compactViewCommandCount == 3) {
-        continue;
-      }
       int compactViewIndex =
           commandButton.extras.getInt(
               COMMAND_KEY_COMPACT_VIEW_INDEX, /* defaultValue= */ INDEX_UNSET);
       if (compactViewIndex >= 0 && compactViewIndex < compactViewIndices.length) {
-        compactViewCommandCount++;
+        hasCustomCompactViewIndices = true;
         compactViewIndices[compactViewIndex] = i;
-      } else if (commandButton.playerCommand == COMMAND_SEEK_TO_PREVIOUS
-          || commandButton.playerCommand == COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM) {
+      } else if (commandButton.slots.get(0) == CommandButton.SLOT_BACK) {
         defaultCompactViewIndices[0] = i;
-      } else if (commandButton.playerCommand == COMMAND_PLAY_PAUSE) {
+      } else if (commandButton.slots.get(0) == CommandButton.SLOT_CENTRAL) {
         defaultCompactViewIndices[1] = i;
-      } else if (commandButton.playerCommand == COMMAND_SEEK_TO_NEXT
-          || commandButton.playerCommand == COMMAND_SEEK_TO_NEXT_MEDIA_ITEM) {
+      } else if (commandButton.slots.get(0) == CommandButton.SLOT_FORWARD) {
         defaultCompactViewIndices[2] = i;
       }
     }
-    if (compactViewCommandCount == 0) {
-      // If there is no custom configuration we use the seekPrev (if any), play/pause (if any),
-      // seekNext (if any) action in compact view.
+    if (!hasCustomCompactViewIndices) {
+      // If there is no custom configuration we use the first slot preference as a proxy.
       int indexInCompactViewIndices = 0;
       for (int i = 0; i < defaultCompactViewIndices.length; i++) {
         if (defaultCompactViewIndices[i] == INDEX_UNSET) {
