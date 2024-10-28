@@ -103,6 +103,8 @@
         *   `onFallbackApplied(MediaItem, TransformationRequest,
             TransformationRequest)`, use `onFallbackApplied(Composition,
             TransformationRequest, TransformationRequest)` instead.
+    *   Remove deprecated `TransformationResult` class. Use `ExportResult`
+        instead.
 
 ## 1.5
 
