@@ -491,12 +491,7 @@ public final class DefaultVideoFrameProcessorTextureOutputPixelTest {
     videoFrameProcessorTestRunner.processFirstFrameAndEnd();
     Bitmap actualBitmap = videoFrameProcessorTestRunner.getOutputBitmap();
 
-    // TODO(b/207848601): Switch to using proper tooling for testing against golden data.
-    float averagePixelAbsoluteDifference =
-        BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceFp16(
-            expectedBitmap, actualBitmap);
-    assertThat(averagePixelAbsoluteDifference)
-        .isAtMost(MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE_DIFFERENT_DEVICE_FP16);
+    assertBitmapsAreSimilar(expectedBitmap, actualBitmap, HDR_PSNR_THRESHOLD);
   }
 
   @Test
