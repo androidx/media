@@ -142,7 +142,7 @@ import java.io.IOException;
               glProgram.setSamplerTexIdUniform(
                   "uGainmapTexSampler" + texUnitIndex,
                   gainmapTexIds.get(texUnitIndex),
-                  texUnitIndex);
+                  /* texUnitIndex= */ overlays.size() + texUnitIndex);
               GainmapUtil.setGainmapUniforms(
                   glProgram, lastGainmaps.get(texUnitIndex), texUnitIndex);
             }
