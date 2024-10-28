@@ -19,10 +19,8 @@ import static androidx.media3.common.MimeTypes.VIDEO_H265;
 import static androidx.media3.effect.DefaultVideoFrameProcessor.WORKING_COLOR_SPACE_ORIGINAL;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceArgb8888;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.readBitmap;
-import static androidx.media3.transformer.AndroidTestUtil.recordTestSkipped;
 import static androidx.media3.transformer.mh.HdrCapabilitiesUtil.assumeDeviceSupportsOpenGlToneMapping;
 import static androidx.media3.transformer.mh.UnoptimizedGlEffect.NO_OP_EFFECT;
-import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.graphics.Bitmap;
@@ -32,7 +30,6 @@ import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
-import androidx.media3.test.utils.DecodeOneFrameUtil;
 import androidx.media3.test.utils.VideoFrameProcessorTestRunner;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.base.Ascii;
@@ -146,22 +143,8 @@ public final class ToneMapHdrToSdrUsingOpenGlPixelTest {
             .build();
     Bitmap expectedBitmap = readBitmap(TONE_MAP_HLG_TO_SDR_PNG_ASSET_PATH);
 
-    Bitmap actualBitmap;
-    try {
-      videoFrameProcessorTestRunner.processFirstFrameAndEnd();
-      actualBitmap = videoFrameProcessorTestRunner.getOutputBitmap();
-    } catch (UnsupportedOperationException e) {
-      if (e.getMessage() != null
-          && e.getMessage().equals(DecodeOneFrameUtil.NO_DECODER_SUPPORT_ERROR_STRING)) {
-        recordTestSkipped(
-            getApplicationContext(),
-            testId,
-            /* reason= */ DecodeOneFrameUtil.NO_DECODER_SUPPORT_ERROR_STRING);
-        return;
-      } else {
-        throw e;
-      }
-    }
+    videoFrameProcessorTestRunner.processFirstFrameAndEnd();
+    Bitmap actualBitmap = videoFrameProcessorTestRunner.getOutputBitmap();
 
     Log.i(TAG, "Successfully tone mapped.");
     // TODO(b/207848601): Switch to using proper tooling for testing against golden data.
@@ -182,22 +165,8 @@ public final class ToneMapHdrToSdrUsingOpenGlPixelTest {
             .build();
     Bitmap expectedBitmap = readBitmap(TONE_MAP_HLG_TO_SDR_PNG_ASSET_PATH);
 
-    Bitmap actualBitmap;
-    try {
-      videoFrameProcessorTestRunner.processFirstFrameAndEnd();
-      actualBitmap = videoFrameProcessorTestRunner.getOutputBitmap();
-    } catch (UnsupportedOperationException e) {
-      if (e.getMessage() != null
-          && e.getMessage().equals(DecodeOneFrameUtil.NO_DECODER_SUPPORT_ERROR_STRING)) {
-        recordTestSkipped(
-            getApplicationContext(),
-            testId,
-            /* reason= */ DecodeOneFrameUtil.NO_DECODER_SUPPORT_ERROR_STRING);
-        return;
-      } else {
-        throw e;
-      }
-    }
+    videoFrameProcessorTestRunner.processFirstFrameAndEnd();
+    Bitmap actualBitmap = videoFrameProcessorTestRunner.getOutputBitmap();
 
     Log.i(TAG, "Successfully tone mapped.");
     // TODO(b/207848601): Switch to using proper tooling for testing against golden data.
@@ -218,22 +187,8 @@ public final class ToneMapHdrToSdrUsingOpenGlPixelTest {
             .build();
     Bitmap expectedBitmap = readBitmap(TONE_MAP_PQ_TO_SDR_PNG_ASSET_PATH);
 
-    Bitmap actualBitmap;
-    try {
-      videoFrameProcessorTestRunner.processFirstFrameAndEnd();
-      actualBitmap = videoFrameProcessorTestRunner.getOutputBitmap();
-    } catch (UnsupportedOperationException e) {
-      if (e.getMessage() != null
-          && e.getMessage().equals(DecodeOneFrameUtil.NO_DECODER_SUPPORT_ERROR_STRING)) {
-        recordTestSkipped(
-            getApplicationContext(),
-            testId,
-            /* reason= */ DecodeOneFrameUtil.NO_DECODER_SUPPORT_ERROR_STRING);
-        return;
-      } else {
-        throw e;
-      }
-    }
+    videoFrameProcessorTestRunner.processFirstFrameAndEnd();
+    Bitmap actualBitmap = videoFrameProcessorTestRunner.getOutputBitmap();
 
     Log.i(TAG, "Successfully tone mapped.");
     // TODO(b/207848601): Switch to using proper tooling for testing against golden data.
@@ -255,22 +210,8 @@ public final class ToneMapHdrToSdrUsingOpenGlPixelTest {
             .build();
     Bitmap expectedBitmap = readBitmap(TONE_MAP_PQ_TO_SDR_PNG_ASSET_PATH);
 
-    Bitmap actualBitmap;
-    try {
-      videoFrameProcessorTestRunner.processFirstFrameAndEnd();
-      actualBitmap = videoFrameProcessorTestRunner.getOutputBitmap();
-    } catch (UnsupportedOperationException e) {
-      if (e.getMessage() != null
-          && e.getMessage().equals(DecodeOneFrameUtil.NO_DECODER_SUPPORT_ERROR_STRING)) {
-        recordTestSkipped(
-            getApplicationContext(),
-            testId,
-            /* reason= */ DecodeOneFrameUtil.NO_DECODER_SUPPORT_ERROR_STRING);
-        return;
-      } else {
-        throw e;
-      }
-    }
+    videoFrameProcessorTestRunner.processFirstFrameAndEnd();
+    Bitmap actualBitmap = videoFrameProcessorTestRunner.getOutputBitmap();
 
     Log.i(TAG, "Successfully tone mapped.");
     // TODO(b/207848601): Switch to using proper tooling for testing against golden data.
@@ -295,22 +236,8 @@ public final class ToneMapHdrToSdrUsingOpenGlPixelTest {
             .build();
     Bitmap expectedBitmap = readBitmap(TONE_MAP_HLG_TO_SDR_PNG_ASSET_PATH);
 
-    Bitmap actualBitmap;
-    try {
-      videoFrameProcessorTestRunner.processFirstFrameAndEnd();
-      actualBitmap = videoFrameProcessorTestRunner.getOutputBitmap();
-    } catch (UnsupportedOperationException e) {
-      if (e.getMessage() != null
-          && e.getMessage().equals(DecodeOneFrameUtil.NO_DECODER_SUPPORT_ERROR_STRING)) {
-        recordTestSkipped(
-            getApplicationContext(),
-            testId,
-            /* reason= */ DecodeOneFrameUtil.NO_DECODER_SUPPORT_ERROR_STRING);
-        return;
-      } else {
-        throw e;
-      }
-    }
+    videoFrameProcessorTestRunner.processFirstFrameAndEnd();
+    Bitmap actualBitmap = videoFrameProcessorTestRunner.getOutputBitmap();
 
     Log.i(TAG, "Successfully tone mapped.");
     // TODO(b/207848601): Switch to using proper tooling for testing against golden data.
