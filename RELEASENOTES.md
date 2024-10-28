@@ -68,6 +68,26 @@
 *   Remove deprecated symbols:
     *   Remove deprecated `AudioMixer.create()` method. Use
         `DefaultAudioMixer.Factory().create()` instead.
+    *   Remove the following deprecated `Transformer.Builder` methods:
+        *   `setTransformationRequest()`, use `setAudioMimeType()`,
+            `setVideoMimeType()`, and `setHdrMode()` instead.
+        *   `setAudioProcessors()`, set the audio processor in an
+            `EditedMediaItem.Builder.setEffects()`, and pass it to
+            `Transformer.start()` instead.
+        *   `setVideoEffects()`, set video effect in an
+            `EditedMediaItem.Builder.setEffects()`, and pass it to
+            `Transformer.start()` instead.
+        *   `setRemoveAudio()`, use `EditedMediaItem.Builder.setRemoveAudio()`
+            to remove the audio from the `EditedMediaItem` passed to
+            `Transformer.start()` instead.
+        *   `setRemoveVideo()`, use `EditedMediaItem.Builder.setRemoveVideo()`
+            to remove the video from the `EditedMediaItem` passed to
+            `Transformer.start()` instead.
+        *   `setFlattenForSlowMotion()`, use
+            `EditedMediaItem.Builder.setFlattenForSlowMotion()` to flatten the
+            `EditedMediaItem` passed to `Transformer.start()` instead.
+        *   `setListener()`, use `addListener()`, `removeListener()` or
+            `removeAllListeners()` instead.
 
 ## 1.5
 

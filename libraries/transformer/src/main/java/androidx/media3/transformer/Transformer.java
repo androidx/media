@@ -71,7 +71,6 @@ import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
-import java.util.List;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
@@ -236,78 +235,6 @@ public final class Transformer {
     }
 
     /**
-     * @deprecated Use {@link #setAudioMimeType(String)}, {@link #setVideoMimeType(String)} and
-     *     {@link Composition.Builder#setHdrMode(int)} instead.
-     */
-    @Deprecated
-    @CanIgnoreReturnValue
-    public Builder setTransformationRequest(TransformationRequest transformationRequest) {
-      // TODO(b/289872787): Make TransformationRequest.Builder package private once this method is
-      //  removed.
-      this.transformationRequest = transformationRequest;
-      return this;
-    }
-
-    /**
-     * @deprecated Set the {@linkplain AudioProcessor audio processors} in an {@link
-     *     EditedMediaItem.Builder#setEffects(Effects)}, and pass it to {@link
-     *     #start(EditedMediaItem, String)} instead.
-     */
-    @CanIgnoreReturnValue
-    @Deprecated
-    public Builder setAudioProcessors(List<AudioProcessor> audioProcessors) {
-      this.audioProcessors = ImmutableList.copyOf(audioProcessors);
-      return this;
-    }
-
-    /**
-     * @deprecated Set the {@linkplain Effect video effects} in an {@link
-     *     EditedMediaItem.Builder#setEffects(Effects)}, and pass it to {@link
-     *     #start(EditedMediaItem, String)} instead.
-     */
-    @CanIgnoreReturnValue
-    @Deprecated
-    public Builder setVideoEffects(List<Effect> effects) {
-      this.videoEffects = ImmutableList.copyOf(effects);
-      return this;
-    }
-
-    /**
-     * @deprecated Use {@link EditedMediaItem.Builder#setRemoveAudio(boolean)} to remove the audio
-     *     from the {@link EditedMediaItem} passed to {@link #start(EditedMediaItem, String)}
-     *     instead.
-     */
-    @CanIgnoreReturnValue
-    @Deprecated
-    public Builder setRemoveAudio(boolean removeAudio) {
-      this.removeAudio = removeAudio;
-      return this;
-    }
-
-    /**
-     * @deprecated Use {@link EditedMediaItem.Builder#setRemoveVideo(boolean)} to remove the video
-     *     from the {@link EditedMediaItem} passed to {@link #start(EditedMediaItem, String)}
-     *     instead.
-     */
-    @CanIgnoreReturnValue
-    @Deprecated
-    public Builder setRemoveVideo(boolean removeVideo) {
-      this.removeVideo = removeVideo;
-      return this;
-    }
-
-    /**
-     * @deprecated Use {@link EditedMediaItem.Builder#setFlattenForSlowMotion(boolean)} to flatten
-     *     the {@link EditedMediaItem} passed to {@link #start(EditedMediaItem, String)} instead.
-     */
-    @CanIgnoreReturnValue
-    @Deprecated
-    public Builder setFlattenForSlowMotion(boolean flattenForSlowMotion) {
-      this.flattenForSlowMotion = flattenForSlowMotion;
-      return this;
-    }
-
-    /**
      * Sets whether to attempt to optimize trims from the start of the {@link EditedMediaItem} by
      * transcoding as little of the file as possible and transmuxing the rest.
      *
@@ -412,18 +339,6 @@ public final class Transformer {
     @CanIgnoreReturnValue
     public Builder setMaxDelayBetweenMuxerSamplesMs(long maxDelayBetweenMuxerSamplesMs) {
       this.maxDelayBetweenMuxerSamplesMs = maxDelayBetweenMuxerSamplesMs;
-      return this;
-    }
-
-    /**
-     * @deprecated Use {@link #addListener(Listener)}, {@link #removeListener(Listener)} or {@link
-     *     #removeAllListeners()} instead.
-     */
-    @CanIgnoreReturnValue
-    @Deprecated
-    public Builder setListener(Transformer.Listener listener) {
-      this.listeners.clear();
-      this.listeners.add(listener);
       return this;
     }
 
