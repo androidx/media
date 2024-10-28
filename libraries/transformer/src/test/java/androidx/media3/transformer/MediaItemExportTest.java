@@ -102,7 +102,6 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
@@ -721,112 +720,6 @@ public final class MediaItemExportTest {
     verify(mockListener3)
         .onFallbackApplied(
             composition, originalTransformationRequest, fallbackTransformationRequest);
-  }
-
-  @Test
-  public void start_success_callsDeprecatedCompletionCallbacks() throws Exception {
-    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ false);
-    AtomicBoolean deprecatedFallbackCalled1 = new AtomicBoolean();
-    AtomicBoolean deprecatedFallbackCalled2 = new AtomicBoolean();
-    Transformer transformer =
-        createTransformerBuilder(muxerFactory, /* enableFallback= */ false)
-            .addListener(
-                new Transformer.Listener() {
-                  @Override
-                  public void onTransformationCompleted(MediaItem inputMediaItem) {
-                    deprecatedFallbackCalled1.set(true);
-                  }
-                })
-            .addListener(
-                new Transformer.Listener() {
-                  @Override
-                  public void onTransformationCompleted(
-                      MediaItem inputMediaItem, TransformationResult result) {
-                    deprecatedFallbackCalled2.set(true);
-                  }
-                })
-            .build();
-    MediaItem mediaItem = MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_VIDEO);
-
-    transformer.start(mediaItem, outputDir.newFile().getPath());
-    TransformerTestRunner.runLooper(transformer);
-
-    assertThat(deprecatedFallbackCalled1.get()).isTrue();
-    assertThat(deprecatedFallbackCalled2.get()).isTrue();
-  }
-
-  @Test
-  public void start_withError_callsDeprecatedErrorCallbacks() throws Exception {
-    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ false);
-    AtomicBoolean deprecatedFallbackCalled1 = new AtomicBoolean();
-    AtomicBoolean deprecatedFallbackCalled2 = new AtomicBoolean();
-    AtomicBoolean deprecatedFallbackCalled3 = new AtomicBoolean();
-    Transformer transformer =
-        createTransformerBuilder(muxerFactory, /* enableFallback= */ false)
-            .addListener(
-                new Transformer.Listener() {
-                  @Override
-                  public void onTransformationError(MediaItem inputMediaItem, Exception exception) {
-                    deprecatedFallbackCalled1.set(true);
-                  }
-                })
-            .addListener(
-                new Transformer.Listener() {
-                  @Override
-                  public void onTransformationError(
-                      MediaItem inputMediaItem, TransformationException exception) {
-                    deprecatedFallbackCalled2.set(true);
-                  }
-                })
-            .addListener(
-                new Transformer.Listener() {
-                  @Override
-                  public void onTransformationError(
-                      MediaItem inputMediaItem,
-                      TransformationResult result,
-                      TransformationException exception) {
-                    deprecatedFallbackCalled3.set(true);
-                  }
-                })
-            .build();
-    MediaItem mediaItem = MediaItem.fromUri("invalid.uri");
-
-    transformer.start(mediaItem, outputDir.newFile().getPath());
-    try {
-      TransformerTestRunner.runLooper(transformer);
-    } catch (ExportException exportException) {
-      // Ignore exception thrown.
-    }
-
-    assertThat(deprecatedFallbackCalled1.get()).isTrue();
-    assertThat(deprecatedFallbackCalled2.get()).isTrue();
-    assertThat(deprecatedFallbackCalled3.get()).isTrue();
-  }
-
-  @Test
-  public void start_withFallback_callsDeprecatedFallbackCallbacks() throws Exception {
-    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
-    AtomicBoolean deprecatedFallbackCalled = new AtomicBoolean();
-    Transformer transformer =
-        createTransformerBuilder(muxerFactory, /* enableFallback= */ true)
-            .addListener(
-                new Transformer.Listener() {
-                  @Override
-                  public void onFallbackApplied(
-                      MediaItem inputMediaItem,
-                      TransformationRequest originalTransformationRequest,
-                      TransformationRequest fallbackTransformationRequest) {
-                    deprecatedFallbackCalled.set(true);
-                  }
-                })
-            .build();
-
-    // No RAW encoder/muxer support, so fallback.
-    transformer.start(
-        MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW), outputDir.newFile().getPath());
-    TransformerTestRunner.runLooper(transformer);
-
-    assertThat(deprecatedFallbackCalled.get()).isTrue();
   }
 
   @Test

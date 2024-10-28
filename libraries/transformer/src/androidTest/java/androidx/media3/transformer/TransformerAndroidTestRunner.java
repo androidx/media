@@ -373,7 +373,7 @@ public class TransformerAndroidTestRunner {
 
                   @Override
                   public void onFallbackApplied(
-                      MediaItem inputMediaItem,
+                      Composition composition,
                       TransformationRequest originalTransformationRequest,
                       TransformationRequest fallbackTransformationRequest) {
                     // Note: As TransformationRequest only reports the output height but not the

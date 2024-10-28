@@ -88,6 +88,21 @@
             `EditedMediaItem` passed to `Transformer.start()` instead.
         *   `setListener()`, use `addListener()`, `removeListener()` or
             `removeAllListeners()` instead.
+    *   Remove the following deprecated `Tansformer.Listener` methods:
+        *   `onTransformationCompleted(MediaItem)`, use
+            `onCompleted(Composition, ExportResult)` instead.
+        *   `onTransformationCompleted(MediaItem, TransformationResult)`, use
+            `onCompleted(Composition, ExportResult)` instead.
+        *   `onTransformationError(MediaItem, Exception)`, use
+            `onError(Composition, ExportResult, ExportException)` instead.
+        *   `onTransformationError(MediaItem, TransformationException)`, use
+            `onError(Composition, ExportResult, ExportException)` instead.
+        *   `onTransformationError(MediaItem, TransformationResult,
+            TransformationException)`, use `onError(Composition, ExportResult,
+            ExportException)` instead.
+        *   `onFallbackApplied(MediaItem, TransformationRequest,
+            TransformationRequest)`, use `onFallbackApplied(Composition,
+            TransformationRequest, TransformationRequest)` instead.
 
 ## 1.5
 

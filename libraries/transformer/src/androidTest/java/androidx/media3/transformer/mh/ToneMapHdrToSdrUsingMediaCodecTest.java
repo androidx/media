@@ -74,7 +74,7 @@ public class ToneMapHdrToSdrUsingMediaCodecTest {
                 new Transformer.Listener() {
                   @Override
                   public void onFallbackApplied(
-                      MediaItem inputMediaItem,
+                      Composition composition,
                       TransformationRequest originalTransformationRequest,
                       TransformationRequest fallbackTransformationRequest) {
                     // Tone mapping flag shouldn't change in fallback when tone mapping is
@@ -134,7 +134,7 @@ public class ToneMapHdrToSdrUsingMediaCodecTest {
                 new Transformer.Listener() {
                   @Override
                   public void onFallbackApplied(
-                      MediaItem inputMediaItem,
+                      Composition composition,
                       TransformationRequest originalTransformationRequest,
                       TransformationRequest fallbackTransformationRequest) {
                     // Tone mapping flag shouldn't change in fallback when tone mapping is
@@ -195,7 +195,7 @@ public class ToneMapHdrToSdrUsingMediaCodecTest {
                 new Transformer.Listener() {
                   @Override
                   public void onFallbackApplied(
-                      MediaItem inputMediaItem,
+                      Composition composition,
                       TransformationRequest originalTransformationRequest,
                       TransformationRequest fallbackTransformationRequest) {
                     // Tone mapping flag shouldn't change in fallback when tone mapping is
@@ -256,7 +256,7 @@ public class ToneMapHdrToSdrUsingMediaCodecTest {
                 new Transformer.Listener() {
                   @Override
                   public void onFallbackApplied(
-                      MediaItem inputMediaItem,
+                      Composition composition,
                       TransformationRequest originalTransformationRequest,
                       TransformationRequest fallbackTransformationRequest) {
                     // Tone mapping flag shouldn't change in fallback when tone mapping is

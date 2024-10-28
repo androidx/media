@@ -583,57 +583,12 @@ public final class Transformer {
   public interface Listener {
 
     /**
-     * @deprecated Use {@link #onCompleted(Composition, ExportResult)} instead.
-     */
-    @Deprecated
-    default void onTransformationCompleted(MediaItem inputMediaItem) {}
-
-    /**
-     * @deprecated Use {@link #onCompleted(Composition, ExportResult)} instead.
-     */
-    @SuppressWarnings("deprecation") // Using deprecated type in callback
-    @Deprecated
-    default void onTransformationCompleted(MediaItem inputMediaItem, TransformationResult result) {
-      onTransformationCompleted(inputMediaItem);
-    }
-
-    /**
      * Called when the export is completed successfully.
      *
      * @param composition The {@link Composition} for which the export is completed.
      * @param exportResult The {@link ExportResult} of the export.
      */
-    @SuppressWarnings("deprecation") // Calling deprecated listener method.
-    default void onCompleted(Composition composition, ExportResult exportResult) {
-      MediaItem mediaItem = composition.sequences.get(0).editedMediaItems.get(0).mediaItem;
-      onTransformationCompleted(mediaItem, new TransformationResult.Builder(exportResult).build());
-    }
-
-    /**
-     * @deprecated Use {@link #onError(Composition, ExportResult, ExportException)} instead.
-     */
-    @Deprecated
-    default void onTransformationError(MediaItem inputMediaItem, Exception exception) {}
-
-    /**
-     * @deprecated Use {@link #onError(Composition, ExportResult, ExportException)} instead.
-     */
-    @SuppressWarnings("deprecation") // Using deprecated type in callback
-    @Deprecated
-    default void onTransformationError(
-        MediaItem inputMediaItem, TransformationException exception) {
-      onTransformationError(inputMediaItem, (Exception) exception);
-    }
-
-    /**
-     * @deprecated Use {@link #onError(Composition, ExportResult, ExportException)} instead.
-     */
-    @SuppressWarnings("deprecation") // Using deprecated type in callback
-    @Deprecated
-    default void onTransformationError(
-        MediaItem inputMediaItem, TransformationResult result, TransformationException exception) {
-      onTransformationError(inputMediaItem, exception);
-    }
+    default void onCompleted(Composition composition, ExportResult exportResult) {}
 
     /**
      * Called if an exception occurs during the export.
@@ -645,25 +600,8 @@ public final class Transformer {
      * @param exportException The {@link ExportException} describing the exception. This is the same
      *     instance as the {@linkplain ExportResult#exportException exception} in {@code result}.
      */
-    @SuppressWarnings("deprecation") // Calling deprecated listener method.
     default void onError(
-        Composition composition, ExportResult exportResult, ExportException exportException) {
-      MediaItem mediaItem = composition.sequences.get(0).editedMediaItems.get(0).mediaItem;
-      onTransformationError(
-          mediaItem,
-          new TransformationResult.Builder(exportResult).build(),
-          new TransformationException(exportException));
-    }
-
-    /**
-     * @deprecated Use {@link #onFallbackApplied(Composition, TransformationRequest,
-     *     TransformationRequest)} instead.
-     */
-    @Deprecated
-    default void onFallbackApplied(
-        MediaItem inputMediaItem,
-        TransformationRequest originalTransformationRequest,
-        TransformationRequest fallbackTransformationRequest) {}
+        Composition composition, ExportResult exportResult, ExportException exportException) {}
 
     /**
      * Called when falling back to an alternative {@link TransformationRequest} or changing the
@@ -677,14 +615,10 @@ public final class Transformer {
      *     TransformationRequest#videoMimeType}, {@link TransformationRequest#outputHeight}, and
      *     {@link TransformationRequest#hdrMode} values set.
      */
-    @SuppressWarnings("deprecation") // Calling deprecated listener method.
     default void onFallbackApplied(
         Composition composition,
         TransformationRequest originalTransformationRequest,
-        TransformationRequest fallbackTransformationRequest) {
-      MediaItem mediaItem = composition.sequences.get(0).editedMediaItems.get(0).mediaItem;
-      onFallbackApplied(mediaItem, originalTransformationRequest, fallbackTransformationRequest);
-    }
+        TransformationRequest fallbackTransformationRequest) {}
   }
 
   /**
