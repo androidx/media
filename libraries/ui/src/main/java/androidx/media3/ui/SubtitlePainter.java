@@ -52,9 +52,12 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   private static final float INNER_PADDING_RATIO = 0.125f;
 
   // Styled dimensions.
-  private final float outlineWidth;
-  private final float shadowRadius;
-  private final float shadowOffset;
+  private float outlineWidth;
+  private float shadowRadius;
+  private float shadowOffset;
+  private final float defaultOutlineWidth;
+  private final float defaultShadowRadius;
+  private final float defaultShadowOffset;
   private final float spacingMult;
   private final float spacingAdd;
 
@@ -105,9 +108,14 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     Resources resources = context.getResources();
     DisplayMetrics displayMetrics = resources.getDisplayMetrics();
     int twoDpInPx = Math.round((2f * displayMetrics.densityDpi) / DisplayMetrics.DENSITY_DEFAULT);
-    outlineWidth = twoDpInPx;
-    shadowRadius = twoDpInPx;
-    shadowOffset = twoDpInPx;
+
+    outlineWidth = Cue.DIMEN_UNSET;
+    shadowRadius = Cue.DIMEN_UNSET;
+    shadowOffset = Cue.DIMEN_UNSET;
+
+    defaultOutlineWidth = twoDpInPx;
+    defaultShadowRadius = twoDpInPx;
+    defaultShadowOffset = twoDpInPx;
 
     textPaint = new TextPaint();
     textPaint.setAntiAlias(true);
@@ -213,6 +221,9 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     this.parentTop = cueBoxTop;
     this.parentRight = cueBoxRight;
     this.parentBottom = cueBoxBottom;
+    this.outlineWidth = cue.outlineWidth;
+    this.shadowRadius = cue.outlineWidth;
+    this.shadowOffset = cue.outlineWidth;
 
     if (isTextCue) {
       Assertions.checkNotNull(cueText);
@@ -425,24 +436,28 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     }
 
     if (edgeType == CaptionStyleCompat.EDGE_TYPE_OUTLINE) {
+      float localWidth = outlineWidth != Cue.DIMEN_UNSET ? outlineWidth : defaultOutlineWidth;
       textPaint.setStrokeJoin(Join.ROUND);
-      textPaint.setStrokeWidth(outlineWidth);
+      textPaint.setStrokeWidth(localWidth);
       textPaint.setColor(edgeColor);
       textPaint.setStyle(Style.FILL_AND_STROKE);
       edgeLayout.draw(canvas);
     } else if (edgeType == CaptionStyleCompat.EDGE_TYPE_DROP_SHADOW) {
-      textPaint.setShadowLayer(shadowRadius, shadowOffset, shadowOffset, edgeColor);
+      float localOffset = shadowOffset != Cue.DIMEN_UNSET ? shadowOffset : defaultShadowOffset;
+      float localRadius = shadowRadius != Cue.DIMEN_UNSET ? shadowRadius : defaultShadowRadius;
+      textPaint.setShadowLayer(localRadius, localOffset, localOffset, edgeColor);
     } else if (edgeType == CaptionStyleCompat.EDGE_TYPE_RAISED
         || edgeType == CaptionStyleCompat.EDGE_TYPE_DEPRESSED) {
       boolean raised = edgeType == CaptionStyleCompat.EDGE_TYPE_RAISED;
       int colorUp = raised ? Color.WHITE : edgeColor;
       int colorDown = raised ? edgeColor : Color.WHITE;
-      float offset = shadowRadius / 2f;
+      float localRadius = shadowRadius != Cue.DIMEN_UNSET ? shadowRadius : defaultShadowRadius;
+      float offset = localRadius / 2f;
       textPaint.setColor(foregroundColor);
       textPaint.setStyle(Style.FILL);
-      textPaint.setShadowLayer(shadowRadius, -offset, -offset, colorUp);
+      textPaint.setShadowLayer(localRadius, -offset, -offset, colorUp);
       edgeLayout.draw(canvas);
-      textPaint.setShadowLayer(shadowRadius, offset, offset, colorDown);
+      textPaint.setShadowLayer(localRadius, offset, offset, colorDown);
     }
 
     textPaint.setColor(foregroundColor);
