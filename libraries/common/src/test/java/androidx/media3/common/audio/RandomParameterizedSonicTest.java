@@ -15,7 +15,6 @@
  */
 package androidx.media3.common.audio;
 
-import static androidx.media3.common.audio.Sonic.calculateAccumulatedTruncationErrorForResampling;
 import static androidx.media3.test.utils.TestUtil.generateFloatInRange;
 import static com.google.common.truth.Truth.assertThat;
 import static java.lang.Math.max;
@@ -164,18 +163,10 @@ public final class RandomParameterizedSonicTest {
     }
     sonic.flush();
 
-    BigDecimal bigLength = new BigDecimal(String.valueOf(streamLength));
-    // The scale of expectedSize will be bigLength.scale() - speed.scale(). Thus, the result should
-    // always yield an integer.
-    BigDecimal expectedSize = bigLength.divide(speed, RoundingMode.HALF_EVEN);
-
-    long accumulatedTruncationError =
-        calculateAccumulatedTruncationErrorForResampling(
-            bigLength, new BigDecimal(SAMPLE_RATE), speed);
-
-    assertThat(readSampleCount)
-        .isWithin(1)
-        .of(expectedSize.longValueExact() - accumulatedTruncationError);
+    long expectedSamples =
+        Sonic.getExpectedFrameCountAfterProcessorApplied(
+            SAMPLE_RATE, SAMPLE_RATE, speed.floatValue(), speed.floatValue(), streamLength);
+    assertThat(readSampleCount).isWithin(1).of(expectedSamples);
   }
 
   @Test
@@ -208,20 +199,18 @@ public final class RandomParameterizedSonicTest {
     }
     sonic.flush();
 
-    BigDecimal bigLength = new BigDecimal(String.valueOf(streamLength));
-    // The scale of expectedSampleCount will be bigLength.scale() - speed.scale(). Thus, the result
-    // should always yield an integer.
-    BigDecimal expectedSampleCount = bigLength.divide(speed, RoundingMode.HALF_EVEN);
+    long expectedSamples =
+        Sonic.getExpectedFrameCountAfterProcessorApplied(
+            SAMPLE_RATE, SAMPLE_RATE, speed.floatValue(), 1, streamLength);
 
     // Calculate allowed tolerance and round to nearest integer.
     BigDecimal allowedTolerance =
         TIME_STRETCHING_SAMPLE_DRIFT_TOLERANCE
-            .multiply(expectedSampleCount)
+            .multiply(BigDecimal.valueOf(expectedSamples))
             .setScale(/* newScale= */ 0, RoundingMode.HALF_EVEN);
 
     // Always allow at least 1 sample of tolerance.
     long tolerance = max(allowedTolerance.longValue(), 1);
-
-    assertThat(readSampleCount).isWithin(tolerance).of(expectedSampleCount.longValueExact());
+    assertThat(readSampleCount).isWithin(tolerance).of(expectedSamples);
   }
 }

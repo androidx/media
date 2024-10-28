@@ -73,6 +73,45 @@ import java.util.Arrays;
   private double accumulatedSpeedAdjustmentError;
 
   /**
+   * Returns the estimated output frame count for a given configuration and input frame count.
+   *
+   * <p>Please note that the returned value might not be mathematically exact, as Sonic incurs in
+   * truncation and precision errors that accumulate on the output.
+   */
+  public static long getExpectedFrameCountAfterProcessorApplied(
+      int inputSampleRateHz,
+      int outputSampleRateHz,
+      float speed,
+      float pitch,
+      long inputFrameCount) {
+    float resamplingRate = (float) inputSampleRateHz / outputSampleRateHz;
+    resamplingRate *= pitch;
+    double speedRate = speed / pitch;
+    BigDecimal bigResamplingRate = new BigDecimal(String.valueOf(resamplingRate));
+
+    BigDecimal length = BigDecimal.valueOf(inputFrameCount);
+    BigDecimal framesAfterTimeStretching;
+    if (speedRate > 1.00001 || speedRate < 0.99999) {
+      framesAfterTimeStretching =
+          length.divide(BigDecimal.valueOf(speedRate), RoundingMode.HALF_EVEN);
+    } else {
+      // If speed is almost 1, then just copy the buffers without modifying them.
+      framesAfterTimeStretching = length;
+    }
+
+    if (resamplingRate == 1.0f) {
+      return framesAfterTimeStretching.longValueExact();
+    }
+
+    BigDecimal framesAfterResampling =
+        framesAfterTimeStretching.divide(bigResamplingRate, RoundingMode.HALF_EVEN);
+
+    return framesAfterResampling.longValueExact()
+        - calculateAccumulatedTruncationErrorForResampling(
+            framesAfterTimeStretching, BigDecimal.valueOf(inputSampleRateHz), bigResamplingRate);
+  }
+
+  /**
    * Returns expected accumulated truncation error for {@link Sonic}'s resampling algorithm, given
    * an input length, input sample rate, and resampling rate.
    *

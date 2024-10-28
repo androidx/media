@@ -15,7 +15,6 @@
  */
 package androidx.media3.common.audio;
 
-import static androidx.media3.common.audio.Sonic.calculateAccumulatedTruncationErrorForResampling;
 import static androidx.media3.test.utils.TestUtil.buildTestData;
 import static androidx.media3.test.utils.TestUtil.generateFloatInRange;
 import static androidx.media3.test.utils.TestUtil.generateLong;
@@ -27,6 +26,7 @@ import androidx.media3.test.utils.TestSpeedProvider;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Range;
 import com.google.common.primitives.Floats;
+import com.google.common.primitives.Ints;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.ByteBuffer;
@@ -102,30 +102,26 @@ public class RandomParameterizedSpeedChangingAudioProcessorTest {
         ByteBuffer.wrap(
             buildTestData(/* length= */ BUFFER_SIZE * AUDIO_FORMAT.bytesPerFrame, random));
     ByteBuffer outBuffer;
-    BigDecimal expectedTotalOutputFrameCount = BigDecimal.ZERO;
     long outputFrameCount = 0;
     long totalInputFrameCount = 0;
-    long expectedResamplingError = 0;
+    long expectedOutputFrames = 0;
 
     for (int i = 0; i < frameCounts.size(); i++) {
       totalInputFrameCount += frameCounts.get(i);
-      BigDecimal frameCount = BigDecimal.valueOf(frameCounts.get(i));
-      BigDecimal speed = speeds.get(i);
-      BigDecimal expectedOutputFrameCountForSection =
-          frameCount.divide(speed, RoundingMode.HALF_EVEN);
-      expectedTotalOutputFrameCount =
-          expectedTotalOutputFrameCount.add(expectedOutputFrameCountForSection);
-      // SpeedChangingAudioProcessor currently uses resampling on Sonic, instead of time-stretching.
-      // See b/359649531.
-      expectedResamplingError +=
-          calculateAccumulatedTruncationErrorForResampling(
-              frameCount, BigDecimal.valueOf(AUDIO_FORMAT.sampleRate), speed);
+      float speed = speeds.get(i).floatValue();
+      expectedOutputFrames +=
+          Sonic.getExpectedFrameCountAfterProcessorApplied(
+              /* inputSampleRateHz= */ AUDIO_FORMAT.sampleRate,
+              /* outputSampleRateHz= */ AUDIO_FORMAT.sampleRate,
+              /* speed= */ speed,
+              /* pitch= */ speed,
+              /* inputFrameCount= */ frameCounts.get(i));
     }
 
     SpeedProvider speedProvider =
         TestSpeedProvider.createWithFrameCounts(
             AUDIO_FORMAT,
-            /* frameCounts= */ frameCounts.stream().mapToInt(Math::toIntExact).toArray(),
+            /* frameCounts= */ Ints.toArray(frameCounts),
             /* speeds= */ Floats.toArray(speeds));
 
     SpeedChangingAudioProcessor speedChangingAudioProcessor =
@@ -152,8 +148,6 @@ public class RandomParameterizedSpeedChangingAudioProcessorTest {
     outputFrameCount += outBuffer.remaining() / AUDIO_FORMAT.bytesPerFrame;
 
     // We allow 1 frame of tolerance per speed change.
-    assertThat(outputFrameCount)
-        .isWithin(frameCounts.size())
-        .of(expectedTotalOutputFrameCount.longValueExact() - expectedResamplingError);
+    assertThat(outputFrameCount).isWithin(frameCounts.size()).of(expectedOutputFrames);
   }
 }

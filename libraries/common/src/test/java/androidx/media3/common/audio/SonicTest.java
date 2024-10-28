@@ -16,6 +16,7 @@
 package androidx.media3.common.audio;
 
 import static androidx.media3.common.audio.Sonic.calculateAccumulatedTruncationErrorForResampling;
+import static androidx.media3.common.audio.Sonic.getExpectedFrameCountAfterProcessorApplied;
 import static com.google.common.truth.Truth.assertThat;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -108,6 +109,141 @@ public class SonicTest {
     sonic.getOutput(outputBuffer);
 
     assertThat(outputBuffer.array()).isEqualTo(new short[] {0, 4, 8});
+  }
+
+  @Test
+  public void
+      getExpectedFrameCountAfterProcessorApplied_timeStretchingFaster_returnsExpectedSampleCount() {
+    long samples =
+        getExpectedFrameCountAfterProcessorApplied(
+            /* inputSampleRateHz= */ 44100,
+            /* outputSampleRateHz= */ 44100,
+            /* speed= */ 2,
+            /* pitch= */ 1,
+            /* inputFrameCount= */ 88200);
+    assertThat(samples).isEqualTo(44100);
+  }
+
+  @Test
+  public void
+      getExpectedFrameCountAfterProcessorApplied_timeStretchingSlower_returnsExpectedSampleCount() {
+    long samples =
+        getExpectedFrameCountAfterProcessorApplied(
+            /* inputSampleRateHz= */ 44100,
+            /* outputSampleRateHz= */ 44100,
+            /* speed= */ 0.5f,
+            /* pitch= */ 1,
+            /* inputFrameCount= */ 88200);
+    assertThat(samples).isEqualTo(176400);
+  }
+
+  @Test
+  public void
+      getExpectedFrameCountAfterProcessorApplied_resamplingHigherSampleRate_returnsExpectedSampleCount() {
+    long samples =
+        getExpectedFrameCountAfterProcessorApplied(
+            /* inputSampleRateHz= */ 44100,
+            /* outputSampleRateHz= */ 88200,
+            /* speed= */ 1f,
+            /* pitch= */ 1,
+            /* inputFrameCount= */ 88200);
+    assertThat(samples).isEqualTo(176400);
+  }
+
+  @Test
+  public void
+      getExpectedFrameCountAfterProcessorApplied_resamplingLowerSampleRate_returnsExpectedSampleCount() {
+    long samples =
+        getExpectedFrameCountAfterProcessorApplied(
+            /* inputSampleRateHz= */ 44100,
+            /* outputSampleRateHz= */ 22050,
+            /* speed= */ 1f,
+            /* pitch= */ 1,
+            /* inputFrameCount= */ 88200);
+    assertThat(samples).isEqualTo(44100);
+  }
+
+  @Test
+  public void
+      getExpectedFrameCountAfterProcessorApplied_resamplingLowerPitch_returnsExpectedSampleCount() {
+    long samples =
+        getExpectedFrameCountAfterProcessorApplied(
+            /* inputSampleRateHz= */ 44100,
+            /* outputSampleRateHz= */ 44100,
+            /* speed= */ 0.5f,
+            /* pitch= */ 0.5f,
+            /* inputFrameCount= */ 88200);
+    assertThat(samples).isEqualTo(176400);
+  }
+
+  @Test
+  public void
+      getExpectedFrameCountAfterProcessorApplied_resamplingHigherPitch_returnsExpectedSampleCount() {
+    long samples =
+        getExpectedFrameCountAfterProcessorApplied(
+            /* inputSampleRateHz= */ 44100,
+            /* outputSampleRateHz= */ 44100,
+            /* speed= */ 2f,
+            /* pitch= */ 2f,
+            /* inputFrameCount= */ 88200);
+    assertThat(samples).isEqualTo(44100);
+  }
+
+  @Test
+  public void
+      getExpectedFrameCountAfterProcessorApplied_resamplePitchAndSampleRateChange_returnsExpectedSampleCount() {
+    long samples =
+        getExpectedFrameCountAfterProcessorApplied(
+            /* inputSampleRateHz= */ 44100,
+            /* outputSampleRateHz= */ 88200,
+            /* speed= */ 1f,
+            /* pitch= */ 2f,
+            /* inputFrameCount= */ 88200);
+    // First time stretch at speed / pitch = 0.5.
+    // Then resample at (inputSampleRateHz / outputSampleRateHz) * pitch = 0.5 * 2.
+    // Final sample count is 88200 / 0.5 / (0.5 * 2) = 176400.
+    assertThat(samples).isEqualTo(176400);
+  }
+
+  @Test
+  public void
+      getExpectedFrameCountAfterProcessorApplied_pitchSpeedAndSampleRateChange_returnsExpectedSampleCount() {
+    long samples =
+        getExpectedFrameCountAfterProcessorApplied(
+            /* inputSampleRateHz= */ 48000,
+            /* outputSampleRateHz= */ 192000,
+            /* speed= */ 5f,
+            /* pitch= */ 0.5f,
+            /* inputFrameCount= */ 88200);
+    // First time stretch at speed / pitch = 10.
+    // Then resample at (inputSampleRateHz / outputSampleRateHz) * pitch = 0.25 * 0.5.
+    // Final sample count is 88200 / 10 / (0.25 * 0.5) = 176400.
+    assertThat(samples).isEqualTo(70560);
+  }
+
+  @Test
+  public void
+      getExpectedFrameCountAfterProcessorApplied_withPeriodicResamplingRate_adjustsForTruncationError() {
+    long length = 26902000;
+    float resamplingRate = 0.33f;
+    long samples =
+        getExpectedFrameCountAfterProcessorApplied(
+            /* inputSampleRateHz= */ 48000,
+            /* outputSampleRateHz= */ 48000,
+            /* speed= */ resamplingRate,
+            /* pitch= */ resamplingRate,
+            /* inputFrameCount= */ length);
+
+    long truncationError =
+        calculateAccumulatedTruncationErrorForResampling(
+            BigDecimal.valueOf(length),
+            BigDecimal.valueOf(48000),
+            new BigDecimal(String.valueOf(resamplingRate)));
+    // Sonic incurs on accumulated truncation errors when the input sample rate is not exactly
+    // divisible by the resampling rate (pitch * inputSampleRateHz / outputSampleRateHz). This error
+    // is more prominent on larger stream lengths and inputSampleRateHz + resamplingRate
+    // combinations that result in higher truncated decimal values.
+    assertThat(samples).isEqualTo(81521212 - truncationError);
   }
 
   @Test
