@@ -53,29 +53,29 @@ tmp
 # External native builds
 .externalNativeBuild
 
-# VP9 extension
-extensions/vp9/src/main/jni/libvpx
-extensions/vp9/src/main/jni/libvpx_android_configs
-extensions/vp9/src/main/jni/libyuv
+# VP9 decoder extension
+libraries/decoder_vp9/src/main/jni/libvpx
+libraries/decoder_vp9/src/main/jni/libvpx_android_configs
+libraries/decoder_vp9/src/main/jni/libyuv
 
-# AV1 extension
-extensions/av1/src/main/jni/cpu_features
-extensions/av1/src/main/jni/libgav1
+# AV1 decoder extension
+libraries/decoder_av1/src/main/jni/cpu_features
+libraries/decoder_av1/src/main/jni/libgav1
 
-# Opus extension
-extensions/opus/src/main/jni/libopus
+# Opus decoder extension
+libraries/decoder_opus/src/main/jni/libopus
 
-# FLAC extension
-extensions/flac/src/main/jni/flac
+# FLAC decoder extension
+libraries/decoder_flac/src/main/jni/flac
 
-# FFmpeg extension
-extensions/ffmpeg/src/main/jni/ffmpeg
+# FFmpeg decoder extension
+libraries/decoder_ffmpeg/src/main/jni/ffmpeg
 
-# Cronet extension
-extensions/cronet/jniLibs/*
-!extensions/cronet/jniLibs/README.md
-extensions/cronet/libs/*
-!extensions/cronet/libs/README.md
+# Cronet datasource extension
+libraries/datasource_cronet/jniLibs/*
+!libraries/datasource_cronet/jniLibs/README.md
+libraries/datasource_cronet/libs/*
+!libraries/datasource_cronet/libs/README.md
 
-# MIDI extension
-extensions/midi/lib
+# MIDI decoder extension
+libraries/decoder_midi/lib
