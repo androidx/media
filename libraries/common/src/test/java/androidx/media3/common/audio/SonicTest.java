@@ -15,9 +15,11 @@
  */
 package androidx.media3.common.audio;
 
+import static androidx.media3.common.audio.Sonic.calculateAccumulatedTruncationErrorForResampling;
 import static com.google.common.truth.Truth.assertThat;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import java.math.BigDecimal;
 import java.nio.ShortBuffer;
 import org.junit.Rule;
 import org.junit.Test;
@@ -106,5 +108,20 @@ public class SonicTest {
     sonic.getOutput(outputBuffer);
 
     assertThat(outputBuffer.array()).isEqualTo(new short[] {0, 4, 8});
+  }
+
+  @Test
+  public void calculateAccumulatedTruncationErrorForResampling_returnsExpectedSampleCount() {
+    long error =
+        calculateAccumulatedTruncationErrorForResampling(
+            /* length= */ BigDecimal.valueOf(26902000),
+            /* sampleRate= */ BigDecimal.valueOf(48000),
+            /* resamplingRate= */ new BigDecimal(String.valueOf(0.33f)));
+
+    // Individual error = fractional part of (sampleRate / resamplingRate) = 0.54 (periodic)
+    // Error count = length / sampleRate = 560.4583.
+    // Accumulated error = error count * individual error = 560.4583 * 0.54 = 305.
+    // (All calculations are done on BigDecimal rounded to 20 decimal places, unless indicated).
+    assertThat(error).isEqualTo(305);
   }
 }

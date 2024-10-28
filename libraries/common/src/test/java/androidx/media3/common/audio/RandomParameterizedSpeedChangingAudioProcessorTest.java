@@ -15,7 +15,7 @@
  */
 package androidx.media3.common.audio;
 
-import static androidx.media3.common.audio.SonicTestingUtils.calculateAccumulatedTruncationErrorForResampling;
+import static androidx.media3.common.audio.Sonic.calculateAccumulatedTruncationErrorForResampling;
 import static androidx.media3.test.utils.TestUtil.buildTestData;
 import static androidx.media3.test.utils.TestUtil.generateFloatInRange;
 import static androidx.media3.test.utils.TestUtil.generateLong;

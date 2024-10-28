@@ -19,6 +19,8 @@ package androidx.media3.common.audio;
 import static androidx.media3.common.util.Assertions.checkState;
 import static java.lang.Math.min;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.nio.ShortBuffer;
 import java.util.Arrays;
 
@@ -69,6 +71,38 @@ import java.util.Arrays;
   private int minDiff;
   private int maxDiff;
   private double accumulatedSpeedAdjustmentError;
+
+  /**
+   * Returns expected accumulated truncation error for {@link Sonic}'s resampling algorithm, given
+   * an input length, input sample rate, and resampling rate.
+   *
+   * <p><b>Note:</b> This method is only necessary until we address b/361768785 and fix the
+   * underlying truncation issue.
+   *
+   * @param length Length of input in frames.
+   * @param sampleRate Input sample rate of {@link Sonic} instance.
+   * @param resamplingRate Resampling rate given by {@code pitch * (inputSampleRate /
+   *     outputSampleRate)}.
+   */
+  /* package */ static long calculateAccumulatedTruncationErrorForResampling(
+      BigDecimal length, BigDecimal sampleRate, BigDecimal resamplingRate) {
+    // Calculate number of times that Sonic accumulates truncation error. Set scale to 20 decimal
+    // places, so that division doesn't return an integer.
+    BigDecimal errorCount = length.divide(sampleRate, /* scale= */ 20, RoundingMode.HALF_EVEN);
+
+    // Calculate what truncation error Sonic is accumulating, calculated as:
+    // inputSampleRate / resamplingRate - (int) inputSampleRate / resamplingRate. Set scale to 20
+    // decimal places, so that division doesn't return an integer.
+    BigDecimal individualError =
+        sampleRate.divide(resamplingRate, /* scale */ 20, RoundingMode.HALF_EVEN);
+    individualError =
+        individualError.subtract(individualError.setScale(/* newScale= */ 0, RoundingMode.FLOOR));
+    // Calculate total accumulated error = (int) floor(errorCount * individualError).
+    BigDecimal accumulatedError =
+        errorCount.multiply(individualError).setScale(/* newScale= */ 0, RoundingMode.FLOOR);
+
+    return accumulatedError.longValueExact();
+  }
 
   /**
    * Creates a new Sonic audio stream processor.
