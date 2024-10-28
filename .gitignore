@@ -79,3 +79,9 @@ libraries/datasource_cronet/libs/*
 
 # MIDI decoder extension
 libraries/decoder_midi/lib
+
+# IAMF decoder extension
+libraries/decoder_iamf/src/main/jni/libiamf
+
+# MPEG-H decoder extension
+libraries/decoder_mpegh/src/main/jni/libmpegh
