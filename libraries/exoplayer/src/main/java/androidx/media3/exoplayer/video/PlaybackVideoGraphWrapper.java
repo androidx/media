@@ -468,10 +468,11 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     defaultVideoSink.setPlaybackSpeed(speed);
   }
 
-  private void onStreamOffsetChange(
-      long bufferTimestampAdjustmentUs, long bufferPresentationTimeUs, long streamOffsetUs) {
+  private void onStreamTimestampInfoChange(
+      long bufferTimestampAdjustmentUs, long bufferPresentationTimeUs, long streamStartPositionUs) {
     this.bufferTimestampAdjustmentUs = bufferTimestampAdjustmentUs;
-    videoFrameRenderControl.onStreamOffsetChange(bufferPresentationTimeUs, streamOffsetUs);
+    videoFrameRenderControl.onStreamStartPositionChange(
+        bufferPresentationTimeUs, streamStartPositionUs);
   }
 
   private static ColorInfo getAdjustedInputColorInfo(@Nullable ColorInfo inputColorInfo) {
@@ -493,10 +494,9 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     @Nullable private Format inputFormat;
     private @InputType int inputType;
     private long inputStreamStartPositionUs;
-    private long inputStreamOffsetUs;
     private long inputBufferTimestampAdjustmentUs;
     private long lastResetPositionUs;
-    private boolean pendingInputStreamOffsetChange;
+    private boolean pendingInputStreamTimestampInfoChange;
 
     /** The buffer presentation time, in microseconds, of the final frame in the stream. */
     private long finalBufferPresentationTimeUs;
@@ -575,8 +575,8 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
       lastBufferPresentationTimeUs = C.TIME_UNSET;
       PlaybackVideoGraphWrapper.this.flush(resetPosition);
       pendingInputStreamBufferPresentationTimeUs = C.TIME_UNSET;
-      // Don't change input stream offset or reset the pending input stream offset change so that
-      // it's announced with the next input frame.
+      // Don't change input stream start position or reset the pending input stream timestamp info
+      // change so that it's announced with the next input frame.
       // Don't reset isInputStreamChangePending because it's not guaranteed to receive a new input
       // stream after seeking.
     }
@@ -658,16 +658,12 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
 
     @Override
     public void setStreamTimestampInfo(
-        long streamStartPositionUs,
-        long streamOffsetUs,
-        long bufferTimestampAdjustmentUs,
-        long lastResetPositionUs) {
-      // Ors because this method could be called multiple times on a stream offset change.
-      pendingInputStreamOffsetChange |=
-          inputStreamOffsetUs != streamOffsetUs
+        long streamStartPositionUs, long bufferTimestampAdjustmentUs, long lastResetPositionUs) {
+      // Ors because this method could be called multiple times on a timestamp info change.
+      pendingInputStreamTimestampInfoChange |=
+          inputStreamStartPositionUs != streamStartPositionUs
               || inputBufferTimestampAdjustmentUs != bufferTimestampAdjustmentUs;
       inputStreamStartPositionUs = streamStartPositionUs;
-      inputStreamOffsetUs = streamOffsetUs;
       inputBufferTimestampAdjustmentUs = bufferTimestampAdjustmentUs;
       this.lastResetPositionUs = lastResetPositionUs;
     }
@@ -765,7 +761,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
         return false;
       }
 
-      maybeSetStreamOffsetChange(bufferPresentationTimeUs);
+      maybeSetStreamTimestampInfo(bufferPresentationTimeUs);
       lastBufferPresentationTimeUs = bufferPresentationTimeUs;
       if (isLastFrame) {
         finalBufferPresentationTimeUs = bufferPresentationTimeUs;
@@ -798,7 +794,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
       long lastBufferPresentationTimeUs =
           copyTimestampIterator.getLastTimestampUs() - inputBufferTimestampAdjustmentUs;
       checkState(lastBufferPresentationTimeUs != C.TIME_UNSET);
-      maybeSetStreamOffsetChange(bufferPresentationTimeUs);
+      maybeSetStreamTimestampInfo(bufferPresentationTimeUs);
       this.lastBufferPresentationTimeUs = lastBufferPresentationTimeUs;
       finalBufferPresentationTimeUs = lastBufferPresentationTimeUs;
       return true;
@@ -821,13 +817,11 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
 
     // Other methods
 
-    private void maybeSetStreamOffsetChange(long bufferPresentationTimeUs) {
-      if (pendingInputStreamOffsetChange) {
-        PlaybackVideoGraphWrapper.this.onStreamOffsetChange(
-            inputBufferTimestampAdjustmentUs,
-            bufferPresentationTimeUs,
-            /* streamOffsetUs= */ inputStreamOffsetUs);
-        pendingInputStreamOffsetChange = false;
+    private void maybeSetStreamTimestampInfo(long bufferPresentationTimeUs) {
+      if (pendingInputStreamTimestampInfoChange) {
+        PlaybackVideoGraphWrapper.this.onStreamTimestampInfoChange(
+            inputBufferTimestampAdjustmentUs, bufferPresentationTimeUs, inputStreamStartPositionUs);
+        pendingInputStreamTimestampInfoChange = false;
       }
     }
 

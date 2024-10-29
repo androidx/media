@@ -806,7 +806,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       videoSink.flush(/* resetPosition= */ true);
       videoSink.setStreamTimestampInfo(
           getOutputStreamStartPositionUs(),
-          getOutputStreamOffsetUs(),
           getBufferTimestampAdjustmentUs(),
           getLastResetPositionUs());
       pendingVideoSinkInputStreamChange = true;
@@ -1608,7 +1607,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     if (videoSink != null) {
       videoSink.setStreamTimestampInfo(
           getOutputStreamStartPositionUs(),
-          getOutputStreamOffsetUs(),
           getBufferTimestampAdjustmentUs(),
           getLastResetPositionUs());
     } else {

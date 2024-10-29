@@ -207,17 +207,12 @@ public interface VideoSink {
    *
    * @param streamStartPositionUs The start position of the buffer presentation timestamps of the
    *     current stream, in microseconds.
-   * @param streamOffsetUs The offset that is added to the buffer presentation timestamps by the
-   *     player, in microseconds.
    * @param bufferTimestampAdjustmentUs The timestamp adjustment to add to the buffer presentation
    *     timestamps to convert them to frame presentation timestamps, in microseconds.
    * @param lastResetPositionUs The renderer last reset position, in microseconds.
    */
   void setStreamTimestampInfo(
-      long streamStartPositionUs,
-      long streamOffsetUs,
-      long bufferTimestampAdjustmentUs,
-      long lastResetPositionUs);
+      long streamStartPositionUs, long bufferTimestampAdjustmentUs, long lastResetPositionUs);
 
   /** Sets the output surface info. */
   void setOutputSurfaceInfo(Surface outputSurface, Size outputResolution);

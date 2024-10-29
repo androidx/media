@@ -65,7 +65,7 @@ import androidx.media3.exoplayer.ExoPlaybackException;
   private final VideoFrameReleaseControl videoFrameReleaseControl;
   private final VideoFrameReleaseControl.FrameReleaseInfo videoFrameReleaseInfo;
   private final TimedValueQueue<VideoSize> videoSizeChanges;
-  private final TimedValueQueue<Long> streamOffsets;
+  private final TimedValueQueue<Long> streamStartPositionsUs;
   private final LongArrayQueue presentationTimestampsUs;
 
   /**
@@ -76,7 +76,7 @@ import androidx.media3.exoplayer.ExoPlaybackException;
   @Nullable private VideoSize pendingOutputVideoSize;
 
   private VideoSize reportedVideoSize;
-  private long outputStreamOffsetUs;
+  private long outputStreamStartPositionUs;
   private long lastPresentationTimeUs;
 
   /** Creates an instance. */
@@ -86,7 +86,7 @@ import androidx.media3.exoplayer.ExoPlaybackException;
     this.videoFrameReleaseControl = videoFrameReleaseControl;
     videoFrameReleaseInfo = new VideoFrameReleaseControl.FrameReleaseInfo();
     videoSizeChanges = new TimedValueQueue<>();
-    streamOffsets = new TimedValueQueue<>();
+    streamStartPositionsUs = new TimedValueQueue<>();
     presentationTimestampsUs = new LongArrayQueue();
     reportedVideoSize = VideoSize.UNKNOWN;
     lastPresentationTimeUs = C.TIME_UNSET;
@@ -96,13 +96,13 @@ import androidx.media3.exoplayer.ExoPlaybackException;
   public void flush() {
     presentationTimestampsUs.clear();
     lastPresentationTimeUs = C.TIME_UNSET;
-    if (streamOffsets.size() > 0) {
-      // There is a pending streaming offset change. If seeking within the same stream, keep the
-      // pending offset with timestamp zero ensures the offset is applied on the frames after
-      // flushing. Otherwise if seeking to another stream, a new offset will be set before a new
-      // frame arrives so we'll be able to apply the new offset.
-      long lastStreamOffset = getLastAndClear(streamOffsets);
-      streamOffsets.add(/* timestamp= */ 0, lastStreamOffset);
+    if (streamStartPositionsUs.size() > 0) {
+      // There is a pending streaming start position change. If seeking within the same stream, keep
+      // the pending start position with timestamp zero ensures the start position is applied on the
+      // frames after flushing. Otherwise if seeking to another stream, a new start position will be
+      // set before a new frame arrives so we'll be able to apply the new start position.
+      long lastStartPositionUs = getLastAndClear(streamStartPositionsUs);
+      streamStartPositionsUs.add(/* timestamp= */ 0, lastStartPositionUs);
     }
     if (pendingOutputVideoSize == null) {
       if (videoSizeChanges.size() > 0) {
@@ -139,8 +139,8 @@ import androidx.media3.exoplayer.ExoPlaybackException;
   public void render(long positionUs, long elapsedRealtimeUs) throws ExoPlaybackException {
     while (!presentationTimestampsUs.isEmpty()) {
       long presentationTimeUs = presentationTimestampsUs.element();
-      // Check whether this buffer comes with a new stream offset.
-      if (maybeUpdateOutputStreamOffset(presentationTimeUs)) {
+      // Check whether this buffer comes with a new stream start position.
+      if (maybeUpdateOutputStreamStartPosition(presentationTimeUs)) {
         videoFrameReleaseControl.onProcessedStreamChange();
       }
       @VideoFrameReleaseControl.FrameReleaseAction
@@ -149,7 +149,7 @@ import androidx.media3.exoplayer.ExoPlaybackException;
               presentationTimeUs,
               positionUs,
               elapsedRealtimeUs,
-              outputStreamOffsetUs,
+              outputStreamStartPositionUs,
               /* isLastFrame= */ false,
               videoFrameReleaseInfo);
       switch (frameReleaseAction) {
@@ -195,8 +195,8 @@ import androidx.media3.exoplayer.ExoPlaybackException;
     // TODO b/257464707 - Support extensively modified media.
   }
 
-  public void onStreamOffsetChange(long presentationTimeUs, long streamOffsetUs) {
-    streamOffsets.add(presentationTimeUs, streamOffsetUs);
+  public void onStreamStartPositionChange(long presentationTimeUs, long streamStartPositionUs) {
+    streamStartPositionsUs.add(presentationTimeUs, streamStartPositionUs);
   }
 
   private void dropFrame() {
@@ -219,10 +219,12 @@ import androidx.media3.exoplayer.ExoPlaybackException;
         renderTimeNs, presentationTimeUs, videoFrameReleaseControl.onFrameReleasedIsFirstFrame());
   }
 
-  private boolean maybeUpdateOutputStreamOffset(long presentationTimeUs) {
-    @Nullable Long newOutputStreamOffsetUs = streamOffsets.pollFloor(presentationTimeUs);
-    if (newOutputStreamOffsetUs != null && newOutputStreamOffsetUs != outputStreamOffsetUs) {
-      outputStreamOffsetUs = newOutputStreamOffsetUs;
+  private boolean maybeUpdateOutputStreamStartPosition(long presentationTimeUs) {
+    @Nullable
+    Long newOutputStreamStartPositionUs = streamStartPositionsUs.pollFloor(presentationTimeUs);
+    if (newOutputStreamStartPositionUs != null
+        && newOutputStreamStartPositionUs != outputStreamStartPositionUs) {
+      outputStreamStartPositionUs = newOutputStreamStartPositionUs;
       return true;
     }
     return false;

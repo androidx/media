@@ -124,10 +124,7 @@ import java.util.concurrent.Executor;
 
   @Override
   public void setStreamTimestampInfo(
-      long streamStartPositionUs,
-      long streamOffsetUs,
-      long bufferTimestampAdjustmentUs,
-      long lastResetPositionUs) {
+      long streamStartPositionUs, long bufferTimestampAdjustmentUs, long lastResetPositionUs) {
     throw new UnsupportedOperationException();
   }
 
