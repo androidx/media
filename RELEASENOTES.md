@@ -13,6 +13,10 @@
         `DefaultTrackSelector.selectVideoTrack()` method.
     *   Add `retryCount` parameter to `MediaSourceEventListener.onLoadStarted`
         and corresponding `MediaSourceEventListener.EventDispatcher` methods.
+    *   Fix bug where playlist items or periods in multi-period DASH streams
+        with durations that don't match the actual content could cause frame
+        freezes at the end of the item
+        ([#1698](https://github.com/androidx/media/issues/1698)).
 *   Transformer:
     *   Update parameters of `VideoFrameProcessor.registerInputStream` and
         `VideoFrameProcessor.Listener.onInputStreamRegistered` to use `Format`.
