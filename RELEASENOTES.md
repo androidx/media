@@ -105,6 +105,8 @@
             TransformationRequest, TransformationRequest)` instead.
     *   Remove deprecated `TransformationResult` class. Use `ExportResult`
         instead.
+    *   Remove deprecated `TransformationException` class. Use `ExportException`
+        instead.
 
 ## 1.5
 
