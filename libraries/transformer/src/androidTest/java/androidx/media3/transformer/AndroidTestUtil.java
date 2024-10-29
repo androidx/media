@@ -1221,22 +1221,41 @@ public final class AndroidTestUtil {
    * Assumes that the device supports decoding the input format, and encoding/muxing the output
    * format if needed.
    *
+   * <p>This is equivalent to calling {@link #assumeFormatsSupported(Context, String, Format,
+   * Format, boolean)} with {@code isPortraitEncodingEnabled} set to {@code false}.
+   */
+  public static void assumeFormatsSupported(
+      Context context, String testId, @Nullable Format inputFormat, @Nullable Format outputFormat)
+      throws IOException, JSONException, MediaCodecUtil.DecoderQueryException {
+    assumeFormatsSupported(
+        context, testId, inputFormat, outputFormat, /* isPortraitEncodingEnabled= */ false);
+  }
+
+  /**
+   * Assumes that the device supports decoding the input format, and encoding/muxing the output
+   * format if needed.
+   *
    * @param context The {@link Context context}.
    * @param testId The test ID.
    * @param inputFormat The {@link Format format} to decode, or the input is not produced by
    *     MediaCodec, like an image.
    * @param outputFormat The {@link Format format} to encode/mux or {@code null} if the output won't
    *     be encoded or muxed.
+   * @param isPortraitEncodingEnabled Whether portrait encoding is enabled.
    * @throws AssumptionViolatedException If the device does not support the formats. In this case,
    *     the reason for skipping the test is logged.
    */
   public static void assumeFormatsSupported(
-      Context context, String testId, @Nullable Format inputFormat, @Nullable Format outputFormat)
+      Context context,
+      String testId,
+      @Nullable Format inputFormat,
+      @Nullable Format outputFormat,
+      boolean isPortraitEncodingEnabled)
       throws IOException, JSONException, MediaCodecUtil.DecoderQueryException {
     // TODO(b/278657595): Make this capability check match the default codec factory selection code.
     boolean canDecode = inputFormat == null || canDecode(inputFormat);
 
-    boolean canEncode = outputFormat == null || canEncode(outputFormat);
+    boolean canEncode = outputFormat == null || canEncode(outputFormat, isPortraitEncodingEnabled);
     boolean canMux = outputFormat == null || canMux(outputFormat);
     if (canDecode && canEncode && canMux) {
       return;
@@ -1314,7 +1333,7 @@ public final class AndroidTestUtil {
             || Ascii.equalsIgnoreCase(Util.MODEL, "SM-F926U1"));
   }
 
-  private static boolean canEncode(Format format) {
+  private static boolean canEncode(Format format, boolean isPortraitEncodingEnabled) {
     String mimeType = checkNotNull(format.sampleMimeType);
     ImmutableList<android.media.MediaCodecInfo> supportedEncoders =
         EncoderUtil.getSupportedEncoders(mimeType);
@@ -1323,11 +1342,11 @@ public final class AndroidTestUtil {
     }
 
     android.media.MediaCodecInfo encoder = supportedEncoders.get(0);
-    // VideoSampleExporter rotates videos into landscape before encoding.
-    // Check if the encoder supports the video dimensions after rotating to landscape.
+    // VideoSampleExporter rotates videos into landscape before encoding if portrait encoding is not
+    // enabled.
     int width = format.width;
     int height = format.height;
-    if (width < height) {
+    if (!isPortraitEncodingEnabled && width < height) {
       width = format.height;
       height = format.width;
     }

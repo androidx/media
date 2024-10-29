@@ -499,7 +499,12 @@ public class TransformerEndToEndTest {
   public void videoEditing_withPortraitEncodingEnabled_doesNotRotateVideoBeforeEncoding()
       throws Exception {
     Format inputFormat = checkNotNull(MP4_PORTRAIT_ASSET.videoFormat);
-    assumeFormatsSupported(context, testId, inputFormat, /* outputFormat= */ inputFormat);
+    assumeFormatsSupported(
+        context,
+        testId,
+        inputFormat,
+        /* outputFormat= */ inputFormat,
+        /* isPortraitEncodingEnabled= */ true);
     Transformer transformer =
         new Transformer.Builder(context)
             .setEncoderFactory(new AndroidTestUtil.ForceEncodeEncoderFactory(context))
