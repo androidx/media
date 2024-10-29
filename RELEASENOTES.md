@@ -107,6 +107,13 @@
         instead.
     *   Remove deprecated `TransformationException` class. Use `ExportException`
         instead.
+    *   Remove deprecated `Transformer.PROGRESS_STATE_NO_TRANSFORMATION`. Use
+        `Transformer.PROGRESS_STATE_NOT_STARTED` instead.
+    *   Remove deprecated `Transformer.setListener()`. Use
+        `Transformer.addListener()`, `Transformer.removeListener()` or
+        `Transformer.removeAllListeners()` instead.
+    *   Remove deprecated `Transformer.startTransformation()`. Use
+        `Transformer.start(MediaItem, String)` instead.
 
 ## 1.5
 

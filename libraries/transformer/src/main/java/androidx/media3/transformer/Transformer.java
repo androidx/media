@@ -64,7 +64,6 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import com.google.errorprone.annotations.InlineMe;
 import java.io.File;
 import java.io.IOException;
 import java.lang.annotation.Documented;
@@ -640,11 +639,6 @@ public final class Transformer {
   /** Indicates that the corresponding operation hasn't been started. */
   public static final int PROGRESS_STATE_NOT_STARTED = 0;
 
-  /**
-   * @deprecated Use {@link #PROGRESS_STATE_NOT_STARTED} instead.
-   */
-  @Deprecated public static final int PROGRESS_STATE_NO_TRANSFORMATION = PROGRESS_STATE_NOT_STARTED;
-
   /** Indicates that the progress is currently unavailable, but might become available. */
   public static final int PROGRESS_STATE_WAITING_FOR_AVAILABILITY = 1;
 
@@ -821,17 +815,6 @@ public final class Transformer {
   /** Returns a {@link Transformer.Builder} initialized with the values of this instance. */
   public Builder buildUpon() {
     return new Builder(this);
-  }
-
-  /**
-   * @deprecated Use {@link #addListener(Listener)}, {@link #removeListener(Listener)} or {@link
-   *     #removeAllListeners()} instead.
-   */
-  @Deprecated
-  public void setListener(Transformer.Listener listener) {
-    verifyApplicationThread();
-    this.listeners.clear();
-    this.listeners.add(listener);
   }
 
   /**
@@ -1024,15 +1007,6 @@ public final class Transformer {
             .setEffects(new Effects(audioProcessors, videoEffects))
             .build();
     start(editedMediaItem, path);
-  }
-
-  /**
-   * @deprecated Use {@link #start(MediaItem, String)} instead.
-   */
-  @Deprecated
-  @InlineMe(replacement = "this.start(mediaItem, path)")
-  public void startTransformation(MediaItem mediaItem, String path) {
-    start(mediaItem, path);
   }
 
   /**
