@@ -90,6 +90,9 @@ public final class DecodeOneFrameUtil {
 
           @Override
           public void onRenderedFirstFrame(EventTime eventTime, Object output, long renderTimeMs) {
+            if (exoPlayer.isReleased()) {
+              return;
+            }
             listener.onFrameDecoded(
                 createMediaFormatFromFormat(checkNotNull(exoPlayer.getVideoFormat())));
             firstFrameRenderedOrError.open();
@@ -97,6 +100,9 @@ public final class DecodeOneFrameUtil {
 
           @Override
           public void onEvents(Player player, Events events) {
+            if (exoPlayer.isReleased()) {
+              return;
+            }
             if (events.contains(EVENT_PLAYER_ERROR)) {
               playbackExceptionReference.set(checkNotNull(player.getPlayerError()));
               firstFrameRenderedOrError.open();
