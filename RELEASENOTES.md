@@ -316,6 +316,8 @@ This release includes the following changes since the
 *   Remove deprecated symbols:
     *   Remove deprecated `DefaultEncoderFactory` constructors. Use
         `DefaultEncoderFactory.Builder` instead.
+    *   Remove deprecated `SingleFrameGlShaderProgram`. Use
+        `BaseGlShaderProgram` instead.
 
 ### 1.5.0-alpha01 (2024-09-06)
 
