@@ -18,7 +18,6 @@ package androidx.media3.ui;
 import static androidx.media3.common.Player.COMMAND_GET_CURRENT_MEDIA_ITEM;
 import static androidx.media3.common.Player.COMMAND_GET_TIMELINE;
 import static androidx.media3.common.Player.COMMAND_GET_TRACKS;
-import static androidx.media3.common.Player.COMMAND_PLAY_PAUSE;
 import static androidx.media3.common.Player.COMMAND_SEEK_BACK;
 import static androidx.media3.common.Player.COMMAND_SEEK_FORWARD;
 import static androidx.media3.common.Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM;
@@ -1178,7 +1177,7 @@ public class PlayerControlView extends FrameLayout {
       playPauseButton.setImageDrawable(drawable);
       playPauseButton.setContentDescription(resources.getString(stringRes));
 
-      boolean enablePlayPause = shouldEnablePlayPauseButton();
+      boolean enablePlayPause = Util.shouldEnablePlayPauseButton(player);
       updateButton(enablePlayPause, playPauseButton);
     }
   }
@@ -1730,13 +1729,6 @@ public class PlayerControlView extends FrameLayout {
       int yOffset = -settingsWindow.getHeight() - settingsWindowMargin;
       settingsWindow.update(v, xOffset, yOffset, -1, -1);
     }
-  }
-
-  private boolean shouldEnablePlayPauseButton() {
-    return player != null
-        && player.isCommandAvailable(COMMAND_PLAY_PAUSE)
-        && (!player.isCommandAvailable(COMMAND_GET_TIMELINE)
-            || !player.getCurrentTimeline().isEmpty());
   }
 
   @SuppressLint("InlinedApi")
