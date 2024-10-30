@@ -601,14 +601,11 @@ public final class NalUnitUtil {
   }
 
   /**
-   * Returns whether the NAL unit with the specified header contains supplemental enhancement
-   * information.
-   *
-   * @param mimeType The sample MIME type, or {@code null} if unknown.
-   * @param nalUnitHeaderFirstByte The first byte of nal_unit().
-   * @return Whether the NAL unit with the specified header is an SEI NAL unit. False is returned if
-   *     the {@code MimeType} is {@code null}.
+   * @deprecated Use {@link #isNalUnitSei(Format, byte)} in order to support {@link
+   *     MimeTypes#VIDEO_DOLBY_VISION} tracks with backwards compatible {@link MimeTypes#VIDEO_H264}
+   *     or {@link MimeTypes#VIDEO_H265} data.
    */
+  @Deprecated
   public static boolean isNalUnitSei(@Nullable String mimeType, byte nalUnitHeaderFirstByte) {
     return (MimeTypes.VIDEO_H264.equals(mimeType)
             && (nalUnitHeaderFirstByte & 0x1F) == H264_NAL_UNIT_TYPE_SEI)
