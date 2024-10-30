@@ -9,6 +9,7 @@ numberOfTracks = 1
 track 0:
   total output bytes = 8359
   sample count = 40
+  track duration = 1044875
   format 0:
     averageBitrate = 64000
     sampleMimeType = audio/mpeg

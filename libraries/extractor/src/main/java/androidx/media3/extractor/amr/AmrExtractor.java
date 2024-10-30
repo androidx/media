@@ -245,6 +245,7 @@ public final class AmrExtractor implements Extractor {
       long durationUs = timeOffsetUs + currentSampleTimeUs;
       ((IndexSeekMap) seekMap).setDurationUs(durationUs);
       extractorOutput.seekMap(seekMap);
+      realTrackOutput.durationUs(durationUs);
     }
     return sampleReadResult;
   }
@@ -327,7 +328,7 @@ public final class AmrExtractor implements Extractor {
       int sampleRate = isWideBand ? SAMPLE_RATE_WB : SAMPLE_RATE_NB;
       // Theoretical maximum frame size for a AMR frame.
       int maxInputSize = isWideBand ? frameSizeBytesByTypeWb[8] : frameSizeBytesByTypeNb[7];
-      currentTrackOutput.format(
+      realTrackOutput.format(
           new Format.Builder()
               .setSampleMimeType(mimeType)
               .setMaxInputSize(maxInputSize)
@@ -433,7 +434,7 @@ public final class AmrExtractor implements Extractor {
     return !isWideBand && (frameType < 12 || frameType > 14);
   }
 
-  @RequiresNonNull("extractorOutput")
+  @RequiresNonNull({"extractorOutput", "realTrackOutput"})
   private void maybeOutputSeekMap(long inputLength, int sampleReadResult) {
     if (seekMap != null) {
       return;
@@ -453,6 +454,7 @@ public final class AmrExtractor implements Extractor {
       seekMap =
           getConstantBitrateSeekMap(
               inputLength, (flags & FLAG_ENABLE_CONSTANT_BITRATE_SEEKING_ALWAYS) != 0);
+      realTrackOutput.durationUs(seekMap.getDurationUs());
     }
 
     if (seekMap != null) {

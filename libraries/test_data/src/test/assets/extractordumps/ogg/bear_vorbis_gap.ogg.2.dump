@@ -9,6 +9,7 @@ numberOfTracks = 1
 track 0:
   total output bytes = 8658
   sample count = 49
+  track duration = 2741000
   format 0:
     averageBitrate = 112000
     sampleMimeType = audio/vorbis

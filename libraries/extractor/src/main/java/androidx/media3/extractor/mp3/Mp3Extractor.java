@@ -260,6 +260,7 @@ public final class Mp3Extractor implements Extractor {
       if (seeker.getDurationUs() != durationUs) {
         ((IndexSeeker) seeker).setDurationUs(durationUs);
         extractorOutput.seekMap(seeker);
+        realTrackOutput.durationUs(seeker.getDurationUs());
       }
     }
     return readResult;
@@ -465,6 +466,7 @@ public final class Mp3Extractor implements Extractor {
     }
   }
 
+  @RequiresNonNull("realTrackOutput")
   private Seeker computeSeeker(ExtractorInput input) throws IOException {
     // Read past any seek frame and set the seeker based on metadata or a seek frame. Metadata
     // takes priority as it can provide greater precision.
@@ -502,6 +504,10 @@ public final class Mp3Extractor implements Extractor {
       resultSeeker =
           getConstantBitrateSeeker(
               input, (flags & FLAG_ENABLE_CONSTANT_BITRATE_SEEKING_ALWAYS) != 0);
+    }
+
+    if (resultSeeker != null) {
+      realTrackOutput.durationUs(resultSeeker.getDurationUs());
     }
 
     return resultSeeker;
@@ -653,6 +659,7 @@ public final class Mp3Extractor implements Extractor {
       seeker =
           ((ConstantBitrateSeeker) seeker).copyWithNewDataEndPosition(endPositionOfLastSampleRead);
       checkNotNull(extractorOutput).seekMap(seeker);
+      checkNotNull(realTrackOutput).durationUs(seeker.getDurationUs());
     }
   }
 
