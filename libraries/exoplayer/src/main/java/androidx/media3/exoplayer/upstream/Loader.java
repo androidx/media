@@ -93,7 +93,10 @@ public final class Loader implements LoaderErrorThrower {
     /**
      * Called when a load has started for the first time or through a retry.
      *
-     * @param loadable The loadable whose load has completed.
+     * <p>This is called for the first time with {@code retryCount == 0} just <b>before</b> the load
+     * is started.
+     *
+     * @param loadable The loadable whose load has started.
      * @param elapsedRealtimeMs {@link SystemClock#elapsedRealtime} when the load attempts to start.
      * @param loadDurationMs The duration in milliseconds of the load since {@link #startLoading}
      *     was called.

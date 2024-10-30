@@ -18,6 +18,11 @@ package androidx.media3.exoplayer.dash.e2etest;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.run;
 import static com.google.common.truth.Truth.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 import android.content.Context;
 import android.graphics.SurfaceTexture;
@@ -53,10 +58,14 @@ import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
 import androidx.media3.test.utils.robolectric.TestPlayerRunHelper;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
 import java.io.IOException;
+import java.util.List;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
 
 /** End-to-end tests using DASH samples. */
 @RunWith(AndroidJUnit4.class)
@@ -651,7 +660,52 @@ public final class DashPlaybackTest {
         applicationContext, playbackOutput, "playbackdumps/dash/multi-period-with-offset.dump");
   }
 
-  private static class AnalyticsListenerImpl implements AnalyticsListener {
+  @Test
+  public void loadEventsReportedAsExpected() throws Exception {
+    Context applicationContext = ApplicationProvider.getApplicationContext();
+    ExoPlayer player =
+        new ExoPlayer.Builder(applicationContext)
+            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .build();
+    AnalyticsListenerImpl analyticsListener = new AnalyticsListenerImpl();
+    player.addAnalyticsListener(analyticsListener);
+    AnalyticsListener mockAnalyticsListener = mock(AnalyticsListener.class);
+    player.addAnalyticsListener(mockAnalyticsListener);
+    Uri manifestUri = Uri.parse("asset:///media/dash/emsg/sample.mpd");
+
+    player.setMediaItem(MediaItem.fromUri(manifestUri));
+    player.prepare();
+    player.play();
+    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
+    player.release();
+
+    ArgumentCaptor<LoadEventInfo> loadStartedEventInfoCaptor =
+        ArgumentCaptor.forClass(LoadEventInfo.class);
+    verify(mockAnalyticsListener, atLeastOnce())
+        .onLoadStarted(any(), loadStartedEventInfoCaptor.capture(), any(), anyInt());
+    List<Uri> loadStartedUris =
+        Lists.transform(loadStartedEventInfoCaptor.getAllValues(), i -> i.uri);
+    List<Uri> loadStartedDataSpecUris =
+        Lists.transform(loadStartedEventInfoCaptor.getAllValues(), i -> i.dataSpec.uri);
+    // Remove duplicates in case the load was split into multiple reads.
+    assertThat(ImmutableSet.copyOf(loadStartedUris))
+        .containsExactly(manifestUri, Uri.parse("asset:///media/dash/emsg/sample.audio.mp4"));
+    // The two sources of URI should match (because there's no redirection).
+    assertThat(loadStartedDataSpecUris).containsExactlyElementsIn(loadStartedUris).inOrder();
+    ArgumentCaptor<LoadEventInfo> loadCompletedEventInfoCaptor =
+        ArgumentCaptor.forClass(LoadEventInfo.class);
+    verify(mockAnalyticsListener, atLeastOnce())
+        .onLoadCompleted(any(), loadCompletedEventInfoCaptor.capture(), any());
+    List<Uri> loadCompletedUris =
+        Lists.transform(loadCompletedEventInfoCaptor.getAllValues(), i -> i.uri);
+    List<Uri> loadCompletedDataSpecUris =
+        Lists.transform(loadCompletedEventInfoCaptor.getAllValues(), i -> i.dataSpec.uri);
+    // Every started load should be completed.
+    assertThat(loadCompletedUris).containsExactlyElementsIn(loadStartedUris);
+    assertThat(loadCompletedDataSpecUris).containsExactlyElementsIn(loadStartedUris);
+  }
+
+  private static final class AnalyticsListenerImpl implements AnalyticsListener {
 
     @Nullable private LoadEventInfo loadErrorEventInfo;
     @Nullable private IOException loadError;

@@ -503,17 +503,18 @@ public final class SsMediaSource extends BaseMediaSource
       long elapsedRealtimeMs,
       long loadDurationMs,
       int retryCount) {
-    manifestEventDispatcher.loadStarted(
-        new LoadEventInfo(
-            loadable.loadTaskId,
-            loadable.dataSpec,
-            loadable.getUri(),
-            loadable.getResponseHeaders(),
-            elapsedRealtimeMs,
-            loadDurationMs,
-            loadable.bytesLoaded()),
-        loadable.type,
-        retryCount);
+    LoadEventInfo loadEventInfo =
+        retryCount == 0
+            ? new LoadEventInfo(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs)
+            : new LoadEventInfo(
+                loadable.loadTaskId,
+                loadable.dataSpec,
+                loadable.getUri(),
+                loadable.getResponseHeaders(),
+                elapsedRealtimeMs,
+                loadDurationMs,
+                loadable.bytesLoaded());
+    manifestEventDispatcher.loadStarted(loadEventInfo, loadable.type, retryCount);
   }
 
   @Override

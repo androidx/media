@@ -202,14 +202,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       SourceLoadable loadable, long elapsedRealtimeMs, long loadDurationMs, int retryCount) {
     StatsDataSource dataSource = loadable.dataSource;
     LoadEventInfo loadEventInfo =
-        new LoadEventInfo(
-            loadable.loadTaskId,
-            loadable.dataSpec,
-            dataSource.getLastOpenedUri(),
-            dataSource.getLastResponseHeaders(),
-            elapsedRealtimeMs,
-            loadDurationMs,
-            dataSource.getBytesRead());
+        retryCount == 0
+            ? new LoadEventInfo(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs)
+            : new LoadEventInfo(
+                loadable.loadTaskId,
+                loadable.dataSpec,
+                dataSource.getLastOpenedUri(),
+                dataSource.getLastResponseHeaders(),
+                elapsedRealtimeMs,
+                loadDurationMs,
+                dataSource.getBytesRead());
     eventDispatcher.loadStarted(
         loadEventInfo,
         C.DATA_TYPE_MEDIA,

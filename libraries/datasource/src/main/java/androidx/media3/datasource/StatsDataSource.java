@@ -61,7 +61,8 @@ public final class StatsDataSource implements DataSource {
 
   /**
    * Returns the {@link Uri} associated with the last {@link #open(DataSpec)} call. If redirection
-   * occurred, this is the redirected uri.
+   * occurred, this is the redirected uri. Returns {@link Uri#EMPTY} if {@link #open(DataSpec)} has
+   * never been called.
    */
   public Uri getLastOpenedUri() {
     return lastOpenedUri;
