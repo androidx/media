@@ -20,7 +20,6 @@ import static org.junit.Assume.assumeTrue;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
-import androidx.media3.common.util.LibraryLoader;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.decoder.SimpleDecoderOutputBuffer;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -33,14 +32,6 @@ import org.junit.runner.RunWith;
 /** Unit tests for {@link OpusDecoder}. */
 @RunWith(AndroidJUnit4.class)
 public final class OpusDecoderTest {
-
-  private static final LibraryLoader LOADER =
-      new LibraryLoader("opusV2JNI") {
-        @Override
-        protected void loadLibrary(String name) {
-          System.loadLibrary(name);
-        }
-      };
 
   private static final byte[] HEADER =
       new byte[] {79, 112, 117, 115, 72, 101, 97, 100, 0, 2, 1, 56, 0, 0, -69, -128, 0, 0, 0};
@@ -115,7 +106,7 @@ public final class OpusDecoderTest {
 
   @Test
   public void decode_removesPreSkipFromOutput() throws OpusDecoderException {
-    assumeTrue(LOADER.isAvailable());
+    assumeTrue(OpusLibrary.isAvailable());
     OpusDecoder decoder =
         new OpusDecoder(
             /* numInputBuffers= */ 0,
@@ -135,7 +126,7 @@ public final class OpusDecoderTest {
   @Test
   public void decode_whenDiscardPaddingDisabled_returnsDiscardPadding()
       throws OpusDecoderException {
-    assumeTrue(LOADER.isAvailable());
+    assumeTrue(OpusLibrary.isAvailable());
     OpusDecoder decoder =
         new OpusDecoder(
             /* numInputBuffers= */ 0,
@@ -156,7 +147,7 @@ public final class OpusDecoderTest {
 
   @Test
   public void decode_whenDiscardPaddingEnabled_removesDiscardPadding() throws OpusDecoderException {
-    assumeTrue(LOADER.isAvailable());
+    assumeTrue(OpusLibrary.isAvailable());
     OpusDecoder decoder =
         new OpusDecoder(
             /* numInputBuffers= */ 0,
