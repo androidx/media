@@ -1608,7 +1608,7 @@ public class FragmentedMp4Extractor implements Extractor {
           output.sampleData(nalPrefix, 1);
           processSeiNalUnitPayload =
               ceaTrackOutputs.length > 0
-                  && NalUnitUtil.isNalUnitSei(track.format.sampleMimeType, nalPrefixData[4]);
+                  && NalUnitUtil.isNalUnitSei(track.format, nalPrefixData[4]);
           sampleBytesWritten += 5;
           sampleSize += nalUnitLengthFieldLengthDiff;
           if (!isSampleDependedOn
@@ -1629,7 +1629,12 @@ public class FragmentedMp4Extractor implements Extractor {
             int unescapedLength =
                 NalUnitUtil.unescapeStream(nalBuffer.getData(), nalBuffer.limit());
             // If the format is H.265/HEVC the NAL unit header has two bytes so skip one more byte.
-            nalBuffer.setPosition(MimeTypes.VIDEO_H265.equals(track.format.sampleMimeType) ? 1 : 0);
+            nalBuffer.setPosition(
+                Objects.equals(track.format.sampleMimeType, MimeTypes.VIDEO_H265)
+                        || MimeTypes.containsCodecsCorrespondingToMimeType(
+                            track.format.codecs, MimeTypes.VIDEO_H265)
+                    ? 1
+                    : 0);
             nalBuffer.setLimit(unescapedLength);
 
             if (track.format.maxNumReorderSamples != Format.NO_VALUE

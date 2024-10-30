@@ -21,6 +21,8 @@
     *   Fix CEA-608 subtitles in H.264 MPEG-TS streams not being output (this
         was broken in `1.5.0-alpha01` by
         https://github.com/androidx/media/commit/03a205f220ecf7681f85f8a752227e3986e257ff).
+    *   Support CEA-608 subtitles in Dolby Vision content
+        ([#1820](https://github.com/androidx/media/issues/1820)).
 *   Metadata:
 *   Image:
 *   DRM:
