@@ -16,6 +16,7 @@
 package androidx.media3.decoder.iamf;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assume.assumeTrue;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
@@ -40,7 +41,7 @@ public final class IamfDecoderTest {
 
   @Before
   public void setUp() {
-    assertThat(IamfLibrary.isAvailable()).isTrue();
+    assumeTrue(IamfLibrary.isAvailable());
   }
 
   @Test
