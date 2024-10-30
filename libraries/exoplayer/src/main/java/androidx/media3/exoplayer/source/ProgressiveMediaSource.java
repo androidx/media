@@ -200,7 +200,7 @@ public final class ProgressiveMediaSource extends BaseMediaSource
      * instead suppressed and preparation is completed with no tracks.
      */
     @CanIgnoreReturnValue
-    public Factory setSuppressPrepareError(boolean suppressPrepareError) {
+    /* package */ Factory setSuppressPrepareError(boolean suppressPrepareError) {
       this.suppressPrepareError = suppressPrepareError;
       return this;
     }
