@@ -15,6 +15,7 @@
  */
 package androidx.media3.container;
 
+import static androidx.media3.common.MimeTypes.containsCodecsCorrespondingToMimeType;
 import static com.google.common.math.DoubleMath.log2;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -33,6 +34,7 @@ import java.math.RoundingMode;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 
 /** Utility methods for handling H.264/AVC and H.265/HEVC NAL units. */
 @UnstableApi
@@ -611,6 +613,24 @@ public final class NalUnitUtil {
     return (MimeTypes.VIDEO_H264.equals(mimeType)
             && (nalUnitHeaderFirstByte & 0x1F) == H264_NAL_UNIT_TYPE_SEI)
         || (MimeTypes.VIDEO_H265.equals(mimeType)
+            && ((nalUnitHeaderFirstByte & 0x7E) >> 1) == H265_NAL_UNIT_TYPE_PREFIX_SEI);
+  }
+
+  /**
+   * Returns whether the NAL unit with the specified header contains supplemental enhancement
+   * information.
+   *
+   * @param format The sample {@link Format}.
+   * @param nalUnitHeaderFirstByte The first byte of nal_unit().
+   * @return Whether the NAL unit with the specified header is an SEI NAL unit. False is returned if
+   *     the {@code MimeType} is {@code null}.
+   */
+  public static boolean isNalUnitSei(Format format, byte nalUnitHeaderFirstByte) {
+    return ((Objects.equals(format.sampleMimeType, MimeTypes.VIDEO_H264)
+                || containsCodecsCorrespondingToMimeType(format.codecs, MimeTypes.VIDEO_H264))
+            && (nalUnitHeaderFirstByte & 0x1F) == H264_NAL_UNIT_TYPE_SEI)
+        || ((Objects.equals(format.sampleMimeType, MimeTypes.VIDEO_H265)
+                || containsCodecsCorrespondingToMimeType(format.codecs, MimeTypes.VIDEO_H265))
             && ((nalUnitHeaderFirstByte & 0x7E) >> 1) == H265_NAL_UNIT_TYPE_PREFIX_SEI);
   }
 
