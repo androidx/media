@@ -417,7 +417,15 @@ public final class MediaExtractorCompat {
 
   /** Returns the track {@link MediaFormat} at the specified {@code trackIndex}. */
   public MediaFormat getTrackFormat(int trackIndex) {
-    return tracks.get(trackIndex).createDownstreamMediaFormat(formatHolder, noDataBuffer);
+    MediaExtractorTrack track = tracks.get(trackIndex);
+    MediaFormat mediaFormat = track.createDownstreamMediaFormat(formatHolder, noDataBuffer);
+    long trackDurationUs = track.sampleQueue.trackDurationUs;
+    if (trackDurationUs != C.TIME_UNSET) {
+      mediaFormat.setLong(MediaFormat.KEY_DURATION, trackDurationUs);
+    } else if (seekMap != null && seekMap.getDurationUs() != C.TIME_UNSET) {
+      mediaFormat.setLong(MediaFormat.KEY_DURATION, seekMap.getDurationUs());
+    }
+    return mediaFormat;
   }
 
   /**
@@ -865,6 +873,7 @@ public final class MediaExtractorCompat {
   private final class MediaExtractorSampleQueue extends SampleQueue {
 
     public final int trackId;
+    public long trackDurationUs;
     private int mainTrackIndex;
     private int compatibilityTrackIndex;
 
@@ -873,6 +882,7 @@ public final class MediaExtractorCompat {
       // values for DRM-related arguments.
       super(allocator, /* drmSessionManager= */ null, /* drmEventDispatcher= */ null);
       this.trackId = trackId;
+      trackDurationUs = C.TIME_UNSET;
       mainTrackIndex = C.INDEX_UNSET;
       compatibilityTrackIndex = C.INDEX_UNSET;
     }
@@ -886,6 +896,12 @@ public final class MediaExtractorCompat {
     }
 
     // SampleQueue implementation.
+
+    @Override
+    public void durationUs(long durationUs) {
+      this.trackDurationUs = durationUs;
+      super.durationUs(durationUs);
+    }
 
     @Override
     public Format getAdjustedUpstreamFormat(Format format) {

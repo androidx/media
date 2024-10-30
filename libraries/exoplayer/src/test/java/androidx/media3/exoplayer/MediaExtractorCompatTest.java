@@ -616,6 +616,76 @@ public class MediaExtractorCompatTest {
         .isEqualTo(-1);
   }
 
+  @Test
+  public void getTrackFormat_withBothTrackAndSeekMapDurationsSet_prioritizesTrackDuration()
+      throws IOException {
+    TrackOutput[] outputs = new TrackOutput[1];
+    fakeExtractor.addReadAction(
+        (input, seekPosition) -> {
+          outputs[0] = extractorOutput.track(/* id= */ 0, C.TRACK_TYPE_VIDEO);
+          extractorOutput.endTracks();
+          extractorOutput.seekMap(
+              new FakeSeekMap(
+                  /* durationUs= */ 1_000_000L, (timeUs) -> new SeekPoints(SeekPoint.START)));
+          outputs[0].format(PLACEHOLDER_FORMAT_VIDEO);
+          outputs[0].durationUs(2_000_000L);
+          return Extractor.RESULT_CONTINUE;
+        });
+    mediaExtractorCompat.setDataSource(PLACEHOLDER_URI, /* offset= */ 0);
+    mediaExtractorCompat.selectTrack(/* trackIndex= */ 0);
+
+    MediaFormat mediaFormat = mediaExtractorCompat.getTrackFormat(/* trackIndex= */ 0);
+
+    assertThat(mediaFormat.containsKey(MediaFormat.KEY_DURATION)).isTrue();
+    assertThat(mediaFormat.getLong(MediaFormat.KEY_DURATION)).isEqualTo(2_000_000L);
+  }
+
+  @Test
+  public void getTrackFormat_withOnlySeekMapDurationSet_returnsSeekMapDuration()
+      throws IOException {
+    TrackOutput[] outputs = new TrackOutput[1];
+    fakeExtractor.addReadAction(
+        (input, seekPosition) -> {
+          outputs[0] = extractorOutput.track(/* id= */ 0, C.TRACK_TYPE_VIDEO);
+          extractorOutput.endTracks();
+          extractorOutput.seekMap(
+              new FakeSeekMap(
+                  /* durationUs= */ 1_000_000L, (timeUs) -> new SeekPoints(SeekPoint.START)));
+          outputs[0].format(PLACEHOLDER_FORMAT_VIDEO);
+          return Extractor.RESULT_CONTINUE;
+        });
+    mediaExtractorCompat.setDataSource(PLACEHOLDER_URI, /* offset= */ 0);
+    mediaExtractorCompat.selectTrack(/* trackIndex= */ 0);
+
+    MediaFormat mediaFormat = mediaExtractorCompat.getTrackFormat(/* trackIndex= */ 0);
+
+    assertThat(mediaFormat.containsKey(MediaFormat.KEY_DURATION)).isTrue();
+    assertThat(mediaFormat.getLong(MediaFormat.KEY_DURATION)).isEqualTo(1_000_000L);
+  }
+
+  @Test
+  public void getTrackFormat_withNoTrackOrSeekMapDurationSet_returnsNoDuration()
+      throws IOException {
+    TrackOutput[] outputs = new TrackOutput[1];
+    fakeExtractor.addReadAction(
+        (input, seekPosition) -> {
+          outputs[0] = extractorOutput.track(/* id= */ 0, C.TRACK_TYPE_VIDEO);
+          extractorOutput.endTracks();
+          outputs[0].format(
+              new Format.Builder()
+                  .setSampleMimeType(MimeTypes.VIDEO_H264)
+                  .setCodecs("avc.123")
+                  .build());
+          return Extractor.RESULT_CONTINUE;
+        });
+    mediaExtractorCompat.setDataSource(PLACEHOLDER_URI, /* offset= */ 0);
+    mediaExtractorCompat.selectTrack(/* trackIndex= */ 0);
+
+    MediaFormat mediaFormat = mediaExtractorCompat.getTrackFormat(/* trackIndex= */ 0);
+
+    assertThat(mediaFormat.containsKey(MediaFormat.KEY_DURATION)).isFalse();
+  }
+
   // Internal methods.
 
   private void assertReadSample(int trackIndex, long timeUs, int size, byte... sampleData) {
