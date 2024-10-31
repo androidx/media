@@ -234,7 +234,7 @@ public final class RtpPacket {
       csrc = EMPTY;
     }
 
-    //Extension.
+    // Extension.
     if (hasExtension) {
       int headerExtensionProfileData = packetBuffer.readShort();
       int headerExtensionPayloadLength = packetBuffer.readShort();
