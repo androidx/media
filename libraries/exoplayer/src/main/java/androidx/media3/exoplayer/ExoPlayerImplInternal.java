@@ -1225,7 +1225,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
       }
       if (!playbackInfo.isLoading
           && playbackInfo.totalBufferedDurationUs < PLAYBACK_BUFFER_EMPTY_THRESHOLD_US
-          && isLoadingPossible(queue.getLoadingPeriod())) {
+          && isLoadingPossible(queue.getLoadingPeriod())
+          && shouldPlayWhenReady()) {
         // The renderers are not ready, there is more media available to load, and the LoadControl
         // is refusing to load it (indicated by !playbackInfo.isLoading). This could be because the
         // renderers are still transitioning to their ready states, but it could also indicate a
