@@ -62,6 +62,8 @@
 *   DASH Extension:
 *   Smooth Streaming Extension:
 *   RTSP Extension:
+    *   Fix crashing when parsing of RTP packets with header extensions
+        ([#1225](https://github.com/androidx/media/pull/1225)).
 *   Decoder Extensions (FFmpeg, VP9, AV1, etc.):
     *   Add the MPEG-H decoder module which uses the native MPEG-H decoder
         module to decode MPEG-H audio
