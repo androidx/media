@@ -27,6 +27,9 @@
 *   Image:
 *   DRM:
 *   Effect:
+    *   Moved the functionality of `OverlaySettings` into
+        `StaticOverlaySettings`. `OverlaySettings` can be subclassed to allow
+        dynamic overlay settings.
 *   Muxers:
 *   IMA extension:
 *   UI:
@@ -168,11 +171,6 @@ This release includes the following changes since the
     *   Fix `IllegalStateException` from
         `DefaultDrmSession.requiresSecureDecoder` after opening a DRM session
         failed. This issue was introduced in `1.5.0-alpha01`.
-*   Effect:
-    *   Moved the functionality of `OverlaySettings` into
-        `StaticOverlaySettings`. `OverlaySettings` can be subclassed to allow
-        dynamic overlay settings.
-*   Muxers:
 *   IMA extension:
     *   Fix bug where server-side inserted DAI streams without a preroll can
         result in an `ArrayIndexOutOfBoundsException` when playing past the last
