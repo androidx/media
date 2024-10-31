@@ -16,15 +16,11 @@
 
 package androidx.media3.ui.compose.state
 
-import android.os.Looper
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.media3.common.Player
-import androidx.media3.common.SimpleBasePlayer
+import androidx.media3.ui.compose.utils.TestPlayer
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.google.common.collect.ImmutableList
 import com.google.common.truth.Truth.assertThat
-import com.google.common.util.concurrent.Futures
-import com.google.common.util.concurrent.ListenableFuture
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -131,76 +127,5 @@ class PlayPauseButtonStateTest {
 
     assertThat(player.playWhenReady).isTrue()
     assertThat(player.playbackState).isEqualTo(Player.STATE_BUFFERING)
-  }
-}
-
-private class TestPlayer : SimpleBasePlayer(Looper.myLooper()!!) {
-  private var state =
-    State.Builder()
-      .setAvailableCommands(Player.Commands.Builder().addAllCommands().build())
-      .setPlaylist(ImmutableList.of(MediaItemData.Builder(/* uid= */ Any()).build()))
-      .build()
-
-  override fun getState(): State {
-    return state
-  }
-
-  override fun handleSetPlayWhenReady(playWhenReady: Boolean): ListenableFuture<*> {
-    state =
-      state
-        .buildUpon()
-        .setPlayWhenReady(playWhenReady, PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
-        .build()
-    return Futures.immediateVoidFuture()
-  }
-
-  override fun handlePrepare(): ListenableFuture<*> {
-    state =
-      state
-        .buildUpon()
-        .setPlayerError(null)
-        .setPlaybackState(if (state.timeline.isEmpty) STATE_ENDED else STATE_BUFFERING)
-        .build()
-    return Futures.immediateVoidFuture()
-  }
-
-  override fun handleSeek(
-    mediaItemIndex: Int,
-    positionMs: Long,
-    seekCommand: @Player.Command Int,
-  ): ListenableFuture<*> {
-    state =
-      state.buildUpon().setPlaybackState(STATE_BUFFERING).setContentPositionMs(positionMs).build()
-    return Futures.immediateVoidFuture()
-  }
-
-  fun setPlaybackState(playbackState: @Player.State Int) {
-    state = state.buildUpon().setPlaybackState(playbackState).build()
-    invalidateState()
-  }
-
-  fun setPosition(positionMs: Long) {
-    state = state.buildUpon().setContentPositionMs(positionMs).build()
-    invalidateState()
-  }
-
-  fun removeCommands(vararg commands: @Player.Command Int) {
-    state =
-      state
-        .buildUpon()
-        .setAvailableCommands(
-          Player.Commands.Builder().addAllCommands().removeAll(*commands).build()
-        )
-        .build()
-    invalidateState()
-  }
-
-  fun addCommands(vararg commands: @Player.Command Int) {
-    state =
-      state
-        .buildUpon()
-        .setAvailableCommands(Player.Commands.Builder().addAll(*commands).build())
-        .build()
-    invalidateState()
   }
 }

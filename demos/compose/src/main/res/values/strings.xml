@@ -17,4 +17,6 @@
   <string name="app_name">Media3 Compose Demo</string>
   <string name="playpause_button_play">Play</string>
   <string name="playpause_button_pause">Pause</string>
+  <string name="next_button">Next</string>
+  <string name="previous_button">Previous</string>
 </resources>

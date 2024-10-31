@@ -57,8 +57,10 @@
 *   IMA extension:
 *   UI:
     *   Add `PlayerSurface` Composable to `media3-ui-compose` module.
-    *   Add `PlayPauseButtonState` class and `rememberPlayPauseButtonState`
-        Composable to `media3-ui-compose` module.
+    *   Add `PlayPauseButtonState`, `NextButtonState`, `PreviousButtonState`
+        classes and the corresponding `rememberPlayPauseButtonState`,
+        `rememberNextButtonState`, `rememberPreviousButtonState` Composables to
+        `media3-ui-compose` module.
 *   Downloads:
 *   OkHttp Extension:
 *   Cronet Extension:
@@ -76,8 +78,9 @@
 *   Cast Extension:
 *   Test Utilities:
 *   Demo app:
-    *   Add `PlayPauseButton` Composable UI element to `demo-compose` utilizing
-        `PlayPauseButtonState`.
+    *   Add `PlayPauseButton`, `NextButton`, `PreviousButton` and
+        `MinimalControls` Composable UI elements to `demo-compose` utilizing
+        `PlayPauseButtonState`, `NextButtonState`, and `PreviousButtonState`.
 *   Remove deprecated symbols:
     *   Remove deprecated `AudioMixer.create()` method. Use
         `DefaultAudioMixer.Factory().create()` instead.

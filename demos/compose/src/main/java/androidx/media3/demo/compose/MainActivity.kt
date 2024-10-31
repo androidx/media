@@ -19,18 +19,22 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
-import androidx.media3.demo.compose.buttons.PlayPauseButton
+import androidx.media3.demo.compose.buttons.MinimalControls
 import androidx.media3.demo.compose.data.videos
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.compose.PlayerSurface
@@ -45,21 +49,35 @@ class MainActivity : ComponentActivity() {
       val context = LocalContext.current
       val exoPlayer = remember {
         ExoPlayer.Builder(context).build().apply {
-          setMediaItem(MediaItem.fromUri(videos[0]))
+          setMediaItems(videos.map { MediaItem.fromUri(it) })
           prepare()
-          playWhenReady = true
-          repeatMode = Player.REPEAT_MODE_ONE
         }
       }
-      MediaPlayerScreen(player = exoPlayer, modifier = Modifier.fillMaxSize())
+      MediaPlayerScreen(
+        player = exoPlayer,
+        modifier = Modifier.fillMaxSize().navigationBarsPadding(),
+      )
     }
   }
 
   @Composable
   private fun MediaPlayerScreen(player: Player, modifier: Modifier = Modifier) {
+    var showControls by remember { mutableStateOf(true) }
     Box(modifier) {
-      PlayerSurface(player = player, surfaceType = SURFACE_TYPE_SURFACE_VIEW)
-      PlayPauseButton(player, Modifier.align(Alignment.Center).size(100.dp))
+      PlayerSurface(
+        player = player,
+        surfaceType = SURFACE_TYPE_SURFACE_VIEW,
+        modifier =
+          modifier.clickable(
+            interactionSource = remember { MutableInteractionSource() },
+            indication = null, // to prevent the ripple from the tap
+          ) {
+            showControls = !showControls
+          },
+      )
+      if (showControls) {
+        MinimalControls(player, Modifier.align(Alignment.Center))
+      }
     }
   }
 }
