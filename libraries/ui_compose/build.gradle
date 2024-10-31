@@ -55,6 +55,11 @@ dependencies {
 
     implementation 'androidx.compose.foundation:foundation'
     implementation 'androidx.core:core:' + androidxCoreVersion
+
+    testImplementation 'androidx.compose.ui:ui-test'
+    testImplementation 'androidx.compose.ui:ui-test-junit4'
+    testImplementation project(modulePrefix + 'test-utils')
+    testImplementation 'org.robolectric:robolectric:' + robolectricVersion
 }
 
 ext {

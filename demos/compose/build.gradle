@@ -52,7 +52,6 @@ android {
         disable 'GoogleAppIndexingWarning','MissingTranslation'
     }
     buildFeatures {
-        viewBinding true
         compose true
     }
     composeOptions {
@@ -71,18 +70,16 @@ dependencies {
     implementation composeBom
 
     implementation 'androidx.activity:activity-compose:1.9.0'
-    implementation 'androidx.compose.foundation:foundation-android:1.6.7'
-    implementation 'androidx.compose.material3:material3-android:1.2.1'
+    implementation 'androidx.compose.foundation:foundation'
+    implementation 'androidx.compose.material3:material3'
+    implementation 'androidx.compose.material:material-icons-extended'
+    implementation 'androidx.compose.ui:ui-tooling-preview'
     implementation 'com.google.android.material:material:' + androidxMaterialVersion
 
     implementation project(modulePrefix + 'lib-exoplayer')
     implementation project(modulePrefix + 'lib-ui-compose')
+    debugImplementation 'androidx.compose.ui:ui-tooling'
 
     // For detecting and debugging leaks only. LeakCanary is not needed for demo app to work.
     debugImplementation 'com.squareup.leakcanary:leakcanary-android:' + leakCanaryVersion
-
-    testImplementation 'org.jetbrains.kotlinx:kotlinx-coroutines-test:' + kotlinxCoroutinesVersion
-    testImplementation 'org.robolectric:robolectric:' + robolectricVersion
-    testImplementation project(modulePrefix + 'test-utils')
-
 }
