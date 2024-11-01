@@ -17,19 +17,14 @@
         with durations that don't match the actual content could cause frame
         freezes at the end of the item
         ([#1698](https://github.com/androidx/media/issues/1698)).
+    *   Add a setter to `SntpClient` to set the max elapsed time since the last
+        update after which the client is re-initialized
+        ([#1794](https://github.com/androidx/media/pull/1794)).
 *   Transformer:
     *   Update parameters of `VideoFrameProcessor.registerInputStream` and
         `VideoFrameProcessor.Listener.onInputStreamRegistered` to use `Format`.
 *   Extractors:
-    *   Fix media duration parsing in `mdhd` box of MP4 files to handle `-1`
-        values ([#1819](https://github.com/androidx/media/issues/1819)).
-    *   Add support for identifying `h263` box in MP4 files for H.263 video
-        ([#1821](https://github.com/androidx/media/issues/1821)).
 *   DataSource:
-    *   `DataSourceContractTest`: Assert that `DataSource.getUri()` returns the
-        resolved URI (as documented). Where this is different to the requested
-        URI, tests can indicate this using the new
-        `DataSourceContractTest.TestResource.Builder.setResolvedUri()` method.
     *   `DataSourceContractTest`: Assert that `DataSource.getUri()` and
         `getResponseHeaders()` return their 'open' value after a failed call to
         `open()` (due to a 'not found' resource) and before a subsequent
@@ -41,11 +36,6 @@
 *   Audio:
 *   Video:
 *   Text:
-    *   Fix CEA-608 subtitles in H.264 MPEG-TS streams not being output (this
-        was broken in `1.5.0-alpha01` by
-        https://github.com/androidx/media/commit/03a205f220ecf7681f85f8a752227e3986e257ff).
-    *   Support CEA-608 subtitles in Dolby Vision content
-        ([#1820](https://github.com/androidx/media/issues/1820)).
 *   Metadata:
 *   Image:
 *   DRM:
@@ -132,8 +122,32 @@
         `Transformer.removeAllListeners()` instead.
     *   Remove deprecated `Transformer.startTransformation()`. Use
         `Transformer.start(MediaItem, String)` instead.
+    *   Remove deprecated `SingleFrameGlShaderProgram`. Use
+        `BaseGlShaderProgram` instead.
 
 ## 1.5
+
+## 1.5.0-rc01 (2024-11-13)
+
+This release includes the following changes since the
+[1.5.0-beta01 release](#150-2024-10-30):
+
+*   Extractors:
+    *   Fix media duration parsing in `mdhd` box of MP4 files to handle `-1`
+        values ([#1819](https://github.com/androidx/media/issues/1819)).
+    *   Add support for identifying `h263` box in MP4 files for H.263 video
+        ([#1821](https://github.com/androidx/media/issues/1821)).
+*   DataSource:
+    *   `DataSourceContractTest`: Assert that `DataSource.getUri()` returns the
+        resolved URI (as documented). Where this is different to the requested
+        URI, tests can indicate this using the new
+        `DataSourceContractTest.TestResource.Builder.setResolvedUri()` method.
+*   Text:
+    *   Fix CEA-608 subtitles in H.264 MPEG-TS streams not being output (this
+        was broken in `1.5.0-alpha01` by
+        https://github.com/androidx/media/commit/03a205f220ecf7681f85f8a752227e3986e257ff).
+    *   Support CEA-608 subtitles in Dolby Vision content
+        ([#1820](https://github.com/androidx/media/issues/1820)).
 
 ### 1.5.0-beta01 (2024-10-30)
 
@@ -189,9 +203,6 @@ This release includes the following changes since the
     *   Remove `Renderer[]` parameter from `LoadControl.onTracksSelected()` as
         `DefaultLoadControl` implementation can retrieve the stream types from
         `ExoTrackSelection[]`.
-    *   Add a setter to `SntpClient` to set the max elapsed time since the last
-        update after which the client is re-initialized
-        ([#1794](https://github.com/androidx/media/pull/1794)).
     *   Deprecated `DefaultLoadControl.calculateTargetBufferBytes(Renderer[],
         ExoTrackSelection[])` and marked method as final to prevent overrides.
         The new
@@ -325,8 +336,6 @@ This release includes the following changes since the
 *   Remove deprecated symbols:
     *   Remove deprecated `DefaultEncoderFactory` constructors. Use
         `DefaultEncoderFactory.Builder` instead.
-    *   Remove deprecated `SingleFrameGlShaderProgram`. Use
-        `BaseGlShaderProgram` instead.
 
 ### 1.5.0-alpha01 (2024-09-06)
 
