@@ -18,11 +18,17 @@ package androidx.media3.extractor.mp4;
 import static com.google.common.truth.Truth.assertThat;
 
 import androidx.media3.common.C;
+import androidx.media3.common.Metadata;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.Mp4Box;
+import androidx.media3.extractor.metadata.id3.ChapterFrame;
+import androidx.media3.extractor.metadata.id3.Id3Frame;
+import androidx.media3.extractor.metadata.id3.TextInformationFrame;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.collect.ImmutableList;
+import java.nio.ByteBuffer;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -286,6 +292,94 @@ public final class BoxParserTest {
         .isNotNull();
     assertThat(vexuData).isNotNull();
     assertThat(vexuData.hasBothEyeViews()).isTrue();
+  }
+
+  @Test
+  public void chplParsing() {
+    byte[] data =
+        ByteBuffer.allocate(50)
+            .putInt(50) // box size
+            .putInt(Mp4Box.TYPE_chpl) // box type
+            .put(new byte[5]) // version (1), flags (3), reserver byte (1)
+            .putInt(2) // chapter count
+            // first chapter
+            .putLong(0) // start time in 100-nanoseconds resolution
+            .put((byte) 9) // Title length
+            .put("Chapter A".getBytes())
+            // second chapter
+            .putLong(12_340_000) // start time in 100-nanoseconds resolution
+            .put((byte) 6) // Title length
+            .put("Chap B".getBytes())
+            .array();
+
+    Metadata metadata = BoxParser.parseChpl(new ParsableByteArray(data));
+    assertThat(metadata.length()).isEqualTo(2);
+    assertThat(metadata.get(0))
+        .isEqualTo(
+            new ChapterFrame(
+                /* chapterId= */ "0",
+                /* startTimeMs= */ 0,
+                /* endTimeMs= */ -1,
+                /* startOffset= */ -1,
+                /* endOffset= */ -1,
+                new Id3Frame[] {
+                  new TextInformationFrame(
+                      "TIT2", /* description= */ null, ImmutableList.of("Chapter A"))
+                }));
+    assertThat(metadata.get(1))
+        .isEqualTo(
+            new ChapterFrame(
+                /* chapterId= */ "1",
+                /* startTimeMs= */ 1234,
+                /* endTimeMs= */ -1,
+                /* startOffset= */ -1,
+                /* endOffset= */ -1,
+                new Id3Frame[] {
+                  new TextInformationFrame(
+                      "TIT2", /* description= */ null, ImmutableList.of("Chap B"))
+                }));
+  }
+
+  @Test
+  public void chplParsingInvalidStartTime() {
+    byte[] data =
+        ByteBuffer.allocate(50)
+            .putInt(50) // bix size
+            .putInt(Mp4Box.TYPE_chpl) // box type
+            .put(new byte[5]) // version (1), flags (3), reserver byte (1)
+            .putInt(2) // chapter count
+            // first chapter
+            .putLong(-10_000) // start time, negative
+            .put((byte) 0) // Title length
+            // second chapter
+            .putLong(Long.valueOf(Integer.MAX_VALUE) * 10_000 + 10_000) // start time, overflow
+            .put((byte) 0) // Title length
+            .array();
+
+    Metadata metadata = BoxParser.parseChpl(new ParsableByteArray(data));
+    assertThat(metadata.length()).isEqualTo(2);
+    assertThat(metadata.get(0))
+        .isEqualTo(
+            new ChapterFrame(
+                /* chapterId= */ "0",
+                /* startTimeMs= */ -1,
+                /* endTimeMs= */ -1,
+                /* startOffset= */ -1,
+                /* endOffset= */ -1,
+                new Id3Frame[] {
+                  new TextInformationFrame("TIT2", /* description= */ null, ImmutableList.of(""))
+                }));
+    assertThat(metadata.get(1))
+        .isEqualTo(
+            new ChapterFrame(
+                /* chapterId= */ "1",
+                /* startTimeMs= */ -1,
+                /* endTimeMs= */ -1,
+                /* startOffset= */ -1,
+                /* endOffset= */ -1,
+                new Id3Frame[] {
+                  new TextInformationFrame("TIT2", /* description= */ null, ImmutableList.of(""))
+                }));
   }
 
   private static void verifyStz2Parsing(Mp4Box.LeafBox stz2Atom) {

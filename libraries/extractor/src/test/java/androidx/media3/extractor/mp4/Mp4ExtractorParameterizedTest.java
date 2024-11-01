@@ -88,6 +88,11 @@ public final class Mp4ExtractorParameterizedTest {
     assertExtractorBehavior("media/mp4/sample_with_numeric_genre.mp4");
   }
 
+  @Test
+  public void mp4SampleWithChapters() throws Exception {
+    assertExtractorBehavior("media/mp4/sample_with_chapters.mp4");
+  }
+
   /**
    * Test case for https://github.com/google/ExoPlayer/issues/6774. The sample file contains an mdat
    * atom whose size indicates that it extends 8 bytes beyond the end of the file.
