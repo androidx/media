@@ -17,6 +17,9 @@
 package androidx.media3.common.audio;
 
 import static androidx.media3.common.util.Assertions.checkArgument;
+import static androidx.media3.common.util.Assertions.checkState;
+import static androidx.media3.common.util.SpeedProviderUtil.getNextSpeedChangeSamplePosition;
+import static androidx.media3.common.util.SpeedProviderUtil.getSampleAlignedSpeed;
 import static androidx.media3.common.util.Util.sampleCountToDurationUs;
 import static java.lang.Math.min;
 import static java.lang.Math.round;
@@ -116,39 +119,17 @@ public final class SpeedChangingAudioProcessor extends BaseAudioProcessor {
   @Override
   public void queueInput(ByteBuffer inputBuffer) {
     long currentTimeUs = sampleCountToDurationUs(framesRead, inputAudioFormat.sampleRate);
-    float newSpeed = speedProvider.getSpeed(currentTimeUs);
-    long nextSpeedChangeTimeUs = speedProvider.getNextSpeedChangeTimeUs(currentTimeUs);
-    long sampleRateAlignedNextSpeedChangeTimeUs =
-        getSampleRateAlignedTimestamp(nextSpeedChangeTimeUs, inputAudioFormat.sampleRate);
-
-    // If next speed change falls between the current sample position and the next sample, then get
-    // the next speed and next speed change from the following sample. If needed, this will ignore
-    // one or more mid-sample speed changes.
-    if (sampleRateAlignedNextSpeedChangeTimeUs == currentTimeUs) {
-      long sampleDuration =
-          sampleCountToDurationUs(/* sampleCount= */ 1, inputAudioFormat.sampleRate);
-      newSpeed = speedProvider.getSpeed(currentTimeUs + sampleDuration);
-      nextSpeedChangeTimeUs =
-          speedProvider.getNextSpeedChangeTimeUs(currentTimeUs + sampleDuration);
-    }
+    float newSpeed = getSampleAlignedSpeed(speedProvider, framesRead, inputAudioFormat.sampleRate);
+    long nextSpeedChangeSamplePosition =
+        getNextSpeedChangeSamplePosition(speedProvider, framesRead, inputAudioFormat.sampleRate);
 
     updateSpeed(newSpeed, currentTimeUs);
 
     int inputBufferLimit = inputBuffer.limit();
     int bytesToNextSpeedChange;
-    if (nextSpeedChangeTimeUs != C.TIME_UNSET) {
+    if (nextSpeedChangeSamplePosition != C.INDEX_UNSET) {
       bytesToNextSpeedChange =
-          (int)
-              Util.scaleLargeTimestamp(
-                  /* timestamp= */ nextSpeedChangeTimeUs - currentTimeUs,
-                  /* multiplier= */ (long) inputAudioFormat.sampleRate
-                      * inputAudioFormat.bytesPerFrame,
-                  /* divisor= */ C.MICROS_PER_SECOND);
-      int bytesToNextFrame =
-          inputAudioFormat.bytesPerFrame - bytesToNextSpeedChange % inputAudioFormat.bytesPerFrame;
-      if (bytesToNextFrame != inputAudioFormat.bytesPerFrame) {
-        bytesToNextSpeedChange += bytesToNextFrame;
-      }
+          (int) ((nextSpeedChangeSamplePosition - framesRead) * inputAudioFormat.bytesPerFrame);
       // Update the input buffer limit to make sure that all samples processed have the same speed.
       inputBuffer.limit(min(inputBufferLimit, inputBuffer.position() + bytesToNextSpeedChange));
     } else {
@@ -170,7 +151,10 @@ public final class SpeedChangingAudioProcessor extends BaseAudioProcessor {
       }
       buffer.flip();
     }
-    framesRead += (inputBuffer.position() - startPosition) / inputAudioFormat.bytesPerFrame;
+    long bytesRead = inputBuffer.position() - startPosition;
+    checkState(
+        bytesRead % inputAudioFormat.bytesPerFrame == 0, "A frame was not queued completely.");
+    framesRead += bytesRead / inputAudioFormat.bytesPerFrame;
     updateLastProcessedInputTime();
     inputBuffer.limit(inputBufferLimit);
   }
@@ -413,16 +397,5 @@ public final class SpeedChangingAudioProcessor extends BaseAudioProcessor {
     //  clear pendingCallbacks and pendingCallbacksInputTimes. We can't do this at the moment
     //  because some clients register callbacks with getSpeedAdjustedTimeAsync before this audio
     //  processor is flushed.
-  }
-
-  /**
-   * Returns the timestamp in microseconds of the sample defined by {@code sampleRate} that is
-   * closest to {@code timestampUs}, using the rounding mode specified in {@link
-   * Util#scaleLargeTimestamp}.
-   */
-  private static long getSampleRateAlignedTimestamp(long timestampUs, int sampleRate) {
-    long exactSamplePosition =
-        Util.scaleLargeTimestamp(timestampUs, sampleRate, C.MICROS_PER_SECOND);
-    return Util.scaleLargeTimestamp(exactSamplePosition, C.MICROS_PER_SECOND, sampleRate);
   }
 }

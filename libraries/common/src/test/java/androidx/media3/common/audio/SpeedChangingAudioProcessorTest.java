@@ -251,13 +251,18 @@ public class SpeedChangingAudioProcessorTest {
         getConfiguredSpeedChangingAudioProcessor(speedProvider);
     ByteBuffer inputBuffer = getInputBuffer(/* frameCount= */ 5);
 
-    speedChangingAudioProcessor.queueInput(inputBuffer);
-    outputFrames +=
-        speedChangingAudioProcessor.getOutput().remaining() / AUDIO_FORMAT.bytesPerFrame;
+    // SpeedChangingAudioProcessor only queues samples until the next speed change.
+    while (inputBuffer.hasRemaining()) {
+      speedChangingAudioProcessor.queueInput(inputBuffer);
+      outputFrames +=
+          speedChangingAudioProcessor.getOutput().remaining() / AUDIO_FORMAT.bytesPerFrame;
+    }
+
     speedChangingAudioProcessor.queueEndOfStream();
     outputFrames +=
         speedChangingAudioProcessor.getOutput().remaining() / AUDIO_FORMAT.bytesPerFrame;
-    assertThat(outputFrames).isEqualTo(3);
+    // We allow 1 sample of tolerance per speed change.
+    assertThat(outputFrames).isWithin(1).of(3);
   }
 
   @Test
