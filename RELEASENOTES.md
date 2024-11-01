@@ -51,6 +51,9 @@ This release includes the following changes since the
         https://github.com/androidx/media/commit/03a205f220ecf7681f85f8a752227e3986e257ff).
     *   Support CEA-608 subtitles in Dolby Vision content
         ([#1820](https://github.com/androidx/media/issues/1820)).
+*   RTSP Extension:
+    *   Fix crashing when parsing of RTP packets with header extensions
+        ([#1225](https://github.com/androidx/media/pull/1225)).
 
 ### 1.5.0-beta01 (2024-10-30)
 
