@@ -30,6 +30,7 @@ import android.text.style.UnderlineSpan;
 import android.util.SparseArray;
 import androidx.annotation.Nullable;
 import androidx.media3.common.text.HorizontalTextInVerticalContextSpan;
+import androidx.media3.common.text.OutlineSpan;
 import androidx.media3.common.text.RubySpan;
 import androidx.media3.common.text.TextAnnotation;
 import androidx.media3.common.text.TextEmphasisSpan;
@@ -207,6 +208,12 @@ import java.util.regex.Pattern;
               + "-webkit-text-emphasis-position:%2$s;text-emphasis-position:%2$s;"
               + "display:inline-block;'>",
           style, position);
+    } else if (span instanceof OutlineSpan) {
+        OutlineSpan outline = ((OutlineSpan) span);
+        return Util.formatInvariant(
+            "<span style='-webkit-text-stroke-width: %1$spx;'>",
+            outline.outlineWidth
+        );
     } else {
       return null;
     }
@@ -220,7 +227,8 @@ import java.util.regex.Pattern;
         || span instanceof HorizontalTextInVerticalContextSpan
         || span instanceof AbsoluteSizeSpan
         || span instanceof RelativeSizeSpan
-        || span instanceof TextEmphasisSpan) {
+        || span instanceof TextEmphasisSpan
+        || span instanceof OutlineSpan) {
       return "</span>";
     } else if (span instanceof TypefaceSpan) {
       @Nullable String fontFamily = ((TypefaceSpan) span).getFamily();

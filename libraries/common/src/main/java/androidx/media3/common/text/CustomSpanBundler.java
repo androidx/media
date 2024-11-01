@@ -53,12 +53,13 @@ import java.util.ArrayList;
    *   <li>{@link #RUBY}
    *   <li>{@link #TEXT_EMPHASIS}
    *   <li>{@link #HORIZONTAL_TEXT_IN_VERTICAL_CONTEXT}
+   *   <li>{@link #OUTLINE_WIDTH}
    * </ul>
    */
   @Documented
   @Retention(RetentionPolicy.SOURCE)
   @Target({TYPE_USE})
-  @IntDef({UNKNOWN, RUBY, TEXT_EMPHASIS, HORIZONTAL_TEXT_IN_VERTICAL_CONTEXT})
+  @IntDef({UNKNOWN, RUBY, TEXT_EMPHASIS, HORIZONTAL_TEXT_IN_VERTICAL_CONTEXT, OUTLINE_WIDTH})
   private @interface CustomSpanType {}
 
   private static final int UNKNOWN = -1;
@@ -68,6 +69,8 @@ import java.util.ArrayList;
   private static final int TEXT_EMPHASIS = 2;
 
   private static final int HORIZONTAL_TEXT_IN_VERTICAL_CONTEXT = 3;
+
+  private static final int OUTLINE_WIDTH = 4;
 
   private static final String FIELD_START_INDEX = Util.intToStringMaxRadix(0);
   private static final String FIELD_END_INDEX = Util.intToStringMaxRadix(1);
@@ -94,6 +97,11 @@ import java.util.ArrayList;
               text, span, /* spanType= */ HORIZONTAL_TEXT_IN_VERTICAL_CONTEXT, /* params= */ null);
       bundledCustomSpans.add(bundle);
     }
+    for (OutlineSpan span : text.getSpans(0, text.length(), OutlineSpan.class)) {
+      Bundle bundle =
+          spanToBundle(text, span, /* spanType= */ OUTLINE_WIDTH, /* params= */ span.toBundle());
+      bundledCustomSpans.add(bundle);
+    }
     return bundledCustomSpans;
   }
 
@@ -113,6 +121,8 @@ import java.util.ArrayList;
       case HORIZONTAL_TEXT_IN_VERTICAL_CONTEXT:
         text.setSpan(new HorizontalTextInVerticalContextSpan(), start, end, flags);
         break;
+      case OUTLINE_WIDTH:
+        text.setSpan(OutlineSpan.fromBundle(checkNotNull(span)),start,end,flags);
       default:
         break;
     }
