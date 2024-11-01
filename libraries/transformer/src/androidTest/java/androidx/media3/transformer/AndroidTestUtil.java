@@ -256,6 +256,31 @@ public final class AndroidTestUtil {
                   .setFrameRate(29.97f)
                   .build())
           .build();
+
+  /** This file contains an edit lists that adds one second to all video frames. */
+  public static final AssetInfo MP4_POSITIVE_SHIFT_EDIT_LIST =
+      new AssetInfo.Builder("asset:///media/mp4/edit_list_positive_shift.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H264)
+                  .setWidth(1920)
+                  .setHeight(1080)
+                  .setFrameRate(30.f)
+                  .build())
+          .build();
+
+  /** This file contains an edit lists that subtacts 1 second to all video frames. */
+  public static final AssetInfo MP4_NEGATIVE_SHIFT_EDIT_LIST =
+      new AssetInfo.Builder("asset:///media/mp4/edit_list_negative_shift.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H264)
+                  .setWidth(1920)
+                  .setHeight(1080)
+                  .setFrameRate(30.f)
+                  .build())
+          .build();
+
   public static final AssetInfo MP4_TRIM_OPTIMIZATION_270 =
       new AssetInfo.Builder(
               "asset:///media/mp4/internal_emulator_transformer_output_270_rotated.mp4")

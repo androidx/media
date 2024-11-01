@@ -1357,19 +1357,40 @@ public final class Transformer {
             }
             long maxEncodedAudioBufferDurationUs = 0;
             if (mp4Info.audioFormat != null && mp4Info.audioFormat.sampleRate != Format.NO_VALUE) {
-              // Ensure there is an audio sample to mux between the two clip times to prevent
-              // Transformer from hanging because it received an audio track but no audio samples.
               maxEncodedAudioBufferDurationUs =
                   Util.sampleCountToDurationUs(
                       AAC_LC_AUDIO_SAMPLE_COUNT, mp4Info.audioFormat.sampleRate);
             }
+            if (mp4Info.firstSyncSampleTimestampUsAfterTimeUs
+                == mp4Info.firstVideoSampleTimestampUs) {
+              // The video likely includes an edit list. For example, an edit list adds 1_000ms to
+              // each video sample and the trim position is from 100ms, the first sample would be at
+              // 1_000ms, the first sync sample after 100ms would also be at 1_000ms; but in this
+              // case processing should start from 100ms rather than 1_000ms. The resulting video
+              // should be 100ms shorter than the original video, and the first video timestamp
+              // should have timestamp at 900ms.
+              Transformer.this.composition =
+                  buildUponCompositionForTrimOptimization(
+                      composition,
+                      trimStartTimeUs,
+                      trimEndTimeUs,
+                      mp4Info.durationUs,
+                      /* startsAtKeyFrame= */ true,
+                      /* clearVideoEffects= */ false);
+              exportResultBuilder.setOptimizationResult(
+                  OPTIMIZATION_ABANDONED_KEYFRAME_PLACEMENT_OPTIMAL_FOR_TRIM);
+              processFullInput();
+              return;
+            }
+            // Ensure there is an audio sample to mux between the two clip times to prevent
+            // Transformer from hanging because it received an audio track but no audio samples.
             if (mp4Info.firstSyncSampleTimestampUsAfterTimeUs - trimStartTimeUs
                     <= maxEncodedAudioBufferDurationUs
                 || mp4Info.isFirstVideoSampleAfterTimeUsSyncSample) {
               Transformer.this.composition =
                   buildUponCompositionForTrimOptimization(
                       composition,
-                      mp4Info.firstSyncSampleTimestampUsAfterTimeUs,
+                      /* startTimeUs= */ mp4Info.firstSyncSampleTimestampUsAfterTimeUs,
                       trimEndTimeUs,
                       mp4Info.durationUs,
                       /* startsAtKeyFrame= */ true,
@@ -1409,6 +1430,7 @@ public final class Transformer {
               processFullInput();
               return;
             }
+
             Transformer.this.mediaItemInfo = mp4Info;
             maybeSetMuxerWrapperAdditionalRotationDegrees(
                 remuxingMuxerWrapper,
@@ -1418,8 +1440,8 @@ public final class Transformer {
                 buildUponCompositionForTrimOptimization(
                     composition,
                     trimStartTimeUs,
-                    mp4Info.firstSyncSampleTimestampUsAfterTimeUs,
-                    mp4Info.durationUs,
+                    /* endTimeUs= */ mp4Info.firstSyncSampleTimestampUsAfterTimeUs,
+                    /* mediaDurationUs= */ mp4Info.durationUs,
                     /* startsAtKeyFrame= */ false,
                     /* clearVideoEffects= */ true);
             startInternal(

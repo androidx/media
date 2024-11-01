@@ -44,6 +44,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.NalUnitUtil;
 import androidx.media3.effect.DebugTraceUtil;
@@ -71,6 +72,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  * <p>This wrapper can contain at most one video track and one audio track.
  */
 /* package */ final class MuxerWrapper {
+  private static final String TAG = "MuxerWrapper";
+
   /**
    * Thrown when video formats fail to match between {@link #MUXER_MODE_MUX_PARTIAL} and {@link
    * #MUXER_MODE_APPEND}.
@@ -566,6 +569,21 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
 
     if (trackInfo.sampleCount == 0) {
+      if (trackType == C.TRACK_TYPE_VIDEO
+          && contains(trackTypeToInfo, C.TRACK_TYPE_AUDIO)
+          && !dropSamplesBeforeFirstVideoSample) {
+        checkState(firstVideoPresentationTimeUs != C.TIME_UNSET);
+        // Set the presentation timestamp of the first video to zero so that the first video frame
+        // is presented when playback starts cross-platform. Moreover, MediaMuxer shifts all video
+        // sample times to zero under API30 and it breaks A/V sync.
+        // Only apply this when there is audio track added, i.e. when not recording screen.
+        // TODO: b/376217254 - Consider removing after switching to InAppMuxer.
+        // TODO: b/376217254 - Remove audio dropping logic, use video frame shifting instead.
+        Log.w(
+            TAG,
+            "Applying workarounds for edit list: shifting only the first video timestamp to zero.");
+        presentationTimeUs = 0;
+      }
       trackInfo.startTimeUs = presentationTimeUs;
     }
     trackInfo.sampleCount++;

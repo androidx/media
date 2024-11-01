@@ -30,6 +30,7 @@ import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_WITH_INCREAS
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_WITH_SHORTER_AUDIO;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_PORTRAIT_ASSET;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_POSITIVE_SHIFT_EDIT_LIST;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_TRIM_OPTIMIZATION;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_TRIM_OPTIMIZATION_180;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_TRIM_OPTIMIZATION_270;
@@ -66,6 +67,7 @@ import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Message;
 import android.util.Pair;
+import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
@@ -112,6 +114,7 @@ import com.google.common.collect.ImmutableSet;
 import java.io.File;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.Before;
@@ -1020,6 +1023,68 @@ public class TransformerEndToEndTest {
     assertThat(result.exportResult.videoConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSCODED);
     assertThat(result.exportResult.audioConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSMUXED);
     assertThat(new File(result.filePath).length()).isGreaterThan(0);
+  }
+
+  @Test
+  public void
+      clippedMediaWithPositiveEditList_trimOptimizationEnabled_setsFirstVideoTimestampToZero()
+          throws Exception {
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri(MP4_POSITIVE_SHIFT_EDIT_LIST.uri)
+            .setClippingConfiguration(
+                new MediaItem.ClippingConfiguration.Builder().setStartPositionUs(100_000).build())
+            .build();
+    EditedMediaItem editedMediaItem = new EditedMediaItem.Builder(mediaItem).build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(
+                context,
+                new Transformer.Builder(context)
+                    .experimentalSetTrimOptimizationEnabled(true)
+                    .build())
+            .build()
+            .run(testId, editedMediaItem);
+
+    Mp4Extractor mp4Extractor = new Mp4Extractor(new DefaultSubtitleParserFactory());
+    FakeExtractorOutput fakeExtractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(mp4Extractor, checkNotNull(result.filePath));
+    assertThat(result.exportResult.fileSizeBytes).isGreaterThan(0);
+    List<Long> videoTimestampsUs =
+        checkNotNull(getVideoTrackOutput(fakeExtractorOutput)).getSampleTimesUs();
+    assertThat(videoTimestampsUs).hasSize(270);
+    assertThat(videoTimestampsUs.get(0)).isEqualTo(0);
+    // The second sample is originally at 1_033_333, clipping at 100_000 results in 933_333.
+    assertThat(videoTimestampsUs.get(1)).isEqualTo(933_333);
+  }
+
+  @Test
+  public void
+      clippedMediaWithPositiveEditList_trimOptimizationDisbled_setsFirstVideoTimestampToZero()
+          throws Exception {
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri(MP4_POSITIVE_SHIFT_EDIT_LIST.uri)
+            .setClippingConfiguration(
+                new MediaItem.ClippingConfiguration.Builder().setStartPositionUs(100_000).build())
+            .build();
+    EditedMediaItem editedMediaItem = new EditedMediaItem.Builder(mediaItem).build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, new Transformer.Builder(context).build())
+            .build()
+            .run(testId, editedMediaItem);
+
+    Mp4Extractor mp4Extractor = new Mp4Extractor(new DefaultSubtitleParserFactory());
+    FakeExtractorOutput fakeExtractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(mp4Extractor, checkNotNull(result.filePath));
+    assertThat(result.exportResult.fileSizeBytes).isGreaterThan(0);
+    List<Long> videoTimestampsUs =
+        checkNotNull(getVideoTrackOutput(fakeExtractorOutput)).getSampleTimesUs();
+    assertThat(videoTimestampsUs).hasSize(270);
+    assertThat(videoTimestampsUs.get(0)).isEqualTo(0);
+    // The second sample is originally at 1_033_333, clipping at 100_000 results in 933_333.
+    assertThat(videoTimestampsUs.get(1)).isEqualTo(933_333);
   }
 
   @Test
@@ -2113,7 +2178,7 @@ public class TransformerEndToEndTest {
     assertThat(videoTrack.getSampleTimeUs(/* index= */ 0)).isEqualTo(0);
     int sampleIndexWithLargestSampleTime = 10;
     // TODO: b/365992945 - Address the issue of sample timeUs increasing due to negative timestamps
-    // caused by the edit list. The correct values should be 11_500_000 and 9_500_000 respectively.
+    //  caused by the edit list. The correct values should be 11_500_000 and 9_500_000 respectively.
     assertThat(videoTrack.getSampleTimeUs(sampleIndexWithLargestSampleTime)).isEqualTo(12_000_000);
     assertThat(videoTrack.getSampleTimeUs(/* index= */ expectedSampleCount - 1))
         .isEqualTo(10_000_000);
@@ -2436,6 +2501,17 @@ public class TransformerEndToEndTest {
           new TextureAssetLoader(editedMediaItem, listener, format, frameProcessedListener);
       return textureAssetLoader;
     }
+  }
+
+  @Nullable
+  private static FakeTrackOutput getVideoTrackOutput(FakeExtractorOutput extractorOutput) {
+    for (int i = 0; i < extractorOutput.numberOfTracks; i++) {
+      FakeTrackOutput trackOutput = extractorOutput.trackOutputs.get(i);
+      if (MimeTypes.isVideo(checkNotNull(trackOutput.lastFormat).sampleMimeType)) {
+        return trackOutput;
+      }
+    }
+    return null;
   }
 
   private static final class VideoUnsupportedEncoderFactory implements Codec.EncoderFactory {
