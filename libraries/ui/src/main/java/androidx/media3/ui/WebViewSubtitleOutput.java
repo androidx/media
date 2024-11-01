@@ -177,11 +177,13 @@ import java.util.Map;
                 + "font-size:%s;"
                 + "line-height:%.2f;"
                 + "text-shadow:%s;"
+                + "-webkit-text-stroke-color: %s';"
                 + "'>",
             HtmlUtils.toCssRgba(style.foregroundColor),
             convertTextSizeToCss(defaultTextSizeType, defaultTextSize),
             CSS_LINE_HEIGHT,
-            convertCaptionStyleToCssTextShadow(style)));
+            convertCaptionStyleToCssTextShadow(style),
+            HtmlUtils.toCssRgba(style.edgeColor)));
 
     Map<String, String> cssRuleSets = new HashMap<>();
     cssRuleSets.put(
