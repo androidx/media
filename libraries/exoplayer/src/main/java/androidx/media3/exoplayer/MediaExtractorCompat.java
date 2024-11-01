@@ -18,7 +18,6 @@ package androidx.media3.exoplayer;
 import static androidx.annotation.VisibleForTesting.NONE;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
-import static androidx.media3.exoplayer.source.SampleStream.FLAG_OMIT_SAMPLE_DATA;
 import static androidx.media3.exoplayer.source.SampleStream.FLAG_PEEK;
 import static androidx.media3.exoplayer.source.SampleStream.FLAG_REQUIRE_FORMAT;
 
@@ -52,7 +51,6 @@ import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.exoplayer.mediacodec.MediaCodecUtil;
 import androidx.media3.exoplayer.source.SampleQueue;
 import androidx.media3.exoplayer.source.SampleStream.ReadDataResult;
-import androidx.media3.exoplayer.source.SampleStream.ReadFlags;
 import androidx.media3.exoplayer.source.UnrecognizedInputFormatException;
 import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.DefaultAllocator;
@@ -123,10 +121,9 @@ public final class MediaExtractorCompat {
   private final Allocator allocator;
   private final ArrayList<MediaExtractorTrack> tracks;
   private final SparseArray<MediaExtractorSampleQueue> sampleQueues;
-  private final ArrayDeque<Integer> trackIndicesPerSampleInQueuedOrder;
+  private final SampleMetadataQueue sampleMetadataQueue;
   private final FormatHolder formatHolder;
-  private final DecoderInputBuffer sampleHolderWithBufferReplacementDisabled;
-  private final DecoderInputBuffer sampleHolderWithBufferReplacementDirect;
+  private final DecoderInputBuffer sampleHolder;
   private final DecoderInputBuffer noDataBuffer;
   private final Set<Integer> selectedTrackIndices;
 
@@ -173,12 +170,9 @@ public final class MediaExtractorCompat {
     allocator = new DefaultAllocator(/* trimOnReset= */ true, C.DEFAULT_BUFFER_SEGMENT_SIZE);
     tracks = new ArrayList<>();
     sampleQueues = new SparseArray<>();
-    trackIndicesPerSampleInQueuedOrder = new ArrayDeque<>();
+    sampleMetadataQueue = new SampleMetadataQueue();
     formatHolder = new FormatHolder();
-    sampleHolderWithBufferReplacementDisabled =
-        new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_DISABLED);
-    sampleHolderWithBufferReplacementDirect =
-        new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_DIRECT);
+    sampleHolder = new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_DISABLED);
     noDataBuffer = DecoderInputBuffer.newNoDataInstance();
     selectedTrackIndices = new HashSet<>();
   }
@@ -489,7 +483,7 @@ public final class MediaExtractorCompat {
         // Should never happen.
         throw new IllegalArgumentException();
     }
-    trackIndicesPerSampleInQueuedOrder.clear();
+    sampleMetadataQueue.clear();
     for (int i = 0; i < sampleQueues.size(); i++) {
       sampleQueues.valueAt(i).reset();
     }
@@ -532,12 +526,11 @@ public final class MediaExtractorCompat {
     // The platform media extractor implementation ignores the buffer's input position and limit.
     buffer.position(offset);
     buffer.limit(buffer.capacity());
-    sampleHolderWithBufferReplacementDisabled.data = buffer;
-    peekNextSelectedTrackSample(
-        sampleHolderWithBufferReplacementDisabled, /* omitSampleData= */ false);
+    sampleHolder.data = buffer;
+    peekNextSelectedTrackSample(sampleHolder);
     buffer.flip();
     buffer.position(offset);
-    sampleHolderWithBufferReplacementDisabled.data = null;
+    sampleHolder.data = null;
     return buffer.remaining();
   }
 
@@ -549,7 +542,7 @@ public final class MediaExtractorCompat {
     if (!advanceToSampleOrEndOfInput()) {
       return -1;
     }
-    return trackIndicesPerSampleInQueuedOrder.peekFirst();
+    return sampleMetadataQueue.peekFirst().trackIndex;
   }
 
   /** Returns the current sample's size in bytes, or -1 if no more samples are available. */
@@ -557,12 +550,7 @@ public final class MediaExtractorCompat {
     if (!advanceToSampleOrEndOfInput()) {
       return -1;
     }
-    peekNextSelectedTrackSample(
-        sampleHolderWithBufferReplacementDirect, /* omitSampleData= */ false);
-    ByteBuffer buffer = checkNotNull(sampleHolderWithBufferReplacementDirect.data);
-    int sampleSize = buffer.position();
-    buffer.position(0);
-    return sampleSize;
+    return sampleMetadataQueue.peekFirst().size;
   }
 
   /**
@@ -573,8 +561,7 @@ public final class MediaExtractorCompat {
     if (!advanceToSampleOrEndOfInput()) {
       return -1;
     }
-    peekNextSelectedTrackSample(noDataBuffer, /* omitSampleData= */ true);
-    return noDataBuffer.timeUs;
+    return sampleMetadataQueue.peekFirst().timeUs;
   }
 
   /** Returns the current sample's flags. */
@@ -582,11 +569,7 @@ public final class MediaExtractorCompat {
     if (!advanceToSampleOrEndOfInput()) {
       return -1;
     }
-    peekNextSelectedTrackSample(noDataBuffer, /* omitSampleData= */ true);
-    int flags = 0;
-    flags |= noDataBuffer.isEncrypted() ? MediaExtractor.SAMPLE_FLAG_ENCRYPTED : 0;
-    flags |= noDataBuffer.isKeyFrame() ? MediaExtractor.SAMPLE_FLAG_SYNC : 0;
-    return flags;
+    return sampleMetadataQueue.peekFirst().flags;
   }
 
   @VisibleForTesting(otherwise = NONE)
@@ -599,23 +582,20 @@ public final class MediaExtractorCompat {
    * {@link Format} first, if necessary.
    *
    * @param decoderInputBuffer The buffer to populate.
-   * @param omitSampleData Whether to omit the sample's data.
    * @throws IllegalStateException If a sample is not peeked as a result of calling this method.
    */
-  private void peekNextSelectedTrackSample(
-      DecoderInputBuffer decoderInputBuffer, boolean omitSampleData) {
+  private void peekNextSelectedTrackSample(DecoderInputBuffer decoderInputBuffer) {
     MediaExtractorTrack trackOfSample =
-        tracks.get(checkNotNull(trackIndicesPerSampleInQueuedOrder.peekFirst()));
+        tracks.get(checkNotNull(sampleMetadataQueue.peekFirst()).trackIndex);
     SampleQueue sampleQueue = trackOfSample.sampleQueue;
-    @ReadFlags int readFlags = FLAG_PEEK | (omitSampleData ? FLAG_OMIT_SAMPLE_DATA : 0);
     @ReadDataResult
     int result =
-        sampleQueue.read(formatHolder, decoderInputBuffer, readFlags, /* loadingFinished= */ false);
+        sampleQueue.read(formatHolder, decoderInputBuffer, FLAG_PEEK, /* loadingFinished= */ false);
     if (result == C.RESULT_FORMAT_READ) {
       // We've consumed a downstream format. Now consume the actual sample.
       result =
           sampleQueue.read(
-              formatHolder, decoderInputBuffer, readFlags, /* loadingFinished= */ false);
+              formatHolder, decoderInputBuffer, FLAG_PEEK, /* loadingFinished= */ false);
     }
     formatHolder.clear();
     // This method must only be called when there is a sample available for reading.
@@ -670,7 +650,7 @@ public final class MediaExtractorCompat {
    *
    * @return Whether a sample from a selected track is available.
    */
-  @EnsuresNonNullIf(expression = "trackIndicesPerSampleInQueuedOrder.peekFirst()", result = true)
+  @EnsuresNonNullIf(expression = "sampleMetadataQueue.peekFirst()", result = true)
   private boolean advanceToSampleOrEndOfInput() {
     try {
       maybeResolvePendingSeek();
@@ -681,9 +661,10 @@ public final class MediaExtractorCompat {
 
     boolean seenEndOfInput = false;
     while (true) {
-      if (!trackIndicesPerSampleInQueuedOrder.isEmpty()) {
+      if (!sampleMetadataQueue.isEmpty()) {
         // By default, tracks are unselected.
-        if (selectedTrackIndices.contains(trackIndicesPerSampleInQueuedOrder.peekFirst())) {
+        if (selectedTrackIndices.contains(
+            checkNotNull(sampleMetadataQueue.peekFirst()).trackIndex)) {
           return true;
         } else {
           // There is a queued sample, but its track is unselected. We skip the sample.
@@ -714,7 +695,7 @@ public final class MediaExtractorCompat {
   }
 
   private void skipOneSample() {
-    int trackIndex = trackIndicesPerSampleInQueuedOrder.removeFirst();
+    int trackIndex = sampleMetadataQueue.removeFirst().trackIndex;
     MediaExtractorTrack track = tracks.get(trackIndex);
     if (!track.isCompatibilityTrack) {
       // We also need to skip the sample data.
@@ -913,19 +894,20 @@ public final class MediaExtractorCompat {
 
     @Override
     public void sampleMetadata(
-        long timeUs, int flags, int size, int offset, @Nullable CryptoData cryptoData) {
+        long timeUs,
+        @C.BufferFlags int flags,
+        int size,
+        int offset,
+        @Nullable CryptoData cryptoData) {
       // Disable BUFFER_FLAG_LAST_SAMPLE to prevent the sample queue from ignoring
       // FLAG_REQUIRE_FORMAT. See b/191518632.
       flags &= ~C.BUFFER_FLAG_LAST_SAMPLE;
       Assertions.checkState(mainTrackIndex != C.INDEX_UNSET);
       int writeIndexBeforeCommitting = this.getWriteIndex();
       super.sampleMetadata(timeUs, flags, size, offset, cryptoData);
-      // Add the track index if the sample was committed
+      // Add the sample metadata if the sample was committed
       if (this.getWriteIndex() == writeIndexBeforeCommitting + 1) {
-        if (compatibilityTrackIndex != C.INDEX_UNSET) {
-          trackIndicesPerSampleInQueuedOrder.addLast(compatibilityTrackIndex);
-        }
-        trackIndicesPerSampleInQueuedOrder.addLast(mainTrackIndex);
+        queueSampleMetadata(timeUs, flags, size);
       }
     }
 
@@ -934,6 +916,110 @@ public final class MediaExtractorCompat {
       return String.format(
           "trackId: %s, mainTrackIndex: %s, compatibilityTrackIndex: %s",
           trackId, mainTrackIndex, compatibilityTrackIndex);
+    }
+
+    private void queueSampleMetadata(long timeUs, @C.BufferFlags int flags, int size) {
+      int mediaExtractorFlags = 0;
+      mediaExtractorFlags |=
+          (flags & C.BUFFER_FLAG_ENCRYPTED) != 0 ? MediaExtractor.SAMPLE_FLAG_ENCRYPTED : 0;
+      mediaExtractorFlags |=
+          (flags & C.BUFFER_FLAG_KEY_FRAME) != 0 ? MediaExtractor.SAMPLE_FLAG_SYNC : 0;
+
+      if (compatibilityTrackIndex != C.INDEX_UNSET) {
+        sampleMetadataQueue.addLast(
+            timeUs, /* flags= */ mediaExtractorFlags, size, compatibilityTrackIndex);
+      }
+      sampleMetadataQueue.addLast(timeUs, /* flags= */ mediaExtractorFlags, size, mainTrackIndex);
+    }
+  }
+
+  /**
+   * A queue for managing {@link SampleMetadata} instances in FIFO order with an internal pool for
+   * recycling.
+   */
+  private static final class SampleMetadataQueue {
+
+    private final ArrayDeque<SampleMetadata> sampleMetadataPool;
+    private final ArrayDeque<SampleMetadata> sampleMetadataQueue;
+
+    /** Creates an instance. */
+    public SampleMetadataQueue() {
+      sampleMetadataPool = new ArrayDeque<>();
+      sampleMetadataQueue = new ArrayDeque<>();
+    }
+
+    /**
+     * Adds a sample to the end of the queue, reusing a pooled {@link SampleMetadata} instance if
+     * available.
+     *
+     * @param timeUs The media timestamp associated with the sample, in microseconds.
+     * @param flags Flags associated with the sample. See {@code MediaExtractor.SAMPLE_FLAG_*}.
+     * @param size The size of the sample data, in bytes.
+     * @param trackIndex Track index of the sample.
+     */
+    public void addLast(long timeUs, int flags, long size, int trackIndex) {
+      SampleMetadata metadata = obtainSampleMetadata(timeUs, flags, size, trackIndex);
+      sampleMetadataQueue.addLast(metadata);
+    }
+
+    /**
+     * Removes and returns the first {@link SampleMetadata} in the queue, releasing it back to the
+     * pool.
+     */
+    public SampleMetadata removeFirst() {
+      SampleMetadata metadata = sampleMetadataQueue.removeFirst();
+      sampleMetadataPool.push(metadata);
+      return metadata;
+    }
+
+    /**
+     * Peeks at the first {@link SampleMetadata} in the queue without removing it.
+     *
+     * @return The first {@link SampleMetadata} in the queue, or {@code null} if empty.
+     */
+    @Nullable
+    public SampleMetadata peekFirst() {
+      return sampleMetadataQueue.peekFirst();
+    }
+
+    /** Clears the queue, releasing all {@link SampleMetadata} back to the pool. */
+    public void clear() {
+      for (SampleMetadata metadata : sampleMetadataQueue) {
+        sampleMetadataPool.push(metadata);
+      }
+      sampleMetadataQueue.clear();
+    }
+
+    /** Returns whether the queue is empty. */
+    public boolean isEmpty() {
+      return sampleMetadataQueue.isEmpty();
+    }
+
+    private SampleMetadata obtainSampleMetadata(long timeUs, int flags, long size, int trackIndex) {
+      SampleMetadata metadata =
+          sampleMetadataPool.isEmpty()
+              ? new SampleMetadata(timeUs, flags, size, trackIndex)
+              : sampleMetadataPool.pop();
+      metadata.set(timeUs, flags, size, trackIndex);
+      return metadata;
+    }
+
+    private static final class SampleMetadata {
+      public int flags;
+      public long size;
+      public long timeUs;
+      public int trackIndex;
+
+      public SampleMetadata(long timeUs, int flags, long size, int trackIndex) {
+        set(timeUs, flags, size, trackIndex);
+      }
+
+      public void set(long timeUs, int flags, long size, int trackIndex) {
+        this.timeUs = timeUs;
+        this.flags = flags;
+        this.size = size;
+        this.trackIndex = trackIndex;
+      }
     }
   }
 }

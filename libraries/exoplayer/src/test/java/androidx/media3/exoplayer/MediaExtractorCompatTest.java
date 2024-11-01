@@ -19,6 +19,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import android.content.Context;
+import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.net.Uri;
 import androidx.media3.common.C;
@@ -252,6 +253,7 @@ public class MediaExtractorCompatTest {
     // After skipping the only sample, there should be none left, and getSampleTime and
     // getSampleSize should return -1.
     assertThat(mediaExtractorCompat.getSampleTime()).isEqualTo(-1);
+    assertThat(mediaExtractorCompat.getSampleFlags()).isEqualTo(-1);
     assertThat(mediaExtractorCompat.getSampleSize()).isEqualTo(-1);
     assertThat(mediaExtractorCompat.getTrackFormat(0).getString(MediaFormat.KEY_MIME))
         .isEqualTo(PLACEHOLDER_FORMAT_VIDEO.sampleMimeType);
@@ -611,6 +613,7 @@ public class MediaExtractorCompatTest {
     // read.
     assertThat(mediaExtractorCompat.getSampleTrackIndex()).isEqualTo(-1);
     assertThat(mediaExtractorCompat.getSampleTime()).isEqualTo(-1);
+    assertThat(mediaExtractorCompat.getSampleFlags()).isEqualTo(-1);
     assertThat(mediaExtractorCompat.getSampleSize()).isEqualTo(-1);
     assertThat(mediaExtractorCompat.readSampleData(ByteBuffer.allocate(0), /* offset= */ 0))
         .isEqualTo(-1);
@@ -691,6 +694,7 @@ public class MediaExtractorCompatTest {
   private void assertReadSample(int trackIndex, long timeUs, int size, byte... sampleData) {
     assertThat(mediaExtractorCompat.getSampleTrackIndex()).isEqualTo(trackIndex);
     assertThat(mediaExtractorCompat.getSampleTime()).isEqualTo(timeUs);
+    assertThat(mediaExtractorCompat.getSampleFlags()).isEqualTo(MediaExtractor.SAMPLE_FLAG_SYNC);
     assertThat(mediaExtractorCompat.getSampleSize()).isEqualTo(size);
     ByteBuffer buffer = ByteBuffer.allocate(100);
     assertThat(mediaExtractorCompat.readSampleData(buffer, /* offset= */ 0))
