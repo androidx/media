@@ -1740,23 +1740,17 @@ public final class DefaultAudioSink implements AudioSink {
           audioProcessorChain.getMediaDuration(playoutDurationSinceLastCheckpointUs);
       long currentMediaPositionUs =
           mediaPositionParameters.mediaTimeUs + actualMediaDurationSinceLastCheckpointUs;
-      long mediaDurationEstimateDiffUs =
+      mediaPositionParameters.mediaPositionDriftUs =
           actualMediaDurationSinceLastCheckpointUs - estimatedMediaDurationSinceLastCheckpointUs;
-      if (Math.abs(mediaDurationEstimateDiffUs) > 10000) {
-        // Update current media position parameters if the estimate drifted from the actual
-        // media duration created by the audio processor chain. This ensures the estimate is always
-        // fairly accurate and we can rely on it once we enter the else-branch below.
-        mediaPositionParameters =
-            new MediaPositionParameters(
-                mediaPositionParameters.playbackParameters, currentMediaPositionUs, positionUs);
-      }
       return currentMediaPositionUs;
     } else {
       // The processor chain has been configured with new parameters, but we're still playing audio
       // that was processed using previous parameters. We can't scale the playout duration using the
       // processor chain in this case, so we fall back to scaling using the previous parameters'
       // target speed instead.
-      return mediaPositionParameters.mediaTimeUs + estimatedMediaDurationSinceLastCheckpointUs;
+      return mediaPositionParameters.mediaTimeUs
+          + estimatedMediaDurationSinceLastCheckpointUs
+          + mediaPositionParameters.mediaPositionDriftUs;
     }
   }
 
@@ -2099,6 +2093,12 @@ public final class DefaultAudioSink implements AudioSink {
 
     /** The audio track position from which the playback parameters apply, in microseconds. */
     public final long audioTrackPositionUs;
+
+    /**
+     * An updatable value for the observed drift between the actual media time and the one that can
+     * be calculated from the other parameters.
+     */
+    public long mediaPositionDriftUs;
 
     private MediaPositionParameters(
         PlaybackParameters playbackParameters, long mediaTimeUs, long audioTrackPositionUs) {
