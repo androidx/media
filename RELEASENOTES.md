@@ -1,10 +1,12 @@
 # Release notes
 
-### Unreleased changes
+## 1.5
 
-*   Common Library:
-*   ExoPlayer:
-*   Transformer:
+## 1.5.0-rc01 (2024-11-13)
+
+This release includes the following changes since the
+[1.5.0-beta01 release](#150-2024-10-30):
+
 *   Extractors:
     *   Fix media duration parsing in `mdhd` box of MP4 files to handle `-1`
         values ([#1819](https://github.com/androidx/media/issues/1819)).
@@ -15,41 +17,12 @@
         resolved URI (as documented). Where this is different to the requested
         URI, tests can indicate this using the new
         `DataSourceContractTest.TestResource.Builder.setResolvedUri()` method.
-*   Audio:
-*   Video:
 *   Text:
     *   Fix CEA-608 subtitles in H.264 MPEG-TS streams not being output (this
         was broken in `1.5.0-alpha01` by
         https://github.com/androidx/media/commit/03a205f220ecf7681f85f8a752227e3986e257ff).
     *   Support CEA-608 subtitles in Dolby Vision content
         ([#1820](https://github.com/androidx/media/issues/1820)).
-*   Metadata:
-*   Image:
-*   DRM:
-*   Effect:
-    *   Moved the functionality of `OverlaySettings` into
-        `StaticOverlaySettings`. `OverlaySettings` can be subclassed to allow
-        dynamic overlay settings.
-*   Muxers:
-*   IMA extension:
-*   UI:
-*   Downloads:
-*   OkHttp Extension:
-*   Cronet Extension:
-*   RTMP Extension:
-*   HLS Extension:
-*   DASH Extension:
-*   Smooth Streaming Extension:
-*   RTSP Extension:
-*   Decoder Extensions (FFmpeg, VP9, AV1, etc.):
-*   MIDI extension:
-*   Leanback extension:
-*   Cast Extension:
-*   Test Utilities:
-*   Demo app:
-*   Remove deprecated symbols:
-
-## 1.5
 
 ### 1.5.0-beta01 (2024-10-30)
 
