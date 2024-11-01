@@ -211,7 +211,7 @@ import java.util.regex.Pattern;
     } else if (span instanceof OutlineSpan) {
         OutlineSpan outline = ((OutlineSpan) span);
         return Util.formatInvariant(
-            "<span style='-webkit-text-stroke-width: %1$spx;>",
+            "<span style='-webkit-text-stroke-width: %1$spx;'>",
             outline.outlineWidth
         );
     } else {

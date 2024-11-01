@@ -177,7 +177,7 @@ import java.util.Map;
                 + "font-size:%s;"
                 + "line-height:%.2f;"
                 + "text-shadow:%s;"
-                + "-webkit-text-stroke-color: %s';"
+                + "-webkit-text-stroke-color: %s;"
                 + "'>",
             HtmlUtils.toCssRgba(style.foregroundColor),
             convertTextSizeToCss(defaultTextSizeType, defaultTextSize),
