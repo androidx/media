@@ -37,7 +37,6 @@ import android.text.TextUtils;
 import androidx.annotation.ColorInt;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
-import androidx.annotation.Px;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -274,11 +273,6 @@ public final class Cue {
   public final float size;
 
   /**
-   * The size of the text outline stroke in pixels or {@link #DIMEN_UNSET} for default width.
-   */
-  public final @Px float outlineWidth;
-
-  /**
    * The bitmap height as a fraction of the of the viewport size, or {@link #DIMEN_UNSET} if the
    * bitmap should be displayed at its natural height given the bitmap dimensions and the specified
    * {@link #size}.
@@ -332,8 +326,7 @@ public final class Cue {
       boolean windowColorSet,
       int windowColor,
       @VerticalType int verticalType,
-      float shearDegrees,
-      @Px float outlineWidth) {
+      float shearDegrees) {
     // Exactly one of text or bitmap should be set.
     if (text == null) {
       Assertions.checkNotNull(bitmap);
@@ -363,7 +356,6 @@ public final class Cue {
     this.textSize = textSize;
     this.verticalType = verticalType;
     this.shearDegrees = shearDegrees;
-    this.outlineWidth = outlineWidth;
   }
 
   /** Returns a new {@link Cue.Builder} initialized with the same values as this Cue. */
@@ -399,8 +391,7 @@ public final class Cue {
         && textSizeType == that.textSizeType
         && textSize == that.textSize
         && verticalType == that.verticalType
-        && shearDegrees == that.shearDegrees
-        && outlineWidth == that.outlineWidth;
+        && shearDegrees == that.shearDegrees;
   }
 
   @Override
@@ -422,8 +413,7 @@ public final class Cue {
         textSizeType,
         textSize,
         verticalType,
-        shearDegrees,
-        outlineWidth);
+        shearDegrees);
   }
 
   /** A builder for {@link Cue} objects. */
@@ -446,7 +436,6 @@ public final class Cue {
     @ColorInt private int windowColor;
     private @VerticalType int verticalType;
     private float shearDegrees;
-    private @Px float outlineWidth;
 
     public Builder() {
       text = null;
@@ -465,7 +454,6 @@ public final class Cue {
       windowColorSet = false;
       windowColor = Color.BLACK;
       verticalType = TYPE_UNSET;
-      outlineWidth = DIMEN_UNSET;
     }
 
     private Builder(Cue cue) {
@@ -486,7 +474,6 @@ public final class Cue {
       windowColor = cue.windowColor;
       verticalType = cue.verticalType;
       shearDegrees = cue.shearDegrees;
-      outlineWidth = cue.outlineWidth;
     }
 
     /**
@@ -729,27 +716,6 @@ public final class Cue {
     }
 
     /**
-     * Sets the outline width in pixels
-     *
-     * @see Cue#outlineWidth
-     */
-    @CanIgnoreReturnValue
-    public Builder setOutlineWidth(@Px float outlineWidth) {
-      this.outlineWidth = outlineWidth;
-      return this;
-    }
-
-    /**
-     * Gets the outline width in pixels
-     *
-     * @see Cue#outlineWidth
-     */
-    @Pure
-    public float getOutlineWidth() {
-      return outlineWidth;
-    }
-
-    /**
      * Sets the bitmap height as a fraction of the viewport size.
      *
      * @see Cue#bitmapHeight
@@ -859,8 +825,7 @@ public final class Cue {
           windowColorSet,
           windowColor,
           verticalType,
-          shearDegrees,
-          outlineWidth);
+          shearDegrees);
     }
   }
 
@@ -883,7 +848,6 @@ public final class Cue {
   private static final String FIELD_WINDOW_COLOR_SET = Util.intToStringMaxRadix(14);
   private static final String FIELD_VERTICAL_TYPE = Util.intToStringMaxRadix(15);
   private static final String FIELD_SHEAR_DEGREES = Util.intToStringMaxRadix(16);
-  private static final String FIELD_OUTLINE_WIDTH = Util.intToStringMaxRadix(19);
 
   /**
    * Returns a {@link Bundle} that can be serialized to bytes.
@@ -959,7 +923,6 @@ public final class Cue {
     bundle.putInt(FIELD_WINDOW_COLOR, windowColor);
     bundle.putInt(FIELD_VERTICAL_TYPE, verticalType);
     bundle.putFloat(FIELD_SHEAR_DEGREES, shearDegrees);
-    bundle.putFloat(FIELD_OUTLINE_WIDTH, outlineWidth);
     return bundle;
   }
 
@@ -1031,9 +994,6 @@ public final class Cue {
     }
     if (bundle.containsKey(FIELD_SHEAR_DEGREES)) {
       builder.setShearDegrees(bundle.getFloat(FIELD_SHEAR_DEGREES));
-    }
-    if (bundle.containsKey(FIELD_OUTLINE_WIDTH)) {
-      builder.setOutlineWidth(bundle.getFloat(FIELD_OUTLINE_WIDTH));
     }
     return builder.build();
   }
