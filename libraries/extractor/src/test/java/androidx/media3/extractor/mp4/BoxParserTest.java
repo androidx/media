@@ -300,7 +300,7 @@ public final class BoxParserTest {
         ByteBuffer.allocate(50)
             .putInt(50) // box size
             .putInt(Mp4Box.TYPE_chpl) // box type
-            .put(new byte[5]) // version (1), flags (3), reserver byte (1)
+            .put(new byte[5]) // version (1), flags (3), reserved byte (1)
             .putInt(2) // chapter count
             // first chapter
             .putLong(0) // start time in 100-nanoseconds resolution
@@ -346,7 +346,7 @@ public final class BoxParserTest {
         ByteBuffer.allocate(50)
             .putInt(50) // box size
             .putInt(Mp4Box.TYPE_chpl) // box type
-            .put(new byte[5]) // version (1), flags (3), reserver byte (1)
+            .put(new byte[5]) // version (1), flags (3), reserved byte (1)
             .putInt(2) // chapter count
             // first chapter
             .putLong(-10_000) // start time, negative
