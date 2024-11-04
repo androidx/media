@@ -2777,6 +2777,7 @@ public final class DefaultTrackSelectorTest {
                     .build())
             .build());
     // Offload playback with gapless transitions is supported
+    @SuppressWarnings("WrongConstant") // Combining these two values bit-wise is allowed
     RendererCapabilities capabilitiesOffloadSupport =
         new FakeRendererCapabilities(
             C.TRACK_TYPE_AUDIO,

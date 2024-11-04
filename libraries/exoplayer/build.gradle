@@ -34,6 +34,12 @@ android {
         test.assets.srcDir '../test_data/src/test/assets/'
     }
 
+    lintOptions {
+        // TODO: b/353490583 - Move this to common_library_config.gradle once it's enabled for all
+        //  libraries.
+        checkTestSources true
+    }
+
     publishing {
         singleVariant('release') {
             withSourcesJar()

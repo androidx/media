@@ -207,7 +207,7 @@ public class AsynchronousMediaCodecCallbackTest {
     MediaCodec.BufferInfo bufferInfo1 = new MediaCodec.BufferInfo();
     asynchronousMediaCodecCallback.onOutputBufferAvailable(codec, 0, bufferInfo1);
     MediaCodec.BufferInfo bufferInfo2 = new MediaCodec.BufferInfo();
-    bufferInfo2.set(1, 1, 1, 1);
+    bufferInfo2.set(1, 1, 1, MediaCodec.BUFFER_FLAG_KEY_FRAME);
     asynchronousMediaCodecCallback.onOutputBufferAvailable(codec, 1, bufferInfo2);
 
     MediaCodec.BufferInfo outBufferInfo = new MediaCodec.BufferInfo();

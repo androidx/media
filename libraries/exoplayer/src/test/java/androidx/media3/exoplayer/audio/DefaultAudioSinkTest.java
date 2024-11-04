@@ -346,6 +346,8 @@ public final class DefaultAudioSinkTest {
         new DefaultAudioSink.Builder()
             .setAudioCapabilities(new AudioCapabilities(new int[] {C.ENCODING_AAC_LC}, 2))
             .build();
+    // TODO: b/376880213 - Resolve this lint error.
+    @SuppressWarnings("WrongConstant")
     Format aacLcFormat =
         STEREO_44_1_FORMAT
             .buildUpon()

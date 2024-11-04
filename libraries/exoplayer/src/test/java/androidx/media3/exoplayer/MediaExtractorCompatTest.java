@@ -792,7 +792,7 @@ public class MediaExtractorCompatTest {
     @Override
     public int read(ExtractorInput input, PositionHolder seekPosition) throws IOException {
       if (nextReadActionIndex >= readActions.size()) {
-        return C.RESULT_END_OF_INPUT;
+        return Extractor.RESULT_END_OF_INPUT;
       } else {
         return readActions.get(nextReadActionIndex++).apply(input, seekPosition);
       }
