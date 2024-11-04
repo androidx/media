@@ -1360,13 +1360,14 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
   /** Returns the avcC box as per ISO/IEC 14496-15: 5.3.3.1.2. */
   private static ByteBuffer avcCBox(Format format) {
     checkArgument(
-        format.initializationData.size() >= 2, "csd-0 and/or csd-1 not found in the format.");
+        format.initializationData.size() >= 2,
+        "csd-0 and/or csd-1 not found in the format for avcC box.");
 
     byte[] csd0 = format.initializationData.get(0);
-    checkArgument(csd0.length > 0, "csd-0 is empty.");
+    checkArgument(csd0.length > 0, "csd-0 is empty for avcC box.");
 
     byte[] csd1 = format.initializationData.get(1);
-    checkArgument(csd1.length > 0, "csd-1 is empty.");
+    checkArgument(csd1.length > 0, "csd-1 is empty for avcC box.");
 
     ByteBuffer csd0ByteBuffer = ByteBuffer.wrap(csd0);
     ByteBuffer csd1ByteBuffer = ByteBuffer.wrap(csd1);
@@ -1378,7 +1379,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     contents.put((byte) 0x01); // configurationVersion
 
     ImmutableList<ByteBuffer> csd0NalUnits = AnnexBUtils.findNalUnits(csd0ByteBuffer);
-    checkArgument(csd0NalUnits.size() == 1, "SPS data not found in csd0.");
+    checkArgument(csd0NalUnits.size() == 1, "SPS data not found in csd0 for avcC box.");
 
     ByteBuffer sps = csd0NalUnits.get(0);
     byte[] spsData = new byte[sps.remaining()];
@@ -1414,10 +1415,11 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
   /** Returns the hvcC box as per ISO/IEC 14496-15: 8.3.3.1.2. */
   private static ByteBuffer hvcCBox(Format format) {
     // For H.265, all three codec-specific NALUs (VPS, SPS, PPS) are packed into csd-0.
-    checkArgument(!format.initializationData.isEmpty(), "csd-0 not found in the format.");
+    checkArgument(
+        !format.initializationData.isEmpty(), "csd-0 not found in the format for hvcC box.");
 
     byte[] csd0 = format.initializationData.get(0);
-    checkArgument(csd0.length > 0, "csd-0 is empty.");
+    checkArgument(csd0.length > 0, "csd-0 is empty for hvcC box.");
 
     ByteBuffer csd0ByteBuffer = ByteBuffer.wrap(csd0);
 
@@ -1507,10 +1509,11 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
   /** Returns the av1C box. */
   private static ByteBuffer av1CBox(Format format) {
     // For AV1, the entire codec-specific box is packed into csd-0.
-    checkArgument(!format.initializationData.isEmpty(), "csd-0 is not found in the format");
+    checkArgument(
+        !format.initializationData.isEmpty(), "csd-0 is not found in the format for av1C box");
 
     byte[] csd0 = format.initializationData.get(0);
-    checkArgument(csd0.length > 0, "csd-0 is empty.");
+    checkArgument(csd0.length > 0, "csd-0 is empty for av1C box.");
 
     return BoxUtils.wrapIntoBox("av1C", ByteBuffer.wrap(csd0));
   }
@@ -1518,7 +1521,8 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
   /** Returns the vpcC box as per VP Codec ISO Media File Format Binding v1.0. */
   private static ByteBuffer vpcCBox(Format format) {
     // For VP9, the CodecPrivate or vpcCBox data is packed into csd-0.
-    checkArgument(!format.initializationData.isEmpty(), "csd-0 is not found in the format");
+    checkArgument(
+        !format.initializationData.isEmpty(), "csd-0 is not found in the format for vpcC box");
     byte[] csd0 = format.initializationData.get(0);
     checkArgument(csd0.length > 3, "csd-0 for vp9 is invalid.");
     int versionAndFlags = 1 << 24; // version (value 1, 8 bits) + flag (value 0, 24 bits)
@@ -1724,10 +1728,11 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
 
   /** Returns the esds box. */
   private static ByteBuffer esdsBox(Format format) {
-    checkArgument(!format.initializationData.isEmpty(), "csd-0 not found in the format.");
+    checkArgument(
+        !format.initializationData.isEmpty(), "csd-0 not found in the format for esds box.");
 
     byte[] csd0 = format.initializationData.get(0);
-    checkArgument(csd0.length > 0, "csd-0 is empty.");
+    checkArgument(csd0.length > 0, "csd-0 is empty for esds box.");
 
     String mimeType = checkNotNull(format.sampleMimeType);
     boolean isVorbis = mimeType.equals(MimeTypes.AUDIO_VORBIS);
@@ -1847,7 +1852,8 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
 
   /** Returns the audio dOps box for Opus codec as per RFC-7845: 5.1. */
   private static ByteBuffer dOpsBox(Format format) {
-    checkArgument(!format.initializationData.isEmpty());
+    checkArgument(
+        !format.initializationData.isEmpty(), "csd-0 not found in the format for dOps box.");
 
     int opusHeaderLength = 8;
     byte[] csd0 = format.initializationData.get(0);
