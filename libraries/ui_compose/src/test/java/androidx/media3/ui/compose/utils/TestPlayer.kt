@@ -81,6 +81,16 @@ internal class TestPlayer : SimpleBasePlayer(Looper.myLooper()!!) {
     return Futures.immediateVoidFuture()
   }
 
+  override fun handleSetShuffleModeEnabled(shuffleModeEnabled: Boolean): ListenableFuture<*> {
+    state = state.buildUpon().setShuffleModeEnabled(shuffleModeEnabled).build()
+    return Futures.immediateVoidFuture()
+  }
+
+  override fun handleSetRepeatMode(repeatMode: Int): ListenableFuture<*> {
+    state = state.buildUpon().setRepeatMode(repeatMode).build()
+    return Futures.immediateVoidFuture()
+  }
+
   fun setPlaybackState(playbackState: @Player.State Int) {
     state = state.buildUpon().setPlaybackState(playbackState).build()
     invalidateState()
