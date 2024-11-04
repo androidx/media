@@ -47,18 +47,15 @@ import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
+import com.google.common.base.Function;
+import com.google.common.io.Files;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.BiConsumer;
-import java.util.function.BiFunction;
-import java.util.function.Function;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okio.Buffer;
@@ -541,7 +538,7 @@ public class MediaExtractorCompatTest {
     Context context = ApplicationProvider.getApplicationContext();
     byte[] fileData = TestUtil.getByteArray(context, /* fileName= */ "media/mp4/sample.mp4");
     File file = tempFolder.newFile();
-    Files.write(Paths.get(file.getAbsolutePath()), fileData);
+    Files.write(fileData, file);
     MediaExtractorCompat mediaExtractorCompat = new MediaExtractorCompat(context);
 
     mediaExtractorCompat.setDataSource(
@@ -696,13 +693,20 @@ public class MediaExtractorCompatTest {
   @Test
   public void getLogSessionId_withUnsetSessionId_returnsNone() {
     assumeTrue(Util.SDK_INT >= 31);
+    // Needed to keep lint happy (it doesn't understand the assumeTrue call alone)
+    if (Util.SDK_INT < 31) {
+      return;
+    }
     assertThat(mediaExtractorCompat.getLogSessionId()).isEqualTo(LogSessionId.LOG_SESSION_ID_NONE);
   }
 
   @Test
   public void getLogSessionId_withSetSessionId_returnsSetSessionId() {
     assumeTrue(Util.SDK_INT >= 31);
-
+    // Needed to keep lint happy (it doesn't understand the assumeTrue call alone)
+    if (Util.SDK_INT < 31) {
+      return;
+    }
     MediaMetricsManager mediaMetricsManager =
         InstrumentationRegistry.getInstrumentation()
             .getTargetContext()
@@ -778,10 +782,22 @@ public class MediaExtractorCompatTest {
     }
   }
 
+  /**
+   * A functional interface for the {@link Extractor#read(ExtractorInput, PositionHolder)} method.
+   */
+  private interface ExtractorReadAction {
+    int read(ExtractorInput input, PositionHolder position);
+  }
+
+  /** A functional interface for the {@link Extractor#seek(long, long)} method. */
+  private interface ExtractorSeekStrategy {
+    void seek(long position, long timeUs);
+  }
+
   private class FakeExtractor implements Extractor {
 
-    private final ArrayList<BiFunction<ExtractorInput, PositionHolder, Integer>> readActions;
-    private BiConsumer<Long, Long> seekStrategy;
+    private final ArrayList<ExtractorReadAction> readActions;
+    private ExtractorSeekStrategy seekStrategy;
     private int nextReadActionIndex;
 
     public FakeExtractor() {
@@ -790,11 +806,11 @@ public class MediaExtractorCompatTest {
       seekStrategy = (arg1, arg2) -> {};
     }
 
-    public void addReadAction(BiFunction<ExtractorInput, PositionHolder, Integer> readAction) {
+    public void addReadAction(ExtractorReadAction readAction) {
       readActions.add(readAction);
     }
 
-    public void setSeekStrategy(BiConsumer<Long, Long> seekStrategy) {
+    public void setSeekStrategy(ExtractorSeekStrategy seekStrategy) {
       this.seekStrategy = seekStrategy;
     }
 
@@ -820,13 +836,13 @@ public class MediaExtractorCompatTest {
       if (nextReadActionIndex >= readActions.size()) {
         return Extractor.RESULT_END_OF_INPUT;
       } else {
-        return readActions.get(nextReadActionIndex++).apply(input, seekPosition);
+        return readActions.get(nextReadActionIndex++).read(input, seekPosition);
       }
     }
 
     @Override
     public void seek(long position, long timeUs) {
-      seekStrategy.accept(position, timeUs);
+      seekStrategy.seek(position, timeUs);
     }
 
     @Override
