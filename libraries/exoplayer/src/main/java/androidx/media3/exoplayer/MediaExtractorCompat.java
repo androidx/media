@@ -27,6 +27,7 @@ import android.content.res.AssetFileDescriptor;
 import android.media.MediaDataSource;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
+import android.media.metrics.LogSessionId;
 import android.net.Uri;
 import android.util.SparseArray;
 import androidx.annotation.IntDef;
@@ -138,6 +139,7 @@ public final class MediaExtractorCompat {
   private boolean tracksEnded;
   private int upstreamFormatsCount;
   @Nullable private Map<String, String> httpRequestHeaders;
+  @Nullable private LogSessionId logSessionId;
 
   /** Creates a new instance. */
   public MediaExtractorCompat(Context context) {
@@ -570,6 +572,20 @@ public final class MediaExtractorCompat {
       return -1;
     }
     return sampleMetadataQueue.peekFirst().flags;
+  }
+
+  /** Sets the {@link LogSessionId} for MediaExtractorCompat. */
+  @RequiresApi(31)
+  public void setLogSessionId(LogSessionId logSessionId) {
+    if (!logSessionId.equals(LogSessionId.LOG_SESSION_ID_NONE)) {
+      this.logSessionId = logSessionId;
+    }
+  }
+
+  /** Returns the {@link LogSessionId} for MediaExtractorCompat. */
+  @RequiresApi(31)
+  public LogSessionId getLogSessionId() {
+    return logSessionId != null ? logSessionId : LogSessionId.LOG_SESSION_ID_NONE;
   }
 
   @VisibleForTesting(otherwise = NONE)

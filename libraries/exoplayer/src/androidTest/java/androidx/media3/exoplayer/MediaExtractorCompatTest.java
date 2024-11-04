@@ -17,16 +17,21 @@ package androidx.media3.exoplayer;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
+import android.media.metrics.LogSessionId;
+import android.media.metrics.MediaMetricsManager;
+import android.media.metrics.PlaybackSession;
 import android.net.Uri;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.ParsableByteArray;
+import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DefaultDataSource;
 import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.extractor.Extractor;
@@ -41,6 +46,7 @@ import androidx.media3.extractor.TrackOutput;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.platform.app.InstrumentationRegistry;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -685,6 +691,28 @@ public class MediaExtractorCompatTest {
     MediaFormat mediaFormat = mediaExtractorCompat.getTrackFormat(/* trackIndex= */ 0);
 
     assertThat(mediaFormat.containsKey(MediaFormat.KEY_DURATION)).isFalse();
+  }
+
+  @Test
+  public void getLogSessionId_withUnsetSessionId_returnsNone() {
+    assumeTrue(Util.SDK_INT >= 31);
+    assertThat(mediaExtractorCompat.getLogSessionId()).isEqualTo(LogSessionId.LOG_SESSION_ID_NONE);
+  }
+
+  @Test
+  public void getLogSessionId_withSetSessionId_returnsSetSessionId() {
+    assumeTrue(Util.SDK_INT >= 31);
+
+    MediaMetricsManager mediaMetricsManager =
+        InstrumentationRegistry.getInstrumentation()
+            .getTargetContext()
+            .getSystemService(MediaMetricsManager.class);
+    PlaybackSession playbackSession = mediaMetricsManager.createPlaybackSession();
+    LogSessionId logSessionId = playbackSession.getSessionId();
+
+    mediaExtractorCompat.setLogSessionId(logSessionId);
+
+    assertThat(mediaExtractorCompat.getLogSessionId()).isEqualTo(logSessionId);
   }
 
   // Internal methods.
