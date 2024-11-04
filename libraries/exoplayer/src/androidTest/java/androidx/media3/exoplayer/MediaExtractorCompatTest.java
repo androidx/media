@@ -38,7 +38,6 @@ import androidx.media3.extractor.SeekMap;
 import androidx.media3.extractor.SeekMap.SeekPoints;
 import androidx.media3.extractor.SeekPoint;
 import androidx.media3.extractor.TrackOutput;
-import androidx.media3.test.utils.AssetContentProvider;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -569,8 +568,7 @@ public class MediaExtractorCompatTest {
   public void setDataSourceUsingMethodExpectingContentUri_useContentUri_setsTrackCountCorrectly()
       throws IOException {
     Context context = ApplicationProvider.getApplicationContext();
-    Uri contentUri =
-        AssetContentProvider.buildUri(/* filePath= */ "media/mp4/sample.mp4", /* pipeMode= */ true);
+    Uri contentUri = Uri.parse("asset:///media/mp4/sample.mp4");
     MediaExtractorCompat mediaExtractorCompat = new MediaExtractorCompat(context);
 
     mediaExtractorCompat.setDataSource(context, contentUri, /* headers= */ null);
