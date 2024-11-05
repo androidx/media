@@ -20,6 +20,9 @@
     *   Add a setter to `SntpClient` to set the max elapsed time since the last
         update after which the client is re-initialized
         ([#1794](https://github.com/androidx/media/pull/1794)).
+    *   Reduce default values for `bufferForPlaybackMs` and
+        `bufferForPlaybackAfterRebufferMs` in `DefaultLoadControl` to 1000 and
+        2000 ms respectively.
 *   Transformer:
     *   Update parameters of `VideoFrameProcessor.registerInputStream` and
         `VideoFrameProcessor.Listener.onInputStreamRegistered` to use `Format`.
