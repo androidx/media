@@ -338,7 +338,6 @@ public class MediaSession {
      * @param sessionExtras The session extras {@link Bundle}.
      * @return The builder to allow chaining.
      */
-    @UnstableApi
     @Override
     public Builder setSessionExtras(Bundle sessionExtras) {
       return super.setSessionExtras(sessionExtras);
@@ -1196,7 +1195,6 @@ public class MediaSession {
    * effect. To change the session extras use {@link #setSessionExtras(Bundle)} or {@link
    * #setSessionExtras(ControllerInfo, Bundle)}.
    */
-  @UnstableApi
   public Bundle getSessionExtras() {
     return impl.getSessionExtras();
   }

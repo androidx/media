@@ -1155,7 +1155,6 @@ public class MediaController implements Player {
    *
    * @return The session extras.
    */
-  @UnstableApi
   public final Bundle getSessionExtras() {
     verifyApplicationThread();
     return isConnected() ? impl.getSessionExtras() : Bundle.EMPTY;

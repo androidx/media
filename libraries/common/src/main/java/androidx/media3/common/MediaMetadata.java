@@ -193,7 +193,6 @@ public final class MediaMetadata {
      *
      * @throws IllegalArgumentException if the duration is negative.
      */
-    @UnstableApi
     @CanIgnoreReturnValue
     public Builder setDurationMs(@Nullable Long durationMs) {
       checkArgument(durationMs == null || durationMs >= 0);
@@ -1024,7 +1023,7 @@ public final class MediaMetadata {
    * informational purpose only. For retrieving the duration of the media item currently being
    * played, use {@link Player#getDuration()} instead.
    */
-  @UnstableApi @Nullable public final Long durationMs;
+  @Nullable public final Long durationMs;
 
   /** Optional user {@link Rating}. */
   @Nullable public final Rating userRating;

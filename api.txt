@@ -464,6 +464,7 @@ package androidx.media3.common {
     field @Nullable public final CharSequence description;
     field @Nullable public final Integer discNumber;
     field @Nullable public final CharSequence displayTitle;
+    field @Nullable public final Long durationMs;
     field @Nullable public final android.os.Bundle extras;
     field @Deprecated @Nullable @androidx.media3.common.MediaMetadata.FolderType public final Integer folderType;
     field @Nullable public final CharSequence genre;
@@ -502,6 +503,7 @@ package androidx.media3.common {
     method public androidx.media3.common.MediaMetadata.Builder setDescription(@Nullable CharSequence);
     method public androidx.media3.common.MediaMetadata.Builder setDiscNumber(@Nullable Integer);
     method public androidx.media3.common.MediaMetadata.Builder setDisplayTitle(@Nullable CharSequence);
+    method public androidx.media3.common.MediaMetadata.Builder setDurationMs(@Nullable Long);
     method public androidx.media3.common.MediaMetadata.Builder setExtras(@Nullable android.os.Bundle);
     method @Deprecated public androidx.media3.common.MediaMetadata.Builder setFolderType(@Nullable @androidx.media3.common.MediaMetadata.FolderType Integer);
     method public androidx.media3.common.MediaMetadata.Builder setGenre(@Nullable CharSequence);
@@ -1616,6 +1618,7 @@ package androidx.media3.session {
     method public final long getSeekBackIncrement();
     method public final long getSeekForwardIncrement();
     method @Nullable public final android.app.PendingIntent getSessionActivity();
+    method public final android.os.Bundle getSessionExtras();
     method public final boolean getShuffleModeEnabled();
     method public final long getTotalBufferedDuration();
     method public final androidx.media3.common.TrackSelectionParameters getTrackSelectionParameters();
@@ -1760,6 +1763,7 @@ package androidx.media3.session {
     method public final String getId();
     method public final androidx.media3.common.Player getPlayer();
     method @Nullable public final android.app.PendingIntent getSessionActivity();
+    method public android.os.Bundle getSessionExtras();
     method public final androidx.media3.session.SessionToken getToken();
     method public final void release();
     method public final com.google.common.util.concurrent.ListenableFuture<androidx.media3.session.SessionResult> sendCustomCommand(androidx.media3.session.MediaSession.ControllerInfo, androidx.media3.session.SessionCommand, android.os.Bundle);
@@ -1778,6 +1782,7 @@ package androidx.media3.session {
     method public androidx.media3.session.MediaSession.Builder setExtras(android.os.Bundle);
     method public androidx.media3.session.MediaSession.Builder setId(String);
     method public androidx.media3.session.MediaSession.Builder setSessionActivity(android.app.PendingIntent);
+    method public androidx.media3.session.MediaSession.Builder setSessionExtras(android.os.Bundle);
   }
 
   public static interface MediaSession.Callback {
