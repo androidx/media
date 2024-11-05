@@ -355,7 +355,11 @@ public class PlayerActivity extends AppCompatActivity
         int size,
         int offset,
         @Nullable CryptoData cryptoData) {
-      if (format != null && Objects.equals(format.sampleMimeType, MimeTypes.APPLICATION_MP4VTT)) {
+      if (format != null
+          && (Objects.equals(format.sampleMimeType, MimeTypes.APPLICATION_MP4VTT)
+              || (Objects.equals(format.sampleMimeType, MimeTypes.APPLICATION_MEDIA3_CUES)
+                  && format.codecs != null
+                  && format.codecs.contains(MimeTypes.APPLICATION_MP4VTT)))) {
         flags |= C.BUFFER_FLAG_KEY_FRAME;
       }
       super.sampleMetadata(timeUs, flags, size, offset, cryptoData);
