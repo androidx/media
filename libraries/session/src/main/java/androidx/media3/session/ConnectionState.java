@@ -131,10 +131,13 @@ import java.util.List;
                 mediaButtonPreferences, CommandButton::toBundle));
       } else {
         // Controller doesn't support media button preferences, send the list as a custom layout.
-        // Ignore reservation extras as they were not directly supported in older controllers.
+        // TODO: b/332877990 - Improve this logic to take allowed command and session extras for
+        //  this controller into account instead of assuming all slots are allowed.
         ImmutableList<CommandButton> customLayout =
             CommandButton.getCustomLayoutFromMediaButtonPreferences(
-                mediaButtonPreferences, /* reservationExtras= */ new Bundle());
+                mediaButtonPreferences,
+                /* backSlotAllowed= */ true,
+                /* forwardSlotAllowed= */ true);
         bundle.putParcelableArrayList(
             FIELD_CUSTOM_LAYOUT,
             BundleCollectionUtil.toBundleArrayList(customLayout, CommandButton::toBundle));

@@ -107,9 +107,7 @@ import java.util.List;
     this.availablePlayerCommands = availablePlayerCommands;
     this.legacyExtras = legacyExtras;
     if (!mediaButtonPreferences.isEmpty()) {
-      this.customLayout =
-          CommandButton.getCustomLayoutFromMediaButtonPreferences(
-              mediaButtonPreferences, this.legacyExtras);
+      updateCustomLayoutAndLegacyExtrasForMediaButtonPreferences();
     }
   }
 
@@ -143,18 +141,16 @@ import java.util.List;
     this.mediaButtonPreferences = mediaButtonPreferences;
     boolean hadPrevReservation =
         legacyExtras.getBoolean(
-            MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_PREV, /* defaultVale= */ false);
+            MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_PREV, /* defaultValue= */ false);
     boolean hadNextReservation =
         legacyExtras.getBoolean(
-            MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_NEXT, /* defaultVale= */ false);
-    this.customLayout =
-        CommandButton.getCustomLayoutFromMediaButtonPreferences(
-            mediaButtonPreferences, legacyExtras);
+            MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_NEXT, /* defaultValue= */ false);
+    updateCustomLayoutAndLegacyExtrasForMediaButtonPreferences();
     return (legacyExtras.getBoolean(
-                MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_PREV, /* defaultVale= */ false)
+                MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_PREV, /* defaultValue= */ false)
             != hadPrevReservation)
         || (legacyExtras.getBoolean(
-                MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_NEXT, /* defaultVale= */ false)
+                MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_NEXT, /* defaultValue= */ false)
             != hadNextReservation);
   }
 
@@ -169,12 +165,11 @@ import java.util.List;
   public void setLegacyExtras(Bundle extras) {
     checkArgument(!extras.containsKey(EXTRAS_KEY_PLAYBACK_SPEED_COMPAT));
     checkArgument(!extras.containsKey(EXTRAS_KEY_MEDIA_ID_COMPAT));
+    this.legacyExtras = extras;
     if (!mediaButtonPreferences.isEmpty()) {
       // Re-calculate custom layout in case we have to set any additional extras.
-      this.customLayout =
-          CommandButton.getCustomLayoutFromMediaButtonPreferences(mediaButtonPreferences, extras);
+      updateCustomLayoutAndLegacyExtrasForMediaButtonPreferences();
     }
-    this.legacyExtras = extras;
   }
 
   public Bundle getLegacyExtras() {
@@ -1307,6 +1302,18 @@ import java.util.List;
 
   private void verifyApplicationThread() {
     checkState(Looper.myLooper() == getApplicationLooper());
+  }
+
+  private void updateCustomLayoutAndLegacyExtrasForMediaButtonPreferences() {
+    customLayout =
+        CommandButton.getCustomLayoutFromMediaButtonPreferences(
+            mediaButtonPreferences, /* backSlotAllowed= */ true, /* forwardSlotAllowed= */ true);
+    legacyExtras.putBoolean(
+        MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_PREV,
+        !CommandButton.containsButtonForSlot(customLayout, CommandButton.SLOT_BACK));
+    legacyExtras.putBoolean(
+        MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_NEXT,
+        !CommandButton.containsButtonForSlot(customLayout, CommandButton.SLOT_FORWARD));
   }
 
   @SuppressWarnings("deprecation") // Uses deprecated PlaybackStateCompat actions.

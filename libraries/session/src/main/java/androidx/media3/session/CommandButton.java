@@ -1179,17 +1179,17 @@ public final class CommandButton {
    * custom layout} according to the implicit button placement rules applied for custom layouts.
    *
    * @param mediaButtonPreferences The list of buttons as media button preferences.
-   * @param reservationExtras A writable {@link Bundle} that receives the extras for slot
-   *     reservations via {@link MediaConstants#EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_NEXT} or {@link
-   *     MediaConstants#EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_PREV} to match the returned custom
-   *     layout.
-   * @return A list of buttons compatible with the placement rules of custom layouts.
+   * @param backSlotAllowed Whether the custom layout can put a button into {@link #SLOT_BACK}.
+   * @param forwardSlotAllowed Whether the custom layout can put a button into {@link
+   *     #SLOT_FORWARD}.
+   * @return A list of buttons compatible with the placement rules of custom layouts. The buttons
+   *     will have their intended slots assigned as the only option.
    */
   /* package */ static ImmutableList<CommandButton> getCustomLayoutFromMediaButtonPreferences(
-      List<CommandButton> mediaButtonPreferences, Bundle reservationExtras) {
+      List<CommandButton> mediaButtonPreferences,
+      boolean backSlotAllowed,
+      boolean forwardSlotAllowed) {
     if (mediaButtonPreferences.isEmpty()) {
-      reservationExtras.putBoolean(MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_PREV, true);
-      reservationExtras.putBoolean(MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_NEXT, true);
       return ImmutableList.of();
     }
     int backButtonIndex = C.INDEX_UNSET;
@@ -1201,33 +1201,50 @@ public final class CommandButton {
         if (slot == SLOT_OVERFLOW) {
           // Will go into overflow.
           break;
-        } else if (backButtonIndex == C.INDEX_UNSET && slot == SLOT_BACK) {
+        } else if (backSlotAllowed && backButtonIndex == C.INDEX_UNSET && slot == SLOT_BACK) {
           backButtonIndex = i;
-        } else if (forwardButtonIndex == C.INDEX_UNSET && slot == SLOT_FORWARD) {
+          break;
+        } else if (forwardSlotAllowed
+            && forwardButtonIndex == C.INDEX_UNSET
+            && slot == SLOT_FORWARD) {
           forwardButtonIndex = i;
+          break;
         }
       }
     }
-    boolean hasBackButton = backButtonIndex != C.INDEX_UNSET;
-    boolean hasForwardButton = forwardButtonIndex != C.INDEX_UNSET;
-    reservationExtras.putBoolean(
-        MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_PREV, !hasBackButton);
-    reservationExtras.putBoolean(
-        MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_NEXT, !hasForwardButton);
     ImmutableList.Builder<CommandButton> customLayout = ImmutableList.builder();
-    if (hasBackButton) {
-      customLayout.add(mediaButtonPreferences.get(backButtonIndex));
+    if (backButtonIndex != C.INDEX_UNSET) {
+      customLayout.add(
+          mediaButtonPreferences
+              .get(backButtonIndex)
+              .copyWithSlots(ImmutableIntArray.of(SLOT_BACK)));
     }
-    if (hasForwardButton) {
-      customLayout.add(mediaButtonPreferences.get(forwardButtonIndex));
+    if (forwardButtonIndex != C.INDEX_UNSET) {
+      customLayout.add(
+          mediaButtonPreferences
+              .get(forwardButtonIndex)
+              .copyWithSlots(ImmutableIntArray.of(SLOT_FORWARD)));
     }
     for (int i = 0; i < mediaButtonPreferences.size(); i++) {
       CommandButton button = mediaButtonPreferences.get(i);
       if (i != backButtonIndex && i != forwardButtonIndex && button.slots.contains(SLOT_OVERFLOW)) {
-        customLayout.add(button);
+        customLayout.add(button.copyWithSlots(ImmutableIntArray.of(SLOT_OVERFLOW)));
       }
     }
     return customLayout.build();
+  }
+
+  /**
+   * Returns whether the provided list of buttons contains a button for a given {@link Slot}. This
+   * method assumes the slots have been resolved and there is only a single slot per button.
+   */
+  /* package */ static boolean containsButtonForSlot(List<CommandButton> buttons, @Slot int slot) {
+    for (int i = 0; i < buttons.size(); i++) {
+      if (buttons.get(i).slots.get(0) == slot) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**

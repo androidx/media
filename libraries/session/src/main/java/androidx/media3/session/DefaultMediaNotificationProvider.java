@@ -445,14 +445,13 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
       Player.Commands playerCommands,
       ImmutableList<CommandButton> mediaButtonPreferences,
       boolean showPauseButton) {
-    Bundle reservations = new Bundle();
     ImmutableList<CommandButton> customLayout =
         CommandButton.getCustomLayoutFromMediaButtonPreferences(
-            mediaButtonPreferences, reservations);
+            mediaButtonPreferences, /* backSlotAllowed= */ true, /* forwardSlotAllowed= */ true);
     boolean hasCustomBackButton =
-        !reservations.getBoolean(MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_PREV);
+        CommandButton.containsButtonForSlot(customLayout, CommandButton.SLOT_BACK);
     boolean hasCustomForwardButton =
-        !reservations.getBoolean(MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_NEXT);
+        CommandButton.containsButtonForSlot(customLayout, CommandButton.SLOT_FORWARD);
     int nextCustomLayoutIndex = 0;
 
     ImmutableList.Builder<CommandButton> commandButtons = new ImmutableList.Builder<>();
