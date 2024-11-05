@@ -410,6 +410,8 @@ public class MediaController implements Player {
      * Called when the {@linkplain #getCustomLayout() custom layout} changed.
      *
      * <p>This method will be deprecated, prefer to use {@link #onMediaButtonPreferencesChanged}.
+     * Note that the media button preferences use {@link CommandButton#slots} to define the allowed
+     * button placement.
      *
      * <p>The custom layout can change when either the session {@linkplain
      * MediaSession#setCustomLayout changes the custom layout}, or when the session {@linkplain
@@ -1116,6 +1118,8 @@ public class MediaController implements Player {
    * Returns the custom layout.
    *
    * <p>This method will be deprecated, prefer to use {@link #getMediaButtonPreferences()} instead.
+   * Note that the media button preferences use {@link CommandButton#slots} to define the allowed
+   * button placement.
    *
    * <p>After being connected, a change of the custom layout is reported with {@link
    * Listener#onCustomLayoutChanged(MediaController, List)}.
@@ -1127,7 +1131,8 @@ public class MediaController implements Player {
    */
   @UnstableApi
   public final ImmutableList<CommandButton> getCustomLayout() {
-    return getMediaButtonPreferences();
+    verifyApplicationThread();
+    return isConnected() ? impl.getCustomLayout() : ImmutableList.of();
   }
 
   /**
@@ -2207,6 +2212,8 @@ public class MediaController implements Player {
     ListenableFuture<SessionResult> sendCustomCommand(SessionCommand command, Bundle args);
 
     ImmutableList<CommandButton> getMediaButtonPreferences();
+
+    ImmutableList<CommandButton> getCustomLayout();
 
     ImmutableList<CommandButton> getCommandButtonsForMediaItem(MediaItem mediaItem);
 

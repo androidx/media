@@ -438,6 +438,11 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
   }
 
   @Override
+  public ImmutableList<CommandButton> getCustomLayout() {
+    return controllerInfo.mediaButtonPreferences;
+  }
+
+  @Override
   public Bundle getSessionExtras() {
     return controllerInfo.sessionExtras;
   }

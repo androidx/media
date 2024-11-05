@@ -335,8 +335,7 @@ public class MediaSessionServiceTest {
         .containsExactly(
             button1
                 .copyWithIsEnabled(false)
-                .copyWithSlots(
-                    ImmutableIntArray.of(CommandButton.SLOT_FORWARD, CommandButton.SLOT_OVERFLOW)),
+                .copyWithSlots(ImmutableIntArray.of(CommandButton.SLOT_FORWARD)),
             button2
                 .copyWithIsEnabled(false)
                 .copyWithSlots(ImmutableIntArray.of(CommandButton.SLOT_OVERFLOW)))
