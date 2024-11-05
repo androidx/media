@@ -94,8 +94,11 @@ public final class DashPlaybackTest {
     trackSelector.setParameters(trackSelector.buildUponParameters().setPreferredTextLanguage("en"));
     player.setMediaItem(MediaItem.fromUri("asset:///media/dash/standalone-webvtt/sample.mpd"));
     player.prepare();
+    // Ensure media is fully buffered so that the first subtitle is ready at the start of playback.
+    run(player).untilBackgroundThreadCondition(() -> player.getBufferedPercentage() == 100);
+    run(player).untilLoadingIs(false);
     player.play();
-    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
+    run(player).untilState(Player.STATE_ENDED);
     player.release();
     surface.release();
 
@@ -132,6 +135,11 @@ public final class DashPlaybackTest {
     trackSelector.setParameters(trackSelector.buildUponParameters().setPreferredTextLanguage("en"));
     player.setMediaItem(MediaItem.fromUri("asset:///media/dash/standalone-webvtt/sample.mpd"));
     player.prepare();
+    // Ensure media is fully buffered so that the first subtitle is ready at the start of playback.
+    run(player)
+        .ignoringNonFatalErrors()
+        .untilBackgroundThreadCondition(() -> player.getBufferedPercentage() == 100);
+    run(player).ignoringNonFatalErrors().untilLoadingIs(false);
     player.play();
     run(player).ignoringNonFatalErrors().untilState(Player.STATE_ENDED);
     player.release();
@@ -169,6 +177,11 @@ public final class DashPlaybackTest {
     trackSelector.setParameters(trackSelector.buildUponParameters().setPreferredTextLanguage("en"));
     player.setMediaItem(MediaItem.fromUri("asset:///media/dash/standalone-webvtt/sample.mpd"));
     player.prepare();
+    // Ensure media is fully buffered so that the first subtitle is ready at the start of playback.
+    run(player)
+        .ignoringNonFatalErrors()
+        .untilBackgroundThreadCondition(() -> player.getBufferedPercentage() == 100);
+    run(player).ignoringNonFatalErrors().untilLoadingIs(false);
     player.play();
     run(player).ignoringNonFatalErrors().untilState(Player.STATE_ENDED);
     player.release();
@@ -204,8 +217,11 @@ public final class DashPlaybackTest {
     trackSelector.setParameters(trackSelector.buildUponParameters().setPreferredTextLanguage("en"));
     player.setMediaItem(MediaItem.fromUri("asset:///media/dash/standalone-ttml/sample.mpd"));
     player.prepare();
+    // Ensure media is fully buffered so that the first subtitle is ready at the start of playback.
+    run(player).untilBackgroundThreadCondition(() -> player.getBufferedPercentage() == 100);
+    run(player).untilLoadingIs(false);
     player.play();
-    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
+    run(player).untilState(Player.STATE_ENDED);
     player.release();
     surface.release();
 
@@ -233,8 +249,11 @@ public final class DashPlaybackTest {
     trackSelector.setParameters(trackSelector.buildUponParameters().setPreferredTextLanguage("en"));
     player.setMediaItem(MediaItem.fromUri("asset:///media/dash/webvtt-in-mp4/sample.mpd"));
     player.prepare();
+    // Ensure media is fully buffered so that the first subtitle is ready at the start of playback.
+    run(player).untilBackgroundThreadCondition(() -> player.getBufferedPercentage() == 100);
+    run(player).untilLoadingIs(false);
     player.play();
-    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
+    run(player).untilState(Player.STATE_ENDED);
     player.release();
     surface.release();
 
@@ -261,8 +280,11 @@ public final class DashPlaybackTest {
     trackSelector.setParameters(trackSelector.buildUponParameters().setPreferredTextLanguage("en"));
     player.setMediaItem(MediaItem.fromUri("asset:///media/dash/ttml-in-mp4/sample.mpd"));
     player.prepare();
+    // Ensure media is fully buffered so that the first subtitle is ready at the start of playback.
+    run(player).untilBackgroundThreadCondition(() -> player.getBufferedPercentage() == 100);
+    run(player).untilLoadingIs(false);
     player.play();
-    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
+    run(player).untilState(Player.STATE_ENDED);
     player.release();
     surface.release();
 
@@ -299,6 +321,11 @@ public final class DashPlaybackTest {
     trackSelector.setParameters(trackSelector.buildUponParameters().setPreferredTextLanguage("en"));
     player.setMediaItem(MediaItem.fromUri("asset:///media/dash/ttml-in-mp4/sample.mpd"));
     player.prepare();
+    // Ensure media is fully buffered so that the first subtitle is ready at the start of playback.
+    run(player)
+        .ignoringNonFatalErrors()
+        .untilBackgroundThreadCondition(() -> player.getBufferedPercentage() == 100);
+    run(player).ignoringNonFatalErrors().untilLoadingIs(false);
     player.play();
     run(player).ignoringNonFatalErrors().untilState(Player.STATE_ENDED);
     player.release();
@@ -336,6 +363,11 @@ public final class DashPlaybackTest {
     trackSelector.setParameters(trackSelector.buildUponParameters().setPreferredTextLanguage("en"));
     player.setMediaItem(MediaItem.fromUri("asset:///media/dash/ttml-in-mp4/sample.mpd"));
     player.prepare();
+    // Ensure media is fully buffered so that the first subtitle is ready at the start of playback.
+    run(player)
+        .ignoringNonFatalErrors()
+        .untilBackgroundThreadCondition(() -> player.getBufferedPercentage() == 100);
+    run(player).ignoringNonFatalErrors().untilLoadingIs(false);
     player.play();
     run(player).ignoringNonFatalErrors().untilState(Player.STATE_ENDED);
     player.release();
@@ -378,8 +410,11 @@ public final class DashPlaybackTest {
     trackSelector.setParameters(trackSelector.buildUponParameters().setPreferredTextLanguage("en"));
     player.setMediaItem(MediaItem.fromUri("asset:///media/dash/cea608/manifest.mpd"));
     player.prepare();
+    // Ensure media is fully buffered so that the first subtitle is ready at the start of playback.
+    run(player).untilBackgroundThreadCondition(() -> player.getBufferedPercentage() == 100);
+    run(player).untilLoadingIs(false);
     player.play();
-    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
+    run(player).untilState(Player.STATE_ENDED);
     player.release();
     surface.release();
 
@@ -416,8 +451,11 @@ public final class DashPlaybackTest {
     trackSelector.setParameters(trackSelector.buildUponParameters().setPreferredTextLanguage("en"));
     player.setMediaItem(MediaItem.fromUri("asset:///media/dash/cea608/manifest.mpd"));
     player.prepare();
+    // Ensure media is fully buffered so that the first subtitle is ready at the start of playback.
+    run(player).untilBackgroundThreadCondition(() -> player.getBufferedPercentage() == 100);
+    run(player).untilLoadingIs(false);
     player.play();
-    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
+    run(player).untilState(Player.STATE_ENDED);
     player.release();
     surface.release();
 
@@ -651,8 +689,11 @@ public final class DashPlaybackTest {
     player.setMediaItem(
         MediaItem.fromUri("asset:///media/dash/multi-period-with-offset/sample.mpd"));
     player.prepare();
+    // Ensure media is fully buffered to avoid flakiness from loading second period too late.
+    run(player).untilBackgroundThreadCondition(() -> player.getBufferedPercentage() == 100);
+    run(player).untilLoadingIs(false);
     player.play();
-    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
+    run(player).untilState(Player.STATE_ENDED);
     player.release();
     surface.release();
 
