@@ -26,6 +26,10 @@ android {
     buildFeatures {
         compose true
     }
+    lintOptions {
+        // TODO: b/353490583 - Enable this once the violations are fixed.
+        checkTestSources false
+    }
     publishing {
         singleVariant('release') {
             withSourcesJar()

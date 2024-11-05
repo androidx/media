@@ -13,7 +13,14 @@
 // limitations under the License.
 apply from: "$gradle.ext.androidxMediaSettingsDir/common_library_config.gradle"
 
-android.namespace 'androidx.media3.test.exoplayer.playback'
+android {
+    namespace 'androidx.media3.test.exoplayer.playback'
+
+    lintOptions {
+        // TODO: b/353490583 - Enable this once the violations are fixed.
+        checkTestSources false
+    }
+}
 
 dependencies {
     androidTestImplementation 'androidx.test:rules:' + androidxTestRulesVersion

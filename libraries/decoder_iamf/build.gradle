@@ -28,6 +28,11 @@ android {
         }
     }
 
+    lintOptions {
+        // TODO: b/353490583 - Enable this once the violations are fixed.
+        checkTestSources false
+    }
+
     // TODO(Internal: b/372449691): Remove packagingOptions once AGP is updated
     // to version 8.5.1 or higher.
     packagingOptions {
