@@ -1552,7 +1552,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
     for (RendererHolder renderer : renderers) {
       renderer.setVideoOutput(videoOutput);
     }
-
+    if (playbackInfo.playbackState == Player.STATE_READY
+        || playbackInfo.playbackState == Player.STATE_BUFFERING) {
+      handler.sendEmptyMessage(MSG_DO_SOME_WORK);
+    }
     if (processedFlag != null) {
       synchronized (this) {
         processedFlag.set(true);
