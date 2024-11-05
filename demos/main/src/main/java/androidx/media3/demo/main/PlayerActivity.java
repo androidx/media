@@ -33,7 +33,9 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.ErrorMessageProvider;
+import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.TrackSelectionParameters;
@@ -55,10 +57,15 @@ import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.ads.AdsLoader;
 import androidx.media3.exoplayer.util.DebugTextViewHelper;
 import androidx.media3.exoplayer.util.EventLogger;
+import androidx.media3.extractor.DefaultExtractorsFactory;
+import androidx.media3.extractor.ForwardingTrackOutput;
+import androidx.media3.extractor.OutputModifyingExtractor;
+import androidx.media3.extractor.TrackOutput;
 import androidx.media3.ui.PlayerView;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** An activity that plays media using {@link ExoPlayer}. */
@@ -315,12 +322,44 @@ public class PlayerActivity extends AppCompatActivity
             serverSideAdsLoader,
             new DefaultMediaSourceFactory(/* context= */ this)
                 .setDataSourceFactory(dataSourceFactory));
-    return new DefaultMediaSourceFactory(/* context= */ this)
+    return new DefaultMediaSourceFactory(
+            /* context= */ this,
+            new OutputModifyingExtractor.Factory(
+                new DefaultExtractorsFactory(), Mp4VttKeyFrameTrackOutput::new))
         .setDataSourceFactory(dataSourceFactory)
         .setDrmSessionManagerProvider(drmSessionManagerProvider)
         .setLocalAdInsertionComponents(
             this::getClientSideAdsLoader, /* adViewProvider= */ playerView)
         .setServerSideAdInsertionMediaSourceFactory(imaServerSideAdInsertionMediaSourceFactory);
+  }
+
+  @OptIn(markerClass = UnstableApi.class)
+  private static final class Mp4VttKeyFrameTrackOutput extends ForwardingTrackOutput {
+
+    @Nullable private Format format;
+
+    public Mp4VttKeyFrameTrackOutput(TrackOutput trackOutput) {
+      super(trackOutput);
+    }
+
+    @Override
+    public void format(Format format) {
+      super.format(format);
+      this.format = format;
+    }
+
+    @Override
+    public void sampleMetadata(
+        long timeUs,
+        @C.BufferFlags int flags,
+        int size,
+        int offset,
+        @Nullable CryptoData cryptoData) {
+      if (format != null && Objects.equals(format.sampleMimeType, MimeTypes.APPLICATION_MP4VTT)) {
+        flags |= C.BUFFER_FLAG_KEY_FRAME;
+      }
+      super.sampleMetadata(timeUs, flags, size, offset, cryptoData);
+    }
   }
 
   @OptIn(markerClass = UnstableApi.class)
