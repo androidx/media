@@ -19,6 +19,8 @@
 
   <uses-sdk/>
   <uses-permission android:name="android.permission.INTERNET" />
+  <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
+  <uses-permission android:name="android.permission.READ_MEDIA_VIDEO"/>
 
   <application
       android:allowBackup="false"
