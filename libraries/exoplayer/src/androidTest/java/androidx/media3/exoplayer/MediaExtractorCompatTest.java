@@ -747,7 +747,7 @@ public class MediaExtractorCompatTest {
    * Read action to verify that {@link MediaExtractorCompat} does not read more data than expected.
    */
   private static int assertionFailureReadAction(ExtractorInput input, PositionHolder holder) {
-    throw new AssertionError("ExoPlayerBackedMediaExtractorProxy read more data than needed.");
+    throw new AssertionError("MediaExtractorCompat read more data than needed.");
   }
 
   // Internal classes.
