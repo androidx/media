@@ -157,7 +157,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
   }
 
-  private void outputSample(CuesWithTiming cuesWithTiming, long timeUs, int flags) {
+  private void outputSample(CuesWithTiming cuesWithTiming, long timeUs, @C.BufferFlags int flags) {
     checkStateNotNull(currentFormat); // format() must be called before sampleMetadata()
     byte[] cuesWithDurationBytes =
         cueEncoder.encode(cuesWithTiming.cues, cuesWithTiming.durationUs);
@@ -174,7 +174,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
     delegate.sampleMetadata(
         outputSampleTimeUs,
-        flags,
+        flags | C.BUFFER_FLAG_KEY_FRAME,
         cuesWithDurationBytes.length,
         /* offset= */ 0,
         /* cryptoData= */ null);
