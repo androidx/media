@@ -96,7 +96,7 @@ public class WebvttPlaybackTest {
     player.setMediaItem(mediaItem);
     player.prepare();
     run(player).untilState(Player.STATE_READY);
-    run(player).untilLoadingIs(false);
+    run(player).untilFullyBuffered();
     player.play();
     run(player).untilState(Player.STATE_ENDED);
     player.release();
@@ -139,7 +139,7 @@ public class WebvttPlaybackTest {
     player.setMediaItem(mediaItem);
     player.prepare();
     run(player).untilState(Player.STATE_READY);
-    run(player).untilLoadingIs(false);
+    run(player).untilFullyBuffered();
     player.play();
     run(player).untilState(Player.STATE_ENDED);
 

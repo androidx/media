@@ -108,13 +108,7 @@ public final class MergingPlaylistPlaybackTest {
     player.prepare();
     // Load all content prior to play to reduce flaky-ness resulting from the playback advancement
     // speed and handling of discontinuities.
-    long durationToBufferMs =
-        (firstItemVideoClipped || firstItemAudioClipped ? 300L : 1024L)
-            + (secondItemVideoClipped || secondItemAudioClipped ? 300L : 1024L);
-    run(player)
-        .untilBackgroundThreadCondition(
-            () -> player.getTotalBufferedDuration() >= durationToBufferMs);
-    run(player).untilPendingCommandsAreFullyHandled();
+    run(player).untilFullyBuffered();
     // Reset the listener to avoid verifying the onIsLoadingChanged events from prepare().
     reset(listener);
     player.play();
@@ -160,12 +154,8 @@ public final class MergingPlaylistPlaybackTest {
     player.prepare();
     // Load all content prior to play to reduce flaky-ness resulting from the playback advancement
     // speed and handling of discontinuities.
-    long durationToBufferMs = (firstItemVideoClipped || firstItemAudioClipped ? 300L : 1024L) * 5;
-    run(player)
-        .untilBackgroundThreadCondition(
-            () -> player.getTotalBufferedDuration() >= durationToBufferMs);
+    run(player).untilFullyBuffered();
     // Reset the listener to avoid verifying the onIsLoadingChanged events from prepare().
-    run(player).untilPendingCommandsAreFullyHandled();
     reset(listener);
     player.play();
     TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);

@@ -85,8 +85,7 @@ public final class HlsPlaybackTest {
         MediaItem.fromUri("asset:///media/hls/standalone-webvtt/multivariant_playlist.m3u8"));
     player.prepare();
     // Ensure media is fully buffered so that the first subtitle is ready at the start of playback.
-    run(player).untilBackgroundThreadCondition(() -> player.getBufferedPercentage() == 100);
-    run(player).untilLoadingIs(false);
+    run(player).untilFullyBuffered();
     player.play();
     run(player).untilState(Player.STATE_ENDED);
     player.release();
@@ -124,10 +123,7 @@ public final class HlsPlaybackTest {
         MediaItem.fromUri("asset:///media/hls/standalone-webvtt/multivariant_playlist.m3u8"));
     player.prepare();
     // Ensure media is fully buffered so that the first subtitle is ready at the start of playback.
-    run(player)
-        .ignoringNonFatalErrors()
-        .untilBackgroundThreadCondition(() -> player.getBufferedPercentage() == 100);
-    run(player).ignoringNonFatalErrors().untilLoadingIs(false);
+    run(player).ignoringNonFatalErrors().untilFullyBuffered();
     player.play();
     run(player).ignoringNonFatalErrors().untilState(Player.STATE_ENDED);
     player.release();
@@ -164,10 +160,7 @@ public final class HlsPlaybackTest {
         MediaItem.fromUri("asset:///media/hls/standalone-webvtt/multivariant_playlist.m3u8"));
     player.prepare();
     // Ensure media is fully buffered so that the first subtitle is ready at the start of playback.
-    run(player)
-        .ignoringNonFatalErrors()
-        .untilBackgroundThreadCondition(() -> player.getBufferedPercentage() == 100);
-    run(player).ignoringNonFatalErrors().untilLoadingIs(false);
+    run(player).ignoringNonFatalErrors().untilFullyBuffered();
     player.play();
     run(player).ignoringNonFatalErrors().untilState(Player.STATE_ENDED);
     player.release();
@@ -198,8 +191,7 @@ public final class HlsPlaybackTest {
         MediaItem.fromUri("asset:///media/hls/ttml-in-mp4/multivariant_playlist.m3u8"));
     player.prepare();
     // Ensure media is fully buffered so that the first subtitle is ready at the start of playback.
-    run(player).untilBackgroundThreadCondition(() -> player.getBufferedPercentage() == 100);
-    run(player).untilLoadingIs(false);
+    run(player).untilFullyBuffered();
     player.play();
     run(player).untilState(Player.STATE_ENDED);
     player.release();
@@ -236,10 +228,7 @@ public final class HlsPlaybackTest {
         MediaItem.fromUri("asset:///media/hls/ttml-in-mp4/multivariant_playlist.m3u8"));
     player.prepare();
     // Ensure media is fully buffered so that the first subtitle is ready at the start of playback.
-    run(player)
-        .ignoringNonFatalErrors()
-        .untilBackgroundThreadCondition(() -> player.getBufferedPercentage() == 100);
-    run(player).ignoringNonFatalErrors().untilLoadingIs(false);
+    run(player).ignoringNonFatalErrors().untilFullyBuffered();
     player.play();
     run(player).ignoringNonFatalErrors().untilState(Player.STATE_ENDED);
     player.release();
@@ -275,10 +264,7 @@ public final class HlsPlaybackTest {
         MediaItem.fromUri("asset:///media/hls/ttml-in-mp4/multivariant_playlist.m3u8"));
     player.prepare();
     // Ensure media is fully buffered so that the first subtitle is ready at the start of playback.
-    run(player)
-        .ignoringNonFatalErrors()
-        .untilBackgroundThreadCondition(() -> player.getBufferedPercentage() == 100);
-    run(player).ignoringNonFatalErrors().untilLoadingIs(false);
+    run(player).ignoringNonFatalErrors().untilFullyBuffered();
     player.play();
     run(player).ignoringNonFatalErrors().untilState(Player.STATE_ENDED);
     player.release();
@@ -318,8 +304,7 @@ public final class HlsPlaybackTest {
     player.setMediaItem(MediaItem.fromUri("asset:///media/hls/cea608/manifest.m3u8"));
     player.prepare();
     // Ensure media is fully buffered so that the first subtitle is ready at the start of playback.
-    run(player).untilBackgroundThreadCondition(() -> player.getBufferedPercentage() == 100);
-    run(player).untilLoadingIs(false);
+    run(player).untilFullyBuffered();
     player.play();
     run(player).untilState(Player.STATE_ENDED);
     player.release();
@@ -355,8 +340,7 @@ public final class HlsPlaybackTest {
     player.setMediaItem(MediaItem.fromUri("asset:///media/hls/cea608/manifest.m3u8"));
     player.prepare();
     // Ensure media is fully buffered so that the first subtitle is ready at the start of playback.
-    run(player).untilBackgroundThreadCondition(() -> player.getBufferedPercentage() == 100);
-    run(player).untilLoadingIs(false);
+    run(player).untilFullyBuffered();
     player.play();
     run(player).untilState(Player.STATE_ENDED);
     player.release();

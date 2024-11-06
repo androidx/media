@@ -50,10 +50,11 @@ import static androidx.media3.exoplayer.analytics.AnalyticsListener.EVENT_VIDEO_
 import static androidx.media3.exoplayer.analytics.AnalyticsListener.EVENT_VIDEO_SIZE_CHANGED;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.END_OF_STREAM_ITEM;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.oneByteSample;
+import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.play;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.playUntilPosition;
+import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.run;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.runUntilError;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.runUntilIsLoading;
-import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.runUntilPendingCommandsAreFullyHandled;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.runUntilPlaybackState;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.runUntilTimelineChanged;
 import static com.google.common.truth.Truth.assertThat;
@@ -477,11 +478,10 @@ public final class DefaultAnalyticsCollectorTest {
     player.setMediaSources(ImmutableList.of(mediaSource1, mediaSource2));
     player.prepare();
     // Wait until second period has fully loaded to assert loading events.
-    runUntilIsLoading(player, /* expectedIsLoading= */ true);
-    runUntilIsLoading(player, /* expectedIsLoading= */ false);
+    run(player).untilFullyBuffered();
     player.seekTo(/* mediaItemIndex= */ 1, /* positionMs= */ 0);
     player.play();
-    runUntilPlaybackState(player, Player.STATE_ENDED);
+    run(player).untilState(Player.STATE_ENDED);
 
     populateEventIds(listener.lastReportedTimeline);
     assertThat(listener.getEvents(EVENT_PLAYER_STATE_CHANGED))
@@ -975,16 +975,15 @@ public final class DefaultAnalyticsCollectorTest {
 
     player.setMediaSource(fakeMediaSource);
     player.prepare();
-    runUntilPlaybackState(player, Player.STATE_READY);
+    run(player).untilState(Player.STATE_READY);
     player.addMediaSource(fakeMediaSource);
     // Wait until second period has fully loaded to assert loading events.
-    runUntilIsLoading(player, /* expectedIsLoading= */ true);
-    runUntilIsLoading(player, /* expectedIsLoading= */ false);
+    run(player).untilFullyBuffered();
     player.removeMediaItem(/* index= */ 0);
-    runUntilPlaybackState(player, Player.STATE_BUFFERING);
-    runUntilPlaybackState(player, Player.STATE_READY);
+    run(player).untilState(Player.STATE_BUFFERING);
+    run(player).untilState(Player.STATE_READY);
     player.play();
-    runUntilPlaybackState(player, Player.STATE_ENDED);
+    run(player).untilState(Player.STATE_ENDED);
 
     // Populate event ids with second to last timeline that still contained both periods.
     populateEventIds(listener.reportedTimelines.get(listener.reportedTimelines.size() - 2));
@@ -1140,18 +1139,17 @@ public final class DefaultAnalyticsCollectorTest {
     player.setMediaSource(fakeMediaSource);
     player.prepare();
     // Ensure everything is preloaded.
-    runUntilIsLoading(player, /* expectedIsLoading= */ true);
-    runUntilIsLoading(player, /* expectedIsLoading= */ false);
-    runUntilPlaybackState(player, Player.STATE_READY);
+    run(player).untilFullyBuffered();
+    run(player).untilState(Player.STATE_READY);
     // Wait in each content part to ensure previously triggered events get a chance to be delivered.
-    playUntilPosition(player, /* mediaItemIndex= */ 0, /* positionMs= */ 3_000);
-    runUntilPendingCommandsAreFullyHandled(player);
-    playUntilPosition(player, /* mediaItemIndex= */ 0, /* positionMs= */ 8_000);
-    runUntilPendingCommandsAreFullyHandled(player);
+    play(player).untilPosition(/* mediaItemIndex= */ 0, /* positionMs= */ 3_000);
+    run(player).untilPendingCommandsAreFullyHandled();
+    play(player).untilPosition(/* mediaItemIndex= */ 0, /* positionMs= */ 8_000);
+    run(player).untilPendingCommandsAreFullyHandled();
     player.play();
-    runUntilPlaybackState(player, Player.STATE_ENDED);
+    run(player).untilState(Player.STATE_ENDED);
     // Wait for final timeline change that marks post-roll played.
-    runUntilTimelineChanged(player);
+    run(player).untilTimelineChanges();
 
     Object periodUid = listener.lastReportedTimeline.getUidOfPeriod(/* periodIndex= */ 0);
     EventWindowAndPeriodId prerollAd =
@@ -1343,14 +1341,13 @@ public final class DefaultAnalyticsCollectorTest {
     player.setMediaSource(fakeMediaSource);
     player.prepare();
     // Ensure everything is preloaded.
-    runUntilIsLoading(player, /* expectedIsLoading= */ true);
-    runUntilIsLoading(player, /* expectedIsLoading= */ false);
+    run(player).untilFullyBuffered();
     // Seek behind the midroll.
     player.seekTo(/* positionMs= */ 6_000);
     // Wait until loading started again to assert loading events.
-    runUntilIsLoading(player, /* expectedIsLoading= */ true);
+    run(player).untilLoadingIs(true);
     player.play();
-    runUntilPlaybackState(player, Player.STATE_ENDED);
+    run(player).untilState(Player.STATE_ENDED);
 
     Object periodUid = listener.lastReportedTimeline.getUidOfPeriod(/* periodIndex= */ 0);
     EventWindowAndPeriodId midrollAd =
@@ -1516,11 +1513,9 @@ public final class DefaultAnalyticsCollectorTest {
     // Wait for the media to be fully buffered before unblocking the DRM key request. This
     // ensures both periods report the same load event (because period1's DRM session is
     // already preacquired by the time the key load completes).
-    runUntilIsLoading(player, /* expectedIsLoading= */ false);
-    runUntilIsLoading(player, /* expectedIsLoading= */ true);
-    runUntilIsLoading(player, /* expectedIsLoading= */ false);
+    run(player).untilFullyBuffered();
     mediaDrmCallback.keyCondition.open();
-    runUntilPlaybackState(player, Player.STATE_ENDED);
+    run(player).untilState(Player.STATE_ENDED);
 
     populateEventIds(listener.lastReportedTimeline);
     assertThat(listener.getEvents(EVENT_DRM_SESSION_MANAGER_ERROR)).isEmpty();
@@ -1590,9 +1585,9 @@ public final class DefaultAnalyticsCollectorTest {
     player.play();
     player.setMediaSource(mediaSource);
     player.prepare();
-    runUntilIsLoading(player, /* expectedIsLoading= */ false);
+    run(player).untilFullyBuffered();
     mediaDrmCallback.keyCondition.open();
-    runUntilError(player);
+    run(player).untilPlayerError();
 
     populateEventIds(listener.lastReportedTimeline);
     assertThat(listener.getEvents(EVENT_DRM_SESSION_MANAGER_ERROR)).containsExactly(period0);
