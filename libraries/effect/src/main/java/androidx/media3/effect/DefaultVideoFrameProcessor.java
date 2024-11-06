@@ -327,7 +327,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
         return new DefaultVideoFrameProcessor.Factory(
             sdrWorkingColorSpace,
             /* repeatLastRegisteredFrame= */ !requireRegisteringAllInputFrames,
-            glObjectsProvider == null ? new DefaultGlObjectsProvider() : glObjectsProvider,
+            glObjectsProvider,
             executorService,
             textureOutputListener,
             textureOutputCapacity,
@@ -338,7 +338,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
 
     private final @WorkingColorSpace int sdrWorkingColorSpace;
     private final boolean repeatLastRegisteredFrame;
-    private final GlObjectsProvider glObjectsProvider;
+    @Nullable private final GlObjectsProvider glObjectsProvider;
     @Nullable private final ExecutorService executorService;
     @Nullable private final GlTextureProducer.Listener textureOutputListener;
     private final int textureOutputCapacity;
@@ -348,7 +348,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
     private Factory(
         @WorkingColorSpace int sdrWorkingColorSpace,
         boolean repeatLastRegisteredFrame,
-        GlObjectsProvider glObjectsProvider,
+        @Nullable GlObjectsProvider glObjectsProvider,
         @Nullable ExecutorService executorService,
         @Nullable GlTextureProducer.Listener textureOutputListener,
         int textureOutputCapacity,
@@ -410,6 +410,9 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
       VideoFrameProcessingTaskExecutor videoFrameProcessingTaskExecutor =
           new VideoFrameProcessingTaskExecutor(
               instanceExecutorService, shouldShutdownExecutorService, listener::onError);
+
+      GlObjectsProvider glObjectsProvider =
+          this.glObjectsProvider == null ? new DefaultGlObjectsProvider() : this.glObjectsProvider;
 
       Future<DefaultVideoFrameProcessor> defaultVideoFrameProcessorFuture =
           instanceExecutorService.submit(
