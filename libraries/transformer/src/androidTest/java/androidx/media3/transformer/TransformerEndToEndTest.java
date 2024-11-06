@@ -25,6 +25,7 @@ import static androidx.media3.transformer.AndroidTestUtil.JPG_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.JPG_PIXEL_MOTION_PHOTO_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.MP3_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_DOLBY_VISION_HDR;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_PHOTOS_TRIM_OPTIMIZATION_VIDEO;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S;
@@ -1771,6 +1772,60 @@ public class TransformerEndToEndTest {
 
     assertThat(result.exportResult.audioConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSMUXED);
     assertThat(new File(result.filePath).length()).isGreaterThan(0);
+  }
+
+  @Test
+  public void dolbyVisionVideo_noEffects_transmuxesToHevc() throws Exception {
+    assumeTrue("This test requires B-frame support", Util.SDK_INT > 24);
+    assumeTrue(
+        new DefaultMuxer.Factory()
+            .getSupportedSampleMimeTypes(C.TRACK_TYPE_VIDEO)
+            .contains(MimeTypes.VIDEO_H265));
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(MP4_ASSET_DOLBY_VISION_HDR.uri)))
+            .setRemoveAudio(true)
+            .build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(
+                context,
+                new Transformer.Builder(context).setVideoMimeType(MimeTypes.VIDEO_H265).build())
+            .build()
+            .run(testId, editedMediaItem);
+
+    MediaExtractorCompat mediaExtractor = new MediaExtractorCompat(context);
+    mediaExtractor.setDataSource(Uri.parse(result.filePath), /* offset= */ 0);
+    checkState(mediaExtractor.getTrackCount() == 1);
+    MediaFormat mediaFormat = mediaExtractor.getTrackFormat(/* trackIndex= */ 0);
+    Format format = createFormatFromMediaFormat(mediaFormat);
+    assertThat(format.sampleMimeType).isEqualTo(MimeTypes.VIDEO_H265);
+    assertThat(result.exportResult.videoConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSMUXED);
+  }
+
+  @Test
+  public void dolbyVisionVideo_noEffects_withInAppMuxer_transmuxesToHevc() throws Exception {
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(MP4_ASSET_DOLBY_VISION_HDR.uri)))
+            .setRemoveAudio(true)
+            .build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(
+                context,
+                new Transformer.Builder(context)
+                    .setVideoMimeType(MimeTypes.VIDEO_H265)
+                    .setMuxerFactory(new InAppMuxer.Factory.Builder().build())
+                    .build())
+            .build()
+            .run(testId, editedMediaItem);
+
+    MediaExtractorCompat mediaExtractor = new MediaExtractorCompat(context);
+    mediaExtractor.setDataSource(Uri.parse(result.filePath), /* offset= */ 0);
+    checkState(mediaExtractor.getTrackCount() == 1);
+    MediaFormat mediaFormat = mediaExtractor.getTrackFormat(/* trackIndex= */ 0);
+    Format format = createFormatFromMediaFormat(mediaFormat);
+    assertThat(format.sampleMimeType).isEqualTo(MimeTypes.VIDEO_H265);
+    assertThat(result.exportResult.videoConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSMUXED);
   }
 
   @Test

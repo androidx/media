@@ -26,6 +26,8 @@
 *   Transformer:
     *   Update parameters of `VideoFrameProcessor.registerInputStream` and
         `VideoFrameProcessor.Listener.onInputStreamRegistered` to use `Format`.
+    *   Add support for transmuxing into alternative backwards compatible
+        formats.
 *   Extractors:
 *   DataSource:
     *   `DataSourceContractTest`: Assert that `DataSource.getUri()` and
