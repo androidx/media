@@ -14,9 +14,6 @@
      limitations under the License.
 -->
 <resources>
-  <string name="app_name">Effect Demo</string>
-  <string name="choose_preset_input">Choose preset input</string>
-  <string name="choose_local_file">Choose local file</string>
-  <string name="apply_effects">Apply effects</string>
-  <string name="ok">OK</string>
+  <dimen name="small_padding">8dp</dimen>
+  <dimen name="android_view_height">256dp</dimen>
 </resources>
