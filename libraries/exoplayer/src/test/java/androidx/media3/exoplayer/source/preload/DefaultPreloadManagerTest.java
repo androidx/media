@@ -830,7 +830,8 @@ public class DefaultPreloadManagerTest {
   }
 
   @Test
-  public void release_returnZeroCount_sourcesAndRendererCapabilitiesListReleased() {
+  public void release_returnZeroCount_sourcesAndRendererCapabilitiesListReleased()
+      throws Exception {
     TargetPreloadStatusControl<Integer> targetPreloadStatusControl =
         rankingData -> new DefaultPreloadManager.Status(STAGE_SOURCE_PREPARED);
     MediaSource.Factory mockMediaSourceFactory = mock(MediaSource.Factory.class);
@@ -853,11 +854,13 @@ public class DefaultPreloadManagerTest {
           underlyingRenderers.add(fakeAudioRenderer);
           return underlyingRenderers.toArray(new Renderer[2]);
         };
+    HandlerThread preloadThread = new HandlerThread("preload");
+    preloadThread.start();
     DefaultPreloadManager preloadManager =
         new DefaultPreloadManager.Builder(context, targetPreloadStatusControl)
             .setMediaSourceFactory(mockMediaSourceFactory)
             .setRenderersFactory(renderersFactory)
-            .setPreloadLooper(Util.getCurrentOrMainLooper())
+            .setPreloadLooper(preloadThread.getLooper())
             .build();
     MediaItem.Builder mediaItemBuilder = new MediaItem.Builder();
     MediaItem mediaItem1 =
@@ -885,16 +888,19 @@ public class DefaultPreloadManagerTest {
     preloadManager.add(mediaItem1, /* rankingData= */ 1);
     preloadManager.add(mediaItem2, /* rankingData= */ 2);
     preloadManager.invalidate();
+    shadowOf(preloadThread.getLooper()).idle();
     shadowOf(Looper.getMainLooper()).idle();
 
     preloadManager.release();
-    shadowOf(Looper.getMainLooper()).idle();
+    shadowOf(preloadThread.getLooper()).idle();
 
     assertThat(preloadManager.getSourceCount()).isEqualTo(0);
     assertThat(internalSourceToReleaseReferenceByMediaId).containsExactly("mediaId1", "mediaId2");
     for (FakeRenderer renderer : underlyingRenderers) {
       assertThat(renderer.isReleased).isTrue();
     }
+
+    preloadThread.quit();
   }
 
   private static class TestPreloadManagerListener implements BasePreloadManager.Listener {

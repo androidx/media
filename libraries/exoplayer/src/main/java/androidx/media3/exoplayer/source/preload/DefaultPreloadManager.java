@@ -22,6 +22,7 @@ import static java.lang.Math.abs;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.content.Context;
+import android.os.Handler;
 import android.os.Looper;
 import android.os.Process;
 import androidx.annotation.IntDef;
@@ -327,6 +328,7 @@ public final class DefaultPreloadManager extends BasePreloadManager<Integer> {
   private final TrackSelector trackSelector;
   private final PlaybackLooperProvider preloadLooperProvider;
   private final PreloadMediaSource.Factory preloadMediaSourceFactory;
+  private final Handler preloadHandler;
   private final boolean deprecatedConstructorCalled;
 
   private DefaultPreloadManager(Builder builder) {
@@ -341,6 +343,7 @@ public final class DefaultPreloadManager extends BasePreloadManager<Integer> {
     trackSelector = builder.trackSelectorFactory.createTrackSelector(builder.context);
     BandwidthMeter bandwidthMeter = builder.bandwidthMeterSupplier.get();
     trackSelector.init(() -> {}, bandwidthMeter);
+    Looper preloadLooper = preloadLooperProvider.obtainLooper();
     preloadMediaSourceFactory =
         new PreloadMediaSource.Factory(
             builder.mediaSourceFactorySupplier.get(),
@@ -349,7 +352,8 @@ public final class DefaultPreloadManager extends BasePreloadManager<Integer> {
             bandwidthMeter,
             rendererCapabilitiesList.getRendererCapabilities(),
             builder.loadControlSupplier.get().getAllocator(),
-            preloadLooperProvider.obtainLooper());
+            preloadLooper);
+    preloadHandler = Util.createHandler(preloadLooper, /* callback= */ null);
     deprecatedConstructorCalled = false;
   }
 
@@ -370,6 +374,7 @@ public final class DefaultPreloadManager extends BasePreloadManager<Integer> {
         rendererCapabilitiesListFactory.createRendererCapabilitiesList();
     this.preloadLooperProvider = new PlaybackLooperProvider(preloadLooper);
     this.trackSelector = trackSelector;
+    Looper obtainedPreloadLooper = preloadLooperProvider.obtainLooper();
     preloadMediaSourceFactory =
         new PreloadMediaSource.Factory(
             mediaSourceFactory,
@@ -378,7 +383,8 @@ public final class DefaultPreloadManager extends BasePreloadManager<Integer> {
             bandwidthMeter,
             rendererCapabilitiesList.getRendererCapabilities(),
             allocator,
-            preloadLooperProvider.obtainLooper());
+            obtainedPreloadLooper);
+    preloadHandler = Util.createHandler(obtainedPreloadLooper, /* callback= */ null);
     deprecatedConstructorCalled = true;
   }
 
@@ -418,13 +424,16 @@ public final class DefaultPreloadManager extends BasePreloadManager<Integer> {
 
   @Override
   protected void releaseInternal() {
-    rendererCapabilitiesList.release();
-    preloadLooperProvider.releaseLooper();
-    if (!deprecatedConstructorCalled) {
-      // TODO: Remove the property deprecatedConstructorCalled and release the TrackSelector anyway
-      // after the deprecated constructor is removed.
-      trackSelector.release();
-    }
+    preloadHandler.post(
+        () -> {
+          rendererCapabilitiesList.release();
+          if (!deprecatedConstructorCalled) {
+            // TODO: Remove the property deprecatedConstructorCalled and release the TrackSelector
+            // anyway after the deprecated constructor is removed.
+            trackSelector.release();
+          }
+          preloadLooperProvider.releaseLooper();
+        });
   }
 
   private static final class RankingDataComparator implements Comparator<Integer> {
