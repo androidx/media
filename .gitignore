@@ -52,6 +52,7 @@ tmp
 
 # External native builds
 .externalNativeBuild
+.cxx
 
 # VP9 decoder extension
 libraries/decoder_vp9/src/main/jni/libvpx
