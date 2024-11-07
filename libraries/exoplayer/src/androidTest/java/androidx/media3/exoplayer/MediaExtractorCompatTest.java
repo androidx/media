@@ -15,6 +15,11 @@
  */
 package androidx.media3.exoplayer;
 
+import static androidx.media3.common.C.PLAYREADY_UUID;
+import static androidx.media3.common.C.WIDEVINE_UUID;
+import static androidx.media3.common.MimeTypes.AUDIO_AAC;
+import static androidx.media3.common.MimeTypes.VIDEO_H264;
+import static androidx.media3.test.utils.TestUtil.buildTestData;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assume.assumeTrue;
@@ -27,6 +32,7 @@ import android.media.metrics.MediaMetricsManager;
 import android.media.metrics.PlaybackSession;
 import android.net.Uri;
 import androidx.media3.common.C;
+import androidx.media3.common.DrmInitData;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
@@ -717,6 +723,74 @@ public class MediaExtractorCompatTest {
     mediaExtractorCompat.setLogSessionId(logSessionId);
 
     assertThat(mediaExtractorCompat.getLogSessionId()).isEqualTo(logSessionId);
+  }
+
+  @Test
+  public void getDrmInitData_withNoTracksHavingDrmInitData_returnsNull() throws IOException {
+    TrackOutput[] outputs = new TrackOutput[1];
+    fakeExtractor.addReadAction(
+        (input, seekPosition) -> {
+          outputs[0] = extractorOutput.track(/* id= */ 0, C.TRACK_TYPE_VIDEO);
+          outputs[0].format(PLACEHOLDER_FORMAT_VIDEO);
+          extractorOutput.endTracks();
+          return Extractor.RESULT_CONTINUE;
+        });
+
+    mediaExtractorCompat.setDataSource(PLACEHOLDER_URI, /* offset= */ 0);
+
+    assertThat(mediaExtractorCompat.getDrmInitData()).isNull();
+  }
+
+  @Test
+  public void getDrmInitData_withSingleTrackHavingDrmInitData_returnsDrmInitData()
+      throws IOException {
+    TrackOutput[] outputs = new TrackOutput[1];
+    DrmInitData.SchemeData schemeData =
+        new DrmInitData.SchemeData(
+            WIDEVINE_UUID, VIDEO_H264, buildTestData(128, 1 /* data seed */));
+    DrmInitData drmInitData = new DrmInitData(schemeData);
+    fakeExtractor.addReadAction(
+        (input, seekPosition) -> {
+          outputs[0] = extractorOutput.track(/* id= */ 0, C.TRACK_TYPE_VIDEO);
+          outputs[0].format(
+              PLACEHOLDER_FORMAT_VIDEO.buildUpon().setDrmInitData(drmInitData).build());
+          extractorOutput.endTracks();
+          return Extractor.RESULT_CONTINUE;
+        });
+
+    mediaExtractorCompat.setDataSource(PLACEHOLDER_URI, /* offset= */ 0);
+
+    assertThat(mediaExtractorCompat.getDrmInitData()).isEqualTo(drmInitData);
+  }
+
+  @Test
+  public void getDrmInitData_withMultipleTracksHavingDrmInitData_returnsFirstNonNullDrmInitData()
+      throws IOException {
+    TrackOutput[] outputs = new TrackOutput[3];
+    DrmInitData.SchemeData firstSchemeData =
+        new DrmInitData.SchemeData(WIDEVINE_UUID, AUDIO_AAC, buildTestData(128, 1 /* data seed */));
+    DrmInitData firstDrmInitData = new DrmInitData(firstSchemeData);
+    DrmInitData.SchemeData secondSchemeData =
+        new DrmInitData.SchemeData(
+            PLAYREADY_UUID, AUDIO_AAC, buildTestData(128, 2 /* data seed */));
+    DrmInitData secondDrmInitData = new DrmInitData(secondSchemeData);
+    fakeExtractor.addReadAction(
+        (input, seekPosition) -> {
+          outputs[0] = extractorOutput.track(/* id= */ 0, C.TRACK_TYPE_VIDEO);
+          outputs[0].format(PLACEHOLDER_FORMAT_VIDEO);
+          outputs[1] = extractorOutput.track(/* id= */ 1, C.TRACK_TYPE_AUDIO);
+          outputs[1].format(
+              PLACEHOLDER_FORMAT_AUDIO.buildUpon().setDrmInitData(firstDrmInitData).build());
+          outputs[2] = extractorOutput.track(/* id= */ 2, C.TRACK_TYPE_AUDIO);
+          outputs[2].format(
+              PLACEHOLDER_FORMAT_AUDIO.buildUpon().setDrmInitData(secondDrmInitData).build());
+          extractorOutput.endTracks();
+          return Extractor.RESULT_CONTINUE;
+        });
+
+    mediaExtractorCompat.setDataSource(PLACEHOLDER_URI, /* offset= */ 0);
+
+    assertThat(mediaExtractorCompat.getDrmInitData()).isEqualTo(firstDrmInitData);
   }
 
   // Internal methods.

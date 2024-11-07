@@ -35,6 +35,7 @@ import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
+import androidx.media3.common.DrmInitData;
 import androidx.media3.common.Format;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.Assertions;
@@ -588,6 +589,24 @@ public final class MediaExtractorCompat {
     return logSessionId != null ? logSessionId : LogSessionId.LOG_SESSION_ID_NONE;
   }
 
+  /**
+   * Extracts the DRM initialization data from the available tracks, if it exists.
+   *
+   * @return The {@link DrmInitData} in the content, or {@code null} if no recognizable DRM format
+   *     is found.
+   */
+  @Nullable
+  public DrmInitData getDrmInitData() {
+    for (int i = 0; i < tracks.size(); i++) {
+      Format format = tracks.get(i).getFormat(formatHolder, noDataBuffer);
+      if (format.drmInitData == null) {
+        continue;
+      }
+      return format.drmInitData;
+    }
+    return null;
+  }
+
   @VisibleForTesting(otherwise = NONE)
   public Allocator getAllocator() {
     return allocator;
@@ -832,15 +851,8 @@ public final class MediaExtractorCompat {
 
     public MediaFormat createDownstreamMediaFormat(
         FormatHolder scratchFormatHolder, DecoderInputBuffer scratchNoDataDecoderInputBuffer) {
-      scratchFormatHolder.clear();
-      sampleQueue.read(
-          scratchFormatHolder,
-          scratchNoDataDecoderInputBuffer,
-          FLAG_REQUIRE_FORMAT,
-          /* loadingFinished= */ false);
-      Format result = checkNotNull(scratchFormatHolder.format);
-      MediaFormat mediaFormatResult = MediaFormatUtil.createMediaFormatFromFormat(result);
-      scratchFormatHolder.clear();
+      Format format = getFormat(scratchFormatHolder, scratchNoDataDecoderInputBuffer);
+      MediaFormat mediaFormatResult = MediaFormatUtil.createMediaFormatFromFormat(format);
       if (compatibilityTrackMimeType != null) {
         if (Util.SDK_INT >= 29) {
           mediaFormatResult.removeKey(MediaFormat.KEY_CODECS_STRING);
@@ -848,6 +860,19 @@ public final class MediaExtractorCompat {
         mediaFormatResult.setString(MediaFormat.KEY_MIME, compatibilityTrackMimeType);
       }
       return mediaFormatResult;
+    }
+
+    private Format getFormat(
+        FormatHolder scratchFormatHolder, DecoderInputBuffer scratchNoDataDecoderInputBuffer) {
+      scratchFormatHolder.clear();
+      sampleQueue.read(
+          scratchFormatHolder,
+          scratchNoDataDecoderInputBuffer,
+          FLAG_REQUIRE_FORMAT,
+          /* loadingFinished= */ false);
+      Format format = checkNotNull(scratchFormatHolder.format);
+      scratchFormatHolder.clear();
+      return format;
     }
 
     public void discardFrontSample() {
