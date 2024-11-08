@@ -1,5 +1,11 @@
 # Release notes
 
+### Unreleased changes
+
+*   Text:
+    *   Fix garbled CEA-608 subtitles in content with more than one SEI message
+        per sample.
+
 ## 1.5
 
 ### 1.5.0-rc01 (2024-11-13)
