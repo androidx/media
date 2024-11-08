@@ -135,6 +135,7 @@ public class ContainerMediaChunk extends BaseMediaChunk {
         nextLoadPosition = input.getPosition() - dataSpec.position;
       }
     } finally {
+      onLoadIterationEnded();
       DataSourceUtil.closeQuietly(dataSource);
     }
     loadCompleted = !loadCanceled;
@@ -149,6 +150,30 @@ public class ContainerMediaChunk extends BaseMediaChunk {
    */
   protected TrackOutputProvider getTrackOutputProvider(BaseMediaChunkOutput baseMediaChunkOutput) {
     return baseMediaChunkOutput;
+  }
+
+  /**
+   * Method that is called to signal that a {@link #load()} has concluded. This is called in both
+   * successful and error scenarios.
+   */
+  protected void onLoadIterationEnded() {}
+
+  /**
+   * Returns whether the current chunk's load has been canceled from {@link #cancelLoad()}
+   *
+   * @return true if {@link #cancelLoad()} was invoked
+   */
+  public final boolean isLoadCanceled() {
+    return loadCanceled;
+  }
+
+  /**
+   * Retrieves the next position to load in the chunk on a {@link #load()}
+   *
+   * @return the position to load from
+   */
+  public final long getNextLoadPosition() {
+    return nextLoadPosition;
   }
 
   private void maybeWriteEmptySamples(BaseMediaChunkOutput output) {
