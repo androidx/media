@@ -41,6 +41,8 @@
 *   Audio:
 *   Video:
 *   Text:
+    *   Fix garbled CEA-608 subtitles in content with more than one SEI message
+        per sample.
 *   Metadata:
 *   Image:
 *   DRM:
