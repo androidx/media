@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.audio;
 
+import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.exoplayer.audio.AudioSink.SINK_FORMAT_SUPPORTED_DIRECTLY;
 import static androidx.media3.exoplayer.audio.AudioSink.SINK_FORMAT_SUPPORTED_WITH_TRANSCODING;
 import static com.google.common.truth.Truth.assertThat;
@@ -346,14 +347,15 @@ public final class DefaultAudioSinkTest {
         new DefaultAudioSink.Builder()
             .setAudioCapabilities(new AudioCapabilities(new int[] {C.ENCODING_AAC_LC}, 2))
             .build();
-    // TODO: b/376880213 - Resolve this lint error.
-    @SuppressWarnings("WrongConstant")
     Format aacLcFormat =
         STEREO_44_1_FORMAT
             .buildUpon()
             .setSampleMimeType(MimeTypes.AUDIO_AAC)
-            .setPcmEncoding(C.ENCODING_AAC_LC)
+            .setCodecs("mp4a.40.2")
             .build();
+
+    assertThat(MimeTypes.getEncoding(checkNotNull(aacLcFormat.sampleMimeType), aacLcFormat.codecs))
+        .isEqualTo(C.ENCODING_AAC_LC);
     assertThat(defaultAudioSink.supportsFormat(aacLcFormat)).isFalse();
   }
 
