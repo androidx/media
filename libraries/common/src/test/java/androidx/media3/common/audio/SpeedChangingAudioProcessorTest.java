@@ -18,8 +18,11 @@ package androidx.media3.common.audio;
 import static androidx.media3.common.audio.AudioProcessor.EMPTY_BUFFER;
 import static androidx.media3.common.util.Assertions.checkState;
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
+import android.annotation.SuppressLint;
 import androidx.media3.common.C;
+import androidx.media3.common.audio.AudioProcessor.AudioFormat;
 import androidx.media3.test.utils.TestSpeedProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.nio.ByteBuffer;
@@ -32,8 +35,8 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public class SpeedChangingAudioProcessorTest {
 
-  private static final AudioProcessor.AudioFormat AUDIO_FORMAT =
-      new AudioProcessor.AudioFormat(
+  private static final AudioFormat AUDIO_FORMAT =
+      new AudioFormat(
           /* sampleRate= */ 44100, /* channelCount= */ 2, /* encoding= */ C.ENCODING_PCM_16BIT);
 
   @Test
@@ -598,6 +601,104 @@ public class SpeedChangingAudioProcessorTest {
 
     // Allow one sample of tolerance per effectively applied speed change.
     assertThat(outputFrameCount).isWithin(1).of(4);
+  }
+
+  @Test
+  public void getSampleCountAfterProcessorApplied_withConstantSpeed_outputsExpectedSamples() {
+    SpeedProvider speedProvider =
+        TestSpeedProvider.createWithFrameCounts(
+            new AudioFormat(/* sampleRate= */ 48000, /* channelCount= */ 1, C.ENCODING_PCM_16BIT),
+            /* frameCounts= */ new int[] {100},
+            /* speeds= */ new float[] {2.f});
+
+    long sampleCountAfterProcessorApplied =
+        SpeedChangingAudioProcessor.getSampleCountAfterProcessorApplied(
+            speedProvider, AUDIO_FORMAT.sampleRate, /* inputSamples= */ 100);
+    assertThat(sampleCountAfterProcessorApplied).isEqualTo(50);
+  }
+
+  @Test
+  public void getSampleCountAfterProcessorApplied_withMultipleSpeeds_outputsExpectedSamples() {
+    SpeedProvider speedProvider =
+        TestSpeedProvider.createWithFrameCounts(
+            AUDIO_FORMAT,
+            /* frameCounts= */ new int[] {100, 400, 50},
+            /* speeds= */ new float[] {2.f, 4f, 0.5f});
+
+    long sampleCountAfterProcessorApplied =
+        SpeedChangingAudioProcessor.getSampleCountAfterProcessorApplied(
+            speedProvider, AUDIO_FORMAT.sampleRate, /* inputSamples= */ 550);
+    assertThat(sampleCountAfterProcessorApplied).isEqualTo(250);
+  }
+
+  @Test
+  public void
+      getSampleCountAfterProcessorApplied_beyondLastSpeedRegion_stillAppliesLastSpeedValue() {
+    SpeedProvider speedProvider =
+        TestSpeedProvider.createWithFrameCounts(
+            AUDIO_FORMAT,
+            /* frameCounts= */ new int[] {100, 400, 50},
+            /* speeds= */ new float[] {2.f, 4f, 0.5f});
+
+    long sampleCountAfterProcessorApplied =
+        SpeedChangingAudioProcessor.getSampleCountAfterProcessorApplied(
+            speedProvider, AUDIO_FORMAT.sampleRate, /* inputSamples= */ 3000);
+    assertThat(sampleCountAfterProcessorApplied).isEqualTo(5150);
+  }
+
+  @Test
+  public void
+      getSampleCountAfterProcessorApplied_withInputCountBeyondIntRange_outputsExpectedSamples() {
+    SpeedProvider speedProvider =
+        TestSpeedProvider.createWithFrameCounts(
+            AUDIO_FORMAT,
+            /* frameCounts= */ new int[] {1000, 10000, 8200},
+            /* speeds= */ new float[] {0.2f, 8f, 0.5f});
+    long sampleCountAfterProcessorApplied =
+        SpeedChangingAudioProcessor.getSampleCountAfterProcessorApplied(
+            speedProvider, AUDIO_FORMAT.sampleRate, /* inputSamples= */ 3_000_000_000L);
+    assertThat(sampleCountAfterProcessorApplied).isEqualTo(5999984250L);
+  }
+
+  // Testing range validation.
+  @SuppressLint("Range")
+  @Test
+  public void getSampleCountAfterProcessorApplied_withNegativeSampleCount_throws() {
+    SpeedProvider speedProvider =
+        TestSpeedProvider.createWithFrameCounts(
+            AUDIO_FORMAT,
+            /* frameCounts= */ new int[] {1000, 10000, 8200},
+            /* speeds= */ new float[] {0.2f, 8f, 0.5f});
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            SpeedChangingAudioProcessor.getSampleCountAfterProcessorApplied(
+                speedProvider, AUDIO_FORMAT.sampleRate, /* inputSamples= */ -2L));
+  }
+
+  // Testing range validation.
+  @SuppressLint("Range")
+  @Test
+  public void getSampleCountAfterProcessorApplied_withZeroSampleRate_throws() {
+    SpeedProvider speedProvider =
+        TestSpeedProvider.createWithFrameCounts(
+            AUDIO_FORMAT,
+            /* frameCounts= */ new int[] {1000, 10000, 8200},
+            /* speeds= */ new float[] {0.2f, 8f, 0.5f});
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            SpeedChangingAudioProcessor.getSampleCountAfterProcessorApplied(
+                speedProvider, /* inputSampleRateHz= */ 0, /* inputSamples= */ 1000L));
+  }
+
+  @Test
+  public void getSampleCountAfterProcessorApplied_withNullSpeedProvider_throws() {
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            SpeedChangingAudioProcessor.getSampleCountAfterProcessorApplied(
+                /* speedProvider= */ null, AUDIO_FORMAT.sampleRate, /* inputSamples= */ 1000L));
   }
 
   private static SpeedChangingAudioProcessor getConfiguredSpeedChangingAudioProcessor(

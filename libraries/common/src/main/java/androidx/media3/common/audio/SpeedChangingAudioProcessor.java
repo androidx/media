@@ -25,6 +25,7 @@ import static java.lang.Math.min;
 import static java.lang.Math.round;
 
 import androidx.annotation.GuardedBy;
+import androidx.annotation.IntRange;
 import androidx.media3.common.C;
 import androidx.media3.common.util.LongArray;
 import androidx.media3.common.util.LongArrayQueue;
@@ -103,6 +104,42 @@ public final class SpeedChangingAudioProcessor extends BaseAudioProcessor {
     pendingCallbacks = new ArrayDeque<>();
     speedAdjustedTimeAsyncInputTimeUs = C.TIME_UNSET;
     resetState();
+  }
+
+  /** Returns the estimated number of samples output given the provided parameters. */
+  public static long getSampleCountAfterProcessorApplied(
+      SpeedProvider speedProvider,
+      @IntRange(from = 1) int inputSampleRateHz,
+      @IntRange(from = 1) long inputSamples) {
+    checkArgument(speedProvider != null);
+    checkArgument(inputSampleRateHz > 0);
+    checkArgument(inputSamples > 0);
+
+    long outputSamples = 0;
+    long positionSamples = 0;
+
+    while (positionSamples < inputSamples) {
+      long boundarySamples =
+          getNextSpeedChangeSamplePosition(speedProvider, positionSamples, inputSampleRateHz);
+
+      if (boundarySamples == C.INDEX_UNSET || boundarySamples > inputSamples) {
+        boundarySamples = inputSamples;
+      }
+
+      float speed = getSampleAlignedSpeed(speedProvider, positionSamples, inputSampleRateHz);
+      // Input and output sample rates match because SpeedChangingAudioProcessor does not modify the
+      // output sample rate.
+      outputSamples +=
+          Sonic.getExpectedFrameCountAfterProcessorApplied(
+              /* inputSampleRateHz= */ inputSampleRateHz,
+              /* outputSampleRateHz= */ inputSampleRateHz,
+              /* speed= */ speed,
+              /* pitch= */ speed,
+              /* inputFrameCount= */ boundarySamples - positionSamples);
+      positionSamples = boundarySamples;
+    }
+
+    return outputSamples;
   }
 
   @Override

@@ -15,6 +15,7 @@
  */
 package androidx.media3.common.audio;
 
+import static androidx.media3.common.audio.SpeedChangingAudioProcessor.getSampleCountAfterProcessorApplied;
 import static androidx.media3.test.utils.TestUtil.buildTestData;
 import static androidx.media3.test.utils.TestUtil.generateFloatInRange;
 import static androidx.media3.test.utils.TestUtil.generateLong;
@@ -104,18 +105,9 @@ public class RandomParameterizedSpeedChangingAudioProcessorTest {
     ByteBuffer outBuffer;
     long outputFrameCount = 0;
     long totalInputFrameCount = 0;
-    long expectedOutputFrames = 0;
 
     for (int i = 0; i < frameCounts.size(); i++) {
       totalInputFrameCount += frameCounts.get(i);
-      float speed = speeds.get(i).floatValue();
-      expectedOutputFrames +=
-          Sonic.getExpectedFrameCountAfterProcessorApplied(
-              /* inputSampleRateHz= */ AUDIO_FORMAT.sampleRate,
-              /* outputSampleRateHz= */ AUDIO_FORMAT.sampleRate,
-              /* speed= */ speed,
-              /* pitch= */ speed,
-              /* inputFrameCount= */ frameCounts.get(i));
     }
 
     SpeedProvider speedProvider =
@@ -123,6 +115,10 @@ public class RandomParameterizedSpeedChangingAudioProcessorTest {
             AUDIO_FORMAT,
             /* frameCounts= */ Ints.toArray(frameCounts),
             /* speeds= */ Floats.toArray(speeds));
+
+    long expectedOutputFrames =
+        getSampleCountAfterProcessorApplied(
+            speedProvider, AUDIO_FORMAT.sampleRate, totalInputFrameCount);
 
     SpeedChangingAudioProcessor speedChangingAudioProcessor =
         new SpeedChangingAudioProcessor(speedProvider);
