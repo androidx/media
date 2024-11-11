@@ -670,7 +670,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
         // configured.
         this.pendingInputStreamInfo = pendingInputStreamInfo;
         inputStreamRegisteredCondition.close();
-        inputSwitcher.activeTextureManager().signalEndOfCurrentInputStream();
+        inputSwitcher.signalEndOfCurrentInputStream();
       }
     }
   }
@@ -728,7 +728,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
     DebugTraceUtil.logEvent(COMPONENT_VFP, EVENT_RECEIVE_END_OF_ALL_INPUT, C.TIME_END_OF_SOURCE);
     checkState(!inputStreamEnded);
     inputStreamEnded = true;
-    inputSwitcher.signalEndOfInputStream();
+    inputSwitcher.signalEndOfCurrentInputStream();
   }
 
   /**

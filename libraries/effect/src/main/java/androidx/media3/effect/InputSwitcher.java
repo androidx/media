@@ -198,7 +198,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * Invokes {@link TextureManager#signalEndOfCurrentInputStream} on the active {@link
    * TextureManager}.
    */
-  public void signalEndOfInputStream() {
+  public void signalEndOfCurrentInputStream() {
     checkNotNull(activeTextureManager).signalEndOfCurrentInputStream();
   }
 
