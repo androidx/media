@@ -125,7 +125,7 @@ public final class DefaultAssetLoaderFactory implements AssetLoader.Factory {
       Context context,
       Codec.DecoderFactory decoderFactory,
       Clock clock,
-      MediaSource.Factory mediaSourceFactory,
+      @Nullable MediaSource.Factory mediaSourceFactory,
       BitmapLoader bitmapLoader) {
     this.context = context.getApplicationContext();
     this.decoderFactory = decoderFactory;
