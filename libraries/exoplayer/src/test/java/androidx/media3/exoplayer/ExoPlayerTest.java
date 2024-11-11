@@ -673,6 +673,50 @@ public class ExoPlayerTest {
     assertThat(videoRenderer.resetCount).isEqualTo(0);
   }
 
+  @Test
+  public void renderersLifecycle_onlyRenderersThatAreEnabled_areSetToFinal() throws Exception {
+    AtomicInteger videoStreamSetToFinalCount = new AtomicInteger();
+    final FakeRenderer videoRenderer = new FakeRenderer(C.TRACK_TYPE_VIDEO);
+    final FakeRenderer audioRenderer = new FakeRenderer(C.TRACK_TYPE_AUDIO);
+    final ForwardingRenderer forwardingVideoRenderer =
+        new ForwardingRenderer(videoRenderer) {
+          @Override
+          public void setCurrentStreamFinal() {
+            super.setCurrentStreamFinal();
+            videoStreamSetToFinalCount.getAndIncrement();
+          }
+        };
+    ExoPlayer player =
+        parameterizeTestExoPlayerBuilder(
+                new TestExoPlayerBuilder(context)
+                    .setRenderers(forwardingVideoRenderer, audioRenderer))
+            .build();
+    // Use media sources with discontinuities so that enabled streams are set to final.
+    ClippingMediaSource clippedFakeAudioSource =
+        new ClippingMediaSource(
+            new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.AUDIO_FORMAT), 0, 300_000L);
+    ClippingMediaSource clippedFakeAudioVideoSource =
+        new ClippingMediaSource(
+            new FakeMediaSource(
+                new FakeTimeline(),
+                ExoPlayerTestRunner.VIDEO_FORMAT,
+                ExoPlayerTestRunner.AUDIO_FORMAT),
+            0,
+            300_000L);
+    player.setMediaSources(
+        ImmutableList.of(
+            clippedFakeAudioSource, clippedFakeAudioVideoSource, clippedFakeAudioSource));
+    player.prepare();
+
+    player.play();
+    runUntilPlaybackState(player, Player.STATE_ENDED);
+    player.release();
+
+    assertThat(audioRenderer.enabledCount).isEqualTo(3);
+    assertThat(videoRenderer.enabledCount).isEqualTo(1);
+    assertThat(videoStreamSetToFinalCount.get()).isEqualTo(1);
+  }
+
   /**
    * Tests that the player does not unnecessarily reset renderers when playing a multi-period
    * source.

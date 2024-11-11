@@ -92,7 +92,9 @@ import java.io.IOException;
    *     render until the end of the current stream.
    */
   public void setCurrentStreamFinal(long streamEndPositionUs) {
-    setCurrentStreamFinal(renderer, streamEndPositionUs);
+    if (renderer.getStream() != null) {
+      setCurrentStreamFinal(renderer, streamEndPositionUs);
+    }
   }
 
   private void setCurrentStreamFinal(Renderer renderer, long streamEndPositionUs) {
