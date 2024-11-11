@@ -36,6 +36,7 @@ import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -609,6 +610,10 @@ public final class MediaMetadata {
       }
       if (mediaMetadata.extras != null) {
         setExtras(mediaMetadata.extras);
+      }
+
+      if (!mediaMetadata.supportedCommands.isEmpty()) {
+        setSupportedCommands(mediaMetadata.supportedCommands);
       }
 
       return this;
@@ -1249,6 +1254,7 @@ public final class MediaMetadata {
         && Util.areEqual(compilation, that.compilation)
         && Util.areEqual(station, that.station)
         && Util.areEqual(mediaType, that.mediaType)
+        && Util.areEqual(supportedCommands, that.supportedCommands)
         && ((extras == null) == (that.extras == null));
   }
 
@@ -1289,7 +1295,8 @@ public final class MediaMetadata {
         compilation,
         station,
         mediaType,
-        extras == null);
+        extras == null,
+        supportedCommands);
   }
 
   private static final String FIELD_TITLE = Util.intToStringMaxRadix(0);
@@ -1326,6 +1333,7 @@ public final class MediaMetadata {
   private static final String FIELD_MEDIA_TYPE = Util.intToStringMaxRadix(31);
   private static final String FIELD_IS_BROWSABLE = Util.intToStringMaxRadix(32);
   private static final String FIELD_DURATION_MS = Util.intToStringMaxRadix(33);
+  private static final String FIELD_SUPPORTED_COMMANDS = Util.intToStringMaxRadix(34);
   private static final String FIELD_EXTRAS = Util.intToStringMaxRadix(1000);
 
   @SuppressWarnings("deprecation") // Bundling deprecated fields.
@@ -1431,6 +1439,9 @@ public final class MediaMetadata {
     if (mediaType != null) {
       bundle.putInt(FIELD_MEDIA_TYPE, mediaType);
     }
+    if (!supportedCommands.isEmpty()) {
+      bundle.putStringArrayList(FIELD_SUPPORTED_COMMANDS, new ArrayList<>(supportedCommands));
+    }
     if (extras != null) {
       bundle.putBundle(FIELD_EXTRAS, extras);
     }
@@ -1520,6 +1531,11 @@ public final class MediaMetadata {
     }
     if (bundle.containsKey(FIELD_MEDIA_TYPE)) {
       builder.setMediaType(bundle.getInt(FIELD_MEDIA_TYPE));
+    }
+    @Nullable
+    ArrayList<String> supportedCommands = bundle.getStringArrayList(FIELD_SUPPORTED_COMMANDS);
+    if (supportedCommands != null) {
+      builder.setSupportedCommands(supportedCommands);
     }
 
     return builder.build();

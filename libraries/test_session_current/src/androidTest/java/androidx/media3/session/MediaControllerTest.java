@@ -2052,24 +2052,14 @@ public class MediaControllerTest {
             .setSessionCommand(
                 new SessionCommand(MediaBrowserConstants.COMMAND_RADIO, Bundle.EMPTY))
             .build();
-    MediaItem mediaItem =
-        new MediaItem.Builder()
-            .setMediaId("mediaId")
-            .setMediaMetadata(
-                new MediaMetadata.Builder()
-                    .setSupportedCommands(
-                        ImmutableList.of(
-                            MediaBrowserConstants.COMMAND_PLAYLIST_ADD,
-                            MediaBrowserConstants.COMMAND_RADIO,
-                            "invalid"))
-                    .build())
-            .build();
     MediaController controller = controllerTestRule.createController(session.getToken());
+    MediaItem currentMediaItem =
+        threadTestRule.getHandler().postAndSync(controller::getCurrentMediaItem);
 
     ImmutableList<CommandButton> commandButtons =
         threadTestRule
             .getHandler()
-            .postAndSync(() -> controller.getCommandButtonsForMediaItem(mediaItem));
+            .postAndSync(() -> controller.getCommandButtonsForMediaItem(currentMediaItem));
 
     assertThat(commandButtons).containsExactly(playlistAddButton, radioButton).inOrder();
     session.cleanUp();
