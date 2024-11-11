@@ -253,6 +253,20 @@ public class MediaSessionProviderService extends Service {
                     .build();
             builder.setCommandButtonsForMediaItems(
                 ImmutableList.of(playlistAddButton, radioButton));
+            mockPlayer.timeline =
+                new PlaylistTimeline(
+                    ImmutableList.of(
+                        new MediaItem.Builder()
+                            .setMediaId("mediaIdWithSupportedCommands")
+                            .setMediaMetadata(
+                                new MediaMetadata.Builder()
+                                    .setSupportedCommands(
+                                        ImmutableList.of(
+                                            MediaBrowserConstants.COMMAND_PLAYLIST_ADD,
+                                            MediaBrowserConstants.COMMAND_RADIO,
+                                            "invalid"))
+                                    .build())
+                            .build()));
             builder.setCallback(
                 new MediaSession.Callback() {
                   @Override
