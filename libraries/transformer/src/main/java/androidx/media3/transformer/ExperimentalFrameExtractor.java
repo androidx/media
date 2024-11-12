@@ -25,6 +25,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import android.content.Context;
 import android.os.Handler;
+import android.os.Looper;
 import androidx.annotation.Nullable;
 import androidx.media3.common.Effect;
 import androidx.media3.common.GlObjectsProvider;
@@ -32,6 +33,7 @@ import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
+import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.GlShaderProgram;
@@ -176,9 +178,18 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * longer required. The frame extractor must not be used after calling this method.
    */
   public void release() {
-    // TODO: b/350498258 - Block the caller until exoPlayer.release() returns.
+    if (player.getApplicationLooper() == Looper.myLooper()) {
+      player.release();
+      return;
+    }
+    ConditionVariable waitForRelease = new ConditionVariable();
     playerApplicationThreadHandler.removeCallbacksAndMessages(null);
-    playerApplicationThreadHandler.post(player::release);
+    playerApplicationThreadHandler.post(
+        () -> {
+          player.release();
+          waitForRelease.open();
+        });
+    waitForRelease.blockUninterruptible();
   }
 
   // AnalyticsListener

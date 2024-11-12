@@ -21,6 +21,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.assertThrows;
 
+import android.app.Instrumentation;
 import android.content.Context;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.util.ConditionVariable;
@@ -29,6 +30,7 @@ import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.transformer.ExperimentalFrameExtractor.Frame;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.platform.app.InstrumentationRegistry;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -153,5 +155,14 @@ public class FrameExtractorTest {
 
     assertThat(throwableAtomicReference.get()).isNull();
     assertThat(frameAtomicReference.get().presentationTimeMs).isEqualTo(0);
+  }
+
+  @Test
+  public void frameExtractor_releaseOnPlayerLooper_returns() throws Exception {
+    frameExtractor = new ExperimentalFrameExtractor(context, MediaItem.fromUri(FILE_PATH));
+
+    Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
+    instrumentation.runOnMainSync(frameExtractor::release);
+    frameExtractor = null;
   }
 }
