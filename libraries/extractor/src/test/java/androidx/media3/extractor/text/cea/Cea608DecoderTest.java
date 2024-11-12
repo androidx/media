@@ -328,6 +328,26 @@ public class Cea608DecoderTest {
     assertThat(getOnlyCue(firstSubtitle).text.toString()).isEqualTo("test");
   }
 
+  // https://github.com/androidx/media/issues/1863
+  @Test
+  public void endOfStreamBuffer_flagPassedThrough() throws Exception {
+    Cea608Decoder decoder =
+        new Cea608Decoder(
+            MimeTypes.APPLICATION_CEA608,
+            /* accessibilityChannel= */ 1,
+            Cea608Decoder.MIN_DATA_CHANNEL_TIMEOUT_MS);
+
+    SubtitleInputBuffer inputBuffer = checkNotNull(decoder.dequeueInputBuffer());
+    inputBuffer.timeUs = C.TIME_END_OF_SOURCE;
+    inputBuffer.addFlag(C.BUFFER_FLAG_END_OF_STREAM);
+    decoder.setOutputStartTimeUs(0);
+    decoder.queueInputBuffer(inputBuffer);
+    decoder.setPositionUs(123);
+    SubtitleOutputBuffer outputBuffer = decoder.dequeueOutputBuffer();
+
+    assertThat(outputBuffer.isEndOfStream()).isTrue();
+  }
+
   private static byte[] createPacket(int header, int cc1, int cc2) {
     return new byte[] {
       UnsignedBytes.checkedCast(header),
