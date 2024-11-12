@@ -653,7 +653,7 @@ public final class Transformer {
    * between output samples}.
    */
   public static final long DEFAULT_MAX_DELAY_BETWEEN_MUXER_SAMPLES_MS =
-      isRunningOnEmulator() ? 21_000 : 10_000;
+      isRunningOnEmulator() ? 25_000 : 10_000;
 
   @Documented
   @Retention(RetentionPolicy.SOURCE)
@@ -761,6 +761,7 @@ public final class Transformer {
       getResumeMetadataFuture;
   private @MonotonicNonNull ListenableFuture<Void> copyOutputFuture;
   @Nullable private Mp4Info mediaItemInfo;
+  @Nullable private WatchdogTimer exportWatchdogTimer;
 
   private Transformer(
       Context context,
@@ -927,8 +928,7 @@ public final class Transformer {
               componentListener,
               MuxerWrapper.MUXER_MODE_DEFAULT,
               /* dropSamplesBeforeFirstVideoSample= */ fileStartsOnVideoFrameEnabled,
-              /* appendVideoFormat= */ null,
-              maxDelayBetweenMuxerSamplesMs),
+              /* appendVideoFormat= */ null),
           componentListener,
           /* initialTimestampOffsetUs= */ 0,
           /* useDefaultAssetLoaderFactory= */ false);
@@ -1144,6 +1144,7 @@ public final class Transformer {
   public void cancel() {
     verifyApplicationThread();
     if (transformerInternal == null) {
+      maybeStopExportWatchdogTimer();
       return;
     }
     try {
@@ -1158,6 +1159,7 @@ public final class Transformer {
     if (copyOutputFuture != null && !copyOutputFuture.isDone()) {
       copyOutputFuture.cancel(/* mayInterruptIfRunning= */ false);
     }
+    maybeStopExportWatchdogTimer();
   }
 
   /**
@@ -1187,7 +1189,37 @@ public final class Transformer {
     remuxProcessedVideo();
   }
 
+  private void maybeInitializeExportWatchdogTimer() {
+    if (maxDelayBetweenMuxerSamplesMs == C.TIME_UNSET) {
+      return;
+    }
+    exportWatchdogTimer =
+        new WatchdogTimer(
+            maxDelayBetweenMuxerSamplesMs,
+            () -> {
+              ExportException exportException =
+                  ExportException.createForMuxer(
+                      new IllegalStateException(
+                          Util.formatInvariant(
+                              "Abort: no output sample written in the last %d milliseconds."
+                                  + " DebugTrace: %s",
+                              maxDelayBetweenMuxerSamplesMs,
+                              DebugTraceUtil.generateTraceSummary())),
+                      ExportException.ERROR_CODE_MUXING_TIMEOUT);
+              checkNotNull(transformerInternal).endWithException(exportException);
+            });
+    exportWatchdogTimer.start();
+  }
+
+  private void maybeStopExportWatchdogTimer() {
+    if (exportWatchdogTimer != null) {
+      exportWatchdogTimer.stop();
+      exportWatchdogTimer = null;
+    }
+  }
+
   private void initialize(Composition composition, String outputFilePath) {
+    maybeInitializeExportWatchdogTimer();
     this.composition = composition;
     this.outputFilePath = outputFilePath;
     exportResultBuilder.reset();
@@ -1203,8 +1235,7 @@ public final class Transformer {
             componentListener,
             MuxerWrapper.MUXER_MODE_DEFAULT,
             /* dropSamplesBeforeFirstVideoSample= */ false,
-            /* appendVideoFormat= */ null,
-            maxDelayBetweenMuxerSamplesMs),
+            /* appendVideoFormat= */ null),
         componentListener,
         /* initialTimestampOffsetUs= */ 0,
         /* useDefaultAssetLoaderFactory= */ false);
@@ -1237,8 +1268,7 @@ public final class Transformer {
                     componentListener,
                     MuxerWrapper.MUXER_MODE_MUX_PARTIAL,
                     /* dropSamplesBeforeFirstVideoSample= */ false,
-                    /* appendVideoFormat= */ resumeMetadata.videoFormat,
-                    maxDelayBetweenMuxerSamplesMs);
+                    /* appendVideoFormat= */ resumeMetadata.videoFormat);
 
             startInternal(
                 TransmuxTranscodeHelper.createVideoOnlyComposition(
@@ -1289,8 +1319,7 @@ public final class Transformer {
             componentListener,
             MuxerWrapper.MUXER_MODE_DEFAULT,
             /* dropSamplesBeforeFirstVideoSample= */ false,
-            /* appendVideoFormat= */ null,
-            maxDelayBetweenMuxerSamplesMs);
+            /* appendVideoFormat= */ null);
 
     startInternal(
         TransmuxTranscodeHelper.createAudioTranscodeAndVideoTransmuxComposition(
@@ -1407,8 +1436,7 @@ public final class Transformer {
                     componentListener,
                     MuxerWrapper.MUXER_MODE_MUX_PARTIAL,
                     /* dropSamplesBeforeFirstVideoSample= */ false,
-                    mp4Info.videoFormat,
-                    maxDelayBetweenMuxerSamplesMs);
+                    mp4Info.videoFormat);
             if (shouldTranscodeVideo(
                     checkNotNull(mp4Info.videoFormat),
                     composition,
@@ -1541,6 +1569,7 @@ public final class Transformer {
   }
 
   private void onExportCompletedWithSuccess() {
+    maybeStopExportWatchdogTimer();
     listeners.queueEvent(
         /* eventFlag= */ C.INDEX_UNSET,
         listener -> listener.onCompleted(checkNotNull(composition), exportResultBuilder.build()));
@@ -1549,6 +1578,7 @@ public final class Transformer {
   }
 
   private void onExportCompletedWithError(ExportException exception) {
+    maybeStopExportWatchdogTimer();
     listeners.queueEvent(
         /* eventFlag= */ C.INDEX_UNSET,
         listener ->
@@ -1658,6 +1688,15 @@ public final class Transformer {
         if (format.width != Format.NO_VALUE) {
           exportResultBuilder.setWidth(format.width);
         }
+      }
+    }
+
+    @Override
+    public void onSampleWrittenOrDropped() {
+      if (exportWatchdogTimer != null) {
+        exportWatchdogTimer.reset();
+      } else {
+        checkState(maxDelayBetweenMuxerSamplesMs == C.TIME_UNSET);
       }
     }
 
