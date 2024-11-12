@@ -46,6 +46,12 @@ public abstract class Mp4Box {
   public static final int TYPE_ftyp = 0x66747970;
 
   @SuppressWarnings("ConstantCaseForConstants")
+  public static final int TYPE_apv1 = 0x61707631;
+
+  @SuppressWarnings("ConstantCaseForConstants")
+  public static final int TYPE_apvC = 0x61707643;
+
+  @SuppressWarnings("ConstantCaseForConstants")
   public static final int TYPE_avc1 = 0x61766331;
 
   @SuppressWarnings("ConstantCaseForConstants")

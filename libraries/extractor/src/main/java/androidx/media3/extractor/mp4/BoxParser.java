@@ -1033,7 +1033,8 @@ public final class BoxParser {
           || childAtomType == Mp4Box.TYPE_dvav
           || childAtomType == Mp4Box.TYPE_dva1
           || childAtomType == Mp4Box.TYPE_dvhe
-          || childAtomType == Mp4Box.TYPE_dvh1) {
+          || childAtomType == Mp4Box.TYPE_dvh1
+          || childAtomType == Mp4Box.TYPE_apv1) {
         parseVideoSampleEntry(
             stsd,
             childAtomType,
@@ -1454,6 +1455,22 @@ public final class BoxParser {
               break;
           }
         }
+      } else if (childAtomType == Mp4Box.TYPE_apvC) {
+        mimeType = MimeTypes.VIDEO_APV;
+
+        int childAtomBodySize = childAtomSize - Mp4Box.HEADER_SIZE;
+        byte[] initializationDataChunk = new byte[childAtomBodySize];
+        parent.readBytes(initializationDataChunk, /* offset= */ 0, childAtomBodySize);
+        initializationData = ImmutableList.of(initializationDataChunk);
+
+        parent.setPosition(childStartPosition + Mp4Box.HEADER_SIZE);
+        ColorInfo colorInfo = parseApvc(parent);
+
+        bitdepthLuma = colorInfo.lumaBitdepth;
+        bitdepthChroma = colorInfo.chromaBitdepth;
+        colorSpace = colorInfo.colorSpace;
+        colorRange = colorInfo.colorRange;
+        colorTransfer = colorInfo.colorTransfer;
       } else if (childAtomType == Mp4Box.TYPE_colr) {
         // Only modify these values if 'colorSpace' and 'colorTransfer' have not been previously
         // established by the bitstream. The absence of color descriptors ('colorSpace' and
@@ -1656,6 +1673,57 @@ public final class BoxParser {
           .setColorRange((colorRange == 1) ? C.COLOR_RANGE_FULL : C.COLOR_RANGE_LIMITED)
           .setColorTransfer(
               ColorInfo.isoTransferCharacteristicsToColorTransfer(transferCharacteristics));
+    }
+    return colorInfo.build();
+  }
+
+  // TODO(Internal: b/375329008):  Add a published spec link of APV codec to the Javadoc.
+  /**
+   * Parses the apvC configuration record and returns a {@link ColorInfo} from its data.
+   *
+   * <p>See apvC configuration record syntax from the spec.
+   *
+   * <p>The sections referenced in the method are from this spec.
+   *
+   * @param data The apvC atom data.
+   * @return {@link ColorInfo} parsed from the apvC data.
+   */
+  private static ColorInfo parseApvc(ParsableByteArray data) {
+    ColorInfo.Builder colorInfo = new ColorInfo.Builder();
+    ParsableBitArray bitArray = new ParsableBitArray(data.getData());
+    bitArray.setPosition(data.getPosition() * 8); // Convert byte to bit position.
+
+    // See Section 2.2.3, APVDecoderConfigurationBox.
+    bitArray.skipBits(6); // configurationVersion
+    boolean isStaticFrameHeader = bitArray.readBit(); // static_frame_header
+    bitArray.skipBit(); // capture_time_distance_ignored
+
+    // Skip largest_frame_header_size (2 bytes), largest_profile_idc (1 byte), largest_level_idc (1
+    // byte), largest_frame_width_minus1 (4 bytes), largest_frame_height_minus1 (4 bytes)
+    bitArray.skipBytes(12);
+    bitArray.skipBits(4); // largest_chromat_format_idc
+
+    int bitDepth = bitArray.readBits(4) + 8; // largest_bit_depth_minus8 + 8
+    colorInfo.setLumaBitdepth(bitDepth);
+    colorInfo.setChromaBitdepth(bitDepth);
+    bitArray.skipBits(8); // largest_capture_time_distance
+
+    if (isStaticFrameHeader) {
+      bitArray.skipBits(7); // reserved_zero_7bits
+      if (!bitArray.readBit()) { // frame_header_repeated
+        bitArray.skipBits(6); // reserved_zero_6bits
+        boolean isColorDescriptionPresent =
+            bitArray.readBit(); // color_description_present_flag_info
+        bitArray.skipBit(); // use_q_matrix_info
+        if (isColorDescriptionPresent) {
+          int colorPrimaries = bitArray.readBits(8); // color_primaries
+          int transferCharacteristics = bitArray.readBits(8); // transfer_characteristics
+          colorInfo
+              .setColorSpace(ColorInfo.isoColorPrimariesToColorSpace(colorPrimaries))
+              .setColorTransfer(
+                  ColorInfo.isoTransferCharacteristicsToColorTransfer(transferCharacteristics));
+        }
+      }
     }
     return colorInfo.build();
   }

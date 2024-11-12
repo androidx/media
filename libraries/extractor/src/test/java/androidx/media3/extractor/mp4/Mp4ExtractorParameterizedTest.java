@@ -169,6 +169,11 @@ public final class Mp4ExtractorParameterizedTest {
   }
 
   @Test
+  public void mp4SampleWithApvC() throws Exception {
+    assertExtractorBehavior("media/mp4/sample_with_apvc.mp4");
+  }
+
+  @Test
   public void mp4SampleWithMhm1BlCicp1Track() throws Exception {
     assertExtractorBehavior("media/mp4/sample_mhm1_bl_cicp1.mp4");
   }
