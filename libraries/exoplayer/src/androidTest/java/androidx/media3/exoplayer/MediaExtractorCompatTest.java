@@ -793,6 +793,215 @@ public class MediaExtractorCompatTest {
     assertThat(mediaExtractorCompat.getDrmInitData()).isEqualTo(firstDrmInitData);
   }
 
+  @Test
+  public void
+      getCachedDurationAndHasCacheReachedEndOfStream_withSingleTrackAndNoneSelected_returnsExpectedValues()
+          throws IOException {
+    TrackOutput[] outputs = new TrackOutput[1];
+    fakeExtractor.addReadAction(
+        (input, seekPosition) -> {
+          outputs[0] = extractorOutput.track(/* id= */ 0, C.TRACK_TYPE_VIDEO);
+          outputs[0].format(PLACEHOLDER_FORMAT_VIDEO);
+          extractorOutput.endTracks();
+          return Extractor.RESULT_CONTINUE;
+        });
+    fakeExtractor.addReadAction(
+        (input, seekPosition) -> {
+          outputSampleData(outputs[0], /* sampleData...= */ (byte) 1, (byte) 2, (byte) 3);
+          return Extractor.RESULT_CONTINUE;
+        });
+    fakeExtractor.addReadAction(
+        (input, seekPosition) -> {
+          outputSample(outputs[0], /* timeUs= */ 0, /* size= */ 3, /* offset= */ 0);
+          return Extractor.RESULT_CONTINUE;
+        });
+
+    mediaExtractorCompat.setDataSource(PLACEHOLDER_URI, /* offset= */ 0);
+
+    // Sample is queued but discarded since no track is selected.
+    assertThat(mediaExtractorCompat.getCachedDuration()).isEqualTo(0);
+    assertThat(mediaExtractorCompat.hasCacheReachedEndOfStream()).isTrue();
+  }
+
+  @Test
+  public void
+      getCachedDurationAndHasCacheReachedEndOfStream_withSingleTrackAndSelected_returnsExpectedValues()
+          throws IOException {
+    TrackOutput[] outputs = new TrackOutput[1];
+    fakeExtractor.addReadAction(
+        (input, seekPosition) -> {
+          outputs[0] = extractorOutput.track(/* id= */ 0, C.TRACK_TYPE_VIDEO);
+          outputs[0].format(PLACEHOLDER_FORMAT_VIDEO);
+          extractorOutput.endTracks();
+          return Extractor.RESULT_CONTINUE;
+        });
+    fakeExtractor.addReadAction(
+        (input, seekPosition) -> {
+          outputSampleData(outputs[0], /* sampleData...= */ (byte) 1, (byte) 2, (byte) 3);
+          return Extractor.RESULT_CONTINUE;
+        });
+    fakeExtractor.addReadAction(
+        (input, seekPosition) -> {
+          outputSample(outputs[0], /* timeUs= */ 0, /* size= */ 1, /* offset= */ 2);
+          return Extractor.RESULT_CONTINUE;
+        });
+    fakeExtractor.addReadAction(
+        (input, seekPosition) -> {
+          outputSample(outputs[0], /* timeUs= */ 100_000, /* size= */ 1, /* offset= */ 1);
+          outputSample(outputs[0], /* timeUs= */ 200_000, /* size= */ 1, /* offset= */ 0);
+          return Extractor.RESULT_CONTINUE;
+        });
+
+    mediaExtractorCompat.setDataSource(PLACEHOLDER_URI, /* offset= */ 0);
+    mediaExtractorCompat.selectTrack(0);
+
+    // First sample queued but not read; returns default duration for last sample.
+    assertThat(mediaExtractorCompat.getCachedDuration()).isEqualTo(10_000);
+    assertThat(mediaExtractorCompat.hasCacheReachedEndOfStream()).isFalse();
+
+    mediaExtractorCompat.advance();
+
+    // Remaining two samples queued, first sample read.
+    assertThat(mediaExtractorCompat.getCachedDuration()).isEqualTo(210_000);
+    assertThat(mediaExtractorCompat.hasCacheReachedEndOfStream()).isFalse();
+
+    mediaExtractorCompat.advance();
+
+    // Second sample read.
+    assertThat(mediaExtractorCompat.getCachedDuration()).isEqualTo(110_000);
+    assertThat(mediaExtractorCompat.hasCacheReachedEndOfStream()).isFalse();
+
+    mediaExtractorCompat.advance();
+
+    // Final sample read; no remaining samples, so cached duration is zero and has reached end of
+    // stream.
+    assertThat(mediaExtractorCompat.getCachedDuration()).isEqualTo(0);
+    assertThat(mediaExtractorCompat.hasCacheReachedEndOfStream()).isTrue();
+  }
+
+  @Test
+  public void
+      getCachedDurationAndHasCacheReachedEndOfStream_withMultipleTracksAndOneSelected_returnsExpectedValues()
+          throws IOException {
+    TrackOutput[] outputs = new TrackOutput[2];
+    fakeExtractor.addReadAction(
+        (input, seekPosition) -> {
+          outputs[0] = extractorOutput.track(/* id= */ 0, C.TRACK_TYPE_VIDEO);
+          outputs[0].format(PLACEHOLDER_FORMAT_VIDEO);
+          outputs[1] = extractorOutput.track(/* id= */ 1, C.TRACK_TYPE_AUDIO);
+          outputs[1].format(PLACEHOLDER_FORMAT_AUDIO);
+          extractorOutput.endTracks();
+          return Extractor.RESULT_CONTINUE;
+        });
+    fakeExtractor.addReadAction(
+        (input, seekPosition) -> {
+          outputSampleData(outputs[0], /* sampleData...= */ (byte) 1, (byte) 2);
+          outputSampleData(outputs[1], /* sampleData...= */ (byte) 4, (byte) 5, (byte) 6);
+          return Extractor.RESULT_CONTINUE;
+        });
+    fakeExtractor.addReadAction(
+        (input, seekPosition) -> {
+          outputSample(outputs[0], /* timeUs= */ 0, /* size= */ 1, /* offset= */ 2);
+          outputSample(outputs[1], /* timeUs= */ 0, /* size= */ 1, /* offset= */ 2);
+          return Extractor.RESULT_CONTINUE;
+        });
+    fakeExtractor.addReadAction(
+        (input, seekPosition) -> {
+          outputSample(outputs[0], /* timeUs= */ 100_000, /* size= */ 1, /* offset= */ 1);
+          outputSample(outputs[1], /* timeUs= */ 200_000, /* size= */ 1, /* offset= */ 1);
+          outputSample(outputs[1], /* timeUs= */ 300_000, /* size= */ 1, /* offset= */ 0);
+          return Extractor.RESULT_CONTINUE;
+        });
+
+    mediaExtractorCompat.setDataSource(PLACEHOLDER_URI, /* offset= */ 0);
+    mediaExtractorCompat.selectTrack(0);
+
+    // First two samples queued but not read; returns default duration for last sample.
+    assertThat(mediaExtractorCompat.getCachedDuration()).isEqualTo(10_000);
+    assertThat(mediaExtractorCompat.hasCacheReachedEndOfStream()).isFalse();
+
+    mediaExtractorCompat.advance();
+
+    // All samples queued, first sample read.
+    assertThat(mediaExtractorCompat.getCachedDuration()).isEqualTo(310_000);
+    assertThat(mediaExtractorCompat.hasCacheReachedEndOfStream()).isFalse();
+
+    mediaExtractorCompat.advance();
+
+    // Second sample read; remaining samples are from an unselected track and are discarded.
+    assertThat(mediaExtractorCompat.getCachedDuration()).isEqualTo(0);
+    assertThat(mediaExtractorCompat.hasCacheReachedEndOfStream()).isTrue();
+  }
+
+  @Test
+  public void
+      getCachedDurationAndHasCacheReachedEndOfStream_withMultipleTracksAndAllSelected_returnsExpectedValues()
+          throws IOException {
+    TrackOutput[] outputs = new TrackOutput[2];
+    fakeExtractor.addReadAction(
+        (input, seekPosition) -> {
+          outputs[0] = extractorOutput.track(/* id= */ 0, C.TRACK_TYPE_VIDEO);
+          outputs[0].format(PLACEHOLDER_FORMAT_VIDEO);
+          outputs[1] = extractorOutput.track(/* id= */ 1, C.TRACK_TYPE_AUDIO);
+          outputs[1].format(PLACEHOLDER_FORMAT_AUDIO);
+          extractorOutput.endTracks();
+          return Extractor.RESULT_CONTINUE;
+        });
+    fakeExtractor.addReadAction(
+        (input, seekPosition) -> {
+          outputSampleData(outputs[0], /* sampleData...= */ (byte) 1, (byte) 2);
+          outputSampleData(outputs[1], /* sampleData...= */ (byte) 4, (byte) 5, (byte) 6);
+          return Extractor.RESULT_CONTINUE;
+        });
+    fakeExtractor.addReadAction(
+        (input, seekPosition) -> {
+          outputSample(outputs[0], /* timeUs= */ 0, /* size= */ 1, /* offset= */ 2);
+          outputSample(outputs[1], /* timeUs= */ 0, /* size= */ 1, /* offset= */ 2);
+          return Extractor.RESULT_CONTINUE;
+        });
+    fakeExtractor.addReadAction(
+        (input, seekPosition) -> {
+          outputSample(outputs[0], /* timeUs= */ 100_000, /* size= */ 1, /* offset= */ 1);
+          outputSample(outputs[1], /* timeUs= */ 200_000, /* size= */ 1, /* offset= */ 1);
+          outputSample(outputs[1], /* timeUs= */ 300_000, /* size= */ 1, /* offset= */ 0);
+          return Extractor.RESULT_CONTINUE;
+        });
+
+    mediaExtractorCompat.setDataSource(PLACEHOLDER_URI, /* offset= */ 0);
+    mediaExtractorCompat.selectTrack(0);
+    mediaExtractorCompat.selectTrack(1);
+
+    // First two samples queued but not read; returns default duration for last sample.
+    assertThat(mediaExtractorCompat.getCachedDuration()).isEqualTo(10_000);
+    assertThat(mediaExtractorCompat.hasCacheReachedEndOfStream()).isFalse();
+
+    mediaExtractorCompat.advance();
+    mediaExtractorCompat.advance();
+
+    // All samples queued, first and second sample read.
+    assertThat(mediaExtractorCompat.getCachedDuration()).isEqualTo(310_000);
+    assertThat(mediaExtractorCompat.hasCacheReachedEndOfStream()).isFalse();
+
+    mediaExtractorCompat.advance();
+
+    // Third sample read.
+    assertThat(mediaExtractorCompat.getCachedDuration()).isEqualTo(210_000);
+    assertThat(mediaExtractorCompat.hasCacheReachedEndOfStream()).isFalse();
+
+    mediaExtractorCompat.advance();
+
+    // Fourth sample read.
+    assertThat(mediaExtractorCompat.getCachedDuration()).isEqualTo(110_000);
+    assertThat(mediaExtractorCompat.hasCacheReachedEndOfStream()).isFalse();
+
+    mediaExtractorCompat.advance();
+
+    // Final sample read; no remaining samples, so cached duration is zero and has reached end of
+    // stream.
+    assertThat(mediaExtractorCompat.getCachedDuration()).isEqualTo(0);
+    assertThat(mediaExtractorCompat.hasCacheReachedEndOfStream()).isTrue();
+  }
+
   // Internal methods.
 
   private void assertReadSample(int trackIndex, long timeUs, int size, byte... sampleData) {

@@ -20,6 +20,7 @@ import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.exoplayer.source.SampleStream.FLAG_PEEK;
 import static androidx.media3.exoplayer.source.SampleStream.FLAG_REQUIRE_FORMAT;
+import static java.lang.Math.max;
 
 import android.content.ContentResolver;
 import android.content.Context;
@@ -114,6 +115,14 @@ public final class MediaExtractorCompat {
 
   /** See {@link MediaExtractor#SEEK_TO_CLOSEST_SYNC}. */
   public static final int SEEK_TO_CLOSEST_SYNC = MediaExtractor.SEEK_TO_CLOSEST_SYNC;
+
+  /**
+   * A default duration added to the largest queued sample timestamp to provide a more realistic
+   * estimate of the cached duration. Since the duration of the last sample is unknown, this value
+   * prevents the duration of the last sample from being assumed as zero, which would otherwise make
+   * the estimated duration appear shorter than it actually is.
+   */
+  private static final long DEFAULT_LAST_SAMPLE_DURATION_US = 10_000;
 
   private static final String TAG = "MediaExtractorCompat";
 
@@ -605,6 +614,47 @@ public final class MediaExtractorCompat {
       return format.drmInitData;
     }
     return null;
+  }
+
+  /**
+   * Returns an estimate of how much data is presently cached in memory, expressed in microseconds,
+   * or -1 if this information is unavailable or not applicable (i.e., no cache exists).
+   */
+  public long getCachedDuration() {
+    if (!advanceToSampleOrEndOfInput()) {
+      return 0;
+    }
+
+    long largestReadTimestampUs = Long.MIN_VALUE;
+    long largestQueuedTimestampUs = Long.MIN_VALUE;
+    for (int i = 0; i < tracks.size(); i++) {
+      MediaExtractorSampleQueue mediaExtractorSampleQueue = tracks.get(i).sampleQueue;
+
+      largestReadTimestampUs =
+          max(largestReadTimestampUs, mediaExtractorSampleQueue.getLargestReadTimestampUs());
+      largestQueuedTimestampUs =
+          max(largestQueuedTimestampUs, mediaExtractorSampleQueue.getLargestQueuedTimestampUs());
+    }
+
+    checkState(largestQueuedTimestampUs != Long.MIN_VALUE);
+    if (largestReadTimestampUs == largestQueuedTimestampUs) {
+      return 0;
+    }
+
+    if (largestReadTimestampUs == Long.MIN_VALUE) {
+      largestReadTimestampUs = 0;
+    }
+    return largestQueuedTimestampUs - largestReadTimestampUs + DEFAULT_LAST_SAMPLE_DURATION_US;
+  }
+
+  /**
+   * Returns {@code true} if data is being cached and the cache has reached the end of the data
+   * stream. This indicates that no additional data is currently available for caching, although a
+   * future seek may restart data fetching. This method only returns a meaningful result if {@link
+   * #getCachedDuration} indicates the presence of a cache (i.e., does not return -1).
+   */
+  public boolean hasCacheReachedEndOfStream() {
+    return getCachedDuration() == 0;
   }
 
   @VisibleForTesting(otherwise = NONE)
