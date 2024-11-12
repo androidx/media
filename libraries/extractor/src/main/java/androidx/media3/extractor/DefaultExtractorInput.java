@@ -206,6 +206,15 @@ public final class DefaultExtractorInput implements ExtractorInput {
   }
 
   /**
+   * Returns the underlying {@link DataReader} from which the {@link Extractor} extracts data from.
+   *
+   * @return the attached underlying {@link DataReader}
+   */
+  public DataReader getDataReader() {
+    return dataReader;
+  }
+
+  /**
    * Ensures {@code peekBuffer} is large enough to store at least {@code length} bytes from the
    * current peek position.
    */
