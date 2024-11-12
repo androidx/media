@@ -43,6 +43,8 @@
 *   Text:
     *   Fix garbled CEA-608 subtitles in content with more than one SEI message
         per sample.
+    *   Fix playback hanging on DASH multi-period streams when CEA-608 subtitles
+        are enabled ([#1863](https://github.com/androidx/media/issues/1863)).
 *   Metadata:
 *   Image:
 *   DRM:
