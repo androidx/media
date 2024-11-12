@@ -42,9 +42,7 @@
       android:supportsRtl="true"
       tools:targetApi="29">
 
-    <activity android:name=".SampleChooserActivity"
-        android:configChanges="keyboardHidden"
-        android:label="@string/application_name"
+    <activity android:name=".MultiPlayerActivity"
         android:theme="@style/Theme.AppCompat"
         android:exported="true">
       <intent-filter>
@@ -52,6 +50,13 @@
         <category android:name="android.intent.category.LAUNCHER"/>
         <category android:name="android.intent.category.LEANBACK_LAUNCHER"/>
       </intent-filter>
+    </activity>
+
+    <activity android:name=".SampleChooserActivity"
+        android:configChanges="keyboardHidden"
+        android:label="@string/application_name"
+        android:theme="@style/Theme.AppCompat"
+        android:exported="true">
       <intent-filter>
         <action android:name="android.intent.action.VIEW"/>
         <action android:name="androidx.media3.demo.main.action.BROWSE"/>
