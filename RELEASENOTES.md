@@ -29,6 +29,8 @@
     *   Add support for transmuxing into alternative backwards compatible
         formats.
 *   Extractors:
+    *   Add AC-4 Level-4 ISO base media file format support
+        ([#1265](https://github.com/androidx/media/pull/1265)).
 *   DataSource:
     *   `DataSourceContractTest`: Assert that `DataSource.getUri()` and
         `getResponseHeaders()` return their 'open' value after a failed call to

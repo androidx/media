@@ -108,6 +108,11 @@ public final class Mp4ExtractorParameterizedTest {
   }
 
   @Test
+  public void mp4SampleWithAc4Level4Track() throws Exception {
+    assertExtractorBehavior("media/mp4/sample_ac4_level4.mp4");
+  }
+
+  @Test
   public void mp4SampleWithEac3Track() throws Exception {
     assertExtractorBehavior("media/mp4/sample_eac3.mp4");
   }
