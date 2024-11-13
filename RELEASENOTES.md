@@ -85,6 +85,8 @@
         Composable UI elements to `demo-compose` utilizing
         `PlayPauseButtonState`, `NextButtonState`, `PreviousButtonState`,
         `RepeatButtonState`, `ShuffleButtonState`.
+    *   Resolve the memory leaks in demo short-form app
+        ([#1839](https://github.com/androidx/media/issues/1839)).
 *   Remove deprecated symbols:
     *   Remove deprecated `AudioMixer.create()` method. Use
         `DefaultAudioMixer.Factory().create()` instead.
