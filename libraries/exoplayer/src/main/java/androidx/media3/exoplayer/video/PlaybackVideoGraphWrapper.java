@@ -355,7 +355,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     }
     // The frame presentation time is relative to the start of the Composition and without the
     // renderer offset
-    videoFrameRenderControl.onOutputFrameAvailableForRendering(
+    videoFrameRenderControl.onFrameAvailableForRendering(
         framePresentationTimeUs - bufferTimestampAdjustmentUs);
   }
 
@@ -471,7 +471,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
   private void onStreamTimestampInfoChange(
       long bufferTimestampAdjustmentUs, long bufferPresentationTimeUs, long streamStartPositionUs) {
     this.bufferTimestampAdjustmentUs = bufferTimestampAdjustmentUs;
-    videoFrameRenderControl.onStreamStartPositionChange(
+    videoFrameRenderControl.onStreamStartPositionChanged(
         bufferPresentationTimeUs, streamStartPositionUs);
   }
 

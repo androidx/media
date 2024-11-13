@@ -45,9 +45,9 @@ public class VideoFrameRenderControlTest {
         new VideoFrameRenderControl(frameRenderer, videoFrameReleaseControl);
 
     videoFrameReleaseControl.onEnabled(/* releaseFirstFrameBeforeStarted= */ true);
-    videoFrameRenderControl.onOutputSizeChanged(
+    videoFrameRenderControl.onVideoSizeChanged(
         /* width= */ VIDEO_WIDTH, /* height= */ VIDEO_HEIGHT);
-    videoFrameRenderControl.onOutputFrameAvailableForRendering(/* presentationTimeUs= */ 0);
+    videoFrameRenderControl.onFrameAvailableForRendering(/* presentationTimeUs= */ 0);
     videoFrameRenderControl.render(/* positionUs= */ 0, /* elapsedRealtimeUs= */ 0);
 
     InOrder inOrder = Mockito.inOrder(frameRenderer);
@@ -74,10 +74,10 @@ public class VideoFrameRenderControlTest {
 
     videoFrameReleaseControl.onEnabled(/* releaseFirstFrameBeforeStarted= */ true);
     videoFrameReleaseControl.onStarted();
-    videoFrameRenderControl.onOutputSizeChanged(
+    videoFrameRenderControl.onVideoSizeChanged(
         /* width= */ VIDEO_WIDTH, /* height= */ VIDEO_HEIGHT);
-    videoFrameRenderControl.onOutputFrameAvailableForRendering(/* presentationTimeUs= */ 0);
-    videoFrameRenderControl.onOutputFrameAvailableForRendering(/* presentationTimeUs= */ 10_000);
+    videoFrameRenderControl.onFrameAvailableForRendering(/* presentationTimeUs= */ 0);
+    videoFrameRenderControl.onFrameAvailableForRendering(/* presentationTimeUs= */ 10_000);
 
     videoFrameRenderControl.render(/* positionUs= */ 0, /* elapsedRealtimeUs= */ 0);
     InOrder inOrder = Mockito.inOrder(frameRenderer);
@@ -119,11 +119,11 @@ public class VideoFrameRenderControlTest {
 
     videoFrameReleaseControl.onEnabled(/* releaseFirstFrameBeforeStarted= */ true);
     videoFrameReleaseControl.onStarted();
-    videoFrameRenderControl.onOutputSizeChanged(
+    videoFrameRenderControl.onVideoSizeChanged(
         /* width= */ VIDEO_WIDTH, /* height= */ VIDEO_HEIGHT);
-    videoFrameRenderControl.onStreamStartPositionChange(
+    videoFrameRenderControl.onStreamStartPositionChanged(
         /* presentationTimeUs= */ 0, /* streamStartPositionUs= */ 10_000);
-    videoFrameRenderControl.onOutputFrameAvailableForRendering(/* presentationTimeUs= */ 0);
+    videoFrameRenderControl.onFrameAvailableForRendering(/* presentationTimeUs= */ 0);
     videoFrameRenderControl.render(/* positionUs= */ 0, /* elapsedRealtimeUs= */ 0);
 
     InOrder inOrder = Mockito.inOrder(frameRenderer);
@@ -136,9 +136,9 @@ public class VideoFrameRenderControlTest {
 
     // 10 milliseconds pass
     clock.advanceTime(/* timeDiffMs= */ 10);
-    videoFrameRenderControl.onStreamStartPositionChange(
+    videoFrameRenderControl.onStreamStartPositionChanged(
         /* presentationTimeUs= */ 10_000, /* streamStartPositionUs= */ 20_000);
-    videoFrameRenderControl.onOutputFrameAvailableForRendering(/* presentationTimeUs= */ 10_000);
+    videoFrameRenderControl.onFrameAvailableForRendering(/* presentationTimeUs= */ 10_000);
     videoFrameRenderControl.render(/* positionUs= */ 10_000, /* elapsedRealtimeUs= */ 0);
 
     // Second frame has the second stream start position and it is also a first frame.
@@ -168,10 +168,10 @@ public class VideoFrameRenderControlTest {
 
     videoFrameReleaseControl.onEnabled(/* releaseFirstFrameBeforeStarted= */ true);
     videoFrameReleaseControl.onStarted();
-    videoFrameRenderControl.onOutputSizeChanged(
+    videoFrameRenderControl.onVideoSizeChanged(
         /* width= */ VIDEO_WIDTH, /* height= */ VIDEO_HEIGHT);
-    videoFrameRenderControl.onOutputFrameAvailableForRendering(/* presentationTimeUs= */ 0);
-    videoFrameRenderControl.onOutputFrameAvailableForRendering(/* presentationTimeUs= */ 10_000);
+    videoFrameRenderControl.onFrameAvailableForRendering(/* presentationTimeUs= */ 0);
+    videoFrameRenderControl.onFrameAvailableForRendering(/* presentationTimeUs= */ 10_000);
     videoFrameRenderControl.render(/* positionUs= */ 0, /* elapsedRealtimeUs= */ 0);
 
     InOrder inOrder = Mockito.inOrder(frameRenderer);
@@ -206,16 +206,16 @@ public class VideoFrameRenderControlTest {
 
     videoFrameReleaseControl.onEnabled(/* releaseFirstFrameBeforeStarted= */ true);
     videoFrameReleaseControl.onStarted();
-    videoFrameRenderControl.onOutputSizeChanged(
+    videoFrameRenderControl.onVideoSizeChanged(
         /* width= */ VIDEO_WIDTH, /* height= */ VIDEO_HEIGHT);
-    videoFrameRenderControl.onOutputFrameAvailableForRendering(/* presentationTimeUs= */ 0);
+    videoFrameRenderControl.onFrameAvailableForRendering(/* presentationTimeUs= */ 0);
     videoFrameRenderControl.flush();
     videoFrameRenderControl.render(/* positionUs= */ 0, /* elapsedRealtimeUs= */ 0);
 
     InOrder inOrder = Mockito.inOrder(frameRenderer);
     inOrder.verifyNoMoreInteractions();
 
-    videoFrameRenderControl.onOutputFrameAvailableForRendering(/* presentationTimeUs= */ 10_000);
+    videoFrameRenderControl.onFrameAvailableForRendering(/* presentationTimeUs= */ 10_000);
     videoFrameRenderControl.render(/* positionUs= */ 0, /* elapsedRealtimeUs= */ 0);
 
     // First frame was rendered with pending video size change.
@@ -250,9 +250,9 @@ public class VideoFrameRenderControlTest {
         new VideoFrameRenderControl(frameRenderer, videoFrameReleaseControl);
 
     videoFrameReleaseControl.onEnabled(/* releaseFirstFrameBeforeStarted= */ true);
-    videoFrameRenderControl.onOutputSizeChanged(
+    videoFrameRenderControl.onVideoSizeChanged(
         /* width= */ VIDEO_WIDTH, /* height= */ VIDEO_HEIGHT);
-    videoFrameRenderControl.onOutputFrameAvailableForRendering(/* presentationTimeUs= */ 0);
+    videoFrameRenderControl.onFrameAvailableForRendering(/* presentationTimeUs= */ 0);
     videoFrameRenderControl.render(/* positionUs= */ 0, /* elapsedRealtimeUs= */ 0);
 
     InOrder inOrder = Mockito.inOrder(frameRenderer);
@@ -277,9 +277,9 @@ public class VideoFrameRenderControlTest {
         new VideoFrameRenderControl(frameRenderer, videoFrameReleaseControl);
 
     videoFrameReleaseControl.onEnabled(/* releaseFirstFrameBeforeStarted= */ true);
-    videoFrameRenderControl.onOutputSizeChanged(
+    videoFrameRenderControl.onVideoSizeChanged(
         /* width= */ VIDEO_WIDTH, /* height= */ VIDEO_HEIGHT);
-    videoFrameRenderControl.onOutputFrameAvailableForRendering(/* presentationTimeUs= */ 0);
+    videoFrameRenderControl.onFrameAvailableForRendering(/* presentationTimeUs= */ 0);
     videoFrameRenderControl.render(/* positionUs= */ 0, /* elapsedRealtimeUs= */ 0);
 
     InOrder inOrder = Mockito.inOrder(frameRenderer);

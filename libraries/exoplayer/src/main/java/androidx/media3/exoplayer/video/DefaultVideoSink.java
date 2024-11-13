@@ -151,7 +151,7 @@ import java.util.concurrent.Executor;
   @Override
   public void onInputStreamChanged(@InputType int inputType, Format format) {
     if (format.width != inputFormat.width || format.height != inputFormat.height) {
-      videoFrameRenderControl.onOutputSizeChanged(format.width, format.height);
+      videoFrameRenderControl.onVideoSizeChanged(format.width, format.height);
     }
     if (format.frameRate != inputFormat.frameRate) {
       videoFrameReleaseControl.setFrameRate(format.frameRate);

@@ -40,23 +40,21 @@ import androidx.media3.exoplayer.ExoPlaybackException;
     void onVideoSizeChanged(VideoSize videoSize);
 
     /**
-     * Called to release the {@linkplain
-     * VideoFrameRenderControl#onOutputFrameAvailableForRendering(long)} oldest frame that is
-     * available for rendering}.
+     * Called to release the {@linkplain VideoFrameRenderControl#onFrameAvailableForRendering(long)
+     * oldest frame that is available for rendering}.
      *
      * @param renderTimeNs The specific time, in nano seconds, that this frame should be rendered or
      *     {@link VideoFrameProcessor#RENDER_OUTPUT_FRAME_IMMEDIATELY} if the frame needs to be
      *     rendered immediately.
      * @param presentationTimeUs The frame's presentation time, in microseconds, which was announced
-     *     with {@link VideoFrameRenderControl#onOutputFrameAvailableForRendering(long)}.
+     *     with {@link VideoFrameRenderControl#onFrameAvailableForRendering(long)}.
      * @param isFirstFrame Whether this is the first frame of the stream.
      */
     void renderFrame(long renderTimeNs, long presentationTimeUs, boolean isFirstFrame);
 
     /**
-     * Called to drop the {@linkplain
-     * VideoFrameRenderControl#onOutputFrameAvailableForRendering(long)} oldest frame that is
-     * available for rendering}.
+     * Called to drop the {@linkplain VideoFrameRenderControl#onFrameAvailableForRendering(long)
+     * oldest frame that is available for rendering}.
      */
     void dropFrame();
   }
@@ -64,20 +62,20 @@ import androidx.media3.exoplayer.ExoPlaybackException;
   private final FrameRenderer frameRenderer;
   private final VideoFrameReleaseControl videoFrameReleaseControl;
   private final VideoFrameReleaseControl.FrameReleaseInfo videoFrameReleaseInfo;
-  private final TimedValueQueue<VideoSize> videoSizeChanges;
+
+  /**
+   * A queue of unprocessed input frame sizes. Each size is associated with the timestamp from which
+   * it should be applied.
+   */
+  private final TimedValueQueue<VideoSize> videoSizes;
+
   private final TimedValueQueue<Long> streamStartPositionsUs;
   private final LongArrayQueue presentationTimestampsUs;
 
-  /**
-   * Stores a video size that is announced with {@link #onOutputSizeChanged(int, int)} until an
-   * output frame is made available. Once the next frame arrives, we associate the frame's timestamp
-   * with the video size change in {@link #videoSizeChanges} and clear this field.
-   */
-  @Nullable private VideoSize pendingOutputVideoSize;
-
-  private VideoSize reportedVideoSize;
+  private long lastInputPresentationTimeUs;
+  private long lastOutputPresentationTimeUs;
+  private VideoSize outputVideoSize;
   private long outputStreamStartPositionUs;
-  private long lastPresentationTimeUs;
 
   /** Creates an instance. */
   public VideoFrameRenderControl(
@@ -85,36 +83,35 @@ import androidx.media3.exoplayer.ExoPlaybackException;
     this.frameRenderer = frameRenderer;
     this.videoFrameReleaseControl = videoFrameReleaseControl;
     videoFrameReleaseInfo = new VideoFrameReleaseControl.FrameReleaseInfo();
-    videoSizeChanges = new TimedValueQueue<>();
+    videoSizes = new TimedValueQueue<>();
     streamStartPositionsUs = new TimedValueQueue<>();
     presentationTimestampsUs = new LongArrayQueue();
-    reportedVideoSize = VideoSize.UNKNOWN;
-    lastPresentationTimeUs = C.TIME_UNSET;
+    lastInputPresentationTimeUs = C.TIME_UNSET;
+    outputVideoSize = VideoSize.UNKNOWN;
+    lastOutputPresentationTimeUs = C.TIME_UNSET;
   }
 
   /** Flushes the renderer. */
   public void flush() {
     presentationTimestampsUs.clear();
-    lastPresentationTimeUs = C.TIME_UNSET;
+    lastInputPresentationTimeUs = C.TIME_UNSET;
+    lastOutputPresentationTimeUs = C.TIME_UNSET;
     if (streamStartPositionsUs.size() > 0) {
       // There is a pending streaming start position change. If seeking within the same stream, keep
-      // the pending start position with timestamp zero ensures the start position is applied on the
-      // frames after flushing. Otherwise if seeking to another stream, a new start position will be
-      // set before a new frame arrives so we'll be able to apply the new start position.
+      // the pending start position with min timestamp to ensure the start position is applied on
+      // the frames after flushing. Otherwise if seeking to another stream, a new start position
+      // will be set before a new frame arrives so we'll be able to apply the new start position.
       long lastStartPositionUs = getLastAndClear(streamStartPositionsUs);
+      // Input timestamps should always be positive because they are offset by ExoPlayer. Adding a
+      // position to the queue with timestamp 0 should therefore always apply it as long as it is
+      // the only position in the queue.
       streamStartPositionsUs.add(/* timestamp= */ 0, lastStartPositionUs);
     }
-    if (pendingOutputVideoSize == null) {
-      if (videoSizeChanges.size() > 0) {
-        // Do not clear the last pending video size, we still want to report the size change after a
-        // flush. If after the flush, a new video size is announced, it will overwrite
-        // pendingOutputVideoSize. When the next frame is available for rendering, we will announce
-        // pendingOutputVideoSize.
-        pendingOutputVideoSize = getLastAndClear(videoSizeChanges);
-      }
-    } else {
-      // we keep the latest value of pendingOutputVideoSize
-      videoSizeChanges.clear();
+    if (videoSizes.size() > 0) {
+      // Do not clear the last pending video size, we still want to report the size change after a
+      // flush. If after the flush, a new video size is announced, it will be used instead.
+      VideoSize lastVideoSize = getLastAndClear(videoSizes);
+      videoSizes.add(/* timestamp= */ 0, lastVideoSize);
     }
   }
 
@@ -126,7 +123,8 @@ import androidx.media3.exoplayer.ExoPlaybackException;
    *     {@code presentationTimeUs}.
    */
   public boolean hasReleasedFrame(long presentationTimeUs) {
-    return lastPresentationTimeUs != C.TIME_UNSET && lastPresentationTimeUs >= presentationTimeUs;
+    return lastOutputPresentationTimeUs != C.TIME_UNSET
+        && lastOutputPresentationTimeUs >= presentationTimeUs;
   }
 
   /**
@@ -160,12 +158,12 @@ import androidx.media3.exoplayer.ExoPlaybackException;
         case VideoFrameReleaseControl.FRAME_RELEASE_IGNORE:
           // TODO b/293873191 - Handle very late buffers and drop to key frame. Need to flush
           //  VideoGraph input frames in this case.
-          lastPresentationTimeUs = presentationTimeUs;
+          lastOutputPresentationTimeUs = presentationTimeUs;
           dropFrame();
           break;
         case VideoFrameReleaseControl.FRAME_RELEASE_IMMEDIATELY:
         case VideoFrameReleaseControl.FRAME_RELEASE_SCHEDULED:
-          lastPresentationTimeUs = presentationTimeUs;
+          lastOutputPresentationTimeUs = presentationTimeUs;
           renderFrame(
               /* shouldRenderImmediately= */ frameReleaseAction
                   == VideoFrameReleaseControl.FRAME_RELEASE_IMMEDIATELY);
@@ -177,8 +175,10 @@ import androidx.media3.exoplayer.ExoPlaybackException;
   }
 
   /** Called when the size of the available frames has changed. */
-  public void onOutputSizeChanged(int width, int height) {
-    pendingOutputVideoSize = new VideoSize(width, height);
+  public void onVideoSizeChanged(int width, int height) {
+    videoSizes.add(
+        lastInputPresentationTimeUs == C.TIME_UNSET ? 0 : lastInputPresentationTimeUs + 1,
+        new VideoSize(width, height));
   }
 
   /**
@@ -186,16 +186,13 @@ import androidx.media3.exoplayer.ExoPlaybackException;
    *
    * @param presentationTimeUs The frame's presentation timestamp, in microseconds.
    */
-  public void onOutputFrameAvailableForRendering(long presentationTimeUs) {
-    if (pendingOutputVideoSize != null) {
-      videoSizeChanges.add(presentationTimeUs, pendingOutputVideoSize);
-      pendingOutputVideoSize = null;
-    }
+  public void onFrameAvailableForRendering(long presentationTimeUs) {
     presentationTimestampsUs.add(presentationTimeUs);
+    lastInputPresentationTimeUs = presentationTimeUs;
     // TODO b/257464707 - Support extensively modified media.
   }
 
-  public void onStreamStartPositionChange(long presentationTimeUs, long streamStartPositionUs) {
+  public void onStreamStartPositionChanged(long presentationTimeUs, long streamStartPositionUs) {
     streamStartPositionsUs.add(presentationTimeUs, streamStartPositionUs);
   }
 
@@ -207,9 +204,9 @@ import androidx.media3.exoplayer.ExoPlaybackException;
   private void renderFrame(boolean shouldRenderImmediately) {
     long presentationTimeUs = checkStateNotNull(presentationTimestampsUs.remove());
 
-    boolean videoSizeUpdated = maybeUpdateVideoSize(presentationTimeUs);
+    boolean videoSizeUpdated = maybeUpdateOutputVideoSize(presentationTimeUs);
     if (videoSizeUpdated) {
-      frameRenderer.onVideoSizeChanged(reportedVideoSize);
+      frameRenderer.onVideoSizeChanged(outputVideoSize);
     }
     long renderTimeNs =
         shouldRenderImmediately
@@ -230,13 +227,12 @@ import androidx.media3.exoplayer.ExoPlaybackException;
     return false;
   }
 
-  private boolean maybeUpdateVideoSize(long presentationTimeUs) {
-    @Nullable VideoSize videoSize = videoSizeChanges.pollFloor(presentationTimeUs);
-    if (videoSize == null) {
-      return false;
-    }
-    if (!videoSize.equals(VideoSize.UNKNOWN) && !videoSize.equals(reportedVideoSize)) {
-      reportedVideoSize = videoSize;
+  private boolean maybeUpdateOutputVideoSize(long presentationTimeUs) {
+    @Nullable VideoSize newOutputVideoSize = videoSizes.pollFloor(presentationTimeUs);
+    if (newOutputVideoSize != null
+        && !newOutputVideoSize.equals(VideoSize.UNKNOWN)
+        && !newOutputVideoSize.equals(outputVideoSize)) {
+      outputVideoSize = newOutputVideoSize;
       return true;
     }
     return false;
