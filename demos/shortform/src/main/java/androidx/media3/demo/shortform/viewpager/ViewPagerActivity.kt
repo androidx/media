@@ -25,7 +25,7 @@ import androidx.viewpager2.widget.ViewPager2
 
 class ViewPagerActivity : AppCompatActivity() {
   private lateinit var viewPagerView: ViewPager2
-  private lateinit var adapter: ViewPagerMediaAdapter
+  private lateinit var onPageChangeCallback: ViewPager2.OnPageChangeCallback
   private var numberOfPlayers = 3
   private var mediaItemDatabase = MediaItemDatabase()
 
@@ -40,23 +40,24 @@ class ViewPagerActivity : AppCompatActivity() {
     Log.d(TAG, "Using a pool of $numberOfPlayers players")
     viewPagerView = findViewById(R.id.viewPager)
     viewPagerView.offscreenPageLimit = 1
-    viewPagerView.registerOnPageChangeCallback(
+  }
+
+  override fun onStart() {
+    super.onStart()
+    val adapter = ViewPagerMediaAdapter(mediaItemDatabase, numberOfPlayers, applicationContext)
+    viewPagerView.adapter = adapter
+    onPageChangeCallback =
       object : ViewPager2.OnPageChangeCallback() {
         override fun onPageSelected(position: Int) {
           adapter.onPageSelected(position)
         }
       }
-    )
-  }
-
-  override fun onStart() {
-    super.onStart()
-    adapter = ViewPagerMediaAdapter(mediaItemDatabase, numberOfPlayers, this)
-    viewPagerView.adapter = adapter
+    viewPagerView.registerOnPageChangeCallback(onPageChangeCallback)
   }
 
   override fun onStop() {
-    adapter.onDestroy()
+    viewPagerView.unregisterOnPageChangeCallback(onPageChangeCallback)
+    viewPagerView.adapter = null
     super.onStop()
   }
 }
