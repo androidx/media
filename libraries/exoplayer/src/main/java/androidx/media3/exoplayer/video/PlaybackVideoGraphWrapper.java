@@ -468,9 +468,12 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     defaultVideoSink.setPlaybackSpeed(speed);
   }
 
-  private void onStreamTimestampInfoChange(
-      long bufferTimestampAdjustmentUs, long bufferPresentationTimeUs, long streamStartPositionUs) {
+  private void setBufferTimestampAdjustment(long bufferTimestampAdjustmentUs) {
     this.bufferTimestampAdjustmentUs = bufferTimestampAdjustmentUs;
+  }
+
+  private void onStreamStartPositionChange(
+      long bufferPresentationTimeUs, long streamStartPositionUs) {
     videoFrameRenderControl.onStreamStartPositionChanged(
         bufferPresentationTimeUs, streamStartPositionUs);
   }
@@ -496,7 +499,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     private long inputStreamStartPositionUs;
     private long inputBufferTimestampAdjustmentUs;
     private long lastResetPositionUs;
-    private boolean pendingInputStreamTimestampInfoChange;
+    private boolean pendingInputStartPositionChange;
 
     /** The buffer presentation time, in microseconds, of the final frame in the stream. */
     private long finalBufferPresentationTimeUs;
@@ -660,11 +663,14 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     public void setStreamTimestampInfo(
         long streamStartPositionUs, long bufferTimestampAdjustmentUs, long lastResetPositionUs) {
       // Ors because this method could be called multiple times on a timestamp info change.
-      pendingInputStreamTimestampInfoChange |=
-          inputStreamStartPositionUs != streamStartPositionUs
-              || inputBufferTimestampAdjustmentUs != bufferTimestampAdjustmentUs;
+      pendingInputStartPositionChange |= inputStreamStartPositionUs != streamStartPositionUs;
       inputStreamStartPositionUs = streamStartPositionUs;
       inputBufferTimestampAdjustmentUs = bufferTimestampAdjustmentUs;
+      // The buffer timestamp adjustment is only allowed to change after a flush to make sure that
+      // the buffer timestamps are increasing. We can update the buffer timestamp adjustment
+      // directly at the output of the VideoGraph because no frame has been input yet following the
+      // flush.
+      PlaybackVideoGraphWrapper.this.setBufferTimestampAdjustment(inputBufferTimestampAdjustmentUs);
       this.lastResetPositionUs = lastResetPositionUs;
     }
 
@@ -761,7 +767,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
         return false;
       }
 
-      maybeSetStreamTimestampInfo(bufferPresentationTimeUs);
+      maybeSetStreamStartPosition(bufferPresentationTimeUs);
       lastBufferPresentationTimeUs = bufferPresentationTimeUs;
       if (isLastFrame) {
         finalBufferPresentationTimeUs = bufferPresentationTimeUs;
@@ -794,7 +800,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
       long lastBufferPresentationTimeUs =
           copyTimestampIterator.getLastTimestampUs() - inputBufferTimestampAdjustmentUs;
       checkState(lastBufferPresentationTimeUs != C.TIME_UNSET);
-      maybeSetStreamTimestampInfo(bufferPresentationTimeUs);
+      maybeSetStreamStartPosition(bufferPresentationTimeUs);
       this.lastBufferPresentationTimeUs = lastBufferPresentationTimeUs;
       finalBufferPresentationTimeUs = lastBufferPresentationTimeUs;
       return true;
@@ -817,11 +823,11 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
 
     // Other methods
 
-    private void maybeSetStreamTimestampInfo(long bufferPresentationTimeUs) {
-      if (pendingInputStreamTimestampInfoChange) {
-        PlaybackVideoGraphWrapper.this.onStreamTimestampInfoChange(
-            inputBufferTimestampAdjustmentUs, bufferPresentationTimeUs, inputStreamStartPositionUs);
-        pendingInputStreamTimestampInfoChange = false;
+    private void maybeSetStreamStartPosition(long bufferPresentationTimeUs) {
+      if (pendingInputStartPositionChange) {
+        PlaybackVideoGraphWrapper.this.onStreamStartPositionChange(
+            bufferPresentationTimeUs, inputStreamStartPositionUs);
+        pendingInputStartPositionChange = false;
       }
     }
 
