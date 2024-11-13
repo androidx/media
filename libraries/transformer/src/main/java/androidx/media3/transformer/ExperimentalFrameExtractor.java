@@ -24,6 +24,9 @@ import static androidx.media3.common.util.Util.usToMs;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.Matrix;
+import android.opengl.GLES20;
 import android.os.Handler;
 import android.os.Looper;
 import androidx.annotation.Nullable;
@@ -34,9 +37,11 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.ConditionVariable;
+import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.GlShaderProgram;
+import androidx.media3.effect.MatrixTransformation;
 import androidx.media3.effect.PassthroughShaderProgram;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.analytics.AnalyticsListener;
@@ -45,6 +50,7 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import java.nio.ByteBuffer;
 import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.initialization.qual.Initialized;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -59,14 +65,17 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 /* package */ final class ExperimentalFrameExtractor implements AnalyticsListener {
 
   /** Stores an extracted and decoded video frame. */
-  // TODO: b/350498258 - Add a Bitmap field to Frame.
   public static final class Frame {
 
     /** The presentation timestamp of the extracted frame, in milliseconds. */
     public final long presentationTimeMs;
 
-    private Frame(long presentationTimeMs) {
+    /** The extracted frame contents. */
+    public final Bitmap bitmap;
+
+    private Frame(long presentationTimeMs, Bitmap bitmap) {
       this.presentationTimeMs = presentationTimeMs;
+      this.bitmap = bitmap;
     }
   }
 
@@ -222,7 +231,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   private ImmutableList<Effect> buildVideoEffects() {
-    return ImmutableList.of(new FrameReader());
+    return ImmutableList.of(
+        (MatrixTransformation)
+            presentationTimeUs -> {
+              Matrix mirrorY = new Matrix();
+              mirrorY.setScale(/* sx= */ 1, /* sy= */ -1);
+              return mirrorY;
+            },
+        new FrameReader());
   }
 
   private final class FrameReader implements GlEffect {
@@ -234,13 +250,45 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   private final class FrameReadingGlShaderProgram extends PassthroughShaderProgram {
+    private static final int BYTES_PER_PIXEL = 4;
+
+    private ByteBuffer byteBuffer = ByteBuffer.allocateDirect(0);
+
     @Override
     public void queueInputFrame(
         GlObjectsProvider glObjectsProvider, GlTextureInfo inputTexture, long presentationTimeUs) {
+      int pixelBufferSize = inputTexture.width * inputTexture.height * BYTES_PER_PIXEL;
+      if (byteBuffer.capacity() != pixelBufferSize) {
+        byteBuffer = ByteBuffer.allocateDirect(pixelBufferSize);
+      }
+      byteBuffer.clear();
+      try {
+        GlUtil.focusFramebufferUsingCurrentContext(
+            inputTexture.fboId, inputTexture.width, inputTexture.height);
+        GlUtil.checkGlError();
+        GLES20.glReadPixels(
+            /* x= */ 0,
+            /* y= */ 0,
+            inputTexture.width,
+            inputTexture.height,
+            GLES20.GL_RGBA,
+            GLES20.GL_UNSIGNED_BYTE,
+            byteBuffer);
+        GlUtil.checkGlError();
+      } catch (GlUtil.GlException e) {
+        onError(e);
+        return;
+      }
+      // According to https://www.khronos.org/opengl/wiki/Pixel_Transfer#Endian_issues,
+      // the colors will have the order RGBA in client memory. This is what the bitmap expects:
+      // https://developer.android.com/reference/android/graphics/Bitmap.Config.
+      Bitmap bitmap =
+          Bitmap.createBitmap(inputTexture.width, inputTexture.height, Bitmap.Config.ARGB_8888);
+      bitmap.copyPixelsFromBuffer(byteBuffer);
+
       SettableFuture<Frame> frameBeingExtractedFuture =
           checkNotNull(frameBeingExtractedFutureAtomicReference.getAndSet(null));
-      // TODO: b/350498258 - Read the input texture contents into a Bitmap.
-      frameBeingExtractedFuture.set(new Frame(usToMs(presentationTimeUs)));
+      frameBeingExtractedFuture.set(new Frame(usToMs(presentationTimeUs), bitmap));
       // Drop frame: do not call outputListener.onOutputFrameAvailable().
       // Block effects pipeline: do not call inputListener.onReadyToAcceptInputFrame().
       // The effects pipeline will unblock and receive new frames when flushed after a seek.

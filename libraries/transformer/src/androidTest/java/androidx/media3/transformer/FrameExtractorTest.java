@@ -16,6 +16,7 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.common.PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND;
+import static androidx.media3.test.utils.BitmapPixelTestUtil.maybeSaveTestBitmap;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -23,6 +24,7 @@ import static org.junit.Assert.assertThrows;
 
 import android.app.Instrumentation;
 import android.content.Context;
+import android.graphics.Bitmap;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.NullableType;
@@ -38,7 +40,10 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.After;
+import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
 /** End-to-end instrumentation test for {@link ExperimentalFrameExtractor}. */
@@ -48,9 +53,17 @@ public class FrameExtractorTest {
       "asset:///media/mp4/sample_with_increasing_timestamps_360p.mp4";
   private static final long TIMEOUT_SECONDS = 10;
 
+  @Rule public final TestName testName = new TestName();
+
   private final Context context = ApplicationProvider.getApplicationContext();
 
+  private String testId;
   private @MonotonicNonNull ExperimentalFrameExtractor frameExtractor;
+
+  @Before
+  public void setUpTestId() {
+    testId = testName.getMethodName();
+  }
 
   @After
   public void tearDown() {
@@ -64,8 +77,15 @@ public class FrameExtractorTest {
     frameExtractor = new ExperimentalFrameExtractor(context, MediaItem.fromUri(FILE_PATH));
 
     ListenableFuture<Frame> frameFuture = frameExtractor.getFrame(/* positionMs= */ 8_500);
+    Bitmap bitmap = frameFuture.get(TIMEOUT_SECONDS, SECONDS).bitmap;
 
+    maybeSaveTestBitmap(testId, /* bitmapLabel= */ "actual", bitmap, /* path= */ null);
     assertThat(frameFuture.get(TIMEOUT_SECONDS, SECONDS).presentationTimeMs).isEqualTo(8_531);
+    // TODO: b/350498258 - Actually check Bitmap contents. Due to bugs in hardware decoders,
+    //   such a test would require a too high tolerance.
+    assertThat(bitmap.getWidth()).isEqualTo(640);
+    assertThat(bitmap.getHeight()).isEqualTo(360);
+    assertThat(bitmap.getConfig()).isEqualTo(Bitmap.Config.ARGB_8888);
   }
 
   @Test
