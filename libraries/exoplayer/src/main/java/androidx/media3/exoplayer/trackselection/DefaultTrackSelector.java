@@ -4224,18 +4224,22 @@ public class DefaultTrackSelector extends MappingTrackSelector
 
     public boolean canBeSpatialized(AudioAttributes audioAttributes, Format format) {
       int linearChannelCount;
-      if (Objects.equals(format.sampleMimeType, MimeTypes.AUDIO_E_AC3_JOC)
-          && format.channelCount == 16) {
+      if (Objects.equals(format.sampleMimeType, MimeTypes.AUDIO_E_AC3_JOC)) {
         // For E-AC3 JOC, the format is object based. When the channel count is 16, this maps to 12
         // linear channels and the rest are used for objects. See
         // https://github.com/google/ExoPlayer/pull/10322#discussion_r895265881
-        linearChannelCount = 12;
-      } else if (Objects.equals(format.sampleMimeType, MimeTypes.AUDIO_IAMF)
-          && format.channelCount == Format.NO_VALUE) {
+        linearChannelCount = format.channelCount == 16 ? 12 : format.channelCount;
+      } else if (Objects.equals(format.sampleMimeType, MimeTypes.AUDIO_IAMF)) {
         // IAMF with no channel count specified, assume 5.1 channels. This depends on
         // IamfDecoder.SPATIALIZED_OUTPUT_LAYOUT being set to AudioFormat.CHANNEL_OUT_5POINT1. Any
         // changes to that constant will require updates to this logic.
-        linearChannelCount = 6;
+        linearChannelCount = format.channelCount == Format.NO_VALUE ? 6 : format.channelCount;
+      } else if (Objects.equals(format.sampleMimeType, MimeTypes.AUDIO_AC4)) {
+        // For AC-4 level 3 or level 4, the format may be object based. When the channel count is
+        // 18 (level 3 17.1 OBI) or 21 (level 4 20.1 OBI), it is mapped to 24 linear channels (some
+        // channels are used for metadata transfer).
+        linearChannelCount =
+            (format.channelCount == 18 || format.channelCount == 21) ? 24 : format.channelCount;
       } else {
         linearChannelCount = format.channelCount;
       }

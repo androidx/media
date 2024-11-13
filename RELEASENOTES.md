@@ -2,6 +2,9 @@
 
 ### Unreleased changes
 
+*   Extractors:
+    *   Add AC-4 Level-4 ISO base media file format support
+        ([#1265](https://github.com/androidx/media/pull/1265)).
 *   Text:
     *   Fix garbled CEA-608 subtitles in content with more than one SEI message
         per sample.

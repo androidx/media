@@ -2250,6 +2250,24 @@ public final class Util {
         }
       case 12:
         return AudioFormat.CHANNEL_OUT_7POINT1POINT4;
+      case 24:
+        if (Util.SDK_INT >= 32) {
+          return AudioFormat.CHANNEL_OUT_7POINT1POINT4
+              | AudioFormat.CHANNEL_OUT_FRONT_LEFT_OF_CENTER
+              | AudioFormat.CHANNEL_OUT_FRONT_RIGHT_OF_CENTER
+              | AudioFormat.CHANNEL_OUT_BACK_CENTER
+              | AudioFormat.CHANNEL_OUT_TOP_CENTER
+              | AudioFormat.CHANNEL_OUT_TOP_FRONT_CENTER
+              | AudioFormat.CHANNEL_OUT_TOP_BACK_CENTER
+              | AudioFormat.CHANNEL_OUT_TOP_SIDE_LEFT
+              | AudioFormat.CHANNEL_OUT_TOP_SIDE_RIGHT
+              | AudioFormat.CHANNEL_OUT_BOTTOM_FRONT_LEFT
+              | AudioFormat.CHANNEL_OUT_BOTTOM_FRONT_RIGHT
+              | AudioFormat.CHANNEL_OUT_BOTTOM_FRONT_CENTER
+              | AudioFormat.CHANNEL_OUT_LOW_FREQUENCY_2;
+        } else {
+          return AudioFormat.CHANNEL_INVALID;
+        }
       default:
         return AudioFormat.CHANNEL_INVALID;
     }
