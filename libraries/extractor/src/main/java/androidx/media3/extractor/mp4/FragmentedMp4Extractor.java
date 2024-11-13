@@ -612,7 +612,7 @@ public class FragmentedMp4Extractor implements Extractor {
   }
 
   private void readAtomPayload(ExtractorInput input) throws IOException {
-    int atomPayloadSize = (int) atomSize - atomHeaderBytesRead;
+    int atomPayloadSize = (int) (atomSize - atomHeaderBytesRead);
     @Nullable ParsableByteArray atomData = this.atomData;
     if (atomData != null) {
       input.readFully(atomData.getData(), Mp4Box.HEADER_SIZE, atomPayloadSize);
