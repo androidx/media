@@ -15,8 +15,11 @@
  */
 package androidx.media3.exoplayer.video;
 
+import static androidx.media3.common.util.Assertions.checkStateNotNull;
+
 import android.graphics.Bitmap;
 import android.view.Surface;
+import androidx.annotation.Nullable;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.Size;
@@ -27,13 +30,24 @@ import java.util.concurrent.Executor;
 
 /**
  * The default {@link VideoSink} implementation. This implementation renders video frames to an
- * output surface. Applying {@linkplain Effect video effects} is unsupported.
+ * output surface.
+ *
+ * <p>The following operations are not supported:
+ *
+ * <ul>
+ *   <li>Applying video effects
+ *   <li>Inputting bitmaps
+ * </ul>
+ *
+ * <p>The {@linkplain #getInputSurface() input} and {@linkplain #setOutputSurfaceInfo(Surface, Size)
+ * output} surfaces are the same.
  */
 /* package */ final class DefaultVideoSink implements VideoSink {
 
   private final VideoFrameReleaseControl videoFrameReleaseControl;
   private final VideoFrameRenderControl videoFrameRenderControl;
 
+  @Nullable private Surface outputSurface;
   private Format inputFormat;
 
   public DefaultVideoSink(
@@ -99,7 +113,7 @@ import java.util.concurrent.Executor;
 
   @Override
   public Surface getInputSurface() {
-    throw new UnsupportedOperationException();
+    return checkStateNotNull(outputSurface);
   }
 
   @Override
@@ -112,11 +126,21 @@ import java.util.concurrent.Executor;
     videoFrameReleaseControl.setPlaybackSpeed(speed);
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>This method will always throw an {@link UnsupportedOperationException}.
+   */
   @Override
   public void setVideoEffects(List<Effect> videoEffects) {
     throw new UnsupportedOperationException();
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>This method will always throw an {@link UnsupportedOperationException}.
+   */
   @Override
   public void setPendingVideoEffects(List<Effect> videoEffects) {
     throw new UnsupportedOperationException();
@@ -130,11 +154,13 @@ import java.util.concurrent.Executor;
 
   @Override
   public void setOutputSurfaceInfo(Surface outputSurface, Size outputResolution) {
+    this.outputSurface = outputSurface;
     videoFrameReleaseControl.setOutputSurface(outputSurface);
   }
 
   @Override
   public void clearOutputSurfaceInfo() {
+    outputSurface = null;
     videoFrameReleaseControl.setOutputSurface(/* outputSurface= */ null);
   }
 
@@ -169,6 +195,11 @@ import java.util.concurrent.Executor;
     throw new UnsupportedOperationException();
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>This method will always throw an {@link UnsupportedOperationException}.
+   */
   @Override
   public boolean handleInputBitmap(Bitmap inputBitmap, TimestampIterator timestampIterator) {
     throw new UnsupportedOperationException();
