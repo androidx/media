@@ -1643,17 +1643,17 @@ public class FragmentedMp4Extractor implements Extractor {
                     : 0);
             nalBuffer.setLimit(unescapedLength);
 
-            if (track.format.maxNumReorderSamples != Format.NO_VALUE
-                && track.format.maxNumReorderSamples != reorderingSeiMessageQueue.getMaxSize()) {
+            if (track.format.maxNumReorderSamples == Format.NO_VALUE) {
+              if (reorderingSeiMessageQueue.getMaxSize() != 0) {
+                reorderingSeiMessageQueue.setMaxSize(0);
+              }
+            } else if (reorderingSeiMessageQueue.getMaxSize()
+                != track.format.maxNumReorderSamples) {
               reorderingSeiMessageQueue.setMaxSize(track.format.maxNumReorderSamples);
             }
             reorderingSeiMessageQueue.add(sampleTimeUs, nalBuffer);
 
-            boolean sampleIsKeyFrameOrEndOfStream =
-                (trackBundle.getCurrentSampleFlags()
-                        & (C.BUFFER_FLAG_KEY_FRAME | C.BUFFER_FLAG_END_OF_STREAM))
-                    != 0;
-            if (sampleIsKeyFrameOrEndOfStream) {
+            if ((trackBundle.getCurrentSampleFlags() & C.BUFFER_FLAG_END_OF_STREAM) != 0) {
               reorderingSeiMessageQueue.flush();
             }
           } else {
