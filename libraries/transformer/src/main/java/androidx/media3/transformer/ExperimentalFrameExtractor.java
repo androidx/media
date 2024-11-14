@@ -44,12 +44,14 @@ import androidx.media3.effect.GlShaderProgram;
 import androidx.media3.effect.MatrixTransformation;
 import androidx.media3.effect.PassthroughShaderProgram;
 import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.exoplayer.SeekParameters;
 import androidx.media3.exoplayer.analytics.AnalyticsListener;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.nio.ByteBuffer;
 import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.initialization.qual.Initialized;
@@ -63,6 +65,46 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  * <p>Frame extractor instances must be accessed from a single application thread.
  */
 /* package */ final class ExperimentalFrameExtractor implements AnalyticsListener {
+
+  /** Configuration for the frame extractor. */
+  // TODO: b/350498258 - Add configuration for decoder selection.
+  public static final class Configuration {
+
+    /** A builder for {@link Configuration} instances. */
+    public static final class Builder {
+      private SeekParameters seekParameters;
+
+      /** Creates a new instance with default values. */
+      public Builder() {
+        seekParameters = SeekParameters.DEFAULT;
+      }
+
+      /**
+       * Sets the parameters that control how seek operations are performed. Defaults to {@link
+       * SeekParameters#DEFAULT}.
+       *
+       * @param seekParameters The {@link SeekParameters}.
+       * @return This builder.
+       */
+      @CanIgnoreReturnValue
+      public Builder setSeekParameters(SeekParameters seekParameters) {
+        this.seekParameters = seekParameters;
+        return this;
+      }
+
+      /** Builds a new {@link Configuration} instance. */
+      public Configuration build() {
+        return new Configuration(seekParameters);
+      }
+    }
+
+    /** The {@link SeekParameters}. */
+    public final SeekParameters seekParameters;
+
+    private Configuration(SeekParameters seekParameters) {
+      this.seekParameters = seekParameters;
+    }
+  }
 
   /** Stores an extracted and decoded video frame. */
   public static final class Frame {
@@ -109,10 +151,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * @param mediaItem The {@link MediaItem} from which frames are extracted.
    */
   // TODO: b/350498258 - Support changing the MediaItem.
-  // TODO: b/350498258 - Add configuration options such as SeekParameters.
   // TODO: b/350498258 - Support video effects.
-  public ExperimentalFrameExtractor(Context context, MediaItem mediaItem) {
-    player = new ExoPlayer.Builder(context).build();
+  public ExperimentalFrameExtractor(
+      Context context, Configuration configuration, MediaItem mediaItem) {
+    player = new ExoPlayer.Builder(context).setSeekParameters(configuration.seekParameters).build();
     playerApplicationThreadHandler = new Handler(player.getApplicationLooper());
     lastRequestedFrameFuture = SettableFuture.create();
     // TODO: b/350498258 - Extracting the first frame is a workaround for ExoPlayer.setVideoEffects

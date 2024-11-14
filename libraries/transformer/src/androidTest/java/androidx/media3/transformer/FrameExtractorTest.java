@@ -16,6 +16,7 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.common.PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND;
+import static androidx.media3.exoplayer.SeekParameters.CLOSEST_SYNC;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.maybeSaveTestBitmap;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.readBitmap;
 import static androidx.media3.test.utils.TestUtil.assertBitmapsAreSimilar;
@@ -86,7 +87,11 @@ public class FrameExtractorTest {
 
   @Test
   public void extractFrame_oneFrame_returnsNearest() throws Exception {
-    frameExtractor = new ExperimentalFrameExtractor(context, MediaItem.fromUri(FILE_PATH));
+    frameExtractor =
+        new ExperimentalFrameExtractor(
+            context,
+            new ExperimentalFrameExtractor.Configuration.Builder().build(),
+            MediaItem.fromUri(FILE_PATH));
 
     ListenableFuture<Frame> frameFuture = frameExtractor.getFrame(/* positionMs= */ 8_500);
     Frame frame = frameFuture.get(TIMEOUT_SECONDS, SECONDS);
@@ -103,7 +108,11 @@ public class FrameExtractorTest {
 
   @Test
   public void extractFrame_pastDuration_returnsLastFrame() throws Exception {
-    frameExtractor = new ExperimentalFrameExtractor(context, MediaItem.fromUri(FILE_PATH));
+    frameExtractor =
+        new ExperimentalFrameExtractor(
+            context,
+            new ExperimentalFrameExtractor.Configuration.Builder().build(),
+            MediaItem.fromUri(FILE_PATH));
 
     ListenableFuture<Frame> frameFuture = frameExtractor.getFrame(/* positionMs= */ 200_000);
     Frame frame = frameFuture.get(TIMEOUT_SECONDS, SECONDS);
@@ -121,7 +130,11 @@ public class FrameExtractorTest {
 
   @Test
   public void extractFrame_repeatedPositionMs_returnsTheSameFrame() throws Exception {
-    frameExtractor = new ExperimentalFrameExtractor(context, MediaItem.fromUri(FILE_PATH));
+    frameExtractor =
+        new ExperimentalFrameExtractor(
+            context,
+            new ExperimentalFrameExtractor.Configuration.Builder().build(),
+            MediaItem.fromUri(FILE_PATH));
     ImmutableList<Long> requestedFramePositionsMs = ImmutableList.of(0L, 0L, 33L, 34L, 34L);
     ImmutableList<Long> expectedFramePositionsMs = ImmutableList.of(0L, 0L, 33L, 66L, 66L);
     List<ListenableFuture<Frame>> frameFutures = new ArrayList<>();
@@ -147,7 +160,11 @@ public class FrameExtractorTest {
 
   @Test
   public void extractFrame_randomAccess_returnsCorrectFrames() throws Exception {
-    frameExtractor = new ExperimentalFrameExtractor(context, MediaItem.fromUri(FILE_PATH));
+    frameExtractor =
+        new ExperimentalFrameExtractor(
+            context,
+            new ExperimentalFrameExtractor.Configuration.Builder().build(),
+            MediaItem.fromUri(FILE_PATH));
 
     ListenableFuture<Frame> frame5 = frameExtractor.getFrame(/* positionMs= */ 5_000);
     ListenableFuture<Frame> frame3 = frameExtractor.getFrame(/* positionMs= */ 3_000);
@@ -163,9 +180,38 @@ public class FrameExtractorTest {
   }
 
   @Test
+  public void extractFrame_closestSyncRandomAccess_returnsCorrectFrames() throws Exception {
+    frameExtractor =
+        new ExperimentalFrameExtractor(
+            context,
+            new ExperimentalFrameExtractor.Configuration.Builder()
+                .setSeekParameters(CLOSEST_SYNC)
+                .build(),
+            MediaItem.fromUri(FILE_PATH));
+
+    ListenableFuture<Frame> frame5 = frameExtractor.getFrame(/* positionMs= */ 5_000);
+    ListenableFuture<Frame> frame3 = frameExtractor.getFrame(/* positionMs= */ 3_000);
+    ListenableFuture<Frame> frame7 = frameExtractor.getFrame(/* positionMs= */ 7_000);
+    ListenableFuture<Frame> frame2 = frameExtractor.getFrame(/* positionMs= */ 2_000);
+    ListenableFuture<Frame> frame8 = frameExtractor.getFrame(/* positionMs= */ 8_000);
+
+    // The input video has sync points at 0s, 8.331s, and 9.198s. Verify with:
+    // ffprobe IN -select_streams v -show_entries frame=pict_type,pts_time -of csv -skip_frame nokey
+    assertThat(frame5.get(TIMEOUT_SECONDS, SECONDS).presentationTimeMs).isEqualTo(8_331);
+    assertThat(frame3.get(TIMEOUT_SECONDS, SECONDS).presentationTimeMs).isEqualTo(0);
+    assertThat(frame7.get(TIMEOUT_SECONDS, SECONDS).presentationTimeMs).isEqualTo(8_331);
+    assertThat(frame2.get(TIMEOUT_SECONDS, SECONDS).presentationTimeMs).isEqualTo(0);
+    assertThat(frame8.get(TIMEOUT_SECONDS, SECONDS).presentationTimeMs).isEqualTo(8_331);
+  }
+
+  @Test
   public void extractFrame_invalidInput_reportsErrorViaFuture() {
     String filePath = "asset:///nonexistent";
-    frameExtractor = new ExperimentalFrameExtractor(context, MediaItem.fromUri(filePath));
+    frameExtractor =
+        new ExperimentalFrameExtractor(
+            context,
+            new ExperimentalFrameExtractor.Configuration.Builder().build(),
+            MediaItem.fromUri(filePath));
 
     ListenableFuture<Frame> frame0 = frameExtractor.getFrame(/* positionMs= */ 0);
 
@@ -178,7 +224,11 @@ public class FrameExtractorTest {
 
   @Test
   public void extractFrame_oneFrame_completesViaCallback() throws Exception {
-    frameExtractor = new ExperimentalFrameExtractor(context, MediaItem.fromUri(FILE_PATH));
+    frameExtractor =
+        new ExperimentalFrameExtractor(
+            context,
+            new ExperimentalFrameExtractor.Configuration.Builder().build(),
+            MediaItem.fromUri(FILE_PATH));
     AtomicReference<@NullableType Frame> frameAtomicReference = new AtomicReference<>();
     AtomicReference<@NullableType Throwable> throwableAtomicReference = new AtomicReference<>();
     ConditionVariable frameReady = new ConditionVariable();
@@ -207,8 +257,12 @@ public class FrameExtractorTest {
   }
 
   @Test
-  public void frameExtractor_releaseOnPlayerLooper_returns() throws Exception {
-    frameExtractor = new ExperimentalFrameExtractor(context, MediaItem.fromUri(FILE_PATH));
+  public void frameExtractor_releaseOnPlayerLooper_returns() {
+    frameExtractor =
+        new ExperimentalFrameExtractor(
+            context,
+            new ExperimentalFrameExtractor.Configuration.Builder().build(),
+            MediaItem.fromUri(FILE_PATH));
 
     Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
     instrumentation.runOnMainSync(frameExtractor::release);
