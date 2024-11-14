@@ -10,6 +10,9 @@
         per sample.
     *   Fix playback hanging on DASH multi-period streams when CEA-608 subtitles
         are enabled ([#1863](https://github.com/androidx/media/issues/1863)).
+    *   Fix garbled CEA-608 subtitles in MP4 files that incorrectly mark every
+        sample as a sync sample
+        ([#1863](https://github.com/androidx/media/issues/1863)).
 *   Demo app
     *   Resolve the memory leaks in demo short-form app
         ([#1839](https://github.com/androidx/media/issues/1839)).
