@@ -12,6 +12,7 @@ track 0:
   track duration = 1001000
   format 0:
     id = 1
+    containerMimeType = video/mp4
     sampleMimeType = video/avc
     codecs = avc1.640034
     maxInputSize = 22904
@@ -155,6 +156,7 @@ track 1:
   track duration = 1045300
   format 0:
     id = 2
+    containerMimeType = video/mp4
     sampleMimeType = audio/mp4a-latm
     codecs = mp4a.40.2
     maxInputSize = 294

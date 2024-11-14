@@ -12,6 +12,7 @@ track 0:
   track duration = 3000000
   format 0:
     id = 1
+    containerMimeType = video/mp4
     sampleMimeType = video/x-vnd.on2.vp9
     maxInputSize = 115022
     width = 642

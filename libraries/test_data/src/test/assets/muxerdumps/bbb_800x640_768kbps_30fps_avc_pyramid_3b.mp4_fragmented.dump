@@ -8,6 +8,7 @@ track 0:
   sample count = 120
   format 0:
     id = 1
+    containerMimeType = video/mp4
     sampleMimeType = video/avc
     codecs = avc1.64001F
     maxNumReorderSamples = 2

@@ -12,6 +12,7 @@ track 0:
   track duration = 166700
   format 0:
     id = 1
+    containerMimeType = video/mp4
     sampleMimeType = video/hevc
     codecs = hvc1.2.4.L93.B0
     maxInputSize = 30755
@@ -56,6 +57,7 @@ track 1:
   format 0:
     peakBitrate = 192000
     id = 2
+    containerMimeType = video/mp4
     sampleMimeType = audio/mp4a-latm
     codecs = mp4a.40.2
     maxInputSize = 616

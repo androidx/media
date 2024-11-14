@@ -12,6 +12,7 @@ track 0:
   track duration = 2741666
   format 0:
     id = 1
+    containerMimeType = video/mp4
     sampleMimeType = video/hevc
     codecs = hvc1.1.6.L150.B0
     maxInputSize = 364750
@@ -66,6 +67,7 @@ track 1:
   track duration = 2633333
   format 0:
     id = 2
+    containerMimeType = video/mp4
     sampleMimeType = audio/raw
     maxInputSize = 8222
     channelCount = 1

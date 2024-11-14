@@ -12,6 +12,7 @@ track 0:
   track duration = 100100
   format 0:
     id = 1
+    containerMimeType = video/mp4
     sampleMimeType = application/meta
     maxInputSize = 161
     metadata = entries=[Mp4Timestamp: creation time=100000000, modification time=500000000, timescale=10000]
@@ -35,6 +36,7 @@ track 1:
     averageBitrate = 192000
     peakBitrate = 192000
     id = 2
+    containerMimeType = video/mp4
     sampleMimeType = audio/mp4a-latm
     codecs = mp4a.40.2
     maxInputSize = 627
@@ -62,6 +64,7 @@ track 2:
   track duration = 100100
   format 0:
     id = 3
+    containerMimeType = video/mp4
     sampleMimeType = video/hevc
     codecs = hvc1.1.6.L153.B0
     maxInputSize = 420494

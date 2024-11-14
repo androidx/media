@@ -14,6 +14,7 @@ track 0:
     averageBitrate = 365552
     peakBitrate = 365552
     id = 1
+    containerMimeType = video/mp4
     sampleMimeType = video/mp4v-es
     maxInputSize = 9256
     width = 176

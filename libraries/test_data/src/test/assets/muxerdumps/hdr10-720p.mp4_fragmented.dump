@@ -8,6 +8,7 @@ track 0:
   sample count = 127
   format 0:
     id = 1
+    containerMimeType = video/mp4
     sampleMimeType = video/hevc
     codecs = hvc1.2.4.L153
     maxNumReorderSamples = 0
@@ -536,6 +537,7 @@ track 1:
     averageBitrate = 256000
     peakBitrate = 256000
     id = 2
+    containerMimeType = video/mp4
     sampleMimeType = audio/mp4a-latm
     codecs = mp4a.40.2
     channelCount = 2

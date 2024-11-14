@@ -9,6 +9,7 @@ format audio:
   metadata = entries=[TSSE: description=null: values=[Lavf58.45.100]]
 format video:
   id = 1
+  containerMimeType = video/mp4
   sampleMimeType = video/avc
   codecs = avc1.64001F
   maxInputSize = 36722

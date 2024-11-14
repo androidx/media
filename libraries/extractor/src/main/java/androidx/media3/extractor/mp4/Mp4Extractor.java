@@ -30,6 +30,7 @@ import static androidx.media3.container.Mp4Util.EDITABLE_TRACK_TYPE_DEPTH_METADA
 import static androidx.media3.container.Mp4Util.EDITABLE_TRACK_TYPE_SHARP;
 import static androidx.media3.extractor.mp4.BoxParser.parseTraks;
 import static androidx.media3.extractor.mp4.MetadataUtil.findMdtaMetadataEntryWithKey;
+import static androidx.media3.extractor.mp4.MimeTypeResolver.getContainerMimeType;
 import static androidx.media3.extractor.mp4.Sniffer.BRAND_HEIC;
 import static androidx.media3.extractor.mp4.Sniffer.BRAND_QUICKTIME;
 import static java.lang.Math.max;
@@ -708,6 +709,7 @@ public final class Mp4Extractor implements Extractor, SeekMap {
               trackSampleTables.size()));
     }
     int trackIndex = 0;
+    String containerMimeType = getContainerMimeType(trackSampleTables);
     for (int i = 0; i < trackSampleTables.size(); i++) {
       TrackSampleTable trackSampleTable = trackSampleTables.get(i);
       if (trackSampleTable.sampleCount == 0) {
@@ -761,6 +763,7 @@ public final class Mp4Extractor implements Extractor, SeekMap {
           slowMotionMetadataEntries.isEmpty() ? null : new Metadata(slowMotionMetadataEntries),
           udtaMetadata,
           mvhdMetadata);
+      formatBuilder.setContainerMimeType(containerMimeType);
       mp4Track.trackOutput.format(formatBuilder.build());
 
       if (track.type == C.TRACK_TYPE_VIDEO && firstVideoTrackIndex == C.INDEX_UNSET) {

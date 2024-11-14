@@ -12,6 +12,7 @@ track 0:
   track duration = 1001000
   format 0:
     id = 1
+    containerMimeType = video/mp4
     sampleMimeType = video/av01
     maxInputSize = 46460
     width = 1080
@@ -152,6 +153,7 @@ track 1:
     averageBitrate = 71295
     peakBitrate = 71295
     id = 2
+    containerMimeType = video/mp4
     sampleMimeType = audio/mp4a-latm
     codecs = mp4a.40.2
     maxInputSize = 612

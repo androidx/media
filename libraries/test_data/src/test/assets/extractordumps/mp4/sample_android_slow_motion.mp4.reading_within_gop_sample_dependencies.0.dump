@@ -12,6 +12,7 @@ track 0:
   track duration = 526000
   format 0:
     id = 1
+    containerMimeType = video/mp4
     sampleMimeType = video/avc
     codecs = avc1.640033
     maxInputSize = 34686

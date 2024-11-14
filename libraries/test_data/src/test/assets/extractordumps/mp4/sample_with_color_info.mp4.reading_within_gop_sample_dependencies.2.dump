@@ -12,6 +12,7 @@ track 0:
   track duration = 298333
   format 0:
     id = 1
+    containerMimeType = video/mp4
     sampleMimeType = video/dolby-vision
     codecs = hev1.08.04
     maxInputSize = 40550
@@ -72,6 +73,7 @@ track 1:
   format 0:
     peakBitrate = 192000
     id = 2
+    containerMimeType = video/mp4
     sampleMimeType = audio/mp4a-latm
     codecs = mp4a.40.2
     maxInputSize = 568
