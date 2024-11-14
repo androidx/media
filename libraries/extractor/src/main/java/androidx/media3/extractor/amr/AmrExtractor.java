@@ -324,13 +324,15 @@ public final class AmrExtractor implements Extractor {
   private void maybeOutputFormat() {
     if (!hasOutputFormat) {
       hasOutputFormat = true;
-      String mimeType = isWideBand ? MimeTypes.AUDIO_AMR_WB : MimeTypes.AUDIO_AMR_NB;
+      String containerMimeType = isWideBand ? MimeTypes.AUDIO_AMR_WB : MimeTypes.AUDIO_AMR;
+      String sampleMimeType = isWideBand ? MimeTypes.AUDIO_AMR_WB : MimeTypes.AUDIO_AMR_NB;
       int sampleRate = isWideBand ? SAMPLE_RATE_WB : SAMPLE_RATE_NB;
       // Theoretical maximum frame size for a AMR frame.
       int maxInputSize = isWideBand ? frameSizeBytesByTypeWb[8] : frameSizeBytesByTypeNb[7];
       realTrackOutput.format(
           new Format.Builder()
-              .setSampleMimeType(mimeType)
+              .setContainerMimeType(containerMimeType)
+              .setSampleMimeType(sampleMimeType)
               .setMaxInputSize(maxInputSize)
               .setChannelCount(1)
               .setSampleRate(sampleRate)

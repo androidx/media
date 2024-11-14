@@ -11,6 +11,7 @@ track 0:
   sample count = 27
   track duration = 2741000
   format 0:
+    containerMimeType = audio/flac
     sampleMimeType = audio/flac
     maxInputSize = 6456
     channelCount = 2

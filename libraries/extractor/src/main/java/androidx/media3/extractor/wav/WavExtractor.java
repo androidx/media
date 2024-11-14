@@ -320,6 +320,7 @@ public final class WavExtractor implements Extractor {
           max(bytesPerFrame, wavFormat.frameRateHz * bytesPerFrame / TARGET_SAMPLES_PER_SECOND);
       format =
           new Format.Builder()
+              .setContainerMimeType(MimeTypes.AUDIO_WAV)
               .setSampleMimeType(mimeType)
               .setAverageBitrate(constantBitrate)
               .setPeakBitrate(constantBitrate)

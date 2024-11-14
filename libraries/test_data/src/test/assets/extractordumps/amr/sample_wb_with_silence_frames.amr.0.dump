@@ -11,6 +11,7 @@ track 0:
   sample count = 170
   track duration = 3400000
   format 0:
+    containerMimeType = audio/amr-wb
     sampleMimeType = audio/amr-wb
     maxInputSize = 61
     channelCount = 1

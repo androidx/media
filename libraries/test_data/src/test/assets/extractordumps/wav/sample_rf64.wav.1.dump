@@ -13,6 +13,7 @@ track 0:
   format 0:
     averageBitrate = 1536000
     peakBitrate = 1536000
+    containerMimeType = audio/wav
     sampleMimeType = audio/raw
     maxInputSize = 19200
     channelCount = 2

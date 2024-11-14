@@ -1,5 +1,6 @@
 format audio:
   averageBitrate = 64000
+  containerMimeType = audio/mpeg
   sampleMimeType = audio/mpeg
   maxInputSize = 4096
   channelCount = 1

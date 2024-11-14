@@ -1,4 +1,5 @@
 format audio:
+  containerMimeType = audio/amr
   sampleMimeType = audio/3gpp
   maxInputSize = 32
   channelCount = 1

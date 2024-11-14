@@ -24,6 +24,7 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.Assertions;
@@ -291,6 +292,7 @@ public final class Mp3Extractor implements Extractor {
       extractorOutput.seekMap(seeker);
       Format.Builder format =
           new Format.Builder()
+              .setContainerMimeType(MimeTypes.AUDIO_MPEG)
               .setSampleMimeType(synchronizedHeader.mimeType)
               .setMaxInputSize(MpegAudioUtil.MAX_FRAME_SIZE_BYTES)
               .setChannelCount(synchronizedHeader.channels)
