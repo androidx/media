@@ -1,5 +1,6 @@
 format video:
   id = 1
+  containerMimeType = video/x-matroska
   sampleMimeType = video/avc
   codecs = avc1.640034
   width = 1080

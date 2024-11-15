@@ -73,6 +73,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -441,6 +442,7 @@ public class MatroskaExtractor implements Extractor {
   private long timecodeScale = C.TIME_UNSET;
   private long durationTimecode = C.TIME_UNSET;
   private long durationUs = C.TIME_UNSET;
+  private boolean isWebm;
 
   // The track corresponding to the current TrackEntry element, or null.
   @Nullable private Track currentTrack;
@@ -782,6 +784,7 @@ public class MatroskaExtractor implements Extractor {
         break;
       case ID_TRACK_ENTRY:
         currentTrack = new Track();
+        currentTrack.isWebm = isWebm;
         break;
       case ID_MASTERING_METADATA:
         getCurrentTrack(id).hasColorInfo = true;
@@ -1205,6 +1208,7 @@ public class MatroskaExtractor implements Extractor {
           throw ParserException.createForMalformedContainer(
               "DocType " + value + " not supported", /* cause= */ null);
         }
+        isWebm = Objects.equals(value, DOC_TYPE_WEBM);
         break;
       case ID_NAME:
         getCurrentTrack(id).name = value;
@@ -2075,6 +2079,7 @@ public class MatroskaExtractor implements Extractor {
     private static final int DEFAULT_MAX_FALL = 200; // nits.
 
     // Common elements.
+    public boolean isWebm;
     public @MonotonicNonNull String name;
     public @MonotonicNonNull String codecId;
     public int number;
@@ -2436,6 +2441,7 @@ public class MatroskaExtractor implements Extractor {
       Format format =
           formatBuilder
               .setId(trackId)
+              .setContainerMimeType(isWebm ? MimeTypes.VIDEO_WEBM : MimeTypes.VIDEO_MATROSKA)
               .setSampleMimeType(mimeType)
               .setMaxInputSize(maxInputSize)
               .setLanguage(language)

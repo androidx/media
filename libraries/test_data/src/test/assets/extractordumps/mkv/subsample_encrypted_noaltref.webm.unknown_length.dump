@@ -8,6 +8,7 @@ track 1:
   sample count = 1
   format 0:
     id = 1
+    containerMimeType = video/webm
     sampleMimeType = video/x-vnd.on2.vp9
     width = 360
     height = 240
