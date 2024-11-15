@@ -601,7 +601,8 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
                 mediaItem.mediaId, mediaItem.localConfiguration.uri, adsConfiguration.adTagUri),
         /* adMediaSourceFactory= */ this,
         adsLoader,
-        adViewProvider);
+        adViewProvider,
+        /* useLazyContentSourcePreparation= */ true);
   }
 
   /** Loads media source factories lazily. */
