@@ -53,6 +53,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.nio.ByteBuffer;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.initialization.qual.Initialized;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -148,12 +149,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * Creates an instance.
    *
    * @param context {@link Context}.
+   * @param configuration The {@link Configuration} for this frame extractor.
    * @param mediaItem The {@link MediaItem} from which frames are extracted.
+   * @param effects The {@link List} of {@linkplain Effect video effects} to apply to the extracted
+   *     video frames.
    */
   // TODO: b/350498258 - Support changing the MediaItem.
-  // TODO: b/350498258 - Support video effects.
   public ExperimentalFrameExtractor(
-      Context context, Configuration configuration, MediaItem mediaItem) {
+      Context context, Configuration configuration, MediaItem mediaItem, List<Effect> effects) {
     player = new ExoPlayer.Builder(context).setSeekParameters(configuration.seekParameters).build();
     playerApplicationThreadHandler = new Handler(player.getApplicationLooper());
     lastRequestedFrameFuture = SettableFuture.create();
@@ -168,7 +171,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     playerApplicationThreadHandler.post(
         () -> {
           player.addAnalyticsListener(thisRef);
-          player.setVideoEffects(buildVideoEffects());
+          player.setVideoEffects(buildVideoEffects(effects));
           player.setMediaItem(mediaItem);
           player.setPlayWhenReady(false);
           player.prepare();
@@ -272,15 +275,18 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
   }
 
-  private ImmutableList<Effect> buildVideoEffects() {
-    return ImmutableList.of(
+  private ImmutableList<Effect> buildVideoEffects(List<Effect> effects) {
+    ImmutableList.Builder<Effect> listBuilder = new ImmutableList.Builder<>();
+    listBuilder.addAll(effects);
+    listBuilder.add(
         (MatrixTransformation)
             presentationTimeUs -> {
               Matrix mirrorY = new Matrix();
               mirrorY.setScale(/* sx= */ 1, /* sy= */ -1);
               return mirrorY;
-            },
-        new FrameReader());
+            });
+    listBuilder.add(new FrameReader());
+    return listBuilder.build();
   }
 
   private final class FrameReader implements GlEffect {
