@@ -22,6 +22,7 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 
 import androidx.annotation.IntDef;
 import androidx.media3.common.C;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
@@ -133,7 +134,7 @@ public final class AdtsExtractor implements Extractor {
       flags |= FLAG_ENABLE_CONSTANT_BITRATE_SEEKING;
     }
     this.flags = flags;
-    reader = new AdtsReader(true);
+    reader = new AdtsReader(true, MimeTypes.AUDIO_AAC);
     packetBuffer = new ParsableByteArray(MAX_PACKET_SIZE);
     averageFrameSize = C.LENGTH_UNSET;
     firstFramePosition = C.INDEX_UNSET;

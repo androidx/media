@@ -22,6 +22,7 @@ import static androidx.media3.extractor.metadata.id3.Id3Decoder.ID3_TAG;
 import static androidx.media3.extractor.ts.TsPayloadReader.FLAG_DATA_ALIGNMENT_INDICATOR;
 
 import androidx.media3.common.C;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.extractor.Ac4Util;
@@ -63,7 +64,7 @@ public final class Ac4Extractor implements Extractor {
 
   /** Creates a new extractor for AC-4 bitstreams. */
   public Ac4Extractor() {
-    reader = new Ac4Reader();
+    reader = new Ac4Reader(MimeTypes.AUDIO_AC4);
     sampleData = new ParsableByteArray(READ_BUFFER_SIZE);
   }
 

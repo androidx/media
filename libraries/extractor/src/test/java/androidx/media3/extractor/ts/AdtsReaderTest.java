@@ -19,6 +19,7 @@ import static androidx.media3.extractor.ts.TsPayloadReader.FLAG_DATA_ALIGNMENT_I
 import static java.lang.Math.min;
 
 import androidx.media3.common.C;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.extractor.ts.TsPayloadReader.TrackIdGenerator;
@@ -74,7 +75,7 @@ public class AdtsReaderTest {
     FakeExtractorOutput fakeExtractorOutput = new FakeExtractorOutput();
     adtsOutput = fakeExtractorOutput.track(0, C.TRACK_TYPE_AUDIO);
     id3Output = fakeExtractorOutput.track(1, C.TRACK_TYPE_METADATA);
-    adtsReader = new AdtsReader(true);
+    adtsReader = new AdtsReader(true, MimeTypes.AUDIO_AAC);
     TrackIdGenerator idGenerator = new TrackIdGenerator(0, 1);
     adtsReader.createTracks(fakeExtractorOutput, idGenerator);
     data = new ParsableByteArray(TEST_DATA);

@@ -151,20 +151,26 @@ public final class DefaultTsPayloadReaderFactory implements TsPayloadReader.Fact
     switch (streamType) {
       case TsExtractor.TS_STREAM_TYPE_MPA:
       case TsExtractor.TS_STREAM_TYPE_MPA_LSF:
-        return new PesReader(new MpegAudioReader(esInfo.language, esInfo.getRoleFlags()));
+        return new PesReader(
+            new MpegAudioReader(esInfo.language, esInfo.getRoleFlags(), MimeTypes.VIDEO_MP2T));
       case TsExtractor.TS_STREAM_TYPE_AAC_ADTS:
         return isSet(FLAG_IGNORE_AAC_STREAM)
             ? null
-            : new PesReader(new AdtsReader(false, esInfo.language, esInfo.getRoleFlags()));
+            : new PesReader(
+                new AdtsReader(
+                    false, esInfo.language, esInfo.getRoleFlags(), MimeTypes.VIDEO_MP2T));
       case TsExtractor.TS_STREAM_TYPE_AAC_LATM:
         return isSet(FLAG_IGNORE_AAC_STREAM)
             ? null
-            : new PesReader(new LatmReader(esInfo.language, esInfo.getRoleFlags()));
+            : new PesReader(
+                new LatmReader(esInfo.language, esInfo.getRoleFlags(), MimeTypes.VIDEO_MP2T));
       case TsExtractor.TS_STREAM_TYPE_AC3:
       case TsExtractor.TS_STREAM_TYPE_E_AC3:
-        return new PesReader(new Ac3Reader(esInfo.language, esInfo.getRoleFlags()));
+        return new PesReader(
+            new Ac3Reader(esInfo.language, esInfo.getRoleFlags(), MimeTypes.VIDEO_MP2T));
       case TsExtractor.TS_STREAM_TYPE_AC4:
-        return new PesReader(new Ac4Reader(esInfo.language, esInfo.getRoleFlags()));
+        return new PesReader(
+            new Ac4Reader(esInfo.language, esInfo.getRoleFlags(), MimeTypes.VIDEO_MP2T));
       case TsExtractor.TS_STREAM_TYPE_HDMV_DTS:
         if (!isSet(FLAG_ENABLE_HDMV_DTS_AUDIO_STREAMS)) {
           return null;
@@ -173,15 +179,23 @@ public final class DefaultTsPayloadReaderFactory implements TsPayloadReader.Fact
       case TsExtractor.TS_STREAM_TYPE_DTS:
       case TsExtractor.TS_STREAM_TYPE_DTS_HD:
         return new PesReader(
-            new DtsReader(esInfo.language, esInfo.getRoleFlags(), DtsReader.EXTSS_HEADER_SIZE_MAX));
+            new DtsReader(
+                esInfo.language,
+                esInfo.getRoleFlags(),
+                DtsReader.EXTSS_HEADER_SIZE_MAX,
+                MimeTypes.VIDEO_MP2T));
       case TsExtractor.TS_STREAM_TYPE_DTS_UHD:
         return new PesReader(
-            new DtsReader(esInfo.language, esInfo.getRoleFlags(), DtsReader.FTOC_MAX_HEADER_SIZE));
+            new DtsReader(
+                esInfo.language,
+                esInfo.getRoleFlags(),
+                DtsReader.FTOC_MAX_HEADER_SIZE,
+                MimeTypes.VIDEO_MP2T));
       case TsExtractor.TS_STREAM_TYPE_H262:
       case TsExtractor.TS_STREAM_TYPE_DC2_H262:
-        return new PesReader(new H262Reader(buildUserDataReader(esInfo)));
+        return new PesReader(new H262Reader(buildUserDataReader(esInfo), MimeTypes.VIDEO_MP2T));
       case TsExtractor.TS_STREAM_TYPE_H263:
-        return new PesReader(new H263Reader(buildUserDataReader(esInfo)));
+        return new PesReader(new H263Reader(buildUserDataReader(esInfo), MimeTypes.VIDEO_MP2T));
       case TsExtractor.TS_STREAM_TYPE_H264:
         return isSet(FLAG_IGNORE_H264_STREAM)
             ? null
@@ -189,21 +203,28 @@ public final class DefaultTsPayloadReaderFactory implements TsPayloadReader.Fact
                 new H264Reader(
                     buildSeiReader(esInfo),
                     isSet(FLAG_ALLOW_NON_IDR_KEYFRAMES),
-                    isSet(FLAG_DETECT_ACCESS_UNITS)));
+                    isSet(FLAG_DETECT_ACCESS_UNITS),
+                    MimeTypes.VIDEO_MP2T));
       case TsExtractor.TS_STREAM_TYPE_H265:
-        return new PesReader(new H265Reader(buildSeiReader(esInfo)));
+        return new PesReader(new H265Reader(buildSeiReader(esInfo), MimeTypes.VIDEO_MP2T));
       case TsExtractor.TS_STREAM_TYPE_SPLICE_INFO:
         return isSet(FLAG_IGNORE_SPLICE_INFO_STREAM)
             ? null
-            : new SectionReader(new PassthroughSectionPayloadReader(MimeTypes.APPLICATION_SCTE35));
+            : new SectionReader(
+                new PassthroughSectionPayloadReader(
+                    /* sampleMimeType= */ MimeTypes.APPLICATION_SCTE35,
+                    /* containerMimeType= */ MimeTypes.VIDEO_MP2T));
       case TsExtractor.TS_STREAM_TYPE_ID3:
-        return new PesReader(new Id3Reader());
+        return new PesReader(new Id3Reader(MimeTypes.VIDEO_MP2T));
       case TsExtractor.TS_STREAM_TYPE_DVBSUBS:
-        return new PesReader(new DvbSubtitleReader(esInfo.dvbSubtitleInfos));
+        return new PesReader(new DvbSubtitleReader(esInfo.dvbSubtitleInfos, MimeTypes.VIDEO_MP2T));
       case TsExtractor.TS_STREAM_TYPE_AIT:
-        return new SectionReader(new PassthroughSectionPayloadReader(MimeTypes.APPLICATION_AIT));
+        return new SectionReader(
+            new PassthroughSectionPayloadReader(
+                /* sampleMimeType= */ MimeTypes.APPLICATION_AIT,
+                /* containerMimeType= */ MimeTypes.VIDEO_MP2T));
       case TsExtractor.TS_STREAM_TYPE_MHAS:
-        return new PesReader(new MpeghReader());
+        return new PesReader(new MpeghReader(MimeTypes.VIDEO_MP2T));
       default:
         return null;
     }
@@ -219,7 +240,7 @@ public final class DefaultTsPayloadReaderFactory implements TsPayloadReader.Fact
    * @return A {@link SeiReader} for closed caption tracks.
    */
   private SeiReader buildSeiReader(EsInfo esInfo) {
-    return new SeiReader(getClosedCaptionFormats(esInfo));
+    return new SeiReader(getClosedCaptionFormats(esInfo), MimeTypes.VIDEO_MP2T);
   }
 
   /**
@@ -232,7 +253,7 @@ public final class DefaultTsPayloadReaderFactory implements TsPayloadReader.Fact
    * @return A {@link UserDataReader} for closed caption tracks.
    */
   private UserDataReader buildUserDataReader(EsInfo esInfo) {
-    return new UserDataReader(getClosedCaptionFormats(esInfo));
+    return new UserDataReader(getClosedCaptionFormats(esInfo), MimeTypes.VIDEO_MP2T);
   }
 
   /**

@@ -52,6 +52,7 @@ public final class H262Reader implements ElementaryStreamReader {
       new double[] {24000d / 1001, 24, 25, 30000d / 1001, 30, 50, 60000d / 1001, 60};
 
   @Nullable private final UserDataReader userDataReader;
+  private final String containerMimeType;
   @Nullable private final ParsableByteArray userDataParsable;
 
   // State that should be reset on seek.
@@ -74,12 +75,13 @@ public final class H262Reader implements ElementaryStreamReader {
   private boolean sampleIsKeyframe;
   private boolean sampleHasPicture;
 
-  public H262Reader() {
-    this(null);
+  public H262Reader(String containerMimeType) {
+    this(null, containerMimeType);
   }
 
-  /* package */ H262Reader(@Nullable UserDataReader userDataReader) {
+  /* package */ H262Reader(@Nullable UserDataReader userDataReader, String containerMimeType) {
     this.userDataReader = userDataReader;
+    this.containerMimeType = containerMimeType;
     prefixFlags = new boolean[4];
     csdBuffer = new CsdBuffer(128);
     if (userDataReader != null) {
@@ -162,7 +164,8 @@ public final class H262Reader implements ElementaryStreamReader {
         int bytesAlreadyPassed = lengthToStartCode < 0 ? -lengthToStartCode : 0;
         if (csdBuffer.onStartCode(startCodeValue, bytesAlreadyPassed)) {
           // The csd data is complete, so we can decode and output the media format.
-          Pair<Format, Long> result = parseCsdBuffer(csdBuffer, checkNotNull(formatId));
+          Pair<Format, Long> result =
+              parseCsdBuffer(csdBuffer, checkNotNull(formatId), containerMimeType);
           output.format(result.first);
           frameDurationUs = result.second;
           hasOutputFormat = true;
@@ -231,10 +234,12 @@ public final class H262Reader implements ElementaryStreamReader {
    *
    * @param csdBuffer The csd buffer.
    * @param formatId The id for the generated format.
+   * @param containerMimeType The MIME type of the container for the generated format.
    * @return A pair consisting of the {@link Format} and the frame duration in microseconds, or 0 if
    *     the duration could not be determined.
    */
-  private static Pair<Format, Long> parseCsdBuffer(CsdBuffer csdBuffer, String formatId) {
+  private static Pair<Format, Long> parseCsdBuffer(
+      CsdBuffer csdBuffer, String formatId, String containerMimeType) {
     byte[] csdData = Arrays.copyOf(csdBuffer.data, csdBuffer.length);
 
     int firstByte = csdData[4] & 0xFF;
@@ -263,6 +268,7 @@ public final class H262Reader implements ElementaryStreamReader {
     Format format =
         new Format.Builder()
             .setId(formatId)
+            .setContainerMimeType(containerMimeType)
             .setSampleMimeType(MimeTypes.VIDEO_MPEG2)
             .setWidth(width)
             .setHeight(height)

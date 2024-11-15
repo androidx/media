@@ -48,6 +48,7 @@ public final class H264Reader implements ElementaryStreamReader {
   private final SeiReader seiReader;
   private final boolean allowNonIdrKeyframes;
   private final boolean detectAccessUnits;
+  private final String containerMimeType;
   private final NalUnitTargetBuffer sps;
   private final NalUnitTargetBuffer pps;
   private final NalUnitTargetBuffer sei;
@@ -76,11 +77,17 @@ public final class H264Reader implements ElementaryStreamReader {
    *     synchronization samples (key-frames).
    * @param detectAccessUnits Whether to split the input stream into access units (samples) based on
    *     slice headers. Pass {@code false} if the stream contains access unit delimiters (AUDs).
+   * @param containerMimeType The MIME type of the container holding the stream.
    */
-  public H264Reader(SeiReader seiReader, boolean allowNonIdrKeyframes, boolean detectAccessUnits) {
+  public H264Reader(
+      SeiReader seiReader,
+      boolean allowNonIdrKeyframes,
+      boolean detectAccessUnits,
+      String containerMimeType) {
     this.seiReader = seiReader;
     this.allowNonIdrKeyframes = allowNonIdrKeyframes;
     this.detectAccessUnits = detectAccessUnits;
+    this.containerMimeType = containerMimeType;
     prefixFlags = new boolean[3];
     sps = new NalUnitTargetBuffer(NalUnitUtil.H264_NAL_UNIT_TYPE_SPS, 128);
     pps = new NalUnitTargetBuffer(NalUnitUtil.H264_NAL_UNIT_TYPE_PPS, 128);
@@ -216,6 +223,7 @@ public final class H264Reader implements ElementaryStreamReader {
           output.format(
               new Format.Builder()
                   .setId(formatId)
+                  .setContainerMimeType(containerMimeType)
                   .setSampleMimeType(MimeTypes.VIDEO_H264)
                   .setCodecs(codecs)
                   .setWidth(spsData.width)
