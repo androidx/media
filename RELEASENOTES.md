@@ -29,8 +29,6 @@
     *   Add support for transmuxing into alternative backwards compatible
         formats.
 *   Extractors:
-    *   Add AC-4 Level-4 ISO base media file format support
-        ([#1265](https://github.com/androidx/media/pull/1265)).
 *   DataSource:
     *   `DataSourceContractTest`: Assert that `DataSource.getUri()` and
         `getResponseHeaders()` return their 'open' value after a failed call to
@@ -43,13 +41,6 @@
 *   Audio:
 *   Video:
 *   Text:
-    *   Fix garbled CEA-608 subtitles in content with more than one SEI message
-        per sample.
-    *   Fix playback hanging on DASH multi-period streams when CEA-608 subtitles
-        are enabled ([#1863](https://github.com/androidx/media/issues/1863)).
-    *   Fix garbled CEA-608 subtitles in MP4 files that incorrectly mark every
-        sample as a sync sample
-        ([#1863](https://github.com/androidx/media/issues/1863)).
 *   Metadata:
 *   Image:
 *   DRM:
@@ -90,8 +81,6 @@
         Composable UI elements to `demo-compose` utilizing
         `PlayPauseButtonState`, `NextButtonState`, `PreviousButtonState`,
         `RepeatButtonState`, `ShuffleButtonState`.
-    *   Resolve the memory leaks in demo short-form app
-        ([#1839](https://github.com/androidx/media/issues/1839)).
 *   Remove deprecated symbols:
     *   Remove deprecated `AudioMixer.create()` method. Use
         `DefaultAudioMixer.Factory().create()` instead.
@@ -145,6 +134,26 @@
         `BaseGlShaderProgram` instead.
 
 ## 1.5
+
+### 1.5.0-rc02 (2024-11-19)
+
+This release includes the following changes since the
+[1.5.0-rc01 release](##150-rc01-2024-11-13):
+
+*   Extractors:
+    *   Add AC-4 Level-4 ISO base media file format support
+        ([#1265](https://github.com/androidx/media/pull/1265)).
+*   Text:
+    *   Fix garbled CEA-608 subtitles in content with more than one SEI message
+        per sample.
+    *   Fix playback hanging on DASH multi-period streams when CEA-608 subtitles
+        are enabled ([#1863](https://github.com/androidx/media/issues/1863)).
+    *   Fix garbled CEA-608 subtitles in MP4 files that incorrectly mark every
+        sample as a sync sample
+        ([#1863](https://github.com/androidx/media/issues/1863)).
+*   Demo app
+    *   Resolve the memory leaks in demo short-form app
+        ([#1839](https://github.com/androidx/media/issues/1839)).
 
 ## 1.5.0-rc01 (2024-11-13)
 
