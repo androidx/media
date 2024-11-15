@@ -830,8 +830,7 @@ public class DefaultPreloadManagerTest {
   }
 
   @Test
-  public void release_returnZeroCount_sourcesAndRendererCapabilitiesListReleased()
-      throws Exception {
+  public void release_returnZeroCount_sourcesAndRendererCapabilitiesListReleased() {
     TargetPreloadStatusControl<Integer> targetPreloadStatusControl =
         rankingData -> new DefaultPreloadManager.Status(STAGE_SOURCE_PREPARED);
     MediaSource.Factory mockMediaSourceFactory = mock(MediaSource.Factory.class);
