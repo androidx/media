@@ -31,6 +31,7 @@ import android.media.metrics.LogSessionId;
 import android.media.metrics.MediaMetricsManager;
 import android.media.metrics.PlaybackSession;
 import android.net.Uri;
+import android.os.PersistableBundle;
 import androidx.media3.common.C;
 import androidx.media3.common.DrmInitData;
 import androidx.media3.common.Format;
@@ -49,6 +50,7 @@ import androidx.media3.extractor.SeekMap;
 import androidx.media3.extractor.SeekMap.SeekPoints;
 import androidx.media3.extractor.SeekPoint;
 import androidx.media3.extractor.TrackOutput;
+import androidx.media3.extractor.mp4.Mp4Extractor;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -1000,6 +1002,27 @@ public class MediaExtractorCompatTest {
     // stream.
     assertThat(mediaExtractorCompat.getCachedDuration()).isEqualTo(0);
     assertThat(mediaExtractorCompat.hasCacheReachedEndOfStream()).isTrue();
+  }
+
+  @Test
+  public void getMetrics_withMp4DataSource_returnsExpectedMetricsBundle() throws IOException {
+    assumeTrue(Util.SDK_INT >= 26);
+    // Needed to keep lint happy (it doesn't understand the assumeTrue call alone)
+    if (Util.SDK_INT < 26) {
+      return;
+    }
+    Context context = ApplicationProvider.getApplicationContext();
+    Uri contentUri = Uri.parse("asset:///media/mp4/sample.mp4");
+    MediaExtractorCompat mediaExtractorCompat = new MediaExtractorCompat(context);
+    mediaExtractorCompat.setDataSource(context, contentUri, /* headers= */ null);
+
+    PersistableBundle bundle = mediaExtractorCompat.getMetrics();
+
+    assertThat(bundle.getString(MediaExtractor.MetricsConstants.FORMAT))
+        .isEqualTo(Mp4Extractor.class.getSimpleName());
+    assertThat(bundle.getString(MediaExtractor.MetricsConstants.MIME_TYPE))
+        .isEqualTo(MimeTypes.VIDEO_MP4);
+    assertThat(bundle.getInt(MediaExtractor.MetricsConstants.TRACKS)).isEqualTo(2);
   }
 
   // Internal methods.

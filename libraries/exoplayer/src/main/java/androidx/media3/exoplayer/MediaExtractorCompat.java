@@ -30,6 +30,7 @@ import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.media.metrics.LogSessionId;
 import android.net.Uri;
+import android.os.PersistableBundle;
 import android.util.SparseArray;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
@@ -655,6 +656,30 @@ public final class MediaExtractorCompat {
    */
   public boolean hasCacheReachedEndOfStream() {
     return getCachedDuration() == 0;
+  }
+
+  /**
+   * Returns a {@link PersistableBundle} containing metrics data for the current media container.
+   *
+   * <p>The bundle includes attributes and values for the media container, as described in {@link
+   * MediaExtractor.MetricsConstants}.
+   */
+  @RequiresApi(26)
+  public PersistableBundle getMetrics() {
+    PersistableBundle bundle = new PersistableBundle();
+    if (currentExtractor != null) {
+      bundle.putString(
+          MediaExtractor.MetricsConstants.FORMAT,
+          currentExtractor.getUnderlyingImplementation().getClass().getSimpleName());
+    }
+    if (!tracks.isEmpty()) {
+      Format format = tracks.get(0).getFormat(formatHolder, noDataBuffer);
+      if (format.containerMimeType != null) {
+        bundle.putString(MediaExtractor.MetricsConstants.MIME_TYPE, format.containerMimeType);
+      }
+    }
+    bundle.putInt(MediaExtractor.MetricsConstants.TRACKS, tracks.size());
+    return bundle;
   }
 
   @VisibleForTesting(otherwise = NONE)
