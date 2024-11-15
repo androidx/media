@@ -221,6 +221,7 @@ public final class PreloadMediaSource extends WrappingMediaSource {
   private final RendererCapabilities[] rendererCapabilities;
   private final Allocator allocator;
   private final Handler preloadHandler;
+  private final Handler releaseHandler;
   private boolean preloadCalled;
   private boolean prepareChildSourceCalled;
   private long startPositionUs;
@@ -246,6 +247,7 @@ public final class PreloadMediaSource extends WrappingMediaSource {
     this.allocator = allocator;
 
     preloadHandler = Util.createHandler(preloadLooper, /* callback= */ null);
+    releaseHandler = Util.createHandler(preloadLooper, /* callback= */ null);
     startPositionUs = C.TIME_UNSET;
   }
 
@@ -396,7 +398,7 @@ public final class PreloadMediaSource extends WrappingMediaSource {
    * <p>Can be called from any thread.
    */
   public void releasePreloadMediaSource() {
-    preloadHandler.post(
+    releaseHandler.post(
         () -> {
           preloadCalled = false;
           startPositionUs = C.TIME_UNSET;
@@ -407,6 +409,7 @@ public final class PreloadMediaSource extends WrappingMediaSource {
           }
           releaseSourceInternal();
           preloadHandler.removeCallbacksAndMessages(null);
+          releaseHandler.removeCallbacksAndMessages(null);
         });
   }
 
