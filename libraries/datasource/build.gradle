@@ -14,9 +14,7 @@
 apply from: "$gradle.ext.androidxMediaSettingsDir/common_library_config.gradle"
 
 android {
-    defaultConfig {
-        multiDexEnabled true
-    }
+    namespace 'androidx.media3.datasource'
 
     buildTypes {
         debug {
@@ -28,18 +26,28 @@ android {
         androidTest.assets.srcDir '../test_data/src/test/assets'
         test.assets.srcDir '../test_data/src/test/assets'
     }
+
+    lintOptions {
+        // TODO: b/353490583 - Enable this once the violations are fixed.
+        checkTestSources false
+    }
+
+    publishing {
+        singleVariant('release') {
+            withSourcesJar()
+        }
+    }
 }
 
 dependencies {
     implementation project(modulePrefix + 'lib-common')
     implementation project(modulePrefix + 'lib-database')
     implementation 'androidx.annotation:annotation:' + androidxAnnotationVersion
+    implementation 'androidx.exifinterface:exifinterface:' + androidxExifInterfaceVersion
     compileOnly 'com.google.code.findbugs:jsr305:' + jsr305Version
     compileOnly 'com.google.errorprone:error_prone_annotations:' + errorProneVersion
-    compileOnly 'org.checkerframework:checker-compat-qual:' + checkerframeworkCompatVersion
     compileOnly 'org.checkerframework:checker-qual:' + checkerframeworkVersion
     compileOnly 'org.jetbrains.kotlin:kotlin-annotations-jvm:' + kotlinAnnotationsVersion
-    androidTestImplementation 'androidx.multidex:multidex:' + androidxMultidexVersion
     androidTestImplementation 'androidx.test:runner:' + androidxTestRunnerVersion
     androidTestImplementation 'com.linkedin.dexmaker:dexmaker:' + dexmakerVersion
     androidTestImplementation 'com.linkedin.dexmaker:dexmaker-mockito:' + dexmakerVersion
@@ -55,11 +63,6 @@ dependencies {
     testImplementation 'org.robolectric:robolectric:' + robolectricVersion
     testImplementation project(modulePrefix + 'test-utils')
 }
-
-ext {
-    javadocTitle = 'DataSource module'
-}
-apply from: '../../javadoc_library.gradle'
 
 ext {
     releaseArtifactId = 'media3-datasource'

@@ -30,6 +30,7 @@ import static androidx.media3.exoplayer.RendererCapabilities.ADAPTIVE_NOT_SUPPOR
 import static androidx.media3.exoplayer.RendererCapabilities.ADAPTIVE_SEAMLESS;
 import static com.google.common.truth.Truth.assertThat;
 
+import android.graphics.Point;
 import androidx.media3.common.Format;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.Tracks;
@@ -147,5 +148,87 @@ public class TrackSelectionUtilTest {
     assertThat(trackGroups.get(1).isTrackSelected(1)).isTrue();
     assertThat(trackGroups.get(0).getType()).isEqualTo(TRACK_TYPE_AUDIO);
     assertThat(trackGroups.get(1).getType()).isEqualTo(TRACK_TYPE_AUDIO);
+  }
+
+  @Test
+  public void getMaxVideoSizeInViewport_aspectRatioMatches() {
+    Point maxVideoSize =
+        TrackSelectionUtil.getMaxVideoSizeInViewport(
+            /* orientationMayChange= */ true,
+            /* viewportWidth= */ 1920,
+            /* viewportHeight= */ 1080,
+            /* videoWidth= */ 3840,
+            /* videoHeight= */ 2160);
+
+    assertThat(maxVideoSize).isEqualTo(new Point(1920, 1080));
+  }
+
+  @Test
+  public void getMaxVideoSizeInViewport_rotatedAspectRatioMatches_rotationAllowed() {
+    Point maxVideoSize =
+        TrackSelectionUtil.getMaxVideoSizeInViewport(
+            /* orientationMayChange= */ true,
+            /* viewportWidth= */ 1080,
+            /* viewportHeight= */ 1920,
+            /* videoWidth= */ 3840,
+            /* videoHeight= */ 2160);
+
+    assertThat(maxVideoSize).isEqualTo(new Point(1920, 1080));
+  }
+
+  @Test
+  public void getMaxVideoSizeInViewport_letterboxing() {
+    // 16:9 content on 16:10 screen
+    Point maxVideoSize =
+        TrackSelectionUtil.getMaxVideoSizeInViewport(
+            /* orientationMayChange= */ false,
+            /* viewportWidth= */ 1920,
+            /* viewportHeight= */ 1200,
+            /* videoWidth= */ 1280,
+            /* videoHeight= */ 720);
+
+    assertThat(maxVideoSize).isEqualTo(new Point(1920, 1080));
+  }
+
+  @Test
+  public void getMaxVideoSizeInViewport_letterboxingWhenRotated() {
+    // 16:9 content on 10:16 screen
+    Point maxVideoSize =
+        TrackSelectionUtil.getMaxVideoSizeInViewport(
+            /* orientationMayChange= */ true,
+            /* viewportWidth= */ 1200,
+            /* viewportHeight= */ 1920,
+            /* videoWidth= */ 1280,
+            /* videoHeight= */ 720);
+
+    assertThat(maxVideoSize).isEqualTo(new Point(1920, 1080));
+  }
+
+  @Test
+  public void getMaxVideoSizeInViewport_pillarboxing() {
+    // 4:3 content on 16:10 screen
+    Point maxVideoSize =
+        TrackSelectionUtil.getMaxVideoSizeInViewport(
+            /* orientationMayChange= */ false,
+            /* viewportWidth= */ 1920,
+            /* viewportHeight= */ 1200,
+            /* videoWidth= */ 960,
+            /* videoHeight= */ 720);
+
+    assertThat(maxVideoSize).isEqualTo(new Point(1600, 1200));
+  }
+
+  @Test
+  public void getMaxVideoSizeInViewport_pillarboxingWhenRotated() {
+    // 4:3 content on 10:16 screen
+    Point maxVideoSize =
+        TrackSelectionUtil.getMaxVideoSizeInViewport(
+            /* orientationMayChange= */ true,
+            /* viewportWidth= */ 1200,
+            /* viewportHeight= */ 1920,
+            /* videoWidth= */ 960,
+            /* videoHeight= */ 720);
+
+    assertThat(maxVideoSize).isEqualTo(new Point(1600, 1200));
   }
 }

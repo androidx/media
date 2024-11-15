@@ -235,4 +235,13 @@ public interface HlsPlaylistTracker {
    * @return True if the content is live. False otherwise.
    */
   boolean isLive();
+
+  /**
+   * Deactivate the playlist for playback.
+   *
+   * <p>The default implementation is a no-op.
+   *
+   * @param url The {@link Uri} of the playlist to deactivate for playback.
+   */
+  default void deactivatePlaylistForPlayback(Uri url) {}
 }

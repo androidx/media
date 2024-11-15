@@ -19,13 +19,23 @@ import static androidx.media3.test.session.common.CommonConstants.SUPPORT_APP_PA
 import static androidx.media3.test.session.common.TestUtils.TIMEOUT_MS;
 import static com.google.common.truth.Truth.assertThat;
 
+import android.content.Context;
+import android.net.Uri;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.os.Looper;
+import android.support.v4.media.MediaDescriptionCompat;
+import android.support.v4.media.session.MediaControllerCompat;
+import android.support.v4.media.session.MediaSessionCompat;
+import androidx.media3.common.AudioAttributes;
+import androidx.media3.common.C;
 import androidx.media3.common.DeviceInfo;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.Player;
+import androidx.media3.common.SimpleBasePlayer;
 import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.util.Util;
 import androidx.media3.test.session.common.HandlerThreadTestRule;
@@ -38,6 +48,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
@@ -259,7 +271,7 @@ public class MediaSessionPlayerTest {
         remoteControllerTestRule.createRemoteController(session.getToken());
 
     // The controller should only be able to see the current item without Timeline access.
-    controller.seekTo(/* mediaItemIndex= */ 0, /* seekPositionMs= */ 2000);
+    controller.seekTo(/* mediaItemIndex= */ 0, /* positionMs= */ 2000);
     player.awaitMethodCalled(MockPlayer.METHOD_SEEK_TO_WITH_MEDIA_ITEM_INDEX, TIMEOUT_MS);
     controller.release();
     session.release();
@@ -695,6 +707,34 @@ public class MediaSessionPlayerTest {
   }
 
   @Test
+  public void replaceMediaItem() throws Exception {
+    player.setMediaItems(MediaTestUtils.createMediaItems(4));
+    MediaItem mediaItem = MediaTestUtils.createMediaItem("replaceMediaItem");
+
+    controller.replaceMediaItem(/* index= */ 2, mediaItem);
+
+    player.awaitMethodCalled(MockPlayer.METHOD_REPLACE_MEDIA_ITEM, TIMEOUT_MS);
+    assertThat(player.index).isEqualTo(2);
+    assertThat(player.mediaItems).hasSize(4);
+    assertThat(player.mediaItems.get(2)).isEqualTo(mediaItem);
+  }
+
+  @Test
+  public void replaceMediaItems() throws Exception {
+    player.setMediaItems(MediaTestUtils.createMediaItems(4));
+    List<MediaItem> mediaItems = MediaTestUtils.createMediaItems(2);
+
+    controller.replaceMediaItems(/* fromIndex= */ 1, /* toIndex= */ 2, mediaItems);
+
+    player.awaitMethodCalled(MockPlayer.METHOD_REPLACE_MEDIA_ITEMS, TIMEOUT_MS);
+    assertThat(player.fromIndex).isEqualTo(1);
+    assertThat(player.toIndex).isEqualTo(2);
+    assertThat(player.mediaItems).hasSize(5);
+    assertThat(player.mediaItems.get(1)).isEqualTo(mediaItems.get(0));
+    assertThat(player.mediaItems.get(2)).isEqualTo(mediaItems.get(1));
+  }
+
+  @Test
   public void seekToPreviousMediaItem() throws Exception {
     controller.seekToPreviousMediaItem();
 
@@ -792,6 +832,20 @@ public class MediaSessionPlayerTest {
   }
 
   @Test
+  public void setAudioAttributes() throws Exception {
+    AudioAttributes audioAttributes =
+        new AudioAttributes.Builder()
+            .setContentType(C.AUDIO_CONTENT_TYPE_SONIFICATION)
+            .setUsage(C.USAGE_ALARM)
+            .build();
+
+    controller.setAudioAttributes(audioAttributes, /* handleAudioFocus= */ true);
+
+    player.awaitMethodCalled(MockPlayer.METHOD_SET_AUDIO_ATTRIBUTES, TIMEOUT_MS);
+    assertThat(player.getAudioAttributes()).isEqualTo(audioAttributes);
+  }
+
+  @Test
   public void seekBack() throws Exception {
     controller.seekBack();
 
@@ -836,14 +890,331 @@ public class MediaSessionPlayerTest {
     assertThat(player.seekMediaItemIndex).isEqualTo(3);
   }
 
+  @Test
+  public void
+      getControllerForCurrentRequest_withMediaControllerAndSimplePlayerMethod_returnsControllerFromPlayerMethod()
+          throws Exception {
+    AtomicReference<MediaSession.ControllerInfo> controllerInfoFromPlayerMethod =
+        new AtomicReference<>();
+    AtomicReference<MediaSession> sessionReference = new AtomicReference<>();
+    CountDownLatch eventHandled = new CountDownLatch(1);
+    Player player =
+        new SimpleBasePlayer(Looper.getMainLooper()) {
+          @Override
+          protected State getState() {
+            return new State.Builder()
+                .setAvailableCommands(new Commands.Builder().add(Player.COMMAND_PLAY_PAUSE).build())
+                .build();
+          }
+
+          @Override
+          protected ListenableFuture<?> handleSetPlayWhenReady(boolean playWhenReady) {
+            controllerInfoFromPlayerMethod.set(
+                sessionReference.get().getControllerForCurrentRequest());
+            eventHandled.countDown();
+            return Futures.immediateVoidFuture();
+          }
+        };
+    Context context = ApplicationProvider.getApplicationContext();
+    MediaSession session = new MediaSession.Builder(context, player).setId("test").build();
+    sessionReference.set(session);
+    Bundle controllerHints = new Bundle();
+    controllerHints.putString("key", "value");
+    MediaController controller =
+        new MediaController.Builder(context, session.getToken())
+            .setConnectionHints(controllerHints)
+            .buildAsync()
+            .get();
+
+    MainLooperTestRule.runOnMainSync(controller::play);
+    eventHandled.await();
+    session.release();
+
+    assertThat(controllerInfoFromPlayerMethod.get().getConnectionHints().getString("key"))
+        .isEqualTo("value");
+  }
+
+  @Test
+  public void
+      getControllerForCurrentRequest_withMediaControllerAndAsyncSetMediaItemMethod_returnsControllerFromPlayerMethod()
+          throws Exception {
+    AtomicReference<MediaSession.ControllerInfo> controllerInfoFromPlayerMethod =
+        new AtomicReference<>();
+    AtomicReference<MediaSession> sessionReference = new AtomicReference<>();
+    CountDownLatch eventHandled = new CountDownLatch(1);
+    Player player =
+        new SimpleBasePlayer(Looper.getMainLooper()) {
+          @Override
+          protected State getState() {
+            return new State.Builder()
+                .setAvailableCommands(
+                    new Commands.Builder().add(Player.COMMAND_SET_MEDIA_ITEM).build())
+                .build();
+          }
+
+          @Override
+          protected ListenableFuture<?> handleSetMediaItems(
+              List<MediaItem> mediaItems, int startIndex, long startPositionMs) {
+            controllerInfoFromPlayerMethod.set(
+                sessionReference.get().getControllerForCurrentRequest());
+            eventHandled.countDown();
+            return Futures.immediateVoidFuture();
+          }
+        };
+    Context context = ApplicationProvider.getApplicationContext();
+    MediaSession session =
+        new MediaSession.Builder(context, player)
+            .setId("test")
+            .setCallback(
+                new MediaSession.Callback() {
+                  @Override
+                  public ListenableFuture<List<MediaItem>> onAddMediaItems(
+                      MediaSession mediaSession,
+                      MediaSession.ControllerInfo controller,
+                      List<MediaItem> mediaItems) {
+                    // Resolve media items asynchronously.
+                    return Util.postOrRunWithCompletion(
+                        threadTestRule.getHandler(), () -> {}, mediaItems);
+                  }
+                })
+            .build();
+    sessionReference.set(session);
+    Bundle controllerHints = new Bundle();
+    controllerHints.putString("key", "value");
+    MediaController controller =
+        new MediaController.Builder(context, session.getToken())
+            .setConnectionHints(controllerHints)
+            .buildAsync()
+            .get();
+
+    MainLooperTestRule.runOnMainSync(() -> controller.setMediaItem(MediaItem.fromUri("test://")));
+    eventHandled.await();
+    session.release();
+
+    assertThat(controllerInfoFromPlayerMethod.get().getConnectionHints().getString("key"))
+        .isEqualTo("value");
+  }
+
+  @Test
+  public void
+      getControllerForCurrentRequest_withMediaControllerAndAsyncAddMediaItemMethod_returnsControllerFromPlayerMethod()
+          throws Exception {
+    AtomicReference<MediaSession.ControllerInfo> controllerInfoFromPlayerMethod =
+        new AtomicReference<>();
+    AtomicReference<MediaSession> sessionReference = new AtomicReference<>();
+    CountDownLatch eventHandled = new CountDownLatch(1);
+    Player player =
+        new SimpleBasePlayer(Looper.getMainLooper()) {
+          @Override
+          protected State getState() {
+            return new State.Builder()
+                .setAvailableCommands(
+                    new Commands.Builder().add(Player.COMMAND_CHANGE_MEDIA_ITEMS).build())
+                .build();
+          }
+
+          @Override
+          protected ListenableFuture<?> handleAddMediaItems(int index, List<MediaItem> mediaItems) {
+            controllerInfoFromPlayerMethod.set(
+                sessionReference.get().getControllerForCurrentRequest());
+            eventHandled.countDown();
+            return Futures.immediateVoidFuture();
+          }
+        };
+    Context context = ApplicationProvider.getApplicationContext();
+    MediaSession session =
+        new MediaSession.Builder(context, player)
+            .setId("test")
+            .setCallback(
+                new MediaSession.Callback() {
+                  @Override
+                  public ListenableFuture<List<MediaItem>> onAddMediaItems(
+                      MediaSession mediaSession,
+                      MediaSession.ControllerInfo controller,
+                      List<MediaItem> mediaItems) {
+                    // Resolve media items asynchronously.
+                    return Util.postOrRunWithCompletion(
+                        threadTestRule.getHandler(), () -> {}, mediaItems);
+                  }
+                })
+            .build();
+    sessionReference.set(session);
+    Bundle controllerHints = new Bundle();
+    controllerHints.putString("key", "value");
+    MediaController controller =
+        new MediaController.Builder(context, session.getToken())
+            .setConnectionHints(controllerHints)
+            .buildAsync()
+            .get();
+
+    MainLooperTestRule.runOnMainSync(() -> controller.addMediaItem(MediaItem.fromUri("test://")));
+    eventHandled.await();
+    session.release();
+
+    assertThat(controllerInfoFromPlayerMethod.get().getConnectionHints().getString("key"))
+        .isEqualTo("value");
+  }
+
+  @Test
+  public void
+      getControllerForCurrentRequest_withMediaControllerCompatAndSimplePlayerMethod_returnsControllerFromPlayerMethod()
+          throws Exception {
+    AtomicReference<MediaSession.ControllerInfo> controllerInfoFromPlayerMethod =
+        new AtomicReference<>();
+    AtomicReference<MediaSession> sessionReference = new AtomicReference<>();
+    CountDownLatch eventHandled = new CountDownLatch(1);
+    Player player =
+        new SimpleBasePlayer(Looper.getMainLooper()) {
+          @Override
+          protected State getState() {
+            return new State.Builder()
+                .setAvailableCommands(new Commands.Builder().add(Player.COMMAND_PLAY_PAUSE).build())
+                .build();
+          }
+
+          @Override
+          protected ListenableFuture<?> handleSetPlayWhenReady(boolean playWhenReady) {
+            controllerInfoFromPlayerMethod.set(
+                sessionReference.get().getControllerForCurrentRequest());
+            eventHandled.countDown();
+            return Futures.immediateVoidFuture();
+          }
+        };
+    Context context = ApplicationProvider.getApplicationContext();
+    MediaSession session = new MediaSession.Builder(context, player).setId("test").build();
+    sessionReference.set(session);
+    MediaControllerCompat controller =
+        new MediaControllerCompat(
+            context, MediaSessionCompat.Token.fromToken(session.getPlatformToken()));
+
+    controller.getTransportControls().play();
+    eventHandled.await();
+    session.release();
+
+    assertThat(controllerInfoFromPlayerMethod.get().getInterfaceVersion()).isEqualTo(0);
+  }
+
+  @Test
+  public void
+      getControllerForCurrentRequest_withMediaControllerCompatAndAsyncPlayFromMethod_returnsControllerFromPlayerMethod()
+          throws Exception {
+    AtomicReference<MediaSession.ControllerInfo> controllerInfoFromPlayerMethod =
+        new AtomicReference<>();
+    AtomicReference<MediaSession> sessionReference = new AtomicReference<>();
+    CountDownLatch eventHandled = new CountDownLatch(1);
+    Player player =
+        new SimpleBasePlayer(Looper.getMainLooper()) {
+          @Override
+          protected State getState() {
+            return new State.Builder()
+                .setAvailableCommands(
+                    new Commands.Builder().add(Player.COMMAND_SET_MEDIA_ITEM).build())
+                .build();
+          }
+
+          @Override
+          protected ListenableFuture<?> handleSetMediaItems(
+              List<MediaItem> mediaItems, int startIndex, long startPositionMs) {
+            controllerInfoFromPlayerMethod.set(
+                sessionReference.get().getControllerForCurrentRequest());
+            eventHandled.countDown();
+            return Futures.immediateVoidFuture();
+          }
+        };
+    Context context = ApplicationProvider.getApplicationContext();
+    MediaSession session =
+        new MediaSession.Builder(context, player)
+            .setId("test")
+            .setCallback(
+                new MediaSession.Callback() {
+                  @Override
+                  public ListenableFuture<List<MediaItem>> onAddMediaItems(
+                      MediaSession mediaSession,
+                      MediaSession.ControllerInfo controller,
+                      List<MediaItem> mediaItems) {
+                    // Resolve media items asynchronously.
+                    return Util.postOrRunWithCompletion(
+                        threadTestRule.getHandler(), () -> {}, mediaItems);
+                  }
+                })
+            .build();
+    sessionReference.set(session);
+    MediaControllerCompat controller =
+        new MediaControllerCompat(
+            context, MediaSessionCompat.Token.fromToken(session.getPlatformToken()));
+
+    controller.getTransportControls().playFromUri(Uri.parse("test://"), Bundle.EMPTY);
+    eventHandled.await();
+    session.release();
+
+    assertThat(controllerInfoFromPlayerMethod.get().getInterfaceVersion()).isEqualTo(0);
+  }
+
+  @Test
+  public void
+      getControllerForCurrentRequest_withMediaControllerCompatAndAsyncAddToQueueMethod_returnsControllerFromPlayerMethod()
+          throws Exception {
+    AtomicReference<MediaSession.ControllerInfo> controllerInfoFromPlayerMethod =
+        new AtomicReference<>();
+    AtomicReference<MediaSession> sessionReference = new AtomicReference<>();
+    CountDownLatch eventHandled = new CountDownLatch(1);
+    Player player =
+        new SimpleBasePlayer(Looper.getMainLooper()) {
+          @Override
+          protected State getState() {
+            return new State.Builder()
+                .setAvailableCommands(
+                    new Commands.Builder().add(Player.COMMAND_CHANGE_MEDIA_ITEMS).build())
+                .build();
+          }
+
+          @Override
+          protected ListenableFuture<?> handleAddMediaItems(int index, List<MediaItem> mediaItems) {
+            controllerInfoFromPlayerMethod.set(
+                sessionReference.get().getControllerForCurrentRequest());
+            eventHandled.countDown();
+            return Futures.immediateVoidFuture();
+          }
+        };
+    Context context = ApplicationProvider.getApplicationContext();
+    MediaSession session =
+        new MediaSession.Builder(context, player)
+            .setId("test")
+            .setCallback(
+                new MediaSession.Callback() {
+                  @Override
+                  public ListenableFuture<List<MediaItem>> onAddMediaItems(
+                      MediaSession mediaSession,
+                      MediaSession.ControllerInfo controller,
+                      List<MediaItem> mediaItems) {
+                    // Resolve media items asynchronously.
+                    return Util.postOrRunWithCompletion(
+                        threadTestRule.getHandler(), () -> {}, mediaItems);
+                  }
+                })
+            .build();
+    sessionReference.set(session);
+
+    MainLooperTestRule.runOnMainSync(
+        () -> {
+          MediaControllerCompat controller =
+              new MediaControllerCompat(
+                  context, MediaSessionCompat.Token.fromToken(session.getPlatformToken()));
+          controller.addQueueItem(new MediaDescriptionCompat.Builder().setMediaId("id").build());
+        });
+    eventHandled.await();
+    session.release();
+
+    assertThat(controllerInfoFromPlayerMethod.get().getInterfaceVersion()).isEqualTo(0);
+  }
+
   private void changePlaybackTypeToRemote() throws Exception {
     threadTestRule
         .getHandler()
         .postAndSync(
             () -> {
               player.deviceInfo =
-                  new DeviceInfo(
-                      DeviceInfo.PLAYBACK_TYPE_REMOTE, /* minVolume= */ 0, /* maxVolume= */ 100);
+                  new DeviceInfo.Builder(DeviceInfo.PLAYBACK_TYPE_REMOTE).setMaxVolume(100).build();
               player.notifyDeviceInfoChanged();
             });
   }

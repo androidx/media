@@ -19,6 +19,7 @@ import static androidx.media3.common.util.Util.castNonNull;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.RunnableFutureTask;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -39,12 +40,13 @@ import androidx.media3.exoplayer.offline.DownloadException;
 import androidx.media3.exoplayer.offline.SegmentDownloader;
 import androidx.media3.exoplayer.upstream.ParsingLoadable.Parser;
 import androidx.media3.extractor.ChunkIndex;
+import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
-import org.checkerframework.checker.nullness.compatqual.NullableType;
 
+// LINT.IfChange(javadoc)
 /**
  * A downloader for DASH streams.
  *
@@ -227,7 +229,13 @@ public final class DashDownloader extends SegmentDownloader<DashManifest> {
 
   private Segment createSegment(
       Representation representation, String baseUrl, long startTimeUs, RangedUri rangedUri) {
-    DataSpec dataSpec = DashUtil.buildDataSpec(representation, baseUrl, rangedUri, /* flags= */ 0);
+    DataSpec dataSpec =
+        DashUtil.buildDataSpec(
+            representation,
+            baseUrl,
+            rangedUri,
+            /* flags= */ 0,
+            /* httpRequestHeaders= */ ImmutableMap.of());
     return new Segment(startTimeUs, dataSpec);
   }
 

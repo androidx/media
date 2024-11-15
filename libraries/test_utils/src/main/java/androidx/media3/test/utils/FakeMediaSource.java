@@ -44,10 +44,12 @@ import androidx.media3.exoplayer.source.MediaLoadData;
 import androidx.media3.exoplayer.source.MediaPeriod;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.MediaSourceEventListener;
+import androidx.media3.exoplayer.source.TimelineWithUpdatedMediaItem;
 import androidx.media3.exoplayer.source.TrackGroupArray;
 import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.test.utils.FakeMediaPeriod.TrackDataFactory;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -98,12 +100,14 @@ public class FakeMediaSource extends BaseMediaSource {
   private final ArrayList<MediaPeriodId> createdMediaPeriods;
   private final DrmSessionManager drmSessionManager;
 
+  private boolean canUpdateMediaItems;
   private boolean preparationAllowed;
   private @MonotonicNonNull Timeline timeline;
   private boolean preparedSource;
   private boolean releasedSource;
   @Nullable private Handler sourceInfoRefreshHandler;
   @Nullable private TransferListener transferListener;
+  private boolean periodDefersOnPreparedCallback;
 
   /** Creates a {@link FakeMediaSource} with a default {@link FakeTimeline}. */
   public FakeMediaSource() {
@@ -168,6 +172,7 @@ public class FakeMediaSource extends BaseMediaSource {
     this.drmSessionManager = drmSessionManager;
     this.trackDataFactory = trackDataFactory;
     preparationAllowed = true;
+    canUpdateMediaItems = false;
   }
 
   /**
@@ -185,6 +190,15 @@ public class FakeMediaSource extends BaseMediaSource {
     }
   }
 
+  /**
+   * Sets whether the source allows to update its {@link MediaItem} via {@link #updateMediaItem}.
+   *
+   * @param canUpdateMediaItems Whether a {@link MediaItem} update is possible.
+   */
+  public void setCanUpdateMediaItems(boolean canUpdateMediaItems) {
+    this.canUpdateMediaItems = canUpdateMediaItems;
+  }
+
   @Nullable
   protected Timeline getTimeline() {
     return timeline;
@@ -196,6 +210,22 @@ public class FakeMediaSource extends BaseMediaSource {
       return FAKE_MEDIA_ITEM;
     }
     return timeline.getWindow(0, new Timeline.Window()).mediaItem;
+  }
+
+  @Override
+  public boolean canUpdateMediaItem(MediaItem mediaItem) {
+    return canUpdateMediaItems;
+  }
+
+  @Override
+  public void updateMediaItem(MediaItem mediaItem) {
+    if (timeline == null) {
+      return;
+    }
+    timeline = new TimelineWithUpdatedMediaItem(timeline, mediaItem);
+    if (preparedSource && preparationAllowed) {
+      refreshSourceInfo(timeline);
+    }
   }
 
   @Override
@@ -239,7 +269,7 @@ public class FakeMediaSource extends BaseMediaSource {
     Assertions.checkArgument(periodIndex != C.INDEX_UNSET);
     Period period = timeline.getPeriod(periodIndex, new Period());
     MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher =
-        createEventDispatcher(period.windowIndex, id, period.getPositionInWindowMs());
+        createEventDispatcher(period.windowIndex, id);
     DrmSessionEventListener.EventDispatcher drmEventDispatcher =
         createDrmEventDispatcher(period.windowIndex, id);
     MediaPeriod mediaPeriod =
@@ -332,6 +362,27 @@ public class FakeMediaSource extends BaseMediaSource {
   }
 
   /**
+   * Sets whether the created {@link FakeMediaPeriod period} should defer to call {@link
+   * MediaPeriod.Callback#onPrepared(MediaPeriod)}. If set to true, {@link
+   * MediaPeriod.Callback#onPrepared(MediaPeriod)} should be called only after {@link
+   * FakeMediaPeriod#setPreparationComplete()} has been called, otherwise the preparation completes
+   * immediately.
+   */
+  public void setPeriodDefersOnPreparedCallback(boolean periodDefersOnPreparedCallback) {
+    this.periodDefersOnPreparedCallback = periodDefersOnPreparedCallback;
+  }
+
+  /**
+   * Returns the last created active {@link MediaPeriod}.
+   *
+   * <p>Must only be called if the source has created at least one period and it hasn't been
+   * released.
+   */
+  public MediaPeriod getLastCreatedActiveMediaPeriod() {
+    return Iterables.getLast(activeMediaPeriods);
+  }
+
+  /**
    * Creates a {@link MediaPeriod} for this media source.
    *
    * @param id The identifier of the period.
@@ -344,7 +395,7 @@ public class FakeMediaSource extends BaseMediaSource {
    *     events.
    * @param transferListener The transfer listener which should be informed of any data transfers.
    *     May be null if no listener is available.
-   * @return A new {@link FakeMediaPeriod}.
+   * @return A new {@link MediaPeriod}.
    */
   @RequiresNonNull("this.timeline")
   protected MediaPeriod createMediaPeriod(
@@ -367,7 +418,7 @@ public class FakeMediaSource extends BaseMediaSource {
         mediaSourceEventDispatcher,
         drmSessionManager,
         drmEventDispatcher,
-        /* deferOnPrepared= */ false);
+        periodDefersOnPreparedCallback);
   }
 
   /**
@@ -390,7 +441,7 @@ public class FakeMediaSource extends BaseMediaSource {
               C.SELECTION_REASON_UNKNOWN,
               /* trackSelectionData= */ null,
               /* mediaStartTimeMs= */ C.TIME_UNSET,
-              /* mediaEndTimeMs = */ C.TIME_UNSET);
+              /* mediaEndTimeMs= */ C.TIME_UNSET);
       long elapsedRealTimeMs = SystemClock.elapsedRealtime();
       MediaSourceEventListener.EventDispatcher eventDispatcher =
           createEventDispatcher(/* mediaPeriodId= */ null);
@@ -404,7 +455,8 @@ public class FakeMediaSource extends BaseMediaSource {
               elapsedRealTimeMs,
               /* loadDurationMs= */ 0,
               /* bytesLoaded= */ 0),
-          mediaLoadData);
+          mediaLoadData,
+          /* retryCount= */ 0);
       eventDispatcher.loadCompleted(
           new LoadEventInfo(
               loadTaskId,

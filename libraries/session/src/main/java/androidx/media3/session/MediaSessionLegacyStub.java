@@ -31,15 +31,12 @@ import static androidx.media3.common.Player.COMMAND_SET_REPEAT_MODE;
 import static androidx.media3.common.Player.COMMAND_SET_SHUFFLE_MODE;
 import static androidx.media3.common.Player.COMMAND_SET_SPEED_AND_PITCH;
 import static androidx.media3.common.Player.COMMAND_STOP;
-import static androidx.media3.common.Player.STATE_ENDED;
-import static androidx.media3.common.Player.STATE_IDLE;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.castNonNull;
 import static androidx.media3.common.util.Util.postOrRun;
-import static androidx.media3.session.MediaUtils.TRANSACTION_SIZE_LIMIT_IN_BYTES;
 import static androidx.media3.session.SessionCommand.COMMAND_CODE_CUSTOM;
-import static androidx.media3.session.SessionResult.RESULT_ERROR_UNKNOWN;
+import static androidx.media3.session.SessionError.ERROR_UNKNOWN;
 import static androidx.media3.session.SessionResult.RESULT_INFO_SKIPPED;
 import static androidx.media3.session.SessionResult.RESULT_SUCCESS;
 
@@ -53,26 +50,18 @@ import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.graphics.Bitmap;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.os.RemoteException;
 import android.os.ResultReceiver;
-import android.support.v4.media.MediaDescriptionCompat;
-import android.support.v4.media.MediaMetadataCompat;
-import android.support.v4.media.RatingCompat;
-import android.support.v4.media.session.MediaSessionCompat;
-import android.support.v4.media.session.MediaSessionCompat.QueueItem;
-import android.support.v4.media.session.PlaybackStateCompat;
 import android.text.TextUtils;
 import android.view.KeyEvent;
-import android.view.ViewConfiguration;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 import androidx.core.util.ObjectsCompat;
-import androidx.media.MediaSessionManager;
-import androidx.media.MediaSessionManager.RemoteUserInfo;
-import androidx.media.VolumeProviderCompat;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.DeviceInfo;
@@ -87,11 +76,21 @@ import androidx.media3.common.Player.RepeatMode;
 import androidx.media3.common.Rating;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.Log;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Util;
 import androidx.media3.session.MediaSession.ControllerCb;
 import androidx.media3.session.MediaSession.ControllerInfo;
 import androidx.media3.session.MediaSession.MediaItemsWithStartPosition;
 import androidx.media3.session.SessionCommand.CommandCode;
+import androidx.media3.session.legacy.MediaDescriptionCompat;
+import androidx.media3.session.legacy.MediaMetadataCompat;
+import androidx.media3.session.legacy.MediaSessionCompat;
+import androidx.media3.session.legacy.MediaSessionCompat.QueueItem;
+import androidx.media3.session.legacy.MediaSessionManager;
+import androidx.media3.session.legacy.MediaSessionManager.RemoteUserInfo;
+import androidx.media3.session.legacy.PlaybackStateCompat;
+import androidx.media3.session.legacy.RatingCompat;
+import androidx.media3.session.legacy.VolumeProviderCompat;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -105,7 +104,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.checkerframework.checker.initialization.qual.Initialized;
-import org.checkerframework.checker.nullness.compatqual.NullableType;
 
 // Getting the commands from MediaControllerCompat'
 /* package */ class MediaSessionLegacyStub extends MediaSessionCompat.Callback {
@@ -124,44 +122,48 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
 
   private final MediaSessionImpl sessionImpl;
   private final MediaSessionManager sessionManager;
-  private final ControllerCb controllerLegacyCbForBroadcast;
+  private final ControllerLegacyCbForBroadcast controllerLegacyCbForBroadcast;
   private final ConnectionTimeoutHandler connectionTimeoutHandler;
-  private final MediaPlayPauseKeyHandler mediaPlayPauseKeyHandler;
   private final MediaSessionCompat sessionCompat;
-  private final String appPackageName;
   @Nullable private final MediaButtonReceiver runtimeBroadcastReceiver;
-  private final boolean canResumePlaybackOnStart;
+  @Nullable private final ComponentName broadcastReceiverComponentName;
   @Nullable private VolumeProviderCompat volumeProviderCompat;
 
   private volatile long connectionTimeoutMs;
   @Nullable private FutureCallback<Bitmap> pendingBitmapLoadCallback;
   private int sessionFlags;
 
+  @SuppressWarnings("PendingIntentMutability") // We can't use SaferPendingIntent
   public MediaSessionLegacyStub(
-      MediaSessionImpl session,
-      Uri sessionUri,
-      @Nullable ComponentName serviceComponentName,
-      Handler handler) {
+      MediaSessionImpl session, Uri sessionUri, Handler handler, Bundle tokenExtras) {
     sessionImpl = session;
     Context context = sessionImpl.getContext();
-    appPackageName = context.getPackageName();
     sessionManager = MediaSessionManager.getSessionManager(context);
     controllerLegacyCbForBroadcast = new ControllerLegacyCbForBroadcast();
-    mediaPlayPauseKeyHandler =
-        new MediaPlayPauseKeyHandler(session.getApplicationHandler().getLooper());
     connectedControllersManager = new ConnectedControllersManager<>(session);
     connectionTimeoutMs = DEFAULT_CONNECTION_TIMEOUT_MS;
     connectionTimeoutHandler =
         new ConnectionTimeoutHandler(
             session.getApplicationHandler().getLooper(), connectedControllersManager);
 
-    // Select a media button receiver component.
-    ComponentName receiverComponentName = queryPackageManagerForMediaButtonReceiver(context);
     // Assume an app that intentionally puts a `MediaButtonReceiver` into the manifest has
     // implemented some kind of resumption of the last recently played media item.
-    canResumePlaybackOnStart = receiverComponentName != null;
-    if (receiverComponentName == null) {
-      receiverComponentName = serviceComponentName;
+    broadcastReceiverComponentName = queryPackageManagerForMediaButtonReceiver(context);
+    @Nullable ComponentName receiverComponentName = broadcastReceiverComponentName;
+    boolean isReceiverComponentAService = false;
+    if (receiverComponentName == null || Util.SDK_INT < 31) {
+      // Below API 26, media button events are sent to the receiver at runtime also. We always want
+      // these to arrive at the service at runtime. release() then set the receiver for restart if
+      // available.
+      receiverComponentName =
+          getServiceComponentByAction(context, MediaLibraryService.SERVICE_INTERFACE);
+      if (receiverComponentName == null) {
+        receiverComponentName =
+            getServiceComponentByAction(context, MediaSessionService.SERVICE_INTERFACE);
+      }
+      isReceiverComponentAService =
+          receiverComponentName != null
+              && !Objects.equals(receiverComponentName, broadcastReceiverComponentName);
     }
     Intent intent = new Intent(Intent.ACTION_MEDIA_BUTTON, sessionUri);
     PendingIntent mediaButtonIntent;
@@ -177,12 +179,12 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
       mediaButtonIntent =
           PendingIntent.getBroadcast(
               context, /* requestCode= */ 0, intent, PENDING_INTENT_FLAG_MUTABLE);
-      // Creates a fake ComponentName for MediaSessionCompat in pre-L.
+      // Creates a fake ComponentName for MediaSessionCompat in pre-L or without a service.
       receiverComponentName = new ComponentName(context, context.getClass());
     } else {
       intent.setComponent(receiverComponentName);
       mediaButtonIntent =
-          Objects.equals(serviceComponentName, receiverComponentName)
+          isReceiverComponentAService
               ? (Util.SDK_INT >= 26
                   ? PendingIntent.getForegroundService(
                       context, /* requestCode= */ 0, intent, PENDING_INTENT_FLAG_MUTABLE)
@@ -201,9 +203,12 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
         new MediaSessionCompat(
             context,
             sessionCompatId,
-            receiverComponentName,
-            mediaButtonIntent,
-            session.getToken().getExtras());
+            Util.SDK_INT < 31 ? receiverComponentName : null,
+            Util.SDK_INT < 31 ? mediaButtonIntent : null,
+            /* sessionInfo= */ tokenExtras);
+    if (Util.SDK_INT >= 31 && broadcastReceiverComponentName != null) {
+      Api31.setMediaButtonBroadcastReceiver(sessionCompat, broadcastReceiverComponentName);
+    }
 
     @Nullable PendingIntent sessionActivity = session.getSessionActivity();
     if (sessionActivity != null) {
@@ -217,6 +222,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
   }
 
   @Nullable
+  @SuppressWarnings("QueryPermissionsNeeded") // Needs to be provided in the app manifest.
   private static ComponentName queryPackageManagerForMediaButtonReceiver(Context context) {
     PackageManager pm = context.getPackageManager();
     Intent queryIntent = new Intent(Intent.ACTION_MEDIA_BUTTON);
@@ -241,13 +247,29 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
     sessionCompat.setActive(true);
   }
 
+  @SuppressWarnings("PendingIntentMutability") // We can't use SaferPendingIntent.
   public void release() {
-    if (!canResumePlaybackOnStart) {
-      setMediaButtonReceiver(sessionCompat, /* mediaButtonReceiverIntent= */ null);
+    if (Util.SDK_INT < 31) {
+      if (broadcastReceiverComponentName == null) {
+        // No broadcast receiver available. Playback resumption not supported.
+        setMediaButtonReceiver(sessionCompat, /* mediaButtonReceiverIntent= */ null);
+      } else {
+        // Override the runtime receiver with the broadcast receiver for playback resumption.
+        Intent intent = new Intent(Intent.ACTION_MEDIA_BUTTON, sessionImpl.getUri());
+        intent.setComponent(broadcastReceiverComponentName);
+        PendingIntent mediaButtonReceiverIntent =
+            PendingIntent.getBroadcast(
+                sessionImpl.getContext(),
+                /* requestCode= */ 0,
+                intent,
+                PENDING_INTENT_FLAG_MUTABLE);
+        setMediaButtonReceiver(sessionCompat, mediaButtonReceiverIntent);
+      }
     }
     if (runtimeBroadcastReceiver != null) {
       sessionImpl.getContext().unregisterReceiver(runtimeBroadcastReceiver);
     }
+    // No check for COMMAND_RELEASE needed as MediaControllers can always be released.
     sessionCompat.release();
   }
 
@@ -258,8 +280,11 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
   @Override
   public void onCommand(String commandName, @Nullable Bundle args, @Nullable ResultReceiver cb) {
     checkStateNotNull(commandName);
-    if (TextUtils.equals(MediaConstants.SESSION_COMMAND_REQUEST_SESSION3_TOKEN, commandName)
-        && cb != null) {
+    if (commandName.equals(MediaConstants.SESSION_COMMAND_MEDIA3_PLAY_REQUEST)) {
+      // Ignore, no need to handle this command here.
+      return;
+    }
+    if (commandName.equals(MediaConstants.SESSION_COMMAND_REQUEST_SESSION3_TOKEN) && cb != null) {
       cb.send(RESULT_SUCCESS, sessionImpl.getToken().toBundle());
       return;
     }
@@ -290,41 +315,17 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
   }
 
   @Override
-  public boolean onMediaButtonEvent(Intent mediaButtonEvent) {
-    @Nullable KeyEvent keyEvent = mediaButtonEvent.getParcelableExtra(Intent.EXTRA_KEY_EVENT);
-    if (keyEvent == null || keyEvent.getAction() != KeyEvent.ACTION_DOWN) {
-      return false;
-    }
-    RemoteUserInfo remoteUserInfo = sessionCompat.getCurrentControllerInfo();
-    int keyCode = keyEvent.getKeyCode();
-    switch (keyCode) {
-      case KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE:
-      case KeyEvent.KEYCODE_HEADSETHOOK:
-        // Double tap detection only for media button events from external sources (for instance
-        // Bluetooth). Media button events from the app package are coming from the notification
-        // below targetApiLevel 33.
-        if (!appPackageName.equals(remoteUserInfo.getPackageName())
-            && keyEvent.getRepeatCount() == 0) {
-          if (mediaPlayPauseKeyHandler.hasPendingMediaPlayPauseKey()) {
-            mediaPlayPauseKeyHandler.clearPendingMediaPlayPauseKey();
-            onSkipToNext();
-          } else {
-            mediaPlayPauseKeyHandler.addPendingMediaPlayPauseKey(remoteUserInfo);
-          }
-        } else {
-          // Consider long-press as a single tap. Handle immediately.
-          handleMediaPlayPauseOnHandler(remoteUserInfo);
-        }
-        return true;
-      default:
-        // If another key is pressed within double tap timeout, consider the pending
-        // pending play/pause as a single tap to handle media keys in order.
-        if (mediaPlayPauseKeyHandler.hasPendingMediaPlayPauseKey()) {
-          handleMediaPlayPauseOnHandler(remoteUserInfo);
-        }
-        break;
-    }
-    return false;
+  public boolean onMediaButtonEvent(Intent intent) {
+    return sessionImpl.onMediaButtonEvent(
+        new ControllerInfo(
+            checkNotNull(sessionCompat.getCurrentControllerInfo()),
+            ControllerInfo.LEGACY_CONTROLLER_VERSION,
+            ControllerInfo.LEGACY_CONTROLLER_INTERFACE_VERSION,
+            /* trusted= */ false,
+            /* cb= */ null,
+            /* connectionHints= */ Bundle.EMPTY,
+            /* maxCommandsForMediaItems= */ 0),
+        intent);
   }
 
   private void maybeUpdateFlags(PlayerWrapper playerWrapper) {
@@ -338,27 +339,14 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
     }
   }
 
-  private void handleMediaPlayPauseOnHandler(RemoteUserInfo remoteUserInfo) {
-    mediaPlayPauseKeyHandler.clearPendingMediaPlayPauseKey();
+  /* package */ void handleMediaPlayPauseOnHandler(RemoteUserInfo remoteUserInfo) {
     dispatchSessionTaskWithPlayerCommand(
         COMMAND_PLAY_PAUSE,
-        (controller) -> {
-          PlayerWrapper playerWrapper = sessionImpl.getPlayerWrapper();
-          @Player.State int playbackState = playerWrapper.getPlaybackState();
-          if (!playerWrapper.getPlayWhenReady()
-              || playbackState == STATE_ENDED
-              || playbackState == STATE_IDLE) {
-            if (playbackState == STATE_IDLE) {
-              playerWrapper.prepareIfCommandAvailable();
-            } else if (playbackState == STATE_ENDED) {
-              playerWrapper.seekToDefaultPositionIfCommandAvailable();
-            }
-            playerWrapper.play();
-          } else {
-            playerWrapper.pause();
-          }
-        },
-        remoteUserInfo);
+        controller ->
+            Util.handlePlayPauseButtonAction(
+                sessionImpl.getPlayerWrapper(), sessionImpl.shouldPlayIfSuppressed()),
+        remoteUserInfo,
+        /* callOnPlayerInteractionFinished= */ true);
   }
 
   @Override
@@ -366,11 +354,12 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
     dispatchSessionTaskWithPlayerCommand(
         COMMAND_PREPARE,
         controller -> sessionImpl.getPlayerWrapper().prepare(),
-        sessionCompat.getCurrentControllerInfo());
+        sessionCompat.getCurrentControllerInfo(),
+        /* callOnPlayerInteractionFinished= */ true);
   }
 
   @Override
-  public void onPrepareFromMediaId(String mediaId, @Nullable Bundle extras) {
+  public void onPrepareFromMediaId(@Nullable String mediaId, @Nullable Bundle extras) {
     handleMediaRequest(
         createMediaItemForMediaRequest(
             mediaId, /* mediaUri= */ null, /* searchQuery= */ null, extras),
@@ -378,14 +367,14 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
   }
 
   @Override
-  public void onPrepareFromSearch(String query, @Nullable Bundle extras) {
+  public void onPrepareFromSearch(@Nullable String query, @Nullable Bundle extras) {
     handleMediaRequest(
         createMediaItemForMediaRequest(/* mediaId= */ null, /* mediaUri= */ null, query, extras),
         /* play= */ false);
   }
 
   @Override
-  public void onPrepareFromUri(Uri mediaUri, @Nullable Bundle extras) {
+  public void onPrepareFromUri(@Nullable Uri mediaUri, @Nullable Bundle extras) {
     handleMediaRequest(
         createMediaItemForMediaRequest(
             /* mediaId= */ null, mediaUri, /* searchQuery= */ null, extras),
@@ -396,23 +385,15 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
   public void onPlay() {
     dispatchSessionTaskWithPlayerCommand(
         COMMAND_PLAY_PAUSE,
-        controller -> {
-          PlayerWrapper playerWrapper = sessionImpl.getPlayerWrapper();
-          @Player.State int playbackState = playerWrapper.getPlaybackState();
-          if (playbackState == Player.STATE_IDLE) {
-            playerWrapper.prepareIfCommandAvailable();
-          } else if (playbackState == Player.STATE_ENDED) {
-            playerWrapper.seekToDefaultPositionIfCommandAvailable();
-          }
-          if (sessionImpl.onPlayRequested()) {
-            playerWrapper.play();
-          }
-        },
-        sessionCompat.getCurrentControllerInfo());
+        controller ->
+            sessionImpl.handleMediaControllerPlayRequest(
+                controller, /* callOnPlayerInteractionFinished= */ true),
+        sessionCompat.getCurrentControllerInfo(),
+        /* callOnPlayerInteractionFinished= */ false);
   }
 
   @Override
-  public void onPlayFromMediaId(String mediaId, @Nullable Bundle extras) {
+  public void onPlayFromMediaId(@Nullable String mediaId, @Nullable Bundle extras) {
     handleMediaRequest(
         createMediaItemForMediaRequest(
             mediaId, /* mediaUri= */ null, /* searchQuery= */ null, extras),
@@ -420,14 +401,14 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
   }
 
   @Override
-  public void onPlayFromSearch(String query, @Nullable Bundle extras) {
+  public void onPlayFromSearch(@Nullable String query, @Nullable Bundle extras) {
     handleMediaRequest(
         createMediaItemForMediaRequest(/* mediaId= */ null, /* mediaUri= */ null, query, extras),
         /* play= */ true);
   }
 
   @Override
-  public void onPlayFromUri(Uri mediaUri, @Nullable Bundle extras) {
+  public void onPlayFromUri(@Nullable Uri mediaUri, @Nullable Bundle extras) {
     handleMediaRequest(
         createMediaItemForMediaRequest(
             /* mediaId= */ null, mediaUri, /* searchQuery= */ null, extras),
@@ -438,8 +419,9 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
   public void onPause() {
     dispatchSessionTaskWithPlayerCommand(
         COMMAND_PLAY_PAUSE,
-        controller -> sessionImpl.getPlayerWrapper().pause(),
-        sessionCompat.getCurrentControllerInfo());
+        controller -> Util.handlePauseButtonAction(sessionImpl.getPlayerWrapper()),
+        sessionCompat.getCurrentControllerInfo(),
+        /* callOnPlayerInteractionFinished= */ true);
   }
 
   @Override
@@ -447,7 +429,8 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
     dispatchSessionTaskWithPlayerCommand(
         COMMAND_STOP,
         controller -> sessionImpl.getPlayerWrapper().stop(),
-        sessionCompat.getCurrentControllerInfo());
+        sessionCompat.getCurrentControllerInfo(),
+        /* callOnPlayerInteractionFinished= */ true);
   }
 
   @Override
@@ -455,7 +438,8 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
     dispatchSessionTaskWithPlayerCommand(
         COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM,
         controller -> sessionImpl.getPlayerWrapper().seekTo(pos),
-        sessionCompat.getCurrentControllerInfo());
+        sessionCompat.getCurrentControllerInfo(),
+        /* callOnPlayerInteractionFinished= */ true);
   }
 
   @Override
@@ -464,12 +448,14 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
       dispatchSessionTaskWithPlayerCommand(
           COMMAND_SEEK_TO_NEXT,
           controller -> sessionImpl.getPlayerWrapper().seekToNext(),
-          sessionCompat.getCurrentControllerInfo());
+          sessionCompat.getCurrentControllerInfo(),
+          /* callOnPlayerInteractionFinished= */ true);
     } else {
       dispatchSessionTaskWithPlayerCommand(
           COMMAND_SEEK_TO_NEXT_MEDIA_ITEM,
           controller -> sessionImpl.getPlayerWrapper().seekToNextMediaItem(),
-          sessionCompat.getCurrentControllerInfo());
+          sessionCompat.getCurrentControllerInfo(),
+          /* callOnPlayerInteractionFinished= */ true);
     }
   }
 
@@ -479,25 +465,34 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
       dispatchSessionTaskWithPlayerCommand(
           COMMAND_SEEK_TO_PREVIOUS,
           controller -> sessionImpl.getPlayerWrapper().seekToPrevious(),
-          sessionCompat.getCurrentControllerInfo());
+          sessionCompat.getCurrentControllerInfo(),
+          /* callOnPlayerInteractionFinished= */ true);
     } else {
       dispatchSessionTaskWithPlayerCommand(
           COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM,
           controller -> sessionImpl.getPlayerWrapper().seekToPreviousMediaItem(),
-          sessionCompat.getCurrentControllerInfo());
+          sessionCompat.getCurrentControllerInfo(),
+          /* callOnPlayerInteractionFinished= */ true);
     }
   }
 
   @Override
   public void onSetPlaybackSpeed(float speed) {
+    if (!(speed > 0f)) {
+      return;
+    }
     dispatchSessionTaskWithPlayerCommand(
         COMMAND_SET_SPEED_AND_PITCH,
         controller -> sessionImpl.getPlayerWrapper().setPlaybackSpeed(speed),
-        sessionCompat.getCurrentControllerInfo());
+        sessionCompat.getCurrentControllerInfo(),
+        /* callOnPlayerInteractionFinished= */ true);
   }
 
   @Override
   public void onSkipToQueueItem(long queueId) {
+    if (queueId < 0) {
+      return;
+    }
     dispatchSessionTaskWithPlayerCommand(
         COMMAND_SEEK_TO_MEDIA_ITEM,
         controller -> {
@@ -506,7 +501,8 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
           // see: {@link MediaUtils#convertToQueueItem}.
           playerWrapper.seekToDefaultPosition((int) queueId);
         },
-        sessionCompat.getCurrentControllerInfo());
+        sessionCompat.getCurrentControllerInfo(),
+        /* callOnPlayerInteractionFinished= */ true);
   }
 
   @Override
@@ -514,7 +510,8 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
     dispatchSessionTaskWithPlayerCommand(
         COMMAND_SEEK_FORWARD,
         controller -> sessionImpl.getPlayerWrapper().seekForward(),
-        sessionCompat.getCurrentControllerInfo());
+        sessionCompat.getCurrentControllerInfo(),
+        /* callOnPlayerInteractionFinished= */ true);
   }
 
   @Override
@@ -522,17 +519,18 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
     dispatchSessionTaskWithPlayerCommand(
         COMMAND_SEEK_BACK,
         controller -> sessionImpl.getPlayerWrapper().seekBack(),
-        sessionCompat.getCurrentControllerInfo());
+        sessionCompat.getCurrentControllerInfo(),
+        /* callOnPlayerInteractionFinished= */ true);
   }
 
   @Override
-  public void onSetRating(RatingCompat ratingCompat) {
+  public void onSetRating(@Nullable RatingCompat ratingCompat) {
     onSetRating(ratingCompat, null);
   }
 
   @Override
-  public void onSetRating(RatingCompat ratingCompat, @Nullable Bundle unusedExtras) {
-    @Nullable Rating rating = MediaUtils.convertToRating(ratingCompat);
+  public void onSetRating(@Nullable RatingCompat ratingCompat, @Nullable Bundle unusedExtras) {
+    @Nullable Rating rating = LegacyConversions.convertToRating(ratingCompat);
     if (rating == null) {
       Log.w(TAG, "Ignoring invalid RatingCompat " + ratingCompat);
       return;
@@ -563,8 +561,10 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
         controller ->
             sessionImpl
                 .getPlayerWrapper()
-                .setRepeatMode(MediaUtils.convertToRepeatMode(playbackStateCompatRepeatMode)),
-        sessionCompat.getCurrentControllerInfo());
+                .setRepeatMode(
+                    LegacyConversions.convertToRepeatMode(playbackStateCompatRepeatMode)),
+        sessionCompat.getCurrentControllerInfo(),
+        /* callOnPlayerInteractionFinished= */ true);
   }
 
   @Override
@@ -574,8 +574,9 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
         controller ->
             sessionImpl
                 .getPlayerWrapper()
-                .setShuffleModeEnabled(MediaUtils.convertToShuffleModeEnabled(shuffleMode)),
-        sessionCompat.getCurrentControllerInfo());
+                .setShuffleModeEnabled(LegacyConversions.convertToShuffleModeEnabled(shuffleMode)),
+        sessionCompat.getCurrentControllerInfo(),
+        /* callOnPlayerInteractionFinished= */ true);
   }
 
   @Override
@@ -603,7 +604,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
           }
           PlayerWrapper player = sessionImpl.getPlayerWrapper();
           if (!player.isCommandAvailable(Player.COMMAND_GET_TIMELINE)) {
-            Log.w(TAG, "Can't remove item by id without availabe COMMAND_GET_TIMELINE");
+            Log.w(TAG, "Can't remove item by ID without COMMAND_GET_TIMELINE being available");
             return;
           }
           Timeline timeline = player.getCurrentTimeline();
@@ -616,21 +617,8 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
             }
           }
         },
-        sessionCompat.getCurrentControllerInfo());
-  }
-
-  @Override
-  public void onRemoveQueueItemAt(int index) {
-    dispatchSessionTaskWithPlayerCommand(
-        COMMAND_CHANGE_MEDIA_ITEMS,
-        controller -> {
-          if (index < 0) {
-            Log.w(TAG, "onRemoveQueueItem(): index shouldn't be negative");
-            return;
-          }
-          sessionImpl.getPlayerWrapper().removeMediaItem(index);
-        },
-        sessionCompat.getCurrentControllerInfo());
+        sessionCompat.getCurrentControllerInfo(),
+        /* callOnPlayerInteractionFinished= */ true);
   }
 
   public ControllerCb getControllerLegacyCbForBroadcast() {
@@ -641,8 +629,15 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
     return connectedControllersManager;
   }
 
+  /* package */ boolean canResumePlaybackOnStart() {
+    return broadcastReceiverComponentName != null;
+  }
+
   private void dispatchSessionTaskWithPlayerCommand(
-      @Player.Command int command, SessionTask task, @Nullable RemoteUserInfo remoteUserInfo) {
+      @Player.Command int command,
+      SessionTask task,
+      @Nullable RemoteUserInfo remoteUserInfo,
+      boolean callOnPlayerInteractionFinished) {
     if (sessionImpl.isReleased()) {
       return;
     }
@@ -671,6 +666,15 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
             return;
           }
           if (!connectedControllersManager.isPlayerCommandAvailable(controller, command)) {
+            if (command == COMMAND_PLAY_PAUSE
+                && !sessionImpl.getPlayerWrapper().getPlayWhenReady()) {
+              Log.w(
+                  TAG,
+                  "Calling play() omitted due to COMMAND_PLAY_PAUSE not being available. If this"
+                      + " play command has started the service for instance for playback"
+                      + " resumption, this may prevent the service from being started into the"
+                      + " foreground.");
+            }
             return;
           }
           int resultCode = sessionImpl.onPlayerCommandRequestOnHandler(controller, command);
@@ -679,15 +683,25 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
             return;
           }
 
-          try {
-            task.run(controller);
-          } catch (RemoteException e) {
-            // Currently it's TransactionTooLargeException or DeadSystemException.
-            // We'd better to leave log for those cases because
-            //   - TransactionTooLargeException means that we may need to fix our code.
-            //     (e.g. add pagination or special way to deliver Bitmap)
-            //   - DeadSystemException means that errors around it can be ignored.
-            Log.w(TAG, "Exception in " + controller, e);
+          sessionImpl
+              .callWithControllerForCurrentRequestSet(
+                  controller,
+                  () -> {
+                    try {
+                      task.run(controller);
+                    } catch (RemoteException e) {
+                      // Currently it's TransactionTooLargeException or DeadSystemException.
+                      // We'd better to leave log for those cases because
+                      //   - TransactionTooLargeException means that we may need to fix our code.
+                      //     (e.g. add pagination or special way to deliver Bitmap)
+                      //   - DeadSystemException means that errors around it can be ignored.
+                      Log.w(TAG, "Exception in " + controller, e);
+                    }
+                  })
+              .run();
+          if (callOnPlayerInteractionFinished) {
+            sessionImpl.onPlayerInteractionFinishedOnHandler(
+                controller, new Player.Commands.Builder().add(command).build());
           }
         });
   }
@@ -772,7 +786,8 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
               ControllerInfo.LEGACY_CONTROLLER_INTERFACE_VERSION,
               sessionManager.isTrustedForMediaControl(remoteUserInfo),
               controllerCb,
-              /* connectionHints= */ Bundle.EMPTY);
+              /* connectionHints= */ Bundle.EMPTY,
+              /* maxCommandsForMediaItems= */ 0);
       MediaSession.ConnectionResult connectionResult = sessionImpl.onConnectOnHandler(controller);
       if (!connectionResult.isAccepted) {
         try {
@@ -798,6 +813,24 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
     connectionTimeoutMs = timeoutMs;
   }
 
+  public void updateLegacySessionPlaybackState(PlayerWrapper playerWrapper) {
+    postOrRun(
+        sessionImpl.getApplicationHandler(),
+        () -> sessionCompat.setPlaybackState(playerWrapper.createPlaybackStateCompat()));
+  }
+
+  public void updateLegacySessionPlaybackStateAndQueue(PlayerWrapper playerWrapper) {
+    postOrRun(
+        sessionImpl.getApplicationHandler(),
+        () -> {
+          sessionCompat.setPlaybackState(playerWrapper.createPlaybackStateCompat());
+          controllerLegacyCbForBroadcast.updateQueue(
+              playerWrapper.getAvailableCommands().contains(Player.COMMAND_GET_TIMELINE)
+                  ? playerWrapper.getCurrentTimeline()
+                  : Timeline.EMPTY);
+        });
+  }
+
   private void handleMediaRequest(MediaItem mediaItem, boolean play) {
     dispatchSessionTaskWithPlayerCommand(
         COMMAND_SET_MEDIA_ITEM,
@@ -812,20 +845,28 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
                 public void onSuccess(MediaItemsWithStartPosition mediaItemsWithStartPosition) {
                   postOrRun(
                       sessionImpl.getApplicationHandler(),
-                      () -> {
-                        PlayerWrapper player = sessionImpl.getPlayerWrapper();
-                        MediaUtils.setMediaItemsWithStartIndexAndPosition(
-                            player, mediaItemsWithStartPosition);
-                        @Player.State int playbackState = player.getPlaybackState();
-                        if (playbackState == Player.STATE_IDLE) {
-                          player.prepareIfCommandAvailable();
-                        } else if (playbackState == Player.STATE_ENDED) {
-                          player.seekToDefaultPositionIfCommandAvailable();
-                        }
-                        if (play) {
-                          player.playIfCommandAvailable();
-                        }
-                      });
+                      sessionImpl.callWithControllerForCurrentRequestSet(
+                          controller,
+                          () -> {
+                            PlayerWrapper player = sessionImpl.getPlayerWrapper();
+                            MediaUtils.setMediaItemsWithStartIndexAndPosition(
+                                player, mediaItemsWithStartPosition);
+                            @Player.State int playbackState = player.getPlaybackState();
+                            if (playbackState == Player.STATE_IDLE) {
+                              player.prepareIfCommandAvailable();
+                            } else if (playbackState == Player.STATE_ENDED) {
+                              player.seekToDefaultPositionIfCommandAvailable();
+                            }
+                            if (play) {
+                              player.playIfCommandAvailable();
+                            }
+                            sessionImpl.onPlayerInteractionFinishedOnHandler(
+                                controller,
+                                new Player.Commands.Builder()
+                                    .addAll(COMMAND_SET_MEDIA_ITEM, COMMAND_PREPARE)
+                                    .addIf(COMMAND_PLAY_PAUSE, play)
+                                    .build());
+                          }));
                 }
 
                 @Override
@@ -835,11 +876,12 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
               },
               MoreExecutors.directExecutor());
         },
-        sessionCompat.getCurrentControllerInfo());
+        sessionCompat.getCurrentControllerInfo(),
+        /* callOnPlayerInteractionFinished= */ false);
   }
 
   private void handleOnAddQueueItem(@Nullable MediaDescriptionCompat description, int index) {
-    if (description == null) {
+    if (description == null || (index != C.INDEX_UNSET && index < 0)) {
       return;
     }
     dispatchSessionTaskWithPlayerCommand(
@@ -850,7 +892,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
             Log.w(TAG, "onAddQueueItem(): Media ID shouldn't be empty");
             return;
           }
-          MediaItem mediaItem = MediaUtils.convertToMediaItem(description);
+          MediaItem mediaItem = LegacyConversions.convertToMediaItem(description);
           ListenableFuture<List<MediaItem>> mediaItemsFuture =
               sessionImpl.onAddMediaItemsOnHandler(controller, ImmutableList.of(mediaItem));
           Futures.addCallback(
@@ -860,13 +902,20 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
                 public void onSuccess(List<MediaItem> mediaItems) {
                   postOrRun(
                       sessionImpl.getApplicationHandler(),
-                      () -> {
-                        if (index == C.INDEX_UNSET) {
-                          sessionImpl.getPlayerWrapper().addMediaItems(mediaItems);
-                        } else {
-                          sessionImpl.getPlayerWrapper().addMediaItems(index, mediaItems);
-                        }
-                      });
+                      sessionImpl.callWithControllerForCurrentRequestSet(
+                          controller,
+                          () -> {
+                            if (index == C.INDEX_UNSET) {
+                              sessionImpl.getPlayerWrapper().addMediaItems(mediaItems);
+                            } else {
+                              sessionImpl.getPlayerWrapper().addMediaItems(index, mediaItems);
+                            }
+                            sessionImpl.onPlayerInteractionFinishedOnHandler(
+                                controller,
+                                new Player.Commands.Builder()
+                                    .add(COMMAND_CHANGE_MEDIA_ITEMS)
+                                    .build());
+                          }));
                 }
 
                 @Override
@@ -876,7 +925,8 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
               },
               MoreExecutors.directExecutor());
         },
-        sessionCompat.getCurrentControllerInfo());
+        sessionCompat.getCurrentControllerInfo(),
+        /* callOnPlayerInteractionFinished= */ false);
   }
 
   private static void sendCustomCommandResultWhenReady(
@@ -886,10 +936,12 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
           SessionResult result;
           try {
             result = checkNotNull(future.get(), "SessionResult must not be null");
-          } catch (CancellationException unused) {
+          } catch (CancellationException e) {
+            Log.w(TAG, "Custom command cancelled", e);
             result = new SessionResult(RESULT_INFO_SKIPPED);
-          } catch (ExecutionException | InterruptedException unused) {
-            result = new SessionResult(RESULT_ERROR_UNKNOWN);
+          } catch (ExecutionException | InterruptedException e) {
+            Log.w(TAG, "Custom command failed", e);
+            result = new SessionResult(ERROR_UNKNOWN);
           }
           receiver.send(result.resultCode, result.extras);
         },
@@ -918,9 +970,14 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
   }
 
   @SuppressWarnings("nullness:argument") // MediaSessionCompat didn't annotate @Nullable.
-  private static void setQueueTitle(
-      MediaSessionCompat sessionCompat, @Nullable CharSequence title) {
-    sessionCompat.setQueueTitle(title);
+  private void setQueueTitle(MediaSessionCompat sessionCompat, @Nullable CharSequence title) {
+    sessionCompat.setQueueTitle(isQueueEnabled() ? title : null);
+  }
+
+  private boolean isQueueEnabled() {
+    PlayerWrapper playerWrapper = sessionImpl.getPlayerWrapper();
+    return playerWrapper.getAvailablePlayerCommands().contains(Player.COMMAND_GET_TIMELINE)
+        && playerWrapper.getAvailableCommands().contains(Player.COMMAND_GET_TIMELINE);
   }
 
   private static MediaItem createMediaItemForMediaRequest(
@@ -988,7 +1045,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
     public void onAvailableCommandsChangedFromPlayer(int seq, Player.Commands availableCommands) {
       PlayerWrapper playerWrapper = sessionImpl.getPlayerWrapper();
       maybeUpdateFlags(playerWrapper);
-      sessionImpl.getSessionCompat().setPlaybackState(playerWrapper.createPlaybackStateCompat());
+      updateLegacySessionPlaybackState(playerWrapper);
     }
 
     @Override
@@ -1028,9 +1085,12 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
         onRepeatModeChanged(seq, newPlayerWrapper.getRepeatMode());
       }
 
-      // Forcefully update playback info to update VolumeProviderCompat attached to the
-      // old player.
+      // Forcefully update device info to update VolumeProviderCompat attached to the old player.
       onDeviceInfoChanged(seq, newPlayerWrapper.getDeviceInfo());
+
+      if (hasChangedSlotReservationExtras(oldPlayerWrapper, newPlayerWrapper)) {
+        sessionCompat.setExtras(newPlayerWrapper.getLegacyExtras());
+      }
 
       // Rest of changes are all notified via PlaybackStateCompat.
       maybeUpdateFlags(newPlayerWrapper);
@@ -1044,32 +1104,54 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
         // If PlaybackStateCompat isn't updated by above if-statement, forcefully update
         // PlaybackStateCompat to tell the latest position and its event
         // time. This would also update playback speed, buffering state, player state, and error.
-        sessionCompat.setPlaybackState(newPlayerWrapper.createPlaybackStateCompat());
+        updateLegacySessionPlaybackState(newPlayerWrapper);
       }
     }
 
     @Override
     public void onPlayerError(int seq, @Nullable PlaybackException playerError) {
-      sessionImpl
-          .getSessionCompat()
-          .setPlaybackState(sessionImpl.getPlayerWrapper().createPlaybackStateCompat());
+      updateLegacySessionPlaybackState(sessionImpl.getPlayerWrapper());
     }
 
     @Override
     public void setCustomLayout(int seq, List<CommandButton> layout) {
-      sessionImpl
-          .getSessionCompat()
-          .setPlaybackState(sessionImpl.getPlayerWrapper().createPlaybackStateCompat());
+      updateLegacySessionPlaybackState(sessionImpl.getPlayerWrapper());
+    }
+
+    @Override
+    public void setMediaButtonPreferences(int seq, List<CommandButton> mediaButtonPreferences) {
+      updateLegacySessionPlaybackState(sessionImpl.getPlayerWrapper());
     }
 
     @Override
     public void onSessionExtrasChanged(int seq, Bundle sessionExtras) {
-      sessionImpl.getSessionCompat().setExtras(sessionExtras);
+      PlayerWrapper playerWrapper = sessionImpl.getPlayerWrapper();
+      playerWrapper.setLegacyExtras(sessionExtras);
+      sessionCompat.setExtras(playerWrapper.getLegacyExtras());
+      sessionCompat.setPlaybackState(sessionImpl.getPlayerWrapper().createPlaybackStateCompat());
+    }
+
+    @Override
+    public void onSessionActivityChanged(int seq, PendingIntent sessionActivity) {
+      sessionCompat.setSessionActivity(sessionActivity);
+    }
+
+    @Override
+    public void onError(int seq, SessionError sessionError) {
+      PlayerWrapper playerWrapper = sessionImpl.getPlayerWrapper();
+      playerWrapper.setLegacyError(
+          /* isFatal= */ false,
+          LegacyConversions.convertToLegacyErrorCode(sessionError.code),
+          sessionError.message,
+          sessionError.extras);
+      sessionCompat.setPlaybackState(playerWrapper.createPlaybackStateCompat());
+      playerWrapper.clearLegacyErrorStatus();
+      sessionCompat.setPlaybackState(playerWrapper.createPlaybackStateCompat());
     }
 
     @Override
     public void sendCustomCommand(int seq, SessionCommand command, Bundle args) {
-      sessionImpl.getSessionCompat().sendSessionEvent(command.customAction, args);
+      sessionCompat.sendSessionEvent(command.customAction, args);
     }
 
     @Override
@@ -1077,17 +1159,13 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
         int seq, boolean playWhenReady, @Player.PlaybackSuppressionReason int reason)
         throws RemoteException {
       // Note: This method does not use any of the given arguments.
-      sessionImpl
-          .getSessionCompat()
-          .setPlaybackState(sessionImpl.getPlayerWrapper().createPlaybackStateCompat());
+      updateLegacySessionPlaybackState(sessionImpl.getPlayerWrapper());
     }
 
     @Override
     public void onPlaybackSuppressionReasonChanged(
         int seq, @Player.PlaybackSuppressionReason int reason) throws RemoteException {
-      sessionImpl
-          .getSessionCompat()
-          .setPlaybackState(sessionImpl.getPlayerWrapper().createPlaybackStateCompat());
+      updateLegacySessionPlaybackState(sessionImpl.getPlayerWrapper());
     }
 
     @Override
@@ -1095,16 +1173,12 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
         int seq, @Player.State int state, @Nullable PlaybackException playerError)
         throws RemoteException {
       // Note: This method does not use any of the given arguments.
-      sessionImpl
-          .getSessionCompat()
-          .setPlaybackState(sessionImpl.getPlayerWrapper().createPlaybackStateCompat());
+      updateLegacySessionPlaybackState(sessionImpl.getPlayerWrapper());
     }
 
     @Override
     public void onIsPlayingChanged(int seq, boolean isPlaying) throws RemoteException {
-      sessionImpl
-          .getSessionCompat()
-          .setPlaybackState(sessionImpl.getPlayerWrapper().createPlaybackStateCompat());
+      updateLegacySessionPlaybackState(sessionImpl.getPlayerWrapper());
     }
 
     @Override
@@ -1115,18 +1189,14 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
         @DiscontinuityReason int reason)
         throws RemoteException {
       // Note: This method does not use any of the given arguments.
-      sessionImpl
-          .getSessionCompat()
-          .setPlaybackState(sessionImpl.getPlayerWrapper().createPlaybackStateCompat());
+      updateLegacySessionPlaybackState(sessionImpl.getPlayerWrapper());
     }
 
     @Override
     public void onPlaybackParametersChanged(int seq, PlaybackParameters playbackParameters)
         throws RemoteException {
       // Note: This method does not use any of the given arguments.
-      sessionImpl
-          .getSessionCompat()
-          .setPlaybackState(sessionImpl.getPlayerWrapper().createPlaybackStateCompat());
+      updateLegacySessionPlaybackState(sessionImpl.getPlayerWrapper());
     }
 
     @Override
@@ -1139,11 +1209,9 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
         sessionCompat.setRatingType(RatingCompat.RATING_NONE);
       } else {
         sessionCompat.setRatingType(
-            MediaUtils.getRatingCompatStyle(mediaItem.mediaMetadata.userRating));
+            LegacyConversions.getRatingCompatStyle(mediaItem.mediaMetadata.userRating));
       }
-      sessionImpl
-          .getSessionCompat()
-          .setPlaybackState(sessionImpl.getPlayerWrapper().createPlaybackStateCompat());
+      updateLegacySessionPlaybackState(sessionImpl.getPlayerWrapper());
     }
 
     @Override
@@ -1155,25 +1223,24 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
     public void onTimelineChanged(
         int seq, Timeline timeline, @Player.TimelineChangeReason int reason)
         throws RemoteException {
-      if (timeline.isEmpty()) {
-        setQueue(sessionCompat, null);
-        return;
-      }
-
       updateQueue(timeline);
       // Duration might be unknown at onMediaItemTransition and become available afterward.
       updateMetadataIfChanged();
     }
 
     private void updateQueue(Timeline timeline) {
-      List<MediaItem> mediaItemList = MediaUtils.convertToMediaItemList(timeline);
+      if (!isQueueEnabled() || timeline.isEmpty()) {
+        setQueue(sessionCompat, /* queue= */ null);
+        return;
+      }
+      List<MediaItem> mediaItemList = LegacyConversions.convertToMediaItemList(timeline);
       List<@NullableType ListenableFuture<Bitmap>> bitmapFutures = new ArrayList<>();
       final AtomicInteger resultCount = new AtomicInteger(0);
       Runnable handleBitmapFuturesTask =
           () -> {
             int completedBitmapFutureCount = resultCount.incrementAndGet();
             if (completedBitmapFutureCount == mediaItemList.size()) {
-              handleBitmapFuturesAllCompletedAndSetQueue(bitmapFutures, timeline, mediaItemList);
+              handleBitmapFuturesAllCompletedAndSetQueue(bitmapFutures, mediaItemList);
             }
           };
 
@@ -1194,9 +1261,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
     }
 
     private void handleBitmapFuturesAllCompletedAndSetQueue(
-        List<@NullableType ListenableFuture<Bitmap>> bitmapFutures,
-        Timeline timeline,
-        List<MediaItem> mediaItems) {
+        List<@NullableType ListenableFuture<Bitmap>> bitmapFutures, List<MediaItem> mediaItems) {
       List<QueueItem> queueItemList = new ArrayList<>();
       for (int i = 0; i < bitmapFutures.size(); i++) {
         @Nullable ListenableFuture<Bitmap> future = bitmapFutures.get(i);
@@ -1205,28 +1270,15 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
           try {
             bitmap = Futures.getDone(future);
           } catch (CancellationException | ExecutionException e) {
-            Log.d(TAG, "Failed to get bitmap");
+            Log.d(TAG, "Failed to get bitmap", e);
           }
         }
-        queueItemList.add(MediaUtils.convertToQueueItem(mediaItems.get(i), i, bitmap));
+        queueItemList.add(LegacyConversions.convertToQueueItem(mediaItems.get(i), i, bitmap));
       }
 
-      if (Util.SDK_INT < 21) {
-        // In order to avoid TransactionTooLargeException for below API 21, we need to
-        // cut the list so that it doesn't exceed the binder transaction limit.
-        List<QueueItem> truncatedList =
-            MediaUtils.truncateListBySize(queueItemList, TRANSACTION_SIZE_LIMIT_IN_BYTES);
-        if (truncatedList.size() != timeline.getWindowCount()) {
-          Log.i(
-              TAG,
-              "Sending " + truncatedList.size() + " items out of " + timeline.getWindowCount());
-        }
-        sessionCompat.setQueue(truncatedList);
-      } else {
-        // Framework MediaSession#setQueue() uses ParceledListSlice,
-        // which means we can safely send long lists.
-        sessionCompat.setQueue(queueItemList);
-      }
+      // Framework MediaSession#setQueue() uses ParceledListSlice,
+      // which means we can safely send long lists.
+      setQueue(sessionCompat, queueItemList);
     }
 
     @Override
@@ -1243,16 +1295,14 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
     @Override
     public void onShuffleModeEnabledChanged(int seq, boolean shuffleModeEnabled)
         throws RemoteException {
-      sessionImpl
-          .getSessionCompat()
-          .setShuffleMode(MediaUtils.convertToPlaybackStateCompatShuffleMode(shuffleModeEnabled));
+      sessionCompat.setShuffleMode(
+          LegacyConversions.convertToPlaybackStateCompatShuffleMode(shuffleModeEnabled));
     }
 
     @Override
     public void onRepeatModeChanged(int seq, @RepeatMode int repeatMode) throws RemoteException {
-      sessionImpl
-          .getSessionCompat()
-          .setRepeatMode(MediaUtils.convertToPlaybackStateCompatRepeatMode(repeatMode));
+      sessionCompat.setRepeatMode(
+          LegacyConversions.convertToPlaybackStateCompatRepeatMode(repeatMode));
     }
 
     @Override
@@ -1260,7 +1310,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
       @DeviceInfo.PlaybackType
       int playbackType = sessionImpl.getPlayerWrapper().getDeviceInfo().playbackType;
       if (playbackType == DeviceInfo.PLAYBACK_TYPE_LOCAL) {
-        int legacyStreamType = MediaUtils.getLegacyStreamType(audioAttributes);
+        int legacyStreamType = LegacyConversions.getLegacyStreamType(audioAttributes);
         sessionCompat.setPlaybackToLocal(legacyStreamType);
       }
     }
@@ -1271,7 +1321,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
       volumeProviderCompat = player.createVolumeProviderCompat();
       if (volumeProviderCompat == null) {
         int streamType =
-            MediaUtils.getLegacyStreamType(player.getAudioAttributesWithCommandCheck());
+            LegacyConversions.getLegacyStreamType(player.getAudioAttributesWithCommandCheck());
         sessionCompat.setPlaybackToLocal(streamType);
       } else {
         sessionCompat.setPlaybackToRemote(volumeProviderCompat);
@@ -1290,18 +1340,20 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
         int unusedSeq,
         SessionPositionInfo unusedSessionPositionInfo,
         boolean unusedCanAccessCurrentMediaItem,
-        boolean unusedCanAccessTimeline)
+        boolean unusedCanAccessTimeline,
+        int controllerInterfaceVersion)
         throws RemoteException {
-      sessionImpl
-          .getSessionCompat()
-          .setPlaybackState(sessionImpl.getPlayerWrapper().createPlaybackStateCompat());
+      updateLegacySessionPlaybackState(sessionImpl.getPlayerWrapper());
     }
 
     private void updateMetadataIfChanged() {
       PlayerWrapper player = sessionImpl.getPlayerWrapper();
       @Nullable MediaItem currentMediaItem = player.getCurrentMediaItemWithCommandCheck();
       MediaMetadata newMediaMetadata = player.getMediaMetadataWithCommandCheck();
-      long newDurationMs = player.getDurationWithCommandCheck();
+      long newDurationMs =
+          player.isCurrentMediaItemLiveWithCommandCheck()
+              ? C.TIME_UNSET
+              : player.getDurationWithCommandCheck();
       String newMediaId =
           currentMediaItem != null ? currentMediaItem.mediaId : MediaItem.DEFAULT_MEDIA_ID;
       @Nullable
@@ -1330,7 +1382,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
         if (bitmapFuture.isDone()) {
           try {
             artworkBitmap = Futures.getDone(bitmapFuture);
-          } catch (ExecutionException e) {
+          } catch (CancellationException | ExecutionException e) {
             Log.w(TAG, getBitmapLoadErrorMessage(e));
           }
         } else {
@@ -1343,7 +1395,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
                   }
                   setMetadata(
                       sessionCompat,
-                      MediaUtils.convertToMediaMetadataCompat(
+                      LegacyConversions.convertToMediaMetadataCompat(
                           newMediaMetadata,
                           newMediaId,
                           newMediaUri,
@@ -1368,9 +1420,31 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
       }
       setMetadata(
           sessionCompat,
-          MediaUtils.convertToMediaMetadataCompat(
+          LegacyConversions.convertToMediaMetadataCompat(
               newMediaMetadata, newMediaId, newMediaUri, newDurationMs, artworkBitmap));
     }
+  }
+
+  private static boolean hasChangedSlotReservationExtras(
+      @Nullable PlayerWrapper oldPlayerWrapper, PlayerWrapper newPlayerWrapper) {
+    if (oldPlayerWrapper == null) {
+      return true;
+    }
+    Bundle oldExtras = oldPlayerWrapper.getLegacyExtras();
+    boolean oldPrevReservation =
+        oldExtras.getBoolean(
+            MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_PREV, /* defaultVale= */ false);
+    boolean oldNextReservation =
+        oldExtras.getBoolean(
+            MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_NEXT, /* defaultVale= */ false);
+    Bundle newExtras = newPlayerWrapper.getLegacyExtras();
+    boolean newPrevReservation =
+        newExtras.getBoolean(
+            MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_PREV, /* defaultVale= */ false);
+    boolean newNextReservation =
+        newExtras.getBoolean(
+            MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_NEXT, /* defaultVale= */ false);
+    return (oldPrevReservation != newPrevReservation) || (oldNextReservation != newNextReservation);
   }
 
   private static class ConnectionTimeoutHandler extends Handler {
@@ -1406,39 +1480,24 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
     }
   }
 
-  private class MediaPlayPauseKeyHandler extends Handler {
-
-    private static final int MSG_DOUBLE_TAP_TIMED_OUT = 1002;
-
-    public MediaPlayPauseKeyHandler(Looper looper) {
-      super(looper);
-    }
-
-    @Override
-    public void handleMessage(Message msg) {
-      RemoteUserInfo remoteUserInfo = (RemoteUserInfo) msg.obj;
-      handleMediaPlayPauseOnHandler(remoteUserInfo);
-    }
-
-    public void addPendingMediaPlayPauseKey(RemoteUserInfo remoteUserInfo) {
-      Message msg = obtainMessage(MSG_DOUBLE_TAP_TIMED_OUT, remoteUserInfo);
-      sendMessageDelayed(msg, ViewConfiguration.getDoubleTapTimeout());
-    }
-
-    public void clearPendingMediaPlayPauseKey() {
-      removeMessages(MSG_DOUBLE_TAP_TIMED_OUT);
-    }
-
-    public boolean hasPendingMediaPlayPauseKey() {
-      return hasMessages(MSG_DOUBLE_TAP_TIMED_OUT);
-    }
-  }
-
   private static String getBitmapLoadErrorMessage(Throwable throwable) {
     return "Failed to load bitmap: " + throwable.getMessage();
   }
 
-  // TODO(b/193193462): Replace this with androidx.media.session.MediaButtonReceiver
+  @Nullable
+  @SuppressWarnings("QueryPermissionsNeeded") // Needs to be provided in the app manifest.
+  private static ComponentName getServiceComponentByAction(Context context, String action) {
+    PackageManager pm = context.getPackageManager();
+    Intent queryIntent = new Intent(action);
+    queryIntent.setPackage(context.getPackageName());
+    List<ResolveInfo> resolveInfos = pm.queryIntentServices(queryIntent, /* flags= */ 0);
+    if (resolveInfos == null || resolveInfos.isEmpty()) {
+      return null;
+    }
+    ResolveInfo resolveInfo = resolveInfos.get(0);
+    return new ComponentName(resolveInfo.serviceInfo.packageName, resolveInfo.serviceInfo.name);
+  }
+
   private final class MediaButtonReceiver extends BroadcastReceiver {
 
     @Override
@@ -1454,7 +1513,30 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
       if (keyEvent == null) {
         return;
       }
-      getSessionCompat().getController().dispatchMediaButtonEvent(keyEvent);
+      sessionCompat.getController().dispatchMediaButtonEvent(keyEvent);
+    }
+  }
+
+  @RequiresApi(31)
+  private static final class Api31 {
+    public static void setMediaButtonBroadcastReceiver(
+        MediaSessionCompat mediaSessionCompat, ComponentName broadcastReceiver) {
+      try {
+        ((android.media.session.MediaSession) checkNotNull(mediaSessionCompat.getMediaSession()))
+            .setMediaButtonBroadcastReceiver(broadcastReceiver);
+      } catch (IllegalArgumentException e) {
+        if (Build.MANUFACTURER.equals("motorola")) {
+          // Internal bug ref: b/367415658
+          Log.e(
+              TAG,
+              "caught IllegalArgumentException on a motorola device when attempting to set the"
+                  + " media button broadcast receiver. See"
+                  + " https://github.com/androidx/media/issues/1730 for details.",
+              e);
+        } else {
+          throw e;
+        }
+      }
     }
   }
 }

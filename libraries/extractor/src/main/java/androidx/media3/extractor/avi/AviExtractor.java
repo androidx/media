@@ -15,6 +15,7 @@
  */
 package androidx.media3.extractor.avi;
 
+import static java.lang.Math.max;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import androidx.annotation.IntDef;
@@ -27,13 +28,15 @@ import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.extractor.DummyExtractorOutput;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.ExtractorOutput;
+import androidx.media3.extractor.NoOpExtractorOutput;
 import androidx.media3.extractor.PositionHolder;
 import androidx.media3.extractor.SeekMap;
 import androidx.media3.extractor.TrackOutput;
+import androidx.media3.extractor.text.SubtitleParser;
+import androidx.media3.extractor.text.SubtitleTranscodingExtractorOutput;
 import java.io.IOException;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
@@ -117,6 +120,24 @@ public final class AviExtractor implements Extractor {
   private static final int AVIIF_KEYFRAME = 16;
 
   /**
+   * Flags controlling the behavior of the extractor. Possible flag value is {@link
+   * #FLAG_EMIT_RAW_SUBTITLE_DATA}.
+   */
+  @Documented
+  @Retention(RetentionPolicy.SOURCE)
+  @Target(TYPE_USE)
+  @IntDef(
+      flag = true,
+      value = {FLAG_EMIT_RAW_SUBTITLE_DATA})
+  public @interface Flags {}
+
+  /**
+   * Flag to use the source subtitle formats without modification. If unset, subtitles will be
+   * transcoded to {@link MimeTypes#APPLICATION_MEDIA3_CUES} during extraction.
+   */
+  public static final int FLAG_EMIT_RAW_SUBTITLE_DATA = 1;
+
+  /**
    * Maximum size to skip using {@link ExtractorInput#skip}. Boxes larger than this size are skipped
    * using {@link #RESULT_SEEK}.
    */
@@ -124,6 +145,8 @@ public final class AviExtractor implements Extractor {
 
   private final ParsableByteArray scratch;
   private final ChunkHeaderHolder chunkHeaderHolder;
+  private final boolean parseSubtitlesDuringExtraction;
+  private final SubtitleParser.Factory subtitleParserFactory;
 
   private @State int state;
   private ExtractorOutput extractorOutput;
@@ -139,13 +162,30 @@ public final class AviExtractor implements Extractor {
   private int idx1BodySize;
   private boolean seekMapHasBeenOutput;
 
+  /**
+   * @deprecated Use {@link #AviExtractor(int, SubtitleParser.Factory)} instead.
+   */
+  @Deprecated
   public AviExtractor() {
+    this(FLAG_EMIT_RAW_SUBTITLE_DATA, SubtitleParser.Factory.UNSUPPORTED);
+  }
+
+  /**
+   * Constructs an instance.
+   *
+   * @param extractorFlags Flags that control the extractor's behavior.
+   * @param subtitleParserFactory The {@link SubtitleParser.Factory} for parsing subtitles during
+   *     extraction.
+   */
+  public AviExtractor(@Flags int extractorFlags, SubtitleParser.Factory subtitleParserFactory) {
+    this.subtitleParserFactory = subtitleParserFactory;
+    parseSubtitlesDuringExtraction = (extractorFlags & FLAG_EMIT_RAW_SUBTITLE_DATA) == 0;
     scratch = new ParsableByteArray(/* limit= */ 12);
     chunkHeaderHolder = new ChunkHeaderHolder();
-    extractorOutput = new DummyExtractorOutput();
+    extractorOutput = new NoOpExtractorOutput();
     chunkReaders = new ChunkReader[0];
-    moviStart = C.POSITION_UNSET;
-    moviEnd = C.POSITION_UNSET;
+    moviStart = C.INDEX_UNSET;
+    moviEnd = C.INDEX_UNSET;
     hdrlSize = C.LENGTH_UNSET;
     durationUs = C.TIME_UNSET;
   }
@@ -155,8 +195,11 @@ public final class AviExtractor implements Extractor {
   @Override
   public void init(ExtractorOutput output) {
     this.state = STATE_SKIPPING_TO_HDRL;
-    this.extractorOutput = output;
-    pendingReposition = C.POSITION_UNSET;
+    this.extractorOutput =
+        parseSubtitlesDuringExtraction
+            ? new SubtitleTranscodingExtractorOutput(output, subtitleParserFactory)
+            : output;
+    pendingReposition = C.INDEX_UNSET;
   }
 
   @Override
@@ -208,7 +251,7 @@ public final class AviExtractor implements Extractor {
         state = STATE_FINDING_MOVI_HEADER;
         return RESULT_CONTINUE;
       case STATE_FINDING_MOVI_HEADER:
-        if (moviStart != C.POSITION_UNSET && input.getPosition() != moviStart) {
+        if (moviStart != C.INDEX_UNSET && input.getPosition() != moviStart) {
           pendingReposition = moviStart;
           return RESULT_CONTINUE;
         }
@@ -275,7 +318,7 @@ public final class AviExtractor implements Extractor {
 
   @Override
   public void seek(long position, long timeUs) {
-    pendingReposition = C.POSITION_UNSET;
+    pendingReposition = C.INDEX_UNSET;
     currentChunkReader = null;
     for (ChunkReader chunkReader : chunkReaders) {
       chunkReader.seekToPosition(position);
@@ -308,7 +351,7 @@ public final class AviExtractor implements Extractor {
   private boolean resolvePendingReposition(ExtractorInput input, PositionHolder seekPosition)
       throws IOException {
     boolean needSeek = false;
-    if (pendingReposition != C.POSITION_UNSET) {
+    if (pendingReposition != C.INDEX_UNSET) {
       long currentPosition = input.getPosition();
       if (pendingReposition < currentPosition
           || pendingReposition > currentPosition + RELOAD_MINIMUM_SEEK_DISTANCE) {
@@ -320,7 +363,7 @@ public final class AviExtractor implements Extractor {
         input.skipFully((int) (pendingReposition - currentPosition));
       }
     }
-    pendingReposition = C.POSITION_UNSET;
+    pendingReposition = C.INDEX_UNSET;
     return needSeek;
   }
 
@@ -369,10 +412,8 @@ public final class AviExtractor implements Extractor {
         // We ignore unknown chunk IDs.
         continue;
       }
-      if ((flags & AVIIF_KEYFRAME) == AVIIF_KEYFRAME) {
-        chunkReader.appendKeyFrameToIndex(offset);
-      }
-      chunkReader.incrementIndexChunkCount();
+      chunkReader.appendIndexChunk(
+          offset, /* isKeyFrame= */ (flags & AVIIF_KEYFRAME) == AVIIF_KEYFRAME);
     }
     for (ChunkReader chunkReader : chunkReaders) {
       chunkReader.compactIndex();
@@ -478,10 +519,11 @@ public final class AviExtractor implements Extractor {
     if (trackType == C.TRACK_TYPE_AUDIO || trackType == C.TRACK_TYPE_VIDEO) {
       TrackOutput trackOutput = extractorOutput.track(streamId, trackType);
       trackOutput.format(builder.build());
+      trackOutput.durationUs(durationUs);
       ChunkReader chunkReader =
           new ChunkReader(
               streamId, trackType, durationUs, aviStreamHeaderChunk.length, trackOutput);
-      this.durationUs = durationUs;
+      this.durationUs = max(this.durationUs, durationUs);
       return chunkReader;
     } else {
       // We don't currently support tracks other than video and audio.

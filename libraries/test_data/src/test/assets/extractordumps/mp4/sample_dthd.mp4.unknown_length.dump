@@ -9,13 +9,16 @@ numberOfTracks = 1
 track 0:
   total output bytes = 94656
   sample count = 32
+  track duration = 418333
   format 0:
     id = 1
+    containerMimeType = audio/mp4
     sampleMimeType = audio/true-hd
     maxInputSize = 12480
     channelCount = 2
     sampleRate = 48000
     language = und
+    metadata = entries=[Mp4Timestamp: creation time=3715851410, modification time=3715851410, timescale=48000]
   sample 0:
     time = 0
     flags = 1

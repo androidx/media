@@ -13,14 +13,14 @@
 // limitations under the License.
 apply from: "$gradle.ext.androidxMediaSettingsDir/common_library_config.gradle"
 android {
+    namespace 'androidx.media3.transformer'
 
     defaultConfig {
-        minSdkVersion 21
+        minSdkVersion project.ext.minSdkVersion
         // The following argument makes the Android Test Orchestrator run its
         // "pm clear" command after each test invocation. This command ensures
         // that the app's state is completely cleared between tests.
         testInstrumentationRunnerArguments clearPackageData: 'true'
-        multiDexEnabled true
     }
 
     buildTypes {
@@ -33,15 +33,28 @@ android {
         androidTest.assets.srcDir '../test_data/src/test/assets/'
         test.assets.srcDir '../test_data/src/test/assets/'
     }
+
+    lintOptions {
+        // TODO: b/353490583 - Enable this once the violations are fixed.
+        checkTestSources false
+    }
+
+    publishing {
+        singleVariant('release') {
+            withSourcesJar()
+        }
+    }
 }
 
 dependencies {
     implementation 'androidx.annotation:annotation:' + androidxAnnotationVersion
-    implementation project(modulePrefix + 'lib-exoplayer')
-    implementation project(modulePrefix + 'lib-effect')
+    implementation project(modulePrefix + 'lib-datasource')
+    implementation project(modulePrefix + 'lib-container')
+    api project(modulePrefix + 'lib-exoplayer')
+    api project(modulePrefix + 'lib-effect')
+    implementation project(modulePrefix + 'lib-muxer')
     compileOnly 'com.google.errorprone:error_prone_annotations:' + errorProneVersion
     compileOnly 'org.checkerframework:checker-qual:' + checkerframeworkVersion
-    compileOnly 'org.checkerframework:checker-compat-qual:' + checkerframeworkCompatVersion
     compileOnly 'org.jetbrains.kotlin:kotlin-annotations-jvm:' + kotlinAnnotationsVersion
     testImplementation project(modulePrefix + 'test-utils-robolectric')
     testImplementation project(modulePrefix + 'test-utils')
@@ -53,11 +66,6 @@ dependencies {
     androidTestImplementation 'com.google.truth:truth:' + truthVersion
     androidTestImplementation project(modulePrefix + 'test-utils')
 }
-
-ext {
-    javadocTitle = 'Transformer module'
-}
-apply from: '../../javadoc_library.gradle'
 
 ext {
     releaseArtifactId = 'media3-transformer'

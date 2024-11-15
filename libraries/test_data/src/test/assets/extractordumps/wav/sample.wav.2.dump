@@ -9,9 +9,11 @@ numberOfTracks = 1
 track 0:
   total output bytes = 29402
   sample count = 4
+  track duration = 1000000
   format 0:
     averageBitrate = 705600
     peakBitrate = 705600
+    containerMimeType = audio/wav
     sampleMimeType = audio/raw
     maxInputSize = 8820
     channelCount = 1

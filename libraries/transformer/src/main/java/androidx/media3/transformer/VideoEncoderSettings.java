@@ -42,6 +42,13 @@ public final class VideoEncoderSettings {
 
   /** A value for various fields to indicate that the field's value is unknown or not applicable. */
   public static final int NO_VALUE = Format.NO_VALUE;
+
+  /**
+   * A value for {@link Builder#setEncoderPerformanceParameters(int, int)} to disable setting
+   * performance parameters.
+   */
+  public static final int RATE_UNSET = NO_VALUE - 1;
+
   /** The default I-frame interval in seconds. */
   public static final float DEFAULT_I_FRAME_INTERVAL_SECONDS = 1.0f;
 
@@ -102,9 +109,9 @@ public final class VideoEncoderSettings {
     /**
      * Sets {@link VideoEncoderSettings#bitrate}. The default value is {@link #NO_VALUE}.
      *
-     * <p>Can not be set if enabling {@link #setEnableHighQualityTargeting(boolean)}.
+     * <p>Can not be set if enabling {@link #experimentalSetEnableHighQualityTargeting(boolean)}.
      *
-     * @param bitrate The {@link VideoEncoderSettings#bitrate}.
+     * @param bitrate The {@link VideoEncoderSettings#bitrate} in bits per second.
      * @return This builder.
      */
     @CanIgnoreReturnValue
@@ -136,8 +143,8 @@ public final class VideoEncoderSettings {
      * <p>The value must be one of the values defined in {@link MediaCodecInfo.CodecProfileLevel},
      * or {@link #NO_VALUE}.
      *
-     * <p>Profile and level settings will be ignored when using {@link DefaultEncoderFactory} and
-     * encoding to H264.
+     * <p>Profile settings will be ignored when using {@link DefaultEncoderFactory} and encoding to
+     * H264.
      *
      * @param encodingProfile The {@link VideoEncoderSettings#profile}.
      * @param encodingLevel The {@link VideoEncoderSettings#level}.
@@ -167,13 +174,18 @@ public final class VideoEncoderSettings {
      * Sets encoding operating rate and priority. The default values are {@link #NO_VALUE}, which is
      * treated as configuring the encoder for maximum throughput.
      *
-     * @param operatingRate The {@link MediaFormat#KEY_OPERATING_RATE operating rate}.
+     * <p>To disable the configuration for operating rate and priority, use {@link #RATE_UNSET} for
+     * both arguments.
+     *
+     * @param operatingRate The {@link MediaFormat#KEY_OPERATING_RATE operating rate} in frames per
+     *     second.
      * @param priority The {@link MediaFormat#KEY_PRIORITY priority}.
      * @return This builder.
      */
     @CanIgnoreReturnValue
     @VisibleForTesting
     public Builder setEncoderPerformanceParameters(int operatingRate, int priority) {
+      checkArgument((operatingRate == RATE_UNSET) == (priority == RATE_UNSET));
       this.operatingRate = operatingRate;
       this.priority = priority;
       return this;
@@ -182,6 +194,8 @@ public final class VideoEncoderSettings {
     /**
      * Sets whether to enable automatic adjustment of the bitrate to target a high quality encoding.
      *
+     * <p>This method is experimental and may be removed or changed without warning.
+     *
      * <p>Default value is {@code false}.
      *
      * <p>Requires {@link android.media.MediaCodecInfo.EncoderCapabilities#BITRATE_MODE_VBR}.
@@ -189,7 +203,7 @@ public final class VideoEncoderSettings {
      * <p>Can not be enabled alongside setting a custom bitrate with {@link #setBitrate(int)}.
      */
     @CanIgnoreReturnValue
-    public Builder setEnableHighQualityTargeting(boolean enableHighQualityTargeting) {
+    public Builder experimentalSetEnableHighQualityTargeting(boolean enableHighQualityTargeting) {
       this.enableHighQualityTargeting = enableHighQualityTargeting;
       return this;
     }
@@ -214,20 +228,27 @@ public final class VideoEncoderSettings {
     }
   }
 
-  /** The encoding bitrate. */
+  /** The encoding bitrate in bits per second. */
   public final int bitrate;
+
   /** One of {@linkplain BitrateMode}. */
   public final @BitrateMode int bitrateMode;
+
   /** The encoding profile. */
   public final int profile;
+
   /** The encoding level. */
   public final int level;
+
   /** The encoding I-Frame interval in seconds. */
   public final float iFrameIntervalSeconds;
-  /** The encoder {@link MediaFormat#KEY_OPERATING_RATE operating rate}. */
+
+  /** The encoder {@link MediaFormat#KEY_OPERATING_RATE operating rate} in frames per second. */
   public final int operatingRate;
+
   /** The encoder {@link MediaFormat#KEY_PRIORITY priority}. */
   public final int priority;
+
   /** Whether the encoder should automatically set the bitrate to target a high quality encoding. */
   public final boolean enableHighQualityTargeting;
 

@@ -15,23 +15,27 @@
  */
 package androidx.media3.exoplayer.rtsp;
 
-import androidx.media3.common.util.UnstableApi;
-
 /** Represents an RTSP DESCRIBE response. */
-@UnstableApi
 /* package */ final class RtspDescribeResponse {
+  /** The response's headers. */
+  public final RtspHeaders headers;
+
   /** The response's status code. */
   public final int status;
+
   /** The {@link SessionDescription} (see RFC2327) in the DESCRIBE response. */
   public final SessionDescription sessionDescription;
 
   /**
    * Creates a new instance.
    *
+   * @param headers The response's headers.
    * @param status The response's status code.
    * @param sessionDescription The {@link SessionDescription} in the DESCRIBE response.
    */
-  public RtspDescribeResponse(int status, SessionDescription sessionDescription) {
+  public RtspDescribeResponse(
+      RtspHeaders headers, int status, SessionDescription sessionDescription) {
+    this.headers = headers;
     this.status = status;
     this.sessionDescription = sessionDescription;
   }

@@ -60,12 +60,6 @@ public interface VideoRendererEventListener {
       String decoderName, long initializedTimestampMs, long initializationDurationMs) {}
 
   /**
-   * @deprecated Use {@link #onVideoInputFormatChanged(Format, DecoderReuseEvaluation)}.
-   */
-  @Deprecated
-  default void onVideoInputFormatChanged(Format format) {}
-
-  /**
    * Called when the format of the media being consumed by the renderer changes.
    *
    * @param format The new format.
@@ -200,10 +194,7 @@ public interface VideoRendererEventListener {
         Format format, @Nullable DecoderReuseEvaluation decoderReuseEvaluation) {
       if (handler != null) {
         handler.post(
-            () -> {
-              castNonNull(listener).onVideoInputFormatChanged(format);
-              castNonNull(listener).onVideoInputFormatChanged(format, decoderReuseEvaluation);
-            });
+            () -> castNonNull(listener).onVideoInputFormatChanged(format, decoderReuseEvaluation));
       }
     }
 

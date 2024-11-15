@@ -401,10 +401,13 @@ public abstract class BinarySearchSeeker {
 
     /** The search found a timestamp that it deems close enough to the given target. */
     public static final int TYPE_TARGET_TIMESTAMP_FOUND = 0;
+
     /** The search found only timestamps larger than the target timestamp. */
     public static final int TYPE_POSITION_OVERESTIMATED = -1;
+
     /** The search found only timestamps smaller than the target timestamp. */
     public static final int TYPE_POSITION_UNDERESTIMATED = -2;
+
     /** The search didn't find any timestamps. */
     public static final int TYPE_NO_TIMESTAMP = -3;
 
@@ -420,7 +423,7 @@ public abstract class BinarySearchSeeker {
     @interface Type {}
 
     public static final TimestampSearchResult NO_TIMESTAMP_IN_RANGE_RESULT =
-        new TimestampSearchResult(TYPE_NO_TIMESTAMP, C.TIME_UNSET, C.POSITION_UNSET);
+        new TimestampSearchResult(TYPE_NO_TIMESTAMP, C.TIME_UNSET, C.INDEX_UNSET);
 
     /** The type of the result. */
     private final @Type int type;
@@ -432,6 +435,7 @@ public abstract class BinarySearchSeeker {
      * SeekOperationParams#floorTimePosition} should be updated with this value.
      */
     private final long timestampToUpdate;
+
     /**
      * When {@link #type} is {@link #TYPE_POSITION_OVERESTIMATED}, the {@link
      * SeekOperationParams#ceilingBytePosition} should be updated with this value. When {@link

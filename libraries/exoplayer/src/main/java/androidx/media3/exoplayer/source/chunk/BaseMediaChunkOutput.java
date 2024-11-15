@@ -20,7 +20,7 @@ import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.source.SampleQueue;
 import androidx.media3.exoplayer.source.chunk.ChunkExtractor.TrackOutputProvider;
-import androidx.media3.extractor.DummyTrackOutput;
+import androidx.media3.extractor.DiscardingTrackOutput;
 import androidx.media3.extractor.TrackOutput;
 
 /**
@@ -52,7 +52,7 @@ public final class BaseMediaChunkOutput implements TrackOutputProvider {
       }
     }
     Log.e(TAG, "Unmatched track of type: " + type);
-    return new DummyTrackOutput();
+    return new DiscardingTrackOutput();
   }
 
   /** Returns the current absolute write indices of the individual sample queues. */

@@ -42,7 +42,6 @@ public final class CameraMotionRenderer extends BaseRenderer {
   private final DecoderInputBuffer buffer;
   private final ParsableByteArray scratch;
 
-  private long offsetUs;
   @Nullable private CameraMotionListener listener;
   private long lastTimestampUs;
 
@@ -75,11 +74,6 @@ public final class CameraMotionRenderer extends BaseRenderer {
   }
 
   @Override
-  protected void onStreamChanged(Format[] formats, long startPositionUs, long offsetUs) {
-    this.offsetUs = offsetUs;
-  }
-
-  @Override
   protected void onPositionReset(long positionUs, boolean joining) {
     lastTimestampUs = Long.MIN_VALUE;
     resetListener();
@@ -102,7 +96,8 @@ public final class CameraMotionRenderer extends BaseRenderer {
       }
 
       lastTimestampUs = buffer.timeUs;
-      if (listener == null || buffer.isDecodeOnly()) {
+      boolean isDecodeOnly = lastTimestampUs < getLastResetPositionUs();
+      if (listener == null || isDecodeOnly) {
         continue;
       }
 
@@ -112,7 +107,7 @@ public final class CameraMotionRenderer extends BaseRenderer {
         continue;
       }
 
-      Util.castNonNull(listener).onCameraMotion(lastTimestampUs - offsetUs, rotation);
+      Util.castNonNull(listener).onCameraMotion(lastTimestampUs - getStreamOffsetUs(), rotation);
     }
   }
 

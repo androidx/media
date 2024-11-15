@@ -20,7 +20,6 @@ import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.castNonNull;
 import static java.lang.Math.min;
 
-import android.annotation.SuppressLint;
 import android.content.ContentValues;
 import android.database.Cursor;
 import android.database.SQLException;
@@ -33,6 +32,7 @@ import androidx.annotation.VisibleForTesting;
 import androidx.annotation.WorkerThread;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.AtomicFile;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Util;
 import androidx.media3.database.DatabaseIOException;
 import androidx.media3.database.DatabaseProvider;
@@ -63,7 +63,6 @@ import javax.crypto.CipherOutputStream;
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
-import org.checkerframework.checker.nullness.compatqual.NullableType;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** Maintains the index of cached content. */
@@ -74,6 +73,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private static final int INCREMENTAL_METADATA_READ_LENGTH = 10 * 1024 * 1024;
 
   private final HashMap<String, CachedContent> keyToContent;
+
   /**
    * Maps assigned ids to their corresponding keys. Also contains (id -> null) entries for ids that
    * have been removed from the index since it was last stored. This prevents reuse of these ids,
@@ -92,11 +92,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * reuse.
    */
   private final SparseArray<@NullableType String> idToKey;
+
   /**
    * Tracks ids for which (id -> null) entries are present in idToKey, so that they can be removed
    * efficiently when the index is next stored.
    */
   private final SparseBooleanArray removedIds;
+
   /** Tracks ids that are new since the index was last stored. */
   private final SparseBooleanArray newIds;
 
@@ -344,19 +346,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     return cachedContent;
   }
 
-  @SuppressLint("GetInstance") // Suppress warning about specifying "BC" as an explicit provider.
-  private static Cipher getCipher() throws NoSuchPaddingException, NoSuchAlgorithmException {
-    // Workaround for https://issuetracker.google.com/issues/36976726
-    if (Util.SDK_INT == 18) {
-      try {
-        return Cipher.getInstance("AES/CBC/PKCS5PADDING", "BC");
-      } catch (Throwable ignored) {
-        // ignored
-      }
-    }
-    return Cipher.getInstance("AES/CBC/PKCS5PADDING");
-  }
-
   /**
    * Returns an id which isn't used in the given array. If the maximum id in the array is smaller
    * than {@link java.lang.Integer#MAX_VALUE} it just returns the next bigger integer. Otherwise it
@@ -523,7 +512,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       if (secretKey != null) {
         Assertions.checkArgument(secretKey.length == 16);
         try {
-          cipher = getCipher();
+          cipher = Cipher.getInstance("AES/CBC/PKCS5PADDING");
           secretKeySpec = new SecretKeySpec(secretKey, "AES");
         } catch (NoSuchAlgorithmException | NoSuchPaddingException e) {
           throw new IllegalStateException(e); // Should never happen.

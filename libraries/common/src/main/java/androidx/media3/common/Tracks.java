@@ -17,11 +17,11 @@ package androidx.media3.common;
 
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.BundleableUtil.toBundleArrayList;
+import static androidx.media3.common.util.BundleCollectionUtil.toBundleArrayList;
 
 import android.os.Bundle;
 import androidx.annotation.Nullable;
-import androidx.media3.common.util.BundleableUtil;
+import androidx.media3.common.util.BundleCollectionUtil;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.common.base.MoreObjects;
@@ -31,14 +31,14 @@ import java.util.Arrays;
 import java.util.List;
 
 /** Information about groups of tracks. */
-public final class Tracks implements Bundleable {
+public final class Tracks {
 
   /**
    * Information about a single group of tracks, including the underlying {@link TrackGroup}, the
    * level to which each track is supported by the player, and whether any of the tracks are
    * selected.
    */
-  public static final class Group implements Bundleable {
+  public static final class Group {
 
     /** The number of tracks in the group. */
     public final int length;
@@ -227,14 +227,11 @@ public final class Tracks implements Bundleable {
       return result;
     }
 
-    // Bundleable implementation.
-
     private static final String FIELD_TRACK_GROUP = Util.intToStringMaxRadix(0);
     private static final String FIELD_TRACK_SUPPORT = Util.intToStringMaxRadix(1);
     private static final String FIELD_TRACK_SELECTED = Util.intToStringMaxRadix(3);
     private static final String FIELD_ADAPTIVE_SUPPORTED = Util.intToStringMaxRadix(4);
 
-    @Override
     public Bundle toBundle() {
       Bundle bundle = new Bundle();
       bundle.putBundle(FIELD_TRACK_GROUP, mediaTrackGroup.toBundle());
@@ -244,22 +241,21 @@ public final class Tracks implements Bundleable {
       return bundle;
     }
 
-    /** Object that can restore a group of tracks from a {@link Bundle}. */
+    /** Restores a group of tracks from a {@link Bundle}. */
     @UnstableApi
-    public static final Creator<Group> CREATOR =
-        bundle -> {
-          // Can't create a Tracks.Group without a TrackGroup
-          TrackGroup trackGroup =
-              TrackGroup.CREATOR.fromBundle(checkNotNull(bundle.getBundle(FIELD_TRACK_GROUP)));
-          final @C.FormatSupport int[] trackSupport =
-              MoreObjects.firstNonNull(
-                  bundle.getIntArray(FIELD_TRACK_SUPPORT), new int[trackGroup.length]);
-          boolean[] selected =
-              MoreObjects.firstNonNull(
-                  bundle.getBooleanArray(FIELD_TRACK_SELECTED), new boolean[trackGroup.length]);
-          boolean adaptiveSupported = bundle.getBoolean(FIELD_ADAPTIVE_SUPPORTED, false);
-          return new Group(trackGroup, adaptiveSupported, trackSupport, selected);
-        };
+    public static Group fromBundle(Bundle bundle) {
+      // Can't create a Tracks.Group without a TrackGroup
+      TrackGroup trackGroup =
+          TrackGroup.fromBundle(checkNotNull(bundle.getBundle(FIELD_TRACK_GROUP)));
+      final @C.FormatSupport int[] trackSupport =
+          MoreObjects.firstNonNull(
+              bundle.getIntArray(FIELD_TRACK_SUPPORT), new int[trackGroup.length]);
+      boolean[] selected =
+          MoreObjects.firstNonNull(
+              bundle.getBooleanArray(FIELD_TRACK_SELECTED), new boolean[trackGroup.length]);
+      boolean adaptiveSupported = bundle.getBoolean(FIELD_ADAPTIVE_SUPPORTED, false);
+      return new Group(trackGroup, adaptiveSupported, trackSupport, selected);
+    }
   }
 
   /** Empty tracks. */
@@ -374,27 +370,24 @@ public final class Tracks implements Bundleable {
   public int hashCode() {
     return groups.hashCode();
   }
-  // Bundleable implementation.
 
   private static final String FIELD_TRACK_GROUPS = Util.intToStringMaxRadix(0);
 
   @UnstableApi
-  @Override
   public Bundle toBundle() {
     Bundle bundle = new Bundle();
-    bundle.putParcelableArrayList(FIELD_TRACK_GROUPS, toBundleArrayList(groups));
+    bundle.putParcelableArrayList(FIELD_TRACK_GROUPS, toBundleArrayList(groups, Group::toBundle));
     return bundle;
   }
 
-  /** Object that can restore tracks from a {@link Bundle}. */
+  /** Restores a {@code Tracks} from a {@link Bundle}. */
   @UnstableApi
-  public static final Creator<Tracks> CREATOR =
-      bundle -> {
-        @Nullable List<Bundle> groupBundles = bundle.getParcelableArrayList(FIELD_TRACK_GROUPS);
-        List<Group> groups =
-            groupBundles == null
-                ? ImmutableList.of()
-                : BundleableUtil.fromBundleList(Group.CREATOR, groupBundles);
-        return new Tracks(groups);
-      };
+  public static Tracks fromBundle(Bundle bundle) {
+    @Nullable List<Bundle> groupBundles = bundle.getParcelableArrayList(FIELD_TRACK_GROUPS);
+    List<Group> groups =
+        groupBundles == null
+            ? ImmutableList.of()
+            : BundleCollectionUtil.fromBundleList(Group::fromBundle, groupBundles);
+    return new Tracks(groups);
+  }
 }

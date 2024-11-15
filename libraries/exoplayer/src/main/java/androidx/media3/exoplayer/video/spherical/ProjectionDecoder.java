@@ -51,7 +51,7 @@ import java.util.zip.Inflater;
 
   private ProjectionDecoder() {}
 
-  /*
+  /**
    * Decodes the projection data.
    *
    * @param projectionData The projection data.

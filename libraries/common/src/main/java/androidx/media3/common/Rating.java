@@ -30,7 +30,7 @@ import java.lang.annotation.Target;
  * A rating for media content. The style of a rating can be one of {@link HeartRating}, {@link
  * PercentageRating}, {@link StarRating}, or {@link ThumbRating}.
  */
-public abstract class Rating implements Bundleable {
+public abstract class Rating {
 
   /** A float value that denotes the rating is unset. */
   /* package */ static final float RATING_UNSET = -1.0f;
@@ -41,7 +41,9 @@ public abstract class Rating implements Bundleable {
   /** Whether the rating exists or not. */
   public abstract boolean isRated();
 
-  // Bundleable implementation.
+  /** Returns a {@link Bundle} representing the information stored in this rating. */
+  @UnstableApi
+  public abstract Bundle toBundle();
 
   @Documented
   @Retention(RetentionPolicy.SOURCE)
@@ -63,21 +65,20 @@ public abstract class Rating implements Bundleable {
 
   /* package */ static final String FIELD_RATING_TYPE = Util.intToStringMaxRadix(0);
 
-  /** Object that can restore a {@link Rating} from a {@link Bundle}. */
-  @UnstableApi public static final Creator<Rating> CREATOR = Rating::fromBundle;
-
-  private static Rating fromBundle(Bundle bundle) {
+  /** Restores a {@code Rating} from a {@link Bundle}. */
+  @UnstableApi
+  public static Rating fromBundle(Bundle bundle) {
     @RatingType
     int ratingType = bundle.getInt(FIELD_RATING_TYPE, /* defaultValue= */ RATING_TYPE_UNSET);
     switch (ratingType) {
       case RATING_TYPE_HEART:
-        return HeartRating.CREATOR.fromBundle(bundle);
+        return HeartRating.fromBundle(bundle);
       case RATING_TYPE_PERCENTAGE:
-        return PercentageRating.CREATOR.fromBundle(bundle);
+        return PercentageRating.fromBundle(bundle);
       case RATING_TYPE_STAR:
-        return StarRating.CREATOR.fromBundle(bundle);
+        return StarRating.fromBundle(bundle);
       case RATING_TYPE_THUMB:
-        return ThumbRating.CREATOR.fromBundle(bundle);
+        return ThumbRating.fromBundle(bundle);
       case RATING_TYPE_UNSET:
       default:
         throw new IllegalArgumentException("Unknown RatingType: " + ratingType);

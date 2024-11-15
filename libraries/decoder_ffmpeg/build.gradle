@@ -13,6 +13,18 @@
 // limitations under the License.
 apply from: "$gradle.ext.androidxMediaSettingsDir/common_library_config.gradle"
 
+android {
+    namespace 'androidx.media3.decoder.ffmpeg'
+
+    // TODO(Internal: b/372449691): Remove packagingOptions once AGP is updated
+    // to version 8.5.1 or higher.
+    packagingOptions {
+        jniLibs {
+            useLegacyPackaging true
+        }
+    }
+}
+
 // Configure the native build only if ffmpeg is present to avoid gradle sync
 // failures if ffmpeg hasn't been built according to the README instructions.
 if (project.file('src/main/jni/ffmpeg').exists()) {
@@ -31,8 +43,3 @@ dependencies {
     testImplementation project(modulePrefix + 'test-utils')
     testImplementation 'org.robolectric:robolectric:' + robolectricVersion
 }
-
-ext {
-    javadocTitle = 'FFmpeg extension'
-}
-apply from: '../../javadoc_library.gradle'

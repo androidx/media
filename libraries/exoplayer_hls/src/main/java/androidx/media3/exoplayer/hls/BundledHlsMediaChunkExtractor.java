@@ -15,9 +15,10 @@
  */
 package androidx.media3.exoplayer.hls;
 
+import static androidx.media3.common.util.Assertions.checkState;
+
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.Format;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.TimestampAdjuster;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.extractor.Extractor;
@@ -26,6 +27,7 @@ import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.extractor.PositionHolder;
 import androidx.media3.extractor.mp3.Mp3Extractor;
 import androidx.media3.extractor.mp4.FragmentedMp4Extractor;
+import androidx.media3.extractor.text.SubtitleParser;
 import androidx.media3.extractor.ts.Ac3Extractor;
 import androidx.media3.extractor.ts.Ac4Extractor;
 import androidx.media3.extractor.ts.AdtsExtractor;
@@ -44,6 +46,8 @@ public final class BundledHlsMediaChunkExtractor implements HlsMediaChunkExtract
   @VisibleForTesting /* package */ final Extractor extractor;
   private final Format multivariantPlaylistFormat;
   private final TimestampAdjuster timestampAdjuster;
+  private final SubtitleParser.Factory subtitleParserFactory;
+  private final boolean parseSubtitlesDuringExtraction;
 
   /**
    * Creates a new instance.
@@ -54,9 +58,38 @@ public final class BundledHlsMediaChunkExtractor implements HlsMediaChunkExtract
    */
   public BundledHlsMediaChunkExtractor(
       Extractor extractor, Format multivariantPlaylistFormat, TimestampAdjuster timestampAdjuster) {
+    this(
+        extractor,
+        multivariantPlaylistFormat,
+        timestampAdjuster,
+        SubtitleParser.Factory.UNSUPPORTED,
+        /* parseSubtitlesDuringExtraction= */ false);
+  }
+
+  /**
+   * Creates a new instance.
+   *
+   * @param extractor The underlying {@link Extractor}.
+   * @param multivariantPlaylistFormat The {@link Format} obtained from the multivariant playlist.
+   * @param timestampAdjuster A {@link TimestampAdjuster} to adjust sample timestamps.
+   * @param subtitleParserFactory A {@link SubtitleParser.Factory} to be used with WebVTT subtitles.
+   *     If the value is null, subtitles will be parsed during decoding, otherwise - during
+   *     extraction. Decoding will only work if this subtitleParserFactory supports the provided
+   *     multivariantPlaylistFormat.
+   */
+  // TODO(b/289983417): Once the subtitle-parsing-during-extraction is the only available flow, make
+  // this constructor public and remove parseSubtitlesDuringExtraction parameter
+  /* package */ BundledHlsMediaChunkExtractor(
+      Extractor extractor,
+      Format multivariantPlaylistFormat,
+      TimestampAdjuster timestampAdjuster,
+      SubtitleParser.Factory subtitleParserFactory,
+      boolean parseSubtitlesDuringExtraction) {
     this.extractor = extractor;
     this.multivariantPlaylistFormat = multivariantPlaylistFormat;
     this.timestampAdjuster = timestampAdjuster;
+    this.subtitleParserFactory = subtitleParserFactory;
+    this.parseSubtitlesDuringExtraction = parseSubtitlesDuringExtraction;
   }
 
   @Override
@@ -71,24 +104,35 @@ public final class BundledHlsMediaChunkExtractor implements HlsMediaChunkExtract
 
   @Override
   public boolean isPackedAudioExtractor() {
-    return extractor instanceof AdtsExtractor
-        || extractor instanceof Ac3Extractor
-        || extractor instanceof Ac4Extractor
-        || extractor instanceof Mp3Extractor;
+    Extractor underlyingExtractor = extractor.getUnderlyingImplementation();
+    return underlyingExtractor instanceof AdtsExtractor
+        || underlyingExtractor instanceof Ac3Extractor
+        || underlyingExtractor instanceof Ac4Extractor
+        || underlyingExtractor instanceof Mp3Extractor;
   }
 
   @Override
   public boolean isReusable() {
-    return extractor instanceof TsExtractor || extractor instanceof FragmentedMp4Extractor;
+    Extractor underlyingExtractor = extractor.getUnderlyingImplementation();
+    return underlyingExtractor instanceof TsExtractor
+        || underlyingExtractor instanceof FragmentedMp4Extractor;
   }
 
   @Override
   public HlsMediaChunkExtractor recreate() {
-    Assertions.checkState(!isReusable());
+    checkState(!isReusable());
+    checkState(
+        extractor.getUnderlyingImplementation() == extractor,
+        "Can't recreate wrapped extractors. Outer type: " + extractor.getClass());
     Extractor newExtractorInstance;
+    // LINT.IfChange(extractor_instantiation)
     if (extractor instanceof WebvttExtractor) {
       newExtractorInstance =
-          new WebvttExtractor(multivariantPlaylistFormat.language, timestampAdjuster);
+          new WebvttExtractor(
+              multivariantPlaylistFormat.language,
+              timestampAdjuster,
+              subtitleParserFactory,
+              parseSubtitlesDuringExtraction);
     } else if (extractor instanceof AdtsExtractor) {
       newExtractorInstance = new AdtsExtractor();
     } else if (extractor instanceof Ac3Extractor) {
@@ -102,7 +146,11 @@ public final class BundledHlsMediaChunkExtractor implements HlsMediaChunkExtract
           "Unexpected extractor type for recreation: " + extractor.getClass().getSimpleName());
     }
     return new BundledHlsMediaChunkExtractor(
-        newExtractorInstance, multivariantPlaylistFormat, timestampAdjuster);
+        newExtractorInstance,
+        multivariantPlaylistFormat,
+        timestampAdjuster,
+        subtitleParserFactory,
+        parseSubtitlesDuringExtraction);
   }
 
   @Override

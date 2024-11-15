@@ -22,7 +22,6 @@ import static androidx.media3.session.SessionCommand.COMMAND_CODE_CUSTOM;
 import android.os.Bundle;
 import androidx.annotation.Nullable;
 import androidx.core.util.ObjectsCompat;
-import androidx.media3.common.Bundleable;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -36,7 +35,7 @@ import java.util.List;
 import java.util.Set;
 
 /** A set of {@link SessionCommand session commands}. */
-public final class SessionCommands implements Bundleable {
+public final class SessionCommands {
 
   private static final String TAG = "SessionCommands";
 
@@ -78,6 +77,18 @@ public final class SessionCommands implements Bundleable {
     public Builder add(@CommandCode int commandCode) {
       checkArgument(commandCode != COMMAND_CODE_CUSTOM);
       commands.add(new SessionCommand(commandCode));
+      return this;
+    }
+
+    /**
+     * Adds all of the commands in the specified collection.
+     *
+     * @param commands collection containing elements to be added to this set
+     * @return This builder for chaining.
+     */
+    @CanIgnoreReturnValue
+    public Builder addSessionCommands(Collection<SessionCommand> commands) {
+      this.commands.addAll(commands);
       return this;
     }
 
@@ -228,12 +239,9 @@ public final class SessionCommands implements Bundleable {
     return false;
   }
 
-  // Bundleable implementation.
-
   private static final String FIELD_SESSION_COMMANDS = Util.intToStringMaxRadix(0);
 
   @UnstableApi
-  @Override
   public Bundle toBundle() {
     Bundle bundle = new Bundle();
     ArrayList<Bundle> sessionCommandBundleList = new ArrayList<>();
@@ -244,22 +252,22 @@ public final class SessionCommands implements Bundleable {
     return bundle;
   }
 
-  /** Object that can restore {@link SessionCommands} from a {@link Bundle}. */
+  /** Restores a {@code SessionCommands} from a {@link Bundle}. */
   @UnstableApi
-  public static final Creator<SessionCommands> CREATOR =
-      bundle -> {
-        @Nullable
-        ArrayList<Bundle> sessionCommandBundleList =
-            bundle.getParcelableArrayList(FIELD_SESSION_COMMANDS);
-        if (sessionCommandBundleList == null) {
-          Log.w(TAG, "Missing commands. Creating an empty SessionCommands");
-          return SessionCommands.EMPTY;
-        }
+  public static SessionCommands fromBundle(Bundle bundle) {
+    @Nullable
+    ArrayList<Bundle> sessionCommandBundleList =
+        bundle.getParcelableArrayList(FIELD_SESSION_COMMANDS);
+    if (sessionCommandBundleList == null) {
+      Log.w(TAG, "Missing commands. Creating an empty SessionCommands");
+      return SessionCommands.EMPTY;
+    }
 
-        Builder builder = new Builder();
-        for (int i = 0; i < sessionCommandBundleList.size(); i++) {
-          builder.add(SessionCommand.CREATOR.fromBundle(sessionCommandBundleList.get(i)));
-        }
-        return builder.build();
-      };
+    Builder builder = new Builder();
+    for (int i = 0; i < sessionCommandBundleList.size(); i++) {
+      builder.add(SessionCommand.fromBundle(sessionCommandBundleList.get(i)));
+    }
+    return builder.build();
+  }
+  ;
 }

@@ -97,7 +97,7 @@ public class MediaBrowserServiceCompatCallbackWithMediaBrowserTest {
           }
         });
 
-    RemoteMediaBrowser browser = new RemoteMediaBrowser(context, token, true, null);
+    RemoteMediaBrowser browser = new RemoteMediaBrowser(context, token, true, Bundle.EMPTY);
     LibraryResult<MediaItem> result = browser.getLibraryRoot(testParams);
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
 
@@ -136,7 +136,7 @@ public class MediaBrowserServiceCompatCallbackWithMediaBrowserTest {
 
     RemoteMediaBrowser browser =
         new RemoteMediaBrowser(
-            context, token, /* waitForConnection= */ true, /* connectionHints= */ null);
+            context, token, /* waitForConnection= */ true, /* connectionHints= */ Bundle.EMPTY);
     LibraryResult<MediaItem> result = browser.getItem(testMediaId);
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
@@ -164,7 +164,7 @@ public class MediaBrowserServiceCompatCallbackWithMediaBrowserTest {
 
     RemoteMediaBrowser browser =
         new RemoteMediaBrowser(
-            context, token, /* waitForConnection= */ true, /* connectionHints= */ null);
+            context, token, /* waitForConnection= */ true, /* connectionHints= */ Bundle.EMPTY);
     LibraryResult<MediaItem> result = browser.getItem(testMediaId);
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
@@ -187,7 +187,7 @@ public class MediaBrowserServiceCompatCallbackWithMediaBrowserTest {
           }
         });
 
-    RemoteMediaBrowser browser = new RemoteMediaBrowser(context, token, true, null);
+    RemoteMediaBrowser browser = new RemoteMediaBrowser(context, token, true, Bundle.EMPTY);
     LibraryResult<MediaItem> result = browser.getItem(testMediaId);
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(result.resultCode).isNotEqualTo(LibraryResult.RESULT_SUCCESS);
@@ -215,7 +215,7 @@ public class MediaBrowserServiceCompatCallbackWithMediaBrowserTest {
             latch.countDown();
           }
         });
-    RemoteMediaBrowser browser = new RemoteMediaBrowser(context, token, true, null);
+    RemoteMediaBrowser browser = new RemoteMediaBrowser(context, token, true, Bundle.EMPTY);
     LibraryResult<ImmutableList<MediaItem>> result =
         browser.getChildren(testParentId, testPage, testPageSize, null);
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
@@ -249,7 +249,7 @@ public class MediaBrowserServiceCompatCallbackWithMediaBrowserTest {
             latch.countDown();
           }
         });
-    RemoteMediaBrowser browser = new RemoteMediaBrowser(context, token, true, null);
+    RemoteMediaBrowser browser = new RemoteMediaBrowser(context, token, true, Bundle.EMPTY);
     LibraryResult<ImmutableList<MediaItem>> result =
         browser.getChildren(testParentId, testPage, testPageSize, null);
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
@@ -277,7 +277,7 @@ public class MediaBrowserServiceCompatCallbackWithMediaBrowserTest {
             latch.countDown();
           }
         });
-    RemoteMediaBrowser browser = new RemoteMediaBrowser(context, token, true, null);
+    RemoteMediaBrowser browser = new RemoteMediaBrowser(context, token, true, Bundle.EMPTY);
     LibraryResult<ImmutableList<MediaItem>> result =
         browser.getChildren(testParentId, testPage, testPageSize, null);
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
@@ -307,7 +307,7 @@ public class MediaBrowserServiceCompatCallbackWithMediaBrowserTest {
             latch.countDown();
           }
         });
-    RemoteMediaBrowser browser = new RemoteMediaBrowser(context, token, true, null);
+    RemoteMediaBrowser browser = new RemoteMediaBrowser(context, token, true, Bundle.EMPTY);
     LibraryResult<ImmutableList<MediaItem>> result =
         browser.getChildren(testParentId, testPage, testPageSize, testParams);
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
@@ -332,7 +332,7 @@ public class MediaBrowserServiceCompatCallbackWithMediaBrowserTest {
             subscribeLatch.countDown();
           }
         });
-    RemoteMediaBrowser browser = new RemoteMediaBrowser(context, token, true, null);
+    RemoteMediaBrowser browser = new RemoteMediaBrowser(context, token, true, Bundle.EMPTY);
     LibraryResult<Void> result = browser.subscribe(testParentId, testParams);
     assertThat(subscribeLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(result.resultCode).isEqualTo(LibraryResult.RESULT_SUCCESS);
@@ -354,7 +354,7 @@ public class MediaBrowserServiceCompatCallbackWithMediaBrowserTest {
             subscribeLatch.countDown();
           }
         });
-    RemoteMediaBrowser browser = new RemoteMediaBrowser(context, token, true, null);
+    RemoteMediaBrowser browser = new RemoteMediaBrowser(context, token, true, Bundle.EMPTY);
     LibraryResult<Void> result = browser.subscribe(testParentId, null);
     assertThat(subscribeLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(result.resultCode).isNotEqualTo(LibraryResult.RESULT_SUCCESS);
@@ -382,7 +382,7 @@ public class MediaBrowserServiceCompatCallbackWithMediaBrowserTest {
           }
         });
 
-    RemoteMediaBrowser browser = new RemoteMediaBrowser(context, token, true, null);
+    RemoteMediaBrowser browser = new RemoteMediaBrowser(context, token, true, Bundle.EMPTY);
     LibraryResult<Void> result = browser.search(testQuery, testParams);
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(result.resultCode).isEqualTo(LibraryResult.RESULT_SUCCESS);
@@ -403,7 +403,7 @@ public class MediaBrowserServiceCompatCallbackWithMediaBrowserTest {
           }
         });
 
-    RemoteMediaBrowser browser = new RemoteMediaBrowser(context, token, true, null);
+    RemoteMediaBrowser browser = new RemoteMediaBrowser(context, token, true, Bundle.EMPTY);
     LibraryResult<Void> result = browser.search(testQuery, null);
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(result.resultCode).isEqualTo(LibraryResult.RESULT_SUCCESS);
@@ -431,7 +431,7 @@ public class MediaBrowserServiceCompatCallbackWithMediaBrowserTest {
           }
         });
 
-    RemoteMediaBrowser browser = new RemoteMediaBrowser(context, token, true, null);
+    RemoteMediaBrowser browser = new RemoteMediaBrowser(context, token, true, Bundle.EMPTY);
     LibraryResult<ImmutableList<MediaItem>> result =
         browser.getSearchResult(testQuery, testPage, testPageSize, testParams);
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
@@ -456,7 +456,7 @@ public class MediaBrowserServiceCompatCallbackWithMediaBrowserTest {
           }
         });
 
-    RemoteMediaBrowser browser = new RemoteMediaBrowser(context, token, true, null);
+    RemoteMediaBrowser browser = new RemoteMediaBrowser(context, token, true, Bundle.EMPTY);
     LibraryResult<ImmutableList<MediaItem>> result =
         browser.getSearchResult(testQuery, testPage, testPageSize, testParams);
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();

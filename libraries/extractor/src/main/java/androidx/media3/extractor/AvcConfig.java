@@ -16,12 +16,14 @@
 package androidx.media3.extractor;
 
 import androidx.annotation.Nullable;
+import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.CodecSpecificDataUtil;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.extractor.NalUnitUtil.SpsData;
+import androidx.media3.container.NalUnitUtil;
+import androidx.media3.container.NalUnitUtil.SpsData;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -56,8 +58,15 @@ public final class AvcConfig {
 
       int width = Format.NO_VALUE;
       int height = Format.NO_VALUE;
+      int bitdepthLuma = Format.NO_VALUE;
+      int bitdepthChroma = Format.NO_VALUE;
+      @C.ColorSpace int colorSpace = Format.NO_VALUE;
+      @C.ColorRange int colorRange = Format.NO_VALUE;
+      @C.ColorTransfer int colorTransfer = Format.NO_VALUE;
       float pixelWidthHeightRatio = 1;
       @Nullable String codecs = null;
+      // Max possible value defined in section E.2.1 of the H.264 spec.
+      int maxNumReorderFrames = 16;
       if (numSequenceParameterSets > 0) {
         byte[] sps = initializationData.get(0);
         SpsData spsData =
@@ -65,6 +74,12 @@ public final class AvcConfig {
                 initializationData.get(0), nalUnitLengthFieldLength, sps.length);
         width = spsData.width;
         height = spsData.height;
+        bitdepthLuma = spsData.bitDepthLumaMinus8 + 8;
+        bitdepthChroma = spsData.bitDepthChromaMinus8 + 8;
+        colorSpace = spsData.colorSpace;
+        colorRange = spsData.colorRange;
+        colorTransfer = spsData.colorTransfer;
+        maxNumReorderFrames = spsData.maxNumReorderFrames;
         pixelWidthHeightRatio = spsData.pixelWidthHeightRatio;
         codecs =
             CodecSpecificDataUtil.buildAvcCodecString(
@@ -76,6 +91,12 @@ public final class AvcConfig {
           nalUnitLengthFieldLength,
           width,
           height,
+          bitdepthLuma,
+          bitdepthChroma,
+          colorSpace,
+          colorRange,
+          colorTransfer,
+          maxNumReorderFrames,
           pixelWidthHeightRatio,
           codecs);
     } catch (ArrayIndexOutOfBoundsException e) {
@@ -99,6 +120,34 @@ public final class AvcConfig {
   /** The height of each decoded frame, or {@link Format#NO_VALUE} if unknown. */
   public final int height;
 
+  /** The bit depth of the luma samples, or {@link Format#NO_VALUE} if unknown. */
+  public final int bitdepthLuma;
+
+  /** The bit depth of the chroma samples, or {@link Format#NO_VALUE} if unknown. */
+  public final int bitdepthChroma;
+
+  /**
+   * The {@link C.ColorSpace} of the video, or {@link Format#NO_VALUE} if unknown or not applicable.
+   */
+  public final @C.ColorSpace int colorSpace;
+
+  /**
+   * The {@link C.ColorRange} of the video, or {@link Format#NO_VALUE} if unknown or not applicable.
+   */
+  public final @C.ColorRange int colorRange;
+
+  /**
+   * The {@link C.ColorTransfer} of the video, or {@link Format#NO_VALUE} if unknown or not
+   * applicable.
+   */
+  public final @C.ColorTransfer int colorTransfer;
+
+  /**
+   * The value of {@code max_num_reorder_frames} read from the VUI parameters, or inferred according
+   * to the spec if absent.
+   */
+  public final int maxNumReorderFrames;
+
   /** The pixel width to height ratio. */
   public final float pixelWidthHeightRatio;
 
@@ -114,12 +163,24 @@ public final class AvcConfig {
       int nalUnitLengthFieldLength,
       int width,
       int height,
+      int bitdepthLuma,
+      int bitdepthChroma,
+      @C.ColorSpace int colorSpace,
+      @C.ColorRange int colorRange,
+      @C.ColorTransfer int colorTransfer,
+      int maxNumReorderFrames,
       float pixelWidthHeightRatio,
       @Nullable String codecs) {
     this.initializationData = initializationData;
     this.nalUnitLengthFieldLength = nalUnitLengthFieldLength;
     this.width = width;
     this.height = height;
+    this.bitdepthLuma = bitdepthLuma;
+    this.bitdepthChroma = bitdepthChroma;
+    this.colorSpace = colorSpace;
+    this.colorRange = colorRange;
+    this.colorTransfer = colorTransfer;
+    this.maxNumReorderFrames = maxNumReorderFrames;
     this.pixelWidthHeightRatio = pixelWidthHeightRatio;
     this.codecs = codecs;
   }

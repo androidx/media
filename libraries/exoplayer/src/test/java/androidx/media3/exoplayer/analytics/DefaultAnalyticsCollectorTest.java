@@ -39,6 +39,7 @@ import static androidx.media3.exoplayer.analytics.AnalyticsListener.EVENT_PLAYER
 import static androidx.media3.exoplayer.analytics.AnalyticsListener.EVENT_PLAY_WHEN_READY_CHANGED;
 import static androidx.media3.exoplayer.analytics.AnalyticsListener.EVENT_POSITION_DISCONTINUITY;
 import static androidx.media3.exoplayer.analytics.AnalyticsListener.EVENT_RENDERED_FIRST_FRAME;
+import static androidx.media3.exoplayer.analytics.AnalyticsListener.EVENT_RENDERER_READY_CHANGED;
 import static androidx.media3.exoplayer.analytics.AnalyticsListener.EVENT_TIMELINE_CHANGED;
 import static androidx.media3.exoplayer.analytics.AnalyticsListener.EVENT_TRACKS_CHANGED;
 import static androidx.media3.exoplayer.analytics.AnalyticsListener.EVENT_VIDEO_DECODER_INITIALIZED;
@@ -49,10 +50,11 @@ import static androidx.media3.exoplayer.analytics.AnalyticsListener.EVENT_VIDEO_
 import static androidx.media3.exoplayer.analytics.AnalyticsListener.EVENT_VIDEO_SIZE_CHANGED;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.END_OF_STREAM_ITEM;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.oneByteSample;
+import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.play;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.playUntilPosition;
+import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.run;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.runUntilError;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.runUntilIsLoading;
-import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.runUntilPendingCommandsAreFullyHandled;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.runUntilPlaybackState;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.runUntilTimelineChanged;
 import static com.google.common.truth.Truth.assertThat;
@@ -96,6 +98,7 @@ import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.DecoderCounters;
+import androidx.media3.exoplayer.DecoderReuseEvaluation;
 import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.Renderer;
@@ -106,7 +109,6 @@ import androidx.media3.exoplayer.drm.DrmSessionManager;
 import androidx.media3.exoplayer.drm.ExoMediaDrm;
 import androidx.media3.exoplayer.drm.MediaDrmCallback;
 import androidx.media3.exoplayer.drm.MediaDrmCallbackException;
-import androidx.media3.exoplayer.source.ConcatenatingMediaSource;
 import androidx.media3.exoplayer.source.LoadEventInfo;
 import androidx.media3.exoplayer.source.MediaLoadData;
 import androidx.media3.exoplayer.source.MediaSource;
@@ -145,13 +147,9 @@ import org.mockito.InOrder;
 public final class DefaultAnalyticsCollectorTest {
 
   // Deprecated event constants.
-  private static final long EVENT_PLAYER_STATE_CHANGED = 1L << 63;
-  private static final long EVENT_SEEK_STARTED = 1L << 62;
-  private static final long EVENT_SEEK_PROCESSED = 1L << 61;
-  private static final long EVENT_DECODER_ENABLED = 1L << 60;
-  private static final long EVENT_DECODER_INIT = 1L << 59;
-  private static final long EVENT_DECODER_FORMAT_CHANGED = 1L << 58;
-  private static final long EVENT_DECODER_DISABLED = 1L << 57;
+  private static final long EVENT_PLAYER_STATE_CHANGED = Long.MIN_VALUE;
+  private static final long EVENT_SEEK_STARTED = Long.MIN_VALUE + 1;
+  private static final long DEPRECATED_EVENT_LOAD_STARTED = Long.MIN_VALUE + 2;
 
   private static final UUID DRM_SCHEME_UUID =
       UUID.nameUUIDFromBytes(TestUtil.createByteArray(7, 8, 9));
@@ -201,12 +199,7 @@ public final class DefaultAnalyticsCollectorTest {
    */
   @Test
   public void defaultAnalyticsCollector_overridesAllPlayerListenerMethods() throws Exception {
-    for (Method method : Player.Listener.class.getDeclaredMethods()) {
-      if (method.isSynthetic()) {
-        // JaCoCo inserts synthetic methods. See "My code uses reflection. Why does it fail when I
-        // execute it with JaCoCo?": https://www.eclemma.org/jacoco/trunk/doc/faq.html
-        continue;
-      }
+    for (Method method : TestUtil.getPublicMethods(Player.Listener.class)) {
       assertThat(
               DefaultAnalyticsCollector.class
                   .getMethod(method.getName(), method.getParameterTypes())
@@ -273,19 +266,13 @@ public final class DefaultAnalyticsCollectorTest {
     assertThat(listener.getEvents(EVENT_LOAD_STARTED))
         .containsExactly(WINDOW_0 /* manifest */, period0 /* media */)
         .inOrder();
+    assertThat(listener.getEvents(DEPRECATED_EVENT_LOAD_STARTED))
+        .containsExactly(WINDOW_0 /* manifest */, period0 /* media */)
+        .inOrder();
     assertThat(listener.getEvents(EVENT_LOAD_COMPLETED))
         .containsExactly(WINDOW_0 /* manifest */, period0 /* media */)
         .inOrder();
     assertThat(listener.getEvents(EVENT_DOWNSTREAM_FORMAT_CHANGED))
-        .containsExactly(period0 /* audio */, period0 /* video */)
-        .inOrder();
-    assertThat(listener.getEvents(EVENT_DECODER_ENABLED))
-        .containsExactly(period0 /* audio */, period0 /* video */)
-        .inOrder();
-    assertThat(listener.getEvents(EVENT_DECODER_INIT))
-        .containsExactly(period0 /* audio */, period0 /* video */)
-        .inOrder();
-    assertThat(listener.getEvents(EVENT_DECODER_FORMAT_CHANGED))
         .containsExactly(period0 /* audio */, period0 /* video */)
         .inOrder();
     assertThat(listener.getEvents(EVENT_AUDIO_ENABLED)).containsExactly(period0);
@@ -299,27 +286,30 @@ public final class DefaultAnalyticsCollectorTest {
     assertThat(listener.getEvents(EVENT_VIDEO_SIZE_CHANGED)).containsExactly(period0);
     assertThat(listener.getEvents(EVENT_RENDERED_FIRST_FRAME)).containsExactly(period0);
     assertThat(listener.getEvents(EVENT_VIDEO_FRAME_PROCESSING_OFFSET)).containsExactly(period0);
+    assertThat(listener.getEvents(EVENT_RENDERER_READY_CHANGED))
+        .containsExactly(period0 /* audioTrue */, period0 /* videoTrue */)
+        .inOrder();
     listener.assertNoMoreEvents();
   }
 
   @Test
   public void automaticPeriodTransition() throws Exception {
-    MediaSource mediaSource =
-        new ConcatenatingMediaSource(
-            new FakeMediaSource(
-                SINGLE_PERIOD_TIMELINE,
-                ExoPlayerTestRunner.VIDEO_FORMAT,
-                ExoPlayerTestRunner.AUDIO_FORMAT),
-            new FakeMediaSource(
-                SINGLE_PERIOD_TIMELINE,
-                ExoPlayerTestRunner.VIDEO_FORMAT,
-                ExoPlayerTestRunner.AUDIO_FORMAT));
+    MediaSource mediaSource1 =
+        new FakeMediaSource(
+            SINGLE_PERIOD_TIMELINE,
+            ExoPlayerTestRunner.VIDEO_FORMAT,
+            ExoPlayerTestRunner.AUDIO_FORMAT);
+    MediaSource mediaSource2 =
+        new FakeMediaSource(
+            SINGLE_PERIOD_TIMELINE,
+            ExoPlayerTestRunner.VIDEO_FORMAT,
+            ExoPlayerTestRunner.AUDIO_FORMAT);
     ExoPlayer player = setupPlayer();
     TestAnalyticsListener listener = new TestAnalyticsListener();
     player.addAnalyticsListener(listener);
 
     player.play();
-    player.setMediaSource(mediaSource);
+    player.setMediaSources(ImmutableList.of(mediaSource1, mediaSource2));
     player.prepare();
     runUntilPlaybackState(player, Player.STATE_ENDED);
 
@@ -332,7 +322,7 @@ public final class DefaultAnalyticsCollectorTest {
             period1 /* ENDED */)
         .inOrder();
     assertThat(listener.getEvents(EVENT_TIMELINE_CHANGED))
-        .containsExactly(WINDOW_0 /* PLAYLIST_CHANGED */, period0 /* SOURCE_UPDATE */)
+        .containsExactly(WINDOW_0 /* PLAYLIST_CHANGED */, WINDOW_0 /* SOURCE_UPDATE */)
         .inOrder();
     assertThat(listener.getEvents(EVENT_POSITION_DISCONTINUITY)).containsExactly(period1);
     assertThat(listener.getEvents(EVENT_IS_LOADING_CHANGED))
@@ -348,6 +338,13 @@ public final class DefaultAnalyticsCollectorTest {
             period0 /* media */,
             period1 /* media */)
         .inOrder();
+    assertThat(listener.getEvents(DEPRECATED_EVENT_LOAD_STARTED))
+        .containsExactly(
+            WINDOW_0 /* manifest */,
+            WINDOW_1 /* manifest */,
+            period0 /* media */,
+            period1 /* media */)
+        .inOrder();
     assertThat(listener.getEvents(EVENT_LOAD_COMPLETED))
         .containsExactly(
             WINDOW_0 /* manifest */,
@@ -356,17 +353,6 @@ public final class DefaultAnalyticsCollectorTest {
             period1 /* media */)
         .inOrder();
     assertThat(listener.getEvents(EVENT_DOWNSTREAM_FORMAT_CHANGED))
-        .containsExactly(
-            period0 /* audio */, period0 /* video */, period1 /* audio */, period1 /* video */)
-        .inOrder();
-    assertThat(listener.getEvents(EVENT_DECODER_ENABLED))
-        .containsExactly(period0 /* audio */, period0 /* video */)
-        .inOrder();
-    assertThat(listener.getEvents(EVENT_DECODER_INIT))
-        .containsExactly(
-            period0 /* audio */, period0 /* video */, period1 /* audio */, period1 /* video */)
-        .inOrder();
-    assertThat(listener.getEvents(EVENT_DECODER_FORMAT_CHANGED))
         .containsExactly(
             period0 /* audio */, period0 /* video */, period1 /* audio */, period1 /* video */)
         .inOrder();
@@ -386,28 +372,29 @@ public final class DefaultAnalyticsCollectorTest {
         .containsExactly(period0, period1)
         .inOrder();
     assertThat(listener.getEvents(EVENT_DROPPED_VIDEO_FRAMES)).containsExactly(period1);
-    assertThat(listener.getEvents(EVENT_VIDEO_SIZE_CHANGED))
-        .containsExactly(period0, period1)
-        .inOrder();
+    assertThat(listener.getEvents(EVENT_VIDEO_SIZE_CHANGED)).containsExactly(period0);
     assertThat(listener.getEvents(EVENT_RENDERED_FIRST_FRAME))
         .containsExactly(period0, period1)
         .inOrder();
     assertThat(listener.getEvents(EVENT_VIDEO_FRAME_PROCESSING_OFFSET)).containsExactly(period1);
+    assertThat(listener.getEvents(EVENT_RENDERER_READY_CHANGED))
+        .containsExactly(period0 /* audioTrue */, period0 /* videoTrue */)
+        .inOrder();
     listener.assertNoMoreEvents();
   }
 
   @Test
   public void periodTransitionWithRendererChange() throws Exception {
-    MediaSource mediaSource =
-        new ConcatenatingMediaSource(
-            new FakeMediaSource(SINGLE_PERIOD_TIMELINE, ExoPlayerTestRunner.VIDEO_FORMAT),
-            new FakeMediaSource(SINGLE_PERIOD_TIMELINE, ExoPlayerTestRunner.AUDIO_FORMAT));
+    MediaSource mediaSource1 =
+        new FakeMediaSource(SINGLE_PERIOD_TIMELINE, ExoPlayerTestRunner.VIDEO_FORMAT);
+    MediaSource mediaSource2 =
+        new FakeMediaSource(SINGLE_PERIOD_TIMELINE, ExoPlayerTestRunner.AUDIO_FORMAT);
     ExoPlayer player = setupPlayer();
     TestAnalyticsListener listener = new TestAnalyticsListener();
     player.addAnalyticsListener(listener);
 
     player.play();
-    player.setMediaSource(mediaSource);
+    player.setMediaSources(ImmutableList.of(mediaSource1, mediaSource2));
     player.prepare();
     runUntilPlaybackState(player, Player.STATE_ENDED);
 
@@ -420,7 +407,7 @@ public final class DefaultAnalyticsCollectorTest {
             period1 /* ENDED */)
         .inOrder();
     assertThat(listener.getEvents(EVENT_TIMELINE_CHANGED))
-        .containsExactly(WINDOW_0 /* PLAYLIST_CHANGED */, period0 /* SOURCE_UPDATE */)
+        .containsExactly(WINDOW_0 /* PLAYLIST_CHANGED */, WINDOW_0 /* SOURCE_UPDATE */)
         .inOrder();
     assertThat(listener.getEvents(EVENT_POSITION_DISCONTINUITY)).containsExactly(period1);
     assertThat(listener.getEvents(EVENT_IS_LOADING_CHANGED))
@@ -430,6 +417,13 @@ public final class DefaultAnalyticsCollectorTest {
         .containsExactly(period0, period1)
         .inOrder();
     assertThat(listener.getEvents(EVENT_LOAD_STARTED))
+        .containsExactly(
+            WINDOW_0 /* manifest */,
+            WINDOW_1 /* manifest */,
+            period0 /* media */,
+            period1 /* media */)
+        .inOrder();
+    assertThat(listener.getEvents(DEPRECATED_EVENT_LOAD_STARTED))
         .containsExactly(
             WINDOW_0 /* manifest */,
             WINDOW_1 /* manifest */,
@@ -446,16 +440,6 @@ public final class DefaultAnalyticsCollectorTest {
     assertThat(listener.getEvents(EVENT_DOWNSTREAM_FORMAT_CHANGED))
         .containsExactly(period0 /* video */, period1 /* audio */)
         .inOrder();
-    assertThat(listener.getEvents(EVENT_DECODER_ENABLED))
-        .containsExactly(period0 /* video */, period1 /* audio */)
-        .inOrder();
-    assertThat(listener.getEvents(EVENT_DECODER_INIT))
-        .containsExactly(period0 /* video */, period1 /* audio */)
-        .inOrder();
-    assertThat(listener.getEvents(EVENT_DECODER_FORMAT_CHANGED))
-        .containsExactly(period0 /* video */, period1 /* audio */)
-        .inOrder();
-    assertThat(listener.getEvents(EVENT_DECODER_DISABLED)).containsExactly(period0 /* video */);
     assertThat(listener.getEvents(EVENT_AUDIO_ENABLED)).containsExactly(period1);
     assertThat(listener.getEvents(EVENT_AUDIO_DECODER_INITIALIZED)).containsExactly(period1);
     assertThat(listener.getEvents(EVENT_AUDIO_INPUT_FORMAT_CHANGED)).containsExactly(period1);
@@ -465,33 +449,39 @@ public final class DefaultAnalyticsCollectorTest {
     assertThat(listener.getEvents(EVENT_VIDEO_INPUT_FORMAT_CHANGED)).containsExactly(period0);
     assertThat(listener.getEvents(EVENT_VIDEO_DISABLED)).containsExactly(period0);
     assertThat(listener.getEvents(EVENT_DROPPED_VIDEO_FRAMES)).containsExactly(period0);
-    assertThat(listener.getEvents(EVENT_VIDEO_SIZE_CHANGED)).containsExactly(period0);
+    assertThat(listener.getEvents(EVENT_VIDEO_SIZE_CHANGED))
+        .containsExactly(
+            period0, // First frame rendered of first video item
+            period1) // width=0, height=0 for audio only media source
+        .inOrder();
     assertThat(listener.getEvents(EVENT_RENDERED_FIRST_FRAME)).containsExactly(period0);
     assertThat(listener.getEvents(EVENT_VIDEO_FRAME_PROCESSING_OFFSET)).containsExactly(period0);
+    assertThat(listener.getEvents(EVENT_RENDERER_READY_CHANGED))
+        .containsExactly(period0 /* videoTrue */, period1 /* videoFalse */, period1 /* audioTrue */)
+        .inOrder();
     listener.assertNoMoreEvents();
   }
 
   @Test
   public void seekToOtherPeriod() throws Exception {
-    MediaSource mediaSource =
-        new ConcatenatingMediaSource(
-            new FakeMediaSource(
-                SINGLE_PERIOD_TIMELINE,
-                ExoPlayerTestRunner.VIDEO_FORMAT,
-                ExoPlayerTestRunner.AUDIO_FORMAT),
-            new FakeMediaSource(SINGLE_PERIOD_TIMELINE, ExoPlayerTestRunner.AUDIO_FORMAT));
+    MediaSource mediaSource1 =
+        new FakeMediaSource(
+            SINGLE_PERIOD_TIMELINE,
+            ExoPlayerTestRunner.VIDEO_FORMAT,
+            ExoPlayerTestRunner.AUDIO_FORMAT);
+    MediaSource mediaSource2 =
+        new FakeMediaSource(SINGLE_PERIOD_TIMELINE, ExoPlayerTestRunner.AUDIO_FORMAT);
     ExoPlayer player = setupPlayer();
     TestAnalyticsListener listener = new TestAnalyticsListener();
     player.addAnalyticsListener(listener);
 
-    player.setMediaSource(mediaSource);
+    player.setMediaSources(ImmutableList.of(mediaSource1, mediaSource2));
     player.prepare();
     // Wait until second period has fully loaded to assert loading events.
-    runUntilIsLoading(player, /* expectedIsLoading= */ true);
-    runUntilIsLoading(player, /* expectedIsLoading= */ false);
+    run(player).untilFullyBuffered();
     player.seekTo(/* mediaItemIndex= */ 1, /* positionMs= */ 0);
     player.play();
-    runUntilPlaybackState(player, Player.STATE_ENDED);
+    run(player).untilState(Player.STATE_ENDED);
 
     populateEventIds(listener.lastReportedTimeline);
     assertThat(listener.getEvents(EVENT_PLAYER_STATE_CHANGED))
@@ -504,11 +494,10 @@ public final class DefaultAnalyticsCollectorTest {
             period1 /* ENDED */)
         .inOrder();
     assertThat(listener.getEvents(EVENT_TIMELINE_CHANGED))
-        .containsExactly(WINDOW_0 /* PLAYLIST_CHANGED */, period0 /* SOURCE_UPDATE */)
+        .containsExactly(WINDOW_0 /* PLAYLIST_CHANGED */, WINDOW_0 /* SOURCE_UPDATE */)
         .inOrder();
     assertThat(listener.getEvents(EVENT_POSITION_DISCONTINUITY)).containsExactly(period1);
     assertThat(listener.getEvents(EVENT_SEEK_STARTED)).containsExactly(period0);
-    assertThat(listener.getEvents(EVENT_SEEK_PROCESSED)).containsExactly(period1);
     assertThat(listener.getEvents(EVENT_IS_LOADING_CHANGED))
         .containsExactly(period0, period0)
         .inOrder();
@@ -522,6 +511,13 @@ public final class DefaultAnalyticsCollectorTest {
             period0 /* media */,
             period1 /* media */)
         .inOrder();
+    assertThat(listener.getEvents(DEPRECATED_EVENT_LOAD_STARTED))
+        .containsExactly(
+            WINDOW_0 /* manifest */,
+            WINDOW_1 /* manifest */,
+            period0 /* media */,
+            period1 /* media */)
+        .inOrder();
     assertThat(listener.getEvents(EVENT_LOAD_COMPLETED))
         .containsExactly(
             WINDOW_0 /* manifest */,
@@ -531,18 +527,6 @@ public final class DefaultAnalyticsCollectorTest {
         .inOrder();
     assertThat(listener.getEvents(EVENT_DOWNSTREAM_FORMAT_CHANGED))
         .containsExactly(period0 /* video */, period0 /* audio */, period1 /* audio */)
-        .inOrder();
-    assertThat(listener.getEvents(EVENT_DECODER_ENABLED))
-        .containsExactly(period0 /* video */, period0 /* audio */, period1 /* audio */)
-        .inOrder();
-    assertThat(listener.getEvents(EVENT_DECODER_INIT))
-        .containsExactly(period0 /* video */, period0 /* audio */, period1 /* audio */)
-        .inOrder();
-    assertThat(listener.getEvents(EVENT_DECODER_FORMAT_CHANGED))
-        .containsExactly(period0 /* video */, period0 /* audio */, period1 /* audio */)
-        .inOrder();
-    assertThat(listener.getEvents(EVENT_DECODER_DISABLED))
-        .containsExactly(period0 /* video */, period0 /* audio */)
         .inOrder();
     assertThat(listener.getEvents(EVENT_AUDIO_ENABLED)).containsExactly(period0, period1).inOrder();
     assertThat(listener.getEvents(EVENT_AUDIO_DECODER_INITIALIZED))
@@ -559,27 +543,39 @@ public final class DefaultAnalyticsCollectorTest {
     assertThat(listener.getEvents(EVENT_VIDEO_DECODER_INITIALIZED)).containsExactly(period0);
     assertThat(listener.getEvents(EVENT_VIDEO_INPUT_FORMAT_CHANGED)).containsExactly(period0);
     assertThat(listener.getEvents(EVENT_VIDEO_DISABLED)).containsExactly(period0);
-    assertThat(listener.getEvents(EVENT_VIDEO_SIZE_CHANGED)).containsExactly(period0);
+    assertThat(listener.getEvents(EVENT_VIDEO_SIZE_CHANGED))
+        .containsExactly(
+            period0, // First frame rendered of first video item
+            period1) // width=0, height=0 for audio only media source
+        .inOrder();
     assertThat(listener.getEvents(EVENT_RENDERED_FIRST_FRAME)).containsExactly(period0);
+    assertThat(listener.getEvents(EVENT_RENDERER_READY_CHANGED))
+        .containsExactly(
+            period0 /* videoTrue */,
+            period0 /* audioTrue */,
+            period1 /* videoFalse */,
+            period1 /* audioFalse */,
+            period1 /* audioTrue */)
+        .inOrder();
     listener.assertNoMoreEvents();
   }
 
   @Test
   public void seekBackAfterReadingAhead() throws Exception {
-    MediaSource mediaSource =
-        new ConcatenatingMediaSource(
-            new FakeMediaSource(SINGLE_PERIOD_TIMELINE, ExoPlayerTestRunner.VIDEO_FORMAT),
-            new FakeMediaSource(
-                SINGLE_PERIOD_TIMELINE,
-                ExoPlayerTestRunner.VIDEO_FORMAT,
-                ExoPlayerTestRunner.AUDIO_FORMAT));
+    MediaSource mediaSource1 =
+        new FakeMediaSource(SINGLE_PERIOD_TIMELINE, ExoPlayerTestRunner.VIDEO_FORMAT);
+    MediaSource mediaSource2 =
+        new FakeMediaSource(
+            SINGLE_PERIOD_TIMELINE,
+            ExoPlayerTestRunner.VIDEO_FORMAT,
+            ExoPlayerTestRunner.AUDIO_FORMAT);
     long windowDurationMs =
         SINGLE_PERIOD_TIMELINE.getWindow(/* windowIndex= */ 0, new Window()).getDurationMs();
     ExoPlayer player = setupPlayer();
     TestAnalyticsListener listener = new TestAnalyticsListener();
     player.addAnalyticsListener(listener);
 
-    player.setMediaSource(mediaSource);
+    player.setMediaSources(ImmutableList.of(mediaSource1, mediaSource2));
     player.prepare();
     runUntilPlaybackState(player, Player.STATE_READY);
     playUntilPosition(player, /* mediaItemIndex= */ 0, windowDurationMs - 100);
@@ -594,20 +590,17 @@ public final class DefaultAnalyticsCollectorTest {
             WINDOW_0 /* BUFFERING */,
             period0 /* READY */,
             period0 /* setPlayWhenReady=true */,
-            period0 /* setPlayWhenReady=false */,
             period0 /* BUFFERING */,
             period0 /* READY */,
-            period0 /* setPlayWhenReady=true */,
             period1Seq2 /* ENDED */)
         .inOrder();
     assertThat(listener.getEvents(EVENT_TIMELINE_CHANGED))
-        .containsExactly(WINDOW_0 /* PLAYLIST_CHANGED */, period0 /* SOURCE_UPDATE */)
+        .containsExactly(WINDOW_0 /* PLAYLIST_CHANGED */, WINDOW_0 /* SOURCE_UPDATE */)
         .inOrder();
     assertThat(listener.getEvents(EVENT_POSITION_DISCONTINUITY))
         .containsExactly(period0, period1Seq2)
         .inOrder();
     assertThat(listener.getEvents(EVENT_SEEK_STARTED)).containsExactly(period0);
-    assertThat(listener.getEvents(EVENT_SEEK_PROCESSED)).containsExactly(period0);
     assertThat(listener.getEvents(EVENT_IS_LOADING_CHANGED))
         .containsExactly(period0, period0, period0, period0)
         .inOrder();
@@ -615,6 +608,14 @@ public final class DefaultAnalyticsCollectorTest {
         .containsExactly(period0, period1Seq2)
         .inOrder();
     assertThat(listener.getEvents(EVENT_LOAD_STARTED))
+        .containsExactly(
+            WINDOW_0 /* manifest */,
+            WINDOW_1 /* manifest */,
+            period0 /* media */,
+            period1Seq1 /* media */,
+            period1Seq2 /* media */)
+        .inOrder();
+    assertThat(listener.getEvents(DEPRECATED_EVENT_LOAD_STARTED))
         .containsExactly(
             WINDOW_0 /* manifest */,
             WINDOW_1 /* manifest */,
@@ -633,16 +634,6 @@ public final class DefaultAnalyticsCollectorTest {
     assertThat(listener.getEvents(EVENT_DOWNSTREAM_FORMAT_CHANGED))
         .containsExactly(period0, period1Seq1, period1Seq1, period1Seq2, period1Seq2)
         .inOrder();
-    assertThat(listener.getEvents(EVENT_DECODER_ENABLED))
-        .containsExactly(period0, period1, period0, period1Seq2)
-        .inOrder();
-    assertThat(listener.getEvents(EVENT_DECODER_INIT))
-        .containsExactly(period0, period1Seq1, period1Seq1, period1Seq2, period1Seq2)
-        .inOrder();
-    assertThat(listener.getEvents(EVENT_DECODER_FORMAT_CHANGED))
-        .containsExactly(period0, period1Seq1, period1Seq1, period1Seq2, period1Seq2)
-        .inOrder();
-    assertThat(listener.getEvents(EVENT_DECODER_DISABLED)).containsExactly(period0, period0);
     assertThat(listener.getEvents(EVENT_AUDIO_ENABLED))
         .containsExactly(period1, period1Seq2)
         .inOrder();
@@ -668,13 +659,25 @@ public final class DefaultAnalyticsCollectorTest {
         .containsExactly(period0, period1Seq2)
         .inOrder();
     assertThat(listener.getEvents(EVENT_VIDEO_SIZE_CHANGED))
-        .containsExactly(period0, period1Seq1, period0, period1Seq2)
+        .containsExactly(
+            period0, // First frame rendered
+            period1Seq1, // Renderer disabled after seek
+            period0) // First frame rendered after seek
         .inOrder();
     assertThat(listener.getEvents(EVENT_RENDERED_FIRST_FRAME))
         .containsExactly(period0, period1Seq1, period0, period1Seq2)
         .inOrder();
     assertThat(listener.getEvents(EVENT_VIDEO_FRAME_PROCESSING_OFFSET))
         .containsExactly(period0, period1Seq2)
+        .inOrder();
+    assertThat(listener.getEvents(EVENT_RENDERER_READY_CHANGED))
+        .containsExactly(
+            period0 /* videoTrue */,
+            period1Seq1 /* audioTrue */,
+            period1Seq1 /* audioFalse */,
+            period1Seq1 /* videoFalse */,
+            period0 /* videoTrue */,
+            period1Seq2 /* audioTrue */)
         .inOrder();
     listener.assertNoMoreEvents();
   }
@@ -739,6 +742,13 @@ public final class DefaultAnalyticsCollectorTest {
             WINDOW_0 /* manifest */,
             period0Seq1 /* media */)
         .inOrder();
+    assertThat(listener.getEvents(DEPRECATED_EVENT_LOAD_STARTED))
+        .containsExactly(
+            WINDOW_0 /* manifest */,
+            period0Seq0 /* media */,
+            WINDOW_0 /* manifest */,
+            period0Seq1 /* media */)
+        .inOrder();
     assertThat(listener.getEvents(EVENT_LOAD_COMPLETED))
         .containsExactly(
             WINDOW_0 /* manifest */,
@@ -749,16 +759,6 @@ public final class DefaultAnalyticsCollectorTest {
     assertThat(listener.getEvents(EVENT_DOWNSTREAM_FORMAT_CHANGED))
         .containsExactly(period0Seq0, period0Seq1)
         .inOrder();
-    assertThat(listener.getEvents(EVENT_DECODER_ENABLED))
-        .containsExactly(period0Seq0, period0Seq1)
-        .inOrder();
-    assertThat(listener.getEvents(EVENT_DECODER_INIT))
-        .containsExactly(period0Seq0, period0Seq1)
-        .inOrder();
-    assertThat(listener.getEvents(EVENT_DECODER_FORMAT_CHANGED))
-        .containsExactly(period0Seq0, period0Seq1)
-        .inOrder();
-    assertThat(listener.getEvents(EVENT_DECODER_DISABLED)).containsExactly(period0Seq0);
     assertThat(listener.getEvents(EVENT_VIDEO_ENABLED))
         .containsExactly(period0Seq0, period0Seq1)
         .inOrder();
@@ -771,13 +771,19 @@ public final class DefaultAnalyticsCollectorTest {
     assertThat(listener.getEvents(EVENT_VIDEO_DISABLED)).containsExactly(period0Seq0);
     assertThat(listener.getEvents(EVENT_DROPPED_VIDEO_FRAMES)).containsExactly(period0Seq1);
     assertThat(listener.getEvents(EVENT_VIDEO_SIZE_CHANGED))
-        .containsExactly(period0Seq0, period0Seq1)
+        .containsExactly(
+            period0Seq0, // First frame rendered
+            period0Seq0, // Renderer disabled after timeline changed
+            period0Seq1) // First frame rendered of new source
         .inOrder();
     assertThat(listener.getEvents(EVENT_RENDERED_FIRST_FRAME))
         .containsExactly(period0Seq0, period0Seq1)
         .inOrder();
     assertThat(listener.getEvents(EVENT_VIDEO_FRAME_PROCESSING_OFFSET))
         .containsExactly(period0Seq1);
+    assertThat(listener.getEvents(EVENT_RENDERER_READY_CHANGED))
+        .containsExactly(
+            period0Seq0 /* videoTrue */, period0Seq0 /* videoFalse */, period0Seq1 /* videoTrue */);
     listener.assertNoMoreEvents();
   }
 
@@ -819,10 +825,13 @@ public final class DefaultAnalyticsCollectorTest {
             period0Seq0 /* ENDED */)
         .inOrder();
     assertThat(listener.getEvents(EVENT_TIMELINE_CHANGED))
-        .containsExactly(WINDOW_0 /* prepared */, WINDOW_0 /* prepared */);
+        .containsExactly(
+            WINDOW_0 /* playlist change */,
+            WINDOW_0 /* prepared */,
+            period0Seq0 /* reset after error */,
+            period0Seq0 /* second prepare */);
     assertThat(listener.getEvents(EVENT_POSITION_DISCONTINUITY)).containsExactly(period0Seq0);
     assertThat(listener.getEvents(EVENT_SEEK_STARTED)).containsExactly(period0Seq0);
-    assertThat(listener.getEvents(EVENT_SEEK_PROCESSED)).containsExactly(period0Seq0);
     assertThat(listener.getEvents(EVENT_IS_LOADING_CHANGED))
         .containsExactly(period0Seq0, period0Seq0, period0Seq0, period0Seq0);
     assertThat(listener.getEvents(EVENT_PLAYER_ERROR)).containsExactly(period0Seq0);
@@ -834,6 +843,13 @@ public final class DefaultAnalyticsCollectorTest {
             WINDOW_0 /* manifest */,
             period0Seq0 /* media */)
         .inOrder();
+    assertThat(listener.getEvents(DEPRECATED_EVENT_LOAD_STARTED))
+        .containsExactly(
+            WINDOW_0 /* manifest */,
+            period0Seq0 /* media */,
+            WINDOW_0 /* manifest */,
+            period0Seq0 /* media */)
+        .inOrder();
     assertThat(listener.getEvents(EVENT_LOAD_COMPLETED))
         .containsExactly(
             WINDOW_0 /* manifest */,
@@ -843,11 +859,6 @@ public final class DefaultAnalyticsCollectorTest {
         .inOrder();
     assertThat(listener.getEvents(EVENT_DOWNSTREAM_FORMAT_CHANGED))
         .containsExactly(period0Seq0, period0Seq0);
-    assertThat(listener.getEvents(EVENT_DECODER_ENABLED)).containsExactly(period0Seq0, period0Seq0);
-    assertThat(listener.getEvents(EVENT_DECODER_INIT)).containsExactly(period0Seq0, period0Seq0);
-    assertThat(listener.getEvents(EVENT_DECODER_FORMAT_CHANGED))
-        .containsExactly(period0Seq0, period0Seq0);
-    assertThat(listener.getEvents(EVENT_DECODER_DISABLED)).containsExactly(period0Seq0);
     assertThat(listener.getEvents(EVENT_VIDEO_ENABLED)).containsExactly(period0Seq0, period0Seq0);
     assertThat(listener.getEvents(EVENT_VIDEO_DECODER_INITIALIZED))
         .containsExactly(period0Seq0, period0Seq0);
@@ -856,11 +867,15 @@ public final class DefaultAnalyticsCollectorTest {
     assertThat(listener.getEvents(EVENT_VIDEO_DISABLED)).containsExactly(period0Seq0);
     assertThat(listener.getEvents(EVENT_DROPPED_VIDEO_FRAMES)).containsExactly(period0Seq0);
     assertThat(listener.getEvents(EVENT_VIDEO_SIZE_CHANGED))
-        .containsExactly(period0Seq0, period0Seq0);
+        .containsExactly(period0Seq0, period0Seq0, period0Seq0);
     assertThat(listener.getEvents(EVENT_RENDERED_FIRST_FRAME))
         .containsExactly(period0Seq0, period0Seq0);
     assertThat(listener.getEvents(EVENT_VIDEO_FRAME_PROCESSING_OFFSET))
         .containsExactly(period0Seq0);
+    assertThat(listener.getEvents(EVENT_RENDERER_READY_CHANGED))
+        .containsExactly(
+            period0Seq0 /* videoTrue */, period0Seq0 /* videoFalse */, period0Seq0 /* videoTrue */)
+        .inOrder();
     listener.assertNoMoreEvents();
   }
 
@@ -868,21 +883,18 @@ public final class DefaultAnalyticsCollectorTest {
   public void dynamicTimelineChange() throws Exception {
     MediaSource childMediaSource =
         new FakeMediaSource(SINGLE_PERIOD_TIMELINE, ExoPlayerTestRunner.VIDEO_FORMAT);
-    final ConcatenatingMediaSource concatenatedMediaSource =
-        new ConcatenatingMediaSource(childMediaSource, childMediaSource);
     long windowDurationMs =
         SINGLE_PERIOD_TIMELINE.getWindow(/* windowIndex= */ 0, new Window()).getDurationMs();
     ExoPlayer player = setupPlayer();
     TestAnalyticsListener listener = new TestAnalyticsListener();
     player.addAnalyticsListener(listener);
 
-    player.setMediaSource(concatenatedMediaSource);
+    player.setMediaSources(ImmutableList.of(childMediaSource, childMediaSource));
     player.prepare();
     runUntilPlaybackState(player, Player.STATE_READY);
     // Ensure second period is already being read from.
     playUntilPosition(player, /* mediaItemIndex= */ 0, /* positionMs= */ windowDurationMs - 100);
-    concatenatedMediaSource.moveMediaSource(/* currentIndex= */ 0, /* newIndex= */ 1);
-    runUntilTimelineChanged(player);
+    player.moveMediaItem(/* currentIndex= */ 0, /* newIndex= */ 1);
     runUntilPlaybackState(player, Player.STATE_READY);
     player.play();
     runUntilPlaybackState(player, Player.STATE_ENDED);
@@ -893,22 +905,24 @@ public final class DefaultAnalyticsCollectorTest {
             WINDOW_0 /* BUFFERING */,
             window0Period1Seq0 /* READY */,
             window0Period1Seq0 /* setPlayWhenReady=true */,
-            window0Period1Seq0 /* setPlayWhenReady=false */,
             period1Seq0 /* BUFFERING */,
             period1Seq0 /* READY */,
-            period1Seq0 /* setPlayWhenReady=true */,
             period1Seq0 /* ENDED */)
         .inOrder();
     assertThat(listener.getEvents(EVENT_TIMELINE_CHANGED))
         .containsExactly(
             WINDOW_0 /* PLAYLIST_CHANGED */,
-            window0Period1Seq0 /* SOURCE_UPDATE (concatenated timeline replaces placeholder) */,
-            period1Seq0 /* SOURCE_UPDATE (child sources in concatenating source moved) */)
+            WINDOW_0 /* SOURCE_UPDATE (timeline replaces placeholder) */,
+            period1Seq0 /* PLAYLIST_CHANGED (sources in playlist moved) */)
         .inOrder();
     assertThat(listener.getEvents(EVENT_IS_LOADING_CHANGED))
         .containsExactly(window0Period1Seq0, window0Period1Seq0, period1Seq0, period1Seq0);
     assertThat(listener.getEvents(EVENT_TRACKS_CHANGED)).containsExactly(window0Period1Seq0);
     assertThat(listener.getEvents(EVENT_LOAD_STARTED))
+        .containsExactly(
+            WINDOW_0 /* manifest */, window0Period1Seq0 /* media */, window1Period0Seq1 /* media */)
+        .inOrder();
+    assertThat(listener.getEvents(DEPRECATED_EVENT_LOAD_STARTED))
         .containsExactly(
             WINDOW_0 /* manifest */, window0Period1Seq0 /* media */, window1Period0Seq1 /* media */)
         .inOrder();
@@ -919,18 +933,8 @@ public final class DefaultAnalyticsCollectorTest {
     assertThat(listener.getEvents(EVENT_DOWNSTREAM_FORMAT_CHANGED))
         .containsExactly(window0Period1Seq0, window1Period0Seq1)
         .inOrder();
-    assertThat(listener.getEvents(EVENT_DECODER_ENABLED))
-        .containsExactly(window0Period1Seq0, window0Period1Seq0)
-        .inOrder();
-    assertThat(listener.getEvents(EVENT_DECODER_INIT))
-        .containsExactly(window0Period1Seq0, window1Period0Seq1)
-        .inOrder();
-    assertThat(listener.getEvents(EVENT_DECODER_FORMAT_CHANGED))
-        .containsExactly(window0Period1Seq0, window1Period0Seq1)
-        .inOrder();
-    assertThat(listener.getEvents(EVENT_DECODER_DISABLED)).containsExactly(window0Period1Seq0);
     assertThat(listener.getEvents(EVENT_VIDEO_ENABLED))
-        .containsExactly(window0Period1Seq0, window0Period1Seq0)
+        .containsExactly(window0Period1Seq0, period1Seq0)
         .inOrder();
     assertThat(listener.getEvents(EVENT_VIDEO_DECODER_INITIALIZED))
         .containsExactly(window0Period1Seq0, window1Period0Seq1)
@@ -938,19 +942,26 @@ public final class DefaultAnalyticsCollectorTest {
     assertThat(listener.getEvents(EVENT_VIDEO_INPUT_FORMAT_CHANGED))
         .containsExactly(window0Period1Seq0, window1Period0Seq1)
         .inOrder();
-    assertThat(listener.getEvents(EVENT_VIDEO_DISABLED)).containsExactly(window0Period1Seq0);
+    assertThat(listener.getEvents(EVENT_VIDEO_DISABLED)).containsExactly(period1Seq0);
     assertThat(listener.getEvents(EVENT_DROPPED_VIDEO_FRAMES))
-        .containsExactly(window0Period1Seq0, period1Seq0)
+        .containsExactly(period1Seq0, period1Seq0)
         .inOrder();
     assertThat(listener.getEvents(EVENT_VIDEO_SIZE_CHANGED))
-        .containsExactly(window0Period1Seq0, window1Period0Seq1)
+        .containsExactly(
+            window0Period1Seq0, // First frame rendered
+            period1Seq0) // Renderer disabled after timeline update
         .inOrder();
     assertThat(listener.getEvents(EVENT_RENDERED_FIRST_FRAME))
         .containsExactly(window0Period1Seq0, window1Period0Seq1)
         .inOrder();
     assertThat(listener.getEvents(EVENT_VIDEO_FRAME_PROCESSING_OFFSET))
-        .containsExactly(window0Period1Seq0, period1Seq0)
+        .containsExactly(period1Seq0, period1Seq0)
         .inOrder();
+    assertThat(listener.getEvents(EVENT_RENDERER_READY_CHANGED))
+        .containsExactly(
+            window0Period1Seq0 /* videoTrue */,
+            period1Seq0 /* videoFalse */,
+            period1Seq0 /* videoTrue */);
     listener.assertNoMoreEvents();
   }
 
@@ -964,16 +975,15 @@ public final class DefaultAnalyticsCollectorTest {
 
     player.setMediaSource(fakeMediaSource);
     player.prepare();
-    runUntilPlaybackState(player, Player.STATE_READY);
+    run(player).untilState(Player.STATE_READY);
     player.addMediaSource(fakeMediaSource);
     // Wait until second period has fully loaded to assert loading events.
-    runUntilIsLoading(player, /* expectedIsLoading= */ true);
-    runUntilIsLoading(player, /* expectedIsLoading= */ false);
+    run(player).untilFullyBuffered();
     player.removeMediaItem(/* index= */ 0);
-    runUntilPlaybackState(player, Player.STATE_BUFFERING);
-    runUntilPlaybackState(player, Player.STATE_READY);
+    run(player).untilState(Player.STATE_BUFFERING);
+    run(player).untilState(Player.STATE_READY);
     player.play();
-    runUntilPlaybackState(player, Player.STATE_ENDED);
+    run(player).untilState(Player.STATE_ENDED);
 
     // Populate event ids with second to last timeline that still contained both periods.
     populateEventIds(listener.reportedTimelines.get(listener.reportedTimelines.size() - 2));
@@ -1013,22 +1023,15 @@ public final class DefaultAnalyticsCollectorTest {
     assertThat(listener.getEvents(EVENT_LOAD_STARTED))
         .containsExactly(WINDOW_0 /* manifest */, period0Seq0 /* media */, period1Seq1 /* media */)
         .inOrder();
+    assertThat(listener.getEvents(DEPRECATED_EVENT_LOAD_STARTED))
+        .containsExactly(WINDOW_0 /* manifest */, period0Seq0 /* media */, period1Seq1 /* media */)
+        .inOrder();
     assertThat(listener.getEvents(EVENT_LOAD_COMPLETED))
         .containsExactly(WINDOW_0 /* manifest */, period0Seq0 /* media */, period1Seq1 /* media */)
         .inOrder();
     assertThat(listener.getEvents(EVENT_DOWNSTREAM_FORMAT_CHANGED))
         .containsExactly(period0Seq0, period1Seq1)
         .inOrder();
-    assertThat(listener.getEvents(EVENT_DECODER_ENABLED))
-        .containsExactly(period0Seq0, period0Seq1)
-        .inOrder();
-    assertThat(listener.getEvents(EVENT_DECODER_INIT))
-        .containsExactly(period0Seq0, period1Seq1)
-        .inOrder();
-    assertThat(listener.getEvents(EVENT_DECODER_FORMAT_CHANGED))
-        .containsExactly(period0Seq0, period1Seq1)
-        .inOrder();
-    assertThat(listener.getEvents(EVENT_DECODER_DISABLED)).containsExactly(period0Seq0);
     assertThat(listener.getEvents(EVENT_VIDEO_ENABLED))
         .containsExactly(period0Seq0, period0Seq1)
         .inOrder();
@@ -1041,12 +1044,18 @@ public final class DefaultAnalyticsCollectorTest {
     assertThat(listener.getEvents(EVENT_VIDEO_DISABLED)).containsExactly(period0Seq0);
     assertThat(listener.getEvents(EVENT_DROPPED_VIDEO_FRAMES)).containsExactly(period0Seq1);
     assertThat(listener.getEvents(EVENT_VIDEO_SIZE_CHANGED))
-        .containsExactly(period0Seq0, period1Seq1, period0Seq1)
+        .containsExactly(
+            period0Seq0, // First frame rendered
+            period0Seq1, // Renderer disabled after media item removal
+            period0Seq1) // First frame rendered after removal
         .inOrder();
     assertThat(listener.getEvents(EVENT_RENDERED_FIRST_FRAME))
         .containsExactly(period0Seq0, period1Seq1, period0Seq1);
     assertThat(listener.getEvents(EVENT_VIDEO_FRAME_PROCESSING_OFFSET))
         .containsExactly(period0Seq1);
+    assertThat(listener.getEvents(EVENT_RENDERER_READY_CHANGED))
+        .containsExactly(
+            period0Seq0 /* videoTrue */, period0Seq1 /* videoFalse */, period0Seq1 /* videoTrue */);
     listener.assertNoMoreEvents();
   }
 
@@ -1130,18 +1139,17 @@ public final class DefaultAnalyticsCollectorTest {
     player.setMediaSource(fakeMediaSource);
     player.prepare();
     // Ensure everything is preloaded.
-    runUntilIsLoading(player, /* expectedIsLoading= */ true);
-    runUntilIsLoading(player, /* expectedIsLoading= */ false);
-    runUntilPlaybackState(player, Player.STATE_READY);
+    run(player).untilFullyBuffered();
+    run(player).untilState(Player.STATE_READY);
     // Wait in each content part to ensure previously triggered events get a chance to be delivered.
-    playUntilPosition(player, /* mediaItemIndex= */ 0, /* positionMs= */ 3_000);
-    runUntilPendingCommandsAreFullyHandled(player);
-    playUntilPosition(player, /* mediaItemIndex= */ 0, /* positionMs= */ 8_000);
-    runUntilPendingCommandsAreFullyHandled(player);
+    play(player).untilPosition(/* mediaItemIndex= */ 0, /* positionMs= */ 3_000);
+    run(player).untilPendingCommandsAreFullyHandled();
+    play(player).untilPosition(/* mediaItemIndex= */ 0, /* positionMs= */ 8_000);
+    run(player).untilPendingCommandsAreFullyHandled();
     player.play();
-    runUntilPlaybackState(player, Player.STATE_ENDED);
+    run(player).untilState(Player.STATE_ENDED);
     // Wait for final timeline change that marks post-roll played.
-    runUntilTimelineChanged(player);
+    run(player).untilTimelineChanges();
 
     Object periodUid = listener.lastReportedTimeline.getUidOfPeriod(/* periodIndex= */ 0);
     EventWindowAndPeriodId prerollAd =
@@ -1186,10 +1194,6 @@ public final class DefaultAnalyticsCollectorTest {
             WINDOW_0 /* BUFFERING */,
             prerollAd /* READY */,
             prerollAd /* setPlayWhenReady=true */,
-            contentAfterPreroll /* setPlayWhenReady=false */,
-            contentAfterPreroll /* setPlayWhenReady=true */,
-            contentAfterMidroll /* setPlayWhenReady=false */,
-            contentAfterMidroll /* setPlayWhenReady=true */,
             contentAfterPostroll /* ENDED */)
         .inOrder();
     assertThat(listener.getEvents(EVENT_TIMELINE_CHANGED))
@@ -1226,6 +1230,16 @@ public final class DefaultAnalyticsCollectorTest {
             postrollAd,
             contentAfterPostroll)
         .inOrder();
+    assertThat(listener.getEvents(DEPRECATED_EVENT_LOAD_STARTED))
+        .containsExactly(
+            WINDOW_0 /* content manifest */,
+            prerollAd,
+            contentAfterPreroll,
+            midrollAd,
+            contentAfterMidroll,
+            postrollAd,
+            contentAfterPostroll)
+        .inOrder();
     assertThat(listener.getEvents(EVENT_LOAD_COMPLETED))
         .containsExactly(
             WINDOW_0 /* content manifest */,
@@ -1237,25 +1251,6 @@ public final class DefaultAnalyticsCollectorTest {
             contentAfterPostroll)
         .inOrder();
     assertThat(listener.getEvents(EVENT_DOWNSTREAM_FORMAT_CHANGED))
-        .containsExactly(
-            prerollAd,
-            contentAfterPreroll,
-            midrollAd,
-            contentAfterMidroll,
-            postrollAd,
-            contentAfterPostroll)
-        .inOrder();
-    assertThat(listener.getEvents(EVENT_DECODER_ENABLED)).containsExactly(prerollAd);
-    assertThat(listener.getEvents(EVENT_DECODER_INIT))
-        .containsExactly(
-            prerollAd,
-            contentAfterPreroll,
-            midrollAd,
-            contentAfterMidroll,
-            postrollAd,
-            contentAfterPostroll)
-        .inOrder();
-    assertThat(listener.getEvents(EVENT_DECODER_FORMAT_CHANGED))
         .containsExactly(
             prerollAd,
             contentAfterPreroll,
@@ -1284,16 +1279,9 @@ public final class DefaultAnalyticsCollectorTest {
             contentAfterPostroll)
         .inOrder();
     assertThat(listener.getEvents(EVENT_DROPPED_VIDEO_FRAMES))
-        .containsExactly(contentAfterPreroll, contentAfterMidroll, contentAfterPostroll)
-        .inOrder();
+        .containsExactly(contentAfterPostroll);
     assertThat(listener.getEvents(EVENT_VIDEO_SIZE_CHANGED))
-        .containsExactly(
-            prerollAd,
-            contentAfterPreroll,
-            midrollAd,
-            contentAfterMidroll,
-            postrollAd,
-            contentAfterPostroll)
+        .containsExactly(prerollAd) // First frame rendered
         .inOrder();
     assertThat(listener.getEvents(EVENT_RENDERED_FIRST_FRAME))
         .containsExactly(
@@ -1305,8 +1293,9 @@ public final class DefaultAnalyticsCollectorTest {
             contentAfterPostroll)
         .inOrder();
     assertThat(listener.getEvents(EVENT_VIDEO_FRAME_PROCESSING_OFFSET))
-        .containsExactly(contentAfterPreroll, contentAfterMidroll, contentAfterPostroll)
-        .inOrder();
+        .containsExactly(contentAfterPostroll);
+    assertThat(listener.getEvents(EVENT_RENDERER_READY_CHANGED))
+        .containsExactly(prerollAd /* videoTrue */);
     listener.assertNoMoreEvents();
   }
 
@@ -1352,14 +1341,13 @@ public final class DefaultAnalyticsCollectorTest {
     player.setMediaSource(fakeMediaSource);
     player.prepare();
     // Ensure everything is preloaded.
-    runUntilIsLoading(player, /* expectedIsLoading= */ true);
-    runUntilIsLoading(player, /* expectedIsLoading= */ false);
+    run(player).untilFullyBuffered();
     // Seek behind the midroll.
     player.seekTo(/* positionMs= */ 6_000);
     // Wait until loading started again to assert loading events.
-    runUntilIsLoading(player, /* expectedIsLoading= */ true);
+    run(player).untilLoadingIs(true);
     player.play();
-    runUntilPlaybackState(player, Player.STATE_ENDED);
+    run(player).untilState(Player.STATE_ENDED);
 
     Object periodUid = listener.lastReportedTimeline.getUidOfPeriod(/* periodIndex= */ 0);
     EventWindowAndPeriodId midrollAd =
@@ -1397,13 +1385,20 @@ public final class DefaultAnalyticsCollectorTest {
             contentAfterMidroll /* ad transition */)
         .inOrder();
     assertThat(listener.getEvents(EVENT_SEEK_STARTED)).containsExactly(contentBeforeMidroll);
-    assertThat(listener.getEvents(EVENT_SEEK_PROCESSED)).containsExactly(contentAfterMidroll);
     assertThat(listener.getEvents(EVENT_IS_LOADING_CHANGED))
         .containsExactly(contentBeforeMidroll, contentBeforeMidroll, midrollAd, midrollAd)
         .inOrder();
     assertThat(listener.getEvents(EVENT_TRACKS_CHANGED))
         .containsExactly(contentBeforeMidroll, midrollAd, contentAfterMidroll);
     assertThat(listener.getEvents(EVENT_LOAD_STARTED))
+        .containsExactly(
+            WINDOW_0 /* content manifest */,
+            contentBeforeMidroll,
+            midrollAd,
+            contentAfterMidroll,
+            contentAfterMidroll)
+        .inOrder();
+    assertThat(listener.getEvents(DEPRECATED_EVENT_LOAD_STARTED))
         .containsExactly(
             WINDOW_0 /* content manifest */,
             contentBeforeMidroll,
@@ -1422,16 +1417,6 @@ public final class DefaultAnalyticsCollectorTest {
     assertThat(listener.getEvents(EVENT_DOWNSTREAM_FORMAT_CHANGED))
         .containsExactly(contentBeforeMidroll, midrollAd, contentAfterMidroll)
         .inOrder();
-    assertThat(listener.getEvents(EVENT_DECODER_ENABLED))
-        .containsExactly(contentBeforeMidroll, midrollAd)
-        .inOrder();
-    assertThat(listener.getEvents(EVENT_DECODER_INIT))
-        .containsExactly(contentBeforeMidroll, midrollAd, contentAfterMidroll)
-        .inOrder();
-    assertThat(listener.getEvents(EVENT_DECODER_FORMAT_CHANGED))
-        .containsExactly(contentBeforeMidroll, midrollAd, contentAfterMidroll)
-        .inOrder();
-    assertThat(listener.getEvents(EVENT_DECODER_DISABLED)).containsExactly(contentBeforeMidroll);
     assertThat(listener.getEvents(EVENT_VIDEO_ENABLED))
         .containsExactly(contentBeforeMidroll, midrollAd)
         .inOrder();
@@ -1444,13 +1429,21 @@ public final class DefaultAnalyticsCollectorTest {
     assertThat(listener.getEvents(EVENT_VIDEO_DISABLED)).containsExactly(contentBeforeMidroll);
     assertThat(listener.getEvents(EVENT_DROPPED_VIDEO_FRAMES)).containsExactly(contentAfterMidroll);
     assertThat(listener.getEvents(EVENT_VIDEO_SIZE_CHANGED))
-        .containsExactly(contentBeforeMidroll, midrollAd, contentAfterMidroll)
+        .containsExactly(
+            contentBeforeMidroll, // First frame rendered
+            midrollAd, // Renderer disabled for seek
+            midrollAd) // First frame rendered after seek
         .inOrder();
     assertThat(listener.getEvents(EVENT_RENDERED_FIRST_FRAME))
         .containsExactly(contentBeforeMidroll, midrollAd, contentAfterMidroll)
         .inOrder();
     assertThat(listener.getEvents(EVENT_VIDEO_FRAME_PROCESSING_OFFSET))
         .containsExactly(contentAfterMidroll);
+    assertThat(listener.getEvents(EVENT_RENDERER_READY_CHANGED))
+        .containsExactly(
+            contentBeforeMidroll /* videoTrue */,
+            midrollAd /* videoFalse */,
+            midrollAd /* videoTrue */);
     listener.assertNoMoreEvents();
   }
 
@@ -1471,7 +1464,6 @@ public final class DefaultAnalyticsCollectorTest {
 
     populateEventIds(listener.lastReportedTimeline);
     assertThat(listener.getEvents(EVENT_SEEK_STARTED)).containsExactly(period0);
-    assertThat(listener.getEvents(EVENT_SEEK_PROCESSED)).containsExactly(period0);
   }
 
   @Test
@@ -1507,27 +1499,23 @@ public final class DefaultAnalyticsCollectorTest {
                 uuid -> new FakeExoMediaDrm.Builder().setEnforceValidKeyResponses(false).build())
             .setMultiSession(true)
             .build(mediaDrmCallback);
-    MediaSource mediaSource =
-        new ConcatenatingMediaSource(
-            new FakeMediaSource(
-                SINGLE_PERIOD_TIMELINE, blockingDrmSessionManager, VIDEO_FORMAT_DRM_1),
-            new FakeMediaSource(
-                SINGLE_PERIOD_TIMELINE, blockingDrmSessionManager, VIDEO_FORMAT_DRM_1));
+    MediaSource mediaSource1 =
+        new FakeMediaSource(SINGLE_PERIOD_TIMELINE, blockingDrmSessionManager, VIDEO_FORMAT_DRM_1);
+    MediaSource mediaSource2 =
+        new FakeMediaSource(SINGLE_PERIOD_TIMELINE, blockingDrmSessionManager, VIDEO_FORMAT_DRM_1);
     ExoPlayer player = setupPlayer();
     TestAnalyticsListener listener = new TestAnalyticsListener();
     player.addAnalyticsListener(listener);
 
     player.play();
-    player.setMediaSource(mediaSource);
+    player.setMediaSources(ImmutableList.of(mediaSource1, mediaSource2));
     player.prepare();
     // Wait for the media to be fully buffered before unblocking the DRM key request. This
     // ensures both periods report the same load event (because period1's DRM session is
     // already preacquired by the time the key load completes).
-    runUntilIsLoading(player, /* expectedIsLoading= */ false);
-    runUntilIsLoading(player, /* expectedIsLoading= */ true);
-    runUntilIsLoading(player, /* expectedIsLoading= */ false);
+    run(player).untilFullyBuffered();
     mediaDrmCallback.keyCondition.open();
-    runUntilPlaybackState(player, Player.STATE_ENDED);
+    run(player).untilState(Player.STATE_ENDED);
 
     populateEventIds(listener.lastReportedTimeline);
     assertThat(listener.getEvents(EVENT_DRM_SESSION_MANAGER_ERROR)).isEmpty();
@@ -1546,19 +1534,19 @@ public final class DefaultAnalyticsCollectorTest {
 
   @Test
   public void drmEvents_periodWithDifferentDrmData_keysLoadedAgain() throws Exception {
-    MediaSource mediaSource =
-        new ConcatenatingMediaSource(
-            new FakeMediaSource(SINGLE_PERIOD_TIMELINE, drmSessionManager, VIDEO_FORMAT_DRM_1),
-            new FakeMediaSource(
-                SINGLE_PERIOD_TIMELINE,
-                drmSessionManager,
-                VIDEO_FORMAT_DRM_1.buildUpon().setDrmInitData(DRM_DATA_2).build()));
+    MediaSource mediaSource1 =
+        new FakeMediaSource(SINGLE_PERIOD_TIMELINE, drmSessionManager, VIDEO_FORMAT_DRM_1);
+    MediaSource mediaSource2 =
+        new FakeMediaSource(
+            SINGLE_PERIOD_TIMELINE,
+            drmSessionManager,
+            VIDEO_FORMAT_DRM_1.buildUpon().setDrmInitData(DRM_DATA_2).build());
     ExoPlayer player = setupPlayer();
     TestAnalyticsListener listener = new TestAnalyticsListener();
     player.addAnalyticsListener(listener);
 
     player.play();
-    player.setMediaSource(mediaSource);
+    player.setMediaSources(ImmutableList.of(mediaSource1, mediaSource2));
     player.prepare();
     runUntilPlaybackState(player, Player.STATE_ENDED);
 
@@ -1584,6 +1572,9 @@ public final class DefaultAnalyticsCollectorTest {
                 DRM_SCHEME_UUID,
                 uuid -> new FakeExoMediaDrm.Builder().setEnforceValidKeyResponses(false).build())
             .setMultiSession(true)
+            // The fake samples are not encrypted, so this forces the test to block playback until
+            // keys are ready.
+            .setPlayClearSamplesWithoutKeys(false)
             .build(mediaDrmCallback);
     MediaSource mediaSource =
         new FakeMediaSource(SINGLE_PERIOD_TIMELINE, failingDrmSessionManager, VIDEO_FORMAT_DRM_1);
@@ -1594,9 +1585,9 @@ public final class DefaultAnalyticsCollectorTest {
     player.play();
     player.setMediaSource(mediaSource);
     player.prepare();
-    runUntilIsLoading(player, /* expectedIsLoading= */ false);
+    run(player).untilFullyBuffered();
     mediaDrmCallback.keyCondition.open();
-    runUntilError(player);
+    run(player).untilPlayerError();
 
     populateEventIds(listener.lastReportedTimeline);
     assertThat(listener.getEvents(EVENT_DRM_SESSION_MANAGER_ERROR)).containsExactly(period0);
@@ -1631,7 +1622,7 @@ public final class DefaultAnalyticsCollectorTest {
     player.addAnalyticsListener(listener);
 
     player.play();
-    player.setMediaSource(new ConcatenatingMediaSource(source0, source1));
+    player.setMediaSources(ImmutableList.of(source0, source1));
     player.prepare();
     runUntilError(player);
 
@@ -1667,7 +1658,7 @@ public final class DefaultAnalyticsCollectorTest {
     player.addAnalyticsListener(listener);
 
     player.play();
-    player.setMediaSource(new ConcatenatingMediaSource(source0, source1));
+    player.setMediaSources(ImmutableList.of(source0, source1));
     player.prepare();
     runUntilError(player);
 
@@ -1689,7 +1680,10 @@ public final class DefaultAnalyticsCollectorTest {
 
                 @Override
                 protected void onStreamChanged(
-                    Format[] formats, long startPositionUs, long offsetUs)
+                    Format[] formats,
+                    long startPositionUs,
+                    long offsetUs,
+                    MediaPeriodId mediaPeriodId)
                     throws ExoPlaybackException {
                   // Fail when changing streams for the second time. This will happen during the
                   // period transition (as the first time is when enabling the stream initially).
@@ -1707,7 +1701,7 @@ public final class DefaultAnalyticsCollectorTest {
     player.addAnalyticsListener(listener);
 
     player.play();
-    player.setMediaSource(new ConcatenatingMediaSource(source, source));
+    player.setMediaSources(ImmutableList.of(source, source));
     player.prepare();
     runUntilError(player);
 
@@ -1788,7 +1782,7 @@ public final class DefaultAnalyticsCollectorTest {
     ArgumentCaptor<AnalyticsListener.EventTime> individualLoadStartedEventTimes =
         ArgumentCaptor.forClass(AnalyticsListener.EventTime.class);
     verify(listener, atLeastOnce())
-        .onLoadStarted(individualLoadStartedEventTimes.capture(), any(), any());
+        .onLoadStarted(individualLoadStartedEventTimes.capture(), any(), any(), anyInt());
     ArgumentCaptor<AnalyticsListener.EventTime> individualLoadCompletedEventTimes =
         ArgumentCaptor.forClass(AnalyticsListener.EventTime.class);
     verify(listener, atLeastOnce())
@@ -2235,12 +2229,6 @@ public final class DefaultAnalyticsCollectorTest {
       reportedEvents.add(new ReportedEvent(EVENT_SEEK_STARTED, eventTime));
     }
 
-    @SuppressWarnings("deprecation") // Testing deprecated behaviour.
-    @Override
-    public void onSeekProcessed(EventTime eventTime) {
-      reportedEvents.add(new ReportedEvent(EVENT_SEEK_PROCESSED, eventTime));
-    }
-
     @Override
     public void onPlaybackParametersChanged(
         EventTime eventTime, PlaybackParameters playbackParameters) {
@@ -2275,6 +2263,15 @@ public final class DefaultAnalyticsCollectorTest {
     @Override
     public void onLoadStarted(
         EventTime eventTime, LoadEventInfo loadEventInfo, MediaLoadData mediaLoadData) {
+      reportedEvents.add(new ReportedEvent(DEPRECATED_EVENT_LOAD_STARTED, eventTime));
+    }
+
+    @Override
+    public void onLoadStarted(
+        EventTime eventTime,
+        LoadEventInfo loadEventInfo,
+        MediaLoadData mediaLoadData,
+        int retryCount) {
       reportedEvents.add(new ReportedEvent(EVENT_LOAD_STARTED, eventTime));
     }
 
@@ -2326,33 +2323,6 @@ public final class DefaultAnalyticsCollectorTest {
       reportedEvents.add(new ReportedEvent(EVENT_METADATA, eventTime));
     }
 
-    @SuppressWarnings("deprecation")
-    @Override
-    public void onDecoderEnabled(
-        EventTime eventTime, int trackType, DecoderCounters decoderCounters) {
-      reportedEvents.add(new ReportedEvent(EVENT_DECODER_ENABLED, eventTime));
-    }
-
-    @SuppressWarnings("deprecation")
-    @Override
-    public void onDecoderInitialized(
-        EventTime eventTime, int trackType, String decoderName, long initializationDurationMs) {
-      reportedEvents.add(new ReportedEvent(EVENT_DECODER_INIT, eventTime));
-    }
-
-    @SuppressWarnings("deprecation")
-    @Override
-    public void onDecoderInputFormatChanged(EventTime eventTime, int trackType, Format format) {
-      reportedEvents.add(new ReportedEvent(EVENT_DECODER_FORMAT_CHANGED, eventTime));
-    }
-
-    @SuppressWarnings("deprecation")
-    @Override
-    public void onDecoderDisabled(
-        EventTime eventTime, int trackType, DecoderCounters decoderCounters) {
-      reportedEvents.add(new ReportedEvent(EVENT_DECODER_DISABLED, eventTime));
-    }
-
     @Override
     public void onAudioEnabled(EventTime eventTime, DecoderCounters decoderCounters) {
       reportedEvents.add(new ReportedEvent(EVENT_AUDIO_ENABLED, eventTime));
@@ -2368,7 +2338,10 @@ public final class DefaultAnalyticsCollectorTest {
     }
 
     @Override
-    public void onAudioInputFormatChanged(EventTime eventTime, Format format) {
+    public void onAudioInputFormatChanged(
+        EventTime eventTime,
+        Format format,
+        @Nullable DecoderReuseEvaluation decoderReuseEvaluation) {
       reportedEvents.add(new ReportedEvent(EVENT_AUDIO_INPUT_FORMAT_CHANGED, eventTime));
     }
 
@@ -2408,7 +2381,10 @@ public final class DefaultAnalyticsCollectorTest {
     }
 
     @Override
-    public void onVideoInputFormatChanged(EventTime eventTime, Format format) {
+    public void onVideoInputFormatChanged(
+        EventTime eventTime,
+        Format format,
+        @Nullable DecoderReuseEvaluation decoderReuseEvaluation) {
       reportedEvents.add(new ReportedEvent(EVENT_VIDEO_INPUT_FORMAT_CHANGED, eventTime));
     }
 
@@ -2466,6 +2442,15 @@ public final class DefaultAnalyticsCollectorTest {
     @Override
     public void onDrmSessionReleased(EventTime eventTime) {
       reportedEvents.add(new ReportedEvent(EVENT_DRM_SESSION_RELEASED, eventTime));
+    }
+
+    @Override
+    public void onRendererReadyChanged(
+        EventTime eventTime,
+        int rendererIndex,
+        @C.TrackType int rendererTrackType,
+        boolean isRendererReady) {
+      reportedEvents.add(new ReportedEvent(EVENT_RENDERER_READY_CHANGED, eventTime));
     }
 
     private static final class ReportedEvent {

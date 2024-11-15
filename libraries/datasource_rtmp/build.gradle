@@ -13,6 +13,16 @@
 // limitations under the License.
 apply from: "$gradle.ext.androidxMediaSettingsDir/common_library_config.gradle"
 
+android {
+    namespace 'androidx.media3.datasource.rtmp'
+
+    publishing {
+        singleVariant('release') {
+            withSourcesJar()
+        }
+    }
+}
+
 dependencies {
     implementation project(modulePrefix + 'lib-common')
     implementation project(modulePrefix + 'lib-datasource')
@@ -24,11 +34,6 @@ dependencies {
     testImplementation project(modulePrefix + 'test-utils')
     testImplementation 'org.robolectric:robolectric:' + robolectricVersion
 }
-
-ext {
-    javadocTitle = 'RTMP extension'
-}
-apply from: '../../javadoc_library.gradle'
 
 ext {
     releaseArtifactId = 'media3-datasource-rtmp'

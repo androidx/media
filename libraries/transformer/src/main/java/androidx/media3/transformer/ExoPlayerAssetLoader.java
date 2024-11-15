@@ -17,14 +17,18 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
+import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.exoplayer.DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS;
 import static androidx.media3.exoplayer.DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_MS;
 import static androidx.media3.exoplayer.DefaultLoadControl.DEFAULT_MAX_BUFFER_MS;
 import static androidx.media3.exoplayer.DefaultLoadControl.DEFAULT_MIN_BUFFER_MS;
+import static androidx.media3.transformer.ExportException.ERROR_CODE_FAILED_RUNTIME_CHECK;
+import static androidx.media3.transformer.ExportException.ERROR_CODE_UNSPECIFIED;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_AVAILABLE;
-import static androidx.media3.transformer.Transformer.PROGRESS_STATE_NO_TRANSFORMATION;
+import static androidx.media3.transformer.Transformer.PROGRESS_STATE_NOT_STARTED;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_UNAVAILABLE;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_WAITING_FOR_AVAILABILITY;
+import static androidx.media3.transformer.TransformerUtil.isImage;
 import static java.lang.Math.min;
 
 import android.content.Context;
@@ -32,97 +36,141 @@ import android.os.Handler;
 import android.os.Looper;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
-import androidx.media3.common.DebugViewProvider;
-import androidx.media3.common.Effect;
-import androidx.media3.common.FrameProcessor;
-import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.Tracks;
 import androidx.media3.common.util.Clock;
+import androidx.media3.common.util.Log;
+import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.DefaultLoadControl;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.RenderersFactory;
 import androidx.media3.exoplayer.audio.AudioRendererEventListener;
 import androidx.media3.exoplayer.metadata.MetadataOutput;
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.text.TextOutput;
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector;
 import androidx.media3.exoplayer.video.VideoRendererEventListener;
-import com.google.common.collect.ImmutableList;
-import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import androidx.media3.extractor.DefaultExtractorsFactory;
+import androidx.media3.extractor.mp4.Mp4Extractor;
+import com.google.common.collect.ImmutableMap;
+import java.util.ArrayList;
 
-/* package */ final class ExoPlayerAssetLoader {
+/** An {@link AssetLoader} implementation that uses an {@link ExoPlayer} to load samples. */
+@UnstableApi
+public final class ExoPlayerAssetLoader implements AssetLoader {
 
-  public interface Listener {
+  /** An {@link AssetLoader.Factory} for {@link ExoPlayerAssetLoader} instances. */
+  public static final class Factory implements AssetLoader.Factory {
 
-    void onEnded();
+    private final Context context;
+    private final Codec.DecoderFactory decoderFactory;
+    private final Clock clock;
+    @Nullable private final MediaSource.Factory mediaSourceFactory;
 
-    void onError(Exception e);
+    /**
+     * Creates an instance using a {@link DefaultMediaSourceFactory}.
+     *
+     * @param context The {@link Context}.
+     * @param decoderFactory The {@link Codec.DecoderFactory} to use to decode the samples (if
+     *     necessary).
+     * @param clock The {@link Clock} to use. It should always be {@link Clock#DEFAULT}, except for
+     *     testing.
+     */
+    public Factory(Context context, Codec.DecoderFactory decoderFactory, Clock clock) {
+      this.context = context;
+      this.decoderFactory = decoderFactory;
+      this.clock = clock;
+      this.mediaSourceFactory = null;
+    }
+
+    /**
+     * Creates an instance.
+     *
+     * @param context The {@link Context}.
+     * @param decoderFactory The {@link Codec.DecoderFactory} to use to decode the samples (if
+     *     necessary).
+     * @param clock The {@link Clock} to use. It should always be {@link Clock#DEFAULT}, except for
+     *     testing.
+     * @param mediaSourceFactory The {@link MediaSource.Factory} to use to retrieve the samples to
+     *     transform.
+     */
+    public Factory(
+        Context context,
+        Codec.DecoderFactory decoderFactory,
+        Clock clock,
+        MediaSource.Factory mediaSourceFactory) {
+      this.context = context;
+      this.decoderFactory = decoderFactory;
+      this.clock = clock;
+      this.mediaSourceFactory = mediaSourceFactory;
+    }
+
+    @Override
+    public AssetLoader createAssetLoader(
+        EditedMediaItem editedMediaItem,
+        Looper looper,
+        Listener listener,
+        CompositionSettings compositionSettings) {
+      MediaSource.Factory mediaSourceFactory = this.mediaSourceFactory;
+      if (mediaSourceFactory == null) {
+        DefaultExtractorsFactory defaultExtractorsFactory = new DefaultExtractorsFactory();
+        if (editedMediaItem.flattenForSlowMotion) {
+          defaultExtractorsFactory.setMp4ExtractorFlags(Mp4Extractor.FLAG_READ_SEF_DATA);
+        }
+        mediaSourceFactory = new DefaultMediaSourceFactory(context, defaultExtractorsFactory);
+      }
+      return new ExoPlayerAssetLoader(
+          context,
+          editedMediaItem,
+          mediaSourceFactory,
+          decoderFactory,
+          compositionSettings.hdrMode,
+          looper,
+          listener,
+          clock);
+    }
   }
+
+  private static final String TAG = "ExoPlayerAssetLoader";
+
+  /**
+   * The timeout value, in milliseconds, to set on the internal {@link ExoPlayer} instance when
+   * running on an emulator.
+   */
+  private static final long EMULATOR_RELEASE_TIMEOUT_MS = 5_000;
 
   private final Context context;
-  private final TransformationRequest transformationRequest;
-  private final ImmutableList<Effect> videoEffects;
-  private final boolean removeAudio;
-  private final boolean removeVideo;
-  private final MediaSource.Factory mediaSourceFactory;
-  private final Codec.DecoderFactory decoderFactory;
-  private final Codec.EncoderFactory encoderFactory;
-  private final FrameProcessor.Factory frameProcessorFactory;
-  private final Looper looper;
-  private final DebugViewProvider debugViewProvider;
-  private final Clock clock;
+  private final EditedMediaItem editedMediaItem;
+  private final CapturingDecoderFactory decoderFactory;
+  private final ExoPlayer player;
 
-  private @MonotonicNonNull MuxerWrapper muxerWrapper;
-  @Nullable private ExoPlayer player;
   private @Transformer.ProgressState int progressState;
 
-  public ExoPlayerAssetLoader(
+  private ExoPlayerAssetLoader(
       Context context,
-      TransformationRequest transformationRequest,
-      ImmutableList<Effect> videoEffects,
-      boolean removeAudio,
-      boolean removeVideo,
+      EditedMediaItem editedMediaItem,
       MediaSource.Factory mediaSourceFactory,
       Codec.DecoderFactory decoderFactory,
-      Codec.EncoderFactory encoderFactory,
-      FrameProcessor.Factory frameProcessorFactory,
+      @Composition.HdrMode int hdrMode,
       Looper looper,
-      DebugViewProvider debugViewProvider,
+      Listener listener,
       Clock clock) {
     this.context = context;
-    this.transformationRequest = transformationRequest;
-    this.videoEffects = videoEffects;
-    this.removeAudio = removeAudio;
-    this.removeVideo = removeVideo;
-    this.mediaSourceFactory = mediaSourceFactory;
-    this.decoderFactory = decoderFactory;
-    this.encoderFactory = encoderFactory;
-    this.frameProcessorFactory = frameProcessorFactory;
-    this.looper = looper;
-    this.debugViewProvider = debugViewProvider;
-    this.clock = clock;
-    progressState = PROGRESS_STATE_NO_TRANSFORMATION;
-  }
-
-  public void start(
-      MediaItem mediaItem,
-      MuxerWrapper muxerWrapper,
-      Listener listener,
-      FallbackListener fallbackListener,
-      Transformer.AsyncErrorListener asyncErrorListener) {
-    this.muxerWrapper = muxerWrapper;
+    this.editedMediaItem = editedMediaItem;
+    this.decoderFactory = new CapturingDecoderFactory(decoderFactory);
 
     DefaultTrackSelector trackSelector = new DefaultTrackSelector(context);
     trackSelector.setParameters(
         new DefaultTrackSelector.Parameters.Builder(context)
             .setForceHighestSupportedBitrate(true)
+            .setConstrainAudioChannelCountToDeviceCapabilities(false)
             .build());
     // Arbitrarily decrease buffers for playback so that samples start being sent earlier to the
-    // muxer (rebuffers are less problematic for the transformation use case).
+    // exporters (rebuffers are less problematic for the export use case).
     DefaultLoadControl loadControl =
         new DefaultLoadControl.Builder()
             .setBufferDurationsMs(
@@ -135,41 +183,44 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         new ExoPlayer.Builder(
                 context,
                 new RenderersFactoryImpl(
-                    context,
-                    muxerWrapper,
-                    removeAudio,
-                    removeVideo,
-                    transformationRequest,
-                    mediaItem.clippingConfiguration.startsAtKeyFrame,
-                    videoEffects,
-                    frameProcessorFactory,
-                    encoderFactory,
-                    decoderFactory,
-                    fallbackListener,
-                    asyncErrorListener,
-                    debugViewProvider))
+                    editedMediaItem.removeAudio,
+                    editedMediaItem.removeVideo,
+                    editedMediaItem.flattenForSlowMotion,
+                    this.decoderFactory,
+                    hdrMode,
+                    listener))
             .setMediaSourceFactory(mediaSourceFactory)
             .setTrackSelector(trackSelector)
             .setLoadControl(loadControl)
-            .setLooper(looper);
+            .setLooper(looper)
+            .setUsePlatformDiagnostics(false)
+            .setReleaseTimeoutMs(getReleaseTimeoutMs());
+    if (decoderFactory instanceof DefaultDecoderFactory) {
+      playerBuilder.experimentalSetDynamicSchedulingEnabled(
+          ((DefaultDecoderFactory) decoderFactory).isDynamicSchedulingEnabled());
+    }
     if (clock != Clock.DEFAULT) {
       // Transformer.Builder#setClock is also @VisibleForTesting, so if we're using a non-default
       // clock we must be in a test context.
       @SuppressWarnings("VisibleForTests")
       ExoPlayer.Builder unusedForAnnotation = playerBuilder.setClock(clock);
     }
-
     player = playerBuilder.build();
-    player.setMediaItem(mediaItem);
     player.addListener(new PlayerListener(listener));
-    player.prepare();
 
+    progressState = PROGRESS_STATE_NOT_STARTED;
+  }
+
+  @Override
+  public void start() {
+    player.setMediaItem(editedMediaItem.mediaItem);
+    player.prepare();
     progressState = PROGRESS_STATE_WAITING_FOR_AVAILABILITY;
   }
 
+  @Override
   public @Transformer.ProgressState int getProgress(ProgressHolder progressHolder) {
     if (progressState == PROGRESS_STATE_AVAILABLE) {
-      Player player = checkNotNull(this.player);
       long durationMs = player.getDuration();
       long positionMs = player.getCurrentPosition();
       progressHolder.progress = min((int) (positionMs * 100 / durationMs), 99);
@@ -177,58 +228,49 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     return progressState;
   }
 
-  public void release() {
-    progressState = PROGRESS_STATE_NO_TRANSFORMATION;
-    if (player != null) {
-      player.release();
-      player = null;
+  @Override
+  public ImmutableMap<Integer, String> getDecoderNames() {
+    ImmutableMap.Builder<Integer, String> decoderNamesByTrackType = new ImmutableMap.Builder<>();
+    @Nullable String audioDecoderName = decoderFactory.getAudioDecoderName();
+    if (audioDecoderName != null) {
+      decoderNamesByTrackType.put(C.TRACK_TYPE_AUDIO, audioDecoderName);
     }
+    @Nullable String videoDecoderName = decoderFactory.getVideoDecoderName();
+    if (videoDecoderName != null) {
+      decoderNamesByTrackType.put(C.TRACK_TYPE_VIDEO, videoDecoderName);
+    }
+    return decoderNamesByTrackType.buildOrThrow();
+  }
+
+  @Override
+  public void release() {
+    player.release();
+    progressState = PROGRESS_STATE_NOT_STARTED;
   }
 
   private static final class RenderersFactoryImpl implements RenderersFactory {
 
-    private final Context context;
-    private final MuxerWrapper muxerWrapper;
     private final TransformerMediaClock mediaClock;
     private final boolean removeAudio;
     private final boolean removeVideo;
-    private final TransformationRequest transformationRequest;
-    private final boolean clippingStartsAtKeyFrame;
-    private final ImmutableList<Effect> videoEffects;
-    private final FrameProcessor.Factory frameProcessorFactory;
-    private final Codec.EncoderFactory encoderFactory;
+    private final boolean flattenForSlowMotion;
     private final Codec.DecoderFactory decoderFactory;
-    private final FallbackListener fallbackListener;
-    private final Transformer.AsyncErrorListener asyncErrorListener;
-    private final DebugViewProvider debugViewProvider;
+    private final @Composition.HdrMode int hdrMode;
+    private final Listener assetLoaderListener;
 
     public RenderersFactoryImpl(
-        Context context,
-        MuxerWrapper muxerWrapper,
         boolean removeAudio,
         boolean removeVideo,
-        TransformationRequest transformationRequest,
-        boolean clippingStartsAtKeyFrame,
-        ImmutableList<Effect> videoEffects,
-        FrameProcessor.Factory frameProcessorFactory,
-        Codec.EncoderFactory encoderFactory,
+        boolean flattenForSlowMotion,
         Codec.DecoderFactory decoderFactory,
-        FallbackListener fallbackListener,
-        Transformer.AsyncErrorListener asyncErrorListener,
-        DebugViewProvider debugViewProvider) {
-      this.context = context;
-      this.muxerWrapper = muxerWrapper;
+        @Composition.HdrMode int hdrMode,
+        Listener assetLoaderListener) {
       this.removeAudio = removeAudio;
       this.removeVideo = removeVideo;
-      this.transformationRequest = transformationRequest;
-      this.clippingStartsAtKeyFrame = clippingStartsAtKeyFrame;
-      this.videoEffects = videoEffects;
-      this.frameProcessorFactory = frameProcessorFactory;
-      this.encoderFactory = encoderFactory;
+      this.flattenForSlowMotion = flattenForSlowMotion;
       this.decoderFactory = decoderFactory;
-      this.fallbackListener = fallbackListener;
-      this.asyncErrorListener = asyncErrorListener;
-      this.debugViewProvider = debugViewProvider;
+      this.hdrMode = hdrMode;
+      this.assetLoaderListener = assetLoaderListener;
       mediaClock = new TransformerMediaClock();
     }
 
@@ -239,87 +281,110 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         AudioRendererEventListener audioRendererEventListener,
         TextOutput textRendererOutput,
         MetadataOutput metadataRendererOutput) {
-      int rendererCount = removeAudio || removeVideo ? 1 : 2;
-      Renderer[] renderers = new Renderer[rendererCount];
-      int index = 0;
+      ArrayList<Renderer> renderers = new ArrayList<>();
       if (!removeAudio) {
-        renderers[index] =
-            new TransformerAudioRenderer(
-                muxerWrapper,
-                mediaClock,
-                transformationRequest,
-                encoderFactory,
-                decoderFactory,
-                asyncErrorListener,
-                fallbackListener);
-        index++;
+        renderers.add(
+            new ExoAssetLoaderAudioRenderer(decoderFactory, mediaClock, assetLoaderListener));
       }
       if (!removeVideo) {
-        renderers[index] =
-            new TransformerVideoRenderer(
-                context,
-                muxerWrapper,
-                mediaClock,
-                transformationRequest,
-                clippingStartsAtKeyFrame,
-                videoEffects,
-                frameProcessorFactory,
-                encoderFactory,
-                decoderFactory,
-                asyncErrorListener,
-                fallbackListener,
-                debugViewProvider);
-        index++;
+        renderers.add(
+            new ExoAssetLoaderVideoRenderer(
+                flattenForSlowMotion, decoderFactory, hdrMode, mediaClock, assetLoaderListener));
       }
-      return renderers;
+      return renderers.toArray(new Renderer[renderers.size()]);
     }
   }
 
   private final class PlayerListener implements Player.Listener {
 
-    private final Listener listener;
+    private final Listener assetLoaderListener;
 
-    public PlayerListener(Listener listener) {
-      this.listener = listener;
-    }
-
-    @Override
-    public void onPlaybackStateChanged(int state) {
-      if (state == Player.STATE_ENDED) {
-        listener.onEnded();
-      }
+    public PlayerListener(Listener assetLoaderListener) {
+      this.assetLoaderListener = assetLoaderListener;
     }
 
     @Override
     public void onTimelineChanged(Timeline timeline, int reason) {
-      if (progressState != PROGRESS_STATE_WAITING_FOR_AVAILABILITY) {
-        return;
-      }
-      Timeline.Window window = new Timeline.Window();
-      timeline.getWindow(/* windowIndex= */ 0, window);
-      if (!window.isPlaceholder) {
-        long durationUs = window.durationUs;
-        // Make progress permanently unavailable if the duration is unknown, so that it doesn't jump
-        // to a high value at the end of the transformation if the duration is set once the media is
-        // entirely loaded.
-        progressState =
-            durationUs <= 0 || durationUs == C.TIME_UNSET
-                ? PROGRESS_STATE_UNAVAILABLE
-                : PROGRESS_STATE_AVAILABLE;
-        checkNotNull(player).play();
+      try {
+        if (progressState != PROGRESS_STATE_WAITING_FOR_AVAILABILITY) {
+          return;
+        }
+        Timeline.Window window = new Timeline.Window();
+        timeline.getWindow(/* windowIndex= */ 0, window);
+        if (!window.isPlaceholder) {
+          long durationUs = window.durationUs;
+          // Make progress permanently unavailable if the duration is unknown, so that it doesn't
+          // jump to a high value at the end of the export if the duration is set once the media is
+          // entirely loaded.
+          progressState =
+              durationUs <= 0 || durationUs == C.TIME_UNSET
+                  ? PROGRESS_STATE_UNAVAILABLE
+                  : PROGRESS_STATE_AVAILABLE;
+          assetLoaderListener.onDurationUs(window.durationUs);
+        }
+      } catch (RuntimeException e) {
+        assetLoaderListener.onError(
+            ExportException.createForAssetLoader(e, ERROR_CODE_UNSPECIFIED));
       }
     }
 
     @Override
     public void onTracksChanged(Tracks tracks) {
-      if (checkNotNull(muxerWrapper).getTrackCount() == 0) {
-        listener.onError(new IllegalStateException("The output does not contain any tracks."));
+      try {
+        int trackCount = 0;
+        if (tracks.isTypeSelected(C.TRACK_TYPE_AUDIO)) {
+          trackCount++;
+        }
+        if (tracks.isTypeSelected(C.TRACK_TYPE_VIDEO)) {
+          trackCount++;
+        }
+
+        maybeWarnUnsupportedTrackTypes(tracks);
+        if (trackCount > 0) {
+          assetLoaderListener.onTrackCount(trackCount);
+          // Start the renderers after having registered all the tracks to make sure the AssetLoader
+          // listener callbacks are called in the right order.
+          player.play();
+        } else {
+          String errorMessage = "The asset loader has no audio or video track to output.";
+          if (isImage(context, editedMediaItem.mediaItem)) {
+            errorMessage += " Try setting an image duration on input image MediaItems.";
+          }
+          assetLoaderListener.onError(
+              ExportException.createForAssetLoader(
+                  new IllegalStateException(errorMessage), ERROR_CODE_FAILED_RUNTIME_CHECK));
+        }
+      } catch (RuntimeException e) {
+        assetLoaderListener.onError(
+            ExportException.createForAssetLoader(e, ERROR_CODE_UNSPECIFIED));
       }
     }
 
     @Override
     public void onPlayerError(PlaybackException error) {
-      listener.onError(error);
+      @ExportException.ErrorCode
+      int errorCode =
+          checkNotNull(
+              ExportException.NAME_TO_ERROR_CODE.getOrDefault(
+                  error.getErrorCodeName(), ERROR_CODE_UNSPECIFIED));
+      assetLoaderListener.onError(ExportException.createForAssetLoader(error, errorCode));
     }
+  }
+
+  private static void maybeWarnUnsupportedTrackTypes(Tracks tracks) {
+    for (int i = 0; i < tracks.getGroups().size(); i++) {
+      @C.TrackType int trackType = tracks.getGroups().get(i).getType();
+      if (trackType == C.TRACK_TYPE_AUDIO || trackType == C.TRACK_TYPE_VIDEO) {
+        continue;
+      }
+      Log.w(TAG, "Unsupported track type: " + trackType);
+    }
+  }
+
+  private static long getReleaseTimeoutMs() {
+    // b/297916906 - Emulators need a larger timeout for releasing.
+    return isRunningOnEmulator()
+        ? EMULATOR_RELEASE_TIMEOUT_MS
+        : ExoPlayer.DEFAULT_RELEASE_TIMEOUT_MS;
   }
 }

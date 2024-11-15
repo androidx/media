@@ -22,6 +22,7 @@ import static java.lang.annotation.ElementType.METHOD;
 import static java.lang.annotation.ElementType.PARAMETER;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
+import android.media.AudioTrack;
 import android.media.MediaCodec;
 import android.media.MediaCodec.CodecException;
 import android.os.Looper;
@@ -232,146 +233,220 @@ public interface AnalyticsListener {
     EVENT_PLAYER_RELEASED,
     EVENT_AUDIO_CODEC_ERROR,
     EVENT_VIDEO_CODEC_ERROR,
+    EVENT_AUDIO_TRACK_INITIALIZED,
+    EVENT_AUDIO_TRACK_RELEASED,
+    EVENT_RENDERER_READY_CHANGED
   })
   @interface EventFlags {}
+
   /** {@link Player#getCurrentTimeline()} changed. */
   @UnstableApi int EVENT_TIMELINE_CHANGED = Player.EVENT_TIMELINE_CHANGED;
+
   /**
    * {@link Player#getCurrentMediaItem()} changed or the player started repeating the current item.
    */
   @UnstableApi int EVENT_MEDIA_ITEM_TRANSITION = Player.EVENT_MEDIA_ITEM_TRANSITION;
+
   /** {@link Player#getCurrentTracks()} changed. */
   @UnstableApi int EVENT_TRACKS_CHANGED = Player.EVENT_TRACKS_CHANGED;
+
   /** {@link Player#isLoading()} ()} changed. */
   @UnstableApi int EVENT_IS_LOADING_CHANGED = Player.EVENT_IS_LOADING_CHANGED;
+
   /** {@link Player#getPlaybackState()} changed. */
   @UnstableApi int EVENT_PLAYBACK_STATE_CHANGED = Player.EVENT_PLAYBACK_STATE_CHANGED;
+
   /** {@link Player#getPlayWhenReady()} changed. */
   @UnstableApi int EVENT_PLAY_WHEN_READY_CHANGED = Player.EVENT_PLAY_WHEN_READY_CHANGED;
+
   /** {@link Player#getPlaybackSuppressionReason()} changed. */
   @UnstableApi
   int EVENT_PLAYBACK_SUPPRESSION_REASON_CHANGED = Player.EVENT_PLAYBACK_SUPPRESSION_REASON_CHANGED;
+
   /** {@link Player#isPlaying()} changed. */
   @UnstableApi int EVENT_IS_PLAYING_CHANGED = Player.EVENT_IS_PLAYING_CHANGED;
+
   /** {@link Player#getRepeatMode()} changed. */
   @UnstableApi int EVENT_REPEAT_MODE_CHANGED = Player.EVENT_REPEAT_MODE_CHANGED;
+
   /** {@link Player#getShuffleModeEnabled()} changed. */
   @UnstableApi int EVENT_SHUFFLE_MODE_ENABLED_CHANGED = Player.EVENT_SHUFFLE_MODE_ENABLED_CHANGED;
+
   /** {@link Player#getPlayerError()} changed. */
   @UnstableApi int EVENT_PLAYER_ERROR = Player.EVENT_PLAYER_ERROR;
+
   /**
    * A position discontinuity occurred. See {@link
    * Player.Listener#onPositionDiscontinuity(Player.PositionInfo, Player.PositionInfo, int)}.
    */
   @UnstableApi int EVENT_POSITION_DISCONTINUITY = Player.EVENT_POSITION_DISCONTINUITY;
+
   /** {@link Player#getPlaybackParameters()} changed. */
   @UnstableApi int EVENT_PLAYBACK_PARAMETERS_CHANGED = Player.EVENT_PLAYBACK_PARAMETERS_CHANGED;
+
   /** {@link Player#getAvailableCommands()} changed. */
   @UnstableApi int EVENT_AVAILABLE_COMMANDS_CHANGED = Player.EVENT_AVAILABLE_COMMANDS_CHANGED;
+
   /** {@link Player#getMediaMetadata()} changed. */
   @UnstableApi int EVENT_MEDIA_METADATA_CHANGED = Player.EVENT_MEDIA_METADATA_CHANGED;
+
   /** {@link Player#getPlaylistMetadata()} changed. */
   @UnstableApi int EVENT_PLAYLIST_METADATA_CHANGED = Player.EVENT_PLAYLIST_METADATA_CHANGED;
+
   /** {@link Player#getSeekBackIncrement()} changed. */
   @UnstableApi int EVENT_SEEK_BACK_INCREMENT_CHANGED = Player.EVENT_SEEK_BACK_INCREMENT_CHANGED;
+
   /** {@link Player#getSeekForwardIncrement()} changed. */
   @UnstableApi
   int EVENT_SEEK_FORWARD_INCREMENT_CHANGED = Player.EVENT_SEEK_FORWARD_INCREMENT_CHANGED;
+
   /** {@link Player#getMaxSeekToPreviousPosition()} changed. */
   @UnstableApi
   int EVENT_MAX_SEEK_TO_PREVIOUS_POSITION_CHANGED =
       Player.EVENT_MAX_SEEK_TO_PREVIOUS_POSITION_CHANGED;
+
   /** {@link Player#getTrackSelectionParameters()} changed. */
   @UnstableApi
   int EVENT_TRACK_SELECTION_PARAMETERS_CHANGED = Player.EVENT_TRACK_SELECTION_PARAMETERS_CHANGED;
+
   /** Audio attributes changed. */
   @UnstableApi int EVENT_AUDIO_ATTRIBUTES_CHANGED = Player.EVENT_AUDIO_ATTRIBUTES_CHANGED;
+
   /** An audio session id was set. */
   @UnstableApi int EVENT_AUDIO_SESSION_ID = Player.EVENT_AUDIO_SESSION_ID;
+
   /** The volume changed. */
   @UnstableApi int EVENT_VOLUME_CHANGED = Player.EVENT_VOLUME_CHANGED;
+
   /** Skipping silences was enabled or disabled in the audio stream. */
   @UnstableApi int EVENT_SKIP_SILENCE_ENABLED_CHANGED = Player.EVENT_SKIP_SILENCE_ENABLED_CHANGED;
+
   /** The surface size changed. */
   @UnstableApi int EVENT_SURFACE_SIZE_CHANGED = Player.EVENT_SURFACE_SIZE_CHANGED;
+
   /** The video size changed. */
   @UnstableApi int EVENT_VIDEO_SIZE_CHANGED = Player.EVENT_VIDEO_SIZE_CHANGED;
+
   /**
    * The first frame has been rendered since setting the surface, since the renderer was reset or
    * since the stream changed.
    */
   @UnstableApi int EVENT_RENDERED_FIRST_FRAME = Player.EVENT_RENDERED_FIRST_FRAME;
+
   /** Metadata associated with the current playback time was reported. */
   @UnstableApi int EVENT_METADATA = Player.EVENT_METADATA;
+
   /** {@link Player#getCurrentCues()} changed. */
   @UnstableApi int EVENT_CUES = Player.EVENT_CUES;
+
   /** {@link Player#getDeviceInfo()} changed. */
   @UnstableApi int EVENT_DEVICE_INFO_CHANGED = Player.EVENT_DEVICE_INFO_CHANGED;
+
   /** {@link Player#getDeviceVolume()} changed. */
   @UnstableApi int EVENT_DEVICE_VOLUME_CHANGED = Player.EVENT_DEVICE_VOLUME_CHANGED;
+
   /** A source started loading data. */
   @UnstableApi
   int EVENT_LOAD_STARTED = 1000; // Intentional gap to leave space for new Player events
+
   /** A source started completed loading data. */
   @UnstableApi int EVENT_LOAD_COMPLETED = 1001;
+
   /** A source canceled loading data. */
   @UnstableApi int EVENT_LOAD_CANCELED = 1002;
+
   /** A source had a non-fatal error loading data. */
   @UnstableApi int EVENT_LOAD_ERROR = 1003;
+
   /** The downstream format sent to renderers changed. */
   @UnstableApi int EVENT_DOWNSTREAM_FORMAT_CHANGED = 1004;
+
   /** Data was removed from the end of the media buffer. */
   @UnstableApi int EVENT_UPSTREAM_DISCARDED = 1005;
+
   /** The bandwidth estimate has been updated. */
   @UnstableApi int EVENT_BANDWIDTH_ESTIMATE = 1006;
+
   /** An audio renderer was enabled. */
   @UnstableApi int EVENT_AUDIO_ENABLED = 1007;
+
   /** An audio renderer created a decoder. */
   @UnstableApi int EVENT_AUDIO_DECODER_INITIALIZED = 1008;
+
   /** The format consumed by an audio renderer changed. */
   @UnstableApi int EVENT_AUDIO_INPUT_FORMAT_CHANGED = 1009;
+
   /** The audio position has increased for the first time since the last pause or position reset. */
   @UnstableApi int EVENT_AUDIO_POSITION_ADVANCING = 1010;
+
   /** An audio underrun occurred. */
   @UnstableApi int EVENT_AUDIO_UNDERRUN = 1011;
+
   /** An audio renderer released a decoder. */
   @UnstableApi int EVENT_AUDIO_DECODER_RELEASED = 1012;
+
   /** An audio renderer was disabled. */
   @UnstableApi int EVENT_AUDIO_DISABLED = 1013;
+
   /** The audio sink encountered a non-fatal error. */
   @UnstableApi int EVENT_AUDIO_SINK_ERROR = 1014;
+
   /** A video renderer was enabled. */
   @UnstableApi int EVENT_VIDEO_ENABLED = 1015;
+
   /** A video renderer created a decoder. */
   @UnstableApi int EVENT_VIDEO_DECODER_INITIALIZED = 1016;
+
   /** The format consumed by a video renderer changed. */
   @UnstableApi int EVENT_VIDEO_INPUT_FORMAT_CHANGED = 1017;
+
   /** Video frames have been dropped. */
   @UnstableApi int EVENT_DROPPED_VIDEO_FRAMES = 1018;
+
   /** A video renderer released a decoder. */
   @UnstableApi int EVENT_VIDEO_DECODER_RELEASED = 1019;
+
   /** A video renderer was disabled. */
   @UnstableApi int EVENT_VIDEO_DISABLED = 1020;
+
   /** Video frame processing offset data has been reported. */
   @UnstableApi int EVENT_VIDEO_FRAME_PROCESSING_OFFSET = 1021;
+
   /** A DRM session has been acquired. */
   @UnstableApi int EVENT_DRM_SESSION_ACQUIRED = 1022;
+
   /** DRM keys were loaded. */
   @UnstableApi int EVENT_DRM_KEYS_LOADED = 1023;
+
   /** A non-fatal DRM session manager error occurred. */
   @UnstableApi int EVENT_DRM_SESSION_MANAGER_ERROR = 1024;
+
   /** DRM keys were restored. */
   @UnstableApi int EVENT_DRM_KEYS_RESTORED = 1025;
+
   /** DRM keys were removed. */
   @UnstableApi int EVENT_DRM_KEYS_REMOVED = 1026;
+
   /** A DRM session has been released. */
   @UnstableApi int EVENT_DRM_SESSION_RELEASED = 1027;
+
   /** The player was released. */
   @UnstableApi int EVENT_PLAYER_RELEASED = 1028;
+
   /** The audio codec encountered an error. */
   @UnstableApi int EVENT_AUDIO_CODEC_ERROR = 1029;
+
   /** The video codec encountered an error. */
   @UnstableApi int EVENT_VIDEO_CODEC_ERROR = 1030;
+
+  /** An audio track has been initialized. */
+  @UnstableApi int EVENT_AUDIO_TRACK_INITIALIZED = 1031;
+
+  /** An audio track has been released. */
+  @UnstableApi int EVENT_AUDIO_TRACK_RELEASED = 1032;
+
+  /** A renderer changed its readiness for playback. */
+  @UnstableApi int EVENT_RENDERER_READY_CHANGED = 1033;
 
   /** Time information of an event. */
   @UnstableApi
@@ -622,14 +697,6 @@ public interface AnalyticsListener {
   default void onSeekStarted(EventTime eventTime) {}
 
   /**
-   * @deprecated Seeks are processed without delay. Use {@link #onPositionDiscontinuity(EventTime,
-   *     int)} with reason {@link Player#DISCONTINUITY_REASON_SEEK} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  default void onSeekProcessed(EventTime eventTime) {}
-
-  /**
    * Called when the playback parameters changed.
    *
    * @param eventTime The event time.
@@ -777,15 +844,29 @@ public interface AnalyticsListener {
   default void onPlaylistMetadataChanged(EventTime eventTime, MediaMetadata playlistMetadata) {}
 
   /**
+   * @deprecated Implement {@link #onLoadStarted(EventTime, LoadEventInfo, MediaLoadData, int)}
+   *     instead, and check for {@code retryCount == 0} for equivalent behavior.
+   */
+  @UnstableApi
+  @Deprecated
+  default void onLoadStarted(
+      EventTime eventTime, LoadEventInfo loadEventInfo, MediaLoadData mediaLoadData) {}
+
+  /**
    * Called when a media source started loading data.
    *
    * @param eventTime The event time.
    * @param loadEventInfo The {@link LoadEventInfo} defining the load event.
    * @param mediaLoadData The {@link MediaLoadData} defining the data being loaded.
+   * @param retryCount The number of failed attempts since {@link #onLoadStarted} was called (this
+   *     is zero for the first load attempt).
    */
   @UnstableApi
   default void onLoadStarted(
-      EventTime eventTime, LoadEventInfo loadEventInfo, MediaLoadData mediaLoadData) {}
+      EventTime eventTime,
+      LoadEventInfo loadEventInfo,
+      MediaLoadData mediaLoadData,
+      int retryCount) {}
 
   /**
    * Called when a media source completed loading data.
@@ -900,39 +981,6 @@ public interface AnalyticsListener {
   default void onCues(EventTime eventTime, CueGroup cueGroup) {}
 
   /**
-   * @deprecated Use {@link #onAudioEnabled} and {@link #onVideoEnabled} instead.
-   */
-  @Deprecated
-  @UnstableApi
-  default void onDecoderEnabled(
-      EventTime eventTime, int trackType, DecoderCounters decoderCounters) {}
-
-  /**
-   * @deprecated Use {@link #onAudioDecoderInitialized} and {@link #onVideoDecoderInitialized}
-   *     instead.
-   */
-  @UnstableApi
-  @Deprecated
-  default void onDecoderInitialized(
-      EventTime eventTime, int trackType, String decoderName, long initializationDurationMs) {}
-
-  /**
-   * @deprecated Use {@link #onAudioInputFormatChanged(EventTime, Format, DecoderReuseEvaluation)}
-   *     and {@link #onVideoInputFormatChanged(EventTime, Format, DecoderReuseEvaluation)}. instead.
-   */
-  @UnstableApi
-  @Deprecated
-  default void onDecoderInputFormatChanged(EventTime eventTime, int trackType, Format format) {}
-
-  /**
-   * @deprecated Use {@link #onAudioDisabled} and {@link #onVideoDisabled} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  default void onDecoderDisabled(
-      EventTime eventTime, int trackType, DecoderCounters decoderCounters) {}
-
-  /**
    * Called when an audio renderer is enabled.
    *
    * @param eventTime The event time.
@@ -965,13 +1013,6 @@ public interface AnalyticsListener {
   @Deprecated
   default void onAudioDecoderInitialized(
       EventTime eventTime, String decoderName, long initializationDurationMs) {}
-
-  /**
-   * @deprecated Use {@link #onAudioInputFormatChanged(EventTime, Format, DecoderReuseEvaluation)}.
-   */
-  @UnstableApi
-  @Deprecated
-  default void onAudioInputFormatChanged(EventTime eventTime, Format format) {}
 
   /**
    * Called when the format of the media being consumed by an audio renderer changes.
@@ -1093,6 +1134,28 @@ public interface AnalyticsListener {
   default void onAudioCodecError(EventTime eventTime, Exception audioCodecError) {}
 
   /**
+   * Called when an {@link AudioTrack} has been initialized.
+   *
+   * @param eventTime The event time.
+   * @param audioTrackConfig The {@link AudioSink.AudioTrackConfig} of the initialized {@link
+   *     AudioTrack}.
+   */
+  @UnstableApi
+  default void onAudioTrackInitialized(
+      EventTime eventTime, AudioSink.AudioTrackConfig audioTrackConfig) {}
+
+  /**
+   * Called when an {@link AudioTrack} has been released.
+   *
+   * @param eventTime The event time.
+   * @param audioTrackConfig The {@link AudioSink.AudioTrackConfig} of the released {@link
+   *     AudioTrack}.
+   */
+  @UnstableApi
+  default void onAudioTrackReleased(
+      EventTime eventTime, AudioSink.AudioTrackConfig audioTrackConfig) {}
+
+  /**
    * Called when the volume changes.
    *
    * @param eventTime The event time.
@@ -1153,13 +1216,6 @@ public interface AnalyticsListener {
   @Deprecated
   default void onVideoDecoderInitialized(
       EventTime eventTime, String decoderName, long initializationDurationMs) {}
-
-  /**
-   * @deprecated Use {@link #onVideoInputFormatChanged(EventTime, Format, DecoderReuseEvaluation)}.
-   */
-  @UnstableApi
-  @Deprecated
-  default void onVideoInputFormatChanged(EventTime eventTime, Format format) {}
 
   /**
    * Called when the format of the media being consumed by a video renderer changes.
@@ -1351,6 +1407,22 @@ public interface AnalyticsListener {
    */
   @UnstableApi
   default void onDrmSessionReleased(EventTime eventTime) {}
+
+  /**
+   * Called each time a renderer starts or stops allowing playback to be ready.
+   *
+   * @param eventTime The event time.
+   * @param rendererIndex The index of the renderer in the {@link
+   *     androidx.media3.exoplayer.ExoPlayer} instance.
+   * @param rendererTrackType The {@link C.TrackType} of the renderer.
+   * @param isRendererReady Whether the renderer allows playback to be ready.
+   */
+  @UnstableApi
+  default void onRendererReadyChanged(
+      EventTime eventTime,
+      int rendererIndex,
+      @C.TrackType int rendererTrackType,
+      boolean isRendererReady) {}
 
   /**
    * Called when the {@link Player} is released.

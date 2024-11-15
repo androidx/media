@@ -24,20 +24,31 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.Timeline;
+import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DataSpec;
 import androidx.media3.datasource.TransferListener;
+import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.exoplayer.text.TextRenderer;
 import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
+import androidx.media3.exoplayer.util.ReleasableExecutor;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.util.concurrent.Executor;
 
 /**
- * Loads data at a given {@link Uri} as a single sample belonging to a single {@link MediaPeriod}.
+ * @deprecated The only use for this class is subtitle playback, but it is only compatible with
+ *     legacy subtitle decoding, which is not supported by default. Users of this class almost
+ *     certainly need to {@linkplain TextRenderer#experimentalSetLegacyDecodingEnabled(boolean)
+ *     enable legacy subtitle decoding} on their {@link ExoPlayer} instance in order to avoid
+ *     playback errors when trying to play subtitles.
  */
 @UnstableApi
+@Deprecated
 public final class SingleSampleMediaSource extends BaseMediaSource {
 
   /** Factory for {@link SingleSampleMediaSource}. */
@@ -49,6 +60,7 @@ public final class SingleSampleMediaSource extends BaseMediaSource {
     private boolean treatLoadErrorsAsEndOfStream;
     @Nullable private Object tag;
     @Nullable private String trackId;
+    @Nullable private Supplier<ReleasableExecutor> downloadExecutorSupplier;
 
     /**
      * Creates a factory for {@link SingleSampleMediaSource}s.
@@ -121,6 +133,23 @@ public final class SingleSampleMediaSource extends BaseMediaSource {
     }
 
     /**
+     * Sets a supplier for an {@link Executor} that is used for loading the media.
+     *
+     * @param downloadExecutor A {@link Supplier} that provides an externally managed {@link
+     *     Executor} for downloading and extraction.
+     * @param downloadExecutorReleaser A callback triggered once a load task is finished and a
+     *     supplied executor is no longer required.
+     * @return This factory, for convenience.
+     */
+    @CanIgnoreReturnValue
+    public <T extends Executor> Factory setDownloadExecutor(
+        Supplier<T> downloadExecutor, Consumer<T> downloadExecutorReleaser) {
+      this.downloadExecutorSupplier =
+          () -> ReleasableExecutor.from(downloadExecutor.get(), downloadExecutorReleaser);
+      return this;
+    }
+
+    /**
      * Returns a new {@link SingleSampleMediaSource} using the current parameters.
      *
      * @param subtitleConfiguration The {@link MediaItem.SubtitleConfiguration}.
@@ -136,7 +165,8 @@ public final class SingleSampleMediaSource extends BaseMediaSource {
           durationUs,
           loadErrorHandlingPolicy,
           treatLoadErrorsAsEndOfStream,
-          tag);
+          tag,
+          downloadExecutorSupplier);
     }
   }
 
@@ -148,6 +178,7 @@ public final class SingleSampleMediaSource extends BaseMediaSource {
   private final boolean treatLoadErrorsAsEndOfStream;
   private final Timeline timeline;
   private final MediaItem mediaItem;
+  @Nullable private final Supplier<ReleasableExecutor> downloadExecutorSupplier;
 
   @Nullable private TransferListener transferListener;
 
@@ -158,7 +189,8 @@ public final class SingleSampleMediaSource extends BaseMediaSource {
       long durationUs,
       LoadErrorHandlingPolicy loadErrorHandlingPolicy,
       boolean treatLoadErrorsAsEndOfStream,
-      @Nullable Object tag) {
+      @Nullable Object tag,
+      @Nullable Supplier<ReleasableExecutor> downloadExecutorSupplier) {
     this.dataSourceFactory = dataSourceFactory;
     this.durationUs = durationUs;
     this.loadErrorHandlingPolicy = loadErrorHandlingPolicy;
@@ -192,6 +224,7 @@ public final class SingleSampleMediaSource extends BaseMediaSource {
             /* useLiveConfiguration= */ false,
             /* manifest= */ null,
             mediaItem);
+    this.downloadExecutorSupplier = downloadExecutorSupplier;
   }
 
   // MediaSource implementation.
@@ -222,7 +255,8 @@ public final class SingleSampleMediaSource extends BaseMediaSource {
         durationUs,
         loadErrorHandlingPolicy,
         createEventDispatcher(id),
-        treatLoadErrorsAsEndOfStream);
+        treatLoadErrorsAsEndOfStream,
+        downloadExecutorSupplier != null ? downloadExecutorSupplier.get() : null);
   }
 
   @Override

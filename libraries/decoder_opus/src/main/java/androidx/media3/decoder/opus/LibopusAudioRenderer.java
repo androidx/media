@@ -29,14 +29,17 @@ import androidx.media3.exoplayer.audio.AudioRendererEventListener;
 import androidx.media3.exoplayer.audio.AudioSink;
 import androidx.media3.exoplayer.audio.AudioSink.SinkFormatSupport;
 import androidx.media3.exoplayer.audio.DecoderAudioRenderer;
+import androidx.media3.extractor.VorbisUtil;
 
 /** Decodes and renders audio using the native Opus decoder. */
 @UnstableApi
 public class LibopusAudioRenderer extends DecoderAudioRenderer<OpusDecoder> {
 
   private static final String TAG = "LibopusAudioRenderer";
+
   /** The number of input and output buffers. */
   private static final int NUM_BUFFERS = 16;
+
   /** The default input buffer size. */
   private static final int DEFAULT_INPUT_BUFFER_SIZE = 960 * 6;
 
@@ -136,6 +139,12 @@ public class LibopusAudioRenderer extends DecoderAudioRenderer<OpusDecoder> {
     @C.PcmEncoding
     int pcmEncoding = decoder.outputFloat ? C.ENCODING_PCM_FLOAT : C.ENCODING_PCM_16BIT;
     return Util.getPcmFormat(pcmEncoding, decoder.channelCount, OpusDecoder.SAMPLE_RATE);
+  }
+
+  @Nullable
+  @Override
+  protected int[] getChannelMapping(OpusDecoder decoder) {
+    return VorbisUtil.getVorbisToAndroidChannelLayoutMapping(decoder.channelCount);
   }
 
   /**

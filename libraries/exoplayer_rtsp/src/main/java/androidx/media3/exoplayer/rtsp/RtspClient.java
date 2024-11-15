@@ -39,11 +39,11 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.net.Uri;
 import android.os.Handler;
-import android.os.Looper;
 import android.util.SparseArray;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
@@ -84,22 +84,32 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   @Target(TYPE_USE)
   @IntDef({RTSP_STATE_UNINITIALIZED, RTSP_STATE_INIT, RTSP_STATE_READY, RTSP_STATE_PLAYING})
   public @interface RtspState {}
+
   /** RTSP uninitialized state, the state before sending any SETUP request. */
   public static final int RTSP_STATE_UNINITIALIZED = -1;
+
   /** RTSP initial state, the state after sending SETUP REQUEST. */
   public static final int RTSP_STATE_INIT = 0;
+
   /** RTSP ready state, the state after receiving SETUP, or PAUSE response. */
   public static final int RTSP_STATE_READY = 1;
+
   /** RTSP playing state, the state after receiving PLAY response. */
   public static final int RTSP_STATE_PLAYING = 2;
 
   private static final String TAG = "RtspClient";
-  private static final long DEFAULT_RTSP_KEEP_ALIVE_INTERVAL_MS = 30_000;
+
+  /**
+   * The default divisor used on the session timeout value to be set as the {@link
+   * KeepAliveMonitor#intervalMs}.
+   */
+  private static final int DEFAULT_RTSP_KEEP_ALIVE_INTERVAL_DIVISOR = 2;
 
   /** A listener for session information update. */
   public interface SessionInfoListener {
     /** Called when the session information is available. */
     void onSessionTimelineUpdated(RtspSessionTiming timing, ImmutableList<RtspMediaTrack> tracks);
+
     /**
      * Called when failed to get session information from the RTSP server, or when error happened
      * during updating the session timeline.
@@ -140,6 +150,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private RtspMessageChannel messageChannel;
   @Nullable private RtspAuthUserInfo rtspAuthUserInfo;
   @Nullable private String sessionId;
+  private long sessionTimeoutMs;
   @Nullable private KeepAliveMonitor keepAliveMonitor;
   @Nullable private RtspAuthenticationInfo rtspAuthenticationInfo;
   private @RtspState int rtspState;
@@ -181,6 +192,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.messageSender = new MessageSender();
     this.uri = RtspMessageUtil.removeUserInfo(uri);
     this.messageChannel = new RtspMessageChannel(new MessageListener());
+    this.sessionTimeoutMs = RtspMessageUtil.DEFAULT_RTSP_TIMEOUT_MS;
     this.rtspAuthUserInfo = RtspMessageUtil.parseUserInfo(uri);
     this.pendingSeekPositionUs = C.TIME_UNSET;
     this.rtspState = RTSP_STATE_UNINITIALIZED;
@@ -228,6 +240,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    */
   public void startPlayback(long offsetMs) {
     messageSender.sendPlayRequest(uri, offsetMs, checkNotNull(sessionId));
+  }
+
+  public void signalPlaybackEnded() {
+    rtspState = RTSP_STATE_READY;
   }
 
   /**
@@ -333,19 +349,22 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   /**
-   * Gets the included {@link RtspMediaTrack RtspMediaTracks} from a {@link SessionDescription}.
+   * Returns the included {@link RtspMediaTrack RtspMediaTracks} from parsing the {@link
+   * SessionDescription} within the {@link RtspDescribeResponse}.
    *
-   * @param sessionDescription The {@link SessionDescription}.
+   * @param rtspDescribeResponse The {@link RtspDescribeResponse} from which to retrieve the tracks.
    * @param uri The RTSP playback URI.
    */
   private static ImmutableList<RtspMediaTrack> buildTrackList(
-      SessionDescription sessionDescription, Uri uri) {
+      RtspDescribeResponse rtspDescribeResponse, Uri uri) {
     ImmutableList.Builder<RtspMediaTrack> trackListBuilder = new ImmutableList.Builder<>();
-    for (int i = 0; i < sessionDescription.mediaDescriptionList.size(); i++) {
-      MediaDescription mediaDescription = sessionDescription.mediaDescriptionList.get(i);
+    for (int i = 0; i < rtspDescribeResponse.sessionDescription.mediaDescriptionList.size(); i++) {
+      MediaDescription mediaDescription =
+          rtspDescribeResponse.sessionDescription.mediaDescriptionList.get(i);
       // Includes tracks with supported formats only.
       if (RtpPayloadFormat.isFormatSupported(mediaDescription)) {
-        trackListBuilder.add(new RtspMediaTrack(mediaDescription, uri));
+        trackListBuilder.add(
+            new RtspMediaTrack(rtspDescribeResponse.headers, mediaDescription, uri));
       }
     }
     return trackListBuilder.build();
@@ -365,7 +384,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     public void sendDescribeRequest(Uri uri, @Nullable String sessionId) {
       sendRequest(
           getRequestWithCommonHeaders(
-              METHOD_DESCRIBE, sessionId, /* additionalHeaders= */ ImmutableMap.of(), uri));
+              METHOD_DESCRIBE,
+              sessionId,
+              /* additionalHeaders= */ ImmutableMap.of(
+                  RtspHeaders.ACCEPT, MimeTypes.APPLICATION_SDP),
+              uri));
     }
 
     public void sendSetupRequest(Uri trackUri, String transport, @Nullable String sessionId) {
@@ -614,7 +637,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           case METHOD_DESCRIBE:
             onDescribeResponseReceived(
                 new RtspDescribeResponse(
-                    response.status, SessionDescriptionParser.parse(response.messageBody)));
+                    response.headers,
+                    response.status,
+                    SessionDescriptionParser.parse(response.messageBody)));
             break;
 
           case METHOD_SETUP:
@@ -704,7 +729,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         }
       }
 
-      ImmutableList<RtspMediaTrack> tracks = buildTrackList(response.sessionDescription, uri);
+      ImmutableList<RtspMediaTrack> tracks = buildTrackList(response, uri);
       if (tracks.isEmpty()) {
         sessionInfoListener.onSessionTimelineRequestFailed("No playable track.", /* cause= */ null);
         return;
@@ -719,15 +744,18 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
       rtspState = RTSP_STATE_READY;
       sessionId = response.sessionHeader.sessionId;
+      sessionTimeoutMs = response.sessionHeader.timeoutMs;
       continueSetupRtspTrack();
     }
 
     private void onPlayResponseReceived(RtspPlayResponse response) {
-      checkState(rtspState == RTSP_STATE_READY);
+      checkState(rtspState == RTSP_STATE_READY || rtspState == RTSP_STATE_PLAYING);
 
       rtspState = RTSP_STATE_PLAYING;
       if (keepAliveMonitor == null) {
-        keepAliveMonitor = new KeepAliveMonitor(DEFAULT_RTSP_KEEP_ALIVE_INTERVAL_MS);
+        keepAliveMonitor =
+            new KeepAliveMonitor(
+                /* intervalMs= */ sessionTimeoutMs / DEFAULT_RTSP_KEEP_ALIVE_INTERVAL_DIVISOR);
         keepAliveMonitor.start();
       }
 

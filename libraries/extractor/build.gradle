@@ -14,34 +14,48 @@
 apply from: "$gradle.ext.androidxMediaSettingsDir/common_library_config.gradle"
 
 android {
+    namespace 'androidx.media3.extractor'
+
     buildTypes {
         debug {
             testCoverageEnabled = true
         }
     }
 
-    sourceSets.test.assets.srcDir '../test_data/src/test/assets/'
+    sourceSets {
+        androidTest.assets.srcDir '../test_data/src/test/assets'
+        test.assets.srcDir '../test_data/src/test/assets/'
+    }
+
+    lintOptions {
+        // TODO: b/353490583 - Enable this once the violations are fixed.
+        checkTestSources false
+    }
+
+    publishing {
+        singleVariant('release') {
+            withSourcesJar()
+        }
+    }
 }
 
 dependencies {
     implementation 'androidx.annotation:annotation:' + androidxAnnotationVersion
     implementation project(modulePrefix + 'lib-common')
+    implementation project(modulePrefix + 'lib-container')
     // TODO(b/203752187): Remove this dependency.
     implementation project(modulePrefix + 'lib-decoder')
     compileOnly 'com.google.errorprone:error_prone_annotations:' + errorProneVersion
     compileOnly 'org.checkerframework:checker-qual:' + checkerframeworkVersion
-    compileOnly 'org.checkerframework:checker-compat-qual:' + checkerframeworkCompatVersion
     compileOnly 'org.jetbrains.kotlin:kotlin-annotations-jvm:' + kotlinAnnotationsVersion
     testImplementation project(modulePrefix + 'lib-exoplayer')
     testImplementation project(modulePrefix + 'test-utils')
     testImplementation project(modulePrefix + 'test-data')
     testImplementation 'org.robolectric:robolectric:' + robolectricVersion
+    androidTestImplementation 'androidx.test:runner:' + androidxTestRunnerVersion
+    androidTestImplementation project(modulePrefix + 'test-utils')
+    androidTestImplementation 'com.linkedin.dexmaker:dexmaker:' + dexmakerVersion
 }
-
-ext {
-    javadocTitle = 'Extractor module'
-}
-apply from: '../../javadoc_library.gradle'
 
 ext {
     releaseArtifactId = 'media3-extractor'

@@ -56,9 +56,11 @@ import static androidx.media3.test.session.common.CommonConstants.KEY_VIDEO_SIZE
 import static androidx.media3.test.session.common.CommonConstants.KEY_VOLUME;
 import static androidx.media3.test.session.common.CommonConstants.MEDIA3_SESSION_PROVIDER_SERVICE;
 import static androidx.media3.test.session.common.TestUtils.SERVICE_CONNECTION_TIMEOUT_MS;
+import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
+import android.app.PendingIntent;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -69,6 +71,7 @@ import android.os.RemoteException;
 import android.support.v4.media.session.MediaSessionCompat;
 import androidx.annotation.Nullable;
 import androidx.media3.common.AudioAttributes;
+import androidx.media3.common.C;
 import androidx.media3.common.DeviceInfo;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.PlaybackException;
@@ -82,7 +85,6 @@ import androidx.media3.common.Tracks;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.text.CueGroup;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.UnstableApi;
 import androidx.media3.test.session.common.IRemoteMediaSession;
 import androidx.media3.test.session.common.TestUtils;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -91,10 +93,9 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 
 /**
- * Represents remote {@link MediaSession} in the service app's MediaSessionProviderService. Users
- * can run {@link MediaSession} methods remotely with this object.
+ * Represents remote {@link MediaSession} in the service app's {@link MediaSessionProviderService}.
+ * Users can run {@link MediaSession} methods remotely with this object.
  */
-@UnstableApi
 public class RemoteMediaSession {
   private static final String TAG = "RemoteMediaSession";
 
@@ -151,7 +152,7 @@ public class RemoteMediaSession {
    */
   @Nullable
   public SessionToken getToken() throws RemoteException {
-    return SessionToken.CREATOR.fromBundle(binder.getToken(sessionId));
+    return SessionToken.fromBundle(binder.getToken(sessionId));
   }
 
   /**
@@ -200,12 +201,31 @@ public class RemoteMediaSession {
     binder.setCustomLayout(sessionId, bundleList);
   }
 
+  public void setMediaButtonPreferences(List<CommandButton> mediaButtonPreferences)
+      throws RemoteException {
+    List<Bundle> bundleList = new ArrayList<>();
+    for (CommandButton button : mediaButtonPreferences) {
+      bundleList.add(button.toBundle());
+    }
+    binder.setMediaButtonPreferences(sessionId, bundleList);
+  }
+
   public void setSessionExtras(Bundle extras) throws RemoteException {
     binder.setSessionExtras(sessionId, extras);
   }
 
   public void setSessionExtras(String controllerKey, Bundle extras) throws RemoteException {
     binder.setSessionExtrasForController(sessionId, controllerKey, extras);
+  }
+
+  public void setSessionActivity(String controllerKey, PendingIntent sessionActivity)
+      throws RemoteException {
+    binder.setSessionActivity(sessionId, controllerKey, sessionActivity);
+  }
+
+  public void sendError(@Nullable String controllerKey, SessionError sessionError)
+      throws RemoteException {
+    binder.sendError(sessionId, nullToEmpty(controllerKey), sessionError.toBundle());
   }
 
   ////////////////////////////////////////////////////////////////////////////////
@@ -286,10 +306,29 @@ public class RemoteMediaSession {
       binder.setVolume(sessionId, volume);
     }
 
+    public void setDeviceVolume(int volume, @C.VolumeFlags int flags) throws RemoteException {
+      binder.setDeviceVolume(sessionId, volume, flags);
+    }
+
+    public void decreaseDeviceVolume(@C.VolumeFlags int flags) throws RemoteException {
+      binder.decreaseDeviceVolume(sessionId, flags);
+    }
+
+    public void increaseDeviceVolume(@C.VolumeFlags int flags) throws RemoteException {
+      binder.increaseDeviceVolume(sessionId, flags);
+    }
+
+    public void setDeviceMuted(boolean muted, @C.VolumeFlags int flags) throws RemoteException {
+      binder.setDeviceMuted(sessionId, muted, flags);
+    }
+
     public void notifyPlayWhenReadyChanged(
-        boolean playWhenReady, @Player.PlaybackSuppressionReason int reason)
+        boolean playWhenReady,
+        @Player.PlayWhenReadyChangeReason int playWhenReadyChangeReason,
+        @Player.PlaybackSuppressionReason int suppressionReason)
         throws RemoteException {
-      binder.notifyPlayWhenReadyChanged(sessionId, playWhenReady, reason);
+      binder.notifyPlayWhenReadyChanged(
+          sessionId, playWhenReady, playWhenReadyChangeReason, suppressionReason);
     }
 
     public void notifyPlaybackStateChanged(@Player.State int state) throws RemoteException {
@@ -399,16 +438,12 @@ public class RemoteMediaSession {
       return binder.surfaceExists(sessionId);
     }
 
-    public void notifyDeviceVolumeChanged(int volume, boolean muted) throws RemoteException {
-      binder.notifyDeviceVolumeChanged(sessionId, volume, muted);
+    public void notifyDeviceVolumeChanged() throws RemoteException {
+      binder.notifyDeviceVolumeChanged(sessionId);
     }
 
-    public void decreaseDeviceVolume() throws RemoteException {
-      binder.decreaseDeviceVolume(sessionId);
-    }
-
-    public void increaseDeviceVolume() throws RemoteException {
-      binder.increaseDeviceVolume(sessionId);
+    public void notifyVolumeChanged() throws RemoteException {
+      binder.notifyVolumeChanged(sessionId);
     }
 
     public void notifyCuesChanged(CueGroup cueGroup) throws RemoteException {

@@ -42,20 +42,33 @@ public final class FrameworkCryptoConfig implements CryptoConfig {
 
   /** The DRM scheme UUID. */
   public final UUID uuid;
+
   /** The DRM session id. */
   public final byte[] sessionId;
-  /**
-   * Whether to allow use of insecure decoder components even if the underlying platform says
-   * otherwise.
-   */
-  public final boolean forceAllowInsecureDecoderComponents;
 
   /**
+   * @deprecated Use {@link ExoMediaDrm#requiresSecureDecoder} instead, which incorporates this
+   *     logic.
+   */
+  @Deprecated public final boolean forceAllowInsecureDecoderComponents;
+
+  /**
+   * Constructs an instance.
+   *
    * @param uuid The DRM scheme UUID.
    * @param sessionId The DRM session id.
-   * @param forceAllowInsecureDecoderComponents Whether to allow use of insecure decoder components
-   *     even if the underlying platform says otherwise.
    */
+  @SuppressWarnings("deprecation") // Delegating to deprecated constructor
+  public FrameworkCryptoConfig(UUID uuid, byte[] sessionId) {
+    this(uuid, sessionId, /* forceAllowInsecureDecoderComponents= */ false);
+  }
+
+  /**
+   * @deprecated Use {@link FrameworkCryptoConfig#FrameworkCryptoConfig(UUID, byte[])} instead, and
+   *     {@link ExoMediaDrm#requiresSecureDecoder} for the secure decoder handling logic.
+   */
+  @SuppressWarnings("deprecation") // Setting deprecated field
+  @Deprecated
   public FrameworkCryptoConfig(
       UUID uuid, byte[] sessionId, boolean forceAllowInsecureDecoderComponents) {
     this.uuid = uuid;

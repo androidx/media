@@ -15,20 +15,27 @@
  */
 package androidx.media3.test.utils;
 
+import static androidx.media3.common.util.Assertions.checkNotNull;
+import static androidx.media3.common.util.Assertions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.media.MediaCodec;
 import android.net.Uri;
+import android.os.Bundle;
+import android.os.Parcel;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.Format;
+import androidx.media3.common.MediaItem;
+import androidx.media3.common.MediaMetadata;
+import androidx.media3.common.StreamKey;
 import androidx.media3.common.Timeline;
-import androidx.media3.common.util.Assertions;
+import androidx.media3.common.TrackGroup;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.database.DatabaseProvider;
@@ -36,22 +43,31 @@ import androidx.media3.database.DefaultDatabaseProvider;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DataSourceUtil;
 import androidx.media3.datasource.DataSpec;
+import androidx.media3.exoplayer.MetadataRetriever;
+import androidx.media3.exoplayer.source.TrackGroupArray;
 import androidx.media3.extractor.DefaultExtractorInput;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.PositionHolder;
 import androidx.media3.extractor.SeekMap;
 import androidx.media3.extractor.metadata.MetadataInputBuffer;
+import com.google.common.collect.BoundType;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Range;
+import com.google.common.io.ByteStreams;
 import com.google.common.primitives.Bytes;
+import com.google.common.primitives.UnsignedBytes;
 import com.google.common.truth.Correspondence;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.FloatBuffer;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -60,10 +76,18 @@ import java.util.List;
 import java.util.Queue;
 import java.util.Random;
 import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ExecutionException;
 
 /** Utility methods for tests. */
 @UnstableApi
 public class TestUtil {
+  /**
+   * Luma PSNR values between 30 and 50 are considered good for lossy compression (See <a
+   * href="https://en.wikipedia.org/wiki/Peak_signal-to-noise_ratio#Quality_estimation_with_PSNR">Quality
+   * estimation with PSNR</a> ).
+   */
+  public static final float PSNR_THRESHOLD = 35f;
 
   private TestUtil() {}
 
@@ -123,12 +147,34 @@ public class TestUtil {
    * @return The equivalent byte array.
    */
   public static byte[] createByteArray(int... bytes) {
-    byte[] byteArray = new byte[bytes.length];
-    for (int i = 0; i < byteArray.length; i++) {
-      Assertions.checkState(0x00 <= bytes[i] && bytes[i] <= 0xFF);
-      byteArray[i] = (byte) bytes[i];
+    byte[] array = new byte[bytes.length];
+    for (int i = 0; i < array.length; i++) {
+      array[i] = UnsignedBytes.checkedCast(bytes[i]);
     }
-    return byteArray;
+    return array;
+  }
+
+  /** Gets the underlying data of the {@link ByteBuffer} as a {@code float[]}. */
+  public static float[] createFloatArray(ByteBuffer byteBuffer) {
+    FloatBuffer buffer = byteBuffer.asFloatBuffer();
+    float[] content = new float[buffer.remaining()];
+    buffer.get(content);
+    return content;
+  }
+
+  /** Creates a {@link ByteBuffer} containing the {@code data}. */
+  public static ByteBuffer createByteBuffer(float[] data) {
+    ByteBuffer buffer =
+        ByteBuffer.allocateDirect(data.length * C.BYTES_PER_FLOAT).order(ByteOrder.nativeOrder());
+    buffer.asFloatBuffer().put(data);
+    return buffer;
+  }
+
+  /** Creates a {@link ByteBuffer} containing the {@code data}. */
+  public static ByteBuffer createByteBuffer(short[] data) {
+    ByteBuffer buffer = ByteBuffer.allocateDirect(data.length * 2).order(ByteOrder.nativeOrder());
+    buffer.asShortBuffer().put(data);
+    return buffer;
   }
 
   /**
@@ -153,17 +199,26 @@ public class TestUtil {
 
   /** Writes test data with the specified length to the file and returns it. */
   public static File createTestFile(File file, long length) throws IOException {
-    FileOutputStream output = new FileOutputStream(file);
-    for (long i = 0; i < length; i++) {
-      output.write((int) i);
+    try (FileOutputStream output = new FileOutputStream(file)) {
+      for (long i = 0; i < length; i++) {
+        output.write((int) i);
+      }
     }
-    output.close();
     return file;
   }
 
   /** Returns the bytes of an asset file. */
   public static byte[] getByteArray(Context context, String fileName) throws IOException {
-    return Util.toByteArray(getInputStream(context, fileName));
+    try (InputStream inputStream = getInputStream(context, fileName)) {
+      return ByteStreams.toByteArray(inputStream);
+    }
+  }
+
+  /** Returns the bytes of a file using its file path. */
+  public static byte[] getByteArrayFromFilePath(String filePath) throws IOException {
+    try (InputStream inputStream = new FileInputStream(filePath)) {
+      return ByteStreams.toByteArray(inputStream);
+    }
   }
 
   /** Returns an {@link InputStream} for reading from an asset file. */
@@ -174,11 +229,6 @@ public class TestUtil {
   /** Returns a {@link String} read from an asset file. */
   public static String getString(Context context, String fileName) throws IOException {
     return Util.fromUtf8Bytes(getByteArray(context, fileName));
-  }
-
-  /** Returns a {@link Bitmap} read from an asset file. */
-  public static Bitmap getBitmap(Context context, String fileName) throws IOException {
-    return BitmapFactory.decodeStream(getInputStream(context, fileName));
   }
 
   /** Returns a {@link DatabaseProvider} that provides an in-memory database. */
@@ -318,6 +368,35 @@ public class TestUtil {
   }
 
   /**
+   * Returns the {@link Format} for a given {@link C.TrackType} from a media file.
+   *
+   * <p>If more than one track is present for the given {@link C.TrackType} then only one track's
+   * {@link Format} is returned.
+   *
+   * @param context The {@link Context};
+   * @param fileUri The media file uri.
+   * @param trackType The {@link C.TrackType}.
+   * @return The {@link Format} for the given {@link C.TrackType}.
+   * @throws ExecutionException If an error occurred while retrieving file's metadata.
+   * @throws InterruptedException If interrupted while retrieving file's metadata.
+   */
+  public static Format retrieveTrackFormat(
+      Context context, String fileUri, @C.TrackType int trackType)
+      throws ExecutionException, InterruptedException {
+    checkState(new File(fileUri).length() > 0);
+    TrackGroupArray trackGroupArray;
+    trackGroupArray = MetadataRetriever.retrieveMetadata(context, MediaItem.fromUri(fileUri)).get();
+    for (int i = 0; i < trackGroupArray.length; i++) {
+      TrackGroup trackGroup = trackGroupArray.get(i);
+      if (trackGroup.type == trackType) {
+        checkState(trackGroup.length == 1);
+        return trackGroup.getFormat(0);
+      }
+    }
+    throw new IllegalStateException("Couldn't find track");
+  }
+
+  /**
    * Reads from the given input using the given {@link Extractor}, until it can produce the {@link
    * SeekMap} and all of the track formats have been identified, or until the extractor encounters
    * EOF.
@@ -370,7 +449,7 @@ public class TestUtil {
   /**
    * Extracts all samples from the given file into a {@link FakeTrackOutput}.
    *
-   * @param extractor The {@link Extractor} to extractor from input.
+   * @param extractor The {@link Extractor} to be used.
    * @param context A {@link Context}.
    * @param fileName The name of the input file.
    * @return The {@link FakeTrackOutput} containing the extracted samples.
@@ -380,6 +459,35 @@ public class TestUtil {
   public static FakeExtractorOutput extractAllSamplesFromFile(
       Extractor extractor, Context context, String fileName) throws IOException {
     byte[] data = TestUtil.getByteArray(context, fileName);
+    return extractAllSamplesFromByteArray(extractor, data);
+  }
+
+  /**
+   * Extracts all samples from the given file into a {@link FakeTrackOutput}.
+   *
+   * @param extractor The {@link Extractor} to be used.
+   * @param filePath The file path.
+   * @return The {@link FakeTrackOutput} containing the extracted samples.
+   * @throws IOException If an error occurred reading from the input, or if the extractor finishes
+   *     reading from input without extracting any {@link SeekMap}.
+   */
+  public static FakeExtractorOutput extractAllSamplesFromFilePath(
+      Extractor extractor, String filePath) throws IOException {
+    byte[] data = getByteArrayFromFilePath(filePath);
+    return extractAllSamplesFromByteArray(extractor, data);
+  }
+
+  /**
+   * Extracts all samples from the given byte array into a {@link FakeTrackOutput}.
+   *
+   * @param extractor The {@link Extractor} to be used.
+   * @param data The byte array data.
+   * @return The {@link FakeTrackOutput} containing the extracted samples.
+   * @throws IOException If an error occurred reading from the input, or if the extractor finishes
+   *     reading from input without extracting any {@link SeekMap}.
+   */
+  public static FakeExtractorOutput extractAllSamplesFromByteArray(Extractor extractor, byte[] data)
+      throws IOException {
     FakeExtractorOutput expectedOutput = new FakeExtractorOutput();
     extractor.init(expectedOutput);
     FakeExtractorInput input = new FakeExtractorInput.Builder().setData(data).build();
@@ -428,7 +536,7 @@ public class TestUtil {
     extractor.seek(initialSeekLoadPosition, seekTimeUs);
 
     PositionHolder positionHolder = new PositionHolder();
-    positionHolder.position = C.POSITION_UNSET;
+    positionHolder.position = C.INDEX_UNSET;
     ExtractorInput extractorInput =
         TestUtil.getExtractorInputFromPosition(dataSource, initialSeekLoadPosition, uri);
     int extractorReadResult = Extractor.RESULT_CONTINUE;
@@ -508,6 +616,80 @@ public class TestUtil {
     }
 
     return list;
+  }
+
+  /** Returns a {@link MediaItem} that has all fields set to non-default values. */
+  public static MediaItem buildFullyCustomizedMediaItem() {
+    return new MediaItem.Builder()
+        .setUri("http://custom.uri.test")
+        .setCustomCacheKey("custom.cache")
+        .setMediaId("custom.id")
+        .setMediaMetadata(new MediaMetadata.Builder().setTitle("custom.title").build())
+        .setClippingConfiguration(
+            new MediaItem.ClippingConfiguration.Builder().setStartPositionMs(123).build())
+        .setAdsConfiguration(
+            new MediaItem.AdsConfiguration.Builder(Uri.parse("http:://custom.ad.test")).build())
+        .setDrmConfiguration(new MediaItem.DrmConfiguration.Builder(UUID.randomUUID()).build())
+        .setLiveConfiguration(
+            new MediaItem.LiveConfiguration.Builder().setTargetOffsetMs(234).build())
+        .setMimeType("mime")
+        .setRequestMetadata(
+            new MediaItem.RequestMetadata.Builder().setSearchQuery("custom.query").build())
+        .setStreamKeys(ImmutableList.of(new StreamKey(/* groupIndex= */ 0, /* streamIndex= */ 0)))
+        .setTag("tag")
+        .setSubtitleConfigurations(
+            ImmutableList.of(
+                new MediaItem.SubtitleConfiguration.Builder(
+                        Uri.parse("http://custom.subtitle.test"))
+                    .build()))
+        .build();
+  }
+
+  /** Returns a {@link Bundle} that will throw an exception at the first attempt to read a value. */
+  public static Bundle getThrowingBundle() {
+    // Create Bundle containing a Parcelable class that will require a ClassLoader.
+    Bundle bundle = new Bundle();
+    bundle.putParcelable("0", new StreamKey(0, 0));
+    // Serialize this Bundle to a Parcel to remove the direct object reference.
+    Parcel parcel = Parcel.obtain();
+    parcel.writeBundle(bundle);
+    // Read the same Bundle from the Parcel again, but with a ClassLoader that can't load the class.
+    parcel.setDataPosition(0);
+    ClassLoader throwingClassLoader =
+        new ClassLoader() {
+          @Override
+          public Class<?> loadClass(String name) throws ClassNotFoundException {
+            throw new ClassNotFoundException();
+          }
+        };
+    return checkNotNull(parcel.readBundle(throwingClassLoader));
+  }
+
+  /**
+   * Returns a randomly generated float within the specified range, using {@code random} as random
+   * number generator.
+   *
+   * <p>{@code range} must be a bounded range.
+   */
+  public static float generateFloatInRange(Random random, Range<Float> range) {
+    float bottom =
+        range.lowerBoundType() == BoundType.OPEN
+            ? Math.nextUp(range.lowerEndpoint())
+            : range.lowerEndpoint();
+    float top =
+        range.upperBoundType() == BoundType.OPEN
+            ? Math.nextDown(range.upperEndpoint())
+            : range.upperEndpoint();
+
+    return bottom + random.nextFloat() * (top - bottom);
+  }
+
+  /**
+   * Returns a long between {@code origin} (inclusive) and {@code bound} (exclusive), given {@code
+   * random}.
+   */
+  public static long generateLong(Random random, long origin, long bound) {
+    return (long) (origin + random.nextFloat() * (bound - origin));
   }
 
   private static final class NoUidOrShufflingTimeline extends Timeline {

@@ -23,7 +23,9 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
@@ -230,8 +232,10 @@ public final class FlacExtractor implements Extractor {
 
     Assertions.checkNotNull(flacStreamMetadata);
     minFrameSize = max(flacStreamMetadata.minFrameSize, FlacConstants.MIN_FRAME_HEADER_SIZE);
+    Format format = flacStreamMetadata.getFormat(streamMarkerAndInfoBlock, id3Metadata);
     castNonNull(trackOutput)
-        .format(flacStreamMetadata.getFormat(streamMarkerAndInfoBlock, id3Metadata));
+        .format(format.buildUpon().setContainerMimeType(MimeTypes.AUDIO_FLAC).build());
+    castNonNull(trackOutput).durationUs(flacStreamMetadata.getDurationUs());
 
     state = STATE_GET_FRAME_START_MARKER;
   }

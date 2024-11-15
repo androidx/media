@@ -1,22 +1,29 @@
 seekMap:
   isSeekable = true
   duration = 1024000
-  getPosition(0) = [[timeUs=0, position=48]]
-  getPosition(1) = [[timeUs=0, position=48]]
-  getPosition(512000) = [[timeUs=0, position=48]]
-  getPosition(1024000) = [[timeUs=0, position=48]]
+  getPosition(0) = [[timeUs=0, position=2269]]
+  getPosition(1) = [[timeUs=0, position=2269]]
+  getPosition(512000) = [[timeUs=0, position=2269]]
+  getPosition(1024000) = [[timeUs=0, position=2269]]
 numberOfTracks = 2
 track 0:
   total output bytes = 89876
   sample count = 30
+  track duration = 1001000
   format 0:
     id = 1
+    containerMimeType = video/mp4
     sampleMimeType = video/avc
     codecs = avc1.64001F
     maxInputSize = 36722
+    maxNumReorderSamples = 2
     width = 1080
     height = 720
-    frameRate = 29.970028
+    frameRate = 29.97
+    colorInfo:
+      lumaBitdepth = 8
+      chromaBitdepth = 8
+    metadata = entries=[TSSE: description=null: values=[Lavf56.1.0], xyz: latitude=40.68, longitude=-74.5, Mp4Timestamp: creation time=3547558895, modification time=3547558895, timescale=1000]
     initializationData:
       data = length 29, hash 4746B5D9
       data = length 10, hash 7A0D0F2B
@@ -143,16 +150,18 @@ track 0:
 track 1:
   total output bytes = 4019
   sample count = 18
+  track duration = 1024000
   format 0:
     peakBitrate = 200000
     id = 2
+    containerMimeType = video/mp4
     sampleMimeType = audio/mp4a-latm
     codecs = mp4a.40.2
     maxInputSize = 294
     channelCount = 1
     sampleRate = 44100
     language = und
-    metadata = entries=[TSSE: description=null: values=[Lavf56.1.0]]
+    metadata = entries=[TSSE: description=null: values=[Lavf56.1.0], xyz: latitude=40.68, longitude=-74.5, Mp4Timestamp: creation time=3547558895, modification time=3547558895, timescale=1000]
     initializationData:
       data = length 2, hash 5F7
   sample 0:

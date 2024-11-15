@@ -22,6 +22,7 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DataSourceUtil;
@@ -30,6 +31,7 @@ import androidx.media3.datasource.StatsDataSource;
 import androidx.media3.datasource.TransferListener;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.exoplayer.FormatHolder;
+import androidx.media3.exoplayer.LoadingInfo;
 import androidx.media3.exoplayer.SeekParameters;
 import androidx.media3.exoplayer.source.MediaSourceEventListener.EventDispatcher;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
@@ -38,10 +40,10 @@ import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy.LoadErrorInfo;
 import androidx.media3.exoplayer.upstream.Loader;
 import androidx.media3.exoplayer.upstream.Loader.LoadErrorAction;
 import androidx.media3.exoplayer.upstream.Loader.Loadable;
+import androidx.media3.exoplayer.util.ReleasableExecutor;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import org.checkerframework.checker.nullness.compatqual.NullableType;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** A {@link MediaPeriod} with a single sample. */
@@ -79,7 +81,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       long durationUs,
       LoadErrorHandlingPolicy loadErrorHandlingPolicy,
       EventDispatcher eventDispatcher,
-      boolean treatLoadErrorsAsEndOfStream) {
+      boolean treatLoadErrorsAsEndOfStream,
+      @Nullable ReleasableExecutor downloadExecutor) {
     this.dataSpec = dataSpec;
     this.dataSourceFactory = dataSourceFactory;
     this.transferListener = transferListener;
@@ -90,7 +93,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.treatLoadErrorsAsEndOfStream = treatLoadErrorsAsEndOfStream;
     tracks = new TrackGroupArray(new TrackGroup(format));
     sampleStreams = new ArrayList<>();
-    loader = new Loader("SingleSampleMediaPeriod");
+    loader =
+        downloadExecutor != null
+            ? new Loader(downloadExecutor)
+            : new Loader("SingleSampleMediaPeriod");
   }
 
   public void release() {
@@ -145,7 +151,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   @Override
-  public boolean continueLoading(long positionUs) {
+  public boolean continueLoading(LoadingInfo loadingInfo) {
     if (loadingFinished || loader.isLoading() || loader.hasFatalError()) {
       return false;
     }
@@ -154,20 +160,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       dataSource.addTransferListener(transferListener);
     }
     SourceLoadable loadable = new SourceLoadable(dataSpec, dataSource);
-    long elapsedRealtimeMs =
-        loader.startLoading(
-            loadable,
-            /* callback= */ this,
-            loadErrorHandlingPolicy.getMinimumLoadableRetryCount(C.DATA_TYPE_MEDIA));
-    eventDispatcher.loadStarted(
-        new LoadEventInfo(loadable.loadTaskId, dataSpec, elapsedRealtimeMs),
-        C.DATA_TYPE_MEDIA,
-        C.TRACK_TYPE_UNKNOWN,
-        format,
-        C.SELECTION_REASON_UNKNOWN,
-        /* trackSelectionData= */ null,
-        /* mediaStartTimeUs= */ 0,
-        durationUs);
+    loader.startLoading(
+        loadable,
+        /* callback= */ this,
+        loadErrorHandlingPolicy.getMinimumLoadableRetryCount(C.DATA_TYPE_MEDIA));
     return true;
   }
 
@@ -205,6 +201,33 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   // Loader.Callback implementation.
+
+  @Override
+  public void onLoadStarted(
+      SourceLoadable loadable, long elapsedRealtimeMs, long loadDurationMs, int retryCount) {
+    StatsDataSource dataSource = loadable.dataSource;
+    LoadEventInfo loadEventInfo =
+        retryCount == 0
+            ? new LoadEventInfo(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs)
+            : new LoadEventInfo(
+                loadable.loadTaskId,
+                loadable.dataSpec,
+                dataSource.getLastOpenedUri(),
+                dataSource.getLastResponseHeaders(),
+                elapsedRealtimeMs,
+                loadDurationMs,
+                dataSource.getBytesRead());
+    eventDispatcher.loadStarted(
+        loadEventInfo,
+        C.DATA_TYPE_MEDIA,
+        C.TRACK_TYPE_UNKNOWN,
+        format,
+        C.SELECTION_REASON_UNKNOWN,
+        /* trackSelectionData= */ null,
+        /* mediaStartTimeUs= */ 0,
+        durationUs,
+        retryCount);
+  }
 
   @Override
   public void onLoadCompleted(

@@ -9,18 +9,25 @@ numberOfTracks = 2
 track 0:
   total output bytes = 266091
   sample count = 60
+  track duration = 1001000
   format 0:
     id = 1
+    containerMimeType = video/mp4
     sampleMimeType = video/av01
     maxInputSize = 144656
     width = 1920
     height = 1080
-    frameRate = 59.940056
+    frameRate = 59.94
     colorInfo:
       colorSpace = 6
       colorRange = 2
       colorTransfer = 6
       hdrStaticInfo = length 25, hash 423AFC35
+      lumaBitdepth = 10
+      chromaBitdepth = 10
+    metadata = entries=[TSSE: description=null: values=[Lavf58.76.100], Mp4Timestamp: creation time=0, modification time=0, timescale=1000]
+    initializationData:
+      data = length 20, hash 4DF5B288
   sample 0:
     time = 0
     flags = 1
@@ -264,17 +271,19 @@ track 0:
 track 1:
   total output bytes = 16638
   sample count = 44
+  track duration = 1022000
   format 0:
     averageBitrate = 130279
     peakBitrate = 130279
     id = 2
+    containerMimeType = video/mp4
     sampleMimeType = audio/mp4a-latm
     codecs = mp4a.40.2
     maxInputSize = 441
     channelCount = 2
     sampleRate = 44100
     language = und
-    metadata = entries=[TSSE: description=null: values=[Lavf58.76.100]]
+    metadata = entries=[TSSE: description=null: values=[Lavf58.76.100], Mp4Timestamp: creation time=0, modification time=0, timescale=1000]
     initializationData:
       data = length 16, hash CAA21BBF
   sample 0:

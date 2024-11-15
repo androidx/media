@@ -14,36 +14,34 @@
 apply from: "$gradle.ext.androidxMediaSettingsDir/common_library_config.gradle"
 
 android {
-    defaultConfig {
-        // Enable multidex for androidTests.
-        multiDexEnabled true
-    }
+    namespace 'androidx.media3.exoplayer.ima'
 
     sourceSets {
         androidTest.assets.srcDir '../test_data/src/test/assets'
     }
+
+    publishing {
+        singleVariant('release') {
+            withSourcesJar()
+        }
+    }
 }
 
 dependencies {
-    api 'com.google.ads.interactivemedia.v3:interactivemedia:3.29.0'
+    api 'com.google.ads.interactivemedia.v3:interactivemedia:3.33.0'
     implementation project(modulePrefix + 'lib-exoplayer')
     implementation 'androidx.annotation:annotation:' + androidxAnnotationVersion
     compileOnly 'com.google.errorprone:error_prone_annotations:' + errorProneVersion
     compileOnly 'org.checkerframework:checker-qual:' + checkerframeworkVersion
     compileOnly 'org.jetbrains.kotlin:kotlin-annotations-jvm:' + kotlinAnnotationsVersion
     androidTestImplementation project(modulePrefix + 'test-utils')
-    androidTestImplementation 'androidx.multidex:multidex:' + androidxMultidexVersion
     androidTestImplementation 'androidx.test:rules:' + androidxTestRulesVersion
     androidTestImplementation 'androidx.test:runner:' + androidxTestRunnerVersion
     androidTestCompileOnly 'org.checkerframework:checker-qual:' + checkerframeworkVersion
     testImplementation project(modulePrefix + 'test-utils')
+    testImplementation project(modulePrefix + 'test-utils-robolectric')
     testImplementation 'org.robolectric:robolectric:' + robolectricVersion
 }
-
-ext {
-    javadocTitle = 'IMA extension'
-}
-apply from: '../../javadoc_library.gradle'
 
 ext {
     releaseArtifactId = 'media3-exoplayer-ima'

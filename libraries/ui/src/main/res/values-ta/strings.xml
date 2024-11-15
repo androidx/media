@@ -41,12 +41,11 @@
     <item>1.5x</item>
     <item>2x</item>
   </string-array>
-  <string name="exo_track_selection_title_video">வீடியோ</string>
   <string name="exo_track_selection_title_audio">ஆடியோ</string>
-  <string name="exo_track_selection_title_text">உரை</string>
   <string name="exo_track_selection_none">ஏதுமில்லை</string>
   <string name="exo_track_selection_auto">தானியங்கு</string>
   <string name="exo_track_unknown">தெரியாதவை</string>
+  <string name="exo_track_unknown_name">தெரியாதது (%1$s)</string>
   <string name="exo_track_resolution">%1$d × %2$d</string>
   <string name="exo_track_mono">மோனோ</string>
   <string name="exo_track_stereo">ஸ்டீரியோ</string>

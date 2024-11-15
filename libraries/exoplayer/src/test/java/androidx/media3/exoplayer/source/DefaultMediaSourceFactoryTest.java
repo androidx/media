@@ -16,6 +16,7 @@
 package androidx.media3.exoplayer.source;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.mock;
 
 import android.content.Context;
@@ -174,6 +175,36 @@ public final class DefaultMediaSourceFactoryTest {
             .getSupportedTypes();
 
     assertThat(supportedTypes).asList().containsExactly(C.CONTENT_TYPE_OTHER);
+  }
+
+  @Test
+  public void createMediaSource_withUnsupportedMimeType_throwsException() {
+    DefaultMediaSourceFactory defaultMediaSourceFactory =
+        new DefaultMediaSourceFactory((Context) ApplicationProvider.getApplicationContext());
+
+    MediaItem dashMediaItem =
+        new MediaItem.Builder().setUri(URI_MEDIA).setMimeType(MimeTypes.APPLICATION_MPD).build();
+    IllegalStateException e1 =
+        assertThrows(
+            IllegalStateException.class,
+            () -> defaultMediaSourceFactory.createMediaSource(dashMediaItem));
+    assertThat(e1).hasCauseThat().isInstanceOf(ClassNotFoundException.class);
+    assertThat(e1)
+        .hasCauseThat()
+        .hasMessageThat()
+        .contains("androidx.media3.exoplayer.dash.DashMediaSource$Factory");
+
+    MediaItem hlsMediaItem =
+        new MediaItem.Builder().setUri(URI_MEDIA).setMimeType(MimeTypes.APPLICATION_M3U8).build();
+    IllegalStateException e2 =
+        assertThrows(
+            IllegalStateException.class,
+            () -> defaultMediaSourceFactory.createMediaSource(hlsMediaItem));
+    assertThat(e2).hasCauseThat().isInstanceOf(ClassNotFoundException.class);
+    assertThat(e2)
+        .hasCauseThat()
+        .hasMessageThat()
+        .contains("androidx.media3.exoplayer.hls.HlsMediaSource$Factory");
   }
 
   @SuppressWarnings("deprecation") // Testing deprecated setters.

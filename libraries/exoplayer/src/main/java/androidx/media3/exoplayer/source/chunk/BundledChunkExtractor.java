@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.source.chunk;
 
+import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Util.castNonNull;
 
 import android.util.SparseArray;
@@ -26,17 +27,26 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.extractor.ChunkIndex;
-import androidx.media3.extractor.DummyTrackOutput;
+import androidx.media3.extractor.DiscardingTrackOutput;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.extractor.PositionHolder;
 import androidx.media3.extractor.SeekMap;
 import androidx.media3.extractor.TrackOutput;
+import androidx.media3.extractor.jpeg.JpegExtractor;
 import androidx.media3.extractor.mkv.MatroskaExtractor;
 import androidx.media3.extractor.mp4.FragmentedMp4Extractor;
+import androidx.media3.extractor.png.PngExtractor;
+import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
+import androidx.media3.extractor.text.SubtitleExtractor;
+import androidx.media3.extractor.text.SubtitleParser;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
+import java.util.List;
+import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
@@ -46,36 +56,135 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 @UnstableApi
 public final class BundledChunkExtractor implements ExtractorOutput, ChunkExtractor {
 
-  /** {@link ChunkExtractor.Factory} for instances of this class. */
-  public static final ChunkExtractor.Factory FACTORY =
-      (primaryTrackType,
-          format,
-          enableEventMessageTrack,
-          closedCaptionFormats,
-          playerEmsgTrackOutput,
-          playerId) -> {
-        @Nullable String containerMimeType = format.containerMimeType;
-        Extractor extractor;
-        if (MimeTypes.isText(containerMimeType)) {
-          // Text types do not need an extractor.
+  /** {@link ChunkExtractor.Factory} for {@link BundledChunkExtractor}. */
+  public static final class Factory implements ChunkExtractor.Factory {
+
+    private SubtitleParser.Factory subtitleParserFactory;
+    private boolean parseSubtitlesDuringExtraction;
+    private boolean parseWithinGopSampleDependencies;
+
+    public Factory() {
+      subtitleParserFactory = new DefaultSubtitleParserFactory();
+    }
+
+    @CanIgnoreReturnValue
+    @Override
+    public Factory setSubtitleParserFactory(SubtitleParser.Factory subtitleParserFactory) {
+      this.subtitleParserFactory = checkNotNull(subtitleParserFactory);
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    @Override
+    public Factory experimentalParseSubtitlesDuringExtraction(
+        boolean parseSubtitlesDuringExtraction) {
+      this.parseSubtitlesDuringExtraction = parseSubtitlesDuringExtraction;
+      return this;
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>This implementation performs transcoding of the original format to {@link
+     * MimeTypes#APPLICATION_MEDIA3_CUES} if it is supported by {@link SubtitleParser.Factory}.
+     *
+     * <p>To modify the support behavior, you can {@linkplain
+     * #setSubtitleParserFactory(SubtitleParser.Factory) set your own subtitle parser factory}.
+     */
+    @Override
+    public Format getOutputTextFormat(Format sourceFormat) {
+      if (parseSubtitlesDuringExtraction && subtitleParserFactory.supportsFormat(sourceFormat)) {
+        return sourceFormat
+            .buildUpon()
+            .setSampleMimeType(MimeTypes.APPLICATION_MEDIA3_CUES)
+            .setCueReplacementBehavior(
+                subtitleParserFactory.getCueReplacementBehavior(sourceFormat))
+            .setCodecs(
+                sourceFormat.sampleMimeType
+                    + (sourceFormat.codecs != null ? " " + sourceFormat.codecs : ""))
+            .setSubsampleOffsetUs(Format.OFFSET_SAMPLE_RELATIVE)
+            .build();
+      } else {
+        return sourceFormat;
+      }
+    }
+
+    @Nullable
+    @Override
+    public ChunkExtractor createProgressiveMediaExtractor(
+        @C.TrackType int primaryTrackType,
+        Format representationFormat,
+        boolean enableEventMessageTrack,
+        List<Format> closedCaptionFormats,
+        @Nullable TrackOutput playerEmsgTrackOutput,
+        PlayerId playerId) {
+      @Nullable String containerMimeType = representationFormat.containerMimeType;
+      Extractor extractor;
+      if (MimeTypes.isText(containerMimeType)) {
+        if (!parseSubtitlesDuringExtraction) {
+          // Subtitles will be parsed after decoding
           return null;
-        } else if (MimeTypes.isMatroska(containerMimeType)) {
-          extractor = new MatroskaExtractor(MatroskaExtractor.FLAG_DISABLE_SEEK_FOR_CUES);
         } else {
-          int flags = 0;
-          if (enableEventMessageTrack) {
-            flags |= FragmentedMp4Extractor.FLAG_ENABLE_EMSG_TRACK;
-          }
           extractor =
-              new FragmentedMp4Extractor(
-                  flags,
-                  /* timestampAdjuster= */ null,
-                  /* sideloadedTrack= */ null,
-                  closedCaptionFormats,
-                  playerEmsgTrackOutput);
+              new SubtitleExtractor(
+                  subtitleParserFactory.create(representationFormat), representationFormat);
         }
-        return new BundledChunkExtractor(extractor, primaryTrackType, format);
-      };
+      } else if (MimeTypes.isMatroska(containerMimeType)) {
+        @MatroskaExtractor.Flags int flags = MatroskaExtractor.FLAG_DISABLE_SEEK_FOR_CUES;
+        if (!parseSubtitlesDuringExtraction) {
+          flags |= MatroskaExtractor.FLAG_EMIT_RAW_SUBTITLE_DATA;
+        }
+        extractor = new MatroskaExtractor(subtitleParserFactory, flags);
+      } else if (Objects.equals(containerMimeType, MimeTypes.IMAGE_JPEG)) {
+        extractor = new JpegExtractor(JpegExtractor.FLAG_READ_IMAGE);
+      } else if (Objects.equals(containerMimeType, MimeTypes.IMAGE_PNG)) {
+        extractor = new PngExtractor();
+      } else {
+        @FragmentedMp4Extractor.Flags int flags = 0;
+        if (enableEventMessageTrack) {
+          flags |= FragmentedMp4Extractor.FLAG_ENABLE_EMSG_TRACK;
+        }
+        if (!parseSubtitlesDuringExtraction) {
+          flags |= FragmentedMp4Extractor.FLAG_EMIT_RAW_SUBTITLE_DATA;
+        }
+        if (parseWithinGopSampleDependencies) {
+          flags |= FragmentedMp4Extractor.FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES;
+        }
+        extractor =
+            new FragmentedMp4Extractor(
+                subtitleParserFactory,
+                flags,
+                /* timestampAdjuster= */ null,
+                /* sideloadedTrack= */ null,
+                closedCaptionFormats,
+                playerEmsgTrackOutput);
+      }
+      return new BundledChunkExtractor(extractor, primaryTrackType, representationFormat);
+    }
+
+    /**
+     * Sets whether within GOP sample dependency information should be parsed as part of extraction.
+     * Defaults to {@code false}.
+     *
+     * <p>Having access to additional sample dependency information can speed up seeking. See {@link
+     * FragmentedMp4Extractor#FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES}.
+     *
+     * <p>This method is experimental and will be renamed or removed in a future release.
+     *
+     * @param parseWithinGopSampleDependencies Whether to parse within GOP sample dependencies
+     *     during extraction.
+     * @return This factory, for convenience.
+     */
+    @CanIgnoreReturnValue
+    public Factory experimentalParseWithinGopSampleDependencies(
+        boolean parseWithinGopSampleDependencies) {
+      this.parseWithinGopSampleDependencies = parseWithinGopSampleDependencies;
+      return this;
+    }
+  }
+
+  /** {@link Factory} for {@link BundledChunkExtractor}. */
+  public static final Factory FACTORY = new Factory();
 
   private static final PositionHolder POSITION_HOLDER = new PositionHolder();
 
@@ -190,7 +299,7 @@ public final class BundledChunkExtractor implements ExtractorOutput, ChunkExtrac
     private final int id;
     private final int type;
     @Nullable private final Format manifestFormat;
-    private final DummyTrackOutput fakeTrackOutput;
+    private final DiscardingTrackOutput fakeTrackOutput;
 
     public @MonotonicNonNull Format sampleFormat;
     private @MonotonicNonNull TrackOutput trackOutput;
@@ -200,7 +309,7 @@ public final class BundledChunkExtractor implements ExtractorOutput, ChunkExtrac
       this.id = id;
       this.type = type;
       this.manifestFormat = manifestFormat;
-      fakeTrackOutput = new DummyTrackOutput();
+      fakeTrackOutput = new DiscardingTrackOutput();
     }
 
     public void bind(@Nullable TrackOutputProvider trackOutputProvider, long endTimeUs) {

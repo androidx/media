@@ -15,6 +15,10 @@
  */
 package androidx.media3.exoplayer.e2etest;
 
+import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.run;
+import static com.google.common.truth.Truth.assertThat;
+import static org.robolectric.annotation.GraphicsMode.Mode.NATIVE;
+
 import android.content.Context;
 import android.graphics.SurfaceTexture;
 import android.net.Uri;
@@ -23,9 +27,8 @@ import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.Player;
+import androidx.media3.common.util.Clock;
 import androidx.media3.exoplayer.ExoPlayer;
-import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
-import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.test.utils.CapturingRenderersFactory;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.FakeClock;
@@ -38,9 +41,11 @@ import com.google.common.collect.ImmutableList;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.annotation.GraphicsMode;
 
 /** End-to-end tests for playlists. */
 @RunWith(AndroidJUnit4.class)
+@GraphicsMode(value = NATIVE)
 public final class PlaylistPlaybackTest {
 
   @Rule
@@ -48,7 +53,7 @@ public final class PlaylistPlaybackTest {
       ShadowMediaCodecConfig.forAllSupportedMimeTypes();
 
   @Test
-  public void test_bypassOnThenOn() throws Exception {
+  public void test_bypassOnThenOff() throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
     CapturingRenderersFactory capturingRenderersFactory =
         new CapturingRenderersFactory(applicationContext);
@@ -81,8 +86,11 @@ public final class PlaylistPlaybackTest {
     PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
 
     player.addMediaItem(MediaItem.fromUri("asset:///media/mka/bear-opus.mka"));
-    player.addMediaItem(MediaItem.fromUri("asset:///media/wav/sample.wav"));
     player.prepare();
+    run(player).untilFullyBuffered();
+    player.addMediaItem(MediaItem.fromUri("asset:///media/wav/sample.wav"));
+    run(player).untilFullyBuffered();
+    // Wait until second period has fully loaded to start the playback.
     player.play();
     TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
     player.release();
@@ -96,18 +104,17 @@ public final class PlaylistPlaybackTest {
     Context applicationContext = ApplicationProvider.getApplicationContext();
     CapturingRenderersFactory capturingRenderersFactory =
         new CapturingRenderersFactory(applicationContext);
-    MediaSource.Factory mediaSourceFactory =
-        new DefaultMediaSourceFactory(applicationContext)
-            .experimentalUseProgressiveMediaSourceForSubtitles(true);
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))
-            .setMediaSourceFactory(mediaSourceFactory)
             .build();
-    player.setVideoSurface(new Surface(new SurfaceTexture(/* texName= */ 1)));
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
     PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
 
     player.addMediaItem(MediaItem.fromUri("asset:///media/mp4/preroll-5s.mp4"));
+    player.prepare();
+    run(player).untilFullyBuffered();
     MediaItem mediaItemWithSubtitle =
         new MediaItem.Builder()
             .setUri("asset:///media/mp4/preroll-5s.mp4")
@@ -121,12 +128,49 @@ public final class PlaylistPlaybackTest {
                         .build()))
             .build();
     player.addMediaItem(mediaItemWithSubtitle);
-    player.prepare();
+    run(player).untilFullyBuffered();
+    // Wait until second period has fully loaded to start the playback.
     player.play();
     TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
     player.release();
+    surface.release();
 
     DumpFileAsserts.assertOutput(
         applicationContext, playbackOutput, "playbackdumps/playlists/playlist_with_subtitles.dump");
+  }
+
+  @Test
+  public void testPlaylist_withImageAndAudioVideoItems_rendersExpectedContent() throws Exception {
+    Context applicationContext = ApplicationProvider.getApplicationContext();
+    CapturingRenderersFactory renderersFactory = new CapturingRenderersFactory(applicationContext);
+    Clock clock = new FakeClock(/* isAutoAdvancing= */ true);
+    ExoPlayer player =
+        new ExoPlayer.Builder(applicationContext, renderersFactory).setClock(clock).build();
+    PlaybackOutput playbackOutput = PlaybackOutput.register(player, renderersFactory);
+    long durationMs = 5 * C.MILLIS_PER_SECOND;
+    player.setMediaItems(
+        ImmutableList.of(
+            new MediaItem.Builder()
+                .setUri("asset:///media/png/media3test.png")
+                .setImageDurationMs(durationMs)
+                .build(),
+            new MediaItem.Builder()
+                .setUri("asset:///media/png/media3test.png")
+                .setImageDurationMs(durationMs)
+                .build(),
+            MediaItem.fromUri("asset:///media/mp4/sample.mp4")));
+    player.prepare();
+
+    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_READY);
+    long playerStartedMs = clock.elapsedRealtime();
+    player.play();
+    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
+    long playbackDurationMs = clock.elapsedRealtime() - playerStartedMs;
+    player.release();
+
+    // Playback duration should be greater than the sum of the image item durations.
+    assertThat(playbackDurationMs).isGreaterThan(durationMs * 2);
+    DumpFileAsserts.assertOutput(
+        applicationContext, playbackOutput, "playbackdumps/playlists/image_av_playlist.dump");
   }
 }

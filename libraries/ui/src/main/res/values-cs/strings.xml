@@ -45,12 +45,11 @@
     <item>1,5×</item>
     <item>2×</item>
   </string-array>
-  <string name="exo_track_selection_title_video">Videa</string>
   <string name="exo_track_selection_title_audio">Zvuk</string>
-  <string name="exo_track_selection_title_text">Text</string>
   <string name="exo_track_selection_none">Žádné</string>
   <string name="exo_track_selection_auto">Automaticky</string>
   <string name="exo_track_unknown">Neznámé</string>
+  <string name="exo_track_unknown_name">Neznámé (%1$s)</string>
   <string name="exo_track_resolution">%1$d × %2$d</string>
   <string name="exo_track_mono">Mono</string>
   <string name="exo_track_stereo">Stereo</string>
