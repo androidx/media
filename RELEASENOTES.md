@@ -2,31 +2,19 @@
 
 ## 1.5
 
-## 1.5.0-rc01 (2024-11-13)
+### 1.5.0-rc01 (2024-11-13)
 
 This release includes the following changes since the
 [1.5.0-beta01 release](#150-beta01-2024-10-30):
 
 *   ExoPlayer:
-    *   Add a setter to `SntpClient` to set the max elapsed time since the last
-        update after which the client is re-initialized
-        ([#1794](https://github.com/androidx/media/pull/1794)).
-    *   Consider language when selecting a video track. By default select a
-        'main' video track that matches the language of the selected audio
-        track, if available. Explicit video language preferences can be
-        expressed with
-        `TrackSelectionParameters.Builder.setPreferredVideoLanguage(s)`.
-    *   Add `selectedAudioLanguage` parameter to
-        `DefaultTrackSelector.selectVideoTrack()` method.
-    *   Add `retryCount` parameter to `MediaSourceEventListener.onLoadStarted`
-        and corresponding `MediaSourceEventListener.EventDispatcher` methods.
     *   Fix bug where playlist items or periods in multi-period DASH streams
         with durations that don't match the actual content could cause frame
         freezes at the end of the item
         ([#1698](https://github.com/androidx/media/issues/1698)).
-*   Transformer:
-    *   Update parameters of `VideoFrameProcessor.registerInputStream` and
-        `VideoFrameProcessor.Listener.onInputStreamRegistered` to use `Format`.
+    *   Add a setter to `SntpClient` to set the max elapsed time since the last
+        update after which the client is re-initialized
+        ([#1794](https://github.com/androidx/media/pull/1794)).
 *   Extractors:
     *   Fix media duration parsing in `mdhd` box of MP4 files to handle `-1`
         values ([#1819](https://github.com/androidx/media/issues/1819)).
