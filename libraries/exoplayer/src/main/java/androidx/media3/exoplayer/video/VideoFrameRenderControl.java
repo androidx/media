@@ -17,7 +17,6 @@ package androidx.media3.exoplayer.video;
 
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
@@ -197,12 +196,12 @@ import androidx.media3.exoplayer.ExoPlaybackException;
   }
 
   private void dropFrame() {
-    checkStateNotNull(presentationTimestampsUs.remove());
+    presentationTimestampsUs.remove();
     frameRenderer.dropFrame();
   }
 
   private void renderFrame(boolean shouldRenderImmediately) {
-    long presentationTimeUs = checkStateNotNull(presentationTimestampsUs.remove());
+    long presentationTimeUs = presentationTimestampsUs.remove();
 
     boolean videoSizeUpdated = maybeUpdateOutputVideoSize(presentationTimeUs);
     if (videoSizeUpdated) {
