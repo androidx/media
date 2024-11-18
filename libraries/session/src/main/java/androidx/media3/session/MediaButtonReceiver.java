@@ -148,7 +148,7 @@ public class MediaButtonReceiver extends BroadcastReceiver {
       ComponentName mediaButtonServiceComponentName = getServiceComponentByAction(context, action);
       if (mediaButtonServiceComponentName != null) {
         intent.setComponent(mediaButtonServiceComponentName);
-        if (!shouldStartForegroundService(intent)) {
+        if (!shouldStartForegroundService(context, intent)) {
           Log.i(
               TAG,
               "onReceive(Intent) does not start the media button event target service into the"
@@ -186,13 +186,15 @@ public class MediaButtonReceiver extends BroadcastReceiver {
    * playback to get into the foreground or the system will crash the service with a {@code
    * ForegroundServiceDidNotStartInTimeException} or an {@link IllegalStateException}.
    *
+   * @param context The {@link Context} that {@linkplain #onReceive(Context, Intent) was received by
+   *     the media button event receiver}.
    * @param intent The intent that {@linkplain #onReceive(Context, Intent) was received by the media
    *     button event receiver}.
    * @return true if the service should be {@linkplain ContextCompat#startForegroundService(Context,
    *     Intent) started as a foreground service}. If false is returned the service is not started
    *     and the receiver call is a no-op.
    */
-  protected boolean shouldStartForegroundService(Intent intent) {
+  protected boolean shouldStartForegroundService(Context context, Intent intent) {
     return true;
   }
 
