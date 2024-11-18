@@ -20,6 +20,7 @@ import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import android.graphics.Bitmap;
 import android.view.Surface;
 import androidx.annotation.Nullable;
+import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.Size;
@@ -49,6 +50,7 @@ import java.util.concurrent.Executor;
 
   @Nullable private Surface outputSurface;
   private Format inputFormat;
+  private long streamStartPositionUs;
 
   public DefaultVideoSink(
       VideoFrameReleaseControl videoFrameReleaseControl,
@@ -56,6 +58,7 @@ import java.util.concurrent.Executor;
     this.videoFrameReleaseControl = videoFrameReleaseControl;
     this.videoFrameRenderControl = videoFrameRenderControl;
     inputFormat = new Format.Builder().build();
+    streamStartPositionUs = C.TIME_UNSET;
   }
 
   @Override
@@ -149,7 +152,10 @@ import java.util.concurrent.Executor;
   @Override
   public void setStreamTimestampInfo(
       long streamStartPositionUs, long bufferTimestampAdjustmentUs, long lastResetPositionUs) {
-    throw new UnsupportedOperationException();
+    if (streamStartPositionUs != this.streamStartPositionUs) {
+      videoFrameRenderControl.onStreamStartPositionChanged(streamStartPositionUs);
+      this.streamStartPositionUs = streamStartPositionUs;
+    }
   }
 
   @Override

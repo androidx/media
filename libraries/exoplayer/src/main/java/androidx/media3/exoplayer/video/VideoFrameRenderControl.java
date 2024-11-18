@@ -68,7 +68,13 @@ import androidx.media3.exoplayer.ExoPlaybackException;
    */
   private final TimedValueQueue<VideoSize> videoSizes;
 
+  /**
+   * A queue of unprocessed input frame start positions. Each position is associated with the
+   * timestamp from which it should be applied.
+   */
   private final TimedValueQueue<Long> streamStartPositionsUs;
+
+  /** A queue of unprocessed input frame timestamps. */
   private final LongArrayQueue presentationTimestampsUs;
 
   private long lastInputPresentationTimeUs;
@@ -180,6 +186,12 @@ import androidx.media3.exoplayer.ExoPlaybackException;
         new VideoSize(width, height));
   }
 
+  public void onStreamStartPositionChanged(long streamStartPositionUs) {
+    streamStartPositionsUs.add(
+        lastInputPresentationTimeUs == C.TIME_UNSET ? 0 : lastInputPresentationTimeUs + 1,
+        streamStartPositionUs);
+  }
+
   /**
    * Called when a frame is available for rendering.
    *
@@ -189,10 +201,6 @@ import androidx.media3.exoplayer.ExoPlaybackException;
     presentationTimestampsUs.add(presentationTimeUs);
     lastInputPresentationTimeUs = presentationTimeUs;
     // TODO b/257464707 - Support extensively modified media.
-  }
-
-  public void onStreamStartPositionChanged(long presentationTimeUs, long streamStartPositionUs) {
-    streamStartPositionsUs.add(presentationTimeUs, streamStartPositionUs);
   }
 
   private void dropFrame() {

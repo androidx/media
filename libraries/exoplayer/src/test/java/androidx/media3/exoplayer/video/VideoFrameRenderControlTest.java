@@ -121,8 +121,7 @@ public class VideoFrameRenderControlTest {
     videoFrameReleaseControl.onStarted();
     videoFrameRenderControl.onVideoSizeChanged(
         /* width= */ VIDEO_WIDTH, /* height= */ VIDEO_HEIGHT);
-    videoFrameRenderControl.onStreamStartPositionChanged(
-        /* presentationTimeUs= */ 0, /* streamStartPositionUs= */ 10_000);
+    videoFrameRenderControl.onStreamStartPositionChanged(/* streamStartPositionUs= */ 10_000);
     videoFrameRenderControl.onFrameAvailableForRendering(/* presentationTimeUs= */ 0);
     videoFrameRenderControl.render(/* positionUs= */ 0, /* elapsedRealtimeUs= */ 0);
 
@@ -136,8 +135,7 @@ public class VideoFrameRenderControlTest {
 
     // 10 milliseconds pass
     clock.advanceTime(/* timeDiffMs= */ 10);
-    videoFrameRenderControl.onStreamStartPositionChanged(
-        /* presentationTimeUs= */ 10_000, /* streamStartPositionUs= */ 20_000);
+    videoFrameRenderControl.onStreamStartPositionChanged(/* streamStartPositionUs= */ 20_000);
     videoFrameRenderControl.onFrameAvailableForRendering(/* presentationTimeUs= */ 10_000);
     videoFrameRenderControl.render(/* positionUs= */ 10_000, /* elapsedRealtimeUs= */ 0);
 
