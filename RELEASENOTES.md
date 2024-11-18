@@ -17,9 +17,6 @@
         with durations that don't match the actual content could cause frame
         freezes at the end of the item
         ([#1698](https://github.com/androidx/media/issues/1698)).
-    *   Add a setter to `SntpClient` to set the max elapsed time since the last
-        update after which the client is re-initialized
-        ([#1794](https://github.com/androidx/media/pull/1794)).
     *   Reduce default values for `bufferForPlaybackMs` and
         `bufferForPlaybackAfterRebufferMs` in `DefaultLoadControl` to 1000 and
         2000 ms respectively.
@@ -30,14 +27,6 @@
         formats.
 *   Extractors:
 *   DataSource:
-    *   `DataSourceContractTest`: Assert that `DataSource.getUri()` and
-        `getResponseHeaders()` return their 'open' value after a failed call to
-        `open()` (due to a 'not found' resource) and before a subsequent
-        `close()` call.
-        *   Overriding `DataSourceContractTest.getNotFoundResources()` allows
-            test sub-classes to provide multiple 'not found' resources, and to
-            provide any expected headers too. This allows to distinguish between
-            HTTP 404 (with headers) and "server not found" (no headers).
 *   Audio:
 *   Video:
 *   Text:
@@ -65,8 +54,6 @@
 *   DASH Extension:
 *   Smooth Streaming Extension:
 *   RTSP Extension:
-    *   Fix crashing when parsing of RTP packets with header extensions
-        ([#1225](https://github.com/androidx/media/pull/1225)).
 *   Decoder Extensions (FFmpeg, VP9, AV1, etc.):
     *   Add the MPEG-H decoder module which uses the native MPEG-H decoder
         module to decode MPEG-H audio
@@ -155,11 +142,19 @@ This release includes the following changes since the
     *   Resolve the memory leaks in demo short-form app
         ([#1839](https://github.com/androidx/media/issues/1839)).
 
-## 1.5.0-rc01 (2024-11-13)
+### 1.5.0-rc01 (2024-11-13)
 
 This release includes the following changes since the
-[1.5.0-beta01 release](#150-2024-10-30):
+[1.5.0-beta01 release](#150-beta01-2024-10-30):
 
+*   ExoPlayer:
+    *   Fix bug where playlist items or periods in multi-period DASH streams
+        with durations that don't match the actual content could cause frame
+        freezes at the end of the item
+        ([#1698](https://github.com/androidx/media/issues/1698)).
+    *   Add a setter to `SntpClient` to set the max elapsed time since the last
+        update after which the client is re-initialized
+        ([#1794](https://github.com/androidx/media/pull/1794)).
 *   Extractors:
     *   Fix media duration parsing in `mdhd` box of MP4 files to handle `-1`
         values ([#1819](https://github.com/androidx/media/issues/1819)).
@@ -170,12 +165,23 @@ This release includes the following changes since the
         resolved URI (as documented). Where this is different to the requested
         URI, tests can indicate this using the new
         `DataSourceContractTest.TestResource.Builder.setResolvedUri()` method.
+    *   `DataSourceContractTest`: Assert that `DataSource.getUri()` and
+        `getResponseHeaders()` return their 'open' value after a failed call to
+        `open()` (due to a 'not found' resource) and before a subsequent
+        `close()` call.
+        *   Overriding `DataSourceContractTest.getNotFoundResources()` allows
+            test sub-classes to provide multiple 'not found' resources, and to
+            provide any expected headers too. This allows to distinguish between
+            HTTP 404 (with headers) and "server not found" (no headers).
 *   Text:
     *   Fix CEA-608 subtitles in H.264 MPEG-TS streams not being output (this
         was broken in `1.5.0-alpha01` by
         https://github.com/androidx/media/commit/03a205f220ecf7681f85f8a752227e3986e257ff).
     *   Support CEA-608 subtitles in Dolby Vision content
         ([#1820](https://github.com/androidx/media/issues/1820)).
+*   RTSP Extension:
+    *   Fix crashing when parsing of RTP packets with header extensions
+        ([#1225](https://github.com/androidx/media/pull/1225)).
 
 ### 1.5.0-beta01 (2024-10-30)
 
