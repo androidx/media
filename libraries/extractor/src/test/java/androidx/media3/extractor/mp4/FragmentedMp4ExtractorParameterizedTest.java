@@ -112,11 +112,8 @@ public final class FragmentedMp4ExtractorParameterizedTest {
 
   @Test
   public void sampleWithAc4Level4Track() throws Exception {
-    ExtractorAsserts.assertBehavior(
-        getExtractorFactory(
-            /* closedCaptionFormats= */ ImmutableList.of(), subtitlesParsedDuringExtraction),
-        "media/mp4/sample_ac4_level4_fragmented.mp4",
-        simulationConfig);
+    assertExtractorBehavior(
+        /* closedCaptionFormats= */ ImmutableList.of(), "media/mp4/sample_ac4_level4_fragmented.mp4");
   }
 
   @Test
