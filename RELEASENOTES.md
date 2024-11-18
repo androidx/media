@@ -138,7 +138,7 @@
 ### 1.5.0-rc02 (2024-11-19)
 
 This release includes the following changes since the
-[1.5.0-rc01 release](##150-rc01-2024-11-13):
+[1.5.0-rc01 release](#150-rc01-2024-11-13):
 
 *   Extractors:
     *   Add AC-4 Level-4 ISO base media file format support
