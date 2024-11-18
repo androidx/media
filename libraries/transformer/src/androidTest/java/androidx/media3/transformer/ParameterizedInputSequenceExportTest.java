@@ -24,6 +24,7 @@ import static androidx.media3.transformer.ParameterizedAndroidTestUtil.assumeSeq
 import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
+import android.util.Log;
 import androidx.media3.effect.Presentation;
 import androidx.media3.transformer.ParameterizedAndroidTestUtil.SdrImageItemConfig;
 import androidx.media3.transformer.ParameterizedAndroidTestUtil.SequenceConfig;
@@ -47,6 +48,8 @@ import org.junit.runners.Parameterized.Parameters;
 /** Parameterized end-to-end test for exporting a {@link EditedMediaItemSequence}. */
 @RunWith(Parameterized.class)
 public final class ParameterizedInputSequenceExportTest {
+  private static final String TAG = "ParameterizedTest";
+
   private static final SdrImageItemConfig PNG_ITEM =
       new SdrImageItemConfig(PNG_ASSET, /* frameCount= */ 34);
   private static final SdrImageItemConfig JPG_ITEM =
@@ -64,7 +67,7 @@ public final class ParameterizedInputSequenceExportTest {
               /* audioProcessors= */ ImmutableList.of(),
               ImmutableList.of(Presentation.createForHeight(360))));
 
-  @Parameters(name = "{0}")
+  @Parameters
   public static ImmutableList<SequenceConfig> params() {
     return ImmutableList.of(
         new SequenceConfig(PNG_ITEM, PNG_ITEM),
@@ -103,6 +106,7 @@ public final class ParameterizedInputSequenceExportTest {
   public void export_completesWithCorrectFrameCount() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
     String testId = testName.getMethodName();
+    Log.w(TAG, sequence.toString());
     assumeSequenceFormatsSupported(context, testId, sequence);
     Transformer transformer =
         new Transformer.Builder(context)
@@ -123,6 +127,7 @@ public final class ParameterizedInputSequenceExportTest {
   public void export_withCompositionEffect_completesWithCorrectFrameCount() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
     String testId = testName.getMethodName();
+    Log.w(TAG, sequence.toString());
     assumeSequenceFormatsSupported(context, testId, sequence);
     Transformer transformer =
         new Transformer.Builder(context)
