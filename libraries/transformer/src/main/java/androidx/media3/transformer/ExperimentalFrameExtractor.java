@@ -30,6 +30,7 @@ import android.opengl.GLES20;
 import android.os.Handler;
 import android.os.Looper;
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.Effect;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.GlTextureInfo;
@@ -43,6 +44,7 @@ import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.GlShaderProgram;
 import androidx.media3.effect.MatrixTransformation;
 import androidx.media3.effect.PassthroughShaderProgram;
+import androidx.media3.exoplayer.DecoderCounters;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.SeekParameters;
 import androidx.media3.exoplayer.analytics.AnalyticsListener;
@@ -273,6 +275,15 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           checkNotNull(frameBeingExtractedFutureAtomicReference.getAndSet(null));
       frameBeingExtractedFuture.set(checkNotNull(lastExtractedFrame));
     }
+  }
+
+  @VisibleForTesting
+  /* package */ ListenableFuture<@NullableType DecoderCounters> getDecoderCounters() {
+    SettableFuture<@NullableType DecoderCounters> decoderCountersSettableFuture =
+        SettableFuture.create();
+    playerApplicationThreadHandler.post(
+        () -> decoderCountersSettableFuture.set(player.getVideoDecoderCounters()));
+    return decoderCountersSettableFuture;
   }
 
   private ImmutableList<Effect> buildVideoEffects(List<Effect> effects) {

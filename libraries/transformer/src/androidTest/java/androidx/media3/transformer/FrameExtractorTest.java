@@ -28,10 +28,12 @@ import static org.junit.Assert.assertThrows;
 import android.app.Instrumentation;
 import android.content.Context;
 import android.graphics.Bitmap;
+import androidx.annotation.Nullable;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.effect.Presentation;
+import androidx.media3.exoplayer.DecoderCounters;
 import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.transformer.ExperimentalFrameExtractor.Frame;
 import androidx.test.core.app.ApplicationProvider;
@@ -106,6 +108,12 @@ public class FrameExtractorTest {
 
     assertThat(frame.presentationTimeMs).isEqualTo(8_531);
     assertBitmapsAreSimilar(expectedBitmap, actualBitmap, PSNR_THRESHOLD);
+    assertThat(
+            frameExtractor
+                .getDecoderCounters()
+                .get(TIMEOUT_SECONDS, SECONDS)
+                .renderedOutputBufferCount)
+        .isAtLeast(4);
   }
 
   @Test
@@ -128,6 +136,12 @@ public class FrameExtractorTest {
 
     assertThat(frame.presentationTimeMs).isEqualTo(8_531);
     assertBitmapsAreSimilar(expectedBitmap, actualBitmap, PSNR_THRESHOLD);
+    assertThat(
+            frameExtractor
+                .getDecoderCounters()
+                .get(TIMEOUT_SECONDS, SECONDS)
+                .renderedOutputBufferCount)
+        .isAtLeast(4);
   }
 
   @Test
@@ -151,6 +165,12 @@ public class FrameExtractorTest {
 
     assertThat(frame.presentationTimeMs).isEqualTo(lastVideoFramePresentationTimeMs);
     assertBitmapsAreSimilar(expectedBitmap, actualBitmap, PSNR_THRESHOLD);
+    assertThat(
+            frameExtractor
+                .getDecoderCounters()
+                .get(TIMEOUT_SECONDS, SECONDS)
+                .renderedOutputBufferCount)
+        .isAtLeast(3);
   }
 
   @Test
@@ -182,6 +202,14 @@ public class FrameExtractorTest {
       assertBitmapsAreSimilar(expectedBitmap, frame.bitmap, PSNR_THRESHOLD);
       assertThat(frame.presentationTimeMs).isEqualTo(expectedFramePositionsMs.get(i));
     }
+    // TODO: b/350498258 - some decoders break right after extracting all the frames for this test.
+    // Fix and remove this hack.
+    @Nullable
+    DecoderCounters decoderCounters =
+        frameExtractor.getDecoderCounters().get(TIMEOUT_SECONDS, SECONDS);
+    if (decoderCounters != null) {
+      assertThat(decoderCounters.renderedOutputBufferCount).isAtLeast(7);
+    }
   }
 
   @Test
@@ -204,6 +232,12 @@ public class FrameExtractorTest {
     assertThat(frame7.get(TIMEOUT_SECONDS, SECONDS).presentationTimeMs).isEqualTo(7_031);
     assertThat(frame2.get(TIMEOUT_SECONDS, SECONDS).presentationTimeMs).isEqualTo(2_032);
     assertThat(frame8.get(TIMEOUT_SECONDS, SECONDS).presentationTimeMs).isEqualTo(8_031);
+    assertThat(
+            frameExtractor
+                .getDecoderCounters()
+                .get(TIMEOUT_SECONDS, SECONDS)
+                .renderedOutputBufferCount)
+        .isAtLeast(10);
   }
 
   @Test
@@ -230,6 +264,12 @@ public class FrameExtractorTest {
     assertThat(frame7.get(TIMEOUT_SECONDS, SECONDS).presentationTimeMs).isEqualTo(8_331);
     assertThat(frame2.get(TIMEOUT_SECONDS, SECONDS).presentationTimeMs).isEqualTo(0);
     assertThat(frame8.get(TIMEOUT_SECONDS, SECONDS).presentationTimeMs).isEqualTo(8_331);
+    assertThat(
+            frameExtractor
+                .getDecoderCounters()
+                .get(TIMEOUT_SECONDS, SECONDS)
+                .renderedOutputBufferCount)
+        .isAtLeast(8);
   }
 
   @Test
@@ -284,6 +324,12 @@ public class FrameExtractorTest {
 
     assertThat(throwableAtomicReference.get()).isNull();
     assertThat(frameAtomicReference.get().presentationTimeMs).isEqualTo(0);
+    assertThat(
+            frameExtractor
+                .getDecoderCounters()
+                .get(TIMEOUT_SECONDS, SECONDS)
+                .renderedOutputBufferCount)
+        .isAtLeast(1);
   }
 
   @Test
