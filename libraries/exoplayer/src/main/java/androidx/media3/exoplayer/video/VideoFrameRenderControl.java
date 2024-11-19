@@ -160,11 +160,13 @@ import androidx.media3.exoplayer.ExoPlaybackException;
           return;
         case VideoFrameReleaseControl.FRAME_RELEASE_SKIP:
         case VideoFrameReleaseControl.FRAME_RELEASE_DROP:
+          lastOutputPresentationTimeUs = presentationTimeUs;
+          dropFrame();
+          break;
         case VideoFrameReleaseControl.FRAME_RELEASE_IGNORE:
           // TODO b/293873191 - Handle very late buffers and drop to key frame. Need to flush
           //  VideoGraph input frames in this case.
           lastOutputPresentationTimeUs = presentationTimeUs;
-          dropFrame();
           break;
         case VideoFrameReleaseControl.FRAME_RELEASE_IMMEDIATELY:
         case VideoFrameReleaseControl.FRAME_RELEASE_SCHEDULED:
