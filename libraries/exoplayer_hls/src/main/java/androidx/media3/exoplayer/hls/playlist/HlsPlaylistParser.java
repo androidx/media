@@ -152,6 +152,8 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
   private static final Pattern REGEX_TARGET_DURATION =
       Pattern.compile(TAG_TARGET_DURATION + ":(\\d+)\\b");
   private static final Pattern REGEX_ATTR_DURATION = Pattern.compile("DURATION=([\\d\\.]+)\\b");
+  private static final Pattern REGEX_ATTR_DURATION_PREFIXED =
+      Pattern.compile("[:,]DURATION=([\\d\\.]+)\\b");
   private static final Pattern REGEX_PART_TARGET_DURATION =
       Pattern.compile("PART-TARGET=([\\d\\.]+)\\b");
   private static final Pattern REGEX_VERSION = Pattern.compile(TAG_VERSION + ":(\\d+)\\b");
@@ -230,7 +232,7 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
   private static final Pattern REGEX_PRECISE = compileBooleanAttrPattern("PRECISE");
   private static final Pattern REGEX_VALUE = Pattern.compile("VALUE=\"(.+?)\"");
   private static final Pattern REGEX_IMPORT = Pattern.compile("IMPORT=\"(.+?)\"");
-  private static final Pattern REGEX_ID = Pattern.compile("ID=\"(.+?)\"");
+  private static final Pattern REGEX_ID = Pattern.compile("[:,]ID=\"(.+?)\"");
   private static final Pattern REGEX_CLASS = Pattern.compile("CLASS=\"(.+?)\"");
   private static final Pattern REGEX_START_DATE = Pattern.compile("START-DATE=\"(.+?)\"");
   private static final Pattern REGEX_CUE = Pattern.compile("CUE=\"(.+?)\"");
@@ -1033,7 +1035,7 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
             }
           }
         }
-        double durationSec = parseOptionalDoubleAttr(line, REGEX_ATTR_DURATION, -1.0d);
+        double durationSec = parseOptionalDoubleAttr(line, REGEX_ATTR_DURATION_PREFIXED, -1.0d);
         long durationUs = C.TIME_UNSET;
         if (durationSec >= 0) {
           durationUs = (long) (durationSec * C.MICROS_PER_SECOND);

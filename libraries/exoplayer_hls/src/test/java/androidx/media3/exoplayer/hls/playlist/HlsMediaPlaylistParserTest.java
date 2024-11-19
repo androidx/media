@@ -1280,6 +1280,94 @@ public class HlsMediaPlaylistParserTest {
   }
 
   @Test
+  public void parseMediaPlaylist_withDuration_durationSetCorrectly() throws IOException {
+    Uri playlistUri = Uri.parse("https://example.com/test.m3u8");
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:6\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:55:40.000Z\n"
+            + "#EXTINF:6,\n"
+            + "main1.0.ts\n"
+            + "#EXT-X-ENDLIST"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad0-0\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T21:55:41.123Z\","
+            + "DURATION=2.222,"
+            + "X-ASSET-URI=\"http://example.com/media-0-0.m3u8\""
+            + "\n";
+    HlsPlaylistParser hlsPlaylistParser = new HlsPlaylistParser();
+
+    HlsMediaPlaylist mediaPlaylist =
+        (HlsMediaPlaylist)
+            hlsPlaylistParser.parse(
+                playlistUri, new ByteArrayInputStream(Util.getUtf8Bytes(playlistString)));
+
+    assertThat(mediaPlaylist.interstitials.get(0).durationUs).isEqualTo(2_222_000L);
+  }
+
+  @Test
+  public void parseMediaPlaylist_withDurationAfterPlannedDuration_durationSetCorrectly()
+      throws IOException {
+    Uri playlistUri = Uri.parse("https://example.com/test.m3u8");
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:6\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:55:40.000Z\n"
+            + "#EXTINF:6,\n"
+            + "main1.0.ts\n"
+            + "#EXT-X-ENDLIST"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad0-0\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T21:55:41.123Z\","
+            + "PLANNED-DURATION=1.111,"
+            + "DURATION=2.222,"
+            + "X-ASSET-URI=\"http://example.com/media-0-0.m3u8\""
+            + "\n";
+    HlsPlaylistParser hlsPlaylistParser = new HlsPlaylistParser();
+
+    HlsMediaPlaylist mediaPlaylist =
+        (HlsMediaPlaylist)
+            hlsPlaylistParser.parse(
+                playlistUri, new ByteArrayInputStream(Util.getUtf8Bytes(playlistString)));
+
+    assertThat(mediaPlaylist.interstitials.get(0).durationUs).isEqualTo(2_222_000L);
+  }
+
+  @Test
+  public void parseMediaPlaylist_withDurationBeforePlannedDuration_durationSetCorrectly()
+      throws IOException {
+    Uri playlistUri = Uri.parse("https://example.com/test.m3u8");
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:6\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:55:40.000Z\n"
+            + "#EXTINF:6,\n"
+            + "main1.0.ts\n"
+            + "#EXT-X-ENDLIST"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "DURATION=2.234,"
+            + "ID=\"ad0-0\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T21:55:41.123Z\","
+            + "PLANNED-DURATION=3.456,"
+            + "X-ASSET-URI=\"http://example.com/media-0-0.m3u8\""
+            + "\n";
+    HlsPlaylistParser hlsPlaylistParser = new HlsPlaylistParser();
+
+    HlsMediaPlaylist mediaPlaylist =
+        (HlsMediaPlaylist)
+            hlsPlaylistParser.parse(
+                playlistUri, new ByteArrayInputStream(Util.getUtf8Bytes(playlistString)));
+
+    assertThat(mediaPlaylist.interstitials.get(0).durationUs).isEqualTo(2_234_000L);
+  }
+
+  @Test
   public void parseMediaPlaylist_withInterstitialWithoutId_throwsParserException() {
     Uri playlistUri = Uri.parse("https://example.com/test.m3u8");
     String playlistString =
