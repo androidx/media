@@ -72,6 +72,7 @@ import androidx.media3.extractor.SeekMap.SeekPoints;
 import androidx.media3.extractor.SeekPoint;
 import androidx.media3.extractor.TrackOutput;
 import androidx.media3.extractor.mp4.Mp4Extractor;
+import androidx.media3.extractor.mp4.PsshAtomUtil;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
@@ -84,9 +85,11 @@ import java.lang.annotation.RetentionPolicy;
 import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
 
 /**
@@ -680,6 +683,36 @@ public final class MediaExtractorCompat {
     }
     bundle.putInt(MediaExtractor.MetricsConstants.TRACKS, tracks.size());
     return bundle;
+  }
+
+  /**
+   * Extracts PSSH data from the media, if present.
+   *
+   * @return A {@link Map} of UUID-to-byte[] pairs, where the {@link UUID} identifies the crypto
+   *     scheme, and the byte array contains the scheme-specific data. Returns {@code null} if no
+   *     PSSH data exists.
+   */
+  @Nullable
+  public Map<UUID, byte[]> getPsshInfo() {
+    @Nullable DrmInitData drmInitData = getDrmInitData();
+    if (drmInitData == null) {
+      return null;
+    }
+
+    Map<UUID, byte[]> psshDataMap = new HashMap<>();
+    for (int i = 0; i < drmInitData.schemeDataCount; i++) {
+      DrmInitData.SchemeData schemeData = drmInitData.get(i);
+      if (schemeData.data == null) {
+        continue;
+      }
+
+      @Nullable PsshAtomUtil.PsshAtom parsedPsshAtom = PsshAtomUtil.parsePsshAtom(schemeData.data);
+      if (parsedPsshAtom != null) {
+        psshDataMap.put(parsedPsshAtom.uuid, parsedPsshAtom.schemeData);
+      }
+    }
+
+    return psshDataMap.isEmpty() ? null : psshDataMap;
   }
 
   @VisibleForTesting(otherwise = NONE)
