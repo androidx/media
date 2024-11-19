@@ -29,10 +29,13 @@ import static androidx.media3.transformer.TestUtil.createChannelCountChangingAud
 import static androidx.media3.transformer.TestUtil.createPitchChangingAudioProcessor;
 import static androidx.media3.transformer.TestUtil.createTransformerBuilder;
 import static androidx.media3.transformer.TestUtil.getDumpFileName;
+import static androidx.media3.transformer.TestUtil.getSequenceDumpFilePath;
 import static androidx.media3.transformer.TestUtil.removeEncodersAndDecoders;
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import android.content.Context;
+import androidx.annotation.Nullable;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.audio.SonicAudioProcessor;
@@ -43,6 +46,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -499,6 +503,246 @@ public final class SequenceExportTest {
   }
 
   @Test
+  public void transmuxAudio_itemGap_throws() throws Exception {
+    Transformer transformer =
+        createTransformerBuilder(new DefaultMuxer.Factory(), /* enableFallback= */ false).build();
+    EditedMediaItem audioItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)).build();
+    EditedMediaItemSequence sequence =
+        new EditedMediaItemSequence.Builder().addItem(audioItem).addGap(500_000).build();
+    Composition composition = new Composition.Builder(sequence).setTransmuxAudio(true).build();
+
+    transformer.start(composition, outputDir.newFile().getPath());
+
+    ExportException exception =
+        assertThrows(ExportException.class, () -> TransformerTestRunner.runLooper(transformer));
+    assertThat(getRootCause(exception)).hasMessageThat().isEqualTo("Gaps can not be transmuxed.");
+  }
+
+  // TODO - b/369154363: Enable test after shouldTranscode inconsistency is resolved.
+  @Ignore
+  @Test
+  public void transmuxAudio_gapItem_throws() throws Exception {
+    Transformer transformer =
+        createTransformerBuilder(new DefaultMuxer.Factory(), /* enableFallback= */ false).build();
+    EditedMediaItem audioItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW))
+            .setRemoveVideo(true)
+            .build();
+    EditedMediaItemSequence sequence =
+        new EditedMediaItemSequence.Builder().addGap(500_000).addItem(audioItem).build();
+    Composition composition = new Composition.Builder(sequence).setTransmuxAudio(true).build();
+
+    transformer.start(composition, outputDir.newFile().getPath());
+
+    ExportException exception =
+        assertThrows(ExportException.class, () -> TransformerTestRunner.runLooper(transformer));
+    assertThat(getRootCause(exception)).hasMessageThat().isEqualTo("Gaps can not be transmuxed.");
+  }
+
+  @Test
+  public void start_videoGap_throws() throws Exception {
+    Transformer transformer =
+        createTransformerBuilder(new DefaultMuxer.Factory(), /* enableFallback= */ false).build();
+    EditedMediaItem audioVideoItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW_VIDEO))
+            .build();
+    EditedMediaItemSequence sequence =
+        new EditedMediaItemSequence.Builder().addItem(audioVideoItem).addGap(500_000).build();
+
+    transformer.start(new Composition.Builder(sequence).build(), outputDir.newFile().getPath());
+
+    ExportException exception =
+        assertThrows(ExportException.class, () -> TransformerTestRunner.runLooper(transformer));
+    assertThat(getRootCause(exception))
+        .hasMessageThat()
+        .isEqualTo("Gaps in video sequences are not supported.");
+  }
+
+  @Test
+  public void start_gapVideo_throws() throws Exception {
+    Transformer transformer =
+        createTransformerBuilder(new DefaultMuxer.Factory(), /* enableFallback= */ false).build();
+    EditedMediaItem audioVideoItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW_VIDEO))
+            .build();
+    EditedMediaItemSequence sequence =
+        new EditedMediaItemSequence.Builder().addGap(500_000).addItem(audioVideoItem).build();
+    Composition composition = new Composition.Builder(sequence).build();
+
+    transformer.start(composition, outputDir.newFile().getPath());
+
+    // Transformer throws because the first item in the sequence (the gap) does not have a video
+    // track.
+    assertThrows(ExportException.class, () -> TransformerTestRunner.runLooper(transformer));
+  }
+
+  @Test
+  public void start_gapGap_completesSuccessfully() throws Exception {
+    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
+    Transformer transformer =
+        createTransformerBuilder(muxerFactory, /* enableFallback= */ false).build();
+    EditedMediaItemSequence sequence =
+        new EditedMediaItemSequence.Builder().addGap(300_000).addGap(200_000).build();
+    Composition composition = new Composition.Builder(sequence).build();
+
+    transformer.start(composition, outputDir.newFile().getPath());
+    TransformerTestRunner.runLooper(transformer);
+
+    DumpFileAsserts.assertOutput(
+        context, muxerFactory.getCreatedMuxer(), getDumpFileName("gap", "500ms"));
+  }
+
+  @Test
+  public void start_itemGapGap_completesSuccessfully() throws Exception {
+    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
+    Transformer transformer =
+        createTransformerBuilder(muxerFactory, /* enableFallback= */ false).build();
+    EditedMediaItem firstAudioItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)).build();
+    EditedMediaItemSequence sequence =
+        new EditedMediaItemSequence.Builder()
+            .addItem(firstAudioItem)
+            .addGap(500_000)
+            .addGap(200_000)
+            .build();
+    Composition composition = new Composition.Builder(sequence).build();
+
+    transformer.start(composition, outputDir.newFile().getPath());
+    TransformerTestRunner.runLooper(transformer);
+
+    DumpFileAsserts.assertOutput(
+        context,
+        muxerFactory.getCreatedMuxer(),
+        getSequenceDumpFilePath(
+            ImmutableList.of(FILE_AUDIO_RAW.replace("wav/", ""), "gap_500ms", "gap_200ms")));
+  }
+
+  @Test
+  public void start_gapGapItem_completesSuccessfully() throws Exception {
+    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
+    Transformer transformer =
+        createTransformerBuilder(muxerFactory, /* enableFallback= */ false).build();
+    EditedMediaItem audioItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)).build();
+    EditedMediaItemSequence sequence =
+        new EditedMediaItemSequence.Builder()
+            .addGap(200_000)
+            .addGap(500_000)
+            .addItem(audioItem)
+            .build();
+    Composition composition = new Composition.Builder(sequence).build();
+
+    transformer.start(composition, outputDir.newFile().getPath());
+    TransformerTestRunner.runLooper(transformer);
+
+    DumpFileAsserts.assertOutput(
+        context,
+        muxerFactory.getCreatedMuxer(),
+        getSequenceDumpFilePath(
+            ImmutableList.of("gap_200ms", "gap_500ms", FILE_AUDIO_RAW.replace("wav/", ""))));
+  }
+
+  @Test
+  public void start_itemGapGapItem_completesSuccessfully() throws Exception {
+    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
+    Transformer transformer =
+        createTransformerBuilder(muxerFactory, /* enableFallback= */ false).build();
+    EditedMediaItem firstAudioItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)).build();
+    EditedMediaItem secondAudioItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)).build();
+
+    EditedMediaItemSequence sequence =
+        new EditedMediaItemSequence.Builder()
+            .addItem(firstAudioItem)
+            .addGap(500_000)
+            .addGap(200_000)
+            .addItem(secondAudioItem)
+            .build();
+    Composition composition = new Composition.Builder(sequence).build();
+
+    transformer.start(composition, outputDir.newFile().getPath());
+    TransformerTestRunner.runLooper(transformer);
+
+    DumpFileAsserts.assertOutput(
+        context,
+        muxerFactory.getCreatedMuxer(),
+        getSequenceDumpFilePath(
+            ImmutableList.of(
+                FILE_AUDIO_RAW.replace("wav/", ""),
+                "gap_500ms",
+                "gap_200ms",
+                FILE_AUDIO_RAW.replace("wav/", ""))));
+  }
+
+  @Test
+  public void start_itemGapItemGap_completesSuccessfully() throws Exception {
+    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
+    Transformer transformer =
+        createTransformerBuilder(muxerFactory, /* enableFallback= */ false).build();
+    EditedMediaItem firstAudioItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)).build();
+    EditedMediaItem secondAudioItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)).build();
+
+    EditedMediaItemSequence sequence =
+        new EditedMediaItemSequence.Builder()
+            .addItem(firstAudioItem)
+            .addGap(200_000)
+            .addItem(secondAudioItem)
+            .addGap(500_000)
+            .build();
+    Composition composition = new Composition.Builder(sequence).build();
+
+    transformer.start(composition, outputDir.newFile().getPath());
+    TransformerTestRunner.runLooper(transformer);
+
+    DumpFileAsserts.assertOutput(
+        context,
+        muxerFactory.getCreatedMuxer(),
+        getSequenceDumpFilePath(
+            ImmutableList.of(
+                FILE_AUDIO_RAW.replace("wav/", ""),
+                "gap_200ms",
+                FILE_AUDIO_RAW.replace("wav/", ""),
+                "gap_500ms")));
+  }
+
+  @Test
+  public void start_gapItemGapItem_completesSuccessfully() throws Exception {
+    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
+    Transformer transformer =
+        createTransformerBuilder(muxerFactory, /* enableFallback= */ false).build();
+    EditedMediaItem firstAudioItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)).build();
+    EditedMediaItem secondAudioItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)).build();
+
+    EditedMediaItemSequence sequence =
+        new EditedMediaItemSequence.Builder()
+            .addGap(500_000)
+            .addItem(firstAudioItem)
+            .addGap(200_000)
+            .addItem(secondAudioItem)
+            .build();
+    Composition composition = new Composition.Builder(sequence).build();
+
+    transformer.start(composition, outputDir.newFile().getPath());
+    TransformerTestRunner.runLooper(transformer);
+
+    DumpFileAsserts.assertOutput(
+        context,
+        muxerFactory.getCreatedMuxer(),
+        getSequenceDumpFilePath(
+            ImmutableList.of(
+                "gap_500ms",
+                FILE_AUDIO_RAW.replace("wav/", ""),
+                "gap_200ms",
+                FILE_AUDIO_RAW.replace("wav/", ""))));
+  }
+
+  @Test
   public void concatenateTwoAudioItems_withSameFormat_completesSuccessfully() throws Exception {
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
     Transformer transformer =
@@ -748,5 +992,17 @@ public final class SequenceExportTest {
 
     assertThat(exportResult.sampleRate).isEqualTo(48_000);
     assertThat(exportResult.channelCount).isEqualTo(2);
+  }
+
+  private Throwable getRootCause(Throwable throwable) {
+    @Nullable Throwable node = throwable;
+    @Nullable Throwable nodeCause;
+    do {
+      nodeCause = node.getCause();
+      if (nodeCause != null) {
+        node = nodeCause;
+      }
+    } while (nodeCause != null);
+    return node;
   }
 }

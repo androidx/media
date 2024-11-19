@@ -72,8 +72,7 @@ public final class TransformerUtilTest {
             new NoOpMuxerListenerImpl(),
             MUXER_MODE_DEFAULT,
             /* dropSamplesBeforeFirstVideoSample= */ false,
-            /* appendVideoFormat= */ null,
-            Transformer.DEFAULT_MAX_DELAY_BETWEEN_MUXER_SAMPLES_MS);
+            /* appendVideoFormat= */ null);
 
     assertThat(
             shouldTranscodeVideo(
@@ -107,8 +106,7 @@ public final class TransformerUtilTest {
             new NoOpMuxerListenerImpl(),
             MUXER_MODE_DEFAULT,
             /* dropSamplesBeforeFirstVideoSample= */ false,
-            /* appendVideoFormat= */ null,
-            Transformer.DEFAULT_MAX_DELAY_BETWEEN_MUXER_SAMPLES_MS);
+            /* appendVideoFormat= */ null);
 
     assertThat(
             shouldTranscodeVideo(
@@ -126,6 +124,9 @@ public final class TransformerUtilTest {
     @Override
     public void onTrackEnded(
         @C.TrackType int trackType, Format format, int averageBitrate, int sampleCount) {}
+
+    @Override
+    public void onSampleWrittenOrDropped() {}
 
     @Override
     public void onEnded(long durationMs, long fileSizeBytes) {}

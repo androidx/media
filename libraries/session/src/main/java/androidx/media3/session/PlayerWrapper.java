@@ -85,8 +85,9 @@ import java.util.List;
 
   private final boolean playIfSuppressed;
   @Nullable private LegacyError legacyError;
-  @Nullable private Bundle legacyExtras;
+  private Bundle legacyExtras;
   private ImmutableList<CommandButton> customLayout;
+  private ImmutableList<CommandButton> mediaButtonPreferences;
   private SessionCommands availableSessionCommands;
   private Commands availablePlayerCommands;
 
@@ -94,15 +95,20 @@ import java.util.List;
       Player player,
       boolean playIfSuppressed,
       ImmutableList<CommandButton> customLayout,
+      ImmutableList<CommandButton> mediaButtonPreferences,
       SessionCommands availableSessionCommands,
       Commands availablePlayerCommands,
-      @Nullable Bundle legacyExtras) {
+      Bundle legacyExtras) {
     super(player);
     this.playIfSuppressed = playIfSuppressed;
     this.customLayout = customLayout;
+    this.mediaButtonPreferences = mediaButtonPreferences;
     this.availableSessionCommands = availableSessionCommands;
     this.availablePlayerCommands = availablePlayerCommands;
     this.legacyExtras = legacyExtras;
+    if (!mediaButtonPreferences.isEmpty()) {
+      updateCustomLayoutAndLegacyExtrasForMediaButtonPreferences();
+    }
   }
 
   public void setAvailableCommands(
@@ -123,19 +129,49 @@ import java.util.List;
     this.customLayout = customLayout;
   }
 
+  /**
+   * Sets new media button preferences.
+   *
+   * @param mediaButtonPreferences The list of {@link CommandButton} defining the media button
+   *     preferences.
+   * @return Whether the {@linkplain #getLegacyExtras platform session extras} were updated as a
+   *     result of this change.
+   */
+  public boolean setMediaButtonPreferences(ImmutableList<CommandButton> mediaButtonPreferences) {
+    this.mediaButtonPreferences = mediaButtonPreferences;
+    boolean hadPrevReservation =
+        legacyExtras.getBoolean(
+            MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_PREV, /* defaultValue= */ false);
+    boolean hadNextReservation =
+        legacyExtras.getBoolean(
+            MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_NEXT, /* defaultValue= */ false);
+    updateCustomLayoutAndLegacyExtrasForMediaButtonPreferences();
+    return (legacyExtras.getBoolean(
+                MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_PREV, /* defaultValue= */ false)
+            != hadPrevReservation)
+        || (legacyExtras.getBoolean(
+                MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_NEXT, /* defaultValue= */ false)
+            != hadNextReservation);
+  }
+
   /* package */ ImmutableList<CommandButton> getCustomLayout() {
     return customLayout;
   }
 
-  public void setLegacyExtras(@Nullable Bundle extras) {
-    if (extras != null) {
-      checkArgument(!extras.containsKey(EXTRAS_KEY_PLAYBACK_SPEED_COMPAT));
-      checkArgument(!extras.containsKey(EXTRAS_KEY_MEDIA_ID_COMPAT));
-    }
-    this.legacyExtras = extras;
+  /* package */ ImmutableList<CommandButton> getMediaButtonPreferences() {
+    return mediaButtonPreferences;
   }
 
-  @Nullable
+  public void setLegacyExtras(Bundle extras) {
+    checkArgument(!extras.containsKey(EXTRAS_KEY_PLAYBACK_SPEED_COMPAT));
+    checkArgument(!extras.containsKey(EXTRAS_KEY_MEDIA_ID_COMPAT));
+    this.legacyExtras = extras;
+    if (!mediaButtonPreferences.isEmpty()) {
+      // Re-calculate custom layout in case we have to set any additional extras.
+      updateCustomLayoutAndLegacyExtrasForMediaButtonPreferences();
+    }
+  }
+
   public Bundle getLegacyExtras() {
     return legacyExtras;
   }
@@ -1009,9 +1045,7 @@ import java.util.List;
     LegacyError legacyError = this.legacyError;
     if (legacyError != null && legacyError.isFatal) {
       Bundle extras = new Bundle(legacyError.extras);
-      if (legacyExtras != null) {
-        extras.putAll(legacyExtras);
-      }
+      extras.putAll(legacyExtras);
       return new PlaybackStateCompat.Builder()
           .setState(
               PlaybackStateCompat.STATE_ERROR,
@@ -1034,6 +1068,14 @@ import java.util.List;
     for (int i = 0; i < availableCommands.size(); i++) {
       actions |= convertCommandToPlaybackStateActions(availableCommands.get(i));
     }
+    if (!mediaButtonPreferences.isEmpty()
+        && !legacyExtras.getBoolean(MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_PREV)) {
+      actions &= ~PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS;
+    }
+    if (!mediaButtonPreferences.isEmpty()
+        && !legacyExtras.getBoolean(MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_NEXT)) {
+      actions &= ~PlaybackStateCompat.ACTION_SKIP_TO_NEXT;
+    }
     long queueItemId =
         isCommandAvailable(COMMAND_GET_TIMELINE)
             ? LegacyConversions.convertToQueueItemId(getCurrentMediaItemIndex())
@@ -1041,9 +1083,7 @@ import java.util.List;
     float playbackSpeed = getPlaybackParameters().speed;
     float sessionPlaybackSpeed = isPlaying() ? playbackSpeed : 0f;
     Bundle extras = legacyError != null ? new Bundle(legacyError.extras) : new Bundle();
-    if (legacyExtras != null && !legacyExtras.isEmpty()) {
-      extras.putAll(legacyExtras);
-    }
+    extras.putAll(legacyExtras);
     extras.putFloat(EXTRAS_KEY_PLAYBACK_SPEED_COMPAT, playbackSpeed);
     @Nullable MediaItem currentMediaItem = getCurrentMediaItemWithCommandCheck();
     if (currentMediaItem != null && !MediaItem.DEFAULT_MEDIA_ID.equals(currentMediaItem.mediaId)) {
@@ -1060,7 +1100,6 @@ import java.util.List;
             .setActiveQueueItemId(queueItemId)
             .setBufferedPosition(compatBufferedPosition)
             .setExtras(extras);
-
     for (int i = 0; i < customLayout.size(); i++) {
       CommandButton commandButton = customLayout.get(i);
       SessionCommand sessionCommand = commandButton.sessionCommand;
@@ -1068,7 +1107,7 @@ import java.util.List;
           && commandButton.isEnabled
           && sessionCommand.commandCode == SessionCommand.COMMAND_CODE_CUSTOM
           && CommandButton.isButtonCommandAvailable(
-              commandButton, availableSessionCommands, availablePlayerCommands)) {
+              commandButton, availableSessionCommands, availableCommands)) {
         Bundle actionExtras = sessionCommand.customExtras;
         if (commandButton.icon != CommandButton.ICON_UNDEFINED) {
           actionExtras = new Bundle(sessionCommand.customExtras);
@@ -1263,6 +1302,18 @@ import java.util.List;
 
   private void verifyApplicationThread() {
     checkState(Looper.myLooper() == getApplicationLooper());
+  }
+
+  private void updateCustomLayoutAndLegacyExtrasForMediaButtonPreferences() {
+    customLayout =
+        CommandButton.getCustomLayoutFromMediaButtonPreferences(
+            mediaButtonPreferences, /* backSlotAllowed= */ true, /* forwardSlotAllowed= */ true);
+    legacyExtras.putBoolean(
+        MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_PREV,
+        !CommandButton.containsButtonForSlot(customLayout, CommandButton.SLOT_BACK));
+    legacyExtras.putBoolean(
+        MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_NEXT,
+        !CommandButton.containsButtonForSlot(customLayout, CommandButton.SLOT_FORWARD));
   }
 
   @SuppressWarnings("deprecation") // Uses deprecated PlaybackStateCompat actions.

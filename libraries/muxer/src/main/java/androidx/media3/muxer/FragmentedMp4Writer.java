@@ -202,14 +202,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private void createHeader() throws IOException {
     output.position(0L);
     output.write(Boxes.ftyp());
-    // The minInputPtsUs is actually ignored as there are no pending samples to write.
     output.write(
         Boxes.moov(
-            tracks,
-            metadataCollector,
-            /* minInputPtsUs= */ 0L,
-            /* isFragmentedMp4= */ true,
-            lastSampleDurationBehavior));
+            tracks, metadataCollector, /* isFragmentedMp4= */ true, lastSampleDurationBehavior));
   }
 
   private boolean shouldFlushPendingSamples(
@@ -331,9 +326,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     List<Integer> sampleDurations =
         Boxes.convertPresentationTimestampsToDurationsVu(
             pendingSamplesBufferInfo,
-            /* firstSamplePresentationTimeUs= */ currentFragmentSequenceNumber == 1
-                ? minInputPresentationTimeUs
-                : pendingSamplesBufferInfo.get(0).presentationTimeUs,
             track.videoUnitTimebase(),
             LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER_OR_DUPLICATE_PREVIOUS,
             track.endOfStreamTimestampUs);

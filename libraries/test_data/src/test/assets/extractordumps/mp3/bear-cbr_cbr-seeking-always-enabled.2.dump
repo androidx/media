@@ -9,8 +9,10 @@ numberOfTracks = 1
 track 0:
   total output bytes = 15046
   sample count = 36
+  track duration = 2821187
   format 0:
     averageBitrate = 128000
+    containerMimeType = audio/mpeg
     sampleMimeType = audio/mpeg
     maxInputSize = 4096
     channelCount = 2

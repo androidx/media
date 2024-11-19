@@ -26,4 +26,14 @@
   <string name="export_error" translatable="false">Export error</string>
   <string name="export_started" translatable="false">Export started</string>
   <string name="add_background_audio" translatable="false">Add background audio</string>
+  <string name="output_video_resolution" translatable="false">Output video resolution</string>
+  <string name="hdr_mode" translatable="false">HDR mode</string>
+  <string name="ok" translatable="false">OK</string>
+  <string name="cancel" translatable="false">Cancel</string>
+  <string name="export_settings" translatable="false">Export Settings</string>
+  <string name="output_audio_mime_type" translatable="false">Output audio MIME type</string>
+  <string name="output_video_mime_type" translatable="false">Output video MIME type</string>
+  <string name="enable_debug_tracing" translatable="false">Enable debug tracing</string>
+  <string name="use_media3_muxer" translatable="false">Use Media3 muxer</string>
+  <string name="produce_fragmented_mp4" translatable="false">Produce fragmented MP4</string>
 </resources>

@@ -58,6 +58,7 @@ import androidx.media3.effect.OverlaySettings;
 import androidx.media3.effect.Presentation;
 import androidx.media3.effect.RgbFilter;
 import androidx.media3.effect.ScaleAndRotateTransformation;
+import androidx.media3.effect.StaticOverlaySettings;
 import androidx.media3.effect.TextOverlay;
 import androidx.media3.effect.VideoCompositor;
 import androidx.media3.effect.VideoCompositorSettings;
@@ -536,7 +537,7 @@ public final class DefaultVideoCompositorPixelTest {
           public OverlaySettings getOverlaySettings(int inputId, long presentationTimeUs) {
             if (inputId == 0) {
               // This tests all OverlaySettings builder variables.
-              return new OverlaySettings.Builder()
+              return new StaticOverlaySettings.Builder()
                   .setScale(.25f, .5f)
                   .setOverlayFrameAnchor(1, -1)
                   .setBackgroundFrameAnchor(.9f, -.7f)
@@ -544,7 +545,7 @@ public final class DefaultVideoCompositorPixelTest {
                   .setAlphaScale(.5f)
                   .build();
             } else {
-              return new OverlaySettings.Builder().build();
+              return new StaticOverlaySettings.Builder().build();
             }
           }
         };
@@ -575,7 +576,7 @@ public final class DefaultVideoCompositorPixelTest {
 
           @Override
           public OverlaySettings getOverlaySettings(int inputId, long presentationTimeUs) {
-            return new OverlaySettings.Builder().build();
+            return new StaticOverlaySettings.Builder().build();
           }
         };
     compositorTestRunner =
@@ -617,7 +618,7 @@ public final class DefaultVideoCompositorPixelTest {
 
           @Override
           public OverlaySettings getOverlaySettings(int inputId, long presentationTimeUs) {
-            return new OverlaySettings.Builder()
+            return new StaticOverlaySettings.Builder()
                 .setOverlayFrameAnchor(-1, -1)
                 .setBackgroundFrameAnchor(-1, -1 + 2f * inputId / NUMBER_OF_INPUT_STREAMS)
                 .build();
@@ -950,7 +951,7 @@ public final class DefaultVideoCompositorPixelTest {
 
               @Override
               public OverlaySettings getOverlaySettings(long presentationTimeUs) {
-                return new OverlaySettings.Builder()
+                return new StaticOverlaySettings.Builder()
                     .setBackgroundFrameAnchor(/* x= */ 0f, /* y= */ 0.5f)
                     .build();
               }

@@ -19,6 +19,8 @@ package androidx.media3.common.audio;
 import static androidx.media3.common.util.Assertions.checkState;
 import static java.lang.Math.min;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.nio.ShortBuffer;
 import java.util.Arrays;
 
@@ -52,11 +54,94 @@ import java.util.Arrays;
   private int pitchFrameCount;
   private int oldRatePosition;
   private int newRatePosition;
+
+  /**
+   * Number of frames pending to be copied from {@link #inputBuffer} directly to {@link
+   * #outputBuffer}.
+   *
+   * <p>This field is only relevant to time-stretching or pitch-shifting in {@link
+   * #changeSpeed(double)}, particularly when more frames need to be copied to the {@link
+   * #outputBuffer} than are available in {@link #inputBuffer} and Sonic must wait until the next
+   * buffer (or EOS) is queued.
+   */
   private int remainingInputToCopyFrameCount;
+
   private int prevPeriod;
   private int prevMinDiff;
   private int minDiff;
   private int maxDiff;
+  private double accumulatedSpeedAdjustmentError;
+
+  /**
+   * Returns the estimated output frame count for a given configuration and input frame count.
+   *
+   * <p>Please note that the returned value might not be mathematically exact, as Sonic incurs in
+   * truncation and precision errors that accumulate on the output.
+   */
+  public static long getExpectedFrameCountAfterProcessorApplied(
+      int inputSampleRateHz,
+      int outputSampleRateHz,
+      float speed,
+      float pitch,
+      long inputFrameCount) {
+    float resamplingRate = (float) inputSampleRateHz / outputSampleRateHz;
+    resamplingRate *= pitch;
+    double speedRate = speed / pitch;
+    BigDecimal bigResamplingRate = new BigDecimal(String.valueOf(resamplingRate));
+
+    BigDecimal length = BigDecimal.valueOf(inputFrameCount);
+    BigDecimal framesAfterTimeStretching;
+    if (speedRate > 1.00001 || speedRate < 0.99999) {
+      framesAfterTimeStretching =
+          length.divide(BigDecimal.valueOf(speedRate), RoundingMode.HALF_EVEN);
+    } else {
+      // If speed is almost 1, then just copy the buffers without modifying them.
+      framesAfterTimeStretching = length;
+    }
+
+    if (resamplingRate == 1.0f) {
+      return framesAfterTimeStretching.longValueExact();
+    }
+
+    BigDecimal framesAfterResampling =
+        framesAfterTimeStretching.divide(bigResamplingRate, RoundingMode.HALF_EVEN);
+
+    return framesAfterResampling.longValueExact()
+        - calculateAccumulatedTruncationErrorForResampling(
+            framesAfterTimeStretching, BigDecimal.valueOf(inputSampleRateHz), bigResamplingRate);
+  }
+
+  /**
+   * Returns expected accumulated truncation error for {@link Sonic}'s resampling algorithm, given
+   * an input length, input sample rate, and resampling rate.
+   *
+   * <p><b>Note:</b> This method is only necessary until we address b/361768785 and fix the
+   * underlying truncation issue.
+   *
+   * @param length Length of input in frames.
+   * @param sampleRate Input sample rate of {@link Sonic} instance.
+   * @param resamplingRate Resampling rate given by {@code pitch * (inputSampleRate /
+   *     outputSampleRate)}.
+   */
+  /* package */ static long calculateAccumulatedTruncationErrorForResampling(
+      BigDecimal length, BigDecimal sampleRate, BigDecimal resamplingRate) {
+    // Calculate number of times that Sonic accumulates truncation error. Set scale to 20 decimal
+    // places, so that division doesn't return an integer.
+    BigDecimal errorCount = length.divide(sampleRate, /* scale= */ 20, RoundingMode.HALF_EVEN);
+
+    // Calculate what truncation error Sonic is accumulating, calculated as:
+    // inputSampleRate / resamplingRate - (int) inputSampleRate / resamplingRate. Set scale to 20
+    // decimal places, so that division doesn't return an integer.
+    BigDecimal individualError =
+        sampleRate.divide(resamplingRate, /* scale */ 20, RoundingMode.HALF_EVEN);
+    individualError =
+        individualError.subtract(individualError.setScale(/* newScale= */ 0, RoundingMode.FLOOR));
+    // Calculate total accumulated error = (int) floor(errorCount * individualError).
+    BigDecimal accumulatedError =
+        errorCount.multiply(individualError).setScale(/* newScale= */ 0, RoundingMode.FLOOR);
+
+    return accumulatedError.longValueExact();
+  }
 
   /**
    * Creates a new Sonic audio stream processor.
@@ -130,10 +215,26 @@ import java.util.Arrays;
    */
   public void queueEndOfStream() {
     int remainingFrameCount = inputFrameCount;
-    float s = speed / pitch;
-    float r = rate * pitch;
+    double s = speed / pitch;
+    double r = rate * pitch;
+
+    // If there are frames to be copied directly onto the output buffer, we should not count those
+    // as "input frames" because Sonic is not applying any processing on them.
+    int adjustedRemainingFrames = remainingFrameCount - remainingInputToCopyFrameCount;
+
+    // We add directly to the output the number of frames in remainingInputToCopyFrameCount.
+    // Otherwise, expectedOutputFrames will be off and will make Sonic output an incorrect number of
+    // frames.
     int expectedOutputFrames =
-        outputFrameCount + (int) ((remainingFrameCount / s + pitchFrameCount) / r + 0.5f);
+        outputFrameCount
+            + (int)
+                ((adjustedRemainingFrames / s
+                            + remainingInputToCopyFrameCount
+                            + accumulatedSpeedAdjustmentError
+                            + pitchFrameCount)
+                        / r
+                    + 0.5);
+    accumulatedSpeedAdjustmentError = 0;
 
     // Add enough silence to flush both input and pitch buffers.
     inputBuffer =
@@ -166,6 +267,7 @@ import java.util.Arrays;
     prevMinDiff = 0;
     minDiff = 0;
     maxDiff = 0;
+    accumulatedSpeedAdjustmentError = 0;
   }
 
   /** Returns the size of output that can be read with {@link #getOutput(ShortBuffer)}, in bytes. */
@@ -408,14 +510,19 @@ import java.util.Arrays;
     removePitchFrames(pitchFrameCount - 1);
   }
 
-  private int skipPitchPeriod(short[] samples, int position, float speed, int period) {
+  private int skipPitchPeriod(short[] samples, int position, double speed, int period) {
     // Skip over a pitch period, and copy period/speed samples to the output.
     int newFrameCount;
     if (speed >= 2.0f) {
-      newFrameCount = (int) (period / (speed - 1.0f));
+      double expectedFrameCount = period / (speed - 1.0) + accumulatedSpeedAdjustmentError;
+      newFrameCount = (int) Math.round(expectedFrameCount);
+      accumulatedSpeedAdjustmentError = expectedFrameCount - newFrameCount;
     } else {
       newFrameCount = period;
-      remainingInputToCopyFrameCount = (int) (period * (2.0f - speed) / (speed - 1.0f));
+      double expectedInputToCopy =
+          period * (2.0f - speed) / (speed - 1.0f) + accumulatedSpeedAdjustmentError;
+      remainingInputToCopyFrameCount = (int) Math.round(expectedInputToCopy);
+      accumulatedSpeedAdjustmentError = expectedInputToCopy - remainingInputToCopyFrameCount;
     }
     outputBuffer = ensureSpaceForAdditionalFrames(outputBuffer, outputFrameCount, newFrameCount);
     overlapAdd(
@@ -431,14 +538,19 @@ import java.util.Arrays;
     return newFrameCount;
   }
 
-  private int insertPitchPeriod(short[] samples, int position, float speed, int period) {
+  private int insertPitchPeriod(short[] samples, int position, double speed, int period) {
     // Insert a pitch period, and determine how much input to copy directly.
     int newFrameCount;
     if (speed < 0.5f) {
-      newFrameCount = (int) (period * speed / (1.0f - speed));
+      double expectedFrameCount = period * speed / (1.0f - speed) + accumulatedSpeedAdjustmentError;
+      newFrameCount = (int) Math.round(expectedFrameCount);
+      accumulatedSpeedAdjustmentError = expectedFrameCount - newFrameCount;
     } else {
       newFrameCount = period;
-      remainingInputToCopyFrameCount = (int) (period * (2.0f * speed - 1.0f) / (1.0f - speed));
+      double expectedInputToCopy =
+          period * (2.0f * speed - 1.0f) / (1.0f - speed) + accumulatedSpeedAdjustmentError;
+      remainingInputToCopyFrameCount = (int) Math.round(expectedInputToCopy);
+      accumulatedSpeedAdjustmentError = expectedInputToCopy - remainingInputToCopyFrameCount;
     }
     outputBuffer =
         ensureSpaceForAdditionalFrames(outputBuffer, outputFrameCount, period + newFrameCount);
@@ -461,7 +573,7 @@ import java.util.Arrays;
     return newFrameCount;
   }
 
-  private void changeSpeed(float speed) {
+  private void changeSpeed(double speed) {
     if (inputFrameCount < maxRequiredFrameCount) {
       return;
     }
@@ -485,7 +597,7 @@ import java.util.Arrays;
   private void processStreamInput() {
     // Resample as many pitch periods as we have buffered on the input.
     int originalOutputFrameCount = outputFrameCount;
-    float s = speed / pitch;
+    double s = speed / pitch;
     float r = rate * pitch;
     if (s > 1.00001 || s < 0.99999) {
       changeSpeed(s);

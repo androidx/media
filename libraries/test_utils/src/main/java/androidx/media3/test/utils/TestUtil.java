@@ -51,7 +51,9 @@ import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.PositionHolder;
 import androidx.media3.extractor.SeekMap;
 import androidx.media3.extractor.metadata.MetadataInputBuffer;
+import com.google.common.collect.BoundType;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Range;
 import com.google.common.io.ByteStreams;
 import com.google.common.primitives.Bytes;
 import com.google.common.primitives.UnsignedBytes;
@@ -661,6 +663,33 @@ public class TestUtil {
           }
         };
     return checkNotNull(parcel.readBundle(throwingClassLoader));
+  }
+
+  /**
+   * Returns a randomly generated float within the specified range, using {@code random} as random
+   * number generator.
+   *
+   * <p>{@code range} must be a bounded range.
+   */
+  public static float generateFloatInRange(Random random, Range<Float> range) {
+    float bottom =
+        range.lowerBoundType() == BoundType.OPEN
+            ? Math.nextUp(range.lowerEndpoint())
+            : range.lowerEndpoint();
+    float top =
+        range.upperBoundType() == BoundType.OPEN
+            ? Math.nextDown(range.upperEndpoint())
+            : range.upperEndpoint();
+
+    return bottom + random.nextFloat() * (top - bottom);
+  }
+
+  /**
+   * Returns a long between {@code origin} (inclusive) and {@code bound} (exclusive), given {@code
+   * random}.
+   */
+  public static long generateLong(Random random, long origin, long bound) {
+    return (long) (origin + random.nextFloat() * (bound - origin));
   }
 
   private static final class NoUidOrShufflingTimeline extends Timeline {

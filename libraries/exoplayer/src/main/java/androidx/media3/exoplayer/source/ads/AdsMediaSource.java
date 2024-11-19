@@ -126,7 +126,7 @@ public final class AdsMediaSource extends CompositeMediaSource<MediaPeriodId> {
      * #TYPE_UNEXPECTED}.
      */
     public RuntimeException getRuntimeExceptionForUnexpected() {
-      Assertions.checkState(type == TYPE_UNEXPECTED);
+      checkState(type == TYPE_UNEXPECTED);
       return (RuntimeException) checkNotNull(getCause());
     }
   }
@@ -155,6 +155,10 @@ public final class AdsMediaSource extends CompositeMediaSource<MediaPeriodId> {
    * Constructs a new source that inserts ads linearly with the content specified by {@code
    * contentMediaSource}.
    *
+   * <p>This is equivalent to passing true as param {@code useLazyContentSourcePreparation} when
+   * calling {@link AdsMediaSource#AdsMediaSource(MediaSource, DataSpec, Object,
+   * MediaSource.Factory, AdsLoader, AdViewProvider, boolean)}.
+   *
    * @param contentMediaSource The {@link MediaSource} providing the content to play.
    * @param adTagDataSpec The data specification of the ad tag to load.
    * @param adsId An opaque identifier for ad playback state associated with this instance. Ad
@@ -169,11 +173,49 @@ public final class AdsMediaSource extends CompositeMediaSource<MediaPeriodId> {
       MediaSource contentMediaSource,
       DataSpec adTagDataSpec,
       Object adsId,
-      MediaSource.Factory adMediaSourceFactory,
+      Factory adMediaSourceFactory,
       AdsLoader adsLoader,
       AdViewProvider adViewProvider) {
+    this(
+        contentMediaSource,
+        adTagDataSpec,
+        adsId,
+        adMediaSourceFactory,
+        adsLoader,
+        adViewProvider,
+        /* useLazyContentSourcePreparation= */ true);
+  }
+
+  /**
+   * Constructs a new source that inserts ads linearly with the content specified by {@code
+   * contentMediaSource}.
+   *
+   * @param contentMediaSource The {@link MediaSource} providing the content to play.
+   * @param adTagDataSpec The data specification of the ad tag to load.
+   * @param adsId An opaque identifier for ad playback state associated with this instance. Ad
+   *     loading and playback state is shared among all playlist items that have the same ads id (by
+   *     {@link Object#equals(Object) equality}), so it is important to pass the same identifiers
+   *     when constructing playlist items each time the player returns to the foreground.
+   * @param adMediaSourceFactory Factory for media sources used to load ad media.
+   * @param adsLoader The loader for ads.
+   * @param adViewProvider Provider of views for the ad UI.
+   * @param useLazyContentSourcePreparation True if the content source should be prepared lazily and
+   *     wait for an {@link AdPlaybackState} to be set before preparing. False if the timeline is
+   *     required {@linkplain AdsLoader#handleContentTimelineChanged(MediaItem, Timeline) to read ad
+   *     data from it} to populate the {@link AdPlaybackState} (for instance from HLS
+   *     interstitials).
+   */
+  public AdsMediaSource(
+      MediaSource contentMediaSource,
+      DataSpec adTagDataSpec,
+      Object adsId,
+      Factory adMediaSourceFactory,
+      AdsLoader adsLoader,
+      AdViewProvider adViewProvider,
+      boolean useLazyContentSourcePreparation) {
     this.contentMediaSource =
-        new MaskingMediaSource(contentMediaSource, /* useLazyPreparation= */ true);
+        new MaskingMediaSource(
+            contentMediaSource, /* useLazyPreparation= */ useLazyContentSourcePreparation);
     this.contentDrmConfiguration =
         checkNotNull(contentMediaSource.getMediaItem().localConfiguration).drmConfiguration;
     this.adMediaSourceFactory = adMediaSourceFactory;
@@ -288,6 +330,7 @@ public final class AdsMediaSource extends CompositeMediaSource<MediaPeriodId> {
     } else {
       Assertions.checkArgument(newTimeline.getPeriodCount() == 1);
       contentTimeline = newTimeline;
+      mainHandler.post(() -> adsLoader.handleContentTimelineChanged(getMediaItem(), newTimeline));
     }
     maybeUpdateSourceInfo();
   }

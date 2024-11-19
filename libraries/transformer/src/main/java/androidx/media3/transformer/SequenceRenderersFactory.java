@@ -460,7 +460,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         videoSink.setPendingVideoEffects(videoEffects);
         videoSink.setStreamTimestampInfo(
             streamStartPositionUs,
-            getStreamOffsetUs(),
             /* bufferTimestampAdjustmentUs= */ offsetToCompositionTimeUs,
             getLastResetPositionUs());
         videoSink.onInputStreamChanged(

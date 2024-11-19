@@ -29,10 +29,13 @@ public class MediaBrowserConstants {
   public static final String ROOT_EXTRAS_KEY = "root_extras_key";
   public static final int ROOT_EXTRAS_VALUE = 4321;
 
-  public static final String COMMAND_ACTION_PLAYLIST_ADD = "androidx.media3.actions.playlist_add";
+  public static final String COMMAND_PLAYLIST_ADD = "androidx.media3.commands.playlist_add";
+  public static final String COMMAND_RADIO = "androidx.media3.commands.radio";
 
   public static final String MEDIA_ID_GET_BROWSABLE_ITEM = "media_id_get_browsable_item";
   public static final String MEDIA_ID_GET_PLAYABLE_ITEM = "media_id_get_playable_item";
+  public static final String MEDIA_ID_GET_ITEM_WITH_BROWSE_ACTIONS =
+      "media_id_item_with_browse_actions";
   public static final String MEDIA_ID_GET_ITEM_WITH_METADATA = "media_id_get_item_with_metadata";
 
   public static final String PARENT_ID = "parent_id";
@@ -47,6 +50,8 @@ public class MediaBrowserConstants {
       "parent_auth_expired_error_non_fatal";
   public static final String PARENT_ID_AUTH_EXPIRED_ERROR_KEY_ERROR_RESOLUTION_ACTION_LABEL =
       "parent_auth_expired_error_label";
+  public static final String PARENT_ID_ALLOW_FIRST_ON_GET_CHILDREN =
+      "parent_allow_first_on_get_children";
 
   public static final List<String> GET_CHILDREN_RESULT = new ArrayList<>();
   public static final int CHILDREN_COUNT = 100;

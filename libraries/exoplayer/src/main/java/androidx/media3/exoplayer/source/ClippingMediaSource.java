@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.source;
 
+import static androidx.media3.common.util.Assertions.checkState;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.annotation.ElementType.TYPE_USE;
@@ -71,18 +72,23 @@ public final class ClippingMediaSource extends WrappingMediaSource {
      * @param reason The reason clipping failed.
      */
     public IllegalClippingException(@Reason int reason) {
-      super("Illegal clipping: " + getReasonDescription(reason));
+      this(reason, /* startUs= */ C.TIME_UNSET, /* endUs= */ C.TIME_UNSET);
+    }
+
+    public IllegalClippingException(@Reason int reason, long startUs, long endUs) {
+      super("Illegal clipping: " + getReasonDescription(reason, startUs, endUs));
       this.reason = reason;
     }
 
-    private static String getReasonDescription(@Reason int reason) {
+    private static String getReasonDescription(@Reason int reason, long startUs, long endUs) {
       switch (reason) {
         case REASON_INVALID_PERIOD_COUNT:
           return "invalid period count";
         case REASON_NOT_SEEKABLE_TO_START:
           return "not seekable to start";
         case REASON_START_EXCEEDS_END:
-          return "start exceeds end";
+          checkState(startUs != C.TIME_UNSET && endUs != C.TIME_UNSET);
+          return "start exceeds end. Start time: " + startUs + ", End time: " + endUs;
         default:
           return "unknown";
       }
@@ -223,7 +229,7 @@ public final class ClippingMediaSource extends WrappingMediaSource {
 
   @Override
   public void releasePeriod(MediaPeriod mediaPeriod) {
-    Assertions.checkState(mediaPeriods.remove(mediaPeriod));
+    checkState(mediaPeriods.remove(mediaPeriod));
     mediaSource.releasePeriod(((ClippingMediaPeriod) mediaPeriod).mediaPeriod);
     if (mediaPeriods.isEmpty() && !allowDynamicClippingUpdates) {
       refreshClippedTimeline(Assertions.checkNotNull(clippingTimeline).timeline);
@@ -323,7 +329,10 @@ public final class ClippingMediaSource extends WrappingMediaSource {
           resolvedEndUs = window.durationUs;
         }
         if (startUs > resolvedEndUs) {
-          throw new IllegalClippingException(IllegalClippingException.REASON_START_EXCEEDS_END);
+          throw new IllegalClippingException(
+              IllegalClippingException.REASON_START_EXCEEDS_END,
+              startUs,
+              /* endUs= */ resolvedEndUs);
         }
       }
       this.startUs = startUs;

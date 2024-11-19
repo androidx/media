@@ -61,3 +61,7 @@ target_link_libraries(gav1JNI
                       PRIVATE libgav1_static
                       PRIVATE ${android_log_lib})
 
+# Enable 16 KB ELF alignment.
+target_link_options(gav1JNI
+                    PRIVATE "-Wl,-z,max-page-size=16384")
+

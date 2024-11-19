@@ -56,7 +56,7 @@ import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.effect.GaussianBlur;
 import androidx.media3.effect.GlTextureProducer;
 import androidx.media3.effect.OverlayEffect;
-import androidx.media3.effect.OverlaySettings;
+import androidx.media3.effect.StaticOverlaySettings;
 import androidx.media3.effect.TextOverlay;
 import androidx.media3.test.utils.BitmapPixelTestUtil;
 import androidx.media3.test.utils.TextureBitmapReader;
@@ -304,7 +304,8 @@ public final class DefaultVideoFrameProcessorTextureOutputPixelTest {
         /* end= */ 7,
         Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
     TextOverlay textOverlay =
-        TextOverlay.createStaticTextOverlay(overlayText, new OverlaySettings.Builder().build());
+        TextOverlay.createStaticTextOverlay(
+            overlayText, new StaticOverlaySettings.Builder().build());
     videoFrameProcessorTestRunner =
         getDefaultFrameProcessorTestRunnerBuilder(testId)
             .setEffects(new OverlayEffect(ImmutableList.of(bitmapOverlay, textOverlay)))
@@ -358,12 +359,7 @@ public final class DefaultVideoFrameProcessorTextureOutputPixelTest {
     videoFrameProcessorTestRunner.processFirstFrameAndEnd();
     Bitmap actualBitmap = videoFrameProcessorTestRunner.getOutputBitmap();
 
-    // TODO(b/207848601): Switch to using proper tooling for testing against golden data.
-    float averagePixelAbsoluteDifference =
-        BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceFp16(
-            expectedBitmap, actualBitmap);
-    assertThat(averagePixelAbsoluteDifference)
-        .isAtMost(MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE_DIFFERENT_DEVICE_FP16);
+    assertBitmapsAreSimilar(expectedBitmap, actualBitmap, HDR_PSNR_THRESHOLD);
   }
 
   @Test
@@ -393,12 +389,9 @@ public final class DefaultVideoFrameProcessorTextureOutputPixelTest {
     videoFrameProcessorTestRunner.processFirstFrameAndEnd();
     Bitmap actualBitmap = videoFrameProcessorTestRunner.getOutputBitmap();
 
-    // TODO(b/207848601): Switch to using proper tooling for testing against golden data.
-    float averagePixelAbsoluteDifference =
-        BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceFp16(
-            expectedBitmap, actualBitmap);
-    assertThat(averagePixelAbsoluteDifference)
-        .isAtMost(MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE_DIFFERENT_DEVICE_FP16);
+    // TODO: b/376016540 - use HDR_PSNR_THRESHOLD when HDR videos are processed with high floating
+    //  point precision.
+    assertBitmapsAreSimilar(expectedBitmap, actualBitmap, /* psnrThresholdDb= */ 42.5);
   }
 
   @Test
@@ -432,7 +425,7 @@ public final class DefaultVideoFrameProcessorTextureOutputPixelTest {
         Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
     TextOverlay textOverlay =
         TextOverlay.createStaticTextOverlay(
-            overlayText, new OverlaySettings.Builder().setHdrLuminanceMultiplier(3f).build());
+            overlayText, new StaticOverlaySettings.Builder().setHdrLuminanceMultiplier(3f).build());
     videoFrameProcessorTestRunner =
         getDefaultFrameProcessorTestRunnerBuilder(testId)
             .setEffects(new OverlayEffect(ImmutableList.of(textOverlay)))
@@ -498,12 +491,7 @@ public final class DefaultVideoFrameProcessorTextureOutputPixelTest {
     videoFrameProcessorTestRunner.processFirstFrameAndEnd();
     Bitmap actualBitmap = videoFrameProcessorTestRunner.getOutputBitmap();
 
-    // TODO(b/207848601): Switch to using proper tooling for testing against golden data.
-    float averagePixelAbsoluteDifference =
-        BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceFp16(
-            expectedBitmap, actualBitmap);
-    assertThat(averagePixelAbsoluteDifference)
-        .isAtMost(MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE_DIFFERENT_DEVICE_FP16);
+    assertBitmapsAreSimilar(expectedBitmap, actualBitmap, HDR_PSNR_THRESHOLD);
   }
 
   @Test

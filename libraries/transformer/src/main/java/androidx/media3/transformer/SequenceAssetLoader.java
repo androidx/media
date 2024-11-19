@@ -64,7 +64,7 @@ import java.util.concurrent.atomic.AtomicInteger;
   private final List<EditedMediaItem> editedMediaItems;
   private final boolean isLooping;
   private final boolean forceAudioTrack;
-  private final AssetLoader.Factory assetLoaderFactory;
+  private final Factory assetLoaderFactory;
   private final CompositionSettings compositionSettings;
   private final Listener sequenceAssetLoaderListener;
   private final HandlerWrapper handler;
@@ -109,7 +109,7 @@ import java.util.concurrent.atomic.AtomicInteger;
   public SequenceAssetLoader(
       EditedMediaItemSequence sequence,
       boolean forceAudioTrack,
-      AssetLoader.Factory assetLoaderFactory,
+      Factory assetLoaderFactory,
       CompositionSettings compositionSettings,
       Listener listener,
       Clock clock,
@@ -117,7 +117,7 @@ import java.util.concurrent.atomic.AtomicInteger;
     editedMediaItems = sequence.editedMediaItems;
     isLooping = sequence.isLooping;
     this.forceAudioTrack = forceAudioTrack;
-    this.assetLoaderFactory = assetLoaderFactory;
+    this.assetLoaderFactory = new GapInterceptingAssetLoaderFactory(assetLoaderFactory);
     this.compositionSettings = compositionSettings;
     sequenceAssetLoaderListener = listener;
     handler = clock.createHandler(looper, /* callback= */ null);
@@ -131,7 +131,7 @@ import java.util.concurrent.atomic.AtomicInteger;
     // constructor.
     @SuppressWarnings("nullness:argument.type.incompatible")
     AssetLoader currentAssetLoader =
-        assetLoaderFactory.createAssetLoader(
+        this.assetLoaderFactory.createAssetLoader(
             editedMediaItems.get(0), looper, /* listener= */ this, compositionSettings);
     this.currentAssetLoader = currentAssetLoader;
   }
@@ -340,12 +340,14 @@ import java.util.concurrent.atomic.AtomicInteger;
       return;
     }
 
+    EditedMediaItem editedMediaItem = editedMediaItems.get(currentMediaItemIndex);
+
     onMediaItemChangedListener.onMediaItemChanged(
-        editedMediaItems.get(currentMediaItemIndex),
+        editedMediaItem,
         /* durationUs= */ (trackType == C.TRACK_TYPE_AUDIO && isLooping && decodeAudio)
             ? C.TIME_UNSET
             : currentAssetDurationUs,
-        /* decodedFormat= */ outputFormat,
+        /* decodedFormat= */ editedMediaItem.isGap() ? null : outputFormat,
         /* isLast= */ currentMediaItemIndex == editedMediaItems.size() - 1);
   }
 
@@ -544,6 +546,13 @@ import java.util.concurrent.atomic.AtomicInteger;
       }
     }
 
+    private void onGapSignalled() {
+      nonEndedTrackCount.decrementAndGet();
+      if (currentMediaItemIndex < editedMediaItems.size() - 1) {
+        switchAssetLoader();
+      }
+    }
+
     private void switchAssetLoader() {
       handler.post(
           () -> {
@@ -609,6 +618,108 @@ import java.util.concurrent.atomic.AtomicInteger;
     @Override
     public TimestampIterator copyOf() {
       return new ClippingIterator(iterator.copyOf(), clippingValue);
+    }
+  }
+
+  /**
+   * Internally signals that the current asset is a {@linkplain
+   * EditedMediaItemSequence.Builder#addGap(long) gap}, but does no loading or processing of media.
+   *
+   * <p>This component requires downstream components to handle generation of the gap media.
+   */
+  private final class GapSignalingAssetLoader implements AssetLoader {
+
+    private static final int OUTPUT_FORMAT_RETRY_DELAY_MS = 10;
+
+    private final long durationUs;
+    private final Format trackFormat;
+    private final Format decodedFormat;
+
+    private boolean outputtedFormat;
+
+    private GapSignalingAssetLoader(long durationUs) {
+      this.durationUs = durationUs;
+      this.trackFormat = new Format.Builder().setSampleMimeType(MimeTypes.AUDIO_RAW).build();
+      this.decodedFormat =
+          new Format.Builder()
+              .setSampleMimeType(MimeTypes.AUDIO_RAW)
+              .setSampleRate(44100)
+              .setChannelCount(2)
+              .setPcmEncoding(C.ENCODING_PCM_16BIT)
+              .build();
+    }
+
+    @Override
+    public void start() {
+      onDurationUs(durationUs);
+      onTrackCount(1);
+      onTrackAdded(trackFormat, SUPPORTED_OUTPUT_TYPE_DECODED);
+      outputFormatToSequenceAssetLoader();
+    }
+
+    @Override
+    public @Transformer.ProgressState int getProgress(ProgressHolder progressHolder) {
+      progressHolder.progress = outputtedFormat ? 99 : 0;
+      return PROGRESS_STATE_AVAILABLE;
+    }
+
+    @Override
+    public ImmutableMap<Integer, String> getDecoderNames() {
+      return ImmutableMap.of();
+    }
+
+    @Override
+    public void release() {}
+
+    /** Outputs the gap format, scheduling to try again if unsuccessful. */
+    private void outputFormatToSequenceAssetLoader() {
+      try {
+        if (outputtedFormat) {
+          return;
+        }
+
+        @Nullable SampleConsumerWrapper sampleConsumerWrapper = onOutputFormat(decodedFormat);
+        if (sampleConsumerWrapper != null) {
+          outputtedFormat = true;
+          sampleConsumerWrapper.onGapSignalled();
+        } else {
+          handler.postDelayed(
+              this::outputFormatToSequenceAssetLoader, OUTPUT_FORMAT_RETRY_DELAY_MS);
+        }
+
+      } catch (ExportException e) {
+        onError(e);
+      } catch (RuntimeException e) {
+        onError(ExportException.createForAssetLoader(e, ExportException.ERROR_CODE_UNSPECIFIED));
+      }
+    }
+  }
+
+  /**
+   * Intercepts {@link AssetLoader.Factory} calls, when {@linkplain
+   * EditedMediaItemSequence.Builder#addGap(long) a gap} is detected, otherwise forwards them to the
+   * provided {@link AssetLoader.Factory}.
+   *
+   * <p>In the case that a gap is detected, a {@link GapSignalingAssetLoader} is returned.
+   */
+  private final class GapInterceptingAssetLoaderFactory implements AssetLoader.Factory {
+
+    private final AssetLoader.Factory factory;
+
+    public GapInterceptingAssetLoaderFactory(AssetLoader.Factory factory) {
+      this.factory = factory;
+    }
+
+    @Override
+    public AssetLoader createAssetLoader(
+        EditedMediaItem editedMediaItem,
+        Looper looper,
+        Listener listener,
+        CompositionSettings compositionSettings) {
+      if (editedMediaItem.isGap()) {
+        return new GapSignalingAssetLoader(editedMediaItem.durationUs);
+      }
+      return factory.createAssetLoader(editedMediaItem, looper, listener, compositionSettings);
     }
   }
 }

@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 project.ext {
-    releaseVersion = '1.5.0-alpha01'
-    releaseVersionCode = 1_005_000_0_01
+    releaseVersion = '1.5.0-rc02'
+    releaseVersionCode = 1_005_000_2_02
     minSdkVersion = 21
     // See https://developer.android.com/training/cars/media/automotive-os#automotive-module
     automotiveMinSdkVersion = 28
@@ -28,7 +28,7 @@ project.ext {
     junitVersion = '4.13.2'
     // Use the same Guava version as the Android repo:
     // https://cs.android.com/android/platform/superproject/main/+/main:external/guava/METADATA
-    guavaVersion = '33.0.0-android'
+    guavaVersion = '33.3.1-android'
     glideVersion = '4.14.2'
     kotlinxCoroutinesVersion = '1.8.1'
     leakCanaryVersion = '2.10'

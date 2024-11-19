@@ -32,6 +32,7 @@ interface IRemoteMediaSession {
   void release(String sessionId);
   void setAvailableCommands(String sessionId, in Bundle sessionCommands, in Bundle playerCommands);
   void setCustomLayout(String sessionId, in List<Bundle> layout);
+  void setMediaButtonPreferences(String sessionId, in List<Bundle> mediaButtonPreferences);
   void setSessionExtras(String sessionId, in Bundle extras);
   void setSessionExtrasForController(String sessionId, in String controllerKey, in Bundle extras);
   void sendError(String sessionId, String controllerKey, in Bundle SessionError);

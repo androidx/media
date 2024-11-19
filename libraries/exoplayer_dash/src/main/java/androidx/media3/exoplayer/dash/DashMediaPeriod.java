@@ -837,7 +837,8 @@ import java.util.regex.Pattern;
             drmEventDispatcher,
             loadErrorHandlingPolicy,
             mediaSourceEventDispatcher,
-            canReportInitialDiscontinuity);
+            canReportInitialDiscontinuity,
+            /* downloadExecutor= */ null);
     synchronized (this) {
       // The map is also accessed on the loading thread so synchronize access.
       trackEmsgHandlerBySampleStream.put(stream, trackPlayerEmsgHandler);

@@ -9,8 +9,10 @@ numberOfTracks = 2
 track 0:
   total output bytes = 1881611
   sample count = 30
+  track duration = 2741666
   format 0:
     id = 1
+    containerMimeType = video/mp4
     sampleMimeType = video/hevc
     codecs = hvc1.1.6.L150.B0
     maxInputSize = 364750
@@ -150,8 +152,10 @@ track 0:
 track 1:
   total output bytes = 78524
   sample count = 10
+  track duration = 2633333
   format 0:
     id = 2
+    containerMimeType = video/mp4
     sampleMimeType = audio/raw
     maxInputSize = 8222
     channelCount = 1

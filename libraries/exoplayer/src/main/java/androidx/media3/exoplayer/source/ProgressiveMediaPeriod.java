@@ -54,6 +54,7 @@ import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy.LoadErrorInfo;
 import androidx.media3.exoplayer.upstream.Loader;
 import androidx.media3.exoplayer.upstream.Loader.LoadErrorAction;
 import androidx.media3.exoplayer.upstream.Loader.Loadable;
+import androidx.media3.exoplayer.util.ReleasableExecutor;
 import androidx.media3.extractor.DiscardingTrackOutput;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorOutput;
@@ -118,6 +119,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final Allocator allocator;
   @Nullable private final String customCacheKey;
   private final long continueLoadingCheckIntervalBytes;
+  private final boolean suppressPrepareError;
   private final long singleSampleDurationUs;
   private final Loader loader;
   private final ProgressiveMediaExtractor progressiveMediaExtractor;
@@ -171,7 +173,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    *     indexing. May be null.
    * @param continueLoadingCheckIntervalBytes The number of bytes that should be loaded between each
    *     invocation of {@link Callback#onContinueLoadingRequested(SequenceableLoader)}.
+   * @param suppressPrepareError True if an error that would be thrown from {@link
+   *     #maybeThrowPrepareError()} should instead be suppressed and allow preparation to
+   *     {@linkplain Callback#onPrepared complete}.
    * @param singleSampleDurationUs The duration of media with a single sample in microseconds.
+   * @param downloadExecutor An optional externally provided {@link ReleasableExecutor} for loading
+   *     and extracting media.
    */
   // maybeFinishPrepare is not posted to the handler until initialization completes.
   @SuppressWarnings({"nullness:argument", "nullness:methodref.receiver.bound"})
@@ -187,7 +194,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       Allocator allocator,
       @Nullable String customCacheKey,
       int continueLoadingCheckIntervalBytes,
-      long singleSampleDurationUs) {
+      boolean suppressPrepareError,
+      long singleSampleDurationUs,
+      @Nullable ReleasableExecutor downloadExecutor) {
     this.uri = uri;
     this.dataSource = dataSource;
     this.drmSessionManager = drmSessionManager;
@@ -198,7 +207,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.allocator = allocator;
     this.customCacheKey = customCacheKey;
     this.continueLoadingCheckIntervalBytes = continueLoadingCheckIntervalBytes;
-    loader = new Loader("ProgressiveMediaPeriod");
+    this.suppressPrepareError = suppressPrepareError;
+    loader =
+        downloadExecutor != null
+            ? new Loader(downloadExecutor)
+            : new Loader("ProgressiveMediaPeriod");
     this.progressiveMediaExtractor = progressiveMediaExtractor;
     this.singleSampleDurationUs = singleSampleDurationUs;
     loadCondition = new ConditionVariable();
@@ -247,7 +260,17 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @Override
   public void maybeThrowPrepareError() throws IOException {
-    maybeThrowError();
+    try {
+      maybeThrowError();
+    } catch (IOException e) {
+      if (suppressPrepareError) {
+        Log.e(TAG, "Suppressing preparation error because suppressPrepareError=true", e);
+        sampleQueuesBuilt = true;
+        setSeekMap(new Unseekable(C.TIME_UNSET));
+      } else {
+        throw e;
+      }
+    }
     if (loadingFinished && !prepared) {
       throw ParserException.createForMalformedContainer(
           "Loading finished before preparation is complete.", /* cause= */ null);
@@ -440,6 +463,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     positionUs = seekMap.isSeekable() ? positionUs : 0;
 
     notifyDiscontinuity = false;
+    boolean isSameAsLastSeekPosition = lastSeekPositionUs == positionUs;
     lastSeekPositionUs = positionUs;
     if (isPendingReset()) {
       // A reset is already pending. We only need to update its position.
@@ -451,7 +475,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     // and seek within the existing buffer instead of restarting the load.
     if (dataType != C.DATA_TYPE_MEDIA_PROGRESSIVE_LIVE
         && (loadingFinished || loader.isLoading())
-        && seekInsideBufferUs(trackIsAudioVideoFlags, positionUs)) {
+        && seekInsideBufferUs(trackIsAudioVideoFlags, positionUs, isSameAsLastSeekPosition)) {
       return positionUs;
     }
 
@@ -572,6 +596,33 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   // Loader.Callback implementation.
+
+  @Override
+  public void onLoadStarted(
+      ExtractingLoadable loadable, long elapsedRealtimeMs, long loadDurationMs, int retryCount) {
+    StatsDataSource dataSource = loadable.dataSource;
+    LoadEventInfo loadEventInfo =
+        retryCount == 0
+            ? new LoadEventInfo(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs)
+            : new LoadEventInfo(
+                loadable.loadTaskId,
+                loadable.dataSpec,
+                dataSource.getLastOpenedUri(),
+                dataSource.getLastResponseHeaders(),
+                elapsedRealtimeMs,
+                loadDurationMs,
+                dataSource.getBytesRead());
+    mediaSourceEventDispatcher.loadStarted(
+        loadEventInfo,
+        C.DATA_TYPE_MEDIA,
+        C.TRACK_TYPE_UNKNOWN,
+        /* trackFormat= */ null,
+        C.SELECTION_REASON_UNKNOWN,
+        /* trackSelectionData= */ null,
+        /* mediaStartTimeUs= */ loadable.seekTimeUs,
+        durationUs,
+        retryCount);
+  }
 
   @Override
   public void onLoadCompleted(
@@ -857,19 +908,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       pendingResetPositionUs = C.TIME_UNSET;
     }
     extractedSamplesCountAtStartOfLoad = getExtractedSamplesCount();
-    long elapsedRealtimeMs =
-        loader.startLoading(
-            loadable, this, loadErrorHandlingPolicy.getMinimumLoadableRetryCount(dataType));
-    DataSpec dataSpec = loadable.dataSpec;
-    mediaSourceEventDispatcher.loadStarted(
-        new LoadEventInfo(loadable.loadTaskId, dataSpec, elapsedRealtimeMs),
-        C.DATA_TYPE_MEDIA,
-        C.TRACK_TYPE_UNKNOWN,
-        /* trackFormat= */ null,
-        C.SELECTION_REASON_UNKNOWN,
-        /* trackSelectionData= */ null,
-        /* mediaStartTimeUs= */ loadable.seekTimeUs,
-        durationUs);
+    loader.startLoading(
+        loadable, this, loadErrorHandlingPolicy.getMinimumLoadableRetryCount(dataType));
   }
 
   /**
@@ -920,12 +960,18 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    *
    * @param trackIsAudioVideoFlags Whether each track is audio/video.
    * @param positionUs The seek position in microseconds.
+   * @param isSameAsLastSeekPosition Whether new seek position is same as that last called with
+   *     {@link #seekToUs}.
    * @return Whether the in-buffer seek was successful.
    */
-  private boolean seekInsideBufferUs(boolean[] trackIsAudioVideoFlags, long positionUs) {
+  private boolean seekInsideBufferUs(
+      boolean[] trackIsAudioVideoFlags, long positionUs, boolean isSameAsLastSeekPosition) {
     int trackCount = sampleQueues.length;
     for (int i = 0; i < trackCount; i++) {
       SampleQueue sampleQueue = sampleQueues[i];
+      if (sampleQueue.getReadIndex() == 0 && isSameAsLastSeekPosition) {
+        continue;
+      }
       boolean seekInsideQueue =
           isSingleSample
               ? sampleQueue.seekTo(sampleQueue.getFirstIndex())

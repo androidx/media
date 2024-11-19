@@ -134,7 +134,7 @@ public final class DebugTraceUtil {
   public static final String COMPONENT_AUDIO_MIXER = "AudioMixer";
   public static final String COMPONENT_AUDIO_ENCODER = "AudioEncoder";
   public static final String COMPONENT_VIDEO_DECODER = "VideoDecoder";
-  public static final String COMPONENT_VFP = "VFP";
+  public static final String COMPONENT_VFP = "VideoFrameProcessor";
   public static final String COMPONENT_EXTERNAL_TEXTURE_MANAGER = "ExternalTextureManager";
   public static final String COMPONENT_BITMAP_TEXTURE_MANAGER = "BitmapTextureManager";
   public static final String COMPONENT_TEX_ID_TEXTURE_MANAGER = "TexIdTextureManager";

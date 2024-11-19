@@ -39,13 +39,17 @@ import androidx.media3.common.util.Util;
 
   public final Bundle connectionHints;
 
-  public ConnectionRequest(String packageName, int pid, Bundle connectionHints) {
+  public final int maxCommandsForMediaItems;
+
+  public ConnectionRequest(
+      String packageName, int pid, Bundle connectionHints, int maxCommandsForMediaItems) {
     this(
         MediaLibraryInfo.VERSION_INT,
         MediaControllerStub.VERSION_INT,
         packageName,
         pid,
-        new Bundle(connectionHints));
+        new Bundle(connectionHints),
+        maxCommandsForMediaItems);
   }
 
   private ConnectionRequest(
@@ -53,12 +57,14 @@ import androidx.media3.common.util.Util;
       int controllerInterfaceVersion,
       String packageName,
       int pid,
-      Bundle connectionHints) {
+      Bundle connectionHints,
+      int maxCommandsForMediaItems) {
     this.libraryVersion = libraryVersion;
     this.controllerInterfaceVersion = controllerInterfaceVersion;
     this.packageName = packageName;
     this.pid = pid;
     this.connectionHints = connectionHints;
+    this.maxCommandsForMediaItems = maxCommandsForMediaItems;
   }
 
   private static final String FIELD_LIBRARY_VERSION = Util.intToStringMaxRadix(0);
@@ -66,8 +72,9 @@ import androidx.media3.common.util.Util;
   private static final String FIELD_PID = Util.intToStringMaxRadix(2);
   private static final String FIELD_CONNECTION_HINTS = Util.intToStringMaxRadix(3);
   private static final String FIELD_CONTROLLER_INTERFACE_VERSION = Util.intToStringMaxRadix(4);
+  private static final String FIELD_MAX_COMMANDS_FOR_MEDIA_ITEM = Util.intToStringMaxRadix(5);
 
-  // Next id: 5
+  // Next id: 6
 
   public Bundle toBundle() {
     Bundle bundle = new Bundle();
@@ -76,6 +83,7 @@ import androidx.media3.common.util.Util;
     bundle.putInt(FIELD_PID, pid);
     bundle.putBundle(FIELD_CONNECTION_HINTS, connectionHints);
     bundle.putInt(FIELD_CONTROLLER_INTERFACE_VERSION, controllerInterfaceVersion);
+    bundle.putInt(FIELD_MAX_COMMANDS_FOR_MEDIA_ITEM, maxCommandsForMediaItems);
     return bundle;
   }
 
@@ -88,12 +96,14 @@ import androidx.media3.common.util.Util;
     checkArgument(bundle.containsKey(FIELD_PID));
     int pid = bundle.getInt(FIELD_PID);
     @Nullable Bundle connectionHints = bundle.getBundle(FIELD_CONNECTION_HINTS);
+    int maxCommandsForMediaItems =
+        bundle.getInt(FIELD_MAX_COMMANDS_FOR_MEDIA_ITEM, /* defaultValue= */ 0);
     return new ConnectionRequest(
         libraryVersion,
         controllerInterfaceVersion,
         packageName,
         pid,
-        connectionHints == null ? Bundle.EMPTY : connectionHints);
+        connectionHints == null ? Bundle.EMPTY : connectionHints,
+        maxCommandsForMediaItems);
   }
-  ;
 }

@@ -25,6 +25,7 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.content.pm.ServiceInfo;
+import android.media.session.MediaSession.Token;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -147,10 +148,18 @@ public final class SessionToken {
       int interfaceVersion,
       String packageName,
       IMediaSession iSession,
-      Bundle tokenExtras) {
+      Bundle tokenExtras,
+      @Nullable Token platformToken) {
     impl =
         new SessionTokenImplBase(
-            uid, type, libraryVersion, interfaceVersion, packageName, iSession, tokenExtras);
+            uid,
+            type,
+            libraryVersion,
+            interfaceVersion,
+            packageName,
+            iSession,
+            tokenExtras,
+            platformToken);
   }
 
   /** Creates a session token connected to a legacy media session. */
@@ -158,12 +167,12 @@ public final class SessionToken {
     this.impl = new SessionTokenImplLegacy(token, packageName, uid, extras);
   }
 
-  private SessionToken(Bundle bundle) {
+  private SessionToken(Bundle bundle, @Nullable Token platformToken) {
     checkArgument(bundle.containsKey(FIELD_IMPL_TYPE), "Impl type needs to be set.");
     @SessionTokenImplType int implType = bundle.getInt(FIELD_IMPL_TYPE);
     Bundle implBundle = checkNotNull(bundle.getBundle(FIELD_IMPL));
     if (implType == IMPL_TYPE_BASE) {
-      impl = SessionTokenImplBase.fromBundle(implBundle);
+      impl = SessionTokenImplBase.fromBundle(implBundle, platformToken);
     } else {
       impl = SessionTokenImplLegacy.fromBundle(implBundle);
     }
@@ -265,12 +274,17 @@ public final class SessionToken {
     return impl.getBinder();
   }
 
+  @Nullable /* package */
+  Token getPlatformToken() {
+    return impl.getPlatformToken();
+  }
+
   /**
-   * Creates a token from a {@link android.media.session.MediaSession.Token} or {@code
+   * Creates a token from a {@link Token} or {@code
    * android.support.v4.media.session.MediaSessionCompat.Token}.
    *
    * @param context A {@link Context}.
-   * @param token The {@link android.media.session.MediaSession.Token} or {@code
+   * @param token The {@link Token} or {@code
    *     android.support.v4.media.session.MediaSessionCompat.Token}.
    * @return A {@link ListenableFuture} for the {@link SessionToken}.
    */
@@ -281,11 +295,11 @@ public final class SessionToken {
   }
 
   /**
-   * Creates a token from a {@link android.media.session.MediaSession.Token} or {@code
+   * Creates a token from a {@link Token} or {@code
    * android.support.v4.media.session.MediaSessionCompat.Token}.
    *
    * @param context A {@link Context}.
-   * @param token The {@link android.media.session.MediaSession.Token} or {@code
+   * @param token The {@link Token} or {@code
    *     android.support.v4.media.session.MediaSessionCompat.Token}..
    * @param completionLooper The {@link Looper} on which the returned {@link ListenableFuture}
    *     completes. This {@link Looper} can't be used to call {@code future.get()} on the returned
@@ -300,7 +314,7 @@ public final class SessionToken {
 
   private static MediaSessionCompat.Token createCompatToken(
       Parcelable platformOrLegacyCompatToken) {
-    if (platformOrLegacyCompatToken instanceof android.media.session.MediaSession.Token) {
+    if (platformOrLegacyCompatToken instanceof Token) {
       return MediaSessionCompat.Token.fromToken(platformOrLegacyCompatToken);
     }
     // Assume this is an android.support.v4.media.session.MediaSessionCompat.Token.
@@ -346,7 +360,7 @@ public final class SessionToken {
             // Remove timeout callback.
             handler.removeCallbacksAndMessages(null);
             try {
-              future.set(SessionToken.fromBundle(resultData));
+              future.set(SessionToken.fromBundle(resultData, (Token) compatToken.getToken()));
             } catch (RuntimeException e) {
               // Fallback to a legacy token if we receive an unexpected result, e.g. a legacy
               // session acknowledging commands by a success callback.
@@ -476,6 +490,9 @@ public final class SessionToken {
     Object getBinder();
 
     Bundle toBundle();
+
+    @Nullable
+    Token getPlatformToken();
   }
 
   private static final String FIELD_IMPL_TYPE = Util.intToStringMaxRadix(0);
@@ -506,6 +523,14 @@ public final class SessionToken {
   /** Restores a {@code SessionToken} from a {@link Bundle}. */
   @UnstableApi
   public static SessionToken fromBundle(Bundle bundle) {
-    return new SessionToken(bundle);
+    return new SessionToken(bundle, /* platformToken= */ null);
+  }
+
+  /**
+   * Restores a {@code SessionToken} from a {@link Bundle}, setting the provided {@code
+   * platformToken} if not already set.
+   */
+  private static SessionToken fromBundle(Bundle bundle, Token platformToken) {
+    return new SessionToken(bundle, platformToken);
   }
 }

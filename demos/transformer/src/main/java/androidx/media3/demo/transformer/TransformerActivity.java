@@ -71,23 +71,21 @@ import androidx.media3.effect.GlShaderProgram;
 import androidx.media3.effect.HslAdjustment;
 import androidx.media3.effect.LanczosResample;
 import androidx.media3.effect.OverlayEffect;
-import androidx.media3.effect.OverlaySettings;
 import androidx.media3.effect.Presentation;
 import androidx.media3.effect.RgbAdjustment;
 import androidx.media3.effect.RgbFilter;
 import androidx.media3.effect.RgbMatrix;
 import androidx.media3.effect.ScaleAndRotateTransformation;
 import androidx.media3.effect.SingleColorLut;
+import androidx.media3.effect.StaticOverlaySettings;
 import androidx.media3.effect.TextOverlay;
 import androidx.media3.effect.TextureOverlay;
 import androidx.media3.exoplayer.DefaultLoadControl;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.audio.SilenceSkippingAudioProcessor;
 import androidx.media3.exoplayer.util.DebugTextViewHelper;
-import androidx.media3.muxer.Muxer;
 import androidx.media3.transformer.Composition;
 import androidx.media3.transformer.DefaultEncoderFactory;
-import androidx.media3.transformer.DefaultMuxer;
 import androidx.media3.transformer.EditedMediaItem;
 import androidx.media3.transformer.EditedMediaItemSequence;
 import androidx.media3.transformer.Effects;
@@ -111,7 +109,6 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.lang.reflect.Constructor;
-import java.util.Arrays;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -121,6 +118,8 @@ import org.json.JSONObject;
 /** An {@link Activity} that exports and plays media using {@link Transformer}. */
 public final class TransformerActivity extends AppCompatActivity {
   private static final String TAG = "TransformerActivity";
+  private static final int IMAGE_DURATION_MS = 5_000;
+  private static final int IMAGE_FRAME_RATE_FPS = 30;
   private static int LOAD_CONTROL_MIN_BUFFER_MS = 5_000;
   private static int LOAD_CONTROL_MAX_BUFFER_MS = 5_000;
 
@@ -267,7 +266,8 @@ public final class TransformerActivity extends AppCompatActivity {
   }
 
   private MediaItem createMediaItem(@Nullable Bundle bundle, Uri uri) {
-    MediaItem.Builder mediaItemBuilder = new MediaItem.Builder().setUri(uri);
+    MediaItem.Builder mediaItemBuilder =
+        new MediaItem.Builder().setUri(uri).setImageDurationMs(IMAGE_DURATION_MS);
     if (bundle != null) {
       long trimStartMs =
           bundle.getLong(ConfigurationActivity.TRIM_START_MS, /* defaultValue= */ C.TIME_UNSET);
@@ -322,14 +322,13 @@ public final class TransformerActivity extends AppCompatActivity {
         transformerBuilder.setMaxDelayBetweenMuxerSamplesMs(C.TIME_UNSET);
       }
 
-      Muxer.Factory muxerFactory = new DefaultMuxer.Factory();
       if (bundle.getBoolean(ConfigurationActivity.USE_MEDIA3_MUXER)) {
-        muxerFactory = new InAppMuxer.Factory.Builder().build();
+        transformerBuilder.setMuxerFactory(
+            new InAppMuxer.Factory.Builder()
+                .setOutputFragmentedMp4(
+                    bundle.getBoolean(ConfigurationActivity.PRODUCE_FRAGMENTED_MP4))
+                .build());
       }
-      if (bundle.getBoolean(ConfigurationActivity.PRODUCE_FRAGMENTED_MP4)) {
-        muxerFactory = new InAppMuxer.Factory.Builder().setOutputFragmentedMp4(true).build();
-      }
-      transformerBuilder.setMuxerFactory(muxerFactory);
 
       if (bundle.getBoolean(ConfigurationActivity.ENABLE_DEBUG_PREVIEW)) {
         transformerBuilder.setDebugViewProvider(new DemoDebugViewProvider());
@@ -359,7 +358,7 @@ public final class TransformerActivity extends AppCompatActivity {
   private Composition createComposition(MediaItem mediaItem, @Nullable Bundle bundle) {
     EditedMediaItem.Builder editedMediaItemBuilder = new EditedMediaItem.Builder(mediaItem);
     // For image inputs. Automatically ignored if input is audio/video.
-    editedMediaItemBuilder.setDurationUs(5_000_000).setFrameRate(30);
+    editedMediaItemBuilder.setFrameRate(IMAGE_FRAME_RATE_FPS);
     if (bundle != null) {
       ImmutableList<AudioProcessor> audioProcessors = createAudioProcessorsFromBundle(bundle);
       ImmutableList<Effect> videoEffects = createVideoEffectsFromBundle(bundle);
@@ -417,20 +416,9 @@ public final class TransformerActivity extends AppCompatActivity {
     if (mixToMono || scaleVolumeToHalf) {
       ChannelMixingAudioProcessor mixingAudioProcessor = new ChannelMixingAudioProcessor();
       for (int inputChannelCount = 1; inputChannelCount <= 6; inputChannelCount++) {
-        ChannelMixingMatrix matrix;
-        if (mixToMono) {
-          float[] mixingCoefficients = new float[inputChannelCount];
-          // Each channel is equally weighted in the mix to mono.
-          Arrays.fill(mixingCoefficients, 1f / inputChannelCount);
-          matrix =
-              new ChannelMixingMatrix(
-                  inputChannelCount, /* outputChannelCount= */ 1, mixingCoefficients);
-        } else {
-          // Identity matrix.
-          matrix =
-              ChannelMixingMatrix.create(
-                  inputChannelCount, /* outputChannelCount= */ inputChannelCount);
-        }
+        ChannelMixingMatrix matrix =
+            ChannelMixingMatrix.createForConstantPower(
+                inputChannelCount, /* outputChannelCount= */ mixToMono ? 1 : inputChannelCount);
 
         // Apply the volume adjustment.
         mixingAudioProcessor.putChannelMixingMatrix(
@@ -599,8 +587,8 @@ public final class TransformerActivity extends AppCompatActivity {
   private OverlayEffect createOverlayEffectFromBundle(Bundle bundle, boolean[] selectedEffects) {
     ImmutableList.Builder<TextureOverlay> overlaysBuilder = new ImmutableList.Builder<>();
     if (selectedEffects[ConfigurationActivity.OVERLAY_LOGO_AND_TIMER_INDEX]) {
-      OverlaySettings logoSettings =
-          new OverlaySettings.Builder()
+      StaticOverlaySettings logoSettings =
+          new StaticOverlaySettings.Builder()
               // Place the logo in the bottom left corner of the screen with some padding from the
               // edges.
               .setOverlayFrameAnchor(/* x= */ -1f, /* y= */ -1f)
@@ -619,8 +607,8 @@ public final class TransformerActivity extends AppCompatActivity {
       overlaysBuilder.add(logoOverlay, timerOverlay);
     }
     if (selectedEffects[ConfigurationActivity.BITMAP_OVERLAY_INDEX]) {
-      OverlaySettings overlaySettings =
-          new OverlaySettings.Builder()
+      StaticOverlaySettings overlaySettings =
+          new StaticOverlaySettings.Builder()
               .setAlphaScale(
                   bundle.getFloat(
                       ConfigurationActivity.BITMAP_OVERLAY_ALPHA, /* defaultValue= */ 1))
@@ -633,8 +621,8 @@ public final class TransformerActivity extends AppCompatActivity {
       overlaysBuilder.add(bitmapOverlay);
     }
     if (selectedEffects[ConfigurationActivity.TEXT_OVERLAY_INDEX]) {
-      OverlaySettings overlaySettings =
-          new OverlaySettings.Builder()
+      StaticOverlaySettings overlaySettings =
+          new StaticOverlaySettings.Builder()
               .setAlphaScale(
                   bundle.getFloat(ConfigurationActivity.TEXT_OVERLAY_ALPHA, /* defaultValue= */ 1))
               .build();
@@ -647,6 +635,15 @@ public final class TransformerActivity extends AppCompatActivity {
           Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
       TextOverlay textOverlay = TextOverlay.createStaticTextOverlay(overlayText, overlaySettings);
       overlaysBuilder.add(textOverlay);
+    }
+    if (selectedEffects[ConfigurationActivity.CLOCK_OVERLAY_INDEX]) {
+      overlaysBuilder.add(new ClockOverlay());
+    }
+    if (selectedEffects[ConfigurationActivity.CONFETTI_OVERLAY_INDEX]) {
+      overlaysBuilder.add(new ConfettiOverlay());
+    }
+    if (selectedEffects[ConfigurationActivity.ANIMATING_LOGO_OVERLAY]) {
+      overlaysBuilder.add(new AnimatedLogoOverlay(this.getApplicationContext()));
     }
 
     ImmutableList<TextureOverlay> overlays = overlaysBuilder.build();

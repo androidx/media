@@ -20,6 +20,7 @@ import static com.google.common.truth.Truth.assertThat;
 import android.net.Uri;
 import android.os.Bundle;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.collect.ImmutableList;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -68,6 +69,7 @@ public class MediaMetadataTest {
     assertThat(mediaMetadata.compilation).isNull();
     assertThat(mediaMetadata.station).isNull();
     assertThat(mediaMetadata.mediaType).isNull();
+    assertThat(mediaMetadata.supportedCommands).isEmpty();
     assertThat(mediaMetadata.extras).isNull();
   }
 
@@ -278,6 +280,7 @@ public class MediaMetadataTest {
         .setCompilation("Amazing songs.")
         .setStation("radio station")
         .setMediaType(MediaMetadata.MEDIA_TYPE_MIXED)
+        .setSupportedCommands(ImmutableList.of("command1", "command2"))
         .setExtras(extras)
         .build();
   }

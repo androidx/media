@@ -35,7 +35,6 @@ import androidx.media3.test.utils.robolectric.TestPlayerRunHelper;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -47,6 +46,8 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public final class CompositionPlayerAudioPlaybackTest {
 
+  private static final String PREVIEW_DUMP_FILE_EXTENSION = "audiosinkdumps/";
+
   private final Context context = ApplicationProvider.getApplicationContext();
   private CapturingAudioSink capturingAudioSink;
 
@@ -56,7 +57,7 @@ public final class CompositionPlayerAudioPlaybackTest {
   }
 
   @Test
-  public void playback_outputsCorrectSamples() throws Exception {
+  public void playSingleSequence_outputsCorrectSamples() throws Exception {
     CompositionPlayer player = createCompositionPlayer(context, capturingAudioSink);
     EditedMediaItem editedMediaItem1 =
         new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW))
@@ -78,11 +79,13 @@ public final class CompositionPlayerAudioPlaybackTest {
     player.release();
 
     DumpFileAsserts.assertOutput(
-        context, capturingAudioSink, "audiosinkdumps/wav/sample.wav_then_sample_rf64.wav.dump");
+        context,
+        capturingAudioSink,
+        PREVIEW_DUMP_FILE_EXTENSION + FILE_AUDIO_RAW + "_then_sample_rf64.wav.dump");
   }
 
   @Test
-  public void playback_compositionWithEffects_outputsCorrectSamples() throws Exception {
+  public void playSingleSequence_withItemEffects_outputsCorrectSamples() throws Exception {
     CompositionPlayer player = createCompositionPlayer(context, capturingAudioSink);
     EditedMediaItem editedMediaItem1 =
         new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW))
@@ -108,11 +111,13 @@ public final class CompositionPlayerAudioPlaybackTest {
     DumpFileAsserts.assertOutput(
         context,
         capturingAudioSink,
-        "audiosinkdumps/wav/sample.wav-lowVolume_then_sample_rf64.wav-highVolume.dump");
+        PREVIEW_DUMP_FILE_EXTENSION
+            + FILE_AUDIO_RAW
+            + "-lowVolume_then_sample_rf64.wav-highVolume.dump");
   }
 
   @Test
-  public void playback_singleAudioItemWithEffects_outputsCorrectSamples() throws Exception {
+  public void playSingleItem_withItemEffects_outputsCorrectSamples() throws Exception {
     CompositionPlayer player = createCompositionPlayer(context, capturingAudioSink);
     EditedMediaItem audioEditedMediaItem =
         new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW))
@@ -131,12 +136,13 @@ public final class CompositionPlayerAudioPlaybackTest {
     player.release();
 
     DumpFileAsserts.assertOutput(
-        context, capturingAudioSink, "audiosinkdumps/" + FILE_AUDIO_RAW + "/highVolume.dump");
+        context,
+        capturingAudioSink,
+        PREVIEW_DUMP_FILE_EXTENSION + FILE_AUDIO_RAW + "/highVolume.dump");
   }
 
   @Test
-  public void playback_singleAudioItemWithCompositionLevelEffects_outputsCorrectSamples()
-      throws Exception {
+  public void playSingleItem_withCompositionEffects_outputsCorrectSamples() throws Exception {
     CompositionPlayer player = createCompositionPlayer(context, capturingAudioSink);
     EditedMediaItem audioEditedMediaItem =
         new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW))
@@ -155,11 +161,13 @@ public final class CompositionPlayerAudioPlaybackTest {
     player.release();
 
     DumpFileAsserts.assertOutput(
-        context, capturingAudioSink, "audiosinkdumps/" + FILE_AUDIO_RAW + "/highVolume.dump");
+        context,
+        capturingAudioSink,
+        PREVIEW_DUMP_FILE_EXTENSION + FILE_AUDIO_RAW + "/highVolume.dump");
   }
 
   @Test
-  public void playback_compositionWithClipping_outputsCorrectSamples() throws Exception {
+  public void playSingleSequence_withClipping_outputsCorrectSamples() throws Exception {
     CompositionPlayer player = createCompositionPlayer(context, capturingAudioSink);
     MediaItem mediaItem1 =
         new MediaItem.Builder()
@@ -197,11 +205,14 @@ public final class CompositionPlayerAudioPlaybackTest {
     DumpFileAsserts.assertOutput(
         context,
         capturingAudioSink,
-        "audiosinkdumps/wav/sample.wav_clipped_then_sample_rf64_clipped.wav.dump");
+        PREVIEW_DUMP_FILE_EXTENSION
+            + FILE_AUDIO_RAW
+            + "_clipped_then_sample_rf64_clipped.wav.dump");
   }
 
   @Test
-  public void multiSequenceCompositionPlayback_outputsCorrectSamples() throws Exception {
+  public void playMultipleSequences_withClippingAndEffects_outputsCorrectSamples()
+      throws Exception {
     CompositionPlayer player = createCompositionPlayer(context, capturingAudioSink);
     EditedMediaItem editedMediaItem1 =
         new EditedMediaItem.Builder(
@@ -239,11 +250,11 @@ public final class CompositionPlayerAudioPlaybackTest {
     DumpFileAsserts.assertOutput(
         context,
         capturingAudioSink,
-        "audiosinkdumps/wav/compositionOf_sample.wav-clipped__sample_rf64.wav.dump");
+        PREVIEW_DUMP_FILE_EXTENSION + "wav/compositionOf_sample.wav-clipped__sample_rf64.wav.dump");
   }
 
   @Test
-  public void playback_withOneRepeat_outputsCorrectSamples() throws Exception {
+  public void playSingleItem_withRepeatModeEnabled_outputsCorrectSamples() throws Exception {
     CompositionPlayer player = createCompositionPlayer(context, capturingAudioSink);
     player.setRepeatMode(Player.REPEAT_MODE_ALL);
     EditedMediaItem editedMediaItem =
@@ -263,11 +274,13 @@ public final class CompositionPlayerAudioPlaybackTest {
     player.release();
 
     DumpFileAsserts.assertOutput(
-        context, capturingAudioSink, "audiosinkdumps/wav/sample.wav_repeated.dump");
+        context,
+        capturingAudioSink,
+        PREVIEW_DUMP_FILE_EXTENSION + FILE_AUDIO_RAW + "_repeated.dump");
   }
 
   @Test
-  public void compositionPlayback_withShortLoopingSequence_outputsCorrectSamples()
+  public void playMultipleSequences_withShortLoopingSequence_outputsCorrectSamples()
       throws Exception {
     CompositionPlayer player = createCompositionPlayer(context, capturingAudioSink);
     EditedMediaItemSequence primarySequence =
@@ -294,11 +307,13 @@ public final class CompositionPlayerAudioPlaybackTest {
     DumpFileAsserts.assertOutput(
         context,
         capturingAudioSink,
-        "audiosinkdumps/wav/compositionPlayback_withShortLoopingSequence_outputsCorrectSamples.dump");
+        PREVIEW_DUMP_FILE_EXTENSION
+            + "wav/compositionPlayback_withShortLoopingSequence_outputsCorrectSamples.dump");
   }
 
   @Test
-  public void compositionPlayback_withLongLoopingSequence_outputsCorrectSamples() throws Exception {
+  public void playMultipleSequences_withLongLoopingSequence_outputsCorrectSamples()
+      throws Exception {
     CompositionPlayer player = createCompositionPlayer(context, capturingAudioSink);
     EditedMediaItemSequence primarySequence =
         new EditedMediaItemSequence.Builder(
@@ -324,11 +339,12 @@ public final class CompositionPlayerAudioPlaybackTest {
     DumpFileAsserts.assertOutput(
         context,
         capturingAudioSink,
-        "audiosinkdumps/wav/compositionPlayback_withLongLoopingSequence_outputsCorrectSamples.dump");
+        PREVIEW_DUMP_FILE_EXTENSION
+            + "wav/compositionPlayback_withLongLoopingSequence_outputsCorrectSamples.dump");
   }
 
   @Test
-  public void sequencePlayback_withOneRepeat_outputsCorrectSamples() throws Exception {
+  public void playSingleSequence_withRepeatModeEnabled_outputsCorrectSamples() throws Exception {
     CompositionPlayer player = createCompositionPlayer(context, capturingAudioSink);
     player.setRepeatMode(Player.REPEAT_MODE_ALL);
     EditedMediaItem editedMediaItem1 =
@@ -357,11 +373,11 @@ public final class CompositionPlayerAudioPlaybackTest {
     DumpFileAsserts.assertOutput(
         context,
         capturingAudioSink,
-        "audiosinkdumps/wav/sample.wav_then_sample_rf64.wav_repeated.dump");
+        PREVIEW_DUMP_FILE_EXTENSION + FILE_AUDIO_RAW + "_then_sample_rf64.wav_repeated.dump");
   }
 
   @Test
-  public void sequencePlayback_withThreeMediaAndRemovingMiddleAudio_outputsCorrectSamples()
+  public void playSingleSequence_withMiddleItemAudioRemoved_outputsCorrectSamples()
       throws Exception {
     CompositionPlayer player = createCompositionPlayer(context, capturingAudioSink);
     EditedMediaItem editedMediaItem =
@@ -387,11 +403,12 @@ public final class CompositionPlayerAudioPlaybackTest {
     DumpFileAsserts.assertOutput(
         context,
         capturingAudioSink,
-        "audiosinkdumps/wav/sequencePlayback_withThreeMediaAndRemovingMiddleAudio_outputsCorrectSamples.dump");
+        PREVIEW_DUMP_FILE_EXTENSION
+            + "wav/sequencePlayback_withThreeMediaAndRemovingMiddleAudio_outputsCorrectSamples.dump");
   }
 
   @Test
-  public void sequencePlayback_withThreeMediaAndRemovingFirstAndThirdAudio_outputsCorrectSamples()
+  public void playSingleSequence_withFirstAndLastItemAudioRemoved_outputsCorrectSamples()
       throws Exception {
     CompositionPlayer player = createCompositionPlayer(context, capturingAudioSink);
     EditedMediaItem editedMediaItem =
@@ -417,14 +434,12 @@ public final class CompositionPlayerAudioPlaybackTest {
     DumpFileAsserts.assertOutput(
         context,
         capturingAudioSink,
-        "audiosinkdumps/wav/sequencePlayback_withThreeMediaAndRemovingFirstAndThirdAudio_outputsCorrectSamples.dump");
+        PREVIEW_DUMP_FILE_EXTENSION
+            + "wav/sequencePlayback_withThreeMediaAndRemovingFirstAndThirdAudio_outputsCorrectSamples.dump");
   }
 
-  // TODO - b/320014878: Enable this test.
-  @Ignore("Preview audio is not fed to the sink in deterministic buffers - see b/320014878.")
   @Test
-  public void multiSequenceCompositionPlayback_withOneRepeat_outputsCorrectSamples()
-      throws Exception {
+  public void playMultipleSequences_withRepeatModeEnabled_outputsCorrectSamples() throws Exception {
     CompositionPlayer player = createCompositionPlayer(context, capturingAudioSink);
     player.setRepeatMode(Player.REPEAT_MODE_ALL);
     EditedMediaItem editedMediaItem1 =
@@ -463,11 +478,12 @@ public final class CompositionPlayerAudioPlaybackTest {
     DumpFileAsserts.assertOutput(
         context,
         capturingAudioSink,
-        "audiosinkdumps/wav/repeatedCompositionOf_sample.wav-clipped__sample_rf64.wav.dump");
+        PREVIEW_DUMP_FILE_EXTENSION
+            + "wav/repeatedCompositionOf_sample.wav-clipped__sample_rf64.wav.dump");
   }
 
   @Test
-  public void seekTo_outputsCorrectSamples() throws Exception {
+  public void seekTo_singleSequence_outputsCorrectSamples() throws Exception {
     CompositionPlayer player = createCompositionPlayer(context, capturingAudioSink);
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW))
@@ -484,11 +500,13 @@ public final class CompositionPlayerAudioPlaybackTest {
     player.release();
 
     DumpFileAsserts.assertOutput(
-        context, capturingAudioSink, "audiosinkdumps/" + FILE_AUDIO_RAW + "/seek_to_500_ms.dump");
+        context,
+        capturingAudioSink,
+        PREVIEW_DUMP_FILE_EXTENSION + FILE_AUDIO_RAW + "/seek_to_500_ms.dump");
   }
 
   @Test
-  public void seekToNextMediaItem_outputsCorrectSamples() throws Exception {
+  public void seekToNextMediaItem_singleSequence_outputsCorrectSamples() throws Exception {
     CompositionPlayer player = createCompositionPlayer(context, capturingAudioSink);
     EditedMediaItem editedMediaItem1 =
         new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW))
@@ -513,11 +531,13 @@ public final class CompositionPlayerAudioPlaybackTest {
     DumpFileAsserts.assertOutput(
         context,
         capturingAudioSink,
-        "audiosinkdumps/wav/sample.wav_then_sample_rf64.wav_seek_to_1200_ms.dump");
+        PREVIEW_DUMP_FILE_EXTENSION
+            + FILE_AUDIO_RAW
+            + "_then_sample_rf64.wav_seek_to_1200_ms.dump");
   }
 
   @Test
-  public void seekToPreviousMediaItem_outputsCorrectSamples() throws Exception {
+  public void seekToPreviousMediaItem_singleSequence_outputsCorrectSamples() throws Exception {
     CompositionPlayer player = createCompositionPlayer(context, capturingAudioSink);
     EditedMediaItem editedMediaItem1 =
         new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW))
@@ -543,11 +563,11 @@ public final class CompositionPlayerAudioPlaybackTest {
     DumpFileAsserts.assertOutput(
         context,
         capturingAudioSink,
-        "audiosinkdumps/wav/sample.wav_then_sample_rf64.wav_seek_to_500_ms.dump");
+        PREVIEW_DUMP_FILE_EXTENSION + FILE_AUDIO_RAW + "_then_sample_rf64.wav_seek_to_500_ms.dump");
   }
 
   @Test
-  public void seekTo_withClipping_outputsCorrectSamples() throws Exception {
+  public void seekTo_singleSequenceWithClipping_outputsCorrectSamples() throws Exception {
     CompositionPlayer player = createCompositionPlayer(context, capturingAudioSink);
     MediaItem mediaItem1 =
         new MediaItem.Builder()
@@ -585,7 +605,9 @@ public final class CompositionPlayerAudioPlaybackTest {
     DumpFileAsserts.assertOutput(
         context,
         capturingAudioSink,
-        "audiosinkdumps/wav/sample.wav_then_sample_rf64.wav_clipped_seek_to_800_ms.dump");
+        PREVIEW_DUMP_FILE_EXTENSION
+            + FILE_AUDIO_RAW
+            + "_then_sample_rf64.wav_clipped_seek_to_800_ms.dump");
   }
 
   private static CompositionPlayer createCompositionPlayer(Context context, AudioSink audioSink) {

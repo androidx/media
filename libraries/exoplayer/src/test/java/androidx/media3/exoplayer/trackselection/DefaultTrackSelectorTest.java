@@ -744,6 +744,74 @@ public final class DefaultTrackSelectorTest {
   }
 
   /**
+   * Tests that track selector will select a video track with a language that matches the preferred
+   * language given by {@link Parameters}.
+   */
+  @Test
+  public void selectTracksSelectPreferredAudioVideoLanguage() throws Exception {
+    Format.Builder formatBuilder = VIDEO_FORMAT.buildUpon();
+    Format frVideoFormat = formatBuilder.setLanguage("fra").build();
+    Format enVideoFormat = formatBuilder.setLanguage("eng").build();
+    TrackGroupArray trackGroups = wrapFormats(frVideoFormat, enVideoFormat);
+
+    trackSelector.setParameters(defaultParameters.buildUpon().setPreferredVideoLanguage("eng"));
+    TrackSelectorResult result =
+        trackSelector.selectTracks(
+            new RendererCapabilities[] {ALL_VIDEO_FORMAT_EXCEEDED_RENDERER_CAPABILITIES},
+            wrapFormats(frVideoFormat, enVideoFormat),
+            periodId,
+            TIMELINE);
+    assertFixedSelection(result.selections[0], trackGroups, enVideoFormat);
+  }
+
+  /**
+   * Tests that the default track selector will select:
+   *
+   * <ul>
+   *   <li>A main video track matching the selected audio language when a main video track in
+   *       another language is present.
+   *   <li>A main video track that doesn't match the selected audio language when a main video track
+   *       in the selected audio language is not present (but alternate video tracks in this
+   *       language are present).
+   * </ul>
+   */
+  @Test
+  public void defaultVideoTracksInteractWithSelectedAudioLanguageAsExpected()
+      throws ExoPlaybackException {
+    Format.Builder mainVideoBuilder = VIDEO_FORMAT.buildUpon().setRoleFlags(C.ROLE_FLAG_MAIN);
+    Format mainEnglish = mainVideoBuilder.setLanguage("eng").build();
+    Format mainGerman = mainVideoBuilder.setLanguage("deu").build();
+    Format mainNoLanguage = mainVideoBuilder.setLanguage(C.LANGUAGE_UNDETERMINED).build();
+    Format alternateGerman =
+        VIDEO_FORMAT.buildUpon().setRoleFlags(C.ROLE_FLAG_ALTERNATE).setLanguage("deu").build();
+
+    Format noLanguageAudio = AUDIO_FORMAT.buildUpon().setLanguage(null).build();
+    Format germanAudio = AUDIO_FORMAT.buildUpon().setLanguage("deu").build();
+
+    RendererCapabilities[] rendererCapabilities =
+        new RendererCapabilities[] {VIDEO_CAPABILITIES, AUDIO_CAPABILITIES};
+
+    // Neither the audio nor the forced text track define a language. We select them both under the
+    // assumption that they have matching language.
+    TrackGroupArray trackGroups = wrapFormats(noLanguageAudio, mainNoLanguage);
+    TrackSelectorResult result =
+        trackSelector.selectTracks(rendererCapabilities, trackGroups, periodId, TIMELINE);
+    assertFixedSelection(result.selections[0], trackGroups, mainNoLanguage);
+
+    // The audio declares german. The main german track should be selected (in favour of the main
+    // english track).
+    trackGroups = wrapFormats(germanAudio, mainGerman, mainEnglish);
+    result = trackSelector.selectTracks(rendererCapabilities, trackGroups, periodId, TIMELINE);
+    assertFixedSelection(result.selections[0], trackGroups, mainGerman);
+
+    // The audio declares german. The main english track should be selected because there's no
+    // main german track.
+    trackGroups = wrapFormats(germanAudio, alternateGerman, mainEnglish);
+    result = trackSelector.selectTracks(rendererCapabilities, trackGroups, periodId, TIMELINE);
+    assertFixedSelection(result.selections[0], trackGroups, mainEnglish);
+  }
+
+  /**
    * Tests that track selector will prefer tracks that are within renderer's capabilities over track
    * that exceed renderer's capabilities.
    */
@@ -986,6 +1054,39 @@ public final class DefaultTrackSelectorTest {
             periodId,
             TIMELINE);
     assertFixedSelection(result.selections[0], trackGroups, firstLanguageFormat);
+  }
+
+  /**
+   * Tests that track selector will prefer audio tracks with object based audio over tracks with
+   * higher channel count when other factors are the same, and tracks are within renderer's
+   * capabilities.
+   */
+  @Test
+  public void
+      selectTracks_audioChannelCountConstraintsDisabled_preferObjectBasedAudioBeforeChannelCount()
+          throws Exception {
+    Format channelBasedAudioWithHigherChannelCountFormat =
+        new Format.Builder().setSampleMimeType(MimeTypes.AUDIO_AC3).setChannelCount(6).build();
+    Format objectBasedAudioWithLowerChannelCountFormat =
+        new Format.Builder().setSampleMimeType(MimeTypes.AUDIO_AC4).setChannelCount(2).build();
+    TrackGroupArray trackGroups =
+        wrapFormats(
+            channelBasedAudioWithHigherChannelCountFormat,
+            objectBasedAudioWithLowerChannelCountFormat);
+    trackSelector.setParameters(
+        trackSelector
+            .buildUponParameters()
+            .setConstrainAudioChannelCountToDeviceCapabilities(false)
+            .build());
+
+    TrackSelectorResult result =
+        trackSelector.selectTracks(
+            new RendererCapabilities[] {ALL_AUDIO_FORMAT_SUPPORTED_RENDERER_CAPABILITIES},
+            trackGroups,
+            periodId,
+            TIMELINE);
+    assertFixedSelection(
+        result.selections[0], trackGroups, objectBasedAudioWithLowerChannelCountFormat);
   }
 
   /**
@@ -2676,6 +2777,7 @@ public final class DefaultTrackSelectorTest {
                     .build())
             .build());
     // Offload playback with gapless transitions is supported
+    @SuppressWarnings("WrongConstant") // Combining these two values bit-wise is allowed
     RendererCapabilities capabilitiesOffloadSupport =
         new FakeRendererCapabilities(
             C.TRACK_TYPE_AUDIO,
@@ -2779,37 +2881,37 @@ public final class DefaultTrackSelectorTest {
   public void selectTracks_withPreferredAudioMimeTypes_selectsTrackWithPreferredMimeType()
       throws Exception {
     Format formatAac = new Format.Builder().setSampleMimeType(MimeTypes.AUDIO_AAC).build();
-    Format formatAc4 = new Format.Builder().setSampleMimeType(MimeTypes.AUDIO_AC4).build();
-    Format formatEAc3 = new Format.Builder().setSampleMimeType(MimeTypes.AUDIO_E_AC3).build();
-    TrackGroupArray trackGroups = wrapFormats(formatAac, formatAc4, formatEAc3);
+    Format formatOpus = new Format.Builder().setSampleMimeType(MimeTypes.AUDIO_OPUS).build();
+    Format formatFlac = new Format.Builder().setSampleMimeType(MimeTypes.AUDIO_FLAC).build();
+    TrackGroupArray trackGroups = wrapFormats(formatAac, formatOpus, formatFlac);
 
     trackSelector.setParameters(
-        trackSelector.buildUponParameters().setPreferredAudioMimeType(MimeTypes.AUDIO_AC4));
+        trackSelector.buildUponParameters().setPreferredAudioMimeType(MimeTypes.AUDIO_OPUS));
     TrackSelectorResult result =
         trackSelector.selectTracks(
             new RendererCapabilities[] {AUDIO_CAPABILITIES}, trackGroups, periodId, TIMELINE);
     assertThat(result.length).isEqualTo(1);
-    assertFixedSelection(result.selections[0], trackGroups, formatAc4);
+    assertFixedSelection(result.selections[0], trackGroups, formatOpus);
 
     trackSelector.setParameters(
         trackSelector
             .buildUponParameters()
-            .setPreferredAudioMimeTypes(MimeTypes.AUDIO_AC4, MimeTypes.AUDIO_AAC));
+            .setPreferredAudioMimeTypes(MimeTypes.AUDIO_OPUS, MimeTypes.AUDIO_AAC));
     result =
         trackSelector.selectTracks(
             new RendererCapabilities[] {AUDIO_CAPABILITIES}, trackGroups, periodId, TIMELINE);
     assertThat(result.length).isEqualTo(1);
-    assertFixedSelection(result.selections[0], trackGroups, formatAc4);
+    assertFixedSelection(result.selections[0], trackGroups, formatOpus);
 
     trackSelector.setParameters(
         trackSelector
             .buildUponParameters()
-            .setPreferredAudioMimeTypes(MimeTypes.AUDIO_AMR, MimeTypes.AUDIO_E_AC3));
+            .setPreferredAudioMimeTypes(MimeTypes.AUDIO_AMR, MimeTypes.AUDIO_FLAC));
     result =
         trackSelector.selectTracks(
             new RendererCapabilities[] {AUDIO_CAPABILITIES}, trackGroups, periodId, TIMELINE);
     assertThat(result.length).isEqualTo(1);
-    assertFixedSelection(result.selections[0], trackGroups, formatEAc3);
+    assertFixedSelection(result.selections[0], trackGroups, formatFlac);
 
     // Select first in the list if no preference is specified.
     trackSelector.setParameters(
@@ -2938,11 +3040,31 @@ public final class DefaultTrackSelectorTest {
   }
 
   /**
+   * {@link DefaultTrackSelector.Parameters.Builder} must override every method in {@link
+   * TrackSelectionParameters.Builder} in order to 'fix' the return type to correctly allow chaining
+   * the method calls.
+   */
+  @Test
+  public void parametersBuilderOverridesAllTrackSelectionParametersBuilderMethods()
+      throws Exception {
+    List<Method> methods = TestUtil.getPublicMethods(TrackSelectionParameters.Builder.class);
+    for (Method method : methods) {
+      Method declaredMethod =
+          Parameters.Builder.class.getDeclaredMethod(method.getName(), method.getParameterTypes());
+      assertThat(declaredMethod.getDeclaringClass()).isEqualTo(Parameters.Builder.class);
+      if (method.getReturnType().equals(TrackSelectionParameters.Builder.class)) {
+        assertThat(declaredMethod.getReturnType()).isEqualTo(Parameters.Builder.class);
+      }
+    }
+  }
+
+  /**
    * The deprecated {@link DefaultTrackSelector.ParametersBuilder} is implemented by delegating to
    * an instance of {@link DefaultTrackSelector.Parameters.Builder}. However, it <b>also</b> extends
    * {@link TrackSelectionParameters.Builder}, and for the delegation-pattern to work correctly it
    * needs to override <b>every</b> setter method from the superclass (otherwise the setter won't be
-   * propagated to the delegate). This test ensures that invariant.
+   * propagated to the delegate). This test ensures that invariant. It also ensures the return type
+   * is updated to correctly allow chaining the method calls.
    *
    * <p>The test can be removed when the deprecated {@link DefaultTrackSelector.ParametersBuilder}
    * is removed.
@@ -2953,11 +3075,15 @@ public final class DefaultTrackSelectorTest {
       throws Exception {
     List<Method> methods = TestUtil.getPublicMethods(TrackSelectionParameters.Builder.class);
     for (Method method : methods) {
-      assertThat(
-              DefaultTrackSelector.ParametersBuilder.class
-                  .getDeclaredMethod(method.getName(), method.getParameterTypes())
-                  .getDeclaringClass())
+      Method declaredMethod =
+          DefaultTrackSelector.ParametersBuilder.class.getDeclaredMethod(
+              method.getName(), method.getParameterTypes());
+      assertThat(declaredMethod.getDeclaringClass())
           .isEqualTo(DefaultTrackSelector.ParametersBuilder.class);
+      if (method.getReturnType().equals(TrackSelectionParameters.Builder.class)) {
+        assertThat(declaredMethod.getReturnType())
+            .isEqualTo(DefaultTrackSelector.ParametersBuilder.class);
+      }
     }
   }
 

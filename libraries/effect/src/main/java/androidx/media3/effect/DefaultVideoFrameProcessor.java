@@ -46,6 +46,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DebugViewProvider;
 import androidx.media3.common.Effect;
+import androidx.media3.common.Format;
 import androidx.media3.common.FrameInfo;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.MediaLibraryInfo;
@@ -201,16 +202,16 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
        * change between input streams is handled frame-exactly. If {@code false}, {@link
        * #registerInputFrame} can be called only once for each {@linkplain #registerInputStream
        * registered input stream} before rendering the first frame to the input {@link
-       * #getInputSurface() Surface}. The same registered {@link FrameInfo} is repeated for the
+       * #getInputSurface() Surface}. The same registered {@link Format} is repeated for the
        * subsequent frames. To ensure the format change between input streams is applied on the
-       * right frame, the caller needs to {@linkplain #registerInputStream(int, List, FrameInfo)
-       * register} the new input stream strictly after rendering all frames from the previous input
-       * stream. This mode should be used in streams where users don't have direct control over
-       * rendering frames, like in a camera feed.
+       * right frame, the caller needs to {@linkplain #registerInputStream register} the new input
+       * stream strictly after rendering all frames from the previous input stream. This mode should
+       * be used in streams where users don't have direct control over rendering frames, like in a
+       * camera feed.
        *
-       * <p>Regardless of the value set, {@link #registerInputStream(int, List, FrameInfo)} must be
-       * called for each input stream to specify the format for upcoming frames before calling
-       * {@link #registerInputFrame()}.
+       * <p>Regardless of the value set, {@link #registerInputStream} must be called for each input
+       * stream to specify the format for upcoming frames before calling {@link
+       * #registerInputFrame()}.
        *
        * @param requireRegisteringAllInputFrames Whether registering every input frame is required.
        * @deprecated For automatic frame registration ({@code
@@ -326,7 +327,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
         return new DefaultVideoFrameProcessor.Factory(
             sdrWorkingColorSpace,
             /* repeatLastRegisteredFrame= */ !requireRegisteringAllInputFrames,
-            glObjectsProvider == null ? new DefaultGlObjectsProvider() : glObjectsProvider,
+            glObjectsProvider,
             executorService,
             textureOutputListener,
             textureOutputCapacity,
@@ -337,7 +338,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
 
     private final @WorkingColorSpace int sdrWorkingColorSpace;
     private final boolean repeatLastRegisteredFrame;
-    private final GlObjectsProvider glObjectsProvider;
+    @Nullable private final GlObjectsProvider glObjectsProvider;
     @Nullable private final ExecutorService executorService;
     @Nullable private final GlTextureProducer.Listener textureOutputListener;
     private final int textureOutputCapacity;
@@ -347,7 +348,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
     private Factory(
         @WorkingColorSpace int sdrWorkingColorSpace,
         boolean repeatLastRegisteredFrame,
-        GlObjectsProvider glObjectsProvider,
+        @Nullable GlObjectsProvider glObjectsProvider,
         @Nullable ExecutorService executorService,
         @Nullable GlTextureProducer.Listener textureOutputListener,
         int textureOutputCapacity,
@@ -410,6 +411,9 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
           new VideoFrameProcessingTaskExecutor(
               instanceExecutorService, shouldShutdownExecutorService, listener::onError);
 
+      GlObjectsProvider glObjectsProvider =
+          this.glObjectsProvider == null ? new DefaultGlObjectsProvider() : this.glObjectsProvider;
+
       Future<DefaultVideoFrameProcessor> defaultVideoFrameProcessorFuture =
           instanceExecutorService.submit(
               () ->
@@ -456,9 +460,11 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
   private final List<GlShaderProgram> intermediateGlShaderPrograms;
   private final ConditionVariable inputStreamRegisteredCondition;
 
+  private @MonotonicNonNull InputStreamInfo currentInputStreamInfo;
+
   /**
-   * The input stream that is {@linkplain #registerInputStream(int, List, FrameInfo) registered},
-   * but the pipeline has not adapted to processing it.
+   * The input stream that is {@linkplain #registerInputStream registered}, but the pipeline has not
+   * adapted to processing it.
    */
   @GuardedBy("lock")
   @Nullable
@@ -514,7 +520,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
               if (pendingInputStreamInfo != null) {
                 InputStreamInfo pendingInputStreamInfo = this.pendingInputStreamInfo;
                 videoFrameProcessingTaskExecutor.submit(
-                    () -> configureEffects(pendingInputStreamInfo, /* forceReconfigure= */ false));
+                    () -> configure(pendingInputStreamInfo, /* forceReconfigure= */ false));
                 this.pendingInputStreamInfo = null;
               }
             }
@@ -567,10 +573,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
     FrameInfo frameInfo = checkNotNull(this.nextInputFrameInfo);
     inputSwitcher
         .activeTextureManager()
-        .queueInputBitmap(
-            inputBitmap,
-            new FrameInfo.Builder(frameInfo).setOffsetToAddUs(frameInfo.offsetToAddUs).build(),
-            timestampIterator);
+        .queueInputBitmap(inputBitmap, frameInfo, timestampIterator);
     return true;
   }
 
@@ -609,18 +612,18 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
   /**
    * {@inheritDoc}
    *
-   * <p>Using HDR {@link FrameInfo#colorInfo} requires OpenGL ES 3.0 and the {@code EXT_YUV_target}
+   * <p>Using HDR {@link Format#colorInfo} requires OpenGL ES 3.0 and the {@code EXT_YUV_target}
    * OpenGL extension.
    *
    * <p>{@link Effect}s are applied on {@link C#COLOR_RANGE_FULL} colors with {@code null} {@link
    * ColorInfo#hdrStaticInfo}.
    *
-   * <p>If either {@link FrameInfo#colorInfo} or {@code outputColorInfo} {@linkplain
+   * <p>If either {@link Format#colorInfo} or {@code outputColorInfo} {@linkplain
    * ColorInfo#isTransferHdr} are HDR}, textures will use {@link GLES30#GL_RGBA16F} and {@link
    * GLES30#GL_HALF_FLOAT}. Otherwise, textures will use {@link GLES20#GL_RGBA} and {@link
    * GLES20#GL_UNSIGNED_BYTE}.
    *
-   * <p>If {@linkplain FrameInfo#colorInfo input color} {@linkplain ColorInfo#isTransferHdr is HDR},
+   * <p>If {@linkplain Format#colorInfo input color} {@linkplain ColorInfo#isTransferHdr is HDR},
    * but {@code outputColorInfo} is SDR, then HDR to SDR tone-mapping is applied, and {@code
    * outputColorInfo}'s {@link ColorInfo#colorTransfer} must be {@link C#COLOR_TRANSFER_GAMMA_2_2}
    * or {@link C#COLOR_TRANSFER_SDR}. In this case, the actual output transfer function will be in
@@ -630,18 +633,19 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
    */
   @Override
   public void registerInputStream(
-      @InputType int inputType, List<Effect> effects, FrameInfo frameInfo) {
+      @InputType int inputType, Format format, List<Effect> effects, long offsetToAddUs) {
     // This method is only called after all samples in the current input stream are registered or
     // queued.
     DebugTraceUtil.logEvent(
         COMPONENT_VFP,
         EVENT_REGISTER_NEW_INPUT_STREAM,
-        /* presentationTimeUs= */ frameInfo.offsetToAddUs,
+        /* presentationTimeUs= */ offsetToAddUs,
         /* extraFormat= */ "InputType %s - %dx%d",
         /* extraArgs...= */ getInputTypeString(inputType),
-        frameInfo.width,
-        frameInfo.height);
-    nextInputFrameInfo = adjustForPixelWidthHeightRatio(frameInfo);
+        format.width,
+        format.height);
+    Format nextFormat = adjustForPixelWidthHeightRatio(format);
+    nextInputFrameInfo = new FrameInfo(nextFormat, offsetToAddUs);
 
     try {
       // Blocks until the previous input stream registration completes.
@@ -654,18 +658,19 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
 
     synchronized (lock) {
       // An input stream is pending until its effects are configured.
-      InputStreamInfo pendingInputStreamInfo = new InputStreamInfo(inputType, effects, frameInfo);
+      InputStreamInfo pendingInputStreamInfo =
+          new InputStreamInfo(inputType, format, effects, offsetToAddUs);
       if (!registeredFirstInputStream) {
         registeredFirstInputStream = true;
         inputStreamRegisteredCondition.close();
         videoFrameProcessingTaskExecutor.submit(
-            () -> configureEffects(pendingInputStreamInfo, /* forceReconfigure= */ true));
+            () -> configure(pendingInputStreamInfo, /* forceReconfigure= */ true));
       } else {
         // Rejects further inputs after signaling EOS and before the next input stream is fully
         // configured.
         this.pendingInputStreamInfo = pendingInputStreamInfo;
         inputStreamRegisteredCondition.close();
-        inputSwitcher.activeTextureManager().signalEndOfCurrentInputStream();
+        inputSwitcher.signalEndOfCurrentInputStream();
       }
     }
   }
@@ -723,7 +728,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
     DebugTraceUtil.logEvent(COMPONENT_VFP, EVENT_RECEIVE_END_OF_ALL_INPUT, C.TIME_END_OF_SOURCE);
     checkState(!inputStreamEnded);
     inputStreamEnded = true;
-    inputSwitcher.signalEndOfInputStream();
+    inputSwitcher.signalEndOfCurrentInputStream();
   }
 
   /**
@@ -770,23 +775,24 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
   }
 
   /**
-   * Expands the frame based on the {@link FrameInfo#pixelWidthHeightRatio} and returns a new {@link
-   * FrameInfo} instance with scaled dimensions and {@link FrameInfo#pixelWidthHeightRatio} of
-   * {@code 1}.
+   * Expands the frame based on the {@link Format#pixelWidthHeightRatio} and returns a new {@link
+   * Format} instance with scaled dimensions and {@link Format#pixelWidthHeightRatio} of {@code 1}.
    */
-  private FrameInfo adjustForPixelWidthHeightRatio(FrameInfo frameInfo) {
-    if (frameInfo.pixelWidthHeightRatio > 1f) {
-      return new FrameInfo.Builder(frameInfo)
-          .setWidth((int) (frameInfo.width * frameInfo.pixelWidthHeightRatio))
+  private Format adjustForPixelWidthHeightRatio(Format format) {
+    if (format.pixelWidthHeightRatio > 1f) {
+      return format
+          .buildUpon()
+          .setWidth((int) (format.width * format.pixelWidthHeightRatio))
           .setPixelWidthHeightRatio(1)
           .build();
-    } else if (frameInfo.pixelWidthHeightRatio < 1f) {
-      return new FrameInfo.Builder(frameInfo)
-          .setHeight((int) (frameInfo.height / frameInfo.pixelWidthHeightRatio))
+    } else if (format.pixelWidthHeightRatio < 1f) {
+      return format
+          .buildUpon()
+          .setHeight((int) (format.height / format.pixelWidthHeightRatio))
           .setPixelWidthHeightRatio(1)
           .build();
     } else {
-      return frameInfo;
+      return format;
     }
   }
 
@@ -987,15 +993,17 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
   }
 
   /**
-   * Configures the {@link GlShaderProgram} instances for {@code effects}.
+   * Configures for a new input stream.
    *
-   * <p>The pipeline will only re-configure if the {@link InputStreamInfo#effects new effects}
-   * doesn't match the {@link #activeEffects}, or when {@code forceReconfigure} is set to {@code
-   * true}.
+   * <p>The effect pipeline will only re-configure if the {@link InputStreamInfo#effects new
+   * effects} don't match the {@link #activeEffects}, or when {@code forceReconfigure} is set to
+   * {@code true}.
    */
-  private void configureEffects(InputStreamInfo inputStreamInfo, boolean forceReconfigure)
+  private void configure(InputStreamInfo inputStreamInfo, boolean forceReconfigure)
       throws VideoFrameProcessingException {
-    checkColors(/* inputColorInfo= */ inputStreamInfo.frameInfo.colorInfo, outputColorInfo);
+    checkColors(
+        /* inputColorInfo= */ checkNotNull(inputStreamInfo.format.colorInfo), outputColorInfo);
+
     if (forceReconfigure || !activeEffects.equals(inputStreamInfo.effects)) {
       if (!intermediateGlShaderPrograms.isEmpty()) {
         for (int i = 0; i < intermediateGlShaderPrograms.size(); i++) {
@@ -1023,7 +1031,9 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
       activeEffects.addAll(inputStreamInfo.effects);
     }
 
-    inputSwitcher.switchToInput(inputStreamInfo.inputType, inputStreamInfo.frameInfo);
+    inputSwitcher.switchToInput(
+        inputStreamInfo.inputType,
+        new FrameInfo(inputStreamInfo.format, inputStreamInfo.offsetToAddUs));
     inputStreamRegisteredCondition.open();
     synchronized (lock) {
       if (onInputSurfaceReadyListener != null) {
@@ -1031,10 +1041,17 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
         onInputSurfaceReadyListener = null;
       }
     }
+
     listenerExecutor.execute(
         () ->
             listener.onInputStreamRegistered(
-                inputStreamInfo.inputType, inputStreamInfo.effects, inputStreamInfo.frameInfo));
+                inputStreamInfo.inputType, inputStreamInfo.format, inputStreamInfo.effects));
+    if (currentInputStreamInfo == null
+        || inputStreamInfo.format.frameRate != currentInputStreamInfo.format.frameRate) {
+      listenerExecutor.execute(
+          () -> listener.onOutputFrameRateChanged(inputStreamInfo.format.frameRate));
+    }
+    this.currentInputStreamInfo = inputStreamInfo;
   }
 
   /** Checks that color configuration is valid for {@link DefaultVideoFrameProcessor}. */
@@ -1151,13 +1168,16 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
 
   private static final class InputStreamInfo {
     public final @InputType int inputType;
+    public final Format format;
     public final List<Effect> effects;
-    public final FrameInfo frameInfo;
+    public final long offsetToAddUs;
 
-    public InputStreamInfo(@InputType int inputType, List<Effect> effects, FrameInfo frameInfo) {
+    public InputStreamInfo(
+        @InputType int inputType, Format format, List<Effect> effects, long offsetToAddUs) {
       this.inputType = inputType;
+      this.format = format;
       this.effects = effects;
-      this.frameInfo = frameInfo;
+      this.offsetToAddUs = offsetToAddUs;
     }
   }
 }

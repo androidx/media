@@ -108,7 +108,10 @@ public class MediaSessionStubTest {
         /* caller= */ null,
         /* seq= */ 0,
         /* connectionRequest= */ new ConnectionRequest(
-                "pkg", /* pid= */ 0, /* connectionHints= */ new Bundle())
+                "pkg",
+                /* pid= */ 0,
+                /* connectionHints= */ new Bundle(),
+                /* maxCommandsForMediaItems= */ 0)
             .toBundle());
     binder.onCustomCommand(
         /* caller= */ null,
@@ -497,7 +500,10 @@ public class MediaSessionStubTest {
         caller,
         /* seq= */ 0,
         /* connectionRequest= */ new ConnectionRequest(
-                /* packageName= */ "invalid", /* pid= */ 9999, /* connectionHints= */ new Bundle())
+                /* packageName= */ "invalid",
+                /* pid= */ 9999,
+                /* connectionHints= */ new Bundle(),
+                /* maxCommandsForMediaItems= */ 0)
             .toBundle());
   }
 }

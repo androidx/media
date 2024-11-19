@@ -17,4 +17,9 @@
   <issue id="UnsafeOptInUsageError">
     <option name="opt-in" value="androidx.media3.common.util.UnstableApi" />
   </issue>
+  <!--  Robolectric tests run at targetApi by default, but the linter doesn't understand this so
+  generates lots of spurious NewApi failures. -->
+  <issue id="NewApi">
+    <ignore path="*/src/test/**" />
+  </issue>
 </lint>

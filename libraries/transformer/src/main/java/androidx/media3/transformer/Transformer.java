@@ -64,14 +64,12 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import com.google.errorprone.annotations.InlineMe;
 import java.io.File;
 import java.io.IOException;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
-import java.util.List;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
@@ -111,6 +109,7 @@ public final class Transformer {
     private boolean removeVideo;
     private boolean flattenForSlowMotion;
     private boolean trimOptimizationEnabled;
+    private boolean portraitEncodingEnabled;
     private boolean fileStartsOnVideoFrameEnabled;
     private long maxDelayBetweenMuxerSamplesMs;
     private int maxFramesInEncoder;
@@ -156,6 +155,7 @@ public final class Transformer {
       this.removeAudio = transformer.removeAudio;
       this.removeVideo = transformer.removeVideo;
       this.trimOptimizationEnabled = transformer.trimOptimizationEnabled;
+      this.portraitEncodingEnabled = transformer.portraitEncodingEnabled;
       this.fileStartsOnVideoFrameEnabled = transformer.fileStartsOnVideoFrameEnabled;
       this.maxDelayBetweenMuxerSamplesMs = transformer.maxDelayBetweenMuxerSamplesMs;
       this.maxFramesInEncoder = transformer.maxFramesInEncoder;
@@ -234,78 +234,6 @@ public final class Transformer {
     }
 
     /**
-     * @deprecated Use {@link #setAudioMimeType(String)}, {@link #setVideoMimeType(String)} and
-     *     {@link Composition.Builder#setHdrMode(int)} instead.
-     */
-    @Deprecated
-    @CanIgnoreReturnValue
-    public Builder setTransformationRequest(TransformationRequest transformationRequest) {
-      // TODO(b/289872787): Make TransformationRequest.Builder package private once this method is
-      //  removed.
-      this.transformationRequest = transformationRequest;
-      return this;
-    }
-
-    /**
-     * @deprecated Set the {@linkplain AudioProcessor audio processors} in an {@link
-     *     EditedMediaItem.Builder#setEffects(Effects)}, and pass it to {@link
-     *     #start(EditedMediaItem, String)} instead.
-     */
-    @CanIgnoreReturnValue
-    @Deprecated
-    public Builder setAudioProcessors(List<AudioProcessor> audioProcessors) {
-      this.audioProcessors = ImmutableList.copyOf(audioProcessors);
-      return this;
-    }
-
-    /**
-     * @deprecated Set the {@linkplain Effect video effects} in an {@link
-     *     EditedMediaItem.Builder#setEffects(Effects)}, and pass it to {@link
-     *     #start(EditedMediaItem, String)} instead.
-     */
-    @CanIgnoreReturnValue
-    @Deprecated
-    public Builder setVideoEffects(List<Effect> effects) {
-      this.videoEffects = ImmutableList.copyOf(effects);
-      return this;
-    }
-
-    /**
-     * @deprecated Use {@link EditedMediaItem.Builder#setRemoveAudio(boolean)} to remove the audio
-     *     from the {@link EditedMediaItem} passed to {@link #start(EditedMediaItem, String)}
-     *     instead.
-     */
-    @CanIgnoreReturnValue
-    @Deprecated
-    public Builder setRemoveAudio(boolean removeAudio) {
-      this.removeAudio = removeAudio;
-      return this;
-    }
-
-    /**
-     * @deprecated Use {@link EditedMediaItem.Builder#setRemoveVideo(boolean)} to remove the video
-     *     from the {@link EditedMediaItem} passed to {@link #start(EditedMediaItem, String)}
-     *     instead.
-     */
-    @CanIgnoreReturnValue
-    @Deprecated
-    public Builder setRemoveVideo(boolean removeVideo) {
-      this.removeVideo = removeVideo;
-      return this;
-    }
-
-    /**
-     * @deprecated Use {@link EditedMediaItem.Builder#setFlattenForSlowMotion(boolean)} to flatten
-     *     the {@link EditedMediaItem} passed to {@link #start(EditedMediaItem, String)} instead.
-     */
-    @CanIgnoreReturnValue
-    @Deprecated
-    public Builder setFlattenForSlowMotion(boolean flattenForSlowMotion) {
-      this.flattenForSlowMotion = flattenForSlowMotion;
-      return this;
-    }
-
-    /**
      * Sets whether to attempt to optimize trims from the start of the {@link EditedMediaItem} by
      * transcoding as little of the file as possible and transmuxing the rest.
      *
@@ -331,6 +259,24 @@ public final class Transformer {
     @CanIgnoreReturnValue
     public Builder experimentalSetTrimOptimizationEnabled(boolean enabled) {
       trimOptimizationEnabled = enabled;
+      return this;
+    }
+
+    /**
+     * Sets whether to encode portrait videos in portrait orientation.
+     *
+     * <p>The default value is {@code false}. In this case, portrait videos will be rotated by 90
+     * degrees before being encoded, and metadata will be added to the output file to indicate that
+     * the video should be rotated back when played. This is done because encoding landscape videos
+     * is more largely supported. Enabling portrait encoding should therefore be done carefully
+     * because it is likely to result in more failures.
+     *
+     * @param enabled Whether to encode portrait videos in portrait orientation.
+     * @return This builder.
+     */
+    @CanIgnoreReturnValue
+    public Builder setPortraitEncodingEnabled(boolean enabled) {
+      portraitEncodingEnabled = enabled;
       return this;
     }
 
@@ -392,18 +338,6 @@ public final class Transformer {
     @CanIgnoreReturnValue
     public Builder setMaxDelayBetweenMuxerSamplesMs(long maxDelayBetweenMuxerSamplesMs) {
       this.maxDelayBetweenMuxerSamplesMs = maxDelayBetweenMuxerSamplesMs;
-      return this;
-    }
-
-    /**
-     * @deprecated Use {@link #addListener(Listener)}, {@link #removeListener(Listener)} or {@link
-     *     #removeAllListeners()} instead.
-     */
-    @CanIgnoreReturnValue
-    @Deprecated
-    public Builder setListener(Transformer.Listener listener) {
-      this.listeners.clear();
-      this.listeners.add(listener);
       return this;
     }
 
@@ -615,6 +549,7 @@ public final class Transformer {
           removeVideo,
           flattenForSlowMotion,
           trimOptimizationEnabled,
+          portraitEncodingEnabled,
           fileStartsOnVideoFrameEnabled,
           maxDelayBetweenMuxerSamplesMs,
           maxFramesInEncoder,
@@ -647,57 +582,12 @@ public final class Transformer {
   public interface Listener {
 
     /**
-     * @deprecated Use {@link #onCompleted(Composition, ExportResult)} instead.
-     */
-    @Deprecated
-    default void onTransformationCompleted(MediaItem inputMediaItem) {}
-
-    /**
-     * @deprecated Use {@link #onCompleted(Composition, ExportResult)} instead.
-     */
-    @SuppressWarnings("deprecation") // Using deprecated type in callback
-    @Deprecated
-    default void onTransformationCompleted(MediaItem inputMediaItem, TransformationResult result) {
-      onTransformationCompleted(inputMediaItem);
-    }
-
-    /**
      * Called when the export is completed successfully.
      *
      * @param composition The {@link Composition} for which the export is completed.
      * @param exportResult The {@link ExportResult} of the export.
      */
-    @SuppressWarnings("deprecation") // Calling deprecated listener method.
-    default void onCompleted(Composition composition, ExportResult exportResult) {
-      MediaItem mediaItem = composition.sequences.get(0).editedMediaItems.get(0).mediaItem;
-      onTransformationCompleted(mediaItem, new TransformationResult.Builder(exportResult).build());
-    }
-
-    /**
-     * @deprecated Use {@link #onError(Composition, ExportResult, ExportException)} instead.
-     */
-    @Deprecated
-    default void onTransformationError(MediaItem inputMediaItem, Exception exception) {}
-
-    /**
-     * @deprecated Use {@link #onError(Composition, ExportResult, ExportException)} instead.
-     */
-    @SuppressWarnings("deprecation") // Using deprecated type in callback
-    @Deprecated
-    default void onTransformationError(
-        MediaItem inputMediaItem, TransformationException exception) {
-      onTransformationError(inputMediaItem, (Exception) exception);
-    }
-
-    /**
-     * @deprecated Use {@link #onError(Composition, ExportResult, ExportException)} instead.
-     */
-    @SuppressWarnings("deprecation") // Using deprecated type in callback
-    @Deprecated
-    default void onTransformationError(
-        MediaItem inputMediaItem, TransformationResult result, TransformationException exception) {
-      onTransformationError(inputMediaItem, exception);
-    }
+    default void onCompleted(Composition composition, ExportResult exportResult) {}
 
     /**
      * Called if an exception occurs during the export.
@@ -709,25 +599,8 @@ public final class Transformer {
      * @param exportException The {@link ExportException} describing the exception. This is the same
      *     instance as the {@linkplain ExportResult#exportException exception} in {@code result}.
      */
-    @SuppressWarnings("deprecation") // Calling deprecated listener method.
     default void onError(
-        Composition composition, ExportResult exportResult, ExportException exportException) {
-      MediaItem mediaItem = composition.sequences.get(0).editedMediaItems.get(0).mediaItem;
-      onTransformationError(
-          mediaItem,
-          new TransformationResult.Builder(exportResult).build(),
-          new TransformationException(exportException));
-    }
-
-    /**
-     * @deprecated Use {@link #onFallbackApplied(Composition, TransformationRequest,
-     *     TransformationRequest)} instead.
-     */
-    @Deprecated
-    default void onFallbackApplied(
-        MediaItem inputMediaItem,
-        TransformationRequest originalTransformationRequest,
-        TransformationRequest fallbackTransformationRequest) {}
+        Composition composition, ExportResult exportResult, ExportException exportException) {}
 
     /**
      * Called when falling back to an alternative {@link TransformationRequest} or changing the
@@ -741,14 +614,10 @@ public final class Transformer {
      *     TransformationRequest#videoMimeType}, {@link TransformationRequest#outputHeight}, and
      *     {@link TransformationRequest#hdrMode} values set.
      */
-    @SuppressWarnings("deprecation") // Calling deprecated listener method.
     default void onFallbackApplied(
         Composition composition,
         TransformationRequest originalTransformationRequest,
-        TransformationRequest fallbackTransformationRequest) {
-      MediaItem mediaItem = composition.sequences.get(0).editedMediaItems.get(0).mediaItem;
-      onFallbackApplied(mediaItem, originalTransformationRequest, fallbackTransformationRequest);
-    }
+        TransformationRequest fallbackTransformationRequest) {}
   }
 
   /**
@@ -770,11 +639,6 @@ public final class Transformer {
   /** Indicates that the corresponding operation hasn't been started. */
   public static final int PROGRESS_STATE_NOT_STARTED = 0;
 
-  /**
-   * @deprecated Use {@link #PROGRESS_STATE_NOT_STARTED} instead.
-   */
-  @Deprecated public static final int PROGRESS_STATE_NO_TRANSFORMATION = PROGRESS_STATE_NOT_STARTED;
-
   /** Indicates that the progress is currently unavailable, but might become available. */
   public static final int PROGRESS_STATE_WAITING_FOR_AVAILABILITY = 1;
 
@@ -789,7 +653,7 @@ public final class Transformer {
    * between output samples}.
    */
   public static final long DEFAULT_MAX_DELAY_BETWEEN_MUXER_SAMPLES_MS =
-      isRunningOnEmulator() ? 21_000 : 10_000;
+      isRunningOnEmulator() ? 25_000 : 10_000;
 
   @Documented
   @Retention(RetentionPolicy.SOURCE)
@@ -868,6 +732,7 @@ public final class Transformer {
   private final boolean removeVideo;
   private final boolean flattenForSlowMotion;
   private final boolean trimOptimizationEnabled;
+  private final boolean portraitEncodingEnabled;
   private final boolean fileStartsOnVideoFrameEnabled;
   private final long maxDelayBetweenMuxerSamplesMs;
   private final int maxFramesInEncoder;
@@ -896,6 +761,7 @@ public final class Transformer {
       getResumeMetadataFuture;
   private @MonotonicNonNull ListenableFuture<Void> copyOutputFuture;
   @Nullable private Mp4Info mediaItemInfo;
+  @Nullable private WatchdogTimer exportWatchdogTimer;
 
   private Transformer(
       Context context,
@@ -906,6 +772,7 @@ public final class Transformer {
       boolean removeVideo,
       boolean flattenForSlowMotion,
       boolean trimOptimizationEnabled,
+      boolean portraitEncodingEnabled,
       boolean fileStartsOnVideoFrameEnabled,
       long maxDelayBetweenMuxerSamplesMs,
       int maxFramesInEncoder,
@@ -927,6 +794,7 @@ public final class Transformer {
     this.removeVideo = removeVideo;
     this.flattenForSlowMotion = flattenForSlowMotion;
     this.trimOptimizationEnabled = trimOptimizationEnabled;
+    this.portraitEncodingEnabled = portraitEncodingEnabled;
     this.fileStartsOnVideoFrameEnabled = fileStartsOnVideoFrameEnabled;
     this.maxDelayBetweenMuxerSamplesMs = maxDelayBetweenMuxerSamplesMs;
     this.maxFramesInEncoder = maxFramesInEncoder;
@@ -948,17 +816,6 @@ public final class Transformer {
   /** Returns a {@link Transformer.Builder} initialized with the values of this instance. */
   public Builder buildUpon() {
     return new Builder(this);
-  }
-
-  /**
-   * @deprecated Use {@link #addListener(Listener)}, {@link #removeListener(Listener)} or {@link
-   *     #removeAllListeners()} instead.
-   */
-  @Deprecated
-  public void setListener(Transformer.Listener listener) {
-    verifyApplicationThread();
-    this.listeners.clear();
-    this.listeners.add(listener);
   }
 
   /**
@@ -1060,7 +917,9 @@ public final class Transformer {
   public void start(Composition composition, String path) {
     verifyApplicationThread();
     initialize(composition, path);
-    if (!trimOptimizationEnabled || isMultiAsset()) {
+    if (shouldOptimizeForTrimming()) {
+      processMediaBeforeFirstSyncSampleAfterTrimStartTime();
+    } else {
       startInternal(
           composition,
           new MuxerWrapper(
@@ -1069,13 +928,10 @@ public final class Transformer {
               componentListener,
               MuxerWrapper.MUXER_MODE_DEFAULT,
               /* dropSamplesBeforeFirstVideoSample= */ fileStartsOnVideoFrameEnabled,
-              /* appendVideoFormat= */ null,
-              maxDelayBetweenMuxerSamplesMs),
+              /* appendVideoFormat= */ null),
           componentListener,
           /* initialTimestampOffsetUs= */ 0,
           /* useDefaultAssetLoaderFactory= */ false);
-    } else {
-      processMediaBeforeFirstSyncSampleAfterTrimStartTime();
     }
   }
 
@@ -1154,15 +1010,6 @@ public final class Transformer {
   }
 
   /**
-   * @deprecated Use {@link #start(MediaItem, String)} instead.
-   */
-  @Deprecated
-  @InlineMe(replacement = "this.start(mediaItem, path)")
-  public void startTransformation(MediaItem mediaItem, String path) {
-    start(mediaItem, path);
-  }
-
-  /**
    * Returns the {@link Looper} associated with the application thread that's used to access the
    * transformer and on which transformer events are received.
    */
@@ -1199,6 +1046,26 @@ public final class Transformer {
     return transformerInternal == null
         ? PROGRESS_STATE_NOT_STARTED
         : transformerInternal.getProgress(progressHolder);
+  }
+
+  private boolean shouldOptimizeForTrimming() {
+    if (isMultiAsset()) {
+      return false;
+    }
+
+    MediaItem.ClippingConfiguration clippingConfiguration =
+        checkNotNull(composition)
+            .sequences
+            .get(0)
+            .editedMediaItems
+            .get(0)
+            .mediaItem
+            .clippingConfiguration;
+    if (clippingConfiguration.equals(MediaItem.ClippingConfiguration.UNSET)) {
+      return false;
+    }
+
+    return trimOptimizationEnabled;
   }
 
   private boolean isExportResumed() {
@@ -1277,6 +1144,7 @@ public final class Transformer {
   public void cancel() {
     verifyApplicationThread();
     if (transformerInternal == null) {
+      maybeStopExportWatchdogTimer();
       return;
     }
     try {
@@ -1291,6 +1159,7 @@ public final class Transformer {
     if (copyOutputFuture != null && !copyOutputFuture.isDone()) {
       copyOutputFuture.cancel(/* mayInterruptIfRunning= */ false);
     }
+    maybeStopExportWatchdogTimer();
   }
 
   /**
@@ -1320,7 +1189,37 @@ public final class Transformer {
     remuxProcessedVideo();
   }
 
+  private void maybeInitializeExportWatchdogTimer() {
+    if (maxDelayBetweenMuxerSamplesMs == C.TIME_UNSET) {
+      return;
+    }
+    exportWatchdogTimer =
+        new WatchdogTimer(
+            maxDelayBetweenMuxerSamplesMs,
+            () -> {
+              ExportException exportException =
+                  ExportException.createForMuxer(
+                      new IllegalStateException(
+                          Util.formatInvariant(
+                              "Abort: no output sample written in the last %d milliseconds."
+                                  + " DebugTrace: %s",
+                              maxDelayBetweenMuxerSamplesMs,
+                              DebugTraceUtil.generateTraceSummary())),
+                      ExportException.ERROR_CODE_MUXING_TIMEOUT);
+              checkNotNull(transformerInternal).endWithException(exportException);
+            });
+    exportWatchdogTimer.start();
+  }
+
+  private void maybeStopExportWatchdogTimer() {
+    if (exportWatchdogTimer != null) {
+      exportWatchdogTimer.stop();
+      exportWatchdogTimer = null;
+    }
+  }
+
   private void initialize(Composition composition, String outputFilePath) {
+    maybeInitializeExportWatchdogTimer();
     this.composition = composition;
     this.outputFilePath = outputFilePath;
     exportResultBuilder.reset();
@@ -1336,8 +1235,7 @@ public final class Transformer {
             componentListener,
             MuxerWrapper.MUXER_MODE_DEFAULT,
             /* dropSamplesBeforeFirstVideoSample= */ false,
-            /* appendVideoFormat= */ null,
-            maxDelayBetweenMuxerSamplesMs),
+            /* appendVideoFormat= */ null),
         componentListener,
         /* initialTimestampOffsetUs= */ 0,
         /* useDefaultAssetLoaderFactory= */ false);
@@ -1370,8 +1268,7 @@ public final class Transformer {
                     componentListener,
                     MuxerWrapper.MUXER_MODE_MUX_PARTIAL,
                     /* dropSamplesBeforeFirstVideoSample= */ false,
-                    /* appendVideoFormat= */ resumeMetadata.videoFormat,
-                    maxDelayBetweenMuxerSamplesMs);
+                    /* appendVideoFormat= */ resumeMetadata.videoFormat);
 
             startInternal(
                 TransmuxTranscodeHelper.createVideoOnlyComposition(
@@ -1422,8 +1319,7 @@ public final class Transformer {
             componentListener,
             MuxerWrapper.MUXER_MODE_DEFAULT,
             /* dropSamplesBeforeFirstVideoSample= */ false,
-            /* appendVideoFormat= */ null,
-            maxDelayBetweenMuxerSamplesMs);
+            /* appendVideoFormat= */ null);
 
     startInternal(
         TransmuxTranscodeHelper.createAudioTranscodeAndVideoTransmuxComposition(
@@ -1490,19 +1386,40 @@ public final class Transformer {
             }
             long maxEncodedAudioBufferDurationUs = 0;
             if (mp4Info.audioFormat != null && mp4Info.audioFormat.sampleRate != Format.NO_VALUE) {
-              // Ensure there is an audio sample to mux between the two clip times to prevent
-              // Transformer from hanging because it received an audio track but no audio samples.
               maxEncodedAudioBufferDurationUs =
                   Util.sampleCountToDurationUs(
                       AAC_LC_AUDIO_SAMPLE_COUNT, mp4Info.audioFormat.sampleRate);
             }
+            if (mp4Info.firstSyncSampleTimestampUsAfterTimeUs
+                == mp4Info.firstVideoSampleTimestampUs) {
+              // The video likely includes an edit list. For example, an edit list adds 1_000ms to
+              // each video sample and the trim position is from 100ms, the first sample would be at
+              // 1_000ms, the first sync sample after 100ms would also be at 1_000ms; but in this
+              // case processing should start from 100ms rather than 1_000ms. The resulting video
+              // should be 100ms shorter than the original video, and the first video timestamp
+              // should have timestamp at 900ms.
+              Transformer.this.composition =
+                  buildUponCompositionForTrimOptimization(
+                      composition,
+                      trimStartTimeUs,
+                      trimEndTimeUs,
+                      mp4Info.durationUs,
+                      /* startsAtKeyFrame= */ true,
+                      /* clearVideoEffects= */ false);
+              exportResultBuilder.setOptimizationResult(
+                  OPTIMIZATION_ABANDONED_KEYFRAME_PLACEMENT_OPTIMAL_FOR_TRIM);
+              processFullInput();
+              return;
+            }
+            // Ensure there is an audio sample to mux between the two clip times to prevent
+            // Transformer from hanging because it received an audio track but no audio samples.
             if (mp4Info.firstSyncSampleTimestampUsAfterTimeUs - trimStartTimeUs
                     <= maxEncodedAudioBufferDurationUs
                 || mp4Info.isFirstVideoSampleAfterTimeUsSyncSample) {
               Transformer.this.composition =
                   buildUponCompositionForTrimOptimization(
                       composition,
-                      mp4Info.firstSyncSampleTimestampUsAfterTimeUs,
+                      /* startTimeUs= */ mp4Info.firstSyncSampleTimestampUsAfterTimeUs,
                       trimEndTimeUs,
                       mp4Info.durationUs,
                       /* startsAtKeyFrame= */ true,
@@ -1519,8 +1436,7 @@ public final class Transformer {
                     componentListener,
                     MuxerWrapper.MUXER_MODE_MUX_PARTIAL,
                     /* dropSamplesBeforeFirstVideoSample= */ false,
-                    mp4Info.videoFormat,
-                    maxDelayBetweenMuxerSamplesMs);
+                    mp4Info.videoFormat);
             if (shouldTranscodeVideo(
                     checkNotNull(mp4Info.videoFormat),
                     composition,
@@ -1542,6 +1458,7 @@ public final class Transformer {
               processFullInput();
               return;
             }
+
             Transformer.this.mediaItemInfo = mp4Info;
             maybeSetMuxerWrapperAdditionalRotationDegrees(
                 remuxingMuxerWrapper,
@@ -1551,8 +1468,8 @@ public final class Transformer {
                 buildUponCompositionForTrimOptimization(
                     composition,
                     trimStartTimeUs,
-                    mp4Info.firstSyncSampleTimestampUsAfterTimeUs,
-                    mp4Info.durationUs,
+                    /* endTimeUs= */ mp4Info.firstSyncSampleTimestampUsAfterTimeUs,
+                    /* mediaDurationUs= */ mp4Info.durationUs,
                     /* startsAtKeyFrame= */ false,
                     /* clearVideoEffects= */ true);
             startInternal(
@@ -1626,7 +1543,8 @@ public final class Transformer {
     AssetLoader.Factory assetLoaderFactory = this.assetLoaderFactory;
     if (useDefaultAssetLoaderFactory || assetLoaderFactory == null) {
       assetLoaderFactory =
-          new DefaultAssetLoaderFactory(context, new DefaultDecoderFactory(context), clock);
+          new DefaultAssetLoaderFactory(
+              context, new DefaultDecoderFactory.Builder(context).build(), clock);
     }
     DebugTraceUtil.reset();
     transformerInternal =
@@ -1638,6 +1556,7 @@ public final class Transformer {
             audioMixerFactory,
             videoFrameProcessorFactory,
             encoderFactory,
+            portraitEncodingEnabled,
             maxFramesInEncoder,
             muxerWrapper,
             componentListener,
@@ -1650,6 +1569,7 @@ public final class Transformer {
   }
 
   private void onExportCompletedWithSuccess() {
+    maybeStopExportWatchdogTimer();
     listeners.queueEvent(
         /* eventFlag= */ C.INDEX_UNSET,
         listener -> listener.onCompleted(checkNotNull(composition), exportResultBuilder.build()));
@@ -1658,6 +1578,7 @@ public final class Transformer {
   }
 
   private void onExportCompletedWithError(ExportException exception) {
+    maybeStopExportWatchdogTimer();
     listeners.queueEvent(
         /* eventFlag= */ C.INDEX_UNSET,
         listener ->
@@ -1767,6 +1688,15 @@ public final class Transformer {
         if (format.width != Format.NO_VALUE) {
           exportResultBuilder.setWidth(format.width);
         }
+      }
+    }
+
+    @Override
+    public void onSampleWrittenOrDropped() {
+      if (exportWatchdogTimer != null) {
+        exportWatchdogTimer.reset();
+      } else {
+        checkState(maxDelayBetweenMuxerSamplesMs == C.TIME_UNSET);
       }
     }
 

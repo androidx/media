@@ -303,7 +303,7 @@ public final class HdrEditingTest {
                 new Transformer.Listener() {
                   @Override
                   public void onFallbackApplied(
-                      MediaItem inputMediaItem,
+                      Composition composition,
                       TransformationRequest originalTransformationRequest,
                       TransformationRequest fallbackTransformationRequest) {
                     isFallbackListenerInvoked.set(true);
@@ -361,7 +361,7 @@ public final class HdrEditingTest {
                 new Transformer.Listener() {
                   @Override
                   public void onFallbackApplied(
-                      MediaItem inputMediaItem,
+                      Composition composition,
                       TransformationRequest originalTransformationRequest,
                       TransformationRequest fallbackTransformationRequest) {
                     assertThat(originalTransformationRequest.hdrMode).isEqualTo(HDR_MODE_KEEP_HDR);

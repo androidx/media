@@ -243,7 +243,6 @@ public class CompositionPlayerTest {
                                           .setUri(JPG_SINGLE_PIXEL_ASSET.uri)
                                           .setImageDurationMs(1_000)
                                           .build())
-                                  .setDurationUs(1_000_000)
                                   .build())
                           .build())
                   .build());
@@ -287,7 +286,6 @@ public class CompositionPlayerTest {
                                               MimeTypes.APPLICATION_EXTERNALLY_LOADED_IMAGE)
                                           .setImageDurationMs(1_000)
                                           .build())
-                                  .setDurationUs(1_000_000)
                                   .build())
                           .build())
                   .build());
@@ -306,7 +304,6 @@ public class CompositionPlayerTest {
                     .setUri(JPG_SINGLE_PIXEL_ASSET.uri)
                     .setImageDurationMs(500)
                     .build())
-            .setDurationUs(500_000)
             .build();
 
     instrumentation.runOnMainSync(
@@ -335,7 +332,6 @@ public class CompositionPlayerTest {
                     .setUri(JPG_SINGLE_PIXEL_ASSET.uri)
                     .setImageDurationMs(500)
                     .build())
-            .setDurationUs(500_000)
             .build();
 
     EditedMediaItem video =
@@ -373,7 +369,6 @@ public class CompositionPlayerTest {
                     .setUri(JPG_SINGLE_PIXEL_ASSET.uri)
                     .setImageDurationMs(500)
                     .build())
-            .setDurationUs(500_000)
             .build();
 
     instrumentation.runOnMainSync(

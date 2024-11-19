@@ -29,10 +29,12 @@ import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.extractor.mp4.Mp4Extractor;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.util.Objects;
 
 /** A {@link MediaItem} with the transformations to apply to it. */
 @UnstableApi
 public final class EditedMediaItem {
+  /* package */ static final String GAP_MEDIA_ID = "androidx-media3-GapMediaItem";
 
   /** A builder for {@link EditedMediaItem} instances. */
   public static final class Builder {
@@ -48,10 +50,16 @@ public final class EditedMediaItem {
     /**
      * Creates an instance.
      *
-     * <p>For image inputs, the values passed into {@link #setRemoveAudio}, {@link #setRemoveVideo}
-     * and {@link #setFlattenForSlowMotion} will be ignored. For multi-picture formats (e.g. gifs),
-     * a single image frame from the container is displayed if the {@link DefaultAssetLoaderFactory}
-     * is used.
+     * <p>For image inputs:
+     *
+     * <ul>
+     *   <li>The {@linkplain MediaItem.Builder#setImageDurationMs(long) image duration} should
+     *       always be set.
+     *   <li>The values passed into {@link #setRemoveAudio}, {@link #setRemoveVideo} and {@link
+     *       #setFlattenForSlowMotion} will be ignored.
+     *   <li>For multi-picture formats (e.g. gifs), a single image frame from the container is
+     *       displayed if the {@link DefaultAssetLoaderFactory} is used.
+     * </ul>
      *
      * @param mediaItem The {@link MediaItem} on which transformations are applied.
      */
@@ -144,17 +152,18 @@ public final class EditedMediaItem {
     /**
      * Sets the {@link MediaItem} duration in the output, in microseconds.
      *
-     * <p>For {@linkplain Transformer export}, this should be set for inputs that don't have an
-     * intrinsic duration (e.g. images). It will be ignored for inputs that do have an intrinsic
-     * duration (e.g. video).
+     * <p>For {@linkplain Transformer export}, this should be set for non-image inputs that don't
+     * have an intrinsic duration (e.g. raw video data). It will be ignored for inputs that do have
+     * an intrinsic duration (e.g. encoded video data from input file).
      *
-     * <p>This should always be set for {@linkplain CompositionPlayer preview}.
+     * <p>For {@linkplain CompositionPlayer preview}, this should be set for all non-image inputs
+     * (i.e. audio and video input).
+     *
+     * <p>This duration doesn't need to be set for images, because the default value is the {@link
+     * MediaItem}'s {@linkplain MediaItem.Builder#setImageDurationMs(long) image duration}.
      *
      * <p>If {@linkplain MediaItem#clippingConfiguration clipping} is applied, this should be the
      * duration before clipping.
-     *
-     * <p>The default value is the {@link MediaItem}'s {@linkplain
-     * MediaItem.Builder#setImageDurationMs(long) image duration}.
      *
      * @param durationUs The duration, in microseconds.
      * @return This builder.
@@ -285,6 +294,10 @@ public final class EditedMediaItem {
       int frameRate,
       Effects effects) {
     checkState(!removeAudio || !removeVideo, "Audio and video cannot both be removed");
+    if (isGap(mediaItem)) {
+      checkArgument(durationUs != C.TIME_UNSET);
+      checkArgument(!removeAudio && !flattenForSlowMotion && effects.audioProcessors.isEmpty());
+    }
     this.mediaItem = mediaItem;
     this.removeAudio = removeAudio;
     this.removeVideo = removeVideo;
@@ -340,5 +353,17 @@ public final class EditedMediaItem {
       }
     }
     return max(audioDurationUs, videoDurationUs);
+  }
+
+  /**
+   * Returns whether this {@code EditedMediaItem} is a {@linkplain
+   * EditedMediaItemSequence.Builder#addGap(long) gap}.
+   */
+  /* package */ boolean isGap() {
+    return isGap(mediaItem);
+  }
+
+  private static boolean isGap(MediaItem mediaItem) {
+    return Objects.equals(mediaItem.mediaId, GAP_MEDIA_ID);
   }
 }

@@ -192,7 +192,7 @@ public class Mp4MuxerEndToEndTest {
       mp4Muxer.close();
     }
 
-    // The presentation time of second track's first sample is forcefully changed to 0L.
+    // The presentation time of second track's first sample is retained through edit box.
     FakeExtractorOutput fakeExtractorOutput =
         TestUtil.extractAllSamplesFromFilePath(
             new Mp4Extractor(new DefaultSubtitleParserFactory()), outputFilePath);
@@ -200,6 +200,43 @@ public class Mp4MuxerEndToEndTest {
         context,
         fakeExtractorOutput,
         MuxerTestUtil.getExpectedDumpFilePath("mp4_with_different_tracks_offset.mp4"));
+  }
+
+  @Test
+  public void createMp4File_withNegativeTracksOffset_matchesExpected() throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+    Mp4Muxer mp4Muxer = new Mp4Muxer.Builder(new FileOutputStream(outputFilePath)).build();
+    mp4Muxer.addMetadataEntry(
+        new Mp4TimestampData(
+            /* creationTimestampSeconds= */ 100_000_000L,
+            /* modificationTimestampSeconds= */ 500_000_000L));
+    Pair<ByteBuffer, BufferInfo> track1Sample1 =
+        getFakeSampleAndSampleInfo(/* presentationTimeUs= */ -100L);
+    Pair<ByteBuffer, BufferInfo> track1Sample2 =
+        getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 100L);
+    Pair<ByteBuffer, BufferInfo> track1Sample3 =
+        getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 300L);
+
+    try {
+      TrackToken track1 = mp4Muxer.addTrack(FAKE_VIDEO_FORMAT);
+      mp4Muxer.writeSampleData(track1, track1Sample1.first, track1Sample1.second);
+      mp4Muxer.writeSampleData(track1, track1Sample2.first, track1Sample2.second);
+      mp4Muxer.writeSampleData(track1, track1Sample3.first, track1Sample3.second);
+    } finally {
+      mp4Muxer.close();
+    }
+
+    // Presentation timestamps in dump file are:
+    // Track 1 Sample 1 = -100L
+    // Track 1 Sample 2 = 100L
+    // Track 1 Sample 3 = 300L
+    FakeExtractorOutput fakeExtractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(
+            new Mp4Extractor(new DefaultSubtitleParserFactory()), outputFilePath);
+    DumpFileAsserts.assertOutput(
+        context,
+        fakeExtractorOutput,
+        MuxerTestUtil.getExpectedDumpFilePath("mp4_with_negative_tracks_offset.mp4"));
   }
 
   @Test
@@ -254,6 +291,14 @@ public class Mp4MuxerEndToEndTest {
         getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 23_000_132_928L);
     Pair<ByteBuffer, BufferInfo> track1Sample4 =
         getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 23_000_033_192L);
+    Pair<ByteBuffer, BufferInfo> track2Sample1 =
+        getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 23_001_000_000L);
+    Pair<ByteBuffer, BufferInfo> track2Sample2 =
+        getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 23_001_273_908L);
+    Pair<ByteBuffer, BufferInfo> track2Sample3 =
+        getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 23_001_132_928L);
+    Pair<ByteBuffer, BufferInfo> track2Sample4 =
+        getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 23_001_033_192L);
 
     try {
       TrackToken track1 = mp4Muxer.addTrack(FAKE_VIDEO_FORMAT);
@@ -261,6 +306,11 @@ public class Mp4MuxerEndToEndTest {
       mp4Muxer.writeSampleData(track1, track1Sample2.first, track1Sample2.second);
       mp4Muxer.writeSampleData(track1, track1Sample3.first, track1Sample3.second);
       mp4Muxer.writeSampleData(track1, track1Sample4.first, track1Sample4.second);
+      TrackToken track2 = mp4Muxer.addTrack(FAKE_VIDEO_FORMAT);
+      mp4Muxer.writeSampleData(track2, track2Sample1.first, track2Sample1.second);
+      mp4Muxer.writeSampleData(track2, track2Sample2.first, track2Sample2.second);
+      mp4Muxer.writeSampleData(track2, track2Sample3.first, track2Sample3.second);
+      mp4Muxer.writeSampleData(track2, track2Sample4.first, track2Sample4.second);
     } finally {
       mp4Muxer.close();
     }

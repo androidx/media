@@ -123,6 +123,7 @@ public final class MidiExtractor implements Extractor, SeekMap {
     trackOutput.format(
         new Format.Builder()
             .setCodecs(MimeTypes.AUDIO_MIDI)
+            .setContainerMimeType(MimeTypes.AUDIO_MIDI)
             .setSampleMimeType(MimeTypes.AUDIO_EXOPLAYER_MIDI)
             .build());
     output.endTracks();

@@ -18,25 +18,32 @@ package androidx.media3.transformer;
 
 import static androidx.media3.transformer.AndroidTestUtil.FORCE_TRANSCODE_VIDEO_EFFECTS;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S;
 import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
 import android.media.MediaCodec;
 import android.media.MediaFormat;
 import android.view.Surface;
 import androidx.annotation.Nullable;
+import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.Util;
 import androidx.media3.decoder.DecoderInputBuffer;
+import androidx.media3.extractor.mp4.Mp4Extractor;
+import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
+import androidx.media3.test.utils.FakeExtractorOutput;
+import androidx.media3.test.utils.TestUtil;
+import androidx.media3.transformer.AndroidTestUtil.DelayEffect;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.collect.ImmutableList;
 import java.io.File;
-import java.io.IOException;
 import java.nio.ByteBuffer;
-import org.json.JSONException;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -65,9 +72,9 @@ public class ForceEndOfStreamTest {
 
   @Test
   public void transcode_decoderDroppingLastFourFrames_exportSucceeds() throws Exception {
-    if (skipTestBelowApi29(context, testId)) {
-      return;
-    }
+    // TODO: b/370050055 - do we need API 29+, or the device list from
+    //  Util.isFrameDropAllowedOnSurfaceInput?
+    assumeTrue(Util.SDK_INT >= 29);
     assumeFormatsSupported(
         context,
         testId,
@@ -80,7 +87,6 @@ public class ForceEndOfStreamTest {
             .build()
             .run(testId, createComposition(MediaItem.fromUri(MP4_ASSET.uri)));
 
-    assertThat(testResult.analysisException).isNull();
     assertThat(testResult.exportResult.videoFrameCount)
         .isEqualTo(MP4_ASSET.videoFrameCount - framesToSkip);
     assertThat(new File(testResult.filePath).length()).isGreaterThan(0);
@@ -88,9 +94,9 @@ public class ForceEndOfStreamTest {
 
   @Test
   public void transcode_decoderDroppingNoFrame_exportSucceeds() throws Exception {
-    if (skipTestBelowApi29(context, testId)) {
-      return;
-    }
+    // TODO: b/370050055 - do we need API 29+, or the device list from
+    //  Util.isFrameDropAllowedOnSurfaceInput?
+    assumeTrue(Util.SDK_INT >= 29);
     assumeFormatsSupported(
         context,
         testId,
@@ -103,19 +109,55 @@ public class ForceEndOfStreamTest {
             .build()
             .run(testId, createComposition(MediaItem.fromUri(MP4_ASSET.uri)));
 
-    assertThat(testResult.analysisException).isNull();
     assertThat(testResult.exportResult.videoFrameCount).isEqualTo(MP4_ASSET.videoFrameCount);
     assertThat(new File(testResult.filePath).length()).isGreaterThan(0);
   }
 
-  private static boolean skipTestBelowApi29(Context context, String testId)
-      throws JSONException, IOException {
-    if (Util.SDK_INT < 29) {
-      AndroidTestUtil.recordTestSkipped(
-          context, testId, /* reason= */ "Decoder frame dropping is possible from API29.");
-      return true;
-    }
-    return false;
+  @Test
+  public void transcode_withSlowVideoEffect_exportSucceedsWithCorrectNumberOfFrames()
+      throws Exception {
+    // TODO: b/370050055 - do we need API 29+, or the device list from
+    //  Util.isFrameDropAllowedOnSurfaceInput?
+    assumeTrue(Util.SDK_INT >= 29);
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.videoFormat,
+        /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.videoFormat);
+    // Use MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S because it's widely supported.
+    // Clip to 30 frames, because we need a DelayEffect(200ms) to be applied for each frame.
+    // Processing too many frames would make this test unnecessarily slow.
+    MediaItem mediaItemClippedTo30Frames =
+        new MediaItem.Builder()
+            .setUri(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.uri)
+            .setClippingConfiguration(
+                new MediaItem.ClippingConfiguration.Builder().setEndPositionMs(495).build())
+            .build();
+    Composition composition =
+        new Composition.Builder(
+                new EditedMediaItemSequence.Builder()
+                    .addItem(
+                        new EditedMediaItem.Builder(mediaItemClippedTo30Frames)
+                            .setRemoveAudio(true)
+                            .setEffects(
+                                new Effects(
+                                    /* audioProcessors= */ ImmutableList.of(),
+                                    /* videoEffects= */ ImmutableList.of(
+                                        new DelayEffect(/* delayMs= */ 200))))
+                            .build())
+                    .build())
+            .build();
+    Transformer transformer = new Transformer.Builder(context).build();
+
+    ExportTestResult testResult =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, composition);
+
+    FakeExtractorOutput fakeExtractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(
+            new Mp4Extractor(new DefaultSubtitleParserFactory()), testResult.filePath);
+    fakeExtractorOutput.track(0, C.TRACK_TYPE_VIDEO).assertSampleCount(30);
   }
 
   private static Transformer buildTransformer(Context context, int framesToSkip) {
@@ -144,7 +186,7 @@ public class ForceEndOfStreamTest {
     private final int framesToDrop;
 
     private FrameDroppingDecoderFactory(Context context, int sourceFrameCount, int framesToDrop) {
-      this.defaultDecoderFactory = new DefaultDecoderFactory(context);
+      defaultDecoderFactory = new DefaultDecoderFactory.Builder(context).build();
       this.sourceFrameCount = sourceFrameCount;
       this.framesToDrop = framesToDrop;
     }

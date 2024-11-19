@@ -21,6 +21,7 @@ import androidx.media3.common.AdViewProvider;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
+import androidx.media3.common.Timeline;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.DataSpec;
 import androidx.media3.exoplayer.source.MediaSource;
@@ -156,6 +157,24 @@ public interface AdsLoader {
    */
   @UnstableApi
   void stop(AdsMediaSource adsMediaSource, EventListener eventListener);
+
+  /**
+   * Notifies the ads loader when the content source has changed its timeline. Called on the main
+   * thread by {@link AdsMediaSource}.
+   *
+   * <p>If you override this callback for the purpose of reading ad data from the timeline to
+   * populate the {@link AdPlaybackState} with, you need to pass true to the constructor of {@link
+   * AdsMediaSource#AdsMediaSource(MediaSource, DataSpec, Object, MediaSource.Factory, AdsLoader,
+   * AdViewProvider, boolean) AdsMediaSource} to indicate the content source needs to be prepared
+   * upfront.
+   *
+   * @param mediaItem The {@link MediaItem} of the source that produced the timeline.
+   * @param timeline The timeline of the content source.
+   */
+  @UnstableApi
+  default void handleContentTimelineChanged(MediaItem mediaItem, Timeline timeline) {
+    // Do nothing.
+  }
 
   /**
    * Notifies the ads loader that preparation of an ad media period is complete. Called on the main

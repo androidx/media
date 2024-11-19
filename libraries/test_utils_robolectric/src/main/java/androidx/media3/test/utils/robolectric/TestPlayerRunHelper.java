@@ -22,6 +22,7 @@ import static androidx.media3.test.utils.robolectric.RobolectricUtil.runMainLoop
 
 import android.os.Looper;
 import androidx.annotation.Nullable;
+import androidx.media3.common.C;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.Timeline;
@@ -504,6 +505,31 @@ public final class TestPlayerRunHelper {
       runUntil(conditionTrue::get);
     }
 
+    /**
+     * Runs tasks of the main {@link Looper} until the player has fully buffered its entire playlist
+     * and stopped reporting {@link Player#isLoading()}.
+     *
+     * <p>Note that this method won't succeed if the player is configured with a {@link
+     * androidx.media3.exoplayer.LoadControl} that prevents loading the playlist fully before
+     * playback resumes.
+     *
+     * <p>If a {@link Player.RepeatMode} setting results in an endless playlist, this method only
+     * waits until all items have been buffered at least once.
+     *
+     * @throws PlaybackException If a playback error occurs.
+     * @throws TimeoutException If the {@link RobolectricUtil#DEFAULT_TIMEOUT_MS default timeout} is
+     *     exceeded.
+     */
+    public void untilFullyBuffered() throws PlaybackException, TimeoutException {
+      untilBackgroundThreadCondition(
+          () -> {
+            long remainingDurationMs = getRemainingPlaybackDuration(player);
+            return remainingDurationMs != C.TIME_UNSET
+                && player.getTotalBufferedDuration() >= remainingDurationMs
+                && !player.isLoading();
+          });
+    }
+
     @Override
     public ExoPlayerRunResult ignoringNonFatalErrors() {
       checkState(!hasBeenUsed);
@@ -852,6 +878,41 @@ public final class TestPlayerRunHelper {
     checkState(
         player.getPlaybackLooper().getThread().isAlive(),
         "Playback thread is not alive, has the player been released?");
+  }
+
+  private static long getRemainingPlaybackDuration(Player player) {
+    if (player.getCurrentTimeline().isEmpty()) {
+      return 0;
+    }
+    int currentMediaItemIndex = player.getCurrentMediaItemIndex();
+    long currentMediaItemDurationMs = getMediaItemDurationMs(player, currentMediaItemIndex);
+    if (currentMediaItemDurationMs == C.TIME_UNSET) {
+      return C.TIME_UNSET;
+    }
+    long totalDurationMs = currentMediaItemDurationMs - player.getCurrentPosition();
+    int mediaItemIndex = currentMediaItemIndex;
+    while ((mediaItemIndex = getNextMediaItemIndex(player, mediaItemIndex)) != C.INDEX_UNSET
+        && mediaItemIndex != currentMediaItemIndex) {
+      currentMediaItemDurationMs = getMediaItemDurationMs(player, mediaItemIndex);
+      if (currentMediaItemDurationMs == C.TIME_UNSET) {
+        return C.TIME_UNSET;
+      }
+      totalDurationMs += currentMediaItemDurationMs;
+    }
+    return totalDurationMs;
+  }
+
+  private static long getMediaItemDurationMs(Player player, int mediaItemIndex) {
+    return player
+        .getCurrentTimeline()
+        .getWindow(mediaItemIndex, new Timeline.Window())
+        .getDurationMs();
+  }
+
+  private static int getNextMediaItemIndex(Player player, int mediaItemIndex) {
+    return player
+        .getCurrentTimeline()
+        .getNextWindowIndex(mediaItemIndex, player.getRepeatMode(), player.getShuffleModeEnabled());
   }
 
   /**

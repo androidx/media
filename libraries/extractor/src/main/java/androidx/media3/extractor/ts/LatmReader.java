@@ -50,6 +50,7 @@ public final class LatmReader implements ElementaryStreamReader {
 
   @Nullable private final String language;
   private final @C.RoleFlags int roleFlags;
+  private final String containerMimeType;
   private final ParsableByteArray sampleDataBuffer;
   private final ParsableBitArray sampleBitArray;
 
@@ -80,10 +81,13 @@ public final class LatmReader implements ElementaryStreamReader {
   /**
    * @param language Track language.
    * @param roleFlags Track role flags.
+   * @param containerMimeType The MIME type of the container holding the stream.
    */
-  public LatmReader(@Nullable String language, @C.RoleFlags int roleFlags) {
+  public LatmReader(
+      @Nullable String language, @C.RoleFlags int roleFlags, String containerMimeType) {
     this.language = language;
     this.roleFlags = roleFlags;
+    this.containerMimeType = containerMimeType;
     sampleDataBuffer = new ParsableByteArray(INITIAL_BUFFER_SIZE);
     sampleBitArray = new ParsableBitArray(sampleDataBuffer.getData());
     timeUs = C.TIME_UNSET;
@@ -214,6 +218,7 @@ public final class LatmReader implements ElementaryStreamReader {
         Format format =
             new Format.Builder()
                 .setId(formatId)
+                .setContainerMimeType(containerMimeType)
                 .setSampleMimeType(MimeTypes.AUDIO_AAC)
                 .setCodecs(codecs)
                 .setChannelCount(channelCount)

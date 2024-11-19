@@ -90,6 +90,7 @@ import org.checkerframework.dataflow.qual.Pure;
       DebugViewProvider debugViewProvider,
       long initialTimestampOffsetUs,
       boolean hasMultipleInputs,
+      boolean portraitEncodingEnabled,
       int maxFramesInEncoder)
       throws ExportException {
     // TODO(b/278259383) Consider delaying configuration of VideoSampleExporter to use the decoder
@@ -123,6 +124,7 @@ import org.checkerframework.dataflow.qual.Pure;
         new EncoderWrapper(
             encoderFactory,
             firstInputFormat.buildUpon().setColorInfo(videoGraphOutputColor).build(),
+            portraitEncodingEnabled,
             muxerWrapper.getSupportedSampleMimeTypes(C.TRACK_TYPE_VIDEO),
             transformationRequest,
             fallbackListener);
@@ -229,6 +231,7 @@ import org.checkerframework.dataflow.qual.Pure;
 
     private final Codec.EncoderFactory encoderFactory;
     private final Format inputFormat;
+    private final boolean portraitEncodingEnabled;
     private final List<String> muxerSupportedMimeTypes;
     private final TransformationRequest transformationRequest;
     private final FallbackListener fallbackListener;
@@ -244,12 +247,14 @@ import org.checkerframework.dataflow.qual.Pure;
     public EncoderWrapper(
         Codec.EncoderFactory encoderFactory,
         Format inputFormat,
+        boolean portraitEncodingEnabled,
         List<String> muxerSupportedMimeTypes,
         TransformationRequest transformationRequest,
         FallbackListener fallbackListener) {
       checkArgument(inputFormat.colorInfo != null);
       this.encoderFactory = encoderFactory;
       this.inputFormat = inputFormat;
+      this.portraitEncodingEnabled = portraitEncodingEnabled;
       this.muxerSupportedMimeTypes = muxerSupportedMimeTypes;
       this.transformationRequest = transformationRequest;
       this.fallbackListener = fallbackListener;
@@ -290,29 +295,24 @@ import org.checkerframework.dataflow.qual.Pure;
       }
 
       // Encoders commonly support higher maximum widths than maximum heights. This may rotate the
-      // frame before encoding, so the encoded frame's width >= height, and sets
-      // rotationDegrees in the output Format to ensure the frame is displayed in the correct
-      // orientation.
-      // VideoGraph rotates the decoded video frames counter-clockwise by outputRotationDegrees.
-      // Instruct the muxer to signal clockwise rotation by outputRotationDegrees.
-      // When both VideoGraph and muxer rotations are applied, the video will be displayed the right
-      // way up.
-      if (requestedWidth < requestedHeight) {
+      // frame before encoding, so the encoded frame's width >= height. In this case, the VideoGraph
+      // rotates the decoded video frames counter-clockwise, and the muxer adds a clockwise rotation
+      // to the metadata.
+      if (requestedWidth < requestedHeight && !portraitEncodingEnabled) {
         int temp = requestedWidth;
         requestedWidth = requestedHeight;
         requestedHeight = temp;
         outputRotationDegrees = 90;
       }
 
-      // Try to match the inputFormat's rotation, but preserve landscape mode.
-      // This is a best-effort attempt to preserve input video properties
-      // (helpful for trim optimization), but is not guaranteed to work when effects are applied.
+      // Try to match the inputFormat's rotation, but preserve landscape/portrait mode. This is a
+      // best-effort attempt to preserve input video properties (helpful for trim optimization), but
+      // is not guaranteed to work when effects are applied.
       if (inputFormat.rotationDegrees % 180 == outputRotationDegrees % 180) {
         outputRotationDegrees = inputFormat.rotationDegrees;
       }
 
-      // Rotation is handled by this class. The encoder must see a landscape video with zero
-      // degrees rotation.
+      // Rotation is handled by this class. The encoder must see a video with zero degrees rotation.
       Format requestedEncoderFormat =
           new Format.Builder()
               .setWidth(requestedWidth)

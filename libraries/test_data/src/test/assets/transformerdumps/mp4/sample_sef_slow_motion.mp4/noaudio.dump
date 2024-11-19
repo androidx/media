@@ -1,5 +1,6 @@
 format video:
   id = 2
+  containerMimeType = video/mp4
   sampleMimeType = video/avc
   codecs = avc1.64000D
   maxInputSize = 5476

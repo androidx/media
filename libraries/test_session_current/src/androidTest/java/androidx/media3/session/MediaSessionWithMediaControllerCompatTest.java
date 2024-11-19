@@ -24,6 +24,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import android.content.Context;
 import android.os.Bundle;
 import android.support.v4.media.session.MediaControllerCompat;
+import android.support.v4.media.session.MediaSessionCompat;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
 import androidx.media3.test.session.common.HandlerThreadTestRule;
@@ -87,7 +88,8 @@ public class MediaSessionWithMediaControllerCompatTest {
         sessionTestRule.ensureReleaseAfterTest(
             new MediaSession.Builder(context, player).setId(TAG).setCallback(callback).build());
     RemoteMediaControllerCompat controllerCompat =
-        remoteControllerTestRule.createRemoteControllerCompat(session.getSessionCompatToken());
+        remoteControllerTestRule.createRemoteControllerCompat(
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()));
     // Invoke any command for session to recognize the controller compat.
     controllerCompat.getTransportControls().prepare();
 
@@ -130,7 +132,8 @@ public class MediaSessionWithMediaControllerCompatTest {
         .get();
 
     RemoteMediaControllerCompat controllerCompat =
-        remoteControllerTestRule.createRemoteControllerCompat(session.getSessionCompatToken());
+        remoteControllerTestRule.createRemoteControllerCompat(
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()));
     controllerCompat.transportControls.play();
 
     assertThat(connectedLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
@@ -141,7 +144,8 @@ public class MediaSessionWithMediaControllerCompatTest {
         SessionCommands.EMPTY,
         Player.Commands.EMPTY.buildUpon().add(Player.COMMAND_GET_TIMELINE).build());
     RemoteMediaControllerCompat controllerCompat2 =
-        remoteControllerTestRule.createRemoteControllerCompat(session.getSessionCompatToken());
+        remoteControllerTestRule.createRemoteControllerCompat(
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()));
     controllerCompat2.transportControls.pause();
 
     assertThat(controllerCompat.getQueueSize()).isEqualTo(2);

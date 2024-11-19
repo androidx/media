@@ -9,8 +9,10 @@ numberOfTracks = 1
 track 0:
   total output bytes = 86208
   sample count = 5
+  track duration = 55555
   format 0:
     id = 1
+    containerMimeType = video/mp4
     sampleMimeType = video/mv-hevc
     codecs = hvc1.6.40.L156.BF.80
     maxInputSize = 40098

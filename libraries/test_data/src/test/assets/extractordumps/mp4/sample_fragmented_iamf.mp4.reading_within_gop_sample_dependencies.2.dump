@@ -9,11 +9,11 @@ numberOfTracks = 1
 track 0:
   total output bytes = 11216
   sample count = 42
+  track duration = 499875
   format 0:
     id = 1
+    containerMimeType = audio/mp4
     sampleMimeType = audio/iamf
-    channelCount = 0
-    sampleRate = 0
     language = und
     initializationData:
       data = length 119, hash 99A80807

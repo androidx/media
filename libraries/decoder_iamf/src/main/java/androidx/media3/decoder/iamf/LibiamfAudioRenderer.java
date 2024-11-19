@@ -27,6 +27,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.TraceUtil;
+import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.decoder.CryptoConfig;
 import androidx.media3.decoder.DecoderException;
@@ -36,6 +37,7 @@ import androidx.media3.exoplayer.audio.DecoderAudioRenderer;
 import java.util.Objects;
 
 /** Decodes and renders audio using the native IAMF decoder. */
+@UnstableApi
 public class LibiamfAudioRenderer extends DecoderAudioRenderer<IamfDecoder> {
   private final Context context;
 
@@ -94,18 +96,19 @@ public class LibiamfAudioRenderer extends DecoderAudioRenderer<IamfDecoder> {
     }
 
     AudioManager audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
-    AudioFormat.Builder audioFormat =
-        new AudioFormat.Builder()
-            .setEncoding(IamfDecoder.OUTPUT_PCM_ENCODING)
-            .setChannelMask(IamfDecoder.SPATIALIZED_OUTPUT_LAYOUT);
     if (audioManager == null) {
       return false;
     }
+    AudioFormat audioFormat =
+        new AudioFormat.Builder()
+            .setEncoding(IamfDecoder.OUTPUT_PCM_ENCODING)
+            .setChannelMask(IamfDecoder.SPATIALIZED_OUTPUT_LAYOUT)
+            .build();
     Spatializer spatializer = audioManager.getSpatializer();
     return spatializer.getImmersiveAudioLevel() != Spatializer.SPATIALIZER_IMMERSIVE_LEVEL_NONE
         && spatializer.isAvailable()
         && spatializer.isEnabled()
         && spatializer.canBeSpatialized(
-            AudioAttributes.DEFAULT.getAudioAttributesV21().audioAttributes, audioFormat.build());
+            AudioAttributes.DEFAULT.getAudioAttributesV21().audioAttributes, audioFormat);
   }
 }

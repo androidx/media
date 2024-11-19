@@ -20,6 +20,7 @@ import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.castNonNull;
 import static androidx.media3.common.util.Util.nullSafeArrayCopy;
 import static androidx.media3.extractor.mp4.BoxParser.parseTraks;
+import static androidx.media3.extractor.mp4.MimeTypeResolver.getContainerMimeType;
 import static java.lang.Math.max;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
@@ -448,7 +449,7 @@ public class FragmentedMp4Extractor implements Extractor {
     if (sideloadedTrack != null) {
       TrackBundle bundle =
           new TrackBundle(
-              output.track(0, sideloadedTrack.type),
+              extractorOutput.track(0, sideloadedTrack.type),
               new TrackSampleTable(
                   sideloadedTrack,
                   /* offsets= */ new long[0],
@@ -461,7 +462,8 @@ public class FragmentedMp4Extractor implements Extractor {
                   /* sampleDescriptionIndex= */ 0,
                   /* duration= */ 0,
                   /* size= */ 0,
-                  /* flags= */ 0));
+                  /* flags= */ 0),
+              getContainerMimeType(sideloadedTrack.format));
       trackBundles.put(0, bundle);
       extractorOutput.endTracks();
     }
@@ -612,7 +614,7 @@ public class FragmentedMp4Extractor implements Extractor {
   }
 
   private void readAtomPayload(ExtractorInput input) throws IOException {
-    int atomPayloadSize = (int) atomSize - atomHeaderBytesRead;
+    int atomPayloadSize = (int) (atomSize - atomHeaderBytesRead);
     @Nullable ParsableByteArray atomData = this.atomData;
     if (atomData != null) {
       input.readFully(atomData.getData(), Mp4Box.HEADER_SIZE, atomPayloadSize);
@@ -687,14 +689,18 @@ public class FragmentedMp4Extractor implements Extractor {
     int trackCount = sampleTables.size();
     if (trackBundles.size() == 0) {
       // We need to create the track bundles.
+      String containerMimeType = getContainerMimeType(sampleTables);
       for (int i = 0; i < trackCount; i++) {
         TrackSampleTable sampleTable = sampleTables.get(i);
         Track track = sampleTable.track;
+        TrackOutput output = extractorOutput.track(i, track.type);
+        output.durationUs(track.durationUs);
         TrackBundle trackBundle =
             new TrackBundle(
-                extractorOutput.track(i, track.type),
+                output,
                 sampleTable,
-                getDefaultSampleValues(defaultSampleValuesArray, track.id));
+                getDefaultSampleValues(defaultSampleValuesArray, track.id),
+                containerMimeType);
         trackBundles.put(track.id, trackBundle);
         durationUs = max(durationUs, track.durationUs);
       }
@@ -1149,12 +1155,12 @@ public class FragmentedMp4Extractor implements Extractor {
     if (track.editListDurations[0] == 0) {
       return true;
     }
-    long editListEndMediaTimeUs =
+    long editListDurationUs =
         Util.scaleLargeTimestamp(
-            track.editListDurations[0] + track.editListMediaTimes[0],
-            C.MICROS_PER_SECOND,
-            track.movieTimescale);
-    return editListEndMediaTimeUs >= track.durationUs;
+            track.editListDurations[0], C.MICROS_PER_SECOND, track.movieTimescale);
+    long editListMediaTimeUs =
+        Util.scaleLargeTimestamp(track.editListMediaTimes[0], C.MICROS_PER_SECOND, track.timescale);
+    return editListDurationUs + editListMediaTimeUs >= track.durationUs;
   }
 
   /**
@@ -1608,7 +1614,7 @@ public class FragmentedMp4Extractor implements Extractor {
           output.sampleData(nalPrefix, 1);
           processSeiNalUnitPayload =
               ceaTrackOutputs.length > 0
-                  && NalUnitUtil.isNalUnitSei(track.format.sampleMimeType, nalPrefixData[4]);
+                  && NalUnitUtil.isNalUnitSei(track.format, nalPrefixData[4]);
           sampleBytesWritten += 5;
           sampleSize += nalUnitLengthFieldLengthDiff;
           if (!isSampleDependedOn
@@ -1629,20 +1635,25 @@ public class FragmentedMp4Extractor implements Extractor {
             int unescapedLength =
                 NalUnitUtil.unescapeStream(nalBuffer.getData(), nalBuffer.limit());
             // If the format is H.265/HEVC the NAL unit header has two bytes so skip one more byte.
-            nalBuffer.setPosition(MimeTypes.VIDEO_H265.equals(track.format.sampleMimeType) ? 1 : 0);
+            nalBuffer.setPosition(
+                Objects.equals(track.format.sampleMimeType, MimeTypes.VIDEO_H265)
+                        || MimeTypes.containsCodecsCorrespondingToMimeType(
+                            track.format.codecs, MimeTypes.VIDEO_H265)
+                    ? 1
+                    : 0);
             nalBuffer.setLimit(unescapedLength);
 
-            if (track.format.maxNumReorderSamples != Format.NO_VALUE
-                && track.format.maxNumReorderSamples != reorderingSeiMessageQueue.getMaxSize()) {
+            if (track.format.maxNumReorderSamples == Format.NO_VALUE) {
+              if (reorderingSeiMessageQueue.getMaxSize() != 0) {
+                reorderingSeiMessageQueue.setMaxSize(0);
+              }
+            } else if (reorderingSeiMessageQueue.getMaxSize()
+                != track.format.maxNumReorderSamples) {
               reorderingSeiMessageQueue.setMaxSize(track.format.maxNumReorderSamples);
             }
             reorderingSeiMessageQueue.add(sampleTimeUs, nalBuffer);
 
-            boolean sampleIsKeyFrameOrEndOfStream =
-                (trackBundle.getCurrentSampleFlags()
-                        & (C.BUFFER_FLAG_KEY_FRAME | C.BUFFER_FLAG_END_OF_STREAM))
-                    != 0;
-            if (sampleIsKeyFrameOrEndOfStream) {
+            if ((trackBundle.getCurrentSampleFlags() & C.BUFFER_FLAG_END_OF_STREAM) != 0) {
               reorderingSeiMessageQueue.flush();
             }
           } else {
@@ -1839,6 +1850,7 @@ public class FragmentedMp4Extractor implements Extractor {
     public int currentTrackRunIndex;
     public int firstSampleToOutputIndex;
 
+    private final String containerMimeType;
     private final ParsableByteArray encryptionSignalByte;
     private final ParsableByteArray defaultInitializationVector;
 
@@ -1847,10 +1859,12 @@ public class FragmentedMp4Extractor implements Extractor {
     public TrackBundle(
         TrackOutput output,
         TrackSampleTable moovSampleTable,
-        DefaultSampleValues defaultSampleValues) {
+        DefaultSampleValues defaultSampleValues,
+        String containerMimeType) {
       this.output = output;
       this.moovSampleTable = moovSampleTable;
       this.defaultSampleValues = defaultSampleValues;
+      this.containerMimeType = containerMimeType;
       fragment = new TrackFragment();
       scratch = new ParsableByteArray();
       encryptionSignalByte = new ParsableByteArray(1);
@@ -1861,7 +1875,9 @@ public class FragmentedMp4Extractor implements Extractor {
     public void reset(TrackSampleTable moovSampleTable, DefaultSampleValues defaultSampleValues) {
       this.moovSampleTable = moovSampleTable;
       this.defaultSampleValues = defaultSampleValues;
-      output.format(moovSampleTable.track.format);
+      Format format =
+          moovSampleTable.track.format.buildUpon().setContainerMimeType(containerMimeType).build();
+      output.format(format);
       resetFragmentInfo();
     }
 
@@ -1873,7 +1889,13 @@ public class FragmentedMp4Extractor implements Extractor {
       @Nullable String schemeType = encryptionBox != null ? encryptionBox.schemeType : null;
       DrmInitData updatedDrmInitData = drmInitData.copyWithSchemeType(schemeType);
       Format format =
-          moovSampleTable.track.format.buildUpon().setDrmInitData(updatedDrmInitData).build();
+          moovSampleTable
+              .track
+              .format
+              .buildUpon()
+              .setContainerMimeType(containerMimeType)
+              .setDrmInitData(updatedDrmInitData)
+              .build();
       output.format(format);
     }
 

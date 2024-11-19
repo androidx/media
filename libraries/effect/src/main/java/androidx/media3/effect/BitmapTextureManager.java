@@ -169,8 +169,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         EVENT_QUEUE_BITMAP,
         currentPresentationTimeUs,
         /* extraFormat= */ "%dx%d",
-        /* extraArgs...= */ currentFrameInfo.width,
-        currentFrameInfo.height);
+        /* extraArgs...= */ currentFrameInfo.format.width,
+        currentFrameInfo.format.height);
 
     if (!currentBitmapInfo.inStreamOffsetsUs.hasNext()) {
       isNextFrameInTexture = false;
@@ -216,8 +216,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               currentTexId,
               /* fboId= */ C.INDEX_UNSET,
               /* rboId= */ C.INDEX_UNSET,
-              frameInfo.width,
-              frameInfo.height);
+              frameInfo.format.width,
+              frameInfo.format.height);
       if (Util.SDK_INT >= 34 && bitmap.hasGainmap()) {
         checkNotNull(repeatingGainmapShaderProgram).setGainmap(checkNotNull(bitmap.getGainmap()));
       }

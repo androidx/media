@@ -17,7 +17,7 @@ To use the module you need to clone this GitHub project and depend on its
 modules locally. Instructions for doing this can be found in the
 [top level README][].
 
-In addition, it's necessary to build the module's native components as follows:
+In addition, it's necessary to fetch libflac as follows:
 
 * Set the following environment variables:
 
@@ -26,30 +26,24 @@ cd "<path to project checkout>"
 FLAC_MODULE_PATH="$(pwd)/libraries/decoder_flac/src/main"
 ```
 
-* Download the [Android NDK][] and set its location in an environment variable.
-  This build configuration has been tested on NDK r21.
-
-```
-NDK_PATH="<path to Android NDK>"
-```
-
-* Download and extract flac-1.3.2 as "${FLAC_MODULE_PATH}/jni/flac" folder:
+* Fetch libflac:
 
 ```
 cd "${FLAC_MODULE_PATH}/jni" && \
-curl https://ftp.osuosl.org/pub/xiph/releases/flac/flac-1.3.2.tar.xz | tar xJ && \
-mv flac-1.3.2 flac
+git clone https://github.com/xiph/flac.git libflac
 ```
 
-* Build the JNI native libraries from the command line:
+* [Install CMake][]
 
-```
-cd "${FLAC_MODULE_PATH}"/jni && \
-${NDK_PATH}/ndk-build APP_ABI=all -j4
-```
+Having followed these steps, gradle will build the module automatically when run
+on the command line or via Android Studio, using [CMake][] and [Ninja][] to
+configure and build libflac and the module's [JNI wrapper library][].
 
 [top level README]: ../../README.md
-[Android NDK]: https://developer.android.com/tools/sdk/ndk/index.html
+[Install CMake]: https://developer.android.com/studio/projects/install-ndk
+[CMake]: https://cmake.org/
+[Ninja]: https://ninja-build.org
+[JNI wrapper library]: src/main/jni/flac_jni.cc
 
 ## Build instructions (Windows)
 

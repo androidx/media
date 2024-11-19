@@ -34,14 +34,17 @@ import java.util.List;
 public final class SeiReader {
 
   private final List<Format> closedCaptionFormats;
+  private final String containerMimeType;
   private final TrackOutput[] outputs;
   private final ReorderingSeiMessageQueue reorderingSeiMessageQueue;
 
   /**
    * @param closedCaptionFormats A list of formats for the closed caption channels to expose.
+   * @param containerMimeType The MIME type of the container holding the SEI buffers.
    */
-  public SeiReader(List<Format> closedCaptionFormats) {
+  public SeiReader(List<Format> closedCaptionFormats, String containerMimeType) {
     this.closedCaptionFormats = closedCaptionFormats;
+    this.containerMimeType = containerMimeType;
     outputs = new TrackOutput[closedCaptionFormats.size()];
     reorderingSeiMessageQueue =
         new ReorderingSeiMessageQueue(
@@ -63,6 +66,7 @@ public final class SeiReader {
       output.format(
           new Format.Builder()
               .setId(formatId)
+              .setContainerMimeType(containerMimeType)
               .setSampleMimeType(channelMimeType)
               .setSelectionFlags(channelFormat.selectionFlags)
               .setLanguage(channelFormat.language)

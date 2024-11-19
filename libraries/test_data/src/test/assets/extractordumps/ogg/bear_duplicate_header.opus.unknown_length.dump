@@ -7,6 +7,7 @@ track 0:
   total output bytes = 25541
   sample count = 275
   format 0:
+    containerMimeType = audio/ogg
     sampleMimeType = audio/opus
     channelCount = 2
     sampleRate = 48000

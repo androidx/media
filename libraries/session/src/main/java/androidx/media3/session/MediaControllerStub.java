@@ -30,6 +30,7 @@ import androidx.media3.common.util.BundleCollectionUtil;
 import androidx.media3.common.util.Log;
 import androidx.media3.session.MediaLibraryService.LibraryParams;
 import androidx.media3.session.PlayerInfo.BundlingExclusions;
+import com.google.common.collect.ImmutableList;
 import java.lang.ref.WeakReference;
 import java.util.List;
 import org.checkerframework.checker.nullness.qual.NonNull;
@@ -39,7 +40,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
   private static final String TAG = "MediaControllerStub";
 
   /** The version of the IMediaController interface. */
-  public static final int VERSION_INT = 6;
+  public static final int VERSION_INT = 7;
 
   private final WeakReference<MediaControllerImplBase> controller;
 
@@ -127,6 +128,30 @@ import org.checkerframework.checker.nullness.qual.NonNull;
       return;
     }
     dispatchControllerTaskOnHandler(controller -> controller.onSetCustomLayout(seq, layout));
+  }
+
+  @Override
+  public void onSetMediaButtonPreferences(int seq, @Nullable List<Bundle> commandButtonBundleList) {
+    if (commandButtonBundleList == null) {
+      return;
+    }
+    ImmutableList<CommandButton> mediaButtonPreferences;
+    try {
+      int sessionInterfaceVersion = getSessionInterfaceVersion();
+      if (sessionInterfaceVersion == C.INDEX_UNSET) {
+        // Stale event.
+        return;
+      }
+      mediaButtonPreferences =
+          BundleCollectionUtil.fromBundleList(
+              bundle -> CommandButton.fromBundle(bundle, sessionInterfaceVersion),
+              commandButtonBundleList);
+    } catch (RuntimeException e) {
+      Log.w(TAG, "Ignoring malformed Bundle for CommandButton", e);
+      return;
+    }
+    dispatchControllerTaskOnHandler(
+        controller -> controller.onSetMediaButtonPreferences(seq, mediaButtonPreferences));
   }
 
   @Override

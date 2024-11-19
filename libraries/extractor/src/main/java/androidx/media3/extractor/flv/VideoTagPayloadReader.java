@@ -90,6 +90,7 @@ import androidx.media3.extractor.TrackOutput;
       // Construct and output the format.
       Format format =
           new Format.Builder()
+              .setContainerMimeType(MimeTypes.VIDEO_FLV)
               .setSampleMimeType(MimeTypes.VIDEO_H264)
               .setCodecs(avcConfig.codecs)
               .setWidth(avcConfig.width)

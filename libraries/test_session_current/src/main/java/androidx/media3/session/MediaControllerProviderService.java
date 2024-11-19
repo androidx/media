@@ -59,6 +59,10 @@ import java.util.concurrent.TimeoutException;
  * app's requests.
  */
 public class MediaControllerProviderService extends Service {
+
+  public static final String CONNECTION_HINT_KEY_MAX_COMMANDS_FOR_MEDIA_ITEMS =
+      "CONNECTION_HINT_KEY_MAX_COMMANDS_FOR_MEDIA_ITEMS";
+
   private static final String TAG = "MCProviderService";
 
   Map<String, MediaController> mediaControllerMap = new HashMap<>();
@@ -123,6 +127,13 @@ public class MediaControllerProviderService extends Service {
         boolean waitForConnection)
         throws RemoteException {
       SessionToken token = SessionToken.fromBundle(tokenBundle);
+      // Allow a test to define with what max number of commands per item to connect.
+      int maxCommandsForMediaItems =
+          connectionHints.containsKey(CONNECTION_HINT_KEY_MAX_COMMANDS_FOR_MEDIA_ITEMS)
+              ? connectionHints.getInt(
+                  CONNECTION_HINT_KEY_MAX_COMMANDS_FOR_MEDIA_ITEMS, /* defaultValue= */ -1)
+              : 0;
+      connectionHints.remove(CONNECTION_HINT_KEY_MAX_COMMANDS_FOR_MEDIA_ITEMS);
       ListenableFuture<? extends MediaController> controllerFuture =
           runOnHandler(
               () -> {
@@ -132,11 +143,17 @@ public class MediaControllerProviderService extends Service {
                   if (connectionHints != null) {
                     builder.setConnectionHints(connectionHints);
                   }
+                  if (maxCommandsForMediaItems >= 0) {
+                    builder.setMaxCommandsForMediaItems(maxCommandsForMediaItems);
+                  }
                   return builder.buildAsync();
                 } else {
                   MediaController.Builder builder = new MediaController.Builder(context, token);
                   if (connectionHints != null) {
                     builder.setConnectionHints(connectionHints);
+                  }
+                  if (maxCommandsForMediaItems >= 0) {
+                    builder.setMaxCommandsForMediaItems(maxCommandsForMediaItems);
                   }
                   return builder.buildAsync();
                 }
@@ -846,6 +863,20 @@ public class MediaControllerProviderService extends Service {
       }
       Bundle bundle = new Bundle();
       bundle.putParcelableArrayList(KEY_COMMAND_BUTTON_LIST, customLayout);
+      return bundle;
+    }
+
+    @Override
+    public Bundle getMediaButtonPreferences(String controllerId) throws RemoteException {
+      MediaController controller = mediaControllerMap.get(controllerId);
+      ArrayList<Bundle> mediaButtonPreferences = new ArrayList<>();
+      ImmutableList<CommandButton> commandButtons =
+          runOnHandler(controller::getMediaButtonPreferences);
+      for (CommandButton button : commandButtons) {
+        mediaButtonPreferences.add(button.toBundle());
+      }
+      Bundle bundle = new Bundle();
+      bundle.putParcelableArrayList(KEY_COMMAND_BUTTON_LIST, mediaButtonPreferences);
       return bundle;
     }
 

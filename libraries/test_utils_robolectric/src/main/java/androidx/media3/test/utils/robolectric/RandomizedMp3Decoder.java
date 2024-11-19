@@ -20,6 +20,7 @@ import android.media.AudioFormat;
 import android.media.MediaCrypto;
 import android.media.MediaFormat;
 import android.view.Surface;
+import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Assertions;
@@ -73,7 +74,8 @@ public final class RandomizedMp3Decoder implements ShadowMediaCodec.CodecConfig.
   }
 
   @Override
-  public void onConfigured(MediaFormat format, Surface surface, MediaCrypto crypto, int flags) {
+  public void onConfigured(
+      MediaFormat format, @Nullable Surface surface, @Nullable MediaCrypto crypto, int flags) {
     int pcmEncoding =
         format.getInteger(
             MediaFormat.KEY_PCM_ENCODING, /* defaultValue= */ AudioFormat.ENCODING_PCM_16BIT);

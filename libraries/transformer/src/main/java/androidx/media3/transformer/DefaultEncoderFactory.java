@@ -64,6 +64,7 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
 
     private EncoderSelector videoEncoderSelector;
     private VideoEncoderSettings requestedVideoEncoderSettings;
+    private AudioEncoderSettings requestedAudioEncoderSettings;
     private boolean enableFallback;
     private @C.Priority int codecPriority;
 
@@ -72,6 +73,7 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
       this.context = context.getApplicationContext();
       videoEncoderSelector = EncoderSelector.DEFAULT;
       requestedVideoEncoderSettings = VideoEncoderSettings.DEFAULT;
+      requestedAudioEncoderSettings = AudioEncoderSettings.DEFAULT;
       enableFallback = true;
       codecPriority = C.PRIORITY_PROCESSING_FOREGROUND;
     }
@@ -108,6 +110,20 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
     public Builder setRequestedVideoEncoderSettings(
         VideoEncoderSettings requestedVideoEncoderSettings) {
       this.requestedVideoEncoderSettings = requestedVideoEncoderSettings;
+      return this;
+    }
+
+    /**
+     * Sets the requested {@link AudioEncoderSettings}.
+     *
+     * <p>The default value is {@link AudioEncoderSettings#DEFAULT}.
+     *
+     * <p>Values in {@code requestedAudioEncoderSettings} may be ignored to reduce failures.
+     */
+    @CanIgnoreReturnValue
+    public Builder setRequestedAudioEncoderSettings(
+        AudioEncoderSettings requestedAudioEncoderSettings) {
+      this.requestedAudioEncoderSettings = requestedAudioEncoderSettings;
       return this;
     }
 
@@ -160,49 +176,15 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
   private final Context context;
   private final EncoderSelector videoEncoderSelector;
   private final VideoEncoderSettings requestedVideoEncoderSettings;
+  private final AudioEncoderSettings requestedAudioEncoderSettings;
   private final boolean enableFallback;
   private final @C.Priority int codecPriority;
-
-  /**
-   * @deprecated Use {@link Builder} instead.
-   */
-  @Deprecated
-  public DefaultEncoderFactory(Context context) {
-    this(new Builder(context));
-  }
-
-  /**
-   * @deprecated Use {@link Builder} instead.
-   */
-  @Deprecated
-  public DefaultEncoderFactory(
-      Context context, EncoderSelector videoEncoderSelector, boolean enableFallback) {
-    this(
-        new Builder(context)
-            .setVideoEncoderSelector(videoEncoderSelector)
-            .setEnableFallback(enableFallback));
-  }
-
-  /**
-   * @deprecated Use {@link Builder} instead.
-   */
-  @Deprecated
-  public DefaultEncoderFactory(
-      Context context,
-      EncoderSelector videoEncoderSelector,
-      VideoEncoderSettings requestedVideoEncoderSettings,
-      boolean enableFallback) {
-    this(
-        new Builder(context)
-            .setVideoEncoderSelector(videoEncoderSelector)
-            .setEnableFallback(enableFallback)
-            .setRequestedVideoEncoderSettings(requestedVideoEncoderSettings));
-  }
 
   private DefaultEncoderFactory(Builder builder) {
     this.context = builder.context;
     this.videoEncoderSelector = builder.videoEncoderSelector;
     this.requestedVideoEncoderSettings = builder.requestedVideoEncoderSettings;
+    this.requestedAudioEncoderSettings = builder.requestedAudioEncoderSettings;
     this.enableFallback = builder.enableFallback;
     this.codecPriority = builder.codecPriority;
   }
@@ -221,11 +203,35 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
     if (mediaCodecInfos.isEmpty()) {
       throw createExportException(format, "No audio media codec found");
     }
+
+    MediaCodecInfo selectedEncoder = mediaCodecInfos.get(0);
+
+    if (requestedAudioEncoderSettings.profile != AudioEncoderSettings.NO_VALUE) {
+      for (int i = 0; i < mediaCodecInfos.size(); i++) {
+        MediaCodecInfo encoderInfo = mediaCodecInfos.get(i);
+        if (EncoderUtil.findSupportedEncodingProfiles(encoderInfo, format.sampleMimeType)
+            .contains(requestedAudioEncoderSettings.profile)) {
+          selectedEncoder = encoderInfo;
+          if (format.sampleMimeType.equals(MimeTypes.AUDIO_AAC)) {
+            mediaFormat.setInteger(
+                MediaFormat.KEY_AAC_PROFILE, requestedAudioEncoderSettings.profile);
+          }
+          // On some devices setting only KEY_AAC_PROFILE for AAC does not work.
+          mediaFormat.setInteger(MediaFormat.KEY_PROFILE, requestedAudioEncoderSettings.profile);
+          break;
+        }
+      }
+    }
+
+    if (requestedAudioEncoderSettings.bitrate != AudioEncoderSettings.NO_VALUE) {
+      mediaFormat.setInteger(MediaFormat.KEY_BIT_RATE, requestedAudioEncoderSettings.bitrate);
+    }
+
     return new DefaultCodec(
         context,
         format,
         mediaFormat,
-        mediaCodecInfos.get(0).getName(),
+        selectedEncoder.getName(),
         /* isDecoder= */ false,
         /* outputSurface= */ null);
   }
@@ -248,9 +254,6 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
     }
     checkArgument(format.width != Format.NO_VALUE);
     checkArgument(format.height != Format.NO_VALUE);
-    // According to interface Javadoc, format.rotationDegrees should be 0. The video should always
-    // be encoded in landscape orientation.
-    checkArgument(format.height <= format.width);
     checkArgument(format.rotationDegrees == 0);
 
     checkStateNotNull(videoEncoderSelector);

@@ -201,6 +201,15 @@ public class RemoteMediaSession {
     binder.setCustomLayout(sessionId, bundleList);
   }
 
+  public void setMediaButtonPreferences(List<CommandButton> mediaButtonPreferences)
+      throws RemoteException {
+    List<Bundle> bundleList = new ArrayList<>();
+    for (CommandButton button : mediaButtonPreferences) {
+      bundleList.add(button.toBundle());
+    }
+    binder.setMediaButtonPreferences(sessionId, bundleList);
+  }
+
   public void setSessionExtras(Bundle extras) throws RemoteException {
     binder.setSessionExtras(sessionId, extras);
   }

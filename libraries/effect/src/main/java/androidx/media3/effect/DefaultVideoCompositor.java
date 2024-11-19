@@ -524,7 +524,7 @@ public final class DefaultVideoCompositor implements VideoCompositor {
               /* overlaySize= */ new Size(inputTexture.width, inputTexture.height),
               inputFrameInfo.overlaySettings);
       glProgram.setFloatsUniform("uTransformationMatrix", transformationMatrix);
-      glProgram.setFloatUniform("uAlphaScale", inputFrameInfo.overlaySettings.alphaScale);
+      glProgram.setFloatUniform("uAlphaScale", inputFrameInfo.overlaySettings.getAlphaScale());
       glProgram.bindAttributesAndUniforms();
 
       // The four-vertex triangle strip forms a quad.

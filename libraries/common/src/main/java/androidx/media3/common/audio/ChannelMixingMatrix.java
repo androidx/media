@@ -18,6 +18,7 @@ package androidx.media3.common.audio;
 import static androidx.media3.common.util.Assertions.checkArgument;
 
 import androidx.media3.common.util.UnstableApi;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
 /**
  * An immutable matrix that describes the mapping of input channels to output channels.
@@ -51,8 +52,8 @@ public final class ChannelMixingMatrix {
   private final boolean isIdentity;
 
   /**
-   * Creates a standard channel mixing matrix that converts from {@code inputChannelCount} channels
-   * to {@code outputChannelCount} channels.
+   * Creates a basic channel mixing matrix that converts from {@code inputChannelCount} channels to
+   * {@code outputChannelCount} channels.
    *
    * <p>If the input and output channel counts match then a simple identity matrix will be returned.
    * Otherwise, default matrix coefficients will be used to best match channel locations and overall
@@ -64,11 +65,32 @@ public final class ChannelMixingMatrix {
    * @throws UnsupportedOperationException If no default matrix coefficients are implemented for the
    *     given input and output channel counts.
    */
+  // TODO(b/300467493): Modify create() to use constant power defaults and migrate all users.
   public static ChannelMixingMatrix create(int inputChannelCount, int outputChannelCount) {
     return new ChannelMixingMatrix(
         inputChannelCount,
         outputChannelCount,
-        createMixingCoefficients(inputChannelCount, outputChannelCount));
+        createConstantGainMixingCoefficients(inputChannelCount, outputChannelCount));
+  }
+
+  /**
+   * Returns default constant power matrix for mixing {@code inputChannelCount} channels into {@code
+   * outputChannelCount} channels.
+   *
+   * <p>If the input and output channel counts match then a simple identity matrix will be returned.
+   *
+   * @param inputChannelCount Number of input channels.
+   * @param outputChannelCount Number of output channels.
+   * @return New channel mixing matrix.
+   * @throws UnsupportedOperationException If no default coefficients are available for the given
+   *     input and output channel counts.
+   */
+  public static ChannelMixingMatrix createForConstantPower(
+      int inputChannelCount, int outputChannelCount) {
+    return new ChannelMixingMatrix(
+        inputChannelCount,
+        outputChannelCount,
+        createConstantPowerMixingCoefficients(inputChannelCount, outputChannelCount));
   }
 
   /**
@@ -155,26 +177,6 @@ public final class ChannelMixingMatrix {
     return new ChannelMixingMatrix(inputChannelCount, outputChannelCount, scaledCoefficients);
   }
 
-  private static float[] createMixingCoefficients(int inputChannelCount, int outputChannelCount) {
-    if (inputChannelCount == outputChannelCount) {
-      return initializeIdentityMatrix(outputChannelCount);
-    }
-    if (inputChannelCount == 1 && outputChannelCount == 2) {
-      // Mono -> stereo.
-      return new float[] {1f, 1f};
-    }
-    if (inputChannelCount == 2 && outputChannelCount == 1) {
-      // Stereo -> mono.
-      return new float[] {0.5f, 0.5f};
-    }
-    throw new UnsupportedOperationException(
-        "Default channel mixing coefficients for "
-            + inputChannelCount
-            + "->"
-            + outputChannelCount
-            + " are not yet implemented.");
-  }
-
   private static float[] initializeIdentityMatrix(int channelCount) {
     float[] coefficients = new float[channelCount * channelCount];
     for (int c = 0; c < channelCount; c++) {
@@ -183,6 +185,7 @@ public final class ChannelMixingMatrix {
     return coefficients;
   }
 
+  @CanIgnoreReturnValue
   private static float[] checkCoefficientsValid(float[] coefficients) {
     for (int i = 0; i < coefficients.length; i++) {
       if (coefficients[i] < 0f) {
@@ -190,5 +193,138 @@ public final class ChannelMixingMatrix {
       }
     }
     return coefficients;
+  }
+
+  private static float[] createConstantGainMixingCoefficients(
+      int inputChannelCount, int outputChannelCount) {
+    if (inputChannelCount == outputChannelCount) {
+      return initializeIdentityMatrix(outputChannelCount);
+    }
+    if (inputChannelCount == 1 && outputChannelCount == 2) {
+      // Mono -> stereo.
+      return new float[] {
+        1f, // left
+        1f // right
+      };
+    }
+    if (inputChannelCount == 2 && outputChannelCount == 1) {
+      // Stereo -> mono.
+      // 2 channels: [FRONT_LEFT, FRONT_RIGHT]
+      return new float[] {0.5f, 0.5f};
+    }
+
+    throw new UnsupportedOperationException(
+        "Default channel mixing coefficients for "
+            + inputChannelCount
+            + "->"
+            + outputChannelCount
+            + " are not yet implemented.");
+  }
+
+  private static float[] createConstantPowerMixingCoefficients(
+      int inputChannelCount, int outputChannelCount) {
+    if (outputChannelCount == 1) {
+      return getConstantPowerCoefficientsToMono(inputChannelCount);
+    }
+    if (outputChannelCount == 2) {
+      return getConstantPowerCoefficientsToStereo(inputChannelCount);
+    }
+    if (inputChannelCount == outputChannelCount) {
+      return initializeIdentityMatrix(outputChannelCount);
+    }
+    throw new UnsupportedOperationException(
+        "Default constant power channel mixing coefficients for "
+            + inputChannelCount
+            + "->"
+            + outputChannelCount
+            + " are not implemented.");
+  }
+
+  /**
+   * Returns a mixing coefficients float array from {@code inputChannelCount} to mono.
+   *
+   * <p>See <a
+   * href=https://cs.android.com/android/platform/superproject/main/+/main:system/media/audio_utils/include/audio_utils/ChannelMix.h;l=40;drc=13412bb94816e57e3a2de1018c65192f5b1a7261>android
+   * platform channel mixing calculations</a>.
+   */
+  private static float[] getConstantPowerCoefficientsToMono(int inputChannelCount) {
+    switch (inputChannelCount) {
+      case 1:
+        // 1 channel: [MONO]
+        return new float[] {1.0f};
+      case 2:
+        // 2 channels: [FRONT_LEFT, FRONT_RIGHT]
+        return new float[] {0.7071f, 0.7071f};
+      case 3:
+        // 3 channels: [FRONT_LEFT, FRONT_RIGHT, FRONT_CENTER]
+        return new float[] {0.7071f, 0.7071f, 1.0f};
+      case 4:
+        // 4 channels: [FRONT_LEFT, FRONT_RIGHT, BACK_LEFT, BACK_RIGHT]
+        return new float[] {0.7071f, 0.7071f, 0.5f, 0.5f};
+      case 5:
+        // 5 channels: [FRONT_LEFT, FRONT_RIGHT, FRONT_CENTER, BACK_LEFT, BACK_RIGHT]
+        return new float[] {0.7071f, 0.7071f, 1.0f, 0.5f, 0.5f};
+      case 6:
+        // 6 channels: [FRONT_LEFT, FRONT_RIGHT, FRONT_CENTER, LOW_FREQUENCY, BACK_LEFT, BACK_RIGHT]
+        return new float[] {0.7071f, 0.7071f, 1.0f, 0.7071f, 0.5f, 0.5f};
+      default:
+        throw new UnsupportedOperationException(
+            "Default constant power channel mixing coefficients for "
+                + inputChannelCount
+                + "->1 are not implemented.");
+    }
+  }
+
+  /**
+   * Returns a mixing coefficients float array from {@code inputChannelCount} to stereo.
+   *
+   * <p>See <a
+   * href=https://cs.android.com/android/platform/superproject/main/+/main:system/media/audio_utils/include/audio_utils/ChannelMix.h;l=40;drc=13412bb94816e57e3a2de1018c65192f5b1a7261>android
+   * platform channel mixing calculations</a>.
+   */
+  private static float[] getConstantPowerCoefficientsToStereo(int inputChannelCount) {
+    switch (inputChannelCount) {
+      case 1:
+        // 1 channel: [FRONT_CENTER]
+        return new float[] {
+          0.7071f, // left
+          0.7071f // right
+        };
+      case 2:
+        // 2 channels: [FRONT_LEFT, FRONT_RIGHT]
+        return new float[] {
+          /* left */ 1.0f, 0.0f,
+          /* right */ 0.0f, 1.0f
+        };
+      case 3:
+        // 3 channels: [FRONT_LEFT, FRONT_RIGHT, FRONT_CENTER]
+        return new float[] {
+          /* left */ 1.0f, 0.0f, 0.7071f,
+          /* right */ 0.0f, 1.0f, 0.7071f
+        };
+      case 4:
+        // 4 channels: [FRONT_LEFT, FRONT_RIGHT, BACK_LEFT, BACK_RIGHT]
+        return new float[] {
+          /* left */ 1.0f, 0.0f, 0.7071f, 0.0f,
+          /* right */ 0.0f, 1.0f, 0.0f, 0.7071f
+        };
+      case 5:
+        // 5 channels: [FRONT_LEFT, FRONT_RIGHT, FRONT_CENTER, BACK_LEFT, BACK_RIGHT]
+        return new float[] {
+          /* left */ 1.0f, 0.0f, 0.7071f, 0.7071f, 0.0f,
+          /* right */ 0.0f, 1.0f, 0.7071f, 0.0f, 0.7071f
+        };
+      case 6:
+        // 6 channels: [FRONT_LEFT, FRONT_RIGHT, FRONT_CENTER, LOW_FREQUENCY, BACK_LEFT, BACK_RIGHT]
+        return new float[] {
+          /* left */ 1.0f, 0.0f, 0.7071f, 0.5f, 0.7071f, 0.0f,
+          /* right */ 0.0f, 1.0f, 0.7071f, 0.5f, 0.0f, 0.7071f
+        };
+      default:
+        throw new UnsupportedOperationException(
+            "Default constant power channel mixing coefficients for "
+                + inputChannelCount
+                + "->2 are not implemented.");
+    }
   }
 }

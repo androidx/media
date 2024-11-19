@@ -440,4 +440,17 @@ public final class Composition {
     this.hdrMode = hdrMode;
     this.retainHdrFromUltraHdrImage = retainHdrFromUltraHdrImage;
   }
+
+  /**
+   * Return whether any {@linkplain EditedMediaItemSequence sequences} contain a {@linkplain
+   * EditedMediaItemSequence.Builder#addGap(long) gap}.
+   */
+  /* package */ boolean hasGaps() {
+    for (int i = 0; i < sequences.size(); i++) {
+      if (sequences.get(i).hasGaps()) {
+        return true;
+      }
+    }
+    return false;
+  }
 }

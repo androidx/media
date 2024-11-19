@@ -177,7 +177,8 @@ public final class ImaAdsLoaderTest {
             TEST_ADS_ID,
             new DefaultMediaSourceFactory((Context) getApplicationContext()),
             imaAdsLoader,
-            adViewProvider);
+            adViewProvider,
+            /* useLazyContentSourcePreparation= */ true);
     timelineWindowDefinitions =
         new TimelineWindowDefinition[] {getInitialTimelineWindowDefinition(TEST_ADS_ID)};
     adsLoaderListener = new TestAdsLoaderListener(/* periodIndex= */ 0);
@@ -760,7 +761,8 @@ public final class ImaAdsLoaderTest {
             TEST_ADS_ID,
             new DefaultMediaSourceFactory((Context) getApplicationContext()),
             imaAdsLoader,
-            adViewProvider);
+            adViewProvider,
+            /* useLazyContentSourcePreparation= */ true);
     long midrollWindowTimeUs = 2 * C.MICROS_PER_SECOND;
     long midrollPeriodTimeUs =
         midrollWindowTimeUs + TimelineWindowDefinition.DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US;
@@ -802,7 +804,8 @@ public final class ImaAdsLoaderTest {
             TEST_ADS_ID,
             new DefaultMediaSourceFactory((Context) getApplicationContext()),
             imaAdsLoader,
-            adViewProvider);
+            adViewProvider,
+            /* useLazyContentSourcePreparation= */ true);
     long midrollWindowTimeUs = 2 * C.MICROS_PER_SECOND;
     long midrollPeriodTimeUs =
         midrollWindowTimeUs + TimelineWindowDefinition.DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US;
@@ -843,7 +846,8 @@ public final class ImaAdsLoaderTest {
             TEST_ADS_ID,
             new DefaultMediaSourceFactory((Context) getApplicationContext()),
             imaAdsLoader,
-            adViewProvider);
+            adViewProvider,
+            /* useLazyContentSourcePreparation= */ true);
     long midrollWindowTimeUs = 2 * C.MICROS_PER_SECOND;
     long midrollPeriodTimeUs =
         midrollWindowTimeUs + TimelineWindowDefinition.DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US;
@@ -882,7 +886,8 @@ public final class ImaAdsLoaderTest {
             TEST_ADS_ID,
             new DefaultMediaSourceFactory((Context) getApplicationContext()),
             imaAdsLoader,
-            adViewProvider);
+            adViewProvider,
+            /* useLazyContentSourcePreparation= */ true);
     long firstMidrollWindowTimeUs = 2 * C.MICROS_PER_SECOND;
     long firstMidrollPeriodTimeUs =
         firstMidrollWindowTimeUs
@@ -931,7 +936,8 @@ public final class ImaAdsLoaderTest {
             TEST_ADS_ID,
             new DefaultMediaSourceFactory((Context) getApplicationContext()),
             imaAdsLoader,
-            adViewProvider);
+            adViewProvider,
+            /* useLazyContentSourcePreparation= */ true);
     long firstMidrollWindowTimeUs = 2 * C.MICROS_PER_SECOND;
     long firstMidrollPeriodTimeUs =
         firstMidrollWindowTimeUs
@@ -1021,7 +1027,8 @@ public final class ImaAdsLoaderTest {
             TEST_ADS_ID,
             new DefaultMediaSourceFactory((Context) getApplicationContext()),
             imaAdsLoader,
-            adViewProvider);
+            adViewProvider,
+            /* useLazyContentSourcePreparation= */ true);
     when(mockAdsManager.getAdCuePoints()).thenReturn(PREROLL_CUE_POINTS_SECONDS);
 
     imaAdsLoader.setSupportedContentTypes(C.CONTENT_TYPE_OTHER);
@@ -1106,7 +1113,8 @@ public final class ImaAdsLoaderTest {
             secondAdsId,
             new DefaultMediaSourceFactory((Context) getApplicationContext()),
             imaAdsLoader,
-            adViewProvider);
+            adViewProvider,
+            /* useLazyContentSourcePreparation= */ true);
     timelineWindowDefinitions =
         new TimelineWindowDefinition[] {
           getInitialTimelineWindowDefinition(TEST_ADS_ID),
@@ -1166,7 +1174,8 @@ public final class ImaAdsLoaderTest {
             secondAdsId,
             new DefaultMediaSourceFactory((Context) getApplicationContext()),
             imaAdsLoader,
-            adViewProvider);
+            adViewProvider,
+            /* useLazyContentSourcePreparation= */ true);
     timelineWindowDefinitions =
         new TimelineWindowDefinition[] {
           getInitialTimelineWindowDefinition(TEST_ADS_ID),
@@ -1233,7 +1242,8 @@ public final class ImaAdsLoaderTest {
             TEST_ADS_ID,
             new DefaultMediaSourceFactory((Context) getApplicationContext()),
             imaAdsLoader,
-            adViewProvider);
+            adViewProvider,
+            /* useLazyContentSourcePreparation= */ true);
     timelineWindowDefinitions =
         new TimelineWindowDefinition[] {
           getInitialTimelineWindowDefinition(TEST_ADS_ID),
@@ -1285,7 +1295,8 @@ public final class ImaAdsLoaderTest {
             TEST_ADS_ID,
             new DefaultMediaSourceFactory((Context) getApplicationContext()),
             imaAdsLoader,
-            adViewProvider);
+            adViewProvider,
+            /* useLazyContentSourcePreparation= */ true);
     when(mockAdsManager.getAdCuePoints()).thenReturn(PREROLL_CUE_POINTS_SECONDS);
 
     imaAdsLoader.setSupportedContentTypes(C.CONTENT_TYPE_OTHER);
@@ -1311,7 +1322,8 @@ public final class ImaAdsLoaderTest {
             TEST_ADS_ID,
             new DefaultMediaSourceFactory((Context) getApplicationContext()),
             imaAdsLoader,
-            adViewProvider);
+            adViewProvider,
+            /* useLazyContentSourcePreparation= */ true);
     when(mockAdsManager.getAdCuePoints()).thenReturn(PREROLL_CUE_POINTS_SECONDS);
 
     imaAdsLoader.setSupportedContentTypes(C.CONTENT_TYPE_OTHER);

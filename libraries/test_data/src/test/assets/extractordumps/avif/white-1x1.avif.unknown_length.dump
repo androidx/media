@@ -8,6 +8,7 @@ track 1024:
   total output bytes = 295
   sample count = 1
   format 0:
+    containerMimeType = image/avif
     sampleMimeType = image/avif
   sample 0:
     time = 0

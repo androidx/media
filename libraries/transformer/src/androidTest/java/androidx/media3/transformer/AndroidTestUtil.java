@@ -34,6 +34,7 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
 import android.media.Image;
+import android.media.MediaCodecInfo;
 import android.media.MediaFormat;
 import android.opengl.EGLContext;
 import android.opengl.EGLDisplay;
@@ -222,6 +223,18 @@ public final class AndroidTestUtil {
                   .setHeight(4080)
                   .build())
           .build();
+  public static final AssetInfo JPG_PIXEL_MOTION_PHOTO_ASSET =
+      new AssetInfo.Builder("asset:///media/jpeg/pixel-motion-photo-2-hevc-tracks.jpg")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H265)
+                  .setWidth(1024)
+                  .setHeight(768)
+                  .setFrameRate(27.61f)
+                  .setCodecs("hvc1.1.6.L153")
+                  .build())
+          .setVideoFrameCount(58)
+          .build();
 
   public static final AssetInfo WEBP_LARGE =
       new AssetInfo.Builder("asset:///media/webp/black_large.webp")
@@ -243,6 +256,31 @@ public final class AndroidTestUtil {
                   .setFrameRate(29.97f)
                   .build())
           .build();
+
+  /** This file contains an edit lists that adds one second to all video frames. */
+  public static final AssetInfo MP4_POSITIVE_SHIFT_EDIT_LIST =
+      new AssetInfo.Builder("asset:///media/mp4/edit_list_positive_shift.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H264)
+                  .setWidth(1920)
+                  .setHeight(1080)
+                  .setFrameRate(30.f)
+                  .build())
+          .build();
+
+  /** This file contains an edit lists that subtacts 1 second to all video frames. */
+  public static final AssetInfo MP4_NEGATIVE_SHIFT_EDIT_LIST =
+      new AssetInfo.Builder("asset:///media/mp4/edit_list_negative_shift.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H264)
+                  .setWidth(1920)
+                  .setHeight(1080)
+                  .setFrameRate(30.f)
+                  .build())
+          .build();
+
   public static final AssetInfo MP4_TRIM_OPTIMIZATION_270 =
       new AssetInfo.Builder(
               "asset:///media/mp4/internal_emulator_transformer_output_270_rotated.mp4")
@@ -967,6 +1005,35 @@ public final class AndroidTestUtil {
   public static final AssetInfo WAV_ASSET =
       new AssetInfo.Builder("asset:///media/wav/sample.wav").build();
 
+  /** A {@link GlEffect} that adds delay in the video pipeline by putting the thread to sleep. */
+  public static final class DelayEffect implements GlEffect {
+    private final long delayMs;
+
+    public DelayEffect(long delayMs) {
+      this.delayMs = delayMs;
+    }
+
+    @Override
+    public GlShaderProgram toGlShaderProgram(Context context, boolean useHdr) {
+      return new PassthroughShaderProgram() {
+        @Override
+        public void queueInputFrame(
+            GlObjectsProvider glObjectsProvider,
+            GlTextureInfo inputTexture,
+            long presentationTimeUs) {
+          try {
+            Thread.sleep(delayMs);
+          } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            onError(e);
+            return;
+          }
+          super.queueInputFrame(glObjectsProvider, inputTexture, presentationTimeUs);
+        }
+      };
+    }
+  }
+
   /**
    * Creates the GL objects needed to set up a GL environment including an {@link EGLDisplay} and an
    * {@link EGLContext}.
@@ -1179,22 +1246,41 @@ public final class AndroidTestUtil {
    * Assumes that the device supports decoding the input format, and encoding/muxing the output
    * format if needed.
    *
+   * <p>This is equivalent to calling {@link #assumeFormatsSupported(Context, String, Format,
+   * Format, boolean)} with {@code isPortraitEncodingEnabled} set to {@code false}.
+   */
+  public static void assumeFormatsSupported(
+      Context context, String testId, @Nullable Format inputFormat, @Nullable Format outputFormat)
+      throws IOException, JSONException, MediaCodecUtil.DecoderQueryException {
+    assumeFormatsSupported(
+        context, testId, inputFormat, outputFormat, /* isPortraitEncodingEnabled= */ false);
+  }
+
+  /**
+   * Assumes that the device supports decoding the input format, and encoding/muxing the output
+   * format if needed.
+   *
    * @param context The {@link Context context}.
    * @param testId The test ID.
    * @param inputFormat The {@link Format format} to decode, or the input is not produced by
    *     MediaCodec, like an image.
    * @param outputFormat The {@link Format format} to encode/mux or {@code null} if the output won't
    *     be encoded or muxed.
+   * @param isPortraitEncodingEnabled Whether portrait encoding is enabled.
    * @throws AssumptionViolatedException If the device does not support the formats. In this case,
    *     the reason for skipping the test is logged.
    */
   public static void assumeFormatsSupported(
-      Context context, String testId, @Nullable Format inputFormat, @Nullable Format outputFormat)
+      Context context,
+      String testId,
+      @Nullable Format inputFormat,
+      @Nullable Format outputFormat,
+      boolean isPortraitEncodingEnabled)
       throws IOException, JSONException, MediaCodecUtil.DecoderQueryException {
     // TODO(b/278657595): Make this capability check match the default codec factory selection code.
     boolean canDecode = inputFormat == null || canDecode(inputFormat);
 
-    boolean canEncode = outputFormat == null || canEncode(outputFormat);
+    boolean canEncode = outputFormat == null || canEncode(outputFormat, isPortraitEncodingEnabled);
     boolean canMux = outputFormat == null || canMux(outputFormat);
     if (canDecode && canEncode && canMux) {
       return;
@@ -1213,6 +1299,28 @@ public final class AndroidTestUtil {
     String skipReason = skipReasonBuilder.toString();
     recordTestSkipped(context, testId, skipReason);
     throw new AssumptionViolatedException(skipReason);
+  }
+
+  /**
+   * Assumes that the device supports encoding with the given MIME type and profile.
+   *
+   * @param mimeType The {@linkplain MimeTypes MIME type}.
+   * @param profile The {@linkplain MediaCodecInfo.CodecProfileLevel codec profile}.
+   * @throws AssumptionViolatedException If the device does have required encoder or profile.
+   */
+  public static void assumeCanEncodeWithProfile(String mimeType, int profile) {
+    ImmutableList<MediaCodecInfo> supportedEncoders = EncoderUtil.getSupportedEncoders(mimeType);
+    if (supportedEncoders.isEmpty()) {
+      throw new AssumptionViolatedException("No supported encoders");
+    }
+
+    for (int i = 0; i < supportedEncoders.size(); i++) {
+      if (EncoderUtil.findSupportedEncodingProfiles(supportedEncoders.get(i), mimeType)
+          .contains(profile)) {
+        return;
+      }
+    }
+    throw new AssumptionViolatedException("Profile not supported");
   }
 
   /** Returns a {@link Muxer.Factory} depending upon the API level. */
@@ -1250,7 +1358,7 @@ public final class AndroidTestUtil {
             || Ascii.equalsIgnoreCase(Util.MODEL, "SM-F926U1"));
   }
 
-  private static boolean canEncode(Format format) {
+  private static boolean canEncode(Format format, boolean isPortraitEncodingEnabled) {
     String mimeType = checkNotNull(format.sampleMimeType);
     ImmutableList<android.media.MediaCodecInfo> supportedEncoders =
         EncoderUtil.getSupportedEncoders(mimeType);
@@ -1259,8 +1367,15 @@ public final class AndroidTestUtil {
     }
 
     android.media.MediaCodecInfo encoder = supportedEncoders.get(0);
-    boolean sizeSupported =
-        EncoderUtil.isSizeSupported(encoder, mimeType, format.width, format.height);
+    // VideoSampleExporter rotates videos into landscape before encoding if portrait encoding is not
+    // enabled.
+    int width = format.width;
+    int height = format.height;
+    if (!isPortraitEncodingEnabled && width < height) {
+      width = format.height;
+      height = format.width;
+    }
+    boolean sizeSupported = EncoderUtil.isSizeSupported(encoder, mimeType, width, height);
     boolean bitrateSupported =
         format.averageBitrate == Format.NO_VALUE
             || EncoderUtil.getSupportedBitrateRange(encoder, mimeType)

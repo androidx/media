@@ -20,17 +20,20 @@ import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
+import android.content.ContentResolver;
 import android.net.Uri;
 import android.os.Bundle;
 import android.text.TextUtils;
 import androidx.annotation.DrawableRes;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
+import androidx.media3.common.C;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.ImmutableIntArray;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.CheckReturnValue;
 import java.lang.annotation.Documented;
@@ -410,22 +413,73 @@ public final class CommandButton {
    */
   @UnstableApi public static final int ICON_FEED = 0xe0e5;
 
+  // TODO: b/332877990 - Stabilize these constants and other slot APIs
+  /**
+   * A slot at which a button can be displayed in a UI surface. Must be one of the {@code
+   * CommandButton.SLOT_} constants.
+   */
+  @UnstableApi
+  @Documented
+  @Retention(RetentionPolicy.SOURCE)
+  @Target(TYPE_USE)
+  @IntDef({
+    SLOT_CENTRAL,
+    SLOT_BACK,
+    SLOT_FORWARD,
+    SLOT_BACK_SECONDARY,
+    SLOT_FORWARD_SECONDARY,
+    SLOT_OVERFLOW
+  })
+  public @interface Slot {}
+
+  /** A central slot in a playback control UI, most commonly used for play or pause actions. */
+  @UnstableApi public static final int SLOT_CENTRAL = 1;
+
+  /**
+   * A slot in a playback control UI for backward-directed playback actions, most commonly used for
+   * previous or rewind actions.
+   */
+  @UnstableApi public static final int SLOT_BACK = 2;
+
+  /**
+   * A slot in a playback control UI for forward-directed playback actions, most commonly used for
+   * next or fast-forward actions.
+   */
+  @UnstableApi public static final int SLOT_FORWARD = 3;
+
+  /**
+   * A slot in a playback control UI for secondary backward-directed playback actions, most commonly
+   * used for previous or rewind actions.
+   */
+  @UnstableApi public static final int SLOT_BACK_SECONDARY = 4;
+
+  /**
+   * A slot in a playback control UI for secondary forward-directed playback actions, most commonly
+   * used for next or fast-forward actions.
+   */
+  @UnstableApi public static final int SLOT_FORWARD_SECONDARY = 5;
+
+  /** A slot in a playback control UI for additional actions that don't fit into other slots. */
+  @UnstableApi public static final int SLOT_OVERFLOW = 6;
+
   /** A builder for {@link CommandButton}. */
   public static final class Builder {
 
+    private final @Icon int icon;
+
     @Nullable private SessionCommand sessionCommand;
     private @Player.Command int playerCommand;
-    private @Icon int icon;
     @DrawableRes private int iconResId;
     @Nullable private Uri iconUri;
     private CharSequence displayName;
     private Bundle extras;
     private boolean enabled;
+    @Nullable private ImmutableIntArray slots;
 
     /**
      * [will be deprecated] Use {@link #Builder(int)} instead to define the {@link Icon} for this
-     * button. A separate resource id via {@link #setIconResId(int)} or {@link #setIconUri} is no
-     * longer required unless for {@link #ICON_UNDEFINED}.
+     * button. A separate resource id via {@link #setIconResId(int)} is no longer required unless
+     * for {@link #ICON_UNDEFINED}.
      */
     public Builder() {
       this(ICON_UNDEFINED);
@@ -450,7 +504,6 @@ public final class CommandButton {
       displayName = "";
       extras = Bundle.EMPTY;
       playerCommand = Player.COMMAND_INVALID;
-      icon = ICON_UNDEFINED;
       enabled = true;
     }
 
@@ -519,11 +572,12 @@ public final class CommandButton {
     }
 
     /**
-     * Sets a {@link Uri} for the icon of this button.
+     * Sets a {@linkplain ContentResolver#SCHEME_CONTENT content} or {@linkplain
+     * ContentResolver#SCHEME_ANDROID_RESOURCE resource} {@link Uri} for the icon of this button.
      *
      * <p>Note that this {@link Uri} may be used when the predefined {@link Icon} is not available
-     * or set to {@link #ICON_UNDEFINED}. It can be used in addition or instead of {@link
-     * #setCustomIconResId} for consumers that are capable of loading the {@link Uri}.
+     * or set to {@link #ICON_UNDEFINED}. It can be used in addition to {@link #setCustomIconResId}
+     * for consumers that are capable of loading the content or resource {@link Uri}.
      *
      * @param uri The uri to an icon.
      * @return This builder for chaining.
@@ -531,6 +585,10 @@ public final class CommandButton {
     @UnstableApi
     @CanIgnoreReturnValue
     public Builder setIconUri(Uri uri) {
+      checkArgument(
+          Objects.equal(uri.getScheme(), ContentResolver.SCHEME_CONTENT)
+              || Objects.equal(uri.getScheme(), ContentResolver.SCHEME_ANDROID_RESOURCE),
+          "Only content or resource Uris are supported for CommandButton");
       this.iconUri = uri;
       return this;
     }
@@ -577,13 +635,63 @@ public final class CommandButton {
       return this;
     }
 
+    /**
+     * Sets the allowed {@link Slot} positions for this button.
+     *
+     * <p>The button is only allowed in the defined slots. If none of the slots can display the
+     * button, either because the slots do not exist, are already occupied or the UI surface does
+     * not allow the specific type of button in these slots, the button will not be displayed at
+     * all.
+     *
+     * <p>When multiple slots are provided, they define a preference order. The button will be
+     * placed in the first slot in the list that exists, isn't already occupied and that allows this
+     * type of button.
+     *
+     * <p>When not specified, the default value depends on the associated {@link #setPlayerCommand
+     * player command} and the {@link Icon} set in the constructor:
+     *
+     * <ul>
+     *   <li>{@link Player#COMMAND_PLAY_PAUSE} and/or {@link #ICON_PLAY}, {@link #ICON_PAUSE}:
+     *       {@link #SLOT_CENTRAL}
+     *   <li>{@link Player#COMMAND_SEEK_TO_PREVIOUS}, {@link
+     *       Player#COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM}, {@link Player#COMMAND_SEEK_BACK} and/or
+     *       {@link #ICON_PREVIOUS}, {@link #ICON_SKIP_BACK}, {@link #ICON_REWIND}: {@link
+     *       #SLOT_BACK}
+     *   <li>{@link Player#COMMAND_SEEK_TO_NEXT}, {@link Player#COMMAND_SEEK_TO_NEXT_MEDIA_ITEM},
+     *       {@link Player#COMMAND_SEEK_FORWARD} and/or {@link #ICON_NEXT}, {@link
+     *       #ICON_SKIP_FORWARD}, {@link #ICON_FAST_FORWARD}: {@link #SLOT_FORWARD}
+     *   <li>Anything else: {@link #SLOT_OVERFLOW}
+     * </ul>
+     *
+     * @param slots The list of allowed {@link Slot} positions. Must not be empty.
+     * @return This builder for chaining.
+     */
+    @UnstableApi
+    @CanIgnoreReturnValue
+    public Builder setSlots(@Slot int... slots) {
+      checkArgument(slots.length != 0);
+      this.slots = ImmutableIntArray.copyOf(slots);
+      return this;
+    }
+
     /** Builds a {@link CommandButton}. */
     public CommandButton build() {
       checkState(
           (sessionCommand == null) != (playerCommand == Player.COMMAND_INVALID),
           "Exactly one of sessionCommand and playerCommand should be set");
+      if (slots == null) {
+        slots = ImmutableIntArray.of(getDefaultSlot(playerCommand, icon));
+      }
       return new CommandButton(
-          sessionCommand, playerCommand, icon, iconResId, iconUri, displayName, extras, enabled);
+          sessionCommand,
+          playerCommand,
+          icon,
+          iconResId,
+          iconUri,
+          displayName,
+          extras,
+          enabled,
+          slots);
     }
   }
 
@@ -606,11 +714,13 @@ public final class CommandButton {
   @DrawableRes public final int iconResId;
 
   /**
-   * The {@link Uri} for the icon of the button that is used when the predefined {@link #icon} is
-   * not available or set to {@link #ICON_UNDEFINED}. Can be {@code null}.
+   * The {@linkplain ContentResolver#SCHEME_CONTENT content} or {@linkplain
+   * ContentResolver#SCHEME_ANDROID_RESOURCE resource} {@link Uri} for the icon of the button that
+   * is used when the predefined {@link #icon} is not available or set to {@link #ICON_UNDEFINED}.
+   * Can be {@code null}.
    *
-   * <p>Note that this value can be used in addition or instead of {@link #iconResId} for consumers
-   * that are capable of loading the {@link Uri}.
+   * <p>Note that this value can be used in addition to {@link #iconResId} for consumers that are
+   * capable of loading the content or resource {@link Uri}.
    */
   @UnstableApi @Nullable public final Uri iconUri;
 
@@ -625,6 +735,19 @@ public final class CommandButton {
    * controller.
    */
   @UnstableApi public final Bundle extras;
+
+  /**
+   * The allowed {@link Slot} positions for this button.
+   *
+   * <p>The button is only allowed in the defined slots. If none of the slots can display the
+   * button, either because the slots do not exist, are already occupied or the UI surface does not
+   * allow the specific type of button in these slots, the button will not be displayed at all.
+   *
+   * <p>When multiple slots are provided, they define a preference order. The button will be placed
+   * in the first slot in the list that exists, isn't already occupied and that allows this type of
+   * button.
+   */
+  @UnstableApi public final ImmutableIntArray slots;
 
   /**
    * Whether the button is enabled.
@@ -643,7 +766,8 @@ public final class CommandButton {
       @Nullable Uri iconUri,
       CharSequence displayName,
       Bundle extras,
-      boolean enabled) {
+      boolean enabled,
+      ImmutableIntArray slots) {
     this.sessionCommand = sessionCommand;
     this.playerCommand = playerCommand;
     this.icon = icon;
@@ -652,6 +776,7 @@ public final class CommandButton {
     this.displayName = displayName;
     this.extras = new Bundle(extras);
     this.isEnabled = enabled;
+    this.slots = slots;
   }
 
   /** Returns a copy with the new {@link #isEnabled} flag. */
@@ -671,7 +796,26 @@ public final class CommandButton {
         iconUri,
         displayName,
         new Bundle(extras),
-        isEnabled);
+        isEnabled,
+        slots);
+  }
+
+  /** Returns a copy with the new {@link #slots} value. */
+  @CheckReturnValue
+  /* package */ CommandButton copyWithSlots(ImmutableIntArray slots) {
+    if (this.slots.equals(slots)) {
+      return this;
+    }
+    return new CommandButton(
+        sessionCommand,
+        playerCommand,
+        icon,
+        iconResId,
+        iconUri,
+        displayName,
+        new Bundle(extras),
+        isEnabled,
+        slots);
   }
 
   /** Checks the given command button for equality while ignoring {@link #extras}. */
@@ -690,13 +834,14 @@ public final class CommandButton {
         && iconResId == button.iconResId
         && Objects.equal(iconUri, button.iconUri)
         && TextUtils.equals(displayName, button.displayName)
-        && isEnabled == button.isEnabled;
+        && isEnabled == button.isEnabled
+        && slots.equals(button.slots);
   }
 
   @Override
   public int hashCode() {
     return Objects.hashCode(
-        sessionCommand, playerCommand, icon, iconResId, displayName, isEnabled, iconUri);
+        sessionCommand, playerCommand, icon, iconResId, displayName, isEnabled, iconUri, slots);
   }
 
   /**
@@ -743,6 +888,7 @@ public final class CommandButton {
   private static final String FIELD_ENABLED = Util.intToStringMaxRadix(5);
   private static final String FIELD_ICON_URI = Util.intToStringMaxRadix(6);
   private static final String FIELD_ICON = Util.intToStringMaxRadix(7);
+  private static final String FIELD_SLOTS = Util.intToStringMaxRadix(8);
 
   @UnstableApi
   public Bundle toBundle() {
@@ -770,6 +916,9 @@ public final class CommandButton {
     }
     if (!isEnabled) {
       bundle.putBoolean(FIELD_ENABLED, isEnabled);
+    }
+    if (slots.length() != 1 || slots.get(0) != SLOT_OVERFLOW) {
+      bundle.putIntArray(FIELD_SLOTS, slots.toArray());
     }
     return bundle;
   }
@@ -802,6 +951,9 @@ public final class CommandButton {
         sessionInterfaceVersion < 3 || bundle.getBoolean(FIELD_ENABLED, /* defaultValue= */ true);
     @Nullable Uri iconUri = bundle.getParcelable(FIELD_ICON_URI);
     @Icon int icon = bundle.getInt(FIELD_ICON, /* defaultValue= */ ICON_UNDEFINED);
+    @Nullable
+    @Slot
+    int[] slots = bundle.getIntArray(FIELD_SLOTS);
     Builder builder = new Builder(icon, iconResId);
     if (sessionCommand != null) {
       builder.setSessionCommand(sessionCommand);
@@ -809,13 +961,16 @@ public final class CommandButton {
     if (playerCommand != Player.COMMAND_INVALID) {
       builder.setPlayerCommand(playerCommand);
     }
-    if (iconUri != null) {
+    if (iconUri != null
+        && (Objects.equal(iconUri.getScheme(), ContentResolver.SCHEME_CONTENT)
+            || Objects.equal(iconUri.getScheme(), ContentResolver.SCHEME_ANDROID_RESOURCE))) {
       builder.setIconUri(iconUri);
     }
     return builder
         .setDisplayName(displayName)
         .setExtras(extras == null ? Bundle.EMPTY : extras)
         .setEnabled(enabled)
+        .setSlots(slots == null ? new int[] {SLOT_OVERFLOW} : slots)
         .build();
   }
 
@@ -978,5 +1133,175 @@ public final class CommandButton {
       default:
         return 0;
     }
+  }
+
+  /**
+   * Returns the default {@link Slot} for a button.
+   *
+   * @param playerCommand The {@link Player.Command} associated with this button.
+   * @param icon The {@link Icon} of this button.
+   * @return The default {@link Slot} for this button.
+   */
+  @UnstableApi
+  public static @Slot int getDefaultSlot(@Player.Command int playerCommand, @Icon int icon) {
+    if (playerCommand == Player.COMMAND_PLAY_PAUSE || icon == ICON_PLAY || icon == ICON_PAUSE) {
+      return SLOT_CENTRAL;
+    } else if (playerCommand == Player.COMMAND_SEEK_BACK
+        || playerCommand == Player.COMMAND_SEEK_TO_PREVIOUS
+        || playerCommand == Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM
+        || icon == ICON_PREVIOUS
+        || icon == ICON_REWIND
+        || icon == ICON_SKIP_BACK
+        || icon == ICON_SKIP_BACK_5
+        || icon == ICON_SKIP_BACK_10
+        || icon == ICON_SKIP_BACK_15
+        || icon == ICON_SKIP_BACK_30) {
+      return SLOT_BACK;
+    } else if (playerCommand == Player.COMMAND_SEEK_FORWARD
+        || playerCommand == Player.COMMAND_SEEK_TO_NEXT
+        || playerCommand == Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM
+        || icon == ICON_NEXT
+        || icon == ICON_FAST_FORWARD
+        || icon == ICON_SKIP_FORWARD
+        || icon == ICON_SKIP_FORWARD_5
+        || icon == ICON_SKIP_FORWARD_10
+        || icon == ICON_SKIP_FORWARD_15
+        || icon == ICON_SKIP_FORWARD_30) {
+      return SLOT_FORWARD;
+    } else {
+      return SLOT_OVERFLOW;
+    }
+  }
+
+  /**
+   * Converts a list of buttons defined as {@linkplain MediaSession#getMediaButtonPreferences media
+   * button preferences} to the list of buttons for a {@linkplain MediaSession#getCustomLayout
+   * custom layout} according to the implicit button placement rules applied for custom layouts.
+   *
+   * @param mediaButtonPreferences The list of buttons as media button preferences.
+   * @param backSlotAllowed Whether the custom layout can put a button into {@link #SLOT_BACK}.
+   * @param forwardSlotAllowed Whether the custom layout can put a button into {@link
+   *     #SLOT_FORWARD}.
+   * @return A list of buttons compatible with the placement rules of custom layouts. The buttons
+   *     will have their intended slots assigned as the only option.
+   */
+  /* package */ static ImmutableList<CommandButton> getCustomLayoutFromMediaButtonPreferences(
+      List<CommandButton> mediaButtonPreferences,
+      boolean backSlotAllowed,
+      boolean forwardSlotAllowed) {
+    if (mediaButtonPreferences.isEmpty()) {
+      return ImmutableList.of();
+    }
+    int backButtonIndex = C.INDEX_UNSET;
+    int forwardButtonIndex = C.INDEX_UNSET;
+    for (int i = 0; i < mediaButtonPreferences.size(); i++) {
+      CommandButton button = mediaButtonPreferences.get(i);
+      for (int s = 0; s < button.slots.length(); s++) {
+        @Slot int slot = button.slots.get(s);
+        if (slot == SLOT_OVERFLOW) {
+          // Will go into overflow.
+          break;
+        } else if (backSlotAllowed && backButtonIndex == C.INDEX_UNSET && slot == SLOT_BACK) {
+          backButtonIndex = i;
+          break;
+        } else if (forwardSlotAllowed
+            && forwardButtonIndex == C.INDEX_UNSET
+            && slot == SLOT_FORWARD) {
+          forwardButtonIndex = i;
+          break;
+        }
+      }
+    }
+    ImmutableList.Builder<CommandButton> customLayout = ImmutableList.builder();
+    if (backButtonIndex != C.INDEX_UNSET) {
+      customLayout.add(
+          mediaButtonPreferences
+              .get(backButtonIndex)
+              .copyWithSlots(ImmutableIntArray.of(SLOT_BACK)));
+    }
+    if (forwardButtonIndex != C.INDEX_UNSET) {
+      customLayout.add(
+          mediaButtonPreferences
+              .get(forwardButtonIndex)
+              .copyWithSlots(ImmutableIntArray.of(SLOT_FORWARD)));
+    }
+    for (int i = 0; i < mediaButtonPreferences.size(); i++) {
+      CommandButton button = mediaButtonPreferences.get(i);
+      if (i != backButtonIndex && i != forwardButtonIndex && button.slots.contains(SLOT_OVERFLOW)) {
+        customLayout.add(button.copyWithSlots(ImmutableIntArray.of(SLOT_OVERFLOW)));
+      }
+    }
+    return customLayout.build();
+  }
+
+  /**
+   * Returns whether the provided list of buttons contains a button for a given {@link Slot}. This
+   * method assumes the slots have been resolved and there is only a single slot per button.
+   */
+  /* package */ static boolean containsButtonForSlot(List<CommandButton> buttons, @Slot int slot) {
+    for (int i = 0; i < buttons.size(); i++) {
+      if (buttons.get(i).slots.get(0) == slot) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Converts a list of buttons defined according to the implicit button placement rules for
+   * {@linkplain MediaSession#getCustomLayout custom layouts} to {@linkplain
+   * MediaSession#getMediaButtonPreferences media button preferences}.
+   *
+   * @param customLayout A list of buttons compatible with the placement rules of custom layouts.
+   * @param availablePlayerCommands The available {@link Player.Commands}.
+   * @param reservationExtras A {@link Bundle} with extras that may contain slot reservations via
+   *     {@link MediaConstants#EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_NEXT} or {@link
+   *     MediaConstants#EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_PREV}. The bundle contents will not be
+   *     modified.
+   * @return The list of buttons as media button preferences.
+   */
+  /* package */ static ImmutableList<CommandButton> getMediaButtonPreferencesFromCustomLayout(
+      List<CommandButton> customLayout,
+      Player.Commands availablePlayerCommands,
+      Bundle reservationExtras) {
+    if (customLayout.isEmpty()) {
+      return ImmutableList.of();
+    }
+    boolean hasDefaultBackCommand =
+        availablePlayerCommands.containsAny(
+            Player.COMMAND_SEEK_TO_PREVIOUS, Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM);
+    boolean hasDefaultForwardCommand =
+        availablePlayerCommands.containsAny(
+            Player.COMMAND_SEEK_TO_NEXT, Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM);
+    boolean hasBackSlotReservation =
+        reservationExtras.getBoolean(
+            MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_PREV, /* defaultValue= */ false);
+    boolean hasForwardSlotReservation =
+        reservationExtras.getBoolean(
+            MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_NEXT, /* defaultValue= */ false);
+    int backButtonIndex = (hasDefaultBackCommand || hasBackSlotReservation) ? C.INDEX_UNSET : 0;
+    int forwardButtonIndex =
+        (hasDefaultForwardCommand || hasForwardSlotReservation)
+            ? C.INDEX_UNSET
+            : (backButtonIndex == 0 ? 1 : 0);
+    ImmutableList.Builder<CommandButton> mediaButtonPreferences = ImmutableList.builder();
+    for (int i = 0; i < customLayout.size(); i++) {
+      CommandButton button = customLayout.get(i);
+      if (i == backButtonIndex) {
+        if (forwardButtonIndex == C.INDEX_UNSET) {
+          mediaButtonPreferences.add(
+              button.copyWithSlots(ImmutableIntArray.of(SLOT_BACK, SLOT_OVERFLOW)));
+        } else {
+          mediaButtonPreferences.add(
+              button.copyWithSlots(ImmutableIntArray.of(SLOT_BACK, SLOT_FORWARD, SLOT_OVERFLOW)));
+        }
+      } else if (i == forwardButtonIndex) {
+        mediaButtonPreferences.add(
+            button.copyWithSlots(ImmutableIntArray.of(SLOT_FORWARD, SLOT_OVERFLOW)));
+      } else {
+        mediaButtonPreferences.add(button.copyWithSlots(ImmutableIntArray.of(SLOT_OVERFLOW)));
+      }
+    }
+    return mediaButtonPreferences.build();
   }
 }

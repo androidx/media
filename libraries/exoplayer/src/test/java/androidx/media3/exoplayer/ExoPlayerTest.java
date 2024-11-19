@@ -421,7 +421,8 @@ public class ExoPlayerTest {
       throws Exception {
     Timeline timeline = new FakeTimeline(/* windowCount= */ 1);
     ExoPlayer player = parameterizeTestExoPlayerBuilder(new TestExoPlayerBuilder(context)).build();
-    player.setVideoSurface(new Surface(new SurfaceTexture(/* texName= */ 0)));
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 0));
+    player.setVideoSurface(surface);
     Player.Listener mockPlayerListener = mock(Player.Listener.class);
     player.addListener(mockPlayerListener);
     AnalyticsListener mockAnalyticsListener = mock(AnalyticsListener.class);
@@ -451,6 +452,7 @@ public class ExoPlayerTest {
     runUntilPlaybackState(player, Player.STATE_ENDED);
     videoSizesFromGetter.add(player.getVideoSize());
     player.release();
+    surface.release();
     ShadowLooper.runMainLooperToNextTask();
 
     InOrder playerListenerOrder = inOrder(mockPlayerListener);
@@ -669,6 +671,50 @@ public class ExoPlayerTest {
     assertThat(textRenderer.resetCount).isEqualTo(1);
     assertThat(videoRenderer.enabledCount).isEqualTo(0);
     assertThat(videoRenderer.resetCount).isEqualTo(0);
+  }
+
+  @Test
+  public void renderersLifecycle_onlyRenderersThatAreEnabled_areSetToFinal() throws Exception {
+    AtomicInteger videoStreamSetToFinalCount = new AtomicInteger();
+    final FakeRenderer videoRenderer = new FakeRenderer(C.TRACK_TYPE_VIDEO);
+    final FakeRenderer audioRenderer = new FakeRenderer(C.TRACK_TYPE_AUDIO);
+    final ForwardingRenderer forwardingVideoRenderer =
+        new ForwardingRenderer(videoRenderer) {
+          @Override
+          public void setCurrentStreamFinal() {
+            super.setCurrentStreamFinal();
+            videoStreamSetToFinalCount.getAndIncrement();
+          }
+        };
+    ExoPlayer player =
+        parameterizeTestExoPlayerBuilder(
+                new TestExoPlayerBuilder(context)
+                    .setRenderers(forwardingVideoRenderer, audioRenderer))
+            .build();
+    // Use media sources with discontinuities so that enabled streams are set to final.
+    ClippingMediaSource clippedFakeAudioSource =
+        new ClippingMediaSource(
+            new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.AUDIO_FORMAT), 0, 300_000L);
+    ClippingMediaSource clippedFakeAudioVideoSource =
+        new ClippingMediaSource(
+            new FakeMediaSource(
+                new FakeTimeline(),
+                ExoPlayerTestRunner.VIDEO_FORMAT,
+                ExoPlayerTestRunner.AUDIO_FORMAT),
+            0,
+            300_000L);
+    player.setMediaSources(
+        ImmutableList.of(
+            clippedFakeAudioSource, clippedFakeAudioVideoSource, clippedFakeAudioSource));
+    player.prepare();
+
+    player.play();
+    runUntilPlaybackState(player, Player.STATE_ENDED);
+    player.release();
+
+    assertThat(audioRenderer.enabledCount).isEqualTo(3);
+    assertThat(videoRenderer.enabledCount).isEqualTo(1);
+    assertThat(videoStreamSetToFinalCount.get()).isEqualTo(1);
   }
 
   /**
@@ -16170,6 +16216,79 @@ public class ExoPlayerTest {
 
     assertThat(deviceInfoChanged.get()).isFalse();
     assertThat(deviceVolumeChanged.get()).isFalse();
+  }
+
+  @Test
+  public void playWhenReadyChanges_areForwardedToTrackSelection() throws Exception {
+    ArrayList<Boolean> reportedPlayWhenReadyChanges = new ArrayList<>();
+    ArrayList<Boolean> playWhenReadyStatesInTrackSelector = new ArrayList<>();
+    ExoPlayer player =
+        new TestExoPlayerBuilder(context)
+            .setTrackSelector(
+                new FakeTrackSelector(
+                    new FakeTrackSelector.FakeTrackSelectionFactory(
+                        /* mayReuseTrackSelection= */ false) {
+                      @Override
+                      protected ExoTrackSelection createTrackSelection(TrackGroup trackGroup) {
+                        return new FakeTrackSelection(trackGroup) {
+                          @Override
+                          public void onPlayWhenReadyChanged(boolean playWhenReady) {
+                            super.onPlayWhenReadyChanged(playWhenReady);
+                            reportedPlayWhenReadyChanges.add(playWhenReady);
+                            playWhenReadyStatesInTrackSelector.add(getPlayWhenReady());
+                          }
+                        };
+                      }
+                    }))
+            .build();
+    player.setMediaSource(
+        new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT));
+
+    player.setPlayWhenReady(true);
+    player.prepare();
+    run(player).untilState(Player.STATE_READY);
+    player.setPlayWhenReady(false);
+    player.setPlayWhenReady(true);
+    run(player).untilPendingCommandsAreFullyHandled();
+    player.release();
+
+    assertThat(reportedPlayWhenReadyChanges).containsExactly(true, false, true).inOrder();
+    assertThat(playWhenReadyStatesInTrackSelector).containsExactly(true, false, true).inOrder();
+  }
+
+  @Test
+  public void playbackSpeedChanges_areForwardedToTrackSelection() throws Exception {
+    ArrayList<Float> reportedSpeedChanges = new ArrayList<>();
+    ExoPlayer player =
+        new TestExoPlayerBuilder(context)
+            .setTrackSelector(
+                new FakeTrackSelector(
+                    new FakeTrackSelector.FakeTrackSelectionFactory(
+                        /* mayReuseTrackSelection= */ false) {
+                      @Override
+                      protected ExoTrackSelection createTrackSelection(TrackGroup trackGroup) {
+                        return new FakeTrackSelection(trackGroup) {
+                          @Override
+                          public void onPlaybackSpeed(float playbackSpeed) {
+                            super.onPlaybackSpeed(playbackSpeed);
+                            reportedSpeedChanges.add(playbackSpeed);
+                          }
+                        };
+                      }
+                    }))
+            .build();
+    player.setMediaSource(
+        new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT));
+
+    player.setPlaybackSpeed(2f);
+    player.prepare();
+    run(player).untilState(Player.STATE_READY);
+    player.setPlaybackSpeed(1.5f);
+    player.setPlaybackSpeed(1f);
+    run(player).untilPendingCommandsAreFullyHandled();
+    player.release();
+
+    assertThat(reportedSpeedChanges).containsExactly(2f, 1.5f, 1f).inOrder();
   }
 
   // Internal methods.
