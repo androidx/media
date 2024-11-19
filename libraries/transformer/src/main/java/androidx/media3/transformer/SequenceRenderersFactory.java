@@ -476,6 +476,18 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       return videoSink.handleInputBitmap(outputImage, checkStateNotNull(timestampIterator));
     }
 
+    @Override
+    public void handleMessage(@MessageType int messageType, @Nullable Object message)
+        throws ExoPlaybackException {
+      switch (messageType) {
+        case MSG_SET_WAKEUP_LISTENER:
+          videoSink.setWakeupListener((WakeupListener) checkNotNull(message));
+          break;
+        default:
+          super.handleMessage(messageType, message);
+      }
+    }
+
     private ConstantRateTimestampIterator createTimestampIterator(long positionUs) {
       long streamOffsetUs = getStreamOffsetUs();
       long imageBaseTimestampUs = streamOffsetUs + offsetToCompositionTimeUs;

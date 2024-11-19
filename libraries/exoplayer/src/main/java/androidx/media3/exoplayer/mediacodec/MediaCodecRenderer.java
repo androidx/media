@@ -836,7 +836,8 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   public void handleMessage(@MessageType int messageType, @Nullable Object message)
       throws ExoPlaybackException {
     if (messageType == MSG_SET_WAKEUP_LISTENER) {
-      this.wakeupListener = (WakeupListener) message;
+      wakeupListener = (WakeupListener) message;
+      onWakeupListenerSet(checkNotNull(wakeupListener));
     } else {
       super.handleMessage(messageType, message);
     }
@@ -1539,6 +1540,17 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
    * @param codecError The error.
    */
   protected void onCodecError(Exception codecError) {
+    // Do nothing.
+  }
+
+  /**
+   * Called when a {@link WakeupListener} is set.
+   *
+   * <p>The default implementation is a no-op.
+   *
+   * @param wakeupListener The {@link WakeupListener}.
+   */
+  protected void onWakeupListenerSet(WakeupListener wakeupListener) {
     // Do nothing.
   }
 

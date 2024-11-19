@@ -700,7 +700,10 @@ public final class CompositionPlayer extends SimpleBasePlayer
               .setPlaybackLooper(playbackThread.getLooper())
               .setRenderersFactory(sequenceRenderersFactory)
               .setHandleAudioBecomingNoisy(true)
-              .setClock(clock);
+              .setClock(clock)
+              // Use dynamic scheduling to show the first video/image frame more promptly when the
+              // player is paused (which is common in editing applications).
+              .experimentalSetDynamicSchedulingEnabled(true);
 
       boolean disableVideoPlayback = false;
       for (int j = 0; j < editedMediaItemSequence.editedMediaItems.size(); j++) {

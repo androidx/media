@@ -51,6 +51,7 @@ import androidx.media3.common.util.TimestampIterator;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.ExoPlaybackException;
+import androidx.media3.exoplayer.Renderer;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
@@ -252,6 +253,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
   @Nullable private Pair<Surface, Size> currentSurfaceAndSize;
   private int pendingFlushCount;
   private @State int state;
+  @Nullable private Renderer.WakeupListener wakeupListener;
 
   /**
    * Converts the buffer timestamp (the player position, with renderer offset) to the composition
@@ -362,6 +364,10 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     if (pendingFlushCount > 0) {
       // Ignore available frames while flushing
       return;
+    }
+    if (wakeupListener != null) {
+      // Wake up the player when not playing to render the frame more promptly.
+      wakeupListener.onWakeup();
     }
     // The frame presentation time is relative to the start of the Composition and without the
     // renderer offset
@@ -827,6 +833,11 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     @Override
     public void render(long positionUs, long elapsedRealtimeUs) throws VideoSinkException {
       PlaybackVideoGraphWrapper.this.render(positionUs, elapsedRealtimeUs);
+    }
+
+    @Override
+    public void setWakeupListener(Renderer.WakeupListener wakeupListener) {
+      PlaybackVideoGraphWrapper.this.wakeupListener = wakeupListener;
     }
 
     @Override

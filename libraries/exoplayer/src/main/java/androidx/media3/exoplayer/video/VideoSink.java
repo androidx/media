@@ -294,6 +294,9 @@ public interface VideoSink {
    */
   void render(long positionUs, long elapsedRealtimeUs) throws VideoSinkException;
 
+  /** Sets a {@link Renderer.WakeupListener} on the {@code VideoSink}. */
+  void setWakeupListener(Renderer.WakeupListener wakeupListener);
+
   /**
    * Joins the video sink to a new stream.
    *

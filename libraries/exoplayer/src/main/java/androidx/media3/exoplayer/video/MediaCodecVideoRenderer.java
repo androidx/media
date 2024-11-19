@@ -757,6 +757,10 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         videoSink.setVideoEffects(videoEffects);
       }
       videoSink.onRendererEnabled(mayRenderStartOfStream);
+      @Nullable WakeupListener wakeupListener = getWakeupListener();
+      if (wakeupListener != null) {
+        videoSink.setWakeupListener(wakeupListener);
+      }
     } else {
       videoFrameReleaseControl.setClock(getClock());
       videoFrameReleaseControl.onEnabled(mayRenderStartOfStream);
@@ -1248,6 +1252,13 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   protected void onCodecError(Exception codecError) {
     Log.e(TAG, "Video codec error", codecError);
     eventDispatcher.videoCodecError(codecError);
+  }
+
+  @Override
+  protected void onWakeupListenerSet(WakeupListener wakeupListener) {
+    if (videoSink != null) {
+      videoSink.setWakeupListener(wakeupListener);
+    }
   }
 
   @Override
