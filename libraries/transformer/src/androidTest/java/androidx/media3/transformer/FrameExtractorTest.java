@@ -28,12 +28,10 @@ import static org.junit.Assert.assertThrows;
 import android.app.Instrumentation;
 import android.content.Context;
 import android.graphics.Bitmap;
-import androidx.annotation.Nullable;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.effect.Presentation;
-import androidx.media3.exoplayer.DecoderCounters;
 import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.transformer.ExperimentalFrameExtractor.Frame;
 import androidx.test.core.app.ApplicationProvider;
@@ -113,7 +111,7 @@ public class FrameExtractorTest {
                 .getDecoderCounters()
                 .get(TIMEOUT_SECONDS, SECONDS)
                 .renderedOutputBufferCount)
-        .isAtLeast(4);
+        .isEqualTo(2);
   }
 
   @Test
@@ -141,7 +139,7 @@ public class FrameExtractorTest {
                 .getDecoderCounters()
                 .get(TIMEOUT_SECONDS, SECONDS)
                 .renderedOutputBufferCount)
-        .isAtLeast(4);
+        .isEqualTo(2);
   }
 
   @Test
@@ -170,7 +168,7 @@ public class FrameExtractorTest {
                 .getDecoderCounters()
                 .get(TIMEOUT_SECONDS, SECONDS)
                 .renderedOutputBufferCount)
-        .isAtLeast(3);
+        .isEqualTo(2);
   }
 
   @Test
@@ -202,14 +200,12 @@ public class FrameExtractorTest {
       assertBitmapsAreSimilar(expectedBitmap, frame.bitmap, PSNR_THRESHOLD);
       assertThat(frame.presentationTimeMs).isEqualTo(expectedFramePositionsMs.get(i));
     }
-    // TODO: b/350498258 - some decoders break right after extracting all the frames for this test.
-    // Fix and remove this hack.
-    @Nullable
-    DecoderCounters decoderCounters =
-        frameExtractor.getDecoderCounters().get(TIMEOUT_SECONDS, SECONDS);
-    if (decoderCounters != null) {
-      assertThat(decoderCounters.renderedOutputBufferCount).isAtLeast(7);
-    }
+    assertThat(
+            frameExtractor
+                .getDecoderCounters()
+                .get(TIMEOUT_SECONDS, SECONDS)
+                .renderedOutputBufferCount)
+        .isEqualTo(3);
   }
 
   @Test
@@ -237,7 +233,7 @@ public class FrameExtractorTest {
                 .getDecoderCounters()
                 .get(TIMEOUT_SECONDS, SECONDS)
                 .renderedOutputBufferCount)
-        .isAtLeast(10);
+        .isEqualTo(6);
   }
 
   @Test
@@ -269,7 +265,7 @@ public class FrameExtractorTest {
                 .getDecoderCounters()
                 .get(TIMEOUT_SECONDS, SECONDS)
                 .renderedOutputBufferCount)
-        .isAtLeast(8);
+        .isEqualTo(6);
   }
 
   @Test
@@ -329,7 +325,7 @@ public class FrameExtractorTest {
                 .getDecoderCounters()
                 .get(TIMEOUT_SECONDS, SECONDS)
                 .renderedOutputBufferCount)
-        .isAtLeast(1);
+        .isEqualTo(1);
   }
 
   @Test

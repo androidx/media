@@ -21,6 +21,7 @@ import static androidx.media3.common.Player.DISCONTINUITY_REASON_SEEK;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.usToMs;
+import static androidx.media3.exoplayer.mediacodec.MediaCodecSelector.DEFAULT;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import android.content.Context;
@@ -32,6 +33,7 @@ import android.os.Looper;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.Effect;
+import androidx.media3.common.Format;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.MediaItem;
@@ -40,14 +42,20 @@ import androidx.media3.common.Player;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.NullableType;
+import androidx.media3.common.util.Util;
 import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.GlShaderProgram;
 import androidx.media3.effect.MatrixTransformation;
 import androidx.media3.effect.PassthroughShaderProgram;
 import androidx.media3.exoplayer.DecoderCounters;
+import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.SeekParameters;
 import androidx.media3.exoplayer.analytics.AnalyticsListener;
+import androidx.media3.exoplayer.mediacodec.MediaCodecAdapter;
+import androidx.media3.exoplayer.video.MediaCodecVideoRenderer;
+import androidx.media3.exoplayer.video.VideoRendererEventListener;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -159,7 +167,19 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   // TODO: b/350498258 - Support changing the MediaItem.
   public ExperimentalFrameExtractor(
       Context context, Configuration configuration, MediaItem mediaItem, List<Effect> effects) {
-    player = new ExoPlayer.Builder(context).setSeekParameters(configuration.seekParameters).build();
+    player =
+        new ExoPlayer.Builder(
+                context,
+                /* renderersFactory= */ (eventHandler,
+                    videoRendererEventListener,
+                    audioRendererEventListener,
+                    textRendererOutput,
+                    metadataRendererOutput) ->
+                    new Renderer[] {
+                      new FrameExtractorRenderer(context, videoRendererEventListener)
+                    })
+            .setSeekParameters(configuration.seekParameters)
+            .build();
     playerApplicationThreadHandler = new Handler(player.getApplicationLooper());
     lastRequestedFrameFuture = SettableFuture.create();
     // TODO: b/350498258 - Extracting the first frame is a workaround for ExoPlayer.setVideoEffects
@@ -352,6 +372,78 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       // Block effects pipeline: do not call inputListener.onReadyToAcceptInputFrame().
       // The effects pipeline will unblock and receive new frames when flushed after a seek.
       getInputListener().onInputFrameProcessed(inputTexture);
+    }
+  }
+
+  /** A custom MediaCodecVideoRenderer that renders only one frame per position reset. */
+  private static final class FrameExtractorRenderer extends MediaCodecVideoRenderer {
+
+    private boolean frameRenderedSinceLastReset;
+
+    public FrameExtractorRenderer(
+        Context context, VideoRendererEventListener videoRendererEventListener) {
+      super(
+          context,
+          /* mediaCodecSelector= */ DEFAULT,
+          /* allowedJoiningTimeMs= */ 0,
+          Util.createHandlerForCurrentOrMainLooper(),
+          videoRendererEventListener,
+          /* maxDroppedFramesToNotify= */ 0);
+    }
+
+    @Override
+    public void render(long positionUs, long elapsedRealtimeUs) throws ExoPlaybackException {
+      if (!frameRenderedSinceLastReset) {
+        super.render(positionUs, elapsedRealtimeUs);
+      }
+    }
+
+    @Override
+    protected boolean processOutputBuffer(
+        long positionUs,
+        long elapsedRealtimeUs,
+        @Nullable MediaCodecAdapter codec,
+        @Nullable ByteBuffer buffer,
+        int bufferIndex,
+        int bufferFlags,
+        int sampleCount,
+        long bufferPresentationTimeUs,
+        boolean isDecodeOnlyBuffer,
+        boolean isLastBuffer,
+        Format format)
+        throws ExoPlaybackException {
+      if (frameRenderedSinceLastReset) {
+        return false;
+      }
+      return super.processOutputBuffer(
+          positionUs,
+          elapsedRealtimeUs,
+          codec,
+          buffer,
+          bufferIndex,
+          bufferFlags,
+          sampleCount,
+          bufferPresentationTimeUs,
+          isDecodeOnlyBuffer,
+          isLastBuffer,
+          format);
+    }
+
+    @Override
+    protected void renderOutputBufferV21(
+        MediaCodecAdapter codec, int index, long presentationTimeUs, long releaseTimeNs) {
+      if (frameRenderedSinceLastReset) {
+        // Do not skip this buffer to prevent the decoder from making more progress.
+        return;
+      }
+      frameRenderedSinceLastReset = true;
+      super.renderOutputBufferV21(codec, index, presentationTimeUs, releaseTimeNs);
+    }
+
+    @Override
+    protected void onPositionReset(long positionUs, boolean joining) throws ExoPlaybackException {
+      frameRenderedSinceLastReset = false;
+      super.onPositionReset(positionUs, joining);
     }
   }
 }
