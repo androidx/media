@@ -1091,10 +1091,10 @@ public class TransformerEndToEndTest {
   @Test
   public void clippedMedia_trimOptimizationEnabled_completesWithOptimizationApplied()
       throws Exception {
-    if (!isRunningOnEmulator() || Util.SDK_INT != 33) {
+    if (!isRunningOnEmulator() || Util.SDK_INT < 33) {
       // The trim optimization is only guaranteed to work on emulator for this (emulator-transcoded)
       // file.
-      recordTestSkipped(context, testId, /* reason= */ "SDK 33 Emulator only test");
+      recordTestSkipped(context, testId, /* reason= */ "SDK 33+ Emulator only test");
       assumeTrue(false);
     }
     Transformer transformer =
@@ -1130,7 +1130,7 @@ public class TransformerEndToEndTest {
     if (!isRunningOnEmulator() || Util.SDK_INT < 33) {
       // The trim optimization is only guaranteed to work on emulator for this (emulator-transcoded)
       // file.
-      recordTestSkipped(context, testId, /* reason= */ "SDK 33 Emulator only test");
+      recordTestSkipped(context, testId, /* reason= */ "SDK 33+ Emulator only test");
       assumeTrue(false);
     }
     Transformer transformer =
@@ -1167,7 +1167,7 @@ public class TransformerEndToEndTest {
     if (!isRunningOnEmulator() || Util.SDK_INT < 33) {
       // The trim optimization is only guaranteed to work on emulator for this (emulator-transcoded)
       // file.
-      recordTestSkipped(context, testId, /* reason= */ "SDK 33 Emulator only test");
+      recordTestSkipped(context, testId, /* reason= */ "SDK 33+ Emulator only test");
       assumeTrue(false);
     }
     Transformer transformer =
@@ -1201,10 +1201,10 @@ public class TransformerEndToEndTest {
   public void
       clippedMediaAudioRemovedNoOpEffectAndRotated_trimOptimizationEnabled_completedWithOptimizationAppliedAndCorrectOrientation()
           throws Exception {
-    if (!isRunningOnEmulator() || Util.SDK_INT != 33) {
+    if (!isRunningOnEmulator() || Util.SDK_INT < 33) {
       // The trim optimization is only guaranteed to work on emulator for this (emulator-transcoded)
       // file.
-      recordTestSkipped(context, testId, /* reason= */ "SDK 33 Emulator only test");
+      recordTestSkipped(context, testId, /* reason= */ "SDK 33+ Emulator only test");
       assumeTrue(false);
     }
     Transformer transformer =
