@@ -28,6 +28,8 @@
 *   Extractors:
 *   DataSource:
 *   Audio:
+    *   Do not bypass `SonicAudioProcessor` when `SpeedChangingAudioProcessor`
+        is configured with default parameters.
 *   Video:
 *   Text:
 *   Metadata:
