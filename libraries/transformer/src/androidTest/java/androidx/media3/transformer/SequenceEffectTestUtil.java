@@ -102,10 +102,10 @@ public final class SequenceEffectTestUtil {
    * effects} applied.
    */
   public static EditedMediaItem oneFrameFromImage(String uri, List<Effect> effects) {
-    return new EditedMediaItem.Builder(MediaItem.fromUri(uri))
-        // 50ms for a 20-fps video is one frame.
+    // 50ms for a 20-fps video is one frame.
+    return new EditedMediaItem.Builder(
+            new MediaItem.Builder().setUri(uri).setImageDurationMs(50).build())
         .setFrameRate(20)
-        .setDurationUs(50_000)
         .setEffects(
             new Effects(/* audioProcessors= */ ImmutableList.of(), ImmutableList.copyOf(effects)))
         .build();

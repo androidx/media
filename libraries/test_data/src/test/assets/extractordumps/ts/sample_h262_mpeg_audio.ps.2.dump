@@ -11,6 +11,7 @@ track 192:
   sample count = 0
   format 0:
     id = 192
+    containerMimeType = video/mp2p
     sampleMimeType = audio/mpeg-L2
     maxInputSize = 4096
     channelCount = 1
@@ -20,6 +21,7 @@ track 224:
   sample count = 0
   format 0:
     id = 224
+    containerMimeType = video/mp2p
     sampleMimeType = video/mpeg2
     width = 640
     height = 426

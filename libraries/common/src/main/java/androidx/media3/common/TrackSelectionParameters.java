@@ -90,6 +90,7 @@ public class TrackSelectionParameters {
     private int viewportHeight;
     private boolean viewportOrientationMayChange;
     private ImmutableList<String> preferredVideoMimeTypes;
+    private ImmutableList<String> preferredVideoLanguages;
     private @C.RoleFlags int preferredVideoRoleFlags;
     // Audio
     private ImmutableList<String> preferredAudioLanguages;
@@ -127,6 +128,7 @@ public class TrackSelectionParameters {
       viewportHeight = Integer.MAX_VALUE;
       viewportOrientationMayChange = true;
       preferredVideoMimeTypes = ImmutableList.of();
+      preferredVideoLanguages = ImmutableList.of();
       preferredVideoRoleFlags = 0;
       // Audio
       preferredAudioLanguages = ImmutableList.of();
@@ -194,6 +196,9 @@ public class TrackSelectionParameters {
       preferredVideoMimeTypes =
           ImmutableList.copyOf(
               firstNonNull(bundle.getStringArray(FIELD_PREFERRED_VIDEO_MIMETYPES), new String[0]));
+      preferredVideoLanguages =
+          ImmutableList.copyOf(
+              firstNonNull(bundle.getStringArray(FIELD_PREFERRED_VIDEO_LANGUAGES), new String[0]));
       preferredVideoRoleFlags =
           bundle.getInt(
               FIELD_PREFERRED_VIDEO_ROLE_FLAGS, DEFAULT_WITHOUT_CONTEXT.preferredVideoRoleFlags);
@@ -284,6 +289,7 @@ public class TrackSelectionParameters {
     /** Overrides the value of the builder with the value of {@link TrackSelectionParameters}. */
     @EnsuresNonNull({
       "preferredVideoMimeTypes",
+      "preferredVideoLanguages",
       "preferredAudioLanguages",
       "preferredAudioMimeTypes",
       "audioOffloadPreferences",
@@ -305,6 +311,7 @@ public class TrackSelectionParameters {
       viewportHeight = parameters.viewportHeight;
       viewportOrientationMayChange = parameters.viewportOrientationMayChange;
       preferredVideoMimeTypes = parameters.preferredVideoMimeTypes;
+      preferredVideoLanguages = parameters.preferredVideoLanguages;
       preferredVideoRoleFlags = parameters.preferredVideoRoleFlags;
       // Audio
       preferredAudioLanguages = parameters.preferredAudioLanguages;
@@ -501,6 +508,36 @@ public class TrackSelectionParameters {
     @CanIgnoreReturnValue
     public Builder setPreferredVideoMimeTypes(String... mimeTypes) {
       preferredVideoMimeTypes = ImmutableList.copyOf(mimeTypes);
+      return this;
+    }
+
+    /**
+     * Sets the preferred language for video tracks.
+     *
+     * @param preferredVideoLanguage Preferred video language as an IETF BCP 47 conformant tag, or
+     *     {@code null} to express no language preference for video track selection.
+     * @return This builder.
+     */
+    @UnstableApi
+    @CanIgnoreReturnValue
+    public Builder setPreferredVideoLanguage(@Nullable String preferredVideoLanguage) {
+      return preferredVideoLanguage == null
+          ? setPreferredVideoLanguages()
+          : setPreferredVideoLanguages(preferredVideoLanguage);
+    }
+
+    /**
+     * Sets the preferred languages for video tracks.
+     *
+     * @param preferredVideoLanguages Preferred video languages as IETF BCP 47 conformant tags in
+     *     order of preference, or an empty array to express no language preference for video track
+     *     selection.
+     * @return This builder.
+     */
+    @UnstableApi
+    @CanIgnoreReturnValue
+    public Builder setPreferredVideoLanguages(String... preferredVideoLanguages) {
+      this.preferredVideoLanguages = normalizeLanguageCodes(preferredVideoLanguages);
       return this;
     }
 
@@ -1149,6 +1186,11 @@ public class TrackSelectionParameters {
   public final ImmutableList<String> preferredVideoMimeTypes;
 
   /**
+   * The preferred languages for video tracks as IETF BCP 47 conformant tags in order of preference.
+   */
+  @UnstableApi public final ImmutableList<String> preferredVideoLanguages;
+
+  /**
    * The preferred {@link C.RoleFlags} for video tracks. {@code 0} selects the default track if
    * there is one, or the first track if there's no default. The default value is {@code 0}.
    */
@@ -1267,6 +1309,7 @@ public class TrackSelectionParameters {
     this.viewportHeight = builder.viewportHeight;
     this.viewportOrientationMayChange = builder.viewportOrientationMayChange;
     this.preferredVideoMimeTypes = builder.preferredVideoMimeTypes;
+    this.preferredVideoLanguages = builder.preferredVideoLanguages;
     this.preferredVideoRoleFlags = builder.preferredVideoRoleFlags;
     // Audio
     this.preferredAudioLanguages = builder.preferredAudioLanguages;
@@ -1317,6 +1360,7 @@ public class TrackSelectionParameters {
         && viewportWidth == other.viewportWidth
         && viewportHeight == other.viewportHeight
         && preferredVideoMimeTypes.equals(other.preferredVideoMimeTypes)
+        && preferredVideoLanguages.equals(other.preferredVideoLanguages)
         && preferredVideoRoleFlags == other.preferredVideoRoleFlags
         // Audio
         && preferredAudioLanguages.equals(other.preferredAudioLanguages)
@@ -1355,6 +1399,7 @@ public class TrackSelectionParameters {
     result = 31 * result + viewportWidth;
     result = 31 * result + viewportHeight;
     result = 31 * result + preferredVideoMimeTypes.hashCode();
+    result = 31 * result + preferredVideoLanguages.hashCode();
     result = 31 * result + preferredVideoRoleFlags;
     // Audio
     result = 31 * result + preferredAudioLanguages.hashCode();
@@ -1410,6 +1455,7 @@ public class TrackSelectionParameters {
   private static final String FIELD_AUDIO_OFFLOAD_PREFERENCES = Util.intToStringMaxRadix(30);
   private static final String FIELD_IS_PREFER_IMAGE_OVER_VIDEO_ENABLED =
       Util.intToStringMaxRadix(31);
+  private static final String FIELD_PREFERRED_VIDEO_LANGUAGES = Util.intToStringMaxRadix(32);
 
   /**
    * Defines a minimum field ID value for subclasses to use when implementing {@link #toBundle()}
@@ -1439,6 +1485,8 @@ public class TrackSelectionParameters {
     bundle.putBoolean(FIELD_VIEWPORT_ORIENTATION_MAY_CHANGE, viewportOrientationMayChange);
     bundle.putStringArray(
         FIELD_PREFERRED_VIDEO_MIMETYPES, preferredVideoMimeTypes.toArray(new String[0]));
+    bundle.putStringArray(
+        FIELD_PREFERRED_VIDEO_LANGUAGES, preferredVideoLanguages.toArray(new String[0]));
     bundle.putInt(FIELD_PREFERRED_VIDEO_ROLE_FLAGS, preferredVideoRoleFlags);
     // Audio
     bundle.putStringArray(

@@ -2,6 +2,7 @@ format audio:
   averageBitrate = 192181
   peakBitrate = 192181
   id = 2
+  containerMimeType = video/mp4
   sampleMimeType = audio/mp4a-latm
   codecs = mp4a.40.2
   maxInputSize = 643
@@ -13,6 +14,7 @@ format audio:
     data = length 2, hash 560
 format video:
   id = 1
+  containerMimeType = video/mp4
   sampleMimeType = video/avc
   codecs = avc1.42C015
   maxInputSize = 14839

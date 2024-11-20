@@ -27,6 +27,7 @@ import android.os.HandlerThread;
 import android.os.Looper;
 import android.support.v4.media.MediaDescriptionCompat;
 import android.support.v4.media.session.MediaControllerCompat;
+import android.support.v4.media.session.MediaSessionCompat;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.DeviceInfo;
@@ -1083,7 +1084,8 @@ public class MediaSessionPlayerTest {
     MediaSession session = new MediaSession.Builder(context, player).setId("test").build();
     sessionReference.set(session);
     MediaControllerCompat controller =
-        new MediaControllerCompat(context, session.getSessionCompatToken());
+        new MediaControllerCompat(
+            context, MediaSessionCompat.Token.fromToken(session.getPlatformToken()));
 
     controller.getTransportControls().play();
     eventHandled.await();
@@ -1138,7 +1140,8 @@ public class MediaSessionPlayerTest {
             .build();
     sessionReference.set(session);
     MediaControllerCompat controller =
-        new MediaControllerCompat(context, session.getSessionCompatToken());
+        new MediaControllerCompat(
+            context, MediaSessionCompat.Token.fromToken(session.getPlatformToken()));
 
     controller.getTransportControls().playFromUri(Uri.parse("test://"), Bundle.EMPTY);
     eventHandled.await();
@@ -1195,7 +1198,8 @@ public class MediaSessionPlayerTest {
     MainLooperTestRule.runOnMainSync(
         () -> {
           MediaControllerCompat controller =
-              new MediaControllerCompat(context, session.getSessionCompatToken());
+              new MediaControllerCompat(
+                  context, MediaSessionCompat.Token.fromToken(session.getPlatformToken()));
           controller.addQueueItem(new MediaDescriptionCompat.Builder().setMediaId("id").build());
         });
     eventHandled.await();

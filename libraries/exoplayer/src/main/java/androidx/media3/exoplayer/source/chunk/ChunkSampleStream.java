@@ -45,6 +45,7 @@ import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy.LoadErrorInfo;
 import androidx.media3.exoplayer.upstream.Loader;
 import androidx.media3.exoplayer.upstream.Loader.LoadErrorAction;
+import androidx.media3.exoplayer.util.ReleasableExecutor;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -119,6 +120,8 @@ public class ChunkSampleStream<T extends ChunkSource>
    *     events.
    * @param canReportInitialDiscontinuity Whether the stream can report an initial discontinuity if
    *     the first chunk can't start at the beginning and needs to preroll data.
+   * @param downloadExecutor An optional externally provided {@link ReleasableExecutor} for loading
+   *     and extracting media.
    */
   public ChunkSampleStream(
       @C.TrackType int primaryTrackType,
@@ -132,7 +135,8 @@ public class ChunkSampleStream<T extends ChunkSource>
       DrmSessionEventListener.EventDispatcher drmEventDispatcher,
       LoadErrorHandlingPolicy loadErrorHandlingPolicy,
       MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
-      boolean canReportInitialDiscontinuity) {
+      boolean canReportInitialDiscontinuity,
+      @Nullable ReleasableExecutor downloadExecutor) {
     this.primaryTrackType = primaryTrackType;
     this.embeddedTrackTypes = embeddedTrackTypes == null ? new int[0] : embeddedTrackTypes;
     this.embeddedTrackFormats = embeddedTrackFormats == null ? new Format[0] : embeddedTrackFormats;
@@ -141,7 +145,8 @@ public class ChunkSampleStream<T extends ChunkSource>
     this.mediaSourceEventDispatcher = mediaSourceEventDispatcher;
     this.loadErrorHandlingPolicy = loadErrorHandlingPolicy;
     this.canReportInitialDiscontinuity = canReportInitialDiscontinuity;
-    loader = new Loader("ChunkSampleStream");
+    loader =
+        downloadExecutor != null ? new Loader(downloadExecutor) : new Loader("ChunkSampleStream");
     nextChunkHolder = new ChunkHolder();
     mediaChunks = new ArrayList<>();
     readOnlyMediaChunks = Collections.unmodifiableList(mediaChunks);
@@ -425,6 +430,32 @@ public class ChunkSampleStream<T extends ChunkSource>
   // Loader.Callback implementation.
 
   @Override
+  public void onLoadStarted(
+      Chunk loadable, long elapsedRealtimeMs, long loadDurationMs, int retryCount) {
+    LoadEventInfo loadEventInfo =
+        retryCount == 0
+            ? new LoadEventInfo(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs)
+            : new LoadEventInfo(
+                loadable.loadTaskId,
+                loadable.dataSpec,
+                loadable.getUri(),
+                loadable.getResponseHeaders(),
+                elapsedRealtimeMs,
+                loadDurationMs,
+                loadable.bytesLoaded());
+    mediaSourceEventDispatcher.loadStarted(
+        loadEventInfo,
+        loadable.type,
+        primaryTrackType,
+        loadable.trackFormat,
+        loadable.trackSelectionReason,
+        loadable.trackSelectionData,
+        loadable.startTimeUs,
+        loadable.endTimeUs,
+        retryCount);
+  }
+
+  @Override
   public void onLoadCompleted(Chunk loadable, long elapsedRealtimeMs, long loadDurationMs) {
     loadingChunk = null;
     chunkSource.onChunkLoadCompleted(loadable);
@@ -631,18 +662,8 @@ public class ChunkSampleStream<T extends ChunkSource>
     } else if (loadable instanceof InitializationChunk) {
       ((InitializationChunk) loadable).init(chunkOutput);
     }
-    long elapsedRealtimeMs =
-        loader.startLoading(
-            loadable, this, loadErrorHandlingPolicy.getMinimumLoadableRetryCount(loadable.type));
-    mediaSourceEventDispatcher.loadStarted(
-        new LoadEventInfo(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs),
-        loadable.type,
-        primaryTrackType,
-        loadable.trackFormat,
-        loadable.trackSelectionReason,
-        loadable.trackSelectionData,
-        loadable.startTimeUs,
-        loadable.endTimeUs);
+    loader.startLoading(
+        loadable, this, loadErrorHandlingPolicy.getMinimumLoadableRetryCount(loadable.type));
     return true;
   }
 
@@ -708,7 +729,7 @@ public class ChunkSampleStream<T extends ChunkSource>
     int newQueueSize = C.LENGTH_UNSET;
     for (int i = preferredQueueSize; i < currentQueueSize; i++) {
       if (!haveReadFromMediaChunk(i)) {
-        // TODO: Sparse tracks (e.g. ESMG) may prevent discarding in almost all cases because it
+        // TODO: Sparse tracks (e.g. EMSG) may prevent discarding in almost all cases because it
         // means that most chunks have been read from already. See [internal b/161126666].
         newQueueSize = i;
         break;

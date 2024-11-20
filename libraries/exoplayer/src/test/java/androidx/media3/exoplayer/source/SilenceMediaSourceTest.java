@@ -74,6 +74,7 @@ public class SilenceMediaSourceTest {
 
   @Test
   public void builderSetDurationUs_nonPositiveValue_throwsIllegalStateException() {
+    @SuppressWarnings("Range") // Deliberately testing an invalid value
     SilenceMediaSource.Factory factory = new SilenceMediaSource.Factory().setDurationUs(-1);
 
     assertThrows(IllegalStateException.class, factory::createMediaSource);

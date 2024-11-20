@@ -732,7 +732,8 @@ public final class DefaultBandwidthMeterTest {
     setActiveNetworkInfo(networkInfo, TelephonyDisplayInfo.OVERRIDE_NETWORK_TYPE_NONE);
   }
 
-  @SuppressWarnings("StickyBroadcast")
+  // Adding the permission to the test AndroidManifest.xml doesn't work to appease lint.
+  @SuppressWarnings({"StickyBroadcast", "MissingPermission"})
   private void setActiveNetworkInfo(NetworkInfo networkInfo, int networkTypeOverride) {
     // Set network info in ConnectivityManager and TelephonyDisplayInfo in TelephonyManager.
     Shadows.shadowOf(connectivityManager).setActiveNetworkInfo(networkInfo);

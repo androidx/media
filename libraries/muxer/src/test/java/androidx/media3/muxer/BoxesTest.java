@@ -96,6 +96,49 @@ public class BoxesTest {
   }
 
   @Test
+  public void createEdtsBox_forZeroStartTimeTrack_matchesExpected() throws IOException {
+    ByteBuffer edtsBox =
+        Boxes.edts(
+            /* firstInputPtsUs= */ 0L,
+            /* minInputPtsUs= */ 0L,
+            /* trackDurationUs= */ 1_000_000L,
+            /* mvhdTimescale= */ 10_000L,
+            /* trackTimescale= */ 90_000L);
+
+    assertThat(edtsBox.limit()).isEqualTo(0);
+  }
+
+  @Test
+  public void createEdtsBox_forPositiveStartTimeTrack_matchesExpected() throws IOException {
+    ByteBuffer edtsBox =
+        Boxes.edts(
+            /* firstInputPtsUs= */ 10_000L,
+            /* minInputPtsUs= */ 0L,
+            /* trackDurationUs= */ 1_000_000L,
+            /* mvhdTimescale= */ 10_000L,
+            /* trackTimescale= */ 90_000L);
+
+    DumpableMp4Box dumpableBox = new DumpableMp4Box(edtsBox);
+    DumpFileAsserts.assertOutput(
+        context, dumpableBox, getExpectedDumpFilePath("positive_start_time_edts_box"));
+  }
+
+  @Test
+  public void createEdtsBox_forNegativeStartTimeTrack_matchesExpected() throws IOException {
+    ByteBuffer edtsBox =
+        Boxes.edts(
+            /* firstInputPtsUs= */ -10_000L,
+            /* minInputPtsUs= */ -20_000L,
+            /* trackDurationUs= */ 1_000_000L,
+            /* mvhdTimescale= */ 10_000L,
+            /* trackTimescale= */ 90_000L);
+
+    DumpableMp4Box dumpableBox = new DumpableMp4Box(edtsBox);
+    DumpFileAsserts.assertOutput(
+        context, dumpableBox, getExpectedDumpFilePath("negative_start_time_edts_box"));
+  }
+
+  @Test
   public void createMvhdBox_matchesExpected() throws IOException {
     ByteBuffer mvhdBox =
         Boxes.mvhd(
@@ -480,7 +523,6 @@ public class BoxesTest {
     List<Integer> durationsVu =
         Boxes.convertPresentationTimestampsToDurationsVu(
             sampleBufferInfos,
-            /* firstSamplePresentationTimeUs= */ 0L,
             VU_TIMEBASE,
             LAST_SAMPLE_DURATION_BEHAVIOR_SET_TO_ZERO,
             C.TIME_UNSET);
@@ -497,7 +539,6 @@ public class BoxesTest {
     List<Integer> durationsVu =
         Boxes.convertPresentationTimestampsToDurationsVu(
             sampleBufferInfos,
-            /* firstSamplePresentationTimeUs= */ 0L,
             VU_TIMEBASE,
             LAST_SAMPLE_DURATION_BEHAVIOR_SET_TO_ZERO,
             C.TIME_UNSET);
@@ -514,7 +555,6 @@ public class BoxesTest {
     List<Integer> durationsVu =
         Boxes.convertPresentationTimestampsToDurationsVu(
             sampleBufferInfos,
-            /* firstSamplePresentationTimeUs= */ 0L,
             VU_TIMEBASE,
             LAST_SAMPLE_DURATION_BEHAVIOR_SET_TO_ZERO,
             C.TIME_UNSET);
@@ -531,7 +571,6 @@ public class BoxesTest {
     List<Integer> durationsVu =
         Boxes.convertPresentationTimestampsToDurationsVu(
             sampleBufferInfos,
-            /* firstSamplePresentationTimeUs= */ 0L,
             VU_TIMEBASE,
             LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER_OR_DUPLICATE_PREVIOUS,
             C.TIME_UNSET);
@@ -548,7 +587,6 @@ public class BoxesTest {
     List<Integer> durationsVu =
         Boxes.convertPresentationTimestampsToDurationsVu(
             sampleBufferInfos,
-            /* firstSamplePresentationTimeUs= */ 0L,
             VU_TIMEBASE,
             LAST_SAMPLE_DURATION_BEHAVIOR_SET_TO_ZERO,
             C.TIME_UNSET);
@@ -565,7 +603,6 @@ public class BoxesTest {
     List<Integer> durationsVu =
         Boxes.convertPresentationTimestampsToDurationsVu(
             sampleBufferInfos,
-            /* firstSamplePresentationTimeUs= */ 0L,
             VU_TIMEBASE,
             LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER_OR_DUPLICATE_PREVIOUS,
             /* endOfStreamTimestampUs= */ 10_000);
@@ -620,7 +657,6 @@ public class BoxesTest {
     List<Integer> durationsVu =
         Boxes.convertPresentationTimestampsToDurationsVu(
             sampleBufferInfos,
-            /* firstSamplePresentationTimeUs= */ 0L,
             VU_TIMEBASE,
             LAST_SAMPLE_DURATION_BEHAVIOR_SET_TO_ZERO,
             C.TIME_UNSET);
@@ -638,7 +674,6 @@ public class BoxesTest {
     List<Integer> durationsVu =
         Boxes.convertPresentationTimestampsToDurationsVu(
             sampleBufferInfos,
-            /* firstSamplePresentationTimeUs= */ 0L,
             VU_TIMEBASE,
             LAST_SAMPLE_DURATION_BEHAVIOR_SET_TO_ZERO,
             C.TIME_UNSET);
@@ -658,7 +693,6 @@ public class BoxesTest {
     List<Integer> durationsVu =
         Boxes.convertPresentationTimestampsToDurationsVu(
             sampleBufferInfos,
-            /* firstSamplePresentationTimeUs= */ 0L,
             VU_TIMEBASE,
             LAST_SAMPLE_DURATION_BEHAVIOR_SET_TO_ZERO,
             C.TIME_UNSET);
@@ -679,7 +713,6 @@ public class BoxesTest {
     List<Integer> durationsVu =
         Boxes.convertPresentationTimestampsToDurationsVu(
             sampleBufferInfos,
-            /* firstSamplePresentationTimeUs= */ 23698215060L,
             VU_TIMEBASE,
             LAST_SAMPLE_DURATION_BEHAVIOR_SET_TO_ZERO,
             C.TIME_UNSET);

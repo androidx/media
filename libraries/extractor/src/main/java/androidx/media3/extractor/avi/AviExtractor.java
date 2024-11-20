@@ -15,6 +15,7 @@
  */
 package androidx.media3.extractor.avi;
 
+import static java.lang.Math.max;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import androidx.annotation.IntDef;
@@ -518,10 +519,11 @@ public final class AviExtractor implements Extractor {
     if (trackType == C.TRACK_TYPE_AUDIO || trackType == C.TRACK_TYPE_VIDEO) {
       TrackOutput trackOutput = extractorOutput.track(streamId, trackType);
       trackOutput.format(builder.build());
+      trackOutput.durationUs(durationUs);
       ChunkReader chunkReader =
           new ChunkReader(
               streamId, trackType, durationUs, aviStreamHeaderChunk.length, trackOutput);
-      this.durationUs = durationUs;
+      this.durationUs = max(this.durationUs, durationUs);
       return chunkReader;
     } else {
       // We don't currently support tracks other than video and audio.

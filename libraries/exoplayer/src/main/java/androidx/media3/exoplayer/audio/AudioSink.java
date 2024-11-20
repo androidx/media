@@ -160,7 +160,7 @@ public interface AudioSink {
   /** Configuration parameters used for an {@link AudioTrack}. */
   final class AudioTrackConfig {
 
-    /* The {@link C.Encoding} of the audio data. */
+    /** The {@link C.Encoding} of the audio data. */
     public final @C.Encoding int encoding;
 
     /** The sample rate of the audio data. */

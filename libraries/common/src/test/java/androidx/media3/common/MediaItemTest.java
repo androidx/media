@@ -557,6 +557,7 @@ public class MediaItemTest {
   }
 
   @Test
+  @SuppressWarnings("Range") // Deliberately testing invalid values
   public void clippingConfigurationBuilder_throwsOnInvalidValues() {
     MediaItem.ClippingConfiguration.Builder clippingConfigurationBuilder =
         new MediaItem.ClippingConfiguration.Builder();
@@ -582,7 +583,7 @@ public class MediaItemTest {
   }
 
   @Test
-  @SuppressWarnings("deprecation") // Testing deprecated setter.
+  @SuppressWarnings({"deprecation", "Range"}) // Testing deprecated setter with invalid value.
   public void builderSetStartPositionMs_negativeValue_throws() {
     MediaItem.Builder builder = new MediaItem.Builder();
 

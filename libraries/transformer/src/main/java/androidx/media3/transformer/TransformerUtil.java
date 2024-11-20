@@ -19,11 +19,14 @@ package androidx.media3.transformer;
 import static androidx.media3.common.ColorInfo.SDR_BT709_LIMITED;
 import static androidx.media3.common.ColorInfo.isTransferHdr;
 import static androidx.media3.common.util.Assertions.checkArgument;
+import static androidx.media3.exoplayer.mediacodec.MediaCodecUtil.getAlternativeCodecMimeType;
 import static androidx.media3.transformer.Composition.HDR_MODE_KEEP_HDR;
 import static androidx.media3.transformer.Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL;
 import static androidx.media3.transformer.EncoderUtil.getSupportedEncodersForHdrEditing;
 import static java.lang.Math.round;
 
+import android.content.ContentResolver;
+import android.content.Context;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.util.Pair;
@@ -32,6 +35,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
+import androidx.media3.common.MediaItem;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.UnstableApi;
@@ -39,7 +43,9 @@ import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.ScaleAndRotateTransformation;
 import androidx.media3.extractor.metadata.mp4.SlowMotionData;
 import androidx.media3.transformer.Composition.HdrMode;
+import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
+import java.util.Objects;
 
 /** Utility methods for Transformer. */
 @UnstableApi
@@ -148,12 +154,18 @@ public final class TransformerUtil {
     if (transformationRequest.hdrMode != HDR_MODE_KEEP_HDR) {
       return true;
     }
-    if (transformationRequest.videoMimeType != null
-        && !transformationRequest.videoMimeType.equals(inputFormat.sampleMimeType)) {
-      return true;
+    @Nullable String requestedMimeType = transformationRequest.videoMimeType;
+    if (requestedMimeType != null) {
+      boolean requestedMimeTypeEqualsPrimaryOrAlternativeMimeType =
+          requestedMimeType.equals(inputFormat.sampleMimeType)
+              || requestedMimeType.equals(getAlternativeCodecMimeType(inputFormat));
+      if (!requestedMimeTypeEqualsPrimaryOrAlternativeMimeType) {
+        return true;
+      }
     }
-    if (transformationRequest.videoMimeType == null
-        && !muxerWrapper.supportsSampleMimeType(inputFormat.sampleMimeType)) {
+    if (requestedMimeType == null
+        && !muxerWrapper.supportsSampleMimeType(inputFormat.sampleMimeType)
+        && !muxerWrapper.supportsSampleMimeType(getAlternativeCodecMimeType(inputFormat))) {
       return true;
     }
     if (inputFormat.pixelWidthHeightRatio != 1f) {
@@ -278,5 +290,89 @@ public final class TransformerUtil {
       }
     }
     return Pair.create(requestedOutputMimeType, hdrMode);
+  }
+
+  /** Returns whether the provided {@link MediaItem} corresponds to an image. */
+  public static boolean isImage(Context context, MediaItem mediaItem) {
+    @Nullable String mimeType = getImageMimeType(context, mediaItem);
+    return mimeType != null && MimeTypes.isImage(mimeType);
+  }
+
+  /**
+   * Returns the image MIME type corresponding to a {@link MediaItem}.
+   *
+   * <p>This method only supports some common image MIME types.
+   *
+   * @param context The {@link Context}.
+   * @param mediaItem The {@link MediaItem} to inspect.
+   * @return The MIME type.
+   */
+  @Nullable
+  public static String getImageMimeType(Context context, MediaItem mediaItem) {
+    if (mediaItem.localConfiguration == null) {
+      return null;
+    }
+    MediaItem.LocalConfiguration localConfiguration = mediaItem.localConfiguration;
+    @Nullable String mimeType = localConfiguration.mimeType;
+    if (mimeType == null) {
+      if (Objects.equals(localConfiguration.uri.getScheme(), ContentResolver.SCHEME_CONTENT)) {
+        ContentResolver cr = context.getContentResolver();
+        mimeType = cr.getType(localConfiguration.uri);
+      } else {
+        @Nullable String uriPath = localConfiguration.uri.getPath();
+        if (uriPath == null) {
+          return null;
+        }
+        int fileExtensionStart = uriPath.lastIndexOf(".");
+        if (fileExtensionStart >= 0 && fileExtensionStart < uriPath.length() - 1) {
+          String extension = Ascii.toLowerCase(uriPath.substring(fileExtensionStart + 1));
+          mimeType = getCommonImageMimeTypeFromExtension(extension);
+        }
+      }
+    }
+    return mimeType;
+  }
+
+  @Nullable
+  private static String getCommonImageMimeTypeFromExtension(String extension) {
+    switch (extension) {
+      case "bmp":
+      case "dib":
+        return MimeTypes.IMAGE_BMP;
+      case "heif":
+        return MimeTypes.IMAGE_HEIF;
+      case "heic":
+        return MimeTypes.IMAGE_HEIC;
+      case "jpg":
+      case "jpeg":
+      case "jpe":
+      case "jif":
+      case "jfif":
+      case "jfi":
+        return MimeTypes.IMAGE_JPEG;
+      case "png":
+        return MimeTypes.IMAGE_PNG;
+      case "webp":
+        return MimeTypes.IMAGE_WEBP;
+      case "gif":
+        return "image/gif";
+      case "tiff":
+      case "tif":
+        return "image/tiff";
+      case "raw":
+      case "arw":
+      case "cr2":
+      case "k25":
+        return "image/raw";
+      case "svg":
+      case "svgz":
+        return "image/svg+xml";
+      case "ico":
+        return "image/x-icon";
+      case "avif":
+        return MimeTypes.IMAGE_AVIF;
+      default:
+        return null;
+    }
   }
 }

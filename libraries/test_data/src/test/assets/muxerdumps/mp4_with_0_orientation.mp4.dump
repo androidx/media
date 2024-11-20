@@ -9,8 +9,10 @@ numberOfTracks = 1
 track 0:
   total output bytes = 56
   sample count = 1
+  track duration = 0
   format 0:
     id = 1
+    containerMimeType = video/mp4
     sampleMimeType = video/avc
     codecs = avc1.F4000A
     maxInputSize = 86

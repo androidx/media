@@ -111,7 +111,49 @@
     android:text="@string/add_background_audio"
     app:layout_constraintStart_toStartOf="parent"
     app:layout_constraintEnd_toEndOf="parent"
-    app:layout_constraintBottom_toTopOf="@id/preview_button" />
+    app:layout_constraintBottom_toTopOf="@id/resolution_height_setting" />
+
+  <LinearLayout
+    android:id="@+id/resolution_height_setting"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:layout_marginBottom="8dp"
+    app:layout_constraintBottom_toTopOf="@id/hdr_mode_setting">
+    <TextView
+      android:layout_height="wrap_content"
+      android:layout_width="0dp"
+      android:layout_weight="1"
+      android:text="@string/output_video_resolution"/>
+    <Spinner
+      android:id="@+id/resolution_height_spinner"
+      android:layout_gravity="end|center_vertical"
+      android:gravity="end"
+      android:layout_height="wrap_content"
+      android:layout_width="wrap_content"/>
+  </LinearLayout>
+
+  <LinearLayout
+    android:id="@+id/hdr_mode_setting"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:layout_marginBottom="12dp"
+    app:layout_constraintBottom_toTopOf="@id/preview_button">
+    <TextView
+      android:layout_height="wrap_content"
+      android:layout_width="0dp"
+      android:layout_weight="1"
+      android:text="@string/hdr_mode" />
+    <Spinner
+      android:id="@+id/hdr_mode_spinner"
+      android:layout_gravity="end|center_vertical"
+      android:gravity="end"
+      android:layout_height="wrap_content"
+      android:layout_width="wrap_content"/>
+  </LinearLayout>
 
   <androidx.appcompat.widget.AppCompatButton
     android:id="@+id/composition_export_button"

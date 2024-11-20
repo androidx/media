@@ -31,12 +31,12 @@ import androidx.media3.common.util.Log;
 import androidx.media3.common.util.TraceUtil;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import androidx.media3.exoplayer.util.ReleasableExecutor;
 import java.io.IOException;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
-import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -93,7 +93,10 @@ public final class Loader implements LoaderErrorThrower {
     /**
      * Called when a load has started for the first time or through a retry.
      *
-     * @param loadable The loadable whose load has completed.
+     * <p>This is called for the first time with {@code retryCount == 0} just <b>before</b> the load
+     * is started.
+     *
+     * @param loadable The loadable whose load has started.
      * @param elapsedRealtimeMs {@link SystemClock#elapsedRealtime} when the load attempts to start.
      * @param loadDurationMs The duration in milliseconds of the load since {@link #startLoading}
      *     was called.
@@ -218,8 +221,7 @@ public final class Loader implements LoaderErrorThrower {
     }
   }
 
-  private final Executor downloadExecutor;
-  private final Runnable downloadExecutorReleaser;
+  private final ReleasableExecutor downloadExecutor;
 
   @Nullable private LoadTask<? extends Loadable> currentTask;
   @Nullable private IOException fatalError;
@@ -231,20 +233,21 @@ public final class Loader implements LoaderErrorThrower {
    *     component using the loader.
    */
   public Loader(String threadNameSuffix) {
-    ExecutorService executorService =
-        Util.newSingleThreadExecutor(THREAD_NAME_PREFIX + threadNameSuffix);
-    this.downloadExecutor = executorService;
-    this.downloadExecutorReleaser = executorService::shutdown;
+    this(
+        /* downloadExecutor= */ ReleasableExecutor.from(
+            Util.newSingleThreadExecutor(THREAD_NAME_PREFIX + threadNameSuffix),
+            ExecutorService::shutdown));
   }
 
   /**
    * Constructs an instance.
    *
-   * @param downloadExecutor An {@link Executor} for supplying the loader's thread.
+   * @param downloadExecutor A {@link ReleasableExecutor} to run the load task. The {@link
+   *     ReleasableExecutor} will be {@linkplain ReleasableExecutor#release() released} once the
+   *     loader no longer requires it for new load tasks.
    */
-  public Loader(Executor downloadExecutor) {
+  public Loader(ReleasableExecutor downloadExecutor) {
     this.downloadExecutor = downloadExecutor;
-    this.downloadExecutorReleaser = () -> {};
   }
 
   /**
@@ -328,7 +331,7 @@ public final class Loader implements LoaderErrorThrower {
     if (callback != null) {
       downloadExecutor.execute(new ReleaseTask(callback));
     }
-    downloadExecutorReleaser.run();
+    downloadExecutor.release();
   }
 
   // LoaderErrorThrower implementation.

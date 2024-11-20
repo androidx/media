@@ -9,8 +9,10 @@ numberOfTracks = 2
 track 0:
   total output bytes = 89876
   sample count = 30
+  track duration = 1001000
   format 0:
     id = 1
+    containerMimeType = video/mp4
     sampleMimeType = video/avc
     codecs = avc1.64001F
     maxInputSize = 36722
@@ -148,9 +150,11 @@ track 0:
 track 1:
   total output bytes = 4019
   sample count = 18
+  track duration = 1024000
   format 0:
     peakBitrate = 200000
     id = 2
+    containerMimeType = video/mp4
     sampleMimeType = audio/mp4a-latm
     codecs = mp4a.40.2
     maxInputSize = 294

@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.e2etest;
 
+import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.run;
 import static com.google.common.truth.Truth.assertThat;
 import static org.robolectric.annotation.GraphicsMode.Mode.NATIVE;
 
@@ -86,11 +87,9 @@ public final class PlaylistPlaybackTest {
 
     player.addMediaItem(MediaItem.fromUri("asset:///media/mka/bear-opus.mka"));
     player.prepare();
-    TestPlayerRunHelper.runUntilIsLoading(player, /* expectedIsLoading= */ true);
-    TestPlayerRunHelper.runUntilIsLoading(player, /* expectedIsLoading= */ false);
+    run(player).untilFullyBuffered();
     player.addMediaItem(MediaItem.fromUri("asset:///media/wav/sample.wav"));
-    TestPlayerRunHelper.runUntilIsLoading(player, /* expectedIsLoading= */ true);
-    TestPlayerRunHelper.runUntilIsLoading(player, /* expectedIsLoading= */ false);
+    run(player).untilFullyBuffered();
     // Wait until second period has fully loaded to start the playback.
     player.play();
     TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
@@ -115,8 +114,7 @@ public final class PlaylistPlaybackTest {
 
     player.addMediaItem(MediaItem.fromUri("asset:///media/mp4/preroll-5s.mp4"));
     player.prepare();
-    TestPlayerRunHelper.runUntilIsLoading(player, /* expectedIsLoading= */ true);
-    TestPlayerRunHelper.runUntilIsLoading(player, /* expectedIsLoading= */ false);
+    run(player).untilFullyBuffered();
     MediaItem mediaItemWithSubtitle =
         new MediaItem.Builder()
             .setUri("asset:///media/mp4/preroll-5s.mp4")
@@ -130,8 +128,7 @@ public final class PlaylistPlaybackTest {
                         .build()))
             .build();
     player.addMediaItem(mediaItemWithSubtitle);
-    TestPlayerRunHelper.runUntilIsLoading(player, /* expectedIsLoading= */ true);
-    TestPlayerRunHelper.runUntilIsLoading(player, /* expectedIsLoading= */ false);
+    run(player).untilFullyBuffered();
     // Wait until second period has fully loaded to start the playback.
     player.play();
     TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);

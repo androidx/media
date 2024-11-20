@@ -89,7 +89,7 @@ highp vec3 applyOetf(highp vec3 linearColor) {
   }
 }
 
-vec3 normalizeHdrLuminance(vec3 inputColor) {
+highp vec3 normalizeHdrLuminance(highp vec3 inputColor) {
   const float PQ_MAX_LUMINANCE = 10000.0;
   const float HLG_MAX_LUMINANCE = 1000.0;
   if (uOutputColorTransfer == COLOR_TRANSFER_ST2084) {

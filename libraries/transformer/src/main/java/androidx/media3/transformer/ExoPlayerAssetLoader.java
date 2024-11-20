@@ -28,6 +28,7 @@ import static androidx.media3.transformer.Transformer.PROGRESS_STATE_AVAILABLE;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_NOT_STARTED;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_UNAVAILABLE;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_WAITING_FOR_AVAILABILITY;
+import static androidx.media3.transformer.TransformerUtil.isImage;
 import static java.lang.Math.min;
 
 import android.content.Context;
@@ -40,6 +41,7 @@ import androidx.media3.common.Player;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.Tracks;
 import androidx.media3.common.util.Clock;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.DefaultLoadControl;
 import androidx.media3.exoplayer.ExoPlayer;
@@ -133,12 +135,15 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
     }
   }
 
+  private static final String TAG = "ExoPlayerAssetLoader";
+
   /**
    * The timeout value, in milliseconds, to set on the internal {@link ExoPlayer} instance when
    * running on an emulator.
    */
   private static final long EMULATOR_RELEASE_TIMEOUT_MS = 5_000;
 
+  private final Context context;
   private final EditedMediaItem editedMediaItem;
   private final CapturingDecoderFactory decoderFactory;
   private final ExoPlayer player;
@@ -154,6 +159,7 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
       Looper looper,
       Listener listener,
       Clock clock) {
+    this.context = context;
     this.editedMediaItem = editedMediaItem;
     this.decoderFactory = new CapturingDecoderFactory(decoderFactory);
 
@@ -333,16 +339,20 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
           trackCount++;
         }
 
+        maybeWarnUnsupportedTrackTypes(tracks);
         if (trackCount > 0) {
           assetLoaderListener.onTrackCount(trackCount);
           // Start the renderers after having registered all the tracks to make sure the AssetLoader
           // listener callbacks are called in the right order.
           player.play();
         } else {
+          String errorMessage = "The asset loader has no audio or video track to output.";
+          if (isImage(context, editedMediaItem.mediaItem)) {
+            errorMessage += " Try setting an image duration on input image MediaItems.";
+          }
           assetLoaderListener.onError(
               ExportException.createForAssetLoader(
-                  new IllegalStateException("The asset loader has no track to output."),
-                  ERROR_CODE_FAILED_RUNTIME_CHECK));
+                  new IllegalStateException(errorMessage), ERROR_CODE_FAILED_RUNTIME_CHECK));
         }
       } catch (RuntimeException e) {
         assetLoaderListener.onError(
@@ -358,6 +368,16 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
               ExportException.NAME_TO_ERROR_CODE.getOrDefault(
                   error.getErrorCodeName(), ERROR_CODE_UNSPECIFIED));
       assetLoaderListener.onError(ExportException.createForAssetLoader(error, errorCode));
+    }
+  }
+
+  private static void maybeWarnUnsupportedTrackTypes(Tracks tracks) {
+    for (int i = 0; i < tracks.getGroups().size(); i++) {
+      @C.TrackType int trackType = tracks.getGroups().get(i).getType();
+      if (trackType == C.TRACK_TYPE_AUDIO || trackType == C.TRACK_TYPE_VIDEO) {
+        continue;
+      }
+      Log.w(TAG, "Unsupported track type: " + trackType);
     }
   }
 

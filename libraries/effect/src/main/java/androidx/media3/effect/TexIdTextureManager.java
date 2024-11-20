@@ -87,16 +87,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                   inputTexId,
                   /* fboId= */ C.INDEX_UNSET,
                   /* rboId= */ C.INDEX_UNSET,
-                  frameInfo.width,
-                  frameInfo.height);
+                  frameInfo.format.width,
+                  frameInfo.format.height);
           checkNotNull(frameConsumptionManager).queueInputFrame(inputTexture, presentationTimeUs);
           DebugTraceUtil.logEvent(
               COMPONENT_VFP,
               EVENT_QUEUE_TEXTURE,
               presentationTimeUs,
               /* extraFormat= */ "%dx%d",
-              /* extraArgs...= */ frameInfo.width,
-              frameInfo.height);
+              /* extraArgs...= */ frameInfo.format.width,
+              frameInfo.format.height);
         });
   }
 

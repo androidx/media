@@ -9,8 +9,10 @@ numberOfTracks = 5
 track 0:
   total output bytes = 1572110
   sample count = 23
+  track duration = 2100700
   format 0:
     id = 1
+    containerMimeType = video/mp4
     sampleMimeType = video/hevc
     codecs = hvc1.1.6.L153
     maxInputSize = 229249
@@ -124,8 +126,10 @@ track 0:
 track 1:
   total output bytes = 151315
   sample count = 1
+  track duration = 466800
   format 0:
     id = 2
+    containerMimeType = video/mp4
     sampleMimeType = video/hevc
     codecs = hvc1.1.6.L153
     maxInputSize = 151345
@@ -151,8 +155,10 @@ track 1:
 track 2:
   total output bytes = 7650
   sample count = 17
+  track duration = 2100700
   format 0:
     id = 3
+    containerMimeType = video/mp4
     sampleMimeType = application/microvideo-meta-stream
     maxInputSize = 480
     metadata = entries=[Mp4Timestamp: creation time=3784612704, modification time=3784612704, timescale=10000]
@@ -227,8 +233,10 @@ track 2:
 track 3:
   total output bytes = 59
   sample count = 1
+  track duration = 1133700
   format 0:
     id = 4
+    containerMimeType = video/mp4
     sampleMimeType = application/motionphoto-image-meta
     maxInputSize = 89
     metadata = entries=[Mp4Timestamp: creation time=3784612704, modification time=3784612704, timescale=10000]

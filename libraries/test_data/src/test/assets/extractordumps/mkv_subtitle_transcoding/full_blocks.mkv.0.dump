@@ -11,6 +11,7 @@ track 1:
   sample count = 3
   format 0:
     id = 1
+    containerMimeType = video/x-matroska
     sampleMimeType = application/x-media3-cues
     codecs = application/x-subrip
     selectionFlags = [default]

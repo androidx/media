@@ -504,7 +504,7 @@ public interface ExoPlayer extends Player {
     /* package */ long detachSurfaceTimeoutMs;
     /* package */ boolean pauseAtEndOfMediaItems;
     /* package */ boolean usePlatformDiagnostics;
-    @Nullable /* package */ Looper playbackLooper;
+    @Nullable /* package */ PlaybackLooperProvider playbackLooperProvider;
     /* package */ boolean buildCalled;
     /* package */ boolean suppressPlaybackOnUnsuitableOutput;
     /* package */ String playerName;
@@ -1299,7 +1299,23 @@ public interface ExoPlayer extends Player {
     @UnstableApi
     public Builder setPlaybackLooper(Looper playbackLooper) {
       checkState(!buildCalled);
-      this.playbackLooper = playbackLooper;
+      this.playbackLooperProvider = new PlaybackLooperProvider(playbackLooper);
+      return this;
+    }
+
+    /**
+     * Sets the {@link PlaybackLooperProvider} that will be used for playback.
+     *
+     * @param playbackLooperProvider A {@link PlaybackLooperProvider}.
+     * @return This builder.
+     * @throws IllegalStateException If {@link #build()} has already been called.
+     */
+    @CanIgnoreReturnValue
+    @UnstableApi
+    @RestrictTo(LIBRARY_GROUP)
+    public Builder setPlaybackLooperProvider(PlaybackLooperProvider playbackLooperProvider) {
+      checkState(!buildCalled);
+      this.playbackLooperProvider = playbackLooperProvider;
       return this;
     }
 

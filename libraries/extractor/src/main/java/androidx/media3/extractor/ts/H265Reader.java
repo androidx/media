@@ -41,6 +41,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 public final class H265Reader implements ElementaryStreamReader {
 
   private final SeiReader seiReader;
+  private final String containerMimeType;
 
   private @MonotonicNonNull String formatId;
   private @MonotonicNonNull TrackOutput output;
@@ -66,9 +67,11 @@ public final class H265Reader implements ElementaryStreamReader {
 
   /**
    * @param seiReader An SEI reader for consuming closed caption channels.
+   * @param containerMimeType The MIME type of the container holding the stream.
    */
-  public H265Reader(SeiReader seiReader) {
+  public H265Reader(SeiReader seiReader, String containerMimeType) {
     this.seiReader = seiReader;
+    this.containerMimeType = containerMimeType;
     prefixFlags = new boolean[3];
     vps = new NalUnitTargetBuffer(NalUnitUtil.H265_NAL_UNIT_TYPE_VPS, 128);
     sps = new NalUnitTargetBuffer(NalUnitUtil.H265_NAL_UNIT_TYPE_SPS, 128);
@@ -202,7 +205,7 @@ public final class H265Reader implements ElementaryStreamReader {
       sps.endNalUnit(discardPadding);
       pps.endNalUnit(discardPadding);
       if (vps.isCompleted() && sps.isCompleted() && pps.isCompleted()) {
-        Format format = parseMediaFormat(formatId, vps, sps, pps);
+        Format format = parseMediaFormat(formatId, vps, sps, pps, containerMimeType);
         output.format(format);
         checkState(format.maxNumReorderSamples != Format.NO_VALUE);
         seiReader.setReorderingQueueSize(format.maxNumReorderSamples);
@@ -231,7 +234,8 @@ public final class H265Reader implements ElementaryStreamReader {
       @Nullable String formatId,
       NalUnitTargetBuffer vps,
       NalUnitTargetBuffer sps,
-      NalUnitTargetBuffer pps) {
+      NalUnitTargetBuffer pps,
+      String containerMimeType) {
     // Build codec-specific data.
     byte[] csdData = new byte[vps.nalLength + sps.nalLength + pps.nalLength];
     System.arraycopy(vps.nalData, 0, csdData, 0, vps.nalLength);
@@ -256,6 +260,7 @@ public final class H265Reader implements ElementaryStreamReader {
     }
     return new Format.Builder()
         .setId(formatId)
+        .setContainerMimeType(containerMimeType)
         .setSampleMimeType(MimeTypes.VIDEO_H265)
         .setCodecs(codecs)
         .setWidth(spsData.width)

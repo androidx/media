@@ -61,6 +61,7 @@ public final class Ac3Reader implements ElementaryStreamReader {
   private final ParsableByteArray headerScratchBytes;
   @Nullable private final String language;
   private final @C.RoleFlags int roleFlags;
+  private final String containerMimeType;
 
   private @MonotonicNonNull String formatId;
   private @MonotonicNonNull TrackOutput output;
@@ -79,9 +80,13 @@ public final class Ac3Reader implements ElementaryStreamReader {
   // Used when reading the samples.
   private long timeUs;
 
-  /** Constructs a new reader for (E-)AC-3 elementary streams. */
-  public Ac3Reader() {
-    this(null, /* roleFlags= */ 0);
+  /**
+   * Constructs a new reader for (E-)AC-3 elementary streams.
+   *
+   * @param containerMimeType The MIME type of the container holding the stream.
+   */
+  public Ac3Reader(String containerMimeType) {
+    this(null, /* roleFlags= */ 0, containerMimeType);
   }
 
   /**
@@ -89,14 +94,17 @@ public final class Ac3Reader implements ElementaryStreamReader {
    *
    * @param language Track language.
    * @param roleFlags Track role flags.
+   * @param containerMimeType The MIME type of the container holding the stream.
    */
-  public Ac3Reader(@Nullable String language, @C.RoleFlags int roleFlags) {
+  public Ac3Reader(
+      @Nullable String language, @C.RoleFlags int roleFlags, String containerMimeType) {
     headerScratchBits = new ParsableBitArray(new byte[HEADER_SIZE]);
     headerScratchBytes = new ParsableByteArray(headerScratchBits.data);
     state = STATE_FINDING_SYNC;
     timeUs = C.TIME_UNSET;
     this.language = language;
     this.roleFlags = roleFlags;
+    this.containerMimeType = containerMimeType;
   }
 
   @Override
@@ -215,6 +223,7 @@ public final class Ac3Reader implements ElementaryStreamReader {
       Format.Builder formatBuilder =
           new Format.Builder()
               .setId(formatId)
+              .setContainerMimeType(containerMimeType)
               .setSampleMimeType(frameInfo.mimeType)
               .setChannelCount(frameInfo.channelCount)
               .setSampleRate(frameInfo.sampleRate)

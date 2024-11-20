@@ -16,6 +16,7 @@
 package androidx.media3.test.utils;
 
 import static androidx.media3.common.util.Assertions.checkArgument;
+import static androidx.media3.common.util.Util.sampleCountToDurationUs;
 
 import androidx.media3.common.C;
 import androidx.media3.common.audio.AudioProcessor.AudioFormat;
@@ -56,7 +57,7 @@ public final class TestSpeedProvider implements SpeedProvider {
     long[] startTimesUs = new long[frameCounts.length];
     int totalFrameCount = 0;
     for (int i = 0; i < frameCounts.length; i++) {
-      startTimesUs[i] = totalFrameCount * C.MICROS_PER_SECOND / audioFormat.sampleRate;
+      startTimesUs[i] = sampleCountToDurationUs(totalFrameCount, audioFormat.sampleRate);
       totalFrameCount += frameCounts[i];
     }
     return new TestSpeedProvider(startTimesUs, speeds);

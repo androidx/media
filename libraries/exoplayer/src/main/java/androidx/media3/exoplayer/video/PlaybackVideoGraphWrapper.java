@@ -18,6 +18,7 @@ package androidx.media3.exoplayer.video;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
+import static androidx.media3.exoplayer.video.VideoSink.INPUT_TYPE_SURFACE;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.content.Context;
@@ -35,7 +36,6 @@ import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DebugViewProvider;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
-import androidx.media3.common.FrameInfo;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PreviewingVideoGraph;
 import androidx.media3.common.SurfaceInfo;
@@ -46,10 +46,12 @@ import androidx.media3.common.VideoSize;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.Size;
+import androidx.media3.common.util.TimedValueQueue;
 import androidx.media3.common.util.TimestampIterator;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.ExoPlaybackException;
+import androidx.media3.exoplayer.Renderer;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
@@ -227,22 +229,31 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
   private static final Executor NO_OP_EXECUTOR = runnable -> {};
 
   private final Context context;
-  private final VideoSinkImpl videoSinkImpl;
+  private final InputVideoSink inputVideoSink;
+
+  /**
+   * A queue of unprocessed input frame start positions. Each position is associated with the
+   * timestamp from which it should be applied.
+   */
+  private final TimedValueQueue<Long> streamStartPositionsUs;
+
   private final VideoFrameReleaseControl videoFrameReleaseControl;
   private final VideoFrameRenderControl videoFrameRenderControl;
   private final PreviewingVideoGraph.Factory previewingVideoGraphFactory;
-
   private final List<Effect> compositionEffects;
+  private final VideoSink defaultVideoSink;
   private final Clock clock;
   private final CopyOnWriteArraySet<PlaybackVideoGraphWrapper.Listener> listeners;
 
-  private @MonotonicNonNull Format outputFormat;
+  private Format videoGraphOutputFormat;
   private @MonotonicNonNull VideoFrameMetadataListener videoFrameMetadataListener;
   private @MonotonicNonNull HandlerWrapper handler;
   private @MonotonicNonNull PreviewingVideoGraph videoGraph;
+  private long outputStreamStartPositionUs;
   @Nullable private Pair<Surface, Size> currentSurfaceAndSize;
   private int pendingFlushCount;
   private @State int state;
+  @Nullable private Renderer.WakeupListener wakeupListener;
 
   /**
    * Converts the buffer timestamp (the player position, with renderer offset) to the composition
@@ -253,7 +264,8 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
 
   private PlaybackVideoGraphWrapper(Builder builder) {
     context = builder.context;
-    videoSinkImpl = new VideoSinkImpl(context);
+    inputVideoSink = new InputVideoSink(context);
+    streamStartPositionsUs = new TimedValueQueue<>();
     clock = builder.clock;
     videoFrameReleaseControl = builder.videoFrameReleaseControl;
     videoFrameReleaseControl.setClock(clock);
@@ -261,9 +273,11 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
         new VideoFrameRenderControl(new FrameRendererImpl(), videoFrameReleaseControl);
     previewingVideoGraphFactory = checkStateNotNull(builder.previewingVideoGraphFactory);
     compositionEffects = builder.compositionEffects;
+    defaultVideoSink = new DefaultVideoSink(videoFrameReleaseControl, videoFrameRenderControl);
     listeners = new CopyOnWriteArraySet<>();
     state = STATE_CREATED;
-    addListener(videoSinkImpl);
+    videoGraphOutputFormat = new Format.Builder().build();
+    addListener(inputVideoSink);
   }
 
   /**
@@ -288,7 +302,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
 
   @Override
   public VideoSink getSink() {
-    return videoSinkImpl;
+    return inputVideoSink;
   }
 
   @Override
@@ -333,8 +347,16 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
 
   @Override
   public void onOutputSizeChanged(int width, int height) {
-    // We forward output size changes to render control even if we are still flushing.
-    videoFrameRenderControl.onOutputSizeChanged(width, height);
+    // We forward output size changes to the sink even if we are still flushing.
+    videoGraphOutputFormat =
+        videoGraphOutputFormat.buildUpon().setWidth(width).setHeight(height).build();
+    defaultVideoSink.onInputStreamChanged(INPUT_TYPE_SURFACE, videoGraphOutputFormat);
+  }
+
+  @Override
+  public void onOutputFrameRateChanged(float frameRate) {
+    videoGraphOutputFormat = videoGraphOutputFormat.buildUpon().setFrameRate(frameRate).build();
+    defaultVideoSink.onInputStreamChanged(INPUT_TYPE_SURFACE, videoGraphOutputFormat);
   }
 
   @Override
@@ -343,10 +365,22 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
       // Ignore available frames while flushing
       return;
     }
+    if (wakeupListener != null) {
+      // Wake up the player when not playing to render the frame more promptly.
+      wakeupListener.onWakeup();
+    }
     // The frame presentation time is relative to the start of the Composition and without the
     // renderer offset
-    videoFrameRenderControl.onOutputFrameAvailableForRendering(
-        framePresentationTimeUs - bufferTimestampAdjustmentUs);
+    long bufferPresentationTimeUs = framePresentationTimeUs - bufferTimestampAdjustmentUs;
+    Long newOutputStreamStartPositionUs =
+        streamStartPositionsUs.pollFloor(bufferPresentationTimeUs);
+    if (newOutputStreamStartPositionUs != null
+        && newOutputStreamStartPositionUs != outputStreamStartPositionUs) {
+      defaultVideoSink.setStreamTimestampInfo(
+          newOutputStreamStartPositionUs, /* unused */ C.TIME_UNSET, /* unused */ C.TIME_UNSET);
+      outputStreamStartPositionUs = newOutputStreamStartPositionUs;
+    }
+    videoFrameRenderControl.onFrameAvailableForRendering(bufferPresentationTimeUs);
   }
 
   @Override
@@ -395,6 +429,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     } catch (VideoFrameProcessingException e) {
       throw new VideoSink.VideoSinkException(e, sourceFormat);
     }
+    defaultVideoSink.initialize(sourceFormat);
     state = STATE_INITIALIZED;
     return videoGraph.getProcessor(/* inputIndex= */ 0);
   }
@@ -404,16 +439,21 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
   }
 
   private void maybeSetOutputSurfaceInfo(@Nullable Surface surface, int width, int height) {
-    if (videoGraph != null) {
-      // Update the surface on the video graph and the video frame release control together.
-      SurfaceInfo surfaceInfo = surface != null ? new SurfaceInfo(surface, width, height) : null;
-      videoGraph.setOutputSurfaceInfo(surfaceInfo);
-      videoFrameReleaseControl.setOutputSurface(surface);
+    if (videoGraph == null) {
+      return;
+    }
+    // Update the surface on the video graph and the default video sink together.
+    if (surface != null) {
+      videoGraph.setOutputSurfaceInfo(new SurfaceInfo(surface, width, height));
+      defaultVideoSink.setOutputSurfaceInfo(surface, new Size(width, height));
+    } else {
+      videoGraph.setOutputSurfaceInfo(/* outputSurfaceInfo= */ null);
+      defaultVideoSink.clearOutputSurfaceInfo();
     }
   }
 
   private boolean isReady(boolean rendererOtherwiseReady) {
-    return videoFrameRenderControl.isReady(
+    return defaultVideoSink.isReady(
         /* rendererOtherwiseReady= */ rendererOtherwiseReady && pendingFlushCount == 0);
   }
 
@@ -428,35 +468,28 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
    * @param elapsedRealtimeUs {@link android.os.SystemClock#elapsedRealtime()} in microseconds,
    *     taken approximately at the time the playback position was {@code positionUs}.
    */
-  private void render(long positionUs, long elapsedRealtimeUs) throws ExoPlaybackException {
-    if (pendingFlushCount == 0) {
-      videoFrameRenderControl.render(positionUs, elapsedRealtimeUs);
-    }
+  private void render(long positionUs, long elapsedRealtimeUs) throws VideoSink.VideoSinkException {
+    defaultVideoSink.render(positionUs, elapsedRealtimeUs);
   }
 
-  private void flush() {
+  private void flush(boolean resetPosition) {
     if (!isInitialized()) {
       return;
     }
     pendingFlushCount++;
-    // Flush the render control now to ensure it has no data, eg calling isReady() must return false
-    // and render() should not render any frames.
-    videoFrameRenderControl.flush();
-    // Finish flushing after handling pending video graph callbacks to ensure video size changes
-    // reach the video render control.
-    checkStateNotNull(handler).post(this::flushInternal);
-  }
-
-  private void flushInternal() {
-    pendingFlushCount--;
-    if (pendingFlushCount > 0) {
-      // Another flush has been issued.
-      return;
-    } else if (pendingFlushCount < 0) {
-      throw new IllegalStateException(String.valueOf(pendingFlushCount));
+    defaultVideoSink.flush(resetPosition);
+    while (streamStartPositionsUs.size() > 1) {
+      streamStartPositionsUs.pollFirst();
     }
-    // Flush the render control again.
-    videoFrameRenderControl.flush();
+    if (streamStartPositionsUs.size() == 1) {
+      long lastStartPositionUs = checkNotNull(streamStartPositionsUs.pollFirst());
+      // defaultVideoSink should use the latest startPositionUs if none is passed after flushing.
+      defaultVideoSink.setStreamTimestampInfo(
+          lastStartPositionUs, /* unused */ C.TIME_UNSET, /* unused */ C.TIME_UNSET);
+    }
+    // Handle pending video graph callbacks to ensure video size changes reach the video render
+    // control.
+    checkStateNotNull(handler).post(() -> pendingFlushCount--);
   }
 
   private void setVideoFrameMetadataListener(
@@ -465,13 +498,11 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
   }
 
   private void setPlaybackSpeed(float speed) {
-    videoFrameRenderControl.setPlaybackSpeed(speed);
+    defaultVideoSink.setPlaybackSpeed(speed);
   }
 
-  private void onStreamOffsetChange(
-      long bufferTimestampAdjustmentUs, long bufferPresentationTimeUs, long streamOffsetUs) {
+  private void setBufferTimestampAdjustment(long bufferTimestampAdjustmentUs) {
     this.bufferTimestampAdjustmentUs = bufferTimestampAdjustmentUs;
-    videoFrameRenderControl.onStreamOffsetChange(bufferPresentationTimeUs, streamOffsetUs);
   }
 
   private static ColorInfo getAdjustedInputColorInfo(@Nullable ColorInfo inputColorInfo) {
@@ -483,7 +514,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
   }
 
   /** Receives input from an ExoPlayer renderer and forwards it to the video graph. */
-  private final class VideoSinkImpl implements VideoSink, PlaybackVideoGraphWrapper.Listener {
+  private final class InputVideoSink implements VideoSink, PlaybackVideoGraphWrapper.Listener {
 
     private final int videoFrameProcessorMaxPendingFrameCount;
     private final ArrayList<Effect> videoEffects;
@@ -493,10 +524,8 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     @Nullable private Format inputFormat;
     private @InputType int inputType;
     private long inputStreamStartPositionUs;
-    private long inputStreamOffsetUs;
     private long inputBufferTimestampAdjustmentUs;
     private long lastResetPositionUs;
-    private boolean pendingInputStreamOffsetChange;
 
     /** The buffer presentation time, in microseconds, of the final frame in the stream. */
     private long finalBufferPresentationTimeUs;
@@ -513,7 +542,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     private Executor listenerExecutor;
 
     /** Creates a new instance. */
-    public VideoSinkImpl(Context context) {
+    public InputVideoSink(Context context) {
       // TODO b/226330223 - Investigate increasing frame count when frame dropping is allowed.
       // TODO b/278234847 - Evaluate whether limiting frame count when frame dropping is not allowed
       //  reduces decoder timeouts, and consider restoring.
@@ -527,26 +556,24 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
       listenerExecutor = NO_OP_EXECUTOR;
     }
 
-    // VideoSink impl
-
     @Override
     public void onRendererEnabled(boolean mayRenderStartOfStream) {
-      videoFrameReleaseControl.onEnabled(mayRenderStartOfStream);
+      defaultVideoSink.onRendererEnabled(mayRenderStartOfStream);
     }
 
     @Override
     public void onRendererDisabled() {
-      videoFrameReleaseControl.onDisabled();
+      defaultVideoSink.onRendererDisabled();
     }
 
     @Override
     public void onRendererStarted() {
-      videoFrameReleaseControl.onStarted();
+      defaultVideoSink.onRendererStarted();
     }
 
     @Override
     public void onRendererStopped() {
-      videoFrameReleaseControl.onStopped();
+      defaultVideoSink.onRendererStopped();
     }
 
     @Override
@@ -575,13 +602,10 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
       hasRegisteredFirstInputStream = false;
       finalBufferPresentationTimeUs = C.TIME_UNSET;
       lastBufferPresentationTimeUs = C.TIME_UNSET;
-      PlaybackVideoGraphWrapper.this.flush();
-      if (resetPosition) {
-        videoFrameReleaseControl.reset();
-      }
+      PlaybackVideoGraphWrapper.this.flush(resetPosition);
       pendingInputStreamBufferPresentationTimeUs = C.TIME_UNSET;
-      // Don't change input stream offset or reset the pending input stream offset change so that
-      // it's announced with the next input frame.
+      // Don't change input stream start position or reset the pending input stream timestamp info
+      // change so that it's announced with the next input frame.
       // Don't reset isInputStreamChangePending because it's not guaranteed to receive a new input
       // stream after seeking.
     }
@@ -609,7 +633,6 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
         default:
           throw new UnsupportedOperationException("Unsupported input type " + inputType);
       }
-      videoFrameReleaseControl.setFrameRate(format.frameRate);
       this.inputType = inputType;
       this.inputFormat = format;
 
@@ -664,17 +687,20 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
 
     @Override
     public void setStreamTimestampInfo(
-        long streamStartPositionUs,
-        long streamOffsetUs,
-        long bufferTimestampAdjustmentUs,
-        long lastResetPositionUs) {
-      // Ors because this method could be called multiple times on a stream offset change.
-      pendingInputStreamOffsetChange |=
-          inputStreamOffsetUs != streamOffsetUs
-              || inputBufferTimestampAdjustmentUs != bufferTimestampAdjustmentUs;
+        long streamStartPositionUs, long bufferTimestampAdjustmentUs, long lastResetPositionUs) {
       inputStreamStartPositionUs = streamStartPositionUs;
-      inputStreamOffsetUs = streamOffsetUs;
+      // Input timestamps should always be positive because they are offset by ExoPlayer. Adding a
+      // position to the queue with timestamp 0 should therefore always apply it as long as it is
+      // the only position in the queue.
+      streamStartPositionsUs.add(
+          lastBufferPresentationTimeUs == C.TIME_UNSET ? 0 : lastBufferPresentationTimeUs + 1,
+          streamStartPositionUs);
       inputBufferTimestampAdjustmentUs = bufferTimestampAdjustmentUs;
+      // The buffer timestamp adjustment is only allowed to change after a flush to make sure that
+      // the buffer timestamps are increasing. We can update the buffer timestamp adjustment
+      // directly at the output of the VideoGraph because no frame has been input yet following the
+      // flush.
+      PlaybackVideoGraphWrapper.this.setBufferTimestampAdjustment(inputBufferTimestampAdjustmentUs);
       this.lastResetPositionUs = lastResetPositionUs;
     }
 
@@ -691,12 +717,12 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     @Override
     public void setChangeFrameRateStrategy(
         @C.VideoChangeFrameRateStrategy int changeFrameRateStrategy) {
-      videoFrameReleaseControl.setChangeFrameRateStrategy(changeFrameRateStrategy);
+      defaultVideoSink.setChangeFrameRateStrategy(changeFrameRateStrategy);
     }
 
     @Override
     public void enableMayRenderStartOfStream() {
-      videoFrameReleaseControl.allowReleaseFirstFrameBeforeStarted();
+      defaultVideoSink.enableMayRenderStartOfStream();
     }
 
     @Override
@@ -771,7 +797,6 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
         return false;
       }
 
-      maybeSetStreamOffsetChange(bufferPresentationTimeUs);
       lastBufferPresentationTimeUs = bufferPresentationTimeUs;
       if (isLastFrame) {
         finalBufferPresentationTimeUs = bufferPresentationTimeUs;
@@ -796,15 +821,10 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
         return false;
       }
 
-      // Create a copy of iterator because we need to take the next timestamp but we must not alter
-      // the state of the iterator.
-      TimestampIterator copyTimestampIterator = timestampIterator.copyOf();
-      long bufferPresentationTimeUs = copyTimestampIterator.next();
       // TimestampIterator generates frame time.
       long lastBufferPresentationTimeUs =
-          copyTimestampIterator.getLastTimestampUs() - inputBufferTimestampAdjustmentUs;
+          timestampIterator.getLastTimestampUs() - inputBufferTimestampAdjustmentUs;
       checkState(lastBufferPresentationTimeUs != C.TIME_UNSET);
-      maybeSetStreamOffsetChange(bufferPresentationTimeUs);
       this.lastBufferPresentationTimeUs = lastBufferPresentationTimeUs;
       finalBufferPresentationTimeUs = lastBufferPresentationTimeUs;
       return true;
@@ -812,17 +832,17 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
 
     @Override
     public void render(long positionUs, long elapsedRealtimeUs) throws VideoSinkException {
-      try {
-        PlaybackVideoGraphWrapper.this.render(positionUs, elapsedRealtimeUs);
-      } catch (ExoPlaybackException e) {
-        throw new VideoSinkException(
-            e, inputFormat != null ? inputFormat : new Format.Builder().build());
-      }
+      PlaybackVideoGraphWrapper.this.render(positionUs, elapsedRealtimeUs);
+    }
+
+    @Override
+    public void setWakeupListener(Renderer.WakeupListener wakeupListener) {
+      PlaybackVideoGraphWrapper.this.wakeupListener = wakeupListener;
     }
 
     @Override
     public void join(boolean renderNextFrameImmediately) {
-      videoFrameReleaseControl.join(renderNextFrameImmediately);
+      defaultVideoSink.join(renderNextFrameImmediately);
     }
 
     @Override
@@ -831,16 +851,6 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     }
 
     // Other methods
-
-    private void maybeSetStreamOffsetChange(long bufferPresentationTimeUs) {
-      if (pendingInputStreamOffsetChange) {
-        PlaybackVideoGraphWrapper.this.onStreamOffsetChange(
-            inputBufferTimestampAdjustmentUs,
-            bufferPresentationTimeUs,
-            /* streamOffsetUs= */ inputStreamOffsetUs);
-        pendingInputStreamOffsetChange = false;
-      }
-    }
 
     /**
      * Attempt to register any pending input stream to the video graph input and returns {@code
@@ -871,16 +881,13 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
 
       ArrayList<Effect> effects = new ArrayList<>(videoEffects);
       Format inputFormat = checkNotNull(this.inputFormat);
+      inputFormat =
+          inputFormat
+              .buildUpon()
+              .setColorInfo(getAdjustedInputColorInfo(inputFormat.colorInfo))
+              .build();
       checkStateNotNull(videoFrameProcessor)
-          .registerInputStream(
-              inputType,
-              effects,
-              new FrameInfo.Builder(
-                      getAdjustedInputColorInfo(inputFormat.colorInfo),
-                      inputFormat.width,
-                      inputFormat.height)
-                  .setPixelWidthHeightRatio(inputFormat.pixelWidthHeightRatio)
-                  .build());
+          .registerInputStream(inputType, inputFormat, effects, /* offsetToAddUs= */ 0);
       finalBufferPresentationTimeUs = C.TIME_UNSET;
     }
 
@@ -923,9 +930,11 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
 
   private final class FrameRendererImpl implements VideoFrameRenderControl.FrameRenderer {
 
+    private @MonotonicNonNull Format renderedFormat;
+
     @Override
     public void onVideoSizeChanged(VideoSize videoSize) {
-      outputFormat =
+      renderedFormat =
           new Format.Builder()
               .setWidth(videoSize.width)
               .setHeight(videoSize.height)
@@ -938,19 +947,17 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
 
     @Override
     public void renderFrame(
-        long renderTimeNs,
-        long bufferPresentationTimeUs,
-        long streamOffsetUs,
-        boolean isFirstFrame) {
+        long renderTimeNs, long bufferPresentationTimeUs, boolean isFirstFrame) {
       if (isFirstFrame && currentSurfaceAndSize != null) {
         for (PlaybackVideoGraphWrapper.Listener listener : listeners) {
           listener.onFirstFrameRendered(PlaybackVideoGraphWrapper.this);
         }
       }
       if (videoFrameMetadataListener != null) {
-        // TODO b/292111083 - outputFormat is initialized after the first frame is rendered because
-        //  onVideoSizeChanged is announced after the first frame is available for rendering.
-        Format format = outputFormat == null ? new Format.Builder().build() : outputFormat;
+        // TODO b/292111083 - renderedFormat is initialized after the first frame is rendered
+        //  because onVideoSizeChanged is announced after the first frame is available for
+        //  rendering.
+        Format format = renderedFormat == null ? new Format.Builder().build() : renderedFormat;
         videoFrameMetadataListener.onVideoFrameAboutToBeRendered(
             /* presentationTimeUs= */ bufferPresentationTimeUs,
             clock.nanoTime(),

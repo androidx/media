@@ -535,6 +535,10 @@ import java.util.concurrent.ExecutionException;
                     connectionResult.customLayout != null
                         ? connectionResult.customLayout
                         : sessionImpl.getCustomLayout(),
+                    connectionResult.mediaButtonPreferences != null
+                        ? connectionResult.mediaButtonPreferences
+                        : sessionImpl.getMediaButtonPreferences(),
+                    sessionImpl.getCommandButtonsForMediaItems(),
                     connectionResult.availableSessionCommands,
                     connectionResult.availablePlayerCommands,
                     playerWrapper.getAvailableCommands(),
@@ -635,8 +639,9 @@ import java.util.concurrent.ExecutionException;
               request.libraryVersion,
               request.controllerInterfaceVersion,
               sessionManager.isTrustedForMediaControl(remoteUserInfo),
-              new MediaSessionStub.Controller2Cb(caller),
-              request.connectionHints);
+              new MediaSessionStub.Controller2Cb(caller, request.controllerInterfaceVersion),
+              request.connectionHints,
+              request.maxCommandsForMediaItems);
       connect(caller, controllerInfo);
     } finally {
       Binder.restoreCallingIdentity(token);
@@ -2004,9 +2009,11 @@ import java.util.concurrent.ExecutionException;
   /* package */ static final class Controller2Cb implements ControllerCb {
 
     private final IMediaController iController;
+    private final int controllerInterfaceVersion;
 
-    public Controller2Cb(IMediaController callback) {
-      iController = callback;
+    public Controller2Cb(IMediaController callback, int controllerInterfaceVersion) {
+      this.iController = callback;
+      this.controllerInterfaceVersion = controllerInterfaceVersion;
     }
 
     public IBinder getCallbackBinder() {
@@ -2030,8 +2037,7 @@ import java.util.concurrent.ExecutionException;
         PlayerInfo playerInfo,
         Player.Commands availableCommands,
         boolean excludeTimeline,
-        boolean excludeTracks,
-        int controllerInterfaceVersion)
+        boolean excludeTracks)
         throws RemoteException {
       Assertions.checkState(controllerInterfaceVersion != 0);
       // The bundling exclusions merge the performance overrides with the available commands.
@@ -2068,6 +2074,28 @@ import java.util.concurrent.ExecutionException;
         throws RemoteException {
       iController.onSetCustomLayout(
           sequenceNumber, BundleCollectionUtil.toBundleList(layout, CommandButton::toBundle));
+    }
+
+    @Override
+    public void setMediaButtonPreferences(
+        int sequenceNumber, List<CommandButton> mediaButtonPreferences) throws RemoteException {
+      if (controllerInterfaceVersion >= 7) {
+        iController.onSetMediaButtonPreferences(
+            sequenceNumber,
+            BundleCollectionUtil.toBundleList(mediaButtonPreferences, CommandButton::toBundle));
+      } else {
+        // Controller doesn't support media button preferences, send the list as a custom layout.
+        // TODO: b/332877990 - Improve this logic to take allowed command and session extras for
+        //  this controller into account instead of assuming all slots are allowed.
+        ImmutableList<CommandButton> customLayout =
+            CommandButton.getCustomLayoutFromMediaButtonPreferences(
+                mediaButtonPreferences,
+                /* backSlotAllowed= */ true,
+                /* forwardSlotAllowed= */ true);
+        iController.onSetCustomLayout(
+            sequenceNumber,
+            BundleCollectionUtil.toBundleList(customLayout, CommandButton::toBundle));
+      }
     }
 
     @Override

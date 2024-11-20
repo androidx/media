@@ -466,7 +466,8 @@ public abstract class MediaSessionService extends Service {
         MediaControllerStub.VERSION_INT,
         /* trusted= */ false,
         /* cb= */ null,
-        /* connectionHints= */ Bundle.EMPTY);
+        /* connectionHints= */ Bundle.EMPTY,
+        /* maxCommandsForMediaItems= */ 0);
   }
 
   /**
@@ -760,8 +761,10 @@ public abstract class MediaSessionService extends Service {
                         request.libraryVersion,
                         request.controllerInterfaceVersion,
                         isTrusted,
-                        new MediaSessionStub.Controller2Cb(caller),
-                        request.connectionHints);
+                        new MediaSessionStub.Controller2Cb(
+                            caller, request.controllerInterfaceVersion),
+                        request.connectionHints,
+                        request.maxCommandsForMediaItems);
 
                 @Nullable MediaSession session;
                 try {

@@ -30,7 +30,6 @@ import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.PlaybackException;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSource;
@@ -189,7 +188,7 @@ public final class DrmUtil {
     } catch (Exception e) {
       throw new MediaDrmCallbackException(
           originalDataSpec,
-          Assertions.checkNotNull(statsDataSource.getLastOpenedUri()),
+          statsDataSource.getLastOpenedUri(),
           statsDataSource.getResponseHeaders(),
           statsDataSource.getBytesRead(),
           /* cause= */ e);

@@ -208,6 +208,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     if (!seekMapSet) {
       SeekMap seekMap = checkStateNotNull(oggSeeker.createSeekMap());
       extractorOutput.seekMap(seekMap);
+      trackOutput.durationUs(seekMap.getDurationUs());
       seekMapSet = true;
     }
 

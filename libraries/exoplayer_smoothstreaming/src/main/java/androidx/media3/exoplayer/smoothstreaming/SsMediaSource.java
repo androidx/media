@@ -498,6 +498,26 @@ public final class SsMediaSource extends BaseMediaSource
   // Loader.Callback implementation
 
   @Override
+  public void onLoadStarted(
+      ParsingLoadable<SsManifest> loadable,
+      long elapsedRealtimeMs,
+      long loadDurationMs,
+      int retryCount) {
+    LoadEventInfo loadEventInfo =
+        retryCount == 0
+            ? new LoadEventInfo(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs)
+            : new LoadEventInfo(
+                loadable.loadTaskId,
+                loadable.dataSpec,
+                loadable.getUri(),
+                loadable.getResponseHeaders(),
+                elapsedRealtimeMs,
+                loadDurationMs,
+                loadable.bytesLoaded());
+    manifestEventDispatcher.loadStarted(loadEventInfo, loadable.type, retryCount);
+  }
+
+  @Override
   public void onLoadCompleted(
       ParsingLoadable<SsManifest> loadable, long elapsedRealtimeMs, long loadDurationMs) {
     LoadEventInfo loadEventInfo =
@@ -659,11 +679,7 @@ public final class SsMediaSource extends BaseMediaSource
     ParsingLoadable<SsManifest> loadable =
         new ParsingLoadable<>(
             manifestDataSource, manifestUri, C.DATA_TYPE_MANIFEST, manifestParser);
-    long elapsedRealtimeMs =
-        manifestLoader.startLoading(
-            loadable, this, loadErrorHandlingPolicy.getMinimumLoadableRetryCount(loadable.type));
-    manifestEventDispatcher.loadStarted(
-        new LoadEventInfo(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs),
-        loadable.type);
+    manifestLoader.startLoading(
+        loadable, this, loadErrorHandlingPolicy.getMinimumLoadableRetryCount(loadable.type));
   }
 }

@@ -60,6 +60,7 @@ public final class MpeghReader implements ElementaryStreamReader {
   private static final int MIN_MHAS_PACKET_HEADER_SIZE = 2;
   private static final int MAX_MHAS_PACKET_HEADER_SIZE = 15;
 
+  private final String containerMimeType;
   private final ParsableByteArray headerScratchBytes;
   private final ParsableBitArray headerScratchBits;
   private final ParsableByteArray dataScratchBytes;
@@ -89,8 +90,13 @@ public final class MpeghReader implements ElementaryStreamReader {
   private long mainStreamLabel;
   private boolean configFound;
 
-  /** Constructs a new reader for MPEG-H elementary streams. */
-  public MpeghReader() {
+  /**
+   * Constructs a new reader for MPEG-H elementary streams.
+   *
+   * @param containerMimeType The MIME type of the container holding the stream.
+   */
+  public MpeghReader(String containerMimeType) {
+    this.containerMimeType = containerMimeType;
     state = STATE_FINDING_SYNC;
     headerScratchBytes =
         new ParsableByteArray(new byte[MAX_MHAS_PACKET_HEADER_SIZE], MIN_MHAS_PACKET_HEADER_SIZE);
@@ -344,6 +350,7 @@ public final class MpeghReader implements ElementaryStreamReader {
       Format format =
           new Format.Builder()
               .setId(formatId)
+              .setContainerMimeType(containerMimeType)
               .setSampleMimeType(MimeTypes.AUDIO_MPEGH_MHM1)
               .setSampleRate(samplingRate)
               .setCodecs(codecs)

@@ -8,6 +8,7 @@ track 0:
   total output bytes = 96
   sample count = 96
   format 0:
+    containerMimeType = audio/midi
     sampleMimeType = audio/x-exoplayer-midi
     codecs = audio/midi
   sample 0:

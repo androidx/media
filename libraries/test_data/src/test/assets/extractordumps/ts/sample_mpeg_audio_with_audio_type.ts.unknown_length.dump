@@ -8,6 +8,7 @@ track 256:
   sample count = 42
   format 0:
     id = 1/256
+    containerMimeType = video/mp2t
     sampleMimeType = audio/mpeg-L2
     maxInputSize = 4096
     channelCount = 1

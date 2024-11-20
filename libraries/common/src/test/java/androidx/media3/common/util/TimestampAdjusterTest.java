@@ -240,4 +240,10 @@ public class TimestampAdjusterTest {
 
     assertThat(secondAdjustedTimestampUs - firstAdjustedTimestampUs).isGreaterThan(0x100000000L);
   }
+
+  // https://github.com/androidx/media/issues/1763
+  @Test
+  public void usToWrappedPts_usTimestampCloseToOverflow_doesntOverflow() {
+    assertThat(TimestampAdjuster.usToNonWrappedPts(1L << 52)).isEqualTo(405323966463344L);
+  }
 }

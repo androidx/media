@@ -115,6 +115,41 @@ public final class ReorderingSeiMessageQueueTest {
         .containsExactly(new SeiMessage(/* presentationTimeUs= */ -123, data2));
   }
 
+  @Test
+  public void withMaxSize_addEmitsWhenQueueIsFull_handlesDuplicateTimestamps() {
+    ArrayList<SeiMessage> emittedMessages = new ArrayList<>();
+    ReorderingSeiMessageQueue reorderingQueue =
+        new ReorderingSeiMessageQueue(
+            (presentationTimeUs, seiBuffer) ->
+                emittedMessages.add(new SeiMessage(presentationTimeUs, seiBuffer)));
+    reorderingQueue.setMaxSize(1);
+
+    // Deliberately re-use a single ParsableByteArray instance to ensure the implementation is
+    // copying as required.
+    ParsableByteArray scratchData = new ParsableByteArray();
+    byte[] data1 = TestUtil.buildTestData(20);
+    scratchData.reset(data1);
+    reorderingQueue.add(/* presentationTimeUs= */ 345, scratchData);
+    // Add a message with a repeated timestamp which should not trigger the max size.
+    byte[] data2 = TestUtil.buildTestData(15);
+    scratchData.reset(data2);
+    reorderingQueue.add(/* presentationTimeUs= */ 345, scratchData);
+    byte[] data3 = TestUtil.buildTestData(10);
+    scratchData.reset(data3);
+    reorderingQueue.add(/* presentationTimeUs= */ -123, scratchData);
+    // Add another message to flush out the two t=345 messages.
+    byte[] data4 = TestUtil.buildTestData(5);
+    scratchData.reset(data4);
+    reorderingQueue.add(/* presentationTimeUs= */ 456, scratchData);
+
+    assertThat(emittedMessages)
+        .containsExactly(
+            new SeiMessage(/* presentationTimeUs= */ -123, data3),
+            new SeiMessage(/* presentationTimeUs= */ 345, data1),
+            new SeiMessage(/* presentationTimeUs= */ 345, data2))
+        .inOrder();
+  }
+
   /**
    * Tests that if a message smaller than all current queue items is added when the queue is full,
    * the same {@link ParsableByteArray} instance is passed straight to the output to avoid

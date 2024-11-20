@@ -19,11 +19,11 @@ import static com.google.common.truth.Truth.assertThat;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
-import androidx.media3.common.Format;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.source.chunk.MediaChunk;
 import androidx.media3.exoplayer.source.chunk.MediaChunkIterator;
+import androidx.media3.exoplayer.trackselection.BaseTrackSelection;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import com.google.common.base.Objects;
 import java.util.List;
@@ -33,7 +33,7 @@ import java.util.List;
  * of calls to its methods.
  */
 @UnstableApi
-public final class FakeTrackSelection implements ExoTrackSelection {
+public class FakeTrackSelection extends BaseTrackSelection {
 
   private final TrackGroup rendererTrackGroup;
   private final int selectedIndex;
@@ -47,51 +47,9 @@ public final class FakeTrackSelection implements ExoTrackSelection {
   }
 
   public FakeTrackSelection(TrackGroup rendererTrackGroup, int selectedIndex) {
+    super(rendererTrackGroup, getAllTrackIndices(rendererTrackGroup));
     this.rendererTrackGroup = rendererTrackGroup;
     this.selectedIndex = selectedIndex;
-  }
-
-  // TrackSelection implementation.
-
-  @Override
-  public int getType() {
-    return TYPE_UNSET;
-  }
-
-  @Override
-  public TrackGroup getTrackGroup() {
-    return rendererTrackGroup;
-  }
-
-  @Override
-  public int length() {
-    return rendererTrackGroup.length;
-  }
-
-  @Override
-  public Format getFormat(int index) {
-    return rendererTrackGroup.getFormat(0);
-  }
-
-  @Override
-  public int getIndexInTrackGroup(int index) {
-    return index;
-  }
-
-  @Override
-  public int indexOf(Format format) {
-    assertThat(isEnabled).isTrue();
-    for (int i = 0; i < rendererTrackGroup.length; i++) {
-      if (rendererTrackGroup.getFormat(i).equals(format)) {
-        return i;
-      }
-    }
-    return -1;
-  }
-
-  @Override
-  public int indexOf(int indexInTrackGroup) {
-    return indexInTrackGroup;
   }
 
   // ExoTrackSelection specific methods.
@@ -113,16 +71,6 @@ public final class FakeTrackSelection implements ExoTrackSelection {
   }
 
   @Override
-  public Format getSelectedFormat() {
-    return rendererTrackGroup.getFormat(selectedIndex);
-  }
-
-  @Override
-  public int getSelectedIndexInTrackGroup() {
-    return selectedIndex;
-  }
-
-  @Override
   public int getSelectedIndex() {
     return selectedIndex;
   }
@@ -136,11 +84,6 @@ public final class FakeTrackSelection implements ExoTrackSelection {
   @Nullable
   public Object getSelectionData() {
     return null;
-  }
-
-  @Override
-  public void onPlaybackSpeed(float playbackSpeed) {
-    // Do nothing.
   }
 
   @Override
@@ -191,5 +134,13 @@ public final class FakeTrackSelection implements ExoTrackSelection {
   public int hashCode() {
     return Objects.hashCode(
         rendererTrackGroup, enableCount, releaseCount, isEnabled, selectedIndex);
+  }
+
+  private static int[] getAllTrackIndices(TrackGroup trackGroup) {
+    int[] indices = new int[trackGroup.length];
+    for (int i = 0; i < indices.length; i++) {
+      indices[i] = i;
+    }
+    return indices;
   }
 }

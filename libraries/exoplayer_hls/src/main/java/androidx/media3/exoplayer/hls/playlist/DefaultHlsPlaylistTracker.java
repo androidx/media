@@ -141,18 +141,10 @@ public final class DefaultHlsPlaylistTracker
             playlistParserFactory.createPlaylistParser());
     Assertions.checkState(initialPlaylistLoader == null);
     initialPlaylistLoader = new Loader("DefaultHlsPlaylistTracker:MultivariantPlaylist");
-    long elapsedRealtime =
-        initialPlaylistLoader.startLoading(
-            multivariantPlaylistLoadable,
-            this,
-            loadErrorHandlingPolicy.getMinimumLoadableRetryCount(
-                multivariantPlaylistLoadable.type));
-    eventDispatcher.loadStarted(
-        new LoadEventInfo(
-            multivariantPlaylistLoadable.loadTaskId,
-            multivariantPlaylistLoadable.dataSpec,
-            elapsedRealtime),
-        multivariantPlaylistLoadable.type);
+    initialPlaylistLoader.startLoading(
+        multivariantPlaylistLoadable,
+        this,
+        loadErrorHandlingPolicy.getMinimumLoadableRetryCount(multivariantPlaylistLoadable.type));
   }
 
   @Override
@@ -253,6 +245,26 @@ public final class DefaultHlsPlaylistTracker
   }
 
   // Loader.Callback implementation.
+
+  @Override
+  public void onLoadStarted(
+      ParsingLoadable<HlsPlaylist> loadable,
+      long elapsedRealtimeMs,
+      long loadDurationMs,
+      int retryCount) {
+    LoadEventInfo loadEventInfo =
+        retryCount == 0
+            ? new LoadEventInfo(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs)
+            : new LoadEventInfo(
+                loadable.loadTaskId,
+                loadable.dataSpec,
+                loadable.getUri(),
+                loadable.getResponseHeaders(),
+                elapsedRealtimeMs,
+                loadDurationMs,
+                loadable.bytesLoaded());
+    eventDispatcher.loadStarted(loadEventInfo, loadable.type, retryCount);
+  }
 
   @Override
   public void onLoadCompleted(
@@ -603,6 +615,26 @@ public final class DefaultHlsPlaylistTracker
     // Loader.Callback implementation.
 
     @Override
+    public void onLoadStarted(
+        ParsingLoadable<HlsPlaylist> loadable,
+        long elapsedRealtimeMs,
+        long loadDurationMs,
+        int retryCount) {
+      LoadEventInfo loadEventInfo =
+          retryCount == 0
+              ? new LoadEventInfo(loadable.loadTaskId, loadable.dataSpec, elapsedRealtimeMs)
+              : new LoadEventInfo(
+                  loadable.loadTaskId,
+                  loadable.dataSpec,
+                  loadable.getUri(),
+                  loadable.getResponseHeaders(),
+                  elapsedRealtimeMs,
+                  loadDurationMs,
+                  loadable.bytesLoaded());
+      eventDispatcher.loadStarted(loadEventInfo, loadable.type, retryCount);
+    }
+
+    @Override
     public void onLoadCompleted(
         ParsingLoadable<HlsPlaylist> loadable, long elapsedRealtimeMs, long loadDurationMs) {
       @Nullable HlsPlaylist result = loadable.getResult();
@@ -736,15 +768,10 @@ public final class DefaultHlsPlaylistTracker
               playlistRequestUri,
               C.DATA_TYPE_MANIFEST,
               mediaPlaylistParser);
-      long elapsedRealtime =
-          mediaPlaylistLoader.startLoading(
-              mediaPlaylistLoadable,
-              /* callback= */ this,
-              loadErrorHandlingPolicy.getMinimumLoadableRetryCount(mediaPlaylistLoadable.type));
-      eventDispatcher.loadStarted(
-          new LoadEventInfo(
-              mediaPlaylistLoadable.loadTaskId, mediaPlaylistLoadable.dataSpec, elapsedRealtime),
-          mediaPlaylistLoadable.type);
+      mediaPlaylistLoader.startLoading(
+          mediaPlaylistLoadable,
+          /* callback= */ this,
+          loadErrorHandlingPolicy.getMinimumLoadableRetryCount(mediaPlaylistLoadable.type));
     }
 
     private void processLoadedPlaylist(

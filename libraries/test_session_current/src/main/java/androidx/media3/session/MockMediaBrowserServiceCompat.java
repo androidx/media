@@ -19,6 +19,9 @@ import static androidx.media3.session.MediaConstants.EXTRAS_KEY_COMPLETION_STATU
 import static androidx.media3.session.MediaConstants.EXTRAS_VALUE_COMPLETION_STATUS_FULLY_PLAYED;
 import static androidx.media3.session.MediaConstants.EXTRAS_VALUE_COMPLETION_STATUS_NOT_PLAYED;
 import static androidx.media3.session.MediaConstants.EXTRAS_VALUE_COMPLETION_STATUS_PARTIALLY_PLAYED;
+import static androidx.media3.session.legacy.MediaConstants.BROWSER_ROOT_HINTS_KEY_CUSTOM_BROWSER_ACTION_LIMIT;
+import static androidx.media3.session.legacy.MediaConstants.BROWSER_SERVICE_EXTRAS_KEY_CUSTOM_BROWSER_ACTION_ROOT_LIST;
+import static androidx.media3.session.legacy.MediaConstants.DESCRIPTION_EXTRAS_KEY_CUSTOM_BROWSER_ACTION_ID_LIST;
 import static androidx.media3.test.session.common.CommonConstants.SUPPORT_APP_PACKAGE_NAME;
 import static androidx.media3.test.session.common.MediaBrowserConstants.ROOT_EXTRAS;
 import static androidx.media3.test.session.common.MediaBrowserConstants.ROOT_ID;
@@ -26,22 +29,27 @@ import static androidx.media3.test.session.common.MediaBrowserConstants.ROOT_ID_
 import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_CONNECT_REJECTED;
 import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_GET_CHILDREN;
 import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_GET_CHILDREN_FATAL_AUTHENTICATION_ERROR;
+import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_GET_CHILDREN_INCREASE_NUMBER_OF_CHILDREN_WITH_EACH_CALL;
 import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_GET_CHILDREN_NON_FATAL_AUTHENTICATION_ERROR;
 import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_GET_CHILDREN_WITH_NULL_LIST;
 import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_GET_LIBRARY_ROOT;
+import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_MEDIA_ITEMS_WITH_BROWSE_ACTIONS;
 import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_ON_CHILDREN_CHANGED_SUBSCRIBE_AND_UNSUBSCRIBE;
 import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_SEND_CUSTOM_COMMAND;
+import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_SUBSCRIBE_THEN_REJECT_ON_LOAD_CHILDREN;
+import static java.lang.Math.min;
 
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 import android.os.RemoteException;
 import android.support.v4.media.MediaBrowserCompat;
 import android.support.v4.media.MediaBrowserCompat.MediaItem;
 import android.support.v4.media.MediaDescriptionCompat;
 import android.support.v4.media.session.MediaSessionCompat;
-import android.support.v4.media.session.MediaSessionCompat.Callback;
 import android.support.v4.media.session.PlaybackStateCompat;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
@@ -51,6 +59,7 @@ import androidx.media3.test.session.common.MediaBrowserConstants;
 import androidx.media3.test.session.common.MediaBrowserServiceCompatConstants;
 import com.google.common.collect.ImmutableList;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -62,6 +71,13 @@ public class MockMediaBrowserServiceCompat extends MediaBrowserServiceCompat {
    * MediaBrowserServiceCompatConstants#TEST_GET_CHILDREN}.
    */
   public static final ImmutableList<MediaItem> MEDIA_ITEMS = createMediaItems();
+
+  /**
+   * Key in the browser root hints to request a confirmation of the call to {@link
+   * #onGetRoot(String, int, Bundle)}.
+   */
+  public static final String EXTRAS_KEY_SEND_ROOT_HINTS_AS_SESSION_EXTRAS =
+      "confirm_on_get_root_with_custom_action";
 
   private static final String TAG = "MockMBSCompat";
   private static final Object lock = new Object();
@@ -83,10 +99,9 @@ public class MockMediaBrowserServiceCompat extends MediaBrowserServiceCompat {
       instance = this;
     }
     sessionCompat = new MediaSessionCompat(this, TAG);
-    sessionCompat.setCallback(new Callback() {});
+    sessionCompat.setCallback(new MediaSessionCompat.Callback() {});
     sessionCompat.setActive(true);
     setSessionToken(sessionCompat.getSessionToken());
-
     testBinder = new RemoteMediaBrowserServiceCompatStub(sessionCompat);
   }
 
@@ -161,12 +176,18 @@ public class MockMediaBrowserServiceCompat extends MediaBrowserServiceCompat {
       // Test only -- reject any other request.
       return null;
     }
+    if (rootHints.getBoolean(EXTRAS_KEY_SEND_ROOT_HINTS_AS_SESSION_EXTRAS, false)) {
+      // Send delayed because the Media3 browser is in the process of connecting at this point and
+      // won't receive listener callbacks before being connected.
+      new Handler(Looper.myLooper())
+          .postDelayed(() -> sessionCompat.setExtras(rootHints), /* delayMillis= */ 100L);
+    }
     synchronized (lock) {
       if (isProxyOverridesMethod("onGetRoot")) {
         return serviceProxy.onGetRoot(clientPackageName, clientUid, rootHints);
       }
     }
-    return new BrowserRoot("stub", null);
+    return new BrowserRoot("stub", /* extras= */ rootHints);
   }
 
   @Override
@@ -177,6 +198,7 @@ public class MockMediaBrowserServiceCompat extends MediaBrowserServiceCompat {
         return;
       }
     }
+    super.onLoadChildren(parentId, result, Bundle.EMPTY);
   }
 
   @Override
@@ -276,6 +298,15 @@ public class MockMediaBrowserServiceCompat extends MediaBrowserServiceCompat {
         case TEST_SEND_CUSTOM_COMMAND:
           setProxyForTestSendCustomCommand();
           break;
+        case TEST_MEDIA_ITEMS_WITH_BROWSE_ACTIONS:
+          setProxyForMediaItemsWithBrowseActions(session);
+          break;
+        case TEST_SUBSCRIBE_THEN_REJECT_ON_LOAD_CHILDREN:
+          setProxyForSubscribeAndRejectGetChildren();
+          break;
+        case TEST_GET_CHILDREN_INCREASE_NUMBER_OF_CHILDREN_WITH_EACH_CALL:
+          setProxyForGetChildrenIncreaseNumberOfChildrenWithEachCall();
+          break;
         default:
           throw new IllegalArgumentException("Unknown testName: " + testName);
       }
@@ -341,6 +372,137 @@ public class MockMediaBrowserServiceCompat extends MediaBrowserServiceCompat {
           });
     }
 
+    private void setProxyForMediaItemsWithBrowseActions(MediaSessionCompat session) {
+      // See https://developer.android.com/training/cars/media#custom_browse_actions
+
+      Bundle playlistAddBrowseAction = new Bundle();
+      Bundle playlistAddExtras = new Bundle();
+      playlistAddExtras.putString("key-1", "playlist_add");
+      playlistAddBrowseAction.putString(
+          androidx.media3.session.legacy.MediaConstants.EXTRAS_KEY_CUSTOM_BROWSER_ACTION_ID,
+          MediaBrowserConstants.COMMAND_PLAYLIST_ADD);
+      playlistAddBrowseAction.putString(
+          androidx.media3.session.legacy.MediaConstants.EXTRAS_KEY_CUSTOM_BROWSER_ACTION_LABEL,
+          "Add to playlist");
+      playlistAddBrowseAction.putString(
+          androidx.media3.session.legacy.MediaConstants.EXTRAS_KEY_CUSTOM_BROWSER_ACTION_ICON_URI,
+          "content://playlist_add");
+      playlistAddBrowseAction.putBundle(
+          androidx.media3.session.legacy.MediaConstants.EXTRAS_KEY_CUSTOM_BROWSER_ACTION_EXTRAS,
+          playlistAddExtras);
+      Bundle radioBrowseAction = new Bundle();
+      Bundle radioExtras = new Bundle();
+      radioExtras.putString("key-1", "radio");
+      radioBrowseAction.putString(
+          androidx.media3.session.legacy.MediaConstants.EXTRAS_KEY_CUSTOM_BROWSER_ACTION_ID,
+          MediaBrowserConstants.COMMAND_RADIO);
+      radioBrowseAction.putString(
+          androidx.media3.session.legacy.MediaConstants.EXTRAS_KEY_CUSTOM_BROWSER_ACTION_LABEL,
+          "Radio station");
+      radioBrowseAction.putString(
+          androidx.media3.session.legacy.MediaConstants.EXTRAS_KEY_CUSTOM_BROWSER_ACTION_ICON_URI,
+          "content://radio");
+      radioBrowseAction.putBundle(
+          androidx.media3.session.legacy.MediaConstants.EXTRAS_KEY_CUSTOM_BROWSER_ACTION_EXTRAS,
+          radioExtras);
+
+      ImmutableList<Bundle> browseActions =
+          ImmutableList.of(playlistAddBrowseAction, radioBrowseAction);
+      setMediaBrowserServiceProxy(
+          new MockMediaBrowserServiceCompat.Proxy() {
+            @Override
+            public BrowserRoot onGetRoot(
+                String clientPackageName, int clientUid, Bundle rootHints) {
+              int actionLimit =
+                  rootHints.getInt(
+                      BROWSER_ROOT_HINTS_KEY_CUSTOM_BROWSER_ACTION_LIMIT, /* defaultValue= */ 0);
+              Bundle extras = new Bundle(rootHints);
+              ArrayList<Bundle> browseActionList = new ArrayList<>();
+              for (int i = 0; i < min(actionLimit, browseActions.size()); i++) {
+                browseActionList.add(browseActions.get(i));
+              }
+              extras.putParcelableArrayList(
+                  BROWSER_SERVICE_EXTRAS_KEY_CUSTOM_BROWSER_ACTION_ROOT_LIST, browseActionList);
+              return new BrowserRoot(ROOT_ID, extras);
+            }
+
+            @Override
+            public void onLoadItem(String itemId, Result<MediaItem> result) {
+              Bundle extras = new Bundle();
+              ArrayList<String> supportedActions = new ArrayList<>();
+              supportedActions.add(MediaBrowserConstants.COMMAND_PLAYLIST_ADD);
+              supportedActions.add(MediaBrowserConstants.COMMAND_RADIO);
+              extras.putStringArrayList(
+                  DESCRIPTION_EXTRAS_KEY_CUSTOM_BROWSER_ACTION_ID_LIST, supportedActions);
+              MediaDescriptionCompat description =
+                  new MediaDescriptionCompat.Builder()
+                      .setMediaId(itemId)
+                      .setExtras(extras)
+                      .setTitle("title of " + itemId)
+                      .build();
+              result.sendResult(new MediaItem(description, MediaItem.FLAG_PLAYABLE));
+            }
+
+            @Override
+            public void onCustomAction(String action, Bundle extras, Result<Bundle> result) {
+              if (action.equals(MediaBrowserConstants.COMMAND_PLAYLIST_ADD)
+                  || action.equals(MediaBrowserConstants.COMMAND_RADIO)) {
+                Bundle resultBundle = new Bundle();
+                if (extras.containsKey(
+                    androidx.media3.session.legacy.MediaConstants
+                        .EXTRAS_KEY_CUSTOM_BROWSER_ACTION_MEDIA_ITEM_ID)) {
+                  resultBundle.putString(
+                      MediaConstants.EXTRA_KEY_MEDIA_ID,
+                      extras.getString(
+                          androidx.media3.session.legacy.MediaConstants
+                              .EXTRAS_KEY_CUSTOM_BROWSER_ACTION_MEDIA_ITEM_ID));
+                }
+                session.setExtras(resultBundle);
+                result.sendResult(resultBundle);
+              }
+            }
+          });
+    }
+
+    private void setProxyForSubscribeAndRejectGetChildren() {
+      setMediaBrowserServiceProxy(
+          new MockMediaBrowserServiceCompat.Proxy() {
+
+            private boolean isSubscribed;
+
+            @Override
+            public void onLoadChildren(String parentId, Result<List<MediaItem>> result) {
+              onLoadChildren(parentId, result, new Bundle());
+            }
+
+            @Override
+            public void onLoadChildren(
+                String parentId, Result<List<MediaItem>> result, Bundle options) {
+              if (isSubscribed) {
+                // Accept the first call that a Media3 browser interprets as a successful
+                // subscription. Then reject any further access to onLoadChildren().
+                result.sendResult(null);
+                return;
+              }
+              isSubscribed = true;
+              result.sendResult(
+                  ImmutableList.of(
+                      new MediaItem(
+                          new MediaDescriptionCompat.Builder()
+                              .setMediaUri(Uri.parse("http://www.example.com/1"))
+                              .setMediaId("mediaId1")
+                              .build(),
+                          MediaItem.FLAG_PLAYABLE),
+                      new MediaItem(
+                          new MediaDescriptionCompat.Builder()
+                              .setMediaUri(Uri.parse("http://www.example.com/2"))
+                              .setMediaId("mediaId2")
+                              .build(),
+                          MediaItem.FLAG_PLAYABLE)));
+            }
+          });
+    }
+
     private void getChildren_authenticationError_receivesPlaybackException(
         MediaSessionCompat session, boolean isFatal) {
       setMediaBrowserServiceProxy(
@@ -393,7 +555,7 @@ public class MockMediaBrowserServiceCompat extends MediaBrowserServiceCompat {
                           /* playbackSpeed= */ 1.0f)
                       .addCustomAction(
                           new PlaybackStateCompat.CustomAction.Builder(
-                                  MediaBrowserConstants.COMMAND_ACTION_PLAYLIST_ADD,
+                                  MediaBrowserConstants.COMMAND_PLAYLIST_ADD,
                                   "Add to playlist",
                                   CommandButton.ICON_PLAYLIST_ADD)
                               .build())
@@ -405,7 +567,7 @@ public class MockMediaBrowserServiceCompat extends MediaBrowserServiceCompat {
             @Override
             public void onCustomAction(String action, Bundle extras, Result<Bundle> result) {
               Bundle resultBundle = new Bundle();
-              if (action.equals(MediaBrowserConstants.COMMAND_ACTION_PLAYLIST_ADD)) {
+              if (action.equals(MediaBrowserConstants.COMMAND_PLAYLIST_ADD)) {
                 if (extras.getBoolean("request_error", /* defaultValue= */ false)) {
                   resultBundle.putString("key-1", "error-from-service");
                   result.sendError(resultBundle);
@@ -438,6 +600,31 @@ public class MockMediaBrowserServiceCompat extends MediaBrowserServiceCompat {
                 }
               }
               return new BrowserRoot(ROOT_ID, ROOT_EXTRAS);
+            }
+          });
+    }
+
+    private void setProxyForGetChildrenIncreaseNumberOfChildrenWithEachCall() {
+      setMediaBrowserServiceProxy(
+          new MockMediaBrowserServiceCompat.Proxy() {
+            private int callCount;
+
+            @Override
+            public BrowserRoot onGetRoot(
+                String clientPackageName, int clientUid, @Nullable Bundle rootHints) {
+              return new BrowserRoot(ROOT_ID, ROOT_EXTRAS);
+            }
+
+            @Override
+            public void onLoadChildren(String parentId, Result<List<MediaItem>> result) {
+              super.onLoadChildren(parentId, result, Bundle.EMPTY);
+            }
+
+            @Override
+            public void onLoadChildren(
+                String parentId, Result<List<MediaItem>> result, Bundle options) {
+              result.sendResult(MediaTestUtils.createBrowserItems(callCount + 1));
+              callCount++;
             }
           });
     }

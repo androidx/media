@@ -460,7 +460,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         videoSink.setPendingVideoEffects(videoEffects);
         videoSink.setStreamTimestampInfo(
             streamStartPositionUs,
-            getStreamOffsetUs(),
             /* bufferTimestampAdjustmentUs= */ offsetToCompositionTimeUs,
             getLastResetPositionUs());
         videoSink.onInputStreamChanged(
@@ -475,6 +474,18 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         inputStreamPending = false;
       }
       return videoSink.handleInputBitmap(outputImage, checkStateNotNull(timestampIterator));
+    }
+
+    @Override
+    public void handleMessage(@MessageType int messageType, @Nullable Object message)
+        throws ExoPlaybackException {
+      switch (messageType) {
+        case MSG_SET_WAKEUP_LISTENER:
+          videoSink.setWakeupListener((WakeupListener) checkNotNull(message));
+          break;
+        default:
+          super.handleMessage(messageType, message);
+      }
     }
 
     private ConstantRateTimestampIterator createTimestampIterator(long positionUs) {

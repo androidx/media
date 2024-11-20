@@ -141,7 +141,7 @@ public class ExoPlayerAssetLoaderTest {
 
   private static AssetLoader getAssetLoader(AssetLoader.Listener listener, Clock clock) {
     Context context = ApplicationProvider.getApplicationContext();
-    Codec.DecoderFactory decoderFactory = new DefaultDecoderFactory(context);
+    Codec.DecoderFactory decoderFactory = new DefaultDecoderFactory.Builder(context).build();
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(MediaItem.fromUri("asset:///media/mp4/sample.mp4")).build();
     return new ExoPlayerAssetLoader.Factory(context, decoderFactory, clock)

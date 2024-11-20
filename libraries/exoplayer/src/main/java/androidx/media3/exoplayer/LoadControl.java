@@ -20,6 +20,7 @@ import androidx.media3.common.Player;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.util.Log;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.source.MediaPeriod;
@@ -145,28 +146,40 @@ public interface LoadControl {
   /**
    * Called by the player when a track selection occurs.
    *
-   * @param playerId The {@linkplain PlayerId ID of the player} that selected tracks.
-   * @param timeline The current {@link Timeline} in ExoPlayer.
-   * @param mediaPeriodId Identifies (in the current timeline) the {@link MediaPeriod} for which the
-   *     selection was made. Will be {@link #EMPTY_MEDIA_PERIOD_ID} when {@code timeline} is empty.
-   * @param renderers The renderers.
+   * @param parameters containing the {@linkplain PlayerId ID of the player}, the current {@link
+   *     Timeline} in ExoPlayer, and the {@link MediaPeriod} for which the selection was made. Will
+   *     be {@link #EMPTY_MEDIA_PERIOD_ID} when {@code timeline} is empty.
    * @param trackGroups The {@link TrackGroup}s from which the selection was made.
    * @param trackSelections The track selections that were made.
    */
+  default void onTracksSelected(
+      Parameters parameters,
+      TrackGroupArray trackGroups,
+      @NullableType ExoTrackSelection[] trackSelections) {
+    // Media3 ExoPlayer will never call this method. This default implementation provides an
+    // implementation to please the compiler only.
+    throw new IllegalStateException("onTracksSelected not implemented");
+  }
+
+  /**
+   * @deprecated Implement {@link #onTracksSelected(Parameters, TrackGroupArray,
+   *     ExoTrackSelection[])} instead.
+   */
   @SuppressWarnings("deprecation") // Calling deprecated version of this method.
+  @Deprecated
   default void onTracksSelected(
       PlayerId playerId,
       Timeline timeline,
       MediaPeriodId mediaPeriodId,
       Renderer[] renderers,
       TrackGroupArray trackGroups,
-      ExoTrackSelection[] trackSelections) {
+      @NullableType ExoTrackSelection[] trackSelections) {
     onTracksSelected(timeline, mediaPeriodId, renderers, trackGroups, trackSelections);
   }
 
   /**
-   * @deprecated Implement {@link #onTracksSelected(PlayerId, Timeline, MediaPeriodId, Renderer[],
-   *     TrackGroupArray, ExoTrackSelection[])} instead.
+   * @deprecated Implement {@link #onTracksSelected(Parameters, TrackGroupArray,
+   *     ExoTrackSelection[])} instead.
    */
   @SuppressWarnings("deprecation") // Calling deprecated version of this method.
   @Deprecated
@@ -175,18 +188,20 @@ public interface LoadControl {
       MediaPeriodId mediaPeriodId,
       Renderer[] renderers,
       TrackGroupArray trackGroups,
-      ExoTrackSelection[] trackSelections) {
+      @NullableType ExoTrackSelection[] trackSelections) {
     onTracksSelected(renderers, trackGroups, trackSelections);
   }
 
   /**
-   * @deprecated Implement {@link #onTracksSelected(PlayerId, Timeline, MediaPeriodId, Renderer[],
-   *     TrackGroupArray, ExoTrackSelection[])} instead.
+   * @deprecated Implement {@link #onTracksSelected(Parameters, TrackGroupArray,
+   *     ExoTrackSelection[])} instead.
    */
   @SuppressWarnings("deprecation") // Calling deprecated version of this method.
   @Deprecated
   default void onTracksSelected(
-      Renderer[] renderers, TrackGroupArray trackGroups, ExoTrackSelection[] trackSelections) {
+      Renderer[] renderers,
+      TrackGroupArray trackGroups,
+      @NullableType ExoTrackSelection[] trackSelections) {
     // Media3 ExoPlayer will never call this method. This default implementation provides an
     // implementation to please the compiler only.
     throw new IllegalStateException("onTracksSelected not implemented");

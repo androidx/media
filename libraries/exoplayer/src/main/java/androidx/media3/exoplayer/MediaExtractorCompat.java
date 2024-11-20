@@ -18,9 +18,9 @@ package androidx.media3.exoplayer;
 import static androidx.annotation.VisibleForTesting.NONE;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
-import static androidx.media3.exoplayer.source.SampleStream.FLAG_OMIT_SAMPLE_DATA;
 import static androidx.media3.exoplayer.source.SampleStream.FLAG_PEEK;
 import static androidx.media3.exoplayer.source.SampleStream.FLAG_REQUIRE_FORMAT;
+import static java.lang.Math.max;
 
 import android.content.ContentResolver;
 import android.content.Context;
@@ -28,13 +28,16 @@ import android.content.res.AssetFileDescriptor;
 import android.media.MediaDataSource;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
+import android.media.metrics.LogSessionId;
 import android.net.Uri;
+import android.os.PersistableBundle;
 import android.util.SparseArray;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
+import androidx.media3.common.DrmInitData;
 import androidx.media3.common.Format;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.Assertions;
@@ -52,7 +55,6 @@ import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.exoplayer.mediacodec.MediaCodecUtil;
 import androidx.media3.exoplayer.source.SampleQueue;
 import androidx.media3.exoplayer.source.SampleStream.ReadDataResult;
-import androidx.media3.exoplayer.source.SampleStream.ReadFlags;
 import androidx.media3.exoplayer.source.UnrecognizedInputFormatException;
 import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.DefaultAllocator;
@@ -70,6 +72,7 @@ import androidx.media3.extractor.SeekMap.SeekPoints;
 import androidx.media3.extractor.SeekPoint;
 import androidx.media3.extractor.TrackOutput;
 import androidx.media3.extractor.mp4.Mp4Extractor;
+import androidx.media3.extractor.mp4.PsshAtomUtil;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
@@ -82,9 +85,11 @@ import java.lang.annotation.RetentionPolicy;
 import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
 
 /**
@@ -115,6 +120,14 @@ public final class MediaExtractorCompat {
   /** See {@link MediaExtractor#SEEK_TO_CLOSEST_SYNC}. */
   public static final int SEEK_TO_CLOSEST_SYNC = MediaExtractor.SEEK_TO_CLOSEST_SYNC;
 
+  /**
+   * A default duration added to the largest queued sample timestamp to provide a more realistic
+   * estimate of the cached duration. Since the duration of the last sample is unknown, this value
+   * prevents the duration of the last sample from being assumed as zero, which would otherwise make
+   * the estimated duration appear shorter than it actually is.
+   */
+  private static final long DEFAULT_LAST_SAMPLE_DURATION_US = 10_000;
+
   private static final String TAG = "MediaExtractorCompat";
 
   private final ExtractorsFactory extractorsFactory;
@@ -123,10 +136,9 @@ public final class MediaExtractorCompat {
   private final Allocator allocator;
   private final ArrayList<MediaExtractorTrack> tracks;
   private final SparseArray<MediaExtractorSampleQueue> sampleQueues;
-  private final ArrayDeque<Integer> trackIndicesPerSampleInQueuedOrder;
+  private final SampleMetadataQueue sampleMetadataQueue;
   private final FormatHolder formatHolder;
-  private final DecoderInputBuffer sampleHolderWithBufferReplacementDisabled;
-  private final DecoderInputBuffer sampleHolderWithBufferReplacementDirect;
+  private final DecoderInputBuffer sampleHolder;
   private final DecoderInputBuffer noDataBuffer;
   private final Set<Integer> selectedTrackIndices;
 
@@ -141,6 +153,7 @@ public final class MediaExtractorCompat {
   private boolean tracksEnded;
   private int upstreamFormatsCount;
   @Nullable private Map<String, String> httpRequestHeaders;
+  @Nullable private LogSessionId logSessionId;
 
   /** Creates a new instance. */
   public MediaExtractorCompat(Context context) {
@@ -173,12 +186,9 @@ public final class MediaExtractorCompat {
     allocator = new DefaultAllocator(/* trimOnReset= */ true, C.DEFAULT_BUFFER_SEGMENT_SIZE);
     tracks = new ArrayList<>();
     sampleQueues = new SparseArray<>();
-    trackIndicesPerSampleInQueuedOrder = new ArrayDeque<>();
+    sampleMetadataQueue = new SampleMetadataQueue();
     formatHolder = new FormatHolder();
-    sampleHolderWithBufferReplacementDisabled =
-        new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_DISABLED);
-    sampleHolderWithBufferReplacementDirect =
-        new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_DIRECT);
+    sampleHolder = new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_DISABLED);
     noDataBuffer = DecoderInputBuffer.newNoDataInstance();
     selectedTrackIndices = new HashSet<>();
   }
@@ -417,7 +427,15 @@ public final class MediaExtractorCompat {
 
   /** Returns the track {@link MediaFormat} at the specified {@code trackIndex}. */
   public MediaFormat getTrackFormat(int trackIndex) {
-    return tracks.get(trackIndex).createDownstreamMediaFormat(formatHolder, noDataBuffer);
+    MediaExtractorTrack track = tracks.get(trackIndex);
+    MediaFormat mediaFormat = track.createDownstreamMediaFormat(formatHolder, noDataBuffer);
+    long trackDurationUs = track.sampleQueue.trackDurationUs;
+    if (trackDurationUs != C.TIME_UNSET) {
+      mediaFormat.setLong(MediaFormat.KEY_DURATION, trackDurationUs);
+    } else if (seekMap != null && seekMap.getDurationUs() != C.TIME_UNSET) {
+      mediaFormat.setLong(MediaFormat.KEY_DURATION, seekMap.getDurationUs());
+    }
+    return mediaFormat;
   }
 
   /**
@@ -481,7 +499,7 @@ public final class MediaExtractorCompat {
         // Should never happen.
         throw new IllegalArgumentException();
     }
-    trackIndicesPerSampleInQueuedOrder.clear();
+    sampleMetadataQueue.clear();
     for (int i = 0; i < sampleQueues.size(); i++) {
       sampleQueues.valueAt(i).reset();
     }
@@ -524,12 +542,11 @@ public final class MediaExtractorCompat {
     // The platform media extractor implementation ignores the buffer's input position and limit.
     buffer.position(offset);
     buffer.limit(buffer.capacity());
-    sampleHolderWithBufferReplacementDisabled.data = buffer;
-    peekNextSelectedTrackSample(
-        sampleHolderWithBufferReplacementDisabled, /* omitSampleData= */ false);
+    sampleHolder.data = buffer;
+    peekNextSelectedTrackSample(sampleHolder);
     buffer.flip();
     buffer.position(offset);
-    sampleHolderWithBufferReplacementDisabled.data = null;
+    sampleHolder.data = null;
     return buffer.remaining();
   }
 
@@ -541,7 +558,7 @@ public final class MediaExtractorCompat {
     if (!advanceToSampleOrEndOfInput()) {
       return -1;
     }
-    return trackIndicesPerSampleInQueuedOrder.peekFirst();
+    return sampleMetadataQueue.peekFirst().trackIndex;
   }
 
   /** Returns the current sample's size in bytes, or -1 if no more samples are available. */
@@ -549,12 +566,7 @@ public final class MediaExtractorCompat {
     if (!advanceToSampleOrEndOfInput()) {
       return -1;
     }
-    peekNextSelectedTrackSample(
-        sampleHolderWithBufferReplacementDirect, /* omitSampleData= */ false);
-    ByteBuffer buffer = checkNotNull(sampleHolderWithBufferReplacementDirect.data);
-    int sampleSize = buffer.position();
-    buffer.position(0);
-    return sampleSize;
+    return sampleMetadataQueue.peekFirst().size;
   }
 
   /**
@@ -565,8 +577,7 @@ public final class MediaExtractorCompat {
     if (!advanceToSampleOrEndOfInput()) {
       return -1;
     }
-    peekNextSelectedTrackSample(noDataBuffer, /* omitSampleData= */ true);
-    return noDataBuffer.timeUs;
+    return sampleMetadataQueue.peekFirst().timeUs;
   }
 
   /** Returns the current sample's flags. */
@@ -574,11 +585,134 @@ public final class MediaExtractorCompat {
     if (!advanceToSampleOrEndOfInput()) {
       return -1;
     }
-    peekNextSelectedTrackSample(noDataBuffer, /* omitSampleData= */ true);
-    int flags = 0;
-    flags |= noDataBuffer.isEncrypted() ? MediaExtractor.SAMPLE_FLAG_ENCRYPTED : 0;
-    flags |= noDataBuffer.isKeyFrame() ? MediaExtractor.SAMPLE_FLAG_SYNC : 0;
-    return flags;
+    return sampleMetadataQueue.peekFirst().flags;
+  }
+
+  /** Sets the {@link LogSessionId} for MediaExtractorCompat. */
+  @RequiresApi(31)
+  public void setLogSessionId(LogSessionId logSessionId) {
+    if (!logSessionId.equals(LogSessionId.LOG_SESSION_ID_NONE)) {
+      this.logSessionId = logSessionId;
+    }
+  }
+
+  /** Returns the {@link LogSessionId} for MediaExtractorCompat. */
+  @RequiresApi(31)
+  public LogSessionId getLogSessionId() {
+    return logSessionId != null ? logSessionId : LogSessionId.LOG_SESSION_ID_NONE;
+  }
+
+  /**
+   * Extracts the DRM initialization data from the available tracks, if it exists.
+   *
+   * @return The {@link DrmInitData} in the content, or {@code null} if no recognizable DRM format
+   *     is found.
+   */
+  @Nullable
+  public DrmInitData getDrmInitData() {
+    for (int i = 0; i < tracks.size(); i++) {
+      Format format = tracks.get(i).getFormat(formatHolder, noDataBuffer);
+      if (format.drmInitData == null) {
+        continue;
+      }
+      return format.drmInitData;
+    }
+    return null;
+  }
+
+  /**
+   * Returns an estimate of how much data is presently cached in memory, expressed in microseconds,
+   * or -1 if this information is unavailable or not applicable (i.e., no cache exists).
+   */
+  public long getCachedDuration() {
+    if (!advanceToSampleOrEndOfInput()) {
+      return 0;
+    }
+
+    long largestReadTimestampUs = Long.MIN_VALUE;
+    long largestQueuedTimestampUs = Long.MIN_VALUE;
+    for (int i = 0; i < tracks.size(); i++) {
+      MediaExtractorSampleQueue mediaExtractorSampleQueue = tracks.get(i).sampleQueue;
+
+      largestReadTimestampUs =
+          max(largestReadTimestampUs, mediaExtractorSampleQueue.getLargestReadTimestampUs());
+      largestQueuedTimestampUs =
+          max(largestQueuedTimestampUs, mediaExtractorSampleQueue.getLargestQueuedTimestampUs());
+    }
+
+    checkState(largestQueuedTimestampUs != Long.MIN_VALUE);
+    if (largestReadTimestampUs == largestQueuedTimestampUs) {
+      return 0;
+    }
+
+    if (largestReadTimestampUs == Long.MIN_VALUE) {
+      largestReadTimestampUs = 0;
+    }
+    return largestQueuedTimestampUs - largestReadTimestampUs + DEFAULT_LAST_SAMPLE_DURATION_US;
+  }
+
+  /**
+   * Returns {@code true} if data is being cached and the cache has reached the end of the data
+   * stream. This indicates that no additional data is currently available for caching, although a
+   * future seek may restart data fetching. This method only returns a meaningful result if {@link
+   * #getCachedDuration} indicates the presence of a cache (i.e., does not return -1).
+   */
+  public boolean hasCacheReachedEndOfStream() {
+    return getCachedDuration() == 0;
+  }
+
+  /**
+   * Returns a {@link PersistableBundle} containing metrics data for the current media container.
+   *
+   * <p>The bundle includes attributes and values for the media container, as described in {@link
+   * MediaExtractor.MetricsConstants}.
+   */
+  @RequiresApi(26)
+  public PersistableBundle getMetrics() {
+    PersistableBundle bundle = new PersistableBundle();
+    if (currentExtractor != null) {
+      bundle.putString(
+          MediaExtractor.MetricsConstants.FORMAT,
+          currentExtractor.getUnderlyingImplementation().getClass().getSimpleName());
+    }
+    if (!tracks.isEmpty()) {
+      Format format = tracks.get(0).getFormat(formatHolder, noDataBuffer);
+      if (format.containerMimeType != null) {
+        bundle.putString(MediaExtractor.MetricsConstants.MIME_TYPE, format.containerMimeType);
+      }
+    }
+    bundle.putInt(MediaExtractor.MetricsConstants.TRACKS, tracks.size());
+    return bundle;
+  }
+
+  /**
+   * Extracts PSSH data from the media, if present.
+   *
+   * @return A {@link Map} of UUID-to-byte[] pairs, where the {@link UUID} identifies the crypto
+   *     scheme, and the byte array contains the scheme-specific data. Returns {@code null} if no
+   *     PSSH data exists.
+   */
+  @Nullable
+  public Map<UUID, byte[]> getPsshInfo() {
+    @Nullable DrmInitData drmInitData = getDrmInitData();
+    if (drmInitData == null) {
+      return null;
+    }
+
+    Map<UUID, byte[]> psshDataMap = new HashMap<>();
+    for (int i = 0; i < drmInitData.schemeDataCount; i++) {
+      DrmInitData.SchemeData schemeData = drmInitData.get(i);
+      if (schemeData.data == null) {
+        continue;
+      }
+
+      @Nullable PsshAtomUtil.PsshAtom parsedPsshAtom = PsshAtomUtil.parsePsshAtom(schemeData.data);
+      if (parsedPsshAtom != null) {
+        psshDataMap.put(parsedPsshAtom.uuid, parsedPsshAtom.schemeData);
+      }
+    }
+
+    return psshDataMap.isEmpty() ? null : psshDataMap;
   }
 
   @VisibleForTesting(otherwise = NONE)
@@ -591,23 +725,20 @@ public final class MediaExtractorCompat {
    * {@link Format} first, if necessary.
    *
    * @param decoderInputBuffer The buffer to populate.
-   * @param omitSampleData Whether to omit the sample's data.
    * @throws IllegalStateException If a sample is not peeked as a result of calling this method.
    */
-  private void peekNextSelectedTrackSample(
-      DecoderInputBuffer decoderInputBuffer, boolean omitSampleData) {
+  private void peekNextSelectedTrackSample(DecoderInputBuffer decoderInputBuffer) {
     MediaExtractorTrack trackOfSample =
-        tracks.get(checkNotNull(trackIndicesPerSampleInQueuedOrder.peekFirst()));
+        tracks.get(checkNotNull(sampleMetadataQueue.peekFirst()).trackIndex);
     SampleQueue sampleQueue = trackOfSample.sampleQueue;
-    @ReadFlags int readFlags = FLAG_PEEK | (omitSampleData ? FLAG_OMIT_SAMPLE_DATA : 0);
     @ReadDataResult
     int result =
-        sampleQueue.read(formatHolder, decoderInputBuffer, readFlags, /* loadingFinished= */ false);
+        sampleQueue.read(formatHolder, decoderInputBuffer, FLAG_PEEK, /* loadingFinished= */ false);
     if (result == C.RESULT_FORMAT_READ) {
       // We've consumed a downstream format. Now consume the actual sample.
       result =
           sampleQueue.read(
-              formatHolder, decoderInputBuffer, readFlags, /* loadingFinished= */ false);
+              formatHolder, decoderInputBuffer, FLAG_PEEK, /* loadingFinished= */ false);
     }
     formatHolder.clear();
     // This method must only be called when there is a sample available for reading.
@@ -662,7 +793,7 @@ public final class MediaExtractorCompat {
    *
    * @return Whether a sample from a selected track is available.
    */
-  @EnsuresNonNullIf(expression = "trackIndicesPerSampleInQueuedOrder.peekFirst()", result = true)
+  @EnsuresNonNullIf(expression = "sampleMetadataQueue.peekFirst()", result = true)
   private boolean advanceToSampleOrEndOfInput() {
     try {
       maybeResolvePendingSeek();
@@ -673,9 +804,10 @@ public final class MediaExtractorCompat {
 
     boolean seenEndOfInput = false;
     while (true) {
-      if (!trackIndicesPerSampleInQueuedOrder.isEmpty()) {
+      if (!sampleMetadataQueue.isEmpty()) {
         // By default, tracks are unselected.
-        if (selectedTrackIndices.contains(trackIndicesPerSampleInQueuedOrder.peekFirst())) {
+        if (selectedTrackIndices.contains(
+            checkNotNull(sampleMetadataQueue.peekFirst()).trackIndex)) {
           return true;
         } else {
           // There is a queued sample, but its track is unselected. We skip the sample.
@@ -706,7 +838,7 @@ public final class MediaExtractorCompat {
   }
 
   private void skipOneSample() {
-    int trackIndex = trackIndicesPerSampleInQueuedOrder.removeFirst();
+    int trackIndex = sampleMetadataQueue.removeFirst().trackIndex;
     MediaExtractorTrack track = tracks.get(trackIndex);
     if (!track.isCompatibilityTrack) {
       // We also need to skip the sample data.
@@ -827,15 +959,8 @@ public final class MediaExtractorCompat {
 
     public MediaFormat createDownstreamMediaFormat(
         FormatHolder scratchFormatHolder, DecoderInputBuffer scratchNoDataDecoderInputBuffer) {
-      scratchFormatHolder.clear();
-      sampleQueue.read(
-          scratchFormatHolder,
-          scratchNoDataDecoderInputBuffer,
-          FLAG_REQUIRE_FORMAT,
-          /* loadingFinished= */ false);
-      Format result = checkNotNull(scratchFormatHolder.format);
-      MediaFormat mediaFormatResult = MediaFormatUtil.createMediaFormatFromFormat(result);
-      scratchFormatHolder.clear();
+      Format format = getFormat(scratchFormatHolder, scratchNoDataDecoderInputBuffer);
+      MediaFormat mediaFormatResult = MediaFormatUtil.createMediaFormatFromFormat(format);
       if (compatibilityTrackMimeType != null) {
         if (Util.SDK_INT >= 29) {
           mediaFormatResult.removeKey(MediaFormat.KEY_CODECS_STRING);
@@ -843,6 +968,19 @@ public final class MediaExtractorCompat {
         mediaFormatResult.setString(MediaFormat.KEY_MIME, compatibilityTrackMimeType);
       }
       return mediaFormatResult;
+    }
+
+    private Format getFormat(
+        FormatHolder scratchFormatHolder, DecoderInputBuffer scratchNoDataDecoderInputBuffer) {
+      scratchFormatHolder.clear();
+      sampleQueue.read(
+          scratchFormatHolder,
+          scratchNoDataDecoderInputBuffer,
+          FLAG_REQUIRE_FORMAT,
+          /* loadingFinished= */ false);
+      Format format = checkNotNull(scratchFormatHolder.format);
+      scratchFormatHolder.clear();
+      return format;
     }
 
     public void discardFrontSample() {
@@ -865,6 +1003,7 @@ public final class MediaExtractorCompat {
   private final class MediaExtractorSampleQueue extends SampleQueue {
 
     public final int trackId;
+    public long trackDurationUs;
     private int mainTrackIndex;
     private int compatibilityTrackIndex;
 
@@ -873,6 +1012,7 @@ public final class MediaExtractorCompat {
       // values for DRM-related arguments.
       super(allocator, /* drmSessionManager= */ null, /* drmEventDispatcher= */ null);
       this.trackId = trackId;
+      trackDurationUs = C.TIME_UNSET;
       mainTrackIndex = C.INDEX_UNSET;
       compatibilityTrackIndex = C.INDEX_UNSET;
     }
@@ -888,6 +1028,12 @@ public final class MediaExtractorCompat {
     // SampleQueue implementation.
 
     @Override
+    public void durationUs(long durationUs) {
+      this.trackDurationUs = durationUs;
+      super.durationUs(durationUs);
+    }
+
+    @Override
     public Format getAdjustedUpstreamFormat(Format format) {
       if (getUpstreamFormat() == null) {
         onSampleQueueFormatInitialized(this, format);
@@ -897,19 +1043,20 @@ public final class MediaExtractorCompat {
 
     @Override
     public void sampleMetadata(
-        long timeUs, int flags, int size, int offset, @Nullable CryptoData cryptoData) {
+        long timeUs,
+        @C.BufferFlags int flags,
+        int size,
+        int offset,
+        @Nullable CryptoData cryptoData) {
       // Disable BUFFER_FLAG_LAST_SAMPLE to prevent the sample queue from ignoring
       // FLAG_REQUIRE_FORMAT. See b/191518632.
       flags &= ~C.BUFFER_FLAG_LAST_SAMPLE;
       Assertions.checkState(mainTrackIndex != C.INDEX_UNSET);
       int writeIndexBeforeCommitting = this.getWriteIndex();
       super.sampleMetadata(timeUs, flags, size, offset, cryptoData);
-      // Add the track index if the sample was committed
+      // Add the sample metadata if the sample was committed
       if (this.getWriteIndex() == writeIndexBeforeCommitting + 1) {
-        if (compatibilityTrackIndex != C.INDEX_UNSET) {
-          trackIndicesPerSampleInQueuedOrder.addLast(compatibilityTrackIndex);
-        }
-        trackIndicesPerSampleInQueuedOrder.addLast(mainTrackIndex);
+        queueSampleMetadata(timeUs, flags, size);
       }
     }
 
@@ -918,6 +1065,110 @@ public final class MediaExtractorCompat {
       return String.format(
           "trackId: %s, mainTrackIndex: %s, compatibilityTrackIndex: %s",
           trackId, mainTrackIndex, compatibilityTrackIndex);
+    }
+
+    private void queueSampleMetadata(long timeUs, @C.BufferFlags int flags, int size) {
+      int mediaExtractorFlags = 0;
+      mediaExtractorFlags |=
+          (flags & C.BUFFER_FLAG_ENCRYPTED) != 0 ? MediaExtractor.SAMPLE_FLAG_ENCRYPTED : 0;
+      mediaExtractorFlags |=
+          (flags & C.BUFFER_FLAG_KEY_FRAME) != 0 ? MediaExtractor.SAMPLE_FLAG_SYNC : 0;
+
+      if (compatibilityTrackIndex != C.INDEX_UNSET) {
+        sampleMetadataQueue.addLast(
+            timeUs, /* flags= */ mediaExtractorFlags, size, compatibilityTrackIndex);
+      }
+      sampleMetadataQueue.addLast(timeUs, /* flags= */ mediaExtractorFlags, size, mainTrackIndex);
+    }
+  }
+
+  /**
+   * A queue for managing {@link SampleMetadata} instances in FIFO order with an internal pool for
+   * recycling.
+   */
+  private static final class SampleMetadataQueue {
+
+    private final ArrayDeque<SampleMetadata> sampleMetadataPool;
+    private final ArrayDeque<SampleMetadata> sampleMetadataQueue;
+
+    /** Creates an instance. */
+    public SampleMetadataQueue() {
+      sampleMetadataPool = new ArrayDeque<>();
+      sampleMetadataQueue = new ArrayDeque<>();
+    }
+
+    /**
+     * Adds a sample to the end of the queue, reusing a pooled {@link SampleMetadata} instance if
+     * available.
+     *
+     * @param timeUs The media timestamp associated with the sample, in microseconds.
+     * @param flags Flags associated with the sample. See {@code MediaExtractor.SAMPLE_FLAG_*}.
+     * @param size The size of the sample data, in bytes.
+     * @param trackIndex Track index of the sample.
+     */
+    public void addLast(long timeUs, int flags, long size, int trackIndex) {
+      SampleMetadata metadata = obtainSampleMetadata(timeUs, flags, size, trackIndex);
+      sampleMetadataQueue.addLast(metadata);
+    }
+
+    /**
+     * Removes and returns the first {@link SampleMetadata} in the queue, releasing it back to the
+     * pool.
+     */
+    public SampleMetadata removeFirst() {
+      SampleMetadata metadata = sampleMetadataQueue.removeFirst();
+      sampleMetadataPool.push(metadata);
+      return metadata;
+    }
+
+    /**
+     * Peeks at the first {@link SampleMetadata} in the queue without removing it.
+     *
+     * @return The first {@link SampleMetadata} in the queue, or {@code null} if empty.
+     */
+    @Nullable
+    public SampleMetadata peekFirst() {
+      return sampleMetadataQueue.peekFirst();
+    }
+
+    /** Clears the queue, releasing all {@link SampleMetadata} back to the pool. */
+    public void clear() {
+      for (SampleMetadata metadata : sampleMetadataQueue) {
+        sampleMetadataPool.push(metadata);
+      }
+      sampleMetadataQueue.clear();
+    }
+
+    /** Returns whether the queue is empty. */
+    public boolean isEmpty() {
+      return sampleMetadataQueue.isEmpty();
+    }
+
+    private SampleMetadata obtainSampleMetadata(long timeUs, int flags, long size, int trackIndex) {
+      SampleMetadata metadata =
+          sampleMetadataPool.isEmpty()
+              ? new SampleMetadata(timeUs, flags, size, trackIndex)
+              : sampleMetadataPool.pop();
+      metadata.set(timeUs, flags, size, trackIndex);
+      return metadata;
+    }
+
+    private static final class SampleMetadata {
+      public int flags;
+      public long size;
+      public long timeUs;
+      public int trackIndex;
+
+      public SampleMetadata(long timeUs, int flags, long size, int trackIndex) {
+        set(timeUs, flags, size, trackIndex);
+      }
+
+      public void set(long timeUs, int flags, long size, int trackIndex) {
+        this.timeUs = timeUs;
+        this.flags = flags;
+        this.size = size;
+        this.trackIndex = trackIndex;
+      }
     }
   }
 }

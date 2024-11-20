@@ -6,6 +6,7 @@ format audio:
   pcmEncoding = 2
 format video:
   id = 1
+  containerMimeType = video/mp4
   sampleMimeType = video/avc
   codecs = avc1.64001F
   maxInputSize = 36722

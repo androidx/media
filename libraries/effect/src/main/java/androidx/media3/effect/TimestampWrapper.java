@@ -47,7 +47,7 @@ public final class TimestampWrapper implements GlEffect {
   public TimestampWrapper(
       GlEffect glEffect, @IntRange(from = 0) long startTimeUs, @IntRange(from = 0) long endTimeUs) {
     // TODO(b/272063508): Allow TimestampWrapper to take in a glEffect that changes the output
-    //  dimensions, likely by moving the configure() method from SingleFrameGlShaderProgram to
+    //  dimensions, likely by moving the configure() method from BaseGlShaderProgram to
     //  GlShaderProgram, so that we can detect the output dimensions of the
     //  glEffect.toGlShaderProgram.
     checkArgument(

@@ -11,6 +11,7 @@ track 257:
   sample count = 0
   format 0:
     id = 1/257
+    containerMimeType = video/mp2t
     sampleMimeType = audio/vnd.dts.hd;profile=lbr
     channelCount = 6
     sampleRate = 48000

@@ -844,15 +844,29 @@ public interface AnalyticsListener {
   default void onPlaylistMetadataChanged(EventTime eventTime, MediaMetadata playlistMetadata) {}
 
   /**
+   * @deprecated Implement {@link #onLoadStarted(EventTime, LoadEventInfo, MediaLoadData, int)}
+   *     instead, and check for {@code retryCount == 0} for equivalent behavior.
+   */
+  @UnstableApi
+  @Deprecated
+  default void onLoadStarted(
+      EventTime eventTime, LoadEventInfo loadEventInfo, MediaLoadData mediaLoadData) {}
+
+  /**
    * Called when a media source started loading data.
    *
    * @param eventTime The event time.
    * @param loadEventInfo The {@link LoadEventInfo} defining the load event.
    * @param mediaLoadData The {@link MediaLoadData} defining the data being loaded.
+   * @param retryCount The number of failed attempts since {@link #onLoadStarted} was called (this
+   *     is zero for the first load attempt).
    */
   @UnstableApi
   default void onLoadStarted(
-      EventTime eventTime, LoadEventInfo loadEventInfo, MediaLoadData mediaLoadData) {}
+      EventTime eventTime,
+      LoadEventInfo loadEventInfo,
+      MediaLoadData mediaLoadData,
+      int retryCount) {}
 
   /**
    * Called when a media source completed loading data.

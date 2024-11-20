@@ -28,6 +28,7 @@ import androidx.media3.common.util.ListenerSet;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.source.MediaSource;
+import com.google.common.base.Supplier;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
@@ -47,15 +48,15 @@ public abstract class BasePreloadManager<T> {
 
     protected final Comparator<T> rankingDataComparator;
     protected final TargetPreloadStatusControl<T> targetPreloadStatusControl;
-    protected final MediaSource.Factory mediaSourceFactory;
+    protected Supplier<MediaSource.Factory> mediaSourceFactorySupplier;
 
     public BuilderBase(
         Comparator<T> rankingDataComparator,
         TargetPreloadStatusControl<T> targetPreloadStatusControl,
-        MediaSource.Factory mediaSourceFactory) {
+        Supplier<MediaSource.Factory> mediaSourceFactorySupplier) {
       this.rankingDataComparator = rankingDataComparator;
       this.targetPreloadStatusControl = targetPreloadStatusControl;
-      this.mediaSourceFactory = mediaSourceFactory;
+      this.mediaSourceFactorySupplier = mediaSourceFactorySupplier;
     }
 
     public abstract BasePreloadManager<T> build();
@@ -256,6 +257,11 @@ public abstract class BasePreloadManager<T> {
 
   /** Called when the given {@link MediaSource} completes preloading. */
   protected final void onPreloadCompleted(MediaSource source) {
+    synchronized (lock) {
+      if (!isPreloading(source)) {
+        return;
+      }
+    }
     applicationHandler.post(
         () -> {
           listeners.sendEvent(
@@ -267,6 +273,11 @@ public abstract class BasePreloadManager<T> {
 
   /** Called when an error occurs. */
   protected final void onPreloadError(PreloadException error, MediaSource source) {
+    synchronized (lock) {
+      if (!isPreloading(source)) {
+        return;
+      }
+    }
     applicationHandler.post(
         () -> {
           listeners.sendEvent(/* eventFlag= */ C.INDEX_UNSET, listener -> listener.onError(error));
@@ -276,19 +287,30 @@ public abstract class BasePreloadManager<T> {
 
   /** Called when the given {@link MediaSource} has been skipped before completing preloading. */
   protected final void onPreloadSkipped(MediaSource source) {
+    synchronized (lock) {
+      if (!isPreloading(source)) {
+        return;
+      }
+    }
     applicationHandler.post(() -> maybeAdvanceToNextSource(source));
   }
 
-  private void maybeAdvanceToNextSource(MediaSource preloadingSource) {
+  private void maybeAdvanceToNextSource(MediaSource currentSource) {
     synchronized (lock) {
-      if (sourceHolderPriorityQueue.isEmpty()
-          || checkNotNull(sourceHolderPriorityQueue.peek()).mediaSource != preloadingSource) {
+      if (!isPreloading(currentSource)) {
         return;
       }
       do {
         sourceHolderPriorityQueue.poll();
       } while (!sourceHolderPriorityQueue.isEmpty() && !maybeStartPreloadNextSource());
     }
+  }
+
+  /** Returns whether the {@link MediaSource} is currently preloading. */
+  @GuardedBy("lock")
+  private boolean isPreloading(MediaSource mediaSource) {
+    return !sourceHolderPriorityQueue.isEmpty()
+        && checkNotNull(sourceHolderPriorityQueue.peek()).mediaSource == mediaSource;
   }
 
   /**
@@ -299,8 +321,7 @@ public abstract class BasePreloadManager<T> {
   protected final TargetPreloadStatusControl.PreloadStatus getTargetPreloadStatus(
       MediaSource source) {
     synchronized (lock) {
-      if (sourceHolderPriorityQueue.isEmpty()
-          || checkNotNull(sourceHolderPriorityQueue.peek()).mediaSource != source) {
+      if (!isPreloading(source)) {
         return null;
       }
       return targetPreloadStatusOfCurrentPreloadingSource;

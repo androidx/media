@@ -529,7 +529,8 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
                         : new UnknownSubtitlesExtractor(format)
                   };
           ProgressiveMediaSource.Factory progressiveMediaSourceFactory =
-              new ProgressiveMediaSource.Factory(dataSourceFactory, extractorsFactory);
+              new ProgressiveMediaSource.Factory(dataSourceFactory, extractorsFactory)
+                  .setSuppressPrepareError(true);
           if (loadErrorHandlingPolicy != null) {
             progressiveMediaSourceFactory.setLoadErrorHandlingPolicy(loadErrorHandlingPolicy);
           }
@@ -600,7 +601,8 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
                 mediaItem.mediaId, mediaItem.localConfiguration.uri, adsConfiguration.adTagUri),
         /* adMediaSourceFactory= */ this,
         adsLoader,
-        adViewProvider);
+        adViewProvider,
+        /* useLazyContentSourcePreparation= */ true);
   }
 
   /** Loads media source factories lazily. */

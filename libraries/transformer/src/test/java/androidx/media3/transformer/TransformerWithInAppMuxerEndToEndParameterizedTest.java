@@ -53,6 +53,7 @@ public class TransformerWithInAppMuxerEndToEndParameterizedTest {
   private static final String AMR_WB_3GP = "mp4/bbb_mono_16kHz_23.05kbps_amrwb.3gp";
   private static final String OPUS_OGG = "mp4/bbb_6ch_8kHz_opus.ogg";
   private static final String VORBIS_OGG = "mp4/bbb_1ch_16kHz_q10_vorbis.ogg";
+  private static final String DOLBY_VISION_MOV = "mp4/dolbyVision-hdr.MOV";
 
   @Parameters(name = "{0}")
   public static ImmutableList<String> mediaFiles() {
@@ -65,7 +66,8 @@ public class TransformerWithInAppMuxerEndToEndParameterizedTest {
         AMR_NB_3GP,
         AMR_WB_3GP,
         OPUS_OGG,
-        VORBIS_OGG);
+        VORBIS_OGG,
+        DOLBY_VISION_MOV);
   }
 
   @Parameter public @MonotonicNonNull String inputFile;

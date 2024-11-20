@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.video;
 
+import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Util.msToUs;
 import static java.lang.Math.min;
 import static java.lang.annotation.ElementType.TYPE_USE;
@@ -22,6 +23,7 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 import android.content.Context;
 import android.os.SystemClock;
 import android.view.Surface;
+import androidx.annotation.FloatRange;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
@@ -402,7 +404,8 @@ public final class VideoFrameReleaseControl {
   }
 
   /** Sets the playback speed. Called when the renderer playback speed changes. */
-  public void setPlaybackSpeed(float speed) {
+  public void setPlaybackSpeed(@FloatRange(from = 0, fromInclusive = false) float speed) {
+    checkArgument(speed > 0);
     if (speed == playbackSpeed) {
       return;
     }

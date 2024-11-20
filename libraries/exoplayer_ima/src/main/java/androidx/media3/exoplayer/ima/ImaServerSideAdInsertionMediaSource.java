@@ -897,9 +897,7 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
 
   private static AdPlaybackState setVodAdInPlaceholder(Ad ad, AdPlaybackState adPlaybackState) {
     AdPodInfo adPodInfo = ad.getAdPodInfo();
-    // Handle post rolls that have a podIndex of -1.
-    int adGroupIndex =
-        adPodInfo.getPodIndex() == -1 ? adPlaybackState.adGroupCount - 1 : adPodInfo.getPodIndex();
+    int adGroupIndex = getAdGroupIndexFromAdPodInfo(adPodInfo, adPlaybackState);
     AdPlaybackState.AdGroup adGroup = adPlaybackState.getAdGroup(adGroupIndex);
     int adIndexInAdGroup = adPodInfo.getAdPosition() - 1;
     if (adGroup.count < adPodInfo.getTotalAds()) {
@@ -924,10 +922,25 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
 
   private static AdPlaybackState skipAd(Ad ad, AdPlaybackState adPlaybackState) {
     AdPodInfo adPodInfo = ad.getAdPodInfo();
-    int adGroupIndex = adPodInfo.getPodIndex();
+    int adGroupIndex = getAdGroupIndexFromAdPodInfo(adPodInfo, adPlaybackState);
     // IMA SDK always returns index starting at 1.
     int adIndexInAdGroup = adPodInfo.getAdPosition() - 1;
     return adPlaybackState.withSkippedAd(adGroupIndex, adIndexInAdGroup);
+  }
+
+  private static int getAdGroupIndexFromAdPodInfo(
+      AdPodInfo adPodInfo, AdPlaybackState adPlaybackState) {
+    int adPodIndex = adPodInfo.getPodIndex();
+    if (adPodIndex == -1) {
+      // Post-roll
+      return adPlaybackState.adGroupCount - 1;
+    }
+    if (adPlaybackState.getAdGroup(0).timeUs == 0) {
+      // When a pre-roll exists, the index starts at zero.
+      return adPodIndex;
+    }
+    // Mid-rolls always start at 1.
+    return adPodIndex - 1;
   }
 
   private final class ComponentListener

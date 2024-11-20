@@ -42,10 +42,17 @@ public final class PassthroughSectionPayloadReader implements SectionPayloadRead
   /**
    * Create a new PassthroughSectionPayloadReader.
    *
-   * @param mimeType The MIME type set as {@link Format#sampleMimeType} on the created output track.
+   * @param sampleMimeType The MIME type set as {@link Format#sampleMimeType} on the created output
+   *     track.
+   * @param containerMimeType The MIME type set as {@link Format#containerMimeType} on the created
+   *     output track.
    */
-  public PassthroughSectionPayloadReader(String mimeType) {
-    this.format = new Format.Builder().setSampleMimeType(mimeType).build();
+  public PassthroughSectionPayloadReader(String sampleMimeType, String containerMimeType) {
+    this.format =
+        new Format.Builder()
+            .setContainerMimeType(containerMimeType)
+            .setSampleMimeType(sampleMimeType)
+            .build();
   }
 
   @Override

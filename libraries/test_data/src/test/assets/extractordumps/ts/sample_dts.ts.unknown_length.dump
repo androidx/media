@@ -9,6 +9,7 @@ track 257:
   format 0:
     averageBitrate = 768000
     id = 1/257
+    containerMimeType = video/mp2t
     sampleMimeType = audio/vnd.dts
     channelCount = 6
     sampleRate = 48000

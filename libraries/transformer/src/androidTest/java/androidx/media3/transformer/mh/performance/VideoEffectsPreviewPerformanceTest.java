@@ -16,7 +16,7 @@
 package androidx.media3.transformer.mh.performance;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_LONG_ASSET_WITH_INCREASING_TIMESTAMPS;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.app.Instrumentation;
@@ -45,8 +45,8 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public class VideoEffectsPreviewPerformanceTest {
 
-  private static final long TEST_TIMEOUT_MS = 10_000;
-  private static final long MEDIA_ITEM_CLIP_DURATION_MS = 500;
+  private static final long TEST_TIMEOUT_MS = 12_000;
+  private static final long MEDIA_ITEM_CLIP_DURATION_MS = 2000;
 
   private final Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
   private @MonotonicNonNull ExoPlayer player;
@@ -80,7 +80,7 @@ public class VideoEffectsPreviewPerformanceTest {
           player.addAnalyticsListener(listener);
           // Adding an EventLogger to use its log output in case the test fails.
           player.addAnalyticsListener(new EventLogger());
-          MediaItem mediaItem = getClippedMediaItem(MP4_ASSET.uri);
+          MediaItem mediaItem = getClippedMediaItem(MP4_LONG_ASSET_WITH_INCREASING_TIMESTAMPS.uri);
           // Use the same media item so that format changes do not force exoplayer to re-init codecs
           // between item transitions.
           player.addMediaItems(ImmutableList.of(mediaItem, mediaItem, mediaItem, mediaItem));
@@ -98,9 +98,10 @@ public class VideoEffectsPreviewPerformanceTest {
 
     listener.waitUntilPlayerEnded();
     long playbackDurationMs = SystemClock.elapsedRealtime() - playbackStartTimeMs.get();
+    long expectedPlaybackDurationMs = 4 * MEDIA_ITEM_CLIP_DURATION_MS;
 
-    // Playback realtime should take 2 seconds, plus/minus error margin.
-    assertThat(playbackDurationMs).isIn(Range.closed(1950L, 2060L));
+    assertThat(playbackDurationMs)
+        .isIn(Range.closed(expectedPlaybackDurationMs, expectedPlaybackDurationMs + 60));
     DecoderCounters decoderCounters = checkNotNull(listener.getDecoderCounters());
     assertThat(decoderCounters.droppedBufferCount).isEqualTo(0);
     assertThat(decoderCounters.skippedInputBufferCount).isEqualTo(0);

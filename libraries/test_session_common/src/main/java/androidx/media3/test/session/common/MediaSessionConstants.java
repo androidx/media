@@ -21,6 +21,10 @@ public class MediaSessionConstants {
   // Test method names
   public static final String TEST_GET_SESSION_ACTIVITY = "testGetSessionActivity";
   public static final String TEST_GET_CUSTOM_LAYOUT = "testGetCustomLayout";
+  public static final String TEST_GET_COMMAND_BUTTONS_FOR_MEDIA_ITEMS =
+      "testGetCommandButtonsForMediaItems";
+  public static final String TEST_GET_COMMAND_BUTTONS_FOR_MEDIA_ITEMS_COMMANDS_NOT_AVAILABLE =
+      "testGetCommandButtonsForMediaItemsCommandsNotAvailable";
   public static final String TEST_WITH_CUSTOM_COMMANDS = "testWithCustomCommands";
   public static final String TEST_CONTROLLER_LISTENER_SESSION_REJECTS = "connection_sessionRejects";
   public static final String TEST_IS_SESSION_COMMAND_AVAILABLE = "testIsSessionCommandAvailable";

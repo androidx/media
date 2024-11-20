@@ -59,6 +59,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    */
   public final long lastSyncSampleTimestampUs;
 
+  /** The prestation timestamp of the first video frame, in microseconds. */
+  public final long firstVideoSampleTimestampUs;
+
   /**
    * The presentation timestamp (in microseconds) of the first sync sample at or after {@code
    * timeUs}, or {@link C#TIME_END_OF_SOURCE} if there are none. Set to {@link C#TIME_UNSET} if
@@ -78,12 +81,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private Mp4Info(
       long durationUs,
       long lastSyncSampleTimestampUs,
+      long firstVideoSampleTimestampUs,
       long firstSyncSampleTimestampUsAfterTimeUs,
       boolean isFirstVideoSampleAfterTimeUsSyncSample,
       @Nullable Format videoFormat,
       @Nullable Format audioFormat) {
     this.durationUs = durationUs;
     this.lastSyncSampleTimestampUs = lastSyncSampleTimestampUs;
+    this.firstVideoSampleTimestampUs = firstVideoSampleTimestampUs;
     this.firstSyncSampleTimestampUsAfterTimeUs = firstSyncSampleTimestampUsAfterTimeUs;
     this.isFirstVideoSampleAfterTimeUsSyncSample = isFirstVideoSampleAfterTimeUsSyncSample;
     this.videoFormat = videoFormat;
@@ -147,6 +152,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       }
 
       long durationUs = mp4Extractor.getDurationUs();
+      long firstVideoSampleTimestampUs = C.TIME_UNSET;
       long lastSyncSampleTimestampUs = C.TIME_UNSET;
       long firstSyncSampleTimestampUsAfterTimeUs = C.TIME_UNSET;
       boolean isFirstSampleAfterTimeUsSyncSample = false;
@@ -174,6 +180,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
           long[] trackTimestampsUs =
               mp4Extractor.getSampleTimestampsUs(extractorOutput.videoTrackId);
+          if (trackTimestampsUs.length > 0) {
+            firstVideoSampleTimestampUs = trackTimestampsUs[0];
+          }
 
           int indexOfTrackTimestampUsAfterTimeUs =
               Util.binarySearchCeil(
@@ -199,6 +208,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       return new Mp4Info(
           durationUs,
           lastSyncSampleTimestampUs,
+          firstVideoSampleTimestampUs,
           firstSyncSampleTimestampUsAfterTimeUs,
           isFirstSampleAfterTimeUsSyncSample,
           videoFormat,

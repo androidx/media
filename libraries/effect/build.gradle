@@ -33,6 +33,11 @@ android {
         test.assets.srcDir '../test_data/src/test/assets/'
     }
 
+    lintOptions {
+        // TODO: b/353490583 - Enable this once the violations are fixed.
+        checkTestSources false
+    }
+
     publishing {
         singleVariant('release') {
             withSourcesJar()

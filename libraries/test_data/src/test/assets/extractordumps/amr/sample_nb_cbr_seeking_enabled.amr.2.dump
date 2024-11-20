@@ -9,7 +9,9 @@ numberOfTracks = 1
 track 0:
   total output bytes = 949
   sample count = 73
+  track duration = 4360000
   format 0:
+    containerMimeType = audio/amr
     sampleMimeType = audio/3gpp
     maxInputSize = 32
     channelCount = 1

@@ -7,6 +7,7 @@ format audio:
   metadata = entries=[xyz: latitude=40.68, longitude=-74.5, Mp4Timestamp: creation time=0, modification time=0, timescale=1000]
 format video:
   id = 1
+  containerMimeType = video/mp4
   sampleMimeType = video/avc
   codecs = avc1.64001F
   maxInputSize = 36722

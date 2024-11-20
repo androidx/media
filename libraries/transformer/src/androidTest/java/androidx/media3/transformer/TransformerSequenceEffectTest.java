@@ -352,9 +352,12 @@ public final class TransformerSequenceEffectTest {
     Composition composition =
         createComposition(
             /* presentation= */ null,
-            new EditedMediaItem.Builder(MediaItem.fromUri(PNG_ASSET_LINES_1080P.uri))
+            new EditedMediaItem.Builder(
+                    new MediaItem.Builder()
+                        .setUri(PNG_ASSET_LINES_1080P.uri)
+                        .setImageDurationMs(C.MILLIS_PER_SECOND / 4)
+                        .build())
                 .setFrameRate(30)
-                .setDurationUs(C.MICROS_PER_SECOND / 4)
                 .build());
     // Some devices need a very high bitrate to avoid encoding artifacts.
     int bitrate = 30_000_000;
@@ -417,9 +420,12 @@ public final class TransformerSequenceEffectTest {
     Composition composition =
         createComposition(
             /* presentation= */ null,
-            new EditedMediaItem.Builder(MediaItem.fromUri(PNG_ASSET_LINES_1080P.uri))
+            new EditedMediaItem.Builder(
+                    new MediaItem.Builder()
+                        .setUri(PNG_ASSET_LINES_1080P.uri)
+                        .setImageDurationMs(C.MILLIS_PER_SECOND / 4)
+                        .build())
                 .setFrameRate(30)
-                .setDurationUs(C.MICROS_PER_SECOND / 4)
                 .setEffects(
                     new Effects(
                         ImmutableList.of(),

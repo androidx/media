@@ -17,6 +17,7 @@
 package androidx.media3.transformer.mh.performance;
 
 import static androidx.media3.common.Player.STATE_ENDED;
+import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.createArgb8888BitmapFromRgba8888Image;
@@ -58,6 +59,7 @@ import androidx.media3.test.utils.BitmapPixelTestUtil;
 import androidx.media3.transformer.SurfaceTestActivity;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
@@ -69,362 +71,321 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
-import org.junit.experimental.runners.Enclosed;
 import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-import org.junit.runners.Parameterized.Parameter;
-import org.junit.runners.Parameterized.Parameters;
 
 /** Pixel tests for {@link ExoPlayer#setVideoEffects}. */
 // These tests are in the performance package even though they are not performance tests so that
 // they are not run on all devices. This is because they use ImageReader, which has a tendency to
 // drop frames.
-@RunWith(Enclosed.class)
+@RunWith(AndroidJUnit4.class)
 public class EffectPlaybackPixelTest {
 
   private static final String TEST_DIRECTORY = "test-generated-goldens/ExoPlayerPlaybackTest";
   private static final long TEST_TIMEOUT_MS = 10_000;
 
-  /**
-   * The test asserts the first frame is rendered for {@link Player#setPlayWhenReady playWhenReady}
-   * is set to either {@code true} or {@code false}.
-   */
-  @RunWith(Parameterized.class)
-  public static class RenderedFirstFrameTest {
-    private final Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
-    private @MonotonicNonNull ExoPlayer player;
-    private @MonotonicNonNull ImageReader outputImageReader;
+  /** Playback test for {@link Effect}-enabled playback. */
+  @Rule public final TestName testName = new TestName();
 
-    @Parameter public boolean playWhenReady;
+  // Force the test to run in foreground to make it faster and avoid ImageReader frame drops.
+  @Rule
+  public ActivityScenarioRule<SurfaceTestActivity> rule =
+      new ActivityScenarioRule<>(SurfaceTestActivity.class);
 
-    @Parameters(name = "playWhenReady={0}")
-    public static ImmutableList<Boolean> parameters() {
-      return ImmutableList.of(true, false);
+  private final Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
+  private @MonotonicNonNull ExoPlayer player;
+  private @MonotonicNonNull ImageReader outputImageReader;
+  private String testId;
+
+  @Before
+  public void setUp() {
+    testId = testName.getMethodName();
+    // Setting maxImages=10 ensures image reader gets all rendered frames from
+    // VideoFrameProcessor. Using maxImages=10 runs successfully on a Pixel3.
+    outputImageReader =
+        ImageReader.newInstance(
+            MP4_ASSET.videoFormat.width,
+            MP4_ASSET.videoFormat.height,
+            PixelFormat.RGBA_8888,
+            // Use a larger count to avoid ImageReader dropping frames
+            /* maxImages= */ 10);
+  }
+
+  @After
+  public void tearDown() {
+    instrumentation.runOnMainSync(() -> release(player, outputImageReader));
+  }
+
+  @Test
+  public void exoplayerEffectsPreviewTest_playWhenReadySetToFalse_ensuresFirstFrameRendered()
+      throws Exception {
+    AtomicReference<Bitmap> renderedFirstFrameBitmap = new AtomicReference<>();
+    ConditionVariable hasRenderedFirstFrameCondition = new ConditionVariable();
+
+    instrumentation.runOnMainSync(
+        () -> {
+          player = new ExoPlayer.Builder(ApplicationProvider.getApplicationContext()).build();
+          checkStateNotNull(outputImageReader);
+          outputImageReader.setOnImageAvailableListener(
+              imageReader -> {
+                try (Image image = imageReader.acquireLatestImage()) {
+                  renderedFirstFrameBitmap.set(createArgb8888BitmapFromRgba8888Image(image));
+                }
+                hasRenderedFirstFrameCondition.open();
+              },
+              Util.createHandlerForCurrentOrMainLooper());
+
+          setOutputSurfaceAndSizeOnPlayer(
+              player,
+              checkNotNull(findVideoRenderer(player)),
+              outputImageReader.getSurface(),
+              new Size(MP4_ASSET.videoFormat.width, MP4_ASSET.videoFormat.height));
+
+          player.setPlayWhenReady(false);
+          player.setVideoEffects(ImmutableList.of(createTimestampOverlay()));
+
+          // Adding an EventLogger to use its log output in case the test fails.
+          player.addAnalyticsListener(new EventLogger());
+          player.setMediaItem(MediaItem.fromUri(MP4_ASSET.uri));
+          player.prepare();
+        });
+
+    if (!hasRenderedFirstFrameCondition.block(TEST_TIMEOUT_MS)) {
+      throw new TimeoutException(
+          Util.formatInvariant("First frame not rendered in %d ms.", TEST_TIMEOUT_MS));
     }
 
-    @After
-    public void tearDown() {
-      instrumentation.runOnMainSync(() -> release(player, outputImageReader));
-    }
+    assertThat(renderedFirstFrameBitmap.get()).isNotNull();
+    float averagePixelAbsoluteDifference =
+        getBitmapAveragePixelAbsoluteDifferenceArgb8888(
+            /* expected= */ readBitmap(TEST_DIRECTORY + "/first_frame.png"),
+            /* actual= */ renderedFirstFrameBitmap.get(),
+            testId);
+    assertThat(averagePixelAbsoluteDifference).isAtMost(MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE);
+    // TODO: b/315800590 - Verify onFirstFrameRendered is invoked only once.
+  }
 
-    @Test
-    public void exoplayerEffectsPreviewTest_ensuresFirstFrameRendered() throws Exception {
-      String testId =
-          Util.formatInvariant(
-              "exoplayerEffectsPreviewTest_withPlayWhenReady[%b]_ensuresFirstFrameRendered",
-              playWhenReady);
-      AtomicReference<Bitmap> renderedFirstFrameBitmap = new AtomicReference<>();
-      ConditionVariable hasRenderedFirstFrameCondition = new ConditionVariable();
-      outputImageReader =
-          ImageReader.newInstance(
-              MP4_ASSET.videoFormat.width,
-              MP4_ASSET.videoFormat.height,
-              PixelFormat.RGBA_8888,
-              /* maxImages= */ 1);
+  @Test
+  public void exoplayerEffectsPreviewTest_ensuresAllFramesRendered() throws Exception {
+    // Internal reference: b/264252759.
+    assumeTrue(
+        "This test should run on real devices because OpenGL to ImageReader rendering is"
+            + "not always reliable on emulators.",
+        !Util.isRunningOnEmulator());
 
-      instrumentation.runOnMainSync(
-          () -> {
-            player = new ExoPlayer.Builder(ApplicationProvider.getApplicationContext()).build();
+    ArrayList<BitmapPixelTestUtil.ImageBuffer> readImageBuffers = new ArrayList<>();
+    AtomicInteger renderedFramesCount = new AtomicInteger();
+    ConditionVariable playerEnded = new ConditionVariable();
+    ConditionVariable readAllOutputFrames = new ConditionVariable();
 
-            checkStateNotNull(outputImageReader);
-            outputImageReader.setOnImageAvailableListener(
-                imageReader -> {
-                  try (Image image = imageReader.acquireLatestImage()) {
-                    renderedFirstFrameBitmap.set(createArgb8888BitmapFromRgba8888Image(image));
+    instrumentation.runOnMainSync(
+        () -> {
+          Context context = ApplicationProvider.getApplicationContext();
+          Renderer videoRenderer =
+              new NoFrameDroppedVideoRenderer(context, MediaCodecSelector.DEFAULT);
+          player =
+              new ExoPlayer.Builder(context)
+                  .setRenderersFactory(
+                      new DefaultRenderersFactory(context) {
+                        @Override
+                        protected void buildVideoRenderers(
+                            Context context,
+                            @ExtensionRendererMode int extensionRendererMode,
+                            MediaCodecSelector mediaCodecSelector,
+                            boolean enableDecoderFallback,
+                            Handler eventHandler,
+                            VideoRendererEventListener eventListener,
+                            long allowedVideoJoiningTimeMs,
+                            ArrayList<Renderer> out) {
+                          out.add(videoRenderer);
+                        }
+                      })
+                  .build();
+
+          checkStateNotNull(outputImageReader);
+          outputImageReader.setOnImageAvailableListener(
+              imageReader -> {
+                try (Image image = imageReader.acquireNextImage()) {
+                  readImageBuffers.add(BitmapPixelTestUtil.copyByteBufferFromRbga8888Image(image));
+                }
+                if (renderedFramesCount.incrementAndGet() == MP4_ASSET.videoFrameCount) {
+                  readAllOutputFrames.open();
+                }
+              },
+              Util.createHandlerForCurrentOrMainLooper());
+
+          setOutputSurfaceAndSizeOnPlayer(
+              player,
+              videoRenderer,
+              outputImageReader.getSurface(),
+              new Size(MP4_ASSET.videoFormat.width, MP4_ASSET.videoFormat.height));
+          player.setPlayWhenReady(true);
+          player.setVideoEffects(ImmutableList.of(createTimestampOverlay()));
+
+          // Adding an EventLogger to use its log output in case the test fails.
+          player.addAnalyticsListener(new EventLogger());
+          player.addListener(
+              new Player.Listener() {
+                @Override
+                public void onPlaybackStateChanged(@Player.State int playbackState) {
+                  if (playbackState == STATE_ENDED) {
+                    playerEnded.open();
                   }
-                  hasRenderedFirstFrameCondition.open();
-                },
-                Util.createHandlerForCurrentOrMainLooper());
+                }
+              });
+          player.setMediaItem(MediaItem.fromUri(MP4_ASSET.uri));
+          player.prepare();
+        });
 
-            setOutputSurfaceAndSizeOnPlayer(
-                player,
-                findVideoRenderer(player),
-                outputImageReader.getSurface(),
-                new Size(MP4_ASSET.videoFormat.width, MP4_ASSET.videoFormat.height));
+    if (!playerEnded.block(TEST_TIMEOUT_MS)) {
+      throw new TimeoutException(
+          Util.formatInvariant("Playback not ended in %d ms.", TEST_TIMEOUT_MS));
+    }
 
-            player.setPlayWhenReady(playWhenReady);
-            player.setVideoEffects(ImmutableList.of(createTimestampOverlay()));
+    if (!readAllOutputFrames.block(TEST_TIMEOUT_MS)) {
+      throw new TimeoutException(
+          Util.formatInvariant(
+              "Haven't received all frames in %d ms after playback ends.", TEST_TIMEOUT_MS));
+    }
 
-            // Adding an EventLogger to use its log output in case the test fails.
-            player.addAnalyticsListener(new EventLogger());
-            player.setMediaItem(MediaItem.fromUri(MP4_ASSET.uri));
-            player.prepare();
-          });
-
-      if (!hasRenderedFirstFrameCondition.block(TEST_TIMEOUT_MS)) {
-        throw new TimeoutException(
-            Util.formatInvariant("First frame not rendered in %d ms.", TEST_TIMEOUT_MS));
-      }
-
-      assertThat(renderedFirstFrameBitmap.get()).isNotNull();
+    ArrayList<Float> averagePixelDifferences =
+        new ArrayList<>(/* initialCapacity= */ readImageBuffers.size());
+    for (int i = 0; i < readImageBuffers.size(); i++) {
+      Bitmap actualBitmap = createArgb8888BitmapFromRgba8888ImageBuffer(readImageBuffers.get(i));
       float averagePixelAbsoluteDifference =
           getBitmapAveragePixelAbsoluteDifferenceArgb8888(
-              /* expected= */ readBitmap(TEST_DIRECTORY + "/first_frame.png"),
-              /* actual= */ renderedFirstFrameBitmap.get(),
-              testId);
-      assertThat(averagePixelAbsoluteDifference)
+              /* expected= */ readBitmap(
+                  Util.formatInvariant("%s/%s/frame_%d.png", TEST_DIRECTORY, testId, i)),
+              /* actual= */ actualBitmap,
+              /* testId= */ Util.formatInvariant("%s_frame_%d", testId, i));
+      averagePixelDifferences.add(averagePixelAbsoluteDifference);
+    }
+
+    for (int i = 0; i < averagePixelDifferences.size(); i++) {
+      float averagePixelDifference = averagePixelDifferences.get(i);
+      assertWithMessage(
+              Util.formatInvariant(
+                  "Frame %d with average pixel difference %f. ", i, averagePixelDifference))
+          .that(averagePixelDifference)
           .isAtMost(MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE);
-      // TODO: b/315800590 - Verify onFirstFrameRendered is invoked only once.
     }
   }
 
-  /** Playback test for {@link Effect}-enabled playback. */
-  public static class PlaybackTest {
-    @Rule public final TestName testName = new TestName();
+  @Test
+  public void exoplayerEffectsPreview_withTimestampWrapper_ensuresAllFramesRendered()
+      throws Exception {
+    // Internal reference: b/264252759.
+    assumeTrue(
+        "This test should run on real devices because OpenGL to ImageReader rendering is"
+            + "not always reliable on emulators.",
+        !Util.isRunningOnEmulator());
 
-    // Force the test to run in foreground to make it faster and avoid ImageReader frame drops.
-    @Rule
-    public ActivityScenarioRule<SurfaceTestActivity> rule =
-        new ActivityScenarioRule<>(SurfaceTestActivity.class);
+    ArrayList<BitmapPixelTestUtil.ImageBuffer> readImageBuffers = new ArrayList<>();
+    AtomicInteger renderedFramesCount = new AtomicInteger();
+    ConditionVariable playerEnded = new ConditionVariable();
+    ConditionVariable readAllOutputFrames = new ConditionVariable();
+    // Setting maxImages=10 ensures image reader gets all rendered frames from
+    // VideoFrameProcessor. Using maxImages=10 runs successfully on a Pixel3.
+    outputImageReader =
+        ImageReader.newInstance(
+            MP4_ASSET.videoFormat.width,
+            MP4_ASSET.videoFormat.height,
+            PixelFormat.RGBA_8888,
+            /* maxImages= */ 10);
 
-    private final Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
-    private @MonotonicNonNull ExoPlayer player;
-    private @MonotonicNonNull ImageReader outputImageReader;
-    private String testId;
+    instrumentation.runOnMainSync(
+        () -> {
+          Context context = ApplicationProvider.getApplicationContext();
+          Renderer videoRenderer =
+              new NoFrameDroppedVideoRenderer(context, MediaCodecSelector.DEFAULT);
+          player =
+              new ExoPlayer.Builder(context)
+                  .setRenderersFactory(
+                      new DefaultRenderersFactory(context) {
+                        @Override
+                        protected void buildVideoRenderers(
+                            Context context,
+                            @ExtensionRendererMode int extensionRendererMode,
+                            MediaCodecSelector mediaCodecSelector,
+                            boolean enableDecoderFallback,
+                            Handler eventHandler,
+                            VideoRendererEventListener eventListener,
+                            long allowedVideoJoiningTimeMs,
+                            ArrayList<Renderer> out) {
+                          out.add(videoRenderer);
+                        }
+                      })
+                  .build();
 
-    @Before
-    public void setUpTestId() {
-      testId = testName.getMethodName();
+          checkStateNotNull(outputImageReader);
+          outputImageReader.setOnImageAvailableListener(
+              imageReader -> {
+                try (Image image = imageReader.acquireNextImage()) {
+                  readImageBuffers.add(BitmapPixelTestUtil.copyByteBufferFromRbga8888Image(image));
+                }
+                if (renderedFramesCount.incrementAndGet() == MP4_ASSET.videoFrameCount) {
+                  readAllOutputFrames.open();
+                }
+              },
+              Util.createHandlerForCurrentOrMainLooper());
+
+          setOutputSurfaceAndSizeOnPlayer(
+              player,
+              videoRenderer,
+              outputImageReader.getSurface(),
+              new Size(MP4_ASSET.videoFormat.width, MP4_ASSET.videoFormat.height));
+          player.setPlayWhenReady(true);
+          player.setVideoEffects(
+              ImmutableList.of(
+                  new TimestampWrapper(
+                      new Brightness(0.5f), /* startTimeUs= */ 166833, /* endTimeUs= */ 510000)));
+
+          // Adding an EventLogger to use its log output in case the test fails.
+          player.addAnalyticsListener(new EventLogger());
+          player.addListener(
+              new Player.Listener() {
+                @Override
+                public void onPlaybackStateChanged(@Player.State int playbackState) {
+                  if (playbackState == STATE_ENDED) {
+                    playerEnded.open();
+                  }
+                }
+              });
+          player.setMediaItem(MediaItem.fromUri(MP4_ASSET.uri));
+          player.prepare();
+        });
+
+    if (!playerEnded.block(TEST_TIMEOUT_MS)) {
+      throw new TimeoutException(
+          Util.formatInvariant("Playback not ended in %d ms.", TEST_TIMEOUT_MS));
     }
 
-    @After
-    public void tearDown() {
-      instrumentation.runOnMainSync(() -> release(player, outputImageReader));
+    if (!readAllOutputFrames.block(TEST_TIMEOUT_MS)) {
+      throw new TimeoutException(
+          Util.formatInvariant(
+              "Haven't received all frames in %d ms after playback ends.", TEST_TIMEOUT_MS));
     }
 
-    @Test
-    public void exoplayerEffectsPreviewTest_ensuresAllFramesRendered() throws Exception {
-      // Internal reference: b/264252759.
-      assumeTrue(
-          "This test should run on real devices because OpenGL to ImageReader rendering is"
-              + "not always reliable on emulators.",
-          !Util.isRunningOnEmulator());
-
-      ArrayList<BitmapPixelTestUtil.ImageBuffer> readImageBuffers = new ArrayList<>();
-      AtomicInteger renderedFramesCount = new AtomicInteger();
-      ConditionVariable playerEnded = new ConditionVariable();
-      ConditionVariable readAllOutputFrames = new ConditionVariable();
-      // Setting maxImages=10 ensures image reader gets all rendered frames from
-      // VideoFrameProcessor. Using maxImages=10 runs successfully on a Pixel3.
-      outputImageReader =
-          ImageReader.newInstance(
-              MP4_ASSET.videoFormat.width,
-              MP4_ASSET.videoFormat.height,
-              PixelFormat.RGBA_8888,
-              /* maxImages= */ 10);
-
-      instrumentation.runOnMainSync(
-          () -> {
-            Context context = ApplicationProvider.getApplicationContext();
-            Renderer videoRenderer =
-                new NoFrameDroppedVideoRenderer(context, MediaCodecSelector.DEFAULT);
-            player =
-                new ExoPlayer.Builder(context)
-                    .setRenderersFactory(
-                        new DefaultRenderersFactory(context) {
-                          @Override
-                          protected void buildVideoRenderers(
-                              Context context,
-                              @ExtensionRendererMode int extensionRendererMode,
-                              MediaCodecSelector mediaCodecSelector,
-                              boolean enableDecoderFallback,
-                              Handler eventHandler,
-                              VideoRendererEventListener eventListener,
-                              long allowedVideoJoiningTimeMs,
-                              ArrayList<Renderer> out) {
-                            out.add(videoRenderer);
-                          }
-                        })
-                    .build();
-
-            checkStateNotNull(outputImageReader);
-            outputImageReader.setOnImageAvailableListener(
-                imageReader -> {
-                  try (Image image = imageReader.acquireNextImage()) {
-                    readImageBuffers.add(
-                        BitmapPixelTestUtil.copyByteBufferFromRbga8888Image(image));
-                  }
-                  if (renderedFramesCount.incrementAndGet() == MP4_ASSET.videoFrameCount) {
-                    readAllOutputFrames.open();
-                  }
-                },
-                Util.createHandlerForCurrentOrMainLooper());
-
-            setOutputSurfaceAndSizeOnPlayer(
-                player,
-                videoRenderer,
-                outputImageReader.getSurface(),
-                new Size(MP4_ASSET.videoFormat.width, MP4_ASSET.videoFormat.height));
-            player.setPlayWhenReady(true);
-            player.setVideoEffects(ImmutableList.of(createTimestampOverlay()));
-
-            // Adding an EventLogger to use its log output in case the test fails.
-            player.addAnalyticsListener(new EventLogger());
-            player.addListener(
-                new Player.Listener() {
-                  @Override
-                  public void onPlaybackStateChanged(@Player.State int playbackState) {
-                    if (playbackState == STATE_ENDED) {
-                      playerEnded.open();
-                    }
-                  }
-                });
-            player.setMediaItem(MediaItem.fromUri(MP4_ASSET.uri));
-            player.prepare();
-          });
-
-      if (!playerEnded.block(TEST_TIMEOUT_MS)) {
-        throw new TimeoutException(
-            Util.formatInvariant("Playback not ended in %d ms.", TEST_TIMEOUT_MS));
-      }
-
-      if (!readAllOutputFrames.block(TEST_TIMEOUT_MS)) {
-        throw new TimeoutException(
-            Util.formatInvariant(
-                "Haven't received all frames in %d ms after playback ends.", TEST_TIMEOUT_MS));
-      }
-
-      ArrayList<Float> averagePixelDifferences =
-          new ArrayList<>(/* initialCapacity= */ readImageBuffers.size());
-      for (int i = 0; i < readImageBuffers.size(); i++) {
-        Bitmap actualBitmap = createArgb8888BitmapFromRgba8888ImageBuffer(readImageBuffers.get(i));
-        float averagePixelAbsoluteDifference =
-            getBitmapAveragePixelAbsoluteDifferenceArgb8888(
-                /* expected= */ readBitmap(
-                    Util.formatInvariant("%s/%s/frame_%d.png", TEST_DIRECTORY, testId, i)),
-                /* actual= */ actualBitmap,
-                /* testId= */ Util.formatInvariant("%s_frame_%d", testId, i));
-        averagePixelDifferences.add(averagePixelAbsoluteDifference);
-      }
-
-      for (int i = 0; i < averagePixelDifferences.size(); i++) {
-        float averagePixelDifference = averagePixelDifferences.get(i);
-        assertWithMessage(
-                Util.formatInvariant(
-                    "Frame %d with average pixel difference %f. ", i, averagePixelDifference))
-            .that(averagePixelDifference)
-            .isAtMost(MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE);
-      }
+    ArrayList<Float> averagePixelDifferences =
+        new ArrayList<>(/* initialCapacity= */ readImageBuffers.size());
+    for (int i = 0; i < readImageBuffers.size(); i++) {
+      Bitmap actualBitmap = createArgb8888BitmapFromRgba8888ImageBuffer(readImageBuffers.get(i));
+      float averagePixelAbsoluteDifference =
+          getBitmapAveragePixelAbsoluteDifferenceArgb8888(
+              /* expected= */ readBitmap(
+                  Util.formatInvariant("%s/%s/frame_%d.png", TEST_DIRECTORY, testId, i)),
+              /* actual= */ actualBitmap,
+              /* testId= */ Util.formatInvariant("%s_frame_%d", testId, i));
+      averagePixelDifferences.add(averagePixelAbsoluteDifference);
     }
 
-    @Test
-    public void exoplayerEffectsPreview_withTimestampWrapper_ensuresAllFramesRendered()
-        throws Exception {
-      // Internal reference: b/264252759.
-      assumeTrue(
-          "This test should run on real devices because OpenGL to ImageReader rendering is"
-              + "not always reliable on emulators.",
-          !Util.isRunningOnEmulator());
-
-      ArrayList<BitmapPixelTestUtil.ImageBuffer> readImageBuffers = new ArrayList<>();
-      AtomicInteger renderedFramesCount = new AtomicInteger();
-      ConditionVariable playerEnded = new ConditionVariable();
-      ConditionVariable readAllOutputFrames = new ConditionVariable();
-      // Setting maxImages=10 ensures image reader gets all rendered frames from
-      // VideoFrameProcessor. Using maxImages=10 runs successfully on a Pixel3.
-      outputImageReader =
-          ImageReader.newInstance(
-              MP4_ASSET.videoFormat.width,
-              MP4_ASSET.videoFormat.height,
-              PixelFormat.RGBA_8888,
-              /* maxImages= */ 10);
-
-      instrumentation.runOnMainSync(
-          () -> {
-            Context context = ApplicationProvider.getApplicationContext();
-            Renderer videoRenderer =
-                new NoFrameDroppedVideoRenderer(context, MediaCodecSelector.DEFAULT);
-            player =
-                new ExoPlayer.Builder(context)
-                    .setRenderersFactory(
-                        new DefaultRenderersFactory(context) {
-                          @Override
-                          protected void buildVideoRenderers(
-                              Context context,
-                              @ExtensionRendererMode int extensionRendererMode,
-                              MediaCodecSelector mediaCodecSelector,
-                              boolean enableDecoderFallback,
-                              Handler eventHandler,
-                              VideoRendererEventListener eventListener,
-                              long allowedVideoJoiningTimeMs,
-                              ArrayList<Renderer> out) {
-                            out.add(videoRenderer);
-                          }
-                        })
-                    .build();
-
-            checkStateNotNull(outputImageReader);
-            outputImageReader.setOnImageAvailableListener(
-                imageReader -> {
-                  try (Image image = imageReader.acquireNextImage()) {
-                    readImageBuffers.add(
-                        BitmapPixelTestUtil.copyByteBufferFromRbga8888Image(image));
-                  }
-                  if (renderedFramesCount.incrementAndGet() == MP4_ASSET.videoFrameCount) {
-                    readAllOutputFrames.open();
-                  }
-                },
-                Util.createHandlerForCurrentOrMainLooper());
-
-            setOutputSurfaceAndSizeOnPlayer(
-                player,
-                videoRenderer,
-                outputImageReader.getSurface(),
-                new Size(MP4_ASSET.videoFormat.width, MP4_ASSET.videoFormat.height));
-            player.setPlayWhenReady(true);
-            player.setVideoEffects(
-                ImmutableList.of(
-                    new TimestampWrapper(
-                        new Brightness(0.5f), /* startTimeUs= */ 166833, /* endTimeUs= */ 510000)));
-
-            // Adding an EventLogger to use its log output in case the test fails.
-            player.addAnalyticsListener(new EventLogger());
-            player.addListener(
-                new Player.Listener() {
-                  @Override
-                  public void onPlaybackStateChanged(@Player.State int playbackState) {
-                    if (playbackState == STATE_ENDED) {
-                      playerEnded.open();
-                    }
-                  }
-                });
-            player.setMediaItem(MediaItem.fromUri(MP4_ASSET.uri));
-            player.prepare();
-          });
-
-      if (!playerEnded.block(TEST_TIMEOUT_MS)) {
-        throw new TimeoutException(
-            Util.formatInvariant("Playback not ended in %d ms.", TEST_TIMEOUT_MS));
-      }
-
-      if (!readAllOutputFrames.block(TEST_TIMEOUT_MS)) {
-        throw new TimeoutException(
-            Util.formatInvariant(
-                "Haven't received all frames in %d ms after playback ends.", TEST_TIMEOUT_MS));
-      }
-
-      ArrayList<Float> averagePixelDifferences =
-          new ArrayList<>(/* initialCapacity= */ readImageBuffers.size());
-      for (int i = 0; i < readImageBuffers.size(); i++) {
-        Bitmap actualBitmap = createArgb8888BitmapFromRgba8888ImageBuffer(readImageBuffers.get(i));
-        float averagePixelAbsoluteDifference =
-            getBitmapAveragePixelAbsoluteDifferenceArgb8888(
-                /* expected= */ readBitmap(
-                    Util.formatInvariant("%s/%s/frame_%d.png", TEST_DIRECTORY, testId, i)),
-                /* actual= */ actualBitmap,
-                /* testId= */ Util.formatInvariant("%s_frame_%d", testId, i));
-        averagePixelDifferences.add(averagePixelAbsoluteDifference);
-      }
-
-      for (int i = 0; i < averagePixelDifferences.size(); i++) {
-        float averagePixelDifference = averagePixelDifferences.get(i);
-        assertWithMessage(
-                Util.formatInvariant(
-                    "Frame %d with average pixel difference %f. ", i, averagePixelDifference))
-            .that(averagePixelDifference)
-            .isAtMost(MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE);
-      }
+    for (int i = 0; i < averagePixelDifferences.size(); i++) {
+      float averagePixelDifference = averagePixelDifferences.get(i);
+      assertWithMessage(
+              Util.formatInvariant(
+                  "Frame %d with average pixel difference %f. ", i, averagePixelDifference))
+          .that(averagePixelDifference)
+          .isAtMost(MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE);
     }
   }
 

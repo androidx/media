@@ -58,7 +58,11 @@ import java.util.List;
 
   public final ImmutableList<CommandButton> customLayout;
 
+  public final ImmutableList<CommandButton> mediaButtonPreferences;
+
   @Nullable public final Token platformToken;
+
+  public final ImmutableList<CommandButton> commandButtonsForMediaItems;
 
   public ConnectionState(
       int libraryVersion,
@@ -66,6 +70,8 @@ import java.util.List;
       IMediaSession sessionBinder,
       @Nullable PendingIntent sessionActivity,
       ImmutableList<CommandButton> customLayout,
+      ImmutableList<CommandButton> mediaButtonPreferences,
+      ImmutableList<CommandButton> commandButtonsForMediaItems,
       SessionCommands sessionCommands,
       Player.Commands playerCommandsFromSession,
       Player.Commands playerCommandsFromPlayer,
@@ -78,6 +84,8 @@ import java.util.List;
     this.sessionBinder = sessionBinder;
     this.sessionActivity = sessionActivity;
     this.customLayout = customLayout;
+    this.mediaButtonPreferences = mediaButtonPreferences;
+    this.commandButtonsForMediaItems = commandButtonsForMediaItems;
     this.sessionCommands = sessionCommands;
     this.playerCommandsFromSession = playerCommandsFromSession;
     this.playerCommandsFromPlayer = playerCommandsFromPlayer;
@@ -91,6 +99,8 @@ import java.util.List;
   private static final String FIELD_SESSION_BINDER = Util.intToStringMaxRadix(1);
   private static final String FIELD_SESSION_ACTIVITY = Util.intToStringMaxRadix(2);
   private static final String FIELD_CUSTOM_LAYOUT = Util.intToStringMaxRadix(9);
+  private static final String FIELD_MEDIA_BUTTON_PREFERENCES = Util.intToStringMaxRadix(14);
+  private static final String FIELD_COMMAND_BUTTONS_FOR_MEDIA_ITEMS = Util.intToStringMaxRadix(13);
   private static final String FIELD_SESSION_COMMANDS = Util.intToStringMaxRadix(3);
   private static final String FIELD_PLAYER_COMMANDS_FROM_SESSION = Util.intToStringMaxRadix(4);
   private static final String FIELD_PLAYER_COMMANDS_FROM_PLAYER = Util.intToStringMaxRadix(5);
@@ -101,7 +111,7 @@ import java.util.List;
   private static final String FIELD_IN_PROCESS_BINDER = Util.intToStringMaxRadix(10);
   private static final String FIELD_PLATFORM_TOKEN = Util.intToStringMaxRadix(12);
 
-  // Next field key = 13
+  // Next field key = 15
 
   public Bundle toBundleForRemoteProcess(int controllerInterfaceVersion) {
     Bundle bundle = new Bundle();
@@ -112,6 +122,32 @@ import java.util.List;
       bundle.putParcelableArrayList(
           FIELD_CUSTOM_LAYOUT,
           BundleCollectionUtil.toBundleArrayList(customLayout, CommandButton::toBundle));
+    }
+    if (!mediaButtonPreferences.isEmpty()) {
+      if (controllerInterfaceVersion >= 7) {
+        bundle.putParcelableArrayList(
+            FIELD_MEDIA_BUTTON_PREFERENCES,
+            BundleCollectionUtil.toBundleArrayList(
+                mediaButtonPreferences, CommandButton::toBundle));
+      } else {
+        // Controller doesn't support media button preferences, send the list as a custom layout.
+        // TODO: b/332877990 - Improve this logic to take allowed command and session extras for
+        //  this controller into account instead of assuming all slots are allowed.
+        ImmutableList<CommandButton> customLayout =
+            CommandButton.getCustomLayoutFromMediaButtonPreferences(
+                mediaButtonPreferences,
+                /* backSlotAllowed= */ true,
+                /* forwardSlotAllowed= */ true);
+        bundle.putParcelableArrayList(
+            FIELD_CUSTOM_LAYOUT,
+            BundleCollectionUtil.toBundleArrayList(customLayout, CommandButton::toBundle));
+      }
+    }
+    if (!commandButtonsForMediaItems.isEmpty()) {
+      bundle.putParcelableArrayList(
+          FIELD_COMMAND_BUTTONS_FOR_MEDIA_ITEMS,
+          BundleCollectionUtil.toBundleArrayList(
+              commandButtonsForMediaItems, CommandButton::toBundle));
     }
     bundle.putBundle(FIELD_SESSION_COMMANDS, sessionCommands.toBundle());
     bundle.putBundle(FIELD_PLAYER_COMMANDS_FROM_SESSION, playerCommandsFromSession.toBundle());
@@ -155,11 +191,29 @@ import java.util.List;
     IBinder sessionBinder = checkNotNull(BundleCompat.getBinder(bundle, FIELD_SESSION_BINDER));
     @Nullable PendingIntent sessionActivity = bundle.getParcelable(FIELD_SESSION_ACTIVITY);
     @Nullable
-    List<Bundle> commandButtonArrayList = bundle.getParcelableArrayList(FIELD_CUSTOM_LAYOUT);
+    List<Bundle> customLayoutArrayList = bundle.getParcelableArrayList(FIELD_CUSTOM_LAYOUT);
     ImmutableList<CommandButton> customLayout =
-        commandButtonArrayList != null
+        customLayoutArrayList != null
             ? BundleCollectionUtil.fromBundleList(
-                b -> CommandButton.fromBundle(b, sessionInterfaceVersion), commandButtonArrayList)
+                b -> CommandButton.fromBundle(b, sessionInterfaceVersion), customLayoutArrayList)
+            : ImmutableList.of();
+    @Nullable
+    List<Bundle> mediaButtonPreferencesArrayList =
+        bundle.getParcelableArrayList(FIELD_MEDIA_BUTTON_PREFERENCES);
+    ImmutableList<CommandButton> mediaButtonPreferences =
+        mediaButtonPreferencesArrayList != null
+            ? BundleCollectionUtil.fromBundleList(
+                b -> CommandButton.fromBundle(b, sessionInterfaceVersion),
+                mediaButtonPreferencesArrayList)
+            : ImmutableList.of();
+    @Nullable
+    List<Bundle> commandButtonsForMediaItemsArrayList =
+        bundle.getParcelableArrayList(FIELD_COMMAND_BUTTONS_FOR_MEDIA_ITEMS);
+    ImmutableList<CommandButton> commandButtonsForMediaItems =
+        commandButtonsForMediaItemsArrayList != null
+            ? BundleCollectionUtil.fromBundleList(
+                b -> CommandButton.fromBundle(b, sessionInterfaceVersion),
+                commandButtonsForMediaItemsArrayList)
             : ImmutableList.of();
     @Nullable Bundle sessionCommandsBundle = bundle.getBundle(FIELD_SESSION_COMMANDS);
     SessionCommands sessionCommands =
@@ -192,6 +246,8 @@ import java.util.List;
         IMediaSession.Stub.asInterface(sessionBinder),
         sessionActivity,
         customLayout,
+        mediaButtonPreferences,
+        commandButtonsForMediaItems,
         sessionCommands,
         playerCommandsFromSession,
         playerCommandsFromPlayer,

@@ -260,6 +260,112 @@ public class MediaSessionServiceTest {
   }
 
   @Test
+  public void mediaNotificationController_setMediaButtonPreferences_correctNotificationActions()
+      throws TimeoutException {
+    SessionCommand command1 = new SessionCommand("command1", Bundle.EMPTY);
+    SessionCommand command2 = new SessionCommand("command2", Bundle.EMPTY);
+    SessionCommand command3 = new SessionCommand("command3", Bundle.EMPTY);
+    SessionCommand command4 = new SessionCommand("command4", Bundle.EMPTY);
+    CommandButton button1 =
+        new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
+            .setDisplayName("customAction1")
+            .setIconResId(R.drawable.media3_notification_small_icon)
+            .setSessionCommand(command1)
+            .build();
+    CommandButton button2 =
+        new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
+            .setDisplayName("customAction2")
+            .setIconResId(R.drawable.media3_notification_small_icon)
+            .setSessionCommand(command2)
+            .build();
+    CommandButton button3 =
+        new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
+            .setDisplayName("customAction3")
+            .setEnabled(false)
+            .setIconResId(R.drawable.media3_notification_small_icon)
+            .setSessionCommand(command3)
+            .build();
+    CommandButton button4 =
+        new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
+            .setDisplayName("customAction4")
+            .setIconResId(R.drawable.media3_notification_small_icon)
+            .setSessionCommand(command4)
+            .build();
+    ExoPlayer player = new TestExoPlayerBuilder(context).build();
+    MediaSession session =
+        new MediaSession.Builder(context, player)
+            .setMediaButtonPreferences(ImmutableList.of(button1, button2, button3, button4))
+            .setCallback(
+                new MediaSession.Callback() {
+                  @Override
+                  public MediaSession.ConnectionResult onConnect(
+                      MediaSession session, MediaSession.ControllerInfo controller) {
+                    if (session.isMediaNotificationController(controller)) {
+                      return new MediaSession.ConnectionResult.AcceptedResultBuilder(session)
+                          .setAvailableSessionCommands(
+                              MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS
+                                  .buildUpon()
+                                  .add(command1)
+                                  .add(command2)
+                                  .add(command3)
+                                  .build())
+                          .build();
+                    }
+                    return new MediaSession.ConnectionResult.AcceptedResultBuilder(session).build();
+                  }
+                })
+            .build();
+    ServiceController<TestService> serviceController = Robolectric.buildService(TestService.class);
+    TestService service = serviceController.create().get();
+    service.setMediaNotificationProvider(
+        new DefaultMediaNotificationProvider(
+            service,
+            mediaSession -> 2000,
+            DefaultMediaNotificationProvider.DEFAULT_CHANNEL_ID,
+            DefaultMediaNotificationProvider.DEFAULT_CHANNEL_NAME_RESOURCE_ID));
+    service.addSession(session);
+    // Play media to create a notification.
+    player.setMediaItems(
+        ImmutableList.of(
+            MediaItem.fromUri("asset:///media/mp4/sample.mp4"),
+            MediaItem.fromUri("asset:///media/mp4/sample.mp4")));
+    player.prepare();
+    player.play();
+    runMainLooperUntil(() -> notificationManager.getActiveNotifications().length == 1);
+
+    StatusBarNotification mediaNotification = getStatusBarNotification(2000);
+
+    assertThat(mediaNotification.getNotification().actions).hasLength(5);
+    assertThat(mediaNotification.getNotification().actions[0].title.toString())
+        .isEqualTo("Seek to previous item");
+    assertThat(mediaNotification.getNotification().actions[1].title.toString()).isEqualTo("Pause");
+    assertThat(mediaNotification.getNotification().actions[2].title.toString())
+        .isEqualTo("Seek to next item");
+    assertThat(mediaNotification.getNotification().actions[3].title.toString())
+        .isEqualTo("customAction1");
+    assertThat(mediaNotification.getNotification().actions[4].title.toString())
+        .isEqualTo("customAction2");
+
+    player.pause();
+    session.setMediaButtonPreferences(
+        session.getMediaNotificationControllerInfo(), ImmutableList.of(button2));
+    ShadowLooper.idleMainLooper();
+    mediaNotification = getStatusBarNotification(2000);
+
+    assertThat(mediaNotification.getNotification().actions).hasLength(4);
+    assertThat(mediaNotification.getNotification().actions[0].title.toString())
+        .isEqualTo("Seek to previous item");
+    assertThat(mediaNotification.getNotification().actions[1].title.toString()).isEqualTo("Play");
+    assertThat(mediaNotification.getNotification().actions[2].title.toString())
+        .isEqualTo("Seek to next item");
+    assertThat(mediaNotification.getNotification().actions[3].title.toString())
+        .isEqualTo("customAction2");
+    session.release();
+    player.release();
+    serviceController.destroy();
+  }
+
+  @Test
   public void mediaNotificationController_setAvailableCommands_correctNotificationActions()
       throws TimeoutException {
     SessionCommand command1 = new SessionCommand("command1", Bundle.EMPTY);
@@ -281,7 +387,7 @@ public class MediaSessionServiceTest {
     MediaSession session =
         new MediaSession.Builder(context, player)
             .setId("1")
-            .setCustomLayout(ImmutableList.of(button1, button2))
+            .setMediaButtonPreferences(ImmutableList.of(button1, button2))
             .setCallback(
                 new MediaSession.Callback() {
                   @Override

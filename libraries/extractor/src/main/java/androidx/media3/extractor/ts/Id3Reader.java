@@ -38,6 +38,7 @@ public final class Id3Reader implements ElementaryStreamReader {
 
   private static final String TAG = "Id3Reader";
 
+  private final String containerMimeType;
   private final ParsableByteArray id3Header;
 
   private @MonotonicNonNull TrackOutput output;
@@ -50,7 +51,8 @@ public final class Id3Reader implements ElementaryStreamReader {
   private int sampleSize;
   private int sampleBytesRead;
 
-  public Id3Reader() {
+  public Id3Reader(String containerMimeType) {
+    this.containerMimeType = containerMimeType;
     id3Header = new ParsableByteArray(ID3_HEADER_LENGTH);
     sampleTimeUs = C.TIME_UNSET;
   }
@@ -68,6 +70,7 @@ public final class Id3Reader implements ElementaryStreamReader {
     output.format(
         new Format.Builder()
             .setId(idGenerator.getFormatId())
+            .setContainerMimeType(containerMimeType)
             .setSampleMimeType(MimeTypes.APPLICATION_ID3)
             .build());
   }

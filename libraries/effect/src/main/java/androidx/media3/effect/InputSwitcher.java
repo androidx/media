@@ -160,11 +160,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     // Activate the relevant input for the new input type.
     Input input = inputs.get(newInputType);
-    if (input.getInputColorInfo() == null
-        || !newInputFrameInfo.colorInfo.equals(input.getInputColorInfo())) {
+    ColorInfo newInputColorInfo = checkNotNull(newInputFrameInfo.format.colorInfo);
+    if (input.getInputColorInfo() == null || !newInputColorInfo.equals(input.getInputColorInfo())) {
       input.setSamplingGlShaderProgram(
-          createSamplingShaderProgram(newInputFrameInfo.colorInfo, newInputType));
-      input.setInputColorInfo(newInputFrameInfo.colorInfo);
+          createSamplingShaderProgram(newInputColorInfo, newInputType));
+      input.setInputColorInfo(newInputColorInfo);
     }
     input.setChainingListener(
         new GatedChainingListenerWrapper(
@@ -198,7 +198,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * Invokes {@link TextureManager#signalEndOfCurrentInputStream} on the active {@link
    * TextureManager}.
    */
-  public void signalEndOfInputStream() {
+  public void signalEndOfCurrentInputStream() {
     checkNotNull(activeTextureManager).signalEndOfCurrentInputStream();
   }
 

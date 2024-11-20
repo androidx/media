@@ -8,6 +8,7 @@ track 256:
   sample count = 17
   format 0:
     id = 1/256
+    containerMimeType = video/mp2t
     sampleMimeType = video/hevc
     codecs = hvc1.1.6.L63.90
     maxNumReorderSamples = 4

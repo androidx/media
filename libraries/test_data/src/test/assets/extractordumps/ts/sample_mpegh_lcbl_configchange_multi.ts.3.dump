@@ -11,6 +11,7 @@ track 32:
   sample count = 0
   format 0:
     id = 1/32
+    containerMimeType = video/mp2t
     sampleMimeType = audio/mhm1
     codecs = mhm1.0C
     sampleRate = 48000

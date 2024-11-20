@@ -72,9 +72,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * stream is considered to have ended, even if not all expected frames have been received from the
    * decoder. This has been observed on some decoders.
    *
-   * <p>Some emulator decoders are slower, hence using a longer timeout. Also on some emulators, GL
-   * operation takes a long time to finish, the timeout could be a result of slow GL operation back
-   * pressured the decoder, and the decoder is not able to decode another frame.
+   * <p>Some emulator decoders are slower, hence using a longer timeout.
    */
   // LINT.IfChange(SURFACE_TEXTURE_TIMEOUT_MS)
   private static final long SURFACE_TEXTURE_TIMEOUT_MS = isRunningOnEmulator() ? 20_000 : 500;
@@ -232,7 +230,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     repeatLastRegisteredFrame = automaticReregistration;
     if (repeatLastRegisteredFrame) {
       lastRegisteredFrame = inputFrameInfo;
-      surfaceTexture.setDefaultBufferSize(inputFrameInfo.width, inputFrameInfo.height);
+      surfaceTexture.setDefaultBufferSize(
+          inputFrameInfo.format.width, inputFrameInfo.format.height);
     }
   }
 
@@ -353,6 +352,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   private void forceSignalEndOfStream() {
+    if (availableFrameCount == pendingFrames.size()) {
+      // All frames received from decoder. Do not force end of stream.
+      return;
+    }
     Log.w(
         TAG,
         Util.formatInvariant(
@@ -405,7 +408,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     long presentationTimeUs = (frameTimeNs / 1000) + offsetToAddUs;
     if (experimentalAdjustSurfaceTextureTransformationMatrix) {
       removeSurfaceTextureScaleFromTransformMatrix(
-          textureTransformMatrix, presentationTimeUs, currentFrame.width, currentFrame.height);
+          textureTransformMatrix,
+          presentationTimeUs,
+          currentFrame.format.width,
+          currentFrame.format.height);
     }
 
     checkNotNull(externalShaderProgram).setTextureTransformMatrix(textureTransformMatrix);
@@ -416,8 +422,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                 externalTexId,
                 /* fboId= */ C.INDEX_UNSET,
                 /* rboId= */ C.INDEX_UNSET,
-                currentFrame.width,
-                currentFrame.height),
+                currentFrame.format.width,
+                currentFrame.format.height),
             presentationTimeUs);
     if (!repeatLastRegisteredFrame) {
       checkStateNotNull(pendingFrames.remove());

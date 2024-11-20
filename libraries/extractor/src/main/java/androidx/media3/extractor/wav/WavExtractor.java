@@ -320,6 +320,7 @@ public final class WavExtractor implements Extractor {
           max(bytesPerFrame, wavFormat.frameRateHz * bytesPerFrame / TARGET_SAMPLES_PER_SECOND);
       format =
           new Format.Builder()
+              .setContainerMimeType(MimeTypes.AUDIO_WAV)
               .setSampleMimeType(mimeType)
               .setAverageBitrate(constantBitrate)
               .setPeakBitrate(constantBitrate)
@@ -339,9 +340,11 @@ public final class WavExtractor implements Extractor {
 
     @Override
     public void init(int dataStartPosition, long dataEndPosition) {
-      extractorOutput.seekMap(
-          new WavSeekMap(wavFormat, /* framesPerBlock= */ 1, dataStartPosition, dataEndPosition));
+      WavSeekMap wavSeekMap =
+          new WavSeekMap(wavFormat, /* framesPerBlock= */ 1, dataStartPosition, dataEndPosition);
+      extractorOutput.seekMap(wavSeekMap);
       trackOutput.format(format);
+      trackOutput.durationUs(wavSeekMap.getDurationUs());
     }
 
     @Override
@@ -493,9 +496,11 @@ public final class WavExtractor implements Extractor {
 
     @Override
     public void init(int dataStartPosition, long dataEndPosition) {
-      extractorOutput.seekMap(
-          new WavSeekMap(wavFormat, framesPerBlock, dataStartPosition, dataEndPosition));
+      WavSeekMap wavSeekMap =
+          new WavSeekMap(wavFormat, framesPerBlock, dataStartPosition, dataEndPosition);
+      extractorOutput.seekMap(wavSeekMap);
       trackOutput.format(format);
+      trackOutput.durationUs(wavSeekMap.getDurationUs());
     }
 
     @Override

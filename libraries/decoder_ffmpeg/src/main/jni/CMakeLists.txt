@@ -56,3 +56,7 @@ target_link_libraries(ffmpegJNI
 if(ANDROID_ABI STREQUAL "arm64-v8a")
     target_link_options(ffmpegJNI PRIVATE "-Wl,-Bsymbolic")
 endif()
+
+# Enable 16 KB ELF alignment.
+target_link_options(ffmpegJNI
+                    PRIVATE "-Wl,-z,max-page-size=16384")

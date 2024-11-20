@@ -91,6 +91,7 @@ public class PlaybackException extends Exception {
         ERROR_CODE_DECODING_FAILED,
         ERROR_CODE_DECODING_FORMAT_EXCEEDS_CAPABILITIES,
         ERROR_CODE_DECODING_FORMAT_UNSUPPORTED,
+        ERROR_CODE_DECODING_RESOURCES_RECLAIMED,
         ERROR_CODE_AUDIO_TRACK_INIT_FAILED,
         ERROR_CODE_AUDIO_TRACK_WRITE_FAILED,
         ERROR_CODE_AUDIO_TRACK_OFFLOAD_INIT_FAILED,
@@ -272,9 +273,8 @@ public class PlaybackException extends Exception {
   /** Caused by trying to decode content whose format is not supported. */
   public static final int ERROR_CODE_DECODING_FORMAT_UNSUPPORTED = 4005;
 
-  // TODO: b/322943860 - Stabilize error code and add to IntDef
   /** Caused by higher priority task reclaiming resources needed for decoding. */
-  @UnstableApi public static final int ERROR_CODE_DECODING_RESOURCES_RECLAIMED = 4006;
+  public static final int ERROR_CODE_DECODING_RESOURCES_RECLAIMED = 4006;
 
   // AudioTrack errors (5xxx).
 

@@ -106,7 +106,6 @@ public class VideoTimestampConsistencyTest {
                     .setUri(JPG_SINGLE_PIXEL_ASSET.uri)
                     .setImageDurationMs(usToMs(imageDurationUs))
                     .build())
-            .setDurationUs(imageDurationUs)
             .setFrameRate(30)
             .build();
 
@@ -237,7 +236,6 @@ public class VideoTimestampConsistencyTest {
                     .setUri(JPG_SINGLE_PIXEL_ASSET.uri)
                     .setImageDurationMs(usToMs(imageDurationUs))
                     .build())
-            .setDurationUs(imageDurationUs)
             .setFrameRate(30)
             .build();
     EditedMediaItem image2 =
@@ -246,7 +244,6 @@ public class VideoTimestampConsistencyTest {
                     .setUri(JPG_SINGLE_PIXEL_ASSET.uri)
                     .setImageDurationMs(usToMs(imageDurationUs))
                     .build())
-            .setDurationUs(imageDurationUs)
             .setFrameRate(30)
             .build();
 
@@ -274,7 +271,6 @@ public class VideoTimestampConsistencyTest {
                     .setUri(JPG_SINGLE_PIXEL_ASSET.uri)
                     .setImageDurationMs(usToMs(imageDurationUs))
                     .build())
-            .setDurationUs(imageDurationUs)
             .setFrameRate(30)
             .build();
     EditedMediaItem video =
@@ -308,7 +304,6 @@ public class VideoTimestampConsistencyTest {
                     .setUri(JPG_SINGLE_PIXEL_ASSET.uri)
                     .setImageDurationMs(usToMs(imageDurationUs))
                     .build())
-            .setDurationUs(imageDurationUs)
             .setFrameRate(30)
             .build();
 
@@ -347,7 +342,6 @@ public class VideoTimestampConsistencyTest {
                     .setUri(JPG_SINGLE_PIXEL_ASSET.uri)
                     .setImageDurationMs(usToMs(imageDurationUs))
                     .build())
-            .setDurationUs(imageDurationUs)
             .setFrameRate(30)
             .build();
 

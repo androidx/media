@@ -60,6 +60,7 @@ public final class MediaBrowser extends MediaController {
     private Listener listener;
     private Looper applicationLooper;
     private @MonotonicNonNull BitmapLoader bitmapLoader;
+    private int maxCommandsForMediaItems;
 
     /**
      * Creates a builder for {@link MediaBrowser}.
@@ -139,6 +140,22 @@ public final class MediaBrowser extends MediaController {
       return this;
     }
 
+    /**
+     * Sets the max number of commands the controller supports per media item.
+     *
+     * <p>Must be greater or equal to 0. The default is 0.
+     *
+     * @param maxCommandsForMediaItems The max number of commands per media item.
+     * @return The builder to allow chaining.
+     */
+    @UnstableApi
+    @CanIgnoreReturnValue
+    public Builder setMaxCommandsForMediaItems(int maxCommandsForMediaItems) {
+      checkArgument(maxCommandsForMediaItems >= 0);
+      this.maxCommandsForMediaItems = maxCommandsForMediaItems;
+      return this;
+    }
+
     // LINT.IfChange(build_async)
     /**
      * Builds a {@link MediaBrowser} asynchronously.
@@ -173,7 +190,14 @@ public final class MediaBrowser extends MediaController {
       }
       MediaBrowser browser =
           new MediaBrowser(
-              context, token, connectionHints, listener, applicationLooper, holder, bitmapLoader);
+              context,
+              token,
+              connectionHints,
+              listener,
+              applicationLooper,
+              holder,
+              bitmapLoader,
+              maxCommandsForMediaItems);
       postOrRun(new Handler(applicationLooper), () -> holder.setController(browser));
       return holder;
     }
@@ -242,7 +266,8 @@ public final class MediaBrowser extends MediaController {
       Listener listener,
       Looper applicationLooper,
       ConnectionCallback connectionCallback,
-      @Nullable BitmapLoader bitmapLoader) {
+      @Nullable BitmapLoader bitmapLoader,
+      int maxCommandsForMediaItems) {
     super(
         context,
         token,
@@ -250,7 +275,8 @@ public final class MediaBrowser extends MediaController {
         listener,
         applicationLooper,
         connectionCallback,
-        bitmapLoader);
+        bitmapLoader,
+        maxCommandsForMediaItems);
   }
 
   @Override
@@ -266,7 +292,7 @@ public final class MediaBrowser extends MediaController {
     if (token.isLegacySession()) {
       impl =
           new MediaBrowserImplLegacy(
-              context, this, token, applicationLooper, checkNotNull(bitmapLoader));
+              context, this, token, connectionHints, applicationLooper, checkNotNull(bitmapLoader));
     } else {
       impl = new MediaBrowserImplBase(context, this, token, connectionHints, applicationLooper);
     }

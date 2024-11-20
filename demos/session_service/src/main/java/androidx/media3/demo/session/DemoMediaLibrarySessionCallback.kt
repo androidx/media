@@ -42,7 +42,7 @@ open class DemoMediaLibrarySessionCallback(context: Context) :
   }
 
   @OptIn(UnstableApi::class) // TODO: b/328238954 - Remove once new CommandButton icons are stable.
-  private val customLayoutCommandButtons: List<CommandButton> =
+  private val commandButtons: List<CommandButton> =
     listOf(
       CommandButton.Builder(CommandButton.ICON_SHUFFLE_OFF)
         .setDisplayName(context.getString(R.string.exo_controls_shuffle_on_description))
@@ -59,7 +59,7 @@ open class DemoMediaLibrarySessionCallback(context: Context) :
     MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS.buildUpon()
       .also { builder ->
         // Put all custom session commands in the list that may be used by the notification.
-        customLayoutCommandButtons.forEach { commandButton ->
+        commandButtons.forEach { commandButton ->
           commandButton.sessionCommand?.let { builder.add(it) }
         }
       }
@@ -78,13 +78,13 @@ open class DemoMediaLibrarySessionCallback(context: Context) :
         session.isAutoCompanionController(controller)
     ) {
       // Select the button to display.
-      val customLayout = customLayoutCommandButtons[if (session.player.shuffleModeEnabled) 1 else 0]
+      val customButton = commandButtons[if (session.player.shuffleModeEnabled) 1 else 0]
       return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
         .setAvailableSessionCommands(mediaNotificationSessionCommands)
-        .setCustomLayout(ImmutableList.of(customLayout))
+        .setMediaButtonPreferences(ImmutableList.of(customButton))
         .build()
     }
-    // Default commands without custom layout for common controllers.
+    // Default commands without media button preferences for common controllers.
     return MediaSession.ConnectionResult.AcceptedResultBuilder(session).build()
   }
 
@@ -98,19 +98,19 @@ open class DemoMediaLibrarySessionCallback(context: Context) :
     if (CUSTOM_COMMAND_TOGGLE_SHUFFLE_MODE_ON == customCommand.customAction) {
       // Enable shuffling.
       session.player.shuffleModeEnabled = true
-      // Change the custom layout to contain the `Disable shuffling` command.
-      session.setCustomLayout(
+      // Change the media button preferences to contain the `Disable shuffling` button.
+      session.setMediaButtonPreferences(
         session.mediaNotificationControllerInfo!!,
-        ImmutableList.of(customLayoutCommandButtons[1]),
+        ImmutableList.of(commandButtons[1]),
       )
       return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
     } else if (CUSTOM_COMMAND_TOGGLE_SHUFFLE_MODE_OFF == customCommand.customAction) {
       // Disable shuffling.
       session.player.shuffleModeEnabled = false
-      // Change the custom layout to contain the `Enable shuffling` command.
-      session.setCustomLayout(
+      // Change the media button preferences to contain the `Enable shuffling` button.
+      session.setMediaButtonPreferences(
         session.mediaNotificationControllerInfo!!,
-        ImmutableList.of(customLayoutCommandButtons[0]),
+        ImmutableList.of(commandButtons[0]),
       )
       return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
     }

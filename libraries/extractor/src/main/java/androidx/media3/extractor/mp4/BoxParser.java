@@ -717,22 +717,39 @@ public final class BoxParser {
             Util.scaleLargeTimestamp(
                 track.editListDurations[i], track.timescale, track.movieTimescale);
         // The timestamps array is in the order read from the media, which might not be strictly
-        // sorted, but will ensure that a) all sync frames are in-order and b) any out-of-order
-        // frames are after their respective sync frames. This means that although the result of
-        // this binary search might be slightly incorrect (due to out-of-order timestamps), the loop
-        // below that walks backward to find the previous sync frame will result in a correct start
-        // index.
+        // sorted. However, all sync frames are guaranteed to be in order, and any out-of-order
+        // frames appear after their respective sync frames. This ensures that although the result
+        // of the binary search might not be entirely accurate (due to the out-of-order timestamps),
+        // the following logic ensures correctness for both start and end indices.
+        //
+        // The startIndices calculation finds the largest timestamp that is less than or equal to
+        // editMediaTime. It then walks backward to ensure the index points to a sync frame, since
+        // decoding must start from a keyframe.
         startIndices[i] =
             Util.binarySearchFloor(
                 timestamps, editMediaTime, /* inclusive= */ true, /* stayInBounds= */ true);
+        while (startIndices[i] >= 0 && (flags[startIndices[i]] & C.BUFFER_FLAG_KEY_FRAME) == 0) {
+          startIndices[i]--;
+        }
+        // The endIndices calculation finds the smallest timestamp that is greater than
+        // editMediaTime + editDuration, except when omitZeroDurationClippedSample is true, in which
+        // case it finds the smallest timestamp that is greater than or equal to editMediaTime +
+        // editDuration.
         endIndices[i] =
             Util.binarySearchCeil(
                 timestamps,
                 editMediaTime + editDuration,
                 /* inclusive= */ omitZeroDurationClippedSample,
                 /* stayInBounds= */ false);
-        while (startIndices[i] >= 0 && (flags[startIndices[i]] & C.BUFFER_FLAG_KEY_FRAME) == 0) {
-          startIndices[i]--;
+        if (track.type == C.TRACK_TYPE_VIDEO) {
+          // To account for out-of-order video frames that may have timestamps smaller than or equal
+          // to editMediaTime + editDuration, but still fall within the valid range, the loop walks
+          // forward through the timestamps array to ensure all frames with timestamps within the
+          // edit duration are included.
+          while (endIndices[i] < timestamps.length - 1
+              && timestamps[endIndices[i] + 1] <= (editMediaTime + editDuration)) {
+            endIndices[i]++;
+          }
         }
         editedSampleCount += endIndices[i] - startIndices[i];
         copyMetadata |= nextSampleIndex != startIndices[i];
@@ -941,14 +958,28 @@ public final class BoxParser {
     int version = parseFullBoxVersion(fullAtom);
     mdhd.skipBytes(version == 0 ? 8 : 16);
     long timescale = mdhd.readUnsignedInt();
-    long mediaDuration = version == 0 ? mdhd.readUnsignedInt() : mdhd.readUnsignedLongToLong();
+    boolean mediaDurationUnknown = true;
+    int mediaDurationPosition = mdhd.getPosition();
+    int mediaDurationByteCount = version == 0 ? 4 : 8;
+    for (int i = 0; i < mediaDurationByteCount; i++) {
+      if (mdhd.getData()[mediaDurationPosition + i] != -1) {
+        mediaDurationUnknown = false;
+        break;
+      }
+    }
     long mediaDurationUs;
-    if (mediaDuration == 0) {
-      // 0 duration normally indicates that the file is fully fragmented (i.e. all of the media
-      // samples are in fragments). Treat as unknown.
+    if (mediaDurationUnknown) {
+      mdhd.skipBytes(mediaDurationByteCount);
       mediaDurationUs = C.TIME_UNSET;
     } else {
-      mediaDurationUs = Util.scaleLargeTimestamp(mediaDuration, C.MICROS_PER_SECOND, timescale);
+      long mediaDuration = version == 0 ? mdhd.readUnsignedInt() : mdhd.readUnsignedLongToLong();
+      if (mediaDuration == 0) {
+        // 0 duration normally indicates that the file is fully fragmented (i.e. all of the media
+        // samples are in fragments). Treat as unknown.
+        mediaDurationUs = C.TIME_UNSET;
+      } else {
+        mediaDurationUs = Util.scaleLargeTimestamp(mediaDuration, C.MICROS_PER_SECOND, timescale);
+      }
     }
     int languageCode = mdhd.readUnsignedShort();
     String language =
@@ -995,13 +1026,15 @@ public final class BoxParser {
           || childAtomType == Mp4Box.TYPE_hev1
           || childAtomType == Mp4Box.TYPE_s263
           || childAtomType == Mp4Box.TYPE_H263
+          || childAtomType == Mp4Box.TYPE_h263
           || childAtomType == Mp4Box.TYPE_vp08
           || childAtomType == Mp4Box.TYPE_vp09
           || childAtomType == Mp4Box.TYPE_av01
           || childAtomType == Mp4Box.TYPE_dvav
           || childAtomType == Mp4Box.TYPE_dva1
           || childAtomType == Mp4Box.TYPE_dvhe
-          || childAtomType == Mp4Box.TYPE_dvh1) {
+          || childAtomType == Mp4Box.TYPE_dvh1
+          || childAtomType == Mp4Box.TYPE_apv1) {
         parseVideoSampleEntry(
             stsd,
             childAtomType,
@@ -1422,6 +1455,22 @@ public final class BoxParser {
               break;
           }
         }
+      } else if (childAtomType == Mp4Box.TYPE_apvC) {
+        mimeType = MimeTypes.VIDEO_APV;
+
+        int childAtomBodySize = childAtomSize - Mp4Box.HEADER_SIZE;
+        byte[] initializationDataChunk = new byte[childAtomBodySize];
+        parent.readBytes(initializationDataChunk, /* offset= */ 0, childAtomBodySize);
+        initializationData = ImmutableList.of(initializationDataChunk);
+
+        parent.setPosition(childStartPosition + Mp4Box.HEADER_SIZE);
+        ColorInfo colorInfo = parseApvc(parent);
+
+        bitdepthLuma = colorInfo.lumaBitdepth;
+        bitdepthChroma = colorInfo.chromaBitdepth;
+        colorSpace = colorInfo.colorSpace;
+        colorRange = colorInfo.colorRange;
+        colorTransfer = colorInfo.colorTransfer;
       } else if (childAtomType == Mp4Box.TYPE_colr) {
         // Only modify these values if 'colorSpace' and 'colorTransfer' have not been previously
         // established by the bitstream. The absence of color descriptors ('colorSpace' and
@@ -1628,6 +1677,57 @@ public final class BoxParser {
     return colorInfo.build();
   }
 
+  // TODO(Internal: b/375329008):  Add a published spec link of APV codec to the Javadoc.
+  /**
+   * Parses the apvC configuration record and returns a {@link ColorInfo} from its data.
+   *
+   * <p>See apvC configuration record syntax from the spec.
+   *
+   * <p>The sections referenced in the method are from this spec.
+   *
+   * @param data The apvC atom data.
+   * @return {@link ColorInfo} parsed from the apvC data.
+   */
+  private static ColorInfo parseApvc(ParsableByteArray data) {
+    ColorInfo.Builder colorInfo = new ColorInfo.Builder();
+    ParsableBitArray bitArray = new ParsableBitArray(data.getData());
+    bitArray.setPosition(data.getPosition() * 8); // Convert byte to bit position.
+
+    // See Section 2.2.3, APVDecoderConfigurationBox.
+    bitArray.skipBits(6); // configurationVersion
+    boolean isStaticFrameHeader = bitArray.readBit(); // static_frame_header
+    bitArray.skipBit(); // capture_time_distance_ignored
+
+    // Skip largest_frame_header_size (2 bytes), largest_profile_idc (1 byte), largest_level_idc (1
+    // byte), largest_frame_width_minus1 (4 bytes), largest_frame_height_minus1 (4 bytes)
+    bitArray.skipBytes(12);
+    bitArray.skipBits(4); // largest_chromat_format_idc
+
+    int bitDepth = bitArray.readBits(4) + 8; // largest_bit_depth_minus8 + 8
+    colorInfo.setLumaBitdepth(bitDepth);
+    colorInfo.setChromaBitdepth(bitDepth);
+    bitArray.skipBits(8); // largest_capture_time_distance
+
+    if (isStaticFrameHeader) {
+      bitArray.skipBits(7); // reserved_zero_7bits
+      if (!bitArray.readBit()) { // frame_header_repeated
+        bitArray.skipBits(6); // reserved_zero_6bits
+        boolean isColorDescriptionPresent =
+            bitArray.readBit(); // color_description_present_flag_info
+        bitArray.skipBit(); // use_q_matrix_info
+        if (isColorDescriptionPresent) {
+          int colorPrimaries = bitArray.readBits(8); // color_primaries
+          int transferCharacteristics = bitArray.readBits(8); // transfer_characteristics
+          colorInfo
+              .setColorSpace(ColorInfo.isoColorPrimariesToColorSpace(colorPrimaries))
+              .setColorTransfer(
+                  ColorInfo.isoTransferCharacteristicsToColorTransfer(transferCharacteristics));
+        }
+      }
+    }
+    return colorInfo.build();
+  }
+
   private static ByteBuffer allocateHdrStaticInfo() {
     // For HDR static info, Android decoders expect a 25-byte array. The first byte is zero to
     // represent Static Metadata Type 1, as per CTA-861-G:2017, Table 44. The following 24 bytes
@@ -1757,6 +1857,14 @@ public final class BoxParser {
     } else {
       // Unsupported version.
       return;
+    }
+
+    // As per the IAMF spec (https://aomediacodec.github.io/iamf/#iasampleentry-section),
+    // channelCount and sampleRate SHALL be set to 0 and ignored. We ignore it by using
+    // Format.NO_VALUE instead of 0.
+    if (atomType == Mp4Box.TYPE_iamf) {
+      channelCount = Format.NO_VALUE;
+      sampleRate = Format.NO_VALUE;
     }
 
     int childPosition = parent.getPosition();

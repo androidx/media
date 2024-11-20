@@ -22,6 +22,7 @@ import android.graphics.SurfaceTexture;
 import android.view.Surface;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
+import androidx.media3.common.Format;
 import androidx.media3.common.FrameInfo;
 import androidx.media3.common.OnInputFrameProcessedListener;
 import androidx.media3.common.VideoFrameProcessingException;
@@ -111,7 +112,7 @@ import androidx.media3.common.util.TimestampIterator;
    * frames to be registered, it may use the {@link FrameInfo} passed to {@link
    * #registerInputFrame(FrameInfo)} instead of the one passed here.
    *
-   * <p>Pixels are expanded using the {@link FrameInfo#pixelWidthHeightRatio} so that the output
+   * <p>Pixels are expanded using the {@link Format#pixelWidthHeightRatio} so that the output
    * frames' pixels have a ratio of 1.
    *
    * @param inputFrameInfo Information about the next input frame.

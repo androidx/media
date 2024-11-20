@@ -43,6 +43,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /** Writes all media samples into a single mdat box. */
 /* package */ final class Mp4Writer {
   private static final long INTERLEAVE_DURATION_US = 1_000_000L;
+  // Used for updating the moov box periodically when sample batching is disabled.
+  private static final long MOOV_BOX_UPDATE_INTERVAL_US = 1_000_000L;
   private static final int DEFAULT_MOOV_BOX_SIZE_BYTES = 400_000;
   private static final String FREE_BOX_TYPE = "free";
 
@@ -51,6 +53,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
   private final AnnexBToAvccConverter annexBToAvccConverter;
   private final @Mp4Muxer.LastSampleDurationBehavior int lastSampleDurationBehavior;
   private final boolean sampleCopyEnabled;
+  private final boolean sampleBatchingEnabled;
   private final List<Track> tracks;
   private final List<Track> editableVideoTracks;
   private final AtomicBoolean hasWrittenSamples;
@@ -63,9 +66,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
   private long mdatStart;
   private long mdatEnd;
   private long mdatDataEnd; // Always <= mdatEnd
-
   // Typically written from the end of the mdat box to the end of the file.
   private Range<Long> lastMoovWritten;
+  // Used for writing moov box periodically when sample batching is disabled.
+  private long lastMoovWrittenAtSampleTimestampUs;
 
   /**
    * Creates an instance.
@@ -79,6 +83,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
    *     AVCC format (which uses length prefixes).
    * @param lastSampleDurationBehavior The {@link Mp4Muxer.LastSampleDurationBehavior}.
    * @param sampleCopyEnabled Whether sample copying is enabled.
+   * @param sampleBatchingEnabled Whether sample batching is enabled.
    * @param attemptStreamableOutputEnabled Whether to attempt to write a streamable output.
    */
   public Mp4Writer(
@@ -87,17 +92,20 @@ import java.util.concurrent.atomic.AtomicBoolean;
       AnnexBToAvccConverter annexBToAvccConverter,
       @Mp4Muxer.LastSampleDurationBehavior int lastSampleDurationBehavior,
       boolean sampleCopyEnabled,
+      boolean sampleBatchingEnabled,
       boolean attemptStreamableOutputEnabled) {
     this.outputFileChannel = fileChannel;
     this.metadataCollector = metadataCollector;
     this.annexBToAvccConverter = annexBToAvccConverter;
     this.lastSampleDurationBehavior = lastSampleDurationBehavior;
     this.sampleCopyEnabled = sampleCopyEnabled;
+    this.sampleBatchingEnabled = sampleBatchingEnabled;
     tracks = new ArrayList<>();
     editableVideoTracks = new ArrayList<>();
     hasWrittenSamples = new AtomicBoolean(false);
     canWriteMoovAtStart = attemptStreamableOutputEnabled;
     lastMoovWritten = Range.closed(0L, 0L);
+    lastMoovWrittenAtSampleTimestampUs = 0L;
   }
 
   /**
@@ -141,7 +149,20 @@ import java.util.concurrent.atomic.AtomicBoolean;
   public void writeSampleData(Track track, ByteBuffer byteBuffer, BufferInfo bufferInfo)
       throws IOException {
     track.writeSampleData(byteBuffer, bufferInfo);
-    doInterleave();
+    if (sampleBatchingEnabled) {
+      doInterleave();
+    } else {
+      writePendingTrackSamples(track);
+      boolean primaryTrackSampleWritten = tracks.contains(track);
+      long currentSampleTimestampUs = bufferInfo.presentationTimeUs;
+      if (primaryTrackSampleWritten
+          && canWriteMoovAtStart
+          && (currentSampleTimestampUs - lastMoovWrittenAtSampleTimestampUs
+              >= MOOV_BOX_UPDATE_INTERVAL_US)) {
+        maybeWriteMoovAtStart();
+        lastMoovWrittenAtSampleTimestampUs = currentSampleTimestampUs;
+      }
+    }
   }
 
   /**
@@ -202,7 +223,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
         Boxes.moov(
             editableVideoTracks,
             editableVideoMetadataCollector,
-            findMinimumPresentationTimestampUsAcrossTracks(editableVideoTracks),
             /* isFragmentedMp4= */ false,
             lastSampleDurationBehavior);
     ByteBuffer edvdBoxHeader =
@@ -273,17 +293,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
     outputFileChannel.truncate(newMoovLocation + moovBytesNeeded);
   }
 
-  private static long findMinimumPresentationTimestampUsAcrossTracks(List<Track> tracks) {
-    long minInputPtsUs = Long.MAX_VALUE;
-    for (int i = 0; i < tracks.size(); i++) {
-      Track track = tracks.get(i);
-      if (!track.writtenSamples.isEmpty()) {
-        minInputPtsUs = min(track.writtenSamples.get(0).presentationTimeUs, minInputPtsUs);
-      }
-    }
-    return minInputPtsUs;
-  }
-
   private void writeHeader() throws IOException {
     outputFileChannel.position(0L);
     outputFileChannel.write(Boxes.ftyp());
@@ -311,24 +320,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
   }
 
   private ByteBuffer assembleCurrentMoovData() {
-    // Recalculate the min timestamp every time, in case some new samples have smaller timestamps.
-    long minInputPtsUs = findMinimumPresentationTimestampUsAcrossTracks(tracks);
 
-    ByteBuffer moovHeader;
-    if (minInputPtsUs != Long.MAX_VALUE) {
-      moovHeader =
-          Boxes.moov(
-              tracks,
-              metadataCollector,
-              minInputPtsUs,
-              /* isFragmentedMp4= */ false,
-              lastSampleDurationBehavior);
-    } else {
-      // Skip moov box, if there are no samples.
-      moovHeader = ByteBuffer.allocate(0);
-    }
-
-    return moovHeader;
+    return Boxes.moov(
+        tracks, metadataCollector, /* isFragmentedMp4= */ false, lastSampleDurationBehavior);
   }
 
   /**

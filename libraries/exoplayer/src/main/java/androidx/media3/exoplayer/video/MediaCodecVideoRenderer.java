@@ -483,8 +483,30 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     return TAG;
   }
 
+  /**
+   * Returns the {@link Capabilities} of MediaCodecVideoRenderer for a given {@link Format}.
+   *
+   * @param context A context.
+   * @param mediaCodecSelector The decoder selector.
+   * @param format The {@link Format} for which to check the {@code MediaCodecVideoRenderer}'s
+   *     support.
+   * @return The {@link Capabilities} for this format.
+   * @throws DecoderQueryException Thrown if there was an error querying decoders.
+   */
+  public static @Capabilities int supportsFormat(
+      Context context, MediaCodecSelector mediaCodecSelector, Format format)
+      throws DecoderQueryException {
+    return supportsFormatInternal(context, mediaCodecSelector, format);
+  }
+
   @Override
   protected @Capabilities int supportsFormat(MediaCodecSelector mediaCodecSelector, Format format)
+      throws DecoderQueryException {
+    return supportsFormatInternal(context, mediaCodecSelector, format);
+  }
+
+  private static @Capabilities int supportsFormatInternal(
+      Context context, MediaCodecSelector mediaCodecSelector, Format format)
       throws DecoderQueryException {
     String mimeType = format.sampleMimeType;
     if (!MimeTypes.isVideo(mimeType)) {
@@ -735,6 +757,10 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         videoSink.setVideoEffects(videoEffects);
       }
       videoSink.onRendererEnabled(mayRenderStartOfStream);
+      @Nullable WakeupListener wakeupListener = getWakeupListener();
+      if (wakeupListener != null) {
+        videoSink.setWakeupListener(wakeupListener);
+      }
     } else {
       videoFrameReleaseControl.setClock(getClock());
       videoFrameReleaseControl.onEnabled(mayRenderStartOfStream);
@@ -784,7 +810,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       videoSink.flush(/* resetPosition= */ true);
       videoSink.setStreamTimestampInfo(
           getOutputStreamStartPositionUs(),
-          getOutputStreamOffsetUs(),
           getBufferTimestampAdjustmentUs(),
           getLastResetPositionUs());
       pendingVideoSinkInputStreamChange = true;
@@ -1230,6 +1255,13 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   }
 
   @Override
+  protected void onWakeupListenerSet(WakeupListener wakeupListener) {
+    if (videoSink != null) {
+      videoSink.setWakeupListener(wakeupListener);
+    }
+  }
+
+  @Override
   @Nullable
   protected DecoderReuseEvaluation onInputFormatChanged(FormatHolder formatHolder)
       throws ExoPlaybackException {
@@ -1586,7 +1618,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     if (videoSink != null) {
       videoSink.setStreamTimestampInfo(
           getOutputStreamStartPositionUs(),
-          getOutputStreamOffsetUs(),
           getBufferTimestampAdjustmentUs(),
           getLastResetPositionUs());
     } else {
@@ -1795,7 +1826,8 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   }
 
   private boolean hasSurfaceForCodec(MediaCodecInfo codecInfo) {
-    return displaySurface != null
+    return videoSink != null
+        || (displaySurface != null && displaySurface.isValid())
         || shouldUseDetachedSurface(codecInfo)
         || shouldUsePlaceholderSurface(codecInfo);
   }

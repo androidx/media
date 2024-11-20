@@ -7,10 +7,12 @@ seekMap:
   getPosition(2548333) = [[timeUs=1680000, position=34939]]
 numberOfTracks = 2
 track 0:
-  total output bytes = 3112471
-  sample count = 83
+  total output bytes = 3208515
+  sample count = 85
+  track duration = 2548333
   format 0:
     id = 1
+    containerMimeType = video/mp4
     sampleMimeType = video/dolby-vision
     codecs = hev1.08.04
     maxInputSize = 196379
@@ -33,15 +35,15 @@ track 0:
     flags = 1
     data = length 78829, hash 9265686F
   sample 1:
-    time = -321667
+    time = -321666
     flags = 0
     data = length 32262, hash 1AD10F61
   sample 2:
-    time = -388334
+    time = -388333
     flags = 0
     data = length 18055, hash C6BED1E3
   sample 3:
-    time = -188334
+    time = -188333
     flags = 0
     data = length 65604, hash AA006B06
   sample 4:
@@ -53,7 +55,7 @@ track 0:
     flags = 0
     data = length 72552, hash 9535951C
   sample 6:
-    time = -121667
+    time = -121666
     flags = 0
     data = length 23756, hash 4074D5AE
   sample 7:
@@ -65,7 +67,7 @@ track 0:
     flags = 0
     data = length 55804, hash D559D074
   sample 9:
-    time = -21667
+    time = -21666
     flags = 0
     data = length 12955, hash 35EE397F
   sample 10:
@@ -358,14 +360,24 @@ track 0:
     data = length 23136, hash 8AF1C1AD
   sample 82:
     time = 2446666
-    flags = 536870912
+    flags = 0
     data = length 26792, hash 3157758F
+  sample 83:
+    time = 2613333
+    flags = 0
+    data = length 62711, hash EF9AC8F5
+  sample 84:
+    time = 2546666
+    flags = 536870912
+    data = length 33333, hash 567D33D6
 track 1:
   total output bytes = 45765
   sample count = 112
+  track duration = 2548333
   format 0:
     peakBitrate = 192000
     id = 2
+    containerMimeType = video/mp4
     sampleMimeType = audio/mp4a-latm
     codecs = mp4a.40.2
     maxInputSize = 832

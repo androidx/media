@@ -49,7 +49,8 @@ oneway interface IMediaController {
   void onExtrasChanged(int seq, in Bundle extras) = 3011;
   void onSessionActivityChanged(int seq, in PendingIntent pendingIntent) = 3013;
   void onError(int seq, in Bundle sessionError) = 3014;
-  // Next Id for MediaController: 3015
+  void onSetMediaButtonPreferences(int seq, in List<Bundle> commandButtonList) = 3015;
+  // Next Id for MediaController: 3016
 
   void onChildrenChanged(
       int seq, String parentId, int itemCount, in @nullable Bundle libraryParams) = 4000;

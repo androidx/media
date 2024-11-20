@@ -159,9 +159,9 @@ import java.util.concurrent.TimeoutException;
         // Ignore.
       }
     }
-    ImmutableList<CommandButton> customLayout =
+    ImmutableList<CommandButton> mediaButtonPreferences =
         mediaNotificationController != null
-            ? mediaNotificationController.getCustomLayout()
+            ? mediaNotificationController.getMediaButtonPreferences()
             : ImmutableList.of();
     MediaNotification.Provider.Callback callback =
         notification ->
@@ -172,7 +172,7 @@ import java.util.concurrent.TimeoutException;
         () -> {
           MediaNotification mediaNotification =
               this.mediaNotificationProvider.createNotification(
-                  session, customLayout, actionFactory, callback);
+                  session, mediaButtonPreferences, actionFactory, callback);
           mainExecutor.execute(
               () ->
                   updateNotificationInternal(
@@ -320,7 +320,8 @@ import java.util.concurrent.TimeoutException;
     }
 
     @Override
-    public void onCustomLayoutChanged(MediaController controller, List<CommandButton> layout) {
+    public void onMediaButtonPreferencesChanged(
+        MediaController controller, List<CommandButton> mediaButtonPreferences) {
       mediaSessionService.onUpdateNotificationInternal(
           session, /* startInForegroundWhenPaused= */ false);
     }

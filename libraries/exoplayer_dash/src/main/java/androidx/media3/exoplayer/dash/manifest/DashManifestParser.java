@@ -92,6 +92,8 @@ public class DashManifestParser extends DefaultHandler
    * Maps the value attribute of an AudioChannelConfiguration with schemeIdUri
    * "urn:mpeg:mpegB:cicp:ChannelConfiguration", as defined by ISO 23001-8 clause 8.1, to a channel
    * count.
+   * "urn:mpeg:mpegB:cicp:ChannelConfiguration", as defined by ISO 23091-3:2018 clause 6.2, to a
+   * channel count.
    */
   private static final int[] MPEG_CHANNEL_CONFIGURATION_MAPPING =
       new int[] {
@@ -1980,7 +1982,8 @@ public class DashManifestParser extends DefaultHandler
 
   /**
    * Parses the number of channels from the value attribute of an AudioChannelConfiguration with
-   * schemeIdUri "urn:mpeg:mpegB:cicp:ChannelConfiguration", as defined by ISO 23001-8 clause 8.1.
+   * schemeIdUri "urn:mpeg:mpegB:cicp:ChannelConfiguration", as defined by ISO 23091-3:2018 clause
+   * 6.2.
    *
    * @param xpp The parser from which to read.
    * @return The parsed number of channels, or {@link Format#NO_VALUE} if the channel count could

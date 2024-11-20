@@ -681,8 +681,6 @@ public final class CompositionPlayer extends SimpleBasePlayer
 
     long primarySequenceDurationUs =
         getSequenceDurationUs(checkNotNull(composition.sequences.get(0)));
-    // Video playback is disabled when one EditedMediaItem removes video.
-    boolean disableVideoPlayback = shouldDisableVideoPlayback(composition);
     for (int i = 0; i < composition.sequences.size(); i++) {
       EditedMediaItemSequence editedMediaItemSequence = composition.sequences.get(i);
       SequenceRenderersFactory sequenceRenderersFactory =
@@ -702,11 +700,20 @@ public final class CompositionPlayer extends SimpleBasePlayer
               .setPlaybackLooper(playbackThread.getLooper())
               .setRenderersFactory(sequenceRenderersFactory)
               .setHandleAudioBecomingNoisy(true)
-              .setClock(clock);
+              .setClock(clock)
+              // Use dynamic scheduling to show the first video/image frame more promptly when the
+              // player is paused (which is common in editing applications).
+              .experimentalSetDynamicSchedulingEnabled(true);
 
-      if (i == 0) {
-        playerBuilder.setTrackSelector(new CompositionTrackSelector(context, disableVideoPlayback));
+      boolean disableVideoPlayback = false;
+      for (int j = 0; j < editedMediaItemSequence.editedMediaItems.size(); j++) {
+        if (editedMediaItemSequence.editedMediaItems.get(j).removeVideo) {
+          disableVideoPlayback = true;
+          break;
+        }
       }
+      playerBuilder.setTrackSelector(
+          new CompositionTrackSelector(context, /* sequenceIndex= */ i, disableVideoPlayback));
 
       ExoPlayer player = playerBuilder.build();
       player.addListener(new PlayerListener(i));
@@ -992,19 +999,6 @@ public final class CompositionPlayer extends SimpleBasePlayer
     return compositionDurationUs;
   }
 
-  private static boolean shouldDisableVideoPlayback(Composition composition) {
-    for (int i = 0; i < composition.sequences.size(); i++) {
-      EditedMediaItemSequence editedMediaItemSequence = composition.sequences.get(i);
-      for (int j = 0; j < editedMediaItemSequence.editedMediaItems.size(); j++) {
-        EditedMediaItem editedMediaItem = editedMediaItemSequence.editedMediaItems.get(j);
-        if (editedMediaItem.removeVideo) {
-          return true;
-        }
-      }
-    }
-    return false;
-  }
-
   /**
    * A {@link VideoFrameReleaseControl.FrameTimingEvaluator} for composition frames.
    *
@@ -1095,10 +1089,13 @@ public final class CompositionPlayer extends SimpleBasePlayer
   private static final class CompositionTrackSelector extends DefaultTrackSelector {
 
     private static final String SILENCE_AUDIO_TRACK_GROUP_ID = "1:";
+    private final int sequenceIndex;
     private final boolean disableVideoPlayback;
 
-    public CompositionTrackSelector(Context context, boolean disableVideoPlayback) {
+    public CompositionTrackSelector(
+        Context context, int sequenceIndex, boolean disableVideoPlayback) {
       super(context);
+      this.sequenceIndex = sequenceIndex;
       this.disableVideoPlayback = disableVideoPlayback;
     }
 
@@ -1110,41 +1107,44 @@ public final class CompositionPlayer extends SimpleBasePlayer
         @RendererCapabilities.AdaptiveSupport int[] rendererMixedMimeTypeAdaptationSupports,
         Parameters params)
         throws ExoPlaybackException {
-      int audioRenderIndex = C.INDEX_UNSET;
-      for (int i = 0; i < mappedTrackInfo.getRendererCount(); i++) {
-        if (mappedTrackInfo.getRendererType(i) == C.TRACK_TYPE_AUDIO) {
-          audioRenderIndex = i;
-          break;
-        }
-      }
-      checkState(audioRenderIndex != C.INDEX_UNSET);
-
-      TrackGroupArray audioTrackGroups = mappedTrackInfo.getTrackGroups(audioRenderIndex);
-      // If there's only one audio TrackGroup, it'll be silence, there's no need to override track
-      // selection.
-      if (audioTrackGroups.length > 1) {
-        boolean mediaAudioIsPlayable = false;
-        int silenceAudioTrackGroupIndex = C.INDEX_UNSET;
-        for (int i = 0; i < audioTrackGroups.length; i++) {
-          if (audioTrackGroups.get(i).id.startsWith(SILENCE_AUDIO_TRACK_GROUP_ID)) {
-            silenceAudioTrackGroupIndex = i;
-            continue;
-          }
-          // For non-silence tracks
-          for (int j = 0; j < audioTrackGroups.get(i).length; j++) {
-            mediaAudioIsPlayable |=
-                RendererCapabilities.getFormatSupport(
-                        rendererFormatSupports[audioRenderIndex][i][j])
-                    == C.FORMAT_HANDLED;
+      if (sequenceIndex == 0) {
+        // Currently silence is only generated for the zero-indexed sequence.
+        int audioRenderIndex = C.INDEX_UNSET;
+        for (int i = 0; i < mappedTrackInfo.getRendererCount(); i++) {
+          if (mappedTrackInfo.getRendererType(i) == C.TRACK_TYPE_AUDIO) {
+            audioRenderIndex = i;
+            break;
           }
         }
-        checkState(silenceAudioTrackGroupIndex != C.INDEX_UNSET);
+        checkState(audioRenderIndex != C.INDEX_UNSET);
 
-        if (mediaAudioIsPlayable) {
-          // Disable silence if the media's audio track is playable.
-          int silenceAudioTrackIndex = audioTrackGroups.length - 1;
-          rendererFormatSupports[audioRenderIndex][silenceAudioTrackIndex][0] =
-              RendererCapabilities.create(C.FORMAT_UNSUPPORTED_TYPE);
+        TrackGroupArray audioTrackGroups = mappedTrackInfo.getTrackGroups(audioRenderIndex);
+        // If there's only one audio TrackGroup, it'll be silence, there's no need to override track
+        // selection.
+        if (audioTrackGroups.length > 1) {
+          boolean mediaAudioIsPlayable = false;
+          int silenceAudioTrackGroupIndex = C.INDEX_UNSET;
+          for (int i = 0; i < audioTrackGroups.length; i++) {
+            if (audioTrackGroups.get(i).id.startsWith(SILENCE_AUDIO_TRACK_GROUP_ID)) {
+              silenceAudioTrackGroupIndex = i;
+              continue;
+            }
+            // For non-silence tracks
+            for (int j = 0; j < audioTrackGroups.get(i).length; j++) {
+              mediaAudioIsPlayable |=
+                  RendererCapabilities.getFormatSupport(
+                          rendererFormatSupports[audioRenderIndex][i][j])
+                      == C.FORMAT_HANDLED;
+            }
+          }
+          checkState(silenceAudioTrackGroupIndex != C.INDEX_UNSET);
+
+          if (mediaAudioIsPlayable) {
+            // Disable silence if the media's audio track is playable.
+            int silenceAudioTrackIndex = audioTrackGroups.length - 1;
+            rendererFormatSupports[audioRenderIndex][silenceAudioTrackIndex][0] =
+                RendererCapabilities.create(C.FORMAT_UNSUPPORTED_TYPE);
+          }
         }
       }
 
@@ -1158,13 +1158,18 @@ public final class CompositionPlayer extends SimpleBasePlayer
         MappedTrackInfo mappedTrackInfo,
         @RendererCapabilities.Capabilities int[][][] rendererFormatSupports,
         @RendererCapabilities.AdaptiveSupport int[] mixedMimeTypeSupports,
-        Parameters params)
+        Parameters params,
+        @Nullable String selectedAudioLanguage)
         throws ExoPlaybackException {
       if (disableVideoPlayback) {
         return null;
       }
       return super.selectVideoTrack(
-          mappedTrackInfo, rendererFormatSupports, mixedMimeTypeSupports, params);
+          mappedTrackInfo,
+          rendererFormatSupports,
+          mixedMimeTypeSupports,
+          params,
+          selectedAudioLanguage);
     }
 
     @Nullable

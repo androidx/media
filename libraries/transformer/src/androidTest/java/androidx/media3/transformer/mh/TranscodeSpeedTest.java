@@ -130,9 +130,12 @@ public class TranscodeSpeedTest {
     // This test uses ULTRA_HDR_URI_STRING because it's high resolution.
     // Ultra HDR gainmap is ignored.
     EditedMediaItem editedMediaItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(JPG_ULTRA_HDR_ASSET.uri))
+        new EditedMediaItem.Builder(
+                new MediaItem.Builder()
+                    .setUri(JPG_ULTRA_HDR_ASSET.uri)
+                    .setImageDurationMs(isHighPerformance ? 45_000 : 15_000)
+                    .build())
             .setFrameRate(30)
-            .setDurationUs(isHighPerformance ? 45_000_000 : 15_000_000)
             .setEffects(
                 new Effects(
                     /* audioProcessors= */ ImmutableList.of(),

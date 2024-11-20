@@ -105,7 +105,7 @@ import java.util.Objects;
 
     protected final Effects effects;
 
-    private final String uri;
+    protected final String uri;
 
     public ItemConfig(
         String uri,
@@ -120,20 +120,7 @@ import java.util.Objects;
       this.effects = effects;
     }
 
-    public final EditedMediaItem build() {
-      EditedMediaItem.Builder builder =
-          new EditedMediaItem.Builder(MediaItem.fromUri(uri)).setEffects(effects);
-      onBuild(builder);
-      return builder.build();
-    }
-
-    /**
-     * Called when an {@link EditedMediaItem} is being {@linkplain #build() built}.
-     *
-     * @param builder The {@link EditedMediaItem.Builder} to optionally modify before the item is
-     *     built.
-     */
-    protected abstract void onBuild(EditedMediaItem.Builder builder);
+    protected abstract EditedMediaItem build();
 
     @Override
     public String toString() {
@@ -178,8 +165,13 @@ import java.util.Objects;
     }
 
     @Override
-    protected void onBuild(EditedMediaItem.Builder builder) {
-      builder.setFrameRate(frameRate).setDurationUs(durationUs);
+    protected EditedMediaItem build() {
+      MediaItem mediaItem =
+          new MediaItem.Builder().setUri(uri).setImageDurationMs(Util.usToMs(durationUs)).build();
+      return new EditedMediaItem.Builder(mediaItem)
+          .setEffects(effects)
+          .setFrameRate(frameRate)
+          .build();
     }
   }
 
@@ -194,8 +186,11 @@ import java.util.Objects;
     }
 
     @Override
-    protected void onBuild(EditedMediaItem.Builder builder) {
-      builder.setRemoveAudio(true);
+    protected EditedMediaItem build() {
+      return new EditedMediaItem.Builder(MediaItem.fromUri(uri))
+          .setEffects(effects)
+          .setRemoveAudio(true)
+          .build();
     }
   }
 

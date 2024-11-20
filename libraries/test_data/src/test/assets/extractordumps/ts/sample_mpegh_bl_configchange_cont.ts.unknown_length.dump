@@ -8,6 +8,7 @@ track 32:
   sample count = 87
   format 0:
     id = 1/32
+    containerMimeType = video/mp2t
     sampleMimeType = audio/mhm1
     codecs = mhm1.10
     sampleRate = 48000
@@ -129,6 +130,7 @@ track 32:
     data = length 143, hash C1C83A77
   format 1:
     id = 1/32
+    containerMimeType = video/mp2t
     sampleMimeType = audio/mhm1
     codecs = mhm1.11
     sampleRate = 48000
@@ -250,6 +252,7 @@ track 32:
     data = length 733, hash 5199F868
   format 2:
     id = 1/32
+    containerMimeType = video/mp2t
     sampleMimeType = audio/mhm1
     codecs = mhm1.11
     sampleRate = 48000

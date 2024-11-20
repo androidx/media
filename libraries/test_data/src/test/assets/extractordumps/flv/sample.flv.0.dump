@@ -7,6 +7,7 @@ track 8:
   total output bytes = 9529
   sample count = 45
   format 0:
+    containerMimeType = video/x-flv
     sampleMimeType = audio/mp4a-latm
     codecs = mp4a.40.2
     channelCount = 1
@@ -197,6 +198,7 @@ track 9:
   total output bytes = 89502
   sample count = 30
   format 0:
+    containerMimeType = video/x-flv
     sampleMimeType = video/avc
     codecs = avc1.640034
     width = 1080

@@ -35,6 +35,7 @@ import java.util.List;
 public final class DvbSubtitleReader implements ElementaryStreamReader {
 
   private final List<DvbSubtitleInfo> subtitleInfos;
+  private final String containerMimeType;
   private final TrackOutput[] outputs;
 
   private boolean writingSample;
@@ -44,9 +45,11 @@ public final class DvbSubtitleReader implements ElementaryStreamReader {
 
   /**
    * @param subtitleInfos Information about the DVB subtitles associated to the stream.
+   * @param containerMimeType The MIME type of the container holding the stream.
    */
-  public DvbSubtitleReader(List<DvbSubtitleInfo> subtitleInfos) {
+  public DvbSubtitleReader(List<DvbSubtitleInfo> subtitleInfos, String containerMimeType) {
     this.subtitleInfos = subtitleInfos;
+    this.containerMimeType = containerMimeType;
     outputs = new TrackOutput[subtitleInfos.size()];
     sampleTimeUs = C.TIME_UNSET;
   }
@@ -66,6 +69,7 @@ public final class DvbSubtitleReader implements ElementaryStreamReader {
       output.format(
           new Format.Builder()
               .setId(idGenerator.getFormatId())
+              .setContainerMimeType(containerMimeType)
               .setSampleMimeType(MimeTypes.APPLICATION_DVBSUBS)
               .setInitializationData(Collections.singletonList(subtitleInfo.initializationData))
               .setLanguage(subtitleInfo.language)

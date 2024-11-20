@@ -11,6 +11,7 @@ track 0:
   sample count = 0
   format 0:
     id = 0
+    containerMimeType = audio/mp4a-latm
     sampleMimeType = audio/mp4a-latm
     codecs = mp4a.40.2
     channelCount = 1
@@ -22,5 +23,6 @@ track 1:
   sample count = 0
   format 0:
     id = 1
+    containerMimeType = audio/mp4a-latm
     sampleMimeType = application/id3
 tracksEnded = true

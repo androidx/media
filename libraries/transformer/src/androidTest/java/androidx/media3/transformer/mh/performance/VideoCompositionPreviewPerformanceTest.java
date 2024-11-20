@@ -46,6 +46,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -86,6 +87,7 @@ public class VideoCompositionPreviewPerformanceTest {
    * switches do not cause the player to stall.
    */
   @Test
+  @Ignore("TODO: b/375349144 - Fix this test and re-enable it")
   public void compositionPlayerCompositionPreviewTest() throws PlaybackException, TimeoutException {
     PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
     instrumentation.runOnMainSync(
