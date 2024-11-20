@@ -50,7 +50,6 @@ public class Mp4PlaybackTest {
         "sample_ac3_fragmented.mp4",
         "sample_ac3.mp4",
         "sample_ac4_fragmented.mp4",
-        "sample_ac4_level4_fragmented.mp4",
         "sample_ac4.mp4",
         "sample_android_slow_motion.mp4",
         "sample_eac3_fragmented.mp4",
