@@ -47,9 +47,12 @@ import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.GlShaderProgram;
 import androidx.media3.effect.MatrixTransformation;
 import androidx.media3.effect.PassthroughShaderProgram;
+import androidx.media3.effect.ScaleAndRotateTransformation;
 import androidx.media3.exoplayer.DecoderCounters;
+import androidx.media3.exoplayer.DecoderReuseEvaluation;
 import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.exoplayer.FormatHolder;
 import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.SeekParameters;
 import androidx.media3.exoplayer.analytics.AnalyticsListener;
@@ -379,6 +382,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private static final class FrameExtractorRenderer extends MediaCodecVideoRenderer {
 
     private boolean frameRenderedSinceLastReset;
+    private List<Effect> effectsFromPlayer;
+    private @MonotonicNonNull Effect rotation;
 
     public FrameExtractorRenderer(
         Context context, VideoRendererEventListener videoRendererEventListener) {
@@ -389,6 +394,43 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           Util.createHandlerForCurrentOrMainLooper(),
           videoRendererEventListener,
           /* maxDroppedFramesToNotify= */ 0);
+      effectsFromPlayer = ImmutableList.of();
+    }
+
+    @Override
+    public void setVideoEffects(List<Effect> effects) {
+      effectsFromPlayer = effects;
+      setEffectsWithRotation();
+    }
+
+    @Override
+    @Nullable
+    protected DecoderReuseEvaluation onInputFormatChanged(FormatHolder formatHolder)
+        throws ExoPlaybackException {
+      if (formatHolder.format != null) {
+        Format format = formatHolder.format;
+        if (format.rotationDegrees != 0) {
+          // Some decoders do not apply rotation. It's no extra cost to rotate with a GL matrix
+          // transformation effect instead.
+          // https://developer.android.com/reference/android/media/MediaCodec#transformations-when-rendering-onto-surface
+          rotation =
+              new ScaleAndRotateTransformation.Builder()
+                  .setRotationDegrees(360 - format.rotationDegrees)
+                  .build();
+          setEffectsWithRotation();
+          formatHolder.format = format.buildUpon().setRotationDegrees(0).build();
+        }
+      }
+      return super.onInputFormatChanged(formatHolder);
+    }
+
+    private void setEffectsWithRotation() {
+      ImmutableList.Builder<Effect> effectBuilder = new ImmutableList.Builder<>();
+      if (rotation != null) {
+        effectBuilder.add(rotation);
+      }
+      effectBuilder.addAll(effectsFromPlayer);
+      super.setVideoEffects(effectBuilder.build());
     }
 
     @Override

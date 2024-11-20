@@ -20,6 +20,7 @@ import static androidx.media3.exoplayer.SeekParameters.CLOSEST_SYNC;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.maybeSaveTestBitmap;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.readBitmap;
 import static androidx.media3.test.utils.TestUtil.assertBitmapsAreSimilar;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_TRIM_OPTIMIZATION_270;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -340,5 +341,33 @@ public class FrameExtractorTest {
     Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
     instrumentation.runOnMainSync(frameExtractor::release);
     frameExtractor = null;
+  }
+
+  @Test
+  public void extractFrame_oneFrameRotated_returnsFrameInCorrectOrientation() throws Exception {
+    frameExtractor =
+        new ExperimentalFrameExtractor(
+            context,
+            new ExperimentalFrameExtractor.Configuration.Builder().build(),
+            MediaItem.fromUri(MP4_TRIM_OPTIMIZATION_270.uri),
+            /* effects= */ ImmutableList.of());
+
+    ListenableFuture<Frame> frameFuture = frameExtractor.getFrame(/* positionMs= */ 0);
+    Frame frame = frameFuture.get(TIMEOUT_SECONDS, SECONDS);
+    Bitmap actualBitmap = frame.bitmap;
+    Bitmap expectedBitmap =
+        readBitmap(
+            /* assetString= */ GOLDEN_ASSET_FOLDER_PATH
+                + "internal_emulator_transformer_output_180_rotated_0.000.png");
+    maybeSaveTestBitmap(testId, /* bitmapLabel= */ "actual", actualBitmap, /* path= */ null);
+
+    assertThat(frame.presentationTimeMs).isEqualTo(0);
+    assertBitmapsAreSimilar(expectedBitmap, actualBitmap, PSNR_THRESHOLD);
+    assertThat(
+            frameExtractor
+                .getDecoderCounters()
+                .get(TIMEOUT_SECONDS, SECONDS)
+                .renderedOutputBufferCount)
+        .isEqualTo(1);
   }
 }
