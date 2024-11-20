@@ -41,6 +41,10 @@
         dynamic overlay settings.
 *   Muxers:
 *   IMA extension:
+*   Session:
+    *   Add 'Context' as a parameter to
+        'MediaButtonReceiver.shouldStartForegroundService`
+        ([#1887](https://github.com/androidx/media/issues/1887)).
 *   UI:
     *   Add `PlayerSurface` Composable to `media3-ui-compose` module.
     *   Add `PlayPauseButtonState`, `NextButtonState`, `PreviousButtonState`,
@@ -337,9 +341,6 @@ This release includes the following changes since the
     *   Improve interoperability behavior, so that a Media3 browser that is
         connected to a legacy `MediaBrowserService` doesn't request the children
         of a `parentId` twice when subscribing to a parent.
-    *   Add 'Context' as a parameter to
-        'MediaButtonReceiver.shouldStartForegroundService`
-        ([#1887](https://github.com/androidx/media/issues/1887)).
 *   UI:
     *   Make the stretched/cropped video in
         `PlayerView`-in-Compose-`AndroidView` workaround opt-in, due to issues
