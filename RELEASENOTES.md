@@ -58,6 +58,8 @@
 *   RTMP Extension:
 *   HLS Extension:
 *   DASH Extension:
+    *   Add AC-4 Level-4 format support for DASH
+        ([#1898](https://github.com/androidx/media/pull/1898)).
 *   Smooth Streaming Extension:
 *   RTSP Extension:
 *   Decoder Extensions (FFmpeg, VP9, AV1, etc.):
