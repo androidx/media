@@ -516,14 +516,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
             listenerExecutor.execute(listener::onEnded);
             DebugTraceUtil.logEvent(COMPONENT_VFP, EVENT_SIGNAL_ENDED, C.TIME_END_OF_SOURCE);
           } else {
-            synchronized (lock) {
-              if (pendingInputStreamInfo != null) {
-                InputStreamInfo pendingInputStreamInfo = this.pendingInputStreamInfo;
-                videoFrameProcessingTaskExecutor.submit(
-                    () -> configure(pendingInputStreamInfo, /* forceReconfigure= */ false));
-                this.pendingInputStreamInfo = null;
-              }
-            }
+            submitPendingInputStream();
           }
         });
   }
@@ -762,6 +755,8 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
     }
+    // Make sure any pending input stream is not swallowed.
+    submitPendingInputStream();
   }
 
   @Override
@@ -793,6 +788,17 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
           .build();
     } else {
       return format;
+    }
+  }
+
+  private void submitPendingInputStream() {
+    synchronized (lock) {
+      if (pendingInputStreamInfo != null) {
+        InputStreamInfo pendingInputStreamInfo = this.pendingInputStreamInfo;
+        videoFrameProcessingTaskExecutor.submit(
+            () -> configure(pendingInputStreamInfo, /* forceReconfigure= */ false));
+        this.pendingInputStreamInfo = null;
+      }
     }
   }
 
