@@ -96,8 +96,7 @@ public final class MediaFormatUtil {
                     /* defaultValue= */ Format.NO_VALUE))
             .setRotationDegrees(
                 getInteger(mediaFormat, MediaFormat.KEY_ROTATION, /* defaultValue= */ 0))
-            // TODO(b/278101856): Disallow invalid values after confirming.
-            .setColorInfo(getColorInfo(mediaFormat, /* allowInvalidValues= */ true))
+            .setColorInfo(getColorInfo(mediaFormat))
             .setSampleRate(
                 getInteger(
                     mediaFormat, MediaFormat.KEY_SAMPLE_RATE, /* defaultValue= */ Format.NO_VALUE))
@@ -270,13 +269,6 @@ public final class MediaFormatUtil {
    */
   @Nullable
   public static ColorInfo getColorInfo(MediaFormat mediaFormat) {
-    return getColorInfo(mediaFormat, /* allowInvalidValues= */ false);
-  }
-
-  // Internal methods.
-
-  @Nullable
-  private static ColorInfo getColorInfo(MediaFormat mediaFormat, boolean allowInvalidValues) {
     if (SDK_INT < 24) {
       // MediaFormat KEY_COLOR_TRANSFER and other KEY_COLOR values available from API 24.
       return null;
@@ -294,21 +286,17 @@ public final class MediaFormatUtil {
     @Nullable
     byte[] hdrStaticInfo =
         hdrStaticInfoByteBuffer != null ? getArray(hdrStaticInfoByteBuffer) : null;
-
-    if (!allowInvalidValues) {
-      // Some devices may produce invalid values from MediaFormat#getInteger.
-      // See b/239435670 for more information.
-      if (!isValidColorSpace(colorSpace)) {
-        colorSpace = Format.NO_VALUE;
-      }
-      if (!isValidColorRange(colorRange)) {
-        colorRange = Format.NO_VALUE;
-      }
-      if (!isValidColorTransfer(colorTransfer)) {
-        colorTransfer = Format.NO_VALUE;
-      }
+    // Some devices may produce invalid values from MediaFormat#getInteger.
+    // See b/239435670 for more information.
+    if (!isValidColorSpace(colorSpace)) {
+      colorSpace = Format.NO_VALUE;
     }
-
+    if (!isValidColorRange(colorRange)) {
+      colorRange = Format.NO_VALUE;
+    }
+    if (!isValidColorTransfer(colorTransfer)) {
+      colorTransfer = Format.NO_VALUE;
+    }
     if (colorSpace != Format.NO_VALUE
         || colorRange != Format.NO_VALUE
         || colorTransfer != Format.NO_VALUE

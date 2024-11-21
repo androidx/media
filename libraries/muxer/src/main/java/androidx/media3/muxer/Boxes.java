@@ -18,8 +18,6 @@ package androidx.media3.muxer;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
-import static androidx.media3.muxer.ColorUtils.MEDIAFORMAT_STANDARD_TO_PRIMARIES_AND_MATRIX;
-import static androidx.media3.muxer.ColorUtils.MEDIAFORMAT_TRANSFER_TO_MP4_TRANSFER;
 import static androidx.media3.muxer.MuxerUtil.UNSIGNED_INT_MAX_VALUE;
 import static java.lang.Math.abs;
 import static java.lang.Math.max;
@@ -767,12 +765,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
 
     contents.put(paspBox());
 
-    // Put in a "colr" box if any of the three color format parameters has a non-default (0) value.
-    // TODO: b/278101856 - Only null check should be enough once we disallow invalid values.
-    if (format.colorInfo != null
-        && (format.colorInfo.colorSpace != 0
-            || format.colorInfo.colorTransfer != 0
-            || format.colorInfo.colorRange != 0)) {
+    if (format.colorInfo != null) {
       contents.put(colrBox(format.colorInfo));
     }
 
@@ -1544,24 +1537,18 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
 
     // The default values for optional fields as per the : <a
     // href="https://www.webmproject.org/vp9/mp4/#optional-fields">Vp9 webm spec</a>
-    int colourPrimaries = 1;
+    int colorPrimaries = 1;
     int transferCharacteristics = 1;
     int matrixCoefficients = 1;
 
     if (format.colorInfo != null) {
-      ColorInfo colorInfo = format.colorInfo;
-      if (colorInfo.colorSpace != Format.NO_VALUE) {
-        colourPrimaries =
-            MEDIAFORMAT_STANDARD_TO_PRIMARIES_AND_MATRIX.get(colorInfo.colorSpace).get(0);
-        matrixCoefficients =
-            MEDIAFORMAT_STANDARD_TO_PRIMARIES_AND_MATRIX.get(colorInfo.colorSpace).get(1);
-      }
-      if (colorInfo.colorTransfer != Format.NO_VALUE) {
-        transferCharacteristics = MEDIAFORMAT_TRANSFER_TO_MP4_TRANSFER.get(colorInfo.colorTransfer);
-      }
+      colorPrimaries = ColorInfo.colorSpaceToIsoColorPrimaries(format.colorInfo.colorSpace);
+      transferCharacteristics =
+          ColorInfo.colorTransferToIsoTransferCharacteristics(format.colorInfo.colorTransfer);
+      matrixCoefficients = ColorInfo.colorSpaceToIsoMatrixCoefficients(format.colorInfo.colorSpace);
     }
 
-    contents.put((byte) colourPrimaries);
+    contents.put((byte) colorPrimaries);
     contents.put((byte) transferCharacteristics);
     contents.put((byte) matrixCoefficients);
     contents.putShort((short) 0); // codecInitializationDataSize must be 0 for VP9
@@ -1652,40 +1639,11 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     contents.put((byte) 'l');
     contents.put((byte) 'x');
 
-    short primaries = 0;
-    short transfer = 0;
-    short matrix = 0;
-    byte range = 0;
-
-    if (colorInfo.colorSpace != Format.NO_VALUE) {
-      int standard = colorInfo.colorSpace;
-      if (standard < 0 || standard >= MEDIAFORMAT_STANDARD_TO_PRIMARIES_AND_MATRIX.size()) {
-        throw new IllegalArgumentException("Color standard not implemented: " + standard);
-      }
-
-      primaries = MEDIAFORMAT_STANDARD_TO_PRIMARIES_AND_MATRIX.get(standard).get(0);
-      matrix = MEDIAFORMAT_STANDARD_TO_PRIMARIES_AND_MATRIX.get(standard).get(1);
-    }
-
-    if (colorInfo.colorTransfer != Format.NO_VALUE) {
-      int transferInFormat = colorInfo.colorTransfer;
-      if (transferInFormat < 0 || transferInFormat >= MEDIAFORMAT_TRANSFER_TO_MP4_TRANSFER.size()) {
-        throw new IllegalArgumentException("Color transfer not implemented: " + transferInFormat);
-      }
-
-      transfer = MEDIAFORMAT_TRANSFER_TO_MP4_TRANSFER.get(transferInFormat);
-    }
-
-    if (colorInfo.colorRange != Format.NO_VALUE) {
-      int rangeInFormat = colorInfo.colorRange;
-      // Handled values are 0 (unknown), 1 (full) and 2 (limited).
-      if (rangeInFormat < 0 || rangeInFormat > 2) {
-        throw new IllegalArgumentException("Color range not implemented: " + rangeInFormat);
-      }
-
-      // Set this to 0x80 only for full range, 0 otherwise.
-      range = rangeInFormat == C.COLOR_RANGE_FULL ? (byte) 0x80 : 0;
-    }
+    short primaries = (short) ColorInfo.colorSpaceToIsoColorPrimaries(colorInfo.colorSpace);
+    short transfer =
+        (short) ColorInfo.colorTransferToIsoTransferCharacteristics(colorInfo.colorTransfer);
+    short matrix = (short) ColorInfo.colorSpaceToIsoMatrixCoefficients(colorInfo.colorSpace);
+    byte range = colorInfo.colorRange == C.COLOR_RANGE_FULL ? (byte) 0x80 : 0;
 
     contents.putShort(primaries);
     contents.putShort(transfer);

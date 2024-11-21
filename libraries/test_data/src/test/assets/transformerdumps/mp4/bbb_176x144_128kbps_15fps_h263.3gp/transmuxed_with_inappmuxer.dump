@@ -17,7 +17,9 @@ track 0:
     height = 144
     frameRate = 15.00
     colorInfo:
+      colorSpace = 1
       colorRange = 2
+      colorTransfer = 3
       lumaBitdepth = 8
       chromaBitdepth = 8
     metadata = entries=[Mp4Timestamp: creation time=3000000000, modification time=4000000000, timescale=10000]
