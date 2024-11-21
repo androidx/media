@@ -31,6 +31,9 @@
     *   Do not bypass `SonicAudioProcessor` when `SpeedChangingAudioProcessor`
         is configured with default parameters.
 *   Video:
+    *   Rollback of using `MediaCodecAdapter` supplied pixel aspect ratio values
+        when provided while processing `onOutputFormatChanged`
+        ([#1371](https://github.com/androidx/media/pull/1371)).
 *   Text:
 *   Metadata:
 *   Image:
