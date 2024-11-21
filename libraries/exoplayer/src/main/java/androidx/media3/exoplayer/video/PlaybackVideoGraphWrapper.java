@@ -50,7 +50,6 @@ import androidx.media3.common.util.TimedValueQueue;
 import androidx.media3.common.util.TimestampIterator;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
-import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.Renderer;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
@@ -237,7 +236,6 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
    */
   private final TimedValueQueue<Long> streamStartPositionsUs;
 
-  private final VideoFrameReleaseControl videoFrameReleaseControl;
   private final VideoFrameRenderControl videoFrameRenderControl;
   private final PreviewingVideoGraph.Factory previewingVideoGraphFactory;
   private final List<Effect> compositionEffects;
@@ -267,7 +265,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     inputVideoSink = new InputVideoSink(context);
     streamStartPositionsUs = new TimedValueQueue<>();
     clock = builder.clock;
-    videoFrameReleaseControl = builder.videoFrameReleaseControl;
+    VideoFrameReleaseControl videoFrameReleaseControl = builder.videoFrameReleaseControl;
     videoFrameReleaseControl.setClock(clock);
     videoFrameRenderControl =
         new VideoFrameRenderControl(new FrameRendererImpl(), videoFrameReleaseControl);
@@ -518,12 +516,10 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
 
     private final int videoFrameProcessorMaxPendingFrameCount;
     private final ArrayList<Effect> videoEffects;
-    private final VideoFrameReleaseControl.FrameReleaseInfo frameReleaseInfo;
 
     private @MonotonicNonNull VideoFrameProcessor videoFrameProcessor;
     @Nullable private Format inputFormat;
     private @InputType int inputType;
-    private long inputStreamStartPositionUs;
     private long inputBufferTimestampAdjustmentUs;
     private long lastResetPositionUs;
 
@@ -549,7 +545,6 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
       videoFrameProcessorMaxPendingFrameCount =
           Util.getMaxPendingFramesCountForMediaCodecDecoders(context);
       videoEffects = new ArrayList<>();
-      frameReleaseInfo = new VideoFrameReleaseControl.FrameReleaseInfo();
       finalBufferPresentationTimeUs = C.TIME_UNSET;
       lastBufferPresentationTimeUs = C.TIME_UNSET;
       listener = VideoSink.Listener.NO_OP;
@@ -688,7 +683,6 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     @Override
     public void setStreamTimestampInfo(
         long streamStartPositionUs, long bufferTimestampAdjustmentUs, long lastResetPositionUs) {
-      inputStreamStartPositionUs = streamStartPositionUs;
       // Input timestamps should always be positive because they are offset by ExoPlayer. Adding a
       // position to the queue with timestamp 0 should therefore always apply it as long as it is
       // the only position in the queue.
@@ -746,28 +740,6 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
       // the start of a composition) to the buffer timestamp (that corresponds to the player
       // position).
       long bufferPresentationTimeUs = framePresentationTimeUs - inputBufferTimestampAdjustmentUs;
-      // The frame release action should be retrieved for all frames (even the ones that will be
-      // skipped), because the release control estimates the content frame rate from frame
-      // timestamps and we want to have this information known as early as possible, especially
-      // during seeking.
-      @VideoFrameReleaseControl.FrameReleaseAction int frameReleaseAction;
-      try {
-        frameReleaseAction =
-            videoFrameReleaseControl.getFrameReleaseAction(
-                bufferPresentationTimeUs,
-                positionUs,
-                elapsedRealtimeUs,
-                inputStreamStartPositionUs,
-                isLastFrame,
-                frameReleaseInfo);
-      } catch (ExoPlaybackException e) {
-        throw new VideoSinkException(e, checkStateNotNull(inputFormat));
-      }
-      if (frameReleaseAction == VideoFrameReleaseControl.FRAME_RELEASE_IGNORE) {
-        // The buffer is no longer valid and needs to be ignored.
-        return false;
-      }
-
       if (bufferPresentationTimeUs < lastResetPositionUs && !isLastFrame) {
         videoFrameHandler.skip();
         return true;
