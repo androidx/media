@@ -749,18 +749,17 @@ public final class CompositionPlayer extends SimpleBasePlayer
   }
 
   private void setPrimaryPlayerSequence(ExoPlayer player, EditedMediaItemSequence sequence) {
-    ConcatenatingMediaSource2.Builder mediaSourceBuilder =
-        new ConcatenatingMediaSource2.Builder().useDefaultMediaSourceFactory(context);
+    ConcatenatingMediaSource2.Builder mediaSourceBuilder = new ConcatenatingMediaSource2.Builder();
+    DefaultMediaSourceFactory defaultMediaSourceFactory = new DefaultMediaSourceFactory(context);
+    if (externalImageLoader != null) {
+      defaultMediaSourceFactory.setExternalImageLoader(externalImageLoader);
+    }
 
     for (int i = 0; i < sequence.editedMediaItems.size(); i++) {
       EditedMediaItem editedMediaItem = sequence.editedMediaItems.get(i);
       checkArgument(editedMediaItem.durationUs != C.TIME_UNSET);
       long durationUs = editedMediaItem.getPresentationDurationUs();
       // Generate silence for primary sequence.
-      DefaultMediaSourceFactory defaultMediaSourceFactory = new DefaultMediaSourceFactory(context);
-      if (externalImageLoader != null) {
-        defaultMediaSourceFactory.setExternalImageLoader(externalImageLoader);
-      }
       MediaSource silenceMediaSource =
           new ClippingMediaSource(
               new SilenceMediaSource(editedMediaItem.durationUs),
@@ -791,26 +790,26 @@ public final class CompositionPlayer extends SimpleBasePlayer
 
     // TODO: b/331392198 - Repeat only looping sequences, after sequences can be of arbitrary
     //  length.
-    ConcatenatingMediaSource2.Builder mediaSourceBuilder =
-        new ConcatenatingMediaSource2.Builder().useDefaultMediaSourceFactory(context);
+    ConcatenatingMediaSource2.Builder mediaSourceBuilder = new ConcatenatingMediaSource2.Builder();
+    DefaultMediaSourceFactory defaultMediaSourceFactory = new DefaultMediaSourceFactory(context);
 
     long accumulatedDurationUs = 0;
     int i = 0;
     while (accumulatedDurationUs < primarySequenceDurationUs) {
       EditedMediaItem editedMediaItem = sequence.editedMediaItems.get(i);
       long itemPresentationDurationUs = editedMediaItem.getPresentationDurationUs();
+      MediaItem mediaItem = editedMediaItem.mediaItem;
       if (accumulatedDurationUs + itemPresentationDurationUs <= primarySequenceDurationUs) {
         mediaSourceBuilder.add(
-            editedMediaItem.mediaItem,
+            defaultMediaSourceFactory.createMediaSource(mediaItem),
             /* initialPlaceholderDurationMs= */ usToMs(itemPresentationDurationUs));
         accumulatedDurationUs += itemPresentationDurationUs;
       } else {
-        MediaItem mediaItem = editedMediaItem.mediaItem;
         long remainingDurationUs = primarySequenceDurationUs - accumulatedDurationUs;
         // TODO: b/289989542 - Handle already clipped, or speed adjusted media.
         mediaSourceBuilder.add(
             new ClippingMediaSource(
-                new DefaultMediaSourceFactory(context).createMediaSource(mediaItem),
+                defaultMediaSourceFactory.createMediaSource(mediaItem),
                 mediaItem.clippingConfiguration.startPositionUs,
                 mediaItem.clippingConfiguration.startPositionUs + remainingDurationUs),
             /* initialPlaceholderDurationMs= */ usToMs(remainingDurationUs));
