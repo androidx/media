@@ -50,7 +50,6 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.util.Clock;
-import androidx.media3.common.util.Util;
 import androidx.media3.decoder.CryptoInfo;
 import androidx.media3.exoplayer.DecoderCounters;
 import androidx.media3.exoplayer.ExoPlaybackException;
@@ -101,7 +100,6 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.Shadows;
-import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowDisplay;
 import org.robolectric.shadows.ShadowLooper;
 import org.robolectric.shadows.ShadowSystemClock;
@@ -116,7 +114,6 @@ public class MediaCodecVideoRendererTest {
           .setSampleMimeType(MimeTypes.VIDEO_H264)
           .setWidth(1920)
           .setHeight(1080)
-          .setPixelWidthHeightRatio(1.0f)
           .build();
 
   private static final TrackGroup TRACK_GROUP_H264 = new TrackGroup(VIDEO_H264);
@@ -748,84 +745,6 @@ public class MediaCodecVideoRendererTest {
     verify(eventListener)
         .onVideoSizeChanged(
             new VideoSize(VIDEO_H264.width, VIDEO_H264.height, VIDEO_H264.pixelWidthHeightRatio));
-  }
-
-  @Config(minSdk = 30)
-  @Test
-  public void
-      render_withMediaCodecModifyingPixelAspectRatioWidthHeight_sendsVideoSizeChangeWithMediaFormatValues()
-          throws Exception {
-    MediaCodecAdapter.Factory codecAdapterFactory =
-        configuration ->
-            new ForwardingSynchronousMediaCodecAdapter(
-                new SynchronousMediaCodecAdapter.Factory().createAdapter(configuration)) {
-              @Override
-              public MediaFormat getOutputFormat() {
-                MediaFormat mediaFormat = adapter.getOutputFormat();
-                if (Util.SDK_INT >= 30) {
-                  // Change to 9:16 Ratio
-                  mediaFormat.setInteger(MediaFormat.KEY_PIXEL_ASPECT_RATIO_WIDTH, 9);
-                  mediaFormat.setInteger(MediaFormat.KEY_PIXEL_ASPECT_RATIO_HEIGHT, 16);
-                }
-                return mediaFormat;
-              }
-            };
-    MediaCodecVideoRenderer mediaCodecVideoRendererWithCustomAdapter =
-        new MediaCodecVideoRenderer(
-            ApplicationProvider.getApplicationContext(),
-            codecAdapterFactory,
-            mediaCodecSelector,
-            /* allowedJoiningTimeMs= */ 0,
-            /* enableDecoderFallback= */ false,
-            /* eventHandler= */ new Handler(testMainLooper),
-            /* eventListener= */ eventListener,
-            /* maxDroppedFramesToNotify= */ 1) {
-          @Override
-          protected @Capabilities int supportsFormat(
-              MediaCodecSelector mediaCodecSelector, Format format) {
-            return RendererCapabilities.create(C.FORMAT_HANDLED);
-          }
-        };
-    mediaCodecVideoRendererWithCustomAdapter.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
-    mediaCodecVideoRendererWithCustomAdapter.handleMessage(
-        Renderer.MSG_SET_VIDEO_OUTPUT, new Surface(new SurfaceTexture(/* texName= */ 0)));
-    FakeSampleStream fakeSampleStream =
-        new FakeSampleStream(
-            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
-            /* mediaSourceEventDispatcher= */ null,
-            DrmSessionManager.DRM_UNSUPPORTED,
-            new DrmSessionEventListener.EventDispatcher(),
-            /* initialFormat= */ VIDEO_H264,
-            ImmutableList.of(
-                oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME), END_OF_STREAM_ITEM));
-    fakeSampleStream.writeData(/* startPositionUs= */ 0);
-    mediaCodecVideoRendererWithCustomAdapter.enable(
-        RendererConfiguration.DEFAULT,
-        new Format[] {VIDEO_H264},
-        fakeSampleStream,
-        /* positionUs= */ 0,
-        /* joining= */ false,
-        /* mayRenderStartOfStream= */ true,
-        /* startPositionUs= */ 0,
-        /* offsetUs= */ 0,
-        new MediaSource.MediaPeriodId(new Object()));
-    mediaCodecVideoRendererWithCustomAdapter.setCurrentStreamFinal();
-    mediaCodecVideoRendererWithCustomAdapter.start();
-
-    int positionUs = 0;
-    do {
-      mediaCodecVideoRendererWithCustomAdapter.render(
-          positionUs, SystemClock.elapsedRealtime() * 1000);
-      positionUs += 10;
-    } while (!mediaCodecVideoRendererWithCustomAdapter.isEnded());
-    shadowOf(testMainLooper).idle();
-
-    verify(eventListener)
-        .onVideoSizeChanged(
-            new VideoSize(
-                VIDEO_H264.width,
-                VIDEO_H264.height,
-                /* pixelWidthHeightRatio= */ VIDEO_H264.pixelWidthHeightRatio * (9.0f / 16.0f)));
   }
 
   @Test
@@ -1984,7 +1903,7 @@ public class MediaCodecVideoRendererTest {
 
   private abstract static class ForwardingSynchronousMediaCodecAdapter
       implements MediaCodecAdapter {
-    protected final MediaCodecAdapter adapter;
+    private final MediaCodecAdapter adapter;
 
     ForwardingSynchronousMediaCodecAdapter(MediaCodecAdapter adapter) {
       this.adapter = adapter;
