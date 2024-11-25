@@ -297,11 +297,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         MediaSource.MediaPeriodId mediaPeriodId)
         throws ExoPlaybackException {
       checkState(getTimeline().getWindowCount() == 1);
-      super.onStreamChanged(formats, startPositionUs, offsetUs, mediaPeriodId);
       // The media item might have been repeated in the sequence.
       int mediaItemIndex = getTimeline().getIndexOfPeriod(mediaPeriodId.periodUid);
       offsetToCompositionTimeUs = getOffsetToCompositionTimeUs(sequence, mediaItemIndex, offsetUs);
       pendingEffect = sequence.editedMediaItems.get(mediaItemIndex).effects.videoEffects;
+      super.onStreamChanged(formats, startPositionUs, offsetUs, mediaPeriodId);
     }
 
     @Override
@@ -400,9 +400,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     @Override
     protected void onPositionReset(long positionUs, boolean joining) throws ExoPlaybackException {
-      videoSink.flush(/* resetPosition= */ true);
+      if (!joining) {
+        videoSink.flush(/* resetPosition= */ true);
+        timestampIterator = createTimestampIterator(positionUs);
+      }
       super.onPositionReset(positionUs, joining);
-      timestampIterator = createTimestampIterator(positionUs);
     }
 
     @Override
