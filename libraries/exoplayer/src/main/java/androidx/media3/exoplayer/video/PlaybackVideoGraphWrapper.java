@@ -59,7 +59,6 @@ import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.Executor;
@@ -515,8 +514,8 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
   private final class InputVideoSink implements VideoSink, PlaybackVideoGraphWrapper.Listener {
 
     private final int videoFrameProcessorMaxPendingFrameCount;
-    private final ArrayList<Effect> videoEffects;
 
+    private ImmutableList<Effect> videoEffects;
     private @MonotonicNonNull VideoFrameProcessor videoFrameProcessor;
     @Nullable private Format inputFormat;
     private @InputType int inputType;
@@ -531,9 +530,6 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
      */
     private long lastBufferPresentationTimeUs;
 
-    private boolean hasRegisteredFirstInputStream;
-    private boolean isInputStreamChangePending;
-    private long pendingInputStreamBufferPresentationTimeUs;
     private VideoSink.Listener listener;
     private Executor listenerExecutor;
 
@@ -544,7 +540,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
       //  reduces decoder timeouts, and consider restoring.
       videoFrameProcessorMaxPendingFrameCount =
           Util.getMaxPendingFramesCountForMediaCodecDecoders(context);
-      videoEffects = new ArrayList<>();
+      videoEffects = ImmutableList.of();
       finalBufferPresentationTimeUs = C.TIME_UNSET;
       lastBufferPresentationTimeUs = C.TIME_UNSET;
       listener = VideoSink.Listener.NO_OP;
@@ -594,11 +590,9 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
       if (isInitialized()) {
         videoFrameProcessor.flush();
       }
-      hasRegisteredFirstInputStream = false;
       finalBufferPresentationTimeUs = C.TIME_UNSET;
       lastBufferPresentationTimeUs = C.TIME_UNSET;
       PlaybackVideoGraphWrapper.this.flush(resetPosition);
-      pendingInputStreamBufferPresentationTimeUs = C.TIME_UNSET;
       // Don't change input stream start position or reset the pending input stream timestamp info
       // change so that it's announced with the next input frame.
       // Don't reset isInputStreamChangePending because it's not guaranteed to receive a new input
@@ -630,21 +624,8 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
       }
       this.inputType = inputType;
       this.inputFormat = format;
-
-      if (!hasRegisteredFirstInputStream) {
-        maybeRegisterInputStream();
-        hasRegisteredFirstInputStream = true;
-        // If an input stream registration is pending and seek causes a format change, execution
-        // reaches here before registerInputFrame(). Reset pendingInputStreamTimestampUs to
-        // avoid registering the same input stream again in registerInputFrame().
-        isInputStreamChangePending = false;
-        pendingInputStreamBufferPresentationTimeUs = C.TIME_UNSET;
-      } else {
-        // If we reach this point, we must have registered at least one frame for processing.
-        checkState(lastBufferPresentationTimeUs != C.TIME_UNSET);
-        isInputStreamChangePending = true;
-        pendingInputStreamBufferPresentationTimeUs = lastBufferPresentationTimeUs;
-      }
+      finalBufferPresentationTimeUs = C.TIME_UNSET;
+      registerInputStream(format);
     }
 
     @Override
@@ -670,14 +651,18 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
         return;
       }
       setPendingVideoEffects(videoEffects);
-      maybeRegisterInputStream();
+      if (inputFormat != null) {
+        registerInputStream(inputFormat);
+      }
     }
 
     @Override
     public void setPendingVideoEffects(List<Effect> videoEffects) {
-      this.videoEffects.clear();
-      this.videoEffects.addAll(videoEffects);
-      this.videoEffects.addAll(compositionEffects);
+      this.videoEffects =
+          new ImmutableList.Builder<Effect>()
+              .addAll(videoEffects)
+              .addAll(compositionEffects)
+              .build();
     }
 
     @Override
@@ -748,19 +733,6 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
       // Drain the sink to make room for a new input frame.
       render(positionUs, elapsedRealtimeUs);
 
-      // An input stream is fully decoded, wait until all of its frames are released before queueing
-      // input frame from the next input stream.
-      if (isInputStreamChangePending) {
-        if (pendingInputStreamBufferPresentationTimeUs == C.TIME_UNSET
-            || PlaybackVideoGraphWrapper.this.hasReleasedFrame(
-                pendingInputStreamBufferPresentationTimeUs)) {
-          maybeRegisterInputStream();
-          isInputStreamChangePending = false;
-          pendingInputStreamBufferPresentationTimeUs = C.TIME_UNSET;
-        } else {
-          return false;
-        }
-      }
       if (checkStateNotNull(videoFrameProcessor).getPendingInputFrameCount()
           >= videoFrameProcessorMaxPendingFrameCount) {
         return false;
@@ -783,10 +755,6 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     @Override
     public boolean handleInputBitmap(Bitmap inputBitmap, TimestampIterator timestampIterator) {
       checkState(isInitialized());
-
-      if (!maybeRegisterPendingInputStream()) {
-        return false;
-      }
 
       if (!checkStateNotNull(videoFrameProcessor)
           .queueInputBitmap(inputBitmap, timestampIterator)) {
@@ -820,47 +788,6 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     @Override
     public void release() {
       PlaybackVideoGraphWrapper.this.release();
-    }
-
-    // Other methods
-
-    /**
-     * Attempt to register any pending input stream to the video graph input and returns {@code
-     * true} if a pending stream was registered and/or there is no pending input stream waiting for
-     * registration, hence it's safe to queue images or frames to the video graph input.
-     */
-    private boolean maybeRegisterPendingInputStream() {
-      if (!isInputStreamChangePending) {
-        return true;
-      }
-      // An input stream is fully decoded, wait until all of its frames are released before queueing
-      // input frame from the next input stream.
-      if (pendingInputStreamBufferPresentationTimeUs == C.TIME_UNSET
-          || PlaybackVideoGraphWrapper.this.hasReleasedFrame(
-              pendingInputStreamBufferPresentationTimeUs)) {
-        maybeRegisterInputStream();
-        isInputStreamChangePending = false;
-        pendingInputStreamBufferPresentationTimeUs = C.TIME_UNSET;
-        return true;
-      }
-      return false;
-    }
-
-    private void maybeRegisterInputStream() {
-      if (inputFormat == null) {
-        return;
-      }
-
-      ArrayList<Effect> effects = new ArrayList<>(videoEffects);
-      Format inputFormat = checkNotNull(this.inputFormat);
-      inputFormat =
-          inputFormat
-              .buildUpon()
-              .setColorInfo(getAdjustedInputColorInfo(inputFormat.colorInfo))
-              .build();
-      checkStateNotNull(videoFrameProcessor)
-          .registerInputStream(inputType, inputFormat, effects, /* offsetToAddUs= */ 0);
-      finalBufferPresentationTimeUs = C.TIME_UNSET;
     }
 
     // PlaybackVideoGraphWrapper.Listener implementation
@@ -897,6 +824,19 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
                   /* videoSink= */ this,
                   new VideoSinkException(
                       videoFrameProcessingException, checkStateNotNull(this.inputFormat))));
+    }
+
+    // Private methods
+
+    private void registerInputStream(Format inputFormat) {
+      Format adjustedInputFormat =
+          inputFormat
+              .buildUpon()
+              .setColorInfo(getAdjustedInputColorInfo(inputFormat.colorInfo))
+              .build();
+      checkStateNotNull(videoFrameProcessor)
+          .registerInputStream(
+              inputType, adjustedInputFormat, videoEffects, /* offsetToAddUs= */ 0);
     }
   }
 
