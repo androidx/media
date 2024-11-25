@@ -16,6 +16,8 @@
 
 package androidx.media3.transformer;
 
+import static androidx.media3.common.ColorInfo.SDR_BT709_LIMITED;
+import static androidx.media3.common.ColorInfo.isTransferHdr;
 import static androidx.media3.common.PlaybackException.ERROR_CODE_FAILED_RUNTIME_CHECK;
 import static androidx.media3.common.Player.DISCONTINUITY_REASON_SEEK;
 import static androidx.media3.common.util.Assertions.checkNotNull;
@@ -30,6 +32,7 @@ import android.media.MediaCodec;
 import android.opengl.GLES20;
 import android.os.Handler;
 import android.os.Looper;
+import androidx.annotation.CallSuper;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.Effect;
@@ -42,6 +45,7 @@ import androidx.media3.common.Player;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.NullableType;
+import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.GlShaderProgram;
@@ -79,7 +83,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  *
  * <p>Frame extractor instances must be accessed from a single application thread.
  */
-/* package */ final class ExperimentalFrameExtractor implements AnalyticsListener {
+@UnstableApi
+public final class ExperimentalFrameExtractor implements AnalyticsListener {
 
   /** Configuration for the frame extractor. */
   public static final class Configuration {
@@ -426,6 +431,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     public void setVideoEffects(List<Effect> effects) {
       effectsFromPlayer = effects;
       setEffectsWithRotation();
+    }
+
+    @CallSuper
+    @Override
+    protected void onReadyToInitializeCodec(Format format) throws ExoPlaybackException {
+      if (isTransferHdr(format.colorInfo)) {
+        // Setting the VideoSink format to SDR_BT709_LIMITED tone maps to SDR.
+        format = format.buildUpon().setColorInfo(SDR_BT709_LIMITED).build();
+      }
+      super.onReadyToInitializeCodec(format);
     }
 
     @Override

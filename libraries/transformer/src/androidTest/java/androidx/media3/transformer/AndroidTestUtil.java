@@ -530,6 +530,24 @@ public final class AndroidTestUtil {
                   .build())
           .build();
 
+  public static final AssetInfo MP4_ASSET_COLOR_TEST_1080P_HLG10 =
+      new AssetInfo.Builder("asset:///media/mp4/hlg10-color-test.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H265)
+                  .setWidth(1920)
+                  .setHeight(1080)
+                  .setFrameRate(30.000f)
+                  .setColorInfo(
+                      new ColorInfo.Builder()
+                          .setColorSpace(C.COLOR_SPACE_BT2020)
+                          .setColorRange(C.COLOR_RANGE_LIMITED)
+                          .setColorTransfer(C.COLOR_TRANSFER_HLG)
+                          .build())
+                  .setCodecs("hvc1.2.4.L153")
+                  .build())
+          .build();
+
   public static final AssetInfo MP4_ASSET_720P_4_SECOND_HDR10 =
       new AssetInfo.Builder("asset:///media/mp4/hdr10-720p.mp4")
           .setVideoFormat(
