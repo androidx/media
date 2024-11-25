@@ -257,6 +257,20 @@ public final class MediaCodecUtil {
   }
 
   /**
+   * Returns a copy of the provided decoder list sorted such that software decoders are listed
+   * first.
+   *
+   * <p>The returned list is not modifiable.
+   */
+  @CheckResult
+  public static List<MediaCodecInfo> getDecoderInfosSortedBySoftwareOnly(
+      List<MediaCodecInfo> decoderInfos) {
+    decoderInfos = new ArrayList<>(decoderInfos);
+    sortByScore(decoderInfos, decoderInfo -> decoderInfo.softwareOnly ? 1 : 0);
+    return ImmutableList.copyOf(decoderInfos);
+  }
+
+  /**
    * Returns the maximum frame size supported by the default H264 decoder.
    *
    * @return The maximum frame size for an H264 stream that can be decoded on the device.

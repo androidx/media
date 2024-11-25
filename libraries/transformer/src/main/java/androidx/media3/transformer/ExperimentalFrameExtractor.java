@@ -21,12 +21,12 @@ import static androidx.media3.common.Player.DISCONTINUITY_REASON_SEEK;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.usToMs;
-import static androidx.media3.exoplayer.mediacodec.MediaCodecSelector.DEFAULT;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Matrix;
+import android.media.MediaCodec;
 import android.opengl.GLES20;
 import android.os.Handler;
 import android.os.Looper;
@@ -57,6 +57,7 @@ import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.SeekParameters;
 import androidx.media3.exoplayer.analytics.AnalyticsListener;
 import androidx.media3.exoplayer.mediacodec.MediaCodecAdapter;
+import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
 import androidx.media3.exoplayer.video.MediaCodecVideoRenderer;
 import androidx.media3.exoplayer.video.VideoRendererEventListener;
 import com.google.common.collect.ImmutableList;
@@ -81,16 +82,20 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 /* package */ final class ExperimentalFrameExtractor implements AnalyticsListener {
 
   /** Configuration for the frame extractor. */
-  // TODO: b/350498258 - Add configuration for decoder selection.
   public static final class Configuration {
 
     /** A builder for {@link Configuration} instances. */
     public static final class Builder {
       private SeekParameters seekParameters;
+      private MediaCodecSelector mediaCodecSelector;
 
       /** Creates a new instance with default values. */
       public Builder() {
         seekParameters = SeekParameters.DEFAULT;
+        // TODO: b/350498258 - Consider a switch to MediaCodecSelector.DEFAULT. Some hardware
+        // MediaCodec decoders crash when flushing (seeking) and setVideoEffects is used. See also
+        // b/362904942.
+        mediaCodecSelector = MediaCodecSelector.PREFER_SOFTWARE;
       }
 
       /**
@@ -106,17 +111,34 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         return this;
       }
 
+      /**
+       * Sets the {@linkplain MediaCodecSelector selector} of {@link MediaCodec} instances. Defaults
+       * to {@link MediaCodecSelector#PREFER_SOFTWARE}.
+       *
+       * @param mediaCodecSelector The {@link MediaCodecSelector}.
+       * @return This builder.
+       */
+      @CanIgnoreReturnValue
+      public Builder setMediaCodecSelector(MediaCodecSelector mediaCodecSelector) {
+        this.mediaCodecSelector = mediaCodecSelector;
+        return this;
+      }
+
       /** Builds a new {@link Configuration} instance. */
       public Configuration build() {
-        return new Configuration(seekParameters);
+        return new Configuration(seekParameters, mediaCodecSelector);
       }
     }
 
     /** The {@link SeekParameters}. */
     public final SeekParameters seekParameters;
 
-    private Configuration(SeekParameters seekParameters) {
+    /** The {@link MediaCodecSelector}. */
+    public final MediaCodecSelector mediaCodecSelector;
+
+    private Configuration(SeekParameters seekParameters, MediaCodecSelector mediaCodecSelector) {
       this.seekParameters = seekParameters;
+      this.mediaCodecSelector = mediaCodecSelector;
     }
   }
 
@@ -179,7 +201,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                     textRendererOutput,
                     metadataRendererOutput) ->
                     new Renderer[] {
-                      new FrameExtractorRenderer(context, videoRendererEventListener)
+                      new FrameExtractorRenderer(
+                          context, configuration.mediaCodecSelector, videoRendererEventListener)
                     })
             .setSeekParameters(configuration.seekParameters)
             .build();
@@ -386,10 +409,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     private @MonotonicNonNull Effect rotation;
 
     public FrameExtractorRenderer(
-        Context context, VideoRendererEventListener videoRendererEventListener) {
+        Context context,
+        MediaCodecSelector mediaCodecSelector,
+        VideoRendererEventListener videoRendererEventListener) {
       super(
           context,
-          /* mediaCodecSelector= */ DEFAULT,
+          mediaCodecSelector,
           /* allowedJoiningTimeMs= */ 0,
           Util.createHandlerForCurrentOrMainLooper(),
           videoRendererEventListener,
