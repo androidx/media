@@ -15,6 +15,8 @@
  */
 package androidx.media3.extractor.mp3;
 
+import static java.lang.Math.max;
+
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.Log;
@@ -47,7 +49,9 @@ import androidx.media3.extractor.SeekPoint;
       long position,
       MpegAudioUtil.Header mpegAudioHeader,
       ParsableByteArray frame) {
-    frame.skipBytes(10);
+    frame.skipBytes(6);
+    int bytes = frame.readInt();
+    long endOfMp3Data = position + mpegAudioHeader.frameSize + bytes;
     int numFrames = frame.readInt();
     if (numFrames <= 0) {
       return null;
@@ -87,11 +91,21 @@ import androidx.media3.extractor.SeekPoint;
       }
       position += segmentSize * ((long) scale);
     }
-    if (inputLength != C.LENGTH_UNSET && inputLength != position) {
-      Log.w(TAG, "VBRI data size mismatch: " + inputLength + ", " + position);
+    if (inputLength != C.LENGTH_UNSET && inputLength != endOfMp3Data) {
+      Log.w(TAG, "VBRI data size mismatch: " + inputLength + ", " + endOfMp3Data);
     }
-    return new VbriSeeker(
-        timesUs, positions, durationUs, /* dataEndPosition= */ position, mpegAudioHeader.bitrate);
+    if (endOfMp3Data != position) {
+      Log.w(
+          TAG,
+          "VBRI bytes and ToC mismatch (using max): "
+              + endOfMp3Data
+              + ", "
+              + position
+              + "\nSeeking will be inaccurate.");
+      endOfMp3Data = max(endOfMp3Data, position);
+    }
+
+    return new VbriSeeker(timesUs, positions, durationUs, endOfMp3Data, mpegAudioHeader.bitrate);
   }
 
   private final long[] timesUs;
