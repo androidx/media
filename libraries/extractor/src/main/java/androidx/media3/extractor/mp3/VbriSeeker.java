@@ -15,8 +15,6 @@
  */
 package androidx.media3.extractor.mp3;
 
-import static java.lang.Math.max;
-
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.Log;
@@ -63,15 +61,13 @@ import androidx.media3.extractor.SeekPoint;
     int entrySize = frame.readUnsignedShort();
     frame.skipBytes(2);
 
-    long minPosition = position + mpegAudioHeader.frameSize;
+    position += mpegAudioHeader.frameSize;
     // Read table of contents entries.
     long[] timesUs = new long[entryCount];
     long[] positions = new long[entryCount];
     for (int index = 0; index < entryCount; index++) {
       timesUs[index] = (index * durationUs) / entryCount;
-      // Ensure positions do not fall within the frame containing the VBRI header. This constraint
-      // will normally only apply to the first entry in the table.
-      positions[index] = max(position, minPosition);
+      positions[index] = position;
       int segmentSize;
       switch (entrySize) {
         case 1:
