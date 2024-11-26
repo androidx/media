@@ -77,6 +77,13 @@ public final class Mp3ExtractorTest {
         Mp3Extractor::new, "media/mp3/bear-vbr-vbri-header.mp3", simulationConfig);
   }
 
+  // https://github.com/androidx/media/issues/1904
+  @Test
+  public void mp3SampleWithVbriHeaderWithTruncatedToC() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        Mp3Extractor::new, "media/mp3/bear-vbr-vbri-header-truncated-toc.mp3", simulationConfig);
+  }
+
   @Test
   public void mp3SampleWithCbrSeeker() throws Exception {
     ExtractorAsserts.assertBehavior(

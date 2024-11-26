@@ -26,6 +26,9 @@
     *   Add support for transmuxing into alternative backwards compatible
         formats.
 *   Extractors:
+    *   MP3: Don't stop playback early when a `VBRI` frame's table of contents
+        doesn't cover all the MP3 data in a file
+        ([#1904](https://github.com/androidx/media/issues/1904)).
 *   DataSource:
 *   Audio:
     *   Do not bypass `SonicAudioProcessor` when `SpeedChangingAudioProcessor`
