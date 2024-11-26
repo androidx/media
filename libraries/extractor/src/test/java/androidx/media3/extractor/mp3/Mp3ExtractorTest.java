@@ -72,6 +72,12 @@ public final class Mp3ExtractorTest {
   }
 
   @Test
+  public void mp3SampleWithVbriHeader() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        Mp3Extractor::new, "media/mp3/bear-vbr-vbri-header.mp3", simulationConfig);
+  }
+
+  @Test
   public void mp3SampleWithCbrSeeker() throws Exception {
     ExtractorAsserts.assertBehavior(
         Mp3Extractor::new,
