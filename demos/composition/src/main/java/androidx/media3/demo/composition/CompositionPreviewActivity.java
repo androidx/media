@@ -191,6 +191,18 @@ public final class CompositionPreviewActivity extends AppCompatActivity {
     exportStopwatch.reset();
   }
 
+  @SuppressWarnings("MissingSuperCall")
+  @Override
+  public void onBackPressed() {
+    if (compositionPlayer != null) {
+      compositionPlayer.pause();
+    }
+    if (exportStopwatch.isRunning()) {
+      cancelExport();
+      exportStopwatch.reset();
+    }
+  }
+
   private Composition prepareComposition() {
     String[] presetUris = getResources().getStringArray(/* id= */ R.array.preset_uris);
     int[] presetDurationsUs = getResources().getIntArray(/* id= */ R.array.preset_durations);
