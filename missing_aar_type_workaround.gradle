@@ -38,12 +38,12 @@ def addMissingAarTypeToXml(xml) {
     def aar_dependencies = [
         "androidx.annotation:annotation-experimental",
         "androidx.appcompat:appcompat",
+        "androidx.compose.foundation:foundation",
         "androidx.core:core",
         "androidx.core:core-ktx",
         "androidx.exifinterface:exifinterface",
         "androidx.leanback:leanback",
         "androidx.media:media",
-        "androidx.media2:media2-session",
         "androidx.recyclerview:recyclerview",
         "androidx.test:core",
         "androidx.test.ext:junit",
