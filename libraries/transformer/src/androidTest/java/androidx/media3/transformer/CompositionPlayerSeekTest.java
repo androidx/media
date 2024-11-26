@@ -111,7 +111,7 @@ public class CompositionPlayerSeekTest {
             // Plays the second video
             .addAll(
                 Iterables.transform(
-                    VIDEO_TIMESTAMPS_US, timestampUs -> (VIDEO_DURATION_US + timestampUs)))
+                    VIDEO_TIMESTAMPS_US, timestampUs -> VIDEO_DURATION_US + timestampUs))
             .build();
     // Seeked after the first playback ends, so the timestamps are repeated twice.
     ImmutableList<Long> expectedTimestampsUs =
@@ -158,7 +158,7 @@ public class CompositionPlayerSeekTest {
             // Plays the second video
             .addAll(
                 Iterables.transform(
-                    VIDEO_TIMESTAMPS_US, timestampUs -> (VIDEO_DURATION_US + timestampUs)))
+                    VIDEO_TIMESTAMPS_US, timestampUs -> VIDEO_DURATION_US + timestampUs))
             .build();
 
     ImmutableList<Long> actualTimestampsUs =
@@ -186,7 +186,7 @@ public class CompositionPlayerSeekTest {
             // Plays the second video
             .addAll(
                 Iterables.transform(
-                    VIDEO_TIMESTAMPS_US, timestampUs -> (VIDEO_DURATION_US + timestampUs)))
+                    VIDEO_TIMESTAMPS_US, timestampUs -> VIDEO_DURATION_US + timestampUs))
             .build();
 
     ImmutableList<Long> actualTimestampsUs =
@@ -213,7 +213,7 @@ public class CompositionPlayerSeekTest {
             .addAll(
                 Iterables.transform(
                     Iterables.skip(VIDEO_TIMESTAMPS_US, /* numberToSkip= */ 3),
-                    timestampUs -> (VIDEO_DURATION_US + timestampUs)))
+                    timestampUs -> VIDEO_DURATION_US + timestampUs))
             .build();
 
     ImmutableList<Long> actualTimestampsUs =
@@ -239,13 +239,13 @@ public class CompositionPlayerSeekTest {
             .addAll(
                 Iterables.transform(
                     Iterables.limit(VIDEO_TIMESTAMPS_US, /* limitSize= */ 15),
-                    timestampUs -> (VIDEO_DURATION_US + timestampUs)))
+                    timestampUs -> VIDEO_DURATION_US + timestampUs))
             // Seek to the first, skipping the first 3 frames.
             .addAll(Iterables.skip(VIDEO_TIMESTAMPS_US, /* numberToSkip= */ 3))
             // Plays the second video
             .addAll(
                 Iterables.transform(
-                    VIDEO_TIMESTAMPS_US, timestampUs -> (VIDEO_DURATION_US + timestampUs)))
+                    VIDEO_TIMESTAMPS_US, timestampUs -> VIDEO_DURATION_US + timestampUs))
             .build();
 
     ImmutableList<Long> actualTimestampsUs =
@@ -271,12 +271,12 @@ public class CompositionPlayerSeekTest {
             .addAll(
                 Iterables.transform(
                     Iterables.limit(VIDEO_TIMESTAMPS_US, /* limitSize= */ 15),
-                    timestampUs -> (VIDEO_DURATION_US + timestampUs)))
+                    timestampUs -> VIDEO_DURATION_US + timestampUs))
             // Seek to the second, skipping the first 3 frames.
             .addAll(
                 Iterables.transform(
                     Iterables.skip(VIDEO_TIMESTAMPS_US, /* numberToSkip= */ 3),
-                    timestampUs -> (VIDEO_DURATION_US + timestampUs)))
+                    timestampUs -> VIDEO_DURATION_US + timestampUs))
             .build();
 
     ImmutableList<Long> actualTimestampsUs =
@@ -302,7 +302,7 @@ public class CompositionPlayerSeekTest {
             // Plays the second video
             .addAll(
                 Iterables.transform(
-                    VIDEO_TIMESTAMPS_US, timestampUs -> (VIDEO_DURATION_US + timestampUs)))
+                    VIDEO_TIMESTAMPS_US, timestampUs -> VIDEO_DURATION_US + timestampUs))
             .build();
 
     ImmutableList<Long> actualTimestampsUs =
@@ -375,7 +375,7 @@ public class CompositionPlayerSeekTest {
             .addAll(
                 Iterables.transform(
                     Iterables.skip(IMAGE_TIMESTAMPS_US, /* numberToSkip= */ 3),
-                    timestampUs -> (IMAGE_DURATION_US + timestampUs)))
+                    timestampUs -> IMAGE_DURATION_US + timestampUs))
             .build();
 
     ImmutableList<Long> actualTimestampsUs =
@@ -401,7 +401,7 @@ public class CompositionPlayerSeekTest {
             .addAll(
                 Iterables.transform(
                     Iterables.skip(IMAGE_TIMESTAMPS_US, /* numberToSkip= */ 3),
-                    timestampUs -> (VIDEO_DURATION_US + timestampUs)))
+                    timestampUs -> VIDEO_DURATION_US + timestampUs))
             .build();
 
     ImmutableList<Long> actualTimestampsUs =
@@ -427,13 +427,13 @@ public class CompositionPlayerSeekTest {
             .addAll(
                 Iterables.transform(
                     Iterables.limit(VIDEO_TIMESTAMPS_US, /* limitSize= */ 9),
-                    timestampUs -> (IMAGE_DURATION_US + timestampUs)))
+                    timestampUs -> IMAGE_DURATION_US + timestampUs))
             // Skipping the first 3 frames of the image
             .addAll(Iterables.skip(IMAGE_TIMESTAMPS_US, /* numberToSkip= */ 3))
             // Play the video
             .addAll(
                 Iterables.transform(
-                    VIDEO_TIMESTAMPS_US, timestampUs -> (IMAGE_DURATION_US + timestampUs)))
+                    VIDEO_TIMESTAMPS_US, timestampUs -> IMAGE_DURATION_US + timestampUs))
             .build();
 
     ImmutableList<Long> actualTimestampsUs =
@@ -464,7 +464,7 @@ public class CompositionPlayerSeekTest {
             .addAll(Iterables.skip(VIDEO_TIMESTAMPS_US, /* numberToSkip= */ 3))
             .addAll(
                 Iterables.transform(
-                    IMAGE_TIMESTAMPS_US, timestampUs -> (VIDEO_DURATION_US + timestampUs)))
+                    IMAGE_TIMESTAMPS_US, timestampUs -> VIDEO_DURATION_US + timestampUs))
             .build();
 
     ImmutableList<Long> actualTimestampsUs =
@@ -490,7 +490,7 @@ public class CompositionPlayerSeekTest {
             .addAll(
                 Iterables.transform(
                     Iterables.skip(VIDEO_TIMESTAMPS_US, /* numberToSkip= */ 3),
-                    timestampUs -> (IMAGE_DURATION_US + timestampUs)))
+                    timestampUs -> IMAGE_DURATION_US + timestampUs))
             .build();
 
     ImmutableList<Long> actualTimestampsUs =
