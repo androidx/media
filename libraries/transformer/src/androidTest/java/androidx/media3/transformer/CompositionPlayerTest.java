@@ -54,7 +54,9 @@ import androidx.media3.exoplayer.RendererCapabilities;
 import androidx.media3.exoplayer.image.BitmapFactoryImageDecoder;
 import androidx.media3.exoplayer.image.ImageDecoder;
 import androidx.media3.exoplayer.image.ImageDecoderException;
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.exoplayer.source.ExternalLoader;
+import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.test.utils.TestSpeedProvider;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
@@ -264,12 +266,15 @@ public class CompositionPlayerTest {
     PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
     ExternalLoader externalImageLoader =
         loadRequest -> immediateFuture(Util.getUtf8Bytes(loadRequest.uri.toString()));
+    MediaSource.Factory mediaSourceFactory =
+        new DefaultMediaSourceFactory(applicationContext)
+            .setExternalImageLoader(externalImageLoader);
 
     instrumentation.runOnMainSync(
         () -> {
           compositionPlayer =
               new CompositionPlayer.Builder(applicationContext)
-                  .setExternalImageLoader(externalImageLoader)
+                  .setMediaSourceFactory(mediaSourceFactory)
                   .setImageDecoderFactory(new TestImageDecoderFactory())
                   .build();
           // Set a surface on the player even though there is no UI on this test. We need a surface

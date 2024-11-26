@@ -37,7 +37,6 @@ import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.MediaItem;
-import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.PreviewingVideoGraph;
@@ -63,7 +62,6 @@ import androidx.media3.exoplayer.image.ImageDecoder;
 import androidx.media3.exoplayer.source.ClippingMediaSource;
 import androidx.media3.exoplayer.source.ConcatenatingMediaSource2;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
-import androidx.media3.exoplayer.source.ExternalLoader;
 import androidx.media3.exoplayer.source.FilteringMediaSource;
 import androidx.media3.exoplayer.source.ForwardingTimeline;
 import androidx.media3.exoplayer.source.MediaPeriod;
@@ -118,7 +116,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
 
     private @MonotonicNonNull Looper looper;
     private @MonotonicNonNull AudioSink audioSink;
-    private @MonotonicNonNull ExternalLoader externalImageLoader;
+    private MediaSource.Factory mediaSourceFactory;
     private ImageDecoder.Factory imageDecoderFactory;
     private Clock clock;
     private PreviewingVideoGraph.@MonotonicNonNull Factory previewingVideoGraphFactory;
@@ -131,6 +129,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
      */
     public Builder(Context context) {
       this.context = context.getApplicationContext();
+      mediaSourceFactory = new DefaultMediaSourceFactory(context);
       imageDecoderFactory = ImageDecoder.Factory.DEFAULT;
       clock = Clock.DEFAULT;
     }
@@ -165,20 +164,19 @@ public final class CompositionPlayer extends SimpleBasePlayer
     }
 
     /**
-     * Sets the {@link ExternalLoader} for loading image media items with MIME type set to {@link
-     * MimeTypes#APPLICATION_EXTERNALLY_LOADED_IMAGE}. When setting an external loader, also set an
-     * {@link ImageDecoder.Factory} with {@link #setImageDecoderFactory(ImageDecoder.Factory)}.
+     * Sets the {@link MediaSource.Factory} that *creates* the {@link MediaSource} for {@link
+     * EditedMediaItem#mediaItem MediaItems} in a {@link Composition}.
      *
-     * <p>By default, the player will not be able to load images with media type of {@link
-     * androidx.media3.common.MimeTypes#APPLICATION_EXTERNALLY_LOADED_IMAGE}.
+     * <p>To use an external image loader, one could create a {@link DefaultMediaSourceFactory},
+     * {@linkplain DefaultMediaSourceFactory#setExternalImageLoader set the external image loader},
+     * and pass in the {@link DefaultMediaSourceFactory} here.
      *
-     * @param externalImageLoader The {@link ExternalLoader}.
+     * @param mediaSourceFactory The {@link MediaSource.Factory}
      * @return This builder, for convenience.
-     * @see DefaultMediaSourceFactory#setExternalImageLoader(ExternalLoader)
      */
     @CanIgnoreReturnValue
-    public Builder setExternalImageLoader(ExternalLoader externalImageLoader) {
-      this.externalImageLoader = externalImageLoader;
+    public Builder setMediaSourceFactory(MediaSource.Factory mediaSourceFactory) {
+      this.mediaSourceFactory = mediaSourceFactory;
       return this;
     }
 
@@ -287,7 +285,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
   private final HandlerWrapper applicationHandler;
   private final List<ExoPlayer> players;
   private final AudioSink finalAudioSink;
-  @Nullable private final ExternalLoader externalImageLoader;
+  private final MediaSource.Factory mediaSourceFactory;
   private final ImageDecoder.Factory imageDecoderFactory;
   private final PreviewingVideoGraph.Factory previewingVideoGraphFactory;
   private final HandlerWrapper compositionInternalListenerHandler;
@@ -316,7 +314,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
     clock = builder.clock;
     applicationHandler = clock.createHandler(builder.looper, /* callback= */ null);
     finalAudioSink = checkNotNull(builder.audioSink);
-    externalImageLoader = builder.externalImageLoader;
+    mediaSourceFactory = builder.mediaSourceFactory;
     imageDecoderFactory = builder.imageDecoderFactory;
     previewingVideoGraphFactory = checkNotNull(builder.previewingVideoGraphFactory);
     compositionInternalListenerHandler = clock.createHandler(builder.looper, /* callback= */ null);
@@ -750,10 +748,6 @@ public final class CompositionPlayer extends SimpleBasePlayer
 
   private void setPrimaryPlayerSequence(ExoPlayer player, EditedMediaItemSequence sequence) {
     ConcatenatingMediaSource2.Builder mediaSourceBuilder = new ConcatenatingMediaSource2.Builder();
-    DefaultMediaSourceFactory defaultMediaSourceFactory = new DefaultMediaSourceFactory(context);
-    if (externalImageLoader != null) {
-      defaultMediaSourceFactory.setExternalImageLoader(externalImageLoader);
-    }
 
     for (int i = 0; i < sequence.editedMediaItems.size(); i++) {
       EditedMediaItem editedMediaItem = sequence.editedMediaItems.get(i);
@@ -767,8 +761,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
               editedMediaItem.mediaItem.clippingConfiguration.endPositionUs);
 
       // The MediaSource that loads the MediaItem
-      MediaSource mainMediaSource =
-          defaultMediaSourceFactory.createMediaSource(editedMediaItem.mediaItem);
+      MediaSource mainMediaSource = mediaSourceFactory.createMediaSource(editedMediaItem.mediaItem);
       if (editedMediaItem.removeAudio) {
         mainMediaSource =
             new FilteringMediaSource(
@@ -791,7 +784,6 @@ public final class CompositionPlayer extends SimpleBasePlayer
     // TODO: b/331392198 - Repeat only looping sequences, after sequences can be of arbitrary
     //  length.
     ConcatenatingMediaSource2.Builder mediaSourceBuilder = new ConcatenatingMediaSource2.Builder();
-    DefaultMediaSourceFactory defaultMediaSourceFactory = new DefaultMediaSourceFactory(context);
 
     long accumulatedDurationUs = 0;
     int i = 0;
@@ -801,7 +793,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
       MediaItem mediaItem = editedMediaItem.mediaItem;
       if (accumulatedDurationUs + itemPresentationDurationUs <= primarySequenceDurationUs) {
         mediaSourceBuilder.add(
-            defaultMediaSourceFactory.createMediaSource(mediaItem),
+            mediaSourceFactory.createMediaSource(mediaItem),
             /* initialPlaceholderDurationMs= */ usToMs(itemPresentationDurationUs));
         accumulatedDurationUs += itemPresentationDurationUs;
       } else {
@@ -809,7 +801,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
         // TODO: b/289989542 - Handle already clipped, or speed adjusted media.
         mediaSourceBuilder.add(
             new ClippingMediaSource(
-                defaultMediaSourceFactory.createMediaSource(mediaItem),
+                mediaSourceFactory.createMediaSource(mediaItem),
                 mediaItem.clippingConfiguration.startPositionUs,
                 mediaItem.clippingConfiguration.startPositionUs + remainingDurationUs),
             /* initialPlaceholderDurationMs= */ usToMs(remainingDurationUs));
