@@ -58,8 +58,8 @@ import androidx.media3.extractor.SeekPoint;
     }
     int sampleRate = mpegAudioHeader.sampleRate;
     long durationUs =
-        Util.scaleLargeTimestamp(
-            numFrames, C.MICROS_PER_SECOND * (sampleRate >= 32000 ? 1152 : 576), sampleRate);
+        Util.sampleCountToDurationUs(
+            ((long) numFrames * mpegAudioHeader.samplesPerFrame) - 1, sampleRate);
     int entryCount = frame.readUnsignedShort();
     int scale = frame.readUnsignedShort();
     int entrySize = frame.readUnsignedShort();
