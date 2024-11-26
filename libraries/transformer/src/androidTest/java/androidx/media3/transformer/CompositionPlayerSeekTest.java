@@ -169,6 +169,34 @@ public class CompositionPlayerSeekTest {
   }
 
   @Test
+  public void seekToFirstMedia_duringPlayingFirstVideoInSingleSequenceOfTwoVideos()
+      throws Exception {
+    ImmutableList<MediaItem> mediaItems = ImmutableList.of(VIDEO_MEDIA_ITEM, VIDEO_MEDIA_ITEM);
+    ImmutableList<Long> durationsUs = ImmutableList.of(VIDEO_DURATION_US, VIDEO_DURATION_US);
+    int numberOfFramesBeforeSeeking = 15;
+    // 100ms into the first video, should skip the first 3 frames.
+    long seekTimeMs = 100;
+    ImmutableList<Long> expectedTimestampsUs =
+        new ImmutableList.Builder<Long>()
+            // Plays the first 15 frames of the first video
+            .addAll(
+                Iterables.limit(VIDEO_TIMESTAMPS_US, /* limitSize= */ numberOfFramesBeforeSeeking))
+            // Seek, skipping the first 3 frames of the first video
+            .addAll(Iterables.skip(VIDEO_TIMESTAMPS_US, /* numberToSkip= */ 3))
+            // Plays the second video
+            .addAll(
+                Iterables.transform(
+                    VIDEO_TIMESTAMPS_US, timestampUs -> (VIDEO_DURATION_US + timestampUs)))
+            .build();
+
+    ImmutableList<Long> actualTimestampsUs =
+        playSequenceAndGetTimestampsUs(
+            mediaItems, durationsUs, numberOfFramesBeforeSeeking, seekTimeMs);
+
+    assertThat(actualTimestampsUs).isEqualTo(expectedTimestampsUs);
+  }
+
+  @Test
   public void seekToSecondMedia_duringPlayingFirstVideoInSingleSequenceOfTwoVideos()
       throws Exception {
     ImmutableList<MediaItem> mediaItems = ImmutableList.of(VIDEO_MEDIA_ITEM, VIDEO_MEDIA_ITEM);
@@ -218,6 +246,37 @@ public class CompositionPlayerSeekTest {
             .addAll(
                 Iterables.transform(
                     VIDEO_TIMESTAMPS_US, timestampUs -> (VIDEO_DURATION_US + timestampUs)))
+            .build();
+
+    ImmutableList<Long> actualTimestampsUs =
+        playSequenceAndGetTimestampsUs(
+            mediaItems, durationsUs, numberOfFramesBeforeSeeking, seekTimeMs);
+
+    assertThat(actualTimestampsUs).isEqualTo(expectedTimestampsUs);
+  }
+
+  @Test
+  public void seekToSecondMedia_duringPlayingSecondVideoInSingleSequenceOfTwoVideos()
+      throws Exception {
+    ImmutableList<MediaItem> mediaItems = ImmutableList.of(VIDEO_MEDIA_ITEM, VIDEO_MEDIA_ITEM);
+    ImmutableList<Long> durationsUs = ImmutableList.of(VIDEO_DURATION_US, VIDEO_DURATION_US);
+    int numberOfFramesBeforeSeeking = 45;
+    // 100ms into the second video, should skip the first 3 frames.
+    long seekTimeMs = 1124;
+    ImmutableList<Long> expectedTimestampsUs =
+        new ImmutableList.Builder<Long>()
+            // Play first video
+            .addAll(VIDEO_TIMESTAMPS_US)
+            // Play the first 15 frames of the seconds video
+            .addAll(
+                Iterables.transform(
+                    Iterables.limit(VIDEO_TIMESTAMPS_US, /* limitSize= */ 15),
+                    timestampUs -> (VIDEO_DURATION_US + timestampUs)))
+            // Seek to the second, skipping the first 3 frames.
+            .addAll(
+                Iterables.transform(
+                    Iterables.skip(VIDEO_TIMESTAMPS_US, /* numberToSkip= */ 3),
+                    timestampUs -> (VIDEO_DURATION_US + timestampUs)))
             .build();
 
     ImmutableList<Long> actualTimestampsUs =
