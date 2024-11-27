@@ -649,7 +649,6 @@ public class MediaExtractorCompatTest {
           return Extractor.RESULT_CONTINUE;
         });
     mediaExtractorCompat.setDataSource(PLACEHOLDER_URI, /* offset= */ 0);
-    mediaExtractorCompat.selectTrack(/* trackIndex= */ 0);
 
     MediaFormat mediaFormat = mediaExtractorCompat.getTrackFormat(/* trackIndex= */ 0);
 
@@ -671,7 +670,6 @@ public class MediaExtractorCompatTest {
           return Extractor.RESULT_CONTINUE;
         });
     mediaExtractorCompat.setDataSource(PLACEHOLDER_URI, /* offset= */ 0);
-    mediaExtractorCompat.selectTrack(/* trackIndex= */ 0);
 
     MediaFormat mediaFormat = mediaExtractorCompat.getTrackFormat(/* trackIndex= */ 0);
 
@@ -694,11 +692,33 @@ public class MediaExtractorCompatTest {
           return Extractor.RESULT_CONTINUE;
         });
     mediaExtractorCompat.setDataSource(PLACEHOLDER_URI, /* offset= */ 0);
-    mediaExtractorCompat.selectTrack(/* trackIndex= */ 0);
 
     MediaFormat mediaFormat = mediaExtractorCompat.getTrackFormat(/* trackIndex= */ 0);
 
     assertThat(mediaFormat.containsKey(MediaFormat.KEY_DURATION)).isFalse();
+  }
+
+  @Test
+  public void getTrackFormat_withMultipleTracks_returnsCorrectTrackId() throws IOException {
+    fakeExtractor.addReadAction(
+        (input, seekPosition) -> {
+          TrackOutput output1 = extractorOutput.track(/* id= */ 1, C.TRACK_TYPE_VIDEO);
+          TrackOutput output2 = extractorOutput.track(/* id= */ 2, C.TRACK_TYPE_AUDIO);
+          extractorOutput.endTracks();
+          output1.format(PLACEHOLDER_FORMAT_VIDEO);
+          output2.format(PLACEHOLDER_FORMAT_AUDIO);
+          return Extractor.RESULT_CONTINUE;
+        });
+
+    mediaExtractorCompat.setDataSource(PLACEHOLDER_URI, /* offset= */ 0);
+
+    MediaFormat videoFormat = mediaExtractorCompat.getTrackFormat(/* trackIndex= */ 0);
+    assertThat(videoFormat.containsKey(MediaFormat.KEY_TRACK_ID)).isTrue();
+    assertThat(videoFormat.getInteger(MediaFormat.KEY_TRACK_ID)).isEqualTo(1);
+
+    MediaFormat audioFormat = mediaExtractorCompat.getTrackFormat(/* trackIndex= */ 1);
+    assertThat(audioFormat.containsKey(MediaFormat.KEY_TRACK_ID)).isTrue();
+    assertThat(audioFormat.getInteger(MediaFormat.KEY_TRACK_ID)).isEqualTo(2);
   }
 
   @Test
