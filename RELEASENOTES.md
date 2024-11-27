@@ -20,6 +20,8 @@
     *   Reduce default values for `bufferForPlaybackMs` and
         `bufferForPlaybackAfterRebufferMs` in `DefaultLoadControl` to 1000 and
         2000 ms respectively.
+    *   Add `MediaExtractorCompat`, a new class that provides equivalent
+        functionality to platform `MediaExtractor`.
 *   Transformer:
     *   Update parameters of `VideoFrameProcessor.registerInputStream` and
         `VideoFrameProcessor.Listener.onInputStreamRegistered` to use `Format`.

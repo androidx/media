@@ -25,6 +25,7 @@ import static java.lang.Math.max;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.res.AssetFileDescriptor;
+import android.media.MediaCodec;
 import android.media.MediaDataSource;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
@@ -592,6 +593,38 @@ public final class MediaExtractorCompat {
       return -1;
     }
     return sampleMetadataQueue.peekFirst().flags;
+  }
+
+  /**
+   * Returns {@code true} if the current sample is at least partially encrypted and fills the
+   * provided {@link MediaCodec.CryptoInfo} structure with relevant decryption information.
+   *
+   * @param info The {@link MediaCodec.CryptoInfo} structure to be filled with decryption data.
+   * @return {@code true} if the sample is at least partially encrypted, {@code false} otherwise.
+   */
+  public boolean getSampleCryptoInfo(MediaCodec.CryptoInfo info) {
+    if (!advanceToSampleOrEndOfInput()) {
+      return false;
+    }
+    boolean isEncrypted =
+        (sampleMetadataQueue.peekFirst().flags & MediaExtractor.SAMPLE_FLAG_ENCRYPTED) != 0;
+    if (!isEncrypted) {
+      return false;
+    }
+    peekNextSelectedTrackSample(sampleHolderWithBufferReplacementEnabled);
+    populatePlatformCryptoInfoParameters(info);
+    return true;
+  }
+
+  private void populatePlatformCryptoInfoParameters(MediaCodec.CryptoInfo info) {
+    MediaCodec.CryptoInfo platformCryptoInfo =
+        checkNotNull(sampleHolderWithBufferReplacementEnabled.cryptoInfo).getFrameworkCryptoInfo();
+    info.numSubSamples = platformCryptoInfo.numSubSamples;
+    info.numBytesOfClearData = platformCryptoInfo.numBytesOfClearData;
+    info.numBytesOfEncryptedData = platformCryptoInfo.numBytesOfEncryptedData;
+    info.key = platformCryptoInfo.key;
+    info.iv = platformCryptoInfo.iv;
+    info.mode = platformCryptoInfo.mode;
   }
 
   /** Sets the {@link LogSessionId} for MediaExtractorCompat. */
