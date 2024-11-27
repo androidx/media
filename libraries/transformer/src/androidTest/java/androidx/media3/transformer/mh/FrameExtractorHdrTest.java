@@ -15,6 +15,10 @@
  */
 package androidx.media3.transformer.mh;
 
+import static android.graphics.Bitmap.Config.RGBA_1010102;
+import static android.graphics.Bitmap.Config.RGBA_F16;
+import static android.graphics.ColorSpace.Named.BT2020_HLG;
+import static androidx.media3.common.util.Util.SDK_INT;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.maybeSaveTestBitmap;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.readBitmap;
 import static androidx.media3.test.utils.TestUtil.assertBitmapsAreSimilar;
@@ -22,9 +26,13 @@ import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_COLOR_TEST_1
 import static androidx.media3.transformer.mh.HdrCapabilitiesUtil.assumeDeviceSupportsOpenGlToneMapping;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.ColorSpace;
+import android.graphics.Paint;
 import androidx.media3.common.MediaItem;
 import androidx.media3.transformer.ExperimentalFrameExtractor;
 import androidx.test.core.app.ApplicationProvider;
@@ -46,6 +54,10 @@ public class FrameExtractorHdrTest {
   // this file.
   private static final String TONE_MAP_HLG_TO_SDR_PNG_ASSET_PATH =
       "test-generated-goldens/sample_mp4_first_frame/electrical_colors/tone_map_hlg_to_sdr.png";
+  // File names in test-generated-goldens/FrameExtractorTest end with the presentation time of the
+  // extracted frame in seconds and milliseconds (_0.000 for 0s ; _1.567 for 1.567 seconds).
+  private static final String EXTRACT_HLG_PNG_ASSET_PATH =
+      "test-generated-goldens/FrameExtractorTest/hlg10-color-test_0.000.png";
   private static final long TIMEOUT_SECONDS = 10;
   private static final float PSNR_THRESHOLD = 25f;
 
@@ -87,5 +99,53 @@ public class FrameExtractorHdrTest {
 
     assertThat(frame.presentationTimeMs).isEqualTo(0);
     assertBitmapsAreSimilar(expectedBitmap, actualBitmap, PSNR_THRESHOLD);
+  }
+
+  @Test
+  public void extractFrame_oneFrameHlgWithHdrOutput_returnsHlgFrame() throws Exception {
+    assumeDeviceSupportsOpenGlToneMapping(testId, MP4_ASSET_COLOR_TEST_1080P_HLG10.videoFormat);
+    // HLG Bitmaps are only supported on API 34+.
+    assumeTrue(SDK_INT >= 34);
+    frameExtractor =
+        new ExperimentalFrameExtractor(
+            context,
+            new ExperimentalFrameExtractor.Configuration.Builder()
+                .setExtractHdrFrames(true)
+                .build(),
+            MediaItem.fromUri(MP4_ASSET_COLOR_TEST_1080P_HLG10.uri),
+            /* effects= */ ImmutableList.of());
+
+    ListenableFuture<ExperimentalFrameExtractor.Frame> frameFuture =
+        frameExtractor.getFrame(/* positionMs= */ 0);
+    ExperimentalFrameExtractor.Frame frame = frameFuture.get(TIMEOUT_SECONDS, SECONDS);
+    Bitmap actualBitmap = frame.bitmap;
+    Bitmap actualBitmapDefaultColorSpace = removeColorSpace(actualBitmap);
+    Bitmap expectedBitmap = readBitmap(EXTRACT_HLG_PNG_ASSET_PATH);
+    maybeSaveTestBitmap(
+        testId,
+        /* bitmapLabel= */ "actualBitmapDefaultColorSpace",
+        actualBitmapDefaultColorSpace,
+        /* path= */ null);
+
+    assertThat(frame.presentationTimeMs).isEqualTo(0);
+    assertThat(actualBitmap.getConfig()).isEqualTo(RGBA_1010102);
+    assertThat(actualBitmap.getColorSpace()).isEqualTo(ColorSpace.get(BT2020_HLG));
+    assertBitmapsAreSimilar(expectedBitmap, actualBitmap, PSNR_THRESHOLD);
+  }
+
+  /**
+   * Copy the contents of the input {@link Bitmap} into a {@link Bitmap} with {@link
+   * Bitmap.Config#RGBA_F16} config and default {@link ColorSpace}.
+   *
+   * <p>Writing a {@link ColorSpace.Named#BT2020_HLG} {@link Bitmap} to PNG seems to be poorly
+   * supported. Use this method to convert to generate golden files that preserve the pixel values,
+   * albeit in an incorrect {@link ColorSpace}.
+   */
+  private static Bitmap removeColorSpace(Bitmap hlgBitmap) {
+    Bitmap regularBitmap =
+        Bitmap.createBitmap(hlgBitmap.getWidth(), hlgBitmap.getHeight(), RGBA_F16);
+    Canvas canvas = new Canvas(regularBitmap);
+    canvas.drawBitmap(hlgBitmap, /* left= */ 0, /* top= */ 0, new Paint());
+    return regularBitmap;
   }
 }

@@ -674,6 +674,34 @@ public final class GlUtil {
   }
 
   /**
+   * Allocates a new {@linkplain GLES20#GL_RGBA normalized integer} {@link GLES30#GL_RGB10_A2}
+   * texture with the specified dimensions.
+   *
+   * <p>Normalized integers in textures are automatically converted for floating point numbers
+   * https://www.khronos.org/opengl/wiki/Normalized_Integer
+   *
+   * <p>The only supported pixel data type for the {@link GLES30#GL_RGB10_A2} sized internal format
+   * is {@link GLES30#GL_UNSIGNED_INT_2_10_10_10_REV}. See
+   * https://registry.khronos.org/OpenGL-Refpages/es3.0/html/glTexImage2D.xhtml
+   *
+   * <p>The created texture is not zero-initialized. To clear the texture, {@linkplain
+   * #focusFramebuffer(EGLDisplay, EGLContext, EGLSurface, int, int, int) focus} on the texture and
+   * {@linkplain #clearFocusedBuffers() clear} its content.
+   *
+   * @param width The width of the new texture in pixels.
+   * @param height The height of the new texture in pixels.
+   * @return The texture identifier for the newly-allocated texture.
+   * @throws GlException If the texture allocation fails.
+   */
+  public static int createRgb10A2Texture(int width, int height) throws GlException {
+    return createTextureUninitialized(
+        width,
+        height,
+        /* internalFormat= */ GLES30.GL_RGB10_A2,
+        /* type= */ GLES30.GL_UNSIGNED_INT_2_10_10_10_REV);
+  }
+
+  /**
    * Allocates a new RGBA texture with the specified dimensions and color component precision.
    *
    * @param width The width of the new texture in pixels.

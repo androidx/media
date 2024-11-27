@@ -16,24 +16,34 @@
 
 package androidx.media3.transformer;
 
+import static android.graphics.Bitmap.Config.ARGB_8888;
+import static android.graphics.Bitmap.Config.RGBA_1010102;
+import static android.graphics.ColorSpace.Named.BT2020_HLG;
+import static androidx.media3.common.C.COLOR_TRANSFER_HLG;
 import static androidx.media3.common.ColorInfo.SDR_BT709_LIMITED;
 import static androidx.media3.common.ColorInfo.isTransferHdr;
 import static androidx.media3.common.PlaybackException.ERROR_CODE_FAILED_RUNTIME_CHECK;
+import static androidx.media3.common.PlaybackException.ERROR_CODE_INVALID_STATE;
 import static androidx.media3.common.Player.DISCONTINUITY_REASON_SEEK;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
+import static androidx.media3.common.util.GlUtil.createRgb10A2Texture;
+import static androidx.media3.common.util.Util.SDK_INT;
 import static androidx.media3.common.util.Util.usToMs;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.graphics.ColorSpace;
 import android.graphics.Matrix;
 import android.media.MediaCodec;
 import android.opengl.GLES20;
+import android.opengl.GLES30;
 import android.os.Handler;
 import android.os.Looper;
 import androidx.annotation.CallSuper;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
@@ -42,7 +52,9 @@ import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
+import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.ConditionVariable;
+import androidx.media3.common.util.GlProgram;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
@@ -70,6 +82,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
@@ -93,6 +106,7 @@ public final class ExperimentalFrameExtractor implements AnalyticsListener {
     public static final class Builder {
       private SeekParameters seekParameters;
       private MediaCodecSelector mediaCodecSelector;
+      private boolean extractHdrFrames;
 
       /** Creates a new instance with default values. */
       public Builder() {
@@ -101,6 +115,7 @@ public final class ExperimentalFrameExtractor implements AnalyticsListener {
         // MediaCodec decoders crash when flushing (seeking) and setVideoEffects is used. See also
         // b/362904942.
         mediaCodecSelector = MediaCodecSelector.PREFER_SOFTWARE;
+        extractHdrFrames = false;
       }
 
       /**
@@ -129,9 +144,33 @@ public final class ExperimentalFrameExtractor implements AnalyticsListener {
         return this;
       }
 
+      /**
+       * Sets whether HDR {@link Frame#bitmap} should be extracted from HDR videos.
+       *
+       * <p>When set to {@code false}, extracted HDR frames will be tone-mapped to {@link
+       * ColorSpace.Named#BT709}.
+       *
+       * <p>When set to {@code true}, extracted HDR frames will have {@link
+       * Bitmap.Config#RGBA_1010102} and {@link ColorSpace.Named#BT2020_HLG}. Extracting HDR frames
+       * is only supported on API 34+.
+       *
+       * <p>This flag has no effect when the input is SDR.
+       *
+       * <p>Defaults to {@code false}.
+       *
+       * @param extractHdrFrames Whether HDR frames should be returned.
+       * @return This builder.
+       */
+      @CanIgnoreReturnValue
+      @RequiresApi(34)
+      public Builder setExtractHdrFrames(boolean extractHdrFrames) {
+        this.extractHdrFrames = extractHdrFrames;
+        return this;
+      }
+
       /** Builds a new {@link Configuration} instance. */
       public Configuration build() {
-        return new Configuration(seekParameters, mediaCodecSelector);
+        return new Configuration(seekParameters, mediaCodecSelector, extractHdrFrames);
       }
     }
 
@@ -141,9 +180,16 @@ public final class ExperimentalFrameExtractor implements AnalyticsListener {
     /** The {@link MediaCodecSelector}. */
     public final MediaCodecSelector mediaCodecSelector;
 
-    private Configuration(SeekParameters seekParameters, MediaCodecSelector mediaCodecSelector) {
+    /** Whether extracting HDR frames is requested. */
+    public final boolean extractHdrFrames;
+
+    private Configuration(
+        SeekParameters seekParameters,
+        MediaCodecSelector mediaCodecSelector,
+        boolean extractHdrFrames) {
       this.seekParameters = seekParameters;
       this.mediaCodecSelector = mediaCodecSelector;
+      this.extractHdrFrames = extractHdrFrames;
     }
   }
 
@@ -207,7 +253,10 @@ public final class ExperimentalFrameExtractor implements AnalyticsListener {
                     metadataRendererOutput) ->
                     new Renderer[] {
                       new FrameExtractorRenderer(
-                          context, configuration.mediaCodecSelector, videoRendererEventListener)
+                          context,
+                          configuration.mediaCodecSelector,
+                          videoRendererEventListener,
+                          /* toneMapHdrToSdr= */ !configuration.extractHdrFrames)
                     })
             .setSeekParameters(configuration.seekParameters)
             .build();
@@ -353,47 +402,124 @@ public final class ExperimentalFrameExtractor implements AnalyticsListener {
 
   private final class FrameReader implements GlEffect {
     @Override
-    public GlShaderProgram toGlShaderProgram(Context context, boolean useHdr) {
-      // TODO: b/350498258 - Support HDR.
-      return new FrameReadingGlShaderProgram();
+    public GlShaderProgram toGlShaderProgram(Context context, boolean useHdr)
+        throws VideoFrameProcessingException {
+      return new FrameReadingGlShaderProgram(context, useHdr);
     }
   }
 
   private final class FrameReadingGlShaderProgram extends PassthroughShaderProgram {
     private static final int BYTES_PER_PIXEL = 4;
 
-    private ByteBuffer byteBuffer = ByteBuffer.allocateDirect(0);
+    private final boolean useHdr;
+
+    /** The visible portion of the frame. */
+    private final ImmutableList<float[]> visiblePolygon =
+        ImmutableList.of(
+            new float[] {-1, -1, 0, 1},
+            new float[] {-1, 1, 0, 1},
+            new float[] {1, 1, 0, 1},
+            new float[] {1, -1, 0, 1});
+
+    private @MonotonicNonNull GlTextureInfo hlgTextureInfo;
+    private @MonotonicNonNull GlProgram glProgram;
+
+    private ByteBuffer byteBuffer;
+
+    public FrameReadingGlShaderProgram(Context context, boolean useHdr)
+        throws VideoFrameProcessingException {
+      byteBuffer = ByteBuffer.allocateDirect(0);
+      this.useHdr = useHdr;
+      if (useHdr) {
+        checkState(SDK_INT >= 34);
+        String vertexShaderFilePath = "shaders/vertex_shader_transformation_es3.glsl";
+        String fragmentShaderFilePath = "shaders/fragment_shader_oetf_es3.glsl";
+        try {
+          glProgram = new GlProgram(context, vertexShaderFilePath, fragmentShaderFilePath);
+        } catch (IOException | GlUtil.GlException e) {
+          throw new VideoFrameProcessingException(e);
+        }
+        glProgram.setFloatsUniform("uTexTransformationMatrix", GlUtil.create4x4IdentityMatrix());
+        glProgram.setFloatsUniform("uTransformationMatrix", GlUtil.create4x4IdentityMatrix());
+        glProgram.setFloatsUniform("uRgbMatrix", GlUtil.create4x4IdentityMatrix());
+        glProgram.setIntUniform("uOutputColorTransfer", COLOR_TRANSFER_HLG);
+        glProgram.setBufferAttribute(
+            "aFramePosition",
+            GlUtil.createVertexBuffer(visiblePolygon),
+            GlUtil.HOMOGENEOUS_COORDINATE_VECTOR_SIZE);
+      }
+    }
 
     @Override
     public void queueInputFrame(
         GlObjectsProvider glObjectsProvider, GlTextureInfo inputTexture, long presentationTimeUs) {
-      int pixelBufferSize = inputTexture.width * inputTexture.height * BYTES_PER_PIXEL;
-      if (byteBuffer.capacity() != pixelBufferSize) {
-        byteBuffer = ByteBuffer.allocateDirect(pixelBufferSize);
+      ensureConfigured(glObjectsProvider, inputTexture.width, inputTexture.height);
+      Bitmap bitmap;
+      if (useHdr) {
+        if (SDK_INT < 34 || hlgTextureInfo == null) {
+          onError(
+              ExoPlaybackException.createForUnexpected(
+                  new IllegalArgumentException(), ERROR_CODE_INVALID_STATE));
+          return;
+        }
+        try {
+          GlUtil.focusFramebufferUsingCurrentContext(
+              hlgTextureInfo.fboId, hlgTextureInfo.width, hlgTextureInfo.height);
+          GlUtil.checkGlError();
+          checkNotNull(glProgram).use();
+          glProgram.setSamplerTexIdUniform(
+              "uTexSampler", inputTexture.texId, /* texUnitIndex= */ 0);
+          glProgram.bindAttributesAndUniforms();
+          GLES20.glDrawArrays(
+              GLES20.GL_TRIANGLE_FAN, /* first= */ 0, /* count= */ visiblePolygon.size());
+          GlUtil.checkGlError();
+          // For OpenGL format, internalFormat, type see the docs:
+          // https://registry.khronos.org/OpenGL-Refpages/es3/html/glReadPixels.xhtml
+          // https://registry.khronos.org/OpenGL-Refpages/es3.0/html/glTexImage2D.xhtml
+          GLES20.glReadPixels(
+              /* x= */ 0,
+              /* y= */ 0,
+              hlgTextureInfo.width,
+              hlgTextureInfo.height,
+              /* format= */ GLES20.GL_RGBA,
+              /* type= */ GLES30.GL_UNSIGNED_INT_2_10_10_10_REV,
+              byteBuffer);
+          GlUtil.checkGlError();
+        } catch (GlUtil.GlException e) {
+          onError(e);
+          return;
+        }
+        bitmap =
+            Bitmap.createBitmap(
+                /* display= */ null,
+                hlgTextureInfo.width,
+                hlgTextureInfo.height,
+                RGBA_1010102,
+                /* hasAlpha= */ false,
+                ColorSpace.get(BT2020_HLG));
+      } else {
+        try {
+          GlUtil.focusFramebufferUsingCurrentContext(
+              inputTexture.fboId, inputTexture.width, inputTexture.height);
+          GlUtil.checkGlError();
+          GLES20.glReadPixels(
+              /* x= */ 0,
+              /* y= */ 0,
+              inputTexture.width,
+              inputTexture.height,
+              GLES20.GL_RGBA,
+              GLES20.GL_UNSIGNED_BYTE,
+              byteBuffer);
+          GlUtil.checkGlError();
+        } catch (GlUtil.GlException e) {
+          onError(e);
+          return;
+        }
+        // According to https://www.khronos.org/opengl/wiki/Pixel_Transfer#Endian_issues,
+        // the colors will have the order RGBA in client memory. This is what the bitmap expects:
+        // https://developer.android.com/reference/android/graphics/Bitmap.Config.
+        bitmap = Bitmap.createBitmap(inputTexture.width, inputTexture.height, ARGB_8888);
       }
-      byteBuffer.clear();
-      try {
-        GlUtil.focusFramebufferUsingCurrentContext(
-            inputTexture.fboId, inputTexture.width, inputTexture.height);
-        GlUtil.checkGlError();
-        GLES20.glReadPixels(
-            /* x= */ 0,
-            /* y= */ 0,
-            inputTexture.width,
-            inputTexture.height,
-            GLES20.GL_RGBA,
-            GLES20.GL_UNSIGNED_BYTE,
-            byteBuffer);
-        GlUtil.checkGlError();
-      } catch (GlUtil.GlException e) {
-        onError(e);
-        return;
-      }
-      // According to https://www.khronos.org/opengl/wiki/Pixel_Transfer#Endian_issues,
-      // the colors will have the order RGBA in client memory. This is what the bitmap expects:
-      // https://developer.android.com/reference/android/graphics/Bitmap.Config.
-      Bitmap bitmap =
-          Bitmap.createBitmap(inputTexture.width, inputTexture.height, Bitmap.Config.ARGB_8888);
       bitmap.copyPixelsFromBuffer(byteBuffer);
 
       SettableFuture<Frame> frameBeingExtractedFuture =
@@ -404,10 +530,35 @@ public final class ExperimentalFrameExtractor implements AnalyticsListener {
       // The effects pipeline will unblock and receive new frames when flushed after a seek.
       getInputListener().onInputFrameProcessed(inputTexture);
     }
+
+    private void ensureConfigured(GlObjectsProvider glObjectsProvider, int width, int height) {
+      int pixelBufferSize = width * height * BYTES_PER_PIXEL;
+      if (byteBuffer.capacity() != pixelBufferSize) {
+        byteBuffer = ByteBuffer.allocateDirect(pixelBufferSize);
+      }
+      byteBuffer.clear();
+
+      if (useHdr) {
+        if (hlgTextureInfo == null
+            || hlgTextureInfo.width != width
+            || hlgTextureInfo.height != height) {
+          try {
+            if (hlgTextureInfo != null) {
+              hlgTextureInfo.release();
+            }
+            int texId = createRgb10A2Texture(width, height);
+            hlgTextureInfo = glObjectsProvider.createBuffersForTexture(texId, width, height);
+          } catch (GlUtil.GlException e) {
+            onError(e);
+          }
+        }
+      }
+    }
   }
 
   /** A custom MediaCodecVideoRenderer that renders only one frame per position reset. */
   private static final class FrameExtractorRenderer extends MediaCodecVideoRenderer {
+    private final boolean toneMapHdrToSdr;
 
     private boolean frameRenderedSinceLastReset;
     private List<Effect> effectsFromPlayer;
@@ -416,7 +567,8 @@ public final class ExperimentalFrameExtractor implements AnalyticsListener {
     public FrameExtractorRenderer(
         Context context,
         MediaCodecSelector mediaCodecSelector,
-        VideoRendererEventListener videoRendererEventListener) {
+        VideoRendererEventListener videoRendererEventListener,
+        boolean toneMapHdrToSdr) {
       super(
           context,
           mediaCodecSelector,
@@ -424,6 +576,7 @@ public final class ExperimentalFrameExtractor implements AnalyticsListener {
           Util.createHandlerForCurrentOrMainLooper(),
           videoRendererEventListener,
           /* maxDroppedFramesToNotify= */ 0);
+      this.toneMapHdrToSdr = toneMapHdrToSdr;
       effectsFromPlayer = ImmutableList.of();
     }
 
@@ -436,7 +589,7 @@ public final class ExperimentalFrameExtractor implements AnalyticsListener {
     @CallSuper
     @Override
     protected void onReadyToInitializeCodec(Format format) throws ExoPlaybackException {
-      if (isTransferHdr(format.colorInfo)) {
+      if (isTransferHdr(format.colorInfo) && toneMapHdrToSdr) {
         // Setting the VideoSink format to SDR_BT709_LIMITED tone maps to SDR.
         format = format.buildUpon().setColorInfo(SDR_BT709_LIMITED).build();
       }
