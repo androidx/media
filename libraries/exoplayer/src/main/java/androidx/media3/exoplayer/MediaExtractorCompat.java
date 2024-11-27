@@ -138,8 +138,8 @@ public final class MediaExtractorCompat {
   private final SparseArray<MediaExtractorSampleQueue> sampleQueues;
   private final SampleMetadataQueue sampleMetadataQueue;
   private final FormatHolder formatHolder;
-  private final DecoderInputBuffer sampleHolder;
-  private final DecoderInputBuffer noDataBuffer;
+  private final DecoderInputBuffer sampleHolderWithBufferReplacementDisabled;
+  private final DecoderInputBuffer sampleHolderWithBufferReplacementEnabled;
   private final Set<Integer> selectedTrackIndices;
 
   private boolean hasBeenPrepared;
@@ -188,8 +188,9 @@ public final class MediaExtractorCompat {
     sampleQueues = new SparseArray<>();
     sampleMetadataQueue = new SampleMetadataQueue();
     formatHolder = new FormatHolder();
-    sampleHolder = new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_DISABLED);
-    noDataBuffer = DecoderInputBuffer.newNoDataInstance();
+    sampleHolderWithBufferReplacementDisabled = DecoderInputBuffer.newNoDataInstance();
+    sampleHolderWithBufferReplacementEnabled =
+        new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_DIRECT);
     selectedTrackIndices = new HashSet<>();
   }
 
@@ -428,7 +429,8 @@ public final class MediaExtractorCompat {
   /** Returns the track {@link MediaFormat} at the specified {@code trackIndex}. */
   public MediaFormat getTrackFormat(int trackIndex) {
     MediaExtractorTrack track = tracks.get(trackIndex);
-    MediaFormat mediaFormat = track.createDownstreamMediaFormat(formatHolder, noDataBuffer);
+    MediaFormat mediaFormat =
+        track.createDownstreamMediaFormat(formatHolder, sampleHolderWithBufferReplacementDisabled);
     long trackDurationUs = track.sampleQueue.trackDurationUs;
     if (trackDurationUs != C.TIME_UNSET) {
       mediaFormat.setLong(MediaFormat.KEY_DURATION, trackDurationUs);
@@ -542,11 +544,11 @@ public final class MediaExtractorCompat {
     // The platform media extractor implementation ignores the buffer's input position and limit.
     buffer.position(offset);
     buffer.limit(buffer.capacity());
-    sampleHolder.data = buffer;
-    peekNextSelectedTrackSample(sampleHolder);
+    sampleHolderWithBufferReplacementDisabled.data = buffer;
+    peekNextSelectedTrackSample(sampleHolderWithBufferReplacementDisabled);
     buffer.flip();
     buffer.position(offset);
-    sampleHolder.data = null;
+    sampleHolderWithBufferReplacementDisabled.data = null;
     return buffer.remaining();
   }
 
@@ -566,7 +568,11 @@ public final class MediaExtractorCompat {
     if (!advanceToSampleOrEndOfInput()) {
       return -1;
     }
-    return sampleMetadataQueue.peekFirst().size;
+    peekNextSelectedTrackSample(sampleHolderWithBufferReplacementEnabled);
+    ByteBuffer buffer = checkNotNull(sampleHolderWithBufferReplacementEnabled.data);
+    int sampleSize = buffer.position();
+    buffer.position(0);
+    return sampleSize;
   }
 
   /**
@@ -611,7 +617,8 @@ public final class MediaExtractorCompat {
   @Nullable
   public DrmInitData getDrmInitData() {
     for (int i = 0; i < tracks.size(); i++) {
-      Format format = tracks.get(i).getFormat(formatHolder, noDataBuffer);
+      Format format =
+          tracks.get(i).getFormat(formatHolder, sampleHolderWithBufferReplacementDisabled);
       if (format.drmInitData == null) {
         continue;
       }
@@ -676,7 +683,8 @@ public final class MediaExtractorCompat {
           currentExtractor.getUnderlyingImplementation().getClass().getSimpleName());
     }
     if (!tracks.isEmpty()) {
-      Format format = tracks.get(0).getFormat(formatHolder, noDataBuffer);
+      Format format =
+          tracks.get(0).getFormat(formatHolder, sampleHolderWithBufferReplacementDisabled);
       if (format.containerMimeType != null) {
         bundle.putString(MediaExtractor.MetricsConstants.MIME_TYPE, format.containerMimeType);
       }
@@ -1056,7 +1064,7 @@ public final class MediaExtractorCompat {
       super.sampleMetadata(timeUs, flags, size, offset, cryptoData);
       // Add the sample metadata if the sample was committed
       if (this.getWriteIndex() == writeIndexBeforeCommitting + 1) {
-        queueSampleMetadata(timeUs, flags, size);
+        queueSampleMetadata(timeUs, flags);
       }
     }
 
@@ -1067,7 +1075,7 @@ public final class MediaExtractorCompat {
           trackId, mainTrackIndex, compatibilityTrackIndex);
     }
 
-    private void queueSampleMetadata(long timeUs, @C.BufferFlags int flags, int size) {
+    private void queueSampleMetadata(long timeUs, @C.BufferFlags int flags) {
       int mediaExtractorFlags = 0;
       mediaExtractorFlags |=
           (flags & C.BUFFER_FLAG_ENCRYPTED) != 0 ? MediaExtractor.SAMPLE_FLAG_ENCRYPTED : 0;
@@ -1076,9 +1084,9 @@ public final class MediaExtractorCompat {
 
       if (compatibilityTrackIndex != C.INDEX_UNSET) {
         sampleMetadataQueue.addLast(
-            timeUs, /* flags= */ mediaExtractorFlags, size, compatibilityTrackIndex);
+            timeUs, /* flags= */ mediaExtractorFlags, compatibilityTrackIndex);
       }
-      sampleMetadataQueue.addLast(timeUs, /* flags= */ mediaExtractorFlags, size, mainTrackIndex);
+      sampleMetadataQueue.addLast(timeUs, /* flags= */ mediaExtractorFlags, mainTrackIndex);
     }
   }
 
@@ -1103,11 +1111,10 @@ public final class MediaExtractorCompat {
      *
      * @param timeUs The media timestamp associated with the sample, in microseconds.
      * @param flags Flags associated with the sample. See {@code MediaExtractor.SAMPLE_FLAG_*}.
-     * @param size The size of the sample data, in bytes.
      * @param trackIndex Track index of the sample.
      */
-    public void addLast(long timeUs, int flags, long size, int trackIndex) {
-      SampleMetadata metadata = obtainSampleMetadata(timeUs, flags, size, trackIndex);
+    public void addLast(long timeUs, int flags, int trackIndex) {
+      SampleMetadata metadata = obtainSampleMetadata(timeUs, flags, trackIndex);
       sampleMetadataQueue.addLast(metadata);
     }
 
@@ -1144,29 +1151,27 @@ public final class MediaExtractorCompat {
       return sampleMetadataQueue.isEmpty();
     }
 
-    private SampleMetadata obtainSampleMetadata(long timeUs, int flags, long size, int trackIndex) {
+    private SampleMetadata obtainSampleMetadata(long timeUs, int flags, int trackIndex) {
       SampleMetadata metadata =
           sampleMetadataPool.isEmpty()
-              ? new SampleMetadata(timeUs, flags, size, trackIndex)
+              ? new SampleMetadata(timeUs, flags, trackIndex)
               : sampleMetadataPool.pop();
-      metadata.set(timeUs, flags, size, trackIndex);
+      metadata.set(timeUs, flags, trackIndex);
       return metadata;
     }
 
     private static final class SampleMetadata {
       public int flags;
-      public long size;
       public long timeUs;
       public int trackIndex;
 
-      public SampleMetadata(long timeUs, int flags, long size, int trackIndex) {
-        set(timeUs, flags, size, trackIndex);
+      public SampleMetadata(long timeUs, int flags, int trackIndex) {
+        set(timeUs, flags, trackIndex);
       }
 
-      public void set(long timeUs, int flags, long size, int trackIndex) {
+      public void set(long timeUs, int flags, int trackIndex) {
         this.timeUs = timeUs;
         this.flags = flags;
-        this.size = size;
         this.trackIndex = trackIndex;
       }
     }
