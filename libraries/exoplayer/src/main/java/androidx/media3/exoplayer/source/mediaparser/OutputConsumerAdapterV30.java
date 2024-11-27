@@ -30,7 +30,6 @@ import static android.media.MediaParser.PARSER_NAME_PS;
 import static android.media.MediaParser.PARSER_NAME_TS;
 import static android.media.MediaParser.PARSER_NAME_WAV;
 
-import android.annotation.SuppressLint;
 import android.media.DrmInitData.SchemeInitData;
 import android.media.MediaCodec;
 import android.media.MediaCodec.CryptoInfo;
@@ -76,7 +75,6 @@ import java.util.regex.Pattern;
  * ExtractorOutput}.
  */
 @RequiresApi(30)
-@SuppressLint("Override") // TODO: Remove once the SDK becomes stable.
 @UnstableApi
 public final class OutputConsumerAdapterV30 implements MediaParser.OutputConsumer {
 
