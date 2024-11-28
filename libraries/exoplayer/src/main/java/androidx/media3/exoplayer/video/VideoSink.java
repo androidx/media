@@ -177,7 +177,17 @@ public interface VideoSink {
    */
   boolean isReady(boolean rendererOtherwiseReady);
 
-  /** Returns whether all the data has been rendered to the output surface. */
+  /** Signals the end of the current input stream. */
+  void signalEndOfCurrentInputStream();
+
+  /**
+   * Returns whether all the data has been rendered to the output surface.
+   *
+   * <p>This method returns {@code true} if the end of the last input stream has been {@linkplain
+   * #signalEndOfCurrentInputStream() signaled} and all the input frames have been rendered. Note
+   * that a new input stream can be {@linkplain #onInputStreamChanged(int, Format) signaled} even
+   * when this method returns true (in which case the sink will not be ended anymore).
+   */
   boolean isEnded();
 
   /**
@@ -251,10 +261,12 @@ public interface VideoSink {
    * Handles a video input frame.
    *
    * <p>Must be called after the corresponding stream is {@linkplain #onInputStreamChanged(int,
-   * Format) signalled}.
+   * Format) signaled}.
    *
    * @param framePresentationTimeUs The frame's presentation time, in microseconds.
-   * @param isLastFrame Whether this is the last frame of the video stream.
+   * @param isLastFrame Whether this is the last frame of the video stream. This flag is set on a
+   *     best effort basis, and any logic relying on it should degrade gracefully to handle cases
+   *     where it's not set.
    * @param positionUs The current playback position, in microseconds.
    * @param elapsedRealtimeUs {@link SystemClock#elapsedRealtime()} in microseconds, taken
    *     approximately at the time the playback position was {@code positionUs}.
@@ -274,7 +286,7 @@ public interface VideoSink {
    * Handles an input {@link Bitmap}.
    *
    * <p>Must be called after the corresponding stream is {@linkplain #onInputStreamChanged(int,
-   * Format) signalled}.
+   * Format) signaled}.
    *
    * @param inputBitmap The {@link Bitmap} to queue to the video sink.
    * @param timestampIterator The times within the current stream that the bitmap should be shown

@@ -475,7 +475,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                 .build());
         inputStreamPending = false;
       }
-      return videoSink.handleInputBitmap(outputImage, checkStateNotNull(timestampIterator));
+      if (!videoSink.handleInputBitmap(outputImage, checkStateNotNull(timestampIterator))) {
+        return false;
+      }
+      videoSink.signalEndOfCurrentInputStream();
+      return true;
     }
 
     @Override

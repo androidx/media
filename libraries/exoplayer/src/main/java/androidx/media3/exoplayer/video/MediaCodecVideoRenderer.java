@@ -1547,6 +1547,13 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     }
   }
 
+  @Override
+  protected void renderToEndOfStream() {
+    if (videoSink != null) {
+      videoSink.signalEndOfCurrentInputStream();
+    }
+  }
+
   /**
    * Returns the timestamp that is added to the buffer presentation time (the player decoding
    * position) to get the frame presentation time, in microseconds.
@@ -1608,6 +1615,8 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   protected void onProcessedStreamChange() {
     super.onProcessedStreamChange();
     if (videoSink != null) {
+      // Signaling end of the previous stream.
+      videoSink.signalEndOfCurrentInputStream();
       videoSink.setStreamTimestampInfo(
           getOutputStreamStartPositionUs(),
           getBufferTimestampAdjustmentUs(),

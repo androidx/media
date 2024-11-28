@@ -606,6 +606,11 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     }
 
     @Override
+    public void signalEndOfCurrentInputStream() {
+      finalBufferPresentationTimeUs = lastBufferPresentationTimeUs;
+    }
+
+    @Override
     public boolean isEnded() {
       return isInitialized()
           && finalBufferPresentationTimeUs != C.TIME_UNSET
@@ -742,9 +747,6 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
       }
 
       lastBufferPresentationTimeUs = bufferPresentationTimeUs;
-      if (isLastFrame) {
-        finalBufferPresentationTimeUs = bufferPresentationTimeUs;
-      }
       // Use the frame presentation time as render time so that the SurfaceTexture is accompanied
       // by this timestamp. Setting a realtime based release time is only relevant when rendering to
       // a SurfaceView, but we render to a surface in this case.
@@ -766,7 +768,6 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
           timestampIterator.getLastTimestampUs() - inputBufferTimestampAdjustmentUs;
       checkState(lastBufferPresentationTimeUs != C.TIME_UNSET);
       this.lastBufferPresentationTimeUs = lastBufferPresentationTimeUs;
-      finalBufferPresentationTimeUs = lastBufferPresentationTimeUs;
       return true;
     }
 

@@ -112,6 +112,11 @@ import java.util.concurrent.Executor;
   }
 
   @Override
+  public void signalEndOfCurrentInputStream() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
   public boolean isEnded() {
     throw new UnsupportedOperationException();
   }
