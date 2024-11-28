@@ -205,6 +205,11 @@ public final class DefaultExtractorInput implements ExtractorInput {
     throw e;
   }
 
+  /** Returns the wrapped {@link DataReader} instance. */
+  public DataReader getDataReader() {
+    return dataReader;
+  }
+
   /**
    * Ensures {@code peekBuffer} is large enough to store at least {@code length} bytes from the
    * current peek position.
