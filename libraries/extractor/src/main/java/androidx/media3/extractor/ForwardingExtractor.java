@@ -17,6 +17,7 @@ package androidx.media3.extractor;
 
 import androidx.media3.common.util.UnstableApi;
 import java.io.IOException;
+import java.util.List;
 
 /**
  * An overridable {@link Extractor} implementation forwarding all methods to an underlying
@@ -33,6 +34,11 @@ public class ForwardingExtractor implements Extractor {
   @Override
   public boolean sniff(ExtractorInput input) throws IOException {
     return delegate.sniff(input);
+  }
+
+  @Override
+  public List<SniffFailure> getSniffFailureDetails() {
+    return delegate.getSniffFailureDetails();
   }
 
   @Override
@@ -54,5 +60,10 @@ public class ForwardingExtractor implements Extractor {
   @Override
   public void release() {
     delegate.release();
+  }
+
+  @Override
+  public Extractor getUnderlyingImplementation() {
+    return delegate.getUnderlyingImplementation();
   }
 }
