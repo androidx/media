@@ -18,7 +18,10 @@ package androidx.media3.extractor;
 import androidx.media3.common.util.UnstableApi;
 import java.io.IOException;
 
-/** An overridable {@link Extractor} implementation forwarding all methods to an underlying Extractor. */
+/**
+ * An overridable {@link Extractor} implementation forwarding all methods to an underlying
+ * Extractor.
+ */
 @UnstableApi
 public class ForwardingExtractor implements Extractor {
   private final Extractor delegate;
