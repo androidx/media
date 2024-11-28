@@ -245,6 +245,7 @@ public class CompositionPlayerTest {
                                           .setUri(JPG_SINGLE_PIXEL_ASSET.uri)
                                           .setImageDurationMs(1_000)
                                           .build())
+                                  .setFrameRate(30)
                                   .build())
                           .build())
                   .build());
@@ -258,7 +259,9 @@ public class CompositionPlayerTest {
     listener.waitUntilPlayerEnded();
     long playbackRealTimeMs = SystemClock.DEFAULT.elapsedRealtime() - playbackStartTimeMs;
 
-    assertThat(playbackRealTimeMs).isAtLeast(1_000);
+    // Video frames are not rendered exactly at the time corresponding to their presentation
+    // timestamp, and the differences accumulate.
+    assertThat(playbackRealTimeMs).isAtLeast(900);
   }
 
   @Test
