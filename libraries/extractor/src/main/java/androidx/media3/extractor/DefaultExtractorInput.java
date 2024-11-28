@@ -205,11 +205,7 @@ public final class DefaultExtractorInput implements ExtractorInput {
     throw e;
   }
 
-  /**
-   * Returns the underlying {@link DataReader} from which the {@link Extractor} extracts data from.
-   *
-   * @return the attached underlying {@link DataReader}
-   */
+  /** Returns the wrapped {@link DataReader} instance. */
   public DataReader getDataReader() {
     return dataReader;
   }
