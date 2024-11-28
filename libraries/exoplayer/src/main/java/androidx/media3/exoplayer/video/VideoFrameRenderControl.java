@@ -158,8 +158,6 @@ import androidx.media3.exoplayer.ExoPlaybackException;
           dropFrame();
           break;
         case VideoFrameReleaseControl.FRAME_RELEASE_IGNORE:
-          // TODO b/293873191 - Handle very late buffers and drop to key frame. Need to flush
-          //  VideoGraph input frames in this case.
           latestOutputPresentationTimeUs = presentationTimeUs;
           break;
         case VideoFrameReleaseControl.FRAME_RELEASE_IMMEDIATELY:
