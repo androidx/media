@@ -84,6 +84,7 @@ import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
+import org.checkerframework.checker.nullness.qual.NonNull;
 
 /** Utility methods for tests. */
 @UnstableApi
@@ -643,9 +644,16 @@ public class TestUtil {
    * Use reflection to assert calling every method declared on {@code superType} on an instance of
    * {@code forwardingType} results in the call being forwarded to the {@code superType} delegate.
    */
-  public static <T, F extends T> void assertForwardingClassForwardsAllMethods(
-      Class<T> superType, Function<T, F> forwardingInstanceFactory)
-      throws InvocationTargetException, IllegalAccessException {
+  // The nullness checker is deliberately over-conservative and doesn't permit passing a null
+  // parameter to method.invoke(), even if the real method does accept null. Regardless, we expect
+  // the null to be passed straight to our mocked delegate, so it's OK to pass null even for
+  // non-null parameters. See also
+  // https://github.com/typetools/checker-framework/blob/c26bb695ebc572fac1e9cd2e331fc5b9d3953ec0/checker/jdk/nullness/src/java/lang/reflect/Method.java#L109
+  @SuppressWarnings("nullness:argument.type.incompatible")
+  public static <T extends @NonNull Object, F extends T>
+      void assertForwardingClassForwardsAllMethods(
+          Class<T> superType, Function<T, F> forwardingInstanceFactory)
+          throws InvocationTargetException, IllegalAccessException {
     for (Method method : getPublicMethods(superType)) {
       T delegate = mock(superType);
       F forwardingInstance = forwardingInstanceFactory.apply(delegate);
