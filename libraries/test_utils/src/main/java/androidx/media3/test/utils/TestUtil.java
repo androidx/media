@@ -664,6 +664,9 @@ public class TestUtil {
         parameters[i] = Array.get(Array.newInstance(method.getParameterTypes()[i], 1), 0);
       }
       method.invoke(forwardingInstance, parameters);
+
+      // Reflective version of verify(delegate).method(parameters), to assert the expected method
+      // was invoked on the delegate instance.
       method.invoke(verify(delegate), parameters);
     }
   }
