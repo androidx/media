@@ -113,12 +113,12 @@ import java.util.concurrent.Executor;
 
   @Override
   public void signalEndOfCurrentInputStream() {
-    throw new UnsupportedOperationException();
+    videoFrameRenderControl.signalEndOfInput();
   }
 
   @Override
   public boolean isEnded() {
-    throw new UnsupportedOperationException();
+    return videoFrameRenderControl.isEnded();
   }
 
   @Override

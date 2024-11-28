@@ -77,8 +77,12 @@ import androidx.media3.exoplayer.ExoPlaybackException;
   /** A queue of unprocessed input frame timestamps. */
   private final LongArrayQueue presentationTimestampsUs;
 
-  private long lastInputPresentationTimeUs;
-  private long lastOutputPresentationTimeUs;
+  private long latestInputPresentationTimeUs;
+  private long latestOutputPresentationTimeUs;
+
+  /** The presentation time of the final frame to render. */
+  private long lastPresentationTimeUs;
+
   private VideoSize outputVideoSize;
   private long outputStreamStartPositionUs;
 
@@ -91,16 +95,18 @@ import androidx.media3.exoplayer.ExoPlaybackException;
     videoSizes = new TimedValueQueue<>();
     streamStartPositionsUs = new TimedValueQueue<>();
     presentationTimestampsUs = new LongArrayQueue();
-    lastInputPresentationTimeUs = C.TIME_UNSET;
+    latestInputPresentationTimeUs = C.TIME_UNSET;
     outputVideoSize = VideoSize.UNKNOWN;
-    lastOutputPresentationTimeUs = C.TIME_UNSET;
+    latestOutputPresentationTimeUs = C.TIME_UNSET;
+    lastPresentationTimeUs = C.TIME_UNSET;
   }
 
   /** Flushes the renderer. */
   public void flush() {
     presentationTimestampsUs.clear();
-    lastInputPresentationTimeUs = C.TIME_UNSET;
-    lastOutputPresentationTimeUs = C.TIME_UNSET;
+    latestInputPresentationTimeUs = C.TIME_UNSET;
+    latestOutputPresentationTimeUs = C.TIME_UNSET;
+    lastPresentationTimeUs = C.TIME_UNSET;
     if (streamStartPositionsUs.size() > 0) {
       // There is a pending streaming start position change. If seeking within the same stream, keep
       // the pending start position with min timestamp to ensure the start position is applied on
@@ -118,18 +124,6 @@ import androidx.media3.exoplayer.ExoPlaybackException;
       VideoSize lastVideoSize = getLastAndClear(videoSizes);
       videoSizes.add(/* timestamp= */ 0, lastVideoSize);
     }
-  }
-
-  /**
-   * Returns whether the renderer has released a frame after a specific presentation timestamp.
-   *
-   * @param presentationTimeUs The requested timestamp, in microseconds.
-   * @return Whether the renderer has released a frame with a timestamp greater than or equal to
-   *     {@code presentationTimeUs}.
-   */
-  public boolean hasReleasedFrame(long presentationTimeUs) {
-    return lastOutputPresentationTimeUs != C.TIME_UNSET
-        && lastOutputPresentationTimeUs >= presentationTimeUs;
   }
 
   /**
@@ -160,17 +154,17 @@ import androidx.media3.exoplayer.ExoPlaybackException;
           return;
         case VideoFrameReleaseControl.FRAME_RELEASE_SKIP:
         case VideoFrameReleaseControl.FRAME_RELEASE_DROP:
-          lastOutputPresentationTimeUs = presentationTimeUs;
+          latestOutputPresentationTimeUs = presentationTimeUs;
           dropFrame();
           break;
         case VideoFrameReleaseControl.FRAME_RELEASE_IGNORE:
           // TODO b/293873191 - Handle very late buffers and drop to key frame. Need to flush
           //  VideoGraph input frames in this case.
-          lastOutputPresentationTimeUs = presentationTimeUs;
+          latestOutputPresentationTimeUs = presentationTimeUs;
           break;
         case VideoFrameReleaseControl.FRAME_RELEASE_IMMEDIATELY:
         case VideoFrameReleaseControl.FRAME_RELEASE_SCHEDULED:
-          lastOutputPresentationTimeUs = presentationTimeUs;
+          latestOutputPresentationTimeUs = presentationTimeUs;
           renderFrame(
               /* shouldRenderImmediately= */ frameReleaseAction
                   == VideoFrameReleaseControl.FRAME_RELEASE_IMMEDIATELY);
@@ -184,13 +178,13 @@ import androidx.media3.exoplayer.ExoPlaybackException;
   /** Called when the size of the available frames has changed. */
   public void onVideoSizeChanged(int width, int height) {
     videoSizes.add(
-        lastInputPresentationTimeUs == C.TIME_UNSET ? 0 : lastInputPresentationTimeUs + 1,
+        latestInputPresentationTimeUs == C.TIME_UNSET ? 0 : latestInputPresentationTimeUs + 1,
         new VideoSize(width, height));
   }
 
   public void onStreamStartPositionChanged(long streamStartPositionUs) {
     streamStartPositionsUs.add(
-        lastInputPresentationTimeUs == C.TIME_UNSET ? 0 : lastInputPresentationTimeUs + 1,
+        latestInputPresentationTimeUs == C.TIME_UNSET ? 0 : latestInputPresentationTimeUs + 1,
         streamStartPositionUs);
   }
 
@@ -201,8 +195,31 @@ import androidx.media3.exoplayer.ExoPlaybackException;
    */
   public void onFrameAvailableForRendering(long presentationTimeUs) {
     presentationTimestampsUs.add(presentationTimeUs);
-    lastInputPresentationTimeUs = presentationTimeUs;
-    // TODO b/257464707 - Support extensively modified media.
+    latestInputPresentationTimeUs = presentationTimeUs;
+    lastPresentationTimeUs = C.TIME_UNSET;
+  }
+
+  /**
+   * Signals the end of input.
+   *
+   * <p>If a frame becomes {@linkplain #onFrameAvailableForRendering(long) available} after calling
+   * this method, the end of input signal is ignored.
+   */
+  public void signalEndOfInput() {
+    lastPresentationTimeUs = latestInputPresentationTimeUs;
+  }
+
+  /**
+   * Returns whether all the frames have been rendered to the output surface.
+   *
+   * <p>This method returns {@code true} if the last frame that became {@linkplain
+   * #onFrameAvailableForRendering(long) available} before {@linkplain #signalEndOfInput()
+   * signalling the end of input} has been rendered, and if no frame has become available in the
+   * mean time.
+   */
+  public boolean isEnded() {
+    return lastPresentationTimeUs != C.TIME_UNSET
+        && latestOutputPresentationTimeUs == lastPresentationTimeUs;
   }
 
   private void dropFrame() {

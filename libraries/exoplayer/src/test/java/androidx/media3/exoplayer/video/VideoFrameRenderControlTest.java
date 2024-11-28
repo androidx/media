@@ -230,17 +230,17 @@ public class VideoFrameRenderControlTest {
   }
 
   @Test
-  public void hasReleasedFrame_noFrameReleased_returnsFalse() {
+  public void isEnded_endOfInputNotSignaled_returnsFalse() {
     VideoFrameReleaseControl videoFrameReleaseControl = createVideoFrameReleaseControl();
     VideoFrameRenderControl videoFrameRenderControl =
         new VideoFrameRenderControl(
             mock(VideoFrameRenderControl.FrameRenderer.class), videoFrameReleaseControl);
 
-    assertThat(videoFrameRenderControl.hasReleasedFrame(/* presentationTimeUs= */ 0)).isFalse();
+    assertThat(videoFrameRenderControl.isEnded()).isFalse();
   }
 
   @Test
-  public void hasReleasedFrame_frameIsReleased_returnsTrue() throws Exception {
+  public void isEnded_endOfInputSignaled_returnsTrue() throws Exception {
     VideoFrameRenderControl.FrameRenderer frameRenderer =
         mock(VideoFrameRenderControl.FrameRenderer.class);
     VideoFrameReleaseControl videoFrameReleaseControl = createVideoFrameReleaseControl();
@@ -252,22 +252,13 @@ public class VideoFrameRenderControlTest {
         /* width= */ VIDEO_WIDTH, /* height= */ VIDEO_HEIGHT);
     videoFrameRenderControl.onFrameAvailableForRendering(/* presentationTimeUs= */ 0);
     videoFrameRenderControl.render(/* positionUs= */ 0, /* elapsedRealtimeUs= */ 0);
+    videoFrameRenderControl.signalEndOfInput();
 
-    InOrder inOrder = Mockito.inOrder(frameRenderer);
-    inOrder
-        .verify(frameRenderer)
-        .onVideoSizeChanged(new VideoSize(/* width= */ VIDEO_WIDTH, /* height= */ VIDEO_HEIGHT));
-    inOrder
-        .verify(frameRenderer)
-        .renderFrame(
-            /* renderTimeNs= */ anyLong(),
-            /* presentationTimeUs= */ eq(0L),
-            /* isFirstFrame= */ eq(true));
-    assertThat(videoFrameRenderControl.hasReleasedFrame(/* presentationTimeUs= */ 0)).isTrue();
+    assertThat(videoFrameRenderControl.isEnded()).isTrue();
   }
 
   @Test
-  public void hasReleasedFrame_frameIsReleasedAndFlushed_returnsFalse() throws Exception {
+  public void isEnded_afterFlush_returnsFalse() throws Exception {
     VideoFrameRenderControl.FrameRenderer frameRenderer =
         mock(VideoFrameRenderControl.FrameRenderer.class);
     VideoFrameReleaseControl videoFrameReleaseControl = createVideoFrameReleaseControl();
@@ -279,21 +270,9 @@ public class VideoFrameRenderControlTest {
         /* width= */ VIDEO_WIDTH, /* height= */ VIDEO_HEIGHT);
     videoFrameRenderControl.onFrameAvailableForRendering(/* presentationTimeUs= */ 0);
     videoFrameRenderControl.render(/* positionUs= */ 0, /* elapsedRealtimeUs= */ 0);
-
-    InOrder inOrder = Mockito.inOrder(frameRenderer);
-    inOrder
-        .verify(frameRenderer)
-        .onVideoSizeChanged(new VideoSize(/* width= */ VIDEO_WIDTH, /* height= */ VIDEO_HEIGHT));
-    inOrder
-        .verify(frameRenderer)
-        .renderFrame(
-            /* renderTimeNs= */ anyLong(),
-            /* presentationTimeUs= */ eq(0L),
-            /* isFirstFrame= */ eq(true));
-
     videoFrameRenderControl.flush();
 
-    assertThat(videoFrameRenderControl.hasReleasedFrame(/* presentationTimeUs= */ 0)).isFalse();
+    assertThat(videoFrameRenderControl.isEnded()).isFalse();
   }
 
   private static VideoFrameReleaseControl createVideoFrameReleaseControl() {

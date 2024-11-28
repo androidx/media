@@ -252,6 +252,11 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
   private @State int state;
   @Nullable private Renderer.WakeupListener wakeupListener;
 
+  /** The buffer presentation time, in microseconds, of the final frame in the stream. */
+  private long finalBufferPresentationTimeUs;
+
+  private boolean hasSignaledEndOfCurrentInputStream;
+
   /**
    * Converts the buffer timestamp (the player position, with renderer offset) to the composition
    * timestamp, in microseconds. The composition time starts from zero, add this adjustment to
@@ -275,6 +280,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     state = STATE_CREATED;
     videoGraphOutputFormat = new Format.Builder().build();
     addListener(inputVideoSink);
+    finalBufferPresentationTimeUs = C.TIME_UNSET;
   }
 
   /**
@@ -378,6 +384,12 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
       outputStreamStartPositionUs = newOutputStreamStartPositionUs;
     }
     videoFrameRenderControl.onFrameAvailableForRendering(bufferPresentationTimeUs);
+    if (finalBufferPresentationTimeUs != C.TIME_UNSET
+        && bufferPresentationTimeUs >= finalBufferPresentationTimeUs) {
+      // TODO b/257464707 - Support extensively modified media.
+      defaultVideoSink.signalEndOfCurrentInputStream();
+      hasSignaledEndOfCurrentInputStream = true;
+    }
   }
 
   @Override
@@ -454,8 +466,10 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
         /* rendererOtherwiseReady= */ rendererOtherwiseReady && pendingFlushCount == 0);
   }
 
-  private boolean hasReleasedFrame(long presentationTimeUs) {
-    return pendingFlushCount == 0 && videoFrameRenderControl.hasReleasedFrame(presentationTimeUs);
+  private boolean isEnded() {
+    return pendingFlushCount == 0
+        && hasSignaledEndOfCurrentInputStream
+        && defaultVideoSink.isEnded();
   }
 
   /**
@@ -484,6 +498,8 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
       defaultVideoSink.setStreamTimestampInfo(
           lastStartPositionUs, /* unused */ C.TIME_UNSET, /* unused */ C.TIME_UNSET);
     }
+    finalBufferPresentationTimeUs = C.TIME_UNSET;
+    hasSignaledEndOfCurrentInputStream = false;
     // Handle pending video graph callbacks to ensure video size changes reach the video render
     // control.
     checkStateNotNull(handler).post(() -> pendingFlushCount--);
@@ -522,9 +538,6 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     private long inputBufferTimestampAdjustmentUs;
     private long lastResetPositionUs;
 
-    /** The buffer presentation time, in microseconds, of the final frame in the stream. */
-    private long finalBufferPresentationTimeUs;
-
     /**
      * The buffer presentation timestamp, in microseconds, of the most recently registered frame.
      */
@@ -541,7 +554,6 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
       videoFrameProcessorMaxPendingFrameCount =
           Util.getMaxPendingFramesCountForMediaCodecDecoders(context);
       videoEffects = ImmutableList.of();
-      finalBufferPresentationTimeUs = C.TIME_UNSET;
       lastBufferPresentationTimeUs = C.TIME_UNSET;
       listener = VideoSink.Listener.NO_OP;
       listenerExecutor = NO_OP_EXECUTOR;
@@ -590,7 +602,6 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
       if (isInitialized()) {
         videoFrameProcessor.flush();
       }
-      finalBufferPresentationTimeUs = C.TIME_UNSET;
       lastBufferPresentationTimeUs = C.TIME_UNSET;
       PlaybackVideoGraphWrapper.this.flush(resetPosition);
       // Don't change input stream start position or reset the pending input stream timestamp info
@@ -612,9 +623,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
 
     @Override
     public boolean isEnded() {
-      return isInitialized()
-          && finalBufferPresentationTimeUs != C.TIME_UNSET
-          && PlaybackVideoGraphWrapper.this.hasReleasedFrame(finalBufferPresentationTimeUs);
+      return isInitialized() && PlaybackVideoGraphWrapper.this.isEnded();
     }
 
     @Override
@@ -630,6 +639,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
       this.inputType = inputType;
       this.inputFormat = format;
       finalBufferPresentationTimeUs = C.TIME_UNSET;
+      hasSignaledEndOfCurrentInputStream = false;
       registerInputStream(format);
     }
 
