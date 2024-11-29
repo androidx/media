@@ -20,8 +20,8 @@ import java.io.IOException;
 import java.util.List;
 
 /**
- * An overridable {@link Extractor} implementation forwarding all methods to an underlying
- * Extractor.
+ * An overridable {@link Extractor} implementation which forwards all methods to another {@link
+ * Extractor}.
  */
 @UnstableApi
 public class ForwardingExtractor implements Extractor {

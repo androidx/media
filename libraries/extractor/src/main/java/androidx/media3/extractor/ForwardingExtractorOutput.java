@@ -19,7 +19,8 @@ import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
 
 /**
- * An overridable {@link ExtractorOutput} implementation forwarding all methods to another input.
+ * An overridable {@link ExtractorOutput} implementation which forwards all methods to another
+ * {@link ExtractorOutput}.
  */
 @UnstableApi
 public class ForwardingExtractorOutput implements ExtractorOutput {
