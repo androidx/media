@@ -18,6 +18,8 @@ package androidx.media3.test.utils;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static com.google.common.truth.Truth.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 import android.content.Context;
 import android.database.sqlite.SQLiteDatabase;
@@ -36,6 +38,7 @@ import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.StreamKey;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.TrackGroup;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.database.DatabaseProvider;
@@ -51,6 +54,7 @@ import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.PositionHolder;
 import androidx.media3.extractor.SeekMap;
 import androidx.media3.extractor.metadata.MetadataInputBuffer;
+import com.google.common.base.Function;
 import com.google.common.collect.BoundType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Range;
@@ -63,6 +67,8 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.Array;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.nio.ByteBuffer;
@@ -78,6 +84,7 @@ import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
+import org.checkerframework.checker.nullness.qual.NonNull;
 
 /** Utility methods for tests. */
 @UnstableApi
@@ -616,6 +623,52 @@ public class TestUtil {
     }
 
     return list;
+  }
+
+  /**
+   * Use reflection to assert that every method declared on {@code superType} is overridden by
+   * {@code forwardingType}.
+   */
+  public static <T> void assertForwardingClassOverridesAllMethods(
+      Class<T> superType, Class<? extends T> forwardingType) throws NoSuchMethodException {
+    for (Method method : TestUtil.getPublicMethods(superType)) {
+      assertThat(
+              forwardingType
+                  .getDeclaredMethod(method.getName(), method.getParameterTypes())
+                  .getDeclaringClass())
+          .isEqualTo(forwardingType);
+    }
+  }
+
+  /**
+   * Use reflection to assert calling every method declared on {@code superType} on an instance of
+   * {@code forwardingType} results in the call being forwarded to the {@code superType} delegate.
+   */
+  // The nullness checker is deliberately over-conservative and doesn't permit passing a null
+  // parameter to method.invoke(), even if the real method does accept null. Regardless, we expect
+  // the null to be passed straight to our mocked delegate, so it's OK to pass null even for
+  // non-null parameters. See also
+  // https://github.com/typetools/checker-framework/blob/c26bb695ebc572fac1e9cd2e331fc5b9d3953ec0/checker/jdk/nullness/src/java/lang/reflect/Method.java#L109
+  @SuppressWarnings("nullness:argument.type.incompatible")
+  public static <T extends @NonNull Object, F extends T>
+      void assertForwardingClassForwardsAllMethods(
+          Class<T> superType, Function<T, F> forwardingInstanceFactory)
+          throws InvocationTargetException, IllegalAccessException {
+    for (Method method : getPublicMethods(superType)) {
+      T delegate = mock(superType);
+      F forwardingInstance = forwardingInstanceFactory.apply(delegate);
+      @NullableType Object[] parameters = new Object[method.getParameterCount()];
+      for (int i = 0; i < method.getParameterCount(); i++) {
+        // Get a default value of the right type by creating a single-element array. This gives us
+        // null for object types, and the 'default' value for primitives.
+        parameters[i] = Array.get(Array.newInstance(method.getParameterTypes()[i], 1), 0);
+      }
+      method.invoke(forwardingInstance, parameters);
+
+      // Reflective version of verify(delegate).method(parameters), to assert the expected method
+      // was invoked on the delegate instance.
+      method.invoke(verify(delegate), parameters);
+    }
   }
 
   /** Returns a {@link MediaItem} that has all fields set to non-default values. */
