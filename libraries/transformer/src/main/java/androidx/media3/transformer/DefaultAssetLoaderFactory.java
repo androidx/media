@@ -34,6 +34,7 @@ import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSourceBitmapLoader;
 import androidx.media3.datasource.DefaultDataSource;
 import androidx.media3.exoplayer.source.MediaSource;
+import androidx.media3.exoplayer.trackselection.TrackSelector;
 import androidx.media3.transformer.AssetLoader.CompositionSettings;
 import com.google.common.util.concurrent.MoreExecutors;
 import java.util.concurrent.Executors;
@@ -56,6 +57,7 @@ public final class DefaultAssetLoaderFactory implements AssetLoader.Factory {
   private final Clock clock;
   @Nullable private final MediaSource.Factory mediaSourceFactory;
   private final BitmapLoader bitmapLoader;
+  @Nullable private final TrackSelector.Factory trackSelectorFactory;
 
   private AssetLoader.@MonotonicNonNull Factory imageAssetLoaderFactory;
   private AssetLoader.@MonotonicNonNull Factory exoPlayerAssetLoaderFactory;
@@ -75,10 +77,12 @@ public final class DefaultAssetLoaderFactory implements AssetLoader.Factory {
    */
   public DefaultAssetLoaderFactory(
       Context context, Codec.DecoderFactory decoderFactory, Clock clock) {
+    // TODO: b/381519379 - deprecate this constructor and replace with a builder.
     this.context = context.getApplicationContext();
     this.decoderFactory = decoderFactory;
     this.clock = clock;
     this.mediaSourceFactory = null;
+    this.trackSelectorFactory = null;
     @Nullable BitmapFactory.Options options = null;
     if (Util.SDK_INT >= 26) {
       options = new BitmapFactory.Options();
@@ -102,11 +106,13 @@ public final class DefaultAssetLoaderFactory implements AssetLoader.Factory {
    * @param bitmapLoader The {@link BitmapLoader} to use to load and decode images.
    */
   public DefaultAssetLoaderFactory(Context context, BitmapLoader bitmapLoader) {
+    // TODO: b/381519379 - deprecate this constructor and replace with a builder.
     this.context = context.getApplicationContext();
     this.bitmapLoader = bitmapLoader;
     decoderFactory = new DefaultDecoderFactory.Builder(context).build();
     clock = Clock.DEFAULT;
     mediaSourceFactory = null;
+    trackSelectorFactory = null;
   }
 
   /**
@@ -127,11 +133,43 @@ public final class DefaultAssetLoaderFactory implements AssetLoader.Factory {
       Clock clock,
       @Nullable MediaSource.Factory mediaSourceFactory,
       BitmapLoader bitmapLoader) {
+    // TODO: b/381519379 - deprecate this constructor and replace with a builder.
     this.context = context.getApplicationContext();
     this.decoderFactory = decoderFactory;
     this.clock = clock;
     this.mediaSourceFactory = mediaSourceFactory;
     this.bitmapLoader = bitmapLoader;
+    this.trackSelectorFactory = null;
+  }
+
+  /**
+   * Creates an instance.
+   *
+   * @param context The {@link Context}.
+   * @param decoderFactory The {@link Codec.DecoderFactory} to use to decode the samples (if
+   *     necessary).
+   * @param clock The {@link Clock} to use. It should always be {@link Clock#DEFAULT}, except for
+   *     testing.
+   * @param mediaSourceFactory The {@link MediaSource.Factory} to use to retrieve the samples to
+   *     transform when an {@link ExoPlayerAssetLoader} is used.
+   * @param bitmapLoader The {@link BitmapLoader} to use to load and decode images.
+   * @param trackSelectorFactory The {@link TrackSelector.Factory} to use when selecting the track
+   *     to transform.
+   */
+  public DefaultAssetLoaderFactory(
+      Context context,
+      Codec.DecoderFactory decoderFactory,
+      Clock clock,
+      @Nullable MediaSource.Factory mediaSourceFactory,
+      BitmapLoader bitmapLoader,
+      TrackSelector.Factory trackSelectorFactory) {
+    // TODO: b/381519379 - deprecate this constructor and replace with a builder.
+    this.context = context.getApplicationContext();
+    this.decoderFactory = decoderFactory;
+    this.clock = clock;
+    this.mediaSourceFactory = mediaSourceFactory;
+    this.bitmapLoader = bitmapLoader;
+    this.trackSelectorFactory = trackSelectorFactory;
   }
 
   @Override
@@ -157,9 +195,8 @@ public final class DefaultAssetLoaderFactory implements AssetLoader.Factory {
     }
     if (exoPlayerAssetLoaderFactory == null) {
       exoPlayerAssetLoaderFactory =
-          mediaSourceFactory != null
-              ? new ExoPlayerAssetLoader.Factory(context, decoderFactory, clock, mediaSourceFactory)
-              : new ExoPlayerAssetLoader.Factory(context, decoderFactory, clock);
+          new ExoPlayerAssetLoader.Factory(
+              context, decoderFactory, clock, mediaSourceFactory, trackSelectorFactory);
     }
     return exoPlayerAssetLoaderFactory.createAssetLoader(
         editedMediaItem, looper, listener, compositionSettings);
