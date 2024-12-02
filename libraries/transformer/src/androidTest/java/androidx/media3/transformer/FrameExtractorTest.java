@@ -210,6 +210,45 @@ public class FrameExtractorTest {
   }
 
   @Test
+  public void extractFrame_repeatedPositionMsAndClosestSync_returnsTheSameFrame() throws Exception {
+    frameExtractor =
+        new ExperimentalFrameExtractor(
+            context,
+            new ExperimentalFrameExtractor.Configuration.Builder()
+                .setSeekParameters(CLOSEST_SYNC)
+                .build(),
+            MediaItem.fromUri(FILE_PATH),
+            /* effects= */ ImmutableList.of());
+    ImmutableList<Long> requestedFramePositionsMs = ImmutableList.of(0L, 0L, 33L, 34L, 34L);
+    ImmutableList<Long> expectedFramePositionsMs = ImmutableList.of(0L, 0L, 0L, 0L, 0L);
+    List<ListenableFuture<Frame>> frameFutures = new ArrayList<>();
+
+    for (long positionMs : requestedFramePositionsMs) {
+      frameFutures.add(frameExtractor.getFrame(positionMs));
+    }
+    for (int i = 0; i < expectedFramePositionsMs.size(); i++) {
+      ListenableFuture<Frame> frameListenableFuture = frameFutures.get(i);
+      Frame frame = frameListenableFuture.get(TIMEOUT_SECONDS, SECONDS);
+      maybeSaveTestBitmap(testId, /* bitmapLabel= */ "actual_" + i, frame.bitmap, /* path= */ null);
+      Bitmap expectedBitmap =
+          readBitmap(
+              /* assetString= */ GOLDEN_ASSET_FOLDER_PATH
+                  + "sample_with_increasing_timestamps_360p_"
+                  + String.format(Locale.US, "%.3f", frame.presentationTimeMs / 1000f)
+                  + ".png");
+
+      assertBitmapsAreSimilar(expectedBitmap, frame.bitmap, PSNR_THRESHOLD);
+      assertThat(frame.presentationTimeMs).isEqualTo(expectedFramePositionsMs.get(i));
+    }
+    assertThat(
+            frameExtractor
+                .getDecoderCounters()
+                .get(TIMEOUT_SECONDS, SECONDS)
+                .renderedOutputBufferCount)
+        .isEqualTo(1);
+  }
+
+  @Test
   public void extractFrame_randomAccess_returnsCorrectFrames() throws Exception {
     frameExtractor =
         new ExperimentalFrameExtractor(

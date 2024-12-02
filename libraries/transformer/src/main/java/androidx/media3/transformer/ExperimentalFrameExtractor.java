@@ -24,7 +24,6 @@ import static androidx.media3.common.ColorInfo.SDR_BT709_LIMITED;
 import static androidx.media3.common.ColorInfo.isTransferHdr;
 import static androidx.media3.common.PlaybackException.ERROR_CODE_FAILED_RUNTIME_CHECK;
 import static androidx.media3.common.PlaybackException.ERROR_CODE_INVALID_STATE;
-import static androidx.media3.common.Player.DISCONTINUITY_REASON_SEEK;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.GlUtil.createRgb10A2Texture;
@@ -85,6 +84,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.initialization.qual.Initialized;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -212,6 +212,14 @@ public final class ExperimentalFrameExtractor implements AnalyticsListener {
   private final Handler playerApplicationThreadHandler;
 
   /**
+   * An {@link AtomicBoolean} that indicates whether the frame being extracted requires decoding and
+   * rendering, or if the new seek position resolves to the last extracted frame. Accessed on both
+   * the {@linkplain ExoPlayer#getApplicationLooper() ExoPlayer application thread}, and the
+   * ExoPlayer playback thread.
+   */
+  private final AtomicBoolean extractedFrameNeedsRendering;
+
+  /**
    * A {@link SettableFuture} representing the frame currently being extracted. Accessed on both the
    * {@linkplain ExoPlayer#getApplicationLooper() ExoPlayer application thread}, and the video
    * effects GL thread.
@@ -261,6 +269,7 @@ public final class ExperimentalFrameExtractor implements AnalyticsListener {
             .setSeekParameters(configuration.seekParameters)
             .build();
     playerApplicationThreadHandler = new Handler(player.getApplicationLooper());
+    extractedFrameNeedsRendering = new AtomicBoolean();
     lastRequestedFrameFuture = SettableFuture.create();
     // TODO: b/350498258 - Extracting the first frame is a workaround for ExoPlayer.setVideoEffects
     //   returning incorrect timestamps if we seek the player before rendering starts from zero.
@@ -314,6 +323,7 @@ public final class ExperimentalFrameExtractor implements AnalyticsListener {
                     checkState(
                         frameBeingExtractedFutureAtomicReference.compareAndSet(
                             null, frameSettableFuture));
+                    extractedFrameNeedsRendering.set(false);
                     player.seekTo(positionMs);
                   }
                 });
@@ -363,14 +373,14 @@ public final class ExperimentalFrameExtractor implements AnalyticsListener {
   }
 
   @Override
-  public void onPositionDiscontinuity(
-      EventTime eventTime,
-      Player.PositionInfo oldPosition,
-      Player.PositionInfo newPosition,
-      @Player.DiscontinuityReason int reason) {
-    if (oldPosition.equals(newPosition) && reason == DISCONTINUITY_REASON_SEEK) {
-      // When the new seeking position resolves to the old position, no frames are rendered.
-      // Repeat the previously returned frame.
+  public void onPlaybackStateChanged(EventTime eventTime, @Player.State int state) {
+    // The player enters STATE_BUFFERING at the start of a seek.
+    // At the end of a seek, the player enters STATE_READY after the video renderer position has
+    // been reset, and the renderer reports that it's ready.
+    if (state == Player.STATE_READY && !extractedFrameNeedsRendering.get()) {
+      // If the seek resolves to the current position, the renderer position will not be reset
+      // and extractedFrameNeedsRendering remains false. No frames are rendered. Repeat the
+      // previously returned frame.
       SettableFuture<Frame> frameBeingExtractedFuture =
           checkNotNull(frameBeingExtractedFutureAtomicReference.getAndSet(null));
       frameBeingExtractedFuture.set(checkNotNull(lastExtractedFrame));
@@ -557,10 +567,10 @@ public final class ExperimentalFrameExtractor implements AnalyticsListener {
   }
 
   /** A custom MediaCodecVideoRenderer that renders only one frame per position reset. */
-  private static final class FrameExtractorRenderer extends MediaCodecVideoRenderer {
+  private final class FrameExtractorRenderer extends MediaCodecVideoRenderer {
     private final boolean toneMapHdrToSdr;
 
-    private boolean frameRenderedSinceLastReset;
+    private boolean frameRenderedSinceLastPositionReset;
     private List<Effect> effectsFromPlayer;
     private @MonotonicNonNull Effect rotation;
 
@@ -627,8 +637,21 @@ public final class ExperimentalFrameExtractor implements AnalyticsListener {
     }
 
     @Override
+    public boolean isReady() {
+      // When using FrameReadingGlShaderProgram, frames will not be rendered to the output surface,
+      // and VideoFrameRenderControl.onFrameAvailableForRendering will not be called. The base class
+      // never becomes ready.
+      if (frameRenderedSinceLastPositionReset) {
+        // Treat this renderer as ready if a frame has been rendered into the effects pipeline.
+        // The renderer needs to become ready for ExoPlayer to enter STATE_READY.
+        return true;
+      }
+      return super.isReady();
+    }
+
+    @Override
     public void render(long positionUs, long elapsedRealtimeUs) throws ExoPlaybackException {
-      if (!frameRenderedSinceLastReset) {
+      if (!frameRenderedSinceLastPositionReset) {
         super.render(positionUs, elapsedRealtimeUs);
       }
     }
@@ -647,7 +670,7 @@ public final class ExperimentalFrameExtractor implements AnalyticsListener {
         boolean isLastBuffer,
         Format format)
         throws ExoPlaybackException {
-      if (frameRenderedSinceLastReset) {
+      if (frameRenderedSinceLastPositionReset) {
         return false;
       }
       return super.processOutputBuffer(
@@ -667,17 +690,18 @@ public final class ExperimentalFrameExtractor implements AnalyticsListener {
     @Override
     protected void renderOutputBufferV21(
         MediaCodecAdapter codec, int index, long presentationTimeUs, long releaseTimeNs) {
-      if (frameRenderedSinceLastReset) {
+      if (frameRenderedSinceLastPositionReset) {
         // Do not skip this buffer to prevent the decoder from making more progress.
         return;
       }
-      frameRenderedSinceLastReset = true;
+      frameRenderedSinceLastPositionReset = true;
       super.renderOutputBufferV21(codec, index, presentationTimeUs, releaseTimeNs);
     }
 
     @Override
     protected void onPositionReset(long positionUs, boolean joining) throws ExoPlaybackException {
-      frameRenderedSinceLastReset = false;
+      frameRenderedSinceLastPositionReset = false;
+      extractedFrameNeedsRendering.set(true);
       super.onPositionReset(positionUs, joining);
     }
   }
