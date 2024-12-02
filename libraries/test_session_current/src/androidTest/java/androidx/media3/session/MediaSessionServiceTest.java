@@ -47,7 +47,6 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.MediumTest;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
-import com.google.common.primitives.ImmutableIntArray;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import java.util.ArrayList;
@@ -332,13 +331,7 @@ public class MediaSessionServiceTest {
     assertThat(mediaControllerCompat.getPlaybackState().getActions())
         .isEqualTo(PlaybackStateCompat.ACTION_SET_RATING);
     assertThat(remoteController.getCustomLayout())
-        .containsExactly(
-            button1
-                .copyWithIsEnabled(false)
-                .copyWithSlots(ImmutableIntArray.of(CommandButton.SLOT_FORWARD)),
-            button2
-                .copyWithIsEnabled(false)
-                .copyWithSlots(ImmutableIntArray.of(CommandButton.SLOT_OVERFLOW)))
+        .containsExactly(button1.copyWithIsEnabled(false), button2.copyWithIsEnabled(false))
         .inOrder();
     assertThat(initialCustomActionsInControllerCompat).isEmpty();
     assertThat(mediaControllerCompat.getPlaybackState().getCustomActions()).hasSize(2);

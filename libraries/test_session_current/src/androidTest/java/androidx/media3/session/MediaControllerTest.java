@@ -216,11 +216,11 @@ public class MediaControllerTest {
 
     assertThat(threadTestRule.getHandler().postAndSync(controller::getCustomLayout))
         .containsExactly(
-            withBackSlot(button1.copyWithIsEnabled(true)),
-            withForwardSlot(button2.copyWithIsEnabled(false)),
-            withOverflowSlot(button3.copyWithIsEnabled(false)),
-            withOverflowSlot(button4.copyWithIsEnabled(true)),
-            withOverflowSlot(button5.copyWithIsEnabled(false)))
+            button1.copyWithIsEnabled(true),
+            button2.copyWithIsEnabled(false),
+            button3.copyWithIsEnabled(false),
+            button4.copyWithIsEnabled(true),
+            button5.copyWithIsEnabled(false))
         .inOrder();
 
     session.cleanUp();
@@ -300,17 +300,15 @@ public class MediaControllerTest {
         threadTestRule.getHandler().postAndSync(controller::getCustomLayout);
 
     assertThat(initialCustomLayoutFromGetter)
-        .containsExactly(
-            withBackSlot(button1.copyWithIsEnabled(true)),
-            withForwardSlot(button3.copyWithIsEnabled(false)))
+        .containsExactly(button1.copyWithIsEnabled(true), button3.copyWithIsEnabled(false))
         .inOrder();
     ImmutableList<CommandButton> expectedNewButtons =
         ImmutableList.of(
-            withBackSlot(button1.copyWithIsEnabled(true)),
-            withForwardSlot(button2.copyWithIsEnabled(false)),
-            withOverflowSlot(button4.copyWithIsEnabled(false)),
-            withOverflowSlot(button5.copyWithIsEnabled(true)),
-            withOverflowSlot(button6.copyWithIsEnabled(false)));
+            button1.copyWithIsEnabled(true),
+            button2.copyWithIsEnabled(false),
+            button4.copyWithIsEnabled(false),
+            button5.copyWithIsEnabled(true),
+            button6.copyWithIsEnabled(false));
     assertThat(newCustomLayoutFromGetter).containsExactlyElementsIn(expectedNewButtons).inOrder();
     assertThat(reportedCustomLayout.get()).containsExactlyElementsIn(expectedNewButtons).inOrder();
     assertThat(reportedCustomLayoutChanged.get())
@@ -378,39 +376,39 @@ public class MediaControllerTest {
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(initialCustomLayout)
         .containsExactly(
-            withBackSlot(button1.copyWithIsEnabled(true)),
-            withForwardSlot(button2.copyWithIsEnabled(false)),
-            withOverflowSlot(button3.copyWithIsEnabled(true)),
-            withOverflowSlot(button4.copyWithIsEnabled(false)));
+            button1.copyWithIsEnabled(true),
+            button2.copyWithIsEnabled(false),
+            button3.copyWithIsEnabled(true),
+            button4.copyWithIsEnabled(false));
     assertThat(reportedCustomLayoutChanged).hasSize(2);
     assertThat(reportedCustomLayoutChanged.get(0))
         .containsExactly(
-            withBackSlot(button1.copyWithIsEnabled(false)),
-            withForwardSlot(button2.copyWithIsEnabled(false)),
-            withOverflowSlot(button3.copyWithIsEnabled(false)),
-            withOverflowSlot(button4.copyWithIsEnabled(false)))
+            button1.copyWithIsEnabled(false),
+            button2.copyWithIsEnabled(false),
+            button3.copyWithIsEnabled(false),
+            button4.copyWithIsEnabled(false))
         .inOrder();
     assertThat(reportedCustomLayoutChanged.get(1))
         .containsExactly(
-            withBackSlot(button1.copyWithIsEnabled(false)),
-            withForwardSlot(button2.copyWithIsEnabled(false)),
-            withOverflowSlot(button3.copyWithIsEnabled(false)),
-            withOverflowSlot(button4.copyWithIsEnabled(true)))
+            button1.copyWithIsEnabled(false),
+            button2.copyWithIsEnabled(false),
+            button3.copyWithIsEnabled(false),
+            button4.copyWithIsEnabled(true))
         .inOrder();
     assertThat(getterCustomLayoutChanged).hasSize(2);
     assertThat(getterCustomLayoutChanged.get(0))
         .containsExactly(
-            withBackSlot(button1.copyWithIsEnabled(false)),
-            withForwardSlot(button2.copyWithIsEnabled(false)),
-            withOverflowSlot(button3.copyWithIsEnabled(false)),
-            withOverflowSlot(button4.copyWithIsEnabled(false)))
+            button1.copyWithIsEnabled(false),
+            button2.copyWithIsEnabled(false),
+            button3.copyWithIsEnabled(false),
+            button4.copyWithIsEnabled(false))
         .inOrder();
     assertThat(getterCustomLayoutChanged.get(1))
         .containsExactly(
-            withBackSlot(button1.copyWithIsEnabled(false)),
-            withForwardSlot(button2.copyWithIsEnabled(false)),
-            withOverflowSlot(button3.copyWithIsEnabled(false)),
-            withOverflowSlot(button4.copyWithIsEnabled(true)))
+            button1.copyWithIsEnabled(false),
+            button2.copyWithIsEnabled(false),
+            button3.copyWithIsEnabled(false),
+            button4.copyWithIsEnabled(true))
         .inOrder();
     session.cleanUp();
   }
@@ -453,17 +451,13 @@ public class MediaControllerTest {
             new Player.Commands.Builder().add(Player.COMMAND_PLAY_PAUSE).build());
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
-    assertThat(initialCustomLayout).containsExactly(withBackSlot(button.copyWithIsEnabled(true)));
+    assertThat(initialCustomLayout).containsExactly(button.copyWithIsEnabled(true));
     assertThat(reportedCustomLayouts).hasSize(2);
-    assertThat(reportedCustomLayouts.get(0))
-        .containsExactly(withBackSlot(button.copyWithIsEnabled(false)));
-    assertThat(reportedCustomLayouts.get(1))
-        .containsExactly(withBackSlot(button.copyWithIsEnabled(true)));
+    assertThat(reportedCustomLayouts.get(0)).containsExactly(button.copyWithIsEnabled(false));
+    assertThat(reportedCustomLayouts.get(1)).containsExactly(button.copyWithIsEnabled(true));
     assertThat(getterCustomLayouts).hasSize(2);
-    assertThat(getterCustomLayouts.get(0))
-        .containsExactly(withBackSlot(button.copyWithIsEnabled(false)));
-    assertThat(getterCustomLayouts.get(1))
-        .containsExactly(withBackSlot(button.copyWithIsEnabled(true)));
+    assertThat(getterCustomLayouts.get(0)).containsExactly(button.copyWithIsEnabled(false));
+    assertThat(getterCustomLayouts.get(1)).containsExactly(button.copyWithIsEnabled(true));
     session.cleanUp();
   }
 
@@ -533,171 +527,33 @@ public class MediaControllerTest {
     session.setCustomLayout(ImmutableList.of(button1, button2));
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
-    CommandButton button1EnabledBackSlot = withBackSlot(button1.copyWithIsEnabled(true));
-    CommandButton button2DisabledForwardSlot = withForwardSlot(button2.copyWithIsEnabled(false));
-    CommandButton button3DisabledBackSlot = withBackSlot(button3.copyWithIsEnabled(false));
-    CommandButton button4DisabledForwardSlot = withForwardSlot(button4.copyWithIsEnabled(false));
-    assertThat(initialCustomLayout)
-        .containsExactly(button1EnabledBackSlot, button2DisabledForwardSlot)
-        .inOrder();
+    CommandButton button1Enabled = button1.copyWithIsEnabled(true);
+    CommandButton button2Disabled = button2.copyWithIsEnabled(false);
+    CommandButton button3Disabled = button3.copyWithIsEnabled(false);
+    CommandButton button4Disabled = button4.copyWithIsEnabled(false);
+    assertThat(initialCustomLayout).containsExactly(button1Enabled, button2Disabled).inOrder();
     assertThat(reportedCustomLayout)
         .containsExactly(
-            ImmutableList.of(button1EnabledBackSlot, button2DisabledForwardSlot),
-            ImmutableList.of(button3DisabledBackSlot, button4DisabledForwardSlot),
-            ImmutableList.of(button1EnabledBackSlot, button2DisabledForwardSlot))
+            ImmutableList.of(button1Enabled, button2Disabled),
+            ImmutableList.of(button3Disabled, button4Disabled),
+            ImmutableList.of(button1Enabled, button2Disabled))
         .inOrder();
     assertThat(getterCustomLayout)
         .containsExactly(
-            ImmutableList.of(button1EnabledBackSlot, button2DisabledForwardSlot),
-            ImmutableList.of(button3DisabledBackSlot, button4DisabledForwardSlot),
-            ImmutableList.of(button1EnabledBackSlot, button2DisabledForwardSlot))
+            ImmutableList.of(button1Enabled, button2Disabled),
+            ImmutableList.of(button3Disabled, button4Disabled),
+            ImmutableList.of(button1Enabled, button2Disabled))
         .inOrder();
     assertThat(reportedCustomLayoutChanged)
         .containsExactly(
-            ImmutableList.of(button3DisabledBackSlot, button4DisabledForwardSlot),
-            ImmutableList.of(button1EnabledBackSlot, button2DisabledForwardSlot))
+            ImmutableList.of(button3Disabled, button4Disabled),
+            ImmutableList.of(button1Enabled, button2Disabled))
         .inOrder();
     assertThat(getterCustomLayoutChanged)
         .containsExactly(
-            ImmutableList.of(button3DisabledBackSlot, button4DisabledForwardSlot),
-            ImmutableList.of(button1EnabledBackSlot, button2DisabledForwardSlot))
+            ImmutableList.of(button3Disabled, button4Disabled),
+            ImmutableList.of(button1Enabled, button2Disabled))
         .inOrder();
-    session.cleanUp();
-  }
-
-  @Test
-  public void getCustomLayout_setAvailablePrevNextCommand_reportsCustomLayoutChanged()
-      throws Exception {
-    RemoteMediaSession session = createRemoteMediaSession(TEST_GET_CUSTOM_LAYOUT, null);
-    CommandButton button1 =
-        new CommandButton.Builder(CommandButton.ICON_ALBUM)
-            .setDisplayName("button1")
-            .setSessionCommand(new SessionCommand("command1", Bundle.EMPTY))
-            .build();
-    CommandButton button2 =
-        new CommandButton.Builder(CommandButton.ICON_REWIND)
-            .setDisplayName("button2")
-            .setSessionCommand(new SessionCommand("command2", Bundle.EMPTY))
-            .build();
-    CommandButton button3 =
-        new CommandButton.Builder(CommandButton.ICON_SHUFFLE_ON)
-            .setDisplayName("button3")
-            .setSessionCommand(new SessionCommand("command3", Bundle.EMPTY))
-            .build();
-    SessionCommands allSessionCommands =
-        new SessionCommands.Builder()
-            .add(button1.sessionCommand)
-            .add(button2.sessionCommand)
-            .add(button3.sessionCommand)
-            .build();
-    setupCustomLayout(session, ImmutableList.of(button1, button2, button3));
-    CountDownLatch latch = new CountDownLatch(4);
-    List<List<CommandButton>> reportedCustomLayouts = new ArrayList<>();
-    MediaController.Listener listener =
-        new MediaController.Listener() {
-          @Override
-          public void onCustomLayoutChanged(
-              MediaController controller, List<CommandButton> layout) {
-            reportedCustomLayouts.add(layout);
-            latch.countDown();
-          }
-        };
-    controllerTestRule.createController(
-        session.getToken(), /* connectionHints= */ Bundle.EMPTY, listener);
-
-    session.setAvailableCommands(allSessionCommands, Player.Commands.EMPTY);
-    session.setAvailableCommands(
-        allSessionCommands, new Player.Commands.Builder().add(Player.COMMAND_SEEK_TO_NEXT).build());
-    session.setAvailableCommands(
-        allSessionCommands,
-        new Player.Commands.Builder().add(Player.COMMAND_SEEK_TO_PREVIOUS).build());
-    session.setAvailableCommands(
-        allSessionCommands,
-        new Player.Commands.Builder()
-            .addAll(Player.COMMAND_SEEK_TO_NEXT, Player.COMMAND_SEEK_TO_PREVIOUS)
-            .build());
-
-    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
-    assertThat(reportedCustomLayouts)
-        .containsExactly(
-            ImmutableList.of(
-                withBackSlot(button1), withForwardSlot(button2), withOverflowSlot(button3)),
-            ImmutableList.of(
-                withBackSlot(button1), withOverflowSlot(button2), withOverflowSlot(button3)),
-            ImmutableList.of(
-                withForwardSlot(button1), withOverflowSlot(button2), withOverflowSlot(button3)),
-            ImmutableList.of(
-                withOverflowSlot(button1), withOverflowSlot(button2), withOverflowSlot(button3)));
-    session.cleanUp();
-  }
-
-  @Test
-  public void getCustomLayout_setSessionExtrasForPrevNextReservations_reportsCustomLayoutChanged()
-      throws Exception {
-    RemoteMediaSession session = createRemoteMediaSession(TEST_GET_CUSTOM_LAYOUT, null);
-    CommandButton button1 =
-        new CommandButton.Builder(CommandButton.ICON_ALBUM)
-            .setDisplayName("button1")
-            .setSessionCommand(new SessionCommand("command1", Bundle.EMPTY))
-            .build();
-    CommandButton button2 =
-        new CommandButton.Builder(CommandButton.ICON_REWIND)
-            .setDisplayName("button2")
-            .setSessionCommand(new SessionCommand("command2", Bundle.EMPTY))
-            .build();
-    CommandButton button3 =
-        new CommandButton.Builder(CommandButton.ICON_SHUFFLE_ON)
-            .setDisplayName("button3")
-            .setSessionCommand(new SessionCommand("command3", Bundle.EMPTY))
-            .build();
-    SessionCommands allSessionCommands =
-        new SessionCommands.Builder()
-            .add(button1.sessionCommand)
-            .add(button2.sessionCommand)
-            .add(button3.sessionCommand)
-            .build();
-    setupCustomLayout(session, ImmutableList.of(button1, button2, button3));
-    CountDownLatch latch = new CountDownLatch(4);
-    List<List<CommandButton>> reportedCustomLayouts = new ArrayList<>();
-    MediaController.Listener listener =
-        new MediaController.Listener() {
-          @Override
-          public void onCustomLayoutChanged(
-              MediaController controller, List<CommandButton> layout) {
-            reportedCustomLayouts.add(layout);
-            latch.countDown();
-          }
-        };
-    Bundle extrasNextSlotReservation = new Bundle();
-    extrasNextSlotReservation.putBoolean(
-        MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_NEXT, true);
-    Bundle extrasPrevSlotReservation = new Bundle();
-    extrasPrevSlotReservation.putBoolean(
-        MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_PREV, true);
-    Bundle extrasPrevNextSlotReservation = new Bundle();
-    extrasPrevNextSlotReservation.putBoolean(
-        MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_PREV, true);
-    extrasPrevNextSlotReservation.putBoolean(
-        MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_NEXT, true);
-    controllerTestRule.createController(
-        session.getToken(), /* connectionHints= */ Bundle.EMPTY, listener);
-
-    session.setAvailableCommands(allSessionCommands, Player.Commands.EMPTY);
-    session.setSessionExtras(extrasNextSlotReservation);
-    session.setSessionExtras(extrasPrevSlotReservation);
-    session.setSessionExtras(extrasPrevNextSlotReservation);
-
-    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
-    assertThat(reportedCustomLayouts)
-        .containsExactly(
-            ImmutableList.of(
-                withBackSlot(button1), withForwardSlot(button2), withOverflowSlot(button3)),
-            ImmutableList.of(
-                withBackSlot(button1), withOverflowSlot(button2), withOverflowSlot(button3)),
-            ImmutableList.of(
-                withForwardSlot(button1), withOverflowSlot(button2), withOverflowSlot(button3)),
-            ImmutableList.of(
-                withOverflowSlot(button1), withOverflowSlot(button2), withOverflowSlot(button3)));
     session.cleanUp();
   }
 

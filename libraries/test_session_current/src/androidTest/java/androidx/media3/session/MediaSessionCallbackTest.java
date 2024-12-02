@@ -56,7 +56,6 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.LargeTest;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.primitives.ImmutableIntArray;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -199,13 +198,7 @@ public class MediaSessionCallbackTest {
 
     ImmutableList<CommandButton> layout = remoteController.getCustomLayout();
 
-    assertThat(layout)
-        .containsExactly(
-            button1
-                .copyWithIsEnabled(false)
-                .copyWithSlots(ImmutableIntArray.of(CommandButton.SLOT_OVERFLOW)),
-            button2.copyWithSlots(ImmutableIntArray.of(CommandButton.SLOT_OVERFLOW)))
-        .inOrder();
+    assertThat(layout).containsExactly(button1.copyWithIsEnabled(false), button2).inOrder();
     assertThat(remoteController.sendCustomCommand(button1.sessionCommand, Bundle.EMPTY).resultCode)
         .isEqualTo(ERROR_PERMISSION_DENIED);
     assertThat(remoteController.sendCustomCommand(button2.sessionCommand, Bundle.EMPTY).resultCode)
