@@ -18,17 +18,17 @@ package androidx.media3.common;
 import static androidx.media3.common.Player.EVENT_IS_PLAYING_CHANGED;
 import static androidx.media3.common.Player.EVENT_MEDIA_ITEM_TRANSITION;
 import static androidx.media3.common.Player.EVENT_TIMELINE_CHANGED;
+import static androidx.media3.test.utils.TestUtil.assertForwardingClassForwardsAllMethodsExcept;
+import static androidx.media3.test.utils.TestUtil.assertForwardingClassOverridesAllMethods;
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
 import androidx.media3.test.utils.StubPlayer;
-import androidx.media3.test.utils.TestUtil;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import java.lang.reflect.Method;
+import com.google.common.collect.ImmutableSet;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -99,29 +99,27 @@ public class ForwardingPlayerTest {
 
   @Test
   public void forwardingPlayer_overridesAllPlayerMethods() throws Exception {
-    // Check with reflection that ForwardingPlayer overrides all Player methods.
-    List<Method> methods = TestUtil.getPublicMethods(Player.class);
-    for (Method method : methods) {
-      assertThat(
-              ForwardingPlayer.class
-                  .getDeclaredMethod(method.getName(), method.getParameterTypes())
-                  .getDeclaringClass())
-          .isEqualTo(ForwardingPlayer.class);
-    }
+    assertForwardingClassOverridesAllMethods(Player.class, ForwardingPlayer.class);
   }
 
   @Test
+  public void forwardingPlayer_forwardsAllPlayerMethods() throws Exception {
+    // addListener and removeListener don't directly forward their parameters due to wrapping in
+    // ForwardingListener. They are tested separately in addListener_addsForwardingListener() and
+    // removeListener_removesForwardingListener().
+    assertForwardingClassForwardsAllMethodsExcept(
+        Player.class,
+        ForwardingPlayer::new,
+        /* excludedMethods= */ ImmutableSet.of("addListener", "removeListener"));
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
   public void forwardingListener_overridesAllListenerMethods() throws Exception {
     // Check with reflection that ForwardingListener overrides all Listener methods.
-    Class<?> forwardingListenerClass = getInnerClass("ForwardingListener");
-    List<Method> methods = TestUtil.getPublicMethods(Player.Listener.class);
-    for (Method method : methods) {
-      assertThat(
-              forwardingListenerClass
-                  .getMethod(method.getName(), method.getParameterTypes())
-                  .getDeclaringClass())
-          .isEqualTo(forwardingListenerClass);
-    }
+    Class<? extends Player.Listener> forwardingListenerClass =
+        (Class<? extends Player.Listener>) getInnerClass("ForwardingListener");
+    assertForwardingClassOverridesAllMethods(Player.Listener.class, forwardingListenerClass);
   }
 
   private static Class<?> getInnerClass(String className) {

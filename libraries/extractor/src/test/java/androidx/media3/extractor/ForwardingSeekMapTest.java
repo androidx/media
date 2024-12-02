@@ -13,25 +13,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package androidx.media3.exoplayer.audio;
+package androidx.media3.extractor;
 
-import static androidx.media3.test.utils.TestUtil.assertForwardingClassForwardsAllMethods;
-import static androidx.media3.test.utils.TestUtil.assertForwardingClassOverridesAllMethods;
-
+import androidx.media3.test.utils.TestUtil;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-/** Unit tests for {@link ForwardingAudioSink}. */
+/** Unit tests for {@link ForwardingSeekMap}. */
 @RunWith(AndroidJUnit4.class)
-public final class ForwardingAudioSinkTest {
+public class ForwardingSeekMapTest {
+
   @Test
-  public void overridesAllMethods() throws NoSuchMethodException {
-    assertForwardingClassOverridesAllMethods(AudioSink.class, ForwardingAudioSink.class);
+  public void overridesAllMethods() throws Exception {
+    TestUtil.assertForwardingClassOverridesAllMethods(SeekMap.class, ForwardingSeekMap.class);
   }
 
   @Test
   public void forwardsAllMethods() throws Exception {
-    assertForwardingClassForwardsAllMethods(AudioSink.class, ForwardingAudioSink::new);
+    TestUtil.assertForwardingClassForwardsAllMethods(SeekMap.class, ForwardingSeekMap::new);
   }
 }

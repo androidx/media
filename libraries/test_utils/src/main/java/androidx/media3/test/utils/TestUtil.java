@@ -57,6 +57,7 @@ import androidx.media3.extractor.metadata.MetadataInputBuffer;
 import com.google.common.base.Function;
 import com.google.common.collect.BoundType;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Range;
 import com.google.common.io.ByteStreams;
 import com.google.common.primitives.Bytes;
@@ -644,6 +645,19 @@ public class TestUtil {
    * Use reflection to assert calling every method declared on {@code superType} on an instance of
    * {@code forwardingType} results in the call being forwarded to the {@code superType} delegate.
    */
+  public static <T extends @NonNull Object, F extends T>
+      void assertForwardingClassForwardsAllMethods(
+          Class<T> superType, Function<T, F> forwardingInstanceFactory)
+          throws InvocationTargetException, IllegalAccessException {
+    assertForwardingClassForwardsAllMethodsExcept(
+        superType, forwardingInstanceFactory, /* excludedMethods= */ ImmutableSet.of());
+  }
+
+  /**
+   * Use reflection to assert calling every non-excluded method declared on {@code superType} on an
+   * instance of {@code forwardingType} results in the call being forwarded to the {@code superType}
+   * delegate.
+   */
   // The nullness checker is deliberately over-conservative and doesn't permit passing a null
   // parameter to method.invoke(), even if the real method does accept null. Regardless, we expect
   // the null to be passed straight to our mocked delegate, so it's OK to pass null even for
@@ -651,10 +665,13 @@ public class TestUtil {
   // https://github.com/typetools/checker-framework/blob/c26bb695ebc572fac1e9cd2e331fc5b9d3953ec0/checker/jdk/nullness/src/java/lang/reflect/Method.java#L109
   @SuppressWarnings("nullness:argument.type.incompatible")
   public static <T extends @NonNull Object, F extends T>
-      void assertForwardingClassForwardsAllMethods(
-          Class<T> superType, Function<T, F> forwardingInstanceFactory)
+      void assertForwardingClassForwardsAllMethodsExcept(
+          Class<T> superType, Function<T, F> forwardingInstanceFactory, Set<String> excludedMethods)
           throws InvocationTargetException, IllegalAccessException {
     for (Method method : getPublicMethods(superType)) {
+      if (excludedMethods.contains(method.getName())) {
+        continue;
+      }
       T delegate = mock(superType);
       F forwardingInstance = forwardingInstanceFactory.apply(delegate);
       @NullableType Object[] parameters = new Object[method.getParameterCount()];
