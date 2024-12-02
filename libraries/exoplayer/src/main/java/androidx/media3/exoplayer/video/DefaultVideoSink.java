@@ -117,6 +117,11 @@ import java.util.concurrent.Executor;
   }
 
   @Override
+  public void signalEndOfInput() {
+    // Ignored.
+  }
+
+  @Override
   public boolean isEnded() {
     return videoFrameRenderControl.isEnded();
   }

@@ -739,6 +739,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
     if (!inputSwitcher.hasActiveInput()) {
       return;
     }
+    inputStreamEnded = false;
     try {
       TextureManager textureManager = inputSwitcher.activeTextureManager();
       textureManager.dropIncomingRegisteredFrames();

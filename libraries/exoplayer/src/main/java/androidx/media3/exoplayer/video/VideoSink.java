@@ -180,6 +180,9 @@ public interface VideoSink {
   /** Signals the end of the current input stream. */
   void signalEndOfCurrentInputStream();
 
+  /** Signals the end of the last input stream. */
+  void signalEndOfInput();
+
   /**
    * Returns whether all the data has been rendered to the output surface.
    *

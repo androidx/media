@@ -140,6 +140,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   @Override
+  public void signalEndOfInput() {
+    executeOrDelay(VideoSink::signalEndOfInput);
+  }
+
+  @Override
   public boolean isEnded() {
     return videoSink != null && videoSink.isEnded();
   }

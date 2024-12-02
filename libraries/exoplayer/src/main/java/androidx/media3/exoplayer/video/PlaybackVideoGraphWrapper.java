@@ -394,7 +394,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
 
   @Override
   public void onEnded(long finalFramePresentationTimeUs) {
-    throw new UnsupportedOperationException();
+    // Ignored.
   }
 
   @Override
@@ -545,6 +545,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
 
     private VideoSink.Listener listener;
     private Executor listenerExecutor;
+    private boolean signaledEndOfStream;
 
     /** Creates a new instance. */
     public InputVideoSink(Context context) {
@@ -604,6 +605,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
       }
       lastBufferPresentationTimeUs = C.TIME_UNSET;
       PlaybackVideoGraphWrapper.this.flush(resetPosition);
+      signaledEndOfStream = false;
       // Don't change input stream start position or reset the pending input stream timestamp info
       // change so that it's announced with the next input frame.
       // Don't reset isInputStreamChangePending because it's not guaranteed to receive a new input
@@ -619,6 +621,17 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     @Override
     public void signalEndOfCurrentInputStream() {
       finalBufferPresentationTimeUs = lastBufferPresentationTimeUs;
+    }
+
+    @Override
+    public void signalEndOfInput() {
+      if (signaledEndOfStream) {
+        return;
+      }
+      if (isInitialized()) {
+        videoFrameProcessor.signalEndOfInput();
+        signaledEndOfStream = true;
+      }
     }
 
     @Override
@@ -767,12 +780,10 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     @Override
     public boolean handleInputBitmap(Bitmap inputBitmap, TimestampIterator timestampIterator) {
       checkState(isInitialized());
-
       if (!checkStateNotNull(videoFrameProcessor)
           .queueInputBitmap(inputBitmap, timestampIterator)) {
         return false;
       }
-
       // TimestampIterator generates frame time.
       long lastBufferPresentationTimeUs =
           timestampIterator.getLastTimestampUs() - inputBufferTimestampAdjustmentUs;

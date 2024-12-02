@@ -26,12 +26,18 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.content.Context;
 import android.view.SurfaceView;
+import androidx.media3.common.ColorInfo;
+import androidx.media3.common.DebugViewProvider;
 import androidx.media3.common.Effect;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.PreviewingVideoGraph;
+import androidx.media3.common.VideoFrameProcessingException;
+import androidx.media3.common.VideoGraph;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.GlEffect;
+import androidx.media3.effect.PreviewingSingleInputVideoGraph;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
@@ -39,6 +45,7 @@ import com.google.common.collect.Iterables;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.After;
@@ -65,6 +72,7 @@ public class CompositionPlayerSeekTest {
   // 200 ms at 30 fps (default frame rate)
   private static final ImmutableList<Long> IMAGE_TIMESTAMPS_US =
       ImmutableList.of(0L, 33_333L, 66_667L, 100_000L, 133_333L, 166_667L);
+  private static final long VIDEO_GRAPH_END_TIMEOUT_MS = 1_000;
 
   @Rule
   public ActivityScenarioRule<SurfaceTestActivity> rule =
@@ -119,11 +127,15 @@ public class CompositionPlayerSeekTest {
             .addAll(sequenceTimestampsUs)
             .addAll(sequenceTimestampsUs)
             .build();
-
+    CountDownLatch videoGraphEnded = new CountDownLatch(1);
     getInstrumentation()
         .runOnMainSync(
             () -> {
-              compositionPlayer = new CompositionPlayer.Builder(applicationContext).build();
+              compositionPlayer =
+                  new CompositionPlayer.Builder(applicationContext)
+                      .setPreviewingVideoGraphFactory(
+                          new ListenerCapturingVideoGraphFactory(videoGraphEnded))
+                      .build();
               // Set a surface on the player even though there is no UI on this test. We need a
               // surface otherwise the player will skip/drop video frames.
               compositionPlayer.setVideoSurfaceView(surfaceView);
@@ -138,6 +150,61 @@ public class CompositionPlayerSeekTest {
     playerTestListener.resetStatus();
     getInstrumentation().runOnMainSync(() -> compositionPlayer.seekTo(0));
     playerTestListener.waitUntilPlayerEnded();
+
+    assertThat(videoGraphEnded.await(VIDEO_GRAPH_END_TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(inputTimestampRecordingShaderProgram.getInputTimestampsUs())
+        .isEqualTo(expectedTimestampsUs);
+  }
+
+  @Test
+  public void seekToZero_afterPlayingSingleSequenceOfTwoImages() throws Exception {
+    InputTimestampRecordingShaderProgram inputTimestampRecordingShaderProgram =
+        new InputTimestampRecordingShaderProgram();
+    EditedMediaItem image =
+        createEditedMediaItem(
+            IMAGE_MEDIA_ITEM,
+            IMAGE_DURATION_US,
+            /* videoEffect= */ (GlEffect)
+                (context, useHdr) -> inputTimestampRecordingShaderProgram);
+    ImmutableList<Long> sequenceTimestampsUs =
+        new ImmutableList.Builder<Long>()
+            // Plays the first video
+            .addAll(IMAGE_TIMESTAMPS_US)
+            // Plays the second video
+            .addAll(
+                Iterables.transform(
+                    IMAGE_TIMESTAMPS_US, timestampUs -> IMAGE_DURATION_US + timestampUs))
+            .build();
+    // Seeked after the first playback ends, so the timestamps are repeated twice.
+    ImmutableList<Long> expectedTimestampsUs =
+        new ImmutableList.Builder<Long>()
+            .addAll(sequenceTimestampsUs)
+            .addAll(sequenceTimestampsUs)
+            .build();
+    CountDownLatch videoGraphEnded = new CountDownLatch(1);
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              compositionPlayer =
+                  new CompositionPlayer.Builder(applicationContext)
+                      .setPreviewingVideoGraphFactory(
+                          new ListenerCapturingVideoGraphFactory(videoGraphEnded))
+                      .build();
+              // Set a surface on the player even though there is no UI on this test. We need a
+              // surface otherwise the player will skip/drop video frames.
+              compositionPlayer.setVideoSurfaceView(surfaceView);
+              compositionPlayer.addListener(playerTestListener);
+              compositionPlayer.setComposition(
+                  new Composition.Builder(new EditedMediaItemSequence.Builder(image, image).build())
+                      .build());
+              compositionPlayer.prepare();
+              compositionPlayer.play();
+            });
+    playerTestListener.waitUntilPlayerEnded();
+    playerTestListener.resetStatus();
+    getInstrumentation().runOnMainSync(() -> compositionPlayer.seekTo(0));
+    playerTestListener.waitUntilPlayerEnded();
+    assertThat(videoGraphEnded.await(VIDEO_GRAPH_END_TIMEOUT_MS, MILLISECONDS)).isTrue();
 
     assertThat(inputTimestampRecordingShaderProgram.getInputTimestampsUs())
         .isEqualTo(expectedTimestampsUs);
@@ -563,10 +630,15 @@ public class CompositionPlayerSeekTest {
                   (context, useHdr) -> inputTimestampRecordingShaderProgram));
     }
 
+    CountDownLatch videoGraphEnded = new CountDownLatch(1);
     getInstrumentation()
         .runOnMainSync(
             () -> {
-              compositionPlayer = new CompositionPlayer.Builder(applicationContext).build();
+              compositionPlayer =
+                  new CompositionPlayer.Builder(applicationContext)
+                      .setPreviewingVideoGraphFactory(
+                          new ListenerCapturingVideoGraphFactory(videoGraphEnded))
+                      .build();
               // Set a surface on the player even though there is no UI on this test. We need a
               // surface otherwise the player will skip/drop video frames.
               compositionPlayer.setVideoSurfaceView(surfaceView);
@@ -583,6 +655,8 @@ public class CompositionPlayerSeekTest {
     framesReceivedLatch.await();
     getInstrumentation().runOnMainSync(() -> compositionPlayer.seekTo(seekTimeMs));
     playerTestListener.waitUntilPlayerEnded();
+
+    assertThat(videoGraphEnded.await(VIDEO_GRAPH_END_TIMEOUT_MS, MILLISECONDS)).isTrue();
     return inputTimestampRecordingShaderProgram.getInputTimestampsUs();
   }
 
@@ -593,6 +667,64 @@ public class CompositionPlayerSeekTest {
         .setEffects(
             new Effects(/* audioProcessors= */ ImmutableList.of(), ImmutableList.of(videoEffect)))
         .build();
+  }
+
+  private static final class ListenerCapturingVideoGraphFactory
+      implements PreviewingVideoGraph.Factory {
+
+    private final PreviewingSingleInputVideoGraph.Factory singleInputVideoGraphFactory;
+    private final CountDownLatch videoGraphEnded;
+
+    public ListenerCapturingVideoGraphFactory(CountDownLatch videoGraphEnded) {
+      singleInputVideoGraphFactory = new PreviewingSingleInputVideoGraph.Factory();
+      this.videoGraphEnded = videoGraphEnded;
+    }
+
+    @Override
+    public PreviewingVideoGraph create(
+        Context context,
+        ColorInfo outputColorInfo,
+        DebugViewProvider debugViewProvider,
+        VideoGraph.Listener listener,
+        Executor listenerExecutor,
+        List<Effect> compositionEffects,
+        long initialTimestampOffsetUs) {
+      return singleInputVideoGraphFactory.create(
+          context,
+          outputColorInfo,
+          debugViewProvider,
+          new VideoGraph.Listener() {
+
+            @Override
+            public void onOutputSizeChanged(int width, int height) {
+              listener.onOutputSizeChanged(width, height);
+            }
+
+            @Override
+            public void onOutputFrameRateChanged(float frameRate) {
+              listener.onOutputFrameRateChanged(frameRate);
+            }
+
+            @Override
+            public void onOutputFrameAvailableForRendering(long framePresentationTimeUs) {
+              listener.onOutputFrameAvailableForRendering(framePresentationTimeUs);
+            }
+
+            @Override
+            public void onEnded(long finalFramePresentationTimeUs) {
+              videoGraphEnded.countDown();
+              listener.onEnded(finalFramePresentationTimeUs);
+            }
+
+            @Override
+            public void onError(VideoFrameProcessingException exception) {
+              listener.onError(exception);
+            }
+          },
+          listenerExecutor,
+          compositionEffects,
+          initialTimestampOffsetUs);
+    }
   }
 
   private static final class ResettableCountDownLatch {

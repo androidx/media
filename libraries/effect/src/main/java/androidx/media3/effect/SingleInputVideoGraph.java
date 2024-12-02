@@ -25,12 +25,15 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DebugViewProvider;
+import androidx.media3.common.Effect;
+import androidx.media3.common.Format;
 import androidx.media3.common.SurfaceInfo;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.VideoGraph;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.util.concurrent.MoreExecutors;
+import java.util.List;
 import java.util.concurrent.Executor;
 
 /** A {@link VideoGraph} that handles one input stream. */
@@ -48,7 +51,6 @@ public abstract class SingleInputVideoGraph implements VideoGraph {
 
   @Nullable private VideoFrameProcessor videoFrameProcessor;
   @Nullable private SurfaceInfo outputSurfaceInfo;
-  private boolean isEnded;
   private boolean released;
   private volatile boolean hasProducedFrameWithTimestampZero;
   private int inputIndex;
@@ -108,6 +110,17 @@ public abstract class SingleInputVideoGraph implements VideoGraph {
             /* listenerExecutor= */ MoreExecutors.directExecutor(),
             new VideoFrameProcessor.Listener() {
               private long lastProcessedFramePresentationTimeUs;
+              private boolean isEnded;
+
+              @Override
+              public void onInputStreamRegistered(
+                  @VideoFrameProcessor.InputType int inputType,
+                  Format format,
+                  List<Effect> effects) {
+                // An input stream could be registered after VideoFrameProcessor ends, following
+                // a flush() for example.
+                isEnded = false;
+              }
 
               @Override
               public void onOutputSizeChanged(int width, int height) {
