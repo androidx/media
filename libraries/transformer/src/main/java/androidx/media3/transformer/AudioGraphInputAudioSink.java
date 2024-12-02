@@ -73,8 +73,11 @@ import java.util.Objects;
     /**
      * Returns the position (in microseconds) that should be {@linkplain
      * AudioSink#getCurrentPositionUs returned} by this sink.
+     *
+     * @param sourceEnded Specify {@code true} if no more input buffers will be provided.
+     * @return The playback position relative to the start of playback, in microseconds.
      */
-    long getCurrentPositionUs();
+    long getCurrentPositionUs(boolean sourceEnded);
 
     /** Returns whether the controller is ended. */
     boolean isEnded();
@@ -216,7 +219,7 @@ import java.util.Objects;
 
   @Override
   public long getCurrentPositionUs(boolean sourceEnded) {
-    long currentPositionUs = controller.getCurrentPositionUs();
+    long currentPositionUs = controller.getCurrentPositionUs(sourceEnded);
     if (currentPositionUs != CURRENT_POSITION_NOT_SET) {
       // Reset the position to the one expected by the player.
       currentPositionUs -= offsetToCompositionTimeUs;

@@ -188,8 +188,8 @@ import java.util.Objects;
     }
 
     @Override
-    public long getCurrentPositionUs() {
-      return finalAudioSink.getCurrentPositionUs(/* sourceEnded= */ false);
+    public long getCurrentPositionUs(boolean sourceEnded) {
+      return finalAudioSink.getCurrentPositionUs(sourceEnded);
     }
 
     @Override
