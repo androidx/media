@@ -45,6 +45,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -408,5 +409,35 @@ public class FrameExtractorTest {
                 .get(TIMEOUT_SECONDS, SECONDS)
                 .renderedOutputBufferCount)
         .isEqualTo(1);
+  }
+
+  @Test
+  public void extractFrame_randomAccessWithCancellation_returnsCorrectFrames() throws Exception {
+    frameExtractor =
+        new ExperimentalFrameExtractor(
+            context,
+            new ExperimentalFrameExtractor.Configuration.Builder().build(),
+            MediaItem.fromUri(FILE_PATH),
+            /* effects= */ ImmutableList.of());
+
+    ListenableFuture<Frame> frame5 = frameExtractor.getFrame(/* positionMs= */ 5_000);
+    ListenableFuture<Frame> frame3 = frameExtractor.getFrame(/* positionMs= */ 3_000);
+    ListenableFuture<Frame> frame7 = frameExtractor.getFrame(/* positionMs= */ 7_000);
+    ListenableFuture<Frame> frame2 = frameExtractor.getFrame(/* positionMs= */ 2_000);
+    ListenableFuture<Frame> frame8 = frameExtractor.getFrame(/* positionMs= */ 8_000);
+    frame5.cancel(/* mayInterruptIfRunning= */ false);
+    frame7.cancel(/* mayInterruptIfRunning= */ false);
+
+    assertThat(frame3.get(TIMEOUT_SECONDS, SECONDS).presentationTimeMs).isEqualTo(3_032);
+    assertThat(frame2.get(TIMEOUT_SECONDS, SECONDS).presentationTimeMs).isEqualTo(2_032);
+    assertThat(frame8.get(TIMEOUT_SECONDS, SECONDS).presentationTimeMs).isEqualTo(8_031);
+    assertThrows(CancellationException.class, () -> frame5.get(TIMEOUT_SECONDS, SECONDS));
+    assertThrows(CancellationException.class, () -> frame7.get(TIMEOUT_SECONDS, SECONDS));
+    assertThat(
+            frameExtractor
+                .getDecoderCounters()
+                .get(TIMEOUT_SECONDS, SECONDS)
+                .renderedOutputBufferCount)
+        .isEqualTo(4);
   }
 }

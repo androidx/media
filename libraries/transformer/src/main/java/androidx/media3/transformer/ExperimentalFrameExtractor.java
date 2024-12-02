@@ -44,6 +44,7 @@ import androidx.annotation.CallSuper;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
+import androidx.concurrent.futures.CallbackToFutureAdapter;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.GlObjectsProvider;
@@ -220,18 +221,19 @@ public final class ExperimentalFrameExtractor implements AnalyticsListener {
   private final AtomicBoolean extractedFrameNeedsRendering;
 
   /**
-   * A {@link SettableFuture} representing the frame currently being extracted. Accessed on both the
-   * {@linkplain ExoPlayer#getApplicationLooper() ExoPlayer application thread}, and the video
-   * effects GL thread.
+   * A {@link CallbackToFutureAdapter.Completer} corresponding to the frame currently being
+   * extracted. Accessed on both the {@linkplain ExoPlayer#getApplicationLooper() ExoPlayer
+   * application thread}, and the video effects GL thread.
    */
-  private final AtomicReference<@NullableType SettableFuture<Frame>>
-      frameBeingExtractedFutureAtomicReference;
+  private final AtomicReference<CallbackToFutureAdapter.@NullableType Completer<Frame>>
+      frameBeingExtractedCompleterAtomicReference;
 
   /**
-   * The last {@link SettableFuture} returned by {@link #getFrame(long)}. Accessed on the frame
-   * extractor application thread.
+   * A {@link ListenableFuture} that completes when all previous {@link #getFrame(long)} requests
+   * complete. Upon completion, the result corresponds to the last request to {@link
+   * #getFrame(long)}.
    */
-  private SettableFuture<Frame> lastRequestedFrameFuture;
+  private ListenableFuture<Frame> lastRequestedFrameFuture;
 
   /**
    * The last {@link Frame} that was extracted successfully. Accessed on the {@linkplain
@@ -270,23 +272,28 @@ public final class ExperimentalFrameExtractor implements AnalyticsListener {
             .build();
     playerApplicationThreadHandler = new Handler(player.getApplicationLooper());
     extractedFrameNeedsRendering = new AtomicBoolean();
-    lastRequestedFrameFuture = SettableFuture.create();
     // TODO: b/350498258 - Extracting the first frame is a workaround for ExoPlayer.setVideoEffects
     //   returning incorrect timestamps if we seek the player before rendering starts from zero.
-    frameBeingExtractedFutureAtomicReference = new AtomicReference<>(lastRequestedFrameFuture);
-    // TODO: b/350498258 - Refactor this and remove declaring this reference as initialized
-    //  to satisfy the nullness checker.
-    @SuppressWarnings("nullness:assignment")
-    @Initialized
-    ExperimentalFrameExtractor thisRef = this;
-    playerApplicationThreadHandler.post(
-        () -> {
-          player.addAnalyticsListener(thisRef);
-          player.setVideoEffects(buildVideoEffects(effects));
-          player.setMediaItem(mediaItem);
-          player.setPlayWhenReady(false);
-          player.prepare();
-        });
+    frameBeingExtractedCompleterAtomicReference = new AtomicReference<>(null);
+    lastRequestedFrameFuture =
+        CallbackToFutureAdapter.getFuture(
+            completer -> {
+              frameBeingExtractedCompleterAtomicReference.set(completer);
+              // TODO: b/350498258 - Refactor this and remove declaring this reference as
+              // initialized to satisfy the nullness checker.
+              @SuppressWarnings("nullness:assignment")
+              @Initialized
+              ExperimentalFrameExtractor thisRef = this;
+              playerApplicationThreadHandler.post(
+                  () -> {
+                    player.addAnalyticsListener(thisRef);
+                    player.setVideoEffects(thisRef.buildVideoEffects(effects));
+                    player.setMediaItem(mediaItem);
+                    player.setPlayWhenReady(false);
+                    player.prepare();
+                  });
+              return "ExperimentalFrameExtractor constructor";
+            });
   }
 
   /**
@@ -296,47 +303,55 @@ public final class ExperimentalFrameExtractor implements AnalyticsListener {
    * @return A {@link ListenableFuture} of the result.
    */
   public ListenableFuture<Frame> getFrame(long positionMs) {
-    SettableFuture<Frame> frameSettableFuture = SettableFuture.create();
-    // Process frameSettableFuture after lastRequestedFrameFuture completes.
-    // If lastRequestedFrameFuture is done, the callbacks are invoked immediately.
-    Futures.addCallback(
-        lastRequestedFrameFuture,
-        new FutureCallback<Frame>() {
-          @Override
-          public void onSuccess(Frame result) {
-            playerApplicationThreadHandler.post(
-                () -> {
-                  lastExtractedFrame = result;
-                  @Nullable PlaybackException playerError;
-                  if (player.isReleased()) {
-                    playerError =
-                        new PlaybackException(
-                            "The player is already released",
-                            null,
-                            ERROR_CODE_FAILED_RUNTIME_CHECK);
-                  } else {
-                    playerError = player.getPlayerError();
-                  }
-                  if (playerError != null) {
-                    frameSettableFuture.setException(playerError);
-                  } else {
-                    checkState(
-                        frameBeingExtractedFutureAtomicReference.compareAndSet(
-                            null, frameSettableFuture));
-                    extractedFrameNeedsRendering.set(false);
-                    player.seekTo(positionMs);
-                  }
-                });
-          }
+    ListenableFuture<Frame> previousRequestedFrame = lastRequestedFrameFuture;
+    ListenableFuture<Frame> frameListenableFuture =
+        CallbackToFutureAdapter.getFuture(
+            completer -> {
+              Futures.addCallback(
+                  previousRequestedFrame,
+                  new FutureCallback<Frame>() {
+                    @Override
+                    public void onSuccess(Frame result) {
+                      lastExtractedFrame = result;
+                      processNext(positionMs, completer);
+                    }
 
-          @Override
-          public void onFailure(Throwable t) {
-            frameSettableFuture.setException(t);
-          }
-        },
-        directExecutor());
-    lastRequestedFrameFuture = frameSettableFuture;
-    return lastRequestedFrameFuture;
+                    @Override
+                    public void onFailure(Throwable t) {
+                      processNext(positionMs, completer);
+                    }
+                  },
+                  playerApplicationThreadHandler::post);
+              return "ExperimentalFrameExtractor.getFrame";
+            });
+    lastRequestedFrameFuture =
+        Futures.whenAllComplete(lastRequestedFrameFuture, frameListenableFuture)
+            .call(() -> Futures.getDone(frameListenableFuture), directExecutor());
+    return frameListenableFuture;
+  }
+
+  private void processNext(long positionMs, CallbackToFutureAdapter.Completer<Frame> completer) {
+    // Cancellation listener is invoked instantaneously if the returned future is already cancelled.
+    AtomicBoolean cancelled = new AtomicBoolean(false);
+    completer.addCancellationListener(() -> cancelled.set(true), directExecutor());
+    if (cancelled.get()) {
+      return;
+    }
+    @Nullable PlaybackException playerError;
+    if (player.isReleased()) {
+      playerError =
+          new PlaybackException(
+              "The player is already released", null, ERROR_CODE_FAILED_RUNTIME_CHECK);
+    } else {
+      playerError = player.getPlayerError();
+    }
+    if (playerError != null) {
+      completer.setException(playerError);
+    } else {
+      checkState(frameBeingExtractedCompleterAtomicReference.compareAndSet(null, completer));
+      extractedFrameNeedsRendering.set(false);
+      player.seekTo(positionMs);
+    }
   }
 
   /**
@@ -365,10 +380,10 @@ public final class ExperimentalFrameExtractor implements AnalyticsListener {
     // Fail the next frame to be extracted. Errors will propagate to later pending requests via
     // Future callbacks.
     @Nullable
-    SettableFuture<Frame> frameBeingExtractedFuture =
-        frameBeingExtractedFutureAtomicReference.getAndSet(null);
-    if (frameBeingExtractedFuture != null) {
-      frameBeingExtractedFuture.setException(error);
+    CallbackToFutureAdapter.Completer<Frame> frameBeingExtractedCompleter =
+        frameBeingExtractedCompleterAtomicReference.getAndSet(null);
+    if (frameBeingExtractedCompleter != null) {
+      frameBeingExtractedCompleter.setException(error);
     }
   }
 
@@ -381,9 +396,9 @@ public final class ExperimentalFrameExtractor implements AnalyticsListener {
       // If the seek resolves to the current position, the renderer position will not be reset
       // and extractedFrameNeedsRendering remains false. No frames are rendered. Repeat the
       // previously returned frame.
-      SettableFuture<Frame> frameBeingExtractedFuture =
-          checkNotNull(frameBeingExtractedFutureAtomicReference.getAndSet(null));
-      frameBeingExtractedFuture.set(checkNotNull(lastExtractedFrame));
+      CallbackToFutureAdapter.Completer<Frame> frameBeingExtractedCompleter =
+          checkNotNull(frameBeingExtractedCompleterAtomicReference.getAndSet(null));
+      frameBeingExtractedCompleter.set(checkNotNull(lastExtractedFrame));
     }
   }
 
@@ -532,9 +547,9 @@ public final class ExperimentalFrameExtractor implements AnalyticsListener {
       }
       bitmap.copyPixelsFromBuffer(byteBuffer);
 
-      SettableFuture<Frame> frameBeingExtractedFuture =
-          checkNotNull(frameBeingExtractedFutureAtomicReference.getAndSet(null));
-      frameBeingExtractedFuture.set(new Frame(usToMs(presentationTimeUs), bitmap));
+      CallbackToFutureAdapter.Completer<Frame> frameBeingExtractedCompleter =
+          checkNotNull(frameBeingExtractedCompleterAtomicReference.getAndSet(null));
+      frameBeingExtractedCompleter.set(new Frame(usToMs(presentationTimeUs), bitmap));
       // Drop frame: do not call outputListener.onOutputFrameAvailable().
       // Block effects pipeline: do not call inputListener.onReadyToAcceptInputFrame().
       // The effects pipeline will unblock and receive new frames when flushed after a seek.
