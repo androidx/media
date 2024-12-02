@@ -19,6 +19,7 @@ import static androidx.media3.common.util.Assertions.checkArgument;
 
 import android.util.Pair;
 import androidx.annotation.FloatRange;
+import androidx.media3.common.OverlaySettings;
 import androidx.media3.common.util.UnstableApi;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 

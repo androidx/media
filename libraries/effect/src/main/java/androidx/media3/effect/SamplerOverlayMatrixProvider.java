@@ -16,6 +16,7 @@
 package androidx.media3.effect;
 
 import android.opengl.Matrix;
+import androidx.media3.common.OverlaySettings;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.Size;
 

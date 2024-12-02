@@ -29,6 +29,7 @@ import android.text.SpannableString;
 import android.text.StaticLayout;
 import android.text.TextPaint;
 import androidx.annotation.RequiresApi;
+import androidx.media3.common.OverlaySettings;
 import androidx.media3.common.util.UnstableApi;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 

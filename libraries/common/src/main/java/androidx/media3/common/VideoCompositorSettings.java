@@ -13,13 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package androidx.media3.effect;
+package androidx.media3.common;
 
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.UnstableApi;
 import java.util.List;
 
-/** Settings for the {@link VideoCompositor}. */
+/** Settings for the {@code VideoCompositor}. */
 @UnstableApi
 public interface VideoCompositorSettings {
   // TODO: b/262694346 - Consider adding more features, like selecting a:

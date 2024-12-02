@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-package androidx.media3.effect;
+package androidx.media3.common;
 
 import android.util.Pair;
 import androidx.media3.common.util.UnstableApi;
 
 /**
- * Provides information of how an input texture (for example, a {@link TextureOverlay} or in {@link
+ * Provides information of how an input texture (for example, a {@code TextureOverlay} or in {@code
  * VideoCompositor}) is presented.
  */
 @UnstableApi

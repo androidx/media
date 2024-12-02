@@ -21,6 +21,7 @@ import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DebugViewProvider;
 import androidx.media3.common.Effect;
 import androidx.media3.common.PreviewingVideoGraph;
+import androidx.media3.common.VideoCompositorSettings;
 import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.util.UnstableApi;
 import java.util.List;

@@ -23,8 +23,8 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.PorterDuff;
 import android.graphics.RectF;
+import androidx.media3.common.OverlaySettings;
 import androidx.media3.effect.CanvasOverlay;
-import androidx.media3.effect.OverlaySettings;
 import androidx.media3.effect.StaticOverlaySettings;
 
 /* package */ final class ClockOverlay extends CanvasOverlay {
