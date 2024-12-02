@@ -548,8 +548,11 @@ public final class CommandButton {
 
     /**
      * [will be deprecated] The icon should be defined with the constructor {@link Icon} parameter
-     * in {@link #Builder(int)} instead. Only in case the existing list of icons is not sufficient,
-     * use {@link #ICON_UNDEFINED} and set a separate resource id with {@link #setCustomIconResId}.
+     * in {@link #Builder(int)} instead.
+     *
+     * <p>If the existing list of icons is not sufficient, use {@link #ICON_UNDEFINED} for the
+     * constructor {@link Icon} parameter, and set a separate resource id with {@link
+     * #setCustomIconResId}.
      */
     @CanIgnoreReturnValue
     public Builder setIconResId(@DrawableRes int resId) {
@@ -557,8 +560,10 @@ public final class CommandButton {
     }
 
     /**
-     * Sets the resource id of an icon that is used when the predefined {@link Icon} is not
-     * available or set to {@link #ICON_UNDEFINED}.
+     * Sets the fallback resource ID of an icon.
+     *
+     * <p>This is used when either the predefined {@link #icon} is not available, or it's set to
+     * {@link #ICON_UNDEFINED}.
      *
      * @param resId The resource id of a custom icon.
      * @return This builder for chaining.
@@ -571,12 +576,13 @@ public final class CommandButton {
     }
 
     /**
-     * Sets a {@linkplain ContentResolver#SCHEME_CONTENT content} or {@linkplain
+     * Sets a fallback {@linkplain ContentResolver#SCHEME_CONTENT content} or {@linkplain
      * ContentResolver#SCHEME_ANDROID_RESOURCE resource} {@link Uri} for the icon of this button.
      *
-     * <p>Note that this {@link Uri} may be used when the predefined {@link Icon} is not available
-     * or set to {@link #ICON_UNDEFINED}. It can be used in addition to {@link #setCustomIconResId}
-     * for consumers that are capable of loading the content or resource {@link Uri}.
+     * <p>Note that this {@link Uri} may be used when either the predefined {@link
+     * CommandButton#icon} is not available, or it's set to {@link #ICON_UNDEFINED}. It can be used
+     * in addition to {@link #setCustomIconResId} for consumers that are capable of loading the
+     * content or resource {@link Uri}.
      *
      * @param uri The uri to an icon.
      * @return This builder for chaining.
@@ -707,16 +713,23 @@ public final class CommandButton {
   @UnstableApi public final @Icon int icon;
 
   /**
-   * The icon resource id of the button that is used when the predefined {@link #icon} is not
-   * available or set to {@link #ICON_UNDEFINED}. Can be {@code 0} if not needed.
+   * The fallback icon resource ID of the button.
+   *
+   * <p>This is used when either the predefined {@link #icon} is not available, or it's set to
+   * {@link #ICON_UNDEFINED}.
+   *
+   * <p>Can be {@code 0} if not needed.
    */
   @DrawableRes public final int iconResId;
 
   /**
-   * The {@linkplain ContentResolver#SCHEME_CONTENT content} or {@linkplain
-   * ContentResolver#SCHEME_ANDROID_RESOURCE resource} {@link Uri} for the icon of the button that
-   * is used when the predefined {@link #icon} is not available or set to {@link #ICON_UNDEFINED}.
-   * Can be {@code null}.
+   * The fallback {@linkplain ContentResolver#SCHEME_CONTENT content} or {@linkplain
+   * ContentResolver#SCHEME_ANDROID_RESOURCE resource} {@link Uri} for the icon of the button.
+   *
+   * <p>This is used when either the predefined {@link #icon} is not available, or it's set to
+   * {@link #ICON_UNDEFINED}.
+   *
+   * <p>Can be {@code null}.
    *
    * <p>Note that this value can be used in addition to {@link #iconResId} for consumers that are
    * capable of loading the content or resource {@link Uri}.
