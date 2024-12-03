@@ -62,21 +62,11 @@ public abstract class BasePreloadManager<T> {
     public abstract BasePreloadManager<T> build();
   }
 
-  /** Listener for events in a preload manager. */
-  public interface Listener {
-
-    /** Called when the given {@link MediaItem} has completed preloading. */
-    void onCompleted(MediaItem mediaItem);
-
-    /** Called when an {@linkplain PreloadException error} occurs. */
-    void onError(PreloadException exception);
-  }
-
   private final Object lock;
   protected final Comparator<T> rankingDataComparator;
   private final TargetPreloadStatusControl<T> targetPreloadStatusControl;
   private final MediaSource.Factory mediaSourceFactory;
-  private final ListenerSet<Listener> listeners;
+  private final ListenerSet<PreloadManagerListener> listeners;
   private final Map<MediaItem, MediaSourceHolder> mediaItemMediaSourceHolderMap;
   private final Handler applicationHandler;
 
@@ -103,26 +93,26 @@ public abstract class BasePreloadManager<T> {
   }
 
   /**
-   * Adds a {@link Listener} to listen to the preload events.
+   * Adds a {@link PreloadManagerListener} to listen to the preload events.
    *
    * <p>This method can be called from any thread.
    */
-  public void addListener(Listener listener) {
+  public void addListener(PreloadManagerListener listener) {
     listeners.add(listener);
   }
 
   /**
-   * Removes a {@link Listener}.
+   * Removes a {@link PreloadManagerListener}.
    *
    * @throws IllegalStateException If this method is called from the wrong thread.
    */
-  public void removeListener(Listener listener) {
+  public void removeListener(PreloadManagerListener listener) {
     verifyApplicationThread();
     listeners.remove(listener);
   }
 
   /**
-   * Clears all the {@linkplain Listener listeners}.
+   * Clears all the {@linkplain PreloadManagerListener listeners}.
    *
    * @throws IllegalStateException If this method is called from the wrong thread.
    */

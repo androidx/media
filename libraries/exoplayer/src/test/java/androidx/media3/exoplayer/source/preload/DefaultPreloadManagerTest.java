@@ -902,7 +902,7 @@ public class DefaultPreloadManagerTest {
     preloadThread.quit();
   }
 
-  private static class TestPreloadManagerListener implements BasePreloadManager.Listener {
+  private static class TestPreloadManagerListener implements PreloadManagerListener {
 
     public final List<MediaItem> onCompletedMediaItemRecords;
     public final List<PreloadException> onErrorPreloadExceptionRecords;
