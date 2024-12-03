@@ -40,6 +40,8 @@ import android.opengl.GLES20;
 import android.opengl.GLES30;
 import android.os.Handler;
 import android.os.Looper;
+import android.view.SurfaceView;
+import android.widget.ImageView;
 import androidx.annotation.CallSuper;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
@@ -63,6 +65,7 @@ import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.GlShaderProgram;
 import androidx.media3.effect.MatrixTransformation;
 import androidx.media3.effect.PassthroughShaderProgram;
+import androidx.media3.effect.RgbMatrix;
 import androidx.media3.effect.ScaleAndRotateTransformation;
 import androidx.media3.exoplayer.DecoderCounters;
 import androidx.media3.exoplayer.DecoderReuseEvaluation;
@@ -96,6 +99,25 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  * <p>This class is experimental and will be renamed or removed in a future release.
  *
  * <p>Frame extractor instances must be accessed from a single application thread.
+ *
+ * <p>This class may produce incorrect or washed out colors, or images that have too high contrast
+ * for inputs not covered by <a
+ * href="https://cs.android.com/android/_/android/platform/cts/+/aaa242e5c26466cf245fa85ff8a7750378de9d72:tests/media/src/android/mediav2/cts/DecodeGlAccuracyTest.java;drc=d0d5ff338f8b84adf9066358bac435b1be3bbe61;l=534">testDecodeGlAccuracyRGB
+ * CTS test</a>. That is:
+ *
+ * <ul>
+ *   <li>Inputs of BT.601 limited range are likely to produce accurate output with either
+ *       {@linkplain MediaCodecSelector#PREFER_SOFTWARE software} or {@linkplain
+ *       MediaCodecSelector#DEFAULT hardware} decoders across a wide range of devices.
+ *   <li>Other inputs are likely to produce accurate output when using {@linkplain
+ *       MediaCodecSelector#DEFAULT hardware} decoders on devices that are launched with API 13 or
+ *       later.
+ *   <li>HDR inputs will produce a {@link Bitmap} with {@link ColorSpace.Named#BT2020_HLG}. There
+ *       are no guarantees that an HLG {@link Bitmap} displayed in {@link ImageView} and an HLG
+ *       video displayed in {@link SurfaceView} will look the same.
+ *   <li>Depending on the device and input video, color inaccuracies can be mitigated with an
+ *       appropriate {@link RgbMatrix} effect.
+ * </ul>
  */
 @UnstableApi
 public final class ExperimentalFrameExtractor implements AnalyticsListener {
