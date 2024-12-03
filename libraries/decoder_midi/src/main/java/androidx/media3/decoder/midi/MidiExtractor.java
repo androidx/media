@@ -23,7 +23,6 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
-import androidx.media3.common.DataReader;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
@@ -33,6 +32,7 @@ import androidx.media3.common.util.Util;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.ExtractorOutput;
+import androidx.media3.extractor.ForwardingTrackOutput;
 import androidx.media3.extractor.PositionHolder;
 import androidx.media3.extractor.SeekMap;
 import androidx.media3.extractor.SeekPoint;
@@ -369,29 +369,11 @@ public final class MidiExtractor implements Extractor, SeekMap {
    * to the beginning of the MIDI input and output all non Note-On and Note-Off events to the {@link
    * MidiDecoder}.
    */
-  private static final class SingleKeyFrameTrackOutput implements TrackOutput {
-    private final TrackOutput trackOutput;
+  private static final class SingleKeyFrameTrackOutput extends ForwardingTrackOutput {
     private int outputSampleCount;
 
     private SingleKeyFrameTrackOutput(TrackOutput trackOutput) {
-      this.trackOutput = trackOutput;
-    }
-
-    @Override
-    public void format(Format format) {
-      trackOutput.format(format);
-    }
-
-    @Override
-    public int sampleData(
-        DataReader input, int length, boolean allowEndOfInput, @SampleDataPart int sampleDataPart)
-        throws IOException {
-      return trackOutput.sampleData(input, length, allowEndOfInput, sampleDataPart);
-    }
-
-    @Override
-    public void sampleData(ParsableByteArray data, int length, @SampleDataPart int sampleDataPart) {
-      trackOutput.sampleData(data, length, sampleDataPart);
+      super(trackOutput);
     }
 
     @Override
@@ -406,7 +388,7 @@ public final class MidiExtractor implements Extractor, SeekMap {
       if (outputSampleCount == 0) {
         flags |= C.BUFFER_FLAG_KEY_FRAME;
       }
-      trackOutput.sampleMetadata(timeUs, flags, size, offset, cryptoData);
+      super.sampleMetadata(timeUs, flags, size, offset, cryptoData);
       outputSampleCount++;
     }
 
