@@ -40,6 +40,10 @@
         when provided while processing `onOutputFormatChanged`
         ([#1371](https://github.com/androidx/media/pull/1371)).
 *   Text:
+    *   Stop eagerly loading all subtitle files configured with
+        `MediaItem.Builder.setSubtitleConfigurations`, and instead only load one
+        if it is selected by track selection
+        ([#1721](https://github.com/androidx/media/issues/1721)).
 *   Metadata:
 *   Image:
 *   DRM:

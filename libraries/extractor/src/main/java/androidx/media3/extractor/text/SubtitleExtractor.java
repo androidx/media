@@ -20,6 +20,7 @@ import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import androidx.annotation.IntDef;
+import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -48,6 +49,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 /** Generic extractor for extracting subtitles from various subtitle formats. */
 @UnstableApi
 public class SubtitleExtractor implements Extractor {
+
+  /** The ID of the single track emitted by this extractor. */
+  public static final int TRACK_ID = 0;
+
   @Documented
   @Retention(RetentionPolicy.SOURCE)
   @Target(TYPE_USE)
@@ -83,7 +88,7 @@ public class SubtitleExtractor implements Extractor {
 
   private final SubtitleParser subtitleParser;
   private final CueEncoder cueEncoder;
-  private final Format format;
+  @Nullable private final Format format;
   private final List<Sample> samples;
   private final ParsableByteArray scratchSampleArray;
 
@@ -99,20 +104,26 @@ public class SubtitleExtractor implements Extractor {
    *
    * @param subtitleParser The parser used for parsing the subtitle data. The extractor will reset
    *     the parser in {@link SubtitleExtractor#release()}.
-   * @param format {@link Format} that describes subtitle data.
+   * @param format {@link Format} that describes subtitle data. Can be null if {@link
+   *     TrackOutput#format}, {@link ExtractorOutput#seekMap} and {@link
+   *     ExtractorOutput#endTracks()} will be called outside this extractor.
    */
-  public SubtitleExtractor(SubtitleParser subtitleParser, Format format) {
+  public SubtitleExtractor(SubtitleParser subtitleParser, @Nullable Format format) {
     this.subtitleParser = subtitleParser;
     cueEncoder = new CueEncoder();
     subtitleData = Util.EMPTY_BYTE_ARRAY;
     scratchSampleArray = new ParsableByteArray();
+    // TODO: b/376693592 - Simplify this by taking the post-transformation Format as a parameter
+    //  instead.
     this.format =
-        format
-            .buildUpon()
-            .setSampleMimeType(MimeTypes.APPLICATION_MEDIA3_CUES)
-            .setCodecs(format.sampleMimeType)
-            .setCueReplacementBehavior(subtitleParser.getCueReplacementBehavior())
-            .build();
+        format != null
+            ? format
+                .buildUpon()
+                .setSampleMimeType(MimeTypes.APPLICATION_MEDIA3_CUES)
+                .setCodecs(format.sampleMimeType)
+                .setCueReplacementBehavior(subtitleParser.getCueReplacementBehavior())
+                .build()
+            : null;
     samples = new ArrayList<>();
     state = STATE_CREATED;
     timestamps = Util.EMPTY_LONG_ARRAY;
@@ -130,14 +141,16 @@ public class SubtitleExtractor implements Extractor {
   @Override
   public void init(ExtractorOutput output) {
     checkState(state == STATE_CREATED);
-    trackOutput = output.track(/* id= */ 0, C.TRACK_TYPE_TEXT);
-    trackOutput.format(format);
-    output.endTracks();
-    output.seekMap(
-        new IndexSeekMap(
-            /* positions= */ new long[] {0},
-            /* timesUs= */ new long[] {0},
-            /* durationUs= */ C.TIME_UNSET));
+    trackOutput = output.track(TRACK_ID, C.TRACK_TYPE_TEXT);
+    if (format != null) {
+      trackOutput.format(format);
+      output.endTracks();
+      output.seekMap(
+          new IndexSeekMap(
+              /* positions= */ new long[] {0},
+              /* timesUs= */ new long[] {0},
+              /* durationUs= */ C.TIME_UNSET));
+    }
     state = STATE_INITIALIZED;
   }
 

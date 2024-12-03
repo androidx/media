@@ -42,6 +42,8 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Rule;
 import org.junit.Test;
@@ -54,6 +56,56 @@ public class SubtitlePlaybackTest {
   @Rule
   public ShadowMediaCodecConfig mediaCodecConfig =
       ShadowMediaCodecConfig.forAllSupportedMimeTypes();
+
+  // https://github.com/androidx/media/issues/1721
+  @Test
+  public void multipleSideloadedSubtitles_noneSelected_noneLoaded() throws Exception {
+    Context applicationContext = ApplicationProvider.getApplicationContext();
+    List<Uri> loadStartedUris = new ArrayList<>();
+    AnalyticsListener analyticsListener =
+        new AnalyticsListener() {
+          @Override
+          public void onLoadStarted(
+              EventTime eventTime,
+              LoadEventInfo loadEventInfo,
+              MediaLoadData mediaLoadData,
+              int retryCount) {
+            loadStartedUris.add(loadEventInfo.uri);
+            loadStartedUris.add(loadEventInfo.dataSpec.uri);
+          }
+        };
+    ExoPlayer player =
+        new ExoPlayer.Builder(applicationContext)
+            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .build();
+    player.addAnalyticsListener(analyticsListener);
+    Uri typicalVttUri = Uri.parse("asset:///media/webvtt/typical");
+    Uri simpleTtmlUri = Uri.parse("asset:///media/ttml/simple.xml");
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri("asset:///media/mp4/sample.mp4")
+            .setSubtitleConfigurations(
+                ImmutableList.of(
+                    new MediaItem.SubtitleConfiguration.Builder(typicalVttUri)
+                        .setMimeType(MimeTypes.TEXT_VTT)
+                        .setLanguage("en")
+                        .build(),
+                    new MediaItem.SubtitleConfiguration.Builder(simpleTtmlUri)
+                        .setMimeType(MimeTypes.APPLICATION_TTML)
+                        .setLanguage("en")
+                        .build()))
+            .build();
+
+    player.setMediaItem(mediaItem);
+    player.prepare();
+    run(player).untilState(Player.STATE_READY);
+    run(player).untilLoadingIs(false);
+    player.play();
+    run(player).untilState(Player.STATE_ENDED);
+    player.release();
+
+    assertThat(loadStartedUris).containsNoneOf(typicalVttUri, simpleTtmlUri);
+  }
 
   @Test
   public void sideloadedSubtitleLoadingError_playbackContinues_errorReportedToAnalyticsListener()
@@ -105,9 +157,8 @@ public class SubtitlePlaybackTest {
     surface.release();
 
     assertThat(loadErrorEventInfo.get().uri).isEqualTo(notFoundSubtitleUri);
-    // Assert the output is the same as playing the video without sideloaded subtitles.
     DumpFileAsserts.assertOutput(
-        applicationContext, playbackOutput, "playbackdumps/mp4/sample.mp4.dump");
+        applicationContext, playbackOutput, "playbackdumps/subtitles/sideloaded-error.mp4.dump");
   }
 
   @Test
@@ -172,8 +223,6 @@ public class SubtitlePlaybackTest {
         .hasMessageThat()
         .contains("test subtitle parsing error");
     DumpFileAsserts.assertOutput(
-        applicationContext,
-        playbackOutput,
-        "playbackdumps/subtitles/sideloaded-parse-error.mp4.dump");
+        applicationContext, playbackOutput, "playbackdumps/subtitles/sideloaded-error.mp4.dump");
   }
 }

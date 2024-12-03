@@ -525,12 +525,23 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
               () ->
                   new Extractor[] {
                     subtitleParserFactory.supportsFormat(format)
-                        ? new SubtitleExtractor(subtitleParserFactory.create(format), format)
+                        ? new SubtitleExtractor(
+                            subtitleParserFactory.create(format), /* format= */ null)
                         : new UnknownSubtitlesExtractor(format)
                   };
           ProgressiveMediaSource.Factory progressiveMediaSourceFactory =
               new ProgressiveMediaSource.Factory(dataSourceFactory, extractorsFactory)
-                  .setSuppressPrepareError(true);
+                  .enableLazyLoadingWithSingleTrack(
+                      SubtitleExtractor.TRACK_ID,
+                      subtitleParserFactory.supportsFormat(format)
+                          ? format
+                              .buildUpon()
+                              .setSampleMimeType(MimeTypes.APPLICATION_MEDIA3_CUES)
+                              .setCodecs(format.sampleMimeType)
+                              .setCueReplacementBehavior(
+                                  subtitleParserFactory.getCueReplacementBehavior(format))
+                              .build()
+                          : format);
           if (loadErrorHandlingPolicy != null) {
             progressiveMediaSourceFactory.setLoadErrorHandlingPolicy(loadErrorHandlingPolicy);
           }
@@ -792,7 +803,7 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
 
     @Override
     public void init(ExtractorOutput output) {
-      TrackOutput trackOutput = output.track(/* id= */ 0, C.TRACK_TYPE_TEXT);
+      TrackOutput trackOutput = output.track(SubtitleExtractor.TRACK_ID, C.TRACK_TYPE_TEXT);
       output.seekMap(new SeekMap.Unseekable(C.TIME_UNSET));
       output.endTracks();
       trackOutput.format(
