@@ -734,12 +734,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
 
     @Override
     public boolean handleInputFrame(
-        long framePresentationTimeUs,
-        boolean isLastFrame,
-        long positionUs,
-        long elapsedRealtimeUs,
-        VideoFrameHandler videoFrameHandler)
-        throws VideoSinkException {
+        long framePresentationTimeUs, boolean isLastFrame, VideoFrameHandler videoFrameHandler) {
       checkState(isInitialized());
 
       // The sink takes in frames with monotonically increasing, non-offset frame
@@ -757,9 +752,6 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
         videoFrameHandler.skip();
         return true;
       }
-
-      // Drain the sink to make room for a new input frame.
-      render(positionUs, elapsedRealtimeUs);
 
       if (checkStateNotNull(videoFrameProcessor).getPendingInputFrameCount()
           >= videoFrameProcessorMaxPendingFrameCount) {

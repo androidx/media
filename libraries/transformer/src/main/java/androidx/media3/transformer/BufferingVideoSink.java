@@ -217,15 +217,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @Override
   public boolean handleInputFrame(
-      long framePresentationTimeUs,
-      boolean isLastFrame,
-      long positionUs,
-      long elapsedRealtimeUs,
-      VideoFrameHandler videoFrameHandler)
-      throws VideoSinkException {
+      long framePresentationTimeUs, boolean isLastFrame, VideoFrameHandler videoFrameHandler) {
     return videoSink != null
-        && videoSink.handleInputFrame(
-            framePresentationTimeUs, isLastFrame, positionUs, elapsedRealtimeUs, videoFrameHandler);
+        && videoSink.handleInputFrame(framePresentationTimeUs, isLastFrame, videoFrameHandler);
   }
 
   @Override

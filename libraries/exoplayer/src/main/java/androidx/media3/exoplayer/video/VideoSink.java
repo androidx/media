@@ -18,7 +18,6 @@ package androidx.media3.exoplayer.video;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.graphics.Bitmap;
-import android.os.SystemClock;
 import android.view.Surface;
 import androidx.annotation.FloatRange;
 import androidx.annotation.IntDef;
@@ -270,20 +269,12 @@ public interface VideoSink {
    * @param isLastFrame Whether this is the last frame of the video stream. This flag is set on a
    *     best effort basis, and any logic relying on it should degrade gracefully to handle cases
    *     where it's not set.
-   * @param positionUs The current playback position, in microseconds.
-   * @param elapsedRealtimeUs {@link SystemClock#elapsedRealtime()} in microseconds, taken
-   *     approximately at the time the playback position was {@code positionUs}.
    * @param videoFrameHandler The {@link VideoFrameHandler} used to handle the input frame.
    * @return Whether the frame was handled successfully. If {@code false}, the caller can try again
    *     later.
    */
   boolean handleInputFrame(
-      long framePresentationTimeUs,
-      boolean isLastFrame,
-      long positionUs,
-      long elapsedRealtimeUs,
-      VideoFrameHandler videoFrameHandler)
-      throws VideoSinkException;
+      long framePresentationTimeUs, boolean isLastFrame, VideoFrameHandler videoFrameHandler);
 
   /**
    * Handles an input {@link Bitmap}.

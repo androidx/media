@@ -1096,15 +1096,16 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   @CallSuper
   @Override
   public void render(long positionUs, long elapsedRealtimeUs) throws ExoPlaybackException {
-    super.render(positionUs, elapsedRealtimeUs);
     if (videoSink != null) {
       try {
+        // Drain the sink to make room for a new input frame.
         videoSink.render(positionUs, elapsedRealtimeUs);
       } catch (VideoSink.VideoSinkException e) {
         throw createRendererException(
             e, e.format, PlaybackException.ERROR_CODE_VIDEO_FRAME_PROCESSING_FAILED);
       }
     }
+    super.render(positionUs, elapsedRealtimeUs);
   }
 
   @CallSuper
@@ -1464,27 +1465,20 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
 
     if (videoSink != null) {
       long framePresentationTimeUs = bufferPresentationTimeUs + getBufferTimestampAdjustmentUs();
-      try {
-        return videoSink.handleInputFrame(
-            framePresentationTimeUs,
-            isLastBuffer,
-            positionUs,
-            elapsedRealtimeUs,
-            new VideoSink.VideoFrameHandler() {
-              @Override
-              public void render(long renderTimestampNs) {
-                renderOutputBuffer(codec, bufferIndex, presentationTimeUs, renderTimestampNs);
-              }
+      return videoSink.handleInputFrame(
+          framePresentationTimeUs,
+          isLastBuffer,
+          new VideoSink.VideoFrameHandler() {
+            @Override
+            public void render(long renderTimestampNs) {
+              renderOutputBuffer(codec, bufferIndex, presentationTimeUs, renderTimestampNs);
+            }
 
-              @Override
-              public void skip() {
-                skipOutputBuffer(codec, bufferIndex, presentationTimeUs);
-              }
-            });
-      } catch (VideoSink.VideoSinkException e) {
-        throw createRendererException(
-            e, e.format, PlaybackException.ERROR_CODE_VIDEO_FRAME_PROCESSING_FAILED);
-      }
+            @Override
+            public void skip() {
+              skipOutputBuffer(codec, bufferIndex, presentationTimeUs);
+            }
+          });
     }
 
     // The frame release action should be retrieved for all frames (even the ones that will be

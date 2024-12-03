@@ -205,11 +205,7 @@ import java.util.concurrent.Executor;
 
   @Override
   public boolean handleInputFrame(
-      long framePresentationTimeUs,
-      boolean isLastFrame,
-      long positionUs,
-      long elapsedRealtimeUs,
-      VideoFrameHandler videoFrameHandler) {
+      long framePresentationTimeUs, boolean isLastFrame, VideoFrameHandler videoFrameHandler) {
     throw new UnsupportedOperationException();
   }
 
