@@ -19,6 +19,7 @@ import static androidx.media3.test.utils.TestUtil.getByteArray;
 import static com.google.common.truth.Truth.assertThat;
 
 import androidx.media3.common.C;
+import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.PositionHolder;
 import androidx.media3.test.utils.ExtractorAsserts;
 import androidx.media3.test.utils.FakeExtractorInput;
@@ -46,7 +47,7 @@ public final class OggExtractorNonParameterizedTest {
     OggExtractor oggExtractor = new OggExtractor();
     oggExtractor.init(new FakeExtractorOutput());
     // We feed data to the extractor until the end of input is reached.
-    while (oggExtractor.read(input, new PositionHolder()) != C.RESULT_END_OF_INPUT) {}
+    while (oggExtractor.read(input, new PositionHolder()) != Extractor.RESULT_END_OF_INPUT) {}
     // We call read again to check that it does not throw an IllegalStateException.
     assertThat(oggExtractor.read(input, new PositionHolder())).isEqualTo(C.RESULT_END_OF_INPUT);
   }
