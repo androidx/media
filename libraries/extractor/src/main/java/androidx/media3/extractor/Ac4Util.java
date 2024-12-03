@@ -412,12 +412,12 @@ public final class Ac4Util {
     } else {
       // The ETSI TS 103 190-2 V1.2.1 (2018-02) specification defines the parameter
       // n_umx_objects_minus1 in Annex E (E.11.11) to specify the number of fullband objects. While
-      // the elementary stream specification (section 6.3.2.8.1) provides information about the
-      // presence of an LFE channel within the set of dynamic objects, this detail is not explicitly
-      // stated in the ISO Base Media File Format (Annex E). However, current implementation
-      // practices consistently include the LFE channel when creating an A-JOC substream. As a
-      // result, it has been decided that when interpreting the ISO Base Media File Format, the LFE
-      // channel should always be counted as part of the total channel count.
+      // the elementary stream specification (section 6.3.2.8.1 and 6.3.2.10.4) provides information
+      // about the presence of an LFE channel within the set of dynamic objects, this detail is not
+      // explicitly stated in the ISO Base Media File Format (Annex E). However, current
+      // implementation practices consistently include the LFE channel when creating an object-based
+      // substream. As a result, it has been decided that when interpreting the ISO Base Media File
+      // Format, the LFE channel should always be counted as part of the total channel count.
       channelCount = ac4Presentation.numOfUmxObjects + 1;  // Here "1" stands for LFE channel
       // TODO: There is a bug in ETSI TS 103 190-2 V1.2.1 (2018-02), E.11.11
       // For AC-4 level 4 stream, the intention is to set 19 to n_umx_objects_minus1 but it is
