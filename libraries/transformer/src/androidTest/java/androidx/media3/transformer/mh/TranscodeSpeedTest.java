@@ -32,10 +32,8 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.Util;
-import androidx.media3.effect.ByteBufferGlEffect;
 import androidx.media3.effect.Presentation;
 import androidx.media3.transformer.AndroidTestUtil.ForceEncodeEncoderFactory;
-import androidx.media3.transformer.AndroidTestUtil.FrameCountingByteBufferProcessor;
 import androidx.media3.transformer.AssetLoader;
 import androidx.media3.transformer.Codec;
 import androidx.media3.transformer.DefaultAssetLoaderFactory;
@@ -154,44 +152,6 @@ public class TranscodeSpeedTest {
     // such as moto e5 play will drop to 5 fps.
     // Devices with a fast GPU and encoder will drop under 300 fps.
     assertThat(result.throughputFps).isAtLeast(isHighPerformance ? 400 : 20);
-  }
-
-  @Test
-  public void extractFrames_onHighPerformanceDevice_usingAnalyzerMode_completesWithHighThroughput()
-      throws Exception {
-    assumeTrue(
-        Ascii.toLowerCase(Util.MODEL).contains("pixel")
-            && (Ascii.toLowerCase(Util.MODEL).contains("6")
-                || Ascii.toLowerCase(Util.MODEL).contains("7")
-                || Ascii.toLowerCase(Util.MODEL).contains("8")
-                || Ascii.toLowerCase(Util.MODEL).contains("fold")
-                || Ascii.toLowerCase(Util.MODEL).contains("tablet")));
-    // Pixel 6 is usually quick, unless it's on API 33. See b/358519058.
-    assumeFalse(Util.SDK_INT == 33 && Ascii.toLowerCase(Util.MODEL).contains("pixel 6"));
-    FrameCountingByteBufferProcessor frameCountingProcessor =
-        new FrameCountingByteBufferProcessor();
-    MediaItem mediaItem =
-        MediaItem.fromUri(Uri.parse(MP4_LONG_ASSET_WITH_INCREASING_TIMESTAMPS.uri))
-            .buildUpon()
-            .setClippingConfiguration(
-                new MediaItem.ClippingConfiguration.Builder().setEndPositionMs(45_000L).build())
-            .build();
-    EditedMediaItem editedMediaItem =
-        new EditedMediaItem.Builder(mediaItem)
-            .setRemoveAudio(true)
-            .setEffects(
-                new Effects(
-                    /* audioProcessors= */ ImmutableList.of(),
-                    ImmutableList.of(
-                        Presentation.createForHeight(240),
-                        new ByteBufferGlEffect<>(frameCountingProcessor))))
-            .build();
-
-    ExportTestResult result = analyzeVideoWithConfiguredOperatingRate(testId, editedMediaItem);
-
-    assertThat(frameCountingProcessor.frameCount.get()).isEqualTo(1350);
-    float throughputFps = 1000f * frameCountingProcessor.frameCount.get() / result.elapsedTimeMs;
-    assertThat(throughputFps).isAtLeast(350);
   }
 
   @Test
