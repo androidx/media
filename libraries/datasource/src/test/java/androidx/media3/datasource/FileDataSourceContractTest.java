@@ -20,9 +20,8 @@ import androidx.media3.test.utils.DataSourceContractTest;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import com.google.common.io.Files;
 import java.io.File;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.rules.TemporaryFolder;
@@ -41,7 +40,7 @@ public class FileDataSourceContractTest extends DataSourceContractTest {
   @Before
   public void writeFile() throws Exception {
     File file = tempFolder.newFile();
-    Files.write(Paths.get(file.getAbsolutePath()), DATA);
+    Files.write(DATA, file);
     uri = Uri.fromFile(file);
   }
 

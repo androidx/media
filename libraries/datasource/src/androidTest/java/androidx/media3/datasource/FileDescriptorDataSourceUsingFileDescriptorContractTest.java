@@ -21,12 +21,11 @@ import androidx.media3.test.utils.DataSourceContractTest;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import com.google.common.io.Files;
 import java.io.File;
 import java.io.FileDescriptor;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.List;
 import org.junit.After;
 import org.junit.Ignore;
@@ -58,7 +57,7 @@ public class FileDescriptorDataSourceUsingFileDescriptorContractTest
   @Override
   protected List<DataSource> createDataSources() throws Exception {
     File file = tempFolder.newFile();
-    Files.write(Paths.get(file.getAbsolutePath()), DATA);
+    Files.write(DATA, file);
     inputStream = new FileInputStream(file);
     return ImmutableList.of(
         new FileDescriptorDataSource(inputStream.getFD(), /* offset= */ 0, DATA.length),

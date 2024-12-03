@@ -23,10 +23,9 @@ import androidx.media3.common.C;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.io.Files;
 import java.io.File;
 import java.io.FileInputStream;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.Arrays;
 import org.junit.Rule;
 import org.junit.Test;
@@ -45,7 +44,7 @@ public final class FileDescriptorDataSourceTest {
   @Test
   public void testReadViaFileDescriptor() throws Exception {
     File file = tempFolder.newFile();
-    Files.write(Paths.get(file.getAbsolutePath()), DATA);
+    Files.write(DATA, file);
 
     try (FileInputStream inputStream = new FileInputStream(file)) {
       DataSource dataSource =
@@ -59,7 +58,7 @@ public final class FileDescriptorDataSourceTest {
   @Test
   public void testReadViaFileDescriptorWithUnsetLength() throws Exception {
     File file = tempFolder.newFile();
-    Files.write(Paths.get(file.getAbsolutePath()), DATA);
+    Files.write(DATA, file);
 
     try (FileInputStream inputStream = new FileInputStream(file)) {
       DataSource dataSource =
@@ -73,7 +72,7 @@ public final class FileDescriptorDataSourceTest {
   @Test
   public void testReadViaFileDescriptorWithOffset() throws Exception {
     File file = tempFolder.newFile();
-    Files.write(Paths.get(file.getAbsolutePath()), DATA);
+    Files.write(DATA, file);
 
     try (FileInputStream inputStream = new FileInputStream(file)) {
       DataSource dataSource =

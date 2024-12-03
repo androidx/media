@@ -84,8 +84,6 @@ public final class HttpEngineDataSourceTest {
   private static final String TEST_CONTENT_TYPE = "test/test";
   private static final byte[] TEST_POST_BODY = Util.getUtf8Bytes("test post body");
   private static final long TEST_CONTENT_LENGTH = 16000L;
-  private static final int TEST_CONNECTION_STATUS = 5;
-  private static final int TEST_INVALID_CONNECTION_STATUS = -1;
 
   private DataSpec testDataSpec;
   private DataSpec testPostDataSpec;
@@ -1002,7 +1000,7 @@ public final class HttpEngineDataSourceTest {
           assertThat(e).isInstanceOf(HttpEngineDataSource.OpenException.class);
           assertThat(e).hasCauseThat().isInstanceOf(SocketTimeoutException.class);
           assertThat(((HttpEngineDataSource.OpenException) e).httpEngineConnectionStatus)
-              .isEqualTo(TEST_CONNECTION_STATUS);
+              .isEqualTo(UrlRequest.Status.READING_RESPONSE);
           timedOutLatch.countDown();
         }
       }
@@ -1042,7 +1040,7 @@ public final class HttpEngineDataSourceTest {
               assertThat(e).isInstanceOf(HttpEngineDataSource.OpenException.class);
               assertThat(e).hasCauseThat().isInstanceOf(InterruptedIOException.class);
               assertThat(((HttpEngineDataSource.OpenException) e).httpEngineConnectionStatus)
-                  .isEqualTo(TEST_INVALID_CONNECTION_STATUS);
+                  .isEqualTo(UrlRequest.Status.INVALID);
               timedOutLatch.countDown();
             }
           }
@@ -1458,7 +1456,7 @@ public final class HttpEngineDataSourceTest {
             invocation -> {
               UrlRequest.StatusListener statusListener =
                   (UrlRequest.StatusListener) invocation.getArguments()[0];
-              statusListener.onStatus(TEST_CONNECTION_STATUS);
+              statusListener.onStatus(UrlRequest.Status.READING_RESPONSE);
               return null;
             })
         .when(mockUrlRequest)
