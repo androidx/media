@@ -18,8 +18,10 @@ package androidx.media3.common;
 import static androidx.media3.common.Player.EVENT_IS_PLAYING_CHANGED;
 import static androidx.media3.common.Player.EVENT_MEDIA_ITEM_TRANSITION;
 import static androidx.media3.common.Player.EVENT_TIMELINE_CHANGED;
+import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.test.utils.TestUtil.assertForwardingClassForwardsAllMethodsExcept;
 import static androidx.media3.test.utils.TestUtil.assertForwardingClassOverridesAllMethods;
+import static androidx.media3.test.utils.TestUtil.getInnerClass;
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.mock;
@@ -118,17 +120,9 @@ public class ForwardingPlayerTest {
   public void forwardingListener_overridesAllListenerMethods() throws Exception {
     // Check with reflection that ForwardingListener overrides all Listener methods.
     Class<? extends Player.Listener> forwardingListenerClass =
-        (Class<? extends Player.Listener>) getInnerClass("ForwardingListener");
+        (Class<? extends Player.Listener>)
+            checkNotNull(getInnerClass(ForwardingPlayer.class, "ForwardingListener"));
     assertForwardingClassOverridesAllMethods(Player.Listener.class, forwardingListenerClass);
-  }
-
-  private static Class<?> getInnerClass(String className) {
-    for (Class<?> innerClass : ForwardingPlayer.class.getDeclaredClasses()) {
-      if (innerClass.getSimpleName().equals(className)) {
-        return innerClass;
-      }
-    }
-    throw new IllegalStateException();
   }
 
   private static class FakePlayer extends StubPlayer {

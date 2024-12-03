@@ -58,6 +58,7 @@ import com.google.common.base.Function;
 import com.google.common.collect.BoundType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Ordering;
 import com.google.common.collect.Range;
 import com.google.common.io.ByteStreams;
 import com.google.common.primitives.Bytes;
@@ -69,6 +70,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Array;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -77,6 +79,7 @@ import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -86,6 +89,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import org.checkerframework.checker.nullness.qual.NonNull;
+import org.mockito.Mockito;
 
 /** Utility methods for tests. */
 @UnstableApi
@@ -648,7 +652,10 @@ public class TestUtil {
   public static <T extends @NonNull Object, F extends T>
       void assertForwardingClassForwardsAllMethods(
           Class<T> superType, Function<T, F> forwardingInstanceFactory)
-          throws InvocationTargetException, IllegalAccessException {
+          throws InvocationTargetException,
+              IllegalAccessException,
+              NoSuchMethodException,
+              InstantiationException {
     assertForwardingClassForwardsAllMethodsExcept(
         superType, forwardingInstanceFactory, /* excludedMethods= */ ImmutableSet.of());
   }
@@ -667,7 +674,10 @@ public class TestUtil {
   public static <T extends @NonNull Object, F extends T>
       void assertForwardingClassForwardsAllMethodsExcept(
           Class<T> superType, Function<T, F> forwardingInstanceFactory, Set<String> excludedMethods)
-          throws InvocationTargetException, IllegalAccessException {
+          throws InvocationTargetException,
+              IllegalAccessException,
+              NoSuchMethodException,
+              InstantiationException {
     for (Method method : getPublicMethods(superType)) {
       if (excludedMethods.contains(method.getName())) {
         continue;
@@ -676,9 +686,7 @@ public class TestUtil {
       F forwardingInstance = forwardingInstanceFactory.apply(delegate);
       @NullableType Object[] parameters = new Object[method.getParameterCount()];
       for (int i = 0; i < method.getParameterCount(); i++) {
-        // Get a default value of the right type by creating a single-element array. This gives us
-        // null for object types, and the 'default' value for primitives.
-        parameters[i] = Array.get(Array.newInstance(method.getParameterTypes()[i], 1), 0);
+        parameters[i] = tryCreateMockInstance(method.getParameterTypes()[i]);
       }
       method.invoke(forwardingInstance, parameters);
 
@@ -686,6 +694,106 @@ public class TestUtil {
       // was invoked on the delegate instance.
       method.invoke(verify(delegate), parameters);
     }
+  }
+
+  /**
+   * Create an instance of {@code clazz}, using {@link Mockito#mock} if possible.
+   *
+   * <p>For final types, where mocking is not possible, {@link #tryCreateInstance(Class)} is used
+   * instead.
+   */
+  @SuppressWarnings("unchecked")
+  @Nullable
+  private static <T> T tryCreateMockInstance(Class<T> clazz) {
+    if (clazz.isPrimitive()) {
+      // Get a default value of the right primitive type by creating a single-element array.
+      return (T) Array.get(Array.newInstance(clazz, 1), 0);
+    } else if (clazz.isArray()) {
+      return (T) Array.newInstance(clazz.getComponentType(), 0);
+    } else if (!Modifier.isFinal(clazz.getModifiers())) {
+      try {
+        return mock(clazz);
+      } catch (RuntimeException e) {
+        // continue
+      }
+    }
+    // clazz is a final type, or couldn't otherwise be mocked, so we try and instantiate it via a
+    // public constructor instead.
+    return tryCreateInstance(clazz);
+  }
+
+  /**
+   * Creates an instance of {@code clazz} by passing mock parameter values to its public
+   * constructor. If the type has no public constructor, we look for a nested {@code Builder} type
+   * and try and use that instead. If all the constructors and builders fail, return null.
+   */
+  // The nullness checker is deliberately over-conservative and doesn't permit passing a null
+  // parameter to Constructor.newInstance(), even if the real constructor does accept null.
+  @SuppressWarnings({"unchecked", "nullness:argument.type.incompatible"})
+  @Nullable
+  private static <T> T tryCreateInstance(Class<T> clazz) {
+    Constructor<T>[] constructors = (Constructor<T>[]) clazz.getConstructors();
+    // Start with the constructor with fewest parameters.
+    Arrays.sort(constructors, Ordering.natural().onResultOf(c -> c.getParameterTypes().length));
+    for (Constructor<T> constructor : constructors) {
+      try {
+        return constructor.newInstance(createParameters(constructor.getParameterTypes()));
+      } catch (ReflectiveOperationException e) {
+        // continue
+      }
+    }
+
+    // We didn't find a usable constructor, so look for a static factory method instead.
+    Method[] methods = clazz.getMethods();
+    // Start with the method with fewest parameters.
+    Arrays.sort(methods, Ordering.natural().onResultOf(m -> m.getParameterTypes().length));
+    for (Method method : methods) {
+      if (!Modifier.isStatic(method.getModifiers())
+          || !clazz.isAssignableFrom(method.getReturnType())) {
+        // Skip non-static methods or those that don't return an instance of clazz
+        continue;
+      }
+      try {
+        return (T) method.invoke(null, createParameters(method.getParameterTypes()));
+      } catch (ReflectiveOperationException e) {
+        // continue
+      }
+    }
+
+    // Try and instantiate via a builder instead
+    @Nullable Class<?> builderClazz = getInnerClass(clazz, "Builder");
+    if (builderClazz != null) {
+      Object builder = tryCreateInstance(builderClazz);
+      if (builder != null) {
+        try {
+          return (T) builderClazz.getMethod("build").invoke(builder);
+        } catch (ReflectiveOperationException e) {
+          // continue
+        }
+      }
+    }
+    return null;
+  }
+
+  private static @NullableType Object[] createParameters(Class<?>[] parameterTypes) {
+    @NullableType Object[] parameters = new Object[parameterTypes.length];
+    for (int i = 0; i < parameters.length; i++) {
+      parameters[i] = tryCreateMockInstance(parameterTypes[i]);
+    }
+    return parameters;
+  }
+
+  /**
+   * Returns an inner class of {@code clazz} called {@code className} if it exists, otherwise null.
+   */
+  @Nullable
+  public static Class<?> getInnerClass(Class<?> clazz, String className) {
+    for (Class<?> innerClass : clazz.getDeclaredClasses()) {
+      if (innerClass.getSimpleName().equals(className)) {
+        return innerClass;
+      }
+    }
+    return null;
   }
 
   /** Returns a {@link MediaItem} that has all fields set to non-default values. */
