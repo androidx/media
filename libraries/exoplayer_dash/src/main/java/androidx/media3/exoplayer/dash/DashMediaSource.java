@@ -1151,8 +1151,9 @@ public final class DashMediaSource extends BaseMediaSource {
                 + index.getNextSegmentAvailableTimeUs(periodDurationUs, nowUnixTimeUs);
         long requiredIntervalUs = nextSegmentShiftUnixTimeUs - nowUnixTimeUs;
         // Avoid multiple refreshes within a very small amount of time.
-        if (requiredIntervalUs < intervalUs - 100_000
-            || (requiredIntervalUs > intervalUs && requiredIntervalUs < intervalUs + 100_000)) {
+        if ((requiredIntervalUs < intervalUs - 100_000
+            || (requiredIntervalUs > intervalUs && requiredIntervalUs < intervalUs + 100_000) )
+            && requiredIntervalUs >0) {
           intervalUs = requiredIntervalUs;
         }
       }
