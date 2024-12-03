@@ -15,9 +15,14 @@
  */
 package androidx.media3.common;
 
+import static androidx.media3.common.TrackSelectionParameters.AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_DISABLED;
+import static androidx.media3.common.TrackSelectionParameters.AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_ENABLED;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.truth.Truth.assertThat;
 
+import android.os.Bundle;
+import androidx.media3.common.TrackSelectionParameters.AudioOffloadPreferences;
+import androidx.media3.common.util.Util;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import org.junit.Test;
@@ -29,6 +34,9 @@ public final class TrackSelectionParametersTest {
 
   private static final TrackGroup AAC_TRACK_GROUP =
       new TrackGroup(new Format.Builder().setSampleMimeType(MimeTypes.AUDIO_AAC).build());
+  private static final String BUNDLE_FIELD_AUDIO_OFFLOAD_MODE_PREFERENCE =
+      Util.intToStringMaxRadix(27);
+  private static final String BUNDLE_FIELD_AUDIO_OFFLOAD_PREFERENCES = Util.intToStringMaxRadix(30);
 
   @Test
   public void defaultValue_withoutChange_isAsExpected() {
@@ -52,12 +60,18 @@ public final class TrackSelectionParametersTest {
     assertThat(parameters.preferredAudioRoleFlags).isEqualTo(0);
     assertThat(parameters.maxAudioChannelCount).isEqualTo(Integer.MAX_VALUE);
     assertThat(parameters.maxAudioBitrate).isEqualTo(Integer.MAX_VALUE);
+    assertThat(parameters.audioOffloadPreferences.audioOffloadMode)
+        .isEqualTo(AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_DISABLED);
+    assertThat(parameters.audioOffloadPreferences.isGaplessSupportRequired).isFalse();
+    assertThat(parameters.audioOffloadPreferences.isSpeedChangeSupportRequired).isFalse();
     // Text
     assertThat(parameters.preferredAudioMimeTypes).isEmpty();
     assertThat(parameters.preferredTextLanguages).isEmpty();
     assertThat(parameters.preferredTextRoleFlags).isEqualTo(0);
     assertThat(parameters.ignoredTextSelectionFlags).isEqualTo(0);
     assertThat(parameters.selectUndeterminedTextLanguage).isFalse();
+    // Image
+    assertThat(parameters.isPrioritizeImageOverVideoEnabled).isFalse();
     // General
     assertThat(parameters.forceLowestBitrate).isFalse();
     assertThat(parameters.forceHighestSupportedBitrate).isFalse();
@@ -96,11 +110,18 @@ public final class TrackSelectionParametersTest {
             .setMaxAudioChannelCount(10)
             .setMaxAudioBitrate(11)
             .setPreferredAudioMimeTypes(MimeTypes.AUDIO_AC3, MimeTypes.AUDIO_E_AC3)
+            .setAudioOffloadPreferences(
+                new AudioOffloadPreferences.Builder()
+                    .setAudioOffloadMode(AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_ENABLED)
+                    .setIsSpeedChangeSupportRequired(true)
+                    .build())
             // Text
             .setPreferredTextLanguages("de", "en")
             .setPreferredTextRoleFlags(C.ROLE_FLAG_CAPTION)
             .setIgnoredTextSelectionFlags(C.SELECTION_FLAG_AUTOSELECT)
             .setSelectUndeterminedTextLanguage(true)
+            // Image
+            .setPrioritizeImageOverVideoEnabled(true)
             // General
             .setForceLowestBitrate(false)
             .setForceHighestSupportedBitrate(true)
@@ -140,11 +161,17 @@ public final class TrackSelectionParametersTest {
     assertThat(parameters.preferredAudioMimeTypes)
         .containsExactly(MimeTypes.AUDIO_AC3, MimeTypes.AUDIO_E_AC3)
         .inOrder();
+    assertThat(parameters.audioOffloadPreferences.audioOffloadMode)
+        .isEqualTo(AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_ENABLED);
+    assertThat(parameters.audioOffloadPreferences.isGaplessSupportRequired).isFalse();
+    assertThat(parameters.audioOffloadPreferences.isSpeedChangeSupportRequired).isTrue();
     // Text
     assertThat(parameters.preferredTextLanguages).containsExactly("de", "en").inOrder();
     assertThat(parameters.preferredTextRoleFlags).isEqualTo(C.ROLE_FLAG_CAPTION);
     assertThat(parameters.ignoredTextSelectionFlags).isEqualTo(C.SELECTION_FLAG_AUTOSELECT);
     assertThat(parameters.selectUndeterminedTextLanguage).isTrue();
+    // Image
+    assertThat(parameters.isPrioritizeImageOverVideoEnabled).isTrue();
     // General
     assertThat(parameters.forceLowestBitrate).isFalse();
     assertThat(parameters.forceHighestSupportedBitrate).isTrue();
@@ -181,9 +208,9 @@ public final class TrackSelectionParametersTest {
     TrackSelectionParameters parameters =
         new TrackSelectionParameters.Builder(getApplicationContext())
             .setViewportSize(
-                /*viewportWidth=*/ 1,
-                /*viewportHeight=*/ 2,
-                /*viewportOrientationMayChange=*/ false)
+                /* viewportWidth= */ 1,
+                /* viewportHeight= */ 2,
+                /* viewportOrientationMayChange= */ false)
             .clearViewportSizeConstraints()
             .build();
 
@@ -206,6 +233,29 @@ public final class TrackSelectionParametersTest {
     assertThat(fromBundle).isEqualTo(trackSelectionParameters);
     assertThat(trackSelectionParameters.overrides)
         .containsExactly(override.mediaTrackGroup, override);
+  }
+
+  @Test
+  public void roundTripViaBundle_withLegacyPreferenceFields_yieldsEqualInstance() {
+    TrackSelectionParameters trackSelectionParameters =
+        new TrackSelectionParameters.Builder(getApplicationContext())
+            .setAudioOffloadPreferences(
+                new AudioOffloadPreferences.Builder()
+                    .setAudioOffloadMode(AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_ENABLED)
+                    .setIsGaplessSupportRequired(true)
+                    .build())
+            .build();
+    Bundle bundle = trackSelectionParameters.toBundle();
+    // By removing AudioOffloadPreferences, bundle is a model of one initially created without
+    // AudioOffloadPreferences but containing AudioOffloadPreferences sub-fields(ex:
+    // isGaplessSupportRequired). Prod system should not be removing fields from the bundle.
+    bundle.remove(BUNDLE_FIELD_AUDIO_OFFLOAD_PREFERENCES);
+
+    TrackSelectionParameters trackSelectionParametersfromBundle =
+        TrackSelectionParameters.fromBundle(bundle);
+
+    assertThat(bundle.containsKey(BUNDLE_FIELD_AUDIO_OFFLOAD_MODE_PREFERENCE)).isTrue();
+    assertThat(trackSelectionParametersfromBundle).isEqualTo(trackSelectionParameters);
   }
 
   @Test
@@ -293,6 +343,29 @@ public final class TrackSelectionParametersTest {
 
     assertThat(trackSelectionParameters.overrides)
         .containsExactly(override1.mediaTrackGroup, override1);
+  }
+
+  @Test
+  public void audioOffloadPreferences_checkDefault_allFieldsAreDisabledOrFalse() {
+    AudioOffloadPreferences audioOffloadPreferences = AudioOffloadPreferences.DEFAULT;
+
+    assertThat(audioOffloadPreferences.audioOffloadMode).isEqualTo(AUDIO_OFFLOAD_MODE_DISABLED);
+    assertThat(audioOffloadPreferences.isGaplessSupportRequired).isFalse();
+    assertThat(audioOffloadPreferences.isSpeedChangeSupportRequired).isFalse();
+  }
+
+  @Test
+  public void audioOffloadPreferences_buildUponWithIndividualSetters_equalsToOriginal() {
+    AudioOffloadPreferences audioOffloadPreferences =
+        new AudioOffloadPreferences.Builder()
+            .setAudioOffloadMode(AUDIO_OFFLOAD_MODE_ENABLED)
+            .setIsGaplessSupportRequired(true)
+            .setIsSpeedChangeSupportRequired(false)
+            .build();
+
+    AudioOffloadPreferences copy = audioOffloadPreferences.buildUpon().build();
+
+    assertThat(copy).isEqualTo(audioOffloadPreferences);
   }
 
   private static TrackGroup newTrackGroupWithIds(int... ids) {

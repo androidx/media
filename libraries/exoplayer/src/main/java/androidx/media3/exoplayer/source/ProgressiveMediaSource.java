@@ -19,11 +19,14 @@ import static androidx.media3.common.util.Assertions.checkNotNull;
 
 import android.net.Uri;
 import android.os.Looper;
+import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Timeline;
+import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.TransferListener;
 import androidx.media3.exoplayer.drm.DefaultDrmSessionManagerProvider;
@@ -32,10 +35,13 @@ import androidx.media3.exoplayer.drm.DrmSessionManagerProvider;
 import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
+import androidx.media3.exoplayer.util.ReleasableExecutor;
 import androidx.media3.extractor.DefaultExtractorsFactory;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorsFactory;
+import com.google.common.base.Supplier;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.util.concurrent.Executor;
 
 /**
  * Provides one period that loads data from a {@link Uri} and extracted using an {@link Extractor}.
@@ -62,8 +68,8 @@ public final class ProgressiveMediaSource extends BaseMediaSource
     private DrmSessionManagerProvider drmSessionManagerProvider;
     private LoadErrorHandlingPolicy loadErrorHandlingPolicy;
     private int continueLoadingCheckIntervalBytes;
-    @Nullable private String customCacheKey;
-    @Nullable private Object tag;
+    @Nullable private Supplier<ReleasableExecutor> downloadExecutorSupplier;
+    private boolean suppressPrepareError;
 
     /**
      * Creates a new factory for {@link ProgressiveMediaSource}s.
@@ -184,6 +190,21 @@ public final class ProgressiveMediaSource extends BaseMediaSource
       return this;
     }
 
+    /**
+     * Allow {@link MediaPeriod} preparation to {@linkplain
+     * MediaPeriod.Callback#onPrepared(MediaPeriod) complete} despite an error that would have
+     * otherwise blocked it.
+     *
+     * <p>If set to true, an error that would normally be thrown from {@link
+     * MediaPeriod#maybeThrowPrepareError()} (e.g. a {@link DataSource#open} error like HTTP 404) is
+     * instead suppressed and preparation is completed with no tracks.
+     */
+    @CanIgnoreReturnValue
+    /* package */ Factory setSuppressPrepareError(boolean suppressPrepareError) {
+      this.suppressPrepareError = suppressPrepareError;
+      return this;
+    }
+
     @CanIgnoreReturnValue
     @Override
     public Factory setDrmSessionManagerProvider(
@@ -198,6 +219,23 @@ public final class ProgressiveMediaSource extends BaseMediaSource
     }
 
     /**
+     * Sets a supplier for an {@link Executor} that is used for loading the media.
+     *
+     * @param downloadExecutor A {@link Supplier} that provides an externally managed {@link
+     *     Executor} for downloading and extraction.
+     * @param downloadExecutorReleaser A callback triggered once a load task is finished and a
+     *     supplied executor is no longer required.
+     * @return This factory, for convenience.
+     */
+    @CanIgnoreReturnValue
+    public <T extends Executor> Factory setDownloadExecutor(
+        Supplier<T> downloadExecutor, Consumer<T> downloadExecutorReleaser) {
+      this.downloadExecutorSupplier =
+          () -> ReleasableExecutor.from(downloadExecutor.get(), downloadExecutorReleaser);
+      return this;
+    }
+
+    /**
      * Returns a new {@link ProgressiveMediaSource} using the current parameters.
      *
      * @param mediaItem The {@link MediaItem}.
@@ -207,23 +245,15 @@ public final class ProgressiveMediaSource extends BaseMediaSource
     @Override
     public ProgressiveMediaSource createMediaSource(MediaItem mediaItem) {
       checkNotNull(mediaItem.localConfiguration);
-      boolean needsTag = mediaItem.localConfiguration.tag == null && tag != null;
-      boolean needsCustomCacheKey =
-          mediaItem.localConfiguration.customCacheKey == null && customCacheKey != null;
-      if (needsTag && needsCustomCacheKey) {
-        mediaItem = mediaItem.buildUpon().setTag(tag).setCustomCacheKey(customCacheKey).build();
-      } else if (needsTag) {
-        mediaItem = mediaItem.buildUpon().setTag(tag).build();
-      } else if (needsCustomCacheKey) {
-        mediaItem = mediaItem.buildUpon().setCustomCacheKey(customCacheKey).build();
-      }
       return new ProgressiveMediaSource(
           mediaItem,
           dataSourceFactory,
           progressiveMediaExtractorFactory,
           drmSessionManagerProvider.get(mediaItem),
           loadErrorHandlingPolicy,
-          continueLoadingCheckIntervalBytes);
+          continueLoadingCheckIntervalBytes,
+          suppressPrepareError,
+          downloadExecutorSupplier);
     }
 
     @Override
@@ -238,13 +268,13 @@ public final class ProgressiveMediaSource extends BaseMediaSource
    */
   public static final int DEFAULT_LOADING_CHECK_INTERVAL_BYTES = 1024 * 1024;
 
-  private final MediaItem mediaItem;
-  private final MediaItem.LocalConfiguration localConfiguration;
   private final DataSource.Factory dataSourceFactory;
   private final ProgressiveMediaExtractor.Factory progressiveMediaExtractorFactory;
   private final DrmSessionManager drmSessionManager;
   private final LoadErrorHandlingPolicy loadableLoadErrorHandlingPolicy;
   private final int continueLoadingCheckIntervalBytes;
+  private final boolean suppressPrepareError;
+  @Nullable private final Supplier<ReleasableExecutor> downloadExecutorSupplier;
 
   private boolean timelineIsPlaceholder;
   private long timelineDurationUs;
@@ -252,27 +282,48 @@ public final class ProgressiveMediaSource extends BaseMediaSource
   private boolean timelineIsLive;
   @Nullable private TransferListener transferListener;
 
+  @GuardedBy("this")
+  private MediaItem mediaItem;
+
   private ProgressiveMediaSource(
       MediaItem mediaItem,
       DataSource.Factory dataSourceFactory,
       ProgressiveMediaExtractor.Factory progressiveMediaExtractorFactory,
       DrmSessionManager drmSessionManager,
       LoadErrorHandlingPolicy loadableLoadErrorHandlingPolicy,
-      int continueLoadingCheckIntervalBytes) {
-    this.localConfiguration = checkNotNull(mediaItem.localConfiguration);
+      int continueLoadingCheckIntervalBytes,
+      boolean suppressPrepareError,
+      @Nullable Supplier<ReleasableExecutor> downloadExecutorSupplier) {
     this.mediaItem = mediaItem;
     this.dataSourceFactory = dataSourceFactory;
     this.progressiveMediaExtractorFactory = progressiveMediaExtractorFactory;
     this.drmSessionManager = drmSessionManager;
     this.loadableLoadErrorHandlingPolicy = loadableLoadErrorHandlingPolicy;
     this.continueLoadingCheckIntervalBytes = continueLoadingCheckIntervalBytes;
+    this.suppressPrepareError = suppressPrepareError;
     this.timelineIsPlaceholder = true;
     this.timelineDurationUs = C.TIME_UNSET;
+    this.downloadExecutorSupplier = downloadExecutorSupplier;
   }
 
   @Override
-  public MediaItem getMediaItem() {
+  public synchronized MediaItem getMediaItem() {
     return mediaItem;
+  }
+
+  @Override
+  public boolean canUpdateMediaItem(MediaItem mediaItem) {
+    MediaItem.LocalConfiguration existingConfiguration = getLocalConfiguration();
+    @Nullable MediaItem.LocalConfiguration newConfiguration = mediaItem.localConfiguration;
+    return newConfiguration != null
+        && newConfiguration.uri.equals(existingConfiguration.uri)
+        && newConfiguration.imageDurationMs == existingConfiguration.imageDurationMs
+        && Util.areEqual(newConfiguration.customCacheKey, existingConfiguration.customCacheKey);
+  }
+
+  @Override
+  public synchronized void updateMediaItem(MediaItem mediaItem) {
+    this.mediaItem = mediaItem;
   }
 
   @Override
@@ -295,6 +346,7 @@ public final class ProgressiveMediaSource extends BaseMediaSource
     if (transferListener != null) {
       dataSource.addTransferListener(transferListener);
     }
+    MediaItem.LocalConfiguration localConfiguration = getLocalConfiguration();
     return new ProgressiveMediaPeriod(
         localConfiguration.uri,
         dataSource,
@@ -306,7 +358,10 @@ public final class ProgressiveMediaSource extends BaseMediaSource
         this,
         allocator,
         localConfiguration.customCacheKey,
-        continueLoadingCheckIntervalBytes);
+        continueLoadingCheckIntervalBytes,
+        suppressPrepareError,
+        Util.msToUs(localConfiguration.imageDurationMs),
+        downloadExecutorSupplier != null ? downloadExecutorSupplier.get() : null);
   }
 
   @Override
@@ -341,6 +396,10 @@ public final class ProgressiveMediaSource extends BaseMediaSource
 
   // Internal methods.
 
+  private MediaItem.LocalConfiguration getLocalConfiguration() {
+    return checkNotNull(getMediaItem().localConfiguration);
+  }
+
   private void notifySourceInfoRefreshed() {
     // TODO: Split up isDynamic into multiple fields to indicate which values may change. Then
     // indicate that the duration may change until it's known. See [internal: b/69703223].
@@ -351,7 +410,7 @@ public final class ProgressiveMediaSource extends BaseMediaSource
             /* isDynamic= */ false,
             /* useLiveConfiguration= */ timelineIsLive,
             /* manifest= */ null,
-            mediaItem);
+            getMediaItem());
     if (timelineIsPlaceholder) {
       // TODO: Actually prepare the extractors during preparation so that we don't need a
       // placeholder. See https://github.com/google/ExoPlayer/issues/4727.

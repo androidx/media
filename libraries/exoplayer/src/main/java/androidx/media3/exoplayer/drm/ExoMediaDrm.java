@@ -97,10 +97,12 @@ public interface ExoMediaDrm {
   @UnstableApi
   @SuppressWarnings("InlinedApi")
   int EVENT_KEY_REQUIRED = MediaDrm.EVENT_KEY_REQUIRED;
+
   /** Event indicating that keys have expired, and are no longer usable. */
   @UnstableApi
   @SuppressWarnings("InlinedApi")
   int EVENT_KEY_EXPIRED = MediaDrm.EVENT_KEY_EXPIRED;
+
   /** Event indicating that a certificate needs to be requested from the provisioning server. */
   @UnstableApi
   @SuppressWarnings("InlinedApi")
@@ -113,6 +115,7 @@ public interface ExoMediaDrm {
   @UnstableApi
   @SuppressWarnings("InlinedApi")
   int KEY_TYPE_STREAMING = MediaDrm.KEY_TYPE_STREAMING;
+
   /**
    * Key request type for keys that will be used for offline use. They will be saved to the device
    * for subsequent use when the device is not connected to a network.
@@ -120,6 +123,7 @@ public interface ExoMediaDrm {
   @UnstableApi
   @SuppressWarnings("InlinedApi")
   int KEY_TYPE_OFFLINE = MediaDrm.KEY_TYPE_OFFLINE;
+
   /** Key request type indicating that saved offline keys should be released. */
   @UnstableApi
   @SuppressWarnings("InlinedApi")
@@ -256,15 +260,19 @@ public interface ExoMediaDrm {
 
     /** Key request type for an initial license request. */
     public static final int REQUEST_TYPE_INITIAL = MediaDrm.KeyRequest.REQUEST_TYPE_INITIAL;
+
     /** Key request type for license renewal. */
     public static final int REQUEST_TYPE_RENEWAL = MediaDrm.KeyRequest.REQUEST_TYPE_RENEWAL;
+
     /** Key request type for license release. */
     public static final int REQUEST_TYPE_RELEASE = MediaDrm.KeyRequest.REQUEST_TYPE_RELEASE;
+
     /**
      * Key request type if keys are already loaded and available for use. No license request is
      * necessary, and no key request data is returned.
      */
     public static final int REQUEST_TYPE_NONE = MediaDrm.KeyRequest.REQUEST_TYPE_NONE;
+
     /**
      * Key request type if keys have been loaded, but an additional license request is needed to
      * update their values.
@@ -514,6 +522,40 @@ public interface ExoMediaDrm {
    *     #provideKeyResponse} that persisted them.
    */
   void restoreKeys(byte[] sessionId, byte[] keySetId);
+
+  /**
+   * Removes an offline license.
+   *
+   * <p>This method is generally not needed, and should only be used if the preferred approach of
+   * generating a license release request by passing {@link #KEY_TYPE_RELEASE} to {@link
+   * #getKeyRequest} is not possible.
+   *
+   * <p>This is an optional method, and some implementations may only support it on certain Android
+   * API levels.
+   *
+   * <p>See {@link MediaDrm#removeOfflineLicense(byte[])} for more details.
+   *
+   * @param keySetId The {@code keySetId} of the license to remove.
+   * @throws UnsupportedOperationException if the implementation doesn't support this method.
+   */
+  default void removeOfflineLicense(byte[] keySetId) {
+    throw new UnsupportedOperationException();
+  }
+
+  /**
+   * Returns a list of the {@code keySetIds} for all offline licenses.
+   *
+   * <p>This is an optional method, and some implementations may only support it on certain Android
+   * API levels.
+   *
+   * <p>See {@link MediaDrm#getOfflineLicenseKeySetIds()} for more details.
+   *
+   * @return The list of {@code keySetIds} for all offline licenses.
+   * @throws UnsupportedOperationException if the implementation doesn't support this method.
+   */
+  default List<byte[]> getOfflineLicenseKeySetIds() {
+    throw new UnsupportedOperationException();
+  }
 
   /**
    * Returns metrics data for this ExoMediaDrm instance, or {@code null} if metrics are unavailable.

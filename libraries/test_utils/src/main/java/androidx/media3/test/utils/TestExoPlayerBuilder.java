@@ -18,8 +18,10 @@ package androidx.media3.test.utils;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
+import android.os.Build.VERSION;
 import android.os.Looper;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Clock;
@@ -30,6 +32,7 @@ import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.LoadControl;
 import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.RenderersFactory;
+import androidx.media3.exoplayer.SuitableOutputChecker;
 import androidx.media3.exoplayer.analytics.DefaultAnalyticsCollector;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector;
@@ -52,8 +55,14 @@ public class TestExoPlayerBuilder {
   @Nullable private MediaSource.Factory mediaSourceFactory;
   private boolean useLazyPreparation;
   private @MonotonicNonNull Looper looper;
+  @Nullable private SuitableOutputChecker suitableOutputChecker;
   private long seekBackIncrementMs;
   private long seekForwardIncrementMs;
+  private long maxSeekToPreviousPositionMs;
+  private boolean deviceVolumeControlEnabled;
+  private boolean suppressPlaybackWhenUnsuitableOutput;
+  @Nullable private ExoPlayer.PreloadConfiguration preloadConfiguration;
+  private boolean dynamicSchedulingEnabled;
 
   public TestExoPlayerBuilder(Context context) {
     this.context = context;
@@ -67,6 +76,8 @@ public class TestExoPlayerBuilder {
     }
     seekBackIncrementMs = C.DEFAULT_SEEK_BACK_INCREMENT_MS;
     seekForwardIncrementMs = C.DEFAULT_SEEK_FORWARD_INCREMENT_MS;
+    maxSeekToPreviousPositionMs = C.DEFAULT_MAX_SEEK_TO_PREVIOUS_POSITION_MS;
+    deviceVolumeControlEnabled = false;
   }
 
   /**
@@ -158,6 +169,18 @@ public class TestExoPlayerBuilder {
   }
 
   /**
+   * Sets the preload configuration.
+   *
+   * @see ExoPlayer#setPreloadConfiguration(ExoPlayer.PreloadConfiguration)
+   */
+  @CanIgnoreReturnValue
+  public TestExoPlayerBuilder setPreloadConfiguration(
+      ExoPlayer.PreloadConfiguration preloadConfiguration) {
+    this.preloadConfiguration = preloadConfiguration;
+    return this;
+  }
+
+  /**
    * Returns the {@link Renderer Renderers} that have been set with {@link #setRenderers} or null if
    * no {@link Renderer Renderers} have been explicitly set. Note that these renderers may not be
    * the ones used by the built player, for example if a {@link #setRenderersFactory Renderer
@@ -224,6 +247,23 @@ public class TestExoPlayerBuilder {
   }
 
   /**
+   * Sets the {@link SuitableOutputChecker} to check the suitability of the selected outputs for
+   * playback.
+   *
+   * <p>If this method is not called, the library uses a default implementation based on framework
+   * APIs.
+   *
+   * @return This builder.
+   */
+  @CanIgnoreReturnValue
+  @RequiresApi(35)
+  public TestExoPlayerBuilder setSuitableOutputChecker(
+      SuitableOutputChecker suitableOutputChecker) {
+    this.suitableOutputChecker = suitableOutputChecker;
+    return this;
+  }
+
+  /**
    * Returns the {@link Looper} that will be used by the player, or null if no {@link Looper} has
    * been set yet and no default is available.
    */
@@ -282,9 +322,65 @@ public class TestExoPlayerBuilder {
     return this;
   }
 
+  /**
+   * Sets the variable controlling player's ability to get/set device volume.
+   *
+   * @param deviceVolumeControlEnabled Whether the player can get/set device volume.
+   * @return This builder.
+   */
+  @CanIgnoreReturnValue
+  public TestExoPlayerBuilder setDeviceVolumeControlEnabled(boolean deviceVolumeControlEnabled) {
+    this.deviceVolumeControlEnabled = deviceVolumeControlEnabled;
+    return this;
+  }
+
   /** Returns the seek forward increment used by the player. */
   public long getSeekForwardIncrementMs() {
     return seekForwardIncrementMs;
+  }
+
+  /**
+   * Sets the max seek to previous position, in milliseconds, to be used by the player.
+   *
+   * @param maxSeekToPreviousPositionMs The max seek to previous position to be used by the player.
+   * @return This builder.
+   */
+  @CanIgnoreReturnValue
+  public TestExoPlayerBuilder setMaxSeekToPreviousPositionMs(long maxSeekToPreviousPositionMs) {
+    this.maxSeekToPreviousPositionMs = maxSeekToPreviousPositionMs;
+    return this;
+  }
+
+  /** Returns the max seek to previous position used by the player. */
+  public long getMaxSeekToPreviousPosition() {
+    return maxSeekToPreviousPositionMs;
+  }
+
+  /**
+   * See {@link ExoPlayer.Builder#setSuppressPlaybackOnUnsuitableOutput(boolean)} for details.
+   *
+   * @param suppressPlaybackOnUnsuitableOutput Whether the player should suppress the playback when
+   *     it is attempted on an unsuitable output.
+   * @return This builder.
+   */
+  @CanIgnoreReturnValue
+  public TestExoPlayerBuilder setSuppressPlaybackOnUnsuitableOutput(
+      boolean suppressPlaybackOnUnsuitableOutput) {
+    this.suppressPlaybackWhenUnsuitableOutput = suppressPlaybackOnUnsuitableOutput;
+    return this;
+  }
+
+  /**
+   * See {@link ExoPlayer.Builder#experimentalSetDynamicSchedulingEnabled(boolean)} for details.
+   *
+   * @param dynamicSchedulingEnabled Whether the player should enable dynamically schedule its
+   *     playback loop for when {@link Renderer} progress can be made.
+   * @return This builder.
+   */
+  @CanIgnoreReturnValue
+  public TestExoPlayerBuilder setDynamicSchedulingEnabled(boolean dynamicSchedulingEnabled) {
+    this.dynamicSchedulingEnabled = dynamicSchedulingEnabled;
+    return this;
   }
 
   /** Builds an {@link ExoPlayer} using the provided values or their defaults. */
@@ -322,10 +418,21 @@ public class TestExoPlayerBuilder {
             .setUseLazyPreparation(useLazyPreparation)
             .setLooper(looper)
             .setSeekBackIncrementMs(seekBackIncrementMs)
-            .setSeekForwardIncrementMs(seekForwardIncrementMs);
+            .setSeekForwardIncrementMs(seekForwardIncrementMs)
+            .setMaxSeekToPreviousPositionMs(maxSeekToPreviousPositionMs)
+            .setDeviceVolumeControlEnabled(deviceVolumeControlEnabled)
+            .setSuppressPlaybackOnUnsuitableOutput(suppressPlaybackWhenUnsuitableOutput)
+            .experimentalSetDynamicSchedulingEnabled(dynamicSchedulingEnabled);
+    if (VERSION.SDK_INT >= 35 && suitableOutputChecker != null) {
+      builder.setSuitableOutputChecker(suitableOutputChecker);
+    }
     if (mediaSourceFactory != null) {
       builder.setMediaSourceFactory(mediaSourceFactory);
     }
-    return builder.build();
+    ExoPlayer exoPlayer = builder.build();
+    if (preloadConfiguration != null) {
+      exoPlayer.setPreloadConfiguration(preloadConfiguration);
+    }
+    return exoPlayer;
   }
 }

@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.mediacodec;
 
+import android.content.Context;
 import android.media.MediaCodec;
 import android.media.MediaCrypto;
 import android.media.MediaFormat;
@@ -49,15 +50,17 @@ public interface MediaCodecAdapter {
      * @param mediaFormat See {@link #mediaFormat}.
      * @param format See {@link #format}.
      * @param crypto See {@link #crypto}.
+     * @param loudnessCodecController See {@link #loudnessCodecController}.
      * @return The created instance.
      */
     public static Configuration createForAudioDecoding(
         MediaCodecInfo codecInfo,
         MediaFormat mediaFormat,
         Format format,
-        @Nullable MediaCrypto crypto) {
+        @Nullable MediaCrypto crypto,
+        @Nullable LoudnessCodecController loudnessCodecController) {
       return new Configuration(
-          codecInfo, mediaFormat, format, /* surface= */ null, crypto, /* flags= */ 0);
+          codecInfo, mediaFormat, format, /* surface= */ null, crypto, loudnessCodecController);
     }
 
     /**
@@ -76,25 +79,31 @@ public interface MediaCodecAdapter {
         Format format,
         @Nullable Surface surface,
         @Nullable MediaCrypto crypto) {
-      return new Configuration(codecInfo, mediaFormat, format, surface, crypto, /* flags= */ 0);
+      return new Configuration(
+          codecInfo, mediaFormat, format, surface, crypto, /* loudnessCodecController= */ null);
     }
 
     /** Information about the {@link MediaCodec} being configured. */
     public final MediaCodecInfo codecInfo;
+
     /** The {@link MediaFormat} for which the codec is being configured. */
     public final MediaFormat mediaFormat;
+
     /** The {@link Format} for which the codec is being configured. */
     public final Format format;
+
     /**
      * For video decoding, the output where the object will render the decoded frames. This must be
      * null if the codec is not a video decoder, or if it is configured for {@link ByteBuffer}
      * output.
      */
     @Nullable public final Surface surface;
+
     /** For DRM protected playbacks, a {@link MediaCrypto} to use for decryption. */
     @Nullable public final MediaCrypto crypto;
-    /** See {@link MediaCodec#configure}. */
-    public final int flags;
+
+    /** The {@link LoudnessCodecController} for audio codecs. */
+    @Nullable public final LoudnessCodecController loudnessCodecController;
 
     private Configuration(
         MediaCodecInfo codecInfo,
@@ -102,21 +111,35 @@ public interface MediaCodecAdapter {
         Format format,
         @Nullable Surface surface,
         @Nullable MediaCrypto crypto,
-        int flags) {
+        @Nullable LoudnessCodecController loudnessCodecController) {
       this.codecInfo = codecInfo;
       this.mediaFormat = mediaFormat;
       this.format = format;
       this.surface = surface;
       this.crypto = crypto;
-      this.flags = flags;
+      this.loudnessCodecController = loudnessCodecController;
     }
   }
 
   /** A factory for {@link MediaCodecAdapter} instances. */
   interface Factory {
 
-    /** Default factory used in most cases. */
+    /**
+     * @deprecated Use {@link #getDefault} instead.
+     */
+    @Deprecated
+    @SuppressWarnings("deprecation") // Forwarding to deprecated method.
     Factory DEFAULT = new DefaultMediaCodecAdapterFactory();
+
+    /**
+     * Returns the default factory that should be used in most cases.
+     *
+     * @param context A {@link Context}.
+     * @return The default factory.
+     */
+    static Factory getDefault(Context context) {
+      return new DefaultMediaCodecAdapterFactory(context);
+    }
 
     /** Creates a {@link MediaCodecAdapter} instance. */
     MediaCodecAdapter createAdapter(Configuration configuration) throws IOException;
@@ -129,6 +152,23 @@ public interface MediaCodecAdapter {
    */
   interface OnFrameRenderedListener {
     void onFrameRendered(MediaCodecAdapter codec, long presentationTimeUs, long nanoTime);
+  }
+
+  /** Listener to be called when an input or output buffer becomes available. */
+  interface OnBufferAvailableListener {
+    /**
+     * Called when an input buffer becomes available.
+     *
+     * @see MediaCodec.Callback#onInputBufferAvailable(MediaCodec, int)
+     */
+    default void onInputBufferAvailable() {}
+
+    /**
+     * Called when an output buffer becomes available.
+     *
+     * @see MediaCodec.Callback#onOutputBufferAvailable(MediaCodec, int, MediaCodec.BufferInfo)
+     */
+    default void onOutputBufferAvailable() {}
   }
 
   /**
@@ -215,7 +255,6 @@ public interface MediaCodecAdapter {
    *
    * @see MediaCodec#releaseOutputBuffer(int, long)
    */
-  @RequiresApi(21)
   void releaseOutputBuffer(int index, long renderTimeStampNs);
 
   /** Flushes the adapter and the underlying {@link MediaCodec}. */
@@ -233,6 +272,20 @@ public interface MediaCodecAdapter {
   void setOnFrameRenderedListener(OnFrameRenderedListener listener, Handler handler);
 
   /**
+   * Registers a listener that will be called when an input or output buffer becomes available.
+   *
+   * <p>Returns false if listener was not successfully registered for callbacks.
+   *
+   * @see MediaCodec.Callback#onInputBufferAvailable
+   * @see MediaCodec.Callback#onOutputBufferAvailable
+   * @return Whether listener was successfully registered.
+   */
+  default boolean registerOnBufferAvailableListener(
+      MediaCodecAdapter.OnBufferAvailableListener listener) {
+    return false;
+  }
+
+  /**
    * Dynamically sets the output surface of a {@link MediaCodec}.
    *
    * @see MediaCodec#setOutputSurface(Surface)
@@ -241,11 +294,18 @@ public interface MediaCodecAdapter {
   void setOutputSurface(Surface surface);
 
   /**
+   * Detaches the current output surface.
+   *
+   * @see MediaCodec#detachOutputSurface()
+   */
+  @RequiresApi(35)
+  void detachOutputSurface();
+
+  /**
    * Communicate additional parameter changes to the {@link MediaCodec} instance.
    *
    * @see MediaCodec#setParameters(Bundle)
    */
-  @RequiresApi(19)
   void setParameters(Bundle params);
 
   /**

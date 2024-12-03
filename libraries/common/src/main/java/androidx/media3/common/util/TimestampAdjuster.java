@@ -15,8 +15,13 @@
  */
 package androidx.media3.common.util;
 
+import static androidx.media3.common.util.Assertions.checkNotNull;
+import static androidx.media3.common.util.Assertions.checkState;
+
+import android.os.SystemClock;
 import androidx.annotation.GuardedBy;
 import androidx.media3.common.C;
+import java.util.concurrent.TimeoutException;
 
 /**
  * Adjusts and offsets sample timestamps. MPEG-2 TS timestamps scaling and adjustment is supported,
@@ -100,21 +105,40 @@ public final class TimestampAdjuster {
    * @param canInitialize Whether the caller is able to initialize the adjuster, if needed.
    * @param nextSampleTimestampUs The desired timestamp for the next sample loaded by the calling
    *     thread, in microseconds. Only used if {@code canInitialize} is {@code true}.
+   * @param timeoutMs The timeout for the thread to wait for the timestamp adjuster to initialize,
+   *     in milliseconds. A timeout of zero is interpreted as an infinite timeout.
    * @throws InterruptedException If the thread is interrupted whilst blocked waiting for
    *     initialization to complete.
+   * @throws TimeoutException If the thread is timeout whilst blocked waiting for initialization to
+   *     complete.
    */
-  public synchronized void sharedInitializeOrWait(boolean canInitialize, long nextSampleTimestampUs)
-      throws InterruptedException {
-    Assertions.checkState(firstSampleTimestampUs == MODE_SHARED);
-    if (timestampOffsetUs != C.TIME_UNSET) {
-      // Already initialized.
+  public synchronized void sharedInitializeOrWait(
+      boolean canInitialize, long nextSampleTimestampUs, long timeoutMs)
+      throws InterruptedException, TimeoutException {
+    checkState(firstSampleTimestampUs == MODE_SHARED);
+    if (isInitialized()) {
       return;
     } else if (canInitialize) {
       this.nextSampleTimestampUs.set(nextSampleTimestampUs);
     } else {
       // Wait for another calling thread to complete initialization.
-      while (timestampOffsetUs == C.TIME_UNSET) {
-        wait();
+      long totalWaitDurationMs = 0;
+      long remainingTimeoutMs = timeoutMs;
+      while (!isInitialized()) {
+        if (timeoutMs == 0) {
+          wait();
+        } else {
+          checkState(remainingTimeoutMs > 0);
+          long waitStartingTimeMs = SystemClock.elapsedRealtime();
+          wait(remainingTimeoutMs);
+          totalWaitDurationMs += SystemClock.elapsedRealtime() - waitStartingTimeMs;
+          if (totalWaitDurationMs >= timeoutMs && !isInitialized()) {
+            String message =
+                "TimestampAdjuster failed to initialize in " + timeoutMs + " milliseconds";
+            throw new TimeoutException(message);
+          }
+          remainingTimeoutMs = timeoutMs - totalWaitDurationMs;
+        }
       }
     }
   }
@@ -163,6 +187,9 @@ public final class TimestampAdjuster {
   /**
    * Scales and offsets an MPEG-2 TS presentation timestamp considering wraparound.
    *
+   * <p>When estimating the wraparound, the method assumes that this timestamp is close to the
+   * previous adjusted timestamp.
+   *
    * @param pts90Khz A 90 kHz clock MPEG-2 TS presentation timestamp.
    * @return The adjusted timestamp in microseconds.
    */
@@ -186,6 +213,30 @@ public final class TimestampAdjuster {
   }
 
   /**
+   * Scales and offsets an MPEG-2 TS presentation timestamp considering wraparound.
+   *
+   * <p>When estimating the wraparound, the method assumes that the timestamp is strictly greater
+   * than the previous adjusted timestamp.
+   *
+   * @param pts90Khz A 90 kHz clock MPEG-2 TS presentation timestamp.
+   * @return The adjusted timestamp in microseconds.
+   */
+  public synchronized long adjustTsTimestampGreaterThanPreviousTimestamp(long pts90Khz) {
+    if (pts90Khz == C.TIME_UNSET) {
+      return C.TIME_UNSET;
+    }
+    if (lastUnadjustedTimestampUs != C.TIME_UNSET) {
+      // The wrap count for the current PTS must be same or greater than the previous one.
+      long lastPts = usToNonWrappedPts(lastUnadjustedTimestampUs);
+      long wrapCount = lastPts / MAX_PTS_PLUS_ONE;
+      long ptsSameWrap = pts90Khz + (MAX_PTS_PLUS_ONE * wrapCount);
+      long ptsNextWrap = pts90Khz + (MAX_PTS_PLUS_ONE * (wrapCount + 1));
+      pts90Khz = ptsSameWrap >= lastPts ? ptsSameWrap : ptsNextWrap;
+    }
+    return adjustSampleTimestamp(ptsToUs(pts90Khz));
+  }
+
+  /**
    * Offsets a timestamp in microseconds.
    *
    * @param timeUs The timestamp to adjust in microseconds.
@@ -195,10 +246,10 @@ public final class TimestampAdjuster {
     if (timeUs == C.TIME_UNSET) {
       return C.TIME_UNSET;
     }
-    if (timestampOffsetUs == C.TIME_UNSET) {
+    if (!isInitialized()) {
       long desiredSampleTimestampUs =
           firstSampleTimestampUs == MODE_SHARED
-              ? Assertions.checkNotNull(nextSampleTimestampUs.get())
+              ? checkNotNull(nextSampleTimestampUs.get())
               : firstSampleTimestampUs;
       timestampOffsetUs = desiredSampleTimestampUs - timeUs;
       // Notify threads waiting for the timestamp offset to be determined.
@@ -208,6 +259,11 @@ public final class TimestampAdjuster {
     return timeUs + timestampOffsetUs;
   }
 
+  /** Returns whether the instance is initialized with a timestamp offset. */
+  public synchronized boolean isInitialized() {
+    return timestampOffsetUs != C.TIME_UNSET;
+  }
+
   /**
    * Converts a 90 kHz clock timestamp to a timestamp in microseconds.
    *
@@ -215,7 +271,7 @@ public final class TimestampAdjuster {
    * @return The corresponding value in microseconds.
    */
   public static long ptsToUs(long pts) {
-    return (pts * C.MICROS_PER_SECOND) / 90000;
+    return Util.scaleLargeTimestamp(pts, C.MICROS_PER_SECOND, 90000);
   }
 
   /**
@@ -239,6 +295,6 @@ public final class TimestampAdjuster {
    * @return The corresponding value as a 90 kHz clock timestamp.
    */
   public static long usToNonWrappedPts(long us) {
-    return (us * 90000) / C.MICROS_PER_SECOND;
+    return Util.scaleLargeTimestamp(us, 90000, C.MICROS_PER_SECOND);
   }
 }

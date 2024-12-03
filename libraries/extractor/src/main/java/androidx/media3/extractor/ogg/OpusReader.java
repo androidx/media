@@ -77,6 +77,7 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
       }
       setupData.format =
           new Format.Builder()
+              .setContainerMimeType(MimeTypes.AUDIO_OGG)
               .setSampleMimeType(MimeTypes.AUDIO_OPUS)
               .setChannelCount(channelCount)
               .setSampleRate(OpusUtil.SAMPLE_RATE)

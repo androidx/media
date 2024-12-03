@@ -20,11 +20,14 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 import androidx.annotation.IntDef;
 import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
+import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import java.util.List;
+import org.checkerframework.dataflow.qual.SideEffectFree;
 
 /** Extracts media data from a container format. */
 @UnstableApi
@@ -36,12 +39,14 @@ public interface Extractor {
    * continuing from the position in the stream reached by the returning call.
    */
   int RESULT_CONTINUE = 0;
+
   /**
    * Returned by {@link #read(ExtractorInput, PositionHolder)} if the {@link ExtractorInput} passed
    * to the next {@link #read(ExtractorInput, PositionHolder)} is required to provide data starting
    * from a specified position in the stream.
    */
   int RESULT_SEEK = 1;
+
   /**
    * Returned by {@link #read(ExtractorInput, PositionHolder)} if the end of the {@link
    * ExtractorInput} was reached. Equal to {@link C#RESULT_END_OF_INPUT}.
@@ -70,6 +75,19 @@ public interface Extractor {
    * @throws IOException If an error occurred reading from the input.
    */
   boolean sniff(ExtractorInput input) throws IOException;
+
+  /**
+   * Returns additional details about the last call to {@link #sniff}. The returned list may be
+   * empty if no additional details are available, or the last {@link #sniff} call returned {@code
+   * true}.
+   *
+   * <p>This only contains details that were discovered before {@link #sniff} returned {@code
+   * false}, it is not an exhaustive list of issues which, if resolved, would cause the file to be
+   * successfully sniffed.
+   */
+  default List<SniffFailure> getSniffFailureDetails() {
+    return ImmutableList.of();
+  }
 
   /**
    * Initializes the extractor with an {@link ExtractorOutput}. Called at most once.
@@ -120,4 +138,16 @@ public interface Extractor {
 
   /** Releases all kept resources. */
   void release();
+
+  /**
+   * Returns the 'real' {@code Extractor} implementation if this is a delegating instance, or {@code
+   * this} if this instance does the extraction directly without delegating (the default behaviour).
+   *
+   * <p>{@code Extractor} implementations that operate by delegating to another {@code Extractor}
+   * should override this method to return that delegate.
+   */
+  @SideEffectFree
+  default Extractor getUnderlyingImplementation() {
+    return this;
+  }
 }

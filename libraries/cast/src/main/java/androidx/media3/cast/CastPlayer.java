@@ -17,9 +17,17 @@ package androidx.media3.cast;
 
 import static androidx.annotation.VisibleForTesting.PROTECTED;
 import static androidx.media3.common.util.Assertions.checkArgument;
+import static androidx.media3.common.util.Util.SDK_INT;
 import static androidx.media3.common.util.Util.castNonNull;
 import static java.lang.Math.min;
 
+import android.content.Context;
+import android.media.MediaRouter2;
+import android.media.MediaRouter2.RouteCallback;
+import android.media.MediaRouter2.RoutingController;
+import android.media.MediaRouter2.TransferCallback;
+import android.media.RouteDiscoveryPreference;
+import android.os.Handler;
 import android.os.Looper;
 import android.view.Surface;
 import android.view.SurfaceHolder;
@@ -27,6 +35,7 @@ import android.view.SurfaceView;
 import android.view.TextureView;
 import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.BasePlayer;
@@ -83,9 +92,12 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 @UnstableApi
 public final class CastPlayer extends BasePlayer {
 
-  /** The {@link DeviceInfo} returned by {@link #getDeviceInfo() this player}. */
-  public static final DeviceInfo DEVICE_INFO =
-      new DeviceInfo(DeviceInfo.PLAYBACK_TYPE_REMOTE, /* minVolume= */ 0, /* maxVolume= */ 0);
+  /**
+   * A {@link DeviceInfo#PLAYBACK_TYPE_REMOTE remote} {@link DeviceInfo} with a null {@link
+   * DeviceInfo#routingControllerId}.
+   */
+  public static final DeviceInfo DEVICE_INFO_REMOTE_EMPTY =
+      new DeviceInfo.Builder(DeviceInfo.PLAYBACK_TYPE_REMOTE).build();
 
   static {
     MediaLibraryInfo.registerModule("media3.cast");
@@ -104,11 +116,12 @@ public final class CastPlayer extends BasePlayer {
               COMMAND_SET_SPEED_AND_PITCH,
               COMMAND_GET_CURRENT_MEDIA_ITEM,
               COMMAND_GET_TIMELINE,
-              COMMAND_GET_MEDIA_ITEMS_METADATA,
-              COMMAND_SET_MEDIA_ITEMS_METADATA,
+              COMMAND_GET_METADATA,
+              COMMAND_SET_PLAYLIST_METADATA,
               COMMAND_SET_MEDIA_ITEM,
               COMMAND_CHANGE_MEDIA_ITEMS,
-              COMMAND_GET_TRACKS)
+              COMMAND_GET_TRACKS,
+              COMMAND_RELEASE)
           .build();
 
   public static final float MIN_SPEED_SUPPORTED = 0.5f;
@@ -123,9 +136,11 @@ public final class CastPlayer extends BasePlayer {
   private final MediaItemConverter mediaItemConverter;
   private final long seekBackIncrementMs;
   private final long seekForwardIncrementMs;
+  private final long maxSeekToPreviousPositionMs;
   // TODO: Allow custom implementations of CastTimelineTracker.
   private final CastTimelineTracker timelineTracker;
   private final Timeline.Period period;
+  @Nullable private final Api30Impl api30Impl;
 
   // Result callbacks.
   private final StatusListener statusListener;
@@ -151,6 +166,7 @@ public final class CastPlayer extends BasePlayer {
   private long pendingSeekPositionMs;
   @Nullable private PositionInfo pendingMediaItemRemovalPosition;
   private MediaMetadata mediaMetadata;
+  private DeviceInfo deviceInfo;
 
   /**
    * Creates a new cast player.
@@ -199,11 +215,44 @@ public final class CastPlayer extends BasePlayer {
       MediaItemConverter mediaItemConverter,
       @IntRange(from = 1) long seekBackIncrementMs,
       @IntRange(from = 1) long seekForwardIncrementMs) {
+    this(
+        /* context= */ null,
+        castContext,
+        mediaItemConverter,
+        seekBackIncrementMs,
+        seekForwardIncrementMs,
+        C.DEFAULT_MAX_SEEK_TO_PREVIOUS_POSITION_MS);
+  }
+
+  /**
+   * Creates a new cast player.
+   *
+   * @param context A {@link Context} used to populate {@link #getDeviceInfo()}. If null, {@link
+   *     #getDeviceInfo()} will always return {@link #DEVICE_INFO_REMOTE_EMPTY}.
+   * @param castContext The context from which the cast session is obtained.
+   * @param mediaItemConverter The {@link MediaItemConverter} to use.
+   * @param seekBackIncrementMs The {@link #seekBack()} increment, in milliseconds.
+   * @param seekForwardIncrementMs The {@link #seekForward()} increment, in milliseconds.
+   * @param maxSeekToPreviousPositionMs The maximum position for which {@link #seekToPrevious()}
+   *     seeks to the previous {@link MediaItem}, in milliseconds.
+   * @throws IllegalArgumentException If {@code seekBackIncrementMs} or {@code
+   *     seekForwardIncrementMs} is non-positive, or if {@code maxSeekToPreviousPositionMs} is
+   *     negative.
+   */
+  public CastPlayer(
+      @Nullable Context context,
+      CastContext castContext,
+      MediaItemConverter mediaItemConverter,
+      @IntRange(from = 1) long seekBackIncrementMs,
+      @IntRange(from = 1) long seekForwardIncrementMs,
+      @IntRange(from = 0) long maxSeekToPreviousPositionMs) {
     checkArgument(seekBackIncrementMs > 0 && seekForwardIncrementMs > 0);
+    checkArgument(maxSeekToPreviousPositionMs >= 0L);
     this.castContext = castContext;
     this.mediaItemConverter = mediaItemConverter;
     this.seekBackIncrementMs = seekBackIncrementMs;
     this.seekForwardIncrementMs = seekForwardIncrementMs;
+    this.maxSeekToPreviousPositionMs = maxSeekToPreviousPositionMs;
     timelineTracker = new CastTimelineTracker(mediaItemConverter);
     period = new Timeline.Period();
     statusListener = new StatusListener();
@@ -229,6 +278,14 @@ public final class CastPlayer extends BasePlayer {
     CastSession session = sessionManager.getCurrentCastSession();
     setRemoteMediaClient(session != null ? session.getRemoteMediaClient() : null);
     updateInternalStateAndNotifyIfChanged();
+    if (SDK_INT >= 30 && context != null) {
+      api30Impl = new Api30Impl(context);
+      api30Impl.initialize();
+      deviceInfo = api30Impl.fetchDeviceInfo();
+    } else {
+      api30Impl = null;
+      deviceInfo = DEVICE_INFO_REMOTE_EMPTY;
+    }
   }
 
   /**
@@ -321,6 +378,18 @@ public final class CastPlayer extends BasePlayer {
   }
 
   @Override
+  public void replaceMediaItems(int fromIndex, int toIndex, List<MediaItem> mediaItems) {
+    checkArgument(fromIndex >= 0 && fromIndex <= toIndex);
+    int playlistSize = currentTimeline.getWindowCount();
+    if (fromIndex > playlistSize) {
+      return;
+    }
+    toIndex = min(toIndex, playlistSize);
+    addMediaItems(toIndex, mediaItems);
+    removeMediaItems(fromIndex, toIndex);
+  }
+
+  @Override
   public void removeMediaItems(int fromIndex, int toIndex) {
     checkArgument(fromIndex >= 0 && toIndex >= fromIndex);
     int playlistSize = currentTimeline.getWindowCount();
@@ -393,8 +462,9 @@ public final class CastPlayer extends BasePlayer {
     return playWhenReady.value;
   }
 
-  // We still call Listener#onSeekProcessed() for backwards compatibility with listeners that
-  // don't implement onPositionDiscontinuity().
+  // We still call Listener#onPositionDiscontinuity(@DiscontinuityReason int) for backwards
+  // compatibility with listeners that don't implement
+  // onPositionDiscontinuity(PositionInfo, PositionInfo, @DiscontinuityReason int).
   @SuppressWarnings("deprecation")
   @Override
   @VisibleForTesting(otherwise = PROTECTED)
@@ -403,6 +473,9 @@ public final class CastPlayer extends BasePlayer {
       long positionMs,
       @Player.Command int seekCommand,
       boolean isRepeatingCurrentItem) {
+    if (mediaItemIndex == C.INDEX_UNSET) {
+      return;
+    }
     checkArgument(mediaItemIndex >= 0);
     if (!currentTimeline.isEmpty() && mediaItemIndex >= currentTimeline.getWindowCount()) {
       return;
@@ -448,8 +521,6 @@ public final class CastPlayer extends BasePlayer {
         }
       }
       updateAvailableCommandsAndNotifyIfChanged();
-    } else if (pendingSeekCount == 0) {
-      listeners.queueEvent(/* eventFlag= */ C.INDEX_UNSET, Listener::onSeekProcessed);
     }
     listeners.flushEvents();
   }
@@ -466,7 +537,7 @@ public final class CastPlayer extends BasePlayer {
 
   @Override
   public long getMaxSeekToPreviousPosition() {
-    return C.DEFAULT_MAX_SEEK_TO_PREVIOUS_POSITION_MS;
+    return maxSeekToPreviousPositionMs;
   }
 
   @Override
@@ -476,17 +547,6 @@ public final class CastPlayer extends BasePlayer {
 
   @Override
   public void stop() {
-    stop(/* reset= */ false);
-  }
-
-  /**
-   * @deprecated Use {@link #stop()} and {@link #clearMediaItems()} (if {@code reset} is true) or
-   *     just {@link #stop()} (if {@code reset} is false). Any player error will be cleared when
-   *     {@link #prepare() re-preparing} the player.
-   */
-  @Deprecated
-  @Override
-  public void stop(boolean reset) {
     playbackState = STATE_IDLE;
     if (remoteMediaClient != null) {
       // TODO(b/69792021): Support or emulate stop without position reset.
@@ -496,6 +556,10 @@ public final class CastPlayer extends BasePlayer {
 
   @Override
   public void release() {
+    // The SDK_INT check is not necessary, but it prevents a lint error for the release call.
+    if (SDK_INT >= 30 && api30Impl != null) {
+      api30Impl.release();
+    }
     SessionManager sessionManager = castContext.getSessionManager();
     sessionManager.removeSessionManagerListener(statusListener, CastSession.class);
     sessionManager.endCurrentSession(false);
@@ -725,6 +789,7 @@ public final class CastPlayer extends BasePlayer {
   /** This method is not supported and does nothing. */
   @Override
   public void setVideoTextureView(@Nullable TextureView textureView) {}
+
   /** This method is not supported and does nothing. */
   @Override
   public void clearVideoTextureView(@Nullable TextureView textureView) {}
@@ -747,10 +812,14 @@ public final class CastPlayer extends BasePlayer {
     return CueGroup.EMPTY_TIME_ZERO;
   }
 
-  /** This method always returns {@link CastPlayer#DEVICE_INFO}. */
+  /**
+   * Returns a {@link DeviceInfo} describing the receiver device. Returns {@link
+   * #DEVICE_INFO_REMOTE_EMPTY} if no {@link Context} was provided at construction, or if the Cast
+   * {@link RoutingController} could not be identified.
+   */
   @Override
   public DeviceInfo getDeviceInfo() {
-    return DEVICE_INFO;
+    return deviceInfo;
   }
 
   /** This method is not supported and always returns {@code 0}. */
@@ -765,21 +834,53 @@ public final class CastPlayer extends BasePlayer {
     return false;
   }
 
-  /** This method is not supported and does nothing. */
+  /**
+   * @deprecated Use {@link #setDeviceVolume(int, int)} instead.
+   */
+  @Deprecated
   @Override
   public void setDeviceVolume(int volume) {}
 
   /** This method is not supported and does nothing. */
   @Override
+  public void setDeviceVolume(int volume, @C.VolumeFlags int flags) {}
+
+  /**
+   * @deprecated Use {@link #increaseDeviceVolume(int)} instead.
+   */
+  @Deprecated
+  @Override
   public void increaseDeviceVolume() {}
 
   /** This method is not supported and does nothing. */
+  @Override
+  public void increaseDeviceVolume(@C.VolumeFlags int flags) {}
+
+  /**
+   * @deprecated Use {@link #decreaseDeviceVolume(int)} instead.
+   */
+  @Deprecated
   @Override
   public void decreaseDeviceVolume() {}
 
   /** This method is not supported and does nothing. */
   @Override
+  public void decreaseDeviceVolume(@C.VolumeFlags int flags) {}
+
+  /**
+   * @deprecated Use {@link #setDeviceMuted(boolean, int)} instead.
+   */
+  @Deprecated
+  @Override
   public void setDeviceMuted(boolean muted) {}
+
+  /** This method is not supported and does nothing. */
+  @Override
+  public void setDeviceMuted(boolean muted, @C.VolumeFlags int flags) {}
+
+  /** This method is not supported and does nothing. */
+  @Override
+  public void setAudioAttributes(AudioAttributes audioAttributes, boolean handleAudioFocus) {}
 
   // Internal methods.
 
@@ -1216,11 +1317,8 @@ public final class CastPlayer extends BasePlayer {
       remoteMediaClient.registerCallback(statusListener);
       remoteMediaClient.addProgressListener(statusListener, PROGRESS_REPORT_PERIOD_MS);
       updateInternalStateAndNotifyIfChanged();
-    } else {
-      updateTimelineAndNotifyIfChanged();
-      if (sessionAvailabilityListener != null) {
-        sessionAvailabilityListener.onCastSessionUnavailable();
-      }
+    } else if (sessionAvailabilityListener != null) {
+      sessionAvailabilityListener.onCastSessionUnavailable();
     }
   }
 
@@ -1419,9 +1517,6 @@ public final class CastPlayer extends BasePlayer {
 
   private final class SeekResultCallback implements ResultCallback<MediaChannelResult> {
 
-    // We still call Listener#onSeekProcessed() for backwards compatibility with listeners that
-    // don't implement onPositionDiscontinuity().
-    @SuppressWarnings("deprecation")
     @Override
     public void onResult(MediaChannelResult result) {
       int statusCode = result.getStatus().getStatusCode();
@@ -1434,7 +1529,6 @@ public final class CastPlayer extends BasePlayer {
         currentWindowIndex = pendingSeekWindowIndex;
         pendingSeekWindowIndex = C.INDEX_UNSET;
         pendingSeekPositionMs = C.TIME_UNSET;
-        listeners.sendEvent(/* eventFlag= */ C.INDEX_UNSET, Listener::onSeekProcessed);
       }
     }
   }
@@ -1472,6 +1566,107 @@ public final class CastPlayer extends BasePlayer {
      */
     public boolean acceptsUpdate(@Nullable ResultCallback<?> resultCallback) {
       return pendingResultCallback == resultCallback;
+    }
+  }
+
+  @RequiresApi(30)
+  private final class Api30Impl {
+
+    private final MediaRouter2 mediaRouter2;
+    private final TransferCallback transferCallback;
+    private final RouteCallback emptyRouteCallback;
+    private final Handler handler;
+
+    public Api30Impl(Context context) {
+      mediaRouter2 = MediaRouter2.getInstance(context);
+      transferCallback = new MediaRouter2TransferCallbackImpl();
+      emptyRouteCallback = new MediaRouter2RouteCallbackImpl();
+      handler = new Handler(Looper.getMainLooper());
+    }
+
+    /** Acquires necessary resources and registers callbacks. */
+    public void initialize() {
+      mediaRouter2.registerTransferCallback(handler::post, transferCallback);
+      // We need at least one route callback registered in order to get transfer callback updates.
+      mediaRouter2.registerRouteCallback(
+          handler::post,
+          emptyRouteCallback,
+          new RouteDiscoveryPreference.Builder(ImmutableList.of(), /* activeScan= */ false)
+              .build());
+    }
+
+    /**
+     * Releases any resources acquired in {@link #initialize()} and unregisters any registered
+     * callbacks.
+     */
+    public void release() {
+      mediaRouter2.unregisterTransferCallback(transferCallback);
+      mediaRouter2.unregisterRouteCallback(emptyRouteCallback);
+      handler.removeCallbacksAndMessages(/* token= */ null);
+    }
+
+    /** Updates the device info with an up-to-date value and notifies the listeners. */
+    private void updateDeviceInfo() {
+      DeviceInfo oldDeviceInfo = deviceInfo;
+      DeviceInfo newDeviceInfo = fetchDeviceInfo();
+      deviceInfo = newDeviceInfo;
+      if (!deviceInfo.equals(oldDeviceInfo)) {
+        listeners.sendEvent(
+            EVENT_DEVICE_INFO_CHANGED, listener -> listener.onDeviceInfoChanged(newDeviceInfo));
+      }
+    }
+
+    /**
+     * Returns a {@link DeviceInfo} with the {@link RoutingController#getId() id} that corresponds
+     * to the Cast session, or {@link #DEVICE_INFO_REMOTE_EMPTY} if not available.
+     */
+    public DeviceInfo fetchDeviceInfo() {
+      // TODO: b/364833997 - Fetch this information from the AndroidX MediaRouter selected route
+      // once the selected route id matches the controller id.
+      List<RoutingController> controllers = mediaRouter2.getControllers();
+      // The controller at position zero is always the system controller (local playback). All other
+      // controllers are for remote playback, and could be the Cast one.
+      if (controllers.size() != 2) {
+        // There's either no remote routing controller, or there's more than one. In either case we
+        // don't populate the device info because either there's no Cast routing controller, or we
+        // cannot safely identify the Cast routing controller.
+        return DEVICE_INFO_REMOTE_EMPTY;
+      } else {
+        // There's only one remote routing controller. It's safe to assume it's the Cast routing
+        // controller.
+        RoutingController remoteController = controllers.get(1);
+        // TODO b/364580007 - Populate volume information, and implement Player volume-related
+        //  methods.
+        return new DeviceInfo.Builder(DeviceInfo.PLAYBACK_TYPE_REMOTE)
+            .setRoutingControllerId(remoteController.getId())
+            .build();
+      }
+    }
+
+    /**
+     * Empty {@link RouteCallback} implementation necessary for registering the {@link MediaRouter2}
+     * instance with the system_server.
+     *
+     * <p>This callback must be registered so that the media router service notifies the {@link
+     * MediaRouter2TransferCallbackImpl} of transfer events.
+     */
+    private final class MediaRouter2RouteCallbackImpl extends RouteCallback {}
+
+    /**
+     * {@link TransferCallback} implementation to listen for {@link RoutingController} creation and
+     * releases.
+     */
+    private final class MediaRouter2TransferCallbackImpl extends TransferCallback {
+
+      @Override
+      public void onTransfer(RoutingController oldController, RoutingController newController) {
+        updateDeviceInfo();
+      }
+
+      @Override
+      public void onStop(RoutingController controller) {
+        updateDeviceInfo();
+      }
     }
   }
 }

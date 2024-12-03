@@ -34,14 +34,16 @@ import static androidx.media3.transformer.AndroidTestUtil.MP4_REMOTE_3840W_2160H
 import static androidx.media3.transformer.AndroidTestUtil.MP4_REMOTE_3840W_2160H_5_SECOND_HIGHMOTION;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_REMOTE_640W_480H_31_SECOND_ROOF_SONYXPERIAXZ3;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_REMOTE_7680W_4320H_31_SECOND_ROOF_SAMSUNGS20ULTRA5G;
-import static androidx.media3.transformer.AndroidTestUtil.skipAndLogIfInsufficientCodecSupport;
+import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
 
 import android.content.Context;
 import android.net.Uri;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.transformer.AndroidTestUtil;
+import androidx.media3.transformer.AndroidTestUtil.AssetInfo;
 import androidx.media3.transformer.DefaultEncoderFactory;
+import androidx.media3.transformer.EditedMediaItem;
 import androidx.media3.transformer.Transformer;
 import androidx.media3.transformer.TransformerAndroidTestRunner;
 import androidx.media3.transformer.VideoEncoderSettings;
@@ -54,6 +56,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -62,8 +65,11 @@ import org.junit.runners.Parameterized.Parameters;
 
 /** Instrumentation tests for analysing output bitrate and quality for a given input bitrate. */
 @RunWith(Parameterized.class)
+@Ignore(
+    "Analysis tests are not used for confirming Transformer is running properly, and not configured"
+        + " for this use as they're missing skip checks for unsupported devices.")
 public class BitrateAnalysisTest {
-  private static final ImmutableList<String> INPUT_FILES =
+  private static final ImmutableList<AssetInfo> INPUT_ASSETS =
       ImmutableList.of(
           MP4_REMOTE_640W_480H_31_SECOND_ROOF_SONYXPERIAXZ3,
           MP4_REMOTE_1280W_720H_5_SECOND_HIGHMOTION,
@@ -97,15 +103,15 @@ public class BitrateAnalysisTest {
   public int bitrateMode;
 
   @Parameter(2)
-  public @MonotonicNonNull String fileUri;
+  public @MonotonicNonNull AssetInfo assetInfo;
 
   @Parameters(name = "analyzeBitrate_{0}_{1}_{2}")
   public static List<Object[]> parameters() {
     List<Object[]> parameterList = new ArrayList<>();
     for (int bitrate = START_BITRATE; bitrate <= END_BITRATE; bitrate += BITRATE_INTERVAL) {
       for (int mode : INPUT_BITRATE_MODES) {
-        for (String file : INPUT_FILES) {
-          parameterList.add(new Object[] {bitrate, mode, file});
+        for (AssetInfo assetInfo : INPUT_ASSETS) {
+          parameterList.add(new Object[] {bitrate, mode, assetInfo});
         }
       }
     }
@@ -115,8 +121,9 @@ public class BitrateAnalysisTest {
 
   @Test
   public void analyzeBitrate() throws Exception {
-    Assertions.checkNotNull(fileUri);
-    String fileName = Assertions.checkNotNull(Iterables.getLast(Splitter.on("/").split(fileUri)));
+    Assertions.checkNotNull(assetInfo);
+    String fileName =
+        Assertions.checkNotNull(Iterables.getLast(Splitter.on("/").split(assetInfo.uri)));
     String testId = String.format("analyzeBitrate_ssim_%s_%d_%s", bitrate, bitrateMode, fileName);
 
     Map<String, Object> inputValues = new HashMap<>();
@@ -129,20 +136,14 @@ public class BitrateAnalysisTest {
     }
 
     Context context = ApplicationProvider.getApplicationContext();
-    if (skipAndLogIfInsufficientCodecSupport(
+    assumeFormatsSupported(
         context,
         testId,
-        /* decodingFormat= */ AndroidTestUtil.getFormatForTestFile(fileUri),
-        /* encodingFormat= */ AndroidTestUtil.getFormatForTestFile(fileUri)
-            .buildUpon()
-            .setAverageBitrate(bitrate)
-            .build())) {
-      return;
-    }
+        /* inputFormat= */ assetInfo.videoFormat,
+        /* outputFormat= */ assetInfo.videoFormat.buildUpon().setAverageBitrate(bitrate).build());
 
     Transformer transformer =
         new Transformer.Builder(context)
-            .setRemoveAudio(true)
             .setEncoderFactory(
                 new AndroidTestUtil.ForceEncodeEncoderFactory(
                     /* wrappedEncoderFactory= */ new DefaultEncoderFactory.Builder(context)
@@ -154,11 +155,15 @@ public class BitrateAnalysisTest {
                         .setEnableFallback(false)
                         .build()))
             .build();
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(assetInfo.uri)))
+            .setRemoveAudio(true)
+            .build();
 
     new TransformerAndroidTestRunner.Builder(context, transformer)
         .setInputValues(inputValues)
         .setRequestCalculateSsim(true)
         .build()
-        .run(testId, MediaItem.fromUri(Uri.parse(fileUri)));
+        .run(testId, editedMediaItem);
   }
 }

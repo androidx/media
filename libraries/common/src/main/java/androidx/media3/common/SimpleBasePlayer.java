@@ -53,6 +53,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
@@ -126,8 +127,10 @@ public abstract class SimpleBasePlayer extends BasePlayer {
       private Size surfaceSize;
       private boolean newlyRenderedFirstFrame;
       private Metadata timedMetadata;
-      private ImmutableList<MediaItemData> playlist;
+      @Nullable private ImmutableList<MediaItemData> playlist;
       private Timeline timeline;
+      @Nullable private Tracks currentTracks;
+      @Nullable private MediaMetadata currentMetadata;
       private MediaMetadata playlistMetadata;
       private int currentMediaItemIndex;
       private int currentAdGroupIndex;
@@ -171,6 +174,8 @@ public abstract class SimpleBasePlayer extends BasePlayer {
         timedMetadata = new Metadata(/* presentationTimeUs= */ C.TIME_UNSET);
         playlist = ImmutableList.of();
         timeline = Timeline.EMPTY;
+        currentTracks = null;
+        currentMetadata = null;
         playlistMetadata = MediaMetadata.EMPTY;
         currentMediaItemIndex = C.INDEX_UNSET;
         currentAdGroupIndex = C.INDEX_UNSET;
@@ -212,8 +217,13 @@ public abstract class SimpleBasePlayer extends BasePlayer {
         this.surfaceSize = state.surfaceSize;
         this.newlyRenderedFirstFrame = state.newlyRenderedFirstFrame;
         this.timedMetadata = state.timedMetadata;
-        this.playlist = state.playlist;
         this.timeline = state.timeline;
+        if (state.timeline instanceof PlaylistTimeline) {
+          this.playlist = ((PlaylistTimeline) state.timeline).playlist;
+        } else {
+          this.currentTracks = state.currentTracks;
+          this.currentMetadata = state.currentMetadata;
+        }
         this.playlistMetadata = state.playlistMetadata;
         this.currentMediaItemIndex = state.currentMediaItemIndex;
         this.currentAdGroupIndex = state.currentAdGroupIndex;
@@ -538,9 +548,12 @@ public abstract class SimpleBasePlayer extends BasePlayer {
       }
 
       /**
-       * Sets the list of {@link MediaItemData media items} in the playlist.
+       * Sets the playlist as a list of {@link MediaItemData media items}.
        *
        * <p>All items must have unique {@linkplain MediaItemData.Builder#setUid UIDs}.
+       *
+       * <p>This call replaces any previous playlist set via {@link #setPlaylist(Timeline, Tracks,
+       * MediaMetadata)}.
        *
        * @param playlist The list of {@link MediaItemData media items} in the playlist.
        * @return This builder.
@@ -553,6 +566,33 @@ public abstract class SimpleBasePlayer extends BasePlayer {
         }
         this.playlist = ImmutableList.copyOf(playlist);
         this.timeline = new PlaylistTimeline(this.playlist);
+        this.currentTracks = null;
+        this.currentMetadata = null;
+        return this;
+      }
+
+      /**
+       * Sets the playlist as a {@link Timeline} with information about the current {@link Tracks}
+       * and {@link MediaMetadata}.
+       *
+       * <p>This call replaces any previous playlist set via {@link #setPlaylist(List)}.
+       *
+       * @param timeline The {@link Timeline} containing the playlist data.
+       * @param currentTracks The {@link Tracks} of the {@linkplain #setCurrentMediaItemIndex
+       *     current media item}.
+       * @param currentMetadata The combined {@link MediaMetadata} of the {@linkplain
+       *     #setCurrentMediaItemIndex current media item}. If null, the current metadata is assumed
+       *     to be the combination of the {@link MediaItem#mediaMetadata MediaItem} metadata and the
+       *     metadata of the selected {@link Format#metadata Formats}.
+       * @return This builder.
+       */
+      @CanIgnoreReturnValue
+      public Builder setPlaylist(
+          Timeline timeline, Tracks currentTracks, @Nullable MediaMetadata currentMetadata) {
+        this.playlist = null;
+        this.timeline = timeline;
+        this.currentTracks = currentTracks;
+        this.currentMetadata = currentMetadata;
         return this;
       }
 
@@ -772,105 +812,145 @@ public abstract class SimpleBasePlayer extends BasePlayer {
 
     /** The available {@link Commands}. */
     public final Commands availableCommands;
+
     /** Whether playback should proceed when ready and not suppressed. */
     public final boolean playWhenReady;
+
     /** The last reason for changing {@link #playWhenReady}. */
     public final @PlayWhenReadyChangeReason int playWhenReadyChangeReason;
+
     /** The {@linkplain Player.State state} of the player. */
     public final @Player.State int playbackState;
+
     /** The reason why playback is suppressed even if {@link #getPlayWhenReady()} is true. */
     public final @PlaybackSuppressionReason int playbackSuppressionReason;
+
     /** The last error that caused playback to fail, or null if there was no error. */
     @Nullable public final PlaybackException playerError;
+
     /** The {@link RepeatMode} used for playback. */
     public final @RepeatMode int repeatMode;
+
     /** Whether shuffling of media items is enabled. */
     public final boolean shuffleModeEnabled;
+
     /** Whether the player is currently loading its source. */
     public final boolean isLoading;
+
     /** The {@link Player#seekBack()} increment in milliseconds. */
     public final long seekBackIncrementMs;
+
     /** The {@link Player#seekForward()} increment in milliseconds. */
     public final long seekForwardIncrementMs;
+
     /**
      * The maximum position for which {@link #seekToPrevious()} seeks to the previous item, in
      * milliseconds.
      */
     public final long maxSeekToPreviousPositionMs;
+
     /** The currently active {@link PlaybackParameters}. */
     public final PlaybackParameters playbackParameters;
+
     /** The currently active {@link TrackSelectionParameters}. */
     public final TrackSelectionParameters trackSelectionParameters;
+
     /** The current {@link AudioAttributes}. */
     public final AudioAttributes audioAttributes;
+
     /** The current audio volume, with 0 being silence and 1 being unity gain (signal unchanged). */
     @FloatRange(from = 0, to = 1.0)
     public final float volume;
+
     /** The current video size. */
     public final VideoSize videoSize;
+
     /** The current {@linkplain CueGroup cues}. */
     public final CueGroup currentCues;
+
     /** The {@link DeviceInfo}. */
     public final DeviceInfo deviceInfo;
+
     /** The current device volume. */
     @IntRange(from = 0)
     public final int deviceVolume;
+
     /** Whether the device is muted. */
     public final boolean isDeviceMuted;
+
     /** The size of the surface onto which the video is being rendered. */
     public final Size surfaceSize;
+
     /**
      * Whether a frame has been rendered for the first time since setting the surface, a rendering
      * reset, or since the stream being rendered was changed.
      */
     public final boolean newlyRenderedFirstFrame;
+
     /** The most recent timed metadata. */
     public final Metadata timedMetadata;
-    /** The media items in the playlist. */
-    public final ImmutableList<MediaItemData> playlist;
-    /** The {@link Timeline} derived from the {@link #playlist}. */
+
+    /** The {@link Timeline}. */
     public final Timeline timeline;
+
+    /** The current {@link Tracks}. */
+    public final Tracks currentTracks;
+
+    /** The current combined {@link MediaMetadata}. */
+    public final MediaMetadata currentMetadata;
+
     /** The playlist {@link MediaMetadata}. */
     public final MediaMetadata playlistMetadata;
+
     /**
      * The current media item index, or {@link C#INDEX_UNSET} to assume the default first item of
      * the playlist is played.
      */
     public final int currentMediaItemIndex;
+
     /** The current ad group index, or {@link C#INDEX_UNSET} if no ad is playing. */
     public final int currentAdGroupIndex;
+
     /** The current ad index in the ad group, or {@link C#INDEX_UNSET} if no ad is playing. */
     public final int currentAdIndexInAdGroup;
+
     /**
      * The {@link PositionSupplier} for the current content playback position in milliseconds, or
      * {@link C#TIME_UNSET} to indicate the default start position.
      */
     public final PositionSupplier contentPositionMsSupplier;
+
     /**
      * The {@link PositionSupplier} for the current ad playback position in milliseconds. The value
      * is unused if no ad is playing.
      */
     public final PositionSupplier adPositionMsSupplier;
+
     /**
      * The {@link PositionSupplier} for the estimated position up to which the currently playing
      * content is buffered, in milliseconds, or {@link C#TIME_UNSET} to indicate the default start
      * position.
      */
     public final PositionSupplier contentBufferedPositionMsSupplier;
+
     /**
      * The {@link PositionSupplier} for the estimated position up to which the currently playing ad
      * is buffered, in milliseconds. The value is unused if no ad is playing.
      */
     public final PositionSupplier adBufferedPositionMsSupplier;
+
     /** The {@link PositionSupplier} for the estimated total buffered duration in milliseconds. */
     public final PositionSupplier totalBufferedDurationMsSupplier;
+
     /** Signals that a position discontinuity happened since the last update to the player. */
     public final boolean hasPositionDiscontinuity;
+
     /**
      * The {@linkplain Player.DiscontinuityReason reason} for the last position discontinuity. The
      * value is unused if {@link #hasPositionDiscontinuity} is {@code false}.
      */
     public final @Player.DiscontinuityReason int positionDiscontinuityReason;
+
     /**
      * The position, in milliseconds, in the current content or ad from which playback continued
      * after the discontinuity. The value is unused if {@link #hasPositionDiscontinuity} is {@code
@@ -879,6 +959,8 @@ public abstract class SimpleBasePlayer extends BasePlayer {
     public final long discontinuityPositionMs;
 
     private State(Builder builder) {
+      Tracks currentTracks = builder.currentTracks;
+      MediaMetadata currentMetadata = builder.currentMetadata;
       if (builder.timeline.isEmpty()) {
         checkArgument(
             builder.playbackState == Player.STATE_IDLE
@@ -888,6 +970,12 @@ public abstract class SimpleBasePlayer extends BasePlayer {
             builder.currentAdGroupIndex == C.INDEX_UNSET
                 && builder.currentAdIndexInAdGroup == C.INDEX_UNSET,
             "Ads not allowed if playlist is empty");
+        if (currentTracks == null) {
+          currentTracks = Tracks.EMPTY;
+        }
+        if (currentMetadata == null) {
+          currentMetadata = MediaMetadata.EMPTY;
+        }
       } else {
         int mediaItemIndex = builder.currentMediaItemIndex;
         if (mediaItemIndex == C.INDEX_UNSET) {
@@ -917,6 +1005,17 @@ public abstract class SimpleBasePlayer extends BasePlayer {
                 builder.currentAdIndexInAdGroup < adCountInGroup,
                 "Ad group has less ads than adIndexInGroupIndex");
           }
+        }
+        if (builder.playlist != null) {
+          MediaItemData mediaItemData = builder.playlist.get(mediaItemIndex);
+          currentTracks = mediaItemData.tracks;
+          currentMetadata = mediaItemData.mediaMetadata;
+        }
+        if (currentMetadata == null) {
+          currentMetadata =
+              getCombinedMediaMetadata(
+                  builder.timeline.getWindow(mediaItemIndex, new Timeline.Window()).mediaItem,
+                  checkNotNull(currentTracks));
         }
       }
       if (builder.playerError != null) {
@@ -978,8 +1077,9 @@ public abstract class SimpleBasePlayer extends BasePlayer {
       this.surfaceSize = builder.surfaceSize;
       this.newlyRenderedFirstFrame = builder.newlyRenderedFirstFrame;
       this.timedMetadata = builder.timedMetadata;
-      this.playlist = builder.playlist;
       this.timeline = builder.timeline;
+      this.currentTracks = checkNotNull(currentTracks);
+      this.currentMetadata = currentMetadata;
       this.playlistMetadata = builder.playlistMetadata;
       this.currentMediaItemIndex = builder.currentMediaItemIndex;
       this.currentAdGroupIndex = builder.currentAdGroupIndex;
@@ -999,6 +1099,27 @@ public abstract class SimpleBasePlayer extends BasePlayer {
       return new Builder(this);
     }
 
+    /**
+     * Returns the list of {@link MediaItemData} for the current playlist.
+     *
+     * @see Builder#setPlaylist(List)
+     */
+    public ImmutableList<MediaItemData> getPlaylist() {
+      if (timeline instanceof PlaylistTimeline) {
+        return ((PlaylistTimeline) timeline).playlist;
+      }
+      Timeline.Window window = new Timeline.Window();
+      Timeline.Period period = new Timeline.Period();
+      ImmutableList.Builder<MediaItemData> items =
+          ImmutableList.builderWithExpectedSize(timeline.getWindowCount());
+      for (int i = 0; i < timeline.getWindowCount(); i++) {
+        items.add(
+            MediaItemData.buildFromState(
+                /* state= */ this, /* mediaItemIndex= */ i, period, window));
+      }
+      return items.build();
+    }
+
     @Override
     public boolean equals(@Nullable Object o) {
       if (this == o) {
@@ -1013,7 +1134,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
           && availableCommands.equals(state.availableCommands)
           && playbackState == state.playbackState
           && playbackSuppressionReason == state.playbackSuppressionReason
-          && Util.areEqual(playerError, state.playerError)
+          && Objects.equals(playerError, state.playerError)
           && repeatMode == state.repeatMode
           && shuffleModeEnabled == state.shuffleModeEnabled
           && isLoading == state.isLoading
@@ -1032,7 +1153,9 @@ public abstract class SimpleBasePlayer extends BasePlayer {
           && surfaceSize.equals(state.surfaceSize)
           && newlyRenderedFirstFrame == state.newlyRenderedFirstFrame
           && timedMetadata.equals(state.timedMetadata)
-          && playlist.equals(state.playlist)
+          && timeline.equals(state.timeline)
+          && currentTracks.equals(state.currentTracks)
+          && currentMetadata.equals(state.currentMetadata)
           && playlistMetadata.equals(state.playlistMetadata)
           && currentMediaItemIndex == state.currentMediaItemIndex
           && currentAdGroupIndex == state.currentAdGroupIndex
@@ -1075,7 +1198,9 @@ public abstract class SimpleBasePlayer extends BasePlayer {
       result = 31 * result + surfaceSize.hashCode();
       result = 31 * result + (newlyRenderedFirstFrame ? 1 : 0);
       result = 31 * result + timedMetadata.hashCode();
-      result = 31 * result + playlist.hashCode();
+      result = 31 * result + timeline.hashCode();
+      result = 31 * result + currentTracks.hashCode();
+      result = 31 * result + currentMetadata.hashCode();
       result = 31 * result + playlistMetadata.hashCode();
       result = 31 * result + currentMediaItemIndex;
       result = 31 * result + currentAdGroupIndex;
@@ -1099,9 +1224,9 @@ public abstract class SimpleBasePlayer extends BasePlayer {
     private final int[] windowIndexByPeriodIndex;
     private final HashMap<Object, Integer> periodIndexByUid;
 
-    public PlaylistTimeline(ImmutableList<MediaItemData> playlist) {
+    public PlaylistTimeline(List<MediaItemData> playlist) {
       int mediaItemCount = playlist.size();
-      this.playlist = playlist;
+      this.playlist = ImmutableList.copyOf(playlist);
       this.firstPeriodIndexByWindowIndex = new int[mediaItemCount];
       int periodCount = 0;
       for (int i = 0; i < mediaItemCount; i++) {
@@ -1429,7 +1554,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
        * playback, in microseconds.
        *
        * <p>The default position must be less or equal to the {@linkplain #setDurationUs duration},
-       * is set.
+       * if set.
        *
        * @param defaultPositionUs The default position relative to the start of the media item at
        *     which to begin playback, in microseconds.
@@ -1524,10 +1649,13 @@ public abstract class SimpleBasePlayer extends BasePlayer {
 
     /** The unique identifier of this media item. */
     public final Object uid;
+
     /** The {@link Tracks} of this media item. */
     public final Tracks tracks;
+
     /** The {@link MediaItem}. */
     public final MediaItem mediaItem;
+
     /**
      * The {@link MediaMetadata}, including static data from the {@link MediaItem#mediaMetadata
      * MediaItem} and the media's {@link Format#metadata Format}, as well any dynamic metadata that
@@ -1536,47 +1664,59 @@ public abstract class SimpleBasePlayer extends BasePlayer {
      * {@link Format#metadata Formats}.
      */
     @Nullable public final MediaMetadata mediaMetadata;
+
     /** The manifest of the media item, or null if not applicable. */
     @Nullable public final Object manifest;
+
     /** The active {@link MediaItem.LiveConfiguration}, or null if the media item is not live. */
     @Nullable public final MediaItem.LiveConfiguration liveConfiguration;
+
     /**
      * The start time of the live presentation, in milliseconds since the Unix epoch, or {@link
      * C#TIME_UNSET} if unknown or not applicable.
      */
     public final long presentationStartTimeMs;
+
     /**
      * The start time of the live window, in milliseconds since the Unix epoch, or {@link
      * C#TIME_UNSET} if unknown or not applicable.
      */
     public final long windowStartTimeMs;
+
     /**
      * The offset between {@link SystemClock#elapsedRealtime()} and the time since the Unix epoch
      * according to the clock of the media origin server, or {@link C#TIME_UNSET} if unknown or not
      * applicable.
      */
     public final long elapsedRealtimeEpochOffsetMs;
+
     /** Whether it's possible to seek within this media item. */
     public final boolean isSeekable;
+
     /** Whether this media item may change over time, for example a moving live window. */
     public final boolean isDynamic;
+
     /**
      * The default position relative to the start of the media item at which to begin playback, in
      * microseconds.
      */
     public final long defaultPositionUs;
+
     /** The duration of the media item, in microseconds, or {@link C#TIME_UNSET} if unknown. */
     public final long durationUs;
+
     /**
      * The position of the start of this media item relative to the start of the first period
      * belonging to it, in microseconds.
      */
     public final long positionInFirstPeriodUs;
+
     /**
      * Whether this media item contains placeholder information because the real information has yet
      * to be loaded.
      */
     public final boolean isPlaceholder;
+
     /**
      * The list of {@linkplain PeriodData periods} in this media item, or an empty list to assume a
      * single period without ads and the same duration as the media item.
@@ -1584,7 +1724,6 @@ public abstract class SimpleBasePlayer extends BasePlayer {
     public final ImmutableList<PeriodData> periods;
 
     private final long[] periodPositionInWindowUs;
-    private final MediaMetadata combinedMediaMetadata;
 
     private MediaItemData(Builder builder) {
       if (builder.liveConfiguration == null) {
@@ -1632,8 +1771,6 @@ public abstract class SimpleBasePlayer extends BasePlayer {
           periodPositionInWindowUs[i + 1] = periodPositionInWindowUs[i] + periods.get(i).durationUs;
         }
       }
-      combinedMediaMetadata =
-          mediaMetadata != null ? mediaMetadata : getCombinedMediaMetadata(mediaItem, tracks);
     }
 
     /** Returns a {@link Builder} pre-populated with the current values. */
@@ -1692,6 +1829,39 @@ public abstract class SimpleBasePlayer extends BasePlayer {
       return result;
     }
 
+    private static MediaItemData buildFromState(
+        State state, int mediaItemIndex, Timeline.Period period, Timeline.Window window) {
+      boolean isCurrentItem = getCurrentMediaItemIndexInternal(state) == mediaItemIndex;
+      state.timeline.getWindow(mediaItemIndex, window);
+      ImmutableList.Builder<PeriodData> periods = ImmutableList.builder();
+      for (int i = window.firstPeriodIndex; i <= window.lastPeriodIndex; i++) {
+        state.timeline.getPeriod(/* periodIndex= */ i, period, /* setIds= */ true);
+        periods.add(
+            new PeriodData.Builder(checkNotNull(period.uid))
+                .setAdPlaybackState(period.adPlaybackState)
+                .setDurationUs(period.durationUs)
+                .setIsPlaceholder(period.isPlaceholder)
+                .build());
+      }
+      return new MediaItemData.Builder(window.uid)
+          .setDefaultPositionUs(window.defaultPositionUs)
+          .setDurationUs(window.durationUs)
+          .setElapsedRealtimeEpochOffsetMs(window.elapsedRealtimeEpochOffsetMs)
+          .setIsDynamic(window.isDynamic)
+          .setIsPlaceholder(window.isPlaceholder)
+          .setIsSeekable(window.isSeekable)
+          .setLiveConfiguration(window.liveConfiguration)
+          .setManifest(window.manifest)
+          .setMediaItem(window.mediaItem)
+          .setMediaMetadata(isCurrentItem ? state.currentMetadata : null)
+          .setPeriods(periods.build())
+          .setPositionInFirstPeriodUs(window.positionInFirstPeriodUs)
+          .setPresentationStartTimeMs(window.presentationStartTimeMs)
+          .setTracks(isCurrentItem ? state.currentTracks : Tracks.EMPTY)
+          .setWindowStartTimeMs(window.windowStartTimeMs)
+          .build();
+    }
+
     private Timeline.Window getWindow(int firstPeriodIndex, Timeline.Window window) {
       int periodCount = periods.isEmpty() ? 1 : periods.size();
       window.set(
@@ -1746,25 +1916,6 @@ public abstract class SimpleBasePlayer extends BasePlayer {
       }
       Object periodId = periods.get(periodIndexInMediaItem).uid;
       return Pair.create(uid, periodId);
-    }
-
-    private static MediaMetadata getCombinedMediaMetadata(MediaItem mediaItem, Tracks tracks) {
-      MediaMetadata.Builder metadataBuilder = new MediaMetadata.Builder();
-      int trackGroupCount = tracks.getGroups().size();
-      for (int i = 0; i < trackGroupCount; i++) {
-        Tracks.Group group = tracks.getGroups().get(i);
-        for (int j = 0; j < group.length; j++) {
-          if (group.isTrackSelected(j)) {
-            Format format = group.getTrackFormat(j);
-            if (format.metadata != null) {
-              for (int k = 0; k < format.metadata.length(); k++) {
-                format.metadata.get(k).populateMediaMetadata(metadataBuilder);
-              }
-            }
-          }
-        }
-      }
-      return metadataBuilder.populate(mediaItem.mediaMetadata).build();
     }
   }
 
@@ -1861,16 +2012,19 @@ public abstract class SimpleBasePlayer extends BasePlayer {
 
     /** The unique identifier of the period within its media item. */
     public final Object uid;
+
     /**
      * The total duration of the period, in microseconds, or {@link C#TIME_UNSET} if unknown. Only
      * the last period in a media item can have an unknown duration.
      */
     public final long durationUs;
+
     /**
      * The {@link AdPlaybackState} of the period, or {@link AdPlaybackState#NONE} if there are no
      * ads.
      */
     public final AdPlaybackState adPlaybackState;
+
     /**
      * Whether this period contains placeholder information because the real information has yet to
      * be loaded.
@@ -2078,7 +2232,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
             placeholderPlaylist.add(getPlaceholderMediaItemData(mediaItems.get(i)));
           }
           return getStateWithNewPlaylistAndPosition(
-              state, placeholderPlaylist, startIndex, startPositionMs);
+              state, placeholderPlaylist, startIndex, startPositionMs, window);
         });
   }
 
@@ -2088,7 +2242,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
     checkArgument(index >= 0);
     // Use a local copy to ensure the lambda below uses the current state value.
     State state = this.state;
-    int playlistSize = state.playlist.size();
+    int playlistSize = state.timeline.getWindowCount();
     if (!shouldHandleCommand(Player.COMMAND_CHANGE_MEDIA_ITEMS) || mediaItems.isEmpty()) {
       return;
     }
@@ -2096,12 +2250,23 @@ public abstract class SimpleBasePlayer extends BasePlayer {
     updateStateForPendingOperation(
         /* pendingOperation= */ handleAddMediaItems(correctedIndex, mediaItems),
         /* placeholderStateSupplier= */ () -> {
-          ArrayList<MediaItemData> placeholderPlaylist = new ArrayList<>(state.playlist);
+          List<MediaItemData> placeholderPlaylist =
+              buildMutablePlaylistFromState(state, period, window);
           for (int i = 0; i < mediaItems.size(); i++) {
             placeholderPlaylist.add(
                 i + correctedIndex, getPlaceholderMediaItemData(mediaItems.get(i)));
           }
-          return getStateWithNewPlaylist(state, placeholderPlaylist, period);
+          if (!state.timeline.isEmpty()) {
+            return getStateWithNewPlaylist(state, placeholderPlaylist, period, window);
+          } else {
+            // Handle initial position update when these are the first items added to the playlist.
+            return getStateWithNewPlaylistAndPosition(
+                state,
+                placeholderPlaylist,
+                state.currentMediaItemIndex,
+                state.contentPositionMsSupplier.get(),
+                window);
+          }
         });
   }
 
@@ -2111,14 +2276,14 @@ public abstract class SimpleBasePlayer extends BasePlayer {
     checkArgument(fromIndex >= 0 && toIndex >= fromIndex && newIndex >= 0);
     // Use a local copy to ensure the lambda below uses the current state value.
     State state = this.state;
-    int playlistSize = state.playlist.size();
+    int playlistSize = state.timeline.getWindowCount();
     if (!shouldHandleCommand(Player.COMMAND_CHANGE_MEDIA_ITEMS)
         || playlistSize == 0
         || fromIndex >= playlistSize) {
       return;
     }
     int correctedToIndex = min(toIndex, playlistSize);
-    int correctedNewIndex = min(newIndex, state.playlist.size() - (correctedToIndex - fromIndex));
+    int correctedNewIndex = min(newIndex, playlistSize - (correctedToIndex - fromIndex));
     if (fromIndex == correctedToIndex || correctedNewIndex == fromIndex) {
       return;
     }
@@ -2126,9 +2291,51 @@ public abstract class SimpleBasePlayer extends BasePlayer {
         /* pendingOperation= */ handleMoveMediaItems(
             fromIndex, correctedToIndex, correctedNewIndex),
         /* placeholderStateSupplier= */ () -> {
-          ArrayList<MediaItemData> placeholderPlaylist = new ArrayList<>(state.playlist);
+          List<MediaItemData> placeholderPlaylist =
+              buildMutablePlaylistFromState(state, period, window);
           Util.moveItems(placeholderPlaylist, fromIndex, correctedToIndex, correctedNewIndex);
-          return getStateWithNewPlaylist(state, placeholderPlaylist, period);
+          return getStateWithNewPlaylist(state, placeholderPlaylist, period, window);
+        });
+  }
+
+  @Override
+  public final void replaceMediaItems(int fromIndex, int toIndex, List<MediaItem> mediaItems) {
+    verifyApplicationThreadAndInitState();
+    checkArgument(fromIndex >= 0 && fromIndex <= toIndex);
+    State state = this.state;
+    int playlistSize = state.timeline.getWindowCount();
+    if (!shouldHandleCommand(Player.COMMAND_CHANGE_MEDIA_ITEMS) || fromIndex > playlistSize) {
+      return;
+    }
+    int correctedToIndex = min(toIndex, playlistSize);
+    updateStateForPendingOperation(
+        /* pendingOperation= */ handleReplaceMediaItems(fromIndex, correctedToIndex, mediaItems),
+        /* placeholderStateSupplier= */ () -> {
+          List<MediaItemData> placeholderPlaylist =
+              buildMutablePlaylistFromState(state, period, window);
+          for (int i = 0; i < mediaItems.size(); i++) {
+            placeholderPlaylist.add(
+                i + correctedToIndex, getPlaceholderMediaItemData(mediaItems.get(i)));
+          }
+          State updatedState;
+          if (!state.timeline.isEmpty()) {
+            updatedState = getStateWithNewPlaylist(state, placeholderPlaylist, period, window);
+          } else {
+            // Handle initial position update when these are the first items added to the playlist.
+            updatedState =
+                getStateWithNewPlaylistAndPosition(
+                    state,
+                    placeholderPlaylist,
+                    state.currentMediaItemIndex,
+                    state.contentPositionMsSupplier.get(),
+                    window);
+          }
+          if (fromIndex < correctedToIndex) {
+            Util.removeRange(placeholderPlaylist, fromIndex, correctedToIndex);
+            return getStateWithNewPlaylist(updatedState, placeholderPlaylist, period, window);
+          } else {
+            return updatedState;
+          }
         });
   }
 
@@ -2138,7 +2345,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
     checkArgument(fromIndex >= 0 && toIndex >= fromIndex);
     // Use a local copy to ensure the lambda below uses the current state value.
     State state = this.state;
-    int playlistSize = state.playlist.size();
+    int playlistSize = state.timeline.getWindowCount();
     if (!shouldHandleCommand(Player.COMMAND_CHANGE_MEDIA_ITEMS)
         || playlistSize == 0
         || fromIndex >= playlistSize) {
@@ -2151,9 +2358,10 @@ public abstract class SimpleBasePlayer extends BasePlayer {
     updateStateForPendingOperation(
         /* pendingOperation= */ handleRemoveMediaItems(fromIndex, correctedToIndex),
         /* placeholderStateSupplier= */ () -> {
-          ArrayList<MediaItemData> placeholderPlaylist = new ArrayList<>(state.playlist);
+          List<MediaItemData> placeholderPlaylist =
+              buildMutablePlaylistFromState(state, period, window);
           Util.removeRange(placeholderPlaylist, fromIndex, correctedToIndex);
-          return getStateWithNewPlaylist(state, placeholderPlaylist, period);
+          return getStateWithNewPlaylist(state, placeholderPlaylist, period, window);
         });
   }
 
@@ -2249,19 +2457,24 @@ public abstract class SimpleBasePlayer extends BasePlayer {
       @Player.Command int seekCommand,
       boolean isRepeatingCurrentItem) {
     verifyApplicationThreadAndInitState();
-    checkArgument(mediaItemIndex >= 0);
+    checkArgument(mediaItemIndex == C.INDEX_UNSET || mediaItemIndex >= 0);
     // Use a local copy to ensure the lambda below uses the current state value.
     State state = this.state;
-    if (!shouldHandleCommand(seekCommand)
-        || isPlayingAd()
-        || (!state.playlist.isEmpty() && mediaItemIndex >= state.playlist.size())) {
+    if (!shouldHandleCommand(seekCommand)) {
       return;
     }
+    boolean ignoreSeekForPlaceholderState =
+        mediaItemIndex == C.INDEX_UNSET
+            || isPlayingAd()
+            || (!state.timeline.isEmpty() && mediaItemIndex >= state.timeline.getWindowCount());
     updateStateForPendingOperation(
         /* pendingOperation= */ handleSeek(mediaItemIndex, positionMs, seekCommand),
         /* placeholderStateSupplier= */ () ->
-            getStateWithNewPlaylistAndPosition(state, state.playlist, mediaItemIndex, positionMs),
-        /* seeked= */ true,
+            ignoreSeekForPlaceholderState
+                ? state
+                : getStateWithNewPlaylistAndPosition(
+                    state, /* newPlaylist= */ null, mediaItemIndex, positionMs, window),
+        /* forceSeekDiscontinuity= */ !ignoreSeekForPlaceholderState,
         isRepeatingCurrentItem);
   }
 
@@ -2319,18 +2532,10 @@ public abstract class SimpleBasePlayer extends BasePlayer {
                 .setPlaybackState(Player.STATE_IDLE)
                 .setTotalBufferedDurationMs(PositionSupplier.ZERO)
                 .setContentBufferedPositionMs(
-                    PositionSupplier.getConstant(getContentPositionMsInternal(state)))
+                    PositionSupplier.getConstant(getContentPositionMsInternal(state, window)))
                 .setAdBufferedPositionMs(state.adPositionMsSupplier)
                 .setIsLoading(false)
                 .build());
-  }
-
-  @Override
-  public final void stop(boolean reset) {
-    stop();
-    if (reset) {
-      clearMediaItems();
-    }
   }
 
   @Override
@@ -2338,7 +2543,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
     verifyApplicationThreadAndInitState();
     // Use a local copy to ensure the lambda below uses the current state value.
     State state = this.state;
-    if (released) { // TODO(b/261158047): Replace by !shouldHandleCommand(Player.COMMAND_RELEASE)
+    if (!shouldHandleCommand(Player.COMMAND_RELEASE)) {
       return;
     }
     updateStateForPendingOperation(
@@ -2352,7 +2557,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
             .setPlaybackState(Player.STATE_IDLE)
             .setTotalBufferedDurationMs(PositionSupplier.ZERO)
             .setContentBufferedPositionMs(
-                PositionSupplier.getConstant(getContentPositionMsInternal(state)))
+                PositionSupplier.getConstant(getContentPositionMsInternal(state, window)))
             .setAdBufferedPositionMs(state.adPositionMsSupplier)
             .setIsLoading(false)
             .build();
@@ -2361,7 +2566,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
   @Override
   public final Tracks getCurrentTracks() {
     verifyApplicationThreadAndInitState();
-    return getCurrentTracksInternal(state);
+    return state.currentTracks;
   }
 
   @Override
@@ -2387,7 +2592,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
   @Override
   public final MediaMetadata getMediaMetadata() {
     verifyApplicationThreadAndInitState();
-    return getMediaMetadataInternal(state);
+    return state.currentMetadata;
   }
 
   @Override
@@ -2401,7 +2606,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
     verifyApplicationThreadAndInitState();
     // Use a local copy to ensure the lambda below uses the current state value.
     State state = this.state;
-    if (!shouldHandleCommand(Player.COMMAND_SET_MEDIA_ITEMS_METADATA)) {
+    if (!shouldHandleCommand(Player.COMMAND_SET_PLAYLIST_METADATA)) {
       return;
     }
     updateStateForPendingOperation(
@@ -2481,13 +2686,15 @@ public abstract class SimpleBasePlayer extends BasePlayer {
   @Override
   public final long getContentPosition() {
     verifyApplicationThreadAndInitState();
-    return getContentPositionMsInternal(state);
+    return getContentPositionMsInternal(state, window);
   }
 
   @Override
   public final long getContentBufferedPosition() {
     verifyApplicationThreadAndInitState();
-    return max(getContentBufferedPositionMsInternal(state), getContentPositionMsInternal(state));
+    return max(
+        getContentBufferedPositionMsInternal(state, window),
+        getContentPositionMsInternal(state, window));
   }
 
   @Override
@@ -2669,6 +2876,11 @@ public abstract class SimpleBasePlayer extends BasePlayer {
     return state.isDeviceMuted;
   }
 
+  /**
+   * @deprecated Use {@link #setDeviceVolume(int, int)} instead.
+   */
+  @SuppressWarnings("deprecation") // Using deprecated command code
+  @Deprecated
   @Override
   public final void setDeviceVolume(int volume) {
     verifyApplicationThreadAndInitState();
@@ -2678,10 +2890,28 @@ public abstract class SimpleBasePlayer extends BasePlayer {
       return;
     }
     updateStateForPendingOperation(
-        /* pendingOperation= */ handleSetDeviceVolume(volume),
+        /* pendingOperation= */ handleSetDeviceVolume(volume, C.VOLUME_FLAG_SHOW_UI),
         /* placeholderStateSupplier= */ () -> state.buildUpon().setDeviceVolume(volume).build());
   }
 
+  @Override
+  public final void setDeviceVolume(int volume, @C.VolumeFlags int flags) {
+    verifyApplicationThreadAndInitState();
+    // Use a local copy to ensure the lambda below uses the current state value.
+    State state = this.state;
+    if (!shouldHandleCommand(Player.COMMAND_SET_DEVICE_VOLUME_WITH_FLAGS)) {
+      return;
+    }
+    updateStateForPendingOperation(
+        /* pendingOperation= */ handleSetDeviceVolume(volume, flags),
+        /* placeholderStateSupplier= */ () -> state.buildUpon().setDeviceVolume(volume).build());
+  }
+
+  /**
+   * @deprecated Use {@link #increaseDeviceVolume(int)} instead.
+   */
+  @SuppressWarnings("deprecation") // Using deprecated command code
+  @Deprecated
   @Override
   public final void increaseDeviceVolume() {
     verifyApplicationThreadAndInitState();
@@ -2691,11 +2921,30 @@ public abstract class SimpleBasePlayer extends BasePlayer {
       return;
     }
     updateStateForPendingOperation(
-        /* pendingOperation= */ handleIncreaseDeviceVolume(),
+        /* pendingOperation= */ handleIncreaseDeviceVolume(C.VOLUME_FLAG_SHOW_UI),
         /* placeholderStateSupplier= */ () ->
             state.buildUpon().setDeviceVolume(state.deviceVolume + 1).build());
   }
 
+  @Override
+  public final void increaseDeviceVolume(@C.VolumeFlags int flags) {
+    verifyApplicationThreadAndInitState();
+    // Use a local copy to ensure the lambda below uses the current state value.
+    State state = this.state;
+    if (!shouldHandleCommand(Player.COMMAND_ADJUST_DEVICE_VOLUME_WITH_FLAGS)) {
+      return;
+    }
+    updateStateForPendingOperation(
+        /* pendingOperation= */ handleIncreaseDeviceVolume(flags),
+        /* placeholderStateSupplier= */ () ->
+            state.buildUpon().setDeviceVolume(state.deviceVolume + 1).build());
+  }
+
+  /**
+   * @deprecated Use {@link #decreaseDeviceVolume(int)} instead.
+   */
+  @SuppressWarnings("deprecation") // Using deprecated command code
+  @Deprecated
   @Override
   public final void decreaseDeviceVolume() {
     verifyApplicationThreadAndInitState();
@@ -2705,11 +2954,30 @@ public abstract class SimpleBasePlayer extends BasePlayer {
       return;
     }
     updateStateForPendingOperation(
-        /* pendingOperation= */ handleDecreaseDeviceVolume(),
+        /* pendingOperation= */ handleDecreaseDeviceVolume(C.VOLUME_FLAG_SHOW_UI),
         /* placeholderStateSupplier= */ () ->
             state.buildUpon().setDeviceVolume(max(0, state.deviceVolume - 1)).build());
   }
 
+  @Override
+  public final void decreaseDeviceVolume(@C.VolumeFlags int flags) {
+    verifyApplicationThreadAndInitState();
+    // Use a local copy to ensure the lambda below uses the current state value.
+    State state = this.state;
+    if (!shouldHandleCommand(Player.COMMAND_ADJUST_DEVICE_VOLUME_WITH_FLAGS)) {
+      return;
+    }
+    updateStateForPendingOperation(
+        /* pendingOperation= */ handleDecreaseDeviceVolume(flags),
+        /* placeholderStateSupplier= */ () ->
+            state.buildUpon().setDeviceVolume(max(0, state.deviceVolume - 1)).build());
+  }
+
+  /**
+   * @deprecated Use {@link #setDeviceMuted(boolean, int)} instead.
+   */
+  @SuppressWarnings("deprecation") // Using deprecated command code
+  @Deprecated
   @Override
   public final void setDeviceMuted(boolean muted) {
     verifyApplicationThreadAndInitState();
@@ -2719,8 +2987,35 @@ public abstract class SimpleBasePlayer extends BasePlayer {
       return;
     }
     updateStateForPendingOperation(
-        /* pendingOperation= */ handleSetDeviceMuted(muted),
+        /* pendingOperation= */ handleSetDeviceMuted(muted, C.VOLUME_FLAG_SHOW_UI),
         /* placeholderStateSupplier= */ () -> state.buildUpon().setIsDeviceMuted(muted).build());
+  }
+
+  @Override
+  public final void setDeviceMuted(boolean muted, @C.VolumeFlags int flags) {
+    verifyApplicationThreadAndInitState();
+    // Use a local copy to ensure the lambda below uses the current state value.
+    State state = this.state;
+    if (!shouldHandleCommand(Player.COMMAND_ADJUST_DEVICE_VOLUME_WITH_FLAGS)) {
+      return;
+    }
+    updateStateForPendingOperation(
+        /* pendingOperation= */ handleSetDeviceMuted(muted, flags),
+        /* placeholderStateSupplier= */ () -> state.buildUpon().setIsDeviceMuted(muted).build());
+  }
+
+  @Override
+  public final void setAudioAttributes(AudioAttributes audioAttributes, boolean handleAudioFocus) {
+    verifyApplicationThreadAndInitState();
+    // Use a local copy to ensure the lambda below uses the current state value.
+    State state = this.state;
+    if (!shouldHandleCommand(Player.COMMAND_SET_AUDIO_ATTRIBUTES)) {
+      return;
+    }
+    updateStateForPendingOperation(
+        /* pendingOperation= */ handleSetAudioAttributes(audioAttributes, handleAudioFocus),
+        /* placeholderStateSupplier= */ () ->
+            state.buildUpon().setAudioAttributes(audioAttributes).build());
   }
 
   /**
@@ -2738,7 +3033,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
       return;
     }
     updateStateAndInformListeners(
-        getState(), /* seeked= */ false, /* isRepeatingCurrentItem= */ false);
+        getState(), /* forceSeekDiscontinuity= */ false, /* isRepeatingCurrentItem= */ false);
   }
 
   /**
@@ -2837,10 +3132,11 @@ public abstract class SimpleBasePlayer extends BasePlayer {
   /**
    * Handles calls to {@link Player#release}.
    *
+   * <p>Will only be called if {@link Player#COMMAND_RELEASE} is available.
+   *
    * @return A {@link ListenableFuture} indicating the completion of all immediate {@link State}
    *     changes caused by this call.
    */
-  // TODO(b/261158047): Add that this method will only be called if COMMAND_RELEASE is available.
   @ForOverride
   protected ListenableFuture<?> handleRelease() {
     throw new IllegalStateException("Missing implementation to handle COMMAND_RELEASE");
@@ -2907,7 +3203,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
   /**
    * Handles calls to {@link Player#setPlaylistMetadata}.
    *
-   * <p>Will only be called if {@link Player#COMMAND_SET_MEDIA_ITEMS_METADATA} is available.
+   * <p>Will only be called if {@link Player#COMMAND_SET_PLAYLIST_METADATA} is available.
    *
    * @param playlistMetadata The requested {@linkplain MediaMetadata playlist metadata}.
    * @return A {@link ListenableFuture} indicating the completion of all immediate {@link State}
@@ -2916,7 +3212,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
   @ForOverride
   protected ListenableFuture<?> handleSetPlaylistMetadata(MediaMetadata playlistMetadata) {
     throw new IllegalStateException(
-        "Missing implementation to handle COMMAND_SET_MEDIA_ITEMS_METADATA");
+        "Missing implementation to handle COMMAND_SET_PLAYLIST_METADATA");
   }
 
   /**
@@ -2935,60 +3231,95 @@ public abstract class SimpleBasePlayer extends BasePlayer {
   }
 
   /**
-   * Handles calls to {@link Player#setDeviceVolume}.
+   * Handles calls to {@link Player#setDeviceVolume(int)} and {@link Player#setDeviceVolume(int,
+   * int)}.
    *
-   * <p>Will only be called if {@link Player#COMMAND_SET_DEVICE_VOLUME} is available.
+   * <p>Will only be called if {@link Player#COMMAND_SET_DEVICE_VOLUME} or {@link
+   * Player#COMMAND_SET_DEVICE_VOLUME_WITH_FLAGS} is available.
    *
    * @param deviceVolume The requested device volume.
+   * @param flags Either 0 or a bitwise combination of one or more {@link C.VolumeFlags}.
    * @return A {@link ListenableFuture} indicating the completion of all immediate {@link State}
    *     changes caused by this call.
    */
   @ForOverride
-  protected ListenableFuture<?> handleSetDeviceVolume(@IntRange(from = 0) int deviceVolume) {
-    throw new IllegalStateException("Missing implementation to handle COMMAND_SET_DEVICE_VOLUME");
-  }
-
-  /**
-   * Handles calls to {@link Player#increaseDeviceVolume()}.
-   *
-   * <p>Will only be called if {@link Player#COMMAND_ADJUST_DEVICE_VOLUME} is available.
-   *
-   * @return A {@link ListenableFuture} indicating the completion of all immediate {@link State}
-   *     changes caused by this call.
-   */
-  @ForOverride
-  protected ListenableFuture<?> handleIncreaseDeviceVolume() {
+  protected ListenableFuture<?> handleSetDeviceVolume(
+      @IntRange(from = 0) int deviceVolume, int flags) {
     throw new IllegalStateException(
-        "Missing implementation to handle COMMAND_ADJUST_DEVICE_VOLUME");
+        "Missing implementation to handle COMMAND_SET_DEVICE_VOLUME or"
+            + " COMMAND_SET_DEVICE_VOLUME_WITH_FLAGS");
   }
 
   /**
-   * Handles calls to {@link Player#decreaseDeviceVolume()}.
+   * Handles calls to {@link Player#increaseDeviceVolume()} and {@link
+   * Player#increaseDeviceVolume(int)}.
    *
-   * <p>Will only be called if {@link Player#COMMAND_ADJUST_DEVICE_VOLUME} is available.
+   * <p>Will only be called if {@link Player#COMMAND_ADJUST_DEVICE_VOLUME} or {@link
+   * Player#COMMAND_ADJUST_DEVICE_VOLUME_WITH_FLAGS} is available.
    *
+   * @param flags Either 0 or a bitwise combination of one or more {@link C.VolumeFlags}.
    * @return A {@link ListenableFuture} indicating the completion of all immediate {@link State}
    *     changes caused by this call.
    */
   @ForOverride
-  protected ListenableFuture<?> handleDecreaseDeviceVolume() {
+  protected ListenableFuture<?> handleIncreaseDeviceVolume(@C.VolumeFlags int flags) {
     throw new IllegalStateException(
-        "Missing implementation to handle COMMAND_ADJUST_DEVICE_VOLUME");
+        "Missing implementation to handle COMMAND_ADJUST_DEVICE_VOLUME or"
+            + " COMMAND_ADJUST_DEVICE_VOLUME_WITH_FLAGS");
   }
 
   /**
-   * Handles calls to {@link Player#setDeviceMuted}.
+   * Handles calls to {@link Player#decreaseDeviceVolume()} and {@link
+   * Player#decreaseDeviceVolume(int)}.
    *
-   * <p>Will only be called if {@link Player#COMMAND_ADJUST_DEVICE_VOLUME} is available.
+   * <p>Will only be called if {@link Player#COMMAND_ADJUST_DEVICE_VOLUME} or {@link
+   * Player#COMMAND_ADJUST_DEVICE_VOLUME_WITH_FLAGS} is available.
+   *
+   * @param flags Either 0 or a bitwise combination of one or more {@link C.VolumeFlags}.
+   * @return A {@link ListenableFuture} indicating the completion of all immediate {@link State}
+   *     changes caused by this call.
+   */
+  @ForOverride
+  protected ListenableFuture<?> handleDecreaseDeviceVolume(@C.VolumeFlags int flags) {
+    throw new IllegalStateException(
+        "Missing implementation to handle COMMAND_ADJUST_DEVICE_VOLUME or"
+            + " COMMAND_ADJUST_DEVICE_VOLUME_WITH_FLAGS");
+  }
+
+  /**
+   * Handles calls to {@link Player#setDeviceMuted(boolean)} and {@link
+   * Player#setDeviceMuted(boolean, int)}.
+   *
+   * <p>Will only be called if {@link Player#COMMAND_ADJUST_DEVICE_VOLUME} or {@link
+   * Player#COMMAND_ADJUST_DEVICE_VOLUME_WITH_FLAGS} is available.
    *
    * @param muted Whether the device was requested to be muted.
+   * @param flags Either 0 or a bitwise combination of one or more {@link C.VolumeFlags}.
    * @return A {@link ListenableFuture} indicating the completion of all immediate {@link State}
    *     changes caused by this call.
    */
   @ForOverride
-  protected ListenableFuture<?> handleSetDeviceMuted(boolean muted) {
+  protected ListenableFuture<?> handleSetDeviceMuted(boolean muted, @C.VolumeFlags int flags) {
     throw new IllegalStateException(
-        "Missing implementation to handle COMMAND_ADJUST_DEVICE_VOLUME");
+        "Missing implementation to handle COMMAND_ADJUST_DEVICE_VOLUME or"
+            + " COMMAND_ADJUST_DEVICE_VOLUME_WITH_FLAGS");
+  }
+
+  /**
+   * Handles calls to set the audio attributes.
+   *
+   * <p>Will only be called if {@link Player#COMMAND_SET_AUDIO_ATTRIBUTES} is available.
+   *
+   * @param audioAttributes The attributes to use for audio playback.
+   * @param handleAudioFocus True if the player should handle audio focus, false otherwise.
+   * @return A {@link ListenableFuture} indicating the completion of all immediate {@link State}
+   *     changes caused by this call.
+   */
+  @ForOverride
+  protected ListenableFuture<?> handleSetAudioAttributes(
+      AudioAttributes audioAttributes, boolean handleAudioFocus) {
+    throw new IllegalStateException(
+        "Missing implementation to handle COMMAND_SET_AUDIO_ATTRIBUTES");
   }
 
   /**
@@ -3081,6 +3412,27 @@ public abstract class SimpleBasePlayer extends BasePlayer {
   }
 
   /**
+   * Handles calls to {@link Player#replaceMediaItem} and {@link Player#replaceMediaItems}.
+   *
+   * <p>Will only be called if {@link Player#COMMAND_CHANGE_MEDIA_ITEMS} is available.
+   *
+   * @param fromIndex The start index of the items to replace. The index is in the range 0 &lt;=
+   *     {@code fromIndex} &lt; {@link #getMediaItemCount()}.
+   * @param toIndex The index of the first item not to be replaced (exclusive). The index is in the
+   *     range {@code fromIndex} &lt; {@code toIndex} &lt;= {@link #getMediaItemCount()}.
+   * @param mediaItems The media items to replace the specified range with.
+   * @return A {@link ListenableFuture} indicating the completion of all immediate {@link State}
+   *     changes caused by this call.
+   */
+  @ForOverride
+  protected ListenableFuture<?> handleReplaceMediaItems(
+      int fromIndex, int toIndex, List<MediaItem> mediaItems) {
+    ListenableFuture<?> addFuture = handleAddMediaItems(toIndex, mediaItems);
+    ListenableFuture<?> removeFuture = handleRemoveMediaItems(fromIndex, toIndex);
+    return Util.transformFutureAsync(addFuture, unused -> removeFuture);
+  }
+
+  /**
    * Handles calls to {@link Player#removeMediaItem} and {@link Player#removeMediaItems}.
    *
    * <p>Will only be called if {@link Player#COMMAND_CHANGE_MEDIA_ITEMS} is available.
@@ -3104,10 +3456,13 @@ public abstract class SimpleBasePlayer extends BasePlayer {
    * <p>Will only be called if the appropriate {@link Player.Command}, for example {@link
    * Player#COMMAND_SEEK_TO_MEDIA_ITEM} or {@link Player#COMMAND_SEEK_TO_NEXT}, is available.
    *
-   * @param mediaItemIndex The media item index to seek to. The index is in the range 0 &lt;= {@code
-   *     mediaItemIndex} &lt; {@code mediaItems.size()}.
+   * @param mediaItemIndex The media item index to seek to. If the original seek operation did not
+   *     directly specify an index, this is the most likely implied index based on the available
+   *     player state. If the implied action is to do nothing, this will be {@link C#INDEX_UNSET}.
    * @param positionMs The position in milliseconds to start playback from, or {@link C#TIME_UNSET}
-   *     to start at the default position in the media item.
+   *     to start at the default position in the media item. If the original seek operation did not
+   *     directly specify a position, this is the most likely implied position based on the
+   *     available player state.
    * @param seekCommand The {@link Player.Command} used to trigger the seek.
    * @return A {@link ListenableFuture} indicating the completion of all immediate {@link State}
    *     changes caused by this call.
@@ -3118,6 +3473,25 @@ public abstract class SimpleBasePlayer extends BasePlayer {
     throw new IllegalStateException("Missing implementation to handle one of the COMMAND_SEEK_*");
   }
 
+  /**
+   * Throws an {@link IllegalStateException} if the the thread calling this method does not match
+   * the {@link Looper} thread that was specified upon construction of this instance.
+   *
+   * <p>Subclasses can use this method to verify that their own defined methods are also accessed by
+   * the correct thread.
+   */
+  protected final void verifyApplicationThread() {
+    if (Thread.currentThread() != applicationLooper.getThread()) {
+      String message =
+          Util.formatInvariant(
+              "Player is accessed on the wrong thread.\n"
+                  + "Current thread: '%s'\n"
+                  + "Expected thread: '%s'\n",
+              Thread.currentThread().getName(), applicationLooper.getThread().getName());
+      throw new IllegalStateException(message);
+    }
+  }
+
   @RequiresNonNull("state")
   private boolean shouldHandleCommand(@Player.Command int commandCode) {
     return !released && state.availableCommands.contains(commandCode);
@@ -3126,7 +3500,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
   @SuppressWarnings("deprecation") // Calling deprecated listener methods.
   @RequiresNonNull("state")
   private void updateStateAndInformListeners(
-      State newState, boolean seeked, boolean isRepeatingCurrentItem) {
+      State newState, boolean forceSeekDiscontinuity, boolean isRepeatingCurrentItem) {
     State previousState = state;
     // Assign new state immediately such that all getters return the right values, but use a
     // snapshot of the previous and new state so that listener invocations are triggered correctly.
@@ -3143,12 +3517,9 @@ public abstract class SimpleBasePlayer extends BasePlayer {
 
     boolean playWhenReadyChanged = previousState.playWhenReady != newState.playWhenReady;
     boolean playbackStateChanged = previousState.playbackState != newState.playbackState;
-    Tracks previousTracks = getCurrentTracksInternal(previousState);
-    Tracks newTracks = getCurrentTracksInternal(newState);
-    MediaMetadata previousMediaMetadata = getMediaMetadataInternal(previousState);
-    MediaMetadata newMediaMetadata = getMediaMetadataInternal(newState);
     int positionDiscontinuityReason =
-        getPositionDiscontinuityReason(previousState, newState, seeked, window, period);
+        getPositionDiscontinuityReason(
+            previousState, newState, forceSeekDiscontinuity, window, period);
     boolean timelineChanged = !previousState.timeline.equals(newState.timeline);
     int mediaItemTransitionReason =
         getMediaItemTransitionReason(
@@ -3156,7 +3527,8 @@ public abstract class SimpleBasePlayer extends BasePlayer {
 
     if (timelineChanged) {
       @Player.TimelineChangeReason
-      int timelineChangeReason = getTimelineChangeReason(previousState.playlist, newState.playlist);
+      int timelineChangeReason =
+          getTimelineChangeReason(previousState.timeline, newState.timeline, window);
       listeners.queueEvent(
           Player.EVENT_TIMELINE_CHANGED,
           listener -> listener.onTimelineChanged(newState.timeline, timelineChangeReason));
@@ -3183,7 +3555,8 @@ public abstract class SimpleBasePlayer extends BasePlayer {
       MediaItem mediaItem =
           newState.timeline.isEmpty()
               ? null
-              : newState.playlist.get(getCurrentMediaItemIndexInternal(newState)).mediaItem;
+              : newState.timeline.getWindow(getCurrentMediaItemIndexInternal(newState), window)
+                  .mediaItem;
       listeners.queueEvent(
           Player.EVENT_MEDIA_ITEM_TRANSITION,
           listener -> listener.onMediaItemTransition(mediaItem, mediaItemTransitionReason));
@@ -3204,14 +3577,15 @@ public abstract class SimpleBasePlayer extends BasePlayer {
           listener ->
               listener.onTrackSelectionParametersChanged(newState.trackSelectionParameters));
     }
-    if (!previousTracks.equals(newTracks)) {
+    if (!previousState.currentTracks.equals(newState.currentTracks)) {
       listeners.queueEvent(
-          Player.EVENT_TRACKS_CHANGED, listener -> listener.onTracksChanged(newTracks));
+          Player.EVENT_TRACKS_CHANGED,
+          listener -> listener.onTracksChanged(newState.currentTracks));
     }
-    if (!previousMediaMetadata.equals(newMediaMetadata)) {
+    if (!previousState.currentMetadata.equals(newState.currentMetadata)) {
       listeners.queueEvent(
           EVENT_MEDIA_METADATA_CHANGED,
-          listener -> listener.onMediaMetadataChanged(newMediaMetadata));
+          listener -> listener.onMediaMetadataChanged(newState.currentMetadata));
     }
     if (previousState.isLoading != newState.isLoading) {
       listeners.queueEvent(
@@ -3336,9 +3710,6 @@ public abstract class SimpleBasePlayer extends BasePlayer {
       listeners.queueEvent(
           Player.EVENT_METADATA, listener -> listener.onMetadata(newState.timedMetadata));
     }
-    if (positionDiscontinuityReason == Player.DISCONTINUITY_REASON_SEEK) {
-      listeners.queueEvent(/* eventFlag= */ C.INDEX_UNSET, Listener::onSeekProcessed);
-    }
     if (!previousState.availableCommands.equals(newState.availableCommands)) {
       listeners.queueEvent(
           Player.EVENT_AVAILABLE_COMMANDS_CHANGED,
@@ -3349,17 +3720,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
 
   @EnsuresNonNull("state")
   private void verifyApplicationThreadAndInitState() {
-    if (Thread.currentThread() != applicationLooper.getThread()) {
-      String message =
-          Util.formatInvariant(
-              "Player is accessed on the wrong thread.\n"
-                  + "Current thread: '%s'\n"
-                  + "Expected thread: '%s'\n"
-                  + "See https://developer.android.com/guide/topics/media/issues/"
-                  + "player-accessed-on-wrong-thread",
-              Thread.currentThread().getName(), applicationLooper.getThread().getName());
-      throw new IllegalStateException(message);
-    }
+    verifyApplicationThread();
     if (state == null) {
       // First time accessing state.
       state = getState();
@@ -3372,7 +3733,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
     updateStateForPendingOperation(
         pendingOperation,
         placeholderStateSupplier,
-        /* seeked= */ false,
+        /* forceSeekDiscontinuity= */ false,
         /* isRepeatingCurrentItem= */ false);
   }
 
@@ -3380,22 +3741,26 @@ public abstract class SimpleBasePlayer extends BasePlayer {
   private void updateStateForPendingOperation(
       ListenableFuture<?> pendingOperation,
       Supplier<State> placeholderStateSupplier,
-      boolean seeked,
+      boolean forceSeekDiscontinuity,
       boolean isRepeatingCurrentItem) {
     if (pendingOperation.isDone() && pendingOperations.isEmpty()) {
-      updateStateAndInformListeners(getState(), seeked, isRepeatingCurrentItem);
+      updateStateAndInformListeners(getState(), forceSeekDiscontinuity, isRepeatingCurrentItem);
     } else {
       pendingOperations.add(pendingOperation);
       State suggestedPlaceholderState = placeholderStateSupplier.get();
       updateStateAndInformListeners(
-          getPlaceholderState(suggestedPlaceholderState), seeked, isRepeatingCurrentItem);
+          getPlaceholderState(suggestedPlaceholderState),
+          forceSeekDiscontinuity,
+          isRepeatingCurrentItem);
       pendingOperation.addListener(
           () -> {
             castNonNull(state); // Already checked by method @RequiresNonNull pre-condition.
             pendingOperations.remove(pendingOperation);
             if (pendingOperations.isEmpty() && !released) {
               updateStateAndInformListeners(
-                  getState(), /* seeked= */ false, /* isRepeatingCurrentItem= */ false);
+                  getState(),
+                  /* forceSeekDiscontinuity= */ false,
+                  /* isRepeatingCurrentItem= */ false);
             }
           },
           this::postOrRunOnApplicationHandler);
@@ -3416,18 +3781,6 @@ public abstract class SimpleBasePlayer extends BasePlayer {
         && state.playbackSuppressionReason == PLAYBACK_SUPPRESSION_REASON_NONE;
   }
 
-  private static Tracks getCurrentTracksInternal(State state) {
-    return state.playlist.isEmpty()
-        ? Tracks.EMPTY
-        : state.playlist.get(getCurrentMediaItemIndexInternal(state)).tracks;
-  }
-
-  private static MediaMetadata getMediaMetadataInternal(State state) {
-    return state.playlist.isEmpty()
-        ? MediaMetadata.EMPTY
-        : state.playlist.get(getCurrentMediaItemIndexInternal(state)).combinedMediaMetadata;
-  }
-
   private static int getCurrentMediaItemIndexInternal(State state) {
     if (state.currentMediaItemIndex != C.INDEX_UNSET) {
       return state.currentMediaItemIndex;
@@ -3435,22 +3788,27 @@ public abstract class SimpleBasePlayer extends BasePlayer {
     return 0; // TODO: Use shuffle order to get first item if playlist is not empty.
   }
 
-  private static long getContentPositionMsInternal(State state) {
-    return getPositionOrDefaultInMediaItem(state.contentPositionMsSupplier.get(), state);
+  private static long getContentPositionMsInternal(State state, Timeline.Window window) {
+    return getPositionOrDefaultInMediaItem(state.contentPositionMsSupplier.get(), state, window);
   }
 
-  private static long getContentBufferedPositionMsInternal(State state) {
-    return getPositionOrDefaultInMediaItem(state.contentBufferedPositionMsSupplier.get(), state);
+  private static long getContentBufferedPositionMsInternal(State state, Timeline.Window window) {
+    return getPositionOrDefaultInMediaItem(
+        state.contentBufferedPositionMsSupplier.get(), state, window);
   }
 
-  private static long getPositionOrDefaultInMediaItem(long positionMs, State state) {
+  private static long getPositionOrDefaultInMediaItem(
+      long positionMs, State state, Timeline.Window window) {
     if (positionMs != C.TIME_UNSET) {
       return positionMs;
     }
-    if (state.playlist.isEmpty()) {
+    if (state.timeline.isEmpty()) {
       return 0;
     }
-    return usToMs(state.playlist.get(getCurrentMediaItemIndexInternal(state)).defaultPositionUs);
+    return state
+        .timeline
+        .getWindow(getCurrentMediaItemIndexInternal(state), window)
+        .getDefaultPositionMs();
   }
 
   private static int getCurrentPeriodIndexInternal(
@@ -3460,7 +3818,11 @@ public abstract class SimpleBasePlayer extends BasePlayer {
       return currentMediaItemIndex;
     }
     return getPeriodIndexFromWindowPosition(
-        state.timeline, currentMediaItemIndex, getContentPositionMsInternal(state), window, period);
+        state.timeline,
+        currentMediaItemIndex,
+        getContentPositionMsInternal(state, window),
+        window,
+        period);
   }
 
   private static int getPeriodIndexFromWindowPosition(
@@ -3475,13 +3837,13 @@ public abstract class SimpleBasePlayer extends BasePlayer {
   }
 
   private static @Player.TimelineChangeReason int getTimelineChangeReason(
-      List<MediaItemData> previousPlaylist, List<MediaItemData> newPlaylist) {
-    if (previousPlaylist.size() != newPlaylist.size()) {
+      Timeline previousTimeline, Timeline newTimeline, Timeline.Window window) {
+    if (previousTimeline.getWindowCount() != newTimeline.getWindowCount()) {
       return Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED;
     }
-    for (int i = 0; i < previousPlaylist.size(); i++) {
-      Object previousUid = previousPlaylist.get(i).uid;
-      Object newUid = newPlaylist.get(i).uid;
+    for (int i = 0; i < previousTimeline.getWindowCount(); i++) {
+      Object previousUid = previousTimeline.getWindow(/* windowIndex= */ i, window).uid;
+      Object newUid = newTimeline.getWindow(/* windowIndex= */ i, window).uid;
       boolean resolvedAutoGeneratedPlaceholder =
           previousUid instanceof PlaceholderUid && !(newUid instanceof PlaceholderUid);
       if (!previousUid.equals(newUid) && !resolvedAutoGeneratedPlaceholder) {
@@ -3494,21 +3856,21 @@ public abstract class SimpleBasePlayer extends BasePlayer {
   private static int getPositionDiscontinuityReason(
       State previousState,
       State newState,
-      boolean seeked,
+      boolean forceSeekDiscontinuity,
       Timeline.Window window,
       Timeline.Period period) {
     if (newState.hasPositionDiscontinuity) {
       // We were asked to report a discontinuity.
       return newState.positionDiscontinuityReason;
     }
-    if (seeked) {
+    if (forceSeekDiscontinuity) {
       return Player.DISCONTINUITY_REASON_SEEK;
     }
-    if (previousState.playlist.isEmpty()) {
+    if (previousState.timeline.isEmpty()) {
       // First change from an empty playlist is not reported as a discontinuity.
       return C.INDEX_UNSET;
     }
-    if (newState.playlist.isEmpty()) {
+    if (newState.timeline.isEmpty()) {
       // The playlist became empty.
       return Player.DISCONTINUITY_REASON_REMOVE;
     }
@@ -3531,7 +3893,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
       }
       // Check if reached the previous period's or ad's duration to assume an auto-transition.
       long previousPositionMs =
-          getCurrentPeriodOrAdPositionMs(previousState, previousPeriodUid, period);
+          getCurrentPeriodOrAdPositionMs(previousState, previousPeriodUid, period, window);
       long previousDurationMs = getPeriodOrAdDurationMs(previousState, previousPeriodUid, period);
       return previousDurationMs != C.TIME_UNSET && previousPositionMs >= previousDurationMs
           ? Player.DISCONTINUITY_REASON_AUTO_TRANSITION
@@ -3540,8 +3902,8 @@ public abstract class SimpleBasePlayer extends BasePlayer {
     // We are in the same content period or ad. Check if the position deviates more than a
     // reasonable threshold from the previous one.
     long previousPositionMs =
-        getCurrentPeriodOrAdPositionMs(previousState, previousPeriodUid, period);
-    long newPositionMs = getCurrentPeriodOrAdPositionMs(newState, newPeriodUid, period);
+        getCurrentPeriodOrAdPositionMs(previousState, previousPeriodUid, period, window);
+    long newPositionMs = getCurrentPeriodOrAdPositionMs(newState, newPeriodUid, period, window);
     if (Math.abs(previousPositionMs - newPositionMs) < POSITION_DISCONTINUITY_THRESHOLD_MS) {
       return C.INDEX_UNSET;
     }
@@ -3553,10 +3915,10 @@ public abstract class SimpleBasePlayer extends BasePlayer {
   }
 
   private static long getCurrentPeriodOrAdPositionMs(
-      State state, Object currentPeriodUid, Timeline.Period period) {
+      State state, Object currentPeriodUid, Timeline.Period period, Timeline.Window window) {
     return state.currentAdGroupIndex != C.INDEX_UNSET
         ? state.adPositionMsSupplier.get()
-        : getContentPositionMsInternal(state)
+        : getContentPositionMsInternal(state, window)
             - state.timeline.getPeriodByUid(currentPeriodUid, period).getPositionInWindowMs();
   }
 
@@ -3593,9 +3955,9 @@ public abstract class SimpleBasePlayer extends BasePlayer {
       contentPositionMs =
           state.currentAdGroupIndex == C.INDEX_UNSET
               ? positionMs
-              : getContentPositionMsInternal(state);
+              : getContentPositionMsInternal(state, window);
     } else {
-      contentPositionMs = getContentPositionMsInternal(state);
+      contentPositionMs = getContentPositionMsInternal(state, window);
       positionMs =
           state.currentAdGroupIndex != C.INDEX_UNSET
               ? state.adPositionMsSupplier.get()
@@ -3646,9 +4008,14 @@ public abstract class SimpleBasePlayer extends BasePlayer {
     }
     // Only mark changes within the current item as a transition if we are repeating automatically
     // or via a seek to next/previous.
-    if (positionDiscontinuityReason == DISCONTINUITY_REASON_AUTO_TRANSITION
-        && getContentPositionMsInternal(previousState) > getContentPositionMsInternal(newState)) {
-      return MEDIA_ITEM_TRANSITION_REASON_REPEAT;
+    if (positionDiscontinuityReason == DISCONTINUITY_REASON_AUTO_TRANSITION) {
+      if ((getContentPositionMsInternal(previousState, window)
+              > getContentPositionMsInternal(newState, window))
+          || (newState.hasPositionDiscontinuity
+              && newState.discontinuityPositionMs == C.TIME_UNSET
+              && isRepeatingCurrentItem)) {
+        return MEDIA_ITEM_TRANSITION_REASON_REPEAT;
+      }
     }
     if (positionDiscontinuityReason == DISCONTINUITY_REASON_SEEK && isRepeatingCurrentItem) {
       return MEDIA_ITEM_TRANSITION_REASON_SEEK;
@@ -3665,38 +4032,42 @@ public abstract class SimpleBasePlayer extends BasePlayer {
   }
 
   private static int getMediaItemIndexInNewPlaylist(
-      List<MediaItemData> oldPlaylist,
-      Timeline newPlaylistTimeline,
+      Timeline oldTimeline,
+      Timeline newTimeline,
       int oldMediaItemIndex,
-      Timeline.Period period) {
-    if (oldPlaylist.isEmpty()) {
-      return oldMediaItemIndex < newPlaylistTimeline.getWindowCount()
-          ? oldMediaItemIndex
-          : C.INDEX_UNSET;
+      Timeline.Period period,
+      Timeline.Window window) {
+    if (oldTimeline.isEmpty()) {
+      return oldMediaItemIndex < newTimeline.getWindowCount() ? oldMediaItemIndex : C.INDEX_UNSET;
     }
+    int oldFirstPeriodIndex = oldTimeline.getWindow(oldMediaItemIndex, window).firstPeriodIndex;
     Object oldFirstPeriodUid =
-        oldPlaylist.get(oldMediaItemIndex).getPeriodUid(/* periodIndexInMediaItem= */ 0);
-    if (newPlaylistTimeline.getIndexOfPeriod(oldFirstPeriodUid) == C.INDEX_UNSET) {
+        checkNotNull(oldTimeline.getPeriod(oldFirstPeriodIndex, period, /* setIds= */ true).uid);
+    if (newTimeline.getIndexOfPeriod(oldFirstPeriodUid) == C.INDEX_UNSET) {
       return C.INDEX_UNSET;
     }
-    return newPlaylistTimeline.getPeriodByUid(oldFirstPeriodUid, period).windowIndex;
+    return newTimeline.getPeriodByUid(oldFirstPeriodUid, period).windowIndex;
   }
 
   private static State getStateWithNewPlaylist(
-      State oldState, List<MediaItemData> newPlaylist, Timeline.Period period) {
+      State oldState,
+      List<MediaItemData> newPlaylist,
+      Timeline.Period period,
+      Timeline.Window window) {
     State.Builder stateBuilder = oldState.buildUpon();
-    stateBuilder.setPlaylist(newPlaylist);
-    Timeline newTimeline = stateBuilder.timeline;
+    Timeline newTimeline = new PlaylistTimeline(newPlaylist);
+    Timeline oldTimeline = oldState.timeline;
     long oldPositionMs = oldState.contentPositionMsSupplier.get();
     int oldIndex = getCurrentMediaItemIndexInternal(oldState);
-    int newIndex = getMediaItemIndexInNewPlaylist(oldState.playlist, newTimeline, oldIndex, period);
+    int newIndex =
+        getMediaItemIndexInNewPlaylist(oldTimeline, newTimeline, oldIndex, period, window);
     long newPositionMs = newIndex == C.INDEX_UNSET ? C.TIME_UNSET : oldPositionMs;
     // If the current item no longer exists, try to find a matching subsequent item.
-    for (int i = oldIndex + 1; newIndex == C.INDEX_UNSET && i < oldState.playlist.size(); i++) {
+    for (int i = oldIndex + 1; newIndex == C.INDEX_UNSET && i < oldTimeline.getWindowCount(); i++) {
       // TODO: Use shuffle order to iterate.
       newIndex =
           getMediaItemIndexInNewPlaylist(
-              oldState.playlist, newTimeline, /* oldMediaItemIndex= */ i, period);
+              oldTimeline, newTimeline, /* oldMediaItemIndex= */ i, period, window);
     }
     // If this fails, transition to ENDED state.
     if (oldState.playbackState != Player.STATE_IDLE && newIndex == C.INDEX_UNSET) {
@@ -3706,18 +4077,25 @@ public abstract class SimpleBasePlayer extends BasePlayer {
         stateBuilder,
         oldState,
         oldPositionMs,
-        newPlaylist,
+        newTimeline,
         newIndex,
         newPositionMs,
-        /* keepAds= */ true);
+        /* keepAds= */ true,
+        window);
   }
 
   private static State getStateWithNewPlaylistAndPosition(
-      State oldState, List<MediaItemData> newPlaylist, int newIndex, long newPositionMs) {
+      State oldState,
+      @Nullable List<MediaItemData> newPlaylist,
+      int newIndex,
+      long newPositionMs,
+      Timeline.Window window) {
     State.Builder stateBuilder = oldState.buildUpon();
-    stateBuilder.setPlaylist(newPlaylist);
+    Timeline newTimeline =
+        newPlaylist == null ? oldState.timeline : new PlaylistTimeline(newPlaylist);
     if (oldState.playbackState != Player.STATE_IDLE) {
-      if (newPlaylist.isEmpty()) {
+      if (newTimeline.isEmpty()
+          || (newIndex != C.INDEX_UNSET && newIndex >= newTimeline.getWindowCount())) {
         stateBuilder.setPlaybackState(Player.STATE_ENDED).setIsLoading(false);
       } else {
         stateBuilder.setPlaybackState(Player.STATE_BUFFERING);
@@ -3728,37 +4106,53 @@ public abstract class SimpleBasePlayer extends BasePlayer {
         stateBuilder,
         oldState,
         oldPositionMs,
-        newPlaylist,
+        newTimeline,
         newIndex,
         newPositionMs,
-        /* keepAds= */ false);
+        /* keepAds= */ false,
+        window);
   }
 
   private static State buildStateForNewPosition(
       State.Builder stateBuilder,
       State oldState,
       long oldPositionMs,
-      List<MediaItemData> newPlaylist,
+      Timeline newTimeline,
       int newIndex,
       long newPositionMs,
-      boolean keepAds) {
+      boolean keepAds,
+      Timeline.Window window) {
     // Resolve unset or invalid index and position.
-    oldPositionMs = getPositionOrDefaultInMediaItem(oldPositionMs, oldState);
-    if (!newPlaylist.isEmpty() && (newIndex == C.INDEX_UNSET || newIndex >= newPlaylist.size())) {
+    oldPositionMs = getPositionOrDefaultInMediaItem(oldPositionMs, oldState, window);
+    if (!newTimeline.isEmpty()
+        && (newIndex == C.INDEX_UNSET || newIndex >= newTimeline.getWindowCount())) {
       newIndex = 0; // TODO: Use shuffle order to get first index.
       newPositionMs = C.TIME_UNSET;
     }
-    if (!newPlaylist.isEmpty() && newPositionMs == C.TIME_UNSET) {
-      newPositionMs = usToMs(newPlaylist.get(newIndex).defaultPositionUs);
+    if (!newTimeline.isEmpty() && newPositionMs == C.TIME_UNSET) {
+      newPositionMs = newTimeline.getWindow(newIndex, window).getDefaultPositionMs();
     }
-    boolean oldOrNewPlaylistEmpty = oldState.playlist.isEmpty() || newPlaylist.isEmpty();
+    boolean oldOrNewPlaylistEmpty = oldState.timeline.isEmpty() || newTimeline.isEmpty();
     boolean mediaItemChanged =
         !oldOrNewPlaylistEmpty
             && !oldState
-                .playlist
-                .get(getCurrentMediaItemIndexInternal(oldState))
+                .timeline
+                .getWindow(getCurrentMediaItemIndexInternal(oldState), window)
                 .uid
-                .equals(newPlaylist.get(newIndex).uid);
+                .equals(newTimeline.getWindow(newIndex, window).uid);
+    // Set timeline, resolving tracks and metadata to the new index.
+    if (newTimeline.isEmpty()) {
+      stateBuilder.setPlaylist(newTimeline, Tracks.EMPTY, /* currentMetadata= */ null);
+    } else if (newTimeline instanceof PlaylistTimeline) {
+      MediaItemData mediaItemData = ((PlaylistTimeline) newTimeline).playlist.get(newIndex);
+      stateBuilder.setPlaylist(newTimeline, mediaItemData.tracks, mediaItemData.mediaMetadata);
+    } else {
+      boolean keepTracksAndMetadata = !oldOrNewPlaylistEmpty && !mediaItemChanged;
+      stateBuilder.setPlaylist(
+          newTimeline,
+          keepTracksAndMetadata ? oldState.currentTracks : Tracks.EMPTY,
+          keepTracksAndMetadata ? oldState.currentMetadata : null);
+    }
     if (oldOrNewPlaylistEmpty || mediaItemChanged || newPositionMs < oldPositionMs) {
       // New item or seeking back. Assume no buffer and no ad playback persists.
       stateBuilder
@@ -3779,12 +4173,12 @@ public abstract class SimpleBasePlayer extends BasePlayer {
             .setCurrentAd(C.INDEX_UNSET, C.INDEX_UNSET)
             .setTotalBufferedDurationMs(
                 PositionSupplier.getConstant(
-                    getContentBufferedPositionMsInternal(oldState) - oldPositionMs));
+                    getContentBufferedPositionMsInternal(oldState, window) - oldPositionMs));
       }
     } else {
       // Seeking forward. Assume remaining buffer in current item persist, but no ad playback.
       long contentBufferedDurationMs =
-          max(getContentBufferedPositionMsInternal(oldState), newPositionMs);
+          max(getContentBufferedPositionMsInternal(oldState, window), newPositionMs);
       long totalBufferedDurationMs =
           max(0, oldState.totalBufferedDurationMsSupplier.get() - (newPositionMs - oldPositionMs));
       stateBuilder
@@ -3795,6 +4189,37 @@ public abstract class SimpleBasePlayer extends BasePlayer {
           .setTotalBufferedDurationMs(PositionSupplier.getConstant(totalBufferedDurationMs));
     }
     return stateBuilder.build();
+  }
+
+  private static MediaMetadata getCombinedMediaMetadata(MediaItem mediaItem, Tracks tracks) {
+    MediaMetadata.Builder metadataBuilder = new MediaMetadata.Builder();
+    int trackGroupCount = tracks.getGroups().size();
+    for (int i = 0; i < trackGroupCount; i++) {
+      Tracks.Group group = tracks.getGroups().get(i);
+      for (int j = 0; j < group.length; j++) {
+        if (group.isTrackSelected(j)) {
+          Format format = group.getTrackFormat(j);
+          if (format.metadata != null) {
+            for (int k = 0; k < format.metadata.length(); k++) {
+              format.metadata.get(k).populateMediaMetadata(metadataBuilder);
+            }
+          }
+        }
+      }
+    }
+    return metadataBuilder.populate(mediaItem.mediaMetadata).build();
+  }
+
+  private static List<MediaItemData> buildMutablePlaylistFromState(
+      State state, Timeline.Period period, Timeline.Window window) {
+    if (state.timeline instanceof PlaylistTimeline) {
+      return new ArrayList<>(((PlaylistTimeline) state.timeline).playlist);
+    }
+    ArrayList<MediaItemData> items = new ArrayList<>(state.timeline.getWindowCount());
+    for (int i = 0; i < state.timeline.getWindowCount(); i++) {
+      items.add(MediaItemData.buildFromState(state, /* mediaItemIndex= */ i, period, window));
+    }
+    return items;
   }
 
   private static final class PlaceholderUid {}

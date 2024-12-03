@@ -22,6 +22,7 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 
 import androidx.annotation.IntDef;
 import androidx.media3.common.C;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
@@ -65,6 +66,7 @@ public final class AdtsExtractor implements Extractor {
       flag = true,
       value = {FLAG_ENABLE_CONSTANT_BITRATE_SEEKING, FLAG_ENABLE_CONSTANT_BITRATE_SEEKING_ALWAYS})
   public @interface Flags {}
+
   /**
    * Flag to force enable seeking using a constant bitrate assumption in cases where seeking would
    * otherwise not be possible.
@@ -73,6 +75,7 @@ public final class AdtsExtractor implements Extractor {
    * are not precise, especially when the stream bitrate varies a lot.
    */
   public static final int FLAG_ENABLE_CONSTANT_BITRATE_SEEKING = 1;
+
   /**
    * Like {@link #FLAG_ENABLE_CONSTANT_BITRATE_SEEKING}, except that seeking is also enabled in
    * cases where the content length (and hence the duration of the media) is unknown. Application
@@ -87,11 +90,13 @@ public final class AdtsExtractor implements Extractor {
   public static final int FLAG_ENABLE_CONSTANT_BITRATE_SEEKING_ALWAYS = 1 << 1;
 
   private static final int MAX_PACKET_SIZE = 2 * 1024;
+
   /**
    * The maximum number of bytes to search when sniffing, excluding the header, before giving up.
    * Frame sizes are represented by 13-bit fields, so expect a valid frame in the first 8192 bytes.
    */
   private static final int MAX_SNIFF_BYTES = 8 * 1024;
+
   /**
    * The maximum number of frames to use when calculating the average frame size for constant
    * bitrate seeking.
@@ -129,10 +134,10 @@ public final class AdtsExtractor implements Extractor {
       flags |= FLAG_ENABLE_CONSTANT_BITRATE_SEEKING;
     }
     this.flags = flags;
-    reader = new AdtsReader(true);
+    reader = new AdtsReader(true, MimeTypes.AUDIO_AAC);
     packetBuffer = new ParsableByteArray(MAX_PACKET_SIZE);
     averageFrameSize = C.LENGTH_UNSET;
-    firstFramePosition = C.POSITION_UNSET;
+    firstFramePosition = C.INDEX_UNSET;
     // Allocate scratch space for an ID3 header. The same buffer is also used to read 4 byte values.
     scratch = new ParsableByteArray(ID3_HEADER_LENGTH);
     scratchBits = new ParsableBitArray(scratch.getData());
@@ -258,7 +263,7 @@ public final class AdtsExtractor implements Extractor {
     }
     input.resetPeekPosition();
     input.advancePeekPosition(firstFramePosition);
-    if (this.firstFramePosition == C.POSITION_UNSET) {
+    if (this.firstFramePosition == C.INDEX_UNSET) {
       this.firstFramePosition = firstFramePosition;
     }
     return firstFramePosition;

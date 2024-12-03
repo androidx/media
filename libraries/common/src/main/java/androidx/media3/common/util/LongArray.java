@@ -15,6 +15,8 @@
  */
 package androidx.media3.common.util;
 
+import static java.lang.Math.max;
+
 import java.util.Arrays;
 
 /** An append-only, auto-growing {@code long[]}. */
@@ -47,6 +49,20 @@ public final class LongArray {
       values = Arrays.copyOf(values, size * 2);
     }
     values[size++] = value;
+  }
+
+  /**
+   * Appends all elements of the specified array.
+   *
+   * @param values The array whose elements are to be added.
+   */
+  public void addAll(long[] values) {
+    int newSize = size + values.length;
+    if (newSize > this.values.length) {
+      this.values = Arrays.copyOf(this.values, max(this.values.length * 2, newSize));
+    }
+    System.arraycopy(values, 0, this.values, size, values.length);
+    size = newSize;
   }
 
   /**

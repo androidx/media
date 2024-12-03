@@ -25,21 +25,30 @@ import android.media.DeniedByServerException;
 import android.media.MediaDrm;
 import android.media.MediaDrmResetException;
 import android.media.NotProvisionedException;
-import androidx.annotation.DoNotInline;
+import android.media.ResourceBusyException;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import androidx.media3.datasource.DataSource;
+import androidx.media3.datasource.DataSourceInputStream;
+import androidx.media3.datasource.DataSpec;
+import androidx.media3.datasource.HttpDataSource;
+import androidx.media3.datasource.StatsDataSource;
+import com.google.common.io.ByteStreams;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import java.util.List;
+import java.util.Map;
 
 /** DRM-related utility methods. */
 @UnstableApi
 public final class DrmUtil {
+  private static final int MAX_MANUAL_REDIRECTS = 5;
 
   /** Identifies the operation which caused a DRM-related error. */
   // @Target list includes both 'default' targets and TYPE_USE, to ensure backwards compatibility
@@ -57,8 +66,10 @@ public final class DrmUtil {
 
   /** Corresponds to failures caused by an {@link ExoMediaDrm} method call. */
   public static final int ERROR_SOURCE_EXO_MEDIA_DRM = 1;
+
   /** Corresponds to failures caused by an operation related to obtaining DRM licenses. */
   public static final int ERROR_SOURCE_LICENSE_ACQUISITION = 2;
+
   /** Corresponds to failures caused by an operation related to provisioning the device. */
   public static final int ERROR_SOURCE_PROVISIONING = 3;
 
@@ -73,14 +84,18 @@ public final class DrmUtil {
    *     exception.
    */
   public static @PlaybackException.ErrorCode int getErrorCodeForMediaDrmException(
-      Exception exception, @ErrorSource int errorSource) {
-    if (Util.SDK_INT >= 21 && Api21.isMediaDrmStateException(exception)) {
-      return Api21.mediaDrmStateExceptionToErrorCode(exception);
+      Throwable exception, @ErrorSource int errorSource) {
+    if (exception instanceof MediaDrm.MediaDrmStateException) {
+      @Nullable
+      String diagnosticsInfo = ((MediaDrm.MediaDrmStateException) exception).getDiagnosticInfo();
+      int drmErrorCode = Util.getErrorCodeFromPlatformDiagnosticsInfo(diagnosticsInfo);
+      return Util.getErrorCodeForMediaDrmErrorCode(drmErrorCode);
     } else if (Util.SDK_INT >= 23 && Api23.isMediaDrmResetException(exception)) {
       return PlaybackException.ERROR_CODE_DRM_SYSTEM_ERROR;
-    } else if (Util.SDK_INT >= 18 && Api18.isNotProvisionedException(exception)) {
+    } else if (exception instanceof NotProvisionedException
+        || isFailureToConstructNotProvisionedException(exception)) {
       return PlaybackException.ERROR_CODE_DRM_PROVISIONING_FAILED;
-    } else if (Util.SDK_INT >= 18 && Api18.isDeniedByServerException(exception)) {
+    } else if (exception instanceof DeniedByServerException) {
       return PlaybackException.ERROR_CODE_DRM_DEVICE_REVOKED;
     } else if (exception instanceof UnsupportedDrmException) {
       return PlaybackException.ERROR_CODE_DRM_SCHEME_UNSUPPORTED;
@@ -102,44 +117,108 @@ public final class DrmUtil {
     }
   }
 
-  // Internal classes.
+  /**
+   * Returns true if {@code e} represents a failure to construct a {@link NotProvisionedException}.
+   * See b/291440132.
+   */
+  public static boolean isFailureToConstructNotProvisionedException(@Nullable Throwable e) {
+    return Util.SDK_INT == 34
+        && e instanceof NoSuchMethodError
+        && e.getMessage() != null
+        && e.getMessage().contains("Landroid/media/NotProvisionedException;.<init>(");
+  }
 
-  @RequiresApi(18)
-  private static final class Api18 {
+  /**
+   * Returns true if {@code e} represents a failure to construct a {@link ResourceBusyException}.
+   * See b/291440132.
+   */
+  public static boolean isFailureToConstructResourceBusyException(@Nullable Throwable e) {
+    return Util.SDK_INT == 34
+        && e instanceof NoSuchMethodError
+        && e.getMessage() != null
+        && e.getMessage().contains("Landroid/media/ResourceBusyException;.<init>(");
+  }
 
-    @DoNotInline
-    public static boolean isNotProvisionedException(@Nullable Throwable throwable) {
-      return throwable instanceof NotProvisionedException;
-    }
-
-    @DoNotInline
-    public static boolean isDeniedByServerException(@Nullable Throwable throwable) {
-      return throwable instanceof DeniedByServerException;
+  /**
+   * Executes a HTTP POST request with retry handling and returns the entire response in a byte
+   * buffer.
+   *
+   * <p>Note that this method is executing the request synchronously and blocks until finished.
+   *
+   * @param dataSource A {@link DataSource}.
+   * @param url The requested URL.
+   * @param httpBody The HTTP request payload.
+   * @param requestProperties A keyed map of HTTP header request properties.
+   * @return A byte array that holds the response payload.
+   * @throws MediaDrmCallbackException if an exception was encountered during the download.
+   */
+  public static byte[] executePost(
+      DataSource dataSource,
+      String url,
+      @Nullable byte[] httpBody,
+      Map<String, String> requestProperties)
+      throws MediaDrmCallbackException {
+    StatsDataSource statsDataSource = new StatsDataSource(dataSource);
+    int manualRedirectCount = 0;
+    DataSpec dataSpec =
+        new DataSpec.Builder()
+            .setUri(url)
+            .setHttpRequestHeaders(requestProperties)
+            .setHttpMethod(DataSpec.HTTP_METHOD_POST)
+            .setHttpBody(httpBody)
+            .setFlags(DataSpec.FLAG_ALLOW_GZIP)
+            .build();
+    DataSpec originalDataSpec = dataSpec;
+    try {
+      while (true) {
+        DataSourceInputStream inputStream = new DataSourceInputStream(statsDataSource, dataSpec);
+        try {
+          return ByteStreams.toByteArray(inputStream);
+        } catch (HttpDataSource.InvalidResponseCodeException e) {
+          @Nullable String redirectUrl = getRedirectUrl(e, manualRedirectCount);
+          if (redirectUrl == null) {
+            throw e;
+          }
+          manualRedirectCount++;
+          dataSpec = dataSpec.buildUpon().setUri(redirectUrl).build();
+        } finally {
+          Util.closeQuietly(inputStream);
+        }
+      }
+    } catch (Exception e) {
+      throw new MediaDrmCallbackException(
+          originalDataSpec,
+          statsDataSource.getLastOpenedUri(),
+          statsDataSource.getResponseHeaders(),
+          statsDataSource.getBytesRead(),
+          /* cause= */ e);
     }
   }
 
-  @RequiresApi(21)
-  private static final class Api21 {
-
-    @DoNotInline
-    public static boolean isMediaDrmStateException(@Nullable Throwable throwable) {
-      return throwable instanceof MediaDrm.MediaDrmStateException;
+  @Nullable
+  private static String getRedirectUrl(
+      HttpDataSource.InvalidResponseCodeException exception, int manualRedirectCount) {
+    // For POST requests, the underlying network stack will not normally follow 307 or 308
+    // redirects automatically. Do so manually here.
+    boolean manuallyRedirect =
+        (exception.responseCode == 307 || exception.responseCode == 308)
+            && manualRedirectCount < MAX_MANUAL_REDIRECTS;
+    if (!manuallyRedirect) {
+      return null;
     }
-
-    @DoNotInline
-    public static @PlaybackException.ErrorCode int mediaDrmStateExceptionToErrorCode(
-        Throwable throwable) {
-      @Nullable
-      String diagnosticsInfo = ((MediaDrm.MediaDrmStateException) throwable).getDiagnosticInfo();
-      int drmErrorCode = Util.getErrorCodeFromPlatformDiagnosticsInfo(diagnosticsInfo);
-      return Util.getErrorCodeForMediaDrmErrorCode(drmErrorCode);
+    Map<String, List<String>> headerFields = exception.headerFields;
+    if (headerFields != null) {
+      @Nullable List<String> locationHeaders = headerFields.get("Location");
+      if (locationHeaders != null && !locationHeaders.isEmpty()) {
+        return locationHeaders.get(0);
+      }
     }
+    return null;
   }
 
   @RequiresApi(23)
   private static final class Api23 {
 
-    @DoNotInline
     public static boolean isMediaDrmResetException(@Nullable Throwable throwable) {
       return throwable instanceof MediaDrmResetException;
     }

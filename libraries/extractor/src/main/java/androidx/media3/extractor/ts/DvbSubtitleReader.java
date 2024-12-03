@@ -15,6 +15,7 @@
  */
 package androidx.media3.extractor.ts;
 
+import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.extractor.ts.TsPayloadReader.FLAG_DATA_ALIGNMENT_INDICATOR;
 
 import androidx.media3.common.C;
@@ -34,6 +35,7 @@ import java.util.List;
 public final class DvbSubtitleReader implements ElementaryStreamReader {
 
   private final List<DvbSubtitleInfo> subtitleInfos;
+  private final String containerMimeType;
   private final TrackOutput[] outputs;
 
   private boolean writingSample;
@@ -43,9 +45,11 @@ public final class DvbSubtitleReader implements ElementaryStreamReader {
 
   /**
    * @param subtitleInfos Information about the DVB subtitles associated to the stream.
+   * @param containerMimeType The MIME type of the container holding the stream.
    */
-  public DvbSubtitleReader(List<DvbSubtitleInfo> subtitleInfos) {
+  public DvbSubtitleReader(List<DvbSubtitleInfo> subtitleInfos, String containerMimeType) {
     this.subtitleInfos = subtitleInfos;
+    this.containerMimeType = containerMimeType;
     outputs = new TrackOutput[subtitleInfos.size()];
     sampleTimeUs = C.TIME_UNSET;
   }
@@ -65,6 +69,7 @@ public final class DvbSubtitleReader implements ElementaryStreamReader {
       output.format(
           new Format.Builder()
               .setId(idGenerator.getFormatId())
+              .setContainerMimeType(containerMimeType)
               .setSampleMimeType(MimeTypes.APPLICATION_DVBSUBS)
               .setInitializationData(Collections.singletonList(subtitleInfo.initializationData))
               .setLanguage(subtitleInfo.language)
@@ -79,20 +84,18 @@ public final class DvbSubtitleReader implements ElementaryStreamReader {
       return;
     }
     writingSample = true;
-    if (pesTimeUs != C.TIME_UNSET) {
-      sampleTimeUs = pesTimeUs;
-    }
+    sampleTimeUs = pesTimeUs;
     sampleBytesWritten = 0;
     bytesToCheck = 2;
   }
 
   @Override
-  public void packetFinished() {
+  public void packetFinished(boolean isEndOfInput) {
     if (writingSample) {
-      if (sampleTimeUs != C.TIME_UNSET) {
-        for (TrackOutput output : outputs) {
-          output.sampleMetadata(sampleTimeUs, C.BUFFER_FLAG_KEY_FRAME, sampleBytesWritten, 0, null);
-        }
+      // packetStarted method must be called before reading sample.
+      checkState(sampleTimeUs != C.TIME_UNSET);
+      for (TrackOutput output : outputs) {
+        output.sampleMetadata(sampleTimeUs, C.BUFFER_FLAG_KEY_FRAME, sampleBytesWritten, 0, null);
       }
       writingSample = false;
     }

@@ -242,6 +242,236 @@ public final class HevcConfigTest {
         37
       };
 
+  private static final byte[] HVCC_BOX_PAYLOAD_MV_HEVC =
+      new byte[] {
+        // Header
+        1,
+        1,
+        96,
+        0,
+        0,
+        0,
+        -80,
+        0,
+        0,
+        0,
+        0,
+        0,
+        120,
+        -16,
+        0,
+        -4,
+        -3,
+        -8,
+        -8,
+        0,
+        0,
+        11,
+
+        // Number of arrays
+        4,
+
+        // NAL unit type = VPS
+        -96,
+        // Number of NAL units
+        0,
+        1,
+        // NAL unit length
+        0,
+        56,
+        // NAL unit
+        64,
+        1,
+        12,
+        17,
+        -1,
+        -1,
+        1,
+        96,
+        0,
+        0,
+        3,
+        0,
+        -80,
+        0,
+        0,
+        3,
+        0,
+        0,
+        3,
+        0,
+        120,
+        21,
+        -63,
+        91,
+        0,
+        32,
+        0,
+        40,
+        36,
+        -63,
+        -105,
+        6,
+        2,
+        0,
+        0,
+        3,
+        0,
+        -65,
+        -128,
+        0,
+        0,
+        3,
+        0,
+        0,
+        120,
+        -115,
+        7,
+        -128,
+        4,
+        64,
+        -96,
+        30,
+        92,
+        82,
+        -65,
+        72,
+
+        // NAL unit type = SPS
+        -95,
+        // Number of NAL units
+        0,
+        1,
+        // NAL unit length
+        0,
+        36,
+        // NAL unit
+        66,
+        1,
+        1,
+        1,
+        96,
+        0,
+        0,
+        3,
+        0,
+        -80,
+        0,
+        0,
+        3,
+        0,
+        0,
+        3,
+        0,
+        120,
+        -96,
+        3,
+        -64,
+        -128,
+        17,
+        7,
+        -53,
+        -120,
+        21,
+        -18,
+        69,
+        -107,
+        77,
+        64,
+        64,
+        64,
+        64,
+        32,
+
+        // NAL unit type = PPS
+        -94,
+        // Number of NAL units
+        0,
+        1,
+        // NAL unit length
+        0,
+        7,
+        // NAL unit
+        68,
+        1,
+        -64,
+        44,
+        -68,
+        20,
+        -55,
+
+        // NAL unit type = SEI
+        -89,
+        // Number of NAL units
+        0,
+        1,
+        // NAL unit length
+        0,
+        9,
+        // NAL unit
+        78,
+        1,
+        -80,
+        4,
+        4,
+        10,
+        -128,
+        32,
+        -128
+      };
+
+  private static final byte[] LHVC_BOX_PAYLOAD_MV_HEVC =
+      new byte[] {
+        // Header
+        1,
+        -16,
+        0,
+        -4,
+        -53,
+
+        // Number of arrays
+        2,
+
+        // NAL unit type = SPS
+        -95,
+        // Number of NAL units
+        0,
+        1,
+        // NAL unit length
+        0,
+        10,
+        // NAL unit
+        66,
+        9,
+        14,
+        -126,
+        46,
+        69,
+        -118,
+        -96,
+        5,
+        1,
+
+        // NAL unit type = PPS
+        -94,
+        // Number of NAL units
+        0,
+        1,
+        // NAL unit length
+        0,
+        9,
+        // NAL unit
+        68,
+        9,
+        72,
+        2,
+        -53,
+        -63,
+        77,
+        -88,
+        5,
+      };
+
   @Test
   public void parseHevcDecoderConfigurationRecord() throws Exception {
     ParsableByteArray data = new ParsableByteArray(HVCC_BOX_PAYLOAD);
@@ -259,5 +489,20 @@ public final class HevcConfigTest {
 
     assertThat(hevcConfig.codecs).isEqualTo("hvc1.1.6.L153.B0");
     assertThat(hevcConfig.nalUnitLengthFieldLength).isEqualTo(4);
+  }
+
+  @Test
+  public void parseLhevcDecoderConfigurationRecord() throws Exception {
+    ParsableByteArray hevcData = new ParsableByteArray(HVCC_BOX_PAYLOAD_MV_HEVC);
+    HevcConfig hevcConfig = HevcConfig.parse(hevcData);
+
+    assertThat(hevcConfig.codecs).isEqualTo("hvc1.1.6.L120.B0");
+    assertThat(hevcConfig.nalUnitLengthFieldLength).isEqualTo(4);
+
+    ParsableByteArray lhevcData = new ParsableByteArray(LHVC_BOX_PAYLOAD_MV_HEVC);
+    HevcConfig lhevcConfig = HevcConfig.parseLayered(lhevcData, hevcConfig.vpsData);
+
+    assertThat(lhevcConfig.codecs).isEqualTo("hvc1.6.40.L120.BF.80");
+    assertThat(lhevcConfig.nalUnitLengthFieldLength).isEqualTo(4);
   }
 }

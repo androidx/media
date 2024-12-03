@@ -19,9 +19,11 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.when;
 
+import android.os.Bundle;
 import android.os.Looper;
 import androidx.media3.common.Player;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.collect.ImmutableList;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -42,7 +44,15 @@ public class PlayerWrapperTest {
 
   @Before
   public void setUp() {
-    playerWrapper = new PlayerWrapper(player);
+    playerWrapper =
+        new PlayerWrapper(
+            player,
+            /* playIfSuppressed= */ true,
+            /* customLayout= */ ImmutableList.of(),
+            /* mediaButtonPreferences= */ ImmutableList.of(),
+            SessionCommands.EMPTY,
+            Player.Commands.EMPTY,
+            /* legacyExtras= */ Bundle.EMPTY);
     when(player.isCommandAvailable(anyInt())).thenReturn(true);
     when(player.getApplicationLooper()).thenReturn(Looper.myLooper());
   }

@@ -17,33 +17,41 @@ package androidx.media3.session;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
-import static androidx.media3.common.util.Util.postOrRun;
-import static androidx.media3.session.LibraryResult.RESULT_ERROR_SESSION_AUTHENTICATION_EXPIRED;
 import static androidx.media3.session.LibraryResult.RESULT_SUCCESS;
-import static androidx.media3.session.MediaConstants.ERROR_CODE_AUTHENTICATION_EXPIRED_COMPAT;
 import static androidx.media3.session.MediaConstants.EXTRAS_KEY_ERROR_RESOLUTION_ACTION_INTENT_COMPAT;
+import static androidx.media3.session.SessionError.ERROR_INVALID_STATE;
+import static androidx.media3.session.SessionError.ERROR_NOT_SUPPORTED;
+import static androidx.media3.session.SessionError.ERROR_UNKNOWN;
+import static java.lang.Math.max;
+import static java.lang.Math.min;
 
 import android.app.PendingIntent;
 import android.content.Context;
 import android.os.Bundle;
 import android.os.RemoteException;
-import android.support.v4.media.session.MediaSessionCompat;
-import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
-import androidx.collection.ArrayMap;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.Player;
+import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.common.util.Log;
+import androidx.media3.common.util.Util;
 import androidx.media3.session.MediaLibraryService.LibraryParams;
 import androidx.media3.session.MediaLibraryService.MediaLibrarySession;
 import androidx.media3.session.MediaSession.ControllerCb;
 import androidx.media3.session.MediaSession.ControllerInfo;
+import androidx.media3.session.legacy.MediaSessionCompat;
+import androidx.media3.session.legacy.PlaybackStateCompat;
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
-import java.util.HashSet;
+import com.google.common.util.concurrent.SettableFuture;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
@@ -51,25 +59,51 @@ import java.util.concurrent.Future;
 
 /* package */ class MediaLibrarySessionImpl extends MediaSessionImpl {
 
+  private static final String RECENT_LIBRARY_ROOT_MEDIA_ID = "androidx.media3.session.recent.root";
   private final MediaLibrarySession instance;
   private final MediaLibrarySession.Callback callback;
+  private final HashMultimap<String, ControllerInfo> parentIdToSubscribedControllers;
+  private final HashMultimap<ControllerCb, String> controllerToSubscribedParentIds;
 
-  @GuardedBy("lock")
-  private final ArrayMap<ControllerCb, Set<String>> subscriptions;
+  private final @MediaLibrarySession.LibraryErrorReplicationMode int libraryErrorReplicationMode;
 
+  /** Creates an instance. */
   public MediaLibrarySessionImpl(
       MediaLibrarySession instance,
       Context context,
       String id,
       Player player,
       @Nullable PendingIntent sessionActivity,
+      ImmutableList<CommandButton> customLayout,
+      ImmutableList<CommandButton> mediaButtonPreferences,
+      ImmutableList<CommandButton> commandButtonsForMediaItems,
       MediaLibrarySession.Callback callback,
       Bundle tokenExtras,
-      BitmapLoader bitmapLoader) {
-    super(instance, context, id, player, sessionActivity, callback, tokenExtras, bitmapLoader);
+      Bundle sessionExtras,
+      BitmapLoader bitmapLoader,
+      boolean playIfSuppressed,
+      boolean isPeriodicPositionUpdateEnabled,
+      @MediaLibrarySession.LibraryErrorReplicationMode int libraryErrorReplicationMode) {
+    super(
+        instance,
+        context,
+        id,
+        player,
+        sessionActivity,
+        customLayout,
+        mediaButtonPreferences,
+        commandButtonsForMediaItems,
+        callback,
+        tokenExtras,
+        sessionExtras,
+        bitmapLoader,
+        playIfSuppressed,
+        isPeriodicPositionUpdateEnabled);
     this.instance = instance;
     this.callback = callback;
-    subscriptions = new ArrayMap<>();
+    this.libraryErrorReplicationMode = libraryErrorReplicationMode;
+    parentIdToSubscribedControllers = HashMultimap.create();
+    controllerToSubscribedParentIds = HashMultimap.create();
   }
 
   @Override
@@ -92,18 +126,158 @@ import java.util.concurrent.Future;
         && legacyStub.getConnectedControllersManager().isConnected(controller);
   }
 
+  public void clearReplicatedLibraryError() {
+    PlayerWrapper playerWrapper = getPlayerWrapper();
+    if (playerWrapper.getLegacyError() != null) {
+      playerWrapper.clearLegacyErrorStatus();
+      getSessionCompat().setPlaybackState(playerWrapper.createPlaybackStateCompat());
+    }
+  }
+
+  public ListenableFuture<LibraryResult<MediaItem>> onGetLibraryRootOnHandler(
+      ControllerInfo browser, @Nullable LibraryParams params) {
+    if (params != null && params.isRecent && isSystemUiController(browser)) {
+      // Advertise support for playback resumption, if enabled.
+      return !canResumePlaybackOnStart()
+          ? Futures.immediateFuture(LibraryResult.ofError(ERROR_NOT_SUPPORTED))
+          : Futures.immediateFuture(
+              LibraryResult.ofItem(
+                  new MediaItem.Builder()
+                      .setMediaId(RECENT_LIBRARY_ROOT_MEDIA_ID)
+                      .setMediaMetadata(
+                          new MediaMetadata.Builder()
+                              .setIsBrowsable(true)
+                              .setIsPlayable(false)
+                              .build())
+                      .build(),
+                  params));
+    }
+    return callback.onGetLibraryRoot(instance, resolveControllerInfoForCallback(browser), params);
+  }
+
+  public ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> onGetChildrenOnHandler(
+      ControllerInfo browser,
+      String parentId,
+      int page,
+      int pageSize,
+      @Nullable LibraryParams params) {
+    if (Objects.equals(parentId, RECENT_LIBRARY_ROOT_MEDIA_ID)) {
+      if (!canResumePlaybackOnStart()) {
+        return Futures.immediateFuture(LibraryResult.ofError(ERROR_NOT_SUPPORTED));
+      }
+      // Advertise support for playback resumption. If STATE_IDLE, the request arrives at boot time
+      // to get the full item data to build a notification. If not STATE_IDLE we don't need to
+      // deliver the full media item, so we do the minimal viable effort.
+      return getPlayerWrapper().getPlaybackState() == Player.STATE_IDLE
+          ? getRecentMediaItemAtDeviceBootTime(browser, params)
+          : Futures.immediateFuture(
+              LibraryResult.ofItemList(
+                  ImmutableList.of(
+                      new MediaItem.Builder()
+                          .setMediaId("androidx.media3.session.recent.item")
+                          .setMediaMetadata(
+                              new MediaMetadata.Builder()
+                                  .setIsBrowsable(false)
+                                  .setIsPlayable(true)
+                                  .build())
+                          .build()),
+                  params));
+    }
+    ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> future =
+        callback.onGetChildren(
+            instance, resolveControllerInfoForCallback(browser), parentId, page, pageSize, params);
+    future.addListener(
+        () -> {
+          @Nullable LibraryResult<ImmutableList<MediaItem>> result = tryGetFutureResult(future);
+          if (result != null) {
+            maybeUpdateLegacyErrorState(browser, result);
+            verifyResultItems(result, pageSize);
+          }
+        },
+        this::postOrRunOnApplicationHandler);
+    return future;
+  }
+
+  public ListenableFuture<LibraryResult<MediaItem>> onGetItemOnHandler(
+      ControllerInfo browser, String mediaId) {
+    ListenableFuture<LibraryResult<MediaItem>> future =
+        callback.onGetItem(instance, resolveControllerInfoForCallback(browser), mediaId);
+    future.addListener(
+        () -> {
+          @Nullable LibraryResult<MediaItem> result = tryGetFutureResult(future);
+          if (result != null) {
+            maybeUpdateLegacyErrorState(browser, result);
+          }
+        },
+        this::postOrRunOnApplicationHandler);
+    return future;
+  }
+
+  public ListenableFuture<LibraryResult<Void>> onSubscribeOnHandler(
+      ControllerInfo browser, String parentId, @Nullable LibraryParams params) {
+
+    ControllerCb controllerCb = checkNotNull(browser.getControllerCb());
+    controllerToSubscribedParentIds.put(controllerCb, parentId);
+    parentIdToSubscribedControllers.put(parentId, browser);
+
+    // Call callbacks after adding it to the subscription list because library session may want
+    // to call notifyChildrenChanged() in the callback.
+    //
+    // onSubscribe is defined to return a non-null result but it's implemented by applications,
+    // so we explicitly null-check the result to fail early if an app accidentally returns null.
+    ListenableFuture<LibraryResult<Void>> future =
+        checkNotNull(
+            callback.onSubscribe(
+                instance, resolveControllerInfoForCallback(browser), parentId, params),
+            "onSubscribe must return non-null future");
+
+    future.addListener(
+        () -> {
+          @Nullable LibraryResult<Void> result = tryGetFutureResult(future);
+          if (result == null || result.resultCode != RESULT_SUCCESS) {
+            // Remove subscription in case of an error.
+            removeSubscription(browser, parentId);
+          }
+        },
+        this::postOrRunOnApplicationHandler);
+
+    return future;
+  }
+
+  public ImmutableList<ControllerInfo> getSubscribedControllers(String mediaId) {
+    return ImmutableList.copyOf(parentIdToSubscribedControllers.get(mediaId));
+  }
+
+  private boolean isSubscribed(ControllerCb controllerCb, String parentId) {
+    return controllerToSubscribedParentIds.containsEntry(controllerCb, parentId);
+  }
+
+  public ListenableFuture<LibraryResult<Void>> onUnsubscribeOnHandler(
+      ControllerInfo browser, String parentId) {
+    ListenableFuture<LibraryResult<Void>> future =
+        callback.onUnsubscribe(instance, resolveControllerInfoForCallback(browser), parentId);
+    future.addListener(
+        () -> removeSubscription(browser, parentId), this::postOrRunOnApplicationHandler);
+    return future;
+  }
+
   public void notifyChildrenChanged(
       String parentId, int itemCount, @Nullable LibraryParams params) {
-    dispatchRemoteControllerTaskWithoutReturn(
-        (callback, seq) -> {
-          if (isSubscribed(callback, parentId)) {
-            callback.onChildrenChanged(seq, parentId, itemCount, params);
-          }
-        });
+    List<ControllerInfo> connectedControllers = instance.getConnectedControllers();
+    for (int i = 0; i < connectedControllers.size(); i++) {
+      notifyChildrenChanged(connectedControllers.get(i), parentId, itemCount, params);
+    }
   }
 
   public void notifyChildrenChanged(
       ControllerInfo browser, String parentId, int itemCount, @Nullable LibraryParams params) {
+    if (isMediaNotificationControllerConnected() && isMediaNotificationController(browser)) {
+      ControllerInfo systemUiBrowser = getSystemUiControllerInfo();
+      if (systemUiBrowser == null) {
+        return;
+      }
+      browser = systemUiBrowser;
+    }
     dispatchRemoteControllerTaskWithoutReturn(
         browser,
         (callback, seq) -> {
@@ -114,121 +288,18 @@ import java.util.concurrent.Future;
         });
   }
 
-  public void notifySearchResultChanged(
-      ControllerInfo browser, String query, int itemCount, @Nullable LibraryParams params) {
-    dispatchRemoteControllerTaskWithoutReturn(
-        browser, (callback, seq) -> callback.onSearchResultChanged(seq, query, itemCount, params));
-  }
-
-  public ListenableFuture<LibraryResult<MediaItem>> onGetLibraryRootOnHandler(
-      ControllerInfo browser, @Nullable LibraryParams params) {
-    ListenableFuture<LibraryResult<MediaItem>> future =
-        callback.onGetLibraryRoot(instance, browser, params);
-    future.addListener(
-        () -> {
-          @Nullable LibraryResult<MediaItem> result = tryGetFutureResult(future);
-          if (result != null) {
-            maybeUpdateLegacyErrorState(result);
-          }
-        },
-        (Runnable r) -> postOrRun(getApplicationHandler(), r));
-    return future;
-  }
-
-  public ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> onGetChildrenOnHandler(
-      ControllerInfo browser,
-      String parentId,
-      int page,
-      int pageSize,
-      @Nullable LibraryParams params) {
-    ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> future =
-        callback.onGetChildren(instance, browser, parentId, page, pageSize, params);
-    future.addListener(
-        () -> {
-          @Nullable LibraryResult<ImmutableList<MediaItem>> result = tryGetFutureResult(future);
-          if (result != null) {
-            maybeUpdateLegacyErrorState(result);
-            verifyResultItems(result, pageSize);
-          }
-        },
-        (Runnable r) -> postOrRun(getApplicationHandler(), r));
-    return future;
-  }
-
-  public ListenableFuture<LibraryResult<MediaItem>> onGetItemOnHandler(
-      ControllerInfo browser, String mediaId) {
-    ListenableFuture<LibraryResult<MediaItem>> future =
-        callback.onGetItem(instance, browser, mediaId);
-    future.addListener(
-        () -> {
-          @Nullable LibraryResult<MediaItem> result = tryGetFutureResult(future);
-          if (result != null) {
-            maybeUpdateLegacyErrorState(result);
-          }
-        },
-        (Runnable r) -> postOrRun(getApplicationHandler(), r));
-    return future;
-  }
-
-  public ListenableFuture<LibraryResult<Void>> onSubscribeOnHandler(
-      ControllerInfo browser, String parentId, @Nullable LibraryParams params) {
-    ControllerCb controller = checkStateNotNull(browser.getControllerCb());
-    synchronized (lock) {
-      @Nullable Set<String> subscription = subscriptions.get(controller);
-      if (subscription == null) {
-        subscription = new HashSet<>();
-        subscriptions.put(controller, subscription);
-      }
-      subscription.add(parentId);
-    }
-
-    // Call callbacks after adding it to the subscription list because library session may want
-    // to call notifyChildrenChanged() in the callback.
-    //
-    // onSubscribe is defined to return a non-null result but it's implemented by applications,
-    // so we explicitly null-check the result to fail early if an app accidentally returns null.
-    ListenableFuture<LibraryResult<Void>> future =
-        checkNotNull(
-            callback.onSubscribe(instance, browser, parentId, params),
-            "onSubscribe must return non-null future");
-
-    // When error happens, remove from the subscription list.
-    future.addListener(
-        () -> {
-          @Nullable LibraryResult<Void> result = tryGetFutureResult(future);
-          if (result == null || result.resultCode != RESULT_SUCCESS) {
-            removeSubscription(controller, parentId);
-          }
-        },
-        MoreExecutors.directExecutor());
-
-    return future;
-  }
-
-  public ListenableFuture<LibraryResult<Void>> onUnsubscribeOnHandler(
-      ControllerInfo browser, String parentId) {
-    ListenableFuture<LibraryResult<Void>> future =
-        callback.onUnsubscribe(instance, browser, parentId);
-
-    future.addListener(
-        () -> removeSubscription(checkStateNotNull(browser.getControllerCb()), parentId),
-        MoreExecutors.directExecutor());
-
-    return future;
-  }
-
   public ListenableFuture<LibraryResult<Void>> onSearchOnHandler(
       ControllerInfo browser, String query, @Nullable LibraryParams params) {
     ListenableFuture<LibraryResult<Void>> future =
-        callback.onSearch(instance, browser, query, params);
+        callback.onSearch(instance, resolveControllerInfoForCallback(browser), query, params);
     future.addListener(
         () -> {
           @Nullable LibraryResult<Void> result = tryGetFutureResult(future);
           if (result != null) {
-            maybeUpdateLegacyErrorState(result);
+            maybeUpdateLegacyErrorState(browser, result);
           }
         },
-        (Runnable r) -> postOrRun(getApplicationHandler(), r));
+        this::postOrRunOnApplicationHandler);
     return future;
   }
 
@@ -239,17 +310,41 @@ import java.util.concurrent.Future;
       int pageSize,
       @Nullable LibraryParams params) {
     ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> future =
-        callback.onGetSearchResult(instance, browser, query, page, pageSize, params);
+        callback.onGetSearchResult(
+            instance, resolveControllerInfoForCallback(browser), query, page, pageSize, params);
     future.addListener(
         () -> {
           @Nullable LibraryResult<ImmutableList<MediaItem>> result = tryGetFutureResult(future);
           if (result != null) {
-            maybeUpdateLegacyErrorState(result);
+            maybeUpdateLegacyErrorState(browser, result);
             verifyResultItems(result, pageSize);
           }
         },
-        (Runnable r) -> postOrRun(getApplicationHandler(), r));
+        this::postOrRunOnApplicationHandler);
     return future;
+  }
+
+  public void notifySearchResultChanged(
+      ControllerInfo browser, String query, int itemCount, @Nullable LibraryParams params) {
+    if (isMediaNotificationControllerConnected() && isMediaNotificationController(browser)) {
+      ControllerInfo systemUiBrowser = getSystemUiControllerInfo();
+      if (systemUiBrowser == null) {
+        return;
+      }
+      browser = systemUiBrowser;
+    }
+    dispatchRemoteControllerTaskWithoutReturn(
+        browser, (callback, seq) -> callback.onSearchResultChanged(seq, query, itemCount, params));
+  }
+
+  @Override
+  public void onDisconnectedOnHandler(ControllerInfo controller) {
+    ControllerCb controllerCb = checkNotNull(controller.getControllerCb());
+    Set<String> subscriptions = controllerToSubscribedParentIds.get(controllerCb);
+    for (String parentId : ImmutableSet.copyOf(subscriptions)) {
+      removeSubscription(controller, parentId);
+    }
+    super.onDisconnectedOnHandler(controller);
   }
 
   @Override
@@ -279,35 +374,57 @@ import java.util.concurrent.Future;
     }
   }
 
-  private boolean isSubscribed(ControllerCb callback, String parentId) {
-    synchronized (lock) {
-      @Nullable Set<String> subscriptions = this.subscriptions.get(callback);
-      if (subscriptions == null || !subscriptions.contains(parentId)) {
-        return false;
-      }
+  private void maybeUpdateLegacyErrorState(ControllerInfo browser, LibraryResult<?> result) {
+    if (libraryErrorReplicationMode == MediaLibrarySession.LIBRARY_ERROR_REPLICATION_MODE_NONE
+        || browser.getControllerVersion() != ControllerInfo.LEGACY_CONTROLLER_VERSION) {
+      return;
     }
-    return true;
+    PlayerWrapper playerWrapper = getPlayerWrapper();
+    if (setLegacyErrorState(result)) {
+      // Sync playback state if legacy error state changed.
+      getSessionCompat().setPlaybackState(playerWrapper.createPlaybackStateCompat());
+    } else if (result.resultCode == RESULT_SUCCESS) {
+      clearReplicatedLibraryError();
+    }
   }
 
-  private void maybeUpdateLegacyErrorState(LibraryResult<?> result) {
+  private boolean setLegacyErrorState(LibraryResult<?> result) {
     PlayerWrapper playerWrapper = getPlayerWrapper();
-    if (result.resultCode == RESULT_ERROR_SESSION_AUTHENTICATION_EXPIRED
-        && result.params != null
-        && result.params.extras.containsKey(EXTRAS_KEY_ERROR_RESOLUTION_ACTION_INTENT_COMPAT)) {
-      // Mapping this error to the legacy error state provides backwards compatibility for the
-      // Automotive OS sign-in.
-      MediaSessionCompat mediaSessionCompat = getSessionCompat();
-      if (playerWrapper.getLegacyStatusCode() != RESULT_ERROR_SESSION_AUTHENTICATION_EXPIRED) {
-        playerWrapper.setLegacyErrorStatus(
-            ERROR_CODE_AUTHENTICATION_EXPIRED_COMPAT,
-            getContext().getString(R.string.authentication_required),
-            result.params.extras);
-        mediaSessionCompat.setPlaybackState(playerWrapper.createPlaybackStateCompat());
+    if (isReplicationErrorCode(result.resultCode)) {
+      @PlaybackStateCompat.ErrorCode
+      int legacyErrorCode = LegacyConversions.convertToLegacyErrorCode(result.resultCode);
+      @Nullable PlayerWrapper.LegacyError legacyError = playerWrapper.getLegacyError();
+      if (legacyError == null || legacyError.code != legacyErrorCode) {
+        // Mapping this error to the legacy error state provides backwards compatibility for the
+        // documented AAOS error flow:
+        // https://developer.android.com/training/cars/media/automotive-os#-error-handling
+        String errorMessage =
+            result.sessionError != null
+                ? result.sessionError.message
+                : SessionError.DEFAULT_ERROR_MESSAGE;
+        Bundle bundle = Bundle.EMPTY;
+        if (result.params != null
+            && result.params.extras.containsKey(EXTRAS_KEY_ERROR_RESOLUTION_ACTION_INTENT_COMPAT)) {
+          // Backwards compatibility for Callbacks before SessionError was introduced.
+          bundle = result.params.extras;
+        } else if (result.sessionError != null) {
+          bundle = result.sessionError.extras;
+        }
+        playerWrapper.setLegacyError(
+            /* isFatal= */ libraryErrorReplicationMode
+                == MediaLibrarySession.LIBRARY_ERROR_REPLICATION_MODE_FATAL,
+            legacyErrorCode,
+            errorMessage,
+            bundle);
+        return true;
       }
-    } else if (playerWrapper.getLegacyStatusCode() != RESULT_SUCCESS) {
-      playerWrapper.clearLegacyErrorStatus();
-      getSessionCompat().setPlaybackState(playerWrapper.createPlaybackStateCompat());
     }
+    return false;
+  }
+
+  private boolean isReplicationErrorCode(@LibraryResult.Code int resultCode) {
+    return resultCode == LibraryResult.RESULT_ERROR_SESSION_AUTHENTICATION_EXPIRED
+        || resultCode == LibraryResult.RESULT_ERROR_SESSION_PARENTAL_CONTROL_RESTRICTED;
   }
 
   @Nullable
@@ -315,7 +432,8 @@ import java.util.concurrent.Future;
     checkState(future.isDone());
     try {
       return future.get();
-    } catch (CancellationException | ExecutionException | InterruptedException unused) {
+    } catch (CancellationException | ExecutionException | InterruptedException e) {
+      Log.w(TAG, "Library operation failed", e);
       return null;
     }
   }
@@ -330,15 +448,50 @@ import java.util.concurrent.Future;
     }
   }
 
-  private void removeSubscription(ControllerCb controllerCb, String parentId) {
-    synchronized (lock) {
-      @Nullable Set<String> subscription = subscriptions.get(controllerCb);
-      if (subscription != null) {
-        subscription.remove(parentId);
-        if (subscription.isEmpty()) {
-          subscriptions.remove(controllerCb);
-        }
-      }
-    }
+  private void removeSubscription(ControllerInfo controllerInfo, String parentId) {
+    ControllerCb controllerCb = checkNotNull(controllerInfo.getControllerCb());
+    parentIdToSubscribedControllers.remove(parentId, controllerInfo);
+    controllerToSubscribedParentIds.remove(controllerCb, parentId);
+  }
+
+  private void postOrRunOnApplicationHandler(Runnable runnable) {
+    Util.postOrRun(getApplicationHandler(), runnable);
+  }
+
+  private ListenableFuture<LibraryResult<ImmutableList<MediaItem>>>
+      getRecentMediaItemAtDeviceBootTime(
+          ControllerInfo controller, @Nullable LibraryParams params) {
+    SettableFuture<LibraryResult<ImmutableList<MediaItem>>> settableFuture =
+        SettableFuture.create();
+    controller =
+        isMediaNotificationControllerConnected()
+            ? checkNotNull(getMediaNotificationControllerInfo())
+            : controller;
+    ListenableFuture<MediaSession.MediaItemsWithStartPosition> future =
+        callback.onPlaybackResumption(instance, controller);
+    Futures.addCallback(
+        future,
+        new FutureCallback<MediaSession.MediaItemsWithStartPosition>() {
+          @Override
+          public void onSuccess(MediaSession.MediaItemsWithStartPosition playlist) {
+            if (playlist.mediaItems.isEmpty()) {
+              settableFuture.set(LibraryResult.ofError(ERROR_INVALID_STATE, params));
+              return;
+            }
+            int sanitizedStartIndex =
+                max(0, min(playlist.startIndex, playlist.mediaItems.size() - 1));
+            settableFuture.set(
+                LibraryResult.ofItemList(
+                    ImmutableList.of(playlist.mediaItems.get(sanitizedStartIndex)), params));
+          }
+
+          @Override
+          public void onFailure(Throwable t) {
+            settableFuture.set(LibraryResult.ofError(ERROR_UNKNOWN, params));
+            Log.e(TAG, "Failed fetching recent media item at boot time: " + t.getMessage(), t);
+          }
+        },
+        MoreExecutors.directExecutor());
+    return settableFuture;
   }
 }

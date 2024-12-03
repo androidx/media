@@ -56,7 +56,8 @@ public class StreamVolumeManagerTest {
     testThread.runOnMainThread(
         () ->
             streamVolumeManager =
-                new StreamVolumeManager(context, new Handler(Looper.myLooper()), testListener));
+                new StreamVolumeManager(
+                    context, new Handler(Looper.myLooper()), testListener, C.STREAM_TYPE_DEFAULT));
   }
 
   @After
@@ -102,11 +103,12 @@ public class StreamVolumeManagerTest {
           if (minVolume == maxVolume) {
             return;
           }
+          int volumeFlags = C.VOLUME_FLAG_SHOW_UI | C.VOLUME_FLAG_VIBRATE;
 
           int oldVolume = streamVolumeManager.getVolume();
           int targetVolume = oldVolume == maxVolume ? minVolume : maxVolume;
 
-          streamVolumeManager.setVolume(targetVolume);
+          streamVolumeManager.setVolume(targetVolume, volumeFlags);
 
           assertThat(streamVolumeManager.getVolume()).isEqualTo(targetVolume);
           assertThat(testListener.lastStreamVolume).isEqualTo(targetVolume);
@@ -121,11 +123,12 @@ public class StreamVolumeManagerTest {
           int maxVolume = streamVolumeManager.getMaxVolume();
           int minVolume = streamVolumeManager.getMinVolume();
           int oldVolume = streamVolumeManager.getVolume();
+          int volumeFlags = C.VOLUME_FLAG_SHOW_UI | C.VOLUME_FLAG_VIBRATE;
 
-          streamVolumeManager.setVolume(maxVolume + 1);
+          streamVolumeManager.setVolume(maxVolume + 1, volumeFlags);
           assertThat(streamVolumeManager.getVolume()).isEqualTo(oldVolume);
 
-          streamVolumeManager.setVolume(minVolume - 1);
+          streamVolumeManager.setVolume(minVolume - 1, volumeFlags);
           assertThat(streamVolumeManager.getVolume()).isEqualTo(oldVolume);
         });
   }
@@ -139,11 +142,12 @@ public class StreamVolumeManagerTest {
           if (minVolume == maxVolume) {
             return;
           }
+          int volumeFlags = C.VOLUME_FLAG_SHOW_UI | C.VOLUME_FLAG_VIBRATE;
 
-          streamVolumeManager.setVolume(minVolume);
+          streamVolumeManager.setVolume(minVolume, volumeFlags);
           int targetVolume = minVolume + 1;
 
-          streamVolumeManager.increaseVolume();
+          streamVolumeManager.increaseVolume(volumeFlags);
 
           assertThat(streamVolumeManager.getVolume()).isEqualTo(targetVolume);
           assertThat(testListener.lastStreamVolume).isEqualTo(targetVolume);
@@ -156,9 +160,10 @@ public class StreamVolumeManagerTest {
     testThread.runOnMainThread(
         () -> {
           int maxVolume = streamVolumeManager.getMaxVolume();
+          int volumeFlags = C.VOLUME_FLAG_SHOW_UI | C.VOLUME_FLAG_VIBRATE;
 
-          streamVolumeManager.setVolume(maxVolume);
-          streamVolumeManager.increaseVolume();
+          streamVolumeManager.setVolume(maxVolume, volumeFlags);
+          streamVolumeManager.increaseVolume(volumeFlags);
 
           assertThat(streamVolumeManager.getVolume()).isEqualTo(maxVolume);
         });
@@ -173,11 +178,12 @@ public class StreamVolumeManagerTest {
           if (minVolume == maxVolume) {
             return;
           }
+          int volumeFlags = C.VOLUME_FLAG_SHOW_UI | C.VOLUME_FLAG_VIBRATE;
 
-          streamVolumeManager.setVolume(maxVolume);
+          streamVolumeManager.setVolume(maxVolume, volumeFlags);
           int targetVolume = maxVolume - 1;
 
-          streamVolumeManager.decreaseVolume();
+          streamVolumeManager.decreaseVolume(volumeFlags);
 
           assertThat(streamVolumeManager.getVolume()).isEqualTo(targetVolume);
           assertThat(testListener.lastStreamVolume).isEqualTo(targetVolume);
@@ -190,9 +196,10 @@ public class StreamVolumeManagerTest {
     testThread.runOnMainThread(
         () -> {
           int minVolume = streamVolumeManager.getMinVolume();
+          int volumeFlags = C.VOLUME_FLAG_SHOW_UI | C.VOLUME_FLAG_VIBRATE;
 
-          streamVolumeManager.setVolume(minVolume);
-          streamVolumeManager.decreaseVolume();
+          streamVolumeManager.setVolume(minVolume, volumeFlags);
+          streamVolumeManager.decreaseVolume(volumeFlags);
 
           assertThat(streamVolumeManager.getVolume()).isEqualTo(minVolume);
         });
@@ -207,15 +214,16 @@ public class StreamVolumeManagerTest {
           if (minVolume == maxVolume || minVolume > 0) {
             return;
           }
+          int volumeFlags = C.VOLUME_FLAG_SHOW_UI | C.VOLUME_FLAG_VIBRATE;
 
-          streamVolumeManager.setVolume(maxVolume);
+          streamVolumeManager.setVolume(maxVolume, volumeFlags);
           assertThat(streamVolumeManager.isMuted()).isFalse();
 
-          streamVolumeManager.setMuted(true);
+          streamVolumeManager.setMuted(true, volumeFlags);
           assertThat(streamVolumeManager.isMuted()).isTrue();
           assertThat(testListener.lastStreamVolumeMuted).isTrue();
 
-          streamVolumeManager.setMuted(false);
+          streamVolumeManager.setMuted(false, volumeFlags);
           assertThat(streamVolumeManager.isMuted()).isFalse();
           assertThat(testListener.lastStreamVolumeMuted).isFalse();
           assertThat(testListener.lastStreamVolume).isEqualTo(maxVolume);
@@ -223,7 +231,7 @@ public class StreamVolumeManagerTest {
   }
 
   @Test
-  public void setStreamType_notifiesStreamTypeAndVolume() {
+  public void setStreamType_toNonDefaultType_notifiesStreamTypeAndVolume() {
     testThread.runOnMainThread(
         () -> {
           int minVolume = streamVolumeManager.getMinVolume();
@@ -231,14 +239,15 @@ public class StreamVolumeManagerTest {
           if (minVolume == maxVolume) {
             return;
           }
+          int volumeFlags = C.VOLUME_FLAG_SHOW_UI | C.VOLUME_FLAG_VIBRATE;
 
-          int testStreamType = C.STREAM_TYPE_ALARM;
+          int testStreamType = C.STREAM_TYPE_ALARM; // not STREAM_TYPE_DEFAULT, i.e. MUSIC
           int testStreamVolume = audioManager.getStreamVolume(testStreamType);
 
           int oldVolume = streamVolumeManager.getVolume();
           if (oldVolume == testStreamVolume) {
             int differentVolume = oldVolume == minVolume ? maxVolume : minVolume;
-            streamVolumeManager.setVolume(differentVolume);
+            streamVolumeManager.setVolume(differentVolume, volumeFlags);
           }
 
           streamVolumeManager.setStreamType(testStreamType);

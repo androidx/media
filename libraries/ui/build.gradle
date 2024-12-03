@@ -16,26 +16,36 @@ apply from: "$gradle.ext.androidxMediaSettingsDir/common_library_config.gradle"
 android.buildTypes.debug.testCoverageEnabled true
 
 android {
+    namespace 'androidx.media3.ui'
+
     lint {
         baseline = file("lint-baseline.xml")
+    }
+
+    publishing {
+        singleVariant('release') {
+            withSourcesJar()
+        }
+    }
+
+    sourceSets {
+        androidTest.assets.srcDir '../test_data/src/test/assets'
+        test.assets.srcDir '../test_data/src/test/assets/'
     }
 }
 
 dependencies {
-    implementation project(modulePrefix + 'lib-common')
+    api project(modulePrefix + 'lib-common')
     implementation 'androidx.media:media:' + androidxMediaVersion
     implementation 'androidx.annotation:annotation:' + androidxAnnotationVersion
     implementation 'androidx.recyclerview:recyclerview:' + androidxRecyclerViewVersion
     compileOnly 'org.checkerframework:checker-qual:' + checkerframeworkVersion
     compileOnly 'org.jetbrains.kotlin:kotlin-annotations-jvm:' + kotlinAnnotationsVersion
+    testImplementation project(modulePrefix + 'lib-exoplayer')
+    testImplementation project(modulePrefix + 'test-utils-robolectric')
     testImplementation project(modulePrefix + 'test-utils')
     testImplementation 'org.robolectric:robolectric:' + robolectricVersion
 }
-
-ext {
-    javadocTitle = 'UI module'
-}
-apply from: '../../javadoc_library.gradle'
 
 ext {
     releaseArtifactId = 'media3-ui'

@@ -17,26 +17,31 @@
 package androidx.media3.test.utils;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
+import static androidx.media3.common.util.MediaFormatUtil.createMediaFormatFromFormat;
+import static androidx.media3.test.utils.TestUtil.buildAssetUri;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
-import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
-import android.content.res.AssetFileDescriptor;
-import android.graphics.SurfaceTexture;
-import android.media.MediaCodec;
-import android.media.MediaExtractor;
 import android.media.MediaFormat;
+import android.os.Handler;
 import android.view.Surface;
-import androidx.media3.common.MimeTypes;
+import androidx.annotation.Nullable;
+import androidx.media3.common.Format;
+import androidx.media3.common.MediaItem;
+import androidx.media3.common.PlaybackException;
+import androidx.media3.common.Player;
+import androidx.media3.common.util.ConditionVariable;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
-import java.nio.ByteBuffer;
-import org.checkerframework.checker.nullness.qual.Nullable;
+import androidx.media3.exoplayer.DecoderReuseEvaluation;
+import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.exoplayer.analytics.AnalyticsListener;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicReference;
 
-/** Utilities for decoding a frame for tests. */
+/** Utilities for decoding a video frame for tests. */
 @UnstableApi
-public class DecodeOneFrameUtil {
-
+public final class DecodeOneFrameUtil {
   /** Listener for decoding events. */
   public interface Listener {
     /** Called when the video {@link MediaFormat} is extracted from the container. */
@@ -49,127 +54,91 @@ public class DecodeOneFrameUtil {
     void onFrameDecoded(MediaFormat mediaFormat);
   }
 
-  /** Timeout for dequeueing buffers from the codec, in microseconds. */
-  private static final int DEQUEUE_TIMEOUT_US = 5_000_000;
+  /** Timeout for reading, decoding and rendering a video frame, in milliseconds. */
+  private static final int TIMEOUT_MS = 5_000;
 
   /**
-   * Reads and decodes one frame from the {@code cacheFilePath} and renders it to the {@code
-   * surface}.
+   * Reads and decodes one frame synchronously from the {@code assetFilePath} and renders it to the
+   * {@code surface}.
    *
-   * @param cacheFilePath The path to the file in the cache directory.
-   * @param listener A {@link Listener} implementation.
-   * @param surface The {@link Surface} to render the decoded frame to, {@code null} if the decoded
-   *     frame is not needed.
-   */
-  public static void decodeOneCacheFileFrame(
-      String cacheFilePath, Listener listener, @Nullable Surface surface) throws Exception {
-    MediaExtractor mediaExtractor = new MediaExtractor();
-    try {
-      mediaExtractor.setDataSource(cacheFilePath);
-      decodeOneFrame(mediaExtractor, listener, surface);
-    } finally {
-      mediaExtractor.release();
-    }
-  }
-
-  /**
-   * Reads and decodes one frame from the {@code assetFilePath} and renders it to the {@code
-   * surface}.
+   * <p>This method blocks until the frame has been rendered to the {@code surface}.
    *
    * @param assetFilePath The path to the file in the asset directory.
    * @param listener A {@link Listener} implementation.
-   * @param surface The {@link Surface} to render the decoded frame to, {@code null} if the decoded
-   *     frame is not needed.
+   * @param surface The {@link Surface} to render the decoded frame to.
    */
+  @SuppressWarnings("CatchingUnchecked")
   public static void decodeOneAssetFileFrame(
-      String assetFilePath, Listener listener, @Nullable Surface surface) throws Exception {
-    MediaExtractor mediaExtractor = new MediaExtractor();
+      String assetFilePath, Listener listener, Surface surface) throws Exception {
     Context context = getApplicationContext();
-    try (AssetFileDescriptor afd = context.getAssets().openFd(assetFilePath)) {
-      mediaExtractor.setDataSource(afd.getFileDescriptor(), afd.getStartOffset(), afd.getLength());
-      decodeOneFrame(mediaExtractor, listener, surface);
-    } finally {
-      mediaExtractor.release();
+    AtomicReference<@NullableType Exception> unexpectedExceptionReference = new AtomicReference<>();
+    AtomicReference<@NullableType PlaybackException> playbackExceptionReference =
+        new AtomicReference<>();
+    ConditionVariable firstFrameRenderedOrError = new ConditionVariable();
+
+    ExoPlayer exoPlayer = new ExoPlayer.Builder(context).build();
+    Handler handler = new Handler(exoPlayer.getApplicationLooper());
+    AnalyticsListener analyticsListener =
+        new AnalyticsListener() {
+          @Override
+          public void onVideoInputFormatChanged(
+              EventTime eventTime,
+              Format format,
+              @Nullable DecoderReuseEvaluation decoderReuseEvaluation) {
+            listener.onContainerExtracted(createMediaFormatFromFormat(format));
+          }
+
+          @Override
+          public void onRenderedFirstFrame(EventTime eventTime, Object output, long renderTimeMs) {
+            if (exoPlayer.isReleased()) {
+              return;
+            }
+            listener.onFrameDecoded(
+                createMediaFormatFromFormat(checkNotNull(exoPlayer.getVideoFormat())));
+            firstFrameRenderedOrError.open();
+          }
+
+          @Override
+          public void onEvents(Player player, Events events) {
+            if (exoPlayer.isReleased()) {
+              return;
+            }
+            if (events.contains(EVENT_PLAYER_ERROR)) {
+              playbackExceptionReference.set(checkNotNull(player.getPlayerError()));
+              firstFrameRenderedOrError.open();
+            }
+          }
+        };
+
+    handler.post(
+        () -> {
+          try {
+            exoPlayer.setVideoSurface(surface);
+            exoPlayer.addAnalyticsListener(analyticsListener);
+            exoPlayer.setMediaItem(MediaItem.fromUri(buildAssetUri(assetFilePath)));
+            exoPlayer.setPlayWhenReady(false);
+            exoPlayer.prepare();
+            // Catch all exceptions to report. Exceptions thrown here and not caught will not
+            // propagate.
+          } catch (Exception e) {
+            unexpectedExceptionReference.set(e);
+            firstFrameRenderedOrError.open();
+          }
+        });
+
+    if (!firstFrameRenderedOrError.block(TIMEOUT_MS)) {
+      throw new TimeoutException(
+          "DecodeOneFrameUtil timed out after " + TIMEOUT_MS + " milliseconds.");
     }
-  }
-
-  /**
-   * Reads and decodes one frame from the {@code mediaExtractor} and renders it to the {@code
-   * surface}.
-   *
-   * @param mediaExtractor The {@link MediaExtractor} with a {@link
-   *     MediaExtractor#setDataSource(String) data source set}.
-   * @param listener A {@link Listener} implementation.
-   * @param surface The {@link Surface} to render the decoded frame to, {@code null} if the decoded
-   *     frame is not needed.
-   */
-  private static void decodeOneFrame(
-      MediaExtractor mediaExtractor, Listener listener, @Nullable Surface surface)
-      throws Exception {
-    // Set up the extractor to read the first video frame and get its format.
-    if (surface == null) {
-      // Creates a placeholder surface.
-      surface = new Surface(new SurfaceTexture(/* texName= */ 0));
+    handler.post(exoPlayer::release);
+    @Nullable PlaybackException playbackException = playbackExceptionReference.get();
+    if (playbackException != null) {
+      throw playbackException;
     }
-
-    @Nullable MediaCodec mediaCodec = null;
-    @Nullable MediaFormat mediaFormat = null;
-
-    try {
-      for (int i = 0; i < mediaExtractor.getTrackCount(); i++) {
-        if (MimeTypes.isVideo(mediaExtractor.getTrackFormat(i).getString(MediaFormat.KEY_MIME))) {
-          mediaFormat = mediaExtractor.getTrackFormat(i);
-          listener.onContainerExtracted(checkNotNull(mediaFormat));
-          mediaExtractor.selectTrack(i);
-          break;
-        }
-      }
-
-      checkStateNotNull(mediaFormat);
-      // Queue the first video frame from the extractor.
-      String mimeType = checkNotNull(mediaFormat.getString(MediaFormat.KEY_MIME));
-      mediaCodec = MediaCodec.createDecoderByType(mimeType);
-      mediaCodec.configure(mediaFormat, surface, /* crypto= */ null, /* flags= */ 0);
-      mediaCodec.start();
-      int inputBufferIndex = mediaCodec.dequeueInputBuffer(DEQUEUE_TIMEOUT_US);
-      assertThat(inputBufferIndex).isNotEqualTo(MediaCodec.INFO_TRY_AGAIN_LATER);
-      ByteBuffer inputBuffer = checkNotNull(mediaCodec.getInputBuffers()[inputBufferIndex]);
-      int sampleSize = mediaExtractor.readSampleData(inputBuffer, /* offset= */ 0);
-      mediaCodec.queueInputBuffer(
-          inputBufferIndex,
-          /* offset= */ 0,
-          sampleSize,
-          mediaExtractor.getSampleTime(),
-          mediaExtractor.getSampleFlags());
-
-      // Queue an end-of-stream buffer to force the codec to produce output.
-      inputBufferIndex = mediaCodec.dequeueInputBuffer(DEQUEUE_TIMEOUT_US);
-      assertThat(inputBufferIndex).isNotEqualTo(MediaCodec.INFO_TRY_AGAIN_LATER);
-      mediaCodec.queueInputBuffer(
-          inputBufferIndex,
-          /* offset= */ 0,
-          /* size= */ 0,
-          /* presentationTimeUs= */ 0,
-          MediaCodec.BUFFER_FLAG_END_OF_STREAM);
-
-      // Dequeue and render the output video frame.
-      MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
-      int outputBufferIndex;
-      boolean decoderFormatRead = false;
-      do {
-        outputBufferIndex = mediaCodec.dequeueOutputBuffer(bufferInfo, DEQUEUE_TIMEOUT_US);
-        if (!decoderFormatRead && outputBufferIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
-          listener.onFrameDecoded(mediaCodec.getOutputFormat());
-          decoderFormatRead = true;
-        }
-        assertThat(outputBufferIndex).isNotEqualTo(MediaCodec.INFO_TRY_AGAIN_LATER);
-      } while (outputBufferIndex == MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED
-          || outputBufferIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED);
-      mediaCodec.releaseOutputBuffer(outputBufferIndex, /* render= */ true);
-    } finally {
-      if (mediaCodec != null) {
-        mediaCodec.release();
-      }
+    @Nullable Exception unexpectedException = unexpectedExceptionReference.get();
+    if (unexpectedException != null) {
+      throw new IllegalStateException(
+          "Unexpected exception starting the player.", unexpectedException);
     }
   }
 

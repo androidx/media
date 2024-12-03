@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.source;
 
+import static androidx.media3.common.util.Assertions.checkState;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.annotation.ElementType.TYPE_USE;
@@ -22,6 +23,7 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.MediaItem;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
@@ -53,10 +55,13 @@ public final class ClippingMediaSource extends WrappingMediaSource {
     @Target(TYPE_USE)
     @IntDef({REASON_INVALID_PERIOD_COUNT, REASON_NOT_SEEKABLE_TO_START, REASON_START_EXCEEDS_END})
     public @interface Reason {}
+
     /** The wrapped source doesn't consist of a single period. */
     public static final int REASON_INVALID_PERIOD_COUNT = 0;
+
     /** The wrapped source is not seekable and a non-zero clipping start position was specified. */
     public static final int REASON_NOT_SEEKABLE_TO_START = 1;
+
     /** The wrapped source ends before the specified clipping start position. */
     public static final int REASON_START_EXCEEDS_END = 2;
 
@@ -67,18 +72,23 @@ public final class ClippingMediaSource extends WrappingMediaSource {
      * @param reason The reason clipping failed.
      */
     public IllegalClippingException(@Reason int reason) {
-      super("Illegal clipping: " + getReasonDescription(reason));
+      this(reason, /* startUs= */ C.TIME_UNSET, /* endUs= */ C.TIME_UNSET);
+    }
+
+    public IllegalClippingException(@Reason int reason, long startUs, long endUs) {
+      super("Illegal clipping: " + getReasonDescription(reason, startUs, endUs));
       this.reason = reason;
     }
 
-    private static String getReasonDescription(@Reason int reason) {
+    private static String getReasonDescription(@Reason int reason, long startUs, long endUs) {
       switch (reason) {
         case REASON_INVALID_PERIOD_COUNT:
           return "invalid period count";
         case REASON_NOT_SEEKABLE_TO_START:
           return "not seekable to start";
         case REASON_START_EXCEEDS_END:
-          return "start exceeds end";
+          checkState(startUs != C.TIME_UNSET && endUs != C.TIME_UNSET);
+          return "start exceeds end. Start time: " + startUs + ", End time: " + endUs;
         default:
           return "unknown";
       }
@@ -192,6 +202,12 @@ public final class ClippingMediaSource extends WrappingMediaSource {
   }
 
   @Override
+  public boolean canUpdateMediaItem(MediaItem mediaItem) {
+    return getMediaItem().clippingConfiguration.equals(mediaItem.clippingConfiguration)
+        && mediaSource.canUpdateMediaItem(mediaItem);
+  }
+
+  @Override
   public void maybeThrowSourceInfoRefreshError() throws IOException {
     if (clippingError != null) {
       throw clippingError;
@@ -213,7 +229,7 @@ public final class ClippingMediaSource extends WrappingMediaSource {
 
   @Override
   public void releasePeriod(MediaPeriod mediaPeriod) {
-    Assertions.checkState(mediaPeriods.remove(mediaPeriod));
+    checkState(mediaPeriods.remove(mediaPeriod));
     mediaSource.releasePeriod(((ClippingMediaPeriod) mediaPeriod).mediaPeriod);
     if (mediaPeriods.isEmpty() && !allowDynamicClippingUpdates) {
       refreshClippedTimeline(Assertions.checkNotNull(clippingTimeline).timeline);
@@ -313,7 +329,10 @@ public final class ClippingMediaSource extends WrappingMediaSource {
           resolvedEndUs = window.durationUs;
         }
         if (startUs > resolvedEndUs) {
-          throw new IllegalClippingException(IllegalClippingException.REASON_START_EXCEEDS_END);
+          throw new IllegalClippingException(
+              IllegalClippingException.REASON_START_EXCEEDS_END,
+              startUs,
+              /* endUs= */ resolvedEndUs);
         }
       }
       this.startUs = startUs;

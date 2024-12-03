@@ -17,8 +17,10 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.common.util.Assertions.checkArgument;
+import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
-import static androidx.media3.extractor.NalUnitUtil.NAL_START_CODE;
+import static androidx.media3.container.NalUnitUtil.H264_NAL_UNIT_TYPE_PREFIX;
+import static androidx.media3.container.NalUnitUtil.NAL_START_CODE;
 import static java.lang.Math.min;
 
 import androidx.annotation.Nullable;
@@ -37,16 +39,12 @@ import java.util.List;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
 /**
- * Sample transformer that flattens SEF slow motion video samples.
+ * Sample transformer that flattens SEF slow motion videos in H.264/AVC and H.265/HEVC format using
+ * temporal layers.
  *
- * <p>Such samples follow the ITU-T Recommendation H.264 with temporal SVC.
- *
- * <p>This transformer leaves the samples received unchanged if the input is not an SEF slow motion
- * video.
- *
- * <p>The mathematical formulas used in this class are explained in [Internal ref:
- * http://go/exoplayer-sef-slomo-video-flattening].
+ * <p>If the input is not an SEF slow motion video, samples will be unchanged.
  */
+
 /* package */ final class SefSlowMotionFlattener {
 
   /**
@@ -66,24 +64,27 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   private static final int TARGET_OUTPUT_FRAME_RATE = 30;
 
   private static final int NAL_START_CODE_LENGTH = NAL_START_CODE.length;
-  /**
-   * The nal_unit_type corresponding to a prefix NAL unit (see ITU-T Recommendation H.264 (2016)
-   * table 7-1).
-   */
-  private static final int NAL_UNIT_TYPE_PREFIX = 0x0E;
 
   private final byte[] scratch;
+
   /** The SEF slow motion configuration of the input. */
   @Nullable private final SlowMotionData slowMotionData;
+
+  /** The MIME type of video data stored in input buffers. */
+  private final String mimeType;
+
   /**
    * An iterator iterating over the slow motion segments, pointing at the segment following {@code
    * nextSegmentInfo}, if any.
    */
   private final Iterator<SlowMotionData.Segment> segmentIterator;
+
   /** The frame rate at which the input has been captured, in fps. */
   private final float captureFrameRate;
+
   /** The maximum SVC temporal layer present in the input. */
   private final int inputMaxLayer;
+
   /**
    * The maximum SVC temporal layer value of the frames that should be kept in the input (or a part
    * of it) so that it is played at normal speed.
@@ -95,16 +96,19 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
    * frame is not in such a segment.
    */
   @Nullable private SegmentInfo currentSegmentInfo;
+
   /**
    * The {@link SegmentInfo} describing the slow motion segment following (not including) the
    * current frame, or null if there is no such segment.
    */
   @Nullable private SegmentInfo nextSegmentInfo;
+
   /**
    * The time delta to be added to the output timestamps before scaling to take the slow motion
    * segments into account, in microseconds.
    */
   private long frameTimeDeltaUs;
+
   /**
    * The presentation time for the last {@linkplain #dropOrTransformSample(ByteBuffer, long)
    * processed sample}.
@@ -116,6 +120,12 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     lastSamplePresentationTimeUs = C.TIME_UNSET;
     MetadataInfo metadataInfo = getMetadataInfo(format.metadata);
     slowMotionData = metadataInfo.slowMotionData;
+    mimeType = checkNotNull(format.sampleMimeType);
+    if (slowMotionData != null) {
+      checkArgument(
+          mimeType.equals(MimeTypes.VIDEO_H264) || mimeType.equals(MimeTypes.VIDEO_H265),
+          "Unsupported MIME type for SEF slow motion video track: " + mimeType);
+    }
     List<SlowMotionData.Segment> segments =
         slowMotionData != null ? slowMotionData.segments : ImmutableList.of();
     segmentIterator = segments.iterator();
@@ -126,11 +136,6 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
         segmentIterator.hasNext()
             ? new SegmentInfo(segmentIterator.next(), inputMaxLayer, normalSpeedMaxLayer)
             : null;
-    if (slowMotionData != null) {
-      checkArgument(
-          MimeTypes.VIDEO_H264.equals(format.sampleMimeType),
-          "Unsupported MIME type for SEF slow motion video track: " + format.sampleMimeType);
-    }
   }
 
   /**
@@ -151,13 +156,21 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
     int originalPosition = buffer.position();
     buffer.position(originalPosition + NAL_START_CODE_LENGTH);
-    buffer.get(scratch, 0, 4); // Read nal_unit_header_svc_extension.
-    int nalUnitType = scratch[0] & 0x1F;
-    boolean svcExtensionFlag = ((scratch[1] & 0xFF) >> 7) == 1;
-    checkState(
-        nalUnitType == NAL_UNIT_TYPE_PREFIX && svcExtensionFlag,
-        "Missing SVC extension prefix NAL unit.");
-    int layer = (scratch[3] & 0xFF) >> 5;
+    buffer.get(scratch, 0, 4);
+    int layer;
+    if (mimeType.equals(MimeTypes.VIDEO_H264)) {
+      int nalUnitType = scratch[0] & 0x1F;
+      boolean svcExtensionFlag = ((scratch[1] & 0xFF) >> 7) == 1;
+      checkState(
+          nalUnitType == H264_NAL_UNIT_TYPE_PREFIX && svcExtensionFlag,
+          "Missing SVC extension prefix NAL unit.");
+      layer = (scratch[3] & 0xFF) >> 5; // temporal_id
+    } else if (mimeType.equals(MimeTypes.VIDEO_H265)) {
+      layer = (scratch[1] & 0x07) - 1; // nuh_temporal_id_plus1
+    } else {
+      throw new IllegalStateException();
+    }
+
     boolean shouldKeepFrame = processCurrentFrame(layer, bufferTimeUs);
     // Update the timestamp regardless of whether the buffer is dropped as the timestamp may be
     // reused for the empty end-of-stream buffer.
@@ -332,15 +345,18 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
      * C#RATE_UNSET} if it is unknown or invalid.
      */
     public float captureFrameRate;
+
     /**
      * The maximum SVC layer value of the input frames, or {@link C#INDEX_UNSET} if it is unknown.
      */
     public int inputMaxLayer;
+
     /**
      * The maximum SVC layer value of the frames to keep in order to play the video at normal speed
      * at {@link #TARGET_OUTPUT_FRAME_RATE}, or {@link C#INDEX_UNSET} if it is unknown.
      */
     public int normalSpeedMaxLayer;
+
     /** The input {@link SlowMotionData}. */
     @Nullable public SlowMotionData slowMotionData;
 
@@ -355,14 +371,17 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   private static final class SegmentInfo {
     /** The segment start time, in microseconds. */
     public final long startTimeUs;
+
     /** The segment end time, in microseconds. */
     public final long endTimeUs;
+
     /**
      * The segment speedDivisor.
      *
      * @see SlowMotionData.Segment#speedDivisor
      */
     public final int speedDivisor;
+
     /**
      * The maximum SVC layer value of the frames to keep in the segment in order to slow down the
      * segment by {@code speedDivisor}.

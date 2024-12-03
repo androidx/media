@@ -61,6 +61,7 @@ import java.util.Collections;
         int sampleRate = AUDIO_SAMPLING_RATE_TABLE[sampleRateIndex];
         Format format =
             new Format.Builder()
+                .setContainerMimeType(MimeTypes.VIDEO_FLV)
                 .setSampleMimeType(MimeTypes.AUDIO_MPEG)
                 .setChannelCount(1)
                 .setSampleRate(sampleRate)
@@ -72,6 +73,7 @@ import java.util.Collections;
             audioFormat == AUDIO_FORMAT_ALAW ? MimeTypes.AUDIO_ALAW : MimeTypes.AUDIO_MLAW;
         Format format =
             new Format.Builder()
+                .setContainerMimeType(MimeTypes.VIDEO_FLV)
                 .setSampleMimeType(mimeType)
                 .setChannelCount(1)
                 .setSampleRate(8000)
@@ -105,6 +107,7 @@ import java.util.Collections;
         AacUtil.Config aacConfig = AacUtil.parseAudioSpecificConfig(audioSpecificConfig);
         Format format =
             new Format.Builder()
+                .setContainerMimeType(MimeTypes.VIDEO_FLV)
                 .setSampleMimeType(MimeTypes.AUDIO_AAC)
                 .setCodecs(aacConfig.codecs)
                 .setChannelCount(aacConfig.channelCount)

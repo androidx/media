@@ -78,6 +78,23 @@ public final class MaskingMediaSource extends WrappingMediaSource {
   }
 
   @Override
+  public boolean canUpdateMediaItem(MediaItem mediaItem) {
+    return mediaSource.canUpdateMediaItem(mediaItem);
+  }
+
+  @Override
+  public void updateMediaItem(MediaItem mediaItem) {
+    if (hasRealTimeline) {
+      timeline =
+          timeline.cloneWithUpdatedTimeline(
+              new TimelineWithUpdatedMediaItem(timeline.timeline, mediaItem));
+    } else {
+      timeline = MaskingTimeline.createWithPlaceholderTimeline(mediaItem);
+    }
+    mediaSource.updateMediaItem(mediaItem);
+  }
+
+  @Override
   public void prepareSourceInternal() {
     if (!useLazyPreparation) {
       hasStartedPreparing = true;
@@ -183,9 +200,10 @@ public final class MaskingMediaSource extends WrappingMediaSource {
               : MaskingTimeline.createWithRealTimeline(newTimeline, windowUid, periodUid);
       if (unpreparedMaskingMediaPeriod != null) {
         MaskingMediaPeriod maskingPeriod = unpreparedMaskingMediaPeriod;
-        setPreparePositionOverrideToUnpreparedMaskingPeriod(periodPositionUs);
-        idForMaskingPeriodPreparation =
-            maskingPeriod.id.copyWithPeriodUid(getInternalPeriodUid(maskingPeriod.id.periodUid));
+        if (setPreparePositionOverrideToUnpreparedMaskingPeriod(periodPositionUs)) {
+          idForMaskingPeriodPreparation =
+              maskingPeriod.id.copyWithPeriodUid(getInternalPeriodUid(maskingPeriod.id.periodUid));
+        }
       }
     }
     hasRealTimeline = true;
@@ -218,7 +236,8 @@ public final class MaskingMediaSource extends WrappingMediaSource {
   }
 
   @RequiresNonNull("unpreparedMaskingMediaPeriod")
-  private void setPreparePositionOverrideToUnpreparedMaskingPeriod(long preparePositionOverrideUs) {
+  private boolean setPreparePositionOverrideToUnpreparedMaskingPeriod(
+      long preparePositionOverrideUs) {
     MaskingMediaPeriod maskingPeriod = unpreparedMaskingMediaPeriod;
     int maskingPeriodIndex = timeline.getIndexOfPeriod(maskingPeriod.id.periodUid);
     if (maskingPeriodIndex == C.INDEX_UNSET) {
@@ -226,7 +245,7 @@ public final class MaskingMediaSource extends WrappingMediaSource {
       // has multiple periods and removed the first period with a timeline update. Ignore the
       // update, as the non-existing period will be released anyway as soon as the player receives
       // this new timeline.
-      return;
+      return false;
     }
     long periodDurationUs = timeline.getPeriod(maskingPeriodIndex, period).durationUs;
     if (periodDurationUs != C.TIME_UNSET) {
@@ -236,6 +255,7 @@ public final class MaskingMediaSource extends WrappingMediaSource {
       }
     }
     maskingPeriod.overridePreparePositionUs(preparePositionOverrideUs);
+    return true;
   }
 
   /**
@@ -376,7 +396,7 @@ public final class MaskingMediaSource extends WrappingMediaSource {
           /* id= */ setIds ? 0 : null,
           /* uid= */ setIds ? MaskingTimeline.MASKING_EXTERNAL_PERIOD_UID : null,
           /* windowIndex= */ 0,
-          /* durationUs = */ C.TIME_UNSET,
+          /* durationUs= */ C.TIME_UNSET,
           /* positionInWindowUs= */ 0,
           /* adPlaybackState= */ AdPlaybackState.NONE,
           /* isPlaceholder= */ true);

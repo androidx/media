@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer;
 
+import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
@@ -23,6 +24,7 @@ import android.content.Context;
 import android.media.AudioDeviceInfo;
 import android.media.AudioTrack;
 import android.media.MediaCodec;
+import android.os.Handler;
 import android.os.Looper;
 import android.os.Process;
 import android.view.Surface;
@@ -32,16 +34,19 @@ import android.view.TextureView;
 import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
+import androidx.annotation.RestrictTo;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.AuxEffectInfo;
 import androidx.media3.common.C;
 import androidx.media3.common.DeviceInfo;
+import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
 import androidx.media3.common.PriorityTaskManager;
 import androidx.media3.common.Timeline;
+import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.Tracks;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.text.CueGroup;
@@ -52,9 +57,10 @@ import androidx.media3.datasource.DataSource;
 import androidx.media3.exoplayer.analytics.AnalyticsCollector;
 import androidx.media3.exoplayer.analytics.AnalyticsListener;
 import androidx.media3.exoplayer.analytics.DefaultAnalyticsCollector;
+import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.audio.AudioSink;
-import androidx.media3.exoplayer.audio.DefaultAudioSink;
 import androidx.media3.exoplayer.audio.MediaCodecAudioRenderer;
+import androidx.media3.exoplayer.image.ImageOutput;
 import androidx.media3.exoplayer.metadata.MetadataRenderer;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.exoplayer.source.MediaSource;
@@ -129,7 +135,7 @@ import java.util.List;
  * <p>The figure below shows ExoPlayer's threading model.
  *
  * <p style="align:center"><img
- * src="https://exoplayer.dev/doc/reference/com/google/android/exoplayer2/doc-files/exoplayer-threading-model.svg"
+ * src="https://developer.android.com/static/images/reference/androidx/media3/exoplayer/exoplayer-threading-model.svg"
  * alt="ExoPlayer's threading model">
  *
  * <ul>
@@ -137,11 +143,11 @@ import java.util.List;
  *       otherwise. For the vast majority of cases this should be the application's main thread.
  *       Using the application's main thread is also a requirement when using ExoPlayer's UI
  *       components or the IMA extension. The thread on which an ExoPlayer instance must be accessed
- *       can be explicitly specified by passing a `Looper` when creating the player. If no `Looper`
- *       is specified, then the `Looper` of the thread that the player is created on is used, or if
- *       that thread does not have a `Looper`, the `Looper` of the application's main thread is
- *       used. In all cases the `Looper` of the thread from which the player must be accessed can be
- *       queried using {@link #getApplicationLooper()}.
+ *       can be explicitly specified by passing a {@link Looper} when creating the player. If no
+ *       {@code Looper} is specified, then the {@code Looper} of the thread that the player is
+ *       created on is used, or if that thread does not have a {@code Looper}, the {@code Looper} of
+ *       the application's main thread is used. In all cases the {@code Looper} of the thread from
+ *       which the player must be accessed can be queried using {@link #getApplicationLooper()}.
  *   <li>Registered listeners are called on the thread associated with {@link
  *       #getApplicationLooper()}. Note that this means registered listeners are called on the same
  *       thread which must be used to access the player.
@@ -159,20 +165,17 @@ import java.util.List;
  *       may use background threads to load data. These are implementation specific.
  * </ul>
  */
-// TODO(b/276289331): Revert to media3-hosted SVG links above once they're available on
-// developer.android.com.
 public interface ExoPlayer extends Player {
 
   /**
-   * @deprecated Use {@link ExoPlayer}, as the {@link AudioComponent} methods are defined by that
-   *     interface.
+   * @deprecated Use {@link ExoPlayer}, as all methods are defined by that interface.
    */
   @UnstableApi
   @Deprecated
   interface AudioComponent {
 
     /**
-     * @deprecated Use {@link ExoPlayer#setAudioAttributes(AudioAttributes, boolean)} instead.
+     * @deprecated Use {@link Player#setAudioAttributes(AudioAttributes, boolean)} instead.
      */
     @Deprecated
     void setAudioAttributes(AudioAttributes audioAttributes, boolean handleAudioFocus);
@@ -233,8 +236,7 @@ public interface ExoPlayer extends Player {
   }
 
   /**
-   * @deprecated Use {@link ExoPlayer}, as the {@link VideoComponent} methods are defined by that
-   *     interface.
+   * @deprecated Use {@link ExoPlayer}, as all methods are defined by that interface.
    */
   @UnstableApi
   @Deprecated
@@ -355,8 +357,7 @@ public interface ExoPlayer extends Player {
   }
 
   /**
-   * @deprecated Use {@link Player}, as the {@link TextComponent} methods are defined by that
-   *     interface.
+   * @deprecated Use {@link Player}, as all methods are defined by that interface.
    */
   @UnstableApi
   @Deprecated
@@ -370,8 +371,7 @@ public interface ExoPlayer extends Player {
   }
 
   /**
-   * @deprecated Use {@link Player}, as the {@link DeviceComponent} methods are defined by that
-   *     interface.
+   * @deprecated Use {@link Player}, as all methods are defined by that interface.
    */
   @UnstableApi
   @Deprecated
@@ -420,37 +420,49 @@ public interface ExoPlayer extends Player {
     void setDeviceMuted(boolean muted);
   }
 
-  /**
-   * A listener for audio offload events.
-   *
-   * <p>This class is experimental, and might be renamed, moved or removed in a future release.
-   */
+  /** A listener for audio offload events. */
   @UnstableApi
   interface AudioOffloadListener {
     /**
-     * Called when the player has started or stopped offload scheduling using {@link
-     * #experimentalSetOffloadSchedulingEnabled(boolean)}.
+     * Called when the value of {@link #isSleepingForOffload} changes.
      *
-     * <p>This method is experimental, and will be renamed or removed in a future release.
+     * <p>When {@code isSleepingForOffload} is {@code true} then, the player has paused its main
+     * loop to save power in offload scheduling mode.
      */
-    default void onExperimentalOffloadSchedulingEnabledChanged(boolean offloadSchedulingEnabled) {}
-
-    /**
-     * Called when the player has started or finished sleeping for offload.
-     *
-     * <p>This method is experimental, and will be renamed or removed in a future release.
-     */
-    default void onExperimentalSleepingForOffloadChanged(boolean sleepingForOffload) {}
+    default void onSleepingForOffloadChanged(boolean isSleepingForOffload) {}
 
     /**
      * Called when the value of {@link AudioTrack#isOffloadedPlayback} changes.
      *
      * <p>This should not be generally required to be acted upon. But when offload is critical for
      * efficiency, or audio features (gapless, playback speed), this will let the app know.
-     *
-     * <p>This method is experimental, and will be renamed or removed in a future release.
      */
-    default void onExperimentalOffloadedPlayback(boolean offloadedPlayback) {}
+    default void onOffloadedPlayback(boolean isOffloadedPlayback) {}
+  }
+
+  /** Configuration options for preloading playlist items. */
+  @UnstableApi
+  class PreloadConfiguration {
+
+    /** Default preload configuration that disables playlist preloading. */
+    public static final PreloadConfiguration DEFAULT =
+        new PreloadConfiguration(/* targetPreloadDurationUs= */ C.TIME_UNSET);
+
+    /**
+     * The target duration to buffer when preloading, in microseconds or {@link C#TIME_UNSET} to
+     * disable preloading.
+     */
+    public final long targetPreloadDurationUs;
+
+    /**
+     * Creates an instance.
+     *
+     * @param targetPreloadDurationUs The target duration to preload, in microseconds or {@link
+     *     C#TIME_UNSET} to disable preloading.
+     */
+    public PreloadConfiguration(long targetPreloadDurationUs) {
+      this.targetPreloadDurationUs = targetPreloadDurationUs;
+    }
   }
 
   /**
@@ -472,25 +484,32 @@ public interface ExoPlayer extends Player {
     /* package */ Supplier<BandwidthMeter> bandwidthMeterSupplier;
     /* package */ Function<Clock, AnalyticsCollector> analyticsCollectorFunction;
     /* package */ Looper looper;
+    /* package */ @C.Priority int priority;
     @Nullable /* package */ PriorityTaskManager priorityTaskManager;
     /* package */ AudioAttributes audioAttributes;
     /* package */ boolean handleAudioFocus;
     @C.WakeMode /* package */ int wakeMode;
     /* package */ boolean handleAudioBecomingNoisy;
     /* package */ boolean skipSilenceEnabled;
+    /* package */ boolean deviceVolumeControlEnabled;
     @C.VideoScalingMode /* package */ int videoScalingMode;
     @C.VideoChangeFrameRateStrategy /* package */ int videoChangeFrameRateStrategy;
     /* package */ boolean useLazyPreparation;
     /* package */ SeekParameters seekParameters;
     /* package */ long seekBackIncrementMs;
     /* package */ long seekForwardIncrementMs;
+    /* package */ long maxSeekToPreviousPositionMs;
     /* package */ LivePlaybackSpeedControl livePlaybackSpeedControl;
     /* package */ long releaseTimeoutMs;
     /* package */ long detachSurfaceTimeoutMs;
     /* package */ boolean pauseAtEndOfMediaItems;
     /* package */ boolean usePlatformDiagnostics;
-    @Nullable /* package */ Looper playbackLooper;
+    @Nullable /* package */ PlaybackLooperProvider playbackLooperProvider;
     /* package */ boolean buildCalled;
+    /* package */ boolean suppressPlaybackOnUnsuitableOutput;
+    /* package */ String playerName;
+    /* package */ boolean dynamicSchedulingEnabled;
+    @Nullable /* package */ SuitableOutputChecker suitableOutputChecker;
 
     /**
      * Creates a builder.
@@ -515,6 +534,7 @@ public interface ExoPlayer extends Player {
      *       Looper} of the application's main thread if the current thread doesn't have a {@link
      *       Looper}
      *   <li>{@link AnalyticsCollector}: {@link AnalyticsCollector} with {@link Clock#DEFAULT}
+     *   <li>{@link C.Priority}: {@link C#PRIORITY_PLAYBACK}
      *   <li>{@link PriorityTaskManager}: {@code null} (not used)
      *   <li>{@link AudioAttributes}: {@link AudioAttributes#DEFAULT}, not handling audio focus
      *   <li>{@link C.WakeMode}: {@link C#WAKE_MODE_NONE}
@@ -527,12 +547,14 @@ public interface ExoPlayer extends Player {
      *   <li>{@link SeekParameters}: {@link SeekParameters#DEFAULT}
      *   <li>{@code seekBackIncrementMs}: {@link C#DEFAULT_SEEK_BACK_INCREMENT_MS}
      *   <li>{@code seekForwardIncrementMs}: {@link C#DEFAULT_SEEK_FORWARD_INCREMENT_MS}
+     *   <li>{@code maxSeekToPreviousPositionMs}: {@link C#DEFAULT_MAX_SEEK_TO_PREVIOUS_POSITION_MS}
      *   <li>{@code releaseTimeoutMs}: {@link #DEFAULT_RELEASE_TIMEOUT_MS}
      *   <li>{@code detachSurfaceTimeoutMs}: {@link #DEFAULT_DETACH_SURFACE_TIMEOUT_MS}
      *   <li>{@code pauseAtEndOfMediaItems}: {@code false}
      *   <li>{@code usePlatformDiagnostics}: {@code true}
      *   <li>{@link Clock}: {@link Clock#DEFAULT}
      *   <li>{@code playbackLooper}: {@code null} (create new thread)
+     *   <li>{@code dynamicSchedulingEnabled}: {@code false}
      * </ul>
      *
      * @param context A {@link Context}.
@@ -686,11 +708,14 @@ public interface ExoPlayer extends Player {
       seekParameters = SeekParameters.DEFAULT;
       seekBackIncrementMs = C.DEFAULT_SEEK_BACK_INCREMENT_MS;
       seekForwardIncrementMs = C.DEFAULT_SEEK_FORWARD_INCREMENT_MS;
+      maxSeekToPreviousPositionMs = C.DEFAULT_MAX_SEEK_TO_PREVIOUS_POSITION_MS;
       livePlaybackSpeedControl = new DefaultLivePlaybackSpeedControl.Builder().build();
       clock = Clock.DEFAULT;
       releaseTimeoutMs = DEFAULT_RELEASE_TIMEOUT_MS;
       detachSurfaceTimeoutMs = DEFAULT_DETACH_SURFACE_TIMEOUT_MS;
       usePlatformDiagnostics = true;
+      playerName = "";
+      priority = C.PRIORITY_PLAYBACK;
     }
 
     /**
@@ -707,6 +732,51 @@ public interface ExoPlayer extends Player {
     public Builder experimentalSetForegroundModeTimeoutMs(long timeoutMs) {
       checkState(!buildCalled);
       foregroundModeTimeoutMs = timeoutMs;
+      return this;
+    }
+
+    /**
+     * Sets whether dynamic scheduling is enabled.
+     *
+     * <p>If enabled, ExoPlayer's playback loop will run as rarely as possible by scheduling work
+     * for when {@link Renderer} progress can be made.
+     *
+     * <p>This method is experimental, and will be renamed or removed in a future release.
+     *
+     * @param dynamicSchedulingEnabled Whether to enable dynamic scheduling.
+     */
+    @CanIgnoreReturnValue
+    @UnstableApi
+    public Builder experimentalSetDynamicSchedulingEnabled(boolean dynamicSchedulingEnabled) {
+      checkState(!buildCalled);
+      this.dynamicSchedulingEnabled = dynamicSchedulingEnabled;
+      return this;
+    }
+
+    /**
+     * Sets whether the player should suppress playback that is attempted on an unsuitable output.
+     * An example of an unsuitable audio output is the built-in speaker on a Wear OS device (unless
+     * it is explicitly selected by the user).
+     *
+     * <p>If called with {@code suppressPlaybackOnUnsuitableOutput = true}, then a playback attempt
+     * on an unsuitable audio output will result in calls to {@link
+     * Player.Listener#onPlaybackSuppressionReasonChanged(int)} with the value {@link
+     * Player#PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT}.
+     *
+     * <p>Callers of this may also want to enable {@link #setHandleAudioBecomingNoisy(boolean)} to
+     * prevent playback from continuing on the built-in speaker when a headset is disconnected.
+     *
+     * @param suppressPlaybackOnUnsuitableOutput Whether the player should suppress the playback
+     *     when it is attempted on an unsuitable output.
+     * @return This builder.
+     * @throws IllegalStateException If {@link #build()} has already been called.
+     */
+    @CanIgnoreReturnValue
+    @UnstableApi
+    public Builder setSuppressPlaybackOnUnsuitableOutput(
+        boolean suppressPlaybackOnUnsuitableOutput) {
+      checkState(!buildCalled);
+      this.suppressPlaybackOnUnsuitableOutput = suppressPlaybackOnUnsuitableOutput;
       return this;
     }
 
@@ -823,9 +893,29 @@ public interface ExoPlayer extends Player {
     }
 
     /**
+     * Sets the {@link C.Priority} for this player.
+     *
+     * <p>The priority may influence resource allocation between multiple players or other
+     * components running in the same app.
+     *
+     * <p>This priority is used for the {@link PriorityTaskManager}, if {@linkplain
+     * #setPriorityTaskManager set}.
+     *
+     * @param priority The {@link C.Priority}.
+     */
+    @CanIgnoreReturnValue
+    @UnstableApi
+    public Builder setPriority(@C.Priority int priority) {
+      checkState(!buildCalled);
+      this.priority = priority;
+      return this;
+    }
+
+    /**
      * Sets an {@link PriorityTaskManager} that will be used by the player.
      *
-     * <p>The priority {@link C#PRIORITY_PLAYBACK} will be set while the player is loading.
+     * <p>The priority set via {@link #setPriority} (or {@link C#PRIORITY_PLAYBACK by default)} will
+     * be set while the player is loading.
      *
      * @param priorityTaskManager A {@link PriorityTaskManager}, or null to not use one.
      * @return This builder.
@@ -887,8 +977,8 @@ public interface ExoPlayer extends Player {
     /**
      * Sets whether the player should pause automatically when audio is rerouted from a headset to
      * device speakers. See the <a
-     * href="https://developer.android.com/guide/topics/media-apps/volume-and-earphones#becoming-noisy">
-     * audio becoming noisy</a> documentation for more information.
+     * href="https://developer.android.com/media/platform/output#becoming-noisy">audio becoming
+     * noisy</a> documentation for more information.
      *
      * @param handleAudioBecomingNoisy Whether the player should pause automatically when audio is
      *     rerouted from a headset to device speakers.
@@ -914,6 +1004,21 @@ public interface ExoPlayer extends Player {
     public Builder setSkipSilenceEnabled(boolean skipSilenceEnabled) {
       checkState(!buildCalled);
       this.skipSilenceEnabled = skipSilenceEnabled;
+      return this;
+    }
+
+    /**
+     * Sets whether the player is allowed to set, increase, decrease or mute device volume.
+     *
+     * @param deviceVolumeControlEnabled Whether controlling device volume is enabled.
+     * @return This builder.
+     * @throws IllegalStateException If {@link #build()} has already been called.
+     */
+    @CanIgnoreReturnValue
+    @UnstableApi
+    public Builder setDeviceVolumeControlEnabled(boolean deviceVolumeControlEnabled) {
+      checkState(!buildCalled);
+      this.deviceVolumeControlEnabled = deviceVolumeControlEnabled;
       return this;
     }
 
@@ -1023,6 +1128,25 @@ public interface ExoPlayer extends Player {
       checkArgument(seekForwardIncrementMs > 0);
       checkState(!buildCalled);
       this.seekForwardIncrementMs = seekForwardIncrementMs;
+      return this;
+    }
+
+    /**
+     * Sets the maximum position for which {@link #seekToPrevious()} seeks to the previous {@link
+     * MediaItem}.
+     *
+     * @param maxSeekToPreviousPositionMs The maximum position, in milliseconds.
+     * @return This builder.
+     * @throws IllegalArgumentException If {@code maxSeekToPreviousPositionMs} is negative.
+     * @throws IllegalStateException If {@link #build()} has already been called.
+     */
+    @CanIgnoreReturnValue
+    @UnstableApi
+    public Builder setMaxSeekToPreviousPositionMs(
+        @IntRange(from = 0) long maxSeekToPreviousPositionMs) {
+      checkArgument(maxSeekToPreviousPositionMs >= 0L);
+      checkState(!buildCalled);
+      this.maxSeekToPreviousPositionMs = maxSeekToPreviousPositionMs;
       return this;
     }
 
@@ -1141,12 +1265,33 @@ public interface ExoPlayer extends Player {
     }
 
     /**
+     * Sets the {@link SuitableOutputChecker} to check the suitability of the selected outputs for
+     * playback.
+     *
+     * <p>If this method is not called, the library uses a default implementation based on framework
+     * APIs.
+     *
+     * @return This builder.
+     * @throws IllegalStateException If {@link #build()} has already been called.
+     */
+    @CanIgnoreReturnValue
+    @UnstableApi
+    @RestrictTo(LIBRARY_GROUP)
+    @VisibleForTesting
+    @RequiresApi(35)
+    public Builder setSuitableOutputChecker(SuitableOutputChecker suitableOutputChecker) {
+      checkState(!buildCalled);
+      this.suitableOutputChecker = suitableOutputChecker;
+      return this;
+    }
+
+    /**
      * Sets the {@link Looper} that will be used for playback.
      *
      * <p>The backing thread should run with priority {@link Process#THREAD_PRIORITY_AUDIO} and
      * should handle messages within 10ms.
      *
-     * @param playbackLooper A {@link looper}.
+     * @param playbackLooper A {@link Looper}.
      * @return This builder.
      * @throws IllegalStateException If {@link #build()} has already been called.
      */
@@ -1154,7 +1299,41 @@ public interface ExoPlayer extends Player {
     @UnstableApi
     public Builder setPlaybackLooper(Looper playbackLooper) {
       checkState(!buildCalled);
-      this.playbackLooper = playbackLooper;
+      this.playbackLooperProvider = new PlaybackLooperProvider(playbackLooper);
+      return this;
+    }
+
+    /**
+     * Sets the {@link PlaybackLooperProvider} that will be used for playback.
+     *
+     * @param playbackLooperProvider A {@link PlaybackLooperProvider}.
+     * @return This builder.
+     * @throws IllegalStateException If {@link #build()} has already been called.
+     */
+    @CanIgnoreReturnValue
+    @UnstableApi
+    @RestrictTo(LIBRARY_GROUP)
+    public Builder setPlaybackLooperProvider(PlaybackLooperProvider playbackLooperProvider) {
+      checkState(!buildCalled);
+      this.playbackLooperProvider = playbackLooperProvider;
+      return this;
+    }
+
+    /**
+     * Sets the player name that is included in the {@link PlayerId} for informational purpose to
+     * recognize the player by its {@link PlayerId}.
+     *
+     * <p>The default is an empty string.
+     *
+     * @param playerName A name for the player in the {@link PlayerId}.
+     * @return This builder.
+     * @throws IllegalStateException If {@link #build()} has already been called.
+     */
+    @CanIgnoreReturnValue
+    @UnstableApi
+    public Builder setName(String playerName) {
+      checkState(!buildCalled);
+      this.playerName = playerName;
       return this;
     }
 
@@ -1166,6 +1345,11 @@ public interface ExoPlayer extends Player {
     public ExoPlayer build() {
       checkState(!buildCalled);
       buildCalled = true;
+      if (suitableOutputChecker == null
+          && Util.SDK_INT >= 35
+          && suppressPlaybackOnUnsuitableOutput) {
+        suitableOutputChecker = new DefaultSuitableOutputChecker(context, new Handler(looper));
+      }
       return new ExoPlayerImpl(/* builder= */ this, /* wrappingPlayer= */ null);
     }
 
@@ -1197,6 +1381,7 @@ public interface ExoPlayer extends Player {
    * @deprecated Use {@link ExoPlayer}, as the {@link AudioComponent} methods are defined by that
    *     interface.
    */
+  @SuppressWarnings("deprecation") // Intentionally returning deprecated type
   @UnstableApi
   @Nullable
   @Deprecated
@@ -1206,6 +1391,7 @@ public interface ExoPlayer extends Player {
    * @deprecated Use {@link ExoPlayer}, as the {@link VideoComponent} methods are defined by that
    *     interface.
    */
+  @SuppressWarnings("deprecation") // Intentionally returning deprecated type
   @UnstableApi
   @Nullable
   @Deprecated
@@ -1215,6 +1401,7 @@ public interface ExoPlayer extends Player {
    * @deprecated Use {@link Player}, as the {@link TextComponent} methods are defined by that
    *     interface.
    */
+  @SuppressWarnings("deprecation") // Intentionally returning deprecated type
   @UnstableApi
   @Nullable
   @Deprecated
@@ -1224,6 +1411,7 @@ public interface ExoPlayer extends Player {
    * @deprecated Use {@link Player}, as the {@link DeviceComponent} methods are defined by that
    *     interface.
    */
+  @SuppressWarnings("deprecation") // Intentionally returning deprecated type
   @UnstableApi
   @Nullable
   @Deprecated
@@ -1338,13 +1526,6 @@ public interface ExoPlayer extends Player {
   Clock getClock();
 
   /**
-   * @deprecated Use {@link #prepare()} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  void retry();
-
-  /**
    * @deprecated Use {@link #setMediaSource(MediaSource)} and {@link #prepare()} instead.
    */
   @UnstableApi
@@ -1385,9 +1566,9 @@ public interface ExoPlayer extends Player {
    * @param startMediaItemIndex The media item index to start playback from. If {@link
    *     C#INDEX_UNSET} is passed, the current position is not reset.
    * @param startPositionMs The position in milliseconds to start playback from. If {@link
-   *     C#TIME_UNSET} is passed, the default position of the given media item is used. In any case,
-   *     if {@code startMediaItemIndex} is set to {@link C#INDEX_UNSET}, this parameter is ignored
-   *     and the position is not reset at all.
+   *     C#TIME_UNSET} is passed, the default position of the given media source is used. In any
+   *     case, if {@code startMediaItemIndex} is set to {@link C#INDEX_UNSET}, this parameter is
+   *     ignored and the position is not reset at all.
    */
   @UnstableApi
   void setMediaSources(
@@ -1406,7 +1587,8 @@ public interface ExoPlayer extends Player {
    * Clears the playlist and adds the specified {@link MediaSource}.
    *
    * @param mediaSource The new {@link MediaSource}.
-   * @param startPositionMs The position in milliseconds to start playback from.
+   * @param startPositionMs The position in milliseconds to start playback from. If {@link
+   *     C#TIME_UNSET} is passed, the default position of the given media source is used.
    */
   @UnstableApi
   void setMediaSource(MediaSource mediaSource, long startPositionMs);
@@ -1459,33 +1641,47 @@ public interface ExoPlayer extends Player {
   /**
    * Sets the shuffle order.
    *
+   * <p>The {@link ShuffleOrder} passed must have the same length as the current playlist ({@link
+   * Player#getMediaItemCount()}).
+   *
    * @param shuffleOrder The shuffle order.
    */
   @UnstableApi
   void setShuffleOrder(ShuffleOrder shuffleOrder);
 
   /**
-   * Sets the attributes for audio playback, used by the underlying audio track. If not set, the
-   * default audio attributes will be used. They are suitable for general media playback.
+   * Sets the {@linkplain PreloadConfiguration preload configuration} to configure playlist
+   * preloading.
    *
-   * <p>Setting the audio attributes during playback may introduce a short gap in audio output as
-   * the audio track is recreated. A new audio session id will also be generated.
-   *
-   * <p>If tunneling is enabled by the track selector, the specified audio attributes will be
-   * ignored, but they will take effect if audio is later played without tunneling.
-   *
-   * <p>If the device is running a build before platform API version 21, audio attributes cannot be
-   * set directly on the underlying audio track. In this case, the usage will be mapped onto an
-   * equivalent stream type using {@link Util#getStreamTypeForAudioUsage(int)}.
-   *
-   * <p>If audio focus should be handled, the {@link AudioAttributes#usage} must be {@link
-   * C#USAGE_MEDIA} or {@link C#USAGE_GAME}. Other usages will throw an {@link
-   * IllegalArgumentException}.
-   *
-   * @param audioAttributes The attributes to use for audio playback.
-   * @param handleAudioFocus True if the player should handle audio focus, false otherwise.
+   * @param preloadConfiguration The preload configuration.
    */
-  void setAudioAttributes(AudioAttributes audioAttributes, boolean handleAudioFocus);
+  @UnstableApi
+  void setPreloadConfiguration(PreloadConfiguration preloadConfiguration);
+
+  /** Returns the {@linkplain PreloadConfiguration preload configuration}. */
+  @UnstableApi
+  PreloadConfiguration getPreloadConfiguration();
+
+  /**
+   * {@inheritDoc}
+   *
+   * <p>ExoPlayer will keep the existing {@link MediaSource} for this {@link MediaItem} if
+   * {@linkplain MediaSource#canUpdateMediaItem supported} by the {@link MediaSource}. If the
+   * current item is replaced, this will also not interrupt the ongoing playback.
+   */
+  @Override
+  void replaceMediaItem(int index, MediaItem mediaItem);
+
+  /**
+   * {@inheritDoc}
+   *
+   * <p>ExoPlayer will keep the existing {@link MediaSource} instances for the new {@link MediaItem
+   * MediaItems} if {@linkplain MediaSource#canUpdateMediaItem supported} by all of these {@link
+   * MediaSource} instances. If the current item is replaced, this will also not interrupt the
+   * ongoing playback.
+   */
+  @Override
+  void replaceMediaItems(int fromIndex, int toIndex, List<MediaItem> mediaItems);
 
   /**
    * Sets the ID of the audio session to attach to the underlying {@link android.media.AudioTrack}.
@@ -1499,7 +1695,11 @@ public interface ExoPlayer extends Player {
   @UnstableApi
   void setAudioSessionId(int audioSessionId);
 
-  /** Returns the audio session identifier, or {@link C#AUDIO_SESSION_ID_UNSET} if not set. */
+  /**
+   * Returns the audio session identifier, or {@link C#AUDIO_SESSION_ID_UNSET} if not set.
+   *
+   * @see Listener#onAudioSessionIdChanged(int)
+   */
   @UnstableApi
   int getAudioSessionId();
 
@@ -1529,9 +1729,45 @@ public interface ExoPlayer extends Player {
   @UnstableApi
   void setSkipSilenceEnabled(boolean skipSilenceEnabled);
 
-  /** Returns whether skipping silences in the audio stream is enabled. */
+  /**
+   * Returns whether skipping silences in the audio stream is enabled.
+   *
+   * @see Listener#onSkipSilenceEnabledChanged(boolean)
+   */
   @UnstableApi
   boolean getSkipSilenceEnabled();
+
+  /**
+   * Sets a {@link List} of {@linkplain Effect video effects} that will be applied to each video
+   * frame.
+   *
+   * <p>If {@linkplain #setVideoSurface passing a surface to the player directly}, the output
+   * resolution needs to be signaled by passing a {@linkplain #createMessage(PlayerMessage.Target)
+   * message} to the {@linkplain Renderer video renderer} with type {@link
+   * Renderer#MSG_SET_VIDEO_OUTPUT_RESOLUTION} after calling this method. For {@link SurfaceView},
+   * {@link TextureView} and {@link SurfaceHolder} output this happens automatically.
+   *
+   * <p>The following limitations exist for using {@linkplain Effect video effects}:
+   *
+   * <ul>
+   *   <li>The {@code androidx.media3:media3-effect} module must be available on the runtime
+   *       classpath. {@code androidx.media3:media3-exoplayer} does not explicitly depend on the
+   *       effect module, so apps must make sure it's available themselves. It must be the same
+   *       version as the rest of the {@code androidx.media3} modules being used by the app.
+   *   <li>This feature works only with the default {@link MediaCodecVideoRenderer} and not custom
+   *       or extension {@linkplain Renderer video renderers}.
+   *   <li>This feature does not work with {@linkplain Effect effects} that update the frame
+   *       timestamps.
+   *   <li>This feature does not work with DRM-protected content.
+   *   <li>This method must be called at least once before calling {@link #prepare()} (in order to
+   *       set up the effects pipeline). The effects can be changed during playback by subsequent
+   *       calls to this method after {@link #prepare()}.
+   * </ul>
+   *
+   * @param videoEffects The {@link List} of {@linkplain Effect video effects} to apply.
+   */
+  @UnstableApi
+  void setVideoEffects(List<Effect> videoEffects);
 
   /**
    * Sets the {@link C.VideoScalingMode}.
@@ -1716,13 +1952,6 @@ public interface ExoPlayer extends Player {
   void setHandleAudioBecomingNoisy(boolean handleAudioBecomingNoisy);
 
   /**
-   * @deprecated Use {@link #setWakeMode(int)} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  void setHandleWakeLock(boolean handleWakeLock);
-
-  /**
    * Sets how the player should keep the device awake for playback when the screen is off.
    *
    * <p>Enabling this feature requires the {@link android.Manifest.permission#WAKE_LOCK} permission.
@@ -1740,9 +1969,24 @@ public interface ExoPlayer extends Player {
   void setWakeMode(@C.WakeMode int wakeMode);
 
   /**
+   * Sets the {@link C.Priority} for this player.
+   *
+   * <p>The priority may influence resource allocation between multiple players or other components
+   * running in the same app.
+   *
+   * <p>This priority is used for the {@link PriorityTaskManager}, if {@linkplain
+   * #setPriorityTaskManager set}.
+   *
+   * @param priority The {@link C.Priority}.
+   */
+  @UnstableApi
+  void setPriority(@C.Priority int priority);
+
+  /**
    * Sets a {@link PriorityTaskManager}, or null to clear a previously set priority task manager.
    *
-   * <p>The priority {@link C#PRIORITY_PLAYBACK} will be set while the player is loading.
+   * <p>The priority set via {@link #setPriority} (or {@link C#PRIORITY_PLAYBACK by default)} will
+   * be set while the player is loading.
    *
    * @param priorityTaskManager The {@link PriorityTaskManager}, or null to clear a previously set
    *     priority task manager.
@@ -1751,52 +1995,26 @@ public interface ExoPlayer extends Player {
   void setPriorityTaskManager(@Nullable PriorityTaskManager priorityTaskManager);
 
   /**
-   * Sets whether audio offload scheduling is enabled. If enabled, ExoPlayer's main loop will run as
-   * rarely as possible when playing an audio stream using audio offload.
+   * Returns whether the player has paused its main loop to save power in offload scheduling mode.
    *
-   * <p>Only use this scheduling mode if the player is not displaying anything to the user. For
-   * example when the application is in the background, or the screen is off. The player state
-   * (including position) is rarely updated (roughly between every 10 seconds and 1 minute).
+   * <p>Offload scheduling mode should save significant power when the phone is playing offload
+   * audio with the screen off.
    *
-   * <p>While offload scheduling is enabled, player events may be delivered severely delayed and
-   * apps should not interact with the player. When returning to the foreground, disable offload
-   * scheduling and wait for {@link
-   * AudioOffloadListener#onExperimentalOffloadSchedulingEnabledChanged(boolean)} to be called with
-   * {@code offloadSchedulingEnabled = false} before interacting with the player.
-   *
-   * <p>This mode should save significant power when the phone is playing offload audio with the
-   * screen off.
-   *
-   * <p>This mode only has an effect when playing an audio track in offload mode, which requires all
-   * the following:
+   * <p>Offload scheduling is only enabled when playing an audio track in offload mode, which
+   * requires all the following:
    *
    * <ul>
-   *   <li>Audio offload rendering is enabled in {@link
-   *       DefaultRenderersFactory#setEnableAudioOffload} or the equivalent option passed to {@link
-   *       DefaultAudioSink.Builder#setOffloadMode}.
+   *   <li>Audio offload rendering is enabled through {@link
+   *       TrackSelectionParameters.Builder#setAudioOffloadPreferences}.
    *   <li>An audio track is playing in a format that the device supports offloading (for example,
    *       MP3 or AAC).
    *   <li>The {@link AudioSink} is playing with an offload {@link AudioTrack}.
    * </ul>
    *
-   * <p>The state where ExoPlayer main loop has been paused to save power during offload playback
-   * can be queried with {@link #experimentalIsSleepingForOffload()}.
-   *
-   * <p>This method is experimental, and will be renamed or removed in a future release.
-   *
-   * @param offloadSchedulingEnabled Whether to enable offload scheduling.
+   * @see AudioOffloadListener#onSleepingForOffloadChanged(boolean)
    */
   @UnstableApi
-  void experimentalSetOffloadSchedulingEnabled(boolean offloadSchedulingEnabled);
-
-  /**
-   * Returns whether the player has paused its main loop to save power in offload scheduling mode.
-   *
-   * @see #experimentalSetOffloadSchedulingEnabled(boolean)
-   * @see AudioOffloadListener#onExperimentalSleepingForOffloadChanged(boolean)
-   */
-  @UnstableApi
-  boolean experimentalIsSleepingForOffload();
+  boolean isSleepingForOffload();
 
   /**
    * Returns whether <a
@@ -1807,4 +2025,29 @@ public interface ExoPlayer extends Player {
    */
   @UnstableApi
   boolean isTunnelingEnabled();
+
+  /**
+   * {@inheritDoc}
+   *
+   * <p>The exception to the above rule is {@link #isReleased()} which can be called on a released
+   * player.
+   */
+  @Override
+  void release();
+
+  /**
+   * Returns whether {@link #release()} has been called on the player.
+   *
+   * <p>This method is allowed to be called after {@link #release()}.
+   */
+  @UnstableApi
+  boolean isReleased();
+
+  /**
+   * Sets the {@link ImageOutput} where rendered images will be forwarded.
+   *
+   * @param imageOutput The {@link ImageOutput}. May be null to clear a previously set image output.
+   */
+  @UnstableApi
+  void setImageOutput(@Nullable ImageOutput imageOutput);
 }

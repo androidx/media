@@ -20,20 +20,21 @@ import static androidx.media3.common.util.Assertions.checkNotEmpty;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.postOrRun;
-import static androidx.media3.session.LibraryResult.RESULT_ERROR_SESSION_DISCONNECTED;
+import static androidx.media3.session.SessionError.ERROR_SESSION_DISCONNECTED;
 
 import android.content.Context;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.support.v4.media.session.MediaSessionCompat;
 import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
+import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import androidx.media3.datasource.DataSourceBitmapLoader;
 import androidx.media3.session.MediaLibraryService.LibraryParams;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
@@ -59,6 +60,7 @@ public final class MediaBrowser extends MediaController {
     private Listener listener;
     private Looper applicationLooper;
     private @MonotonicNonNull BitmapLoader bitmapLoader;
+    private int maxCommandsForMediaItems;
 
     /**
      * Creates a builder for {@link MediaBrowser}.
@@ -85,7 +87,7 @@ public final class MediaBrowser extends MediaController {
      * of this bundle may affect the connection result.
      *
      * <p>The hints are only used when connecting to the {@link MediaSession}. They will be ignored
-     * when connecting to {@link MediaSessionCompat}.
+     * when connecting to {@code android.support.v4.media.session.MediaSessionCompat}.
      *
      * @param connectionHints A bundle containing the connection hints.
      * @return The builder to allow chaining.
@@ -125,8 +127,8 @@ public final class MediaBrowser extends MediaController {
 
     /**
      * Sets a {@link BitmapLoader} for the {@link MediaBrowser} to decode bitmaps from compressed
-     * binary data. If not set, a {@link CacheBitmapLoader} that wraps a {@link SimpleBitmapLoader}
-     * will be used.
+     * binary data. If not set, a {@link CacheBitmapLoader} that wraps a {@link
+     * DataSourceBitmapLoader} will be used.
      *
      * @param bitmapLoader The bitmap loader.
      * @return The builder to allow chaining.
@@ -139,23 +141,40 @@ public final class MediaBrowser extends MediaController {
     }
 
     /**
+     * Sets the max number of commands the controller supports per media item.
+     *
+     * <p>Must be greater or equal to 0. The default is 0.
+     *
+     * @param maxCommandsForMediaItems The max number of commands per media item.
+     * @return The builder to allow chaining.
+     */
+    @UnstableApi
+    @CanIgnoreReturnValue
+    public Builder setMaxCommandsForMediaItems(int maxCommandsForMediaItems) {
+      checkArgument(maxCommandsForMediaItems >= 0);
+      this.maxCommandsForMediaItems = maxCommandsForMediaItems;
+      return this;
+    }
+
+    // LINT.IfChange(build_async)
+    /**
      * Builds a {@link MediaBrowser} asynchronously.
      *
      * <p>The browser instance can be obtained like the following example:
      *
      * <pre>{@code
-     * MediaBrowser.Builder builder = ...;
+     * MediaBrowser.Builder builder = new MediaBrowser.Builder(context, sessionToken);
      * ListenableFuture<MediaBrowser> future = builder.buildAsync();
      * future.addListener(() -> {
      *   try {
      *     MediaBrowser browser = future.get();
      *     // The session accepted the connection.
-     *   } catch (ExecutionException e) {
+     *   } catch (ExecutionException | InterruptedException e) {
      *     if (e.getCause() instanceof SecurityException) {
      *       // The session rejected the connection.
      *     }
      *   }
-     * }, ContextCompat.getMainExecutor());
+     * }, ContextCompat.getMainExecutor(context));
      * }</pre>
      *
      * <p>The future must be kept by callers until the future is complete to get the controller
@@ -167,11 +186,18 @@ public final class MediaBrowser extends MediaController {
     public ListenableFuture<MediaBrowser> buildAsync() {
       MediaControllerHolder<MediaBrowser> holder = new MediaControllerHolder<>(applicationLooper);
       if (token.isLegacySession() && bitmapLoader == null) {
-        bitmapLoader = new CacheBitmapLoader(new SimpleBitmapLoader());
+        bitmapLoader = new CacheBitmapLoader(new DataSourceBitmapLoader(context));
       }
       MediaBrowser browser =
           new MediaBrowser(
-              context, token, connectionHints, listener, applicationLooper, holder, bitmapLoader);
+              context,
+              token,
+              connectionHints,
+              listener,
+              applicationLooper,
+              holder,
+              bitmapLoader,
+              maxCommandsForMediaItems);
       postOrRun(new Handler(applicationLooper), () -> holder.setController(browser));
       return holder;
     }
@@ -186,16 +212,19 @@ public final class MediaBrowser extends MediaController {
   public interface Listener extends MediaController.Listener {
 
     /**
-     * Called when there's change in the parent's children after you've subscribed to the parent
+     * Called when there's a change in the parent's children after you've subscribed to the parent
      * with {@link #subscribe}.
      *
-     * <p>This method is called when the library service called {@link
-     * MediaLibraryService.MediaLibrarySession#notifyChildrenChanged} for the parent.
+     * <p>This method is called when the app calls {@link
+     * MediaLibraryService.MediaLibrarySession#notifyChildrenChanged} for the parent, or it is
+     * called by the library immediately after calling {@link MediaBrowser#subscribe(String,
+     * LibraryParams)}.
      *
      * @param browser The browser for this event.
      * @param parentId The non-empty parent id that you've specified with {@link #subscribe(String,
      *     LibraryParams)}.
-     * @param itemCount The number of children.
+     * @param itemCount The number of children, or {@link Integer#MAX_VALUE} if the number of items
+     *     is unknown.
      * @param params The optional parameters from the library service. Can be differ from the {@code
      *     params} that you've specified with {@link #subscribe(String, LibraryParams)}.
      */
@@ -237,7 +266,8 @@ public final class MediaBrowser extends MediaController {
       Listener listener,
       Looper applicationLooper,
       ConnectionCallback connectionCallback,
-      @Nullable BitmapLoader bitmapLoader) {
+      @Nullable BitmapLoader bitmapLoader,
+      int maxCommandsForMediaItems) {
     super(
         context,
         token,
@@ -245,7 +275,8 @@ public final class MediaBrowser extends MediaController {
         listener,
         applicationLooper,
         connectionCallback,
-        bitmapLoader);
+        bitmapLoader,
+        maxCommandsForMediaItems);
   }
 
   @Override
@@ -261,7 +292,7 @@ public final class MediaBrowser extends MediaController {
     if (token.isLegacySession()) {
       impl =
           new MediaBrowserImplLegacy(
-              context, this, token, applicationLooper, checkNotNull(bitmapLoader));
+              context, this, token, connectionHints, applicationLooper, checkNotNull(bitmapLoader));
     } else {
       impl = new MediaBrowserImplBase(context, this, token, connectionHints, applicationLooper);
     }
@@ -417,7 +448,7 @@ public final class MediaBrowser extends MediaController {
   }
 
   private static <V> ListenableFuture<LibraryResult<V>> createDisconnectedFuture() {
-    return Futures.immediateFuture(LibraryResult.ofError(RESULT_ERROR_SESSION_DISCONNECTED));
+    return Futures.immediateFuture(LibraryResult.ofError(ERROR_SESSION_DISCONNECTED));
   }
 
   private void verifyApplicationThread() {

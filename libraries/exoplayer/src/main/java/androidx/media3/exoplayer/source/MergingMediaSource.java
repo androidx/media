@@ -38,12 +38,18 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
  * Merges multiple {@link MediaSource}s.
  *
  * <p>The {@link Timeline}s of the sources being merged must have the same number of periods.
+ *
+ * <p>The values of {@link androidx.media3.common.TrackGroup#id} and {@link
+ * androidx.media3.common.Format#id} are modified to start with {@code i:}, where {@code i} is the
+ * 0-based index of the {@link MediaSource} passed to the constructor that created this {@link
+ * androidx.media3.common.TrackGroup} or {@link androidx.media3.common.Format}.
  */
 @UnstableApi
 public final class MergingMediaSource extends CompositeMediaSource<Integer> {
@@ -57,6 +63,7 @@ public final class MergingMediaSource extends CompositeMediaSource<Integer> {
     @Target(TYPE_USE)
     @IntDef({REASON_PERIOD_COUNT_MISMATCH})
     public @interface Reason {}
+
     /** The sources have different period counts. */
     public static final int REASON_PERIOD_COUNT_MISMATCH = 0;
 
@@ -78,6 +85,7 @@ public final class MergingMediaSource extends CompositeMediaSource<Integer> {
   private final boolean adjustPeriodTimeOffsets;
   private final boolean clipDurations;
   private final MediaSource[] mediaSources;
+  private final List<List<MediaPeriodAndId>> mediaPeriods;
   private final Timeline[] timelines;
   private final ArrayList<MediaSource> pendingTimelineSources;
   private final CompositeSequenceableLoaderFactory compositeSequenceableLoaderFactory;
@@ -155,6 +163,10 @@ public final class MergingMediaSource extends CompositeMediaSource<Integer> {
     this.compositeSequenceableLoaderFactory = compositeSequenceableLoaderFactory;
     pendingTimelineSources = new ArrayList<>(Arrays.asList(mediaSources));
     periodCount = PERIOD_COUNT_UNSET;
+    this.mediaPeriods = new ArrayList<>(mediaSources.length);
+    for (int i = 0; i < mediaSources.length; i++) {
+      mediaPeriods.add(new ArrayList<>());
+    }
     timelines = new Timeline[mediaSources.length];
     periodTimeOffsetsUs = new long[0][];
     clippedDurationsUs = new HashMap<>();
@@ -164,6 +176,16 @@ public final class MergingMediaSource extends CompositeMediaSource<Integer> {
   @Override
   public MediaItem getMediaItem() {
     return mediaSources.length > 0 ? mediaSources[0].getMediaItem() : PLACEHOLDER_MEDIA_ITEM;
+  }
+
+  @Override
+  public boolean canUpdateMediaItem(MediaItem mediaItem) {
+    return mediaSources.length > 0 && mediaSources[0].canUpdateMediaItem(mediaItem);
+  }
+
+  @Override
+  public void updateMediaItem(MediaItem mediaItem) {
+    mediaSources[0].updateMediaItem(mediaItem);
   }
 
   @Override
@@ -187,11 +209,11 @@ public final class MergingMediaSource extends CompositeMediaSource<Integer> {
     MediaPeriod[] periods = new MediaPeriod[mediaSources.length];
     int periodIndex = timelines[0].getIndexOfPeriod(id.periodUid);
     for (int i = 0; i < periods.length; i++) {
-      MediaPeriodId childMediaPeriodId =
-          id.copyWithPeriodUid(timelines[i].getUidOfPeriod(periodIndex));
+      MediaPeriodId mediaPeriodId = id.copyWithPeriodUid(timelines[i].getUidOfPeriod(periodIndex));
       periods[i] =
           mediaSources[i].createPeriod(
-              childMediaPeriodId, allocator, startPositionUs - periodTimeOffsetsUs[periodIndex][i]);
+              mediaPeriodId, allocator, startPositionUs - periodTimeOffsetsUs[periodIndex][i]);
+      mediaPeriods.get(i).add(new MediaPeriodAndId(mediaPeriodId, periods[i]));
     }
     MediaPeriod mediaPeriod =
         new MergingMediaPeriod(
@@ -222,6 +244,13 @@ public final class MergingMediaSource extends CompositeMediaSource<Integer> {
     }
     MergingMediaPeriod mergingPeriod = (MergingMediaPeriod) mediaPeriod;
     for (int i = 0; i < mediaSources.length; i++) {
+      List<MediaPeriodAndId> mediaPeriodsForSource = mediaPeriods.get(i);
+      for (int j = 0; j < mediaPeriodsForSource.size(); j++) {
+        if (mediaPeriodsForSource.get(j).mediaPeriod.equals(mediaPeriod)) {
+          mediaPeriodsForSource.remove(j);
+          break;
+        }
+      }
       mediaSources[i].releasePeriod(mergingPeriod.getChildPeriod(i));
     }
   }
@@ -270,7 +299,13 @@ public final class MergingMediaSource extends CompositeMediaSource<Integer> {
   @Nullable
   protected MediaPeriodId getMediaPeriodIdForChildMediaPeriodId(
       Integer childSourceId, MediaPeriodId mediaPeriodId) {
-    return childSourceId == 0 ? mediaPeriodId : null;
+    List<MediaPeriodAndId> childMediaPeriodIds = mediaPeriods.get(childSourceId);
+    for (int i = 0; i < childMediaPeriodIds.size(); i++) {
+      if (childMediaPeriodIds.get(i).mediaPeriodId.equals(mediaPeriodId)) {
+        return mediaPeriods.get(0).get(i).mediaPeriodId;
+      }
+    }
+    return null;
   }
 
   private void computePeriodTimeOffsets() {
@@ -352,6 +387,16 @@ public final class MergingMediaSource extends CompositeMediaSource<Integer> {
       super.getPeriod(periodIndex, period, setIds);
       period.durationUs = periodDurationsUs[periodIndex];
       return period;
+    }
+  }
+
+  private static final class MediaPeriodAndId {
+    private final MediaPeriodId mediaPeriodId;
+    private final MediaPeriod mediaPeriod;
+
+    private MediaPeriodAndId(MediaPeriodId mediaPeriodId, MediaPeriod mediaPeriod) {
+      this.mediaPeriodId = mediaPeriodId;
+      this.mediaPeriod = mediaPeriod;
     }
   }
 }

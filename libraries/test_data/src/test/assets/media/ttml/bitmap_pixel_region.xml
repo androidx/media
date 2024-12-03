@@ -12,8 +12,8 @@
             <style/>
         </styling>
         <layout>
-            <region xml:id="region_0" tts:extent="653px 86px" tts:origin="307px 562px"/>
-            <region xml:id="region_1" tts:extent="730px 43px" tts:origin="269px 612px"/>
+            <region xml:id="region_0" tts:extent="653px 86px" tts:origin="-307px 562px"/>
+            <region xml:id="region_1" tts:extent="730px 43px" tts:origin="269px +612px"/>
         </layout>
     </head>
     <body>

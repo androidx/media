@@ -35,54 +35,109 @@ import java.util.Map;
 public final class FileTypes {
 
   /**
-   * File types. One of {@link #UNKNOWN}, {@link #AC3}, {@link #AC4}, {@link #ADTS}, {@link #AMR},
-   * {@link #FLAC}, {@link #FLV}, {@link #MATROSKA}, {@link #MP3}, {@link #MP4}, {@link #OGG},
-   * {@link #PS}, {@link #TS}, {@link #WAV}, {@link #WEBVTT}, {@link #JPEG} and {@link #MIDI}.
+   * File types. One of the following:
+   *
+   * <ul>
+   *   <li>{@link #UNKNOWN}
+   *   <li>{@link #AC3}
+   *   <li>{@link #AC4}
+   *   <li>{@link #ADTS}
+   *   <li>{@link #AMR}
+   *   <li>{@link #FLAC}
+   *   <li>{@link #MATROSKA}
+   *   <li>{@link #MP3}
+   *   <li>{@link #MP4}
+   *   <li>{@link #OGG}
+   *   <li>{@link #PS}
+   *   <li>{@link #TS}
+   *   <li>{@link #WEBVTT}
+   *   <li>{@link #JPEG}
+   *   <li>{@link #MIDI}
+   *   <li>{@link #AVI}
+   *   <li>{@link #PNG}
+   *   <li>{@link #WEBP}
+   *   <li>{@link #BMP}
+   *   <li>{@link #HEIF}
+   *   <li>{@link #AVIF}
+   * </ul>
    */
   @Documented
   @Retention(RetentionPolicy.SOURCE)
   @Target(TYPE_USE)
   @IntDef({
     UNKNOWN, AC3, AC4, ADTS, AMR, FLAC, FLV, MATROSKA, MP3, MP4, OGG, PS, TS, WAV, WEBVTT, JPEG,
-    MIDI, AVI
+    MIDI, AVI, PNG, WEBP, BMP, HEIF, AVIF
   })
   public @interface Type {}
+
   /** Unknown file type. */
   public static final int UNKNOWN = -1;
+
   /** File type for the AC-3 and E-AC-3 formats. */
   public static final int AC3 = 0;
+
   /** File type for the AC-4 format. */
   public static final int AC4 = 1;
+
   /** File type for the ADTS format. */
   public static final int ADTS = 2;
+
   /** File type for the AMR format. */
   public static final int AMR = 3;
+
   /** File type for the FLAC format. */
   public static final int FLAC = 4;
+
   /** File type for the FLV format. */
   public static final int FLV = 5;
+
   /** File type for the Matroska and WebM formats. */
   public static final int MATROSKA = 6;
+
   /** File type for the MP3 format. */
   public static final int MP3 = 7;
+
   /** File type for the MP4 format. */
   public static final int MP4 = 8;
+
   /** File type for the Ogg format. */
   public static final int OGG = 9;
+
   /** File type for the MPEG-PS format. */
   public static final int PS = 10;
+
   /** File type for the MPEG-TS format. */
   public static final int TS = 11;
+
   /** File type for the WAV format. */
   public static final int WAV = 12;
+
   /** File type for the WebVTT format. */
   public static final int WEBVTT = 13;
+
   /** File type for the JPEG format. */
   public static final int JPEG = 14;
+
   /** File type for the MIDI format. */
   public static final int MIDI = 15;
+
   /** File type for the AVI format. */
   public static final int AVI = 16;
+
+  /** File type for the PNG format. */
+  public static final int PNG = 17;
+
+  /** File type for the WEBP format. */
+  public static final int WEBP = 18;
+
+  /** File type for the BMP format. */
+  public static final int BMP = 19;
+
+  /** File type for the HEIF format. */
+  public static final int HEIF = 20;
+
+  /** File type for the AVIF format. */
+  public static final int AVIF = 21;
 
   @VisibleForTesting /* package */ static final String HEADER_CONTENT_TYPE = "Content-Type";
 
@@ -119,6 +174,13 @@ public final class FileTypes {
   private static final String EXTENSION_JPG = ".jpg";
   private static final String EXTENSION_JPEG = ".jpeg";
   private static final String EXTENSION_AVI = ".avi";
+  private static final String EXTENSION_PNG = ".png";
+  private static final String EXTENSION_WEBP = ".webp";
+  private static final String EXTENSION_BMP = ".bmp";
+  private static final String EXTENSION_DIB = ".dib";
+  private static final String EXTENSION_HEIC = ".heic";
+  private static final String EXTENSION_HEIF = ".heif";
+  private static final String EXTENSION_AVIF = ".avif";
 
   private FileTypes() {}
 
@@ -134,7 +196,7 @@ public final class FileTypes {
   /**
    * Returns the {@link Type} corresponding to the MIME type provided.
    *
-   * <p>Returns {@link #UNKNOWN} if the mime type is {@code null}.
+   * <p>Returns {@link #UNKNOWN} if the MIME type is {@code null}.
    */
   public static @FileTypes.Type int inferFileTypeFromMimeType(@Nullable String mimeType) {
     if (mimeType == null) {
@@ -184,6 +246,17 @@ public final class FileTypes {
         return FileTypes.JPEG;
       case MimeTypes.VIDEO_AVI:
         return FileTypes.AVI;
+      case MimeTypes.IMAGE_PNG:
+        return FileTypes.PNG;
+      case MimeTypes.IMAGE_WEBP:
+        return FileTypes.WEBP;
+      case MimeTypes.IMAGE_BMP:
+        return FileTypes.BMP;
+      case MimeTypes.IMAGE_HEIF:
+      case MimeTypes.IMAGE_HEIC:
+        return FileTypes.HEIF;
+      case MimeTypes.IMAGE_AVIF:
+        return FileTypes.AVIF;
       default:
         return FileTypes.UNKNOWN;
     }
@@ -251,6 +324,16 @@ public final class FileTypes {
       return FileTypes.JPEG;
     } else if (filename.endsWith(EXTENSION_AVI)) {
       return FileTypes.AVI;
+    } else if (filename.endsWith(EXTENSION_PNG)) {
+      return FileTypes.PNG;
+    } else if (filename.endsWith(EXTENSION_WEBP)) {
+      return FileTypes.WEBP;
+    } else if (filename.endsWith(EXTENSION_BMP) || filename.endsWith(EXTENSION_DIB)) {
+      return FileTypes.BMP;
+    } else if (filename.endsWith(EXTENSION_HEIC) || filename.endsWith(EXTENSION_HEIF)) {
+      return FileTypes.HEIF;
+    } else if (filename.endsWith(EXTENSION_AVIF)) {
+      return FileTypes.AVIF;
     } else {
       return FileTypes.UNKNOWN;
     }

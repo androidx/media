@@ -54,6 +54,7 @@ public final class FakeTrackOutput implements TrackOutput, Dumper.Dumpable {
   private byte[] sampleData;
   private int formatCount;
   private boolean receivedSampleInFormat;
+  private long durationUs;
 
   @Nullable public Format lastFormat;
 
@@ -64,6 +65,7 @@ public final class FakeTrackOutput implements TrackOutput, Dumper.Dumpable {
     sampleData = Util.EMPTY_BYTE_ARRAY;
     formatCount = 0;
     receivedSampleInFormat = true;
+    durationUs = C.TIME_UNSET;
   }
 
   public void clear() {
@@ -72,6 +74,11 @@ public final class FakeTrackOutput implements TrackOutput, Dumper.Dumpable {
     sampleData = Util.EMPTY_BYTE_ARRAY;
     formatCount = 0;
     receivedSampleInFormat = true;
+  }
+
+  @Override
+  public void durationUs(long durationUs) {
+    this.durationUs = durationUs;
   }
 
   @Override
@@ -188,6 +195,7 @@ public final class FakeTrackOutput implements TrackOutput, Dumper.Dumpable {
   public void dump(Dumper dumper) {
     dumper.add("total output bytes", sampleData.length);
     dumper.add("sample count", sampleInfos.size());
+    dumper.addIfNonDefault("track duration", durationUs, C.TIME_UNSET);
     if (dumpables.isEmpty() && lastFormat != null) {
       new DumpableFormat(lastFormat, 0).dump(dumper);
     }
@@ -245,7 +253,7 @@ public final class FakeTrackOutput implements TrackOutput, Dumper.Dumpable {
     public void dump(Dumper dumper) {
       dumper
           .startBlock("sample " + index)
-          .add("time", timeUs)
+          .addTime("time", timeUs)
           .add("flags", flags)
           .add("data", getSampleData(startOffset, endOffset));
       if (cryptoData != null) {

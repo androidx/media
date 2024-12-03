@@ -13,6 +13,7 @@ track 1900:
     averageBitrate = 384000
     peakBitrate = 384000
     id = 1/1900
+    containerMimeType = video/mp2t
     sampleMimeType = audio/ac3
     channelCount = 6
     sampleRate = 48000

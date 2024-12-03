@@ -11,6 +11,7 @@ track 256:
   sample count = 0
   format 0:
     id = 1/256
+    containerMimeType = video/mp2t
     sampleMimeType = video/mp4v-es
     width = 640
     height = 360

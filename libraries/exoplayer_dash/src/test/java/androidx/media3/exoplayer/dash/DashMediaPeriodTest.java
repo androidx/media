@@ -15,7 +15,9 @@
  */
 package androidx.media3.exoplayer.dash;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import android.net.Uri;
 import androidx.media3.common.Format;
@@ -80,13 +82,14 @@ public final class DashMediaPeriodTest {
     TrackGroupArray expectedTrackGroups =
         new TrackGroupArray(
             new TrackGroup(
-                /* id= */ "0",
+                /* id= */ "3000000000",
                 adaptationSets.get(0).representations.get(0).format,
                 adaptationSets.get(0).representations.get(1).format,
                 adaptationSets.get(2).representations.get(0).format,
                 adaptationSets.get(2).representations.get(1).format,
                 adaptationSets.get(3).representations.get(0).format),
-            new TrackGroup(/* id= */ "3", adaptationSets.get(1).representations.get(0).format));
+            new TrackGroup(
+                /* id= */ "3000000003", adaptationSets.get(1).representations.get(0).format));
 
     MediaPeriodAsserts.assertTrackGroups(dashMediaPeriod, expectedTrackGroups);
   }
@@ -102,12 +105,12 @@ public final class DashMediaPeriodTest {
     TrackGroupArray expectedTrackGroups =
         new TrackGroupArray(
             new TrackGroup(
-                /* id= */ "0",
+                /* id= */ "3000000000",
                 adaptationSets.get(0).representations.get(0).format,
                 adaptationSets.get(0).representations.get(1).format,
                 adaptationSets.get(1).representations.get(0).format),
             new TrackGroup(
-                /* id= */ "2",
+                /* id= */ "3000000002",
                 adaptationSets.get(2).representations.get(0).format,
                 adaptationSets.get(2).representations.get(1).format,
                 adaptationSets.get(3).representations.get(0).format));
@@ -127,7 +130,7 @@ public final class DashMediaPeriodTest {
     TrackGroupArray expectedTrackGroups =
         new TrackGroupArray(
             new TrackGroup(
-                /* id= */ "0",
+                /* id= */ "3000000000",
                 adaptationSets.get(0).representations.get(0).format,
                 adaptationSets.get(0).representations.get(1).format,
                 adaptationSets.get(1).representations.get(0).format,
@@ -204,19 +207,22 @@ public final class DashMediaPeriodTest {
 
   private static DashMediaPeriod createDashMediaPeriod(DashManifest manifest, int periodIndex) {
     MediaPeriodId mediaPeriodId = new MediaPeriodId(/* periodUid= */ new Object());
+    DashChunkSource.Factory chunkSourceFactory = mock(DashChunkSource.Factory.class);
+    when(chunkSourceFactory.getOutputTextFormat(any())).thenCallRealMethod();
     return new DashMediaPeriod(
         /* id= */ periodIndex,
         manifest,
         new BaseUrlExclusionList(),
         periodIndex,
-        mock(DashChunkSource.Factory.class),
+        chunkSourceFactory,
         mock(TransferListener.class),
+        /* cmcdConfiguration= */ null,
         DrmSessionManager.DRM_UNSUPPORTED,
         new DrmSessionEventListener.EventDispatcher()
             .withParameters(/* windowIndex= */ 0, mediaPeriodId),
         mock(LoadErrorHandlingPolicy.class),
         new MediaSourceEventListener.EventDispatcher()
-            .withParameters(/* windowIndex= */ 0, mediaPeriodId, /* mediaTimeOffsetMs= */ 0),
+            .withParameters(/* windowIndex= */ 0, mediaPeriodId),
         /* elapsedRealtimeOffsetMs= */ 0,
         mock(LoaderErrorThrower.class),
         mock(Allocator.class),

@@ -17,11 +17,13 @@ package androidx.media3.common.util;
 
 import static java.lang.Math.min;
 
-import com.google.common.base.Charsets;
+import com.google.errorprone.annotations.CheckReturnValue;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 
 /** Wraps a byte array, providing methods that allow it to be read as a bitstream. */
 @UnstableApi
+@CheckReturnValue
 public final class ParsableBitArray {
 
   public byte[] data;
@@ -283,7 +285,7 @@ public final class ParsableBitArray {
    * @return The string encoded by the bytes in UTF-8.
    */
   public String readBytesAsString(int length) {
-    return readBytesAsString(length, Charsets.UTF_8);
+    return readBytesAsString(length, StandardCharsets.UTF_8);
   }
 
   /**

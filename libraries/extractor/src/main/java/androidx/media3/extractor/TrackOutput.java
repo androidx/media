@@ -104,6 +104,7 @@ public interface TrackOutput {
 
   /** Main media sample data. */
   int SAMPLE_DATA_PART_MAIN = 0;
+
   /**
    * Sample encryption data.
    *
@@ -128,6 +129,7 @@ public interface TrackOutput {
    * </ul>
    */
   int SAMPLE_DATA_PART_ENCRYPTION = 1;
+
   /**
    * Sample supplemental data.
    *
@@ -143,6 +145,13 @@ public interface TrackOutput {
    * </ul>
    */
   int SAMPLE_DATA_PART_SUPPLEMENTAL = 2;
+
+  /**
+   * Called to set the duration of the track in microseconds.
+   *
+   * @param durationUs The duration of the track in microseconds.
+   */
+  default void durationUs(long durationUs) {}
 
   /**
    * Called when the {@link Format} of the track has been extracted from the stream.

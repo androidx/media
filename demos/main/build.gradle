@@ -14,9 +14,12 @@
 
 apply from: '../../constants.gradle'
 apply plugin: 'com.android.application'
+apply plugin: 'kotlin-android'
 
 android {
-    compileSdkVersion project.ext.compileSdkVersion
+    namespace 'androidx.media3.demo.main'
+
+    compileSdk project.ext.compileSdkVersion
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
@@ -27,10 +30,7 @@ android {
         versionName project.ext.releaseVersion
         versionCode project.ext.releaseVersionCode
         minSdkVersion project.ext.minSdkVersion
-        // Not using appTargetSDKVersion to allow local file access on API 29
-        // and higher [Internal ref: b/191644662]
-        targetSdkVersion project.ext.mainDemoAppTargetSdkVersion
-        multiDexEnabled true
+        targetSdkVersion project.ext.appTargetSdkVersion
     }
 
     buildTypes {
@@ -54,7 +54,9 @@ android {
         disable 'GoogleAppIndexingWarning','MissingTranslation','IconDensities'
     }
 
-    flavorDimensions "decoderExtensions"
+    flavorDimensions = ["decoderExtensions"]
+
+    buildFeatures.buildConfig true
 
     productFlavors {
         noDecoderExtensions {
@@ -72,7 +74,6 @@ dependencies {
     compileOnly 'org.checkerframework:checker-qual:' + checkerframeworkVersion
     implementation 'androidx.annotation:annotation:' + androidxAnnotationVersion
     implementation 'androidx.appcompat:appcompat:' + androidxAppCompatVersion
-    implementation 'androidx.multidex:multidex:' + androidxMultidexVersion
     implementation 'com.google.android.material:material:' + androidxMaterialVersion
     implementation project(modulePrefix + 'lib-exoplayer')
     implementation project(modulePrefix + 'lib-exoplayer-dash')
@@ -86,7 +87,10 @@ dependencies {
     withDecoderExtensionsImplementation project(modulePrefix + 'lib-decoder-ffmpeg')
     withDecoderExtensionsImplementation project(modulePrefix + 'lib-decoder-flac')
     withDecoderExtensionsImplementation project(modulePrefix + 'lib-decoder-opus')
+    withDecoderExtensionsImplementation project(modulePrefix + 'lib-decoder-iamf')
     withDecoderExtensionsImplementation project(modulePrefix + 'lib-decoder-vp9')
+    withDecoderExtensionsImplementation project(modulePrefix + 'lib-decoder-midi')
+    withDecoderExtensionsImplementation project(modulePrefix + 'lib-decoder-mpegh')
     withDecoderExtensionsImplementation project(modulePrefix + 'lib-datasource-rtmp')
 }
 

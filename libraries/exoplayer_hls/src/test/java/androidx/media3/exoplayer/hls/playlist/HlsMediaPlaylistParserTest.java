@@ -15,7 +15,16 @@
  */
 package androidx.media3.exoplayer.hls.playlist;
 
+import static androidx.media3.common.util.Util.msToUs;
+import static androidx.media3.exoplayer.hls.playlist.HlsMediaPlaylist.Interstitial.CUE_TRIGGER_ONCE;
+import static androidx.media3.exoplayer.hls.playlist.HlsMediaPlaylist.Interstitial.CUE_TRIGGER_POST;
+import static androidx.media3.exoplayer.hls.playlist.HlsMediaPlaylist.Interstitial.CUE_TRIGGER_PRE;
+import static androidx.media3.exoplayer.hls.playlist.HlsMediaPlaylist.Interstitial.NAVIGATION_RESTRICTION_JUMP;
+import static androidx.media3.exoplayer.hls.playlist.HlsMediaPlaylist.Interstitial.NAVIGATION_RESTRICTION_SKIP;
+import static androidx.media3.exoplayer.hls.playlist.HlsMediaPlaylist.Interstitial.SNAP_TYPE_IN;
+import static androidx.media3.exoplayer.hls.playlist.HlsMediaPlaylist.Interstitial.SNAP_TYPE_OUT;
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import android.net.Uri;
@@ -24,13 +33,18 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.Util;
+import androidx.media3.exoplayer.hls.playlist.HlsMediaPlaylist.Interstitial;
 import androidx.media3.exoplayer.hls.playlist.HlsMediaPlaylist.Segment;
 import androidx.media3.extractor.mp4.PsshAtomUtil;
+import androidx.media3.test.utils.TestUtil;
+import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.text.ParseException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -1102,6 +1116,493 @@ public class HlsMediaPlaylistParserTest {
         playlist.renditionReports.get(Uri.parse("https://example.com/rendition0.m3u8"));
     assertThat(report0.lastMediaSequence).isEqualTo(266);
     assertThat(report0.lastPartIndex).isEqualTo(3);
+  }
+
+  @Test
+  public void parseMediaPlaylist_withInterstitialDateRanges() throws IOException, ParseException {
+    Uri playlistUri = Uri.parse("https://example.com/test.m3u8");
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:6\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:55:40.000Z\n"
+            + "#EXTINF:6,\n"
+            + "main1.0.ts\n"
+            + "#EXT-X-ENDLIST"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "ID=\"ad1\","
+            + "START-DATE=\"2020-01-02T21:55:44.000Z\","
+            + "END-DATE=\"2020-01-02T21:55:59.000Z\","
+            + "DURATION=15.0,"
+            + "PLANNED-DURATION=15.13,"
+            + "CUE=\" PRE \","
+            + "END-ON-NEXT=YES, "
+            + "X-ASSET-URI=\"http://example.com/ad1.m3u8\","
+            + "X-RESUME-OFFSET=-1.1, "
+            + "X-PLAYOUT-LIMIT=15.112, "
+            + "X-SNAP=\"    IN  , OUT  \", "
+            + "X-RESTRICT=\"SKIP ,  JUMP\","
+            + "X-GOOGLE-TEST-TEXT=\"Value at the end\""
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "X-GOOGLE-TEST-HEX=0XAB10A,"
+            + "ID=\"ad2\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T22:55:44.000Z\","
+            + "END-DATE=\"2020-01-02T22:55:49.120Z\","
+            + "DURATION=5.12,"
+            + "PLANNED-DURATION=5.11,"
+            + "CUE=\"  POST,    ONCE\","
+            + "X-GOOGLE-TEST-DOUBLE1=12.123,"
+            + "X-ASSET-LIST=\"http://example.com/ad2-assets.json\""
+            + "X-GOOGLE-TEST-DOUBLE2=1\n";
+    long playlistStartTimeUs = msToUs(Util.parseXsDateTime("2020-01-02T21:55:40.000Z"));
+    Interstitial interstitial1 =
+        new Interstitial(
+            /* id= */ "ad1",
+            /* assetUri= */ Uri.parse("http://example.com/ad1.m3u8"),
+            /* assetListUri= */ null,
+            /* startDateUnixUs= */ playlistStartTimeUs + 4_000_000L,
+            /* endDateUnixUs= */ playlistStartTimeUs + 4_000_000L + 15_000_000L,
+            /* durationUs= */ 15_000_000L,
+            /* plannedDurationUs= */ 15_130_000L,
+            /* cue= */ ImmutableList.of(CUE_TRIGGER_PRE),
+            /* endOnNext= */ true,
+            /* resumeOffsetUs= */ -1_100_000L,
+            /* playoutLimitUs= */ 15_112_000L,
+            ImmutableList.of(SNAP_TYPE_IN, SNAP_TYPE_OUT),
+            ImmutableList.of(NAVIGATION_RESTRICTION_SKIP, NAVIGATION_RESTRICTION_JUMP),
+            /* clientDefinedAttributes= */ ImmutableList.of(
+                new HlsMediaPlaylist.ClientDefinedAttribute(
+                    "X-GOOGLE-TEST-TEXT",
+                    "Value at the end",
+                    HlsMediaPlaylist.ClientDefinedAttribute.TYPE_TEXT)));
+    Interstitial interstitial2 =
+        new Interstitial(
+            /* id= */ "ad2",
+            /* assetUri= */ null,
+            /* assetListUri= */ Uri.parse("http://example.com/ad2-assets.json"),
+            /* startDateUnixUs= */ playlistStartTimeUs + 4_000_000L + (60L * 60L * 1_000_000L),
+            /* endDateUnixUs= */ playlistStartTimeUs
+                + 4_000_000L
+                + 5_120_000L
+                + (60L * 60L * 1_000_000L),
+            /* durationUs= */ 5_120_000L,
+            /* plannedDurationUs= */ 5_110_000L,
+            ImmutableList.of(CUE_TRIGGER_POST, CUE_TRIGGER_ONCE),
+            /* endOnNext= */ false,
+            /* resumeOffsetUs= */ C.TIME_UNSET,
+            /* playoutLimitUs= */ C.TIME_UNSET,
+            /* snapTypes= */ ImmutableList.of(),
+            /* restrictions= */ ImmutableList.of(),
+            /* clientDefinedAttributes= */ ImmutableList.of(
+                new HlsMediaPlaylist.ClientDefinedAttribute(
+                    "X-GOOGLE-TEST-HEX",
+                    "0XAB10A",
+                    HlsMediaPlaylist.ClientDefinedAttribute.TYPE_HEX_TEXT),
+                new HlsMediaPlaylist.ClientDefinedAttribute("X-GOOGLE-TEST-DOUBLE1", 12.123d),
+                new HlsMediaPlaylist.ClientDefinedAttribute("X-GOOGLE-TEST-DOUBLE2", 1d)));
+    InputStream inputStream = new ByteArrayInputStream(Util.getUtf8Bytes(playlistString));
+
+    HlsMediaPlaylist playlist =
+        (HlsMediaPlaylist) new HlsPlaylistParser().parse(playlistUri, inputStream);
+
+    assertThat(playlist.interstitials).containsExactly(interstitial1, interstitial2).inOrder();
+  }
+
+  @Test
+  public void parseMediaPlaylist_withInterstitialsVodWithAssetUriOnly_correctlyParseAllAttributes()
+      throws IOException {
+    Uri playlistUri = Uri.parse("http://example.com/interstitials_vod_asset_uri.m3u8");
+    InputStream inputStream =
+        TestUtil.getInputStream(
+            ApplicationProvider.getApplicationContext(),
+            "media/hls/interstitials/interstitials_vod_asset_uri.m3u8");
+    Interstitial interstitial1 =
+        new Interstitial(
+            "preroll",
+            /* assetUri= */ Uri.parse("https://example.com/0.m3u8?parse=1"),
+            /* assetListUri= */ null,
+            /* startDateUnixUs= */ msToUs(Util.parseXsDateTime("2024-11-11T04:35:19.353-08:00")),
+            /* endDateUnixUs= */ C.TIME_UNSET,
+            /* durationUs= */ C.TIME_UNSET,
+            /* plannedDurationUs= */ C.TIME_UNSET,
+            /* cue= */ ImmutableList.of("PRE"),
+            /* endOnNext= */ false,
+            /* resumeOffsetUs= */ 0L,
+            /* playoutLimitUs= */ C.TIME_UNSET,
+            /* snapTypes= */ ImmutableList.of(),
+            /* restrictions= */ ImmutableList.of("JUMP", "SKIP"),
+            /* clientDefinedAttributes= */ ImmutableList.of());
+    Interstitial interstitial2 =
+        new Interstitial(
+            "midroll-1",
+            /* assetUri= */ Uri.parse("https://example.com/1.m3u8?parse=1"),
+            /* assetListUri= */ null,
+            /* startDateUnixUs= */ msToUs(Util.parseXsDateTime("2024-11-11T04:35:34.353-08:00")),
+            /* endDateUnixUs= */ C.TIME_UNSET,
+            /* durationUs= */ C.TIME_UNSET,
+            /* plannedDurationUs= */ C.TIME_UNSET,
+            /* cue= */ ImmutableList.of(),
+            /* endOnNext= */ false,
+            /* resumeOffsetUs= */ 0L,
+            /* playoutLimitUs= */ C.TIME_UNSET,
+            /* snapTypes= */ ImmutableList.of(),
+            /* restrictions= */ ImmutableList.of("JUMP", "SKIP"),
+            /* clientDefinedAttributes= */ ImmutableList.of());
+    Interstitial interstitial3 =
+        new Interstitial(
+            "postroll",
+            /* assetUri= */ Uri.parse("https://example.com/2.m3u8?parse=1"),
+            /* assetListUri= */ null,
+            /* startDateUnixUs= */ msToUs(Util.parseXsDateTime("2024-11-11T04:36:31.353-08:00")),
+            /* endDateUnixUs= */ C.TIME_UNSET,
+            /* durationUs= */ C.TIME_UNSET,
+            /* plannedDurationUs= */ C.TIME_UNSET,
+            /* cue= */ ImmutableList.of("POST"),
+            /* endOnNext= */ false,
+            /* resumeOffsetUs= */ 0L,
+            /* playoutLimitUs= */ C.TIME_UNSET,
+            /* snapTypes= */ ImmutableList.of(),
+            /* restrictions= */ ImmutableList.of(
+                NAVIGATION_RESTRICTION_JUMP, NAVIGATION_RESTRICTION_SKIP),
+            /* clientDefinedAttributes= */ ImmutableList.of());
+
+    HlsMediaPlaylist playlist =
+        (HlsMediaPlaylist) new HlsPlaylistParser().parse(playlistUri, inputStream);
+
+    assertThat(playlist.interstitials)
+        .containsExactly(interstitial1, interstitial2, interstitial3)
+        .inOrder();
+    assertThat(playlist.startTimeUs)
+        .isEqualTo(msToUs(Util.parseXsDateTime("2024-11-11T04:35:19.353-08:00")));
+  }
+
+  @Test
+  public void parseMediaPlaylist_withDuration_durationSetCorrectly() throws IOException {
+    Uri playlistUri = Uri.parse("https://example.com/test.m3u8");
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:6\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:55:40.000Z\n"
+            + "#EXTINF:6,\n"
+            + "main1.0.ts\n"
+            + "#EXT-X-ENDLIST"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad0-0\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T21:55:41.123Z\","
+            + "DURATION=2.222,"
+            + "X-ASSET-URI=\"http://example.com/media-0-0.m3u8\""
+            + "\n";
+    HlsPlaylistParser hlsPlaylistParser = new HlsPlaylistParser();
+
+    HlsMediaPlaylist mediaPlaylist =
+        (HlsMediaPlaylist)
+            hlsPlaylistParser.parse(
+                playlistUri, new ByteArrayInputStream(Util.getUtf8Bytes(playlistString)));
+
+    assertThat(mediaPlaylist.interstitials.get(0).durationUs).isEqualTo(2_222_000L);
+  }
+
+  @Test
+  public void parseMediaPlaylist_withDurationAfterPlannedDuration_durationSetCorrectly()
+      throws IOException {
+    Uri playlistUri = Uri.parse("https://example.com/test.m3u8");
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:6\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:55:40.000Z\n"
+            + "#EXTINF:6,\n"
+            + "main1.0.ts\n"
+            + "#EXT-X-ENDLIST"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad0-0\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T21:55:41.123Z\","
+            + "PLANNED-DURATION=1.111,"
+            + "DURATION=2.222,"
+            + "X-ASSET-URI=\"http://example.com/media-0-0.m3u8\""
+            + "\n";
+    HlsPlaylistParser hlsPlaylistParser = new HlsPlaylistParser();
+
+    HlsMediaPlaylist mediaPlaylist =
+        (HlsMediaPlaylist)
+            hlsPlaylistParser.parse(
+                playlistUri, new ByteArrayInputStream(Util.getUtf8Bytes(playlistString)));
+
+    assertThat(mediaPlaylist.interstitials.get(0).durationUs).isEqualTo(2_222_000L);
+  }
+
+  @Test
+  public void parseMediaPlaylist_withDurationBeforePlannedDuration_durationSetCorrectly()
+      throws IOException {
+    Uri playlistUri = Uri.parse("https://example.com/test.m3u8");
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:6\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:55:40.000Z\n"
+            + "#EXTINF:6,\n"
+            + "main1.0.ts\n"
+            + "#EXT-X-ENDLIST"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "DURATION=2.234,"
+            + "ID=\"ad0-0\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T21:55:41.123Z\","
+            + "PLANNED-DURATION=3.456,"
+            + "X-ASSET-URI=\"http://example.com/media-0-0.m3u8\""
+            + "\n";
+    HlsPlaylistParser hlsPlaylistParser = new HlsPlaylistParser();
+
+    HlsMediaPlaylist mediaPlaylist =
+        (HlsMediaPlaylist)
+            hlsPlaylistParser.parse(
+                playlistUri, new ByteArrayInputStream(Util.getUtf8Bytes(playlistString)));
+
+    assertThat(mediaPlaylist.interstitials.get(0).durationUs).isEqualTo(2_234_000L);
+  }
+
+  @Test
+  public void parseMediaPlaylist_withInterstitialWithoutId_throwsParserException() {
+    Uri playlistUri = Uri.parse("https://example.com/test.m3u8");
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:6\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:55:40.000Z\n"
+            + "#EXTINF:6,\n"
+            + "main1.0.ts\n"
+            + "#EXT-X-ENDLIST"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "X-ASSET-URI=\"http://example.com/ad1.m3u8\","
+            + "START-DATE=\"2020-01-02T21:55:44.000Z\"\n";
+    HlsPlaylistParser hlsPlaylistParser = new HlsPlaylistParser();
+
+    assertThrows(
+        ParserException.class,
+        () ->
+            hlsPlaylistParser.parse(
+                playlistUri, new ByteArrayInputStream(Util.getUtf8Bytes(playlistString))));
+  }
+
+  @Test
+  public void parseMediaPlaylist_withDateRangeWithUnknownClass_dateRangeIgnored()
+      throws IOException {
+    Uri playlistUri = Uri.parse("https://example.com/test.m3u8");
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:6\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:55:40.000Z\n"
+            + "#EXTINF:6,\n"
+            + "main1.0.ts\n"
+            + "#EXT-X-ENDLIST"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad2\","
+            + "CLASS=\"some.other.class\","
+            + "X-ASSET-URI=\"http://example.com/ad1.m3u8\","
+            + "START-DATE=\"2020-01-02T21:55:44.000Z\"\n";
+    HlsPlaylistParser hlsPlaylistParser = new HlsPlaylistParser();
+
+    HlsMediaPlaylist playlist =
+        (HlsMediaPlaylist)
+            hlsPlaylistParser.parse(
+                playlistUri, new ByteArrayInputStream(Util.getUtf8Bytes(playlistString)));
+
+    assertThat(playlist.interstitials).isEmpty();
+  }
+
+  @Test
+  public void parseMediaPlaylist_withDateRangeWithMissingClass_dateRangeIgnored()
+      throws IOException {
+    Uri playlistUri = Uri.parse("https://example.com/test.m3u8");
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:6\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:55:40.000Z\n"
+            + "#EXTINF:6,\n"
+            + "main1.0.ts\n"
+            + "#EXT-X-ENDLIST"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad2\","
+            + "X-ASSET-URI=\"http://example.com/ad1.m3u8\","
+            + "START-DATE=\"2020-01-02T21:55:44.000Z\"\n";
+    HlsPlaylistParser hlsPlaylistParser = new HlsPlaylistParser();
+
+    HlsMediaPlaylist playlist =
+        (HlsMediaPlaylist)
+            hlsPlaylistParser.parse(
+                playlistUri, new ByteArrayInputStream(Util.getUtf8Bytes(playlistString)));
+
+    assertThat(playlist.interstitials).isEmpty();
+  }
+
+  @Test
+  public void parseMediaPlaylist_withInterstitialWithoutStartDate_throwsParserException() {
+    Uri playlistUri = Uri.parse("https://example.com/test.m3u8");
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:6\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:55:40.000Z\n"
+            + "#EXTINF:6,\n"
+            + "main1.0.ts\n"
+            + "#EXT-X-ENDLIST"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad2\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "X-ASSET-LIST=\"http://example.com/ad2-assets.json\"\n";
+    HlsPlaylistParser hlsPlaylistParser = new HlsPlaylistParser();
+
+    assertThrows(
+        ParserException.class,
+        () ->
+            hlsPlaylistParser.parse(
+                playlistUri, new ByteArrayInputStream(Util.getUtf8Bytes(playlistString))));
+  }
+
+  @Test
+  public void parseMediaPlaylist_withInterstitialWithAssetUriAndList_throwsParserException() {
+    Uri playlistUri = Uri.parse("https://example.com/test.m3u8");
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:6\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:55:40.000Z\n"
+            + "#EXTINF:6,\n"
+            + "main1.0.ts\n"
+            + "#EXT-X-ENDLIST"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad2\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T21:55:44.000Z\","
+            + "X-ASSET-URI=\"http://example.com/media.m3u8\","
+            + "X-ASSET-LIST=\"http://example.com/ad2-assets.json\"\n";
+    HlsPlaylistParser hlsPlaylistParser = new HlsPlaylistParser();
+
+    assertThrows(
+        ParserException.class,
+        () ->
+            hlsPlaylistParser.parse(
+                playlistUri, new ByteArrayInputStream(Util.getUtf8Bytes(playlistString))));
+  }
+
+  @Test
+  public void
+      parseMediaPlaylist_withInterstitialWithNeitherAssetUriNorAssetList_throwsParserException() {
+    Uri playlistUri = Uri.parse("https://example.com/test.m3u8");
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:6\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:55:40.000Z\n"
+            + "#EXTINF:6,\n"
+            + "main1.0.ts\n"
+            + "#EXT-X-ENDLIST"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad2\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T21:55:44.000Z\"\n";
+    HlsPlaylistParser hlsPlaylistParser = new HlsPlaylistParser();
+
+    assertThrows(
+        ParserException.class,
+        () ->
+            hlsPlaylistParser.parse(
+                playlistUri, new ByteArrayInputStream(Util.getUtf8Bytes(playlistString))));
+  }
+
+  @Test
+  public void
+      parseMediaPlaylist_withInterstitialWithUnknownRestrictions_ignoredForForwardCompatibility()
+          throws IOException {
+    Uri playlistUri = Uri.parse("https://example.com/test.m3u8");
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:6\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:55:40.000Z\n"
+            + "#EXTINF:6,\n"
+            + "main1.0.ts\n"
+            + "#EXT-X-ENDLIST"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad2\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "X-RESTRICT=\"SKIP , FLY , ROW , JUMP\","
+            + "X-ASSET-URI=\"http://example.com/media.m3u8\","
+            + "START-DATE=\"2020-01-02T21:55:44.000Z\"\n";
+
+    HlsMediaPlaylist playlist =
+        (HlsMediaPlaylist)
+            new HlsPlaylistParser()
+                .parse(playlistUri, new ByteArrayInputStream(Util.getUtf8Bytes(playlistString)));
+
+    assertThat(playlist.interstitials.get(0).restrictions)
+        .containsExactly(NAVIGATION_RESTRICTION_SKIP, NAVIGATION_RESTRICTION_JUMP)
+        .inOrder();
+  }
+
+  @Test
+  public void
+      parseMediaPlaylist_withInterstitialWithUnknownCueIdentifier_ignoredForForwardCompatibility()
+          throws IOException {
+    Uri playlistUri = Uri.parse("https://example.com/test.m3u8");
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:6\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:55:40.000Z\n"
+            + "#EXTINF:6,\n"
+            + "main1.0.ts\n"
+            + "#EXT-X-ENDLIST"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad2\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "X-CUE=\"ALONE , PRE , INBETWEEN , BEYOND\","
+            + "X-ASSET-URI=\"http://example.com/media.m3u8\","
+            + "START-DATE=\"2020-01-02T21:55:44.000Z\"\n";
+
+    HlsMediaPlaylist playlist =
+        (HlsMediaPlaylist)
+            new HlsPlaylistParser()
+                .parse(playlistUri, new ByteArrayInputStream(Util.getUtf8Bytes(playlistString)));
+
+    assertThat(playlist.interstitials.get(0).cue).containsExactly(CUE_TRIGGER_PRE);
+  }
+
+  @Test
+  public void
+      parseMediaPlaylist_withInterstitialWithUnknownSnapTypes_ignoredForForwardCompatibility()
+          throws IOException {
+    Uri playlistUri = Uri.parse("https://example.com/test.m3u8");
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:6\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:55:40.000Z\n"
+            + "#EXTINF:6,\n"
+            + "main1.0.ts\n"
+            + "#EXT-X-ENDLIST"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad2\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "X-SNAP=\"    FOR  , OUT  , AT\", "
+            + "X-ASSET-URI=\"http://example.com/media.m3u8\","
+            + "START-DATE=\"2020-01-02T21:55:44.000Z\"\n";
+
+    HlsMediaPlaylist playlist =
+        (HlsMediaPlaylist)
+            new HlsPlaylistParser()
+                .parse(playlistUri, new ByteArrayInputStream(Util.getUtf8Bytes(playlistString)));
+
+    assertThat(playlist.interstitials.get(0).snapTypes).containsExactly(SNAP_TYPE_OUT);
   }
 
   @Test

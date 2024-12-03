@@ -41,12 +41,11 @@
     <item>1,5x</item>
     <item>2x</item>
   </string-array>
-  <string name="exo_track_selection_title_video">Vídeo</string>
   <string name="exo_track_selection_title_audio">Audio</string>
-  <string name="exo_track_selection_title_text">Texto</string>
   <string name="exo_track_selection_none">Ninguna</string>
   <string name="exo_track_selection_auto">Automático</string>
   <string name="exo_track_unknown">Desconocido</string>
+  <string name="exo_track_unknown_name">Desconocido (%1$s)</string>
   <string name="exo_track_resolution">%1$d×%2$d</string>
   <string name="exo_track_mono">Mono</string>
   <string name="exo_track_stereo">Estéreo</string>
@@ -57,6 +56,6 @@
   <string name="exo_track_role_supplementary">Complementaria</string>
   <string name="exo_track_role_commentary">Comentarios</string>
   <string name="exo_track_role_closed_captions">CC</string>
-  <string name="exo_track_bitrate">%1$.2f Mbps</string>
+  <string name="exo_track_bitrate">%1$.2f Mb/s</string>
   <string name="exo_item_list">%1$s, %2$s</string>
 </resources>

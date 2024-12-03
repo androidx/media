@@ -5,37 +5,32 @@ body:
   - type: markdown
     attributes:
       value: |
-        We can only process bug reports that are actionable. Unclear bug reports or reports with
-        insufficient information may not get attention.
+        We can only process bug reports that are actionable. Unclear bug reports or reports with insufficient information may not get attention.
 
         Before filing a bug:
         -------------------------
 
-        - Search existing issues, including issues that are closed:
-          https://github.com/androidx/media/issues?q=is%3Aissue
-        - For ExoPlayer-related bugs, please also check for existing issues on the ExoPlayer
-          tracker: https://github.com/google/ExoPlayer/issues?q=is%3Aissue
+        - Search existing issues, including issues that are closed: https://github.com/androidx/media/issues?q=is%3Aissue
+        - For ExoPlayer-related bugs, please also check for existing issues on the ExoPlayer tracker: https://github.com/google/ExoPlayer/issues?q=is%3Aissue
   - type: dropdown
     attributes:
-      label: Media3 Version
+      label: Version
       description: What version of Media3 (or ExoPlayer) are you using?
       options:
-        - Media3 1.1.0-alpha01
-        - Media3 1.0.2
-        - Media3 1.0.1
-        - Media3 1.0.0
-        - Media3 1.0.0-rc02
-        - Media3 1.0.0-rc01
-        - Media3 1.0.0-beta03
-        - Media3 1.0.0-beta02
-        - Media3 1.0.0-beta01
-        - Media3 1.0.0-alpha03
-        - Media3 1.0.0-alpha02
-        - Media3 1.0.0-alpha01
-        - Media3 `main` branch
-        - ExoPlayer 2.18.7
-        - ExoPlayer 2.18.6
-        - ExoPlayer 2.18.5
+        - Media3 main branch
+        - Media3 pre-release (alpha, beta or RC not in this list)
+        - Media3 1.5.0
+        - Media3 1.4.1
+        - Media3 1.4.0
+        - Media3 1.3.1
+        - Media3 1.3.0
+        - Media3 1.2.1
+        - Media3 1.2.0
+        - Media3 1.1.1 / ExoPlayer 2.19.1
+        - Media3 1.1.0 / ExoPlayer 2.19.0
+        - Media3 1.0.2 / ExoPlayer 2.18.7
+        - Media3 1.0.1 / ExoPlayer 2.18.6
+        - Media3 1.0.0 / ExoPlayer 2.18.5
         - ExoPlayer 2.18.4
         - ExoPlayer 2.18.3
         - ExoPlayer 2.18.2
@@ -50,10 +45,16 @@ body:
         - ExoPlayer 2.14.2
         - ExoPlayer 2.14.1
         - ExoPlayer 2.14.0
-        - ExoPlayer `dev-v2` branch
+        - ExoPlayer dev-v2 branch
         - Older (unsupported)
     validations:
       required: true
+  - type: textarea
+    attributes:
+      label: More version details
+      description: >
+        Required if you selected `main` or `dev-v2` (please provide an exact commit SHA),
+        or 'pre-release' or 'older' (please provide the version).
   - type: textarea
     attributes:
       label: Devices that reproduce the issue
@@ -114,7 +115,7 @@ body:
         * Attach a file here
         * Include a media URL
         * Refer to a piece of media from the demo app (e.g. `Misc > Dizzy (MP4)`)
-        * If you don't want to post media publicly please email the info to dev.exoplayer@gmail.com with subject 'Issue #\<issuenumber\>' after filing this issue, and note that you will do this here.
+        * If you don't want to post media publicly please email the info to android-media-github@google.com with subject 'Issue #\<issuenumber\>' after filing this issue, and note that you will do this here.
         * If you are certain the issue does not depend on the media being played, enter "Not applicable" here.
 
         For DRM-protected media please also include the scheme and license server URL.
@@ -124,8 +125,8 @@ body:
     attributes:
       label: Bug Report
       description: |
-        After filing this issue please run `adb bugreport` shortly after reproducing the problem (ideally in the [demo app](https://github.com/androidx/media/tree/release/demos/main)) to capture a zip file, and email this to dev.exoplayer@gmail.com with subject 'Issue #\<issuenumber\>'.
+        After filing this issue please run `adb bugreport` shortly after reproducing the problem (ideally in the [demo app](https://github.com/androidx/media/tree/release/demos/main)) to capture a zip file, and email this to android-media-github@google.com with subject 'Issue #\<issuenumber\>'.
 
         **Note:** Logcat output is **not** the same as a full bug report, and is often missing information that's useful for diagnosing issues. Please ensure you're sending a full bug report zip file.
       options:
-        - label: You will email the zip file produced by `adb bugreport` to dev.exoplayer@gmail.com after filing this issue.
+        - label: You will email the zip file produced by `adb bugreport` to android-media-github@google.com after filing this issue.

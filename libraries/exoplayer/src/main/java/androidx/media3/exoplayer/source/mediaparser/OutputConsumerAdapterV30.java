@@ -30,7 +30,6 @@ import static android.media.MediaParser.PARSER_NAME_PS;
 import static android.media.MediaParser.PARSER_NAME_TS;
 import static android.media.MediaParser.PARSER_NAME_WAV;
 
-import android.annotation.SuppressLint;
 import android.media.DrmInitData.SchemeInitData;
 import android.media.MediaCodec;
 import android.media.MediaCodec.CryptoInfo;
@@ -50,12 +49,13 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.MediaFormatUtil;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.TimestampAdjuster;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.extractor.ChunkIndex;
-import androidx.media3.extractor.DummyExtractorOutput;
 import androidx.media3.extractor.ExtractorOutput;
+import androidx.media3.extractor.NoOpExtractorOutput;
 import androidx.media3.extractor.SeekMap;
 import androidx.media3.extractor.SeekPoint;
 import androidx.media3.extractor.TrackOutput;
@@ -69,14 +69,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import org.checkerframework.checker.nullness.compatqual.NullableType;
 
 /**
  * {@link MediaParser.OutputConsumer} implementation that redirects output to an {@link
  * ExtractorOutput}.
  */
 @RequiresApi(30)
-@SuppressLint("Override") // TODO: Remove once the SDK becomes stable.
 @UnstableApi
 public final class OutputConsumerAdapterV30 implements MediaParser.OutputConsumer {
 
@@ -149,7 +147,7 @@ public final class OutputConsumerAdapterV30 implements MediaParser.OutputConsume
     lastReceivedCryptoInfos = new ArrayList<>();
     lastOutputCryptoDatas = new ArrayList<>();
     scratchDataReaderAdapter = new DataReaderAdapter();
-    extractorOutput = new DummyExtractorOutput();
+    extractorOutput = new NoOpExtractorOutput();
     sampleTimestampUpperLimitFilterUs = C.TIME_UNSET;
     muxedCaptionFormats = ImmutableList.of();
   }
@@ -219,7 +217,7 @@ public final class OutputConsumerAdapterV30 implements MediaParser.OutputConsume
   }
 
   /**
-   * Defines the container mime type to propagate through {@link TrackOutput#format}.
+   * Defines the container MIME type to propagate through {@link TrackOutput#format}.
    *
    * @param parserName The name of the selected parser.
    */
@@ -518,6 +516,7 @@ public final class OutputConsumerAdapterV30 implements MediaParser.OutputConsume
             .setRoleFlags(muxedCaptionFormat.roleFlags)
             .setSelectionFlags(muxedCaptionFormat.selectionFlags)
             .setLabel(muxedCaptionFormat.label)
+            .setLabels(muxedCaptionFormat.labels)
             .setMetadata(muxedCaptionFormat.metadata);
         break;
       }

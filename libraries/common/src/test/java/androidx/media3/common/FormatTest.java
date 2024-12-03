@@ -18,14 +18,17 @@ package androidx.media3.common;
 import static androidx.media3.common.C.WIDEVINE_UUID;
 import static androidx.media3.common.MimeTypes.VIDEO_MP4;
 import static androidx.media3.common.MimeTypes.VIDEO_WEBM;
+import static androidx.media3.test.utils.TestUtil.buildTestData;
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
-import android.os.Bundle;
+import androidx.annotation.Nullable;
 import androidx.media3.test.utils.FakeMetadataEntry;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
+import java.util.Objects;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -40,21 +43,83 @@ public final class FormatTest {
   }
 
   @Test
-  public void roundTripViaBundle_ofParameters_yieldsEqualInstance() {
+  public void roundTripViaBundle_includeMetadata_includesAllBundledFields() {
     Format formatToBundle = createTestFormat();
-    Format formatFromBundle = Format.CREATOR.fromBundle(formatToBundle.toBundle());
 
-    assertThat(formatFromBundle).isEqualTo(formatToBundle);
+    Format formatFromBundle =
+        Format.fromBundle(formatToBundle.toBundle(/* excludeMetadata= */ false));
+
+    // Expect all data to be bundled except the custom data.
+    Format expectedRoundTripFormat = formatToBundle.buildUpon().setCustomData(null).build();
+    assertThat(formatFromBundle).isEqualTo(expectedRoundTripFormat);
   }
 
   @Test
-  public void roundTripViaBundle_excludeMetadata_hasMetadataExcluded() {
+  public void roundTripViaBundle_excludeMetadata_includesAllBundledFieldsExceptMetadata() {
     Format format = createTestFormat();
 
-    Bundle bundleWithMetadataExcluded = format.toBundle(/* excludeMetadata= */ true);
+    Format formatFromBundle = Format.fromBundle(format.toBundle(/* excludeMetadata= */ true));
 
-    Format formatWithMetadataExcluded = Format.CREATOR.fromBundle(bundleWithMetadataExcluded);
-    assertThat(formatWithMetadataExcluded).isEqualTo(format.buildUpon().setMetadata(null).build());
+    // Expect all data to be bundled except the custom data and metadata.
+    Format expectedRoundTripFormat =
+        format.buildUpon().setCustomData(null).setMetadata(null).build();
+    assertThat(formatFromBundle).isEqualTo(expectedRoundTripFormat);
+  }
+
+  @Test
+  public void formatBuild_withLabelAndWithoutLabels_labelIsInLabels() {
+    Format format = new Format.Builder().setLabel("label").setLabels(ImmutableList.of()).build();
+
+    assertThat(format.label).isEqualTo("label");
+    assertThat(format.labels).hasSize(1);
+    assertThat(format.labels.get(0).value).isEqualTo("label");
+  }
+
+  @Test
+  public void formatBuild_withLabelsAndLanguageMatchingAndWithoutLabel_theLanguageMatchIsInLabel() {
+    Format format =
+        new Format.Builder()
+            .setLabel(null)
+            .setLabels(
+                ImmutableList.of(
+                    new Label("en", "nonDefaultLabel"), new Label("zh", "matchingLabel")))
+            .setLanguage("zh")
+            .build();
+
+    assertThat(format.label).isEqualTo("matchingLabel");
+  }
+
+  @Test
+  public void formatBuild_withLabelsAndNoLanguageMatchingAndWithoutLabel_theFirstIsInLabel() {
+    Format format =
+        new Format.Builder()
+            .setLabel(null)
+            .setLabels(
+                ImmutableList.of(new Label("fr", "firstLabel"), new Label("de", "secondLabel")))
+            .setLanguage("en")
+            .build();
+
+    assertThat(format.label).isEqualTo("firstLabel");
+  }
+
+  @Test
+  public void formatBuild_withoutLabelsOrLabel_bothEmpty() {
+    Format format = createTestFormat();
+    format = format.buildUpon().setLabel(null).setLabels(ImmutableList.of()).build();
+
+    assertThat(format.label).isNull();
+    assertThat(format.labels).isEmpty();
+  }
+
+  @Test
+  public void formatBuild_withLabelAndLabelsSetButNoMatch_throwsException() {
+    assertThrows(
+        IllegalStateException.class,
+        () ->
+            new Format.Builder()
+                .setLabel("otherLabel")
+                .setLabels(ImmutableList.of(new Label("en", "label")))
+                .build());
   }
 
   private static Format createTestFormat() {
@@ -74,15 +139,19 @@ public final class FormatTest {
     Metadata metadata = new Metadata(new FakeMetadataEntry("id1"), new FakeMetadataEntry("id2"));
 
     ColorInfo colorInfo =
-        new ColorInfo(
-            C.COLOR_SPACE_BT709,
-            C.COLOR_RANGE_LIMITED,
-            C.COLOR_TRANSFER_SDR,
-            new byte[] {1, 2, 3, 4, 5, 6, 7});
+        new ColorInfo.Builder()
+            .setColorSpace(C.COLOR_SPACE_BT709)
+            .setColorRange(C.COLOR_RANGE_LIMITED)
+            .setColorTransfer(C.COLOR_TRANSFER_SDR)
+            .setHdrStaticInfo(new byte[] {1, 2, 3, 4, 5, 6, 7})
+            .setLumaBitdepth(9)
+            .setChromaBitdepth(11)
+            .build();
 
     return new Format.Builder()
         .setId("id")
         .setLabel("label")
+        .setLabels(ImmutableList.of(new Label("en", "label")))
         .setLanguage("language")
         .setSelectionFlags(C.SELECTION_FLAG_DEFAULT)
         .setRoleFlags(C.ROLE_FLAG_MAIN)
@@ -90,6 +159,7 @@ public final class FormatTest {
         .setPeakBitrate(2048)
         .setCodecs("codec")
         .setMetadata(metadata)
+        .setCustomData(new TestCustomData("CustomData", 100))
         .setContainerMimeType(VIDEO_MP4)
         .setSampleMimeType(MimeTypes.VIDEO_H264)
         .setMaxInputSize(5000)
@@ -116,11 +186,33 @@ public final class FormatTest {
         .build();
   }
 
-  /** Generates an array of random bytes with the specified length. */
-  // TODO(internal b/161804035): Use TestUtils when it's available in a dependency we can use here.
-  private static byte[] buildTestData(int length, int seed) {
-    byte[] source = new byte[length];
-    new Random(seed).nextBytes(source);
-    return source;
+  private static final class TestCustomData {
+    public final String extraMetadata;
+    public final int customInt;
+
+    public TestCustomData(String extraMetadata, int customInt) {
+      this.extraMetadata = extraMetadata;
+      this.customInt = customInt;
+    }
+
+    @Override
+    public int hashCode() {
+      int result = 17;
+      result = 31 * result + (extraMetadata == null ? 0 : extraMetadata.hashCode());
+      result = 31 * result + customInt;
+      return result;
+    }
+
+    @Override
+    public boolean equals(@Nullable Object obj) {
+      if (this == obj) {
+        return true;
+      }
+      if (obj == null || getClass() != obj.getClass()) {
+        return false;
+      }
+      TestCustomData other = (TestCustomData) obj;
+      return Objects.equals(extraMetadata, other.extraMetadata) && customInt == other.customInt;
+    }
   }
 }

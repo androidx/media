@@ -15,6 +15,7 @@
  */
 package androidx.media3.test.utils;
 
+import static androidx.media3.common.util.Assertions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -25,8 +26,10 @@ import android.os.HandlerThread;
 import android.os.Looper;
 import android.util.Pair;
 import androidx.annotation.Nullable;
+import androidx.media3.common.C;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.Assertions;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.analytics.PlayerId;
@@ -38,6 +41,7 @@ import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import androidx.media3.exoplayer.source.MediaSource.MediaSourceCaller;
 import androidx.media3.exoplayer.source.MediaSourceEventListener;
 import androidx.media3.exoplayer.upstream.Allocator;
+import androidx.media3.exoplayer.upstream.DefaultAllocator;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -46,6 +50,7 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingDeque;
+import org.checkerframework.dataflow.qual.SideEffectFree;
 
 /** A runner for {@link MediaSource} tests. */
 @UnstableApi
@@ -60,18 +65,19 @@ public class MediaSourceTestRunner {
   private final Allocator allocator;
 
   private final LinkedBlockingDeque<Timeline> timelines;
-  private final CopyOnWriteArrayList<Pair<Integer, MediaPeriodId>> completedLoads;
+  private final CopyOnWriteArrayList<Pair<Integer, @NullableType MediaPeriodId>> completedLoads;
 
-  private Timeline timeline;
+  @Nullable private Timeline timeline;
 
   /**
+   * Creates an instance.
+   *
    * @param mediaSource The source under test.
-   * @param allocator The allocator to use during the test run.
    */
-  public MediaSourceTestRunner(MediaSource mediaSource, Allocator allocator) {
+  public MediaSourceTestRunner(MediaSource mediaSource) {
     this.mediaSource = mediaSource;
-    this.allocator = allocator;
-    playbackThread = new HandlerThread("TestHandler");
+    this.allocator = new DefaultAllocator(true, C.DEFAULT_BUFFER_SEGMENT_SIZE);
+    playbackThread = new HandlerThread("TestPlaybackThread");
     playbackThread.start();
     Looper playbackLooper = playbackThread.getLooper();
     playbackHandler = new Handler(playbackLooper);
@@ -214,6 +220,7 @@ public class MediaSourceTestRunner {
    * to {@link #assertTimelineChangeBlocking()} or {@link #assertTimelineChange()} (or since the
    * runner was created if neither method has been called).
    */
+  @SideEffectFree
   public void assertNoTimelineChange() {
     assertThat(timelines).isEmpty();
   }
@@ -240,7 +247,7 @@ public class MediaSourceTestRunner {
       timeline = timelines.poll(TIMEOUT_MS, MILLISECONDS);
       assertThat(timeline).isNotNull(); // Null indicates the poll timed out.
       assertNoTimelineChange();
-      return timeline;
+      return checkNotNull(timeline);
     } catch (InterruptedException e) {
       // Should never happen.
       throw new RuntimeException(e);
@@ -255,13 +262,15 @@ public class MediaSourceTestRunner {
    */
   public void assertPrepareAndReleaseAllPeriods() throws InterruptedException {
     Timeline.Period period = new Timeline.Period();
+    Timeline timeline = checkNotNull(this.timeline);
     for (int i = 0; i < timeline.getPeriodCount(); i++) {
       timeline.getPeriod(i, period, /* setIds= */ true);
-      assertPrepareAndReleasePeriod(new MediaPeriodId(period.uid, period.windowIndex));
+      Object periodUid = checkNotNull(period.uid);
+      assertPrepareAndReleasePeriod(new MediaPeriodId(periodUid, period.windowIndex));
       for (int adGroupIndex = 0; adGroupIndex < period.getAdGroupCount(); adGroupIndex++) {
         for (int adIndex = 0; adIndex < period.getAdCountInAdGroup(adGroupIndex); adIndex++) {
           assertPrepareAndReleasePeriod(
-              new MediaPeriodId(period.uid, adGroupIndex, adIndex, period.windowIndex));
+              new MediaPeriodId(periodUid, adGroupIndex, adIndex, period.windowIndex));
         }
       }
     }
@@ -296,7 +305,7 @@ public class MediaSourceTestRunner {
    */
   public void assertCompletedManifestLoads(Integer... windowIndices) {
     List<Integer> expectedWindowIndices = new ArrayList<>(Arrays.asList(windowIndices));
-    for (Pair<Integer, MediaPeriodId> windowIndexAndMediaPeriodId : completedLoads) {
+    for (Pair<Integer, @NullableType MediaPeriodId> windowIndexAndMediaPeriodId : completedLoads) {
       if (windowIndexAndMediaPeriodId.second == null) {
         assertWithMessage("Missing expected load")
             .that(expectedWindowIndices)
@@ -318,11 +327,12 @@ public class MediaSourceTestRunner {
    */
   public void assertCompletedMediaPeriodLoads(MediaPeriodId... mediaPeriodIds) {
     Timeline.Period period = new Timeline.Period();
+    Timeline timeline = checkNotNull(this.timeline);
     HashSet<MediaPeriodId> expectedLoads = new HashSet<>(Arrays.asList(mediaPeriodIds));
-    for (Pair<Integer, MediaPeriodId> windowIndexAndMediaPeriodId : completedLoads) {
+    for (Pair<Integer, @NullableType MediaPeriodId> windowIndexAndMediaPeriodId : completedLoads) {
       int windowIndex = windowIndexAndMediaPeriodId.first;
       MediaPeriodId mediaPeriodId = windowIndexAndMediaPeriodId.second;
-      if (expectedLoads.remove(mediaPeriodId)) {
+      if (mediaPeriodId != null && expectedLoads.remove(mediaPeriodId)) {
         int periodIndex = timeline.getIndexOfPeriod(mediaPeriodId.periodUid);
         assertThat(windowIndex).isEqualTo(timeline.getPeriod(periodIndex, period).windowIndex);
       }
@@ -354,7 +364,8 @@ public class MediaSourceTestRunner {
         int windowIndex,
         @Nullable MediaPeriodId mediaPeriodId,
         LoadEventInfo loadEventInfo,
-        MediaLoadData mediaLoadData) {
+        MediaLoadData mediaLoadData,
+        int retryCount) {
       Assertions.checkState(Looper.myLooper() == playbackThread.getLooper());
     }
 

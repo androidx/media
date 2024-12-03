@@ -9,14 +9,23 @@ numberOfTracks = 2
 track 0:
   total output bytes = 3865
   sample count = 1
+  track duration = 867000
   format 0:
     id = 1
+    containerMimeType = video/mp4
     sampleMimeType = video/avc
     codecs = avc1.64000A
     maxInputSize = 3895
+    maxNumReorderSamples = 2
     width = 180
     height = 120
+    frameRate = 1.15
     pixelWidthHeightRatio = 0.5
+    colorInfo:
+      lumaBitdepth = 8
+      chromaBitdepth = 8
+    roleFlags = [main]
+    metadata = entries=[TSSE: description=null: values=[Lavf58.42.100], Mp4Timestamp: creation time=0, modification time=0, timescale=1000]
     initializationData:
       data = length 32, hash 1F3D6E87
       data = length 10, hash 7A0D0F2B

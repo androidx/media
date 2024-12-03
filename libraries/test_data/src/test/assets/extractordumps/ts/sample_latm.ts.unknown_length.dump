@@ -8,6 +8,7 @@ track 256:
   sample count = 5
   format 0:
     id = 1/256
+    containerMimeType = video/mp2t
     sampleMimeType = audio/mp4a-latm
     codecs = mp4a.40.5
     channelCount = 1

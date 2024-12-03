@@ -52,7 +52,17 @@ public class DefaultMediaItemConverterTest {
         builder
             .setMediaId("fooBar")
             .setUri(Uri.parse("http://example.com"))
-            .setMediaMetadata(MediaMetadata.EMPTY)
+            .setMediaMetadata(
+                new MediaMetadata.Builder()
+                    .setTitle("testTitle")
+                    .setSubtitle("testSubtitle")
+                    .setArtist("testArtist")
+                    .setAlbumArtist("testAlbumArtist")
+                    .setArtworkUri(Uri.parse("http://testArtworkUri"))
+                    .setComposer("testComposer")
+                    .setDiscNumber(42)
+                    .setTrackNumber(23)
+                    .build())
             .setMimeType(MimeTypes.APPLICATION_MPD)
             .setDrmConfiguration(
                 new MediaItem.DrmConfiguration.Builder(C.WIDEVINE_UUID)

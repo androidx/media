@@ -19,6 +19,8 @@ import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 
 import androidx.annotation.Nullable;
+import androidx.media3.common.Format;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.Util;
 import androidx.media3.extractor.ExtractorInput;
@@ -79,7 +81,8 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
       streamMetadata = new FlacStreamMetadata(data, 17);
       this.streamMetadata = streamMetadata;
       byte[] metadata = Arrays.copyOfRange(data, 9, packet.limit());
-      setupData.format = streamMetadata.getFormat(metadata, /* id3Metadata= */ null);
+      Format format = streamMetadata.getFormat(metadata, /* id3Metadata= */ null);
+      setupData.format = format.buildUpon().setContainerMimeType(MimeTypes.AUDIO_OGG).build();
       return true;
     }
 

@@ -15,19 +15,32 @@
  */
 package androidx.media3.session;
 
+import static android.view.KeyEvent.KEYCODE_MEDIA_FAST_FORWARD;
+import static android.view.KeyEvent.KEYCODE_MEDIA_NEXT;
+import static android.view.KeyEvent.KEYCODE_MEDIA_PAUSE;
+import static android.view.KeyEvent.KEYCODE_MEDIA_PLAY;
+import static android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE;
+import static android.view.KeyEvent.KEYCODE_MEDIA_PREVIOUS;
+import static android.view.KeyEvent.KEYCODE_MEDIA_REWIND;
+import static android.view.KeyEvent.KEYCODE_MEDIA_SKIP_BACKWARD;
+import static android.view.KeyEvent.KEYCODE_MEDIA_SKIP_FORWARD;
+import static android.view.KeyEvent.KEYCODE_MEDIA_STOP;
+import static androidx.media3.common.Player.COMMAND_CHANGE_MEDIA_ITEMS;
+import static androidx.media3.common.Player.COMMAND_SET_MEDIA_ITEM;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.postOrRun;
-import static androidx.media3.session.SessionResult.RESULT_ERROR_SESSION_DISCONNECTED;
-import static androidx.media3.session.SessionResult.RESULT_ERROR_UNKNOWN;
-import static androidx.media3.session.SessionResult.RESULT_INFO_SKIPPED;
+import static androidx.media3.session.MediaSessionStub.UNKNOWN_SEQUENCE_NUMBER;
+import static androidx.media3.session.SessionError.ERROR_SESSION_DISCONNECTED;
+import static androidx.media3.session.SessionError.ERROR_UNKNOWN;
+import static androidx.media3.session.SessionError.INFO_CANCELLED;
 
 import android.app.PendingIntent;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.content.pm.ResolveInfo;
+import android.media.session.MediaSession.Token;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.DeadObjectException;
@@ -38,11 +51,12 @@ import android.os.Message;
 import android.os.Process;
 import android.os.RemoteException;
 import android.os.SystemClock;
-import android.support.v4.media.session.MediaSessionCompat;
+import android.view.KeyEvent;
+import android.view.ViewConfiguration;
+import androidx.annotation.CheckResult;
 import androidx.annotation.FloatRange;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
-import androidx.media.MediaBrowserServiceCompat;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.DeviceInfo;
 import androidx.media3.common.MediaItem;
@@ -60,49 +74,51 @@ import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.Tracks;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.text.CueGroup;
+import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.common.util.Log;
+import androidx.media3.common.util.UnstableApi;
+import androidx.media3.common.util.Util;
 import androidx.media3.session.MediaSession.ControllerCb;
 import androidx.media3.session.MediaSession.ControllerInfo;
 import androidx.media3.session.MediaSession.MediaItemsWithStartPosition;
 import androidx.media3.session.SequencedFutureManager.SequencedFuture;
+import androidx.media3.session.legacy.MediaBrowserServiceCompat;
+import androidx.media3.session.legacy.MediaSessionCompat;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 import org.checkerframework.checker.initialization.qual.Initialized;
+import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /* package */ class MediaSessionImpl {
 
-  // Create a static lock for synchronize methods below.
-  // We'd better not use MediaSessionImplBase.class for synchronized(), which indirectly exposes
-  // lock object to the outside of the class.
-  private static final Object STATIC_LOCK = new Object();
-
+  private static final String ANDROID_AUTOMOTIVE_LAUNCHER_PACKAGE_NAME =
+      "com.android.car.carlauncher";
+  private static final String ANDROID_AUTOMOTIVE_MEDIA_PACKAGE_NAME = "com.android.car.media";
+  private static final String ANDROID_AUTO_PACKAGE_NAME = "com.google.android.projection.gearhead";
+  private static final String SYSTEM_UI_PACKAGE_NAME = "com.android.systemui";
   private static final String WRONG_THREAD_ERROR_MESSAGE =
       "Player callback method is called from a wrong thread. "
           + "See javadoc of MediaSession for details.";
 
   private static final long DEFAULT_SESSION_POSITION_UPDATE_DELAY_MS = 3_000;
 
-  @GuardedBy("STATIC_LOCK")
-  private static boolean componentNamesInitialized = false;
+  public static final String TAG = "MediaSessionImpl";
 
-  @GuardedBy("STATIC_LOCK")
-  @Nullable
-  private static ComponentName serviceComponentName;
+  private static final SessionResult RESULT_WHEN_CLOSED = new SessionResult(INFO_CANCELLED);
 
-  public static final String TAG = "MSImplBase";
-
-  private static final SessionResult RESULT_WHEN_CLOSED = new SessionResult(RESULT_INFO_SKIPPED);
-
-  protected final Object lock = new Object();
+  private final Object lock = new Object();
 
   private final Uri sessionUri;
   private final PlayerInfoChangedHandler onPlayerInfoChangedHandler;
+  private final MediaPlayPauseKeyHandler mediaPlayPauseKeyHandler;
   private final MediaSession.Callback callback;
   private final Context context;
   private final MediaSessionStub sessionStub;
@@ -110,18 +126,20 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   private final String sessionId;
   private final SessionToken sessionToken;
   private final MediaSession instance;
-  @Nullable private final PendingIntent sessionActivity;
   private final Handler applicationHandler;
   private final BitmapLoader bitmapLoader;
   private final Runnable periodicSessionPositionInfoUpdateRunnable;
   private final Handler mainHandler;
-
-  @Nullable private PlayerListener playerListener;
-
-  @Nullable private MediaSession.Listener mediaSessionListener;
+  private final boolean playIfSuppressed;
+  private final boolean isPeriodicPositionUpdateEnabled;
+  private final ImmutableList<CommandButton> commandButtonsForMediaItems;
 
   private PlayerInfo playerInfo;
   private PlayerWrapper playerWrapper;
+  private @MonotonicNonNull PendingIntent sessionActivity;
+  @Nullable private PlayerListener playerListener;
+  @Nullable private MediaSession.Listener mediaSessionListener;
+  @Nullable private ControllerInfo controllerForCurrentRequest;
 
   @GuardedBy("lock")
   @Nullable
@@ -132,35 +150,63 @@ import org.checkerframework.checker.initialization.qual.Initialized;
 
   // Should be only accessed on the application looper
   private long sessionPositionUpdateDelayMs;
+  private boolean isMediaNotificationControllerConnected;
+  private ImmutableList<CommandButton> customLayout;
+  private ImmutableList<CommandButton> mediaButtonPreferences;
+  private Bundle sessionExtras;
 
+  @SuppressWarnings("argument.type.incompatible") // Using this in System.identityHashCode
   public MediaSessionImpl(
       MediaSession instance,
       Context context,
       String id,
       Player player,
       @Nullable PendingIntent sessionActivity,
+      ImmutableList<CommandButton> customLayout,
+      ImmutableList<CommandButton> mediaButtonPreferences,
+      ImmutableList<CommandButton> commandButtonsForMediaItems,
       MediaSession.Callback callback,
       Bundle tokenExtras,
-      BitmapLoader bitmapLoader) {
-    this.context = context;
+      Bundle sessionExtras,
+      BitmapLoader bitmapLoader,
+      boolean playIfSuppressed,
+      boolean isPeriodicPositionUpdateEnabled) {
+    Log.i(
+        TAG,
+        "Init "
+            + Integer.toHexString(System.identityHashCode(this))
+            + " ["
+            + MediaLibraryInfo.VERSION_SLASHY
+            + "] ["
+            + Util.DEVICE_DEBUG_INFO
+            + "]");
     this.instance = instance;
+    this.context = context;
+    sessionId = id;
+    this.sessionActivity = sessionActivity;
+    this.customLayout = customLayout;
+    this.mediaButtonPreferences = mediaButtonPreferences;
+    this.commandButtonsForMediaItems = commandButtonsForMediaItems;
+    this.callback = callback;
+    this.sessionExtras = sessionExtras;
+    this.bitmapLoader = bitmapLoader;
+    this.playIfSuppressed = playIfSuppressed;
+    this.isPeriodicPositionUpdateEnabled = isPeriodicPositionUpdateEnabled;
 
     @SuppressWarnings("nullness:assignment")
     @Initialized
     MediaSessionImpl thisRef = this;
 
     sessionStub = new MediaSessionStub(thisRef);
-    this.sessionActivity = sessionActivity;
 
     mainHandler = new Handler(Looper.getMainLooper());
-    applicationHandler = new Handler(player.getApplicationLooper());
-    this.callback = callback;
-    this.bitmapLoader = bitmapLoader;
+    Looper applicationLooper = player.getApplicationLooper();
+    applicationHandler = new Handler(applicationLooper);
 
     playerInfo = PlayerInfo.DEFAULT;
-    onPlayerInfoChangedHandler = new PlayerInfoChangedHandler(player.getApplicationLooper());
+    onPlayerInfoChangedHandler = new PlayerInfoChangedHandler(applicationLooper);
+    mediaPlayPauseKeyHandler = new MediaPlayPauseKeyHandler(applicationLooper);
 
-    sessionId = id;
     // Build Uri that differentiate sessions across the creation/destruction in PendingIntent.
     // Here's the reason why Session ID / SessionToken aren't suitable here.
     //   - Session ID
@@ -176,6 +222,12 @@ import org.checkerframework.checker.initialization.qual.Initialized;
             .appendPath(id)
             .appendPath(String.valueOf(SystemClock.elapsedRealtime()))
             .build();
+
+    sessionLegacyStub =
+        new MediaSessionLegacyStub(
+            /* session= */ thisRef, sessionUri, applicationHandler, tokenExtras);
+
+    Token platformToken = (Token) sessionLegacyStub.getSessionCompat().getSessionToken().getToken();
     sessionToken =
         new SessionToken(
             Process.myUid(),
@@ -184,25 +236,23 @@ import org.checkerframework.checker.initialization.qual.Initialized;
             MediaSessionStub.VERSION_INT,
             context.getPackageName(),
             sessionStub,
-            tokenExtras);
+            tokenExtras,
+            platformToken);
 
-    synchronized (STATIC_LOCK) {
-      if (!componentNamesInitialized) {
-        MediaSessionImpl.serviceComponentName =
-            getServiceComponentByAction(context, MediaLibraryService.SERVICE_INTERFACE);
-        if (MediaSessionImpl.serviceComponentName == null) {
-          MediaSessionImpl.serviceComponentName =
-              getServiceComponentByAction(context, MediaSessionService.SERVICE_INTERFACE);
-        }
-        componentNamesInitialized = true;
-      }
-    }
-
-    sessionLegacyStub =
-        new MediaSessionLegacyStub(
-            /* session= */ thisRef, sessionUri, serviceComponentName, applicationHandler);
-
-    PlayerWrapper playerWrapper = new PlayerWrapper(player);
+    // For PlayerWrapper, use the same default commands as the proxy controller gets when the app
+    // doesn't overrides the default commands in `onConnect`. When the default is overridden by the
+    // app in `onConnect`, the default set here will be overridden with these values.
+    MediaSession.ConnectionResult connectionResult =
+        new MediaSession.ConnectionResult.AcceptedResultBuilder(instance).build();
+    PlayerWrapper playerWrapper =
+        new PlayerWrapper(
+            player,
+            playIfSuppressed,
+            customLayout,
+            mediaButtonPreferences,
+            connectionResult.availableSessionCommands,
+            connectionResult.availablePlayerCommands,
+            sessionExtras);
     this.playerWrapper = playerWrapper;
     postOrRun(
         applicationHandler,
@@ -220,7 +270,16 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     if (player == playerWrapper.getWrappedPlayer()) {
       return;
     }
-    setPlayerInternal(/* oldPlayerWrapper= */ playerWrapper, new PlayerWrapper(player));
+    setPlayerInternal(
+        /* oldPlayerWrapper= */ playerWrapper,
+        new PlayerWrapper(
+            player,
+            playIfSuppressed,
+            playerWrapper.getCustomLayout(),
+            playerWrapper.getMediaButtonPreferences(),
+            playerWrapper.getAvailableSessionCommands(),
+            playerWrapper.getAvailablePlayerCommands(),
+            playerWrapper.getLegacyExtras()));
   }
 
   private void setPlayerInternal(
@@ -248,12 +307,24 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   }
 
   public void release() {
+    Log.i(
+        TAG,
+        "Release "
+            + Integer.toHexString(System.identityHashCode(this))
+            + " ["
+            + MediaLibraryInfo.VERSION_SLASHY
+            + "] ["
+            + Util.DEVICE_DEBUG_INFO
+            + "] ["
+            + MediaLibraryInfo.registeredModules()
+            + "]");
     synchronized (lock) {
       if (closed) {
         return;
       }
       closed = true;
     }
+    mediaPlayPauseKeyHandler.clearPendingPlayPauseTask();
     applicationHandler.removeCallbacksAndMessages(null);
     try {
       postOrRun(
@@ -277,6 +348,16 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     return playerWrapper;
   }
 
+  @CheckResult
+  public Runnable callWithControllerForCurrentRequestSet(
+      @Nullable ControllerInfo controllerForCurrentRequest, Runnable runnable) {
+    return () -> {
+      this.controllerForCurrentRequest = controllerForCurrentRequest;
+      runnable.run();
+      this.controllerForCurrentRequest = null;
+    };
+  }
+
   public String getId() {
     return sessionId;
   }
@@ -292,9 +373,27 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   public List<ControllerInfo> getConnectedControllers() {
     List<ControllerInfo> controllers = new ArrayList<>();
     controllers.addAll(sessionStub.getConnectedControllersManager().getConnectedControllers());
-    controllers.addAll(
-        sessionLegacyStub.getConnectedControllersManager().getConnectedControllers());
+    if (isMediaNotificationControllerConnected) {
+      ImmutableList<ControllerInfo> legacyControllers =
+          sessionLegacyStub.getConnectedControllersManager().getConnectedControllers();
+      for (int i = 0; i < legacyControllers.size(); i++) {
+        ControllerInfo legacyController = legacyControllers.get(i);
+        if (!isSystemUiController(legacyController)) {
+          controllers.add(legacyController);
+        }
+      }
+    } else {
+      controllers.addAll(
+          sessionLegacyStub.getConnectedControllersManager().getConnectedControllers());
+    }
     return controllers;
+  }
+
+  @Nullable
+  public ControllerInfo getControllerForCurrentRequest() {
+    return controllerForCurrentRequest != null
+        ? resolveControllerInfoForCallback(controllerForCurrentRequest)
+        : null;
   }
 
   public boolean isConnected(ControllerInfo controller) {
@@ -302,19 +401,167 @@ import org.checkerframework.checker.initialization.qual.Initialized;
         || sessionLegacyStub.getConnectedControllersManager().isConnected(controller);
   }
 
-  public ListenableFuture<SessionResult> setCustomLayout(
-      ControllerInfo controller, List<CommandButton> layout) {
-    return dispatchRemoteControllerTask(
-        controller, (controller1, seq) -> controller1.setCustomLayout(seq, layout));
+  /**
+   * Returns whether the given {@link ControllerInfo} belongs to the the System UI controller.
+   *
+   * @param controllerInfo The controller info.
+   * @return Whether the controller info belongs to the System UI controller.
+   */
+  protected boolean isSystemUiController(@Nullable MediaSession.ControllerInfo controllerInfo) {
+    return controllerInfo != null
+        && controllerInfo.getControllerVersion() == ControllerInfo.LEGACY_CONTROLLER_VERSION
+        && Objects.equals(controllerInfo.getPackageName(), SYSTEM_UI_PACKAGE_NAME);
   }
 
-  public void setCustomLayout(List<CommandButton> layout) {
-    playerWrapper.setCustomLayout(ImmutableList.copyOf(layout));
+  /**
+   * Returns whether the given {@link ControllerInfo} belongs to the media notification controller.
+   *
+   * @param controllerInfo The controller info.
+   * @return Whether the given controller info belongs to the media notification controller.
+   */
+  public boolean isMediaNotificationController(MediaSession.ControllerInfo controllerInfo) {
+    return Objects.equals(controllerInfo.getPackageName(), context.getPackageName())
+        && controllerInfo.getControllerVersion() != ControllerInfo.LEGACY_CONTROLLER_VERSION
+        && controllerInfo
+            .getConnectionHints()
+            .getBoolean(
+                MediaController.KEY_MEDIA_NOTIFICATION_CONTROLLER_FLAG, /* defaultValue= */ false);
+  }
+
+  /**
+   * Returns whether the given {@link ControllerInfo} belongs to an Automotive OS controller.
+   *
+   * @param controllerInfo The controller info.
+   * @return Whether the given controller info belongs to an Automotive OS controller.
+   */
+  public boolean isAutomotiveController(ControllerInfo controllerInfo) {
+    return controllerInfo.getControllerVersion() == ControllerInfo.LEGACY_CONTROLLER_VERSION
+        && (controllerInfo.getPackageName().equals(ANDROID_AUTOMOTIVE_MEDIA_PACKAGE_NAME)
+            || controllerInfo.getPackageName().equals(ANDROID_AUTOMOTIVE_LAUNCHER_PACKAGE_NAME));
+  }
+
+  /**
+   * Returns whether the given {@link ControllerInfo} belongs to an Android Auto companion app
+   * controller.
+   *
+   * @param controllerInfo The controller info.
+   * @return Whether the given controller info belongs to an Android Auto companion app controller.
+   */
+  public boolean isAutoCompanionController(ControllerInfo controllerInfo) {
+    return controllerInfo.getControllerVersion() == ControllerInfo.LEGACY_CONTROLLER_VERSION
+        && controllerInfo.getPackageName().equals(ANDROID_AUTO_PACKAGE_NAME);
+  }
+
+  /**
+   * Returns the {@link ControllerInfo} of the system UI notification controller, or {@code null} if
+   * the System UI controller is not connected.
+   */
+  @Nullable
+  protected ControllerInfo getSystemUiControllerInfo() {
+    ImmutableList<ControllerInfo> connectedControllers =
+        sessionLegacyStub.getConnectedControllersManager().getConnectedControllers();
+    for (int i = 0; i < connectedControllers.size(); i++) {
+      ControllerInfo controllerInfo = connectedControllers.get(i);
+      if (isSystemUiController(controllerInfo)) {
+        return controllerInfo;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Returns the {@link ControllerInfo} of the media notification controller, or {@code null} if the
+   * media notification controller is not connected.
+   */
+  @Nullable
+  public ControllerInfo getMediaNotificationControllerInfo() {
+    ImmutableList<ControllerInfo> connectedControllers =
+        sessionStub.getConnectedControllersManager().getConnectedControllers();
+    for (int i = 0; i < connectedControllers.size(); i++) {
+      ControllerInfo controllerInfo = connectedControllers.get(i);
+      if (isMediaNotificationController(controllerInfo)) {
+        return controllerInfo;
+      }
+    }
+    return null;
+  }
+
+  /** Returns whether the media notification controller is connected. */
+  protected boolean isMediaNotificationControllerConnected() {
+    return isMediaNotificationControllerConnected;
+  }
+
+  /**
+   * Sets the custom layout for the given {@link MediaController}.
+   *
+   * @param controller The controller.
+   * @param customLayout The custom layout.
+   * @return The session result from the controller.
+   */
+  public ListenableFuture<SessionResult> setCustomLayout(
+      ControllerInfo controller, ImmutableList<CommandButton> customLayout) {
+    if (isMediaNotificationController(controller)) {
+      playerWrapper.setCustomLayout(customLayout);
+      sessionLegacyStub.updateLegacySessionPlaybackState(playerWrapper);
+    }
+    return dispatchRemoteControllerTask(
+        controller, (controller1, seq) -> controller1.setCustomLayout(seq, customLayout));
+  }
+
+  /** Sets the custom layout of the session and sends the custom layout to all controllers. */
+  public void setCustomLayout(ImmutableList<CommandButton> customLayout) {
+    this.customLayout = customLayout;
+    playerWrapper.setCustomLayout(customLayout);
     dispatchRemoteControllerTaskWithoutReturn(
-        (controller, seq) -> controller.setCustomLayout(seq, layout));
+        (controller, seq) -> controller.setCustomLayout(seq, customLayout));
+  }
+
+  /**
+   * Sets the media button preferences for the given {@link MediaController}.
+   *
+   * @param controller The controller.
+   * @param mediaButtonPreferences The media button preferences.
+   * @return The session result from the controller.
+   */
+  public ListenableFuture<SessionResult> setMediaButtonPreferences(
+      ControllerInfo controller, ImmutableList<CommandButton> mediaButtonPreferences) {
+    if (isMediaNotificationController(controller)) {
+      setLegacyMediaButtonPreferences(mediaButtonPreferences);
+      sessionLegacyStub.updateLegacySessionPlaybackState(playerWrapper);
+    }
+    return dispatchRemoteControllerTask(
+        controller,
+        (controller1, seq) -> controller1.setMediaButtonPreferences(seq, mediaButtonPreferences));
+  }
+
+  /**
+   * Sets the media button preferences of the session and sends the media button preferences to all
+   * controllers.
+   */
+  public void setMediaButtonPreferences(ImmutableList<CommandButton> mediaButtonPreferences) {
+    this.mediaButtonPreferences = mediaButtonPreferences;
+    setLegacyMediaButtonPreferences(mediaButtonPreferences);
+    dispatchRemoteControllerTaskWithoutReturn(
+        (controller, seq) -> controller.setMediaButtonPreferences(seq, mediaButtonPreferences));
+  }
+
+  /** Returns the custom layout. */
+  public ImmutableList<CommandButton> getCustomLayout() {
+    return customLayout;
+  }
+
+  /** Returns the media button preferences. */
+  public ImmutableList<CommandButton> getMediaButtonPreferences() {
+    return mediaButtonPreferences;
+  }
+
+  /** Returns the command buttons for media items. */
+  public ImmutableList<CommandButton> getCommandButtonsForMediaItems() {
+    return commandButtonsForMediaItems;
   }
 
   public void setSessionExtras(Bundle sessionExtras) {
+    this.sessionExtras = sessionExtras;
     dispatchRemoteControllerTaskWithoutReturn(
         (controller, seq) -> controller.onSessionExtrasChanged(seq, sessionExtras));
   }
@@ -323,16 +570,39 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     if (sessionStub.getConnectedControllersManager().isConnected(controller)) {
       dispatchRemoteControllerTaskWithoutReturn(
           controller, (callback, seq) -> callback.onSessionExtrasChanged(seq, sessionExtras));
+      if (isMediaNotificationController(controller)) {
+        dispatchRemoteControllerTaskToLegacyStub(
+            (callback, seq) -> callback.onSessionExtrasChanged(seq, sessionExtras));
+      }
     }
+  }
+
+  public Bundle getSessionExtras() {
+    return sessionExtras;
   }
 
   public BitmapLoader getBitmapLoader() {
     return bitmapLoader;
   }
 
+  public boolean shouldPlayIfSuppressed() {
+    return playIfSuppressed;
+  }
+
   public void setAvailableCommands(
       ControllerInfo controller, SessionCommands sessionCommands, Player.Commands playerCommands) {
     if (sessionStub.getConnectedControllersManager().isConnected(controller)) {
+      if (isMediaNotificationController(controller)) {
+        setAvailableFrameworkControllerCommands(sessionCommands, playerCommands);
+        ControllerInfo systemUiControllerInfo = getSystemUiControllerInfo();
+        if (systemUiControllerInfo != null) {
+          // Set the available commands of the proxy controller to the ConnectedControllerRecord of
+          // the hidden System UI controller.
+          sessionLegacyStub
+              .getConnectedControllersManager()
+              .updateCommandsFromSession(systemUiControllerInfo, sessionCommands, playerCommands);
+        }
+      }
       sessionStub
           .getConnectedControllersManager()
           .updateCommandsFromSession(controller, sessionCommands, playerCommands);
@@ -381,12 +651,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
                 getPlayerWrapper().getAvailableCommands());
         checkStateNotNull(controller.getControllerCb())
             .onPlayerInfoChanged(
-                seq,
-                playerInfo,
-                intersectedCommands,
-                excludeTimeline,
-                excludeTracks,
-                controller.getInterfaceVersion());
+                seq, playerInfo, intersectedCommands, excludeTimeline, excludeTracks);
       } catch (DeadObjectException e) {
         onDeadObjectException(controller);
       } catch (RemoteException e) {
@@ -406,61 +671,155 @@ import org.checkerframework.checker.initialization.qual.Initialized;
         controller, (cb, seq) -> cb.sendCustomCommand(seq, command, args));
   }
 
+  public void sendError(ControllerInfo controllerInfo, SessionError sessionError) {
+    if (controllerInfo.getControllerVersion() != ControllerInfo.LEGACY_CONTROLLER_VERSION
+        && controllerInfo.getInterfaceVersion() < 4) {
+      // IMediaController.onError introduced with interface version 4.
+      return;
+    }
+    if (isMediaNotificationController(controllerInfo)
+        || controllerInfo.getControllerVersion() == ControllerInfo.LEGACY_CONTROLLER_VERSION) {
+      // Media notification controller or legacy controllers update the platform session.
+      dispatchRemoteControllerTaskToLegacyStub(
+          (callback, seq) -> callback.onError(seq, sessionError));
+    } else {
+      // Media3 controller are notified individually.
+      dispatchRemoteControllerTaskWithoutReturn(
+          controllerInfo, (callback, seq) -> callback.onError(seq, sessionError));
+    }
+  }
+
+  public void sendError(SessionError sessionError) {
+    // Send error messages to Media3 controllers.
+    ImmutableList<ControllerInfo> connectedControllers =
+        sessionStub.getConnectedControllersManager().getConnectedControllers();
+    for (int i = 0; i < connectedControllers.size(); i++) {
+      ControllerInfo controllerInfo = connectedControllers.get(i);
+      if (!isMediaNotificationController(controllerInfo)) {
+        // Omit sending to the media notification controller. Instead the error will be dispatched
+        // through the legacy stub below to avoid updating the legacy session multiple times.
+        sendError(controllerInfo, sessionError);
+      }
+    }
+    // Send error messages to legacy controllers.
+    dispatchRemoteControllerTaskToLegacyStub(
+        (callback, seq) -> callback.onError(seq, sessionError));
+  }
+
   public MediaSession.ConnectionResult onConnectOnHandler(ControllerInfo controller) {
-    return checkNotNull(
-        callback.onConnect(instance, controller), "onConnect must return non-null future");
+    if (isMediaNotificationControllerConnected && isSystemUiController(controller)) {
+      // Hide System UI and provide the connection result from the `PlayerWrapper` state.
+      return new MediaSession.ConnectionResult.AcceptedResultBuilder(instance)
+          .setAvailableSessionCommands(playerWrapper.getAvailableSessionCommands())
+          .setAvailablePlayerCommands(playerWrapper.getAvailablePlayerCommands())
+          .setCustomLayout(playerWrapper.getCustomLayout())
+          .setMediaButtonPreferences(playerWrapper.getMediaButtonPreferences())
+          .build();
+    }
+    MediaSession.ConnectionResult connectionResult =
+        checkNotNull(
+            callback.onConnect(instance, controller),
+            "Callback.onConnect must return non-null future");
+    if (isMediaNotificationController(controller) && connectionResult.isAccepted) {
+      isMediaNotificationControllerConnected = true;
+      ImmutableList<CommandButton> mediaButtonPreferences =
+          connectionResult.mediaButtonPreferences != null
+              ? connectionResult.mediaButtonPreferences
+              : instance.getMediaButtonPreferences();
+      if (mediaButtonPreferences.isEmpty()) {
+        playerWrapper.setCustomLayout(
+            connectionResult.customLayout != null
+                ? connectionResult.customLayout
+                : instance.getCustomLayout());
+      } else {
+        setLegacyMediaButtonPreferences(mediaButtonPreferences);
+      }
+      setAvailableFrameworkControllerCommands(
+          connectionResult.availableSessionCommands, connectionResult.availablePlayerCommands);
+    }
+    return connectionResult;
   }
 
   public void onPostConnectOnHandler(ControllerInfo controller) {
+    if (isMediaNotificationControllerConnected && isSystemUiController(controller)) {
+      // Hide System UI. Apps can use the media notification controller to maintain the platform
+      // session
+      return;
+    }
     callback.onPostConnect(instance, controller);
   }
 
   public void onDisconnectedOnHandler(ControllerInfo controller) {
+    if (isMediaNotificationControllerConnected) {
+      if (isSystemUiController(controller)) {
+        // Hide System UI controller. Apps can use the media notification controller to maintain the
+        // platform session.
+        return;
+      } else if (isMediaNotificationController(controller)) {
+        isMediaNotificationControllerConnected = false;
+      }
+    }
     callback.onDisconnected(instance, controller);
   }
 
+  @SuppressWarnings("deprecation") // Calling deprecated callback method.
   public @SessionResult.Code int onPlayerCommandRequestOnHandler(
       ControllerInfo controller, @Player.Command int playerCommand) {
-    return callback.onPlayerCommandRequest(instance, controller, playerCommand);
+    return callback.onPlayerCommandRequest(
+        instance, resolveControllerInfoForCallback(controller), playerCommand);
   }
 
   public ListenableFuture<SessionResult> onSetRatingOnHandler(
       ControllerInfo controller, String mediaId, Rating rating) {
     return checkNotNull(
-        callback.onSetRating(instance, controller, mediaId, rating),
-        "onSetRating must return non-null future");
+        callback.onSetRating(
+            instance, resolveControllerInfoForCallback(controller), mediaId, rating),
+        "Callback.onSetRating must return non-null future");
   }
 
   public ListenableFuture<SessionResult> onSetRatingOnHandler(
       ControllerInfo controller, Rating rating) {
     return checkNotNull(
-        callback.onSetRating(instance, controller, rating),
-        "onSetRating must return non-null future");
+        callback.onSetRating(instance, resolveControllerInfoForCallback(controller), rating),
+        "Callback.onSetRating must return non-null future");
   }
 
   public ListenableFuture<SessionResult> onCustomCommandOnHandler(
-      ControllerInfo browser, SessionCommand command, Bundle extras) {
+      ControllerInfo controller, SessionCommand command, Bundle extras) {
     return checkNotNull(
-        callback.onCustomCommand(instance, browser, command, extras),
-        "onCustomCommandOnHandler must return non-null future");
+        callback.onCustomCommand(
+            instance, resolveControllerInfoForCallback(controller), command, extras),
+        "Callback.onCustomCommandOnHandler must return non-null future");
   }
 
-  public void connectFromService(
-      IMediaController caller,
-      int controllerVersion,
-      int controllerInterfaceVersion,
-      String packageName,
-      int pid,
-      int uid,
-      Bundle connectionHints) {
-    sessionStub.connect(
-        caller,
-        controllerVersion,
-        controllerInterfaceVersion,
-        packageName,
-        pid,
-        uid,
-        checkStateNotNull(connectionHints));
+  protected ListenableFuture<List<MediaItem>> onAddMediaItemsOnHandler(
+      ControllerInfo controller, List<MediaItem> mediaItems) {
+    return checkNotNull(
+        callback.onAddMediaItems(
+            instance, resolveControllerInfoForCallback(controller), mediaItems),
+        "Callback.onAddMediaItems must return a non-null future");
+  }
+
+  protected ListenableFuture<MediaItemsWithStartPosition> onSetMediaItemsOnHandler(
+      ControllerInfo controller, List<MediaItem> mediaItems, int startIndex, long startPositionMs) {
+    return checkNotNull(
+        callback.onSetMediaItems(
+            instance,
+            resolveControllerInfoForCallback(controller),
+            mediaItems,
+            startIndex,
+            startPositionMs),
+        "Callback.onSetMediaItems must return a non-null future");
+  }
+
+  protected void onPlayerInteractionFinishedOnHandler(
+      ControllerInfo controller, Player.Commands playerCommands) {
+    callback.onPlayerInteractionFinished(
+        instance, resolveControllerInfoForCallback(controller), playerCommands);
+  }
+
+  public void connectFromService(IMediaController caller, ControllerInfo controllerInfo) {
+    sessionStub.connect(caller, controllerInfo);
   }
 
   public MediaSessionCompat getSessionCompat() {
@@ -479,20 +838,6 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     return applicationHandler;
   }
 
-  protected ListenableFuture<List<MediaItem>> onAddMediaItemsOnHandler(
-      ControllerInfo controller, List<MediaItem> mediaItems) {
-    return checkNotNull(
-        callback.onAddMediaItems(instance, controller, mediaItems),
-        "onAddMediaItems must return a non-null future");
-  }
-
-  protected ListenableFuture<MediaItemsWithStartPosition> onSetMediaItemsOnHandler(
-      ControllerInfo controller, List<MediaItem> mediaItems, int startIndex, long startPositionMs) {
-    return checkNotNull(
-        callback.onSetMediaItems(instance, controller, mediaItems, startIndex, startPositionMs),
-        "onSetMediaItems must return a non-null future");
-  }
-
   protected boolean isReleased() {
     synchronized (lock) {
       return closed;
@@ -504,10 +849,40 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     return sessionActivity;
   }
 
+  @UnstableApi
+  protected void setSessionActivity(PendingIntent sessionActivity) {
+    this.sessionActivity = sessionActivity;
+    ImmutableList<ControllerInfo> connectedControllers =
+        sessionStub.getConnectedControllersManager().getConnectedControllers();
+    for (int i = 0; i < connectedControllers.size(); i++) {
+      setSessionActivity(connectedControllers.get(i), sessionActivity);
+    }
+  }
+
+  @UnstableApi
+  protected void setSessionActivity(ControllerInfo controller, PendingIntent sessionActivity) {
+    if (controller.getControllerVersion() >= 3
+        && sessionStub.getConnectedControllersManager().isConnected(controller)) {
+      dispatchRemoteControllerTaskWithoutReturn(
+          controller, (callback, seq) -> callback.onSessionActivityChanged(seq, sessionActivity));
+      if (isMediaNotificationController(controller)) {
+        dispatchRemoteControllerTaskToLegacyStub(
+            (callback, seq) -> callback.onSessionActivityChanged(seq, sessionActivity));
+      }
+    }
+  }
+
+  protected ControllerInfo resolveControllerInfoForCallback(ControllerInfo controller) {
+    return isMediaNotificationControllerConnected && isSystemUiController(controller)
+        ? checkNotNull(getMediaNotificationControllerInfo())
+        : controller;
+  }
+
   /**
    * Gets the service binder from the MediaBrowserServiceCompat. Should be only called by the thread
    * with a Looper.
    */
+  @Nullable
   protected IBinder getLegacyBrowserServiceBinder() {
     MediaSessionServiceLegacyStub legacyStub;
     synchronized (lock) {
@@ -539,6 +914,10 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     synchronized (lock) {
       return browserServiceLegacyStub;
     }
+  }
+
+  /* package */ boolean canResumePlaybackOnStart() {
+    return sessionLegacyStub.canResumePlaybackOnStart();
   }
 
   /* package */ void setMediaSessionListener(MediaSession.Listener listener) {
@@ -575,6 +954,114 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     return true;
   }
 
+  /**
+   * Handles a play request from a media controller.
+   *
+   * <p>Attempts to prepare and play for playback resumption if the playlist is empty. {@link
+   * Player#play()} is called regardless of success or failure of playback resumption.
+   *
+   * @param controller The controller requesting to play.
+   */
+  /* package */ void handleMediaControllerPlayRequest(
+      ControllerInfo controller, boolean callOnPlayerInteractionFinished) {
+    if (!onPlayRequested()) {
+      // Request denied, e.g. due to missing foreground service abilities.
+      return;
+    }
+    boolean hasCurrentMediaItem =
+        playerWrapper.isCommandAvailable(Player.COMMAND_GET_CURRENT_MEDIA_ITEM)
+            && playerWrapper.getCurrentMediaItem() != null;
+    boolean canAddMediaItems =
+        playerWrapper.isCommandAvailable(COMMAND_SET_MEDIA_ITEM)
+            || playerWrapper.isCommandAvailable(COMMAND_CHANGE_MEDIA_ITEMS);
+    ControllerInfo controllerForRequest = resolveControllerInfoForCallback(controller);
+    Player.Commands playCommand =
+        new Player.Commands.Builder().add(Player.COMMAND_PLAY_PAUSE).build();
+    if (hasCurrentMediaItem || !canAddMediaItems) {
+      // No playback resumption needed or possible.
+      if (!hasCurrentMediaItem) {
+        Log.w(
+            TAG,
+            "Play requested without current MediaItem, but playback resumption prevented by"
+                + " missing available commands");
+      }
+      Util.handlePlayButtonAction(playerWrapper);
+      if (callOnPlayerInteractionFinished) {
+        onPlayerInteractionFinishedOnHandler(controllerForRequest, playCommand);
+      }
+    } else {
+      @Nullable
+      ListenableFuture<MediaItemsWithStartPosition> future =
+          checkNotNull(
+              callback.onPlaybackResumption(instance, controllerForRequest),
+              "Callback.onPlaybackResumption must return a non-null future");
+      Futures.addCallback(
+          future,
+          new FutureCallback<MediaItemsWithStartPosition>() {
+            @Override
+            public void onSuccess(MediaItemsWithStartPosition mediaItemsWithStartPosition) {
+              callWithControllerForCurrentRequestSet(
+                      controllerForRequest,
+                      () -> {
+                        MediaUtils.setMediaItemsWithStartIndexAndPosition(
+                            playerWrapper, mediaItemsWithStartPosition);
+                        Util.handlePlayButtonAction(playerWrapper);
+                        if (callOnPlayerInteractionFinished) {
+                          onPlayerInteractionFinishedOnHandler(controllerForRequest, playCommand);
+                        }
+                      })
+                  .run();
+            }
+
+            @Override
+            public void onFailure(Throwable t) {
+              if (t instanceof UnsupportedOperationException) {
+                Log.w(
+                    TAG,
+                    "UnsupportedOperationException: Make sure to implement"
+                        + " MediaSession.Callback.onPlaybackResumption() if you add a"
+                        + " media button receiver to your manifest or if you implement the recent"
+                        + " media item contract with your MediaLibraryService.",
+                    t);
+              } else {
+                Log.e(
+                    TAG,
+                    "Failure calling MediaSession.Callback.onPlaybackResumption(): "
+                        + t.getMessage(),
+                    t);
+              }
+              // Play as requested even if playback resumption fails.
+              Util.handlePlayButtonAction(playerWrapper);
+              if (callOnPlayerInteractionFinished) {
+                onPlayerInteractionFinishedOnHandler(controllerForRequest, playCommand);
+              }
+            }
+          },
+          this::postOrRunOnApplicationHandler);
+    }
+  }
+
+  private void setLegacyMediaButtonPreferences(
+      ImmutableList<CommandButton> mediaButtonPreferences) {
+    boolean extrasChanged = playerWrapper.setMediaButtonPreferences(mediaButtonPreferences);
+    if (extrasChanged) {
+      sessionLegacyStub.getSessionCompat().setExtras(playerWrapper.getLegacyExtras());
+    }
+  }
+
+  private void setAvailableFrameworkControllerCommands(
+      SessionCommands sessionCommands, Player.Commands playerCommands) {
+    boolean commandGetTimelineChanged =
+        playerWrapper.getAvailablePlayerCommands().contains(Player.COMMAND_GET_TIMELINE)
+            != playerCommands.contains(Player.COMMAND_GET_TIMELINE);
+    playerWrapper.setAvailableCommands(sessionCommands, playerCommands);
+    if (commandGetTimelineChanged) {
+      sessionLegacyStub.updateLegacySessionPlaybackStateAndQueue(playerWrapper);
+    } else {
+      sessionLegacyStub.updateLegacySessionPlaybackState(playerWrapper);
+    }
+  }
+
   private void dispatchRemoteControllerTaskToLegacyStub(RemoteControllerTask task) {
     try {
       task.run(sessionLegacyStub.getControllerLegacyCbForBroadcast(), /* seq= */ 0);
@@ -600,7 +1087,11 @@ import org.checkerframework.checker.initialization.qual.Initialized;
           controller,
           (controllerCb, seq) ->
               controllerCb.onPeriodicSessionPositionInfoChanged(
-                  seq, sessionPositionInfo, canAccessCurrentMediaItem, canAccessTimeline));
+                  seq,
+                  sessionPositionInfo,
+                  canAccessCurrentMediaItem,
+                  canAccessTimeline,
+                  controller.getInterfaceVersion()));
     }
     try {
       sessionLegacyStub
@@ -609,7 +1100,8 @@ import org.checkerframework.checker.initialization.qual.Initialized;
               /* seq= */ 0,
               sessionPositionInfo,
               /* canAccessCurrentMediaItem= */ true,
-              /* canAccessTimeline= */ true);
+              /* canAccessTimeline= */ true,
+              ControllerInfo.LEGACY_CONTROLLER_INTERFACE_VERSION);
     } catch (RemoteException e) {
       Log.e(TAG, "Exception in using media1 API", e);
     }
@@ -674,7 +1166,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
         seq = ((SequencedFuture<SessionResult>) future).getSequenceNumber();
       } else {
         if (!isConnected(controller)) {
-          return Futures.immediateFuture(new SessionResult(RESULT_ERROR_SESSION_DISCONNECTED));
+          return Futures.immediateFuture(new SessionResult(ERROR_SESSION_DISCONNECTED));
         }
         // 0 is OK for legacy controllers, because they didn't have sequence numbers.
         seq = 0;
@@ -688,7 +1180,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       return future;
     } catch (DeadObjectException e) {
       onDeadObjectException(controller);
-      return Futures.immediateFuture(new SessionResult(RESULT_ERROR_SESSION_DISCONNECTED));
+      return Futures.immediateFuture(new SessionResult(ERROR_SESSION_DISCONNECTED));
     } catch (RemoteException e) {
       // Currently it's TransactionTooLargeException or DeadSystemException.
       // We'd better to leave log for those cases because
@@ -697,7 +1189,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       //   - DeadSystemException means that errors around it can be ignored.
       Log.w(TAG, "Exception in " + controller.toString(), e);
     }
-    return Futures.immediateFuture(new SessionResult(RESULT_ERROR_UNKNOWN));
+    return Futures.immediateFuture(new SessionResult(ERROR_UNKNOWN));
   }
 
   /** Removes controller. Call this when DeadObjectException is happened with binder call. */
@@ -705,19 +1197,6 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     // Note: Only removing from MediaSessionStub and ignoring (legacy) stubs would be fine for
     //       now. Because calls to the legacy stubs doesn't throw DeadObjectException.
     sessionStub.getConnectedControllersManager().removeController(controller);
-  }
-
-  @Nullable
-  private static ComponentName getServiceComponentByAction(Context context, String action) {
-    PackageManager pm = context.getPackageManager();
-    Intent queryIntent = new Intent(action);
-    queryIntent.setPackage(context.getPackageName());
-    List<ResolveInfo> resolveInfos = pm.queryIntentServices(queryIntent, /* flags= */ 0);
-    if (resolveInfos == null || resolveInfos.isEmpty()) {
-      return null;
-    }
-    ResolveInfo resolveInfo = resolveInfos.get(0);
-    return new ComponentName(resolveInfo.serviceInfo.packageName, resolveInfo.serviceInfo.name);
   }
 
   private void verifyApplicationThread() {
@@ -748,7 +1227,8 @@ import org.checkerframework.checker.initialization.qual.Initialized;
 
   private void schedulePeriodicSessionPositionInfoChanges() {
     applicationHandler.removeCallbacks(periodicSessionPositionInfoUpdateRunnable);
-    if (sessionPositionUpdateDelayMs > 0
+    if (isPeriodicPositionUpdateEnabled
+        && sessionPositionUpdateDelayMs > 0
         && (playerWrapper.isPlaying() || playerWrapper.isLoading())) {
       applicationHandler.postDelayed(
           periodicSessionPositionInfoUpdateRunnable, sessionPositionUpdateDelayMs);
@@ -767,6 +1247,139 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     // COMMAND_ADJUST_DEVICE_VOLUME or COMMAND_SET_DEVICE_VOLUME value has changed.
     dispatchRemoteControllerTaskToLegacyStub(
         (callback, seq) -> callback.onDeviceInfoChanged(seq, playerInfo.deviceInfo));
+  }
+
+  /**
+   * Returns true if the media button event was handled, false otherwise.
+   *
+   * <p>Must be called on the application thread of the session.
+   *
+   * @param callerInfo The calling {@link ControllerInfo}.
+   * @param intent The media button intent.
+   * @return True if the event was handled, false otherwise.
+   */
+  /* package */ boolean onMediaButtonEvent(ControllerInfo callerInfo, Intent intent) {
+    KeyEvent keyEvent = DefaultActionFactory.getKeyEvent(intent);
+    ComponentName intentComponent = intent.getComponent();
+    if (!Objects.equals(intent.getAction(), Intent.ACTION_MEDIA_BUTTON)
+        || (intentComponent != null
+            && !Objects.equals(intentComponent.getPackageName(), context.getPackageName()))
+        || keyEvent == null
+        || keyEvent.getAction() != KeyEvent.ACTION_DOWN) {
+      return false;
+    }
+
+    verifyApplicationThread();
+    if (callback.onMediaButtonEvent(instance, callerInfo, intent)) {
+      // Event handled by app callback.
+      return true;
+    }
+    // Double tap detection.
+    int keyCode = keyEvent.getKeyCode();
+    boolean isTvApp = context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_LEANBACK);
+    boolean doubleTapCompleted = false;
+    switch (keyCode) {
+      case KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE:
+      case KeyEvent.KEYCODE_HEADSETHOOK:
+        if (isTvApp
+            || callerInfo.getControllerVersion() != ControllerInfo.LEGACY_CONTROLLER_VERSION
+            || keyEvent.getRepeatCount() != 0) {
+          // Double tap detection is only for mobile apps that receive a media button event from
+          // external sources (for instance Bluetooth) and excluding long press (repeatCount > 0).
+          mediaPlayPauseKeyHandler.flush();
+        } else if (mediaPlayPauseKeyHandler.hasPendingPlayPauseTask()) {
+          // A double tap arrived. Clear the pending playPause task.
+          mediaPlayPauseKeyHandler.clearPendingPlayPauseTask();
+          doubleTapCompleted = true;
+        } else {
+          // Handle event with a delayed callback that's run if no double tap arrives in time.
+          mediaPlayPauseKeyHandler.setPendingPlayPauseTask(callerInfo, keyEvent);
+          return true;
+        }
+        break;
+      default:
+        // If another key is pressed within double tap timeout, make play/pause as a single tap to
+        // handle media keys in order.
+        mediaPlayPauseKeyHandler.flush();
+        break;
+    }
+
+    if (!isMediaNotificationControllerConnected()) {
+      if ((keyCode == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE || keyCode == KeyEvent.KEYCODE_HEADSETHOOK)
+          && doubleTapCompleted) {
+        // Double tap completion for legacy when media notification controller is disabled.
+        sessionLegacyStub.onSkipToNext();
+        return true;
+      } else if (callerInfo.getControllerVersion() != ControllerInfo.LEGACY_CONTROLLER_VERSION) {
+        sessionLegacyStub.getSessionCompat().getController().dispatchMediaButtonEvent(keyEvent);
+        return true;
+      }
+      // This is an unhandled framework event. Return false to let the framework resolve by calling
+      // `MediaSessionCompat.Callback.onXyz()`.
+      return false;
+    }
+    // Send from media notification controller.
+    return applyMediaButtonKeyEvent(keyEvent, doubleTapCompleted);
+  }
+
+  private boolean applyMediaButtonKeyEvent(KeyEvent keyEvent, boolean doubleTapCompleted) {
+    ControllerInfo controllerInfo = checkNotNull(instance.getMediaNotificationControllerInfo());
+    Runnable command;
+    int keyCode = keyEvent.getKeyCode();
+    if ((keyCode == KEYCODE_MEDIA_PLAY_PAUSE || keyCode == KeyEvent.KEYCODE_HEADSETHOOK)
+        && doubleTapCompleted) {
+      keyCode = KEYCODE_MEDIA_NEXT;
+    }
+    switch (keyCode) {
+      case KEYCODE_MEDIA_PLAY_PAUSE:
+        command =
+            getPlayerWrapper().getPlayWhenReady()
+                ? () -> sessionStub.pauseForControllerInfo(controllerInfo, UNKNOWN_SEQUENCE_NUMBER)
+                : () -> sessionStub.playForControllerInfo(controllerInfo, UNKNOWN_SEQUENCE_NUMBER);
+        break;
+      case KEYCODE_MEDIA_PLAY:
+        command = () -> sessionStub.playForControllerInfo(controllerInfo, UNKNOWN_SEQUENCE_NUMBER);
+        break;
+      case KEYCODE_MEDIA_PAUSE:
+        command = () -> sessionStub.pauseForControllerInfo(controllerInfo, UNKNOWN_SEQUENCE_NUMBER);
+        break;
+      case KEYCODE_MEDIA_NEXT: // Fall through.
+      case KEYCODE_MEDIA_SKIP_FORWARD:
+        command =
+            () -> sessionStub.seekToNextForControllerInfo(controllerInfo, UNKNOWN_SEQUENCE_NUMBER);
+        break;
+      case KEYCODE_MEDIA_PREVIOUS: // Fall through.
+      case KEYCODE_MEDIA_SKIP_BACKWARD:
+        command =
+            () ->
+                sessionStub.seekToPreviousForControllerInfo(
+                    controllerInfo, UNKNOWN_SEQUENCE_NUMBER);
+        break;
+      case KEYCODE_MEDIA_FAST_FORWARD:
+        command =
+            () -> sessionStub.seekForwardForControllerInfo(controllerInfo, UNKNOWN_SEQUENCE_NUMBER);
+        break;
+      case KEYCODE_MEDIA_REWIND:
+        command =
+            () -> sessionStub.seekBackForControllerInfo(controllerInfo, UNKNOWN_SEQUENCE_NUMBER);
+        break;
+      case KEYCODE_MEDIA_STOP:
+        command = () -> sessionStub.stopForControllerInfo(controllerInfo, UNKNOWN_SEQUENCE_NUMBER);
+        break;
+      default:
+        return false;
+    }
+    postOrRun(
+        getApplicationHandler(),
+        () -> {
+          command.run();
+          sessionStub.getConnectedControllersManager().flushCommandQueue(controllerInfo);
+        });
+    return true;
+  }
+
+  private void postOrRunOnApplicationHandler(Runnable runnable) {
+    Util.postOrRun(getApplicationHandler(), runnable);
   }
 
   /* @FunctionalInterface */
@@ -857,7 +1470,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       session.playerInfo =
           session.playerInfo.copyWithPlayWhenReady(
               session.playerInfo.playWhenReady,
-              session.playerInfo.playWhenReadyChangedReason,
+              session.playerInfo.playWhenReadyChangeReason,
               reason);
       session.onPlayerInfoChangedHandler.sendPlayerInfoChangedMessage(
           /* excludeTimeline= */ true, /* excludeTracks= */ true);
@@ -1013,7 +1626,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       }
       session.playerInfo =
           session.playerInfo.copyWithTimelineAndSessionPositionInfo(
-              timeline, player.createSessionPositionInfoForBundling());
+              timeline, player.createSessionPositionInfoForBundling(), reason);
       session.onPlayerInfoChangedHandler.sendPlayerInfoChangedMessage(
           /* excludeTimeline= */ false, /* excludeTracks= */ true);
       session.dispatchRemoteControllerTaskToLegacyStub(
@@ -1269,6 +1882,56 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     }
   }
 
+  /**
+   * A handler for double click detection.
+   *
+   * <p>All methods must be called on the application thread.
+   */
+  private class MediaPlayPauseKeyHandler extends Handler {
+
+    @Nullable private Runnable playPauseTask;
+
+    public MediaPlayPauseKeyHandler(Looper applicationLooper) {
+      super(applicationLooper);
+    }
+
+    public void setPendingPlayPauseTask(ControllerInfo controllerInfo, KeyEvent keyEvent) {
+      playPauseTask =
+          () -> {
+            if (isMediaNotificationController(controllerInfo)) {
+              applyMediaButtonKeyEvent(keyEvent, /* doubleTapCompleted= */ false);
+            } else {
+              sessionLegacyStub.handleMediaPlayPauseOnHandler(
+                  checkNotNull(controllerInfo.getRemoteUserInfo()));
+            }
+            playPauseTask = null;
+          };
+      postDelayed(playPauseTask, ViewConfiguration.getDoubleTapTimeout());
+    }
+
+    @Nullable
+    public Runnable clearPendingPlayPauseTask() {
+      if (playPauseTask != null) {
+        removeCallbacks(playPauseTask);
+        Runnable task = playPauseTask;
+        playPauseTask = null;
+        return task;
+      }
+      return null;
+    }
+
+    public boolean hasPendingPlayPauseTask() {
+      return playPauseTask != null;
+    }
+
+    public void flush() {
+      @Nullable Runnable task = clearPendingPlayPauseTask();
+      if (task != null) {
+        postOrRun(this, task);
+      }
+    }
+  }
+
   private class PlayerInfoChangedHandler extends Handler {
 
     private static final int MSG_PLAYER_INFO_CHANGED = 1;
@@ -1288,7 +1951,8 @@ import org.checkerframework.checker.initialization.qual.Initialized;
         playerInfo =
             playerInfo.copyWithTimelineAndSessionPositionInfo(
                 getPlayerWrapper().getCurrentTimelineWithCommandCheck(),
-                getPlayerWrapper().createSessionPositionInfoForBundling());
+                getPlayerWrapper().createSessionPositionInfoForBundling(),
+                playerInfo.timelineChangeReason);
         dispatchOnPlayerInfoChanged(playerInfo, excludeTimeline, excludeTracks);
         excludeTimeline = true;
         excludeTracks = true;

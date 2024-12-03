@@ -13,20 +13,25 @@
 // limitations under the License.
 apply from: "$gradle.ext.androidxMediaSettingsDir/common_library_config.gradle"
 
+
+android {
+    namespace 'androidx.media3.test.utils.robolectric'
+
+    publishing {
+        singleVariant('release') {
+            withSourcesJar()
+        }
+    }
+}
+
 dependencies {
     compileOnly 'org.checkerframework:checker-qual:' + checkerframeworkVersion
-    compileOnly 'org.checkerframework:checker-compat-qual:' + checkerframeworkCompatVersion
     compileOnly 'org.jetbrains.kotlin:kotlin-annotations-jvm:' + kotlinAnnotationsVersion
     implementation 'androidx.annotation:annotation:' + androidxAnnotationVersion
     implementation 'org.robolectric:robolectric:' + robolectricVersion
     implementation project(modulePrefix + 'lib-exoplayer')
     implementation project(modulePrefix + 'test-utils')
 }
-
-ext {
-    javadocTitle = 'Robolectric utils'
-}
-apply from: '../../javadoc_library.gradle'
 
 ext {
     releaseArtifactId = 'media3-test-utils-robolectric'

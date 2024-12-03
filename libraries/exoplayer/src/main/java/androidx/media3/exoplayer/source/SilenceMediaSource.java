@@ -18,6 +18,7 @@ package androidx.media3.exoplayer.source;
 import static java.lang.Math.min;
 
 import android.net.Uri;
+import androidx.annotation.GuardedBy;
 import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
@@ -27,17 +28,18 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.util.Assertions;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.TransferListener;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.exoplayer.FormatHolder;
+import androidx.media3.exoplayer.LoadingInfo;
 import androidx.media3.exoplayer.SeekParameters;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import androidx.media3.exoplayer.upstream.Allocator;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
-import org.checkerframework.checker.nullness.compatqual.NullableType;
 
 /** Media source with a single period consisting of silent raw audio of a given duration. */
 @UnstableApi
@@ -108,7 +110,9 @@ public final class SilenceMediaSource extends BaseMediaSource {
       new byte[Util.getPcmFrameSize(PCM_ENCODING, CHANNEL_COUNT) * 1024];
 
   private final long durationUs;
-  private final MediaItem mediaItem;
+
+  @GuardedBy("this")
+  private MediaItem mediaItem;
 
   /**
    * Creates a new media source providing silent audio of the given duration.
@@ -140,7 +144,7 @@ public final class SilenceMediaSource extends BaseMediaSource {
             /* isDynamic= */ false,
             /* useLiveConfiguration= */ false,
             /* manifest= */ null,
-            mediaItem));
+            getMediaItem()));
   }
 
   @Override
@@ -155,8 +159,18 @@ public final class SilenceMediaSource extends BaseMediaSource {
   public void releasePeriod(MediaPeriod mediaPeriod) {}
 
   @Override
-  public MediaItem getMediaItem() {
+  public synchronized MediaItem getMediaItem() {
     return mediaItem;
+  }
+
+  @Override
+  public boolean canUpdateMediaItem(MediaItem mediaItem) {
+    return true;
+  }
+
+  @Override
+  public synchronized void updateMediaItem(MediaItem mediaItem) {
+    this.mediaItem = mediaItem;
   }
 
   @Override
@@ -244,7 +258,7 @@ public final class SilenceMediaSource extends BaseMediaSource {
     }
 
     @Override
-    public boolean continueLoading(long positionUs) {
+    public boolean continueLoading(LoadingInfo loadingInfo) {
       return false;
     }
 
