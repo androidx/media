@@ -72,6 +72,7 @@ import org.mockito.junit.MockitoRule;
 import org.robolectric.annotation.Config;
 
 /** Unit tests for {@link MediaCodecAudioRenderer} */
+@Config(sdk = 30) // TODO: b/382017156 - Remove this when the tests pass on API 31+.
 @RunWith(AndroidJUnit4.class)
 public class MediaCodecAudioRendererTest {
   @Rule public final MockitoRule mockito = MockitoJUnit.rule();

@@ -100,11 +100,13 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.Shadows;
+import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowDisplay;
 import org.robolectric.shadows.ShadowLooper;
 import org.robolectric.shadows.ShadowSystemClock;
 
 /** Unit test for {@link MediaCodecVideoRenderer}. */
+@Config(sdk = 30) // TODO: b/382017156 - Remove this when the tests pass on API 31+.
 @RunWith(AndroidJUnit4.class)
 public class MediaCodecVideoRendererTest {
   @Rule public final MockitoRule mockito = MockitoJUnit.rule();

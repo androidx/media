@@ -53,8 +53,10 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.ParameterizedRobolectricTestRunner;
+import org.robolectric.annotation.Config;
 
 /** End-to-end tests using side-loaded WebVTT subtitles. */
+@Config(sdk = 30) // TODO: b/382017156 - Remove this when the tests pass on API 31+.
 @RunWith(ParameterizedRobolectricTestRunner.class)
 public class WebvttPlaybackTest {
   @ParameterizedRobolectricTestRunner.Parameters(name = "{0}")
