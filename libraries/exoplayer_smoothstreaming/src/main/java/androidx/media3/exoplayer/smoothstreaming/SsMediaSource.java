@@ -127,7 +127,7 @@ public final class SsMediaSource extends BaseMediaSource
      * @param chunkSourceFactory A factory for {@link SsChunkSource} instances.
      * @param manifestDataSourceFactory A factory for {@link DataSource} instances that will be used
      *     to load (and refresh) the manifest. May be {@code null} if the factory will only ever be
-     *     used to create create media sources with sideloaded manifests via {@link
+     *     used to create media sources with sideloaded manifests via {@link
      *     #createMediaSource(SsManifest, MediaItem)}.
      */
     public Factory(
