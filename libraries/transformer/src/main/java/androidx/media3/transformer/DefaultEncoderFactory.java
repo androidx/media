@@ -23,6 +23,7 @@ import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.MediaFormatUtil.createMediaFormatFromFormat;
 import static androidx.media3.common.util.Util.SDK_INT;
+import static androidx.media3.transformer.EncoderUtil.getCodecProfilesForHdrFormat;
 import static java.lang.Math.abs;
 import static java.lang.Math.floor;
 import static java.lang.Math.max;
@@ -318,6 +319,10 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
       // the values.
       mediaFormat.setInteger(MediaFormat.KEY_PROFILE, supportedVideoEncoderSettings.profile);
       mediaFormat.setInteger(MediaFormat.KEY_LEVEL, supportedVideoEncoderSettings.level);
+    } else if (SDK_INT >= 24 && ColorInfo.isTransferHdr(format.colorInfo)) {
+      ImmutableList<Integer> codecProfilesForHdrFormat =
+          getCodecProfilesForHdrFormat(mimeType, checkNotNull(format.colorInfo).colorTransfer);
+      mediaFormat.setInteger(MediaFormat.KEY_PROFILE, codecProfilesForHdrFormat.get(0));
     }
 
     if (mimeType.equals(MimeTypes.VIDEO_H264)) {
@@ -415,6 +420,13 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
     if (!enableFallback) {
       return new VideoEncoderQueryResult(
           filteredEncoderInfos.get(0), requestedFormat, videoEncoderSettings);
+    }
+
+    filteredEncoderInfos =
+        filterEncodersByHdrEditingSupport(
+            filteredEncoderInfos, mimeType, requestedFormat.colorInfo);
+    if (filteredEncoderInfos.isEmpty()) {
+      return null;
     }
 
     filteredEncoderInfos =
@@ -542,6 +554,23 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
                 : Integer.MAX_VALUE); // Drops encoder.
   }
 
+  /**
+   * Returns a list of encoders that support the requested {@link ColorInfo#colorTransfer}, or all
+   * input encoders if HDR editing is not needed.
+   */
+  private static ImmutableList<MediaCodecInfo> filterEncodersByHdrEditingSupport(
+      List<MediaCodecInfo> encoders, String mimeType, @Nullable ColorInfo colorInfo) {
+    if (Util.SDK_INT < 33 || !ColorInfo.isTransferHdr(colorInfo)) {
+      return ImmutableList.copyOf(encoders);
+    }
+    return filterEncoders(
+        encoders,
+        /* cost= */ (encoderInfo) ->
+            EncoderUtil.isHdrEditingSupported(encoderInfo, mimeType, checkNotNull(colorInfo))
+                ? 0
+                : Integer.MAX_VALUE); // Drops encoder.
+  }
+
   private static final class VideoEncoderQueryResult {
     public final MediaCodecInfo encoder;
     public final Format supportedFormat;
@@ -614,7 +643,7 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
       if (colorInfo != null) {
         int colorTransfer = colorInfo.colorTransfer;
         ImmutableList<Integer> codecProfiles =
-            EncoderUtil.getCodecProfilesForHdrFormat(mimeType, colorTransfer);
+            getCodecProfilesForHdrFormat(mimeType, colorTransfer);
         if (!codecProfiles.isEmpty()) {
           // Default to the most compatible profile, which is first in the list.
           expectedEncodingProfile = codecProfiles.get(0);

@@ -29,6 +29,7 @@
         `VideoFrameProcessor.Listener.onInputStreamRegistered` to use `Format`.
     *   Add support for transmuxing into alternative backwards compatible
         formats.
+    *   Generate HDR static metadata when using `DefaultEncoderFactory`.
 *   Extractors:
     *   MP3: Don't stop playback early when a `VBRI` frame's table of contents
         doesn't cover all the MP3 data in a file

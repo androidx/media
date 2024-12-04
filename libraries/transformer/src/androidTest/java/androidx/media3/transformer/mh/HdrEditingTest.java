@@ -16,6 +16,7 @@
 package androidx.media3.transformer.mh;
 
 import static androidx.media3.effect.DefaultVideoFrameProcessor.WORKING_COLOR_SPACE_ORIGINAL;
+import static androidx.media3.test.utils.DecodeOneFrameUtil.decodeOneMediaItemFrame;
 import static androidx.media3.test.utils.TestUtil.retrieveTrackFormat;
 import static androidx.media3.transformer.AndroidTestUtil.FORCE_TRANSCODE_VIDEO_EFFECTS;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_1080P_5_SECOND_HLG10;
@@ -30,9 +31,12 @@ import static androidx.media3.transformer.mh.HdrCapabilitiesUtil.assumeDeviceDoe
 import static androidx.media3.transformer.mh.HdrCapabilitiesUtil.assumeDeviceSupportsHdrEditing;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.truth.Truth.assertThat;
+import static java.util.Collections.max;
 
 import android.content.Context;
+import android.media.MediaFormat;
 import android.net.Uri;
+import android.view.Surface;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -40,6 +44,8 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
+import androidx.media3.exoplayer.video.PlaceholderSurface;
+import androidx.media3.test.utils.DecodeOneFrameUtil;
 import androidx.media3.transformer.Composition;
 import androidx.media3.transformer.EditedMediaItem;
 import androidx.media3.transformer.EncoderUtil;
@@ -50,8 +56,13 @@ import androidx.media3.transformer.Transformer;
 import androidx.media3.transformer.TransformerAndroidTestRunner;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
+import org.junit.After;
 import org.junit.AssumptionViolatedException;
 import org.junit.Before;
 import org.junit.Rule;
@@ -69,10 +80,18 @@ public final class HdrEditingTest {
   @Rule public final TestName testName = new TestName();
 
   private String testId;
+  @Nullable private Surface placeholderSurface;
 
   @Before
   public void setUpTestId() {
     testId = testName.getMethodName();
+  }
+
+  @After
+  public void tearDown() {
+    if (placeholderSurface != null) {
+      placeholderSurface.release();
+    }
   }
 
   @Test
@@ -154,12 +173,12 @@ public final class HdrEditingTest {
         new TransformerAndroidTestRunner.Builder(context, transformer)
             .build()
             .run(testId, editedMediaItem);
-    @C.ColorTransfer
-    int actualColorTransfer =
-        retrieveTrackFormat(context, exportTestResult.filePath, C.TRACK_TYPE_VIDEO)
-            .colorInfo
-            .colorTransfer;
-    assertThat(actualColorTransfer).isEqualTo(C.COLOR_TRANSFER_ST2084);
+    MediaFormat mediaFormat = getVideoMediaFormatFromDecoder(context, exportTestResult.filePath);
+    ByteBuffer hdrStaticInfo = mediaFormat.getByteBuffer(MediaFormat.KEY_HDR_STATIC_INFO);
+
+    assertThat(max(byteList(hdrStaticInfo))).isAtLeast((byte) 1);
+    assertThat(mediaFormat.getInteger(MediaFormat.KEY_COLOR_TRANSFER))
+        .isEqualTo(MediaFormat.COLOR_TRANSFER_ST2084);
   }
 
   @Test
@@ -246,10 +265,14 @@ public final class HdrEditingTest {
         new TransformerAndroidTestRunner.Builder(context, transformer)
             .build()
             .run(testId, editedMediaItem);
+    MediaFormat mediaFormat = getVideoMediaFormatFromDecoder(context, exportTestResult.filePath);
+    ByteBuffer hdrStaticInfo = mediaFormat.getByteBuffer(MediaFormat.KEY_HDR_STATIC_INFO);
+
     Format outputFormat =
         retrieveTrackFormat(context, exportTestResult.filePath, C.TRACK_TYPE_VIDEO);
     assertThat(outputFormat.colorInfo.colorTransfer).isEqualTo(C.COLOR_TRANSFER_ST2084);
     assertThat(outputFormat.sampleMimeType).isEqualTo(MimeTypes.VIDEO_H265);
+    assertThat(max(byteList(hdrStaticInfo))).isAtLeast((byte) 1);
   }
 
   @Test
@@ -400,5 +423,40 @@ public final class HdrEditingTest {
       }
       throw exception;
     }
+  }
+
+  private static List<Byte> byteList(ByteBuffer buffer) {
+    ArrayList<Byte> outputBytes = new ArrayList<>();
+    while (buffer.hasRemaining()) {
+      outputBytes.add(buffer.get());
+    }
+    return outputBytes;
+  }
+
+  /**
+   * Returns the {@link MediaFormat} corresponding to the video track in {@code filePath}.
+   *
+   * <p>HDR metadata is optional in both the container and bitstream. Return the {@link MediaFormat}
+   * produced by the decoder which should include any metadata from either container or bitstream.
+   */
+  private MediaFormat getVideoMediaFormatFromDecoder(Context context, String filePath)
+      throws Exception {
+    AtomicReference<MediaFormat> decodedFrameFormat = new AtomicReference<>();
+    if (placeholderSurface == null) {
+      placeholderSurface = PlaceholderSurface.newInstance(context, false);
+    }
+    decodeOneMediaItemFrame(
+        MediaItem.fromUri(filePath),
+        new DecodeOneFrameUtil.Listener() {
+          @Override
+          public void onContainerExtracted(MediaFormat mediaFormat) {}
+
+          @Override
+          public void onFrameDecoded(MediaFormat mediaFormat) {
+            decodedFrameFormat.set(mediaFormat);
+          }
+        },
+        placeholderSurface);
+    return decodedFrameFormat.get();
   }
 }

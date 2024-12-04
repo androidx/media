@@ -90,34 +90,49 @@ public final class EncoderUtil {
     }
 
     ImmutableList<MediaCodecInfo> encoders = getSupportedEncoders(mimeType);
-    ImmutableList<Integer> allowedColorProfiles =
-        getCodecProfilesForHdrFormat(mimeType, colorInfo.colorTransfer);
     ImmutableList.Builder<MediaCodecInfo> resultBuilder = new ImmutableList.Builder<>();
     for (int i = 0; i < encoders.size(); i++) {
       MediaCodecInfo mediaCodecInfo = encoders.get(i);
       if (mediaCodecInfo.isAlias()) {
         continue;
       }
-      boolean hasNeededHdrSupport =
-          isFeatureSupported(
-                  mediaCodecInfo, mimeType, MediaCodecInfo.CodecCapabilities.FEATURE_HdrEditing)
-              || (colorInfo.colorTransfer == C.COLOR_TRANSFER_HLG
-                  && Util.SDK_INT >= 35
-                  && isFeatureSupported(
-                      mediaCodecInfo,
-                      mimeType,
-                      MediaCodecInfo.CodecCapabilities.FEATURE_HlgEditing));
-      if (!hasNeededHdrSupport) {
-        continue;
-      }
-      for (MediaCodecInfo.CodecProfileLevel codecProfileLevel :
-          mediaCodecInfo.getCapabilitiesForType(mimeType).profileLevels) {
-        if (allowedColorProfiles.contains(codecProfileLevel.profile)) {
-          resultBuilder.add(mediaCodecInfo);
-        }
+      if (isHdrEditingSupported(mediaCodecInfo, mimeType, colorInfo)) {
+        resultBuilder.add(mediaCodecInfo);
       }
     }
     return resultBuilder.build();
+  }
+
+  /**
+   * Returns whether HDR editing with the given {@linkplain ColorInfo color transfer} is supported
+   * by the given {@linkplain MediaCodecInfo encoder}.
+   *
+   * @param mediaCodecInfo The encoder.
+   * @param mimeType The MIME type of the video stream.
+   * @param colorInfo The color info.
+   */
+  @RequiresApi(33)
+  public static boolean isHdrEditingSupported(
+      MediaCodecInfo mediaCodecInfo, String mimeType, ColorInfo colorInfo) {
+    ImmutableList<Integer> allowedColorProfiles =
+        getCodecProfilesForHdrFormat(mimeType, colorInfo.colorTransfer);
+    boolean hasNeededHdrSupport =
+        isFeatureSupported(
+                mediaCodecInfo, mimeType, MediaCodecInfo.CodecCapabilities.FEATURE_HdrEditing)
+            || (colorInfo.colorTransfer == C.COLOR_TRANSFER_HLG
+                && Util.SDK_INT >= 35
+                && isFeatureSupported(
+                    mediaCodecInfo, mimeType, MediaCodecInfo.CodecCapabilities.FEATURE_HlgEditing));
+    if (!hasNeededHdrSupport) {
+      return false;
+    }
+    for (MediaCodecInfo.CodecProfileLevel codecProfileLevel :
+        mediaCodecInfo.getCapabilitiesForType(mimeType).profileLevels) {
+      if (allowedColorProfiles.contains(codecProfileLevel.profile)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**
