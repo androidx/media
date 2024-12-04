@@ -104,6 +104,9 @@ public class IamfPlaybackTest {
       Looper.prepare();
       if (Util.SDK_INT >= 32) { // Spatializer is only available on API 32 and above.
         AudioManager audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
+        // Lint can't follow the indirection from AudioFormat.ENCODING_PCM_16BIT to
+        // IamfDecoder.OUTPUT_PCM_ENCODING.
+        @SuppressWarnings("WrongConstant")
         AudioFormat.Builder audioFormat =
             new AudioFormat.Builder()
                 .setEncoding(IamfDecoder.OUTPUT_PCM_ENCODING)

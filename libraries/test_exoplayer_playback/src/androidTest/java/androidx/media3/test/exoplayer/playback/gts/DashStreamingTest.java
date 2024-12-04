@@ -696,7 +696,8 @@ public final class DashStreamingTest {
 
   private boolean isPc() {
     // See [internal b/162990153].
-    return testRule.getActivity().getPackageManager().hasSystemFeature(PackageManager.FEATURE_PC);
+    return Util.SDK_INT >= 27
+        && testRule.getActivity().getPackageManager().hasSystemFeature(PackageManager.FEATURE_PC);
   }
 
   private static boolean shouldSkipAdaptiveTest(String mimeType) throws DecoderQueryException {

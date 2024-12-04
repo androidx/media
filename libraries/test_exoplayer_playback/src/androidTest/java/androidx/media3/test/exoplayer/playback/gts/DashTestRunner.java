@@ -105,7 +105,9 @@ import java.util.List;
 
   @SuppressWarnings("ResourceType")
   public static boolean isL1WidevineAvailable(String mimeType) {
-    try (MediaDrm mediaDrm = new MediaDrm(WIDEVINE_UUID)) {
+    MediaDrm mediaDrm = null;
+    try {
+      mediaDrm = new MediaDrm(WIDEVINE_UUID);
       // Force L3 if secure decoder is not available.
       if (MediaCodecUtil.getDecoderInfo(mimeType, /* secure= */ true, /* tunneling= */ false)
           == null) {
@@ -115,6 +117,10 @@ import java.util.List;
       return WIDEVINE_SECURITY_LEVEL_1.equals(securityProperty);
     } catch (UnsupportedSchemeException | MediaCodecUtil.DecoderQueryException e) {
       throw new IllegalStateException(e);
+    } finally {
+      if (mediaDrm != null) {
+        mediaDrm.close();
+      }
     }
   }
 
