@@ -46,6 +46,9 @@
         `MediaItem.Builder.setSubtitleConfigurations`, and instead only load one
         if it is selected by track selection
         ([#1721](https://github.com/androidx/media/issues/1721)).
+    *   Fix bug in `ReplacingCuesResolver.discardCuesBeforeTimeUs` where the cue
+        active at `timeUs` (started before but not yet ended) was incorrectly
+        discarded ([#1939](https://github.com/androidx/media/issues/1939)).
 *   Metadata:
 *   Image:
 *   DRM:
