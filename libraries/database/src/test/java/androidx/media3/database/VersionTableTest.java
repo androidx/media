@@ -15,6 +15,8 @@
  */
 package androidx.media3.database;
 
+import static androidx.media3.database.VersionTable.FEATURE_CACHE_FILE_METADATA;
+import static androidx.media3.database.VersionTable.FEATURE_OFFLINE;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.database.sqlite.SQLiteDatabase;
@@ -28,8 +30,6 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public class VersionTableTest {
 
-  private static final int FEATURE_1 = 1;
-  private static final int FEATURE_2 = 2;
   private static final String INSTANCE_1 = "1";
   private static final String INSTANCE_2 = "2";
 
@@ -44,45 +44,48 @@ public class VersionTableTest {
 
   @Test
   public void getVersion_unsetFeature_returnsVersionUnset() throws DatabaseIOException {
-    int version = VersionTable.getVersion(database, FEATURE_1, INSTANCE_1);
+    int version = VersionTable.getVersion(database, FEATURE_OFFLINE, INSTANCE_1);
     assertThat(version).isEqualTo(VersionTable.VERSION_UNSET);
   }
 
   @Test
   public void getVersion_unsetVersion_returnsVersionUnset() throws DatabaseIOException {
-    VersionTable.setVersion(database, FEATURE_1, INSTANCE_1, 1);
-    int version = VersionTable.getVersion(database, FEATURE_1, INSTANCE_2);
+    VersionTable.setVersion(database, FEATURE_OFFLINE, INSTANCE_1, 1);
+    int version = VersionTable.getVersion(database, FEATURE_OFFLINE, INSTANCE_2);
     assertThat(version).isEqualTo(VersionTable.VERSION_UNSET);
   }
 
   @Test
   public void getVersion_returnsSetVersion() throws DatabaseIOException {
-    VersionTable.setVersion(database, FEATURE_1, INSTANCE_1, 1);
-    assertThat(VersionTable.getVersion(database, FEATURE_1, INSTANCE_1)).isEqualTo(1);
+    VersionTable.setVersion(database, FEATURE_OFFLINE, INSTANCE_1, 1);
+    assertThat(VersionTable.getVersion(database, FEATURE_OFFLINE, INSTANCE_1)).isEqualTo(1);
 
-    VersionTable.setVersion(database, FEATURE_1, INSTANCE_1, 2);
-    assertThat(VersionTable.getVersion(database, FEATURE_1, INSTANCE_1)).isEqualTo(2);
+    VersionTable.setVersion(database, FEATURE_OFFLINE, INSTANCE_1, 2);
+    assertThat(VersionTable.getVersion(database, FEATURE_OFFLINE, INSTANCE_1)).isEqualTo(2);
 
-    VersionTable.setVersion(database, FEATURE_2, INSTANCE_1, 3);
-    assertThat(VersionTable.getVersion(database, FEATURE_2, INSTANCE_1)).isEqualTo(3);
-    assertThat(VersionTable.getVersion(database, FEATURE_1, INSTANCE_1)).isEqualTo(2);
+    VersionTable.setVersion(database, FEATURE_CACHE_FILE_METADATA, INSTANCE_1, 3);
+    assertThat(VersionTable.getVersion(database, FEATURE_CACHE_FILE_METADATA, INSTANCE_1))
+        .isEqualTo(3);
+    assertThat(VersionTable.getVersion(database, FEATURE_OFFLINE, INSTANCE_1)).isEqualTo(2);
 
-    VersionTable.setVersion(database, FEATURE_2, INSTANCE_2, 4);
-    assertThat(VersionTable.getVersion(database, FEATURE_2, INSTANCE_2)).isEqualTo(4);
-    assertThat(VersionTable.getVersion(database, FEATURE_2, INSTANCE_1)).isEqualTo(3);
-    assertThat(VersionTable.getVersion(database, FEATURE_1, INSTANCE_1)).isEqualTo(2);
+    VersionTable.setVersion(database, FEATURE_CACHE_FILE_METADATA, INSTANCE_2, 4);
+    assertThat(VersionTable.getVersion(database, FEATURE_CACHE_FILE_METADATA, INSTANCE_2))
+        .isEqualTo(4);
+    assertThat(VersionTable.getVersion(database, FEATURE_CACHE_FILE_METADATA, INSTANCE_1))
+        .isEqualTo(3);
+    assertThat(VersionTable.getVersion(database, FEATURE_OFFLINE, INSTANCE_1)).isEqualTo(2);
   }
 
   @Test
   public void removeVersion_removesSetVersion() throws DatabaseIOException {
-    VersionTable.setVersion(database, FEATURE_1, INSTANCE_1, 1);
-    VersionTable.setVersion(database, FEATURE_1, INSTANCE_2, 2);
-    assertThat(VersionTable.getVersion(database, FEATURE_1, INSTANCE_1)).isEqualTo(1);
-    assertThat(VersionTable.getVersion(database, FEATURE_1, INSTANCE_2)).isEqualTo(2);
+    VersionTable.setVersion(database, FEATURE_OFFLINE, INSTANCE_1, 1);
+    VersionTable.setVersion(database, FEATURE_OFFLINE, INSTANCE_2, 2);
+    assertThat(VersionTable.getVersion(database, FEATURE_OFFLINE, INSTANCE_1)).isEqualTo(1);
+    assertThat(VersionTable.getVersion(database, FEATURE_OFFLINE, INSTANCE_2)).isEqualTo(2);
 
-    VersionTable.removeVersion(database, FEATURE_1, INSTANCE_1);
-    assertThat(VersionTable.getVersion(database, FEATURE_1, INSTANCE_1))
+    VersionTable.removeVersion(database, FEATURE_OFFLINE, INSTANCE_1);
+    assertThat(VersionTable.getVersion(database, FEATURE_OFFLINE, INSTANCE_1))
         .isEqualTo(VersionTable.VERSION_UNSET);
-    assertThat(VersionTable.getVersion(database, FEATURE_1, INSTANCE_2)).isEqualTo(2);
+    assertThat(VersionTable.getVersion(database, FEATURE_OFFLINE, INSTANCE_2)).isEqualTo(2);
   }
 }
