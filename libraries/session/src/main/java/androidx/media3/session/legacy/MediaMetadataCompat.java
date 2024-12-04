@@ -404,7 +404,7 @@ public final class MediaMetadataCompat implements Parcelable {
       // RatingCompat.
       rating = RatingCompat.fromRating(mBundle.getParcelable(key));
     } catch (Exception e) {
-      // ignore, value was not a bitmap
+      // ignore, value was not a Rating
       Log.w(TAG, "Failed to retrieve a key as Rating.", e);
     }
     return rating;
