@@ -23,12 +23,18 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
+import androidx.media3.common.MimeTypes;
+import androidx.media3.common.VideoSize;
+import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.TimestampIterator;
 import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.Renderer;
+import java.util.ArrayDeque;
 import java.util.List;
+import java.util.Queue;
 import java.util.concurrent.Executor;
+import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
  * The default {@link VideoSink} implementation. This implementation renders video frames to an
@@ -39,7 +45,7 @@ import java.util.concurrent.Executor;
  * <ul>
  *   <li>Applying video effects
  *   <li>Inputting bitmaps
- *   <li>Setting WakeupListener
+ *   <li>Setting a WakeupListener
  * </ul>
  *
  * <p>The {@linkplain #getInputSurface() input} and {@linkplain #setOutputSurfaceInfo(Surface, Size)
@@ -48,19 +54,30 @@ import java.util.concurrent.Executor;
 /* package */ final class DefaultVideoSink implements VideoSink {
 
   private final VideoFrameReleaseControl videoFrameReleaseControl;
+  private final Clock clock;
   private final VideoFrameRenderControl videoFrameRenderControl;
+  private final Queue<VideoFrameHandler> videoFrameHandlers;
 
   @Nullable private Surface outputSurface;
   private Format inputFormat;
   private long streamStartPositionUs;
+  private long bufferTimestampAdjustmentUs;
+  private Listener listener;
+  private Executor listenerExecutor;
+  private VideoFrameMetadataListener videoFrameMetadataListener;
 
-  public DefaultVideoSink(
-      VideoFrameReleaseControl videoFrameReleaseControl,
-      VideoFrameRenderControl videoFrameRenderControl) {
+  public DefaultVideoSink(VideoFrameReleaseControl videoFrameReleaseControl, Clock clock) {
     this.videoFrameReleaseControl = videoFrameReleaseControl;
-    this.videoFrameRenderControl = videoFrameRenderControl;
+    videoFrameReleaseControl.setClock(clock);
+    this.clock = clock;
+    videoFrameRenderControl =
+        new VideoFrameRenderControl(new FrameRendererImpl(), videoFrameReleaseControl);
+    videoFrameHandlers = new ArrayDeque<>();
     inputFormat = new Format.Builder().build();
     streamStartPositionUs = C.TIME_UNSET;
+    listener = Listener.NO_OP;
+    listenerExecutor = runnable -> {};
+    videoFrameMetadataListener = (presentationTimeUs, releaseTimeNs, format, mediaFormat) -> {};
   }
 
   @Override
@@ -85,7 +102,8 @@ import java.util.concurrent.Executor;
 
   @Override
   public void setListener(Listener listener, Executor executor) {
-    throw new UnsupportedOperationException();
+    this.listener = listener;
+    this.listenerExecutor = executor;
   }
 
   @Override
@@ -104,6 +122,7 @@ import java.util.concurrent.Executor;
       videoFrameReleaseControl.reset();
     }
     videoFrameRenderControl.flush();
+    videoFrameHandlers.clear();
   }
 
   @Override
@@ -133,7 +152,7 @@ import java.util.concurrent.Executor;
 
   @Override
   public void setVideoFrameMetadataListener(VideoFrameMetadataListener videoFrameMetadataListener) {
-    throw new UnsupportedOperationException();
+    this.videoFrameMetadataListener = videoFrameMetadataListener;
   }
 
   @Override
@@ -168,6 +187,7 @@ import java.util.concurrent.Executor;
       videoFrameRenderControl.onStreamStartPositionChanged(streamStartPositionUs);
       this.streamStartPositionUs = streamStartPositionUs;
     }
+    this.bufferTimestampAdjustmentUs = bufferTimestampAdjustmentUs;
   }
 
   @Override
@@ -206,7 +226,10 @@ import java.util.concurrent.Executor;
   @Override
   public boolean handleInputFrame(
       long framePresentationTimeUs, boolean isLastFrame, VideoFrameHandler videoFrameHandler) {
-    throw new UnsupportedOperationException();
+    videoFrameHandlers.add(videoFrameHandler);
+    long bufferPresentationTimeUs = framePresentationTimeUs - bufferTimestampAdjustmentUs;
+    videoFrameRenderControl.onFrameAvailableForRendering(bufferPresentationTimeUs);
+    return true;
   }
 
   /**
@@ -245,4 +268,43 @@ import java.util.concurrent.Executor;
 
   @Override
   public void release() {}
+
+  private final class FrameRendererImpl implements VideoFrameRenderControl.FrameRenderer {
+
+    private @MonotonicNonNull Format outputFormat;
+
+    @Override
+    public void onVideoSizeChanged(VideoSize videoSize) {
+      outputFormat =
+          new Format.Builder()
+              .setWidth(videoSize.width)
+              .setHeight(videoSize.height)
+              .setSampleMimeType(MimeTypes.VIDEO_RAW)
+              .build();
+      listenerExecutor.execute(() -> listener.onVideoSizeChanged(DefaultVideoSink.this, videoSize));
+    }
+
+    @Override
+    public void renderFrame(
+        long renderTimeNs, long bufferPresentationTimeUs, boolean isFirstFrame) {
+      if (isFirstFrame && outputSurface != null) {
+        listenerExecutor.execute(() -> listener.onFirstFrameRendered(DefaultVideoSink.this));
+      }
+      // TODO - b/292111083: outputFormat is initialized after the first frame is rendered because
+      //  onVideoSizeChanged is announced after the first frame is available for rendering.
+      Format format = outputFormat == null ? new Format.Builder().build() : outputFormat;
+      videoFrameMetadataListener.onVideoFrameAboutToBeRendered(
+          /* presentationTimeUs= */ bufferPresentationTimeUs,
+          /* releaseTimeNs= */ clock.nanoTime(),
+          format,
+          /* mediaFormat= */ null);
+      videoFrameHandlers.remove().render(renderTimeNs);
+    }
+
+    @Override
+    public void dropFrame() {
+      listenerExecutor.execute(() -> listener.onFrameDropped(DefaultVideoSink.this));
+      videoFrameHandlers.remove().skip();
+    }
+  }
 }

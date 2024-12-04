@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.video;
 
+import static androidx.media3.common.VideoFrameProcessor.DROP_OUTPUT_FRAME;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
@@ -36,7 +37,6 @@ import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DebugViewProvider;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
-import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PreviewingVideoGraph;
 import androidx.media3.common.SurfaceInfo;
 import androidx.media3.common.VideoFrameProcessingException;
@@ -235,15 +235,14 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
    */
   private final TimedValueQueue<Long> streamStartPositionsUs;
 
-  private final VideoFrameRenderControl videoFrameRenderControl;
   private final PreviewingVideoGraph.Factory previewingVideoGraphFactory;
   private final List<Effect> compositionEffects;
   private final VideoSink defaultVideoSink;
+  private final VideoSink.VideoFrameHandler videoFrameHandler;
   private final Clock clock;
   private final CopyOnWriteArraySet<PlaybackVideoGraphWrapper.Listener> listeners;
 
   private Format videoGraphOutputFormat;
-  private @MonotonicNonNull VideoFrameMetadataListener videoFrameMetadataListener;
   private @MonotonicNonNull HandlerWrapper handler;
   private @MonotonicNonNull PreviewingVideoGraph videoGraph;
   private long outputStreamStartPositionUs;
@@ -268,18 +267,26 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     context = builder.context;
     inputVideoSink = new InputVideoSink(context);
     streamStartPositionsUs = new TimedValueQueue<>();
-    clock = builder.clock;
-    VideoFrameReleaseControl videoFrameReleaseControl = builder.videoFrameReleaseControl;
-    videoFrameReleaseControl.setClock(clock);
-    videoFrameRenderControl =
-        new VideoFrameRenderControl(new FrameRendererImpl(), videoFrameReleaseControl);
     previewingVideoGraphFactory = checkStateNotNull(builder.previewingVideoGraphFactory);
     compositionEffects = builder.compositionEffects;
-    defaultVideoSink = new DefaultVideoSink(videoFrameReleaseControl, videoFrameRenderControl);
+    clock = builder.clock;
+    defaultVideoSink = new DefaultVideoSink(builder.videoFrameReleaseControl, clock);
+    videoFrameHandler =
+        new VideoSink.VideoFrameHandler() {
+          @Override
+          public void render(long renderTimestampNs) {
+            checkStateNotNull(videoGraph).renderOutputFrame(renderTimestampNs);
+          }
+
+          @Override
+          public void skip() {
+            checkStateNotNull(videoGraph).renderOutputFrame(DROP_OUTPUT_FRAME);
+          }
+        };
     listeners = new CopyOnWriteArraySet<>();
-    state = STATE_CREATED;
+    listeners.add(inputVideoSink);
     videoGraphOutputFormat = new Format.Builder().build();
-    addListener(inputVideoSink);
+    state = STATE_CREATED;
     finalBufferPresentationTimeUs = C.TIME_UNSET;
   }
 
@@ -334,11 +341,9 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     if (state == STATE_RELEASED) {
       return;
     }
-
     if (handler != null) {
       handler.removeCallbacksAndMessages(/* token= */ null);
     }
-
     if (videoGraph != null) {
       videoGraph.release();
     }
@@ -380,12 +385,14 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     if (newOutputStreamStartPositionUs != null
         && newOutputStreamStartPositionUs != outputStreamStartPositionUs) {
       defaultVideoSink.setStreamTimestampInfo(
-          newOutputStreamStartPositionUs, /* unused */ C.TIME_UNSET, /* unused */ C.TIME_UNSET);
+          newOutputStreamStartPositionUs, bufferTimestampAdjustmentUs, /* unused */ C.TIME_UNSET);
       outputStreamStartPositionUs = newOutputStreamStartPositionUs;
     }
-    videoFrameRenderControl.onFrameAvailableForRendering(bufferPresentationTimeUs);
-    if (finalBufferPresentationTimeUs != C.TIME_UNSET
-        && bufferPresentationTimeUs >= finalBufferPresentationTimeUs) {
+    boolean isLastFrame =
+        finalBufferPresentationTimeUs != C.TIME_UNSET
+            && bufferPresentationTimeUs >= finalBufferPresentationTimeUs;
+    defaultVideoSink.handleInputFrame(framePresentationTimeUs, isLastFrame, videoFrameHandler);
+    if (isLastFrame) {
       // TODO b/257464707 - Support extensively modified media.
       defaultVideoSink.signalEndOfCurrentInputStream();
       hasSignaledEndOfCurrentInputStream = true;
@@ -438,6 +445,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     } catch (VideoFrameProcessingException e) {
       throw new VideoSink.VideoSinkException(e, sourceFormat);
     }
+    defaultVideoSink.setListener(new DefaultVideoSinkListener(), /* executor= */ handler::post);
     defaultVideoSink.initialize(sourceFormat);
     state = STATE_INITIALIZED;
     return videoGraph.getProcessor(/* inputIndex= */ 0);
@@ -496,7 +504,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
       long lastStartPositionUs = checkNotNull(streamStartPositionsUs.pollFirst());
       // defaultVideoSink should use the latest startPositionUs if none is passed after flushing.
       defaultVideoSink.setStreamTimestampInfo(
-          lastStartPositionUs, /* unused */ C.TIME_UNSET, /* unused */ C.TIME_UNSET);
+          lastStartPositionUs, bufferTimestampAdjustmentUs, /* unused */ C.TIME_UNSET);
     }
     finalBufferPresentationTimeUs = C.TIME_UNSET;
     hasSignaledEndOfCurrentInputStream = false;
@@ -507,7 +515,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
 
   private void setVideoFrameMetadataListener(
       VideoFrameMetadataListener videoFrameMetadataListener) {
-    this.videoFrameMetadataListener = videoFrameMetadataListener;
+    defaultVideoSink.setVideoFrameMetadataListener(videoFrameMetadataListener);
   }
 
   private void setPlaybackSpeed(float speed) {
@@ -516,6 +524,8 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
 
   private void setBufferTimestampAdjustment(long bufferTimestampAdjustmentUs) {
     this.bufferTimestampAdjustmentUs = bufferTimestampAdjustmentUs;
+    defaultVideoSink.setStreamTimestampInfo(
+        outputStreamStartPositionUs, bufferTimestampAdjustmentUs, /* unused */ C.TIME_UNSET);
   }
 
   private static ColorInfo getAdjustedInputColorInfo(@Nullable ColorInfo inputColorInfo) {
@@ -854,51 +864,35 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     }
   }
 
-  private final class FrameRendererImpl implements VideoFrameRenderControl.FrameRenderer {
-
-    private @MonotonicNonNull Format renderedFormat;
+  private final class DefaultVideoSinkListener implements VideoSink.Listener {
 
     @Override
-    public void onVideoSizeChanged(VideoSize videoSize) {
-      renderedFormat =
-          new Format.Builder()
-              .setWidth(videoSize.width)
-              .setHeight(videoSize.height)
-              .setSampleMimeType(MimeTypes.VIDEO_RAW)
-              .build();
+    public void onFirstFrameRendered(VideoSink videoSink) {
+      for (PlaybackVideoGraphWrapper.Listener listener : listeners) {
+        listener.onFirstFrameRendered(PlaybackVideoGraphWrapper.this);
+      }
+    }
+
+    @Override
+    public void onFrameDropped(VideoSink videoSink) {
+      for (PlaybackVideoGraphWrapper.Listener listener : listeners) {
+        listener.onFrameDropped(PlaybackVideoGraphWrapper.this);
+      }
+    }
+
+    @Override
+    public void onVideoSizeChanged(VideoSink videoSink, VideoSize videoSize) {
       for (PlaybackVideoGraphWrapper.Listener listener : listeners) {
         listener.onVideoSizeChanged(PlaybackVideoGraphWrapper.this, videoSize);
       }
     }
 
     @Override
-    public void renderFrame(
-        long renderTimeNs, long bufferPresentationTimeUs, boolean isFirstFrame) {
-      if (isFirstFrame && currentSurfaceAndSize != null) {
-        for (PlaybackVideoGraphWrapper.Listener listener : listeners) {
-          listener.onFirstFrameRendered(PlaybackVideoGraphWrapper.this);
-        }
-      }
-      if (videoFrameMetadataListener != null) {
-        // TODO b/292111083 - renderedFormat is initialized after the first frame is rendered
-        //  because onVideoSizeChanged is announced after the first frame is available for
-        //  rendering.
-        Format format = renderedFormat == null ? new Format.Builder().build() : renderedFormat;
-        videoFrameMetadataListener.onVideoFrameAboutToBeRendered(
-            /* presentationTimeUs= */ bufferPresentationTimeUs,
-            clock.nanoTime(),
-            format,
-            /* mediaFormat= */ null);
-      }
-      checkStateNotNull(videoGraph).renderOutputFrame(renderTimeNs);
-    }
-
-    @Override
-    public void dropFrame() {
+    public void onError(VideoSink videoSink, VideoSink.VideoSinkException videoSinkException) {
       for (PlaybackVideoGraphWrapper.Listener listener : listeners) {
-        listener.onFrameDropped(PlaybackVideoGraphWrapper.this);
+        listener.onError(
+            PlaybackVideoGraphWrapper.this, VideoFrameProcessingException.from(videoSinkException));
       }
-      checkStateNotNull(videoGraph).renderOutputFrame(VideoFrameProcessor.DROP_OUTPUT_FRAME);
     }
   }
 
