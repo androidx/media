@@ -2046,6 +2046,37 @@ public class TransformerEndToEndTest {
   }
 
   @Test
+  public void transcode_withOutputVideoMimeTypeDolbyVision_completesSuccessfully() throws Exception {
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET.videoFormat,
+        /* outputFormat= */ MP4_ASSET
+            .videoFormat
+            .buildUpon()
+            .setSampleMimeType(MimeTypes.VIDEO_DOLBY_VISION)
+            .setCodecs(null)
+            .build());
+
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET.uri));
+    EditedMediaItem editedMediaItem = new EditedMediaItem.Builder(mediaItem).build();
+    Transformer transformer =
+        new Transformer.Builder(context).setVideoMimeType(MimeTypes.VIDEO_DOLBY_VISION).build();
+
+    ExportTestResult exportTestResult =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, editedMediaItem);
+    ExportResult exportResult = exportTestResult.exportResult;
+
+    String actualMimeType =
+        retrieveTrackFormat(context, exportTestResult.filePath, C.TRACK_TYPE_VIDEO).sampleMimeType;
+    assertThat(actualMimeType).isEqualTo(MimeTypes.VIDEO_DOLBY_VISION);
+    assertThat(exportResult.durationMs).isGreaterThan(0);
+    assertThat(exportResult.videoMimeType).isEqualTo(MimeTypes.VIDEO_DOLBY_VISION);
+  }
+
+  @Test
   public void transcode_withOutputAudioMimeTypeAac_completesSuccessfully() throws Exception {
     MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP3_ASSET.uri));
     EditedMediaItem editedMediaItem = new EditedMediaItem.Builder(mediaItem).build();
