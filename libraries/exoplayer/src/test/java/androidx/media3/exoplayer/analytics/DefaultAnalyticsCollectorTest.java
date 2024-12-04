@@ -20,6 +20,7 @@ import static androidx.media3.exoplayer.analytics.AnalyticsListener.EVENT_AUDIO_
 import static androidx.media3.exoplayer.analytics.AnalyticsListener.EVENT_AUDIO_ENABLED;
 import static androidx.media3.exoplayer.analytics.AnalyticsListener.EVENT_AUDIO_INPUT_FORMAT_CHANGED;
 import static androidx.media3.exoplayer.analytics.AnalyticsListener.EVENT_AUDIO_POSITION_ADVANCING;
+import static androidx.media3.exoplayer.analytics.AnalyticsListener.EVENT_CONSECUTIVE_DROPPED_VIDEO_FRAMES;
 import static androidx.media3.exoplayer.analytics.AnalyticsListener.EVENT_DOWNSTREAM_FORMAT_CHANGED;
 import static androidx.media3.exoplayer.analytics.AnalyticsListener.EVENT_DRM_KEYS_LOADED;
 import static androidx.media3.exoplayer.analytics.AnalyticsListener.EVENT_DRM_SESSION_ACQUIRED;
@@ -69,6 +70,7 @@ import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.robolectric.shadows.ShadowLooper.idleMainLooper;
@@ -1859,6 +1861,11 @@ public final class DefaultAnalyticsCollectorTest {
         ArgumentCaptor.forClass(AnalyticsListener.EventTime.class);
     verify(listener, atLeastOnce())
         .onDroppedVideoFrames(individualDroppedFramesEventTimes.capture(), anyInt(), anyLong());
+    ArgumentCaptor<AnalyticsListener.EventTime> individualConsecutiveDroppedFramesEventTimes =
+        ArgumentCaptor.forClass(AnalyticsListener.EventTime.class);
+    verify(listener, never())
+        .onConsecutiveDroppedVideoFrames(
+            individualConsecutiveDroppedFramesEventTimes.capture(), anyInt(), anyLong());
 
     // Verify the EventTimes reported with onEvents are a non-empty subset of the individual
     // callback EventTimes. We can only assert they are a non-empty subset because there may be
@@ -2391,6 +2398,12 @@ public final class DefaultAnalyticsCollectorTest {
     @Override
     public void onDroppedVideoFrames(EventTime eventTime, int droppedFrames, long elapsedMs) {
       reportedEvents.add(new ReportedEvent(EVENT_DROPPED_VIDEO_FRAMES, eventTime));
+    }
+
+    @Override
+    public void onConsecutiveDroppedVideoFrames(
+          EventTime eventTime, int consecutiveDroppedFrames, long elapsedMs) {
+      reportedEvents.add(new ReportedEvent(EVENT_CONSECUTIVE_DROPPED_VIDEO_FRAMES, eventTime));
     }
 
     @Override

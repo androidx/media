@@ -152,6 +152,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   private final boolean ownsVideoSink;
   private final EventDispatcher eventDispatcher;
   private final int maxDroppedFramesToNotify;
+  private final int minConsecutiveDroppedFramesToNotify;
   private final boolean deviceNeedsNoPostProcessWorkaround;
   private final VideoFrameReleaseControl videoFrameReleaseControl;
   private final VideoFrameReleaseControl.FrameReleaseInfo videoFrameReleaseInfo;
@@ -170,6 +171,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   private @C.VideoChangeFrameRateStrategy int changeFrameRateStrategy;
   private long droppedFrameAccumulationStartTimeMs;
   private int droppedFrames;
+  private long consecutiveDroppedFrameAccumulationStartTimeMs;
   private int consecutiveDroppedFrameCount;
   private int buffersInCodecCount;
   private long totalVideoFrameProcessingOffsetUs;
@@ -209,7 +211,8 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         allowedJoiningTimeMs,
         /* eventHandler= */ null,
         /* eventListener= */ null,
-        /* maxDroppedFramesToNotify= */ 0);
+        /* maxDroppedFramesToNotify= */ 0,
+        /* minConsecutiveDroppedFramesToNotify= */ 0);
   }
 
   /**
@@ -222,6 +225,9 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
    * @param eventListener A listener of events. May be null if delivery of events is not required.
    * @param maxDroppedFramesToNotify The maximum number of frames that can be dropped between
    *     invocations of {@link VideoRendererEventListener#onDroppedFrames(int, long)}.
+   * @param minConsecutiveDroppedFramesToNotify The minimum number of consecutive frames that must
+   *     be dropped for {@link VideoRendererEventListener#onConsecutiveDroppedFrames(int, long)} to
+   *     be invoked.
    */
   public MediaCodecVideoRenderer(
       Context context,
@@ -229,7 +235,8 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       long allowedJoiningTimeMs,
       @Nullable Handler eventHandler,
       @Nullable VideoRendererEventListener eventListener,
-      int maxDroppedFramesToNotify) {
+      int maxDroppedFramesToNotify,
+      int minConsecutiveDroppedFramesToNotify) {
     this(
         context,
         MediaCodecAdapter.Factory.getDefault(context),
@@ -239,6 +246,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         eventHandler,
         eventListener,
         maxDroppedFramesToNotify,
+        minConsecutiveDroppedFramesToNotify,
         /* assumedMinimumCodecOperatingRate= */ 30);
   }
 
@@ -255,6 +263,9 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
    * @param eventListener A listener of events. May be null if delivery of events is not required.
    * @param maxDroppedFramesToNotify The maximum number of frames that can be dropped between
    *     invocations of {@link VideoRendererEventListener#onDroppedFrames(int, long)}.
+   * @param minConsecutiveDroppedFramesToNotify The minimum number of consecutive frames that must
+   *     be dropped for {@link VideoRendererEventListener#onConsecutiveDroppedFrames(int, long)} to
+   *     be invoked.
    */
   public MediaCodecVideoRenderer(
       Context context,
@@ -263,7 +274,8 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       boolean enableDecoderFallback,
       @Nullable Handler eventHandler,
       @Nullable VideoRendererEventListener eventListener,
-      int maxDroppedFramesToNotify) {
+      int maxDroppedFramesToNotify,
+      int minConsecutiveDroppedFramesToNotify) {
     this(
         context,
         MediaCodecAdapter.Factory.getDefault(context),
@@ -273,6 +285,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         eventHandler,
         eventListener,
         maxDroppedFramesToNotify,
+        minConsecutiveDroppedFramesToNotify,
         /* assumedMinimumCodecOperatingRate= */ 30);
   }
 
@@ -291,6 +304,9 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
    * @param eventListener A listener of events. May be null if delivery of events is not required.
    * @param maxDroppedFramesToNotify The maximum number of frames that can be dropped between
    *     invocations of {@link VideoRendererEventListener#onDroppedFrames(int, long)}.
+   * @param minConsecutiveDroppedFramesToNotify The minimum number of consecutive frames that must
+   *     be dropped for {@link VideoRendererEventListener#onConsecutiveDroppedFrames(int, long)} to
+   *     be invoked.
    */
   public MediaCodecVideoRenderer(
       Context context,
@@ -300,7 +316,8 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       boolean enableDecoderFallback,
       @Nullable Handler eventHandler,
       @Nullable VideoRendererEventListener eventListener,
-      int maxDroppedFramesToNotify) {
+      int maxDroppedFramesToNotify,
+      int minConsecutiveDroppedFramesToNotify) {
     this(
         context,
         codecAdapterFactory,
@@ -310,6 +327,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         eventHandler,
         eventListener,
         maxDroppedFramesToNotify,
+        minConsecutiveDroppedFramesToNotify,
         /* assumedMinimumCodecOperatingRate= */ 30);
   }
 
@@ -330,6 +348,9 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
    * @param eventListener A listener of events. May be null if delivery of events is not required.
    * @param maxDroppedFramesToNotify The maximum number of frames that can be dropped between
    *     invocations of {@link VideoRendererEventListener#onDroppedFrames(int, long)}.
+   * @param minConsecutiveDroppedFramesToNotify The minimum number of consecutive frames that must
+   *     be dropped for {@link VideoRendererEventListener#onConsecutiveDroppedFrames(int, long)} to
+   *     be invoked.
    * @param assumedMinimumCodecOperatingRate A codec operating rate that all codecs instantiated by
    *     this renderer are assumed to meet implicitly (i.e. without the operating rate being set
    *     explicitly using {@link MediaFormat#KEY_OPERATING_RATE}).
@@ -343,6 +364,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       @Nullable Handler eventHandler,
       @Nullable VideoRendererEventListener eventListener,
       int maxDroppedFramesToNotify,
+      int minConsecutiveDroppedFramesToNotify,
       float assumedMinimumCodecOperatingRate) {
     this(
         context,
@@ -353,14 +375,15 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         eventHandler,
         eventListener,
         maxDroppedFramesToNotify,
+        minConsecutiveDroppedFramesToNotify,
         assumedMinimumCodecOperatingRate,
         /* videoSink= */ (VideoSink) null);
   }
 
   /**
    * @deprecated Use {@link #MediaCodecVideoRenderer(Context, MediaCodecAdapter.Factory,
-   *     MediaCodecSelector, long, boolean, Handler, VideoRendererEventListener, int, float,
-   *     VideoSink)} instead.
+   *     MediaCodecSelector, long, boolean, Handler, VideoRendererEventListener, int, int,
+   *     float, VideoSink)} instead.
    */
   @Deprecated
   public MediaCodecVideoRenderer(
@@ -372,6 +395,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       @Nullable Handler eventHandler,
       @Nullable VideoRendererEventListener eventListener,
       int maxDroppedFramesToNotify,
+      int minConsecutiveDroppedFramesToNotify,
       float assumedMinimumCodecOperatingRate,
       @Nullable VideoSinkProvider videoSinkProvider) {
     this(
@@ -383,6 +407,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         eventHandler,
         eventListener,
         maxDroppedFramesToNotify,
+        minConsecutiveDroppedFramesToNotify,
         assumedMinimumCodecOperatingRate,
         videoSinkProvider == null ? null : videoSinkProvider.getSink());
   }
@@ -404,6 +429,9 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
    * @param eventListener A listener of events. May be null if delivery of events is not required.
    * @param maxDroppedFramesToNotify The maximum number of frames that can be dropped between
    *     invocations of {@link VideoRendererEventListener#onDroppedFrames(int, long)}.
+   * @param minConsecutiveDroppedFramesToNotify The minimum number of consecutive frames that must
+   *     be dropped for {@link VideoRendererEventListener#onConsecutiveDroppedFrames(int, long)} to
+   *     be invoked.
    * @param assumedMinimumCodecOperatingRate A codec operating rate that all codecs instantiated by
    *     this renderer are assumed to meet implicitly (i.e. without the operating rate being set
    *     explicitly using {@link MediaFormat#KEY_OPERATING_RATE}).
@@ -421,6 +449,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       @Nullable Handler eventHandler,
       @Nullable VideoRendererEventListener eventListener,
       int maxDroppedFramesToNotify,
+      int minConsecutiveDroppedFramesToNotify,
       float assumedMinimumCodecOperatingRate,
       @Nullable VideoSink videoSink) {
     super(
@@ -431,6 +460,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         assumedMinimumCodecOperatingRate);
     this.context = context.getApplicationContext();
     this.maxDroppedFramesToNotify = maxDroppedFramesToNotify;
+    this.minConsecutiveDroppedFramesToNotify = minConsecutiveDroppedFramesToNotify;
     this.videoSink = videoSink;
     eventDispatcher = new EventDispatcher(eventHandler, eventListener);
     ownsVideoSink = videoSink == null;
@@ -831,7 +861,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       }
     }
     maybeSetupTunnelingForFirstFrame();
-    consecutiveDroppedFrameCount = 0;
+    maybeNotifyConsecutiveDroppedFrames();
   }
 
   @Override
@@ -870,6 +900,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   @Override
   protected void onStopped() {
     maybeNotifyDroppedFrames();
+    maybeNotifyConsecutiveDroppedFrames();
     maybeNotifyVideoFrameProcessingOffset();
     if (videoSink != null) {
       videoSink.onRendererStopped();
@@ -1792,7 +1823,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     codec.releaseOutputBuffer(index, true);
     TraceUtil.endSection();
     decoderCounters.renderedOutputBufferCount++;
-    consecutiveDroppedFrameCount = 0;
+    maybeNotifyConsecutiveDroppedFrames();
     if (videoSink == null) {
       maybeNotifyVideoSizeChanged(decodedVideoSize);
       maybeNotifyRenderedFirstFrame();
@@ -1813,7 +1844,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     codec.releaseOutputBuffer(index, releaseTimeNs);
     TraceUtil.endSection();
     decoderCounters.renderedOutputBufferCount++;
-    consecutiveDroppedFrameCount = 0;
+    maybeNotifyConsecutiveDroppedFrames();
     if (videoSink == null) {
       maybeNotifyVideoSizeChanged(decodedVideoSize);
       maybeNotifyRenderedFirstFrame();
@@ -1946,6 +1977,18 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       droppedFrames = 0;
       droppedFrameAccumulationStartTimeMs = now;
     }
+  }
+
+  private void maybeNotifyConsecutiveDroppedFrames() {
+    if (minConsecutiveDroppedFramesToNotify > 0
+        && consecutiveDroppedFrameCount > 0
+        && consecutiveDroppedFrameCount >= minConsecutiveDroppedFramesToNotify) {
+      long elapsedMs = getClock().elapsedRealtime() - consecutiveDroppedFrameAccumulationStartTimeMs ;
+      eventDispatcher.consecutiveDroppedFrames(consecutiveDroppedFrameCount, elapsedMs);
+    }
+    // Always reset the counter to 0, even if the threshold is not reached.
+    consecutiveDroppedFrameCount = 0;
+    consecutiveDroppedFrameAccumulationStartTimeMs = getClock().elapsedRealtime();
   }
 
   private void maybeNotifyVideoFrameProcessingOffset() {

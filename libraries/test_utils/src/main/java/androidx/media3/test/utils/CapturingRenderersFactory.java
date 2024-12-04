@@ -134,7 +134,8 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
             /* enableDecoderFallback= */ false,
             eventHandler,
             videoRendererEventListener,
-            DefaultRenderersFactory.MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY) {
+            DefaultRenderersFactory.MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY,
+            DefaultRenderersFactory.MIN_CONSECUTIVE_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY) {
           @Override
           protected boolean shouldDropOutputBuffer(
               long earlyUs, long elapsedRealtimeUs, boolean isLastBuffer) {

@@ -65,7 +65,7 @@ public class LibvpxVideoRenderer extends DecoderVideoRenderer {
    *     can attempt to seamlessly join an ongoing playback.
    */
   public LibvpxVideoRenderer(long allowedJoiningTimeMs) {
-    this(allowedJoiningTimeMs, null, null, 0);
+    this(allowedJoiningTimeMs, null, null, 0, 0);
   }
 
   /**
@@ -78,17 +78,22 @@ public class LibvpxVideoRenderer extends DecoderVideoRenderer {
    * @param eventListener A listener of events. May be null if delivery of events is not required.
    * @param maxDroppedFramesToNotify The maximum number of frames that can be dropped between
    *     invocations of {@link VideoRendererEventListener#onDroppedFrames(int, long)}.
+   * @param minConsecutiveDroppedFramesToNotify The minimum number of consecutive frames that must
+   *     be dropped for {@link VideoRendererEventListener#onConsecutiveDroppedFrames(int, long)} to
+   *     be called.
    */
   public LibvpxVideoRenderer(
       long allowedJoiningTimeMs,
       @Nullable Handler eventHandler,
       @Nullable VideoRendererEventListener eventListener,
-      int maxDroppedFramesToNotify) {
+      int maxDroppedFramesToNotify,
+      int minConsecutiveDroppedFramesToNotify) {
     this(
         allowedJoiningTimeMs,
         eventHandler,
         eventListener,
         maxDroppedFramesToNotify,
+        minConsecutiveDroppedFramesToNotify,
         getRuntime().availableProcessors(),
         /* numInputBuffers= */ 4,
         /* numOutputBuffers= */ 4);
@@ -104,6 +109,9 @@ public class LibvpxVideoRenderer extends DecoderVideoRenderer {
    * @param eventListener A listener of events. May be null if delivery of events is not required.
    * @param maxDroppedFramesToNotify The maximum number of frames that can be dropped between
    *     invocations of {@link VideoRendererEventListener#onDroppedFrames(int, long)}.
+   * @param minConsecutiveDroppedFramesToNotify The minimum number of consecutive frames that must
+   *     be dropped for {@link VideoRendererEventListener#onConsecutiveDroppedFrames(int, long)} to
+   *     be called.
    * @param threads Number of threads libvpx will use to decode.
    * @param numInputBuffers Number of input buffers.
    * @param numOutputBuffers Number of output buffers.
@@ -113,10 +121,16 @@ public class LibvpxVideoRenderer extends DecoderVideoRenderer {
       @Nullable Handler eventHandler,
       @Nullable VideoRendererEventListener eventListener,
       int maxDroppedFramesToNotify,
+      int minConsecutiveDroppedFramesToNotify,
       int threads,
       int numInputBuffers,
       int numOutputBuffers) {
-    super(allowedJoiningTimeMs, eventHandler, eventListener, maxDroppedFramesToNotify);
+    super(
+      allowedJoiningTimeMs,
+      eventHandler,
+      eventListener,
+      maxDroppedFramesToNotify,
+      minConsecutiveDroppedFramesToNotify);
     this.threads = threads;
     this.numInputBuffers = numInputBuffers;
     this.numOutputBuffers = numOutputBuffers;

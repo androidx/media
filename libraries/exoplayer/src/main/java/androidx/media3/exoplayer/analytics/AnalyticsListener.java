@@ -235,7 +235,8 @@ public interface AnalyticsListener {
     EVENT_VIDEO_CODEC_ERROR,
     EVENT_AUDIO_TRACK_INITIALIZED,
     EVENT_AUDIO_TRACK_RELEASED,
-    EVENT_RENDERER_READY_CHANGED
+    EVENT_RENDERER_READY_CHANGED,
+    EVENT_CONSECUTIVE_DROPPED_VIDEO_FRAMES,
   })
   @interface EventFlags {}
 
@@ -447,6 +448,9 @@ public interface AnalyticsListener {
 
   /** A renderer changed its readiness for playback. */
   @UnstableApi int EVENT_RENDERER_READY_CHANGED = 1033;
+
+  /** Consecutive video frames have been dropped. */
+  @UnstableApi int EVENT_CONSECUTIVE_DROPPED_VIDEO_FRAMES = 1034;
 
   /** Time information of an event. */
   @UnstableApi
@@ -1243,6 +1247,18 @@ public interface AnalyticsListener {
    */
   @UnstableApi
   default void onDroppedVideoFrames(EventTime eventTime, int droppedFrames, long elapsedMs) {}
+
+  /**
+   * Called after consecutive video frames have been dropped.
+   *
+   * @param eventTime The event time.
+   * @param consecutiveDroppedFrames The number of consecutive frames that have been dropped before the
+   *     last rendered frame.
+   * @param elapsedMs The duration in milliseconds over which the frames were dropped. This duration
+   *     is timed from the first dropped framed in the sequence.
+   */
+  @UnstableApi
+  default void onConsecutiveDroppedVideoFrames(EventTime eventTime, int droppedFrames, long elapsedMs) {}
 
   /**
    * Called when a video renderer releases a decoder.

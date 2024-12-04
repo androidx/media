@@ -341,6 +341,15 @@ public class DefaultAnalyticsCollector implements AnalyticsCollector {
   }
 
   @Override
+  public final void onConsecutiveDroppedFrames(int count, long elapsedMs) {
+    EventTime eventTime = generatePlayingMediaPeriodEventTime();
+    sendEvent(
+        eventTime,
+        AnalyticsListener.EVENT_CONSECUTIVE_DROPPED_VIDEO_FRAMES,
+        listener -> listener.onConsecutiveDroppedVideoFrames(eventTime, count, elapsedMs));
+  }
+
+  @Override
   public final void onVideoDecoderReleased(String decoderName) {
     EventTime eventTime = generateReadingMediaPeriodEventTime();
     sendEvent(
