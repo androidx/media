@@ -2156,9 +2156,11 @@ public class MatroskaExtractor implements Extractor {
           break;
         case CODEC_ID_VP9:
           mimeType = MimeTypes.VIDEO_VP9;
+          initializationData = codecPrivate == null ? null : ImmutableList.of(codecPrivate);
           break;
         case CODEC_ID_AV1:
           mimeType = MimeTypes.VIDEO_AV1;
+          initializationData = codecPrivate == null ? null : ImmutableList.of(codecPrivate);
           break;
         case CODEC_ID_MPEG2:
           mimeType = MimeTypes.VIDEO_MPEG2;
