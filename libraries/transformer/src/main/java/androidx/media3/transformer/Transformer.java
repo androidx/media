@@ -103,11 +103,10 @@ public final class Transformer {
     private @MonotonicNonNull String audioMimeType;
     private @MonotonicNonNull String videoMimeType;
     private @MonotonicNonNull TransformationRequest transformationRequest;
-    private ImmutableList<AudioProcessor> audioProcessors;
-    private ImmutableList<Effect> videoEffects;
+    private final ImmutableList<AudioProcessor> audioProcessors;
+    private final ImmutableList<Effect> videoEffects;
     private boolean removeAudio;
     private boolean removeVideo;
-    private boolean flattenForSlowMotion;
     private boolean trimOptimizationEnabled;
     private boolean portraitEncodingEnabled;
     private boolean fileStartsOnVideoFrameEnabled;
@@ -547,7 +546,6 @@ public final class Transformer {
           videoEffects,
           removeAudio,
           removeVideo,
-          flattenForSlowMotion,
           trimOptimizationEnabled,
           portraitEncodingEnabled,
           fileStartsOnVideoFrameEnabled,
@@ -730,7 +728,6 @@ public final class Transformer {
   private final ImmutableList<Effect> videoEffects;
   private final boolean removeAudio;
   private final boolean removeVideo;
-  private final boolean flattenForSlowMotion;
   private final boolean trimOptimizationEnabled;
   private final boolean portraitEncodingEnabled;
   private final boolean fileStartsOnVideoFrameEnabled;
@@ -770,7 +767,6 @@ public final class Transformer {
       ImmutableList<Effect> videoEffects,
       boolean removeAudio,
       boolean removeVideo,
-      boolean flattenForSlowMotion,
       boolean trimOptimizationEnabled,
       boolean portraitEncodingEnabled,
       boolean fileStartsOnVideoFrameEnabled,
@@ -792,7 +788,6 @@ public final class Transformer {
     this.videoEffects = videoEffects;
     this.removeAudio = removeAudio;
     this.removeVideo = removeVideo;
-    this.flattenForSlowMotion = flattenForSlowMotion;
     this.trimOptimizationEnabled = trimOptimizationEnabled;
     this.portraitEncodingEnabled = portraitEncodingEnabled;
     this.fileStartsOnVideoFrameEnabled = fileStartsOnVideoFrameEnabled;
@@ -994,16 +989,10 @@ public final class Transformer {
    * @throws IllegalStateException If an export is already in progress.
    */
   public void start(MediaItem mediaItem, String path) {
-    if (!mediaItem.clippingConfiguration.equals(MediaItem.ClippingConfiguration.UNSET)
-        && flattenForSlowMotion) {
-      throw new IllegalArgumentException(
-          "Clipping is not supported when slow motion flattening is requested");
-    }
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(mediaItem)
             .setRemoveAudio(removeAudio)
             .setRemoveVideo(removeVideo)
-            .setFlattenForSlowMotion(flattenForSlowMotion)
             .setEffects(new Effects(audioProcessors, videoEffects))
             .build();
     start(editedMediaItem, path);

@@ -143,6 +143,8 @@
         `Transformer.start(MediaItem, String)` instead.
     *   Remove deprecated `SingleFrameGlShaderProgram`. Use
         `BaseGlShaderProgram` instead.
+    *   Remove `Transformer.flattenForSlowMotion`. Use
+        `EditedMediaItem.flattenForSlowMotion` instead.
 
 ## 1.5
 
