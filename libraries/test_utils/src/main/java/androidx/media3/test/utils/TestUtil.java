@@ -58,6 +58,7 @@ import com.google.common.base.Function;
 import com.google.common.collect.BoundType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Range;
 import com.google.common.io.ByteStreams;
@@ -599,6 +600,17 @@ public class TestUtil {
     return buffer;
   }
 
+  /**
+   * Returns all the public overridable methods of a Java class (except those defined by {@link
+   * Object}).
+   */
+  public static Iterable<Method> getPublicOverridableMethods(Class<?> clazz) {
+    return Iterables.filter(
+        getPublicMethods(clazz),
+        method ->
+            !Modifier.isFinal(method.getModifiers()) && !Modifier.isStatic(method.getModifiers()));
+  }
+
   /** Returns all the public methods of a Java class (except those defined by {@link Object}). */
   public static List<Method> getPublicMethods(Class<?> clazz) {
     // Run a BFS over all extended types to inspect them all.
@@ -631,12 +643,25 @@ public class TestUtil {
   }
 
   /**
-   * Use reflection to assert that every method declared on {@code superType} is overridden by
-   * {@code forwardingType}.
+   * Use reflection to assert that every non-final method declared on {@code superType} is
+   * overridden by {@code forwardingType}.
    */
   public static <T> void assertForwardingClassOverridesAllMethods(
       Class<T> superType, Class<? extends T> forwardingType) throws NoSuchMethodException {
-    for (Method method : TestUtil.getPublicMethods(superType)) {
+    assertForwardingClassOverridesAllMethodsExcept(superType, forwardingType, ImmutableSet.of());
+  }
+
+  /**
+   * Use reflection to assert that every non-final, non-excluded method declared on {@code
+   * superType} is overridden by {@code forwardingType}.
+   */
+  public static <T> void assertForwardingClassOverridesAllMethodsExcept(
+      Class<T> superType, Class<? extends T> forwardingType, Set<String> excludedMethods)
+      throws NoSuchMethodException {
+    for (Method method : TestUtil.getPublicOverridableMethods(superType)) {
+      if (excludedMethods.contains(method.getName())) {
+        continue;
+      }
       assertThat(
               forwardingType
                   .getDeclaredMethod(method.getName(), method.getParameterTypes())
@@ -646,24 +671,22 @@ public class TestUtil {
   }
 
   /**
-   * Use reflection to assert calling every method declared on {@code superType} on an instance of
-   * {@code forwardingType} results in the call being forwarded to the {@code superType} delegate.
+   * Use reflection to assert that calling every non-final method declared on {@code superType} on
+   * an instance of {@code forwardingType} results in the call being forwarded to the {@code
+   * superType} delegate.
    */
   public static <T extends @NonNull Object, F extends T>
       void assertForwardingClassForwardsAllMethods(
           Class<T> superType, Function<T, F> forwardingInstanceFactory)
-          throws InvocationTargetException,
-              IllegalAccessException,
-              NoSuchMethodException,
-              InstantiationException {
+          throws InvocationTargetException, IllegalAccessException {
     assertForwardingClassForwardsAllMethodsExcept(
         superType, forwardingInstanceFactory, /* excludedMethods= */ ImmutableSet.of());
   }
 
   /**
-   * Use reflection to assert calling every non-excluded method declared on {@code superType} on an
-   * instance of {@code forwardingType} results in the call being forwarded to the {@code superType}
-   * delegate.
+   * Use reflection to assert that calling every non-final, non-excluded method declared on {@code
+   * superType} on an instance of {@code forwardingType} results in the call being forwarded to the
+   * {@code superType} delegate.
    */
   // The nullness checker is deliberately over-conservative and doesn't permit passing a null
   // parameter to method.invoke(), even if the real method does accept null. Regardless, we expect
@@ -674,11 +697,8 @@ public class TestUtil {
   public static <T extends @NonNull Object, F extends T>
       void assertForwardingClassForwardsAllMethodsExcept(
           Class<T> superType, Function<T, F> forwardingInstanceFactory, Set<String> excludedMethods)
-          throws InvocationTargetException,
-              IllegalAccessException,
-              NoSuchMethodException,
-              InstantiationException {
-    for (Method method : getPublicMethods(superType)) {
+          throws InvocationTargetException, IllegalAccessException {
+    for (Method method : getPublicOverridableMethods(superType)) {
       if (excludedMethods.contains(method.getName())) {
         continue;
       }
