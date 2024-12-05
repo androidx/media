@@ -16,6 +16,7 @@
 
 package androidx.media3.transformer;
 
+import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.PNG_ASSET;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
@@ -37,7 +38,7 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public class CompositionPlaybackTest {
 
-  private static final long TEST_TIMEOUT_MS = 10_000;
+  private static final long TEST_TIMEOUT_MS = isRunningOnEmulator() ? 20_000 : 10_000;
   private static final MediaItem VIDEO_MEDIA_ITEM = MediaItem.fromUri(MP4_ASSET.uri);
   private static final long VIDEO_DURATION_US = MP4_ASSET.videoDurationUs;
   private static final ImmutableList<Long> VIDEO_TIMESTAMPS_US = MP4_ASSET.videoTimestampsUs;
