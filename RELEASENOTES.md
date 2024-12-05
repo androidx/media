@@ -36,8 +36,6 @@
         ([#1904](https://github.com/androidx/media/issues/1904)).
 *   DataSource:
 *   Audio:
-    *   Do not bypass `SonicAudioProcessor` when `SpeedChangingAudioProcessor`
-        is configured with default parameters.
 *   Video:
     *   Rollback of using `MediaCodecAdapter` supplied pixel aspect ratio values
         when provided while processing `onOutputFormatChanged`

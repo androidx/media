@@ -86,17 +86,9 @@ public final class SonicAudioProcessorTest {
   }
 
   @Test
-  public void isActive_withDefaultParameters_returnsFalse() throws Exception {
+  public void isNotActiveWithNoChange() throws Exception {
     sonicAudioProcessor.configure(AUDIO_FORMAT_44100_HZ);
     assertThat(sonicAudioProcessor.isActive()).isFalse();
-  }
-
-  @Test
-  public void isActive_keepActiveWithDefaultParameters_returnsTrue() throws Exception {
-    SonicAudioProcessor processor =
-        new SonicAudioProcessor(/* keepActiveWithDefaultParameters= */ true);
-    processor.configure(AUDIO_FORMAT_44100_HZ);
-    assertThat(processor.isActive()).isTrue();
   }
 
   @Test

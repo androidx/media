@@ -26,9 +26,9 @@ import java.nio.ByteBuffer;
   private final Object lock;
   private final SonicAudioProcessor sonicAudioProcessor;
 
-  public SynchronizedSonicAudioProcessor(Object lock, boolean keepActiveWithDefaultParameters) {
+  public SynchronizedSonicAudioProcessor(Object lock) {
     this.lock = lock;
-    sonicAudioProcessor = new SonicAudioProcessor(keepActiveWithDefaultParameters);
+    sonicAudioProcessor = new SonicAudioProcessor();
   }
 
   public final void setSpeed(float speed) {

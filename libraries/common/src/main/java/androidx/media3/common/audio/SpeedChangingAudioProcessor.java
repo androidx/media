@@ -24,7 +24,6 @@ import static androidx.media3.common.util.Util.sampleCountToDurationUs;
 import static java.lang.Math.min;
 import static java.lang.Math.round;
 
-import android.annotation.SuppressLint;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.IntRange;
 import androidx.media3.common.C;
@@ -100,8 +99,7 @@ public final class SpeedChangingAudioProcessor extends BaseAudioProcessor {
   public SpeedChangingAudioProcessor(SpeedProvider speedProvider) {
     this.speedProvider = speedProvider;
     lock = new Object();
-    sonicAudioProcessor =
-        new SynchronizedSonicAudioProcessor(lock, /* keepActiveWithDefaultParameters= */ true);
+    sonicAudioProcessor = new SynchronizedSonicAudioProcessor(lock);
     pendingCallbackInputTimesUs = new LongArrayQueue();
     pendingCallbacks = new ArrayDeque<>();
     speedAdjustedTimeAsyncInputTimeUs = C.TIME_UNSET;
@@ -176,11 +174,19 @@ public final class SpeedChangingAudioProcessor extends BaseAudioProcessor {
     }
 
     long startPosition = inputBuffer.position();
-    sonicAudioProcessor.queueInput(inputBuffer);
-    if (bytesToNextSpeedChange != C.LENGTH_UNSET
-        && (inputBuffer.position() - startPosition) == bytesToNextSpeedChange) {
-      sonicAudioProcessor.queueEndOfStream();
-      endOfStreamQueuedToSonic = true;
+    if (isUsingSonic()) {
+      sonicAudioProcessor.queueInput(inputBuffer);
+      if (bytesToNextSpeedChange != C.LENGTH_UNSET
+          && (inputBuffer.position() - startPosition) == bytesToNextSpeedChange) {
+        sonicAudioProcessor.queueEndOfStream();
+        endOfStreamQueuedToSonic = true;
+      }
+    } else {
+      ByteBuffer buffer = replaceOutputBuffer(/* size= */ inputBuffer.remaining());
+      if (inputBuffer.hasRemaining()) {
+        buffer.put(inputBuffer);
+      }
+      buffer.flip();
     }
     long bytesRead = inputBuffer.position() - startPosition;
     checkState(
@@ -198,11 +204,9 @@ public final class SpeedChangingAudioProcessor extends BaseAudioProcessor {
     }
   }
 
-  // Not using BaseAudioProcessor's buffers.
-  @SuppressLint("MissingSuperCall")
   @Override
   public ByteBuffer getOutput() {
-    ByteBuffer output = sonicAudioProcessor.getOutput();
+    ByteBuffer output = isUsingSonic() ? sonicAudioProcessor.getOutput() : super.getOutput();
     processPendingCallbacks();
     return output;
   }
@@ -347,8 +351,10 @@ public final class SpeedChangingAudioProcessor extends BaseAudioProcessor {
       if (newSpeed != currentSpeed) {
         updateSpeedChangeArrays(timeUs);
         currentSpeed = newSpeed;
-        sonicAudioProcessor.setSpeed(newSpeed);
-        sonicAudioProcessor.setPitch(newSpeed);
+        if (isUsingSonic()) {
+          sonicAudioProcessor.setSpeed(newSpeed);
+          sonicAudioProcessor.setPitch(newSpeed);
+        }
         // Invalidate any previously created buffers in SonicAudioProcessor and the base class.
         sonicAudioProcessor.flush();
         endOfStreamQueuedToSonic = false;
@@ -372,25 +378,39 @@ public final class SpeedChangingAudioProcessor extends BaseAudioProcessor {
   }
 
   private long getPlayoutDurationUsAtCurrentSpeed(long mediaDurationUs) {
-    return sonicAudioProcessor.getPlayoutDuration(mediaDurationUs);
+    return isUsingSonic()
+        ? sonicAudioProcessor.getPlayoutDuration(mediaDurationUs)
+        : mediaDurationUs;
   }
 
   private long getMediaDurationUsAtCurrentSpeed(long playoutDurationUs) {
-    return sonicAudioProcessor.getMediaDuration(playoutDurationUs);
+    return isUsingSonic()
+        ? sonicAudioProcessor.getMediaDuration(playoutDurationUs)
+        : playoutDurationUs;
   }
 
   private void updateLastProcessedInputTime() {
     synchronized (lock) {
-      // TODO - b/320242819: Investigate whether bytesRead can be used here rather than
-      //  sonicAudioProcessor.getProcessedInputBytes().
-      long currentProcessedInputDurationUs =
-          Util.scaleLargeTimestamp(
-              /* timestamp= */ sonicAudioProcessor.getProcessedInputBytes(),
-              /* multiplier= */ C.MICROS_PER_SECOND,
-              /* divisor= */ (long) inputAudioFormat.sampleRate * inputAudioFormat.bytesPerFrame);
-      lastProcessedInputTimeUs =
-          inputSegmentStartTimesUs.get(inputSegmentStartTimesUs.size() - 1)
-              + currentProcessedInputDurationUs;
+      if (isUsingSonic()) {
+        // TODO - b/320242819: Investigate whether bytesRead can be used here rather than
+        //  sonicAudioProcessor.getProcessedInputBytes().
+        long currentProcessedInputDurationUs =
+            Util.scaleLargeTimestamp(
+                /* timestamp= */ sonicAudioProcessor.getProcessedInputBytes(),
+                /* multiplier= */ C.MICROS_PER_SECOND,
+                /* divisor= */ (long) inputAudioFormat.sampleRate * inputAudioFormat.bytesPerFrame);
+        lastProcessedInputTimeUs =
+            inputSegmentStartTimesUs.get(inputSegmentStartTimesUs.size() - 1)
+                + currentProcessedInputDurationUs;
+      } else {
+        lastProcessedInputTimeUs = sampleCountToDurationUs(framesRead, inputAudioFormat.sampleRate);
+      }
+    }
+  }
+
+  private boolean isUsingSonic() {
+    synchronized (lock) {
+      return currentSpeed != 1f;
     }
   }
 
