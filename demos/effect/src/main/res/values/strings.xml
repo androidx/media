@@ -19,4 +19,5 @@
   <string name="choose_local_file">Choose local file</string>
   <string name="apply_effects">Apply effects</string>
   <string name="ok">OK</string>
+  <string name="playlist_loading_error">Error loading playlist from %1$s: %2$s</string>
 </resources>

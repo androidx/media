@@ -49,6 +49,7 @@ import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.common.util.Util.SDK_INT
@@ -60,11 +61,16 @@ class EffectActivity : ComponentActivity() {
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
-    setContent { EffectDemo() }
+    val playlistHolderList = mutableStateOf<List<PlaylistHolder>>(emptyList())
+    lifecycleScope.launch {
+      playlistHolderList.value =
+        loadPlaylistsFromJson(JSON_FILENAME, this@EffectActivity, "EffectActivity")
+    }
+    setContent { EffectDemo(playlistHolderList.value) }
   }
 
   @Composable
-  fun EffectDemo() {
+  private fun EffectDemo(playlistHolderList: List<PlaylistHolder>) {
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -100,7 +106,7 @@ class EffectActivity : ComponentActivity() {
   }
 
   @Composable
-  fun InputChooser(onException: (String) -> Unit, onNewUri: (Uri) -> Unit) {
+  private fun InputChooser(onException: (String) -> Unit, onNewUri: (Uri) -> Unit) {
     var showLocalFilePicker by remember { mutableStateOf(false) }
     Row(
       modifier = Modifier.padding(vertical = dimensionResource(id = R.dimen.small_padding)),
@@ -128,7 +134,7 @@ class EffectActivity : ComponentActivity() {
 
   @OptIn(UnstableApi::class)
   @Composable
-  fun LocalFilePicker(onException: (String) -> Unit, onFileSelected: (Uri) -> Unit) {
+  private fun LocalFilePicker(onException: (String) -> Unit, onFileSelected: (Uri) -> Unit) {
     val context = LocalContext.current
     val localFilePickerLauncher =
       rememberLauncherForActivityResult(
@@ -166,7 +172,7 @@ class EffectActivity : ComponentActivity() {
   }
 
   @Composable
-  fun PlayerScreen(exoPlayer: ExoPlayer) {
+  private fun PlayerScreen(exoPlayer: ExoPlayer) {
     val context = LocalContext.current
     AndroidView(
       factory = { PlayerView(context).apply { player = exoPlayer } },
@@ -177,9 +183,13 @@ class EffectActivity : ComponentActivity() {
   }
 
   @Composable
-  fun Effects(onException: (String) -> Unit) {
+  private fun Effects(onException: (String) -> Unit) {
     Button(onClick = { onException("Button is not yet implemented.") }) {
       Text(text = stringResource(id = R.string.apply_effects))
     }
+  }
+
+  companion object {
+    const val JSON_FILENAME = "media.playlist.json"
   }
 }
