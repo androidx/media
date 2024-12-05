@@ -16,7 +16,7 @@
 package androidx.media3.exoplayer.source;
 
 import static androidx.media3.test.utils.TestUtil.assertForwardingClassForwardsAllMethodsExcept;
-import static androidx.media3.test.utils.TestUtil.assertForwardingClassOverridesAllMethodsExcept;
+import static androidx.media3.test.utils.TestUtil.assertForwardingClassOverridesAllMethods;
 
 import androidx.media3.common.Timeline;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -30,14 +30,14 @@ public class ForwardingTimelineTest {
 
   @Test
   public void overridesAllMethods() throws Exception {
-    assertForwardingClassOverridesAllMethodsExcept(
-        Timeline.class,
-        ForwardingTimeline.class,
-        ImmutableSet.of("equals", "hashCode", "getPeriodByUid"));
+    assertForwardingClassOverridesAllMethods(Timeline.class, ForwardingTimeline.class);
   }
 
   @Test
   public void forwardsAllMethods() throws Exception {
+    // ForwardingTimeline equals, hashCode, and getPeriodByUid implementations deliberately call
+    // through to super rather than the delegate instance. This is because these methods are already
+    // correctly implemented on Timeline in terms of the publicly visible parts of Timeline.
     assertForwardingClassForwardsAllMethodsExcept(
         Timeline.class,
         delegate -> new ForwardingTimeline(delegate) {},
