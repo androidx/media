@@ -1191,6 +1191,9 @@ public final class Format {
         codecs = codecsOfType;
       }
     }
+    if (MimeTypes.VIDEO_DOLBY_VISION.equals(sampleMimeType)) {
+      codecs = Util.getCodecsOfType(manifestFormat.codecs, C.TRACK_TYPE_VIDEO);
+    }
 
     @Nullable
     Metadata metadata =
