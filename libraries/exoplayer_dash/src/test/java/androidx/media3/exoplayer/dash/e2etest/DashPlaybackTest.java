@@ -49,6 +49,7 @@ import androidx.media3.exoplayer.source.LoadEventInfo;
 import androidx.media3.exoplayer.source.MediaLoadData;
 import androidx.media3.exoplayer.source.chunk.BundledChunkExtractor;
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector;
+import androidx.media3.exoplayer.upstream.CmcdConfiguration;
 import androidx.media3.test.utils.CapturingRenderersFactory;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.FakeClock;
@@ -680,6 +681,35 @@ public final class DashPlaybackTest {
 
     DumpFileAsserts.assertOutput(
         applicationContext, playbackOutput, "playbackdumps/dash/multi-period-with-offset.dump");
+  }
+
+  @Test
+  public void cmcdEnabled_withInitSegment() throws Exception {
+    Context applicationContext = ApplicationProvider.getApplicationContext();
+    CapturingRenderersFactory capturingRenderersFactory =
+        new CapturingRenderersFactory(applicationContext);
+    ExoPlayer player =
+        new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
+            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setMediaSourceFactory(
+                new DefaultMediaSourceFactory(applicationContext)
+                    .setCmcdConfigurationFactory(CmcdConfiguration.Factory.DEFAULT))
+            .build();
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
+    PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
+
+    player.setMediaItem(MediaItem.fromUri("asset:///media/dash/multi-track/sample.mpd"));
+    player.prepare();
+    player.play();
+    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
+    player.release();
+    surface.release();
+
+    DumpFileAsserts.assertOutput(
+        applicationContext,
+        playbackOutput,
+        "playbackdumps/dash/cmcd-enabled-with-init-segment.dump");
   }
 
   @Test
