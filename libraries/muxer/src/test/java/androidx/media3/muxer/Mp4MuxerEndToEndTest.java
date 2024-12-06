@@ -416,7 +416,7 @@ public class Mp4MuxerEndToEndTest {
   }
 
   @Test
-  public void createMp4Muxer_withFileFormatEditableVideoButWithoutCacheFileProvider_throws()
+  public void createMp4Muxer_withFileFormatMp4AtButWithoutCacheFileProvider_throws()
       throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
 
@@ -424,20 +424,19 @@ public class Mp4MuxerEndToEndTest {
         IllegalArgumentException.class,
         () ->
             new Mp4Muxer.Builder(new FileOutputStream(outputFilePath))
-                .setOutputFileFormat(Mp4Muxer.FILE_FORMAT_EDITABLE_VIDEO)
+                .setOutputFileFormat(Mp4Muxer.FILE_FORMAT_MP4_AT)
                 .build());
   }
 
   @Test
-  public void writeMp4File_withFileFormatEditableVideoAndEditableVideoTracks_writesEdvdBox()
-      throws Exception {
+  public void writeMp4File_withFileFormatMp4AtAndAuxiliaryTracks_writesAxteBox() throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
     String cacheFilePath = temporaryFolder.newFile().getPath();
     Mp4Muxer muxer =
         new Mp4Muxer.Builder(new FileOutputStream(outputFilePath))
-            .setOutputFileFormat(Mp4Muxer.FILE_FORMAT_EDITABLE_VIDEO)
-            .setEditableVideoParameters(
-                new Mp4Muxer.EditableVideoParameters(
+            .setOutputFileFormat(Mp4Muxer.FILE_FORMAT_MP4_AT)
+            .setMp4AtFileParameters(
+                new Mp4Muxer.Mp4AtFileParameters(
                     /* shouldInterleaveSamples= */ false, () -> cacheFilePath))
             .build();
 
@@ -470,15 +469,15 @@ public class Mp4MuxerEndToEndTest {
 
     DumpableMp4Box outputFileDumpableBox =
         new DumpableMp4Box(ByteBuffer.wrap(TestUtil.getByteArrayFromFilePath(outputFilePath)));
-    // 1 track is written in the outer moov box and 2 tracks are written in the edvd.moov box.
+    // 1 track is written in the outer moov box and 2 tracks are written in the axte.moov box.
     DumpFileAsserts.assertOutput(
         context,
         outputFileDumpableBox,
-        MuxerTestUtil.getExpectedDumpFilePath("mp4_with_editable_video_tracks_in_edvd.box"));
+        MuxerTestUtil.getExpectedDumpFilePath("mp4_with_auxiliary_tracks_in_axte.box"));
   }
 
   @Test
-  public void writeMp4File_withFileFormatDefaultAndEditableVideoTracks_doesNotWriteEdvdBox()
+  public void writeMp4File_withFileFormatDefaultAndAuxiliaryTracks_doesNotWriteAxteBox()
       throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
     Mp4Muxer muxer = new Mp4Muxer.Builder(new FileOutputStream(outputFilePath)).build();
@@ -512,24 +511,24 @@ public class Mp4MuxerEndToEndTest {
 
     DumpableMp4Box outputFileDumpableBox =
         new DumpableMp4Box(ByteBuffer.wrap(TestUtil.getByteArrayFromFilePath(outputFilePath)));
-    // All 3 tracks are written in the outer moov box and no edvd box.
+    // All 3 tracks are written in the outer moov box and no axte box.
     DumpFileAsserts.assertOutput(
         context,
         outputFileDumpableBox,
-        MuxerTestUtil.getExpectedDumpFilePath("mp4_with_editable_video_tracks_without_edvd.box"));
+        MuxerTestUtil.getExpectedDumpFilePath("mp4_with_auxiliary_tracks_without_axte.box"));
   }
 
   @Test
   public void
-      writeMp4File_withFileFormatEditableVideoAndEditableVideoTracks_primaryVideoTracksMatchesExpected()
+      writeMp4File_withFileFormatMp4AtAndAuxiliaryVideoTracks_primaryVideoTracksMatchesExpected()
           throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
     String cacheFilePath = temporaryFolder.newFile().getPath();
     Mp4Muxer muxer =
         new Mp4Muxer.Builder(new FileOutputStream(outputFilePath))
-            .setOutputFileFormat(Mp4Muxer.FILE_FORMAT_EDITABLE_VIDEO)
-            .setEditableVideoParameters(
-                new Mp4Muxer.EditableVideoParameters(
+            .setOutputFileFormat(Mp4Muxer.FILE_FORMAT_MP4_AT)
+            .setMp4AtFileParameters(
+                new Mp4Muxer.Mp4AtFileParameters(
                     /* shouldInterleaveSamples= */ false, () -> cacheFilePath))
             .build();
 
@@ -571,16 +570,15 @@ public class Mp4MuxerEndToEndTest {
   }
 
   @Test
-  public void
-      writeMp4File_withFileFormatEditableVideoAndEditableVideoTracks_editableVideoTracksMatchesExpected()
-          throws Exception {
+  public void writeMp4File_withFileFormatMp4AtAndAuxiliaryTracks_auxiliaryTracksMatchesExpected()
+      throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
     String cacheFilePath = temporaryFolder.newFile().getPath();
     Mp4Muxer muxer =
         new Mp4Muxer.Builder(new FileOutputStream(outputFilePath))
-            .setOutputFileFormat(Mp4Muxer.FILE_FORMAT_EDITABLE_VIDEO)
-            .setEditableVideoParameters(
-                new Mp4Muxer.EditableVideoParameters(
+            .setOutputFileFormat(Mp4Muxer.FILE_FORMAT_MP4_AT)
+            .setMp4AtFileParameters(
+                new Mp4Muxer.Mp4AtFileParameters(
                     /* shouldInterleaveSamples= */ false, () -> cacheFilePath))
             .build();
 
@@ -611,27 +609,27 @@ public class Mp4MuxerEndToEndTest {
       muxer.close();
     }
 
-    FakeExtractorOutput editableTracksOutput =
+    FakeExtractorOutput auxiliaryTracksOutput =
         TestUtil.extractAllSamplesFromFilePath(
             new Mp4Extractor(
-                new DefaultSubtitleParserFactory(), Mp4Extractor.FLAG_READ_EDITABLE_VIDEO_TRACKS),
+                new DefaultSubtitleParserFactory(), Mp4Extractor.FLAG_READ_AUXILIARY_TRACKS),
             outputFilePath);
     DumpFileAsserts.assertOutput(
         context,
-        editableTracksOutput,
-        MuxerTestUtil.getExpectedDumpFilePath("mp4_with_editable_video_tracks.mp4"));
+        auxiliaryTracksOutput,
+        MuxerTestUtil.getExpectedDumpFilePath("mp4_with_auxiliary_tracks.mp4"));
   }
 
   @Test
   public void
-      writeMp4File_withFileFormatEditableVideoAndEditableVideoTracksAndShouldInterleaveSamples_primaryVideoTracksMatchesExpected()
+      writeMp4File_withFileFormatMp4AtAndAuxiliaryTracksAndShouldInterleaveSamples_primaryVideoTracksMatchesExpected()
           throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
     Mp4Muxer muxer =
         new Mp4Muxer.Builder(new FileOutputStream(outputFilePath))
-            .setOutputFileFormat(Mp4Muxer.FILE_FORMAT_EDITABLE_VIDEO)
-            .setEditableVideoParameters(
-                new Mp4Muxer.EditableVideoParameters(
+            .setOutputFileFormat(Mp4Muxer.FILE_FORMAT_MP4_AT)
+            .setMp4AtFileParameters(
+                new Mp4Muxer.Mp4AtFileParameters(
                     /* shouldInterleaveSamples= */ true, /* cacheFileProvider= */ null))
             .build();
 
@@ -670,19 +668,19 @@ public class Mp4MuxerEndToEndTest {
         context,
         primaryTracksOutput,
         MuxerTestUtil.getExpectedDumpFilePath(
-            "mp4_with_primary_tracks_when_editable_track_samples_interleaved.mp4"));
+            "mp4_with_primary_tracks_when_auxiliary_track_samples_interleaved.mp4"));
   }
 
   @Test
   public void
-      writeMp4File_withFileFormatEditableVideoAndEditableVideoTracksAndShouldInterleaveSamples_editableVideoTracksMatchesExpected()
+      writeMp4File_withFileFormatMp4AtAndAuxiliaryTracksAndShouldInterleaveSamples_auxiliaryTracksMatchesExpected()
           throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
     Mp4Muxer muxer =
         new Mp4Muxer.Builder(new FileOutputStream(outputFilePath))
-            .setOutputFileFormat(Mp4Muxer.FILE_FORMAT_EDITABLE_VIDEO)
-            .setEditableVideoParameters(
-                new Mp4Muxer.EditableVideoParameters(
+            .setOutputFileFormat(Mp4Muxer.FILE_FORMAT_MP4_AT)
+            .setMp4AtFileParameters(
+                new Mp4Muxer.Mp4AtFileParameters(
                     /* shouldInterleaveSamples= */ true, /* cacheFileProvider= */ null))
             .build();
 
@@ -713,16 +711,16 @@ public class Mp4MuxerEndToEndTest {
       muxer.close();
     }
 
-    FakeExtractorOutput editableTracksOutput =
+    FakeExtractorOutput auxiliaryTracksOutput =
         TestUtil.extractAllSamplesFromFilePath(
             new Mp4Extractor(
-                new DefaultSubtitleParserFactory(), Mp4Extractor.FLAG_READ_EDITABLE_VIDEO_TRACKS),
+                new DefaultSubtitleParserFactory(), Mp4Extractor.FLAG_READ_AUXILIARY_TRACKS),
             outputFilePath);
     DumpFileAsserts.assertOutput(
         context,
-        editableTracksOutput,
+        auxiliaryTracksOutput,
         MuxerTestUtil.getExpectedDumpFilePath(
-            "mp4_with_editable_video_tracks_when_editable_track_samples_interleaved.mp4"));
+            "mp4_with_auxiliary_tracks_when_auxiliary_track_samples_interleaved.mp4"));
   }
 
   @Test

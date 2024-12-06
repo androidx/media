@@ -1279,14 +1279,14 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     return BoxUtils.wrapIntoBox("trex", contents);
   }
 
-  /** Returns the edvd box header. */
-  public static ByteBuffer getEdvdBoxHeader(long payloadSize) {
-    ByteBuffer edvdBoxHeader = ByteBuffer.allocate(LARGE_SIZE_BOX_HEADER_SIZE);
-    edvdBoxHeader.putInt(1); // indicating a 64-bit length field
-    edvdBoxHeader.put(Util.getUtf8Bytes("edvd"));
-    edvdBoxHeader.putLong(LARGE_SIZE_BOX_HEADER_SIZE + payloadSize); // the actual length
-    edvdBoxHeader.flip();
-    return edvdBoxHeader;
+  /** Returns the axte box header. */
+  public static ByteBuffer getAxteBoxHeader(long payloadSize) {
+    ByteBuffer axteBoxHeader = ByteBuffer.allocate(LARGE_SIZE_BOX_HEADER_SIZE);
+    axteBoxHeader.putInt(1); // indicating a 64-bit length field
+    axteBoxHeader.put(Util.getUtf8Bytes("axte"));
+    axteBoxHeader.putLong(LARGE_SIZE_BOX_HEADER_SIZE + payloadSize); // the actual length
+    axteBoxHeader.flip();
+    return axteBoxHeader;
   }
 
   /** Returns an ISO 639-2/T (ISO3) language code for the IETF BCP 47 language tag. */

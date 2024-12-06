@@ -107,54 +107,53 @@ public final class Mp4ExtractorNonParameterizedTest {
 
   @Test
   public void
-      extract_fileHavingNoEditableVideoTracksWithReadEditableVideoTracksFlag_extractsPrimaryVideoTracks()
+      extract_fileHavingNoAuxiliaryTracksWithReadAuxiliaryTracksFlag_extractsPrimaryVideoTracks()
           throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
     String inputFilePath = "media/mp4/sample.mp4";
     Mp4Extractor mp4Extractor =
         new Mp4Extractor(
-            new DefaultSubtitleParserFactory(), Mp4Extractor.FLAG_READ_EDITABLE_VIDEO_TRACKS);
+            new DefaultSubtitleParserFactory(), Mp4Extractor.FLAG_READ_AUXILIARY_TRACKS);
 
     FakeExtractorOutput primaryTracksOutput =
         TestUtil.extractAllSamplesFromFile(mp4Extractor, context, inputFilePath);
 
-    String dumpFilePath = getDumpFilePath(inputFilePath, "_with_flag_read_Editable_video_tracks");
+    String dumpFilePath = getDumpFilePath(inputFilePath, "_with_flag_read_auxiliary_tracks");
     DumpFileAsserts.assertOutput(context, primaryTracksOutput, dumpFilePath);
   }
 
   @Test
-  public void
-      extract_fileHavingEditableVideoTracksWithReadEditableVideoTracksFlag_extractsEditableVideoTracks()
-          throws Exception {
+  public void extract_fileHavingAuxiliaryTracksWithReadAuxiliaryTracksFlag_extractsAuxiliaryTracks()
+      throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
-    String inputFilePath = "media/mp4/sample_with_fake_editable_video_tracks.mp4";
+    String inputFilePath = "media/mp4/sample_with_fake_auxiliary_tracks.mp4";
     Mp4Extractor mp4Extractor =
         new Mp4Extractor(
-            new DefaultSubtitleParserFactory(), Mp4Extractor.FLAG_READ_EDITABLE_VIDEO_TRACKS);
+            new DefaultSubtitleParserFactory(), Mp4Extractor.FLAG_READ_AUXILIARY_TRACKS);
 
-    FakeExtractorOutput editableTracksOutput =
+    FakeExtractorOutput auxiliaryTracksOutput =
         TestUtil.extractAllSamplesFromFile(mp4Extractor, context, inputFilePath);
 
-    String dumpFilePath = getDumpFilePath(inputFilePath, "_with_flag_read_Editable_video_tracks");
-    DumpFileAsserts.assertOutput(context, editableTracksOutput, dumpFilePath);
+    String dumpFilePath = getDumpFilePath(inputFilePath, "_with_flag_read_auxiliary_tracks");
+    DumpFileAsserts.assertOutput(context, auxiliaryTracksOutput, dumpFilePath);
   }
 
   @Test
   public void
-      extract_fileHavingEditableVideoTracksInterleavedWithPrimaryVideoTracksWithReadEditableVideoTracksFlag_extractsEditableVideoTracks()
+      extract_fileHavingAuxiliaryTracksInterleavedWithPrimaryVideoTracksWithReadAuxiliaryTracksFlag_extractsAuxiliaryTracks()
           throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
     String inputFilePath =
-        "media/mp4/sample_with_fake_editable_video_tracks_interleaved_with_primary_video_tracks.mp4";
+        "media/mp4/sample_with_fake_auxiliary_tracks_interleaved_with_primary_video_tracks.mp4";
     Mp4Extractor mp4Extractor =
         new Mp4Extractor(
-            new DefaultSubtitleParserFactory(), Mp4Extractor.FLAG_READ_EDITABLE_VIDEO_TRACKS);
+            new DefaultSubtitleParserFactory(), Mp4Extractor.FLAG_READ_AUXILIARY_TRACKS);
 
-    FakeExtractorOutput editableTracksOutput =
+    FakeExtractorOutput auxiliaryTracksOutput =
         TestUtil.extractAllSamplesFromFile(mp4Extractor, context, inputFilePath);
 
-    String dumpFilePath = getDumpFilePath(inputFilePath, "_with_flag_read_Editable_video_tracks");
-    DumpFileAsserts.assertOutput(context, editableTracksOutput, dumpFilePath);
+    String dumpFilePath = getDumpFilePath(inputFilePath, "_with_flag_read_auxiliary_tracks");
+    DumpFileAsserts.assertOutput(context, auxiliaryTracksOutput, dumpFilePath);
   }
 
   private static String getDumpFilePath(String inputFilePath, String suffix) {

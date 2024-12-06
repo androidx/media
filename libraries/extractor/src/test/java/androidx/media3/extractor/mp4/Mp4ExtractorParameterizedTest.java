@@ -229,14 +229,14 @@ public final class Mp4ExtractorParameterizedTest {
   }
 
   @Test
-  public void mp4WithEditableVideoTracks() throws Exception {
-    assertExtractorBehavior("media/mp4/sample_with_fake_editable_video_tracks.mp4");
+  public void mp4WithAuxiliaryTracks() throws Exception {
+    assertExtractorBehavior("media/mp4/sample_with_fake_auxiliary_tracks.mp4");
   }
 
   @Test
-  public void mp4WithEditableVideoTracksInterleavedWithPrimaryVideoTracks() throws Exception {
+  public void mp4WithAuxiliaryTracksInterleavedWithPrimaryVideoTracks() throws Exception {
     assertExtractorBehavior(
-        "media/mp4/sample_with_fake_editable_video_tracks_interleaved_with_primary_video_tracks.mp4");
+        "media/mp4/sample_with_fake_auxiliary_tracks_interleaved_with_primary_video_tracks.mp4");
   }
 
   private void assertExtractorBehavior(String file) throws IOException {

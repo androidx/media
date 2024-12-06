@@ -21,7 +21,7 @@ import androidx.media3.common.util.UnstableApi;
 @UnstableApi
 public final class Mp4Util {
   /** The original video track without any depth based effects applied. */
-  public static final int EDITABLE_TRACK_TYPE_SHARP = 0;
+  public static final int MP4_AT_AUXILIARY_TRACK_TYPE_SHARP = 0;
 
   /**
    * A linear encoded depth video track.
@@ -29,7 +29,7 @@ public final class Mp4Util {
    * <p>See https://developer.android.com/static/media/camera/camera2/Dynamic-depth-v1.0.pdf for
    * linear depth encoding.
    */
-  public static final int EDITABLE_TRACK_TYPE_DEPTH_LINEAR = 1;
+  public static final int MP4_AT_AUXILIARY_TRACK_TYPE_DEPTH_LINEAR = 1;
 
   /**
    * An inverse encoded depth video track.
@@ -37,10 +37,10 @@ public final class Mp4Util {
    * <p>See https://developer.android.com/static/media/camera/camera2/Dynamic-depth-v1.0.pdf for
    * inverse depth encoding.
    */
-  public static final int EDITABLE_TRACK_TYPE_DEPTH_INVERSE = 2;
+  public static final int MP4_AT_AUXILIARY_TRACK_TYPE_DEPTH_INVERSE = 2;
 
   /** A timed metadata of depth video track. */
-  public static final int EDITABLE_TRACK_TYPE_DEPTH_METADATA = 3;
+  public static final int MP4_AT_AUXILIARY_TRACK_TYPE_DEPTH_METADATA = 3;
 
   private Mp4Util() {}
 }
