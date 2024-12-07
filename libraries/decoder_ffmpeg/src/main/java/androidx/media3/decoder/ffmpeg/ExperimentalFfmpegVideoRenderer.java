@@ -57,13 +57,22 @@ public final class ExperimentalFfmpegVideoRenderer extends DecoderVideoRenderer 
    * @param eventListener A listener of events. May be null if delivery of events is not required.
    * @param maxDroppedFramesToNotify The maximum number of frames that can be dropped between
    *     invocations of {@link VideoRendererEventListener#onDroppedFrames(int, long)}.
+   * @param minConsecutiveDroppedFramesToNotify The minimum number of consecutive frames that must
+   *     be dropped for {@link VideoRendererEventListener#onConsecutiveDroppedFrames(int, long)} to
+   *     be called.
    */
   public ExperimentalFfmpegVideoRenderer(
       long allowedJoiningTimeMs,
       @Nullable Handler eventHandler,
       @Nullable VideoRendererEventListener eventListener,
-      int maxDroppedFramesToNotify) {
-    super(allowedJoiningTimeMs, eventHandler, eventListener, maxDroppedFramesToNotify);
+      int maxDroppedFramesToNotify,
+      int minConsecutiveDroppedFramesToNotify) {
+    super(
+      allowedJoiningTimeMs,
+      eventHandler,
+      eventListener,
+      maxDroppedFramesToNotify,
+      minConsecutiveDroppedFramesToNotify);
     // TODO: Implement.
   }
 
