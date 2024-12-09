@@ -435,7 +435,7 @@ public final class AviExtractor implements Extractor {
     idx1Body.skipBytes(8); // Skip chunkId (4 bytes) and flags (4 bytes).
     int offset = idx1Body.readLittleEndianInt();
 
-    // moviStart poitns at the start of the LIST, while the seek offset is based at the start of the
+    // moviStart points at the start of the LIST, while the seek offset is based at the start of the
     // movi fourCC, so we add 8 to reconcile the difference.
     long seekOffset = offset > moviStart ? 0L : moviStart + 8;
     idx1Body.setPosition(startingPosition);
@@ -520,11 +520,8 @@ public final class AviExtractor implements Extractor {
       TrackOutput trackOutput = extractorOutput.track(streamId, trackType);
       trackOutput.format(builder.build());
       trackOutput.durationUs(durationUs);
-      ChunkReader chunkReader =
-          new ChunkReader(
-              streamId, trackType, durationUs, aviStreamHeaderChunk.length, trackOutput);
       this.durationUs = max(this.durationUs, durationUs);
-      return chunkReader;
+      return new ChunkReader(streamId, aviStreamHeaderChunk, trackOutput);
     } else {
       // We don't currently support tracks other than video and audio.
       return null;
