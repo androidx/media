@@ -83,6 +83,19 @@ public interface VideoRendererEventListener {
   default void onDroppedFrames(int count, long elapsedMs) {}
 
   /**
+   * Called to report the number of consecutive frames dropped by the video renderer. Consecutive
+   * dropped frames are reported when a frame is renderered after a the previous consecutive frames
+   * were not rendered optionally, whenever the consecutive dropped frame count is above a specified
+   * threshold whilst the renderer is started.
+   *
+   * @param count The number of consecutive dropped frames.
+   * @param elapsedMs The duration in milliseconds over which the consecutive frames were dropped.
+   *     This duration is timed from the first dropped frame occured, until the time the renderer
+   *     rendered a frame.
+   */
+  default void onConsecutiveDroppedFrames(int count, long elapsedMs) {}
+
+  /**
    * Called to report the video processing offset of video frames processed by the video renderer.
    *
    * <p>Video processing offset represents how early a video frame is processed compared to the
@@ -202,6 +215,16 @@ public interface VideoRendererEventListener {
     public void droppedFrames(int droppedFrameCount, long elapsedMs) {
       if (handler != null) {
         handler.post(() -> castNonNull(listener).onDroppedFrames(droppedFrameCount, elapsedMs));
+      }
+    }
+
+    /** Invokes {@link VideoRendererEventListener#onConsecutiveDroppedFrames(int, long)}. */
+    public void consecutiveDroppedFrames(int consecutiveDroppedFrameCount, long elapsedMs) {
+      if (handler != null) {
+        handler.post(
+            () ->
+                castNonNull(listener)
+                    .onConsecutiveDroppedFrames(consecutiveDroppedFrameCount, elapsedMs));
       }
     }
 
