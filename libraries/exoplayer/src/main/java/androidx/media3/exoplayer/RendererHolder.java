@@ -546,6 +546,56 @@ import java.util.Objects;
     }
   }
 
+  public void disablePrewarming(DefaultMediaClock mediaClock) {
+    if (!isPrewarming()) {
+      return;
+    }
+    boolean isPrewarmingPrimary =
+        prewarmingState == RENDERER_PREWARMING_STATE_TRANSITIONING_TO_PRIMARY
+            || prewarmingState == RENDERER_PREWARMING_STATE_PREWARMING_PRIMARY;
+    boolean isSecondaryActiveRenderer =
+        prewarmingState == RENDERER_PREWARMING_STATE_TRANSITIONING_TO_PRIMARY;
+    disableRenderer(
+        isPrewarmingPrimary ? primaryRenderer : checkNotNull(secondaryRenderer), mediaClock);
+    maybeResetRenderer(/* resetPrimary= */ isPrewarmingPrimary);
+    prewarmingState =
+        isSecondaryActiveRenderer
+            ? RENDERER_PREWARMING_STATE_NOT_PREWARMING_USING_SECONDARY
+            : RENDERER_PREWARMING_STATE_NOT_PREWARMING_USING_PRIMARY;
+  }
+
+  public void maybeDisableOrResetPosition(
+      SampleStream sampleStream,
+      DefaultMediaClock mediaClock,
+      long rendererPositionUs,
+      boolean streamReset)
+      throws ExoPlaybackException {
+    maybeDisableOrResetPositionInternal(
+        primaryRenderer, sampleStream, mediaClock, rendererPositionUs, streamReset);
+    if (secondaryRenderer != null) {
+      maybeDisableOrResetPositionInternal(
+          secondaryRenderer, sampleStream, mediaClock, rendererPositionUs, streamReset);
+    }
+  }
+
+  private void maybeDisableOrResetPositionInternal(
+      Renderer renderer,
+      SampleStream sampleStream,
+      DefaultMediaClock mediaClock,
+      long rendererPositionUs,
+      boolean streamReset)
+      throws ExoPlaybackException {
+    if (isRendererEnabled(renderer)) {
+      if (sampleStream != renderer.getStream()) {
+        // We need to disable the renderer.
+        disableRenderer(renderer, mediaClock);
+      } else if (streamReset) {
+        // The renderer will continue to consume from its current stream, but needs to be reset.
+        renderer.resetPosition(rendererPositionUs);
+      }
+    }
+  }
+
   /**
    * Disable a {@link Renderer} if its enabled.
    *

@@ -1898,6 +1898,19 @@ import java.util.concurrent.atomic.AtomicBoolean;
     enabledRendererCount -= enabledRendererCountBeforeDisabling;
   }
 
+  private void disableAndResetPrewarmingRenderers() {
+    if (!hasSecondaryRenderers || !areRenderersPrewarming()) {
+      return;
+    }
+    for (RendererHolder renderer : renderers) {
+      int enabledRendererCountBeforeDisabling = renderer.getEnabledRendererCount();
+      renderer.disablePrewarming(mediaClock);
+      enabledRendererCount -=
+          enabledRendererCountBeforeDisabling - renderer.getEnabledRendererCount();
+    }
+    prewarmingMediaPeriodDiscontinuity = C.TIME_UNSET;
+  }
+
   private void reselectTracksInternalAndSeek() throws ExoPlaybackException {
     reselectTracksInternal();
     seekToCurrentPosition(/* sendDiscontinuity= */ true);
@@ -1962,24 +1975,44 @@ import java.util.concurrent.atomic.AtomicBoolean;
         resetRendererPosition(periodPositionUs);
       }
 
+      // Disable pre-warming renderers.
+      disableAndResetPrewarmingRenderers();
+
       boolean[] rendererWasEnabledFlags = new boolean[renderers.length];
       for (int i = 0; i < renderers.length; i++) {
-        rendererWasEnabledFlags[i] = renderers[i].getEnabledRendererCount() > 0;
-        if (rendererWasEnabledFlags[i]) {
-          if (!renderers[i].isReadingFromPeriod(playingPeriodHolder)) {
-            disableRenderer(i);
-          } else if (streamResetFlags[i]) {
-            renderers[i].resetPosition(playingPeriodHolder, rendererPositionUs);
-          }
+        int enabledRendererCountBeforeDisabling = renderers[i].getEnabledRendererCount();
+        rendererWasEnabledFlags[i] = renderers[i].isRendererEnabled();
+
+        renderers[i].maybeDisableOrResetPosition(
+            playingPeriodHolder.sampleStreams[i],
+            mediaClock,
+            rendererPositionUs,
+            streamResetFlags[i]);
+        if (enabledRendererCountBeforeDisabling - renderers[i].getEnabledRendererCount() > 0) {
+          maybeTriggerOnRendererReadyChanged(i, /* allowsPlayback= */ false);
         }
+        enabledRendererCount -=
+            enabledRendererCountBeforeDisabling - renderers[i].getEnabledRendererCount();
       }
+
       enableRenderers(rendererWasEnabledFlags, /* startPositionUs= */ rendererPositionUs);
+      playingPeriodHolder.allRenderersInCorrectState = true;
     } else {
       // Release and re-prepare/buffer periods after the one whose selection changed.
       queue.removeAfter(periodHolder);
       if (periodHolder.prepared) {
         long loadingPeriodPositionUs =
             max(periodHolder.info.startPositionUs, periodHolder.toPeriodTime(rendererPositionUs));
+        if (hasSecondaryRenderers
+            && areRenderersPrewarming()
+            && queue.getPrewarmingPeriod() == periodHolder) {
+          // If renderers are enabled early and track reselection is on the enabled-early period
+          // then there is a need to disable those renderers. Must be done prior to call to
+          // applyTrackSelection.
+          // TODO: Only disable pre-warming renderers for those whose streams will be changed by
+          // track reselection. Will require allowing partial maybePrewarmRenderersForNextPeriod.
+          disableAndResetPrewarmingRenderers();
+        }
         periodHolder.applyTrackSelection(newTrackSelectorResult, loadingPeriodPositionUs, false);
       }
     }

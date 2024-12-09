@@ -22,6 +22,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
 import android.os.Handler;
+import android.util.Pair;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -37,8 +38,11 @@ import androidx.media3.exoplayer.drm.DrmSessionManager;
 import androidx.media3.exoplayer.metadata.MetadataOutput;
 import androidx.media3.exoplayer.source.MediaPeriod;
 import androidx.media3.exoplayer.source.MediaSourceEventListener;
+import androidx.media3.exoplayer.source.SampleStream;
 import androidx.media3.exoplayer.source.TrackGroupArray;
 import androidx.media3.exoplayer.text.TextOutput;
+import androidx.media3.exoplayer.trackselection.DefaultTrackSelector;
+import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.video.VideoRendererEventListener;
 import androidx.media3.test.utils.ExoPlayerTestRunner;
@@ -55,6 +59,7 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -304,6 +309,305 @@ public class ExoPlayerWithPrewarmingRenderersTest {
     assertThat(secondaryVideoState1).isEqualTo(Renderer.STATE_DISABLED);
     assertThat(videoState2).isEqualTo(Renderer.STATE_ENABLED);
     assertThat(videoState3).isEqualTo(Renderer.STATE_ENABLED);
+  }
+
+  @Test
+  public void
+      setTrackSelectionParameters_onPlayingPeriodUsingSecondaryAndPrimaryIsPrewarming_renderersNotSwapped()
+          throws Exception {
+    Clock fakeClock = new FakeClock(/* isAutoAdvancing= */ true);
+    ExoPlayer player =
+        new TestExoPlayerBuilder(context)
+            .setClock(fakeClock)
+            .setRenderersFactory(
+                new FakeRenderersFactorySupportingSecondaryVideoRenderer(fakeClock))
+            .build();
+    Renderer videoRenderer = player.getRenderer(/* index= */ 0);
+    Renderer secondaryVideoRenderer = player.getSecondaryRenderer(/* index= */ 0);
+    player.setMediaSources(
+        ImmutableList.of(
+            new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT),
+            new FakeMediaSource(
+                new FakeTimeline(),
+                ExoPlayerTestRunner.VIDEO_FORMAT,
+                ExoPlayerTestRunner.AUDIO_FORMAT),
+            new FakeMediaSource(
+                new FakeTimeline(),
+                ExoPlayerTestRunner.VIDEO_FORMAT,
+                ExoPlayerTestRunner.AUDIO_FORMAT)));
+    player.prepare();
+
+    // Play a bit until the primary renderer is being prewarmed, but not yet started.
+    player.play();
+    run(player)
+        .untilBackgroundThreadCondition(
+            () -> secondaryVideoRenderer.getState() == Renderer.STATE_STARTED);
+    run(player)
+        .untilBackgroundThreadCondition(() -> videoRenderer.getState() == Renderer.STATE_ENABLED);
+    @Renderer.State int videoState1 = videoRenderer.getState();
+    @Renderer.State int secondaryVideoState1 = secondaryVideoRenderer.getState();
+    // Disable the Audio track to trigger track reselection.
+    player.setTrackSelectionParameters(
+        player
+            .getTrackSelectionParameters()
+            .buildUpon()
+            .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, true)
+            .build());
+    run(player).untilPendingCommandsAreFullyHandled();
+    run(player)
+        .untilBackgroundThreadCondition(() -> videoRenderer.getState() == Renderer.STATE_ENABLED);
+    @Renderer.State int videoState2 = videoRenderer.getState();
+    @Renderer.State int secondaryVideoState2 = secondaryVideoRenderer.getState();
+    player.release();
+
+    assertThat(secondaryVideoState1).isEqualTo(Renderer.STATE_STARTED);
+    assertThat(videoState1).isEqualTo(Renderer.STATE_ENABLED);
+    assertThat(secondaryVideoState2).isEqualTo(Renderer.STATE_STARTED);
+    assertThat(videoState2).isEqualTo(Renderer.STATE_ENABLED);
+  }
+
+  @Test
+  public void
+      setTrackSelectionParameters_onPlayingPeriodWithPrewarmingNonTransitioningPrimaryRenderer_swapsToSecondaryRendererForPrewarming()
+          throws Exception {
+    Format videoFormat1 =
+        ExoPlayerTestRunner.VIDEO_FORMAT.buildUpon().setAverageBitrate(800_000).build();
+    Format videoFormat2 =
+        ExoPlayerTestRunner.VIDEO_FORMAT.buildUpon().setAverageBitrate(500_000).build();
+    Clock fakeClock = new FakeClock(/* isAutoAdvancing= */ true);
+    DefaultTrackSelector.Parameters defaultTrackSelectorParameters =
+        new DefaultTrackSelector.Parameters.Builder(context)
+            .setMaxVideoBitrate(videoFormat2.averageBitrate)
+            .setExceedVideoConstraintsIfNecessary(false)
+            .build();
+    DefaultTrackSelector defaultTrackSelector =
+        new DefaultTrackSelector(context, defaultTrackSelectorParameters);
+    ExoPlayer player =
+        new TestExoPlayerBuilder(context)
+            .setClock(fakeClock)
+            .setTrackSelector(defaultTrackSelector)
+            .setRenderersFactory(
+                new FakeRenderersFactorySupportingSecondaryVideoRenderer(fakeClock))
+            .build();
+    Renderer videoRenderer = player.getRenderer(/* index= */ 0);
+    Renderer secondaryVideoRenderer = player.getSecondaryRenderer(/* index= */ 0);
+    player.setMediaSources(
+        ImmutableList.of(
+            // Set media source with a video track with average bitrate above max.
+            new FakeMediaSource(new FakeTimeline(), videoFormat1, ExoPlayerTestRunner.AUDIO_FORMAT),
+            new FakeMediaSource(new FakeTimeline(), videoFormat1, videoFormat2)));
+    player.prepare();
+
+    // Play a bit until the primary renderer is being pre-warmed, but not yet started.
+    run(player).untilState(Player.STATE_READY);
+    player.play();
+    run(player).untilPendingCommandsAreFullyHandled();
+    @Renderer.State int videoState1 = videoRenderer.getState();
+    @Renderer.State int secondaryVideoState1 = secondaryVideoRenderer.getState();
+    SampleStream sampleStream1 = videoRenderer.getStream();
+    // Set maximum video bitrate to trigger track reselection and enable video on first media item.
+    player.setTrackSelectionParameters(
+        player
+            .getTrackSelectionParameters()
+            .buildUpon()
+            .setMaxVideoBitrate(videoFormat1.averageBitrate)
+            .build());
+    run(player).untilPendingCommandsAreFullyHandled();
+    run(player)
+        .untilBackgroundThreadCondition(
+            () -> secondaryVideoRenderer.getState() == Renderer.STATE_ENABLED);
+    run(player).untilPendingCommandsAreFullyHandled();
+    @Renderer.State int videoState2 = videoRenderer.getState();
+    @Renderer.State int secondaryVideoState2 = secondaryVideoRenderer.getState();
+    SampleStream sampleStream2 = videoRenderer.getStream();
+    player.release();
+
+    assertThat(videoState1).isEqualTo(Renderer.STATE_ENABLED);
+    assertThat(secondaryVideoState1).isEqualTo(Renderer.STATE_DISABLED);
+    assertThat(videoState2).isEqualTo(Renderer.STATE_STARTED);
+    assertThat(secondaryVideoState2).isEqualTo(Renderer.STATE_ENABLED);
+    assertThat(sampleStream1).isNotEqualTo(sampleStream2);
+  }
+
+  @Test
+  public void
+      setTrackSelectionParameters_onPeriodAfterReadingWithEarlyEnabledSecondaryRenderer_createsNewSampleStreamForPrewarmingRenderer()
+          throws Exception {
+    Clock fakeClock = new FakeClock(/* isAutoAdvancing= */ true);
+    ExoPlayer player =
+        new TestExoPlayerBuilder(context)
+            .setClock(fakeClock)
+            .setRenderersFactory(
+                new FakeRenderersFactorySupportingSecondaryVideoRenderer(fakeClock))
+            .build();
+    Renderer videoRenderer = player.getRenderer(/* index= */ 0);
+    Renderer secondaryVideoRenderer = player.getSecondaryRenderer(/* index= */ 0);
+    Format videoFormat1 =
+        ExoPlayerTestRunner.VIDEO_FORMAT.buildUpon().setAverageBitrate(800_000).build();
+    Format videoFormat2 =
+        ExoPlayerTestRunner.VIDEO_FORMAT.buildUpon().setAverageBitrate(500_000).build();
+    Timeline timeline = new FakeTimeline();
+    // Set a playlist that allows a new renderer to be enabled early.
+    player.setMediaSources(
+        ImmutableList.of(
+            // Use FakeBlockingMediaSource so the reading period is not advanced when pre-warming.
+            new FakeBlockingMediaSource(timeline, videoFormat1),
+            new FakeMediaSource(timeline, videoFormat1, videoFormat2)));
+    player.prepare();
+
+    // Play until the second renderer has been enabled and reading period has not advanced.
+    run(player).untilState(Player.STATE_READY);
+    player.play();
+    run(player).untilPendingCommandsAreFullyHandled();
+    @Renderer.State int videoState1 = videoRenderer.getState();
+    @Renderer.State int secondaryVideoState1 = secondaryVideoRenderer.getState();
+    SampleStream videoStream1 = videoRenderer.getStream();
+    SampleStream secondaryVideoStream1 = secondaryVideoRenderer.getStream();
+    // Set max bitrate to trigger track reselection.
+    player.setTrackSelectionParameters(
+        player
+            .getTrackSelectionParameters()
+            .buildUpon()
+            .setMaxVideoBitrate(videoFormat2.averageBitrate)
+            .build());
+    run(player)
+        .untilBackgroundThreadCondition(
+            () -> secondaryVideoRenderer.getState() == Renderer.STATE_ENABLED);
+    run(player).untilPendingCommandsAreFullyHandled();
+    SampleStream videoStream2 = videoRenderer.getStream();
+    SampleStream secondaryVideoStream2 = secondaryVideoRenderer.getStream();
+    player.release();
+
+    assertThat(videoState1).isEqualTo(Renderer.STATE_STARTED);
+    assertThat(secondaryVideoState1).isEqualTo(Renderer.STATE_ENABLED);
+    assertThat(videoStream1).isEqualTo(videoStream2);
+    assertThat(secondaryVideoStream1).isNotEqualTo(secondaryVideoStream2);
+  }
+
+  @Test
+  public void
+      setTrackSelectionParameters_onPeriodAfterReadingWithEarlyEnabledNonTransitioningPrimaryRenderer_createsNewSampleStreamForPrewarmingRenderer()
+          throws Exception {
+    Clock fakeClock = new FakeClock(/* isAutoAdvancing= */ true);
+    ExoPlayer player =
+        new TestExoPlayerBuilder(context)
+            .setClock(fakeClock)
+            .setRenderersFactory(
+                new FakeRenderersFactorySupportingSecondaryVideoRenderer(fakeClock))
+            .build();
+    Renderer videoRenderer = player.getRenderer(/* index= */ 0);
+    Renderer secondaryVideoRenderer = player.getSecondaryRenderer(/* index= */ 0);
+    Format videoFormat1 =
+        ExoPlayerTestRunner.VIDEO_FORMAT.buildUpon().setAverageBitrate(800_000).build();
+    Format videoFormat2 =
+        ExoPlayerTestRunner.VIDEO_FORMAT.buildUpon().setAverageBitrate(500_000).build();
+    Timeline timeline = new FakeTimeline();
+    // Set a playlist that allows a new renderer to be enabled early.
+    player.setMediaSources(
+        ImmutableList.of(
+            // Use FakeBlockingMediaSource so the reading period is not advanced when pre-warming.
+            new FakeBlockingMediaSource(timeline, ExoPlayerTestRunner.AUDIO_FORMAT),
+            new FakeMediaSource(timeline, videoFormat1, videoFormat2)));
+    player.prepare();
+
+    // Play until the second renderer has been enabled and reading period has not advanced.
+    run(player).untilState(Player.STATE_READY);
+    player.play();
+    run(player).untilPendingCommandsAreFullyHandled();
+    @Renderer.State int videoState1 = videoRenderer.getState();
+    @Renderer.State int secondaryVideoState1 = secondaryVideoRenderer.getState();
+    SampleStream videoStream1 = videoRenderer.getStream();
+    // Set max bitrate to trigger track reselection.
+    player.setTrackSelectionParameters(
+        player
+            .getTrackSelectionParameters()
+            .buildUpon()
+            .setMaxVideoBitrate(videoFormat2.averageBitrate)
+            .build());
+    run(player).untilPendingCommandsAreFullyHandled();
+    SampleStream videoStream2 = videoRenderer.getStream();
+    player.release();
+
+    assertThat(videoState1).isEqualTo(Renderer.STATE_ENABLED);
+    assertThat(secondaryVideoState1).isEqualTo(Renderer.STATE_DISABLED);
+    assertThat(videoStream1).isNotEqualTo(videoStream2);
+  }
+
+  @Test
+  public void
+      setTrackSelectionParameters_onPeriodAfterEarlyEnabledPeriod_prewarmingRendererKeepsSampleStreams()
+          throws Exception {
+    Clock fakeClock = new FakeClock(/* isAutoAdvancing= */ true);
+    AtomicReference<Pair<ExoTrackSelection.Definition, Integer>> selectedAudioTrack =
+        new AtomicReference<>();
+    DefaultTrackSelector.Parameters trackSelectionParameters =
+        new DefaultTrackSelector.Parameters.Builder(context)
+            .setExceedAudioConstraintsIfNecessary(false)
+            .build();
+    DefaultTrackSelector trackSelector =
+        new DefaultTrackSelector(context, trackSelectionParameters) {
+          @Override
+          @Nullable
+          protected Pair<ExoTrackSelection.Definition, Integer> selectAudioTrack(
+              MappedTrackInfo mappedTrackInfo,
+              @RendererCapabilities.Capabilities int[][][] rendererFormatSupports,
+              @RendererCapabilities.AdaptiveSupport int[] rendererMixedMimeTypeAdaptationSupports,
+              Parameters params)
+              throws ExoPlaybackException {
+            Pair<ExoTrackSelection.Definition, Integer> result =
+                super.selectAudioTrack(
+                    mappedTrackInfo,
+                    rendererFormatSupports,
+                    rendererMixedMimeTypeAdaptationSupports,
+                    params);
+            selectedAudioTrack.set(result);
+            return result;
+          }
+        };
+    ExoPlayer player =
+        new TestExoPlayerBuilder(context)
+            .setClock(fakeClock)
+            .setRenderersFactory(
+                new FakeRenderersFactorySupportingSecondaryVideoRenderer(fakeClock))
+            .setTrackSelector(trackSelector)
+            .build();
+    Format audioFormat =
+        ExoPlayerTestRunner.AUDIO_FORMAT.buildUpon().setAverageBitrate(70_000).build();
+    FakeMediaSource mediaSource =
+        new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT, audioFormat);
+    Renderer videoRenderer = player.getRenderer(/* index= */ 0);
+    Renderer secondaryVideoRenderer = player.getSecondaryRenderer(/* index= */ 0);
+    Renderer audioRenderer = player.getRenderer(/* index= */ 1);
+    // Set a playlist that allows a new renderer to be enabled early.
+    player.setMediaSources(
+        ImmutableList.of(
+            new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT),
+            new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT),
+            mediaSource));
+    player.prepare();
+
+    // Play a bit until the final media source has been prepared and gone through track selection.
+    player.play();
+    run(player).untilBackgroundThreadCondition(() -> selectedAudioTrack.get() != null);
+    @Renderer.State int videoState1 = videoRenderer.getState();
+    @Renderer.State int secondaryVideoState1 = secondaryVideoRenderer.getState();
+    SampleStream secondaryVideoStream1 = secondaryVideoRenderer.getStream();
+    // Disable the Audio track to trigger track reselection.
+    player.setTrackSelectionParameters(
+        player.getTrackSelectionParameters().buildUpon().setMaxAudioBitrate(60_000).build());
+    run(player)
+        .untilBackgroundThreadCondition(() -> audioRenderer.getState() == Renderer.STATE_DISABLED);
+    @Renderer.State int videoState2 = videoRenderer.getState();
+    @Renderer.State int secondaryVideoState2 = secondaryVideoRenderer.getState();
+    SampleStream secondaryVideoStream2 = secondaryVideoRenderer.getStream();
+    player.release();
+
+    assertThat(videoState1).isEqualTo(Renderer.STATE_STARTED);
+    assertThat(secondaryVideoState1).isEqualTo(Renderer.STATE_ENABLED);
+    assertThat(videoState2).isEqualTo(Renderer.STATE_STARTED);
+    assertThat(secondaryVideoState2).isEqualTo(Renderer.STATE_ENABLED);
+    assertThat(secondaryVideoStream1).isEqualTo(secondaryVideoStream2);
+    assertThat(selectedAudioTrack.get()).isNull();
   }
 
   @Test
