@@ -36,7 +36,6 @@ import androidx.media3.extractor.mp4.Mp4Extractor;
 import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
 import androidx.media3.muxer.Muxer;
 import androidx.media3.test.utils.DumpFileAsserts;
-import androidx.media3.test.utils.FakeClock;
 import androidx.media3.test.utils.FakeExtractorOutput;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -79,10 +78,7 @@ public class TransformerWithInAppMuxerEndToEndNonParameterizedTest {
             .build();
 
     Transformer transformer =
-        new Transformer.Builder(context)
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
-            .setMuxerFactory(inAppMuxerFactory)
-            .build();
+        new TestTransformerBuilder(context).setMuxerFactory(inAppMuxerFactory).build();
     MediaItem mediaItem =
         new MediaItem.Builder()
             .setUri(Uri.parse(tsFilePath))
@@ -117,10 +113,7 @@ public class TransformerWithInAppMuxerEndToEndNonParameterizedTest {
                 })
             .build();
     Transformer transformer =
-        new Transformer.Builder(context)
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
-            .setMuxerFactory(inAppMuxerFactory)
-            .build();
+        new TestTransformerBuilder(context).setMuxerFactory(inAppMuxerFactory).build();
     MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_FILE_PATH));
 
     transformer.start(mediaItem, outputPath);
@@ -141,10 +134,7 @@ public class TransformerWithInAppMuxerEndToEndNonParameterizedTest {
             .setMetadataProvider(metadataEntries -> metadataEntries.add(new XmpData(xmpData)))
             .build();
     Transformer transformer =
-        new Transformer.Builder(context)
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
-            .setMuxerFactory(inAppMuxerFactory)
-            .build();
+        new TestTransformerBuilder(context).setMuxerFactory(inAppMuxerFactory).build();
     MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_FILE_PATH));
 
     transformer.start(mediaItem, outputPath);
@@ -167,10 +157,7 @@ public class TransformerWithInAppMuxerEndToEndNonParameterizedTest {
             .setMetadataProvider(metadataEntries -> metadataEntries.add(expectedCaptureFps))
             .build();
     Transformer transformer =
-        new Transformer.Builder(context)
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
-            .setMuxerFactory(inAppMuxerFactory)
-            .build();
+        new TestTransformerBuilder(context).setMuxerFactory(inAppMuxerFactory).build();
     MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_FILE_PATH));
 
     transformer.start(mediaItem, outputPath);
@@ -199,10 +186,7 @@ public class TransformerWithInAppMuxerEndToEndNonParameterizedTest {
             .build();
 
     Transformer transformer =
-        new Transformer.Builder(context)
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
-            .setMuxerFactory(inAppMuxerFactory)
-            .build();
+        new TestTransformerBuilder(context).setMuxerFactory(inAppMuxerFactory).build();
     MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_FILE_PATH));
 
     transformer.start(mediaItem, outputPath);
@@ -236,10 +220,7 @@ public class TransformerWithInAppMuxerEndToEndNonParameterizedTest {
                 })
             .build();
     Transformer transformer =
-        new Transformer.Builder(context)
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
-            .setMuxerFactory(inAppMuxerFactory)
-            .build();
+        new TestTransformerBuilder(context).setMuxerFactory(inAppMuxerFactory).build();
     MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_FILE_PATH));
 
     transformer.start(mediaItem, outputPath);
@@ -271,10 +252,7 @@ public class TransformerWithInAppMuxerEndToEndNonParameterizedTest {
     long expectedDurationUs = 2_000_000L;
     inAppMuxerFactory.setVideoDurationUs(expectedDurationUs);
     Transformer transformer =
-        new Transformer.Builder(context)
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
-            .setMuxerFactory(inAppMuxerFactory)
-            .build();
+        new TestTransformerBuilder(context).setMuxerFactory(inAppMuxerFactory).build();
     MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_FILE_PATH));
 
     transformer.start(mediaItem, outputPath);

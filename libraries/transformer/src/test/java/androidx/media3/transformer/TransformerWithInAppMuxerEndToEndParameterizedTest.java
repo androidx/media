@@ -26,7 +26,6 @@ import androidx.media3.extractor.mp4.Mp4Extractor;
 import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
 import androidx.media3.muxer.Muxer;
 import androidx.media3.test.utils.DumpFileAsserts;
-import androidx.media3.test.utils.FakeClock;
 import androidx.media3.test.utils.FakeExtractorOutput;
 import androidx.test.core.app.ApplicationProvider;
 import com.google.common.collect.ImmutableList;
@@ -96,10 +95,7 @@ public class TransformerWithInAppMuxerEndToEndParameterizedTest {
             .build();
 
     Transformer transformer =
-        new Transformer.Builder(context)
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
-            .setMuxerFactory(inAppMuxerFactory)
-            .build();
+        new TestTransformerBuilder(context).setMuxerFactory(inAppMuxerFactory).build();
     MediaItem mediaItem = MediaItem.fromUri(ASSET_URI_PREFIX + checkNotNull(inputFile));
 
     transformer.start(mediaItem, outputPath);
