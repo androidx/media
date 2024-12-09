@@ -24,6 +24,9 @@
         functionality to platform `MediaExtractor`.
     *   Move `BasePreloadManager.Listener` to a top level
         `PreloadManagerListener`.
+    *   `RenderersFactory.createSecondaryRenderer` can be implemented to provide
+        secondary renderers for pre-warming. Pre-warming enables quicker media
+        item transitions during playback.
 *   Transformer:
     *   Update parameters of `VideoFrameProcessor.registerInputStream` and
         `VideoFrameProcessor.Listener.onInputStreamRegistered` to use `Format`.

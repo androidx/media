@@ -87,6 +87,7 @@ import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.ListenerSet;
 import androidx.media3.common.util.Log;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.PlayerMessage.Target;
@@ -153,6 +154,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
   private final Context applicationContext;
   private final Player wrappingPlayer;
   private final Renderer[] renderers;
+  private final @NullableType Renderer[] secondaryRenderers;
   private final TrackSelector trackSelector;
   private final HandlerWrapper playbackInfoUpdateHandler;
   private final ExoPlayerImplInternal.PlaybackInfoUpdateListener playbackInfoUpdateListener;
@@ -263,17 +265,27 @@ import java.util.concurrent.CopyOnWriteArraySet;
       componentListener = new ComponentListener();
       frameMetadataListener = new FrameMetadataListener();
       Handler eventHandler = new Handler(builder.looper);
+      RenderersFactory renderersFactory = builder.renderersFactorySupplier.get();
       renderers =
-          builder
-              .renderersFactorySupplier
-              .get()
-              .createRenderers(
-                  eventHandler,
-                  componentListener,
-                  componentListener,
-                  componentListener,
-                  componentListener);
+          renderersFactory.createRenderers(
+              eventHandler,
+              componentListener,
+              componentListener,
+              componentListener,
+              componentListener);
       checkState(renderers.length > 0);
+      secondaryRenderers = new Renderer[renderers.length];
+      for (int i = 0; i < secondaryRenderers.length; i++) {
+        // TODO(b/377671489): Fix DefaultAnalyticsCollector logic to still work with pre-warming.
+        secondaryRenderers[i] =
+            renderersFactory.createSecondaryRenderer(
+                renderers[i],
+                eventHandler,
+                componentListener,
+                componentListener,
+                componentListener,
+                componentListener);
+      }
       this.trackSelector = builder.trackSelectorSupplier.get();
       this.mediaSourceFactory = builder.mediaSourceFactorySupplier.get();
       this.bandwidthMeter = builder.bandwidthMeterSupplier.get();
@@ -357,6 +369,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
       internalPlayer =
           new ExoPlayerImplInternal(
               renderers,
+              secondaryRenderers,
               trackSelector,
               emptyTrackSelectorResult,
               builder.loadControlSupplier.get(),
@@ -1223,6 +1236,13 @@ import java.util.concurrent.CopyOnWriteArraySet;
   public Renderer getRenderer(int index) {
     verifyApplicationThread();
     return renderers[index];
+  }
+
+  @Override
+  @Nullable
+  public Renderer getSecondaryRenderer(int index) {
+    verifyApplicationThread();
+    return secondaryRenderers[index];
   }
 
   @Override

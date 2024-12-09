@@ -18,9 +18,11 @@ package androidx.media3.exoplayer;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static java.lang.Math.max;
+import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.os.Handler;
 import android.util.Pair;
+import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.C;
@@ -33,6 +35,10 @@ import androidx.media3.exoplayer.analytics.AnalyticsCollector;
 import androidx.media3.exoplayer.source.MediaPeriod;
 import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import com.google.common.collect.ImmutableList;
+import java.lang.annotation.Documented;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -82,6 +88,7 @@ import java.util.List;
   private PreloadConfiguration preloadConfiguration;
   @Nullable private MediaPeriodHolder playing;
   @Nullable private MediaPeriodHolder reading;
+  @Nullable private MediaPeriodHolder prewarming;
   @Nullable private MediaPeriodHolder loading;
   @Nullable private MediaPeriodHolder preloading;
   private int length;
@@ -218,6 +225,7 @@ import java.util.List;
     } else {
       playing = newPeriodHolder;
       reading = newPeriodHolder;
+      prewarming = newPeriodHolder;
     }
     oldFrontPeriodUid = null;
     loading = newPeriodHolder;
@@ -362,15 +370,35 @@ import java.util.List;
     return reading;
   }
 
+  /** Returns the prewarming period holder, or null if the queue is empty. */
+  @Nullable
+  public MediaPeriodHolder getPrewarmingPeriod() {
+    return prewarming;
+  }
+
   /**
    * Continues reading from the next period holder in the queue.
    *
    * @return The updated reading period holder.
    */
   public MediaPeriodHolder advanceReadingPeriod() {
+    if (prewarming == reading) {
+      prewarming = checkStateNotNull(reading).getNext();
+    }
     reading = checkStateNotNull(reading).getNext();
     notifyQueueUpdate();
     return checkStateNotNull(reading);
+  }
+
+  /**
+   * Continues pre-warming from the next period holder in the queue.
+   *
+   * @return The updated pre-warming period holder.
+   */
+  public MediaPeriodHolder advancePrewarmingPeriod() {
+    prewarming = checkStateNotNull(prewarming).getNext();
+    notifyQueueUpdate();
+    return checkStateNotNull(prewarming);
   }
 
   /**
@@ -386,6 +414,9 @@ import java.util.List;
     }
     if (playing == reading) {
       reading = playing.getNext();
+    }
+    if (playing == prewarming) {
+      prewarming = playing.getNext();
     }
     playing.release();
     length--;
@@ -405,27 +436,33 @@ import java.util.List;
    * the same as the playing period holder at the front of the queue.
    *
    * @param mediaPeriodHolder The media period holder that shall be the new end of the queue.
-   * @return Whether the reading period has been removed.
+   * @return {@link RemoveAfterResult} with flags denoting if the reading or pre-warming periods
+   *     were removed.
    */
-  public boolean removeAfter(MediaPeriodHolder mediaPeriodHolder) {
+  public int removeAfter(MediaPeriodHolder mediaPeriodHolder) {
     checkStateNotNull(mediaPeriodHolder);
     if (mediaPeriodHolder.equals(loading)) {
-      return false;
+      return 0;
     }
-    boolean removedReading = false;
+    int removedResult = 0;
     loading = mediaPeriodHolder;
     while (mediaPeriodHolder.getNext() != null) {
       mediaPeriodHolder = checkNotNull(mediaPeriodHolder.getNext());
       if (mediaPeriodHolder == reading) {
         reading = playing;
-        removedReading = true;
+        prewarming = playing;
+        removedResult |= REMOVE_AFTER_REMOVED_READING_PERIOD;
+      }
+      if (mediaPeriodHolder == prewarming) {
+        prewarming = reading;
+        removedResult |= REMOVE_AFTER_REMOVED_PREWARMING_PERIOD;
       }
       mediaPeriodHolder.release();
       length--;
     }
     checkNotNull(loading).setNext(null);
     notifyQueueUpdate();
-    return removedReading;
+    return removedResult;
   }
 
   /**
@@ -472,6 +509,7 @@ import java.util.List;
     playing = null;
     loading = null;
     reading = null;
+    prewarming = null;
     length = 0;
     notifyQueueUpdate();
   }
@@ -511,11 +549,13 @@ import java.util.List;
             getFollowingMediaPeriodInfo(timeline, previousPeriodHolder, rendererPositionUs);
         if (newPeriodInfo == null) {
           // We've loaded a next media period that is not in the new timeline.
-          return !removeAfter(previousPeriodHolder);
+          int removeAfterResult = removeAfter(previousPeriodHolder);
+          return (removeAfterResult & REMOVE_AFTER_REMOVED_READING_PERIOD) == 0;
         }
         if (!canKeepMediaPeriodHolder(oldPeriodInfo, newPeriodInfo)) {
           // The new media period has a different id or start position.
-          return !removeAfter(previousPeriodHolder);
+          int removeAfterResult = removeAfter(previousPeriodHolder);
+          return (removeAfterResult & REMOVE_AFTER_REMOVED_READING_PERIOD) == 0;
         }
       }
 
@@ -538,7 +578,9 @@ import java.util.List;
                 && !periodHolder.info.isFollowedByTransitionToSameStream
                 && (maxRendererReadPositionUs == C.TIME_END_OF_SOURCE
                     || maxRendererReadPositionUs >= newDurationInRendererTime);
-        boolean readingPeriodRemoved = removeAfter(periodHolder);
+        int removeAfterResult = removeAfter(periodHolder);
+        boolean readingPeriodRemoved =
+            (removeAfterResult & REMOVE_AFTER_REMOVED_READING_PERIOD) != 0;
         return !readingPeriodRemoved && !isReadingAndReadBeyondNewDuration;
       }
 
@@ -834,7 +876,8 @@ import java.util.List;
     }
 
     // Release any period holders that don't match the new period order.
-    boolean readingPeriodRemoved = removeAfter(lastValidPeriodHolder);
+    int removeAfterResult = removeAfter(lastValidPeriodHolder);
+    boolean readingPeriodRemoved = (removeAfterResult & REMOVE_AFTER_REMOVED_READING_PERIOD) != 0;
 
     // Update the period info for the last holder, as it may now be the last period in the timeline.
     lastValidPeriodHolder.info = getUpdatedMediaPeriodInfo(timeline, lastValidPeriodHolder.info);
@@ -1211,4 +1254,22 @@ import java.util.List;
     }
     return startPositionUs + period.getContentResumeOffsetUs(adGroupIndex);
   }
+
+  /**
+   * Result for {@link #removeAfter} that signifies whether the reading or pre-warming periods were
+   * removed during the process.
+   */
+  @Documented
+  @Retention(RetentionPolicy.SOURCE)
+  @Target(TYPE_USE)
+  @IntDef(
+      flag = true,
+      value = {REMOVE_AFTER_REMOVED_READING_PERIOD, REMOVE_AFTER_REMOVED_PREWARMING_PERIOD})
+  /* package */ @interface RemoveAfterResult {}
+
+  /** The call to {@link #removeAfter} removed the reading period. */
+  /* package */ static final int REMOVE_AFTER_REMOVED_READING_PERIOD = 1;
+
+  /** The call to {@link #removeAfter} removed the pre-warming period. */
+  /* package */ static final int REMOVE_AFTER_REMOVED_PREWARMING_PERIOD = 1 << 1;
 }

@@ -1482,6 +1482,19 @@ public interface ExoPlayer extends Player {
   Renderer getRenderer(int index);
 
   /**
+   * Returns the secondary renderer at the given index.
+   *
+   * @param index The index of the secondary renderer.
+   * @return The secondary renderer at this index, or null if there is no secondary renderer at this
+   *     index.
+   */
+  @UnstableApi
+  @Nullable
+  default Renderer getSecondaryRenderer(int index) {
+    return null;
+  }
+
+  /**
    * Returns the track selector that this player uses, or null if track selection is not supported.
    */
   @UnstableApi

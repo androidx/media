@@ -126,7 +126,7 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
       MetadataOutput metadataRendererOutput) {
     ArrayList<Renderer> renderers = new ArrayList<>();
     renderers.add(
-        new MediaCodecVideoRenderer(
+        new CapturingMediaCodecVideoRenderer(
             context,
             mediaCodecAdapterFactory,
             MediaCodecSelector.DEFAULT,
@@ -134,27 +134,7 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
             /* enableDecoderFallback= */ false,
             eventHandler,
             videoRendererEventListener,
-            DefaultRenderersFactory.MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY) {
-          @Override
-          protected boolean shouldDropOutputBuffer(
-              long earlyUs, long elapsedRealtimeUs, boolean isLastBuffer) {
-            // Do not drop output buffers due to slow processing.
-            return false;
-          }
-
-          @Override
-          protected boolean shouldDropBuffersToKeyframe(
-              long earlyUs, long elapsedRealtimeUs, boolean isLastBuffer) {
-            // Do not drop output buffers due to slow processing.
-            return false;
-          }
-
-          @Override
-          protected boolean shouldSkipBuffersWithIdenticalReleaseTime() {
-            // Do not skip buffers with identical vsync times as we can't control this from tests.
-            return false;
-          }
-        });
+            DefaultRenderersFactory.MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY));
     renderers.add(
         new MediaCodecAudioRenderer(
             context,
@@ -188,6 +168,72 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
      * @param outputLooper The looper used to invoke {@code textOutput}.
      */
     Renderer create(TextOutput textOutput, Looper outputLooper);
+  }
+
+  /**
+   * Returns new instance of a specialized {@link MediaCodecVideoRenderer} that will not drop or
+   * skip buffers due to slow processing.
+   *
+   * @param eventHandler A handler to use when invoking event listeners and outputs.
+   * @param videoRendererEventListener An event listener for video renderers.
+   * @return a new instance of a specialized {@link MediaCodecVideoRenderer}.
+   */
+  protected MediaCodecVideoRenderer createMediaCodecVideoRenderer(
+      Handler eventHandler, VideoRendererEventListener videoRendererEventListener) {
+    return new CapturingMediaCodecVideoRenderer(
+        context,
+        mediaCodecAdapterFactory,
+        MediaCodecSelector.DEFAULT,
+        DefaultRenderersFactory.DEFAULT_ALLOWED_VIDEO_JOINING_TIME_MS,
+        /* enableDecoderFallback= */ false,
+        eventHandler,
+        videoRendererEventListener,
+        DefaultRenderersFactory.MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY);
+  }
+
+  /**
+   * A {@link MediaCodecVideoRenderer} that will not skip or drop buffers due to slow processing.
+   */
+  private static class CapturingMediaCodecVideoRenderer extends MediaCodecVideoRenderer {
+    private CapturingMediaCodecVideoRenderer(
+        Context context,
+        MediaCodecAdapter.Factory codecAdapterFactory,
+        MediaCodecSelector mediaCodecSelector,
+        long allowedJoiningTimeMs,
+        boolean enableDecoderFallback,
+        @Nullable Handler eventHandler,
+        @Nullable VideoRendererEventListener eventListener,
+        int maxDroppedFramesToNotify) {
+      super(
+          context,
+          codecAdapterFactory,
+          mediaCodecSelector,
+          allowedJoiningTimeMs,
+          enableDecoderFallback,
+          eventHandler,
+          eventListener,
+          maxDroppedFramesToNotify);
+    }
+
+    @Override
+    protected boolean shouldDropOutputBuffer(
+        long earlyUs, long elapsedRealtimeUs, boolean isLastBuffer) {
+      // Do not drop output buffers due to slow processing.
+      return false;
+    }
+
+    @Override
+    protected boolean shouldDropBuffersToKeyframe(
+        long earlyUs, long elapsedRealtimeUs, boolean isLastBuffer) {
+      // Do not drop output buffers due to slow processing.
+      return false;
+    }
+
+    @Override
+    protected boolean shouldSkipBuffersWithIdenticalReleaseTime() {
+      // Do not skip buffers with identical vsync times as we can't control this from tests.
+      return false;
+    }
   }
 
   /**
