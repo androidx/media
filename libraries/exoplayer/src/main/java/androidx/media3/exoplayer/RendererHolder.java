@@ -80,6 +80,12 @@ import java.util.Objects;
     return isPrimaryRendererPrewarming() || isSecondaryRendererPrewarming();
   }
 
+  public boolean isRendererPrewarming(int id) {
+    boolean isPrewarmingPrimaryRenderer = isPrimaryRendererPrewarming() && id == index;
+    boolean isPrewarmingSecondaryRenderer = isSecondaryRendererPrewarming() && id != index;
+    return isPrewarmingPrimaryRenderer || isPrewarmingSecondaryRenderer;
+  }
+
   private boolean isPrimaryRendererPrewarming() {
     return prewarmingState == RENDERER_PREWARMING_STATE_PREWARMING_PRIMARY
         || prewarmingState == RENDERER_PREWARMING_STATE_TRANSITIONING_TO_PRIMARY;

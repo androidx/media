@@ -235,6 +235,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
   private PreloadConfiguration preloadConfiguration;
   private Timeline lastPreloadPoolInvalidationTimeline;
   private long prewarmingMediaPeriodDiscontinuity = C.TIME_UNSET;
+  private boolean isPrewarmingDisabledUntilNextTransition;
 
   public ExoPlayerImplInternal(
       Renderer[] renderers,
@@ -298,7 +299,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
         rendererCapabilities[i].setListener(rendererCapabilitiesListener);
       }
       if (secondaryRenderers[i] != null) {
-        secondaryRenderers[i].init(/* index= */ i, playerId, clock);
+        secondaryRenderers[i].init(/* index= */ i + renderers.length, playerId, clock);
         hasSecondaryRenderers = true;
       }
       this.renderers[i] = new RendererHolder(renderers[i], secondaryRenderers[i], /* index= */ i);
@@ -678,7 +679,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
         if (readingPeriod != null) {
           // We can assume that all renderer errors happen in the context of the reading period. See
           // [internal: b/150584930#comment4] for exceptions that aren't covered by this assumption.
-          e = e.copyWithMediaPeriodId(readingPeriod.info.id);
+          e =
+              e.copyWithMediaPeriodId(
+                  (renderers[e.rendererIndex % renderers.length].isRendererPrewarming(
+                              e.rendererIndex)
+                          && readingPeriod.getNext() != null)
+                      ? readingPeriod.getNext().info.id
+                      : readingPeriod.info.id);
         }
       }
       if (e.isRecoverable
@@ -699,6 +706,25 @@ import java.util.concurrent.atomic.AtomicBoolean;
         // recovered or the player stopped before any other message is handled.
         handler.sendMessageAtFrontOfQueue(
             handler.obtainMessage(MSG_ATTEMPT_RENDERER_ERROR_RECOVERY, e));
+      } else if (e.type == ExoPlaybackException.TYPE_RENDERER
+          && renderers[e.rendererIndex % renderers.length].isRendererPrewarming(
+              /* id= */ e.rendererIndex)) {
+        // TODO(b/380273486): Investigate recovery for pre-warming renderer errors
+        isPrewarmingDisabledUntilNextTransition = true;
+        disableAndResetPrewarmingRenderers();
+        // Remove periods from the queue starting at the pre-warming period.
+        MediaPeriodHolder prewarmingPeriod = queue.getPrewarmingPeriod();
+        MediaPeriodHolder periodToRemoveAfter = queue.getPlayingPeriod();
+        if (queue.getPlayingPeriod() != prewarmingPeriod) {
+          while (periodToRemoveAfter != null && periodToRemoveAfter.getNext() != prewarmingPeriod) {
+            periodToRemoveAfter = periodToRemoveAfter.getNext();
+          }
+        }
+        queue.removeAfter(periodToRemoveAfter);
+        if (playbackInfo.playbackState != Player.STATE_ENDED) {
+          maybeContinueLoading();
+          handler.sendEmptyMessage(MSG_DO_SOME_WORK);
+        }
       } else {
         if (pendingRecoverableRendererError != null) {
           pendingRecoverableRendererError.addSuppressed(e);
@@ -2336,7 +2362,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
   private void maybeUpdatePrewarmingPeriod() throws ExoPlaybackException {
     // TODO: Add limit as to not enable waiting renderer too early
-    if (pendingPauseAtEndOfPeriod || !hasSecondaryRenderers || areRenderersPrewarming()) {
+    if (pendingPauseAtEndOfPeriod
+        || !hasSecondaryRenderers
+        || isPrewarmingDisabledUntilNextTransition
+        || areRenderersPrewarming()) {
       return;
     }
     @Nullable MediaPeriodHolder prewarmingPeriodHolder = queue.getPrewarmingPeriod();
@@ -2446,7 +2475,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
       // The new period starts with a discontinuity, so unless a pre-warming renderer is handling
       // the discontinuity, the renderers will play out all data, then
       // be disabled and re-enabled when they start playing the next period.
-      boolean arePrewarmingRenderersHandlingDiscontinuity = hasSecondaryRenderers;
+      boolean arePrewarmingRenderersHandlingDiscontinuity =
+          hasSecondaryRenderers && !isPrewarmingDisabledUntilNextTransition;
       if (arePrewarmingRenderersHandlingDiscontinuity) {
         for (int i = 0; i < renderers.length; i++) {
           if (!newTrackSelectorResult.isRendererEnabled(i)) {
@@ -2580,6 +2610,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
         // If we advance more than one period at a time, notify listeners after each update.
         maybeNotifyPlaybackInfoChanged();
       }
+      isPrewarmingDisabledUntilNextTransition = false;
       MediaPeriodHolder newPlayingPeriodHolder = checkNotNull(queue.advancePlayingPeriod());
       boolean isCancelledSSAIAdTransition =
           playbackInfo.periodId.periodUid.equals(newPlayingPeriodHolder.info.id.periodUid)
