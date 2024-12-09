@@ -419,7 +419,11 @@ public final class AviExtractor implements Extractor {
       chunkReader.compactIndex();
     }
     seekMapHasBeenOutput = true;
-    extractorOutput.seekMap(new AviSeekMap(durationUs));
+    if (chunkReaders.length == 0) {
+      extractorOutput.seekMap(new SeekMap.Unseekable(durationUs));
+    } else {
+      extractorOutput.seekMap(new AviSeekMap(durationUs));
+    }
   }
 
   private long peekSeekOffset(ParsableByteArray idx1Body) {
