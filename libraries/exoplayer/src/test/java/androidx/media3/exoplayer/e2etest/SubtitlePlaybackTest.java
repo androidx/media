@@ -150,9 +150,9 @@ public class SubtitlePlaybackTest {
     player.setMediaItem(mediaItem);
     player.prepare();
     run(player).ignoringNonFatalErrors().untilState(Player.STATE_READY);
-    run(player).untilFullyBuffered();
+    run(player).ignoringNonFatalErrors().untilFullyBuffered();
     player.play();
-    run(player).untilState(Player.STATE_ENDED);
+    run(player).ignoringNonFatalErrors().untilState(Player.STATE_ENDED);
     player.release();
     surface.release();
 
@@ -211,9 +211,9 @@ public class SubtitlePlaybackTest {
     player.setMediaItem(mediaItem);
     player.prepare();
     run(player).ignoringNonFatalErrors().untilState(Player.STATE_READY);
-    run(player).untilFullyBuffered();
+    run(player).ignoringNonFatalErrors().untilFullyBuffered();
     player.play();
-    run(player).untilState(Player.STATE_ENDED);
+    run(player).ignoringNonFatalErrors().untilState(Player.STATE_ENDED);
     player.release();
     surface.release();
 
