@@ -18,10 +18,6 @@ package androidx.media3.muxer;
 import static androidx.media3.container.MdtaMetadataEntry.AUXILIARY_TRACKS_SAMPLES_INTERLEAVED;
 import static androidx.media3.container.MdtaMetadataEntry.AUXILIARY_TRACKS_SAMPLES_NOT_INTERLEAVED;
 import static androidx.media3.container.MdtaMetadataEntry.TYPE_INDICATOR_8_BIT_UNSIGNED_INT;
-import static androidx.media3.container.Mp4Util.MP4_AT_AUXILIARY_TRACK_TYPE_DEPTH_INVERSE;
-import static androidx.media3.container.Mp4Util.MP4_AT_AUXILIARY_TRACK_TYPE_DEPTH_LINEAR;
-import static androidx.media3.container.Mp4Util.MP4_AT_AUXILIARY_TRACK_TYPE_DEPTH_METADATA;
-import static androidx.media3.container.Mp4Util.MP4_AT_AUXILIARY_TRACK_TYPE_SHARP;
 
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -134,16 +130,16 @@ public final class MuxerUtil {
       int trackType;
       switch (track.format.auxiliaryTrackType) {
         case C.AUXILIARY_TRACK_TYPE_ORIGINAL:
-          trackType = MP4_AT_AUXILIARY_TRACK_TYPE_SHARP;
+          trackType = 0;
           break;
         case C.AUXILIARY_TRACK_TYPE_DEPTH_LINEAR:
-          trackType = MP4_AT_AUXILIARY_TRACK_TYPE_DEPTH_LINEAR;
+          trackType = 1;
           break;
         case C.AUXILIARY_TRACK_TYPE_DEPTH_INVERSE:
-          trackType = MP4_AT_AUXILIARY_TRACK_TYPE_DEPTH_INVERSE;
+          trackType = 2;
           break;
         case C.AUXILIARY_TRACK_TYPE_DEPTH_METADATA:
-          trackType = MP4_AT_AUXILIARY_TRACK_TYPE_DEPTH_METADATA;
+          trackType = 3;
           break;
         default:
           throw new IllegalArgumentException(

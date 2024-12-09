@@ -416,25 +416,28 @@ public class Mp4MuxerEndToEndTest {
   }
 
   @Test
-  public void createMp4Muxer_withFileFormatMp4AtButWithoutCacheFileProvider_throws()
-      throws Exception {
+  public void
+      createMp4Muxer_withMp4WithAuxiliaryTracksExtensionFileFormatButWithoutCacheFileProvider_throws()
+          throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
 
     assertThrows(
         IllegalArgumentException.class,
         () ->
             new Mp4Muxer.Builder(new FileOutputStream(outputFilePath))
-                .setOutputFileFormat(Mp4Muxer.FILE_FORMAT_MP4_AT)
+                .setOutputFileFormat(Mp4Muxer.FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION)
                 .build());
   }
 
   @Test
-  public void writeMp4File_withFileFormatMp4AtAndAuxiliaryTracks_writesAxteBox() throws Exception {
+  public void
+      writeMp4File_withMp4WithAuxiliaryTracksExtensionFileFormatAndAuxiliaryTracks_writesAxteBox()
+          throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
     String cacheFilePath = temporaryFolder.newFile().getPath();
     Mp4Muxer muxer =
         new Mp4Muxer.Builder(new FileOutputStream(outputFilePath))
-            .setOutputFileFormat(Mp4Muxer.FILE_FORMAT_MP4_AT)
+            .setOutputFileFormat(Mp4Muxer.FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION)
             .setMp4AtFileParameters(
                 new Mp4Muxer.Mp4AtFileParameters(
                     /* shouldInterleaveSamples= */ false, () -> cacheFilePath))
@@ -477,7 +480,7 @@ public class Mp4MuxerEndToEndTest {
   }
 
   @Test
-  public void writeMp4File_withFileFormatDefaultAndAuxiliaryTracks_doesNotWriteAxteBox()
+  public void writeMp4File_withDefaultFileFormatAndAuxiliaryTracks_doesNotWriteAxteBox()
       throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
     Mp4Muxer muxer = new Mp4Muxer.Builder(new FileOutputStream(outputFilePath)).build();
@@ -520,13 +523,13 @@ public class Mp4MuxerEndToEndTest {
 
   @Test
   public void
-      writeMp4File_withFileFormatMp4AtAndAuxiliaryVideoTracks_primaryVideoTracksMatchesExpected()
+      writeMp4File_withMp4WithAuxiliaryTracksExtensionFileFormatAndAuxiliaryVideoTracks_primaryVideoTracksMatchesExpected()
           throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
     String cacheFilePath = temporaryFolder.newFile().getPath();
     Mp4Muxer muxer =
         new Mp4Muxer.Builder(new FileOutputStream(outputFilePath))
-            .setOutputFileFormat(Mp4Muxer.FILE_FORMAT_MP4_AT)
+            .setOutputFileFormat(Mp4Muxer.FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION)
             .setMp4AtFileParameters(
                 new Mp4Muxer.Mp4AtFileParameters(
                     /* shouldInterleaveSamples= */ false, () -> cacheFilePath))
@@ -570,13 +573,14 @@ public class Mp4MuxerEndToEndTest {
   }
 
   @Test
-  public void writeMp4File_withFileFormatMp4AtAndAuxiliaryTracks_auxiliaryTracksMatchesExpected()
-      throws Exception {
+  public void
+      writeMp4File_withMp4WithAuxiliaryTracksExtensionFileFormatAndAuxiliaryTracks_auxiliaryTracksMatchesExpected()
+          throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
     String cacheFilePath = temporaryFolder.newFile().getPath();
     Mp4Muxer muxer =
         new Mp4Muxer.Builder(new FileOutputStream(outputFilePath))
-            .setOutputFileFormat(Mp4Muxer.FILE_FORMAT_MP4_AT)
+            .setOutputFileFormat(Mp4Muxer.FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION)
             .setMp4AtFileParameters(
                 new Mp4Muxer.Mp4AtFileParameters(
                     /* shouldInterleaveSamples= */ false, () -> cacheFilePath))
@@ -622,12 +626,12 @@ public class Mp4MuxerEndToEndTest {
 
   @Test
   public void
-      writeMp4File_withFileFormatMp4AtAndAuxiliaryTracksAndShouldInterleaveSamples_primaryVideoTracksMatchesExpected()
+      writeMp4File_withMp4WithAuxiliaryTracksExtensionFileFormatAndAuxiliaryTracksAndShouldInterleaveSamples_primaryVideoTracksMatchesExpected()
           throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
     Mp4Muxer muxer =
         new Mp4Muxer.Builder(new FileOutputStream(outputFilePath))
-            .setOutputFileFormat(Mp4Muxer.FILE_FORMAT_MP4_AT)
+            .setOutputFileFormat(Mp4Muxer.FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION)
             .setMp4AtFileParameters(
                 new Mp4Muxer.Mp4AtFileParameters(
                     /* shouldInterleaveSamples= */ true, /* cacheFileProvider= */ null))
@@ -673,12 +677,12 @@ public class Mp4MuxerEndToEndTest {
 
   @Test
   public void
-      writeMp4File_withFileFormatMp4AtAndAuxiliaryTracksAndShouldInterleaveSamples_auxiliaryTracksMatchesExpected()
+      writeMp4File_withMp4WithAuxiliaryTracksExtensionFileFormatAndAuxiliaryTracksAndShouldInterleaveSamples_auxiliaryTracksMatchesExpected()
           throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
     Mp4Muxer muxer =
         new Mp4Muxer.Builder(new FileOutputStream(outputFilePath))
-            .setOutputFileFormat(Mp4Muxer.FILE_FORMAT_MP4_AT)
+            .setOutputFileFormat(Mp4Muxer.FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION)
             .setMp4AtFileParameters(
                 new Mp4Muxer.Mp4AtFileParameters(
                     /* shouldInterleaveSamples= */ true, /* cacheFileProvider= */ null))

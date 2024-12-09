@@ -41,7 +41,8 @@ public final class MdtaMetadataEntry implements Metadata.Entry {
   /** Key for the capture frame rate (in frames per second). */
   public static final String KEY_ANDROID_CAPTURE_FPS = "com.android.capture.fps";
 
-  // TODO: b/345219017 - Add depth/editing file format spec link after its published.
+  // See the MP4 With Auxiliary Tracks Extension (MP4-AT) file format at
+  // https://developer.android.com/media/platform/mp4-at-file-format.
   /** Key for auxiliary tracks extension box (axte) offset. */
   public static final String KEY_AUXILIARY_TRACKS_OFFSET = "auxiliary.tracks.offset";
 

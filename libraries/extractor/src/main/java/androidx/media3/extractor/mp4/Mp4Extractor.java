@@ -24,10 +24,6 @@ import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.castNonNull;
 import static androidx.media3.container.MdtaMetadataEntry.AUXILIARY_TRACKS_SAMPLES_NOT_INTERLEAVED;
-import static androidx.media3.container.Mp4Util.MP4_AT_AUXILIARY_TRACK_TYPE_DEPTH_INVERSE;
-import static androidx.media3.container.Mp4Util.MP4_AT_AUXILIARY_TRACK_TYPE_DEPTH_LINEAR;
-import static androidx.media3.container.Mp4Util.MP4_AT_AUXILIARY_TRACK_TYPE_DEPTH_METADATA;
-import static androidx.media3.container.Mp4Util.MP4_AT_AUXILIARY_TRACK_TYPE_SHARP;
 import static androidx.media3.extractor.mp4.BoxParser.parseTraks;
 import static androidx.media3.extractor.mp4.MetadataUtil.findMdtaMetadataEntryWithKey;
 import static androidx.media3.extractor.mp4.MimeTypeResolver.getContainerMimeType;
@@ -160,15 +156,17 @@ public final class Mp4Extractor implements Extractor, SeekMap {
    */
   public static final int FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES = 1 << 5;
 
-  // TODO: b/345219017 - Add depth/editing file format spec link after its published.
   /**
-   * Flag to extract the auxiliary tracks.
+   * Flag to extract the auxiliary tracks from the MP4 With Auxiliary Tracks Extension (MP4-AT) file
+   * format.
    *
    * <p>Either primary video tracks or auxiliary tracks (but not both) will be extracted based on
    * the flag.
    *
    * <p>If the flag is set but the auxiliary tracks are not present, then it fallbacks to extract
    * primary tracks instead.
+   *
+   * <p>See the file format at https://developer.android.com/media/platform/mp4-at-file-format.
    */
   public static final int FLAG_READ_AUXILIARY_TRACKS = 1 << 6;
 
@@ -824,16 +822,16 @@ public final class Mp4Extractor implements Extractor, SeekMap {
     for (int i = 0; i < auxiliaryTrackTypesFromMap.size(); i++) {
       @C.AuxiliaryTrackType int auxiliaryTrackType;
       switch (auxiliaryTrackTypesFromMap.get(i)) {
-        case MP4_AT_AUXILIARY_TRACK_TYPE_SHARP:
+        case 0:
           auxiliaryTrackType = AUXILIARY_TRACK_TYPE_ORIGINAL;
           break;
-        case MP4_AT_AUXILIARY_TRACK_TYPE_DEPTH_LINEAR:
+        case 1:
           auxiliaryTrackType = AUXILIARY_TRACK_TYPE_DEPTH_LINEAR;
           break;
-        case MP4_AT_AUXILIARY_TRACK_TYPE_DEPTH_INVERSE:
+        case 2:
           auxiliaryTrackType = AUXILIARY_TRACK_TYPE_DEPTH_INVERSE;
           break;
-        case MP4_AT_AUXILIARY_TRACK_TYPE_DEPTH_METADATA:
+        case 3:
           auxiliaryTrackType = C.AUXILIARY_TRACK_TYPE_DEPTH_METADATA;
           break;
         default:
