@@ -50,6 +50,11 @@ public final class VorbisCommentTest {
     String artist = "artist";
     String albumTitle = "album title";
     String albumArtist = "album Artist";
+    int trackNumber = 3;
+    int totalTracks = 12;
+    int discNumber = 1;
+    int totalDiscs = 3;
+    String genre = "Metal";
     String description = "a description about the audio.";
     List<Metadata.Entry> entries =
         ImmutableList.of(
@@ -57,6 +62,11 @@ public final class VorbisCommentTest {
             new VorbisComment("ArTisT", artist),
             new VorbisComment("ALBUM", albumTitle),
             new VorbisComment("albumartist", albumArtist),
+            new VorbisComment("TRACKNUMBER", String.valueOf(trackNumber)),
+            new VorbisComment("TOTALTRACKS", String.valueOf(totalTracks)),
+            new VorbisComment("DISCNUMBER", String.valueOf(discNumber)),
+            new VorbisComment("TOTALDISCS", String.valueOf(totalDiscs)),
+            new VorbisComment("GENRE", genre),
             new VorbisComment("DESCRIPTION", description));
     MediaMetadata.Builder builder = MediaMetadata.EMPTY.buildUpon();
 
@@ -69,6 +79,11 @@ public final class VorbisCommentTest {
     assertThat(mediaMetadata.artist.toString()).isEqualTo(artist);
     assertThat(mediaMetadata.albumTitle.toString()).isEqualTo(albumTitle);
     assertThat(mediaMetadata.albumArtist.toString()).isEqualTo(albumArtist);
+    assertThat(mediaMetadata.trackNumber).isEqualTo(trackNumber);
+    assertThat(mediaMetadata.totalTrackCount).isEqualTo(totalTracks);
+    assertThat(mediaMetadata.discNumber).isEqualTo(discNumber);
+    assertThat(mediaMetadata.totalDiscCount).isEqualTo(totalDiscs);
+    assertThat(mediaMetadata.genre.toString()).isEqualTo(genre);
     assertThat(mediaMetadata.description.toString()).isEqualTo(description);
   }
 }
