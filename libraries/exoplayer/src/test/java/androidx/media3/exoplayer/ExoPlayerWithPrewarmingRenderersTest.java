@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer;
 
+import static androidx.media3.common.Player.REPEAT_MODE_ONE;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.END_OF_STREAM_ITEM;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.oneByteSample;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.run;
@@ -742,6 +743,309 @@ public class ExoPlayerWithPrewarmingRenderersTest {
     assertThat(secondaryVideoState1).isEqualTo(Renderer.STATE_STARTED);
     assertThat(videoState2).isEqualTo(Renderer.STATE_STARTED);
     assertThat(secondaryVideoState2).isEqualTo(Renderer.STATE_DISABLED);
+  }
+
+  @Test
+  public void
+      removeMediaItem_onPlayingPeriodWithSecondaryRendererBeforeReadingPeriodAdvanced_swapsToPrimaryRenderer()
+          throws Exception {
+    Clock fakeClock = new FakeClock(/* isAutoAdvancing= */ true);
+    ExoPlayer player =
+        new TestExoPlayerBuilder(context)
+            .setClock(fakeClock)
+            .setRenderersFactory(
+                new FakeRenderersFactorySupportingSecondaryVideoRenderer(fakeClock))
+            .build();
+    Renderer videoRenderer = player.getRenderer(/* index= */ 0);
+    Renderer secondaryVideoRenderer = player.getSecondaryRenderer(/* index= */ 0);
+    // Set a playlist that allows a new renderer to be enabled early.
+    player.setMediaSources(
+        ImmutableList.of(
+            new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT),
+            // Use FakeBlockingMediaSource so that reading period is not advanced when pre-warming.
+            new FakeBlockingMediaSource(new FakeTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT),
+            new FakeMediaSource(
+                new FakeTimeline(),
+                ExoPlayerTestRunner.VIDEO_FORMAT,
+                ExoPlayerTestRunner.AUDIO_FORMAT),
+            new FakeMediaSource(
+                new FakeTimeline(),
+                ExoPlayerTestRunner.VIDEO_FORMAT,
+                ExoPlayerTestRunner.AUDIO_FORMAT)));
+    player.prepare();
+
+    // Play a bit until the second renderer is started and primary is pre-warming.
+    player.play();
+    run(player)
+        .untilBackgroundThreadCondition(
+            () -> secondaryVideoRenderer.getState() == Renderer.STATE_STARTED);
+    run(player)
+        .untilBackgroundThreadCondition(() -> videoRenderer.getState() == Renderer.STATE_ENABLED);
+    @Renderer.State int videoState1 = videoRenderer.getState();
+    @Renderer.State int secondaryVideoState1 = secondaryVideoRenderer.getState();
+    // Remove the reading period.
+    player.removeMediaItem(1);
+    run(player).untilPendingCommandsAreFullyHandled();
+    @Renderer.State int videoState2 = videoRenderer.getState();
+    @Renderer.State int secondaryVideoState2 = secondaryVideoRenderer.getState();
+    player.release();
+
+    assertThat(videoState1).isEqualTo(Renderer.STATE_ENABLED);
+    assertThat(secondaryVideoState1).isEqualTo(Renderer.STATE_STARTED);
+    assertThat(videoState2).isEqualTo(Renderer.STATE_STARTED);
+    assertThat(secondaryVideoState2).isEqualTo(Renderer.STATE_DISABLED);
+  }
+
+  @Test
+  public void
+      removeMediaItem_onPlayingPeriodWithSecondaryRendererAfterReadingPeriodAdvanced_swapsToPrimaryRenderer()
+          throws Exception {
+    Clock fakeClock = new FakeClock(/* isAutoAdvancing= */ true);
+    ExoPlayer player =
+        new TestExoPlayerBuilder(context)
+            .setClock(fakeClock)
+            .setRenderersFactory(
+                new FakeRenderersFactorySupportingSecondaryVideoRenderer(fakeClock))
+            .build();
+    Renderer videoRenderer = player.getRenderer(/* index= */ 0);
+    Renderer secondaryVideoRenderer = player.getSecondaryRenderer(/* index= */ 0);
+    // Set a playlist that allows a new renderer to be enabled early.
+    player.setMediaSources(
+        ImmutableList.of(
+            new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT),
+            new FakeMediaSource(
+                new FakeTimeline(),
+                ExoPlayerTestRunner.VIDEO_FORMAT,
+                ExoPlayerTestRunner.AUDIO_FORMAT),
+            new FakeMediaSource(
+                new FakeTimeline(),
+                ExoPlayerTestRunner.VIDEO_FORMAT,
+                ExoPlayerTestRunner.AUDIO_FORMAT),
+            new FakeMediaSource(
+                new FakeTimeline(),
+                ExoPlayerTestRunner.VIDEO_FORMAT,
+                ExoPlayerTestRunner.AUDIO_FORMAT)));
+    player.prepare();
+
+    // Play a bit until the second renderer is started and primary is pre-warming.
+    player.play();
+    run(player)
+        .untilBackgroundThreadCondition(
+            () -> secondaryVideoRenderer.getState() == Renderer.STATE_STARTED);
+    run(player)
+        .untilBackgroundThreadCondition(() -> videoRenderer.getState() == Renderer.STATE_ENABLED);
+    @Renderer.State int videoState1 = videoRenderer.getState();
+    @Renderer.State int secondaryVideoState1 = secondaryVideoRenderer.getState();
+    player.removeMediaItem(1);
+    run(player).untilPendingCommandsAreFullyHandled();
+    @Renderer.State int videoState2 = videoRenderer.getState();
+    @Renderer.State int secondaryVideoState2 = secondaryVideoRenderer.getState();
+    player.release();
+
+    assertThat(videoState1).isEqualTo(Renderer.STATE_ENABLED);
+    assertThat(secondaryVideoState1).isEqualTo(Renderer.STATE_STARTED);
+    assertThat(videoState2).isEqualTo(Renderer.STATE_STARTED);
+    assertThat(secondaryVideoState2).isEqualTo(Renderer.STATE_DISABLED);
+  }
+
+  @Test
+  public void
+      removeMediaItem_onPrewarmingPeriodWithPrewarmingPrimaryRendererAfterReadingPeriodAdvanced_swapsToPrimaryRenderer()
+          throws Exception {
+    Clock fakeClock = new FakeClock(/* isAutoAdvancing= */ true);
+    ExoPlayer player =
+        new TestExoPlayerBuilder(context)
+            .setClock(fakeClock)
+            .setRenderersFactory(
+                new FakeRenderersFactorySupportingSecondaryVideoRenderer(fakeClock))
+            .build();
+    Renderer videoRenderer = player.getRenderer(/* index= */ 0);
+    Renderer secondaryVideoRenderer = player.getSecondaryRenderer(/* index= */ 0);
+    // Set a playlist that allows a new renderer to be enabled early.
+    player.setMediaSources(
+        ImmutableList.of(
+            new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT),
+            new FakeMediaSource(
+                new FakeTimeline(),
+                ExoPlayerTestRunner.VIDEO_FORMAT,
+                ExoPlayerTestRunner.AUDIO_FORMAT),
+            new FakeMediaSource(
+                new FakeTimeline(),
+                ExoPlayerTestRunner.VIDEO_FORMAT,
+                ExoPlayerTestRunner.AUDIO_FORMAT),
+            new FakeMediaSource(
+                new FakeTimeline(),
+                ExoPlayerTestRunner.VIDEO_FORMAT,
+                ExoPlayerTestRunner.AUDIO_FORMAT)));
+    player.prepare();
+
+    // Play a bit until the second renderer is started and primary is pre-warming.
+    player.play();
+    run(player)
+        .untilBackgroundThreadCondition(
+            () -> secondaryVideoRenderer.getState() == Renderer.STATE_STARTED);
+    run(player)
+        .untilBackgroundThreadCondition(() -> videoRenderer.getState() == Renderer.STATE_ENABLED);
+    @Renderer.State int videoState1 = videoRenderer.getState();
+    @Renderer.State int secondaryVideoState1 = secondaryVideoRenderer.getState();
+    // Remove pre-warming media item.
+    player.removeMediaItem(2);
+    run(player).untilPendingCommandsAreFullyHandled();
+    run(player)
+        .untilBackgroundThreadCondition(
+            () -> secondaryVideoRenderer.getState() == Renderer.STATE_ENABLED);
+    @Renderer.State int videoState2 = videoRenderer.getState();
+    @Renderer.State int secondaryVideoState2 = secondaryVideoRenderer.getState();
+    player.release();
+
+    assertThat(videoState1).isEqualTo(Renderer.STATE_ENABLED);
+    assertThat(secondaryVideoState1).isEqualTo(Renderer.STATE_STARTED);
+    assertThat(videoState2).isEqualTo(Renderer.STATE_STARTED);
+    assertThat(secondaryVideoState2).isEqualTo(Renderer.STATE_ENABLED);
+  }
+
+  @Test
+  public void
+      replaceMediaItem_pastPrewarmingPeriodWithSecondaryRendererOnPlayingPeriod_doesNotDisablePrewarming()
+          throws Exception {
+    Clock fakeClock = new FakeClock(/* isAutoAdvancing= */ true);
+    ExoPlayer player =
+        new TestExoPlayerBuilder(context)
+            .setClock(fakeClock)
+            .setRenderersFactory(
+                new FakeRenderersFactorySupportingSecondaryVideoRenderer(fakeClock))
+            .build();
+    Renderer videoRenderer = player.getRenderer(/* index= */ 0);
+    Renderer secondaryVideoRenderer = player.getSecondaryRenderer(/* index= */ 0);
+    // Set a playlist that allows a new renderer to be enabled early.
+    player.setMediaSources(
+        ImmutableList.of(
+            new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT),
+            // Use FakeBlockingMediaSource so that reading period is not advanced when pre-warming.
+            new FakeBlockingMediaSource(new FakeTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT),
+            new FakeMediaSource(
+                new FakeTimeline(),
+                ExoPlayerTestRunner.VIDEO_FORMAT,
+                ExoPlayerTestRunner.AUDIO_FORMAT),
+            new FakeMediaSource(
+                new FakeTimeline(),
+                ExoPlayerTestRunner.VIDEO_FORMAT,
+                ExoPlayerTestRunner.AUDIO_FORMAT)));
+    player.prepare();
+
+    // Play a bit until the second renderer is started.
+    run(player).untilStartOfMediaItem(/* mediaItemIndex= */ 1);
+    run(player).untilPendingCommandsAreFullyHandled();
+    @Renderer.State int videoState1 = videoRenderer.getState();
+    @Renderer.State int secondaryVideoState1 = secondaryVideoRenderer.getState();
+    // Replace media item past pre-warming period.
+    player.replaceMediaItem(
+        3,
+        new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT).getMediaItem());
+    run(player).untilPendingCommandsAreFullyHandled();
+    @Renderer.State int videoState2 = videoRenderer.getState();
+    @Renderer.State int secondaryVideoState2 = secondaryVideoRenderer.getState();
+    player.release();
+
+    assertThat(videoState1).isEqualTo(Renderer.STATE_ENABLED);
+    assertThat(secondaryVideoState1).isEqualTo(Renderer.STATE_STARTED);
+    assertThat(videoState2).isEqualTo(Renderer.STATE_ENABLED);
+    assertThat(secondaryVideoState2).isEqualTo(Renderer.STATE_STARTED);
+  }
+
+  @Test
+  public void
+      replaceMediaItem_onPrewarmingPeriodWithPrimaryRendererBeforeReadingPeriodAdvanced_disablesPrewarmingRendererOnly()
+          throws Exception {
+    Clock fakeClock = new FakeClock(/* isAutoAdvancing= */ true);
+    ExoPlayer player =
+        new TestExoPlayerBuilder(context)
+            .setClock(fakeClock)
+            .setRenderersFactory(
+                new FakeRenderersFactorySupportingSecondaryVideoRenderer(fakeClock))
+            .build();
+    Renderer videoRenderer = player.getRenderer(/* index= */ 0);
+    Renderer secondaryVideoRenderer = player.getSecondaryRenderer(/* index= */ 0);
+    // Set a playlist that allows a new renderer to be enabled early.
+    player.setMediaSources(
+        ImmutableList.of(
+            new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT),
+            // Use FakeBlockingMediaSource so that reading period is not advanced when pre-warming.
+            new FakeBlockingMediaSource(new FakeTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT),
+            new FakeMediaSource(
+                new FakeTimeline(),
+                ExoPlayerTestRunner.VIDEO_FORMAT,
+                ExoPlayerTestRunner.AUDIO_FORMAT)));
+    player.prepare();
+
+    // Play a bit until the primary renderer is pre-warming.
+    run(player).untilStartOfMediaItem(/* mediaItemIndex= */ 1);
+    run(player).untilPendingCommandsAreFullyHandled();
+    @Renderer.State int videoState1 = videoRenderer.getState();
+    @Renderer.State int secondaryVideoState1 = secondaryVideoRenderer.getState();
+    // Replace pre-warming media item.
+    player.replaceMediaItem(
+        2,
+        new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT).getMediaItem());
+    run(player).untilPendingCommandsAreFullyHandled();
+    @Renderer.State int videoState2 = videoRenderer.getState();
+    @Renderer.State int secondaryVideoState2 = secondaryVideoRenderer.getState();
+    player.release();
+
+    assertThat(videoState1).isEqualTo(Renderer.STATE_ENABLED);
+    assertThat(secondaryVideoState1).isEqualTo(Renderer.STATE_STARTED);
+    assertThat(videoState2).isEqualTo(Renderer.STATE_DISABLED);
+    assertThat(secondaryVideoState2).isEqualTo(Renderer.STATE_STARTED);
+  }
+
+  @Test
+  public void
+      setRepeatMode_withPrewarmingBeforeReadingPeriodAdvanced_disablesPrewarmingRendererOnly()
+          throws Exception {
+    Clock fakeClock = new FakeClock(/* isAutoAdvancing= */ true);
+    ExoPlayer player =
+        new TestExoPlayerBuilder(context)
+            .setClock(fakeClock)
+            .setRenderersFactory(
+                new FakeRenderersFactorySupportingSecondaryVideoRenderer(fakeClock))
+            .build();
+    Renderer videoRenderer = player.getRenderer(/* index= */ 0);
+    Renderer secondaryVideoRenderer = player.getSecondaryRenderer(/* index= */ 0);
+    // Set a playlist that allows a new renderer to be enabled early.
+    player.setMediaSources(
+        ImmutableList.of(
+            new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT),
+            // Use FakeBlockingMediaSource so that reading period is not advanced when pre-warming.
+            new FakeBlockingMediaSource(new FakeTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT),
+            new FakeMediaSource(
+                new FakeTimeline(),
+                ExoPlayerTestRunner.VIDEO_FORMAT,
+                ExoPlayerTestRunner.AUDIO_FORMAT),
+            new FakeMediaSource(
+                new FakeTimeline(),
+                ExoPlayerTestRunner.VIDEO_FORMAT,
+                ExoPlayerTestRunner.AUDIO_FORMAT)));
+    player.prepare();
+
+    // Play a bit until the second renderer is started and primary is pre-warming.
+    player.play();
+    run(player)
+        .untilBackgroundThreadCondition(
+            () -> secondaryVideoRenderer.getState() == Renderer.STATE_STARTED);
+    run(player)
+        .untilBackgroundThreadCondition(() -> videoRenderer.getState() == Renderer.STATE_ENABLED);
+    @Renderer.State int videoState1 = videoRenderer.getState();
+    @Renderer.State int secondaryVideoState1 = secondaryVideoRenderer.getState();
+    player.setRepeatMode(REPEAT_MODE_ONE);
+    run(player).untilPendingCommandsAreFullyHandled();
+    @Renderer.State int videoState2 = videoRenderer.getState();
+    @Renderer.State int secondaryVideoState2 = secondaryVideoRenderer.getState();
+    player.release();
+
+    assertThat(videoState1).isEqualTo(Renderer.STATE_ENABLED);
+    assertThat(secondaryVideoState1).isEqualTo(Renderer.STATE_STARTED);
+    assertThat(videoState2).isEqualTo(Renderer.STATE_DISABLED);
+    assertThat(secondaryVideoState2).isEqualTo(Renderer.STATE_STARTED);
   }
 
   /** {@link FakeMediaSource} that prevents any reading of samples off the sample queue. */
