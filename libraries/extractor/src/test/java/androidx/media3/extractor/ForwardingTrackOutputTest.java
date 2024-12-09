@@ -25,8 +25,7 @@ import org.junit.runner.RunWith;
 public class ForwardingTrackOutputTest {
   @Test
   public void overridesAllMethods() throws Exception {
-    TestUtil.assertForwardingClassOverridesAllMethods(
-        TrackOutput.class, ForwardingTrackOutput.class);
+    TestUtil.assertSubclassOverridesAllMethods(TrackOutput.class, ForwardingTrackOutput.class);
   }
 
   @Test

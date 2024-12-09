@@ -644,29 +644,29 @@ public class TestUtil {
 
   /**
    * Use reflection to assert that every non-final method declared on {@code superType} is
-   * overridden by {@code forwardingType}.
+   * overridden by {@code subType}.
    */
-  public static <T> void assertForwardingClassOverridesAllMethods(
-      Class<T> superType, Class<? extends T> forwardingType) throws NoSuchMethodException {
-    assertForwardingClassOverridesAllMethodsExcept(superType, forwardingType, ImmutableSet.of());
+  public static <T> void assertSubclassOverridesAllMethods(
+      Class<T> superType, Class<? extends T> subType) throws NoSuchMethodException {
+    assertSubclassOverridesAllMethodsExcept(superType, subType, ImmutableSet.of());
   }
 
   /**
    * Use reflection to assert that every non-final, non-excluded method declared on {@code
-   * superType} is overridden by {@code forwardingType}.
+   * superType} is overridden by {@code subType}.
    */
-  public static <T> void assertForwardingClassOverridesAllMethodsExcept(
-      Class<T> superType, Class<? extends T> forwardingType, Set<String> excludedMethods)
+  public static <T> void assertSubclassOverridesAllMethodsExcept(
+      Class<T> superType, Class<? extends T> subType, Set<String> excludedMethods)
       throws NoSuchMethodException {
     for (Method method : TestUtil.getPublicOverridableMethods(superType)) {
       if (excludedMethods.contains(method.getName())) {
         continue;
       }
       assertThat(
-              forwardingType
+              subType
                   .getDeclaredMethod(method.getName(), method.getParameterTypes())
                   .getDeclaringClass())
-          .isEqualTo(forwardingType);
+          .isEqualTo(subType);
     }
   }
 

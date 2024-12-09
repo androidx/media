@@ -16,7 +16,7 @@
 package androidx.media3.exoplayer.audio;
 
 import static androidx.media3.test.utils.TestUtil.assertForwardingClassForwardsAllMethods;
-import static androidx.media3.test.utils.TestUtil.assertForwardingClassOverridesAllMethods;
+import static androidx.media3.test.utils.TestUtil.assertSubclassOverridesAllMethods;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import org.junit.Test;
@@ -27,7 +27,7 @@ import org.junit.runner.RunWith;
 public final class ForwardingAudioSinkTest {
   @Test
   public void overridesAllMethods() throws NoSuchMethodException {
-    assertForwardingClassOverridesAllMethods(AudioSink.class, ForwardingAudioSink.class);
+    assertSubclassOverridesAllMethods(AudioSink.class, ForwardingAudioSink.class);
   }
 
   @Test

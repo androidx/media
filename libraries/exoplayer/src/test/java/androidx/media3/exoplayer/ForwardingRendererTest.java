@@ -25,7 +25,7 @@ import org.junit.runner.RunWith;
 public class ForwardingRendererTest {
   @Test
   public void overridesAllMethods() throws NoSuchMethodException {
-    TestUtil.assertForwardingClassOverridesAllMethods(Renderer.class, ForwardingRenderer.class);
+    TestUtil.assertSubclassOverridesAllMethods(Renderer.class, ForwardingRenderer.class);
   }
 
   @Test

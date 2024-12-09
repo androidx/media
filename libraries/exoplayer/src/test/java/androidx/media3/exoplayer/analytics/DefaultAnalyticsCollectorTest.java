@@ -50,6 +50,7 @@ import static androidx.media3.exoplayer.analytics.AnalyticsListener.EVENT_VIDEO_
 import static androidx.media3.exoplayer.analytics.AnalyticsListener.EVENT_VIDEO_SIZE_CHANGED;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.END_OF_STREAM_ITEM;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.oneByteSample;
+import static androidx.media3.test.utils.TestUtil.assertSubclassOverridesAllMethods;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.play;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.playUntilPosition;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.run;
@@ -130,7 +131,6 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -198,14 +198,8 @@ public final class DefaultAnalyticsCollectorTest {
    * methods.
    */
   @Test
-  public void defaultAnalyticsCollector_overridesAllPlayerListenerMethods() throws Exception {
-    for (Method method : TestUtil.getPublicMethods(Player.Listener.class)) {
-      assertThat(
-              DefaultAnalyticsCollector.class
-                  .getMethod(method.getName(), method.getParameterTypes())
-                  .getDeclaringClass())
-          .isEqualTo(DefaultAnalyticsCollector.class);
-    }
+  public void overridesAllPlayerListenerMethods() throws Exception {
+    assertSubclassOverridesAllMethods(Player.Listener.class, DefaultAnalyticsCollector.class);
   }
 
   @Test

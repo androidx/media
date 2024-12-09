@@ -16,7 +16,7 @@
 package androidx.media3.exoplayer.source;
 
 import static androidx.media3.test.utils.TestUtil.assertForwardingClassForwardsAllMethodsExcept;
-import static androidx.media3.test.utils.TestUtil.assertForwardingClassOverridesAllMethods;
+import static androidx.media3.test.utils.TestUtil.assertSubclassOverridesAllMethods;
 
 import androidx.media3.common.Timeline;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -30,7 +30,7 @@ public class ForwardingTimelineTest {
 
   @Test
   public void overridesAllMethods() throws Exception {
-    assertForwardingClassOverridesAllMethods(Timeline.class, ForwardingTimeline.class);
+    assertSubclassOverridesAllMethods(Timeline.class, ForwardingTimeline.class);
   }
 
   @Test
