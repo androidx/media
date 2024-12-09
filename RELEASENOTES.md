@@ -49,6 +49,9 @@
         active at `timeUs` (started before but not yet ended) was incorrectly
         discarded ([#1939](https://github.com/androidx/media/issues/1939)).
 *   Metadata:
+    *   Extract disc/track numbering and genre from Vorbis comments into
+        `MediaMetadata`
+        ([#1958](https://github.com/androidx/media/issues/1958)).
 *   Image:
 *   DRM:
 *   Effect:
