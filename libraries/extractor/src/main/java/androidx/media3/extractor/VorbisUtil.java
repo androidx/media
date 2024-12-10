@@ -146,7 +146,7 @@ public final class VorbisUtil {
    * Returns the mapping from VORBIS channel layout to the channel layout expected by Android, or
    * null if the mapping is unchanged.
    *
-   * <p>See https://www.xiph.org/vorbis/doc/Vorbis_I_spec.html#x1-140001.2.3 and
+   * <p>See https://www.xiph.org/vorbis/doc/Vorbis_I_spec.html#x1-810004.3.9 and
    * https://developer.android.com/reference/android/media/AudioFormat#channelMask.
    */
   @Nullable
