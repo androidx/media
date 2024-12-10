@@ -1214,7 +1214,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
 
   @CallSuper
   @Override
-  protected void onReadyToInitializeCodec(Format format) throws ExoPlaybackException {
+  protected void onReadyToInitializeCodec(MediaCodecInfo codecInfo, Format format) throws ExoPlaybackException {
     if (videoSink != null && !videoSink.isInitialized()) {
       try {
         videoSink.initialize(format);
