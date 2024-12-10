@@ -105,16 +105,40 @@ import java.util.List;
     this.mediaButtonPreferences = mediaButtonPreferences;
     this.availableSessionCommands = availableSessionCommands;
     this.availablePlayerCommands = availablePlayerCommands;
-    this.legacyExtras = legacyExtras;
+    this.legacyExtras = new Bundle(legacyExtras);
     if (!mediaButtonPreferences.isEmpty()) {
       updateCustomLayoutAndLegacyExtrasForMediaButtonPreferences();
     }
   }
 
-  public void setAvailableCommands(
+  /**
+   * Sets new available commands for the platform session.
+   *
+   * @param availableSessionCommands The {@link SessionCommands}.
+   * @param availablePlayerCommands The {@link Player.Commands}.
+   * @return Whether the {@linkplain #getLegacyExtras platform session extras} were updated as a
+   *     result of this change.
+   */
+  public boolean setAvailableCommands(
       SessionCommands availableSessionCommands, Commands availablePlayerCommands) {
     this.availableSessionCommands = availableSessionCommands;
     this.availablePlayerCommands = availablePlayerCommands;
+    if (mediaButtonPreferences.isEmpty()) {
+      return false;
+    }
+    boolean hadPrevReservation =
+        legacyExtras.getBoolean(
+            MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_PREV, /* defaultValue= */ false);
+    boolean hadNextReservation =
+        legacyExtras.getBoolean(
+            MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_NEXT, /* defaultValue= */ false);
+    updateCustomLayoutAndLegacyExtrasForMediaButtonPreferences();
+    return (legacyExtras.getBoolean(
+                MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_PREV, /* defaultValue= */ false)
+            != hadPrevReservation)
+        || (legacyExtras.getBoolean(
+                MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_NEXT, /* defaultValue= */ false)
+            != hadNextReservation);
   }
 
   public SessionCommands getAvailableSessionCommands() {
@@ -165,7 +189,7 @@ import java.util.List;
   public void setLegacyExtras(Bundle extras) {
     checkArgument(!extras.containsKey(EXTRAS_KEY_PLAYBACK_SPEED_COMPAT));
     checkArgument(!extras.containsKey(EXTRAS_KEY_MEDIA_ID_COMPAT));
-    this.legacyExtras = extras;
+    this.legacyExtras = new Bundle(extras);
     if (!mediaButtonPreferences.isEmpty()) {
       // Re-calculate custom layout in case we have to set any additional extras.
       updateCustomLayoutAndLegacyExtrasForMediaButtonPreferences();
@@ -1305,9 +1329,14 @@ import java.util.List;
   }
 
   private void updateCustomLayoutAndLegacyExtrasForMediaButtonPreferences() {
+    ImmutableList<CommandButton> mediaButtonPreferencesWithUnavailableButtonsDisabled =
+        CommandButton.copyWithUnavailableButtonsDisabled(
+            mediaButtonPreferences, availableSessionCommands, availablePlayerCommands);
     customLayout =
         CommandButton.getCustomLayoutFromMediaButtonPreferences(
-            mediaButtonPreferences, /* backSlotAllowed= */ true, /* forwardSlotAllowed= */ true);
+            mediaButtonPreferencesWithUnavailableButtonsDisabled,
+            /* backSlotAllowed= */ true,
+            /* forwardSlotAllowed= */ true);
     legacyExtras.putBoolean(
         MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_PREV,
         !CommandButton.containsButtonForSlot(customLayout, CommandButton.SLOT_BACK));

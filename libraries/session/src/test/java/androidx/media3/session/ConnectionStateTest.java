@@ -116,7 +116,7 @@ public class ConnectionStateTest {
             /* customLayout= */ ImmutableList.of(),
             /* mediaButtonPreferences= */ ImmutableList.of(
                 new CommandButton.Builder(CommandButton.ICON_HEART_FILLED)
-                    .setPlayerCommand(Player.COMMAND_PREPARE)
+                    .setSessionCommand(new SessionCommand("action", Bundle.EMPTY))
                     .build()),
             /* commandButtonsForMediaItems= */ ImmutableList.of(),
             SessionCommands.EMPTY,

@@ -549,15 +549,15 @@ public class CommandButtonTest {
     ImmutableList<CommandButton> mediaButtonPreferences =
         ImmutableList.of(
             new CommandButton.Builder(CommandButton.ICON_ALBUM)
-                .setPlayerCommand(Player.COMMAND_PREPARE)
+                .setSessionCommand(new SessionCommand("action1", Bundle.EMPTY))
                 .setSlots(CommandButton.SLOT_OVERFLOW, CommandButton.SLOT_BACK)
                 .build(),
             new CommandButton.Builder(CommandButton.ICON_NEXT)
-                .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
+                .setSessionCommand(new SessionCommand("action2", Bundle.EMPTY))
                 .setSlots(CommandButton.SLOT_FORWARD_SECONDARY)
                 .build(),
             new CommandButton.Builder(CommandButton.ICON_REWIND)
-                .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
+                .setSessionCommand(new SessionCommand("action3", Bundle.EMPTY))
                 .setSlots(CommandButton.SLOT_BACK_SECONDARY, CommandButton.SLOT_OVERFLOW)
                 .build());
 
@@ -568,11 +568,11 @@ public class CommandButtonTest {
     assertThat(customLayout)
         .containsExactly(
             new CommandButton.Builder(CommandButton.ICON_ALBUM)
-                .setPlayerCommand(Player.COMMAND_PREPARE)
+                .setSessionCommand(new SessionCommand("action1", Bundle.EMPTY))
                 .setSlots(CommandButton.SLOT_OVERFLOW)
                 .build(),
             new CommandButton.Builder(CommandButton.ICON_REWIND)
-                .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
+                .setSessionCommand(new SessionCommand("action3", Bundle.EMPTY))
                 .setSlots(CommandButton.SLOT_OVERFLOW)
                 .build())
         .inOrder();
@@ -583,19 +583,19 @@ public class CommandButtonTest {
     ImmutableList<CommandButton> mediaButtonPreferences =
         ImmutableList.of(
             new CommandButton.Builder(CommandButton.ICON_ALBUM)
-                .setPlayerCommand(Player.COMMAND_PREPARE)
+                .setSessionCommand(new SessionCommand("action1", Bundle.EMPTY))
                 .setSlots(CommandButton.SLOT_OVERFLOW, CommandButton.SLOT_BACK)
                 .build(),
             new CommandButton.Builder(CommandButton.ICON_PREVIOUS)
-                .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
+                .setSessionCommand(new SessionCommand("action2", Bundle.EMPTY))
                 .setSlots(CommandButton.SLOT_BACK, CommandButton.SLOT_OVERFLOW)
                 .build(),
             new CommandButton.Builder(CommandButton.ICON_NEXT)
-                .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
+                .setSessionCommand(new SessionCommand("action3", Bundle.EMPTY))
                 .setSlots(CommandButton.SLOT_FORWARD_SECONDARY)
                 .build(),
             new CommandButton.Builder(CommandButton.ICON_REWIND)
-                .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
+                .setSessionCommand(new SessionCommand("action4", Bundle.EMPTY))
                 .setSlots(CommandButton.SLOT_BACK_SECONDARY, CommandButton.SLOT_OVERFLOW)
                 .build());
 
@@ -606,15 +606,15 @@ public class CommandButtonTest {
     assertThat(customLayout)
         .containsExactly(
             new CommandButton.Builder(CommandButton.ICON_PREVIOUS)
-                .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
+                .setSessionCommand(new SessionCommand("action2", Bundle.EMPTY))
                 .setSlots(CommandButton.SLOT_BACK)
                 .build(),
             new CommandButton.Builder(CommandButton.ICON_ALBUM)
-                .setPlayerCommand(Player.COMMAND_PREPARE)
+                .setSessionCommand(new SessionCommand("action1", Bundle.EMPTY))
                 .setSlots(CommandButton.SLOT_OVERFLOW)
                 .build(),
             new CommandButton.Builder(CommandButton.ICON_REWIND)
-                .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
+                .setSessionCommand(new SessionCommand("action4", Bundle.EMPTY))
                 .setSlots(CommandButton.SLOT_OVERFLOW)
                 .build())
         .inOrder();
@@ -626,19 +626,19 @@ public class CommandButtonTest {
     ImmutableList<CommandButton> mediaButtonPreferences =
         ImmutableList.of(
             new CommandButton.Builder(CommandButton.ICON_ALBUM)
-                .setPlayerCommand(Player.COMMAND_PREPARE)
+                .setSessionCommand(new SessionCommand("action1", Bundle.EMPTY))
                 .setSlots(CommandButton.SLOT_OVERFLOW, CommandButton.SLOT_BACK)
                 .build(),
             new CommandButton.Builder(CommandButton.ICON_PREVIOUS)
-                .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
+                .setSessionCommand(new SessionCommand("action2", Bundle.EMPTY))
                 .setSlots(CommandButton.SLOT_BACK, CommandButton.SLOT_OVERFLOW)
                 .build(),
             new CommandButton.Builder(CommandButton.ICON_NEXT)
-                .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
+                .setSessionCommand(new SessionCommand("action3", Bundle.EMPTY))
                 .setSlots(CommandButton.SLOT_FORWARD_SECONDARY)
                 .build(),
             new CommandButton.Builder(CommandButton.ICON_REWIND)
-                .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
+                .setSessionCommand(new SessionCommand("action4", Bundle.EMPTY))
                 .setSlots(CommandButton.SLOT_BACK_SECONDARY, CommandButton.SLOT_OVERFLOW)
                 .build());
 
@@ -649,15 +649,15 @@ public class CommandButtonTest {
     assertThat(customLayout)
         .containsExactly(
             new CommandButton.Builder(CommandButton.ICON_ALBUM)
-                .setPlayerCommand(Player.COMMAND_PREPARE)
+                .setSessionCommand(new SessionCommand("action1", Bundle.EMPTY))
                 .setSlots(CommandButton.SLOT_OVERFLOW)
                 .build(),
             new CommandButton.Builder(CommandButton.ICON_PREVIOUS)
-                .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
+                .setSessionCommand(new SessionCommand("action2", Bundle.EMPTY))
                 .setSlots(CommandButton.SLOT_OVERFLOW)
                 .build(),
             new CommandButton.Builder(CommandButton.ICON_REWIND)
-                .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
+                .setSessionCommand(new SessionCommand("action4", Bundle.EMPTY))
                 .setSlots(CommandButton.SLOT_OVERFLOW)
                 .build())
         .inOrder();
@@ -668,19 +668,19 @@ public class CommandButtonTest {
     ImmutableList<CommandButton> mediaButtonPreferences =
         ImmutableList.of(
             new CommandButton.Builder(CommandButton.ICON_ALBUM)
-                .setPlayerCommand(Player.COMMAND_PREPARE)
+                .setSessionCommand(new SessionCommand("action1", Bundle.EMPTY))
                 .setSlots(CommandButton.SLOT_OVERFLOW, CommandButton.SLOT_FORWARD)
                 .build(),
             new CommandButton.Builder(CommandButton.ICON_NEXT)
-                .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
+                .setSessionCommand(new SessionCommand("action2", Bundle.EMPTY))
                 .setSlots(CommandButton.SLOT_FORWARD, CommandButton.SLOT_OVERFLOW)
                 .build(),
             new CommandButton.Builder(CommandButton.ICON_NEXT)
-                .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
+                .setSessionCommand(new SessionCommand("action3", Bundle.EMPTY))
                 .setSlots(CommandButton.SLOT_FORWARD_SECONDARY)
                 .build(),
             new CommandButton.Builder(CommandButton.ICON_REWIND)
-                .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
+                .setSessionCommand(new SessionCommand("action4", Bundle.EMPTY))
                 .setSlots(CommandButton.SLOT_BACK_SECONDARY, CommandButton.SLOT_OVERFLOW)
                 .build());
 
@@ -691,15 +691,15 @@ public class CommandButtonTest {
     assertThat(customLayout)
         .containsExactly(
             new CommandButton.Builder(CommandButton.ICON_NEXT)
-                .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
+                .setSessionCommand(new SessionCommand("action2", Bundle.EMPTY))
                 .setSlots(CommandButton.SLOT_FORWARD)
                 .build(),
             new CommandButton.Builder(CommandButton.ICON_ALBUM)
-                .setPlayerCommand(Player.COMMAND_PREPARE)
+                .setSessionCommand(new SessionCommand("action1", Bundle.EMPTY))
                 .setSlots(CommandButton.SLOT_OVERFLOW)
                 .build(),
             new CommandButton.Builder(CommandButton.ICON_REWIND)
-                .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
+                .setSessionCommand(new SessionCommand("action4", Bundle.EMPTY))
                 .setSlots(CommandButton.SLOT_OVERFLOW)
                 .build())
         .inOrder();
@@ -711,19 +711,19 @@ public class CommandButtonTest {
     ImmutableList<CommandButton> mediaButtonPreferences =
         ImmutableList.of(
             new CommandButton.Builder(CommandButton.ICON_ALBUM)
-                .setPlayerCommand(Player.COMMAND_PREPARE)
+                .setSessionCommand(new SessionCommand("action1", Bundle.EMPTY))
                 .setSlots(CommandButton.SLOT_OVERFLOW, CommandButton.SLOT_FORWARD)
                 .build(),
             new CommandButton.Builder(CommandButton.ICON_NEXT)
-                .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
+                .setSessionCommand(new SessionCommand("action2", Bundle.EMPTY))
                 .setSlots(CommandButton.SLOT_FORWARD, CommandButton.SLOT_OVERFLOW)
                 .build(),
             new CommandButton.Builder(CommandButton.ICON_NEXT)
-                .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
+                .setSessionCommand(new SessionCommand("action3", Bundle.EMPTY))
                 .setSlots(CommandButton.SLOT_FORWARD_SECONDARY)
                 .build(),
             new CommandButton.Builder(CommandButton.ICON_REWIND)
-                .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
+                .setSessionCommand(new SessionCommand("action4", Bundle.EMPTY))
                 .setSlots(CommandButton.SLOT_BACK_SECONDARY, CommandButton.SLOT_OVERFLOW)
                 .build());
 
@@ -734,15 +734,15 @@ public class CommandButtonTest {
     assertThat(customLayout)
         .containsExactly(
             new CommandButton.Builder(CommandButton.ICON_ALBUM)
-                .setPlayerCommand(Player.COMMAND_PREPARE)
+                .setSessionCommand(new SessionCommand("action1", Bundle.EMPTY))
                 .setSlots(CommandButton.SLOT_OVERFLOW)
                 .build(),
             new CommandButton.Builder(CommandButton.ICON_NEXT)
-                .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
+                .setSessionCommand(new SessionCommand("action2", Bundle.EMPTY))
                 .setSlots(CommandButton.SLOT_OVERFLOW)
                 .build(),
             new CommandButton.Builder(CommandButton.ICON_REWIND)
-                .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
+                .setSessionCommand(new SessionCommand("action4", Bundle.EMPTY))
                 .setSlots(CommandButton.SLOT_OVERFLOW)
                 .build())
         .inOrder();
@@ -754,23 +754,23 @@ public class CommandButtonTest {
     ImmutableList<CommandButton> mediaButtonPreferences =
         ImmutableList.of(
             new CommandButton.Builder(CommandButton.ICON_ALBUM)
-                .setPlayerCommand(Player.COMMAND_PREPARE)
+                .setSessionCommand(new SessionCommand("action1", Bundle.EMPTY))
                 .setSlots(CommandButton.SLOT_OVERFLOW, CommandButton.SLOT_FORWARD)
                 .build(),
             new CommandButton.Builder(CommandButton.ICON_NEXT)
-                .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
+                .setSessionCommand(new SessionCommand("action2", Bundle.EMPTY))
                 .setSlots(CommandButton.SLOT_FORWARD, CommandButton.SLOT_OVERFLOW)
                 .build(),
             new CommandButton.Builder(CommandButton.ICON_NEXT)
-                .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
+                .setSessionCommand(new SessionCommand("action3", Bundle.EMPTY))
                 .setSlots(CommandButton.SLOT_FORWARD_SECONDARY)
                 .build(),
             new CommandButton.Builder(CommandButton.ICON_REWIND)
-                .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
+                .setSessionCommand(new SessionCommand("action4", Bundle.EMPTY))
                 .setSlots(CommandButton.SLOT_BACK_SECONDARY, CommandButton.SLOT_OVERFLOW)
                 .build(),
             new CommandButton.Builder(CommandButton.ICON_PREVIOUS)
-                .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
+                .setSessionCommand(new SessionCommand("action5", Bundle.EMPTY))
                 .setSlots(CommandButton.SLOT_CENTRAL, CommandButton.SLOT_BACK)
                 .build());
 
@@ -781,19 +781,19 @@ public class CommandButtonTest {
     assertThat(customLayout)
         .containsExactly(
             new CommandButton.Builder(CommandButton.ICON_PREVIOUS)
-                .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
+                .setSessionCommand(new SessionCommand("action5", Bundle.EMPTY))
                 .setSlots(CommandButton.SLOT_BACK)
                 .build(),
             new CommandButton.Builder(CommandButton.ICON_NEXT)
-                .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
+                .setSessionCommand(new SessionCommand("action2", Bundle.EMPTY))
                 .setSlots(CommandButton.SLOT_FORWARD)
                 .build(),
             new CommandButton.Builder(CommandButton.ICON_ALBUM)
-                .setPlayerCommand(Player.COMMAND_PREPARE)
+                .setSessionCommand(new SessionCommand("action1", Bundle.EMPTY))
                 .setSlots(CommandButton.SLOT_OVERFLOW)
                 .build(),
             new CommandButton.Builder(CommandButton.ICON_REWIND)
-                .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
+                .setSessionCommand(new SessionCommand("action4", Bundle.EMPTY))
                 .setSlots(CommandButton.SLOT_OVERFLOW)
                 .build())
         .inOrder();
@@ -805,23 +805,23 @@ public class CommandButtonTest {
     ImmutableList<CommandButton> mediaButtonPreferences =
         ImmutableList.of(
             new CommandButton.Builder(CommandButton.ICON_ALBUM)
-                .setPlayerCommand(Player.COMMAND_PREPARE)
+                .setSessionCommand(new SessionCommand("action1", Bundle.EMPTY))
                 .setSlots(CommandButton.SLOT_OVERFLOW, CommandButton.SLOT_FORWARD)
                 .build(),
             new CommandButton.Builder(CommandButton.ICON_NEXT)
-                .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
+                .setSessionCommand(new SessionCommand("action2", Bundle.EMPTY))
                 .setSlots(CommandButton.SLOT_FORWARD, CommandButton.SLOT_OVERFLOW)
                 .build(),
             new CommandButton.Builder(CommandButton.ICON_NEXT)
-                .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
+                .setSessionCommand(new SessionCommand("action3", Bundle.EMPTY))
                 .setSlots(CommandButton.SLOT_FORWARD_SECONDARY)
                 .build(),
             new CommandButton.Builder(CommandButton.ICON_REWIND)
-                .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
+                .setSessionCommand(new SessionCommand("action4", Bundle.EMPTY))
                 .setSlots(CommandButton.SLOT_BACK_SECONDARY, CommandButton.SLOT_OVERFLOW)
                 .build(),
             new CommandButton.Builder(CommandButton.ICON_PREVIOUS)
-                .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
+                .setSessionCommand(new SessionCommand("action5", Bundle.EMPTY))
                 .setSlots(CommandButton.SLOT_CENTRAL, CommandButton.SLOT_BACK)
                 .build());
 
@@ -832,18 +832,49 @@ public class CommandButtonTest {
     assertThat(customLayout)
         .containsExactly(
             new CommandButton.Builder(CommandButton.ICON_ALBUM)
-                .setPlayerCommand(Player.COMMAND_PREPARE)
+                .setSessionCommand(new SessionCommand("action1", Bundle.EMPTY))
                 .setSlots(CommandButton.SLOT_OVERFLOW)
                 .build(),
             new CommandButton.Builder(CommandButton.ICON_NEXT)
-                .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
+                .setSessionCommand(new SessionCommand("action2", Bundle.EMPTY))
                 .setSlots(CommandButton.SLOT_OVERFLOW)
                 .build(),
             new CommandButton.Builder(CommandButton.ICON_REWIND)
-                .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
+                .setSessionCommand(new SessionCommand("action4", Bundle.EMPTY))
                 .setSlots(CommandButton.SLOT_OVERFLOW)
                 .build())
         .inOrder();
+  }
+
+  @Test
+  public void
+      getCustomLayoutFromMediaButtonPreferences_disabledAndNonCustomCommands_returnsCorrectButtons() {
+    ImmutableList<CommandButton> mediaButtonPreferences =
+        ImmutableList.of(
+            new CommandButton.Builder(CommandButton.ICON_NEXT)
+                .setPlayerCommand(Player.COMMAND_PREPARE)
+                .setSlots(CommandButton.SLOT_OVERFLOW)
+                .build(),
+            new CommandButton.Builder(CommandButton.ICON_ALBUM)
+                .setSessionCommand(new SessionCommand("action1", Bundle.EMPTY))
+                .setSlots(CommandButton.SLOT_OVERFLOW)
+                .build(),
+            new CommandButton.Builder(CommandButton.ICON_BLOCK)
+                .setSessionCommand(new SessionCommand("action2", Bundle.EMPTY))
+                .setSlots(CommandButton.SLOT_OVERFLOW)
+                .setEnabled(false)
+                .build());
+
+    ImmutableList<CommandButton> customLayout =
+        CommandButton.getCustomLayoutFromMediaButtonPreferences(
+            mediaButtonPreferences, /* backSlotAllowed= */ true, /* forwardSlotAllowed= */ true);
+
+    assertThat(customLayout)
+        .containsExactly(
+            new CommandButton.Builder(CommandButton.ICON_ALBUM)
+                .setSessionCommand(new SessionCommand("action1", Bundle.EMPTY))
+                .setSlots(CommandButton.SLOT_OVERFLOW)
+                .build());
   }
 
   @Test

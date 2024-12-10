@@ -1054,7 +1054,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     boolean commandGetTimelineChanged =
         playerWrapper.getAvailablePlayerCommands().contains(Player.COMMAND_GET_TIMELINE)
             != playerCommands.contains(Player.COMMAND_GET_TIMELINE);
-    playerWrapper.setAvailableCommands(sessionCommands, playerCommands);
+    boolean extrasChanged = playerWrapper.setAvailableCommands(sessionCommands, playerCommands);
+    if (extrasChanged) {
+      sessionLegacyStub.getSessionCompat().setExtras(playerWrapper.getLegacyExtras());
+    }
     if (commandGetTimelineChanged) {
       sessionLegacyStub.updateLegacySessionPlaybackStateAndQueue(playerWrapper);
     } else {

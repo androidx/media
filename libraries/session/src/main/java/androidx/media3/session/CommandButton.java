@@ -1209,6 +1209,11 @@ public final class CommandButton {
     int forwardButtonIndex = C.INDEX_UNSET;
     for (int i = 0; i < mediaButtonPreferences.size(); i++) {
       CommandButton button = mediaButtonPreferences.get(i);
+      if (!button.isEnabled
+          || button.sessionCommand == null
+          || button.sessionCommand.commandCode != SessionCommand.COMMAND_CODE_CUSTOM) {
+        continue;
+      }
       for (int s = 0; s < button.slots.length(); s++) {
         @Slot int slot = button.slots.get(s);
         if (slot == SLOT_OVERFLOW) {
@@ -1240,6 +1245,11 @@ public final class CommandButton {
     }
     for (int i = 0; i < mediaButtonPreferences.size(); i++) {
       CommandButton button = mediaButtonPreferences.get(i);
+      if (!button.isEnabled
+          || button.sessionCommand == null
+          || button.sessionCommand.commandCode != SessionCommand.COMMAND_CODE_CUSTOM) {
+        continue;
+      }
       if (i != backButtonIndex && i != forwardButtonIndex && button.slots.contains(SLOT_OVERFLOW)) {
         customLayout.add(button.copyWithSlots(ImmutableIntArray.of(SLOT_OVERFLOW)));
       }
