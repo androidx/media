@@ -30,7 +30,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -88,10 +91,13 @@ class EffectActivity : ComponentActivity() {
         horizontalAlignment = Alignment.CenterHorizontally,
       ) {
         InputChooser(
-          onException = { coroutineScope.launch { snackbarHostState.showSnackbar(it) } }
-        ) { uri ->
+          playlistHolderList,
+          onException = { message ->
+            coroutineScope.launch { snackbarHostState.showSnackbar(message) }
+          },
+        ) { mediaItems ->
           exoPlayer.apply {
-            setMediaItem(MediaItem.fromUri(uri))
+            setMediaItems(mediaItems)
             prepare()
           }
         }
@@ -106,44 +112,105 @@ class EffectActivity : ComponentActivity() {
   }
 
   @Composable
-  private fun InputChooser(onException: (String) -> Unit, onNewUri: (Uri) -> Unit) {
-    var showLocalFilePicker by remember { mutableStateOf(false) }
+  private fun InputChooser(
+    playlistHolderList: List<PlaylistHolder>,
+    onException: (String) -> Unit,
+    onNewMediaItems: (List<MediaItem>) -> Unit,
+  ) {
+    var showPresetInputChooser by remember { mutableStateOf(false) }
+    var showLocalFileChooser by remember { mutableStateOf(false) }
     Row(
       modifier = Modifier.padding(vertical = dimensionResource(id = R.dimen.small_padding)),
       horizontalArrangement = Arrangement.spacedBy(dimensionResource(id = R.dimen.small_padding)),
     ) {
-      Button(onClick = { onException("Button is not yet implemented.") }) {
+      Button(onClick = { showPresetInputChooser = true }) {
         Text(text = stringResource(id = R.string.choose_preset_input))
       }
-      Button(onClick = { showLocalFilePicker = true }) {
+      Button(onClick = { showLocalFileChooser = true }) {
         Text(text = stringResource(id = R.string.choose_local_file))
       }
     }
-    if (showLocalFilePicker) {
-      LocalFilePicker(
-        onException = {
-          onException(it)
-          showLocalFilePicker = false
+    if (showPresetInputChooser) {
+      if (playlistHolderList.isNotEmpty()) {
+        PresetInputChooser(
+          playlistHolderList,
+          onDismissRequest = { showPresetInputChooser = false },
+        ) { mediaItems ->
+          onNewMediaItems(mediaItems)
+          showPresetInputChooser = false
         }
-      ) { uri ->
-        onNewUri(uri)
-        showLocalFilePicker = false
+      } else {
+        onException(stringResource(id = R.string.no_loaded_playlists_error))
+        showPresetInputChooser = false
+      }
+    }
+    if (showLocalFileChooser) {
+      LocalFileChooser(
+        onException = { message ->
+          onException(message)
+          showLocalFileChooser = false
+        }
+      ) { mediaItems ->
+        onNewMediaItems(mediaItems)
+        showLocalFileChooser = false
       }
     }
   }
 
+  @Composable
+  private fun PresetInputChooser(
+    playlistHolderList: List<PlaylistHolder>,
+    onDismissRequest: () -> Unit,
+    onInputSelected: (List<MediaItem>) -> Unit,
+  ) {
+    var selectedOption by remember { mutableStateOf(playlistHolderList.first()) }
+
+    AlertDialog(
+      onDismissRequest = onDismissRequest,
+      title = { Text(stringResource(id = R.string.choose_preset_input)) },
+      confirmButton = {
+        Button(onClick = { onInputSelected(selectedOption.mediaItems) }) {
+          Text(text = stringResource(id = R.string.ok))
+        }
+      },
+      text = {
+        Column {
+          playlistHolderList.forEach { playlistHolder ->
+            Row(
+              Modifier.fillMaxWidth()
+                .selectable(
+                  (playlistHolder == selectedOption),
+                  onClick = { selectedOption = playlistHolder },
+                ),
+              verticalAlignment = Alignment.CenterVertically,
+            ) {
+              RadioButton(
+                selected = (playlistHolder == selectedOption),
+                onClick = { selectedOption = playlistHolder },
+              )
+              Text(playlistHolder.title)
+            }
+          }
+        }
+      },
+    )
+  }
+
   @OptIn(UnstableApi::class)
   @Composable
-  private fun LocalFilePicker(onException: (String) -> Unit, onFileSelected: (Uri) -> Unit) {
+  private fun LocalFileChooser(
+    onException: (String) -> Unit,
+    onFileSelected: (List<MediaItem>) -> Unit,
+  ) {
     val context = LocalContext.current
-    val localFilePickerLauncher =
+    val localFileChooserLauncher =
       rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument(),
         onResult = { uri: Uri? ->
           if (uri != null) {
-            onFileSelected(uri)
+            onFileSelected(listOf(MediaItem.fromUri(uri)))
           } else {
-            onException("File couldn't be opened. Please try again.")
+            onException(getString(R.string.can_not_open_file_error))
           }
         },
       )
@@ -152,9 +219,9 @@ class EffectActivity : ComponentActivity() {
         contract = ActivityResultContracts.RequestPermission(),
         onResult = { isGranted: Boolean ->
           if (isGranted) {
-            localFilePickerLauncher.launch(arrayOf("video/*"))
+            localFileChooserLauncher.launch(arrayOf("video/*"))
           } else {
-            onException("Permission was not granted.")
+            onException(getString(R.string.permission_not_granted_error))
           }
         },
       )
@@ -164,7 +231,7 @@ class EffectActivity : ComponentActivity() {
         else Manifest.permission.READ_EXTERNAL_STORAGE
       val permissionCheck = ContextCompat.checkSelfPermission(context, permission)
       if (permissionCheck == android.content.pm.PackageManager.PERMISSION_GRANTED) {
-        localFilePickerLauncher.launch(arrayOf("video/*"))
+        localFileChooserLauncher.launch(arrayOf("video/*"))
       } else {
         permissionLauncher.launch(permission)
       }

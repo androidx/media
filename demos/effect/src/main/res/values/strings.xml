@@ -20,4 +20,7 @@
   <string name="apply_effects">Apply effects</string>
   <string name="ok">OK</string>
   <string name="playlist_loading_error">Error loading playlist from %1$s: %2$s</string>
+  <string name="no_loaded_playlists_error">There are no loaded preset inputs.</string>
+  <string name="can_not_open_file_error">"File couldn't be opened. Please try again."</string>
+  <string name="permission_not_granted_error">"Permission was not granted."</string>
 </resources>
