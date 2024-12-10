@@ -51,6 +51,9 @@ import androidx.media3.extractor.GaplessInfoHolder;
 import androidx.media3.extractor.HevcConfig;
 import androidx.media3.extractor.OpusUtil;
 import androidx.media3.extractor.VorbisUtil;
+import androidx.media3.extractor.metadata.id3.ChapterFrame;
+import androidx.media3.extractor.metadata.id3.Id3Frame;
+import androidx.media3.extractor.metadata.id3.TextInformationFrame;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
@@ -196,6 +199,9 @@ public final class BoxParser {
                 SmtaAtomUtil.parseSmta(udtaData, atomPosition + atomSize));
       } else if (atomType == Mp4Box.TYPE_xyz) {
         metadata = metadata.copyWithAppendedEntriesFrom(parseXyz(udtaData));
+      } else if (atomType == Mp4Box.TYPE_chpl) {
+        udtaData.setPosition(atomPosition);
+        metadata = metadata.copyWithAppendedEntriesFrom(parseChpl(udtaData));
       }
       udtaData.setPosition(atomPosition + atomSize);
     }
@@ -858,6 +864,36 @@ public final class BoxParser {
       // Invalid input.
       return null;
     }
+  }
+
+  /** Parses the chapter metadata from the chpl atom. */
+  @Nullable
+  /* package */ static Metadata parseChpl(ParsableByteArray chpl) {
+    chpl.skipBytes(Mp4Box.HEADER_SIZE);
+    chpl.skipBytes(5); // version (1) + flags (3) + reservered byte (1)
+    ArrayList<Metadata.Entry> entries = new ArrayList<>();
+    int chapterCount = chpl.readInt();
+    for (int i = 0; i < chapterCount; i++) {
+      long startTimeMs = chpl.readLong() / 10_000; // Start time in 100-nanoseconds resolution
+      if (startTimeMs < 0 || startTimeMs > Integer.MAX_VALUE) {
+        startTimeMs = C.INDEX_UNSET;
+      }
+      int titleLength = chpl.readUnsignedByte();
+      String chapterName = chpl.readString(titleLength);
+      ChapterFrame chapterFrame =
+          new ChapterFrame(
+              /* chapterId= */ Integer.toString(i),
+              (int) startTimeMs,
+              /* endTime= */ C.INDEX_UNSET,
+              /* startOffset= */ C.INDEX_UNSET,
+              /* endOffset= */ C.INDEX_UNSET,
+              /* subFrames= */ new Id3Frame[] {
+                new TextInformationFrame(
+                    "TIT2", /* description= */ null, ImmutableList.of(chapterName))
+              });
+      entries.add(chapterFrame);
+    }
+    return entries.isEmpty() ? null : new Metadata(entries);
   }
 
   /**
