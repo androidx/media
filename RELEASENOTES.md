@@ -39,6 +39,8 @@
         ([#1904](https://github.com/androidx/media/issues/1904)).
 *   DataSource:
 *   Audio:
+    *   Fix `onAudioPositionAdvancing` to be called when playback resumes
+        (previously it was called when playback was paused).
 *   Video:
     *   Rollback of using `MediaCodecAdapter` supplied pixel aspect ratio values
         when provided while processing `onOutputFormatChanged`

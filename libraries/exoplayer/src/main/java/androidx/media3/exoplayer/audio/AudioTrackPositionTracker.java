@@ -285,7 +285,8 @@ import java.lang.reflect.Method;
   }
 
   public long getCurrentPositionUs(boolean sourceEnded) {
-    if (checkNotNull(this.audioTrack).getPlayState() == PLAYSTATE_PLAYING) {
+    AudioTrack audioTrack = checkNotNull(this.audioTrack);
+    if (audioTrack.getPlayState() == PLAYSTATE_PLAYING) {
       maybeSampleSyncParams();
     }
 
@@ -340,7 +341,9 @@ import java.lang.reflect.Method;
       positionUs /= 1000;
     }
 
-    if (!notifiedPositionIncreasing && positionUs > lastPositionUs) {
+    if (!notifiedPositionIncreasing
+        && positionUs > lastPositionUs
+        && audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING) {
       notifiedPositionIncreasing = true;
       long mediaDurationSinceLastPositionUs = Util.usToMs(positionUs - lastPositionUs);
       long playoutDurationSinceLastPositionUs =
