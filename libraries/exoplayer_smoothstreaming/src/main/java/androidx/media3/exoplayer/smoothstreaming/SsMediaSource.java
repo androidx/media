@@ -35,6 +35,7 @@ import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSource;
+import androidx.media3.datasource.DataSpec;
 import androidx.media3.datasource.TransferListener;
 import androidx.media3.exoplayer.drm.DefaultDrmSessionManagerProvider;
 import androidx.media3.exoplayer.drm.DrmSessionEventListener;
@@ -58,6 +59,7 @@ import androidx.media3.exoplayer.source.SequenceableLoader;
 import androidx.media3.exoplayer.source.SinglePeriodTimeline;
 import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.CmcdConfiguration;
+import androidx.media3.exoplayer.upstream.CmcdData;
 import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy.LoadErrorInfo;
@@ -676,9 +678,19 @@ public final class SsMediaSource extends BaseMediaSource
     if (manifestLoader.hasFatalError()) {
       return;
     }
+    DataSpec dataSpec =
+        new DataSpec.Builder().setUri(manifestUri).setFlags(DataSpec.FLAG_ALLOW_GZIP).build();
+    if (cmcdConfiguration != null) {
+      CmcdData.Factory cmcdDataFactory =
+          new CmcdData.Factory(cmcdConfiguration, CmcdData.Factory.STREAMING_FORMAT_SS)
+              .setObjectType(CmcdData.Factory.OBJECT_TYPE_MANIFEST);
+      if (manifest != null) {
+        cmcdDataFactory.setIsLive(manifest.isLive);
+      }
+      cmcdDataFactory.createCmcdData().addToDataSpec(dataSpec);
+    }
     ParsingLoadable<SsManifest> loadable =
-        new ParsingLoadable<>(
-            manifestDataSource, manifestUri, C.DATA_TYPE_MANIFEST, manifestParser);
+        new ParsingLoadable<>(manifestDataSource, dataSpec, C.DATA_TYPE_MANIFEST, manifestParser);
     manifestLoader.startLoading(
         loadable, this, loadErrorHandlingPolicy.getMinimumLoadableRetryCount(loadable.type));
   }

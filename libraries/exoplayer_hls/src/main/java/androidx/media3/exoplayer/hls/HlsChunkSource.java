@@ -507,20 +507,17 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     @Nullable CmcdData.Factory cmcdDataFactory = null;
     if (cmcdConfiguration != null) {
       cmcdDataFactory =
-          new CmcdData.Factory(
-                  cmcdConfiguration,
-                  trackSelection,
-                  max(0, bufferedDurationUs),
-                  /* playbackRate= */ loadingInfo.playbackSpeed,
-                  /* streamingFormat= */ CmcdData.Factory.STREAMING_FORMAT_HLS,
-                  /* isLive= */ !playlist.hasEndTag,
-                  /* didRebuffer= */ loadingInfo.rebufferedSince(lastChunkRequestRealtimeMs),
-                  /* isBufferEmpty= */ queue.isEmpty())
+          new CmcdData.Factory(cmcdConfiguration, CmcdData.Factory.STREAMING_FORMAT_HLS)
+              .setTrackSelection(trackSelection)
+              .setBufferedDurationUs(max(0, bufferedDurationUs))
+              .setPlaybackRate(loadingInfo.playbackSpeed)
+              .setIsLive(!playlist.hasEndTag)
+              .setDidRebuffer(loadingInfo.rebufferedSince(lastChunkRequestRealtimeMs))
+              .setIsBufferEmpty(queue.isEmpty())
               .setObjectType(
                   getIsMuxedAudioAndVideo()
                       ? CmcdData.Factory.OBJECT_TYPE_MUXED_AUDIO_AND_VIDEO
                       : CmcdData.Factory.getObjectType(trackSelection));
-
       long nextMediaSequence =
           segmentBaseHolder.partIndex == C.INDEX_UNSET
               ? segmentBaseHolder.mediaSequence + 1

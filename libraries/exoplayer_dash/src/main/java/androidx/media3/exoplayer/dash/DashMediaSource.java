@@ -43,6 +43,7 @@ import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSource;
+import androidx.media3.datasource.DataSpec;
 import androidx.media3.datasource.TransferListener;
 import androidx.media3.exoplayer.dash.PlayerEmsgHandler.PlayerEmsgCallback;
 import androidx.media3.exoplayer.dash.manifest.AdaptationSet;
@@ -69,6 +70,7 @@ import androidx.media3.exoplayer.source.MediaSourceFactory;
 import androidx.media3.exoplayer.source.SequenceableLoader;
 import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.CmcdConfiguration;
+import androidx.media3.exoplayer.upstream.CmcdData;
 import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy.LoadErrorInfo;
@@ -1099,8 +1101,19 @@ public final class DashMediaSource extends BaseMediaSource {
       manifestUri = this.manifestUri;
     }
     manifestLoadPending = false;
+    DataSpec dataSpec =
+        new DataSpec.Builder().setUri(manifestUri).setFlags(DataSpec.FLAG_ALLOW_GZIP).build();
+    if (cmcdConfiguration != null) {
+      CmcdData.Factory cmcdDataFactory =
+          new CmcdData.Factory(cmcdConfiguration, CmcdData.Factory.STREAMING_FORMAT_DASH)
+              .setObjectType(CmcdData.Factory.OBJECT_TYPE_MANIFEST);
+      if (manifest != null) {
+        cmcdDataFactory.setIsLive(manifest.dynamic);
+      }
+      cmcdDataFactory.createCmcdData().addToDataSpec(dataSpec);
+    }
     startLoading(
-        new ParsingLoadable<>(dataSource, manifestUri, C.DATA_TYPE_MANIFEST, manifestParser),
+        new ParsingLoadable<>(dataSource, dataSpec, C.DATA_TYPE_MANIFEST, manifestParser),
         manifestCallback,
         loadErrorHandlingPolicy.getMinimumLoadableRetryCount(C.DATA_TYPE_MANIFEST));
   }

@@ -421,15 +421,13 @@ public class DefaultDashChunkSource implements DashChunkSource {
     CmcdData.Factory cmcdDataFactory =
         cmcdConfiguration == null
             ? null
-            : new CmcdData.Factory(
-                cmcdConfiguration,
-                trackSelection,
-                max(0, bufferedDurationUs),
-                /* playbackRate= */ loadingInfo.playbackSpeed,
-                /* streamingFormat= */ CmcdData.Factory.STREAMING_FORMAT_DASH,
-                /* isLive= */ manifest.dynamic,
-                /* didRebuffer= */ loadingInfo.rebufferedSince(lastChunkRequestRealtimeMs),
-                /* isBufferEmpty= */ queue.isEmpty());
+            : new CmcdData.Factory(cmcdConfiguration, CmcdData.Factory.STREAMING_FORMAT_DASH)
+                .setTrackSelection(trackSelection)
+                .setBufferedDurationUs(max(0, bufferedDurationUs))
+                .setPlaybackRate(loadingInfo.playbackSpeed)
+                .setIsLive(manifest.dynamic)
+                .setDidRebuffer(loadingInfo.rebufferedSince(lastChunkRequestRealtimeMs))
+                .setIsBufferEmpty(queue.isEmpty());
     lastChunkRequestRealtimeMs = SystemClock.elapsedRealtime();
 
     RepresentationHolder representationHolder = updateSelectedBaseUrl(selectedTrackIndex);
@@ -715,7 +713,7 @@ public class DefaultDashChunkSource implements DashChunkSource {
    *     indexUri} is not {@code null}.
    * @param indexUri The URI pointing to index data. Can be {@code null} if {@code
    *     initializationUri} is not {@code null}.
-   * @param cmcdDataFactory The {@link CmcdData.Factory} for generating CMCD data.
+   * @param cmcdDataFactory The {@link CmcdData.Factory} for generating {@link CmcdData}.
    */
   @RequiresNonNull("#1.chunkExtractor")
   protected Chunk newInitializationChunk(

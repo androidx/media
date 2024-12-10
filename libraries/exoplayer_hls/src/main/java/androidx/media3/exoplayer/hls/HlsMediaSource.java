@@ -417,7 +417,10 @@ public final class HlsMediaSource extends BaseMediaSource
           drmSessionManagerProvider.get(mediaItem),
           loadErrorHandlingPolicy,
           playlistTrackerFactory.createTracker(
-              hlsDataSourceFactory, loadErrorHandlingPolicy, playlistParserFactory),
+              hlsDataSourceFactory,
+              loadErrorHandlingPolicy,
+              playlistParserFactory,
+              cmcdConfiguration),
           elapsedRealTimeOffsetMs,
           allowChunklessPreparation,
           metadataType,

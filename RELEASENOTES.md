@@ -27,6 +27,9 @@
     *   `RenderersFactory.createSecondaryRenderer` can be implemented to provide
         secondary renderers for pre-warming. Pre-warming enables quicker media
         item transitions during playback.
+    *   Enable sending `CmcdData` for manifest requests in adaptive streaming
+        formats DASH, HLS, and SmoothStreaming
+        ([#1951](https://github.com/androidx/media/issues/1951)).
 *   Transformer:
     *   Update parameters of `VideoFrameProcessor.registerInputStream` and
         `VideoFrameProcessor.Listener.onInputStreamRegistered` to use `Format`.
