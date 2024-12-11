@@ -107,7 +107,6 @@ public final class OpusDecoder
       throw new OpusDecoderException("Invalid header length");
     }
     channelCount = getChannelCount(headerBytes);
-
     int gain = readSignedLittleEndian16(headerBytes, 16);
 
     byte[] streamMap = new byte[channelCount];
