@@ -251,6 +251,12 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
   private @State int state;
   @Nullable private Renderer.WakeupListener wakeupListener;
 
+  /**
+   * The buffer presentation time of the frame most recently output by the video graph, in
+   * microseconds.
+   */
+  private long lastOutputBufferPresentationTimeUs;
+
   /** The buffer presentation time, in microseconds, of the final frame in the stream. */
   private long finalBufferPresentationTimeUs;
 
@@ -287,6 +293,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     listeners.add(inputVideoSink);
     videoGraphOutputFormat = new Format.Builder().build();
     state = STATE_CREATED;
+    lastOutputBufferPresentationTimeUs = C.TIME_UNSET;
     finalBufferPresentationTimeUs = C.TIME_UNSET;
   }
 
@@ -380,6 +387,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     // The frame presentation time is relative to the start of the Composition and without the
     // renderer offset
     long bufferPresentationTimeUs = framePresentationTimeUs - bufferTimestampAdjustmentUs;
+    lastOutputBufferPresentationTimeUs = bufferPresentationTimeUs;
     Long newOutputStreamStartPositionUs =
         streamStartPositionsUs.pollFloor(bufferPresentationTimeUs);
     if (newOutputStreamStartPositionUs != null
@@ -506,6 +514,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
       defaultVideoSink.setStreamTimestampInfo(
           lastStartPositionUs, bufferTimestampAdjustmentUs, /* unused */ C.TIME_UNSET);
     }
+    lastOutputBufferPresentationTimeUs = C.TIME_UNSET;
     finalBufferPresentationTimeUs = C.TIME_UNSET;
     hasSignaledEndOfCurrentInputStream = false;
     // Handle pending video graph callbacks to ensure video size changes reach the video render
@@ -631,6 +640,10 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     @Override
     public void signalEndOfCurrentInputStream() {
       finalBufferPresentationTimeUs = lastBufferPresentationTimeUs;
+      if (lastOutputBufferPresentationTimeUs >= finalBufferPresentationTimeUs) {
+        defaultVideoSink.signalEndOfCurrentInputStream();
+        hasSignaledEndOfCurrentInputStream = true;
+      }
     }
 
     @Override
