@@ -40,6 +40,9 @@
     *   MP3: Don't stop playback early when a `VBRI` frame's table of contents
         doesn't cover all the MP3 data in a file
         ([#1904](https://github.com/androidx/media/issues/1904)).
+    *   AVI: Fix handling of files with constant bitrate compressed audio where
+        the stream header stores the number of bytes instead of the number of
+        chunks.
 *   DataSource:
 *   Audio:
     *   Fix `onAudioPositionAdvancing` to be called when playback resumes

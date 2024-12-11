@@ -64,6 +64,7 @@ import java.util.Arrays;
 
   private final long durationUs;
 
+  private int chunkCount;
   private int currentChunkSize;
   private int bytesRemainingInCurrentChunk;
 
@@ -90,6 +91,7 @@ import java.util.Arrays;
     firstIndexChunkOffset = C.INDEX_UNSET;
     keyFrameOffsets = new long[INITIAL_INDEX_SIZE];
     keyFrameIndices = new int[INITIAL_INDEX_SIZE];
+    chunkCount = streamHeaderChunk.length;
   }
 
   public void appendIndexChunk(long offset, boolean isKeyFrame) {
@@ -120,9 +122,16 @@ import java.util.Arrays;
     return getChunkTimestampUs(/* chunkIndex= */ 1);
   }
 
-  public void compactIndex() {
+  public void commitIndex() {
     keyFrameOffsets = Arrays.copyOf(keyFrameOffsets, indexSize);
     keyFrameIndices = Arrays.copyOf(keyFrameIndices, indexSize);
+    if (isAudio() && streamHeaderChunk.sampleSize != 0 && indexSize > 0) {
+      // In some files the AVI stream header chunk for audio has the number of bytes of audio in
+      // dwLength instead of the number of chunks. Overwrite the chunk size to use the size of the
+      // index, which should match the number of chunks because we only support formats where every
+      // audio sample is a sync sample, and every sync sample should be in the index.
+      chunkCount = indexSize;
+    }
   }
 
   public boolean handlesChunkId(int chunkId) {
@@ -203,7 +212,7 @@ import java.util.Arrays;
   }
 
   private long getChunkTimestampUs(int chunkIndex) {
-    return durationUs * chunkIndex / streamHeaderChunk.length;
+    return durationUs * chunkIndex / chunkCount;
   }
 
   private SeekPoint getSeekPoint(int keyFrameIndex) {

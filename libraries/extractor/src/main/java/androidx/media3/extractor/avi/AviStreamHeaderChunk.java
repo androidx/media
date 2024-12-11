@@ -34,9 +34,10 @@ import androidx.media3.common.util.Util;
     body.skipBytes(4); // dwStart (4 bytes).
     int length = body.readLittleEndianInt();
     int suggestedBufferSize = body.readLittleEndianInt();
-    body.skipBytes(8); // dwQuality (4 bytes), dwSampleSize (4 bytes).
+    body.skipBytes(4); // dwQuality (4 bytes).
+    int sampleSize = body.readLittleEndianInt();
     return new AviStreamHeaderChunk(
-        streamType, initialFrames, scale, rate, length, suggestedBufferSize);
+        streamType, initialFrames, scale, rate, length, suggestedBufferSize, sampleSize);
   }
 
   public final int streamType;
@@ -45,15 +46,23 @@ import androidx.media3.common.util.Util;
   public final int rate;
   public final int length;
   public final int suggestedBufferSize;
+  public final int sampleSize;
 
   private AviStreamHeaderChunk(
-      int streamType, int initialFrames, int scale, int rate, int length, int suggestedBufferSize) {
+      int streamType,
+      int initialFrames,
+      int scale,
+      int rate,
+      int length,
+      int suggestedBufferSize,
+      int sampleSize) {
     this.streamType = streamType;
     this.initialFrames = initialFrames;
     this.scale = scale;
     this.rate = rate;
     this.length = length;
     this.suggestedBufferSize = suggestedBufferSize;
+    this.sampleSize = sampleSize;
   }
 
   @Override

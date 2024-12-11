@@ -406,7 +406,7 @@ public final class AviExtractor implements Extractor {
       int chunkId = body.readLittleEndianInt();
       int flags = body.readLittleEndianInt();
       long offset = body.readLittleEndianInt() + seekOffset;
-      body.readLittleEndianInt(); // We ignore the size.
+      body.skipBytes(4); // Ignore size.
       ChunkReader chunkReader = getChunkReader(chunkId);
       if (chunkReader == null) {
         // We ignore unknown chunk IDs.
@@ -416,7 +416,7 @@ public final class AviExtractor implements Extractor {
           offset, /* isKeyFrame= */ (flags & AVIIF_KEYFRAME) == AVIIF_KEYFRAME);
     }
     for (ChunkReader chunkReader : chunkReaders) {
-      chunkReader.compactIndex();
+      chunkReader.commitIndex();
     }
     seekMapHasBeenOutput = true;
     if (chunkReaders.length == 0) {
