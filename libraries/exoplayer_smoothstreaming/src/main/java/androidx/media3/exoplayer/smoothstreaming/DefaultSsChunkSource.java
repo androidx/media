@@ -360,7 +360,7 @@ public class DefaultSsChunkSource implements SsChunkSource {
     @Nullable CmcdData.Factory cmcdDataFactory = null;
     if (cmcdConfiguration != null) {
       cmcdDataFactory =
-          new CmcdData.Factory(cmcdConfiguration, CmcdData.Factory.STREAMING_FORMAT_SS)
+          new CmcdData.Factory(cmcdConfiguration, CmcdData.STREAMING_FORMAT_SS)
               .setTrackSelection(trackSelection)
               .setBufferedDurationUs(max(0, bufferedDurationUs))
               .setPlaybackRate(loadingInfo.playbackSpeed)

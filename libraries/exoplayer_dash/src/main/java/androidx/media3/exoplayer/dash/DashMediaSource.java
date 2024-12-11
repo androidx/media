@@ -1105,8 +1105,8 @@ public final class DashMediaSource extends BaseMediaSource {
         new DataSpec.Builder().setUri(manifestUri).setFlags(DataSpec.FLAG_ALLOW_GZIP).build();
     if (cmcdConfiguration != null) {
       CmcdData.Factory cmcdDataFactory =
-          new CmcdData.Factory(cmcdConfiguration, CmcdData.Factory.STREAMING_FORMAT_DASH)
-              .setObjectType(CmcdData.Factory.OBJECT_TYPE_MANIFEST);
+          new CmcdData.Factory(cmcdConfiguration, CmcdData.STREAMING_FORMAT_DASH)
+              .setObjectType(CmcdData.OBJECT_TYPE_MANIFEST);
       if (manifest != null) {
         cmcdDataFactory.setIsLive(manifest.dynamic);
       }

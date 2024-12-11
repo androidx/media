@@ -507,7 +507,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     @Nullable CmcdData.Factory cmcdDataFactory = null;
     if (cmcdConfiguration != null) {
       cmcdDataFactory =
-          new CmcdData.Factory(cmcdConfiguration, CmcdData.Factory.STREAMING_FORMAT_HLS)
+          new CmcdData.Factory(cmcdConfiguration, CmcdData.STREAMING_FORMAT_HLS)
               .setTrackSelection(trackSelection)
               .setBufferedDurationUs(max(0, bufferedDurationUs))
               .setPlaybackRate(loadingInfo.playbackSpeed)
@@ -516,7 +516,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               .setIsBufferEmpty(queue.isEmpty())
               .setObjectType(
                   getIsMuxedAudioAndVideo()
-                      ? CmcdData.Factory.OBJECT_TYPE_MUXED_AUDIO_AND_VIDEO
+                      ? CmcdData.OBJECT_TYPE_MUXED_AUDIO_AND_VIDEO
                       : CmcdData.Factory.getObjectType(trackSelection));
       long nextMediaSequence =
           segmentBaseHolder.partIndex == C.INDEX_UNSET
@@ -930,7 +930,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         new DataSpec.Builder().setUri(keyUri).setFlags(DataSpec.FLAG_ALLOW_GZIP).build();
     if (cmcdDataFactory != null) {
       if (isInitSegment) {
-        cmcdDataFactory.setObjectType(CmcdData.Factory.OBJECT_TYPE_INIT_SEGMENT);
+        cmcdDataFactory.setObjectType(CmcdData.OBJECT_TYPE_INIT_SEGMENT);
       }
       CmcdData cmcdData = cmcdDataFactory.createCmcdData();
       dataSpec = cmcdData.addToDataSpec(dataSpec);

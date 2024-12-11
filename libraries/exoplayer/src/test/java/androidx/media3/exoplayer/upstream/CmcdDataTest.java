@@ -45,16 +45,16 @@ public class CmcdDataTest {
         "Track selection must be set",
         IllegalStateException.class,
         () ->
-            new CmcdData.Factory(cmcdConfiguration, CmcdData.Factory.STREAMING_FORMAT_DASH)
-                .setObjectType(CmcdData.Factory.OBJECT_TYPE_INIT_SEGMENT)
+            new CmcdData.Factory(cmcdConfiguration, CmcdData.STREAMING_FORMAT_DASH)
+                .setObjectType(CmcdData.OBJECT_TYPE_INIT_SEGMENT)
                 .createCmcdData());
 
     assertThrows(
         "Buffered duration must be set",
         IllegalStateException.class,
         () ->
-            new CmcdData.Factory(cmcdConfiguration, CmcdData.Factory.STREAMING_FORMAT_DASH)
-                .setObjectType(CmcdData.Factory.OBJECT_TYPE_AUDIO_ONLY)
+            new CmcdData.Factory(cmcdConfiguration, CmcdData.STREAMING_FORMAT_DASH)
+                .setObjectType(CmcdData.OBJECT_TYPE_AUDIO_ONLY)
                 .setTrackSelection(trackSelection)
                 .setChunkDurationUs(100_000)
                 .createCmcdData());
@@ -63,8 +63,8 @@ public class CmcdDataTest {
         "Chunk duration must be set",
         IllegalStateException.class,
         () ->
-            new CmcdData.Factory(cmcdConfiguration, CmcdData.Factory.STREAMING_FORMAT_DASH)
-                .setObjectType(CmcdData.Factory.OBJECT_TYPE_AUDIO_ONLY)
+            new CmcdData.Factory(cmcdConfiguration, CmcdData.STREAMING_FORMAT_DASH)
+                .setObjectType(CmcdData.OBJECT_TYPE_AUDIO_ONLY)
                 .setTrackSelection(trackSelection)
                 .setBufferedDurationUs(100_000)
                 .createCmcdData());
@@ -94,9 +94,9 @@ public class CmcdDataTest {
     when(trackSelection.getLatestBitrateEstimate()).thenReturn(500_000L);
     DataSpec dataSpec = new DataSpec.Builder().setUri(Uri.EMPTY).build();
     CmcdData cmcdData =
-        new CmcdData.Factory(cmcdConfiguration, CmcdData.Factory.STREAMING_FORMAT_DASH)
+        new CmcdData.Factory(cmcdConfiguration, CmcdData.STREAMING_FORMAT_DASH)
             .setTrackSelection(trackSelection)
-            .setObjectType(CmcdData.Factory.OBJECT_TYPE_AUDIO_ONLY)
+            .setObjectType(CmcdData.OBJECT_TYPE_AUDIO_ONLY)
             .setBufferedDurationUs(1_760_000)
             .setPlaybackRate(2.0f)
             .setIsLive(true)
@@ -144,8 +144,8 @@ public class CmcdDataTest {
     when(trackSelection.getLatestBitrateEstimate()).thenReturn(500_000L);
     DataSpec dataSpec = new DataSpec.Builder().setUri(Uri.EMPTY).build();
     CmcdData cmcdData =
-        new CmcdData.Factory(cmcdConfiguration, CmcdData.Factory.STREAMING_FORMAT_DASH)
-            .setObjectType(CmcdData.Factory.OBJECT_TYPE_AUDIO_ONLY)
+        new CmcdData.Factory(cmcdConfiguration, CmcdData.STREAMING_FORMAT_DASH)
+            .setObjectType(CmcdData.OBJECT_TYPE_AUDIO_ONLY)
             .setTrackSelection(trackSelection)
             .setBufferedDurationUs(1_760_000)
             .setPlaybackRate(2.0f)
@@ -174,8 +174,8 @@ public class CmcdDataTest {
         cmcdConfigurationFactory.createCmcdConfiguration(mediaItem);
     DataSpec dataSpec = new DataSpec.Builder().setUri(Uri.EMPTY).build();
     CmcdData cmcdData =
-        new CmcdData.Factory(cmcdConfiguration, CmcdData.Factory.STREAMING_FORMAT_DASH)
-            .setObjectType(CmcdData.Factory.OBJECT_TYPE_MANIFEST)
+        new CmcdData.Factory(cmcdConfiguration, CmcdData.STREAMING_FORMAT_DASH)
+            .setObjectType(CmcdData.OBJECT_TYPE_MANIFEST)
             .createCmcdData();
 
     dataSpec = cmcdData.addToDataSpec(dataSpec);
@@ -199,8 +199,8 @@ public class CmcdDataTest {
         cmcdConfigurationFactory.createCmcdConfiguration(mediaItem);
     DataSpec dataSpec = new DataSpec.Builder().setUri(Uri.EMPTY).build();
     CmcdData cmcdData =
-        new CmcdData.Factory(cmcdConfiguration, CmcdData.Factory.STREAMING_FORMAT_DASH)
-            .setObjectType(CmcdData.Factory.OBJECT_TYPE_MANIFEST)
+        new CmcdData.Factory(cmcdConfiguration, CmcdData.STREAMING_FORMAT_DASH)
+            .setObjectType(CmcdData.OBJECT_TYPE_MANIFEST)
             .createCmcdData();
 
     dataSpec = cmcdData.addToDataSpec(dataSpec);
@@ -226,7 +226,7 @@ public class CmcdDataTest {
     when(trackSelection.getLatestBitrateEstimate()).thenReturn(500_000L);
     DataSpec dataSpec = new DataSpec.Builder().setUri(Uri.EMPTY).build();
     CmcdData cmcdData =
-        new CmcdData.Factory(cmcdConfiguration, CmcdData.Factory.STREAMING_FORMAT_DASH)
+        new CmcdData.Factory(cmcdConfiguration, CmcdData.STREAMING_FORMAT_DASH)
             .setTrackSelection(trackSelection)
             .setPlaybackRate(2.0f)
             .setIsLive(true)
@@ -268,7 +268,7 @@ public class CmcdDataTest {
     when(trackSelection.getLatestBitrateEstimate()).thenReturn(500_000L);
     DataSpec dataSpec = new DataSpec.Builder().setUri(Uri.EMPTY).build();
     CmcdData cmcdData =
-        new CmcdData.Factory(cmcdConfiguration, CmcdData.Factory.STREAMING_FORMAT_DASH)
+        new CmcdData.Factory(cmcdConfiguration, CmcdData.STREAMING_FORMAT_DASH)
             .setTrackSelection(trackSelection)
             .setPlaybackRate(2.0f)
             .setIsLive(true)
@@ -307,8 +307,8 @@ public class CmcdDataTest {
         cmcdConfigurationFactory.createCmcdConfiguration(MediaItem.EMPTY);
     DataSpec dataSpec = new DataSpec.Builder().setUri(Uri.EMPTY).build();
     CmcdData cmcdData =
-        new CmcdData.Factory(cmcdConfiguration, CmcdData.Factory.STREAMING_FORMAT_DASH)
-            .setObjectType(CmcdData.Factory.OBJECT_TYPE_MANIFEST)
+        new CmcdData.Factory(cmcdConfiguration, CmcdData.STREAMING_FORMAT_DASH)
+            .setObjectType(CmcdData.OBJECT_TYPE_MANIFEST)
             .createCmcdData();
 
     dataSpec = cmcdData.addToDataSpec(dataSpec);
@@ -347,8 +347,8 @@ public class CmcdDataTest {
         cmcdConfigurationFactory.createCmcdConfiguration(MediaItem.EMPTY);
     DataSpec dataSpec = new DataSpec.Builder().setUri(Uri.EMPTY).build();
     CmcdData cmcdData =
-        new CmcdData.Factory(cmcdConfiguration, CmcdData.Factory.STREAMING_FORMAT_DASH)
-            .setObjectType(CmcdData.Factory.OBJECT_TYPE_MANIFEST)
+        new CmcdData.Factory(cmcdConfiguration, CmcdData.STREAMING_FORMAT_DASH)
+            .setObjectType(CmcdData.OBJECT_TYPE_MANIFEST)
             .createCmcdData();
 
     dataSpec = cmcdData.addToDataSpec(dataSpec);
@@ -381,8 +381,8 @@ public class CmcdDataTest {
     assertThrows(
         IllegalStateException.class,
         () ->
-            new CmcdData.Factory(cmcdConfiguration, CmcdData.Factory.STREAMING_FORMAT_DASH)
-                .setObjectType(CmcdData.Factory.OBJECT_TYPE_MANIFEST)
+            new CmcdData.Factory(cmcdConfiguration, CmcdData.STREAMING_FORMAT_DASH)
+                .setObjectType(CmcdData.OBJECT_TYPE_MANIFEST)
                 .createCmcdData());
   }
 }

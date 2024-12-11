@@ -65,36 +65,6 @@ public final class CmcdData {
   /** {@link CmcdData.Factory} for {@link CmcdData} instances. */
   public static final class Factory {
 
-    /** Represents the Dynamic Adaptive Streaming over HTTP (DASH) format. */
-    public static final String STREAMING_FORMAT_DASH = "d";
-
-    /** Represents the HTTP Live Streaming (HLS) format. */
-    public static final String STREAMING_FORMAT_HLS = "h";
-
-    /** Represents the Smooth Streaming (SS) format. */
-    public static final String STREAMING_FORMAT_SS = "s";
-
-    /** Represents the Video on Demand (VOD) stream type. */
-    public static final String STREAM_TYPE_VOD = "v";
-
-    /** Represents the Live Streaming stream type. */
-    public static final String STREAM_TYPE_LIVE = "l";
-
-    /** Represents the object type for an initialization segment in a media container. */
-    public static final String OBJECT_TYPE_INIT_SEGMENT = "i";
-
-    /** Represents the object type for audio-only content in a media container. */
-    public static final String OBJECT_TYPE_AUDIO_ONLY = "a";
-
-    /** Represents the object type for video-only content in a media container. */
-    public static final String OBJECT_TYPE_VIDEO_ONLY = "v";
-
-    /** Represents the object type for muxed audio and video content in a media container. */
-    public static final String OBJECT_TYPE_MUXED_AUDIO_AND_VIDEO = "av";
-
-    /** Represents the object type for a manifest or playlist file, in a media container. */
-    public static final String OBJECT_TYPE_MANIFEST = "m";
-
     /**
      * Custom key names MUST carry a hyphenated prefix to ensure that there will not be a namespace
      * collision with future revisions to this specification. Clients SHOULD use a reverse-DNS
@@ -103,7 +73,7 @@ public final class CmcdData {
     private static final Pattern CUSTOM_KEY_NAME_PATTERN = Pattern.compile(".*-.*");
 
     private final CmcdConfiguration cmcdConfiguration;
-    private final @CmcdData.StreamingFormat String streamingFormat;
+    private final @StreamingFormat String streamingFormat;
     @Nullable private ExoTrackSelection trackSelection;
     private long bufferedDurationUs;
     private float playbackRate;
@@ -111,7 +81,7 @@ public final class CmcdData {
     private boolean didRebuffer;
     private boolean isBufferEmpty;
     private long chunkDurationUs;
-    @Nullable private @CmcdData.ObjectType String objectType;
+    @Nullable private @ObjectType String objectType;
     @Nullable private String nextObjectRequest;
     @Nullable private String nextRangeRequest;
 
@@ -121,8 +91,7 @@ public final class CmcdData {
      * @param cmcdConfiguration The {@link CmcdConfiguration} for this source.
      * @param streamingFormat The streaming format of the media content.
      */
-    public Factory(
-        CmcdConfiguration cmcdConfiguration, @CmcdData.StreamingFormat String streamingFormat) {
+    public Factory(CmcdConfiguration cmcdConfiguration, @StreamingFormat String streamingFormat) {
       this.cmcdConfiguration = cmcdConfiguration;
       this.bufferedDurationUs = C.TIME_UNSET;
       this.playbackRate = C.RATE_UNSET;
@@ -180,7 +149,7 @@ public final class CmcdData {
      * <p>Default is {@code null}.
      */
     @CanIgnoreReturnValue
-    public Factory setObjectType(@Nullable @CmcdData.ObjectType String objectType) {
+    public Factory setObjectType(@Nullable @ObjectType String objectType) {
       this.objectType = objectType;
       return this;
     }
@@ -421,13 +390,13 @@ public final class CmcdData {
     }
 
     private static boolean isManifestObjectType(@Nullable @ObjectType String objectType) {
-      return Objects.equals(objectType, Factory.OBJECT_TYPE_MANIFEST);
+      return Objects.equals(objectType, OBJECT_TYPE_MANIFEST);
     }
 
     private static boolean isMediaObjectType(@Nullable @ObjectType String objectType) {
-      return Objects.equals(objectType, Factory.OBJECT_TYPE_AUDIO_ONLY)
-          || Objects.equals(objectType, Factory.OBJECT_TYPE_VIDEO_ONLY)
-          || Objects.equals(objectType, Factory.OBJECT_TYPE_MUXED_AUDIO_AND_VIDEO);
+      return Objects.equals(objectType, OBJECT_TYPE_AUDIO_ONLY)
+          || Objects.equals(objectType, OBJECT_TYPE_VIDEO_ONLY)
+          || Objects.equals(objectType, OBJECT_TYPE_MUXED_AUDIO_AND_VIDEO);
     }
 
     private void validateCustomDataListFormat(List<String> customDataList) {
@@ -440,34 +409,60 @@ public final class CmcdData {
 
   /** Indicates the streaming format used for media content. */
   @Retention(RetentionPolicy.SOURCE)
-  @StringDef({
-    Factory.STREAMING_FORMAT_DASH,
-    Factory.STREAMING_FORMAT_HLS,
-    Factory.STREAMING_FORMAT_SS
-  })
+  @StringDef({STREAMING_FORMAT_DASH, STREAMING_FORMAT_HLS, STREAMING_FORMAT_SS})
   @Documented
   @Target(TYPE_USE)
   public @interface StreamingFormat {}
 
+  /** Represents the Dynamic Adaptive Streaming over HTTP (DASH) format. */
+  public static final String STREAMING_FORMAT_DASH = "d";
+
+  /** Represents the HTTP Live Streaming (HLS) format. */
+  public static final String STREAMING_FORMAT_HLS = "h";
+
+  /** Represents the Smooth Streaming (SS) format. */
+  public static final String STREAMING_FORMAT_SS = "s";
+
   /** Indicates the type of streaming for media content. */
   @Retention(RetentionPolicy.SOURCE)
-  @StringDef({Factory.STREAM_TYPE_VOD, Factory.STREAM_TYPE_LIVE})
+  @StringDef({STREAM_TYPE_VOD, STREAM_TYPE_LIVE})
   @Documented
   @Target(TYPE_USE)
   public @interface StreamType {}
 
+  /** Represents the Video on Demand (VOD) stream type. */
+  public static final String STREAM_TYPE_VOD = "v";
+
+  /** Represents the Live Streaming stream type. */
+  public static final String STREAM_TYPE_LIVE = "l";
+
   /** Indicates the media type of current object being requested. */
   @Retention(RetentionPolicy.SOURCE)
   @StringDef({
-    Factory.OBJECT_TYPE_INIT_SEGMENT,
-    Factory.OBJECT_TYPE_AUDIO_ONLY,
-    Factory.OBJECT_TYPE_VIDEO_ONLY,
-    Factory.OBJECT_TYPE_MUXED_AUDIO_AND_VIDEO,
-    Factory.OBJECT_TYPE_MANIFEST
+    OBJECT_TYPE_INIT_SEGMENT,
+    OBJECT_TYPE_AUDIO_ONLY,
+    OBJECT_TYPE_VIDEO_ONLY,
+    OBJECT_TYPE_MUXED_AUDIO_AND_VIDEO,
+    OBJECT_TYPE_MANIFEST
   })
   @Documented
   @Target(TYPE_USE)
   public @interface ObjectType {}
+
+  /** Represents the object type for an initialization segment in a media container. */
+  public static final String OBJECT_TYPE_INIT_SEGMENT = "i";
+
+  /** Represents the object type for audio-only content in a media container. */
+  public static final String OBJECT_TYPE_AUDIO_ONLY = "a";
+
+  /** Represents the object type for video-only content in a media container. */
+  public static final String OBJECT_TYPE_VIDEO_ONLY = "v";
+
+  /** Represents the object type for muxed audio and video content in a media container. */
+  public static final String OBJECT_TYPE_MUXED_AUDIO_AND_VIDEO = "av";
+
+  /** Represents the object type for a manifest or playlist file, in a media container. */
+  public static final String OBJECT_TYPE_MANIFEST = "m";
 
   private static final Joiner COMMA_JOINER = Joiner.on(",");
 

@@ -421,7 +421,7 @@ public class DefaultDashChunkSource implements DashChunkSource {
     CmcdData.Factory cmcdDataFactory =
         cmcdConfiguration == null
             ? null
-            : new CmcdData.Factory(cmcdConfiguration, CmcdData.Factory.STREAMING_FORMAT_DASH)
+            : new CmcdData.Factory(cmcdConfiguration, CmcdData.STREAMING_FORMAT_DASH)
                 .setTrackSelection(trackSelection)
                 .setBufferedDurationUs(max(0, bufferedDurationUs))
                 .setPlaybackRate(loadingInfo.playbackSpeed)
@@ -747,7 +747,7 @@ public class DefaultDashChunkSource implements DashChunkSource {
             /* httpRequestHeaders= */ ImmutableMap.of());
     if (cmcdDataFactory != null) {
       CmcdData cmcdData =
-          cmcdDataFactory.setObjectType(CmcdData.Factory.OBJECT_TYPE_INIT_SEGMENT).createCmcdData();
+          cmcdDataFactory.setObjectType(CmcdData.OBJECT_TYPE_INIT_SEGMENT).createCmcdData();
       dataSpec = cmcdData.addToDataSpec(dataSpec);
     }
 

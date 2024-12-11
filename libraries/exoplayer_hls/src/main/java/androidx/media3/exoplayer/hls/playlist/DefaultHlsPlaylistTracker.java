@@ -150,8 +150,8 @@ public final class DefaultHlsPlaylistTracker
             .build();
     if (cmcdConfiguration != null) {
       CmcdData cmcdData =
-          new CmcdData.Factory(cmcdConfiguration, CmcdData.Factory.STREAMING_FORMAT_HLS)
-              .setObjectType(CmcdData.Factory.OBJECT_TYPE_MANIFEST)
+          new CmcdData.Factory(cmcdConfiguration, CmcdData.STREAMING_FORMAT_HLS)
+              .setObjectType(CmcdData.OBJECT_TYPE_MANIFEST)
               .createCmcdData();
       cmcdData.addToDataSpec(dataSpec);
     }
@@ -791,8 +791,8 @@ public final class DefaultHlsPlaylistTracker
               .build();
       if (cmcdConfiguration != null) {
         CmcdData.Factory cmcdDataFactory =
-            new CmcdData.Factory(cmcdConfiguration, CmcdData.Factory.STREAMING_FORMAT_HLS)
-                .setObjectType(CmcdData.Factory.OBJECT_TYPE_MANIFEST);
+            new CmcdData.Factory(cmcdConfiguration, CmcdData.STREAMING_FORMAT_HLS)
+                .setObjectType(CmcdData.OBJECT_TYPE_MANIFEST);
         if (primaryMediaPlaylistSnapshot != null) {
           cmcdDataFactory.setIsLive(!primaryMediaPlaylistSnapshot.hasEndTag);
         }
