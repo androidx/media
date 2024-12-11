@@ -685,6 +685,9 @@ public final class MimeTypes {
     }
     mimeType = Ascii.toLowerCase(mimeType);
     switch (mimeType) {
+      // Normalize uncommon versions of some video MIME types to their standard equivalent.
+      case BASE_TYPE_VIDEO + "/x-mvhevc":
+        return VIDEO_MV_HEVC;
       // Normalize uncommon versions of some audio MIME types to their standard equivalent.
       case BASE_TYPE_AUDIO + "/x-flac":
         return AUDIO_FLAC;
