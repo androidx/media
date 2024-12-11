@@ -1499,7 +1499,8 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
    * @param format The {@link Format} for which the codec is being configured.
    * @throws ExoPlaybackException If an error occurs preparing for initializing the codec.
    */
-  protected void onReadyToInitializeCodec(MediaCodecInfo codecInfo, Format format) throws ExoPlaybackException {
+  protected void onReadyToInitializeCodec(MediaCodecInfo codecInfo, Format format)
+      throws ExoPlaybackException {
     // Do nothing.
   }
 

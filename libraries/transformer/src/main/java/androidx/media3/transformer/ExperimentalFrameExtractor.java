@@ -663,7 +663,8 @@ public final class ExperimentalFrameExtractor {
 
     @CallSuper
     @Override
-    protected void onReadyToInitializeCodec(MediaCodecInfo codecInfo, Format format) throws ExoPlaybackException {
+    protected void onReadyToInitializeCodec(MediaCodecInfo codecInfo, Format format)
+        throws ExoPlaybackException {
       if (isTransferHdr(format.colorInfo) && toneMapHdrToSdr) {
         // Setting the VideoSink format to SDR_BT709_LIMITED tone maps to SDR.
         format = format.buildUpon().setColorInfo(SDR_BT709_LIMITED).build();
