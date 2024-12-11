@@ -254,19 +254,6 @@ public final class ExoPlaybackException extends PlaybackException {
         isRecoverable);
   }
 
-  private ExoPlaybackException(Bundle bundle) {
-    super(bundle);
-    type = bundle.getInt(FIELD_TYPE, /* defaultValue= */ TYPE_UNEXPECTED);
-    rendererName = bundle.getString(FIELD_RENDERER_NAME);
-    rendererIndex = bundle.getInt(FIELD_RENDERER_INDEX, /* defaultValue= */ C.INDEX_UNSET);
-    @Nullable Bundle rendererFormatBundle = bundle.getBundle(FIELD_RENDERER_FORMAT);
-    rendererFormat = rendererFormatBundle == null ? null : Format.fromBundle(rendererFormatBundle);
-    rendererFormatSupport =
-        bundle.getInt(FIELD_RENDERER_FORMAT_SUPPORT, /* defaultValue= */ C.FORMAT_HANDLED);
-    isRecoverable = bundle.getBoolean(FIELD_IS_RECOVERABLE, /* defaultValue= */ false);
-    mediaPeriodId = null;
-  }
-
   private ExoPlaybackException(
       String message,
       @Nullable Throwable cause,
@@ -398,45 +385,5 @@ public final class ExoPlaybackException extends PlaybackException {
       message += ": " + customMessage;
     }
     return message;
-  }
-
-  /** Restores a {@code ExoPlaybackException} from a {@link Bundle}. */
-  @UnstableApi
-  public static ExoPlaybackException fromBundle(Bundle bundle) {
-    return new ExoPlaybackException(bundle);
-  }
-
-  private static final String FIELD_TYPE = Util.intToStringMaxRadix(FIELD_CUSTOM_ID_BASE + 1);
-  private static final String FIELD_RENDERER_NAME =
-      Util.intToStringMaxRadix(FIELD_CUSTOM_ID_BASE + 2);
-  private static final String FIELD_RENDERER_INDEX =
-      Util.intToStringMaxRadix(FIELD_CUSTOM_ID_BASE + 3);
-  private static final String FIELD_RENDERER_FORMAT =
-      Util.intToStringMaxRadix(FIELD_CUSTOM_ID_BASE + 4);
-  private static final String FIELD_RENDERER_FORMAT_SUPPORT =
-      Util.intToStringMaxRadix(FIELD_CUSTOM_ID_BASE + 5);
-  private static final String FIELD_IS_RECOVERABLE =
-      Util.intToStringMaxRadix(FIELD_CUSTOM_ID_BASE + 6);
-
-  /**
-   * {@inheritDoc}
-   *
-   * <p>It omits the {@link #mediaPeriodId} field. The {@link #mediaPeriodId} of an instance
-   * restored by {@link #fromBundle} will always be {@code null}.
-   */
-  @UnstableApi
-  @Override
-  public Bundle toBundle() {
-    Bundle bundle = super.toBundle();
-    bundle.putInt(FIELD_TYPE, type);
-    bundle.putString(FIELD_RENDERER_NAME, rendererName);
-    bundle.putInt(FIELD_RENDERER_INDEX, rendererIndex);
-    if (rendererFormat != null) {
-      bundle.putBundle(
-          FIELD_RENDERER_FORMAT, rendererFormat.toBundle(/* excludeMetadata= */ false));
-    }
-    bundle.putInt(FIELD_RENDERER_FORMAT_SUPPORT, rendererFormatSupport);
-    bundle.putBoolean(FIELD_IS_RECOVERABLE, isRecoverable);
-    return bundle;
   }
 }
