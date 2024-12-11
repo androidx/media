@@ -1495,7 +1495,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
    *
    * <p>The default implementation is a no-op.
    *
-   * @param codecInfo The {@link MediaCodecInfo} the codec which is being configured.
+   * @param codecInfo The {@link MediaCodecInfo} of the codec which will be initialized.
    * @param format The {@link Format} for which the codec is being configured.
    * @throws ExoPlaybackException If an error occurs preparing for initializing the codec.
    */
