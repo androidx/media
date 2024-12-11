@@ -297,12 +297,19 @@ public final class MediaCodecInfo {
   private boolean isCodecProfileAndLevelSupported(
       Format format, boolean checkPerformanceCapabilities) {
     Pair<Integer, Integer> codecProfileAndLevel = MediaCodecUtil.getCodecProfileAndLevel(format);
-    if (format.sampleMimeType != null
-        && format.sampleMimeType.equals(MimeTypes.VIDEO_MV_HEVC)
-        && codecMimeType.equals(MimeTypes.VIDEO_H265)) {
-      // Falling back to single-layer HEVC from MV-HEVC.  Get base layer profile and level.
-      codecProfileAndLevel = MediaCodecUtil.getHevcBaseLayerCodecProfileAndLevel(format);
+    if (format.sampleMimeType != null && format.sampleMimeType.equals(MimeTypes.VIDEO_MV_HEVC)) {
+      String normalizedCodecMimeType = MimeTypes.normalizeMimeType(codecMimeType);
+      if (normalizedCodecMimeType.equals(MimeTypes.VIDEO_MV_HEVC)) {
+        // Currently as there is no formal support for MV-HEVC within Android framework, the profile
+        // is not correctly specified by the underlying codec; just assume the profile obtained from
+        // the MV-HEVC sample is supported.
+        return true;
+      } else if (normalizedCodecMimeType.equals(MimeTypes.VIDEO_H265)) {
+        // Falling back to single-layer HEVC from MV-HEVC.  Get base layer profile and level.
+        codecProfileAndLevel = MediaCodecUtil.getHevcBaseLayerCodecProfileAndLevel(format);
+      }
     }
+
     if (codecProfileAndLevel == null) {
       // If we don't know any better, we assume that the profile and level are supported.
       return true;
