@@ -33,9 +33,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.demo.compose.buttons.ExtraControls
@@ -47,21 +45,21 @@ import androidx.media3.ui.compose.SURFACE_TYPE_SURFACE_VIEW
 
 class MainActivity : ComponentActivity() {
 
+  private lateinit var player: Player
+
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     enableEdgeToEdge()
+    player = initializePlayer()
     setContent {
-      val context = LocalContext.current
-      val exoPlayer = remember {
-        ExoPlayer.Builder(context).build().apply {
-          setMediaItems(videos.map { MediaItem.fromUri(it) })
-          prepare()
-        }
-      }
-      MediaPlayerScreen(
-        player = exoPlayer,
-        modifier = Modifier.fillMaxSize().navigationBarsPadding(),
-      )
+      MediaPlayerScreen(player = player, modifier = Modifier.fillMaxSize().navigationBarsPadding())
+    }
+  }
+
+  private fun initializePlayer(): Player {
+    return ExoPlayer.Builder(this).build().apply {
+      setMediaItems(videos.map { MediaItem.fromUri(it) })
+      prepare()
     }
   }
 }
