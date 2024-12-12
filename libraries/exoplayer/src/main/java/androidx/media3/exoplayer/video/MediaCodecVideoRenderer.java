@@ -1858,7 +1858,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     return Util.SDK_INT >= 35 && codecInfo.detachedSurfaceSupported;
   }
 
-  private boolean shouldUsePlaceholderSurface(MediaCodecInfo codecInfo) {
+  protected boolean shouldUsePlaceholderSurface(MediaCodecInfo codecInfo) {
     return Util.SDK_INT >= 23
         && !tunneling
         && !codecNeedsSetOutputSurfaceWorkaround(codecInfo.name)
