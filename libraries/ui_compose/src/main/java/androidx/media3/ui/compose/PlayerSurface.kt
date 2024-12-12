@@ -44,8 +44,12 @@ import androidx.media3.common.util.UnstableApi
 @UnstableApi
 @Composable
 fun PlayerSurface(player: Player, surfaceType: @SurfaceType Int, modifier: Modifier = Modifier) {
-  val onSurfaceCreated: (Surface) -> Unit = { surface -> player.setVideoSurface(surface) }
-  val onSurfaceDestroyed: () -> Unit = { player.setVideoSurface(null) }
+  val onSurfaceCreated: (Surface) -> Unit = { surface ->
+    if (player.isCommandAvailable(Player.COMMAND_SET_VIDEO_SURFACE)) player.setVideoSurface(surface)
+  }
+  val onSurfaceDestroyed: () -> Unit = {
+    if (player.isCommandAvailable(Player.COMMAND_SET_VIDEO_SURFACE)) player.clearVideoSurface()
+  }
   val onSurfaceInitialized: AndroidExternalSurfaceScope.() -> Unit = {
     onSurface { surface, _, _ ->
       onSurfaceCreated(surface)
