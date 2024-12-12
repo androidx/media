@@ -18,17 +18,22 @@ package androidx.media3.session;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
+import static androidx.media3.session.SessionCommand.COMMAND_CODE_CUSTOM;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.content.ContentResolver;
 import android.net.Uri;
 import android.os.Bundle;
 import android.text.TextUtils;
+import android.util.SparseArray;
+import android.util.SparseBooleanArray;
+import android.util.SparseIntArray;
 import androidx.annotation.DrawableRes;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Player;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.common.base.Objects;
@@ -701,6 +706,388 @@ public final class CommandButton {
     }
   }
 
+  /**
+   * Constraints for displaying a list of {@link CommandButton} instances with utilities to resolve
+   * these constraints for a given list of buttons.
+   */
+  @UnstableApi
+  public static final class DisplayConstraints {
+
+    /** A builder for {@link DisplayConstraints}. */
+    public static final class Builder {
+
+      private final SparseIntArray maxButtonsPerSlot;
+      private final SparseArray<Player.@NullableType Commands> allowedPlayerCommandsPerSlot;
+      private final SparseArray<@NullableType SessionCommands> allowedSessionCommandsPerSlot;
+      private final SparseBooleanArray areCustomCommandsAllowedPerSlot;
+      private boolean buildCalled;
+
+      /** Creates the builder. */
+      public Builder() {
+        maxButtonsPerSlot = new SparseIntArray();
+        maxButtonsPerSlot.put(SLOT_CENTRAL, 1);
+        maxButtonsPerSlot.put(SLOT_BACK, 1);
+        maxButtonsPerSlot.put(SLOT_FORWARD, 1);
+        maxButtonsPerSlot.put(SLOT_OVERFLOW, Integer.MAX_VALUE);
+        allowedPlayerCommandsPerSlot = new SparseArray<>();
+        allowedSessionCommandsPerSlot = new SparseArray<>();
+        areCustomCommandsAllowedPerSlot = new SparseBooleanArray();
+      }
+
+      /**
+       * Sets the maximum number of buttons that can be displayed in a slot.
+       *
+       * <p>The default values are:
+       *
+       * <ul>
+       *   <li>{@link #SLOT_CENTRAL}, {@link #SLOT_BACK}, {@link #SLOT_FORWARD}: 1
+       *   <li>{@link #SLOT_BACK_SECONDARY}, {@link #SLOT_FORWARD_SECONDARY}: 0
+       *   <li>{@link #SLOT_OVERFLOW}: {@link Integer#MAX_VALUE}.
+       * </ul>
+       *
+       * @param slot The {@link Slot}.
+       * @param maxButtons The maximum number of buttons that can be displayed in this slot.
+       * @return This builder.
+       */
+      @CanIgnoreReturnValue
+      public Builder setMaxButtonsForSlot(@Slot int slot, int maxButtons) {
+        checkArgument(maxButtons >= 0);
+        maxButtonsPerSlot.put(slot, maxButtons);
+        return this;
+      }
+
+      /**
+       * Sets the allowed {@link Player.Commands} for buttons in the given slot.
+       *
+       * <p>The default value ({@code null}) does not restrict the allowed {@link Player.Commands}.
+       *
+       * @param slot The {@link Slot}.
+       * @param allowedPlayerCommands The allowed {@link Player.Commands} for buttons in this slot,
+       *     or null to allow all {@link Player.Commands} .
+       * @return This builder.
+       */
+      @CanIgnoreReturnValue
+      public Builder setAllowedPlayerCommandsForSlot(
+          @Slot int slot, @Nullable Player.Commands allowedPlayerCommands) {
+        allowedPlayerCommandsPerSlot.put(slot, allowedPlayerCommands);
+        return this;
+      }
+
+      /**
+       * Sets the allowed non-custom {@link SessionCommands} for buttons in the given slot.
+       *
+       * <p>The default value ({@code null}) does not restrict the allowed {@link SessionCommands}.
+       *
+       * <p>This setting has no effect on whether {@linkplain SessionCommand#COMMAND_CODE_CUSTOM
+       * custom session commands} are allowed. Use {@link #setAllowCustomCommandsForSlot} instead.
+       *
+       * @param slot The {@link Slot}.
+       * @param allowedSessionCommands The allowed {@link SessionCommands} for buttons in this slot,
+       *     or null to allow all {@link SessionCommands}.
+       * @return This builder.
+       */
+      @CanIgnoreReturnValue
+      public Builder setAllowedSessionCommandsForSlot(
+          @Slot int slot, @Nullable SessionCommands allowedSessionCommands) {
+        allowedSessionCommandsPerSlot.put(slot, allowedSessionCommands);
+        return this;
+      }
+
+      /**
+       * Sets whether {@linkplain SessionCommand#COMMAND_CODE_CUSTOM custom session commands} are
+       * allowed for buttons in the given slot.
+       *
+       * <p>The default value is {@code true}.
+       *
+       * @param slot The {@link Slot}.
+       * @param allowCustomCommands Whether {@linkplain SessionCommand#COMMAND_CODE_CUSTOM custom
+       *     session commands} are allowed for buttons in this slot.
+       * @return This builder.
+       */
+      @CanIgnoreReturnValue
+      public Builder setAllowCustomCommandsForSlot(@Slot int slot, boolean allowCustomCommands) {
+        areCustomCommandsAllowedPerSlot.put(slot, allowCustomCommands);
+        return this;
+      }
+
+      /** Builds the display constraints. */
+      public DisplayConstraints build() {
+        checkState(!buildCalled);
+        buildCalled = true;
+        return new DisplayConstraints(this);
+      }
+    }
+
+    private final SparseIntArray maxButtonsPerSlot;
+    private final SparseArray<Player.@NullableType Commands> allowedPlayerCommandsPerSlot;
+    private final SparseArray<@NullableType SessionCommands> allowedSessionCommandsPerSlot;
+    private final SparseBooleanArray areCustomCommandsAllowedPerSlot;
+
+    private DisplayConstraints(Builder builder) {
+      this.maxButtonsPerSlot = builder.maxButtonsPerSlot;
+      this.allowedPlayerCommandsPerSlot = builder.allowedPlayerCommandsPerSlot;
+      this.allowedSessionCommandsPerSlot = builder.allowedSessionCommandsPerSlot;
+      this.areCustomCommandsAllowedPerSlot = builder.areCustomCommandsAllowedPerSlot;
+    }
+
+    /**
+     * Resolves a list of {@linkplain MediaController#getMediaButtonPreferences media button
+     * preferences} according to these display constraints and returns the list of buttons to be
+     * displayed.
+     *
+     * <p>Note that the result of this resolution can change whenever the {@code
+     * mediaButtonPreferences} change, or the {@code player} reports any of the following listener
+     * events:
+     *
+     * <ul>
+     *   <li>{@link Player#EVENT_AVAILABLE_COMMANDS_CHANGED}
+     *   <li>{@link Player#EVENT_PLAY_WHEN_READY_CHANGED}
+     *   <li>{@link Player#EVENT_PLAYBACK_STATE_CHANGED}
+     *   <li>{@link Player#EVENT_PLAYBACK_SUPPRESSION_REASON_CHANGED}
+     *   <li>{@link Player#EVENT_PLAYBACK_STATE_CHANGED}
+     *   <li>{@link Player#EVENT_SEEK_BACK_INCREMENT_CHANGED}
+     *   <li>{@link Player#EVENT_SEEK_FORWARD_INCREMENT_CHANGED}
+     * </ul>
+     *
+     * @param mediaButtonPreferences The list of {@linkplain
+     *     MediaController#getMediaButtonPreferences media button preferences}.
+     * @param player The {@link Player} used to determine default buttons for empty slots.
+     * @return The resolved list of {@linkplain CommandButton buttons} to be displayed. Each button
+     *     will have a single {@linkplain CommandButton#slots slot} defined.
+     */
+    public ImmutableList<CommandButton> resolve(
+        List<CommandButton> mediaButtonPreferences, Player player) {
+      SparseIntArray availableButtonsPerSlot = maxButtonsPerSlot.clone();
+      ImmutableList.Builder<CommandButton> resolvedButtons = ImmutableList.builder();
+      @Nullable CommandButton firstBackButton = null;
+      @Nullable CommandButton firstForwardButton = null;
+      for (int i = 0; i < mediaButtonPreferences.size(); i++) {
+        CommandButton button = mediaButtonPreferences.get(i);
+        for (int j = 0; j < button.slots.length(); j++) {
+          @Slot int slot = button.slots.get(j);
+          if (!reserveSlotForButton(button, slot, availableButtonsPerSlot)) {
+            continue;
+          }
+          resolvedButtons.add(button.copyWithSlots(ImmutableIntArray.of(slot)));
+          if (firstForwardButton == null && slot == SLOT_FORWARD) {
+            firstForwardButton = button;
+          } else if (firstBackButton == null && slot == SLOT_BACK) {
+            firstBackButton = button;
+          }
+          break;
+        }
+      }
+      Player.Commands availableCommands = player.getAvailableCommands();
+      boolean centralSlotEmpty =
+          maxButtonsPerSlot.get(SLOT_CENTRAL) == availableButtonsPerSlot.get(SLOT_CENTRAL);
+      if (centralSlotEmpty) {
+        CommandButton defaultCentralButton =
+            createButton(
+                Util.shouldShowPlayButton(player) ? ICON_PLAY : ICON_PAUSE,
+                Player.COMMAND_PLAY_PAUSE,
+                availableCommands);
+        if (reserveSlotForButton(defaultCentralButton, SLOT_CENTRAL, availableButtonsPerSlot)) {
+          resolvedButtons.add(defaultCentralButton);
+        }
+      }
+      boolean backSlotEmpty = firstBackButton == null && maxButtonsPerSlot.get(SLOT_BACK) > 0;
+      boolean forwardSlotEmpty =
+          firstForwardButton == null && maxButtonsPerSlot.get(SLOT_FORWARD) > 0;
+      if (backSlotEmpty && forwardSlotEmpty) {
+        @Player.Command
+        int firstAvailableCommand =
+            getFirstAvailableOrFirstCommand(
+                availableCommands,
+                Player.COMMAND_SEEK_TO_PREVIOUS,
+                Player.COMMAND_SEEK_TO_NEXT,
+                Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM,
+                Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM,
+                Player.COMMAND_SEEK_BACK,
+                Player.COMMAND_SEEK_FORWARD);
+        CommandButton button =
+            createButton(
+                getIconForPlayerCommand(firstAvailableCommand, player),
+                firstAvailableCommand,
+                availableCommands);
+        @Slot int buttonSlot = button.slots.get(0);
+        if (reserveSlotForButton(button, buttonSlot, availableButtonsPerSlot)) {
+          resolvedButtons.add(button);
+        }
+        @Slot int oppositeSlot = buttonSlot == SLOT_BACK ? SLOT_FORWARD : SLOT_BACK;
+        CommandButton oppositeButton = createOppositeButton(button, oppositeSlot, player);
+        if (reserveSlotForButton(oppositeButton, oppositeSlot, availableButtonsPerSlot)) {
+          resolvedButtons.add(oppositeButton);
+        }
+      } else if (backSlotEmpty) {
+        CommandButton oppositeButton = createOppositeButton(firstForwardButton, SLOT_BACK, player);
+        if (reserveSlotForButton(oppositeButton, SLOT_BACK, availableButtonsPerSlot)) {
+          resolvedButtons.add(oppositeButton);
+        }
+      } else if (forwardSlotEmpty) {
+        CommandButton oppositeButton = createOppositeButton(firstBackButton, SLOT_FORWARD, player);
+        if (reserveSlotForButton(oppositeButton, SLOT_FORWARD, availableButtonsPerSlot)) {
+          resolvedButtons.add(oppositeButton);
+        }
+      }
+      return resolvedButtons.build();
+    }
+
+    private boolean reserveSlotForButton(
+        CommandButton button, @Slot int slot, SparseIntArray availableButtonsPerSlot) {
+      if (availableButtonsPerSlot.get(slot) == 0) {
+        return false;
+      }
+      boolean canReserveSlot;
+      if (button.playerCommand != Player.COMMAND_INVALID) {
+        @Nullable Player.Commands allowedCommands = allowedPlayerCommandsPerSlot.get(slot);
+        canReserveSlot = allowedCommands == null || allowedCommands.contains(button.playerCommand);
+      } else if (checkNotNull(button.sessionCommand).commandCode == COMMAND_CODE_CUSTOM) {
+        canReserveSlot = areCustomCommandsAllowedPerSlot.get(slot, /* valueIfKeyNotFound= */ true);
+      } else {
+        @Nullable SessionCommands allowedCommands = allowedSessionCommandsPerSlot.get(slot);
+        canReserveSlot = allowedCommands == null || allowedCommands.contains(button.sessionCommand);
+      }
+      if (canReserveSlot) {
+        availableButtonsPerSlot.put(slot, availableButtonsPerSlot.get(slot) - 1);
+      }
+      return canReserveSlot;
+    }
+
+    private static CommandButton createOppositeButton(
+        @Nullable CommandButton button, @Slot int targetSlot, Player player) {
+      Player.Commands availablePlayerCommands = player.getAvailableCommands();
+      @Player.Command
+      int oppositePlayerCommand =
+          getOppositePlayerCommand(button, targetSlot, availablePlayerCommands);
+      @Icon int oppositeIcon = getOppositeIcon(button);
+      if (oppositeIcon == ICON_UNDEFINED) {
+        oppositeIcon = getIconForPlayerCommand(oppositePlayerCommand, player);
+      }
+      return createButton(oppositeIcon, oppositePlayerCommand, availablePlayerCommands);
+    }
+
+    private static CommandButton createButton(
+        @Icon int icon,
+        @Player.Command int playerCommand,
+        Player.Commands availablePlayerCommands) {
+      return new CommandButton.Builder(icon)
+          .setPlayerCommand(playerCommand)
+          .setEnabled(availablePlayerCommands.contains(playerCommand))
+          .build();
+    }
+
+    private static @Player.Command int getFirstAvailableOrFirstCommand(
+        Player.Commands availableCommands, @Player.Command int... commands) {
+      for (int command : commands) {
+        if (availableCommands.contains(command)) {
+          return command;
+        }
+      }
+      return commands[0];
+    }
+
+    private static @Player.Command int getOppositePlayerCommand(
+        @Nullable CommandButton button,
+        @Slot int targetSlot,
+        Player.Commands availablePlayerCommands) {
+      if (button != null) {
+        switch (button.playerCommand) {
+          case Player.COMMAND_SEEK_TO_PREVIOUS:
+            return Player.COMMAND_SEEK_TO_NEXT;
+          case Player.COMMAND_SEEK_TO_NEXT:
+            return Player.COMMAND_SEEK_TO_PREVIOUS;
+          case Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM:
+            return Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM;
+          case Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM:
+            return Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM;
+          case Player.COMMAND_SEEK_BACK:
+            return Player.COMMAND_SEEK_FORWARD;
+          case Player.COMMAND_SEEK_FORWARD:
+            return Player.COMMAND_SEEK_BACK;
+          default:
+            // Fall through.
+        }
+      }
+      if (targetSlot == SLOT_BACK) {
+        return getFirstAvailableOrFirstCommand(
+            availablePlayerCommands,
+            Player.COMMAND_SEEK_TO_PREVIOUS,
+            Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM,
+            Player.COMMAND_SEEK_BACK);
+      } else {
+        return getFirstAvailableOrFirstCommand(
+            availablePlayerCommands,
+            Player.COMMAND_SEEK_TO_NEXT,
+            Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM,
+            Player.COMMAND_SEEK_FORWARD);
+      }
+    }
+
+    private static @Icon int getOppositeIcon(@Nullable CommandButton button) {
+      if (button == null) {
+        return ICON_UNDEFINED;
+      }
+      switch (button.icon) {
+        case ICON_PREVIOUS:
+          return ICON_NEXT;
+        case ICON_REWIND:
+          return ICON_FAST_FORWARD;
+        case ICON_SKIP_BACK:
+          return ICON_SKIP_FORWARD;
+        case ICON_NEXT:
+          return ICON_PREVIOUS;
+        case ICON_FAST_FORWARD:
+          return ICON_REWIND;
+        case ICON_SKIP_FORWARD:
+          return ICON_SKIP_BACK;
+        default:
+          // Intentionally don't match numbered SKIP_BACK/FORWARD icons to let
+          // getIconForPlayerCommand determine the best matching icon based on actual skip amount.
+          return ICON_UNDEFINED;
+      }
+    }
+
+    private static @Icon int getIconForPlayerCommand(
+        @Player.Command int playerCommand, Player player) {
+      switch (playerCommand) {
+        case Player.COMMAND_SEEK_TO_PREVIOUS:
+        case Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM:
+          return ICON_PREVIOUS;
+        case Player.COMMAND_SEEK_TO_NEXT:
+        case Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM:
+          return ICON_NEXT;
+        case Player.COMMAND_SEEK_BACK:
+          long seekBackIncrement = player.getSeekBackIncrement();
+          if (seekBackIncrement >= 2500 && seekBackIncrement < 7500) {
+            return ICON_SKIP_BACK_5;
+          } else if (seekBackIncrement >= 7500 && seekBackIncrement < 12500) {
+            return ICON_SKIP_BACK_10;
+          } else if (seekBackIncrement >= 12500 && seekBackIncrement < 20000) {
+            return ICON_SKIP_BACK_15;
+          } else if (seekBackIncrement >= 20000 && seekBackIncrement < 40000) {
+            return ICON_SKIP_BACK_30;
+          } else {
+            return ICON_SKIP_BACK;
+          }
+        case Player.COMMAND_SEEK_FORWARD:
+          long seekForwardIncrement = player.getSeekForwardIncrement();
+          if (seekForwardIncrement >= 2500 && seekForwardIncrement < 7500) {
+            return ICON_SKIP_FORWARD_5;
+          } else if (seekForwardIncrement >= 7500 && seekForwardIncrement < 12500) {
+            return ICON_SKIP_FORWARD_10;
+          } else if (seekForwardIncrement >= 12500 && seekForwardIncrement < 20000) {
+            return ICON_SKIP_FORWARD_15;
+          } else if (seekForwardIncrement >= 20000 && seekForwardIncrement < 40000) {
+            return ICON_SKIP_FORWARD_30;
+          } else {
+            return ICON_SKIP_FORWARD;
+          }
+        default:
+          throw new UnsupportedOperationException();
+      }
+    }
+  }
+
   /** The session command of the button. Will be {@code null} if {@link #playerCommand} is set. */
   @Nullable public final SessionCommand sessionCommand;
 
@@ -1211,7 +1598,7 @@ public final class CommandButton {
       CommandButton button = mediaButtonPreferences.get(i);
       if (!button.isEnabled
           || button.sessionCommand == null
-          || button.sessionCommand.commandCode != SessionCommand.COMMAND_CODE_CUSTOM) {
+          || button.sessionCommand.commandCode != COMMAND_CODE_CUSTOM) {
         continue;
       }
       for (int s = 0; s < button.slots.length(); s++) {
@@ -1247,7 +1634,7 @@ public final class CommandButton {
       CommandButton button = mediaButtonPreferences.get(i);
       if (!button.isEnabled
           || button.sessionCommand == null
-          || button.sessionCommand.commandCode != SessionCommand.COMMAND_CODE_CUSTOM) {
+          || button.sessionCommand.commandCode != COMMAND_CODE_CUSTOM) {
         continue;
       }
       if (i != backButtonIndex && i != forwardButtonIndex && button.slots.contains(SLOT_OVERFLOW)) {
