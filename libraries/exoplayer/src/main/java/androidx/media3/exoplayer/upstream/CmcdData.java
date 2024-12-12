@@ -28,6 +28,7 @@ import androidx.annotation.Nullable;
 import androidx.annotation.StringDef;
 import androidx.media3.common.C;
 import androidx.media3.common.C.TrackType;
+import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.util.UnstableApi;
@@ -100,32 +101,6 @@ public final class CmcdData {
     }
 
     /**
-     * Retrieves the object type value from the given {@link ExoTrackSelection}.
-     *
-     * @param trackSelection The {@link ExoTrackSelection} from which to retrieve the object type.
-     * @return The object type value as a String if {@link TrackType} can be mapped to one of the
-     *     object types specified by {@link CmcdData.ObjectType} annotation, or {@code null}.
-     * @throws IllegalArgumentException if the provided {@link ExoTrackSelection} is {@code null}.
-     */
-    @Nullable
-    public static @CmcdData.ObjectType String getObjectType(ExoTrackSelection trackSelection) {
-      @TrackType
-      int trackType = MimeTypes.getTrackType(trackSelection.getSelectedFormat().sampleMimeType);
-      if (trackType == C.TRACK_TYPE_UNKNOWN) {
-        trackType = MimeTypes.getTrackType(trackSelection.getSelectedFormat().containerMimeType);
-      }
-
-      if (trackType == C.TRACK_TYPE_AUDIO) {
-        return OBJECT_TYPE_AUDIO_ONLY;
-      } else if (trackType == C.TRACK_TYPE_VIDEO) {
-        return OBJECT_TYPE_VIDEO_ONLY;
-      } else {
-        // Track type cannot be mapped to a known object type.
-        return null;
-      }
-    }
-
-    /**
      * Sets the duration of current media chunk being requested, in microseconds.
      *
      * <p>Must be set to a non-negative value if the {@linkplain #setObjectType(String) object type}
@@ -145,6 +120,10 @@ public final class CmcdData {
 
     /**
      * Sets the object type of the current object being requested.
+     *
+     * <p>Must be set if {@linkplain #setTrackSelection track selection} is not provided. If unset
+     * and a {@linkplain #setTrackSelection track selection} is provided, the object type is derived
+     * from it.
      *
      * <p>Default is {@code null}.
      */
@@ -266,11 +245,15 @@ public final class CmcdData {
      */
     public CmcdData createCmcdData() {
       boolean isManifestObjectType = isManifestObjectType(objectType);
-      boolean isMediaObjectType = isMediaObjectType(objectType);
-
       if (!isManifestObjectType) {
         checkStateNotNull(trackSelection, "Track selection must be set");
       }
+
+      if (objectType == null) {
+        objectType = getObjectTypeFromFormat(checkNotNull(trackSelection).getSelectedFormat());
+      }
+
+      boolean isMediaObjectType = isMediaObjectType(objectType);
       if (isMediaObjectType) {
         checkState(bufferedDurationUs != C.TIME_UNSET, "Buffered duration must be set");
         checkState(chunkDurationUs != C.TIME_UNSET, "Chunk duration must be set");
@@ -387,6 +370,30 @@ public final class CmcdData {
           cmcdSession.build(),
           cmcdStatus.build(),
           cmcdConfiguration.dataTransmissionMode);
+    }
+
+    @Nullable
+    private static @ObjectType String getObjectTypeFromFormat(Format format) {
+      String audioMimeType = MimeTypes.getAudioMediaMimeType(format.codecs);
+      String videoMimeType = MimeTypes.getVideoMediaMimeType(format.codecs);
+
+      if (audioMimeType != null && videoMimeType != null) {
+        return OBJECT_TYPE_MUXED_AUDIO_AND_VIDEO;
+      }
+
+      @TrackType int trackType = MimeTypes.getTrackType(format.sampleMimeType);
+      if (trackType == C.TRACK_TYPE_UNKNOWN) {
+        trackType = MimeTypes.getTrackType(format.containerMimeType);
+      }
+
+      if (trackType == C.TRACK_TYPE_AUDIO) {
+        return OBJECT_TYPE_AUDIO_ONLY;
+      } else if (trackType == C.TRACK_TYPE_VIDEO) {
+        return OBJECT_TYPE_VIDEO_ONLY;
+      } else {
+        // Track type cannot be mapped to a known media object type.
+        return null;
+      }
     }
 
     private static boolean isManifestObjectType(@Nullable @ObjectType String objectType) {

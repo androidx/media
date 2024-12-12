@@ -27,7 +27,6 @@ import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
-import androidx.media3.common.MimeTypes;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.util.TimestampAdjuster;
 import androidx.media3.common.util.UriUtil;
@@ -513,11 +512,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               .setPlaybackRate(loadingInfo.playbackSpeed)
               .setIsLive(!playlist.hasEndTag)
               .setDidRebuffer(loadingInfo.rebufferedSince(lastChunkRequestRealtimeMs))
-              .setIsBufferEmpty(queue.isEmpty())
-              .setObjectType(
-                  getIsMuxedAudioAndVideo()
-                      ? CmcdData.OBJECT_TYPE_MUXED_AUDIO_AND_VIDEO
-                      : CmcdData.Factory.getObjectType(trackSelection));
+              .setIsBufferEmpty(queue.isEmpty());
       long nextMediaSequence =
           segmentBaseHolder.partIndex == C.INDEX_UNSET
               ? segmentBaseHolder.mediaSequence + 1
@@ -595,13 +590,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             shouldSpliceIn,
             playerId,
             cmcdDataFactory);
-  }
-
-  private boolean getIsMuxedAudioAndVideo() {
-    Format format = trackGroup.getFormat(trackSelection.getSelectedIndex());
-    String audioMimeType = MimeTypes.getAudioMediaMimeType(format.codecs);
-    String videoMimeType = MimeTypes.getVideoMediaMimeType(format.codecs);
-    return audioMimeType != null && videoMimeType != null;
   }
 
   @Nullable

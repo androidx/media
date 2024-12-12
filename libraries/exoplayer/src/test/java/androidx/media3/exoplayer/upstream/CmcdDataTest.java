@@ -23,6 +23,7 @@ import static org.mockito.Mockito.when;
 import android.net.Uri;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.datasource.DataSpec;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
@@ -71,7 +72,7 @@ public class CmcdDataTest {
   }
 
   @Test
-  public void createInstance_audioObjectType_setsCorrectHttpHeaders() {
+  public void createInstance_audioSampleMimeType_setsCorrectHttpHeaders() {
     CmcdConfiguration.Factory cmcdConfigurationFactory =
         mediaItem ->
             new CmcdConfiguration(
@@ -87,7 +88,8 @@ public class CmcdDataTest {
     CmcdConfiguration cmcdConfiguration =
         cmcdConfigurationFactory.createCmcdConfiguration(mediaItem);
     ExoTrackSelection trackSelection = mock(ExoTrackSelection.class);
-    Format format = new Format.Builder().setPeakBitrate(840_000).build();
+    Format format =
+        new Format.Builder().setPeakBitrate(840_000).setSampleMimeType(MimeTypes.AUDIO_AC4).build();
     when(trackSelection.getSelectedFormat()).thenReturn(format);
     when(trackSelection.getTrackGroup())
         .thenReturn(new TrackGroup(format, new Format.Builder().setPeakBitrate(1_000_000).build()));
@@ -96,7 +98,6 @@ public class CmcdDataTest {
     CmcdData cmcdData =
         new CmcdData.Factory(cmcdConfiguration, CmcdData.STREAMING_FORMAT_DASH)
             .setTrackSelection(trackSelection)
-            .setObjectType(CmcdData.OBJECT_TYPE_AUDIO_ONLY)
             .setBufferedDurationUs(1_760_000)
             .setPlaybackRate(2.0f)
             .setIsLive(true)
@@ -120,7 +121,7 @@ public class CmcdDataTest {
   }
 
   @Test
-  public void createInstance_audioObjectType_setsCorrectQueryParameters() {
+  public void createInstance_audioSampleMimeType_setsCorrectQueryParameters() {
     CmcdConfiguration.Factory cmcdConfigurationFactory =
         mediaItem ->
             new CmcdConfiguration(
@@ -137,7 +138,8 @@ public class CmcdDataTest {
     CmcdConfiguration cmcdConfiguration =
         cmcdConfigurationFactory.createCmcdConfiguration(mediaItem);
     ExoTrackSelection trackSelection = mock(ExoTrackSelection.class);
-    Format format = new Format.Builder().setPeakBitrate(840_000).build();
+    Format format =
+        new Format.Builder().setPeakBitrate(840_000).setSampleMimeType(MimeTypes.AUDIO_AC4).build();
     when(trackSelection.getSelectedFormat()).thenReturn(format);
     when(trackSelection.getTrackGroup())
         .thenReturn(new TrackGroup(format, new Format.Builder().setPeakBitrate(1_000_000).build()));
@@ -161,6 +163,96 @@ public class CmcdDataTest {
         .isEqualTo(
             "bl=1800,br=840,bs,cid=\"mediaId\",d=3000,dl=900,mtp=500,ot=a,pr=2.00,"
                 + "rtp=1700,sf=d,sid=\"sessionId\",st=l,su,tb=1000");
+  }
+
+  @Test
+  public void createInstance_videoContainerMimeType_setsCorrectHttpHeaders() {
+    CmcdConfiguration.Factory cmcdConfigurationFactory =
+        mediaItem ->
+            new CmcdConfiguration(
+                "sessionId", mediaItem.mediaId, new CmcdConfiguration.RequestConfig() {});
+    MediaItem mediaItem = new MediaItem.Builder().setMediaId("mediaId").build();
+    CmcdConfiguration cmcdConfiguration =
+        cmcdConfigurationFactory.createCmcdConfiguration(mediaItem);
+    ExoTrackSelection trackSelection = mock(ExoTrackSelection.class);
+    Format format =
+        new Format.Builder()
+            .setPeakBitrate(840_000)
+            .setContainerMimeType(MimeTypes.VIDEO_MP4)
+            .build();
+    when(trackSelection.getSelectedFormat()).thenReturn(format);
+    when(trackSelection.getTrackGroup())
+        .thenReturn(new TrackGroup(format, new Format.Builder().setPeakBitrate(1_000_000).build()));
+    when(trackSelection.getLatestBitrateEstimate()).thenReturn(500_000L);
+    DataSpec dataSpec = new DataSpec.Builder().setUri(Uri.EMPTY).build();
+    CmcdData cmcdData =
+        new CmcdData.Factory(cmcdConfiguration, CmcdData.STREAMING_FORMAT_DASH)
+            .setTrackSelection(trackSelection)
+            .setBufferedDurationUs(1_760_000)
+            .setPlaybackRate(2.0f)
+            .setIsLive(true)
+            .setDidRebuffer(true)
+            .setIsBufferEmpty(false)
+            .setChunkDurationUs(3_000_000)
+            .createCmcdData();
+
+    dataSpec = cmcdData.addToDataSpec(dataSpec);
+
+    assertThat(dataSpec.httpRequestHeaders)
+        .containsExactly(
+            "CMCD-Object",
+            "br=840,d=3000,ot=v,tb=1000",
+            "CMCD-Request",
+            "bl=1800,dl=900,mtp=500,su",
+            "CMCD-Session",
+            "cid=\"mediaId\",pr=2.00,sf=d,sid=\"sessionId\",st=l",
+            "CMCD-Status",
+            "bs");
+  }
+
+  @Test
+  public void createInstance_muxedAudioAndVideoCodecs_setsCorrectHttpHeaders() {
+    CmcdConfiguration.Factory cmcdConfigurationFactory =
+        mediaItem ->
+            new CmcdConfiguration(
+                "sessionId", mediaItem.mediaId, new CmcdConfiguration.RequestConfig() {});
+    MediaItem mediaItem = new MediaItem.Builder().setMediaId("mediaId").build();
+    CmcdConfiguration cmcdConfiguration =
+        cmcdConfigurationFactory.createCmcdConfiguration(mediaItem);
+    ExoTrackSelection trackSelection = mock(ExoTrackSelection.class);
+    Format format =
+        new Format.Builder()
+            .setPeakBitrate(840_000)
+            .setCodecs("avc1.4D5015,ac-3,mp4a.40.2")
+            .build();
+    when(trackSelection.getSelectedFormat()).thenReturn(format);
+    when(trackSelection.getTrackGroup())
+        .thenReturn(new TrackGroup(format, new Format.Builder().setPeakBitrate(1_000_000).build()));
+    when(trackSelection.getLatestBitrateEstimate()).thenReturn(500_000L);
+    DataSpec dataSpec = new DataSpec.Builder().setUri(Uri.EMPTY).build();
+    CmcdData cmcdData =
+        new CmcdData.Factory(cmcdConfiguration, CmcdData.STREAMING_FORMAT_DASH)
+            .setTrackSelection(trackSelection)
+            .setBufferedDurationUs(1_760_000)
+            .setPlaybackRate(2.0f)
+            .setIsLive(true)
+            .setDidRebuffer(true)
+            .setIsBufferEmpty(false)
+            .setChunkDurationUs(3_000_000)
+            .createCmcdData();
+
+    dataSpec = cmcdData.addToDataSpec(dataSpec);
+
+    assertThat(dataSpec.httpRequestHeaders)
+        .containsExactly(
+            "CMCD-Object",
+            "br=840,d=3000,ot=av,tb=1000",
+            "CMCD-Request",
+            "bl=1800,dl=900,mtp=500,su",
+            "CMCD-Session",
+            "cid=\"mediaId\",pr=2.00,sf=d,sid=\"sessionId\",st=l",
+            "CMCD-Status",
+            "bs");
   }
 
   @Test
@@ -210,7 +302,7 @@ public class CmcdDataTest {
   }
 
   @Test
-  public void createInstance_unsetObjectType_setsCorrectHttpHeaders() {
+  public void createInstance_nullInferredObjectType_setsCorrectHttpHeaders() {
     CmcdConfiguration.Factory cmcdConfigurationFactory =
         mediaItem ->
             new CmcdConfiguration(
@@ -249,7 +341,7 @@ public class CmcdDataTest {
   }
 
   @Test
-  public void createInstance_unsetObjectType_setsCorrectQueryParameters() {
+  public void createInstance_nullInferredObjectType_setsCorrectQueryParameters() {
     CmcdConfiguration.Factory cmcdConfigurationFactory =
         mediaItem ->
             new CmcdConfiguration(

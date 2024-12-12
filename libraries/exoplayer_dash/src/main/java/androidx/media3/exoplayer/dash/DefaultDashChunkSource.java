@@ -793,9 +793,7 @@ public class DefaultDashChunkSource implements DashChunkSource {
               flags,
               /* httpRequestHeaders= */ ImmutableMap.of());
       if (cmcdDataFactory != null) {
-        cmcdDataFactory
-            .setChunkDurationUs(endTimeUs - startTimeUs)
-            .setObjectType(CmcdData.Factory.getObjectType(trackSelection));
+        cmcdDataFactory.setChunkDurationUs(endTimeUs - startTimeUs);
         @Nullable
         Pair<String, String> nextObjectAndRangeRequest =
             getNextObjectAndRangeRequest(firstSegmentNum, segmentUri, representationHolder);
@@ -852,9 +850,7 @@ public class DefaultDashChunkSource implements DashChunkSource {
               flags,
               /* httpRequestHeaders= */ ImmutableMap.of());
       if (cmcdDataFactory != null) {
-        cmcdDataFactory
-            .setChunkDurationUs(endTimeUs - startTimeUs)
-            .setObjectType(CmcdData.Factory.getObjectType(trackSelection));
+        cmcdDataFactory.setChunkDurationUs(endTimeUs - startTimeUs);
         @Nullable
         Pair<String, String> nextObjectAndRangeRequest =
             getNextObjectAndRangeRequest(firstSegmentNum, segmentUri, representationHolder);

@@ -367,8 +367,7 @@ public class DefaultSsChunkSource implements SsChunkSource {
               .setIsLive(manifest.isLive)
               .setDidRebuffer(loadingInfo.rebufferedSince(lastChunkRequestRealtimeMs))
               .setIsBufferEmpty(queue.isEmpty())
-              .setChunkDurationUs(chunkEndTimeUs - chunkStartTimeUs)
-              .setObjectType(CmcdData.Factory.getObjectType(trackSelection));
+              .setChunkDurationUs(chunkEndTimeUs - chunkStartTimeUs);
 
       if (chunkIndex + 1 < streamElement.chunkCount) {
         Uri nextUri = streamElement.buildRequestUri(manifestTrackIndex, chunkIndex + 1);
