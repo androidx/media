@@ -24,6 +24,8 @@ import androidx.compose.foundation.AndroidEmbeddedExternalSurface
 import androidx.compose.foundation.AndroidExternalSurface
 import androidx.compose.foundation.AndroidExternalSurfaceScope
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
@@ -44,11 +46,16 @@ import androidx.media3.common.util.UnstableApi
 @UnstableApi
 @Composable
 fun PlayerSurface(player: Player, surfaceType: @SurfaceType Int, modifier: Modifier = Modifier) {
+  // Player might change between compositions,
+  // we need long-lived surface-related lambdas to always use the latest value
+  val currentPlayer by rememberUpdatedState(player)
   val onSurfaceCreated: (Surface) -> Unit = { surface ->
-    if (player.isCommandAvailable(Player.COMMAND_SET_VIDEO_SURFACE)) player.setVideoSurface(surface)
+    if (currentPlayer.isCommandAvailable(Player.COMMAND_SET_VIDEO_SURFACE))
+      player.setVideoSurface(surface)
   }
   val onSurfaceDestroyed: () -> Unit = {
-    if (player.isCommandAvailable(Player.COMMAND_SET_VIDEO_SURFACE)) player.clearVideoSurface()
+    if (currentPlayer.isCommandAvailable(Player.COMMAND_SET_VIDEO_SURFACE))
+      player.clearVideoSurface()
   }
   val onSurfaceInitialized: AndroidExternalSurfaceScope.() -> Unit = {
     onSurface { surface, _, _ ->
