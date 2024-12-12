@@ -387,7 +387,8 @@ public final class AdsMediaSourceTest {
           }
 
           @Override
-          public void handleContentTimelineChanged(MediaItem mediaItem, Timeline timeline) {
+          public void handleContentTimelineChanged(
+              AdsMediaSource adsMediaSource, Timeline timeline) {
             contentTimelineChangedCalledLatch.countDown();
           }
         };
@@ -563,7 +564,8 @@ public final class AdsMediaSourceTest {
           }
 
           @Override
-          public void handleContentTimelineChanged(MediaItem mediaItem, Timeline timeline) {
+          public void handleContentTimelineChanged(
+              AdsMediaSource adsMediaSource, Timeline timeline) {
             contentTimelineChangedCallCount.incrementAndGet();
           }
         };
@@ -724,7 +726,7 @@ public final class AdsMediaSourceTest {
         IOException exception) {}
 
     @Override
-    public void handleContentTimelineChanged(MediaItem mediaItem, Timeline timeline) {}
+    public void handleContentTimelineChanged(AdsMediaSource adsMediaSource, Timeline timeline) {}
   }
 
   private static MediaSource buildMediaSource(MediaItem mediaItem) {

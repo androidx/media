@@ -201,8 +201,8 @@ public final class AdsMediaSource extends CompositeMediaSource<MediaPeriodId> {
    * @param adViewProvider Provider of views for the ad UI.
    * @param useLazyContentSourcePreparation True if the content source should be prepared lazily and
    *     wait for an {@link AdPlaybackState} to be set before preparing. False if the timeline is
-   *     required {@linkplain AdsLoader#handleContentTimelineChanged(MediaItem, Timeline) to read ad
-   *     data from it} to populate the {@link AdPlaybackState} (for instance from HLS
+   *     required {@linkplain AdsLoader#handleContentTimelineChanged(AdsMediaSource, Timeline) to
+   *     read ad data from it} to populate the {@link AdPlaybackState} (for instance from HLS
    *     interstitials).
    */
   public AdsMediaSource(
@@ -232,6 +232,11 @@ public final class AdsMediaSource extends CompositeMediaSource<MediaPeriodId> {
   @Override
   public MediaItem getMediaItem() {
     return contentMediaSource.getMediaItem();
+  }
+
+  /** Returns the ads ID this source is serving. */
+  public Object getAdsId() {
+    return adsId;
   }
 
   @Override
@@ -330,7 +335,7 @@ public final class AdsMediaSource extends CompositeMediaSource<MediaPeriodId> {
     } else {
       Assertions.checkArgument(newTimeline.getPeriodCount() == 1);
       contentTimeline = newTimeline;
-      mainHandler.post(() -> adsLoader.handleContentTimelineChanged(getMediaItem(), newTimeline));
+      mainHandler.post(() -> adsLoader.handleContentTimelineChanged(this, newTimeline));
     }
     maybeUpdateSourceInfo();
   }

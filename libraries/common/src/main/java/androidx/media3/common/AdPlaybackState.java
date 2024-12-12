@@ -844,6 +844,13 @@ public final class AdPlaybackState {
         adsId, adGroups, adResumePositionUs, contentDurationUs, removedAdGroupCount);
   }
 
+  /** Returns an instance with the specified value for {@link #adsId}. */
+  @CheckResult
+  public AdPlaybackState withAdsId(Object adsId) {
+    return new AdPlaybackState(
+        adsId, adGroups, adResumePositionUs, contentDurationUs, removedAdGroupCount);
+  }
+
   /**
    * Returns an instance with the specified ad marked as {@linkplain #AD_STATE_AVAILABLE available}.
    *
