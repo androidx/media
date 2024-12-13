@@ -1599,6 +1599,7 @@ package androidx.media3.session {
     method public final long getCurrentPosition();
     method public final androidx.media3.common.Timeline getCurrentTimeline();
     method public final androidx.media3.common.Tracks getCurrentTracks();
+    method public final com.google.common.collect.ImmutableList<androidx.media3.session.CommandButton> getCustomLayout();
     method public final androidx.media3.common.DeviceInfo getDeviceInfo();
     method @IntRange(from=0) public final int getDeviceVolume();
     method public final long getDuration();
@@ -1701,6 +1702,7 @@ package androidx.media3.session {
   public static interface MediaController.Listener {
     method public default void onAvailableSessionCommandsChanged(androidx.media3.session.MediaController, androidx.media3.session.SessionCommands);
     method public default com.google.common.util.concurrent.ListenableFuture<androidx.media3.session.SessionResult> onCustomCommand(androidx.media3.session.MediaController, androidx.media3.session.SessionCommand, android.os.Bundle);
+    method public default void onCustomLayoutChanged(androidx.media3.session.MediaController, java.util.List<androidx.media3.session.CommandButton>);
     method public default void onDisconnected(androidx.media3.session.MediaController);
     method public default void onExtrasChanged(androidx.media3.session.MediaController, android.os.Bundle);
     method public default com.google.common.util.concurrent.ListenableFuture<androidx.media3.session.SessionResult> onSetCustomLayout(androidx.media3.session.MediaController, java.util.List<androidx.media3.session.CommandButton>);
@@ -1893,6 +1895,7 @@ package androidx.media3.session {
 
   public final class SessionToken {
     ctor public SessionToken(android.content.Context, android.content.ComponentName);
+    method public static com.google.common.util.concurrent.ListenableFuture<androidx.media3.session.SessionToken> createSessionToken(android.content.Context, android.media.session.MediaSession.Token);
     method public static com.google.common.collect.ImmutableSet<androidx.media3.session.SessionToken> getAllServiceTokens(android.content.Context);
     method public android.os.Bundle getExtras();
     method public String getPackageName();

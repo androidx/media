@@ -425,7 +425,6 @@ public class MediaController implements Player {
      * @param controller The controller.
      * @param layout The ordered list of {@linkplain CommandButton command buttons}.
      */
-    @UnstableApi
     default void onCustomLayoutChanged(MediaController controller, List<CommandButton> layout) {}
 
     /**
@@ -1129,7 +1128,6 @@ public class MediaController implements Player {
    *
    * @return The custom layout.
    */
-  @UnstableApi
   public final ImmutableList<CommandButton> getCustomLayout() {
     verifyApplicationThread();
     return isConnected() ? impl.getCustomLayout() : ImmutableList.of();
