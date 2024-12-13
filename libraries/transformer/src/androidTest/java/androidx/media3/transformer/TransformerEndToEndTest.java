@@ -2356,11 +2356,10 @@ public class TransformerEndToEndTest {
     Transformer transformer =
         new Transformer.Builder(context)
             .setEncoderFactory(
-                new AndroidTestUtil.ForceEncodeEncoderFactory(
-                    new DefaultEncoderFactory.Builder(context)
-                        .setRequestedAudioEncoderSettings(
-                            new AudioEncoderSettings.Builder().setProfile(AACObjectHE).build())
-                        .build()))
+                new DefaultEncoderFactory.Builder(context)
+                    .setRequestedAudioEncoderSettings(
+                        new AudioEncoderSettings.Builder().setProfile(AACObjectHE).build())
+                    .build())
             .build();
     MediaItem mediaItem = new MediaItem.Builder().setUri(MP4_ASSET.uri).build();
     EditedMediaItem editedMediaItem =
@@ -2392,11 +2391,10 @@ public class TransformerEndToEndTest {
         new Transformer.Builder(context)
             .setMuxerFactory(new InAppMuxer.Factory.Builder().build())
             .setEncoderFactory(
-                new AndroidTestUtil.ForceEncodeEncoderFactory(
-                    new DefaultEncoderFactory.Builder(context)
-                        .setRequestedAudioEncoderSettings(
-                            new AudioEncoderSettings.Builder().setBitrate(requestedBitrate).build())
-                        .build()))
+                new DefaultEncoderFactory.Builder(context)
+                    .setRequestedAudioEncoderSettings(
+                        new AudioEncoderSettings.Builder().setBitrate(requestedBitrate).build())
+                    .build())
             .build();
     MediaItem mediaItem = new MediaItem.Builder().setUri(MP4_ASSET.uri).build();
     EditedMediaItem editedMediaItem =

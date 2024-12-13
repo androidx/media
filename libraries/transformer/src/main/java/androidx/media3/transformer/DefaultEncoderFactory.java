@@ -392,6 +392,11 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
   }
 
   @Override
+  public boolean audioNeedsEncoding() {
+    return !requestedAudioEncoderSettings.equals(AudioEncoderSettings.DEFAULT);
+  }
+
+  @Override
   public boolean videoNeedsEncoding() {
     return !requestedVideoEncoderSettings.equals(VideoEncoderSettings.DEFAULT);
   }
