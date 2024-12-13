@@ -19,10 +19,10 @@ package androidx.media3.ui.compose.state
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.geometry.Size
 import androidx.media3.common.C
 import androidx.media3.common.Player
 import androidx.media3.common.Timeline
@@ -40,7 +40,10 @@ fun rememberRenderingState(player: Player): RenderingState {
 
 @UnstableApi
 class RenderingState(private val player: Player) {
-  var aspectRatio by mutableFloatStateOf(getAspectRatio(player))
+  var aspectRatio by mutableStateOf(getAspectRatio(player))
+    private set
+
+  var size by mutableStateOf(getSize(player))
     private set
 
   var renderedFirstFrame by mutableStateOf(false)
@@ -57,6 +60,7 @@ class RenderingState(private val player: Player) {
       if (events.contains(Player.EVENT_VIDEO_SIZE_CHANGED)) {
         if (videoSize != VideoSize.UNKNOWN) {
           aspectRatio = getAspectRatio(player)
+          size = getSize(player)
         }
       }
       if (events.contains(Player.EVENT_RENDERED_FIRST_FRAME)) {
@@ -71,11 +75,17 @@ class RenderingState(private val player: Player) {
       }
     }
 
-  private fun getAspectRatio(player: Player): Float {
+  private fun getSize(player: Player): Size? {
+    val videoSize = player.videoSize
+    return if (videoSize.width == 0 || videoSize.height == 0) null
+    else Size(videoSize.width.toFloat(), videoSize.height.toFloat())
+  }
+
+  private fun getAspectRatio(player: Player): Float? {
     val videoSize = player.videoSize
     val width = videoSize.width
     val height = videoSize.height
-    return if ((height == 0 || width == 0)) 0f
+    return if (height == 0 || width == 0) null
     else (width * videoSize.pixelWidthHeightRatio) / height
   }
 

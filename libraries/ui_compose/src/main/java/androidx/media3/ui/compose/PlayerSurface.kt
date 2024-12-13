@@ -23,12 +23,20 @@ import androidx.annotation.IntDef
 import androidx.compose.foundation.AndroidEmbeddedExternalSurface
 import androidx.compose.foundation.AndroidExternalSurface
 import androidx.compose.foundation.AndroidExternalSurfaceScope
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.layout
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.ui.compose.state.RenderingState
+import androidx.media3.ui.compose.state.rememberRenderingState
+import kotlin.math.roundToInt
 
 /**
  * Provides a dedicated drawing [Surface] for media playbacks using a [Player].
@@ -45,7 +53,13 @@ import androidx.media3.common.util.UnstableApi
  */
 @UnstableApi
 @Composable
-fun PlayerSurface(player: Player, surfaceType: @SurfaceType Int, modifier: Modifier = Modifier) {
+fun PlayerSurface(
+  player: Player,
+  modifier: Modifier = Modifier,
+  renderingState: RenderingState = rememberRenderingState(player),
+  surfaceType: @SurfaceType Int = SURFACE_TYPE_SURFACE_VIEW,
+  contentScale: ContentScale = ContentScale.Fit
+) {
   // Player might change between compositions,
   // we need long-lived surface-related lambdas to always use the latest value
   val currentPlayer by rememberUpdatedState(player)
@@ -64,11 +78,36 @@ fun PlayerSurface(player: Player, surfaceType: @SurfaceType Int, modifier: Modif
     }
   }
 
+  val myModifier = modifier
+    .fillMaxSize()
+    .wrapContentSize()
+    .then(
+      renderingState.size?.let { srcSizePx ->
+        Modifier.layout { measurable, constraints ->
+          val dstSizePx = Size(constraints.maxWidth.toFloat(), constraints.maxHeight.toFloat())
+          val scaleFactor = contentScale.computeScaleFactor(srcSizePx, dstSizePx)
+
+          val placeable = measurable.measure(
+            constraints.copy(
+              maxWidth = (srcSizePx.width * scaleFactor.scaleX).roundToInt(),
+              maxHeight = (srcSizePx.height * scaleFactor.scaleY).roundToInt()
+            )
+          )
+
+          layout(placeable.width, placeable.height) {
+            placeable.place(0, 0)
+          }
+        }
+      } ?: Modifier
+    )
+
   when (surfaceType) {
     SURFACE_TYPE_SURFACE_VIEW ->
-      AndroidExternalSurface(modifier = modifier, onInit = onSurfaceInitialized)
+      AndroidExternalSurface(myModifier, onInit = onSurfaceInitialized)
+
     SURFACE_TYPE_TEXTURE_VIEW ->
-      AndroidEmbeddedExternalSurface(modifier = modifier, onInit = onSurfaceInitialized)
+      AndroidEmbeddedExternalSurface(myModifier, onInit = onSurfaceInitialized)
+
     else -> throw IllegalArgumentException("Unrecognized surface type: $surfaceType")
   }
 }
@@ -84,6 +123,9 @@ fun PlayerSurface(player: Player, surfaceType: @SurfaceType Int, modifier: Modif
 annotation class SurfaceType
 
 /** Surface type equivalent to [SurfaceView] . */
-@UnstableApi const val SURFACE_TYPE_SURFACE_VIEW = 1
+@UnstableApi
+const val SURFACE_TYPE_SURFACE_VIEW = 1
+
 /** Surface type equivalent to [TextureView]. */
-@UnstableApi const val SURFACE_TYPE_TEXTURE_VIEW = 2
+@UnstableApi
+const val SURFACE_TYPE_TEXTURE_VIEW = 2
