@@ -281,7 +281,8 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   public void onCommand(String commandName, @Nullable Bundle args, @Nullable ResultReceiver cb) {
     checkStateNotNull(commandName);
     if (commandName.equals(MediaConstants.SESSION_COMMAND_MEDIA3_PLAY_REQUEST)) {
-      // Ignore, no need to handle this command here.
+      // Only applicable to controllers on Media3 1.5, where this command was sent via sendCommand
+      // instead of sendCustomAction. No need to handle this command here.
       return;
     }
     if (commandName.equals(MediaConstants.SESSION_COMMAND_REQUEST_SESSION3_TOKEN) && cb != null) {
@@ -305,6 +306,10 @@ import org.checkerframework.checker.initialization.qual.Initialized;
 
   @Override
   public void onCustomAction(String action, @Nullable Bundle args) {
+    if (action.equals(MediaConstants.SESSION_COMMAND_MEDIA3_PLAY_REQUEST)) {
+      // Ignore, no need to handle the custom action.
+      return;
+    }
     SessionCommand command = new SessionCommand(action, /* extras= */ Bundle.EMPTY);
     dispatchSessionTaskWithSessionCommand(
         command,

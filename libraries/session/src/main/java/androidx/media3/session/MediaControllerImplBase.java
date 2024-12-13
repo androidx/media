@@ -416,8 +416,9 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     if (Util.SDK_INT >= 31 && platformController != null) {
       // Ensure the platform session gets allow-listed to start a foreground service after receiving
       // the play command.
-      platformController.sendCommand(
-          MediaConstants.SESSION_COMMAND_MEDIA3_PLAY_REQUEST, /* args= */ null, /* cb= */ null);
+      platformController
+          .getTransportControls()
+          .sendCustomAction(MediaConstants.SESSION_COMMAND_MEDIA3_PLAY_REQUEST, /* args= */ null);
     }
 
     dispatchRemoteSessionTaskWithPlayerCommand(
