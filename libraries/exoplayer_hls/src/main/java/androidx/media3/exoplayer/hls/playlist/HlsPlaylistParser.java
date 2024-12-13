@@ -1003,12 +1003,6 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
         if (assetListUriString != null) {
           assetListUri = Uri.parse(assetListUriString);
         }
-        if ((assetUri == null && assetListUri == null)
-            || (assetUri != null && assetListUri != null)) {
-          throw ParserException.createForMalformedManifest(
-              "#EXT-X-DATARANGE: Exactly one of X-ASSET-URI or X-ASSET-LIST must be included",
-              /* cause= */ null);
-        }
         long startDateUnixUs =
             msToUs(parseXsDateTime(parseStringAttr(line, REGEX_START_DATE, variableDefinitions)));
         long endDateUnixUs = C.TIME_UNSET;
@@ -1115,22 +1109,25 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
               break;
           }
         }
-        interstitials.add(
-            new Interstitial(
-                id,
-                assetUri,
-                assetListUri,
-                startDateUnixUs,
-                endDateUnixUs,
-                durationUs,
-                plannedDurationUs,
-                cue,
-                endOnNext,
-                resumeOffsetUs,
-                playoutLimitUs,
-                snapTypes,
-                restrictions,
-                clientDefinedAttributes.build()));
+        if ((assetListUri == null && assetUri != null)
+            || (assetListUri != null && assetUri == null)) {
+          interstitials.add(
+              new Interstitial(
+                  id,
+                  assetUri,
+                  assetListUri,
+                  startDateUnixUs,
+                  endDateUnixUs,
+                  durationUs,
+                  plannedDurationUs,
+                  cue,
+                  endOnNext,
+                  resumeOffsetUs,
+                  playoutLimitUs,
+                  snapTypes,
+                  restrictions,
+                  clientDefinedAttributes.build()));
+        }
       } else if (!line.startsWith("#")) {
         @Nullable
         String segmentEncryptionIV =

@@ -1469,7 +1469,8 @@ public class HlsMediaPlaylistParserTest {
   }
 
   @Test
-  public void parseMediaPlaylist_withInterstitialWithAssetUriAndList_throwsParserException() {
+  public void parseMediaPlaylist_withInterstitialWithAssetUriAndList_interstitialIgnored()
+      throws IOException {
     Uri playlistUri = Uri.parse("https://example.com/test.m3u8");
     String playlistString =
         "#EXTM3U\n"
@@ -1487,16 +1488,18 @@ public class HlsMediaPlaylistParserTest {
             + "X-ASSET-LIST=\"http://example.com/ad2-assets.json\"\n";
     HlsPlaylistParser hlsPlaylistParser = new HlsPlaylistParser();
 
-    assertThrows(
-        ParserException.class,
-        () ->
+    HlsMediaPlaylist hlsMediaPlaylist =
+        (HlsMediaPlaylist)
             hlsPlaylistParser.parse(
-                playlistUri, new ByteArrayInputStream(Util.getUtf8Bytes(playlistString))));
+                playlistUri, new ByteArrayInputStream(Util.getUtf8Bytes(playlistString)));
+
+    assertThat(hlsMediaPlaylist.interstitials).isEmpty();
   }
 
   @Test
   public void
-      parseMediaPlaylist_withInterstitialWithNeitherAssetUriNorAssetList_throwsParserException() {
+      parseMediaPlaylist_withInterstitialWithNeitherAssetUriNorAssetList_interstitialIgnored()
+          throws IOException {
     Uri playlistUri = Uri.parse("https://example.com/test.m3u8");
     String playlistString =
         "#EXTM3U\n"
@@ -1512,11 +1515,12 @@ public class HlsMediaPlaylistParserTest {
             + "START-DATE=\"2020-01-02T21:55:44.000Z\"\n";
     HlsPlaylistParser hlsPlaylistParser = new HlsPlaylistParser();
 
-    assertThrows(
-        ParserException.class,
-        () ->
+    HlsMediaPlaylist hlsMediaPlaylist =
+        (HlsMediaPlaylist)
             hlsPlaylistParser.parse(
-                playlistUri, new ByteArrayInputStream(Util.getUtf8Bytes(playlistString))));
+                playlistUri, new ByteArrayInputStream(Util.getUtf8Bytes(playlistString)));
+
+    assertThat(hlsMediaPlaylist.interstitials).isEmpty();
   }
 
   @Test
