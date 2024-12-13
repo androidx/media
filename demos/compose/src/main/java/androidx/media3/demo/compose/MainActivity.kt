@@ -15,13 +15,13 @@
  */
 package androidx.media3.demo.compose
 
+import android.content.Context
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -34,32 +34,66 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.LifecycleResumeEffect
+import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.demo.compose.buttons.ExtraControls
 import androidx.media3.demo.compose.buttons.MinimalControls
 import androidx.media3.demo.compose.data.videos
+import androidx.media3.demo.compose.layout.noRippleClickable
+import androidx.media3.demo.compose.layout.scaledWithAspectRatio
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.compose.PlayerSurface
 import androidx.media3.ui.compose.SURFACE_TYPE_SURFACE_VIEW
+import androidx.media3.ui.compose.state.rememberRenderingState
 
 class MainActivity : ComponentActivity() {
-
-  private lateinit var player: Player
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     enableEdgeToEdge()
-    player = initializePlayer()
     setContent {
-      MediaPlayerScreen(player = player, modifier = Modifier.fillMaxSize().navigationBarsPadding())
+      MyApp()
     }
   }
+}
 
-  private fun initializePlayer(): Player {
-    return ExoPlayer.Builder(this).build().apply {
-      setMediaItems(videos.map { MediaItem.fromUri(it) })
-      prepare()
+@Composable
+fun MyApp(modifier: Modifier = Modifier) {
+  val context = LocalContext.current
+  var player by remember { mutableStateOf<Player?>(null) }
+  if (Build.VERSION.SDK_INT > 23) {
+    LifecycleStartEffect(Unit) {
+      player = initializePlayer(context)
+      onStopOrDispose { releasePlayer(player); player = null }
+    }
+  } else {
+    LifecycleResumeEffect(Unit) {
+      player = initializePlayer(context)
+      onPauseOrDispose { releasePlayer(player); player = null }
+    }
+  }
+  player?.let {
+    MediaPlayerScreen(
+      player = it,
+      modifier = modifier.fillMaxSize().navigationBarsPadding()
+    )
+  }
+}
+
+private fun initializePlayer(context: Context): Player =
+  ExoPlayer.Builder(context).build().apply {
+    setMediaItems(videos.map(MediaItem::fromUri))
+    prepare()
+  }
+
+private fun releasePlayer(player: Player?) {
+  player?.let {
+    if (player.availableCommands.contains(Player.COMMAND_RELEASE)) {
+      player.release()
     }
   }
 }
@@ -67,18 +101,20 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun MediaPlayerScreen(player: Player, modifier: Modifier = Modifier) {
   var showControls by remember { mutableStateOf(true) }
-  Box(modifier) {
+
+  val renderingState = rememberRenderingState(player)
+  val scaledModifier = modifier.scaledWithAspectRatio(ContentScale.Fit, renderingState.aspectRatio)
+
+  Box(scaledModifier) {
     PlayerSurface(
       player = player,
       surfaceType = SURFACE_TYPE_SURFACE_VIEW,
-      modifier =
-        modifier.clickable(
-          interactionSource = remember { MutableInteractionSource() },
-          indication = null, // to prevent the ripple from the tap
-        ) {
-          showControls = !showControls
-        },
+      modifier = Modifier.noRippleClickable { showControls = !showControls },
     )
+    if (!renderingState.renderedFirstFrame) {
+      // hide the surface that is being prepared behind a scrim
+      Box(scaledModifier.background(Color.Black))
+    }
     if (showControls) {
       MinimalControls(player, Modifier.align(Alignment.Center))
       ExtraControls(
