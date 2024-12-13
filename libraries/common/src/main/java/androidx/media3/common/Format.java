@@ -1496,7 +1496,8 @@ public final class Format {
   private static final String FIELD_AVERAGE_BITRATE = Util.intToStringMaxRadix(5);
   private static final String FIELD_PEAK_BITRATE = Util.intToStringMaxRadix(6);
   private static final String FIELD_CODECS = Util.intToStringMaxRadix(7);
-  private static final String FIELD_METADATA = Util.intToStringMaxRadix(8);
+  // Do not reuse this key.
+  private static final String UNUSED_FIELD_METADATA = Util.intToStringMaxRadix(8);
   private static final String FIELD_CONTAINER_MIME_TYPE = Util.intToStringMaxRadix(9);
   private static final String FIELD_SAMPLE_MIME_TYPE = Util.intToStringMaxRadix(10);
   private static final String FIELD_MAX_INPUT_SIZE = Util.intToStringMaxRadix(11);
@@ -1524,20 +1525,11 @@ public final class Format {
   private static final String FIELD_AUXILIARY_TRACK_TYPE = Util.intToStringMaxRadix(33);
 
   /**
-   * @deprecated Use {@link #toBundle(boolean)} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  public Bundle toBundle() {
-    return toBundle(/* excludeMetadata= */ false);
-  }
-
-  /**
    * Returns a {@link Bundle} representing the information stored in this object. If {@code
    * excludeMetadata} is true, {@linkplain Format#metadata metadata} is excluded.
    */
   @UnstableApi
-  public Bundle toBundle(boolean excludeMetadata) {
+  public Bundle toBundle() {
     Bundle bundle = new Bundle();
     bundle.putString(FIELD_ID, id);
     bundle.putString(FIELD_LABEL, label);
@@ -1552,10 +1544,7 @@ public final class Format {
     bundle.putInt(FIELD_AVERAGE_BITRATE, averageBitrate);
     bundle.putInt(FIELD_PEAK_BITRATE, peakBitrate);
     bundle.putString(FIELD_CODECS, codecs);
-    if (!excludeMetadata) {
-      // TODO (internal ref: b/239701618)
-      bundle.putParcelable(FIELD_METADATA, metadata);
-    }
+    // The metadata does not implement toBundle() method, hence can not be added.
     // Container specific.
     bundle.putString(FIELD_CONTAINER_MIME_TYPE, containerMimeType);
     // Sample specific.
@@ -1618,7 +1607,6 @@ public final class Format {
         .setAverageBitrate(bundle.getInt(FIELD_AVERAGE_BITRATE, DEFAULT.averageBitrate))
         .setPeakBitrate(bundle.getInt(FIELD_PEAK_BITRATE, DEFAULT.peakBitrate))
         .setCodecs(defaultIfNull(bundle.getString(FIELD_CODECS), DEFAULT.codecs))
-        .setMetadata(defaultIfNull(bundle.getParcelable(FIELD_METADATA), DEFAULT.metadata))
         // Container specific.
         .setContainerMimeType(
             defaultIfNull(bundle.getString(FIELD_CONTAINER_MIME_TYPE), DEFAULT.containerMimeType))

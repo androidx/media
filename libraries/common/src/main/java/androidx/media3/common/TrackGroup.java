@@ -169,7 +169,7 @@ public final class TrackGroup {
     Bundle bundle = new Bundle();
     ArrayList<Bundle> arrayList = new ArrayList<>(formats.length);
     for (Format format : formats) {
-      arrayList.add(format.toBundle(/* excludeMetadata= */ true));
+      arrayList.add(format.toBundle());
     }
     bundle.putParcelableArrayList(FIELD_FORMATS, arrayList);
     bundle.putString(FIELD_ID, id);
