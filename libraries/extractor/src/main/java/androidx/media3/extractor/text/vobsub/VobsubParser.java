@@ -211,6 +211,7 @@ public final class VobsubParser implements SubtitleParser {
 
           case CMD_AREA:
             if (buffer.bytesLeft() < 6) return;
+
             d0 = buffer.readUnsignedByte();
             d1 = buffer.readUnsignedByte();
             d2 = buffer.readUnsignedByte();
@@ -228,6 +229,7 @@ public final class VobsubParser implements SubtitleParser {
 
           case CMD_OFFSETS:
             if (buffer.bytesLeft() < 4) return;
+
             dataOffset0 = buffer.readUnsignedShort();
             dataOffset1 = buffer.readUnsignedShort();
             hasDataOffsets = true;
