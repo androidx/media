@@ -34,11 +34,11 @@ public final class VobsubParser implements SubtitleParser {
 
   private static final int DEFAULT_DURATION = 5000000;
 
-  private static final int CMD_COLORS = 3;
-  private static final int CMD_ALPHA = 4;
-  private static final int CMD_AREA = 5;
+  private static final int CMD_COLORS  = 3;
+  private static final int CMD_ALPHA   = 4;
+  private static final int CMD_AREA    = 5;
   private static final int CMD_OFFSETS = 6;
-  private static final int CMD_END = 255;
+  private static final int CMD_END     = 255;
 
   private static final int INFLATE_HEADER = 0x78;
 
