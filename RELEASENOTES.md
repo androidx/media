@@ -56,6 +56,10 @@
     *   Rollback of using `MediaCodecAdapter` supplied pixel aspect ratio values
         when provided while processing `onOutputFormatChanged`
         ([#1371](https://github.com/androidx/media/pull/1371)).
+    *   Fix `MediaCodecVideoRenderer` such that when without a `Surface`, the
+        renderer will skip just-early frames only if the
+        `VideoFrameReleaseControl.getFrameReleaseAction` is not
+        `FRAME_RELEASE_TRY_AGAIN_LATER`.
 *   Text:
     *   Stop eagerly loading all subtitle files configured with
         `MediaItem.Builder.setSubtitleConfigurations`, and instead only load one

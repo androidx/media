@@ -300,6 +300,84 @@ public class MediaCodecVideoRendererTest {
   }
 
   @Test
+  public void render_earlyWithoutSurfaceAndStarted_skipsBuffer() throws Exception {
+    ArgumentCaptor<DecoderCounters> argumentDecoderCounters =
+        ArgumentCaptor.forClass(DecoderCounters.class);
+    FakeSampleStream fakeSampleStream =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* initialFormat= */ VIDEO_H264,
+            ImmutableList.of(
+                oneByteSample(/* timeUs= */ 50_000, C.BUFFER_FLAG_KEY_FRAME), END_OF_STREAM_ITEM));
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+    // Set placeholder surface.
+    mediaCodecVideoRenderer.handleMessage(Renderer.MSG_SET_VIDEO_OUTPUT, null);
+    mediaCodecVideoRenderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {VIDEO_H264},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ true,
+        /* mayRenderStartOfStream= */ false,
+        /* startPositionUs= */ 50_000,
+        /* offsetUs= */ 0,
+        /* mediaPeriodId= */ new MediaSource.MediaPeriodId(new Object()));
+
+    mediaCodecVideoRenderer.start();
+    mediaCodecVideoRenderer.setCurrentStreamFinal();
+    mediaCodecVideoRenderer.render(0, SystemClock.elapsedRealtime() * 1000);
+    int posUs = 20_001; // Ensures buffer will be 29_999us early.
+    mediaCodecVideoRenderer.render(posUs, SystemClock.elapsedRealtime() * 1000);
+    shadowOf(testMainLooper).idle();
+
+    verify(eventListener).onVideoEnabled(argumentDecoderCounters.capture());
+    assertThat(argumentDecoderCounters.getValue().skippedOutputBufferCount).isEqualTo(1);
+  }
+
+  @Test
+  public void render_earlyWithoutSurfaceAndNotStarted_doesNotSkipBuffer() throws Exception {
+    ArgumentCaptor<DecoderCounters> argumentDecoderCounters =
+        ArgumentCaptor.forClass(DecoderCounters.class);
+    FakeSampleStream fakeSampleStream =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* initialFormat= */ VIDEO_H264,
+            ImmutableList.of(
+                oneByteSample(/* timeUs= */ 50_000, C.BUFFER_FLAG_KEY_FRAME), END_OF_STREAM_ITEM));
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+    // Set placeholder surface.
+    mediaCodecVideoRenderer.handleMessage(Renderer.MSG_SET_VIDEO_OUTPUT, null);
+    mediaCodecVideoRenderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {VIDEO_H264},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ true,
+        /* mayRenderStartOfStream= */ false,
+        /* startPositionUs= */ 50_000,
+        /* offsetUs= */ 0,
+        /* mediaPeriodId= */ new MediaSource.MediaPeriodId(new Object()));
+
+    mediaCodecVideoRenderer.setCurrentStreamFinal();
+    mediaCodecVideoRenderer.render(0, SystemClock.elapsedRealtime() * 1000);
+    int posUs = 20_001; // Ensures buffer will be 29_999us early.
+    for (int i = 0; i < 3; i++) {
+      mediaCodecVideoRenderer.render(posUs, SystemClock.elapsedRealtime() * 1000);
+      posUs += 10_000;
+    }
+    shadowOf(testMainLooper).idle();
+
+    verify(eventListener).onVideoEnabled(argumentDecoderCounters.capture());
+    assertThat(argumentDecoderCounters.getValue().skippedOutputBufferCount).isEqualTo(0);
+  }
+
+  @Test
   public void render_withBufferLimitEqualToNumberOfSamples_rendersLastFrameAfterEndOfStream()
       throws Exception {
     ArgumentCaptor<DecoderCounters> argumentDecoderCounters =

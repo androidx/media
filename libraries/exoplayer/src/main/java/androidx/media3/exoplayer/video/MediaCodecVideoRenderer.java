@@ -1509,7 +1509,9 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     // We are not rendering on a surface, the renderer will wait until a surface is set.
     if (displaySurface == null) {
       // Skip frames in sync with playback, so we'll be at the right frame if the mode changes.
-      if (videoFrameReleaseInfo.getEarlyUs() < 30_000) {
+      if (videoFrameReleaseInfo.getEarlyUs() < 0
+          || (videoFrameReleaseInfo.getEarlyUs() < 30_000
+              && frameReleaseAction != VideoFrameReleaseControl.FRAME_RELEASE_TRY_AGAIN_LATER)) {
         skipOutputBuffer(codec, bufferIndex, presentationTimeUs);
         updateVideoFrameProcessingOffsetCounters(videoFrameReleaseInfo.getEarlyUs());
         return true;
