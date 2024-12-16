@@ -41,6 +41,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Objects;
 
 /**
  * Represents ad group times and information on the state and URIs of ads within each ad group.
@@ -90,6 +91,9 @@ public final class AdPlaybackState {
     /** The durations of each ad in the ad group, in microseconds. */
     public final long[] durationsUs;
 
+    /** The optional IDs of the ads. */
+    public final @NullableType String[] ids;
+
     /**
      * The offset in microseconds which should be added to the content stream when resuming playback
      * after the ad group.
@@ -114,7 +118,8 @@ public final class AdPlaybackState {
           /* mediaItems= */ new MediaItem[0],
           /* durationsUs= */ new long[0],
           /* contentResumeOffsetUs= */ 0,
-          /* isServerSideInserted= */ false);
+          /* isServerSideInserted= */ false,
+          /* ids= */ new String[0]);
     }
 
     @SuppressWarnings("deprecation") // Intentionally assigning deprecated field
@@ -126,7 +131,8 @@ public final class AdPlaybackState {
         @NullableType MediaItem[] mediaItems,
         long[] durationsUs,
         long contentResumeOffsetUs,
-        boolean isServerSideInserted) {
+        boolean isServerSideInserted,
+        @NullableType String[] ids) {
       checkArgument(states.length == mediaItems.length);
       this.timeUs = timeUs;
       this.count = count;
@@ -140,6 +146,7 @@ public final class AdPlaybackState {
       for (int i = 0; i < uris.length; i++) {
         uris[i] = mediaItems[i] == null ? null : checkNotNull(mediaItems[i].localConfiguration).uri;
       }
+      this.ids = ids;
     }
 
     /**
@@ -211,7 +218,8 @@ public final class AdPlaybackState {
           && Arrays.equals(states, adGroup.states)
           && Arrays.equals(durationsUs, adGroup.durationsUs)
           && contentResumeOffsetUs == adGroup.contentResumeOffsetUs
-          && isServerSideInserted == adGroup.isServerSideInserted;
+          && isServerSideInserted == adGroup.isServerSideInserted
+          && Arrays.equals(ids, adGroup.ids);
     }
 
     @Override
@@ -224,6 +232,7 @@ public final class AdPlaybackState {
       result = 31 * result + Arrays.hashCode(durationsUs);
       result = 31 * result + (int) (contentResumeOffsetUs ^ (contentResumeOffsetUs >>> 32));
       result = 31 * result + (isServerSideInserted ? 1 : 0);
+      result = 31 * result + Arrays.hashCode(ids);
       return result;
     }
 
@@ -238,7 +247,8 @@ public final class AdPlaybackState {
           mediaItems,
           durationsUs,
           contentResumeOffsetUs,
-          isServerSideInserted);
+          isServerSideInserted,
+          ids);
     }
 
     /** Returns a new instance with the ad count set to {@code count}. */
@@ -247,6 +257,7 @@ public final class AdPlaybackState {
       @AdState int[] states = copyStatesWithSpaceForAdCount(this.states, count);
       long[] durationsUs = copyDurationsUsWithSpaceForAdCount(this.durationsUs, count);
       @NullableType MediaItem[] mediaItems = Arrays.copyOf(this.mediaItems, count);
+      @NullableType String[] ids = Arrays.copyOf(this.ids, count);
       return new AdGroup(
           timeUs,
           count,
@@ -255,7 +266,8 @@ public final class AdPlaybackState {
           mediaItems,
           durationsUs,
           contentResumeOffsetUs,
-          isServerSideInserted);
+          isServerSideInserted,
+          ids);
     }
 
     /**
@@ -281,6 +293,9 @@ public final class AdPlaybackState {
       @NullableType MediaItem[] mediaItems = Arrays.copyOf(this.mediaItems, states.length);
       mediaItems[index] = mediaItem;
       states[index] = AD_STATE_AVAILABLE;
+      @NullableType
+      String[] ids =
+          this.ids.length == states.length ? this.ids : Arrays.copyOf(this.ids, states.length);
       return new AdGroup(
           timeUs,
           count,
@@ -289,7 +304,8 @@ public final class AdPlaybackState {
           mediaItems,
           durationsUs,
           contentResumeOffsetUs,
-          isServerSideInserted);
+          isServerSideInserted,
+          ids);
     }
 
     /**
@@ -317,6 +333,9 @@ public final class AdPlaybackState {
           this.mediaItems.length == states.length
               ? this.mediaItems
               : Arrays.copyOf(this.mediaItems, states.length);
+      @NullableType
+      String[] ids =
+          this.ids.length == states.length ? this.ids : Arrays.copyOf(this.ids, states.length);
       states[index] = state;
       return new AdGroup(
           timeUs,
@@ -326,7 +345,8 @@ public final class AdPlaybackState {
           mediaItems,
           durationsUs,
           contentResumeOffsetUs,
-          isServerSideInserted);
+          isServerSideInserted,
+          ids);
     }
 
     /** Returns a new instance with the specified ad durations, in microseconds. */
@@ -345,7 +365,37 @@ public final class AdPlaybackState {
           mediaItems,
           durationsUs,
           contentResumeOffsetUs,
-          isServerSideInserted);
+          isServerSideInserted,
+          ids);
+    }
+
+    /** Returns a new instance with the specified ID for the given ad index. */
+    @CheckResult
+    public AdGroup withAdId(String adId, @IntRange(from = 0) int index) {
+      @AdState int[] states = copyStatesWithSpaceForAdCount(this.states, index + 1);
+      long[] durationsUs =
+          this.durationsUs.length == states.length
+              ? this.durationsUs
+              : copyDurationsUsWithSpaceForAdCount(this.durationsUs, states.length);
+      @NullableType
+      MediaItem[] mediaItems =
+          this.mediaItems.length == states.length
+              ? this.mediaItems
+              : Arrays.copyOf(this.mediaItems, states.length);
+      @NullableType
+      String[] ids =
+          this.ids.length == states.length ? this.ids : Arrays.copyOf(this.ids, states.length);
+      ids[index] = adId;
+      return new AdGroup(
+          timeUs,
+          count,
+          originalCount,
+          states,
+          mediaItems,
+          durationsUs,
+          contentResumeOffsetUs,
+          isServerSideInserted,
+          ids);
     }
 
     /** Returns an instance with the specified {@link #contentResumeOffsetUs}. */
@@ -359,7 +409,8 @@ public final class AdPlaybackState {
           mediaItems,
           durationsUs,
           contentResumeOffsetUs,
-          isServerSideInserted);
+          isServerSideInserted,
+          ids);
     }
 
     /** Returns an instance with the specified value for {@link #isServerSideInserted}. */
@@ -373,7 +424,8 @@ public final class AdPlaybackState {
           mediaItems,
           durationsUs,
           contentResumeOffsetUs,
-          isServerSideInserted);
+          isServerSideInserted,
+          ids);
     }
 
     /** Returns an instance with the specified value for {@link #originalCount}. */
@@ -386,7 +438,8 @@ public final class AdPlaybackState {
           mediaItems,
           durationsUs,
           contentResumeOffsetUs,
-          isServerSideInserted);
+          isServerSideInserted,
+          ids);
     }
 
     /** Removes the last ad from the ad group. */
@@ -398,6 +451,7 @@ public final class AdPlaybackState {
       if (durationsUs.length > newCount) {
         newDurationsUs = Arrays.copyOf(durationsUs, newCount);
       }
+      @NullableType String[] newIds = Arrays.copyOf(ids, newCount);
       return new AdGroup(
           timeUs,
           newCount,
@@ -406,7 +460,8 @@ public final class AdPlaybackState {
           newMediaItems,
           newDurationsUs,
           /* contentResumeOffsetUs= */ Util.sum(newDurationsUs),
-          isServerSideInserted);
+          isServerSideInserted,
+          newIds);
     }
 
     /**
@@ -424,7 +479,8 @@ public final class AdPlaybackState {
             /* mediaItems= */ new MediaItem[0],
             /* durationsUs= */ new long[0],
             contentResumeOffsetUs,
-            isServerSideInserted);
+            isServerSideInserted,
+            ids);
       }
       int count = this.states.length;
       @AdState int[] states = Arrays.copyOf(this.states, count);
@@ -441,7 +497,8 @@ public final class AdPlaybackState {
           mediaItems,
           durationsUs,
           contentResumeOffsetUs,
-          isServerSideInserted);
+          isServerSideInserted,
+          ids);
     }
 
     /**
@@ -470,7 +527,21 @@ public final class AdPlaybackState {
           mediaItems,
           durationsUs,
           contentResumeOffsetUs,
-          isServerSideInserted);
+          isServerSideInserted,
+          ids);
+    }
+
+    /**
+     * Returns the index of the ad with the given ad ID, or {@link C#INDEX_UNSET} if the ad ID can't
+     * be found.
+     */
+    public int getIndexOfAdId(String adId) {
+      for (int i = 0; i < ids.length; i++) {
+        if (Objects.equals(ids[i], adId)) {
+          return i;
+        }
+      }
+      return C.INDEX_UNSET;
     }
 
     @CheckResult
@@ -500,6 +571,7 @@ public final class AdPlaybackState {
     private static final String FIELD_IS_SERVER_SIDE_INSERTED = Util.intToStringMaxRadix(6);
     private static final String FIELD_ORIGINAL_COUNT = Util.intToStringMaxRadix(7);
     @VisibleForTesting static final String FIELD_MEDIA_ITEMS = Util.intToStringMaxRadix(8);
+    static final String FIELD_IDS = Util.intToStringMaxRadix(9);
 
     // Intentionally assigning deprecated field.
     // putParcelableArrayList actually supports null elements.
@@ -516,6 +588,7 @@ public final class AdPlaybackState {
       bundle.putLongArray(FIELD_DURATIONS_US, durationsUs);
       bundle.putLong(FIELD_CONTENT_RESUME_OFFSET_US, contentResumeOffsetUs);
       bundle.putBoolean(FIELD_IS_SERVER_SIDE_INSERTED, isServerSideInserted);
+      bundle.putStringArrayList(FIELD_IDS, new ArrayList<>(Arrays.asList(ids)));
       return bundle;
     }
 
@@ -536,6 +609,7 @@ public final class AdPlaybackState {
       @Nullable long[] durationsUs = bundle.getLongArray(FIELD_DURATIONS_US);
       long contentResumeOffsetUs = bundle.getLong(FIELD_CONTENT_RESUME_OFFSET_US);
       boolean isServerSideInserted = bundle.getBoolean(FIELD_IS_SERVER_SIDE_INSERTED);
+      @Nullable ArrayList<String> ids = bundle.getStringArrayList(FIELD_IDS);
       return new AdGroup(
           timeUs,
           count,
@@ -544,7 +618,8 @@ public final class AdPlaybackState {
           getMediaItemsFromBundleArrays(mediaItemBundleList, uriList),
           durationsUs == null ? new long[0] : durationsUs,
           contentResumeOffsetUs,
-          isServerSideInserted);
+          isServerSideInserted,
+          ids == null ? new String[0] : ids.toArray(new String[0]));
     }
 
     private ArrayList<@NullableType Bundle> getMediaItemsArrayBundles() {
@@ -914,6 +989,17 @@ public final class AdPlaybackState {
         adsId, adGroups, adResumePositionUs, contentDurationUs, removedAdGroupCount);
   }
 
+  /** Returns an instance with the specified ad ID for the given ad. */
+  @CheckResult
+  public AdPlaybackState withAdId(
+      @IntRange(from = 0) int adGroupIndex, @IntRange(from = 0) int adIndexInAdGroup, String adId) {
+    int adjustedIndex = adGroupIndex - removedAdGroupCount;
+    AdGroup[] adGroups = Util.nullSafeArrayCopy(this.adGroups, this.adGroups.length);
+    adGroups[adjustedIndex] = adGroups[adjustedIndex].withAdId(adId, adIndexInAdGroup);
+    return new AdPlaybackState(
+        adsId, adGroups, adResumePositionUs, contentDurationUs, removedAdGroupCount);
+  }
+
   /**
    * Returns an instance with all ads in the specified ad group skipped (except for those already
    * marked as played or in the error state).
@@ -1074,7 +1160,7 @@ public final class AdPlaybackState {
   }
 
   /**
-   * Appends a live postroll placeholder ad group to the ad playback state.
+   * Appends a live post roll placeholder ad group to the ad playback state.
    *
    * <p>Adding such a placeholder is only required for periods of server side ad insertion live
    * streams. A player is not expected to play this placeholder. It is only used to indicate that
@@ -1111,6 +1197,18 @@ public final class AdPlaybackState {
   }
 
   /**
+   * Returns the index of the ad with the given ad ID in the given ad group, or {@link
+   * C#INDEX_UNSET} if the ad ID can't be found.
+   *
+   * @param adGroupIndex The ad group index.
+   * @param adId The ad ID.
+   * @return The ad index in the ad group, or {@link C#INDEX_UNSET} if the ad ID is not found.
+   */
+  public int getAdIndexOfAdId(int adGroupIndex, String adId) {
+    return getAdGroup(adGroupIndex).getIndexOfAdId(adId);
+  }
+
+  /**
    * Returns a copy of the ad playback state with the given ads ID.
    *
    * @param adsId The new ads ID.
@@ -1131,7 +1229,8 @@ public final class AdPlaybackState {
               Arrays.copyOf(adGroup.mediaItems, adGroup.mediaItems.length),
               Arrays.copyOf(adGroup.durationsUs, adGroup.durationsUs.length),
               adGroup.contentResumeOffsetUs,
-              adGroup.isServerSideInserted);
+              adGroup.isServerSideInserted,
+              adGroup.ids);
     }
     return new AdPlaybackState(
         adsId,

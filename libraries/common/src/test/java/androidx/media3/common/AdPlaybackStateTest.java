@@ -44,9 +44,18 @@ public class AdPlaybackStateTest {
         new AdPlaybackState(TEST_ADS_ID, TEST_AD_GROUP_TIMES_US).withRemovedAdGroupCount(1);
 
     assertThat(state.getAdGroup(1).count).isEqualTo(C.LENGTH_UNSET);
-    state = state.withAdCount(/* adGroupIndex= */ 1, /* adCount= */ 1);
+    assertThat(state.getAdGroup(1).states).hasLength(0);
+    assertThat(state.getAdGroup(1).mediaItems).hasLength(0);
+    assertThat(state.getAdGroup(1).durationsUs).hasLength(0);
+    assertThat(state.getAdGroup(1).ids).hasLength(0);
 
-    assertThat(state.getAdGroup(1).count).isEqualTo(1);
+    state = state.withAdCount(/* adGroupIndex= */ 1, /* adCount= */ 4);
+
+    assertThat(state.getAdGroup(1).count).isEqualTo(4);
+    assertThat(state.getAdGroup(1).states).hasLength(4);
+    assertThat(state.getAdGroup(1).mediaItems).hasLength(4);
+    assertThat(state.getAdGroup(1).durationsUs).hasLength(4);
+    assertThat(state.getAdGroup(1).ids).hasLength(4);
   }
 
   @Test
@@ -488,9 +497,12 @@ public class AdPlaybackStateTest {
             .withPlayedAd(/* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 0)
             .withAvailableAdMediaItem(
                 /* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 0, TEST_MEDIA_ITEM)
+            .withAdId(/* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 0, "ad-1-0")
             .withAdCount(/* adGroupIndex= */ 2, /* adCount= */ 2)
             .withSkippedAd(/* adGroupIndex= */ 2, /* adIndexInAdGroup= */ 0)
             .withPlayedAd(/* adGroupIndex= */ 2, /* adIndexInAdGroup= */ 1)
+            .withAdId(/* adGroupIndex= */ 2, /* adIndexInAdGroup= */ 0, "ad-2-0")
+            .withAdId(/* adGroupIndex= */ 2, /* adIndexInAdGroup= */ 1, "ad-2-1")
             .withAvailableAdMediaItem(
                 /* adGroupIndex= */ 2, /* adIndexInAdGroup= */ 0, TEST_MEDIA_ITEM)
             .withAvailableAdMediaItem(
@@ -528,7 +540,9 @@ public class AdPlaybackStateTest {
             .withAdMediaItem(new MediaItem.Builder().setUri(Uri.EMPTY).build(), /* index= */ 1)
             .withAdDurationsUs(new long[] {1234, 5678})
             .withContentResumeOffsetUs(4444)
-            .withIsServerSideInserted(true);
+            .withIsServerSideInserted(true)
+            .withAdId("id-0", 0)
+            .withAdId("id-1", 1);
 
     assertThat(AdPlaybackState.AdGroup.fromBundle(adGroup.toBundle())).isEqualTo(adGroup);
   }
@@ -540,6 +554,8 @@ public class AdPlaybackStateTest {
             .withAdCount(2)
             .withAdState(AD_STATE_AVAILABLE, /* index= */ 0)
             .withAdState(AD_STATE_PLAYED, /* index= */ 1)
+            .withAdId("ad-0", /* index= */ 1)
+            .withAdId("ad-1", /* index= */ 1)
             .withAdMediaItem(
                 new MediaItem.Builder().setUri("https://www.google.com").build(), /* index= */ 0)
             .withAdMediaItem(new MediaItem.Builder().setUri(Uri.EMPTY).build(), /* index= */ 1)
@@ -856,5 +872,40 @@ public class AdPlaybackStateTest {
             state.getAdGroupIndexForPositionUs(
                 /* positionUs= */ C.TIME_END_OF_SOURCE, /* periodDurationUs= */ C.TIME_UNSET))
         .isEqualTo(C.INDEX_UNSET);
+  }
+
+  @Test
+  public void getAdIndexOfAdId() {
+    AdPlaybackState state =
+        new AdPlaybackState("adsId", /* adGroupTimesUs...= */ 0L, 1L, 2L)
+            .withAdCount(0, 1)
+            .withAdCount(1, 3)
+            .withAdCount(2, 2)
+            .withAdId(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0, "ad-0-0")
+            .withAdId(/* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 0, "ad-1-0")
+            .withAdId(/* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 2, "ad-1-2")
+            .withAdId(/* adGroupIndex= */ 2, /* adIndexInAdGroup= */ 0, "ad-2-0")
+            .withAdId(/* adGroupIndex= */ 2, /* adIndexInAdGroup= */ 1, "ad-2-1")
+            .withRemovedAdGroupCount(/* removedAdGroupCount= */ 1);
+
+    assertThat(state.getAdIndexOfAdId(/* adGroupIndex= */ 0, "ad-0-0")).isEqualTo(C.INDEX_UNSET);
+    assertThat(state.getAdIndexOfAdId(/* adGroupIndex= */ 1, "ad-1-0")).isEqualTo(0);
+    assertThat(state.getAdIndexOfAdId(/* adGroupIndex= */ 1, "ad-1-1")).isEqualTo(C.INDEX_UNSET);
+    assertThat(state.getAdIndexOfAdId(/* adGroupIndex= */ 1, "ad-1-2")).isEqualTo(2);
+    assertThat(state.getAdIndexOfAdId(/* adGroupIndex= */ 2, "ad-2-0")).isEqualTo(0);
+    assertThat(state.getAdIndexOfAdId(/* adGroupIndex= */ 2, "ad-2-1")).isEqualTo(1);
+  }
+
+  @Test
+  public void fromBundle_withNullElements_correctlyBundledUnbundled() {
+    AdPlaybackState.AdGroup adGroup =
+        new AdPlaybackState.AdGroup(/* timeUs= */ 0L)
+            .withAdCount(3)
+            .withAdId(/* adId= */ "0", /* index= */ 0)
+            .withAdId(/* adId= */ "2", /* index= */ 2);
+
+    // Asserts that the missing @NullableType in fromBundle() isn't harmful.
+    assertThat(AdPlaybackState.AdGroup.fromBundle(adGroup.toBundle()).ids[1]).isNull();
+    assertThat(AdPlaybackState.AdGroup.fromBundle(adGroup.toBundle())).isEqualTo(adGroup);
   }
 }
