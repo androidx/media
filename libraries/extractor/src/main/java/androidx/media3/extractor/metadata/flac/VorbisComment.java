@@ -15,10 +15,6 @@
  */
 package androidx.media3.extractor.metadata.flac;
 
-import static androidx.media3.common.util.Util.castNonNull;
-
-import android.os.Parcel;
-import android.os.Parcelable;
 import androidx.annotation.Nullable;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.Metadata;
@@ -50,11 +46,6 @@ public class VorbisComment implements Metadata.Entry {
   public VorbisComment(String key, String value) {
     this.key = Ascii.toUpperCase(key);
     this.value = value;
-  }
-
-  protected VorbisComment(Parcel in) {
-    this.key = castNonNull(in.readString());
-    this.value = castNonNull(in.readString());
   }
 
   @Override
@@ -134,31 +125,4 @@ public class VorbisComment implements Metadata.Entry {
     result = 31 * result + value.hashCode();
     return result;
   }
-
-  // Parcelable implementation.
-
-  @Override
-  public void writeToParcel(Parcel dest, int flags) {
-    dest.writeString(key);
-    dest.writeString(value);
-  }
-
-  @Override
-  public int describeContents() {
-    return 0;
-  }
-
-  public static final Parcelable.Creator<VorbisComment> CREATOR =
-      new Parcelable.Creator<VorbisComment>() {
-
-        @Override
-        public VorbisComment createFromParcel(Parcel in) {
-          return new VorbisComment(in);
-        }
-
-        @Override
-        public VorbisComment[] newArray(int size) {
-          return new VorbisComment[size];
-        }
-      };
 }

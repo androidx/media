@@ -18,8 +18,6 @@ package androidx.media3.container;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkState;
 
-import android.os.Parcel;
-import android.os.Parcelable;
 import androidx.annotation.Nullable;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.util.ParsableByteArray;
@@ -111,14 +109,6 @@ public final class MdtaMetadataEntry implements Metadata.Entry {
     this.typeIndicator = typeIndicator;
   }
 
-  private MdtaMetadataEntry(Parcel in) {
-    key = Util.castNonNull(in.readString());
-    value = Util.castNonNull(in.createByteArray());
-    localeIndicator = in.readInt();
-    typeIndicator = in.readInt();
-    validateData(key, value, typeIndicator);
-  }
-
   /**
    * Returns the auxiliary track types from the {@linkplain #KEY_AUXILIARY_TRACKS_MAP auxiliary
    * tracks map} metadata.
@@ -190,35 +180,6 @@ public final class MdtaMetadataEntry implements Metadata.Entry {
 
     return "mdta: key=" + key + ", value=" + formattedValue;
   }
-
-  // Parcelable implementation.
-
-  @Override
-  public void writeToParcel(Parcel dest, int flags) {
-    dest.writeString(key);
-    dest.writeByteArray(value);
-    dest.writeInt(localeIndicator);
-    dest.writeInt(typeIndicator);
-  }
-
-  @Override
-  public int describeContents() {
-    return 0;
-  }
-
-  public static final Parcelable.Creator<MdtaMetadataEntry> CREATOR =
-      new Parcelable.Creator<MdtaMetadataEntry>() {
-
-        @Override
-        public MdtaMetadataEntry createFromParcel(Parcel in) {
-          return new MdtaMetadataEntry(in);
-        }
-
-        @Override
-        public MdtaMetadataEntry[] newArray(int size) {
-          return new MdtaMetadataEntry[size];
-        }
-      };
 
   private static void validateData(String key, byte[] value, int typeIndicator) {
     switch (key) {

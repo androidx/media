@@ -15,10 +15,6 @@
  */
 package androidx.media3.extractor.metadata.id3;
 
-import static androidx.media3.common.util.Util.castNonNull;
-
-import android.os.Parcel;
-import android.os.Parcelable;
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -38,13 +34,6 @@ public final class CommentFrame extends Id3Frame {
     this.language = language;
     this.description = description;
     this.text = text;
-  }
-
-  /* package */ CommentFrame(Parcel in) {
-    super(ID);
-    language = castNonNull(in.readString());
-    description = castNonNull(in.readString());
-    text = castNonNull(in.readString());
   }
 
   @Override
@@ -74,27 +63,4 @@ public final class CommentFrame extends Id3Frame {
   public String toString() {
     return id + ": language=" + language + ", description=" + description + ", text=" + text;
   }
-
-  // Parcelable implementation.
-
-  @Override
-  public void writeToParcel(Parcel dest, int flags) {
-    dest.writeString(id);
-    dest.writeString(language);
-    dest.writeString(text);
-  }
-
-  public static final Parcelable.Creator<CommentFrame> CREATOR =
-      new Parcelable.Creator<CommentFrame>() {
-
-        @Override
-        public CommentFrame createFromParcel(Parcel in) {
-          return new CommentFrame(in);
-        }
-
-        @Override
-        public CommentFrame[] newArray(int size) {
-          return new CommentFrame[size];
-        }
-      };
 }

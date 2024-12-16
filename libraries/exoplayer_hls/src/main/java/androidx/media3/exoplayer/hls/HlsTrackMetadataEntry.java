@@ -15,8 +15,6 @@
  */
 package androidx.media3.exoplayer.hls;
 
-import android.os.Parcel;
-import android.os.Parcelable;
 import android.text.TextUtils;
 import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
@@ -31,7 +29,7 @@ import java.util.List;
 public final class HlsTrackMetadataEntry implements Metadata.Entry {
 
   /** Holds attributes defined in an EXT-X-STREAM-INF tag. */
-  public static final class VariantInfo implements Parcelable {
+  public static final class VariantInfo {
 
     /**
      * The average bitrate as declared by the AVERAGE-BANDWIDTH attribute of the EXT-X-STREAM-INF
@@ -91,15 +89,6 @@ public final class HlsTrackMetadataEntry implements Metadata.Entry {
       this.captionGroupId = captionGroupId;
     }
 
-    /* package */ VariantInfo(Parcel in) {
-      averageBitrate = in.readInt();
-      peakBitrate = in.readInt();
-      videoGroupId = in.readString();
-      audioGroupId = in.readString();
-      subtitleGroupId = in.readString();
-      captionGroupId = in.readString();
-    }
-
     @Override
     public boolean equals(@Nullable Object other) {
       if (this == other) {
@@ -127,36 +116,6 @@ public final class HlsTrackMetadataEntry implements Metadata.Entry {
       result = 31 * result + (captionGroupId != null ? captionGroupId.hashCode() : 0);
       return result;
     }
-
-    // Parcelable implementation.
-
-    @Override
-    public int describeContents() {
-      return 0;
-    }
-
-    @Override
-    public void writeToParcel(Parcel dest, int flags) {
-      dest.writeInt(averageBitrate);
-      dest.writeInt(peakBitrate);
-      dest.writeString(videoGroupId);
-      dest.writeString(audioGroupId);
-      dest.writeString(subtitleGroupId);
-      dest.writeString(captionGroupId);
-    }
-
-    public static final Parcelable.Creator<VariantInfo> CREATOR =
-        new Parcelable.Creator<VariantInfo>() {
-          @Override
-          public VariantInfo createFromParcel(Parcel in) {
-            return new VariantInfo(in);
-          }
-
-          @Override
-          public VariantInfo[] newArray(int size) {
-            return new VariantInfo[size];
-          }
-        };
   }
 
   /**
@@ -191,17 +150,6 @@ public final class HlsTrackMetadataEntry implements Metadata.Entry {
     this.variantInfos = Collections.unmodifiableList(new ArrayList<>(variantInfos));
   }
 
-  /* package */ HlsTrackMetadataEntry(Parcel in) {
-    groupId = in.readString();
-    name = in.readString();
-    int variantInfoSize = in.readInt();
-    ArrayList<VariantInfo> variantInfos = new ArrayList<>(variantInfoSize);
-    for (int i = 0; i < variantInfoSize; i++) {
-      variantInfos.add(in.readParcelable(VariantInfo.class.getClassLoader()));
-    }
-    this.variantInfos = Collections.unmodifiableList(variantInfos);
-  }
-
   @Override
   public String toString() {
     return "HlsTrackMetadataEntry" + (groupId != null ? (" [" + groupId + ", " + name + "]") : "");
@@ -229,35 +177,4 @@ public final class HlsTrackMetadataEntry implements Metadata.Entry {
     result = 31 * result + variantInfos.hashCode();
     return result;
   }
-
-  // Parcelable implementation.
-
-  @Override
-  public int describeContents() {
-    return 0;
-  }
-
-  @Override
-  public void writeToParcel(Parcel dest, int flags) {
-    dest.writeString(groupId);
-    dest.writeString(name);
-    int variantInfosSize = variantInfos.size();
-    dest.writeInt(variantInfosSize);
-    for (int i = 0; i < variantInfosSize; i++) {
-      dest.writeParcelable(variantInfos.get(i), /* parcelableFlags= */ 0);
-    }
-  }
-
-  public static final Parcelable.Creator<HlsTrackMetadataEntry> CREATOR =
-      new Parcelable.Creator<HlsTrackMetadataEntry>() {
-        @Override
-        public HlsTrackMetadataEntry createFromParcel(Parcel in) {
-          return new HlsTrackMetadataEntry(in);
-        }
-
-        @Override
-        public HlsTrackMetadataEntry[] newArray(int size) {
-          return new HlsTrackMetadataEntry[size];
-        }
-      };
 }

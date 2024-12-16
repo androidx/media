@@ -17,7 +17,6 @@ package androidx.media3.extractor.metadata.vorbis;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import android.os.Parcel;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.Metadata;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -29,21 +28,6 @@ import org.junit.runner.RunWith;
 /** Test for {@link VorbisComment}. */
 @RunWith(AndroidJUnit4.class)
 public final class VorbisCommentTest {
-
-  @Test
-  public void parcelable() {
-    VorbisComment vorbisCommentFrameToParcel = new VorbisComment("key", "value");
-
-    Parcel parcel = Parcel.obtain();
-    vorbisCommentFrameToParcel.writeToParcel(parcel, 0);
-    parcel.setDataPosition(0);
-
-    VorbisComment vorbisCommentFrameFromParcel = VorbisComment.CREATOR.createFromParcel(parcel);
-    assertThat(vorbisCommentFrameFromParcel).isEqualTo(vorbisCommentFrameToParcel);
-
-    parcel.recycle();
-  }
-
   @Test
   public void populateMediaMetadata_setsMediaMetadataValues() {
     String title = "the title";

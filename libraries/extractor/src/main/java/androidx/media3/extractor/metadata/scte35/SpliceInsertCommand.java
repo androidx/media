@@ -15,8 +15,6 @@
  */
 package androidx.media3.extractor.metadata.scte35;
 
-import android.os.Parcel;
-import android.os.Parcelable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.TimestampAdjuster;
@@ -119,27 +117,6 @@ public final class SpliceInsertCommand extends SpliceCommand {
     this.availsExpected = availsExpected;
   }
 
-  private SpliceInsertCommand(Parcel in) {
-    spliceEventId = in.readLong();
-    spliceEventCancelIndicator = in.readByte() == 1;
-    outOfNetworkIndicator = in.readByte() == 1;
-    programSpliceFlag = in.readByte() == 1;
-    spliceImmediateFlag = in.readByte() == 1;
-    programSplicePts = in.readLong();
-    programSplicePlaybackPositionUs = in.readLong();
-    int componentSpliceListSize = in.readInt();
-    List<ComponentSplice> componentSpliceList = new ArrayList<>(componentSpliceListSize);
-    for (int i = 0; i < componentSpliceListSize; i++) {
-      componentSpliceList.add(ComponentSplice.createFromParcel(in));
-    }
-    this.componentSpliceList = Collections.unmodifiableList(componentSpliceList);
-    autoReturn = in.readByte() == 1;
-    breakDurationUs = in.readLong();
-    uniqueProgramId = in.readInt();
-    availNum = in.readInt();
-    availsExpected = in.readInt();
-  }
-
   /* package */ static SpliceInsertCommand parseFromSection(
       ParsableByteArray sectionData, long ptsAdjustment, TimestampAdjuster timestampAdjuster) {
     long spliceEventId = sectionData.readUnsignedInt();
@@ -219,16 +196,6 @@ public final class SpliceInsertCommand extends SpliceCommand {
       this.componentSplicePts = componentSplicePts;
       this.componentSplicePlaybackPositionUs = componentSplicePlaybackPositionUs;
     }
-
-    public void writeToParcel(Parcel dest) {
-      dest.writeInt(componentTag);
-      dest.writeLong(componentSplicePts);
-      dest.writeLong(componentSplicePlaybackPositionUs);
-    }
-
-    public static ComponentSplice createFromParcel(Parcel in) {
-      return new ComponentSplice(in.readInt(), in.readLong(), in.readLong());
-    }
   }
 
   @Override
@@ -239,41 +206,4 @@ public final class SpliceInsertCommand extends SpliceCommand {
         + programSplicePlaybackPositionUs
         + " }";
   }
-
-  // Parcelable implementation.
-
-  @Override
-  public void writeToParcel(Parcel dest, int flags) {
-    dest.writeLong(spliceEventId);
-    dest.writeByte((byte) (spliceEventCancelIndicator ? 1 : 0));
-    dest.writeByte((byte) (outOfNetworkIndicator ? 1 : 0));
-    dest.writeByte((byte) (programSpliceFlag ? 1 : 0));
-    dest.writeByte((byte) (spliceImmediateFlag ? 1 : 0));
-    dest.writeLong(programSplicePts);
-    dest.writeLong(programSplicePlaybackPositionUs);
-    int componentSpliceListSize = componentSpliceList.size();
-    dest.writeInt(componentSpliceListSize);
-    for (int i = 0; i < componentSpliceListSize; i++) {
-      componentSpliceList.get(i).writeToParcel(dest);
-    }
-    dest.writeByte((byte) (autoReturn ? 1 : 0));
-    dest.writeLong(breakDurationUs);
-    dest.writeInt(uniqueProgramId);
-    dest.writeInt(availNum);
-    dest.writeInt(availsExpected);
-  }
-
-  public static final Parcelable.Creator<SpliceInsertCommand> CREATOR =
-      new Parcelable.Creator<SpliceInsertCommand>() {
-
-        @Override
-        public SpliceInsertCommand createFromParcel(Parcel in) {
-          return new SpliceInsertCommand(in);
-        }
-
-        @Override
-        public SpliceInsertCommand[] newArray(int size) {
-          return new SpliceInsertCommand[size];
-        }
-      };
 }

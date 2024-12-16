@@ -15,10 +15,6 @@
  */
 package androidx.media3.extractor.metadata.id3;
 
-import static androidx.media3.common.util.Util.castNonNull;
-
-import android.os.Parcel;
-import android.os.Parcelable;
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -41,14 +37,6 @@ public final class GeobFrame extends Id3Frame {
     this.filename = filename;
     this.description = description;
     this.data = data;
-  }
-
-  /* package */ GeobFrame(Parcel in) {
-    super(ID);
-    mimeType = castNonNull(in.readString());
-    filename = castNonNull(in.readString());
-    description = castNonNull(in.readString());
-    data = castNonNull(in.createByteArray());
   }
 
   @Override
@@ -86,28 +74,4 @@ public final class GeobFrame extends Id3Frame {
         + ", description="
         + description;
   }
-
-  // Parcelable implementation.
-
-  @Override
-  public void writeToParcel(Parcel dest, int flags) {
-    dest.writeString(mimeType);
-    dest.writeString(filename);
-    dest.writeString(description);
-    dest.writeByteArray(data);
-  }
-
-  public static final Parcelable.Creator<GeobFrame> CREATOR =
-      new Parcelable.Creator<GeobFrame>() {
-
-        @Override
-        public GeobFrame createFromParcel(Parcel in) {
-          return new GeobFrame(in);
-        }
-
-        @Override
-        public GeobFrame[] newArray(int size) {
-          return new GeobFrame[size];
-        }
-      };
 }

@@ -15,10 +15,6 @@
  */
 package androidx.media3.extractor.metadata.id3;
 
-import static androidx.media3.common.util.Util.castNonNull;
-
-import android.os.Parcel;
-import android.os.Parcelable;
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -34,12 +30,6 @@ public final class UrlLinkFrame extends Id3Frame {
     super(id);
     this.description = description;
     this.url = url;
-  }
-
-  /* package */ UrlLinkFrame(Parcel in) {
-    super(castNonNull(in.readString()));
-    description = in.readString();
-    url = castNonNull(in.readString());
   }
 
   @Override
@@ -69,27 +59,4 @@ public final class UrlLinkFrame extends Id3Frame {
   public String toString() {
     return id + ": url=" + url;
   }
-
-  // Parcelable implementation.
-
-  @Override
-  public void writeToParcel(Parcel dest, int flags) {
-    dest.writeString(id);
-    dest.writeString(description);
-    dest.writeString(url);
-  }
-
-  public static final Parcelable.Creator<UrlLinkFrame> CREATOR =
-      new Parcelable.Creator<UrlLinkFrame>() {
-
-        @Override
-        public UrlLinkFrame createFromParcel(Parcel in) {
-          return new UrlLinkFrame(in);
-        }
-
-        @Override
-        public UrlLinkFrame[] newArray(int size) {
-          return new UrlLinkFrame[size];
-        }
-      };
 }
