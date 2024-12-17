@@ -5,6 +5,8 @@
 *   Common Library:
     *   Remove `Format.toBundle(boolean excludeMetadata)` method, use
         `Format.toBundle()` instead.
+    *   Add `AudioManagerCompat` and `AudioFocusRequestCompat` to replace the
+        equivalent classes in `androidx.media`.
 *   ExoPlayer:
     *   Consider language when selecting a video track. By default select a
         'main' video track that matches the language of the selected audio

@@ -327,8 +327,8 @@ public final class C {
   /**
    * Stream types for an {@link android.media.AudioTrack}. One of {@link #STREAM_TYPE_ALARM}, {@link
    * #STREAM_TYPE_DTMF}, {@link #STREAM_TYPE_MUSIC}, {@link #STREAM_TYPE_NOTIFICATION}, {@link
-   * #STREAM_TYPE_RING}, {@link #STREAM_TYPE_SYSTEM}, {@link #STREAM_TYPE_VOICE_CALL} or {@link
-   * #STREAM_TYPE_DEFAULT}.
+   * #STREAM_TYPE_RING}, {@link #STREAM_TYPE_SYSTEM}, {@link #STREAM_TYPE_VOICE_CALL}, {@link
+   * #STREAM_TYPE_ACCESSIBILITY} or {@link #STREAM_TYPE_DEFAULT}.
    */
   // @Target list includes both 'default' targets and TYPE_USE, to ensure backwards compatibility
   // with Kotlin usages from before TYPE_USE was added.
@@ -345,6 +345,7 @@ public final class C {
     STREAM_TYPE_RING,
     STREAM_TYPE_SYSTEM,
     STREAM_TYPE_VOICE_CALL,
+    STREAM_TYPE_ACCESSIBILITY,
     STREAM_TYPE_DEFAULT
   })
   public @interface StreamType {}
@@ -369,6 +370,10 @@ public final class C {
 
   /** See {@link AudioManager#STREAM_VOICE_CALL}. */
   @UnstableApi public static final int STREAM_TYPE_VOICE_CALL = AudioManager.STREAM_VOICE_CALL;
+
+  /** See {@link AudioManager#STREAM_ACCESSIBILITY}. */
+  @UnstableApi
+  public static final int STREAM_TYPE_ACCESSIBILITY = AudioManager.STREAM_ACCESSIBILITY;
 
   /** The default stream type used by audio renderers. Equal to {@link #STREAM_TYPE_MUSIC}. */
   @UnstableApi public static final int STREAM_TYPE_DEFAULT = STREAM_TYPE_MUSIC;

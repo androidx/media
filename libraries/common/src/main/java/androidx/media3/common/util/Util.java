@@ -84,6 +84,7 @@ import androidx.annotation.ChecksSdkIntAtLeast;
 import androidx.annotation.DrawableRes;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
+import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.C.ContentType;
 import androidx.media3.common.Format;
@@ -2382,6 +2383,8 @@ public final class Util {
         return C.USAGE_ASSISTANCE_SONIFICATION;
       case C.STREAM_TYPE_VOICE_CALL:
         return C.USAGE_VOICE_COMMUNICATION;
+      case C.STREAM_TYPE_ACCESSIBILITY:
+        return C.USAGE_ASSISTANCE_ACCESSIBILITY;
       case C.STREAM_TYPE_MUSIC:
       default:
         return C.USAGE_MEDIA;
@@ -2404,6 +2407,7 @@ public final class Util {
       case C.STREAM_TYPE_SYSTEM:
         return C.AUDIO_CONTENT_TYPE_SONIFICATION;
       case C.STREAM_TYPE_VOICE_CALL:
+      case C.STREAM_TYPE_ACCESSIBILITY:
         return C.AUDIO_CONTENT_TYPE_SPEECH;
       case C.STREAM_TYPE_MUSIC:
       default:
@@ -2411,7 +2415,10 @@ public final class Util {
     }
   }
 
-  /** Returns the {@link C.StreamType} corresponding to the specified {@link C.AudioUsage}. */
+  /**
+   * @deprecated Use {@link AudioAttributes#getStreamType()} instead.
+   */
+  @Deprecated
   @UnstableApi
   public static @C.StreamType int getStreamTypeForAudioUsage(@C.AudioUsage int usage) {
     switch (usage) {
@@ -2436,6 +2443,7 @@ public final class Util {
       case C.USAGE_NOTIFICATION_EVENT:
         return C.STREAM_TYPE_NOTIFICATION;
       case C.USAGE_ASSISTANCE_ACCESSIBILITY:
+        return C.STREAM_TYPE_ACCESSIBILITY;
       case C.USAGE_ASSISTANT:
       case C.USAGE_UNKNOWN:
       default:

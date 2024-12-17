@@ -426,10 +426,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
       if (builder.deviceVolumeControlEnabled) {
         streamVolumeManager =
             new StreamVolumeManager(
-                builder.context,
-                eventHandler,
-                componentListener,
-                Util.getStreamTypeForAudioUsage(audioAttributes.usage));
+                builder.context, eventHandler, componentListener, audioAttributes.getStreamType());
       } else {
         streamVolumeManager = null;
       }
@@ -1502,8 +1499,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
       this.audioAttributes = newAudioAttributes;
       sendRendererMessage(TRACK_TYPE_AUDIO, MSG_SET_AUDIO_ATTRIBUTES, newAudioAttributes);
       if (streamVolumeManager != null) {
-        streamVolumeManager.setStreamType(
-            Util.getStreamTypeForAudioUsage(newAudioAttributes.usage));
+        streamVolumeManager.setStreamType(newAudioAttributes.getStreamType());
       }
       // Queue event only and flush after updating playWhenReady in case both events are triggered.
       listeners.queueEvent(

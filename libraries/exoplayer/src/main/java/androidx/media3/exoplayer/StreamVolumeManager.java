@@ -23,6 +23,7 @@ import android.media.AudioManager;
 import android.os.Handler;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.audio.AudioManagerCompat;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
@@ -96,7 +97,7 @@ import androidx.media3.common.util.Util;
    * #setStreamType(int)} is called.
    */
   public int getMinVolume() {
-    return Util.SDK_INT >= 28 ? audioManager.getStreamMinVolume(streamType) : 0;
+    return AudioManagerCompat.getStreamMinVolume(audioManager, streamType);
   }
 
   /**
@@ -104,7 +105,7 @@ import androidx.media3.common.util.Util;
    * #setStreamType(int)} is called.
    */
   public int getMaxVolume() {
-    return audioManager.getStreamMaxVolume(streamType);
+    return AudioManagerCompat.getStreamMaxVolume(audioManager, streamType);
   }
 
   /** Gets the current volume for the current audio stream. */
