@@ -20,6 +20,22 @@
     *   Reduce default values for `bufferForPlaybackMs` and
         `bufferForPlaybackAfterRebufferMs` in `DefaultLoadControl` to 1000 and
         2000 ms respectively.
+    *   Add `MediaExtractorCompat`, a new class that provides equivalent
+        functionality to platform `MediaExtractor`.
+    *   Move `BasePreloadManager.Listener` to a top level
+        `PreloadManagerListener`.
+    *   `RenderersFactory.createSecondaryRenderer` can be implemented to provide
+        secondary renderers for pre-warming. Pre-warming enables quicker media
+        item transitions during playback.
+    *   Enable sending `CmcdData` for manifest requests in adaptive streaming
+        formats DASH, HLS, and SmoothStreaming
+        ([#1951](https://github.com/androidx/media/issues/1951)).
+    *   Provide `MediaCodecInfo` of the codec that will be initialized in
+        `MediaCodecRenderer.onReadyToInitializeCodec`
+        ([#1963](https://github.com/androidx/media/pull/1963)).
+    *   Disable use of asynchronous decryption in MediaCodec to avoid reported
+        codec timeout issues with this platform API
+        ([#1641](https://github.com/androidx/media/issues/1641)).
 *   Transformer:
     *   Update parameters of `VideoFrameProcessor.registerInputStream` and
         `VideoFrameProcessor.Listener.onInputStreamRegistered` to use `Format`.
