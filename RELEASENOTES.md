@@ -35,6 +35,9 @@
     *   Provide `MediaCodecInfo` of the codec that will be initialized in
         `MediaCodecRenderer.onReadyToInitializeCodec`
         ([#1963](https://github.com/androidx/media/pull/1963)).
+    *   Disable use of asynchronous decryption in MediaCodec to avoid reported
+        codec timeout issues with this platform API
+        ([#1641](https://github.com/androidx/media/issues/1641)).
 *   Transformer:
     *   Update parameters of `VideoFrameProcessor.registerInputStream` and
         `VideoFrameProcessor.Listener.onInputStreamRegistered` to use `Format`.

@@ -80,7 +80,7 @@ import java.nio.ByteBuffer;
         Supplier<HandlerThread> queueingThreadSupplier) {
       this.callbackThreadSupplier = callbackThreadSupplier;
       this.queueingThreadSupplier = queueingThreadSupplier;
-      enableSynchronousBufferQueueingWithAsyncCryptoFlag = true;
+      enableSynchronousBufferQueueingWithAsyncCryptoFlag = false;
     }
 
     /**
