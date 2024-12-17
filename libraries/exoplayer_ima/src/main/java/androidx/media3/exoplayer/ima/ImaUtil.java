@@ -425,7 +425,9 @@ import java.util.Set;
       long windowStartTimeUs =
           getWindowStartTimeUs(window.windowStartTimeMs, window.positionInFirstPeriodUs);
       totalElapsedContentDurationUs = windowStartTimeUs - window.positionInFirstPeriodUs;
-      contentOnlyAdPlaybackState = contentOnlyAdPlaybackState.withLivePostrollPlaceholderAppended();
+      contentOnlyAdPlaybackState =
+          contentOnlyAdPlaybackState.withLivePostrollPlaceholderAppended(
+              /* isServerSideInserted= */ true);
     }
     Map<Object, AdPlaybackState> adPlaybackStates = new HashMap<>();
     for (int i = adPlaybackState.removedAdGroupCount; i < adPlaybackState.adGroupCount; i++) {
@@ -505,7 +507,8 @@ import java.util.Set;
             .withIsServerSideInserted(/* adGroupIndex= */ 0, true)
             .withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 1);
     if (isLiveStream) {
-      adPlaybackState = adPlaybackState.withLivePostrollPlaceholderAppended();
+      adPlaybackState =
+          adPlaybackState.withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ true);
     }
     long adGroupDurationUs = 0;
     for (int i = 0; i < adGroup.count; i++) {

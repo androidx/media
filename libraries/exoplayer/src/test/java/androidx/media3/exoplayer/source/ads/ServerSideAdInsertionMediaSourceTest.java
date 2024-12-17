@@ -198,7 +198,8 @@ public final class ServerSideAdInsertionMediaSourceTest {
           public void onContinueLoadingRequested(MediaPeriod source) {}
         };
     AdPlaybackState adPlaybackState =
-        new AdPlaybackState("adsId").withLivePostrollPlaceholderAppended();
+        new AdPlaybackState("adsId")
+            .withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ true);
     FakeTimeline wrappedTimeline =
         new FakeTimeline(
             new FakeTimeline.TimelineWindowDefinition(
