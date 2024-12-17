@@ -163,18 +163,24 @@ public final class Util {
    * Like {@link Build#DEVICE}, but in a place where it can be conveniently overridden for local
    * testing.
    */
+  // TODO: b/384699964 - Deprecate this and migrate usages to Build.DEVICE which works better with
+  //  Robolectric's ShadowBuild.setDevice().
   @UnstableApi public static final String DEVICE = Build.DEVICE;
 
   /**
    * Like {@link Build#MANUFACTURER}, but in a place where it can be conveniently overridden for
    * local testing.
    */
+  // TODO: b/384699964 - Deprecate this and migrate usages to Build.MANUFACTURER which works better
+  //  with Robolectric's ShadowBuild.setManufacturer().
   @UnstableApi public static final String MANUFACTURER = Build.MANUFACTURER;
 
   /**
    * Like {@link Build#MODEL}, but in a place where it can be conveniently overridden for local
    * testing.
    */
+  // TODO: b/384699964 - Deprecate this and migrate usages to Build.MODEL which works better with
+  //  Robolectric's ShadowBuild.setModel().
   @UnstableApi public static final String MODEL = Build.MODEL;
 
   /** A concise description of the device that it can be useful to log for debugging purposes. */
