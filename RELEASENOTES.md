@@ -40,6 +40,9 @@
     *   Disable use of asynchronous decryption in MediaCodec to avoid reported
         codec timeout issues with this platform API
         ([#1641](https://github.com/androidx/media/issues/1641)).
+    *   Change `AdsMediaSource` to allow the `AdPlaybackStates` to grow by
+        appending ad groups. Invalid modifications are detected and throw an
+        exception.
 *   Transformer:
     *   Update parameters of `VideoFrameProcessor.registerInputStream` and
         `VideoFrameProcessor.Listener.onInputStreamRegistered` to use `Format`.
