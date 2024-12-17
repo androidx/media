@@ -23,6 +23,10 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.OptIn
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -30,11 +34,16 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -44,6 +53,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -53,9 +63,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
+import androidx.media3.common.Effect
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.common.util.Util.SDK_INT
+import androidx.media3.effect.Contrast
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import kotlinx.coroutines.launch
@@ -72,6 +84,7 @@ class EffectActivity : ComponentActivity() {
     setContent { EffectDemo(playlistHolderList.value) }
   }
 
+  @OptIn(UnstableApi::class)
   @Composable
   private fun EffectDemo(playlistHolderList: List<PlaylistHolder>) {
     val snackbarHostState = remember { SnackbarHostState() }
@@ -80,6 +93,7 @@ class EffectActivity : ComponentActivity() {
     val exoPlayer by remember {
       mutableStateOf(ExoPlayer.Builder(context).build().apply { playWhenReady = true })
     }
+    var effectsEnabled by remember { mutableStateOf(false) }
 
     Scaffold(
       modifier = Modifier.fillMaxSize(),
@@ -96,16 +110,22 @@ class EffectActivity : ComponentActivity() {
             coroutineScope.launch { snackbarHostState.showSnackbar(message) }
           },
         ) { mediaItems ->
+          effectsEnabled = true
           exoPlayer.apply {
             setMediaItems(mediaItems)
+            setVideoEffects(emptyList())
             prepare()
           }
         }
         PlayerScreen(exoPlayer)
-        Effects(
-          onException = { message ->
-            coroutineScope.launch { snackbarHostState.showSnackbar(message) }
-          }
+        EffectControls(
+          effectsEnabled,
+          onApplyEffectsClicked = { videoEffects ->
+            exoPlayer.apply {
+              setVideoEffects(videoEffects)
+              prepare()
+            }
+          },
         )
       }
     }
@@ -120,8 +140,8 @@ class EffectActivity : ComponentActivity() {
     var showPresetInputChooser by remember { mutableStateOf(false) }
     var showLocalFileChooser by remember { mutableStateOf(false) }
     Row(
-      modifier = Modifier.padding(vertical = dimensionResource(id = R.dimen.small_padding)),
-      horizontalArrangement = Arrangement.spacedBy(dimensionResource(id = R.dimen.small_padding)),
+      Modifier.padding(vertical = dimensionResource(id = R.dimen.regular_padding)),
+      horizontalArrangement = Arrangement.spacedBy(dimensionResource(id = R.dimen.regular_padding)),
     ) {
       Button(onClick = { showPresetInputChooser = true }) {
         Text(text = stringResource(id = R.string.choose_preset_input))
@@ -245,16 +265,124 @@ class EffectActivity : ComponentActivity() {
       factory = { PlayerView(context).apply { player = exoPlayer } },
       modifier =
         Modifier.height(dimensionResource(id = R.dimen.android_view_height))
-          .padding(all = dimensionResource(id = R.dimen.small_padding)),
+          .padding(all = dimensionResource(id = R.dimen.regular_padding)),
     )
   }
 
+  @OptIn(UnstableApi::class)
   @Composable
-  private fun Effects(onException: (String) -> Unit) {
-    Button(onClick = { onException("Button is not yet implemented.") }) {
+  private fun EffectControls(enabled: Boolean, onApplyEffectsClicked: (List<Effect>) -> Unit) {
+    var effectControlsState by remember { mutableStateOf(EffectControlsState()) }
+
+    Button(
+      enabled = enabled && effectControlsState.effectsChanged,
+      onClick = {
+        val effectsList = mutableListOf<Effect>()
+
+        effectsList += Contrast(effectControlsState.contrastValue)
+
+        onApplyEffectsClicked(effectsList)
+        effectControlsState = effectControlsState.copy(effectsChanged = false)
+      },
+    ) {
       Text(text = stringResource(id = R.string.apply_effects))
     }
+
+    EffectControlsList(enabled, effectControlsState) { newEffectControlsState ->
+      effectControlsState = newEffectControlsState
+    }
   }
+
+  @Composable
+  private fun EffectControlsList(
+    enabled: Boolean,
+    effectControlsState: EffectControlsState,
+    onEffectControlsStateChange: (EffectControlsState) -> Unit,
+  ) {
+    LazyColumn(Modifier.padding(vertical = dimensionResource(id = R.dimen.small_padding))) {
+      item {
+        EffectItem(
+          name = stringResource(id = R.string.contrast),
+          enabled = enabled,
+          onCheckedChange = {
+            onEffectControlsStateChange(
+              effectControlsState.copy(effectsChanged = true, contrastValue = 0f)
+            )
+          },
+        ) {
+          Row {
+            Text(
+              text = "%.2f".format(effectControlsState.contrastValue),
+              style = MaterialTheme.typography.bodyLarge,
+              modifier = Modifier.padding(dimensionResource(id = R.dimen.large_padding)).weight(1f),
+            )
+            Slider(
+              value = effectControlsState.contrastValue,
+              onValueChange = { newContrastValue ->
+                val newRoundedContrastValue = "%.2f".format(newContrastValue).toFloat()
+                onEffectControlsStateChange(
+                  effectControlsState.copy(
+                    effectsChanged = true,
+                    contrastValue = newRoundedContrastValue,
+                  )
+                )
+              },
+              valueRange = -1f..1f,
+              modifier = Modifier.weight(4f),
+            )
+          }
+        }
+      }
+    }
+  }
+
+  @Composable
+  fun EffectItem(
+    name: String,
+    enabled: Boolean,
+    onCheckedChange: (Boolean) -> Unit = {},
+    content: @Composable () -> Unit = {},
+  ) {
+    var checked by rememberSaveable { mutableStateOf(false) }
+    Card(
+      modifier =
+        Modifier.padding(
+            vertical = dimensionResource(id = R.dimen.small_padding),
+            horizontal = dimensionResource(id = R.dimen.regular_padding),
+          )
+          .clickable(enabled = enabled && !checked) {
+            checked = !checked
+            onCheckedChange(checked)
+          }
+    ) {
+      Column(
+        Modifier.padding(dimensionResource(id = R.dimen.large_padding))
+          .animateContentSize(animationSpec = tween(durationMillis = 200, easing = LinearEasing))
+      ) {
+        Row {
+          Column(Modifier.weight(1f).padding(dimensionResource(id = R.dimen.large_padding))) {
+            Text(text = name, style = MaterialTheme.typography.bodyLarge)
+          }
+          Checkbox(
+            enabled = enabled,
+            checked = checked,
+            onCheckedChange = {
+              checked = !checked
+              onCheckedChange(checked)
+            },
+          )
+        }
+        if (checked) {
+          content()
+        }
+      }
+    }
+  }
+
+  data class EffectControlsState(
+    val effectsChanged: Boolean = false,
+    val contrastValue: Float = 0f,
+  )
 
   companion object {
     const val JSON_FILENAME = "media.playlist.json"
