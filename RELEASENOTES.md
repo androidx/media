@@ -101,6 +101,13 @@
 *   Cronet Extension:
 *   RTMP Extension:
 *   HLS Extension:
+    *   Add a first version of `HlsInterstitialsAdsLoader`. The ads loader reads
+        the HLS interstitials of an HLS media playlist and maps them to the
+        `AdPlaybackState` that is passed to the `AdsMediaSource`. This initial
+        version only supports HLS VOD streams with `X-ASSET-URI` attributes.
+    *   Add `HlsInterstitialsAdsLoader.AdsMediaSourceFactory`. Apps can use it
+        to create `AdsMediaSource` instances that use an
+        `HlsInterstitialsAdsLoader` in a convenient and safe way.
 *   DASH Extension:
     *   Add AC-4 Level-4 format support for DASH
         ([#1898](https://github.com/androidx/media/pull/1898)).

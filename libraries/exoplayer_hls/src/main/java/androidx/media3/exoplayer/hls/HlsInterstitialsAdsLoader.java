@@ -16,11 +16,13 @@
 package androidx.media3.exoplayer.hls;
 
 import static androidx.media3.common.Player.DISCONTINUITY_REASON_AUTO_TRANSITION;
+import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static java.lang.Math.max;
 
+import android.content.Context;
 import androidx.annotation.Nullable;
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.AdViewProvider;
@@ -38,10 +40,15 @@ import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSpec;
+import androidx.media3.datasource.DefaultDataSource;
+import androidx.media3.exoplayer.drm.DrmSessionManagerProvider;
 import androidx.media3.exoplayer.hls.playlist.HlsMediaPlaylist;
 import androidx.media3.exoplayer.hls.playlist.HlsMediaPlaylist.Interstitial;
+import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.ads.AdsLoader;
 import androidx.media3.exoplayer.source.ads.AdsMediaSource;
+import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -63,6 +70,110 @@ import java.util.Set;
  */
 @UnstableApi
 public final class HlsInterstitialsAdsLoader implements AdsLoader {
+
+  /**
+   * A {@link MediaSource.Factory} to create a media source to play HLS streams with interstitials.
+   */
+  public static final class AdsMediaSourceFactory implements MediaSource.Factory {
+
+    private final MediaSource.Factory mediaSourceFactory;
+    private final AdViewProvider adViewProvider;
+    private final HlsInterstitialsAdsLoader adsLoader;
+
+    /**
+     * Creates an instance with a {@link
+     * androidx.media3.exoplayer.source.DefaultMediaSourceFactory}.
+     *
+     * @param adsLoader The {@link HlsInterstitialsAdsLoader}.
+     * @param adViewProvider Provider of views for the ad UI.
+     * @param context The {@link Context}.
+     */
+    public AdsMediaSourceFactory(
+        HlsInterstitialsAdsLoader adsLoader, AdViewProvider adViewProvider, Context context) {
+      this(adsLoader, context, /* mediaSourceFactory= */ null, adViewProvider);
+    }
+
+    /**
+     * Creates an instance with a custom {@link MediaSource.Factory}.
+     *
+     * @param adsLoader The {@link HlsInterstitialsAdsLoader}.
+     * @param adViewProvider Provider of views for the ad UI.
+     * @param mediaSourceFactory The {@link MediaSource.Factory} used to create content and ad media
+     *     sources.
+     * @throws IllegalStateException If the provided {@linkplain MediaSource.Factory media source
+     *     factory} doesn't support content type {@link C#CONTENT_TYPE_HLS}.
+     */
+    public AdsMediaSourceFactory(
+        HlsInterstitialsAdsLoader adsLoader,
+        AdViewProvider adViewProvider,
+        MediaSource.Factory mediaSourceFactory) {
+      this(adsLoader, /* context= */ null, mediaSourceFactory, adViewProvider);
+    }
+
+    private AdsMediaSourceFactory(
+        HlsInterstitialsAdsLoader adsLoader,
+        @Nullable Context context,
+        @Nullable MediaSource.Factory mediaSourceFactory,
+        AdViewProvider adViewProvider) {
+      checkArgument(context != null || mediaSourceFactory != null);
+      this.adsLoader = adsLoader;
+      this.mediaSourceFactory =
+          mediaSourceFactory != null
+              ? mediaSourceFactory
+              : new HlsMediaSource.Factory(new DefaultDataSource.Factory(checkNotNull(context)));
+      this.adViewProvider = adViewProvider;
+      boolean supportsHls = false;
+      for (int supportedType : this.mediaSourceFactory.getSupportedTypes()) {
+        if (supportedType == C.CONTENT_TYPE_HLS) {
+          supportsHls = true;
+          break;
+        }
+      }
+      checkState(supportsHls);
+    }
+
+    @Override
+    public @C.ContentType int[] getSupportedTypes() {
+      return new int[] {C.CONTENT_TYPE_HLS};
+    }
+
+    @Override
+    @CanIgnoreReturnValue
+    public AdsMediaSourceFactory setDrmSessionManagerProvider(
+        DrmSessionManagerProvider drmSessionManagerProvider) {
+      mediaSourceFactory.setDrmSessionManagerProvider(drmSessionManagerProvider);
+      return this;
+    }
+
+    @Override
+    @CanIgnoreReturnValue
+    public AdsMediaSourceFactory setLoadErrorHandlingPolicy(
+        LoadErrorHandlingPolicy loadErrorHandlingPolicy) {
+      mediaSourceFactory.setLoadErrorHandlingPolicy(loadErrorHandlingPolicy);
+      return this;
+    }
+
+    @Override
+    public MediaSource createMediaSource(MediaItem mediaItem) {
+      checkNotNull(mediaItem.localConfiguration);
+      MediaSource contentMediaSource = mediaSourceFactory.createMediaSource(mediaItem);
+      if (mediaItem.localConfiguration.adsConfiguration == null) {
+        return contentMediaSource;
+      } else if (!(mediaItem.localConfiguration.adsConfiguration.adsId instanceof String)) {
+        throw new IllegalArgumentException(
+            "Please use an AdsConfiguration with an adsId of type String when using"
+                + " HlsInterstitialsAdsLoader");
+      }
+      return new AdsMediaSource(
+          contentMediaSource,
+          new DataSpec(mediaItem.localConfiguration.adsConfiguration.adTagUri), // unused
+          checkNotNull(mediaItem.localConfiguration.adsConfiguration.adsId),
+          mediaSourceFactory,
+          adsLoader,
+          adViewProvider,
+          /* useLazyContentSourcePreparation= */ false);
+    }
+  }
 
   /** A listener to be notified of events emitted by the ads loader. */
   public interface Listener {

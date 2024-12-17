@@ -90,18 +90,15 @@ public class HlsInterstitialsAdsLoaderTest {
             .setAdsConfiguration(
                 new MediaItem.AdsConfiguration.Builder(Uri.EMPTY).setAdsId("adsId").build())
             .build();
-    adTagDataSpec = new DataSpec(contentMediaItem.localConfiguration.adsConfiguration.adTagUri);
-    DefaultMediaSourceFactory defaultMediaSourceFactory =
-        new DefaultMediaSourceFactory((Context) ApplicationProvider.getApplicationContext());
+    adTagDataSpec = new DataSpec(Uri.EMPTY);
     // The ads media source using the ads loader.
     adsMediaSource =
-        new AdsMediaSource(
-            defaultMediaSourceFactory.createMediaSource(contentMediaItem),
-            new DataSpec(Uri.EMPTY),
-            "adsId",
-            defaultMediaSourceFactory,
-            adsLoader,
-            mockAdViewProvider);
+        (AdsMediaSource)
+            new HlsInterstitialsAdsLoader.AdsMediaSourceFactory(
+                    adsLoader,
+                    mockAdViewProvider,
+                    (Context) ApplicationProvider.getApplicationContext())
+                .createMediaSource(contentMediaItem);
     // The content timeline with empty ad playback state.
     contentWindowDefinition =
         new FakeTimeline.TimelineWindowDefinition(
