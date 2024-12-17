@@ -116,6 +116,9 @@ internal class TestPlayer : SimpleBasePlayer(Looper.myLooper()!!) {
   }
 
   fun addCommands(vararg commands: @Player.Command Int) {
+    // It doesn't seem possible to propagate the @IntDef annotation through Kotlin's spread operator
+    // in a way that lint understands.
+    @SuppressWarnings("WrongConstant")
     state =
       state
         .buildUpon()
