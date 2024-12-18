@@ -186,6 +186,32 @@
 
 ## 1.5
 
+### 1.5.1 (2024-12-19)
+
+This release includes the following changes since the
+[1.5.0 release](#150-2024-11-27):
+
+*   ExoPlayer:
+    *   Disable use of asynchronous decryption in MediaCodec to avoid reported
+        codec timeout issues with this platform API
+        ([#1641](https://github.com/androidx/media/issues/1641)).
+*   Extractors:
+    *   MP3: Don't stop playback early when a `VBRI` frame's table of contents
+        doesn't cover all the MP3 data in a file
+        ([#1904](https://github.com/androidx/media/issues/1904)).
+*   Video:
+    *   Rollback of using `MediaCodecAdapter` supplied pixel aspect ratio values
+        when provided while processing `onOutputFormatChanged`
+        ([#1371](https://github.com/androidx/media/pull/1371)).
+*   Text:
+    *   Fix bug in `ReplacingCuesResolver.discardCuesBeforeTimeUs` where the cue
+        active at `timeUs` (started before but not yet ended) was incorrectly
+        discarded ([#1939](https://github.com/androidx/media/issues/1939)).
+*   Metadata:
+    *   Extract disc/track numbering and genre from Vorbis comments into
+        `MediaMetadata`
+        ([#1958](https://github.com/androidx/media/issues/1958)).
+
 ### 1.5.0 (2024-11-27)
 
 This release includes the following changes since the
