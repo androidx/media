@@ -315,7 +315,7 @@ public final class TtmlParser implements SubtitleParser {
           globalStyles.put(styleId, style);
         }
       } else if (XmlPullParserUtil.isStartTag(xmlParser, TtmlNode.TAG_REGION)) {
-        @Nullable TtmlRegion ttmlRegion = parseRegionAttributes(xmlParser, cellRows, ttsExtent);
+        @Nullable TtmlRegion ttmlRegion = parseRegionAttributes(xmlParser, cellRows, ttsExtent, globalStyles);
         if (ttmlRegion != null) {
           globalRegions.put(ttmlRegion.id, ttmlRegion);
         }
@@ -350,7 +350,8 @@ public final class TtmlParser implements SubtitleParser {
    */
   @Nullable
   private static TtmlRegion parseRegionAttributes(
-      XmlPullParser xmlParser, int cellRows, @Nullable TtsExtent ttsExtent) {
+      XmlPullParser xmlParser, int cellRows, @Nullable TtsExtent ttsExtent,
+      Map<String, TtmlStyle> globalStyles) {
     @Nullable String regionId = XmlPullParserUtil.getAttributeValue(xmlParser, TtmlNode.ATTR_ID);
     if (regionId == null) {
       return null;
@@ -361,6 +362,15 @@ public final class TtmlParser implements SubtitleParser {
 
     @Nullable
     String regionOrigin = XmlPullParserUtil.getAttributeValue(xmlParser, TtmlNode.ATTR_TTS_ORIGIN);
+    if (regionOrigin == null) {
+      String styleId = XmlPullParserUtil.getAttributeValue(xmlParser, TtmlNode.ATTR_STYLE);
+      if (styleId != null) {
+        TtmlStyle style = globalStyles.get(styleId);
+        if (style != null) {
+          regionOrigin = style.getOrigin();
+        }
+      }
+    }
     if (regionOrigin != null) {
       Matcher originPercentageMatcher = PERCENTAGE_COORDINATES.matcher(regionOrigin);
       Matcher originPixelMatcher = PIXEL_COORDINATES.matcher(regionOrigin);
@@ -406,6 +416,15 @@ public final class TtmlParser implements SubtitleParser {
     float height;
     @Nullable
     String regionExtent = XmlPullParserUtil.getAttributeValue(xmlParser, TtmlNode.ATTR_TTS_EXTENT);
+    if (regionExtent == null) {
+      String styleId = XmlPullParserUtil.getAttributeValue(xmlParser, TtmlNode.ATTR_STYLE);
+      if (styleId != null) {
+        TtmlStyle style = globalStyles.get(styleId);
+        if (style != null) {
+          regionExtent = style.getExtent();
+        }
+      }
+    }
     if (regionExtent != null) {
       Matcher extentPercentageMatcher = PERCENTAGE_COORDINATES.matcher(regionExtent);
       Matcher extentPixelMatcher = PIXEL_COORDINATES.matcher(regionExtent);
@@ -625,6 +644,12 @@ public final class TtmlParser implements SubtitleParser {
           break;
         case TtmlNode.ATTR_TTS_SHEAR:
           style = createIfNull(style).setShearPercentage(parseShear(attributeValue));
+          break;
+        case TtmlNode.ATTR_TTS_ORIGIN:
+          style = createIfNull(style).setOrigin(attributeValue);
+          break;
+        case TtmlNode.ATTR_TTS_EXTENT:
+          style = createIfNull(style).setExtent(attributeValue);
           break;
         default:
           // ignore
