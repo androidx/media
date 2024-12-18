@@ -1,63 +1,25 @@
 # Release notes
 
-### Unreleased changes
+## 1.5
 
-*   Common Library:
+### 1.5.1 (2024-12-19)
+
+This release includes the following changes since the
+[1.5.0 release](#150-2024-11-27):
+
 *   ExoPlayer:
-    *   Consider language when selecting a video track. By default select a
-        'main' video track that matches the language of the selected audio
-        track, if available. Explicit video language preferences can be
-        expressed with
-        `TrackSelectionParameters.Builder.setPreferredVideoLanguage(s)`.
-    *   Add `selectedAudioLanguage` parameter to
-        `DefaultTrackSelector.selectVideoTrack()` method.
-    *   Add `retryCount` parameter to `MediaSourceEventListener.onLoadStarted`
-        and corresponding `MediaSourceEventListener.EventDispatcher` methods.
-    *   Fix bug where playlist items or periods in multi-period DASH streams
-        with durations that don't match the actual content could cause frame
-        freezes at the end of the item
-        ([#1698](https://github.com/androidx/media/issues/1698)).
-    *   Reduce default values for `bufferForPlaybackMs` and
-        `bufferForPlaybackAfterRebufferMs` in `DefaultLoadControl` to 1000 and
-        2000 ms respectively.
-    *   Add `MediaExtractorCompat`, a new class that provides equivalent
-        functionality to platform `MediaExtractor`.
-    *   Move `BasePreloadManager.Listener` to a top level
-        `PreloadManagerListener`.
-    *   `RenderersFactory.createSecondaryRenderer` can be implemented to provide
-        secondary renderers for pre-warming. Pre-warming enables quicker media
-        item transitions during playback.
-    *   Enable sending `CmcdData` for manifest requests in adaptive streaming
-        formats DASH, HLS, and SmoothStreaming
-        ([#1951](https://github.com/androidx/media/issues/1951)).
-    *   Provide `MediaCodecInfo` of the codec that will be initialized in
-        `MediaCodecRenderer.onReadyToInitializeCodec`
-        ([#1963](https://github.com/androidx/media/pull/1963)).
     *   Disable use of asynchronous decryption in MediaCodec to avoid reported
         codec timeout issues with this platform API
         ([#1641](https://github.com/androidx/media/issues/1641)).
-*   Transformer:
-    *   Update parameters of `VideoFrameProcessor.registerInputStream` and
-        `VideoFrameProcessor.Listener.onInputStreamRegistered` to use `Format`.
-    *   Add support for transmuxing into alternative backwards compatible
-        formats.
 *   Extractors:
     *   MP3: Don't stop playback early when a `VBRI` frame's table of contents
         doesn't cover all the MP3 data in a file
         ([#1904](https://github.com/androidx/media/issues/1904)).
-*   DataSource:
-*   Audio:
-    *   Do not bypass `SonicAudioProcessor` when `SpeedChangingAudioProcessor`
-        is configured with default parameters.
 *   Video:
     *   Rollback of using `MediaCodecAdapter` supplied pixel aspect ratio values
         when provided while processing `onOutputFormatChanged`
         ([#1371](https://github.com/androidx/media/pull/1371)).
 *   Text:
-    *   Stop eagerly loading all subtitle files configured with
-        `MediaItem.Builder.setSubtitleConfigurations`, and instead only load one
-        if it is selected by track selection
-        ([#1721](https://github.com/androidx/media/issues/1721)).
     *   Fix bug in `ReplacingCuesResolver.discardCuesBeforeTimeUs` where the cue
         active at `timeUs` (started before but not yet ended) was incorrectly
         discarded ([#1939](https://github.com/androidx/media/issues/1939)).
@@ -65,102 +27,6 @@
     *   Extract disc/track numbering and genre from Vorbis comments into
         `MediaMetadata`
         ([#1958](https://github.com/androidx/media/issues/1958)).
-*   Image:
-*   DRM:
-*   Effect:
-    *   Moved the functionality of `OverlaySettings` into
-        `StaticOverlaySettings`. `OverlaySettings` can be subclassed to allow
-        dynamic overlay settings.
-*   Muxers:
-*   IMA extension:
-*   Session:
-    *   Add 'Context' as a parameter to
-        'MediaButtonReceiver.shouldStartForegroundService`
-        ([#1887](https://github.com/androidx/media/issues/1887)).
-*   UI:
-    *   Add `PlayerSurface` Composable to `media3-ui-compose` module.
-    *   Add `PlayPauseButtonState`, `NextButtonState`, `PreviousButtonState`,
-        `RepeatButtonState`, `ShuffleButtonState` classes and the corresponding
-        `rememberPlayPauseButtonState`, `rememberNextButtonState`,
-        `rememberPreviousButtonState`, `rememberRepeatButtonState`,
-        `rememberShuffleButtonState` Composables to `media3-ui-compose` module.
-*   Downloads:
-*   OkHttp Extension:
-*   Cronet Extension:
-*   RTMP Extension:
-*   HLS Extension:
-*   DASH Extension:
-    *   Add AC-4 Level-4 format support for DASH
-        ([#1898](https://github.com/androidx/media/pull/1898)).
-*   Smooth Streaming Extension:
-*   RTSP Extension:
-*   Decoder Extensions (FFmpeg, VP9, AV1, etc.):
-    *   Add the MPEG-H decoder module which uses the native MPEG-H decoder
-        module to decode MPEG-H audio
-        ([#1826](https://github.com/androidx/media/pull/1826)).
-*   MIDI extension:
-*   Leanback extension:
-*   Cast Extension:
-*   Test Utilities:
-*   Demo app:
-    *   Add `MinimalControls` (`PlayPauseButton`, `NextButton`,
-        `PreviousButton`) and `ExtraControls` (`RepeatButton`, `ShuffleButton`)
-        Composable UI elements to `demo-compose` utilizing
-        `PlayPauseButtonState`, `NextButtonState`, `PreviousButtonState`,
-        `RepeatButtonState`, `ShuffleButtonState`.
-*   Remove deprecated symbols:
-    *   Remove deprecated `AudioMixer.create()` method. Use
-        `DefaultAudioMixer.Factory().create()` instead.
-    *   Remove the following deprecated `Transformer.Builder` methods:
-        *   `setTransformationRequest()`, use `setAudioMimeType()`,
-            `setVideoMimeType()`, and `setHdrMode()` instead.
-        *   `setAudioProcessors()`, set the audio processor in an
-            `EditedMediaItem.Builder.setEffects()`, and pass it to
-            `Transformer.start()` instead.
-        *   `setVideoEffects()`, set video effect in an
-            `EditedMediaItem.Builder.setEffects()`, and pass it to
-            `Transformer.start()` instead.
-        *   `setRemoveAudio()`, use `EditedMediaItem.Builder.setRemoveAudio()`
-            to remove the audio from the `EditedMediaItem` passed to
-            `Transformer.start()` instead.
-        *   `setRemoveVideo()`, use `EditedMediaItem.Builder.setRemoveVideo()`
-            to remove the video from the `EditedMediaItem` passed to
-            `Transformer.start()` instead.
-        *   `setFlattenForSlowMotion()`, use
-            `EditedMediaItem.Builder.setFlattenForSlowMotion()` to flatten the
-            `EditedMediaItem` passed to `Transformer.start()` instead.
-        *   `setListener()`, use `addListener()`, `removeListener()` or
-            `removeAllListeners()` instead.
-    *   Remove the following deprecated `Tansformer.Listener` methods:
-        *   `onTransformationCompleted(MediaItem)`, use
-            `onCompleted(Composition, ExportResult)` instead.
-        *   `onTransformationCompleted(MediaItem, TransformationResult)`, use
-            `onCompleted(Composition, ExportResult)` instead.
-        *   `onTransformationError(MediaItem, Exception)`, use
-            `onError(Composition, ExportResult, ExportException)` instead.
-        *   `onTransformationError(MediaItem, TransformationException)`, use
-            `onError(Composition, ExportResult, ExportException)` instead.
-        *   `onTransformationError(MediaItem, TransformationResult,
-            TransformationException)`, use `onError(Composition, ExportResult,
-            ExportException)` instead.
-        *   `onFallbackApplied(MediaItem, TransformationRequest,
-            TransformationRequest)`, use `onFallbackApplied(Composition,
-            TransformationRequest, TransformationRequest)` instead.
-    *   Remove deprecated `TransformationResult` class. Use `ExportResult`
-        instead.
-    *   Remove deprecated `TransformationException` class. Use `ExportException`
-        instead.
-    *   Remove deprecated `Transformer.PROGRESS_STATE_NO_TRANSFORMATION`. Use
-        `Transformer.PROGRESS_STATE_NOT_STARTED` instead.
-    *   Remove deprecated `Transformer.setListener()`. Use
-        `Transformer.addListener()`, `Transformer.removeListener()` or
-        `Transformer.removeAllListeners()` instead.
-    *   Remove deprecated `Transformer.startTransformation()`. Use
-        `Transformer.start(MediaItem, String)` instead.
-    *   Remove deprecated `SingleFrameGlShaderProgram`. Use
-        `BaseGlShaderProgram` instead.
-
-## 1.5
 
 ### 1.5.0 (2024-11-27)
 
