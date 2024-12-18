@@ -54,6 +54,7 @@ public class Mp4MuxerEndToEndParameterizedAndroidTest {
       "bbb_800x640_768kbps_30fps_avc_2b_firstpts_10_sec.mp4";
   private static final String H265_HDR10_MP4 = "hdr10-720p.mp4";
   private static final String H265_WITH_METADATA_TRACK_MP4 = "h265_with_metadata_track.mp4";
+  private static final String APV_MP4 = "sample_with_apvc.mp4";
   private static final String AV1_MP4 = "sample_av1.mp4";
   private static final String MPEG4_MP4 = "bbb_176x144_192kbps_15fps_mpeg4.mp4";
 
@@ -75,6 +76,7 @@ public class Mp4MuxerEndToEndParameterizedAndroidTest {
         H264_WITH_FIRST_PTS_10_SEC,
         H265_HDR10_MP4,
         H265_WITH_METADATA_TRACK_MP4,
+        APV_MP4,
         AV1_MP4,
         MPEG4_MP4,
         VP9_WEB,

@@ -705,6 +705,8 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
         return hvcCBox(format);
       case MimeTypes.VIDEO_AV1:
         return av1CBox(format);
+      case MimeTypes.VIDEO_APV:
+        return apvCBox(format);
       case MimeTypes.VIDEO_MP4V:
         return esdsBox(format);
       case MimeTypes.VIDEO_VP9:
@@ -1499,6 +1501,18 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     return BoxUtils.wrapIntoBox("hvcC", contents);
   }
 
+  /** Returns the apvC box. */
+  private static ByteBuffer apvCBox(Format format) {
+    // For APV, the entire codec-specific box is packed into csd-0.
+    checkArgument(
+        !format.initializationData.isEmpty(), "csd-0 is not found in the format for avpC box");
+
+    byte[] csd0 = format.initializationData.get(0);
+    checkArgument(csd0.length > 0, "csd-0 is empty for avpC box.");
+
+    return BoxUtils.wrapIntoBox("apvC", ByteBuffer.wrap(csd0));
+  }
+
   /** Returns the av1C box. */
   private static ByteBuffer av1CBox(Format format) {
     // For AV1, the entire codec-specific box is packed into csd-0.
@@ -1675,6 +1689,8 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
         return "hvc1";
       case MimeTypes.VIDEO_AV1:
         return "av01";
+      case MimeTypes.VIDEO_APV:
+        return "apv1";
       case MimeTypes.VIDEO_MP4V:
         return "mp4v-es";
       case MimeTypes.VIDEO_VP9:
