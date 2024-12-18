@@ -34,6 +34,7 @@ import androidx.media3.common.util.MediaFormatUtil;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.Mp4LocationData;
 import androidx.media3.muxer.Muxer;
+import androidx.media3.muxer.MuxerException;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;

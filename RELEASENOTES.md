@@ -87,6 +87,8 @@
         `StaticOverlaySettings`. `OverlaySettings` can be subclassed to allow
         dynamic overlay settings.
 *   Muxers:
+    *   Moved `MuxerException` out of `Muxer` interface to avoid a very long
+        fully qualified name.
 *   IMA extension:
 *   Session:
     *   Add 'Context' as a parameter to

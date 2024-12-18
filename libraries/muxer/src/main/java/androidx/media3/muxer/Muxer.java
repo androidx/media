@@ -18,7 +18,6 @@ package androidx.media3.muxer;
 import android.media.MediaCodec.BufferInfo;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
-import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.UnstableApi;
@@ -28,24 +27,6 @@ import java.nio.ByteBuffer;
 /** The muxer for producing media container files. */
 @UnstableApi
 public interface Muxer {
-  /** Thrown when a muxer failure occurs. */
-  final class MuxerException extends Exception {
-
-    static {
-      MediaLibraryInfo.registerModule("media3.muxer");
-    }
-
-    /**
-     * Creates an instance.
-     *
-     * @param message See {@link #getMessage()}.
-     * @param cause See {@link #getCause()}.
-     */
-    public MuxerException(String message, Throwable cause) {
-      super(message, cause);
-    }
-  }
-
   /** Factory for muxers. */
   interface Factory {
     /**

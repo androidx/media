@@ -20,7 +20,6 @@ import android.content.res.AssetFileDescriptor;
 import android.media.MediaCodec;
 import androidx.media3.common.util.MediaFormatUtil;
 import androidx.media3.exoplayer.MediaExtractorCompat;
-import androidx.media3.muxer.Muxer.MuxerException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;

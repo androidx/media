@@ -815,7 +815,7 @@ public class Mp4MuxerEndToEndTest {
   }
 
   private static void writeFakeSamples(Mp4Muxer muxer, TrackToken trackToken, int sampleCount)
-      throws Muxer.MuxerException {
+      throws MuxerException {
     for (int i = 0; i < sampleCount; i++) {
       Pair<ByteBuffer, BufferInfo> sampleAndSampleInfo =
           getFakeSampleAndSampleInfo(/* presentationTimeUs= */ i);

@@ -36,7 +36,7 @@ import androidx.media3.common.audio.SonicAudioProcessor;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.RgbFilter;
 import androidx.media3.muxer.Muxer;
-import androidx.media3.muxer.Muxer.MuxerException;
+import androidx.media3.muxer.MuxerException;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
 import com.google.common.base.Ascii;
