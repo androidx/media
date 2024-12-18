@@ -441,9 +441,7 @@ public class MediaSessionCompat {
     if (mbrComponent == null) {
       mbrComponent = MediaButtonReceiver.getMediaButtonReceiverComponent(context);
       if (mbrComponent == null) {
-        Log.w(
-            TAG,
-            "Couldn't find a unique registered media button receiver in the " + "given context.");
+        Log.i(TAG, "Couldn't find a unique registered media button receiver in the given context.");
       }
     }
     if (mbrComponent != null && mbrIntent == null) {
@@ -2128,7 +2126,7 @@ public class MediaSessionCompat {
 
     @Override
     public String toString() {
-      return "MediaSession.QueueItem {" + "Description=" + mDescription + ", Id=" + mId + " }";
+      return "MediaSession.QueueItem { Description=" + mDescription + ", Id=" + mId + " }";
     }
 
     @RequiresApi(21)
@@ -3669,7 +3667,7 @@ public class MediaSessionCompat {
             break;
           case KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE:
           case KeyEvent.KEYCODE_HEADSETHOOK:
-            Log.w(TAG, "KEYCODE_MEDIA_PLAY_PAUSE and KEYCODE_HEADSETHOOK are handled" + " already");
+            Log.w(TAG, "KEYCODE_MEDIA_PLAY_PAUSE and KEYCODE_HEADSETHOOK are handled already");
             break;
         }
       }
