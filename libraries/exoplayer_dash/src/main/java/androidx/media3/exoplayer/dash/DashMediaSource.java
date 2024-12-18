@@ -18,6 +18,7 @@ package androidx.media3.exoplayer.dash;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.constrainValue;
+import static androidx.media3.common.util.Util.msToUs;
 import static androidx.media3.common.util.Util.usToMs;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -399,11 +400,12 @@ public final class DashMediaSource extends BaseMediaSource {
   public static final long MIN_LIVE_DEFAULT_START_POSITION_US = 5_000_000;
 
   /**
-   * The interval in milliseconds between invocations of {@link
-   * MediaSourceCaller#onSourceInfoRefreshed(MediaSource, Timeline)} when the source's {@link
-   * Timeline} is changing dynamically (for example, for incomplete live streams).
+   * The maximum interval in microseconds between invocations of {@link
+   * MediaSourceCaller#onSourceInfoRefreshed(MediaSource, Timeline)} where the {@link Timeline} is
+   * changing dynamically (for example, for incomplete live streams) and a better estimate for the
+   * next update cannot be determined.
    */
-  private static final long DEFAULT_NOTIFY_MANIFEST_INTERVAL_MS = 5000;
+  private static final long DEFAULT_NOTIFY_MANIFEST_INTERVAL_US = 5_000_000;
 
   private static final String TAG = "DashMediaSource";
 
@@ -1137,7 +1139,11 @@ public final class DashMediaSource extends BaseMediaSource {
     long periodDurationUs = manifest.getPeriodDurationUs(periodIndex);
     long nowUnixTimeUs = Util.msToUs(nowUnixTimeMs);
     long availabilityStartTimeUs = Util.msToUs(manifest.availabilityStartTimeMs);
-    long intervalUs = Util.msToUs(DEFAULT_NOTIFY_MANIFEST_INTERVAL_MS);
+    long intervalUs = DEFAULT_NOTIFY_MANIFEST_INTERVAL_US;
+    long minUpdatePeriodUs = msToUs(manifest.minUpdatePeriodMs);
+    if (minUpdatePeriodUs != C.TIME_UNSET && minUpdatePeriodUs < intervalUs) {
+      intervalUs = minUpdatePeriodUs;
+    }
     for (int i = 0; i < period.adaptationSets.size(); i++) {
       List<Representation> representations = period.adaptationSets.get(i).representations;
       if (representations.isEmpty()) {
@@ -1150,10 +1156,16 @@ public final class DashMediaSource extends BaseMediaSource {
                 + periodStartUs
                 + index.getNextSegmentAvailableTimeUs(periodDurationUs, nowUnixTimeUs);
         long requiredIntervalUs = nextSegmentShiftUnixTimeUs - nowUnixTimeUs;
-        // Avoid multiple refreshes within a very small amount of time.
-        if ((requiredIntervalUs < intervalUs - 100_000
-            || (requiredIntervalUs > intervalUs && requiredIntervalUs < intervalUs + 100_000) )
-            && requiredIntervalUs >0) {
+        if (requiredIntervalUs <= 0) {
+          // The existing manifest might be stale and hasn't updated as expected. Ignore this
+          // adaptation set and fall back to the default update interval.
+          // See https://github.com/androidx/media/issues/1698.
+          continue;
+        }
+        // Avoid multiple refreshes within a very small amount of time by either reducing the
+        // interval to a significantly lower value, or the maximum among two close intervals.
+        if (requiredIntervalUs < intervalUs - 100_000
+            || (requiredIntervalUs > intervalUs && requiredIntervalUs < intervalUs + 100_000)) {
           intervalUs = requiredIntervalUs;
         }
       }
