@@ -141,6 +141,10 @@ public final class VobsubParser implements SubtitleParser {
             palette[i] = parseColor(values[i].trim());
           }
         } else if (line.startsWith("size: ")) {
+
+          // NOTE: we need this line to calculate the relative positions
+          //       and size required by Cue.Builder() below.
+
           String[] sizes = line.substring(6).trim().split("x");
 
           if (sizes.length == 2) {
@@ -165,6 +169,9 @@ public final class VobsubParser implements SubtitleParser {
     }
 
     public void parseSpu(ParsableByteArray buffer) {
+
+      // Give up if don't have the color palette or the video size.
+      // (See also the NOTE above)
 
       if (palette == null || !hasPlane) return;
 
