@@ -59,6 +59,7 @@ public class Mp4MuxerEndToEndParameterizedAndroidTest {
   private static final String MPEG4_MP4 = "bbb_176x144_192kbps_15fps_mpeg4.mp4";
 
   // Contains CSD in CodecPrivate format.
+  private static final String VP9_MP4 = "bbb_800x640_768kbps_30fps_vp9.mp4";
   private static final String VP9_WEB = "bbb_642x642_768kbps_30fps_vp9.webm";
   // Audio Codecs
   private static final String AMR_NB_3GP = "bbb_mono_8kHz_12.2kbps_amrnb.3gp";
@@ -79,6 +80,7 @@ public class Mp4MuxerEndToEndParameterizedAndroidTest {
         APV_MP4,
         AV1_MP4,
         MPEG4_MP4,
+        VP9_MP4,
         VP9_WEB,
         AMR_NB_3GP,
         AMR_WB_3GP,
