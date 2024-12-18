@@ -16,9 +16,10 @@
 package androidx.media3.muxer;
 
 import android.content.Context;
+import android.content.res.AssetFileDescriptor;
 import android.media.MediaCodec;
-import android.media.MediaExtractor;
 import androidx.media3.common.util.MediaFormatUtil;
+import androidx.media3.exoplayer.MediaExtractorCompat;
 import androidx.media3.muxer.Muxer.MuxerException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -39,9 +40,10 @@ import java.util.List;
 
   public static void feedInputDataToMuxer(Context context, Muxer muxer, String inputFileName)
       throws IOException, MuxerException {
-    MediaExtractor extractor = new MediaExtractor();
-    extractor.setDataSource(
-        context.getResources().getAssets().openFd(MP4_FILE_ASSET_DIRECTORY + inputFileName));
+    MediaExtractorCompat extractor = new MediaExtractorCompat(context);
+    AssetFileDescriptor fd =
+        context.getResources().getAssets().openFd(MP4_FILE_ASSET_DIRECTORY + inputFileName);
+    extractor.setDataSource(fd);
 
     List<Muxer.TrackToken> addedTracks = new ArrayList<>();
     for (int i = 0; i < extractor.getTrackCount(); i++) {
@@ -69,5 +71,6 @@ import java.util.List;
     } while (extractor.advance());
 
     extractor.release();
+    fd.close();
   }
 }
