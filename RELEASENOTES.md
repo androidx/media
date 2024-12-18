@@ -114,6 +114,8 @@
 *   DASH Extension:
     *   Add AC-4 Level-4 format support for DASH
         ([#1898](https://github.com/androidx/media/pull/1898)).
+    *   Fix issue when calculating the update interval for ad insertion in multi-period live streams
+        ([#1698](https://github.com/androidx/media/issues/1698)).
 *   Smooth Streaming Extension:
 *   RTSP Extension:
 *   Decoder Extensions (FFmpeg, VP9, AV1, etc.):
