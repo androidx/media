@@ -98,6 +98,9 @@ public final class BoxParser {
   @SuppressWarnings("ConstantCaseForConstants")
   private static final int TYPE_vide = 0x76696465;
 
+  private static final int SAMPLE_RATE_AMR_NB = 8_000;
+  private static final int SAMPLE_RATE_AMR_WB = 16_000;
+
   /**
    * The threshold number of samples to trim from the start/end of an audio track when applying an
    * edit below which gapless info can be used (rather than removing samples from the sample table).
@@ -1859,12 +1862,20 @@ public final class BoxParser {
       return;
     }
 
-    // As per the IAMF spec (https://aomediacodec.github.io/iamf/#iasampleentry-section),
-    // channelCount and sampleRate SHALL be set to 0 and ignored. We ignore it by using
-    // Format.NO_VALUE instead of 0.
     if (atomType == Mp4Box.TYPE_iamf) {
+      // As per the IAMF spec (https://aomediacodec.github.io/iamf/#iasampleentry-section),
+      // channelCount and sampleRate SHALL be set to 0 and ignored. We ignore it by using
+      // Format.NO_VALUE instead of 0.
       channelCount = Format.NO_VALUE;
       sampleRate = Format.NO_VALUE;
+    } else if (atomType == Mp4Box.TYPE_samr) {
+      // AMR NB audio is always mono, 8kHz
+      channelCount = 1;
+      sampleRate = SAMPLE_RATE_AMR_NB;
+    } else if (atomType == Mp4Box.TYPE_sawb) {
+      // AMR WB audio is always mono, 16kHz
+      channelCount = 1;
+      sampleRate = SAMPLE_RATE_AMR_WB;
     }
 
     int childPosition = parent.getPosition();
@@ -2235,8 +2246,7 @@ public final class BoxParser {
             new StriData(
                 ((striInfo & 0x01) == 0x01),
                 ((striInfo & 0x02) == 0x02),
-                ((striInfo & 0x08) == 0x08),
-                ((striInfo & 0x04) == 0x04)));
+                ((striInfo & 0x08) == 0x08)));
       }
       childPosition += childAtomSize;
     }
@@ -2506,17 +2516,11 @@ public final class BoxParser {
     private final boolean hasLeftEyeView;
     private final boolean hasRightEyeView;
     private final boolean eyeViewsReversed;
-    private final boolean hasAdditionalViews;
 
-    public StriData(
-        boolean hasLeftEyeView,
-        boolean hasRightEyeView,
-        boolean eyeViewsReversed,
-        boolean hasAdditionalViews) {
+    public StriData(boolean hasLeftEyeView, boolean hasRightEyeView, boolean eyeViewsReversed) {
       this.hasLeftEyeView = hasLeftEyeView;
       this.hasRightEyeView = hasRightEyeView;
       this.eyeViewsReversed = eyeViewsReversed;
-      this.hasAdditionalViews = hasAdditionalViews;
     }
   }
 
