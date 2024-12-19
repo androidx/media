@@ -1,6 +1,11 @@
 # Release notes
 
-### Unreleased changes
+## 1.6
+
+### 1.6.0-alpha01 (2024-12-20)
+
+This release includes the following changes since the
+[1.5.1 release](#151-2024-12-19):
 
 *   Common Library:
     *   Remove `Format.toBundle(boolean excludeMetadata)` method, use
@@ -37,9 +42,6 @@
     *   Provide `MediaCodecInfo` of the codec that will be initialized in
         `MediaCodecRenderer.onReadyToInitializeCodec`
         ([#1963](https://github.com/androidx/media/pull/1963)).
-    *   Disable use of asynchronous decryption in MediaCodec to avoid reported
-        codec timeout issues with this platform API
-        ([#1641](https://github.com/androidx/media/issues/1641)).
     *   Change `AdsMediaSource` to allow the `AdPlaybackStates` to grow by
         appending ad groups. Invalid modifications are detected and throw an
         exception.
@@ -50,20 +52,13 @@
         formats.
     *   Generate HDR static metadata when using `DefaultEncoderFactory`.
 *   Extractors:
-    *   MP3: Don't stop playback early when a `VBRI` frame's table of contents
-        doesn't cover all the MP3 data in a file
-        ([#1904](https://github.com/androidx/media/issues/1904)).
     *   AVI: Fix handling of files with constant bitrate compressed audio where
         the stream header stores the number of bytes instead of the number of
         chunks.
-*   DataSource:
 *   Audio:
     *   Fix `onAudioPositionAdvancing` to be called when playback resumes
         (previously it was called when playback was paused).
 *   Video:
-    *   Rollback of using `MediaCodecAdapter` supplied pixel aspect ratio values
-        when provided while processing `onOutputFormatChanged`
-        ([#1371](https://github.com/androidx/media/pull/1371)).
     *   Fix `MediaCodecVideoRenderer` such that when without a `Surface`, the
         renderer will skip just-early frames only if the
         `VideoFrameReleaseControl.getFrameReleaseAction` is not
@@ -73,15 +68,6 @@
         `MediaItem.Builder.setSubtitleConfigurations`, and instead only load one
         if it is selected by track selection
         ([#1721](https://github.com/androidx/media/issues/1721)).
-    *   Fix bug in `ReplacingCuesResolver.discardCuesBeforeTimeUs` where the cue
-        active at `timeUs` (started before but not yet ended) was incorrectly
-        discarded ([#1939](https://github.com/androidx/media/issues/1939)).
-*   Metadata:
-    *   Extract disc/track numbering and genre from Vorbis comments into
-        `MediaMetadata`
-        ([#1958](https://github.com/androidx/media/issues/1958)).
-*   Image:
-*   DRM:
 *   Effect:
     *   Moved the functionality of `OverlaySettings` into
         `StaticOverlaySettings`. `OverlaySettings` can be subclassed to allow
@@ -89,7 +75,6 @@
 *   Muxers:
     *   Moved `MuxerException` out of `Muxer` interface to avoid a very long
         fully qualified name.
-*   IMA extension:
 *   Session:
     *   Add 'Context' as a parameter to
         'MediaButtonReceiver.shouldStartForegroundService`
@@ -101,10 +86,6 @@
         `rememberPlayPauseButtonState`, `rememberNextButtonState`,
         `rememberPreviousButtonState`, `rememberRepeatButtonState`,
         `rememberShuffleButtonState` Composables to `media3-ui-compose` module.
-*   Downloads:
-*   OkHttp Extension:
-*   Cronet Extension:
-*   RTMP Extension:
 *   HLS Extension:
     *   Add a first version of `HlsInterstitialsAdsLoader`. The ads loader reads
         the HLS interstitials of an HLS media playlist and maps them to the
@@ -116,16 +97,10 @@
 *   DASH Extension:
     *   Add AC-4 Level-4 format support for DASH
         ([#1898](https://github.com/androidx/media/pull/1898)).
-*   Smooth Streaming Extension:
-*   RTSP Extension:
 *   Decoder Extensions (FFmpeg, VP9, AV1, etc.):
     *   Add the MPEG-H decoder module which uses the native MPEG-H decoder
         module to decode MPEG-H audio
         ([#1826](https://github.com/androidx/media/pull/1826)).
-*   MIDI extension:
-*   Leanback extension:
-*   Cast Extension:
-*   Test Utilities:
 *   Demo app:
     *   Add `MinimalControls` (`PlayPauseButton`, `NextButton`,
         `PreviousButton`) and `ExtraControls` (`RepeatButton`, `ShuffleButton`)
