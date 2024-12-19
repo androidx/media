@@ -130,7 +130,7 @@ This release includes the following changes since the
             `EditedMediaItem` passed to `Transformer.start()` instead.
         *   `setListener()`, use `addListener()`, `removeListener()` or
             `removeAllListeners()` instead.
-    *   Remove the following deprecated `Tansformer.Listener` methods:
+    *   Remove the following deprecated `Transformer.Listener` methods:
         *   `onTransformationCompleted(MediaItem)`, use
             `onCompleted(Composition, ExportResult)` instead.
         *   `onTransformationCompleted(MediaItem, TransformationResult)`, use
