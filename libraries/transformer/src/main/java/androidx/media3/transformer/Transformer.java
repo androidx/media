@@ -110,6 +110,7 @@ public final class Transformer {
     private boolean trimOptimizationEnabled;
     private boolean portraitEncodingEnabled;
     private boolean fileStartsOnVideoFrameEnabled;
+    private boolean usePlatformDiagnostics;
     private long maxDelayBetweenMuxerSamplesMs;
     private int maxFramesInEncoder;
     private ListenerSet<Transformer.Listener> listeners;
@@ -141,6 +142,7 @@ public final class Transformer {
       debugViewProvider = DebugViewProvider.NONE;
       clock = Clock.DEFAULT;
       listeners = new ListenerSet<>(looper, clock, (listener, flags) -> {});
+      usePlatformDiagnostics = true;
     }
 
     /** Creates a builder with the values of the provided {@link Transformer}. */
@@ -156,6 +158,7 @@ public final class Transformer {
       this.trimOptimizationEnabled = transformer.trimOptimizationEnabled;
       this.portraitEncodingEnabled = transformer.portraitEncodingEnabled;
       this.fileStartsOnVideoFrameEnabled = transformer.fileStartsOnVideoFrameEnabled;
+      this.usePlatformDiagnostics = transformer.usePlatformDiagnostics;
       this.maxDelayBetweenMuxerSamplesMs = transformer.maxDelayBetweenMuxerSamplesMs;
       this.maxFramesInEncoder = transformer.maxFramesInEncoder;
       this.listeners = transformer.listeners;
@@ -514,6 +517,26 @@ public final class Transformer {
     }
 
     /**
+     * Sets whether transformer reports diagnostics data to the Android platform.
+     *
+     * <p>If enabled, transformer will use the {@link android.media.metrics.MediaMetricsManager} to
+     * create an {@link android.media.metrics.EditingSession} and forward editing events and
+     * performance data to this session. This helps to provide system performance and debugging
+     * information for media editing on this device. This data may also be collected by Google <a
+     * href="https://support.google.com/accounts/answer/6078260">if sharing usage and diagnostics
+     * data is enabled</a> by the user of the device.
+     *
+     * @param usePlatformDiagnostics Whether transformer reports diagnostics data to the Android
+     *     platform
+     * @return This builder
+     */
+    @CanIgnoreReturnValue
+    public Builder setUsePlatformDiagnostics(boolean usePlatformDiagnostics) {
+      this.usePlatformDiagnostics = usePlatformDiagnostics;
+      return this;
+    }
+
+    /**
      * Builds a {@link Transformer} instance.
      *
      * @throws IllegalStateException If both audio and video have been removed (otherwise the output
@@ -549,6 +572,7 @@ public final class Transformer {
           trimOptimizationEnabled,
           portraitEncodingEnabled,
           fileStartsOnVideoFrameEnabled,
+          usePlatformDiagnostics,
           maxDelayBetweenMuxerSamplesMs,
           maxFramesInEncoder,
           listeners,
@@ -731,6 +755,7 @@ public final class Transformer {
   private final boolean trimOptimizationEnabled;
   private final boolean portraitEncodingEnabled;
   private final boolean fileStartsOnVideoFrameEnabled;
+  private final boolean usePlatformDiagnostics;
   private final long maxDelayBetweenMuxerSamplesMs;
   private final int maxFramesInEncoder;
 
@@ -770,6 +795,7 @@ public final class Transformer {
       boolean trimOptimizationEnabled,
       boolean portraitEncodingEnabled,
       boolean fileStartsOnVideoFrameEnabled,
+      boolean usePlatformDiagnostics,
       long maxDelayBetweenMuxerSamplesMs,
       int maxFramesInEncoder,
       ListenerSet<Listener> listeners,
@@ -791,6 +817,7 @@ public final class Transformer {
     this.trimOptimizationEnabled = trimOptimizationEnabled;
     this.portraitEncodingEnabled = portraitEncodingEnabled;
     this.fileStartsOnVideoFrameEnabled = fileStartsOnVideoFrameEnabled;
+    this.usePlatformDiagnostics = usePlatformDiagnostics;
     this.maxDelayBetweenMuxerSamplesMs = maxDelayBetweenMuxerSamplesMs;
     this.maxFramesInEncoder = maxFramesInEncoder;
     this.listeners = listeners;

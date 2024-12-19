@@ -5,6 +5,15 @@
 *   Common Library:
 *   ExoPlayer:
 *   Transformer:
+    *   Enable support for Android platform diagnostics via
+        `MediaMetricsManager`. Transformer will forward editing events and
+        performance data to the platform, which helps to provide system
+        performance and debugging information on the device. This data may also
+        be collected by Google
+        [if sharing usage and diagnostics data is enabled](https://support.google.com/accounts/answer/6078260)
+        by the user of the device. Apps can opt-out of contributing to platform
+        diagnostics for Transformer with
+        `Transformer.Builder.setUsePlatformDiagnostics(false)`.
 *   Track Selection:
 *   Extractors:
 *   DataSource:
