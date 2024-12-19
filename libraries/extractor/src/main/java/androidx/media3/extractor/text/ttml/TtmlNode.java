@@ -53,6 +53,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   public static final String ANONYMOUS_REGION_ID = "";
   public static final String ATTR_ID = "id";
+  public static final String ATTR_STYLE = "style";
   public static final String ATTR_TTS_ORIGIN = "origin";
   public static final String ATTR_TTS_EXTENT = "extent";
   public static final String ATTR_TTS_DISPLAY_ALIGN = "displayAlign";
