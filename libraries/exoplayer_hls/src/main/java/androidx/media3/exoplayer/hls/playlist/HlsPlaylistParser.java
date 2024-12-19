@@ -418,30 +418,19 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
         String supplementalCodecs = null;
         String supplementalProfiles = null;  // i.e. Compatibility brand
         if (supplementalCodecsStrings != null) {
-          String[] supplementalCodecsString = Util.split(supplementalCodecsStrings, ",");
-          if (!supplementalCodecsString[0].isEmpty()) {
-            // TODO: Support more than one element
-            String[] codecsAndProfiles = Util.split(supplementalCodecsString[0], "/");
-            supplementalCodecs = codecsAndProfiles[0];
-            if (codecsAndProfiles.length > 1) {
-              supplementalProfiles = codecsAndProfiles[1];
-            }
+          String[] supplementalCodecsString = Util.splitAtFirst(supplementalCodecsStrings, ",");
+          // TODO: Support more than one element
+          String[] codecsAndProfiles = Util.split(supplementalCodecsString[0], "/");
+          supplementalCodecs = codecsAndProfiles[0];
+          if (codecsAndProfiles.length > 1) {
+            supplementalProfiles = codecsAndProfiles[1];
           }
         }
         String videoCodecs = Util.getCodecsOfType(codecs, C.TRACK_TYPE_VIDEO);
         if (isDolbyVisionFormat(videoRange, videoCodecs, supplementalCodecs, supplementalProfiles)) {
           videoCodecs = supplementalCodecs != null ? supplementalCodecs : videoCodecs;
-          String[] codecArray = Util.splitCodecs(codecs);
-          StringBuilder builder = new StringBuilder();
-          for (String codec : codecArray) {
-            if (builder.length() > 0) {
-              builder.append(",");
-            }
-            builder.append(MimeTypes.getTrackTypeOfCodec(codec) == C.TRACK_TYPE_VIDEO
-                ? videoCodecs
-                : codec);
-          }
-          codecs = builder.length() > 0 ? builder.toString() : codecs;
+          String nonVideoCodecs = Util.getCodecsWithoutType(codecs, C.TRACK_TYPE_VIDEO);
+          codecs = nonVideoCodecs != null ? videoCodecs + "," + nonVideoCodecs : videoCodecs;
         }
 
         String resolutionString =
