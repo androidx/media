@@ -970,6 +970,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
         handler.sendEmptyMessage(MSG_DO_SOME_WORK);
       }
     }
+    queue.reevaluateBuffer(rendererPositionUs);
   }
 
   private void setPauseAtEndOfWindowInternal(boolean pauseAtEndOfWindow)
