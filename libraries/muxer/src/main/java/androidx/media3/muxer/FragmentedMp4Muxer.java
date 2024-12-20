@@ -95,7 +95,9 @@ public final class FragmentedMp4Muxer implements Muxer {
     /**
      * Creates a {@link Builder} instance with default values.
      *
-     * @param fileOutputStream The {@link FileOutputStream} to write the media data to.
+     * @param fileOutputStream The {@link FileOutputStream} to write the media data to. This stream
+     *     will be automatically closed by the muxer when {@link FragmentedMp4Muxer#close()} is
+     *     called.
      */
     public Builder(FileOutputStream fileOutputStream) {
       this.fileOutputStream = fileOutputStream;
