@@ -123,8 +123,8 @@ This release includes the following changes since the
     *   Moved `MuxerException` out of `Muxer` interface to avoid a very long
         fully qualified name.
 *   Session:
-    *   Add 'Context' as a parameter to
-        'MediaButtonReceiver.shouldStartForegroundService`
+    *   Add `Context` as a parameter to
+        `MediaButtonReceiver.shouldStartForegroundService`
         ([#1887](https://github.com/androidx/media/issues/1887)).
 *   UI:
     *   Add `PlayerSurface` Composable to `media3-ui-compose` module.
