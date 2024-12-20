@@ -267,9 +267,9 @@ public final class Mp4Muxer implements Muxer {
     /**
      * Sets whether to enable sample batching.
      *
-     * <p>If sample batching is enabled, samples are {@linkplain #writeSampleData(TrackToken,
-     * ByteBuffer, BufferInfo) written} in batches for each track, otherwise samples are written as
-     * they arrive.
+     * <p>If sample batching is enabled, samples are written in batches for each track, otherwise
+     * samples are written as they {@linkplain #writeSampleData(TrackToken, ByteBuffer, BufferInfo)
+     * arrive}.
      *
      * <p>The default value is {@code true}.
      */
