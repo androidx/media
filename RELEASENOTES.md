@@ -26,6 +26,8 @@
 *   DRM:
 *   Effect:
 *   Muxers:
+    *   Renamed `setSampleCopyEnabled()` method to `setSampleCopyingEnabled()`
+        in both `Mp4Muxer.Builder` and `FragmentedMp4Muxer.Builder`.
 *   IMA extension:
 *   Session:
 *   UI:

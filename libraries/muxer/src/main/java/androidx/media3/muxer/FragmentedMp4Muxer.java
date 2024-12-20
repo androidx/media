@@ -128,7 +128,7 @@ public final class FragmentedMp4Muxer implements Muxer {
      * <p>The default value is {@code true}.
      */
     @CanIgnoreReturnValue
-    public Builder setSampleCopyEnabled(boolean enabled) {
+    public Builder setSampleCopyingEnabled(boolean enabled) {
       this.sampleCopyEnabled = enabled;
       return this;
     }
@@ -163,17 +163,17 @@ public final class FragmentedMp4Muxer implements Muxer {
   /**
    * {@inheritDoc}
    *
-   * <p>Samples are written to the disk in batches. If {@link Builder#setSampleCopyEnabled(boolean)
-   * sample copying} is disabled, the {@code byteBuffer} and the {@code bufferInfo} must not be
-   * modified after calling this method. Otherwise, they are copied and it is safe to modify them
-   * after this method returns.
+   * <p>Samples are written to the disk in batches. If {@link
+   * Builder#setSampleCopyingEnabled(boolean) sample copying} is disabled, the {@code byteBuffer}
+   * and the {@code bufferInfo} must not be modified after calling this method. Otherwise, they are
+   * copied and it is safe to modify them after this method returns.
    *
    * <p>Note: Out of order B-frames are currently not supported.
    *
    * @param trackToken The {@link TrackToken} for which this sample is being written.
    * @param byteBuffer The encoded sample. The muxer takes ownership of the buffer if {@link
-   *     Builder#setSampleCopyEnabled(boolean) sample copying} is disabled. Otherwise, the position
-   *     of the buffer is updated but the caller retains ownership.
+   *     Builder#setSampleCopyingEnabled(boolean) sample copying} is disabled. Otherwise, the
+   *     position of the buffer is updated but the caller retains ownership.
    * @param bufferInfo The {@link BufferInfo} related to this sample.
    * @throws MuxerException If there is any error while writing data to the disk.
    */

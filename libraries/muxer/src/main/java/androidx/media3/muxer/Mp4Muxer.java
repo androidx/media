@@ -259,7 +259,7 @@ public final class Mp4Muxer implements Muxer {
      * <p>The default value is {@code true}.
      */
     @CanIgnoreReturnValue
-    public Mp4Muxer.Builder setSampleCopyEnabled(boolean enabled) {
+    public Mp4Muxer.Builder setSampleCopyingEnabled(boolean enabled) {
       this.sampleCopyEnabled = enabled;
       return this;
     }
@@ -442,15 +442,15 @@ public final class Mp4Muxer implements Muxer {
    * <p>When sample batching is {@linkplain Mp4Muxer.Builder#setSampleBatchingEnabled(boolean)
    * enabled}, provide sample data ({@link ByteBuffer}, {@link BufferInfo}) that won't be modified
    * after calling the {@link #writeSampleData(TrackToken, ByteBuffer, BufferInfo)} method, unless
-   * sample copying is also {@linkplain Mp4Muxer.Builder#setSampleCopyEnabled(boolean) enabled}.
+   * sample copying is also {@linkplain Mp4Muxer.Builder#setSampleCopyingEnabled(boolean) enabled}.
    * This ensures data integrity within the batch. If sample copying is {@linkplain
-   * Mp4Muxer.Builder#setSampleCopyEnabled(boolean) enabled}, it's safe to modify the data after the
-   * method returns, as the muxer internally creates a sample copy.
+   * Mp4Muxer.Builder#setSampleCopyingEnabled(boolean) enabled}, it's safe to modify the data after
+   * the method returns, as the muxer internally creates a sample copy.
    *
    * @param trackToken The {@link TrackToken} for which this sample is being written.
    * @param byteBuffer The encoded sample. The muxer takes ownership of the buffer if {@link
-   *     Builder#setSampleCopyEnabled(boolean) sample copying} is disabled. Otherwise, the position
-   *     of the buffer is updated but the caller retains ownership.
+   *     Builder#setSampleCopyingEnabled(boolean) sample copying} is disabled. Otherwise, the
+   *     position of the buffer is updated but the caller retains ownership.
    * @param bufferInfo The {@link BufferInfo} related to this sample.
    * @throws MuxerException If an error occurs while writing data to the output file.
    */
