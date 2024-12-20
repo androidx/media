@@ -26,6 +26,7 @@ import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.GlRect;
 import androidx.media3.common.util.GlUtil;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -72,6 +73,7 @@ import java.util.concurrent.TimeUnit;
 /* package */ final class QueuingGlShaderProgram<T> implements GlShaderProgram {
 
   private static final long PROCESSING_TIMEOUT_MS = 500_000L;
+  private static final String TAG = "QueuingGlShaderProgram";
 
   /** A concurrent effect that is applied by the {@link QueuingGlShaderProgram}. */
   public interface ConcurrentEffect<T> {
@@ -167,7 +169,12 @@ import java.util.concurrent.TimeUnit;
     outputTexturePool = new TexturePool(useHighPrecisionColorComponents, queueSize);
     inputListener = new InputListener() {};
     outputListener = new OutputListener() {};
-    errorListener = (frameProcessingException) -> {};
+    errorListener =
+        (frameProcessingException) ->
+            Log.e(
+                TAG,
+                "Exception caught by default QueuingGlShaderProgram errorListener.",
+                frameProcessingException);
     errorListenerExecutor = MoreExecutors.directExecutor();
     inputWidth = C.LENGTH_UNSET;
     inputHeight = C.LENGTH_UNSET;
