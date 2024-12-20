@@ -88,6 +88,7 @@ import org.checkerframework.dataflow.qual.Pure;
                         requestedEncoderFormat,
                         muxerWrapper.getSupportedSampleMimeTypes(C.TRACK_TYPE_AUDIO)))
                 .build());
+    // TODO: b/324056144 - Fallback when sample rate is unsupported by encoder
     encoderInputBuffer = new DecoderInputBuffer(BUFFER_REPLACEMENT_MODE_DISABLED);
     encoderOutputBuffer = new DecoderInputBuffer(BUFFER_REPLACEMENT_MODE_DISABLED);
 

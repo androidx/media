@@ -45,6 +45,7 @@ public class DefaultEncoderFactoryTest {
   @Before
   public void setUp() {
     createShadowH264Encoder();
+    createShadowAacEncoder();
   }
 
   @After
@@ -66,24 +67,40 @@ public class DefaultEncoderFactoryTest {
     createShadowVideoEncoder(avcFormat, profileLevel, "test.transformer.avc.encoder");
   }
 
+  private static void createShadowAacEncoder() {
+    MediaFormat format = new MediaFormat();
+    format.setString(MediaFormat.KEY_MIME, MediaFormat.MIMETYPE_AUDIO_AAC);
+    MediaCodecInfo.CodecCapabilities capabilities =
+        MediaCodecInfoBuilder.CodecCapabilitiesBuilder.newBuilder()
+            .setMediaFormat(format)
+            .setIsEncoder(true)
+            .build();
+    createShadowEncoder("test.transformer.aac.encoder", capabilities);
+  }
+
   private static void createShadowVideoEncoder(
       MediaFormat supportedFormat,
       MediaCodecInfo.CodecProfileLevel supportedProfileLevel,
       String name) {
+    MediaCodecInfo.CodecCapabilities capabilities =
+        MediaCodecInfoBuilder.CodecCapabilitiesBuilder.newBuilder()
+            .setMediaFormat(supportedFormat)
+            .setIsEncoder(true)
+            .setColorFormats(
+                new int[] {MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible})
+            .setProfileLevels(new MediaCodecInfo.CodecProfileLevel[] {supportedProfileLevel})
+            .build();
+    createShadowEncoder(name, capabilities);
+  }
+
+  private static void createShadowEncoder(
+      String name, MediaCodecInfo.CodecCapabilities... capabilities) {
     // ShadowMediaCodecList is static. The added encoders will be visible for every test.
     ShadowMediaCodecList.addCodec(
         MediaCodecInfoBuilder.newBuilder()
             .setName(name)
             .setIsEncoder(true)
-            .setCapabilities(
-                MediaCodecInfoBuilder.CodecCapabilitiesBuilder.newBuilder()
-                    .setMediaFormat(supportedFormat)
-                    .setIsEncoder(true)
-                    .setColorFormats(
-                        new int[] {MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible})
-                    .setProfileLevels(
-                        new MediaCodecInfo.CodecProfileLevel[] {supportedProfileLevel})
-                    .build())
+            .setCapabilities(capabilities)
             .build());
   }
 
@@ -247,6 +264,36 @@ public class DefaultEncoderFactoryTest {
                 .createForVideoEncoding(requestedVideoFormat));
   }
 
+  @Test
+  public void createForAudioEncoding_unsupportedSampleRateWithFallback() throws Exception {
+    Format requestedAudioFormat = createAudioFormat(MimeTypes.AUDIO_AAC, /* sampleRate= */ 192_000);
+
+    Format actualAudioFormat =
+        new DefaultEncoderFactory.Builder(context)
+            .setEnableFallback(true)
+            .build()
+            .createForAudioEncoding(requestedAudioFormat)
+            .getConfigurationFormat();
+
+    assertThat(actualAudioFormat.sampleMimeType).isEqualTo(MimeTypes.AUDIO_AAC);
+    assertThat(actualAudioFormat.sampleRate).isEqualTo(96_000);
+  }
+
+  @Test
+  public void createForAudioEncoding_unsupportedSampleRateWithoutFallback() throws Exception {
+    Format requestedAudioFormat = createAudioFormat(MimeTypes.AUDIO_AAC, /* sampleRate= */ 192_000);
+
+    Format actualAudioFormat =
+        new DefaultEncoderFactory.Builder(context)
+            .setEnableFallback(false)
+            .build()
+            .createForAudioEncoding(requestedAudioFormat)
+            .getConfigurationFormat();
+
+    assertThat(actualAudioFormat.sampleMimeType).isEqualTo(MimeTypes.AUDIO_AAC);
+    assertThat(actualAudioFormat.sampleRate).isEqualTo(192_000);
+  }
+
   private static Format createVideoFormat(String mimeType, int width, int height, int frameRate) {
     return new Format.Builder()
         .setWidth(width)
@@ -255,5 +302,9 @@ public class DefaultEncoderFactoryTest {
         .setRotationDegrees(0)
         .setSampleMimeType(mimeType)
         .build();
+  }
+
+  private static Format createAudioFormat(String mimeType, int sampleRate) {
+    return new Format.Builder().setSampleRate(sampleRate).setSampleMimeType(mimeType).build();
   }
 }

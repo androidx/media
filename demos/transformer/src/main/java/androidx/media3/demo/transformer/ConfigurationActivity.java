@@ -120,10 +120,11 @@ public final class ConfigurationActivity extends AppCompatActivity {
 
   // Audio effect selections.
   public static final int HIGH_PITCHED_INDEX = 0;
-  public static final int SAMPLE_RATE_INDEX = 1;
-  public static final int SKIP_SILENCE_INDEX = 2;
-  public static final int CHANNEL_MIXING_INDEX = 3;
-  public static final int VOLUME_SCALING_INDEX = 4;
+  public static final int SAMPLE_RATE_48K_INDEX = 1;
+  public static final int SAMPLE_RATE_96K_INDEX = 2;
+  public static final int SKIP_SILENCE_INDEX = 3;
+  public static final int CHANNEL_MIXING_INDEX = 4;
+  public static final int VOLUME_SCALING_INDEX = 5;
 
   // Color filter options.
   public static final int COLOR_FILTER_GRAYSCALE = 0;

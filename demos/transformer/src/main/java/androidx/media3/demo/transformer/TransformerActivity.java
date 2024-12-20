@@ -393,13 +393,17 @@ public final class TransformerActivity extends AppCompatActivity {
     ImmutableList.Builder<AudioProcessor> processors = new ImmutableList.Builder<>();
 
     if (selectedAudioEffects[ConfigurationActivity.HIGH_PITCHED_INDEX]
-        || selectedAudioEffects[ConfigurationActivity.SAMPLE_RATE_INDEX]) {
+        || selectedAudioEffects[ConfigurationActivity.SAMPLE_RATE_48K_INDEX]
+        || selectedAudioEffects[ConfigurationActivity.SAMPLE_RATE_96K_INDEX]) {
       SonicAudioProcessor sonicAudioProcessor = new SonicAudioProcessor();
       if (selectedAudioEffects[ConfigurationActivity.HIGH_PITCHED_INDEX]) {
         sonicAudioProcessor.setPitch(2f);
       }
-      if (selectedAudioEffects[ConfigurationActivity.SAMPLE_RATE_INDEX]) {
+      if (selectedAudioEffects[ConfigurationActivity.SAMPLE_RATE_48K_INDEX]) {
         sonicAudioProcessor.setOutputSampleRateHz(48_000);
+      }
+      if (selectedAudioEffects[ConfigurationActivity.SAMPLE_RATE_96K_INDEX]) {
+        sonicAudioProcessor.setOutputSampleRateHz(96_000);
       }
       processors.add(sonicAudioProcessor);
     }

@@ -384,6 +384,38 @@ public final class EncoderUtil {
         Ints.asList(encoderInfo.getCapabilitiesForType(mimeType).colorFormats));
   }
 
+  /**
+   * Returns the sample rate supported by the provided {@linkplain MediaCodecInfo encoder} that is
+   * closest to the provided sample rate.
+   */
+  public static int getClosestSupportedSampleRate(
+      MediaCodecInfo encoderInfo, String mimeType, int requestedSampleRate) {
+    MediaCodecInfo.AudioCapabilities audioCapabilities =
+        encoderInfo.getCapabilitiesForType(mimeType).getAudioCapabilities();
+    @Nullable int[] supportedSampleRates = audioCapabilities.getSupportedSampleRates();
+    int closestSampleRate = Integer.MAX_VALUE;
+    if (supportedSampleRates != null) {
+      // The codec supports only discrete values.
+      for (int supportedSampleRate : supportedSampleRates) {
+        if (Math.abs(supportedSampleRate - requestedSampleRate)
+            < Math.abs(closestSampleRate - requestedSampleRate)) {
+          closestSampleRate = supportedSampleRate;
+        }
+      }
+      return closestSampleRate;
+    } else {
+      Range<Integer>[] ranges = audioCapabilities.getSupportedSampleRateRanges();
+      for (Range<Integer> range : ranges) {
+        int supportedSampleRate = range.clamp(requestedSampleRate);
+        if (Math.abs(supportedSampleRate - requestedSampleRate)
+            < Math.abs(closestSampleRate - requestedSampleRate)) {
+          closestSampleRate = supportedSampleRate;
+        }
+      }
+    }
+    return closestSampleRate;
+  }
+
   /** Checks if a {@linkplain MediaCodecInfo codec} is hardware-accelerated. */
   public static boolean isHardwareAccelerated(MediaCodecInfo encoderInfo, String mimeType) {
     // TODO(b/214964116): Merge into MediaCodecUtil.
