@@ -123,6 +123,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     private PreviewingVideoGraph.@MonotonicNonNull Factory previewingVideoGraphFactory;
     private List<Effect> compositionEffects;
     private Clock clock;
+    private boolean requestOpenGlToneMapping;
     private boolean built;
 
     /** Creates a builder. */
@@ -193,6 +194,20 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     }
 
     /**
+     * Sets whether to tone map the input video with OpenGL.
+     *
+     * <p>By default, the input is not tone mapped.
+     *
+     * @param requestOpenGlToneMapping Whether tone mapping is requested.
+     * @return This builder, for convenience.
+     */
+    @CanIgnoreReturnValue
+    public Builder setRequestOpenGlToneMapping(boolean requestOpenGlToneMapping) {
+      this.requestOpenGlToneMapping = requestOpenGlToneMapping;
+      return this;
+    }
+
+    /**
      * Builds the {@link PlaybackVideoGraphWrapper}.
      *
      * <p>This method must be called at most once and will throw an {@link IllegalStateException} if
@@ -241,6 +256,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
   private final VideoSink.VideoFrameHandler videoFrameHandler;
   private final Clock clock;
   private final CopyOnWriteArraySet<PlaybackVideoGraphWrapper.Listener> listeners;
+  private final boolean requestOpenGlToneMapping;
 
   private Format videoGraphOutputFormat;
   private @MonotonicNonNull HandlerWrapper handler;
@@ -291,6 +307,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
         };
     listeners = new CopyOnWriteArraySet<>();
     listeners.add(inputVideoSink);
+    requestOpenGlToneMapping = builder.requestOpenGlToneMapping;
     videoGraphOutputFormat = new Format.Builder().build();
     state = STATE_CREATED;
     lastOutputBufferPresentationTimeUs = C.TIME_UNSET;
@@ -425,13 +442,18 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     checkState(state == STATE_CREATED);
 
     ColorInfo inputColorInfo = getAdjustedInputColorInfo(sourceFormat.colorInfo);
-    ColorInfo outputColorInfo = inputColorInfo;
-    if (inputColorInfo.colorTransfer == C.COLOR_TRANSFER_HLG && Util.SDK_INT < 34) {
-      // PQ SurfaceView output is supported from API 33, but HLG output is supported from API 34.
-      // Therefore, convert HLG to PQ below API 34, so that HLG input can be displayed properly on
-      // API 33.
-      outputColorInfo =
-          inputColorInfo.buildUpon().setColorTransfer(C.COLOR_TRANSFER_ST2084).build();
+    ColorInfo outputColorInfo;
+    if (requestOpenGlToneMapping) {
+      outputColorInfo = ColorInfo.SDR_BT709_LIMITED;
+    } else {
+      outputColorInfo = inputColorInfo;
+      if (outputColorInfo.colorTransfer == C.COLOR_TRANSFER_HLG && Util.SDK_INT < 34) {
+        // PQ SurfaceView output is supported from API 33, but HLG output is supported from API 34.
+        // Therefore, convert HLG to PQ below API 34, so that HLG input can be displayed properly on
+        // API 33.
+        outputColorInfo =
+            outputColorInfo.buildUpon().setColorTransfer(C.COLOR_TRANSFER_ST2084).build();
+      }
     }
     handler = clock.createHandler(checkStateNotNull(Looper.myLooper()), /* callback= */ null);
     try {
