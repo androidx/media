@@ -691,7 +691,9 @@ public final class CompositionPlayer extends SimpleBasePlayer
                   playbackAudioGraphWrapper,
                   playbackVideoGraphWrapper.getSink(),
                   imageDecoderFactory,
-                  /* inputIndex= */ i)
+                  /* inputIndex= */ i,
+                  /* requestToneMapping= */ composition.hdrMode
+                      == Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_MEDIACODEC)
               : SequenceRenderersFactory.createForAudio(
                   context, editedMediaItemSequence, playbackAudioGraphWrapper, /* inputIndex= */ i);
       ExoPlayer.Builder playerBuilder =
