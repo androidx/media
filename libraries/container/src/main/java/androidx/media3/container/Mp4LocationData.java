@@ -23,10 +23,19 @@ import androidx.media3.common.Metadata;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.primitives.Floats;
 
-/** Stores MP4 location data. */
+/**
+ * Stores MP4 location data.
+ *
+ * <p>The location data is typically read/written in the "udta" box (user data box, defined in
+ * ISO/IEC 14496-12).
+ */
 @UnstableApi
 public final class Mp4LocationData implements Metadata.Entry {
+
+  /** The latitude, in degrees. */
   public final float latitude;
+
+  /** The longitude, in degrees. */
   public final float longitude;
 
   /**

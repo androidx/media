@@ -21,9 +21,16 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.util.UnstableApi;
 
-/** Stores the orientation hint for the video playback. */
+/**
+ * Stores the orientation hint for the video playback.
+ *
+ * <p>The orientation hint is typically read/written in the "tkhd" box (track header box, defined in
+ * ISO/IEC 14496-12).
+ */
 @UnstableApi
 public final class Mp4OrientationData implements Metadata.Entry {
+
+  /** The orientation, in degrees. */
   public final int orientation;
 
   /**
