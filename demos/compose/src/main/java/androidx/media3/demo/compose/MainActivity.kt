@@ -20,8 +20,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -39,6 +37,7 @@ import androidx.media3.common.Player
 import androidx.media3.demo.compose.buttons.ExtraControls
 import androidx.media3.demo.compose.buttons.MinimalControls
 import androidx.media3.demo.compose.data.videos
+import androidx.media3.demo.compose.layout.noRippleClickable
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.compose.PlayerSurface
 import androidx.media3.ui.compose.SURFACE_TYPE_SURFACE_VIEW
@@ -71,13 +70,7 @@ private fun MediaPlayerScreen(player: Player, modifier: Modifier = Modifier) {
     PlayerSurface(
       player = player,
       surfaceType = SURFACE_TYPE_SURFACE_VIEW,
-      modifier =
-        modifier.clickable(
-          interactionSource = remember { MutableInteractionSource() },
-          indication = null, // to prevent the ripple from the tap
-        ) {
-          showControls = !showControls
-        },
+      modifier = modifier.noRippleClickable { showControls = !showControls },
     )
     if (showControls) {
       MinimalControls(player, Modifier.align(Alignment.Center))
