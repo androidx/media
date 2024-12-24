@@ -60,7 +60,7 @@ This release includes the following changes since the
     *   Add `AudioManagerCompat` and `AudioFocusRequestCompat` to replace the
         equivalent classes in `androidx.media`.
 *   ExoPlayer:
-    *   Consider language when selecting a video track. By default select a
+    *   Consider language when selecting a video track. By default, select a
         'main' video track that matches the language of the selected audio
         track, if available. Explicit video language preferences can be
         expressed with
@@ -77,8 +77,8 @@ This release includes the following changes since the
         `bufferForPlaybackAfterRebufferMs` in `DefaultLoadControl` to 1000 and
         2000 ms respectively.
     *   Add `MediaExtractorCompat`, a new class that provides equivalent
-        functionality to platform `MediaExtractor`.
-    *   Move `BasePreloadManager.Listener` to a top level
+        features to platform `MediaExtractor`.
+    *   Move `BasePreloadManager.Listener` to a top-level
         `PreloadManagerListener`.
     *   `RenderersFactory.createSecondaryRenderer` can be implemented to provide
         secondary renderers for pre-warming. Pre-warming enables quicker media
@@ -95,7 +95,7 @@ This release includes the following changes since the
 *   Transformer:
     *   Update parameters of `VideoFrameProcessor.registerInputStream` and
         `VideoFrameProcessor.Listener.onInputStreamRegistered` to use `Format`.
-    *   Add support for transmuxing into alternative backwards compatible
+    *   Add support for transmuxing into alternative backward compatible
         formats.
     *   Generate HDR static metadata when using `DefaultEncoderFactory`.
 *   Extractors:
@@ -107,7 +107,7 @@ This release includes the following changes since the
         (previously it was called when playback was paused).
 *   Video:
     *   Fix `MediaCodecVideoRenderer` such that when without a `Surface`, the
-        renderer will skip just-early frames only if the
+        renderer skips just-early frames only if the
         `VideoFrameReleaseControl.getFrameReleaseAction` is not
         `FRAME_RELEASE_TRY_AGAIN_LATER`.
 *   Text:
