@@ -18,7 +18,7 @@ format video:
   maxNumReorderSamples = 2
   width = 1080
   height = 720
-  frameRate = 29.970028
+  frameRate = 29.97
   rotationDegrees = 90
   colorInfo:
     lumaBitdepth = 8

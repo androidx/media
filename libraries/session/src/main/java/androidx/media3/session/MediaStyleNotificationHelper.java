@@ -18,16 +18,13 @@ package androidx.media3.session;
 import static android.Manifest.permission.MEDIA_CONTENT_CONTROL;
 import static androidx.core.app.NotificationCompat.COLOR_DEFAULT;
 import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotNull;
 
 import android.annotation.SuppressLint;
 import android.app.Notification;
 import android.app.PendingIntent;
-import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.RemoteViews;
-import androidx.annotation.DoNotInline;
 import androidx.annotation.DrawableRes;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
@@ -37,7 +34,6 @@ import androidx.core.graphics.drawable.IconCompat;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
-import androidx.media3.session.legacy.MediaSessionCompat;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
@@ -113,9 +109,7 @@ public class MediaStyleNotificationHelper {
 
     /* package */ final MediaSession session;
 
-    private boolean showCancelButton;
     /* package */ int @NullableType [] actionsToShowInCompact;
-    @Nullable /* package */ PendingIntent cancelButtonIntent;
     /* package */ @MonotonicNonNull CharSequence remoteDeviceName;
     /* package */ int remoteDeviceIconRes;
     @Nullable /* package */ PendingIntent remoteDeviceIntent;
@@ -141,46 +135,24 @@ public class MediaStyleNotificationHelper {
     }
 
     /**
-     * Sets whether a cancel button at the top right should be shown in the notification on
-     * platforms before Lollipop.
-     *
-     * <p>Prior to Lollipop, there was a bug in the framework which prevented the developer to make
-     * a notification dismissable again after having used the same notification as the ongoing
-     * notification for a foreground service. When the notification was posted by {@link
-     * android.app.Service#startForeground}, but then the service exited foreground mode via {@link
-     * android.app.Service#stopForeground}, without removing the notification, the notification
-     * stayed ongoing, and thus not dismissable.
-     *
-     * <p>This is a common scenario for media notifications, as this is exactly the service
-     * lifecycle that happens when playing/pausing media. Thus, a workaround is provided by the
-     * support library: Instead of making the notification ongoing depending on the playback state,
-     * the support library provides the ability to add an explicit cancel button to the
-     * notification.
-     *
-     * <p>Note that the notification is enforced to be ongoing if a cancel button is shown to
-     * provide a consistent user experience.
-     *
-     * <p>Also note that this method is a no-op when running on Lollipop and later.
-     *
-     * @param show whether to show a cancel button
+     * @deprecated This method is a no-op and usages can be safely removed. There is no recommended
+     *     alternative (it was previously only operational on API &lt; 21).
      */
     @CanIgnoreReturnValue
+    @Deprecated
+    @SuppressWarnings("unused")
     public MediaStyle setShowCancelButton(boolean show) {
-      if (Build.VERSION.SDK_INT < 21) {
-        showCancelButton = show;
-      }
       return this;
     }
 
     /**
-     * Sets the pending intent to be sent when the cancel button is pressed. See {@link
-     * #setShowCancelButton}.
-     *
-     * @param pendingIntent the intent to be sent when the cancel button is pressed
+     * @deprecated This method is a no-op and usages can be safely removed. There is no recommended
+     *     alternative (it was previously only operational on API &lt; 21).
      */
     @CanIgnoreReturnValue
+    @Deprecated
+    @SuppressWarnings("unused")
     public MediaStyle setCancelButtonIntent(PendingIntent pendingIntent) {
-      cancelButtonIntent = pendingIntent;
       return this;
     }
 
@@ -218,39 +190,26 @@ public class MediaStyleNotificationHelper {
 
     @Override
     public void apply(NotificationBuilderWithBuilderAccessor builder) {
+      // Avoid ambiguity with androidx.media3.session.Session.Token
+      @SuppressWarnings("UnnecessarilyFullyQualified")
+      Notification.MediaStyle style =
+          new Notification.MediaStyle()
+              .setMediaSession(
+                  (android.media.session.MediaSession.Token)
+                      session.getSessionCompat().getSessionToken().getToken());
+      if (actionsToShowInCompact != null) {
+        style.setShowActionsInCompactView(actionsToShowInCompact);
+      }
       if (Util.SDK_INT >= 34 && remoteDeviceName != null) {
-        Api21Impl.setMediaStyle(
-            builder.getBuilder(),
-            Api21Impl.fillInMediaStyle(
-                Api34Impl.setRemotePlaybackInfo(
-                    Api21Impl.createMediaStyle(),
-                    remoteDeviceName,
-                    remoteDeviceIconRes,
-                    remoteDeviceIntent),
-                actionsToShowInCompact,
-                session));
-      } else if (Util.SDK_INT >= 21) {
-        Api21Impl.setMediaStyle(
-            builder.getBuilder(),
-            Api21Impl.fillInMediaStyle(
-                Api21Impl.createMediaStyle(), actionsToShowInCompact, session));
+        Api34Impl.setRemotePlaybackInfo(
+            style, remoteDeviceName, remoteDeviceIconRes, remoteDeviceIntent);
+        builder.getBuilder().setStyle(style);
+      } else {
+        builder.getBuilder().setStyle(style);
         Bundle bundle = new Bundle();
         bundle.putBundle(EXTRA_MEDIA3_SESSION, session.getToken().toBundle());
         builder.getBuilder().addExtras(bundle);
-      } else if (showCancelButton) {
-        builder.getBuilder().setOngoing(true);
       }
-    }
-
-    @Override
-    @Nullable
-    @SuppressWarnings("nullness:override.return") // NotificationCompat doesn't annotate @Nullable
-    public RemoteViews makeContentView(NotificationBuilderWithBuilderAccessor builder) {
-      if (Util.SDK_INT >= 21) {
-        // No custom content view required
-        return null;
-      }
-      return generateContentView();
     }
 
     /* package */ RemoteViews generateContentView() {
@@ -279,22 +238,7 @@ public class MediaStyleNotificationHelper {
           }
         }
       }
-      if (showCancelButton) {
-        view.setViewVisibility(androidx.media3.session.R.id.end_padder, View.GONE);
-        view.setViewVisibility(androidx.media3.session.R.id.cancel_action, View.VISIBLE);
-        view.setOnClickPendingIntent(
-            androidx.media3.session.R.id.cancel_action, cancelButtonIntent);
-        view.setInt(
-            androidx.media3.session.R.id.cancel_action,
-            "setAlpha",
-            mBuilder
-                .mContext
-                .getResources()
-                .getInteger(androidx.media3.session.R.integer.cancel_button_image_alpha));
-      } else {
-        view.setViewVisibility(androidx.media3.session.R.id.end_padder, View.VISIBLE);
-        view.setViewVisibility(androidx.media3.session.R.id.cancel_action, View.GONE);
-      }
+      view.setViewVisibility(androidx.media3.session.R.id.end_padder, View.VISIBLE);
       return view;
     }
 
@@ -321,17 +265,6 @@ public class MediaStyleNotificationHelper {
       return androidx.media3.session.R.layout.media3_notification_template_media;
     }
 
-    @Override
-    @Nullable
-    @SuppressWarnings("nullness:override.return") // NotificationCompat doesn't annotate @Nullable
-    public RemoteViews makeBigContentView(NotificationBuilderWithBuilderAccessor builder) {
-      if (Util.SDK_INT >= 21) {
-        // No custom content view required
-        return null;
-      }
-      return generateBigContentView();
-    }
-
     /* package */ RemoteViews generateBigContentView() {
       final int actionCount = Math.min(mBuilder.mActions.size(), MAX_MEDIA_BUTTONS);
       RemoteViews big =
@@ -346,19 +279,6 @@ public class MediaStyleNotificationHelper {
           final RemoteViews button = generateMediaActionButton(mBuilder.mActions.get(i));
           big.addView(androidx.media3.session.R.id.media_actions, button);
         }
-      }
-      if (showCancelButton) {
-        big.setViewVisibility(androidx.media3.session.R.id.cancel_action, View.VISIBLE);
-        big.setInt(
-            androidx.media3.session.R.id.cancel_action,
-            "setAlpha",
-            mBuilder
-                .mContext
-                .getResources()
-                .getInteger(androidx.media3.session.R.integer.cancel_button_image_alpha));
-        big.setOnClickPendingIntent(androidx.media3.session.R.id.cancel_action, cancelButtonIntent);
-      } else {
-        big.setViewVisibility(androidx.media3.session.R.id.cancel_action, View.GONE);
       }
       return big;
     }
@@ -412,27 +332,24 @@ public class MediaStyleNotificationHelper {
 
     @Override
     public void apply(NotificationBuilderWithBuilderAccessor builder) {
+      if (Util.SDK_INT < 24) {
+        super.apply(builder);
+        return;
+      }
+      Notification.DecoratedMediaCustomViewStyle style =
+          Api24Impl.createDecoratedMediaCustomViewStyle();
+      if (actionsToShowInCompact != null) {
+        style.setShowActionsInCompactView(actionsToShowInCompact);
+      }
       if (Util.SDK_INT >= 34 && remoteDeviceName != null) {
-        Api21Impl.setMediaStyle(
-            builder.getBuilder(),
-            Api21Impl.fillInMediaStyle(
-                Api34Impl.setRemotePlaybackInfo(
-                    Api24Impl.createDecoratedMediaCustomViewStyle(),
-                    remoteDeviceName,
-                    remoteDeviceIconRes,
-                    remoteDeviceIntent),
-                actionsToShowInCompact,
-                session));
-      } else if (Util.SDK_INT >= 24) {
-        Api21Impl.setMediaStyle(
-            builder.getBuilder(),
-            Api21Impl.fillInMediaStyle(
-                Api24Impl.createDecoratedMediaCustomViewStyle(), actionsToShowInCompact, session));
+        Api34Impl.setRemotePlaybackInfo(
+            style, remoteDeviceName, remoteDeviceIconRes, remoteDeviceIntent);
+        builder.getBuilder().setStyle(style);
+      } else {
+        builder.getBuilder().setStyle(style);
         Bundle bundle = new Bundle();
         bundle.putBundle(EXTRA_MEDIA3_SESSION, session.getToken().toBundle());
         builder.getBuilder().addExtras(bundle);
-      } else {
-        super.apply(builder);
       }
     }
 
@@ -445,25 +362,14 @@ public class MediaStyleNotificationHelper {
         return null;
       }
       boolean hasContentView = mBuilder.getContentView() != null;
-      if (Util.SDK_INT >= 21) {
-        // If we are on L/M the media notification will only be colored if the expanded
-        // version is of media style, so we have to create a custom view for the collapsed
-        // version as well in that case.
-        boolean createCustomContent = hasContentView || mBuilder.getBigContentView() != null;
-        if (createCustomContent) {
-          RemoteViews contentView = generateContentView();
-          if (hasContentView) {
-            buildIntoRemoteViews(contentView, mBuilder.getContentView());
-          }
-          setBackgroundColor(contentView);
-          return contentView;
-        }
-      } else {
+      boolean createCustomContent = hasContentView || mBuilder.getBigContentView() != null;
+      if (createCustomContent) {
         RemoteViews contentView = generateContentView();
         if (hasContentView) {
           buildIntoRemoteViews(contentView, mBuilder.getContentView());
-          return contentView;
         }
+        setBackgroundColor(contentView);
+        return contentView;
       }
       return null;
     }
@@ -493,9 +399,7 @@ public class MediaStyleNotificationHelper {
       }
       RemoteViews bigContentView = generateBigContentView();
       buildIntoRemoteViews(bigContentView, innerView);
-      if (Util.SDK_INT >= 21) {
-        setBackgroundColor(bigContentView);
-      }
+      setBackgroundColor(bigContentView);
       return bigContentView;
     }
 
@@ -524,9 +428,7 @@ public class MediaStyleNotificationHelper {
       }
       RemoteViews headsUpContentView = generateBigContentView();
       buildIntoRemoteViews(headsUpContentView, innerView);
-      if (Util.SDK_INT >= 21) {
-        setBackgroundColor(headsUpContentView);
-      }
+      setBackgroundColor(headsUpContentView);
       return headsUpContentView;
     }
 
@@ -547,46 +449,10 @@ public class MediaStyleNotificationHelper {
     }
   }
 
-  @RequiresApi(21)
-  private static class Api21Impl {
-    private Api21Impl() {}
-
-    @DoNotInline
-    static void setMediaStyle(Notification.Builder builder, Notification.MediaStyle style) {
-      builder.setStyle(style);
-    }
-
-    @DoNotInline
-    public static Notification.MediaStyle createMediaStyle() {
-      return new Notification.MediaStyle();
-    }
-
-    @DoNotInline
-    public static Notification.MediaStyle fillInMediaStyle(
-        Notification.MediaStyle style,
-        @Nullable int[] actionsToShowInCompact,
-        MediaSession session) {
-      checkNotNull(style);
-      checkNotNull(session);
-      if (actionsToShowInCompact != null) {
-        setShowActionsInCompactView(style, actionsToShowInCompact);
-      }
-      MediaSessionCompat.Token legacyToken = session.getSessionCompat().getSessionToken();
-      style.setMediaSession((android.media.session.MediaSession.Token) legacyToken.getToken());
-      return style;
-    }
-
-    @DoNotInline
-    public static void setShowActionsInCompactView(Notification.MediaStyle style, int... actions) {
-      style.setShowActionsInCompactView(actions);
-    }
-  }
-
   @RequiresApi(24)
   private static class Api24Impl {
     private Api24Impl() {}
 
-    @DoNotInline
     public static Notification.DecoratedMediaCustomViewStyle createDecoratedMediaCustomViewStyle() {
       return new Notification.DecoratedMediaCustomViewStyle();
     }
@@ -600,7 +466,6 @@ public class MediaStyleNotificationHelper {
     // MEDIA_CONTENT_CONTROL permission is required by setRemotePlaybackInfo
     @CanIgnoreReturnValue
     @SuppressLint({"MissingPermission"})
-    @DoNotInline
     public static Notification.MediaStyle setRemotePlaybackInfo(
         Notification.MediaStyle style,
         CharSequence remoteDeviceName,

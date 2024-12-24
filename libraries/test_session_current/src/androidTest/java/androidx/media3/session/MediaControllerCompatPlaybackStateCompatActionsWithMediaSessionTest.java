@@ -1461,7 +1461,11 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
                 .build();
           }
         };
-    MediaSession mediaSession = createMediaSession(player, callback, customLayout);
+    MediaSession mediaSession =
+        new MediaSession.Builder(ApplicationProvider.getApplicationContext(), player)
+            .setCallback(callback)
+            .setCustomLayout(customLayout)
+            .build();
     connectMediaNotificationController(mediaSession);
     MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
 
@@ -1621,6 +1625,212 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
     releasePlayer(player);
   }
 
+  @Test
+  public void
+      playerWithMediaButtonPreferences_sessionBuiltWithMediaButtonPreferences_customActionsInInitialPlaybackState()
+          throws Exception {
+    Player player = createDefaultPlayer();
+    Bundle extras1 = new Bundle();
+    extras1.putString("key1", "value1");
+    SessionCommand command1 = new SessionCommand("command1", extras1);
+    SessionCommand command2 = new SessionCommand("command2", Bundle.EMPTY);
+    SessionCommand command3 = new SessionCommand("command3", Bundle.EMPTY);
+    ImmutableList<CommandButton> mediaButtonPreferences =
+        ImmutableList.of(
+            new CommandButton.Builder(CommandButton.ICON_PLAY)
+                .setDisplayName("button1")
+                .setSessionCommand(command1)
+                .build(),
+            new CommandButton.Builder(CommandButton.ICON_PAUSE)
+                .setDisplayName("button2")
+                .setSessionCommand(command2)
+                .build(),
+            new CommandButton.Builder(CommandButton.ICON_PAUSE)
+                .setDisplayName("button3")
+                .setEnabled(false)
+                .setSessionCommand(command3)
+                .build());
+    MediaSession.Callback callback =
+        new MediaSession.Callback() {
+          @Override
+          public ConnectionResult onConnect(
+              MediaSession session, MediaSession.ControllerInfo controller) {
+            return new AcceptedResultBuilder(session)
+                .setAvailableSessionCommands(
+                    ConnectionResult.DEFAULT_SESSION_COMMANDS
+                        .buildUpon()
+                        .add(command1)
+                        .add(command3)
+                        .build())
+                .build();
+          }
+        };
+    MediaSession mediaSession =
+        new MediaSession.Builder(ApplicationProvider.getApplicationContext(), player)
+            .setCallback(callback)
+            .setMediaButtonPreferences(mediaButtonPreferences)
+            .build();
+    connectMediaNotificationController(mediaSession);
+    MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
+
+    assertThat(controllerCompat.getPlaybackState().getCustomActions()).hasSize(1);
+    PlaybackStateCompat.CustomAction customAction =
+        controllerCompat.getPlaybackState().getCustomActions().get(0);
+    assertThat(customAction.getAction()).isEqualTo("command1");
+    assertThat(customAction.getName().toString()).isEqualTo("button1");
+    assertThat(customAction.getIcon()).isEqualTo(R.drawable.media3_icon_play);
+    assertThat(customAction.getExtras().get("key1")).isEqualTo("value1");
+    assertThat(customAction.getExtras().get(MediaConstants.EXTRAS_KEY_COMMAND_BUTTON_ICON_COMPAT))
+        .isEqualTo(CommandButton.ICON_PLAY);
+    mediaSession.release();
+    releasePlayer(player);
+  }
+
+  @Test
+  public void
+      playerWithMediaButtonPreferences_setMediaButtonPreferences_playbackStateChangedWithCustomActionsChanged()
+          throws Exception {
+    Player player = createDefaultPlayer();
+    Bundle extras1 = new Bundle();
+    extras1.putString("key1", "value1");
+    Bundle extras2 = new Bundle();
+    extras1.putString("key2", "value2");
+    SessionCommand command1 = new SessionCommand("command1", extras1);
+    SessionCommand command2 = new SessionCommand("command2", extras2);
+    ImmutableList<CommandButton> mediaButtonPreferences =
+        ImmutableList.of(
+            new CommandButton.Builder(CommandButton.ICON_PLAY)
+                .setDisplayName("button1")
+                .setSessionCommand(command1)
+                .build(),
+            new CommandButton.Builder(CommandButton.ICON_PAUSE)
+                .setDisplayName("button2")
+                .setSessionCommand(command2)
+                .build());
+    MediaSession.Callback callback =
+        new MediaSession.Callback() {
+          @Override
+          public ConnectionResult onConnect(
+              MediaSession session, MediaSession.ControllerInfo controller) {
+            return new ConnectionResult.AcceptedResultBuilder(session)
+                .setAvailableSessionCommands(
+                    ConnectionResult.DEFAULT_SESSION_COMMANDS.buildUpon().add(command1).build())
+                .build();
+          }
+        };
+    MediaSession mediaSession = createMediaSession(player, callback);
+    connectMediaNotificationController(mediaSession);
+    MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
+    List<PlaybackStateCompat.CustomAction> initialCustomActions =
+        controllerCompat.getPlaybackState().getCustomActions();
+    AtomicReference<List<PlaybackStateCompat.CustomAction>> reportedCustomActions =
+        new AtomicReference<>();
+    CountDownLatch latch = new CountDownLatch(1);
+    controllerCompat.registerCallback(
+        new MediaControllerCompat.Callback() {
+          @Override
+          public void onPlaybackStateChanged(PlaybackStateCompat state) {
+            reportedCustomActions.set(state.getCustomActions());
+            latch.countDown();
+          }
+        },
+        threadTestRule.getHandler());
+
+    getInstrumentation()
+        .runOnMainSync(() -> mediaSession.setMediaButtonPreferences(mediaButtonPreferences));
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(initialCustomActions).isEmpty();
+    assertThat(reportedCustomActions.get()).hasSize(1);
+    assertThat(reportedCustomActions.get().get(0).getAction()).isEqualTo("command1");
+    assertThat(reportedCustomActions.get().get(0).getName().toString()).isEqualTo("button1");
+    assertThat(reportedCustomActions.get().get(0).getIcon()).isEqualTo(R.drawable.media3_icon_play);
+    assertThat(reportedCustomActions.get().get(0).getExtras().get("key1")).isEqualTo("value1");
+    assertThat(
+            reportedCustomActions
+                .get()
+                .get(0)
+                .getExtras()
+                .get(MediaConstants.EXTRAS_KEY_COMMAND_BUTTON_ICON_COMPAT))
+        .isEqualTo(CommandButton.ICON_PLAY);
+    mediaSession.release();
+    releasePlayer(player);
+  }
+
+  @Test
+  public void
+      playerWithMediaButtonPreferences_setMediaButtonPreferencesForMediaNotificationController_playbackStateChangedWithCustomActionsChanged()
+          throws Exception {
+    Player player = createDefaultPlayer();
+    Bundle extras1 = new Bundle();
+    extras1.putString("key1", "value1");
+    Bundle extras2 = new Bundle();
+    extras1.putString("key2", "value2");
+    SessionCommand command1 = new SessionCommand("command1", extras1);
+    SessionCommand command2 = new SessionCommand("command2", extras2);
+    ImmutableList<CommandButton> mediaButtonPreferences =
+        ImmutableList.of(
+            new CommandButton.Builder(CommandButton.ICON_PLAY)
+                .setDisplayName("button1")
+                .setSessionCommand(command1)
+                .build(),
+            new CommandButton.Builder(CommandButton.ICON_PAUSE)
+                .setDisplayName("button2")
+                .setSessionCommand(command2)
+                .build());
+    MediaSession.Callback callback =
+        new MediaSession.Callback() {
+          @Override
+          public ConnectionResult onConnect(
+              MediaSession session, MediaSession.ControllerInfo controller) {
+            return new ConnectionResult.AcceptedResultBuilder(session)
+                .setAvailableSessionCommands(
+                    ConnectionResult.DEFAULT_SESSION_COMMANDS.buildUpon().add(command1).build())
+                .build();
+          }
+        };
+    MediaSession mediaSession = createMediaSession(player, callback);
+    connectMediaNotificationController(mediaSession);
+    MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
+    List<PlaybackStateCompat.CustomAction> initialCustomActions =
+        controllerCompat.getPlaybackState().getCustomActions();
+    AtomicReference<List<PlaybackStateCompat.CustomAction>> reportedCustomActions =
+        new AtomicReference<>();
+    CountDownLatch latch = new CountDownLatch(1);
+    controllerCompat.registerCallback(
+        new MediaControllerCompat.Callback() {
+          @Override
+          public void onPlaybackStateChanged(PlaybackStateCompat state) {
+            reportedCustomActions.set(state.getCustomActions());
+            latch.countDown();
+          }
+        },
+        threadTestRule.getHandler());
+
+    getInstrumentation()
+        .runOnMainSync(
+            () ->
+                mediaSession.setMediaButtonPreferences(
+                    mediaSession.getMediaNotificationControllerInfo(), mediaButtonPreferences));
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(initialCustomActions).isEmpty();
+    assertThat(reportedCustomActions.get()).hasSize(1);
+    assertThat(reportedCustomActions.get().get(0).getAction()).isEqualTo("command1");
+    assertThat(reportedCustomActions.get().get(0).getName().toString()).isEqualTo("button1");
+    assertThat(reportedCustomActions.get().get(0).getIcon()).isEqualTo(R.drawable.media3_icon_play);
+    assertThat(reportedCustomActions.get().get(0).getExtras().get("key1")).isEqualTo("value1");
+    assertThat(
+            reportedCustomActions
+                .get()
+                .get(0)
+                .getExtras()
+                .get(MediaConstants.EXTRAS_KEY_COMMAND_BUTTON_ICON_COMPAT))
+        .isEqualTo(CommandButton.ICON_PLAY);
+    mediaSession.release();
+    releasePlayer(player);
+  }
+
   /**
    * Connect a controller that mimics the media notification controller that is connected by {@link
    * MediaNotificationManager} when the session is running in the service.
@@ -1671,14 +1881,8 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
 
   private static MediaSession createMediaSession(
       Player player, @Nullable MediaSession.Callback callback) {
-    return createMediaSession(player, callback, /* customLayout= */ ImmutableList.of());
-  }
-
-  private static MediaSession createMediaSession(
-      Player player, @Nullable MediaSession.Callback callback, List<CommandButton> customLayout) {
     MediaSession.Builder session =
-        new MediaSession.Builder(ApplicationProvider.getApplicationContext(), player)
-            .setCustomLayout(customLayout);
+        new MediaSession.Builder(ApplicationProvider.getApplicationContext(), player);
     if (callback != null) {
       session.setCallback(callback);
     }

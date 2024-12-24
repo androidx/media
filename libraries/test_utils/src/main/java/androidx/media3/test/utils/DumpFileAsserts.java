@@ -72,7 +72,12 @@ public class DumpFileAsserts {
    */
   private static final int WRITE_TO_LOCAL = 1;
 
-  /** Write output to folder {@code /storage/emulated/0/Android/data} of device. */
+  /**
+   * Write output to folder {@code /storage/emulated/0/Android/data} of device.
+   *
+   * <p>The output dump file needs to be manually copied to the project folder {@code
+   * testdata/src/test}.
+   */
   private static final int WRITE_TO_DEVICE = 1 << 1;
 
   private static final @DumpFilesAction int DUMP_FILE_ACTION = COMPARE_WITH_EXISTING;

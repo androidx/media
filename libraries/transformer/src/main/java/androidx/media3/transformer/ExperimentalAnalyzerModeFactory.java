@@ -19,18 +19,15 @@ package androidx.media3.transformer;
 import static androidx.media3.common.util.Assertions.checkState;
 
 import android.content.Context;
-import android.media.MediaCodec;
 import android.media.MediaCodec.BufferInfo;
 import android.view.Surface;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
-import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.exoplayer.video.PlaceholderSurface;
-import androidx.media3.muxer.Muxer;
 import com.google.common.collect.ImmutableList;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -74,6 +71,7 @@ public final class ExperimentalAnalyzerModeFactory {
     return transformer
         .buildUpon()
         .experimentalSetTrimOptimizationEnabled(false)
+        .experimentalSetMaxFramesInEncoder(C.INDEX_UNSET)
         .setEncoderFactory(new DroppingEncoder.Factory(context))
         .setMaxDelayBetweenMuxerSamplesMs(C.TIME_UNSET)
         .setMuxerFactory(
@@ -108,16 +106,16 @@ public final class ExperimentalAnalyzerModeFactory {
     private static final String TAG = "DroppingEncoder";
     private static final int INTERNAL_BUFFER_SIZE = 8196;
 
-    private final Context context;
     private final Format configurationFormat;
     private final ByteBuffer buffer;
+    private final Surface placeholderSurface;
 
     private boolean inputStreamEnded;
 
     public DroppingEncoder(Context context, Format format) {
-      this.context = context;
       this.configurationFormat = format;
       buffer = ByteBuffer.allocateDirect(INTERNAL_BUFFER_SIZE).order(ByteOrder.nativeOrder());
+      placeholderSurface = PlaceholderSurface.newInstance(context, /* secure= */ false);
     }
 
     @Override
@@ -132,7 +130,7 @@ public final class ExperimentalAnalyzerModeFactory {
 
     @Override
     public Surface getInputSurface() {
-      return PlaceholderSurface.newInstance(context, /* secure= */ false);
+      return placeholderSurface;
     }
 
     @Override
@@ -191,59 +189,8 @@ public final class ExperimentalAnalyzerModeFactory {
     public void releaseOutputBuffer(long renderPresentationTimeUs) {}
 
     @Override
-    public void release() {}
-  }
-
-  /** A {@link Muxer} implementation that does nothing. */
-  private static final class NoWriteMuxer implements Muxer {
-    public static final class Factory implements Muxer.Factory {
-
-      private final ImmutableList<String> audioMimeTypes;
-      private final ImmutableList<String> videoMimeTypes;
-
-      /**
-       * Creates an instance.
-       *
-       * @param audioMimeTypes The audio {@linkplain MimeTypes mime types} to return in {@link
-       *     #getSupportedSampleMimeTypes(int)}.
-       * @param videoMimeTypes The video {@linkplain MimeTypes mime types} to return in {@link
-       *     #getSupportedSampleMimeTypes(int)}.
-       */
-      public Factory(ImmutableList<String> audioMimeTypes, ImmutableList<String> videoMimeTypes) {
-        this.audioMimeTypes = audioMimeTypes;
-        this.videoMimeTypes = videoMimeTypes;
-      }
-
-      @Override
-      public Muxer create(String path) {
-        return new NoWriteMuxer();
-      }
-
-      @Override
-      public ImmutableList<String> getSupportedSampleMimeTypes(@C.TrackType int trackType) {
-        if (trackType == C.TRACK_TYPE_AUDIO) {
-          return audioMimeTypes;
-        }
-        if (trackType == C.TRACK_TYPE_VIDEO) {
-          return videoMimeTypes;
-        }
-        return ImmutableList.of();
-      }
+    public void release() {
+      placeholderSurface.release();
     }
-
-    @Override
-    public TrackToken addTrack(Format format) {
-      return new TrackToken() {};
-    }
-
-    @Override
-    public void writeSampleData(
-        TrackToken trackToken, ByteBuffer data, MediaCodec.BufferInfo bufferInfo) {}
-
-    @Override
-    public void addMetadataEntry(Metadata.Entry metadataEntry) {}
-
-    @Override
-    public void close() {}
   }
 }

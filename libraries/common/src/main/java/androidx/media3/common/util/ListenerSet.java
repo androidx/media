@@ -198,6 +198,9 @@ public final class ListenerSet<T extends @NonNull Object> {
   /** Removes all listeners from the set. */
   public void clear() {
     verifyCurrentThread();
+    for (ListenerHolder<T> listenerHolder : listeners) {
+      listenerHolder.release(iterationFinishedEvent);
+    }
     listeners.clear();
   }
 

@@ -26,21 +26,11 @@
     android:scaleType="centerCrop"
     />
 
-  <include layout="@layout/notification_media_cancel_action"
-    android:layout_width="48dp"
-    android:layout_height="48dp"
-    android:layout_marginLeft="2dp"
-    android:layout_marginRight="2dp"
-    android:layout_alignParentRight="true"
-    android:layout_alignParentEnd="true"/>
-
   <include layout="@layout/notification_template_lines_media"
     android:layout_width="fill_parent"
     android:layout_height="wrap_content"
     android:layout_marginLeft="128dp"
-    android:layout_marginStart="128dp"
-    android:layout_toLeftOf="@id/cancel_action"
-    android:layout_toStartOf="@id/cancel_action"/>
+    android:layout_marginStart="128dp"/>
 
   <LinearLayout
     android:id="@+id/media_actions"

@@ -473,7 +473,7 @@ public final class GlProgram {
                   ? GLES20.GL_TEXTURE_2D
                   : GLES11Ext.GL_TEXTURE_EXTERNAL_OES,
               texIdValue,
-              type == GLES20.GL_SAMPLER_2D && !externalTexturesRequireNearestSampling
+              type == GLES20.GL_SAMPLER_2D || !externalTexturesRequireNearestSampling
                   ? GLES20.GL_LINEAR
                   : GLES20.GL_NEAREST);
           GLES20.glUniform1i(location, texUnitIndex);

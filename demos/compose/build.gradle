@@ -32,7 +32,7 @@ android {
     defaultConfig {
         versionName project.ext.releaseVersion
         versionCode project.ext.releaseVersionCode
-        minSdkVersion 21
+        minSdkVersion project.ext.minSdkVersion
         targetSdkVersion project.ext.appTargetSdkVersion
     }
 
@@ -56,7 +56,13 @@ android {
         compose true
     }
     composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.0"
+        kotlinCompilerExtensionVersion = "1.5.3"
+    }
+
+    testOptions {
+        unitTests {
+            includeAndroidResources = true
+        }
     }
 }
 
@@ -73,4 +79,9 @@ dependencies {
 
     // For detecting and debugging leaks only. LeakCanary is not needed for demo app to work.
     debugImplementation 'com.squareup.leakcanary:leakcanary-android:' + leakCanaryVersion
+
+    testImplementation 'org.jetbrains.kotlinx:kotlinx-coroutines-test:' + kotlinxCoroutinesVersion
+    testImplementation 'org.robolectric:robolectric:' + robolectricVersion
+    testImplementation project(modulePrefix + 'test-utils')
+
 }

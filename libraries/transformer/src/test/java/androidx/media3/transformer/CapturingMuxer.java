@@ -147,6 +147,14 @@ public final class CapturingMuxer implements Muxer, Dumpable {
     wrappedMuxer.close();
   }
 
+  public long getTotalBytesForTrack(@C.TrackType int trackType) {
+    @Nullable DumpableStream stream = dumpableStreamByTrackType.get(trackType);
+    if (stream == null) {
+      return 0;
+    }
+    return stream.totalStreamSizeBytes;
+  }
+
   // Dumper.Dumpable implementation.
 
   @Override
@@ -175,12 +183,15 @@ public final class CapturingMuxer implements Muxer, Dumpable {
     private final @C.TrackType int trackType;
     protected final ArrayList<DumpableSample> dumpableSamples;
 
+    protected long totalStreamSizeBytes;
+
     public DumpableStream(@C.TrackType int trackType) {
       this.trackType = trackType;
       this.dumpableSamples = new ArrayList<>();
     }
 
     public void addSample(ByteBuffer sample, boolean isKeyFrame, long presentationTimeUs) {
+      totalStreamSizeBytes += sample.remaining();
       dumpableSamples.add(new DumpableSample(trackType, sample, isKeyFrame, presentationTimeUs));
     }
 
@@ -213,6 +224,7 @@ public final class CapturingMuxer implements Muxer, Dumpable {
 
     @Override
     public void addSample(ByteBuffer sample, boolean isKeyFrame, long presentationTimeUs) {
+      totalStreamSizeBytes += sample.remaining();
       int samplePosition = sample.position();
 
       while (sample.hasRemaining()) {
@@ -226,7 +238,7 @@ public final class CapturingMuxer implements Muxer, Dumpable {
         byte[] byteHolder = new byte[bytesToProgress];
         sample.get(byteHolder);
         currentPendingData.put(byteHolder);
-        currentPendingData.position(0);
+        currentPendingData.flip();
         dumpableSamples.add(
             new DumpableSample(
                 C.TRACK_TYPE_AUDIO, currentPendingData, /* isKeyFrame= */ true, C.TIME_UNSET));
@@ -239,6 +251,7 @@ public final class CapturingMuxer implements Muxer, Dumpable {
     @Override
     public void dump(Dumper dumper) {
       if (currentPendingData.position() != 0) {
+        currentPendingData.flip();
         dumpableSamples.add(
             new DumpableSample(
                 C.TRACK_TYPE_AUDIO, currentPendingData, /* isKeyFrame= */ true, C.TIME_UNSET));

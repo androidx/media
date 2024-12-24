@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer;
 
+import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
@@ -23,6 +24,7 @@ import android.content.Context;
 import android.media.AudioDeviceInfo;
 import android.media.AudioTrack;
 import android.media.MediaCodec;
+import android.os.Handler;
 import android.os.Looper;
 import android.os.Process;
 import android.view.Surface;
@@ -32,6 +34,7 @@ import android.view.TextureView;
 import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
+import androidx.annotation.RestrictTo;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.AuxEffectInfo;
@@ -140,11 +143,11 @@ import java.util.List;
  *       otherwise. For the vast majority of cases this should be the application's main thread.
  *       Using the application's main thread is also a requirement when using ExoPlayer's UI
  *       components or the IMA extension. The thread on which an ExoPlayer instance must be accessed
- *       can be explicitly specified by passing a `Looper` when creating the player. If no `Looper`
- *       is specified, then the `Looper` of the thread that the player is created on is used, or if
- *       that thread does not have a `Looper`, the `Looper` of the application's main thread is
- *       used. In all cases the `Looper` of the thread from which the player must be accessed can be
- *       queried using {@link #getApplicationLooper()}.
+ *       can be explicitly specified by passing a {@link Looper} when creating the player. If no
+ *       {@code Looper} is specified, then the {@code Looper} of the thread that the player is
+ *       created on is used, or if that thread does not have a {@code Looper}, the {@code Looper} of
+ *       the application's main thread is used. In all cases the {@code Looper} of the thread from
+ *       which the player must be accessed can be queried using {@link #getApplicationLooper()}.
  *   <li>Registered listeners are called on the thread associated with {@link
  *       #getApplicationLooper()}. Note that this means registered listeners are called on the same
  *       thread which must be used to access the player.
@@ -501,11 +504,12 @@ public interface ExoPlayer extends Player {
     /* package */ long detachSurfaceTimeoutMs;
     /* package */ boolean pauseAtEndOfMediaItems;
     /* package */ boolean usePlatformDiagnostics;
-    @Nullable /* package */ Looper playbackLooper;
+    @Nullable /* package */ PlaybackLooperProvider playbackLooperProvider;
     /* package */ boolean buildCalled;
     /* package */ boolean suppressPlaybackOnUnsuitableOutput;
     /* package */ String playerName;
     /* package */ boolean dynamicSchedulingEnabled;
+    @Nullable /* package */ SuitableOutputChecker suitableOutputChecker;
 
     /**
      * Creates a builder.
@@ -1261,6 +1265,27 @@ public interface ExoPlayer extends Player {
     }
 
     /**
+     * Sets the {@link SuitableOutputChecker} to check the suitability of the selected outputs for
+     * playback.
+     *
+     * <p>If this method is not called, the library uses a default implementation based on framework
+     * APIs.
+     *
+     * @return This builder.
+     * @throws IllegalStateException If {@link #build()} has already been called.
+     */
+    @CanIgnoreReturnValue
+    @UnstableApi
+    @RestrictTo(LIBRARY_GROUP)
+    @VisibleForTesting
+    @RequiresApi(35)
+    public Builder setSuitableOutputChecker(SuitableOutputChecker suitableOutputChecker) {
+      checkState(!buildCalled);
+      this.suitableOutputChecker = suitableOutputChecker;
+      return this;
+    }
+
+    /**
      * Sets the {@link Looper} that will be used for playback.
      *
      * <p>The backing thread should run with priority {@link Process#THREAD_PRIORITY_AUDIO} and
@@ -1274,7 +1299,23 @@ public interface ExoPlayer extends Player {
     @UnstableApi
     public Builder setPlaybackLooper(Looper playbackLooper) {
       checkState(!buildCalled);
-      this.playbackLooper = playbackLooper;
+      this.playbackLooperProvider = new PlaybackLooperProvider(playbackLooper);
+      return this;
+    }
+
+    /**
+     * Sets the {@link PlaybackLooperProvider} that will be used for playback.
+     *
+     * @param playbackLooperProvider A {@link PlaybackLooperProvider}.
+     * @return This builder.
+     * @throws IllegalStateException If {@link #build()} has already been called.
+     */
+    @CanIgnoreReturnValue
+    @UnstableApi
+    @RestrictTo(LIBRARY_GROUP)
+    public Builder setPlaybackLooperProvider(PlaybackLooperProvider playbackLooperProvider) {
+      checkState(!buildCalled);
+      this.playbackLooperProvider = playbackLooperProvider;
       return this;
     }
 
@@ -1304,6 +1345,11 @@ public interface ExoPlayer extends Player {
     public ExoPlayer build() {
       checkState(!buildCalled);
       buildCalled = true;
+      if (suitableOutputChecker == null
+          && Util.SDK_INT >= 35
+          && suppressPlaybackOnUnsuitableOutput) {
+        suitableOutputChecker = new DefaultSuitableOutputChecker(context, new Handler(looper));
+      }
       return new ExoPlayerImpl(/* builder= */ this, /* wrappingPlayer= */ null);
     }
 

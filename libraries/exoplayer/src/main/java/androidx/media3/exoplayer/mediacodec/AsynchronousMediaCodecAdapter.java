@@ -80,7 +80,7 @@ import java.nio.ByteBuffer;
         Supplier<HandlerThread> queueingThreadSupplier) {
       this.callbackThreadSupplier = callbackThreadSupplier;
       this.queueingThreadSupplier = queueingThreadSupplier;
-      enableSynchronousBufferQueueingWithAsyncCryptoFlag = true;
+      enableSynchronousBufferQueueingWithAsyncCryptoFlag = false;
     }
 
     /**
@@ -103,7 +103,7 @@ import java.nio.ByteBuffer;
       try {
         TraceUtil.beginSection("createCodec:" + codecName);
         codec = MediaCodec.createByCodecName(codecName);
-        int flags = configuration.flags;
+        int flags = 0;
         MediaCodecBufferEnqueuer bufferEnqueuer;
         if (enableSynchronousBufferQueueingWithAsyncCryptoFlag
             && useSynchronousBufferQueueingWithAsyncCryptoFlag(configuration.format)) {
@@ -114,8 +114,17 @@ import java.nio.ByteBuffer;
               new AsynchronousMediaCodecBufferEnqueuer(codec, queueingThreadSupplier.get());
         }
         codecAdapter =
-            new AsynchronousMediaCodecAdapter(codec, callbackThreadSupplier.get(), bufferEnqueuer);
+            new AsynchronousMediaCodecAdapter(
+                codec,
+                callbackThreadSupplier.get(),
+                bufferEnqueuer,
+                configuration.loudnessCodecController);
         TraceUtil.endSection();
+        if (configuration.surface == null
+            && configuration.codecInfo.detachedSurfaceSupported
+            && Util.SDK_INT >= 35) {
+          flags |= MediaCodec.CONFIGURE_FLAG_DETACHED_SURFACE;
+        }
         codecAdapter.initialize(
             configuration.mediaFormat, configuration.surface, configuration.crypto, flags);
         return codecAdapter;
@@ -152,14 +161,20 @@ import java.nio.ByteBuffer;
   private final MediaCodec codec;
   private final AsynchronousMediaCodecCallback asynchronousMediaCodecCallback;
   private final MediaCodecBufferEnqueuer bufferEnqueuer;
+  @Nullable private final LoudnessCodecController loudnessCodecController;
+
   private boolean codecReleased;
   private @State int state;
 
   private AsynchronousMediaCodecAdapter(
-      MediaCodec codec, HandlerThread callbackThread, MediaCodecBufferEnqueuer bufferEnqueuer) {
+      MediaCodec codec,
+      HandlerThread callbackThread,
+      MediaCodecBufferEnqueuer bufferEnqueuer,
+      @Nullable LoudnessCodecController loudnessCodecController) {
     this.codec = codec;
     this.asynchronousMediaCodecCallback = new AsynchronousMediaCodecCallback(callbackThread);
     this.bufferEnqueuer = bufferEnqueuer;
+    this.loudnessCodecController = loudnessCodecController;
     this.state = STATE_CREATED;
   }
 
@@ -176,6 +191,9 @@ import java.nio.ByteBuffer;
     TraceUtil.beginSection("startCodec");
     codec.start();
     TraceUtil.endSection();
+    if (Util.SDK_INT >= 35 && loudnessCodecController != null) {
+      loudnessCodecController.addMediaCodec(codec);
+    }
     state = STATE_INITIALIZED;
   }
 
@@ -268,6 +286,9 @@ import java.nio.ByteBuffer;
             codec.stop();
           }
         } finally {
+          if (Util.SDK_INT >= 35 && loudnessCodecController != null) {
+            loudnessCodecController.removeMediaCodec(codec);
+          }
           codec.release();
           codecReleased = true;
         }
@@ -293,6 +314,12 @@ import java.nio.ByteBuffer;
   @Override
   public void setOutputSurface(Surface surface) {
     codec.setOutputSurface(surface);
+  }
+
+  @RequiresApi(35)
+  @Override
+  public void detachOutputSurface() {
+    codec.detachOutputSurface();
   }
 
   @Override

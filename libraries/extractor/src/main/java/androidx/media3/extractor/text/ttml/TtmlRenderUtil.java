@@ -198,8 +198,8 @@ import java.util.Map;
             new RubySpan(rubyText, rubyPosition), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
         break;
       case TtmlStyle.RUBY_TYPE_DELIMITER:
-        // TODO: Add support for this when RubySpan supports parenthetical text. For now, just
-        // fall through and delete the text.
+      // TODO: Add support for this when RubySpan supports parenthetical text. For now, just
+      // fall through and delete the text.
       case TtmlStyle.RUBY_TYPE_TEXT:
         // We can't just remove the text directly from `builder` here because TtmlNode has fixed
         // ideas of where every node starts and ends (nodeStartsByRegion and nodeEndsByRegion) so

@@ -19,7 +19,7 @@ format video:
   maxNumReorderSamples = 0
   width = 320
   height = 240
-  frameRate = 59.997425
+  frameRate = 60.00
   colorInfo:
     colorSpace = 2
     colorRange = 1

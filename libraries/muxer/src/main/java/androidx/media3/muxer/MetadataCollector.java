@@ -23,22 +23,22 @@ import androidx.media3.container.Mp4LocationData;
 import androidx.media3.container.Mp4OrientationData;
 import androidx.media3.container.Mp4TimestampData;
 import androidx.media3.container.XmpData;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** Collects and provides metadata: location, FPS, XMP data, etc. */
 /* package */ final class MetadataCollector {
   public Mp4OrientationData orientationData;
   public @MonotonicNonNull Mp4LocationData locationData;
-  public List<MdtaMetadataEntry> metadataEntries;
+  public Set<MdtaMetadataEntry> metadataEntries;
   public Mp4TimestampData timestampData;
   public @MonotonicNonNull XmpData xmpData;
 
   /** Creates an instance. */
   public MetadataCollector() {
     orientationData = new Mp4OrientationData(/* orientation= */ 0);
-    metadataEntries = new ArrayList<>();
+    metadataEntries = new HashSet<>();
     long currentTimeInMp4TimeSeconds = unixTimeToMp4TimeSeconds(System.currentTimeMillis());
     timestampData =
         new Mp4TimestampData(
@@ -61,5 +61,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     } else {
       throw new IllegalArgumentException("Unsupported metadata");
     }
+  }
+
+  /** Removes a previously added {@link MdtaMetadataEntry}. */
+  public void removeMdtaMetadataEntry(MdtaMetadataEntry mdtaMetadataEntry) {
+    metadataEntries.remove(mdtaMetadataEntry);
   }
 }

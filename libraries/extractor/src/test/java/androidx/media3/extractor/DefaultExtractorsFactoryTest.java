@@ -16,7 +16,6 @@
 package androidx.media3.extractor;
 
 import static com.google.common.truth.Truth.assertThat;
-import static java.util.Arrays.stream;
 
 import android.net.Uri;
 import androidx.media3.common.MimeTypes;
@@ -34,7 +33,6 @@ import androidx.media3.extractor.mp4.FragmentedMp4Extractor;
 import androidx.media3.extractor.mp4.Mp4Extractor;
 import androidx.media3.extractor.ogg.OggExtractor;
 import androidx.media3.extractor.png.PngExtractor;
-import androidx.media3.extractor.text.SubtitleTranscodingExtractor;
 import androidx.media3.extractor.ts.Ac3Extractor;
 import androidx.media3.extractor.ts.Ac4Extractor;
 import androidx.media3.extractor.ts.AdtsExtractor;
@@ -134,28 +132,6 @@ public final class DefaultExtractorsFactoryTest {
             HeifExtractor.class,
             AvifExtractor.class)
         .inOrder();
-  }
-
-  @Test
-  public void subtitleTranscoding_enabledByDefault() {
-    DefaultExtractorsFactory defaultExtractorsFactory = new DefaultExtractorsFactory();
-
-    Extractor[] extractors = defaultExtractorsFactory.createExtractors();
-
-    assertThat(stream(extractors).map(Object::getClass))
-        .contains(SubtitleTranscodingExtractor.class);
-  }
-
-  @SuppressWarnings("deprecation") // Testing legacy subtitle handling
-  @Test
-  public void subtitleTranscoding_noExtractorWrappingIfDisabled() {
-    DefaultExtractorsFactory defaultExtractorsFactory =
-        new DefaultExtractorsFactory().setTextTrackTranscodingEnabled(false);
-
-    Extractor[] extractors = defaultExtractorsFactory.createExtractors();
-
-    assertThat(stream(extractors).map(Object::getClass))
-        .doesNotContain(SubtitleTranscodingExtractor.class);
   }
 
   private static List<Class<? extends Extractor>> getUnderlyingExtractorClasses(

@@ -21,8 +21,8 @@ import androidx.media3.common.util.ParsableBitArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.extractor.metadata.MetadataInputBuffer;
 import androidx.media3.extractor.metadata.SimpleMetadataDecoder;
-import com.google.common.base.Charsets;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 
 /**
@@ -108,7 +108,7 @@ public final class AppInfoTableDecoder extends SimpleMetadataDecoder {
             // See section 5.3.6.2.
             while (sectionData.getBytePosition() < positionOfNextDescriptor) {
               int urlBaseLength = sectionData.readBits(8);
-              urlBase = sectionData.readBytesAsString(urlBaseLength, Charsets.US_ASCII);
+              urlBase = sectionData.readBytesAsString(urlBaseLength, StandardCharsets.US_ASCII);
 
               int extensionCount = sectionData.readBits(8);
               for (int urlExtensionIndex = 0;
@@ -121,7 +121,7 @@ public final class AppInfoTableDecoder extends SimpleMetadataDecoder {
           }
         } else if (descriptorTag == DESCRIPTOR_SIMPLE_APPLICATION_LOCATION) {
           // See section 5.3.7.
-          urlExtension = sectionData.readBytesAsString(descriptorLength, Charsets.US_ASCII);
+          urlExtension = sectionData.readBytesAsString(descriptorLength, StandardCharsets.US_ASCII);
         }
 
         sectionData.setPosition(positionOfNextDescriptor * 8);

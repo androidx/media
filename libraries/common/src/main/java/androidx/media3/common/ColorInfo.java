@@ -203,7 +203,7 @@ public final class ColorInfo {
 
   /**
    * Returns the {@link C.ColorSpace} corresponding to the given ISO color primary code, as per
-   * table A.7.21.1 in Rec. ITU-T T.832 (03/2009), or {@link Format#NO_VALUE} if no mapping can be
+   * table A.7.21.1 in Rec. ITU-T T.832 (06/2019), or {@link Format#NO_VALUE} if no mapping can be
    * made.
    */
   @Pure
@@ -219,13 +219,52 @@ public final class ColorInfo {
       case 9:
         return C.COLOR_SPACE_BT2020;
       default:
+        // Remaining color primaries are either reserved or unspecified.
         return Format.NO_VALUE;
     }
   }
 
   /**
+   * Returns the ISO color primary code corresponding to the given {@link C.ColorSpace}, as per
+   * table A.7.21.1 in Rec. ITU-T T.832 (06/2019). made.
+   */
+  public static int colorSpaceToIsoColorPrimaries(@C.ColorSpace int colorSpace) {
+    switch (colorSpace) {
+      // Default to BT.709 SDR as per the <a
+      // href="https://www.webmproject.org/vp9/mp4/#optional-fields">recommendation</a>.
+      case Format.NO_VALUE:
+      case C.COLOR_SPACE_BT709:
+        return 1;
+      case C.COLOR_SPACE_BT601:
+        return 5;
+      case C.COLOR_SPACE_BT2020:
+        return 9;
+    }
+    return 1;
+  }
+
+  /**
+   * Returns the ISO matrix coefficients code corresponding to the given {@link C.ColorSpace}, as
+   * per table A.7.21.3 in Rec. ITU-T T.832 (06/2019).
+   */
+  public static int colorSpaceToIsoMatrixCoefficients(@C.ColorSpace int colorSpace) {
+    switch (colorSpace) {
+      // Default to BT.709 SDR as per the <a
+      // href="https://www.webmproject.org/vp9/mp4/#optional-fields">recommendation</a>.
+      case Format.NO_VALUE:
+      case C.COLOR_SPACE_BT709:
+        return 1;
+      case C.COLOR_SPACE_BT601:
+        return 6;
+      case C.COLOR_SPACE_BT2020:
+        return 9;
+    }
+    return 1;
+  }
+
+  /**
    * Returns the {@link C.ColorTransfer} corresponding to the given ISO transfer characteristics
-   * code, as per table A.7.21.2 in Rec. ITU-T T.832 (03/2009), or {@link Format#NO_VALUE} if no
+   * code, as per table A.7.21.2 in Rec. ITU-T T.832 (06/2019), or {@link Format#NO_VALUE} if no
    * mapping can be made.
    */
   @Pure
@@ -247,6 +286,31 @@ public final class ColorInfo {
       default:
         return Format.NO_VALUE;
     }
+  }
+
+  /**
+   * Returns the ISO transfer characteristics code corresponding to the given {@link
+   * C.ColorTransfer}, as per table A.7.21.2 in Rec. ITU-T T.832 (06/2019).
+   */
+  public static int colorTransferToIsoTransferCharacteristics(@C.ColorTransfer int colorTransfer) {
+    switch (colorTransfer) {
+      // Default to BT.709 SDR as per the <a
+      // href="https://www.webmproject.org/vp9/mp4/#optional-fields">recommendation</a>.
+      case C.COLOR_TRANSFER_LINEAR:
+        return 8;
+      case C.COLOR_TRANSFER_SRGB:
+        return 13;
+      case Format.NO_VALUE:
+      case C.COLOR_TRANSFER_SDR:
+        return 1;
+      case C.COLOR_TRANSFER_ST2084:
+        return 16;
+      case C.COLOR_TRANSFER_HLG:
+        return 18;
+      case C.COLOR_TRANSFER_GAMMA_2_2:
+        return 4;
+    }
+    return 1;
   }
 
   /**

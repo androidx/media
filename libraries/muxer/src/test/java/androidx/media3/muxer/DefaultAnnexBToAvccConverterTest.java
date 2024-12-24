@@ -73,6 +73,38 @@ public final class DefaultAnnexBToAvccConverterTest {
     assertThrows(IllegalStateException.class, () -> annexBToAvccConverter.process(input));
   }
 
+  @Test
+  public void convertAnnexBToAvcc_withExtraZeroesAtTheEnd_removesExtraZeroes() {
+    ByteBuffer input = ByteBuffer.allocate(10);
+    // Add 3 byte start code for the NAL unit.
+    input.put(0, (byte) 0);
+    input.put(1, (byte) 0);
+    input.put(2, (byte) 1);
+    // Add fake NAL unit data;
+    input.put(3, (byte) 300);
+    input.put(4, (byte) 300);
+    input.put(5, (byte) 300);
+    input.put(6, (byte) 300);
+    // Add extra zeroes at the end.
+    input.put(7, (byte) 0);
+    input.put(8, (byte) 0);
+    input.put(9, (byte) 0);
+
+    AnnexBToAvccConverter annexBToAvccConverter = AnnexBToAvccConverter.DEFAULT;
+    ByteBuffer output = annexBToAvccConverter.process(input);
+
+    ByteBuffer expectedOutput = ByteBuffer.allocate(8);
+    // First 4 bytes for NAL unit length.
+    expectedOutput.putInt(4);
+    // Fake NAL unit data;
+    expectedOutput.put(4, (byte) 300);
+    expectedOutput.put(5, (byte) 300);
+    expectedOutput.put(6, (byte) 300);
+    expectedOutput.put(7, (byte) 300);
+    expectedOutput.rewind();
+    assertThat(output).isEqualTo(expectedOutput);
+  }
+
   /** Returns {@link ByteBuffer} filled with random NAL unit data without start code. */
   private static ByteBuffer generateFakeNalUnitData(int length) {
     ByteBuffer buffer = ByteBuffer.allocateDirect(length);

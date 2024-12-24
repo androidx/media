@@ -24,12 +24,6 @@ import androidx.media3.common.util.UnstableApi;
 @UnstableApi
 public interface VideoSinkProvider {
 
-  /**
-   * Returns the {@link VideoFrameReleaseControl} that will be used for releasing of video frames
-   * during rendering.
-   */
-  VideoFrameReleaseControl getVideoFrameReleaseControl();
-
   /** Returns a {@link VideoSink} to forward video frames for processing. */
   VideoSink getSink();
 

@@ -826,7 +826,7 @@ public class AudioAttributesCompat {
           case USAGE_VIRTUAL_SOURCE:
             mUsage = usage;
             break;
-            // TODO: shouldn't it be USAGE_ASSISTANT?
+          // TODO: shouldn't it be USAGE_ASSISTANT?
           case USAGE_ASSISTANT:
             mUsage = USAGE_ASSISTANCE_NAVIGATION_GUIDANCE;
             break;
@@ -877,7 +877,7 @@ public class AudioAttributesCompat {
             break;
           case AudioManagerHidden.STREAM_SYSTEM_ENFORCED:
             mFlags |= AudioAttributesCompat.FLAG_AUDIBILITY_ENFORCED;
-            // intended fall through, attributes in common with STREAM_SYSTEM
+          // intended fall through, attributes in common with STREAM_SYSTEM
           case AudioManager.STREAM_SYSTEM:
             mContentType = CONTENT_TYPE_SONIFICATION;
             break;

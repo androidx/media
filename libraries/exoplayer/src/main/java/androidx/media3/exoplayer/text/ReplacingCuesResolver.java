@@ -80,9 +80,15 @@ import java.util.ArrayList;
   @Override
   public void discardCuesBeforeTimeUs(long timeUs) {
     int indexToDiscardTo = getIndexOfCuesStartingAfter(timeUs);
-    if (indexToDiscardTo > 0) {
-      cuesWithTimingList.subList(0, indexToDiscardTo).clear();
+    if (indexToDiscardTo == 0) {
+      // Either the first cue starts after timeUs, or the cues list is empty.
+      return;
     }
+    CuesWithTiming lastCueToDiscard = cuesWithTimingList.get(indexToDiscardTo - 1);
+    if (lastCueToDiscard.endTimeUs == C.TIME_UNSET || lastCueToDiscard.endTimeUs >= timeUs) {
+      indexToDiscardTo--;
+    }
+    cuesWithTimingList.subList(0, indexToDiscardTo).clear();
   }
 
   @Override
@@ -142,7 +148,7 @@ import java.util.ArrayList;
 
   /**
    * Returns the index of the first {@link CuesWithTiming} in {@link #cuesWithTimingList} where
-   * {@link CuesWithTiming#startTimeUs} is strictly less than {@code timeUs}.
+   * {@link CuesWithTiming#startTimeUs} is strictly greater than {@code timeUs}.
    *
    * <p>Returns the size of {@link #cuesWithTimingList} if all cues are before timeUs
    */

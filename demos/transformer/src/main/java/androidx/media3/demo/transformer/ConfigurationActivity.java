@@ -257,13 +257,12 @@ public final class ConfigurationActivity extends AppCompatActivity {
     videoMimeSpinner = findViewById(R.id.video_mime_spinner);
     videoMimeSpinner.setAdapter(videoMimeAdapter);
     videoMimeAdapter.addAll(
-        SAME_AS_INPUT_OPTION, MimeTypes.VIDEO_H263, MimeTypes.VIDEO_H264, MimeTypes.VIDEO_MP4V);
-    if (SDK_INT >= 24) {
-      videoMimeAdapter.add(MimeTypes.VIDEO_H265);
-    }
-    if (SDK_INT >= 34) {
-      videoMimeAdapter.add(MimeTypes.VIDEO_AV1);
-    }
+        SAME_AS_INPUT_OPTION,
+        MimeTypes.VIDEO_H263,
+        MimeTypes.VIDEO_H264,
+        MimeTypes.VIDEO_H265,
+        MimeTypes.VIDEO_MP4V,
+        MimeTypes.VIDEO_AV1);
 
     ArrayAdapter<String> resolutionHeightAdapter =
         new ArrayAdapter<>(/* context= */ this, R.layout.spinner_item);
@@ -302,6 +301,18 @@ public final class ConfigurationActivity extends AppCompatActivity {
     abortSlowExportCheckBox = findViewById(R.id.abort_slow_export_checkbox);
     useMedia3Muxer = findViewById(R.id.use_media3_muxer_checkbox);
     produceFragmentedMp4CheckBox = findViewById(R.id.produce_fragmented_mp4_checkbox);
+    useMedia3Muxer.setOnCheckedChangeListener(
+        (buttonView, isChecked) -> {
+          if (!isChecked) {
+            produceFragmentedMp4CheckBox.setChecked(false);
+          }
+        });
+    produceFragmentedMp4CheckBox.setOnCheckedChangeListener(
+        (buttonView, isChecked) -> {
+          if (isChecked) {
+            useMedia3Muxer.setChecked(true);
+          }
+        });
 
     ArrayAdapter<String> hdrModeAdapter =
         new ArrayAdapter<>(/* context= */ this, R.layout.spinner_item);

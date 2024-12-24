@@ -24,6 +24,7 @@ import static androidx.media3.session.SessionToken.TYPE_SESSION;
 import static androidx.media3.session.SessionToken.TYPE_SESSION_LEGACY;
 
 import android.content.ComponentName;
+import android.media.session.MediaSession;
 import android.os.Bundle;
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.Util;
@@ -111,7 +112,7 @@ import com.google.common.base.Objects;
 
   @Override
   public String toString() {
-    return "SessionToken {legacyToken=" + legacyToken + "}";
+    return "SessionToken {legacy, uid=" + uid + "}";
   }
 
   @Override
@@ -166,6 +167,12 @@ import com.google.common.base.Objects;
   @Nullable
   public Object getBinder() {
     return legacyToken;
+  }
+
+  @Nullable
+  @Override
+  public MediaSession.Token getPlatformToken() {
+    return legacyToken == null ? null : (MediaSession.Token) legacyToken.getToken();
   }
 
   private static final String FIELD_LEGACY_TOKEN = Util.intToStringMaxRadix(0);

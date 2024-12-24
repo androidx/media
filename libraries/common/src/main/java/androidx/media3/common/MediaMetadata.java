@@ -30,11 +30,13 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.common.base.Objects;
+import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -85,8 +87,11 @@ public final class MediaMetadata {
     @Nullable private CharSequence station;
     @Nullable private @MediaType Integer mediaType;
     @Nullable private Bundle extras;
+    private ImmutableList<String> supportedCommands;
 
-    public Builder() {}
+    public Builder() {
+      supportedCommands = ImmutableList.of();
+    }
 
     @SuppressWarnings("deprecation") // Assigning from deprecated fields.
     private Builder(MediaMetadata mediaMetadata) {
@@ -123,6 +128,7 @@ public final class MediaMetadata {
       this.compilation = mediaMetadata.compilation;
       this.station = mediaMetadata.station;
       this.mediaType = mediaMetadata.mediaType;
+      this.supportedCommands = mediaMetadata.supportedCommands;
       this.extras = mediaMetadata.extras;
     }
 
@@ -441,6 +447,17 @@ public final class MediaMetadata {
     }
 
     /**
+     * Sets the IDs of the supported commands (see for instance {@code
+     * CommandButton.sessionCommand.customAction} of the Media3 session module).
+     */
+    @CanIgnoreReturnValue
+    @UnstableApi
+    public Builder setSupportedCommands(List<String> supportedCommands) {
+      this.supportedCommands = ImmutableList.copyOf(supportedCommands);
+      return this;
+    }
+
+    /**
      * Sets all fields supported by the {@link Metadata.Entry entries} within the {@link Metadata}.
      *
      * <p>Fields are only set if the {@link Metadata.Entry} has an implementation for {@link
@@ -594,6 +611,10 @@ public final class MediaMetadata {
       }
       if (mediaMetadata.extras != null) {
         setExtras(mediaMetadata.extras);
+      }
+
+      if (!mediaMetadata.supportedCommands.isEmpty()) {
+        setSupportedCommands(mediaMetadata.supportedCommands);
       }
 
       return this;
@@ -1123,6 +1144,12 @@ public final class MediaMetadata {
    */
   @Nullable public final Bundle extras;
 
+  /**
+   * The IDs of the supported commands of this media item (see for instance {@code
+   * CommandButton.sessionCommand.customAction} of the Media3 session module).
+   */
+  @UnstableApi public final ImmutableList<String> supportedCommands;
+
   @SuppressWarnings("deprecation") // Assigning deprecated fields.
   private MediaMetadata(Builder builder) {
     // Handle compatibility for deprecated fields.
@@ -1175,6 +1202,7 @@ public final class MediaMetadata {
     this.compilation = builder.compilation;
     this.station = builder.station;
     this.mediaType = mediaType;
+    this.supportedCommands = builder.supportedCommands;
     this.extras = builder.extras;
   }
 
@@ -1227,6 +1255,7 @@ public final class MediaMetadata {
         && Util.areEqual(compilation, that.compilation)
         && Util.areEqual(station, that.station)
         && Util.areEqual(mediaType, that.mediaType)
+        && Util.areEqual(supportedCommands, that.supportedCommands)
         && ((extras == null) == (that.extras == null));
   }
 
@@ -1267,7 +1296,8 @@ public final class MediaMetadata {
         compilation,
         station,
         mediaType,
-        extras == null);
+        extras == null,
+        supportedCommands);
   }
 
   private static final String FIELD_TITLE = Util.intToStringMaxRadix(0);
@@ -1304,6 +1334,7 @@ public final class MediaMetadata {
   private static final String FIELD_MEDIA_TYPE = Util.intToStringMaxRadix(31);
   private static final String FIELD_IS_BROWSABLE = Util.intToStringMaxRadix(32);
   private static final String FIELD_DURATION_MS = Util.intToStringMaxRadix(33);
+  private static final String FIELD_SUPPORTED_COMMANDS = Util.intToStringMaxRadix(34);
   private static final String FIELD_EXTRAS = Util.intToStringMaxRadix(1000);
 
   @SuppressWarnings("deprecation") // Bundling deprecated fields.
@@ -1409,6 +1440,9 @@ public final class MediaMetadata {
     if (mediaType != null) {
       bundle.putInt(FIELD_MEDIA_TYPE, mediaType);
     }
+    if (!supportedCommands.isEmpty()) {
+      bundle.putStringArrayList(FIELD_SUPPORTED_COMMANDS, new ArrayList<>(supportedCommands));
+    }
     if (extras != null) {
       bundle.putBundle(FIELD_EXTRAS, extras);
     }
@@ -1498,6 +1532,11 @@ public final class MediaMetadata {
     }
     if (bundle.containsKey(FIELD_MEDIA_TYPE)) {
       builder.setMediaType(bundle.getInt(FIELD_MEDIA_TYPE));
+    }
+    @Nullable
+    ArrayList<String> supportedCommands = bundle.getStringArrayList(FIELD_SUPPORTED_COMMANDS);
+    if (supportedCommands != null) {
+      builder.setSupportedCommands(supportedCommands);
     }
 
     return builder.build();

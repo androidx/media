@@ -20,9 +20,7 @@ import android.content.pm.PackageManager
 import android.content.res.Resources
 import android.graphics.Bitmap
 import android.media.session.MediaController
-import android.os.Build
 import android.os.Bundle
-import androidx.annotation.RequiresApi
 import androidx.media3.common.util.Util
 import androidx.media3.session.SessionToken
 
@@ -58,7 +56,6 @@ private constructor(
       )
     }
 
-    @RequiresApi(Build.VERSION_CODES.LOLLIPOP)
     fun create(
       packageManager: PackageManager,
       resources: Resources,

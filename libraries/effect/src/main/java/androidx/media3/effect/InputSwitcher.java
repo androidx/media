@@ -19,6 +19,7 @@ package androidx.media3.effect;
 
 import static androidx.media3.common.VideoFrameProcessor.INPUT_TYPE_BITMAP;
 import static androidx.media3.common.VideoFrameProcessor.INPUT_TYPE_SURFACE;
+import static androidx.media3.common.VideoFrameProcessor.INPUT_TYPE_SURFACE_AUTOMATIC_FRAME_REGISTRATION;
 import static androidx.media3.common.VideoFrameProcessor.INPUT_TYPE_TEXTURE_ID;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
@@ -28,6 +29,7 @@ import static androidx.media3.common.util.Util.contains;
 import android.content.Context;
 import android.util.SparseArray;
 import android.view.Surface;
+import androidx.annotation.Nullable;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.FrameInfo;
 import androidx.media3.common.GlObjectsProvider;
@@ -38,7 +40,6 @@ import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.effect.DefaultVideoFrameProcessor.WorkingColorSpace;
 import java.util.concurrent.Executor;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
-import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
  * A switcher to switch between {@linkplain TextureManager texture managers} of different
@@ -81,15 +82,16 @@ import org.checkerframework.checker.nullness.qual.Nullable;
     this.experimentalAdjustSurfaceTextureTransformationMatrix =
         experimentalAdjustSurfaceTextureTransformationMatrix;
 
-    // TODO(b/274109008): Investigate lazy instantiating the texture managers.
-    inputs.put(
-        INPUT_TYPE_SURFACE,
+    // TODO(b/274109008): Investigate lazily instantiating the texture managers.
+    Input surfaceInput =
         new Input(
             new ExternalTextureManager(
                 glObjectsProvider,
                 videoFrameProcessingTaskExecutor,
                 repeatLastRegisteredFrame,
-                experimentalAdjustSurfaceTextureTransformationMatrix)));
+                experimentalAdjustSurfaceTextureTransformationMatrix));
+    inputs.put(INPUT_TYPE_SURFACE, surfaceInput);
+    inputs.put(INPUT_TYPE_SURFACE_AUTOMATIC_FRAME_REGISTRATION, surfaceInput);
     inputs.put(
         INPUT_TYPE_BITMAP,
         new Input(
@@ -109,6 +111,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
     DefaultShaderProgram samplingShaderProgram;
     switch (inputType) {
       case INPUT_TYPE_SURFACE:
+      case INPUT_TYPE_SURFACE_AUTOMATIC_FRAME_REGISTRATION:
         samplingShaderProgram =
             DefaultShaderProgram.createWithExternalSampler(
                 context,
@@ -152,29 +155,28 @@ import org.checkerframework.checker.nullness.qual.Nullable;
     checkState(contains(inputs, newInputType), "Input type not registered: " + newInputType);
 
     for (int i = 0; i < inputs.size(); i++) {
-      @VideoFrameProcessor.InputType int inputType = inputs.keyAt(i);
-      Input input = inputs.get(inputType);
-      if (inputType == newInputType) {
-        if (input.getInputColorInfo() == null
-            || !newInputFrameInfo.colorInfo.equals(input.getInputColorInfo())) {
-          input.setSamplingGlShaderProgram(
-              createSamplingShaderProgram(newInputFrameInfo.colorInfo, newInputType));
-          input.setInputColorInfo(newInputFrameInfo.colorInfo);
-        }
-        input.setChainingListener(
-            new GatedChainingListenerWrapper(
-                glObjectsProvider,
-                checkNotNull(input.getSamplingGlShaderProgram()),
-                this.downstreamShaderProgram,
-                videoFrameProcessingTaskExecutor));
-        input.setActive(true);
-        downstreamShaderProgram.setInputListener(checkNotNull(input.gatedChainingListenerWrapper));
-        activeTextureManager = input.textureManager;
-      } else {
-        input.setActive(false);
-      }
+      inputs.get(inputs.keyAt(i)).setActive(false);
     }
-    checkNotNull(activeTextureManager).setInputFrameInfo(newInputFrameInfo);
+
+    // Activate the relevant input for the new input type.
+    Input input = inputs.get(newInputType);
+    if (input.getInputColorInfo() == null
+        || !newInputFrameInfo.colorInfo.equals(input.getInputColorInfo())) {
+      input.setSamplingGlShaderProgram(
+          createSamplingShaderProgram(newInputFrameInfo.colorInfo, newInputType));
+      input.setInputColorInfo(newInputFrameInfo.colorInfo);
+    }
+    input.setChainingListener(
+        new GatedChainingListenerWrapper(
+            glObjectsProvider,
+            checkNotNull(input.getSamplingGlShaderProgram()),
+            this.downstreamShaderProgram,
+            videoFrameProcessingTaskExecutor));
+    input.setActive(true);
+    downstreamShaderProgram.setInputListener(checkNotNull(input.gatedChainingListenerWrapper));
+    activeTextureManager = input.textureManager;
+    boolean automaticRegistration = newInputType == INPUT_TYPE_SURFACE_AUTOMATIC_FRAME_REGISTRATION;
+    checkNotNull(activeTextureManager).setInputFrameInfo(newInputFrameInfo, automaticRegistration);
   }
 
   /** Returns whether the {@code InputSwitcher} is connected to an active input. */
@@ -203,7 +205,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
   /**
    * Returns the input {@link Surface}.
    *
-   * @return The input {@link Surface}, regardless if the current input is {@linkplain
+   * @return The input {@link Surface}, regardless of whether the current input is {@linkplain
    *     #switchToInput set} to {@link VideoFrameProcessor#INPUT_TYPE_SURFACE}.
    */
   public Surface getInputSurface() {
@@ -242,6 +244,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
     private @MonotonicNonNull ExternalShaderProgram samplingGlShaderProgram;
     private @MonotonicNonNull ColorInfo inputColorInfo;
     private @MonotonicNonNull GatedChainingListenerWrapper gatedChainingListenerWrapper;
+    private boolean released;
 
     public Input(TextureManager textureManager) {
       this.textureManager = textureManager;
@@ -266,11 +269,13 @@ import org.checkerframework.checker.nullness.qual.Nullable;
       checkNotNull(samplingGlShaderProgram).setOutputListener(gatedChainingListenerWrapper);
     }
 
-    public @Nullable ExternalShaderProgram getSamplingGlShaderProgram() {
+    @Nullable
+    public ExternalShaderProgram getSamplingGlShaderProgram() {
       return samplingGlShaderProgram;
     }
 
-    public @Nullable ColorInfo getInputColorInfo() {
+    @Nullable
+    public ColorInfo getInputColorInfo() {
       return inputColorInfo;
     }
 
@@ -282,9 +287,12 @@ import org.checkerframework.checker.nullness.qual.Nullable;
     }
 
     public void release() throws VideoFrameProcessingException {
-      textureManager.release();
-      if (samplingGlShaderProgram != null) {
-        samplingGlShaderProgram.release();
+      if (!released) {
+        released = true;
+        textureManager.release();
+        if (samplingGlShaderProgram != null) {
+          samplingGlShaderProgram.release();
+        }
       }
     }
   }

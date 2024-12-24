@@ -541,7 +541,7 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
 
   @Test
   public void setDeviceVolume_forLocalPlayback_setsStreamVolume() throws Exception {
-    if (Util.SDK_INT >= 21 && audioManager.isVolumeFixed()) {
+    if (audioManager.isVolumeFixed()) {
       // This test is not eligible for this device.
       return;
     }
@@ -570,7 +570,7 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
 
   @Test
   public void increaseDeviceVolume_forLocalPlayback_increasesStreamVolume() throws Exception {
-    if (Util.SDK_INT >= 21 && audioManager.isVolumeFixed()) {
+    if (audioManager.isVolumeFixed()) {
       // This test is not eligible for this device.
       return;
     }
@@ -600,7 +600,7 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
 
   @Test
   public void decreaseDeviceVolume_forLocalPlayback_decreasesStreamVolume() throws Exception {
-    if (Util.SDK_INT >= 21 && audioManager.isVolumeFixed()) {
+    if (audioManager.isVolumeFixed()) {
       // This test is not eligible for this device.
       return;
     }

@@ -26,7 +26,6 @@ import android.view.Choreographer;
 import android.view.Choreographer.FrameCallback;
 import android.view.Display;
 import android.view.Surface;
-import androidx.annotation.DoNotInline;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
@@ -142,8 +141,10 @@ public final class VideoFrameReleaseHelper {
   }
 
   /**
-   * Change the {@link C.VideoChangeFrameRateStrategy} used when calling {@link
+   * Changes the {@link C.VideoChangeFrameRateStrategy} used when calling {@link
    * Surface#setFrameRate}.
+   *
+   * <p>The default value is {@link C#VIDEO_CHANGE_FRAME_RATE_STRATEGY_ONLY_IF_SEAMLESS}.
    */
   public void setChangeFrameRateStrategy(
       @C.VideoChangeFrameRateStrategy int changeFrameRateStrategy) {
@@ -171,10 +172,6 @@ public final class VideoFrameReleaseHelper {
    * @param surface The new {@link Surface}, or {@code null} if the renderer does not have one.
    */
   public void onSurfaceChanged(@Nullable Surface surface) {
-    if (surface instanceof PlaceholderSurface) {
-      // We don't care about dummy surfaces for release timing, since they're not visible.
-      surface = null;
-    }
     if (this.surface == surface) {
       return;
     }
@@ -430,7 +427,6 @@ public final class VideoFrameReleaseHelper {
 
   @RequiresApi(30)
   private static final class Api30 {
-    @DoNotInline
     public static void setSurfaceFrameRate(Surface surface, float frameRate) {
       int compatibility =
           frameRate == 0

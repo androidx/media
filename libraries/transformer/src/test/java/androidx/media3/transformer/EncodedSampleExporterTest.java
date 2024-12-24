@@ -52,8 +52,9 @@ public final class EncodedSampleExporterTest {
     FallbackListener fallbackListener =
         new FallbackListener(
             new Composition.Builder(
-                    new EditedMediaItemSequence(
-                        new EditedMediaItem.Builder(MediaItem.EMPTY).build()))
+                    new EditedMediaItemSequence.Builder(
+                            new EditedMediaItem.Builder(MediaItem.EMPTY).build())
+                        .build())
                 .build(),
             new ListenerSet<>(looper, Clock.DEFAULT, mockIterationFinishedEvent),
             mockHandlerWrapper,

@@ -99,8 +99,7 @@ public interface Codec {
      *     and {@link Format#height} are set to those of the desired output video format. {@link
      *     Format#frameRate} is set to the requested output frame rate, if available. {@link
      *     Format#colorInfo} is set to the requested output color characteristics, if available.
-     *     {@link Format#rotationDegrees} is 0 and {@link Format#width} {@code >=} {@link
-     *     Format#height}, therefore the video is always in landscape orientation.
+     *     {@link Format#rotationDegrees} is always 0.
      * @return A {@link Codec} for encoding video to the requested {@linkplain Format#sampleMimeType
      *     MIME type}.
      * @throws ExportException If no suitable {@link Codec} can be created.

@@ -32,7 +32,6 @@ import android.media.MediaFormat;
 import android.net.Uri;
 import android.view.Surface;
 import androidx.annotation.IntDef;
-import androidx.annotation.RequiresApi;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.errorprone.annotations.InlineMe;
@@ -620,6 +619,7 @@ public final class C {
    * <ul>
    *   <li>{@link #BUFFER_FLAG_KEY_FRAME}
    *   <li>{@link #BUFFER_FLAG_END_OF_STREAM}
+   *   <li>{@link #BUFFER_FLAG_NOT_DEPENDED_ON}
    *   <li>{@link #BUFFER_FLAG_FIRST_SAMPLE}
    *   <li>{@link #BUFFER_FLAG_LAST_SAMPLE}
    *   <li>{@link #BUFFER_FLAG_ENCRYPTED}
@@ -634,6 +634,7 @@ public final class C {
       value = {
         BUFFER_FLAG_KEY_FRAME,
         BUFFER_FLAG_END_OF_STREAM,
+        BUFFER_FLAG_NOT_DEPENDED_ON,
         BUFFER_FLAG_FIRST_SAMPLE,
         BUFFER_FLAG_HAS_SUPPLEMENTAL_DATA,
         BUFFER_FLAG_LAST_SAMPLE,
@@ -647,6 +648,9 @@ public final class C {
   /** Flag for empty buffers that signal that the end of the stream was reached. */
   @UnstableApi
   public static final int BUFFER_FLAG_END_OF_STREAM = MediaCodec.BUFFER_FLAG_END_OF_STREAM;
+
+  /** Indicates that no other buffers depend on the data in this buffer. */
+  @UnstableApi public static final int BUFFER_FLAG_NOT_DEPENDED_ON = 1 << 26; // 0x04000000
 
   /** Indicates that a buffer is known to contain the first media sample of the stream. */
   @UnstableApi public static final int BUFFER_FLAG_FIRST_SAMPLE = 1 << 27; // 0x08000000
@@ -1092,7 +1096,8 @@ public final class C {
   /**
    * The stereo mode for 360/3D/VR videos. One of {@link Format#NO_VALUE}, {@link
    * #STEREO_MODE_MONO}, {@link #STEREO_MODE_TOP_BOTTOM}, {@link #STEREO_MODE_LEFT_RIGHT} or {@link
-   * #STEREO_MODE_STEREO_MESH}.
+   * #STEREO_MODE_STEREO_MESH}, {@link #STEREO_MODE_INTERLEAVED_LEFT_PRIMARY}, {@link
+   * #STEREO_MODE_INTERLEAVED_RIGHT_PRIMARY}.
    */
   @UnstableApi
   @Documented
@@ -1103,7 +1108,9 @@ public final class C {
     STEREO_MODE_MONO,
     STEREO_MODE_TOP_BOTTOM,
     STEREO_MODE_LEFT_RIGHT,
-    STEREO_MODE_STEREO_MESH
+    STEREO_MODE_STEREO_MESH,
+    STEREO_MODE_INTERLEAVED_LEFT_PRIMARY,
+    STEREO_MODE_INTERLEAVED_RIGHT_PRIMARY
   })
   public @interface StereoMode {}
 
@@ -1121,6 +1128,18 @@ public final class C {
    * 360/3D/VR videos.
    */
   @UnstableApi public static final int STEREO_MODE_STEREO_MESH = 3;
+
+  /**
+   * Indicates interleaved stereo layout with the left view being the primary view, used with
+   * 360/3D/VR videos.
+   */
+  @UnstableApi public static final int STEREO_MODE_INTERLEAVED_LEFT_PRIMARY = 4;
+
+  /**
+   * Indicates interleaved stereo layout with the right view being the primary view, used with
+   * 360/3D/VR videos.
+   */
+  @UnstableApi public static final int STEREO_MODE_INTERLEAVED_RIGHT_PRIMARY = 5;
 
   // LINT.IfChange(color_space)
   /**
@@ -1428,7 +1447,8 @@ public final class C {
         ROLE_FLAG_ENHANCED_DIALOG_INTELLIGIBILITY,
         ROLE_FLAG_TRANSCRIBES_DIALOG,
         ROLE_FLAG_EASY_TO_READ,
-        ROLE_FLAG_TRICK_PLAY
+        ROLE_FLAG_TRICK_PLAY,
+        ROLE_FLAG_AUXILIARY
       })
   public @interface RoleFlags {}
 
@@ -1492,6 +1512,58 @@ public final class C {
 
   /** Indicates the track is intended for trick play. */
   public static final int ROLE_FLAG_TRICK_PLAY = 1 << 14;
+
+  /**
+   * Indicates an auxiliary track. An auxiliary track provides additional information about other
+   * tracks and is generally not meant for stand-alone playback, but rather for further processing
+   * in conjunction with other tracks (for example, a track with depth information).
+   */
+  public static final int ROLE_FLAG_AUXILIARY = 1 << 15;
+
+  /**
+   * {@linkplain #ROLE_FLAG_AUXILIARY Auxiliary track types}. One of {@link
+   * #AUXILIARY_TRACK_TYPE_UNDEFINED}, {@link #AUXILIARY_TRACK_TYPE_ORIGINAL}, {@link
+   * #AUXILIARY_TRACK_TYPE_DEPTH_LINEAR}, {@link #AUXILIARY_TRACK_TYPE_DEPTH_INVERSE}, {@link
+   * #AUXILIARY_TRACK_TYPE_DEPTH_METADATA}.
+   */
+  @UnstableApi
+  @Documented
+  @Retention(RetentionPolicy.SOURCE)
+  @Target({FIELD, METHOD, PARAMETER, LOCAL_VARIABLE, TYPE_USE})
+  @IntDef({
+    AUXILIARY_TRACK_TYPE_UNDEFINED,
+    AUXILIARY_TRACK_TYPE_ORIGINAL,
+    AUXILIARY_TRACK_TYPE_DEPTH_LINEAR,
+    AUXILIARY_TRACK_TYPE_DEPTH_INVERSE,
+    AUXILIARY_TRACK_TYPE_DEPTH_METADATA
+  })
+  public @interface AuxiliaryTrackType {}
+
+  // LINT.IfChange(auxiliary_track_type)
+  /** Not an auxiliary track or an auxiliary track with an undefined type. */
+  @UnstableApi public static final int AUXILIARY_TRACK_TYPE_UNDEFINED = 0;
+
+  /** The original video track without any depth based effects applied. */
+  @UnstableApi public static final int AUXILIARY_TRACK_TYPE_ORIGINAL = 1;
+
+  /**
+   * A linear encoded depth video track.
+   *
+   * <p>See https://developer.android.com/static/media/camera/camera2/Dynamic-depth-v1.0.pdf for
+   * linear depth encoding.
+   */
+  @UnstableApi public static final int AUXILIARY_TRACK_TYPE_DEPTH_LINEAR = 2;
+
+  /**
+   * An inverse encoded depth video track.
+   *
+   * <p>See https://developer.android.com/static/media/camera/camera2/Dynamic-depth-v1.0.pdf for
+   * inverse depth encoding.
+   */
+  @UnstableApi public static final int AUXILIARY_TRACK_TYPE_DEPTH_INVERSE = 3;
+
+  /** A timed metadata of depth video track. */
+  @UnstableApi public static final int AUXILIARY_TRACK_TYPE_DEPTH_METADATA = 4;
 
   /**
    * Level of support for a format. One of {@link #FORMAT_HANDLED}, {@link
@@ -1626,7 +1698,6 @@ public final class C {
       replacement = "Util.generateAudioSessionIdV21(context)",
       imports = {"androidx.media3.common.util.Util"})
   @Deprecated
-  @RequiresApi(21)
   public static int generateAudioSessionIdV21(Context context) {
     return Util.generateAudioSessionIdV21(context);
   }

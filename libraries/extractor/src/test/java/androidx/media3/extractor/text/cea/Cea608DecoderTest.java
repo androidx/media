@@ -81,47 +81,6 @@ public class Cea608DecoderTest {
   }
 
   @Test
-  public void paintOnEmitsSubtitlesImmediately_reordersOutOfOrderSamples() throws Exception {
-    Cea608Decoder decoder =
-        new Cea608Decoder(
-            MimeTypes.APPLICATION_CEA608,
-            /* accessibilityChannel= */ 1,
-            Cea608Decoder.MIN_DATA_CHANNEL_TIMEOUT_MS);
-    byte[] sample1 =
-        Bytes.concat(
-            // 'paint on' control character
-            createPacket(0xFC, 0x14, 0x29),
-            createPacket(0xFC, 't', 'e'),
-            createPacket(0xFC, 's', 't'),
-            createPacket(0xFC, ' ', 's'),
-            createPacket(0xFC, 'u', 'b'),
-            createPacket(0xFC, 't', 'i'),
-            createPacket(0xFC, 't', 'l'),
-            createPacket(0xFC, 'e', ','),
-            createPacket(0xFC, ' ', 's'),
-            createPacket(0xFC, 'p', 'a'));
-    byte[] sample2 =
-        Bytes.concat(
-            createPacket(0xFC, 'n', 's'),
-            createPacket(0xFC, ' ', '2'),
-            createPacket(0xFC, ' ', 's'),
-            createPacket(0xFC, 'a', 'm'),
-            createPacket(0xFC, 'p', 'l'),
-            createPacket(0xFC, 'e', 's'));
-
-    queueSample(decoder, /* timeUs= */ 456, sample2);
-    queueSample(decoder, /* timeUs= */ 123, sample1);
-    Subtitle firstSubtitle =
-        checkNotNull(decodeToPositionAndCopyResult(decoder, /* positionUs= */ 123));
-    Subtitle secondSubtitle =
-        checkNotNull(decodeToPositionAndCopyResult(decoder, /* positionUs= */ 456));
-
-    assertThat(getOnlyCue(firstSubtitle).text.toString()).isEqualTo("test subtitle, spa");
-    assertThat(getOnlyCue(secondSubtitle).text.toString())
-        .isEqualTo("test subtitle, spans 2 samples");
-  }
-
-  @Test
   public void rollUpEmitsSubtitlesImmediately() throws Exception {
     Cea608Decoder decoder =
         new Cea608Decoder(
@@ -367,6 +326,26 @@ public class Cea608DecoderTest {
         checkNotNull(decodeSampleAndCopyResult(decoder, /* timeUs= */ 123, sample1));
 
     assertThat(getOnlyCue(firstSubtitle).text.toString()).isEqualTo("test");
+  }
+
+  // https://github.com/androidx/media/issues/1863
+  @Test
+  public void endOfStreamBuffer_flagPassedThrough() throws Exception {
+    Cea608Decoder decoder =
+        new Cea608Decoder(
+            MimeTypes.APPLICATION_CEA608,
+            /* accessibilityChannel= */ 1,
+            Cea608Decoder.MIN_DATA_CHANNEL_TIMEOUT_MS);
+
+    SubtitleInputBuffer inputBuffer = checkNotNull(decoder.dequeueInputBuffer());
+    inputBuffer.timeUs = C.TIME_END_OF_SOURCE;
+    inputBuffer.addFlag(C.BUFFER_FLAG_END_OF_STREAM);
+    decoder.setOutputStartTimeUs(0);
+    decoder.queueInputBuffer(inputBuffer);
+    decoder.setPositionUs(123);
+    SubtitleOutputBuffer outputBuffer = decoder.dequeueOutputBuffer();
+
+    assertThat(outputBuffer.isEndOfStream()).isTrue();
   }
 
   private static byte[] createPacket(int header, int cc1, int cc2) {

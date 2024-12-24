@@ -28,7 +28,6 @@ import android.media.UnsupportedSchemeException;
 import android.media.metrics.LogSessionId;
 import android.os.PersistableBundle;
 import android.text.TextUtils;
-import androidx.annotation.DoNotInline;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
@@ -42,9 +41,9 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.extractor.mp4.PsshAtomUtil;
-import com.google.common.base.Charsets;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -293,7 +292,8 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
   public boolean requiresSecureDecoder(byte[] sessionId, String mimeType) {
     boolean result;
     if (Util.SDK_INT >= 31 && isMediaDrmRequiresSecureDecoderImplemented()) {
-      result = Api31.requiresSecureDecoder(mediaDrm, mimeType);
+      result =
+          Api31.requiresSecureDecoder(mediaDrm, mimeType, mediaDrm.getSecurityLevel(sessionId));
     } else {
       MediaCrypto mediaCrypto = null;
       try {
@@ -308,7 +308,7 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
         }
       }
     }
-    return result && !shouldForceAllowInsecureDecoderComponents();
+    return result;
   }
 
   @UnstableApi
@@ -389,17 +389,7 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
   @UnstableApi
   @Override
   public FrameworkCryptoConfig createCryptoConfig(byte[] sessionId) throws MediaCryptoException {
-    boolean forceAllowInsecureDecoderComponents = shouldForceAllowInsecureDecoderComponents();
-    return new FrameworkCryptoConfig(
-        adjustUuid(uuid), sessionId, forceAllowInsecureDecoderComponents);
-  }
-
-  // Work around a bug prior to Lollipop where L1 Widevine forced into L3 mode would still
-  // indicate that it required secure video decoders [Internal ref: b/11428937].
-  private boolean shouldForceAllowInsecureDecoderComponents() {
-    return Util.SDK_INT < 21
-        && C.WIDEVINE_UUID.equals(uuid)
-        && "L3".equals(getPropertyString("securityLevel"));
+    return new FrameworkCryptoConfig(adjustUuid(uuid), sessionId);
   }
 
   @UnstableApi
@@ -571,7 +561,7 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
       return data;
     }
     int recordLength = byteArray.readLittleEndianShort();
-    String xml = byteArray.readString(recordLength, Charsets.UTF_16LE);
+    String xml = byteArray.readString(recordLength, StandardCharsets.UTF_16LE);
     if (xml.contains("<LA_URL>")) {
       // LA_URL already present. Do nothing.
       return data;
@@ -592,7 +582,7 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
     newData.putShort((short) objectRecordCount);
     newData.putShort((short) recordType);
     newData.putShort((short) (xmlWithMockLaUrl.length() * UTF_16_BYTES_PER_CHARACTER));
-    newData.put(xmlWithMockLaUrl.getBytes(Charsets.UTF_16LE));
+    newData.put(xmlWithMockLaUrl.getBytes(StandardCharsets.UTF_16LE));
     return newData.array();
   }
 
@@ -600,12 +590,11 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
   private static class Api31 {
     private Api31() {}
 
-    @DoNotInline
-    public static boolean requiresSecureDecoder(MediaDrm mediaDrm, String mimeType) {
-      return mediaDrm.requiresSecureDecoder(mimeType);
+    public static boolean requiresSecureDecoder(
+        MediaDrm mediaDrm, String mimeType, int securityLevel) {
+      return mediaDrm.requiresSecureDecoder(mimeType, securityLevel);
     }
 
-    @DoNotInline
     public static void setLogSessionIdOnMediaDrmSession(
         MediaDrm mediaDrm, byte[] drmSessionId, PlayerId playerId) {
       LogSessionId logSessionId = playerId.getLogSessionId();

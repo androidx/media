@@ -16,33 +16,40 @@
 
 package androidx.media3.transformer;
 
-import static androidx.media3.common.util.Assertions.checkState;
+import static androidx.media3.common.util.Assertions.checkNotNull;
+import static androidx.media3.transformer.TransformerUtil.isImage;
 
-import android.content.ContentResolver;
 import android.content.Context;
 import android.graphics.BitmapFactory;
 import android.graphics.ColorSpace;
 import android.os.Looper;
 import androidx.annotation.Nullable;
+import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
-import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.common.util.Clock;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSourceBitmapLoader;
 import androidx.media3.datasource.DefaultDataSource;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.transformer.AssetLoader.CompositionSettings;
-import com.google.common.base.Ascii;
 import com.google.common.util.concurrent.MoreExecutors;
-import java.util.Objects;
 import java.util.concurrent.Executors;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** The default {@link AssetLoader.Factory} implementation. */
 @UnstableApi
 public final class DefaultAssetLoaderFactory implements AssetLoader.Factory {
+
+  private static final String TAG = "DefaultAssetLoaderFact";
+
+  // Limit decoded images to 4096x4096 - should be large enough for most image to video
+  // transcode operations, and smaller than GL_MAX_TEXTURE_SIZE for most devices.
+  // TODO: b/356072337 - consider reading this from GL_MAX_TEXTURE_SIZE. This requires an
+  //   active OpenGL context.
+  private static final int MAXIMUM_BITMAP_OUTPUT_DIMENSION = 4096;
 
   private final Context context;
   private final Codec.DecoderFactory decoderFactory;
@@ -81,7 +88,8 @@ public final class DefaultAssetLoaderFactory implements AssetLoader.Factory {
         new DataSourceBitmapLoader(
             MoreExecutors.listeningDecorator(Executors.newSingleThreadExecutor()),
             new DefaultDataSource.Factory(context),
-            options);
+            options,
+            MAXIMUM_BITMAP_OUTPUT_DIMENSION);
   }
 
   /**
@@ -95,10 +103,10 @@ public final class DefaultAssetLoaderFactory implements AssetLoader.Factory {
    */
   public DefaultAssetLoaderFactory(Context context, BitmapLoader bitmapLoader) {
     this.context = context.getApplicationContext();
-    this.decoderFactory = new DefaultDecoderFactory(context);
-    this.clock = Clock.DEFAULT;
-    this.mediaSourceFactory = null;
     this.bitmapLoader = bitmapLoader;
+    decoderFactory = new DefaultDecoderFactory.Builder(context).build();
+    clock = Clock.DEFAULT;
+    mediaSourceFactory = null;
   }
 
   /**
@@ -133,9 +141,16 @@ public final class DefaultAssetLoaderFactory implements AssetLoader.Factory {
       AssetLoader.Listener listener,
       CompositionSettings compositionSettings) {
     MediaItem mediaItem = editedMediaItem.mediaItem;
-    if (isImage(mediaItem.localConfiguration)) {
+    boolean isImage = isImage(context, mediaItem);
+    // TODO: b/350499931 - use the MediaItem's imageDurationMs instead of the EditedMediaItem's
+    //  durationUs to export motion photos as video
+    boolean exportVideoFromMotionPhoto = isImage && editedMediaItem.durationUs == C.TIME_UNSET;
+    if (isImage && !exportVideoFromMotionPhoto) {
+      if (checkNotNull(mediaItem.localConfiguration).imageDurationMs == C.TIME_UNSET) {
+        Log.w(TAG, "The imageDurationMs field must be set on image MediaItems.");
+      }
       if (imageAssetLoaderFactory == null) {
-        imageAssetLoaderFactory = new ImageAssetLoader.Factory(bitmapLoader);
+        imageAssetLoaderFactory = new ImageAssetLoader.Factory(context, bitmapLoader);
       }
       return imageAssetLoaderFactory.createAssetLoader(
           editedMediaItem, looper, listener, compositionSettings);
@@ -148,81 +163,5 @@ public final class DefaultAssetLoaderFactory implements AssetLoader.Factory {
     }
     return exoPlayerAssetLoaderFactory.createAssetLoader(
         editedMediaItem, looper, listener, compositionSettings);
-  }
-
-  private boolean isImage(@Nullable MediaItem.LocalConfiguration localConfiguration) {
-    if (localConfiguration == null) {
-      return false;
-    }
-    @Nullable String mimeType = localConfiguration.mimeType;
-    if (mimeType == null) {
-      if (Objects.equals(localConfiguration.uri.getScheme(), ContentResolver.SCHEME_CONTENT)) {
-        ContentResolver cr = context.getContentResolver();
-        mimeType = cr.getType(localConfiguration.uri);
-      } else {
-        @Nullable String uriPath = localConfiguration.uri.getPath();
-        if (uriPath == null) {
-          return false;
-        }
-        int fileExtensionStart = uriPath.lastIndexOf(".");
-        if (fileExtensionStart >= 0 && fileExtensionStart < uriPath.length() - 1) {
-          String extension = Ascii.toLowerCase(uriPath.substring(fileExtensionStart + 1));
-          mimeType = getCommonImageMimeTypeFromExtension(extension);
-        }
-      }
-    }
-    if (mimeType == null) {
-      return false;
-    }
-    if (!MimeTypes.isImage(mimeType)) {
-      return false;
-    }
-    checkState(
-        bitmapLoader.supportsMimeType(mimeType),
-        "Image format not supported by given bitmapLoader");
-    return true;
-  }
-
-  @Nullable
-  private static String getCommonImageMimeTypeFromExtension(String extension) {
-    switch (extension) {
-      case "bmp":
-      case "dib":
-        return MimeTypes.IMAGE_BMP;
-      case "heif":
-        return MimeTypes.IMAGE_HEIF;
-      case "heic":
-        return MimeTypes.IMAGE_HEIC;
-      case "jpg":
-      case "jpeg":
-      case "jpe":
-      case "jif":
-      case "jfif":
-      case "jfi":
-        return MimeTypes.IMAGE_JPEG;
-      case "png":
-        return MimeTypes.IMAGE_PNG;
-      case "webp":
-        return MimeTypes.IMAGE_WEBP;
-      case "gif":
-        return "image/gif";
-      case "tiff":
-      case "tif":
-        return "image/tiff";
-      case "raw":
-      case "arw":
-      case "cr2":
-      case "k25":
-        return "image/raw";
-      case "svg":
-      case "svgz":
-        return "image/svg+xml";
-      case "ico":
-        return "image/x-icon";
-      case "avif":
-        return MimeTypes.IMAGE_AVIF;
-      default:
-        return null;
-    }
   }
 }

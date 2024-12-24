@@ -119,7 +119,8 @@ import java.util.List;
 
     return oldComposition
         .buildUpon()
-        .setSequences(ImmutableList.of(new EditedMediaItemSequence(editedMediaItem)))
+        .setSequences(
+            ImmutableList.of(new EditedMediaItemSequence.Builder(editedMediaItem).build()))
         .build();
   }
 
@@ -143,9 +144,8 @@ import java.util.List;
                     .build())
             .setRemoveAudio(true)
             .build();
-    EditedMediaItemSequence sequence =
-        new EditedMediaItemSequence(ImmutableList.of(editedMediaItem));
-    return new Composition.Builder(ImmutableList.of(sequence)).build();
+    EditedMediaItemSequence sequence = new EditedMediaItemSequence.Builder(editedMediaItem).build();
+    return new Composition.Builder(sequence).build();
   }
 
   /**
@@ -171,7 +171,7 @@ import java.util.List;
     EditedMediaItem videoOnlyEditedMediaItem =
         new EditedMediaItem.Builder(new MediaItem.Builder().setUri(videoFilePath).build()).build();
     EditedMediaItemSequence videoOnlySequence =
-        new EditedMediaItemSequence(ImmutableList.of(videoOnlyEditedMediaItem));
+        new EditedMediaItemSequence.Builder(videoOnlyEditedMediaItem).build();
 
     sequences.add(videoOnlySequence);
     compositionBuilder.setSequences(sequences);
@@ -249,8 +249,9 @@ import java.util.List;
       }
 
       newEditedMediaItemSequenceList.add(
-          new EditedMediaItemSequence(
-              newEditedMediaItemList, currentEditedMediaItemSequence.isLooping));
+          new EditedMediaItemSequence.Builder(newEditedMediaItemList)
+              .setIsLooping(currentEditedMediaItemSequence.isLooping)
+              .build());
     }
     compositionBuilder.setSequences(newEditedMediaItemSequenceList);
     return compositionBuilder.build();

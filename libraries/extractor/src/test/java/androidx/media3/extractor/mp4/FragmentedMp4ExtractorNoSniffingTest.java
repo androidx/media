@@ -45,6 +45,7 @@ public class FragmentedMp4ExtractorNoSniffingTest {
           /* timescale= */ 30_000,
           /* movieTimescale= */ 1000,
           /* durationUs= */ C.TIME_UNSET,
+          /* mediaDurationUs= */ C.TIME_UNSET,
           new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H264).build(),
           /* sampleTransformation= */ Track.TRANSFORMATION_NONE,
           /* sampleDescriptionEncryptionBoxes= */ null,

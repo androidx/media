@@ -73,7 +73,6 @@ import android.os.RemoteException;
 import android.support.v4.os.ResultReceiver;
 import android.text.TextUtils;
 import android.util.Log;
-import androidx.annotation.DoNotInline;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
@@ -2471,12 +2470,10 @@ public final class MediaBrowserCompat {
   private static class Api21Impl {
     private Api21Impl() {}
 
-    @DoNotInline
     static MediaDescription getDescription(MediaBrowser.MediaItem item) {
       return item.getDescription();
     }
 
-    @DoNotInline
     static int getFlags(MediaBrowser.MediaItem item) {
       return item.getFlags();
     }

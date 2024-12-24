@@ -54,8 +54,7 @@ public final class RepeatedTranscodeTest {
                     .setEncoderFactory(new AndroidTestUtil.ForceEncodeEncoderFactory(context))
                     .build())
             .build();
-    MediaItem mediaItem =
-        MediaItem.fromUri(Uri.parse(AndroidTestUtil.MP4_REMOTE_10_SECONDS_URI_STRING));
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(AndroidTestUtil.MP4_REMOTE_10_SECONDS.uri));
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(mediaItem).setEffects(FORCE_TRANSCODE_VIDEO_EFFECTS).build();
 
@@ -84,8 +83,7 @@ public final class RepeatedTranscodeTest {
                     .setEncoderFactory(new AndroidTestUtil.ForceEncodeEncoderFactory(context))
                     .build())
             .build();
-    MediaItem mediaItem =
-        MediaItem.fromUri(Uri.parse(AndroidTestUtil.MP4_REMOTE_10_SECONDS_URI_STRING));
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(AndroidTestUtil.MP4_REMOTE_10_SECONDS.uri));
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(mediaItem)
             .setRemoveAudio(true)
@@ -118,8 +116,7 @@ public final class RepeatedTranscodeTest {
                     .setEncoderFactory(new AndroidTestUtil.ForceEncodeEncoderFactory(context))
                     .build())
             .build();
-    MediaItem mediaItem =
-        MediaItem.fromUri(Uri.parse(AndroidTestUtil.MP4_REMOTE_10_SECONDS_URI_STRING));
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(AndroidTestUtil.MP4_REMOTE_10_SECONDS.uri));
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(mediaItem).setRemoveVideo(true).build();
 

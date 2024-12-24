@@ -25,13 +25,16 @@ import androidx.media3.common.Effect;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.extractor.mp4.Mp4Extractor;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.util.Objects;
 
 /** A {@link MediaItem} with the transformations to apply to it. */
 @UnstableApi
 public final class EditedMediaItem {
+  /* package */ static final String GAP_MEDIA_ID = "androidx-media3-GapMediaItem";
 
   /** A builder for {@link EditedMediaItem} instances. */
   public static final class Builder {
@@ -47,16 +50,25 @@ public final class EditedMediaItem {
     /**
      * Creates an instance.
      *
-     * <p>For image inputs, the values passed into {@link #setRemoveAudio}, {@link #setRemoveVideo}
-     * and {@link #setFlattenForSlowMotion} will be ignored. For multi-picture formats (e.g. gifs),
-     * a single image frame from the container is displayed if the {@link DefaultAssetLoaderFactory}
-     * is used.
+     * <p>For image inputs:
+     *
+     * <ul>
+     *   <li>The {@linkplain MediaItem.Builder#setImageDurationMs(long) image duration} should
+     *       always be set.
+     *   <li>The values passed into {@link #setRemoveAudio}, {@link #setRemoveVideo} and {@link
+     *       #setFlattenForSlowMotion} will be ignored.
+     *   <li>For multi-picture formats (e.g. gifs), a single image frame from the container is
+     *       displayed if the {@link DefaultAssetLoaderFactory} is used.
+     * </ul>
      *
      * @param mediaItem The {@link MediaItem} on which transformations are applied.
      */
     public Builder(MediaItem mediaItem) {
       this.mediaItem = mediaItem;
-      durationUs = C.TIME_UNSET;
+      durationUs =
+          mediaItem.localConfiguration == null
+              ? C.TIME_UNSET
+              : Util.msToUs(mediaItem.localConfiguration.imageDurationMs);
       frameRate = C.RATE_UNSET_INT;
       effects = Effects.EMPTY;
     }
@@ -138,14 +150,23 @@ public final class EditedMediaItem {
     }
 
     /**
-     * Sets the duration of the output video in microseconds.
+     * Sets the {@link MediaItem} duration in the output, in microseconds.
      *
-     * <p>For an input that doesn't have an intrinsic duration (e.g. images), this should be the
-     * desired presentation duration. Otherwise, this should be the duration of the full content
-     * that the {@linkplain MediaItem.LocalConfiguration#uri media URI} resolves to, before {@link
-     * MediaItem#clippingConfiguration} is applied.
+     * <p>For {@linkplain Transformer export}, this should be set for non-image inputs that don't
+     * have an intrinsic duration (e.g. raw video data). It will be ignored for inputs that do have
+     * an intrinsic duration (e.g. encoded video data from input file).
      *
-     * <p>No duration is set by default.
+     * <p>For {@linkplain CompositionPlayer preview}, this should be set for all non-image inputs
+     * (i.e. audio and video input).
+     *
+     * <p>This duration doesn't need to be set for images, because the default value is the {@link
+     * MediaItem}'s {@linkplain MediaItem.Builder#setImageDurationMs(long) image duration}.
+     *
+     * <p>If {@linkplain MediaItem#clippingConfiguration clipping} is applied, this should be the
+     * duration before clipping.
+     *
+     * @param durationUs The duration, in microseconds.
+     * @return This builder.
      */
     @CanIgnoreReturnValue
     public Builder setDurationUs(@IntRange(from = 1) long durationUs) {
@@ -155,13 +176,19 @@ public final class EditedMediaItem {
     }
 
     /**
-     * Sets the frame rate of the output video in frames per second.
+     * Sets the {@link MediaItem} frame rate in the output video, in frames per second.
      *
-     * <p>This should be set for inputs that don't have an implicit frame rate (e.g. images, which
-     * are recommended to be set for a frame rate of 30). It will be ignored for inputs that do have
-     * an implicit frame rate (e.g. video).
+     * <p>This should be set for inputs that don't have an intrinsic frame rate (e.g., images). It
+     * will be ignored for inputs that do have an intrinsic frame rate (e.g., video).
+     *
+     * <p>For images, the frame rate depends on factors such as desired look, output format
+     * requirement, and whether the content is static or dynamic (e.g., animation). However, 30 fps
+     * is suitable for most use cases.
      *
      * <p>No frame rate is set by default.
+     *
+     * @param frameRate The frame rate, in frames per second.
+     * @return This builder.
      */
     // TODO(b/210593170): Remove/deprecate frameRate parameter when frameRate parameter is added to
     //     transformer.
@@ -267,6 +294,10 @@ public final class EditedMediaItem {
       int frameRate,
       Effects effects) {
     checkState(!removeAudio || !removeVideo, "Audio and video cannot both be removed");
+    if (isGap(mediaItem)) {
+      checkArgument(durationUs != C.TIME_UNSET);
+      checkArgument(!removeAudio && !flattenForSlowMotion && effects.audioProcessors.isEmpty());
+    }
     this.mediaItem = mediaItem;
     this.removeAudio = removeAudio;
     this.removeVideo = removeVideo;
@@ -278,7 +309,7 @@ public final class EditedMediaItem {
   }
 
   /** Returns a {@link Builder} initialized with the values of this instance. */
-  /* package */ Builder buildUpon() {
+  public Builder buildUpon() {
     return new Builder(this);
   }
 
@@ -299,6 +330,7 @@ public final class EditedMediaItem {
               clippingConfiguration.endPositionUs - clippingConfiguration.startPositionUs;
         }
       }
+      presentationDurationUs = getDurationAfterEffectsApplied(presentationDurationUs);
     }
     return presentationDurationUs;
   }
@@ -321,5 +353,17 @@ public final class EditedMediaItem {
       }
     }
     return max(audioDurationUs, videoDurationUs);
+  }
+
+  /**
+   * Returns whether this {@code EditedMediaItem} is a {@linkplain
+   * EditedMediaItemSequence.Builder#addGap(long) gap}.
+   */
+  /* package */ boolean isGap() {
+    return isGap(mediaItem);
+  }
+
+  private static boolean isGap(MediaItem mediaItem) {
+    return Objects.equals(mediaItem.mediaId, GAP_MEDIA_ID);
   }
 }

@@ -47,7 +47,8 @@ public class AsynchronousMediaCodecAdapterTest {
             codecInfo,
             createMediaFormat("format"),
             new Format.Builder().build(),
-            /* crypto= */ null);
+            /* crypto= */ null,
+            /* loudnessCodecController= */ null);
     callbackThread = new HandlerThread("TestCallbackThread");
     queueingThread = new HandlerThread("TestQueueingThread");
     adapter =

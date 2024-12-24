@@ -21,19 +21,28 @@ import static androidx.media3.transformer.TestUtil.FILE_AUDIO_RAW;
 import static androidx.media3.transformer.TestUtil.FILE_AUDIO_RAW_VIDEO;
 import static androidx.media3.transformer.TestUtil.addAudioDecoders;
 import static androidx.media3.transformer.TestUtil.addAudioEncoders;
+import static androidx.media3.transformer.TestUtil.createAudioEffects;
 import static androidx.media3.transformer.TestUtil.createPitchChangingAudioProcessor;
 import static androidx.media3.transformer.TestUtil.createTransformerBuilder;
+import static androidx.media3.transformer.TestUtil.getSequenceDumpFilePath;
 import static androidx.media3.transformer.TestUtil.removeEncodersAndDecoders;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.stream.Collectors.toList;
 
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.util.Util;
+import androidx.media3.test.utils.DumpFileAsserts;
+import androidx.test.core.app.ApplicationProvider;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import org.junit.After;
 import org.junit.Before;
@@ -63,6 +72,7 @@ public final class ParameterizedAudioExportTest {
     return Sets.powerSet(items).stream()
         .filter(s -> !s.isEmpty())
         .flatMap(s -> Collections2.permutations(s).stream())
+        .filter(permutation -> permutation.size() < 4)
         .map(SequenceConfig::new)
         .collect(toList());
   }
@@ -140,6 +150,10 @@ public final class ParameterizedAudioExportTest {
 
     ExportResult result = TransformerTestRunner.runLooper(transformer);
     assertThat(result.processedInputs).hasSize(sequence.getSize());
+    DumpFileAsserts.assertOutput(
+        ApplicationProvider.getApplicationContext(),
+        muxerFactory.getCreatedMuxer(),
+        sequence.getDumpFilePath());
   }
 
   private static class SequenceConfig {
@@ -155,10 +169,18 @@ public final class ParameterizedAudioExportTest {
         items.add(itemConfig.asItem());
       }
 
-      return new Composition.Builder(new EditedMediaItemSequence(items.build()))
+      return new Composition.Builder(new EditedMediaItemSequence.Builder(items.build()).build())
           .setTransmuxVideo(true)
           .experimentalSetForceAudioTrack(true)
           .build();
+    }
+
+    public String getDumpFilePath() {
+      List<String> itemDumpNames = new ArrayList<>();
+      for (ItemConfig itemConfig : itemConfigs) {
+        itemDumpNames.add(itemConfig.getFilenameCompatibleItemSummary());
+      }
+      return getSequenceDumpFilePath(itemDumpNames);
     }
 
     public int getSize() {
@@ -179,6 +201,7 @@ public final class ParameterizedAudioExportTest {
 
   private static class ItemConfig {
     private final String uri;
+    private final boolean mediaHasVideo;
     private final boolean audioEffects;
     private final boolean withSilentAudio;
     private final boolean removeVideo;
@@ -186,6 +209,7 @@ public final class ParameterizedAudioExportTest {
     public ItemConfig(
         String uri, boolean audioEffects, boolean withSilentAudio, boolean removeVideo) {
       this.uri = uri;
+      this.mediaHasVideo = Objects.equals(uri, AUDIO_48000_STEREO_VIDEO);
       this.audioEffects = audioEffects;
       this.withSilentAudio = withSilentAudio;
       this.removeVideo = removeVideo;
@@ -197,9 +221,7 @@ public final class ParameterizedAudioExportTest {
               .setRemoveAudio(withSilentAudio)
               .setRemoveVideo(removeVideo);
       if (audioEffects) {
-        editedMediaItem.setEffects(
-            new Effects(
-                ImmutableList.of(createPitchChangingAudioProcessor(0.6f)), ImmutableList.of()));
+        editedMediaItem.setEffects(createAudioEffects(createPitchChangingAudioProcessor(0.5f)));
       }
 
       return editedMediaItem.build();
@@ -218,9 +240,19 @@ public final class ParameterizedAudioExportTest {
         throw new IllegalArgumentException();
       }
       itemName += audioEffects ? "+effects" : "";
-      itemName += !removeVideo ? ")_video(transmux)" : ")";
+      itemName += mediaHasVideo && removeVideo ? "_removeVideo" : "";
 
       return itemName;
+    }
+
+    private String getFilenameCompatibleItemSummary() {
+      // This descriptor is more specific than the toString, which is meant to be more human
+      // readable.
+      String dumpName = Iterables.getLast(Arrays.asList(Util.split(uri, "/")));
+      dumpName += withSilentAudio ? "_silence" : "";
+      dumpName += audioEffects ? "_halfPitch" : "";
+      dumpName += mediaHasVideo && removeVideo ? "_removeVideo" : "";
+      return dumpName;
     }
   }
 }

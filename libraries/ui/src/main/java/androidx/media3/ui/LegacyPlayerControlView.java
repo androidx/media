@@ -47,9 +47,7 @@ import android.view.accessibility.AccessibilityEvent;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.TextView;
-import androidx.annotation.DoNotInline;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.Player;
@@ -857,19 +855,15 @@ public class LegacyPlayerControlView extends FrameLayout {
     boolean requestPlayPauseAccessibilityFocus = false;
     boolean shouldShowPlayButton = Util.shouldShowPlayButton(player, showPlayButtonIfSuppressed);
     if (playButton != null) {
-      requestPlayPauseFocus |= !shouldShowPlayButton && playButton.isFocused();
-      requestPlayPauseAccessibilityFocus |=
-          Util.SDK_INT < 21
-              ? requestPlayPauseFocus
-              : (!shouldShowPlayButton && Api21.isAccessibilityFocused(playButton));
+      requestPlayPauseFocus = !shouldShowPlayButton && playButton.isFocused();
+      requestPlayPauseAccessibilityFocus =
+          (!shouldShowPlayButton && playButton.isAccessibilityFocused());
       playButton.setVisibility(shouldShowPlayButton ? VISIBLE : GONE);
     }
     if (pauseButton != null) {
       requestPlayPauseFocus |= shouldShowPlayButton && pauseButton.isFocused();
       requestPlayPauseAccessibilityFocus |=
-          Util.SDK_INT < 21
-              ? requestPlayPauseFocus
-              : (shouldShowPlayButton && Api21.isAccessibilityFocused(pauseButton));
+          shouldShowPlayButton && pauseButton.isAccessibilityFocused();
       pauseButton.setVisibility(shouldShowPlayButton ? GONE : VISIBLE);
     }
     if (requestPlayPauseFocus) {
@@ -1355,14 +1349,6 @@ public class LegacyPlayerControlView extends FrameLayout {
       } else if (shuffleButton == view) {
         player.setShuffleModeEnabled(!player.getShuffleModeEnabled());
       }
-    }
-  }
-
-  @RequiresApi(21)
-  private static final class Api21 {
-    @DoNotInline
-    public static boolean isAccessibilityFocused(View view) {
-      return view.isAccessibilityFocused();
     }
   }
 }

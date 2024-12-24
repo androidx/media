@@ -20,6 +20,8 @@ import static android.Manifest.permission.READ_MEDIA_VIDEO;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.SDK_INT;
+import static androidx.media3.exoplayer.DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS;
+import static androidx.media3.exoplayer.DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_MS;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_NOT_STARTED;
 
 import android.app.Activity;
@@ -78,13 +80,12 @@ import androidx.media3.effect.ScaleAndRotateTransformation;
 import androidx.media3.effect.SingleColorLut;
 import androidx.media3.effect.TextOverlay;
 import androidx.media3.effect.TextureOverlay;
+import androidx.media3.exoplayer.DefaultLoadControl;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.audio.SilenceSkippingAudioProcessor;
 import androidx.media3.exoplayer.util.DebugTextViewHelper;
-import androidx.media3.muxer.Muxer;
 import androidx.media3.transformer.Composition;
 import androidx.media3.transformer.DefaultEncoderFactory;
-import androidx.media3.transformer.DefaultMuxer;
 import androidx.media3.transformer.EditedMediaItem;
 import androidx.media3.transformer.EditedMediaItemSequence;
 import androidx.media3.transformer.Effects;
@@ -118,6 +119,10 @@ import org.json.JSONObject;
 /** An {@link Activity} that exports and plays media using {@link Transformer}. */
 public final class TransformerActivity extends AppCompatActivity {
   private static final String TAG = "TransformerActivity";
+  private static final int IMAGE_DURATION_MS = 5_000;
+  private static final int IMAGE_FRAME_RATE_FPS = 30;
+  private static int LOAD_CONTROL_MIN_BUFFER_MS = 5_000;
+  private static int LOAD_CONTROL_MAX_BUFFER_MS = 5_000;
 
   private Button displayInputButton;
   private MaterialCardView inputCardView;
@@ -130,7 +135,7 @@ public final class TransformerActivity extends AppCompatActivity {
   private TextView informationTextView;
   private ViewGroup progressViewGroup;
   private LinearProgressIndicator progressIndicator;
-  private Button cancelButton;
+  private Button pauseButton;
   private Button resumeButton;
   private Stopwatch exportStopwatch;
   private AspectRatioFrameLayout debugFrame;
@@ -157,8 +162,8 @@ public final class TransformerActivity extends AppCompatActivity {
     informationTextView = findViewById(R.id.information_text_view);
     progressViewGroup = findViewById(R.id.progress_view_group);
     progressIndicator = findViewById(R.id.progress_indicator);
-    cancelButton = findViewById(R.id.cancel_button);
-    cancelButton.setOnClickListener(view -> cancelExport());
+    pauseButton = findViewById(R.id.pause_button);
+    pauseButton.setOnClickListener(view -> pauseExport());
     resumeButton = findViewById(R.id.resume_button);
     resumeButton.setOnClickListener(view -> startExport());
     debugFrame = findViewById(R.id.debug_aspect_ratio_frame_layout);
@@ -241,7 +246,7 @@ public final class TransformerActivity extends AppCompatActivity {
     debugTextView.setVisibility(View.GONE);
     informationTextView.setText(R.string.export_started);
     progressViewGroup.setVisibility(View.VISIBLE);
-    cancelButton.setVisibility(View.VISIBLE);
+    pauseButton.setVisibility(View.VISIBLE);
     resumeButton.setVisibility(View.GONE);
     progressIndicator.setProgress(0);
     Handler mainHandler = new Handler(getMainLooper());
@@ -262,7 +267,8 @@ public final class TransformerActivity extends AppCompatActivity {
   }
 
   private MediaItem createMediaItem(@Nullable Bundle bundle, Uri uri) {
-    MediaItem.Builder mediaItemBuilder = new MediaItem.Builder().setUri(uri);
+    MediaItem.Builder mediaItemBuilder =
+        new MediaItem.Builder().setUri(uri).setImageDurationMs(IMAGE_DURATION_MS);
     if (bundle != null) {
       long trimStartMs =
           bundle.getLong(ConfigurationActivity.TRIM_START_MS, /* defaultValue= */ C.TIME_UNSET);
@@ -317,14 +323,13 @@ public final class TransformerActivity extends AppCompatActivity {
         transformerBuilder.setMaxDelayBetweenMuxerSamplesMs(C.TIME_UNSET);
       }
 
-      Muxer.Factory muxerFactory = new DefaultMuxer.Factory();
       if (bundle.getBoolean(ConfigurationActivity.USE_MEDIA3_MUXER)) {
-        muxerFactory = new InAppMuxer.Factory.Builder().build();
+        transformerBuilder.setMuxerFactory(
+            new InAppMuxer.Factory.Builder()
+                .setOutputFragmentedMp4(
+                    bundle.getBoolean(ConfigurationActivity.PRODUCE_FRAGMENTED_MP4))
+                .build());
       }
-      if (bundle.getBoolean(ConfigurationActivity.PRODUCE_FRAGMENTED_MP4)) {
-        muxerFactory = new InAppMuxer.Factory.Builder().setOutputFragmentedMp4(true).build();
-      }
-      transformerBuilder.setMuxerFactory(muxerFactory);
 
       if (bundle.getBoolean(ConfigurationActivity.ENABLE_DEBUG_PREVIEW)) {
         transformerBuilder.setDebugViewProvider(new DemoDebugViewProvider());
@@ -354,7 +359,7 @@ public final class TransformerActivity extends AppCompatActivity {
   private Composition createComposition(MediaItem mediaItem, @Nullable Bundle bundle) {
     EditedMediaItem.Builder editedMediaItemBuilder = new EditedMediaItem.Builder(mediaItem);
     // For image inputs. Automatically ignored if input is audio/video.
-    editedMediaItemBuilder.setDurationUs(5_000_000).setFrameRate(30);
+    editedMediaItemBuilder.setFrameRate(IMAGE_FRAME_RATE_FPS);
     if (bundle != null) {
       ImmutableList<AudioProcessor> audioProcessors = createAudioProcessorsFromBundle(bundle);
       ImmutableList<Effect> videoEffects = createVideoEffectsFromBundle(bundle);
@@ -366,7 +371,8 @@ public final class TransformerActivity extends AppCompatActivity {
           .setEffects(new Effects(audioProcessors, videoEffects));
     }
     Composition.Builder compositionBuilder =
-        new Composition.Builder(new EditedMediaItemSequence(editedMediaItemBuilder.build()));
+        new Composition.Builder(
+            new EditedMediaItemSequence.Builder(editedMediaItemBuilder.build()).build());
     if (bundle != null) {
       compositionBuilder
           .setHdrMode(bundle.getInt(ConfigurationActivity.HDR_MODE))
@@ -698,7 +704,17 @@ public final class TransformerActivity extends AppCompatActivity {
     releasePlayer();
 
     Uri uri = checkNotNull(inputMediaItem.localConfiguration).uri;
-    ExoPlayer outputPlayer = new ExoPlayer.Builder(/* context= */ this).build();
+    ExoPlayer outputPlayer =
+        new ExoPlayer.Builder(/* context= */ this)
+            .setLoadControl(
+                new DefaultLoadControl.Builder()
+                    .setBufferDurationsMs(
+                        LOAD_CONTROL_MIN_BUFFER_MS,
+                        LOAD_CONTROL_MAX_BUFFER_MS,
+                        DEFAULT_BUFFER_FOR_PLAYBACK_MS,
+                        DEFAULT_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS)
+                    .build())
+            .build();
     outputPlayerView.setPlayer(outputPlayer);
     outputPlayerView.setControllerAutoShow(false);
     outputPlayer.setMediaItem(outputMediaItem);
@@ -724,7 +740,17 @@ public final class TransformerActivity extends AppCompatActivity {
       inputImageView.setVisibility(View.GONE);
       inputTextView.setText(getString(R.string.input_video_no_sound));
 
-      ExoPlayer inputPlayer = new ExoPlayer.Builder(/* context= */ this).build();
+      ExoPlayer inputPlayer =
+          new ExoPlayer.Builder(/* context= */ this)
+              .setLoadControl(
+                  new DefaultLoadControl.Builder()
+                      .setBufferDurationsMs(
+                          LOAD_CONTROL_MIN_BUFFER_MS,
+                          LOAD_CONTROL_MAX_BUFFER_MS,
+                          DEFAULT_BUFFER_FOR_PLAYBACK_MS,
+                          DEFAULT_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS)
+                      .build())
+              .build();
       inputPlayerView.setPlayer(inputPlayer);
       inputPlayerView.setControllerAutoShow(false);
       inputPlayerView.setOnClickListener(this::handlePlayerViewClick);
@@ -799,11 +825,11 @@ public final class TransformerActivity extends AppCompatActivity {
     }
   }
 
-  private void cancelExport() {
+  private void pauseExport() {
     transformer.cancel();
     transformer = null;
     exportStopwatch.stop();
-    cancelButton.setVisibility(View.GONE);
+    pauseButton.setVisibility(View.GONE);
     resumeButton.setVisibility(View.VISIBLE);
     if (oldOutputFile != null) {
       oldOutputFile.delete();

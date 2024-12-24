@@ -38,9 +38,11 @@ import static androidx.media3.test.session.common.MediaBrowserConstants.EXTRAS_K
 import static androidx.media3.test.session.common.MediaBrowserConstants.GET_CHILDREN_RESULT;
 import static androidx.media3.test.session.common.MediaBrowserConstants.LONG_LIST_COUNT;
 import static androidx.media3.test.session.common.MediaBrowserConstants.MEDIA_ID_GET_BROWSABLE_ITEM;
+import static androidx.media3.test.session.common.MediaBrowserConstants.MEDIA_ID_GET_ITEM_WITH_BROWSE_ACTIONS;
 import static androidx.media3.test.session.common.MediaBrowserConstants.MEDIA_ID_GET_ITEM_WITH_METADATA;
 import static androidx.media3.test.session.common.MediaBrowserConstants.MEDIA_ID_GET_PLAYABLE_ITEM;
 import static androidx.media3.test.session.common.MediaBrowserConstants.PARENT_ID;
+import static androidx.media3.test.session.common.MediaBrowserConstants.PARENT_ID_ALLOW_FIRST_ON_GET_CHILDREN;
 import static androidx.media3.test.session.common.MediaBrowserConstants.PARENT_ID_AUTH_EXPIRED_ERROR;
 import static androidx.media3.test.session.common.MediaBrowserConstants.PARENT_ID_AUTH_EXPIRED_ERROR_DEPRECATED;
 import static androidx.media3.test.session.common.MediaBrowserConstants.PARENT_ID_AUTH_EXPIRED_ERROR_KEY_ERROR_RESOLUTION_ACTION_LABEL;
@@ -61,12 +63,14 @@ import static androidx.media3.test.session.common.MediaBrowserConstants.SEARCH_R
 import static androidx.media3.test.session.common.MediaBrowserConstants.SEARCH_TIME_IN_MS;
 import static androidx.media3.test.session.common.MediaBrowserConstants.SUBSCRIBE_PARENT_ID_1;
 import static androidx.media3.test.session.common.MediaBrowserConstants.SUBSCRIBE_PARENT_ID_2;
+import static java.lang.Math.min;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.HandlerThread;
 import android.os.IBinder;
@@ -79,6 +83,7 @@ import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
 import androidx.media3.session.MediaSession.ControllerInfo;
 import androidx.media3.test.session.common.CommonConstants;
+import androidx.media3.test.session.common.MediaBrowserConstants;
 import androidx.media3.test.session.common.TestHandler;
 import androidx.media3.test.session.common.TestUtils;
 import com.google.common.collect.ImmutableList;
@@ -219,6 +224,11 @@ public class MockMediaLibraryService extends MediaLibraryService {
               .getInt(
                   CONNECTION_HINTS_KEY_LIBRARY_ERROR_REPLICATION_MODE,
                   LIBRARY_ERROR_REPLICATION_MODE_FATAL);
+      Bundle playlistAddExtras = new Bundle();
+      playlistAddExtras.putString("key-1", "playlist_add");
+      Bundle radioExtras = new Bundle();
+      radioExtras.putString("key-1", "radio");
+      Log.d("notifyChildrenChanged", "new TestLibrarySessionCallback()");
       session =
           new MediaLibrarySession.Builder(
                   MockMediaLibraryService.this,
@@ -226,6 +236,23 @@ public class MockMediaLibraryService extends MediaLibraryService {
                   callback != null ? callback : new TestLibrarySessionCallback())
               .setId(ID)
               .setLibraryErrorReplicationMode(libraryErrorReplicationMode)
+              .setCommandButtonsForMediaItems(
+                  ImmutableList.of(
+                      new CommandButton.Builder(CommandButton.ICON_PLAYLIST_ADD)
+                          .setDisplayName("Add to playlist")
+                          .setIconUri(Uri.parse("content://playlist_add"))
+                          .setSessionCommand(
+                              new SessionCommand(
+                                  MediaBrowserConstants.COMMAND_PLAYLIST_ADD, Bundle.EMPTY))
+                          .setExtras(playlistAddExtras)
+                          .build(),
+                      new CommandButton.Builder(CommandButton.ICON_RADIO)
+                          .setDisplayName("Radio station")
+                          .setIconUri(Uri.parse("content://radio"))
+                          .setSessionCommand(
+                              new SessionCommand(MediaBrowserConstants.COMMAND_RADIO, Bundle.EMPTY))
+                          .setExtras(radioExtras)
+                          .build()))
               .build();
     }
     return session;
@@ -258,6 +285,8 @@ public class MockMediaLibraryService extends MediaLibraryService {
   }
 
   private class TestLibrarySessionCallback implements MediaLibrarySession.Callback {
+
+    private int getChildrenCallCount = 0;
 
     @Override
     public MediaSession.ConnectionResult onConnect(
@@ -326,6 +355,7 @@ public class MockMediaLibraryService extends MediaLibraryService {
       }
       switch (mediaId) {
         case MEDIA_ID_GET_BROWSABLE_ITEM:
+        case PARENT_ID_ALLOW_FIRST_ON_GET_CHILDREN:
         case SUBSCRIBE_PARENT_ID_2:
           return Futures.immediateFuture(
               LibraryResult.ofItem(createBrowsableMediaItem(mediaId), /* params= */ null));
@@ -333,6 +363,12 @@ public class MockMediaLibraryService extends MediaLibraryService {
           return Futures.immediateFuture(
               LibraryResult.ofItem(
                   createPlayableMediaItemWithArtworkData(mediaId), /* params= */ null));
+        case MEDIA_ID_GET_ITEM_WITH_BROWSE_ACTIONS:
+          return Futures.immediateFuture(
+              LibraryResult.ofItem(
+                  createPlayableMediaItemWithCommands(
+                      mediaId, browser.getMaxCommandsForMediaItems()),
+                  /* params= */ null));
         case MEDIA_ID_GET_ITEM_WITH_METADATA:
           return Futures.immediateFuture(
               LibraryResult.ofItem(createMediaItemWithMetadata(mediaId), /* params= */ null));
@@ -349,6 +385,7 @@ public class MockMediaLibraryService extends MediaLibraryService {
         int page,
         int pageSize,
         @Nullable LibraryParams params) {
+      getChildrenCallCount++;
       assertLibraryParams(params);
       if (Objects.equals(parentId, PARENT_ID_NO_CHILDREN)) {
         return Futures.immediateFuture(LibraryResult.ofItemList(ImmutableList.of(), params));
@@ -368,6 +405,15 @@ public class MockMediaLibraryService extends MediaLibraryService {
         errorBundle.putString("key", "value");
         return Futures.immediateFuture(
             LibraryResult.ofError(new SessionError(ERROR_BAD_VALUE, "error message", errorBundle)));
+      } else if (Objects.equals(parentId, PARENT_ID_ALLOW_FIRST_ON_GET_CHILDREN)) {
+        return getChildrenCallCount == 1
+            ? Futures.immediateFuture(
+                LibraryResult.ofItemList(
+                    getPaginatedResult(GET_CHILDREN_RESULT, page, pageSize), params))
+            : Futures.immediateFuture(
+                LibraryResult.ofError(
+                    SessionError.ERROR_SESSION_AUTHENTICATION_EXPIRED,
+                    new LibraryParams.Builder().build()));
       } else if (Objects.equals(parentId, PARENT_ID_AUTH_EXPIRED_ERROR)
           || Objects.equals(parentId, PARENT_ID_AUTH_EXPIRED_ERROR_DEPRECATED)
           || Objects.equals(parentId, PARENT_ID_SKIP_LIMIT_REACHED_ERROR)) {
@@ -547,7 +593,7 @@ public class MockMediaLibraryService extends MediaLibraryService {
 
     int totalItemCount = items.size();
     int fromIndex = page * pageSize;
-    int toIndex = Math.min((page + 1) * pageSize, totalItemCount);
+    int toIndex = min((page + 1) * pageSize, totalItemCount);
 
     List<String> paginatedMediaIdList = new ArrayList<>();
     try {
@@ -589,9 +635,28 @@ public class MockMediaLibraryService extends MediaLibraryService {
         mediaItem
             .mediaMetadata
             .buildUpon()
+            .setSupportedCommands(
+                ImmutableList.of(
+                    MediaBrowserConstants.COMMAND_PLAYLIST_ADD,
+                    MediaBrowserConstants.COMMAND_RADIO))
             .setArtworkData(getArtworkData(), MediaMetadata.PICTURE_TYPE_FRONT_COVER)
             .build();
     return mediaItem.buildUpon().setMediaMetadata(mediaMetadataWithArtwork).build();
+  }
+
+  private MediaItem createPlayableMediaItemWithCommands(
+      String mediaId, int maxCommandsForMediaItems) {
+    MediaItem mediaItem = createPlayableMediaItem(mediaId);
+    ImmutableList<String> allCommands =
+        ImmutableList.of(
+            MediaBrowserConstants.COMMAND_PLAYLIST_ADD, MediaBrowserConstants.COMMAND_RADIO);
+    ImmutableList.Builder<String> supportedCommands = new ImmutableList.Builder<>();
+    for (int i = 0; i < min(maxCommandsForMediaItems, allCommands.size()); i++) {
+      supportedCommands.add(allCommands.get(i));
+    }
+    MediaMetadata mediaMetadataWithBrowseActions =
+        mediaItem.mediaMetadata.buildUpon().setSupportedCommands(supportedCommands.build()).build();
+    return mediaItem.buildUpon().setMediaMetadata(mediaMetadataWithBrowseActions).build();
   }
 
   private static MediaItem createPlayableMediaItem(String mediaId) {

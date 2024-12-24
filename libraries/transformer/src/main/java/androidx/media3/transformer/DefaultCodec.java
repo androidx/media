@@ -34,7 +34,6 @@ import android.media.MediaCodec.BufferInfo;
 import android.media.MediaCrypto;
 import android.media.MediaFormat;
 import android.view.Surface;
-import androidx.annotation.DoNotInline;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
@@ -524,7 +523,6 @@ public final class DefaultCodec implements Codec {
 
   @RequiresApi(29)
   private static final class Api29 {
-    @DoNotInline
     public static String getCanonicalName(MediaCodec mediaCodec) {
       return mediaCodec.getCanonicalName();
     }

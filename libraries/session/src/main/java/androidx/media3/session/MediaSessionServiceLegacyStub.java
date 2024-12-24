@@ -16,6 +16,7 @@
 package androidx.media3.session;
 
 import static androidx.media3.common.util.Util.postOrRun;
+import static androidx.media3.session.LegacyConversions.extractMaxCommandsForMediaItemFromRootHints;
 
 import android.os.Bundle;
 import androidx.annotation.Nullable;
@@ -100,7 +101,8 @@ import java.util.concurrent.atomic.AtomicReference;
         ControllerInfo.LEGACY_CONTROLLER_INTERFACE_VERSION,
         manager.isTrustedForMediaControl(info),
         /* cb= */ null,
-        /* connectionHints= */ rootHints);
+        /* connectionHints= */ rootHints,
+        extractMaxCommandsForMediaItemFromRootHints(rootHints));
   }
 
   public final MediaSessionManager getMediaSessionManager() {

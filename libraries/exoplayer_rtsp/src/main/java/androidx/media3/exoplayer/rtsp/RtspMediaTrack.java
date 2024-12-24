@@ -295,7 +295,7 @@ import com.google.common.collect.ImmutableMap;
       case MimeTypes.AUDIO_AC3:
       case MimeTypes.AUDIO_ALAW:
       case MimeTypes.AUDIO_MLAW:
-        // Does not require a fmtp attribute. Fall through.
+      // Does not require a fmtp attribute. Fall through.
       default:
         // Do nothing.
     }
@@ -467,7 +467,10 @@ import com.google.common.collect.ImmutableMap;
     byte[] spsNalDataWithStartCode = initializationData.get(1);
     NalUnitUtil.H265SpsData spsData =
         NalUnitUtil.parseH265SpsNalUnit(
-            spsNalDataWithStartCode, NAL_START_CODE.length, spsNalDataWithStartCode.length);
+            spsNalDataWithStartCode,
+            NAL_START_CODE.length,
+            spsNalDataWithStartCode.length,
+            /* vpsData= */ null);
     formatBuilder.setPixelWidthHeightRatio(spsData.pixelWidthHeightRatio);
     formatBuilder.setHeight(spsData.height).setWidth(spsData.width);
     formatBuilder.setColorInfo(
@@ -479,14 +482,16 @@ import com.google.common.collect.ImmutableMap;
             .setChromaBitdepth(spsData.bitDepthChromaMinus8 + 8)
             .build());
 
-    formatBuilder.setCodecs(
-        CodecSpecificDataUtil.buildHevcCodecString(
-            spsData.generalProfileSpace,
-            spsData.generalTierFlag,
-            spsData.generalProfileIdc,
-            spsData.generalProfileCompatibilityFlags,
-            spsData.constraintBytes,
-            spsData.generalLevelIdc));
+    if (spsData.profileTierLevel != null) {
+      formatBuilder.setCodecs(
+          CodecSpecificDataUtil.buildHevcCodecString(
+              spsData.profileTierLevel.generalProfileSpace,
+              spsData.profileTierLevel.generalTierFlag,
+              spsData.profileTierLevel.generalProfileIdc,
+              spsData.profileTierLevel.generalProfileCompatibilityFlags,
+              spsData.profileTierLevel.constraintBytes,
+              spsData.profileTierLevel.generalLevelIdc));
+    }
   }
 
   /**

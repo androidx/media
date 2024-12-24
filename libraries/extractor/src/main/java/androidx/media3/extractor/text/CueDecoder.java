@@ -39,18 +39,6 @@ public final class CueDecoder {
    *
    * @param startTimeUs The value for {@link CuesWithTiming#startTimeUs} (this is not encoded in
    *     {@code bytes}).
-   * @param bytes Byte array produced by {@link CueEncoder#encode(List, long)}
-   * @return Decoded {@link CuesWithTiming} instance.
-   */
-  public CuesWithTiming decode(long startTimeUs, byte[] bytes) {
-    return decode(startTimeUs, bytes, /* offset= */ 0, bytes.length);
-  }
-
-  /**
-   * Decodes a byte array into a {@link CuesWithTiming} instance.
-   *
-   * @param startTimeUs The value for {@link CuesWithTiming#startTimeUs} (this is not encoded in
-   *     {@code bytes}).
    * @param bytes Byte array containing data produced by {@link CueEncoder#encode(List, long)}
    * @param offset The start index of cue data in {@code bytes}.
    * @param length The length of cue data in {@code bytes}.

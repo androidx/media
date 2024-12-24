@@ -55,7 +55,6 @@ import androidx.annotation.DrawableRes;
 import androidx.annotation.IntDef;
 import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.core.app.NotificationBuilderWithBuilderAccessor;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
@@ -1013,11 +1012,10 @@ public class PlayerNotificationManager {
    * @deprecated Use {@link #setMediaSessionToken(MediaSession.Token)} and pass in {@code
    *     (MediaSession.Token) compatToken.getToken()}.
    */
+  // TODO: b/333355694 - Remove the dependency on androidx.media when this method is removed.
   @Deprecated
   public final void setMediaSessionToken(MediaSessionCompat.Token compatToken) {
-    if (Util.SDK_INT >= 21) {
-      setMediaSessionToken((MediaSession.Token) compatToken.getToken());
-    }
+    setMediaSessionToken((MediaSession.Token) compatToken.getToken());
   }
 
   /**
@@ -1028,7 +1026,6 @@ public class PlayerNotificationManager {
    *
    * @param token The {@link MediaSession.Token}.
    */
-  @RequiresApi(21)
   public final void setMediaSessionToken(MediaSession.Token token) {
     if (!Util.areEqual(this.mediaSessionToken, token)) {
       mediaSessionToken = token;
@@ -1159,7 +1156,6 @@ public class PlayerNotificationManager {
    *       duration} (like for example a live stream).
    *   <li>The media is not {@link Player#isPlayingAd() interrupted by an ad}.
    *   <li>The media is played at {@link Player#getPlaybackParameters() regular speed}.
-   *   <li>The device is running at least API 21 (Lollipop).
    * </ul>
    *
    * <p>See {@link NotificationCompat.Builder#setUsesChronometer(boolean)}.
@@ -1247,8 +1243,7 @@ public class PlayerNotificationManager {
    * Creates the notification given the current player state.
    *
    * @param player The player for which state to build a notification.
-   * @param builder The builder used to build the last notification, or {@code null}. Re-using the
-   *     builder when possible can prevent notification flicker when {@code Util#SDK_INT} &lt; 21.
+   * @param builder The builder used to build the last notification, or {@code null}.
    * @param ongoing Whether the notification should be ongoing.
    * @param largeIcon The large icon to be used.
    * @return The {@link NotificationCompat.Builder} on which to call {@link
@@ -1291,17 +1286,7 @@ public class PlayerNotificationManager {
     }
 
     int[] actionIndicesForCompactView = getActionIndicesForCompactView(actionNames, player);
-    if (Util.SDK_INT >= 21) {
-      builder.setStyle(new MediaStyle(mediaSessionToken, actionIndicesForCompactView));
-    } else {
-      // TODO: b/333355694 - Remove dependency on androidx.media once this logic is gone.
-      androidx.media.app.NotificationCompat.MediaStyle mediaStyle =
-          new androidx.media.app.NotificationCompat.MediaStyle();
-      mediaStyle.setShowActionsInCompactView(actionIndicesForCompactView);
-      mediaStyle.setShowCancelButton(!ongoing);
-      mediaStyle.setCancelButtonIntent(dismissPendingIntent);
-      builder.setStyle(mediaStyle);
-    }
+    builder.setStyle(new MediaStyle(mediaSessionToken, actionIndicesForCompactView));
 
     // Set intent which is sent if the user selects 'clear all'
     builder.setDeleteIntent(dismissPendingIntent);
@@ -1317,9 +1302,7 @@ public class PlayerNotificationManager {
         .setPriority(priority)
         .setDefaults(defaults);
 
-    // Changing "showWhen" causes notification flicker if SDK_INT < 21.
-    if (Util.SDK_INT >= 21
-        && useChronometer
+    if (useChronometer
         && player.isCommandAvailable(COMMAND_GET_CURRENT_MEDIA_ITEM)
         && player.isPlaying()
         && !player.isPlayingAd()
@@ -1628,7 +1611,6 @@ public class PlayerNotificationManager {
     }
   }
 
-  @RequiresApi(21)
   private static final class MediaStyle extends androidx.core.app.NotificationCompat.Style {
 
     private final int[] actionsToShowInCompact;

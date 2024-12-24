@@ -28,6 +28,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.support.v4.media.session.MediaControllerCompat;
+import android.support.v4.media.session.MediaSessionCompat;
 import android.support.v4.media.session.PlaybackStateCompat;
 import androidx.media3.common.ForwardingPlayer;
 import androidx.media3.common.MediaItem;
@@ -145,7 +146,7 @@ public class MediaSessionServiceTest {
     // Create the remote controller to start the service.
     RemoteMediaController controller =
         controllerTestRule.createRemoteController(
-            token, /* waitForConnection= */ true, /* connectionHints= */ null);
+            token, /* waitForConnection= */ true, /* connectionHints= */ Bundle.EMPTY);
     // Get the started service instance after creation.
     MockMediaSessionService service =
         (MockMediaSessionService) testServiceRegistry.getServiceInstance();
@@ -221,7 +222,7 @@ public class MediaSessionServiceTest {
         });
     RemoteMediaController controller =
         controllerTestRule.createRemoteController(
-            token, /* waitForConnection= */ true, /* connectionHints= */ null);
+            token, /* waitForConnection= */ true, /* connectionHints= */ Bundle.EMPTY);
     MockMediaSessionService service =
         (MockMediaSessionService) testServiceRegistry.getServiceInstance();
 
@@ -236,8 +237,7 @@ public class MediaSessionServiceTest {
   }
 
   @Test
-  public void onCreate_mediaNotificationManagerController_correctSessionStateFromOnConnect()
-      throws Exception {
+  public void onCreate_withCustomLayout_correctSessionStateFromOnConnect() throws Exception {
     SessionCommand command1 = new SessionCommand("command1", Bundle.EMPTY);
     SessionCommand command2 = new SessionCommand("command2", Bundle.EMPTY);
     SessionCommand command3 = new SessionCommand("command3", Bundle.EMPTY);
@@ -330,6 +330,121 @@ public class MediaSessionServiceTest {
     assertThat(mediaControllerCompat.getPlaybackState().getActions())
         .isEqualTo(PlaybackStateCompat.ACTION_SET_RATING);
     assertThat(remoteController.getCustomLayout())
+        .containsExactly(button1.copyWithIsEnabled(false), button2.copyWithIsEnabled(false))
+        .inOrder();
+    assertThat(initialCustomActionsInControllerCompat).isEmpty();
+    assertThat(mediaControllerCompat.getPlaybackState().getCustomActions()).hasSize(2);
+    PlaybackStateCompat.CustomAction customAction1 =
+        mediaControllerCompat.getPlaybackState().getCustomActions().get(0);
+    PlaybackStateCompat.CustomAction customAction2 =
+        mediaControllerCompat.getPlaybackState().getCustomActions().get(1);
+    assertThat(customAction1.getAction()).isEqualTo("command1");
+    assertThat(customAction1.getName().toString()).isEqualTo("button1");
+    assertThat(customAction1.getIcon()).isEqualTo(R.drawable.media3_notification_small_icon);
+    assertThat(customAction2.getAction()).isEqualTo("command3");
+    assertThat(customAction2.getName().toString()).isEqualTo("button3");
+    assertThat(customAction2.getIcon()).isEqualTo(R.drawable.media3_notification_small_icon);
+    mediaSession.release();
+    ((MockMediaSessionService) TestServiceRegistry.getInstance().getServiceInstance())
+        .blockUntilAllControllersUnbind(TIMEOUT_MS);
+  }
+
+  @Test
+  public void onCreate_withMediaButtonPreferences_correctSessionStateFromOnConnect()
+      throws Exception {
+    SessionCommand command1 = new SessionCommand("command1", Bundle.EMPTY);
+    SessionCommand command2 = new SessionCommand("command2", Bundle.EMPTY);
+    SessionCommand command3 = new SessionCommand("command3", Bundle.EMPTY);
+    CommandButton button1 =
+        new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
+            .setDisplayName("button1")
+            .setIconResId(R.drawable.media3_notification_small_icon)
+            .setSessionCommand(command1)
+            .build();
+    CommandButton button2 =
+        new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
+            .setDisplayName("button2")
+            .setIconResId(R.drawable.media3_notification_small_icon)
+            .setSessionCommand(command2)
+            .build();
+    CommandButton button3 =
+        new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
+            .setDisplayName("button3")
+            .setIconResId(R.drawable.media3_notification_small_icon)
+            .setSessionCommand(command3)
+            .build();
+    Bundle testHints = new Bundle();
+    testHints.putString("test_key", "test_value");
+    List<ControllerInfo> controllerInfoList = new ArrayList<>();
+    CountDownLatch latch = new CountDownLatch(2);
+    TestHandler handler = new TestHandler(Looper.getMainLooper());
+    ExoPlayer player =
+        handler.postAndSync(
+            () -> {
+              ExoPlayer exoPlayer = new TestExoPlayerBuilder(context).build();
+              exoPlayer.setMediaItem(MediaItem.fromUri("asset:///media/mp4/sample.mp4"));
+              exoPlayer.prepare();
+              return exoPlayer;
+            });
+    MediaSession mediaSession =
+        new MediaSession.Builder(ApplicationProvider.getApplicationContext(), player)
+            .setMediaButtonPreferences(Lists.newArrayList(button1, button2))
+            .setCallback(
+                new MediaSession.Callback() {
+                  @Override
+                  public MediaSession.ConnectionResult onConnect(
+                      MediaSession session, ControllerInfo controller) {
+                    controllerInfoList.add(controller);
+                    if (session.isMediaNotificationController(controller)) {
+                      latch.countDown();
+                      return new MediaSession.ConnectionResult.AcceptedResultBuilder(session)
+                          .setAvailableSessionCommands(
+                              SessionCommands.EMPTY.buildUpon().add(command1).add(command3).build())
+                          .setAvailablePlayerCommands(Player.Commands.EMPTY)
+                          .setMediaButtonPreferences(ImmutableList.of(button1, button3))
+                          .build();
+                    }
+                    latch.countDown();
+                    return new MediaSession.ConnectionResult.AcceptedResultBuilder(session).build();
+                  }
+                })
+            .build();
+    TestServiceRegistry.getInstance().setOnGetSessionHandler(controllerInfo -> mediaSession);
+    MediaControllerCompat mediaControllerCompat =
+        new MediaControllerCompat(
+            ApplicationProvider.getApplicationContext(),
+            MediaSessionCompat.Token.fromToken(mediaSession.getPlatformToken()));
+    CountDownLatch controllerReady = new CountDownLatch(1);
+    mediaControllerCompat.registerCallback(
+        new MediaControllerCompat.Callback() {
+          @Override
+          public void onSessionReady() {
+            controllerReady.countDown();
+          }
+        },
+        new Handler(Looper.getMainLooper()));
+    controllerReady.await();
+    List<PlaybackStateCompat.CustomAction> initialCustomActionsInControllerCompat =
+        mediaControllerCompat.getPlaybackState().getCustomActions();
+
+    // Start the service by creating a remote controller.
+    RemoteMediaController remoteController =
+        controllerTestRule.createRemoteController(token, /* waitForConnection= */ true, testHints);
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(
+            controllerInfoList
+                .get(0)
+                .getConnectionHints()
+                .getBoolean(
+                    MediaController.KEY_MEDIA_NOTIFICATION_CONTROLLER_FLAG,
+                    /* defaultValue= */ false))
+        .isTrue();
+    assertThat(TestUtils.equals(controllerInfoList.get(1).getConnectionHints(), testHints))
+        .isTrue();
+    assertThat(mediaControllerCompat.getPlaybackState().getActions())
+        .isEqualTo(PlaybackStateCompat.ACTION_SET_RATING);
+    assertThat(remoteController.getMediaButtonPreferences())
         .containsExactly(button1.copyWithIsEnabled(false), button2.copyWithIsEnabled(false))
         .inOrder();
     assertThat(initialCustomActionsInControllerCompat).isEmpty();
@@ -459,9 +574,9 @@ public class MediaSessionServiceTest {
             });
 
     RemoteMediaController controller1 =
-        controllerTestRule.createRemoteController(token, true, null);
+        controllerTestRule.createRemoteController(token, true, /* connectionHints= */ Bundle.EMPTY);
     RemoteMediaController controller2 =
-        controllerTestRule.createRemoteController(token, true, null);
+        controllerTestRule.createRemoteController(token, true, /* connectionHints= */ Bundle.EMPTY);
 
     assertThat(controller2.getConnectedSessionToken())
         .isNotEqualTo(controller1.getConnectedSessionToken());
@@ -504,9 +619,9 @@ public class MediaSessionServiceTest {
             });
 
     RemoteMediaController controller1 =
-        controllerTestRule.createRemoteController(token, true, null);
+        controllerTestRule.createRemoteController(token, true, /* connectionHints= */ Bundle.EMPTY);
     RemoteMediaController controller2 =
-        controllerTestRule.createRemoteController(token, true, null);
+        controllerTestRule.createRemoteController(token, true, /* connectionHints= */ Bundle.EMPTY);
     controller1.release();
     controller2.release();
 
@@ -540,9 +655,9 @@ public class MediaSessionServiceTest {
             });
 
     RemoteMediaController controller1 =
-        controllerTestRule.createRemoteController(token, true, null);
+        controllerTestRule.createRemoteController(token, true, /* connectionHints= */ Bundle.EMPTY);
     RemoteMediaController controller2 =
-        controllerTestRule.createRemoteController(token, true, null);
+        controllerTestRule.createRemoteController(token, true, /* connectionHints= */ Bundle.EMPTY);
 
     controller1.release();
     assertThat(latch.await(NO_RESPONSE_TIMEOUT_MS, MILLISECONDS)).isFalse();
@@ -555,7 +670,7 @@ public class MediaSessionServiceTest {
   @Test
   public void getSessions() throws Exception {
     controllerTestRule.createRemoteController(
-        token, /* waitForConnection= */ true, /* connectionHints= */ null);
+        token, /* waitForConnection= */ true, /* connectionHints= */ Bundle.EMPTY);
     MediaSessionService service = TestServiceRegistry.getInstance().getServiceInstance();
     MediaSession session = createMediaSession("testGetSessions");
     service.addSession(session);
@@ -572,7 +687,7 @@ public class MediaSessionServiceTest {
   @Test
   public void addSessions_removedWhenReleased() throws Exception {
     controllerTestRule.createRemoteController(
-        token, /* waitForConnection= */ true, /* connectionHints= */ null);
+        token, /* waitForConnection= */ true, /* connectionHints= */ Bundle.EMPTY);
     MediaSessionService service = TestServiceRegistry.getInstance().getServiceInstance();
     MediaSession session = createMediaSession("testAddSessions_removedWhenReleased");
     service.addSession(session);

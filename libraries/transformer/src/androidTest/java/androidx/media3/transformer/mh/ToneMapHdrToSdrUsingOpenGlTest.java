@@ -17,11 +17,8 @@ package androidx.media3.transformer.mh;
 
 import static androidx.media3.test.utils.TestUtil.retrieveTrackFormat;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_1080P_5_SECOND_HLG10;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_1080P_5_SECOND_HLG10_FORMAT;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_720P_4_SECOND_HDR10;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_720P_4_SECOND_HDR10_FORMAT;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_DOLBY_VISION_HDR;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_DOLBY_VISION_HDR_FORMAT;
 import static androidx.media3.transformer.mh.HdrCapabilitiesUtil.assumeDeviceSupportsOpenGlToneMapping;
 import static com.google.common.truth.Truth.assertThat;
 
@@ -61,33 +58,34 @@ public class ToneMapHdrToSdrUsingOpenGlTest {
   @Test
   public void export_toneMap_hlg10File_toneMaps() throws Exception {
     assumeDeviceSupportsOpenGlToneMapping(
-        testId, /* inputFormat= */ MP4_ASSET_1080P_5_SECOND_HLG10_FORMAT);
+        testId, /* inputFormat= */ MP4_ASSET_1080P_5_SECOND_HLG10.videoFormat);
 
-    runTransformerWithOpenGlToneMapping(testId, MP4_ASSET_1080P_5_SECOND_HLG10);
+    runTransformerWithOpenGlToneMapping(testId, MP4_ASSET_1080P_5_SECOND_HLG10.uri);
   }
 
   @Test
   public void export_toneMap_hdr10File_toneMaps() throws Exception {
     assumeDeviceSupportsOpenGlToneMapping(
-        testId, /* inputFormat= */ MP4_ASSET_720P_4_SECOND_HDR10_FORMAT);
+        testId, /* inputFormat= */ MP4_ASSET_720P_4_SECOND_HDR10.videoFormat);
 
-    runTransformerWithOpenGlToneMapping(testId, MP4_ASSET_720P_4_SECOND_HDR10);
+    runTransformerWithOpenGlToneMapping(testId, MP4_ASSET_720P_4_SECOND_HDR10.uri);
   }
 
   @Test
   public void export_toneMap_dolbyVisionFile_toneMaps() throws Exception {
     assumeDeviceSupportsOpenGlToneMapping(
-        testId, /* inputFormat= */ MP4_ASSET_DOLBY_VISION_HDR_FORMAT);
+        testId, /* inputFormat= */ MP4_ASSET_DOLBY_VISION_HDR.videoFormat);
 
-    runTransformerWithOpenGlToneMapping(testId, MP4_ASSET_DOLBY_VISION_HDR);
+    runTransformerWithOpenGlToneMapping(testId, MP4_ASSET_DOLBY_VISION_HDR.uri);
   }
 
   private void runTransformerWithOpenGlToneMapping(String testId, String fileUri) throws Exception {
     Transformer transformer = new Transformer.Builder(context).build();
     Composition composition =
         new Composition.Builder(
-                new EditedMediaItemSequence(
-                    new EditedMediaItem.Builder(MediaItem.fromUri(fileUri)).build()))
+                new EditedMediaItemSequence.Builder(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(fileUri)).build())
+                    .build())
             .setHdrMode(Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL)
             .build();
     ExportTestResult exportTestResult =

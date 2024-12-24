@@ -111,7 +111,7 @@ sample:
   isKeyFrame = true
 sample:
   trackType = audio
-  dataHashCode = 521969921
-  size = 1912
+  dataHashCode = 1728208641
+  size = 2184
   isKeyFrame = true
 released = true

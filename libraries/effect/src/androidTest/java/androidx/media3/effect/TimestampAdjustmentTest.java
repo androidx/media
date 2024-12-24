@@ -27,6 +27,7 @@ import android.text.style.AbsoluteSizeSpan;
 import android.text.style.ForegroundColorSpan;
 import android.text.style.TypefaceSpan;
 import androidx.media3.common.util.Consumer;
+import androidx.media3.test.utils.TestSpeedProvider;
 import androidx.media3.test.utils.TextureBitmapReader;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
@@ -67,7 +68,8 @@ public class TimestampAdjustmentTest {
                 throw new IllegalStateException(e);
               }
               callback.onTimestamp(inputTimeUs / 2);
-            });
+            },
+            TestSpeedProvider.createWithStartTimes(new long[] {0}, new float[] {2f}));
 
     ImmutableList<Long> actualPresentationTimesUs =
         generateAndProcessBlackTimeStampedFrames(frameTimesUs, timestampAdjustment);

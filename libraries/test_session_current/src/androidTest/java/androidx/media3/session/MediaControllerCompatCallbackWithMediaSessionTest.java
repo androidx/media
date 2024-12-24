@@ -610,7 +610,7 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
     session.setPlayer(playerConfigToUpdate);
 
     // In API 21 and 22, onAudioInfoChanged is not called when playback is changed to local.
-    if (Util.SDK_INT == 21 || Util.SDK_INT == 22) {
+    if (Util.SDK_INT <= 22) {
       PollingCheck.waitFor(
           TIMEOUT_MS,
           () -> {
@@ -657,21 +657,13 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
 
     session.setPlayer(playerConfig);
 
-    // In API 21+, onAudioInfoChanged() is not called when playbackType is not changed.
-    if (Util.SDK_INT >= 21) {
-      PollingCheck.waitFor(
-          TIMEOUT_MS,
-          () -> {
-            MediaControllerCompat.PlaybackInfo info = controllerCompat.getPlaybackInfo();
-            return info.getPlaybackType() == legacyPlaybackType
-                && info.getAudioAttributes().getLegacyStreamType() == legacyStream;
-          });
-    } else {
-      assertThat(playbackInfoNotified.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
-      MediaControllerCompat.PlaybackInfo info = controllerCompat.getPlaybackInfo();
-      assertThat(info.getPlaybackType()).isEqualTo(legacyPlaybackType);
-      assertThat(info.getAudioAttributes().getLegacyStreamType()).isEqualTo(legacyStream);
-    }
+    PollingCheck.waitFor(
+        TIMEOUT_MS,
+        () -> {
+          MediaControllerCompat.PlaybackInfo info = controllerCompat.getPlaybackInfo();
+          return info.getPlaybackType() == legacyPlaybackType
+              && info.getAudioAttributes().getLegacyStreamType() == legacyStream;
+        });
   }
 
   @Test
@@ -709,23 +701,14 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
 
     session.setPlayer(playerConfigToUpdate);
 
-    // In API 21+, onAudioInfoChanged() is not called when playbackType is not changed.
-    if (Util.SDK_INT >= 21) {
-      PollingCheck.waitFor(
-          TIMEOUT_MS,
-          () -> {
-            MediaControllerCompat.PlaybackInfo info = controllerCompat.getPlaybackInfo();
-            return info.getPlaybackType() == legacyPlaybackTypeToUpdate
-                && info.getMaxVolume() == deviceInfoToUpdate.maxVolume
-                && info.getCurrentVolume() == deviceVolumeToUpdate;
-          });
-    } else {
-      assertThat(playbackInfoNotified.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
-      MediaControllerCompat.PlaybackInfo info = controllerCompat.getPlaybackInfo();
-      assertThat(info.getPlaybackType()).isEqualTo(legacyPlaybackTypeToUpdate);
-      assertThat(info.getMaxVolume()).isEqualTo(deviceInfoToUpdate.maxVolume);
-      assertThat(info.getCurrentVolume()).isEqualTo(deviceVolumeToUpdate);
-    }
+    PollingCheck.waitFor(
+        TIMEOUT_MS,
+        () -> {
+          MediaControllerCompat.PlaybackInfo info = controllerCompat.getPlaybackInfo();
+          return info.getPlaybackType() == legacyPlaybackTypeToUpdate
+              && info.getMaxVolume() == deviceInfoToUpdate.maxVolume
+              && info.getCurrentVolume() == deviceVolumeToUpdate;
+        });
   }
 
   @Test
@@ -1555,15 +1538,8 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
     assertThat(latch.await(LONG_TIMEOUT_MS, MILLISECONDS)).isTrue();
     List<QueueItem> queueFromParam = queueRef.get();
     List<QueueItem> queueFromGetter = controllerCompat.getQueue();
-    if (Util.SDK_INT >= 21) {
-      assertThat(queueFromParam).hasSize(listSize);
-      assertThat(queueFromGetter).hasSize(listSize);
-    } else {
-      // Below API 21, only the initial part of the playlist is sent to the
-      // MediaControllerCompat when the list is too long.
-      assertThat(queueFromParam.size() < listSize).isTrue();
-      assertThat(queueFromGetter).hasSize(queueFromParam.size());
-    }
+    assertThat(queueFromParam).hasSize(listSize);
+    assertThat(queueFromGetter).hasSize(listSize);
     for (int i = 0; i < queueFromParam.size(); i++) {
       assertThat(queueFromParam.get(i).getDescription().getMediaId())
           .isEqualTo(TestUtils.getMediaIdInFakeTimeline(i));

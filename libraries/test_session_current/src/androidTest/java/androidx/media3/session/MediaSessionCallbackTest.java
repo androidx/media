@@ -154,7 +154,7 @@ public class MediaSessionCallbackTest {
   }
 
   @Test
-  public void onConnect_acceptWithMissingSessionCommand_buttonDisabledAndPermissionDenied()
+  public void onConnect_setCustomLayoutWithMissingSessionCommand_buttonDisabledAndPermissionDenied()
       throws Exception {
     CommandButton button1 =
         new CommandButton.Builder(CommandButton.ICON_PLAY)
@@ -169,7 +169,6 @@ public class MediaSessionCallbackTest {
             .setSessionCommand(new SessionCommand("command2", Bundle.EMPTY))
             .setEnabled(true)
             .build();
-    ImmutableList<CommandButton> customLayout = ImmutableList.of(button1, button2);
     MediaSession.Callback callback =
         new MediaSession.Callback() {
           @Override
@@ -193,18 +192,67 @@ public class MediaSessionCallbackTest {
         };
     MediaSession session =
         sessionTestRule.ensureReleaseAfterTest(
-            new MediaSession.Builder(context, player)
-                .setCallback(callback)
-                .setCustomLayout(customLayout)
-                .setId(
-                    "onConnect_acceptWithMissingSessionCommand_buttonDisabledAndPermissionDenied")
-                .build());
+            new MediaSession.Builder(context, player).setCallback(callback).build());
     RemoteMediaController remoteController =
         remoteControllerTestRule.createRemoteController(session.getToken());
 
     ImmutableList<CommandButton> layout = remoteController.getCustomLayout();
 
     assertThat(layout).containsExactly(button1Disabled, button2).inOrder();
+    assertThat(remoteController.sendCustomCommand(button1.sessionCommand, Bundle.EMPTY).resultCode)
+        .isEqualTo(ERROR_PERMISSION_DENIED);
+    assertThat(remoteController.sendCustomCommand(button2.sessionCommand, Bundle.EMPTY).resultCode)
+        .isEqualTo(RESULT_SUCCESS);
+  }
+
+  @Test
+  public void
+      onConnect_setMediaButtonPreferencesWithMissingSessionCommand_buttonDisabledAndPermissionDenied()
+          throws Exception {
+    CommandButton button1 =
+        new CommandButton.Builder(CommandButton.ICON_PLAY)
+            .setDisplayName("button1")
+            .setSessionCommand(new SessionCommand("command1", Bundle.EMPTY))
+            .setEnabled(true)
+            .build();
+    CommandButton button1Disabled = button1.copyWithIsEnabled(false);
+    CommandButton button2 =
+        new CommandButton.Builder(CommandButton.ICON_PAUSE)
+            .setDisplayName("button2")
+            .setSessionCommand(new SessionCommand("command2", Bundle.EMPTY))
+            .setEnabled(true)
+            .build();
+    MediaSession.Callback callback =
+        new MediaSession.Callback() {
+          @Override
+          public MediaSession.ConnectionResult onConnect(
+              MediaSession session, ControllerInfo controller) {
+            return new AcceptedResultBuilder(session)
+                .setAvailableSessionCommands(
+                    new SessionCommands.Builder().add(button2.sessionCommand).build())
+                .setMediaButtonPreferences(ImmutableList.of(button1, button2))
+                .build();
+          }
+
+          @Override
+          public ListenableFuture<SessionResult> onCustomCommand(
+              MediaSession session,
+              ControllerInfo controller,
+              SessionCommand customCommand,
+              Bundle args) {
+            return Futures.immediateFuture(new SessionResult(RESULT_SUCCESS));
+          }
+        };
+    MediaSession session =
+        sessionTestRule.ensureReleaseAfterTest(
+            new MediaSession.Builder(context, player).setCallback(callback).build());
+    RemoteMediaController remoteController =
+        remoteControllerTestRule.createRemoteController(session.getToken());
+
+    ImmutableList<CommandButton> mediaButtonPreferences =
+        remoteController.getMediaButtonPreferences();
+
+    assertThat(mediaButtonPreferences).containsExactly(button1Disabled, button2).inOrder();
     assertThat(remoteController.sendCustomCommand(button1.sessionCommand, Bundle.EMPTY).resultCode)
         .isEqualTo(ERROR_PERMISSION_DENIED);
     assertThat(remoteController.sendCustomCommand(button2.sessionCommand, Bundle.EMPTY).resultCode)
@@ -351,6 +399,37 @@ public class MediaSessionCallbackTest {
         remoteControllerTestRule.createRemoteController(session.getToken());
 
     assertThat(remoteController.getSessionExtras().size()).isEqualTo(0);
+  }
+
+  @Test
+  public void onConnect_withMaxCommandsForMediaItems_correctMaxLimitInControllerInfo()
+      throws Exception {
+    CountDownLatch latch = new CountDownLatch(/* count= */ 1);
+    AtomicInteger maxCommandsForMediaItems = new AtomicInteger();
+    MediaSession session =
+        sessionTestRule.ensureReleaseAfterTest(
+            new MediaSession.Builder(context, player)
+                .setCallback(
+                    new MediaSession.Callback() {
+                      @Override
+                      public MediaSession.ConnectionResult onConnect(
+                          MediaSession session, ControllerInfo controller) {
+                        maxCommandsForMediaItems.set(controller.getMaxCommandsForMediaItems());
+                        latch.countDown();
+                        return MediaSession.Callback.super.onConnect(session, controller);
+                      }
+                    })
+                .setId("onConnect_withMaxCommandForMediaItems_correctMaxLimitInControllerInfo")
+                .build());
+    Bundle connectionHints = new Bundle();
+    connectionHints.putInt(
+        MediaControllerProviderService.CONNECTION_HINT_KEY_MAX_COMMANDS_FOR_MEDIA_ITEMS, 2);
+
+    remoteControllerTestRule.createRemoteController(
+        session.getToken(), /* waitForConnection= */ true, connectionHints);
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(maxCommandsForMediaItems.get()).isEqualTo(2);
   }
 
   @Test

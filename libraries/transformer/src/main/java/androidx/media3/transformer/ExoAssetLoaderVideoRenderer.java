@@ -54,11 +54,28 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     this.decoderFactory = decoderFactory;
     this.hdrMode = hdrMode;
     decodeOnlyPresentationTimestamps = new ArrayList<>();
+    maxDecoderPendingFrameCount = C.INDEX_UNSET;
   }
 
   @Override
   public String getName() {
     return TAG;
+  }
+
+  /**
+   * {@inheritDoc}
+   *
+   * <p>The duration is calculated based on the number of {@linkplain #maxDecoderPendingFrameCount
+   * allowed pending frames}.
+   */
+  @Override
+  public long getDurationToProgressUs(long positionUs, long elapsedRealtimeUs) {
+    if (maxDecoderPendingFrameCount == C.INDEX_UNSET) {
+      return DEFAULT_DURATION_TO_PROGRESS_US;
+    }
+    // TODO: b/258809496 - Consider using async API and dynamic scheduling when decoder input
+    //  slots are available.
+    return maxDecoderPendingFrameCount * 2_000L;
   }
 
   @Override
@@ -113,6 +130,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
     ByteBuffer inputBytes = checkNotNull(inputBuffer.data);
     if (sefVideoSlowMotionFlattener != null) {
+      long streamOffsetUs = getStreamOffsetUs();
       long presentationTimeUs = inputBuffer.timeUs - streamOffsetUs;
       boolean shouldDropInputBuffer =
           sefVideoSlowMotionFlattener.dropOrTransformSample(inputBytes, presentationTimeUs);
@@ -126,10 +144,6 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
     if (decoder == null) {
       inputBuffer.timeUs -= streamStartPositionUs;
-      if (inputBuffer.timeUs < 0) {
-        inputBuffer.clear();
-        return true;
-      }
     }
     return false;
   }

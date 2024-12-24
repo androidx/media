@@ -40,6 +40,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.media.session.MediaSession.Token;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.DeadObjectException;
@@ -53,11 +54,9 @@ import android.os.SystemClock;
 import android.view.KeyEvent;
 import android.view.ViewConfiguration;
 import androidx.annotation.CheckResult;
-import androidx.annotation.DoNotInline;
 import androidx.annotation.FloatRange;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.DeviceInfo;
 import androidx.media3.common.MediaItem;
@@ -133,6 +132,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final Handler mainHandler;
   private final boolean playIfSuppressed;
   private final boolean isPeriodicPositionUpdateEnabled;
+  private final ImmutableList<CommandButton> commandButtonsForMediaItems;
 
   private PlayerInfo playerInfo;
   private PlayerWrapper playerWrapper;
@@ -152,6 +152,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private long sessionPositionUpdateDelayMs;
   private boolean isMediaNotificationControllerConnected;
   private ImmutableList<CommandButton> customLayout;
+  private ImmutableList<CommandButton> mediaButtonPreferences;
   private Bundle sessionExtras;
 
   @SuppressWarnings("argument.type.incompatible") // Using this in System.identityHashCode
@@ -162,6 +163,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       Player player,
       @Nullable PendingIntent sessionActivity,
       ImmutableList<CommandButton> customLayout,
+      ImmutableList<CommandButton> mediaButtonPreferences,
+      ImmutableList<CommandButton> commandButtonsForMediaItems,
       MediaSession.Callback callback,
       Bundle tokenExtras,
       Bundle sessionExtras,
@@ -182,6 +185,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     sessionId = id;
     this.sessionActivity = sessionActivity;
     this.customLayout = customLayout;
+    this.mediaButtonPreferences = mediaButtonPreferences;
+    this.commandButtonsForMediaItems = commandButtonsForMediaItems;
     this.callback = callback;
     this.sessionExtras = sessionExtras;
     this.bitmapLoader = bitmapLoader;
@@ -217,6 +222,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             .appendPath(id)
             .appendPath(String.valueOf(SystemClock.elapsedRealtime()))
             .build();
+
+    sessionLegacyStub =
+        new MediaSessionLegacyStub(
+            /* session= */ thisRef, sessionUri, applicationHandler, tokenExtras);
+
+    Token platformToken = (Token) sessionLegacyStub.getSessionCompat().getSessionToken().getToken();
     sessionToken =
         new SessionToken(
             Process.myUid(),
@@ -225,10 +236,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             MediaSessionStub.VERSION_INT,
             context.getPackageName(),
             sessionStub,
-            tokenExtras);
+            tokenExtras,
+            platformToken);
 
-    sessionLegacyStub =
-        new MediaSessionLegacyStub(/* session= */ thisRef, sessionUri, applicationHandler);
     // For PlayerWrapper, use the same default commands as the proxy controller gets when the app
     // doesn't overrides the default commands in `onConnect`. When the default is overridden by the
     // app in `onConnect`, the default set here will be overridden with these values.
@@ -239,6 +249,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             player,
             playIfSuppressed,
             customLayout,
+            mediaButtonPreferences,
             connectionResult.availableSessionCommands,
             connectionResult.availablePlayerCommands,
             sessionExtras);
@@ -265,6 +276,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             player,
             playIfSuppressed,
             playerWrapper.getCustomLayout(),
+            playerWrapper.getMediaButtonPreferences(),
             playerWrapper.getAvailableSessionCommands(),
             playerWrapper.getAvailablePlayerCommands(),
             playerWrapper.getLegacyExtras()));
@@ -504,9 +516,48 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         (controller, seq) -> controller.setCustomLayout(seq, customLayout));
   }
 
+  /**
+   * Sets the media button preferences for the given {@link MediaController}.
+   *
+   * @param controller The controller.
+   * @param mediaButtonPreferences The media button preferences.
+   * @return The session result from the controller.
+   */
+  public ListenableFuture<SessionResult> setMediaButtonPreferences(
+      ControllerInfo controller, ImmutableList<CommandButton> mediaButtonPreferences) {
+    if (isMediaNotificationController(controller)) {
+      playerWrapper.setMediaButtonPreferences(mediaButtonPreferences);
+      sessionLegacyStub.updateLegacySessionPlaybackState(playerWrapper);
+    }
+    return dispatchRemoteControllerTask(
+        controller,
+        (controller1, seq) -> controller1.setMediaButtonPreferences(seq, mediaButtonPreferences));
+  }
+
+  /**
+   * Sets the media button preferences of the session and sends the media button preferences to all
+   * controllers.
+   */
+  public void setMediaButtonPreferences(ImmutableList<CommandButton> mediaButtonPreferences) {
+    this.mediaButtonPreferences = mediaButtonPreferences;
+    playerWrapper.setMediaButtonPreferences(mediaButtonPreferences);
+    dispatchRemoteControllerTaskWithoutReturn(
+        (controller, seq) -> controller.setMediaButtonPreferences(seq, mediaButtonPreferences));
+  }
+
   /** Returns the custom layout. */
   public ImmutableList<CommandButton> getCustomLayout() {
     return customLayout;
+  }
+
+  /** Returns the media button preferences. */
+  public ImmutableList<CommandButton> getMediaButtonPreferences() {
+    return mediaButtonPreferences;
+  }
+
+  /** Returns the command buttons for media items. */
+  public ImmutableList<CommandButton> getCommandButtonsForMediaItems() {
+    return commandButtonsForMediaItems;
   }
 
   public void setSessionExtras(Bundle sessionExtras) {
@@ -600,12 +651,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                 getPlayerWrapper().getAvailableCommands());
         checkStateNotNull(controller.getControllerCb())
             .onPlayerInfoChanged(
-                seq,
-                playerInfo,
-                intersectedCommands,
-                excludeTimeline,
-                excludeTracks,
-                controller.getInterfaceVersion());
+                seq, playerInfo, intersectedCommands, excludeTimeline, excludeTracks);
       } catch (DeadObjectException e) {
         onDeadObjectException(controller);
       } catch (RemoteException e) {
@@ -667,6 +713,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           .setAvailableSessionCommands(playerWrapper.getAvailableSessionCommands())
           .setAvailablePlayerCommands(playerWrapper.getAvailablePlayerCommands())
           .setCustomLayout(playerWrapper.getCustomLayout())
+          .setMediaButtonPreferences(playerWrapper.getMediaButtonPreferences())
           .build();
     }
     MediaSession.ConnectionResult connectionResult =
@@ -679,6 +726,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           connectionResult.customLayout != null
               ? connectionResult.customLayout
               : instance.getCustomLayout());
+      playerWrapper.setMediaButtonPreferences(
+          connectionResult.mediaButtonPreferences != null
+              ? connectionResult.mediaButtonPreferences
+              : instance.getMediaButtonPreferences());
       setAvailableFrameworkControllerCommands(
           connectionResult.availableSessionCommands, connectionResult.availablePlayerCommands);
     }
@@ -1213,7 +1264,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
     // Double tap detection.
     int keyCode = keyEvent.getKeyCode();
-    boolean isTvApp = Util.SDK_INT >= 21 && Api21.isTvApp(context);
+    boolean isTvApp = context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_LEANBACK);
     boolean doubleTapCompleted = false;
     switch (keyCode) {
       case KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE:
@@ -1908,14 +1959,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       if (!hasMessages(MSG_PLAYER_INFO_CHANGED)) {
         sendEmptyMessage(MSG_PLAYER_INFO_CHANGED);
       }
-    }
-  }
-
-  @RequiresApi(21)
-  private static final class Api21 {
-    @DoNotInline
-    public static boolean isTvApp(Context context) {
-      return context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_LEANBACK);
     }
   }
 }

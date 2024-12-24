@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.video;
 
+import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Util.msToUs;
 import static java.lang.Math.min;
 import static java.lang.annotation.ElementType.TYPE_USE;
@@ -22,6 +23,7 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 import android.content.Context;
 import android.os.SystemClock;
 import android.view.Surface;
+import androidx.annotation.FloatRange;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
@@ -277,12 +279,14 @@ public final class VideoFrameReleaseControl {
   /**
    * Whether the release control is ready to start playback.
    *
-   * @see Renderer#isReady()
-   * @param rendererReady Whether the renderer is ready.
+   * <p>The renderer should be {@linkplain Renderer#isReady() ready} if and only if the release
+   * control is ready.
+   *
+   * @param rendererOtherwiseReady Whether the renderer is ready except for the release control.
    * @return Whether the release control is ready.
    */
-  public boolean isReady(boolean rendererReady) {
-    if (rendererReady && firstFrameState == C.FIRST_FRAME_RENDERED) {
+  public boolean isReady(boolean rendererOtherwiseReady) {
+    if (rendererOtherwiseReady && firstFrameState == C.FIRST_FRAME_RENDERED) {
       // Ready. If we were joining then we've now joined, so clear the joining deadline.
       joiningDeadlineMs = C.TIME_UNSET;
       return true;
@@ -302,7 +306,7 @@ public final class VideoFrameReleaseControl {
   /**
    * Joins the release control to a new stream.
    *
-   * <p>The release control will pretend to be {@linkplain #isReady ready} for short time even if
+   * <p>The release control will pretend to be {@linkplain #isReady ready} for a short time even if
    * the first frame hasn't been rendered yet to avoid interrupting an ongoing playback.
    *
    * @param renderNextFrameImmediately Whether the next frame should be released as soon as possible
@@ -389,8 +393,10 @@ public final class VideoFrameReleaseControl {
   }
 
   /**
-   * Change the {@link C.VideoChangeFrameRateStrategy}, used when calling {@link
+   * Changes the {@link C.VideoChangeFrameRateStrategy} used when calling {@link
    * Surface#setFrameRate}.
+   *
+   * <p>The default value is {@link C#VIDEO_CHANGE_FRAME_RATE_STRATEGY_ONLY_IF_SEAMLESS}.
    */
   public void setChangeFrameRateStrategy(
       @C.VideoChangeFrameRateStrategy int changeFrameRateStrategy) {
@@ -398,7 +404,8 @@ public final class VideoFrameReleaseControl {
   }
 
   /** Sets the playback speed. Called when the renderer playback speed changes. */
-  public void setPlaybackSpeed(float speed) {
+  public void setPlaybackSpeed(@FloatRange(from = 0, fromInclusive = false) float speed) {
+    checkArgument(speed > 0);
     if (speed == playbackSpeed) {
       return;
     }

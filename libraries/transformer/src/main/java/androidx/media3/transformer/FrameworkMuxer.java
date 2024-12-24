@@ -29,33 +29,49 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.MediaFormatUtil;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.Mp4LocationData;
 import androidx.media3.muxer.Muxer;
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 
 /** {@link Muxer} implementation that uses a {@link MediaMuxer}. */
 /* package */ final class FrameworkMuxer implements Muxer {
-  public static final String MUXER_STOPPING_FAILED_ERROR_MESSAGE = "Failed to stop the MediaMuxer";
-
-  // MediaMuxer supported sample formats are documented in MediaMuxer.addTrack(MediaFormat).
-  private static final ImmutableList<String> SUPPORTED_VIDEO_SAMPLE_MIME_TYPES =
-      getSupportedVideoSampleMimeTypes();
-  private static final ImmutableList<String> SUPPORTED_AUDIO_SAMPLE_MIME_TYPES =
-      ImmutableList.of(MimeTypes.AUDIO_AAC, MimeTypes.AUDIO_AMR_NB, MimeTypes.AUDIO_AMR_WB);
-
   /** {@link Muxer.Factory} for {@link FrameworkMuxer}. */
   public static final class Factory implements Muxer.Factory {
-    private final long videoDurationMs;
+    private long videoDurationUs;
 
-    public Factory(long videoDurationMs) {
-      this.videoDurationMs = videoDurationMs;
+    public Factory() {
+      this.videoDurationUs = C.TIME_UNSET;
+    }
+
+    /**
+     * Sets the duration of the video track (in microseconds) in the output.
+     *
+     * <p>Only the duration of the last sample is adjusted to achieve the given duration. Duration
+     * of the other samples remains unchanged.
+     *
+     * <p>The default is {@link C#TIME_UNSET} to not set any duration in the output. In this case
+     * the video track duration is determined by the samples written to it and the duration of the
+     * last sample would be the same as that of the sample before that.
+     *
+     * @param videoDurationUs The duration of the video track (in microseconds) in the output, or
+     *     {@link C#TIME_UNSET} to not set any duration. Only applicable when a video track is
+     *     {@linkplain #addTrack(Format) added}.
+     * @return This factory.
+     */
+    @CanIgnoreReturnValue
+    public Factory setVideoDurationUs(long videoDurationUs) {
+      this.videoDurationUs = videoDurationUs;
+      return this;
     }
 
     @Override
@@ -66,7 +82,7 @@ import java.util.Map;
       } catch (IOException e) {
         throw new MuxerException("Error creating muxer", e);
       }
-      return new FrameworkMuxer(mediaMuxer, videoDurationMs);
+      return new FrameworkMuxer(mediaMuxer, videoDurationUs);
     }
 
     @Override
@@ -80,6 +96,15 @@ import java.util.Map;
     }
   }
 
+  public static final String MUXER_STOPPING_FAILED_ERROR_MESSAGE = "Failed to stop the MediaMuxer";
+
+  // MediaMuxer supported sample formats are documented in MediaMuxer.addTrack(MediaFormat).
+  private static final ImmutableList<String> SUPPORTED_VIDEO_SAMPLE_MIME_TYPES =
+      getSupportedVideoSampleMimeTypes();
+  private static final ImmutableList<String> SUPPORTED_AUDIO_SAMPLE_MIME_TYPES =
+      ImmutableList.of(MimeTypes.AUDIO_AAC, MimeTypes.AUDIO_AMR_NB, MimeTypes.AUDIO_AMR_WB);
+  private static final String TAG = "FrameworkMuxer";
+
   private final MediaMuxer mediaMuxer;
   private final long videoDurationUs;
   private final Map<TrackToken, Long> trackTokenToLastPresentationTimeUs;
@@ -90,9 +115,9 @@ import java.util.Map;
   private boolean isStarted;
   private boolean isReleased;
 
-  private FrameworkMuxer(MediaMuxer mediaMuxer, long videoDurationMs) {
+  private FrameworkMuxer(MediaMuxer mediaMuxer, long videoDurationUs) {
     this.mediaMuxer = mediaMuxer;
-    this.videoDurationUs = Util.msToUs(videoDurationMs);
+    this.videoDurationUs = videoDurationUs;
     trackTokenToLastPresentationTimeUs = new HashMap<>();
     trackTokenToPresentationTimeOffsetUs = new HashMap<>();
   }
@@ -139,6 +164,13 @@ import java.util.Map;
     if (videoDurationUs != C.TIME_UNSET
         && trackToken == videoTrackToken
         && presentationTimeUs > videoDurationUs) {
+      Log.w(
+          TAG,
+          String.format(
+              Locale.US,
+              "Skipped sample with presentation time (%d) > video duration (%d)",
+              presentationTimeUs,
+              videoDurationUs));
       return;
     }
     if (!isStarted) {
@@ -169,12 +201,13 @@ import java.util.Map;
     trackTokenToLastPresentationTimeUs.put(trackToken, presentationTimeUs);
 
     checkState(
-        presentationTimeOffsetUs == 0 || presentationTimeUs >= lastSamplePresentationTimeUs,
-        "Samples not in presentation order ("
-            + presentationTimeUs
-            + " < "
-            + lastSamplePresentationTimeUs
-            + ") unsupported when using negative PTS workaround");
+        presentationTimeOffsetUs == 0 || presentationTimeUs >= 0,
+        String.format(
+            Locale.US,
+            "Sample presentation time (%d) < first sample presentation time (%d). Ensure the first"
+                + " sample has the smallest timestamp when using the negative PTS workaround.",
+            presentationTimeUs - presentationTimeOffsetUs,
+            -presentationTimeOffsetUs));
     bufferInfo.set(bufferInfo.offset, bufferInfo.size, presentationTimeUs, bufferInfo.flags);
 
     try {

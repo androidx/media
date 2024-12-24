@@ -20,9 +20,10 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.common.util.Util;
 import androidx.media3.muxer.Muxer;
-import androidx.media3.muxer.Muxer.TrackToken;
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.nio.ByteBuffer;
 
 /** A default {@link Muxer} implementation. */
@@ -31,22 +32,37 @@ public final class DefaultMuxer implements Muxer {
 
   /** A {@link Muxer.Factory} for {@link DefaultMuxer}. */
   public static final class Factory implements Muxer.Factory {
-    private final Muxer.Factory muxerFactory;
+    private final FrameworkMuxer.Factory muxerFactory;
 
-    /** Creates an instance with {@code videoDurationMs} set to {@link C#TIME_UNSET}. */
+    /** Creates an instance. */
     public Factory() {
-      this(/* videoDurationMs= */ C.TIME_UNSET);
+      this.muxerFactory = new FrameworkMuxer.Factory();
     }
 
     /**
-     * Creates an instance.
+     * @deprecated Use {@link #setVideoDurationUs(long)} instead. Note that a conversion from
+     *     milliseconds to microseconds is required to migrate to {@link #setVideoDurationUs(long)}.
+     */
+    @Deprecated
+    public Factory(long videoDurationMs) {
+      this.muxerFactory =
+          new FrameworkMuxer.Factory().setVideoDurationUs(Util.msToUs(videoDurationMs));
+    }
+
+    /**
+     * Sets the duration of the video track (in microseconds) to enforce in the output.
      *
-     * @param videoDurationMs The duration of the video track (in milliseconds) to enforce in the
+     * <p>The default is {@link C#TIME_UNSET}.
+     *
+     * @param videoDurationUs The duration of the video track (in microseconds) to enforce in the
      *     output, or {@link C#TIME_UNSET} to not enforce. Only applicable when a video track is
      *     {@linkplain #addTrack(Format) added}.
+     * @return This factory.
      */
-    public Factory(long videoDurationMs) {
-      this.muxerFactory = new FrameworkMuxer.Factory(videoDurationMs);
+    @CanIgnoreReturnValue
+    public Factory setVideoDurationUs(long videoDurationUs) {
+      muxerFactory.setVideoDurationUs(videoDurationUs);
+      return this;
     }
 
     @Override

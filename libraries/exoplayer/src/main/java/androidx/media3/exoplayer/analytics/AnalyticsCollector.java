@@ -89,10 +89,21 @@ public interface AnalyticsCollector
   void updateMediaPeriodQueueInfo(List<MediaPeriodId> queue, @Nullable MediaPeriodId readingPeriod);
 
   /**
-   * Notify analytics collector that a seek operation will start. Should be called before the player
-   * adjusts its state and position to the seek.
+   * Notifies the analytics collector that a seek operation will start. Should be called before the
+   * player adjusts its state and position to the seek.
    */
   void notifySeekStarted();
+
+  /**
+   * Called each time a renderer starts or stops allowing playback to be ready.
+   *
+   * @param rendererIndex The index of the renderer in the {@link
+   *     androidx.media3.exoplayer.ExoPlayer} instance.
+   * @param rendererTrackType The {@link C.TrackType} of the renderer.
+   * @param isRendererReady Whether the renderer allows playback to be ready.
+   */
+  void onRendererReadyChanged(
+      int rendererIndex, @C.TrackType int rendererTrackType, boolean isRendererReady);
 
   // Audio events.
 

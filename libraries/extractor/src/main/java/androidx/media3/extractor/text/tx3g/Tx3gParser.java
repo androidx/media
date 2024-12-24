@@ -39,9 +39,9 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.extractor.text.CuesWithTiming;
 import androidx.media3.extractor.text.SubtitleParser;
-import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableList;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 /**
@@ -204,7 +204,7 @@ public final class Tx3gParser implements SubtitleParser {
     @Nullable Charset charset = parsableByteArray.readUtfCharsetFromBom();
     int bomSize = parsableByteArray.getPosition() - textStartPosition;
     return parsableByteArray.readString(
-        textLength - bomSize, charset != null ? charset : Charsets.UTF_8);
+        textLength - bomSize, charset != null ? charset : StandardCharsets.UTF_8);
   }
 
   private void applyStyleRecord(

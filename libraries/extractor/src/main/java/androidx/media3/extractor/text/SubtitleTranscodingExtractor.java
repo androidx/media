@@ -16,36 +16,19 @@
 
 package androidx.media3.extractor.text;
 
-import androidx.media3.common.C;
-import androidx.media3.common.Format;
-import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.extractor.PositionHolder;
-import androidx.media3.extractor.TrackOutput;
 import java.io.IOException;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
- * A wrapping {@link Extractor} that transcodes {@linkplain C#TRACK_TYPE_TEXT text samples} from
- * supported subtitle formats to {@link MimeTypes#APPLICATION_MEDIA3_CUES}.
- *
- * <p>Samples emitted by the delegate {@link Extractor} to {@linkplain C#TRACK_TYPE_TEXT text
- * tracks} with a supported subtitle format are transcoded and the resulting {@link
- * MimeTypes#APPLICATION_MEDIA3_CUES} samples are emitted to the underlying {@link TrackOutput}.
- *
- * <p>Samples emitted by the delegate {@link Extractor} to non-text tracks (or text tracks with an
- * unsupported format) are passed through to the underlying {@link TrackOutput} without
- * modification.
- *
- * <p>Support for subtitle formats is determined by {@link
- * SubtitleParser.Factory#supportsFormat(Format)} on the {@link SubtitleParser.Factory} passed to
- * the constructor of this class.
+ * @deprecated Use {@link SubtitleTranscodingExtractorOutput} directly from within an existing
+ *     {@link Extractor} implementation instead.
  */
-// TODO: b/318679808 - deprecate when all subtitle-related Extractors use
-// SubtitleTranscodingExtractorOutput instead.
+@Deprecated
 @UnstableApi
 public class SubtitleTranscodingExtractor implements Extractor {
 

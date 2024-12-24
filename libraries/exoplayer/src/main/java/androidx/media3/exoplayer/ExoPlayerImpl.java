@@ -47,9 +47,7 @@ import android.graphics.Rect;
 import android.graphics.SurfaceTexture;
 import android.media.AudioDeviceCallback;
 import android.media.AudioDeviceInfo;
-import android.media.AudioFormat;
 import android.media.AudioManager;
-import android.media.AudioTrack;
 import android.media.MediaFormat;
 import android.media.metrics.LogSessionId;
 import android.os.Handler;
@@ -59,7 +57,6 @@ import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.TextureView;
-import androidx.annotation.DoNotInline;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.AudioAttributes;
@@ -186,6 +183,7 @@ import java.util.concurrent.TimeoutException;
   private final long detachSurfaceTimeoutMs;
   @Nullable private AudioManager audioManager;
   private final boolean suppressPlaybackOnUnsuitableOutput;
+  @Nullable private final SuitableOutputChecker suitableOutputChecker;
 
   private @RepeatMode int repeatMode;
   private boolean shuffleModeEnabled;
@@ -202,7 +200,6 @@ import java.util.concurrent.TimeoutException;
   private MediaMetadata playlistMetadata;
   @Nullable private Format videoFormat;
   @Nullable private Format audioFormat;
-  @Nullable private AudioTrack keepSessionIdAudioTrack;
   @Nullable private Object videoOutput;
   @Nullable private Surface ownedSurface;
   @Nullable private SurfaceHolder surfaceHolder;
@@ -378,7 +375,7 @@ import java.util.concurrent.TimeoutException;
               clock,
               playbackInfoUpdateListener,
               playerId,
-              builder.playbackLooper,
+              builder.playbackLooperProvider,
               preloadConfiguration);
 
       volume = 1;
@@ -387,11 +384,7 @@ import java.util.concurrent.TimeoutException;
       playlistMetadata = MediaMetadata.EMPTY;
       staticAndDynamicMediaMetadata = MediaMetadata.EMPTY;
       maskingWindowIndex = C.INDEX_UNSET;
-      if (Util.SDK_INT < 21) {
-        audioSessionId = initializeKeepSessionIdAudioTrack(C.AUDIO_SESSION_ID_UNSET);
-      } else {
-        audioSessionId = Util.generateAudioSessionIdV21(applicationContext);
-      }
+      audioSessionId = Util.generateAudioSessionIdV21(applicationContext);
       currentCueGroup = CueGroup.EMPTY_TIME_ZERO;
       throwsWhenUsingWrongThread = true;
 
@@ -407,17 +400,25 @@ import java.util.concurrent.TimeoutException;
       audioBecomingNoisyManager.setEnabled(builder.handleAudioBecomingNoisy);
       audioFocusManager = new AudioFocusManager(builder.context, eventHandler, componentListener);
       audioFocusManager.setAudioAttributes(builder.handleAudioFocus ? audioAttributes : null);
-      if (suppressPlaybackOnUnsuitableOutput && Util.SDK_INT >= 23) {
+
+      suitableOutputChecker = builder.suitableOutputChecker;
+      if (suitableOutputChecker != null && Util.SDK_INT >= 35) {
+        suitableOutputChecker.enable(this::onSelectedOutputSuitabilityChanged);
+      } else if (suppressPlaybackOnUnsuitableOutput && Util.SDK_INT >= 23) {
         audioManager = (AudioManager) applicationContext.getSystemService(Context.AUDIO_SERVICE);
         Api23.registerAudioDeviceCallback(
             audioManager,
             new NoSuitableOutputPlaybackSuppressionAudioDeviceCallback(),
             new Handler(applicationLooper));
       }
+
       if (builder.deviceVolumeControlEnabled) {
         streamVolumeManager =
-            new StreamVolumeManager(builder.context, eventHandler, componentListener);
-        streamVolumeManager.setStreamType(Util.getStreamTypeForAudioUsage(audioAttributes.usage));
+            new StreamVolumeManager(
+                builder.context,
+                eventHandler,
+                componentListener,
+                Util.getStreamTypeForAudioUsage(audioAttributes.usage));
       } else {
         streamVolumeManager = null;
       }
@@ -1050,10 +1051,6 @@ import java.util.concurrent.TimeoutException;
             + MediaLibraryInfo.registeredModules()
             + "]");
     verifyApplicationThread();
-    if (Util.SDK_INT < 21 && keepSessionIdAudioTrack != null) {
-      keepSessionIdAudioTrack.release();
-      keepSessionIdAudioTrack = null;
-    }
     audioBecomingNoisyManager.setEnabled(false);
     if (streamVolumeManager != null) {
       streamVolumeManager.release();
@@ -1076,6 +1073,9 @@ import java.util.concurrent.TimeoutException;
     bandwidthMeter.removeEventListener(analyticsCollector);
     if (playbackInfo.sleepingForOffload) {
       playbackInfo = playbackInfo.copyWithEstimatedPosition();
+    }
+    if (suitableOutputChecker != null && Util.SDK_INT >= 35) {
+      suitableOutputChecker.disable();
     }
     playbackInfo = playbackInfo.copyWithPlaybackState(Player.STATE_IDLE);
     playbackInfo = playbackInfo.copyWithLoadingMediaPeriodId(playbackInfo.periodId);
@@ -1515,15 +1515,7 @@ import java.util.concurrent.TimeoutException;
       return;
     }
     if (audioSessionId == C.AUDIO_SESSION_ID_UNSET) {
-      if (Util.SDK_INT < 21) {
-        audioSessionId = initializeKeepSessionIdAudioTrack(C.AUDIO_SESSION_ID_UNSET);
-      } else {
-        audioSessionId = Util.generateAudioSessionIdV21(applicationContext);
-      }
-    } else if (Util.SDK_INT < 21) {
-      // We need to re-initialize keepSessionIdAudioTrack to make sure the session is kept alive for
-      // as long as the player is using it.
-      initializeKeepSessionIdAudioTrack(audioSessionId);
+      audioSessionId = Util.generateAudioSessionIdV21(applicationContext);
     }
     this.audioSessionId = audioSessionId;
     sendRendererMessage(TRACK_TYPE_AUDIO, MSG_SET_AUDIO_SESSION_ID, audioSessionId);
@@ -2850,13 +2842,16 @@ import java.util.concurrent.TimeoutException;
   }
 
   private boolean hasSupportedAudioOutput() {
-    if (audioManager == null || Util.SDK_INT < 23) {
+    if (Util.SDK_INT >= 35 && suitableOutputChecker != null) {
+      return suitableOutputChecker.isSelectedOutputSuitableForPlayback();
+    } else if (Util.SDK_INT >= 23 && audioManager != null) {
+      return Api23.isSuitableExternalAudioOutputPresentInAudioDeviceInfoList(
+          applicationContext, audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS));
+    } else {
       // The Audio Manager API to determine the list of connected audio devices is available only in
       // API >= 23.
       return true;
     }
-    return Api23.isSuitableAudioOutputPresentInAudioDeviceInfoList(
-        applicationContext, audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS));
   }
 
   private void updateWakeAndWifiLock() {
@@ -2913,40 +2908,6 @@ import java.util.concurrent.TimeoutException;
     }
   }
 
-  /**
-   * Initializes {@link #keepSessionIdAudioTrack} to keep an audio session ID alive. If the audio
-   * session ID is {@link C#AUDIO_SESSION_ID_UNSET} then a new audio session ID is generated.
-   *
-   * <p>Use of this method is only required on API level 21 and earlier.
-   *
-   * @param audioSessionId The audio session ID, or {@link C#AUDIO_SESSION_ID_UNSET} to generate a
-   *     new one.
-   * @return The audio session ID.
-   */
-  private int initializeKeepSessionIdAudioTrack(int audioSessionId) {
-    if (keepSessionIdAudioTrack != null
-        && keepSessionIdAudioTrack.getAudioSessionId() != audioSessionId) {
-      keepSessionIdAudioTrack.release();
-      keepSessionIdAudioTrack = null;
-    }
-    if (keepSessionIdAudioTrack == null) {
-      int sampleRate = 4000; // Minimum sample rate supported by the platform.
-      int channelConfig = AudioFormat.CHANNEL_OUT_MONO;
-      @C.PcmEncoding int encoding = C.ENCODING_PCM_16BIT;
-      int bufferSize = 2; // Use a two byte buffer, as it is not actually used for playback.
-      keepSessionIdAudioTrack =
-          new AudioTrack(
-              C.STREAM_TYPE_DEFAULT,
-              sampleRate,
-              channelConfig,
-              encoding,
-              bufferSize,
-              AudioTrack.MODE_STATIC,
-              audioSessionId);
-    }
-    return keepSessionIdAudioTrack.getAudioSessionId();
-  }
-
   private void updatePriorityTaskManagerForIsLoadingChange(boolean isLoading) {
     if (priorityTaskManager != null) {
       if (isLoading && !isPriorityTaskManagerRegistered) {
@@ -2993,6 +2954,23 @@ import java.util.concurrent.TimeoutException;
         /* ignored */ C.TIME_UNSET,
         /* ignored */ C.INDEX_UNSET,
         /* ignored */ false);
+  }
+
+  private void onSelectedOutputSuitabilityChanged(boolean isSelectedOutputSuitableForPlayback) {
+    if (isSelectedOutputSuitableForPlayback) {
+      if (playbackInfo.playbackSuppressionReason
+          == Player.PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT) {
+        updatePlaybackInfoForPlayWhenReadyAndSuppressionReasonStates(
+            playbackInfo.playWhenReady,
+            PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
+            Player.PLAYBACK_SUPPRESSION_REASON_NONE);
+      }
+    } else {
+      updatePlaybackInfoForPlayWhenReadyAndSuppressionReasonStates(
+          playbackInfo.playWhenReady,
+          PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
+          Player.PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT);
+    }
   }
 
   private static DeviceInfo createDeviceInfo(@Nullable StreamVolumeManager streamVolumeManager) {
@@ -3423,7 +3401,6 @@ import java.util.concurrent.TimeoutException;
   private static final class Api31 {
     private Api31() {}
 
-    @DoNotInline
     public static PlayerId registerMediaMetricsListener(
         Context context, ExoPlayerImpl player, boolean usePlatformDiagnostics, String playerName) {
       @Nullable MediaMetricsListener listener = MediaMetricsListener.create(context);
@@ -3442,8 +3419,7 @@ import java.util.concurrent.TimeoutException;
   private static final class Api23 {
     private Api23() {}
 
-    @DoNotInline
-    public static boolean isSuitableAudioOutputPresentInAudioDeviceInfoList(
+    public static boolean isSuitableExternalAudioOutputPresentInAudioDeviceInfoList(
         Context context, AudioDeviceInfo[] audioDeviceInfos) {
       if (!Util.isWear(context)) {
         return true;
@@ -3475,7 +3451,6 @@ import java.util.concurrent.TimeoutException;
       return false;
     }
 
-    @DoNotInline
     public static void registerAudioDeviceCallback(
         AudioManager audioManager, AudioDeviceCallback audioDeviceCallback, Handler handler) {
       audioManager.registerAudioDeviceCallback(audioDeviceCallback, handler);

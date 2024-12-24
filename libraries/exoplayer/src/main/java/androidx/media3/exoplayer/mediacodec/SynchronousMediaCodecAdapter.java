@@ -17,8 +17,8 @@
 package androidx.media3.exoplayer.mediacodec;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Util.castNonNull;
 
+import android.annotation.SuppressLint;
 import android.media.MediaCodec;
 import android.media.MediaFormat;
 import android.os.Bundle;
@@ -44,22 +44,26 @@ public final class SynchronousMediaCodecAdapter implements MediaCodecAdapter {
   /** A factory for {@link SynchronousMediaCodecAdapter} instances. */
   public static class Factory implements MediaCodecAdapter.Factory {
 
+    @SuppressLint("WrongConstant") // Can't verify codec flag IntDef
     @Override
     public MediaCodecAdapter createAdapter(Configuration configuration) throws IOException {
       @Nullable MediaCodec codec = null;
       try {
         codec = createCodec(configuration);
         TraceUtil.beginSection("configureCodec");
+        int flags = 0;
+        if (configuration.surface == null
+            && configuration.codecInfo.detachedSurfaceSupported
+            && Util.SDK_INT >= 35) {
+          flags |= MediaCodec.CONFIGURE_FLAG_DETACHED_SURFACE;
+        }
         codec.configure(
-            configuration.mediaFormat,
-            configuration.surface,
-            configuration.crypto,
-            configuration.flags);
+            configuration.mediaFormat, configuration.surface, configuration.crypto, flags);
         TraceUtil.endSection();
         TraceUtil.beginSection("startCodec");
         codec.start();
         TraceUtil.endSection();
-        return new SynchronousMediaCodecAdapter(codec);
+        return new SynchronousMediaCodecAdapter(codec, configuration.loudnessCodecController);
       } catch (IOException | RuntimeException e) {
         if (codec != null) {
           codec.release();
@@ -80,14 +84,14 @@ public final class SynchronousMediaCodecAdapter implements MediaCodecAdapter {
   }
 
   private final MediaCodec codec;
-  @Nullable private ByteBuffer[] inputByteBuffers;
-  @Nullable private ByteBuffer[] outputByteBuffers;
+  @Nullable private final LoudnessCodecController loudnessCodecController;
 
-  private SynchronousMediaCodecAdapter(MediaCodec mediaCodec) {
+  private SynchronousMediaCodecAdapter(
+      MediaCodec mediaCodec, @Nullable LoudnessCodecController loudnessCodecController) {
     this.codec = mediaCodec;
-    if (Util.SDK_INT < 21) {
-      inputByteBuffers = codec.getInputBuffers();
-      outputByteBuffers = codec.getOutputBuffers();
+    this.loudnessCodecController = loudnessCodecController;
+    if (Util.SDK_INT >= 35 && loudnessCodecController != null) {
+      loudnessCodecController.addMediaCodec(codec);
     }
   }
 
@@ -106,9 +110,6 @@ public final class SynchronousMediaCodecAdapter implements MediaCodecAdapter {
     int index;
     do {
       index = codec.dequeueOutputBuffer(bufferInfo, 0);
-      if (index == MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED && Util.SDK_INT < 21) {
-        outputByteBuffers = codec.getOutputBuffers();
-      }
     } while (index == MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED);
 
     return index;
@@ -122,21 +123,13 @@ public final class SynchronousMediaCodecAdapter implements MediaCodecAdapter {
   @Override
   @Nullable
   public ByteBuffer getInputBuffer(int index) {
-    if (Util.SDK_INT >= 21) {
-      return codec.getInputBuffer(index);
-    } else {
-      return castNonNull(inputByteBuffers)[index];
-    }
+    return codec.getInputBuffer(index);
   }
 
   @Override
   @Nullable
   public ByteBuffer getOutputBuffer(int index) {
-    if (Util.SDK_INT >= 21) {
-      return codec.getOutputBuffer(index);
-    } else {
-      return castNonNull(outputByteBuffers)[index];
-    }
+    return codec.getOutputBuffer(index);
   }
 
   @Override
@@ -158,7 +151,6 @@ public final class SynchronousMediaCodecAdapter implements MediaCodecAdapter {
   }
 
   @Override
-  @RequiresApi(21)
   public void releaseOutputBuffer(int index, long renderTimeStampNs) {
     codec.releaseOutputBuffer(index, renderTimeStampNs);
   }
@@ -170,8 +162,6 @@ public final class SynchronousMediaCodecAdapter implements MediaCodecAdapter {
 
   @Override
   public void release() {
-    inputByteBuffers = null;
-    outputByteBuffers = null;
     try {
       if (Util.SDK_INT >= 30 && Util.SDK_INT < 33) {
         // Stopping the codec before releasing it works around a bug on APIs 30, 31 and 32 where
@@ -181,6 +171,9 @@ public final class SynchronousMediaCodecAdapter implements MediaCodecAdapter {
         codec.stop();
       }
     } finally {
+      if (Util.SDK_INT >= 35 && loudnessCodecController != null) {
+        loudnessCodecController.removeMediaCodec(codec);
+      }
       codec.release();
     }
   }
@@ -199,6 +192,12 @@ public final class SynchronousMediaCodecAdapter implements MediaCodecAdapter {
   @RequiresApi(23)
   public void setOutputSurface(Surface surface) {
     codec.setOutputSurface(surface);
+  }
+
+  @RequiresApi(35)
+  @Override
+  public void detachOutputSurface() {
+    codec.detachOutputSurface();
   }
 
   @Override

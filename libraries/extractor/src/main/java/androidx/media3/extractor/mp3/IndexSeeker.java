@@ -17,9 +17,8 @@ package androidx.media3.extractor.mp3;
 
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
-import androidx.media3.common.util.LongArray;
 import androidx.media3.common.util.Util;
-import androidx.media3.extractor.SeekPoint;
+import androidx.media3.extractor.IndexSeekMap;
 import java.math.RoundingMode;
 
 /** MP3 seeker that builds a time-to-byte mapping as the stream is read. */
@@ -29,19 +28,16 @@ import java.math.RoundingMode;
   /* package */ static final long MIN_TIME_BETWEEN_POINTS_US = C.MICROS_PER_SECOND / 10;
 
   private final long dataEndPosition;
-  private final LongArray timesUs;
-  private final LongArray positions;
   private final int averageBitrate;
-
-  private long durationUs;
+  private final IndexSeekMap indexSeekMap;
 
   public IndexSeeker(long durationUs, long dataStartPosition, long dataEndPosition) {
-    this.durationUs = durationUs;
+    this.indexSeekMap =
+        new IndexSeekMap(
+            /* positions= */ new long[] {dataStartPosition},
+            /* timesUs= */ new long[] {0L},
+            durationUs);
     this.dataEndPosition = dataEndPosition;
-    timesUs = new LongArray();
-    positions = new LongArray();
-    timesUs.add(0L);
-    positions.add(dataStartPosition);
     if (durationUs != C.TIME_UNSET) {
       long bitrate =
           Util.scaleLargeValue(
@@ -55,10 +51,7 @@ import java.math.RoundingMode;
 
   @Override
   public long getTimeUs(long position) {
-    int targetIndex =
-        Util.binarySearchFloor(
-            positions, position, /* inclusive= */ true, /* stayInBounds= */ true);
-    return timesUs.get(targetIndex);
+    return indexSeekMap.getTimeUs(position);
   }
 
   @Override
@@ -68,26 +61,17 @@ import java.math.RoundingMode;
 
   @Override
   public boolean isSeekable() {
-    return true;
+    return indexSeekMap.isSeekable();
   }
 
   @Override
   public long getDurationUs() {
-    return durationUs;
+    return indexSeekMap.getDurationUs();
   }
 
   @Override
   public SeekPoints getSeekPoints(long timeUs) {
-    int targetIndex =
-        Util.binarySearchFloor(timesUs, timeUs, /* inclusive= */ true, /* stayInBounds= */ true);
-    SeekPoint seekPoint = new SeekPoint(timesUs.get(targetIndex), positions.get(targetIndex));
-    if (seekPoint.timeUs == timeUs || targetIndex == timesUs.size() - 1) {
-      return new SeekPoints(seekPoint);
-    } else {
-      SeekPoint nextSeekPoint =
-          new SeekPoint(timesUs.get(targetIndex + 1), positions.get(targetIndex + 1));
-      return new SeekPoints(seekPoint, nextSeekPoint);
-    }
+    return indexSeekMap.getSeekPoints(timeUs);
   }
 
   @Override
@@ -107,22 +91,23 @@ import java.math.RoundingMode;
     if (isTimeUsInIndex(timeUs)) {
       return;
     }
-    timesUs.add(timeUs);
-    positions.add(position);
+    indexSeekMap.addSeekPoint(timeUs, position);
   }
 
   /**
-   * Returns whether {@code timeUs} (in microseconds) is included in the index.
+   * Returns whether {@code timeUs} (in microseconds) should be considered as part of the index
+   * based on its proximity to the last recorded seek point in the index.
    *
-   * <p>A point is included in the index if it is equal to another point, between 2 points, or
-   * sufficiently close to the last point.
+   * <p>This method assumes that {@code timeUs} is provided in increasing order, consistent with how
+   * points are added to the index in {@link #maybeAddSeekPoint(long, long)}.
+   *
+   * @param timeUs The time in microseconds to check if it is included in the index.
    */
   public boolean isTimeUsInIndex(long timeUs) {
-    long lastIndexedTimeUs = timesUs.get(timesUs.size() - 1);
-    return timeUs - lastIndexedTimeUs < MIN_TIME_BETWEEN_POINTS_US;
+    return indexSeekMap.isTimeUsInIndex(timeUs, MIN_TIME_BETWEEN_POINTS_US);
   }
 
   /* package */ void setDurationUs(long durationUs) {
-    this.durationUs = durationUs;
+    indexSeekMap.setDurationUs(durationUs);
   }
 }

@@ -15,11 +15,14 @@
  */
 package androidx.media3.datasource;
 
+import static java.lang.Math.max;
+
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
 import androidx.annotation.Nullable;
 import androidx.exifinterface.media.ExifInterface;
+import androidx.media3.common.C;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.UnstableApi;
 import java.io.ByteArrayInputStream;
@@ -38,14 +41,37 @@ public final class BitmapUtil {
    *
    * @param data Byte array of compressed image data.
    * @param length The number of bytes to parse.
-   * @param options the {@link BitmapFactory.Options} to decode the {@code data} with.
+   * @param options The {@link BitmapFactory.Options} to decode the {@code data} with.
+   * @param maximumOutputDimension The largest output Bitmap dimension that can be returned by this
+   *     method, or {@link C#LENGTH_UNSET} if no limits are enforced.
    * @throws ParserException if the {@code data} could not be decoded.
    */
   // BitmapFactory's options parameter is null-ok.
   @SuppressWarnings("nullness:argument.type.incompatible")
-  public static Bitmap decode(byte[] data, int length, @Nullable BitmapFactory.Options options)
+  public static Bitmap decode(
+      byte[] data, int length, @Nullable BitmapFactory.Options options, int maximumOutputDimension)
       throws IOException {
+    if (maximumOutputDimension != C.LENGTH_UNSET) {
+      if (options == null) {
+        options = new BitmapFactory.Options();
+      }
+      options.inJustDecodeBounds = true;
+      BitmapFactory.decodeByteArray(data, /* offset= */ 0, length, options);
+      int largerDimensions = max(options.outWidth, options.outHeight);
+
+      options.inJustDecodeBounds = false;
+      options.inSampleSize = 1;
+      // Only scaling by 2x is supported.
+      while (largerDimensions > maximumOutputDimension) {
+        options.inSampleSize *= 2;
+        largerDimensions /= 2;
+      }
+    }
+
     @Nullable Bitmap bitmap = BitmapFactory.decodeByteArray(data, /* offset= */ 0, length, options);
+    if (options != null) {
+      options.inSampleSize = 1;
+    }
     if (bitmap == null) {
       throw ParserException.createForMalformedContainer(
           "Could not decode image data", new IllegalStateException());

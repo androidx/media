@@ -16,7 +16,7 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_FORMAT;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assume.assumeTrue;
@@ -61,7 +61,10 @@ public class TransformerWithInAppMuxerEndToEndAndroidTest {
     // signal a lack of support for H265_MP4's actual format, but pass this test when using
     // MP4_ASSET_FORMAT for skipping.
     assumeFormatsSupported(
-        context, testId, /* inputFormat= */ MP4_ASSET_FORMAT, /* outputFormat= */ MP4_ASSET_FORMAT);
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET.videoFormat,
+        /* outputFormat= */ MP4_ASSET.videoFormat);
     Transformer transformer =
         new Transformer.Builder(context)
             .setMuxerFactory(new InAppMuxer.Factory.Builder().build())

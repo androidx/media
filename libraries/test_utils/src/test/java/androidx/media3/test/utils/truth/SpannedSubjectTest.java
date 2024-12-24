@@ -40,6 +40,7 @@ import androidx.media3.common.text.HorizontalTextInVerticalContextSpan;
 import androidx.media3.common.text.RubySpan;
 import androidx.media3.common.text.TextAnnotation;
 import androidx.media3.common.text.TextEmphasisSpan;
+import androidx.media3.common.text.VoiceSpan;
 import androidx.media3.common.util.Util;
 import androidx.media3.test.utils.truth.SpannedSubject.AndSpanFlags;
 import androidx.media3.test.utils.truth.SpannedSubject.WithSpanFlags;
@@ -900,6 +901,59 @@ public class SpannedSubjectTest {
     checkHasNoSpanFails(
         new HorizontalTextInVerticalContextSpan(),
         SpannedSubject::hasNoHorizontalTextInVerticalContextSpanBetween);
+  }
+
+  @Test
+  public void voiceSpan_success() {
+    SpannableString spannable =
+        createSpannable(new VoiceSpan("speaker"), Spanned.SPAN_INCLUSIVE_EXCLUSIVE);
+
+    assertThat(spannable)
+        .hasVoiceSpanBetween(SPAN_START, SPAN_END)
+        .withName("speaker")
+        .andFlags(Spanned.SPAN_INCLUSIVE_EXCLUSIVE);
+  }
+
+  @Test
+  public void voiceSpan_wrongEndIndex() {
+    checkHasSpanFailsDueToIndexMismatch(
+        new VoiceSpan("speaker"), SpannedSubject::hasVoiceSpanBetween);
+  }
+
+  @Test
+  public void voiceSpan_wrongName() {
+    SpannableString spannable = createSpannable(new VoiceSpan("speaker"));
+
+    AssertionError expected =
+        expectFailure(
+            whenTesting ->
+                whenTesting
+                    .that(spannable)
+                    .hasVoiceSpanBetween(SPAN_START, SPAN_END)
+                    .withName("different speaker"));
+
+    assertThat(expected).factValue("value of").contains("voiceName");
+    assertThat(expected).factValue("expected").contains("name=different speaker");
+    assertThat(expected).factValue("but was").contains("name=speaker");
+  }
+
+  @Test
+  public void voiceSpan_wrongFlags() {
+    checkHasSpanFailsDueToFlagMismatch(
+        new VoiceSpan("speaker"),
+        (subject, start, end) -> subject.hasVoiceSpanBetween(start, end).withName("speaker"));
+  }
+
+  @Test
+  public void noVoiceSpan_success() {
+    SpannableString spannable = createSpannableWithUnrelatedSpanAnd(new VoiceSpan("speaker"));
+
+    assertThat(spannable).hasNoVoiceSpanBetween(UNRELATED_SPAN_START, UNRELATED_SPAN_END);
+  }
+
+  @Test
+  public void noVoiceSpan_failure() {
+    checkHasNoSpanFails(new VoiceSpan("speaker"), SpannedSubject::hasNoVoiceSpanBetween);
   }
 
   private interface HasSpanFunction<T> {

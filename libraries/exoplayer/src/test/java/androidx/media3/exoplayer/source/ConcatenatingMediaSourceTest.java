@@ -55,7 +55,7 @@ public final class ConcatenatingMediaSourceTest {
   @Before
   public void setUp() throws Exception {
     mediaSource = new ConcatenatingMediaSource(/* isAtomic= */ false, new FakeShuffleOrder(0));
-    testRunner = new MediaSourceTestRunner(mediaSource, null);
+    testRunner = new MediaSourceTestRunner(mediaSource);
   }
 
   @After
@@ -722,7 +722,7 @@ public final class ConcatenatingMediaSourceTest {
     testRunner.release();
     ConcatenatingMediaSource mediaSource =
         new ConcatenatingMediaSource(/* isAtomic= */ true, new FakeShuffleOrder(0));
-    testRunner = new MediaSourceTestRunner(mediaSource, null);
+    testRunner = new MediaSourceTestRunner(mediaSource);
     mediaSource.addMediaSources(Arrays.asList(createMediaSources(3)));
     Timeline timeline = testRunner.prepareSource();
     TimelineAsserts.assertWindowTags(timeline, 111, 222, 333);
@@ -958,7 +958,7 @@ public final class ConcatenatingMediaSourceTest {
             /* useLazyPreparation= */ true,
             new DefaultShuffleOrder(0),
             childSources);
-    testRunner = new MediaSourceTestRunner(mediaSource, /* allocator= */ null);
+    testRunner = new MediaSourceTestRunner(mediaSource);
     testRunner.prepareSource();
 
     assertThat(childSources[0].isPrepared()).isFalse();
@@ -974,7 +974,7 @@ public final class ConcatenatingMediaSourceTest {
             /* useLazyPreparation= */ true,
             new DefaultShuffleOrder(0),
             childSources);
-    testRunner = new MediaSourceTestRunner(mediaSource, /* allocator= */ null);
+    testRunner = new MediaSourceTestRunner(mediaSource);
     Timeline timeline = testRunner.prepareSource();
     testRunner.createPeriod(
         new MediaPeriodId(
@@ -993,7 +993,7 @@ public final class ConcatenatingMediaSourceTest {
             /* useLazyPreparation= */ true,
             new DefaultShuffleOrder(0),
             childSources);
-    testRunner = new MediaSourceTestRunner(mediaSource, /* allocator= */ null);
+    testRunner = new MediaSourceTestRunner(mediaSource);
     Timeline timeline = testRunner.prepareSource();
 
     // The lazy preparation must only be triggered once, even if we create multiple periods from
@@ -1015,7 +1015,7 @@ public final class ConcatenatingMediaSourceTest {
             /* useLazyPreparation= */ true,
             new DefaultShuffleOrder(0),
             childSources);
-    testRunner = new MediaSourceTestRunner(mediaSource, /* allocator= */ null);
+    testRunner = new MediaSourceTestRunner(mediaSource);
     testRunner.prepareSource();
 
     // Check that removal doesn't throw even though the child sources are unprepared.

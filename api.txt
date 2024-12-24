@@ -26,7 +26,7 @@ package androidx.media3.common {
   }
 
   public final class AudioAttributes {
-    method @RequiresApi(21) public androidx.media3.common.AudioAttributes.AudioAttributesV21 getAudioAttributesV21();
+    method public androidx.media3.common.AudioAttributes.AudioAttributesV21 getAudioAttributesV21();
     field public static final androidx.media3.common.AudioAttributes DEFAULT;
     field @androidx.media3.common.C.AudioAllowedCapturePolicy public final int allowedCapturePolicy;
     field @androidx.media3.common.C.AudioContentType public final int contentType;
@@ -35,7 +35,7 @@ package androidx.media3.common {
     field @androidx.media3.common.C.AudioUsage public final int usage;
   }
 
-  @RequiresApi(21) public static final class AudioAttributes.AudioAttributesV21 {
+  public static final class AudioAttributes.AudioAttributesV21 {
     field public final android.media.AudioAttributes audioAttributes;
   }
 
@@ -79,6 +79,7 @@ package androidx.media3.common {
     field public static final java.util.UUID PLAYREADY_UUID;
     field public static final float RATE_UNSET = -3.4028235E38f;
     field public static final int ROLE_FLAG_ALTERNATE = 2; // 0x2
+    field public static final int ROLE_FLAG_AUXILIARY = 32768; // 0x8000
     field public static final int ROLE_FLAG_CAPTION = 64; // 0x40
     field public static final int ROLE_FLAG_COMMENTARY = 8; // 0x8
     field public static final int ROLE_FLAG_DESCRIBES_MUSIC_AND_SOUND = 1024; // 0x400
@@ -156,7 +157,7 @@ package androidx.media3.common {
   @IntDef(open=true, value={androidx.media3.common.C.CRYPTO_TYPE_UNSUPPORTED, androidx.media3.common.C.CRYPTO_TYPE_NONE, androidx.media3.common.C.CRYPTO_TYPE_FRAMEWORK}) @java.lang.annotation.Documented @java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.SOURCE) @java.lang.annotation.Target(java.lang.annotation.ElementType.TYPE_USE) public static @interface C.CryptoType {
   }
 
-  @IntDef(flag=true, value={androidx.media3.common.C.ROLE_FLAG_MAIN, androidx.media3.common.C.ROLE_FLAG_ALTERNATE, androidx.media3.common.C.ROLE_FLAG_SUPPLEMENTARY, androidx.media3.common.C.ROLE_FLAG_COMMENTARY, androidx.media3.common.C.ROLE_FLAG_DUB, androidx.media3.common.C.ROLE_FLAG_EMERGENCY, androidx.media3.common.C.ROLE_FLAG_CAPTION, androidx.media3.common.C.ROLE_FLAG_SUBTITLE, androidx.media3.common.C.ROLE_FLAG_SIGN, androidx.media3.common.C.ROLE_FLAG_DESCRIBES_VIDEO, androidx.media3.common.C.ROLE_FLAG_DESCRIBES_MUSIC_AND_SOUND, androidx.media3.common.C.ROLE_FLAG_ENHANCED_DIALOG_INTELLIGIBILITY, androidx.media3.common.C.ROLE_FLAG_TRANSCRIBES_DIALOG, androidx.media3.common.C.ROLE_FLAG_EASY_TO_READ, androidx.media3.common.C.ROLE_FLAG_TRICK_PLAY}) @java.lang.annotation.Documented @java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.SOURCE) @java.lang.annotation.Target({java.lang.annotation.ElementType.FIELD, java.lang.annotation.ElementType.METHOD, java.lang.annotation.ElementType.PARAMETER, java.lang.annotation.ElementType.LOCAL_VARIABLE, java.lang.annotation.ElementType.TYPE_USE}) public static @interface C.RoleFlags {
+  @IntDef(flag=true, value={androidx.media3.common.C.ROLE_FLAG_MAIN, androidx.media3.common.C.ROLE_FLAG_ALTERNATE, androidx.media3.common.C.ROLE_FLAG_SUPPLEMENTARY, androidx.media3.common.C.ROLE_FLAG_COMMENTARY, androidx.media3.common.C.ROLE_FLAG_DUB, androidx.media3.common.C.ROLE_FLAG_EMERGENCY, androidx.media3.common.C.ROLE_FLAG_CAPTION, androidx.media3.common.C.ROLE_FLAG_SUBTITLE, androidx.media3.common.C.ROLE_FLAG_SIGN, androidx.media3.common.C.ROLE_FLAG_DESCRIBES_VIDEO, androidx.media3.common.C.ROLE_FLAG_DESCRIBES_MUSIC_AND_SOUND, androidx.media3.common.C.ROLE_FLAG_ENHANCED_DIALOG_INTELLIGIBILITY, androidx.media3.common.C.ROLE_FLAG_TRANSCRIBES_DIALOG, androidx.media3.common.C.ROLE_FLAG_EASY_TO_READ, androidx.media3.common.C.ROLE_FLAG_TRICK_PLAY, androidx.media3.common.C.ROLE_FLAG_AUXILIARY}) @java.lang.annotation.Documented @java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.SOURCE) @java.lang.annotation.Target({java.lang.annotation.ElementType.FIELD, java.lang.annotation.ElementType.METHOD, java.lang.annotation.ElementType.PARAMETER, java.lang.annotation.ElementType.LOCAL_VARIABLE, java.lang.annotation.ElementType.TYPE_USE}) public static @interface C.RoleFlags {
   }
 
   @IntDef(flag=true, value={androidx.media3.common.C.SELECTION_FLAG_DEFAULT, androidx.media3.common.C.SELECTION_FLAG_FORCED, androidx.media3.common.C.SELECTION_FLAG_AUTOSELECT}) @java.lang.annotation.Documented @java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.SOURCE) @java.lang.annotation.Target({java.lang.annotation.ElementType.FIELD, java.lang.annotation.ElementType.METHOD, java.lang.annotation.ElementType.PARAMETER, java.lang.annotation.ElementType.LOCAL_VARIABLE, java.lang.annotation.ElementType.TYPE_USE}) public static @interface C.SelectionFlags {
@@ -548,6 +549,7 @@ package androidx.media3.common {
     field public static final String APPLICATION_PGS = "application/pgs";
     field @Deprecated public static final String APPLICATION_RAWCC = "application/x-rawcc";
     field public static final String APPLICATION_RTSP = "application/x-rtsp";
+    field public static final String APPLICATION_SDP = "application/sdp";
     field public static final String APPLICATION_SS = "application/vnd.ms-sstr+xml";
     field public static final String APPLICATION_SUBRIP = "application/x-subrip";
     field public static final String APPLICATION_TTML = "application/ttml+xml";
@@ -1190,7 +1192,7 @@ package androidx.media3.common {
     field public static final androidx.media3.common.VideoSize UNKNOWN;
     field @IntRange(from=0) public final int height;
     field @FloatRange(from=0, fromInclusive=false) public final float pixelWidthHeightRatio;
-    field @IntRange(from=0, to=359) public final int unappliedRotationDegrees;
+    field @Deprecated @IntRange(from=0, to=359) public final int unappliedRotationDegrees;
     field @IntRange(from=0) public final int width;
   }
 

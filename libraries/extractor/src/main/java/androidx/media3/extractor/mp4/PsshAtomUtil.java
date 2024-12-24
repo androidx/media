@@ -19,6 +19,7 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.container.Mp4Box;
 import java.nio.ByteBuffer;
 import java.util.UUID;
 
@@ -52,13 +53,13 @@ public final class PsshAtomUtil {
   public static byte[] buildPsshAtom(
       UUID systemId, @Nullable UUID[] keyIds, @Nullable byte[] data) {
     int dataLength = data != null ? data.length : 0;
-    int psshBoxLength = Atom.FULL_HEADER_SIZE + 16 /* SystemId */ + 4 /* DataSize */ + dataLength;
+    int psshBoxLength = Mp4Box.FULL_HEADER_SIZE + 16 /* SystemId */ + 4 /* DataSize */ + dataLength;
     if (keyIds != null) {
       psshBoxLength += 4 /* KID_count */ + (keyIds.length * 16) /* KIDs */;
     }
     ByteBuffer psshBox = ByteBuffer.allocate(psshBoxLength);
     psshBox.putInt(psshBoxLength);
-    psshBox.putInt(Atom.TYPE_pssh);
+    psshBox.putInt(Mp4Box.TYPE_pssh);
     psshBox.putInt(keyIds != null ? 0x01000000 : 0 /* version=(buildV1Atom ? 1 : 0), flags=0 */);
     psshBox.putLong(systemId.getMostSignificantBits());
     psshBox.putLong(systemId.getLeastSignificantBits());
@@ -157,7 +158,7 @@ public final class PsshAtomUtil {
   @Nullable
   public static PsshAtom parsePsshAtom(byte[] atom) {
     ParsableByteArray atomData = new ParsableByteArray(atom);
-    if (atomData.limit() < Atom.FULL_HEADER_SIZE + 16 /* UUID */ + 4 /* DataSize */) {
+    if (atomData.limit() < Mp4Box.FULL_HEADER_SIZE + 16 /* UUID */ + 4 /* DataSize */) {
       // Data too short.
       return null;
     }
@@ -171,11 +172,11 @@ public final class PsshAtomUtil {
       return null;
     }
     int atomType = atomData.readInt();
-    if (atomType != Atom.TYPE_pssh) {
+    if (atomType != Mp4Box.TYPE_pssh) {
       Log.w(TAG, "Atom type is not pssh: " + atomType);
       return null;
     }
-    int atomVersion = Atom.parseFullAtomVersion(atomData.readInt());
+    int atomVersion = BoxParser.parseFullBoxVersion(atomData.readInt());
     if (atomVersion > 1) {
       Log.w(TAG, "Unsupported pssh version: " + atomVersion);
       return null;

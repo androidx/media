@@ -98,13 +98,8 @@ public abstract class MediaLibraryService extends MediaSessionService {
    *   <th>{@link ControllerInfo#getPackageName()}<br>for legacy browser</th>
    *   <th>{@link ControllerInfo#getUid()}<br>for legacy browser</th></tr>
    * <tr>
-   *   <td>{@code SDK_INT < 21}</td>
-   *   <td>Actual package name via {@link Context#getPackageName()}</td>
-   *   <td>Actual UID</td>
-   * </tr>
-   * <tr>
    *   <td>
-   *     {@code 21 <= SDK_INT < 28}<br>
+   *     {@code SDK_INT < 28}<br>
    *     for {@link Callback#onConnect onConnect}<br>
    *     and {@link Callback#onGetLibraryRoot onGetLibraryRoot}
    *   </td>
@@ -113,7 +108,7 @@ public abstract class MediaLibraryService extends MediaSessionService {
    * </tr>
    * <tr>
    *   <td>
-   *     {@code 21 <= SDK_INT < 28}<br>
+   *     {@code SDK_INT < 28}<br>
    *     for other {@link Callback callbacks}
    *   </td>
    *   <td>{@link ControllerInfo#LEGACY_CONTROLLER_PACKAGE_NAME}</td>
@@ -548,6 +543,10 @@ public abstract class MediaLibraryService extends MediaSessionService {
       /**
        * Sets the custom layout of the session.
        *
+       * <p>This method will be deprecated, prefer to use {@link #setMediaButtonPreferences}. Note
+       * that the media button preferences use {@link CommandButton#slots} to define the allowed
+       * button placement.
+       *
        * <p>The buttons are converted to custom actions in the legacy media session playback state
        * for legacy controllers (see {@code
        * PlaybackStateCompat.Builder#addCustomAction(PlaybackStateCompat.CustomAction)}). When
@@ -569,9 +568,40 @@ public abstract class MediaLibraryService extends MediaSessionService {
        * @return The builder to allow chaining.
        */
       @UnstableApi
+      @CanIgnoreReturnValue
       @Override
       public Builder setCustomLayout(List<CommandButton> customLayout) {
         return super.setCustomLayout(customLayout);
+      }
+
+      /**
+       * Sets the media button preferences.
+       *
+       * <p>The button are converted to custom actions in the legacy media session playback state
+       * for legacy controllers (see {@code
+       * PlaybackStateCompat.Builder#addCustomAction(PlaybackStateCompat.CustomAction)}). When
+       * converting, the {@linkplain SessionCommand#customExtras custom extras of the session
+       * command} is used for the extras of the legacy custom action.
+       *
+       * <p>Controllers that connect have the media button preferences of the session available with
+       * the initial connection result by default. Media button preferences specific to a controller
+       * can be set when the controller {@linkplain MediaSession.Callback#onConnect connects} by
+       * using an {@link ConnectionResult.AcceptedResultBuilder}.
+       *
+       * <p>Use {@code MediaSession.setMediaButtonPreferences(..)} to update the media button
+       * preferences during the life time of the session.
+       *
+       * <p>On the controller side, the {@linkplain CommandButton#isEnabled enabled} flag is set to
+       * {@code false} if the available commands of a controller do not allow to use a button.
+       *
+       * @param mediaButtonPreferences The ordered list of {@link CommandButton command buttons}.
+       * @return The builder to allow chaining.
+       */
+      @CanIgnoreReturnValue
+      @UnstableApi
+      @Override
+      public Builder setMediaButtonPreferences(List<CommandButton> mediaButtonPreferences) {
+        return super.setMediaButtonPreferences(mediaButtonPreferences);
       }
 
       /**
@@ -636,6 +666,18 @@ public abstract class MediaLibraryService extends MediaSessionService {
       }
 
       /**
+       * Sets {@link CommandButton command buttons} that can be added as {@link
+       * MediaMetadata.Builder#setSupportedCommands(List) supported media item commands}.
+       *
+       * @param commandButtons The command buttons.
+       */
+      @UnstableApi
+      @Override
+      public Builder setCommandButtonsForMediaItems(List<CommandButton> commandButtons) {
+        return super.setCommandButtonsForMediaItems(commandButtons);
+      }
+
+      /**
        * Builds a {@link MediaLibrarySession}.
        *
        * @return A new session.
@@ -653,6 +695,8 @@ public abstract class MediaLibraryService extends MediaSessionService {
             player,
             sessionActivity,
             customLayout,
+            mediaButtonPreferences,
+            commandButtonsForMediaItems,
             callback,
             tokenExtras,
             sessionExtras,
@@ -669,6 +713,8 @@ public abstract class MediaLibraryService extends MediaSessionService {
         Player player,
         @Nullable PendingIntent sessionActivity,
         ImmutableList<CommandButton> customLayout,
+        ImmutableList<CommandButton> mediaButtonPreferences,
+        ImmutableList<CommandButton> commandButtonsForMediaItems,
         MediaSession.Callback callback,
         Bundle tokenExtras,
         Bundle sessionExtras,
@@ -682,6 +728,8 @@ public abstract class MediaLibraryService extends MediaSessionService {
           player,
           sessionActivity,
           customLayout,
+          mediaButtonPreferences,
+          commandButtonsForMediaItems,
           callback,
           tokenExtras,
           sessionExtras,
@@ -698,6 +746,8 @@ public abstract class MediaLibraryService extends MediaSessionService {
         Player player,
         @Nullable PendingIntent sessionActivity,
         ImmutableList<CommandButton> customLayout,
+        ImmutableList<CommandButton> mediaButtonPreferences,
+        ImmutableList<CommandButton> commandButtonsForMediaItems,
         MediaSession.Callback callback,
         Bundle tokenExtras,
         Bundle sessionExtras,
@@ -712,6 +762,8 @@ public abstract class MediaLibraryService extends MediaSessionService {
           player,
           sessionActivity,
           customLayout,
+          mediaButtonPreferences,
+          commandButtonsForMediaItems,
           (Callback) callback,
           tokenExtras,
           sessionExtras,

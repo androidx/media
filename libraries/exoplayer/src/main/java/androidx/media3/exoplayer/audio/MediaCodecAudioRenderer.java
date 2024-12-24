@@ -31,7 +31,6 @@ import android.media.MediaFormat;
 import android.os.Bundle;
 import android.os.Handler;
 import androidx.annotation.CallSuper;
-import androidx.annotation.DoNotInline;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.AudioAttributes;
@@ -58,6 +57,7 @@ import androidx.media3.exoplayer.RendererCapabilities;
 import androidx.media3.exoplayer.audio.AudioRendererEventListener.EventDispatcher;
 import androidx.media3.exoplayer.audio.AudioSink.InitializationException;
 import androidx.media3.exoplayer.audio.AudioSink.WriteException;
+import androidx.media3.exoplayer.mediacodec.LoudnessCodecController;
 import androidx.media3.exoplayer.mediacodec.MediaCodecAdapter;
 import androidx.media3.exoplayer.mediacodec.MediaCodecInfo;
 import androidx.media3.exoplayer.mediacodec.MediaCodecRenderer;
@@ -107,6 +107,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
   private final Context context;
   private final EventDispatcher eventDispatcher;
   private final AudioSink audioSink;
+  @Nullable private final LoudnessCodecController loudnessCodecController;
 
   private int codecMaxInputSize;
   private boolean codecNeedsDiscardChannelsWorkaround;
@@ -252,6 +253,43 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
       @Nullable Handler eventHandler,
       @Nullable AudioRendererEventListener eventListener,
       AudioSink audioSink) {
+    this(
+        context,
+        codecAdapterFactory,
+        mediaCodecSelector,
+        enableDecoderFallback,
+        eventHandler,
+        eventListener,
+        audioSink,
+        Util.SDK_INT >= 35 ? new LoudnessCodecController() : null);
+  }
+
+  /**
+   * Creates a new instance.
+   *
+   * @param context A context.
+   * @param codecAdapterFactory The {@link MediaCodecAdapter.Factory} used to create {@link
+   *     MediaCodecAdapter} instances.
+   * @param mediaCodecSelector A decoder selector.
+   * @param enableDecoderFallback Whether to enable fallback to lower-priority decoders if decoder
+   *     initialization fails. This may result in using a decoder that is slower/less efficient than
+   *     the primary decoder.
+   * @param eventHandler A handler to use when delivering events to {@code eventListener}. May be
+   *     null if delivery of events is not required.
+   * @param eventListener A listener of events. May be null if delivery of events is not required.
+   * @param audioSink The sink to which audio will be output.
+   * @param loudnessCodecController The {@link LoudnessCodecController}, or null to not control
+   *     loudness.
+   */
+  public MediaCodecAudioRenderer(
+      Context context,
+      MediaCodecAdapter.Factory codecAdapterFactory,
+      MediaCodecSelector mediaCodecSelector,
+      boolean enableDecoderFallback,
+      @Nullable Handler eventHandler,
+      @Nullable AudioRendererEventListener eventListener,
+      AudioSink audioSink,
+      @Nullable LoudnessCodecController loudnessCodecController) {
     super(
         C.TRACK_TYPE_AUDIO,
         codecAdapterFactory,
@@ -261,6 +299,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
     context = context.getApplicationContext();
     this.context = context;
     this.audioSink = audioSink;
+    this.loudnessCodecController = loudnessCodecController;
     rendererPriority = C.PRIORITY_PLAYBACK;
     eventDispatcher = new EventDispatcher(eventHandler, eventListener);
     nextBufferToWritePresentationTimeUs = C.TIME_UNSET;
@@ -278,8 +317,6 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
     if (!MimeTypes.isAudio(format.sampleMimeType)) {
       return RendererCapabilities.create(C.FORMAT_UNSUPPORTED_TYPE);
     }
-    @TunnelingSupport
-    int tunnelingSupport = Util.SDK_INT >= 21 ? TUNNELING_SUPPORTED : TUNNELING_NOT_SUPPORTED;
     boolean formatHasDrm = format.cryptoType != C.CRYPTO_TYPE_NONE;
     boolean supportsFormatDrm = supportsFormatDrm(format);
 
@@ -291,7 +328,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
       audioOffloadSupport = getAudioOffloadSupport(format);
       if (audioSink.supportsFormat(format)) {
         return RendererCapabilities.create(
-            C.FORMAT_HANDLED, ADAPTIVE_NOT_SEAMLESS, tunnelingSupport, audioOffloadSupport);
+            C.FORMAT_HANDLED, ADAPTIVE_NOT_SEAMLESS, TUNNELING_SUPPORTED, audioOffloadSupport);
       }
     }
     // If the input is PCM then it will be passed directly to the sink. Hence the sink must support
@@ -346,7 +383,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
     return RendererCapabilities.create(
         formatSupport,
         adaptiveSupport,
-        tunnelingSupport,
+        TUNNELING_SUPPORTED,
         hardwareAccelerationSupport,
         decoderSupport,
         audioOffloadSupport);
@@ -445,7 +482,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
             && !MimeTypes.AUDIO_RAW.equals(format.sampleMimeType);
     decryptOnlyCodecFormat = decryptOnlyCodecEnabled ? format : null;
     return MediaCodecAdapter.Configuration.createForAudioDecoding(
-        codecInfo, mediaFormat, format, crypto);
+        codecInfo, mediaFormat, format, crypto, loudnessCodecController);
   }
 
   @Override
@@ -690,6 +727,9 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
   @Override
   protected void onRelease() {
     audioSink.release();
+    if (Util.SDK_INT >= 35 && loudnessCodecController != null) {
+      loudnessCodecController.release();
+    }
   }
 
   @Override
@@ -853,7 +893,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
         audioSink.setSkipSilenceEnabled((Boolean) checkNotNull(message));
         break;
       case MSG_SET_AUDIO_SESSION_ID:
-        audioSink.setAudioSessionId((Integer) checkNotNull(message));
+        setAudioSessionId((int) checkNotNull(message));
         break;
       case MSG_SET_PRIORITY:
         rendererPriority = (int) checkNotNull(message);
@@ -971,10 +1011,16 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
       mediaFormat.setInteger(MediaFormat.KEY_MAX_OUTPUT_CHANNEL_COUNT, 99);
     }
     if (Util.SDK_INT >= 35) {
-      // TODO: b/333552477 - Use MediaFormat.KEY_IMPORTANCE once compileSdk >= 35
-      mediaFormat.setInteger("importance", max(0, -rendererPriority));
+      mediaFormat.setInteger(MediaFormat.KEY_IMPORTANCE, max(0, -rendererPriority));
     }
     return mediaFormat;
+  }
+
+  private void setAudioSessionId(int audioSessionId) {
+    audioSink.setAudioSessionId(audioSessionId);
+    if (Util.SDK_INT >= 35 && loudnessCodecController != null) {
+      loudnessCodecController.setAudioSessionId(audioSessionId);
+    }
   }
 
   private void updateCodecImportance() {
@@ -985,8 +1031,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
     }
     if (Util.SDK_INT >= 35) {
       Bundle codecParameters = new Bundle();
-      // TODO: b/333552477 - Use MediaFormat.KEY_IMPORTANCE once compileSdk >= 35
-      codecParameters.putInt("importance", max(0, -rendererPriority));
+      codecParameters.putInt(MediaFormat.KEY_IMPORTANCE, max(0, -rendererPriority));
       codec.setParameters(codecParameters);
     }
   }
@@ -1111,7 +1156,6 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
   private static final class Api23 {
     private Api23() {}
 
-    @DoNotInline
     public static void setAudioSinkPreferredDevice(
         AudioSink audioSink, @Nullable Object messagePayload) {
       @Nullable AudioDeviceInfo audioDeviceInfo = (AudioDeviceInfo) messagePayload;

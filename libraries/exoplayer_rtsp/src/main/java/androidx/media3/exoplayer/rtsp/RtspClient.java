@@ -39,11 +39,11 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.net.Uri;
 import android.os.Handler;
-import android.os.Looper;
 import android.util.SparseArray;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
@@ -384,7 +384,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     public void sendDescribeRequest(Uri uri, @Nullable String sessionId) {
       sendRequest(
           getRequestWithCommonHeaders(
-              METHOD_DESCRIBE, sessionId, /* additionalHeaders= */ ImmutableMap.of(), uri));
+              METHOD_DESCRIBE,
+              sessionId,
+              /* additionalHeaders= */ ImmutableMap.of(
+                  RtspHeaders.ACCEPT, MimeTypes.APPLICATION_SDP),
+              uri));
     }
 
     public void sendSetupRequest(Uri trackUri, String transport, @Nullable String sessionId) {

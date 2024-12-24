@@ -19,12 +19,9 @@ package androidx.media3.transformer.mh;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_1080P_5_SECOND_HLG10;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_1080P_5_SECOND_HLG10_FORMAT;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_720P_4_SECOND_HDR10;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_720P_4_SECOND_HDR10_FORMAT;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_AV1_2_SECOND_HDR10;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_AV1_2_SECOND_HDR10_FORMAT;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_PORTRAIT_ASSET_URI_STRING;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_PORTRAIT_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
 import static androidx.media3.transformer.AndroidTestUtil.extractBitmapsFromVideo;
 import static androidx.media3.transformer.SequenceEffectTestUtil.NO_EFFECT;
@@ -89,17 +86,17 @@ public final class TransformerHdrSequenceEffectTest {
   @Test
   public void export_withSdrThenHdr() throws Exception {
     assumeDeviceSupportsOpenGlToneMapping(
-        testId, /* inputFormat= */ MP4_ASSET_720P_4_SECOND_HDR10_FORMAT);
+        testId, /* inputFormat= */ MP4_ASSET_720P_4_SECOND_HDR10.videoFormat);
     Composition composition =
         createComposition(
             Presentation.createForHeight(EXPORT_HEIGHT),
             clippedVideo(
-                MP4_PORTRAIT_ASSET_URI_STRING,
+                MP4_PORTRAIT_ASSET.uri,
                 ImmutableList.of(
                     new Crop(/* left= */ -1, /* right= */ 0, /* bottom= */ -1, /* top= */ 0)),
                 /* endPositionMs= */ SINGLE_30_FPS_VIDEO_FRAME_THRESHOLD_MS),
             clippedVideo(
-                MP4_ASSET_720P_4_SECOND_HDR10,
+                MP4_ASSET_720P_4_SECOND_HDR10.uri,
                 ImmutableList.of(
                     new ScaleAndRotateTransformation.Builder().setRotationDegrees(45).build()),
                 /* endPositionMs= */ SINGLE_30_FPS_VIDEO_FRAME_THRESHOLD_MS));
@@ -122,22 +119,22 @@ public final class TransformerHdrSequenceEffectTest {
    */
   @Test
   public void export_withHdrThenSdr_whenHdrEditingSupported_throws() throws Exception {
-    assumeDeviceSupportsHdrEditing(testId, MP4_ASSET_720P_4_SECOND_HDR10_FORMAT);
+    assumeDeviceSupportsHdrEditing(testId, MP4_ASSET_720P_4_SECOND_HDR10.videoFormat);
     assumeFormatsSupported(
         context,
         testId,
-        /* inputFormat= */ MP4_ASSET_720P_4_SECOND_HDR10_FORMAT,
+        /* inputFormat= */ MP4_ASSET_720P_4_SECOND_HDR10.videoFormat,
         /* outputFormat= */ null);
     Composition composition =
         createComposition(
             Presentation.createForHeight(EXPORT_HEIGHT),
             clippedVideo(
-                MP4_ASSET_720P_4_SECOND_HDR10,
+                MP4_ASSET_720P_4_SECOND_HDR10.uri,
                 ImmutableList.of(
                     new ScaleAndRotateTransformation.Builder().setRotationDegrees(45).build()),
                 /* endPositionMs= */ SINGLE_30_FPS_VIDEO_FRAME_THRESHOLD_MS),
             clippedVideo(
-                MP4_PORTRAIT_ASSET_URI_STRING,
+                MP4_PORTRAIT_ASSET.uri,
                 ImmutableList.of(
                     new Crop(/* left= */ -1, /* right= */ 0, /* bottom= */ -1, /* top= */ 0)),
                 /* endPositionMs= */ SINGLE_30_FPS_VIDEO_FRAME_THRESHOLD_MS));
@@ -161,24 +158,24 @@ public final class TransformerHdrSequenceEffectTest {
    */
   @Test
   public void export_withHdrThenSdr_whenHdrEditingUnsupported() throws Exception {
-    assumeDeviceDoesNotSupportHdrEditing(testId, MP4_ASSET_720P_4_SECOND_HDR10_FORMAT);
+    assumeDeviceDoesNotSupportHdrEditing(testId, MP4_ASSET_720P_4_SECOND_HDR10.videoFormat);
     assumeDeviceSupportsOpenGlToneMapping(
-        testId, /* inputFormat= */ MP4_ASSET_720P_4_SECOND_HDR10_FORMAT);
+        testId, /* inputFormat= */ MP4_ASSET_720P_4_SECOND_HDR10.videoFormat);
     assumeFormatsSupported(
         context,
         testId,
-        /* inputFormat= */ MP4_ASSET_720P_4_SECOND_HDR10_FORMAT,
+        /* inputFormat= */ MP4_ASSET_720P_4_SECOND_HDR10.videoFormat,
         /* outputFormat= */ null);
     Composition composition =
         createComposition(
             Presentation.createForHeight(EXPORT_HEIGHT),
             clippedVideo(
-                MP4_ASSET_720P_4_SECOND_HDR10,
+                MP4_ASSET_720P_4_SECOND_HDR10.uri,
                 ImmutableList.of(
                     new ScaleAndRotateTransformation.Builder().setRotationDegrees(45).build()),
                 /* endPositionMs= */ SINGLE_30_FPS_VIDEO_FRAME_THRESHOLD_MS),
             clippedVideo(
-                MP4_PORTRAIT_ASSET_URI_STRING,
+                MP4_PORTRAIT_ASSET.uri,
                 ImmutableList.of(
                     new Crop(/* left= */ -1, /* right= */ 0, /* bottom= */ -1, /* top= */ 0)),
                 /* endPositionMs= */ SINGLE_30_FPS_VIDEO_FRAME_THRESHOLD_MS));
@@ -198,22 +195,22 @@ public final class TransformerHdrSequenceEffectTest {
   @Test
   public void export_withHdr10ThenHdr10_whenHdrEditingSupported_producesExpectedFrame()
       throws Exception {
-    assumeDeviceSupportsHdrEditing(testId, MP4_ASSET_720P_4_SECOND_HDR10_FORMAT);
+    assumeDeviceSupportsHdrEditing(testId, MP4_ASSET_720P_4_SECOND_HDR10.videoFormat);
     assumeFormatsSupported(
         context,
         testId,
-        /* inputFormat= */ MP4_ASSET_720P_4_SECOND_HDR10_FORMAT,
+        /* inputFormat= */ MP4_ASSET_720P_4_SECOND_HDR10.videoFormat,
         /* outputFormat= */ null);
     Composition composition =
         createComposition(
             Presentation.createForHeight(EXPORT_HEIGHT),
             clippedVideo(
-                MP4_ASSET_720P_4_SECOND_HDR10,
+                MP4_ASSET_720P_4_SECOND_HDR10.uri,
                 ImmutableList.of(
                     new ScaleAndRotateTransformation.Builder().setRotationDegrees(45).build()),
                 /* endPositionMs= */ SINGLE_30_FPS_VIDEO_FRAME_THRESHOLD_MS),
             clippedVideo(
-                MP4_ASSET_720P_4_SECOND_HDR10,
+                MP4_ASSET_720P_4_SECOND_HDR10.uri,
                 ImmutableList.of(
                     new ScaleAndRotateTransformation.Builder().setRotationDegrees(45).build()),
                 /* endPositionMs= */ SINGLE_30_FPS_VIDEO_FRAME_THRESHOLD_MS));
@@ -232,28 +229,28 @@ public final class TransformerHdrSequenceEffectTest {
   @Test
   public void export_withHlg10ThenHdr10_whenHdrEditingSupported_producesExpectedFrame()
       throws Exception {
-    assumeDeviceSupportsHdrEditing(testId, MP4_ASSET_1080P_5_SECOND_HLG10_FORMAT);
-    assumeDeviceSupportsHdrEditing(testId, MP4_ASSET_720P_4_SECOND_HDR10_FORMAT);
+    assumeDeviceSupportsHdrEditing(testId, MP4_ASSET_1080P_5_SECOND_HLG10.videoFormat);
+    assumeDeviceSupportsHdrEditing(testId, MP4_ASSET_720P_4_SECOND_HDR10.videoFormat);
     assumeFormatsSupported(
         context,
         testId,
-        /* inputFormat= */ MP4_ASSET_1080P_5_SECOND_HLG10_FORMAT,
-        /* outputFormat= */ MP4_ASSET_1080P_5_SECOND_HLG10_FORMAT);
+        /* inputFormat= */ MP4_ASSET_1080P_5_SECOND_HLG10.videoFormat,
+        /* outputFormat= */ MP4_ASSET_1080P_5_SECOND_HLG10.videoFormat);
     assumeFormatsSupported(
         context,
         testId,
-        /* inputFormat= */ MP4_ASSET_720P_4_SECOND_HDR10_FORMAT,
-        /* outputFormat= */ MP4_ASSET_1080P_5_SECOND_HLG10_FORMAT);
+        /* inputFormat= */ MP4_ASSET_720P_4_SECOND_HDR10.videoFormat,
+        /* outputFormat= */ MP4_ASSET_1080P_5_SECOND_HLG10.videoFormat);
     Composition composition =
         createComposition(
             Presentation.createForHeight(EXPORT_HEIGHT),
             clippedVideo(
-                MP4_ASSET_1080P_5_SECOND_HLG10,
+                MP4_ASSET_1080P_5_SECOND_HLG10.uri,
                 ImmutableList.of(
                     new ScaleAndRotateTransformation.Builder().setRotationDegrees(45).build()),
                 /* endPositionMs= */ SINGLE_30_FPS_VIDEO_FRAME_THRESHOLD_MS),
             clippedVideo(
-                MP4_ASSET_720P_4_SECOND_HDR10,
+                MP4_ASSET_720P_4_SECOND_HDR10.uri,
                 ImmutableList.of(
                     new ScaleAndRotateTransformation.Builder().setRotationDegrees(45).build()),
                 /* endPositionMs= */ SINGLE_30_FPS_VIDEO_FRAME_THRESHOLD_MS));
@@ -273,22 +270,22 @@ public final class TransformerHdrSequenceEffectTest {
   @Test
   public void export1920x1080Hlg_withAllAvailableDecoders_doesNotStretchOutputOnAny()
       throws Exception {
-    assumeDeviceSupportsHdrEditing(testId, MP4_ASSET_1080P_5_SECOND_HLG10_FORMAT);
+    assumeDeviceSupportsHdrEditing(testId, MP4_ASSET_1080P_5_SECOND_HLG10.videoFormat);
     assumeFormatsSupported(
         context,
         testId,
-        /* inputFormat= */ MP4_ASSET_1080P_5_SECOND_HLG10_FORMAT,
-        /* outputFormat= */ MP4_ASSET_1080P_5_SECOND_HLG10_FORMAT);
+        /* inputFormat= */ MP4_ASSET_1080P_5_SECOND_HLG10.videoFormat,
+        /* outputFormat= */ MP4_ASSET_1080P_5_SECOND_HLG10.videoFormat);
     List<MediaCodecInfo> mediaCodecInfoList =
         MediaCodecSelector.DEFAULT.getDecoderInfos(
-            checkNotNull(MP4_ASSET_1080P_5_SECOND_HLG10_FORMAT.sampleMimeType),
+            checkNotNull(MP4_ASSET_1080P_5_SECOND_HLG10.videoFormat.sampleMimeType),
             /* requiresSecureDecoder= */ false,
             /* requiresTunnelingDecoder= */ false);
     Composition composition =
         createComposition(
             /* presentation= */ null,
             clippedVideo(
-                MP4_ASSET_1080P_5_SECOND_HLG10,
+                MP4_ASSET_1080P_5_SECOND_HLG10.uri,
                 NO_EFFECT,
                 /* endPositionMs= */ C.MILLIS_PER_SECOND / 4));
 
@@ -312,21 +309,21 @@ public final class TransformerHdrSequenceEffectTest {
   @Test
   public void export720x1280Av1Hdr10_withAllAvailableDecoders_doesNotStretchOutputOnAny()
       throws Exception {
-    assumeDeviceSupportsHdrEditing(testId, MP4_ASSET_AV1_2_SECOND_HDR10_FORMAT);
+    assumeDeviceSupportsHdrEditing(testId, MP4_ASSET_AV1_2_SECOND_HDR10.videoFormat);
     assumeFormatsSupported(
         context,
         testId,
-        /* inputFormat= */ MP4_ASSET_AV1_2_SECOND_HDR10_FORMAT,
-        /* outputFormat= */ MP4_ASSET_AV1_2_SECOND_HDR10_FORMAT);
+        /* inputFormat= */ MP4_ASSET_AV1_2_SECOND_HDR10.videoFormat,
+        /* outputFormat= */ MP4_ASSET_AV1_2_SECOND_HDR10.videoFormat);
     List<MediaCodecInfo> mediaCodecInfoList =
         MediaCodecSelector.DEFAULT.getDecoderInfos(
-            checkNotNull(MP4_ASSET_AV1_2_SECOND_HDR10_FORMAT.sampleMimeType),
+            checkNotNull(MP4_ASSET_AV1_2_SECOND_HDR10.videoFormat.sampleMimeType),
             /* requiresSecureDecoder= */ false,
             /* requiresTunnelingDecoder= */ false);
     Composition composition =
         createComposition(
             /* presentation= */ null,
-            clippedVideo(MP4_ASSET_AV1_2_SECOND_HDR10, NO_EFFECT, C.MILLIS_PER_SECOND / 4));
+            clippedVideo(MP4_ASSET_AV1_2_SECOND_HDR10.uri, NO_EFFECT, C.MILLIS_PER_SECOND / 4));
 
     boolean atLeastOneDecoderSucceeds = false;
     for (MediaCodecInfo mediaCodecInfo : mediaCodecInfoList) {

@@ -126,6 +126,28 @@ public final class ClippingMediaSourceTest {
   }
 
   @Test
+  public void clippingStartExceedsEndThrows() throws IOException {
+    Timeline timeline =
+        new SinglePeriodTimeline(
+            TEST_PERIOD_DURATION_US,
+            /* isSeekable= */ true,
+            /* isDynamic= */ false,
+            /* useLiveConfiguration= */ false,
+            /* manifest= */ null,
+            MediaItem.fromUri(Uri.EMPTY));
+    long endUs = TEST_PERIOD_DURATION_US / 2;
+    long startUs = endUs + 1; // Start slightly after endUs
+
+    try {
+      // Trying to clip with start time exceeding end time should throw an exception.
+      getClippedTimeline(timeline, startUs, endUs);
+      fail("Expected clipping to fail.");
+    } catch (IllegalClippingException e) {
+      assertThat(e.reason).isEqualTo(IllegalClippingException.REASON_START_EXCEEDS_END);
+    }
+  }
+
+  @Test
   public void clippingStart() throws IOException {
     Timeline timeline =
         new SinglePeriodTimeline(
@@ -610,8 +632,7 @@ public final class ClippingMediaSourceTest {
       ClippingMediaSource clippingMediaSource,
       Timeline... additionalTimelines)
       throws IOException {
-    MediaSourceTestRunner testRunner =
-        new MediaSourceTestRunner(clippingMediaSource, /* allocator= */ null);
+    MediaSourceTestRunner testRunner = new MediaSourceTestRunner(clippingMediaSource);
     Timeline[] clippedTimelines = new Timeline[additionalTimelines.length + 1];
     try {
       clippedTimelines[0] = testRunner.prepareSource();

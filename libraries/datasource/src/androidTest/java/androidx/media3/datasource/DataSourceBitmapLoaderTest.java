@@ -31,6 +31,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import java.io.File;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.concurrent.ExecutionException;
 import okhttp3.mockwebserver.MockResponse;
@@ -213,6 +214,28 @@ public class DataSourceBitmapLoaderTest {
     Bitmap bitmap = bitmapLoader.loadBitmap(uri).get();
 
     assertThat(bitmap.isMutable()).isTrue();
+  }
+
+  @Test
+  public void loadBitmap_withFileUriAndMaxOutputDimension_loadsDataWithSmallerSize()
+      throws Exception {
+    byte[] imageData =
+        TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), TEST_IMAGE_PATH);
+    File file = tempFolder.newFile();
+    Files.write(Path.of(file.getAbsolutePath()), imageData);
+    Uri uri = Uri.fromFile(file);
+    int maximumOutputDimension = 2000;
+    DataSourceBitmapLoader bitmapLoader =
+        new DataSourceBitmapLoader(
+            MoreExecutors.newDirectExecutorService(),
+            dataSourceFactory,
+            /* options= */ null,
+            maximumOutputDimension);
+
+    Bitmap bitmap = bitmapLoader.loadBitmap(uri).get();
+
+    assertThat(bitmap.getWidth()).isAtMost(maximumOutputDimension);
+    assertThat(bitmap.getHeight()).isAtMost(maximumOutputDimension);
   }
 
   @Test

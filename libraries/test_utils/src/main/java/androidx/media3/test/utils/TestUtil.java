@@ -51,7 +51,9 @@ import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.PositionHolder;
 import androidx.media3.extractor.SeekMap;
 import androidx.media3.extractor.metadata.MetadataInputBuffer;
+import com.google.common.collect.BoundType;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Range;
 import com.google.common.io.ByteStreams;
 import com.google.common.primitives.Bytes;
 import com.google.common.primitives.UnsignedBytes;
@@ -475,8 +477,17 @@ public class TestUtil {
     return extractAllSamplesFromByteArray(extractor, data);
   }
 
-  private static FakeExtractorOutput extractAllSamplesFromByteArray(
-      Extractor extractor, byte[] data) throws IOException {
+  /**
+   * Extracts all samples from the given byte array into a {@link FakeTrackOutput}.
+   *
+   * @param extractor The {@link Extractor} to be used.
+   * @param data The byte array data.
+   * @return The {@link FakeTrackOutput} containing the extracted samples.
+   * @throws IOException If an error occurred reading from the input, or if the extractor finishes
+   *     reading from input without extracting any {@link SeekMap}.
+   */
+  public static FakeExtractorOutput extractAllSamplesFromByteArray(Extractor extractor, byte[] data)
+      throws IOException {
     FakeExtractorOutput expectedOutput = new FakeExtractorOutput();
     extractor.init(expectedOutput);
     FakeExtractorInput input = new FakeExtractorInput.Builder().setData(data).build();
@@ -652,6 +663,25 @@ public class TestUtil {
           }
         };
     return checkNotNull(parcel.readBundle(throwingClassLoader));
+  }
+
+  /**
+   * Returns a randomly generated float within the specified range, using {@code random} as random
+   * number generator.
+   *
+   * <p>{@code range} must be a bounded range.
+   */
+  public static float generateFloatInRange(Random random, Range<Float> range) {
+    float bottom =
+        range.lowerBoundType() == BoundType.OPEN
+            ? Math.nextUp(range.lowerEndpoint())
+            : range.lowerEndpoint();
+    float top =
+        range.upperBoundType() == BoundType.OPEN
+            ? Math.nextDown(range.upperEndpoint())
+            : range.upperEndpoint();
+
+    return bottom + random.nextFloat() * (top - bottom);
   }
 
   private static final class NoUidOrShufflingTimeline extends Timeline {

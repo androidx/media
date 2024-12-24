@@ -666,7 +666,7 @@ public final class DashStreamingTest {
         MediaCodecUtil.getDecoderInfo(
             MimeTypes.VIDEO_H264, /* secure= */ false, /* tunneling= */ false);
     assertThat(decoderInfo).isNotNull();
-    assertThat(Util.SDK_INT < 21 || decoderInfo.adaptive).isTrue();
+    assertThat(decoderInfo.adaptive).isTrue();
   }
 
   @Test

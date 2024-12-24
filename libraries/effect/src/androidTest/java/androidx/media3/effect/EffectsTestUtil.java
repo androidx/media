@@ -139,9 +139,6 @@ import java.util.concurrent.atomic.AtomicReference;
                         }
 
                         @Override
-                        public void onOutputSizeChanged(int width, int height) {}
-
-                        @Override
                         public void onOutputFrameAvailableForRendering(long presentationTimeUs) {
                           actualPresentationTimesUs.add(presentationTimeUs);
                         }

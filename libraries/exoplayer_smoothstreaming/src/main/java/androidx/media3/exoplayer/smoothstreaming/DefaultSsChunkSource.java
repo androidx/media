@@ -203,6 +203,7 @@ public class DefaultSsChunkSource implements SsChunkSource {
               streamElement.timescale,
               C.TIME_UNSET,
               manifest.durationUs,
+              /* mediaDurationUs= */ manifest.durationUs,
               format,
               Track.TRANSFORMATION_NONE,
               trackEncryptionBoxes,

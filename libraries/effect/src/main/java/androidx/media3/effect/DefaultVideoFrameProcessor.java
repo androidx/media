@@ -20,7 +20,6 @@ import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.GlUtil.getDefaultEglDisplay;
-import static androidx.media3.common.util.Util.SDK_INT;
 import static androidx.media3.effect.DebugTraceUtil.COMPONENT_VFP;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_RECEIVE_END_OF_ALL_INPUT;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_REGISTER_NEW_INPUT_STREAM;
@@ -79,6 +78,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 /**
  * A {@link VideoFrameProcessor} implementation that applies {@link GlEffect} instances using OpenGL
  * on a background thread.
+ *
+ * <p>When using surface input ({@link #INPUT_TYPE_SURFACE} or {@link
+ * #INPUT_TYPE_SURFACE_AUTOMATIC_FRAME_REGISTRATION}) the surface's format must be supported for
+ * sampling as an external texture in OpenGL. When a {@link android.media.MediaCodec} decoder is
+ * writing to the input surface, the default SDR color format is supported. When an {@link
+ * android.media.ImageWriter} is writing to the input surface, {@link
+ * android.graphics.PixelFormat#RGBA_8888} is supported for SDR data. Support for other formats may
+ * be device-dependent.
  */
 @UnstableApi
 public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
@@ -152,6 +159,8 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
       public Builder() {
         sdrWorkingColorSpace = WORKING_COLOR_SPACE_DEFAULT;
         requireRegisteringAllInputFrames = true;
+        experimentalAdjustSurfaceTextureTransformationMatrix = true;
+        experimentalRepeatInputBitmapWithoutResampling = true;
       }
 
       private Builder(Factory factory) {
@@ -202,7 +211,14 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
        * <p>Regardless of the value set, {@link #registerInputStream(int, List, FrameInfo)} must be
        * called for each input stream to specify the format for upcoming frames before calling
        * {@link #registerInputFrame()}.
+       *
+       * @param requireRegisteringAllInputFrames Whether registering every input frame is required.
+       * @deprecated For automatic frame registration ({@code
+       *     setRequireRegisteringAllInputFrames(false)}), use {@link
+       *     VideoFrameProcessor#INPUT_TYPE_SURFACE_AUTOMATIC_FRAME_REGISTRATION} instead. This call
+       *     can be removed otherwise.
        */
+      @Deprecated
       @CanIgnoreReturnValue
       public Builder setRequireRegisteringAllInputFrames(boolean requireRegisteringAllInputFrames) {
         this.requireRegisteringAllInputFrames = requireRegisteringAllInputFrames;
@@ -273,8 +289,13 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
        *
        * <p>When set, programs sampling GL_TEXTURE_EXTERNAL_OES from {@link SurfaceTexture} must not
        * attempt to access data in any cropped region, including via GL_LINEAR resampling filter.
+       *
+       * <p>Defaults to {@code true}.
+       *
+       * @deprecated This experimental method will be removed in a future release.
        */
       @CanIgnoreReturnValue
+      @Deprecated
       public Builder setExperimentalAdjustSurfaceTextureTransformationMatrix(
           boolean experimentalAdjustSurfaceTextureTransformationMatrix) {
         this.experimentalAdjustSurfaceTextureTransformationMatrix =
@@ -286,10 +307,13 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
        * Sets whether {@link BitmapTextureManager} will sample from the input bitmap only once for a
        * sequence of output frames.
        *
-       * <p>Defaults to {@code false}. That is, each output frame will sample from the full
+       * <p>Defaults to {@code true}. That is, each output frame will sample from the full
        * resolution input bitmap.
+       *
+       * @deprecated This experimental method will be removed in a future release.
        */
       @CanIgnoreReturnValue
+      @Deprecated
       public Builder setExperimentalRepeatInputBitmapWithoutResampling(
           boolean experimentalRepeatInputBitmapWithoutResampling) {
         this.experimentalRepeatInputBitmapWithoutResampling =
@@ -443,6 +467,10 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
   @GuardedBy("lock")
   private boolean registeredFirstInputStream;
 
+  @GuardedBy("lock")
+  @Nullable
+  private Runnable onInputSurfaceReadyListener;
+
   private final List<Effect> activeEffects;
   private final Object lock;
   private final ColorInfo outputColorInfo;
@@ -514,13 +542,18 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
    *
    * @param width The default width for input buffers, in pixels.
    * @param height The default height for input buffers, in pixels.
+   * @deprecated Set the input type to {@link
+   *     VideoFrameProcessor#INPUT_TYPE_SURFACE_AUTOMATIC_FRAME_REGISTRATION} instead, which sets
+   *     the default buffer size automatically based on the registered frame info.
    */
+  @Deprecated
   public void setInputDefaultBufferSize(int width, int height) {
     inputSwitcher.setInputDefaultBufferSize(width, height);
   }
 
   @Override
   public boolean queueInputBitmap(Bitmap inputBitmap, TimestampIterator timestampIterator) {
+    checkState(!inputStreamEnded);
     if (!inputStreamRegisteredCondition.isOpen()) {
       return false;
     }
@@ -543,6 +576,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
 
   @Override
   public boolean queueInputTexture(int textureId, long presentationTimeUs) {
+    checkState(!inputStreamEnded);
     if (!inputStreamRegisteredCondition.isOpen()) {
       return false;
     }
@@ -554,6 +588,17 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
   @Override
   public void setOnInputFrameProcessedListener(OnInputFrameProcessedListener listener) {
     inputSwitcher.setOnInputFrameProcessedListener(listener);
+  }
+
+  @Override
+  public void setOnInputSurfaceReadyListener(Runnable listener) {
+    synchronized (lock) {
+      if (inputStreamRegisteredCondition.isOpen()) {
+        listener.run();
+      } else {
+        onInputSurfaceReadyListener = listener;
+      }
+    }
   }
 
   @Override
@@ -697,14 +742,15 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
       return;
     }
     try {
-      videoFrameProcessingTaskExecutor.flush();
-
-      // Flush from the end of the GlShaderProgram pipeline up to the start.
-      CountDownLatch latch = new CountDownLatch(1);
       TextureManager textureManager = inputSwitcher.activeTextureManager();
+      textureManager.dropIncomingRegisteredFrames();
+      // Flush pending tasks to prevent any operation to be executed on the frames being processed
+      // before the flush operation.
+      videoFrameProcessingTaskExecutor.flush();
       textureManager.releaseAllRegisteredFrames();
+      CountDownLatch latch = new CountDownLatch(1);
       textureManager.setOnFlushCompleteListener(latch::countDown);
-
+      // Flush from the end of the GlShaderProgram pipeline up to the start.
       videoFrameProcessingTaskExecutor.submit(finalShaderProgramWrapper::flush);
       latch.await();
       textureManager.setOnFlushCompleteListener(null);
@@ -933,6 +979,8 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
         return "Bitmap";
       case INPUT_TYPE_TEXTURE_ID:
         return "Texture ID";
+      case INPUT_TYPE_SURFACE_AUTOMATIC_FRAME_REGISTRATION:
+        return "Surface with automatic frame registration";
       default:
         throw new IllegalArgumentException(String.valueOf(inputType));
     }
@@ -977,6 +1025,12 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
 
     inputSwitcher.switchToInput(inputStreamInfo.inputType, inputStreamInfo.frameInfo);
     inputStreamRegisteredCondition.open();
+    synchronized (lock) {
+      if (onInputSurfaceReadyListener != null) {
+        onInputSurfaceReadyListener.run();
+        onInputSurfaceReadyListener = null;
+      }
+    }
     listenerExecutor.execute(
         () ->
             listener.onInputStreamRegistered(
@@ -1064,11 +1118,6 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
   private static Pair<EGLContext, EGLSurface> createFocusedEglContextWithFallback(
       GlObjectsProvider glObjectsProvider, EGLDisplay eglDisplay, int[] configAttributes)
       throws GlUtil.GlException {
-    if (SDK_INT < 29) {
-      return createFocusedEglContext(
-          glObjectsProvider, eglDisplay, /* openGlVersion= */ 2, configAttributes);
-    }
-
     try {
       return createFocusedEglContext(
           glObjectsProvider, eglDisplay, /* openGlVersion= */ 3, configAttributes);

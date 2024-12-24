@@ -17,9 +17,17 @@ package androidx.media3.cast;
 
 import static androidx.annotation.VisibleForTesting.PROTECTED;
 import static androidx.media3.common.util.Assertions.checkArgument;
+import static androidx.media3.common.util.Util.SDK_INT;
 import static androidx.media3.common.util.Util.castNonNull;
 import static java.lang.Math.min;
 
+import android.content.Context;
+import android.media.MediaRouter2;
+import android.media.MediaRouter2.RouteCallback;
+import android.media.MediaRouter2.RoutingController;
+import android.media.MediaRouter2.TransferCallback;
+import android.media.RouteDiscoveryPreference;
+import android.os.Handler;
 import android.os.Looper;
 import android.view.Surface;
 import android.view.SurfaceHolder;
@@ -27,6 +35,7 @@ import android.view.SurfaceView;
 import android.view.TextureView;
 import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.BasePlayer;
@@ -83,8 +92,11 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 @UnstableApi
 public final class CastPlayer extends BasePlayer {
 
-  /** The {@link DeviceInfo} returned by {@link #getDeviceInfo() this player}. */
-  public static final DeviceInfo DEVICE_INFO =
+  /**
+   * A {@link DeviceInfo#PLAYBACK_TYPE_REMOTE remote} {@link DeviceInfo} with a null {@link
+   * DeviceInfo#routingControllerId}.
+   */
+  public static final DeviceInfo DEVICE_INFO_REMOTE_EMPTY =
       new DeviceInfo.Builder(DeviceInfo.PLAYBACK_TYPE_REMOTE).build();
 
   static {
@@ -128,6 +140,7 @@ public final class CastPlayer extends BasePlayer {
   // TODO: Allow custom implementations of CastTimelineTracker.
   private final CastTimelineTracker timelineTracker;
   private final Timeline.Period period;
+  @Nullable private final Api30Impl api30Impl;
 
   // Result callbacks.
   private final StatusListener statusListener;
@@ -153,6 +166,7 @@ public final class CastPlayer extends BasePlayer {
   private long pendingSeekPositionMs;
   @Nullable private PositionInfo pendingMediaItemRemovalPosition;
   private MediaMetadata mediaMetadata;
+  private DeviceInfo deviceInfo;
 
   /**
    * Creates a new cast player.
@@ -202,6 +216,7 @@ public final class CastPlayer extends BasePlayer {
       @IntRange(from = 1) long seekBackIncrementMs,
       @IntRange(from = 1) long seekForwardIncrementMs) {
     this(
+        /* context= */ null,
         castContext,
         mediaItemConverter,
         seekBackIncrementMs,
@@ -212,6 +227,8 @@ public final class CastPlayer extends BasePlayer {
   /**
    * Creates a new cast player.
    *
+   * @param context A {@link Context} used to populate {@link #getDeviceInfo()}. If null, {@link
+   *     #getDeviceInfo()} will always return {@link #DEVICE_INFO_REMOTE_EMPTY}.
    * @param castContext The context from which the cast session is obtained.
    * @param mediaItemConverter The {@link MediaItemConverter} to use.
    * @param seekBackIncrementMs The {@link #seekBack()} increment, in milliseconds.
@@ -223,6 +240,7 @@ public final class CastPlayer extends BasePlayer {
    *     negative.
    */
   public CastPlayer(
+      @Nullable Context context,
       CastContext castContext,
       MediaItemConverter mediaItemConverter,
       @IntRange(from = 1) long seekBackIncrementMs,
@@ -260,6 +278,14 @@ public final class CastPlayer extends BasePlayer {
     CastSession session = sessionManager.getCurrentCastSession();
     setRemoteMediaClient(session != null ? session.getRemoteMediaClient() : null);
     updateInternalStateAndNotifyIfChanged();
+    if (SDK_INT >= 30 && context != null) {
+      api30Impl = new Api30Impl(context);
+      api30Impl.initialize();
+      deviceInfo = api30Impl.fetchDeviceInfo();
+    } else {
+      api30Impl = null;
+      deviceInfo = DEVICE_INFO_REMOTE_EMPTY;
+    }
   }
 
   /**
@@ -530,6 +556,10 @@ public final class CastPlayer extends BasePlayer {
 
   @Override
   public void release() {
+    // The SDK_INT check is not necessary, but it prevents a lint error for the release call.
+    if (SDK_INT >= 30 && api30Impl != null) {
+      api30Impl.release();
+    }
     SessionManager sessionManager = castContext.getSessionManager();
     sessionManager.removeSessionManagerListener(statusListener, CastSession.class);
     sessionManager.endCurrentSession(false);
@@ -782,10 +812,14 @@ public final class CastPlayer extends BasePlayer {
     return CueGroup.EMPTY_TIME_ZERO;
   }
 
-  /** This method always returns {@link CastPlayer#DEVICE_INFO}. */
+  /**
+   * Returns a {@link DeviceInfo} describing the receiver device. Returns {@link
+   * #DEVICE_INFO_REMOTE_EMPTY} if no {@link Context} was provided at construction, or if the Cast
+   * {@link RoutingController} could not be identified.
+   */
   @Override
   public DeviceInfo getDeviceInfo() {
-    return DEVICE_INFO;
+    return deviceInfo;
   }
 
   /** This method is not supported and always returns {@code 0}. */
@@ -1283,11 +1317,8 @@ public final class CastPlayer extends BasePlayer {
       remoteMediaClient.registerCallback(statusListener);
       remoteMediaClient.addProgressListener(statusListener, PROGRESS_REPORT_PERIOD_MS);
       updateInternalStateAndNotifyIfChanged();
-    } else {
-      updateTimelineAndNotifyIfChanged();
-      if (sessionAvailabilityListener != null) {
-        sessionAvailabilityListener.onCastSessionUnavailable();
-      }
+    } else if (sessionAvailabilityListener != null) {
+      sessionAvailabilityListener.onCastSessionUnavailable();
     }
   }
 
@@ -1535,6 +1566,107 @@ public final class CastPlayer extends BasePlayer {
      */
     public boolean acceptsUpdate(@Nullable ResultCallback<?> resultCallback) {
       return pendingResultCallback == resultCallback;
+    }
+  }
+
+  @RequiresApi(30)
+  private final class Api30Impl {
+
+    private final MediaRouter2 mediaRouter2;
+    private final TransferCallback transferCallback;
+    private final RouteCallback emptyRouteCallback;
+    private final Handler handler;
+
+    public Api30Impl(Context context) {
+      mediaRouter2 = MediaRouter2.getInstance(context);
+      transferCallback = new MediaRouter2TransferCallbackImpl();
+      emptyRouteCallback = new MediaRouter2RouteCallbackImpl();
+      handler = new Handler(Looper.getMainLooper());
+    }
+
+    /** Acquires necessary resources and registers callbacks. */
+    public void initialize() {
+      mediaRouter2.registerTransferCallback(handler::post, transferCallback);
+      // We need at least one route callback registered in order to get transfer callback updates.
+      mediaRouter2.registerRouteCallback(
+          handler::post,
+          emptyRouteCallback,
+          new RouteDiscoveryPreference.Builder(ImmutableList.of(), /* activeScan= */ false)
+              .build());
+    }
+
+    /**
+     * Releases any resources acquired in {@link #initialize()} and unregisters any registered
+     * callbacks.
+     */
+    public void release() {
+      mediaRouter2.unregisterTransferCallback(transferCallback);
+      mediaRouter2.unregisterRouteCallback(emptyRouteCallback);
+      handler.removeCallbacksAndMessages(/* token= */ null);
+    }
+
+    /** Updates the device info with an up-to-date value and notifies the listeners. */
+    private void updateDeviceInfo() {
+      DeviceInfo oldDeviceInfo = deviceInfo;
+      DeviceInfo newDeviceInfo = fetchDeviceInfo();
+      deviceInfo = newDeviceInfo;
+      if (!deviceInfo.equals(oldDeviceInfo)) {
+        listeners.sendEvent(
+            EVENT_DEVICE_INFO_CHANGED, listener -> listener.onDeviceInfoChanged(newDeviceInfo));
+      }
+    }
+
+    /**
+     * Returns a {@link DeviceInfo} with the {@link RoutingController#getId() id} that corresponds
+     * to the Cast session, or {@link #DEVICE_INFO_REMOTE_EMPTY} if not available.
+     */
+    public DeviceInfo fetchDeviceInfo() {
+      // TODO: b/364833997 - Fetch this information from the AndroidX MediaRouter selected route
+      // once the selected route id matches the controller id.
+      List<RoutingController> controllers = mediaRouter2.getControllers();
+      // The controller at position zero is always the system controller (local playback). All other
+      // controllers are for remote playback, and could be the Cast one.
+      if (controllers.size() != 2) {
+        // There's either no remote routing controller, or there's more than one. In either case we
+        // don't populate the device info because either there's no Cast routing controller, or we
+        // cannot safely identify the Cast routing controller.
+        return DEVICE_INFO_REMOTE_EMPTY;
+      } else {
+        // There's only one remote routing controller. It's safe to assume it's the Cast routing
+        // controller.
+        RoutingController remoteController = controllers.get(1);
+        // TODO b/364580007 - Populate volume information, and implement Player volume-related
+        //  methods.
+        return new DeviceInfo.Builder(DeviceInfo.PLAYBACK_TYPE_REMOTE)
+            .setRoutingControllerId(remoteController.getId())
+            .build();
+      }
+    }
+
+    /**
+     * Empty {@link RouteCallback} implementation necessary for registering the {@link MediaRouter2}
+     * instance with the system_server.
+     *
+     * <p>This callback must be registered so that the media router service notifies the {@link
+     * MediaRouter2TransferCallbackImpl} of transfer events.
+     */
+    private final class MediaRouter2RouteCallbackImpl extends RouteCallback {}
+
+    /**
+     * {@link TransferCallback} implementation to listen for {@link RoutingController} creation and
+     * releases.
+     */
+    private final class MediaRouter2TransferCallbackImpl extends TransferCallback {
+
+      @Override
+      public void onTransfer(RoutingController oldController, RoutingController newController) {
+        updateDeviceInfo();
+      }
+
+      @Override
+      public void onStop(RoutingController controller) {
+        updateDeviceInfo();
+      }
     }
   }
 }

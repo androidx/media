@@ -21,6 +21,8 @@ import static androidx.media3.common.C.TRACK_TYPE_VIDEO;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.contains;
+import static androidx.media3.effect.DebugTraceUtil.COMPONENT_TRANSFORMER_INTERNAL;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_START;
 import static androidx.media3.transformer.AssetLoader.SUPPORTED_OUTPUT_TYPE_DECODED;
 import static androidx.media3.transformer.AssetLoader.SUPPORTED_OUTPUT_TYPE_ENCODED;
 import static androidx.media3.transformer.Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_MEDIACODEC;
@@ -62,6 +64,7 @@ import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.Util;
+import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.muxer.Muxer.MuxerException;
 import androidx.media3.transformer.AssetLoader.CompositionSettings;
 import com.google.common.collect.ImmutableList;
@@ -145,6 +148,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final Object setMaxSequenceDurationUsLock;
   private final Object progressLock;
   private final ProgressHolder internalProgressHolder;
+  private final boolean portraitEncodingEnabled;
+  private final int maxFramesInEncoder;
 
   private boolean isDrainingExporters;
 
@@ -189,6 +194,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       AudioMixer.Factory audioMixerFactory,
       VideoFrameProcessor.Factory videoFrameProcessorFactory,
       Codec.EncoderFactory encoderFactory,
+      boolean portraitEncodingEnabled,
+      int maxFramesInEncoder,
       MuxerWrapper muxerWrapper,
       Listener listener,
       FallbackListener fallbackListener,
@@ -199,6 +206,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.context = context;
     this.composition = composition;
     this.encoderFactory = new CapturingEncoderFactory(encoderFactory);
+    this.portraitEncodingEnabled = portraitEncodingEnabled;
+    this.maxFramesInEncoder = maxFramesInEncoder;
     this.listener = listener;
     this.applicationHandler = applicationHandler;
     this.clock = clock;
@@ -272,6 +281,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       progressState = Transformer.PROGRESS_STATE_WAITING_FOR_AVAILABILITY;
       progressValue = 0;
     }
+    DebugTraceUtil.logEvent(
+        COMPONENT_TRANSFORMER_INTERNAL,
+        EVENT_START,
+        /* presentationTimeUs= */ C.TIME_UNSET,
+        /* extraFormat= */ "%s",
+        /* extraArgs...= */ Util.DEVICE_DEBUG_INFO);
   }
 
   public @Transformer.ProgressState int getProgress(ProgressHolder progressHolder) {
@@ -593,6 +608,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         @AssetLoader.SupportedOutputTypes int supportedOutputTypes) {
       @C.TrackType
       int trackType = getProcessedTrackType(firstAssetLoaderInputFormat.sampleMimeType);
+
+      checkArgument(
+          trackType != TRACK_TYPE_VIDEO || !composition.sequences.get(sequenceIndex).hasGaps(),
+          "Gaps in video sequences are not supported.");
+
       synchronized (assetLoaderLock) {
         assetLoaderInputTracker.registerTrack(sequenceIndex, firstAssetLoaderInputFormat);
         if (assetLoaderInputTracker.hasRegisteredAllTracks()) {
@@ -729,14 +749,18 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                 fallbackListener,
                 debugViewProvider,
                 videoSampleTimestampOffsetUs,
-                /* hasMultipleInputs= */ assetLoaderInputTracker
-                    .hasMultipleConcurrentVideoTracks()));
+                /* hasMultipleInputs= */ assetLoaderInputTracker.hasMultipleConcurrentVideoTracks(),
+                portraitEncodingEnabled,
+                maxFramesInEncoder));
       }
     }
 
     @GuardedBy("assetLoaderLock")
     private void createEncodedSampleExporter(@C.TrackType int trackType) {
       checkState(assetLoaderInputTracker.getSampleExporter(trackType) == null);
+      checkArgument(
+          trackType != TRACK_TYPE_AUDIO || !composition.sequences.get(sequenceIndex).hasGaps(),
+          "Gaps can not be transmuxed.");
       assetLoaderInputTracker.registerSampleExporter(
           trackType,
           new EncodedSampleExporter(

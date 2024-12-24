@@ -14,6 +14,8 @@
 apply from: "$gradle.ext.androidxMediaSettingsDir/constants.gradle"
 apply plugin: 'com.android.library'
 
+group = 'androidx.media3'
+
 android {
     compileSdkVersion project.ext.compileSdkVersion
 
@@ -25,7 +27,6 @@ android {
         aarMetadata {
             minCompileSdk = project.ext.compileSdkVersion
         }
-        multiDexEnabled true
     }
 
     compileOptions {
@@ -39,8 +40,4 @@ android {
         }
         unitTests.includeAndroidResources true
     }
-}
-
-dependencies {
-    androidTestImplementation 'androidx.multidex:multidex:' + androidxMultidexVersion
 }

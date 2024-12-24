@@ -133,10 +133,10 @@ public final class TextInformationFrame extends Id3Frame {
         switch (recordingDate.size()) {
           case 3:
             builder.setRecordingDay(recordingDate.get(2));
-            // fall through
+          // fall through
           case 2:
             builder.setRecordingMonth(recordingDate.get(1));
-            // fall through
+          // fall through
           case 1:
             builder.setRecordingYear(recordingDate.get(0));
             // fall through
@@ -151,10 +151,10 @@ public final class TextInformationFrame extends Id3Frame {
         switch (releaseDate.size()) {
           case 3:
             builder.setReleaseDay(releaseDate.get(2));
-            // fall through
+          // fall through
           case 2:
             builder.setReleaseMonth(releaseDate.get(1));
-            // fall through
+          // fall through
           case 1:
             builder.setReleaseYear(releaseDate.get(0));
             // fall through

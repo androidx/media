@@ -16,16 +16,15 @@
 
 package androidx.media3.transformer;
 
+import static androidx.media3.common.VideoFrameProcessor.RENDER_OUTPUT_FRAME_WITH_PRESENTATION_TIME;
 import static androidx.media3.common.util.Assertions.checkState;
 
 import android.content.Context;
-import androidx.annotation.Nullable;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DebugViewProvider;
 import androidx.media3.common.Effect;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.VideoFrameProcessor;
-import androidx.media3.effect.Presentation;
 import androidx.media3.effect.SingleInputVideoGraph;
 import androidx.media3.effect.VideoCompositorSettings;
 import java.util.List;
@@ -57,14 +56,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         Executor listenerExecutor,
         VideoCompositorSettings videoCompositorSettings,
         List<Effect> compositionEffects,
-        long initialTimestampOffsetUs) {
-      @Nullable Presentation presentation = null;
-      for (int i = 0; i < compositionEffects.size(); i++) {
-        Effect effect = compositionEffects.get(i);
-        if (effect instanceof Presentation) {
-          presentation = (Presentation) effect;
-        }
-      }
+        long initialTimestampOffsetUs,
+        boolean renderFramesAutomatically) {
       return new TransformerSingleInputVideoGraph(
           context,
           videoFrameProcessorFactory,
@@ -73,12 +66,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           debugViewProvider,
           listenerExecutor,
           videoCompositorSettings,
-          /* renderFramesAutomatically= */ true,
-          presentation,
+          renderFramesAutomatically,
+          compositionEffects,
           initialTimestampOffsetUs);
     }
   }
 
+  private final List<Effect> compositionEffects;
   private @MonotonicNonNull VideoFrameProcessingWrapper videoFrameProcessingWrapper;
 
   private TransformerSingleInputVideoGraph(
@@ -90,7 +84,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       Executor listenerExecutor,
       VideoCompositorSettings videoCompositorSettings,
       boolean renderFramesAutomatically,
-      @Nullable Presentation presentation,
+      List<Effect> compositionEffects,
       long initialTimestampOffsetUs) {
     super(
         context,
@@ -101,8 +95,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         listenerExecutor,
         videoCompositorSettings,
         renderFramesAutomatically,
-        presentation,
         initialTimestampOffsetUs);
+    this.compositionEffects = compositionEffects;
   }
 
   @Override
@@ -111,7 +105,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     registerInput(inputIndex);
     videoFrameProcessingWrapper =
         new VideoFrameProcessingWrapper(
-            getProcessor(inputIndex), getPresentation(), getInitialTimestampOffsetUs());
+            getProcessor(inputIndex), compositionEffects, getInitialTimestampOffsetUs());
     return videoFrameProcessingWrapper;
+  }
+
+  @Override
+  public void renderOutputFrameWithMediaPresentationTime() {
+    getProcessor(getInputIndex()).renderOutputFrame(RENDER_OUTPUT_FRAME_WITH_PRESENTATION_TIME);
   }
 }

@@ -79,8 +79,9 @@ public final class Effects {
       SpeedProvider speedProvider) {
     SpeedChangingAudioProcessor speedChangingAudioProcessor =
         new SpeedChangingAudioProcessor(speedProvider);
-    Effect audioDrivenvideoEffect =
-        new TimestampAdjustment(speedChangingAudioProcessor::getSpeedAdjustedTimeAsync);
-    return Pair.create(speedChangingAudioProcessor, audioDrivenvideoEffect);
+    Effect audioDrivenVideoEffect =
+        new TimestampAdjustment(
+            speedChangingAudioProcessor::getSpeedAdjustedTimeAsync, speedProvider);
+    return Pair.create(speedChangingAudioProcessor, audioDrivenVideoEffect);
   }
 }

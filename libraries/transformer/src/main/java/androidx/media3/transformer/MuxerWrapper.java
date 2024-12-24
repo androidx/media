@@ -30,6 +30,7 @@ import static androidx.media3.effect.DebugTraceUtil.EVENT_CAN_WRITE_SAMPLE;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_INPUT_ENDED;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_OUTPUT_ENDED;
 import static java.lang.Math.max;
+import static java.lang.Math.min;
 import static java.lang.annotation.ElementType.TYPE_USE;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -161,6 +162,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private boolean isEnded;
   private @C.TrackType int previousTrackType;
   private long minTrackTimeUs;
+  private long minEndedTrackTimeUs;
   private long maxEndedTrackTimeUs;
   private @MonotonicNonNull ScheduledFuture<?> abortScheduledFuture;
   private boolean isAborted;
@@ -214,6 +216,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     trackTypeToInfo = new SparseArray<>();
     previousTrackType = C.TRACK_TYPE_NONE;
     firstVideoPresentationTimeUs = C.TIME_UNSET;
+    minEndedTrackTimeUs = Long.MAX_VALUE;
     abortScheduledExecutorService = Util.newSingleThreadScheduledExecutor(TIMER_THREAD_NAME);
     bufferInfo = new BufferInfo();
   }
@@ -274,7 +277,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
     int nalUnitTypeMask = 0x1F;
     if ((newSps[NalUnitUtil.NAL_START_CODE.length] & nalUnitTypeMask)
-        != NalUnitUtil.NAL_UNIT_TYPE_SPS) {
+        != NalUnitUtil.H264_NAL_UNIT_TYPE_SPS) {
       return null;
     }
     // Check that H.264 profile is non-zero.
@@ -562,6 +565,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       return false;
     }
 
+    if (trackInfo.sampleCount == 0) {
+      trackInfo.startTimeUs = presentationTimeUs;
+    }
     trackInfo.sampleCount++;
     trackInfo.bytesWritten += data.remaining();
     trackInfo.timeUs = max(trackInfo.timeUs, presentationTimeUs);
@@ -597,6 +603,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
 
     TrackInfo trackInfo = trackTypeToInfo.get(trackType);
+    minEndedTrackTimeUs = max(0, min(minEndedTrackTimeUs, trackInfo.startTimeUs));
     maxEndedTrackTimeUs = max(maxEndedTrackTimeUs, trackInfo.timeUs);
     listener.onTrackEnded(
         trackType, trackInfo.format, trackInfo.getAverageBitrate(), trackInfo.sampleCount);
@@ -621,10 +628,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       }
     }
 
+    long durationMs = usToMs(maxEndedTrackTimeUs - minEndedTrackTimeUs);
     if (muxerMode == MUXER_MODE_MUX_PARTIAL
         && muxedPartialVideo
         && (muxedPartialAudio || trackCount == 1)) {
-      listener.onEnded(usToMs(maxEndedTrackTimeUs), getCurrentOutputSizeBytes());
+      listener.onEnded(durationMs, getCurrentOutputSizeBytes());
       if (abortScheduledFuture != null) {
         abortScheduledFuture.cancel(/* mayInterruptIfRunning= */ false);
       }
@@ -632,7 +640,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
 
     if (isEnded) {
-      listener.onEnded(usToMs(maxEndedTrackTimeUs), getCurrentOutputSizeBytes());
+      listener.onEnded(durationMs, getCurrentOutputSizeBytes());
       abortScheduledExecutorService.shutdownNow();
     }
   }
@@ -775,6 +783,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     public final Format format;
     public final TrackToken trackToken;
 
+    public long startTimeUs;
     public long bytesWritten;
     public int sampleCount;
     public long timeUs;
@@ -789,7 +798,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
      * there is no track data.
      */
     public int getAverageBitrate() {
-      if (timeUs <= 0 || bytesWritten <= 0) {
+      if (timeUs <= 0 || bytesWritten <= 0 || timeUs == startTimeUs) {
         return C.RATE_UNSET_INT;
       }
 
@@ -799,7 +808,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           Util.scaleLargeTimestamp(
               /* timestamp= */ bytesWritten,
               /* multiplier= */ C.BITS_PER_BYTE * C.MICROS_PER_SECOND,
-              /* divisor= */ timeUs);
+              /* divisor= */ timeUs - startTimeUs);
     }
   }
 }

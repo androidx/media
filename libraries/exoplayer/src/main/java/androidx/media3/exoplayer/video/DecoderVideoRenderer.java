@@ -153,7 +153,6 @@ public abstract class DecoderVideoRenderer extends BaseRenderer {
   private int consecutiveDroppedFrameCount;
   private int buffersInCodecCount;
   private long lastRenderTimeUs;
-  private long outputStreamOffsetUs;
 
   /** Decoder event counters used for debugging purposes. */
   protected DecoderCounters decoderCounters;
@@ -342,10 +341,8 @@ public abstract class DecoderVideoRenderer extends BaseRenderer {
       long offsetUs,
       MediaSource.MediaPeriodId mediaPeriodId)
       throws ExoPlaybackException {
-    // TODO: This shouldn't just update the output stream offset as long as there are still buffers
-    // of the previous stream in the decoder. It should also make sure to render the first frame of
-    // the next stream if the playback position reached the new stream.
-    outputStreamOffsetUs = offsetUs;
+    // TODO: This code should make sure to render the first frame of the next stream if the playback
+    //  position reached the new stream.
     super.onStreamChanged(formats, startPositionUs, offsetUs, mediaPeriodId);
   }
 
@@ -875,7 +872,9 @@ public abstract class DecoderVideoRenderer extends BaseRenderer {
       outputFormat = formatQueue.pollFirst();
     }
 
-    long presentationTimeUs = bufferTimeUs - outputStreamOffsetUs;
+    // TODO: This shouldn't just use the input stream offset and we should correctly track the
+    //  output stream offset after decoding instead.
+    long presentationTimeUs = bufferTimeUs - getStreamOffsetUs();
     if (shouldForceRender(earlyUs)) {
       renderOutputBuffer(outputBuffer, presentationTimeUs, checkNotNull(outputFormat));
       return true;

@@ -53,6 +53,12 @@ import java.io.IOException;
    */
   public final @NullableType SampleStream[] sampleStreams;
 
+  /** The target buffer duration to preload. */
+  public final long targetPreloadBufferDurationUs;
+
+  /** Whether {@link #prepare(MediaPeriod.Callback, long)} has been called. */
+  public boolean prepareCalled;
+
   /** Whether the media period has finished preparing. */
   public boolean prepared;
 
@@ -103,13 +109,15 @@ import java.io.IOException;
       Allocator allocator,
       MediaSourceList mediaSourceList,
       MediaPeriodInfo info,
-      TrackSelectorResult emptyTrackSelectorResult) {
+      TrackSelectorResult emptyTrackSelectorResult,
+      long targetPreloadBufferDurationUs) {
     this.rendererCapabilities = rendererCapabilities;
     this.rendererPositionOffsetUs = rendererPositionOffsetUs;
     this.trackSelector = trackSelector;
     this.mediaSourceList = mediaSourceList;
     this.uid = info.id.periodUid;
     this.info = info;
+    this.targetPreloadBufferDurationUs = targetPreloadBufferDurationUs;
     this.trackGroups = TrackGroupArray.EMPTY;
     this.trackSelectorResult = emptyTrackSelectorResult;
     sampleStreams = new SampleStream[rendererCapabilities.length];
@@ -160,6 +168,13 @@ import java.io.IOException;
         && (!hasEnabledTracks || mediaPeriod.getBufferedPositionUs() == C.TIME_END_OF_SOURCE);
   }
 
+  /** Returns whether the period is fully preloaded. */
+  public boolean isFullyPreloaded() {
+    return prepared
+        && (isFullyBuffered()
+            || getBufferedPositionUs() - info.startPositionUs >= targetPreloadBufferDurationUs);
+  }
+
   /**
    * Returns the buffered position in microseconds. If the period is buffered to the end, then the
    * period duration is returned.
@@ -188,12 +203,14 @@ import java.io.IOException;
    *
    * @param playbackSpeed The current factor by which playback is sped up.
    * @param timeline The current {@link Timeline}.
+   * @param playWhenReady The current value of whether playback should proceed when ready.
    * @throws ExoPlaybackException If an error occurs during track selection.
    */
-  public void handlePrepared(float playbackSpeed, Timeline timeline) throws ExoPlaybackException {
+  public void handlePrepared(float playbackSpeed, Timeline timeline, boolean playWhenReady)
+      throws ExoPlaybackException {
     prepared = true;
     trackGroups = mediaPeriod.getTrackGroups();
-    TrackSelectorResult selectorResult = selectTracks(playbackSpeed, timeline);
+    TrackSelectorResult selectorResult = selectTracks(playbackSpeed, timeline, playWhenReady);
     long requestedStartPositionUs = info.startPositionUs;
     if (info.durationUs != C.TIME_UNSET && requestedStartPositionUs >= info.durationUs) {
       // Make sure start position doesn't exceed period duration.
@@ -220,25 +237,15 @@ import java.io.IOException;
   }
 
   /**
-   * Continues loading the media period at the given renderer position. Should only be called if
+   * Continues loading the media period with the given {@link LoadingInfo}. Should only be called if
    * this is the loading media period.
    *
-   * @param rendererPositionUs The load position in renderer time, in microseconds.
-   * @param playbackSpeed The playback speed indicating the current rate of playback.
-   * @param lastRebufferRealtimeMs The time at which the last rebuffering occurred, in milliseconds
-   *     since boot including time spent in sleep. The time base used is the same as that measured
-   *     by {@link android.os.SystemClock#elapsedRealtime}.
+   * @param loadingInfo The {@link LoadingInfo} about the current player state relevant to this load
+   *     request.
    */
-  public void continueLoading(
-      long rendererPositionUs, float playbackSpeed, long lastRebufferRealtimeMs) {
+  public void continueLoading(LoadingInfo loadingInfo) {
     checkState(isLoadingMediaPeriod());
-    long loadingPeriodPositionUs = toPeriodTime(rendererPositionUs);
-    mediaPeriod.continueLoading(
-        new LoadingInfo.Builder()
-            .setPlaybackPositionUs(loadingPeriodPositionUs)
-            .setPlaybackSpeed(playbackSpeed)
-            .setLastRebufferRealtimeMs(lastRebufferRealtimeMs)
-            .build());
+    mediaPeriod.continueLoading(loadingInfo);
   }
 
   /**
@@ -249,11 +256,12 @@ import java.io.IOException;
    *
    * @param playbackSpeed The current factor by which playback is sped up.
    * @param timeline The current {@link Timeline}.
+   * @param playWhenReady The current value of whether playback should proceed when ready.
    * @return The {@link TrackSelectorResult}.
    * @throws ExoPlaybackException If an error occurs during track selection.
    */
-  public TrackSelectorResult selectTracks(float playbackSpeed, Timeline timeline)
-      throws ExoPlaybackException {
+  public TrackSelectorResult selectTracks(
+      float playbackSpeed, Timeline timeline, boolean playWhenReady) throws ExoPlaybackException {
     TrackSelectorResult selectorResult =
         trackSelector.selectTracks(rendererCapabilities, getTrackGroups(), info.id, timeline);
     for (int i = 0; i < selectorResult.length; i++) {
@@ -268,6 +276,7 @@ import java.io.IOException;
     for (ExoTrackSelection trackSelection : selectorResult.selections) {
       if (trackSelection != null) {
         trackSelection.onPlaybackSpeed(playbackSpeed);
+        trackSelection.onPlayWhenReadyChanged(playWhenReady);
       }
     }
     return selectorResult;
@@ -507,6 +516,11 @@ import java.io.IOException;
     return areDurationsCompatible(this.info.durationUs, info.durationUs)
         && this.info.startPositionUs == info.startPositionUs
         && this.info.id.equals(info.id);
+  }
+
+  public void prepare(MediaPeriod.Callback callback, long startPositionUs) {
+    prepareCalled = true;
+    mediaPeriod.prepare(callback, startPositionUs);
   }
 
   /* package */ interface Factory {

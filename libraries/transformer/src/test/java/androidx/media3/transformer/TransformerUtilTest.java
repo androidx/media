@@ -63,7 +63,8 @@ public final class TransformerUtilTest {
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(mediaItem).setEffects(effects).build();
     Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence(editedMediaItem)).build();
+        new Composition.Builder(new EditedMediaItemSequence.Builder(editedMediaItem).build())
+            .build();
     MuxerWrapper muxerWrapper =
         new MuxerWrapper(
             temporaryFolder.newFile().getPath(),
@@ -97,7 +98,8 @@ public final class TransformerUtilTest {
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(mediaItem).setEffects(effects).build();
     Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence(editedMediaItem)).build();
+        new Composition.Builder(new EditedMediaItemSequence.Builder(editedMediaItem).build())
+            .build();
     MuxerWrapper muxerWrapper =
         new MuxerWrapper(
             temporaryFolder.newFile().getPath(),

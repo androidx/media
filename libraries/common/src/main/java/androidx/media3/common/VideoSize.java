@@ -27,7 +27,6 @@ public final class VideoSize {
 
   private static final int DEFAULT_WIDTH = 0;
   private static final int DEFAULT_HEIGHT = 0;
-  private static final int DEFAULT_UNAPPLIED_ROTATION_DEGREES = 0;
   private static final float DEFAULT_PIXEL_WIDTH_HEIGHT_RATIO = 1F;
 
   public static final VideoSize UNKNOWN = new VideoSize(DEFAULT_WIDTH, DEFAULT_HEIGHT);
@@ -41,19 +40,10 @@ public final class VideoSize {
   public final int height;
 
   /**
-   * Clockwise rotation in degrees that the application should apply for the video for it to be
-   * rendered in the correct orientation.
-   *
-   * <p>Is 0 if unknown or if no rotation is needed.
-   *
-   * <p>Player should apply video rotation internally, in which case unappliedRotationDegrees is 0.
-   * But when a player can't apply the rotation, for example before API level 21, the unapplied
-   * rotation is reported by this field for application to handle.
-   *
-   * <p>Applications that use {@link android.view.TextureView} can apply the rotation by calling
-   * {@link android.view.TextureView#setTransform}.
+   * @deprecated Rotation is handled internally by the player, so this is always zero.
    */
   @IntRange(from = 0, to = 359)
+  @Deprecated
   public final int unappliedRotationDegrees;
 
   /**
@@ -73,7 +63,7 @@ public final class VideoSize {
    */
   @UnstableApi
   public VideoSize(@IntRange(from = 0) int width, @IntRange(from = 0) int height) {
-    this(width, height, DEFAULT_UNAPPLIED_ROTATION_DEGREES, DEFAULT_PIXEL_WIDTH_HEIGHT_RATIO);
+    this(width, height, DEFAULT_PIXEL_WIDTH_HEIGHT_RATIO);
   }
 
   /**
@@ -81,23 +71,34 @@ public final class VideoSize {
    *
    * @param width The video width in pixels.
    * @param height The video height in pixels.
-   * @param unappliedRotationDegrees Clockwise rotation in degrees that the application should apply
-   *     for the video for it to be rendered in the correct orientation. See {@link
-   *     #unappliedRotationDegrees}.
    * @param pixelWidthHeightRatio The width to height ratio of each pixel. For the normal case of
    *     square pixels this will be equal to 1.0. Different values are indicative of anamorphic
    *     content.
    */
+  @SuppressWarnings("deprecation") // Setting deprecated field
+  @UnstableApi
+  public VideoSize(
+      @IntRange(from = 0) int width,
+      @IntRange(from = 0) int height,
+      @FloatRange(from = 0, fromInclusive = false) float pixelWidthHeightRatio) {
+    this.width = width;
+    this.height = height;
+    this.unappliedRotationDegrees = 0;
+    this.pixelWidthHeightRatio = pixelWidthHeightRatio;
+  }
+
+  /**
+   * @deprecated Use {@link VideoSize#VideoSize(int, int, float)} instead. {@code
+   *     unappliedRotationDegrees} is not needed on API 21+ and is always zero.
+   */
+  @Deprecated
   @UnstableApi
   public VideoSize(
       @IntRange(from = 0) int width,
       @IntRange(from = 0) int height,
       @IntRange(from = 0, to = 359) int unappliedRotationDegrees,
       @FloatRange(from = 0, fromInclusive = false) float pixelWidthHeightRatio) {
-    this.width = width;
-    this.height = height;
-    this.unappliedRotationDegrees = unappliedRotationDegrees;
-    this.pixelWidthHeightRatio = pixelWidthHeightRatio;
+    this(width, height, pixelWidthHeightRatio);
   }
 
   @Override
@@ -109,7 +110,6 @@ public final class VideoSize {
       VideoSize other = (VideoSize) obj;
       return width == other.width
           && height == other.height
-          && unappliedRotationDegrees == other.unappliedRotationDegrees
           && pixelWidthHeightRatio == other.pixelWidthHeightRatio;
     }
     return false;
@@ -120,23 +120,27 @@ public final class VideoSize {
     int result = 7;
     result = 31 * result + width;
     result = 31 * result + height;
-    result = 31 * result + unappliedRotationDegrees;
     result = 31 * result + Float.floatToRawIntBits(pixelWidthHeightRatio);
     return result;
   }
 
   private static final String FIELD_WIDTH = Util.intToStringMaxRadix(0);
   private static final String FIELD_HEIGHT = Util.intToStringMaxRadix(1);
-  private static final String FIELD_UNAPPLIED_ROTATION_DEGREES = Util.intToStringMaxRadix(2);
+  // 2 reserved for deprecated 'unappliedRotationDegrees'.
   private static final String FIELD_PIXEL_WIDTH_HEIGHT_RATIO = Util.intToStringMaxRadix(3);
 
   @UnstableApi
   public Bundle toBundle() {
     Bundle bundle = new Bundle();
-    bundle.putInt(FIELD_WIDTH, width);
-    bundle.putInt(FIELD_HEIGHT, height);
-    bundle.putInt(FIELD_UNAPPLIED_ROTATION_DEGREES, unappliedRotationDegrees);
-    bundle.putFloat(FIELD_PIXEL_WIDTH_HEIGHT_RATIO, pixelWidthHeightRatio);
+    if (width != 0) {
+      bundle.putInt(FIELD_WIDTH, width);
+    }
+    if (height != 0) {
+      bundle.putInt(FIELD_HEIGHT, height);
+    }
+    if (pixelWidthHeightRatio != 1f) {
+      bundle.putFloat(FIELD_PIXEL_WIDTH_HEIGHT_RATIO, pixelWidthHeightRatio);
+    }
     return bundle;
   }
 
@@ -145,11 +149,8 @@ public final class VideoSize {
   public static VideoSize fromBundle(Bundle bundle) {
     int width = bundle.getInt(FIELD_WIDTH, DEFAULT_WIDTH);
     int height = bundle.getInt(FIELD_HEIGHT, DEFAULT_HEIGHT);
-    int unappliedRotationDegrees =
-        bundle.getInt(FIELD_UNAPPLIED_ROTATION_DEGREES, DEFAULT_UNAPPLIED_ROTATION_DEGREES);
     float pixelWidthHeightRatio =
         bundle.getFloat(FIELD_PIXEL_WIDTH_HEIGHT_RATIO, DEFAULT_PIXEL_WIDTH_HEIGHT_RATIO);
-    return new VideoSize(width, height, unappliedRotationDegrees, pixelWidthHeightRatio);
+    return new VideoSize(width, height, pixelWidthHeightRatio);
   }
-  ;
 }

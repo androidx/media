@@ -16,9 +16,9 @@
 package androidx.media3.extractor.mp4;
 
 import static androidx.media3.common.C.WIDEVINE_UUID;
-import static androidx.media3.extractor.mp4.Atom.TYPE_pssh;
-import static androidx.media3.extractor.mp4.Atom.parseFullAtomFlags;
-import static androidx.media3.extractor.mp4.Atom.parseFullAtomVersion;
+import static androidx.media3.container.Mp4Box.TYPE_pssh;
+import static androidx.media3.extractor.mp4.BoxParser.parseFullBoxFlags;
+import static androidx.media3.extractor.mp4.BoxParser.parseFullBoxVersion;
 import static com.google.common.truth.Truth.assertThat;
 
 import androidx.media3.common.C;
@@ -42,8 +42,8 @@ public final class PsshAtomUtilTest {
     assertThat(parsablePsshAtom.readUnsignedIntToInt()).isEqualTo(psshAtom.length); // length
     assertThat(parsablePsshAtom.readInt()).isEqualTo(TYPE_pssh); // type
     int fullAtomInt = parsablePsshAtom.readInt(); // version + flags
-    assertThat(parseFullAtomVersion(fullAtomInt)).isEqualTo(0);
-    assertThat(parseFullAtomFlags(fullAtomInt)).isEqualTo(0);
+    assertThat(parseFullBoxVersion(fullAtomInt)).isEqualTo(0);
+    assertThat(parseFullBoxFlags(fullAtomInt)).isEqualTo(0);
     UUID systemId = new UUID(parsablePsshAtom.readLong(), parsablePsshAtom.readLong());
     assertThat(systemId).isEqualTo(WIDEVINE_UUID);
     assertThat(parsablePsshAtom.readUnsignedIntToInt()).isEqualTo(schemeData.length);
@@ -65,8 +65,8 @@ public final class PsshAtomUtilTest {
     assertThat(parsablePsshAtom.readUnsignedIntToInt()).isEqualTo(psshAtom.length);
     assertThat(parsablePsshAtom.readInt()).isEqualTo(TYPE_pssh); // type
     int fullAtomInt = parsablePsshAtom.readInt(); // version + flags
-    assertThat(parseFullAtomVersion(fullAtomInt)).isEqualTo(1);
-    assertThat(parseFullAtomFlags(fullAtomInt)).isEqualTo(0);
+    assertThat(parseFullBoxVersion(fullAtomInt)).isEqualTo(1);
+    assertThat(parseFullBoxFlags(fullAtomInt)).isEqualTo(0);
     UUID systemId = new UUID(parsablePsshAtom.readLong(), parsablePsshAtom.readLong());
     assertThat(systemId).isEqualTo(WIDEVINE_UUID);
     assertThat(parsablePsshAtom.readUnsignedIntToInt()).isEqualTo(2);

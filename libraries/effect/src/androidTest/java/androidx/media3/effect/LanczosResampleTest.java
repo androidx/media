@@ -23,6 +23,7 @@ import static androidx.media3.test.utils.BitmapPixelTestUtil.readBitmap;
 import static androidx.media3.test.utils.TestUtil.PSNR_THRESHOLD;
 import static androidx.media3.test.utils.TestUtil.assertBitmapsAreSimilar;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
+import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -127,6 +128,27 @@ public class LanczosResampleTest {
 
     maybeSaveTestBitmap(testId, /* bitmapLabel= */ "actual", actualBitmap, /* path= */ null);
     assertBitmapsAreSimilar(expectedBitmap, actualBitmap, PSNR_THRESHOLD);
+  }
+
+  @Test
+  public void isNoOp_whenSizeDoesntChange_returnsTrue() {
+    LanczosResample lanczosResample = LanczosResample.scaleToFit(720, 1280);
+
+    assertThat(lanczosResample.isNoOp(720, 1280)).isTrue();
+  }
+
+  @Test
+  public void isNoOp_forSmallScalingFactors_returnsTrue() {
+    LanczosResample lanczosResample = LanczosResample.scaleToFit(1920, 1072);
+
+    assertThat(lanczosResample.isNoOp(1920, 1080)).isTrue();
+  }
+
+  @Test
+  public void isNoOp_forLargeScalingFactors_returnsTrue() {
+    LanczosResample lanczosResample = LanczosResample.scaleToFit(1920, 1068);
+
+    assertThat(lanczosResample.isNoOp(1920, 1080)).isFalse();
   }
 
   private static GlTextureInfo setupInputTexture(String path) throws Exception {

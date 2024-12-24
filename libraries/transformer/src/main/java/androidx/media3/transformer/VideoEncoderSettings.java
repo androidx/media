@@ -43,6 +43,12 @@ public final class VideoEncoderSettings {
   /** A value for various fields to indicate that the field's value is unknown or not applicable. */
   public static final int NO_VALUE = Format.NO_VALUE;
 
+  /**
+   * A value for {@link Builder#setEncoderPerformanceParameters(int, int)} to disable setting
+   * performance parameters.
+   */
+  public static final int RATE_UNSET = NO_VALUE - 1;
+
   /** The default I-frame interval in seconds. */
   public static final float DEFAULT_I_FRAME_INTERVAL_SECONDS = 1.0f;
 
@@ -137,8 +143,8 @@ public final class VideoEncoderSettings {
      * <p>The value must be one of the values defined in {@link MediaCodecInfo.CodecProfileLevel},
      * or {@link #NO_VALUE}.
      *
-     * <p>Profile and level settings will be ignored when using {@link DefaultEncoderFactory} and
-     * encoding to H264.
+     * <p>Profile settings will be ignored when using {@link DefaultEncoderFactory} and encoding to
+     * H264.
      *
      * @param encodingProfile The {@link VideoEncoderSettings#profile}.
      * @param encodingLevel The {@link VideoEncoderSettings#level}.
@@ -168,6 +174,9 @@ public final class VideoEncoderSettings {
      * Sets encoding operating rate and priority. The default values are {@link #NO_VALUE}, which is
      * treated as configuring the encoder for maximum throughput.
      *
+     * <p>To disable the configuration for operating rate and priority, use {@link #RATE_UNSET} for
+     * both arguments.
+     *
      * @param operatingRate The {@link MediaFormat#KEY_OPERATING_RATE operating rate} in frames per
      *     second.
      * @param priority The {@link MediaFormat#KEY_PRIORITY priority}.
@@ -176,6 +185,7 @@ public final class VideoEncoderSettings {
     @CanIgnoreReturnValue
     @VisibleForTesting
     public Builder setEncoderPerformanceParameters(int operatingRate, int priority) {
+      checkArgument((operatingRate == RATE_UNSET) == (priority == RATE_UNSET));
       this.operatingRate = operatingRate;
       this.priority = priority;
       return this;

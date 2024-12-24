@@ -529,7 +529,8 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
                         : new UnknownSubtitlesExtractor(format)
                   };
           ProgressiveMediaSource.Factory progressiveMediaSourceFactory =
-              new ProgressiveMediaSource.Factory(dataSourceFactory, extractorsFactory);
+              new ProgressiveMediaSource.Factory(dataSourceFactory, extractorsFactory)
+                  .setSuppressPrepareError(true);
           if (loadErrorHandlingPolicy != null) {
             progressiveMediaSourceFactory.setLoadErrorHandlingPolicy(loadErrorHandlingPolicy);
           }

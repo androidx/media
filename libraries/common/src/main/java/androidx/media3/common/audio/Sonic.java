@@ -16,9 +16,9 @@
  */
 package androidx.media3.common.audio;
 
+import static androidx.media3.common.util.Assertions.checkState;
 import static java.lang.Math.min;
 
-import androidx.media3.common.util.Assertions;
 import java.nio.ShortBuffer;
 import java.util.Arrays;
 
@@ -52,11 +52,23 @@ import java.util.Arrays;
   private int pitchFrameCount;
   private int oldRatePosition;
   private int newRatePosition;
+
+  /**
+   * Number of frames pending to be copied from {@link #inputBuffer} directly to {@link
+   * #outputBuffer}.
+   *
+   * <p>This field is only relevant to time-stretching or pitch-shifting in {@link
+   * #changeSpeed(double)}, particularly when more frames need to be copied to the {@link
+   * #outputBuffer} than are available in {@link #inputBuffer} and Sonic must wait until the next
+   * buffer (or EOS) is queued.
+   */
   private int remainingInputToCopyFrameCount;
+
   private int prevPeriod;
   private int prevMinDiff;
   private int minDiff;
   private int maxDiff;
+  private double accumulatedSpeedAdjustmentError;
 
   /**
    * Creates a new Sonic audio stream processor.
@@ -130,10 +142,26 @@ import java.util.Arrays;
    */
   public void queueEndOfStream() {
     int remainingFrameCount = inputFrameCount;
-    float s = speed / pitch;
-    float r = rate * pitch;
+    double s = speed / pitch;
+    double r = rate * pitch;
+
+    // If there are frames to be copied directly onto the output buffer, we should not count those
+    // as "input frames" because Sonic is not applying any processing on them.
+    int adjustedRemainingFrames = remainingFrameCount - remainingInputToCopyFrameCount;
+
+    // We add directly to the output the number of frames in remainingInputToCopyFrameCount.
+    // Otherwise, expectedOutputFrames will be off and will make Sonic output an incorrect number of
+    // frames.
     int expectedOutputFrames =
-        outputFrameCount + (int) ((remainingFrameCount / s + pitchFrameCount) / r + 0.5f);
+        outputFrameCount
+            + (int)
+                ((adjustedRemainingFrames / s
+                            + remainingInputToCopyFrameCount
+                            + accumulatedSpeedAdjustmentError
+                            + pitchFrameCount)
+                        / r
+                    + 0.5);
+    accumulatedSpeedAdjustmentError = 0;
 
     // Add enough silence to flush both input and pitch buffers.
     inputBuffer =
@@ -166,6 +194,7 @@ import java.util.Arrays;
     prevMinDiff = 0;
     minDiff = 0;
     maxDiff = 0;
+    accumulatedSpeedAdjustmentError = 0;
   }
 
   /** Returns the size of output that can be read with {@link #getOutput(ShortBuffer)}, in bytes. */
@@ -355,14 +384,14 @@ import java.util.Arrays;
     pitchFrameCount -= frameCount;
   }
 
-  private short interpolate(short[] in, int inPos, int oldSampleRate, int newSampleRate) {
+  private short interpolate(short[] in, int inPos, long oldSampleRate, long newSampleRate) {
     short left = in[inPos];
     short right = in[inPos + channelCount];
-    int position = newRatePosition * oldSampleRate;
-    int leftPosition = oldRatePosition * newSampleRate;
-    int rightPosition = (oldRatePosition + 1) * newSampleRate;
-    int ratio = rightPosition - position;
-    int width = rightPosition - leftPosition;
+    long position = newRatePosition * oldSampleRate;
+    long leftPosition = oldRatePosition * newSampleRate;
+    long rightPosition = (oldRatePosition + 1) * newSampleRate;
+    long ratio = rightPosition - position;
+    long width = rightPosition - leftPosition;
     return (short) ((ratio * left + (width - ratio) * right) / width);
   }
 
@@ -370,16 +399,23 @@ import java.util.Arrays;
     if (outputFrameCount == originalOutputFrameCount) {
       return;
     }
-    int newSampleRate = (int) (inputSampleRateHz / rate);
-    int oldSampleRate = inputSampleRateHz;
+
+    // Use long to avoid overflows int-int multiplications. The actual value of newSampleRate and
+    // oldSampleRate should always be comfortably within the int range.
+    long newSampleRate = (long) (inputSampleRateHz / rate);
+    long oldSampleRate = inputSampleRateHz;
     // Set these values to help with the integer math.
-    while (newSampleRate > (1 << 14) || oldSampleRate > (1 << 14)) {
+    while (newSampleRate != 0
+        && oldSampleRate != 0
+        && newSampleRate % 2 == 0
+        && oldSampleRate % 2 == 0) {
       newSampleRate /= 2;
       oldSampleRate /= 2;
     }
     moveNewSamplesToPitchBuffer(originalOutputFrameCount);
     // Leave at least one pitch sample in the buffer.
     for (int position = 0; position < pitchFrameCount - 1; position++) {
+      // Cast to long to avoid overflow.
       while ((oldRatePosition + 1) * newSampleRate > newRatePosition * oldSampleRate) {
         outputBuffer =
             ensureSpaceForAdditionalFrames(
@@ -394,21 +430,26 @@ import java.util.Arrays;
       oldRatePosition++;
       if (oldRatePosition == oldSampleRate) {
         oldRatePosition = 0;
-        Assertions.checkState(newRatePosition == newSampleRate);
+        checkState(newRatePosition == newSampleRate);
         newRatePosition = 0;
       }
     }
     removePitchFrames(pitchFrameCount - 1);
   }
 
-  private int skipPitchPeriod(short[] samples, int position, float speed, int period) {
+  private int skipPitchPeriod(short[] samples, int position, double speed, int period) {
     // Skip over a pitch period, and copy period/speed samples to the output.
     int newFrameCount;
     if (speed >= 2.0f) {
-      newFrameCount = (int) (period / (speed - 1.0f));
+      double expectedFrameCount = period / (speed - 1.0) + accumulatedSpeedAdjustmentError;
+      newFrameCount = (int) Math.round(expectedFrameCount);
+      accumulatedSpeedAdjustmentError = expectedFrameCount - newFrameCount;
     } else {
       newFrameCount = period;
-      remainingInputToCopyFrameCount = (int) (period * (2.0f - speed) / (speed - 1.0f));
+      double expectedInputToCopy =
+          period * (2.0f - speed) / (speed - 1.0f) + accumulatedSpeedAdjustmentError;
+      remainingInputToCopyFrameCount = (int) Math.round(expectedInputToCopy);
+      accumulatedSpeedAdjustmentError = expectedInputToCopy - remainingInputToCopyFrameCount;
     }
     outputBuffer = ensureSpaceForAdditionalFrames(outputBuffer, outputFrameCount, newFrameCount);
     overlapAdd(
@@ -424,14 +465,19 @@ import java.util.Arrays;
     return newFrameCount;
   }
 
-  private int insertPitchPeriod(short[] samples, int position, float speed, int period) {
+  private int insertPitchPeriod(short[] samples, int position, double speed, int period) {
     // Insert a pitch period, and determine how much input to copy directly.
     int newFrameCount;
     if (speed < 0.5f) {
-      newFrameCount = (int) (period * speed / (1.0f - speed));
+      double expectedFrameCount = period * speed / (1.0f - speed) + accumulatedSpeedAdjustmentError;
+      newFrameCount = (int) Math.round(expectedFrameCount);
+      accumulatedSpeedAdjustmentError = expectedFrameCount - newFrameCount;
     } else {
       newFrameCount = period;
-      remainingInputToCopyFrameCount = (int) (period * (2.0f * speed - 1.0f) / (1.0f - speed));
+      double expectedInputToCopy =
+          period * (2.0f * speed - 1.0f) / (1.0f - speed) + accumulatedSpeedAdjustmentError;
+      remainingInputToCopyFrameCount = (int) Math.round(expectedInputToCopy);
+      accumulatedSpeedAdjustmentError = expectedInputToCopy - remainingInputToCopyFrameCount;
     }
     outputBuffer =
         ensureSpaceForAdditionalFrames(outputBuffer, outputFrameCount, period + newFrameCount);
@@ -454,7 +500,7 @@ import java.util.Arrays;
     return newFrameCount;
   }
 
-  private void changeSpeed(float speed) {
+  private void changeSpeed(double speed) {
     if (inputFrameCount < maxRequiredFrameCount) {
       return;
     }
@@ -478,7 +524,7 @@ import java.util.Arrays;
   private void processStreamInput() {
     // Resample as many pitch periods as we have buffered on the input.
     int originalOutputFrameCount = outputFrameCount;
-    float s = speed / pitch;
+    double s = speed / pitch;
     float r = rate * pitch;
     if (s > 1.00001 || s < 0.99999) {
       changeSpeed(s);

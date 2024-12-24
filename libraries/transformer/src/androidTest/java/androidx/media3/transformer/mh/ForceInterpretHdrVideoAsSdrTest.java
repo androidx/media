@@ -18,9 +18,7 @@ package androidx.media3.transformer.mh;
 import static androidx.media3.common.util.Util.SDK_INT;
 import static androidx.media3.test.utils.TestUtil.retrieveTrackFormat;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_1080P_5_SECOND_HLG10;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_1080P_5_SECOND_HLG10_FORMAT;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_720P_4_SECOND_HDR10;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_720P_4_SECOND_HDR10_FORMAT;
 import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
 import static androidx.media3.transformer.AndroidTestUtil.recordTestSkipped;
 import static com.google.common.truth.Truth.assertThat;
@@ -74,7 +72,8 @@ public class ForceInterpretHdrVideoAsSdrTest {
 
     // Force interpret HDR as SDR signals SDR input to the decoder, even if the actual input is HDR.
     Format decoderInputFormat =
-        MP4_ASSET_720P_4_SECOND_HDR10_FORMAT
+        MP4_ASSET_720P_4_SECOND_HDR10
+            .videoFormat
             .buildUpon()
             .setColorInfo(ColorInfo.SDR_BT709_LIMITED)
             .build();
@@ -82,10 +81,10 @@ public class ForceInterpretHdrVideoAsSdrTest {
 
     Transformer transformer = new Transformer.Builder(context).build();
     EditedMediaItem editedMediaItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(MP4_ASSET_720P_4_SECOND_HDR10)))
+        new EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(MP4_ASSET_720P_4_SECOND_HDR10.uri)))
             .build();
     Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence(editedMediaItem))
+        new Composition.Builder(new EditedMediaItemSequence.Builder(editedMediaItem).build())
             .setHdrMode(Composition.HDR_MODE_EXPERIMENTAL_FORCE_INTERPRET_HDR_AS_SDR)
             .build();
     ExportTestResult exportTestResult =
@@ -114,7 +113,8 @@ public class ForceInterpretHdrVideoAsSdrTest {
 
     // Force interpret HDR as SDR signals SDR input to the decoder, even if the actual input is HDR.
     Format decoderInputFormat =
-        MP4_ASSET_1080P_5_SECOND_HLG10_FORMAT
+        MP4_ASSET_1080P_5_SECOND_HLG10
+            .videoFormat
             .buildUpon()
             .setColorInfo(ColorInfo.SDR_BT709_LIMITED)
             .build();
@@ -122,10 +122,11 @@ public class ForceInterpretHdrVideoAsSdrTest {
 
     Transformer transformer = new Transformer.Builder(context).build();
     EditedMediaItem editedMediaItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(MP4_ASSET_1080P_5_SECOND_HLG10)))
+        new EditedMediaItem.Builder(
+                MediaItem.fromUri(Uri.parse(MP4_ASSET_1080P_5_SECOND_HLG10.uri)))
             .build();
     Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence(editedMediaItem))
+        new Composition.Builder(new EditedMediaItemSequence.Builder(editedMediaItem).build())
             .setHdrMode(Composition.HDR_MODE_EXPERIMENTAL_FORCE_INTERPRET_HDR_AS_SDR)
             .build();
     ExportTestResult exportTestResult =

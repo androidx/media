@@ -116,7 +116,7 @@ public class PreloadAndPlaybackCoordinationTest {
 
           @Override
           public boolean onContinueLoadingRequested(
-              PreloadMediaSource mediaSource, long bufferedPositionUs) {
+              PreloadMediaSource mediaSource, long bufferedDurationUs) {
             return true;
           }
 
@@ -124,6 +124,9 @@ public class PreloadAndPlaybackCoordinationTest {
           public void onUsedByPlayer(PreloadMediaSource mediaSource) {
             preloadControlOnUsedByPlayerCounter.addAndGet(1);
           }
+
+          @Override
+          public void onPreloadError(PreloadException error, PreloadMediaSource mediaSource) {}
         };
     PreloadMediaSource.Factory preloadMediaSourceFactory =
         new PreloadMediaSource.Factory(

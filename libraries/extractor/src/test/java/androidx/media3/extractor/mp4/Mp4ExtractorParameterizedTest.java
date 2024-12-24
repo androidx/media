@@ -15,11 +15,12 @@
  */
 package androidx.media3.extractor.mp4;
 
-import static androidx.media3.extractor.mp4.FragmentedMp4Extractor.FLAG_EMIT_RAW_SUBTITLE_DATA;
+import static androidx.media3.extractor.mp4.Mp4Extractor.FLAG_EMIT_RAW_SUBTITLE_DATA;
 
 import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
 import androidx.media3.extractor.text.SubtitleParser;
 import androidx.media3.test.utils.ExtractorAsserts;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.Test;
@@ -32,12 +33,28 @@ import org.robolectric.ParameterizedRobolectricTestRunner.Parameters;
 @RunWith(ParameterizedRobolectricTestRunner.class)
 public final class Mp4ExtractorParameterizedTest {
 
-  @Parameters(name = "{0},subtitlesParsedDuringExtraction={1}")
+  @Parameters(name = "{0},subtitlesParsedDuringExtraction={1},readWithinGopSampleDependencies={2}")
   public static List<Object[]> params() {
     List<Object[]> parameterList = new ArrayList<>();
     for (ExtractorAsserts.SimulationConfig config : ExtractorAsserts.configs()) {
-      parameterList.add(new Object[] {config, /* subtitlesParsedDuringExtraction */ true});
-      parameterList.add(new Object[] {config, /* subtitlesParsedDuringExtraction */ false});
+      parameterList.add(
+          new Object[] {
+            config,
+            /* subtitlesParsedDuringExtraction */ true,
+            /* readWithinGopSampleDependencies */ false
+          });
+      parameterList.add(
+          new Object[] {
+            config,
+            /* subtitlesParsedDuringExtraction */ false,
+            /* readWithinGopSampleDependencies */ false
+          });
+      parameterList.add(
+          new Object[] {
+            config,
+            /* subtitlesParsedDuringExtraction */ true,
+            /* readWithinGopSampleDependencies */ true
+          });
     }
     return parameterList;
   }
@@ -48,36 +65,27 @@ public final class Mp4ExtractorParameterizedTest {
   @Parameter(1)
   public boolean subtitlesParsedDuringExtraction;
 
+  @Parameter(2)
+  public boolean readWithinGopSampleDependencies;
+
   @Test
   public void mp4Sample() throws Exception {
-    ExtractorAsserts.assertBehavior(
-        getExtractorFactory(subtitlesParsedDuringExtraction),
-        "media/mp4/sample.mp4",
-        simulationConfig);
+    assertExtractorBehavior("media/mp4/sample.mp4");
   }
 
   @Test
   public void mp4SampleWithSlowMotionMetadata() throws Exception {
-    ExtractorAsserts.assertBehavior(
-        getExtractorFactory(subtitlesParsedDuringExtraction),
-        "media/mp4/sample_android_slow_motion.mp4",
-        simulationConfig);
+    assertExtractorBehavior("media/mp4/sample_android_slow_motion.mp4");
   }
 
   @Test
   public void mp4SampleWithMetadata() throws Exception {
-    ExtractorAsserts.assertBehavior(
-        getExtractorFactory(subtitlesParsedDuringExtraction),
-        "media/mp4/sample_with_metadata.mp4",
-        simulationConfig);
+    assertExtractorBehavior("media/mp4/sample_with_metadata.mp4");
   }
 
   @Test
   public void mp4SampleWithNumericGenre() throws Exception {
-    ExtractorAsserts.assertBehavior(
-        getExtractorFactory(subtitlesParsedDuringExtraction),
-        "media/mp4/sample_with_numeric_genre.mp4",
-        simulationConfig);
+    assertExtractorBehavior("media/mp4/sample_with_numeric_genre.mp4");
   }
 
   /**
@@ -86,74 +94,52 @@ public final class Mp4ExtractorParameterizedTest {
    */
   @Test
   public void mp4SampleWithMdatTooLong() throws Exception {
-    ExtractorAsserts.assertBehavior(
-        getExtractorFactory(subtitlesParsedDuringExtraction),
-        "media/mp4/sample_mdat_too_long.mp4",
-        simulationConfig);
+    assertExtractorBehavior("media/mp4/sample_mdat_too_long.mp4");
   }
 
   @Test
   public void mp4SampleWithAc3Track() throws Exception {
-    ExtractorAsserts.assertBehavior(
-        getExtractorFactory(subtitlesParsedDuringExtraction),
-        "media/mp4/sample_ac3.mp4",
-        simulationConfig);
+    assertExtractorBehavior("media/mp4/sample_ac3.mp4");
   }
 
   @Test
   public void mp4SampleWithAc4Track() throws Exception {
-    ExtractorAsserts.assertBehavior(
-        getExtractorFactory(subtitlesParsedDuringExtraction),
-        "media/mp4/sample_ac4.mp4",
-        simulationConfig);
+    assertExtractorBehavior("media/mp4/sample_ac4.mp4");
+  }
+
+  @Test
+  public void mp4SampleWithAc4Level4Track() throws Exception {
+    assertExtractorBehavior("media/mp4/sample_ac4_level4.mp4");
   }
 
   @Test
   public void mp4SampleWithEac3Track() throws Exception {
-    ExtractorAsserts.assertBehavior(
-        getExtractorFactory(subtitlesParsedDuringExtraction),
-        "media/mp4/sample_eac3.mp4",
-        simulationConfig);
+    assertExtractorBehavior("media/mp4/sample_eac3.mp4");
   }
 
   @Test
   public void mp4SampleWithEac3jocTrack() throws Exception {
-    ExtractorAsserts.assertBehavior(
-        getExtractorFactory(subtitlesParsedDuringExtraction),
-        "media/mp4/sample_eac3joc.mp4",
-        simulationConfig);
+    assertExtractorBehavior("media/mp4/sample_eac3joc.mp4");
   }
 
   @Test
   public void mp4SampleWithOpusTrack() throws Exception {
-    ExtractorAsserts.assertBehavior(
-        getExtractorFactory(subtitlesParsedDuringExtraction),
-        "media/mp4/sample_opus.mp4",
-        simulationConfig);
+    assertExtractorBehavior("media/mp4/sample_opus.mp4");
   }
 
   @Test
   public void mp4SampleWithMha1Track() throws Exception {
-    ExtractorAsserts.assertBehavior(
-        getExtractorFactory(subtitlesParsedDuringExtraction),
-        "media/mp4/sample_mpegh_mha1.mp4",
-        simulationConfig);
+    assertExtractorBehavior("media/mp4/sample_mpegh_mha1.mp4");
   }
 
   @Test
   public void mp4SampleWithMhm1Track() throws Exception {
-    ExtractorAsserts.assertBehavior(
-        getExtractorFactory(subtitlesParsedDuringExtraction),
-        "media/mp4/sample_mpegh_mhm1.mp4",
-        simulationConfig);
+    assertExtractorBehavior("media/mp4/sample_mpegh_mhm1.mp4");
   }
 
   @Test
   public void mp4SampleWithColorInfo() throws Exception {
-    ExtractorAsserts.assertBehavior(
-        getExtractorFactory(subtitlesParsedDuringExtraction),
-        "media/mp4/sample_with_color_info.mp4",
-        simulationConfig);
+    assertExtractorBehavior("media/mp4/sample_with_color_info.mp4");
   }
 
   /**
@@ -163,111 +149,108 @@ public final class Mp4ExtractorParameterizedTest {
    */
   @Test
   public void mp4Sample18ByteNclxColr() throws Exception {
-    ExtractorAsserts.assertBehavior(
-        getExtractorFactory(subtitlesParsedDuringExtraction),
-        "media/mp4/sample_18byte_nclx_colr.mp4",
-        simulationConfig);
+    assertExtractorBehavior("media/mp4/sample_18byte_nclx_colr.mp4");
   }
 
   @Test
   public void mp4SampleWithDolbyTrueHDTrack() throws Exception {
-    ExtractorAsserts.assertBehavior(
-        getExtractorFactory(subtitlesParsedDuringExtraction),
-        "media/mp4/sample_dthd.mp4",
-        simulationConfig);
+    assertExtractorBehavior("media/mp4/sample_dthd.mp4");
   }
 
   @Test
   public void mp4SampleWithColrMdcvAndClli() throws Exception {
-    ExtractorAsserts.assertBehavior(
-        getExtractorFactory(subtitlesParsedDuringExtraction),
-        "media/mp4/sample_with_colr_mdcv_and_clli.mp4",
-        simulationConfig);
+    assertExtractorBehavior("media/mp4/sample_with_colr_mdcv_and_clli.mp4");
   }
 
   /** Test case for supporting original QuickTime specification [Internal: b/297137302]. */
   @Test
   public void mp4SampleWithOriginalQuicktimeSpecification() throws Exception {
-    ExtractorAsserts.assertBehavior(
-        getExtractorFactory(subtitlesParsedDuringExtraction),
-        "media/mp4/sample_with_original_quicktime_specification.mov",
-        simulationConfig);
+    assertExtractorBehavior("media/mp4/sample_with_original_quicktime_specification.mov");
   }
 
   @Test
   public void mp4SampleWithAv1c() throws Exception {
-    ExtractorAsserts.assertBehavior(
-        getExtractorFactory(subtitlesParsedDuringExtraction),
-        "media/mp4/sample_with_av1c.mp4",
-        simulationConfig);
+    assertExtractorBehavior("media/mp4/sample_with_av1c.mp4");
   }
 
   @Test
   public void mp4SampleWithMhm1BlCicp1Track() throws Exception {
-    ExtractorAsserts.assertBehavior(
-        getExtractorFactory(subtitlesParsedDuringExtraction),
-        "media/mp4/sample_mhm1_bl_cicp1.mp4",
-        simulationConfig);
+    assertExtractorBehavior("media/mp4/sample_mhm1_bl_cicp1.mp4");
   }
 
   @Test
   public void mp4SampleWithMhm1LcBlCicp1Track() throws Exception {
-    ExtractorAsserts.assertBehavior(
-        getExtractorFactory(subtitlesParsedDuringExtraction),
-        "media/mp4/sample_mhm1_lcbl_cicp1.mp4",
-        simulationConfig);
+    assertExtractorBehavior("media/mp4/sample_mhm1_lcbl_cicp1.mp4");
   }
 
   @Test
   public void mp4SampleWithMhm1BlConfigChangeTrack() throws Exception {
-    ExtractorAsserts.assertBehavior(
-        getExtractorFactory(subtitlesParsedDuringExtraction),
-        "media/mp4/sample_mhm1_bl_configchange.mp4",
-        simulationConfig);
+    assertExtractorBehavior("media/mp4/sample_mhm1_bl_configchange.mp4");
   }
 
   @Test
   public void mp4SampleWithMhm1LcBlConfigChangeTrack() throws Exception {
-    ExtractorAsserts.assertBehavior(
-        getExtractorFactory(subtitlesParsedDuringExtraction),
-        "media/mp4/sample_mhm1_lcbl_configchange.mp4",
-        simulationConfig);
+    assertExtractorBehavior("media/mp4/sample_mhm1_lcbl_configchange.mp4");
   }
 
   @Test
   public void mp4SampleWithEditList() throws Exception {
-    ExtractorAsserts.assertBehavior(
-        getExtractorFactory(subtitlesParsedDuringExtraction),
-        "media/mp4/sample_edit_list.mp4",
-        simulationConfig);
+    assertExtractorBehavior("media/mp4/sample_edit_list.mp4");
   }
 
   @Test
   public void mp4SampleWithEmptyTrack() throws Exception {
-    ExtractorAsserts.assertBehavior(
-        getExtractorFactory(subtitlesParsedDuringExtraction),
-        "media/mp4/sample_empty_track.mp4",
-        simulationConfig);
+    assertExtractorBehavior("media/mp4/sample_empty_track.mp4");
   }
 
   @Test
   public void mp4SampleWithTwoTracksOneWithSingleFrame() throws Exception {
-    ExtractorAsserts.assertBehavior(
-        getExtractorFactory(subtitlesParsedDuringExtraction),
-        "media/mp4/pixel-motion-photo-2-hevc-tracks.mp4",
-        simulationConfig);
+    assertExtractorBehavior("media/mp4/pixel-motion-photo-2-hevc-tracks.mp4");
   }
 
   @Test
   public void mp4SampleWithNoMaxNumReorderFramesValue() throws Exception {
+    assertExtractorBehavior("media/mp4/bt601.mov");
+  }
+
+  @Test
+  public void mp4sampleWithIamfTrack() throws Exception {
+    assertExtractorBehavior("media/mp4/sample_iamf.mp4");
+  }
+
+  @Test
+  public void mp4SampleWithMvHevc8bit() throws Exception {
+    assertExtractorBehavior("media/mp4/water_180_mvhevc_5frames.mov");
+  }
+
+  @Test
+  public void mp4WithEditableVideoTracks() throws Exception {
+    assertExtractorBehavior("media/mp4/sample_with_fake_editable_video_tracks.mp4");
+  }
+
+  @Test
+  public void mp4WithEditableVideoTracksInterleavedWithPrimaryVideoTracks() throws Exception {
+    assertExtractorBehavior(
+        "media/mp4/sample_with_fake_editable_video_tracks_interleaved_with_primary_video_tracks.mp4");
+  }
+
+  private void assertExtractorBehavior(String file) throws IOException {
+    ExtractorAsserts.AssertionConfig.Builder assertionConfigBuilder =
+        new ExtractorAsserts.AssertionConfig.Builder();
+    if (readWithinGopSampleDependencies) {
+      String dumpFilesPrefix =
+          file.replaceFirst("media", "extractordumps") + ".reading_within_gop_sample_dependencies";
+      assertionConfigBuilder.setDumpFilesPrefix(dumpFilesPrefix);
+    }
     ExtractorAsserts.assertBehavior(
-        getExtractorFactory(subtitlesParsedDuringExtraction),
-        "media/mp4/bt601.mov",
+        getExtractorFactory(subtitlesParsedDuringExtraction, readWithinGopSampleDependencies),
+        file,
+        assertionConfigBuilder.build(),
         simulationConfig);
   }
 
   private static ExtractorAsserts.ExtractorFactory getExtractorFactory(
-      boolean subtitlesParsedDuringExtraction) {
+      boolean subtitlesParsedDuringExtraction, boolean readWithinGopSampleDependencies) {
     SubtitleParser.Factory subtitleParserFactory;
     @Mp4Extractor.Flags int flags;
     if (subtitlesParsedDuringExtraction) {
@@ -277,7 +260,11 @@ public final class Mp4ExtractorParameterizedTest {
       subtitleParserFactory = SubtitleParser.Factory.UNSUPPORTED;
       flags = FLAG_EMIT_RAW_SUBTITLE_DATA;
     }
+    if (readWithinGopSampleDependencies) {
+      flags |= Mp4Extractor.FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES;
+    }
 
-    return () -> new Mp4Extractor(subtitleParserFactory, flags);
+    @Mp4Extractor.Flags int finalFlags = flags;
+    return () -> new Mp4Extractor(subtitleParserFactory, finalFlags);
   }
 }

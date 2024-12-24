@@ -18,9 +18,8 @@
 package androidx.media3.transformer.mh;
 
 import static androidx.media3.test.utils.TestUtil.retrieveTrackFormat;
+import static androidx.media3.transformer.AndroidTestUtil.JPG_ULTRA_HDR_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_1080P_5_SECOND_HLG10;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_1080P_5_SECOND_HLG10_FORMAT;
-import static androidx.media3.transformer.AndroidTestUtil.ULTRA_HDR_URI_STRING;
 import static androidx.media3.transformer.AndroidTestUtil.assertSdrColors;
 import static androidx.media3.transformer.AndroidTestUtil.recordTestSkipped;
 import static androidx.media3.transformer.Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL;
@@ -76,7 +75,7 @@ public final class TransformerMhUltraHdrTest {
     assumeDeviceSupportsUltraHdrEditing();
     Composition composition =
         createUltraHdrComposition(
-            /* tonemap= */ false, oneFrameFromImage(ULTRA_HDR_URI_STRING, NO_EFFECT));
+            /* tonemap= */ false, oneFrameFromImage(JPG_ULTRA_HDR_ASSET.uri, NO_EFFECT));
 
     ExportTestResult result =
         new TransformerAndroidTestRunner.Builder(context, new Transformer.Builder(context).build())
@@ -95,8 +94,8 @@ public final class TransformerMhUltraHdrTest {
     Composition composition =
         createComposition(
             /* presentation= */ null,
-            clippedVideo(MP4_ASSET_1080P_5_SECOND_HLG10, NO_EFFECT, ONE_FRAME_END_POSITION_MS),
-            oneFrameFromImage(ULTRA_HDR_URI_STRING, NO_EFFECT));
+            clippedVideo(MP4_ASSET_1080P_5_SECOND_HLG10.uri, NO_EFFECT, ONE_FRAME_END_POSITION_MS),
+            oneFrameFromImage(JPG_ULTRA_HDR_ASSET.uri, NO_EFFECT));
 
     ExportTestResult result =
         new TransformerAndroidTestRunner.Builder(context, new Transformer.Builder(context).build())
@@ -115,8 +114,8 @@ public final class TransformerMhUltraHdrTest {
     Composition composition =
         createUltraHdrComposition(
             /* tonemap= */ false,
-            oneFrameFromImage(ULTRA_HDR_URI_STRING, NO_EFFECT),
-            clippedVideo(MP4_ASSET_1080P_5_SECOND_HLG10, NO_EFFECT, ONE_FRAME_END_POSITION_MS));
+            oneFrameFromImage(JPG_ULTRA_HDR_ASSET.uri, NO_EFFECT),
+            clippedVideo(MP4_ASSET_1080P_5_SECOND_HLG10.uri, NO_EFFECT, ONE_FRAME_END_POSITION_MS));
 
     ExportTestResult result =
         new TransformerAndroidTestRunner.Builder(context, new Transformer.Builder(context).build())
@@ -131,12 +130,12 @@ public final class TransformerMhUltraHdrTest {
 
   @Test
   public void exportTonemappedHdrVideoThenUltraHdrImage_exportsSdr() throws Exception {
-    assumeDeviceSupportsOpenGlToneMapping(testId, MP4_ASSET_1080P_5_SECOND_HLG10_FORMAT);
+    assumeDeviceSupportsOpenGlToneMapping(testId, MP4_ASSET_1080P_5_SECOND_HLG10.videoFormat);
     Composition composition =
         createUltraHdrComposition(
             /* tonemap= */ true,
-            clippedVideo(MP4_ASSET_1080P_5_SECOND_HLG10, NO_EFFECT, ONE_FRAME_END_POSITION_MS),
-            oneFrameFromImage(ULTRA_HDR_URI_STRING, NO_EFFECT));
+            clippedVideo(MP4_ASSET_1080P_5_SECOND_HLG10.uri, NO_EFFECT, ONE_FRAME_END_POSITION_MS),
+            oneFrameFromImage(JPG_ULTRA_HDR_ASSET.uri, NO_EFFECT));
 
     ExportTestResult result =
         new TransformerAndroidTestRunner.Builder(context, new Transformer.Builder(context).build())
@@ -149,7 +148,10 @@ public final class TransformerMhUltraHdrTest {
   private static Composition createUltraHdrComposition(
       boolean tonemap, EditedMediaItem editedMediaItem, EditedMediaItem... editedMediaItems) {
     Composition.Builder builder =
-        new Composition.Builder(new EditedMediaItemSequence(editedMediaItem, editedMediaItems))
+        new Composition.Builder(
+                new EditedMediaItemSequence.Builder(editedMediaItem)
+                    .addItems(editedMediaItems)
+                    .build())
             .experimentalSetRetainHdrFromUltraHdrImage(true);
     if (tonemap) {
       builder.setHdrMode(HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL);
@@ -163,6 +165,6 @@ public final class TransformerMhUltraHdrTest {
           getApplicationContext(), testId, "Ultra HDR is not supported on this API level.");
       throw new AssumptionViolatedException("Ultra HDR is not supported on this API level.");
     }
-    assumeDeviceSupportsHdrEditing(testId, MP4_ASSET_1080P_5_SECOND_HLG10_FORMAT);
+    assumeDeviceSupportsHdrEditing(testId, MP4_ASSET_1080P_5_SECOND_HLG10.videoFormat);
   }
 }

@@ -758,6 +758,10 @@
       {
         "name": "One hour frame counter (MP4)",
         "uri": "https://storage.googleapis.com/exoplayer-test-media-1/mp4/frame-counter-one-hour.mp4"
+      },
+      {
+        "name": "Immersive Audio Format Sample (MP4, IAMF)",
+        "uri": "https://github.com/AOMediaCodec/libiamf/raw/main/tests/test_000036_s.mp4"
       }
     ]
   },

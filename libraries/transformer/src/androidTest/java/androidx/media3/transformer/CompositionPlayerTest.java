@@ -16,6 +16,8 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.common.PlaybackException.ERROR_CODE_DECODER_INIT_FAILED;
+import static androidx.media3.transformer.AndroidTestUtil.JPG_SINGLE_PIXEL_ASSET;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static org.junit.Assert.assertThrows;
@@ -23,6 +25,7 @@ import static org.junit.Assert.assertThrows;
 import android.app.Instrumentation;
 import android.content.Context;
 import android.graphics.BitmapFactory;
+import android.util.Pair;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.TextureView;
@@ -40,6 +43,7 @@ import androidx.media3.common.SurfaceInfo;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.VideoGraph;
+import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.util.SystemClock;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.AssetDataSource;
@@ -51,10 +55,12 @@ import androidx.media3.exoplayer.image.BitmapFactoryImageDecoder;
 import androidx.media3.exoplayer.image.ImageDecoder;
 import androidx.media3.exoplayer.image.ImageDecoderException;
 import androidx.media3.exoplayer.source.ExternalLoader;
+import androidx.media3.test.utils.TestSpeedProvider;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
+import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.Executor;
@@ -70,8 +76,6 @@ import org.junit.runner.RunWith;
 public class CompositionPlayerTest {
 
   private static final long TEST_TIMEOUT_MS = 10_000;
-  private static final String MP4_ASSET = "asset:///media/mp4/sample.mp4";
-  private static final String IMAGE_ASSET = "asset:///media/jpeg/white-1x1.jpg";
 
   @Rule
   public ActivityScenarioRule<SurfaceTestActivity> rule =
@@ -121,10 +125,11 @@ public class CompositionPlayerTest {
           compositionPlayer.addListener(listener);
           compositionPlayer.setComposition(
               new Composition.Builder(
-                      new EditedMediaItemSequence(
-                          new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET))
-                              .setDurationUs(1_000_000)
-                              .build()))
+                      new EditedMediaItemSequence.Builder(
+                              new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
+                                  .setDurationUs(1_000_000)
+                                  .build())
+                          .build())
                   .build());
           compositionPlayer.prepare();
         });
@@ -141,10 +146,11 @@ public class CompositionPlayerTest {
           compositionPlayer.addListener(listener);
           compositionPlayer.setComposition(
               new Composition.Builder(
-                      new EditedMediaItemSequence(
-                          new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET))
-                              .setDurationUs(1_000_000)
-                              .build()))
+                      new EditedMediaItemSequence.Builder(
+                              new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
+                                  .setDurationUs(1_000_000)
+                                  .build())
+                          .build())
                   .build());
           compositionPlayer.setVideoSurfaceView(surfaceView);
           compositionPlayer.prepare();
@@ -165,10 +171,11 @@ public class CompositionPlayerTest {
           compositionPlayer.addListener(listener);
           compositionPlayer.setComposition(
               new Composition.Builder(
-                      new EditedMediaItemSequence(
-                          new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET))
-                              .setDurationUs(1_000_000)
-                              .build()))
+                      new EditedMediaItemSequence.Builder(
+                              new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
+                                  .setDurationUs(1_000_000)
+                                  .build())
+                          .build())
                   .build());
           compositionPlayer.prepare();
         });
@@ -187,10 +194,11 @@ public class CompositionPlayerTest {
           compositionPlayer.addListener(listener);
           compositionPlayer.setComposition(
               new Composition.Builder(
-                      new EditedMediaItemSequence(
-                          new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET))
-                              .setDurationUs(1_000_000)
-                              .build()))
+                      new EditedMediaItemSequence.Builder(
+                              new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
+                                  .setDurationUs(1_000_000)
+                                  .build())
+                          .build())
                   .build());
           compositionPlayer.setVideoSurfaceHolder(surfaceHolder);
           compositionPlayer.prepare();
@@ -229,14 +237,14 @@ public class CompositionPlayerTest {
           compositionPlayer.addListener(listener);
           compositionPlayer.setComposition(
               new Composition.Builder(
-                      new EditedMediaItemSequence(
-                          new EditedMediaItem.Builder(
-                                  new MediaItem.Builder()
-                                      .setUri(IMAGE_ASSET)
-                                      .setImageDurationMs(1_000)
-                                      .build())
-                              .setDurationUs(1_000_000)
-                              .build()))
+                      new EditedMediaItemSequence.Builder(
+                              new EditedMediaItem.Builder(
+                                      new MediaItem.Builder()
+                                          .setUri(JPG_SINGLE_PIXEL_ASSET.uri)
+                                          .setImageDurationMs(1_000)
+                                          .build())
+                                  .build())
+                          .build())
                   .build());
           compositionPlayer.prepare();
         });
@@ -270,15 +278,16 @@ public class CompositionPlayerTest {
           compositionPlayer.addListener(listener);
           compositionPlayer.setComposition(
               new Composition.Builder(
-                      new EditedMediaItemSequence(
-                          new EditedMediaItem.Builder(
-                                  new MediaItem.Builder()
-                                      .setUri(IMAGE_ASSET)
-                                      .setMimeType(MimeTypes.APPLICATION_EXTERNALLY_LOADED_IMAGE)
-                                      .setImageDurationMs(1_000)
-                                      .build())
-                              .setDurationUs(1_000_000)
-                              .build()))
+                      new EditedMediaItemSequence.Builder(
+                              new EditedMediaItem.Builder(
+                                      new MediaItem.Builder()
+                                          .setUri(JPG_SINGLE_PIXEL_ASSET.uri)
+                                          .setMimeType(
+                                              MimeTypes.APPLICATION_EXTERNALLY_LOADED_IMAGE)
+                                          .setImageDurationMs(1_000)
+                                          .build())
+                                  .build())
+                          .build())
                   .build());
           compositionPlayer.prepare();
         });
@@ -291,8 +300,10 @@ public class CompositionPlayerTest {
     PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
     EditedMediaItem image =
         new EditedMediaItem.Builder(
-                new MediaItem.Builder().setUri(IMAGE_ASSET).setImageDurationMs(500).build())
-            .setDurationUs(500_000)
+                new MediaItem.Builder()
+                    .setUri(JPG_SINGLE_PIXEL_ASSET.uri)
+                    .setImageDurationMs(500)
+                    .build())
             .build();
 
     instrumentation.runOnMainSync(
@@ -303,7 +314,8 @@ public class CompositionPlayerTest {
           compositionPlayer.setVideoSurfaceView(surfaceView);
           compositionPlayer.addListener(listener);
           compositionPlayer.setComposition(
-              new Composition.Builder(new EditedMediaItemSequence(image, image)).build());
+              new Composition.Builder(new EditedMediaItemSequence.Builder(image, image).build())
+                  .build());
           compositionPlayer.prepare();
           compositionPlayer.play();
         });
@@ -316,12 +328,16 @@ public class CompositionPlayerTest {
     PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
     EditedMediaItem image =
         new EditedMediaItem.Builder(
-                new MediaItem.Builder().setUri(IMAGE_ASSET).setImageDurationMs(500).build())
-            .setDurationUs(500_000)
+                new MediaItem.Builder()
+                    .setUri(JPG_SINGLE_PIXEL_ASSET.uri)
+                    .setImageDurationMs(500)
+                    .build())
             .build();
 
     EditedMediaItem video =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET)).setDurationUs(1_000_000).build();
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
+            .setDurationUs(1_000_000)
+            .build();
 
     instrumentation.runOnMainSync(
         () -> {
@@ -331,7 +347,8 @@ public class CompositionPlayerTest {
           compositionPlayer.setVideoSurfaceView(surfaceView);
           compositionPlayer.addListener(listener);
           compositionPlayer.setComposition(
-              new Composition.Builder(new EditedMediaItemSequence(image, video)).build());
+              new Composition.Builder(new EditedMediaItemSequence.Builder(image, video).build())
+                  .build());
           compositionPlayer.prepare();
           compositionPlayer.play();
         });
@@ -343,11 +360,15 @@ public class CompositionPlayerTest {
   public void composition_videoThenImage() throws Exception {
     PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
     EditedMediaItem video =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET)).setDurationUs(1_000_000).build();
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
+            .setDurationUs(1_000_000)
+            .build();
     EditedMediaItem image =
         new EditedMediaItem.Builder(
-                new MediaItem.Builder().setUri(IMAGE_ASSET).setImageDurationMs(500).build())
-            .setDurationUs(500_000)
+                new MediaItem.Builder()
+                    .setUri(JPG_SINGLE_PIXEL_ASSET.uri)
+                    .setImageDurationMs(500)
+                    .build())
             .build();
 
     instrumentation.runOnMainSync(
@@ -358,7 +379,8 @@ public class CompositionPlayerTest {
           compositionPlayer.setVideoSurfaceView(surfaceView);
           compositionPlayer.addListener(listener);
           compositionPlayer.setComposition(
-              new Composition.Builder(new EditedMediaItemSequence(video, image)).build());
+              new Composition.Builder(new EditedMediaItemSequence.Builder(video, image).build())
+                  .build());
           compositionPlayer.prepare();
           compositionPlayer.play();
         });
@@ -367,10 +389,70 @@ public class CompositionPlayerTest {
   }
 
   @Test
-  public void playback_videoSinkProviderFails_playerRaisesError() {
+  public void videoPreview_withSpeedUp_playerEnds() throws Exception {
+    PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
+    Pair<AudioProcessor, Effect> effects =
+        Effects.createExperimentalSpeedChangingEffect(
+            TestSpeedProvider.createWithStartTimes(new long[] {0}, new float[] {2f}));
+    EditedMediaItem video =
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
+            .setDurationUs(1_000_000)
+            .setEffects(
+                new Effects(ImmutableList.of(effects.first), ImmutableList.of(effects.second)))
+            .build();
+
+    instrumentation.runOnMainSync(
+        () -> {
+          compositionPlayer = new CompositionPlayer.Builder(applicationContext).build();
+          // Set a surface on the player even though there is no UI on this test. We need a surface
+          // otherwise the player will skip/drop video frames.
+          compositionPlayer.setVideoSurfaceView(surfaceView);
+          compositionPlayer.addListener(listener);
+          compositionPlayer.setComposition(
+              new Composition.Builder(new EditedMediaItemSequence.Builder(video).build()).build());
+          compositionPlayer.prepare();
+          compositionPlayer.play();
+        });
+
+    listener.waitUntilPlayerEnded();
+  }
+
+  @Test
+  public void videoPreview_withSlowDown_playerEnds() throws Exception {
+    PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
+    Pair<AudioProcessor, Effect> effects =
+        Effects.createExperimentalSpeedChangingEffect(
+            TestSpeedProvider.createWithStartTimes(new long[] {0}, new float[] {0.5f}));
+    EditedMediaItem video =
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
+            .setDurationUs(1_000_000)
+            .setEffects(
+                new Effects(ImmutableList.of(effects.first), ImmutableList.of(effects.second)))
+            .build();
+
+    instrumentation.runOnMainSync(
+        () -> {
+          compositionPlayer = new CompositionPlayer.Builder(applicationContext).build();
+          // Set a surface on the player even though there is no UI on this test. We need a surface
+          // otherwise the player will skip/drop video frames.
+          compositionPlayer.setVideoSurfaceView(surfaceView);
+          compositionPlayer.addListener(listener);
+          compositionPlayer.setComposition(
+              new Composition.Builder(new EditedMediaItemSequence.Builder(video).build()).build());
+          compositionPlayer.prepare();
+          compositionPlayer.play();
+        });
+
+    listener.waitUntilPlayerEnded();
+  }
+
+  @Test
+  public void playback_videoGraphWrapperFails_playerRaisesError() {
     PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
     EditedMediaItem video =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET)).setDurationUs(1_000_000).build();
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
+            .setDurationUs(1_000_000)
+            .build();
 
     instrumentation.runOnMainSync(
         () -> {
@@ -390,7 +472,7 @@ public class CompositionPlayerTest {
                   .build();
           compositionPlayer.addListener(listener);
           compositionPlayer.setComposition(
-              new Composition.Builder(new EditedMediaItemSequence(video)).build());
+              new Composition.Builder(new EditedMediaItemSequence.Builder(video).build()).build());
           compositionPlayer.prepare();
           compositionPlayer.play();
         });
@@ -401,11 +483,13 @@ public class CompositionPlayerTest {
   }
 
   @Test
-  public void release_videoSinkProviderFailsDuringRelease_playerDoesNotRaiseError()
+  public void release_videoGraphWrapperFailsDuringRelease_playerDoesNotRaiseError()
       throws Exception {
     PlayerTestListener playerTestListener = new PlayerTestListener(TEST_TIMEOUT_MS);
     EditedMediaItem video =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET)).setDurationUs(1_000_000).build();
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
+            .setDurationUs(1_000_000)
+            .build();
     instrumentation.runOnMainSync(
         () -> {
           compositionPlayer =
@@ -414,7 +498,7 @@ public class CompositionPlayerTest {
                   .build();
           compositionPlayer.addListener(playerTestListener);
           compositionPlayer.setComposition(
-              new Composition.Builder(new EditedMediaItemSequence(video)).build());
+              new Composition.Builder(new EditedMediaItemSequence.Builder(video).build()).build());
           compositionPlayer.prepare();
           compositionPlayer.play();
         });

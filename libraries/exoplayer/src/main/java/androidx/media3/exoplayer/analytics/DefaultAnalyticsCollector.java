@@ -164,6 +164,18 @@ public class DefaultAnalyticsCollector implements AnalyticsCollector {
     }
   }
 
+  @Override
+  public void onRendererReadyChanged(
+      int rendererIndex, @C.TrackType int rendererTrackType, boolean isRendererReady) {
+    EventTime eventTime = generateReadingMediaPeriodEventTime();
+    sendEvent(
+        eventTime,
+        AnalyticsListener.EVENT_RENDERER_READY_CHANGED,
+        listener ->
+            listener.onRendererReadyChanged(
+                eventTime, rendererIndex, rendererTrackType, isRendererReady));
+  }
+
   // Audio events.
 
   @Override
@@ -172,9 +184,7 @@ public class DefaultAnalyticsCollector implements AnalyticsCollector {
     sendEvent(
         eventTime,
         AnalyticsListener.EVENT_AUDIO_ENABLED,
-        listener -> {
-          listener.onAudioEnabled(eventTime, counters);
-        });
+        listener -> listener.onAudioEnabled(eventTime, counters));
   }
 
   @SuppressWarnings("deprecation") // Calling deprecated listener method.
@@ -237,9 +247,7 @@ public class DefaultAnalyticsCollector implements AnalyticsCollector {
     sendEvent(
         eventTime,
         AnalyticsListener.EVENT_AUDIO_DISABLED,
-        listener -> {
-          listener.onAudioDisabled(eventTime, counters);
-        });
+        listener -> listener.onAudioDisabled(eventTime, counters));
   }
 
   @Override
@@ -295,9 +303,7 @@ public class DefaultAnalyticsCollector implements AnalyticsCollector {
     sendEvent(
         eventTime,
         AnalyticsListener.EVENT_VIDEO_ENABLED,
-        listener -> {
-          listener.onVideoEnabled(eventTime, counters);
-        });
+        listener -> listener.onVideoEnabled(eventTime, counters));
   }
 
   @Override
@@ -349,9 +355,7 @@ public class DefaultAnalyticsCollector implements AnalyticsCollector {
     sendEvent(
         eventTime,
         AnalyticsListener.EVENT_VIDEO_DISABLED,
-        listener -> {
-          listener.onVideoDisabled(eventTime, counters);
-        });
+        listener -> listener.onVideoDisabled(eventTime, counters));
   }
 
   @Override
@@ -762,7 +766,7 @@ public class DefaultAnalyticsCollector implements AnalyticsCollector {
               eventTime,
               videoSize.width,
               videoSize.height,
-              videoSize.unappliedRotationDegrees,
+              /* unappliedRotationDegrees= */ 0,
               videoSize.pixelWidthHeightRatio);
         });
   }

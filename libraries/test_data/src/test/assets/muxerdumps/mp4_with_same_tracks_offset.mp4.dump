@@ -17,7 +17,7 @@ track 0:
     maxNumReorderSamples = 2
     width = 12
     height = 10
-    frameRate = 20000.0
+    frameRate = 20000.00
     colorInfo:
       colorRange = 1
       lumaBitdepth = 8
@@ -45,7 +45,7 @@ track 1:
     maxNumReorderSamples = 2
     width = 12
     height = 10
-    frameRate = 10000.0
+    frameRate = 10000.00
     colorInfo:
       colorRange = 1
       lumaBitdepth = 8

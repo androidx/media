@@ -543,7 +543,7 @@ public class HlsChunkSourceTest {
 
   private HlsChunkSource createHlsChunkSource(@Nullable CmcdConfiguration cmcdConfiguration) {
     return new HlsChunkSource(
-        HlsExtractorFactory.DEFAULT,
+        new DefaultHlsExtractorFactory(),
         mockPlaylistTracker,
         new Uri[] {IFRAME_URI, PLAYLIST_URI},
         new Format[] {IFRAME_FORMAT, ExoPlayerTestRunner.VIDEO_FORMAT},

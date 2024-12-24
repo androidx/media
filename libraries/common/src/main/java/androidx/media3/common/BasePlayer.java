@@ -147,36 +147,9 @@ public abstract class BasePlayer implements Player {
     seekToOffset(getSeekForwardIncrement(), Player.COMMAND_SEEK_FORWARD);
   }
 
-  /**
-   * @deprecated Use {@link #hasPreviousMediaItem()} instead.
-   */
-  @Deprecated
-  @Override
-  public final boolean hasPrevious() {
-    return hasPreviousMediaItem();
-  }
-
-  /**
-   * @deprecated Use {@link #hasPreviousMediaItem()} instead.
-   */
-  @Deprecated
-  @Override
-  public final boolean hasPreviousWindow() {
-    return hasPreviousMediaItem();
-  }
-
   @Override
   public final boolean hasPreviousMediaItem() {
     return getPreviousMediaItemIndex() != C.INDEX_UNSET;
-  }
-
-  /**
-   * @deprecated Use {@link #seekToPreviousMediaItem()} instead.
-   */
-  @Deprecated
-  @Override
-  public final void previous() {
-    seekToPreviousMediaItem();
   }
 
   /**

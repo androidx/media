@@ -47,12 +47,12 @@ import androidx.media3.exoplayer.upstream.ParsingLoadable;
 import androidx.media3.extractor.metadata.emsg.EventMessage;
 import androidx.media3.extractor.mp4.PsshAtomUtil;
 import com.google.common.base.Ascii;
-import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -1214,7 +1214,7 @@ public class DashManifestParser extends DefaultHandler
       throws XmlPullParserException, IOException {
     scratchOutputStream.reset();
     XmlSerializer xmlSerializer = Xml.newSerializer();
-    xmlSerializer.setOutput(scratchOutputStream, Charsets.UTF_8.name());
+    xmlSerializer.setOutput(scratchOutputStream, StandardCharsets.UTF_8.name());
     // Start reading everything between <Event> and </Event>, and serialize them into an Xml
     // byte array.
     xpp.nextToken();
@@ -1539,7 +1539,7 @@ public class DashManifestParser extends DefaultHandler
     }
     switch (value) {
       case "forced_subtitle":
-        // Support both hyphen and underscore (https://github.com/google/ExoPlayer/issues/9727).
+      // Support both hyphen and underscore (https://github.com/google/ExoPlayer/issues/9727).
       case "forced-subtitle":
         return C.SELECTION_FLAG_FORCED;
       default:
@@ -1608,7 +1608,7 @@ public class DashManifestParser extends DefaultHandler
       case "caption":
         return C.ROLE_FLAG_CAPTION;
       case "forced_subtitle":
-        // Support both hyphen and underscore (https://github.com/google/ExoPlayer/issues/9727).
+      // Support both hyphen and underscore (https://github.com/google/ExoPlayer/issues/9727).
       case "forced-subtitle":
       case "subtitle":
         return C.ROLE_FLAG_SUBTITLE;

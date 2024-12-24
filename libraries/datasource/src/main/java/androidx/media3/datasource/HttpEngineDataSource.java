@@ -26,9 +26,10 @@ import android.net.http.NetworkException;
 import android.net.http.UrlRequest;
 import android.net.http.UrlRequest.Status;
 import android.net.http.UrlResponseInfo;
+import android.os.Build;
 import android.text.TextUtils;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
+import androidx.annotation.RequiresExtension;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.PlaybackException;
@@ -37,9 +38,6 @@ import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
-import androidx.media3.datasource.HttpDataSource.CleartextNotPermittedException;
-import androidx.media3.datasource.HttpDataSource.HttpDataSourceException;
-import androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException;
 import com.google.common.base.Ascii;
 import com.google.common.base.Predicate;
 import com.google.common.net.HttpHeaders;
@@ -65,7 +63,7 @@ import java.util.concurrent.Executor;
  * priority) the {@code dataSpec}, {@link #setRequestProperty} and the default parameters used to
  * construct the instance.
  */
-@RequiresApi(34)
+@RequiresExtension(extension = Build.VERSION_CODES.S, version = 7)
 @UnstableApi
 public final class HttpEngineDataSource extends BaseDataSource implements HttpDataSource {
 
@@ -340,7 +338,7 @@ public final class HttpEngineDataSource extends BaseDataSource implements HttpDa
   private final boolean keepPostFor302Redirects;
 
   // Accessed by the calling thread only.
-  private boolean opened;
+  private boolean transferStarted;
   private long bytesRemaining;
 
   @Nullable private DataSpec currentDataSpec;
@@ -429,14 +427,20 @@ public final class HttpEngineDataSource extends BaseDataSource implements HttpDa
   @Override
   @Nullable
   public Uri getUri() {
-    return responseInfo == null ? null : Uri.parse(responseInfo.getUrl());
+    if (responseInfo != null) {
+      return Uri.parse(responseInfo.getUrl());
+    } else if (currentDataSpec != null) {
+      return currentDataSpec.uri;
+    } else {
+      return null;
+    }
   }
 
   @UnstableApi
   @Override
   public long open(DataSpec dataSpec) throws HttpDataSourceException {
     Assertions.checkNotNull(dataSpec);
-    Assertions.checkState(!opened);
+    Assertions.checkState(!transferStarted);
 
     operation.close();
     resetConnectTimeout();
@@ -498,7 +502,7 @@ public final class HttpEngineDataSource extends BaseDataSource implements HttpDa
         long documentSize =
             HttpUtil.getDocumentSize(getFirstHeader(responseHeaders, HttpHeaders.CONTENT_RANGE));
         if (dataSpec.position == documentSize) {
-          opened = true;
+          transferStarted = true;
           transferStarted(dataSpec);
           return dataSpec.length != C.LENGTH_UNSET ? dataSpec.length : 0;
         }
@@ -557,7 +561,7 @@ public final class HttpEngineDataSource extends BaseDataSource implements HttpDa
       bytesRemaining = dataSpec.length;
     }
 
-    opened = true;
+    transferStarted = true;
     transferStarted(dataSpec);
 
     skipFully(bytesToSkip, dataSpec);
@@ -567,7 +571,7 @@ public final class HttpEngineDataSource extends BaseDataSource implements HttpDa
   @UnstableApi
   @Override
   public int read(byte[] buffer, int offset, int length) throws HttpDataSourceException {
-    Assertions.checkState(opened);
+    Assertions.checkState(transferStarted);
 
     if (length == 0) {
       return 0;
@@ -638,7 +642,7 @@ public final class HttpEngineDataSource extends BaseDataSource implements HttpDa
    */
   @UnstableApi
   public int read(ByteBuffer buffer) throws HttpDataSourceException {
-    Assertions.checkState(opened);
+    Assertions.checkState(transferStarted);
 
     if (!buffer.isDirect()) {
       throw new IllegalArgumentException("Passed buffer is not a direct ByteBuffer");
@@ -695,8 +699,8 @@ public final class HttpEngineDataSource extends BaseDataSource implements HttpDa
     responseInfo = null;
     exception = null;
     finished = false;
-    if (opened) {
-      opened = false;
+    if (transferStarted) {
+      transferStarted = false;
       transferEnded();
     }
   }

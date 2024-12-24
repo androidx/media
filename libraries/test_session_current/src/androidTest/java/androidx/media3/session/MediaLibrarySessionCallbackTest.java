@@ -44,6 +44,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Before;
 import org.junit.ClassRule;
@@ -81,6 +82,38 @@ public class MediaLibrarySessionCallbackTest {
         new MockPlayer.Builder()
             .setApplicationLooper(threadTestRule.getHandler().getLooper())
             .build();
+  }
+
+  @Test
+  public void onConnect_withMaxCommandsForMediaItems_correctMaxLimitInControllerInfo()
+      throws Exception {
+    CountDownLatch latch = new CountDownLatch(/* count= */ 1);
+    AtomicInteger maxCommandsForMediaItems = new AtomicInteger();
+    MediaLibrarySession.Callback sessionCallback =
+        new MediaLibrarySession.Callback() {
+          @Override
+          public MediaSession.ConnectionResult onConnect(
+              MediaSession session, ControllerInfo browser) {
+            maxCommandsForMediaItems.set(browser.getMaxCommandsForMediaItems());
+            latch.countDown();
+            return MediaLibrarySession.Callback.super.onConnect(session, browser);
+          }
+        };
+    MockMediaLibraryService service = new MockMediaLibraryService();
+    service.attachBaseContext(context);
+    MediaLibrarySession session =
+        sessionTestRule.ensureReleaseAfterTest(
+            new MediaLibrarySession.Builder(service, player, sessionCallback)
+                .setId("onConnect_withMaxCommandForMediaItems_correctMaxLimitInControllerInfo")
+                .build());
+    Bundle connectionHints = new Bundle();
+    connectionHints.putInt(
+        MediaControllerProviderService.CONNECTION_HINT_KEY_MAX_COMMANDS_FOR_MEDIA_ITEMS, 14);
+
+    controllerTestRule.createRemoteBrowser(session.getToken(), connectionHints);
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(maxCommandsForMediaItems.get()).isEqualTo(14);
   }
 
   @Test

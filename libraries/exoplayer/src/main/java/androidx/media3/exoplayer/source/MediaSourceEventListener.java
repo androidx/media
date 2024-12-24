@@ -26,6 +26,7 @@ import androidx.media3.common.C.DataType;
 import androidx.media3.common.Format;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.Assertions;
+import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import java.io.IOException;
@@ -259,12 +260,9 @@ public interface MediaSourceEventListener {
 
     /** Dispatches {@link #onLoadStarted(int, MediaPeriodId, LoadEventInfo, MediaLoadData)}. */
     public void loadStarted(LoadEventInfo loadEventInfo, MediaLoadData mediaLoadData) {
-      for (ListenerAndHandler listenerAndHandler : listenerAndHandlers) {
-        MediaSourceEventListener listener = listenerAndHandler.listener;
-        postOrRun(
-            listenerAndHandler.handler,
-            () -> listener.onLoadStarted(windowIndex, mediaPeriodId, loadEventInfo, mediaLoadData));
-      }
+      dispatchEvent(
+          (listener) ->
+              listener.onLoadStarted(windowIndex, mediaPeriodId, loadEventInfo, mediaLoadData));
     }
 
     /** Dispatches {@link #onLoadCompleted(int, MediaPeriodId, LoadEventInfo, MediaLoadData)}. */
@@ -304,13 +302,9 @@ public interface MediaSourceEventListener {
 
     /** Dispatches {@link #onLoadCompleted(int, MediaPeriodId, LoadEventInfo, MediaLoadData)}. */
     public void loadCompleted(LoadEventInfo loadEventInfo, MediaLoadData mediaLoadData) {
-      for (ListenerAndHandler listenerAndHandler : listenerAndHandlers) {
-        MediaSourceEventListener listener = listenerAndHandler.listener;
-        postOrRun(
-            listenerAndHandler.handler,
-            () ->
-                listener.onLoadCompleted(windowIndex, mediaPeriodId, loadEventInfo, mediaLoadData));
-      }
+      dispatchEvent(
+          (listener) ->
+              listener.onLoadCompleted(windowIndex, mediaPeriodId, loadEventInfo, mediaLoadData));
     }
 
     /** Dispatches {@link #onLoadCanceled(int, MediaPeriodId, LoadEventInfo, MediaLoadData)}. */
@@ -350,13 +344,9 @@ public interface MediaSourceEventListener {
 
     /** Dispatches {@link #onLoadCanceled(int, MediaPeriodId, LoadEventInfo, MediaLoadData)}. */
     public void loadCanceled(LoadEventInfo loadEventInfo, MediaLoadData mediaLoadData) {
-      for (ListenerAndHandler listenerAndHandler : listenerAndHandlers) {
-        MediaSourceEventListener listener = listenerAndHandler.listener;
-        postOrRun(
-            listenerAndHandler.handler,
-            () ->
-                listener.onLoadCanceled(windowIndex, mediaPeriodId, loadEventInfo, mediaLoadData));
-      }
+      dispatchEvent(
+          (listener) ->
+              listener.onLoadCanceled(windowIndex, mediaPeriodId, loadEventInfo, mediaLoadData));
     }
 
     /**
@@ -419,14 +409,10 @@ public interface MediaSourceEventListener {
         MediaLoadData mediaLoadData,
         IOException error,
         boolean wasCanceled) {
-      for (ListenerAndHandler listenerAndHandler : listenerAndHandlers) {
-        MediaSourceEventListener listener = listenerAndHandler.listener;
-        postOrRun(
-            listenerAndHandler.handler,
-            () ->
-                listener.onLoadError(
-                    windowIndex, mediaPeriodId, loadEventInfo, mediaLoadData, error, wasCanceled));
-      }
+      dispatchEvent(
+          (listener) ->
+              listener.onLoadError(
+                  windowIndex, mediaPeriodId, loadEventInfo, mediaLoadData, error, wasCanceled));
     }
 
     /** Dispatches {@link #onUpstreamDiscarded(int, MediaPeriodId, MediaLoadData)}. */
@@ -445,12 +431,8 @@ public interface MediaSourceEventListener {
     /** Dispatches {@link #onUpstreamDiscarded(int, MediaPeriodId, MediaLoadData)}. */
     public void upstreamDiscarded(MediaLoadData mediaLoadData) {
       MediaPeriodId mediaPeriodId = Assertions.checkNotNull(this.mediaPeriodId);
-      for (ListenerAndHandler listenerAndHandler : listenerAndHandlers) {
-        MediaSourceEventListener listener = listenerAndHandler.listener;
-        postOrRun(
-            listenerAndHandler.handler,
-            () -> listener.onUpstreamDiscarded(windowIndex, mediaPeriodId, mediaLoadData));
-      }
+      dispatchEvent(
+          (listener) -> listener.onUpstreamDiscarded(windowIndex, mediaPeriodId, mediaLoadData));
     }
 
     /** Dispatches {@link #onDownstreamFormatChanged(int, MediaPeriodId, MediaLoadData)}. */
@@ -473,11 +455,16 @@ public interface MediaSourceEventListener {
 
     /** Dispatches {@link #onDownstreamFormatChanged(int, MediaPeriodId, MediaLoadData)}. */
     public void downstreamFormatChanged(MediaLoadData mediaLoadData) {
+      dispatchEvent(
+          (listener) ->
+              listener.onDownstreamFormatChanged(windowIndex, mediaPeriodId, mediaLoadData));
+    }
+
+    /** Dispatches to a function that supplies a {@link MediaSourceEventListener}. */
+    public void dispatchEvent(Consumer<MediaSourceEventListener> event) {
       for (ListenerAndHandler listenerAndHandler : listenerAndHandlers) {
         MediaSourceEventListener listener = listenerAndHandler.listener;
-        postOrRun(
-            listenerAndHandler.handler,
-            () -> listener.onDownstreamFormatChanged(windowIndex, mediaPeriodId, mediaLoadData));
+        postOrRun(listenerAndHandler.handler, () -> event.accept(listener));
       }
     }
 

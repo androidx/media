@@ -49,7 +49,9 @@ import androidx.media3.extractor.SeekPoint;
       long position,
       MpegAudioUtil.Header mpegAudioHeader,
       ParsableByteArray frame) {
-    frame.skipBytes(10);
+    frame.skipBytes(6);
+    int bytes = frame.readInt();
+    long endOfMp3Data = position + mpegAudioHeader.frameSize + bytes;
     int numFrames = frame.readInt();
     if (numFrames <= 0) {
       return null;
@@ -63,15 +65,13 @@ import androidx.media3.extractor.SeekPoint;
     int entrySize = frame.readUnsignedShort();
     frame.skipBytes(2);
 
-    long minPosition = position + mpegAudioHeader.frameSize;
+    position += mpegAudioHeader.frameSize;
     // Read table of contents entries.
     long[] timesUs = new long[entryCount];
     long[] positions = new long[entryCount];
     for (int index = 0; index < entryCount; index++) {
       timesUs[index] = (index * durationUs) / entryCount;
-      // Ensure positions do not fall within the frame containing the VBRI header. This constraint
-      // will normally only apply to the first entry in the table.
-      positions[index] = max(position, minPosition);
+      positions[index] = position;
       int segmentSize;
       switch (entrySize) {
         case 1:
@@ -91,11 +91,21 @@ import androidx.media3.extractor.SeekPoint;
       }
       position += segmentSize * ((long) scale);
     }
-    if (inputLength != C.LENGTH_UNSET && inputLength != position) {
-      Log.w(TAG, "VBRI data size mismatch: " + inputLength + ", " + position);
+    if (inputLength != C.LENGTH_UNSET && inputLength != endOfMp3Data) {
+      Log.w(TAG, "VBRI data size mismatch: " + inputLength + ", " + endOfMp3Data);
     }
-    return new VbriSeeker(
-        timesUs, positions, durationUs, /* dataEndPosition= */ position, mpegAudioHeader.bitrate);
+    if (endOfMp3Data != position) {
+      Log.w(
+          TAG,
+          "VBRI bytes and ToC mismatch (using max): "
+              + endOfMp3Data
+              + ", "
+              + position
+              + "\nSeeking will be inaccurate.");
+      endOfMp3Data = max(endOfMp3Data, position);
+    }
+
+    return new VbriSeeker(timesUs, positions, durationUs, endOfMp3Data, mpegAudioHeader.bitrate);
   }
 
   private final long[] timesUs;

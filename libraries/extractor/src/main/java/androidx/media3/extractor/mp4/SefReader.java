@@ -82,7 +82,7 @@ import java.util.List;
   private static final String TAG = "SefReader";
 
   /**
-   * Hex representation of `SEFT` (in ASCII).
+   * Integer representation of {@code SEFT} (in ASCII).
    *
    * <p>This is the last 4 bytes of a file that has Samsung Extension Format (SEF) data.
    */

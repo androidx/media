@@ -29,7 +29,6 @@ import static java.lang.Math.abs;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.graphics.SurfaceTexture;
-import android.opengl.GLES31;
 import android.view.Surface;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
@@ -39,7 +38,6 @@ import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.SystemClock;
 import androidx.media3.common.util.Util;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -59,6 +57,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private static final int[] TRANSFORMATION_MATRIX_EXPECTED_ZERO_INDICES = {
     2, 3, 6, 7, 8, 9, 11, 14
   };
+  // Some devices always allocate 1920x1088 buffers, regardless of video resolution.
+  // When working around the implicit SurfaceTexture crop, add 1920 and 1088 to the set of
+  // candidate buffer sizes.
+  private static final int[] ADDITIONAL_CANDIDATE_BUFFER_SIZE_GUESSES = {1920, 1088};
   // In the worst case, we should be able to differentiate between numbers of the form
   // A / B and (A + 1) / (B + 1) where A and B are around video resolution.
   // For 8K, width = 7680.
@@ -70,14 +72,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * stream is considered to have ended, even if not all expected frames have been received from the
    * decoder. This has been observed on some decoders.
    *
-   * <p>Some emulator decoders are slower, hence using a longer timeout. Also on some emulators, GL
-   * operation takes a long time to finish, the timeout could be a result of slow GL operation back
-   * pressured the decoder, and the decoder is not able to decode another frame.
+   * <p>Some emulator decoders are slower, hence using a longer timeout.
    */
-  private static final long SURFACE_TEXTURE_TIMEOUT_MS = isRunningOnEmulator() ? 10_000 : 500;
-
-  // Wait delay between checking whether a registered frame arrives on the SurfaceTexture.
-  private static final long SURFACE_TEXTURE_WAIT_DELAY_MS = 10;
+  // LINT.IfChange(SURFACE_TEXTURE_TIMEOUT_MS)
+  private static final long SURFACE_TEXTURE_TIMEOUT_MS = isRunningOnEmulator() ? 20_000 : 500;
 
   private final GlObjectsProvider glObjectsProvider;
   private @MonotonicNonNull ExternalShaderProgram externalShaderProgram;
@@ -87,7 +85,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final float[] textureTransformMatrix;
   private final Queue<FrameInfo> pendingFrames;
   private final ScheduledExecutorService scheduledExecutorService;
-  private final boolean repeatLastRegisteredFrame;
   private final boolean experimentalAdjustSurfaceTextureTransformationMatrix;
 
   // Must be accessed on the GL thread.
@@ -98,12 +95,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   // The frame that is sent downstream and is not done processing yet.
   @Nullable private FrameInfo currentFrame;
   @Nullable private FrameInfo lastRegisteredFrame;
+  private boolean repeatLastRegisteredFrame;
 
   @Nullable private Future<?> forceSignalEndOfStreamFuture;
-  private boolean shouldRejectIncomingFrames;
-  // The first time trying to remove all frames from MediaCodec, used to escape repeated waiting for
-  // a frame to arrive on the SurfaceTexture.
-  private long firstTryToRemoveAllFramesTimeMs;
+  @Nullable private CountDownLatch releaseAllFramesLatch;
+
+  private volatile boolean shouldRejectIncomingFrames;
+  @Nullable private volatile RuntimeException releaseAllFramesException;
 
   /**
    * Creates a new instance. The caller's thread must have a current GL context.
@@ -150,9 +148,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                   DebugTraceUtil.logEvent(COMPONENT_VFP, EVENT_SURFACE_TEXTURE_INPUT, C.TIME_UNSET);
                   if (shouldRejectIncomingFrames) {
                     surfaceTexture.updateTexImage();
+                    pendingFrames.poll();
+                    if (releaseAllFramesLatch != null && pendingFrames.isEmpty()) {
+                      releaseAllFramesLatch.countDown();
+                    }
                     Log.w(
                         TAG,
-                        "Dropping frame received on SurfaceTexture after forcing EOS: "
+                        "Dropping frame received on SurfaceTexture: "
                             + surfaceTexture.getTimestamp() / 1000);
                     return;
                   }
@@ -162,24 +164,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                   }
                   availableFrameCount++;
                   maybeQueueFrameToExternalShaderProgram();
-                }));
+                },
+                // Ensures the available frame is consumed even if the task executor is flushed
+                // before the submitted task is executed.
+                /* isCancellable= */ false));
     surface = new Surface(surfaceTexture);
-    firstTryToRemoveAllFramesTimeMs = C.TIME_UNSET;
-  }
-
-  @Override
-  public void releaseAllRegisteredFrames() {
-    // Blocks the calling thread until all the registered frames are received and released.
-    CountDownLatch countDownLatch = new CountDownLatch(1);
-    videoFrameProcessingTaskExecutor.submit(() -> releaseAllFramesFromMediaCodec(countDownLatch));
-    try {
-      countDownLatch.await();
-    } catch (InterruptedException e) {
-      // Not re-thrown to not crash frame processing. Frame process can likely continue even when
-      // not all rendered frames arrive.
-      Thread.currentThread().interrupt();
-      Log.w(TAG, "Interrupted when waiting for MediaCodec frames to arrive.");
-    }
   }
 
   /**
@@ -232,6 +221,17 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             maybeQueueFrameToExternalShaderProgram();
           }
         });
+  }
+
+  @Override
+  public void setInputFrameInfo(FrameInfo inputFrameInfo, boolean automaticReregistration) {
+    // Ignore inputFrameInfo when not automatically re-registering frames because it's also passed
+    // to registerInputFrame.
+    repeatLastRegisteredFrame = automaticReregistration;
+    if (repeatLastRegisteredFrame) {
+      lastRegisteredFrame = inputFrameInfo;
+      surfaceTexture.setDefaultBufferSize(inputFrameInfo.width, inputFrameInfo.height);
+    }
   }
 
   /**
@@ -296,6 +296,44 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     super.flush();
   }
 
+  @Override
+  public void dropIncomingRegisteredFrames() {
+    shouldRejectIncomingFrames = true;
+  }
+
+  @Override
+  public void releaseAllRegisteredFrames() {
+    // Blocks the calling thread until all the registered frames are received and released.
+    CountDownLatch releaseAllFramesLatch = new CountDownLatch(1);
+    this.releaseAllFramesLatch = releaseAllFramesLatch;
+    videoFrameProcessingTaskExecutor.submit(
+        () -> {
+          try {
+            removeAllSurfaceTextureFrames();
+          } catch (RuntimeException e) {
+            releaseAllFramesException = e;
+            Log.e(TAG, "Failed to remove texture frames", e);
+            if (this.releaseAllFramesLatch != null) {
+              this.releaseAllFramesLatch.countDown();
+            }
+          }
+        });
+    try {
+      if (!releaseAllFramesLatch.await(SURFACE_TEXTURE_TIMEOUT_MS, MILLISECONDS)) {
+        Log.w(TAG, "Timeout reached while waiting for latch to be unblocked.");
+      }
+    } catch (InterruptedException e) {
+      // Not re-thrown to not crash frame processing. Frame process can likely continue even when
+      // not all rendered frames arrive.
+      Thread.currentThread().interrupt();
+      Log.w(TAG, "Interrupted when waiting for MediaCodec frames to arrive.");
+    }
+    this.releaseAllFramesLatch = null;
+    if (releaseAllFramesException != null) {
+      throw releaseAllFramesException;
+    }
+  }
+
   private void restartForceSignalEndOfStreamTimer() {
     cancelForceSignalEndOfStreamTimer();
     forceSignalEndOfStreamFuture =
@@ -313,7 +351,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   private void forceSignalEndOfStream() {
-    // Reset because there could be further input streams after the current one ends.
+    if (availableFrameCount == pendingFrames.size()) {
+      // All frames received from decoder. Do not force end of stream.
+      return;
+    }
     Log.w(
         TAG,
         Util.formatInvariant(
@@ -333,37 +374,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     signalEndOfCurrentInputStream();
   }
 
-  private void releaseAllFramesFromMediaCodec(CountDownLatch latch) {
-    removeAllSurfaceTextureFrames();
-
-    if (pendingFrames.isEmpty()
-        // Assumes a frame that is registered would not take longer than SURFACE_TEXTURE_TIMEOUT_MS
-        // to arrive, otherwise unblock the waiting thread.
-        || (firstTryToRemoveAllFramesTimeMs != C.TIME_UNSET
-            && SystemClock.DEFAULT.currentTimeMillis() - firstTryToRemoveAllFramesTimeMs
-                >= SURFACE_TEXTURE_TIMEOUT_MS)) {
-      firstTryToRemoveAllFramesTimeMs = C.TIME_UNSET;
-      latch.countDown();
-      return;
-    }
-
-    if (firstTryToRemoveAllFramesTimeMs == C.TIME_UNSET) {
-      firstTryToRemoveAllFramesTimeMs = SystemClock.DEFAULT.currentTimeMillis();
-    }
-    Future<?> unusedFuture =
-        scheduledExecutorService.schedule(
-            () ->
-                videoFrameProcessingTaskExecutor.submit(
-                    () -> releaseAllFramesFromMediaCodec(latch)),
-            SURFACE_TEXTURE_WAIT_DELAY_MS,
-            MILLISECONDS);
-  }
-
   private void removeAllSurfaceTextureFrames() {
     while (availableFrameCount > 0) {
       availableFrameCount--;
       surfaceTexture.updateTexImage();
       pendingFrames.remove();
+    }
+    if (releaseAllFramesLatch != null && pendingFrames.isEmpty()) {
+      releaseAllFramesLatch.countDown();
     }
   }
 
@@ -540,23 +558,43 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    */
   private static float guessScaleWithoutSurfaceTextureTrim(
       float surfaceTextureScale, int visibleLength) {
-    float bestGuess = 1;
-    float scaleWithoutTrim = 1;
+    int bestCandidateBufferSize = visibleLength;
 
     for (int align = 2; align <= 256; align *= 2) {
       int candidateBufferSize = ((visibleLength + align - 1) / align) * align;
-      for (int trimmedPixels = 0; trimmedPixels <= 2; trimmedPixels++) {
-        float guess = ((float) visibleLength - trimmedPixels) / candidateBufferSize;
-        if (abs(guess - surfaceTextureScale) < abs(bestGuess - surfaceTextureScale)) {
-          bestGuess = guess;
-          scaleWithoutTrim = (float) visibleLength / candidateBufferSize;
-        }
+      if (scoreForCandidateBufferSize(candidateBufferSize, surfaceTextureScale, visibleLength)
+          < scoreForCandidateBufferSize(
+              bestCandidateBufferSize, surfaceTextureScale, visibleLength)) {
+        bestCandidateBufferSize = candidateBufferSize;
       }
     }
-    if (abs(bestGuess - surfaceTextureScale) > EPSILON) {
+    for (int candidateBufferSize : ADDITIONAL_CANDIDATE_BUFFER_SIZE_GUESSES) {
+      if (candidateBufferSize < visibleLength) {
+        continue;
+      }
+      if (scoreForCandidateBufferSize(candidateBufferSize, surfaceTextureScale, visibleLength)
+          < scoreForCandidateBufferSize(
+              bestCandidateBufferSize, surfaceTextureScale, visibleLength)) {
+        bestCandidateBufferSize = candidateBufferSize;
+      }
+    }
+    if (scoreForCandidateBufferSize(bestCandidateBufferSize, surfaceTextureScale, visibleLength)
+        > EPSILON) {
       // Best guess is too far off. Accept that we'll scale.
       return surfaceTextureScale;
     }
-    return scaleWithoutTrim;
+    return (float) visibleLength / bestCandidateBufferSize;
+  }
+
+  private static float scoreForCandidateBufferSize(
+      int candidateBufferSize, float surfaceTextureScale, int visibleLength) {
+    float bestScore = 1;
+    for (int trimmedPixels = 0; trimmedPixels <= 2; trimmedPixels++) {
+      float guess = ((float) visibleLength - trimmedPixels) / candidateBufferSize;
+      if (abs(guess - surfaceTextureScale) < bestScore) {
+        bestScore = abs(guess - surfaceTextureScale);
+      }
+    }
+    return bestScore;
   }
 }

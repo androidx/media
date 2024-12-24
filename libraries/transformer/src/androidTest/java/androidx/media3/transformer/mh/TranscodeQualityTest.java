@@ -60,8 +60,8 @@ public final class TranscodeQualityTest {
     assumeFormatsSupported(
         context,
         testId,
-        /* inputFormat= */ AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_FORMAT,
-        /* outputFormat= */ AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_FORMAT);
+        /* inputFormat= */ AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS.videoFormat,
+        /* outputFormat= */ AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS.videoFormat);
     // Skip on specific pre-API 34 devices where calculating SSIM fails.
     assumeFalse(
         (Util.SDK_INT < 33 && (Util.MODEL.equals("SM-F711U1") || Util.MODEL.equals("SM-F926U1")))
@@ -80,8 +80,7 @@ public final class TranscodeQualityTest {
                     .build())
             .build();
     MediaItem mediaItem =
-        MediaItem.fromUri(
-            Uri.parse(AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_URI_STRING));
+        MediaItem.fromUri(Uri.parse(AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS.uri));
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(mediaItem).setRemoveAudio(true).build();
 
@@ -103,8 +102,9 @@ public final class TranscodeQualityTest {
     assumeFormatsSupported(
         context,
         testId,
-        /* inputFormat= */ AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_FORMAT,
-        /* outputFormat= */ AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_FORMAT
+        /* inputFormat= */ AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS.videoFormat,
+        /* outputFormat= */ AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS
+            .videoFormat
             .buildUpon()
             .setSampleMimeType(MimeTypes.VIDEO_H265)
             .build());
@@ -114,8 +114,7 @@ public final class TranscodeQualityTest {
     Transformer transformer =
         new Transformer.Builder(context).setVideoMimeType(MimeTypes.VIDEO_H265).build();
     MediaItem mediaItem =
-        MediaItem.fromUri(
-            Uri.parse(AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_URI_STRING));
+        MediaItem.fromUri(Uri.parse(AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS.uri));
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(mediaItem).setRemoveAudio(true).build();
 
@@ -145,8 +144,7 @@ public final class TranscodeQualityTest {
             .build();
     MediaItem mediaItem =
         MediaItem.fromUri(
-            Uri.parse(
-                AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S_URI_STRING));
+            Uri.parse(AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.uri));
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(mediaItem).setRemoveAudio(true).build();
 

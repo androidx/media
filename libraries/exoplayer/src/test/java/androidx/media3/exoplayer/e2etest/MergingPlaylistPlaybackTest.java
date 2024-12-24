@@ -15,6 +15,12 @@
  */
 package androidx.media3.exoplayer.e2etest;
 
+import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.run;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.verify;
+
 import android.content.Context;
 import android.graphics.SurfaceTexture;
 import android.view.Surface;
@@ -91,6 +97,8 @@ public final class MergingPlaylistPlaybackTest {
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))
             .build();
+    Player.Listener listener = mock(Player.Listener.class);
+    player.addListener(listener);
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
     PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
@@ -98,6 +106,17 @@ public final class MergingPlaylistPlaybackTest {
     player.addMediaSource(createMergingMediaSource(firstItemVideoClipped, firstItemAudioClipped));
     player.addMediaSource(createMergingMediaSource(secondItemVideoClipped, secondItemAudioClipped));
     player.prepare();
+    // Load all content prior to play to reduce flaky-ness resulting from the playback advancement
+    // speed and handling of discontinuities.
+    long durationToBufferMs =
+        (firstItemVideoClipped || firstItemAudioClipped ? 300L : 1024L)
+            + (secondItemVideoClipped || secondItemAudioClipped ? 300L : 1024L);
+    run(player)
+        .untilBackgroundThreadCondition(
+            () -> player.getTotalBufferedDuration() >= durationToBufferMs);
+    run(player).untilPendingCommandsAreFullyHandled();
+    // Reset the listener to avoid verifying the onIsLoadingChanged events from prepare().
+    reset(listener);
     player.play();
     TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
     player.release();
@@ -117,6 +136,7 @@ public final class MergingPlaylistPlaybackTest {
             + "_"
             + secondItemAudioClipped
             + ".dump");
+    verify(listener, never()).onIsLoadingChanged(true);
   }
 
   @Test
@@ -128,6 +148,8 @@ public final class MergingPlaylistPlaybackTest {
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))
             .build();
+    Player.Listener listener = mock(Player.Listener.class);
+    player.addListener(listener);
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
     PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
@@ -136,6 +158,15 @@ public final class MergingPlaylistPlaybackTest {
       player.addMediaSource(createMergingMediaSource(firstItemVideoClipped, firstItemAudioClipped));
     }
     player.prepare();
+    // Load all content prior to play to reduce flaky-ness resulting from the playback advancement
+    // speed and handling of discontinuities.
+    long durationToBufferMs = (firstItemVideoClipped || firstItemAudioClipped ? 300L : 1024L) * 5;
+    run(player)
+        .untilBackgroundThreadCondition(
+            () -> player.getTotalBufferedDuration() >= durationToBufferMs);
+    // Reset the listener to avoid verifying the onIsLoadingChanged events from prepare().
+    run(player).untilPendingCommandsAreFullyHandled();
+    reset(listener);
     player.play();
     TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
     player.release();
@@ -151,6 +182,7 @@ public final class MergingPlaylistPlaybackTest {
             + "_"
             + firstItemAudioClipped
             + ".dump");
+    verify(listener, never()).onIsLoadingChanged(true);
   }
 
   private MergingMediaSource createMergingMediaSource(boolean videoClipped, boolean audioClipped) {

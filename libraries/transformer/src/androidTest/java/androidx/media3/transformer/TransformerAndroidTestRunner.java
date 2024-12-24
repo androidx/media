@@ -273,7 +273,8 @@ public class TransformerAndroidTestRunner {
    */
   public ExportTestResult run(String testId, EditedMediaItem editedMediaItem) throws Exception {
     Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence(editedMediaItem)).build();
+        new Composition.Builder(new EditedMediaItemSequence.Builder(editedMediaItem).build())
+            .build();
     return run(testId, composition);
   }
 
@@ -326,6 +327,9 @@ public class TransformerAndroidTestRunner {
     }
     for (EditedMediaItemSequence sequence : composition.sequences) {
       for (EditedMediaItem editedMediaItem : sequence.editedMediaItems) {
+        if (editedMediaItem.isGap()) {
+          continue;
+        }
         Uri mediaItemUri = checkNotNull(editedMediaItem.mediaItem.localConfiguration).uri;
         String scheme = mediaItemUri.getScheme();
         if (scheme != null && (scheme.equals("http") || scheme.equals("https"))) {

@@ -24,6 +24,9 @@ if (gradle.ext.has('androidxMediaModulePrefix')) {
 include modulePrefix + 'lib-common'
 project(modulePrefix + 'lib-common').projectDir = new File(rootDir, 'libraries/common')
 
+include modulePrefix + 'lib-common-ktx'
+project(modulePrefix + 'lib-common-ktx').projectDir = new File(rootDir, 'libraries/common_ktx')
+
 include modulePrefix + 'lib-container'
 project(modulePrefix + 'lib-container').projectDir = new File(rootDir, 'libraries/container')
 
@@ -72,6 +75,8 @@ include modulePrefix + 'lib-decoder-ffmpeg'
 project(modulePrefix + 'lib-decoder-ffmpeg').projectDir = new File(rootDir, 'libraries/decoder_ffmpeg')
 include modulePrefix + 'lib-decoder-flac'
 project(modulePrefix + 'lib-decoder-flac').projectDir = new File(rootDir, 'libraries/decoder_flac')
+include modulePrefix + 'lib-decoder-iamf'
+project(modulePrefix + 'lib-decoder-iamf').projectDir = new File(rootDir, 'libraries/decoder_iamf')
 if (gradle.ext.has('androidxMediaEnableMidiModule') && gradle.ext.androidxMediaEnableMidiModule) {
     include modulePrefix + 'lib-decoder-midi'
     project(modulePrefix + 'lib-decoder-midi').projectDir = new File(rootDir, 'libraries/decoder_midi')

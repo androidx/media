@@ -18,6 +18,7 @@ package androidx.media3.demo.main;
 import android.content.Context;
 import android.net.http.HttpEngine;
 import android.os.Build;
+import android.os.ext.SdkExtensions;
 import androidx.annotation.OptIn;
 import androidx.media3.database.DatabaseProvider;
 import androidx.media3.database.StandaloneDatabaseProvider;
@@ -48,16 +49,6 @@ import org.chromium.net.CronetEngine;
 public final class DemoUtil {
 
   public static final String DOWNLOAD_NOTIFICATION_CHANNEL_ID = "download_channel";
-
-  /**
-   * Whether the demo application uses Cronet for networking when {@link HttpEngine} is not
-   * supported. Note that Cronet does not provide automatic support for cookies
-   * (https://github.com/google/ExoPlayer/issues/5975).
-   *
-   * <p>If set to false, the {@link DefaultHttpDataSource} is used with a {@link CookieManager}
-   * configured in {@link #getHttpDataSourceFactory} when {@link HttpEngine} is not supported.
-   */
-  private static final boolean ALLOW_CRONET_FOR_NETWORKING = true;
 
   private static final String TAG = "DemoUtil";
   private static final String DOWNLOAD_CONTENT_DIRECTORY = "downloads";
@@ -106,22 +97,20 @@ public final class DemoUtil {
       return httpDataSourceFactory;
     }
     context = context.getApplicationContext();
-    if (Build.VERSION.SDK_INT >= 34) {
+    if (Build.VERSION.SDK_INT >= 30
+        && SdkExtensions.getExtensionVersion(Build.VERSION_CODES.S) >= 7) {
       HttpEngine httpEngine = new HttpEngine.Builder(context).build();
       httpDataSourceFactory =
           new HttpEngineDataSource.Factory(httpEngine, Executors.newSingleThreadExecutor());
       return httpDataSourceFactory;
     }
-    if (ALLOW_CRONET_FOR_NETWORKING) {
-      @Nullable CronetEngine cronetEngine = CronetUtil.buildCronetEngine(context);
-      if (cronetEngine != null) {
-        httpDataSourceFactory =
-            new CronetDataSource.Factory(cronetEngine, Executors.newSingleThreadExecutor());
-        return httpDataSourceFactory;
-      }
+    @Nullable CronetEngine cronetEngine = CronetUtil.buildCronetEngine(context);
+    if (cronetEngine != null) {
+      httpDataSourceFactory =
+          new CronetDataSource.Factory(cronetEngine, Executors.newSingleThreadExecutor());
+      return httpDataSourceFactory;
     }
-    // The device doesn't support HttpEngine or we don't want to allow Cronet, or we failed to
-    // instantiate a CronetEngine.
+    // The device doesn't support HttpEngine and we failed to instantiate a CronetEngine.
     CookieManager cookieManager = new CookieManager();
     cookieManager.setCookiePolicy(CookiePolicy.ACCEPT_ORIGINAL_SERVER);
     CookieHandler.setDefault(cookieManager);

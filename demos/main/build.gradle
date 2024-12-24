@@ -31,7 +31,6 @@ android {
         versionCode project.ext.releaseVersionCode
         minSdkVersion project.ext.minSdkVersion
         targetSdkVersion project.ext.appTargetSdkVersion
-        multiDexEnabled true
     }
 
     buildTypes {
@@ -75,7 +74,6 @@ dependencies {
     compileOnly 'org.checkerframework:checker-qual:' + checkerframeworkVersion
     implementation 'androidx.annotation:annotation:' + androidxAnnotationVersion
     implementation 'androidx.appcompat:appcompat:' + androidxAppCompatVersion
-    implementation 'androidx.multidex:multidex:' + androidxMultidexVersion
     implementation 'com.google.android.material:material:' + androidxMaterialVersion
     implementation project(modulePrefix + 'lib-exoplayer')
     implementation project(modulePrefix + 'lib-exoplayer-dash')
@@ -89,6 +87,7 @@ dependencies {
     withDecoderExtensionsImplementation project(modulePrefix + 'lib-decoder-ffmpeg')
     withDecoderExtensionsImplementation project(modulePrefix + 'lib-decoder-flac')
     withDecoderExtensionsImplementation project(modulePrefix + 'lib-decoder-opus')
+    withDecoderExtensionsImplementation project(modulePrefix + 'lib-decoder-iamf')
     withDecoderExtensionsImplementation project(modulePrefix + 'lib-decoder-vp9')
     withDecoderExtensionsImplementation project(modulePrefix + 'lib-decoder-midi')
     withDecoderExtensionsImplementation project(modulePrefix + 'lib-datasource-rtmp')

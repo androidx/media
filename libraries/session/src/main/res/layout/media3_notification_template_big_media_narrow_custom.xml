@@ -26,14 +26,6 @@
     android:scaleType="centerCrop"
     />
 
-  <include layout="@layout/notification_media_cancel_action"
-    android:layout_width="48dp"
-    android:layout_height="48dp"
-    android:layout_marginLeft="2dp"
-    android:layout_marginRight="2dp"
-    android:layout_alignParentRight="true"
-    android:layout_alignParentEnd="true"/>
-
   <LinearLayout
     android:id="@+id/notification_main_column_container"
     android:layout_width="match_parent"
@@ -42,9 +34,7 @@
     android:layout_marginStart="128dp"
     android:minHeight="@dimen/notification_large_icon_height"
     android:paddingTop="@dimen/notification_main_column_padding_top"
-    android:orientation="horizontal"
-    android:layout_toLeftOf="@id/cancel_action"
-    android:layout_toStartOf="@id/cancel_action">
+    android:orientation="horizontal">
     <FrameLayout
       android:id="@+id/notification_main_column"
       android:layout_width="match_parent"

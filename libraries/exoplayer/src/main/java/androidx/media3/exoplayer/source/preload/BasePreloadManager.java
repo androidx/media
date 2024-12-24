@@ -18,13 +18,17 @@ package androidx.media3.exoplayer.source.preload;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 
 import android.os.Handler;
+import android.os.Looper;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.util.Clock;
+import androidx.media3.common.util.ListenerSet;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.source.MediaSource;
+import com.google.common.base.Supplier;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
@@ -44,26 +48,37 @@ public abstract class BasePreloadManager<T> {
 
     protected final Comparator<T> rankingDataComparator;
     protected final TargetPreloadStatusControl<T> targetPreloadStatusControl;
-    protected final MediaSource.Factory mediaSourceFactory;
+    protected Supplier<MediaSource.Factory> mediaSourceFactorySupplier;
 
     public BuilderBase(
         Comparator<T> rankingDataComparator,
         TargetPreloadStatusControl<T> targetPreloadStatusControl,
-        MediaSource.Factory mediaSourceFactory) {
+        Supplier<MediaSource.Factory> mediaSourceFactorySupplier) {
       this.rankingDataComparator = rankingDataComparator;
       this.targetPreloadStatusControl = targetPreloadStatusControl;
-      this.mediaSourceFactory = mediaSourceFactory;
+      this.mediaSourceFactorySupplier = mediaSourceFactorySupplier;
     }
 
     public abstract BasePreloadManager<T> build();
+  }
+
+  /** Listener for events in a preload manager. */
+  public interface Listener {
+
+    /** Called when the given {@link MediaItem} has completed preloading. */
+    void onCompleted(MediaItem mediaItem);
+
+    /** Called when an {@linkplain PreloadException error} occurs. */
+    void onError(PreloadException exception);
   }
 
   private final Object lock;
   protected final Comparator<T> rankingDataComparator;
   private final TargetPreloadStatusControl<T> targetPreloadStatusControl;
   private final MediaSource.Factory mediaSourceFactory;
+  private final ListenerSet<Listener> listeners;
   private final Map<MediaItem, MediaSourceHolder> mediaItemMediaSourceHolderMap;
-  private final Handler startPreloadingHandler;
+  private final Handler applicationHandler;
 
   @GuardedBy("lock")
   private final PriorityQueue<MediaSourceHolder> sourceHolderPriorityQueue;
@@ -77,12 +92,43 @@ public abstract class BasePreloadManager<T> {
       TargetPreloadStatusControl<T> targetPreloadStatusControl,
       MediaSource.Factory mediaSourceFactory) {
     lock = new Object();
+    applicationHandler = Util.createHandlerForCurrentOrMainLooper();
     this.rankingDataComparator = rankingDataComparator;
     this.targetPreloadStatusControl = targetPreloadStatusControl;
     this.mediaSourceFactory = mediaSourceFactory;
+    listeners =
+        new ListenerSet<>(applicationHandler.getLooper(), Clock.DEFAULT, (listener, flags) -> {});
     mediaItemMediaSourceHolderMap = new HashMap<>();
-    startPreloadingHandler = Util.createHandlerForCurrentOrMainLooper();
     sourceHolderPriorityQueue = new PriorityQueue<>();
+  }
+
+  /**
+   * Adds a {@link Listener} to listen to the preload events.
+   *
+   * <p>This method can be called from any thread.
+   */
+  public void addListener(Listener listener) {
+    listeners.add(listener);
+  }
+
+  /**
+   * Removes a {@link Listener}.
+   *
+   * @throws IllegalStateException If this method is called from the wrong thread.
+   */
+  public void removeListener(Listener listener) {
+    verifyApplicationThread();
+    listeners.remove(listener);
+  }
+
+  /**
+   * Clears all the {@linkplain Listener listeners}.
+   *
+   * @throws IllegalStateException If this method is called from the wrong thread.
+   */
+  public void clearListeners() {
+    verifyApplicationThread();
+    listeners.clear();
   }
 
   /**
@@ -206,22 +252,65 @@ public abstract class BasePreloadManager<T> {
   public final void release() {
     reset();
     releaseInternal();
+    clearListeners();
   }
 
-  /** Called when the given {@link MediaSource} completes to preload. */
+  /** Called when the given {@link MediaSource} completes preloading. */
   protected final void onPreloadCompleted(MediaSource source) {
-    startPreloadingHandler.post(
+    synchronized (lock) {
+      if (!isPreloading(source)) {
+        return;
+      }
+    }
+    applicationHandler.post(
         () -> {
-          synchronized (lock) {
-            if (sourceHolderPriorityQueue.isEmpty()
-                || checkNotNull(sourceHolderPriorityQueue.peek()).mediaSource != source) {
-              return;
-            }
-            do {
-              sourceHolderPriorityQueue.poll();
-            } while (!sourceHolderPriorityQueue.isEmpty() && !maybeStartPreloadNextSource());
-          }
+          listeners.sendEvent(
+              /* eventFlag= */ C.INDEX_UNSET,
+              listener -> listener.onCompleted(source.getMediaItem()));
+          maybeAdvanceToNextSource(source);
         });
+  }
+
+  /** Called when an error occurs. */
+  protected final void onPreloadError(PreloadException error, MediaSource source) {
+    synchronized (lock) {
+      if (!isPreloading(source)) {
+        return;
+      }
+    }
+    applicationHandler.post(
+        () -> {
+          listeners.sendEvent(/* eventFlag= */ C.INDEX_UNSET, listener -> listener.onError(error));
+          maybeAdvanceToNextSource(source);
+        });
+  }
+
+  /** Called when the given {@link MediaSource} has been skipped before completing preloading. */
+  protected final void onPreloadSkipped(MediaSource source) {
+    synchronized (lock) {
+      if (!isPreloading(source)) {
+        return;
+      }
+    }
+    applicationHandler.post(() -> maybeAdvanceToNextSource(source));
+  }
+
+  private void maybeAdvanceToNextSource(MediaSource currentSource) {
+    synchronized (lock) {
+      if (!isPreloading(currentSource)) {
+        return;
+      }
+      do {
+        sourceHolderPriorityQueue.poll();
+      } while (!sourceHolderPriorityQueue.isEmpty() && !maybeStartPreloadNextSource());
+    }
+  }
+
+  /** Returns whether the {@link MediaSource} is currently preloading. */
+  @GuardedBy("lock")
+  private boolean isPreloading(MediaSource mediaSource) {
+    return !sourceHolderPriorityQueue.isEmpty()
+        && checkNotNull(sourceHolderPriorityQueue.peek()).mediaSource == mediaSource;
   }
 
   /**
@@ -232,8 +321,7 @@ public abstract class BasePreloadManager<T> {
   protected final TargetPreloadStatusControl.PreloadStatus getTargetPreloadStatus(
       MediaSource source) {
     synchronized (lock) {
-      if (sourceHolderPriorityQueue.isEmpty()
-          || checkNotNull(sourceHolderPriorityQueue.peek()).mediaSource != source) {
+      if (!isPreloading(source)) {
         return null;
       }
       return targetPreloadStatusOfCurrentPreloadingSource;
@@ -305,6 +393,12 @@ public abstract class BasePreloadManager<T> {
       }
     }
     return false;
+  }
+
+  private void verifyApplicationThread() {
+    if (Looper.myLooper() != applicationHandler.getLooper()) {
+      throw new IllegalStateException("Preload manager is accessed on the wrong thread.");
+    }
   }
 
   /** A holder for information for preloading a single media source. */

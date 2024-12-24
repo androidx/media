@@ -31,8 +31,8 @@ public class VideoFrameReleaseControlTest {
   public void isReady_onNewInstance_returnsFalse() {
     VideoFrameReleaseControl videoFrameReleaseControl = createVideoFrameReleaseControl();
 
-    assertThat(videoFrameReleaseControl.isReady(/* rendererReady= */ true)).isFalse();
-    assertThat(videoFrameReleaseControl.isReady(/* rendererReady= */ false)).isFalse();
+    assertThat(videoFrameReleaseControl.isReady(/* rendererOtherwiseReady= */ true)).isFalse();
+    assertThat(videoFrameReleaseControl.isReady(/* rendererOtherwiseReady= */ false)).isFalse();
   }
 
   @Test
@@ -40,7 +40,7 @@ public class VideoFrameReleaseControlTest {
     VideoFrameReleaseControl videoFrameReleaseControl = createVideoFrameReleaseControl();
 
     assertThat(videoFrameReleaseControl.onFrameReleasedIsFirstFrame()).isTrue();
-    assertThat(videoFrameReleaseControl.isReady(/* rendererReady= */ true)).isTrue();
+    assertThat(videoFrameReleaseControl.isReady(/* rendererOtherwiseReady= */ true)).isTrue();
   }
 
   @Test
@@ -52,7 +52,7 @@ public class VideoFrameReleaseControlTest {
 
     videoFrameReleaseControl.join(/* renderNextFrameImmediately= */ true);
 
-    assertThat(videoFrameReleaseControl.isReady(/* rendererReady= */ false)).isTrue();
+    assertThat(videoFrameReleaseControl.isReady(/* rendererOtherwiseReady= */ false)).isTrue();
   }
 
   @Test
@@ -64,7 +64,7 @@ public class VideoFrameReleaseControlTest {
 
     videoFrameReleaseControl.join(/* renderNextFrameImmediately= */ false);
 
-    assertThat(videoFrameReleaseControl.isReady(/* rendererReady= */ false)).isTrue();
+    assertThat(videoFrameReleaseControl.isReady(/* rendererOtherwiseReady= */ false)).isTrue();
   }
 
   @Test
@@ -75,11 +75,11 @@ public class VideoFrameReleaseControlTest {
     videoFrameReleaseControl.setClock(clock);
 
     videoFrameReleaseControl.join(/* renderNextFrameImmediately= */ true);
-    assertThat(videoFrameReleaseControl.isReady(/* rendererReady= */ false)).isTrue();
+    assertThat(videoFrameReleaseControl.isReady(/* rendererOtherwiseReady= */ false)).isTrue();
 
     clock.advanceTime(/* timeDiffMs= */ 101);
 
-    assertThat(videoFrameReleaseControl.isReady(/* rendererReady= */ false)).isFalse();
+    assertThat(videoFrameReleaseControl.isReady(/* rendererOtherwiseReady= */ false)).isFalse();
   }
 
   @Test
@@ -90,11 +90,11 @@ public class VideoFrameReleaseControlTest {
     videoFrameReleaseControl.setClock(clock);
 
     videoFrameReleaseControl.join(/* renderNextFrameImmediately= */ false);
-    assertThat(videoFrameReleaseControl.isReady(/* rendererReady= */ false)).isTrue();
+    assertThat(videoFrameReleaseControl.isReady(/* rendererOtherwiseReady= */ false)).isTrue();
 
     clock.advanceTime(/* timeDiffMs= */ 101);
 
-    assertThat(videoFrameReleaseControl.isReady(/* rendererReady= */ false)).isFalse();
+    assertThat(videoFrameReleaseControl.isReady(/* rendererOtherwiseReady= */ false)).isFalse();
   }
 
   @Test
@@ -132,10 +132,10 @@ public class VideoFrameReleaseControlTest {
     VideoFrameReleaseControl videoFrameReleaseControl = createVideoFrameReleaseControl();
 
     videoFrameReleaseControl.onFrameReleasedIsFirstFrame();
-    assertThat(videoFrameReleaseControl.isReady(/* rendererReady= */ true)).isTrue();
+    assertThat(videoFrameReleaseControl.isReady(/* rendererOtherwiseReady= */ true)).isTrue();
     videoFrameReleaseControl.reset();
 
-    assertThat(videoFrameReleaseControl.isReady(/* rendererReady= */ true)).isFalse();
+    assertThat(videoFrameReleaseControl.isReady(/* rendererOtherwiseReady= */ true)).isFalse();
   }
 
   @Test

@@ -16,6 +16,7 @@
 package androidx.media3.exoplayer.util;
 
 import static androidx.media3.common.util.Util.getFormatSupportString;
+import static androidx.media3.common.util.Util.getTrackTypeString;
 import static java.lang.Math.min;
 
 import android.os.SystemClock;
@@ -476,13 +477,6 @@ public class EventLogger implements AnalyticsListener {
 
   @UnstableApi
   @Override
-  public void onLoadStarted(
-      EventTime eventTime, LoadEventInfo loadEventInfo, MediaLoadData mediaLoadData) {
-    // Do nothing.
-  }
-
-  @UnstableApi
-  @Override
   public void onLoadError(
       EventTime eventTime,
       LoadEventInfo loadEventInfo,
@@ -490,27 +484,6 @@ public class EventLogger implements AnalyticsListener {
       IOException error,
       boolean wasCanceled) {
     printInternalError(eventTime, "loadError", error);
-  }
-
-  @UnstableApi
-  @Override
-  public void onLoadCanceled(
-      EventTime eventTime, LoadEventInfo loadEventInfo, MediaLoadData mediaLoadData) {
-    // Do nothing.
-  }
-
-  @UnstableApi
-  @Override
-  public void onLoadCompleted(
-      EventTime eventTime, LoadEventInfo loadEventInfo, MediaLoadData mediaLoadData) {
-    // Do nothing.
-  }
-
-  @UnstableApi
-  @Override
-  public void onBandwidthEstimate(
-      EventTime eventTime, int totalLoadTimeMs, long totalBytesLoaded, long bitrateEstimate) {
-    // Do nothing.
   }
 
   @UnstableApi
@@ -565,6 +538,24 @@ public class EventLogger implements AnalyticsListener {
   @Override
   public void onDrmSessionReleased(EventTime eventTime) {
     logd(eventTime, "drmSessionReleased");
+  }
+
+  @UnstableApi
+  @Override
+  public void onRendererReadyChanged(
+      EventTime eventTime,
+      int rendererIndex,
+      @C.TrackType int rendererTrackType,
+      boolean isRendererReady) {
+    logd(
+        eventTime,
+        "rendererReady",
+        "rendererIndex="
+            + rendererIndex
+            + ", "
+            + getTrackTypeString(rendererTrackType)
+            + ", "
+            + isRendererReady);
   }
 
   /**

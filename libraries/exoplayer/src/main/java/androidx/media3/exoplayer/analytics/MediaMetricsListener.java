@@ -748,7 +748,7 @@ public final class MediaMetricsListener
       } else if (cause instanceof DrmSession.DrmSessionException) {
         // Unpack DrmSessionException.
         cause = checkNotNull(cause.getCause());
-        if (Util.SDK_INT >= 21 && cause instanceof MediaDrm.MediaDrmStateException) {
+        if (cause instanceof MediaDrm.MediaDrmStateException) {
           String diagnosticsInfo = ((MediaDrm.MediaDrmStateException) cause).getDiagnosticInfo();
           int subErrorCode = Util.getErrorCodeFromPlatformDiagnosticsInfo(diagnosticsInfo);
           int errorCode = getDrmErrorCode(subErrorCode);
@@ -771,8 +771,7 @@ public final class MediaMetricsListener
       } else if (cause instanceof FileDataSource.FileDataSourceException
           && cause.getCause() instanceof FileNotFoundException) {
         @Nullable Throwable notFoundCause = checkNotNull(cause.getCause()).getCause();
-        if (Util.SDK_INT >= 21
-            && notFoundCause instanceof ErrnoException
+        if (notFoundCause instanceof ErrnoException
             && ((ErrnoException) notFoundCause).errno == OsConstants.EACCES) {
           return new ErrorInfo(PlaybackErrorEvent.ERROR_IO_NO_PERMISSION, /* subErrorCode= */ 0);
         } else {

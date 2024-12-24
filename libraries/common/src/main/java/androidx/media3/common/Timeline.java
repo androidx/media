@@ -575,7 +575,8 @@ public abstract class Timeline {
      */
     public boolean isPlaceholder;
 
-    private AdPlaybackState adPlaybackState;
+    /** The {@link AdPlaybackState} for all ads in this period. */
+    @UnstableApi public AdPlaybackState adPlaybackState;
 
     /** Creates a new instance with no ad playback state. */
     public Period() {

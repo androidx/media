@@ -23,6 +23,7 @@ import android.os.Bundle;
 import androidx.media3.common.Player;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.ImmutableIntArray;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -172,6 +173,7 @@ public class CommandButtonTest {
                 .setIconResId(R.drawable.media3_notification_small_icon)
                 .setIconUri(Uri.parse("content://test"))
                 .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
+                .setSlots(CommandButton.SLOT_FORWARD, CommandButton.SLOT_CENTRAL)
                 .build())
         .isEqualTo(
             new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
@@ -179,6 +181,7 @@ public class CommandButtonTest {
                 .setIconResId(R.drawable.media3_notification_small_icon)
                 .setIconUri(Uri.parse("content://test"))
                 .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
+                .setSlots(CommandButton.SLOT_FORWARD, CommandButton.SLOT_CENTRAL)
                 .build());
   }
 
@@ -189,6 +192,7 @@ public class CommandButtonTest {
             .setDisplayName("button")
             .setIconResId(R.drawable.media3_notification_small_icon)
             .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
+            .setSlots(CommandButton.SLOT_BACK)
             .build();
 
     assertThat(button)
@@ -199,6 +203,7 @@ public class CommandButtonTest {
                 .setDisplayName("button2")
                 .setIconResId(R.drawable.media3_notification_small_icon)
                 .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
+                .setSlots(CommandButton.SLOT_BACK)
                 .build());
     assertThat(button)
         .isNotEqualTo(
@@ -206,6 +211,7 @@ public class CommandButtonTest {
                 .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
                 .setDisplayName("button")
                 .setIconResId(R.drawable.media3_notification_small_icon)
+                .setSlots(CommandButton.SLOT_BACK)
                 .build());
     assertThat(button)
         .isNotEqualTo(
@@ -213,6 +219,7 @@ public class CommandButtonTest {
                 .setIconResId(R.drawable.media3_icon_play)
                 .setDisplayName("button")
                 .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
+                .setSlots(CommandButton.SLOT_BACK)
                 .build());
     assertThat(button)
         .isNotEqualTo(
@@ -221,13 +228,15 @@ public class CommandButtonTest {
                 .setDisplayName("button")
                 .setIconResId(R.drawable.media3_notification_small_icon)
                 .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
+                .setSlots(CommandButton.SLOT_BACK)
                 .build());
     assertThat(button)
         .isNotEqualTo(
             new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
-                .setSessionCommand(new SessionCommand(Player.COMMAND_PLAY_PAUSE))
+                .setSessionCommand(new SessionCommand(SessionCommand.COMMAND_CODE_LIBRARY_GET_ITEM))
                 .setDisplayName("button")
                 .setIconResId(R.drawable.media3_notification_small_icon)
+                .setSlots(CommandButton.SLOT_BACK)
                 .build());
     assertThat(button)
         .isNotEqualTo(
@@ -236,6 +245,7 @@ public class CommandButtonTest {
                 .setIconResId(R.drawable.media3_notification_small_icon)
                 .setIconUri(Uri.parse("content://test"))
                 .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
+                .setSlots(CommandButton.SLOT_BACK)
                 .build());
     assertThat(button)
         .isNotEqualTo(
@@ -243,6 +253,15 @@ public class CommandButtonTest {
                 .setDisplayName("button")
                 .setIconResId(R.drawable.media3_notification_small_icon)
                 .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
+                .setSlots(CommandButton.SLOT_BACK)
+                .build());
+    assertThat(button)
+        .isNotEqualTo(
+            new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
+                .setDisplayName("button")
+                .setIconResId(R.drawable.media3_notification_small_icon)
+                .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
+                .setSlots(CommandButton.SLOT_FORWARD)
                 .build());
   }
 
@@ -268,17 +287,17 @@ public class CommandButtonTest {
   public void equals_differencesInSessionCommand_notEqual() {
     assertThat(
             new CommandButton.Builder(CommandButton.ICON_PLAY)
-                .setSessionCommand(new SessionCommand(Player.COMMAND_PLAY_PAUSE))
+                .setSessionCommand(new SessionCommand(SessionCommand.COMMAND_CODE_LIBRARY_GET_ITEM))
                 .setDisplayName("button")
                 .build())
         .isNotEqualTo(
             new CommandButton.Builder(CommandButton.ICON_PLAY)
-                .setSessionCommand(new SessionCommand(Player.COMMAND_SEEK_BACK))
+                .setSessionCommand(new SessionCommand(SessionCommand.COMMAND_CODE_LIBRARY_SEARCH))
                 .setDisplayName("button")
                 .build());
     assertThat(
             new CommandButton.Builder(CommandButton.ICON_PLAY)
-                .setSessionCommand(new SessionCommand(Player.COMMAND_PLAY_PAUSE))
+                .setSessionCommand(new SessionCommand(SessionCommand.COMMAND_CODE_LIBRARY_GET_ITEM))
                 .setDisplayName("button")
                 .build())
         .isNotEqualTo(
@@ -356,6 +375,118 @@ public class CommandButtonTest {
   }
 
   @Test
+  public void build_withoutSlots_assignsDefaultSlots() {
+    assertThat(
+            new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
+                .setPlayerCommand(Player.COMMAND_PLAY_PAUSE)
+                .build()
+                .slots)
+        .isEqualTo(ImmutableIntArray.of(CommandButton.SLOT_CENTRAL));
+    assertThat(
+            new CommandButton.Builder(CommandButton.ICON_PLAY)
+                .setPlayerCommand(Player.COMMAND_PREPARE)
+                .build()
+                .slots)
+        .isEqualTo(ImmutableIntArray.of(CommandButton.SLOT_CENTRAL));
+    assertThat(
+            new CommandButton.Builder(CommandButton.ICON_PAUSE)
+                .setPlayerCommand(Player.COMMAND_STOP)
+                .build()
+                .slots)
+        .isEqualTo(ImmutableIntArray.of(CommandButton.SLOT_CENTRAL));
+    assertThat(
+            new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
+                .setPlayerCommand(Player.COMMAND_SEEK_BACK)
+                .build()
+                .slots)
+        .isEqualTo(ImmutableIntArray.of(CommandButton.SLOT_BACK));
+    assertThat(
+            new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
+                .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
+                .build()
+                .slots)
+        .isEqualTo(ImmutableIntArray.of(CommandButton.SLOT_BACK));
+    assertThat(
+            new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
+                .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
+                .build()
+                .slots)
+        .isEqualTo(ImmutableIntArray.of(CommandButton.SLOT_BACK));
+    assertThat(
+            new CommandButton.Builder(CommandButton.ICON_PREVIOUS)
+                .setPlayerCommand(Player.COMMAND_SEEK_TO_MEDIA_ITEM)
+                .build()
+                .slots)
+        .isEqualTo(ImmutableIntArray.of(CommandButton.SLOT_BACK));
+    assertThat(
+            new CommandButton.Builder(CommandButton.ICON_SKIP_BACK)
+                .setPlayerCommand(Player.COMMAND_SEEK_TO_MEDIA_ITEM)
+                .build()
+                .slots)
+        .isEqualTo(ImmutableIntArray.of(CommandButton.SLOT_BACK));
+    assertThat(
+            new CommandButton.Builder(CommandButton.ICON_SKIP_BACK_10)
+                .setPlayerCommand(Player.COMMAND_SEEK_TO_MEDIA_ITEM)
+                .build()
+                .slots)
+        .isEqualTo(ImmutableIntArray.of(CommandButton.SLOT_BACK));
+    assertThat(
+            new CommandButton.Builder(CommandButton.ICON_REWIND)
+                .setPlayerCommand(Player.COMMAND_SEEK_TO_MEDIA_ITEM)
+                .build()
+                .slots)
+        .isEqualTo(ImmutableIntArray.of(CommandButton.SLOT_BACK));
+    assertThat(
+            new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
+                .setPlayerCommand(Player.COMMAND_SEEK_FORWARD)
+                .build()
+                .slots)
+        .isEqualTo(ImmutableIntArray.of(CommandButton.SLOT_FORWARD));
+    assertThat(
+            new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
+                .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
+                .build()
+                .slots)
+        .isEqualTo(ImmutableIntArray.of(CommandButton.SLOT_FORWARD));
+    assertThat(
+            new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
+                .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
+                .build()
+                .slots)
+        .isEqualTo(ImmutableIntArray.of(CommandButton.SLOT_FORWARD));
+    assertThat(
+            new CommandButton.Builder(CommandButton.ICON_NEXT)
+                .setPlayerCommand(Player.COMMAND_SEEK_TO_MEDIA_ITEM)
+                .build()
+                .slots)
+        .isEqualTo(ImmutableIntArray.of(CommandButton.SLOT_FORWARD));
+    assertThat(
+            new CommandButton.Builder(CommandButton.ICON_SKIP_FORWARD)
+                .setPlayerCommand(Player.COMMAND_SEEK_TO_MEDIA_ITEM)
+                .build()
+                .slots)
+        .isEqualTo(ImmutableIntArray.of(CommandButton.SLOT_FORWARD));
+    assertThat(
+            new CommandButton.Builder(CommandButton.ICON_SKIP_FORWARD_10)
+                .setPlayerCommand(Player.COMMAND_SEEK_TO_MEDIA_ITEM)
+                .build()
+                .slots)
+        .isEqualTo(ImmutableIntArray.of(CommandButton.SLOT_FORWARD));
+    assertThat(
+            new CommandButton.Builder(CommandButton.ICON_FAST_FORWARD)
+                .setPlayerCommand(Player.COMMAND_SEEK_TO_MEDIA_ITEM)
+                .build()
+                .slots)
+        .isEqualTo(ImmutableIntArray.of(CommandButton.SLOT_FORWARD));
+    assertThat(
+            new CommandButton.Builder(CommandButton.ICON_SHUFFLE_ON)
+                .setPlayerCommand(Player.COMMAND_SET_SHUFFLE_MODE)
+                .build()
+                .slots)
+        .isEqualTo(ImmutableIntArray.of(CommandButton.SLOT_OVERFLOW));
+  }
+
+  @Test
   public void fromBundle_afterToBundle_returnsEqualInstance() {
     Bundle extras = new Bundle();
     extras.putString("key", "value");
@@ -364,18 +495,20 @@ public class CommandButtonTest {
             .setDisplayName("name")
             .setEnabled(true)
             .setIconResId(R.drawable.media3_notification_small_icon)
-            .setIconUri(Uri.parse("http://test.test"))
+            .setIconUri(Uri.parse("content://test"))
             .setExtras(extras)
             .setSessionCommand(new SessionCommand(SessionCommand.COMMAND_CODE_SESSION_SET_RATING))
+            .setSlots(CommandButton.SLOT_OVERFLOW, CommandButton.SLOT_BACK)
             .build();
     CommandButton buttonWithPlayerCommand =
         new CommandButton.Builder(CommandButton.ICON_CLOSED_CAPTIONS)
             .setDisplayName("name")
             .setEnabled(true)
             .setIconResId(R.drawable.media3_notification_small_icon)
-            .setIconUri(Uri.parse("http://test.test"))
+            .setIconUri(Uri.parse("content://test"))
             .setExtras(extras)
             .setPlayerCommand(Player.COMMAND_GET_METADATA)
+            .setSlots(CommandButton.SLOT_CENTRAL)
             .build();
     CommandButton buttonWithDefaultValues =
         new CommandButton.Builder(CommandButton.ICON_UNDEFINED)

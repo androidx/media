@@ -111,8 +111,6 @@ public final class Composition {
      *
      * <p>The default value is {@link Effects#EMPTY}.
      *
-     * <p>This only works with the {@code Presentation} effect.
-     *
      * @param effects The {@link Composition} {@link Effects}.
      * @return This builder.
      */
@@ -441,5 +439,18 @@ public final class Composition {
     this.forceAudioTrack = forceAudioTrack;
     this.hdrMode = hdrMode;
     this.retainHdrFromUltraHdrImage = retainHdrFromUltraHdrImage;
+  }
+
+  /**
+   * Return whether any {@linkplain EditedMediaItemSequence sequences} contain a {@linkplain
+   * EditedMediaItemSequence.Builder#addGap(long) gap}.
+   */
+  /* package */ boolean hasGaps() {
+    for (int i = 0; i < sequences.size(); i++) {
+      if (sequences.get(i).hasGaps()) {
+        return true;
+      }
+    }
+    return false;
   }
 }

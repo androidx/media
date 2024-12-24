@@ -116,7 +116,7 @@ public final class RtpAc3Reader implements RtpPayloadReader {
       case AC3_FRAME_TYPE_INITIAL_FRAGMENT_A:
       case AC3_FRAME_TYPE_INITIAL_FRAGMENT_B:
         maybeOutputSampleMetadata();
-        // Falls through.
+      // Falls through.
       case AC3_FRAME_TYPE_NON_INITIAL_FRAGMENT:
         // The content of an AC3 frame is split into multiple RTP packets.
         processFragmentedPacket(data, rtpMarker, frameType, sampleTimeUs);

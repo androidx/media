@@ -35,6 +35,7 @@ import android.opengl.GLUtils;
 import android.opengl.Matrix;
 import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -293,7 +294,7 @@ public final class GlUtil {
             sharedContext,
             contextAttributes,
             /* offset= */ 0);
-    if (eglContext == null) {
+    if (eglContext == null || eglContext.equals(EGL14.EGL_NO_CONTEXT)) {
       EGL14.eglTerminate(eglDisplay);
       throw new GlException(
           "eglCreateContext() failed to create a valid context. The device may not support EGL"
@@ -778,13 +779,13 @@ public final class GlUtil {
    */
   public static void destroyEglContext(
       @Nullable EGLDisplay eglDisplay, @Nullable EGLContext eglContext) throws GlException {
-    if (eglDisplay == null) {
+    if (eglDisplay == null || eglDisplay.equals(EGL14.EGL_NO_DISPLAY)) {
       return;
     }
     EGL14.eglMakeCurrent(
         eglDisplay, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_CONTEXT);
     checkEglException("Error releasing context");
-    if (eglContext != null) {
+    if (eglContext != null && !eglContext.equals(EGL14.EGL_NO_CONTEXT)) {
       EGL14.eglDestroyContext(eglDisplay, eglContext);
       checkEglException("Error destroying context");
     }
@@ -800,7 +801,10 @@ public final class GlUtil {
    */
   public static void destroyEglSurface(
       @Nullable EGLDisplay eglDisplay, @Nullable EGLSurface eglSurface) throws GlException {
-    if (eglDisplay == null || eglSurface == null) {
+    if (eglDisplay == null || eglDisplay.equals(EGL14.EGL_NO_DISPLAY)) {
+      return;
+    }
+    if (eglSurface == null || eglSurface.equals(EGL14.EGL_NO_SURFACE)) {
       return;
     }
 
@@ -818,6 +822,181 @@ public final class GlUtil {
   public static void deleteRbo(int rboId) throws GlException {
     GLES20.glDeleteRenderbuffers(
         /* n= */ 1, /* renderbuffers= */ new int[] {rboId}, /* offset= */ 0);
+    checkGlError();
+  }
+
+  /**
+   * Copies the pixels from {@code readFboId} into {@code drawFboId}. Requires OpenGL ES 3.0.
+   *
+   * <p>When the input pixel region (given by {@code readRect}) doesn't have the same size as the
+   * output region (given by {@code drawRect}), this method uses {@link GLES20#GL_LINEAR} filtering
+   * to scale the image contents.
+   *
+   * @param readFboId The framebuffer object to read from.
+   * @param readRect The rectangular region of {@code readFboId} to read from.
+   * @param drawFboId The framebuffer object to draw into.
+   * @param drawRect The rectangular region of {@code drawFboId} to draw into.
+   */
+  public static void blitFrameBuffer(int readFboId, GlRect readRect, int drawFboId, GlRect drawRect)
+      throws GlException {
+    int[] boundFramebuffer = new int[1];
+    GLES20.glGetIntegerv(GLES20.GL_FRAMEBUFFER_BINDING, boundFramebuffer, /* offset= */ 0);
+    checkGlError();
+    GLES30.glBindFramebuffer(GLES30.GL_READ_FRAMEBUFFER, readFboId);
+    checkGlError();
+    GLES30.glBindFramebuffer(GLES30.GL_DRAW_FRAMEBUFFER, drawFboId);
+    checkGlError();
+    GLES30.glBlitFramebuffer(
+        readRect.left,
+        readRect.bottom,
+        readRect.right,
+        readRect.top,
+        drawRect.left,
+        drawRect.bottom,
+        drawRect.right,
+        drawRect.top,
+        GLES30.GL_COLOR_BUFFER_BIT,
+        GLES30.GL_LINEAR);
+    checkGlError();
+    GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, /* framebuffer= */ boundFramebuffer[0]);
+    checkGlError();
+  }
+
+  /**
+   * Creates a pixel buffer object with a data store of the given size and usage {@link
+   * GLES30#GL_DYNAMIC_READ}.
+   *
+   * <p>The buffer is suitable for repeated modification by OpenGL and reads by the application.
+   *
+   * @param size The size of the buffer object's data store.
+   * @return The pixel buffer object.
+   */
+  public static int createPixelBufferObject(int size) throws GlException {
+    int[] ids = new int[1];
+    GLES30.glGenBuffers(/* n= */ 1, ids, /* offset= */ 0);
+    GlUtil.checkGlError();
+
+    GLES30.glBindBuffer(GLES30.GL_PIXEL_PACK_BUFFER, ids[0]);
+    GlUtil.checkGlError();
+
+    GLES30.glBufferData(
+        GLES30.GL_PIXEL_PACK_BUFFER, /* size= */ size, /* data= */ null, GLES30.GL_DYNAMIC_READ);
+    GlUtil.checkGlError();
+
+    GLES30.glBindBuffer(GLES30.GL_PIXEL_PACK_BUFFER, /* buffer= */ 0);
+    GlUtil.checkGlError();
+    return ids[0];
+  }
+
+  /**
+   * Reads pixel data from the {@link GLES30#GL_COLOR_ATTACHMENT0} attachment of a framebuffer into
+   * the data store of a pixel buffer object.
+   *
+   * <p>The texture backing the color attachment of {@code readFboId} and the buffer store of {@code
+   * bufferId} must hold an image of the given {@code width} and {@code height} with format {@link
+   * GLES30#GL_RGBA} and type {@link GLES30#GL_UNSIGNED_BYTE}.
+   *
+   * <p>This a non-blocking call which reads the data asynchronously.
+   *
+   * <p>Requires API 24: This method must call the version of {@link GLES30#glReadPixels(int, int,
+   * int, int, int, int, int)} which accepts an integer offset as the last parameter. This version
+   * of glReadPixels is not available in the Java {@link GLES30} wrapper until API 24.
+   *
+   * <p>HDR support is not yet implemented.
+   *
+   * @param readFboId The framebuffer that holds pixel data.
+   * @param width The image width.
+   * @param height The image height.
+   * @param bufferId The pixel buffer object to read into.
+   */
+  @RequiresApi(24)
+  public static void schedulePixelBufferRead(int readFboId, int width, int height, int bufferId)
+      throws GlException {
+    focusFramebufferUsingCurrentContext(readFboId, width, height);
+    GLES30.glBindBuffer(GLES30.GL_PIXEL_PACK_BUFFER, bufferId);
+    GlUtil.checkGlError();
+
+    GLES30.glReadBuffer(GLES30.GL_COLOR_ATTACHMENT0);
+    GLES30.glReadPixels(
+        /* x= */ 0,
+        /* y= */ 0,
+        width,
+        height,
+        GLES30.GL_RGBA,
+        GLES30.GL_UNSIGNED_BYTE,
+        /* offset= */ 0);
+    GlUtil.checkGlError();
+
+    GLES30.glBindBuffer(GLES30.GL_PIXEL_PACK_BUFFER, /* buffer= */ 0);
+    GlUtil.checkGlError();
+  }
+
+  /**
+   * Maps the pixel buffer object's data store of a given size and returns a {@link ByteBuffer} of
+   * OpenGL managed memory.
+   *
+   * <p>The application must not write into the returned {@link ByteBuffer}.
+   *
+   * <p>The pixel buffer object should have a {@linkplain #schedulePixelBufferRead previously
+   * scheduled pixel buffer read}.
+   *
+   * <p>When the application no longer needs to access the returned buffer, call {@link
+   * #unmapPixelBufferObject}.
+   *
+   * <p>This call blocks until the pixel buffer data from the last {@link #schedulePixelBufferRead}
+   * call is available.
+   *
+   * <p>Requires API 24: see {@link #schedulePixelBufferRead}.
+   *
+   * @param bufferId The pixel buffer object.
+   * @param size The size of the pixel buffer object's data store to be mapped.
+   * @return The {@link ByteBuffer} that holds pixel data.
+   */
+  @RequiresApi(24)
+  public static ByteBuffer mapPixelBufferObject(int bufferId, int size) throws GlException {
+    GLES20.glBindBuffer(GLES30.GL_PIXEL_PACK_BUFFER, bufferId);
+    checkGlError();
+    ByteBuffer mappedPixelBuffer =
+        (ByteBuffer)
+            GLES30.glMapBufferRange(
+                GLES30.GL_PIXEL_PACK_BUFFER,
+                /* offset= */ 0,
+                /* length= */ size,
+                GLES30.GL_MAP_READ_BIT);
+    GlUtil.checkGlError();
+    GLES30.glBindBuffer(GLES30.GL_PIXEL_PACK_BUFFER, /* buffer= */ 0);
+    GlUtil.checkGlError();
+    return mappedPixelBuffer;
+  }
+
+  /**
+   * Unmaps the pixel buffer object {@code bufferId}'s data store.
+   *
+   * <p>The pixel buffer object should be previously {@linkplain #mapPixelBufferObject mapped}.
+   *
+   * <p>After this method returns, accessing data inside a previously {@linkplain
+   * #mapPixelBufferObject mapped} {@link ByteBuffer} results in undefined behaviour.
+   *
+   * <p>When this method returns, the pixel buffer object {@code bufferId} can be reused by {@link
+   * #schedulePixelBufferRead}.
+   *
+   * <p>Requires API 24: see {@link #schedulePixelBufferRead}.
+   *
+   * @param bufferId The pixel buffer object.
+   */
+  @RequiresApi(24)
+  public static void unmapPixelBufferObject(int bufferId) throws GlException {
+    GLES30.glBindBuffer(GLES30.GL_PIXEL_PACK_BUFFER, bufferId);
+    GlUtil.checkGlError();
+    GLES30.glUnmapBuffer(GLES30.GL_PIXEL_PACK_BUFFER);
+    GlUtil.checkGlError();
+    GLES30.glBindBuffer(GLES30.GL_PIXEL_PACK_BUFFER, /* buffer= */ 0);
+    GlUtil.checkGlError();
+  }
+
+  /** Deletes a buffer object, or silently ignores the method call if {@code bufferId} is unused. */
+  public static void deleteBuffer(int bufferId) throws GlException {
+    GLES20.glDeleteBuffers(/* n= */ 1, new int[] {bufferId}, /* offset= */ 0);
     checkGlError();
   }
 

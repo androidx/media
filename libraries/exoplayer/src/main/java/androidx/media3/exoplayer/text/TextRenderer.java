@@ -42,11 +42,13 @@ import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.SampleStream.ReadDataResult;
 import androidx.media3.extractor.text.CueDecoder;
 import androidx.media3.extractor.text.CuesWithTiming;
+import androidx.media3.extractor.text.Subtitle;
 import androidx.media3.extractor.text.SubtitleDecoder;
 import androidx.media3.extractor.text.SubtitleDecoderException;
 import androidx.media3.extractor.text.SubtitleInputBuffer;
 import androidx.media3.extractor.text.SubtitleOutputBuffer;
 import com.google.common.collect.ImmutableList;
+import java.io.IOException;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -119,10 +121,10 @@ public final class TextRenderer extends BaseRenderer implements Callback {
   private boolean inputStreamEnded;
   private boolean outputStreamEnded;
   @Nullable private Format streamFormat;
-  private long outputStreamOffsetUs;
   private long lastRendererPositionUs;
   private long finalStreamEndPositionUs;
   private boolean legacyDecodingEnabled;
+  @Nullable private IOException streamError;
 
   /**
    * @param output The output.
@@ -159,7 +161,6 @@ public final class TextRenderer extends BaseRenderer implements Callback {
         new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_NORMAL);
     formatHolder = new FormatHolder();
     finalStreamEndPositionUs = C.TIME_UNSET;
-    outputStreamOffsetUs = C.TIME_UNSET;
     lastRendererPositionUs = C.TIME_UNSET;
     legacyDecodingEnabled = false;
   }
@@ -206,7 +207,6 @@ public final class TextRenderer extends BaseRenderer implements Callback {
       long startPositionUs,
       long offsetUs,
       MediaSource.MediaPeriodId mediaPeriodId) {
-    outputStreamOffsetUs = offsetUs;
     streamFormat = formats[0];
     if (!isCuesWithTiming(streamFormat)) {
       assertLegacyDecodingEnabledIfRequired();
@@ -462,7 +462,6 @@ public final class TextRenderer extends BaseRenderer implements Callback {
     streamFormat = null;
     finalStreamEndPositionUs = C.TIME_UNSET;
     clearOutput();
-    outputStreamOffsetUs = C.TIME_UNSET;
     lastRendererPositionUs = C.TIME_UNSET;
     if (subtitleDecoder != null) {
       releaseSubtitleDecoder();
@@ -476,9 +475,38 @@ public final class TextRenderer extends BaseRenderer implements Callback {
 
   @Override
   public boolean isReady() {
+    if (streamFormat == null) {
+      return true;
+    }
+    if (streamError == null) {
+      try {
+        maybeThrowStreamError();
+      } catch (IOException e) {
+        streamError = e;
+      }
+    }
+
+    if (streamError != null) {
+      if (isCuesWithTiming(checkNotNull(streamFormat))) {
+        return checkNotNull(cuesResolver).getNextCueChangeTimeUs(lastRendererPositionUs)
+            != C.TIME_END_OF_SOURCE;
+      } else {
+        if (outputStreamEnded
+            || (inputStreamEnded
+                && hasNoEventsAfter(subtitle, lastRendererPositionUs)
+                && hasNoEventsAfter(nextSubtitle, lastRendererPositionUs)
+                && nextSubtitleInputBuffer != null)) {
+          return false;
+        }
+      }
+    }
     // Don't block playback whilst subtitles are loading.
     // Note: To change this behavior, it will be necessary to consider [Internal: b/12949941].
     return true;
+  }
+
+  private static boolean hasNoEventsAfter(@Nullable Subtitle subtitle, long timeUs) {
+    return subtitle == null || subtitle.getEventTime(subtitle.getEventTimeCount() - 1) <= timeUs;
   }
 
   private void releaseSubtitleBuffers() {
@@ -579,9 +607,7 @@ public final class TextRenderer extends BaseRenderer implements Callback {
   @SideEffectFree
   private long getPresentationTimeUs(long positionUs) {
     checkState(positionUs != C.TIME_UNSET);
-    checkState(outputStreamOffsetUs != C.TIME_UNSET);
-
-    return positionUs - outputStreamOffsetUs;
+    return positionUs - getStreamOffsetUs();
   }
 
   @RequiresNonNull("streamFormat")

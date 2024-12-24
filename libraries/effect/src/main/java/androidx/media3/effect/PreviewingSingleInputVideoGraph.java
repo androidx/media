@@ -17,7 +17,6 @@
 package androidx.media3.effect;
 
 import android.content.Context;
-import androidx.annotation.Nullable;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DebugViewProvider;
 import androidx.media3.common.Effect;
@@ -65,13 +64,6 @@ public final class PreviewingSingleInputVideoGraph extends SingleInputVideoGraph
         Executor listenerExecutor,
         List<Effect> compositionEffects,
         long initialTimestampOffsetUs) {
-      @Nullable Presentation presentation = null;
-      for (int i = 0; i < compositionEffects.size(); i++) {
-        Effect effect = compositionEffects.get(i);
-        if (effect instanceof Presentation) {
-          presentation = (Presentation) effect;
-        }
-      }
       return new PreviewingSingleInputVideoGraph(
           context,
           videoFrameProcessorFactory,
@@ -79,7 +71,6 @@ public final class PreviewingSingleInputVideoGraph extends SingleInputVideoGraph
           debugViewProvider,
           listener,
           listenerExecutor,
-          presentation,
           initialTimestampOffsetUs);
     }
   }
@@ -91,7 +82,6 @@ public final class PreviewingSingleInputVideoGraph extends SingleInputVideoGraph
       DebugViewProvider debugViewProvider,
       Listener listener,
       Executor listenerExecutor,
-      @Nullable Presentation presentation,
       long initialTimestampOffsetUs) {
     super(
         context,
@@ -103,7 +93,6 @@ public final class PreviewingSingleInputVideoGraph extends SingleInputVideoGraph
         VideoCompositorSettings.DEFAULT,
         // Previewing needs frame render timing.
         /* renderFramesAutomatically= */ false,
-        presentation,
         initialTimestampOffsetUs);
   }
 

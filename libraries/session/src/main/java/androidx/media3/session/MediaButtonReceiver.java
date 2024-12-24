@@ -27,7 +27,6 @@ import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.os.Build;
 import android.view.KeyEvent;
-import androidx.annotation.DoNotInline;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.core.content.ContextCompat;
@@ -118,11 +117,16 @@ public class MediaButtonReceiver extends BroadcastReceiver {
       return;
     }
 
+    @Nullable
+    KeyEvent keyEvent = checkNotNull(intent.getExtras()).getParcelable(Intent.EXTRA_KEY_EVENT);
+    if (keyEvent == null
+        || keyEvent.getAction() != KeyEvent.ACTION_DOWN
+        || keyEvent.getRepeatCount() != 0) {
+      // Only handle the intent once with the earliest key event that arrives.
+      return;
+    }
     if (Util.SDK_INT >= 26) {
-      @Nullable
-      KeyEvent keyEvent = checkNotNull(intent.getExtras()).getParcelable(Intent.EXTRA_KEY_EVENT);
-      if (keyEvent != null
-          && keyEvent.getKeyCode() != KeyEvent.KEYCODE_MEDIA_PLAY
+      if (keyEvent.getKeyCode() != KeyEvent.KEYCODE_MEDIA_PLAY
           && keyEvent.getKeyCode() != KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE
           && keyEvent.getKeyCode() != KeyEvent.KEYCODE_HEADSETHOOK) {
         // Starting with Android 8 (API 26), the service must be started immediately in the
@@ -144,6 +148,14 @@ public class MediaButtonReceiver extends BroadcastReceiver {
       ComponentName mediaButtonServiceComponentName = getServiceComponentByAction(context, action);
       if (mediaButtonServiceComponentName != null) {
         intent.setComponent(mediaButtonServiceComponentName);
+        if (!shouldStartForegroundService(intent)) {
+          Log.i(
+              TAG,
+              "onReceive(Intent) does not start the media button event target service into the"
+                  + " foreground on app request: "
+                  + mediaButtonServiceComponentName.getClassName());
+          return;
+        }
         try {
           ContextCompat.startForegroundService(context, intent);
         } catch (/* ForegroundServiceStartNotAllowedException */ IllegalStateException e) {
@@ -160,6 +172,28 @@ public class MediaButtonReceiver extends BroadcastReceiver {
     }
     throw new IllegalStateException(
         "Could not find any Service that handles any of the actions " + Arrays.toString(ACTIONS));
+  }
+
+  /**
+   * Returns whether to start the {@linkplain Intent#getComponent() media button event target
+   * service} into the foreground.
+   *
+   * <p>Returns true by default. Apps can override this method to decide to not start a service when
+   * receiving an event with {@link KeyEvent#KEYCODE_MEDIA_PLAY} or {@link
+   * KeyEvent#KEYCODE_MEDIA_PLAY_PAUSE} that should be suppressed.
+   *
+   * <p>Note: Once the service is started into the foreground by the receiver, the app must start
+   * playback to get into the foreground or the system will crash the service with a {@code
+   * ForegroundServiceDidNotStartInTimeException} or an {@link IllegalStateException}.
+   *
+   * @param intent The intent that {@linkplain #onReceive(Context, Intent) was received by the media
+   *     button event receiver}.
+   * @return true if the service should be {@linkplain ContextCompat#startForegroundService(Context,
+   *     Intent) started as a foreground service}. If false is returned the service is not started
+   *     and the receiver call is a no-op.
+   */
+  protected boolean shouldStartForegroundService(Intent intent) {
+    return true;
   }
 
   /**
@@ -222,7 +256,6 @@ public class MediaButtonReceiver extends BroadcastReceiver {
     /**
      * Returns true if the passed exception is a {@link ForegroundServiceStartNotAllowedException}.
      */
-    @DoNotInline
     public static boolean instanceOfForegroundServiceStartNotAllowedException(
         IllegalStateException e) {
       return e instanceof ForegroundServiceStartNotAllowedException;
@@ -232,7 +265,6 @@ public class MediaButtonReceiver extends BroadcastReceiver {
      * Casts the {@link IllegalStateException} to a {@link
      * ForegroundServiceStartNotAllowedException} and throws an exception if the cast fails.
      */
-    @DoNotInline
     public static ForegroundServiceStartNotAllowedException
         castToForegroundServiceStartNotAllowedException(IllegalStateException e) {
       return (ForegroundServiceStartNotAllowedException) e;

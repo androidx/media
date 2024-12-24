@@ -20,7 +20,6 @@ import static androidx.media3.common.util.Assertions.checkNotNull;
 import android.content.Context;
 import android.media.AudioFormat;
 import android.media.AudioManager;
-import androidx.annotation.DoNotInline;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.AudioAttributes;
@@ -138,7 +137,6 @@ public final class DefaultAudioOffloadSupportProvider
   private static final class Api29 {
     private Api29() {}
 
-    @DoNotInline
     public static AudioOffloadSupport getOffloadedPlaybackSupport(
         AudioFormat audioFormat,
         android.media.AudioAttributes audioAttributes,
@@ -157,7 +155,6 @@ public final class DefaultAudioOffloadSupportProvider
   private static final class Api31 {
     private Api31() {}
 
-    @DoNotInline
     public static AudioOffloadSupport getOffloadedPlaybackSupport(
         AudioFormat audioFormat,
         android.media.AudioAttributes audioAttributes,

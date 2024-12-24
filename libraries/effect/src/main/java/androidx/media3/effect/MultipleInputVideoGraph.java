@@ -17,6 +17,7 @@
 package androidx.media3.effect;
 
 import static androidx.media3.common.VideoFrameProcessor.INPUT_TYPE_TEXTURE_ID;
+import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
@@ -27,7 +28,6 @@ import static androidx.media3.common.util.Util.newSingleThreadScheduledExecutor;
 import static androidx.media3.effect.DebugTraceUtil.COMPONENT_COMPOSITOR;
 import static androidx.media3.effect.DebugTraceUtil.COMPONENT_VFP;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_OUTPUT_TEXTURE_RENDERED;
-import static androidx.media3.effect.DefaultVideoFrameProcessor.WORKING_COLOR_SPACE_LINEAR;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.content.Context;
@@ -90,6 +90,7 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
   private final SparseArray<CompositorOutputTextureRelease> compositorOutputTextureReleases;
 
   private final long initialTimestampOffsetUs;
+  private final boolean renderFramesAutomatically;
 
   @Nullable private VideoFrameProcessor compositionVideoFrameProcessor;
   @Nullable private VideoCompositor videoCompositor;
@@ -104,13 +105,16 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
 
   protected MultipleInputVideoGraph(
       Context context,
+      VideoFrameProcessor.Factory videoFrameProcessorFactory,
       ColorInfo outputColorInfo,
       DebugViewProvider debugViewProvider,
       Listener listener,
       Executor listenerExecutor,
       VideoCompositorSettings videoCompositorSettings,
       List<Effect> compositionEffects,
-      long initialTimestampOffsetUs) {
+      long initialTimestampOffsetUs,
+      boolean renderFramesAutomatically) {
+    checkArgument(videoFrameProcessorFactory instanceof DefaultVideoFrameProcessor.Factory);
     this.context = context;
     this.outputColorInfo = outputColorInfo;
     this.debugViewProvider = debugViewProvider;
@@ -119,14 +123,15 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
     this.videoCompositorSettings = videoCompositorSettings;
     this.compositionEffects = new ArrayList<>(compositionEffects);
     this.initialTimestampOffsetUs = initialTimestampOffsetUs;
+    this.renderFramesAutomatically = renderFramesAutomatically;
     lastRenderedPresentationTimeUs = C.TIME_UNSET;
     preProcessors = new SparseArray<>();
     sharedExecutorService = newSingleThreadScheduledExecutor(SHARED_EXECUTOR_NAME);
     glObjectsProvider = new SingleContextGlObjectsProvider();
-    // TODO - b/289986435: Support injecting VideoFrameProcessor.Factory.
-    videoFrameProcessorFactory =
-        new DefaultVideoFrameProcessor.Factory.Builder()
-            .setSdrWorkingColorSpace(WORKING_COLOR_SPACE_LINEAR)
+    // TODO - b/289986435: Support injecting arbitrary VideoFrameProcessor.Factory.
+    this.videoFrameProcessorFactory =
+        ((DefaultVideoFrameProcessor.Factory) videoFrameProcessorFactory)
+            .buildUpon()
             .setGlObjectsProvider(glObjectsProvider)
             .setExecutorService(sharedExecutorService)
             .build();
@@ -153,7 +158,7 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
             context,
             debugViewProvider,
             outputColorInfo,
-            /* renderFramesAutomatically= */ true,
+            renderFramesAutomatically,
             /* listenerExecutor= */ MoreExecutors.directExecutor(),
             new VideoFrameProcessor.Listener() {
               // All of this listener's methods are called on the sharedExecutorService.
@@ -177,6 +182,9 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
                   hasProducedFrameWithTimestampZero = true;
                 }
                 lastRenderedPresentationTimeUs = presentationTimeUs;
+
+                listenerExecutor.execute(
+                    () -> listener.onOutputFrameAvailableForRendering(presentationTimeUs));
               }
 
               @Override
@@ -241,17 +249,6 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
                 listenerExecutor,
                 new VideoFrameProcessor.Listener() {
                   // All of this listener's methods are called on the sharedExecutorService.
-                  @Override
-                  public void onInputStreamRegistered(
-                      @VideoFrameProcessor.InputType int inputType,
-                      List<Effect> effects,
-                      FrameInfo frameInfo) {}
-
-                  @Override
-                  public void onOutputSizeChanged(int width, int height) {}
-
-                  @Override
-                  public void onOutputFrameAvailableForRendering(long presentationTimeUs) {}
 
                   @Override
                   public void onError(VideoFrameProcessingException exception) {
@@ -322,6 +319,10 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
     }
 
     released = true;
+  }
+
+  protected VideoFrameProcessor getCompositionVideoFrameProcessor() {
+    return checkStateNotNull(compositionVideoFrameProcessor);
   }
 
   protected long getInitialTimestampOffsetUs() {

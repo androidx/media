@@ -34,7 +34,6 @@ android {
         versionCode project.ext.releaseVersionCode
         minSdkVersion project.ext.minSdkVersion
         targetSdkVersion project.ext.appTargetSdkVersion
-        multiDexEnabled true
         vectorDrawables.useSupportLibrary = true
     }
 
@@ -62,7 +61,6 @@ android {
 dependencies {
     implementation 'androidx.core:core-ktx:' + androidxCoreVersion
     implementation 'androidx.appcompat:appcompat:' + androidxAppCompatVersion
-    implementation 'androidx.multidex:multidex:' + androidxMultidexVersion
     implementation 'com.google.android.material:material:' + androidxMaterialVersion
     implementation 'androidx.media:media:' + androidxMediaVersion
     implementation project(modulePrefix + 'lib-session')

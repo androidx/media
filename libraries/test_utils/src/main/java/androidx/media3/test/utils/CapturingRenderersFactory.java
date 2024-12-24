@@ -331,7 +331,6 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
       dequeuedOutputBuffers.delete(index);
     }
 
-    @RequiresApi(21)
     @Override
     public void releaseOutputBuffer(int index, long renderTimeStampNs) {
       MediaCodec.BufferInfo bufferInfo = checkNotNull(dequeuedOutputBuffers.get(index));
@@ -372,6 +371,12 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
     @Override
     public void setOutputSurface(Surface surface) {
       delegate.setOutputSurface(surface);
+    }
+
+    @RequiresApi(35)
+    @Override
+    public void detachOutputSurface() {
+      delegate.detachOutputSurface();
     }
 
     @Override

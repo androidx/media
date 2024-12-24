@@ -162,11 +162,11 @@ import java.util.List;
    * @param requestedFormat The {@link Format} requested.
    * @param muxerSupportedMimeTypes The list of sample {@linkplain MimeTypes MIME types} that the
    *     muxer supports.
-   * @return A supported {@linkplain MimeTypes MIME type}.
-   * @throws ExportException If there are no supported {@linkplain MimeTypes MIME types}.
+   * @return A supported {@linkplain MimeTypes MIME type}, or {@code null} if none are supported.
    */
+  @Nullable
   protected static String findSupportedMimeTypeForEncoderAndMuxer(
-      Format requestedFormat, List<String> muxerSupportedMimeTypes) throws ExportException {
+      Format requestedFormat, List<String> muxerSupportedMimeTypes) {
     boolean isVideo = MimeTypes.isVideo(checkNotNull(requestedFormat.sampleMimeType));
 
     ImmutableSet.Builder<String> mimeTypesToCheckSetBuilder =
@@ -193,22 +193,6 @@ import java.util.List;
       }
     }
 
-    throw createNoSupportedMimeTypeException(requestedFormat);
-  }
-
-  private static ExportException createNoSupportedMimeTypeException(Format format) {
-    String errorMessage = "No MIME type is supported by both encoder and muxer.";
-    int errorCode = ExportException.ERROR_CODE_ENCODING_FORMAT_UNSUPPORTED;
-    boolean isVideo = MimeTypes.isVideo(format.sampleMimeType);
-
-    if (isVideo && isTransferHdr(format.colorInfo)) {
-      errorMessage += " Requested HDR colorInfo: " + format.colorInfo;
-    }
-
-    return ExportException.createForCodec(
-        new IllegalArgumentException(errorMessage),
-        errorCode,
-        new ExportException.CodecInfo(
-            format.toString(), isVideo, /* isDecoder= */ false, /* name= */ null));
+    return null;
   }
 }

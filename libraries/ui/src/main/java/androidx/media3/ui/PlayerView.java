@@ -32,8 +32,6 @@ import android.content.res.TypedArray;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
-import android.graphics.Matrix;
-import android.graphics.RectF;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.opengl.GLSurfaceView;
@@ -54,7 +52,6 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import android.window.SurfaceSyncGroup;
 import androidx.annotation.ColorInt;
-import androidx.annotation.DoNotInline;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
@@ -211,10 +208,10 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
     /**
      * Called when the fullscreen button is clicked.
      *
-     * @param isFullScreen {@code true} if the video rendering surface should be fullscreen, {@code
+     * @param isFullscreen {@code true} if the video rendering surface should be fullscreen, {@code
      *     false} otherwise.
      */
-    void onFullscreenButtonClick(boolean isFullScreen);
+    void onFullscreenButtonClick(boolean isFullscreen);
   }
 
   /**
@@ -335,7 +332,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
   private boolean controllerAutoShow;
   private boolean controllerHideDuringAds;
   private boolean controllerHideOnTouch;
-  private int textureViewRotation;
+  private boolean enableComposeSurfaceSyncWorkaround;
 
   public PlayerView(Context context) {
     this(context, /* attrs= */ null);
@@ -1142,6 +1139,21 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
   }
 
   /**
+   * Sets whether the player is currently in fullscreen, this will change the displayed icon.
+   *
+   * <p>If {@code isFullscreen} is {@code true},
+   * {@code @drawable/exo_styled_controls_fullscreen_exit} will be displayed or else
+   * {@code @drawable/exo_styled_controls_fullscreen_enter}.
+   *
+   * @param isFullscreen Whether the player is currently in fullscreen.
+   */
+  @UnstableApi
+  public void setFullscreenButtonState(boolean isFullscreen) {
+    Assertions.checkStateNotNull(controller);
+    controller.updateIsFullscreen(isFullscreen);
+  }
+
+  /**
    * Sets the {@link PlayerControlView.OnFullScreenModeChangedListener}.
    *
    * <p>Clears any listener set by {@link
@@ -1305,6 +1317,19 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
       @Nullable AspectRatioFrameLayout.AspectRatioListener listener) {
     Assertions.checkStateNotNull(contentFrame);
     contentFrame.setAspectRatioListener(listener);
+  }
+
+  /**
+   * Whether to enable a workaround for the Compose {@code AndroidView} and {@link SurfaceView}
+   * compatibility issue described in <a
+   * href="https://github.com/androidx/media/issues/1237">androidx/media#1237</a>.
+   *
+   * <p>This workaround causes issues with shared element transitions in XML views, so is disabled
+   * by default (<a href="https://github.com/androidx/media/issues/1594">androidx/media#1594</a>).
+   */
+  @UnstableApi
+  public void setEnableComposeSurfaceSyncWorkaround(boolean enableComposeSurfaceSyncWorkaround) {
+    this.enableComposeSurfaceSyncWorkaround = enableComposeSurfaceSyncWorkaround;
   }
 
   /**
@@ -1752,30 +1777,8 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
     VideoSize videoSize = player != null ? player.getVideoSize() : VideoSize.UNKNOWN;
     int width = videoSize.width;
     int height = videoSize.height;
-    int unappliedRotationDegrees = videoSize.unappliedRotationDegrees;
     float videoAspectRatio =
         (height == 0 || width == 0) ? 0 : (width * videoSize.pixelWidthHeightRatio) / height;
-
-    if (surfaceView instanceof TextureView) {
-      // Try to apply rotation transformation when our surface is a TextureView.
-      if (videoAspectRatio > 0
-          && (unappliedRotationDegrees == 90 || unappliedRotationDegrees == 270)) {
-        // We will apply a rotation 90/270 degree to the output texture of the TextureView.
-        // In this case, the output video's width and height will be swapped.
-        videoAspectRatio = 1 / videoAspectRatio;
-      }
-      if (textureViewRotation != 0) {
-        surfaceView.removeOnLayoutChangeListener(componentListener);
-      }
-      textureViewRotation = unappliedRotationDegrees;
-      if (textureViewRotation != 0) {
-        // The texture view's dimensions might be changed after layout step.
-        // So add an OnLayoutChangeListener to apply rotation after layout step.
-        surfaceView.addOnLayoutChangeListener(componentListener);
-      }
-      applyTextureViewRotation((TextureView) surfaceView, textureViewRotation);
-    }
-
     onContentAspectRatioChanged(
         contentFrame, surfaceViewIgnoresVideoAspectRatio ? 0 : videoAspectRatio);
   }
@@ -1783,7 +1786,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
   @Override
   protected void dispatchDraw(Canvas canvas) {
     super.dispatchDraw(canvas);
-    if (Util.SDK_INT == 34 && surfaceSyncGroupV34 != null) {
+    if (Util.SDK_INT == 34 && surfaceSyncGroupV34 != null && enableComposeSurfaceSyncWorkaround) {
       surfaceSyncGroupV34.maybeMarkSyncReadyAndClear();
     }
   }
@@ -1805,29 +1808,6 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
     aspectRatioFrame.setResizeMode(resizeMode);
   }
 
-  /** Applies a texture rotation to a {@link TextureView}. */
-  private static void applyTextureViewRotation(TextureView textureView, int textureViewRotation) {
-    Matrix transformMatrix = new Matrix();
-    float textureViewWidth = textureView.getWidth();
-    float textureViewHeight = textureView.getHeight();
-    if (textureViewWidth != 0 && textureViewHeight != 0 && textureViewRotation != 0) {
-      float pivotX = textureViewWidth / 2;
-      float pivotY = textureViewHeight / 2;
-      transformMatrix.postRotate(textureViewRotation, pivotX, pivotY);
-
-      // After rotation, scale the rotated texture to fit the TextureView size.
-      RectF originalTextureRect = new RectF(0, 0, textureViewWidth, textureViewHeight);
-      RectF rotatedTextureRect = new RectF();
-      transformMatrix.mapRect(rotatedTextureRect, originalTextureRect);
-      transformMatrix.postScale(
-          textureViewWidth / rotatedTextureRect.width(),
-          textureViewHeight / rotatedTextureRect.height(),
-          pivotX,
-          pivotY);
-    }
-    textureView.setTransform(transformMatrix);
-  }
-
   @SuppressLint("InlinedApi")
   private boolean isDpadKey(int keyCode) {
     return keyCode == KeyEvent.KEYCODE_DPAD_UP
@@ -1846,7 +1826,6 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
   @SuppressWarnings("deprecation")
   private final class ComponentListener
       implements Player.Listener,
-          OnLayoutChangeListener,
           OnClickListener,
           PlayerControlView.VisibilityListener,
           PlayerControlView.OnFullScreenModeChangedListener {
@@ -1879,7 +1858,9 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
 
     @Override
     public void onSurfaceSizeChanged(int width, int height) {
-      if (Util.SDK_INT == 34 && surfaceView instanceof SurfaceView) {
+      if (Util.SDK_INT == 34
+          && surfaceView instanceof SurfaceView
+          && enableComposeSurfaceSyncWorkaround) {
         // Register a SurfaceSyncGroup to work around https://github.com/androidx/media/issues/1237
         // (only present on API 34, fixed on API 35).
         checkNotNull(surfaceSyncGroupV34)
@@ -1956,22 +1937,6 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
       }
     }
 
-    // OnLayoutChangeListener implementation
-
-    @Override
-    public void onLayoutChange(
-        View view,
-        int left,
-        int top,
-        int right,
-        int bottom,
-        int oldLeft,
-        int oldTop,
-        int oldRight,
-        int oldBottom) {
-      applyTextureViewRotation((TextureView) view, textureViewRotation);
-    }
-
     // OnClickListener implementation
 
     @Override
@@ -1992,9 +1957,9 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
     // PlayerControlView.OnFullScreenModeChangedListener implementation
 
     @Override
-    public void onFullScreenModeChanged(boolean isFullScreen) {
+    public void onFullScreenModeChanged(boolean isFullscreen) {
       if (fullscreenButtonClickListener != null) {
-        fullscreenButtonClickListener.onFullscreenButtonClick(isFullScreen);
+        fullscreenButtonClickListener.onFullscreenButtonClick(isFullscreen);
       }
     }
   }
@@ -2002,7 +1967,6 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
   @RequiresApi(34)
   private static class Api34 {
 
-    @DoNotInline
     public static void setSurfaceLifecycleToFollowsAttachment(SurfaceView surfaceView) {
       surfaceView.setSurfaceLifecycle(SurfaceView.SURFACE_LIFECYCLE_FOLLOWS_ATTACHMENT);
     }
@@ -2013,7 +1977,6 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
 
     @Nullable SurfaceSyncGroup surfaceSyncGroup;
 
-    @DoNotInline
     public void postRegister(
         Handler mainLooperHandler, SurfaceView surfaceView, Runnable invalidate) {
       mainLooperHandler.post(
@@ -2031,7 +1994,6 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
           });
     }
 
-    @DoNotInline
     public void maybeMarkSyncReadyAndClear() {
       if (surfaceSyncGroup != null) {
         surfaceSyncGroup.markSyncReady();

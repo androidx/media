@@ -67,7 +67,7 @@ public final class DefaultMediaCodecAdapterFactory implements MediaCodecAdapter.
   @Deprecated
   public DefaultMediaCodecAdapterFactory() {
     asynchronousMode = MODE_DEFAULT;
-    asyncCryptoFlagEnabled = true;
+    asyncCryptoFlagEnabled = false;
     context = null;
   }
 
@@ -79,7 +79,7 @@ public final class DefaultMediaCodecAdapterFactory implements MediaCodecAdapter.
   public DefaultMediaCodecAdapterFactory(Context context) {
     this.context = context;
     asynchronousMode = MODE_DEFAULT;
-    asyncCryptoFlagEnabled = true;
+    asyncCryptoFlagEnabled = false;
   }
 
   /**

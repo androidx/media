@@ -32,8 +32,11 @@ import androidx.media3.common.util.Util;
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Multimap;
+import com.google.common.net.HttpHeaders;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
@@ -41,6 +44,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import okhttp3.mockwebserver.Dispatcher;
@@ -55,6 +59,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  */
 @UnstableApi
 public class WebServerDispatcher extends Dispatcher {
+
+  /** The body associated with a response for an unrecognized path. */
+  public static final String NOT_FOUND_BODY = "Resource not found!";
 
   /** A resource served by {@link WebServerDispatcher}. */
   public static class Resource {
@@ -102,10 +109,12 @@ public class WebServerDispatcher extends Dispatcher {
       private boolean supportsRangeRequests;
       private boolean resolvesToUnknownLength;
       private @GzipSupport int gzipSupport;
+      private ImmutableListMultimap<String, String> extraResponseHeaders;
 
       /** Constructs an instance. */
       public Builder() {
         this.gzipSupport = GZIP_SUPPORT_DISABLED;
+        this.extraResponseHeaders = ImmutableListMultimap.of();
       }
 
       private Builder(Resource resource) {
@@ -114,6 +123,7 @@ public class WebServerDispatcher extends Dispatcher {
         this.supportsRangeRequests = resource.supportsRangeRequests();
         this.resolvesToUnknownLength = resource.resolvesToUnknownLength();
         this.gzipSupport = resource.getGzipSupport();
+        this.extraResponseHeaders = resource.getExtraResponseHeaders();
       }
 
       /**
@@ -175,6 +185,17 @@ public class WebServerDispatcher extends Dispatcher {
         return this;
       }
 
+      /**
+       * Sets the extra response headers that should be attached.
+       *
+       * @return this builder, for convenience.
+       */
+      @CanIgnoreReturnValue
+      public Builder setExtraResponseHeaders(Multimap<String, String> extraResponseHeaders) {
+        this.extraResponseHeaders = ImmutableListMultimap.copyOf(extraResponseHeaders);
+        return this;
+      }
+
       /** Builds the {@link Resource}. */
       public Resource build() {
         if (gzipSupport != GZIP_SUPPORT_DISABLED) {
@@ -186,7 +207,8 @@ public class WebServerDispatcher extends Dispatcher {
             checkNotNull(data),
             supportsRangeRequests,
             resolvesToUnknownLength,
-            gzipSupport);
+            gzipSupport,
+            extraResponseHeaders);
       }
     }
 
@@ -195,18 +217,21 @@ public class WebServerDispatcher extends Dispatcher {
     private final boolean supportsRangeRequests;
     private final boolean resolvesToUnknownLength;
     private final @GzipSupport int gzipSupport;
+    ImmutableListMultimap<String, String> extraResponseHeaders;
 
     private Resource(
         String path,
         byte[] data,
         boolean supportsRangeRequests,
         boolean resolvesToUnknownLength,
-        @GzipSupport int gzipSupport) {
+        @GzipSupport int gzipSupport,
+        ImmutableListMultimap<String, String> extraResponseHeaders) {
       this.path = path;
       this.data = data;
       this.supportsRangeRequests = supportsRangeRequests;
       this.resolvesToUnknownLength = resolvesToUnknownLength;
       this.gzipSupport = gzipSupport;
+      this.extraResponseHeaders = extraResponseHeaders;
     }
 
     /** Returns the path this resource is available at. */
@@ -232,6 +257,11 @@ public class WebServerDispatcher extends Dispatcher {
     /** Returns the level of gzip support the server should provide for this resource. */
     public @GzipSupport int getGzipSupport() {
       return gzipSupport;
+    }
+
+    /** Returns the extra response headers that should be attached. */
+    public ImmutableListMultimap<String, String> getExtraResponseHeaders() {
+      return extraResponseHeaders;
     }
 
     /** Returns a new {@link Builder} initialized with the values from this instance. */
@@ -267,12 +297,15 @@ public class WebServerDispatcher extends Dispatcher {
     String requestPath = getRequestPath(request);
     MockResponse response = new MockResponse();
     if (!resourcesByPath.containsKey(requestPath)) {
-      return response.setResponseCode(404);
+      return response.setBody(NOT_FOUND_BODY).setResponseCode(404);
     }
     Resource resource = checkNotNull(resourcesByPath.get(requestPath));
+    for (Map.Entry<String, String> extraHeader : resource.getExtraResponseHeaders().entries()) {
+      response.addHeader(extraHeader.getKey(), extraHeader.getValue());
+    }
     byte[] resourceData = resource.getData();
     if (resource.supportsRangeRequests()) {
-      response.setHeader("Accept-Ranges", "bytes");
+      response.setHeader(HttpHeaders.ACCEPT_RANGES, "bytes");
     }
     @Nullable ImmutableMap<String, Float> acceptEncodingHeader = getAcceptEncodingHeader(request);
     @Nullable String preferredContentCoding;
@@ -291,17 +324,17 @@ public class WebServerDispatcher extends Dispatcher {
       return response.setResponseCode(406);
     }
 
-    @Nullable String rangeHeader = request.getHeader("Range");
+    @Nullable String rangeHeader = request.getHeader(HttpHeaders.RANGE);
     if (!resource.supportsRangeRequests() || rangeHeader == null) {
       switch (preferredContentCoding) {
         case "gzip":
           setResponseBody(
               response, Util.gzip(resourceData), /* chunked= */ resource.resolvesToUnknownLength);
-          response.setHeader("Content-Encoding", "gzip");
+          response.setHeader(HttpHeaders.CONTENT_ENCODING, "gzip");
           break;
         case "identity":
           setResponseBody(response, resourceData, /* chunked= */ resource.resolvesToUnknownLength);
-          response.setHeader("Content-Encoding", "identity");
+          response.setHeader(HttpHeaders.CONTENT_ENCODING, "identity");
           break;
         default:
           throw new IllegalStateException("Unexpected content coding: " + preferredContentCoding);
@@ -315,7 +348,7 @@ public class WebServerDispatcher extends Dispatcher {
     if (range == null || (range.first != null && range.first >= resourceData.length)) {
       return response
           .setResponseCode(416)
-          .setHeader("Content-Range", "bytes */" + resourceData.length);
+          .setHeader(HttpHeaders.CONTENT_RANGE, "bytes */" + resourceData.length);
     }
 
     if (range.first == null || range.second == null) {
@@ -326,7 +359,7 @@ public class WebServerDispatcher extends Dispatcher {
           // Can't return the suffix of an unknown-length resource.
           return response
               .setResponseCode(416)
-              .setHeader("Content-Range", "bytes */" + resourceData.length);
+              .setHeader(HttpHeaders.CONTENT_RANGE, "bytes */" + resourceData.length);
         }
         start = max(0, resourceData.length - checkNotNull(range.second));
       } else {
@@ -336,7 +369,7 @@ public class WebServerDispatcher extends Dispatcher {
       response
           .setResponseCode(206)
           .setHeader(
-              "Content-Range",
+              HttpHeaders.CONTENT_RANGE,
               "bytes "
                   + start
                   + "-"
@@ -355,14 +388,14 @@ public class WebServerDispatcher extends Dispatcher {
     if (range.second < range.first) {
       return response
           .setResponseCode(416)
-          .setHeader("Content-Range", "bytes */" + resourceData.length);
+          .setHeader(HttpHeaders.CONTENT_RANGE, "bytes */" + resourceData.length);
     }
 
     int end = min(range.second + 1, resourceData.length);
     response
         .setResponseCode(206)
         .setHeader(
-            "Content-Range",
+            HttpHeaders.CONTENT_RANGE,
             "bytes "
                 + range.first
                 + "-"
@@ -399,7 +432,8 @@ public class WebServerDispatcher extends Dispatcher {
    */
   @Nullable
   private static ImmutableMap<String, Float> getAcceptEncodingHeader(RecordedRequest request) {
-    @Nullable List<String> headers = request.getHeaders().toMultimap().get("Accept-Encoding");
+    @Nullable
+    List<String> headers = request.getHeaders().toMultimap().get(HttpHeaders.ACCEPT_ENCODING);
     if (headers == null) {
       return null;
     }

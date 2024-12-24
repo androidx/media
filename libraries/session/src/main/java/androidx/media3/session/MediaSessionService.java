@@ -34,7 +34,6 @@ import android.os.IBinder;
 import android.os.Looper;
 import android.os.RemoteException;
 import androidx.annotation.CallSuper;
-import androidx.annotation.DoNotInline;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
@@ -467,7 +466,8 @@ public abstract class MediaSessionService extends Service {
         MediaControllerStub.VERSION_INT,
         /* trusted= */ false,
         /* cb= */ null,
-        /* connectionHints= */ Bundle.EMPTY);
+        /* connectionHints= */ Bundle.EMPTY,
+        /* maxCommandsForMediaItems= */ 0);
   }
 
   /**
@@ -761,8 +761,10 @@ public abstract class MediaSessionService extends Service {
                         request.libraryVersion,
                         request.controllerInterfaceVersion,
                         isTrusted,
-                        new MediaSessionStub.Controller2Cb(caller),
-                        request.connectionHints);
+                        new MediaSessionStub.Controller2Cb(
+                            caller, request.controllerInterfaceVersion),
+                        request.connectionHints,
+                        request.maxCommandsForMediaItems);
 
                 @Nullable MediaSession session;
                 try {
@@ -811,7 +813,6 @@ public abstract class MediaSessionService extends Service {
 
   @RequiresApi(31)
   private static final class Api31 {
-    @DoNotInline
     public static boolean instanceOfForegroundServiceStartNotAllowedException(
         IllegalStateException e) {
       return e instanceof ForegroundServiceStartNotAllowedException;

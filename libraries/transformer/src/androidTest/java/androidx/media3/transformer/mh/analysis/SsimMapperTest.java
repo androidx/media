@@ -42,7 +42,6 @@ import static androidx.media3.transformer.AndroidTestUtil.MP4_REMOTE_7680W_4320H
 import static androidx.media3.transformer.AndroidTestUtil.MP4_REMOTE_854W_480H_30_SECOND_ROOF_ONEPLUSNORD2_DOWNSAMPLED;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_REMOTE_854W_480H_30_SECOND_ROOF_REDMINOTE9_DOWNSAMPLED;
 import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
-import static androidx.media3.transformer.AndroidTestUtil.getFormatForTestFile;
 import static androidx.media3.transformer.ExportTestResult.SSIM_UNSET;
 import static com.google.common.collect.Iterables.getLast;
 
@@ -53,7 +52,7 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Util;
-import androidx.media3.transformer.AndroidTestUtil;
+import androidx.media3.transformer.AndroidTestUtil.AssetInfo;
 import androidx.media3.transformer.DefaultEncoderFactory;
 import androidx.media3.transformer.EditedMediaItem;
 import androidx.media3.transformer.Transformer;
@@ -88,7 +87,7 @@ public class SsimMapperTest {
 
   // When running this test, input file list should be restricted more than this. Binary search can
   // take up to 40 minutes to complete for a single clip on lower end devices.
-  private static final ImmutableList<String> INPUT_FILES =
+  private static final ImmutableList<AssetInfo> INPUT_ASSETS =
       ImmutableList.of(
           MP4_REMOTE_256W_144H_30_SECOND_ROOF_ONEPLUSNORD2_DOWNSAMPLED,
           MP4_REMOTE_256W_144H_30_SECOND_ROOF_REDMINOTE9_DOWNSAMPLED,
@@ -117,11 +116,11 @@ public class SsimMapperTest {
   @Parameters
   public static List<Object[]> parameters() {
     List<Object[]> parameterList = new ArrayList<>();
-    for (String file : INPUT_FILES) {
-      parameterList.add(new Object[] {file, MimeTypes.VIDEO_H264});
+    for (AssetInfo assetInfo : INPUT_ASSETS) {
+      parameterList.add(new Object[] {assetInfo, MimeTypes.VIDEO_H264});
       // TODO(b/210593256): Test pre 24 once in-app muxing implemented.
       if (Util.SDK_INT >= 24) {
-        parameterList.add(new Object[] {file, MimeTypes.VIDEO_H265});
+        parameterList.add(new Object[] {assetInfo, MimeTypes.VIDEO_H265});
       }
     }
     return parameterList;
@@ -129,7 +128,7 @@ public class SsimMapperTest {
 
   @Parameter(0)
   @Nullable
-  public String fileUri;
+  public AssetInfo assetInfo;
 
   @Parameter(1)
   @Nullable
@@ -137,7 +136,6 @@ public class SsimMapperTest {
 
   @Test
   public void findSsimMapping() throws Exception {
-    String fileUri = checkNotNull(this.fileUri);
     String mimeType = checkNotNull(this.mimeType);
 
     String testIdPrefix =
@@ -147,11 +145,11 @@ public class SsimMapperTest {
     assumeFormatsSupported(
         ApplicationProvider.getApplicationContext(),
         testIdPrefix + "_codecSupport",
-        /* inputFormat= */ getFormatForTestFile(fileUri),
+        /* inputFormat= */ assetInfo.videoFormat,
         /* outputFormat= */ null);
 
     new SsimBinarySearcher(
-            ApplicationProvider.getApplicationContext(), testIdPrefix, fileUri, mimeType)
+            ApplicationProvider.getApplicationContext(), testIdPrefix, assetInfo, mimeType)
         .search();
   }
 
@@ -178,18 +176,18 @@ public class SsimMapperTest {
      *
      * @param context The {@link Context}.
      * @param testIdPrefix The test ID prefix.
-     * @param videoUri The URI of the video to transform.
+     * @param assetInfo The video {@link AssetInfo} to transform.
      * @param outputMimeType The video sample MIME type to output, see {@link
      *     Transformer.Builder#setVideoMimeType}.
      */
     public SsimBinarySearcher(
-        Context context, String testIdPrefix, String videoUri, String outputMimeType) {
+        Context context, String testIdPrefix, AssetInfo assetInfo, String outputMimeType) {
       this.context = context;
       this.testIdPrefix = testIdPrefix;
-      this.videoUri = videoUri;
+      this.videoUri = assetInfo.uri;
       this.outputMimeType = outputMimeType;
       exportsLeft = MAX_EXPORTS;
-      format = AndroidTestUtil.getFormatForTestFile(videoUri);
+      format = assetInfo.videoFormat;
     }
 
     /**

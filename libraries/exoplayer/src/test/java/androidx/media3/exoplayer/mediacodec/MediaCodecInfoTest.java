@@ -310,7 +310,8 @@ public final class MediaCodecInfoTest {
         /* vendor= */ true,
         adaptive,
         /* tunneling= */ false,
-        /* secure= */ false);
+        /* secure= */ false,
+        /* detachedSurfaceSupported= */ true);
   }
 
   private static MediaCodecInfo buildAacCodecInfo() {
@@ -324,7 +325,8 @@ public final class MediaCodecInfoTest {
         /* vendor= */ false,
         /* adaptive= */ false,
         /* tunneling= */ false,
-        /* secure= */ false);
+        /* secure= */ false,
+        /* detachedSurfaceSupported= */ false);
   }
 
   private static ColorInfo buildHdrColorInfo(@C.ColorSpace int colorSpace) {

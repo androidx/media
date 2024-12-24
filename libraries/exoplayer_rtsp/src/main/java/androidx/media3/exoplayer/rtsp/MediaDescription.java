@@ -230,7 +230,7 @@ import java.util.HashMap;
       checkArgument(rtpPayloadType < 96);
 
       switch (rtpPayloadType) {
-          // See RFC3551 Section 6.
+        // See RFC3551 Section 6.
         case RTP_STATIC_PAYLOAD_TYPE_PCMU:
           return constructAudioRtpMap(
               RTP_STATIC_PAYLOAD_TYPE_PCMU,

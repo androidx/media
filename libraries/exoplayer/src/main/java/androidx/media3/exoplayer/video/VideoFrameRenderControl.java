@@ -19,14 +19,12 @@ import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 
-import androidx.annotation.FloatRange;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.util.LongArrayQueue;
 import androidx.media3.common.util.TimedValueQueue;
-import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.ExoPlaybackException;
 
 /** Controls rendering of video frames. */
@@ -122,11 +120,6 @@ import androidx.media3.exoplayer.ExoPlaybackException;
     }
   }
 
-  /** Returns whether the renderer is ready. */
-  public boolean isReady() {
-    return videoFrameReleaseControl.isReady(/* rendererReady= */ true);
-  }
-
   /**
    * Returns whether the renderer has released a frame after a specific presentation timestamp.
    *
@@ -136,12 +129,6 @@ import androidx.media3.exoplayer.ExoPlaybackException;
    */
   public boolean hasReleasedFrame(long presentationTimeUs) {
     return lastPresentationTimeUs != C.TIME_UNSET && lastPresentationTimeUs >= presentationTimeUs;
-  }
-
-  /** Sets the playback speed. */
-  public void setPlaybackSpeed(@FloatRange(from = 0, fromInclusive = false) float speed) {
-    checkArgument(speed > 0);
-    videoFrameReleaseControl.setPlaybackSpeed(speed);
   }
 
   /**
@@ -193,10 +180,7 @@ import androidx.media3.exoplayer.ExoPlaybackException;
 
   /** Called when the size of the available frames has changed. */
   public void onOutputSizeChanged(int width, int height) {
-    VideoSize newVideoSize = new VideoSize(width, height);
-    if (!Util.areEqual(pendingOutputVideoSize, newVideoSize)) {
-      pendingOutputVideoSize = newVideoSize;
-    }
+    pendingOutputVideoSize = new VideoSize(width, height);
   }
 
   /**

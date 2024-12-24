@@ -34,7 +34,6 @@ android {
         versionCode project.ext.releaseVersionCode
         minSdkVersion project.ext.automotiveMinSdkVersion
         targetSdkVersion project.ext.appTargetSdkVersion
-        multiDexEnabled true
     }
 
     buildTypes {
@@ -60,7 +59,6 @@ android {
 dependencies {
     implementation 'androidx.core:core-ktx:' + androidxCoreVersion
     implementation 'androidx.appcompat:appcompat:' + androidxAppCompatVersion
-    implementation 'androidx.multidex:multidex:' + androidxMultidexVersion
     implementation 'com.google.android.material:material:' + androidxMaterialVersion
     implementation project(modulePrefix + 'lib-session')
     implementation project(modulePrefix + 'demo-session-service')

@@ -24,9 +24,9 @@ import android.graphics.BitmapFactory;
 import android.net.Uri;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
-import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ConditionVariable;
@@ -35,9 +35,7 @@ import androidx.media3.datasource.DataSourceUtil;
 import androidx.media3.datasource.DataSpec;
 import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.ExoPlayer;
-import androidx.media3.exoplayer.RendererCapabilities;
-import androidx.media3.exoplayer.image.BitmapFactoryImageDecoder;
-import androidx.media3.exoplayer.image.ImageDecoder;
+import androidx.media3.exoplayer.image.ExternallyLoadedImageDecoder;
 import androidx.media3.exoplayer.image.ImageDecoderException;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.exoplayer.source.MediaSource;
@@ -48,12 +46,11 @@ import androidx.media3.test.utils.robolectric.PlaybackOutput;
 import androidx.media3.test.utils.robolectric.TestPlayerRunHelper;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import com.google.common.base.Charsets;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.annotation.GraphicsMode;
@@ -69,18 +66,20 @@ public final class ExternallyLoadedImagePlaybackTest {
   public void imagePlayback_validExternalLoader_callsLoadOnceAndPlaysSuccessfully()
       throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
-    CapturingRenderersFactory renderersFactory =
-        new CapturingRenderersFactory(applicationContext)
-            .setImageDecoderFactory(new CustomImageDecoderFactory());
-    Clock clock = new FakeClock(/* isAutoAdvancing= */ true);
-    AtomicInteger externalLoaderCallCount = new AtomicInteger();
     ListeningExecutorService listeningExecutorService =
         MoreExecutors.listeningDecorator(Executors.newSingleThreadExecutor());
+    CapturingRenderersFactory renderersFactory =
+        new CapturingRenderersFactory(applicationContext)
+            .setImageDecoderFactory(
+                new ExternallyLoadedImageDecoder.Factory(
+                    request -> listeningExecutorService.submit(() -> decode(request.uri))));
+    Clock clock = new FakeClock(/* isAutoAdvancing= */ true);
+    ArrayList<Uri> externalLoaderUris = new ArrayList<>();
     MediaSource.Factory mediaSourceFactory =
         new DefaultMediaSourceFactory(applicationContext)
             .setExternalImageLoader(
-                unused ->
-                    listeningExecutorService.submit(externalLoaderCallCount::getAndIncrement));
+                request ->
+                    listeningExecutorService.submit(() -> externalLoaderUris.add(request.uri)));
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, renderersFactory)
             .setClock(clock)
@@ -88,9 +87,10 @@ public final class ExternallyLoadedImagePlaybackTest {
             .build();
     PlaybackOutput playbackOutput = PlaybackOutput.register(player, renderersFactory);
     long durationMs = 5 * C.MILLIS_PER_SECOND;
+    Uri uri = Uri.parse("asset:///media/" + INPUT_FILE);
     player.setMediaItem(
         new MediaItem.Builder()
-            .setUri("asset:///media/" + INPUT_FILE)
+            .setUri(uri)
             .setImageDurationMs(durationMs)
             .setMimeType(MimeTypes.APPLICATION_EXTERNALLY_LOADED_IMAGE)
             .build());
@@ -103,7 +103,7 @@ public final class ExternallyLoadedImagePlaybackTest {
     long playbackDurationMs = clock.elapsedRealtime() - playerStartedMs;
     player.release();
 
-    assertThat(externalLoaderCallCount.get()).isEqualTo(1);
+    assertThat(externalLoaderUris).containsExactly(uri);
     assertThat(playbackDurationMs).isAtLeast(durationMs);
     DumpFileAsserts.assertOutput(
         applicationContext, playbackOutput, "playbackdumps/" + INPUT_FILE + ".dump");
@@ -112,18 +112,21 @@ public final class ExternallyLoadedImagePlaybackTest {
   @Test
   public void imagePlayback_externalLoaderFutureFails_propagatesFailure() throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
-    CapturingRenderersFactory renderersFactory =
-        new CapturingRenderersFactory(applicationContext)
-            .setImageDecoderFactory(new CustomImageDecoderFactory());
     ListeningExecutorService listeningExecutorService =
         MoreExecutors.listeningDecorator(Executors.newSingleThreadExecutor());
+    CapturingRenderersFactory renderersFactory =
+        new CapturingRenderersFactory(applicationContext)
+            .setImageDecoderFactory(
+                new ExternallyLoadedImageDecoder.Factory(
+                    request -> listeningExecutorService.submit(() -> decode(request.uri))));
+    RuntimeException exception = new RuntimeException("My Exception");
     MediaSource.Factory mediaSourceFactory =
         new DefaultMediaSourceFactory(applicationContext)
             .setExternalImageLoader(
                 unused ->
                     listeningExecutorService.submit(
                         () -> {
-                          throw new RuntimeException("My Exception");
+                          throw exception;
                         }));
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, renderersFactory)
@@ -139,17 +142,21 @@ public final class ExternallyLoadedImagePlaybackTest {
     player.prepare();
 
     ExoPlaybackException error = TestPlayerRunHelper.runUntilError(player);
-    assertThat(error).isNotNull();
+
+    assertThat(error.errorCode).isEqualTo(PlaybackException.ERROR_CODE_IO_UNSPECIFIED);
+    assertThat(error.getSourceException()).hasCauseThat().isEqualTo(exception);
   }
 
   @Test
   public void imagePlayback_loadingCompletedWhenFutureCompletes() throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
-    CapturingRenderersFactory renderersFactory =
-        new CapturingRenderersFactory(applicationContext)
-            .setImageDecoderFactory(new CustomImageDecoderFactory());
     ListeningExecutorService listeningExecutorService =
         MoreExecutors.listeningDecorator(Executors.newSingleThreadExecutor());
+    CapturingRenderersFactory renderersFactory =
+        new CapturingRenderersFactory(applicationContext)
+            .setImageDecoderFactory(
+                new ExternallyLoadedImageDecoder.Factory(
+                    request -> listeningExecutorService.submit(() -> decode(request.uri))));
     ConditionVariable loadingComplete = new ConditionVariable();
     MediaSource.Factory mediaSourceFactory =
         new DefaultMediaSourceFactory(applicationContext)
@@ -177,27 +184,10 @@ public final class ExternallyLoadedImagePlaybackTest {
     TestPlayerRunHelper.runUntilIsLoading(player, /* expectedIsLoading= */ false);
   }
 
-  private static final class CustomImageDecoderFactory implements ImageDecoder.Factory {
-
-    @Override
-    public @RendererCapabilities.Capabilities int supportsFormat(Format format) {
-      return format.sampleMimeType.equals(MimeTypes.APPLICATION_EXTERNALLY_LOADED_IMAGE)
-          ? RendererCapabilities.create(C.FORMAT_HANDLED)
-          : RendererCapabilities.create(C.FORMAT_UNSUPPORTED_TYPE);
-    }
-
-    @Override
-    public ImageDecoder createImageDecoder() {
-      return new BitmapFactoryImageDecoder.Factory(ExternallyLoadedImagePlaybackTest::decode)
-          .createImageDecoder();
-    }
-  }
-
-  private static Bitmap decode(byte[] data, int length) throws ImageDecoderException {
-    String uriString = new String(data, Charsets.UTF_8);
+  private static Bitmap decode(Uri uri) throws ImageDecoderException {
     AssetDataSource assetDataSource =
         new AssetDataSource(ApplicationProvider.getApplicationContext());
-    DataSpec dataSpec = new DataSpec(Uri.parse(uriString));
+    DataSpec dataSpec = new DataSpec(uri);
     @Nullable Bitmap bitmap;
 
     try {
@@ -209,8 +199,7 @@ public final class ExternallyLoadedImagePlaybackTest {
     }
     if (bitmap == null) {
       throw new ImageDecoderException(
-          "Could not decode image data with BitmapFactory. uriString decoded from data = "
-              + uriString);
+          "Could not decode image data with BitmapFactory. uriString decoded from data = " + uri);
     }
     return bitmap;
   }

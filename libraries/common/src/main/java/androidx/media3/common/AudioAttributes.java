@@ -16,7 +16,6 @@
 package androidx.media3.common;
 
 import android.os.Bundle;
-import androidx.annotation.DoNotInline;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.util.UnstableApi;
@@ -37,7 +36,6 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 public final class AudioAttributes {
 
   /** A direct wrapper around {@link android.media.AudioAttributes}. */
-  @RequiresApi(21)
   public static final class AudioAttributesV21 {
     public final android.media.AudioAttributes audioAttributes;
 
@@ -165,7 +163,6 @@ public final class AudioAttributes {
    * <p>Some fields are ignored if the corresponding {@link android.media.AudioAttributes.Builder}
    * setter is not available on the current API level.
    */
-  @RequiresApi(21)
   public AudioAttributesV21 getAudioAttributesV21() {
     if (audioAttributesV21 == null) {
       audioAttributesV21 = new AudioAttributesV21(this);
@@ -242,7 +239,6 @@ public final class AudioAttributes {
 
   @RequiresApi(29)
   private static final class Api29 {
-    @DoNotInline
     public static void setAllowedCapturePolicy(
         android.media.AudioAttributes.Builder builder,
         @C.AudioAllowedCapturePolicy int allowedCapturePolicy) {
@@ -252,7 +248,6 @@ public final class AudioAttributes {
 
   @RequiresApi(32)
   private static final class Api32 {
-    @DoNotInline
     public static void setSpatializationBehavior(
         android.media.AudioAttributes.Builder builder,
         @C.SpatializationBehavior int spatializationBehavior) {

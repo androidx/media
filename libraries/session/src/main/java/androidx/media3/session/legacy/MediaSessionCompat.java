@@ -61,7 +61,6 @@ import android.util.Log;
 import android.util.TypedValue;
 import android.view.KeyEvent;
 import android.view.ViewConfiguration;
-import androidx.annotation.DoNotInline;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
@@ -2136,17 +2135,14 @@ public class MediaSessionCompat {
     private static class Api21Impl {
       private Api21Impl() {}
 
-      @DoNotInline
       static MediaSession.QueueItem createQueueItem(MediaDescription description, long id) {
         return new MediaSession.QueueItem(description, id);
       }
 
-      @DoNotInline
       static MediaDescription getDescription(MediaSession.QueueItem queueItem) {
         return queueItem.getDescription();
       }
 
-      @DoNotInline
       static long getQueueId(MediaSession.QueueItem queueItem) {
         return queueItem.getQueueId();
       }
@@ -3634,13 +3630,13 @@ public class MediaSessionCompat {
         }
         long validActions = mState == null ? 0 : mState.getActions();
         switch (ke.getKeyCode()) {
-            // Note KeyEvent.KEYCODE_MEDIA_PLAY is API 11+
+          // Note KeyEvent.KEYCODE_MEDIA_PLAY is API 11+
           case KEYCODE_MEDIA_PLAY:
             if ((validActions & PlaybackStateCompat.ACTION_PLAY) != 0) {
               cb.onPlay();
             }
             break;
-            // Note KeyEvent.KEYCODE_MEDIA_PAUSE is API 11+
+          // Note KeyEvent.KEYCODE_MEDIA_PAUSE is API 11+
           case KEYCODE_MEDIA_PAUSE:
             if ((validActions & PlaybackStateCompat.ACTION_PAUSE) != 0) {
               cb.onPause();

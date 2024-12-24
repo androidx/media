@@ -1081,29 +1081,11 @@ public class MockPlayer implements Player {
   }
 
   /**
-   * @deprecated Use {@link #hasPreviousMediaItem()} instead.
-   */
-  @Deprecated
-  @Override
-  public boolean hasPrevious() {
-    throw new UnsupportedOperationException();
-  }
-
-  /**
    * @deprecated Use {@link #hasNextMediaItem()} instead.
    */
   @Deprecated
   @Override
   public boolean hasNext() {
-    throw new UnsupportedOperationException();
-  }
-
-  /**
-   * @deprecated Use {@link #hasPreviousMediaItem()} instead.
-   */
-  @Deprecated
-  @Override
-  public boolean hasPreviousWindow() {
     throw new UnsupportedOperationException();
   }
 
@@ -1123,15 +1105,6 @@ public class MockPlayer implements Player {
 
   @Override
   public boolean hasNextMediaItem() {
-    throw new UnsupportedOperationException();
-  }
-
-  /**
-   * @deprecated Use {@link #seekToPreviousMediaItem()} instead.
-   */
-  @Deprecated
-  @Override
-  public void previous() {
     throw new UnsupportedOperationException();
   }
 

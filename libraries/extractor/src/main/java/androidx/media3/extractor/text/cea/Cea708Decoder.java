@@ -1297,7 +1297,7 @@ public final class Cea708Decoder extends CeaDecoder {
       Alignment alignment;
       switch (justification) {
         case JUSTIFICATION_FULL:
-          // TODO: Add support for full justification.
+        // TODO: Add support for full justification.
         case JUSTIFICATION_LEFT:
           alignment = Alignment.ALIGN_NORMAL;
           break;
