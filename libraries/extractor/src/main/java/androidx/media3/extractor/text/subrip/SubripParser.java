@@ -287,6 +287,12 @@ public final class SubripParser implements SubtitleParser {
     timestampMs += Long.parseLong(Assertions.checkNotNull(matcher.group(groupOffset + 3))) * 1000;
     @Nullable String millis = matcher.group(groupOffset + 4);
     if (millis != null) {
+      if (millis.length() > 3) {
+        try {
+          millis = millis.substring(0, 3);
+        }
+        catch(IndexOutOfBoundsException e) {}
+      }
       timestampMs += Long.parseLong(millis);
     }
     return timestampMs * 1000;
