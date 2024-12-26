@@ -73,6 +73,12 @@ public final class WebvttParserUtil {
     }
     value *= 1000;
     if (parts.length == 2) {
+      if (parts[1].length() > 3) {
+        try {
+          parts[1] = parts[1].substring(0, 3);
+        }
+        catch(IndexOutOfBoundsException e) {}
+      }
       value += Long.parseLong(parts[1]);
     }
     return value * 1000;
