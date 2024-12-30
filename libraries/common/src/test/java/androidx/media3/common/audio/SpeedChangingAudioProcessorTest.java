@@ -604,6 +604,84 @@ public class SpeedChangingAudioProcessorTest {
   }
 
   @Test
+  public void flush_withInitialSpeedSetToDefault_returnsToInitialSpeedAfterFlush()
+      throws AudioProcessor.UnhandledAudioFormatException {
+    SpeedProvider speedProvider =
+        TestSpeedProvider.createWithFrameCounts(
+            AUDIO_FORMAT,
+            /* frameCounts= */ new int[] {1000, 1000},
+            /* speeds= */ new float[] {1, 2}); // 1000, 500.
+    SpeedChangingAudioProcessor speedChangingAudioProcessor =
+        getConfiguredSpeedChangingAudioProcessor(speedProvider);
+    // 1500 input frames falls in the middle of the 2x region.
+    ByteBuffer input = getInputBuffer(1500);
+    int outputFrameCount = 0;
+
+    while (input.hasRemaining()) {
+      speedChangingAudioProcessor.queueInput(input);
+      outputFrameCount +=
+          speedChangingAudioProcessor.getOutput().remaining() / AUDIO_FORMAT.bytesPerFrame;
+    }
+    speedChangingAudioProcessor.flush();
+    outputFrameCount +=
+        speedChangingAudioProcessor.getOutput().remaining() / AUDIO_FORMAT.bytesPerFrame;
+    assertThat(outputFrameCount).isEqualTo(1250);
+    input.rewind();
+
+    // After flush, SpeedChangingAudioProcessor's position should go back to the beginning and use
+    // the first speed region. This means that even if we flushed during 2x, the initial 1000
+    // samples fed to SpeedChangingAudioProcessor after the flush should be output at 1x.
+    while (input.hasRemaining()) {
+      speedChangingAudioProcessor.queueInput(input);
+      outputFrameCount +=
+          speedChangingAudioProcessor.getOutput().remaining() / AUDIO_FORMAT.bytesPerFrame;
+    }
+    speedChangingAudioProcessor.queueEndOfStream();
+    outputFrameCount +=
+        speedChangingAudioProcessor.getOutput().remaining() / AUDIO_FORMAT.bytesPerFrame;
+    assertThat(outputFrameCount).isWithin(1).of(2500); // 1250 * 2.
+  }
+
+  @Test
+  public void flush_withInitialSpeedSetToNonDefault_returnsToInitialSpeedAfterFlush()
+      throws AudioProcessor.UnhandledAudioFormatException {
+    SpeedProvider speedProvider =
+        TestSpeedProvider.createWithFrameCounts(
+            AUDIO_FORMAT,
+            /* frameCounts= */ new int[] {1000, 1000},
+            /* speeds= */ new float[] {2, 4}); // 500, 250.
+    SpeedChangingAudioProcessor speedChangingAudioProcessor =
+        getConfiguredSpeedChangingAudioProcessor(speedProvider);
+    // 1500 input frames falls in the middle of the 2x region.
+    ByteBuffer input = getInputBuffer(1500);
+    int outputFrameCount = 0;
+
+    while (input.hasRemaining()) {
+      speedChangingAudioProcessor.queueInput(input);
+      outputFrameCount +=
+          speedChangingAudioProcessor.getOutput().remaining() / AUDIO_FORMAT.bytesPerFrame;
+    }
+    speedChangingAudioProcessor.flush();
+    outputFrameCount +=
+        speedChangingAudioProcessor.getOutput().remaining() / AUDIO_FORMAT.bytesPerFrame;
+    assertThat(outputFrameCount).isWithin(1).of(625);
+    input.rewind();
+
+    // After flush, SpeedChangingAudioProcessor's position should go back to the beginning and use
+    // the first speed region. This means that even if we flushed during 4x, the initial 1000
+    // samples fed to SpeedChangingAudioProcessor after the flush should be output at 2x.
+    while (input.hasRemaining()) {
+      speedChangingAudioProcessor.queueInput(input);
+      outputFrameCount +=
+          speedChangingAudioProcessor.getOutput().remaining() / AUDIO_FORMAT.bytesPerFrame;
+    }
+    speedChangingAudioProcessor.queueEndOfStream();
+    outputFrameCount +=
+        speedChangingAudioProcessor.getOutput().remaining() / AUDIO_FORMAT.bytesPerFrame;
+    assertThat(outputFrameCount).isWithin(2).of(1250); // 625 * 2.
+  }
+
+  @Test
   public void getSampleCountAfterProcessorApplied_withConstantSpeed_outputsExpectedSamples() {
     SpeedProvider speedProvider =
         TestSpeedProvider.createWithFrameCounts(
