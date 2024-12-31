@@ -779,6 +779,28 @@ public class SpeedChangingAudioProcessorTest {
                 /* speedProvider= */ null, AUDIO_FORMAT.sampleRate, /* inputSamples= */ 1000L));
   }
 
+  @Test
+  public void isActive_beforeConfigure_returnsFalse() {
+    SpeedProvider speedProvider =
+        TestSpeedProvider.createWithFrameCounts(
+            AUDIO_FORMAT, /* frameCounts= */ new int[] {1000}, /* speeds= */ new float[] {2f});
+
+    SpeedChangingAudioProcessor processor = new SpeedChangingAudioProcessor(speedProvider);
+    assertThat(processor.isActive()).isFalse();
+  }
+
+  @Test
+  public void isActive_afterConfigure_returnsTrue()
+      throws AudioProcessor.UnhandledAudioFormatException {
+    SpeedProvider speedProvider =
+        TestSpeedProvider.createWithFrameCounts(
+            AUDIO_FORMAT, /* frameCounts= */ new int[] {1000}, /* speeds= */ new float[] {2f});
+
+    SpeedChangingAudioProcessor processor = new SpeedChangingAudioProcessor(speedProvider);
+    processor.configure(AUDIO_FORMAT);
+    assertThat(processor.isActive()).isTrue();
+  }
+
   private static SpeedChangingAudioProcessor getConfiguredSpeedChangingAudioProcessor(
       SpeedProvider speedProvider) throws AudioProcessor.UnhandledAudioFormatException {
     SpeedChangingAudioProcessor speedChangingAudioProcessor =
