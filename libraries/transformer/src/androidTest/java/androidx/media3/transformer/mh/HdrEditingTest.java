@@ -216,7 +216,7 @@ public final class HdrEditingTest {
       assumeDeviceSupportsHdrEditing(
           testId, format.buildUpon().setSampleMimeType(MimeTypes.VIDEO_H265).build());
     }
-    assumeFormatsSupported(context, testId, /* inputFormat= */ format, /* outputFormat= */ format);
+    assumeFormatsSupported(context, testId, /* inputFormat= */ format, /* outputFormat= */ null);
     Transformer transformer = new Transformer.Builder(context).build();
     MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_DOLBY_VISION_HDR.uri));
     EditedMediaItem editedMediaItem =
