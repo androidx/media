@@ -1680,11 +1680,11 @@ public final class BoxParser {
     return colorInfo.build();
   }
 
-  // TODO(Internal: b/375329008):  Add a published spec link of APV codec to the Javadoc.
   /**
    * Parses the apvC configuration record and returns a {@link ColorInfo} from its data.
    *
-   * <p>See apvC configuration record syntax from the spec.
+   * <p>See apvC configuration record syntax from the <a
+   * href="https://github.com/openapv/openapv/blob/main/readme/apv_isobmff.md#syntax-1">spec</a>.
    *
    * <p>The sections referenced in the method are from this spec.
    *
@@ -1695,34 +1695,34 @@ public final class BoxParser {
     ColorInfo.Builder colorInfo = new ColorInfo.Builder();
     ParsableBitArray bitArray = new ParsableBitArray(data.getData());
     bitArray.setPosition(data.getPosition() * 8); // Convert byte to bit position.
-
-    // See Section 2.2.3, APVDecoderConfigurationBox.
-    bitArray.skipBits(6); // configurationVersion
-    boolean isStaticFrameHeader = bitArray.readBit(); // static_frame_header
-    bitArray.skipBit(); // capture_time_distance_ignored
-
-    // Skip largest_frame_header_size (2 bytes), largest_profile_idc (1 byte), largest_level_idc (1
-    // byte), largest_frame_width_minus1 (4 bytes), largest_frame_height_minus1 (4 bytes)
-    bitArray.skipBytes(12);
-    bitArray.skipBits(4); // largest_chromat_format_idc
-
-    int bitDepth = bitArray.readBits(4) + 8; // largest_bit_depth_minus8 + 8
-    colorInfo.setLumaBitdepth(bitDepth);
-    colorInfo.setChromaBitdepth(bitDepth);
-    bitArray.skipBits(8); // largest_capture_time_distance
-
-    if (isStaticFrameHeader) {
-      bitArray.skipBits(7); // reserved_zero_7bits
-      if (!bitArray.readBit()) { // frame_header_repeated
+    bitArray.skipBytes(4); // skip version and flag (4 bytes)
+    // See APVDecoderConfigurationBox syntax.
+    bitArray.skipBytes(1); // configurationVersion
+    int numConfigurationEntries = bitArray.readBits(8); // number_of_configuration_entry
+    for (int i = 0; i < numConfigurationEntries; i++) {
+      bitArray.skipBytes(1); // pbu_type
+      int numberOfFrameInfo = bitArray.readBits(8);
+      for (int j = 0; j < numberOfFrameInfo; j++) {
         bitArray.skipBits(6); // reserved_zero_6bits
         boolean isColorDescriptionPresent =
             bitArray.readBit(); // color_description_present_flag_info
-        bitArray.skipBit(); // use_q_matrix_info
+        bitArray.skipBit(); // capture_time_distance_ignored
+        // Skip profile_idc (1 byte), level_idc (1 byte), band_idc (1 byte), frame_width (4 bytes),
+        // frame_height (4 bytes).
+        bitArray.skipBytes(11);
+        bitArray.skipBits(4); // chroma_format_idc (4 bits)
+        int bitDepth = bitArray.readBits(4) + 8; // bit_depth_minus8 + 8
+        colorInfo.setLumaBitdepth(bitDepth);
+        colorInfo.setChromaBitdepth(bitDepth);
+        bitArray.skipBytes(1); // capture_time_distance
         if (isColorDescriptionPresent) {
           int colorPrimaries = bitArray.readBits(8); // color_primaries
           int transferCharacteristics = bitArray.readBits(8); // transfer_characteristics
+          bitArray.skipBytes(1); // matrix_coefficients
+          boolean fullRangeFlag = bitArray.readBit(); // full_range_flag
           colorInfo
               .setColorSpace(ColorInfo.isoColorPrimariesToColorSpace(colorPrimaries))
+              .setColorRange(fullRangeFlag ? C.COLOR_RANGE_FULL : C.COLOR_RANGE_LIMITED)
               .setColorTransfer(
                   ColorInfo.isoTransferCharacteristicsToColorTransfer(transferCharacteristics));
         }

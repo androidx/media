@@ -2,30 +2,30 @@ seekMap:
   isSeekable = true
   duration = 4166600
   getPosition(0) = [[timeUs=0, position=40]]
-  getPosition(1) = [[timeUs=0, position=40], [timeUs=33333, position=46331]]
-  getPosition(2083300) = [[timeUs=2066644, position=2174095], [timeUs=2099977, position=2207700]]
-  getPosition(4166600) = [[timeUs=4133288, position=4244318]]
+  getPosition(1) = [[timeUs=0, position=40], [timeUs=33333, position=52413]]
+  getPosition(2083300) = [[timeUs=2066644, position=4012137], [timeUs=2099977, position=4082385]]
+  getPosition(4166600) = [[timeUs=4133288, position=8385052]]
 numberOfTracks = 1
 track 0:
-  total output bytes = 33477
+  total output bytes = 70926
   sample count = 1
   track duration = 4166600
   format 0:
     id = 1
     containerMimeType = video/mp4
     sampleMimeType = video/apv
-    maxInputSize = 46321
+    maxInputSize = 70970
     width = 640
     height = 480
     frameRate = 30.00
     colorInfo:
       lumaBitdepth = 8
       chromaBitdepth = 8
-    metadata = entries=[mdta: key=com.android.version, value=14, xyz: latitude=0.0, longitude=-180.0, Mp4Timestamp: creation time=3805782157, modification time=3805782157, timescale=10000]
+    metadata = entries=[mdta: key=com.android.version, value=14, xyz: latitude=0.0, longitude=-180.0, Mp4Timestamp: creation time=3816721470, modification time=3816721470, timescale=10000]
     initializationData:
-      data = length 23, hash 7603C9E2
+      data = length 22, hash 5F550605
   sample 0:
     time = 4133288
     flags = 536870913
-    data = length 33477, hash 404E7F2D
+    data = length 70926, hash 95538A45
 tracksEnded = true
