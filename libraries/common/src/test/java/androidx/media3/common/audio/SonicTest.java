@@ -17,6 +17,7 @@ package androidx.media3.common.audio;
 
 import static androidx.media3.common.audio.Sonic.calculateAccumulatedTruncationErrorForResampling;
 import static androidx.media3.common.audio.Sonic.getExpectedFrameCountAfterProcessorApplied;
+import static androidx.media3.common.audio.Sonic.getExpectedInputFrameCountForOutputFrameCount;
 import static com.google.common.truth.Truth.assertThat;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -259,5 +260,123 @@ public class SonicTest {
     // Accumulated error = error count * individual error = 560.4583 * 0.54 = 305.
     // (All calculations are done on BigDecimal rounded to 20 decimal places, unless indicated).
     assertThat(error).isEqualTo(305);
+  }
+
+  @Test
+  public void getExpectedInputFrameCountForOutputFrameCount_fasterSpeed_returnsExpectedCount() {
+    long inputSamples =
+        getExpectedInputFrameCountForOutputFrameCount(
+            /* inputSampleRateHz= */ 48_000,
+            /* outputSampleRateHz= */ 48_000,
+            /* speed= */ 5,
+            /* pitch= */ 1,
+            /* outputFrameCount= */ 20);
+    assertThat(inputSamples).isEqualTo(100);
+  }
+
+  @Test
+  public void
+      getExpectedInputFrameCountForOutputFrameCount_fasterSpeedAndPitch_returnsExpectedCount() {
+    long inputSamples =
+        getExpectedInputFrameCountForOutputFrameCount(
+            /* inputSampleRateHz= */ 48_000,
+            /* outputSampleRateHz= */ 48_000,
+            /* speed= */ 5,
+            /* pitch= */ 5,
+            /* outputFrameCount= */ 20);
+    assertThat(inputSamples).isEqualTo(100);
+  }
+
+  @Test
+  public void getExpectedInputFrameCountForOutputFrameCount_higherPitch_returnsExpectedCount() {
+    long inputSamples =
+        getExpectedInputFrameCountForOutputFrameCount(
+            /* inputSampleRateHz= */ 48_000,
+            /* outputSampleRateHz= */ 48_000,
+            /* speed= */ 1,
+            /* pitch= */ 5,
+            /* outputFrameCount= */ 20);
+    assertThat(inputSamples).isEqualTo(20);
+  }
+
+  @Test
+  public void getExpectedInputFrameCountForOutputFrameCount_slowerSpeed_returnsExpectedCount() {
+    long inputSamples =
+        getExpectedInputFrameCountForOutputFrameCount(
+            /* inputSampleRateHz= */ 48_000,
+            /* outputSampleRateHz= */ 48_000,
+            /* speed= */ 0.25f,
+            /* pitch= */ 1,
+            /* outputFrameCount= */ 100);
+    assertThat(inputSamples).isEqualTo(25);
+  }
+
+  @Test
+  public void
+      getExpectedInputFrameCountForOutputFrameCount_slowerSpeedAndPitch_returnsExpectedCount() {
+    long inputSamples =
+        getExpectedInputFrameCountForOutputFrameCount(
+            /* inputSampleRateHz= */ 48_000,
+            /* outputSampleRateHz= */ 48_000,
+            /* speed= */ 0.25f,
+            /* pitch= */ 0.25f,
+            /* outputFrameCount= */ 100);
+    assertThat(inputSamples).isEqualTo(25);
+  }
+
+  @Test
+  public void getExpectedInputFrameCountForOutputFrameCount_lowerPitch_returnsExpectedCount() {
+    long inputSamples =
+        getExpectedInputFrameCountForOutputFrameCount(
+            /* inputSampleRateHz= */ 48_000,
+            /* outputSampleRateHz= */ 48_000,
+            /* speed= */ 1,
+            /* pitch= */ 0.75f,
+            /* outputFrameCount= */ 100);
+    assertThat(inputSamples).isEqualTo(100);
+  }
+
+  @Test
+  public void
+      getExpectedInputFrameCountForOutputFrameCount_differentSamplingRates_returnsExpectedCount() {
+    long inputSamples =
+        getExpectedInputFrameCountForOutputFrameCount(
+            /* inputSampleRateHz= */ 48_000,
+            /* outputSampleRateHz= */ 96_000,
+            /* speed= */ 1,
+            /* pitch= */ 1,
+            /* outputFrameCount= */ 100);
+    assertThat(inputSamples).isEqualTo(50);
+  }
+
+  @Test
+  public void
+      getExpectedInputFrameCountForOutputFrameCount_differentPitchSpeedAndSamplingRates_returnsExpectedCount() {
+    long inputSamples =
+        getExpectedInputFrameCountForOutputFrameCount(
+            /* inputSampleRateHz= */ 48_000,
+            /* outputSampleRateHz= */ 96_000,
+            /* speed= */ 5,
+            /* pitch= */ 2,
+            /* outputFrameCount= */ 40);
+    assertThat(inputSamples).isEqualTo(100);
+  }
+
+  @Test
+  public void
+      getExpectedInputFrameCountForOutputFrameCount_withPeriodicResamplingRate_adjustsForTruncationError() {
+    float resamplingRate = 0.33f;
+    long outputLength = 81_521_212;
+    long truncationError = 305;
+
+    long inputSamples =
+        getExpectedInputFrameCountForOutputFrameCount(
+            /* inputSampleRateHz= */ 48_000,
+            /* outputSampleRateHz= */ 48_000,
+            /* speed= */ resamplingRate,
+            /* pitch= */ resamplingRate,
+            /* outputFrameCount= */ outputLength - truncationError);
+
+    assertThat(inputSamples).isEqualTo(26_902_000);
   }
 }
