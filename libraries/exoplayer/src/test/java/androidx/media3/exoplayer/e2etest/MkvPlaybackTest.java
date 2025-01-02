@@ -51,7 +51,8 @@ public final class MkvPlaybackTest {
         "sample_with_null_terminated_srt.mkv",
         "sample_with_overlapping_srt.mkv",
         "sample_with_vtt_subtitles.mkv",
-        "sample_with_null_terminated_vtt_subtitles.mkv");
+        "sample_with_null_terminated_vtt_subtitles.mkv",
+        "sample_with_vobsub.mkv");
   }
 
   @ParameterizedRobolectricTestRunner.Parameter public String inputFile;
