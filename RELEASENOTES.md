@@ -20,6 +20,8 @@
 *   Audio:
     *   Do not bypass `SonicAudioProcessor` when `SpeedChangingAudioProcessor`
         is configured with default parameters.
+    *   Fix underflow in `Sonic#getOutputSize()` that could cause
+        `DefaultAudioSink` to stall.
 *   Video:
 *   Text:
 *   Metadata:

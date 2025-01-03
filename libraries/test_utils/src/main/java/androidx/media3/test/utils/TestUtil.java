@@ -890,6 +890,46 @@ public class TestUtil {
     return (long) (origin + random.nextFloat() * (bound - origin));
   }
 
+  /**
+   * Returns a non-random {@link ByteBuffer} filled with {@code frameCount * bytesPerFrame} bytes.
+   */
+  public static ByteBuffer getNonRandomByteBuffer(int frameCount, int bytesPerFrame) {
+    int bufferSize = frameCount * bytesPerFrame;
+    ByteBuffer buffer = ByteBuffer.allocateDirect(bufferSize).order(ByteOrder.nativeOrder());
+    for (int i = 0; i < bufferSize; i++) {
+      buffer.put((byte) i);
+    }
+    buffer.rewind();
+    return buffer;
+  }
+
+  /**
+   * Returns a {@link ByteBuffer} filled with alternating 16-bit PCM samples as per the provided
+   * period length.
+   *
+   * <p>The generated samples alternate between {@link Short#MAX_VALUE} and {@link Short#MIN_VALUE}
+   * every {@code period / 2} samples.
+   *
+   * @param sampleCount Number of total PCM samples (not frames) to generate.
+   * @param period Length in PCM samples of one full cycle.
+   */
+  public static ByteBuffer getPeriodicSamplesBuffer(int sampleCount, int period) {
+    int halfPeriod = period / 2;
+    ByteBuffer buffer = ByteBuffer.allocateDirect(sampleCount * 2).order(ByteOrder.nativeOrder());
+    boolean isHigh = false;
+    int counter = 0;
+    while (counter < sampleCount) {
+      short sample = isHigh ? Short.MAX_VALUE : Short.MIN_VALUE;
+      for (int i = 0; i < halfPeriod && counter < sampleCount; i++) {
+        buffer.putShort(sample);
+        counter++;
+      }
+      isHigh = !isHigh;
+    }
+    buffer.rewind();
+    return buffer;
+  }
+
   private static final class NoUidOrShufflingTimeline extends Timeline {
 
     private final Timeline delegate;

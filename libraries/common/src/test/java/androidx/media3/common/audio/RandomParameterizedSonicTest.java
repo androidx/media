@@ -160,8 +160,8 @@ public final class RandomParameterizedSonicTest {
         readSampleCount += outBuffer.position();
         outBuffer.clear();
       }
+      assertThat(sonic.getOutputSize()).isAtLeast(0);
     }
-    sonic.flush();
 
     long expectedSamples =
         Sonic.getExpectedFrameCountAfterProcessorApplied(
@@ -196,8 +196,8 @@ public final class RandomParameterizedSonicTest {
         readSampleCount += outBuffer.position();
         outBuffer.clear();
       }
+      assertThat(sonic.getOutputSize()).isAtLeast(0);
     }
-    sonic.flush();
 
     long expectedSamples =
         Sonic.getExpectedFrameCountAfterProcessorApplied(

@@ -15,6 +15,7 @@
  */
 package androidx.media3.common.audio;
 
+import static androidx.media3.test.utils.TestUtil.getPeriodicSamplesBuffer;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
@@ -97,6 +98,22 @@ public final class SonicAudioProcessorTest {
         new SonicAudioProcessor(/* keepActiveWithDefaultParameters= */ true);
     processor.configure(AUDIO_FORMAT_44100_HZ);
     assertThat(processor.isActive()).isTrue();
+  }
+
+  @Test
+  public void queueEndOfStream_withOutputFrameCountUnderflow_setsIsEndedToTrue() throws Exception {
+    sonicAudioProcessor.setSpeed(0.95f);
+    sonicAudioProcessor.configure(AUDIO_FORMAT_48000_HZ);
+    sonicAudioProcessor.flush();
+
+    // Multiply by channel count.
+    sonicAudioProcessor.queueInput(
+        getPeriodicSamplesBuffer(/* sampleCount= */ 1700 * 2, /* period= */ 192 * 2));
+    // Drain output, so that pending output frame count is 0.
+    assertThat(sonicAudioProcessor.getOutput().hasRemaining()).isTrue();
+    sonicAudioProcessor.queueEndOfStream();
+
+    assertThat(sonicAudioProcessor.isEnded()).isTrue();
   }
 
   @Test

@@ -17,6 +17,7 @@
 package androidx.media3.common.audio;
 
 import static androidx.media3.common.util.Assertions.checkState;
+import static java.lang.Math.max;
 import static java.lang.Math.min;
 
 import java.math.BigDecimal;
@@ -257,6 +258,7 @@ import java.util.Arrays;
    * @param buffer A {@link ShortBuffer} into which output will be written.
    */
   public void getOutput(ShortBuffer buffer) {
+    checkState(outputFrameCount >= 0);
     int framesToRead = min(buffer.remaining() / channelCount, outputFrameCount);
     buffer.put(outputBuffer, 0, framesToRead * channelCount);
     outputFrameCount -= framesToRead;
@@ -306,7 +308,8 @@ import java.util.Arrays;
     processStreamInput();
     // Throw away any extra frames we generated due to the silence we added.
     if (outputFrameCount > expectedOutputFrames) {
-      outputFrameCount = expectedOutputFrames;
+      // expectedOutputFrames might be negative, so set lower bound to 0.
+      outputFrameCount = max(expectedOutputFrames, 0);
     }
     // Empty input and pitch buffers.
     inputFrameCount = 0;
@@ -331,6 +334,7 @@ import java.util.Arrays;
 
   /** Returns the size of output that can be read with {@link #getOutput(ShortBuffer)}, in bytes. */
   public int getOutputSize() {
+    checkState(outputFrameCount >= 0);
     return outputFrameCount * channelCount * BYTES_PER_SAMPLE;
   }
 
