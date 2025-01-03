@@ -74,6 +74,7 @@ public final class TtmlParserTest {
   private static final String RUBIES_FILE = "media/ttml/rubies.xml";
   private static final String TEXT_EMPHASIS_FILE = "media/ttml/text_emphasis.xml";
   private static final String SHEAR_FILE = "media/ttml/shear.xml";
+  private static final String REGION_ATTRS_FROM_STYLE_FILE = "media/ttml/inherit_region_attributes_from_style.xml";
 
   @Test
   public void simple_allCues() throws Exception {
@@ -1091,6 +1092,21 @@ public final class TtmlParserTest {
 
     Cue eighthCue = Iterables.getOnlyElement(allCues.get(7).cues);
     assertThat(eighthCue.shearDegrees).isWithin(0.01f).of(90f);
+  }
+
+  @Test
+  public void regionAttrsFromStyle() throws Exception {
+    ImmutableList<CuesWithTiming> allCues = getAllCues(REGION_ATTRS_FROM_STYLE_FILE);
+
+    Cue firstCue = Iterables.getOnlyElement(allCues.get(0).cues);
+    assertThat(firstCue.position).isEqualTo(10f / 100f);
+    assertThat(firstCue.line).isEqualTo(10f / 100f);
+    assertThat(firstCue.size).isEqualTo(20f / 100f);
+
+    Cue secondCue = Iterables.getOnlyElement(allCues.get(1).cues);
+    assertThat(secondCue.position).isEqualTo(30f / 100f);
+    assertThat(secondCue.line).isEqualTo(30f / 100f);
+    assertThat(secondCue.size).isEqualTo(40f / 100f);
   }
 
   private static Spanned getOnlyCueTextAtIndex(List<CuesWithTiming> allCues, int index) {

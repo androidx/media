@@ -1,0 +1,19 @@
+<tt xmlns="http://www.w3.org/ns/ttml"
+  xmlns:tts="http://www.w3.org/2006/10/ttaf1#style">
+  <head>
+    <styling>
+      <style xml:id="style1" tts:extent="20% 20%" />
+      <style xml:id="style2" tts:origin="30% 30%" />
+    </styling>
+    <layout>
+      <region xml:id="region1" style="style1" tts:origin="10% 10%"  />
+      <region xml:id="region2" style="style2" tts:extent="40% 40%" />
+    </layout>
+  </head>
+  <body>
+      <div>
+        <p begin="2s" end="4s" region="region1">text 1</p>
+        <p begin="4s" end="6s" region="region2">text 2</p>
+      </div>
+  </body>
+</tt>
