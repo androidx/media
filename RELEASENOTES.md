@@ -24,6 +24,8 @@
         `DefaultAudioSink` to stall.
 *   Video:
 *   Text:
+    *   TTML: Add support for referencing `tts:origin` and `tts:extent` via
+        `style` ([#2953](https://github.com/google/ExoPlayer/issues/2953)).
 *   Metadata:
 *   Image:
 *   DataSource:
