@@ -49,8 +49,6 @@ public final class PgsParser implements SubtitleParser {
   private static final int SECTION_TYPE_IDENTIFIER = 0x16;
   private static final int SECTION_TYPE_END = 0x80;
 
-  private static final byte INFLATE_HEADER = 0x78;
-
   private final ParsableByteArray buffer;
   private final ParsableByteArray inflatedBuffer;
   private final CueBuilder cueBuilder;
@@ -76,7 +74,12 @@ public final class PgsParser implements SubtitleParser {
       Consumer<CuesWithTiming> output) {
     buffer.reset(data, /* limit= */ offset + length);
     buffer.setPosition(offset);
-    maybeInflateData(buffer);
+    if (inflater == null) {
+      inflater = new Inflater();
+    }
+    if (Util.maybeInflate(buffer, inflatedBuffer, inflater)) {
+      buffer.reset(inflatedBuffer.getData(), inflatedBuffer.limit());
+    }
     cueBuilder.reset();
     ArrayList<Cue> cues = new ArrayList<>();
     while (buffer.bytesLeft() >= 3) {
@@ -87,17 +90,6 @@ public final class PgsParser implements SubtitleParser {
     }
     output.accept(
         new CuesWithTiming(cues, /* startTimeUs= */ C.TIME_UNSET, /* durationUs= */ C.TIME_UNSET));
-  }
-
-  private void maybeInflateData(ParsableByteArray buffer) {
-    if (buffer.bytesLeft() > 0 && buffer.peekUnsignedByte() == INFLATE_HEADER) {
-      if (inflater == null) {
-        inflater = new Inflater();
-      }
-      if (Util.inflate(buffer, inflatedBuffer, inflater)) {
-        buffer.reset(inflatedBuffer.getData(), inflatedBuffer.limit());
-      } // else assume data is not compressed.
-    }
   }
 
   @Nullable
