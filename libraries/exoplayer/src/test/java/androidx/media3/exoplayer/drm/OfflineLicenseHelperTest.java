@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.drm;
 
+import static androidx.media3.test.utils.FakeExoMediaDrm.FAKE_LOAD_EVENT_INFO;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
@@ -27,6 +28,7 @@ import androidx.media3.common.DrmInitData;
 import androidx.media3.common.DrmInitData.SchemeData;
 import androidx.media3.common.Format;
 import androidx.media3.exoplayer.drm.ExoMediaDrm.KeyRequest;
+import androidx.media3.exoplayer.drm.MediaDrmCallback.KeyResponse;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.util.HashMap;
 import org.junit.After;
@@ -61,6 +63,8 @@ public class OfflineLicenseHelperTest {
                     C.WIDEVINE_UUID, new ExoMediaDrm.AppManagedProvider(mediaDrm))
                 .build(mediaDrmCallback),
             new DrmSessionEventListener.EventDispatcher());
+    when(mediaDrmCallback.executeKeyRequest(any(), any()))
+        .thenReturn(new KeyResponse(new byte[0], FAKE_LOAD_EVENT_INFO));
   }
 
   @After
