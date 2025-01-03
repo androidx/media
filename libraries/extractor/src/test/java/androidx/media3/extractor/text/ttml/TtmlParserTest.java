@@ -74,7 +74,8 @@ public final class TtmlParserTest {
   private static final String RUBIES_FILE = "media/ttml/rubies.xml";
   private static final String TEXT_EMPHASIS_FILE = "media/ttml/text_emphasis.xml";
   private static final String SHEAR_FILE = "media/ttml/shear.xml";
-  private static final String REGION_ATTRS_FROM_STYLE_FILE = "media/ttml/inherit_region_attributes_from_style.xml";
+  private static final String REGION_ATTRS_FROM_STYLE_FILE =
+      "media/ttml/inherit_region_attributes_from_style.xml";
 
   @Test
   public void simple_allCues() throws Exception {

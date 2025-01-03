@@ -315,7 +315,8 @@ public final class TtmlParser implements SubtitleParser {
           globalStyles.put(styleId, style);
         }
       } else if (XmlPullParserUtil.isStartTag(xmlParser, TtmlNode.TAG_REGION)) {
-        @Nullable TtmlRegion ttmlRegion = parseRegionAttributes(xmlParser, cellRows, ttsExtent, globalStyles);
+        @Nullable
+        TtmlRegion ttmlRegion = parseRegionAttributes(xmlParser, cellRows, ttsExtent, globalStyles);
         if (ttmlRegion != null) {
           globalRegions.put(ttmlRegion.id, ttmlRegion);
         }
@@ -350,7 +351,9 @@ public final class TtmlParser implements SubtitleParser {
    */
   @Nullable
   private static TtmlRegion parseRegionAttributes(
-      XmlPullParser xmlParser, int cellRows, @Nullable TtsExtent ttsExtent,
+      XmlPullParser xmlParser,
+      int cellRows,
+      @Nullable TtsExtent ttsExtent,
       Map<String, TtmlStyle> globalStyles) {
     @Nullable String regionId = XmlPullParserUtil.getAttributeValue(xmlParser, TtmlNode.ATTR_ID);
     if (regionId == null) {
