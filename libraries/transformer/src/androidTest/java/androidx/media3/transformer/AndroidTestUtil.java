@@ -35,8 +35,10 @@ import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
 import android.media.Image;
 import android.media.MediaCodecInfo;
+import android.media.MediaFormat;
 import android.opengl.EGLContext;
 import android.opengl.EGLDisplay;
+import android.util.Pair;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
@@ -47,6 +49,7 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.GlRect;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.Log;
+import androidx.media3.common.util.MediaFormatUtil;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.ByteBufferGlEffect;
@@ -55,7 +58,6 @@ import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.GlShaderProgram;
 import androidx.media3.effect.PassthroughShaderProgram;
 import androidx.media3.effect.ScaleAndRotateTransformation;
-import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
 import androidx.media3.exoplayer.mediacodec.MediaCodecUtil;
 import androidx.media3.muxer.Muxer;
 import androidx.media3.test.utils.BitmapPixelTestUtil;
@@ -67,7 +69,6 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -1294,6 +1295,7 @@ public final class AndroidTestUtil {
       @Nullable Format outputFormat,
       boolean isPortraitEncodingEnabled)
       throws IOException, JSONException, MediaCodecUtil.DecoderQueryException {
+    // TODO(b/278657595): Make this capability check match the default codec factory selection code.
     boolean canDecode = inputFormat == null || canDecode(inputFormat);
 
     boolean canEncode = outputFormat == null || canEncode(outputFormat, isPortraitEncodingEnabled);
@@ -1345,28 +1347,21 @@ public final class AndroidTestUtil {
     return SDK_INT > 24 ? new DefaultMuxer.Factory() : new InAppMuxer.Factory.Builder().build();
   }
 
-  private static boolean canDecode(Format format) throws MediaCodecUtil.DecoderQueryException {
+  private static boolean canDecode(Format format) {
     if (MimeTypes.isImage(format.sampleMimeType)) {
       return Util.isBitmapFactorySupportedMimeType(format.sampleMimeType);
     }
 
     // Check decoding capability in the same way as the default decoder factory.
-    return findDecoderForFormat(format) != null && !deviceNeedsDisable8kWorkaround(format);
-  }
-
-  @Nullable
-  private static String findDecoderForFormat(Format format)
-      throws MediaCodecUtil.DecoderQueryException {
-    List<androidx.media3.exoplayer.mediacodec.MediaCodecInfo> mediaCodecInfoList =
-        MediaCodecUtil.getDecoderInfosSortedByFormatSupport(
-            MediaCodecUtil.getDecoderInfosSoftMatch(
-                MediaCodecSelector.DEFAULT,
-                format,
-                /* requiresSecureDecoder= */ false,
-                /* requiresTunnelingDecoder= */ false),
-            format);
-
-    return mediaCodecInfoList.isEmpty() ? null : mediaCodecInfoList.get(0).name;
+    MediaFormat mediaFormat = MediaFormatUtil.createMediaFormatFromFormat(format);
+    @Nullable
+    Pair<Integer, Integer> codecProfileAndLevel = MediaCodecUtil.getCodecProfileAndLevel(format);
+    if (codecProfileAndLevel != null) {
+      MediaFormatUtil.maybeSetInteger(
+          mediaFormat, MediaFormat.KEY_PROFILE, codecProfileAndLevel.first);
+    }
+    return EncoderUtil.findCodecForFormat(mediaFormat, /* isDecoder= */ true) != null
+        && !deviceNeedsDisable8kWorkaround(format);
   }
 
   private static boolean deviceNeedsDisable8kWorkaround(Format format) {
