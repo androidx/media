@@ -1107,6 +1107,11 @@ public final class TtmlParserTest {
     assertThat(secondCue.position).isEqualTo(30f / 100f);
     assertThat(secondCue.line).isEqualTo(30f / 100f);
     assertThat(secondCue.size).isEqualTo(40f / 100f);
+
+    Cue thirdCue = Iterables.getOnlyElement(allCues.get(2).cues);
+    assertThat(thirdCue.position).isEqualTo(30f / 100f);
+    assertThat(thirdCue.line).isEqualTo(30f / 100f);
+    assertThat(thirdCue.size).isEqualTo(20f / 100f);
   }
 
   private static Spanned getOnlyCueTextAtIndex(List<CuesWithTiming> allCues, int index) {
