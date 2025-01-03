@@ -894,38 +894,48 @@ public final class Mp4Extractor implements Extractor, SeekMap {
       nalPrefixData[0] = 0;
       nalPrefixData[1] = 0;
       nalPrefixData[2] = 0;
-      int nalUnitPrefixLength = track.track.nalUnitLengthFieldLength + 1;
       int nalUnitLengthFieldLengthDiff = 4 - track.track.nalUnitLengthFieldLength;
       // NAL units are length delimited, but the decoder requires start code delimited units.
       // Loop until we've written the sample to the track output, replacing length delimiters with
       // start codes as we encounter them.
       while (sampleBytesWritten < sampleSize) {
         if (sampleCurrentNalBytesRemaining == 0) {
+          int nalUnitPrefixLength = track.track.nalUnitLengthFieldLength;
+          boolean readNalType = false;
+          if (!isSampleDependedOn
+              && nalUnitPrefixLength + 1
+                  <= track.sampleTable.sizes[sampleIndex] - sampleBytesRead) {
+            // Parsing sample dependencies needs the first NAL unit byte. Read it in the same
+            // readFully call that reads the NAL length. This ensures sampleBytesRead,
+            // sampleBytesWritten and isSampleDependedOn remain in a consistent state if we have
+            // read failures.
+            nalUnitPrefixLength = track.track.nalUnitLengthFieldLength + 1;
+            readNalType = true;
+          }
           // Read the NAL length so that we know where we find the next one.
-          // In the same readFully call, read the first payload byte in order to determine
-          // sample dependencies. Do not attempt to peek the first payload byte because that might
-          // fail, and we should keep sampleBytesRead, sampleBytesWritten, isSampleDependedOn in
-          // a consistent state.
           input.readFully(nalPrefixData, nalUnitLengthFieldLengthDiff, nalUnitPrefixLength);
           sampleBytesRead += nalUnitPrefixLength;
           nalPrefix.setPosition(0);
           int nalLengthInt = nalPrefix.readInt();
-          if (nalLengthInt < 1) {
+          if (nalLengthInt < 0) {
             throw ParserException.createForMalformedContainer(
                 "Invalid NAL length", /* cause= */ null);
           }
-          sampleCurrentNalBytesRemaining = nalLengthInt - 1;
+          sampleCurrentNalBytesRemaining = nalLengthInt - (readNalType ? 1 : 0);
           // Write a start code for the current NAL unit.
           nalStartCode.setPosition(0);
           trackOutput.sampleData(nalStartCode, 4);
-          // Write the NAL unit type byte.
-          trackOutput.sampleData(nalPrefix, 1);
-          sampleBytesWritten += 5;
+          sampleBytesWritten += 4;
           sampleSize += nalUnitLengthFieldLengthDiff;
-          // If any NAL unit that's part of this sample can be depended on, treat the entire sample
-          // as depended on.
-          if (!isSampleDependedOn && NalUnitUtil.isH264NalUnitDependedOn(nalPrefixData[4])) {
-            isSampleDependedOn = true;
+          if (readNalType) {
+            // Write the NAL unit type byte.
+            trackOutput.sampleData(nalPrefix, 1);
+            sampleBytesWritten += 1;
+            // If any NAL unit that's part of this sample can be depended on, treat the entire
+            // sample as depended on.
+            if (NalUnitUtil.isH264NalUnitDependedOn(nalPrefixData[4])) {
+              isSampleDependedOn = true;
+            }
           }
         } else {
           // Write the payload of the NAL unit.

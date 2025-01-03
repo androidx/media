@@ -239,6 +239,11 @@ public final class Mp4ExtractorParameterizedTest {
         "media/mp4/sample_with_fake_auxiliary_tracks_interleaved_with_primary_video_tracks.mp4");
   }
 
+  @Test
+  public void mp4SampleWithEmptyNalu() throws Exception {
+    assertExtractorBehavior("media/mp4/sample_with_invalid_nalu.mp4");
+  }
+
   private void assertExtractorBehavior(String file) throws IOException {
     ExtractorAsserts.AssertionConfig.Builder assertionConfigBuilder =
         new ExtractorAsserts.AssertionConfig.Builder();
