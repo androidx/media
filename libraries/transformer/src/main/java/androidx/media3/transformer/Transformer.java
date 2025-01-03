@@ -19,6 +19,7 @@ package androidx.media3.transformer;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
+import static androidx.media3.common.util.Util.SDK_INT;
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.extractor.AacUtil.AAC_LC_AUDIO_SAMPLE_COUNT;
 import static androidx.media3.transformer.ExportException.ERROR_CODE_MUXING_APPEND;
@@ -771,6 +772,7 @@ public final class Transformer {
   private final HandlerWrapper applicationHandler;
   private final ComponentListener componentListener;
   private final ExportResult.Builder exportResultBuilder;
+  private @MonotonicNonNull EditingMetricsCollector editingMetricsCollector;
 
   @Nullable private TransformerInternal transformerInternal;
   @Nullable private MuxerWrapper remuxingMuxerWrapper;
@@ -1168,6 +1170,9 @@ public final class Transformer {
     } finally {
       transformerInternal = null;
     }
+    if (canCollectEditingMetrics()) {
+      checkNotNull(editingMetricsCollector).onExportCancelled();
+    }
 
     if (getResumeMetadataFuture != null && !getResumeMetadataFuture.isDone()) {
       getResumeMetadataFuture.cancel(/* mayInterruptIfRunning= */ false);
@@ -1542,6 +1547,10 @@ public final class Transformer {
     }
   }
 
+  private boolean canCollectEditingMetrics() {
+    return SDK_INT >= 35 && usePlatformDiagnostics;
+  }
+
   private void startInternal(
       Composition composition,
       MuxerWrapper muxerWrapper,
@@ -1563,6 +1572,9 @@ public final class Transformer {
               context, new DefaultDecoderFactory.Builder(context).build(), clock);
     }
     DebugTraceUtil.reset();
+    if (canCollectEditingMetrics()) {
+      editingMetricsCollector = new EditingMetricsCollector(context);
+    }
     transformerInternal =
         new TransformerInternal(
             context,
@@ -1590,6 +1602,9 @@ public final class Transformer {
         /* eventFlag= */ C.INDEX_UNSET,
         listener -> listener.onCompleted(checkNotNull(composition), exportResultBuilder.build()));
     listeners.flushEvents();
+    if (canCollectEditingMetrics()) {
+      checkNotNull(editingMetricsCollector).onExportSuccess();
+    }
     transformerState = TRANSFORMER_STATE_PROCESS_FULL_INPUT;
   }
 
@@ -1600,6 +1615,9 @@ public final class Transformer {
         listener ->
             listener.onError(checkNotNull(composition), exportResultBuilder.build(), exception));
     listeners.flushEvents();
+    if (canCollectEditingMetrics()) {
+      checkNotNull(editingMetricsCollector).onExportError();
+    }
     transformerState = TRANSFORMER_STATE_PROCESS_FULL_INPUT;
   }
 
