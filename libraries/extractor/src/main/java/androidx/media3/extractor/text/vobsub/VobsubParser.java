@@ -153,7 +153,7 @@ public final class VobsubParser implements SubtitleParser {
         // Give up if we don't have the color palette or the video size.
         return;
       }
-      buffer.skipBytes(buffer.readUnsignedShort());
+      buffer.skipBytes(buffer.readUnsignedShort() - 2);
       int end = buffer.readUnsignedShort();
       parseControl(buffer, end);
     }
@@ -209,6 +209,7 @@ public final class VobsubParser implements SubtitleParser {
     }
 
     private boolean parseControlAlpha(ParsableByteArray buffer) {
+
       if (buffer.bytesLeft() < 2 || !hasColors) {
         return false;
       }
