@@ -15,6 +15,7 @@
  */
 package androidx.media3.demo.compose
 
+import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -32,6 +33,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.demo.compose.buttons.ExtraControls
@@ -44,24 +46,26 @@ import androidx.media3.ui.compose.SURFACE_TYPE_SURFACE_VIEW
 
 class MainActivity : ComponentActivity() {
 
-  private lateinit var player: Player
-
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     enableEdgeToEdge()
-    player = initializePlayer()
-    setContent {
-      MediaPlayerScreen(player = player, modifier = Modifier.fillMaxSize().navigationBarsPadding())
-    }
-  }
-
-  private fun initializePlayer(): Player {
-    return ExoPlayer.Builder(this).build().apply {
-      setMediaItems(videos.map { MediaItem.fromUri(it) })
-      prepare()
-    }
+    setContent { ComposeDemoApp() }
   }
 }
+
+@Composable
+fun ComposeDemoApp(modifier: Modifier = Modifier) {
+  val context = LocalContext.current
+  var player by remember { mutableStateOf<Player?>(null) }
+  player = initializePlayer(context)
+  player?.let { MediaPlayerScreen(player = it, modifier = modifier.fillMaxSize()) }
+}
+
+private fun initializePlayer(context: Context): Player =
+  ExoPlayer.Builder(context).build().apply {
+    setMediaItems(videos.map(MediaItem::fromUri))
+    prepare()
+  }
 
 @Composable
 private fun MediaPlayerScreen(player: Player, modifier: Modifier = Modifier) {
@@ -78,7 +82,8 @@ private fun MediaPlayerScreen(player: Player, modifier: Modifier = Modifier) {
         player,
         Modifier.fillMaxWidth()
           .align(Alignment.BottomCenter)
-          .background(Color.Gray.copy(alpha = 0.4f)),
+          .background(Color.Gray.copy(alpha = 0.4f))
+          .navigationBarsPadding(),
       )
     }
   }
