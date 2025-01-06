@@ -35,10 +35,11 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Util;
 import androidx.media3.muxer.Muxer.TrackToken;
 import com.google.common.collect.ImmutableList;
-import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
+import java.nio.channels.Channels;
+import java.nio.channels.WritableByteChannel;
 import java.util.ArrayList;
 import java.util.List;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -63,8 +64,52 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
   }
 
-  private final FileOutputStream outputStream;
-  private final FileChannel output;
+  /** An {@link OutputStream} that tracks the number of bytes written to the stream. */
+  private static class PositionTrackingOutputStream extends OutputStream {
+    private final OutputStream outputStream;
+    private long position;
+
+    public PositionTrackingOutputStream(OutputStream outputStream) {
+      this.outputStream = outputStream;
+      this.position = 0;
+    }
+
+    @Override
+    public void write(int b) throws IOException {
+      position++;
+      outputStream.write(b);
+    }
+
+    @Override
+    public void write(byte[] b) throws IOException {
+      position += b.length;
+      outputStream.write(b);
+    }
+
+    @Override
+    public void write(byte[] b, int off, int len) throws IOException {
+      position += len;
+      outputStream.write(b, off, len);
+    }
+
+    @Override
+    public void flush() throws IOException {
+      outputStream.flush();
+    }
+
+    @Override
+    public void close() throws IOException {
+      outputStream.close();
+    }
+
+    /** Returns the number of bytes written to the stream. */
+    public long getPosition() {
+      return position;
+    }
+  }
+
+  private final PositionTrackingOutputStream outputStream;
+  private final WritableByteChannel outputChannel;
   private final MetadataCollector metadataCollector;
   private final AnnexBToAvccConverter annexBToAvccConverter;
   private final long fragmentDurationUs;
@@ -81,7 +126,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   /**
    * Creates an instance.
    *
-   * @param outputStream The {@link FileOutputStream} to write the data to.
+   * @param outputStream The {@link OutputStream} to write the data to.
    * @param metadataCollector A {@link MetadataCollector}.
    * @param annexBToAvccConverter The {@link AnnexBToAvccConverter} to be used to convert H.264 and
    *     H.265 NAL units from the Annex-B format (using start codes to delineate NAL units) to the
@@ -90,13 +135,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * @param sampleCopyEnabled Whether sample copying is enabled.
    */
   public FragmentedMp4Writer(
-      FileOutputStream outputStream,
+      OutputStream outputStream,
       MetadataCollector metadataCollector,
       AnnexBToAvccConverter annexBToAvccConverter,
       long fragmentDurationMs,
       boolean sampleCopyEnabled) {
-    this.outputStream = outputStream;
-    output = outputStream.getChannel();
+    this.outputStream = new PositionTrackingOutputStream(outputStream);
+    this.outputChannel = Channels.newChannel(this.outputStream);
     this.metadataCollector = metadataCollector;
     this.annexBToAvccConverter = annexBToAvccConverter;
     this.fragmentDurationUs = fragmentDurationMs * 1_000;
@@ -144,7 +189,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     try {
       createFragment();
     } finally {
-      output.close();
+      outputChannel.close();
       outputStream.close();
     }
   }
@@ -200,9 +245,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   private void createHeader() throws IOException {
-    output.position(0L);
-    output.write(Boxes.ftyp());
-    output.write(
+    outputChannel.write(Boxes.ftyp());
+    outputChannel.write(
         Boxes.moov(
             tracks, metadataCollector, /* isFragmentedMp4= */ true, lastSampleDurationBehavior));
   }
@@ -241,11 +285,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
      */
     ImmutableList<ProcessedTrackInfo> trackInfos = processAllTracks();
     ImmutableList<ByteBuffer> trafBoxes =
-        createTrafBoxes(trackInfos, /* moofBoxStartPosition= */ output.position());
+        createTrafBoxes(trackInfos, /* moofBoxStartPosition= */ outputStream.getPosition());
     if (trafBoxes.isEmpty()) {
       return;
     }
-    output.write(Boxes.moof(Boxes.mfhd(currentFragmentSequenceNumber), trafBoxes));
+    outputChannel.write(Boxes.moof(Boxes.mfhd(currentFragmentSequenceNumber), trafBoxes));
 
     writeMdatBox(trackInfos);
 
@@ -253,36 +297,37 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   private void writeMdatBox(List<ProcessedTrackInfo> trackInfos) throws IOException {
-    long mdatStartPosition = output.position();
-    int mdatHeaderSize = 8; // 4 bytes (box size) + 4 bytes (box name)
-    ByteBuffer header = ByteBuffer.allocate(mdatHeaderSize);
-    header.putInt(mdatHeaderSize); // The total box size so far.
-    header.put(Util.getUtf8Bytes("mdat"));
-    header.flip();
-    output.write(header);
-
-    long bytesWritten = 0;
+    long totalNumBytesSamples = 0;
     for (int trackInfoIndex = 0; trackInfoIndex < trackInfos.size(); trackInfoIndex++) {
       ProcessedTrackInfo currentTrackInfo = trackInfos.get(trackInfoIndex);
       for (int sampleIndex = 0;
           sampleIndex < currentTrackInfo.pendingSamplesByteBuffer.size();
           sampleIndex++) {
-        bytesWritten += output.write(currentTrackInfo.pendingSamplesByteBuffer.get(sampleIndex));
+        totalNumBytesSamples +=
+            currentTrackInfo.pendingSamplesByteBuffer.get(sampleIndex).remaining();
       }
     }
 
-    long currentPosition = output.position();
+    int mdatHeaderSize = 8; // 4 bytes (box size) + 4 bytes (box name)
+    ByteBuffer header = ByteBuffer.allocate(mdatHeaderSize);
+    long totalMdatSize = mdatHeaderSize + totalNumBytesSamples;
 
-    output.position(mdatStartPosition);
-    ByteBuffer mdatSizeByteBuffer = ByteBuffer.allocate(4);
-    long mdatSize = bytesWritten + mdatHeaderSize;
     checkArgument(
-        mdatSize <= UNSIGNED_INT_MAX_VALUE,
+        totalMdatSize <= UNSIGNED_INT_MAX_VALUE,
         "Only 32-bit long mdat size supported in the fragmented MP4");
-    mdatSizeByteBuffer.putInt((int) mdatSize);
-    mdatSizeByteBuffer.flip();
-    output.write(mdatSizeByteBuffer);
-    output.position(currentPosition);
+    header.putInt((int) totalMdatSize);
+    header.put(Util.getUtf8Bytes("mdat"));
+    header.flip();
+    outputChannel.write(header);
+
+    for (int trackInfoIndex = 0; trackInfoIndex < trackInfos.size(); trackInfoIndex++) {
+      ProcessedTrackInfo currentTrackInfo = trackInfos.get(trackInfoIndex);
+      for (int sampleIndex = 0;
+          sampleIndex < currentTrackInfo.pendingSamplesByteBuffer.size();
+          sampleIndex++) {
+        outputChannel.write(currentTrackInfo.pendingSamplesByteBuffer.get(sampleIndex));
+      }
+    }
   }
 
   private ImmutableList<ProcessedTrackInfo> processAllTracks() {

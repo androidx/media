@@ -28,8 +28,8 @@ import androidx.media3.container.Mp4OrientationData;
 import androidx.media3.container.Mp4TimestampData;
 import androidx.media3.container.XmpData;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.ByteBuffer;
 
 /**
@@ -87,7 +87,7 @@ public final class FragmentedMp4Muxer implements Muxer {
 
   /** A builder for {@link FragmentedMp4Muxer} instances. */
   public static final class Builder {
-    private final FileOutputStream fileOutputStream;
+    private final OutputStream outputStream;
 
     private long fragmentDurationMs;
     private boolean sampleCopyEnabled;
@@ -95,12 +95,11 @@ public final class FragmentedMp4Muxer implements Muxer {
     /**
      * Creates a {@link Builder} instance with default values.
      *
-     * @param fileOutputStream The {@link FileOutputStream} to write the media data to. This stream
-     *     will be automatically closed by the muxer when {@link FragmentedMp4Muxer#close()} is
-     *     called.
+     * @param outputStream The {@link OutputStream} to write the media data to. This stream will be
+     *     automatically closed by the muxer when {@link FragmentedMp4Muxer#close()} is called.
      */
-    public Builder(FileOutputStream fileOutputStream) {
-      this.fileOutputStream = fileOutputStream;
+    public Builder(OutputStream outputStream) {
+      this.outputStream = outputStream;
       fragmentDurationMs = DEFAULT_FRAGMENT_DURATION_MS;
       sampleCopyEnabled = true;
     }
@@ -137,7 +136,7 @@ public final class FragmentedMp4Muxer implements Muxer {
 
     /** Builds a {@link FragmentedMp4Muxer} instance. */
     public FragmentedMp4Muxer build() {
-      return new FragmentedMp4Muxer(fileOutputStream, fragmentDurationMs, sampleCopyEnabled);
+      return new FragmentedMp4Muxer(outputStream, fragmentDurationMs, sampleCopyEnabled);
     }
   }
 
@@ -145,12 +144,12 @@ public final class FragmentedMp4Muxer implements Muxer {
   private final MetadataCollector metadataCollector;
 
   private FragmentedMp4Muxer(
-      FileOutputStream fileOutputStream, long fragmentDurationMs, boolean sampleCopyEnabled) {
-    checkNotNull(fileOutputStream);
+      OutputStream outputStream, long fragmentDurationMs, boolean sampleCopyEnabled) {
+    checkNotNull(outputStream);
     metadataCollector = new MetadataCollector();
     fragmentedMp4Writer =
         new FragmentedMp4Writer(
-            fileOutputStream,
+            outputStream,
             metadataCollector,
             AnnexBToAvccConverter.DEFAULT,
             fragmentDurationMs,
