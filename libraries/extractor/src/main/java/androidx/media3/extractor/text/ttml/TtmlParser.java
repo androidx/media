@@ -406,13 +406,9 @@ public final class TtmlParser implements SubtitleParser {
         return null;
       }
     } else {
-      Log.w(TAG, "Ignoring region without an origin");
-      return null;
-      // TODO: Should default to top left as below in this case, but need to fix
-      // https://github.com/google/ExoPlayer/issues/2953 first.
       // Origin is omitted. Default to top left.
-      // position = 0;
-      // line = 0;
+       position = 0;
+       line = 0;
     }
 
     float width;
@@ -461,13 +457,9 @@ public final class TtmlParser implements SubtitleParser {
         return null;
       }
     } else {
-      Log.w(TAG, "Ignoring region without an extent");
-      return null;
-      // TODO: Should default to extent of parent as below in this case, but need to fix
-      // https://github.com/google/ExoPlayer/issues/2953 first.
       // Extent is omitted. Default to extent of parent.
-      // width = 1;
-      // height = 1;
+       width = 1;
+       height = 1;
     }
 
     @Cue.AnchorType int lineAnchor = Cue.ANCHOR_TYPE_START;
