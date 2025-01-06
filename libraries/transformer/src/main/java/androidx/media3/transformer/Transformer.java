@@ -1616,7 +1616,7 @@ public final class Transformer {
             listener.onError(checkNotNull(composition), exportResultBuilder.build(), exception));
     listeners.flushEvents();
     if (canCollectEditingMetrics()) {
-      checkNotNull(editingMetricsCollector).onExportError();
+      checkNotNull(editingMetricsCollector).onExportError(exception);
     }
     transformerState = TRANSFORMER_STATE_PROCESS_FULL_INPUT;
   }

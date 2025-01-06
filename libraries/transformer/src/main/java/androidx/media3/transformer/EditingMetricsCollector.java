@@ -22,8 +22,10 @@ import android.content.Context;
 import android.media.metrics.EditingEndedEvent;
 import android.media.metrics.EditingSession;
 import android.media.metrics.MediaMetricsManager;
+import android.util.SparseIntArray;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
+import androidx.media3.common.util.SystemClock;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
@@ -33,7 +35,71 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 @RequiresApi(35)
 /* package */ final class EditingMetricsCollector {
 
+  // TODO: b/386328723 - Add missing error codes to EditingEndedEvent.ErrorCode.
+  private static final SparseIntArray ERROR_CODE_CONVERSION_MAP = new SparseIntArray();
+
+  static {
+    ERROR_CODE_CONVERSION_MAP.put(
+        ExportException.ERROR_CODE_UNSPECIFIED, EditingEndedEvent.ERROR_CODE_NONE);
+    ERROR_CODE_CONVERSION_MAP.put(
+        ExportException.ERROR_CODE_FAILED_RUNTIME_CHECK,
+        EditingEndedEvent.ERROR_CODE_FAILED_RUNTIME_CHECK);
+    ERROR_CODE_CONVERSION_MAP.put(
+        ExportException.ERROR_CODE_IO_UNSPECIFIED, EditingEndedEvent.ERROR_CODE_IO_UNSPECIFIED);
+    ERROR_CODE_CONVERSION_MAP.put(
+        ExportException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
+        EditingEndedEvent.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED);
+    ERROR_CODE_CONVERSION_MAP.put(
+        ExportException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT,
+        EditingEndedEvent.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT);
+    ERROR_CODE_CONVERSION_MAP.put(
+        ExportException.ERROR_CODE_IO_INVALID_HTTP_CONTENT_TYPE,
+        EditingEndedEvent.ERROR_CODE_IO_UNSPECIFIED);
+    ERROR_CODE_CONVERSION_MAP.put(
+        ExportException.ERROR_CODE_IO_BAD_HTTP_STATUS,
+        EditingEndedEvent.ERROR_CODE_IO_BAD_HTTP_STATUS);
+    ERROR_CODE_CONVERSION_MAP.put(
+        ExportException.ERROR_CODE_IO_FILE_NOT_FOUND,
+        EditingEndedEvent.ERROR_CODE_IO_FILE_NOT_FOUND);
+    ERROR_CODE_CONVERSION_MAP.put(
+        ExportException.ERROR_CODE_IO_NO_PERMISSION, EditingEndedEvent.ERROR_CODE_IO_NO_PERMISSION);
+    ERROR_CODE_CONVERSION_MAP.put(
+        ExportException.ERROR_CODE_IO_CLEARTEXT_NOT_PERMITTED,
+        EditingEndedEvent.ERROR_CODE_IO_CLEARTEXT_NOT_PERMITTED);
+    ERROR_CODE_CONVERSION_MAP.put(
+        ExportException.ERROR_CODE_IO_READ_POSITION_OUT_OF_RANGE,
+        EditingEndedEvent.ERROR_CODE_IO_READ_POSITION_OUT_OF_RANGE);
+    ERROR_CODE_CONVERSION_MAP.put(
+        ExportException.ERROR_CODE_DECODER_INIT_FAILED,
+        EditingEndedEvent.ERROR_CODE_DECODER_INIT_FAILED);
+    ERROR_CODE_CONVERSION_MAP.put(
+        ExportException.ERROR_CODE_DECODING_FAILED, EditingEndedEvent.ERROR_CODE_DECODING_FAILED);
+    ERROR_CODE_CONVERSION_MAP.put(
+        ExportException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED,
+        EditingEndedEvent.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED);
+    ERROR_CODE_CONVERSION_MAP.put(
+        ExportException.ERROR_CODE_ENCODER_INIT_FAILED,
+        EditingEndedEvent.ERROR_CODE_ENCODER_INIT_FAILED);
+    ERROR_CODE_CONVERSION_MAP.put(
+        ExportException.ERROR_CODE_ENCODING_FAILED, EditingEndedEvent.ERROR_CODE_ENCODING_FAILED);
+    ERROR_CODE_CONVERSION_MAP.put(
+        ExportException.ERROR_CODE_ENCODING_FORMAT_UNSUPPORTED,
+        EditingEndedEvent.ERROR_CODE_ENCODING_FORMAT_UNSUPPORTED);
+    ERROR_CODE_CONVERSION_MAP.put(
+        ExportException.ERROR_CODE_VIDEO_FRAME_PROCESSING_FAILED,
+        EditingEndedEvent.ERROR_CODE_VIDEO_FRAME_PROCESSING_FAILED);
+    ERROR_CODE_CONVERSION_MAP.put(
+        ExportException.ERROR_CODE_AUDIO_PROCESSING_FAILED,
+        EditingEndedEvent.ERROR_CODE_AUDIO_PROCESSING_FAILED);
+    ERROR_CODE_CONVERSION_MAP.put(
+        ExportException.ERROR_CODE_MUXING_FAILED, EditingEndedEvent.ERROR_CODE_MUXING_FAILED);
+    ERROR_CODE_CONVERSION_MAP.put(
+        ExportException.ERROR_CODE_MUXING_TIMEOUT,
+        EditingEndedEvent.ERROR_CODE_FAILED_RUNTIME_CHECK);
+  }
+
   private @MonotonicNonNull EditingSession editingSession;
+  private long startTimeMs;
 
   /**
    * Creates an instance.
@@ -48,6 +114,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         (MediaMetricsManager) context.getSystemService(Context.MEDIA_METRICS_SERVICE);
     if (mediaMetricsManager != null) {
       editingSession = checkNotNull(mediaMetricsManager.createEditingSession());
+      startTimeMs = SystemClock.DEFAULT.elapsedRealtime();
     }
   }
 
@@ -57,17 +124,19 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       return;
     }
     editingSession.reportEditingEndedEvent(
-        new EditingEndedEvent.Builder(EditingEndedEvent.FINAL_STATE_SUCCEEDED).build());
+        prcreateEditingEndedEventBuilder(EditingEndedEvent.FINAL_STATE_SUCCEEDED).build());
     editingSession.close();
   }
 
   /** Called when export completes with an error. */
-  public void onExportError() {
+  public void onExportError(ExportException exportException) {
     if (editingSession == null) {
       return;
     }
     editingSession.reportEditingEndedEvent(
-        new EditingEndedEvent.Builder(EditingEndedEvent.FINAL_STATE_ERROR).build());
+        prcreateEditingEndedEventBuilder(EditingEndedEvent.FINAL_STATE_ERROR)
+            .setErrorCode(getEditingEndedEventErrorCode(exportException.errorCode))
+            .build());
     editingSession.close();
   }
 
@@ -77,7 +146,17 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       return;
     }
     editingSession.reportEditingEndedEvent(
-        new EditingEndedEvent.Builder(EditingEndedEvent.FINAL_STATE_CANCELED).build());
+        prcreateEditingEndedEventBuilder(EditingEndedEvent.FINAL_STATE_CANCELED).build());
     editingSession.close();
+  }
+
+  private EditingEndedEvent.Builder prcreateEditingEndedEventBuilder(int finalState) {
+    long endTimeMs = SystemClock.DEFAULT.elapsedRealtime();
+    return new EditingEndedEvent.Builder(finalState)
+        .setTimeSinceCreatedMillis(endTimeMs - startTimeMs);
+  }
+
+  private static int getEditingEndedEventErrorCode(@ExportException.ErrorCode int errorCode) {
+    return ERROR_CODE_CONVERSION_MAP.get(errorCode, EditingEndedEvent.ERROR_CODE_NONE);
   }
 }
