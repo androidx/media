@@ -53,7 +53,8 @@ dependencies {
     def composeBom = platform('androidx.compose:compose-bom:2024.12.01')
     implementation composeBom
 
-    implementation 'androidx.compose.foundation:foundation'
+    // Remove the version number once b/385138624 is fixed, GMaven doesn't resolve the BOM above
+    implementation 'androidx.compose.foundation:foundation:1.7.6'
     implementation 'androidx.core:core:' + androidxCoreVersion
 
     testImplementation 'androidx.compose.ui:ui-test'
