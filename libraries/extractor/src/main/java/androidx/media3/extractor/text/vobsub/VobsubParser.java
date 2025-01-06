@@ -81,8 +81,6 @@ public final class VobsubParser implements SubtitleParser {
       scratch.reset(inflatedScratch.getData(), inflatedScratch.limit());
     }
     cueBuilder.reset();
-    Cue cue = null;
-
     int bytesLeft = scratch.bytesLeft();
     if (bytesLeft < 2 || scratch.readUnsignedShort() != bytesLeft) {
       return null;
@@ -103,7 +101,6 @@ public final class VobsubParser implements SubtitleParser {
 
     private boolean hasPlane;
     private boolean hasColors;
-    private boolean hasDataOffsets;
     private int @MonotonicNonNull [] palette;
     private int planeWidth;
     private int planeHeight;
@@ -113,6 +110,8 @@ public final class VobsubParser implements SubtitleParser {
 
     public CueBuilder() {
       colors = new int[4];
+      dataOffset0 = C.INDEX_UNSET;
+      dataOffset1 = C.INDEX_UNSET;
     }
 
     public void parseIdx(String idx) {
@@ -205,8 +204,12 @@ public final class VobsubParser implements SubtitleParser {
       return true;
     }
 
+    private int getColor(int index) {
+      return index >= 0 && index < palette.length ? palette[index] : palette[0];
+    }
+
     private boolean parseControlAlpha(ParsableByteArray buffer) {
-      if (buffer.bytesLeft() < 2) {
+      if (buffer.bytesLeft() < 2 || !hasColors) {
         return false;
       }
 
@@ -219,6 +222,10 @@ public final class VobsubParser implements SubtitleParser {
       colors[0] = setAlpha(colors[0], (byte1 & 0xf));
 
       return true;
+    }
+
+    private static  int setAlpha(int color, int alpha) {
+      return ((color & 0x00ffffff) | ((alpha * 17) << 24));
     }
 
     private boolean parseControlArea(ParsableByteArray buffer) {
@@ -252,38 +259,31 @@ public final class VobsubParser implements SubtitleParser {
 
       dataOffset0 = buffer.readUnsignedShort();
       dataOffset1 = buffer.readUnsignedShort();
-      hasDataOffsets = true;
 
       return true;
     }
 
-    private int getColor(int index) {
-      return index >= 0 && index < palette.length ? palette[index] : palette[0];
-    }
-
-    private int setAlpha(int color, int alpha) {
-      return ((color & 0x00ffffff) | ((alpha * 17) << 24));
-    }
-
+    @Nullable
     public Cue build(ParsableByteArray buffer) {
       if (palette == null
           || !hasPlane
           || !hasColors
           || boundingBox == null
-          || !hasDataOffsets
+          || dataOffset0 == C.INDEX_UNSET || dataOffset1 == C.INDEX_UNSET
           || boundingBox.width() < 2
           || boundingBox.height() < 2) {
         return null;
       }
+      Rect boundingBox = this.boundingBox;
       int[] bitmapData = new int[boundingBox.width() * boundingBox.height()];
       ParsableBitArray bitBuffer = new ParsableBitArray();
 
       buffer.setPosition(dataOffset0);
       bitBuffer.reset(buffer);
-      parseRleData(bitBuffer, 0, bitmapData);
+      parseRleData(bitBuffer, /* evenInterlace= */ true, boundingBox, bitmapData);
       buffer.setPosition(dataOffset1);
       bitBuffer.reset(buffer);
-      parseRleData(bitBuffer, 1, bitmapData);
+      parseRleData(bitBuffer, /* evenInterlace= */ false,boundingBox, bitmapData);
 
       Bitmap bitmap =
           Bitmap.createBitmap(
@@ -306,22 +306,23 @@ public final class VobsubParser implements SubtitleParser {
      * or 1).
      *
      * @param bitBuffer The RLE encoded data.
-     * @param y Index of the first line.
+     * @param evenInterlace Whether to decode the even or odd interlaced lines.
      * @param bitmapData Output array.
      */
-    private void parseRleData(ParsableBitArray bitBuffer, int y, int[] bitmapData) {
+    private void parseRleData(ParsableBitArray bitBuffer, boolean evenInterlace, Rect boundingBox, int[] bitmapData) {
       int width = boundingBox.width();
       int height = boundingBox.height();
       int x = 0;
+      int y = evenInterlace ? 0 : 1;
       int outIndex = y * width;
       Run run = new Run();
 
       while (true) {
-        parseRun(bitBuffer, run);
+        parseRun(bitBuffer, width, run);
 
         int length = min(run.length, width - x);
         if (length > 0) {
-          Arrays.fill(bitmapData, outIndex, outIndex + length, run.color);
+          Arrays.fill(bitmapData, outIndex, outIndex + length, colors[run.colorIndex]);
           outIndex += length;
           x += length;
         }
@@ -335,31 +336,32 @@ public final class VobsubParser implements SubtitleParser {
       }
     }
 
-    private void parseRun(ParsableBitArray bitBuffer, Run run) {
+    private static void parseRun(ParsableBitArray bitBuffer, int width, Run output) {
       int value = 0;
       int test = 1;
 
       while (value < test && test <= 0x40) {
         if (bitBuffer.bitsLeft() < 4) {
-          run.color = 0;
-          run.length = 0;
+          output.colorIndex = C.INDEX_UNSET;
+          output.length = 0;
           return;
         }
         value = (value << 4) | bitBuffer.readBits(4);
         test <<= 2;
       }
-      run.color = colors[value & 3];
-      run.length = value < 4 ? boundingBox.width() : (value >> 2);
+      output.colorIndex = value & 3;
+      output.length = value < 4 ? width : (value >> 2);
     }
 
     public void reset() {
       hasColors = false;
       boundingBox = null;
-      hasDataOffsets = false;
+      dataOffset0 = C.INDEX_UNSET;
+      dataOffset1 = C.INDEX_UNSET;
     }
 
-    private class Run {
-      public int color;
+    private static final class Run {
+      public int colorIndex;
       public int length;
     }
   }
