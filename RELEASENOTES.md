@@ -41,6 +41,9 @@
 *   RTMP Extension:
 *   HLS Extension:
 *   DASH Extension:
+    *   Fix issue when calculating the update interval for ad insertion in
+        multi-period live streams
+        ([#1698](https://github.com/androidx/media/issues/1698)).
 *   Smooth Streaming Extension:
 *   RTSP Extension:
 *   Decoder Extensions (FFmpeg, VP9, AV1, etc.):
