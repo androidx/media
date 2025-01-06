@@ -50,7 +50,7 @@ dependencies {
     api project(modulePrefix + 'lib-common')
     api project(modulePrefix + 'lib-common-ktx')
 
-    def composeBom = platform('androidx.compose:compose-bom:2024.01.00')
+    def composeBom = platform('androidx.compose:compose-bom:2024.12.01')
     implementation composeBom
 
     implementation 'androidx.compose.foundation:foundation'
