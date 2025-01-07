@@ -23,6 +23,7 @@ import static androidx.media3.transformer.SampleConsumer.INPUT_RESULT_END_OF_STR
 import static androidx.media3.transformer.SampleConsumer.INPUT_RESULT_TRY_AGAIN_LATER;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_AVAILABLE;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_NOT_STARTED;
+import static androidx.media3.transformer.Transformer.PROGRESS_STATE_UNAVAILABLE;
 import static androidx.media3.transformer.TransformerUtil.getValidColor;
 import static java.lang.Math.min;
 import static java.lang.Math.round;
@@ -96,7 +97,6 @@ public final class RawAssetLoader implements AssetLoader {
       @Nullable Format videoFormat,
       @Nullable OnInputFrameProcessedListener frameProcessedListener) {
     checkArgument(audioFormat != null || videoFormat != null);
-    checkArgument(editedMediaItem.durationUs != C.TIME_UNSET);
     checkArgument(
         videoFormat == null
             || (videoFormat.height != Format.NO_VALUE && videoFormat.width != Format.NO_VALUE));
@@ -119,7 +119,10 @@ public final class RawAssetLoader implements AssetLoader {
 
   @Override
   public void start() {
-    progressState = PROGRESS_STATE_AVAILABLE;
+    progressState =
+        editedMediaItem.durationUs == C.TIME_UNSET
+            ? PROGRESS_STATE_UNAVAILABLE
+            : PROGRESS_STATE_AVAILABLE;
     assetLoaderListener.onDurationUs(editedMediaItem.durationUs);
     // The constructor guarantees at least one track is present.
     int trackCount = 1;

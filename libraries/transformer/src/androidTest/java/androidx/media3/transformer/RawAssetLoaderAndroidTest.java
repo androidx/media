@@ -101,8 +101,36 @@ public class RawAssetLoaderAndroidTest {
     // See b/324245196.
     // Audio encoders on different API versions seems to output slightly different durations, so add
     // 50ms tolerance.
-    assertThat(exportResult.durationMs).isAtLeast(975);
-    assertThat(exportResult.durationMs).isAtMost(1025);
+    assertThat(exportResult.durationMs).isWithin(25).of(1000);
+  }
+
+  @Test
+  public void audioTranscoding_withRawAudioAndUnsetDuration_completesWithCorrectDuration()
+      throws Exception {
+    SettableFuture<RawAssetLoader> rawAssetLoaderFuture = SettableFuture.create();
+    Transformer transformer =
+        new Transformer.Builder(context)
+            .setAssetLoaderFactory(
+                new TestRawAssetLoaderFactory(
+                    AUDIO_FORMAT, /* videoFormat= */ null, rawAssetLoaderFuture))
+            .build();
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(Uri.EMPTY)).build();
+    ListenableFuture<ExportResult> exportCompletionFuture =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .runAsync(testId, editedMediaItem);
+
+    RawAssetLoader rawAssetLoader = rawAssetLoaderFuture.get();
+    feedRawAudioDataToAssetLoader(
+        rawAssetLoader, AUDIO_FORMAT, /* durationUs= */ C.MICROS_PER_SECOND);
+
+    ExportResult exportResult = exportCompletionFuture.get();
+    // The durationMs is the timestamp of the last sample and not the total duration.
+    // See b/324245196.
+    // Audio encoders on different API versions seems to output slightly different durations, so add
+    // 50ms tolerance.
+    assertThat(exportResult.durationMs).isWithin(25).of(1000);
   }
 
   @Test
@@ -242,8 +270,7 @@ public class RawAssetLoaderAndroidTest {
     // See b/324245196.
     // Audio encoders on different API versions seems to output slightly different durations, so add
     // 50ms tolerance.
-    assertThat(exportResult.durationMs).isAtLeast(975);
-    assertThat(exportResult.durationMs).isAtMost(1025);
+    assertThat(exportResult.durationMs).isWithin(25).of(1000);
   }
 
   private void feedRawAudioDataToAssetLoader(
