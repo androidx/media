@@ -163,8 +163,8 @@ public final class BundledChunkExtractor implements ExtractorOutput, ChunkExtrac
     }
 
     /**
-     * Sets whether within GOP sample dependency information should be parsed as part of extraction.
-     * Defaults to {@code false}.
+     * Sets whether within GOP sample dependency information for {@linkplain MimeTypes#VIDEO_H264
+     * H.264} video should be parsed as part of extraction. Defaults to {@code false}.
      *
      * <p>Having access to additional sample dependency information can speed up seeking. See {@link
      * FragmentedMp4Extractor#FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES}.

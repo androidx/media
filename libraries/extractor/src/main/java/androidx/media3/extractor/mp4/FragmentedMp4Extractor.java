@@ -137,7 +137,7 @@ public class FragmentedMp4Extractor implements Extractor {
 
   /**
    * Flag to extract additional sample dependency information, and mark output buffers with {@link
-   * C#BUFFER_FLAG_NOT_DEPENDED_ON}.
+   * C#BUFFER_FLAG_NOT_DEPENDED_ON} for {@linkplain MimeTypes#VIDEO_H264 H.264} video.
    *
    * <p>This class always marks the samples at the start of each group of picture (GOP) with {@link
    * C#BUFFER_FLAG_KEY_FRAME}. Usually, key frames can be decoded independently, without depending
@@ -146,12 +146,6 @@ public class FragmentedMp4Extractor implements Extractor {
    * <p>Setting this flag enables elementary stream parsing to identify disposable samples that are
    * not depended on by other samples. Any disposable sample can be safely omitted, and the rest of
    * the track will remain valid.
-   *
-   * <p>Supported formats are:
-   *
-   * <ul>
-   *   <li>{@linkplain MimeTypes#VIDEO_H264 H.264}
-   * </ul>
    */
   public static final int FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES = 1 << 6; // 64
 
