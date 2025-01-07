@@ -26,6 +26,10 @@
 *   Text:
     *   TTML: Add support for referencing `tts:origin` and `tts:extent` via
         `style` ([#2953](https://github.com/google/ExoPlayer/issues/2953)).
+    *   Restrict WebVTT and SubRip timestamps to exactly 3 decimal places.
+        Previously we incorrectly parsed any number of decimal places but always
+        assumed the value was in milliseconds, leading to incorrect timestamps
+        ([#1997](https://github.com/androidx/media/issues/1997)).
 *   Metadata:
 *   Image:
 *   DataSource:
