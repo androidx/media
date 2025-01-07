@@ -15,11 +15,8 @@
  */
 package androidx.media3.demo.transformer;
 
-import static android.Manifest.permission.READ_EXTERNAL_STORAGE;
-import static android.Manifest.permission.READ_MEDIA_VIDEO;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
-import static androidx.media3.common.util.Util.SDK_INT;
 import static androidx.media3.exoplayer.DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS;
 import static androidx.media3.exoplayer.DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_MS;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_NOT_STARTED;
@@ -48,7 +45,6 @@ import android.widget.Toast;
 import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.ActivityCompat;
 import androidx.media3.common.C;
 import androidx.media3.common.DebugViewProvider;
 import androidx.media3.common.Effect;
@@ -193,30 +189,13 @@ public final class TransformerActivity extends AppCompatActivity {
   protected void onStop() {
     super.onStop();
 
-    if (transformer != null) {
-      transformer.cancel();
-      transformer = null;
-    }
-
-    // The stop watch is reset after cancelling the export, in case cancelling causes the stop watch
-    // to be stopped in a transformer callback.
-    exportStopwatch.reset();
-
     inputPlayerView.onPause();
     outputPlayerView.onPause();
-    releasePlayer();
-
-    outputFile.delete();
-    outputFile = null;
-    if (oldOutputFile != null) {
-      oldOutputFile.delete();
-      oldOutputFile = null;
-    }
+    releasePlayers();
+    cleanUpExport();
   }
 
   private void startExport() {
-    requestReadVideoPermission(/* activity= */ this);
-
     Intent intent = getIntent();
     Uri inputUri = checkNotNull(intent.getData());
     try {
@@ -228,6 +207,7 @@ public final class TransformerActivity extends AppCompatActivity {
     String outputFilePath = outputFile.getAbsolutePath();
     @Nullable Bundle bundle = intent.getExtras();
     MediaItem mediaItem = createMediaItem(bundle, inputUri);
+    Util.maybeRequestReadStoragePermission(/* activity= */ this, mediaItem);
     Transformer transformer = createTransformer(bundle, inputUri, outputFilePath);
     Composition composition = createComposition(mediaItem, bundle);
     exportStopwatch.reset();
@@ -702,9 +682,8 @@ public final class TransformerActivity extends AppCompatActivity {
   private void playMediaItems(MediaItem inputMediaItem, MediaItem outputMediaItem) {
     inputPlayerView.setPlayer(null);
     outputPlayerView.setPlayer(null);
-    releasePlayer();
+    releasePlayers();
 
-    Uri uri = checkNotNull(inputMediaItem.localConfiguration).uri;
     ExoPlayer outputPlayer =
         new ExoPlayer.Builder(/* context= */ this)
             .setLoadControl(
@@ -723,6 +702,7 @@ public final class TransformerActivity extends AppCompatActivity {
     this.outputPlayer = outputPlayer;
 
     // Only support showing jpg images.
+    Uri uri = checkNotNull(inputMediaItem.localConfiguration).uri;
     if (uri.toString().endsWith("jpg")) {
       inputPlayerView.setVisibility(View.GONE);
       inputImageView.setVisibility(View.VISIBLE);
@@ -786,7 +766,7 @@ public final class TransformerActivity extends AppCompatActivity {
     }
   }
 
-  private void releasePlayer() {
+  private void releasePlayers() {
     if (debugTextViewHelper != null) {
       debugTextViewHelper.stop();
       debugTextViewHelper = null;
@@ -801,12 +781,22 @@ public final class TransformerActivity extends AppCompatActivity {
     }
   }
 
-  private static void requestReadVideoPermission(AppCompatActivity activity) {
-    String permission = SDK_INT >= 33 ? READ_MEDIA_VIDEO : READ_EXTERNAL_STORAGE;
-    if (ActivityCompat.checkSelfPermission(activity, permission)
-        != PackageManager.PERMISSION_GRANTED) {
-      ActivityCompat.requestPermissions(activity, new String[] {permission}, /* requestCode= */ 0);
+  private void cleanUpExport() {
+    if (transformer != null) {
+      transformer.cancel();
+      transformer = null;
     }
+    if (outputFile != null) {
+      outputFile.delete();
+      outputFile = null;
+    }
+    if (oldOutputFile != null) {
+      oldOutputFile.delete();
+      oldOutputFile = null;
+    }
+    // The stop watch is reset after cancelling the export, in case cancelling causes the stop watch
+    // to be stopped in a transformer callback.
+    exportStopwatch.reset();
   }
 
   private void showToast(@StringRes int messageResource) {
