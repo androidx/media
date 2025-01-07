@@ -36,6 +36,8 @@ import static androidx.media3.transformer.AndroidTestUtil.MP4_TRIM_OPTIMIZATION;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_TRIM_OPTIMIZATION_180;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_TRIM_OPTIMIZATION_270;
 import static androidx.media3.transformer.AndroidTestUtil.PNG_ASSET;
+import static androidx.media3.transformer.AndroidTestUtil.WAV_192KHZ_ASSET;
+import static androidx.media3.transformer.AndroidTestUtil.WAV_96KHZ_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.WAV_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.WEBP_LARGE;
 import static androidx.media3.transformer.AndroidTestUtil.assumeCanEncodeWithProfile;
@@ -43,6 +45,7 @@ import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported
 import static androidx.media3.transformer.AndroidTestUtil.createFrameCountingEffect;
 import static androidx.media3.transformer.AndroidTestUtil.createOpenGlObjects;
 import static androidx.media3.transformer.AndroidTestUtil.generateTextureFromBitmap;
+import static androidx.media3.transformer.AndroidTestUtil.getFallbackAssumingUnsupportedSampleRate;
 import static androidx.media3.transformer.AndroidTestUtil.getMuxerFactoryBasedOnApi;
 import static androidx.media3.transformer.AndroidTestUtil.recordTestSkipped;
 import static androidx.media3.transformer.ExportResult.CONVERSION_PROCESS_NA;
@@ -2412,6 +2415,68 @@ public class TransformerEndToEndTest {
     Format format = createFormatFromMediaFormat(mediaFormat);
     // The format contains the requested bitrate but the actual bitrate is generally different.
     assertThat(format.bitrate).isEqualTo(requestedBitrate);
+  }
+
+  @Test
+  public void export_withUnsupportedSampleRateAndFallbackEnabled_exportsWithFallbackSampleRate()
+      throws Exception {
+    int unsupportedSampleRate = 96_000;
+    int fallbackSampleRate =
+        getFallbackAssumingUnsupportedSampleRate(MimeTypes.AUDIO_AAC, unsupportedSampleRate);
+    Transformer transformer =
+        new Transformer.Builder(context)
+            .setEncoderFactory(
+                new DefaultEncoderFactory.Builder(context).setEnableFallback(true).build())
+            .build();
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_96KHZ_ASSET.uri))
+            .setRemoveVideo(true)
+            .build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, editedMediaItem);
+
+    assertThat(result.exportResult.sampleRate).isEqualTo(fallbackSampleRate);
+    assertThat(result.exportResult.durationMs).isWithin(50).of(1_000);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
+  }
+
+  @Test
+  public void
+      export_withTwoUnsupportedAndOneSupportedSampleRateAndFallbackEnabled_exportsWithFallbackSampleRate()
+          throws Exception {
+    int unsupportedSampleRate = 192_000;
+    int fallbackSampleRate =
+        getFallbackAssumingUnsupportedSampleRate(MimeTypes.AUDIO_AAC, unsupportedSampleRate);
+    Transformer transformer =
+        new Transformer.Builder(context)
+            .setEncoderFactory(
+                new DefaultEncoderFactory.Builder(context).setEnableFallback(true).build())
+            .build();
+    EditedMediaItemSequence audioSequence =
+        new EditedMediaItemSequence.Builder(
+                new EditedMediaItem.Builder(MediaItem.fromUri(WAV_192KHZ_ASSET.uri))
+                    .setRemoveVideo(true)
+                    .build(),
+                new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
+                    .setRemoveVideo(true)
+                    .build(),
+                new EditedMediaItem.Builder(MediaItem.fromUri(WAV_96KHZ_ASSET.uri))
+                    .setRemoveVideo(true)
+                    .build())
+            .build();
+    Composition composition = new Composition.Builder(audioSequence).build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, composition);
+
+    assertThat(result.exportResult.sampleRate).isEqualTo(fallbackSampleRate);
+    assertThat(result.exportResult.durationMs).isWithin(150).of(3_000);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   private static boolean shouldSkipDeviceForAacObjectHeProfileEncoding() {

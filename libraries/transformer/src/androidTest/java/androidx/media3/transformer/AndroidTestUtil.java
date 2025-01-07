@@ -1020,8 +1020,15 @@ public final class AndroidTestUtil {
   public static final AssetInfo MP3_ASSET =
       new AssetInfo.Builder("asset:///media/mp3/test-cbr-info-header.mp3").build();
 
+  // This file contains 1 second of audio at 44.1kHZ.
   public static final AssetInfo WAV_ASSET =
       new AssetInfo.Builder("asset:///media/wav/sample.wav").build();
+
+  public static final AssetInfo WAV_96KHZ_ASSET =
+      new AssetInfo.Builder("asset:///media/wav/sample_96khz.wav").build();
+
+  public static final AssetInfo WAV_192KHZ_ASSET =
+      new AssetInfo.Builder("asset:///media/wav/sample_192khz.wav").build();
 
   /** A {@link GlEffect} that adds delay in the video pipeline by putting the thread to sleep. */
   public static final class DelayEffect implements GlEffect {
@@ -1339,6 +1346,42 @@ public final class AndroidTestUtil {
       }
     }
     throw new AssumptionViolatedException("Profile not supported");
+  }
+
+  /**
+   * Assumes that the given sample rate is unsupported and returns the fallback sample rate the
+   * device will use to encode.
+   *
+   * @param mimeType The {@linkplain MimeTypes MIME type}.
+   * @param unsupportedSampleRate An unsupported sample rate.
+   * @return The fallback sample rate.
+   * @throws AssumptionViolatedException If the device does not have the required encoder or sample
+   *     rate configuration.
+   */
+  public static int getFallbackAssumingUnsupportedSampleRate(
+      String mimeType, int unsupportedSampleRate) {
+    ImmutableList<MediaCodecInfo> supportedEncoders = EncoderUtil.getSupportedEncoders(mimeType);
+    if (supportedEncoders.isEmpty()) {
+      throw new AssumptionViolatedException("No supported encoders for mime type: " + mimeType);
+    }
+
+    int closestSupportedSampleRate = -1;
+    int minSampleRateCost = Integer.MAX_VALUE;
+    for (int i = 0; i < supportedEncoders.size(); i++) {
+      int actualFallbackSampleRate =
+          EncoderUtil.getClosestSupportedSampleRate(
+              supportedEncoders.get(i), mimeType, unsupportedSampleRate);
+      int sampleRateCost = Math.abs(actualFallbackSampleRate - unsupportedSampleRate);
+      if (sampleRateCost < minSampleRateCost) {
+        minSampleRateCost = sampleRateCost;
+        closestSupportedSampleRate = actualFallbackSampleRate;
+      }
+    }
+    if (closestSupportedSampleRate == unsupportedSampleRate) {
+      throw new AssumptionViolatedException(
+          String.format("Expected sample rate %s to be unsupported", unsupportedSampleRate));
+    }
+    return closestSupportedSampleRate;
   }
 
   /** Returns a {@link Muxer.Factory} depending upon the API level. */
