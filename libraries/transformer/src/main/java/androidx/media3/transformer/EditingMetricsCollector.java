@@ -98,6 +98,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         EditingEndedEvent.ERROR_CODE_FAILED_RUNTIME_CHECK);
   }
 
+  private static final int SUCCESS_PROGRESS_PERCENTAGE = 100;
   private @MonotonicNonNull EditingSession editingSession;
   private long startTimeMs;
 
@@ -124,7 +125,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       return;
     }
     editingSession.reportEditingEndedEvent(
-        prcreateEditingEndedEventBuilder(EditingEndedEvent.FINAL_STATE_SUCCEEDED).build());
+        prcreateEditingEndedEventBuilder(EditingEndedEvent.FINAL_STATE_SUCCEEDED)
+            .setFinalProgressPercent(SUCCESS_PROGRESS_PERCENTAGE)
+            .build());
     editingSession.close();
   }
 
