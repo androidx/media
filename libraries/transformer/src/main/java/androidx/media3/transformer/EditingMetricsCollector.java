@@ -125,7 +125,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       return;
     }
     editingSession.reportEditingEndedEvent(
-        prcreateEditingEndedEventBuilder(EditingEndedEvent.FINAL_STATE_SUCCEEDED)
+        createEditingEndedEventBuilder(EditingEndedEvent.FINAL_STATE_SUCCEEDED)
             .setFinalProgressPercent(SUCCESS_PROGRESS_PERCENTAGE)
             .build());
     editingSession.close();
@@ -137,7 +137,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       return;
     }
     editingSession.reportEditingEndedEvent(
-        prcreateEditingEndedEventBuilder(EditingEndedEvent.FINAL_STATE_ERROR)
+        createEditingEndedEventBuilder(EditingEndedEvent.FINAL_STATE_ERROR)
             .setErrorCode(getEditingEndedEventErrorCode(exportException.errorCode))
             .build());
     editingSession.close();
@@ -149,11 +149,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       return;
     }
     editingSession.reportEditingEndedEvent(
-        prcreateEditingEndedEventBuilder(EditingEndedEvent.FINAL_STATE_CANCELED).build());
+        createEditingEndedEventBuilder(EditingEndedEvent.FINAL_STATE_CANCELED).build());
     editingSession.close();
   }
 
-  private EditingEndedEvent.Builder prcreateEditingEndedEventBuilder(int finalState) {
+  private EditingEndedEvent.Builder createEditingEndedEventBuilder(int finalState) {
     long endTimeMs = SystemClock.DEFAULT.elapsedRealtime();
     return new EditingEndedEvent.Builder(finalState)
         .setTimeSinceCreatedMillis(endTimeMs - startTimeMs);
