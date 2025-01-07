@@ -2126,6 +2126,33 @@ public final class Util {
   }
 
   /**
+   * Returns a copy of {@code codecs} without the codecs whose track type matches {@code trackType}.
+   *
+   * @param codecs A codec sequence string, as defined in RFC 6381.
+   * @param trackType The {@link C.TrackType track type}.
+   * @return A copy of {@code codecs} without the codecs whose track type matches {@code trackType}.
+   *     If this ends up empty, or {@code codecs} is null, returns null.
+   */
+  @UnstableApi
+  @Nullable
+  public static String getCodecsWithoutType(@Nullable String codecs, @C.TrackType int trackType) {
+    String[] codecArray = splitCodecs(codecs);
+    if (codecArray.length == 0) {
+      return null;
+    }
+    StringBuilder builder = new StringBuilder();
+    for (String codec : codecArray) {
+      if (trackType != MimeTypes.getTrackTypeOfCodec(codec)) {
+        if (builder.length() > 0) {
+          builder.append(",");
+        }
+        builder.append(codec);
+      }
+    }
+    return builder.length() > 0 ? builder.toString() : null;
+  }
+
+  /**
    * Splits a codecs sequence string, as defined in RFC 6381, into individual codec strings.
    *
    * @param codecs A codec sequence string, as defined in RFC 6381.

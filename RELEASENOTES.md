@@ -42,10 +42,15 @@
 *   Cronet Extension:
 *   RTMP Extension:
 *   HLS Extension:
+    *   Parse `SUPPLEMENTAL-CODECS` tag from HLS playlist to detect Dolby Vision
+        formats ([#1785](https://github.com/androidx/media/pull/1785)).
 *   DASH Extension:
     *   Fix issue when calculating the update interval for ad insertion in
         multi-period live streams
         ([#1698](https://github.com/androidx/media/issues/1698)).
+    *   Parse `scte214:supplementalCodecs` attribute from DASH manifest to
+        detect Dolby Vision formats
+        ([#1785](https://github.com/androidx/media/pull/1785)).
 *   Smooth Streaming Extension:
 *   RTSP Extension:
 *   Decoder Extensions (FFmpeg, VP9, AV1, etc.):

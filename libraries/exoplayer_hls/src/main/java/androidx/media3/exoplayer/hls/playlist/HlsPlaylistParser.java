@@ -146,7 +146,10 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
   private static final Pattern REGEX_CLOSED_CAPTIONS = Pattern.compile("CLOSED-CAPTIONS=\"(.+?)\"");
   private static final Pattern REGEX_BANDWIDTH = Pattern.compile("[^-]BANDWIDTH=(\\d+)\\b");
   private static final Pattern REGEX_CHANNELS = Pattern.compile("CHANNELS=\"(.+?)\"");
+  private static final Pattern REGEX_VIDEO_RANGE = Pattern.compile("VIDEO-RANGE=(SDR|PQ|HLG)");
   private static final Pattern REGEX_CODECS = Pattern.compile("CODECS=\"(.+?)\"");
+  private static final Pattern REGEX_SUPPLEMENTAL_CODECS =
+      Pattern.compile("SUPPLEMENTAL-CODECS=\"(.+?)\"");
   private static final Pattern REGEX_RESOLUTION = Pattern.compile("RESOLUTION=(\\d+x\\d+)");
   private static final Pattern REGEX_FRAME_RATE = Pattern.compile("FRAME-RATE=([\\d\\.]+)\\b");
   private static final Pattern REGEX_TARGET_DURATION =
@@ -353,6 +356,30 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
     return c;
   }
 
+  private static boolean isDolbyVisionFormat(
+      @Nullable String videoRange,
+      @Nullable String codecs,
+      @Nullable String supplementalCodecs,
+      @Nullable String supplementalProfiles) {
+    if (!MimeTypes.isDolbyVisionCodec(codecs, supplementalCodecs)) {
+      return false;
+    }
+    if (supplementalCodecs == null) {
+      // Dolby Vision profile 5 that doesn't define supplemental codecs.
+      return true;
+    }
+    if (videoRange == null || supplementalProfiles == null) {
+      // Video range and supplemental profiles need to be defined for a full validity check.
+      return false;
+    }
+    if ((videoRange.equals("PQ") && !supplementalProfiles.equals("db1p"))
+        || (videoRange.equals("SDR") && !supplementalProfiles.equals("db2g"))
+        || (videoRange.equals("HLG") && !supplementalProfiles.startsWith("db4"))) { // db4g or db4h
+      return false;
+    }
+    return true;
+  }
+
   private static HlsMultivariantPlaylist parseMultivariantPlaylist(
       LineIterator iterator, String baseUri) throws IOException {
     HashMap<Uri, ArrayList<VariantInfo>> urlToVariantInfos = new HashMap<>();
@@ -404,7 +431,29 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
         int roleFlags = isIFrameOnlyVariant ? C.ROLE_FLAG_TRICK_PLAY : 0;
         int peakBitrate = parseIntAttr(line, REGEX_BANDWIDTH);
         int averageBitrate = parseOptionalIntAttr(line, REGEX_AVERAGE_BANDWIDTH, -1);
+        String videoRange = parseOptionalStringAttr(line, REGEX_VIDEO_RANGE, variableDefinitions);
         String codecs = parseOptionalStringAttr(line, REGEX_CODECS, variableDefinitions);
+        String supplementalCodecsStrings =
+            parseOptionalStringAttr(line, REGEX_SUPPLEMENTAL_CODECS, variableDefinitions);
+        String supplementalCodecs = null;
+        String supplementalProfiles = null; // i.e. Compatibility brand
+        if (supplementalCodecsStrings != null) {
+          String[] supplementalCodecsString = Util.splitAtFirst(supplementalCodecsStrings, ",");
+          // TODO: Support more than one element
+          String[] codecsAndProfiles = Util.split(supplementalCodecsString[0], "/");
+          supplementalCodecs = codecsAndProfiles[0];
+          if (codecsAndProfiles.length > 1) {
+            supplementalProfiles = codecsAndProfiles[1];
+          }
+        }
+        String videoCodecs = Util.getCodecsOfType(codecs, C.TRACK_TYPE_VIDEO);
+        if (isDolbyVisionFormat(
+            videoRange, videoCodecs, supplementalCodecs, supplementalProfiles)) {
+          videoCodecs = supplementalCodecs != null ? supplementalCodecs : videoCodecs;
+          String nonVideoCodecs = Util.getCodecsWithoutType(codecs, C.TRACK_TYPE_VIDEO);
+          codecs = nonVideoCodecs != null ? videoCodecs + "," + nonVideoCodecs : videoCodecs;
+        }
+
         String resolutionString =
             parseOptionalStringAttr(line, REGEX_RESOLUTION, variableDefinitions);
         int width;
