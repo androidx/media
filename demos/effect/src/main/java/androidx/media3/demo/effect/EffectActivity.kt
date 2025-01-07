@@ -68,8 +68,11 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.common.util.Util.SDK_INT
 import androidx.media3.effect.Contrast
+import androidx.media3.effect.OverlayEffect
+import androidx.media3.effect.TextureOverlay
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
+import com.google.common.collect.ImmutableList
 import kotlinx.coroutines.launch
 
 class EffectActivity : ComponentActivity() {
@@ -279,7 +282,15 @@ class EffectActivity : ComponentActivity() {
       onClick = {
         val effectsList = mutableListOf<Effect>()
 
-        effectsList += Contrast(effectControlsState.contrastValue)
+        if (effectControlsState.contrastValue != 0f) {
+          effectsList += Contrast(effectControlsState.contrastValue)
+        }
+
+        val overlaysBuilder = ImmutableList.builder<TextureOverlay>()
+        if (effectControlsState.confettiOverlayChecked) {
+          overlaysBuilder.add(ConfettiOverlay())
+        }
+        effectsList += OverlayEffect(overlaysBuilder.build())
 
         onApplyEffectsClicked(effectsList)
         effectControlsState = effectControlsState.copy(effectsChanged = false)
@@ -333,6 +344,17 @@ class EffectActivity : ComponentActivity() {
           }
         }
       }
+      item {
+        EffectItem(
+          name = stringResource(R.string.confetti_overlay),
+          enabled = enabled,
+          onCheckedChange = { checked ->
+            onEffectControlsStateChange(
+              effectControlsState.copy(effectsChanged = true, confettiOverlayChecked = checked)
+            )
+          },
+        )
+      }
     }
   }
 
@@ -382,6 +404,7 @@ class EffectActivity : ComponentActivity() {
   data class EffectControlsState(
     val effectsChanged: Boolean = false,
     val contrastValue: Float = 0f,
+    val confettiOverlayChecked: Boolean = false,
   )
 
   companion object {
