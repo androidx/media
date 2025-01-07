@@ -542,8 +542,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    *       visibleLength}, rounded up to a near multiple of 2.
    *       <p>Maybe it's rounded up to a multiple of 16 because of H.264 macroblock sizes. Maybe
    *       it's rounded up to 128 because of SIMD instructions.
-   *       <p>bufferSize cannot be read reliably via {@link GLES31#glGetTexLevelParameteriv(int,
-   *       int, int, int[], int)} across devices.
+   *       <p>bufferSize cannot be read reliably via {@link
+   *       android.opengl.GLES31#glGetTexLevelParameteriv(int, int, int, int[], int)} across
+   *       devices.
    *       <p>bufferSize cannot be read reliably from the decoder's {@link
    *       android.media.MediaFormat} across decoder implementations.
    *   <li>trim = number of pixels trimmed by {@link SurfaceTexture} in addition to the cropped
