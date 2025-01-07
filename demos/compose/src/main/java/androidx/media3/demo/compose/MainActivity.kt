@@ -46,6 +46,7 @@ import androidx.media3.demo.compose.layout.noRippleClickable
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.compose.PlayerSurface
 import androidx.media3.ui.compose.SURFACE_TYPE_SURFACE_VIEW
+import androidx.media3.ui.compose.state.rememberPresentationState
 
 class MainActivity : ComponentActivity() {
 
@@ -100,13 +101,22 @@ private fun initializePlayer(context: Context): Player =
 @Composable
 private fun MediaPlayerScreen(player: Player, modifier: Modifier = Modifier) {
   var showControls by remember { mutableStateOf(true) }
+  val presentationState = rememberPresentationState(player)
+
   Box(modifier) {
     PlayerSurface(
       player = player,
       surfaceType = SURFACE_TYPE_SURFACE_VIEW,
       modifier = modifier.noRippleClickable { showControls = !showControls },
     )
+
+    if (!presentationState.showSurface) {
+      // hide the surface that is being prepared behind a shutter
+      Box(modifier.background(Color.Black))
+    }
+
     if (showControls) {
+      // drawn on top of a potential shutter
       MinimalControls(player, Modifier.align(Alignment.Center))
       ExtraControls(
         player,

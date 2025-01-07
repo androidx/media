@@ -41,6 +41,8 @@
 *   IMA extension:
 *   Session:
 *   UI:
+    *   Add `PresentationState` state holder class and the corresponding
+        `rememberPresentationState` Composable to `media3-ui-compose`.
 *   Downloads:
 *   OkHttp Extension:
 *   Cronet Extension:
@@ -63,6 +65,7 @@
 *   Cast Extension:
 *   Test Utilities:
 *   Demo app:
+    *   Use `PresentationState` to cover the `PlayerSurface` with an overlay.
 *   Remove deprecated symbols:
 
 ## 1.6
