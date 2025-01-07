@@ -33,7 +33,6 @@ import android.media.MediaCodec.BufferInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Util;
-import androidx.media3.muxer.Muxer.TrackToken;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -122,6 +121,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private boolean headerCreated;
   private long minInputPresentationTimeUs;
   private long maxTrackDurationUs;
+  private int nextTrackId;
 
   /**
    * Creates an instance.
@@ -153,8 +153,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     currentFragmentSequenceNumber = 1;
   }
 
-  public TrackToken addTrack(int sortKey, Format format) {
-    Track track = new Track(format, sampleCopyEnabled);
+  public Track addTrack(int sortKey, Format format) {
+    Track track = new Track(nextTrackId++, format, sampleCopyEnabled);
     tracks.add(track);
     if (MimeTypes.isVideo(format.sampleMimeType)) {
       videoTrack = track;
@@ -162,15 +162,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     return track;
   }
 
-  public void writeSampleData(
-      TrackToken token, ByteBuffer byteBuffer, MediaCodec.BufferInfo bufferInfo)
+  public void writeSampleData(Track track, ByteBuffer byteBuffer, MediaCodec.BufferInfo bufferInfo)
       throws IOException {
-    checkArgument(token instanceof Track);
     if (!headerCreated) {
       createHeader();
       headerCreated = true;
     }
-    Track track = (Track) token;
     if (shouldFlushPendingSamples(track, bufferInfo)) {
       createFragment();
     }

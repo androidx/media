@@ -111,12 +111,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
   /**
    * Adds a track of the given {@link Format}.
    *
+   * @param trackId The track id for the track.
    * @param sortKey The key used for sorting the track list.
    * @param format The {@link Format} for the track.
    * @return A unique {@link Track}. It should be used in {@link #writeSampleData}.
    */
-  public Track addTrack(int sortKey, Format format) {
-    Track track = new Track(format, sortKey, sampleCopyEnabled);
+  public Track addTrack(int trackId, int sortKey, Format format) {
+    Track track = new Track(trackId, format, sortKey, sampleCopyEnabled);
     tracks.add(track);
     Collections.sort(tracks, (a, b) -> Integer.compare(a.sortKey, b.sortKey));
     return track;
@@ -127,12 +128,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
    *
    * <p>See {@link MuxerUtil#isAuxiliaryTrack(Format)} for auxiliary tracks.
    *
+   * @param trackId The track id for the track.
    * @param sortKey The key used for sorting the track list.
    * @param format The {@link Format} for the track.
    * @return A unique {@link Track}. It should be used in {@link #writeSampleData}.
    */
-  public Track addAuxiliaryTrack(int sortKey, Format format) {
-    Track track = new Track(format, sortKey, sampleCopyEnabled);
+  public Track addAuxiliaryTrack(int trackId, int sortKey, Format format) {
+    Track track = new Track(trackId, format, sortKey, sampleCopyEnabled);
     auxiliaryTracks.add(track);
     Collections.sort(auxiliaryTracks, (a, b) -> Integer.compare(a.sortKey, b.sortKey));
     return track;

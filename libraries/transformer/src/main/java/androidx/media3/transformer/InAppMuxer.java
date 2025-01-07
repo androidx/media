@@ -15,7 +15,6 @@
  */
 package androidx.media3.transformer;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.muxer.Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER_OR_DUPLICATE_PREVIOUS;
 
 import android.media.MediaCodec;
@@ -207,13 +206,14 @@ public final class InAppMuxer implements Muxer {
   }
 
   private static final String TAG = "InAppMuxer";
+  private static final int TRACK_ID_UNSET = -1;
 
   private final Muxer muxer;
   @Nullable private final MetadataProvider metadataProvider;
   private final long videoDurationUs;
   private final Set<Metadata.Entry> metadataEntries;
 
-  @Nullable private TrackToken videoTrackToken;
+  private int videoTrackId;
 
   private InAppMuxer(
       Muxer muxer, @Nullable MetadataProvider metadataProvider, long videoDurationUs) {
@@ -221,23 +221,24 @@ public final class InAppMuxer implements Muxer {
     this.metadataProvider = metadataProvider;
     this.videoDurationUs = videoDurationUs;
     metadataEntries = new LinkedHashSet<>();
+    videoTrackId = TRACK_ID_UNSET;
   }
 
   @Override
-  public TrackToken addTrack(Format format) throws MuxerException {
-    TrackToken trackToken = muxer.addTrack(format);
+  public int addTrack(Format format) throws MuxerException {
+    int trackId = muxer.addTrack(format);
     if (MimeTypes.isVideo(format.sampleMimeType)) {
       muxer.addMetadataEntry(new Mp4OrientationData(format.rotationDegrees));
-      videoTrackToken = trackToken;
+      videoTrackId = trackId;
     }
-    return trackToken;
+    return trackId;
   }
 
   @Override
-  public void writeSampleData(TrackToken trackToken, ByteBuffer byteBuffer, BufferInfo bufferInfo)
+  public void writeSampleData(int trackId, ByteBuffer byteBuffer, BufferInfo bufferInfo)
       throws MuxerException {
     if (videoDurationUs != C.TIME_UNSET
-        && trackToken == videoTrackToken
+        && trackId == videoTrackId
         && bufferInfo.presentationTimeUs > videoDurationUs) {
       Log.w(
           TAG,
@@ -248,7 +249,7 @@ public final class InAppMuxer implements Muxer {
               videoDurationUs));
       return;
     }
-    muxer.writeSampleData(trackToken, byteBuffer, bufferInfo);
+    muxer.writeSampleData(trackId, byteBuffer, bufferInfo);
   }
 
   @Override
@@ -260,14 +261,14 @@ public final class InAppMuxer implements Muxer {
 
   @Override
   public void close() throws MuxerException {
-    if (videoDurationUs != C.TIME_UNSET && videoTrackToken != null) {
+    if (videoDurationUs != C.TIME_UNSET && videoTrackId != TRACK_ID_UNSET) {
       BufferInfo bufferInfo = new BufferInfo();
       bufferInfo.set(
           /* newOffset= */ 0,
           /* newSize= */ 0,
           videoDurationUs,
           MediaCodec.BUFFER_FLAG_END_OF_STREAM);
-      writeSampleData(checkNotNull(videoTrackToken), ByteBuffer.allocateDirect(0), bufferInfo);
+      writeSampleData(videoTrackId, ByteBuffer.allocateDirect(0), bufferInfo);
     }
     writeMetadata();
     muxer.close();

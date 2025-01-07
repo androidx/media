@@ -44,29 +44,24 @@ public interface Muxer {
     ImmutableList<String> getSupportedSampleMimeTypes(@C.TrackType int trackType);
   }
 
-  /** A token representing an added track. */
-  interface TrackToken {}
-
   /**
    * Adds a track of the given media format.
    *
    * @param format The {@link Format} of the track.
-   * @return The {@link TrackToken} for this track, which should be passed to {@link
-   *     #writeSampleData}.
+   * @return A track id for this track, which should be passed to {@link #writeSampleData}.
    * @throws MuxerException If the muxer encounters a problem while adding the track.
    */
-  TrackToken addTrack(Format format) throws MuxerException;
+  int addTrack(Format format) throws MuxerException;
 
   /**
    * Writes encoded sample data.
    *
-   * @param trackToken The {@link TrackToken} of the track, previously returned by {@link
-   *     #addTrack(Format)}.
+   * @param trackId The track id, previously returned by {@link #addTrack(Format)}.
    * @param byteBuffer A buffer containing the sample data to write to the container.
    * @param bufferInfo The {@link BufferInfo} of the sample.
    * @throws MuxerException If the muxer fails to write the sample.
    */
-  void writeSampleData(TrackToken trackToken, ByteBuffer byteBuffer, BufferInfo bufferInfo)
+  void writeSampleData(int trackId, ByteBuffer byteBuffer, BufferInfo bufferInfo)
       throws MuxerException;
 
   /** Adds {@linkplain Metadata.Entry metadata} about the output file. */

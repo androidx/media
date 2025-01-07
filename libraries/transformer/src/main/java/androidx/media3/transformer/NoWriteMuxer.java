@@ -63,13 +63,12 @@ import java.nio.ByteBuffer;
   }
 
   @Override
-  public TrackToken addTrack(Format format) {
-    return new TrackToken() {};
+  public int addTrack(Format format) {
+    return 0;
   }
 
   @Override
-  public void writeSampleData(
-      TrackToken trackToken, ByteBuffer data, MediaCodec.BufferInfo bufferInfo) {}
+  public void writeSampleData(int trackId, ByteBuffer data, MediaCodec.BufferInfo bufferInfo) {}
 
   @Override
   public void addMetadataEntry(Metadata.Entry metadataEntry) {}

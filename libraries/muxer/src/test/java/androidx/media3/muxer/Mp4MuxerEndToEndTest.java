@@ -35,7 +35,6 @@ import androidx.media3.container.Mp4TimestampData;
 import androidx.media3.container.XmpData;
 import androidx.media3.extractor.mp4.Mp4Extractor;
 import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
-import androidx.media3.muxer.Muxer.TrackToken;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.DumpableMp4Box;
 import androidx.media3.test.utils.FakeExtractorOutput;
@@ -83,8 +82,8 @@ public class Mp4MuxerEndToEndTest {
               /* value= */ Util.getUtf8Bytes("StringValue"),
               MdtaMetadataEntry.TYPE_INDICATOR_STRING));
       muxer.addMetadataEntry(new XmpData(xmpBytes));
-      TrackToken token = muxer.addTrack(FAKE_VIDEO_FORMAT);
-      muxer.writeSampleData(token, sampleAndSampleInfo.first, sampleAndSampleInfo.second);
+      int trackId = muxer.addTrack(FAKE_VIDEO_FORMAT);
+      muxer.writeSampleData(trackId, sampleAndSampleInfo.first, sampleAndSampleInfo.second);
     } finally {
       muxer.close();
     }
@@ -136,12 +135,12 @@ public class Mp4MuxerEndToEndTest {
         getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 300L);
 
     try {
-      TrackToken track1 = mp4Muxer.addTrack(FAKE_VIDEO_FORMAT);
+      int track1 = mp4Muxer.addTrack(FAKE_VIDEO_FORMAT);
       mp4Muxer.writeSampleData(track1, track1Sample1.first, track1Sample1.second);
       mp4Muxer.writeSampleData(track1, track1Sample2.first, track1Sample2.second);
 
       // Add same track again but with different samples.
-      TrackToken track2 = mp4Muxer.addTrack(FAKE_VIDEO_FORMAT);
+      int track2 = mp4Muxer.addTrack(FAKE_VIDEO_FORMAT);
       mp4Muxer.writeSampleData(track2, track2Sample1.first, track2Sample1.second);
       mp4Muxer.writeSampleData(track2, track2Sample2.first, track2Sample2.second);
     } finally {
@@ -180,12 +179,12 @@ public class Mp4MuxerEndToEndTest {
         getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 200L);
 
     try {
-      TrackToken track1 = mp4Muxer.addTrack(FAKE_VIDEO_FORMAT);
+      int track1 = mp4Muxer.addTrack(FAKE_VIDEO_FORMAT);
       mp4Muxer.writeSampleData(track1, track1Sample1.first, track1Sample1.second);
       mp4Muxer.writeSampleData(track1, track1Sample2.first, track1Sample2.second);
 
       // Add same track again but with different samples.
-      TrackToken track2 = mp4Muxer.addTrack(FAKE_VIDEO_FORMAT);
+      int track2 = mp4Muxer.addTrack(FAKE_VIDEO_FORMAT);
       mp4Muxer.writeSampleData(track2, track2Sample1.first, track2Sample1.second);
       mp4Muxer.writeSampleData(track2, track2Sample2.first, track2Sample2.second);
     } finally {
@@ -218,7 +217,7 @@ public class Mp4MuxerEndToEndTest {
         getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 300L);
 
     try {
-      TrackToken track1 = mp4Muxer.addTrack(FAKE_VIDEO_FORMAT);
+      int track1 = mp4Muxer.addTrack(FAKE_VIDEO_FORMAT);
       mp4Muxer.writeSampleData(track1, track1Sample1.first, track1Sample1.second);
       mp4Muxer.writeSampleData(track1, track1Sample2.first, track1Sample2.second);
       mp4Muxer.writeSampleData(track1, track1Sample3.first, track1Sample3.second);
@@ -257,7 +256,7 @@ public class Mp4MuxerEndToEndTest {
         getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 2_000L);
 
     try {
-      TrackToken track1 = mp4Muxer.addTrack(FAKE_VIDEO_FORMAT);
+      int track1 = mp4Muxer.addTrack(FAKE_VIDEO_FORMAT);
       mp4Muxer.writeSampleData(track1, track1Sample1.first, track1Sample1.second);
       mp4Muxer.writeSampleData(track1, track1Sample2.first, track1Sample2.second);
       mp4Muxer.writeSampleData(track1, track1Sample3.first, track1Sample3.second);
@@ -301,12 +300,12 @@ public class Mp4MuxerEndToEndTest {
         getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 23_001_033_192L);
 
     try {
-      TrackToken track1 = mp4Muxer.addTrack(FAKE_VIDEO_FORMAT);
+      int track1 = mp4Muxer.addTrack(FAKE_VIDEO_FORMAT);
       mp4Muxer.writeSampleData(track1, track1Sample1.first, track1Sample1.second);
       mp4Muxer.writeSampleData(track1, track1Sample2.first, track1Sample2.second);
       mp4Muxer.writeSampleData(track1, track1Sample3.first, track1Sample3.second);
       mp4Muxer.writeSampleData(track1, track1Sample4.first, track1Sample4.second);
-      TrackToken track2 = mp4Muxer.addTrack(FAKE_VIDEO_FORMAT);
+      int track2 = mp4Muxer.addTrack(FAKE_VIDEO_FORMAT);
       mp4Muxer.writeSampleData(track2, track2Sample1.first, track2Sample1.second);
       mp4Muxer.writeSampleData(track2, track2Sample2.first, track2Sample2.second);
       mp4Muxer.writeSampleData(track2, track2Sample3.first, track2Sample3.second);
@@ -337,7 +336,7 @@ public class Mp4MuxerEndToEndTest {
         getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 100L);
 
     try {
-      TrackToken track1 = mp4Muxer.addTrack(FAKE_VIDEO_FORMAT);
+      int track1 = mp4Muxer.addTrack(FAKE_VIDEO_FORMAT);
       mp4Muxer.writeSampleData(track1, track1Sample1.first, track1Sample1.second);
       mp4Muxer.writeSampleData(track1, track1Sample2.first, track1Sample2.second);
       // Add same track again but without any samples.
@@ -365,11 +364,11 @@ public class Mp4MuxerEndToEndTest {
           new Mp4TimestampData(
               /* creationTimestampSeconds= */ 1_000_000L,
               /* modificationTimestampSeconds= */ 5_000_000L));
-      TrackToken token = muxer.addTrack(FAKE_VIDEO_FORMAT);
+      int trackId = muxer.addTrack(FAKE_VIDEO_FORMAT);
       for (int i = 0; i < 50_000; i++) {
         Pair<ByteBuffer, BufferInfo> sampleAndSampleInfo =
             getFakeSampleAndSampleInfo(/* presentationTimeUs= */ i);
-        muxer.writeSampleData(token, sampleAndSampleInfo.first, sampleAndSampleInfo.second);
+        muxer.writeSampleData(trackId, sampleAndSampleInfo.first, sampleAndSampleInfo.second);
       }
     } finally {
       muxer.close();
@@ -397,11 +396,11 @@ public class Mp4MuxerEndToEndTest {
           new Mp4TimestampData(
               /* creationTimestampSeconds= */ 1_000_000L,
               /* modificationTimestampSeconds= */ 5_000_000L));
-      TrackToken token = muxer.addTrack(FAKE_VIDEO_FORMAT);
+      int trackId = muxer.addTrack(FAKE_VIDEO_FORMAT);
       for (int i = 0; i < 1_000; i++) {
         Pair<ByteBuffer, BufferInfo> sampleAndSampleInfo =
             getFakeSampleAndSampleInfo(/* presentationTimeUs= */ i);
-        muxer.writeSampleData(token, sampleAndSampleInfo.first, sampleAndSampleInfo.second);
+        muxer.writeSampleData(trackId, sampleAndSampleInfo.first, sampleAndSampleInfo.second);
       }
     } finally {
       muxer.close();
@@ -448,24 +447,24 @@ public class Mp4MuxerEndToEndTest {
           new Mp4TimestampData(
               /* creationTimestampSeconds= */ 1_000_000L,
               /* modificationTimestampSeconds= */ 5_000_000L));
-      TrackToken primaryVideoTrackToken = muxer.addTrack(FAKE_VIDEO_FORMAT);
-      TrackToken sharpVideoTrackToken =
+      int primaryVideoTrackId = muxer.addTrack(FAKE_VIDEO_FORMAT);
+      int sharpVideoTrackId =
           muxer.addTrack(
               FAKE_VIDEO_FORMAT
                   .buildUpon()
                   .setRoleFlags(C.ROLE_FLAG_AUXILIARY)
                   .setAuxiliaryTrackType(C.AUXILIARY_TRACK_TYPE_ORIGINAL)
                   .build());
-      TrackToken depthLinearVideoTrackToken =
+      int depthLinearVideoTrackId =
           muxer.addTrack(
               FAKE_VIDEO_FORMAT
                   .buildUpon()
                   .setRoleFlags(C.ROLE_FLAG_AUXILIARY)
                   .setAuxiliaryTrackType(C.AUXILIARY_TRACK_TYPE_DEPTH_LINEAR)
                   .build());
-      writeFakeSamples(muxer, primaryVideoTrackToken, /* sampleCount= */ 5);
-      writeFakeSamples(muxer, sharpVideoTrackToken, /* sampleCount= */ 5);
-      writeFakeSamples(muxer, depthLinearVideoTrackToken, /* sampleCount= */ 5);
+      writeFakeSamples(muxer, primaryVideoTrackId, /* sampleCount= */ 5);
+      writeFakeSamples(muxer, sharpVideoTrackId, /* sampleCount= */ 5);
+      writeFakeSamples(muxer, depthLinearVideoTrackId, /* sampleCount= */ 5);
     } finally {
       muxer.close();
     }
@@ -490,24 +489,24 @@ public class Mp4MuxerEndToEndTest {
           new Mp4TimestampData(
               /* creationTimestampSeconds= */ 1_000_000L,
               /* modificationTimestampSeconds= */ 5_000_000L));
-      TrackToken primaryVideoTrackToken = muxer.addTrack(FAKE_VIDEO_FORMAT);
-      TrackToken sharpVideoTrackToken =
+      int primaryVideoTrackId = muxer.addTrack(FAKE_VIDEO_FORMAT);
+      int sharpVideoTrackId =
           muxer.addTrack(
               FAKE_VIDEO_FORMAT
                   .buildUpon()
                   .setRoleFlags(C.ROLE_FLAG_AUXILIARY)
                   .setAuxiliaryTrackType(C.AUXILIARY_TRACK_TYPE_ORIGINAL)
                   .build());
-      TrackToken depthLinearVideoTrackToken =
+      int depthLinearVideoTrackId =
           muxer.addTrack(
               FAKE_VIDEO_FORMAT
                   .buildUpon()
                   .setRoleFlags(C.ROLE_FLAG_AUXILIARY)
                   .setAuxiliaryTrackType(C.AUXILIARY_TRACK_TYPE_DEPTH_LINEAR)
                   .build());
-      writeFakeSamples(muxer, primaryVideoTrackToken, /* sampleCount= */ 5);
-      writeFakeSamples(muxer, sharpVideoTrackToken, /* sampleCount= */ 5);
-      writeFakeSamples(muxer, depthLinearVideoTrackToken, /* sampleCount= */ 5);
+      writeFakeSamples(muxer, primaryVideoTrackId, /* sampleCount= */ 5);
+      writeFakeSamples(muxer, sharpVideoTrackId, /* sampleCount= */ 5);
+      writeFakeSamples(muxer, depthLinearVideoTrackId, /* sampleCount= */ 5);
     } finally {
       muxer.close();
     }
@@ -540,24 +539,24 @@ public class Mp4MuxerEndToEndTest {
           new Mp4TimestampData(
               /* creationTimestampSeconds= */ 1_000_000L,
               /* modificationTimestampSeconds= */ 5_000_000L));
-      TrackToken primaryVideoTrackToken = muxer.addTrack(FAKE_VIDEO_FORMAT);
-      TrackToken sharpVideoTrackToken =
+      int primaryVideoTrackId = muxer.addTrack(FAKE_VIDEO_FORMAT);
+      int sharpVideoTrackId =
           muxer.addTrack(
               FAKE_VIDEO_FORMAT
                   .buildUpon()
                   .setRoleFlags(C.ROLE_FLAG_AUXILIARY)
                   .setAuxiliaryTrackType(C.AUXILIARY_TRACK_TYPE_ORIGINAL)
                   .build());
-      TrackToken depthLinearVideoTrackToken =
+      int depthLinearVideoTrackId =
           muxer.addTrack(
               FAKE_VIDEO_FORMAT
                   .buildUpon()
                   .setRoleFlags(C.ROLE_FLAG_AUXILIARY)
                   .setAuxiliaryTrackType(C.AUXILIARY_TRACK_TYPE_DEPTH_LINEAR)
                   .build());
-      writeFakeSamples(muxer, primaryVideoTrackToken, /* sampleCount= */ 5);
-      writeFakeSamples(muxer, sharpVideoTrackToken, /* sampleCount= */ 5);
-      writeFakeSamples(muxer, depthLinearVideoTrackToken, /* sampleCount= */ 5);
+      writeFakeSamples(muxer, primaryVideoTrackId, /* sampleCount= */ 5);
+      writeFakeSamples(muxer, sharpVideoTrackId, /* sampleCount= */ 5);
+      writeFakeSamples(muxer, depthLinearVideoTrackId, /* sampleCount= */ 5);
     } finally {
       muxer.close();
     }
@@ -591,24 +590,24 @@ public class Mp4MuxerEndToEndTest {
           new Mp4TimestampData(
               /* creationTimestampSeconds= */ 1_000_000L,
               /* modificationTimestampSeconds= */ 5_000_000L));
-      TrackToken primaryVideoTrackToken = muxer.addTrack(FAKE_VIDEO_FORMAT);
-      TrackToken sharpVideoTrackToken =
+      int primaryVideoTrackId = muxer.addTrack(FAKE_VIDEO_FORMAT);
+      int sharpVideoTrackId =
           muxer.addTrack(
               FAKE_VIDEO_FORMAT
                   .buildUpon()
                   .setRoleFlags(C.ROLE_FLAG_AUXILIARY)
                   .setAuxiliaryTrackType(C.AUXILIARY_TRACK_TYPE_ORIGINAL)
                   .build());
-      TrackToken depthLinearVideoTrackToken =
+      int depthLinearVideoTrackId =
           muxer.addTrack(
               FAKE_VIDEO_FORMAT
                   .buildUpon()
                   .setRoleFlags(C.ROLE_FLAG_AUXILIARY)
                   .setAuxiliaryTrackType(C.AUXILIARY_TRACK_TYPE_DEPTH_LINEAR)
                   .build());
-      writeFakeSamples(muxer, primaryVideoTrackToken, /* sampleCount= */ 5);
-      writeFakeSamples(muxer, sharpVideoTrackToken, /* sampleCount= */ 5);
-      writeFakeSamples(muxer, depthLinearVideoTrackToken, /* sampleCount= */ 5);
+      writeFakeSamples(muxer, primaryVideoTrackId, /* sampleCount= */ 5);
+      writeFakeSamples(muxer, sharpVideoTrackId, /* sampleCount= */ 5);
+      writeFakeSamples(muxer, depthLinearVideoTrackId, /* sampleCount= */ 5);
     } finally {
       muxer.close();
     }
@@ -642,24 +641,24 @@ public class Mp4MuxerEndToEndTest {
           new Mp4TimestampData(
               /* creationTimestampSeconds= */ 1_000_000L,
               /* modificationTimestampSeconds= */ 5_000_000L));
-      TrackToken primaryVideoTrackToken = muxer.addTrack(FAKE_VIDEO_FORMAT);
-      TrackToken sharpVideoTrackToken =
+      int primaryVideoTrackId = muxer.addTrack(FAKE_VIDEO_FORMAT);
+      int sharpVideoTrackId =
           muxer.addTrack(
               FAKE_VIDEO_FORMAT
                   .buildUpon()
                   .setRoleFlags(C.ROLE_FLAG_AUXILIARY)
                   .setAuxiliaryTrackType(C.AUXILIARY_TRACK_TYPE_ORIGINAL)
                   .build());
-      TrackToken depthLinearVideoTrackToken =
+      int depthLinearVideoTrackId =
           muxer.addTrack(
               FAKE_VIDEO_FORMAT
                   .buildUpon()
                   .setRoleFlags(C.ROLE_FLAG_AUXILIARY)
                   .setAuxiliaryTrackType(C.AUXILIARY_TRACK_TYPE_DEPTH_LINEAR)
                   .build());
-      writeFakeSamples(muxer, primaryVideoTrackToken, /* sampleCount= */ 5);
-      writeFakeSamples(muxer, sharpVideoTrackToken, /* sampleCount= */ 5);
-      writeFakeSamples(muxer, depthLinearVideoTrackToken, /* sampleCount= */ 5);
+      writeFakeSamples(muxer, primaryVideoTrackId, /* sampleCount= */ 5);
+      writeFakeSamples(muxer, sharpVideoTrackId, /* sampleCount= */ 5);
+      writeFakeSamples(muxer, depthLinearVideoTrackId, /* sampleCount= */ 5);
     } finally {
       muxer.close();
     }
@@ -693,24 +692,24 @@ public class Mp4MuxerEndToEndTest {
           new Mp4TimestampData(
               /* creationTimestampSeconds= */ 1_000_000L,
               /* modificationTimestampSeconds= */ 5_000_000L));
-      TrackToken primaryVideoTrackToken = muxer.addTrack(FAKE_VIDEO_FORMAT);
-      TrackToken sharpVideoTrackToken =
+      int primaryVideoTrackId = muxer.addTrack(FAKE_VIDEO_FORMAT);
+      int sharpVideoTrackId =
           muxer.addTrack(
               FAKE_VIDEO_FORMAT
                   .buildUpon()
                   .setRoleFlags(C.ROLE_FLAG_AUXILIARY)
                   .setAuxiliaryTrackType(C.AUXILIARY_TRACK_TYPE_ORIGINAL)
                   .build());
-      TrackToken depthLinearVideoTrackToken =
+      int depthLinearVideoTrackId =
           muxer.addTrack(
               FAKE_VIDEO_FORMAT
                   .buildUpon()
                   .setRoleFlags(C.ROLE_FLAG_AUXILIARY)
                   .setAuxiliaryTrackType(C.AUXILIARY_TRACK_TYPE_DEPTH_LINEAR)
                   .build());
-      writeFakeSamples(muxer, primaryVideoTrackToken, /* sampleCount= */ 5);
-      writeFakeSamples(muxer, sharpVideoTrackToken, /* sampleCount= */ 5);
-      writeFakeSamples(muxer, depthLinearVideoTrackToken, /* sampleCount= */ 5);
+      writeFakeSamples(muxer, primaryVideoTrackId, /* sampleCount= */ 5);
+      writeFakeSamples(muxer, sharpVideoTrackId, /* sampleCount= */ 5);
+      writeFakeSamples(muxer, depthLinearVideoTrackId, /* sampleCount= */ 5);
     } finally {
       muxer.close();
     }
@@ -751,7 +750,7 @@ public class Mp4MuxerEndToEndTest {
 
     long expectedDurationUs = 1_000L;
     try {
-      TrackToken track = mp4Muxer.addTrack(FAKE_VIDEO_FORMAT);
+      int track = mp4Muxer.addTrack(FAKE_VIDEO_FORMAT);
       mp4Muxer.writeSampleData(track, sample1.first, sample1.second);
       mp4Muxer.writeSampleData(track, sample2.first, sample2.second);
       mp4Muxer.writeSampleData(track, sample3.first, sample3.second);
@@ -798,7 +797,7 @@ public class Mp4MuxerEndToEndTest {
         getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 300L);
 
     try {
-      TrackToken track = mp4Muxer.addTrack(FAKE_VIDEO_FORMAT);
+      int track = mp4Muxer.addTrack(FAKE_VIDEO_FORMAT);
       mp4Muxer.writeSampleData(track, sample1.first, sample1.second);
       mp4Muxer.writeSampleData(track, sample2.first, sample2.second);
       mp4Muxer.writeSampleData(track, sample3.first, sample3.second);
@@ -814,12 +813,12 @@ public class Mp4MuxerEndToEndTest {
     assertThat(fakeExtractorOutput.seekMap.getDurationUs()).isEqualTo(400L);
   }
 
-  private static void writeFakeSamples(Mp4Muxer muxer, TrackToken trackToken, int sampleCount)
+  private static void writeFakeSamples(Mp4Muxer muxer, int trackId, int sampleCount)
       throws MuxerException {
     for (int i = 0; i < sampleCount; i++) {
       Pair<ByteBuffer, BufferInfo> sampleAndSampleInfo =
           getFakeSampleAndSampleInfo(/* presentationTimeUs= */ i);
-      muxer.writeSampleData(trackToken, sampleAndSampleInfo.first, sampleAndSampleInfo.second);
+      muxer.writeSampleData(trackId, sampleAndSampleInfo.first, sampleAndSampleInfo.second);
     }
   }
 }

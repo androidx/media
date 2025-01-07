@@ -24,7 +24,7 @@ import android.annotation.SuppressLint;
 import android.media.MediaCodec.BufferInfo;
 import android.media.MediaFormat;
 import android.media.MediaMuxer;
-import androidx.annotation.Nullable;
+import android.util.SparseArray;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
@@ -40,9 +40,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
-import java.util.HashMap;
 import java.util.Locale;
-import java.util.Map;
 
 /** {@link Muxer} implementation that uses a {@link MediaMuxer}. */
 /* package */ final class FrameworkMuxer implements Muxer {
@@ -105,13 +103,14 @@ import java.util.Map;
   private static final ImmutableList<String> SUPPORTED_AUDIO_SAMPLE_MIME_TYPES =
       ImmutableList.of(MimeTypes.AUDIO_AAC, MimeTypes.AUDIO_AMR_NB, MimeTypes.AUDIO_AMR_WB);
   private static final String TAG = "FrameworkMuxer";
+  private static final int TRACK_ID_UNSET = -1;
 
   private final MediaMuxer mediaMuxer;
   private final long videoDurationUs;
-  private final Map<TrackToken, Long> trackTokenToLastPresentationTimeUs;
-  private final Map<TrackToken, Long> trackTokenToPresentationTimeOffsetUs;
+  private final SparseArray<Long> trackIdToLastPresentationTimeUs;
+  private final SparseArray<Long> trackIdToPresentationTimeOffsetUs;
 
-  @Nullable private TrackToken videoTrackToken;
+  private int videoTrackId;
 
   private boolean isStarted;
   private boolean isReleased;
@@ -119,12 +118,13 @@ import java.util.Map;
   private FrameworkMuxer(MediaMuxer mediaMuxer, long videoDurationUs) {
     this.mediaMuxer = mediaMuxer;
     this.videoDurationUs = videoDurationUs;
-    trackTokenToLastPresentationTimeUs = new HashMap<>();
-    trackTokenToPresentationTimeOffsetUs = new HashMap<>();
+    trackIdToLastPresentationTimeUs = new SparseArray<>();
+    trackIdToPresentationTimeOffsetUs = new SparseArray<>();
+    videoTrackId = TRACK_ID_UNSET;
   }
 
   @Override
-  public TrackToken addTrack(Format format) throws MuxerException {
+  public int addTrack(Format format) throws MuxerException {
     String sampleMimeType = checkNotNull(format.sampleMimeType);
     MediaFormat mediaFormat;
     boolean isVideo = MimeTypes.isVideo(sampleMimeType);
@@ -150,20 +150,19 @@ import java.util.Map;
       throw new MuxerException("Failed to add track with format=" + format, e);
     }
 
-    TrackToken trackToken = new TrackTokenImpl(trackIndex);
     if (isVideo) {
-      videoTrackToken = trackToken;
+      videoTrackId = trackIndex;
     }
 
-    return trackToken;
+    return trackIndex;
   }
 
   @Override
-  public void writeSampleData(TrackToken trackToken, ByteBuffer data, BufferInfo bufferInfo)
+  public void writeSampleData(int trackId, ByteBuffer data, BufferInfo bufferInfo)
       throws MuxerException {
     long presentationTimeUs = bufferInfo.presentationTimeUs;
     if (videoDurationUs != C.TIME_UNSET
-        && trackToken == videoTrackToken
+        && trackId == videoTrackId
         && presentationTimeUs > videoDurationUs) {
       Log.w(
           TAG,
@@ -176,20 +175,18 @@ import java.util.Map;
     }
     if (!isStarted) {
       if (Util.SDK_INT < 30 && presentationTimeUs < 0) {
-        trackTokenToPresentationTimeOffsetUs.put(trackToken, -presentationTimeUs);
+        trackIdToPresentationTimeOffsetUs.put(trackId, -presentationTimeUs);
       }
       startMuxer();
     }
 
     long presentationTimeOffsetUs =
-        trackTokenToPresentationTimeOffsetUs.containsKey(trackToken)
-            ? trackTokenToPresentationTimeOffsetUs.get(trackToken)
-            : 0;
+        trackIdToPresentationTimeOffsetUs.get(trackId, /* valueIfKeyNotFound= */ 0L);
     presentationTimeUs += presentationTimeOffsetUs;
 
     long lastSamplePresentationTimeUs =
-        trackTokenToLastPresentationTimeUs.containsKey(trackToken)
-            ? trackTokenToLastPresentationTimeUs.get(trackToken)
+        Util.contains(trackIdToLastPresentationTimeUs, trackId)
+            ? trackIdToLastPresentationTimeUs.get(trackId)
             : 0;
     // writeSampleData blocks on old API versions, so check here to avoid calling the method.
     checkState(
@@ -199,7 +196,7 @@ import java.util.Map;
             + " < "
             + lastSamplePresentationTimeUs
             + ") unsupported on this API version");
-    trackTokenToLastPresentationTimeUs.put(trackToken, presentationTimeUs);
+    trackIdToLastPresentationTimeUs.put(trackId, presentationTimeUs);
 
     checkState(
         presentationTimeOffsetUs == 0 || presentationTimeUs >= 0,
@@ -212,8 +209,8 @@ import java.util.Map;
     bufferInfo.set(bufferInfo.offset, bufferInfo.size, presentationTimeUs, bufferInfo.flags);
 
     try {
-      checkState(trackToken instanceof TrackTokenImpl);
-      mediaMuxer.writeSampleData(((TrackTokenImpl) trackToken).trackIndex, data, bufferInfo);
+
+      mediaMuxer.writeSampleData(trackId, data, bufferInfo);
     } catch (RuntimeException e) {
       throw new MuxerException(
           "Failed to write sample for presentationTimeUs="
@@ -244,14 +241,14 @@ import java.util.Map;
       startMuxer();
     }
 
-    if (videoDurationUs != C.TIME_UNSET && videoTrackToken != null) {
+    if (videoDurationUs != C.TIME_UNSET && videoTrackId != TRACK_ID_UNSET) {
       BufferInfo bufferInfo = new BufferInfo();
       bufferInfo.set(
           /* newOffset= */ 0,
           /* newSize= */ 0,
           videoDurationUs,
           TransformerUtil.getMediaCodecFlags(C.BUFFER_FLAG_END_OF_STREAM));
-      writeSampleData(checkNotNull(videoTrackToken), ByteBuffer.allocateDirect(0), bufferInfo);
+      writeSampleData(videoTrackId, ByteBuffer.allocateDirect(0), bufferInfo);
     }
 
     isStarted = false;
@@ -313,13 +310,5 @@ import java.util.Map;
       supportedMimeTypes.add(MimeTypes.VIDEO_AV1);
     }
     return supportedMimeTypes.build();
-  }
-
-  private static class TrackTokenImpl implements TrackToken {
-    public final int trackIndex;
-
-    public TrackTokenImpl(int trackIndex) {
-      this.trackIndex = trackIndex;
-    }
   }
 }

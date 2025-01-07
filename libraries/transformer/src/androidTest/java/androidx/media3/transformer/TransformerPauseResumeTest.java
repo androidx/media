@@ -24,7 +24,6 @@ import static org.junit.Assume.assumeFalse;
 
 import android.content.Context;
 import android.media.MediaCodec.BufferInfo;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
@@ -448,7 +447,7 @@ public class TransformerPauseResumeTest {
     private final FrameBlockingMuxer.Listener listener;
 
     private boolean notifiedListener;
-    @Nullable private TrackToken videoTrackToken;
+    private int videoTrackId;
 
     private FrameBlockingMuxer(Muxer wrappedMuxer, FrameBlockingMuxer.Listener listener) {
       this.wrappedMuxer = wrappedMuxer;
@@ -456,18 +455,18 @@ public class TransformerPauseResumeTest {
     }
 
     @Override
-    public TrackToken addTrack(Format format) throws MuxerException {
-      TrackToken trackToken = wrappedMuxer.addTrack(format);
+    public int addTrack(Format format) throws MuxerException {
+      int trackId = wrappedMuxer.addTrack(format);
       if (MimeTypes.isVideo(format.sampleMimeType)) {
-        videoTrackToken = trackToken;
+        videoTrackId = trackId;
       }
-      return trackToken;
+      return trackId;
     }
 
     @Override
-    public void writeSampleData(TrackToken trackToken, ByteBuffer data, BufferInfo bufferInfo)
+    public void writeSampleData(int trackId, ByteBuffer data, BufferInfo bufferInfo)
         throws MuxerException {
-      if (trackToken == videoTrackToken
+      if (trackId == videoTrackId
           && bufferInfo.presentationTimeUs >= DEFAULT_PRESENTATION_TIME_US_TO_BLOCK_FRAME) {
         if (!notifiedListener) {
           listener.onFrameBlocked();
@@ -475,7 +474,7 @@ public class TransformerPauseResumeTest {
         }
         return;
       }
-      wrappedMuxer.writeSampleData(trackToken, data, bufferInfo);
+      wrappedMuxer.writeSampleData(trackId, data, bufferInfo);
     }
 
     @Override

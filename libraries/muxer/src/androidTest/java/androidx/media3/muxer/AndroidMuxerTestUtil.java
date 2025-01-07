@@ -44,11 +44,11 @@ import java.util.List;
         context.getResources().getAssets().openFd(MP4_FILE_ASSET_DIRECTORY + inputFileName);
     extractor.setDataSource(fd);
 
-    List<Muxer.TrackToken> addedTracks = new ArrayList<>();
+    List<Integer> addedTracks = new ArrayList<>();
     for (int i = 0; i < extractor.getTrackCount(); i++) {
-      Muxer.TrackToken trackToken =
+      int trackId =
           muxer.addTrack(MediaFormatUtil.createFormatFromMediaFormat(extractor.getTrackFormat(i)));
-      addedTracks.add(trackToken);
+      addedTracks.add(trackId);
       extractor.selectTrack(i);
     }
 

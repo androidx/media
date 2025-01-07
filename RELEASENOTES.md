@@ -38,6 +38,8 @@
 *   Muxers:
     *   Renamed `setSampleCopyEnabled()` method to `setSampleCopyingEnabled()`
         in both `Mp4Muxer.Builder` and `FragmentedMp4Muxer.Builder`.
+    *   `Mp4Muxer.addTrack()` and `FragmentedMp4Muxer.addTrack()` now return an
+        `int` track id instead of a `TrackToken`.
 *   IMA extension:
 *   Session:
     *   Fix bug where calling a `Player` method on a `MediaController` connected

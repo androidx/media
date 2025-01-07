@@ -84,14 +84,14 @@ public final class DefaultMuxer implements Muxer {
   }
 
   @Override
-  public TrackToken addTrack(Format format) throws MuxerException {
+  public int addTrack(Format format) throws MuxerException {
     return muxer.addTrack(format);
   }
 
   @Override
-  public void writeSampleData(TrackToken trackToken, ByteBuffer byteBuffer, BufferInfo bufferInfo)
+  public void writeSampleData(int trackId, ByteBuffer byteBuffer, BufferInfo bufferInfo)
       throws MuxerException {
-    muxer.writeSampleData(trackToken, byteBuffer, bufferInfo);
+    muxer.writeSampleData(trackId, byteBuffer, bufferInfo);
   }
 
   @Override

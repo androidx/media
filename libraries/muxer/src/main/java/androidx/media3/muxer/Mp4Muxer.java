@@ -89,9 +89,9 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
  * <p>To create an MP4 container file, the caller must:
  *
  * <ul>
- *   <li>Add tracks using {@link #addTrack(int, Format)} which will return a {@link TrackToken}.
- *   <li>Use the associated {@link TrackToken} when {@linkplain #writeSampleData(TrackToken,
- *       ByteBuffer, BufferInfo) writing samples} for that track.
+ *   <li>Add tracks using {@link #addTrack(int, Format)} which will return a track id.
+ *   <li>Use the associated track id when {@linkplain #writeSampleData(int, ByteBuffer, BufferInfo)
+ *       writing samples} for that track.
  *   <li>{@link #close} the muxer when all data has been written.
  * </ul>
  *
@@ -100,8 +100,8 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
  * <ul>
  *   <li>Tracks can be added at any point, even after writing some samples to other tracks.
  *   <li>The caller is responsible for ensuring that samples of different track types are well
- *       interleaved by calling {@link #writeSampleData(TrackToken, ByteBuffer, BufferInfo)} in an
- *       order that interleaves samples from different tracks.
+ *       interleaved by calling {@link #writeSampleData(int, ByteBuffer, BufferInfo)} in an order
+ *       that interleaves samples from different tracks.
  *   <li>When writing a file, if an error occurs and the muxer is not closed, then the output MP4
  *       file may still have some partial data.
  * </ul>
@@ -252,10 +252,10 @@ public final class Mp4Muxer implements Muxer {
     /**
      * Sets whether to enable the sample copy.
      *
-     * <p>If the sample copy is enabled, {@link #writeSampleData(TrackToken, ByteBuffer,
-     * BufferInfo)} copies the input {@link ByteBuffer} and {@link BufferInfo} before it returns, so
-     * it is safe to reuse them immediately. Otherwise, the muxer takes ownership of the {@link
-     * ByteBuffer} and the {@link BufferInfo} and the caller must not modify them.
+     * <p>If the sample copy is enabled, {@link #writeSampleData(int, ByteBuffer, BufferInfo)}
+     * copies the input {@link ByteBuffer} and {@link BufferInfo} before it returns, so it is safe
+     * to reuse them immediately. Otherwise, the muxer takes ownership of the {@link ByteBuffer} and
+     * the {@link BufferInfo} and the caller must not modify them.
      *
      * <p>The default value is {@code true}.
      */
@@ -269,7 +269,7 @@ public final class Mp4Muxer implements Muxer {
      * Sets whether to enable sample batching.
      *
      * <p>If sample batching is enabled, samples are written in batches for each track, otherwise
-     * samples are written as they {@linkplain #writeSampleData(TrackToken, ByteBuffer, BufferInfo)
+     * samples are written as they {@linkplain #writeSampleData(int, ByteBuffer, BufferInfo)
      * arrive}.
      *
      * <p>The default value is {@code true}.
@@ -348,12 +348,15 @@ public final class Mp4Muxer implements Muxer {
   @Nullable private final Mp4AtFileParameters mp4AtFileParameters;
   private final MetadataCollector metadataCollector;
   private final Mp4Writer mp4Writer;
+  private final List<Track> trackIdToTrack;
   private final List<Track> auxiliaryTracks;
 
   @Nullable private String cacheFilePath;
   @Nullable private FileOutputStream cacheFileOutputStream;
   @Nullable private MetadataCollector auxiliaryTracksMetadataCollector;
   @Nullable private Mp4Writer auxiliaryTracksMp4Writer;
+
+  private int nextTrackId;
 
   private Mp4Muxer(
       FileOutputStream outputStream,
@@ -383,6 +386,7 @@ public final class Mp4Muxer implements Muxer {
             sampleCopyEnabled,
             sampleBatchingEnabled,
             attemptStreamableOutputEnabled);
+    trackIdToTrack = new ArrayList<>();
     auxiliaryTracks = new ArrayList<>();
   }
 
@@ -395,11 +399,12 @@ public final class Mp4Muxer implements Muxer {
    * <p>The order of tracks remains same in which they are added.
    *
    * @param format The {@link Format} for the track.
-   * @return A unique {@link TrackToken}. It should be used in {@link #writeSampleData}.
+   * @return A unique track id. The track id is non-negative. It should be used in {@link
+   *     #writeSampleData}.
    * @throws MuxerException If an error occurs while adding track.
    */
   @Override
-  public TrackToken addTrack(Format format) throws MuxerException {
+  public int addTrack(Format format) throws MuxerException {
     return addTrack(/* sortKey= */ 1, format);
   }
 
@@ -410,31 +415,37 @@ public final class Mp4Muxer implements Muxer {
    * other tracks.
    *
    * <p>The final order of tracks is determined by the provided sort key. Tracks with a lower sort
-   * key will always have a lower track id than tracks with a higher sort key. Ordering between
-   * tracks with the same sort key is not specified.
+   * key will be written before tracks with a higher sort key. Ordering between tracks with the same
+   * sort key is not specified.
    *
    * @param sortKey The key used for sorting the track list.
    * @param format The {@link Format} for the track.
-   * @return A unique {@link TrackToken}. It should be used in {@link #writeSampleData}.
+   * @return A unique track id. The track id is non-negative. It should be used in {@link
+   *     #writeSampleData}.
    * @throws MuxerException If an error occurs while adding track.
    */
-  public TrackToken addTrack(int sortKey, Format format) throws MuxerException {
+  public int addTrack(int sortKey, Format format) throws MuxerException {
+    Track track;
     if (outputFileFormat == FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION
         && isAuxiliaryTrack(format)) {
       if (checkNotNull(mp4AtFileParameters).shouldInterleaveSamples) {
         // Auxiliary tracks are handled by the primary Mp4Writer.
-        return mp4Writer.addAuxiliaryTrack(sortKey, format);
+        track = mp4Writer.addAuxiliaryTrack(nextTrackId++, sortKey, format);
+      } else {
+        // Auxiliary tracks are handled by the auxiliary tracks Mp4Writer.
+        try {
+          ensureSetupForAuxiliaryTracks();
+        } catch (FileNotFoundException e) {
+          throw new MuxerException("Cache file not found", e);
+        }
+        track = auxiliaryTracksMp4Writer.addTrack(nextTrackId++, sortKey, format);
+        auxiliaryTracks.add(track);
       }
-      try {
-        ensureSetupForAuxiliaryTracks();
-      } catch (FileNotFoundException e) {
-        throw new MuxerException("Cache file not found", e);
-      }
-      Track track = auxiliaryTracksMp4Writer.addTrack(sortKey, format);
-      auxiliaryTracks.add(track);
-      return track;
+    } else {
+      track = mp4Writer.addTrack(nextTrackId++, sortKey, format);
     }
-    return mp4Writer.addTrack(sortKey, format);
+    trackIdToTrack.add(track);
+    return track.id;
   }
 
   /**
@@ -442,13 +453,13 @@ public final class Mp4Muxer implements Muxer {
    *
    * <p>When sample batching is {@linkplain Mp4Muxer.Builder#setSampleBatchingEnabled(boolean)
    * enabled}, provide sample data ({@link ByteBuffer}, {@link BufferInfo}) that won't be modified
-   * after calling the {@link #writeSampleData(TrackToken, ByteBuffer, BufferInfo)} method, unless
-   * sample copying is also {@linkplain Mp4Muxer.Builder#setSampleCopyingEnabled(boolean) enabled}.
-   * This ensures data integrity within the batch. If sample copying is {@linkplain
+   * after calling the {@link #writeSampleData(int, ByteBuffer, BufferInfo)} method, unless sample
+   * copying is also {@linkplain Mp4Muxer.Builder#setSampleCopyingEnabled(boolean) enabled}. This
+   * ensures data integrity within the batch. If sample copying is {@linkplain
    * Mp4Muxer.Builder#setSampleCopyingEnabled(boolean) enabled}, it's safe to modify the data after
    * the method returns, as the muxer internally creates a sample copy.
    *
-   * @param trackToken The {@link TrackToken} for which this sample is being written.
+   * @param trackId The track id for which this sample is being written.
    * @param byteBuffer The encoded sample. The muxer takes ownership of the buffer if {@link
    *     Builder#setSampleCopyingEnabled(boolean) sample copying} is disabled. Otherwise, the
    *     position of the buffer is updated but the caller retains ownership.
@@ -456,12 +467,11 @@ public final class Mp4Muxer implements Muxer {
    * @throws MuxerException If an error occurs while writing data to the output file.
    */
   @Override
-  public void writeSampleData(TrackToken trackToken, ByteBuffer byteBuffer, BufferInfo bufferInfo)
+  public void writeSampleData(int trackId, ByteBuffer byteBuffer, BufferInfo bufferInfo)
       throws MuxerException {
-    checkState(trackToken instanceof Track);
-    Track track = (Track) trackToken;
+    Track track = trackIdToTrack.get(trackId);
     try {
-      if (auxiliaryTracks.contains(trackToken)) {
+      if (auxiliaryTracks.contains(track)) {
         checkNotNull(auxiliaryTracksMp4Writer).writeSampleData(track, byteBuffer, bufferInfo);
       } else {
         mp4Writer.writeSampleData(track, byteBuffer, bufferInfo);
