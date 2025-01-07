@@ -40,6 +40,9 @@
         in both `Mp4Muxer.Builder` and `FragmentedMp4Muxer.Builder`.
 *   IMA extension:
 *   Session:
+    *   Fix bug where calling a `Player` method on a `MediaController` connected
+        to a legacy session dropped changes of a pending update coming from the
+        legacy session.
 *   UI:
     *   Add `PresentationState` state holder class and the corresponding
         `rememberPresentationState` Composable to `media3-ui-compose`.

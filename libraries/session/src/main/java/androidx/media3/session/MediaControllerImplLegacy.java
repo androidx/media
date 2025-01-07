@@ -1593,6 +1593,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
     updateControllerInfo(
         notifyConnected,
         newLegacyPlayerInfo,
+        /* resetPendingLegacyPlayerInfo= */ true,
         newControllerInfo,
         /* discontinuityReason= */ reasons.first,
         /* mediaItemTransitionReason= */ reasons.second);
@@ -1616,6 +1617,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
     updateControllerInfo(
         /* notifyConnected= */ false,
         legacyPlayerInfo,
+        /* resetPendingLegacyPlayerInfo= */ false,
         newControllerInfo,
         discontinuityReason,
         mediaItemTransitionReason);
@@ -1626,6 +1628,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
   private void updateControllerInfo(
       boolean notifyConnected,
       LegacyPlayerInfo newLegacyPlayerInfo,
+      boolean resetPendingLegacyPlayerInfo,
       ControllerInfo newControllerInfo,
       @Nullable @Player.DiscontinuityReason Integer discontinuityReason,
       @Nullable @Player.MediaItemTransitionReason Integer mediaItemTransitionReason) {
@@ -1634,7 +1637,9 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
     if (legacyPlayerInfo != newLegacyPlayerInfo) {
       legacyPlayerInfo = new LegacyPlayerInfo(newLegacyPlayerInfo);
     }
-    pendingLegacyPlayerInfo = legacyPlayerInfo;
+    if (resetPendingLegacyPlayerInfo) {
+      pendingLegacyPlayerInfo = legacyPlayerInfo;
+    }
     controllerInfo = newControllerInfo;
 
     if (notifyConnected) {

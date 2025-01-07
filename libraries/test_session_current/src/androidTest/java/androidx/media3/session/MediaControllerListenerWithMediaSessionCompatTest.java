@@ -38,6 +38,7 @@ import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.Util;
+import androidx.media3.session.legacy.MediaMetadataCompat;
 import androidx.media3.test.session.R;
 import androidx.media3.test.session.common.CommonConstants;
 import androidx.media3.test.session.common.HandlerThreadTestRule;
@@ -817,5 +818,52 @@ public class MediaControllerListenerWithMediaSessionCompatTest {
         .isEqualTo(PlaybackStateCompat.PLAYBACK_POSITION_UNKNOWN);
     assertThat(threadTestRule.getHandler().postAndSync(controller::getCurrentPosition))
         .isEqualTo(0);
+  }
+
+  @SuppressWarnings("deprecation") // Testing interoperability and backwards compatibility.
+  @Test
+  public void setDeviceVolume_whenWaitingForPendingUpdates_maskingDoesNotOverridePendingUpdate()
+      throws Exception {
+    MediaController controller = controllerTestRule.createController(session.getSessionToken());
+    List<Integer> reportedPlaybackStates = new ArrayList<>();
+    List<MediaMetadata> reportedMediaMetadata = new ArrayList<>();
+    ConditionVariable playbackStateChanged = new ConditionVariable();
+    ConditionVariable mediaMetadataChanged = new ConditionVariable();
+    playbackStateChanged.close();
+    controller.addListener(
+        new Player.Listener() {
+          @Override
+          public void onPlaybackStateChanged(int playbackState) {
+            reportedPlaybackStates.add(playbackState);
+            playbackStateChanged.open();
+          }
+
+          @Override
+          public void onMediaMetadataChanged(MediaMetadata mediaMetadata) {
+            reportedMediaMetadata.add(mediaMetadata);
+            mediaMetadataChanged.open();
+          }
+        });
+
+    session.setMetadata(
+        new android.support.v4.media.MediaMetadataCompat.Builder()
+            .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, "artist-0")
+            .build());
+    session.setPlaybackState(
+        new PlaybackStateCompat.Builder()
+            .setState(
+                PlaybackStateCompat.STATE_PLAYING, /* position= */ 1001L, /* playbackSpeed= */ 1.0f)
+            .build());
+    synchronized (this) {
+      // Wait 200ms to make playback state and metadata arrive.
+      Thread.sleep(200);
+      // Trigger masking than must not drop the pending legacy info.
+      threadTestRule.getHandler().postAndSync(() -> controller.setDeviceVolume(1, 0));
+    }
+
+    assertThat(playbackStateChanged.block(TIMEOUT_MS)).isTrue();
+    assertThat(mediaMetadataChanged.block(TIMEOUT_MS)).isTrue();
+    assertThat(reportedPlaybackStates).containsExactly(3);
+    assertThat(reportedMediaMetadata.stream().map((m) -> m.artist)).containsExactly("artist-0");
   }
 }
