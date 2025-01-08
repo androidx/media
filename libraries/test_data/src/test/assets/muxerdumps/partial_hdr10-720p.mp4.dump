@@ -20,6 +20,7 @@ track 0:
     width = 1280
     height = 720
     frameRate = 29.96
+    maxSubLayers = 1
     colorInfo:
       colorSpace = 6
       colorRange = 2

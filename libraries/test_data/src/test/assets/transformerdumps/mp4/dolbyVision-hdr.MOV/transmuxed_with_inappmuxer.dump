@@ -21,6 +21,7 @@ track 0:
     height = 720
     frameRate = 30.00
     rotationDegrees = 90
+    maxSubLayers = 1
     colorInfo:
       colorSpace = 6
       colorRange = 2

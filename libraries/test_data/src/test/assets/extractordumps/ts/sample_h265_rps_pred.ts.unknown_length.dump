@@ -15,6 +15,7 @@ track 256:
     width = 914
     height = 686
     pixelWidthHeightRatio = 1.0003651
+    maxSubLayers = 4
     colorInfo:
       lumaBitdepth = 8
       chromaBitdepth = 8

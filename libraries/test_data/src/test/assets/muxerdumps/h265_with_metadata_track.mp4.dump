@@ -72,6 +72,7 @@ track 2:
     width = 1920
     height = 1080
     frameRate = 29.98
+    maxSubLayers = 1
     colorInfo:
       colorSpace = 2
       colorRange = 1

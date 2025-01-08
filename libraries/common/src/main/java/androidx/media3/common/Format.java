@@ -103,6 +103,7 @@ import java.util.UUID;
  *   <li>{@link #projectionData}
  *   <li>{@link #stereoMode}
  *   <li>{@link #colorInfo}
+ *   <li>{@link #maxSubLayers}
  * </ul>
  *
  * <h2 id="audio-formats">Fields relevant to audio formats</h2>
@@ -179,6 +180,7 @@ public final class Format {
     @Nullable private byte[] projectionData;
     private @C.StereoMode int stereoMode;
     @Nullable private ColorInfo colorInfo;
+    private int maxSubLayers;
 
     // Audio specific.
 
@@ -217,6 +219,7 @@ public final class Format {
       frameRate = NO_VALUE;
       pixelWidthHeightRatio = 1.0f;
       stereoMode = NO_VALUE;
+      maxSubLayers = NO_VALUE;
       // Audio specific.
       channelCount = NO_VALUE;
       sampleRate = NO_VALUE;
@@ -268,6 +271,7 @@ public final class Format {
       this.projectionData = format.projectionData;
       this.stereoMode = format.stereoMode;
       this.colorInfo = format.colorInfo;
+      this.maxSubLayers = format.maxSubLayers;
       // Audio specific.
       this.channelCount = format.channelCount;
       this.sampleRate = format.sampleRate;
@@ -656,6 +660,18 @@ public final class Format {
       return this;
     }
 
+    /**
+     * Sets {@link Format#maxSubLayers}. The default value is {@link #NO_VALUE}.
+     *
+     * @param maxSubLayers The {@link Format#maxSubLayers}.
+     * @return The builder.
+     */
+    @CanIgnoreReturnValue
+    public Builder setMaxSubLayers(int maxSubLayers) {
+      this.maxSubLayers = maxSubLayers;
+      return this;
+    }
+
     // Audio specific.
 
     /**
@@ -1009,6 +1025,12 @@ public final class Format {
   /** The color metadata associated with the video, or null if not applicable. */
   @UnstableApi @Nullable public final ColorInfo colorInfo;
 
+  /**
+   * The maximum number of temporal scalable sub-layers in the video bitstream, or {@link #NO_VALUE}
+   * if not applicable.
+   */
+  @UnstableApi public final int maxSubLayers;
+
   // Audio specific.
 
   /** The number of audio channels, or {@link #NO_VALUE} if unknown or not applicable. */
@@ -1127,6 +1149,7 @@ public final class Format {
     projectionData = builder.projectionData;
     stereoMode = builder.stereoMode;
     colorInfo = builder.colorInfo;
+    maxSubLayers = builder.maxSubLayers;
     // Audio specific.
     channelCount = builder.channelCount;
     sampleRate = builder.sampleRate;
@@ -1309,6 +1332,7 @@ public final class Format {
       // [Omitted] projectionData.
       result = 31 * result + stereoMode;
       // [Omitted] colorInfo.
+      result = 31 * result + maxSubLayers;
       // Audio specific.
       result = 31 * result + channelCount;
       result = 31 * result + sampleRate;
@@ -1351,6 +1375,7 @@ public final class Format {
         && height == other.height
         && rotationDegrees == other.rotationDegrees
         && stereoMode == other.stereoMode
+        && maxSubLayers == other.maxSubLayers
         && channelCount == other.channelCount
         && sampleRate == other.sampleRate
         && pcmEncoding == other.pcmEncoding
@@ -1452,6 +1477,9 @@ public final class Format {
     if (format.frameRate != NO_VALUE) {
       builder.append(", fps=").append(format.frameRate);
     }
+    if (format.maxSubLayers != NO_VALUE) {
+      builder.append(", maxSubLayers=").append(format.maxSubLayers);
+    }
     if (format.channelCount != NO_VALUE) {
       builder.append(", channels=").append(format.channelCount);
     }
@@ -1523,6 +1551,7 @@ public final class Format {
   private static final String FIELD_TILE_COUNT_VERTICAL = Util.intToStringMaxRadix(31);
   private static final String FIELD_LABELS = Util.intToStringMaxRadix(32);
   private static final String FIELD_AUXILIARY_TRACK_TYPE = Util.intToStringMaxRadix(33);
+  private static final String FIELD_MAX_SUB_LAYERS = Util.intToStringMaxRadix(34);
 
   /**
    * Returns a {@link Bundle} representing the information stored in this object. If {@code
@@ -1568,6 +1597,7 @@ public final class Format {
     if (colorInfo != null) {
       bundle.putBundle(FIELD_COLOR_INFO, colorInfo.toBundle());
     }
+    bundle.putInt(FIELD_MAX_SUB_LAYERS, maxSubLayers);
     // Audio specific.
     bundle.putInt(FIELD_CHANNEL_COUNT, channelCount);
     bundle.putInt(FIELD_SAMPLE_RATE, sampleRate);
@@ -1635,7 +1665,8 @@ public final class Format {
         .setPixelWidthHeightRatio(
             bundle.getFloat(FIELD_PIXEL_WIDTH_HEIGHT_RATIO, DEFAULT.pixelWidthHeightRatio))
         .setProjectionData(bundle.getByteArray(FIELD_PROJECTION_DATA))
-        .setStereoMode(bundle.getInt(FIELD_STEREO_MODE, DEFAULT.stereoMode));
+        .setStereoMode(bundle.getInt(FIELD_STEREO_MODE, DEFAULT.stereoMode))
+        .setMaxSubLayers(bundle.getInt(FIELD_MAX_SUB_LAYERS, DEFAULT.maxSubLayers));
     Bundle colorInfoBundle = bundle.getBundle(FIELD_COLOR_INFO);
     if (colorInfoBundle != null) {
       builder.setColorInfo(ColorInfo.fromBundle(colorInfoBundle));

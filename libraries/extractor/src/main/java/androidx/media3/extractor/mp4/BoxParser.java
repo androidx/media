@@ -1211,6 +1211,7 @@ public final class BoxParser {
     @C.StereoMode int stereoMode = Format.NO_VALUE;
     @Nullable EsdsData esdsData = null;
     int maxNumReorderSamples = Format.NO_VALUE;
+    int maxSubLayers = Format.NO_VALUE;
     @Nullable NalUnitUtil.H265VpsData vpsData = null;
 
     // HDR related metadata.
@@ -1258,6 +1259,7 @@ public final class BoxParser {
           pixelWidthHeightRatio = hevcConfig.pixelWidthHeightRatio;
         }
         maxNumReorderSamples = hevcConfig.maxNumReorderPics;
+        maxSubLayers = hevcConfig.maxSubLayers;
         codecs = hevcConfig.codecs;
         if (hevcConfig.stereoMode != Format.NO_VALUE) {
           // HEVCDecoderConfigurationRecord may include 3D reference displays information SEI.
@@ -1526,6 +1528,7 @@ public final class BoxParser {
             .setStereoMode(stereoMode)
             .setInitializationData(initializationData)
             .setMaxNumReorderSamples(maxNumReorderSamples)
+            .setMaxSubLayers(maxSubLayers)
             .setDrmInitData(drmInitData)
             // Note that if either mdcv or clli are missing, we leave the corresponding HDR static
             // metadata bytes with value zero. See [Internal ref: b/194535665].
