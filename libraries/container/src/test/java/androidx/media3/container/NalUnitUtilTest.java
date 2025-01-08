@@ -15,9 +15,13 @@
  */
 package androidx.media3.container;
 
+import static androidx.media3.container.NalUnitUtil.isDependedOn;
+import static androidx.media3.container.NalUnitUtil.numberOfBytesToDetermineSampleDependencies;
 import static androidx.media3.test.utils.TestUtil.createByteArray;
 import static com.google.common.truth.Truth.assertThat;
 
+import androidx.media3.common.Format;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Util;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
@@ -492,6 +496,20 @@ public final class NalUnitUtilTest {
     assertThat(spsData.colorRange).isEqualTo(2);
     assertThat(spsData.colorTransfer).isEqualTo(6);
     assertThat(spsData.maxNumReorderPics).isEqualTo(0);
+  }
+
+  @Test
+  public void numberOfBytesToDetermineSampleDependencies_vp8_returnsZero() {
+    Format vp8Video = new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_VP8).build();
+
+    assertThat(numberOfBytesToDetermineSampleDependencies(vp8Video)).isEqualTo(0);
+  }
+
+  @Test
+  public void isDependedOn_vp8_returnsTrue() {
+    Format vp8Video = new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_VP8).build();
+
+    assertThat(isDependedOn(new byte[0], /* offset= */ 0, /* length= */ 0, vp8Video)).isTrue();
   }
 
   private static byte[] buildTestData() {

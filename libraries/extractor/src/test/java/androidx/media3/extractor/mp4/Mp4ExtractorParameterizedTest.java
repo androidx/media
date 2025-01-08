@@ -244,6 +244,11 @@ public final class Mp4ExtractorParameterizedTest {
     assertExtractorBehavior("media/mp4/sample_with_invalid_nalu.mp4");
   }
 
+  @Test
+  public void mp4SampleWithNonReferenceH265Frames() throws Exception {
+    assertExtractorBehavior("media/mp4/h265_bframes.mp4");
+  }
+
   private void assertExtractorBehavior(String file) throws IOException {
     ExtractorAsserts.AssertionConfig.Builder assertionConfigBuilder =
         new ExtractorAsserts.AssertionConfig.Builder();
@@ -272,6 +277,7 @@ public final class Mp4ExtractorParameterizedTest {
     }
     if (readWithinGopSampleDependencies) {
       flags |= Mp4Extractor.FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES;
+      flags |= Mp4Extractor.FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES_H265;
     }
 
     @Mp4Extractor.Flags int finalFlags = flags;

@@ -682,6 +682,59 @@ public final class NalUnitUtil {
   }
 
   /**
+   * Returns the number of bytes needed from the NAL unit to determine whether subsequent NAL units
+   * can depend on the current NAL unit.
+   *
+   * @param format The sample {@link Format}.
+   */
+  public static int numberOfBytesToDetermineSampleDependencies(Format format) {
+    if (Objects.equals(format.sampleMimeType, MimeTypes.VIDEO_H264)) {
+      return 1;
+    }
+    if (Objects.equals(format.sampleMimeType, MimeTypes.VIDEO_H265)) {
+      return 2;
+    }
+    return 0;
+  }
+
+  /**
+   * Returns whether the NAL unit starting with the given bytes can be depended on by subsequent NAL
+   * units in decoding order.
+   *
+   * @param data The array holding the first {@code length} bytes of the NAL unit.
+   * @param offset The offset in {@code data} at which the NAL unit starts.
+   * @param length The number of bytes available.
+   * @param format The sample {@link Format}.
+   */
+  public static boolean isDependedOn(byte[] data, int offset, int length, Format format) {
+    if (Objects.equals(format.sampleMimeType, MimeTypes.VIDEO_H264)) {
+      return isH264NalUnitDependedOn(data[offset]);
+    }
+    if (Objects.equals(format.sampleMimeType, MimeTypes.VIDEO_H265)) {
+      return isH265NalUnitDependedOn(data, offset, length, format);
+    }
+    return true;
+  }
+
+  private static boolean isH265NalUnitDependedOn(
+      byte[] data, int offset, int length, Format format) {
+    H265NalHeader header =
+        parseH265NalHeader(new ParsableNalUnitBitArray(data, offset, /* limit= */ offset + length));
+    if (header.nalUnitType == H265_NAL_UNIT_TYPE_AUD) {
+      // NAL unit delimiters are not depended on.
+      return false;
+    }
+    boolean isSubLayerNonReferencePicture = header.nalUnitType <= 14 && header.nalUnitType % 2 == 0;
+    if (isSubLayerNonReferencePicture && header.temporalId == format.maxSubLayers - 1) {
+      // Sub-layer non-reference (SLNR) pictures cannot be used for inter prediction in the same
+      // temporal layer. That is, SLNR pictures are not depended on if they are part of the highest
+      // temporal layer.
+      return false;
+    }
+    return true;
+  }
+
+  /**
    * Returns the type of the H.265 NAL unit in {@code data} that starts at {@code offset}.
    *
    * @param data The data to search.

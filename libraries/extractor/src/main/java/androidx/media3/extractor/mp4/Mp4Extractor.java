@@ -165,6 +165,14 @@ public final class Mp4Extractor implements Extractor, SeekMap {
   public static final int FLAG_READ_AUXILIARY_TRACKS = 1 << 6;
 
   /**
+   * Flag to extract additional sample dependency information, and mark output buffers with {@link
+   * C#BUFFER_FLAG_NOT_DEPENDED_ON} for {@linkplain MimeTypes#VIDEO_H265 H.265} video.
+   *
+   * <p>See {@link #FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES}.
+   */
+  public static final int FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES_H265 = 1 << 7;
+
+  /**
    * @deprecated Use {@link #newFactory(SubtitleParser.Factory)} instead.
    */
   @Deprecated
@@ -302,13 +310,11 @@ public final class Mp4Extractor implements Extractor, SeekMap {
     atomHeader = new ParsableByteArray(Mp4Box.LONG_HEADER_SIZE);
     containerAtoms = new ArrayDeque<>();
     nalStartCode = new ParsableByteArray(NalUnitUtil.NAL_START_CODE);
-    nalPrefix = new ParsableByteArray(5);
+    nalPrefix = new ParsableByteArray(6);
     scratch = new ParsableByteArray();
     sampleTrackIndex = C.INDEX_UNSET;
     extractorOutput = ExtractorOutput.PLACEHOLDER;
     tracks = new Mp4Track[0];
-    // Treat all samples as depended on when FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES is unset.
-    isSampleDependedOn = (flags & FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES) == 0;
   }
 
   @Override
@@ -342,8 +348,7 @@ public final class Mp4Extractor implements Extractor, SeekMap {
     sampleBytesRead = 0;
     sampleBytesWritten = 0;
     sampleCurrentNalBytesRemaining = 0;
-    // Treat all samples as depended on when FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES is unset.
-    isSampleDependedOn = (flags & FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES) == 0;
+    isSampleDependedOn = false;
     if (position == 0) {
       // Reading the SEF data occurs before normal MP4 parsing. Therefore we can not transition to
       // reading the atom header until that has completed.
@@ -877,8 +882,7 @@ public final class Mp4Extractor implements Extractor, SeekMap {
       sampleSize -= Mp4Box.HEADER_SIZE;
     }
     input.skipFully((int) skipAmount);
-    // Treat all samples in non-H.264 codecs as depended on.
-    if (!Objects.equals(track.track.format.sampleMimeType, MimeTypes.VIDEO_H264)) {
+    if (!canReadWithinGopSampleDependencies(track.track.format)) {
       isSampleDependedOn = true;
     }
     if (track.track.nalUnitLengthFieldLength != 0) {
@@ -895,16 +899,19 @@ public final class Mp4Extractor implements Extractor, SeekMap {
       while (sampleBytesWritten < sampleSize) {
         if (sampleCurrentNalBytesRemaining == 0) {
           int nalUnitPrefixLength = track.track.nalUnitLengthFieldLength;
-          boolean readNalType = false;
+          int numberOfBytesToDetermineSampleDependencies = 0;
           if (!isSampleDependedOn
-              && nalUnitPrefixLength + 1
+              && nalUnitPrefixLength
+                      + NalUnitUtil.numberOfBytesToDetermineSampleDependencies(track.track.format)
                   <= track.sampleTable.sizes[sampleIndex] - sampleBytesRead) {
-            // Parsing sample dependencies needs the first NAL unit byte. Read it in the same
+            // Parsing sample dependencies needs the first few NAL unit bytes. Read them in the same
             // readFully call that reads the NAL length. This ensures sampleBytesRead,
             // sampleBytesWritten and isSampleDependedOn remain in a consistent state if we have
             // read failures.
-            nalUnitPrefixLength = track.track.nalUnitLengthFieldLength + 1;
-            readNalType = true;
+            numberOfBytesToDetermineSampleDependencies =
+                NalUnitUtil.numberOfBytesToDetermineSampleDependencies(track.track.format);
+            nalUnitPrefixLength =
+                track.track.nalUnitLengthFieldLength + numberOfBytesToDetermineSampleDependencies;
           }
           // Read the NAL length so that we know where we find the next one.
           input.readFully(nalPrefixData, nalUnitLengthFieldLengthDiff, nalUnitPrefixLength);
@@ -915,19 +922,24 @@ public final class Mp4Extractor implements Extractor, SeekMap {
             throw ParserException.createForMalformedContainer(
                 "Invalid NAL length", /* cause= */ null);
           }
-          sampleCurrentNalBytesRemaining = nalLengthInt - (readNalType ? 1 : 0);
+          sampleCurrentNalBytesRemaining =
+              nalLengthInt - numberOfBytesToDetermineSampleDependencies;
           // Write a start code for the current NAL unit.
           nalStartCode.setPosition(0);
           trackOutput.sampleData(nalStartCode, 4);
           sampleBytesWritten += 4;
           sampleSize += nalUnitLengthFieldLengthDiff;
-          if (readNalType) {
-            // Write the NAL unit type byte.
-            trackOutput.sampleData(nalPrefix, 1);
-            sampleBytesWritten += 1;
+          if (numberOfBytesToDetermineSampleDependencies > 0) {
+            // Write the first NAL unit bytes that were read.
+            trackOutput.sampleData(nalPrefix, numberOfBytesToDetermineSampleDependencies);
+            sampleBytesWritten += numberOfBytesToDetermineSampleDependencies;
             // If any NAL unit that's part of this sample can be depended on, treat the entire
             // sample as depended on.
-            if (NalUnitUtil.isH264NalUnitDependedOn(nalPrefixData[4])) {
+            if (NalUnitUtil.isDependedOn(
+                nalPrefixData,
+                /* offset= */ 4,
+                /* length= */ numberOfBytesToDetermineSampleDependencies,
+                track.track.format)) {
               isSampleDependedOn = true;
             }
           }
@@ -980,8 +992,7 @@ public final class Mp4Extractor implements Extractor, SeekMap {
     sampleBytesRead = 0;
     sampleBytesWritten = 0;
     sampleCurrentNalBytesRemaining = 0;
-    // Treat all samples as depended on when FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES is unset.
-    isSampleDependedOn = (flags & FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES) == 0;
+    isSampleDependedOn = false;
     return RESULT_CONTINUE;
   }
 
@@ -1081,6 +1092,20 @@ public final class Mp4Extractor implements Extractor, SeekMap {
               /* videoStartPosition= */ atomStartPosition + atomHeaderBytesRead,
               /* videoSize= */ atomSize - atomHeaderBytesRead);
     }
+  }
+
+  /**
+   * Returns whether reading within GOP sample dependencies is enabled for the sample {@link
+   * Format}.
+   */
+  private boolean canReadWithinGopSampleDependencies(Format format) {
+    if (Objects.equals(format.sampleMimeType, MimeTypes.VIDEO_H264)) {
+      return (flags & FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES) != 0;
+    }
+    if (Objects.equals(format.sampleMimeType, MimeTypes.VIDEO_H265)) {
+      return (flags & FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES_H265) != 0;
+    }
+    return false;
   }
 
   /**
