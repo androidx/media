@@ -384,6 +384,7 @@ public final class NalUnitUtil {
   public static final class H265SpsData {
 
     public final H265NalHeader nalHeader;
+    public final int maxSubLayersMinus1;
     @Nullable public final H265ProfileTierLevel profileTierLevel;
     public final int chromaFormatIdc;
     public final int bitDepthLumaMinus8;
@@ -399,6 +400,7 @@ public final class NalUnitUtil {
 
     public H265SpsData(
         H265NalHeader nalHeader,
+        int maxSubLayersMinus1,
         @Nullable H265ProfileTierLevel profileTierLevel,
         int chromaFormatIdc,
         int bitDepthLumaMinus8,
@@ -412,6 +414,7 @@ public final class NalUnitUtil {
         @C.ColorRange int colorRange,
         @C.ColorTransfer int colorTransfer) {
       this.nalHeader = nalHeader;
+      this.maxSubLayersMinus1 = maxSubLayersMinus1;
       this.profileTierLevel = profileTierLevel;
       this.chromaFormatIdc = chromaFormatIdc;
       this.bitDepthLumaMinus8 = bitDepthLumaMinus8;
@@ -1638,6 +1641,7 @@ public final class NalUnitUtil {
 
     return new H265SpsData(
         nalHeader,
+        maxSubLayersMinus1,
         profileTierLevel,
         chromaFormatIdc,
         bitDepthLumaMinus8,

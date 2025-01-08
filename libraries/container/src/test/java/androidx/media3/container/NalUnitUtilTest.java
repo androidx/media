@@ -218,6 +218,7 @@ public final class NalUnitUtilTest {
         NalUnitUtil.parseH265SpsNalUnit(
             H265_SPS_TEST_DATA, /* nalOffset= */ 0, H265_SPS_TEST_DATA.length, vpsData);
     assertThat(spsData.nalHeader.layerId).isEqualTo(0);
+    assertThat(spsData.maxSubLayersMinus1).isEqualTo(0);
     assertThat(spsData.profileTierLevel.generalProfileIdc).isEqualTo(2);
     assertThat(spsData.profileTierLevel.generalProfileCompatibilityFlags).isEqualTo(4);
     assertThat(spsData.profileTierLevel.generalLevelIdc).isEqualTo(153);
@@ -270,6 +271,7 @@ public final class NalUnitUtilTest {
             H265_SPS_TEST_DATA_2VIEWS_VIEW_0.length,
             vpsData);
     assertThat(spsDataView0.nalHeader.layerId).isEqualTo(0);
+    assertThat(spsDataView0.maxSubLayersMinus1).isEqualTo(0);
     assertThat(spsDataView0.profileTierLevel.generalProfileIdc).isEqualTo(1);
     assertThat(spsDataView0.profileTierLevel.generalProfileCompatibilityFlags).isEqualTo(6);
     assertThat(spsDataView0.profileTierLevel.generalLevelIdc).isEqualTo(120);
@@ -289,6 +291,7 @@ public final class NalUnitUtilTest {
             H265_SPS_TEST_DATA_2VIEWS_VIEW_1.length,
             vpsData);
     assertThat(spsDataView1.nalHeader.layerId).isEqualTo(1);
+    assertThat(spsDataView1.maxSubLayersMinus1).isEqualTo(7);
     assertThat(spsDataView1.profileTierLevel.generalProfileIdc).isEqualTo(6);
     assertThat(spsDataView1.profileTierLevel.generalProfileCompatibilityFlags).isEqualTo(64);
     assertThat(spsDataView1.profileTierLevel.generalLevelIdc).isEqualTo(120);
@@ -351,6 +354,7 @@ public final class NalUnitUtilTest {
             H265_SPS_TEST_DATA_2VIEWS_HDR_VIEW_0.length,
             vpsData);
     assertThat(spsDataView0.nalHeader.layerId).isEqualTo(0);
+    assertThat(spsDataView0.maxSubLayersMinus1).isEqualTo(0);
     assertThat(spsDataView0.profileTierLevel.generalProfileIdc).isEqualTo(2);
     assertThat(spsDataView0.profileTierLevel.generalProfileCompatibilityFlags).isEqualTo(4);
     assertThat(spsDataView0.profileTierLevel.generalLevelIdc).isEqualTo(153);
@@ -367,6 +371,7 @@ public final class NalUnitUtilTest {
             H265_SPS_TEST_DATA_2VIEWS_HDR_VIEW_1.length,
             vpsData);
     assertThat(spsDataView1.nalHeader.layerId).isEqualTo(1);
+    assertThat(spsDataView1.maxSubLayersMinus1).isEqualTo(7);
     assertThat(spsDataView1.profileTierLevel.generalProfileIdc).isEqualTo(6);
     assertThat(spsDataView1.profileTierLevel.generalProfileCompatibilityFlags).isEqualTo(68);
     assertThat(spsDataView1.profileTierLevel.generalLevelIdc).isEqualTo(153);
@@ -436,6 +441,7 @@ public final class NalUnitUtilTest {
         NalUnitUtil.parseH265SpsNalUnitPayload(
             spsNalUnitPayload, 0, spsNalUnitPayload.length, nalHeader, null);
 
+    assertThat(spsData.maxSubLayersMinus1).isEqualTo(0);
     assertThat(spsData.profileTierLevel.constraintBytes).isEqualTo(new int[] {144, 0, 0, 0, 0, 0});
     assertThat(spsData.profileTierLevel.generalLevelIdc).isEqualTo(150);
     assertThat(spsData.profileTierLevel.generalProfileCompatibilityFlags).isEqualTo(4);
@@ -468,6 +474,7 @@ public final class NalUnitUtilTest {
         NalUnitUtil.parseH265SpsNalUnitPayload(
             spsNalUnitPayload, 0, spsNalUnitPayload.length, nalHeader, null);
 
+    assertThat(spsData.maxSubLayersMinus1).isEqualTo(0);
     assertThat(spsData.profileTierLevel.constraintBytes).isEqualTo(new int[] {0, 0, 0, 0, 0, 0});
     assertThat(spsData.profileTierLevel.generalLevelIdc).isEqualTo(150);
     assertThat(spsData.profileTierLevel.generalProfileCompatibilityFlags).isEqualTo(6);
