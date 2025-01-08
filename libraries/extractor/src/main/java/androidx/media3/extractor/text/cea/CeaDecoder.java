@@ -26,7 +26,6 @@ import androidx.media3.extractor.text.SubtitleDecoderException;
 import androidx.media3.extractor.text.SubtitleInputBuffer;
 import androidx.media3.extractor.text.SubtitleOutputBuffer;
 import java.util.ArrayDeque;
-import java.util.PriorityQueue;
 
 /** Base class for subtitle parsers for CEA captions. */
 /* package */ abstract class CeaDecoder implements SubtitleDecoder {
@@ -36,11 +35,12 @@ import java.util.PriorityQueue;
 
   private final ArrayDeque<CeaInputBuffer> availableInputBuffers;
   private final ArrayDeque<SubtitleOutputBuffer> availableOutputBuffers;
-  private final PriorityQueue<CeaInputBuffer> queuedInputBuffers;
+  private final ArrayDeque<CeaInputBuffer> queuedInputBuffers;
 
   @Nullable private CeaInputBuffer dequeuedInputBuffer;
   private long playbackPositionUs;
   private long queuedInputBufferCount;
+  private long outputStartTimeUs;
 
   @SuppressWarnings("nullness:methodref.receiver.bound")
   public CeaDecoder() {
@@ -52,11 +52,17 @@ import java.util.PriorityQueue;
     for (int i = 0; i < NUM_OUTPUT_BUFFERS; i++) {
       availableOutputBuffers.add(new CeaOutputBuffer(this::releaseOutputBuffer));
     }
-    queuedInputBuffers = new PriorityQueue<>();
+    queuedInputBuffers = new ArrayDeque<>();
+    outputStartTimeUs = C.TIME_UNSET;
   }
 
   @Override
   public abstract String getName();
+
+  @Override
+  public final void setOutputStartTimeUs(long outputStartTimeUs) {
+    this.outputStartTimeUs = outputStartTimeUs;
+  }
 
   @Override
   public void setPositionUs(long positionUs) {
@@ -78,7 +84,9 @@ import java.util.PriorityQueue;
   public void queueInputBuffer(SubtitleInputBuffer inputBuffer) throws SubtitleDecoderException {
     Assertions.checkArgument(inputBuffer == dequeuedInputBuffer);
     CeaInputBuffer ceaInputBuffer = (CeaInputBuffer) inputBuffer;
-    if (ceaInputBuffer.isDecodeOnly()) {
+    if (ceaInputBuffer.timeUs != C.TIME_END_OF_SOURCE
+        && outputStartTimeUs != C.TIME_UNSET
+        && ceaInputBuffer.timeUs < outputStartTimeUs) {
       // We can start decoding anywhere in CEA formats, so discarding on the input side is fine.
       releaseInputBuffer(ceaInputBuffer);
     } else {

@@ -46,10 +46,13 @@ public final class RepeatModeUtil {
       flag = true,
       value = {REPEAT_TOGGLE_MODE_NONE, REPEAT_TOGGLE_MODE_ONE, REPEAT_TOGGLE_MODE_ALL})
   public @interface RepeatToggleModes {}
+
   /** All repeat mode buttons disabled. */
   public static final int REPEAT_TOGGLE_MODE_NONE = 0;
+
   /** "Repeat One" button enabled. */
   public static final int REPEAT_TOGGLE_MODE_ONE = 1;
+
   /** "Repeat All" button enabled. */
   public static final int REPEAT_TOGGLE_MODE_ALL = 1 << 1; // 2
 
@@ -60,12 +63,12 @@ public final class RepeatModeUtil {
   /**
    * Gets the next repeat mode out of {@code enabledModes} starting from {@code currentMode}.
    *
-   * @param currentMode The current repeat mode.
-   * @param enabledModes Bitmask of enabled modes.
+   * @param currentMode The current {@link Player.RepeatMode}.
+   * @param enabledModes The bitmask of enabled {@link RepeatToggleModes}.
    * @return The next repeat mode.
    */
   public static @Player.RepeatMode int getNextRepeatMode(
-      @Player.RepeatMode int currentMode, int enabledModes) {
+      @Player.RepeatMode int currentMode, @RepeatToggleModes int enabledModes) {
     for (int offset = 1; offset <= 2; offset++) {
       @Player.RepeatMode int proposedMode = (currentMode + offset) % 3;
       if (isRepeatModeEnabled(proposedMode, enabledModes)) {
@@ -76,13 +79,15 @@ public final class RepeatModeUtil {
   }
 
   /**
-   * Verifies whether a given {@code repeatMode} is enabled in the bitmask {@code enabledModes}.
+   * Verifies whether a given {@link Player.RepeatMode} is enabled in the bitmask of {@link
+   * RepeatToggleModes}.
    *
-   * @param repeatMode The mode to check.
-   * @param enabledModes The bitmask representing the enabled modes.
+   * @param repeatMode The {@link Player.RepeatMode} to check.
+   * @param enabledModes The bitmask of enabled {@link RepeatToggleModes}.
    * @return {@code true} if enabled.
    */
-  public static boolean isRepeatModeEnabled(@Player.RepeatMode int repeatMode, int enabledModes) {
+  public static boolean isRepeatModeEnabled(
+      @Player.RepeatMode int repeatMode, @RepeatToggleModes int enabledModes) {
     switch (repeatMode) {
       case Player.REPEAT_MODE_OFF:
         return true;

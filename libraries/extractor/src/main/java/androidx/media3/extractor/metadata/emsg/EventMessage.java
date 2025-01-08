@@ -15,10 +15,6 @@
  */
 package androidx.media3.extractor.metadata.emsg;
 
-import static androidx.media3.common.util.Util.castNonNull;
-
-import android.os.Parcel;
-import android.os.Parcelable;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.Format;
@@ -90,14 +86,6 @@ public final class EventMessage implements Metadata.Entry {
     this.messageData = messageData;
   }
 
-  /* package */ EventMessage(Parcel in) {
-    schemeIdUri = castNonNull(in.readString());
-    value = castNonNull(in.readString());
-    durationMs = in.readLong();
-    id = in.readLong();
-    messageData = castNonNull(in.createByteArray());
-  }
-
   @Override
   @Nullable
   public Format getWrappedMetadataFormat() {
@@ -159,34 +147,4 @@ public final class EventMessage implements Metadata.Entry {
         + ", value="
         + value;
   }
-
-  // Parcelable implementation.
-
-  @Override
-  public int describeContents() {
-    return 0;
-  }
-
-  @Override
-  public void writeToParcel(Parcel dest, int flags) {
-    dest.writeString(schemeIdUri);
-    dest.writeString(value);
-    dest.writeLong(durationMs);
-    dest.writeLong(id);
-    dest.writeByteArray(messageData);
-  }
-
-  public static final Parcelable.Creator<EventMessage> CREATOR =
-      new Parcelable.Creator<EventMessage>() {
-
-        @Override
-        public EventMessage createFromParcel(Parcel in) {
-          return new EventMessage(in);
-        }
-
-        @Override
-        public EventMessage[] newArray(int size) {
-          return new EventMessage[size];
-        }
-      };
 }

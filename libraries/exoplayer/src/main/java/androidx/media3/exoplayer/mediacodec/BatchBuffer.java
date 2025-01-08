@@ -29,6 +29,7 @@ import java.nio.ByteBuffer;
 
   /** The default maximum number of samples that can be appended before the buffer is full. */
   public static final int DEFAULT_MAX_SAMPLE_COUNT = 32;
+
   /**
    * The maximum size of the buffer in bytes. This prevents excessive memory usage for high bitrate
    * streams. The limit is equivalent of 75s of mp3 at highest bitrate (320kb/s) and 30s of AAC LC
@@ -104,9 +105,6 @@ import java.nio.ByteBuffer;
         setFlags(C.BUFFER_FLAG_KEY_FRAME);
       }
     }
-    if (buffer.isDecodeOnly()) {
-      setFlags(C.BUFFER_FLAG_DECODE_ONLY);
-    }
     @Nullable ByteBuffer bufferData = buffer.data;
     if (bufferData != null) {
       ensureSpaceForWrite(bufferData.remaining());
@@ -122,9 +120,6 @@ import java.nio.ByteBuffer;
       return true;
     }
     if (sampleCount >= maxSampleCount) {
-      return false;
-    }
-    if (buffer.isDecodeOnly() != isDecodeOnly()) {
       return false;
     }
     @Nullable ByteBuffer bufferData = buffer.data;

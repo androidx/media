@@ -20,6 +20,7 @@ import static java.lang.Math.min;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.audio.AudioProcessorChain;
+import androidx.media3.common.audio.BaseAudioProcessor;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
@@ -81,7 +82,7 @@ public final class TeeAudioProcessor extends BaseAudioProcessor {
     if (remaining == 0) {
       return;
     }
-    audioBufferSink.handleBuffer(inputBuffer.asReadOnlyBuffer());
+    audioBufferSink.handleBuffer(Util.createReadOnlyByteBuffer(inputBuffer));
     replaceOutputBuffer(remaining).put(inputBuffer).flip();
   }
 

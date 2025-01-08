@@ -20,6 +20,7 @@ import static com.google.common.truth.Truth.assertThat;
 import androidx.media3.common.util.Util;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import com.google.common.net.HttpHeaders;
 import java.util.Arrays;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -123,9 +124,9 @@ public class WebServerDispatcherTest {
     Request request = new Request.Builder().url(mockWebServer.url(RANGE_SUPPORTED_PATH)).build();
     try (Response response = client.newCall(request).execute()) {
       assertThat(response.code()).isEqualTo(200);
-      assertThat(response.header("Accept-Ranges")).isEqualTo("bytes");
-      assertThat(response.header("Content-Length")).isEqualTo("20");
-      assertThat(response.header("Content-Range")).isNull();
+      assertThat(response.header(HttpHeaders.ACCEPT_RANGES)).isEqualTo("bytes");
+      assertThat(response.header(HttpHeaders.CONTENT_LENGTH)).isEqualTo("20");
+      assertThat(response.header(HttpHeaders.CONTENT_RANGE)).isNull();
       assertThat(response.body().bytes()).isEqualTo(RANGE_SUPPORTED_DATA);
     }
   }
@@ -136,13 +137,13 @@ public class WebServerDispatcherTest {
     Request request =
         new Request.Builder()
             .url(mockWebServer.url(RANGE_SUPPORTED_PATH))
-            .addHeader("Range", "bytes=5-10")
+            .addHeader(HttpHeaders.RANGE, "bytes=5-10")
             .build();
     try (Response response = client.newCall(request).execute()) {
       assertThat(response.code()).isEqualTo(206);
-      assertThat(response.header("Accept-Ranges")).isEqualTo("bytes");
-      assertThat(response.header("Content-Length")).isEqualTo("6");
-      assertThat(response.header("Content-Range")).isEqualTo("bytes 5-10/20");
+      assertThat(response.header(HttpHeaders.ACCEPT_RANGES)).isEqualTo("bytes");
+      assertThat(response.header(HttpHeaders.CONTENT_LENGTH)).isEqualTo("6");
+      assertThat(response.header(HttpHeaders.CONTENT_RANGE)).isEqualTo("bytes 5-10/20");
       assertThat(response.body().bytes())
           .isEqualTo(Arrays.copyOfRange(RANGE_SUPPORTED_DATA, 5, 11));
     }
@@ -154,13 +155,13 @@ public class WebServerDispatcherTest {
     Request request =
         new Request.Builder()
             .url(mockWebServer.url(RANGE_SUPPORTED_PATH))
-            .addHeader("Range", "bytes=5-")
+            .addHeader(HttpHeaders.RANGE, "bytes=5-")
             .build();
     try (Response response = client.newCall(request).execute()) {
       assertThat(response.code()).isEqualTo(206);
-      assertThat(response.header("Accept-Ranges")).isEqualTo("bytes");
-      assertThat(response.header("Content-Length")).isEqualTo("15");
-      assertThat(response.header("Content-Range")).isEqualTo("bytes 5-19/20");
+      assertThat(response.header(HttpHeaders.ACCEPT_RANGES)).isEqualTo("bytes");
+      assertThat(response.header(HttpHeaders.CONTENT_LENGTH)).isEqualTo("15");
+      assertThat(response.header(HttpHeaders.CONTENT_RANGE)).isEqualTo("bytes 5-19/20");
       assertThat(response.body().bytes())
           .isEqualTo(Arrays.copyOfRange(RANGE_SUPPORTED_DATA, 5, 20));
     }
@@ -172,13 +173,13 @@ public class WebServerDispatcherTest {
     Request request =
         new Request.Builder()
             .url(mockWebServer.url(RANGE_SUPPORTED_PATH))
-            .addHeader("Range", "bytes=-5")
+            .addHeader(HttpHeaders.RANGE, "bytes=-5")
             .build();
     try (Response response = client.newCall(request).execute()) {
       assertThat(response.code()).isEqualTo(206);
-      assertThat(response.header("Accept-Ranges")).isEqualTo("bytes");
-      assertThat(response.header("Content-Length")).isEqualTo("5");
-      assertThat(response.header("Content-Range")).isEqualTo("bytes 15-19/20");
+      assertThat(response.header(HttpHeaders.ACCEPT_RANGES)).isEqualTo("bytes");
+      assertThat(response.header(HttpHeaders.CONTENT_LENGTH)).isEqualTo("5");
+      assertThat(response.header(HttpHeaders.CONTENT_RANGE)).isEqualTo("bytes 15-19/20");
       assertThat(response.body().bytes())
           .isEqualTo(Arrays.copyOfRange(RANGE_SUPPORTED_DATA, 15, 20));
     }
@@ -190,13 +191,13 @@ public class WebServerDispatcherTest {
     Request request =
         new Request.Builder()
             .url(mockWebServer.url(RANGE_SUPPORTED_PATH))
-            .addHeader("Range", "bytes=5-25")
+            .addHeader(HttpHeaders.RANGE, "bytes=5-25")
             .build();
     try (Response response = client.newCall(request).execute()) {
       assertThat(response.code()).isEqualTo(206);
-      assertThat(response.header("Accept-Ranges")).isEqualTo("bytes");
-      assertThat(response.header("Content-Length")).isEqualTo("15");
-      assertThat(response.header("Content-Range")).isEqualTo("bytes 5-19/20");
+      assertThat(response.header(HttpHeaders.ACCEPT_RANGES)).isEqualTo("bytes");
+      assertThat(response.header(HttpHeaders.CONTENT_LENGTH)).isEqualTo("15");
+      assertThat(response.header(HttpHeaders.CONTENT_RANGE)).isEqualTo("bytes 5-19/20");
       assertThat(response.body().bytes())
           .isEqualTo(Arrays.copyOfRange(RANGE_SUPPORTED_DATA, 5, 20));
     }
@@ -208,13 +209,13 @@ public class WebServerDispatcherTest {
     Request request =
         new Request.Builder()
             .url(mockWebServer.url(RANGE_SUPPORTED_PATH))
-            .addHeader("Range", "bytes=-25")
+            .addHeader(HttpHeaders.RANGE, "bytes=-25")
             .build();
     try (Response response = client.newCall(request).execute()) {
       assertThat(response.code()).isEqualTo(206);
-      assertThat(response.header("Accept-Ranges")).isEqualTo("bytes");
-      assertThat(response.header("Content-Length")).isEqualTo("20");
-      assertThat(response.header("Content-Range")).isEqualTo("bytes 0-19/20");
+      assertThat(response.header(HttpHeaders.ACCEPT_RANGES)).isEqualTo("bytes");
+      assertThat(response.header(HttpHeaders.CONTENT_LENGTH)).isEqualTo("20");
+      assertThat(response.header(HttpHeaders.CONTENT_RANGE)).isEqualTo("bytes 0-19/20");
       assertThat(response.body().bytes()).isEqualTo(RANGE_SUPPORTED_DATA);
     }
   }
@@ -225,12 +226,12 @@ public class WebServerDispatcherTest {
     Request request =
         new Request.Builder()
             .url(mockWebServer.url(RANGE_SUPPORTED_PATH))
-            .addHeader("Range", "bytes=20-25")
+            .addHeader(HttpHeaders.RANGE, "bytes=20-25")
             .build();
     try (Response response = client.newCall(request).execute()) {
       assertThat(response.code()).isEqualTo(416);
-      assertThat(response.header("Accept-Ranges")).isEqualTo("bytes");
-      assertThat(response.header("Content-Range")).isEqualTo("bytes */20");
+      assertThat(response.header(HttpHeaders.ACCEPT_RANGES)).isEqualTo("bytes");
+      assertThat(response.header(HttpHeaders.CONTENT_RANGE)).isEqualTo("bytes */20");
     }
   }
 
@@ -240,12 +241,12 @@ public class WebServerDispatcherTest {
     Request request =
         new Request.Builder()
             .url(mockWebServer.url(RANGE_SUPPORTED_PATH))
-            .addHeader("Range", "bytes=25-30")
+            .addHeader(HttpHeaders.RANGE, "bytes=25-30")
             .build();
     try (Response response = client.newCall(request).execute()) {
       assertThat(response.code()).isEqualTo(416);
-      assertThat(response.header("Accept-Ranges")).isEqualTo("bytes");
-      assertThat(response.header("Content-Range")).isEqualTo("bytes */20");
+      assertThat(response.header(HttpHeaders.ACCEPT_RANGES)).isEqualTo("bytes");
+      assertThat(response.header(HttpHeaders.CONTENT_RANGE)).isEqualTo("bytes */20");
     }
   }
 
@@ -256,9 +257,9 @@ public class WebServerDispatcherTest {
         new Request.Builder().url(mockWebServer.url(RANGE_SUPPORTED_LENGTH_UNKNOWN_PATH)).build();
     try (Response response = client.newCall(request).execute()) {
       assertThat(response.code()).isEqualTo(200);
-      assertThat(response.header("Accept-Ranges")).isEqualTo("bytes");
-      assertThat(response.header("Content-Length")).isNull();
-      assertThat(response.header("Content-Range")).isNull();
+      assertThat(response.header(HttpHeaders.ACCEPT_RANGES)).isEqualTo("bytes");
+      assertThat(response.header(HttpHeaders.CONTENT_LENGTH)).isNull();
+      assertThat(response.header(HttpHeaders.CONTENT_RANGE)).isNull();
       assertThat(response.body().contentLength()).isEqualTo(-1);
 
       // Calling ResponseBody#bytes() times out because Content-Length isn't set, so instead we
@@ -275,13 +276,13 @@ public class WebServerDispatcherTest {
     Request request =
         new Request.Builder()
             .url(mockWebServer.url(RANGE_SUPPORTED_LENGTH_UNKNOWN_PATH))
-            .addHeader("Range", "bytes=5-10")
+            .addHeader(HttpHeaders.RANGE, "bytes=5-10")
             .build();
     try (Response response = client.newCall(request).execute()) {
       assertThat(response.code()).isEqualTo(206);
-      assertThat(response.header("Accept-Ranges")).isEqualTo("bytes");
-      assertThat(response.header("Content-Length")).isEqualTo("6");
-      assertThat(response.header("Content-Range")).isEqualTo("bytes 5-10/*");
+      assertThat(response.header(HttpHeaders.ACCEPT_RANGES)).isEqualTo("bytes");
+      assertThat(response.header(HttpHeaders.CONTENT_LENGTH)).isEqualTo("6");
+      assertThat(response.header(HttpHeaders.CONTENT_RANGE)).isEqualTo("bytes 5-10/*");
       assertThat(response.body().bytes())
           .isEqualTo(Arrays.copyOfRange(RANGE_SUPPORTED_LENGTH_UNKNOWN_DATA, 5, 11));
     }
@@ -293,13 +294,13 @@ public class WebServerDispatcherTest {
     Request request =
         new Request.Builder()
             .url(mockWebServer.url(RANGE_SUPPORTED_LENGTH_UNKNOWN_PATH))
-            .addHeader("Range", "bytes=5-")
+            .addHeader(HttpHeaders.RANGE, "bytes=5-")
             .build();
     try (Response response = client.newCall(request).execute()) {
       assertThat(response.code()).isEqualTo(206);
-      assertThat(response.header("Accept-Ranges")).isEqualTo("bytes");
-      assertThat(response.header("Content-Length")).isNull();
-      assertThat(response.header("Content-Range")).isEqualTo("bytes 5-19/*");
+      assertThat(response.header(HttpHeaders.ACCEPT_RANGES)).isEqualTo("bytes");
+      assertThat(response.header(HttpHeaders.CONTENT_LENGTH)).isNull();
+      assertThat(response.header(HttpHeaders.CONTENT_RANGE)).isEqualTo("bytes 5-19/*");
       assertThat(response.body().contentLength()).isEqualTo(-1);
 
       // Calling ResponseBody#bytes() times out because Content-Length isn't set, so instead we
@@ -318,13 +319,13 @@ public class WebServerDispatcherTest {
     Request request =
         new Request.Builder()
             .url(mockWebServer.url(RANGE_SUPPORTED_LENGTH_UNKNOWN_PATH))
-            .addHeader("Range", "bytes=5-25")
+            .addHeader(HttpHeaders.RANGE, "bytes=5-25")
             .build();
     try (Response response = client.newCall(request).execute()) {
       assertThat(response.code()).isEqualTo(206);
-      assertThat(response.header("Accept-Ranges")).isEqualTo("bytes");
-      assertThat(response.header("Content-Length")).isEqualTo("15");
-      assertThat(response.header("Content-Range")).isEqualTo("bytes 5-19/*");
+      assertThat(response.header(HttpHeaders.ACCEPT_RANGES)).isEqualTo("bytes");
+      assertThat(response.header(HttpHeaders.CONTENT_LENGTH)).isEqualTo("15");
+      assertThat(response.header(HttpHeaders.CONTENT_RANGE)).isEqualTo("bytes 5-19/*");
       assertThat(response.body().bytes())
           .isEqualTo(Arrays.copyOfRange(RANGE_SUPPORTED_LENGTH_UNKNOWN_DATA, 5, 20));
     }
@@ -336,7 +337,7 @@ public class WebServerDispatcherTest {
     Request request =
         new Request.Builder()
             .url(mockWebServer.url(RANGE_SUPPORTED_LENGTH_UNKNOWN_PATH))
-            .addHeader("Range", "bytes=-5")
+            .addHeader(HttpHeaders.RANGE, "bytes=-5")
             .build();
     try (Response response = client.newCall(request).execute()) {
       assertThat(response.code()).isEqualTo(416);
@@ -349,12 +350,12 @@ public class WebServerDispatcherTest {
     Request request =
         new Request.Builder()
             .url(mockWebServer.url(RANGE_SUPPORTED_PATH))
-            .addHeader("Range", "bytes=15-10")
+            .addHeader(HttpHeaders.RANGE, "bytes=15-10")
             .build();
     try (Response response = client.newCall(request).execute()) {
       assertThat(response.code()).isEqualTo(416);
-      assertThat(response.header("Accept-Ranges")).isEqualTo("bytes");
-      assertThat(response.header("Content-Range")).isEqualTo("bytes */20");
+      assertThat(response.header(HttpHeaders.ACCEPT_RANGES)).isEqualTo("bytes");
+      assertThat(response.header(HttpHeaders.CONTENT_RANGE)).isEqualTo("bytes */20");
     }
   }
 
@@ -364,7 +365,7 @@ public class WebServerDispatcherTest {
     Request request =
         new Request.Builder()
             .url(mockWebServer.url(RANGE_SUPPORTED_PATH))
-            .addHeader("Range", "seconds=5-10")
+            .addHeader(HttpHeaders.RANGE, "seconds=5-10")
             .build();
     try (Response response = client.newCall(request).execute()) {
       assertThat(response.code()).isEqualTo(416);
@@ -377,7 +378,7 @@ public class WebServerDispatcherTest {
     Request request =
         new Request.Builder()
             .url(mockWebServer.url(RANGE_SUPPORTED_PATH))
-            .addHeader("Range", "bytes=2-6,10-12")
+            .addHeader(HttpHeaders.RANGE, "bytes=2-6,10-12")
             .build();
     try (Response response = client.newCall(request).execute()) {
       assertThat(response.code()).isEqualTo(416);
@@ -390,7 +391,7 @@ public class WebServerDispatcherTest {
     Request request =
         new Request.Builder()
             .url(mockWebServer.url(RANGE_SUPPORTED_PATH))
-            .addHeader("Range", "bytes=foo")
+            .addHeader(HttpHeaders.RANGE, "bytes=foo")
             .build();
     try (Response response = client.newCall(request).execute()) {
       assertThat(response.code()).isEqualTo(416);
@@ -404,9 +405,9 @@ public class WebServerDispatcherTest {
 
     try (Response response = client.newCall(request).execute()) {
       assertThat(response.code()).isEqualTo(200);
-      assertThat(response.header("Accept-Ranges")).isNull();
-      assertThat(response.header("Content-Length")).isEqualTo("20");
-      assertThat(response.header("Content-Range")).isNull();
+      assertThat(response.header(HttpHeaders.ACCEPT_RANGES)).isNull();
+      assertThat(response.header(HttpHeaders.CONTENT_LENGTH)).isEqualTo("20");
+      assertThat(response.header(HttpHeaders.CONTENT_RANGE)).isNull();
       assertThat(response.body().bytes()).isEqualTo(RANGE_UNSUPPORTED_DATA);
     }
   }
@@ -417,13 +418,13 @@ public class WebServerDispatcherTest {
     Request request =
         new Request.Builder()
             .url(mockWebServer.url(RANGE_UNSUPPORTED_PATH))
-            .addHeader("Range", "bytes=5-10")
+            .addHeader(HttpHeaders.RANGE, "bytes=5-10")
             .build();
     try (Response response = client.newCall(request).execute()) {
       assertThat(response.code()).isEqualTo(200);
-      assertThat(response.header("Accept-Ranges")).isNull();
-      assertThat(response.header("Content-Length")).isEqualTo("20");
-      assertThat(response.header("Content-Range")).isNull();
+      assertThat(response.header(HttpHeaders.ACCEPT_RANGES)).isNull();
+      assertThat(response.header(HttpHeaders.CONTENT_LENGTH)).isEqualTo("20");
+      assertThat(response.header(HttpHeaders.CONTENT_RANGE)).isNull();
       assertThat(response.body().bytes()).isEqualTo(RANGE_UNSUPPORTED_DATA);
     }
   }
@@ -434,12 +435,12 @@ public class WebServerDispatcherTest {
     Request request =
         new Request.Builder()
             .url(mockWebServer.url(RANGE_SUPPORTED_PATH))
-            .addHeader("Accept-Encoding", "*")
+            .addHeader(HttpHeaders.ACCEPT_ENCODING, "*")
             .build();
     try (Response response = client.newCall(request).execute()) {
       assertThat(response.code()).isEqualTo(200);
       assertThat(response.header("Content-Encoding")).isEqualTo("identity");
-      assertThat(response.header("Content-Length"))
+      assertThat(response.header(HttpHeaders.CONTENT_LENGTH))
           .isEqualTo(String.valueOf(RANGE_SUPPORTED_DATA.length));
       assertThat(response.body().bytes()).isEqualTo(RANGE_SUPPORTED_DATA);
     }
@@ -451,8 +452,8 @@ public class WebServerDispatcherTest {
     Request request =
         new Request.Builder()
             .url(mockWebServer.url(RANGE_SUPPORTED_PATH))
-            .addHeader("Accept-Encoding", "gzip;q=1.0")
-            .addHeader("Accept-Encoding", "identity;q=0")
+            .addHeader(HttpHeaders.ACCEPT_ENCODING, "gzip;q=1.0")
+            .addHeader(HttpHeaders.ACCEPT_ENCODING, "identity;q=0")
             .build();
     try (Response response = client.newCall(request).execute()) {
       assertThat(response.code()).isEqualTo(406);
@@ -466,8 +467,8 @@ public class WebServerDispatcherTest {
     Request request =
         new Request.Builder()
             .url(mockWebServer.url(RANGE_SUPPORTED_PATH))
-            .addHeader("Accept-Encoding", "gzip;q=1.0")
-            .addHeader("Accept-Encoding", "*;q=0")
+            .addHeader(HttpHeaders.ACCEPT_ENCODING, "gzip;q=1.0")
+            .addHeader(HttpHeaders.ACCEPT_ENCODING, "*;q=0")
             .build();
     try (Response response = client.newCall(request).execute()) {
       assertThat(response.code()).isEqualTo(406);
@@ -480,13 +481,14 @@ public class WebServerDispatcherTest {
     Request request =
         new Request.Builder()
             .url(mockWebServer.url(GZIP_ENABLED_PATH))
-            .addHeader("Accept-Encoding", "gzip")
+            .addHeader(HttpHeaders.ACCEPT_ENCODING, "gzip")
             .build();
     try (Response response = client.newCall(request).execute()) {
       byte[] expectedData = Util.gzip(GZIP_ENABLED_DATA);
       assertThat(response.code()).isEqualTo(200);
       assertThat(response.header("Content-Encoding")).isEqualTo("gzip");
-      assertThat(response.header("Content-Length")).isEqualTo(String.valueOf(expectedData.length));
+      assertThat(response.header(HttpHeaders.CONTENT_LENGTH))
+          .isEqualTo(String.valueOf(expectedData.length));
       assertThat(response.body().bytes()).isEqualTo(expectedData);
     }
   }
@@ -497,14 +499,15 @@ public class WebServerDispatcherTest {
     Request request =
         new Request.Builder()
             .url(mockWebServer.url(GZIP_ENABLED_PATH))
-            .addHeader("Accept-Encoding", "*")
+            .addHeader(HttpHeaders.ACCEPT_ENCODING, "*")
             .build();
     try (Response response = client.newCall(request).execute()) {
       byte[] expectedData = Util.gzip(GZIP_ENABLED_DATA);
 
       assertThat(response.code()).isEqualTo(200);
       assertThat(response.header("Content-Encoding")).isEqualTo("gzip");
-      assertThat(response.header("Content-Length")).isEqualTo(String.valueOf(expectedData.length));
+      assertThat(response.header(HttpHeaders.CONTENT_LENGTH))
+          .isEqualTo(String.valueOf(expectedData.length));
       assertThat(response.body().bytes()).isEqualTo(expectedData);
     }
   }
@@ -516,12 +519,12 @@ public class WebServerDispatcherTest {
     Request request =
         new Request.Builder()
             .url(mockWebServer.url(GZIP_ENABLED_PATH))
-            .addHeader("Accept-Encoding", "identity;q=0.8, gzip;q=0.2")
+            .addHeader(HttpHeaders.ACCEPT_ENCODING, "identity;q=0.8, gzip;q=0.2")
             .build();
     try (Response response = client.newCall(request).execute()) {
       assertThat(response.code()).isEqualTo(200);
       assertThat(response.header("Content-Encoding")).isEqualTo("identity");
-      assertThat(response.header("Content-Length"))
+      assertThat(response.header(HttpHeaders.CONTENT_LENGTH))
           .isEqualTo(String.valueOf(GZIP_ENABLED_DATA.length));
       assertThat(response.body().bytes()).isEqualTo(GZIP_ENABLED_DATA);
     }
@@ -533,12 +536,12 @@ public class WebServerDispatcherTest {
     Request request =
         new Request.Builder()
             .url(mockWebServer.url(GZIP_ENABLED_PATH))
-            .addHeader("Accept-Encoding", "identity")
+            .addHeader(HttpHeaders.ACCEPT_ENCODING, "identity")
             .build();
     try (Response response = client.newCall(request).execute()) {
       assertThat(response.code()).isEqualTo(200);
       assertThat(response.header("Content-Encoding")).isEqualTo("identity");
-      assertThat(response.header("Content-Length"))
+      assertThat(response.header(HttpHeaders.CONTENT_LENGTH))
           .isEqualTo(String.valueOf(GZIP_ENABLED_DATA.length));
       assertThat(response.body().bytes()).isEqualTo(GZIP_ENABLED_DATA);
     }
@@ -550,14 +553,15 @@ public class WebServerDispatcherTest {
     Request request =
         new Request.Builder()
             .url(mockWebServer.url(GZIP_FORCED_PATH))
-            .addHeader("Accept-Encoding", "gzip")
+            .addHeader(HttpHeaders.ACCEPT_ENCODING, "gzip")
             .build();
     try (Response response = client.newCall(request).execute()) {
       byte[] expectedData = Util.gzip(GZIP_FORCED_DATA);
 
       assertThat(response.code()).isEqualTo(200);
       assertThat(response.header("Content-Encoding")).isEqualTo("gzip");
-      assertThat(response.header("Content-Length")).isEqualTo(String.valueOf(expectedData.length));
+      assertThat(response.header(HttpHeaders.CONTENT_LENGTH))
+          .isEqualTo(String.valueOf(expectedData.length));
       assertThat(response.body().bytes()).isEqualTo(expectedData);
     }
   }
@@ -568,12 +572,12 @@ public class WebServerDispatcherTest {
     Request request =
         new Request.Builder()
             .url(mockWebServer.url(GZIP_FORCED_PATH))
-            .addHeader("Accept-Encoding", "identity")
+            .addHeader(HttpHeaders.ACCEPT_ENCODING, "identity")
             .build();
     try (Response response = client.newCall(request).execute()) {
       assertThat(response.code()).isEqualTo(200);
       assertThat(response.header("Content-Encoding")).isEqualTo("identity");
-      assertThat(response.header("Content-Length"))
+      assertThat(response.header(HttpHeaders.CONTENT_LENGTH))
           .isEqualTo(String.valueOf(GZIP_FORCED_DATA.length));
       assertThat(response.body().bytes()).isEqualTo(GZIP_FORCED_DATA);
     }

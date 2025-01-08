@@ -9,20 +9,22 @@ numberOfTracks = 1
 track 0:
   total output bytes = 3651
   sample count = 101
+  track duration = 1460000
   format 0:
     id = 1
+    containerMimeType = audio/mp4
     sampleMimeType = audio/opus
     maxInputSize = 278
     channelCount = 2
     sampleRate = 48000
     language = und
-    metadata = entries=[TSSE: description=null: values=[Lavf58.29.100]]
+    metadata = entries=[TSSE: description=null: values=[Lavf58.29.100], Mp4Timestamp: creation time=0, modification time=0, timescale=1000]
     initializationData:
       data = length 19, hash 86852AE2
       data = length 8, hash 72CBCBF5
       data = length 8, hash 79C07075
   sample 0:
-    time = 0
+    time = -6500
     flags = 1
     data = length 3, hash 4732
   sample 1:
@@ -230,11 +232,11 @@ track 0:
     flags = 1
     data = length 3, hash 4732
   sample 52:
-    time = 513499
+    time = 513500
     flags = 1
     data = length 3, hash 4732
   sample 53:
-    time = 523499
+    time = 523500
     flags = 1
     data = length 3, hash 4732
   sample 54:

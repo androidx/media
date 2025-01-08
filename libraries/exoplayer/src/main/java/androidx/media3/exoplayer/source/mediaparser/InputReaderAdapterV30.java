@@ -15,7 +15,6 @@
  */
 package androidx.media3.exoplayer.source.mediaparser;
 
-import android.annotation.SuppressLint;
 import android.media.MediaParser;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
@@ -27,7 +26,6 @@ import java.io.IOException;
 
 /** {@link MediaParser.SeekableInputReader} implementation wrapping a {@link DataReader}. */
 @RequiresApi(30)
-@SuppressLint("Override") // TODO: Remove once the SDK becomes stable.
 @UnstableApi
 public final class InputReaderAdapterV30 implements MediaParser.SeekableInputReader {
 
@@ -45,7 +43,7 @@ public final class InputReaderAdapterV30 implements MediaParser.SeekableInputRea
   public void setDataReader(DataReader dataReader, long length) {
     this.dataReader = dataReader;
     resourceLength = length;
-    lastSeekPosition = C.POSITION_UNSET;
+    lastSeekPosition = C.INDEX_UNSET;
   }
 
   /** Sets the absolute position in the resource from which the wrapped {@link DataReader} reads. */
@@ -55,11 +53,11 @@ public final class InputReaderAdapterV30 implements MediaParser.SeekableInputRea
 
   /**
    * Returns the last value passed to {@link #seekToPosition(long)} and sets the stored value to
-   * {@link C#POSITION_UNSET}.
+   * {@link C#INDEX_UNSET}.
    */
   public long getAndResetSeekPosition() {
     long lastSeekPosition = this.lastSeekPosition;
-    this.lastSeekPosition = C.POSITION_UNSET;
+    this.lastSeekPosition = C.INDEX_UNSET;
     return lastSeekPosition;
   }
 

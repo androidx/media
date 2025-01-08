@@ -19,23 +19,33 @@ import static androidx.media3.common.util.Assertions.checkNotNull;
 
 import android.net.Uri;
 import android.os.Looper;
+import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Timeline;
+import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.TransferListener;
 import androidx.media3.exoplayer.drm.DefaultDrmSessionManagerProvider;
 import androidx.media3.exoplayer.drm.DrmSessionManager;
 import androidx.media3.exoplayer.drm.DrmSessionManagerProvider;
+import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
+import androidx.media3.exoplayer.util.ReleasableExecutor;
 import androidx.media3.extractor.DefaultExtractorsFactory;
 import androidx.media3.extractor.Extractor;
+import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.extractor.ExtractorsFactory;
+import androidx.media3.extractor.TrackOutput;
+import com.google.common.base.Supplier;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.util.concurrent.Executor;
 
 /**
  * Provides one period that loads data from a {@link Uri} and extracted using an {@link Extractor}.
@@ -62,8 +72,9 @@ public final class ProgressiveMediaSource extends BaseMediaSource
     private DrmSessionManagerProvider drmSessionManagerProvider;
     private LoadErrorHandlingPolicy loadErrorHandlingPolicy;
     private int continueLoadingCheckIntervalBytes;
-    @Nullable private String customCacheKey;
-    @Nullable private Object tag;
+    @Nullable private Supplier<ReleasableExecutor> downloadExecutorSupplier;
+    private int singleTrackId;
+    @Nullable private Format singleTrackFormat;
 
     /**
      * Creates a new factory for {@link ProgressiveMediaSource}s.
@@ -184,6 +195,25 @@ public final class ProgressiveMediaSource extends BaseMediaSource
       return this;
     }
 
+    /**
+     * Allows the {@link ProgressiveMediaSource} to complete preparation without reading any data.
+     *
+     * <p>This must only be set if the source is guaranteed to emit a single track with the provided
+     * ID and format.
+     *
+     * <p>Data will only be loaded if the track is selected with {@link
+     * MediaPeriod#selectTracks(ExoTrackSelection[], boolean[], SampleStream[], boolean[], long)}
+     *
+     * @param trackId The ID of the track to pass to {@link ExtractorOutput#track}
+     * @param format The format of the track to pass to {@link TrackOutput#format}.
+     */
+    @CanIgnoreReturnValue
+    /* package */ Factory enableLazyLoadingWithSingleTrack(int trackId, Format format) {
+      this.singleTrackId = trackId;
+      this.singleTrackFormat = checkNotNull(format);
+      return this;
+    }
+
     @CanIgnoreReturnValue
     @Override
     public Factory setDrmSessionManagerProvider(
@@ -198,6 +228,23 @@ public final class ProgressiveMediaSource extends BaseMediaSource
     }
 
     /**
+     * Sets a supplier for an {@link Executor} that is used for loading the media.
+     *
+     * @param downloadExecutor A {@link Supplier} that provides an externally managed {@link
+     *     Executor} for downloading and extraction.
+     * @param downloadExecutorReleaser A callback triggered once a load task is finished and a
+     *     supplied executor is no longer required.
+     * @return This factory, for convenience.
+     */
+    @CanIgnoreReturnValue
+    public <T extends Executor> Factory setDownloadExecutor(
+        Supplier<T> downloadExecutor, Consumer<T> downloadExecutorReleaser) {
+      this.downloadExecutorSupplier =
+          () -> ReleasableExecutor.from(downloadExecutor.get(), downloadExecutorReleaser);
+      return this;
+    }
+
+    /**
      * Returns a new {@link ProgressiveMediaSource} using the current parameters.
      *
      * @param mediaItem The {@link MediaItem}.
@@ -207,23 +254,16 @@ public final class ProgressiveMediaSource extends BaseMediaSource
     @Override
     public ProgressiveMediaSource createMediaSource(MediaItem mediaItem) {
       checkNotNull(mediaItem.localConfiguration);
-      boolean needsTag = mediaItem.localConfiguration.tag == null && tag != null;
-      boolean needsCustomCacheKey =
-          mediaItem.localConfiguration.customCacheKey == null && customCacheKey != null;
-      if (needsTag && needsCustomCacheKey) {
-        mediaItem = mediaItem.buildUpon().setTag(tag).setCustomCacheKey(customCacheKey).build();
-      } else if (needsTag) {
-        mediaItem = mediaItem.buildUpon().setTag(tag).build();
-      } else if (needsCustomCacheKey) {
-        mediaItem = mediaItem.buildUpon().setCustomCacheKey(customCacheKey).build();
-      }
       return new ProgressiveMediaSource(
           mediaItem,
           dataSourceFactory,
           progressiveMediaExtractorFactory,
           drmSessionManagerProvider.get(mediaItem),
           loadErrorHandlingPolicy,
-          continueLoadingCheckIntervalBytes);
+          continueLoadingCheckIntervalBytes,
+          singleTrackId,
+          singleTrackFormat,
+          downloadExecutorSupplier);
     }
 
     @Override
@@ -238,13 +278,25 @@ public final class ProgressiveMediaSource extends BaseMediaSource
    */
   public static final int DEFAULT_LOADING_CHECK_INTERVAL_BYTES = 1024 * 1024;
 
-  private final MediaItem mediaItem;
-  private final MediaItem.LocalConfiguration localConfiguration;
   private final DataSource.Factory dataSourceFactory;
   private final ProgressiveMediaExtractor.Factory progressiveMediaExtractorFactory;
   private final DrmSessionManager drmSessionManager;
   private final LoadErrorHandlingPolicy loadableLoadErrorHandlingPolicy;
   private final int continueLoadingCheckIntervalBytes;
+
+  /**
+   * The ID passed to {@link Factory#enableLazyLoadingWithSingleTrack(int, Format)}. Only valid if
+   * {@link #singleTrackFormat} is non-null.
+   */
+  private final int singleTrackId;
+
+  /**
+   * The {@link Format} passed to {@link Factory#enableLazyLoadingWithSingleTrack(int, Format)}, or
+   * {@code null} if not set.
+   */
+  @Nullable private final Format singleTrackFormat;
+
+  @Nullable private final Supplier<ReleasableExecutor> downloadExecutorSupplier;
 
   private boolean timelineIsPlaceholder;
   private long timelineDurationUs;
@@ -252,27 +304,50 @@ public final class ProgressiveMediaSource extends BaseMediaSource
   private boolean timelineIsLive;
   @Nullable private TransferListener transferListener;
 
+  @GuardedBy("this")
+  private MediaItem mediaItem;
+
   private ProgressiveMediaSource(
       MediaItem mediaItem,
       DataSource.Factory dataSourceFactory,
       ProgressiveMediaExtractor.Factory progressiveMediaExtractorFactory,
       DrmSessionManager drmSessionManager,
       LoadErrorHandlingPolicy loadableLoadErrorHandlingPolicy,
-      int continueLoadingCheckIntervalBytes) {
-    this.localConfiguration = checkNotNull(mediaItem.localConfiguration);
+      int continueLoadingCheckIntervalBytes,
+      int singleTrackId,
+      @Nullable Format singleTrackFormat,
+      @Nullable Supplier<ReleasableExecutor> downloadExecutorSupplier) {
     this.mediaItem = mediaItem;
     this.dataSourceFactory = dataSourceFactory;
     this.progressiveMediaExtractorFactory = progressiveMediaExtractorFactory;
     this.drmSessionManager = drmSessionManager;
     this.loadableLoadErrorHandlingPolicy = loadableLoadErrorHandlingPolicy;
     this.continueLoadingCheckIntervalBytes = continueLoadingCheckIntervalBytes;
+    this.singleTrackFormat = singleTrackFormat;
+    this.singleTrackId = singleTrackId;
     this.timelineIsPlaceholder = true;
     this.timelineDurationUs = C.TIME_UNSET;
+    this.downloadExecutorSupplier = downloadExecutorSupplier;
   }
 
   @Override
-  public MediaItem getMediaItem() {
+  public synchronized MediaItem getMediaItem() {
     return mediaItem;
+  }
+
+  @Override
+  public boolean canUpdateMediaItem(MediaItem mediaItem) {
+    MediaItem.LocalConfiguration existingConfiguration = getLocalConfiguration();
+    @Nullable MediaItem.LocalConfiguration newConfiguration = mediaItem.localConfiguration;
+    return newConfiguration != null
+        && newConfiguration.uri.equals(existingConfiguration.uri)
+        && newConfiguration.imageDurationMs == existingConfiguration.imageDurationMs
+        && Util.areEqual(newConfiguration.customCacheKey, existingConfiguration.customCacheKey);
+  }
+
+  @Override
+  public synchronized void updateMediaItem(MediaItem mediaItem) {
+    this.mediaItem = mediaItem;
   }
 
   @Override
@@ -295,6 +370,7 @@ public final class ProgressiveMediaSource extends BaseMediaSource
     if (transferListener != null) {
       dataSource.addTransferListener(transferListener);
     }
+    MediaItem.LocalConfiguration localConfiguration = getLocalConfiguration();
     return new ProgressiveMediaPeriod(
         localConfiguration.uri,
         dataSource,
@@ -306,7 +382,11 @@ public final class ProgressiveMediaSource extends BaseMediaSource
         this,
         allocator,
         localConfiguration.customCacheKey,
-        continueLoadingCheckIntervalBytes);
+        continueLoadingCheckIntervalBytes,
+        singleTrackId,
+        singleTrackFormat,
+        Util.msToUs(localConfiguration.imageDurationMs),
+        downloadExecutorSupplier != null ? downloadExecutorSupplier.get() : null);
   }
 
   @Override
@@ -341,6 +421,10 @@ public final class ProgressiveMediaSource extends BaseMediaSource
 
   // Internal methods.
 
+  private MediaItem.LocalConfiguration getLocalConfiguration() {
+    return checkNotNull(getMediaItem().localConfiguration);
+  }
+
   private void notifySourceInfoRefreshed() {
     // TODO: Split up isDynamic into multiple fields to indicate which values may change. Then
     // indicate that the duration may change until it's known. See [internal: b/69703223].
@@ -351,7 +435,7 @@ public final class ProgressiveMediaSource extends BaseMediaSource
             /* isDynamic= */ false,
             /* useLiveConfiguration= */ timelineIsLive,
             /* manifest= */ null,
-            mediaItem);
+            getMediaItem());
     if (timelineIsPlaceholder) {
       // TODO: Actually prepare the extractors during preparation so that we don't need a
       // placeholder. See https://github.com/google/ExoPlayer/issues/4727.

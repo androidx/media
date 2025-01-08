@@ -15,8 +15,6 @@
  */
 package androidx.media3.extractor.metadata.icy;
 
-import android.os.Parcel;
-import android.os.Parcelable;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -121,12 +119,16 @@ public final class IcyHeaders implements Metadata.Entry {
    * was not present.
    */
   public final int bitrate;
+
   /** The genre ({@code icy-genre}). */
   @Nullable public final String genre;
+
   /** The stream name ({@code icy-name}). */
   @Nullable public final String name;
+
   /** The URL of the radio station ({@code icy-url}). */
   @Nullable public final String url;
+
   /**
    * Whether the radio station is listed ({@code icy-pub}), or {@code false} if the header was not
    * present.
@@ -161,15 +163,6 @@ public final class IcyHeaders implements Metadata.Entry {
     this.url = url;
     this.isPublic = isPublic;
     this.metadataInterval = metadataInterval;
-  }
-
-  /* package */ IcyHeaders(Parcel in) {
-    bitrate = in.readInt();
-    genre = in.readString();
-    name = in.readString();
-    url = in.readString();
-    isPublic = Util.readBoolean(in);
-    metadataInterval = in.readInt();
   }
 
   @Override
@@ -222,35 +215,4 @@ public final class IcyHeaders implements Metadata.Entry {
         + ", metadataInterval="
         + metadataInterval;
   }
-
-  // Parcelable implementation.
-
-  @Override
-  public void writeToParcel(Parcel dest, int flags) {
-    dest.writeInt(bitrate);
-    dest.writeString(genre);
-    dest.writeString(name);
-    dest.writeString(url);
-    Util.writeBoolean(dest, isPublic);
-    dest.writeInt(metadataInterval);
-  }
-
-  @Override
-  public int describeContents() {
-    return 0;
-  }
-
-  public static final Parcelable.Creator<IcyHeaders> CREATOR =
-      new Parcelable.Creator<IcyHeaders>() {
-
-        @Override
-        public IcyHeaders createFromParcel(Parcel in) {
-          return new IcyHeaders(in);
-        }
-
-        @Override
-        public IcyHeaders[] newArray(int size) {
-          return new IcyHeaders[size];
-        }
-      };
 }

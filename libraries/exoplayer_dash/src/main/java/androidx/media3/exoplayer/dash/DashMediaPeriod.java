@@ -20,7 +20,6 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.util.Pair;
 import android.util.SparseArray;
-import android.util.SparseIntArray;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
@@ -28,8 +27,10 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.StreamKey;
 import androidx.media3.common.TrackGroup;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.TransferListener;
+import androidx.media3.exoplayer.LoadingInfo;
 import androidx.media3.exoplayer.SeekParameters;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.dash.PlayerEmsgHandler.PlayerEmsgCallback;
@@ -54,8 +55,12 @@ import androidx.media3.exoplayer.source.chunk.ChunkSampleStream;
 import androidx.media3.exoplayer.source.chunk.ChunkSampleStream.EmbeddedSampleStream;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import androidx.media3.exoplayer.upstream.Allocator;
+import androidx.media3.exoplayer.upstream.CmcdConfiguration;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
 import androidx.media3.exoplayer.upstream.LoaderErrorThrower;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.google.common.primitives.Ints;
 import java.io.IOException;
 import java.lang.annotation.Documented;
@@ -64,11 +69,11 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import org.checkerframework.checker.nullness.compatqual.NullableType;
 
 /** A DASH {@link MediaPeriod}. */
 /* package */ final class DashMediaPeriod
@@ -85,6 +90,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
   /* package */ final int id;
   private final DashChunkSource.Factory chunkSourceFactory;
   @Nullable private final TransferListener transferListener;
+  @Nullable private final CmcdConfiguration cmcdConfiguration;
   private final DrmSessionManager drmSessionManager;
   private final LoadErrorHandlingPolicy loadErrorHandlingPolicy;
   private final BaseUrlExclusionList baseUrlExclusionList;
@@ -108,6 +114,8 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
   private DashManifest manifest;
   private int periodIndex;
   private List<EventStream> eventStreams;
+  private boolean canReportInitialDiscontinuity;
+  private long initialStartTimeUs;
 
   public DashMediaPeriod(
       int id,
@@ -116,6 +124,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
       int periodIndex,
       DashChunkSource.Factory chunkSourceFactory,
       @Nullable TransferListener transferListener,
+      @Nullable CmcdConfiguration cmcdConfiguration,
       DrmSessionManager drmSessionManager,
       DrmSessionEventListener.EventDispatcher drmEventDispatcher,
       LoadErrorHandlingPolicy loadErrorHandlingPolicy,
@@ -132,6 +141,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
     this.periodIndex = periodIndex;
     this.chunkSourceFactory = chunkSourceFactory;
     this.transferListener = transferListener;
+    this.cmcdConfiguration = cmcdConfiguration;
     this.drmSessionManager = drmSessionManager;
     this.drmEventDispatcher = drmEventDispatcher;
     this.loadErrorHandlingPolicy = loadErrorHandlingPolicy;
@@ -141,16 +151,17 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
     this.allocator = allocator;
     this.compositeSequenceableLoaderFactory = compositeSequenceableLoaderFactory;
     this.playerId = playerId;
+    this.canReportInitialDiscontinuity = true;
     playerEmsgHandler = new PlayerEmsgHandler(manifest, playerEmsgCallback, allocator);
     sampleStreams = newSampleStreamArray(0);
     eventSampleStreams = new EventSampleStream[0];
     trackEmsgHandlerBySampleStream = new IdentityHashMap<>();
-    compositeSequenceableLoader =
-        compositeSequenceableLoaderFactory.createCompositeSequenceableLoader(sampleStreams);
+    compositeSequenceableLoader = compositeSequenceableLoaderFactory.empty();
     Period period = manifest.getPeriod(periodIndex);
     eventStreams = period.eventStreams;
     Pair<TrackGroupArray, TrackGroupInfo[]> result =
-        buildTrackGroups(drmSessionManager, period.adaptationSets, eventStreams);
+        buildTrackGroups(
+            drmSessionManager, chunkSourceFactory, period.adaptationSets, eventStreams);
     trackGroups = result.first;
     trackGroupInfos = result.second;
   }
@@ -294,7 +305,13 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
     eventSampleStreamList.toArray(eventSampleStreams);
 
     compositeSequenceableLoader =
-        compositeSequenceableLoaderFactory.createCompositeSequenceableLoader(sampleStreams);
+        compositeSequenceableLoaderFactory.create(
+            sampleStreamList,
+            Lists.transform(sampleStreamList, s -> ImmutableList.of(s.primaryTrackType)));
+    if (canReportInitialDiscontinuity) {
+      canReportInitialDiscontinuity = false;
+      initialStartTimeUs = positionUs;
+    }
     return positionUs;
   }
 
@@ -311,8 +328,8 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
   }
 
   @Override
-  public boolean continueLoading(long positionUs) {
-    return compositeSequenceableLoader.continueLoading(positionUs);
+  public boolean continueLoading(LoadingInfo loadingInfo) {
+    return compositeSequenceableLoader.continueLoading(loadingInfo);
   }
 
   @Override
@@ -327,6 +344,11 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
 
   @Override
   public long readDiscontinuity() {
+    for (ChunkSampleStream<DashChunkSource> sampleStream : sampleStreams) {
+      if (sampleStream.consumeInitialDiscontinuity()) {
+        return initialStartTimeUs;
+      }
+    }
     return C.TIME_UNSET;
   }
 
@@ -495,6 +517,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
 
   private static Pair<TrackGroupArray, TrackGroupInfo[]> buildTrackGroups(
       DrmSessionManager drmSessionManager,
+      DashChunkSource.Factory chunkSourceFactory,
       List<AdaptationSet> adaptationSets,
       List<EventStream> eventStreams) {
     int[][] groupedAdaptationSetIndices = getGroupedAdaptationSetIndices(adaptationSets);
@@ -517,6 +540,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
     int trackGroupCount =
         buildPrimaryAndEmbeddedTrackGroupInfos(
             drmSessionManager,
+            chunkSourceFactory,
             adaptationSets,
             groupedAdaptationSetIndices,
             primaryGroupCount,
@@ -546,7 +570,8 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
    */
   private static int[][] getGroupedAdaptationSetIndices(List<AdaptationSet> adaptationSets) {
     int adaptationSetCount = adaptationSets.size();
-    SparseIntArray adaptationSetIdToIndex = new SparseIntArray(adaptationSetCount);
+    HashMap<Long, Integer> adaptationSetIdToIndex =
+        Maps.newHashMapWithExpectedSize(adaptationSetCount);
     List<List<Integer>> adaptationSetGroupedIndices = new ArrayList<>(adaptationSetCount);
     SparseArray<List<Integer>> adaptationSetIndexToGroupedIndices =
         new SparseArray<>(adaptationSetCount);
@@ -574,10 +599,9 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
         trickPlayProperty = findTrickPlayProperty(adaptationSet.supplementalProperties);
       }
       if (trickPlayProperty != null) {
-        int mainAdaptationSetId = Integer.parseInt(trickPlayProperty.value);
-        int mainAdaptationSetIndex =
-            adaptationSetIdToIndex.get(mainAdaptationSetId, /* valueIfKeyNotFound= */ -1);
-        if (mainAdaptationSetIndex != -1) {
+        long mainAdaptationSetId = Long.parseLong(trickPlayProperty.value);
+        @Nullable Integer mainAdaptationSetIndex = adaptationSetIdToIndex.get(mainAdaptationSetId);
+        if (mainAdaptationSetIndex != null) {
           mergedGroupIndex = mainAdaptationSetIndex;
         }
       }
@@ -591,11 +615,11 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
         if (adaptationSetSwitchingProperty != null) {
           String[] otherAdaptationSetIds = Util.split(adaptationSetSwitchingProperty.value, ",");
           for (String adaptationSetId : otherAdaptationSetIds) {
-            int otherAdaptationSetId =
-                adaptationSetIdToIndex.get(
-                    Integer.parseInt(adaptationSetId), /* valueIfKeyNotFound= */ -1);
-            if (otherAdaptationSetId != -1) {
-              mergedGroupIndex = min(mergedGroupIndex, otherAdaptationSetId);
+            @Nullable
+            Integer otherAdaptationSetIndex =
+                adaptationSetIdToIndex.get(Long.parseLong(adaptationSetId));
+            if (otherAdaptationSetIndex != null) {
+              mergedGroupIndex = min(mergedGroupIndex, otherAdaptationSetIndex);
             }
           }
         }
@@ -656,6 +680,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
 
   private static int buildPrimaryAndEmbeddedTrackGroupInfos(
       DrmSessionManager drmSessionManager,
+      DashChunkSource.Factory chunkSourceFactory,
       List<AdaptationSet> adaptationSets,
       int[][] groupedAdaptationSetIndices,
       int primaryGroupCount,
@@ -672,14 +697,18 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
       }
       Format[] formats = new Format[representations.size()];
       for (int j = 0; j < formats.length; j++) {
-        Format format = representations.get(j).format;
-        formats[j] = format.copyWithCryptoType(drmSessionManager.getCryptoType(format));
+        Format originalFormat = representations.get(j).format;
+        Format.Builder updatedFormat =
+            originalFormat
+                .buildUpon()
+                .setCryptoType(drmSessionManager.getCryptoType(originalFormat));
+        formats[j] = updatedFormat.build();
       }
 
       AdaptationSet firstAdaptationSet = adaptationSets.get(adaptationSetIndices[0]);
       String trackGroupId =
           firstAdaptationSet.id != AdaptationSet.ID_UNSET
-              ? Integer.toString(firstAdaptationSet.id)
+              ? Long.toString(firstAdaptationSet.id)
               : ("unset:" + i);
       int primaryTrackGroupIndex = trackGroupCount++;
       int eventMessageTrackGroupIndex =
@@ -687,6 +716,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
       int closedCaptionTrackGroupIndex =
           primaryGroupClosedCaptionTrackFormats[i].length != 0 ? trackGroupCount++ : C.INDEX_UNSET;
 
+      maybeUpdateFormatsForParsedText(chunkSourceFactory, formats);
       trackGroups[primaryTrackGroupIndex] = new TrackGroup(trackGroupId, formats);
       trackGroupInfos[primaryTrackGroupIndex] =
           TrackGroupInfo.primaryTrack(
@@ -708,10 +738,15 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
       }
       if (closedCaptionTrackGroupIndex != C.INDEX_UNSET) {
         String closedCaptionTrackGroupId = trackGroupId + ":cc";
+        trackGroupInfos[closedCaptionTrackGroupIndex] =
+            TrackGroupInfo.embeddedClosedCaptionTrack(
+                adaptationSetIndices,
+                primaryTrackGroupIndex,
+                ImmutableList.copyOf(primaryGroupClosedCaptionTrackFormats[i]));
+        maybeUpdateFormatsForParsedText(
+            chunkSourceFactory, primaryGroupClosedCaptionTrackFormats[i]);
         trackGroups[closedCaptionTrackGroupIndex] =
             new TrackGroup(closedCaptionTrackGroupId, primaryGroupClosedCaptionTrackFormats[i]);
-        trackGroupInfos[closedCaptionTrackGroupIndex] =
-            TrackGroupInfo.embeddedClosedCaptionTrack(adaptationSetIndices, primaryTrackGroupIndex);
       }
     }
     return trackGroupCount;
@@ -746,14 +781,12 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
           trackGroups.get(trackGroupInfo.embeddedEventMessageTrackGroupIndex);
       embeddedTrackCount++;
     }
-    boolean enableClosedCaptionTrack =
-        trackGroupInfo.embeddedClosedCaptionTrackGroupIndex != C.INDEX_UNSET;
-    TrackGroup embeddedClosedCaptionTrackGroup = null;
-    if (enableClosedCaptionTrack) {
-      embeddedClosedCaptionTrackGroup =
-          trackGroups.get(trackGroupInfo.embeddedClosedCaptionTrackGroupIndex);
-      embeddedTrackCount += embeddedClosedCaptionTrackGroup.length;
-    }
+    ImmutableList<Format> embeddedClosedCaptionOriginalFormats =
+        trackGroupInfo.embeddedClosedCaptionTrackGroupIndex != C.INDEX_UNSET
+            ? trackGroupInfos[trackGroupInfo.embeddedClosedCaptionTrackGroupIndex]
+                .embeddedClosedCaptionTrackOriginalFormats
+            : ImmutableList.of();
+    embeddedTrackCount += embeddedClosedCaptionOriginalFormats.size();
 
     Format[] embeddedTrackFormats = new Format[embeddedTrackCount];
     int[] embeddedTrackTypes = new int[embeddedTrackCount];
@@ -764,13 +797,11 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
       embeddedTrackCount++;
     }
     List<Format> embeddedClosedCaptionTrackFormats = new ArrayList<>();
-    if (enableClosedCaptionTrack) {
-      for (int i = 0; i < embeddedClosedCaptionTrackGroup.length; i++) {
-        embeddedTrackFormats[embeddedTrackCount] = embeddedClosedCaptionTrackGroup.getFormat(i);
-        embeddedTrackTypes[embeddedTrackCount] = C.TRACK_TYPE_TEXT;
-        embeddedClosedCaptionTrackFormats.add(embeddedTrackFormats[embeddedTrackCount]);
-        embeddedTrackCount++;
-      }
+    for (int i = 0; i < embeddedClosedCaptionOriginalFormats.size(); i++) {
+      embeddedTrackFormats[embeddedTrackCount] = embeddedClosedCaptionOriginalFormats.get(i);
+      embeddedTrackTypes[embeddedTrackCount] = C.TRACK_TYPE_TEXT;
+      embeddedClosedCaptionTrackFormats.add(embeddedTrackFormats[embeddedTrackCount]);
+      embeddedTrackCount++;
     }
 
     PlayerTrackEmsgHandler trackPlayerEmsgHandler =
@@ -791,7 +822,8 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
             embeddedClosedCaptionTrackFormats,
             trackPlayerEmsgHandler,
             transferListener,
-            playerId);
+            playerId,
+            cmcdConfiguration);
     ChunkSampleStream<DashChunkSource> stream =
         new ChunkSampleStream<>(
             trackGroupInfo.trackType,
@@ -804,7 +836,9 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
             drmSessionManager,
             drmEventDispatcher,
             loadErrorHandlingPolicy,
-            mediaSourceEventDispatcher);
+            mediaSourceEventDispatcher,
+            canReportInitialDiscontinuity,
+            /* downloadExecutor= */ null);
     synchronized (this) {
       // The map is also accessed on the loading thread so synchronize access.
       trackEmsgHandlerBySampleStream.put(stream, trackPlayerEmsgHandler);
@@ -903,6 +937,17 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
     return formats;
   }
 
+  /**
+   * Modifies the provided {@link Format} array if subtitle/caption parsing is configured to happen
+   * during extraction.
+   */
+  private static void maybeUpdateFormatsForParsedText(
+      DashChunkSource.Factory chunkSourceFactory, Format[] formats) {
+    for (int i = 0; i < formats.length; i++) {
+      formats[i] = chunkSourceFactory.getOutputTextFormat(formats[i]);
+    }
+  }
+
   // We won't assign the array to a variable that erases the generic type, and then write into it.
   @SuppressWarnings({"unchecked", "rawtypes"})
   private static ChunkSampleStream<DashChunkSource>[] newSampleStreamArray(int length) {
@@ -944,6 +989,9 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
     public final int embeddedEventMessageTrackGroupIndex;
     public final int embeddedClosedCaptionTrackGroupIndex;
 
+    /** Only non-empty for track groups representing embedded caption tracks. */
+    public final ImmutableList<Format> embeddedClosedCaptionTrackOriginalFormats;
+
     public static TrackGroupInfo primaryTrack(
         int trackType,
         int[] adaptationSetIndices,
@@ -957,7 +1005,8 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
           primaryTrackGroupIndex,
           embeddedEventMessageTrackGroupIndex,
           embeddedClosedCaptionTrackGroupIndex,
-          /* eventStreamGroupIndex= */ -1);
+          /* eventStreamGroupIndex= */ -1,
+          /* embeddedClosedCaptionTrackOriginalFormats= */ ImmutableList.of());
     }
 
     public static TrackGroupInfo embeddedEmsgTrack(
@@ -969,11 +1018,14 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
           primaryTrackGroupIndex,
           C.INDEX_UNSET,
           C.INDEX_UNSET,
-          /* eventStreamGroupIndex= */ -1);
+          /* eventStreamGroupIndex= */ -1,
+          /* embeddedClosedCaptionTrackOriginalFormats= */ ImmutableList.of());
     }
 
     public static TrackGroupInfo embeddedClosedCaptionTrack(
-        int[] adaptationSetIndices, int primaryTrackGroupIndex) {
+        int[] adaptationSetIndices,
+        int primaryTrackGroupIndex,
+        ImmutableList<Format> originalFormats) {
       return new TrackGroupInfo(
           C.TRACK_TYPE_TEXT,
           CATEGORY_EMBEDDED,
@@ -981,7 +1033,8 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
           primaryTrackGroupIndex,
           C.INDEX_UNSET,
           C.INDEX_UNSET,
-          /* eventStreamGroupIndex= */ -1);
+          /* eventStreamGroupIndex= */ -1,
+          originalFormats);
     }
 
     public static TrackGroupInfo mpdEventTrack(int eventStreamIndex) {
@@ -992,7 +1045,8 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
           /* primaryTrackGroupIndex= */ -1,
           C.INDEX_UNSET,
           C.INDEX_UNSET,
-          eventStreamIndex);
+          eventStreamIndex,
+          /* embeddedClosedCaptionTrackOriginalFormats= */ ImmutableList.of());
     }
 
     private TrackGroupInfo(
@@ -1002,7 +1056,8 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
         int primaryTrackGroupIndex,
         int embeddedEventMessageTrackGroupIndex,
         int embeddedClosedCaptionTrackGroupIndex,
-        int eventStreamGroupIndex) {
+        int eventStreamGroupIndex,
+        ImmutableList<Format> embeddedClosedCaptionTrackOriginalFormats) {
       this.trackType = trackType;
       this.adaptationSetIndices = adaptationSetIndices;
       this.trackGroupCategory = trackGroupCategory;
@@ -1010,6 +1065,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
       this.embeddedEventMessageTrackGroupIndex = embeddedEventMessageTrackGroupIndex;
       this.embeddedClosedCaptionTrackGroupIndex = embeddedClosedCaptionTrackGroupIndex;
       this.eventStreamGroupIndex = eventStreamGroupIndex;
+      this.embeddedClosedCaptionTrackOriginalFormats = embeddedClosedCaptionTrackOriginalFormats;
     }
   }
 }

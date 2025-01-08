@@ -167,7 +167,7 @@ public class LoopingMediaSourceTest {
   private static Timeline getLoopingTimeline(Timeline timeline, int loopCount) throws IOException {
     FakeMediaSource fakeMediaSource = new FakeMediaSource(timeline);
     LoopingMediaSource mediaSource = new LoopingMediaSource(fakeMediaSource, loopCount);
-    MediaSourceTestRunner testRunner = new MediaSourceTestRunner(mediaSource, null);
+    MediaSourceTestRunner testRunner = new MediaSourceTestRunner(mediaSource);
     try {
       Timeline loopingTimeline = testRunner.prepareSource();
       testRunner.releaseSource();
@@ -185,7 +185,7 @@ public class LoopingMediaSourceTest {
   private static void testMediaPeriodCreation(Timeline timeline, int loopCount) throws Exception {
     FakeMediaSource fakeMediaSource = new FakeMediaSource(timeline);
     LoopingMediaSource mediaSource = new LoopingMediaSource(fakeMediaSource, loopCount);
-    MediaSourceTestRunner testRunner = new MediaSourceTestRunner(mediaSource, null);
+    MediaSourceTestRunner testRunner = new MediaSourceTestRunner(mediaSource);
     try {
       testRunner.prepareSource();
       testRunner.assertPrepareAndReleaseAllPeriods();

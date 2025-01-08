@@ -16,12 +16,10 @@
 package androidx.media3.test.session.common;
 
 import android.os.Bundle;
-import androidx.media3.common.util.UnstableApi;
 import java.util.ArrayList;
 import java.util.List;
 
 /** Constants for calling MediaBrowser methods. */
-@UnstableApi
 public class MediaBrowserConstants {
 
   public static final String ROOT_ID = "rootId";
@@ -31,8 +29,13 @@ public class MediaBrowserConstants {
   public static final String ROOT_EXTRAS_KEY = "root_extras_key";
   public static final int ROOT_EXTRAS_VALUE = 4321;
 
+  public static final String COMMAND_PLAYLIST_ADD = "androidx.media3.commands.playlist_add";
+  public static final String COMMAND_RADIO = "androidx.media3.commands.radio";
+
   public static final String MEDIA_ID_GET_BROWSABLE_ITEM = "media_id_get_browsable_item";
   public static final String MEDIA_ID_GET_PLAYABLE_ITEM = "media_id_get_playable_item";
+  public static final String MEDIA_ID_GET_ITEM_WITH_BROWSE_ACTIONS =
+      "media_id_item_with_browse_actions";
   public static final String MEDIA_ID_GET_ITEM_WITH_METADATA = "media_id_get_item_with_metadata";
 
   public static final String PARENT_ID = "parent_id";
@@ -40,8 +43,15 @@ public class MediaBrowserConstants {
   public static final String PARENT_ID_NO_CHILDREN = "parent_id_no_children";
   public static final String PARENT_ID_ERROR = "parent_id_error";
   public static final String PARENT_ID_AUTH_EXPIRED_ERROR = "parent_auth_expired_error";
+  public static final String PARENT_ID_SKIP_LIMIT_REACHED_ERROR = "parent_skip_limit_reached_error";
+  public static final String PARENT_ID_AUTH_EXPIRED_ERROR_DEPRECATED =
+      "parent_auth_expired_error_deprecated";
+  public static final String PARENT_ID_AUTH_EXPIRED_ERROR_NON_FATAL =
+      "parent_auth_expired_error_non_fatal";
   public static final String PARENT_ID_AUTH_EXPIRED_ERROR_KEY_ERROR_RESOLUTION_ACTION_LABEL =
       "parent_auth_expired_error_label";
+  public static final String PARENT_ID_ALLOW_FIRST_ON_GET_CHILDREN =
+      "parent_allow_first_on_get_children";
 
   public static final List<String> GET_CHILDREN_RESULT = new ArrayList<>();
   public static final int CHILDREN_COUNT = 100;
@@ -58,16 +68,18 @@ public class MediaBrowserConstants {
   public static final List<String> SEARCH_RESULT = new ArrayList<>();
   public static final int SEARCH_RESULT_COUNT = 50;
 
-  public static final String SUBSCRIBE_ID_NOTIFY_CHILDREN_CHANGED_TO_ALL =
-      "subscribe_id_notify_children_changed_to_all";
-  public static final String SUBSCRIBE_ID_NOTIFY_CHILDREN_CHANGED_TO_ONE =
-      "subscribe_id_notify_children_changed_to_one";
-  public static final String SUBSCRIBE_ID_NOTIFY_CHILDREN_CHANGED_TO_ALL_WITH_NON_SUBSCRIBED_ID =
-      "subscribe_id_notify_children_changed_to_all_with_non_subscribed_id";
-  public static final String SUBSCRIBE_ID_NOTIFY_CHILDREN_CHANGED_TO_ONE_WITH_NON_SUBSCRIBED_ID =
-      "subscribe_id_notify_children_changed_to_one_with_non_subscribed_id";
-  public static final int NOTIFY_CHILDREN_CHANGED_ITEM_COUNT = 101;
-  public static final Bundle NOTIFY_CHILDREN_CHANGED_EXTRAS = TestUtils.createTestBundle();
+  public static final String SUBSCRIBE_PARENT_ID_1 = "subscribe_parent_id_1";
+  public static final String SUBSCRIBE_PARENT_ID_2 = "subscribe_parent_id_2";
+  public static final String EXTRAS_KEY_NOTIFY_CHILDREN_CHANGED_MEDIA_ID =
+      "notify_children_changed_media_id";
+  public static final String EXTRAS_KEY_NOTIFY_CHILDREN_CHANGED_ITEM_COUNT =
+      "notify_children_changed_item_count";
+  public static final String EXTRAS_KEY_NOTIFY_CHILDREN_CHANGED_DELAY_MS =
+      "notify_children_changed_delay";
+  public static final String EXTRAS_KEY_NOTIFY_CHILDREN_CHANGED_BROADCAST =
+      "notify_children_changed_broadcast";
+  public static final String CONNECTION_HINTS_KEY_LIBRARY_ERROR_REPLICATION_MODE =
+      "error_replication_mode";
 
   public static final String CUSTOM_ACTION = "customAction";
   public static final Bundle CUSTOM_ACTION_EXTRAS = new Bundle();

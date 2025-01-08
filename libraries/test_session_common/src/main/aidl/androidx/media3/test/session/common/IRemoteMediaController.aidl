@@ -29,6 +29,11 @@ interface IRemoteMediaController {
 
   // MediaController Methods
   Bundle getConnectedSessionToken(String controllerId);
+  Bundle getSessionExtras(String controllerId);
+  Bundle getCustomLayout(String controllerId);
+  Bundle getMediaButtonPreferences(String controllerId);
+  Bundle getAvailableCommands(String controllerId);
+  PendingIntent getSessionActivity(String controllerId);
   void play(String controllerId);
   void pause(String controllerId);
   void setPlayWhenReady(String controllerId, boolean playWhenReady);
@@ -62,6 +67,8 @@ interface IRemoteMediaController {
   void clearMediaItems(String controllerId);
   void moveMediaItem(String controllerId, int currentIndex, int newIndex);
   void moveMediaItems(String controllerId, int fromIndex, int toIndex, int newIndex);
+  void replaceMediaItem(String controllerId, int index, in Bundle mediaItem);
+  void replaceMediaItems(String controllerId, int fromIndex, int toIndex, in List<Bundle> mediaItems);
   void seekToPreviousMediaItem(String controllerId);
   void seekToNextMediaItem(String controllerId);
   void seekToPrevious(String controllerId);
@@ -72,9 +79,14 @@ interface IRemoteMediaController {
   void adjustVolume(String controllerId, int direction, int flags);
   void setVolume(String controllerId, float volume);
   void setDeviceVolume(String controllerId, int volume);
+  void setDeviceVolumeWithFlags(String controllerId, int volume, int flags);
   void increaseDeviceVolume(String controllerId);
+  void increaseDeviceVolumeWithFlags(String controllerId, int flags);
   void decreaseDeviceVolume(String controllerId);
+  void decreaseDeviceVolumeWithFlags(String controllerId, int flags);
   void setDeviceMuted(String controllerId, boolean muted);
+  void setDeviceMutedWithFlags(String controllerId, boolean muted, int flags);
+  void setAudioAttributes(String controllerId, in Bundle audioAttributes, boolean handleAudioFocus);
   Bundle sendCustomCommand(String controllerId, in Bundle command, in Bundle args);
   Bundle setRatingWithMediaId(String controllerId, String mediaId, in Bundle rating);
   Bundle setRating(String controllerId, in Bundle rating);

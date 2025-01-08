@@ -13,6 +13,20 @@
 // limitations under the License.
 apply from: "$gradle.ext.androidxMediaSettingsDir/common_library_config.gradle"
 
+android {
+    namespace 'androidx.media3.test.utils'
+
+    sourceSets {
+        test.assets.srcDir '../test_data/src/test/assets/'
+    }
+
+    publishing {
+        singleVariant('release') {
+            withSourcesJar()
+        }
+    }
+}
+
 dependencies {
     api 'org.mockito:mockito-core:' + mockitoVersion
     api 'androidx.test:core:' + androidxTestCoreVersion
@@ -22,18 +36,13 @@ dependencies {
     api 'com.google.truth:truth:' + truthVersion
     api 'com.google.truth.extensions:truth-java8-extension:' + truthVersion
     compileOnly 'org.checkerframework:checker-qual:' + checkerframeworkVersion
-    compileOnly 'org.checkerframework:checker-compat-qual:' + checkerframeworkCompatVersion
     compileOnly 'org.jetbrains.kotlin:kotlin-annotations-jvm:' + kotlinAnnotationsVersion
     implementation 'androidx.annotation:annotation:' + androidxAnnotationVersion
     implementation 'com.squareup.okhttp3:mockwebserver:' + okhttpVersion
     implementation project(modulePrefix + 'lib-exoplayer')
+    testImplementation 'androidx.test.espresso:espresso-core:' + androidxTestEspressoVersion
     testImplementation 'org.robolectric:robolectric:' + robolectricVersion
 }
-
-ext {
-    javadocTitle = 'Test utils'
-}
-apply from: '../../javadoc_library.gradle'
 
 ext {
     releaseArtifactId = 'media3-test-utils'

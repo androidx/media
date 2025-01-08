@@ -22,39 +22,30 @@ import androidx.media3.common.util.UnstableApi;
 /** Value class specifying information about a decoded video frame. */
 @UnstableApi
 public class FrameInfo {
-  /** The width of the frame, in pixels. */
-  public final int width;
-  /** The height of the frame, in pixels. */
-  public final int height;
-  /** The ratio of width over height for each pixel. */
-  public final float pixelWidthHeightRatio;
-  /**
-   * An offset in microseconds that is part of the input timestamps and should be ignored for
-   * processing but added back to the output timestamps.
-   *
-   * <p>The offset stays constant within a stream but changes in between streams to ensure that
-   * frame timestamps are always monotonically increasing.
-   */
-  public final long streamOffsetUs;
-
-  // TODO(b/227624622): Add color space information for HDR.
 
   /**
-   * Creates a new instance.
+   * The {@link Format} of the frame.
    *
-   * @param width The width of the frame, in pixels.
-   * @param height The height of the frame, in pixels.
-   * @param pixelWidthHeightRatio The ratio of width over height for each pixel.
-   * @param streamOffsetUs An offset in microseconds that is part of the input timestamps and should
-   *     be ignored for processing but added back to the output timestamps.
+   * <p>The {@link Format#colorInfo} must be set, and the {@link Format#width} and {@link
+   * Format#height} must be greater than 0.
    */
-  public FrameInfo(int width, int height, float pixelWidthHeightRatio, long streamOffsetUs) {
-    checkArgument(width > 0, "width must be positive, but is: " + width);
-    checkArgument(height > 0, "height must be positive, but is: " + height);
+  public final Format format;
 
-    this.width = width;
-    this.height = height;
-    this.pixelWidthHeightRatio = pixelWidthHeightRatio;
-    this.streamOffsetUs = streamOffsetUs;
+  /** The offset that must be added to the frame presentation timestamp, in microseconds. */
+  public final long offsetToAddUs;
+
+  /**
+   * Creates an instance.
+   *
+   * @param format See {@link #format}.
+   * @param offsetToAddUs See {@link #offsetToAddUs}.
+   */
+  public FrameInfo(Format format, long offsetToAddUs) {
+    checkArgument(format.colorInfo != null, "format colorInfo must be set");
+    checkArgument(format.width > 0, "format width must be positive, but is: " + format.width);
+    checkArgument(format.height > 0, "format height must be positive, but is: " + format.height);
+
+    this.format = format;
+    this.offsetToAddUs = offsetToAddUs;
   }
 }

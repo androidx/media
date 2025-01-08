@@ -222,6 +222,7 @@ public final class FlacExtractor implements Extractor {
       @Nullable
       Metadata metadata = streamMetadata.getMetadataCopyWithAppendedEntriesFrom(id3Metadata);
       outputFormat(streamMetadata, metadata, trackOutput);
+      trackOutput.durationUs(streamMetadata.getDurationUs());
     }
   }
 
@@ -274,6 +275,7 @@ public final class FlacExtractor implements Extractor {
       FlacStreamMetadata streamMetadata, @Nullable Metadata metadata, TrackOutput output) {
     Format mediaFormat =
         new Format.Builder()
+            .setContainerMimeType(MimeTypes.AUDIO_FLAC)
             .setSampleMimeType(MimeTypes.AUDIO_RAW)
             .setAverageBitrate(streamMetadata.getDecodedBitrate())
             .setPeakBitrate(streamMetadata.getDecodedBitrate())

@@ -19,6 +19,7 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.container.Mp4Box;
 import java.nio.ByteBuffer;
 import java.util.UUID;
 
@@ -52,13 +53,13 @@ public final class PsshAtomUtil {
   public static byte[] buildPsshAtom(
       UUID systemId, @Nullable UUID[] keyIds, @Nullable byte[] data) {
     int dataLength = data != null ? data.length : 0;
-    int psshBoxLength = Atom.FULL_HEADER_SIZE + 16 /* SystemId */ + 4 /* DataSize */ + dataLength;
+    int psshBoxLength = Mp4Box.FULL_HEADER_SIZE + 16 /* SystemId */ + 4 /* DataSize */ + dataLength;
     if (keyIds != null) {
       psshBoxLength += 4 /* KID_count */ + (keyIds.length * 16) /* KIDs */;
     }
     ByteBuffer psshBox = ByteBuffer.allocate(psshBoxLength);
     psshBox.putInt(psshBoxLength);
-    psshBox.putInt(Atom.TYPE_pssh);
+    psshBox.putInt(Mp4Box.TYPE_pssh);
     psshBox.putInt(keyIds != null ? 0x01000000 : 0 /* version=(buildV1Atom ? 1 : 0), flags=0 */);
     psshBox.putLong(systemId.getMostSignificantBits());
     psshBox.putLong(systemId.getLeastSignificantBits());
@@ -72,7 +73,9 @@ public final class PsshAtomUtil {
     if (data != null && data.length != 0) {
       psshBox.putInt(data.length);
       psshBox.put(data);
-    } // Else the last 4 bytes are a 0 DataSize.
+    } else {
+      psshBox.putInt(0);
+    }
     return psshBox.array();
   }
 
@@ -152,56 +155,73 @@ public final class PsshAtomUtil {
    * @return The parsed PSSH atom. Null if the input is not a valid PSSH atom, or if the PSSH atom
    *     has an unsupported version.
    */
-  // TODO: Support parsing of the key ids for version 1 PSSH atoms.
   @Nullable
-  private static PsshAtom parsePsshAtom(byte[] atom) {
+  public static PsshAtom parsePsshAtom(byte[] atom) {
     ParsableByteArray atomData = new ParsableByteArray(atom);
-    if (atomData.limit() < Atom.FULL_HEADER_SIZE + 16 /* UUID */ + 4 /* DataSize */) {
+    if (atomData.limit() < Mp4Box.FULL_HEADER_SIZE + 16 /* UUID */ + 4 /* DataSize */) {
       // Data too short.
       return null;
     }
     atomData.setPosition(0);
+    int bufferLength = atomData.bytesLeft();
     int atomSize = atomData.readInt();
-    if (atomSize != atomData.bytesLeft() + 4) {
-      // Not an atom, or incorrect atom size.
+    if (atomSize != bufferLength) {
+      Log.w(
+          TAG,
+          "Advertised atom size (" + atomSize + ") does not match buffer size: " + bufferLength);
       return null;
     }
     int atomType = atomData.readInt();
-    if (atomType != Atom.TYPE_pssh) {
-      // Not an atom, or incorrect atom type.
+    if (atomType != Mp4Box.TYPE_pssh) {
+      Log.w(TAG, "Atom type is not pssh: " + atomType);
       return null;
     }
-    int atomVersion = Atom.parseFullAtomVersion(atomData.readInt());
+    int atomVersion = BoxParser.parseFullBoxVersion(atomData.readInt());
     if (atomVersion > 1) {
       Log.w(TAG, "Unsupported pssh version: " + atomVersion);
       return null;
     }
     UUID uuid = new UUID(atomData.readLong(), atomData.readLong());
+    UUID[] keyIds = null;
     if (atomVersion == 1) {
       int keyIdCount = atomData.readUnsignedIntToInt();
-      atomData.skipBytes(16 * keyIdCount);
+      keyIds = new UUID[keyIdCount];
+      for (int i = 0; i < keyIdCount; ++i) {
+        keyIds[i] = new UUID(atomData.readLong(), atomData.readLong());
+      }
     }
     int dataSize = atomData.readUnsignedIntToInt();
-    if (dataSize != atomData.bytesLeft()) {
-      // Incorrect dataSize.
+    bufferLength = atomData.bytesLeft();
+    if (dataSize != bufferLength) {
+      Log.w(
+          TAG, "Atom data size (" + dataSize + ") does not match the bytes left: " + bufferLength);
       return null;
     }
     byte[] data = new byte[dataSize];
     atomData.readBytes(data, 0, dataSize);
-    return new PsshAtom(uuid, atomVersion, data);
+    return new PsshAtom(uuid, atomVersion, data, keyIds);
   }
 
-  // TODO: Consider exposing this and making parsePsshAtom public.
-  private static class PsshAtom {
+  /** A class representing the mp4 PSSH Atom as specified in ISO/IEC 23001-7. */
+  public static final class PsshAtom {
 
-    private final UUID uuid;
-    private final int version;
-    private final byte[] schemeData;
+    /** The UUID of the encryption system as specified in ISO/IEC 23009-1 section 5.8.4.1. */
+    public final UUID uuid;
 
-    public PsshAtom(UUID uuid, int version, byte[] schemeData) {
+    /** The version of the PSSH atom, either 0 or 1. */
+    public final int version;
+
+    /** Binary scheme data. */
+    public final byte[] schemeData;
+
+    /** Array of key IDs. Always null for version 0 and non-null for version 1. */
+    @Nullable public final UUID[] keyIds;
+
+    /* package */ PsshAtom(UUID uuid, int version, byte[] schemeData, @Nullable UUID[] keyIds) {
       this.uuid = uuid;
       this.version = version;
       this.schemeData = schemeData;
+      this.keyIds = keyIds;
     }
   }
 }

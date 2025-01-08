@@ -24,10 +24,12 @@ import androidx.media3.common.C;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.util.Assertions;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSpec;
 import androidx.media3.datasource.TransferListener;
+import androidx.media3.exoplayer.LoadingInfo;
 import androidx.media3.exoplayer.SeekParameters;
 import androidx.media3.exoplayer.drm.DrmSessionEventListener;
 import androidx.media3.exoplayer.drm.DrmSessionManager;
@@ -42,11 +44,12 @@ import androidx.media3.exoplayer.source.chunk.ChunkSampleStream;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Lists;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import org.checkerframework.checker.nullness.compatqual.NullableType;
 
 /**
  * Fake {@link MediaPeriod} that provides tracks from the given {@link TrackGroupArray}. Selecting a
@@ -85,7 +88,9 @@ public class FakeAdaptiveMediaPeriod
     this.durationUs = durationUs;
     this.transferListener = transferListener;
     sampleStreams = new ArrayList<>();
-    sequenceableLoader = new CompositeSequenceableLoader(new SequenceableLoader[0]);
+    sequenceableLoader =
+        new CompositeSequenceableLoader(
+            /* loaders= */ ImmutableList.of(), /* loaderTrackTypes= */ ImmutableList.of());
     fakePreparationLoadTaskId = LoadEventInfo.getNewId();
   }
 
@@ -96,7 +101,9 @@ public class FakeAdaptiveMediaPeriod
       sampleStream.release();
     }
     sampleStreams.clear();
-    sequenceableLoader = new CompositeSequenceableLoader(new SequenceableLoader[0]);
+    sequenceableLoader =
+        new CompositeSequenceableLoader(
+            /* loaders= */ ImmutableList.of(), /* loaderTrackTypes= */ ImmutableList.of());
   }
 
   @Override
@@ -109,7 +116,8 @@ public class FakeAdaptiveMediaPeriod
         C.SELECTION_REASON_UNKNOWN,
         /* trackSelectionData= */ null,
         /* mediaStartTimeUs= */ 0,
-        /* mediaEndTimeUs = */ C.TIME_UNSET);
+        /* mediaEndTimeUs= */ C.TIME_UNSET,
+        /* retryCount= */ 0);
     this.callback = callback;
     prepared = true;
     Util.castNonNull(this.callback).onPrepared(this);
@@ -128,7 +136,7 @@ public class FakeAdaptiveMediaPeriod
         C.SELECTION_REASON_UNKNOWN,
         /* trackSelectionData= */ null,
         /* mediaStartTimeUs= */ 0,
-        /* mediaEndTimeUs = */ C.TIME_UNSET);
+        /* mediaEndTimeUs= */ C.TIME_UNSET);
   }
 
   @Override
@@ -142,7 +150,7 @@ public class FakeAdaptiveMediaPeriod
     return trackGroupArray;
   }
 
-  @SuppressWarnings({"unchecked", "rawtypes"}) // Casting sample streams created by this class.
+  @SuppressWarnings({"unchecked"}) // Casting sample streams created by this class.
   @Override
   public long selectTracks(
       @NullableType ExoTrackSelection[] selections,
@@ -180,14 +188,18 @@ public class FakeAdaptiveMediaPeriod
                 DrmSessionManager.DRM_UNSUPPORTED,
                 new DrmSessionEventListener.EventDispatcher(),
                 new DefaultLoadErrorHandlingPolicy(/* minimumLoadableRetryCount= */ 3),
-                mediaSourceEventDispatcher);
+                mediaSourceEventDispatcher,
+                /* canReportInitialDiscontinuity= */ false,
+                /* downloadExecutor= */ null);
         streams[i] = sampleStream;
         sampleStreams.add(sampleStream);
         streamResetFlags[i] = true;
       }
     }
     sequenceableLoader =
-        new CompositeSequenceableLoader(sampleStreams.toArray(new ChunkSampleStream[0]));
+        new CompositeSequenceableLoader(
+            sampleStreams,
+            Lists.transform(sampleStreams, s -> ImmutableList.of(s.primaryTrackType)));
     return seekToUs(positionUs);
   }
 
@@ -236,8 +248,8 @@ public class FakeAdaptiveMediaPeriod
   }
 
   @Override
-  public boolean continueLoading(long positionUs) {
-    sequenceableLoader.continueLoading(positionUs);
+  public boolean continueLoading(LoadingInfo loadingInfo) {
+    sequenceableLoader.continueLoading(loadingInfo);
     return true;
   }
 

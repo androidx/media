@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer;
 
+import android.os.SystemClock;
 import androidx.annotation.CheckResult;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
@@ -23,6 +24,7 @@ import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.Player;
 import androidx.media3.common.Player.PlaybackSuppressionReason;
 import androidx.media3.common.Timeline;
+import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import androidx.media3.exoplayer.source.TrackGroupArray;
 import androidx.media3.exoplayer.trackselection.TrackSelectorResult;
@@ -41,8 +43,10 @@ import java.util.List;
 
   /** The current {@link Timeline}. */
   public final Timeline timeline;
+
   /** The {@link MediaPeriodId} of the currently playing media period in the {@link #timeline}. */
   public final MediaPeriodId periodId;
+
   /**
    * The requested next start position for the current period in the {@link #timeline}, in
    * microseconds, or {@link C#TIME_UNSET} if the period was requested to start at its default
@@ -52,28 +56,43 @@ import java.util.List;
    * suspended content.
    */
   public final long requestedContentPositionUs;
+
   /** The start position after a reported position discontinuity, in microseconds. */
   public final long discontinuityStartPositionUs;
+
   /** The current playback state. One of the {@link Player}.STATE_ constants. */
   public final @Player.State int playbackState;
+
   /** The current playback error, or null if this is not an error state. */
   @Nullable public final ExoPlaybackException playbackError;
+
   /** Whether the player is currently loading. */
   public final boolean isLoading;
+
   /** The currently available track groups. */
   public final TrackGroupArray trackGroups;
+
   /** The result of the current track selection. */
   public final TrackSelectorResult trackSelectorResult;
+
   /** The current static metadata of the track selections. */
   public final List<Metadata> staticMetadata;
+
   /** The {@link MediaPeriodId} of the currently loading media period in the {@link #timeline}. */
   public final MediaPeriodId loadingMediaPeriodId;
+
   /** Whether playback should proceed when {@link #playbackState} == {@link Player#STATE_READY}. */
   public final boolean playWhenReady;
+
+  /** The reason for {@link #playWhenReady}. */
+  public final @Player.PlayWhenReadyChangeReason int playWhenReadyChangeReason;
+
   /** Reason why playback is suppressed even though {@link #playWhenReady} is {@code true}. */
   public final @PlaybackSuppressionReason int playbackSuppressionReason;
+
   /** The playback parameters. */
   public final PlaybackParameters playbackParameters;
+
   /** Whether the main player loop is sleeping, while using offload scheduling. */
   public final boolean sleepingForOffload;
 
@@ -82,16 +101,24 @@ import java.util.List;
    * of the associated period in the {@link #timeline}, in microseconds.
    */
   public volatile long bufferedPositionUs;
+
   /**
    * Total duration of buffered media from {@link #positionUs} to {@link #bufferedPositionUs}
    * including all ads.
    */
   public volatile long totalBufferedDurationUs;
+
   /**
    * Current playback position in {@link #periodId} relative to the start of the associated period
    * in the {@link #timeline}, in microseconds.
    */
   public volatile long positionUs;
+
+  /**
+   * The value of {@link SystemClock#elapsedRealtime()} when {@link #positionUs} was updated, in
+   * milliseconds.
+   */
+  public volatile long positionUpdateTimeMs;
 
   /**
    * Creates an empty placeholder playback info which can be used for masking as long as no real
@@ -115,11 +142,13 @@ import java.util.List;
         /* staticMetadata= */ ImmutableList.of(),
         PLACEHOLDER_MEDIA_PERIOD_ID,
         /* playWhenReady= */ false,
+        Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
         Player.PLAYBACK_SUPPRESSION_REASON_NONE,
         PlaybackParameters.DEFAULT,
         /* bufferedPositionUs= */ 0,
         /* totalBufferedDurationUs= */ 0,
         /* positionUs= */ 0,
+        /* positionUpdateTimeMs= */ 0,
         /* sleepingForOffload= */ false);
   }
 
@@ -137,11 +166,13 @@ import java.util.List;
    * @param staticMetadata See {@link #staticMetadata}.
    * @param loadingMediaPeriodId See {@link #loadingMediaPeriodId}.
    * @param playWhenReady See {@link #playWhenReady}.
+   * @param playWhenReadyChangeReason See {@link #playWhenReadyChangeReason}.
    * @param playbackSuppressionReason See {@link #playbackSuppressionReason}.
    * @param playbackParameters See {@link #playbackParameters}.
    * @param bufferedPositionUs See {@link #bufferedPositionUs}.
    * @param totalBufferedDurationUs See {@link #totalBufferedDurationUs}.
    * @param positionUs See {@link #positionUs}.
+   * @param positionUpdateTimeMs See {@link #positionUpdateTimeMs}.
    * @param sleepingForOffload See {@link #sleepingForOffload}.
    */
   public PlaybackInfo(
@@ -157,11 +188,13 @@ import java.util.List;
       List<Metadata> staticMetadata,
       MediaPeriodId loadingMediaPeriodId,
       boolean playWhenReady,
+      @Player.PlayWhenReadyChangeReason int playWhenReadyChangeReason,
       @PlaybackSuppressionReason int playbackSuppressionReason,
       PlaybackParameters playbackParameters,
       long bufferedPositionUs,
       long totalBufferedDurationUs,
       long positionUs,
+      long positionUpdateTimeMs,
       boolean sleepingForOffload) {
     this.timeline = timeline;
     this.periodId = periodId;
@@ -175,11 +208,13 @@ import java.util.List;
     this.staticMetadata = staticMetadata;
     this.loadingMediaPeriodId = loadingMediaPeriodId;
     this.playWhenReady = playWhenReady;
+    this.playWhenReadyChangeReason = playWhenReadyChangeReason;
     this.playbackSuppressionReason = playbackSuppressionReason;
     this.playbackParameters = playbackParameters;
     this.bufferedPositionUs = bufferedPositionUs;
     this.totalBufferedDurationUs = totalBufferedDurationUs;
     this.positionUs = positionUs;
+    this.positionUpdateTimeMs = positionUpdateTimeMs;
     this.sleepingForOffload = sleepingForOffload;
   }
 
@@ -226,11 +261,13 @@ import java.util.List;
         staticMetadata,
         loadingMediaPeriodId,
         playWhenReady,
+        playWhenReadyChangeReason,
         playbackSuppressionReason,
         playbackParameters,
         bufferedPositionUs,
         totalBufferedDurationUs,
         positionUs,
+        /* positionUpdateTimeMs= */ SystemClock.elapsedRealtime(),
         sleepingForOffload);
   }
 
@@ -255,11 +292,13 @@ import java.util.List;
         staticMetadata,
         loadingMediaPeriodId,
         playWhenReady,
+        playWhenReadyChangeReason,
         playbackSuppressionReason,
         playbackParameters,
         bufferedPositionUs,
         totalBufferedDurationUs,
         positionUs,
+        positionUpdateTimeMs,
         sleepingForOffload);
   }
 
@@ -284,11 +323,13 @@ import java.util.List;
         staticMetadata,
         loadingMediaPeriodId,
         playWhenReady,
+        playWhenReadyChangeReason,
         playbackSuppressionReason,
         playbackParameters,
         bufferedPositionUs,
         totalBufferedDurationUs,
         positionUs,
+        positionUpdateTimeMs,
         sleepingForOffload);
   }
 
@@ -313,11 +354,13 @@ import java.util.List;
         staticMetadata,
         loadingMediaPeriodId,
         playWhenReady,
+        playWhenReadyChangeReason,
         playbackSuppressionReason,
         playbackParameters,
         bufferedPositionUs,
         totalBufferedDurationUs,
         positionUs,
+        positionUpdateTimeMs,
         sleepingForOffload);
   }
 
@@ -342,11 +385,13 @@ import java.util.List;
         staticMetadata,
         loadingMediaPeriodId,
         playWhenReady,
+        playWhenReadyChangeReason,
         playbackSuppressionReason,
         playbackParameters,
         bufferedPositionUs,
         totalBufferedDurationUs,
         positionUs,
+        positionUpdateTimeMs,
         sleepingForOffload);
   }
 
@@ -371,11 +416,13 @@ import java.util.List;
         staticMetadata,
         loadingMediaPeriodId,
         playWhenReady,
+        playWhenReadyChangeReason,
         playbackSuppressionReason,
         playbackParameters,
         bufferedPositionUs,
         totalBufferedDurationUs,
         positionUs,
+        positionUpdateTimeMs,
         sleepingForOffload);
   }
 
@@ -384,13 +431,16 @@ import java.util.List;
    *
    * @param playWhenReady Whether playback should proceed when {@link #playbackState} == {@link
    *     Player#STATE_READY}.
+   * @param playWhenReadyChangeReason Reason for {#code playWhenReady}.
    * @param playbackSuppressionReason Reason why playback is suppressed even though {@link
    *     #playWhenReady} is {@code true}.
    * @return Copied playback info with new information.
    */
   @CheckResult
   public PlaybackInfo copyWithPlayWhenReady(
-      boolean playWhenReady, @PlaybackSuppressionReason int playbackSuppressionReason) {
+      boolean playWhenReady,
+      @Player.PlayWhenReadyChangeReason int playWhenReadyChangeReason,
+      @PlaybackSuppressionReason int playbackSuppressionReason) {
     return new PlaybackInfo(
         timeline,
         periodId,
@@ -404,11 +454,13 @@ import java.util.List;
         staticMetadata,
         loadingMediaPeriodId,
         playWhenReady,
+        playWhenReadyChangeReason,
         playbackSuppressionReason,
         playbackParameters,
         bufferedPositionUs,
         totalBufferedDurationUs,
         positionUs,
+        positionUpdateTimeMs,
         sleepingForOffload);
   }
 
@@ -433,11 +485,13 @@ import java.util.List;
         staticMetadata,
         loadingMediaPeriodId,
         playWhenReady,
+        playWhenReadyChangeReason,
         playbackSuppressionReason,
         playbackParameters,
         bufferedPositionUs,
         totalBufferedDurationUs,
         positionUs,
+        positionUpdateTimeMs,
         sleepingForOffload);
   }
 
@@ -462,11 +516,106 @@ import java.util.List;
         staticMetadata,
         loadingMediaPeriodId,
         playWhenReady,
+        playWhenReadyChangeReason,
         playbackSuppressionReason,
         playbackParameters,
         bufferedPositionUs,
         totalBufferedDurationUs,
         positionUs,
+        positionUpdateTimeMs,
         sleepingForOffload);
+  }
+
+  /**
+   * Copies playback info with new estimated playing position.
+   *
+   * <p>Position is estimated with {@link #positionUs}, {@link #positionUpdateTimeMs}, and {@link
+   * PlaybackParameters#speed}.
+   *
+   * @return Copied playback info with new, estimated playback position.
+   */
+  @CheckResult
+  public PlaybackInfo copyWithEstimatedPosition() {
+    return new PlaybackInfo(
+        timeline,
+        periodId,
+        requestedContentPositionUs,
+        discontinuityStartPositionUs,
+        playbackState,
+        playbackError,
+        isLoading,
+        trackGroups,
+        trackSelectorResult,
+        staticMetadata,
+        loadingMediaPeriodId,
+        playWhenReady,
+        playWhenReadyChangeReason,
+        playbackSuppressionReason,
+        playbackParameters,
+        bufferedPositionUs,
+        totalBufferedDurationUs,
+        getEstimatedPositionUs(),
+        SystemClock.elapsedRealtime(),
+        sleepingForOffload);
+  }
+
+  /**
+   * Sets new playing position with update time of {@link SystemClock#elapsedRealtime()}, time
+   * relative to the start of the associated period in the {@link #timeline}
+   *
+   * @param positionUs The new playing position.
+   */
+  public void updatePositionUs(long positionUs) {
+    // Write order of positionUs then positionUpdateTimeMs in order to be reverse of
+    // retrieval in getExtrapolatedPositionUs().
+    this.positionUs = positionUs;
+    this.positionUpdateTimeMs = SystemClock.elapsedRealtime();
+  }
+
+  /**
+   * Retrieves estimated position based on {@link #positionUs}, {@link #positionUpdateTimeMs}, and
+   * {@link PlaybackParameters#speed}.
+   *
+   * <p>If not playing, then the estimated position is {@link #positionUs}.
+   *
+   * @return The estimated position.
+   */
+  public long getEstimatedPositionUs() {
+    if (!isPlaying()) {
+      return this.positionUs;
+    }
+
+    // Snapshot of volatile position info
+    long positionUs;
+    long positionUpdateTimeMs;
+    do {
+      // Read order of positionUpdateTimeMs then positionUs to be reverse of updatePositionUs write.
+      positionUpdateTimeMs = this.positionUpdateTimeMs;
+      positionUs = this.positionUs;
+    } while (positionUpdateTimeMs != this.positionUpdateTimeMs);
+
+    long elapsedTimeMs = SystemClock.elapsedRealtime() - positionUpdateTimeMs;
+    long estimatedPositionMs =
+        Util.usToMs(positionUs) + (long) (elapsedTimeMs * playbackParameters.speed);
+    return Util.msToUs(estimatedPositionMs);
+  }
+
+  /**
+   * Returns whether this object represents a playing state.
+   *
+   * <p>Returns true if the following conditions are met:
+   *
+   * <ul>
+   *   <li>{@link #playbackState} is {@link Player#STATE_READY}
+   *   <li>{@link #playWhenReady} is true.
+   *   <li>{@link #playbackSuppressionReason} is {@link Player#PLAYBACK_SUPPRESSION_REASON_NONE}
+   * </ul>
+   *
+   * @return Whether the playbackInfo represents a playing state.
+   */
+  public boolean isPlaying() {
+    return playbackState == Player.STATE_READY
+        && playWhenReady
+        && playbackSuppressionReason == Player.PLAYBACK_SUPPRESSION_REASON_NONE;
   }
 }

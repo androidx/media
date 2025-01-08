@@ -34,20 +34,16 @@ public final class VideoSizeTest {
   @Test
   public void roundTripViaBundle_ofArbitraryVideoSize_yieldsEqualInstance() {
     VideoSize videoSize =
-        new VideoSize(
-            /* width= */ 9,
-            /* height= */ 8,
-            /* unappliedRotationDegrees= */ 7,
-            /* pixelWidthHeightRatio= */ 6);
+        new VideoSize(/* width= */ 9, /* height= */ 8, /* pixelWidthHeightRatio= */ 6);
     assertThat(roundTripViaBundle(videoSize)).isEqualTo(videoSize);
   }
 
   @Test
   public void fromBundle_ofEmptyBundle_yieldsVideoSizeUnknown() {
-    assertThat(VideoSize.CREATOR.fromBundle(new Bundle())).isEqualTo(VideoSize.UNKNOWN);
+    assertThat(VideoSize.fromBundle(new Bundle())).isEqualTo(VideoSize.UNKNOWN);
   }
 
   private static VideoSize roundTripViaBundle(VideoSize videoSize) {
-    return VideoSize.CREATOR.fromBundle(videoSize.toBundle());
+    return VideoSize.fromBundle(videoSize.toBundle());
   }
 }

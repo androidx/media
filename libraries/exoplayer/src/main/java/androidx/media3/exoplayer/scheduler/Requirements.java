@@ -62,12 +62,16 @@ public final class Requirements implements Parcelable {
 
   /** Requirement that the device has network connectivity. */
   public static final int NETWORK = 1;
+
   /** Requirement that the device has a network connection that is unmetered. */
   public static final int NETWORK_UNMETERED = 1 << 1;
+
   /** Requirement that the device is idle. */
   public static final int DEVICE_IDLE = 1 << 2;
+
   /** Requirement that the device is charging. */
   public static final int DEVICE_CHARGING = 1 << 3;
+
   /**
    * Requirement that the device's <em>internal</em> storage is not low. Note that this requirement
    * is not affected by the status of external storage.
@@ -159,6 +163,7 @@ public final class Requirements implements Parcelable {
     return notMetRequirements;
   }
 
+  @SuppressWarnings("deprecation") // Using deprecated NetworkInfo for compatibility with older APIs
   private @RequirementFlags int getNotMetNetworkRequirements(Context context) {
     if (!isNetworkRequired()) {
       return 0;
@@ -197,9 +202,7 @@ public final class Requirements implements Parcelable {
   private boolean isDeviceIdle(Context context) {
     PowerManager powerManager =
         (PowerManager) Assertions.checkNotNull(context.getSystemService(Context.POWER_SERVICE));
-    return Util.SDK_INT >= 23
-        ? powerManager.isDeviceIdleMode()
-        : Util.SDK_INT >= 20 ? !powerManager.isInteractive() : !powerManager.isScreenOn();
+    return Util.SDK_INT >= 23 ? powerManager.isDeviceIdleMode() : !powerManager.isInteractive();
   }
 
   private boolean isStorageNotLow(Context context) {

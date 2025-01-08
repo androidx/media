@@ -15,15 +15,14 @@
  */
 package androidx.media3.session;
 
+import android.app.PendingIntent;
 import android.os.Bundle;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
-import androidx.media3.common.util.UnstableApi;
 import com.google.common.util.concurrent.ListenableFuture;
 import java.util.List;
 
 /** A proxy class for {@link MediaBrowser.Listener}. */
-@UnstableApi
 public final class TestMediaBrowserListener implements MediaBrowser.Listener {
 
   private final MediaController.Listener delegate;
@@ -59,8 +58,29 @@ public final class TestMediaBrowserListener implements MediaBrowser.Listener {
   }
 
   @Override
+  public void onCustomLayoutChanged(MediaController controller, List<CommandButton> layout) {
+    delegate.onCustomLayoutChanged(controller, layout);
+  }
+
+  @Override
+  public void onMediaButtonPreferencesChanged(
+      MediaController controller, List<CommandButton> mediaButtonPreferences) {
+    delegate.onMediaButtonPreferencesChanged(controller, mediaButtonPreferences);
+  }
+
+  @Override
   public void onExtrasChanged(MediaController controller, Bundle extras) {
     delegate.onExtrasChanged(controller, extras);
+  }
+
+  @Override
+  public void onError(MediaController controller, SessionError sessionError) {
+    delegate.onError(controller, sessionError);
+  }
+
+  @Override
+  public void onSessionActivityChanged(MediaController controller, PendingIntent sessionActivity) {
+    delegate.onSessionActivityChanged(controller, sessionActivity);
   }
 
   @Override

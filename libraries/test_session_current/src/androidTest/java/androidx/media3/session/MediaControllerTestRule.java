@@ -105,7 +105,7 @@ public final class MediaControllerTestRule extends ExternalResource {
   public MediaController createController(
       MediaSessionCompat.Token token, @Nullable MediaController.Listener listener)
       throws Exception {
-    return createController(token, listener, /* controllerCreateListener= */ null);
+    return createController(token, listener, /* controllerCreationListener= */ null);
   }
 
   /** Creates {@link MediaController} from {@link MediaSessionCompat.Token}. */
@@ -121,17 +121,6 @@ public final class MediaControllerTestRule extends ExternalResource {
     return controller;
   }
 
-  private MediaController createControllerOnHandler(
-      MediaSessionCompat.Token token,
-      TestMediaBrowserListener listener,
-      @Nullable MediaControllerCreationListener controllerCreationListener)
-      throws Exception {
-    SessionToken sessionToken =
-        SessionToken.createSessionToken(context, token).get(TIMEOUT_MS, MILLISECONDS);
-    return createControllerOnHandler(
-        sessionToken, /* connectionHints= */ null, listener, controllerCreationListener);
-  }
-
   /** Creates {@link MediaController} from {@link SessionToken} with default options. */
   public MediaController createController(SessionToken token) throws Exception {
     return createController(token, /* connectionHints= */ null, /* listener= */ null);
@@ -144,7 +133,11 @@ public final class MediaControllerTestRule extends ExternalResource {
       @Nullable MediaController.Listener listener)
       throws Exception {
     return createController(
-        token, connectionHints, listener, /* controllerCreationListener= */ null);
+        token,
+        connectionHints,
+        listener,
+        /* controllerCreationListener= */ null,
+        /* maxCommandsForMediaItems= */ 0);
   }
 
   /** Creates {@link MediaController} from {@link SessionToken}. */
@@ -152,20 +145,42 @@ public final class MediaControllerTestRule extends ExternalResource {
       SessionToken token,
       @Nullable Bundle connectionHints,
       @Nullable MediaController.Listener listener,
-      @Nullable MediaControllerCreationListener controllerCreationListener)
+      @Nullable MediaControllerCreationListener controllerCreationListener,
+      int maxCommandsForMediaItems)
       throws Exception {
     TestMediaBrowserListener testListener = new TestMediaBrowserListener(listener);
     MediaController controller =
-        createControllerOnHandler(token, connectionHints, testListener, controllerCreationListener);
+        createControllerOnHandler(
+            token,
+            connectionHints,
+            testListener,
+            controllerCreationListener,
+            maxCommandsForMediaItems);
     controllers.put(controller, testListener);
     return controller;
+  }
+
+  private MediaController createControllerOnHandler(
+      MediaSessionCompat.Token token,
+      TestMediaBrowserListener listener,
+      @Nullable MediaControllerCreationListener controllerCreationListener)
+      throws Exception {
+    SessionToken sessionToken =
+        SessionToken.createSessionToken(context, token).get(TIMEOUT_MS, MILLISECONDS);
+    return createControllerOnHandler(
+        sessionToken,
+        /* connectionHints= */ null,
+        listener,
+        controllerCreationListener,
+        /* maxCommandsForMediaItems= */ 0);
   }
 
   private MediaController createControllerOnHandler(
       SessionToken token,
       @Nullable Bundle connectionHints,
       TestMediaBrowserListener listener,
-      @Nullable MediaControllerCreationListener controllerCreationListener)
+      @Nullable MediaControllerCreationListener controllerCreationListener,
+      int maxCommandsForMediaItems)
       throws Exception {
     // Create controller on the test handler, for changing MediaBrowserCompat's Handler
     // Looper. Otherwise, MediaBrowserCompat will post all the commands to the handler
@@ -181,6 +196,7 @@ public final class MediaControllerTestRule extends ExternalResource {
                     if (connectionHints != null) {
                       builder.setConnectionHints(connectionHints);
                     }
+                    builder.setMaxCommandsForMediaItems(maxCommandsForMediaItems);
                     return builder.buildAsync();
                   } else {
                     MediaController.Builder builder =
@@ -188,6 +204,7 @@ public final class MediaControllerTestRule extends ExternalResource {
                     if (connectionHints != null) {
                       builder.setConnectionHints(connectionHints);
                     }
+                    builder.setMaxCommandsForMediaItems(maxCommandsForMediaItems);
                     return builder.buildAsync();
                   }
                 });

@@ -16,12 +16,11 @@
 package androidx.media3.test.utils;
 
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.common.truth.Truth;
 import java.util.concurrent.atomic.AtomicReference;
-import org.checkerframework.checker.nullness.compatqual.NullableType;
 import org.junit.Rule;
 import org.junit.rules.TestRule;
 import org.junit.runner.Description;
@@ -39,7 +38,6 @@ import org.junit.runners.model.Statement;
  * <p>Includes special handling for {@link AssertionError} to ensure that test failures are
  * correctly distinguished from test errors (all other errors/exceptions).
  */
-@RequiresApi(19)
 @UnstableApi
 public final class AdditionalFailureInfo implements TestRule {
 

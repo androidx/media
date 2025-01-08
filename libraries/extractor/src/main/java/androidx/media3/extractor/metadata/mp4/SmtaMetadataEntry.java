@@ -15,8 +15,6 @@
  */
 package androidx.media3.extractor.metadata.mp4;
 
-import android.os.Parcel;
-import android.os.Parcelable;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Metadata;
@@ -26,7 +24,7 @@ import com.google.common.primitives.Floats;
 /**
  * Stores metadata from the Samsung smta box.
  *
- * <p>See [Internal: b/150138465#comment76].
+ * <p>See [Internal: b/150138465#comment76], [Internal: b/301273734#comment17].
  */
 @UnstableApi
 public final class SmtaMetadataEntry implements Metadata.Entry {
@@ -37,6 +35,7 @@ public final class SmtaMetadataEntry implements Metadata.Entry {
    * <p>If known, the capture frame rate should always be an integer value.
    */
   public final float captureFrameRate;
+
   /** The number of layers in the SVC extended frames. */
   public final int svcTemporalLayerCount;
 
@@ -44,11 +43,6 @@ public final class SmtaMetadataEntry implements Metadata.Entry {
   public SmtaMetadataEntry(float captureFrameRate, int svcTemporalLayerCount) {
     this.captureFrameRate = captureFrameRate;
     this.svcTemporalLayerCount = svcTemporalLayerCount;
-  }
-
-  private SmtaMetadataEntry(Parcel in) {
-    captureFrameRate = in.readFloat();
-    svcTemporalLayerCount = in.readInt();
   }
 
   @Override
@@ -79,31 +73,4 @@ public final class SmtaMetadataEntry implements Metadata.Entry {
         + ", svcTemporalLayerCount="
         + svcTemporalLayerCount;
   }
-
-  // Parcelable implementation.
-
-  @Override
-  public void writeToParcel(Parcel dest, int flags) {
-    dest.writeFloat(captureFrameRate);
-    dest.writeInt(svcTemporalLayerCount);
-  }
-
-  @Override
-  public int describeContents() {
-    return 0;
-  }
-
-  public static final Parcelable.Creator<SmtaMetadataEntry> CREATOR =
-      new Parcelable.Creator<SmtaMetadataEntry>() {
-
-        @Override
-        public SmtaMetadataEntry createFromParcel(Parcel in) {
-          return new SmtaMetadataEntry(in);
-        }
-
-        @Override
-        public SmtaMetadataEntry[] newArray(int size) {
-          return new SmtaMetadataEntry[size];
-        }
-      };
 }

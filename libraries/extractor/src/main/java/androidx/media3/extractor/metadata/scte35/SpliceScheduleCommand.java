@@ -15,8 +15,6 @@
  */
 package androidx.media3.extractor.metadata.scte35;
 
-import android.os.Parcel;
-import android.os.Parcelable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
@@ -33,43 +31,53 @@ public final class SpliceScheduleCommand extends SpliceCommand {
 
     /** The splice event id. */
     public final long spliceEventId;
+
     /** True if the event with id {@link #spliceEventId} has been canceled. */
     public final boolean spliceEventCancelIndicator;
+
     /**
      * If true, the splice event is an opportunity to exit from the network feed. If false,
      * indicates an opportunity to return to the network feed.
      */
     public final boolean outOfNetworkIndicator;
+
     /**
      * Whether the splice mode is program splice mode, whereby all PIDs/components are to be
      * spliced. If false, splicing is done per PID/component.
      */
     public final boolean programSpliceFlag;
+
     /**
      * Represents the time of the signaled splice event as the number of seconds since 00 hours UTC,
      * January 6th, 1980, with the count of intervening leap seconds included.
      */
     public final long utcSpliceTime;
+
     /**
      * If {@link #programSpliceFlag} is false, a non-empty list containing the {@link
      * ComponentSplice}s. Otherwise, an empty list.
      */
     public final List<ComponentSplice> componentSpliceList;
+
     /**
      * If {@link #breakDurationUs} is not {@link C#TIME_UNSET}, defines whether {@link
      * #breakDurationUs} should be used to know when to return to the network feed. If {@link
      * #breakDurationUs} is {@link C#TIME_UNSET}, the value is undefined.
      */
     public final boolean autoReturn;
+
     /**
      * The duration of the splice in microseconds, or {@link C#TIME_UNSET} if no duration is
      * present.
      */
     public final long breakDurationUs;
+
     /** The unique program id as defined in SCTE35, Section 9.3.2. */
     public final int uniqueProgramId;
+
     /** Holds the value of {@code avail_num} as defined in SCTE35, Section 9.3.2. */
     public final int availNum;
+
     /** Holds the value of {@code avails_expected} as defined in SCTE35, Section 9.3.2. */
     public final int availsExpected;
 
@@ -96,25 +104,6 @@ public final class SpliceScheduleCommand extends SpliceCommand {
       this.uniqueProgramId = uniqueProgramId;
       this.availNum = availNum;
       this.availsExpected = availsExpected;
-    }
-
-    private Event(Parcel in) {
-      this.spliceEventId = in.readLong();
-      this.spliceEventCancelIndicator = in.readByte() == 1;
-      this.outOfNetworkIndicator = in.readByte() == 1;
-      this.programSpliceFlag = in.readByte() == 1;
-      int componentSpliceListLength = in.readInt();
-      ArrayList<ComponentSplice> componentSpliceList = new ArrayList<>(componentSpliceListLength);
-      for (int i = 0; i < componentSpliceListLength; i++) {
-        componentSpliceList.add(ComponentSplice.createFromParcel(in));
-      }
-      this.componentSpliceList = Collections.unmodifiableList(componentSpliceList);
-      this.utcSpliceTime = in.readLong();
-      this.autoReturn = in.readByte() == 1;
-      this.breakDurationUs = in.readLong();
-      this.uniqueProgramId = in.readInt();
-      this.availNum = in.readInt();
-      this.availsExpected = in.readInt();
     }
 
     private static Event parseFromSection(ParsableByteArray sectionData) {
@@ -170,28 +159,6 @@ public final class SpliceScheduleCommand extends SpliceCommand {
           availNum,
           availsExpected);
     }
-
-    private void writeToParcel(Parcel dest) {
-      dest.writeLong(spliceEventId);
-      dest.writeByte((byte) (spliceEventCancelIndicator ? 1 : 0));
-      dest.writeByte((byte) (outOfNetworkIndicator ? 1 : 0));
-      dest.writeByte((byte) (programSpliceFlag ? 1 : 0));
-      int componentSpliceListSize = componentSpliceList.size();
-      dest.writeInt(componentSpliceListSize);
-      for (int i = 0; i < componentSpliceListSize; i++) {
-        componentSpliceList.get(i).writeToParcel(dest);
-      }
-      dest.writeLong(utcSpliceTime);
-      dest.writeByte((byte) (autoReturn ? 1 : 0));
-      dest.writeLong(breakDurationUs);
-      dest.writeInt(uniqueProgramId);
-      dest.writeInt(availNum);
-      dest.writeInt(availsExpected);
-    }
-
-    private static Event createFromParcel(Parcel in) {
-      return new Event(in);
-    }
   }
 
   /** Holds splicing information for specific splice schedule command components. */
@@ -204,30 +171,12 @@ public final class SpliceScheduleCommand extends SpliceCommand {
       this.componentTag = componentTag;
       this.utcSpliceTime = utcSpliceTime;
     }
-
-    private static ComponentSplice createFromParcel(Parcel in) {
-      return new ComponentSplice(in.readInt(), in.readLong());
-    }
-
-    private void writeToParcel(Parcel dest) {
-      dest.writeInt(componentTag);
-      dest.writeLong(utcSpliceTime);
-    }
   }
 
   /** The list of scheduled events. */
   public final List<Event> events;
 
   private SpliceScheduleCommand(List<Event> events) {
-    this.events = Collections.unmodifiableList(events);
-  }
-
-  private SpliceScheduleCommand(Parcel in) {
-    int eventsSize = in.readInt();
-    ArrayList<Event> events = new ArrayList<>(eventsSize);
-    for (int i = 0; i < eventsSize; i++) {
-      events.add(Event.createFromParcel(in));
-    }
     this.events = Collections.unmodifiableList(events);
   }
 
@@ -239,29 +188,4 @@ public final class SpliceScheduleCommand extends SpliceCommand {
     }
     return new SpliceScheduleCommand(events);
   }
-
-  // Parcelable implementation.
-
-  @Override
-  public void writeToParcel(Parcel dest, int flags) {
-    int eventsSize = events.size();
-    dest.writeInt(eventsSize);
-    for (int i = 0; i < eventsSize; i++) {
-      events.get(i).writeToParcel(dest);
-    }
-  }
-
-  public static final Parcelable.Creator<SpliceScheduleCommand> CREATOR =
-      new Parcelable.Creator<SpliceScheduleCommand>() {
-
-        @Override
-        public SpliceScheduleCommand createFromParcel(Parcel in) {
-          return new SpliceScheduleCommand(in);
-        }
-
-        @Override
-        public SpliceScheduleCommand[] newArray(int size) {
-          return new SpliceScheduleCommand[size];
-        }
-      };
 }

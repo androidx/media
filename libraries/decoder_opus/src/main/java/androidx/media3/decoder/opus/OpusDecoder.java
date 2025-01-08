@@ -107,12 +107,9 @@ public final class OpusDecoder
       throw new OpusDecoderException("Invalid header length");
     }
     channelCount = getChannelCount(headerBytes);
-    if (channelCount > 8) {
-      throw new OpusDecoderException("Invalid channel count: " + channelCount);
-    }
     int gain = readSignedLittleEndian16(headerBytes, 16);
 
-    byte[] streamMap = new byte[8];
+    byte[] streamMap = new byte[channelCount];
     int numStreams;
     int numCoupled;
     if (headerBytes[18] == 0) { // Channel mapping
@@ -229,7 +226,7 @@ public final class OpusDecoder
       int skipBytes = skipSamples * bytesPerSample;
       if (result <= skipBytes) {
         skipSamples -= result / bytesPerSample;
-        outputBuffer.addFlag(C.BUFFER_FLAG_DECODE_ONLY);
+        outputBuffer.shouldBeSkipped = true;
         outputData.position(result);
       } else {
         skipSamples = 0;

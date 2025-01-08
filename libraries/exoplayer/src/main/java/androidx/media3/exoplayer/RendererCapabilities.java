@@ -31,44 +31,21 @@ import java.lang.annotation.Target;
 @UnstableApi
 public interface RendererCapabilities {
 
-  /**
-   * @deprecated Use {@link C.FormatSupport} instead.
-   */
-  @SuppressWarnings("deprecation")
-  @Documented
-  @Retention(RetentionPolicy.SOURCE)
-  @Target(TYPE_USE)
-  @IntDef({
-    FORMAT_HANDLED,
-    FORMAT_EXCEEDS_CAPABILITIES,
-    FORMAT_UNSUPPORTED_DRM,
-    FORMAT_UNSUPPORTED_SUBTYPE,
-    FORMAT_UNSUPPORTED_TYPE
-  })
-  @Deprecated
-  @interface FormatSupport {}
+  /** Listener for renderer capabilities events. */
+  interface Listener {
+
+    /**
+     * Called when the renderer capabilities are changed.
+     *
+     * <p>This method will be called on the playback thread.
+     *
+     * @param renderer The renderer that has its capabilities changed.
+     */
+    void onRendererCapabilitiesChanged(Renderer renderer);
+  }
+
   /** A mask to apply to {@link Capabilities} to obtain the {@link C.FormatSupport} only. */
   int FORMAT_SUPPORT_MASK = 0b111;
-  /**
-   * @deprecated Use {@link C#FORMAT_HANDLED} instead.
-   */
-  @Deprecated int FORMAT_HANDLED = C.FORMAT_HANDLED;
-  /**
-   * @deprecated Use {@link C#FORMAT_EXCEEDS_CAPABILITIES} instead.
-   */
-  @Deprecated int FORMAT_EXCEEDS_CAPABILITIES = C.FORMAT_EXCEEDS_CAPABILITIES;
-  /**
-   * @deprecated Use {@link C#FORMAT_UNSUPPORTED_DRM} instead.
-   */
-  @Deprecated int FORMAT_UNSUPPORTED_DRM = C.FORMAT_UNSUPPORTED_DRM;
-  /**
-   * @deprecated Use {@link C#FORMAT_UNSUPPORTED_SUBTYPE} instead.
-   */
-  @Deprecated int FORMAT_UNSUPPORTED_SUBTYPE = C.FORMAT_UNSUPPORTED_SUBTYPE;
-  /**
-   * @deprecated Use {@link C#FORMAT_UNSUPPORTED_TYPE} instead.
-   */
-  @Deprecated int FORMAT_UNSUPPORTED_TYPE = C.FORMAT_UNSUPPORTED_TYPE;
 
   /**
    * Level of renderer support for adaptive format switches. One of {@link #ADAPTIVE_SEAMLESS},
@@ -82,13 +59,16 @@ public interface RendererCapabilities {
 
   /** A mask to apply to {@link Capabilities} to obtain the {@link AdaptiveSupport} only. */
   int ADAPTIVE_SUPPORT_MASK = 0b11 << 3;
+
   /** The {@link Renderer} can seamlessly adapt between formats. */
   int ADAPTIVE_SEAMLESS = 0b10 << 3;
+
   /**
    * The {@link Renderer} can adapt between formats, but may suffer a brief discontinuity
    * (~50-100ms) when adaptation occurs.
    */
   int ADAPTIVE_NOT_SEAMLESS = 0b01 << 3;
+
   /** The {@link Renderer} does not support adaptation between formats. */
   int ADAPTIVE_NOT_SUPPORTED = 0;
 
@@ -104,8 +84,10 @@ public interface RendererCapabilities {
 
   /** A mask to apply to {@link Capabilities} to obtain {@link TunnelingSupport} only. */
   int TUNNELING_SUPPORT_MASK = 0b1 << 5;
+
   /** The {@link Renderer} supports tunneled output. */
   int TUNNELING_SUPPORTED = 0b1 << 5;
+
   /** The {@link Renderer} does not support tunneled output. */
   int TUNNELING_NOT_SUPPORTED = 0;
 
@@ -123,16 +105,19 @@ public interface RendererCapabilities {
     HARDWARE_ACCELERATION_NOT_SUPPORTED,
   })
   @interface HardwareAccelerationSupport {}
+
   /** A mask to apply to {@link Capabilities} to obtain {@link HardwareAccelerationSupport} only. */
   int HARDWARE_ACCELERATION_SUPPORT_MASK = 0b1 << 6;
+
   /** The renderer is able to use hardware acceleration. */
   int HARDWARE_ACCELERATION_SUPPORTED = 0b1 << 6;
+
   /** The renderer is not able to use hardware acceleration. */
   int HARDWARE_ACCELERATION_NOT_SUPPORTED = 0;
 
   /**
-   * Level of decoder support. One of {@link #DECODER_SUPPORT_FALLBACK_MIMETYPE}, {@link
-   * #DECODER_SUPPORT_FALLBACK}, and {@link #DECODER_SUPPORT_PRIMARY}.
+   * Level of decoder support. One of {@link #DECODER_SUPPORT_PRIMARY}, {@link
+   * #DECODER_SUPPORT_FALLBACK}, and {@link #DECODER_SUPPORT_FALLBACK_MIMETYPE}}.
    *
    * <p>For video renderers, the level of support is indicated for non-tunneled output.
    */
@@ -141,27 +126,69 @@ public interface RendererCapabilities {
   @Target(TYPE_USE)
   @IntDef({DECODER_SUPPORT_FALLBACK_MIMETYPE, DECODER_SUPPORT_PRIMARY, DECODER_SUPPORT_FALLBACK})
   @interface DecoderSupport {}
+
   /** A mask to apply to {@link Capabilities} to obtain {@link DecoderSupport} only. */
-  int MODE_SUPPORT_MASK = 0b11 << 7;
+  int DECODER_SUPPORT_MASK = 0b11 << 7;
+
   /**
    * The format's MIME type is unsupported and the renderer may use a decoder for a fallback MIME
    * type.
    */
   int DECODER_SUPPORT_FALLBACK_MIMETYPE = 0b10 << 7;
+
   /** The renderer is able to use the primary decoder for the format's MIME type. */
   int DECODER_SUPPORT_PRIMARY = 0b1 << 7;
+
   /** The format exceeds the primary decoder's capabilities but is supported by fallback decoder */
   int DECODER_SUPPORT_FALLBACK = 0;
+
+  /**
+   * Level of renderer support for audio offload.
+   *
+   * <p>Speed change and gapless transition support with audio offload is represented by the bit
+   * mask flags {@link #AUDIO_OFFLOAD_SPEED_CHANGE_SUPPORTED} and {@link
+   * #AUDIO_OFFLOAD_GAPLESS_SUPPORTED} respectively. If neither feature is supported then the value
+   * will be either {@link #AUDIO_OFFLOAD_SUPPORTED} or {@link #AUDIO_OFFLOAD_NOT_SUPPORTED}.
+   *
+   * <p>For non-audio renderers, the level of support is always {@link
+   * #AUDIO_OFFLOAD_NOT_SUPPORTED}.
+   */
+  @Documented
+  @Retention(RetentionPolicy.SOURCE)
+  @Target(TYPE_USE)
+  @IntDef({
+    AUDIO_OFFLOAD_SPEED_CHANGE_SUPPORTED,
+    AUDIO_OFFLOAD_GAPLESS_SUPPORTED,
+    AUDIO_OFFLOAD_SUPPORTED,
+    AUDIO_OFFLOAD_NOT_SUPPORTED
+  })
+  @interface AudioOffloadSupport {}
+
+  /** A mask to apply to {@link Capabilities} to obtain {@link AudioOffloadSupport} only. */
+  int AUDIO_OFFLOAD_SUPPORT_MASK = 0b111 << 9;
+
+  /** The renderer supports audio offload and speed changes with this format. */
+  int AUDIO_OFFLOAD_SPEED_CHANGE_SUPPORTED = 0b100 << 9;
+
+  /** The renderer supports audio offload and gapless transitions with this format. */
+  int AUDIO_OFFLOAD_GAPLESS_SUPPORTED = 0b10 << 9;
+
+  /** The renderer supports audio offload with this format. */
+  int AUDIO_OFFLOAD_SUPPORTED = 0b1 << 9;
+
+  /** Audio offload is not supported with this format. */
+  int AUDIO_OFFLOAD_NOT_SUPPORTED = 0;
 
   /**
    * Combined renderer capabilities.
    *
    * <p>This is a bitwise OR of {@link C.FormatSupport}, {@link AdaptiveSupport}, {@link
-   * TunnelingSupport}, {@link HardwareAccelerationSupport} and {@link DecoderSupport}. Use {@link
-   * #getFormatSupport}, {@link #getAdaptiveSupport}, {@link #getTunnelingSupport}, {@link
-   * #getHardwareAccelerationSupport} and {@link #getDecoderSupport} to obtain individual
-   * components. Use {@link #create(int)}, {@link #create(int, int, int)} or {@link #create(int,
-   * int, int, int, int)} to create combined capabilities from individual components.
+   * TunnelingSupport}, {@link HardwareAccelerationSupport}, {@link DecoderSupport} and {@link
+   * AudioOffloadSupport}. Use {@link #getFormatSupport}, {@link #getAdaptiveSupport}, {@link
+   * #getTunnelingSupport}, {@link #getHardwareAccelerationSupport}, {@link #getDecoderSupport} and
+   * {@link AudioOffloadSupport} to obtain individual components. Use {@link #create(int)}, {@link
+   * #create(int, int, int)}, {@link #create(int, int, int, int)}, or {@link #create(int, int, int,
+   * int, int, int)} to create combined capabilities from individual components.
    *
    * <p>Possible values:
    *
@@ -171,7 +198,7 @@ public interface RendererCapabilities {
    *       C#FORMAT_UNSUPPORTED_DRM}, {@link C#FORMAT_UNSUPPORTED_SUBTYPE} and {@link
    *       C#FORMAT_UNSUPPORTED_TYPE}.
    *   <li>{@link AdaptiveSupport}: The level of support for adapting from the format to another
-   *       format of the same mime type. One of {@link #ADAPTIVE_SEAMLESS}, {@link
+   *       format of the same MIME type. One of {@link #ADAPTIVE_SEAMLESS}, {@link
    *       #ADAPTIVE_NOT_SEAMLESS} and {@link #ADAPTIVE_NOT_SUPPORTED}. Only set if the level of
    *       support for the format itself is {@link C#FORMAT_HANDLED} or {@link
    *       C#FORMAT_EXCEEDS_CAPABILITIES}.
@@ -183,7 +210,14 @@ public interface RendererCapabilities {
    *       of {@link #HARDWARE_ACCELERATION_SUPPORTED} and {@link
    *       #HARDWARE_ACCELERATION_NOT_SUPPORTED}.
    *   <li>{@link DecoderSupport}: The level of decoder support. One of {@link
-   *       #DECODER_SUPPORT_PRIMARY} and {@link #DECODER_SUPPORT_FALLBACK}.
+   *       #DECODER_SUPPORT_PRIMARY}, {@link #DECODER_SUPPORT_FALLBACK}, or {@link
+   *       #DECODER_SUPPORT_FALLBACK_MIMETYPE}.
+   *   <li>{@link AudioOffloadSupport}: The level of offload support. Value will have the flag
+   *       {@link #AUDIO_OFFLOAD_SUPPORTED} or be {@link #AUDIO_OFFLOAD_NOT_SUPPORTED}. In addition,
+   *       if it is {@link #AUDIO_OFFLOAD_SUPPORTED}, then one can check for {@link
+   *       #AUDIO_OFFLOAD_SPEED_CHANGE_SUPPORTED} and {@link #AUDIO_OFFLOAD_GAPLESS_SUPPORTED}.
+   *       These represent speed change and gapless transition support with audio offload
+   *       respectively.
    * </ul>
    */
   @Documented
@@ -198,23 +232,30 @@ public interface RendererCapabilities {
    *
    * <p>{@link AdaptiveSupport} is set to {@link #ADAPTIVE_NOT_SUPPORTED}, {@link TunnelingSupport}
    * is set to {@link #TUNNELING_NOT_SUPPORTED}, {@link HardwareAccelerationSupport} is set to
-   * {@link #HARDWARE_ACCELERATION_NOT_SUPPORTED} and {@link DecoderSupport} is set to {@link
-   * #DECODER_SUPPORT_PRIMARY}.
+   * {@link #HARDWARE_ACCELERATION_NOT_SUPPORTED}, {@link DecoderSupport} is set to {@link
+   * #DECODER_SUPPORT_PRIMARY} and {@link AudioOffloadSupport} is set to {@link
+   * #AUDIO_OFFLOAD_NOT_SUPPORTED}.
    *
    * @param formatSupport The {@link C.FormatSupport}.
    * @return The combined {@link Capabilities} of the given {@link C.FormatSupport}, {@link
-   *     #ADAPTIVE_NOT_SUPPORTED} and {@link #TUNNELING_NOT_SUPPORTED}.
+   *     #ADAPTIVE_NOT_SUPPORTED}, {@link #TUNNELING_NOT_SUPPORTED} and {@link
+   *     #AUDIO_OFFLOAD_NOT_SUPPORTED}.
    */
   static @Capabilities int create(@C.FormatSupport int formatSupport) {
-    return create(formatSupport, ADAPTIVE_NOT_SUPPORTED, TUNNELING_NOT_SUPPORTED);
+    return create(
+        formatSupport,
+        ADAPTIVE_NOT_SUPPORTED,
+        TUNNELING_NOT_SUPPORTED,
+        AUDIO_OFFLOAD_NOT_SUPPORTED);
   }
 
   /**
    * Returns {@link Capabilities} combining the given {@link C.FormatSupport}, {@link
    * AdaptiveSupport} and {@link TunnelingSupport}.
    *
-   * <p>{@link HardwareAccelerationSupport} is set to {@link #HARDWARE_ACCELERATION_NOT_SUPPORTED}
-   * and {@link DecoderSupport} is set to {@link #DECODER_SUPPORT_PRIMARY}.
+   * <p>{@link HardwareAccelerationSupport} is set to {@link #HARDWARE_ACCELERATION_NOT_SUPPORTED},
+   * {@link DecoderSupport} is set to {@link #DECODER_SUPPORT_PRIMARY}, and {@link
+   * AudioOffloadSupport} is set to {@link #AUDIO_OFFLOAD_NOT_SUPPORTED}.
    *
    * @param formatSupport The {@link C.FormatSupport}.
    * @param adaptiveSupport The {@link AdaptiveSupport}.
@@ -230,19 +271,77 @@ public interface RendererCapabilities {
         adaptiveSupport,
         tunnelingSupport,
         HARDWARE_ACCELERATION_NOT_SUPPORTED,
-        DECODER_SUPPORT_PRIMARY);
+        DECODER_SUPPORT_PRIMARY,
+        AUDIO_OFFLOAD_NOT_SUPPORTED);
   }
 
   /**
    * Returns {@link Capabilities} combining the given {@link C.FormatSupport}, {@link
-   * AdaptiveSupport}, {@link TunnelingSupport}, {@link HardwareAccelerationSupport} and {@link
+   * AdaptiveSupport}, {@link TunnelingSupport}, and {@link AudioOffloadSupport}.
+   *
+   * <p>{@link HardwareAccelerationSupport} is set to {@link #HARDWARE_ACCELERATION_NOT_SUPPORTED}
+   * and {@link DecoderSupport} is set to {@link #DECODER_SUPPORT_PRIMARY}.
+   *
+   * @param formatSupport The {@link C.FormatSupport}.
+   * @param adaptiveSupport The {@link AdaptiveSupport}.
+   * @param tunnelingSupport The {@link TunnelingSupport}.
+   * @param audioOffloadSupport The {@link AudioOffloadSupport}.
+   * @return The combined {@link Capabilities}.
+   */
+  static @Capabilities int create(
+      @C.FormatSupport int formatSupport,
+      @AdaptiveSupport int adaptiveSupport,
+      @TunnelingSupport int tunnelingSupport,
+      @AudioOffloadSupport int audioOffloadSupport) {
+    return create(
+        formatSupport,
+        adaptiveSupport,
+        tunnelingSupport,
+        HARDWARE_ACCELERATION_NOT_SUPPORTED,
+        DECODER_SUPPORT_PRIMARY,
+        audioOffloadSupport);
+  }
+
+  /**
+   * Returns {@link Capabilities} combining the given {@link C.FormatSupport}, {@link
+   * AdaptiveSupport}, {@link TunnelingSupport}, {@link HardwareAccelerationSupport}, and {@link
    * DecoderSupport}.
+   *
+   * <p>{@link AudioOffloadSupport} is set to {@link #AUDIO_OFFLOAD_NOT_SUPPORTED}.
    *
    * @param formatSupport The {@link C.FormatSupport}.
    * @param adaptiveSupport The {@link AdaptiveSupport}.
    * @param tunnelingSupport The {@link TunnelingSupport}.
    * @param hardwareAccelerationSupport The {@link HardwareAccelerationSupport}.
    * @param decoderSupport The {@link DecoderSupport}.
+   * @return The combined {@link Capabilities}.
+   */
+  static @Capabilities int create(
+      @C.FormatSupport int formatSupport,
+      @AdaptiveSupport int adaptiveSupport,
+      @TunnelingSupport int tunnelingSupport,
+      @HardwareAccelerationSupport int hardwareAccelerationSupport,
+      @DecoderSupport int decoderSupport) {
+    return create(
+        formatSupport,
+        adaptiveSupport,
+        tunnelingSupport,
+        hardwareAccelerationSupport,
+        decoderSupport,
+        AUDIO_OFFLOAD_NOT_SUPPORTED);
+  }
+
+  /**
+   * Returns {@link Capabilities} combining the given {@link C.FormatSupport}, {@link
+   * AdaptiveSupport}, {@link TunnelingSupport}, {@link HardwareAccelerationSupport}, {@link
+   * DecoderSupport} and {@link AudioOffloadSupport}.
+   *
+   * @param formatSupport The {@link C.FormatSupport}.
+   * @param adaptiveSupport The {@link AdaptiveSupport}.
+   * @param tunnelingSupport The {@link TunnelingSupport}.
+   * @param hardwareAccelerationSupport The {@link HardwareAccelerationSupport}.
+   * @param decoderSupport The {@link DecoderSupport}.
+   * @param audioOffloadSupport The {@link AudioOffloadSupport}
    * @return The combined {@link Capabilities}.
    */
   // Suppression needed for IntDef casting.
@@ -252,12 +351,14 @@ public interface RendererCapabilities {
       @AdaptiveSupport int adaptiveSupport,
       @TunnelingSupport int tunnelingSupport,
       @HardwareAccelerationSupport int hardwareAccelerationSupport,
-      @DecoderSupport int decoderSupport) {
+      @DecoderSupport int decoderSupport,
+      @AudioOffloadSupport int audioOffloadSupport) {
     return formatSupport
         | adaptiveSupport
         | tunnelingSupport
         | hardwareAccelerationSupport
-        | decoderSupport;
+        | decoderSupport
+        | audioOffloadSupport;
   }
 
   /**
@@ -270,6 +371,26 @@ public interface RendererCapabilities {
   @SuppressLint("WrongConstant")
   static @C.FormatSupport int getFormatSupport(@Capabilities int supportFlags) {
     return supportFlags & FORMAT_SUPPORT_MASK;
+  }
+
+  /**
+   * Returns whether the {@link C.FormatSupport} from the combined {@link Capabilities} indicates
+   * the format is supported.
+   *
+   * <p>A format is considered supported if its {@link C.FormatSupport} value is {@link
+   * C#FORMAT_HANDLED}, or optionally {@link C#FORMAT_EXCEEDS_CAPABILITIES} if enabled by {@code
+   * allowExceedsCapabilities}.
+   *
+   * @param supportFlags The combined {@link Capabilities}.
+   * @param allowExceedsCapabilities Whether {@link C#FORMAT_EXCEEDS_CAPABILITIES} should be
+   *     considered as supported.
+   * @return Whether the {@link Capabilities} indicate a format is supported.
+   */
+  static boolean isFormatSupported(
+      @Capabilities int supportFlags, boolean allowExceedsCapabilities) {
+    @C.FormatSupport int formatSupport = getFormatSupport(supportFlags);
+    return formatSupport == C.FORMAT_HANDLED
+        || (allowExceedsCapabilities && formatSupport == C.FORMAT_EXCEEDS_CAPABILITIES);
   }
 
   /**
@@ -318,7 +439,19 @@ public interface RendererCapabilities {
   // Suppression needed for IntDef casting.
   @SuppressLint("WrongConstant")
   static @DecoderSupport int getDecoderSupport(@Capabilities int supportFlags) {
-    return supportFlags & MODE_SUPPORT_MASK;
+    return supportFlags & DECODER_SUPPORT_MASK;
+  }
+
+  /**
+   * Returns the {@link AudioOffloadSupport} from the combined {@link Capabilities}.
+   *
+   * @param supportFlags The combined {@link Capabilities}.
+   * @return The {@link AudioOffloadSupport} only.
+   */
+  // Suppression needed for IntDef casting.
+  @SuppressLint("WrongConstant")
+  static @AudioOffloadSupport int getAudioOffloadSupport(@Capabilities int supportFlags) {
+    return supportFlags & AUDIO_OFFLOAD_SUPPORT_MASK;
   }
 
   /** Returns the name of the {@link Renderer}. */
@@ -355,4 +488,18 @@ public interface RendererCapabilities {
    */
   @AdaptiveSupport
   int supportsMixedMimeTypeAdaptation() throws ExoPlaybackException;
+
+  /**
+   * Sets the {@link Listener}.
+   *
+   * @param listener The listener to be set.
+   */
+  default void setListener(Listener listener) {
+    // Do nothing.
+  }
+
+  /** Clears the {@link Listener}. */
+  default void clearListener() {
+    // Do nothing.
+  }
 }

@@ -42,10 +42,12 @@ public final class Mp3PlaybackTest {
         "bear-cbr-constant-frame-size-no-seek-table.mp3",
         "bear-cbr-variable-frame-size-no-seek-table.mp3",
         "bear-id3.mp3",
+        "bear-id3-numeric-genre.mp3",
         "bear-vbr-no-seek-table.mp3",
+        "bear-vbr-vbri-header-truncated-toc.mp3",
         "bear-vbr-xing-header.mp3",
         "play-trimmed.mp3",
-        "test.mp3");
+        "test-cbr-info-header.mp3");
   }
 
   @ParameterizedRobolectricTestRunner.Parameter public String inputFile;

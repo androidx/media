@@ -16,7 +16,7 @@ apply plugin: 'maven-publish'
 apply from: "$gradle.ext.androidxMediaSettingsDir/missing_aar_type_workaround.gradle"
 
 afterEvaluate {
-    if (rootProject.name == gradle.ext.androidxMediaProjectName) {
+    if (gradle.ext.has('rootProjectIsAndroidXMedia3') && gradle.ext.rootProjectIsAndroidXMedia3) {
         publishing {
             repositories {
                 maven {
@@ -29,24 +29,6 @@ afterEvaluate {
                     groupId = 'androidx.media3'
                     artifactId = findProperty('releaseArtifactId') ?: ''
                     version = findProperty('releaseVersion') ?: ''
-                    configurations.create("sourcesElement") { variant ->
-                        variant.visible = false
-                        variant.canBeResolved = false
-                        variant.attributes.attribute(
-                            Usage.USAGE_ATTRIBUTE,
-                            project.objects.named(Usage, Usage.JAVA_RUNTIME))
-                        variant.attributes.attribute(
-                            Category.CATEGORY_ATTRIBUTE,
-                            project.objects.named(Category, Category.DOCUMENTATION))
-                        variant.attributes.attribute(
-                            Bundling.BUNDLING_ATTRIBUTE,
-                            project.objects.named(Bundling, Bundling.EXTERNAL))
-                        variant.attributes.attribute(
-                            DocsType.DOCS_TYPE_ATTRIBUTE,
-                            project.objects.named(DocsType, DocsType.SOURCES))
-                        variant.outgoing.artifact(androidSourcesJar)
-                        components.release.addVariantsFromConfiguration(variant) {}
-                    }
                     pom {
                         name =
                             findProperty('releaseName')
@@ -81,8 +63,3 @@ afterEvaluate {
     }
 }
 tasks.withType(PublishToMavenRepository) { it.dependsOn lint, test }
-
-task androidSourcesJar(type: Jar) {
-    archiveClassifier.set('sources')
-    from android.sourceSets.main.java.srcDirs
-}

@@ -9,12 +9,18 @@ numberOfTracks = 2
 track 0:
   total output bytes = 85933
   sample count = 30
+  track duration = 1068000
   format 0:
     id = 1
+    containerMimeType = video/mp4
     sampleMimeType = video/avc
     codecs = avc1.64001F
+    maxNumReorderSamples = 2
     width = 1080
     height = 720
+    colorInfo:
+      lumaBitdepth = 8
+      chromaBitdepth = 8
     initializationData:
       data = length 29, hash 4746B5D9
       data = length 10, hash 7A0D0F2B
@@ -141,10 +147,12 @@ track 0:
 track 1:
   total output bytes = 10
   sample count = 1
+  track duration = 1068000
   format 0:
     averageBitrate = 2147483647
     peakBitrate = 2147483647
     id = 2
+    containerMimeType = video/mp4
     sampleMimeType = audio/mp4a-latm
     codecs = mp4a.40.2
     channelCount = 1

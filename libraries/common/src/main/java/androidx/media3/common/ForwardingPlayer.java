@@ -20,7 +20,6 @@ import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.TextureView;
-import androidx.annotation.CallSuper;
 import androidx.annotation.Nullable;
 import androidx.media3.common.text.Cue;
 import androidx.media3.common.text.CueGroup;
@@ -31,6 +30,25 @@ import java.util.List;
 /**
  * A {@link Player} that forwards method calls to another {@link Player}. Applications can use this
  * class to suppress or modify specific operations, by overriding the respective methods.
+ *
+ * <p>Subclasses must ensure they maintain consistency with the {@link Player} interface, including
+ * interactions with {@link Player.Listener}, which can be quite fiddly. For example, if removing an
+ * available {@link Player.Command} and disabling the corresponding method, subclasses need to:
+ *
+ * <ul>
+ *   <li>Override {@link #isCommandAvailable(int)} and {@link #getAvailableCommands()}
+ *   <li>Override and no-op the method itself
+ *   <li>Override {@link #addListener(Listener)} and wrap the provided {@link Player.Listener} with
+ *       an implementation that drops calls to {@link
+ *       Player.Listener#onAvailableCommandsChanged(Commands)} and {@link
+ *       Player.Listener#onEvents(Player, Events)} if they were only triggered by a change in
+ *       command availability that is 'invisible' after the command removal.
+ * </ul>
+ *
+ * <p>Many customization use-cases are instead better served by {@link ForwardingSimpleBasePlayer},
+ * which allows subclasses to more concisely modify the behavior of an operation, or disallow a
+ * {@link Player.Command}. In many cases {@link ForwardingSimpleBasePlayer} should be used in
+ * preference to {@code ForwardingPlayer}.
  */
 @UnstableApi
 public class ForwardingPlayer implements Player {
@@ -51,13 +69,14 @@ public class ForwardingPlayer implements Player {
   /**
    * Calls {@link Player#addListener(Listener)} on the delegate.
    *
-   * <p>Overrides of this method must delegate to {@code super.addListener} and not {@code
-   * delegate.addListener}, in order to ensure the correct {@link Player} instance is passed to
-   * {@link Player.Listener#onEvents(Player, Events)} (i.e. this forwarding instance, and not the
+   * <p>Overrides of this method must <strong>not</strong> directly call {@code
+   * delegate.addListener}. If the override wants to pass the {@link Player.Listener} instance to
+   * the delegate {@link Player}, it must do so by calling {@code super.addListener} instead. This
+   * ensures the correct {@link Player} instance is passed to {@link
+   * Player.Listener#onEvents(Player, Events)} (i.e. this forwarding instance, and not the
    * underlying {@code delegate} instance).
    */
   @Override
-  @CallSuper
   public void addListener(Listener listener) {
     player.addListener(new ForwardingListener(this, listener));
   }
@@ -65,12 +84,11 @@ public class ForwardingPlayer implements Player {
   /**
    * Calls {@link Player#removeListener(Listener)} on the delegate.
    *
-   * <p>Overrides of this method must delegate to {@code super.removeListener} and not {@code
-   * delegate.removeListener}, in order to ensure the listener 'matches' the listener added via
-   * {@link #addListener} (otherwise the listener registered on the delegate won't be removed).
+   * <p>Overrides of this method must <strong>not</strong> directly call {@code
+   * delegate.removeListener}. If the override wants to pass the {@link Player.Listener} instance to
+   * the delegate {@link Player}, it must do so by calling {@code super.removeListener} instead.
    */
   @Override
-  @CallSuper
   public void removeListener(Listener listener) {
     player.removeListener(new ForwardingListener(this, listener));
   }
@@ -145,6 +163,18 @@ public class ForwardingPlayer implements Player {
   @Override
   public void moveMediaItems(int fromIndex, int toIndex, int newIndex) {
     player.moveMediaItems(fromIndex, toIndex, newIndex);
+  }
+
+  /** Calls {@link Player#replaceMediaItem(int, MediaItem)} on the delegate. */
+  @Override
+  public void replaceMediaItem(int index, MediaItem mediaItem) {
+    player.replaceMediaItem(index, mediaItem);
+  }
+
+  /** Calls {@link Player#replaceMediaItems(int, int, List)} on the delegate. */
+  @Override
+  public void replaceMediaItems(int fromIndex, int toIndex, List<MediaItem> mediaItems) {
+    player.replaceMediaItems(fromIndex, toIndex, mediaItems);
   }
 
   /** Calls {@link Player#removeMediaItem(int)} on the delegate. */
@@ -316,46 +346,10 @@ public class ForwardingPlayer implements Player {
     player.seekForward();
   }
 
-  /**
-   * Calls {@link Player#hasPrevious()} on the delegate and returns the result.
-   *
-   * @deprecated Use {@link #hasPreviousMediaItem()} instead.
-   */
-  @SuppressWarnings("deprecation") // Forwarding to deprecated method
-  @Deprecated
-  @Override
-  public boolean hasPrevious() {
-    return player.hasPrevious();
-  }
-
-  /**
-   * Calls {@link Player#hasPreviousWindow()} on the delegate and returns the result.
-   *
-   * @deprecated Use {@link #hasPreviousMediaItem()} instead.
-   */
-  @SuppressWarnings("deprecation") // Forwarding to deprecated method
-  @Deprecated
-  @Override
-  public boolean hasPreviousWindow() {
-    return player.hasPreviousWindow();
-  }
-
   /** Calls {@link Player#hasPreviousMediaItem()} on the delegate and returns the result. */
   @Override
   public boolean hasPreviousMediaItem() {
     return player.hasPreviousMediaItem();
-  }
-
-  /**
-   * Calls {@link Player#previous()} on the delegate.
-   *
-   * @deprecated Use {@link #seekToPreviousMediaItem()} instead.
-   */
-  @SuppressWarnings("deprecation") // Forwarding to deprecated method
-  @Deprecated
-  @Override
-  public void previous() {
-    player.previous();
   }
 
   /**
@@ -476,20 +470,6 @@ public class ForwardingPlayer implements Player {
   @Override
   public void stop() {
     player.stop();
-  }
-
-  /**
-   * Calls {@link Player#stop(boolean)} on the delegate.
-   *
-   * @deprecated Use {@link #stop()} and {@link #clearMediaItems()} (if {@code reset} is true) or
-   *     just {@link #stop()} (if {@code reset} is false). Any player error will be cleared when
-   *     {@link #prepare() re-preparing} the player.
-   */
-  @SuppressWarnings("deprecation") // Forwarding to deprecated method
-  @Deprecated
-  @Override
-  public void stop(boolean reset) {
-    player.stop(reset);
   }
 
   /** Calls {@link Player#release()} on the delegate. */
@@ -860,28 +840,74 @@ public class ForwardingPlayer implements Player {
     return player.isDeviceMuted();
   }
 
-  /** Calls {@link Player#setDeviceVolume(int)} on the delegate. */
+  /**
+   * @deprecated Use {@link #setDeviceVolume(int, int)} instead.
+   */
+  @SuppressWarnings("deprecation") // Intentionally forwarding deprecated method
+  @Deprecated
   @Override
   public void setDeviceVolume(int volume) {
     player.setDeviceVolume(volume);
   }
 
-  /** Calls {@link Player#increaseDeviceVolume()} on the delegate. */
+  /** Calls {@link Player#setDeviceVolume(int, int)} on the delegate. */
+  @Override
+  public void setDeviceVolume(int volume, @C.VolumeFlags int flags) {
+    player.setDeviceVolume(volume, flags);
+  }
+
+  /**
+   * @deprecated Use {@link #increaseDeviceVolume(int)} instead.
+   */
+  @SuppressWarnings("deprecation") // Intentionally forwarding deprecated method
+  @Deprecated
   @Override
   public void increaseDeviceVolume() {
     player.increaseDeviceVolume();
   }
 
-  /** Calls {@link Player#decreaseDeviceVolume()} on the delegate. */
+  /** Calls {@link Player#increaseDeviceVolume(int)} on the delegate. */
+  @Override
+  public void increaseDeviceVolume(@C.VolumeFlags int flags) {
+    player.increaseDeviceVolume(flags);
+  }
+
+  /**
+   * @deprecated Use {@link #decreaseDeviceVolume(int)} instead.
+   */
+  @SuppressWarnings("deprecation") // Intentionally forwarding deprecated method
+  @Deprecated
   @Override
   public void decreaseDeviceVolume() {
     player.decreaseDeviceVolume();
   }
 
-  /** Calls {@link Player#setDeviceMuted(boolean)} on the delegate. */
+  /** Calls {@link Player#decreaseDeviceVolume(int)} on the delegate. */
+  @Override
+  public void decreaseDeviceVolume(@C.VolumeFlags int flags) {
+    player.decreaseDeviceVolume(flags);
+  }
+
+  /**
+   * @deprecated Use {@link #setDeviceMuted(boolean, int)} instead.
+   */
+  @SuppressWarnings("deprecation") // Intentionally forwarding deprecated method
+  @Deprecated
   @Override
   public void setDeviceMuted(boolean muted) {
     player.setDeviceMuted(muted);
+  }
+
+  /** Calls {@link Player#setDeviceMuted(boolean, int)} on the delegate. */
+  @Override
+  public void setDeviceMuted(boolean muted, @C.VolumeFlags int flags) {
+    player.setDeviceMuted(muted, flags);
+  }
+
+  /** Calls {@link Player#setAudioAttributes(AudioAttributes, boolean)} on the delegate. */
+  @Override
+  public void setAudioAttributes(AudioAttributes audioAttributes, boolean handleAudioFocus) {
+    player.setAudioAttributes(audioAttributes, handleAudioFocus);
   }
 
   /** Returns the {@link Player} to which operations are forwarded. */
@@ -1033,12 +1059,6 @@ public class ForwardingPlayer implements Player {
     }
 
     @Override
-    @SuppressWarnings("deprecation")
-    public void onSeekProcessed() {
-      listener.onSeekProcessed();
-    }
-
-    @Override
     public void onVideoSizeChanged(VideoSize videoSize) {
       listener.onVideoSizeChanged(videoSize);
     }
@@ -1073,6 +1093,7 @@ public class ForwardingPlayer implements Player {
       listener.onSkipSilenceEnabledChanged(skipSilenceEnabled);
     }
 
+    @SuppressWarnings("deprecation") // Intentionally forwarding deprecated method
     @Override
     public void onCues(List<Cue> cues) {
       listener.onCues(cues);

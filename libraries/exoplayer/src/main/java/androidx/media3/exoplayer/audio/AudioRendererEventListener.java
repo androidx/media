@@ -60,12 +60,6 @@ public interface AudioRendererEventListener {
       String decoderName, long initializedTimestampMs, long initializationDurationMs) {}
 
   /**
-   * @deprecated Use {@link #onAudioInputFormatChanged(Format, DecoderReuseEvaluation)}.
-   */
-  @Deprecated
-  default void onAudioInputFormatChanged(Format format) {}
-
-  /**
    * Called when the format of the media being consumed by the renderer changes.
    *
    * @param format The new format.
@@ -150,6 +144,22 @@ public interface AudioRendererEventListener {
    */
   default void onAudioSinkError(Exception audioSinkError) {}
 
+  /**
+   * Called when an {@link AudioTrack} has been initialized.
+   *
+   * @param audioTrackConfig The {@link AudioSink.AudioTrackConfig} of the initialized {@link
+   *     AudioTrack}.
+   */
+  default void onAudioTrackInitialized(AudioSink.AudioTrackConfig audioTrackConfig) {}
+
+  /**
+   * Called when an {@link AudioTrack} has been released.
+   *
+   * @param audioTrackConfig The {@link AudioSink.AudioTrackConfig} of the released {@link
+   *     AudioTrack}.
+   */
+  default void onAudioTrackReleased(AudioSink.AudioTrackConfig audioTrackConfig) {}
+
   /** Dispatches events to an {@link AudioRendererEventListener}. */
   final class EventDispatcher {
 
@@ -186,16 +196,15 @@ public interface AudioRendererEventListener {
       }
     }
 
-    /** Invokes {@link AudioRendererEventListener#onAudioInputFormatChanged(Format)}. */
-    @SuppressWarnings("deprecation") // Calling deprecated listener method.
+    /**
+     * Invokes {@link AudioRendererEventListener#onAudioInputFormatChanged(Format,
+     * DecoderReuseEvaluation)}.
+     */
     public void inputFormatChanged(
         Format format, @Nullable DecoderReuseEvaluation decoderReuseEvaluation) {
       if (handler != null) {
         handler.post(
-            () -> {
-              castNonNull(listener).onAudioInputFormatChanged(format);
-              castNonNull(listener).onAudioInputFormatChanged(format, decoderReuseEvaluation);
-            });
+            () -> castNonNull(listener).onAudioInputFormatChanged(format, decoderReuseEvaluation));
       }
     }
 
@@ -254,6 +263,20 @@ public interface AudioRendererEventListener {
     public void audioCodecError(Exception audioCodecError) {
       if (handler != null) {
         handler.post(() -> castNonNull(listener).onAudioCodecError(audioCodecError));
+      }
+    }
+
+    /** Invokes {@link AudioRendererEventListener#onAudioTrackInitialized}. */
+    public void audioTrackInitialized(AudioSink.AudioTrackConfig audioTrackConfig) {
+      if (handler != null) {
+        handler.post(() -> castNonNull(listener).onAudioTrackInitialized(audioTrackConfig));
+      }
+    }
+
+    /** Invokes {@link AudioRendererEventListener#onAudioTrackReleased}. */
+    public void audioTrackReleased(AudioSink.AudioTrackConfig audioTrackConfig) {
+      if (handler != null) {
+        handler.post(() -> castNonNull(listener).onAudioTrackReleased(audioTrackConfig));
       }
     }
   }

@@ -15,10 +15,14 @@
  */
 package androidx.media3.exoplayer.source;
 
+import static androidx.media3.common.util.Assertions.checkArgument;
+import static androidx.media3.common.util.Assertions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 
 import androidx.media3.common.C;
+import androidx.media3.exoplayer.LoadingInfo;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.collect.ImmutableList;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -28,7 +32,8 @@ public final class CompositeSequenceableLoaderTest {
 
   /**
    * Tests that {@link CompositeSequenceableLoader#getBufferedPositionUs()} returns minimum buffered
-   * position among all sub-loaders.
+   * position among all sub-loaders, and is consistent with {@link
+   * CompositeSequenceableLoader#isLoading()}.
    */
   @Test
   public void getBufferedPositionUsReturnsMinimumLoaderBufferedPosition() {
@@ -37,13 +42,18 @@ public final class CompositeSequenceableLoaderTest {
     FakeSequenceableLoader loader2 =
         new FakeSequenceableLoader(/* bufferedPositionUs */ 1001, /* nextLoadPositionUs */ 2001);
     CompositeSequenceableLoader compositeSequenceableLoader =
-        new CompositeSequenceableLoader(new SequenceableLoader[] {loader1, loader2});
+        new CompositeSequenceableLoader(
+            ImmutableList.of(loader1, loader2),
+            ImmutableList.of(
+                ImmutableList.of(C.TRACK_TYPE_AUDIO), ImmutableList.of(C.TRACK_TYPE_VIDEO)));
     assertThat(compositeSequenceableLoader.getBufferedPositionUs()).isEqualTo(1000);
+    assertThat(compositeSequenceableLoader.isLoading()).isTrue();
   }
 
   /**
    * Tests that {@link CompositeSequenceableLoader#getBufferedPositionUs()} returns minimum buffered
-   * position that is not {@link C#TIME_END_OF_SOURCE} among all sub-loaders.
+   * position that is not {@link C#TIME_END_OF_SOURCE} among all sub-loaders, and is consistent with
+   * {@link CompositeSequenceableLoader#isLoading()}.
    */
   @Test
   public void getBufferedPositionUsReturnsMinimumNonEndOfSourceLoaderBufferedPosition() {
@@ -56,13 +66,20 @@ public final class CompositeSequenceableLoaderTest {
             /* bufferedPositionUs */ C.TIME_END_OF_SOURCE,
             /* nextLoadPositionUs */ C.TIME_END_OF_SOURCE);
     CompositeSequenceableLoader compositeSequenceableLoader =
-        new CompositeSequenceableLoader(new SequenceableLoader[] {loader1, loader2, loader3});
+        new CompositeSequenceableLoader(
+            ImmutableList.of(loader1, loader2, loader3),
+            ImmutableList.of(
+                ImmutableList.of(C.TRACK_TYPE_AUDIO),
+                ImmutableList.of(C.TRACK_TYPE_VIDEO),
+                ImmutableList.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO)));
     assertThat(compositeSequenceableLoader.getBufferedPositionUs()).isEqualTo(1000);
+    assertThat(compositeSequenceableLoader.isLoading()).isTrue();
   }
 
   /**
    * Tests that {@link CompositeSequenceableLoader#getBufferedPositionUs()} returns {@link
-   * C#TIME_END_OF_SOURCE} when all sub-loaders have buffered till end-of-source.
+   * C#TIME_END_OF_SOURCE} when all sub-loaders have buffered till end-of-source, and is consistent
+   * with {@link CompositeSequenceableLoader#isLoading()}.
    */
   @Test
   public void getBufferedPositionUsReturnsEndOfSourceWhenAllLoaderBufferedTillEndOfSource() {
@@ -75,13 +92,86 @@ public final class CompositeSequenceableLoaderTest {
             /* bufferedPositionUs */ C.TIME_END_OF_SOURCE,
             /* nextLoadPositionUs */ C.TIME_END_OF_SOURCE);
     CompositeSequenceableLoader compositeSequenceableLoader =
-        new CompositeSequenceableLoader(new SequenceableLoader[] {loader1, loader2});
+        new CompositeSequenceableLoader(
+            ImmutableList.of(loader1, loader2),
+            ImmutableList.of(
+                ImmutableList.of(C.TRACK_TYPE_AUDIO), ImmutableList.of(C.TRACK_TYPE_VIDEO)));
     assertThat(compositeSequenceableLoader.getBufferedPositionUs()).isEqualTo(C.TIME_END_OF_SOURCE);
+    assertThat(compositeSequenceableLoader.isLoading()).isFalse();
+  }
+
+  /**
+   * Tests that {@link CompositeSequenceableLoader#getBufferedPositionUs()} returns the minimum
+   * buffered position of loaders with audio or video tracks (if at least one loader has tracks of
+   * these types).
+   */
+  @Test
+  public void getBufferedPositionUs_prefersLoadersWithAudioAndVideoTracks() {
+    FakeSequenceableLoader loaderWithTextOnly =
+        new FakeSequenceableLoader(/* bufferedPositionUs= */ 999, /* nextLoadPositionUs= */ 2000);
+    FakeSequenceableLoader loaderWithAudioVideoAndText =
+        new FakeSequenceableLoader(/* bufferedPositionUs= */ 1000, /* nextLoadPositionUs= */ 2000);
+    CompositeSequenceableLoader compositeSequenceableLoader =
+        new CompositeSequenceableLoader(
+            ImmutableList.of(loaderWithTextOnly, loaderWithAudioVideoAndText),
+            ImmutableList.of(
+                ImmutableList.of(C.TRACK_TYPE_TEXT),
+                ImmutableList.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO, C.TRACK_TYPE_TEXT)));
+    assertThat(compositeSequenceableLoader.getBufferedPositionUs()).isEqualTo(1000);
+    assertThat(compositeSequenceableLoader.isLoading()).isTrue();
+  }
+
+  /**
+   * Tests that {@link CompositeSequenceableLoader#getBufferedPositionUs()} doesn't return {@link
+   * C#TIME_END_OF_SOURCE} if only the A/V tracks have finished loading and text track is still
+   * loading. Instead it keeps returning the last 'real' A/V buffered position, to avoid the
+   * buffered position snapping back to the text track buffered position.
+   */
+  @Test
+  public void
+      getBufferedPositionUs_prefersLoadersWithAudioAndVideoTracks_fallsBackToLastAVBufferedPositionWhenLoadingComplete() {
+    FakeSequenceableLoader loaderWithTextOnly =
+        new FakeSequenceableLoader(/* bufferedPositionUs= */ 500, /* nextLoadPositionUs= */ 2000);
+    FakeSequenceableLoader loaderWithAudioVideoAndText =
+        new FakeSequenceableLoader(
+            /* bufferedPositionUs= */ 1000, /* nextLoadPositionUs= */ C.TIME_END_OF_SOURCE);
+    CompositeSequenceableLoader compositeSequenceableLoader =
+        new CompositeSequenceableLoader(
+            ImmutableList.of(loaderWithTextOnly, loaderWithAudioVideoAndText),
+            ImmutableList.of(
+                ImmutableList.of(C.TRACK_TYPE_TEXT),
+                ImmutableList.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO, C.TRACK_TYPE_TEXT)));
+    assertThat(compositeSequenceableLoader.getBufferedPositionUs()).isEqualTo(1000);
+    loaderWithAudioVideoAndText.continueLoading(
+        new LoadingInfo.Builder().setPlaybackPositionUs(100).build());
+    assertThat(loaderWithAudioVideoAndText.getBufferedPositionUs()).isEqualTo(C.TIME_END_OF_SOURCE);
+    assertThat(compositeSequenceableLoader.getBufferedPositionUs()).isEqualTo(1000);
+    assertThat(compositeSequenceableLoader.isLoading()).isTrue();
+  }
+
+  /**
+   * Tests that {@link CompositeSequenceableLoader#getBufferedPositionUs()} returns the minimum
+   * buffered position of all loaders if no loader has audio or video tracks.
+   */
+  @Test
+  public void getBufferedPositionUs_considersAllTracksIfNoneAreAudioOrVideo() {
+    FakeSequenceableLoader loaderWithTextOnly =
+        new FakeSequenceableLoader(/* bufferedPositionUs= */ 999, /* nextLoadPositionUs= */ 2000);
+    FakeSequenceableLoader loaderWithMetadataOnly =
+        new FakeSequenceableLoader(/* bufferedPositionUs= */ 1000, /* nextLoadPositionUs= */ 2000);
+    CompositeSequenceableLoader compositeSequenceableLoader =
+        new CompositeSequenceableLoader(
+            ImmutableList.of(loaderWithTextOnly, loaderWithMetadataOnly),
+            ImmutableList.of(
+                ImmutableList.of(C.TRACK_TYPE_TEXT), ImmutableList.of(C.TRACK_TYPE_METADATA)));
+    assertThat(compositeSequenceableLoader.getBufferedPositionUs()).isEqualTo(999);
+    assertThat(compositeSequenceableLoader.isLoading()).isTrue();
   }
 
   /**
    * Tests that {@link CompositeSequenceableLoader#getNextLoadPositionUs()} returns minimum next
-   * load position among all sub-loaders.
+   * load position among all sub-loaders, and is consistent with {@link
+   * CompositeSequenceableLoader#isLoading()}.
    */
   @Test
   public void getNextLoadPositionUsReturnMinimumLoaderNextLoadPositionUs() {
@@ -90,13 +180,18 @@ public final class CompositeSequenceableLoaderTest {
     FakeSequenceableLoader loader2 =
         new FakeSequenceableLoader(/* bufferedPositionUs */ 1001, /* nextLoadPositionUs */ 2000);
     CompositeSequenceableLoader compositeSequenceableLoader =
-        new CompositeSequenceableLoader(new SequenceableLoader[] {loader1, loader2});
+        new CompositeSequenceableLoader(
+            ImmutableList.of(loader1, loader2),
+            ImmutableList.of(
+                ImmutableList.of(C.TRACK_TYPE_AUDIO), ImmutableList.of(C.TRACK_TYPE_VIDEO)));
     assertThat(compositeSequenceableLoader.getNextLoadPositionUs()).isEqualTo(2000);
+    assertThat(compositeSequenceableLoader.isLoading()).isTrue();
   }
 
   /**
    * Tests that {@link CompositeSequenceableLoader#getNextLoadPositionUs()} returns minimum next
-   * load position that is not {@link C#TIME_END_OF_SOURCE} among all sub-loaders.
+   * load position that is not {@link C#TIME_END_OF_SOURCE} among all sub-loaders, and is consistent
+   * with {@link CompositeSequenceableLoader#isLoading()}.
    */
   @Test
   public void getNextLoadPositionUsReturnMinimumNonEndOfSourceLoaderNextLoadPositionUs() {
@@ -108,13 +203,20 @@ public final class CompositeSequenceableLoaderTest {
         new FakeSequenceableLoader(
             /* bufferedPositionUs */ 1001, /* nextLoadPositionUs */ C.TIME_END_OF_SOURCE);
     CompositeSequenceableLoader compositeSequenceableLoader =
-        new CompositeSequenceableLoader(new SequenceableLoader[] {loader1, loader2, loader3});
+        new CompositeSequenceableLoader(
+            ImmutableList.of(loader1, loader2, loader3),
+            ImmutableList.of(
+                ImmutableList.of(C.TRACK_TYPE_AUDIO),
+                ImmutableList.of(C.TRACK_TYPE_VIDEO),
+                ImmutableList.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO)));
     assertThat(compositeSequenceableLoader.getNextLoadPositionUs()).isEqualTo(2000);
+    assertThat(compositeSequenceableLoader.isLoading()).isTrue();
   }
 
   /**
    * Tests that {@link CompositeSequenceableLoader#getNextLoadPositionUs()} returns {@link
-   * C#TIME_END_OF_SOURCE} when all sub-loaders have next load position at end-of-source.
+   * C#TIME_END_OF_SOURCE} when all sub-loaders have next load position at end-of-source, and is
+   * consistent with {@link CompositeSequenceableLoader#isLoading()}.
    */
   @Test
   public void getNextLoadPositionUsReturnsEndOfSourceWhenAllLoaderLoadingLastChunk() {
@@ -125,14 +227,18 @@ public final class CompositeSequenceableLoaderTest {
         new FakeSequenceableLoader(
             /* bufferedPositionUs */ 1001, /* nextLoadPositionUs */ C.TIME_END_OF_SOURCE);
     CompositeSequenceableLoader compositeSequenceableLoader =
-        new CompositeSequenceableLoader(new SequenceableLoader[] {loader1, loader2});
+        new CompositeSequenceableLoader(
+            ImmutableList.of(loader1, loader2),
+            ImmutableList.of(
+                ImmutableList.of(C.TRACK_TYPE_AUDIO), ImmutableList.of(C.TRACK_TYPE_VIDEO)));
     assertThat(compositeSequenceableLoader.getNextLoadPositionUs()).isEqualTo(C.TIME_END_OF_SOURCE);
+    assertThat(compositeSequenceableLoader.isLoading()).isFalse();
   }
 
   /**
-   * Tests that {@link CompositeSequenceableLoader#continueLoading(long)} only allows the loader
-   * with minimum next load position to continue loading if next load positions are not behind
-   * current playback position.
+   * Tests that {@link CompositeSequenceableLoader#continueLoading(LoadingInfo)} only allows the
+   * loader with minimum next load position to continue loading if next load positions are not
+   * behind current playback position.
    */
   @Test
   public void continueLoadingOnlyAllowFurthestBehindLoaderToLoadIfNotBehindPlaybackPosition() {
@@ -141,16 +247,20 @@ public final class CompositeSequenceableLoaderTest {
     FakeSequenceableLoader loader2 =
         new FakeSequenceableLoader(/* bufferedPositionUs */ 1001, /* nextLoadPositionUs */ 2001);
     CompositeSequenceableLoader compositeSequenceableLoader =
-        new CompositeSequenceableLoader(new SequenceableLoader[] {loader1, loader2});
-    compositeSequenceableLoader.continueLoading(100);
+        new CompositeSequenceableLoader(
+            ImmutableList.of(loader1, loader2),
+            ImmutableList.of(
+                ImmutableList.of(C.TRACK_TYPE_AUDIO), ImmutableList.of(C.TRACK_TYPE_VIDEO)));
+    compositeSequenceableLoader.continueLoading(
+        new LoadingInfo.Builder().setPlaybackPositionUs(100).build());
 
     assertThat(loader1.numInvocations).isEqualTo(1);
     assertThat(loader2.numInvocations).isEqualTo(0);
   }
 
   /**
-   * Tests that {@link CompositeSequenceableLoader#continueLoading(long)} allows all loaders with
-   * next load position behind current playback position to continue loading.
+   * Tests that {@link CompositeSequenceableLoader#continueLoading(LoadingInfo)} allows all loaders
+   * with next load position behind current playback position to continue loading.
    */
   @Test
   public void continueLoadingReturnAllowAllLoadersBehindPlaybackPositionToLoad() {
@@ -161,8 +271,14 @@ public final class CompositeSequenceableLoaderTest {
     FakeSequenceableLoader loader3 =
         new FakeSequenceableLoader(/* bufferedPositionUs */ 1002, /* nextLoadPositionUs */ 2002);
     CompositeSequenceableLoader compositeSequenceableLoader =
-        new CompositeSequenceableLoader(new SequenceableLoader[] {loader1, loader2, loader3});
-    compositeSequenceableLoader.continueLoading(3000);
+        new CompositeSequenceableLoader(
+            ImmutableList.of(loader1, loader2, loader3),
+            ImmutableList.of(
+                ImmutableList.of(C.TRACK_TYPE_AUDIO),
+                ImmutableList.of(C.TRACK_TYPE_VIDEO),
+                ImmutableList.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO)));
+    compositeSequenceableLoader.continueLoading(
+        new LoadingInfo.Builder().setPlaybackPositionUs(3000).build());
 
     assertThat(loader1.numInvocations).isEqualTo(1);
     assertThat(loader2.numInvocations).isEqualTo(1);
@@ -170,8 +286,8 @@ public final class CompositeSequenceableLoaderTest {
   }
 
   /**
-   * Tests that {@link CompositeSequenceableLoader#continueLoading(long)} does not allow loader with
-   * next load position at end-of-source to continue loading.
+   * Tests that {@link CompositeSequenceableLoader#continueLoading(LoadingInfo)} does not allow
+   * loader with next load position at end-of-source to continue loading.
    */
   @Test
   public void continueLoadingOnlyNotAllowEndOfSourceLoaderToLoad() {
@@ -182,17 +298,21 @@ public final class CompositeSequenceableLoaderTest {
         new FakeSequenceableLoader(
             /* bufferedPositionUs */ 1001, /* nextLoadPositionUs */ C.TIME_END_OF_SOURCE);
     CompositeSequenceableLoader compositeSequenceableLoader =
-        new CompositeSequenceableLoader(new SequenceableLoader[] {loader1, loader2});
-    compositeSequenceableLoader.continueLoading(3000);
+        new CompositeSequenceableLoader(
+            ImmutableList.of(loader1, loader2),
+            ImmutableList.of(
+                ImmutableList.of(C.TRACK_TYPE_AUDIO), ImmutableList.of(C.TRACK_TYPE_VIDEO)));
+    compositeSequenceableLoader.continueLoading(
+        new LoadingInfo.Builder().setPlaybackPositionUs(3000).build());
 
     assertThat(loader1.numInvocations).isEqualTo(0);
     assertThat(loader2.numInvocations).isEqualTo(0);
   }
 
   /**
-   * Tests that {@link CompositeSequenceableLoader#continueLoading(long)} returns true if the loader
-   * with minimum next load position can make progress if next load positions are not behind current
-   * playback position.
+   * Tests that {@link CompositeSequenceableLoader#continueLoading(LoadingInfo)} returns true if the
+   * loader with minimum next load position can make progress if next load positions are not behind
+   * current playback position.
    */
   @Test
   public void continueLoadingReturnTrueIfFurthestBehindLoaderCanMakeProgress() {
@@ -203,15 +323,21 @@ public final class CompositeSequenceableLoaderTest {
     loader1.setNextChunkDurationUs(1000);
 
     CompositeSequenceableLoader compositeSequenceableLoader =
-        new CompositeSequenceableLoader(new SequenceableLoader[] {loader1, loader2});
+        new CompositeSequenceableLoader(
+            ImmutableList.of(loader1, loader2),
+            ImmutableList.of(
+                ImmutableList.of(C.TRACK_TYPE_AUDIO), ImmutableList.of(C.TRACK_TYPE_VIDEO)));
 
-    assertThat(compositeSequenceableLoader.continueLoading(100)).isTrue();
+    assertThat(
+            compositeSequenceableLoader.continueLoading(
+                new LoadingInfo.Builder().setPlaybackPositionUs(100).build()))
+        .isTrue();
   }
 
   /**
-   * Tests that {@link CompositeSequenceableLoader#continueLoading(long)} returns true if any loader
-   * that are behind current playback position can make progress, even if it is not the one with
-   * minimum next load position.
+   * Tests that {@link CompositeSequenceableLoader#continueLoading(LoadingInfo)} returns true if any
+   * loader that are behind current playback position can make progress, even if it is not the one
+   * with minimum next load position.
    */
   @Test
   public void continueLoadingReturnTrueIfLoaderBehindPlaybackPositionCanMakeProgress() {
@@ -223,9 +349,15 @@ public final class CompositeSequenceableLoaderTest {
     loader2.setNextChunkDurationUs(1000);
 
     CompositeSequenceableLoader compositeSequenceableLoader =
-        new CompositeSequenceableLoader(new SequenceableLoader[] {loader1, loader2});
+        new CompositeSequenceableLoader(
+            ImmutableList.of(loader1, loader2),
+            ImmutableList.of(
+                ImmutableList.of(C.TRACK_TYPE_AUDIO), ImmutableList.of(C.TRACK_TYPE_VIDEO)));
 
-    assertThat(compositeSequenceableLoader.continueLoading(3000)).isTrue();
+    assertThat(
+            compositeSequenceableLoader.continueLoading(
+                new LoadingInfo.Builder().setPlaybackPositionUs(3000).build()))
+        .isTrue();
   }
 
   private static class FakeSequenceableLoader implements SequenceableLoader {
@@ -236,6 +368,9 @@ public final class CompositeSequenceableLoaderTest {
     private int nextChunkDurationUs;
 
     private FakeSequenceableLoader(long bufferedPositionUs, long nextLoadPositionUs) {
+      if (bufferedPositionUs == C.TIME_END_OF_SOURCE) {
+        checkArgument(nextLoadPositionUs == C.TIME_END_OF_SOURCE);
+      }
       this.bufferedPositionUs = bufferedPositionUs;
       this.nextLoadPositionUs = nextLoadPositionUs;
     }
@@ -251,19 +386,24 @@ public final class CompositeSequenceableLoaderTest {
     }
 
     @Override
-    public boolean continueLoading(long positionUs) {
+    public boolean continueLoading(LoadingInfo loadingInfo) {
       numInvocations++;
-      boolean loaded = nextChunkDurationUs != 0;
-      // The current chunk has been loaded, advance to next chunk.
+
       bufferedPositionUs = nextLoadPositionUs;
+      if (nextLoadPositionUs == C.TIME_END_OF_SOURCE) {
+        return false;
+      }
+
+      long oldNextLoadPositionUs = nextLoadPositionUs;
+      // The current chunk has been loaded, advance to next chunk.
       nextLoadPositionUs += nextChunkDurationUs;
       nextChunkDurationUs = 0;
-      return loaded;
+      return oldNextLoadPositionUs != nextLoadPositionUs;
     }
 
     @Override
     public boolean isLoading() {
-      return nextChunkDurationUs != 0;
+      return nextLoadPositionUs != C.TIME_END_OF_SOURCE;
     }
 
     @Override
@@ -272,6 +412,7 @@ public final class CompositeSequenceableLoaderTest {
     }
 
     private void setNextChunkDurationUs(int nextChunkDurationUs) {
+      checkState(nextLoadPositionUs != C.TIME_END_OF_SOURCE);
       this.nextChunkDurationUs = nextChunkDurationUs;
     }
   }

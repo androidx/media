@@ -79,6 +79,12 @@ public abstract class BasePlayer implements Player {
   }
 
   @Override
+  public final void replaceMediaItem(int index, MediaItem mediaItem) {
+    replaceMediaItems(
+        /* fromIndex= */ index, /* toIndex= */ index + 1, ImmutableList.of(mediaItem));
+  }
+
+  @Override
   public final void removeMediaItem(int index) {
     removeMediaItems(/* fromIndex= */ index, /* toIndex= */ index + 1);
   }
@@ -141,36 +147,9 @@ public abstract class BasePlayer implements Player {
     seekToOffset(getSeekForwardIncrement(), Player.COMMAND_SEEK_FORWARD);
   }
 
-  /**
-   * @deprecated Use {@link #hasPreviousMediaItem()} instead.
-   */
-  @Deprecated
-  @Override
-  public final boolean hasPrevious() {
-    return hasPreviousMediaItem();
-  }
-
-  /**
-   * @deprecated Use {@link #hasPreviousMediaItem()} instead.
-   */
-  @Deprecated
-  @Override
-  public final boolean hasPreviousWindow() {
-    return hasPreviousMediaItem();
-  }
-
   @Override
   public final boolean hasPreviousMediaItem() {
     return getPreviousMediaItemIndex() != C.INDEX_UNSET;
-  }
-
-  /**
-   * @deprecated Use {@link #seekToPreviousMediaItem()} instead.
-   */
-  @Deprecated
-  @Override
-  public final void previous() {
-    seekToPreviousMediaItem();
   }
 
   /**
@@ -191,12 +170,15 @@ public abstract class BasePlayer implements Player {
   public final void seekToPrevious() {
     Timeline timeline = getCurrentTimeline();
     if (timeline.isEmpty() || isPlayingAd()) {
+      ignoreSeek(Player.COMMAND_SEEK_TO_PREVIOUS);
       return;
     }
     boolean hasPreviousMediaItem = hasPreviousMediaItem();
     if (isCurrentMediaItemLive() && !isCurrentMediaItemSeekable()) {
       if (hasPreviousMediaItem) {
         seekToPreviousMediaItemInternal(Player.COMMAND_SEEK_TO_PREVIOUS);
+      } else {
+        ignoreSeek(Player.COMMAND_SEEK_TO_PREVIOUS);
       }
     } else if (hasPreviousMediaItem && getCurrentPosition() <= getMaxSeekToPreviousPosition()) {
       seekToPreviousMediaItemInternal(Player.COMMAND_SEEK_TO_PREVIOUS);
@@ -255,12 +237,15 @@ public abstract class BasePlayer implements Player {
   public final void seekToNext() {
     Timeline timeline = getCurrentTimeline();
     if (timeline.isEmpty() || isPlayingAd()) {
+      ignoreSeek(Player.COMMAND_SEEK_TO_NEXT);
       return;
     }
     if (hasNextMediaItem()) {
       seekToNextMediaItemInternal(Player.COMMAND_SEEK_TO_NEXT);
     } else if (isCurrentMediaItemLive() && isCurrentMediaItemDynamic()) {
       seekToDefaultPositionInternal(getCurrentMediaItemIndex(), Player.COMMAND_SEEK_TO_NEXT);
+    } else {
+      ignoreSeek(Player.COMMAND_SEEK_TO_NEXT);
     }
   }
 
@@ -281,9 +266,13 @@ public abstract class BasePlayer implements Player {
   /**
    * Seeks to a position in the specified {@link MediaItem}.
    *
-   * @param mediaItemIndex The index of the {@link MediaItem}.
+   * @param mediaItemIndex The index of the {@link MediaItem}. If the original seek operation did
+   *     not directly specify an index, this is the most likely implied index based on the available
+   *     player state. If the implied action is to do nothing, this will be {@link C#INDEX_UNSET}.
    * @param positionMs The seek position in the specified {@link MediaItem} in milliseconds, or
-   *     {@link C#TIME_UNSET} to seek to the media item's default position.
+   *     {@link C#TIME_UNSET} to seek to the media item's default position. If the original seek
+   *     operation did not directly specify a position, this is the most likely implied position
+   *     based on the available player state.
    * @param seekCommand The {@link Player.Command} used to trigger the seek.
    * @param isRepeatingCurrentItem Whether this seeks repeats the current item.
    */
@@ -453,6 +442,14 @@ public abstract class BasePlayer implements Player {
     return repeatMode == REPEAT_MODE_ONE ? REPEAT_MODE_OFF : repeatMode;
   }
 
+  private void ignoreSeek(@Player.Command int seekCommand) {
+    seekTo(
+        /* mediaItemIndex= */ C.INDEX_UNSET,
+        /* positionMs= */ C.TIME_UNSET,
+        seekCommand,
+        /* isRepeatingCurrentItem= */ false);
+  }
+
   private void seekToCurrentItem(long positionMs, @Player.Command int seekCommand) {
     seekTo(
         getCurrentMediaItemIndex(), positionMs, seekCommand, /* isRepeatingCurrentItem= */ false);
@@ -479,6 +476,7 @@ public abstract class BasePlayer implements Player {
   private void seekToNextMediaItemInternal(@Player.Command int seekCommand) {
     int nextMediaItemIndex = getNextMediaItemIndex();
     if (nextMediaItemIndex == C.INDEX_UNSET) {
+      ignoreSeek(seekCommand);
       return;
     }
     if (nextMediaItemIndex == getCurrentMediaItemIndex()) {
@@ -491,6 +489,7 @@ public abstract class BasePlayer implements Player {
   private void seekToPreviousMediaItemInternal(@Player.Command int seekCommand) {
     int previousMediaItemIndex = getPreviousMediaItemIndex();
     if (previousMediaItemIndex == C.INDEX_UNSET) {
+      ignoreSeek(seekCommand);
       return;
     }
     if (previousMediaItemIndex == getCurrentMediaItemIndex()) {

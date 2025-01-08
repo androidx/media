@@ -12,3 +12,9 @@ This should be discarded (too many dots).
 
 00:06.789 --> not-a-timestamp
 This should be discarded (not a timestamp).
+
+00:07.789 --> 00:08.7890
+This should be discarded (too many decimal places).
+
+00:09.789 --> 00:10.78
+This should be discarded (too few decimal places).

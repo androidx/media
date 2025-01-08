@@ -241,7 +241,8 @@ public final class ImaPlaybackTest {
           /* adsId= */ adTagDataSpec.uri,
           new DefaultMediaSourceFactory(context),
           Assertions.checkNotNull(imaAdsLoader),
-          () -> overlayFrameLayout);
+          () -> overlayFrameLayout,
+          /* useLazyContentSourcePreparation= */ true);
     }
 
     @Override

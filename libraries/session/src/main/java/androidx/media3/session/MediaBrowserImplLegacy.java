@@ -15,30 +15,35 @@
  */
 package androidx.media3.session;
 
-import static androidx.media3.session.LibraryResult.RESULT_ERROR_BAD_VALUE;
-import static androidx.media3.session.LibraryResult.RESULT_ERROR_PERMISSION_DENIED;
-import static androidx.media3.session.LibraryResult.RESULT_ERROR_SESSION_DISCONNECTED;
-import static androidx.media3.session.LibraryResult.RESULT_ERROR_UNKNOWN;
+import static androidx.media3.common.util.Assertions.checkNotNull;
+import static androidx.media3.session.SessionError.ERROR_BAD_VALUE;
+import static androidx.media3.session.SessionError.ERROR_PERMISSION_DENIED;
+import static androidx.media3.session.SessionError.ERROR_SESSION_DISCONNECTED;
+import static androidx.media3.session.SessionError.ERROR_UNKNOWN;
+import static androidx.media3.session.legacy.MediaConstants.BROWSER_SERVICE_EXTRAS_KEY_CUSTOM_BROWSER_ACTION_ROOT_LIST;
 
 import android.content.Context;
 import android.os.Bundle;
 import android.os.Looper;
-import android.support.v4.media.MediaBrowserCompat;
-import android.support.v4.media.MediaBrowserCompat.ItemCallback;
-import android.support.v4.media.MediaBrowserCompat.SubscriptionCallback;
 import android.text.TextUtils;
 import androidx.annotation.Nullable;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
+import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.common.util.Log;
 import androidx.media3.session.MediaLibraryService.LibraryParams;
+import androidx.media3.session.legacy.MediaBrowserCompat;
+import androidx.media3.session.legacy.MediaBrowserCompat.ItemCallback;
+import androidx.media3.session.legacy.MediaBrowserCompat.SubscriptionCallback;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Objects;
 import org.checkerframework.checker.initialization.qual.UnderInitialization;
 
 /** Implementation of MediaBrowser with the {@link MediaBrowserCompat} for legacy support. */
@@ -48,19 +53,21 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
   private static final String TAG = "MB2ImplLegacy";
 
   private final HashMap<LibraryParams, MediaBrowserCompat> browserCompats = new HashMap<>();
-
   private final HashMap<String, List<SubscribeCallback>> subscribeCallbacks = new HashMap<>();
-
   private final MediaBrowser instance;
+
+  private ImmutableMap<String, CommandButton> commandButtonsForMediaItems;
 
   MediaBrowserImplLegacy(
       Context context,
       @UnderInitialization MediaBrowser instance,
       SessionToken token,
+      Bundle connectionHints,
       Looper applicationLooper,
       BitmapLoader bitmapLoader) {
-    super(context, instance, token, applicationLooper, bitmapLoader);
+    super(context, instance, token, connectionHints, applicationLooper, bitmapLoader);
     this.instance = instance;
+    commandButtonsForMediaItems = ImmutableMap.of();
   }
 
   @Override
@@ -88,10 +95,28 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
   }
 
   @Override
+  public ImmutableList<CommandButton> getCommandButtonsForMediaItem(MediaItem mediaItem) {
+    // Do not filter by available commands. When connected to a legacy session, the available
+    // session commands are read from the custom actions in PlaybackStateCompat (see
+    // LegacyConversion.convertToSessionCommands). Filtering by these commands would force a
+    // legacy session to put all commands for media items into the playback state as custom commands
+    // which would interfere with the custom commands set for media controls.
+    ImmutableList<String> supportedActions = mediaItem.mediaMetadata.supportedCommands;
+    ImmutableList.Builder<CommandButton> commandButtonsForMediaItem = new ImmutableList.Builder<>();
+    for (int i = 0; i < supportedActions.size(); i++) {
+      CommandButton commandButton = commandButtonsForMediaItems.get(supportedActions.get(i));
+      if (commandButton != null && commandButton.sessionCommand != null) {
+        commandButtonsForMediaItem.add(commandButton);
+      }
+    }
+    return commandButtonsForMediaItem.build();
+  }
+
+  @Override
   public ListenableFuture<LibraryResult<MediaItem>> getLibraryRoot(@Nullable LibraryParams params) {
     if (!getInstance()
         .isSessionCommandAvailable(SessionCommand.COMMAND_CODE_LIBRARY_GET_LIBRARY_ROOT)) {
-      return Futures.immediateFuture(LibraryResult.ofError(RESULT_ERROR_PERMISSION_DENIED));
+      return Futures.immediateFuture(LibraryResult.ofError(ERROR_PERMISSION_DENIED));
     }
     SettableFuture<LibraryResult<MediaItem>> result = SettableFuture.create();
     MediaBrowserCompat browserCompat = getBrowserCompat(params);
@@ -99,7 +124,11 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
       // Already connected with the given extras.
       result.set(LibraryResult.ofItem(createRootMediaItem(browserCompat), null));
     } else {
-      Bundle rootHints = MediaUtils.convertToRootHints(params);
+      Bundle rootHints = LegacyConversions.convertToRootHints(params);
+      rootHints.putInt(
+          androidx.media3.session.legacy.MediaConstants
+              .BROWSER_ROOT_HINTS_KEY_CUSTOM_BROWSER_ACTION_LIMIT,
+          getInstance().getMaxCommandsForMediaItems());
       MediaBrowserCompat newBrowser =
           new MediaBrowserCompat(
               getContext(),
@@ -116,38 +145,39 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
   public ListenableFuture<LibraryResult<Void>> subscribe(
       String parentId, @Nullable LibraryParams params) {
     if (!getInstance().isSessionCommandAvailable(SessionCommand.COMMAND_CODE_LIBRARY_SUBSCRIBE)) {
-      return Futures.immediateFuture(LibraryResult.ofError(RESULT_ERROR_PERMISSION_DENIED));
+      return Futures.immediateFuture(LibraryResult.ofError(ERROR_PERMISSION_DENIED));
     }
     MediaBrowserCompat browserCompat = getBrowserCompat();
     if (browserCompat == null) {
-      return Futures.immediateFuture(LibraryResult.ofError(RESULT_ERROR_SESSION_DISCONNECTED));
+      return Futures.immediateFuture(LibraryResult.ofError(ERROR_SESSION_DISCONNECTED));
     }
+    Bundle options = createOptionsForSubscription(params);
     SettableFuture<LibraryResult<Void>> future = SettableFuture.create();
-    SubscribeCallback callback = new SubscribeCallback(future);
+    SubscribeCallback callback = new SubscribeCallback(parentId, options, future);
     List<SubscribeCallback> list = subscribeCallbacks.get(parentId);
     if (list == null) {
       list = new ArrayList<>();
       subscribeCallbacks.put(parentId, list);
     }
     list.add(callback);
-    browserCompat.subscribe(parentId, createOptions(params), callback);
+    browserCompat.subscribe(parentId, options, callback);
     return future;
   }
 
   @Override
   public ListenableFuture<LibraryResult<Void>> unsubscribe(String parentId) {
     if (!getInstance().isSessionCommandAvailable(SessionCommand.COMMAND_CODE_LIBRARY_UNSUBSCRIBE)) {
-      return Futures.immediateFuture(LibraryResult.ofError(RESULT_ERROR_PERMISSION_DENIED));
+      return Futures.immediateFuture(LibraryResult.ofError(ERROR_PERMISSION_DENIED));
     }
     MediaBrowserCompat browserCompat = getBrowserCompat();
     if (browserCompat == null) {
-      return Futures.immediateFuture(LibraryResult.ofError(RESULT_ERROR_SESSION_DISCONNECTED));
+      return Futures.immediateFuture(LibraryResult.ofError(ERROR_SESSION_DISCONNECTED));
     }
     // Note: don't use MediaBrowserCompat#unsubscribe(String) here, to keep the subscription
     // callback for getChildren.
     List<SubscribeCallback> list = subscribeCallbacks.get(parentId);
     if (list == null) {
-      return Futures.immediateFuture(LibraryResult.ofError(RESULT_ERROR_BAD_VALUE));
+      return Futures.immediateFuture(LibraryResult.ofError(ERROR_BAD_VALUE));
     }
     for (int i = 0; i < list.size(); i++) {
       browserCompat.unsubscribe(parentId, list.get(i));
@@ -162,27 +192,69 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
       String parentId, int page, int pageSize, @Nullable LibraryParams params) {
     if (!getInstance()
         .isSessionCommandAvailable(SessionCommand.COMMAND_CODE_LIBRARY_GET_CHILDREN)) {
-      return Futures.immediateFuture(LibraryResult.ofError(RESULT_ERROR_PERMISSION_DENIED));
+      return Futures.immediateFuture(LibraryResult.ofError(ERROR_PERMISSION_DENIED));
     }
     MediaBrowserCompat browserCompat = getBrowserCompat();
     if (browserCompat == null) {
-      return Futures.immediateFuture(LibraryResult.ofError(RESULT_ERROR_SESSION_DISCONNECTED));
+      return Futures.immediateFuture(LibraryResult.ofError(ERROR_SESSION_DISCONNECTED));
     }
 
+    Bundle options = createOptionsWithPagingInfo(params, page, pageSize);
     SettableFuture<LibraryResult<ImmutableList<MediaItem>>> future = SettableFuture.create();
-    Bundle options = createOptions(params, page, pageSize);
-    browserCompat.subscribe(parentId, options, new GetChildrenCallback(future, parentId));
+    // Try to get the cached children in case this is the first call right after subscribing.
+    List<MediaBrowserCompat.MediaItem> childrenFromCache =
+        getChildrenFromSubscription(parentId, page);
+    // Always evict to avoid memory leaks. We've done what we can.
+    evictChildrenFromSubscription(parentId);
+    if (childrenFromCache != null) {
+      future.set(
+          LibraryResult.ofItemList(
+              LegacyConversions.convertBrowserItemListToMediaItemList(childrenFromCache),
+              new LibraryParams.Builder().setExtras(options).build()));
+    } else {
+      GetChildrenCallback getChildrenCallback = new GetChildrenCallback(future, parentId);
+      browserCompat.subscribe(parentId, options, getChildrenCallback);
+    }
     return future;
+  }
+
+  @Nullable
+  private List<MediaBrowserCompat.MediaItem> getChildrenFromSubscription(
+      String parentId, int page) {
+    List<SubscribeCallback> callbacks = subscribeCallbacks.get(parentId);
+    if (callbacks == null) {
+      return null;
+    }
+    for (int i = 0; i < callbacks.size(); i++) {
+      if (callbacks.get(i).canServeGetChildrenRequest(parentId, page)) {
+        return callbacks.get(i).receivedChildren;
+      }
+    }
+    return null;
+  }
+
+  private void evictChildrenFromSubscription(String parentId) {
+    List<SubscribeCallback> callbacks = subscribeCallbacks.get(parentId);
+    if (callbacks == null) {
+      return;
+    }
+    for (int i = 0; i < callbacks.size(); i++) {
+      if (callbacks.get(i).receivedChildren != null) {
+        // Evict the first cached children we find.
+        callbacks.get(i).receivedChildren = null;
+        return;
+      }
+    }
   }
 
   @Override
   public ListenableFuture<LibraryResult<MediaItem>> getItem(String mediaId) {
     if (!getInstance().isSessionCommandAvailable(SessionCommand.COMMAND_CODE_LIBRARY_GET_ITEM)) {
-      return Futures.immediateFuture(LibraryResult.ofError(RESULT_ERROR_PERMISSION_DENIED));
+      return Futures.immediateFuture(LibraryResult.ofError(ERROR_PERMISSION_DENIED));
     }
     MediaBrowserCompat browserCompat = getBrowserCompat();
     if (browserCompat == null) {
-      return Futures.immediateFuture(LibraryResult.ofError(RESULT_ERROR_SESSION_DISCONNECTED));
+      return Futures.immediateFuture(LibraryResult.ofError(ERROR_SESSION_DISCONNECTED));
     }
     SettableFuture<LibraryResult<MediaItem>> result = SettableFuture.create();
     browserCompat.getItem(
@@ -192,15 +264,16 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
           public void onItemLoaded(MediaBrowserCompat.MediaItem item) {
             if (item != null) {
               result.set(
-                  LibraryResult.ofItem(MediaUtils.convertToMediaItem(item), /* params= */ null));
+                  LibraryResult.ofItem(
+                      LegacyConversions.convertToMediaItem(item), /* params= */ null));
             } else {
-              result.set(LibraryResult.ofError(RESULT_ERROR_BAD_VALUE));
+              result.set(LibraryResult.ofError(ERROR_BAD_VALUE));
             }
           }
 
           @Override
           public void onError(String itemId) {
-            result.set(LibraryResult.ofError(RESULT_ERROR_UNKNOWN));
+            result.set(LibraryResult.ofError(ERROR_UNKNOWN));
           }
         });
     return result;
@@ -210,11 +283,11 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
   public ListenableFuture<LibraryResult<Void>> search(
       String query, @Nullable LibraryParams params) {
     if (!getInstance().isSessionCommandAvailable(SessionCommand.COMMAND_CODE_LIBRARY_SEARCH)) {
-      return Futures.immediateFuture(LibraryResult.ofError(RESULT_ERROR_PERMISSION_DENIED));
+      return Futures.immediateFuture(LibraryResult.ofError(ERROR_PERMISSION_DENIED));
     }
     MediaBrowserCompat browserCompat = getBrowserCompat();
     if (browserCompat == null) {
-      return Futures.immediateFuture(LibraryResult.ofError(RESULT_ERROR_SESSION_DISCONNECTED));
+      return Futures.immediateFuture(LibraryResult.ofError(ERROR_SESSION_DISCONNECTED));
     }
     browserCompat.search(
         query,
@@ -222,7 +295,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
         new MediaBrowserCompat.SearchCallback() {
           @Override
           public void onSearchResult(
-              String query, Bundle extras, List<MediaBrowserCompat.MediaItem> items) {
+              String query, @Nullable Bundle extras, List<MediaBrowserCompat.MediaItem> items) {
             getInstance()
                 .notifyBrowserListener(
                     listener -> {
@@ -236,7 +309,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
           }
 
           @Override
-          public void onError(String query, Bundle extras) {
+          public void onError(String query, @Nullable Bundle extras) {
             getInstance()
                 .notifyBrowserListener(
                     listener -> {
@@ -257,15 +330,15 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
       String query, int page, int pageSize, @Nullable LibraryParams params) {
     if (!getInstance()
         .isSessionCommandAvailable(SessionCommand.COMMAND_CODE_LIBRARY_GET_SEARCH_RESULT)) {
-      return Futures.immediateFuture(LibraryResult.ofError(RESULT_ERROR_PERMISSION_DENIED));
+      return Futures.immediateFuture(LibraryResult.ofError(ERROR_PERMISSION_DENIED));
     }
     MediaBrowserCompat browserCompat = getBrowserCompat();
     if (browserCompat == null) {
-      return Futures.immediateFuture(LibraryResult.ofError(RESULT_ERROR_SESSION_DISCONNECTED));
+      return Futures.immediateFuture(LibraryResult.ofError(ERROR_SESSION_DISCONNECTED));
     }
 
     SettableFuture<LibraryResult<ImmutableList<MediaItem>>> future = SettableFuture.create();
-    Bundle options = createOptions(params, page, pageSize);
+    Bundle options = createOptionsWithPagingInfo(params, page, pageSize);
     options.putInt(MediaBrowserCompat.EXTRA_PAGE, page);
     options.putInt(MediaBrowserCompat.EXTRA_PAGE_SIZE, pageSize);
     browserCompat.search(
@@ -274,30 +347,76 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
         new MediaBrowserCompat.SearchCallback() {
           @Override
           public void onSearchResult(
-              String query, Bundle extrasSent, List<MediaBrowserCompat.MediaItem> items) {
+              String query, @Nullable Bundle extrasSent, List<MediaBrowserCompat.MediaItem> items) {
             future.set(
                 LibraryResult.ofItemList(
-                    MediaUtils.convertBrowserItemListToMediaItemList(items), /* params= */ null));
+                    LegacyConversions.convertBrowserItemListToMediaItemList(items),
+                    /* params= */ null));
           }
 
           @Override
-          public void onError(String query, Bundle extrasSent) {
-            future.set(LibraryResult.ofError(RESULT_ERROR_UNKNOWN));
+          public void onError(String query, @Nullable Bundle extrasSent) {
+            future.set(LibraryResult.ofError(ERROR_UNKNOWN));
           }
         });
     return future;
+  }
+
+  @Override
+  public ListenableFuture<SessionResult> sendCustomCommand(SessionCommand command, Bundle args) {
+    MediaBrowserCompat browserCompat = getBrowserCompat();
+    if (browserCompat != null
+        && (instance.isSessionCommandAvailable(command)
+            || isContainedInCommandButtonsForMediaItems(command))) {
+      SettableFuture<SessionResult> settable = SettableFuture.create();
+      browserCompat.sendCustomAction(
+          command.customAction,
+          args,
+          new MediaBrowserCompat.CustomActionCallback() {
+            @Override
+            public void onResult(
+                String action, @Nullable Bundle extras, @Nullable Bundle resultData) {
+              Bundle mergedBundles = new Bundle(extras);
+              mergedBundles.putAll(resultData);
+              settable.set(new SessionResult(SessionResult.RESULT_SUCCESS, mergedBundles));
+            }
+
+            @Override
+            public void onError(String action, @Nullable Bundle extras, @Nullable Bundle data) {
+              Bundle mergedBundles = new Bundle(extras);
+              mergedBundles.putAll(data);
+              settable.set(new SessionResult(SessionResult.RESULT_ERROR_UNKNOWN, mergedBundles));
+            }
+          });
+      return settable;
+    }
+    return Futures.immediateFuture(new SessionResult(SessionResult.RESULT_ERROR_PERMISSION_DENIED));
+  }
+
+  // Using this method as a proxy whether an browser is allowed to send a custom action can be
+  // justified because a MediaBrowserCompat can declare the custom browse actions in onGetRoot()
+  // specifically for each browser that connects. This is different to Media3 where the command
+  // buttons for media items are declared on the session level, and are constraint by the available
+  // session commands granted individually to a controller/browser in onConnect.
+  private boolean isContainedInCommandButtonsForMediaItems(SessionCommand command) {
+    if (command.commandCode != SessionCommand.COMMAND_CODE_CUSTOM) {
+      return false;
+    }
+    CommandButton commandButton = commandButtonsForMediaItems.get(command.customAction);
+    return commandButton != null && Objects.equals(commandButton.sessionCommand, command);
   }
 
   private MediaBrowserCompat getBrowserCompat(LibraryParams extras) {
     return browserCompats.get(extras);
   }
 
-  private static Bundle createOptions(@Nullable LibraryParams params) {
+  private static Bundle createOptionsForSubscription(@Nullable LibraryParams params) {
     return params == null ? new Bundle() : new Bundle(params.extras);
   }
 
-  private static Bundle createOptions(@Nullable LibraryParams params, int page, int pageSize) {
-    Bundle options = createOptions(params);
+  private static Bundle createOptionsWithPagingInfo(
+      @Nullable LibraryParams params, int page, int pageSize) {
+    Bundle options = createOptionsForSubscription(params);
     options.putInt(MediaBrowserCompat.EXTRA_PAGE, page);
     options.putInt(MediaBrowserCompat.EXTRA_PAGE_SIZE, pageSize);
     return options;
@@ -336,12 +455,42 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
       MediaBrowserCompat browserCompat = browserCompats.get(params);
       if (browserCompat == null) {
         // Shouldn't be happen. Internal error?
-        result.set(LibraryResult.ofError(RESULT_ERROR_UNKNOWN));
+        result.set(LibraryResult.ofError(ERROR_UNKNOWN));
       } else {
+        Bundle extras = browserCompat.getExtras();
+        if (extras != null) {
+          ArrayList<Bundle> parcelableArrayList =
+              extras.getParcelableArrayList(
+                  BROWSER_SERVICE_EXTRAS_KEY_CUSTOM_BROWSER_ACTION_ROOT_LIST);
+          if (parcelableArrayList != null) {
+            @Nullable
+            ImmutableMap.Builder<String, CommandButton> commandButtonsForMediaItemsBuilder = null;
+            // Converting custom browser action bundles to media item command buttons.
+            for (int i = 0; i < parcelableArrayList.size(); i++) {
+              CommandButton commandButton =
+                  LegacyConversions.convertCustomBrowseActionToCommandButton(
+                      parcelableArrayList.get(i));
+              if (commandButton != null) {
+                if (commandButtonsForMediaItemsBuilder == null) {
+                  // Merge all media item command button of different legacy roots into a single
+                  // map. Last wins in case of duplicate action names.
+                  commandButtonsForMediaItemsBuilder =
+                      new ImmutableMap.Builder<String, CommandButton>()
+                          .putAll(commandButtonsForMediaItems);
+                }
+                String customAction = checkNotNull(commandButton.sessionCommand).customAction;
+                commandButtonsForMediaItemsBuilder.put(customAction, commandButton);
+              }
+            }
+            if (commandButtonsForMediaItemsBuilder != null) {
+              commandButtonsForMediaItems = commandButtonsForMediaItemsBuilder.buildKeepingLast();
+            }
+          }
+        }
         result.set(
             LibraryResult.ofItem(
                 createRootMediaItem(browserCompat),
-                MediaUtils.convertToLibraryParams(context, browserCompat.getExtras())));
+                LegacyConversions.convertToLibraryParams(context, extras)));
       }
     }
 
@@ -353,44 +502,70 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
     @Override
     public void onConnectionFailed() {
       // Unknown extra field.
-      result.set(LibraryResult.ofError(RESULT_ERROR_BAD_VALUE));
+      result.set(LibraryResult.ofError(ERROR_BAD_VALUE));
       release();
     }
   }
 
   private class SubscribeCallback extends SubscriptionCallback {
 
+    private final String subscriptionParentId;
+    private final Bundle subscriptionOptions;
     private final SettableFuture<LibraryResult<Void>> future;
 
-    public SubscribeCallback(SettableFuture<LibraryResult<Void>> future) {
+    @Nullable private List<MediaBrowserCompat.MediaItem> receivedChildren;
+
+    public SubscribeCallback(
+        String subscriptionParentId,
+        Bundle subscriptionOptions,
+        SettableFuture<LibraryResult<Void>> future) {
+      this.subscriptionParentId = subscriptionParentId;
+      this.subscriptionOptions = subscriptionOptions;
       this.future = future;
     }
 
     @Override
-    public void onError(String parentId) {
-      onErrorInternal();
+    public void onError(@Nullable String parentId) {
+      onError(subscriptionParentId, subscriptionOptions);
     }
 
     @Override
-    public void onError(String parentId, Bundle options) {
-      onErrorInternal();
-    }
-
-    @Override
-    public void onChildrenLoaded(String parentId, List<MediaBrowserCompat.MediaItem> children) {
-      onChildrenLoadedInternal(parentId, children);
+    public void onError(@Nullable String parentId, @Nullable Bundle options) {
+      onErrorInternal(subscriptionParentId, subscriptionOptions);
     }
 
     @Override
     public void onChildrenLoaded(
-        String parentId, List<MediaBrowserCompat.MediaItem> children, Bundle options) {
-      onChildrenLoadedInternal(parentId, children);
+        @Nullable String parentId, @Nullable List<MediaBrowserCompat.MediaItem> children) {
+      onChildrenLoadedInternal(subscriptionParentId, children);
     }
 
-    private void onErrorInternal() {
+    @Override
+    public void onChildrenLoaded(
+        @Nullable String parentId,
+        @Nullable List<MediaBrowserCompat.MediaItem> children,
+        @Nullable Bundle options) {
+      onChildrenLoadedInternal(subscriptionParentId, children);
+    }
+
+    private void onErrorInternal(String parentId, Bundle options) {
+      if (future.isDone()) {
+        // Delegate to the browser by calling `onChildrenChanged` that makes the app call
+        // `getChildren()` for which the service can return the appropriate error code. This makes a
+        // redundant call to `subscribe` that can be expected to be not expensive as it just returns
+        // an exception.
+        getInstance()
+            .notifyBrowserListener(
+                listener ->
+                    listener.onChildrenChanged(
+                        getInstance(),
+                        parentId,
+                        Integer.MAX_VALUE,
+                        new LibraryParams.Builder().setExtras(options).build()));
+      }
       // Don't need to unsubscribe here, because MediaBrowserServiceCompat can notify children
       // changed after the initial failure and MediaBrowserCompat could receive the changes.
-      future.set(LibraryResult.ofError(RESULT_ERROR_UNKNOWN));
+      future.set(LibraryResult.ofError(ERROR_UNKNOWN));
     }
 
     private void onChildrenLoadedInternal(
@@ -404,24 +579,42 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
         // Browser is closed.
         return;
       }
-      int itemCount;
-      if (children != null) {
-        itemCount = children.size();
-      } else {
-        // Currently no way to tell failures in MediaBrowser#subscribe().
+      if (children == null) {
+        // Note this doesn't happen except possibly when someone is using a very old OS (change
+        // landed in Android tree at 2016-02-23). Recent Android versions turn children=null into an
+        // error and `onError` of this `SubscriptionCallback` is called instead of
+        // `onChildrenLoaded` (see `MediaBrowser.onLoadChildren`). We should do the same here to be
+        // consistent again.
+        onError(subscriptionParentId, subscriptionOptions);
         return;
       }
 
       LibraryParams params =
-          MediaUtils.convertToLibraryParams(
+          LegacyConversions.convertToLibraryParams(
               context, browserCompat.getNotifyChildrenChangedOptions());
+      receivedChildren = children;
       getInstance()
           .notifyBrowserListener(
               listener -> {
-                // TODO(b/193193565): Cache children result for later getChildren() calls.
-                listener.onChildrenChanged(getInstance(), parentId, itemCount, params);
+                listener.onChildrenChanged(getInstance(), parentId, children.size(), params);
               });
       future.set(LibraryResult.ofVoid());
+    }
+
+    /**
+     * Returns true if the cached children can be served for a request for the given parent ID and
+     * paging options.
+     *
+     * @param parentId The media ID of the parent of the requested children.
+     * @param pageIndex The requested page index.
+     * @return True if the request can be served with the cached children of the subscription
+     *     callback.
+     */
+    public boolean canServeGetChildrenRequest(String parentId, int pageIndex) {
+      return subscriptionParentId.equals(parentId)
+          && receivedChildren != null
+          && pageIndex
+              == subscriptionOptions.getInt(MediaBrowserCompat.EXTRA_PAGE, /* defaultValue= */ 0);
     }
   }
 
@@ -438,46 +631,49 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
     }
 
     @Override
-    public void onError(String parentId) {
+    public void onError(@Nullable String parentId) {
       onErrorInternal();
     }
 
     @Override
-    public void onError(String parentId, Bundle options) {
+    public void onError(@Nullable String parentId, @Nullable Bundle options) {
       onErrorInternal();
     }
 
     @Override
-    public void onChildrenLoaded(String parentId, List<MediaBrowserCompat.MediaItem> children) {
+    public void onChildrenLoaded(
+        @Nullable String parentId, @Nullable List<MediaBrowserCompat.MediaItem> children) {
       onChildrenLoadedInternal(parentId, children);
     }
 
     @Override
     public void onChildrenLoaded(
-        String parentId, List<MediaBrowserCompat.MediaItem> children, Bundle options) {
+        @Nullable String parentId,
+        @Nullable List<MediaBrowserCompat.MediaItem> children,
+        Bundle options) {
       onChildrenLoadedInternal(parentId, children);
     }
 
     private void onErrorInternal() {
-      future.set(LibraryResult.ofError(RESULT_ERROR_UNKNOWN));
+      future.set(LibraryResult.ofError(ERROR_UNKNOWN));
     }
 
     private void onChildrenLoadedInternal(
-        String parentId, List<MediaBrowserCompat.MediaItem> children) {
+        @Nullable String parentId, @Nullable List<MediaBrowserCompat.MediaItem> children) {
       if (TextUtils.isEmpty(parentId)) {
         Log.w(TAG, "GetChildrenCallback.onChildrenLoaded(): Ignoring empty parentId");
         return;
       }
       MediaBrowserCompat browserCompat = getBrowserCompat();
       if (browserCompat == null) {
-        future.set(LibraryResult.ofError(RESULT_ERROR_SESSION_DISCONNECTED));
+        future.set(LibraryResult.ofError(ERROR_SESSION_DISCONNECTED));
         return;
       }
       browserCompat.unsubscribe(this.parentId, GetChildrenCallback.this);
 
       if (children == null) {
         // list are non-Null, so it must be internal error.
-        future.set(LibraryResult.ofError(RESULT_ERROR_UNKNOWN));
+        future.set(LibraryResult.ofError(ERROR_UNKNOWN));
       } else {
         // Don't set extra here, because 'extra' have different meanings between old
         // API and new API as follows.
@@ -485,7 +681,8 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
         // - New API: Extra from MediaLibraryService to MediaBrowser
         future.set(
             LibraryResult.ofItemList(
-                MediaUtils.convertBrowserItemListToMediaItemList(children), /* params= */ null));
+                LegacyConversions.convertBrowserItemListToMediaItemList(children),
+                /* params= */ null));
       }
     }
   }

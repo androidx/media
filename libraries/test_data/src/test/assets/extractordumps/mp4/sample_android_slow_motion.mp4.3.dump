@@ -9,15 +9,23 @@ numberOfTracks = 1
 track 0:
   total output bytes = 42320
   sample count = 7
+  track duration = 526000
   format 0:
     id = 1
+    containerMimeType = video/mp4
     sampleMimeType = video/avc
     codecs = avc1.640033
     maxInputSize = 34686
+    maxNumReorderSamples = 0
     width = 1280
     height = 720
-    frameRate = 13.307984
-    metadata = entries=[mdta: key=com.android.capture.fps]
+    frameRate = 13.32
+    colorInfo:
+      colorSpace = 2
+      colorRange = 1
+      lumaBitdepth = 8
+      chromaBitdepth = 8
+    metadata = entries=[mdta: key=major_brand, value=mp42, mdta: key=minor_version, value=0, mdta: key=compatible_brands, value=isommp42, mdta: key=com.android.capture.fps, value=240.0, mdta: key=com.android.version, value=10, mdta: key=encoder, value=Lavf58.29.100, Mp4Timestamp: creation time=0, modification time=0, timescale=1000]
     initializationData:
       data = length 22, hash 4CF81805
       data = length 9, hash FBAFBA1C

@@ -47,14 +47,14 @@ public class AsynchronousMediaCodecAdapterTest {
             codecInfo,
             createMediaFormat("format"),
             new Format.Builder().build(),
-            /* crypto= */ null);
+            /* crypto= */ null,
+            /* loudnessCodecController= */ null);
     callbackThread = new HandlerThread("TestCallbackThread");
     queueingThread = new HandlerThread("TestQueueingThread");
     adapter =
         new AsynchronousMediaCodecAdapter.Factory(
                 /* callbackThreadSupplier= */ () -> callbackThread,
-                /* queueingThreadSupplier= */ () -> queueingThread,
-                /* synchronizeCodecInteractionsWithQueueing= */ false)
+                /* queueingThreadSupplier= */ () -> queueingThread)
             .createAdapter(configuration);
     bufferInfo = new MediaCodec.BufferInfo();
     // After starting the MediaCodec, the ShadowMediaCodec offers input buffer 0. We advance the
@@ -220,7 +220,8 @@ public class AsynchronousMediaCodecAdapterTest {
     Constructor<MediaCodec.CodecException> constructor =
         MediaCodec.CodecException.class.getDeclaredConstructor(
             Integer.TYPE, Integer.TYPE, String.class);
+    constructor.setAccessible(true);
     return constructor.newInstance(
-        /* errorCode= */ 0, /* actionCode= */ 0, /* detailMessage= */ "error from codec");
+        /* errorCode */ 0, /* actionCode */ 0, /* detailMessage */ "error from codec");
   }
 }

@@ -26,6 +26,7 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.GlProgram;
 import androidx.media3.common.util.GlUtil;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.decoder.VideoDecoderOutputBuffer;
 import java.nio.ByteBuffer;
@@ -33,7 +34,6 @@ import java.nio.FloatBuffer;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
-import org.checkerframework.checker.nullness.compatqual.NullableType;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
@@ -316,7 +316,7 @@ public final class VideoDecoderGLSurfaceView extends GLSurfaceView
         for (int i = 0; i < 3; i++) {
           GLES20.glUniform1i(program.getUniformLocation(TEXTURE_UNIFORMS[i]), i);
           GLES20.glActiveTexture(GLES20.GL_TEXTURE0 + i);
-          GlUtil.bindTexture(GLES20.GL_TEXTURE_2D, yuvTextures[i]);
+          GlUtil.bindTexture(GLES20.GL_TEXTURE_2D, yuvTextures[i], GLES20.GL_LINEAR);
         }
         GlUtil.checkGlError();
       } catch (GlUtil.GlException e) {

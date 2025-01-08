@@ -243,17 +243,6 @@ public final class ActionSchedule {
     }
 
     /**
-     * Schedules a stop action.
-     *
-     * @param reset Whether the player should be reset.
-     * @return The builder, for convenience.
-     */
-    @CanIgnoreReturnValue
-    public Builder stop(boolean reset) {
-      return apply(new Stop(tag, reset));
-    }
-
-    /**
      * Schedules a play action.
      *
      * @return The builder, for convenience.
@@ -392,6 +381,7 @@ public final class ActionSchedule {
               /* positionMs= */ C.TIME_UNSET,
               mediaSources));
     }
+
     /**
      * Schedules a add media items action to be executed.
      *

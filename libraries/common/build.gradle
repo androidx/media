@@ -25,6 +25,8 @@ rootProject.allprojects.forEach {
 }
 
 android {
+    namespace 'androidx.media3.common'
+
     buildTypes {
         debug {
             testCoverageEnabled = true
@@ -32,6 +34,11 @@ android {
     }
     lint {
         baseline = file("lint-baseline.xml")
+    }
+    publishing {
+        singleVariant('release') {
+            withSourcesJar()
+        }
     }
 }
 
@@ -58,9 +65,13 @@ dependencies {
     }
     api 'androidx.annotation:annotation-experimental:' + androidxAnnotationExperimentalVersion
     implementation 'androidx.annotation:annotation:' + androidxAnnotationVersion
+    // Workaround for 'duplicate class' error caused by incomplete version
+    // metadata in Kotlin std lib (https://issuetracker.google.com/278545487).
+    // This can be removed when one of the other deps here (probably
+    // androidx.annotation) depends on kotlin-stdlib:1.9.20.
+    implementation platform('org.jetbrains.kotlin:kotlin-bom:1.8.0')
     compileOnly 'com.google.code.findbugs:jsr305:' + jsr305Version
     compileOnly 'com.google.errorprone:error_prone_annotations:' + errorProneVersion
-    compileOnly 'org.checkerframework:checker-compat-qual:' + checkerframeworkCompatVersion
     compileOnly 'org.checkerframework:checker-qual:' + checkerframeworkVersion
     compileOnly 'org.jetbrains.kotlin:kotlin-annotations-jvm:' + kotlinAnnotationsVersion
     androidTestImplementation 'androidx.test:runner:' + androidxTestRunnerVersion
@@ -78,11 +89,6 @@ dependencies {
     testImplementation project(modulePrefix + 'lib-exoplayer')
     testImplementation project(modulePrefix + 'test-utils')
 }
-
-ext {
-    javadocTitle = 'Common module'
-}
-apply from: '../../javadoc_library.gradle'
 
 ext {
     releaseArtifactId = 'media3-common'

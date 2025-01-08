@@ -32,10 +32,12 @@ import java.util.List;
   private static final int USER_DATA_START_CODE = 0x0001B2;
 
   private final List<Format> closedCaptionFormats;
+  private final String containerMimeType;
   private final TrackOutput[] outputs;
 
-  public UserDataReader(List<Format> closedCaptionFormats) {
+  public UserDataReader(List<Format> closedCaptionFormats, String containerMimeType) {
     this.closedCaptionFormats = closedCaptionFormats;
+    this.containerMimeType = containerMimeType;
     outputs = new TrackOutput[closedCaptionFormats.size()];
   }
 
@@ -49,10 +51,11 @@ import java.util.List;
       Assertions.checkArgument(
           MimeTypes.APPLICATION_CEA608.equals(channelMimeType)
               || MimeTypes.APPLICATION_CEA708.equals(channelMimeType),
-          "Invalid closed caption mime type provided: " + channelMimeType);
+          "Invalid closed caption MIME type provided: " + channelMimeType);
       output.format(
           new Format.Builder()
               .setId(idGenerator.getFormatId())
+              .setContainerMimeType(containerMimeType)
               .setSampleMimeType(channelMimeType)
               .setSelectionFlags(channelFormat.selectionFlags)
               .setLanguage(channelFormat.language)

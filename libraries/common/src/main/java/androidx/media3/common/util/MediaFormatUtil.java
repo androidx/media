@@ -24,8 +24,11 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
+import androidx.media3.common.MimeTypes;
+import com.google.common.collect.ImmutableList;
 import java.nio.ByteBuffer;
 import java.util.List;
+import java.util.Objects;
 
 /** Helper class containing utility methods for managing {@link MediaFormat} instances. */
 @UnstableApi
@@ -44,7 +47,8 @@ public final class MediaFormatUtil {
    *
    * <p>Equivalent to {@link MediaFormat#KEY_PCM_ENCODING}, except it allows additional values
    * defined by {@link C.PcmEncoding}, including {@link C#ENCODING_PCM_16BIT_BIG_ENDIAN}, {@link
-   * C#ENCODING_PCM_24BIT}, and {@link C#ENCODING_PCM_32BIT}.
+   * C#ENCODING_PCM_24BIT}, {@link C#ENCODING_PCM_24BIT_BIG_ENDIAN}, {@link C#ENCODING_PCM_32BIT}
+   * and {@link C#ENCODING_PCM_32BIT_BIG_ENDIAN}.
    */
   // The constant value must not be changed, because it's also set by the framework MediaParser API.
   public static final String KEY_PCM_ENCODING_EXTENDED = "exo-pcm-encoding-int";
@@ -63,6 +67,69 @@ public final class MediaFormatUtil {
   public static final String KEY_MAX_BIT_RATE = "max-bitrate";
 
   private static final int MAX_POWER_OF_TWO_INT = 1 << 30;
+
+  /** Returns a {@link Format} representing the given {@link MediaFormat}. */
+  @SuppressLint("InlinedApi") // Inlined MediaFormat keys.
+  public static Format createFormatFromMediaFormat(MediaFormat mediaFormat) {
+    Format.Builder formatBuilder =
+        new Format.Builder()
+            .setSampleMimeType(mediaFormat.getString(MediaFormat.KEY_MIME))
+            .setLanguage(mediaFormat.getString(MediaFormat.KEY_LANGUAGE))
+            .setPeakBitrate(
+                getInteger(mediaFormat, KEY_MAX_BIT_RATE, /* defaultValue= */ Format.NO_VALUE))
+            .setAverageBitrate(
+                getInteger(
+                    mediaFormat, MediaFormat.KEY_BIT_RATE, /* defaultValue= */ Format.NO_VALUE))
+            .setCodecs(getCodecString(mediaFormat))
+            .setFrameRate(getFrameRate(mediaFormat, /* defaultValue= */ Format.NO_VALUE))
+            .setWidth(
+                getInteger(mediaFormat, MediaFormat.KEY_WIDTH, /* defaultValue= */ Format.NO_VALUE))
+            .setHeight(
+                getInteger(
+                    mediaFormat, MediaFormat.KEY_HEIGHT, /* defaultValue= */ Format.NO_VALUE))
+            .setPixelWidthHeightRatio(
+                getPixelWidthHeightRatio(mediaFormat, /* defaultValue= */ 1.0f))
+            .setMaxInputSize(
+                getInteger(
+                    mediaFormat,
+                    MediaFormat.KEY_MAX_INPUT_SIZE,
+                    /* defaultValue= */ Format.NO_VALUE))
+            .setRotationDegrees(
+                getInteger(mediaFormat, MediaFormat.KEY_ROTATION, /* defaultValue= */ 0))
+            .setColorInfo(getColorInfo(mediaFormat))
+            .setSampleRate(
+                getInteger(
+                    mediaFormat, MediaFormat.KEY_SAMPLE_RATE, /* defaultValue= */ Format.NO_VALUE))
+            .setChannelCount(
+                getInteger(
+                    mediaFormat,
+                    MediaFormat.KEY_CHANNEL_COUNT,
+                    /* defaultValue= */ Format.NO_VALUE))
+            .setPcmEncoding(
+                getInteger(
+                    mediaFormat,
+                    MediaFormat.KEY_PCM_ENCODING,
+                    /* defaultValue= */ Format.NO_VALUE));
+
+    ImmutableList.Builder<byte[]> csdBuffers = new ImmutableList.Builder<>();
+    int csdIndex = 0;
+    while (true) {
+      @Nullable ByteBuffer csdByteBuffer = mediaFormat.getByteBuffer("csd-" + csdIndex);
+      if (csdByteBuffer == null) {
+        break;
+      }
+      byte[] csdBufferData = new byte[csdByteBuffer.remaining()];
+      csdByteBuffer.get(csdBufferData);
+      csdByteBuffer.rewind();
+
+      csdBuffers.add(csdBufferData);
+      csdIndex++;
+    }
+
+    formatBuilder.setInitializationData(csdBuffers.build());
+
+    return formatBuilder.build();
+  }
 
   /**
    * Returns a {@link MediaFormat} representing the given ExoPlayer {@link Format}.
@@ -196,18 +263,24 @@ public final class MediaFormatUtil {
   /**
    * Creates and returns a {@code ColorInfo}, if a valid instance is described in the {@link
    * MediaFormat}.
+   *
+   * <p>Under API 24, {@code null} will always be returned, because {@link MediaFormat} color keys
+   * like {@link MediaFormat#KEY_COLOR_STANDARD} were only added in API 24.
    */
   @Nullable
   public static ColorInfo getColorInfo(MediaFormat mediaFormat) {
-    if (SDK_INT < 29) {
+    if (SDK_INT < 24) {
+      // MediaFormat KEY_COLOR_TRANSFER and other KEY_COLOR values available from API 24.
       return null;
     }
     int colorSpace =
-        mediaFormat.getInteger(MediaFormat.KEY_COLOR_STANDARD, /* defaultValue= */ Format.NO_VALUE);
+        getInteger(
+            mediaFormat, MediaFormat.KEY_COLOR_STANDARD, /* defaultValue= */ Format.NO_VALUE);
     int colorRange =
-        mediaFormat.getInteger(MediaFormat.KEY_COLOR_RANGE, /* defaultValue= */ Format.NO_VALUE);
+        getInteger(mediaFormat, MediaFormat.KEY_COLOR_RANGE, /* defaultValue= */ Format.NO_VALUE);
     int colorTransfer =
-        mediaFormat.getInteger(MediaFormat.KEY_COLOR_TRANSFER, /* defaultValue= */ Format.NO_VALUE);
+        getInteger(
+            mediaFormat, MediaFormat.KEY_COLOR_TRANSFER, /* defaultValue= */ Format.NO_VALUE);
     @Nullable
     ByteBuffer hdrStaticInfoByteBuffer = mediaFormat.getByteBuffer(MediaFormat.KEY_HDR_STATIC_INFO);
     @Nullable
@@ -224,20 +297,113 @@ public final class MediaFormatUtil {
     if (!isValidColorTransfer(colorTransfer)) {
       colorTransfer = Format.NO_VALUE;
     }
-
     if (colorSpace != Format.NO_VALUE
         || colorRange != Format.NO_VALUE
         || colorTransfer != Format.NO_VALUE
         || hdrStaticInfo != null) {
-      return new ColorInfo(colorSpace, colorRange, colorTransfer, hdrStaticInfo);
+      return new ColorInfo.Builder()
+          .setColorSpace(colorSpace)
+          .setColorRange(colorRange)
+          .setColorTransfer(colorTransfer)
+          .setHdrStaticInfo(hdrStaticInfo)
+          .build();
     }
     return null;
+  }
+
+  /** Supports {@link MediaFormat#getInteger(String, int)} for {@code API < 29}. */
+  public static int getInteger(MediaFormat mediaFormat, String name, int defaultValue) {
+    return mediaFormat.containsKey(name) ? mediaFormat.getInteger(name) : defaultValue;
+  }
+
+  /** Supports {@link MediaFormat#getFloat(String, float)} for {@code API < 29}. */
+  public static float getFloat(MediaFormat mediaFormat, String name, float defaultValue) {
+    return mediaFormat.containsKey(name) ? mediaFormat.getFloat(name) : defaultValue;
+  }
+
+  /** Supports {@link MediaFormat#getString(String, String)} for {@code API < 29}. */
+  @Nullable
+  public static String getString(
+      MediaFormat mediaFormat, String name, @Nullable String defaultValue) {
+    return mediaFormat.containsKey(name) ? mediaFormat.getString(name) : defaultValue;
+  }
+
+  /**
+   * Returns a {@code Codecs string} of {@link MediaFormat}. In case of an H263 codec string, builds
+   * and returns an RFC 6381 H263 codec string using profile and level.
+   */
+  @Nullable
+  @SuppressLint("InlinedApi") // Inlined MediaFormat keys.
+  private static String getCodecString(MediaFormat mediaFormat) {
+    // Add H263 profile and level to codec string as per RFC 6381.
+    if (Objects.equals(mediaFormat.getString(MediaFormat.KEY_MIME), MimeTypes.VIDEO_H263)
+        && mediaFormat.containsKey(MediaFormat.KEY_PROFILE)
+        && mediaFormat.containsKey(MediaFormat.KEY_LEVEL)) {
+      return CodecSpecificDataUtil.buildH263CodecString(
+          mediaFormat.getInteger(MediaFormat.KEY_PROFILE),
+          mediaFormat.getInteger(MediaFormat.KEY_LEVEL));
+    } else {
+      return getString(mediaFormat, MediaFormat.KEY_CODECS_STRING, /* defaultValue= */ null);
+    }
+  }
+
+  /**
+   * Returns the frame rate from a {@link MediaFormat}.
+   *
+   * <p>The {@link MediaFormat#KEY_FRAME_RATE} can have both integer and float value so it returns
+   * which ever value is set.
+   */
+  private static float getFrameRate(MediaFormat mediaFormat, float defaultValue) {
+    float frameRate = defaultValue;
+    if (mediaFormat.containsKey(MediaFormat.KEY_FRAME_RATE)) {
+      try {
+        frameRate = mediaFormat.getFloat(MediaFormat.KEY_FRAME_RATE);
+      } catch (ClassCastException ex) {
+        frameRate = mediaFormat.getInteger(MediaFormat.KEY_FRAME_RATE);
+      }
+    }
+    return frameRate;
+  }
+
+  /** Returns the ratio between a pixel's width and height for a {@link MediaFormat}. */
+  // Inlined MediaFormat.KEY_PIXEL_ASPECT_RATIO_WIDTH and MediaFormat.KEY_PIXEL_ASPECT_RATIO_HEIGHT.
+  @SuppressLint("InlinedApi")
+  private static float getPixelWidthHeightRatio(MediaFormat mediaFormat, float defaultValue) {
+    if (mediaFormat.containsKey(MediaFormat.KEY_PIXEL_ASPECT_RATIO_WIDTH)
+        && mediaFormat.containsKey(MediaFormat.KEY_PIXEL_ASPECT_RATIO_HEIGHT)) {
+      return (float) mediaFormat.getInteger(MediaFormat.KEY_PIXEL_ASPECT_RATIO_WIDTH)
+          / (float) mediaFormat.getInteger(MediaFormat.KEY_PIXEL_ASPECT_RATIO_HEIGHT);
+    }
+
+    return defaultValue;
   }
 
   public static byte[] getArray(ByteBuffer byteBuffer) {
     byte[] array = new byte[byteBuffer.remaining()];
     byteBuffer.get(array);
     return array;
+  }
+
+  /** Returns whether a {@link MediaFormat} is a video format. */
+  public static boolean isVideoFormat(MediaFormat mediaFormat) {
+    return MimeTypes.isVideo(mediaFormat.getString(MediaFormat.KEY_MIME));
+  }
+
+  /** Returns whether a {@link MediaFormat} is an audio format. */
+  public static boolean isAudioFormat(MediaFormat mediaFormat) {
+    return MimeTypes.isAudio(mediaFormat.getString(MediaFormat.KEY_MIME));
+  }
+
+  /** Returns the time lapse capture FPS from the given {@link MediaFormat} if it was set. */
+  @Nullable
+  public static Integer getTimeLapseFrameRate(MediaFormat format) {
+    if (format.containsKey("time-lapse-enable")
+        && format.getInteger("time-lapse-enable") > 0
+        && format.containsKey("time-lapse-fps")) {
+      return format.getInteger("time-lapse-fps");
+    } else {
+      return null;
+    }
   }
 
   // Internal methods.
@@ -295,6 +461,8 @@ public final class MediaFormatUtil {
         break;
       case Format.NO_VALUE:
       case C.ENCODING_PCM_16BIT_BIG_ENDIAN:
+      case C.ENCODING_PCM_24BIT_BIG_ENDIAN:
+      case C.ENCODING_PCM_32BIT_BIG_ENDIAN:
       default:
         // No matching value. Do nothing.
         return;
@@ -322,7 +490,10 @@ public final class MediaFormatUtil {
   /** Whether this is a valid {@link C.ColorTransfer} instance. */
   private static boolean isValidColorTransfer(int colorTransfer) {
     // LINT.IfChange(color_transfer)
-    return colorTransfer == C.COLOR_TRANSFER_SDR
+    // C.COLOR_TRANSFER_GAMMA_2_2 & C.COLOR_TRANSFER_SRGB aren't valid because MediaCodec, and
+    // hence MediaFormat, do not support them.
+    return colorTransfer == C.COLOR_TRANSFER_LINEAR
+        || colorTransfer == C.COLOR_TRANSFER_SDR
         || colorTransfer == C.COLOR_TRANSFER_ST2084
         || colorTransfer == C.COLOR_TRANSFER_HLG
         || colorTransfer == Format.NO_VALUE;

@@ -17,6 +17,7 @@ package androidx.media3.test.utils;
 
 import androidx.media3.common.Timeline;
 import androidx.media3.common.TrackGroup;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.RendererCapabilities.AdaptiveSupport;
 import androidx.media3.exoplayer.RendererCapabilities.Capabilities;
@@ -29,7 +30,6 @@ import androidx.media3.exoplayer.upstream.BandwidthMeter;
 import androidx.test.core.app.ApplicationProvider;
 import java.util.ArrayList;
 import java.util.List;
-import org.checkerframework.checker.nullness.compatqual.NullableType;
 
 /** A fake {@link MappingTrackSelector} that returns {@link FakeTrackSelection}s. */
 @UnstableApi
@@ -50,7 +50,11 @@ public class FakeTrackSelector extends DefaultTrackSelector {
     this(new FakeTrackSelectionFactory(mayReuseTrackSelection));
   }
 
-  private FakeTrackSelector(FakeTrackSelectionFactory fakeTrackSelectionFactory) {
+  /**
+   * @param fakeTrackSelectionFactory The {@link FakeTrackSelectionFactory} used to create the
+   *     {@link FakeTrackSelection} instances.
+   */
+  public FakeTrackSelector(FakeTrackSelectionFactory fakeTrackSelectionFactory) {
     super(ApplicationProvider.getApplicationContext(), fakeTrackSelectionFactory);
     this.fakeTrackSelectionFactory = fakeTrackSelectionFactory;
   }
@@ -80,7 +84,11 @@ public class FakeTrackSelector extends DefaultTrackSelector {
     return fakeTrackSelectionFactory.trackSelections;
   }
 
-  private static class FakeTrackSelectionFactory implements ExoTrackSelection.Factory {
+  /**
+   * A factory for the {@link androidx.media3.test.utils.FakeTrackSelection} instances requested by
+   * the {@link FakeTrackSelector}.
+   */
+  public static class FakeTrackSelectionFactory implements ExoTrackSelection.Factory {
 
     private final List<FakeTrackSelection> trackSelections;
     private final boolean mayReuseTrackSelection;
@@ -91,7 +99,7 @@ public class FakeTrackSelector extends DefaultTrackSelector {
     }
 
     @Override
-    public ExoTrackSelection[] createTrackSelections(
+    public final ExoTrackSelection[] createTrackSelections(
         ExoTrackSelection.@NullableType Definition[] definitions,
         BandwidthMeter bandwidthMeter,
         MediaPeriodId mediaPeriodId,
@@ -106,7 +114,8 @@ public class FakeTrackSelector extends DefaultTrackSelector {
       return selections;
     }
 
-    private ExoTrackSelection createTrackSelection(TrackGroup trackGroup) {
+    /** Creates the {@link FakeTrackSelection} from a {@link TrackGroup}. */
+    protected ExoTrackSelection createTrackSelection(TrackGroup trackGroup) {
       if (mayReuseTrackSelection) {
         for (FakeTrackSelection trackSelection : trackSelections) {
           if (trackSelection.getTrackGroup().equals(trackGroup)) {

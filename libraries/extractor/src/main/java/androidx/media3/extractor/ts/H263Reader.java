@@ -16,6 +16,7 @@
 package androidx.media3.extractor.ts;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
+import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.castNonNull;
 import static java.lang.annotation.ElementType.TYPE_USE;
@@ -29,8 +30,8 @@ import androidx.media3.common.util.Log;
 import androidx.media3.common.util.ParsableBitArray;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.container.NalUnitUtil;
 import androidx.media3.extractor.ExtractorOutput;
-import androidx.media3.extractor.NalUnitUtil;
 import androidx.media3.extractor.TrackOutput;
 import androidx.media3.extractor.ts.TsPayloadReader.TrackIdGenerator;
 import java.lang.annotation.Documented;
@@ -64,6 +65,7 @@ public final class H263Reader implements ElementaryStreamReader {
   private static final int VIDEO_OBJECT_LAYER_SHAPE_RECTANGULAR = 0;
 
   @Nullable private final UserDataReader userDataReader;
+  private final String containerMimeType;
   @Nullable private final ParsableByteArray userDataParsable;
 
   // State that should be reset on seek.
@@ -84,12 +86,13 @@ public final class H263Reader implements ElementaryStreamReader {
   private long pesTimeUs;
 
   /** Creates a new reader. */
-  public H263Reader() {
-    this(null);
+  public H263Reader(String containerMimeType) {
+    this(null, containerMimeType);
   }
 
-  /* package */ H263Reader(@Nullable UserDataReader userDataReader) {
+  /* package */ H263Reader(@Nullable UserDataReader userDataReader, String containerMimeType) {
     this.userDataReader = userDataReader;
+    this.containerMimeType = containerMimeType;
     prefixFlags = new boolean[4];
     csdBuffer = new CsdBuffer(128);
     pesTimeUs = C.TIME_UNSET;
@@ -130,9 +133,7 @@ public final class H263Reader implements ElementaryStreamReader {
   @Override
   public void packetStarted(long pesTimeUs, @TsPayloadReader.Flags int flags) {
     // TODO (Internal b/32267012): Consider using random access indicator.
-    if (pesTimeUs != C.TIME_UNSET) {
-      this.pesTimeUs = pesTimeUs;
-    }
+    this.pesTimeUs = pesTimeUs;
   }
 
   @Override
@@ -179,7 +180,11 @@ public final class H263Reader implements ElementaryStreamReader {
         if (csdBuffer.onStartCode(startCodeValue, bytesAlreadyPassed)) {
           // The csd data is complete, so we can decode and output the media format.
           output.format(
-              parseCsdBuffer(csdBuffer, csdBuffer.volStartPosition, checkNotNull(formatId)));
+              parseCsdBuffer(
+                  csdBuffer,
+                  csdBuffer.volStartPosition,
+                  checkNotNull(formatId),
+                  containerMimeType));
           hasOutputFormat = true;
         }
       }
@@ -217,8 +222,13 @@ public final class H263Reader implements ElementaryStreamReader {
   }
 
   @Override
-  public void packetFinished() {
-    // Do nothing.
+  public void packetFinished(boolean isEndOfInput) {
+    // Assert that createTracks has been called.
+    checkStateNotNull(sampleReader);
+    if (isEndOfInput) {
+      sampleReader.onDataEnd(totalBytesWritten, /* bytesWrittenPastPosition= */ 0, hasOutputFormat);
+      sampleReader.reset();
+    }
   }
 
   /**
@@ -227,9 +237,11 @@ public final class H263Reader implements ElementaryStreamReader {
    * @param csdBuffer The buffer to parse.
    * @param volStartPosition The byte offset of the start of the video object layer in the buffer.
    * @param formatId The ID for the generated format.
+   * @param containerMimeType The MIME type of the container for the generated format.
    * @return The {@link Format} of the media represented in the buffer.
    */
-  private static Format parseCsdBuffer(CsdBuffer csdBuffer, int volStartPosition, String formatId) {
+  private static Format parseCsdBuffer(
+      CsdBuffer csdBuffer, int volStartPosition, String formatId, String containerMimeType) {
     byte[] csdData = Arrays.copyOf(csdBuffer.data, csdBuffer.length);
     ParsableBitArray buffer = new ParsableBitArray(csdData);
     buffer.skipBytes(volStartPosition);
@@ -304,6 +316,7 @@ public final class H263Reader implements ElementaryStreamReader {
     buffer.skipBit(); // interlaced
     return new Format.Builder()
         .setId(formatId)
+        .setContainerMimeType(containerMimeType)
         .setSampleMimeType(MimeTypes.VIDEO_MP4V)
         .setWidth(videoObjectLayerWidth)
         .setHeight(videoObjectLayerHeight)
@@ -426,6 +439,7 @@ public final class H263Reader implements ElementaryStreamReader {
 
     /** Byte offset of vop_coding_type after the start code value. */
     private static final int OFFSET_VOP_CODING_TYPE = 1;
+
     /** Value of vop_coding_type for intra video object planes. */
     private static final int VOP_CODING_TYPE_INTRA = 0;
 
@@ -473,10 +487,9 @@ public final class H263Reader implements ElementaryStreamReader {
     }
 
     public void onDataEnd(long position, int bytesWrittenPastPosition, boolean hasOutputFormat) {
-      if (startCodeValue == START_CODE_VALUE_VOP
-          && hasOutputFormat
-          && readingSample
-          && sampleTimeUs != C.TIME_UNSET) {
+      // packetStarted method must be called before reading sample.
+      checkState(sampleTimeUs != C.TIME_UNSET);
+      if (startCodeValue == START_CODE_VALUE_VOP && hasOutputFormat && readingSample) {
         int size = (int) (position - samplePosition);
         @C.BufferFlags int flags = sampleIsKeyframe ? C.BUFFER_FLAG_KEY_FRAME : 0;
         output.sampleMetadata(
