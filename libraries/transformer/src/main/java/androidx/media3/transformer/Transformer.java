@@ -1168,10 +1168,17 @@ public final class Transformer {
     try {
       transformerInternal.cancel();
     } finally {
+      ProgressHolder progressHolder = new ProgressHolder();
+      int progressState = getProgress(progressHolder);
       transformerInternal = null;
-    }
-    if (canCollectEditingMetrics()) {
-      checkNotNull(editingMetricsCollector).onExportCancelled();
+
+      if (canCollectEditingMetrics()) {
+        int progressPercentage =
+            (progressState == PROGRESS_STATE_AVAILABLE)
+                ? progressHolder.progress
+                : C.PERCENTAGE_UNSET;
+        checkNotNull(editingMetricsCollector).onExportCancelled(progressPercentage);
+      }
     }
 
     if (getResumeMetadataFuture != null && !getResumeMetadataFuture.isDone()) {
@@ -1616,7 +1623,13 @@ public final class Transformer {
             listener.onError(checkNotNull(composition), exportResultBuilder.build(), exception));
     listeners.flushEvents();
     if (canCollectEditingMetrics()) {
-      checkNotNull(editingMetricsCollector).onExportError(exception);
+      ProgressHolder progressHolder = new ProgressHolder();
+      int progressState = getProgress(progressHolder);
+      int progressPercentage =
+          (progressState == PROGRESS_STATE_AVAILABLE)
+              ? progressHolder.progress
+              : C.PERCENTAGE_UNSET;
+      checkNotNull(editingMetricsCollector).onExportError(progressPercentage, exception);
     }
     transformerState = TRANSFORMER_STATE_PROCESS_FULL_INPUT;
   }
@@ -1691,8 +1704,8 @@ public final class Transformer {
       }
 
       exportResultBuilder.setExportException(exportException);
-      transformerInternal = null;
       onExportCompletedWithError(exportException);
+      transformerInternal = null;
     }
 
     // MuxerWrapper.Listener implementation

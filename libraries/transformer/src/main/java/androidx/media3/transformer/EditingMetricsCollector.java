@@ -25,6 +25,7 @@ import android.media.metrics.MediaMetricsManager;
 import android.util.SparseIntArray;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
+import androidx.media3.common.C;
 import androidx.media3.common.util.SystemClock;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
@@ -131,25 +132,43 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     editingSession.close();
   }
 
-  /** Called when export completes with an error. */
-  public void onExportError(ExportException exportException) {
+  /**
+   * Called when export completes with an error.
+   *
+   * @param progressPercentage The progress of the export operation in percent. Value is {@link
+   *     C#PERCENTAGE_UNSET} if unknown or between 0 and 100 inclusive.
+   * @param exportException The {@link ExportException} describing the exception.
+   */
+  public void onExportError(int progressPercentage, ExportException exportException) {
     if (editingSession == null) {
       return;
     }
-    editingSession.reportEditingEndedEvent(
+    EditingEndedEvent.Builder editingEndedEventBuilder =
         createEditingEndedEventBuilder(EditingEndedEvent.FINAL_STATE_ERROR)
-            .setErrorCode(getEditingEndedEventErrorCode(exportException.errorCode))
-            .build());
+            .setErrorCode(getEditingEndedEventErrorCode(exportException.errorCode));
+    if (progressPercentage != C.PERCENTAGE_UNSET) {
+      editingEndedEventBuilder.setFinalProgressPercent(progressPercentage);
+    }
+    editingSession.reportEditingEndedEvent(editingEndedEventBuilder.build());
     editingSession.close();
   }
 
-  /** Called when export is cancelled. */
-  public void onExportCancelled() {
+  /**
+   * Called when export is cancelled.
+   *
+   * @param progressPercentage The progress of the export operation in percent. Value is {@link
+   *     C#PERCENTAGE_UNSET} if unknown or between 0 and 100 inclusive.
+   */
+  public void onExportCancelled(int progressPercentage) {
     if (editingSession == null) {
       return;
     }
-    editingSession.reportEditingEndedEvent(
-        createEditingEndedEventBuilder(EditingEndedEvent.FINAL_STATE_CANCELED).build());
+    EditingEndedEvent.Builder editingEndedEventBuilder =
+        createEditingEndedEventBuilder(EditingEndedEvent.FINAL_STATE_CANCELED);
+    if (progressPercentage != C.PERCENTAGE_UNSET) {
+      editingEndedEventBuilder.setFinalProgressPercent(progressPercentage);
+    }
+    editingSession.reportEditingEndedEvent(editingEndedEventBuilder.build());
     editingSession.close();
   }
 
