@@ -324,13 +324,15 @@ import java.util.List;
             mediaPeriodId.adGroupIndex,
             mediaPeriodId.adIndexInAdGroup,
             /* contentPositionUs= */ positionUs,
-            mediaPeriodId.windowSequenceNumber)
+            mediaPeriodId.windowSequenceNumber,
+            /* isPrecededByTransitionFromSameStream= */ false)
         : getMediaPeriodInfoForContent(
             timeline,
             mediaPeriodId.periodUid,
             /* startPositionUs= */ positionUs,
             /* requestedContentPositionUs= */ C.TIME_UNSET,
-            mediaPeriodId.windowSequenceNumber);
+            mediaPeriodId.windowSequenceNumber,
+            /* isPrecededByTransitionFromSameStream= */ false);
   }
 
   @Nullable
@@ -661,6 +663,7 @@ import java.util.List;
         info.requestedContentPositionUs,
         endPositionUs,
         durationUs,
+        info.isPrecededByTransitionFromSameStream,
         isFollowedByTransitionToSameStream,
         isLastInPeriod,
         isLastInWindow,
@@ -1058,6 +1061,8 @@ import java.util.List;
     MediaPeriodInfo mediaPeriodInfo = mediaPeriodHolder.info;
     MediaPeriodId currentPeriodId = mediaPeriodInfo.id;
     timeline.getPeriodByUid(currentPeriodId.periodUid, period);
+    boolean isPrecededByTransitionFromSameStream =
+        mediaPeriodInfo.isFollowedByTransitionToSameStream;
     if (currentPeriodId.isAd()) {
       int adGroupIndex = currentPeriodId.adGroupIndex;
       int adCountInCurrentAdGroup = period.getAdCountInAdGroup(adGroupIndex);
@@ -1074,7 +1079,8 @@ import java.util.List;
             adGroupIndex,
             nextAdIndexInAdGroup,
             mediaPeriodInfo.requestedContentPositionUs,
-            currentPeriodId.windowSequenceNumber);
+            currentPeriodId.windowSequenceNumber,
+            isPrecededByTransitionFromSameStream);
       } else {
         // Play content from the ad group position.
         long startPositionUs = mediaPeriodInfo.requestedContentPositionUs;
@@ -1102,7 +1108,8 @@ import java.util.List;
             currentPeriodId.periodUid,
             max(minStartPositionUs, startPositionUs),
             mediaPeriodInfo.requestedContentPositionUs,
-            currentPeriodId.windowSequenceNumber);
+            currentPeriodId.windowSequenceNumber,
+            isPrecededByTransitionFromSameStream);
       }
     } else if (currentPeriodId.nextAdGroupIndex != C.INDEX_UNSET
         && period.isLivePostrollPlaceholder(currentPeriodId.nextAdGroupIndex)) {
@@ -1127,7 +1134,8 @@ import java.util.List;
             currentPeriodId.periodUid,
             startPositionUs,
             /* requestedContentPositionUs= */ mediaPeriodInfo.durationUs,
-            currentPeriodId.windowSequenceNumber);
+            currentPeriodId.windowSequenceNumber,
+            /* isPrecededByTransitionFromSameStream= */ false);
       }
       return getMediaPeriodInfoForAd(
           timeline,
@@ -1135,7 +1143,8 @@ import java.util.List;
           /* adGroupIndex= */ currentPeriodId.nextAdGroupIndex,
           adIndexInAdGroup,
           /* contentPositionUs= */ mediaPeriodInfo.durationUs,
-          currentPeriodId.windowSequenceNumber);
+          currentPeriodId.windowSequenceNumber,
+          isPrecededByTransitionFromSameStream);
     }
   }
 
@@ -1157,14 +1166,16 @@ import java.util.List;
           id.adGroupIndex,
           id.adIndexInAdGroup,
           requestedContentPositionUs,
-          id.windowSequenceNumber);
+          id.windowSequenceNumber,
+          /* isPrecededByTransitionFromSameStream= */ false);
     } else {
       return getMediaPeriodInfoForContent(
           timeline,
           id.periodUid,
           startPositionUs,
           requestedContentPositionUs,
-          id.windowSequenceNumber);
+          id.windowSequenceNumber,
+          /* isPrecededByTransitionFromSameStream= */ false);
     }
   }
 
@@ -1174,7 +1185,8 @@ import java.util.List;
       int adGroupIndex,
       int adIndexInAdGroup,
       long contentPositionUs,
-      long windowSequenceNumber) {
+      long windowSequenceNumber,
+      boolean isPrecededByTransitionFromSameStream) {
     MediaPeriodId id =
         new MediaPeriodId(periodUid, adGroupIndex, adIndexInAdGroup, windowSequenceNumber);
     long durationUs =
@@ -1197,6 +1209,7 @@ import java.util.List;
         /* requestedContentPositionUs= */ contentPositionUs,
         /* endPositionUs= */ C.TIME_UNSET,
         durationUs,
+        isPrecededByTransitionFromSameStream,
         isFollowedByTransitionToSameStream,
         /* isLastInTimelinePeriod= */ false,
         /* isLastInTimelineWindow= */ false,
@@ -1208,7 +1221,8 @@ import java.util.List;
       Object periodUid,
       long startPositionUs,
       long requestedContentPositionUs,
-      long windowSequenceNumber) {
+      long windowSequenceNumber,
+      boolean isPrecededByTransitionFromSameStream) {
     timeline.getPeriodByUid(periodUid, period);
     int nextAdGroupIndex = period.getAdGroupIndexAfterPositionUs(startPositionUs);
     boolean isNextAdGroupPostrollPlaceholder =
@@ -1254,6 +1268,7 @@ import java.util.List;
         requestedContentPositionUs,
         endPositionUs,
         durationUs,
+        isPrecededByTransitionFromSameStream,
         isFollowedByTransitionToSameStream,
         isLastInPeriod,
         isLastInWindow,
