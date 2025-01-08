@@ -51,11 +51,11 @@ fun PlayerSurface(player: Player, surfaceType: @SurfaceType Int, modifier: Modif
   val currentPlayer by rememberUpdatedState(player)
   val onSurfaceCreated: (Surface) -> Unit = { surface ->
     if (currentPlayer.isCommandAvailable(Player.COMMAND_SET_VIDEO_SURFACE))
-      player.setVideoSurface(surface)
+      currentPlayer.setVideoSurface(surface)
   }
   val onSurfaceDestroyed: () -> Unit = {
     if (currentPlayer.isCommandAvailable(Player.COMMAND_SET_VIDEO_SURFACE))
-      player.clearVideoSurface()
+      currentPlayer.clearVideoSurface()
   }
   val onSurfaceInitialized: AndroidExternalSurfaceScope.() -> Unit = {
     onSurface { surface, _, _ ->
