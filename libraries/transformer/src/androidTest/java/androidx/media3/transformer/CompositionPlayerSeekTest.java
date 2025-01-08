@@ -579,59 +579,15 @@ public class CompositionPlayerSeekTest {
       int numberOfFramesBeforeSeeking,
       long seekTimeMs)
       throws Exception {
-    ResettableCountDownLatch framesReceivedLatch =
+    ResettableCountDownLatch frameCountBeforeBlockLatch =
         new ResettableCountDownLatch(numberOfFramesBeforeSeeking);
-    AtomicBoolean shaderProgramShouldBlockInput = new AtomicBoolean();
-
     InputTimestampRecordingShaderProgram inputTimestampRecordingShaderProgram =
-        new InputTimestampRecordingShaderProgram() {
-
-          @Override
-          public void queueInputFrame(
-              GlObjectsProvider glObjectsProvider,
-              GlTextureInfo inputTexture,
-              long presentationTimeUs) {
-            super.queueInputFrame(glObjectsProvider, inputTexture, presentationTimeUs);
-            framesReceivedLatch.countDown();
-            if (framesReceivedLatch.getCount() == 0) {
-              shaderProgramShouldBlockInput.set(true);
-            }
-          }
-
-          @Override
-          public void releaseOutputFrame(GlTextureInfo outputTexture) {
-            // The input listener capacity is reported in the super method, block input by skip
-            // reporting input capacity.
-            if (shaderProgramShouldBlockInput.get()) {
-              return;
-            }
-            super.releaseOutputFrame(outputTexture);
-          }
-
-          @Override
-          public void flush() {
-            super.flush();
-            if (framesReceivedLatch.getCount() == 0) {
-              // The flush is caused by the seek operation. We do this check because the shader
-              // program can be flushed for other reasons, for example at the transition between 2
-              // renderers.
-              shaderProgramShouldBlockInput.set(false);
-              framesReceivedLatch.reset(Integer.MAX_VALUE);
-            }
-          }
-        };
-
-    List<EditedMediaItem> editedMediaItems = new ArrayList<>();
-    for (int i = 0; i < mediaItems.size(); i++) {
-      editedMediaItems.add(
-          createEditedMediaItem(
-              mediaItems.get(i),
-              durationsUs.get(i),
-              /* videoEffect= */ (GlEffect)
-                  (context, useHdr) -> inputTimestampRecordingShaderProgram));
-    }
-
+        createInputTimestampRecordingShaderProgram(frameCountBeforeBlockLatch);
+    Effect videoEffect = (GlEffect) (context, useHdr) -> inputTimestampRecordingShaderProgram;
+    List<EditedMediaItem> editedMediaItems =
+        createEditedMediaItems(mediaItems, durationsUs, videoEffect);
     CountDownLatch videoGraphEnded = new CountDownLatch(1);
+
     getInstrumentation()
         .runOnMainSync(
             () -> {
@@ -653,12 +609,78 @@ public class CompositionPlayerSeekTest {
             });
 
     // Wait until the number of frames are received, block further input on the shader program.
-    framesReceivedLatch.await();
+    frameCountBeforeBlockLatch.await();
     getInstrumentation().runOnMainSync(() -> compositionPlayer.seekTo(seekTimeMs));
     playerTestListener.waitUntilPlayerEnded();
 
     assertThat(videoGraphEnded.await(VIDEO_GRAPH_END_TIMEOUT_MS, MILLISECONDS)).isTrue();
     return inputTimestampRecordingShaderProgram.getInputTimestampsUs();
+  }
+
+  /**
+   * Creates an {@link InputTimestampRecordingShaderProgram} that blocks input after receiving the
+   * number of frames specified by the provided {@link ResettableCountDownLatch}.
+   *
+   * <p>Input is unblocked when the shader program is flushed.
+   */
+  private static InputTimestampRecordingShaderProgram createInputTimestampRecordingShaderProgram(
+      ResettableCountDownLatch frameCountBeforeBlockLatch) {
+    AtomicBoolean shaderProgramShouldBlockInput = new AtomicBoolean();
+    return new InputTimestampRecordingShaderProgram() {
+
+      @Override
+      public void queueInputFrame(
+          GlObjectsProvider glObjectsProvider,
+          GlTextureInfo inputTexture,
+          long presentationTimeUs) {
+        super.queueInputFrame(glObjectsProvider, inputTexture, presentationTimeUs);
+        frameCountBeforeBlockLatch.countDown();
+        if (frameCountBeforeBlockLatch.getCount() == 0) {
+          shaderProgramShouldBlockInput.set(true);
+        }
+      }
+
+      @Override
+      public void releaseOutputFrame(GlTextureInfo outputTexture) {
+        // The input listener capacity is reported in the super method, block input by skip
+        // reporting input capacity.
+        if (shaderProgramShouldBlockInput.get()) {
+          return;
+        }
+        super.releaseOutputFrame(outputTexture);
+      }
+
+      @Override
+      public void flush() {
+        super.flush();
+        if (frameCountBeforeBlockLatch.getCount() == 0) {
+          // The flush is caused by the seek operation. We do this check because the shader
+          // program can be flushed for other reasons, for example at the transition between 2
+          // renderers.
+          shaderProgramShouldBlockInput.set(false);
+          frameCountBeforeBlockLatch.reset(Integer.MAX_VALUE);
+        }
+      }
+    };
+  }
+
+  /**
+   * Returns a list of {@linkplain EditedMediaItem EditedMediaItems}.
+   *
+   * @param mediaItems The {@linkplain MediaItem MediaItems} that should be wrapped.
+   * @param durationsUs The durations of the {@linkplain EditedMediaItem EditedMediaItems}, in
+   *     microseconds.
+   * @param videoEffect The {@link Effect} to apply to each {@link EditedMediaItem}.
+   * @return A list of {@linkplain EditedMediaItem EditedMediaItems}.
+   */
+  private static List<EditedMediaItem> createEditedMediaItems(
+      List<MediaItem> mediaItems, List<Long> durationsUs, Effect videoEffect) {
+    List<EditedMediaItem> editedMediaItems = new ArrayList<>();
+    for (int i = 0; i < mediaItems.size(); i++) {
+      editedMediaItems.add(
+          createEditedMediaItem(mediaItems.get(i), durationsUs.get(i), videoEffect));
+    }
+    return editedMediaItems;
   }
 
   private static EditedMediaItem createEditedMediaItem(
