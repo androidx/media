@@ -722,6 +722,39 @@ public class ChunkSampleStream<T extends ChunkSource>
     }
   }
 
+  /**
+   * Discards upstream samples that exceed the given clipped duration of the stream.
+   *
+   * @param clippedDurationUs The clipped duration of the stream in microseconds, or {@link
+   *     C#TIME_UNSET} if not known.
+   */
+  public void discardUpstreamSamplesForClippedDuration(long clippedDurationUs) {
+    Assertions.checkState(!loader.isLoading());
+    if (isPendingReset() || clippedDurationUs == C.TIME_UNSET || mediaChunks.isEmpty()) {
+      return;
+    }
+    BaseMediaChunk lastMediaChunk = getLastMediaChunk();
+    long lastMediaChunkEndTimeUs =
+        lastMediaChunk.clippedEndTimeUs != C.TIME_UNSET
+            ? lastMediaChunk.clippedEndTimeUs
+            : lastMediaChunk.endTimeUs;
+    if (lastMediaChunkEndTimeUs <= clippedDurationUs) {
+      // Last chunk doesn't need to be clipped further.
+      return;
+    }
+    long largestQueuedTimestampUs = primarySampleQueue.getLargestQueuedTimestampUs();
+    if (largestQueuedTimestampUs <= clippedDurationUs) {
+      // No data beyond new duration that needs to be clipped.
+      return;
+    }
+    primarySampleQueue.discardUpstreamFrom(clippedDurationUs);
+    for (SampleQueue embeddedSampleQueue : embeddedSampleQueues) {
+      embeddedSampleQueue.discardUpstreamFrom(clippedDurationUs);
+    }
+    mediaSourceEventDispatcher.upstreamDiscarded(
+        primaryTrackType, clippedDurationUs, largestQueuedTimestampUs);
+  }
+
   private void discardUpstream(int preferredQueueSize) {
     Assertions.checkState(!loader.isLoading());
 

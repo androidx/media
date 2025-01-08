@@ -62,6 +62,9 @@
     *   Parse `scte214:supplementalCodecs` attribute from DASH manifest to
         detect Dolby Vision formats
         ([#1785](https://github.com/androidx/media/pull/1785)).
+    *   Improve handling of period transitions in live streams where the period
+        contains media samples beyond the declared period duration
+        ([#1698](https://github.com/androidx/media/issues/1698)).
 *   Smooth Streaming Extension:
 *   RTSP Extension:
 *   Decoder Extensions (FFmpeg, VP9, AV1, etc.):
