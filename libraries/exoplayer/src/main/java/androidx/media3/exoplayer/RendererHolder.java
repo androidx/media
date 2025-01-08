@@ -18,6 +18,7 @@ package androidx.media3.exoplayer;
 import static androidx.media3.common.C.TRACK_TYPE_VIDEO;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
+import static androidx.media3.exoplayer.Renderer.MSG_TRANSFER_RESOURCES;
 import static androidx.media3.exoplayer.Renderer.STATE_DISABLED;
 import static androidx.media3.exoplayer.Renderer.STATE_ENABLED;
 import static androidx.media3.exoplayer.Renderer.STATE_STARTED;
@@ -533,22 +534,42 @@ import java.util.Objects;
    * @param mediaClock To call {@link DefaultMediaClock#onRendererDisabled} if disabling a {@link
    *     Renderer}.
    */
-  public void disable(DefaultMediaClock mediaClock) {
+  public void disable(DefaultMediaClock mediaClock) throws ExoPlaybackException {
     disableRenderer(primaryRenderer, mediaClock);
     if (secondaryRenderer != null) {
+      boolean shouldTransferResources =
+          isRendererEnabled(secondaryRenderer)
+              && prewarmingState != RENDERER_PREWARMING_STATE_TRANSITIONING_TO_SECONDARY;
       disableRenderer(secondaryRenderer, mediaClock);
-      // Release resources for other renderer
       maybeResetRenderer(/* resetPrimary= */ false);
+      if (shouldTransferResources) {
+        transferResources(/* transferToPrimary= */ true);
+      }
     }
     prewarmingState = RENDERER_PREWARMING_STATE_NOT_PREWARMING_USING_PRIMARY;
   }
 
-  public void maybeHandlePrewarmingTransition() {
-    if (prewarmingState == RENDERER_PREWARMING_STATE_TRANSITIONING_TO_PRIMARY
-        || prewarmingState == RENDERER_PREWARMING_STATE_PREWARMING_PRIMARY) {
+  /** Handles transition of pre-warming state and resources. */
+  public void maybeHandlePrewarmingTransition() throws ExoPlaybackException {
+    if (prewarmingState == RENDERER_PREWARMING_STATE_TRANSITIONING_TO_SECONDARY
+        || prewarmingState == RENDERER_PREWARMING_STATE_TRANSITIONING_TO_PRIMARY) {
+      transferResources(
+          /* transferToPrimary= */ prewarmingState
+              == RENDERER_PREWARMING_STATE_TRANSITIONING_TO_PRIMARY);
+      prewarmingState =
+          prewarmingState == RENDERER_PREWARMING_STATE_TRANSITIONING_TO_PRIMARY
+              ? RENDERER_PREWARMING_STATE_NOT_PREWARMING_USING_PRIMARY
+              : RENDERER_PREWARMING_STATE_NOT_PREWARMING_USING_SECONDARY;
+    } else if (prewarmingState == RENDERER_PREWARMING_STATE_PREWARMING_PRIMARY) {
       prewarmingState = RENDERER_PREWARMING_STATE_NOT_PREWARMING_USING_PRIMARY;
-    } else if (prewarmingState == RENDERER_PREWARMING_STATE_TRANSITIONING_TO_SECONDARY) {
-      prewarmingState = RENDERER_PREWARMING_STATE_NOT_PREWARMING_USING_SECONDARY;
+    }
+  }
+
+  private void transferResources(boolean transferToPrimary) throws ExoPlaybackException {
+    if (transferToPrimary) {
+      checkNotNull(secondaryRenderer).handleMessage(MSG_TRANSFER_RESOURCES, primaryRenderer);
+    } else {
+      primaryRenderer.handleMessage(MSG_TRANSFER_RESOURCES, checkNotNull(secondaryRenderer));
     }
   }
 

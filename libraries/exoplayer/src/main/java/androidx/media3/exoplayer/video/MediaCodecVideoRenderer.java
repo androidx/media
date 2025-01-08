@@ -973,6 +973,14 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         rendererPriority = (int) checkNotNull(message);
         updateCodecImportance();
         break;
+      case MSG_TRANSFER_RESOURCES:
+        {
+          Surface surface = this.displaySurface;
+          setOutput(null);
+          ((MediaCodecVideoRenderer) checkNotNull(message))
+              .handleMessage(MSG_SET_VIDEO_OUTPUT, surface);
+        }
+        break;
       default:
         super.handleMessage(messageType, message);
     }
@@ -1509,7 +1517,8 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     // We are not rendering on a surface, the renderer will wait until a surface is set.
     if (displaySurface == null) {
       // Skip frames in sync with playback, so we'll be at the right frame if the mode changes.
-      if (videoFrameReleaseInfo.getEarlyUs() < 0
+      if ((videoFrameReleaseInfo.getEarlyUs() < 0
+              && shouldSkipLateBuffersWhileUsingPlaceholderSurface())
           || (videoFrameReleaseInfo.getEarlyUs() < 30_000
               && frameReleaseAction != VideoFrameReleaseControl.FRAME_RELEASE_TRY_AGAIN_LATER)) {
         skipOutputBuffer(codec, bufferIndex, presentationTimeUs);
@@ -1659,6 +1668,11 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
    * buffer.
    */
   protected boolean shouldSkipBuffersWithIdenticalReleaseTime() {
+    return true;
+  }
+
+  /** Returns whether to skip late buffers while using a placeholder surface. */
+  protected boolean shouldSkipLateBuffersWhileUsingPlaceholderSurface() {
     return true;
   }
 

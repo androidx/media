@@ -15,6 +15,8 @@
  */
 package androidx.media3.exoplayer.e2etest;
 
+import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.run;
+
 import android.content.Context;
 import android.graphics.SurfaceTexture;
 import android.os.Handler;
@@ -126,6 +128,61 @@ public class PrewarmingRendererPlaybackTest {
         playbackOutput,
         "playbackdumps/prewarmingRenderer/"
             + "threeItemPlaylist-withSecondaryVideoRenderer"
+            + ".dump");
+  }
+
+  @Test
+  public void playback_withStopDuringPlaybackWithSecondaryVideoRenderer_dumpsCorrectOutput()
+      throws Exception {
+    Context applicationContext = ApplicationProvider.getApplicationContext();
+    CapturingRenderersWithSecondaryVideoRendererFactory capturingRenderersFactory =
+        new CapturingRenderersWithSecondaryVideoRendererFactory(applicationContext);
+    ExoPlayer player =
+        new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
+            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .build();
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
+    PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
+    // Create media item containing a single sample.
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri(TEST_MP4_URI)
+            .setClippingConfiguration(
+                new MediaItem.ClippingConfiguration.Builder()
+                    .setStartPositionMs(0)
+                    .setEndPositionMs(25)
+                    .build())
+            .build();
+    player.addMediaItems(ImmutableList.of(mediaItem, mediaItem));
+    // Disable audio renderer for simpler dump file.
+    player.setTrackSelectionParameters(
+        player
+            .getTrackSelectionParameters()
+            .buildUpon()
+            .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, true)
+            .build());
+    player.prepare();
+    player.play();
+
+    run(player).untilStartOfMediaItem(1);
+
+    // Stop and reset player to simulate stop, reset, and transition back to using primary.
+    player.stop();
+    player.seekTo(/* mediaItemIndex= */ 1, /* positionMs= */ 0);
+    player.prepare();
+    player.play();
+
+    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
+
+    player.release();
+    surface.release();
+
+    DumpFileAsserts.assertOutput(
+        applicationContext,
+        playbackOutput,
+        "playbackdumps/prewarmingRenderer/"
+            + "twoItemPlaylist-clippedWithStopDuringPlaybackWithSecondaryVideoRenderer"
             + ".dump");
   }
 

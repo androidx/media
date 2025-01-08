@@ -234,6 +234,12 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
       // Do not skip buffers with identical vsync times as we can't control this from tests.
       return false;
     }
+
+    @Override
+    protected boolean shouldSkipLateBuffersWhileUsingPlaceholderSurface() {
+      // Do not skip buffers while using placeholder surface due to slow processing.
+      return false;
+    }
   }
 
   /**

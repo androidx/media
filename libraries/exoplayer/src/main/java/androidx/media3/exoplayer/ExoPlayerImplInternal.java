@@ -1655,7 +1655,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
     rendererPositionUs = MediaPeriodQueue.INITIAL_RENDERER_POSITION_OFFSET_US;
     try {
       disableRenderers();
-    } catch (RuntimeException e) {
+    } catch (RuntimeException | ExoPlaybackException e) {
       // There's nothing we can do.
       Log.e(TAG, "Disable failed.", e);
     }
@@ -1919,14 +1919,14 @@ import java.util.concurrent.atomic.AtomicBoolean;
     nextPendingMessageIndexHint = nextPendingMessageIndex;
   }
 
-  private void disableRenderers() {
+  private void disableRenderers() throws ExoPlaybackException {
     for (int i = 0; i < renderers.length; i++) {
       disableRenderer(/* rendererIndex= */ i);
     }
     prewarmingMediaPeriodDiscontinuity = C.TIME_UNSET;
   }
 
-  private void disableRenderer(int rendererIndex) {
+  private void disableRenderer(int rendererIndex) throws ExoPlaybackException {
     int enabledRendererCountBeforeDisabling = renderers[rendererIndex].getEnabledRendererCount();
     renderers[rendererIndex].disable(mediaClock);
     maybeTriggerOnRendererReadyChanged(rendererIndex, /* allowsPlayback= */ false);
@@ -2639,7 +2639,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
     }
   }
 
-  private void maybeHandlePrewarmingTransition() {
+  private void maybeHandlePrewarmingTransition() throws ExoPlaybackException {
     for (RendererHolder renderer : renderers) {
       renderer.maybeHandlePrewarmingTransition();
     }

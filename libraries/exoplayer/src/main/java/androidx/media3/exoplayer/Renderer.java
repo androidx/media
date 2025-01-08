@@ -209,7 +209,8 @@ public interface Renderer extends PlayerMessage.Target {
         MSG_SET_VIDEO_EFFECTS,
         MSG_SET_VIDEO_OUTPUT_RESOLUTION,
         MSG_SET_IMAGE_OUTPUT,
-        MSG_SET_PRIORITY
+        MSG_SET_PRIORITY,
+        MSG_TRANSFER_RESOURCES
       })
   public @interface MessageType {}
 
@@ -346,6 +347,13 @@ public interface Renderer extends PlayerMessage.Target {
    * constants for predefined values.
    */
   int MSG_SET_PRIORITY = 16;
+
+  /**
+   * The type of message that can be passed to a renderer to direct it to transfer relevant
+   * resources to another renderer. The message payload should be a instance of the same {@link
+   * Renderer} type as the renderer being passed the message.
+   */
+  int MSG_TRANSFER_RESOURCES = 17;
 
   /**
    * Applications or extensions may define custom {@code MSG_*} constants that can be passed to

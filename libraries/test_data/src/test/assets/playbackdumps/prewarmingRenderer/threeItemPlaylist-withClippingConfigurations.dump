@@ -482,11 +482,11 @@ MediaCodecAdapter (exotest.video.avc):
     output buffer #7:
       timeUs = 1000000333666
       size = 6061
-      rendered = false
+      rendered = true
     output buffer #8:
       timeUs = 1000000266933
       size = 992
-      rendered = false
+      rendered = true
     output buffer #9:
       timeUs = 1000000233566
       size = 623
@@ -494,35 +494,35 @@ MediaCodecAdapter (exotest.video.avc):
     output buffer #10:
       timeUs = 1000000300300
       size = 421
-      rendered = false
+      rendered = true
     output buffer #11:
       timeUs = 1000000433766
       size = 4899
-      rendered = false
+      rendered = true
     output buffer #12:
       timeUs = 1000000400400
       size = 568
-      rendered = false
+      rendered = true
     output buffer #13:
       timeUs = 1000000367033
       size = 620
-      rendered = false
+      rendered = true
     output buffer #14:
       timeUs = 1000000567233
       size = 5450
-      rendered = false
+      rendered = true
     output buffer #15:
       timeUs = 1000000500500
       size = 1051
-      rendered = false
+      rendered = true
     output buffer #16:
       timeUs = 1000000467133
       size = 874
-      rendered = false
+      rendered = true
     output buffer #17:
       timeUs = 1000000533866
       size = 781
-      rendered = false
+      rendered = true
 MediaCodecAdapter (exotest.video.avc):
   inputBuffers:
     count = 31
