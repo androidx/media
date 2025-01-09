@@ -20,6 +20,7 @@ import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.common.util.Util.usToMs;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.PNG_ASSET;
+import static androidx.media3.transformer.AndroidTestUtil.recordTestSkipped;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.truth.Truth.assertThat;
@@ -54,9 +55,11 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
+import org.junit.AssumptionViolatedException;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
 /**
@@ -79,6 +82,8 @@ public class CompositionPlayerSeekTest {
       ImmutableList.of(0L, 33_333L, 66_667L, 100_000L, 133_333L, 166_667L);
   private static final long VIDEO_GRAPH_END_TIMEOUT_MS = 1_000;
 
+  @Rule public final TestName testName = new TestName();
+
   @Rule
   public ActivityScenarioRule<SurfaceTestActivity> rule =
       new ActivityScenarioRule<>(SurfaceTestActivity.class);
@@ -87,11 +92,13 @@ public class CompositionPlayerSeekTest {
       getInstrumentation().getContext().getApplicationContext();
   private final PlayerTestListener playerTestListener = new PlayerTestListener(TEST_TIMEOUT_MS);
 
+  private String testId;
   private CompositionPlayer compositionPlayer;
   private SurfaceView surfaceView;
 
   @Before
   public void setUp() {
+    testId = testName.getMethodName();
     rule.getScenario().onActivity(activity -> surfaceView = activity.getSurfaceView());
   }
 
@@ -109,6 +116,7 @@ public class CompositionPlayerSeekTest {
 
   @Test
   public void seekToZero_afterPlayingSingleSequenceOfTwoVideos() throws Exception {
+    maybeSkipTest();
     InputTimestampRecordingShaderProgram inputTimestampRecordingShaderProgram =
         new InputTimestampRecordingShaderProgram();
     EditedMediaItem video =
@@ -217,6 +225,7 @@ public class CompositionPlayerSeekTest {
 
   @Test
   public void seekToZero_duringPlayingFirstVideoInSingleSequenceOfTwoVideos() throws Exception {
+    maybeSkipTest();
     ImmutableList<MediaItem> mediaItems = ImmutableList.of(VIDEO_MEDIA_ITEM, VIDEO_MEDIA_ITEM);
     ImmutableList<Long> durationsUs = ImmutableList.of(VIDEO_DURATION_US, VIDEO_DURATION_US);
     int numberOfFramesBeforeSeeking = 15;
@@ -243,6 +252,7 @@ public class CompositionPlayerSeekTest {
   @Test
   public void seekToFirstMedia_duringPlayingFirstVideoInSingleSequenceOfTwoVideos()
       throws Exception {
+    maybeSkipTest();
     ImmutableList<MediaItem> mediaItems = ImmutableList.of(VIDEO_MEDIA_ITEM, VIDEO_MEDIA_ITEM);
     ImmutableList<Long> durationsUs = ImmutableList.of(VIDEO_DURATION_US, VIDEO_DURATION_US);
     int numberOfFramesBeforeSeeking = 15;
@@ -271,6 +281,7 @@ public class CompositionPlayerSeekTest {
   @Test
   public void seekToSecondMedia_duringPlayingFirstVideoInSingleSequenceOfTwoVideos()
       throws Exception {
+    maybeSkipTest();
     ImmutableList<MediaItem> mediaItems = ImmutableList.of(VIDEO_MEDIA_ITEM, VIDEO_MEDIA_ITEM);
     ImmutableList<Long> durationsUs = ImmutableList.of(VIDEO_DURATION_US, VIDEO_DURATION_US);
     int numberOfFramesBeforeSeeking = 15;
@@ -298,6 +309,7 @@ public class CompositionPlayerSeekTest {
   @Test
   public void seekToFirstMedia_duringPlayingSecondVideoInSingleSequenceOfTwoVideos()
       throws Exception {
+    maybeSkipTest();
     ImmutableList<MediaItem> mediaItems = ImmutableList.of(VIDEO_MEDIA_ITEM, VIDEO_MEDIA_ITEM);
     ImmutableList<Long> durationsUs = ImmutableList.of(VIDEO_DURATION_US, VIDEO_DURATION_US);
     int numberOfFramesBeforeSeeking = 45;
@@ -330,6 +342,7 @@ public class CompositionPlayerSeekTest {
   @Test
   public void seekToSecondMedia_duringPlayingSecondVideoInSingleSequenceOfTwoVideos()
       throws Exception {
+    maybeSkipTest();
     ImmutableList<MediaItem> mediaItems = ImmutableList.of(VIDEO_MEDIA_ITEM, VIDEO_MEDIA_ITEM);
     ImmutableList<Long> durationsUs = ImmutableList.of(VIDEO_DURATION_US, VIDEO_DURATION_US);
     int numberOfFramesBeforeSeeking = 45;
@@ -361,6 +374,7 @@ public class CompositionPlayerSeekTest {
   @Test
   public void seekToEndOfFirstMedia_duringPlayingFirstVideoInSingleSequenceOfTwoVideos()
       throws Exception {
+    maybeSkipTest();
     ImmutableList<MediaItem> mediaItems = ImmutableList.of(VIDEO_MEDIA_ITEM, VIDEO_MEDIA_ITEM);
     ImmutableList<Long> durationsUs = ImmutableList.of(VIDEO_DURATION_US, VIDEO_DURATION_US);
     int numberOfFramesBeforeSeeking = 15;
@@ -387,6 +401,7 @@ public class CompositionPlayerSeekTest {
   @Test
   public void seekToEndOfSecondVideo_duringPlayingFirstVideoInSingleSequenceOfTwoVideos()
       throws Exception {
+    maybeSkipTest();
     ImmutableList<MediaItem> mediaItems = ImmutableList.of(VIDEO_MEDIA_ITEM, VIDEO_MEDIA_ITEM);
     ImmutableList<Long> durationsUs = ImmutableList.of(VIDEO_DURATION_US, VIDEO_DURATION_US);
     int numberOfFramesBeforeSeeking = 15;
@@ -459,6 +474,7 @@ public class CompositionPlayerSeekTest {
 
   @Test
   public void seekToImage_fromVideoInVideoImageSequence() throws Exception {
+    maybeSkipTest();
     ImmutableList<MediaItem> mediaItems = ImmutableList.of(VIDEO_MEDIA_ITEM, IMAGE_MEDIA_ITEM);
     ImmutableList<Long> durationsUs = ImmutableList.of(VIDEO_DURATION_US, IMAGE_DURATION_US);
     int numberOfFramesBeforeSeeking = 15;
@@ -485,6 +501,7 @@ public class CompositionPlayerSeekTest {
 
   @Test
   public void seekToImage_fromVideoInImageVideoSequence() throws Exception {
+    maybeSkipTest();
     ImmutableList<MediaItem> mediaItems = ImmutableList.of(IMAGE_MEDIA_ITEM, VIDEO_MEDIA_ITEM);
     ImmutableList<Long> durationsUs = ImmutableList.of(IMAGE_DURATION_US, VIDEO_DURATION_US);
     // Plays all 6 image frames, play 9 video frames and seek.
@@ -517,6 +534,7 @@ public class CompositionPlayerSeekTest {
 
   @Test
   public void seekToVideo_fromImageInVideoImageSequence() throws Exception {
+    maybeSkipTest();
     ImmutableList<MediaItem> mediaItems = ImmutableList.of(VIDEO_MEDIA_ITEM, IMAGE_MEDIA_ITEM);
     ImmutableList<Long> durationsUs = ImmutableList.of(VIDEO_DURATION_US, IMAGE_DURATION_US);
     // Play all the video, seek after playing 3 frames of image.
@@ -548,6 +566,7 @@ public class CompositionPlayerSeekTest {
 
   @Test
   public void seekToVideo_fromImageInImageVideoSequence() throws Exception {
+    maybeSkipTest();
     ImmutableList<MediaItem> mediaItems = ImmutableList.of(IMAGE_MEDIA_ITEM, VIDEO_MEDIA_ITEM);
     ImmutableList<Long> durationsUs = ImmutableList.of(IMAGE_DURATION_US, VIDEO_DURATION_US);
     int numberOfFramesBeforeSeeking = 3;
@@ -570,6 +589,14 @@ public class CompositionPlayerSeekTest {
             mediaItems, durationsUs, numberOfFramesBeforeSeeking, seekTimeMs);
 
     assertThat(actualTimestampsUs).isEqualTo(expectedTimestampsUs);
+  }
+
+  private void maybeSkipTest() throws Exception {
+    if (isRunningOnEmulator() && Util.SDK_INT == 31) {
+      // The audio decoder is failing on API 31 emulator.
+      recordTestSkipped(applicationContext, testId, /* reason= */ "Skipped due to failing decoder");
+      throw new AssumptionViolatedException("Skipped due to failing decoder");
+    }
   }
 
   /**
