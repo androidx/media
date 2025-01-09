@@ -2069,7 +2069,21 @@ public abstract class SimpleBasePlayer extends BasePlayer {
     }
   }
 
-  /** A supplier for a position. */
+  /**
+   * A supplier for a position.
+   *
+   * <p>Convenience methods and classes for creating position suppliers:
+   *
+   * <ul>
+   *   <li>Use {@link #getConstant} for constant or non-moving positions.
+   *   <li>Use {@link #getExtrapolating} for positions advancing with the system clock from a
+   *       provided start time.
+   *   <li>Use {@link LivePositionSupplier} for positions that can be directly obtained from a live
+   *       system. Note that these suppliers should be {@linkplain LivePositionSupplier#disconnect
+   *       disconnected} from the live source as soon as the position is no longer valid, for
+   *       example after a position discontinuity.
+   * </ul>
+   */
   protected interface PositionSupplier {
 
     /** An instance returning a constant position of zero. */
@@ -2100,6 +2114,48 @@ public abstract class SimpleBasePlayer extends BasePlayer {
 
     /** Returns the position. */
     long get();
+  }
+
+  /**
+   * A {@link PositionSupplier} connected to a live provider that returns a new value on each
+   * invocation until it is {@linkplain #disconnect disconnected} from the live source.
+   *
+   * <p>The recommended usage of this class is to create a new instance connected to the live source
+   * and keep returning this instance as long as the position source is still valid. As soon as the
+   * position source becomes invalid, for example when handling a position discontinuity, call
+   * {@link #disconnect} with the final position that will be returned for all future invocations.
+   */
+  protected static final class LivePositionSupplier implements PositionSupplier {
+
+    private final PositionSupplier livePosition;
+
+    private long finalValue;
+
+    /**
+     * Creates the live position supplier.
+     *
+     * @param livePosition The function returning the live position.
+     */
+    public LivePositionSupplier(PositionSupplier livePosition) {
+      this.livePosition = livePosition;
+      this.finalValue = C.TIME_UNSET;
+    }
+
+    /**
+     * Disconnects the position supplier from the live source.
+     *
+     * <p>All future invocations of {@link #get()} will return the provided final position.
+     *
+     * @param finalValue The final position value.
+     */
+    public void disconnect(long finalValue) {
+      this.finalValue = finalValue;
+    }
+
+    @Override
+    public long get() {
+      return finalValue != C.TIME_UNSET ? finalValue : livePosition.get();
+    }
   }
 
   /**

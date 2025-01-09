@@ -8698,6 +8698,36 @@ public class SimpleBasePlayerTest {
     assertThat(callForwarded.get()).isFalse();
   }
 
+  @Test
+  public void livePositionProvider_returnsChangingLivePosition() {
+    AtomicInteger livePositionMs = new AtomicInteger(/* initialValue= */ 100);
+    SimpleBasePlayer.LivePositionSupplier livePositionSupplier =
+        new SimpleBasePlayer.LivePositionSupplier(livePositionMs::get);
+
+    long position1Ms = livePositionSupplier.get();
+    livePositionMs.set(200);
+    long position2Ms = livePositionSupplier.get();
+    livePositionMs.set(300);
+    long position3Ms = livePositionSupplier.get();
+
+    assertThat(position1Ms).isEqualTo(100);
+    assertThat(position2Ms).isEqualTo(200);
+    assertThat(position3Ms).isEqualTo(300);
+  }
+
+  @Test
+  public void livePositionProvider_disconnect_returnsFinalPosition() {
+    AtomicInteger livePositionMs = new AtomicInteger(/* initialValue= */ 100);
+    SimpleBasePlayer.LivePositionSupplier livePositionSupplier =
+        new SimpleBasePlayer.LivePositionSupplier(livePositionMs::get);
+
+    livePositionSupplier.disconnect(/* finalValue= */ 150);
+    livePositionMs.set(200);
+    long positionMs = livePositionSupplier.get();
+
+    assertThat(positionMs).isEqualTo(150);
+  }
+
   private static Object[] getAnyArguments(Method method) {
     Object[] arguments = new Object[method.getParameterCount()];
     Class<?>[] argumentTypes = method.getParameterTypes();
