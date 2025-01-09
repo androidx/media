@@ -22,6 +22,8 @@
         `Transformer.Builder.setUsePlatformDiagnostics(false)`.
 *   Track Selection:
 *   Extractors:
+    *   Fix handling of NAL units with lengths expressed in 1 or 2 bytes (rather
+        than 4).
 *   DataSource:
 *   Audio:
     *   Do not bypass `SonicAudioProcessor` when `SpeedChangingAudioProcessor`

@@ -249,6 +249,12 @@ public final class Mp4ExtractorParameterizedTest {
     assertExtractorBehavior("media/mp4/h265_bframes.mp4");
   }
 
+  // b/386847142
+  @Test
+  public void mp4SampleWithTwoByteNalLength() throws Exception {
+    assertExtractorBehavior("media/mp4/sample_2_byte_NAL_length.mp4");
+  }
+
   private void assertExtractorBehavior(String file) throws IOException {
     ExtractorAsserts.AssertionConfig.Builder assertionConfigBuilder =
         new ExtractorAsserts.AssertionConfig.Builder();

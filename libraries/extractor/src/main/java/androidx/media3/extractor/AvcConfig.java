@@ -71,7 +71,7 @@ public final class AvcConfig {
         byte[] sps = initializationData.get(0);
         SpsData spsData =
             NalUnitUtil.parseSpsNalUnit(
-                initializationData.get(0), nalUnitLengthFieldLength, sps.length);
+                initializationData.get(0), NalUnitUtil.NAL_START_CODE.length, sps.length);
         width = spsData.width;
         height = spsData.height;
         bitdepthLuma = spsData.bitDepthLumaMinus8 + 8;

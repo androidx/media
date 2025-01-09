@@ -893,6 +893,7 @@ public final class Mp4Extractor implements Extractor, SeekMap {
       nalPrefixData[1] = 0;
       nalPrefixData[2] = 0;
       int nalUnitLengthFieldLengthDiff = 4 - track.track.nalUnitLengthFieldLength;
+      sampleSize += nalUnitLengthFieldLengthDiff;
       // NAL units are length delimited, but the decoder requires start code delimited units.
       // Loop until we've written the sample to the track output, replacing length delimiters with
       // start codes as we encounter them.
@@ -928,7 +929,6 @@ public final class Mp4Extractor implements Extractor, SeekMap {
           nalStartCode.setPosition(0);
           trackOutput.sampleData(nalStartCode, 4);
           sampleBytesWritten += 4;
-          sampleSize += nalUnitLengthFieldLengthDiff;
           if (numberOfBytesToDetermineSampleDependencies > 0) {
             // Write the first NAL unit bytes that were read.
             trackOutput.sampleData(nalPrefix, numberOfBytesToDetermineSampleDependencies);
