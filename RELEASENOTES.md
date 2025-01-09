@@ -4,6 +4,12 @@
 
 *   Common Library:
 *   ExoPlayer:
+    *   Add experimental 'ExoPlayer' pre-warming support for playback using
+        `MediaCodecVideoRenderer`. `DefaultRenderersFactory` can be configured
+        through `experimentalSetEnableMediaCodecVideoRendererPrewarming` to
+        provide a secondary `MediaCodecVideoRenderer` to `ExoPlayer`. If
+        enabled, `ExoPlayer` will pre-process the video of consecutive media
+        items during playback to reduce media item transition latency.
 *   Transformer:
     *   Enable support for Android platform diagnostics via
         `MediaMetricsManager`. Transformer will forward editing events and
