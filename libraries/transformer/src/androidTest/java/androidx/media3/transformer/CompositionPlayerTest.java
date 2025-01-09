@@ -16,6 +16,7 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.common.PlaybackException.ERROR_CODE_DECODER_INIT_FAILED;
+import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.transformer.AndroidTestUtil.JPG_SINGLE_PIXEL_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
 import static com.google.common.truth.Truth.assertThat;
@@ -77,7 +78,7 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public class CompositionPlayerTest {
 
-  private static final long TEST_TIMEOUT_MS = 10_000;
+  private static final long TEST_TIMEOUT_MS = isRunningOnEmulator() ? 20_000 : 10_000;
 
   @Rule
   public ActivityScenarioRule<SurfaceTestActivity> rule =
