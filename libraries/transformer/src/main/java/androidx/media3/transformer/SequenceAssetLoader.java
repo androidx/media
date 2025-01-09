@@ -191,7 +191,10 @@ import java.util.concurrent.atomic.AtomicInteger;
       ImmutableMap<Integer, String> decoders = getDecoderNames();
       processedInputsBuilder.add(
           new ExportResult.ProcessedInput(
-              mediaItem, decoders.get(C.TRACK_TYPE_AUDIO), decoders.get(C.TRACK_TYPE_VIDEO)));
+              mediaItem,
+              currentAssetDurationUs,
+              decoders.get(C.TRACK_TYPE_AUDIO),
+              decoders.get(C.TRACK_TYPE_VIDEO)));
       processedInputsSize++;
     }
   }
