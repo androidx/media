@@ -4064,14 +4064,10 @@ public abstract class SimpleBasePlayer extends BasePlayer {
     }
     // Only mark changes within the current item as a transition if we are repeating automatically
     // or via a seek to next/previous.
-    if (positionDiscontinuityReason == DISCONTINUITY_REASON_AUTO_TRANSITION) {
-      if ((getContentPositionMsInternal(previousState, window)
-              > getContentPositionMsInternal(newState, window))
-          || (newState.hasPositionDiscontinuity
-              && newState.discontinuityPositionMs == C.TIME_UNSET
-              && isRepeatingCurrentItem)) {
-        return MEDIA_ITEM_TRANSITION_REASON_REPEAT;
-      }
+    if (positionDiscontinuityReason == DISCONTINUITY_REASON_AUTO_TRANSITION
+        && getContentPositionMsInternal(previousState, window)
+            > getContentPositionMsInternal(newState, window)) {
+      return MEDIA_ITEM_TRANSITION_REASON_REPEAT;
     }
     if (positionDiscontinuityReason == DISCONTINUITY_REASON_SEEK && isRepeatingCurrentItem) {
       return MEDIA_ITEM_TRANSITION_REASON_SEEK;

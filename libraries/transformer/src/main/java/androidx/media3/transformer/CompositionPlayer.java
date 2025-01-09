@@ -258,6 +258,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
               COMMAND_STOP,
               COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM,
               COMMAND_SEEK_TO_NEXT_MEDIA_ITEM,
+              COMMAND_SEEK_TO_DEFAULT_POSITION,
               COMMAND_SEEK_BACK,
               COMMAND_SEEK_FORWARD,
               COMMAND_GET_CURRENT_MEDIA_ITEM,
@@ -307,7 +308,12 @@ public final class CompositionPlayer extends SimpleBasePlayer
   @Nullable private SurfaceHolder surfaceHolder;
   @Nullable private Surface displaySurface;
   private boolean repeatingCompositionSeekInProgress;
+  private LivePositionSupplier positionSupplier;
+  private LivePositionSupplier bufferedPositionSupplier;
+  private LivePositionSupplier totalBufferedDurationSupplier;
 
+  // "this" reference for position suppliers.
+  @SuppressWarnings("initialization:methodref.receiver.bound.invalid")
   private CompositionPlayer(Builder builder) {
     super(checkNotNull(builder.looper), builder.clock);
     context = builder.context;
@@ -322,6 +328,9 @@ public final class CompositionPlayer extends SimpleBasePlayer
     compositionDurationUs = C.TIME_UNSET;
     playbackState = STATE_IDLE;
     volume = 1.0f;
+    positionSupplier = new LivePositionSupplier(this::getContentPositionMs);
+    bufferedPositionSupplier = new LivePositionSupplier(this::getBufferedPositionMs);
+    totalBufferedDurationSupplier = new LivePositionSupplier(this::getTotalBufferedDurationMs);
   }
 
   /**
@@ -446,9 +455,9 @@ public final class CompositionPlayer extends SimpleBasePlayer
             .setPlayWhenReady(playWhenReady, playWhenReadyChangeReason)
             .setRepeatMode(repeatMode)
             .setVolume(volume)
-            .setContentPositionMs(this::getContentPositionMs)
-            .setContentBufferedPositionMs(this::getBufferedPositionMs)
-            .setTotalBufferedDurationMs(this::getTotalBufferedDurationMs)
+            .setContentPositionMs(positionSupplier)
+            .setContentBufferedPositionMs(bufferedPositionSupplier)
+            .setTotalBufferedDurationMs(totalBufferedDurationSupplier)
             .setNewlyRenderedFirstFrame(getRenderedFirstFrameAndReset());
     if (repeatingCompositionSeekInProgress) {
       state.setPositionDiscontinuity(DISCONTINUITY_REASON_AUTO_TRANSITION, C.TIME_UNSET);
@@ -565,6 +574,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
   @Override
   protected ListenableFuture<?> handleSeek(
       int mediaItemIndex, long positionMs, @Player.Command int seekCommand) {
+    resetLivePositionSuppliers();
     CompositionPlayerInternal compositionPlayerInternal =
         checkStateNotNull(this.compositionPlayerInternal);
     compositionPlayerInternal.startSeek(positionMs);
@@ -964,11 +974,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
 
   private void repeatCompositionPlayback() {
     repeatingCompositionSeekInProgress = true;
-    seekTo(
-        getCurrentMediaItemIndex(),
-        /* positionMs= */ C.TIME_UNSET,
-        Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM,
-        /* isRepeatingCurrentItem= */ true);
+    seekToDefaultPosition();
   }
 
   private ImmutableList<MediaItemData> createPlaylist() {
@@ -978,6 +984,15 @@ public final class CompositionPlayer extends SimpleBasePlayer
             .setMediaItem(MediaItem.EMPTY)
             .setDurationUs(compositionDurationUs)
             .build());
+  }
+
+  private void resetLivePositionSuppliers() {
+    positionSupplier.disconnect(getContentPositionMs());
+    bufferedPositionSupplier.disconnect(getBufferedPositionMs());
+    totalBufferedDurationSupplier.disconnect(getTotalBufferedDurationMs());
+    positionSupplier = new LivePositionSupplier(this::getContentPositionMs);
+    bufferedPositionSupplier = new LivePositionSupplier(this::getBufferedPositionMs);
+    totalBufferedDurationSupplier = new LivePositionSupplier(this::getTotalBufferedDurationMs);
   }
 
   private static long getCompositionDurationUs(Composition composition) {
