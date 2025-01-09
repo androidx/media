@@ -287,7 +287,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     private final VideoSink videoSink;
     private final boolean requestToneMapping;
 
-    @Nullable private ImmutableList<Effect> pendingEffect;
+    private ImmutableList<Effect> pendingEffects;
     @Nullable private EditedMediaItem currentEditedMediaItem;
     private long offsetToCompositionTimeUs;
 
@@ -312,6 +312,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       this.sequence = sequence;
       this.videoSink = videoSink;
       this.requestToneMapping = requestToneMapping;
+      this.pendingEffects = ImmutableList.of();
       experimentalEnableProcessedStreamChangedAtStart();
     }
 
@@ -329,7 +330,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       // previous one.
       currentEditedMediaItem = getRepeatedEditedMediaItem(sequence, mediaItemIndex);
       offsetToCompositionTimeUs = getOffsetToCompositionTimeUs(sequence, mediaItemIndex, offsetUs);
-      pendingEffect = sequence.editedMediaItems.get(mediaItemIndex).effects.videoEffects;
+      pendingEffects = sequence.editedMediaItems.get(mediaItemIndex).effects.videoEffects;
       super.onStreamChanged(formats, startPositionUs, offsetUs, mediaPeriodId);
     }
 
@@ -370,12 +371,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
 
     @Override
-    protected void onReadyToChangeVideoSinkInputStream() {
-      @Nullable ImmutableList<Effect> pendingEffect = this.pendingEffect;
-      if (pendingEffect != null) {
-        videoSink.setPendingVideoEffects(pendingEffect);
-        this.pendingEffect = null;
-      }
+    protected void changeVideoSinkInputStream(
+        VideoSink videoSink, @VideoSink.InputType int inputType, Format format) {
+      videoSink.onInputStreamChanged(inputType, format, pendingEffects);
     }
   }
 
@@ -519,7 +517,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         long positionUs, long elapsedRealtimeUs, Bitmap outputImage, long timeUs) {
       if (inputStreamPending) {
         checkState(streamStartPositionUs != C.TIME_UNSET);
-        videoSink.setPendingVideoEffects(videoEffects);
         videoSink.setStreamTimestampInfo(
             streamStartPositionUs,
             /* bufferTimestampAdjustmentUs= */ offsetToCompositionTimeUs,
@@ -532,7 +529,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                 .setHeight(outputImage.getHeight())
                 .setColorInfo(ColorInfo.SRGB_BT709_FULL)
                 .setFrameRate(/* frameRate= */ DEFAULT_FRAME_RATE)
-                .build());
+                .build(),
+            videoEffects);
         inputStreamPending = false;
       }
       if (!videoSink.handleInputBitmap(outputImage, checkStateNotNull(timestampIterator))) {

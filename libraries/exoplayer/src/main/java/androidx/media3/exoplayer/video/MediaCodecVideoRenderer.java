@@ -1397,8 +1397,8 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     decodedVideoSize = new VideoSize(width, height, pixelWidthHeightRatio);
 
     if (videoSink != null && pendingVideoSinkInputStreamChange) {
-      onReadyToChangeVideoSinkInputStream();
-      videoSink.onInputStreamChanged(
+      changeVideoSinkInputStream(
+          videoSink,
           /* inputType= */ VideoSink.INPUT_TYPE_SURFACE,
           format
               .buildUpon()
@@ -1413,13 +1413,15 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   }
 
   /**
-   * Called when ready to {@linkplain VideoSink#onInputStreamChanged(int, Format) change} the input
-   * stream when {@linkplain #setVideoEffects video effects} are enabled.
+   * Called when ready to {@linkplain VideoSink#onInputStreamChanged(int, Format, List<Effect>)
+   * change} the input stream.
    *
-   * <p>The default implementation is a no-op.
+   * <p>The default implementation applies this renderer's video effects.
    */
-  protected void onReadyToChangeVideoSinkInputStream() {
-    // do nothing.
+  protected void changeVideoSinkInputStream(
+      VideoSink videoSink, @VideoSink.InputType int inputType, Format format) {
+    List<Effect> videoEffectsToApply = videoEffects != null ? videoEffects : ImmutableList.of();
+    videoSink.onInputStreamChanged(inputType, format, videoEffectsToApply);
   }
 
   @Override

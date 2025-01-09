@@ -177,11 +177,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   @Override
-  public void setPendingVideoEffects(List<Effect> videoEffects) {
-    executeOrDelay(videoSink -> videoSink.setPendingVideoEffects(videoEffects));
-  }
-
-  @Override
   public void setStreamTimestampInfo(
       long streamStartPositionUs, long bufferTimestampAdjustmentUs, long lastResetPositionUs) {
     executeOrDelay(
@@ -211,8 +206,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   @Override
-  public void onInputStreamChanged(@InputType int inputType, Format format) {
-    executeOrDelay(videoSink -> videoSink.onInputStreamChanged(inputType, format));
+  public void onInputStreamChanged(
+      @InputType int inputType, Format format, List<Effect> videoEffects) {
+    executeOrDelay(videoSink -> videoSink.onInputStreamChanged(inputType, format, videoEffects));
   }
 
   @Override

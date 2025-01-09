@@ -382,13 +382,15 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     // We forward output size changes to the sink even if we are still flushing.
     videoGraphOutputFormat =
         videoGraphOutputFormat.buildUpon().setWidth(width).setHeight(height).build();
-    defaultVideoSink.onInputStreamChanged(INPUT_TYPE_SURFACE, videoGraphOutputFormat);
+    defaultVideoSink.onInputStreamChanged(
+        INPUT_TYPE_SURFACE, videoGraphOutputFormat, /* videoEffects= */ ImmutableList.of());
   }
 
   @Override
   public void onOutputFrameRateChanged(float frameRate) {
     videoGraphOutputFormat = videoGraphOutputFormat.buildUpon().setFrameRate(frameRate).build();
-    defaultVideoSink.onInputStreamChanged(INPUT_TYPE_SURFACE, videoGraphOutputFormat);
+    defaultVideoSink.onInputStreamChanged(
+        INPUT_TYPE_SURFACE, videoGraphOutputFormat, /* videoEffects= */ ImmutableList.of());
   }
 
   @Override
@@ -685,7 +687,8 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     }
 
     @Override
-    public void onInputStreamChanged(@InputType int inputType, Format format) {
+    public void onInputStreamChanged(
+        @InputType int inputType, Format format, List<Effect> videoEffects) {
       checkState(isInitialized());
       switch (inputType) {
         case INPUT_TYPE_SURFACE:
@@ -694,6 +697,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
         default:
           throw new UnsupportedOperationException("Unsupported input type " + inputType);
       }
+      setPendingVideoEffects(videoEffects);
       this.inputType = inputType;
       this.inputFormat = format;
       finalBufferPresentationTimeUs = C.TIME_UNSET;
@@ -727,15 +731,6 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
       if (inputFormat != null) {
         registerInputStream(inputFormat);
       }
-    }
-
-    @Override
-    public void setPendingVideoEffects(List<Effect> videoEffects) {
-      this.videoEffects =
-          new ImmutableList.Builder<Effect>()
-              .addAll(videoEffects)
-              .addAll(compositionEffects)
-              .build();
     }
 
     @Override
@@ -886,6 +881,19 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     }
 
     // Private methods
+
+    /**
+     * Sets the pending video effects.
+     *
+     * <p>Effects are pending until a new input stream is registered.
+     */
+    private void setPendingVideoEffects(List<Effect> newVideoEffects) {
+      this.videoEffects =
+          new ImmutableList.Builder<Effect>()
+              .addAll(newVideoEffects)
+              .addAll(compositionEffects)
+              .build();
+    }
 
     private void registerInputStream(Format inputFormat) {
       Format adjustedInputFormat =
