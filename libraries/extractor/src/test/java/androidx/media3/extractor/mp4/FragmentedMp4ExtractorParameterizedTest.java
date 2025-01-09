@@ -89,13 +89,23 @@ public final class FragmentedMp4ExtractorParameterizedTest {
   }
 
   @Test
-  public void sampleWithSeiPayloadParsing() throws Exception {
+  public void sampleWithSeiPayloadInputHasNoCaptions() throws Exception {
     // Enabling the CEA-608 track enables SEI payload parsing.
     List<Format> closedCaptions =
         Collections.singletonList(
             new Format.Builder().setSampleMimeType(MimeTypes.APPLICATION_CEA608).build());
 
     assertExtractorBehavior(closedCaptions, "media/mp4/sample_fragmented_sei.mp4");
+  }
+
+  @Test
+  public void sampleWithSeiPayloadInputHasCaptions() throws Exception {
+    // Enabling the CEA-608 track enables SEI payload parsing.
+    List<Format> closedCaptions =
+        Collections.singletonList(
+            new Format.Builder().setSampleMimeType(MimeTypes.APPLICATION_CEA608).build());
+
+    assertExtractorBehavior(closedCaptions, "media/mp4/fragmented_captions.mp4");
   }
 
   @Test
