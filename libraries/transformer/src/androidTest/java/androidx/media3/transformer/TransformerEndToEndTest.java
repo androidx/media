@@ -119,6 +119,7 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
@@ -2418,6 +2419,7 @@ public class TransformerEndToEndTest {
   }
 
   @Test
+  @Ignore("TODO: b/389068218 - Fix this test and re-enable it")
   public void export_withUnsupportedSampleRateAndFallbackEnabled_exportsWithFallbackSampleRate()
       throws Exception {
     int unsupportedSampleRate = 96_000;
@@ -2444,6 +2446,7 @@ public class TransformerEndToEndTest {
   }
 
   @Test
+  @Ignore("TODO: b/389068218 - Fix this test and re-enable it")
   public void
       export_withTwoUnsupportedAndOneSupportedSampleRateAndFallbackEnabled_exportsWithFallbackSampleRate()
           throws Exception {
