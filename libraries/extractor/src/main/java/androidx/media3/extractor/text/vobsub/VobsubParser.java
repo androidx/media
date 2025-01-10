@@ -242,7 +242,7 @@ public final class VobsubParser implements SubtitleParser {
       return true;
     }
 
-    private static  int setAlpha(int color, int alpha) {
+    private static int setAlpha(int color, int alpha) {
       return ((color & 0x00ffffff) | ((alpha * 17) << 24));
     }
 
@@ -287,7 +287,8 @@ public final class VobsubParser implements SubtitleParser {
           || !hasPlane
           || !hasColors
           || boundingBox == null
-          || dataOffset0 == C.INDEX_UNSET || dataOffset1 == C.INDEX_UNSET
+          || dataOffset0 == C.INDEX_UNSET
+          || dataOffset1 == C.INDEX_UNSET
           || boundingBox.width() < 2
           || boundingBox.height() < 2) {
         return null;
@@ -301,7 +302,7 @@ public final class VobsubParser implements SubtitleParser {
       parseRleData(bitBuffer, /* evenInterlace= */ true, boundingBox, bitmapData);
       buffer.setPosition(dataOffset1);
       bitBuffer.reset(buffer);
-      parseRleData(bitBuffer, /* evenInterlace= */ false,boundingBox, bitmapData);
+      parseRleData(bitBuffer, /* evenInterlace= */ false, boundingBox, bitmapData);
 
       Bitmap bitmap =
           Bitmap.createBitmap(
@@ -327,7 +328,8 @@ public final class VobsubParser implements SubtitleParser {
      * @param evenInterlace Whether to decode the even or odd interlaced lines.
      * @param bitmapData Output array.
      */
-    private void parseRleData(ParsableBitArray bitBuffer, boolean evenInterlace, Rect boundingBox, int[] bitmapData) {
+    private void parseRleData(
+        ParsableBitArray bitBuffer, boolean evenInterlace, Rect boundingBox, int[] bitmapData) {
       int width = boundingBox.width();
       int height = boundingBox.height();
       int x = 0;
@@ -346,7 +348,9 @@ public final class VobsubParser implements SubtitleParser {
         }
         if (x >= width) {
           y += 2;
-          if (y >= height){ break;}
+          if (y >= height) {
+            break;
+          }
           x = 0;
           outIndex = y * width;
           bitBuffer.byteAlign();
