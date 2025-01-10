@@ -169,16 +169,17 @@ public final class VobsubParser implements SubtitleParser {
         // Give up if we don't have the color palette or the video size.
         return;
       }
+      int[] palette = this.palette;
       buffer.skipBytes(buffer.readUnsignedShort() - 2);
       int end = buffer.readUnsignedShort();
-      parseControl(buffer, end);
+      parseControl(palette, buffer, end);
     }
 
-    private void parseControl(ParsableByteArray buffer, int end) {
+    private void parseControl(int[] palette, ParsableByteArray buffer, int end) {
       while (buffer.getPosition() < end && buffer.bytesLeft() > 0) {
         switch (buffer.readUnsignedByte()) {
           case CMD_COLORS:
-            if (!parseControlColors(buffer)) {
+            if (!parseControlColors(palette, buffer)) {
               return;
             }
             break;
@@ -204,7 +205,7 @@ public final class VobsubParser implements SubtitleParser {
       }
     }
 
-    private boolean parseControlColors(ParsableByteArray buffer) {
+    private boolean parseControlColors(int[] palette, ParsableByteArray buffer) {
       if (buffer.bytesLeft() < 2) {
         return false;
       }
@@ -212,16 +213,16 @@ public final class VobsubParser implements SubtitleParser {
       int byte0 = buffer.readUnsignedByte();
       int byte1 = buffer.readUnsignedByte();
 
-      colors[3] = getColor(byte0 >> 4);
-      colors[2] = getColor(byte0 & 0xf);
-      colors[1] = getColor(byte1 >> 4);
-      colors[0] = getColor(byte1 & 0xf);
+      colors[3] = getColor(palette, byte0 >> 4);
+      colors[2] = getColor(palette, byte0 & 0xf);
+      colors[1] = getColor(palette, byte1 >> 4);
+      colors[0] = getColor(palette, byte1 & 0xf);
       hasColors = true;
 
       return true;
     }
 
-    private int getColor(int index) {
+    private static int getColor(int[] palette, int index) {
       return index >= 0 && index < palette.length ? palette[index] : palette[0];
     }
 
