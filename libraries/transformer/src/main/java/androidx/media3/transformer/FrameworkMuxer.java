@@ -96,6 +96,8 @@ import java.util.Locale;
   }
 
   public static final String MUXER_STOPPING_FAILED_ERROR_MESSAGE = "Failed to stop the MediaMuxer";
+  public static final String MUXER_NAME =
+      checkNotNull(MediaMuxer.class.getPackage()).getName() + ":" + SDK_INT;
 
   // MediaMuxer supported sample formats are documented in MediaMuxer.addTrack(MediaFormat).
   private static final ImmutableList<String> SUPPORTED_VIDEO_SAMPLE_MIME_TYPES =

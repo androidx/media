@@ -1580,7 +1580,15 @@ public final class Transformer {
     }
     DebugTraceUtil.reset();
     if (canCollectEditingMetrics()) {
-      editingMetricsCollector = new EditingMetricsCollector(context);
+      String exporterName =
+          checkNotNull(this.getClass().getPackage()).getName() + ":" + MediaLibraryInfo.VERSION;
+      String muxerName = null;
+      if (muxerFactory instanceof InAppMuxer.Factory) {
+        muxerName = InAppMuxer.MUXER_NAME;
+      } else if (muxerFactory instanceof FrameworkMuxer.Factory) {
+        muxerName = FrameworkMuxer.MUXER_NAME;
+      }
+      editingMetricsCollector = new EditingMetricsCollector(context, exporterName, muxerName);
     }
     transformerInternal =
         new TransformerInternal(

@@ -100,6 +100,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   private static final int SUCCESS_PROGRESS_PERCENTAGE = 100;
+  private final String exporterName;
+  @Nullable private final String muxerName;
   private @MonotonicNonNull EditingSession editingSession;
   private long startTimeMs;
 
@@ -108,9 +110,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    *
    * <p>A new instance must be created before starting a new export.
    *
+   * <p>Both {@code exporterName} and {@code muxerName} should follow the format
+   * "<packageName>:<version>".
+   *
    * @param context The {@link Context}.
+   * @param exporterName Java package name and version of the library or application implementing
+   *     the editing operation.
+   * @param muxerName Java package name and version of the library or application that writes to the
+   *     output file.
    */
-  public EditingMetricsCollector(Context context) {
+  public EditingMetricsCollector(Context context, String exporterName, @Nullable String muxerName) {
     @Nullable
     MediaMetricsManager mediaMetricsManager =
         (MediaMetricsManager) context.getSystemService(Context.MEDIA_METRICS_SERVICE);
@@ -118,6 +127,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       editingSession = checkNotNull(mediaMetricsManager.createEditingSession());
       startTimeMs = SystemClock.DEFAULT.elapsedRealtime();
     }
+    this.exporterName = exporterName;
+    this.muxerName = muxerName;
   }
 
   /** Called when export completes with success. */
@@ -174,8 +185,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   private EditingEndedEvent.Builder createEditingEndedEventBuilder(int finalState) {
     long endTimeMs = SystemClock.DEFAULT.elapsedRealtime();
-    return new EditingEndedEvent.Builder(finalState)
-        .setTimeSinceCreatedMillis(endTimeMs - startTimeMs);
+    EditingEndedEvent.Builder editingEndedEventBuilder =
+        new EditingEndedEvent.Builder(finalState)
+            .setTimeSinceCreatedMillis(endTimeMs - startTimeMs)
+            .setExporterName(exporterName);
+    if (muxerName != null) {
+      editingEndedEventBuilder.setMuxerName(muxerName);
+    }
+    return editingEndedEventBuilder;
   }
 
   private static int getEditingEndedEventErrorCode(@ExportException.ErrorCode int errorCode) {
