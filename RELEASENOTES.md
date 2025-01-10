@@ -3,6 +3,10 @@
 ### Unreleased changes
 
 *   Common Library:
+    *   Fix bug in `SimpleBasePlayer` where setting a new
+        `currentMediaItemIndex` in `State` after `setPlaylist` with `null`
+        `MediaMetadata` does not reevaluate the metadata
+        ([#1940](https://github.com/androidx/media/issues/1940)).
 *   ExoPlayer:
     *   Add experimental 'ExoPlayer' pre-warming support for playback using
         `MediaCodecVideoRenderer`. `DefaultRenderersFactory` can be configured

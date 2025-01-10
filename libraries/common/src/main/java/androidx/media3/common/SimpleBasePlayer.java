@@ -220,7 +220,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
           this.playlist = ((PlaylistTimeline) state.timeline).playlist;
         } else {
           this.currentTracks = state.currentTracks;
-          this.currentMetadata = state.currentMetadata;
+          this.currentMetadata = state.usesDerivedMediaMetadata ? null : state.currentMetadata;
         }
         this.playlistMetadata = state.playlistMetadata;
         this.currentMediaItemIndex = state.currentMediaItemIndex;
@@ -956,9 +956,12 @@ public abstract class SimpleBasePlayer extends BasePlayer {
      */
     public final long discontinuityPositionMs;
 
+    private final boolean usesDerivedMediaMetadata;
+
     private State(Builder builder) {
       Tracks currentTracks = builder.currentTracks;
       MediaMetadata currentMetadata = builder.currentMetadata;
+      boolean usesDerivedMediaMetadata = false;
       if (builder.timeline.isEmpty()) {
         checkArgument(
             builder.playbackState == Player.STATE_IDLE
@@ -1014,6 +1017,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
               getCombinedMediaMetadata(
                   builder.timeline.getWindow(mediaItemIndex, new Timeline.Window()).mediaItem,
                   checkNotNull(currentTracks));
+          usesDerivedMediaMetadata = true;
         }
       }
       if (builder.playerError != null) {
@@ -1090,6 +1094,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
       this.hasPositionDiscontinuity = builder.hasPositionDiscontinuity;
       this.positionDiscontinuityReason = builder.positionDiscontinuityReason;
       this.discontinuityPositionMs = builder.discontinuityPositionMs;
+      this.usesDerivedMediaMetadata = usesDerivedMediaMetadata;
     }
 
     /** Returns a {@link Builder} pre-populated with the current state values. */
