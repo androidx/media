@@ -91,8 +91,9 @@ public final class Mp4Extractor implements Extractor, SeekMap {
 
   /**
    * Flags controlling the behavior of the extractor. Possible flag values are {@link
-   * #FLAG_WORKAROUND_IGNORE_EDIT_LISTS}, {@link #FLAG_READ_MOTION_PHOTO_METADATA} and {@link
-   * #FLAG_READ_SEF_DATA}, {@link #FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES}.
+   * #FLAG_WORKAROUND_IGNORE_EDIT_LISTS}, {@link #FLAG_READ_MOTION_PHOTO_METADATA}, {@link
+   * #FLAG_READ_SEF_DATA}, {@link #FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES}, {@link
+   * #FLAG_READ_AUXILIARY_TRACKS} and {@link #FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES_H265}.
    */
   @Documented
   @Retention(RetentionPolicy.SOURCE)
@@ -106,7 +107,8 @@ public final class Mp4Extractor implements Extractor, SeekMap {
         FLAG_MARK_FIRST_VIDEO_TRACK_WITH_MAIN_ROLE,
         FLAG_EMIT_RAW_SUBTITLE_DATA,
         FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES,
-        FLAG_READ_AUXILIARY_TRACKS
+        FLAG_READ_AUXILIARY_TRACKS,
+        FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES_H265
       })
   public @interface Flags {}
 

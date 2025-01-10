@@ -91,7 +91,8 @@ public class FragmentedMp4Extractor implements Extractor {
    * Flags controlling the behavior of the extractor. Possible flag values are {@link
    * #FLAG_WORKAROUND_EVERY_VIDEO_FRAME_IS_SYNC_FRAME}, {@link #FLAG_WORKAROUND_IGNORE_TFDT_BOX},
    * {@link #FLAG_ENABLE_EMSG_TRACK}, {@link #FLAG_WORKAROUND_IGNORE_EDIT_LISTS}, {@link
-   * #FLAG_EMIT_RAW_SUBTITLE_DATA} and {@link #FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES}.
+   * #FLAG_EMIT_RAW_SUBTITLE_DATA}, {@link #FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES} and {@link
+   * #FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES_H265}.
    */
   @Documented
   @Retention(RetentionPolicy.SOURCE)
@@ -104,7 +105,8 @@ public class FragmentedMp4Extractor implements Extractor {
         FLAG_ENABLE_EMSG_TRACK,
         FLAG_WORKAROUND_IGNORE_EDIT_LISTS,
         FLAG_EMIT_RAW_SUBTITLE_DATA,
-        FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES
+        FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES,
+        FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES_H265
       })
   public @interface Flags {}
 
