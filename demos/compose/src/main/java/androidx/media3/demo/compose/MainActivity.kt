@@ -26,8 +26,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -35,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.media3.common.MediaItem
@@ -42,10 +47,12 @@ import androidx.media3.common.Player
 import androidx.media3.demo.compose.buttons.ExtraControls
 import androidx.media3.demo.compose.buttons.MinimalControls
 import androidx.media3.demo.compose.data.videos
+import androidx.media3.demo.compose.layout.CONTENT_SCALES
 import androidx.media3.demo.compose.layout.noRippleClickable
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.compose.PlayerSurface
 import androidx.media3.ui.compose.SURFACE_TYPE_SURFACE_VIEW
+import androidx.media3.ui.compose.modifiers.resizeWithContentScale
 import androidx.media3.ui.compose.state.rememberPresentationState
 
 class MainActivity : ComponentActivity() {
@@ -101,17 +108,22 @@ private fun initializePlayer(context: Context): Player =
 @Composable
 private fun MediaPlayerScreen(player: Player, modifier: Modifier = Modifier) {
   var showControls by remember { mutableStateOf(true) }
+  var currentContentScaleIndex by remember { mutableIntStateOf(0) }
+  val contentScale = CONTENT_SCALES[currentContentScaleIndex].second
+
   val presentationState = rememberPresentationState(player)
+  val scaledModifier = Modifier.resizeWithContentScale(contentScale, presentationState.videoSizeDp)
 
   Box(modifier) {
     PlayerSurface(
       player = player,
       surfaceType = SURFACE_TYPE_SURFACE_VIEW,
-      modifier = modifier.noRippleClickable { showControls = !showControls },
+      modifier = scaledModifier.noRippleClickable { showControls = !showControls },
     )
 
     if (!presentationState.showSurface) {
       // hide the surface that is being prepared behind a shutter
+      // TODO: picking scaledModifier here makes the shutter invisible
       Box(modifier.background(Color.Black))
     }
 
@@ -125,6 +137,13 @@ private fun MediaPlayerScreen(player: Player, modifier: Modifier = Modifier) {
           .background(Color.Gray.copy(alpha = 0.4f))
           .navigationBarsPadding(),
       )
+    }
+
+    Button(
+      onClick = { currentContentScaleIndex = currentContentScaleIndex.inc() % CONTENT_SCALES.size },
+      modifier = Modifier.align(Alignment.TopCenter).padding(top = 48.dp),
+    ) {
+      Text("ContentScale is ${CONTENT_SCALES[currentContentScaleIndex].first}")
     }
   }
 }

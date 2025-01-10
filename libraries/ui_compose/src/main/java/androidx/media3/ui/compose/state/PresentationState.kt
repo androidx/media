@@ -16,15 +16,20 @@
 
 package androidx.media3.ui.compose.state
 
+import androidx.annotation.Nullable
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.Dp
 import androidx.media3.common.C
 import androidx.media3.common.Player
 import androidx.media3.common.Timeline
+import androidx.media3.common.VideoSize
 import androidx.media3.common.listen
 import androidx.media3.common.util.UnstableApi
 
@@ -45,6 +50,13 @@ fun rememberPresentationState(player: Player): PresentationState {
  * State that holds information to correctly deal with UI components related to the rendering of
  * frames to a surface.
  *
+ * @property[videoSizeDp] wraps [Player.getVideoSize] in Compose's [Size], becomes `null` when
+ *   either height or width of the video is zero. Takes into account
+ *   [VideoSize.pixelWidthHeightRatio] to return a Size in [Dp], i.e. device-independent pixel. To
+ *   use this measurement in Compose's Drawing and Layout stages, convert it into pixels using
+ *   [Density.toPx]. Note that for cases where `pixelWidthHeightRatio` is not equal to 1, the
+ *   rescaling will be down, i.e. reducing the width or the height to achieve the same aspect ratio
+ *   in square pixels.
  * @property[showSurface] set to true when the Player emits [Player.EVENT_RENDERED_FIRST_FRAME] and
  *   reset to false on [Player.EVENT_TRACKS_CHANGED] depending on the number and type of tracks.
  * @property[keepContentOnReset] whether the currently displayed video frame or media artwork is
@@ -52,6 +64,9 @@ fun rememberPresentationState(player: Player): PresentationState {
  */
 @UnstableApi
 class PresentationState(private val player: Player) {
+  var videoSizeDp: Size? by mutableStateOf(getVideoSizeDp(player))
+    private set
+
   var showSurface by mutableStateOf(false)
     private set
 
@@ -65,6 +80,11 @@ class PresentationState(private val player: Player) {
 
   suspend fun observe(): Nothing =
     player.listen { events ->
+      if (events.contains(Player.EVENT_VIDEO_SIZE_CHANGED)) {
+        if (videoSize != VideoSize.UNKNOWN && playbackState != Player.STATE_IDLE) {
+          this@PresentationState.videoSizeDp = getVideoSizeDp(player)
+        }
+      }
       if (events.contains(Player.EVENT_RENDERED_FIRST_FRAME)) {
         showSurface = true
       }
@@ -72,6 +92,20 @@ class PresentationState(private val player: Player) {
         maybeHideSurface(player)
       }
     }
+
+  @Nullable
+  private fun getVideoSizeDp(player: Player): Size? {
+    var videoSize = Size(player.videoSize.width.toFloat(), player.videoSize.height.toFloat())
+    if (videoSize.width == 0f || videoSize.height == 0f) return null
+
+    val par = player.videoSize.pixelWidthHeightRatio
+    if (par < 1.0) {
+      videoSize = videoSize.copy(width = videoSize.width * par)
+    } else if (par > 1.0) {
+      videoSize = videoSize.copy(height = videoSize.height / par)
+    }
+    return videoSize
+  }
 
   private fun maybeHideSurface(player: Player) {
     val hasTracks =

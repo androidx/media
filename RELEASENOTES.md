@@ -87,7 +87,9 @@
 *   Cast Extension:
 *   Test Utilities:
 *   Demo app:
-    *   Use `PresentationState` to cover the `PlayerSurface` with an overlay.
+    *   Use `PresentationState` to control the aspect ratio of `PlayerSurface`
+        Composable depending on the ContentScale type and cover it with a
+        shutter-overlay before the first frame is rendered.
 *   Remove deprecated symbols:
 
 ## 1.6
