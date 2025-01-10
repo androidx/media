@@ -682,16 +682,22 @@ public final class NalUnitUtil {
   }
 
   /**
-   * Returns the number of bytes needed from the NAL unit to determine whether subsequent NAL units
-   * can depend on the current NAL unit.
+   * Returns the number of bytes in the NAL unit header.
+   *
+   * <p>The NAL unit header can be used to determine the NAL unit type and whether subsequent NAL
+   * units can depend on the current NAL unit.
+   *
+   * <p>This is {@code nalUnitHeaderBytes} from the H.264 spec, or the size of {@code
+   * nal_unit_header()} in H.265.
    *
    * @param format The sample {@link Format}.
    */
-  public static int numberOfBytesToDetermineSampleDependencies(Format format) {
+  public static int numberOfBytesInNalUnitHeader(Format format) {
     if (Objects.equals(format.sampleMimeType, MimeTypes.VIDEO_H264)) {
       return 1;
     }
-    if (Objects.equals(format.sampleMimeType, MimeTypes.VIDEO_H265)) {
+    if (Objects.equals(format.sampleMimeType, MimeTypes.VIDEO_H265)
+        || MimeTypes.containsCodecsCorrespondingToMimeType(format.codecs, MimeTypes.VIDEO_H265)) {
       return 2;
     }
     return 0;

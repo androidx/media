@@ -150,6 +150,14 @@ public class FragmentedMp4Extractor implements Extractor {
   public static final int FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES = 1 << 6; // 64
 
   /**
+   * Flag to extract additional sample dependency information, and mark output buffers with {@link
+   * C#BUFFER_FLAG_NOT_DEPENDED_ON} for {@linkplain MimeTypes#VIDEO_H265 H.265} video.
+   *
+   * <p>See {@link #FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES}.
+   */
+  public static final int FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES_H265 = 1 << 7;
+
+  /**
    * @deprecated Use {@link #newFactory(SubtitleParser.Factory)} instead.
    */
   @Deprecated
@@ -193,7 +201,7 @@ public class FragmentedMp4Extractor implements Extractor {
   // Temporary arrays.
   private final ParsableByteArray nalStartCode;
   private final ParsableByteArray nalPrefix;
-  private final ParsableByteArray nalBuffer;
+  private final ParsableByteArray nalUnitWithoutHeaderBuffer;
   private final byte[] scratchBytes;
   private final ParsableByteArray scratch;
 
@@ -400,8 +408,8 @@ public class FragmentedMp4Extractor implements Extractor {
     eventMessageEncoder = new EventMessageEncoder();
     atomHeader = new ParsableByteArray(Mp4Box.LONG_HEADER_SIZE);
     nalStartCode = new ParsableByteArray(NalUnitUtil.NAL_START_CODE);
-    nalPrefix = new ParsableByteArray(5);
-    nalBuffer = new ParsableByteArray();
+    nalPrefix = new ParsableByteArray(6);
+    nalUnitWithoutHeaderBuffer = new ParsableByteArray();
     scratchBytes = new byte[16];
     scratch = new ParsableByteArray(scratchBytes);
     containerAtoms = new ArrayDeque<>();
@@ -1533,12 +1541,10 @@ public class FragmentedMp4Extractor implements Extractor {
     if (parserState == STATE_READING_SAMPLE_START) {
       sampleSize = trackBundle.getCurrentSampleSize();
       // We must check all NAL units in the Fragmented MP4 sample for dependencies.
-      // When FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES is unset, or codec is not supported,
+      // When reading sample dependencies is disabled, or codec is not supported,
       // set isSampleDependedOn = true and skip parsing the payload bytes.
       isSampleDependedOn =
-          (flags & FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES) == 0
-              || !Objects.equals(
-                  trackBundle.moovSampleTable.track.format.sampleMimeType, MimeTypes.VIDEO_H264);
+          !canReadWithinGopSampleDependencies(trackBundle.moovSampleTable.track.format);
 
       if (trackBundle.currentSampleIndex < trackBundle.firstSampleToOutputIndex) {
         input.skipFully(sampleSize);
@@ -1585,57 +1591,74 @@ public class FragmentedMp4Extractor implements Extractor {
       nalPrefixData[0] = 0;
       nalPrefixData[1] = 0;
       nalPrefixData[2] = 0;
-      int nalUnitPrefixLength = track.nalUnitLengthFieldLength + 1;
       int nalUnitLengthFieldLengthDiff = 4 - track.nalUnitLengthFieldLength;
       // NAL units are length delimited, but the decoder requires start code delimited units.
       // Loop until we've written the sample to the track output, replacing length delimiters with
       // start codes as we encounter them.
       while (sampleBytesWritten < sampleSize) {
         if (sampleCurrentNalBytesRemaining == 0) {
+          int numberOfNalUnitHeaderBytesToRead = 0;
+          if (ceaTrackOutputs.length > 0 || !isSampleDependedOn) {
+            // Try to read the NAL unit header if we're parsing captions or sample dependencies.
+            int nalUnitHeaderSize = NalUnitUtil.numberOfBytesInNalUnitHeader(track.format);
+            if (track.nalUnitLengthFieldLength + nalUnitHeaderSize
+                <= sampleSize - sampleBytesWritten) {
+              // In some malformed videos with padding, the NAL unit may be empty.
+              // See b/383201567#comment20
+              // Only try to read the header if there are enough bytes in this sample.
+              numberOfNalUnitHeaderBytesToRead = nalUnitHeaderSize;
+            }
+          }
+          // Read numberOfNalUnitHeaderBytesToRead in the same readFully call that reads the NAL
+          // length. This ensures sampleBytesRead, sampleBytesWritten and isSampleDependedOn remain
+          // in a consistent state if we have read failures.
+          int nalUnitPrefixLength =
+              track.nalUnitLengthFieldLength + numberOfNalUnitHeaderBytesToRead;
           // Read the NAL length so that we know where we find the next one, and its type.
           input.readFully(nalPrefixData, nalUnitLengthFieldLengthDiff, nalUnitPrefixLength);
           nalPrefix.setPosition(0);
           int nalLengthInt = nalPrefix.readInt();
-          if (nalLengthInt < 1) {
+          if (nalLengthInt < 0) {
             throw ParserException.createForMalformedContainer(
                 "Invalid NAL length", /* cause= */ null);
           }
-          sampleCurrentNalBytesRemaining = nalLengthInt - 1;
+          sampleCurrentNalBytesRemaining = nalLengthInt - numberOfNalUnitHeaderBytesToRead;
           // Write a start code for the current NAL unit.
           nalStartCode.setPosition(0);
           output.sampleData(nalStartCode, 4);
-          // Write the NAL unit type byte.
-          output.sampleData(nalPrefix, 1);
+          sampleBytesWritten += 4;
+          sampleSize += nalUnitLengthFieldLengthDiff;
           processSeiNalUnitPayload =
               ceaTrackOutputs.length > 0
+                  && numberOfNalUnitHeaderBytesToRead > 0
                   && NalUnitUtil.isNalUnitSei(track.format, nalPrefixData[4]);
-          sampleBytesWritten += 5;
-          sampleSize += nalUnitLengthFieldLengthDiff;
-          if (!isSampleDependedOn
-              && Objects.equals(
-                  trackBundle.moovSampleTable.track.format.sampleMimeType, MimeTypes.VIDEO_H264)
-              && NalUnitUtil.isH264NalUnitDependedOn(nalPrefixData[4])) {
+          // Write the extra NAL unit bytes to the output.
+          output.sampleData(nalPrefix, numberOfNalUnitHeaderBytesToRead);
+          sampleBytesWritten += numberOfNalUnitHeaderBytesToRead;
+          if (numberOfNalUnitHeaderBytesToRead > 0
+              && !isSampleDependedOn
+              && NalUnitUtil.isDependedOn(
+                  nalPrefixData,
+                  /* offset= */ 4,
+                  /* length= */ numberOfNalUnitHeaderBytesToRead,
+                  track.format)) {
             isSampleDependedOn = true;
           }
         } else {
           int writtenBytes;
           if (processSeiNalUnitPayload) {
-            // Read and write the payload of the SEI NAL unit.
-            nalBuffer.reset(sampleCurrentNalBytesRemaining);
-            input.readFully(nalBuffer.getData(), 0, sampleCurrentNalBytesRemaining);
-            output.sampleData(nalBuffer, sampleCurrentNalBytesRemaining);
+            // Read and write the remaining payload of the SEI NAL unit.
+            nalUnitWithoutHeaderBuffer.reset(sampleCurrentNalBytesRemaining);
+            input.readFully(
+                nalUnitWithoutHeaderBuffer.getData(), 0, sampleCurrentNalBytesRemaining);
+            output.sampleData(nalUnitWithoutHeaderBuffer, sampleCurrentNalBytesRemaining);
             writtenBytes = sampleCurrentNalBytesRemaining;
             // Unescape and process the SEI NAL unit.
             int unescapedLength =
-                NalUnitUtil.unescapeStream(nalBuffer.getData(), nalBuffer.limit());
-            // If the format is H.265/HEVC the NAL unit header has two bytes so skip one more byte.
-            nalBuffer.setPosition(
-                Objects.equals(track.format.sampleMimeType, MimeTypes.VIDEO_H265)
-                        || MimeTypes.containsCodecsCorrespondingToMimeType(
-                            track.format.codecs, MimeTypes.VIDEO_H265)
-                    ? 1
-                    : 0);
-            nalBuffer.setLimit(unescapedLength);
+                NalUnitUtil.unescapeStream(
+                    nalUnitWithoutHeaderBuffer.getData(), nalUnitWithoutHeaderBuffer.limit());
+            nalUnitWithoutHeaderBuffer.setPosition(0);
+            nalUnitWithoutHeaderBuffer.setLimit(unescapedLength);
 
             if (track.format.maxNumReorderSamples == Format.NO_VALUE) {
               if (reorderingSeiMessageQueue.getMaxSize() != 0) {
@@ -1645,7 +1668,7 @@ public class FragmentedMp4Extractor implements Extractor {
                 != track.format.maxNumReorderSamples) {
               reorderingSeiMessageQueue.setMaxSize(track.format.maxNumReorderSamples);
             }
-            reorderingSeiMessageQueue.add(sampleTimeUs, nalBuffer);
+            reorderingSeiMessageQueue.add(sampleTimeUs, nalUnitWithoutHeaderBuffer);
 
             if ((trackBundle.getCurrentSampleFlags() & C.BUFFER_FLAG_END_OF_STREAM) != 0) {
               reorderingSeiMessageQueue.flush();
@@ -1666,7 +1689,7 @@ public class FragmentedMp4Extractor implements Extractor {
     }
 
     @C.BufferFlags int sampleFlags = trackBundle.getCurrentSampleFlags();
-    if ((flags & FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES) != 0 && !isSampleDependedOn) {
+    if (!isSampleDependedOn) {
       sampleFlags |= C.BUFFER_FLAG_NOT_DEPENDED_ON;
     }
 
@@ -1686,6 +1709,20 @@ public class FragmentedMp4Extractor implements Extractor {
     }
     parserState = STATE_READING_SAMPLE_START;
     return true;
+  }
+
+  /**
+   * Returns whether reading within GOP sample dependencies is enabled for the sample {@link
+   * Format}.
+   */
+  private boolean canReadWithinGopSampleDependencies(Format format) {
+    if (Objects.equals(format.sampleMimeType, MimeTypes.VIDEO_H264)) {
+      return (flags & FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES) != 0;
+    }
+    if (Objects.equals(format.sampleMimeType, MimeTypes.VIDEO_H265)) {
+      return (flags & FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES_H265) != 0;
+    }
+    return false;
   }
 
   /**

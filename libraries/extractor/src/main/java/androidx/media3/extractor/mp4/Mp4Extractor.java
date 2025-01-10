@@ -902,15 +902,14 @@ public final class Mp4Extractor implements Extractor, SeekMap {
           int nalUnitPrefixLength = track.track.nalUnitLengthFieldLength;
           int numberOfBytesToDetermineSampleDependencies = 0;
           if (!isSampleDependedOn
-              && nalUnitPrefixLength
-                      + NalUnitUtil.numberOfBytesToDetermineSampleDependencies(track.track.format)
+              && nalUnitPrefixLength + NalUnitUtil.numberOfBytesInNalUnitHeader(track.track.format)
                   <= track.sampleTable.sizes[sampleIndex] - sampleBytesRead) {
             // Parsing sample dependencies needs the first few NAL unit bytes. Read them in the same
             // readFully call that reads the NAL length. This ensures sampleBytesRead,
             // sampleBytesWritten and isSampleDependedOn remain in a consistent state if we have
             // read failures.
             numberOfBytesToDetermineSampleDependencies =
-                NalUnitUtil.numberOfBytesToDetermineSampleDependencies(track.track.format);
+                NalUnitUtil.numberOfBytesInNalUnitHeader(track.track.format);
             nalUnitPrefixLength =
                 track.track.nalUnitLengthFieldLength + numberOfBytesToDetermineSampleDependencies;
           }

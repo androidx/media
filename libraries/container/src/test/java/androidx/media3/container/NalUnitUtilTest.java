@@ -16,7 +16,7 @@
 package androidx.media3.container;
 
 import static androidx.media3.container.NalUnitUtil.isDependedOn;
-import static androidx.media3.container.NalUnitUtil.numberOfBytesToDetermineSampleDependencies;
+import static androidx.media3.container.NalUnitUtil.numberOfBytesInNalUnitHeader;
 import static androidx.media3.test.utils.TestUtil.createByteArray;
 import static com.google.common.truth.Truth.assertThat;
 
@@ -499,10 +499,10 @@ public final class NalUnitUtilTest {
   }
 
   @Test
-  public void numberOfBytesToDetermineSampleDependencies_vp8_returnsZero() {
+  public void numberOfBytesInNalUnitHeader_vp8_returnsZero() {
     Format vp8Video = new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_VP8).build();
 
-    assertThat(numberOfBytesToDetermineSampleDependencies(vp8Video)).isEqualTo(0);
+    assertThat(numberOfBytesInNalUnitHeader(vp8Video)).isEqualTo(0);
   }
 
   @Test
