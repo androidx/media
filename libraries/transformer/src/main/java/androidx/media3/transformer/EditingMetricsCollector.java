@@ -17,16 +17,21 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
+import static androidx.media3.common.util.Util.usToMs;
 
 import android.content.Context;
 import android.media.metrics.EditingEndedEvent;
 import android.media.metrics.EditingSession;
+import android.media.metrics.MediaItemInfo;
 import android.media.metrics.MediaMetricsManager;
 import android.util.SparseIntArray;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.util.SystemClock;
+import com.google.common.collect.ImmutableList;
+import java.util.ArrayList;
+import java.util.List;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
@@ -131,15 +136,26 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.muxerName = muxerName;
   }
 
-  /** Called when export completes with success. */
-  public void onExportSuccess() {
+  /**
+   * Called when export completes with success.
+   *
+   * @param processedInputs The list of {@link ExportResult.ProcessedInput} instances.
+   */
+  public void onExportSuccess(ImmutableList<ExportResult.ProcessedInput> processedInputs) {
     if (editingSession == null) {
       return;
     }
-    editingSession.reportEditingEndedEvent(
+    EditingEndedEvent.Builder editingEndedEventBuilder =
         createEditingEndedEventBuilder(EditingEndedEvent.FINAL_STATE_SUCCEEDED)
-            .setFinalProgressPercent(SUCCESS_PROGRESS_PERCENTAGE)
-            .build());
+            .setFinalProgressPercent(SUCCESS_PROGRESS_PERCENTAGE);
+
+    List<MediaItemInfo> inputMediaItemInfoList = getMediaItemInfos(processedInputs);
+    for (int i = 0; i < inputMediaItemInfoList.size(); i++) {
+      MediaItemInfo inputMediaItemInfo = inputMediaItemInfoList.get(i);
+      editingEndedEventBuilder.addInputMediaItemInfo(inputMediaItemInfo);
+    }
+
+    editingSession.reportEditingEndedEvent(editingEndedEventBuilder.build());
     editingSession.close();
   }
 
@@ -149,8 +165,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * @param progressPercentage The progress of the export operation in percent. Value is {@link
    *     C#PERCENTAGE_UNSET} if unknown or between 0 and 100 inclusive.
    * @param exportException The {@link ExportException} describing the exception.
+   * @param processedInputs The list of {@link ExportResult.ProcessedInput} instances.
    */
-  public void onExportError(int progressPercentage, ExportException exportException) {
+  public void onExportError(
+      int progressPercentage,
+      ExportException exportException,
+      ImmutableList<ExportResult.ProcessedInput> processedInputs) {
     if (editingSession == null) {
       return;
     }
@@ -160,6 +180,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     if (progressPercentage != C.PERCENTAGE_UNSET) {
       editingEndedEventBuilder.setFinalProgressPercent(progressPercentage);
     }
+
+    List<MediaItemInfo> inputMediaItemInfoList = getMediaItemInfos(processedInputs);
+    for (int i = 0; i < inputMediaItemInfoList.size(); i++) {
+      MediaItemInfo inputMediaItemInfo = inputMediaItemInfoList.get(i);
+      editingEndedEventBuilder.addInputMediaItemInfo(inputMediaItemInfo);
+    }
+
     editingSession.reportEditingEndedEvent(editingEndedEventBuilder.build());
     editingSession.close();
   }
@@ -193,6 +220,20 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       editingEndedEventBuilder.setMuxerName(muxerName);
     }
     return editingEndedEventBuilder;
+  }
+
+  private static List<MediaItemInfo> getMediaItemInfos(
+      ImmutableList<ExportResult.ProcessedInput> processedInputs) {
+    List<MediaItemInfo> mediaItemInfoList = new ArrayList<>();
+    for (int i = 0; i < processedInputs.size(); i++) {
+      ExportResult.ProcessedInput processedInput = processedInputs.get(i);
+      MediaItemInfo.Builder mediaItemInfoBuilder = new MediaItemInfo.Builder();
+      long durationMs = usToMs(processedInput.durationUs);
+      mediaItemInfoBuilder.setDurationMillis(durationMs);
+      // TODO: Collect more information about the MediaItem and pass it to MediaItemInfo.Builder
+      mediaItemInfoList.add(mediaItemInfoBuilder.build());
+    }
+    return mediaItemInfoList;
   }
 
   private static int getEditingEndedEventErrorCode(@ExportException.ErrorCode int errorCode) {

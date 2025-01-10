@@ -1613,22 +1613,23 @@ public final class Transformer {
 
   private void onExportCompletedWithSuccess() {
     maybeStopExportWatchdogTimer();
+    ExportResult exportResult = exportResultBuilder.build();
     listeners.queueEvent(
         /* eventFlag= */ C.INDEX_UNSET,
-        listener -> listener.onCompleted(checkNotNull(composition), exportResultBuilder.build()));
+        listener -> listener.onCompleted(checkNotNull(composition), exportResult));
     listeners.flushEvents();
     if (canCollectEditingMetrics()) {
-      checkNotNull(editingMetricsCollector).onExportSuccess();
+      checkNotNull(editingMetricsCollector).onExportSuccess(exportResult.processedInputs);
     }
     transformerState = TRANSFORMER_STATE_PROCESS_FULL_INPUT;
   }
 
   private void onExportCompletedWithError(ExportException exception) {
     maybeStopExportWatchdogTimer();
+    ExportResult exportResult = exportResultBuilder.build();
     listeners.queueEvent(
         /* eventFlag= */ C.INDEX_UNSET,
-        listener ->
-            listener.onError(checkNotNull(composition), exportResultBuilder.build(), exception));
+        listener -> listener.onError(checkNotNull(composition), exportResult, exception));
     listeners.flushEvents();
     if (canCollectEditingMetrics()) {
       ProgressHolder progressHolder = new ProgressHolder();
@@ -1637,7 +1638,8 @@ public final class Transformer {
           (progressState == PROGRESS_STATE_AVAILABLE)
               ? progressHolder.progress
               : C.PERCENTAGE_UNSET;
-      checkNotNull(editingMetricsCollector).onExportError(progressPercentage, exception);
+      checkNotNull(editingMetricsCollector)
+          .onExportError(progressPercentage, exception, exportResult.processedInputs);
     }
     transformerState = TRANSFORMER_STATE_PROCESS_FULL_INPUT;
   }
