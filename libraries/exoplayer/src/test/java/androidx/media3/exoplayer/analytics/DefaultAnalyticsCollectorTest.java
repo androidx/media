@@ -1253,7 +1253,10 @@ public final class DefaultAnalyticsCollectorTest {
             postrollAd,
             contentAfterPostroll)
         .inOrder();
-    assertThat(listener.getEvents(EVENT_VIDEO_ENABLED)).containsExactly(prerollAd);
+    assertThat(listener.getEvents(EVENT_VIDEO_ENABLED))
+        .containsExactly(prerollAd, contentAfterPreroll, contentAfterMidroll);
+    assertThat(listener.getEvents(EVENT_VIDEO_DISABLED))
+        .containsExactly(prerollAd, contentAfterPreroll);
     assertThat(listener.getEvents(EVENT_VIDEO_DECODER_INITIALIZED))
         .containsExactly(
             prerollAd,
@@ -1273,9 +1276,14 @@ public final class DefaultAnalyticsCollectorTest {
             contentAfterPostroll)
         .inOrder();
     assertThat(listener.getEvents(EVENT_DROPPED_VIDEO_FRAMES))
-        .containsExactly(contentAfterPostroll);
+        .containsExactly(contentAfterPreroll, contentAfterPostroll);
     assertThat(listener.getEvents(EVENT_VIDEO_SIZE_CHANGED))
-        .containsExactly(prerollAd) // First frame rendered
+        .containsExactly(
+            prerollAd, // First frame rendered
+            contentAfterPreroll, // Size unknown for renderer reset
+            contentAfterPreroll, // Content size
+            contentAfterMidroll, // Size unknown for renderer reset
+            contentAfterMidroll) // Content size
         .inOrder();
     assertThat(listener.getEvents(EVENT_RENDERED_FIRST_FRAME))
         .containsExactly(
@@ -1287,7 +1295,7 @@ public final class DefaultAnalyticsCollectorTest {
             contentAfterPostroll)
         .inOrder();
     assertThat(listener.getEvents(EVENT_VIDEO_FRAME_PROCESSING_OFFSET))
-        .containsExactly(contentAfterPostroll);
+        .containsExactly(contentAfterPreroll, contentAfterPostroll);
     assertThat(listener.getEvents(EVENT_RENDERER_READY_CHANGED))
         .containsExactly(prerollAd /* videoTrue */);
     listener.assertNoMoreEvents();

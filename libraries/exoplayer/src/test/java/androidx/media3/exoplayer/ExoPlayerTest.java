@@ -69,6 +69,7 @@ import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.runUnti
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.runUntilPositionDiscontinuity;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.runUntilSleepingForOffload;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.runUntilTimelineChanged;
+import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.Arrays.stream;
 import static org.junit.Assert.assertArrayEquals;
@@ -12022,6 +12023,9 @@ public class ExoPlayerTest {
 
           @Override
           public void setPlaybackParameters(PlaybackParameters parameters) {
+            if (!playbackParameters.isEmpty() && getLast(playbackParameters).equals(parameters)) {
+              return;
+            }
             playbackParameters.add(parameters);
           }
 
@@ -12029,7 +12033,7 @@ public class ExoPlayerTest {
           public PlaybackParameters getPlaybackParameters() {
             return playbackParameters.isEmpty()
                 ? PlaybackParameters.DEFAULT
-                : Iterables.getLast(playbackParameters);
+                : getLast(playbackParameters);
           }
 
           @Override
@@ -12477,7 +12481,7 @@ public class ExoPlayerTest {
     verify(listener).onRepeatModeChanged(anyInt());
     verify(listener).onShuffleModeEnabledChanged(anyBoolean());
     verify(listener, times(2)).onEvents(eq(player), eventCaptor.capture());
-    events = Iterables.getLast(eventCaptor.getAllValues());
+    events = getLast(eventCaptor.getAllValues());
     assertThat(events.contains(Player.EVENT_REPEAT_MODE_CHANGED)).isTrue();
     assertThat(events.contains(Player.EVENT_SHUFFLE_MODE_ENABLED_CHANGED)).isTrue();
 

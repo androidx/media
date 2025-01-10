@@ -83,6 +83,10 @@ public class FakeRenderer extends BaseRenderer {
 
   @Override
   protected void onPositionReset(long positionUs, boolean joining) throws ExoPlaybackException {
+    if (playbackPositionUs == positionUs && lastSamplePositionUs == Long.MIN_VALUE && !isEnded) {
+      // Nothing change, ignore reset operation.
+      return;
+    }
     playbackPositionUs = positionUs;
     lastSamplePositionUs = Long.MIN_VALUE;
     hasPendingBuffer = false;

@@ -10,6 +10,8 @@
         provide a secondary `MediaCodecVideoRenderer` to `ExoPlayer`. If
         enabled, `ExoPlayer` will pre-process the video of consecutive media
         items during playback to reduce media item transition latency.
+    *   Fix issue where additional decode-only frames may be displayed in quick
+        succession when transitioning to content media after a mid-roll ad.
 *   Transformer:
     *   Enable support for Android platform diagnostics via
         `MediaMetricsManager`. Transformer will forward editing events and

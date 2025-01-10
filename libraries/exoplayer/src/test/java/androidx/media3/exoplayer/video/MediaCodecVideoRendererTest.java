@@ -647,6 +647,7 @@ public class MediaCodecVideoRendererTest {
         sampleStreams,
         /* streamResetFlags= */ new boolean[] {true},
         /* positionUs= */ 100);
+    clippingMediaPeriod.readDiscontinuity();
     mediaCodecVideoRenderer =
         new MediaCodecVideoRenderer(
             ApplicationProvider.getApplicationContext(),
@@ -752,6 +753,7 @@ public class MediaCodecVideoRendererTest {
         sampleStreams,
         /* streamResetFlags= */ new boolean[] {true},
         /* positionUs= */ 100);
+    clippingMediaPeriod.readDiscontinuity();
     mediaCodecVideoRenderer =
         new MediaCodecVideoRenderer(
             ApplicationProvider.getApplicationContext(),
