@@ -1,3 +1,18 @@
+/*
+ * Copyright 2025 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package androidx.media3.extractor.text.vobsub;
 
 import static java.lang.Math.min;
@@ -11,6 +26,7 @@ import androidx.media3.common.Format;
 import androidx.media3.common.Format.CueReplacementBehavior;
 import androidx.media3.common.text.Cue;
 import androidx.media3.common.util.Consumer;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.ParsableBitArray;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
@@ -23,8 +39,6 @@ import java.util.List;
 import java.util.zip.Inflater;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
-// Much of this is taken from or very similar to PgsParser
-
 /** A {@link SubtitleParser} for Vobsub subtitles. */
 @UnstableApi
 public final class VobsubParser implements SubtitleParser {
@@ -36,6 +50,7 @@ public final class VobsubParser implements SubtitleParser {
   public static final @CueReplacementBehavior int CUE_REPLACEMENT_BEHAVIOR =
       Format.CUE_REPLACEMENT_BEHAVIOR_REPLACE;
 
+  private static final String TAG = "VobsubParser";
   private static final int DEFAULT_DURATION_US = 5_000_000;
 
   private final ParsableByteArray scratch;
@@ -104,7 +119,7 @@ public final class VobsubParser implements SubtitleParser {
     private int @MonotonicNonNull [] palette;
     private int planeWidth;
     private int planeHeight;
-    private @Nullable Rect boundingBox;
+    @Nullable private Rect boundingBox;
     private int dataOffset0;
     private int dataOffset1;
 
@@ -134,6 +149,7 @@ public final class VobsubParser implements SubtitleParser {
               planeHeight = Integer.parseInt(sizes[1]);
               hasPlane = true;
             } catch (RuntimeException e) {
+              Log.w(TAG, "Parsing IDX failed", e);
             }
           }
         }
@@ -182,6 +198,7 @@ public final class VobsubParser implements SubtitleParser {
             }
             break;
           case CMD_END:
+          default:
             return;
         }
       }
@@ -329,7 +346,7 @@ public final class VobsubParser implements SubtitleParser {
         }
         if (x >= width) {
           y += 2;
-          if (y >= height) break;
+          if (y >= height){ break;}
           x = 0;
           outIndex = y * width;
           bitBuffer.byteAlign();
