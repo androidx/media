@@ -92,7 +92,7 @@ public final class H265Reader implements ElementaryStreamReader {
     pps.reset();
     prefixSei.reset();
     suffixSei.reset();
-    seiReader.flush();
+    seiReader.clear();
     if (sampleReader != null) {
       sampleReader.reset();
     }
