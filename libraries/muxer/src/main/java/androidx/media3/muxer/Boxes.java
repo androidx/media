@@ -1065,21 +1065,28 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
         ByteBuffer.allocate(writtenChunkSampleCounts.size() * 12 + MAX_FIXED_LEAF_BOX_SIZE);
 
     contents.putInt(0x0); // version and flags
-    contents.putInt(writtenChunkSampleCounts.size()); // entry_count
+    int totalEntryCountIndex = contents.position();
+    contents.putInt(0); // entry_count
 
     int currentChunk = 1;
+    int prevChunkSampleCount = -1;
+    int totalEntryCount = 0;
 
-    // TODO: b/270583563 - Consider optimizing for consecutive chunks having same number of samples.
     for (int i = 0; i < writtenChunkSampleCounts.size(); i++) {
       int samplesInChunk = writtenChunkSampleCounts.get(i);
-      contents.putInt(currentChunk); // first_chunk
-      contents.putInt(samplesInChunk); // samples_per_chunk
-      // sample_description_index: there is only one sample description in each track.
-      contents.putInt(1);
-
+      // For exact same chunks, add only first chunk number.
+      if (samplesInChunk != prevChunkSampleCount) {
+        contents.putInt(currentChunk); // first_chunk
+        contents.putInt(samplesInChunk); // samples_per_chunk
+        // sample_description_index: there is only one sample description in each track.
+        contents.putInt(1);
+        totalEntryCount++;
+        prevChunkSampleCount = samplesInChunk;
+      }
       currentChunk += 1;
     }
 
+    contents.putInt(totalEntryCountIndex, totalEntryCount);
     contents.flip();
     return BoxUtils.wrapIntoBox("stsc", contents);
   }
