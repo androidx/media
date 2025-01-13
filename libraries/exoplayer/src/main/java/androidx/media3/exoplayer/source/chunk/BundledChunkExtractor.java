@@ -61,7 +61,7 @@ public final class BundledChunkExtractor implements ExtractorOutput, ChunkExtrac
 
     private SubtitleParser.Factory subtitleParserFactory;
     private boolean parseSubtitlesDuringExtraction;
-    private boolean parseWithinGopSampleDependencies;
+    private @C.VideoCodecFlags int codecsToParseWithinGopSampleDependencies;
 
     public Factory() {
       subtitleParserFactory = new DefaultSubtitleParserFactory();
@@ -79,6 +79,14 @@ public final class BundledChunkExtractor implements ExtractorOutput, ChunkExtrac
     public Factory experimentalParseSubtitlesDuringExtraction(
         boolean parseSubtitlesDuringExtraction) {
       this.parseSubtitlesDuringExtraction = parseSubtitlesDuringExtraction;
+      return this;
+    }
+
+    @Override
+    @CanIgnoreReturnValue
+    public Factory experimentalSetCodecsToParseWithinGopSampleDependencies(
+        @C.VideoCodecFlags int codecsToParseWithinGopSampleDependencies) {
+      this.codecsToParseWithinGopSampleDependencies = codecsToParseWithinGopSampleDependencies;
       return this;
     }
 
@@ -147,8 +155,11 @@ public final class BundledChunkExtractor implements ExtractorOutput, ChunkExtrac
         if (!parseSubtitlesDuringExtraction) {
           flags |= FragmentedMp4Extractor.FLAG_EMIT_RAW_SUBTITLE_DATA;
         }
-        if (parseWithinGopSampleDependencies) {
+        if ((codecsToParseWithinGopSampleDependencies & C.VIDEO_CODEC_FLAG_H264) != 0) {
           flags |= FragmentedMp4Extractor.FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES;
+        }
+        if ((codecsToParseWithinGopSampleDependencies & C.VIDEO_CODEC_FLAG_H265) != 0) {
+          flags |= FragmentedMp4Extractor.FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES_H265;
         }
         extractor =
             new FragmentedMp4Extractor(
@@ -171,15 +182,18 @@ public final class BundledChunkExtractor implements ExtractorOutput, ChunkExtrac
      *
      * <p>This method is experimental and will be renamed or removed in a future release.
      *
+     * @deprecated Use {@link #experimentalSetCodecsToParseWithinGopSampleDependencies(int)}
+     *     instead.
      * @param parseWithinGopSampleDependencies Whether to parse within GOP sample dependencies
      *     during extraction.
      * @return This factory, for convenience.
      */
     @CanIgnoreReturnValue
+    @Deprecated
     public Factory experimentalParseWithinGopSampleDependencies(
         boolean parseWithinGopSampleDependencies) {
-      this.parseWithinGopSampleDependencies = parseWithinGopSampleDependencies;
-      return this;
+      return experimentalSetCodecsToParseWithinGopSampleDependencies(
+          parseWithinGopSampleDependencies ? C.VIDEO_CODEC_FLAG_H264 : 0);
     }
   }
 

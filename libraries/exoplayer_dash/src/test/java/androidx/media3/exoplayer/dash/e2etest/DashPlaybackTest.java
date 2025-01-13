@@ -29,6 +29,7 @@ import android.graphics.SurfaceTexture;
 import android.net.Uri;
 import android.view.Surface;
 import androidx.annotation.Nullable;
+import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.Player;
@@ -597,7 +598,8 @@ public final class DashPlaybackTest {
     CapturingRenderersFactory capturingRenderersFactory =
         new CapturingRenderersFactory(applicationContext);
     BundledChunkExtractor.Factory chunkExtractorFactory =
-        new BundledChunkExtractor.Factory().experimentalParseWithinGopSampleDependencies(true);
+        new BundledChunkExtractor.Factory()
+            .experimentalSetCodecsToParseWithinGopSampleDependencies(C.VIDEO_CODEC_FLAG_H264);
     DataSource.Factory defaultDataSourceFactory = new DefaultDataSource.Factory(applicationContext);
     DashMediaSource.Factory dashMediaSourceFactory =
         new DashMediaSource.Factory(
@@ -629,7 +631,8 @@ public final class DashPlaybackTest {
   public void playVideo_usingWithinGopSampleDependencies_withSeekAfterEoS() throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
     BundledChunkExtractor.Factory chunkExtractorFactory =
-        new BundledChunkExtractor.Factory().experimentalParseWithinGopSampleDependencies(true);
+        new BundledChunkExtractor.Factory()
+            .experimentalSetCodecsToParseWithinGopSampleDependencies(C.VIDEO_CODEC_FLAG_H264);
     DataSource.Factory defaultDataSourceFactory = new DefaultDataSource.Factory(applicationContext);
     DashMediaSource.Factory dashMediaSourceFactory =
         new DashMediaSource.Factory(
@@ -654,6 +657,43 @@ public final class DashPlaybackTest {
     assertThat(decoderCounters.queuedInputBufferCount).isEqualTo(17);
     // TODO: b/352276461 - The last frame might not be rendered. When the bug is fixed,
     //  assert on the full playback dump.
+  }
+
+  @Test
+  public void playVideo_usingWithinGopSampleDependenciesOnH265_withSeek() throws Exception {
+    Context applicationContext = ApplicationProvider.getApplicationContext();
+    CapturingRenderersFactory capturingRenderersFactory =
+        new CapturingRenderersFactory(applicationContext);
+    BundledChunkExtractor.Factory chunkExtractorFactory =
+        new BundledChunkExtractor.Factory()
+            .experimentalSetCodecsToParseWithinGopSampleDependencies(C.VIDEO_CODEC_FLAG_H265);
+    DataSource.Factory defaultDataSourceFactory = new DefaultDataSource.Factory(applicationContext);
+    DashMediaSource.Factory dashMediaSourceFactory =
+        new DashMediaSource.Factory(
+            /* chunkSourceFactory= */ new DefaultDashChunkSource.Factory(
+                chunkExtractorFactory, defaultDataSourceFactory, /* maxSegmentsPerLoad= */ 1),
+            /* manifestDataSourceFactory= */ defaultDataSourceFactory);
+    ExoPlayer player =
+        new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
+            .setMediaSourceFactory(dashMediaSourceFactory)
+            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .build();
+    player.setTrackSelectionParameters(
+        player.getTrackSelectionParameters().buildUpon().setPreferredTextLanguage("en").build());
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
+    PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
+
+    player.setMediaItem(MediaItem.fromUri("asset:///media/dash/captions_h265/manifest.mpd"));
+    player.seekTo(500L);
+    player.prepare();
+    player.play();
+    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
+    player.release();
+    surface.release();
+
+    DumpFileAsserts.assertOutput(
+        applicationContext, playbackOutput, "playbackdumps/dash/optimized_seek_h265.dump");
   }
 
   @Test

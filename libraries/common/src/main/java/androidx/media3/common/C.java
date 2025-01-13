@@ -617,6 +617,28 @@ public final class C {
   public static final int ALLOW_CAPTURE_BY_SYSTEM = AudioAttributes.ALLOW_CAPTURE_BY_SYSTEM;
 
   /**
+   * Flags which represent a set of video codecs.
+   *
+   * <p>Possible flag values are:
+   *
+   * <ul>
+   *   <li>{@link #VIDEO_CODEC_FLAG_H264}
+   *   <li>{@link #VIDEO_CODEC_FLAG_H265}
+   * </ul>
+   */
+  @UnstableApi
+  @Documented
+  @Retention(RetentionPolicy.SOURCE)
+  @Target(TYPE_USE)
+  @IntDef(
+      flag = true,
+      value = {VIDEO_CODEC_FLAG_H264, VIDEO_CODEC_FLAG_H265})
+  public @interface VideoCodecFlags {}
+
+  @UnstableApi public static final int VIDEO_CODEC_FLAG_H264 = 1;
+  @UnstableApi public static final int VIDEO_CODEC_FLAG_H265 = 2;
+
+  /**
    * Flags which can apply to a buffer containing a media sample.
    *
    * <p>Possible flag values are:
