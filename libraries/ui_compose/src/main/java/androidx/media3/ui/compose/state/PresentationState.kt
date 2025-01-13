@@ -57,8 +57,9 @@ fun rememberPresentationState(player: Player): PresentationState {
  *   [Density.toPx]. Note that for cases where `pixelWidthHeightRatio` is not equal to 1, the
  *   rescaling will be down, i.e. reducing the width or the height to achieve the same aspect ratio
  *   in square pixels.
- * @property[showSurface] set to true when the Player emits [Player.EVENT_RENDERED_FIRST_FRAME] and
- *   reset to false on [Player.EVENT_TRACKS_CHANGED] depending on the number and type of tracks.
+ * @property[coverSurface] set to false when the Player emits [Player.EVENT_RENDERED_FIRST_FRAME]
+ *   and reset back to true on [Player.EVENT_TRACKS_CHANGED] depending on the number and type of
+ *   tracks.
  * @property[keepContentOnReset] whether the currently displayed video frame or media artwork is
  *   kept visible when tracks change. Defaults to false.
  */
@@ -67,7 +68,7 @@ class PresentationState(private val player: Player) {
   var videoSizeDp: Size? by mutableStateOf(getVideoSizeDp(player))
     private set
 
-  var showSurface by mutableStateOf(false)
+  var coverSurface by mutableStateOf(true)
     private set
 
   var keepContentOnReset: Boolean = false
@@ -86,7 +87,8 @@ class PresentationState(private val player: Player) {
         }
       }
       if (events.contains(Player.EVENT_RENDERED_FIRST_FRAME)) {
-        showSurface = true
+        // open shutter, video available
+        coverSurface = false
       }
       if (events.contains(Player.EVENT_TRACKS_CHANGED)) {
         maybeHideSurface(player)
@@ -112,17 +114,17 @@ class PresentationState(private val player: Player) {
       player.isCommandAvailable(Player.COMMAND_GET_TRACKS) && !player.currentTracks.isEmpty
     if (!shouldKeepSurfaceVisible(player)) {
       if (!keepContentOnReset && !hasTracks) {
-        showSurface = false
+        coverSurface = true
       }
       if (hasTracks && !hasSelectedVideoTrack()) {
-        showSurface = false
+        coverSurface = true
       }
     }
   }
 
   private fun shouldKeepSurfaceVisible(player: Player): Boolean {
     // Suppress the shutter if transitioning to an unprepared period within the same window. This
-    // is necessary to avoid closing the shutter (i.e hiding the surface) when such a transition
+    // is necessary to avoid closing the shutter (i.e covering the surface) when such a transition
     // occurs. See: https://github.com/google/ExoPlayer/issues/5507.
     val timeline =
       if (player.isCommandAvailable(Player.COMMAND_GET_TIMELINE)) player.currentTimeline

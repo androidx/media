@@ -114,17 +114,21 @@ private fun MediaPlayerScreen(player: Player, modifier: Modifier = Modifier) {
   val presentationState = rememberPresentationState(player)
   val scaledModifier = Modifier.resizeWithContentScale(contentScale, presentationState.videoSizeDp)
 
+  // Only use MediaPlayerScreen's modifier once for the top level Composable
   Box(modifier) {
+    // Always leave PlayerSurface to be part of the Compose tree because it will be initialised in
+    // the process. If this composable is guarded by some condition, it might never become visible
+    // because the Player will not emit the relevant event, e.g. the first frame being ready.
     PlayerSurface(
       player = player,
       surfaceType = SURFACE_TYPE_SURFACE_VIEW,
       modifier = scaledModifier.noRippleClickable { showControls = !showControls },
     )
 
-    if (!presentationState.showSurface) {
-      // hide the surface that is being prepared behind a shutter
-      // TODO: picking scaledModifier here makes the shutter invisible
-      Box(modifier.background(Color.Black))
+    if (presentationState.coverSurface) {
+      // Cover the surface that is being prepared with a shutter
+      // Do not use scaledModifier here, makes the Box be measured at 0x0
+      Box(Modifier.matchParentSize().background(Color.Black))
     }
 
     if (showControls) {
