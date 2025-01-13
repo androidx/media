@@ -17,6 +17,8 @@ package androidx.media3.common.util;
 
 import static androidx.media3.common.util.Util.binarySearchCeil;
 import static androidx.media3.common.util.Util.binarySearchFloor;
+import static androidx.media3.common.util.Util.contentEquals;
+import static androidx.media3.common.util.Util.contentHashCode;
 import static androidx.media3.common.util.Util.escapeFileName;
 import static androidx.media3.common.util.Util.getCodecsOfType;
 import static androidx.media3.common.util.Util.getStringForTime;
@@ -42,10 +44,13 @@ import android.net.Uri;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
+import android.util.SparseArray;
 import android.util.SparseLongArray;
 import androidx.media3.common.C;
+import androidx.media3.test.utils.TestUtil;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.io.ByteStreams;
+import com.google.common.primitives.Bytes;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -72,6 +77,33 @@ import org.robolectric.shadows.ShadowLooper;
 public class UtilTest {
 
   private static final int TIMEOUT_MS = 10000;
+
+  @Test
+  public void toByteArray_fromIntArray() {
+    assertThat(Util.toByteArray(Integer.MIN_VALUE, -1, 0, 1, Integer.MAX_VALUE))
+        .isEqualTo(
+            Bytes.concat(
+                TestUtil.createByteArray(0x80, 0, 0, 0),
+                TestUtil.createByteArray(0xFF, 0xFF, 0xFF, 0xFF),
+                TestUtil.createByteArray(0, 0, 0, 0),
+                TestUtil.createByteArray(0, 0, 0, 1),
+                TestUtil.createByteArray(0x7F, 0xFF, 0xFF, 0xFF)));
+  }
+
+  @Test
+  public void toByteArray_fromFloat() {
+    assertThat(Util.toByteArray(Float.MAX_VALUE))
+        .isEqualTo(TestUtil.createByteArray(0x7F, 0x7F, 0xFF, 0xFF));
+
+    assertThat(Util.toByteArray(Float.MIN_VALUE))
+        .isEqualTo(TestUtil.createByteArray(0x00, 0x00, 0x00, 0x01));
+
+    assertThat(Util.toByteArray(0)).isEqualTo(TestUtil.createByteArray(0x00, 0x00, 0x00, 0x00));
+
+    assertThat(Util.toByteArray(1.0f)).isEqualTo(TestUtil.createByteArray(0x3F, 0x80, 0x00, 0x00));
+
+    assertThat(Util.toByteArray(-1.0f)).isEqualTo(TestUtil.createByteArray(0xBF, 0x80, 0x00, 0x00));
+  }
 
   @Test
   public void addWithOverflowDefault_withoutOverFlow_returnsSum() {
@@ -1258,7 +1290,6 @@ public class UtilTest {
 
   @Test
   public void getErrorCodeFromPlatformDiagnosticsInfo_withInvalidInput_returnsZero() {
-    // TODO (internal b/192337376): Change 0 for ERROR_UNKNOWN once available.
     assertThat(Util.getErrorCodeFromPlatformDiagnosticsInfo("")).isEqualTo(0);
     assertThat(Util.getErrorCodeFromPlatformDiagnosticsInfo("android.media.MediaDrm.empty"))
         .isEqualTo(0);
@@ -1522,6 +1553,77 @@ public class UtilTest {
         Util.getRoleFlagStrings(C.ROLE_FLAG_DESCRIBES_MUSIC_AND_SOUND | C.ROLE_FLAG_EASY_TO_READ);
 
     assertThat(roleFlags).containsExactly("describes-music", "easy-read");
+  }
+
+  @Test
+  public void contentEquals_twoNullSparseArrays_returnsTrue() {
+    assertThat(contentEquals(null, null)).isTrue();
+  }
+
+  @Test
+  public void contentEquals_oneNullSparseArrayAndOneNonNullSparseArray_returnsFalse() {
+    SparseArray<Integer> sparseArray = new SparseArray<>();
+    sparseArray.put(1, 2);
+
+    assertThat(contentEquals(sparseArray, null)).isFalse();
+    assertThat(contentEquals(null, sparseArray)).isFalse();
+  }
+
+  @Test
+  @Config(minSdk = 21) // Specifies the minimum SDK to enforce the test to run with all API levels.
+  public void contentEquals_sparseArraysWithEqualContent_returnsTrue() {
+    SparseArray<Integer> sparseArray1 = new SparseArray<>();
+    sparseArray1.put(1, 2);
+    sparseArray1.put(3, 4);
+    SparseArray<Integer> sparseArray2 = new SparseArray<>();
+    sparseArray2.put(3, 4);
+    sparseArray2.put(1, 2);
+
+    assertThat(contentEquals(sparseArray1, sparseArray2)).isTrue();
+  }
+
+  @Test
+  @Config(minSdk = 21) // Specifies the minimum SDK to enforce the test to run with all API levels.
+  public void contentEquals_sparseArraysWithDifferentContents_returnsFalse() {
+    SparseArray<Integer> sparseArray1 = new SparseArray<>();
+    sparseArray1.put(1, 2);
+    sparseArray1.put(3, 4);
+    SparseArray<Integer> sparseArray2 = new SparseArray<>();
+    sparseArray2.put(3, 4);
+    SparseArray<Integer> sparseArray3 = new SparseArray<>();
+    sparseArray3.put(1, 3);
+    sparseArray3.put(3, 4);
+
+    assertThat(contentEquals(sparseArray1, sparseArray2)).isFalse();
+    assertThat(contentEquals(sparseArray1, sparseArray3)).isFalse();
+  }
+
+  @Test
+  @Config(minSdk = 21) // Specifies the minimum SDK to enforce the test to run with all API levels.
+  public void contentHashCode_sparseArraysWithEqualContent_returnsEqualContentHashCode() {
+    SparseArray<Integer> sparseArray1 = new SparseArray<>();
+    sparseArray1.put(1, 2);
+    sparseArray1.put(3, 4);
+    SparseArray<Integer> sparseArray2 = new SparseArray<>();
+    sparseArray2.put(3, 4);
+    sparseArray2.put(1, 2);
+
+    assertThat(contentHashCode(sparseArray1)).isEqualTo(contentHashCode(sparseArray2));
+  }
+
+  @Test
+  @Config(minSdk = 21) // Specifies the minimum SDK to enforce the test to run with all API levels.
+  public void contentHashCode_sparseArraysWithDifferentContent_returnsDifferentContentHashCode() {
+    // In theory this is not guaranteed though, adding this test to ensure a sensible
+    // contentHashCode implementation.
+    SparseArray<Integer> sparseArray1 = new SparseArray<>();
+    sparseArray1.put(1, 2);
+    sparseArray1.put(3, 4);
+    SparseArray<Integer> sparseArray2 = new SparseArray<>();
+    sparseArray2.put(3, 2);
+    sparseArray2.put(1, 4);
+
+    assertThat(contentHashCode(sparseArray1)).isNotEqualTo(contentHashCode(sparseArray2));
   }
 
   private static void assertEscapeUnescapeFileName(String fileName, String escapedFileName) {

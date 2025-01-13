@@ -152,6 +152,9 @@ public interface AudioSink {
      * @param audioTrackConfig The {@link AudioTrackConfig} of the released {@link AudioTrack}.
      */
     default void onAudioTrackReleased(AudioTrackConfig audioTrackConfig) {}
+
+    /** Called when a period of silence has been skipped. */
+    default void onSilenceSkipped() {}
   }
 
   /** Configuration parameters used for an {@link AudioTrack}. */
@@ -236,6 +239,27 @@ public interface AudioSink {
     /**
      * Creates a new instance.
      *
+     * @param message The detail message for this exception.
+     * @param audioTrackState The underlying {@link AudioTrack}'s state.
+     * @param format The input format of the sink when the error occurs.
+     * @param isRecoverable Whether the exception can be recovered by recreating the sink.
+     * @param cause The {@link Throwable cause} of this exception.
+     */
+    public InitializationException(
+        String message,
+        int audioTrackState,
+        Format format,
+        boolean isRecoverable,
+        @Nullable Throwable cause) {
+      super(message, cause);
+      this.audioTrackState = audioTrackState;
+      this.isRecoverable = isRecoverable;
+      this.format = format;
+    }
+
+    /**
+     * Creates a new instance.
+     *
      * @param audioTrackState The underlying {@link AudioTrack}'s state.
      * @param sampleRate The requested sample rate in Hz.
      * @param channelConfig The requested channel configuration.
@@ -252,7 +276,7 @@ public interface AudioSink {
         Format format,
         boolean isRecoverable,
         @Nullable Exception audioTrackException) {
-      super(
+      this(
           "AudioTrack init failed "
               + audioTrackState
               + " "
@@ -260,10 +284,10 @@ public interface AudioSink {
               + " "
               + format
               + (isRecoverable ? " (recoverable)" : ""),
+          audioTrackState,
+          format,
+          isRecoverable,
           audioTrackException);
-      this.audioTrackState = audioTrackState;
-      this.isRecoverable = isRecoverable;
-      this.format = format;
     }
   }
 

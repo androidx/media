@@ -23,29 +23,40 @@ import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
-import android.content.res.AssetFileDescriptor;
 import android.graphics.ImageFormat;
 import android.media.Image;
 import android.media.ImageReader;
 import android.media.MediaCodec;
-import android.media.MediaCodecInfo;
-import android.media.MediaExtractor;
+import android.media.MediaCodecInfo.CodecCapabilities;
 import android.media.MediaFormat;
+import android.net.Uri;
 import android.os.Handler;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
+import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.ConditionVariable;
+import androidx.media3.common.util.Log;
+import androidx.media3.common.util.MediaFormatUtil;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import androidx.media3.exoplayer.MediaExtractorCompat;
+import androidx.media3.exoplayer.mediacodec.MediaCodecInfo;
+import androidx.media3.exoplayer.mediacodec.MediaCodecUtil;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.List;
 
-/** A wrapper for decoding a video using {@link MediaCodec}. */
+/**
+ * A wrapper for decoding a video using {@link MediaCodec}.
+ *
+ * <p>This test utility class prefers using a software decoder. Depending on video resolution and
+ * device, some hardware decoders fail to write frames in {@link ImageFormat#YUV_420_888} to {@link
+ * ImageReader} for use in CPU test utility functions.
+ */
 @UnstableApi
-@RequiresApi(21)
 public final class VideoDecodingWrapper implements AutoCloseable {
 
+  private static final String TAG = "VideoDecodingWrapper";
   private static final int IMAGE_AVAILABLE_TIMEOUT_MS = 10_000;
 
   // Use ExoPlayer's 10ms timeout setting. In practise, the test durations from using timeouts of
@@ -53,13 +64,11 @@ public final class VideoDecodingWrapper implements AutoCloseable {
   private static final long DEQUEUE_TIMEOUT_US = 10_000;
   // SSIM should be calculated using the luma (Y') channel, thus using the YUV color space.
   private static final int IMAGE_READER_COLOR_SPACE = ImageFormat.YUV_420_888;
-  private static final int MEDIA_CODEC_COLOR_SPACE =
-      MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible;
-  private static final String ASSET_FILE_SCHEME = "asset:///";
+  private static final int MEDIA_CODEC_COLOR_SPACE = CodecCapabilities.COLOR_FormatYUV420Flexible;
 
   private final MediaFormat mediaFormat;
   private final MediaCodec mediaCodec;
-  private final MediaExtractor mediaExtractor;
+  private final MediaExtractorCompat mediaExtractor;
   private final MediaCodec.BufferInfo bufferInfo;
   private final ImageReader imageReader;
   private final ConditionVariable imageAvailableConditionVariable;
@@ -85,17 +94,9 @@ public final class VideoDecodingWrapper implements AutoCloseable {
       Context context, String filePath, int comparisonInterval, int maxImagesAllowed)
       throws IOException {
     this.comparisonInterval = comparisonInterval;
-    mediaExtractor = new MediaExtractor();
+    mediaExtractor = new MediaExtractorCompat(context);
     bufferInfo = new MediaCodec.BufferInfo();
-
-    if (filePath.contains(ASSET_FILE_SCHEME)) {
-      AssetFileDescriptor assetFd =
-          context.getAssets().openFd(filePath.replace(ASSET_FILE_SCHEME, ""));
-      mediaExtractor.setDataSource(
-          assetFd.getFileDescriptor(), assetFd.getStartOffset(), assetFd.getLength());
-    } else {
-      mediaExtractor.setDataSource(filePath);
-    }
+    mediaExtractor.setDataSource(Uri.parse(filePath), 0);
 
     @Nullable MediaFormat mediaFormat = null;
     for (int i = 0; i < mediaExtractor.getTrackCount(); i++) {
@@ -125,7 +126,29 @@ public final class VideoDecodingWrapper implements AutoCloseable {
     mediaFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT, MEDIA_CODEC_COLOR_SPACE);
     mediaFormat.setInteger(MediaFormat.KEY_PRIORITY, MEDIA_CODEC_PRIORITY_NON_REALTIME);
     this.mediaFormat = mediaFormat;
-    mediaCodec = MediaCodec.createDecoderByType(sampleMimeType);
+
+    // Try to find a software MediaCodec that supports the video dimensions, with fall back to
+    // MediaCodec.createDecoderByType.
+    MediaCodec softwareMediaCodec = null;
+    try {
+      List<MediaCodecInfo> codecInfos =
+          MediaCodecUtil.getDecoderInfos(
+              sampleMimeType, /* secure= */ false, /* tunneling= */ false);
+      Format format = MediaFormatUtil.createFormatFromMediaFormat(mediaFormat);
+      for (MediaCodecInfo codecInfo : codecInfos) {
+        if (!codecInfo.hardwareAccelerated && codecInfo.isFormatSupported(format)) {
+          softwareMediaCodec = MediaCodec.createByCodecName(codecInfo.name);
+          break;
+        }
+      }
+    } catch (MediaCodecUtil.DecoderQueryException exception) {
+      Log.e(TAG, "Failed to find software decoder: " + exception);
+    }
+    if (softwareMediaCodec == null) {
+      mediaCodec = MediaCodec.createDecoderByType(sampleMimeType);
+    } else {
+      mediaCodec = softwareMediaCodec;
+    }
   }
 
   /**

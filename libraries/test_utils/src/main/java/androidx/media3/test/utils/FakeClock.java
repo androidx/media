@@ -15,6 +15,7 @@
  */
 package androidx.media3.test.utils;
 
+import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 
 import android.os.Build;
@@ -35,6 +36,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import org.checkerframework.checker.initialization.qual.UnknownInitialization;
 
 /**
  * Fake {@link Clock} implementation that allows to {@link #advanceTime(long) advance the time}
@@ -171,7 +173,9 @@ public class FakeClock implements Clock {
   }
 
   @Override
-  public HandlerWrapper createHandler(Looper looper, @Nullable Callback callback) {
+  @SuppressWarnings({"nullness:argument", "nullness:return"})
+  public HandlerWrapper createHandler(
+      Looper looper, @Nullable @UnknownInitialization Callback callback) {
     return new ClockHandler(looper, callback);
   }
 
@@ -402,6 +406,8 @@ public class FakeClock implements Clock {
 
     @Override
     public boolean hasMessages(int what) {
+      // Using what==0 when using hasMessages is dangerous as it also checks for pending Runnables.
+      checkArgument(what != 0);
       return hasPendingMessage(/* handler= */ this, what);
     }
 
@@ -467,6 +473,8 @@ public class FakeClock implements Clock {
 
     @Override
     public void removeMessages(int what) {
+      // Using what==0 when removing messages is dangerous as it also removes all pending Runnables.
+      checkArgument(what != 0);
       removePendingHandlerMessages(/* handler= */ this, what);
     }
 

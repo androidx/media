@@ -25,7 +25,6 @@ import android.media.MediaFormat;
 import androidx.media3.common.C;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.mediacodec.MediaCodecUtil;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -77,10 +76,6 @@ public final class ShadowMediaCodecConfig extends ExternalResource {
 
   @Override
   protected void before() throws Throwable {
-    if (Util.SDK_INT <= 19) {
-      // Codec config not supported with Robolectric on API <= 19. Skip rule set up step.
-      return;
-    }
     configureCodecs(supportedMimeTypes);
   }
 
@@ -88,10 +83,6 @@ public final class ShadowMediaCodecConfig extends ExternalResource {
   protected void after() {
     supportedMimeTypes.clear();
     MediaCodecUtil.clearDecoderInfoCache();
-    if (Util.SDK_INT <= 19) {
-      // Codec config not supported with Robolectric on API <= 19. Skip rule tear down step.
-      return;
-    }
     ShadowMediaCodecList.reset();
     ShadowMediaCodec.clearCodecs();
   }
@@ -250,7 +241,7 @@ public final class ShadowMediaCodecConfig extends ExternalResource {
               .build());
       // TODO: Update ShadowMediaCodec to consider the MediaFormat.KEY_MAX_INPUT_SIZE value passed
       // to configure() so we don't have to specify large buffers here.
-      int bufferSize = mimeType.equals(MimeTypes.VIDEO_H265) ? 250_000 : 100_000;
+      int bufferSize = mimeType.equals(MimeTypes.VIDEO_H265) ? 250_000 : 150_000;
       ShadowMediaCodec.addDecoder(
           codecName,
           new ShadowMediaCodec.CodecConfig(

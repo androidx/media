@@ -20,6 +20,7 @@ import android.os.Looper;
 import androidx.annotation.Nullable;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.AuxEffectInfo;
+import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.Player;
@@ -55,6 +56,7 @@ public class StubExoPlayer extends StubPlayer implements ExoPlayer {
    * @deprecated Use {@link ExoPlayer}, as the {@link AudioComponent} methods are defined by that
    *     interface.
    */
+  @SuppressWarnings("deprecation") // Returning deprecated type
   @Override
   @Deprecated
   public AudioComponent getAudioComponent() {
@@ -65,6 +67,7 @@ public class StubExoPlayer extends StubPlayer implements ExoPlayer {
    * @deprecated Use {@link ExoPlayer}, as the {@link VideoComponent} methods are defined by that
    *     interface.
    */
+  @SuppressWarnings("deprecation") // Returning deprecated type
   @Override
   @Deprecated
   public VideoComponent getVideoComponent() {
@@ -75,6 +78,7 @@ public class StubExoPlayer extends StubPlayer implements ExoPlayer {
    * @deprecated Use {@link Player}, as the {@link TextComponent} methods are defined by that
    *     interface.
    */
+  @SuppressWarnings("deprecation") // Returning deprecated type
   @Override
   @Deprecated
   public TextComponent getTextComponent() {
@@ -85,6 +89,7 @@ public class StubExoPlayer extends StubPlayer implements ExoPlayer {
    * @deprecated Use {@link Player}, as the {@link DeviceComponent} methods are defined by that
    *     interface.
    */
+  @SuppressWarnings("deprecation") // Returning deprecated type
   @Override
   @Deprecated
   public DeviceComponent getDeviceComponent() {
@@ -146,6 +151,16 @@ public class StubExoPlayer extends StubPlayer implements ExoPlayer {
   @Deprecated
   @Override
   public void prepare(MediaSource mediaSource, boolean resetPosition, boolean resetState) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public void setPreloadConfiguration(PreloadConfiguration preloadConfiguration) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public PreloadConfiguration getPreloadConfiguration() {
     throw new UnsupportedOperationException();
   }
 
@@ -394,6 +409,11 @@ public class StubExoPlayer extends StubPlayer implements ExoPlayer {
   }
 
   @Override
+  public void setPriority(@C.Priority int priority) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
   public void setPriorityTaskManager(@Nullable PriorityTaskManager priorityTaskManager) {
     throw new UnsupportedOperationException();
   }
@@ -409,7 +429,12 @@ public class StubExoPlayer extends StubPlayer implements ExoPlayer {
   }
 
   @Override
-  public void setImageOutput(ImageOutput imageOutput) {
+  public boolean isReleased() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public void setImageOutput(@Nullable ImageOutput imageOutput) {
     throw new UnsupportedOperationException();
   }
 }

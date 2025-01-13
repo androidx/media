@@ -54,8 +54,20 @@ const int COLOR_TRANSFER_GAMMA_2_2 = 10;
 const int COLOR_TRANSFER_ST2084 = 6;
 const int COLOR_TRANSFER_HLG = 7;
 
-// TODO(b/227624622): Consider using mediump to save precision, if it won't lead
-//  to noticeable quantization errors.
+// Matrix values based on computeXYZMatrix(BT2020Primaries, BT2020WhitePoint)
+// https://cs.android.com/android/platform/superproject/+/master:frameworks/base/libs/hwui/utils/HostColorSpace.cpp;l=200-232;drc=86bd214059cd6150304888a285941bf74af5b687
+const mat3 RGB_BT2020_TO_XYZ =
+    mat3(0.63695805f, 0.26270021f, 0.00000000f, 0.14461690f, 0.67799807f,
+         0.02807269f, 0.16888098f, 0.05930172f, 1.06098506f);
+// Matrix values based on computeXYZMatrix(BT709Primaries, BT709WhitePoint)
+const mat3 XYZ_TO_RGB_BT709 =
+    mat3(3.24096994f, -0.96924364f, 0.05563008f, -1.53738318f, 1.87596750f,
+         -0.20397696f, -0.49861076f, 0.04155506f, 1.05697151f);
+
+// Output colors for an obviously visible error.
+const vec3 ERROR_COLOR_RED = vec3(1.0, 0.0, 0.0);
+const vec3 ERROR_COLOR_GREEN = vec3(0.0, 1.0, 0.0);
+const vec3 ERROR_COLOR_BLUE = vec3(0.0, 0.0, 1.0);
 
 // BT.2100 / BT.2020 HLG EOTF for one channel.
 highp float hlgEotfSingleChannel(highp float hlgChannel) {
@@ -102,8 +114,7 @@ highp vec3 applyEotf(highp vec3 electricalColor) {
   } else if (uInputColorTransfer == COLOR_TRANSFER_HLG) {
     return hlgEotf(electricalColor);
   } else {
-    // Output red as an obviously visible error.
-    return vec3(1.0, 0.0, 0.0);
+    return ERROR_COLOR_RED;
   }
 }
 
@@ -111,15 +122,6 @@ highp vec3 applyEotf(highp vec3 electricalColor) {
 highp vec3 applyHlgBt2020ToBt709Ootf(highp vec3 linearRgbBt2020) {
   // Reference ("HLG Reference OOTF" section):
   // https://www.itu.int/dms_pubrec/itu-r/rec/bt/R-REC-BT.2100-2-201807-I!!PDF-E.pdf
-  // Matrix values based on computeXYZMatrix(BT2020Primaries, BT2020WhitePoint)
-  // https://cs.android.com/android/platform/superproject/+/master:frameworks/base/libs/hwui/utils/HostColorSpace.cpp;l=200-232;drc=86bd214059cd6150304888a285941bf74af5b687
-  const mat3 RGB_TO_XYZ_BT2020 =
-      mat3(0.63695805f, 0.26270021f, 0.00000000f, 0.14461690f, 0.67799807f,
-           0.02807269f, 0.16888098f, 0.05930172f, 1.06098506f);
-  // Matrix values based on computeXYZMatrix(BT709Primaries, BT709WhitePoint)
-  const mat3 XYZ_TO_RGB_BT709 =
-      mat3(3.24096994f, -0.96924364f, 0.05563008f, -1.53738318f, 1.87596750f,
-           -0.20397696f, -0.49861076f, 0.04155506f, 1.05697151f);
   // hlgGamma is 1.2 + 0.42 * log10(nominalPeakLuminance/1000);
   // nominalPeakLuminance was selected to use a 500 as a typical value, used
   // in
@@ -128,10 +130,9 @@ highp vec3 applyHlgBt2020ToBt709Ootf(highp vec3 linearRgbBt2020) {
   // https://www.microsoft.com/applied-sciences/uploads/projects/investigation-of-hdr-vs-tone-mapped-sdr/investigation-of-hdr-vs-tone-mapped-sdr.pdf.
   const float hlgGamma = 1.0735674018211279;
 
-  vec3 linearXyzBt2020 = RGB_TO_XYZ_BT2020 * linearRgbBt2020;
-  vec3 linearXyzBt709 =
-      linearXyzBt2020 * pow(linearXyzBt2020[1], hlgGamma - 1.0);
-  vec3 linearRgbBt709 = clamp((XYZ_TO_RGB_BT709 * linearXyzBt709), 0.0, 1.0);
+  vec3 linearXyz = RGB_BT2020_TO_XYZ * linearRgbBt2020;
+  linearXyz = linearXyz * pow(linearXyz[1], hlgGamma - 1.0);
+  vec3 linearRgbBt709 = clamp((XYZ_TO_RGB_BT709 * linearXyz), 0.0, 1.0);
   return linearRgbBt709;
 }
 
@@ -149,15 +150,15 @@ highp vec3 applyPqBt2020ToBt709Ootf(highp vec3 linearRgbBt2020) {
   // Also happens to match Netflix's minimum HDR mastering guidelines:
   // https://partnerhelp.netflixstudios.com/hc/en-us/articles/360000599948-Dolby-Vision-HDR-Mastering-Guidelines
   //
-  // TODO: b/290553698 - Use max_display_mastering_luminance from
+  // TODO: b/314971953 - Use max_display_mastering_luminance from
   //  ColorInfo.hdrStaticInfo in the bitstream instead.
   const float maxMasteringLuminance = 1000.0;
 
   const float maxInputLuminance = maxMasteringLuminance;
   const float maxOutputLuminance = sdrMaxLuminance;
 
-  highp vec3 color = linearRgbBt2020 * pqMaxLuminance;  // Scale luminance.
-  float nits = color.y;
+  linearRgbBt2020 = linearRgbBt2020 * pqMaxLuminance;  // Scale luminance.
+  float nits = linearRgbBt2020.y;
 
   nits = clamp(nits, 0.0, maxInputLuminance);
 
@@ -193,9 +194,11 @@ highp vec3 applyPqBt2020ToBt709Ootf(highp vec3 linearRgbBt2020) {
         (maxOutputLuminance * (3.0 - 2.0 * t) + h23 * m3 * (t - 1.0)) * t * t;
   }
 
-  // color.y is greater than 0 and is thus non-zero.
-  color = color * (nits / color.y);
-  return color / sdrMaxLuminance;  // Normalize luminance.
+  // linearRgbBt2020.y is greater than 0 and is thus non-zero.
+  linearRgbBt2020 = linearRgbBt2020 * (nits / linearRgbBt2020.y);
+  linearRgbBt2020 = linearRgbBt2020 / sdrMaxLuminance;  // Normalize luminance.
+  vec3 linearRgbBt709 = XYZ_TO_RGB_BT709 * RGB_BT2020_TO_XYZ * linearRgbBt2020;
+  return linearRgbBt709;
 }
 
 highp vec3 applyBt2020ToBt709Ootf(highp vec3 linearRgbBt2020) {
@@ -204,8 +207,7 @@ highp vec3 applyBt2020ToBt709Ootf(highp vec3 linearRgbBt2020) {
   } else if (uInputColorTransfer == COLOR_TRANSFER_HLG) {
     return applyHlgBt2020ToBt709Ootf(linearRgbBt2020);
   } else {
-    // Output green as an obviously visible error.
-    return vec3(0.0, 1.0, 0.0);
+    return ERROR_COLOR_GREEN;
   }
 }
 
@@ -273,8 +275,7 @@ highp vec3 applyOetf(highp vec3 linearColor) {
   } else if (uOutputColorTransfer == COLOR_TRANSFER_LINEAR) {
     return linearColor;
   } else {
-    // Output blue as an obviously visible error.
-    return vec3(0.0, 0.0, 1.0);
+    return ERROR_COLOR_BLUE;
   }
 }
 
@@ -283,13 +284,25 @@ vec3 yuvToRgb(vec3 yuv) {
   return clamp(uYuvToRgbColorTransform * (yuv - yuvOffset), 0.0, 1.0);
 }
 
+vec3 scaleHdrLuminance(vec3 inputColor) {
+  const float PQ_MAX_LUMINANCE = 10000.0;
+  const float HLG_MAX_LUMINANCE = 1000.0;
+  if (uInputColorTransfer == COLOR_TRANSFER_ST2084) {
+    return inputColor * PQ_MAX_LUMINANCE / HLG_MAX_LUMINANCE;
+  } else if (uInputColorTransfer == COLOR_TRANSFER_HLG) {
+    return inputColor;
+  } else {
+    return ERROR_COLOR_BLUE;
+  }
+}
+
 void main() {
   vec3 srcYuv = texture(uTexSampler, vTexSamplingCoord).xyz;
   vec3 opticalColorBt2020 = applyEotf(yuvToRgb(srcYuv));
   vec4 opticalColor =
       (uApplyHdrToSdrToneMapping == 1)
           ? vec4(applyBt2020ToBt709Ootf(opticalColorBt2020), 1.0)
-          : vec4(opticalColorBt2020, 1.0);
+          : vec4(scaleHdrLuminance(opticalColorBt2020), 1.0);
   vec4 transformedColors = uRgbMatrix * opticalColor;
   outColor = vec4(applyOetf(transformedColors.rgb), 1.0);
 }

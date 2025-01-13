@@ -29,8 +29,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 /** Utility {@link Player.Listener} for testing. */
 public final class PlayerTestListener implements Player.Listener, AnalyticsListener {
 
+  private final ConditionVariable playerIdle;
   private final ConditionVariable playerReady;
   private final ConditionVariable playerEnded;
+  private final ConditionVariable firstFrameRendered;
   private final AtomicReference<@NullableType PlaybackException> playbackException;
   private final long testTimeoutMs;
   private @MonotonicNonNull DecoderCounters decoderCounters;
@@ -42,10 +44,17 @@ public final class PlayerTestListener implements Player.Listener, AnalyticsListe
    *     #waitUntilPlayerReady()} and {@link #waitUntilPlayerEnded()} waits.
    */
   public PlayerTestListener(long testTimeoutMs) {
+    playerIdle = new ConditionVariable();
     playerReady = new ConditionVariable();
     playerEnded = new ConditionVariable();
+    firstFrameRendered = new ConditionVariable();
     playbackException = new AtomicReference<>();
     this.testTimeoutMs = testTimeoutMs;
+  }
+
+  /** Waits until the {@link Player player} is {@linkplain Player#STATE_IDLE idle}. */
+  public void waitUntilPlayerIdle() throws PlaybackException, TimeoutException {
+    waitOrThrow(playerIdle);
   }
 
   /** Waits until the {@link Player player} is {@linkplain Player#STATE_READY ready}. */
@@ -56,6 +65,14 @@ public final class PlayerTestListener implements Player.Listener, AnalyticsListe
   /** Waits until the {@link Player player} is {@linkplain Player#STATE_ENDED ended}. */
   public void waitUntilPlayerEnded() throws PlaybackException, TimeoutException {
     waitOrThrow(playerEnded);
+  }
+
+  /**
+   * Waits until the {@link Player player} {@linkplain Player.Listener#onRenderedFirstFrame()
+   * renders the first frame}.
+   */
+  public void waitUntilFirstFrameRendered() throws PlaybackException, TimeoutException {
+    waitOrThrow(firstFrameRendered);
   }
 
   /**
@@ -71,7 +88,9 @@ public final class PlayerTestListener implements Player.Listener, AnalyticsListe
 
   @Override
   public void onPlaybackStateChanged(int playbackState) {
-    if (playbackState == Player.STATE_READY) {
+    if (playbackState == Player.STATE_IDLE) {
+      playerIdle.open();
+    } else if (playbackState == Player.STATE_READY) {
       playerReady.open();
     } else if (playbackState == Player.STATE_ENDED) {
       playerEnded.open();
@@ -79,10 +98,17 @@ public final class PlayerTestListener implements Player.Listener, AnalyticsListe
   }
 
   @Override
+  public void onRenderedFirstFrame() {
+    firstFrameRendered.open();
+  }
+
+  @Override
   public void onPlayerError(PlaybackException error) {
     playbackException.set(error);
+    playerIdle.open();
     playerReady.open();
     playerEnded.open();
+    firstFrameRendered.open();
   }
 
   // AnalyticsListener methods
@@ -90,6 +116,14 @@ public final class PlayerTestListener implements Player.Listener, AnalyticsListe
   @Override
   public void onVideoEnabled(EventTime eventTime, DecoderCounters decoderCounters) {
     this.decoderCounters = decoderCounters;
+  }
+
+  public void resetStatus() {
+    playerIdle.close();
+    playerReady.close();
+    playerEnded.close();
+    firstFrameRendered.close();
+    playbackException.set(null);
   }
 
   // Internal methods

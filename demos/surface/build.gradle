@@ -17,7 +17,7 @@ apply plugin: 'com.android.application'
 android {
     namespace 'androidx.media3.demo.surface'
 
-    compileSdkVersion project.ext.compileSdkVersion
+    compileSdk project.ext.compileSdkVersion
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8

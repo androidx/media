@@ -20,6 +20,7 @@ import static androidx.media3.extractor.VorbisUtil.verifyVorbisHeaderCapturePatt
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
+import androidx.media3.common.C;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.test.utils.TestUtil;
@@ -116,8 +117,9 @@ public final class VorbisUtilTest {
       VorbisUtil.verifyVorbisHeaderCapturePattern(0x99, header, false);
       fail();
     } catch (ParserException e) {
-      assertThat(e.getMessage())
-          .isEqualTo("expected header type 99{contentIsMalformed=true, dataType=1}");
+      assertThat(e).hasMessageThat().contains("expected header type 99");
+      assertThat(e.contentIsMalformed).isTrue();
+      assertThat(e.dataType).isEqualTo(C.DATA_TYPE_MEDIA);
     }
   }
 
@@ -137,8 +139,9 @@ public final class VorbisUtilTest {
       VorbisUtil.verifyVorbisHeaderCapturePattern(0x01, header, false);
       fail();
     } catch (ParserException e) {
-      assertThat(e.getMessage())
-          .isEqualTo("expected characters 'vorbis'{contentIsMalformed=true, dataType=1}");
+      assertThat(e).hasMessageThat().contains("expected characters 'vorbis'");
+      assertThat(e.contentIsMalformed).isTrue();
+      assertThat(e.dataType).isEqualTo(C.DATA_TYPE_MEDIA);
     }
   }
 

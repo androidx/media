@@ -54,7 +54,6 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -201,7 +200,7 @@ public class DefaultDashChunkSourceTest {
               loadErrorHandlingPolicy);
     }
 
-    assertThat(Lists.transform(chunks, (chunk) -> chunk.dataSpec.uri.toString()))
+    assertThat(chunks.stream().map(chunk -> chunk.dataSpec.uri.toString()))
         .containsExactly(
             "http://video.com/baseUrl/a/video/video_0_1300000.m4s",
             "http://video.com/baseUrl/b/video/video_0_1300000.m4s",
@@ -258,7 +257,7 @@ public class DefaultDashChunkSourceTest {
                   output.chunk.dataSpec, /* httpResponseCode= */ 404, /* errorCount= */ 1),
               loadErrorHandlingPolicy);
     }
-    assertThat(Lists.transform(chunks, (chunk) -> chunk.dataSpec.uri.toString()))
+    assertThat(chunks.stream().map(chunk -> chunk.dataSpec.uri.toString()))
         .containsExactly(
             "http://video.com/baseUrl/a/video/video_0_700000.m4s",
             "http://video.com/baseUrl/a/video/video_0_452000.m4s",
@@ -459,8 +458,8 @@ public class DefaultDashChunkSourceTest {
                           @CmcdConfiguration.HeaderKey String, String>()
                       .put(CmcdConfiguration.KEY_CMCD_OBJECT, "key-1=1")
                       .put(CmcdConfiguration.KEY_CMCD_REQUEST, "key-2=\"stringValue\"")
-                      .put(CmcdConfiguration.KEY_CMCD_SESSION, "key-3=3")
-                      .put(CmcdConfiguration.KEY_CMCD_STATUS, "key-4=5.0")
+                      .put(CmcdConfiguration.KEY_CMCD_SESSION, "com.example-key3=3")
+                      .put(CmcdConfiguration.KEY_CMCD_STATUS, "com.example.test-key4=5.0")
                       .build();
                 }
               };
@@ -487,9 +486,11 @@ public class DefaultDashChunkSourceTest {
             "CMCD-Request",
             "bl=0,dl=0,key-2=\"stringValue\",mtp=1000,nor=\"..%2Fvideo_4000_700000.m4s\",nrr=\"0-\",su",
             "CMCD-Session",
-            "cid=\"mediaId\",key-3=3,sf=d,sid=\"" + cmcdConfiguration.sessionId + "\",st=v",
+            "cid=\"mediaId\",com.example-key3=3,sf=d,sid=\""
+                + cmcdConfiguration.sessionId
+                + "\",st=v",
             "CMCD-Status",
-            "key-4=5.0");
+            "com.example.test-key4=5.0");
   }
 
   @Test
@@ -505,7 +506,7 @@ public class DefaultDashChunkSourceTest {
                     getCustomData() {
                   return new ImmutableListMultimap.Builder<
                           @CmcdConfiguration.HeaderKey String, String>()
-                      .put(CmcdConfiguration.KEY_CMCD_OBJECT, "key-1=1")
+                      .put(CmcdConfiguration.KEY_CMCD_OBJECT, "com.example.test-key-1=1")
                       .put(CmcdConfiguration.KEY_CMCD_REQUEST, "key-2=\"stringValue\"")
                       .build();
                 }
@@ -530,13 +531,11 @@ public class DefaultDashChunkSourceTest {
         output);
 
     assertThat(
-            Uri.decode(
-                output.chunk.dataSpec.uri.getQueryParameter(
-                    CmcdConfiguration.CMCD_QUERY_PARAMETER_KEY)))
+            output.chunk.dataSpec.uri.getQueryParameter(CmcdConfiguration.CMCD_QUERY_PARAMETER_KEY))
         .isEqualTo(
-            "bl=0,br=700,cid=\"mediaId\",d=4000,dl=0,key-1=1,key-2=\"stringValue\","
-                + "mtp=1000,nor=\"..%2Fvideo_4000_700000.m4s\",nrr=\"0-\",ot=v,sf=d,"
-                + "sid=\"sessionId\",st=v,su,tb=1300");
+            "bl=0,br=700,cid=\"mediaId\",com.example.test-key-1=1,d=4000,dl=0,"
+                + "key-2=\"stringValue\",mtp=1000,nor=\"..%2Fvideo_4000_700000.m4s\",nrr=\"0-\","
+                + "ot=v,sf=d,sid=\"sessionId\",st=v,su,tb=1300");
   }
 
   @Test

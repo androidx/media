@@ -83,12 +83,6 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 public class MatroskaExtractor implements Extractor {
 
   /**
-   * @deprecated Use {@link #newFactory(SubtitleParser.Factory)} instead.
-   */
-  @Deprecated
-  public static final ExtractorsFactory FACTORY = () -> new Extractor[] {new MatroskaExtractor()};
-
-  /**
    * Creates a factory for {@link MatroskaExtractor} instances with the provided {@link
    * SubtitleParser.Factory}.
    */
@@ -123,6 +117,16 @@ public class MatroskaExtractor implements Extractor {
    * transcoded to {@link MimeTypes#APPLICATION_MEDIA3_CUES} during extraction.
    */
   public static final int FLAG_EMIT_RAW_SUBTITLE_DATA = 1 << 1; // 2
+
+  /**
+   * @deprecated Use {@link #newFactory(SubtitleParser.Factory)} instead.
+   */
+  @Deprecated
+  public static final ExtractorsFactory FACTORY =
+      () ->
+          new Extractor[] {
+            new MatroskaExtractor(SubtitleParser.Factory.UNSUPPORTED, FLAG_EMIT_RAW_SUBTITLE_DATA)
+          };
 
   private static final String TAG = "MatroskaExtractor";
 
@@ -557,7 +561,6 @@ public class MatroskaExtractor implements Extractor {
 
   @Override
   public final void init(ExtractorOutput output) {
-    extractorOutput = output;
     extractorOutput =
         parseSubtitlesDuringExtraction
             ? new SubtitleTranscodingExtractorOutput(output, subtitleParserFactory)
@@ -1895,17 +1898,25 @@ public class MatroskaExtractor implements Extractor {
       sizes[i] = (int) (offsets[i + 1] - offsets[i]);
       durationsUs[i] = timesUs[i + 1] - timesUs[i];
     }
-    sizes[cuePointsSize - 1] =
-        (int) (segmentContentPosition + segmentContentSize - offsets[cuePointsSize - 1]);
-    durationsUs[cuePointsSize - 1] = durationUs - timesUs[cuePointsSize - 1];
 
-    long lastDurationUs = durationsUs[cuePointsSize - 1];
-    if (lastDurationUs <= 0) {
-      Log.w(TAG, "Discarding last cue point with unexpected duration: " + lastDurationUs);
-      sizes = Arrays.copyOf(sizes, sizes.length - 1);
-      offsets = Arrays.copyOf(offsets, offsets.length - 1);
-      durationsUs = Arrays.copyOf(durationsUs, durationsUs.length - 1);
-      timesUs = Arrays.copyOf(timesUs, timesUs.length - 1);
+    // Start from the last cue point and move backward until a valid duration is found.
+    int lastValidIndex = cuePointsSize - 1;
+    while (lastValidIndex > 0 && timesUs[lastValidIndex] > durationUs) {
+      lastValidIndex--;
+    }
+
+    // Calculate sizes and durations for the last valid index
+    sizes[lastValidIndex] =
+        (int) (segmentContentPosition + segmentContentSize - offsets[lastValidIndex]);
+    durationsUs[lastValidIndex] = durationUs - timesUs[lastValidIndex];
+
+    // If the last valid index is not the last cue point, truncate the arrays
+    if (lastValidIndex < cuePointsSize - 1) {
+      Log.w(TAG, "Discarding trailing cue points with timestamps greater than total duration");
+      sizes = Arrays.copyOf(sizes, lastValidIndex + 1);
+      offsets = Arrays.copyOf(offsets, lastValidIndex + 1);
+      durationsUs = Arrays.copyOf(durationsUs, lastValidIndex + 1);
+      timesUs = Arrays.copyOf(timesUs, lastValidIndex + 1);
     }
 
     return new ChunkIndex(sizes, offsets, durationsUs, timesUs);

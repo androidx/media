@@ -15,11 +15,11 @@
  */
 package androidx.media3.session;
 
-import static androidx.media3.session.LibraryResult.RESULT_ERROR_BAD_VALUE;
 import static androidx.media3.session.LibraryResult.RESULT_SUCCESS;
 import static androidx.media3.session.MediaConstants.EXTRAS_KEY_COMPLETION_STATUS;
 import static androidx.media3.session.MediaConstants.EXTRAS_VALUE_COMPLETION_STATUS_PARTIALLY_PLAYED;
 import static androidx.media3.session.MockMediaLibraryService.createNotifyChildrenChangedBundle;
+import static androidx.media3.session.SessionError.ERROR_SESSION_SKIP_LIMIT_REACHED;
 import static androidx.media3.test.session.common.CommonConstants.MOCK_MEDIA3_LIBRARY_SERVICE;
 import static androidx.media3.test.session.common.MediaBrowserConstants.CUSTOM_ACTION_ASSERT_PARAMS;
 import static androidx.media3.test.session.common.MediaBrowserConstants.LONG_LIST_COUNT;
@@ -77,6 +77,15 @@ public class MediaBrowserListenerTest extends MediaControllerListenerTest {
       @Nullable Bundle connectionHints, @Nullable MediaBrowser.Listener listener) throws Exception {
     SessionToken token = new SessionToken(context, MOCK_MEDIA3_LIBRARY_SERVICE);
     return (MediaBrowser) controllerTestRule.createController(token, connectionHints, listener);
+  }
+
+  @Test
+  public void getConnectedToken_returnSessionToken() throws Exception {
+    MediaBrowser browser = createBrowser();
+
+    assertThat(browser.getConnectedToken().isLegacySession()).isFalse();
+    assertThat(browser.getConnectedToken().getType()).isEqualTo(SessionToken.TYPE_SESSION);
+    assertThat(browser.getConnectedToken().getPlatformToken()).isNotNull();
   }
 
   @Test
@@ -180,7 +189,7 @@ public class MediaBrowserListenerTest extends MediaControllerListenerTest {
             .getHandler()
             .postAndSync(() -> browser.getItem(mediaId))
             .get(TIMEOUT_MS, MILLISECONDS);
-    assertThat(result.resultCode).isEqualTo(RESULT_ERROR_BAD_VALUE);
+    assertThat(result.resultCode).isEqualTo(ERROR_SESSION_SKIP_LIMIT_REACHED);
     assertThat(result.value).isNull();
   }
 
@@ -246,14 +255,37 @@ public class MediaBrowserListenerTest extends MediaControllerListenerTest {
   @Test
   public void getChildren_nullResult() throws Exception {
     String parentId = MediaBrowserConstants.PARENT_ID_ERROR;
-
     MediaBrowser browser = createBrowser();
+
     LibraryResult<ImmutableList<MediaItem>> result =
         threadTestRule
             .getHandler()
             .postAndSync(() -> browser.getChildren(parentId, 1, 1, null))
             .get(TIMEOUT_MS, MILLISECONDS);
-    assertThat(result.resultCode).isNotEqualTo(RESULT_SUCCESS);
+
+    assertThat(result.resultCode).isLessThan(0);
+    assertThat(result.value).isNull();
+  }
+
+  @Test
+  public void getChildren_authExpiredErrorLibraryResult() throws Exception {
+    String parentId = MediaBrowserConstants.PARENT_ID_AUTH_EXPIRED_ERROR;
+    MediaBrowser browser = createBrowser();
+
+    LibraryResult<ImmutableList<MediaItem>> result =
+        threadTestRule
+            .getHandler()
+            .postAndSync(() -> browser.getChildren(parentId, 1, 1, null))
+            .get(TIMEOUT_MS, MILLISECONDS);
+
+    assertThat(result.resultCode).isLessThan(0);
+    assertThat(result.sessionError.code).isLessThan(0);
+    assertThat(result.sessionError.message).isEqualTo("error message");
+    assertThat(
+            result.sessionError.extras.getString(
+                MediaConstants.EXTRAS_KEY_ERROR_RESOLUTION_ACTION_LABEL_COMPAT))
+        .isEqualTo(
+            MediaBrowserConstants.PARENT_ID_AUTH_EXPIRED_ERROR_KEY_ERROR_RESOLUTION_ACTION_LABEL);
     assertThat(result.value).isNull();
   }
 

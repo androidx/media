@@ -16,65 +16,57 @@
 
 package androidx.media3.effect;
 
+import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 
 import android.content.Context;
 import androidx.annotation.Nullable;
+import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DebugViewProvider;
-import androidx.media3.common.Effect;
-import androidx.media3.common.FrameInfo;
 import androidx.media3.common.SurfaceInfo;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.VideoGraph;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.util.concurrent.MoreExecutors;
-import java.util.List;
 import java.util.concurrent.Executor;
 
 /** A {@link VideoGraph} that handles one input stream. */
 @UnstableApi
 public abstract class SingleInputVideoGraph implements VideoGraph {
 
-  /** The ID {@link #registerInput()} returns. */
-  public static final int SINGLE_INPUT_INDEX = 0;
-
   private final Context context;
   private final VideoFrameProcessor.Factory videoFrameProcessorFactory;
-  private final ColorInfo inputColorInfo;
   private final ColorInfo outputColorInfo;
   private final Listener listener;
   private final DebugViewProvider debugViewProvider;
   private final Executor listenerExecutor;
   private final boolean renderFramesAutomatically;
   private final long initialTimestampOffsetUs;
-  @Nullable private final Presentation presentation;
 
   @Nullable private VideoFrameProcessor videoFrameProcessor;
   @Nullable private SurfaceInfo outputSurfaceInfo;
   private boolean isEnded;
   private boolean released;
   private volatile boolean hasProducedFrameWithTimestampZero;
+  private int inputIndex;
 
   /**
    * Creates an instance.
    *
    * <p>{@code videoCompositorSettings} must be {@link VideoCompositorSettings#DEFAULT}.
    */
-  // TODO: b/307952514 - Remove inputColorInfo reference in VideoGraph constructor.
   public SingleInputVideoGraph(
       Context context,
       VideoFrameProcessor.Factory videoFrameProcessorFactory,
-      ColorInfo inputColorInfo,
       ColorInfo outputColorInfo,
       Listener listener,
       DebugViewProvider debugViewProvider,
       Executor listenerExecutor,
       VideoCompositorSettings videoCompositorSettings,
       boolean renderFramesAutomatically,
-      @Nullable Presentation presentation,
       long initialTimestampOffsetUs) {
     checkState(
         VideoCompositorSettings.DEFAULT.equals(videoCompositorSettings),
@@ -82,14 +74,13 @@ public abstract class SingleInputVideoGraph implements VideoGraph {
             + " VideoCompositorSettings");
     this.context = context;
     this.videoFrameProcessorFactory = videoFrameProcessorFactory;
-    this.inputColorInfo = inputColorInfo;
     this.outputColorInfo = outputColorInfo;
     this.listener = listener;
     this.debugViewProvider = debugViewProvider;
     this.listenerExecutor = listenerExecutor;
     this.renderFramesAutomatically = renderFramesAutomatically;
-    this.presentation = presentation;
     this.initialTimestampOffsetUs = initialTimestampOffsetUs;
+    this.inputIndex = C.INDEX_UNSET;
   }
 
   /**
@@ -103,9 +94,11 @@ public abstract class SingleInputVideoGraph implements VideoGraph {
   }
 
   @Override
-  public int registerInput() throws VideoFrameProcessingException {
+  public void registerInput(int inputIndex) throws VideoFrameProcessingException {
     checkStateNotNull(videoFrameProcessor == null && !released);
+    checkState(this.inputIndex == C.INDEX_UNSET);
 
+    this.inputIndex = inputIndex;
     videoFrameProcessor =
         videoFrameProcessorFactory.create(
             context,
@@ -115,12 +108,6 @@ public abstract class SingleInputVideoGraph implements VideoGraph {
             /* listenerExecutor= */ MoreExecutors.directExecutor(),
             new VideoFrameProcessor.Listener() {
               private long lastProcessedFramePresentationTimeUs;
-
-              @Override
-              public void onInputStreamRegistered(
-                  @VideoFrameProcessor.InputType int inputType,
-                  List<Effect> effects,
-                  FrameInfo frameInfo) {}
 
               @Override
               public void onOutputSizeChanged(int width, int height) {
@@ -163,11 +150,11 @@ public abstract class SingleInputVideoGraph implements VideoGraph {
     if (outputSurfaceInfo != null) {
       videoFrameProcessor.setOutputSurfaceInfo(outputSurfaceInfo);
     }
-    return SINGLE_INPUT_INDEX;
   }
 
   @Override
-  public VideoFrameProcessor getProcessor(int inputId) {
+  public VideoFrameProcessor getProcessor(int inputIndex) {
+    checkArgument(this.inputIndex != C.INDEX_UNSET && this.inputIndex == inputIndex);
     return checkStateNotNull(videoFrameProcessor);
   }
 
@@ -197,16 +184,11 @@ public abstract class SingleInputVideoGraph implements VideoGraph {
     released = true;
   }
 
-  protected ColorInfo getInputColorInfo() {
-    return inputColorInfo;
+  protected int getInputIndex() {
+    return inputIndex;
   }
 
   protected long getInitialTimestampOffsetUs() {
     return initialTimestampOffsetUs;
-  }
-
-  @Nullable
-  protected Presentation getPresentation() {
-    return presentation;
   }
 }

@@ -16,9 +16,13 @@
 package androidx.media3.exoplayer;
 
 import androidx.media3.common.C;
+import androidx.media3.common.Player;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.TrackGroup;
+import androidx.media3.common.util.Log;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.source.MediaPeriod;
 import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import androidx.media3.exoplayer.source.TrackGroupArray;
@@ -30,6 +34,88 @@ import androidx.media3.exoplayer.upstream.Allocator;
 public interface LoadControl {
 
   /**
+   * Information about the current playback context and the {@link MediaPeriod} for which {@link
+   * LoadControl} methods are called.
+   */
+  final class Parameters {
+    /** The {@linkplain PlayerId ID of the player}. */
+    public final PlayerId playerId;
+
+    /** The current {@link Timeline} of the player. */
+    public final Timeline timeline;
+
+    /**
+     * The {@link MediaPeriodId} of the affected {@link MediaPeriod} in the current {@link
+     * #timeline}.
+     */
+    public final MediaPeriodId mediaPeriodId;
+
+    /**
+     * The current playback position in microseconds, relative to the start of the affected {@link
+     * MediaPeriod} identified by {@link #mediaPeriodId}. If playback of this period has not yet
+     * started, the value will be negative and equal in magnitude to the duration of any media in
+     * previous periods still to be played.
+     */
+    public final long playbackPositionUs;
+
+    /** The total duration of media that's currently buffered. */
+    public final long bufferedDurationUs;
+
+    /** The current factor by which playback is sped up. */
+    public final float playbackSpeed;
+
+    /** Whether playback should proceed when {@link Player#STATE_READY}. */
+    public final boolean playWhenReady;
+
+    /**
+     * Whether the player is rebuffering. A rebuffer is defined to be caused by buffer depletion
+     * rather than a user action. Hence this parameter is false during initial buffering and when
+     * buffering as a result of a seek operation.
+     */
+    public final boolean rebuffering;
+
+    /**
+     * The desired playback position offset to the live edge in microseconds, or {@link
+     * C#TIME_UNSET} if the media is not a live stream or no offset is configured.
+     */
+    public final long targetLiveOffsetUs;
+
+    /**
+     * Creates parameters for {@link LoadControl} methods.
+     *
+     * @param playerId See {@link #playerId}.
+     * @param timeline See {@link #timeline}.
+     * @param mediaPeriodId See {@link #mediaPeriodId}.
+     * @param playbackPositionUs See {@link #playbackPositionUs}.
+     * @param bufferedDurationUs See {@link #bufferedDurationUs}.
+     * @param playbackSpeed See {@link #playbackSpeed}.
+     * @param playWhenReady See {@link #playWhenReady}.
+     * @param rebuffering See {@link #rebuffering}.
+     * @param targetLiveOffsetUs See {@link #targetLiveOffsetUs}.
+     */
+    public Parameters(
+        PlayerId playerId,
+        Timeline timeline,
+        MediaPeriodId mediaPeriodId,
+        long playbackPositionUs,
+        long bufferedDurationUs,
+        float playbackSpeed,
+        boolean playWhenReady,
+        boolean rebuffering,
+        long targetLiveOffsetUs) {
+      this.playerId = playerId;
+      this.timeline = timeline;
+      this.mediaPeriodId = mediaPeriodId;
+      this.playbackPositionUs = playbackPositionUs;
+      this.bufferedDurationUs = bufferedDurationUs;
+      this.playbackSpeed = playbackSpeed;
+      this.playWhenReady = playWhenReady;
+      this.rebuffering = rebuffering;
+      this.targetLiveOffsetUs = targetLiveOffsetUs;
+    }
+  }
+
+  /**
    * @deprecated Used as a placeholder when MediaPeriodId is unknown. Only used when the deprecated
    *     methods {@link #onTracksSelected(Renderer[], TrackGroupArray, ExoTrackSelection[])} or
    *     {@link #shouldStartPlayback(long, float, boolean, long)} are called.
@@ -37,47 +123,129 @@ public interface LoadControl {
   @Deprecated
   MediaPeriodId EMPTY_MEDIA_PERIOD_ID = new MediaPeriodId(/* periodUid= */ new Object());
 
-  /** Called by the player when prepared with a new source. */
-  void onPrepared();
+  /**
+   * Called by the player when prepared with a new source.
+   *
+   * @param playerId The {@linkplain PlayerId ID of the player} that prepared a new source.
+   */
+  @SuppressWarnings("deprecation") // Calling deprecated version of this method.
+  default void onPrepared(PlayerId playerId) {
+    onPrepared();
+  }
+
+  /**
+   * @deprecated Use {@link #onPrepared(PlayerId)} instead.
+   */
+  @Deprecated
+  default void onPrepared() {
+    // Media3 ExoPlayer will never call this method. This default implementation provides an
+    // implementation to please the compiler only.
+    throw new IllegalStateException("onPrepared not implemented");
+  }
 
   /**
    * Called by the player when a track selection occurs.
    *
-   * @param timeline The current {@link Timeline} in ExoPlayer. Can be {@link Timeline#EMPTY} only
-   *     when the deprecated {@link #onTracksSelected(Renderer[], TrackGroupArray,
-   *     ExoTrackSelection[])} was called.
-   * @param mediaPeriodId Identifies (in the current timeline) the {@link MediaPeriod} for which the
-   *     selection was made. Will be {@link #EMPTY_MEDIA_PERIOD_ID} when {@code timeline} is empty.
-   * @param renderers The renderers.
+   * @param parameters containing the {@linkplain PlayerId ID of the player}, the current {@link
+   *     Timeline} in ExoPlayer, and the {@link MediaPeriod} for which the selection was made. Will
+   *     be {@link #EMPTY_MEDIA_PERIOD_ID} when {@code timeline} is empty.
    * @param trackGroups The {@link TrackGroup}s from which the selection was made.
    * @param trackSelections The track selections that were made.
    */
+  default void onTracksSelected(
+      Parameters parameters,
+      TrackGroupArray trackGroups,
+      @NullableType ExoTrackSelection[] trackSelections) {
+    // Media3 ExoPlayer will never call this method. This default implementation provides an
+    // implementation to please the compiler only.
+    throw new IllegalStateException("onTracksSelected not implemented");
+  }
+
+  /**
+   * @deprecated Implement {@link #onTracksSelected(Parameters, TrackGroupArray,
+   *     ExoTrackSelection[])} instead.
+   */
   @SuppressWarnings("deprecation") // Calling deprecated version of this method.
+  @Deprecated
+  default void onTracksSelected(
+      PlayerId playerId,
+      Timeline timeline,
+      MediaPeriodId mediaPeriodId,
+      Renderer[] renderers,
+      TrackGroupArray trackGroups,
+      @NullableType ExoTrackSelection[] trackSelections) {
+    onTracksSelected(timeline, mediaPeriodId, renderers, trackGroups, trackSelections);
+  }
+
+  /**
+   * @deprecated Implement {@link #onTracksSelected(Parameters, TrackGroupArray,
+   *     ExoTrackSelection[])} instead.
+   */
+  @SuppressWarnings("deprecation") // Calling deprecated version of this method.
+  @Deprecated
   default void onTracksSelected(
       Timeline timeline,
       MediaPeriodId mediaPeriodId,
       Renderer[] renderers,
       TrackGroupArray trackGroups,
-      ExoTrackSelection[] trackSelections) {
+      @NullableType ExoTrackSelection[] trackSelections) {
     onTracksSelected(renderers, trackGroups, trackSelections);
   }
 
   /**
-   * @deprecated Implement {@link #onTracksSelected(Timeline, MediaPeriodId, Renderer[],
-   *     TrackGroupArray, ExoTrackSelection[])} instead.
+   * @deprecated Implement {@link #onTracksSelected(Parameters, TrackGroupArray,
+   *     ExoTrackSelection[])} instead.
    */
+  @SuppressWarnings("deprecation") // Calling deprecated version of this method.
   @Deprecated
   default void onTracksSelected(
-      Renderer[] renderers, TrackGroupArray trackGroups, ExoTrackSelection[] trackSelections) {
-    onTracksSelected(
-        Timeline.EMPTY, EMPTY_MEDIA_PERIOD_ID, renderers, trackGroups, trackSelections);
+      Renderer[] renderers,
+      TrackGroupArray trackGroups,
+      @NullableType ExoTrackSelection[] trackSelections) {
+    // Media3 ExoPlayer will never call this method. This default implementation provides an
+    // implementation to please the compiler only.
+    throw new IllegalStateException("onTracksSelected not implemented");
   }
 
-  /** Called by the player when stopped. */
-  void onStopped();
+  /**
+   * Called by the player when stopped.
+   *
+   * @param playerId The {@linkplain PlayerId ID of the player} that was stopped.
+   */
+  @SuppressWarnings("deprecation") // Calling deprecated version of this method.
+  default void onStopped(PlayerId playerId) {
+    onStopped();
+  }
 
-  /** Called by the player when released. */
-  void onReleased();
+  /**
+   * @deprecated Implement {@link #onStopped(PlayerId)} instead.
+   */
+  @Deprecated
+  default void onStopped() {
+    // Media3 ExoPlayer will never call this method. This default implementation provides an
+    // implementation to please the compiler only.
+    throw new IllegalStateException("onStopped not implemented");
+  }
+
+  /**
+   * Called by the player when released.
+   *
+   * @param playerId The {@linkplain PlayerId ID of the player} that was released.
+   */
+  @SuppressWarnings("deprecation") // Calling deprecated version of this method.
+  default void onReleased(PlayerId playerId) {
+    onReleased();
+  }
+
+  /**
+   * @deprecated Implement {@link #onReleased(PlayerId)} instead.
+   */
+  @Deprecated
+  default void onReleased() {
+    // Media3 ExoPlayer will never call this method. This default implementation provides an
+    // implementation to please the compiler only.
+    throw new IllegalStateException("onReleased not implemented");
+  }
 
   /** Returns the {@link Allocator} that should be used to obtain media buffer allocations. */
   Allocator getAllocator();
@@ -92,10 +260,25 @@ public interface LoadControl {
    * <p>Note: Implementations should return a single value. Dynamic changes to the back-buffer are
    * not currently supported.
    *
+   * @param playerId The {@linkplain PlayerId ID of the player} that requests the back buffer
+   *     duration.
    * @return The duration of media to retain in the buffer prior to the current playback position,
    *     in microseconds.
    */
-  long getBackBufferDurationUs();
+  @SuppressWarnings("deprecation") // Calling deprecated version of this method.
+  default long getBackBufferDurationUs(PlayerId playerId) {
+    return getBackBufferDurationUs();
+  }
+
+  /**
+   * @deprecated Implements {@link #getBackBufferDurationUs(PlayerId)} instead.
+   */
+  @Deprecated
+  default long getBackBufferDurationUs() {
+    // Media3 ExoPlayer will never call this method. This default implementation provides an
+    // implementation to please the compiler only.
+    throw new IllegalStateException("getBackBufferDurationUs not implemented");
+  }
 
   /**
    * Returns whether media should be retained from the keyframe before the current playback position
@@ -110,28 +293,70 @@ public interface LoadControl {
    * <p>Note: Implementations should return a single value. Dynamic changes to the back-buffer are
    * not currently supported.
    *
+   * @param playerId The {@linkplain PlayerId ID of the player} that requests whether to retain the
+   *     back buffer from key frame.
    * @return Whether media should be retained from the keyframe before the current playback position
    *     minus {@link #getBackBufferDurationUs()}, rather than any sample before or at that
    *     position.
    */
-  boolean retainBackBufferFromKeyframe();
+  @SuppressWarnings("deprecation") // Calling deprecated version of this method.
+  default boolean retainBackBufferFromKeyframe(PlayerId playerId) {
+    return retainBackBufferFromKeyframe();
+  }
+
+  /**
+   * @deprecated Implements {@link #retainBackBufferFromKeyframe(PlayerId)} instead.
+   */
+  @Deprecated
+  default boolean retainBackBufferFromKeyframe() {
+    // Media3 ExoPlayer will never call this method. This default implementation provides an
+    // implementation to please the compiler only.
+    throw new IllegalStateException("retainBackBufferFromKeyframe not implemented");
+  }
 
   /**
    * Called by the player to determine whether it should continue to load the source. If this method
    * returns true, the {@link MediaPeriod} identified in the most recent {@link #onTracksSelected}
    * call will continue being loaded.
    *
-   * @param playbackPositionUs The current playback position in microseconds, relative to the start
-   *     of the {@link Timeline.Period period} that will continue to be loaded if this method
-   *     returns {@code true}. If playback of this period has not yet started, the value will be
-   *     negative and equal in magnitude to the duration of any media in previous periods still to
-   *     be played.
-   * @param bufferedDurationUs The duration of media that's currently buffered.
-   * @param playbackSpeed The current factor by which playback is sped up.
+   * @param parameters Information about the playback context and the {@link MediaPeriod} that will
+   *     continue to load if this method returns {@code true}.
    * @return Whether the loading should continue.
    */
-  boolean shouldContinueLoading(
-      long playbackPositionUs, long bufferedDurationUs, float playbackSpeed);
+  @SuppressWarnings("deprecation")
+  default boolean shouldContinueLoading(Parameters parameters) {
+    return shouldContinueLoading(
+        parameters.playbackPositionUs, parameters.bufferedDurationUs, parameters.playbackSpeed);
+  }
+
+  /**
+   * @deprecated Implement {@link #shouldContinueLoading(Parameters)} instead.
+   */
+  @Deprecated
+  default boolean shouldContinueLoading(
+      long playbackPositionUs, long bufferedDurationUs, float playbackSpeed) {
+    // Media3 ExoPlayer will never call this method. This default implementation provides an
+    // implementation to please the compiler only.
+    throw new IllegalStateException("shouldContinueLoading not implemented");
+  }
+
+  /**
+   * Called to determine whether preloading should be continued. If this method returns true, the
+   * presented period will continue to load media.
+   *
+   * @param timeline The Timeline containing the preload period that can be looked up with
+   *     MediaPeriodId.periodUid.
+   * @param mediaPeriodId The MediaPeriodId of the preloading period.
+   * @param bufferedDurationUs The duration of media currently buffered by the preload period.
+   * @return Whether the preloading should continue for the given period.
+   */
+  default boolean shouldContinuePreloading(
+      Timeline timeline, MediaPeriodId mediaPeriodId, long bufferedDurationUs) {
+    Log.w(
+        "LoadControl",
+        "shouldContinuePreloading needs to be implemented when playlist preloading is enabled");
+    return false;
+  }
 
   /**
    * Called repeatedly by the player when it's loading the source, has yet to start playback, and
@@ -139,21 +364,26 @@ public interface LoadControl {
    * determines whether playback is actually started. The load control may opt to return {@code
    * false} until some condition has been met (e.g. a certain amount of media is buffered).
    *
-   * @param timeline The current {@link Timeline} in ExoPlayer. Can be {@link Timeline#EMPTY} only
-   *     when the deprecated {@link #shouldStartPlayback(long, float, boolean, long)} was called.
-   * @param mediaPeriodId Identifies (in the current timeline) the {@link MediaPeriod} for which
-   *     playback will start. Will be {@link #EMPTY_MEDIA_PERIOD_ID} when {@code timeline} is empty.
-   * @param bufferedDurationUs The duration of media that's currently buffered.
-   * @param playbackSpeed The current factor by which playback is sped up.
-   * @param rebuffering Whether the player is rebuffering. A rebuffer is defined to be caused by
-   *     buffer depletion rather than a user action. Hence this parameter is false during initial
-   *     buffering and when buffering as a result of a seek operation.
-   * @param targetLiveOffsetUs The desired playback position offset to the live edge in
-   *     microseconds, or {@link C#TIME_UNSET} if the media is not a live stream or no offset is
-   *     configured.
+   * @param parameters Information about the playback context and the {@link MediaPeriod} that will
+   *     start playing if this method returns {@code true}.
    * @return Whether playback should be allowed to start or resume.
    */
   @SuppressWarnings("deprecation") // Calling deprecated version of this method.
+  default boolean shouldStartPlayback(Parameters parameters) {
+    return shouldStartPlayback(
+        parameters.timeline,
+        parameters.mediaPeriodId,
+        parameters.bufferedDurationUs,
+        parameters.playbackSpeed,
+        parameters.rebuffering,
+        parameters.targetLiveOffsetUs);
+  }
+
+  /**
+   * @deprecated Implement {@link #shouldStartPlayback(Parameters)} instead.
+   */
+  @SuppressWarnings("deprecation") // Calling deprecated version of this method.
+  @Deprecated
   default boolean shouldStartPlayback(
       Timeline timeline,
       MediaPeriodId mediaPeriodId,
@@ -161,22 +391,19 @@ public interface LoadControl {
       float playbackSpeed,
       boolean rebuffering,
       long targetLiveOffsetUs) {
+    // Media3 ExoPlayer will never call this method. The default implementation is only used to
+    // forward to the deprecated version below.
     return shouldStartPlayback(bufferedDurationUs, playbackSpeed, rebuffering, targetLiveOffsetUs);
   }
 
   /**
-   * @deprecated Implement {@link #shouldStartPlayback(Timeline, MediaPeriodId, long, float,
-   *     boolean, long)} instead.
+   * @deprecated Implement {@link #shouldStartPlayback(Parameters)} instead.
    */
   @Deprecated
   default boolean shouldStartPlayback(
       long bufferedDurationUs, float playbackSpeed, boolean rebuffering, long targetLiveOffsetUs) {
-    return shouldStartPlayback(
-        Timeline.EMPTY,
-        EMPTY_MEDIA_PERIOD_ID,
-        bufferedDurationUs,
-        playbackSpeed,
-        rebuffering,
-        targetLiveOffsetUs);
+    // Media3 ExoPlayer will never call this method. This default implementation provides an
+    // implementation to please the compiler only.
+    throw new IllegalStateException("shouldStartPlayback not implemented");
   }
 }

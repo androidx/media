@@ -279,7 +279,7 @@ public final class ExoPlaybackException extends PlaybackException {
       @Nullable MediaPeriodId mediaPeriodId,
       long timestampMs,
       boolean isRecoverable) {
-    super(message, cause, errorCode, timestampMs);
+    super(message, cause, errorCode, Bundle.EMPTY, timestampMs);
     Assertions.checkArgument(!isRecoverable || type == TYPE_RENDERER);
     Assertions.checkArgument(cause != null || type == TYPE_REMOTE);
     this.type = type;
@@ -400,18 +400,6 @@ public final class ExoPlaybackException extends PlaybackException {
     return message;
   }
 
-  // Bundleable implementation.
-
-  /**
-   * Object that can restore {@link ExoPlaybackException} from a {@link Bundle}.
-   *
-   * @deprecated Use {@link #ExoPlaybackException(Bundle)} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
-  public static final Creator<ExoPlaybackException> CREATOR = ExoPlaybackException::new;
-
   /** Restores a {@code ExoPlaybackException} from a {@link Bundle}. */
   @UnstableApi
   public static ExoPlaybackException fromBundle(Bundle bundle) {
@@ -434,7 +422,7 @@ public final class ExoPlaybackException extends PlaybackException {
    * {@inheritDoc}
    *
    * <p>It omits the {@link #mediaPeriodId} field. The {@link #mediaPeriodId} of an instance
-   * restored by {@link #CREATOR} will always be {@code null}.
+   * restored by {@link #fromBundle} will always be {@code null}.
    */
   @UnstableApi
   @Override
@@ -444,7 +432,8 @@ public final class ExoPlaybackException extends PlaybackException {
     bundle.putString(FIELD_RENDERER_NAME, rendererName);
     bundle.putInt(FIELD_RENDERER_INDEX, rendererIndex);
     if (rendererFormat != null) {
-      bundle.putBundle(FIELD_RENDERER_FORMAT, rendererFormat.toBundle());
+      bundle.putBundle(
+          FIELD_RENDERER_FORMAT, rendererFormat.toBundle(/* excludeMetadata= */ false));
     }
     bundle.putInt(FIELD_RENDERER_FORMAT_SUPPORT, rendererFormatSupport);
     bundle.putBoolean(FIELD_IS_RECOVERABLE, isRecoverable);

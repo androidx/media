@@ -33,12 +33,12 @@
     app:layout_constraintStart_toStartOf="parent"
     app:layout_constraintTop_toTopOf="parent" />
   <Button
-    android:id="@+id/select_preset_file_button"
+    android:id="@+id/select_preset_button"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
     android:layout_marginTop="32dp"
     android:layout_marginStart="8dp"
-    android:text="@string/select_preset_file_title"
+    android:text="@string/select_preset_title"
     android:textSize="12sp"
     app:layout_constraintStart_toStartOf="parent"
     app:layout_constraintTop_toBottomOf="@+id/configuration_text_view" />
@@ -66,7 +66,7 @@
     android:gravity="center"
     app:layout_constraintEnd_toEndOf="parent"
     app:layout_constraintStart_toStartOf="parent"
-    app:layout_constraintTop_toBottomOf="@+id/select_preset_file_button" />
+    app:layout_constraintTop_toBottomOf="@+id/select_preset_button" />
   <androidx.core.widget.NestedScrollView
     android:layout_width="match_parent"
     android:layout_height="0dp"
@@ -200,6 +200,16 @@
         android:layout_weight="1">
         <TextView
           android:layout_gravity="center_vertical"
+          android:text="@string/enable_analyzer_mode" />
+        <CheckBox
+          android:id="@+id/enable_analyzer_mode_checkbox"
+          android:layout_gravity="end"
+          android:checked="false"/>
+      </TableRow>
+      <TableRow
+        android:layout_weight="1">
+        <TextView
+          android:layout_gravity="center_vertical"
           android:text="@string/enable_debug_preview" />
         <CheckBox
           android:id="@+id/enable_debug_preview_checkbox"
@@ -210,9 +220,28 @@
         android:layout_weight="1">
         <TextView
           android:layout_gravity="center_vertical"
+          android:text="@string/enable_debug_tracing" />
+        <CheckBox
+          android:id="@+id/enable_debug_tracing_checkbox"
+          android:layout_gravity="end"
+          android:checked="false"/>
+      </TableRow>
+      <TableRow
+        android:layout_weight="1">
+        <TextView
+          android:layout_gravity="center_vertical"
           android:text="@string/abort_slow_export" />
         <CheckBox
           android:id="@+id/abort_slow_export_checkbox"
+          android:layout_gravity="end"/>
+      </TableRow>
+      <TableRow
+        android:layout_weight="1">
+        <TextView
+          android:layout_gravity="center_vertical"
+          android:text="@string/use_media3_muxer" />
+        <CheckBox
+          android:id="@+id/use_media3_muxer_checkbox"
           android:layout_gravity="end"/>
       </TableRow>
       <TableRow

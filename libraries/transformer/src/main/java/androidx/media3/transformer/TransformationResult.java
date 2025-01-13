@@ -25,11 +25,11 @@ import androidx.media3.common.util.UnstableApi;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Objects;
-import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
  * @deprecated Use {@link ExportResult} instead.
  */
+@SuppressWarnings("deprecation") // Deprecated usages of own type
 @Deprecated
 @UnstableApi
 public final class TransformationResult {
@@ -271,13 +271,13 @@ public final class TransformationResult {
      * The name of the audio decoder used to process {@code mediaItem}. This field is {@code null}
      * if no audio decoder was used.
      */
-    public final @MonotonicNonNull String audioDecoderName;
+    @Nullable public final String audioDecoderName;
 
     /**
      * The name of the video decoder used to process {@code mediaItem}. This field is {@code null}
      * if no video decoder was used.
      */
-    public final @MonotonicNonNull String videoDecoderName;
+    @Nullable public final String videoDecoderName;
 
     /** Creates an instance. */
     public ProcessedInput(

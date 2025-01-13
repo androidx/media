@@ -15,6 +15,7 @@
  */
 package androidx.media3.datasource;
 
+import androidx.media3.common.C;
 import androidx.media3.common.PriorityTaskManager;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.DataSource.Factory;
@@ -28,16 +29,16 @@ public final class PriorityDataSourceFactory implements Factory {
 
   private final Factory upstreamFactory;
   private final PriorityTaskManager priorityTaskManager;
-  private final int priority;
+  private final @C.Priority int priority;
 
   /**
    * @param upstreamFactory A {@link DataSource.Factory} to be used to create an upstream {@link
    *     DataSource} for {@link PriorityDataSource}.
    * @param priorityTaskManager The priority manager to which PriorityDataSource task is registered.
-   * @param priority The priority of PriorityDataSource task.
+   * @param priority The {@link C.Priority} of the {@link PriorityDataSource} task.
    */
   public PriorityDataSourceFactory(
-      Factory upstreamFactory, PriorityTaskManager priorityTaskManager, int priority) {
+      Factory upstreamFactory, PriorityTaskManager priorityTaskManager, @C.Priority int priority) {
     this.upstreamFactory = upstreamFactory;
     this.priorityTaskManager = priorityTaskManager;
     this.priority = priority;

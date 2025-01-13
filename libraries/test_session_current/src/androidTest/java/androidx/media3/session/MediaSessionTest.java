@@ -26,11 +26,13 @@ import static android.view.KeyEvent.KEYCODE_MEDIA_STOP;
 import static androidx.media3.common.Player.STATE_IDLE;
 import static androidx.media3.test.session.common.TestUtils.LONG_TIMEOUT_MS;
 import static androidx.media3.test.session.common.TestUtils.TIMEOUT_MS;
+import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.junit.Assert.assertThrows;
 
+import android.app.PendingIntent;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -64,6 +66,8 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
+import org.junit.Assert;
+import org.junit.Assume;
 import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Rule;
@@ -164,6 +168,82 @@ public class MediaSessionTest {
     // Empty string as ID is allowed.
     sessionTestRule.ensureReleaseAfterTest(
         new MediaSession.Builder(context, player).setId("").build());
+  }
+
+  @Test
+  public void builderSetSessionActivity_activityIntent_accepted() {
+    PendingIntent pendingIntent =
+        PendingIntent.getActivity(
+            ApplicationProvider.getApplicationContext(),
+            /* requestCode= */ 0,
+            new Intent("action"),
+            PendingIntent.FLAG_IMMUTABLE);
+
+    MediaSession session =
+        sessionTestRule.ensureReleaseAfterTest(
+            new MediaSession.Builder(getApplicationContext(), new MockPlayer.Builder().build())
+                .setId("sessionActivity")
+                .setSessionActivity(pendingIntent)
+                .build());
+
+    assertThat(session.getSessionActivity()).isEqualTo(pendingIntent);
+  }
+
+  @Test
+  public void setSessionActivity_activityIntent_accepted() {
+    PendingIntent pendingIntent =
+        PendingIntent.getActivity(
+            ApplicationProvider.getApplicationContext(),
+            /* requestCode= */ 0,
+            new Intent("action"),
+            PendingIntent.FLAG_IMMUTABLE);
+
+    MediaSession session =
+        sessionTestRule.ensureReleaseAfterTest(
+            new MediaSession.Builder(getApplicationContext(), new MockPlayer.Builder().build())
+                .setId("sessionActivity")
+                .build());
+    session.setSessionActivity(pendingIntent);
+
+    assertThat(session.getSessionActivity()).isEqualTo(pendingIntent);
+  }
+
+  @Test
+  public void builderSetSessionActivity_nonActivityIntent_throwsIllegalArgumentException() {
+    Assume.assumeTrue(Util.SDK_INT >= 31);
+    PendingIntent pendingIntent =
+        PendingIntent.getBroadcast(
+            ApplicationProvider.getApplicationContext(),
+            /* requestCode= */ 0,
+            new Intent("action"),
+            PendingIntent.FLAG_IMMUTABLE);
+
+    MediaSession.Builder builder =
+        new MediaSession.Builder(getApplicationContext(), new MockPlayer.Builder().build())
+            .setId("sessionActivity");
+
+    Assert.assertThrows(
+        IllegalArgumentException.class, () -> builder.setSessionActivity(pendingIntent));
+  }
+
+  @Test
+  public void setSessionActivity_nonActivityIntent_throwsIllegalArgumentException() {
+    Assume.assumeTrue(Util.SDK_INT >= 31);
+    PendingIntent pendingIntent =
+        PendingIntent.getBroadcast(
+            ApplicationProvider.getApplicationContext(),
+            /* requestCode= */ 0,
+            new Intent("action"),
+            PendingIntent.FLAG_IMMUTABLE);
+
+    MediaSession session =
+        sessionTestRule.ensureReleaseAfterTest(
+            new MediaSession.Builder(getApplicationContext(), new MockPlayer.Builder().build())
+                .setId("sessionActivity")
+                .build());
+
+    Assert.assertThrows(
+        IllegalArgumentException.class, () -> session.setSessionActivity(pendingIntent));
   }
 
   @Test
@@ -299,11 +379,7 @@ public class MediaSessionTest {
             });
       }
 
-      if (Util.SDK_INT >= 18) {
-        testThread.quitSafely();
-      } else {
-        testThread.quit();
-      }
+      testThread.quitSafely();
     }
   }
 
@@ -419,6 +495,38 @@ public class MediaSessionTest {
     assertThat(player.seekPositionMs).isEqualTo(testSeekPositionMs);
   }
 
+  /** Test {@link MediaSession#getSessionCompatToken()}. */
+  @Test
+  public void getPlatformToken_returnsCompatibleWithPlatformMediaController() throws Exception {
+    MediaSession session =
+        sessionTestRule.ensureReleaseAfterTest(
+            new MediaSession.Builder(context, player)
+                .setId("getPlatformToken_returnsCompatibleWithPlatformMediaController")
+                .setCallback(
+                    new MediaSession.Callback() {
+                      @Override
+                      public MediaSession.ConnectionResult onConnect(
+                          MediaSession session, ControllerInfo controller) {
+                        if (TextUtils.equals(
+                            getControllerCallerPackageName(controller),
+                            controller.getPackageName())) {
+                          return MediaSession.Callback.super.onConnect(session, controller);
+                        }
+                        return MediaSession.ConnectionResult.reject();
+                      }
+                    })
+                .build());
+    android.media.session.MediaSession.Token token = session.getPlatformToken();
+    android.media.session.MediaController platformController =
+        new android.media.session.MediaController(context, token);
+
+    long testSeekPositionMs = 1234;
+    platformController.getTransportControls().seekTo(testSeekPositionMs);
+
+    player.awaitMethodCalled(MockPlayer.METHOD_SEEK_TO, TIMEOUT_MS);
+    assertThat(player.seekPositionMs).isEqualTo(testSeekPositionMs);
+  }
+
   @Test
   public void getControllerVersion() throws Exception {
     CountDownLatch connectedLatch = new CountDownLatch(1);
@@ -529,7 +637,7 @@ public class MediaSessionTest {
                     })
                 .build()));
     Bundle connectionHints = new Bundle();
-    connectionHints.putBoolean(MediaNotificationManager.KEY_MEDIA_NOTIFICATION_MANAGER, true);
+    connectionHints.putBoolean(MediaController.KEY_MEDIA_NOTIFICATION_CONTROLLER_FLAG, true);
     new MediaController.Builder(
             ApplicationProvider.getApplicationContext(), session.get().getToken())
         .setConnectionHints(connectionHints)
@@ -740,7 +848,7 @@ public class MediaSessionTest {
                     })
                 .build());
     Bundle connectionHints = new Bundle();
-    connectionHints.putBoolean(MediaNotificationManager.KEY_MEDIA_NOTIFICATION_MANAGER, true);
+    connectionHints.putBoolean(MediaController.KEY_MEDIA_NOTIFICATION_CONTROLLER_FLAG, true);
     new MediaController.Builder(ApplicationProvider.getApplicationContext(), session.getToken())
         .setConnectionHints(connectionHints)
         .buildAsync()
@@ -779,7 +887,7 @@ public class MediaSessionTest {
   public void onMediaButtonEvent_noKeyEvent_mediaNotificationControllerConnected_returnsFalse()
       throws Exception {
     Bundle connectionHints = new Bundle();
-    connectionHints.putBoolean(MediaNotificationManager.KEY_MEDIA_NOTIFICATION_MANAGER, true);
+    connectionHints.putBoolean(MediaController.KEY_MEDIA_NOTIFICATION_CONTROLLER_FLAG, true);
     new MediaController.Builder(ApplicationProvider.getApplicationContext(), session.getToken())
         .setConnectionHints(connectionHints)
         .buildAsync()
@@ -809,7 +917,7 @@ public class MediaSessionTest {
   public void onMediaButtonEvent_invalidKeyEvent_mediaNotificationControllerConnected_returnsFalse()
       throws Exception {
     Bundle connectionHints = new Bundle();
-    connectionHints.putBoolean(MediaNotificationManager.KEY_MEDIA_NOTIFICATION_MANAGER, true);
+    connectionHints.putBoolean(MediaController.KEY_MEDIA_NOTIFICATION_CONTROLLER_FLAG, true);
     new MediaController.Builder(ApplicationProvider.getApplicationContext(), session.getToken())
         .setConnectionHints(connectionHints)
         .buildAsync()
@@ -839,7 +947,7 @@ public class MediaSessionTest {
   public void onMediaButtonEvent_invalidAction_mediaNotificationControllerConnected_returnsFalse()
       throws Exception {
     Bundle connectionHints = new Bundle();
-    connectionHints.putBoolean(MediaNotificationManager.KEY_MEDIA_NOTIFICATION_MANAGER, true);
+    connectionHints.putBoolean(MediaController.KEY_MEDIA_NOTIFICATION_CONTROLLER_FLAG, true);
     new MediaController.Builder(ApplicationProvider.getApplicationContext(), session.getToken())
         .setConnectionHints(connectionHints)
         .buildAsync()
@@ -869,7 +977,7 @@ public class MediaSessionTest {
       onMediaButtonEvent_invalidComponent_mediaNotificationControllerConnected_returnsFalse()
           throws Exception {
     Bundle connectionHints = new Bundle();
-    connectionHints.putBoolean(MediaNotificationManager.KEY_MEDIA_NOTIFICATION_MANAGER, true);
+    connectionHints.putBoolean(MediaController.KEY_MEDIA_NOTIFICATION_CONTROLLER_FLAG, true);
     new MediaController.Builder(ApplicationProvider.getApplicationContext(), session.getToken())
         .setConnectionHints(connectionHints)
         .buildAsync()
@@ -881,6 +989,62 @@ public class MediaSessionTest {
         session.getImpl().onMediaButtonEvent(createMediaButtonCaller(), intent);
 
     assertThat(isEventHandled).isFalse();
+  }
+
+  @Test
+  public void builderSetExtras_doesNotKeepOriginalInstance() {
+    Bundle extras = new Bundle();
+    extras.putString("key", "value");
+
+    MediaSession session = new MediaSession.Builder(context, player).setExtras(extras).build();
+    extras.putString("key", "newValue");
+    String sessionExtraValue = session.getToken().getExtras().getString("key");
+    session.release();
+
+    assertThat(sessionExtraValue).isEqualTo("value");
+  }
+
+  @Test
+  public void builderSetSessionExtras_doesNotKeepOriginalInstance() {
+    Bundle extras = new Bundle();
+    extras.putString("key", "value");
+
+    MediaSession session =
+        new MediaSession.Builder(context, player).setSessionExtras(extras).build();
+    extras.putString("key", "newValue");
+    String sessionExtraValue = session.getSessionExtras().getString("key");
+    session.release();
+
+    assertThat(sessionExtraValue).isEqualTo("value");
+  }
+
+  @Test
+  public void builder_defaultExtras_createsMutableInstance() {
+    MediaSession session = new MediaSession.Builder(context, player).build();
+
+    session.getSessionExtras().putString("key", "value");
+    String sessionExtraValue = session.getSessionExtras().getString("key");
+    session.release();
+
+    assertThat(sessionExtraValue).isEqualTo("value");
+  }
+
+  @Test
+  public void setSessionExtras_doesNotKeepOriginalInstance() throws Exception {
+    MediaSession session = new MediaSession.Builder(context, player).build();
+    Bundle extras = new Bundle();
+    extras.putString("key", "value");
+    AtomicReference<String> sessionExtraValue = new AtomicReference<>();
+
+    handler.postAndSync(
+        () -> {
+          session.setSessionExtras(extras);
+          extras.putString("key", "newValue");
+          sessionExtraValue.set(session.getSessionExtras().getString("key"));
+          session.release();
+        });
+
+    assertThat(sessionExtraValue.get()).isEqualTo("value");
   }
 
   private static Intent getMediaButtonIntent(int keyCode) {
@@ -906,23 +1070,20 @@ public class MediaSessionTest {
    * <p>Calling this method should only be required to test legacy behaviour.
    */
   private static String getControllerCallerPackageName(ControllerInfo controllerInfo) {
-    return (Util.SDK_INT < 21
-            || Util.SDK_INT > 23
+    return (Util.SDK_INT > 23
             || controllerInfo.getControllerVersion() != ControllerInfo.LEGACY_CONTROLLER_VERSION)
         ? ApplicationProvider.getApplicationContext().getPackageName()
         : MediaSessionManager.RemoteUserInfo.LEGACY_CONTROLLER;
   }
 
   private static ControllerInfo createMediaButtonCaller() {
-    return new ControllerInfo(
-        new MediaSessionManager.RemoteUserInfo(
-            "RANDOM_MEDIA_BUTTON_CALLER_PACKAGE",
-            MediaSessionManager.RemoteUserInfo.UNKNOWN_PID,
-            MediaSessionManager.RemoteUserInfo.UNKNOWN_UID),
+    return ControllerInfo.createTestOnlyControllerInfo(
+        "RANDOM_MEDIA_BUTTON_CALLER_PACKAGE",
+        MediaSessionManager.RemoteUserInfo.UNKNOWN_PID,
+        MediaSessionManager.RemoteUserInfo.UNKNOWN_UID,
         MediaLibraryInfo.VERSION_INT,
         MediaControllerStub.VERSION_INT,
         /* trusted= */ false,
-        /* cb= */ null,
         /* connectionHints= */ Bundle.EMPTY);
   }
 

@@ -37,6 +37,8 @@ import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.test.utils.SsimHelper;
 import androidx.test.platform.app.InstrumentationRegistry;
 import com.google.common.base.Ascii;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.File;
 import java.io.IOException;
@@ -179,6 +181,35 @@ public class TransformerAndroidTestRunner {
     this.inputValues = inputValues;
   }
 
+  /** Exports the {@link EditedMediaItem} asynchronously. */
+  public ListenableFuture<ExportResult> runAsync(String testId, EditedMediaItem editedMediaItem)
+      throws IOException {
+    SettableFuture<ExportResult> completionFuture = SettableFuture.create();
+    File outputVideoFile = createOutputFile(testId);
+    InstrumentationRegistry.getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              transformer.addListener(
+                  new Transformer.Listener() {
+                    @Override
+                    public void onCompleted(Composition composition, ExportResult exportResult) {
+                      completionFuture.set(exportResult);
+                    }
+
+                    @Override
+                    public void onError(
+                        Composition composition,
+                        ExportResult exportResult,
+                        ExportException exportException) {
+                      completionFuture.setException(exportException);
+                    }
+                  });
+              transformer.start(editedMediaItem, outputVideoFile.getAbsolutePath());
+            });
+
+    return completionFuture;
+  }
+
   /**
    * Exports the {@link Composition}, saving a summary of the export to the application cache.
    *
@@ -242,7 +273,8 @@ public class TransformerAndroidTestRunner {
    */
   public ExportTestResult run(String testId, EditedMediaItem editedMediaItem) throws Exception {
     Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence(editedMediaItem)).build();
+        new Composition.Builder(new EditedMediaItemSequence.Builder(editedMediaItem).build())
+            .build();
     return run(testId, composition);
   }
 
@@ -295,6 +327,9 @@ public class TransformerAndroidTestRunner {
     }
     for (EditedMediaItemSequence sequence : composition.sequences) {
       for (EditedMediaItem editedMediaItem : sequence.editedMediaItems) {
+        if (editedMediaItem.isGap()) {
+          continue;
+        }
         Uri mediaItemUri = checkNotNull(editedMediaItem.mediaItem.localConfiguration).uri;
         String scheme = mediaItemUri.getScheme();
         if (scheme != null && (scheme.equals("http") || scheme.equals("https"))) {
@@ -358,10 +393,7 @@ public class TransformerAndroidTestRunner {
                 })
             .build();
 
-    File outputVideoFile =
-        AndroidTestUtil.createExternalCacheFile(
-            context,
-            /* fileName= */ testId + "-" + Clock.DEFAULT.elapsedRealtime() + "-output.mp4");
+    File outputVideoFile = createOutputFile(testId);
     InstrumentationRegistry.getInstrumentation()
         .runOnMainSync(
             () -> {
@@ -404,11 +436,7 @@ public class TransformerAndroidTestRunner {
 
     // No exceptions raised, export has succeeded.
     ExportTestResult.Builder testResultBuilder =
-        new ExportTestResult.Builder(
-                checkNotNull(exportResultReference.get())
-                    .buildUpon()
-                    .setFileSizeBytes(outputVideoFile.length())
-                    .build())
+        new ExportTestResult.Builder(checkNotNull(exportResultReference.get()))
             .setElapsedTimeMs(elapsedTimeMs)
             .setFallbackDetails(fallbackDetails)
             .setFilePath(outputVideoFile.getPath());
@@ -453,6 +481,11 @@ public class TransformerAndroidTestRunner {
       }
     }
     return testResultBuilder.build();
+  }
+
+  private File createOutputFile(String testId) throws IOException {
+    return AndroidTestUtil.createExternalCacheFile(
+        context, /* fileName= */ testId + "-" + Clock.DEFAULT.elapsedRealtime() + "-output.mp4");
   }
 
   /** Returns whether the context is connected to the network. */

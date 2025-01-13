@@ -30,7 +30,7 @@ import androidx.annotation.FloatRange;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AudioAttributes;
-import androidx.media3.common.Bundleable;
+import androidx.media3.common.C;
 import androidx.media3.common.DeviceInfo;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
@@ -47,7 +47,6 @@ import androidx.media3.common.Tracks;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.text.CueGroup;
 import androidx.media3.common.util.Assertions;
-import androidx.media3.common.util.BundleUtil;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.common.base.Objects;
@@ -57,13 +56,13 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
  * Information about the player that {@link MediaSession} uses to send its state to {@link
  * MediaController}.
  */
-/* package */ class PlayerInfo implements Bundleable {
+/* package */ class PlayerInfo {
 
   /**
    * Holds information about what properties of the {@link PlayerInfo} have been excluded when sent
    * to the controller.
    */
-  public static class BundlingExclusions implements Bundleable {
+  public static class BundlingExclusions {
 
     /** Bundling exclusions with no exclusions. */
     public static final BundlingExclusions NONE =
@@ -82,15 +81,12 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
       this.areCurrentTracksExcluded = areCurrentTracksExcluded;
     }
 
-    // Bundleable implementation.
-
     private static final String FIELD_IS_TIMELINE_EXCLUDED = Util.intToStringMaxRadix(0);
     private static final String FIELD_ARE_CURRENT_TRACKS_EXCLUDED = Util.intToStringMaxRadix(1);
 
     // Next field key = 2
 
     @UnstableApi
-    @Override
     public Bundle toBundle() {
       Bundle bundle = new Bundle();
       bundle.putBoolean(FIELD_IS_TIMELINE_EXCLUDED, isTimelineExcluded);
@@ -98,11 +94,12 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
       return bundle;
     }
 
-    public static final Creator<BundlingExclusions> CREATOR =
-        bundle ->
-            new BundlingExclusions(
-                bundle.getBoolean(FIELD_IS_TIMELINE_EXCLUDED, /* defaultValue= */ false),
-                bundle.getBoolean(FIELD_ARE_CURRENT_TRACKS_EXCLUDED, /* defaultValue= */ false));
+    /** Restores a {@code BundlingExclusions} from a {@link Bundle}. */
+    public static BundlingExclusions fromBundle(Bundle bundle) {
+      return new BundlingExclusions(
+          bundle.getBoolean(FIELD_IS_TIMELINE_EXCLUDED, /* defaultValue= */ false),
+          bundle.getBoolean(FIELD_ARE_CURRENT_TRACKS_EXCLUDED, /* defaultValue= */ false));
+    }
 
     @Override
     public boolean equals(@Nullable Object o) {
@@ -461,9 +458,9 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
           /* isPlaying= */ false,
           /* isLoading= */ false,
           MediaMetadata.EMPTY,
-          /* seekBackIncrementMs= */ 0,
-          /* seekForwardIncrementMs= */ 0,
-          /* maxSeekToPreviousPositionMs= */ 0,
+          /* seekBackIncrementMs= */ C.DEFAULT_SEEK_BACK_INCREMENT_MS,
+          /* seekForwardIncrementMs= */ C.DEFAULT_SEEK_FORWARD_INCREMENT_MS,
+          /* maxSeekToPreviousPositionMs= */ C.DEFAULT_MAX_SEEK_TO_PREVIOUS_POSITION_MS,
           /* currentTracks= */ Tracks.EMPTY,
           TrackSelectionParameters.DEFAULT_WITHOUT_CONTEXT);
 
@@ -795,8 +792,6 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
         && playbackSuppressionReason == PLAYBACK_SUPPRESSION_REASON_NONE;
   }
 
-  // Bundleable implementation.
-
   private static final String FIELD_PLAYBACK_PARAMETERS = Util.intToStringMaxRadix(1);
   private static final String FIELD_REPEAT_MODE = Util.intToStringMaxRadix(2);
   private static final String FIELD_SHUFFLE_MODE_ENABLED = Util.intToStringMaxRadix(3);
@@ -822,9 +817,16 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
   private static final String FIELD_DISCONTINUITY_REASON = Util.intToStringMaxRadix(23);
   private static final String FIELD_CUE_GROUP = Util.intToStringMaxRadix(24);
   private static final String FIELD_MEDIA_METADATA = Util.intToStringMaxRadix(25);
-  private static final String FIELD_SEEK_BACK_INCREMENT_MS = Util.intToStringMaxRadix(26);
-  private static final String FIELD_SEEK_FORWARD_INCREMENT_MS = Util.intToStringMaxRadix(27);
-  private static final String FIELD_MAX_SEEK_TO_PREVIOUS_POSITION_MS = Util.intToStringMaxRadix(28);
+
+  @VisibleForTesting
+  static final String FIELD_SEEK_BACK_INCREMENT_MS = Util.intToStringMaxRadix(26);
+
+  @VisibleForTesting
+  static final String FIELD_SEEK_FORWARD_INCREMENT_MS = Util.intToStringMaxRadix(27);
+
+  @VisibleForTesting
+  static final String FIELD_MAX_SEEK_TO_PREVIOUS_POSITION_MS = Util.intToStringMaxRadix(28);
+
   private static final String FIELD_TRACK_SELECTION_PARAMETERS = Util.intToStringMaxRadix(29);
   private static final String FIELD_CURRENT_TRACKS = Util.intToStringMaxRadix(30);
   private static final String FIELD_TIMELINE_CHANGE_REASON = Util.intToStringMaxRadix(31);
@@ -893,16 +895,11 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
    */
   public Bundle toBundleInProcess() {
     Bundle bundle = new Bundle();
-    BundleUtil.putBinder(bundle, FIELD_IN_PROCESS_BINDER, new InProcessBinder());
+    bundle.putBinder(FIELD_IN_PROCESS_BINDER, new InProcessBinder());
     return bundle;
   }
 
-  @Override
-  public Bundle toBundle() {
-    return toBundle(Integer.MAX_VALUE);
-  }
-
-  public Bundle toBundle(int controllerInterfaceVersion) {
+  public Bundle toBundleForRemoteProcess(int controllerInterfaceVersion) {
     Bundle bundle = new Bundle();
     if (playerError != null) {
       bundle.putBundle(FIELD_PLAYBACK_ERROR, playerError.toBundle());
@@ -988,13 +985,19 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
     if (!mediaMetadata.equals(MediaMetadata.EMPTY)) {
       bundle.putBundle(FIELD_MEDIA_METADATA, mediaMetadata.toBundle());
     }
-    if (seekBackIncrementMs != 0) {
+    long defaultSeekBackIncrementMs =
+        controllerInterfaceVersion < 6 ? 0 : C.DEFAULT_SEEK_BACK_INCREMENT_MS;
+    if (seekBackIncrementMs != defaultSeekBackIncrementMs) {
       bundle.putLong(FIELD_SEEK_BACK_INCREMENT_MS, seekBackIncrementMs);
     }
-    if (seekForwardIncrementMs != 0) {
+    long defaultSeekForwardIncrementMs =
+        controllerInterfaceVersion < 6 ? 0 : C.DEFAULT_SEEK_FORWARD_INCREMENT_MS;
+    if (seekForwardIncrementMs != defaultSeekForwardIncrementMs) {
       bundle.putLong(FIELD_SEEK_FORWARD_INCREMENT_MS, seekForwardIncrementMs);
     }
-    if (maxSeekToPreviousPositionMs != 0) {
+    long defaultMaxSeekToPreviousPositionMs =
+        controllerInterfaceVersion < 6 ? 0 : C.DEFAULT_MAX_SEEK_TO_PREVIOUS_POSITION_MS;
+    if (maxSeekToPreviousPositionMs != defaultMaxSeekToPreviousPositionMs) {
       bundle.putLong(FIELD_MAX_SEEK_TO_PREVIOUS_POSITION_MS, maxSeekToPreviousPositionMs);
     }
     if (!currentTracks.equals(Tracks.EMPTY)) {
@@ -1006,76 +1009,70 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
     return bundle;
   }
 
-  /** Object that can restore {@link PlayerInfo} from a {@link Bundle}. */
-  public static final Creator<PlayerInfo> CREATOR = PlayerInfo::fromBundle;
-
-  private static PlayerInfo fromBundle(Bundle bundle) {
-    @Nullable IBinder inProcessBinder = BundleUtil.getBinder(bundle, FIELD_IN_PROCESS_BINDER);
+  /** Restores a {@code PlayerInfo} from a {@link Bundle}. */
+  public static PlayerInfo fromBundle(Bundle bundle, int sessionInterfaceVersion) {
+    @Nullable IBinder inProcessBinder = bundle.getBinder(FIELD_IN_PROCESS_BINDER);
     if (inProcessBinder instanceof InProcessBinder) {
       return ((InProcessBinder) inProcessBinder).getPlayerInfo();
     }
     @Nullable Bundle playerErrorBundle = bundle.getBundle(FIELD_PLAYBACK_ERROR);
     @Nullable
     PlaybackException playerError =
-        playerErrorBundle == null ? null : PlaybackException.CREATOR.fromBundle(playerErrorBundle);
+        playerErrorBundle == null ? null : PlaybackException.fromBundle(playerErrorBundle);
     int mediaItemTransitionReason =
         bundle.getInt(FIELD_MEDIA_ITEM_TRANSITION_REASON, MEDIA_ITEM_TRANSITION_REASON_DEFAULT);
     @Nullable Bundle sessionPositionInfoBundle = bundle.getBundle(FIELD_SESSION_POSITION_INFO);
     SessionPositionInfo sessionPositionInfo =
         sessionPositionInfoBundle == null
             ? SessionPositionInfo.DEFAULT
-            : SessionPositionInfo.CREATOR.fromBundle(sessionPositionInfoBundle);
+            : SessionPositionInfo.fromBundle(sessionPositionInfoBundle);
     @Nullable Bundle oldPositionInfoBundle = bundle.getBundle(FIELD_OLD_POSITION_INFO);
     PositionInfo oldPositionInfo =
         oldPositionInfoBundle == null
             ? SessionPositionInfo.DEFAULT_POSITION_INFO
-            : PositionInfo.CREATOR.fromBundle(oldPositionInfoBundle);
+            : PositionInfo.fromBundle(oldPositionInfoBundle);
     @Nullable Bundle newPositionInfoBundle = bundle.getBundle(FIELD_NEW_POSITION_INFO);
     PositionInfo newPositionInfo =
         newPositionInfoBundle == null
             ? SessionPositionInfo.DEFAULT_POSITION_INFO
-            : PositionInfo.CREATOR.fromBundle(newPositionInfoBundle);
+            : PositionInfo.fromBundle(newPositionInfoBundle);
     int discontinuityReason =
         bundle.getInt(FIELD_DISCONTINUITY_REASON, DISCONTINUITY_REASON_DEFAULT);
     @Nullable Bundle playbackParametersBundle = bundle.getBundle(FIELD_PLAYBACK_PARAMETERS);
     PlaybackParameters playbackParameters =
         playbackParametersBundle == null
             ? PlaybackParameters.DEFAULT
-            : PlaybackParameters.CREATOR.fromBundle(playbackParametersBundle);
+            : PlaybackParameters.fromBundle(playbackParametersBundle);
     @Player.RepeatMode
     int repeatMode = bundle.getInt(FIELD_REPEAT_MODE, /* defaultValue= */ Player.REPEAT_MODE_OFF);
     boolean shuffleModeEnabled =
         bundle.getBoolean(FIELD_SHUFFLE_MODE_ENABLED, /* defaultValue= */ false);
     @Nullable Bundle timelineBundle = bundle.getBundle(FIELD_TIMELINE);
     Timeline timeline =
-        timelineBundle == null ? Timeline.EMPTY : Timeline.CREATOR.fromBundle(timelineBundle);
+        timelineBundle == null ? Timeline.EMPTY : Timeline.fromBundle(timelineBundle);
     int timelineChangeReason =
         bundle.getInt(
             FIELD_TIMELINE_CHANGE_REASON, /* defaultValue= */ TIMELINE_CHANGE_REASON_DEFAULT);
     @Nullable Bundle videoSizeBundle = bundle.getBundle(FIELD_VIDEO_SIZE);
     VideoSize videoSize =
-        videoSizeBundle == null ? VideoSize.UNKNOWN : VideoSize.CREATOR.fromBundle(videoSizeBundle);
+        videoSizeBundle == null ? VideoSize.UNKNOWN : VideoSize.fromBundle(videoSizeBundle);
     @Nullable Bundle playlistMetadataBundle = bundle.getBundle(FIELD_PLAYLIST_METADATA);
     MediaMetadata playlistMetadata =
         playlistMetadataBundle == null
             ? MediaMetadata.EMPTY
-            : MediaMetadata.CREATOR.fromBundle(playlistMetadataBundle);
+            : MediaMetadata.fromBundle(playlistMetadataBundle);
     float volume = bundle.getFloat(FIELD_VOLUME, /* defaultValue= */ 1);
     @Nullable Bundle audioAttributesBundle = bundle.getBundle(FIELD_AUDIO_ATTRIBUTES);
     AudioAttributes audioAttributes =
         audioAttributesBundle == null
             ? AudioAttributes.DEFAULT
-            : AudioAttributes.CREATOR.fromBundle(audioAttributesBundle);
+            : AudioAttributes.fromBundle(audioAttributesBundle);
     @Nullable Bundle cueGroupBundle = bundle.getBundle(FIELD_CUE_GROUP);
     CueGroup cueGroup =
-        cueGroupBundle == null
-            ? CueGroup.EMPTY_TIME_ZERO
-            : CueGroup.CREATOR.fromBundle(cueGroupBundle);
+        cueGroupBundle == null ? CueGroup.EMPTY_TIME_ZERO : CueGroup.fromBundle(cueGroupBundle);
     @Nullable Bundle deviceInfoBundle = bundle.getBundle(FIELD_DEVICE_INFO);
     DeviceInfo deviceInfo =
-        deviceInfoBundle == null
-            ? DeviceInfo.UNKNOWN
-            : DeviceInfo.CREATOR.fromBundle(deviceInfoBundle);
+        deviceInfoBundle == null ? DeviceInfo.UNKNOWN : DeviceInfo.fromBundle(deviceInfoBundle);
     int deviceVolume = bundle.getInt(FIELD_DEVICE_VOLUME, /* defaultValue= */ 0);
     boolean deviceMuted = bundle.getBoolean(FIELD_DEVICE_MUTED, /* defaultValue= */ false);
     boolean playWhenReady = bundle.getBoolean(FIELD_PLAY_WHEN_READY, /* defaultValue= */ false);
@@ -1096,15 +1093,26 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
     MediaMetadata mediaMetadata =
         mediaMetadataBundle == null
             ? MediaMetadata.EMPTY
-            : MediaMetadata.CREATOR.fromBundle(mediaMetadataBundle);
-    long seekBackIncrementMs = bundle.getLong(FIELD_SEEK_BACK_INCREMENT_MS, /* defaultValue= */ 0);
+            : MediaMetadata.fromBundle(mediaMetadataBundle);
+    long seekBackIncrementMs =
+        bundle.getLong(
+            FIELD_SEEK_BACK_INCREMENT_MS,
+            /* defaultValue= */ sessionInterfaceVersion < 4 ? 0 : C.DEFAULT_SEEK_BACK_INCREMENT_MS);
     long seekForwardIncrementMs =
-        bundle.getLong(FIELD_SEEK_FORWARD_INCREMENT_MS, /* defaultValue= */ 0);
+        bundle.getLong(
+            FIELD_SEEK_FORWARD_INCREMENT_MS,
+            /* defaultValue= */ sessionInterfaceVersion < 4
+                ? 0
+                : C.DEFAULT_SEEK_FORWARD_INCREMENT_MS);
     long maxSeekToPreviousPosition =
-        bundle.getLong(FIELD_MAX_SEEK_TO_PREVIOUS_POSITION_MS, /* defaultValue= */ 0);
+        bundle.getLong(
+            FIELD_MAX_SEEK_TO_PREVIOUS_POSITION_MS,
+            /* defaultValue= */ sessionInterfaceVersion < 4
+                ? 0
+                : C.DEFAULT_MAX_SEEK_TO_PREVIOUS_POSITION_MS);
     Bundle currentTracksBundle = bundle.getBundle(FIELD_CURRENT_TRACKS);
     Tracks currentTracks =
-        currentTracksBundle == null ? Tracks.EMPTY : Tracks.CREATOR.fromBundle(currentTracksBundle);
+        currentTracksBundle == null ? Tracks.EMPTY : Tracks.fromBundle(currentTracksBundle);
     @Nullable
     Bundle trackSelectionParametersBundle = bundle.getBundle(FIELD_TRACK_SELECTION_PARAMETERS);
     TrackSelectionParameters trackSelectionParameters =

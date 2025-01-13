@@ -26,9 +26,9 @@ import android.graphics.Point;
 import android.os.Bundle;
 import android.os.Looper;
 import android.view.accessibility.CaptioningManager;
+import androidx.annotation.CallSuper;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.media3.common.util.BundleCollectionUtil;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -70,7 +70,7 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
  * player.setTrackSelectionParameters(newParameters);
  * }</pre>
  */
-public class TrackSelectionParameters implements Bundleable {
+public class TrackSelectionParameters {
 
   /**
    * A builder for {@link TrackSelectionParameters}. See the {@link TrackSelectionParameters}
@@ -623,7 +623,7 @@ public class TrackSelectionParameters implements Bundleable {
      * Sets the preferred language and role flags for text tracks based on the accessibility
      * settings of {@link CaptioningManager}.
      *
-     * <p>Does nothing for API levels &lt; 19 or when the {@link CaptioningManager} is disabled.
+     * <p>Does nothing when the {@link CaptioningManager} is disabled.
      *
      * @param context A {@link Context}.
      * @return This builder.
@@ -631,8 +631,20 @@ public class TrackSelectionParameters implements Bundleable {
     @CanIgnoreReturnValue
     public Builder setPreferredTextLanguageAndRoleFlagsToCaptioningManagerSettings(
         Context context) {
-      if (Util.SDK_INT >= 19) {
-        setPreferredTextLanguageAndRoleFlagsToCaptioningManagerSettingsV19(context);
+      if (Util.SDK_INT < 23 && Looper.myLooper() == null) {
+        // Android platform bug (pre-Marshmallow) that causes RuntimeExceptions when
+        // CaptioningService is instantiated from a non-Looper thread. See [internal: b/143779904].
+        return this;
+      }
+      CaptioningManager captioningManager =
+          (CaptioningManager) context.getSystemService(Context.CAPTIONING_SERVICE);
+      if (captioningManager == null || !captioningManager.isEnabled()) {
+        return this;
+      }
+      preferredTextRoleFlags = C.ROLE_FLAG_CAPTION | C.ROLE_FLAG_DESCRIBES_MUSIC_AND_SOUND;
+      Locale preferredLocale = captioningManager.getLocale();
+      if (preferredLocale != null) {
+        preferredTextLanguages = ImmutableList.of(Util.getLocaleLanguageTag(preferredLocale));
       }
       return this;
     }
@@ -832,26 +844,6 @@ public class TrackSelectionParameters implements Bundleable {
       return new TrackSelectionParameters(this);
     }
 
-    @RequiresApi(19)
-    private void setPreferredTextLanguageAndRoleFlagsToCaptioningManagerSettingsV19(
-        Context context) {
-      if (Util.SDK_INT < 23 && Looper.myLooper() == null) {
-        // Android platform bug (pre-Marshmallow) that causes RuntimeExceptions when
-        // CaptioningService is instantiated from a non-Looper thread. See [internal: b/143779904].
-        return;
-      }
-      CaptioningManager captioningManager =
-          (CaptioningManager) context.getSystemService(Context.CAPTIONING_SERVICE);
-      if (captioningManager == null || !captioningManager.isEnabled()) {
-        return;
-      }
-      preferredTextRoleFlags = C.ROLE_FLAG_CAPTION | C.ROLE_FLAG_DESCRIBES_MUSIC_AND_SOUND;
-      Locale preferredLocale = captioningManager.getLocale();
-      if (preferredLocale != null) {
-        preferredTextLanguages = ImmutableList.of(Util.getLocaleLanguageTag(preferredLocale));
-      }
-    }
-
     private static ImmutableList<String> normalizeLanguageCodes(String[] preferredTextLanguages) {
       ImmutableList.Builder<String> listBuilder = ImmutableList.builder();
       for (String language : checkNotNull(preferredTextLanguages)) {
@@ -863,7 +855,7 @@ public class TrackSelectionParameters implements Bundleable {
 
   /** Preferences and constraints for enabling audio offload. */
   @UnstableApi
-  public static final class AudioOffloadPreferences implements Bundleable {
+  public static final class AudioOffloadPreferences {
 
     /**
      * The preference level for enabling audio offload on the audio sink. One of {@link
@@ -1023,14 +1015,11 @@ public class TrackSelectionParameters implements Bundleable {
       return result;
     }
 
-    // Bundleable implementation
-
     private static final String FIELD_AUDIO_OFFLOAD_MODE_PREFERENCE = Util.intToStringMaxRadix(1);
     private static final String FIELD_IS_GAPLESS_SUPPORT_REQUIRED = Util.intToStringMaxRadix(2);
     private static final String FIELD_IS_SPEED_CHANGE_SUPPORT_REQUIRED =
         Util.intToStringMaxRadix(3);
 
-    @Override
     public Bundle toBundle() {
       Bundle bundle = new Bundle();
       bundle.putInt(FIELD_AUDIO_OFFLOAD_MODE_PREFERENCE, audioOffloadMode);
@@ -1389,8 +1378,6 @@ public class TrackSelectionParameters implements Bundleable {
     return result;
   }
 
-  // Bundleable implementation
-
   private static final String FIELD_PREFERRED_AUDIO_LANGUAGES = Util.intToStringMaxRadix(1);
   private static final String FIELD_PREFERRED_AUDIO_ROLE_FLAGS = Util.intToStringMaxRadix(2);
   private static final String FIELD_PREFERRED_TEXT_LANGUAGES = Util.intToStringMaxRadix(3);
@@ -1434,7 +1421,7 @@ public class TrackSelectionParameters implements Bundleable {
    */
   @UnstableApi protected static final int FIELD_CUSTOM_ID_BASE = 1000;
 
-  @Override
+  @CallSuper
   public Bundle toBundle() {
     Bundle bundle = new Bundle();
 
@@ -1491,13 +1478,4 @@ public class TrackSelectionParameters implements Bundleable {
   public static TrackSelectionParameters fromBundle(Bundle bundle) {
     return new Builder(bundle).build();
   }
-
-  /**
-   * @deprecated Use {@link #fromBundle(Bundle)} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
-  public static final Creator<TrackSelectionParameters> CREATOR =
-      TrackSelectionParameters::fromBundle;
 }

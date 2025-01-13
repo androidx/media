@@ -30,6 +30,9 @@ def addMissingAarTypeToXml(xml) {
         "org.mockito:mockito-core",
         "org.robolectric:robolectric",
         "com.github.philburk:jsyn",
+        "org.jetbrains.kotlin:kotlin-stdlib-jdk8",
+        "org.jetbrains.kotlinx:kotlinx-coroutines-core",
+        "org.jetbrains.kotlinx:kotlinx-coroutines-android",
     ]
     // Dependencies that have AAR files.
     def aar_dependencies = [
@@ -41,7 +44,6 @@ def addMissingAarTypeToXml(xml) {
         "androidx.leanback:leanback",
         "androidx.media:media",
         "androidx.media2:media2-session",
-        "androidx.multidex:multidex",
         "androidx.recyclerview:recyclerview",
         "androidx.test:core",
         "androidx.test.ext:junit",

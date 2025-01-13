@@ -87,8 +87,7 @@ public class MediaSessionWithMediaControllerCompatTest {
         sessionTestRule.ensureReleaseAfterTest(
             new MediaSession.Builder(context, player).setId(TAG).setCallback(callback).build());
     RemoteMediaControllerCompat controllerCompat =
-        remoteControllerTestRule.createRemoteControllerCompat(
-            session.getSessionCompat().getSessionToken());
+        remoteControllerTestRule.createRemoteControllerCompat(session.getSessionCompatToken());
     // Invoke any command for session to recognize the controller compat.
     controllerCompat.getTransportControls().prepare();
 
@@ -124,15 +123,14 @@ public class MediaSessionWithMediaControllerCompatTest {
         sessionTestRule.ensureReleaseAfterTest(
             new MediaSession.Builder(context, player).setId(TAG).setCallback(callback).build());
     Bundle connectionHints = new Bundle();
-    connectionHints.putBoolean(MediaNotificationManager.KEY_MEDIA_NOTIFICATION_MANAGER, true);
+    connectionHints.putBoolean(MediaController.KEY_MEDIA_NOTIFICATION_CONTROLLER_FLAG, true);
     new MediaController.Builder(context.getApplicationContext(), session.getToken())
         .setConnectionHints(connectionHints)
         .buildAsync()
         .get();
 
     RemoteMediaControllerCompat controllerCompat =
-        remoteControllerTestRule.createRemoteControllerCompat(
-            session.getSessionCompat().getSessionToken());
+        remoteControllerTestRule.createRemoteControllerCompat(session.getSessionCompatToken());
     controllerCompat.transportControls.play();
 
     assertThat(connectedLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
@@ -143,8 +141,7 @@ public class MediaSessionWithMediaControllerCompatTest {
         SessionCommands.EMPTY,
         Player.Commands.EMPTY.buildUpon().add(Player.COMMAND_GET_TIMELINE).build());
     RemoteMediaControllerCompat controllerCompat2 =
-        remoteControllerTestRule.createRemoteControllerCompat(
-            session.getSessionCompat().getSessionToken());
+        remoteControllerTestRule.createRemoteControllerCompat(session.getSessionCompatToken());
     controllerCompat2.transportControls.pause();
 
     assertThat(controllerCompat.getQueueSize()).isEqualTo(2);

@@ -59,6 +59,7 @@ import androidx.media3.exoplayer.upstream.CmcdConfiguration;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
 import androidx.media3.exoplayer.upstream.LoaderErrorThrower;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.primitives.Ints;
 import java.io.IOException;
@@ -113,6 +114,8 @@ import java.util.regex.Pattern;
   private DashManifest manifest;
   private int periodIndex;
   private List<EventStream> eventStreams;
+  private boolean canReportInitialDiscontinuity;
+  private long initialStartTimeUs;
 
   public DashMediaPeriod(
       int id,
@@ -148,12 +151,12 @@ import java.util.regex.Pattern;
     this.allocator = allocator;
     this.compositeSequenceableLoaderFactory = compositeSequenceableLoaderFactory;
     this.playerId = playerId;
+    this.canReportInitialDiscontinuity = true;
     playerEmsgHandler = new PlayerEmsgHandler(manifest, playerEmsgCallback, allocator);
     sampleStreams = newSampleStreamArray(0);
     eventSampleStreams = new EventSampleStream[0];
     trackEmsgHandlerBySampleStream = new IdentityHashMap<>();
-    compositeSequenceableLoader =
-        compositeSequenceableLoaderFactory.createCompositeSequenceableLoader(sampleStreams);
+    compositeSequenceableLoader = compositeSequenceableLoaderFactory.empty();
     Period period = manifest.getPeriod(periodIndex);
     eventStreams = period.eventStreams;
     Pair<TrackGroupArray, TrackGroupInfo[]> result =
@@ -302,7 +305,13 @@ import java.util.regex.Pattern;
     eventSampleStreamList.toArray(eventSampleStreams);
 
     compositeSequenceableLoader =
-        compositeSequenceableLoaderFactory.createCompositeSequenceableLoader(sampleStreams);
+        compositeSequenceableLoaderFactory.create(
+            sampleStreamList,
+            Lists.transform(sampleStreamList, s -> ImmutableList.of(s.primaryTrackType)));
+    if (canReportInitialDiscontinuity) {
+      canReportInitialDiscontinuity = false;
+      initialStartTimeUs = positionUs;
+    }
     return positionUs;
   }
 
@@ -335,6 +344,11 @@ import java.util.regex.Pattern;
 
   @Override
   public long readDiscontinuity() {
+    for (ChunkSampleStream<DashChunkSource> sampleStream : sampleStreams) {
+      if (sampleStream.consumeInitialDiscontinuity()) {
+        return initialStartTimeUs;
+      }
+    }
     return C.TIME_UNSET;
   }
 
@@ -822,7 +836,9 @@ import java.util.regex.Pattern;
             drmSessionManager,
             drmEventDispatcher,
             loadErrorHandlingPolicy,
-            mediaSourceEventDispatcher);
+            mediaSourceEventDispatcher,
+            canReportInitialDiscontinuity,
+            /* downloadExecutor= */ null);
     synchronized (this) {
       // The map is also accessed on the loading thread so synchronize access.
       trackEmsgHandlerBySampleStream.put(stream, trackPlayerEmsgHandler);

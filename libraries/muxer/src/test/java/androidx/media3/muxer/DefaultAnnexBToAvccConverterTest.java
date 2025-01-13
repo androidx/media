@@ -16,6 +16,7 @@
 package androidx.media3.muxer;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.nio.ByteBuffer;
@@ -27,55 +28,81 @@ import org.junit.runner.RunWith;
 public final class DefaultAnnexBToAvccConverterTest {
   @Test
   public void convertAnnexBToAvcc_singleNalUnit() {
-    ByteBuffer in = generateFakeNalUnitData(1000);
+    ByteBuffer input = generateFakeNalUnitData(1000);
     // Add start code for the NAL unit.
-    in.put(0, (byte) 0);
-    in.put(1, (byte) 0);
-    in.put(2, (byte) 0);
-    in.put(3, (byte) 1);
+    input.put(0, (byte) 0);
+    input.put(1, (byte) 0);
+    input.put(2, (byte) 0);
+    input.put(3, (byte) 1);
 
     AnnexBToAvccConverter annexBToAvccConverter = AnnexBToAvccConverter.DEFAULT;
-    annexBToAvccConverter.process(in);
+    ByteBuffer output = annexBToAvccConverter.process(input);
 
     // The start code should get replaced with the length of the NAL unit.
-    assertThat(in.getInt(0)).isEqualTo(996);
+    assertThat(output.getInt(0)).isEqualTo(996);
   }
 
   @Test
   public void convertAnnexBToAvcc_twoNalUnits() {
-    ByteBuffer in = generateFakeNalUnitData(1000);
+    ByteBuffer input = generateFakeNalUnitData(1000);
     // Add start code for the first NAL unit.
-    in.put(0, (byte) 0);
-    in.put(1, (byte) 0);
-    in.put(2, (byte) 0);
-    in.put(3, (byte) 1);
+    input.put(0, (byte) 0);
+    input.put(1, (byte) 0);
+    input.put(2, (byte) 0);
+    input.put(3, (byte) 1);
 
     // Add start code for the second NAL unit.
-    in.put(600, (byte) 0);
-    in.put(601, (byte) 0);
-    in.put(602, (byte) 0);
-    in.put(603, (byte) 1);
+    input.put(600, (byte) 0);
+    input.put(601, (byte) 0);
+    input.put(602, (byte) 0);
+    input.put(603, (byte) 1);
 
     AnnexBToAvccConverter annexBToAvccConverter = AnnexBToAvccConverter.DEFAULT;
-    annexBToAvccConverter.process(in);
+    ByteBuffer output = annexBToAvccConverter.process(input);
 
     // Both the NAL units should have length headers.
-    assertThat(in.getInt(0)).isEqualTo(596);
-    assertThat(in.getInt(600)).isEqualTo(396);
+    assertThat(output.getInt(0)).isEqualTo(596);
+    assertThat(output.getInt(600)).isEqualTo(396);
   }
 
   @Test
-  public void convertAnnexBToAvcc_noNalUnit_outputSameAsInput() {
+  public void convertAnnexBToAvcc_noNalUnit_throws() {
     ByteBuffer input = generateFakeNalUnitData(1000);
-    ByteBuffer inputCopy = ByteBuffer.allocate(input.limit());
-    inputCopy.put(input);
-    input.rewind();
-    inputCopy.rewind();
 
     AnnexBToAvccConverter annexBToAvccConverter = AnnexBToAvccConverter.DEFAULT;
-    annexBToAvccConverter.process(input);
+    assertThrows(IllegalStateException.class, () -> annexBToAvccConverter.process(input));
+  }
 
-    assertThat(input).isEqualTo(inputCopy);
+  @Test
+  public void convertAnnexBToAvcc_withExtraZeroesAtTheEnd_removesExtraZeroes() {
+    ByteBuffer input = ByteBuffer.allocate(10);
+    // Add 3 byte start code for the NAL unit.
+    input.put(0, (byte) 0);
+    input.put(1, (byte) 0);
+    input.put(2, (byte) 1);
+    // Add fake NAL unit data;
+    input.put(3, (byte) 300);
+    input.put(4, (byte) 300);
+    input.put(5, (byte) 300);
+    input.put(6, (byte) 300);
+    // Add extra zeroes at the end.
+    input.put(7, (byte) 0);
+    input.put(8, (byte) 0);
+    input.put(9, (byte) 0);
+
+    AnnexBToAvccConverter annexBToAvccConverter = AnnexBToAvccConverter.DEFAULT;
+    ByteBuffer output = annexBToAvccConverter.process(input);
+
+    ByteBuffer expectedOutput = ByteBuffer.allocate(8);
+    // First 4 bytes for NAL unit length.
+    expectedOutput.putInt(4);
+    // Fake NAL unit data;
+    expectedOutput.put(4, (byte) 300);
+    expectedOutput.put(5, (byte) 300);
+    expectedOutput.put(6, (byte) 300);
+    expectedOutput.put(7, (byte) 300);
+    expectedOutput.rewind();
+    assertThat(output).isEqualTo(expectedOutput);
   }
 
   /** Returns {@link ByteBuffer} filled with random NAL unit data without start code. */

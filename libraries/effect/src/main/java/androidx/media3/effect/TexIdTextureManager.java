@@ -16,6 +16,10 @@
 package androidx.media3.effect;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
+import static androidx.media3.effect.DebugTraceUtil.COMPONENT_TEX_ID_TEXTURE_MANAGER;
+import static androidx.media3.effect.DebugTraceUtil.COMPONENT_VFP;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_QUEUE_TEXTURE;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_SIGNAL_EOS;
 
 import android.opengl.GLES10;
 import androidx.media3.common.C;
@@ -23,6 +27,7 @@ import androidx.media3.common.FrameInfo;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.OnInputFrameProcessedListener;
+import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.GlUtil;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
@@ -86,7 +91,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                   frameInfo.height);
           checkNotNull(frameConsumptionManager).queueInputFrame(inputTexture, presentationTimeUs);
           DebugTraceUtil.logEvent(
-              DebugTraceUtil.EVENT_VFP_QUEUE_TEXTURE,
+              COMPONENT_VFP,
+              EVENT_QUEUE_TEXTURE,
               presentationTimeUs,
               /* extraFormat= */ "%dx%d",
               /* extraArgs...= */ frameInfo.width,
@@ -100,7 +106,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   @Override
-  public void setInputFrameInfo(FrameInfo inputFrameInfo) {
+  public void setInputFrameInfo(FrameInfo inputFrameInfo, boolean automaticReregistration) {
     this.inputFrameInfo = inputFrameInfo;
   }
 
@@ -115,7 +121,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         () -> {
           checkNotNull(frameConsumptionManager).signalEndOfCurrentStream();
           DebugTraceUtil.logEvent(
-              DebugTraceUtil.EVENT_TEX_ID_TEXTURE_MANAGER_SIGNAL_EOS, C.TIME_END_OF_SOURCE);
+              COMPONENT_TEX_ID_TEXTURE_MANAGER, EVENT_SIGNAL_EOS, C.TIME_END_OF_SOURCE);
         });
   }
 
@@ -127,7 +133,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   // Methods that must be called on the GL thread.
 
   @Override
-  protected synchronized void flush() {
+  protected synchronized void flush() throws VideoFrameProcessingException {
     checkNotNull(frameConsumptionManager).onFlush();
     super.flush();
   }

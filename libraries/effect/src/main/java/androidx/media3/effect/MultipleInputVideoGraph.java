@@ -17,14 +17,17 @@
 package androidx.media3.effect;
 
 import static androidx.media3.common.VideoFrameProcessor.INPUT_TYPE_TEXTURE_ID;
+import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
+import static androidx.media3.common.util.GlUtil.destroyEglContext;
+import static androidx.media3.common.util.GlUtil.getDefaultEglDisplay;
 import static androidx.media3.common.util.Util.contains;
 import static androidx.media3.common.util.Util.newSingleThreadScheduledExecutor;
-import static androidx.media3.effect.DebugTraceUtil.EVENT_COMPOSITOR_OUTPUT_TEXTURE_RENDERED;
-import static androidx.media3.effect.DebugTraceUtil.EVENT_VFP_OUTPUT_TEXTURE_RENDERED;
-import static androidx.media3.effect.DebugTraceUtil.logEvent;
+import static androidx.media3.effect.DebugTraceUtil.COMPONENT_COMPOSITOR;
+import static androidx.media3.effect.DebugTraceUtil.COMPONENT_VFP;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_OUTPUT_TEXTURE_RENDERED;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.content.Context;
@@ -32,6 +35,7 @@ import android.opengl.EGLContext;
 import android.opengl.EGLDisplay;
 import android.opengl.EGLSurface;
 import android.util.SparseArray;
+import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
@@ -45,6 +49,8 @@ import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.VideoGraph;
 import androidx.media3.common.util.GlUtil;
+import androidx.media3.common.util.GlUtil.GlException;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.util.concurrent.MoreExecutors;
 import java.util.ArrayDeque;
@@ -59,7 +65,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 @UnstableApi
 public abstract class MultipleInputVideoGraph implements VideoGraph {
 
-  private static final String SHARED_EXECUTOR_NAME = "Transformer:MultipleInputVideoGraph:Thread";
+  private static final String TAG = "MultiInputVG";
+  private static final String SHARED_EXECUTOR_NAME = "Effect:MultipleInputVideoGraph:Thread";
 
   private static final long RELEASE_WAIT_TIME_MS = 1_000;
   private static final int PRE_COMPOSITOR_TEXTURE_OUTPUT_CAPACITY = 2;
@@ -67,15 +74,14 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
 
   private final Context context;
 
-  private final ColorInfo inputColorInfo;
   private final ColorInfo outputColorInfo;
-  private final GlObjectsProvider glObjectsProvider;
+  private final SingleContextGlObjectsProvider glObjectsProvider;
   private final DebugViewProvider debugViewProvider;
   private final VideoGraph.Listener listener;
   private final Executor listenerExecutor;
   private final VideoCompositorSettings videoCompositorSettings;
   private final List<Effect> compositionEffects;
-  private final List<VideoFrameProcessor> preProcessors;
+  private final SparseArray<VideoFrameProcessor> preProcessors;
 
   private final ExecutorService sharedExecutorService;
 
@@ -84,6 +90,7 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
   private final SparseArray<CompositorOutputTextureRelease> compositorOutputTextureReleases;
 
   private final long initialTimestampOffsetUs;
+  private final boolean renderFramesAutomatically;
 
   @Nullable private VideoFrameProcessor compositionVideoFrameProcessor;
   @Nullable private VideoCompositor videoCompositor;
@@ -98,16 +105,17 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
 
   protected MultipleInputVideoGraph(
       Context context,
-      ColorInfo inputColorInfo,
+      VideoFrameProcessor.Factory videoFrameProcessorFactory,
       ColorInfo outputColorInfo,
       DebugViewProvider debugViewProvider,
-      VideoGraph.Listener listener,
+      Listener listener,
       Executor listenerExecutor,
       VideoCompositorSettings videoCompositorSettings,
       List<Effect> compositionEffects,
-      long initialTimestampOffsetUs) {
+      long initialTimestampOffsetUs,
+      boolean renderFramesAutomatically) {
+    checkArgument(videoFrameProcessorFactory instanceof DefaultVideoFrameProcessor.Factory);
     this.context = context;
-    this.inputColorInfo = inputColorInfo;
     this.outputColorInfo = outputColorInfo;
     this.debugViewProvider = debugViewProvider;
     this.listener = listener;
@@ -115,13 +123,15 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
     this.videoCompositorSettings = videoCompositorSettings;
     this.compositionEffects = new ArrayList<>(compositionEffects);
     this.initialTimestampOffsetUs = initialTimestampOffsetUs;
+    this.renderFramesAutomatically = renderFramesAutomatically;
     lastRenderedPresentationTimeUs = C.TIME_UNSET;
-    preProcessors = new ArrayList<>();
+    preProcessors = new SparseArray<>();
     sharedExecutorService = newSingleThreadScheduledExecutor(SHARED_EXECUTOR_NAME);
     glObjectsProvider = new SingleContextGlObjectsProvider();
-    // TODO - b/289986435: Support injecting VideoFrameProcessor.Factory.
-    videoFrameProcessorFactory =
-        new DefaultVideoFrameProcessor.Factory.Builder()
+    // TODO - b/289986435: Support injecting arbitrary VideoFrameProcessor.Factory.
+    this.videoFrameProcessorFactory =
+        ((DefaultVideoFrameProcessor.Factory) videoFrameProcessorFactory)
+            .buildUpon()
             .setGlObjectsProvider(glObjectsProvider)
             .setExecutorService(sharedExecutorService)
             .build();
@@ -137,7 +147,7 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
   @Override
   public void initialize() throws VideoFrameProcessingException {
     checkState(
-        preProcessors.isEmpty()
+        preProcessors.size() == 0
             && videoCompositor == null
             && compositionVideoFrameProcessor == null
             && !released);
@@ -148,7 +158,7 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
             context,
             debugViewProvider,
             outputColorInfo,
-            /* renderFramesAutomatically= */ true,
+            renderFramesAutomatically,
             /* listenerExecutor= */ MoreExecutors.directExecutor(),
             new VideoFrameProcessor.Listener() {
               // All of this listener's methods are called on the sharedExecutorService.
@@ -172,6 +182,9 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
                   hasProducedFrameWithTimestampZero = true;
                 }
                 lastRenderedPresentationTimeUs = presentationTimeUs;
+
+                listenerExecutor.execute(
+                    () -> listener.onOutputFrameAvailableForRendering(presentationTimeUs));
               }
 
               @Override
@@ -212,10 +225,10 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
   }
 
   @Override
-  public int registerInput() throws VideoFrameProcessingException {
-    checkStateNotNull(videoCompositor);
-
-    int videoCompositorInputId = videoCompositor.registerInputSource();
+  public void registerInput(@IntRange(from = 0) int inputIndex)
+      throws VideoFrameProcessingException {
+    checkState(!contains(preProcessors, inputIndex));
+    checkNotNull(videoCompositor).registerInputSource(inputIndex);
     // Creating a new VideoFrameProcessor for the input.
     VideoFrameProcessor preProcessor =
         videoFrameProcessorFactory
@@ -224,7 +237,7 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
                 // Texture output to compositor.
                 (textureProducer, texture, presentationTimeUs, syncObject) ->
                     queuePreProcessingOutputToCompositor(
-                        videoCompositorInputId, textureProducer, texture, presentationTimeUs),
+                        inputIndex, textureProducer, texture, presentationTimeUs),
                 PRE_COMPOSITOR_TEXTURE_OUTPUT_CAPACITY)
             .build()
             .create(
@@ -236,17 +249,6 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
                 listenerExecutor,
                 new VideoFrameProcessor.Listener() {
                   // All of this listener's methods are called on the sharedExecutorService.
-                  @Override
-                  public void onInputStreamRegistered(
-                      @VideoFrameProcessor.InputType int inputType,
-                      List<Effect> effects,
-                      FrameInfo frameInfo) {}
-
-                  @Override
-                  public void onOutputSizeChanged(int width, int height) {}
-
-                  @Override
-                  public void onOutputFrameAvailableForRendering(long presentationTimeUs) {}
 
                   @Override
                   public void onError(VideoFrameProcessingException exception) {
@@ -255,17 +257,16 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
 
                   @Override
                   public void onEnded() {
-                    onPreProcessingVideoFrameProcessorEnded(videoCompositorInputId);
+                    onPreProcessingVideoFrameProcessorEnded(inputIndex);
                   }
                 });
-    preProcessors.add(preProcessor);
-    return videoCompositorInputId;
+    preProcessors.put(inputIndex, preProcessor);
   }
 
   @Override
-  public VideoFrameProcessor getProcessor(int inputId) {
-    checkState(inputId < preProcessors.size());
-    return preProcessors.get(inputId);
+  public VideoFrameProcessor getProcessor(int inputIndex) {
+    checkState(contains(preProcessors, inputIndex));
+    return preProcessors.get(inputIndex);
   }
 
   @Override
@@ -286,7 +287,7 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
 
     // Needs to release the frame processors before their internal executor services are released.
     for (int i = 0; i < preProcessors.size(); i++) {
-      preProcessors.get(i).release();
+      preProcessors.get(preProcessors.keyAt(i)).release();
     }
     preProcessors.clear();
 
@@ -300,6 +301,15 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
       compositionVideoFrameProcessor = null;
     }
 
+    try {
+      // The eglContext is not released by any of the frame processors.
+      if (glObjectsProvider.singleEglContext != null) {
+        destroyEglContext(getDefaultEglDisplay(), glObjectsProvider.singleEglContext);
+      }
+    } catch (GlUtil.GlException e) {
+      Log.e(TAG, "Error releasing GL context", e);
+    }
+
     sharedExecutorService.shutdown();
     try {
       sharedExecutorService.awaitTermination(RELEASE_WAIT_TIME_MS, MILLISECONDS);
@@ -311,8 +321,8 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
     released = true;
   }
 
-  protected ColorInfo getInputColorInfo() {
-    return inputColorInfo;
+  protected VideoFrameProcessor getCompositionVideoFrameProcessor() {
+    return checkStateNotNull(compositionVideoFrameProcessor);
   }
 
   protected long getInitialTimestampOffsetUs() {
@@ -325,7 +335,7 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
       GlTextureProducer textureProducer,
       GlTextureInfo texture,
       long presentationTimeUs) {
-    logEvent(EVENT_VFP_OUTPUT_TEXTURE_RENDERED, presentationTimeUs);
+    DebugTraceUtil.logEvent(COMPONENT_VFP, EVENT_OUTPUT_TEXTURE_RENDERED, presentationTimeUs);
     checkNotNull(videoCompositor)
         .queueInputTexture(
             videoCompositorInputId,
@@ -344,7 +354,8 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
       long syncObject) {
     checkStateNotNull(compositionVideoFrameProcessor);
     checkState(!compositorEnded);
-    logEvent(EVENT_COMPOSITOR_OUTPUT_TEXTURE_RENDERED, presentationTimeUs);
+    DebugTraceUtil.logEvent(
+        COMPONENT_COMPOSITOR, EVENT_OUTPUT_TEXTURE_RENDERED, presentationTimeUs);
 
     compositorOutputTextures.add(
         new CompositorOutputTextureInfo(outputTexture, presentationTimeUs));
@@ -464,8 +475,7 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
 
     @Override
     public EGLContext createEglContext(
-        EGLDisplay eglDisplay, int openGlVersion, int[] configAttributes)
-        throws GlUtil.GlException {
+        EGLDisplay eglDisplay, int openGlVersion, int[] configAttributes) throws GlException {
       if (singleEglContext == null) {
         singleEglContext =
             glObjectsProvider.createEglContext(eglDisplay, openGlVersion, configAttributes);
@@ -479,21 +489,26 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
         Object surface,
         @C.ColorTransfer int colorTransfer,
         boolean isEncoderInputSurface)
-        throws GlUtil.GlException {
+        throws GlException {
       return glObjectsProvider.createEglSurface(
           eglDisplay, surface, colorTransfer, isEncoderInputSurface);
     }
 
     @Override
     public EGLSurface createFocusedPlaceholderEglSurface(
-        EGLContext eglContext, EGLDisplay eglDisplay) throws GlUtil.GlException {
+        EGLContext eglContext, EGLDisplay eglDisplay) throws GlException {
       return glObjectsProvider.createFocusedPlaceholderEglSurface(eglContext, eglDisplay);
     }
 
     @Override
     public GlTextureInfo createBuffersForTexture(int texId, int width, int height)
-        throws GlUtil.GlException {
+        throws GlException {
       return glObjectsProvider.createBuffersForTexture(texId, width, height);
+    }
+
+    @Override
+    public void release(EGLDisplay eglDisplay) {
+      // The eglContext is released in the VideoGraph after all VideoFrameProcessors are released.
     }
   }
 }

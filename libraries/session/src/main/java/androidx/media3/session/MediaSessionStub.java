@@ -15,7 +15,6 @@
  */
 package androidx.media3.session;
 
-import static androidx.media3.common.Player.COMMAND_ADJUST_DEVICE_VOLUME;
 import static androidx.media3.common.Player.COMMAND_ADJUST_DEVICE_VOLUME_WITH_FLAGS;
 import static androidx.media3.common.Player.COMMAND_CHANGE_MEDIA_ITEMS;
 import static androidx.media3.common.Player.COMMAND_PLAY_PAUSE;
@@ -30,7 +29,6 @@ import static androidx.media3.common.Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM;
 import static androidx.media3.common.Player.COMMAND_SEEK_TO_PREVIOUS;
 import static androidx.media3.common.Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM;
 import static androidx.media3.common.Player.COMMAND_SET_AUDIO_ATTRIBUTES;
-import static androidx.media3.common.Player.COMMAND_SET_DEVICE_VOLUME;
 import static androidx.media3.common.Player.COMMAND_SET_DEVICE_VOLUME_WITH_FLAGS;
 import static androidx.media3.common.Player.COMMAND_SET_MEDIA_ITEM;
 import static androidx.media3.common.Player.COMMAND_SET_PLAYLIST_METADATA;
@@ -55,8 +53,14 @@ import static androidx.media3.session.SessionCommand.COMMAND_CODE_LIBRARY_SEARCH
 import static androidx.media3.session.SessionCommand.COMMAND_CODE_LIBRARY_SUBSCRIBE;
 import static androidx.media3.session.SessionCommand.COMMAND_CODE_LIBRARY_UNSUBSCRIBE;
 import static androidx.media3.session.SessionCommand.COMMAND_CODE_SESSION_SET_RATING;
+import static androidx.media3.session.SessionError.ERROR_NOT_SUPPORTED;
+import static androidx.media3.session.SessionError.ERROR_PERMISSION_DENIED;
+import static androidx.media3.session.SessionError.ERROR_SESSION_DISCONNECTED;
+import static androidx.media3.session.SessionError.ERROR_UNKNOWN;
+import static androidx.media3.session.SessionError.INFO_CANCELLED;
 
 import android.app.PendingIntent;
+import android.media.session.MediaSession.Token;
 import android.os.Binder;
 import android.os.Bundle;
 import android.os.IBinder;
@@ -65,7 +69,6 @@ import android.text.TextUtils;
 import android.view.Surface;
 import androidx.annotation.Nullable;
 import androidx.core.util.ObjectsCompat;
-import androidx.media.MediaSessionManager;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.BundleListRetriever;
 import androidx.media3.common.C;
@@ -90,6 +93,7 @@ import androidx.media3.session.MediaSession.ControllerCb;
 import androidx.media3.session.MediaSession.ControllerInfo;
 import androidx.media3.session.MediaSession.MediaItemsWithStartPosition;
 import androidx.media3.session.SessionCommand.CommandCode;
+import androidx.media3.session.legacy.MediaSessionManager;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
@@ -115,7 +119,7 @@ import java.util.concurrent.ExecutionException;
   private static final String TAG = "MediaSessionStub";
 
   /** The version of the IMediaSession interface. */
-  public static final int VERSION_INT = 2;
+  public static final int VERSION_INT = 4;
 
   /**
    * Sequence number used when a controller method is triggered on the sesison side that wasn't
@@ -194,8 +198,8 @@ import java.util.concurrent.ExecutionException;
                 result =
                     new SessionResult(
                         exception.getCause() instanceof UnsupportedOperationException
-                            ? SessionResult.RESULT_ERROR_NOT_SUPPORTED
-                            : SessionResult.RESULT_ERROR_UNKNOWN);
+                            ? ERROR_NOT_SUPPORTED
+                            : ERROR_UNKNOWN);
               }
               sendSessionResult(controller, sequenceNumber, result);
             });
@@ -207,8 +211,7 @@ import java.util.concurrent.ExecutionException;
           MediaItemPlayerTask mediaItemPlayerTask) {
     return (sessionImpl, controller, sequenceNumber) -> {
       if (sessionImpl.isReleased()) {
-        return Futures.immediateFuture(
-            new SessionResult(SessionResult.RESULT_ERROR_SESSION_DISCONNECTED));
+        return Futures.immediateFuture(new SessionResult(ERROR_SESSION_DISCONNECTED));
       }
       return transformFutureAsync(
           mediaItemsTask.run(sessionImpl, controller, sequenceNumber),
@@ -233,8 +236,7 @@ import java.util.concurrent.ExecutionException;
           MediaItemsWithStartPositionPlayerTask mediaItemPlayerTask) {
     return (sessionImpl, controller, sequenceNumber) -> {
       if (sessionImpl.isReleased()) {
-        return Futures.immediateFuture(
-            new SessionResult(SessionResult.RESULT_ERROR_SESSION_DISCONNECTED));
+        return Futures.immediateFuture(new SessionResult(ERROR_SESSION_DISCONNECTED));
       }
       return transformFutureAsync(
           mediaItemsTask.run(sessionImpl, controller, sequenceNumber),
@@ -277,10 +279,10 @@ import java.util.concurrent.ExecutionException;
                 result = checkNotNull(future.get(), "LibraryResult must not be null");
               } catch (CancellationException e) {
                 Log.w(TAG, "Library operation cancelled", e);
-                result = LibraryResult.ofError(LibraryResult.RESULT_INFO_SKIPPED);
+                result = LibraryResult.ofError(INFO_CANCELLED);
               } catch (ExecutionException | InterruptedException e) {
                 Log.w(TAG, "Library operation failed", e);
-                result = LibraryResult.ofError(LibraryResult.RESULT_ERROR_UNKNOWN);
+                result = LibraryResult.ofError(ERROR_UNKNOWN);
               }
               sendLibraryResult(controller, sequenceNumber, result);
             });
@@ -316,9 +318,7 @@ import java.util.concurrent.ExecutionException;
           () -> {
             if (!connectedControllersManager.isPlayerCommandAvailable(controller, command)) {
               sendSessionResult(
-                  controller,
-                  sequenceNumber,
-                  new SessionResult(SessionResult.RESULT_ERROR_PERMISSION_DENIED));
+                  controller, sequenceNumber, new SessionResult(ERROR_PERMISSION_DENIED));
               return;
             }
             @SessionResult.Code
@@ -329,13 +329,18 @@ import java.util.concurrent.ExecutionException;
               return;
             }
             if (command == COMMAND_SET_VIDEO_SURFACE) {
+              // Call surface changes immediately to ensure they are handled within the calling
+              // methods stack. Also add a placeholder task to the regular command queue for proper
+              // task tracking (e.g. to send onPlayerInteractionFinished).
               sessionImpl
                   .callWithControllerForCurrentRequestSet(
                       controller, () -> task.run(sessionImpl, controller, sequenceNumber))
                   .run();
+              connectedControllersManager.addToCommandQueue(
+                  controller, command, Futures::immediateVoidFuture);
             } else {
               connectedControllersManager.addToCommandQueue(
-                  controller, () -> task.run(sessionImpl, controller, sequenceNumber));
+                  controller, command, () -> task.run(sessionImpl, controller, sequenceNumber));
             }
           });
     } finally {
@@ -390,17 +395,13 @@ import java.util.concurrent.ExecutionException;
               if (!connectedControllersManager.isSessionCommandAvailable(
                   controller, sessionCommand)) {
                 sendSessionResult(
-                    controller,
-                    sequenceNumber,
-                    new SessionResult(SessionResult.RESULT_ERROR_PERMISSION_DENIED));
+                    controller, sequenceNumber, new SessionResult(ERROR_PERMISSION_DENIED));
                 return;
               }
             } else {
               if (!connectedControllersManager.isSessionCommandAvailable(controller, commandCode)) {
                 sendSessionResult(
-                    controller,
-                    sequenceNumber,
-                    new SessionResult(SessionResult.RESULT_ERROR_PERMISSION_DENIED));
+                    controller, sequenceNumber, new SessionResult(ERROR_PERMISSION_DENIED));
                 return;
               }
             }
@@ -521,15 +522,23 @@ import java.util.concurrent.ExecutionException;
             PlayerWrapper playerWrapper = sessionImpl.getPlayerWrapper();
             PlayerInfo playerInfo = playerWrapper.createPlayerInfoForBundling();
             playerInfo = generateAndCacheUniqueTrackGroupIds(playerInfo);
+            Token platformToken =
+                (Token) sessionImpl.getSessionCompat().getSessionToken().getToken();
             ConnectionState state =
                 new ConnectionState(
                     MediaLibraryInfo.VERSION_INT,
                     MediaSessionStub.VERSION_INT,
                     MediaSessionStub.this,
-                    sessionImpl.getSessionActivity(),
+                    connectionResult.sessionActivity != null
+                        ? connectionResult.sessionActivity
+                        : sessionImpl.getSessionActivity(),
                     connectionResult.customLayout != null
                         ? connectionResult.customLayout
                         : sessionImpl.getCustomLayout(),
+                    connectionResult.mediaButtonPreferences != null
+                        ? connectionResult.mediaButtonPreferences
+                        : sessionImpl.getMediaButtonPreferences(),
+                    sessionImpl.getCommandButtonsForMediaItems(),
                     connectionResult.availableSessionCommands,
                     connectionResult.availablePlayerCommands,
                     playerWrapper.getAvailableCommands(),
@@ -537,7 +546,8 @@ import java.util.concurrent.ExecutionException;
                     connectionResult.sessionExtras != null
                         ? connectionResult.sessionExtras
                         : sessionImpl.getSessionExtras(),
-                    playerInfo);
+                    playerInfo,
+                    platformToken);
 
             // Double check if session is still there, because release() can be called in
             // another thread.
@@ -629,8 +639,9 @@ import java.util.concurrent.ExecutionException;
               request.libraryVersion,
               request.controllerInterfaceVersion,
               sessionManager.isTrustedForMediaControl(remoteUserInfo),
-              new MediaSessionStub.Controller2Cb(caller),
-              request.connectionHints);
+              new MediaSessionStub.Controller2Cb(caller, request.controllerInterfaceVersion),
+              request.connectionHints,
+              request.maxCommandsForMediaItems);
       connect(caller, controllerInfo);
     } finally {
       Binder.restoreCallingIdentity(token);
@@ -726,7 +737,8 @@ import java.util.concurrent.ExecutionException;
               if (impl == null || impl.isReleased()) {
                 return;
               }
-              impl.handleMediaControllerPlayRequest(controller);
+              impl.handleMediaControllerPlayRequest(
+                  controller, /* callOnPlayerInteractionFinished= */ false);
             }));
   }
 
@@ -1529,7 +1541,7 @@ import java.util.concurrent.ExecutionException;
     queueSessionTaskWithPlayerCommand(
         caller,
         sequenceNumber,
-        COMMAND_SET_DEVICE_VOLUME,
+        Player.COMMAND_SET_DEVICE_VOLUME,
         sendSessionResultSuccess(player -> player.setDeviceVolume(volume)));
   }
 
@@ -1555,7 +1567,7 @@ import java.util.concurrent.ExecutionException;
     queueSessionTaskWithPlayerCommand(
         caller,
         sequenceNumber,
-        COMMAND_ADJUST_DEVICE_VOLUME,
+        Player.COMMAND_ADJUST_DEVICE_VOLUME,
         sendSessionResultSuccess(player -> player.increaseDeviceVolume()));
   }
 
@@ -1581,7 +1593,7 @@ import java.util.concurrent.ExecutionException;
     queueSessionTaskWithPlayerCommand(
         caller,
         sequenceNumber,
-        COMMAND_ADJUST_DEVICE_VOLUME,
+        Player.COMMAND_ADJUST_DEVICE_VOLUME,
         sendSessionResultSuccess(player -> player.decreaseDeviceVolume()));
   }
 
@@ -1607,7 +1619,7 @@ import java.util.concurrent.ExecutionException;
     queueSessionTaskWithPlayerCommand(
         caller,
         sequenceNumber,
-        COMMAND_ADJUST_DEVICE_VOLUME,
+        Player.COMMAND_ADJUST_DEVICE_VOLUME,
         sendSessionResultSuccess(player -> player.setDeviceMuted(muted)));
   }
 
@@ -1997,9 +2009,11 @@ import java.util.concurrent.ExecutionException;
   /* package */ static final class Controller2Cb implements ControllerCb {
 
     private final IMediaController iController;
+    private final int controllerInterfaceVersion;
 
-    public Controller2Cb(IMediaController callback) {
-      iController = callback;
+    public Controller2Cb(IMediaController callback, int controllerInterfaceVersion) {
+      this.iController = callback;
+      this.controllerInterfaceVersion = controllerInterfaceVersion;
     }
 
     public IBinder getCallbackBinder() {
@@ -2023,8 +2037,7 @@ import java.util.concurrent.ExecutionException;
         PlayerInfo playerInfo,
         Player.Commands availableCommands,
         boolean excludeTimeline,
-        boolean excludeTracks,
-        int controllerInterfaceVersion)
+        boolean excludeTracks)
         throws RemoteException {
       Assertions.checkState(controllerInterfaceVersion != 0);
       // The bundling exclusions merge the performance overrides with the available commands.
@@ -2061,6 +2074,22 @@ import java.util.concurrent.ExecutionException;
         throws RemoteException {
       iController.onSetCustomLayout(
           sequenceNumber, BundleCollectionUtil.toBundleList(layout, CommandButton::toBundle));
+    }
+
+    @Override
+    public void setMediaButtonPreferences(
+        int sequenceNumber, List<CommandButton> mediaButtonPreferences) throws RemoteException {
+      if (controllerInterfaceVersion >= 7) {
+        iController.onSetMediaButtonPreferences(
+            sequenceNumber,
+            BundleCollectionUtil.toBundleList(mediaButtonPreferences, CommandButton::toBundle));
+      } else {
+        // Controller doesn't support media button preferences, send the list as a custom layout.
+        // TODO: b/332877990 - More accurately reflect media button preferences as custom layout.
+        iController.onSetCustomLayout(
+            sequenceNumber,
+            BundleCollectionUtil.toBundleList(mediaButtonPreferences, CommandButton::toBundle));
+      }
     }
 
     @Override
@@ -2137,6 +2166,11 @@ import java.util.concurrent.ExecutionException;
     public void onSessionExtrasChanged(int sequenceNumber, Bundle sessionExtras)
         throws RemoteException {
       iController.onExtrasChanged(sequenceNumber, sessionExtras);
+    }
+
+    @Override
+    public void onError(int sequenceNumber, SessionError sessionError) throws RemoteException {
+      iController.onError(sequenceNumber, sessionError.toBundle());
     }
 
     @Override

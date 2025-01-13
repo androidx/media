@@ -28,7 +28,6 @@ import android.media.AudioDeviceInfo;
 import android.os.Handler;
 import android.os.SystemClock;
 import androidx.annotation.CallSuper;
-import androidx.annotation.DoNotInline;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
@@ -244,9 +243,7 @@ public abstract class DecoderAudioRenderer<
     if (formatSupport <= C.FORMAT_UNSUPPORTED_DRM) {
       return RendererCapabilities.create(formatSupport);
     }
-    @TunnelingSupport
-    int tunnelingSupport = Util.SDK_INT >= 21 ? TUNNELING_SUPPORTED : TUNNELING_NOT_SUPPORTED;
-    return RendererCapabilities.create(formatSupport, ADAPTIVE_NOT_SEAMLESS, tunnelingSupport);
+    return RendererCapabilities.create(formatSupport, ADAPTIVE_NOT_SEAMLESS, TUNNELING_SUPPORTED);
   }
 
   /**
@@ -449,8 +446,10 @@ public abstract class DecoderAudioRenderer<
               .setEncoderDelay(encoderDelay)
               .setEncoderPadding(encoderPadding)
               .setMetadata(inputFormat.metadata)
+              .setCustomData(inputFormat.customData)
               .setId(inputFormat.id)
               .setLabel(inputFormat.label)
+              .setLabels(inputFormat.labels)
               .setLanguage(inputFormat.language)
               .setSelectionFlags(inputFormat.selectionFlags)
               .setRoleFlags(inputFormat.roleFlags)
@@ -491,8 +490,6 @@ public abstract class DecoderAudioRenderer<
     }
   }
 
-  // Setting deprecated decode-only flag for compatibility with decoders that are still using it.
-  @SuppressWarnings("deprecation")
   private boolean feedInputBuffer() throws DecoderException, ExoPlaybackException {
     if (decoder == null
         || decoderReinitializationState == REINITIALIZATION_STATE_WAIT_END_OF_STREAM
@@ -533,9 +530,6 @@ public abstract class DecoderAudioRenderer<
         if (!firstStreamSampleRead) {
           firstStreamSampleRead = true;
           inputBuffer.addFlag(C.BUFFER_FLAG_FIRST_SAMPLE);
-        }
-        if (inputBuffer.timeUs < getLastResetPositionUs()) {
-          inputBuffer.addFlag(C.BUFFER_FLAG_DECODE_ONLY);
         }
         inputBuffer.flip();
         inputBuffer.format = inputFormat;
@@ -892,7 +886,6 @@ public abstract class DecoderAudioRenderer<
   private static final class Api23 {
     private Api23() {}
 
-    @DoNotInline
     public static void setAudioSinkPreferredDevice(
         AudioSink audioSink, @Nullable Object messagePayload) {
       @Nullable AudioDeviceInfo audioDeviceInfo = (AudioDeviceInfo) messagePayload;

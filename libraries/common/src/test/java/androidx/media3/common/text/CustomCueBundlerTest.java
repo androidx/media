@@ -42,6 +42,7 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public class CustomCueBundlerTest {
 
+  private static final VoiceSpan VOICE_SPAN = new VoiceSpan("name");
   private static final RubySpan RUBY_SPAN =
       new RubySpan("ruby text", TextAnnotation.POSITION_AFTER);
   private static final TextEmphasisSpan TEXT_EMPHASIS_SPAN =
@@ -55,7 +56,8 @@ public class CustomCueBundlerTest {
       ImmutableMap.of(
           RUBY_SPAN, new Pair<>(1, 2),
           TEXT_EMPHASIS_SPAN, new Pair<>(2, 3),
-          HORIZONTAL_TEXT_IN_VERTICAL_CONTEXT_SPAN, new Pair<>(5, 7));
+          HORIZONTAL_TEXT_IN_VERTICAL_CONTEXT_SPAN, new Pair<>(5, 7),
+          VOICE_SPAN, new Pair<>(8, 10));
 
   @Test
   public void serializingSpannableWithAllCustomSpans() {
@@ -92,6 +94,11 @@ public class CustomCueBundlerTest {
         .hasHorizontalTextInVerticalContextSpanBetween(
             ALL_SPANS_TO_START_END_INDEX.get(HORIZONTAL_TEXT_IN_VERTICAL_CONTEXT_SPAN).first,
             ALL_SPANS_TO_START_END_INDEX.get(HORIZONTAL_TEXT_IN_VERTICAL_CONTEXT_SPAN).second);
+    SpannedSubject.assertThat(result)
+        .hasVoiceSpanBetween(
+            ALL_SPANS_TO_START_END_INDEX.get(VOICE_SPAN).first,
+            ALL_SPANS_TO_START_END_INDEX.get(VOICE_SPAN).second)
+        .withName(VOICE_SPAN.name);
   }
 
   @Test

@@ -32,17 +32,28 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public class ResolvingDataSourceContractTest extends DataSourceContractTest {
 
-  private static final String URI = "test://simple.test";
+  private static final String REQUESTED_URI = "test://simple.test";
   private static final String RESOLVED_URI = "resolved://simple.resolved";
 
+  private static final String REQUESTED_URI_WITH_DIFFERENT_REPORTED =
+      "test://different.report.test";
+  private static final String RESOLVED_URI_WITH_DIFFERENT_REPORTED =
+      "resolved://different.report.test";
+  private static final String REPORTED_URI = "reported://reported.test";
+
   private byte[] simpleData;
+  private byte[] differentReportedData;
   private FakeDataSet fakeDataSet;
   private FakeDataSource fakeDataSource;
 
   @Before
   public void setUp() {
     simpleData = TestUtil.buildTestData(/* length= */ 20);
-    fakeDataSet = new FakeDataSet().newData(RESOLVED_URI).appendReadData(simpleData).endData();
+    differentReportedData = TestUtil.buildTestData(/* length= */ 15);
+    fakeDataSet =
+        new FakeDataSet()
+            .setData(RESOLVED_URI, simpleData)
+            .setData(RESOLVED_URI_WITH_DIFFERENT_REPORTED, differentReportedData);
   }
 
   @Override
@@ -50,8 +61,15 @@ public class ResolvingDataSourceContractTest extends DataSourceContractTest {
     return ImmutableList.of(
         new TestResource.Builder()
             .setName("simple")
-            .setUri(URI)
+            .setUri(REQUESTED_URI)
+            .setResolvedUri(RESOLVED_URI)
             .setExpectedBytes(simpleData)
+            .build(),
+        new TestResource.Builder()
+            .setName("different-reported")
+            .setUri(REQUESTED_URI_WITH_DIFFERENT_REPORTED)
+            .setResolvedUri(REPORTED_URI)
+            .setExpectedBytes(differentReportedData)
             .build());
   }
 
@@ -68,9 +86,21 @@ public class ResolvingDataSourceContractTest extends DataSourceContractTest {
         new Resolver() {
           @Override
           public DataSpec resolveDataSpec(DataSpec dataSpec) throws IOException {
-            return URI.equals(dataSpec.uri.normalizeScheme().toString())
-                ? dataSpec.buildUpon().setUri(RESOLVED_URI).build()
-                : dataSpec;
+            switch (dataSpec.uri.normalizeScheme().toString()) {
+              case REQUESTED_URI:
+                return dataSpec.buildUpon().setUri(RESOLVED_URI).build();
+              case REQUESTED_URI_WITH_DIFFERENT_REPORTED:
+                return dataSpec.buildUpon().setUri(RESOLVED_URI_WITH_DIFFERENT_REPORTED).build();
+              default:
+                return dataSpec;
+            }
+          }
+
+          @Override
+          public Uri resolveReportedUri(Uri uri) {
+            return uri.normalizeScheme().toString().equals(RESOLVED_URI_WITH_DIFFERENT_REPORTED)
+                ? Uri.parse(REPORTED_URI)
+                : uri;
           }
         });
   }

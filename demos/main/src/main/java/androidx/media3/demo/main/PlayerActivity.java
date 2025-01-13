@@ -93,11 +93,8 @@ public class PlayerActivity extends AppCompatActivity
 
   @Nullable private AdsLoader clientSideAdsLoader;
 
-  @OptIn(markerClass = UnstableApi.class)
-  @Nullable
-  private ImaServerSideAdInsertionMediaSource.AdsLoader serverSideAdsLoader;
+  @Nullable private ImaServerSideAdInsertionMediaSource.AdsLoader serverSideAdsLoader;
 
-  @OptIn(markerClass = UnstableApi.class)
   private ImaServerSideAdInsertionMediaSource.AdsLoader.@MonotonicNonNull State
       serverSideAdsLoaderState;
 
@@ -262,8 +259,8 @@ public class PlayerActivity extends AppCompatActivity
    * @return Whether initialization was successful.
    */
   protected boolean initializePlayer() {
+    Intent intent = getIntent();
     if (player == null) {
-      Intent intent = getIntent();
 
       mediaItems = createMediaItems(intent);
       if (mediaItems.isEmpty()) {
@@ -293,11 +290,15 @@ public class PlayerActivity extends AppCompatActivity
     }
     player.setMediaItems(mediaItems, /* resetPosition= */ !haveStartPosition);
     player.prepare();
+    String repeatModeExtra = intent.getStringExtra(IntentUtil.REPEAT_MODE_EXTRA);
+    if (repeatModeExtra != null) {
+      player.setRepeatMode(IntentUtil.parseRepeatModeExtra(repeatModeExtra));
+    }
     updateButtonVisibility();
     return true;
   }
 
-  @OptIn(markerClass = UnstableApi.class) // SSAI configuration
+  @OptIn(markerClass = UnstableApi.class) // DRM configuration
   private MediaSource.Factory createMediaSourceFactory() {
     DefaultDrmSessionManagerProvider drmSessionManagerProvider =
         new DefaultDrmSessionManagerProvider();
@@ -330,7 +331,6 @@ public class PlayerActivity extends AppCompatActivity
     playerBuilder.setRenderersFactory(renderersFactory);
   }
 
-  @OptIn(markerClass = UnstableApi.class)
   private void configurePlayerWithServerSideAdsLoader() {
     serverSideAdsLoader.setPlayer(player);
   }
@@ -361,11 +361,7 @@ public class PlayerActivity extends AppCompatActivity
 
       MediaItem.DrmConfiguration drmConfiguration = mediaItem.localConfiguration.drmConfiguration;
       if (drmConfiguration != null) {
-        if (Build.VERSION.SDK_INT < 18) {
-          showToast(R.string.error_drm_unsupported_before_api_18);
-          finish();
-          return Collections.emptyList();
-        } else if (!FrameworkMediaDrm.isCryptoSchemeSupported(drmConfiguration.scheme)) {
+        if (!FrameworkMediaDrm.isCryptoSchemeSupported(drmConfiguration.scheme)) {
           showToast(R.string.error_drm_unsupported_scheme);
           finish();
           return Collections.emptyList();
@@ -403,7 +399,6 @@ public class PlayerActivity extends AppCompatActivity
     }
   }
 
-  @OptIn(markerClass = UnstableApi.class)
   private void releaseServerSideAdsLoader() {
     serverSideAdsLoaderState = serverSideAdsLoader.release();
     serverSideAdsLoader = null;
@@ -417,14 +412,12 @@ public class PlayerActivity extends AppCompatActivity
     }
   }
 
-  @OptIn(markerClass = UnstableApi.class)
   private void saveServerSideAdsLoaderState(Bundle outState) {
     if (serverSideAdsLoaderState != null) {
       outState.putBundle(KEY_SERVER_SIDE_ADS_LOADER_STATE, serverSideAdsLoaderState.toBundle());
     }
   }
 
-  @OptIn(markerClass = UnstableApi.class)
   private void restoreServerSideAdsLoaderState(Bundle savedInstanceState) {
     Bundle adsLoaderStateBundle = savedInstanceState.getBundle(KEY_SERVER_SIDE_ADS_LOADER_STATE);
     if (adsLoaderStateBundle != null) {
@@ -513,7 +506,7 @@ public class PlayerActivity extends AppCompatActivity
 
   private class PlayerErrorMessageProvider implements ErrorMessageProvider<PlaybackException> {
 
-    @OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)
+    @OptIn(markerClass = UnstableApi.class) // Using decoder exceptions
     @Override
     public Pair<Integer, String> getErrorMessage(PlaybackException e) {
       String errorString = getString(R.string.error_generic);
@@ -554,7 +547,7 @@ public class PlayerActivity extends AppCompatActivity
     return mediaItems;
   }
 
-  @OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)
+  @OptIn(markerClass = UnstableApi.class) // Using Download API
   private static MediaItem maybeSetDownloadProperties(
       MediaItem item, @Nullable DownloadRequest downloadRequest) {
     if (downloadRequest == null) {

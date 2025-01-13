@@ -56,7 +56,8 @@ public class StreamVolumeManagerTest {
     testThread.runOnMainThread(
         () ->
             streamVolumeManager =
-                new StreamVolumeManager(context, new Handler(Looper.myLooper()), testListener));
+                new StreamVolumeManager(
+                    context, new Handler(Looper.myLooper()), testListener, C.STREAM_TYPE_DEFAULT));
   }
 
   @After
@@ -230,7 +231,7 @@ public class StreamVolumeManagerTest {
   }
 
   @Test
-  public void setStreamType_notifiesStreamTypeAndVolume() {
+  public void setStreamType_toNonDefaultType_notifiesStreamTypeAndVolume() {
     testThread.runOnMainThread(
         () -> {
           int minVolume = streamVolumeManager.getMinVolume();
@@ -240,7 +241,7 @@ public class StreamVolumeManagerTest {
           }
           int volumeFlags = C.VOLUME_FLAG_SHOW_UI | C.VOLUME_FLAG_VIBRATE;
 
-          int testStreamType = C.STREAM_TYPE_ALARM;
+          int testStreamType = C.STREAM_TYPE_ALARM; // not STREAM_TYPE_DEFAULT, i.e. MUSIC
           int testStreamVolume = audioManager.getStreamVolume(testStreamType);
 
           int oldVolume = streamVolumeManager.getVolume();

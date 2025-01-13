@@ -28,6 +28,7 @@ import static androidx.media3.transformer.Transformer.PROGRESS_STATE_AVAILABLE;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_NOT_STARTED;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_UNAVAILABLE;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_WAITING_FOR_AVAILABILITY;
+import static androidx.media3.transformer.TransformerUtil.isImage;
 import static java.lang.Math.min;
 
 import android.content.Context;
@@ -40,6 +41,7 @@ import androidx.media3.common.Player;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.Tracks;
 import androidx.media3.common.util.Clock;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.DefaultLoadControl;
 import androidx.media3.exoplayer.ExoPlayer;
@@ -55,6 +57,7 @@ import androidx.media3.exoplayer.video.VideoRendererEventListener;
 import androidx.media3.extractor.DefaultExtractorsFactory;
 import androidx.media3.extractor.mp4.Mp4Extractor;
 import com.google.common.collect.ImmutableMap;
+import java.util.ArrayList;
 
 /** An {@link AssetLoader} implementation that uses an {@link ExoPlayer} to load samples. */
 @UnstableApi
@@ -65,7 +68,6 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
 
     private final Context context;
     private final Codec.DecoderFactory decoderFactory;
-    private final boolean forceInterpretHdrAsSdr;
     private final Clock clock;
     @Nullable private final MediaSource.Factory mediaSourceFactory;
 
@@ -75,19 +77,12 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
      * @param context The {@link Context}.
      * @param decoderFactory The {@link Codec.DecoderFactory} to use to decode the samples (if
      *     necessary).
-     * @param forceInterpretHdrAsSdr Whether to apply {@link
-     *     Composition#HDR_MODE_EXPERIMENTAL_FORCE_INTERPRET_HDR_AS_SDR}.
      * @param clock The {@link Clock} to use. It should always be {@link Clock#DEFAULT}, except for
      *     testing.
      */
-    public Factory(
-        Context context,
-        Codec.DecoderFactory decoderFactory,
-        boolean forceInterpretHdrAsSdr,
-        Clock clock) {
+    public Factory(Context context, Codec.DecoderFactory decoderFactory, Clock clock) {
       this.context = context;
       this.decoderFactory = decoderFactory;
-      this.forceInterpretHdrAsSdr = forceInterpretHdrAsSdr;
       this.clock = clock;
       this.mediaSourceFactory = null;
     }
@@ -98,8 +93,6 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
      * @param context The {@link Context}.
      * @param decoderFactory The {@link Codec.DecoderFactory} to use to decode the samples (if
      *     necessary).
-     * @param forceInterpretHdrAsSdr Whether to apply {@link
-     *     Composition#HDR_MODE_EXPERIMENTAL_FORCE_INTERPRET_HDR_AS_SDR}.
      * @param clock The {@link Clock} to use. It should always be {@link Clock#DEFAULT}, except for
      *     testing.
      * @param mediaSourceFactory The {@link MediaSource.Factory} to use to retrieve the samples to
@@ -108,19 +101,20 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
     public Factory(
         Context context,
         Codec.DecoderFactory decoderFactory,
-        boolean forceInterpretHdrAsSdr,
         Clock clock,
         MediaSource.Factory mediaSourceFactory) {
       this.context = context;
       this.decoderFactory = decoderFactory;
-      this.forceInterpretHdrAsSdr = forceInterpretHdrAsSdr;
       this.clock = clock;
       this.mediaSourceFactory = mediaSourceFactory;
     }
 
     @Override
     public AssetLoader createAssetLoader(
-        EditedMediaItem editedMediaItem, Looper looper, Listener listener) {
+        EditedMediaItem editedMediaItem,
+        Looper looper,
+        Listener listener,
+        CompositionSettings compositionSettings) {
       MediaSource.Factory mediaSourceFactory = this.mediaSourceFactory;
       if (mediaSourceFactory == null) {
         DefaultExtractorsFactory defaultExtractorsFactory = new DefaultExtractorsFactory();
@@ -134,12 +128,14 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
           editedMediaItem,
           mediaSourceFactory,
           decoderFactory,
-          forceInterpretHdrAsSdr,
+          compositionSettings.hdrMode,
           looper,
           listener,
           clock);
     }
   }
+
+  private static final String TAG = "ExoPlayerAssetLoader";
 
   /**
    * The timeout value, in milliseconds, to set on the internal {@link ExoPlayer} instance when
@@ -147,6 +143,7 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
    */
   private static final long EMULATOR_RELEASE_TIMEOUT_MS = 5_000;
 
+  private final Context context;
   private final EditedMediaItem editedMediaItem;
   private final CapturingDecoderFactory decoderFactory;
   private final ExoPlayer player;
@@ -158,10 +155,11 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
       EditedMediaItem editedMediaItem,
       MediaSource.Factory mediaSourceFactory,
       Codec.DecoderFactory decoderFactory,
-      boolean forceInterpretHdrAsSdr,
+      @Composition.HdrMode int hdrMode,
       Looper looper,
       Listener listener,
       Clock clock) {
+    this.context = context;
     this.editedMediaItem = editedMediaItem;
     this.decoderFactory = new CapturingDecoderFactory(decoderFactory);
 
@@ -169,6 +167,7 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
     trackSelector.setParameters(
         new DefaultTrackSelector.Parameters.Builder(context)
             .setForceHighestSupportedBitrate(true)
+            .setConstrainAudioChannelCountToDeviceCapabilities(false)
             .build());
     // Arbitrarily decrease buffers for playback so that samples start being sent earlier to the
     // exporters (rebuffers are less problematic for the export use case).
@@ -188,7 +187,7 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
                     editedMediaItem.removeVideo,
                     editedMediaItem.flattenForSlowMotion,
                     this.decoderFactory,
-                    forceInterpretHdrAsSdr,
+                    hdrMode,
                     listener))
             .setMediaSourceFactory(mediaSourceFactory)
             .setTrackSelector(trackSelector)
@@ -196,6 +195,10 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
             .setLooper(looper)
             .setUsePlatformDiagnostics(false)
             .setReleaseTimeoutMs(getReleaseTimeoutMs());
+    if (decoderFactory instanceof DefaultDecoderFactory) {
+      playerBuilder.experimentalSetDynamicSchedulingEnabled(
+          ((DefaultDecoderFactory) decoderFactory).isDynamicSchedulingEnabled());
+    }
     if (clock != Clock.DEFAULT) {
       // Transformer.Builder#setClock is also @VisibleForTesting, so if we're using a non-default
       // clock we must be in a test context.
@@ -252,7 +255,7 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
     private final boolean removeVideo;
     private final boolean flattenForSlowMotion;
     private final Codec.DecoderFactory decoderFactory;
-    private final boolean forceInterpretHdrAsSdr;
+    private final @Composition.HdrMode int hdrMode;
     private final Listener assetLoaderListener;
 
     public RenderersFactoryImpl(
@@ -260,13 +263,13 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
         boolean removeVideo,
         boolean flattenForSlowMotion,
         Codec.DecoderFactory decoderFactory,
-        boolean forceInterpretHdrAsSdr,
+        @Composition.HdrMode int hdrMode,
         Listener assetLoaderListener) {
       this.removeAudio = removeAudio;
       this.removeVideo = removeVideo;
       this.flattenForSlowMotion = flattenForSlowMotion;
       this.decoderFactory = decoderFactory;
-      this.forceInterpretHdrAsSdr = forceInterpretHdrAsSdr;
+      this.hdrMode = hdrMode;
       this.assetLoaderListener = assetLoaderListener;
       mediaClock = new TransformerMediaClock();
     }
@@ -278,25 +281,17 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
         AudioRendererEventListener audioRendererEventListener,
         TextOutput textRendererOutput,
         MetadataOutput metadataRendererOutput) {
-      int rendererCount = removeAudio || removeVideo ? 1 : 2;
-      Renderer[] renderers = new Renderer[rendererCount];
-      int index = 0;
+      ArrayList<Renderer> renderers = new ArrayList<>();
       if (!removeAudio) {
-        renderers[index] =
-            new ExoAssetLoaderAudioRenderer(decoderFactory, mediaClock, assetLoaderListener);
-        index++;
+        renderers.add(
+            new ExoAssetLoaderAudioRenderer(decoderFactory, mediaClock, assetLoaderListener));
       }
       if (!removeVideo) {
-        renderers[index] =
+        renderers.add(
             new ExoAssetLoaderVideoRenderer(
-                flattenForSlowMotion,
-                decoderFactory,
-                forceInterpretHdrAsSdr,
-                mediaClock,
-                assetLoaderListener);
-        index++;
+                flattenForSlowMotion, decoderFactory, hdrMode, mediaClock, assetLoaderListener));
       }
-      return renderers;
+      return renderers.toArray(new Renderer[renderers.size()]);
     }
   }
 
@@ -344,16 +339,20 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
           trackCount++;
         }
 
+        maybeWarnUnsupportedTrackTypes(tracks);
         if (trackCount > 0) {
           assetLoaderListener.onTrackCount(trackCount);
           // Start the renderers after having registered all the tracks to make sure the AssetLoader
           // listener callbacks are called in the right order.
           player.play();
         } else {
+          String errorMessage = "The asset loader has no audio or video track to output.";
+          if (isImage(context, editedMediaItem.mediaItem)) {
+            errorMessage += " Try setting an image duration on input image MediaItems.";
+          }
           assetLoaderListener.onError(
               ExportException.createForAssetLoader(
-                  new IllegalStateException("The asset loader has no track to output."),
-                  ERROR_CODE_FAILED_RUNTIME_CHECK));
+                  new IllegalStateException(errorMessage), ERROR_CODE_FAILED_RUNTIME_CHECK));
         }
       } catch (RuntimeException e) {
         assetLoaderListener.onError(
@@ -369,6 +368,16 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
               ExportException.NAME_TO_ERROR_CODE.getOrDefault(
                   error.getErrorCodeName(), ERROR_CODE_UNSPECIFIED));
       assetLoaderListener.onError(ExportException.createForAssetLoader(error, errorCode));
+    }
+  }
+
+  private static void maybeWarnUnsupportedTrackTypes(Tracks tracks) {
+    for (int i = 0; i < tracks.getGroups().size(); i++) {
+      @C.TrackType int trackType = tracks.getGroups().get(i).getType();
+      if (trackType == C.TRACK_TYPE_AUDIO || trackType == C.TRACK_TYPE_VIDEO) {
+        continue;
+      }
+      Log.w(TAG, "Unsupported track type: " + trackType);
     }
   }
 

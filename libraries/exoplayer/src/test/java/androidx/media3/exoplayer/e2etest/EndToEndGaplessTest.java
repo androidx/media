@@ -119,8 +119,12 @@ public class EndToEndGaplessTest {
             // Track two is only trimmed at its beginning, but not its end.
             Arrays.copyOfRange(
                 decoderOutputBytes, bytesPerAudioFile + delayBytes, decoderOutputBytes.length));
-
     byte[] audioTrackReceivedBytes = audioTrackListener.getAllReceivedBytes();
+
+    // The first few bytes can be modified to ramp up the volume. Exclude those from the comparison.
+    Arrays.fill(expectedTrimmedByteContent, 0, 2000, (byte) 0);
+    Arrays.fill(audioTrackReceivedBytes, 0, 2000, (byte) 0);
+
     assertThat(audioTrackReceivedBytes).isEqualTo(expectedTrimmedByteContent);
   }
 

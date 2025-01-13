@@ -24,6 +24,7 @@ import androidx.collection.ArrayMap;
 import androidx.media3.common.Player;
 import androidx.media3.session.MediaSession.ControllerInfo;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import java.lang.ref.WeakReference;
@@ -37,7 +38,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
  *
  * <p>The generic {@code T} denotes a key of connected {@link MediaController controllers}, and it
  * can be either {@link android.os.IBinder} or {@link
- * androidx.media.MediaSessionManager.RemoteUserInfo}.
+ * androidx.media3.session.legacy.MediaSessionManager.RemoteUserInfo}.
  *
  * <p>This class is thread-safe.
  */
@@ -233,10 +234,13 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     }
   }
 
-  public void addToCommandQueue(ControllerInfo controllerInfo, AsyncCommand asyncCommand) {
+  public void addToCommandQueue(
+      ControllerInfo controllerInfo, @Player.Command int command, AsyncCommand asyncCommand) {
     synchronized (lock) {
       @Nullable ConnectedControllerRecord<T> info = controllerRecords.get(controllerInfo);
       if (info != null) {
+        info.commandQueuePlayerCommands =
+            info.commandQueuePlayerCommands.buildUpon().add(command).build();
         info.commandQueue.add(asyncCommand);
       }
     }
@@ -245,7 +249,21 @@ import org.checkerframework.checker.nullness.qual.NonNull;
   public void flushCommandQueue(ControllerInfo controllerInfo) {
     synchronized (lock) {
       @Nullable ConnectedControllerRecord<T> info = controllerRecords.get(controllerInfo);
-      if (info == null || info.commandQueueIsFlushing || info.commandQueue.isEmpty()) {
+      if (info == null) {
+        return;
+      }
+      Player.Commands commandQueuePlayerCommands = info.commandQueuePlayerCommands;
+      info.commandQueuePlayerCommands = Player.Commands.EMPTY;
+      info.commandQueue.add(
+          () -> {
+            @Nullable MediaSessionImpl sessionImpl = this.sessionImpl.get();
+            if (sessionImpl != null) {
+              sessionImpl.onPlayerInteractionFinishedOnHandler(
+                  controllerInfo, commandQueuePlayerCommands);
+            }
+            return Futures.immediateVoidFuture();
+          });
+      if (info.commandQueueIsFlushing) {
         return;
       }
       info.commandQueueIsFlushing = true;
@@ -299,6 +317,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     public SessionCommands sessionCommands;
     public Player.Commands playerCommands;
     public boolean commandQueueIsFlushing;
+    public Player.Commands commandQueuePlayerCommands;
 
     public ConnectedControllerRecord(
         T controllerKey,
@@ -310,6 +329,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
       this.sessionCommands = sessionCommands;
       this.playerCommands = playerCommands;
       this.commandQueue = new ArrayDeque<>();
+      this.commandQueuePlayerCommands = Player.Commands.EMPTY;
     }
   }
 }

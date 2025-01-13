@@ -63,7 +63,7 @@ public class MediaControllerStubTest {
             .toBundle());
     binder.onPlayerInfoChangedWithExclusions(
         /* seq= */ 0,
-        /* playerInfoBundle= */ PlayerInfo.DEFAULT.toBundle(),
+        /* playerInfoBundle= */ PlayerInfo.DEFAULT.toBundleInProcess(),
         /* playerInfoExclusions= */ null);
     binder.onPeriodicSessionPositionInfoChanged(/* seq= */ 0, /* sessionPositionInfo= */ null);
     binder.onAvailableCommandsChangedFromPlayer(/* seq= */ 0, /* commandsBundle= */ null);
@@ -114,7 +114,7 @@ public class MediaControllerStubTest {
             .toBundle());
     binder.onPlayerInfoChangedWithExclusions(
         /* seq= */ 0,
-        /* playerInfoBundle= */ PlayerInfo.DEFAULT.toBundle(),
+        /* playerInfoBundle= */ PlayerInfo.DEFAULT.toBundleInProcess(),
         /* playerInfoExclusions= */ getThrowingBundle());
     binder.onPeriodicSessionPositionInfoChanged(
         /* seq= */ 0, /* sessionPositionInfo= */ getThrowingBundle());

@@ -24,11 +24,13 @@ import android.os.Handler;
 import android.os.RemoteException;
 import android.text.TextUtils;
 import androidx.annotation.Nullable;
+import androidx.media3.common.C;
 import androidx.media3.common.Player.Commands;
 import androidx.media3.common.util.BundleCollectionUtil;
 import androidx.media3.common.util.Log;
 import androidx.media3.session.MediaLibraryService.LibraryParams;
 import androidx.media3.session.PlayerInfo.BundlingExclusions;
+import com.google.common.collect.ImmutableList;
 import java.lang.ref.WeakReference;
 import java.util.List;
 import org.checkerframework.checker.nullness.qual.NonNull;
@@ -38,7 +40,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
   private static final String TAG = "MediaControllerStub";
 
   /** The version of the IMediaController interface. */
-  public static final int VERSION_INT = 3;
+  public static final int VERSION_INT = 7;
 
   private final WeakReference<MediaControllerImplBase> controller;
 
@@ -112,13 +114,44 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     }
     List<CommandButton> layout;
     try {
+      int sessionInterfaceVersion = getSessionInterfaceVersion();
+      if (sessionInterfaceVersion == C.INDEX_UNSET) {
+        // Stale event.
+        return;
+      }
       layout =
-          BundleCollectionUtil.fromBundleList(CommandButton::fromBundle, commandButtonBundleList);
+          BundleCollectionUtil.fromBundleList(
+              bundle -> CommandButton.fromBundle(bundle, sessionInterfaceVersion),
+              commandButtonBundleList);
     } catch (RuntimeException e) {
       Log.w(TAG, "Ignoring malformed Bundle for CommandButton", e);
       return;
     }
     dispatchControllerTaskOnHandler(controller -> controller.onSetCustomLayout(seq, layout));
+  }
+
+  @Override
+  public void onSetMediaButtonPreferences(int seq, @Nullable List<Bundle> commandButtonBundleList) {
+    if (commandButtonBundleList == null) {
+      return;
+    }
+    ImmutableList<CommandButton> mediaButtonPreferences;
+    try {
+      int sessionInterfaceVersion = getSessionInterfaceVersion();
+      if (sessionInterfaceVersion == C.INDEX_UNSET) {
+        // Stale event.
+        return;
+      }
+      mediaButtonPreferences =
+          BundleCollectionUtil.fromBundleList(
+              bundle -> CommandButton.fromBundle(bundle, sessionInterfaceVersion),
+              commandButtonBundleList);
+    } catch (RuntimeException e) {
+      Log.w(TAG, "Ignoring malformed Bundle for CommandButton", e);
+      return;
+    }
+    dispatchControllerTaskOnHandler(
+        controller -> controller.onSetMediaButtonPreferences(seq, mediaButtonPreferences));
   }
 
   @Override
@@ -229,7 +262,12 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     }
     PlayerInfo playerInfo;
     try {
-      playerInfo = PlayerInfo.fromBundle(playerInfoBundle);
+      int sessionInterfaceVersion = getSessionInterfaceVersion();
+      if (sessionInterfaceVersion == C.INDEX_UNSET) {
+        // Stale event.
+        return;
+      }
+      playerInfo = PlayerInfo.fromBundle(playerInfoBundle, sessionInterfaceVersion);
     } catch (RuntimeException e) {
       Log.w(TAG, "Ignoring malformed Bundle for PlayerInfo", e);
       return;
@@ -252,6 +290,18 @@ import org.checkerframework.checker.nullness.qual.NonNull;
       return;
     }
     dispatchControllerTaskOnHandler(controller -> controller.onExtrasChanged(extras));
+  }
+
+  @Override
+  public void onError(int seq, Bundle sessionError) throws RemoteException {
+    SessionError error;
+    try {
+      error = SessionError.fromBundle(sessionError);
+    } catch (RuntimeException e) {
+      Log.w(TAG, "Ignoring malformed Bundle for SessionError", e);
+      return;
+    }
+    dispatchControllerTaskOnHandler(controller -> controller.onError(seq, error));
   }
 
   @Override
@@ -351,6 +401,20 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     } finally {
       Binder.restoreCallingIdentity(token);
     }
+  }
+
+  /** Returns session interface version or {@link C#INDEX_UNSET} for stale events. */
+  private int getSessionInterfaceVersion() {
+    @Nullable MediaControllerImplBase controller = this.controller.get();
+    if (controller == null) {
+      return C.INDEX_UNSET;
+    }
+    @Nullable SessionToken connectedToken = controller.getConnectedToken();
+    if (connectedToken == null) {
+      // Stale event.
+      return C.INDEX_UNSET;
+    }
+    return connectedToken.getInterfaceVersion();
   }
 
   /* @FunctionalInterface */

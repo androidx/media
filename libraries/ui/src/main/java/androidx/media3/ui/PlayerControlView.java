@@ -61,10 +61,10 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
+import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.PopupWindow;
 import android.widget.TextView;
-import androidx.annotation.DrawableRes;
 import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
 import androidx.core.content.res.ResourcesCompat;
@@ -97,7 +97,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * A view for controlling {@link Player} instances.
  *
  * <p>A {@code PlayerControlView} can be customized by setting attributes (or calling corresponding
- * methods), or overriding drawables.
+ * methods), or overriding drawables. Note that {@code PlayerControlView} is not intended to be used
+ * a standalone component outside of {@link PlayerView}.
  *
  * <h2>Attributes</h2>
  *
@@ -165,10 +166,12 @@ import java.util.concurrent.CopyOnWriteArrayList;
  *       PlayerControlView}, and will be propagated to the inflated {@link DefaultTimeBar}.
  * </ul>
  *
- * <h2>Overriding drawables</h2>
+ * <h2>Overriding drawables globally</h2>
  *
  * The drawables used by {@code PlayerControlView} can be overridden by drawables with the same
- * names defined in your application. The drawables that can be overridden are:
+ * names defined in your application. Note that these icons will be the same across all usages of
+ * {@code PlayerView}/{@code PlayerControlView} in your app. The drawables that can be overridden
+ * are:
  *
  * <ul>
  *   <li><b>{@code exo_styled_controls_play}</b> - The play icon.
@@ -187,6 +190,100 @@ import java.util.concurrent.CopyOnWriteArrayList;
  *       disabled.
  *   <li><b>{@code exo_styled_controls_shuffle_on}</b> - The shuffle icon when shuffling is enabled.
  *   <li><b>{@code exo_styled_controls_vr}</b> - The VR icon.
+ *   <li><b>{@code exo_styled_controls_fullscreen_enter}</b> - The fullscreen icon for when the
+ *       player is minimized.
+ *   <li><b>{@code exo_styled_controls_fullscreen_exit}</b> - The fullscreen icon for when the
+ *       player is in fullscreen mode.
+ * </ul>
+ *
+ * <h2>Overriding drawables locally</h2>
+ *
+ * If you want to customize drawable per PlayerView instance, you can use the following attributes:
+ * {@code PlayerView}/{@code PlayerControlView} in your app. The drawables that can be overridden
+ * are:
+ *
+ * <ul>
+ *   <li><b>{@code play_icon}</b> - The drawable resource ID for the play/pause button when play is
+ *       shown.
+ *       <ul>
+ *         <li>Default: <b>{@code @drawable/exo_styled_controls_play}</b>
+ *       </ul>
+ *   <li><b>{@code pause_icon}</b> - The drawable resource ID for the play/pause button when pause
+ *       is shown.
+ *       <ul>
+ *         <li>Default: <b>{@code @drawable/exo_styled_controls_pause}</b>
+ *       </ul>
+ *   <li><b>{@code fastforward_icon}</b> - The drawable resource ID for the simple fast forward
+ *       button without the seek-forward amount. The ID of the {@linkplain ImageButton image button}
+ *       in such case should be {@code exo_ffwd}, specified in the {@code
+ *       exo_player_control_ffwd_button} layout.
+ *       <ul>
+ *         <li>Default: <b>{@code @drawable/exo_styled_controls_simple_fastforward}</b>
+ *       </ul>
+ *   <li><b>{@code rewind_icon}</b> - The drawable resource ID for the simple rewind button without
+ *       the seek-back amount. The ID of the {@linkplain ImageButton image button} in such case
+ *       should be {@code exo_rew}, specified in the {@code exo_player_control_rewind_button}
+ *       layout.
+ *       <ul>
+ *         <li>Default: <b>{@code @drawable/exo_styled_controls_simple_rewind}</b>
+ *       </ul>
+ *   <li><b>{@code previous_icon}</b> - The drawable resource ID for the previous button.
+ *       <ul>
+ *         <li>Default: <b>{@code @drawable/exo_styled_controls_previous}</b>
+ *       </ul>
+ *   <li><b>{@code next_icon}</b> - The drawable resource ID for the next button.
+ *       <ul>
+ *         <li>Default: <b>{@code @drawable/exo_styled_controls_next}</b>
+ *       </ul>
+ *   <li><b>{@code repeat_off_icon}</b> - The drawable resource ID for the repeat button when the
+ *       mode is {@code none}.
+ *       <ul>
+ *         <li>Default: <b>{@code @drawable/exo_styled_controls_repeat_off}</b>
+ *       </ul>
+ *   <li><b>{@code repeat_one_icon}</b> - The drawable resource ID for the repeat button when the
+ *       mode is {@code one}.
+ *       <ul>
+ *         <li>Default: <b>{@code @drawable/exo_styled_controls_repeat_one}</b>
+ *       </ul>
+ *   <li><b>{@code repeat_all_icon}</b> - The drawable resource ID for the repeat button when the
+ *       mode is {@code all}.
+ *       <ul>
+ *         <li>Default: <b>{@code @drawable/exo_styled_controls_repeat_all}</b>
+ *       </ul>
+ *   <li><b>{@code shuffle_on_icon}</b> - The drawable resource ID for the repeat button when the
+ *       mode is {@code one}.
+ *       <ul>
+ *         <li>Default: <b>{@code @drawable/exo_styled_controls_shuffle_on}</b>
+ *       </ul>
+ *   <li><b>{@code shuffle_off_icon}</b> - The drawable resource ID for the repeat button when the
+ *       mode is {@code all}.
+ *       <ul>
+ *         <li>Default: <b>{@code @drawable/exo_styled_controls_shuffle_off}</b>
+ *       </ul>
+ *   <li><b>{@code subtitle_on_icon}</b> - The drawable resource ID for the subtitle button when the
+ *       text track is on.
+ *       <ul>
+ *         <li>Default: <b>{@code @drawable/exo_styled_controls_subtitle_on}</b>
+ *       </ul>
+ *   <li><b>{@code subtitle_off_icon}</b> - The drawable resource ID for the subtitle button when
+ *       the text track is off.
+ *       <ul>
+ *         <li>Default: <b>{@code @drawable/exo_styled_controls_subtitle_off}</b>
+ *       </ul>
+ *   <li><b>{@code vr_icon}</b> - The drawable resource ID for the VR button.
+ *       <ul>
+ *         <li>Default: <b>{@code @drawable/exo_styled_controls_vr}</b>
+ *       </ul>
+ *   <li><b>{@code fullscreen_enter_icon}</b> - The drawable resource ID for the fullscreen button
+ *       when the player is minimized.
+ *       <ul>
+ *         <li>Default: <b>{@code @drawable/exo_styled_controls_fullscreen_enter}</b>
+ *       </ul>
+ *   <li><b>{@code fullscreen_exit_icon}</b> - The drawable resource ID for the fullscreen button
+ *       when the player is in fullscreen mode.
+ *       <ul>
+ *         <li>Default: <b>{@code @drawable/exo_styled_controls_fullscreen_exit}</b>
+ *       </ul>
  * </ul>
  */
 @UnstableApi
@@ -285,19 +382,19 @@ public class PlayerControlView extends FrameLayout {
   private final PopupWindow settingsWindow;
   private final int settingsWindowMargin;
 
-  @Nullable private final View previousButton;
-  @Nullable private final View nextButton;
-  @Nullable private final View playPauseButton;
+  @Nullable private final ImageView previousButton;
+  @Nullable private final ImageView nextButton;
+  @Nullable private final ImageView playPauseButton;
   @Nullable private final View fastForwardButton;
   @Nullable private final View rewindButton;
   @Nullable private final TextView fastForwardButtonTextView;
   @Nullable private final TextView rewindButtonTextView;
   @Nullable private final ImageView repeatToggleButton;
   @Nullable private final ImageView shuffleButton;
-  @Nullable private final View vrButton;
+  @Nullable private final ImageView vrButton;
   @Nullable private final ImageView subtitleButton;
-  @Nullable private final ImageView fullScreenButton;
-  @Nullable private final ImageView minimalFullScreenButton;
+  @Nullable private final ImageView fullscreenButton;
+  @Nullable private final ImageView minimalFullscreenButton;
   @Nullable private final View settingsButton;
   @Nullable private final View playbackSpeedButton;
   @Nullable private final View audioTrackButton;
@@ -311,6 +408,8 @@ public class PlayerControlView extends FrameLayout {
   private final Timeline.Window window;
   private final Runnable updateProgressAction;
 
+  private final Drawable playButtonDrawable;
+  private final Drawable pauseButtonDrawable;
   private final Drawable repeatOffButtonDrawable;
   private final Drawable repeatOneButtonDrawable;
   private final Drawable repeatAllButtonDrawable;
@@ -327,16 +426,19 @@ public class PlayerControlView extends FrameLayout {
   private final Drawable subtitleOffButtonDrawable;
   private final String subtitleOnContentDescription;
   private final String subtitleOffContentDescription;
-  private final Drawable fullScreenExitDrawable;
-  private final Drawable fullScreenEnterDrawable;
-  private final String fullScreenExitContentDescription;
-  private final String fullScreenEnterContentDescription;
+  private final Drawable fullscreenExitDrawable;
+  private final Drawable fullscreenEnterDrawable;
+  private final String fullscreenExitContentDescription;
+  private final String fullscreenEnterContentDescription;
 
   @Nullable private Player player;
   @Nullable private ProgressUpdateListener progressUpdateListener;
 
-  @Nullable private OnFullScreenModeChangedListener onFullScreenModeChangedListener;
-  private boolean isFullScreen;
+  @SuppressWarnings("deprecation") // Supporting deprecated listener
+  @Nullable
+  private OnFullScreenModeChangedListener onFullScreenModeChangedListener;
+
+  private boolean isFullscreen;
   private boolean isAttachedToWindow;
   private boolean showMultiWindowTimeBar;
   private boolean showPlayButtonIfSuppressed;
@@ -381,6 +483,23 @@ public class PlayerControlView extends FrameLayout {
       @Nullable AttributeSet playbackAttrs) {
     super(context, attrs, defStyleAttr);
     int controllerLayoutId = R.layout.exo_player_control_view;
+    int playDrawableResId = R.drawable.exo_styled_controls_play;
+    int pauseDrawableResId = R.drawable.exo_styled_controls_pause;
+    int nextDrawableResId = R.drawable.exo_styled_controls_next;
+    int fastForwardDrawableResId = R.drawable.exo_styled_controls_simple_fastforward;
+    int previousDrawableResId = R.drawable.exo_styled_controls_previous;
+    int rewindDrawableResId = R.drawable.exo_styled_controls_simple_rewind;
+    int fullscreenExitDrawableResId = R.drawable.exo_styled_controls_fullscreen_exit;
+    int fullscreenEnterDrawableResId = R.drawable.exo_styled_controls_fullscreen_enter;
+    int repeatOffDrawableResId = R.drawable.exo_styled_controls_repeat_off;
+    int repeatOneDrawableResId = R.drawable.exo_styled_controls_repeat_one;
+    int repeatAllDrawableResId = R.drawable.exo_styled_controls_repeat_all;
+    int shuffleOnDrawableResId = R.drawable.exo_styled_controls_shuffle_on;
+    int shuffleOffDrawableResId = R.drawable.exo_styled_controls_shuffle_off;
+    int subtitleOnDrawableResId = R.drawable.exo_styled_controls_subtitle_on;
+    int subtitleOffDrawableResId = R.drawable.exo_styled_controls_subtitle_off;
+    int vrDrawableResId = R.drawable.exo_styled_controls_vr;
+
     showPlayButtonIfSuppressed = true;
     showTimeoutMs = DEFAULT_SHOW_TIMEOUT_MS;
     repeatToggleModes = DEFAULT_REPEAT_TOGGLE_MODES;
@@ -403,6 +522,43 @@ public class PlayerControlView extends FrameLayout {
       try {
         controllerLayoutId =
             a.getResourceId(R.styleable.PlayerControlView_controller_layout_id, controllerLayoutId);
+        playDrawableResId =
+            a.getResourceId(R.styleable.PlayerControlView_play_icon, playDrawableResId);
+        pauseDrawableResId =
+            a.getResourceId(R.styleable.PlayerControlView_pause_icon, pauseDrawableResId);
+        nextDrawableResId =
+            a.getResourceId(R.styleable.PlayerControlView_next_icon, nextDrawableResId);
+        fastForwardDrawableResId =
+            a.getResourceId(
+                R.styleable.PlayerControlView_fastforward_icon, fastForwardDrawableResId);
+        previousDrawableResId =
+            a.getResourceId(R.styleable.PlayerControlView_previous_icon, previousDrawableResId);
+        rewindDrawableResId =
+            a.getResourceId(R.styleable.PlayerControlView_rewind_icon, rewindDrawableResId);
+        fullscreenExitDrawableResId =
+            a.getResourceId(
+                R.styleable.PlayerControlView_fullscreen_exit_icon, fullscreenExitDrawableResId);
+        fullscreenEnterDrawableResId =
+            a.getResourceId(
+                R.styleable.PlayerControlView_fullscreen_enter_icon, fullscreenEnterDrawableResId);
+        repeatOffDrawableResId =
+            a.getResourceId(R.styleable.PlayerControlView_repeat_off_icon, repeatOffDrawableResId);
+        repeatOneDrawableResId =
+            a.getResourceId(R.styleable.PlayerControlView_repeat_one_icon, repeatOneDrawableResId);
+        repeatAllDrawableResId =
+            a.getResourceId(R.styleable.PlayerControlView_repeat_all_icon, repeatAllDrawableResId);
+        shuffleOnDrawableResId =
+            a.getResourceId(R.styleable.PlayerControlView_shuffle_on_icon, shuffleOnDrawableResId);
+        shuffleOffDrawableResId =
+            a.getResourceId(
+                R.styleable.PlayerControlView_shuffle_off_icon, shuffleOffDrawableResId);
+        subtitleOnDrawableResId =
+            a.getResourceId(
+                R.styleable.PlayerControlView_subtitle_on_icon, subtitleOnDrawableResId);
+        subtitleOffDrawableResId =
+            a.getResourceId(
+                R.styleable.PlayerControlView_subtitle_off_icon, subtitleOffDrawableResId);
+        vrDrawableResId = a.getResourceId(R.styleable.PlayerControlView_vr_icon, vrDrawableResId);
         showTimeoutMs = a.getInt(R.styleable.PlayerControlView_show_timeout, showTimeoutMs);
         repeatToggleModes = getRepeatToggleModes(a, repeatToggleModes);
         showRewindButton =
@@ -453,10 +609,10 @@ public class PlayerControlView extends FrameLayout {
       subtitleButton.setOnClickListener(componentListener);
     }
 
-    fullScreenButton = findViewById(R.id.exo_fullscreen);
-    initializeFullScreenButton(fullScreenButton, this::onFullScreenButtonClicked);
-    minimalFullScreenButton = findViewById(R.id.exo_minimal_fullscreen);
-    initializeFullScreenButton(minimalFullScreenButton, this::onFullScreenButtonClicked);
+    fullscreenButton = findViewById(R.id.exo_fullscreen);
+    initializeFullscreenButton(fullscreenButton, this::onFullscreenButtonClicked);
+    minimalFullscreenButton = findViewById(R.id.exo_minimal_fullscreen);
+    initializeFullscreenButton(minimalFullscreenButton, this::onFullscreenButtonClicked);
 
     settingsButton = findViewById(R.id.exo_settings);
     if (settingsButton != null) {
@@ -501,34 +657,57 @@ public class PlayerControlView extends FrameLayout {
       timeBar.addListener(componentListener);
     }
 
+    resources = context.getResources();
     playPauseButton = findViewById(R.id.exo_play_pause);
     if (playPauseButton != null) {
       playPauseButton.setOnClickListener(componentListener);
     }
     previousButton = findViewById(R.id.exo_prev);
     if (previousButton != null) {
+      previousButton.setImageDrawable(getDrawable(context, resources, previousDrawableResId));
       previousButton.setOnClickListener(componentListener);
     }
     nextButton = findViewById(R.id.exo_next);
     if (nextButton != null) {
+      nextButton.setImageDrawable(getDrawable(context, resources, nextDrawableResId));
       nextButton.setOnClickListener(componentListener);
     }
     Typeface typeface = ResourcesCompat.getFont(context, R.font.roboto_medium_numbers);
-    View rewButton = findViewById(R.id.exo_rew);
-    rewindButtonTextView = rewButton == null ? findViewById(R.id.exo_rew_with_amount) : null;
-    if (rewindButtonTextView != null) {
-      rewindButtonTextView.setTypeface(typeface);
+    ImageView rewButton = findViewById(R.id.exo_rew);
+    TextView rewButtonWithAmount = findViewById(R.id.exo_rew_with_amount);
+    if (rewButton != null) {
+      // For a simple rewind button without seek-back increment value
+      rewButton.setImageDrawable(getDrawable(context, resources, rewindDrawableResId));
+      rewindButton = rewButton;
+      rewindButtonTextView = null;
+    } else if (rewButtonWithAmount != null) {
+      // For a circular rewind button with the amount in the middle
+      rewButtonWithAmount.setTypeface(typeface);
+      rewindButtonTextView = rewButtonWithAmount;
+      rewindButton = rewindButtonTextView;
+    } else {
+      rewindButtonTextView = null;
+      rewindButton = null;
     }
-    rewindButton = rewButton == null ? rewindButtonTextView : rewButton;
     if (rewindButton != null) {
       rewindButton.setOnClickListener(componentListener);
     }
-    View ffwdButton = findViewById(R.id.exo_ffwd);
-    fastForwardButtonTextView = ffwdButton == null ? findViewById(R.id.exo_ffwd_with_amount) : null;
-    if (fastForwardButtonTextView != null) {
-      fastForwardButtonTextView.setTypeface(typeface);
+    ImageView ffwdButton = findViewById(R.id.exo_ffwd);
+    TextView ffwdButtonWithAmount = findViewById(R.id.exo_ffwd_with_amount);
+    if (ffwdButton != null) {
+      // For a simple fast forward button without seek-forward increment value
+      ffwdButton.setImageDrawable(getDrawable(context, resources, fastForwardDrawableResId));
+      fastForwardButton = ffwdButton;
+      fastForwardButtonTextView = null;
+    } else if (ffwdButtonWithAmount != null) {
+      // For a circular fastforward button with the amount in the middle
+      ffwdButtonWithAmount.setTypeface(typeface);
+      fastForwardButtonTextView = ffwdButtonWithAmount;
+      fastForwardButton = fastForwardButtonTextView;
+    } else {
+      fastForwardButtonTextView = null;
+      fastForwardButton = null;
     }
-    fastForwardButton = ffwdButton == null ? fastForwardButtonTextView : ffwdButton;
     if (fastForwardButton != null) {
       fastForwardButton.setOnClickListener(componentListener);
     }
@@ -541,7 +720,6 @@ public class PlayerControlView extends FrameLayout {
       shuffleButton.setOnClickListener(componentListener);
     }
 
-    resources = context.getResources();
     buttonAlphaEnabled =
         (float) resources.getInteger(R.integer.exo_media_button_opacity_percentage_enabled) / 100;
     buttonAlphaDisabled =
@@ -549,6 +727,7 @@ public class PlayerControlView extends FrameLayout {
 
     vrButton = findViewById(R.id.exo_vr);
     if (vrButton != null) {
+      vrButton.setImageDrawable(getDrawable(context, resources, vrDrawableResId));
       updateButton(/* enabled= */ false, vrButton);
     }
 
@@ -591,10 +770,8 @@ public class PlayerControlView extends FrameLayout {
     needToHideBars = true;
 
     trackNameProvider = new DefaultTrackNameProvider(getResources());
-    subtitleOnButtonDrawable =
-        getDrawable(context, resources, R.drawable.exo_styled_controls_subtitle_on);
-    subtitleOffButtonDrawable =
-        getDrawable(context, resources, R.drawable.exo_styled_controls_subtitle_off);
+    subtitleOnButtonDrawable = getDrawable(context, resources, subtitleOnDrawableResId);
+    subtitleOffButtonDrawable = getDrawable(context, resources, subtitleOffDrawableResId);
     subtitleOnContentDescription =
         resources.getString(R.string.exo_controls_cc_enabled_description);
     subtitleOffContentDescription =
@@ -606,23 +783,18 @@ public class PlayerControlView extends FrameLayout {
         new PlaybackSpeedAdapter(
             resources.getStringArray(R.array.exo_controls_playback_speeds), PLAYBACK_SPEEDS);
 
-    fullScreenExitDrawable =
-        getDrawable(context, resources, R.drawable.exo_styled_controls_fullscreen_exit);
-    fullScreenEnterDrawable =
-        getDrawable(context, resources, R.drawable.exo_styled_controls_fullscreen_enter);
-    repeatOffButtonDrawable =
-        getDrawable(context, resources, R.drawable.exo_styled_controls_repeat_off);
-    repeatOneButtonDrawable =
-        getDrawable(context, resources, R.drawable.exo_styled_controls_repeat_one);
-    repeatAllButtonDrawable =
-        getDrawable(context, resources, R.drawable.exo_styled_controls_repeat_all);
-    shuffleOnButtonDrawable =
-        getDrawable(context, resources, R.drawable.exo_styled_controls_shuffle_on);
-    shuffleOffButtonDrawable =
-        getDrawable(context, resources, R.drawable.exo_styled_controls_shuffle_off);
-    fullScreenExitContentDescription =
+    playButtonDrawable = getDrawable(context, resources, playDrawableResId);
+    pauseButtonDrawable = getDrawable(context, resources, pauseDrawableResId);
+    fullscreenExitDrawable = getDrawable(context, resources, fullscreenExitDrawableResId);
+    fullscreenEnterDrawable = getDrawable(context, resources, fullscreenEnterDrawableResId);
+    repeatOffButtonDrawable = getDrawable(context, resources, repeatOffDrawableResId);
+    repeatOneButtonDrawable = getDrawable(context, resources, repeatOneDrawableResId);
+    repeatAllButtonDrawable = getDrawable(context, resources, repeatAllDrawableResId);
+    shuffleOnButtonDrawable = getDrawable(context, resources, shuffleOnDrawableResId);
+    shuffleOffButtonDrawable = getDrawable(context, resources, shuffleOffDrawableResId);
+    fullscreenExitContentDescription =
         resources.getString(R.string.exo_controls_fullscreen_exit_description);
-    fullScreenEnterContentDescription =
+    fullscreenEnterContentDescription =
         resources.getString(R.string.exo_controls_fullscreen_enter_description);
     repeatOffButtonContentDescription =
         resources.getString(R.string.exo_controls_repeat_off_description);
@@ -959,8 +1131,8 @@ public class PlayerControlView extends FrameLayout {
   public void setOnFullScreenModeChangedListener(
       @Nullable OnFullScreenModeChangedListener listener) {
     onFullScreenModeChangedListener = listener;
-    updateFullScreenButtonVisibility(fullScreenButton, listener != null);
-    updateFullScreenButtonVisibility(minimalFullScreenButton, listener != null);
+    updateFullscreenButtonVisibility(fullscreenButton, listener != null);
+    updateFullscreenButtonVisibility(minimalFullscreenButton, listener != null);
   }
 
   /**
@@ -1014,18 +1186,13 @@ public class PlayerControlView extends FrameLayout {
     }
     if (playPauseButton != null) {
       boolean shouldShowPlayButton = Util.shouldShowPlayButton(player, showPlayButtonIfSuppressed);
-      @DrawableRes
-      int drawableRes =
-          shouldShowPlayButton
-              ? R.drawable.exo_styled_controls_play
-              : R.drawable.exo_styled_controls_pause;
+      Drawable drawable = shouldShowPlayButton ? playButtonDrawable : pauseButtonDrawable;
       @StringRes
       int stringRes =
           shouldShowPlayButton
               ? R.string.exo_controls_play_description
               : R.string.exo_controls_pause_description;
-      ((ImageView) playPauseButton)
-          .setImageDrawable(getDrawable(getContext(), resources, drawableRes));
+      playPauseButton.setImageDrawable(drawable);
       playPauseButton.setContentDescription(resources.getString(stringRes));
 
       boolean enablePlayPause = shouldEnablePlayPauseButton();
@@ -1429,30 +1596,45 @@ public class PlayerControlView extends FrameLayout {
     updateProgress();
   }
 
-  private void onFullScreenButtonClicked(View v) {
-    if (onFullScreenModeChangedListener == null) {
+  private void onFullscreenButtonClicked(View v) {
+    updateIsFullscreen(!isFullscreen);
+  }
+
+  /**
+   * Updates whether the controller is in fullscreen, changing its fullscreen icon and reports it to
+   * to the listener.
+   *
+   * <p>For {@code isFullscreen} equals {@code true} the icon will be set to
+   * {@code @drawable/exo_styled_controls_fullscreen_exit} or else
+   * {@code @drawable/exo_styled_controls_fullscreen_enter}.
+   *
+   * @param isFullscreen If the view is in full screen.
+   */
+  public void updateIsFullscreen(boolean isFullscreen) {
+    if (this.isFullscreen == isFullscreen) {
       return;
     }
 
-    isFullScreen = !isFullScreen;
-    updateFullScreenButtonForState(fullScreenButton, isFullScreen);
-    updateFullScreenButtonForState(minimalFullScreenButton, isFullScreen);
+    this.isFullscreen = isFullscreen;
+    updateFullscreenButtonForState(fullscreenButton, isFullscreen);
+    updateFullscreenButtonForState(minimalFullscreenButton, isFullscreen);
+
     if (onFullScreenModeChangedListener != null) {
-      onFullScreenModeChangedListener.onFullScreenModeChanged(isFullScreen);
+      onFullScreenModeChangedListener.onFullScreenModeChanged(isFullscreen);
     }
   }
 
-  private void updateFullScreenButtonForState(
-      @Nullable ImageView fullScreenButton, boolean isFullScreen) {
-    if (fullScreenButton == null) {
+  private void updateFullscreenButtonForState(
+      @Nullable ImageView fullscreenButton, boolean isFullscreen) {
+    if (fullscreenButton == null) {
       return;
     }
-    if (isFullScreen) {
-      fullScreenButton.setImageDrawable(fullScreenExitDrawable);
-      fullScreenButton.setContentDescription(fullScreenExitContentDescription);
+    if (isFullscreen) {
+      fullscreenButton.setImageDrawable(fullscreenExitDrawable);
+      fullscreenButton.setContentDescription(fullscreenExitContentDescription);
     } else {
-      fullScreenButton.setImageDrawable(fullScreenEnterDrawable);
-      fullScreenButton.setContentDescription(fullScreenEnterContentDescription);
+      fullscreenButton.setImageDrawable(fullscreenEnterDrawable);
+      fullscreenButton.setContentDescription(fullscreenEnterContentDescription);
     }
   }
 
@@ -1617,23 +1799,23 @@ public class PlayerControlView extends FrameLayout {
     return true;
   }
 
-  private static void initializeFullScreenButton(View fullScreenButton, OnClickListener listener) {
-    if (fullScreenButton == null) {
+  private static void initializeFullscreenButton(View fullscreenButton, OnClickListener listener) {
+    if (fullscreenButton == null) {
       return;
     }
-    fullScreenButton.setVisibility(GONE);
-    fullScreenButton.setOnClickListener(listener);
+    fullscreenButton.setVisibility(GONE);
+    fullscreenButton.setOnClickListener(listener);
   }
 
-  private static void updateFullScreenButtonVisibility(
-      @Nullable View fullScreenButton, boolean visible) {
-    if (fullScreenButton == null) {
+  private static void updateFullscreenButtonVisibility(
+      @Nullable View fullscreenButton, boolean visible) {
+    if (fullscreenButton == null) {
       return;
     }
     if (visible) {
-      fullScreenButton.setVisibility(VISIBLE);
+      fullscreenButton.setVisibility(VISIBLE);
     } else {
-      fullScreenButton.setVisibility(GONE);
+      fullscreenButton.setVisibility(GONE);
     }
   }
 
@@ -1874,7 +2056,7 @@ public class PlayerControlView extends FrameLayout {
       mainTextView = itemView.findViewById(R.id.exo_main_text);
       subTextView = itemView.findViewById(R.id.exo_sub_text);
       iconView = itemView.findViewById(R.id.exo_icon);
-      itemView.setOnClickListener(v -> onSettingViewClicked(getAdapterPosition()));
+      itemView.setOnClickListener(v -> onSettingViewClicked(getBindingAdapterPosition()));
     }
   }
 
@@ -1981,7 +2163,8 @@ public class PlayerControlView extends FrameLayout {
 
     @Override
     public void onBindViewHolderAtZeroPosition(SubSettingViewHolder holder) {
-      // CC options include "Off" at the first position, which disables text rendering.
+      // CC options include "None" at the zero position, which disables text rendering except for
+      // forced text tracks that can't be disabled (and are also not shown in the selection list).
       holder.textView.setText(R.string.exo_track_selection_none);
       boolean isTrackSelectionOff = true;
       for (int i = 0; i < tracks.size(); i++) {
@@ -2002,6 +2185,8 @@ public class PlayerControlView extends FrameLayout {
                       .buildUpon()
                       .clearOverridesOfType(C.TRACK_TYPE_TEXT)
                       .setIgnoredTextSelectionFlags(~C.SELECTION_FLAG_FORCED)
+                      .setPreferredTextLanguage(null)
+                      .setPreferredTextRoleFlags(0)
                       .build());
               settingsWindow.dismiss();
             }

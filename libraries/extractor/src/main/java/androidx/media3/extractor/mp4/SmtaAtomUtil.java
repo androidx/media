@@ -23,6 +23,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.container.Mp4Box;
 import androidx.media3.extractor.metadata.mp4.SmtaMetadataEntry;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
@@ -70,12 +71,12 @@ public final class SmtaAtomUtil {
   /** Parses metadata from a Samsung smta atom. */
   @Nullable
   public static Metadata parseSmta(ParsableByteArray smta, int limit) {
-    smta.skipBytes(Atom.FULL_HEADER_SIZE);
+    smta.skipBytes(Mp4Box.FULL_HEADER_SIZE);
     while (smta.getPosition() < limit) {
       int atomPosition = smta.getPosition();
       int atomSize = smta.readInt();
       int atomType = smta.readInt();
-      if (atomType == Atom.TYPE_saut) {
+      if (atomType == Mp4Box.TYPE_saut) {
         // Size (4), Type (4), Author (4), Recording mode (2), SVC layer count (2).
         if (atomSize < 16) {
           return null;
@@ -126,13 +127,13 @@ public final class SmtaAtomUtil {
       return C.RATE_UNSET_INT;
     }
 
-    if (smta.bytesLeft() < Atom.HEADER_SIZE || smta.getPosition() + Atom.HEADER_SIZE > limit) {
+    if (smta.bytesLeft() < Mp4Box.HEADER_SIZE || smta.getPosition() + Mp4Box.HEADER_SIZE > limit) {
       return C.RATE_UNSET_INT;
     }
 
     int atomSize = smta.readInt();
     int atomType = smta.readInt();
-    if (atomSize < 12 || atomType != Atom.TYPE_srfr) {
+    if (atomSize < 12 || atomType != Mp4Box.TYPE_srfr) {
       return C.RATE_UNSET_INT;
     }
     // Capture frame rate is in Q16 format.

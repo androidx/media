@@ -21,6 +21,7 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.DrmInitData;
 import androidx.media3.common.Format;
+import androidx.media3.common.Label;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.StreamKey;
@@ -51,6 +52,8 @@ import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.CmcdConfiguration;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
 import androidx.media3.extractor.Extractor;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import com.google.common.primitives.Ints;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -157,8 +160,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.playerId = playerId;
     this.timestampAdjusterInitializationTimeoutMs = timestampAdjusterInitializationTimeoutMs;
     sampleStreamWrapperCallback = new SampleStreamWrapperCallback();
-    compositeSequenceableLoader =
-        compositeSequenceableLoaderFactory.createCompositeSequenceableLoader();
+    compositeSequenceableLoader = compositeSequenceableLoaderFactory.empty();
     streamWrapperIndices = new IdentityHashMap<>();
     timestampAdjusterProvider = new TimestampAdjusterProvider();
     sampleStreamWrappers = new HlsSampleStreamWrapper[0];
@@ -372,9 +374,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     // Update the local state.
     enabledSampleStreamWrappers =
         Util.nullSafeArrayCopy(newEnabledSampleStreamWrappers, newEnabledSampleStreamWrapperCount);
+    ImmutableList<HlsSampleStreamWrapper> enabledSampleStreamWrappersList =
+        ImmutableList.copyOf(enabledSampleStreamWrappers);
     compositeSequenceableLoader =
-        compositeSequenceableLoaderFactory.createCompositeSequenceableLoader(
-            enabledSampleStreamWrappers);
+        compositeSequenceableLoaderFactory.create(
+            enabledSampleStreamWrappersList,
+            Lists.transform(
+                enabledSampleStreamWrappersList,
+                sampleStreamWrapper -> sampleStreamWrapper.getTrackGroups().getTrackTypes()));
     return positionUs;
   }
 
@@ -846,6 +853,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     return new Format.Builder()
         .setId(variantFormat.id)
         .setLabel(variantFormat.label)
+        .setLabels(variantFormat.labels)
         .setContainerMimeType(variantFormat.containerMimeType)
         .setSampleMimeType(sampleMimeType)
         .setCodecs(codecs)
@@ -869,6 +877,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     int roleFlags = 0;
     @Nullable String language = null;
     @Nullable String label = null;
+    List<Label> labels = ImmutableList.of();
     if (mediaTagFormat != null) {
       codecs = mediaTagFormat.codecs;
       metadata = mediaTagFormat.metadata;
@@ -877,6 +886,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       roleFlags = mediaTagFormat.roleFlags;
       language = mediaTagFormat.language;
       label = mediaTagFormat.label;
+      labels = mediaTagFormat.labels;
     } else {
       codecs = Util.getCodecsOfType(variantFormat.codecs, C.TRACK_TYPE_AUDIO);
       metadata = variantFormat.metadata;
@@ -886,6 +896,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         roleFlags = variantFormat.roleFlags;
         language = variantFormat.language;
         label = variantFormat.label;
+        labels = variantFormat.labels;
       }
     }
     @Nullable String sampleMimeType = MimeTypes.getMediaMimeType(codecs);
@@ -894,6 +905,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     return new Format.Builder()
         .setId(variantFormat.id)
         .setLabel(label)
+        .setLabels(labels)
         .setContainerMimeType(variantFormat.containerMimeType)
         .setSampleMimeType(sampleMimeType)
         .setCodecs(codecs)

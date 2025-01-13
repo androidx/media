@@ -24,20 +24,18 @@ import static androidx.media3.decoder.DecoderInputBuffer.BUFFER_REPLACEMENT_MODE
 
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.graphics.Matrix;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
-import androidx.exifinterface.media.ExifInterface;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.ParserException;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.datasource.BitmapUtil;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.decoder.SimpleDecoder;
 import androidx.media3.exoplayer.RendererCapabilities;
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.ByteBuffer;
 
 /**
@@ -89,10 +87,10 @@ public final class BitmapFactoryImageDecoder
 
     @Override
     public @RendererCapabilities.Capabilities int supportsFormat(Format format) {
-      if (format.containerMimeType == null || !MimeTypes.isImage(format.containerMimeType)) {
+      if (format.sampleMimeType == null || !MimeTypes.isImage(format.sampleMimeType)) {
         return RendererCapabilities.create(C.FORMAT_UNSUPPORTED_TYPE);
       }
-      return isBitmapFactorySupportedMimeType(format.containerMimeType)
+      return isBitmapFactorySupportedMimeType(format.sampleMimeType)
           ? RendererCapabilities.create(C.FORMAT_HANDLED)
           : RendererCapabilities.create(C.FORMAT_UNSUPPORTED_SUBTYPE);
     }
@@ -160,37 +158,19 @@ public final class BitmapFactoryImageDecoder
    * @throws ImageDecoderException If a decoding error occurs.
    */
   private static Bitmap decode(byte[] data, int length) throws ImageDecoderException {
-    @Nullable Bitmap bitmap = BitmapFactory.decodeByteArray(data, /* offset= */ 0, length);
-    if (bitmap == null) {
+    try {
+      return BitmapUtil.decode(
+          data, length, /* options= */ null, /* maximumOutputDimension= */ C.LENGTH_UNSET);
+    } catch (ParserException e) {
       throw new ImageDecoderException(
           "Could not decode image data with BitmapFactory. (data.length = "
               + data.length
               + ", input length = "
               + length
-              + ")");
-    }
-    // BitmapFactory doesn't read the exif header, so we use the ExifInterface to this do ensure the
-    // bitmap is correctly orientated.
-    ExifInterface exifInterface;
-    try (InputStream inputStream = new ByteArrayInputStream(data, /* offset= */ 0, length)) {
-      exifInterface = new ExifInterface(inputStream);
+              + ")",
+          e);
     } catch (IOException e) {
       throw new ImageDecoderException(e);
     }
-    int rotationDegrees = exifInterface.getRotationDegrees();
-    if (rotationDegrees != 0) {
-      Matrix matrix = new Matrix();
-      matrix.postRotate(rotationDegrees);
-      bitmap =
-          Bitmap.createBitmap(
-              bitmap,
-              /* x= */ 0,
-              /* y= */ 0,
-              bitmap.getWidth(),
-              bitmap.getHeight(),
-              matrix,
-              /* filter= */ false);
-    }
-    return bitmap;
   }
 }

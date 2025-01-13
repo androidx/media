@@ -15,6 +15,8 @@
  */
 package androidx.media3.session;
 
+import static androidx.media3.test.session.common.CommonConstants.METADATA_ALBUM_TITLE;
+import static androidx.media3.test.session.common.CommonConstants.METADATA_ARTIST;
 import static androidx.media3.test.session.common.CommonConstants.METADATA_ARTWORK_URI;
 import static androidx.media3.test.session.common.CommonConstants.METADATA_DESCRIPTION;
 import static androidx.media3.test.session.common.CommonConstants.METADATA_EXTRAS;
@@ -92,13 +94,9 @@ public final class MediaTestUtils {
                 /* trackSelected= */ new boolean[] {true})));
   }
 
-  /** Returns a new {@link VideoSize} instance for testing purpose. */
-  public static VideoSize createDefaultVideoSize() {
-    return new VideoSize(
-        DEFAULT_VIDEO_SIZE.width,
-        DEFAULT_VIDEO_SIZE.height,
-        DEFAULT_VIDEO_SIZE.unappliedRotationDegrees,
-        DEFAULT_VIDEO_SIZE.pixelWidthHeightRatio);
+  /** Returns a {@link VideoSize} instance for testing purpose. */
+  public static VideoSize getDefaultVideoSize() {
+    return DEFAULT_VIDEO_SIZE;
   }
 
   /** Create a media item with the mediaId for testing purpose. */
@@ -161,6 +159,8 @@ public final class MediaTestUtils {
         .setTitle(METADATA_TITLE)
         .setSubtitle(METADATA_SUBTITLE)
         .setDescription(METADATA_DESCRIPTION)
+        .setArtist(METADATA_ARTIST)
+        .setAlbumTitle(METADATA_ALBUM_TITLE)
         .setArtworkUri(METADATA_ARTWORK_URI)
         .setExtras(METADATA_EXTRAS)
         .build();
@@ -173,6 +173,8 @@ public final class MediaTestUtils {
             .setIsPlayable(true)
             .setTitle(METADATA_TITLE)
             .setSubtitle(METADATA_SUBTITLE)
+            .setArtist(METADATA_ARTIST)
+            .setAlbumTitle(METADATA_ALBUM_TITLE)
             .setDescription(METADATA_DESCRIPTION)
             .setArtworkUri(METADATA_ARTWORK_URI)
             .setExtras(METADATA_EXTRAS);
@@ -241,8 +243,19 @@ public final class MediaTestUtils {
     List<MediaSessionCompat.QueueItem> list = new ArrayList<>();
     for (int i = 0; i < mediaItems.size(); i++) {
       MediaItem item = mediaItems.get(i);
-      MediaDescriptionCompat description =
+      androidx.media3.session.legacy.MediaDescriptionCompat media3Description =
           LegacyConversions.convertToMediaDescriptionCompat(item, null);
+      MediaDescriptionCompat description =
+          new MediaDescriptionCompat.Builder()
+              .setTitle(media3Description.getTitle())
+              .setSubtitle(media3Description.getSubtitle())
+              .setDescription(media3Description.getDescription())
+              .setIconUri(media3Description.getIconUri())
+              .setIconBitmap(media3Description.getIconBitmap())
+              .setMediaId(media3Description.getMediaId())
+              .setMediaUri(media3Description.getMediaUri())
+              .setExtras(media3Description.getExtras())
+              .build();
       long id = LegacyConversions.convertToQueueItemId(i);
       list.add(new MediaSessionCompat.QueueItem(description, id));
     }

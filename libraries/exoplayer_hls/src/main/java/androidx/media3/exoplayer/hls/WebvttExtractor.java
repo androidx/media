@@ -121,7 +121,7 @@ public final class WebvttExtractor implements Extractor {
         parseSubtitlesDuringExtraction
             ? new SubtitleTranscodingExtractorOutput(output, subtitleParserFactory)
             : output;
-    output.seekMap(new SeekMap.Unseekable(C.TIME_UNSET));
+    this.output.seekMap(new SeekMap.Unseekable(C.TIME_UNSET));
   }
 
   @Override

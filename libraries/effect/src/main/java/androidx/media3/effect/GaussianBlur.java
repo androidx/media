@@ -16,7 +16,6 @@
 package androidx.media3.effect;
 
 import androidx.annotation.FloatRange;
-import androidx.annotation.RequiresApi;
 import androidx.media3.common.util.UnstableApi;
 
 /**
@@ -25,7 +24,6 @@ import androidx.media3.common.util.UnstableApi;
  * <p>The width of the blur is specified in pixels and applied symmetrically.
  */
 @UnstableApi
-@RequiresApi(26) // See SeparableConvolution.
 public final class GaussianBlur extends SeparableConvolution {
   private final float sigma;
   private final float numStandardDeviations;

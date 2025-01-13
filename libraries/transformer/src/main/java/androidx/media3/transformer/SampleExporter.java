@@ -30,6 +30,7 @@ import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.decoder.DecoderInputBuffer;
+import androidx.media3.muxer.Muxer.MuxerException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import java.util.List;
@@ -64,10 +65,11 @@ import java.util.List;
    *
    * @param editedMediaItem The initial {@link EditedMediaItem} of the input.
    * @param format The initial {@link Format} of the input.
+   * @param inputIndex The index of the input.
    * @throws ExportException If an error occurs getting the input.
    */
-  public abstract GraphInput getInput(EditedMediaItem editedMediaItem, Format format)
-      throws ExportException;
+  public abstract GraphInput getInput(
+      EditedMediaItem editedMediaItem, Format format, int inputIndex) throws ExportException;
 
   /**
    * Processes the input data and returns whether it may be possible to process more data by calling
@@ -109,8 +111,10 @@ import java.util.List;
       }
       try {
         muxerWrapper.addTrackFormat(inputFormat);
-      } catch (Muxer.MuxerException e) {
+      } catch (MuxerException e) {
         throw ExportException.createForMuxer(e, ExportException.ERROR_CODE_MUXING_FAILED);
+      } catch (MuxerWrapper.AppendTrackFormatException e) {
+        throw ExportException.createForMuxer(e, ExportException.ERROR_CODE_MUXING_APPEND);
       }
       muxerWrapperTrackAdded = true;
     }
@@ -133,7 +137,7 @@ import java.util.List;
           muxerInputBuffer.timeUs)) {
         return false;
       }
-    } catch (Muxer.MuxerException e) {
+    } catch (MuxerException e) {
       throw ExportException.createForMuxer(e, ExportException.ERROR_CODE_MUXING_FAILED);
     }
 
@@ -158,11 +162,11 @@ import java.util.List;
    * @param requestedFormat The {@link Format} requested.
    * @param muxerSupportedMimeTypes The list of sample {@linkplain MimeTypes MIME types} that the
    *     muxer supports.
-   * @return A supported {@linkplain MimeTypes MIME type}.
-   * @throws ExportException If there are no supported {@linkplain MimeTypes MIME types}.
+   * @return A supported {@linkplain MimeTypes MIME type}, or {@code null} if none are supported.
    */
+  @Nullable
   protected static String findSupportedMimeTypeForEncoderAndMuxer(
-      Format requestedFormat, List<String> muxerSupportedMimeTypes) throws ExportException {
+      Format requestedFormat, List<String> muxerSupportedMimeTypes) {
     boolean isVideo = MimeTypes.isVideo(checkNotNull(requestedFormat.sampleMimeType));
 
     ImmutableSet.Builder<String> mimeTypesToCheckSetBuilder =
@@ -189,23 +193,6 @@ import java.util.List;
       }
     }
 
-    throw createNoSupportedMimeTypeException(requestedFormat);
-  }
-
-  private static ExportException createNoSupportedMimeTypeException(Format format) {
-    String errorMessage = "No MIME type is supported by both encoder and muxer.";
-    int errorCode = ExportException.ERROR_CODE_ENCODING_FORMAT_UNSUPPORTED;
-    boolean isVideo = MimeTypes.isVideo(format.sampleMimeType);
-
-    if (isVideo && isTransferHdr(format.colorInfo)) {
-      errorMessage += " Requested HDR colorInfo: " + format.colorInfo;
-    }
-
-    return ExportException.createForCodec(
-        new IllegalArgumentException(errorMessage),
-        errorCode,
-        isVideo,
-        /* isDecoder= */ false,
-        format);
+    return null;
   }
 }

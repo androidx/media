@@ -17,6 +17,7 @@ package androidx.media3.transformer;
 
 import static java.lang.annotation.ElementType.TYPE_USE;
 
+import android.media.MediaFormat;
 import android.os.SystemClock;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
@@ -36,6 +37,46 @@ import java.lang.annotation.Target;
 /** Thrown when a non-locally recoverable export failure occurs. */
 @UnstableApi
 public final class ExportException extends Exception {
+
+  /** The {@link Codec} details. */
+  public static final class CodecInfo {
+    /**
+     * A string describing the format used to configure the underlying codec, for example, the value
+     * returned by {@link Format#toString()} or {@link MediaFormat#toString()}.
+     */
+    public final String configurationFormat;
+
+    /** Whether the {@link Codec} is configured for video. */
+    public final boolean isVideo;
+
+    /** Whether the {@link Codec} is used as a decoder. */
+    public final boolean isDecoder;
+
+    /** The {@link Codec} name, or {@code null} if the {@link Codec} is not yet initialized. */
+    @Nullable public final String name;
+
+    /** Creates an instance. */
+    public CodecInfo(
+        String configurationFormat, boolean isVideo, boolean isDecoder, @Nullable String name) {
+      this.configurationFormat = configurationFormat;
+      this.isVideo = isVideo;
+      this.isDecoder = isDecoder;
+      this.name = name;
+    }
+
+    @Override
+    public String toString() {
+      String type = (isVideo ? "Video" : "Audio") + (isDecoder ? "Decoder" : "Encoder");
+      return "CodecInfo{"
+          + "type="
+          + type
+          + ", configurationFormat="
+          + configurationFormat
+          + ", name="
+          + name
+          + '}';
+    }
+  }
 
   /**
    * Error codes that identify causes of {@link Transformer} errors.
@@ -181,9 +222,16 @@ public final class ExportException extends Exception {
   /**
    * Caused by a timeout while muxing media samples.
    *
-   * @see Muxer#getMaxDelayBetweenSamplesMs()
+   * @see Transformer.Builder#setMaxDelayBetweenMuxerSamplesMs(long)
    */
   public static final int ERROR_CODE_MUXING_TIMEOUT = 7002;
+
+  /**
+   * Caused by mismatching formats in MuxerWrapper.
+   *
+   * @see MuxerWrapper.AppendTrackFormatException
+   */
+  public static final int ERROR_CODE_MUXING_APPEND = 7003;
 
   /* package */ static final ImmutableBiMap<String, @ErrorCode Integer> NAME_TO_ERROR_CODE =
       new ImmutableBiMap.Builder<String, @ErrorCode Integer>()
@@ -207,6 +255,7 @@ public final class ExportException extends Exception {
           .put("ERROR_CODE_AUDIO_PROCESSING_FAILED", ERROR_CODE_AUDIO_PROCESSING_FAILED)
           .put("ERROR_CODE_MUXING_FAILED", ERROR_CODE_MUXING_FAILED)
           .put("ERROR_CODE_MUXING_TIMEOUT", ERROR_CODE_MUXING_TIMEOUT)
+          .put("ERROR_CODE_MUXING_APPEND", ERROR_CODE_MUXING_APPEND)
           .buildOrThrow();
 
   /** Returns the name of a given {@code errorCode}. */
@@ -236,48 +285,14 @@ public final class ExportException extends Exception {
   /**
    * Creates an instance for a {@link Codec} related exception.
    *
-   * <p>This method should be used when the {@code cause} occurs before the {@link Codec} is
-   * initialized.
-   *
    * @param cause The cause of the failure.
    * @param errorCode See {@link #errorCode}.
-   * @param isVideo Whether the {@link Codec} is configured for video.
-   * @param isDecoder Whether the exception is created for a decoder.
-   * @param format The {@link Format} used for configuring the {@link Codec}.
+   * @param codecInfo The {@link CodecInfo}.
    * @return The created instance.
    */
   public static ExportException createForCodec(
-      Throwable cause,
-      @ErrorCode int errorCode,
-      boolean isVideo,
-      boolean isDecoder,
-      Format format) {
-    String details = "format=" + format;
-    if (isVideo) {
-      details += ", colorInfo=" + format.colorInfo;
-    }
-    return createForCodec(cause, errorCode, isVideo, isDecoder, details);
-  }
-
-  /**
-   * Creates an instance for a {@link Codec} related exception.
-   *
-   * @param cause The cause of the failure.
-   * @param errorCode See {@link #errorCode}.
-   * @param isVideo Whether the {@link Codec} is configured for video.
-   * @param isDecoder Whether the exception is created for a decoder.
-   * @param details The details associated with this exception.
-   * @return The created instance.
-   */
-  public static ExportException createForCodec(
-      Throwable cause,
-      @ErrorCode int errorCode,
-      boolean isVideo,
-      boolean isDecoder,
-      String details) {
-    String componentName = (isVideo ? "Video" : "Audio") + (isDecoder ? "Decoder" : "Encoder");
-    String errorMessage = componentName + " error: " + details;
-    return new ExportException(errorMessage, cause, errorCode);
+      Throwable cause, @ErrorCode int errorCode, CodecInfo codecInfo) {
+    return new ExportException("Codec exception: " + codecInfo, cause, errorCode, codecInfo);
   }
 
   /**
@@ -344,7 +359,13 @@ public final class ExportException extends Exception {
   public final long timestampMs;
 
   /**
-   * Creates an instance.
+   * The {@linkplain CodecInfo} for codec related exceptions, or {@code null} if the exception is
+   * not codec related.
+   */
+  @Nullable public final CodecInfo codecInfo;
+
+  /**
+   * Creates an instance with {@code codecInfo} set to {@code null}.
    *
    * @param message See {@link #getMessage()}.
    * @param cause See {@link #getCause()}.
@@ -353,9 +374,27 @@ public final class ExportException extends Exception {
    */
   private ExportException(
       @Nullable String message, @Nullable Throwable cause, @ErrorCode int errorCode) {
+    this(message, cause, errorCode, /* codecInfo= */ null);
+  }
+
+  /**
+   * Creates an instance.
+   *
+   * @param message See {@link #getMessage()}.
+   * @param cause See {@link #getCause()}.
+   * @param errorCode A number which identifies the cause of the error. May be one of the {@link
+   *     ErrorCode ErrorCodes}.
+   * @param codecInfo The {@link CodecInfo}, or {@code null} if the exception is not codec related.
+   */
+  private ExportException(
+      @Nullable String message,
+      @Nullable Throwable cause,
+      @ErrorCode int errorCode,
+      @Nullable CodecInfo codecInfo) {
     super(message, cause);
     this.errorCode = errorCode;
     this.timestampMs = Clock.DEFAULT.elapsedRealtime();
+    this.codecInfo = codecInfo;
   }
 
   /**

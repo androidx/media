@@ -26,6 +26,7 @@ import android.os.HandlerThread;
 import android.os.Looper;
 import android.util.Pair;
 import androidx.annotation.Nullable;
+import androidx.media3.common.C;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.NullableType;
@@ -40,6 +41,7 @@ import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import androidx.media3.exoplayer.source.MediaSource.MediaSourceCaller;
 import androidx.media3.exoplayer.source.MediaSourceEventListener;
 import androidx.media3.exoplayer.upstream.Allocator;
+import androidx.media3.exoplayer.upstream.DefaultAllocator;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -68,13 +70,14 @@ public class MediaSourceTestRunner {
   @Nullable private Timeline timeline;
 
   /**
+   * Creates an instance.
+   *
    * @param mediaSource The source under test.
-   * @param allocator The allocator to use during the test run.
    */
-  public MediaSourceTestRunner(MediaSource mediaSource, Allocator allocator) {
+  public MediaSourceTestRunner(MediaSource mediaSource) {
     this.mediaSource = mediaSource;
-    this.allocator = allocator;
-    playbackThread = new HandlerThread("TestHandler");
+    this.allocator = new DefaultAllocator(true, C.DEFAULT_BUFFER_SEGMENT_SIZE);
+    playbackThread = new HandlerThread("TestPlaybackThread");
     playbackThread.start();
     Looper playbackLooper = playbackThread.getLooper();
     playbackHandler = new Handler(playbackLooper);

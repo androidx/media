@@ -18,23 +18,33 @@ package androidx.media3.exoplayer.video;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.graphics.Bitmap;
+import android.os.SystemClock;
 import android.view.Surface;
 import androidx.annotation.FloatRange;
 import androidx.annotation.IntDef;
 import androidx.media3.common.C;
+import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.VideoSize;
+import androidx.media3.common.util.Size;
 import androidx.media3.common.util.TimestampIterator;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.exoplayer.Renderer;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import java.util.List;
 import java.util.concurrent.Executor;
 
-/** A sink that consumes decoded video frames. */
+/**
+ * A sink that consumes decoded video frames and images from video and image {@linkplain
+ * androidx.media3.exoplayer.Renderer renderers}.
+ *
+ * <p>Multiple renderers can feed the same sink, but not in parallel.
+ */
 @UnstableApi
-/* package */ interface VideoSink {
+public interface VideoSink {
 
   /** Thrown by {@link VideoSink} implementations. */
   final class VideoSinkException extends Exception {
@@ -52,57 +62,52 @@ import java.util.concurrent.Executor;
 
   /** Listener for {@link VideoSink} events. */
   interface Listener {
-    /** Called when the sink renderers the first frame. */
+    /** Called when the sink renders the first frame on the output surface. */
     void onFirstFrameRendered(VideoSink videoSink);
 
-    /** Called when the output video size changed. */
+    /** Called when the sink dropped a frame. */
+    void onFrameDropped(VideoSink videoSink);
+
+    /**
+     * Called before a frame is rendered for the first time after setting the output surface, and
+     * each time there's a change in the size, rotation or pixel aspect ratio of the video being
+     * rendered.
+     */
     void onVideoSizeChanged(VideoSink videoSink, VideoSize videoSize);
 
     /** Called when the {@link VideoSink} encountered an error. */
     void onError(VideoSink videoSink, VideoSinkException videoSinkException);
+
+    /** A no-op listener implementation. */
+    Listener NO_OP =
+        new Listener() {
+          @Override
+          public void onFirstFrameRendered(VideoSink videoSink) {}
+
+          @Override
+          public void onFrameDropped(VideoSink videoSink) {}
+
+          @Override
+          public void onVideoSizeChanged(VideoSink videoSink, VideoSize videoSize) {}
+
+          @Override
+          public void onError(VideoSink videoSink, VideoSinkException videoSinkException) {}
+        };
   }
 
-  /** Controls the rendering of video frames. */
-  interface RenderControl {
-    /** Signals a frame must be rendered immediately. */
-    long RENDER_TIME_IMMEDIATELY = -1;
-
-    /** Signals a frame must be dropped. */
-    long RENDER_TIME_DROP = -2;
-
-    /** Signals that a frame should not be rendered yet. */
-    long RENDER_TIME_TRY_AGAIN_LATER = -3;
+  /** Handler for a video frame. */
+  interface VideoFrameHandler {
 
     /**
-     * Returns the render timestamp, in nanoseconds, associated with this video frames or one of the
-     * {@code RENDER_TIME_} constants if the frame must be rendered immediately, dropped or not
-     * rendered yet.
+     * Renders the frame on the {@linkplain #getInputSurface() input surface}.
      *
-     * @param presentationTimeUs The presentation time of the video frame, in microseconds.
-     * @param positionUs The current playback position, in microseconds.
-     * @param elapsedRealtimeUs {@link android.os.SystemClock#elapsedRealtime()} in microseconds,
-     *     taken approximately at the time the playback position was {@code positionUs}.
-     * @param playbackSpeed The current playback speed.
-     * @return The render timestamp, in nanoseconds, associated with this frame, or one of the
-     *     {@code RENDER_TIME_} constants if the frame must be rendered immediately, dropped or not
-     *     rendered yet.
+     * @param renderTimestampNs The timestamp to associate with this frame when it is sent to the
+     *     surface.
      */
-    long getFrameRenderTimeNs(
-        long presentationTimeUs, long positionUs, long elapsedRealtimeUs, float playbackSpeed);
+    void render(long renderTimestampNs);
 
-    /**
-     * Informs the rendering control that a video frame will be rendered. Call this method before
-     * rendering a frame.
-     *
-     * @param presentationTimeUs The frame's presentation time, in microseconds.
-     */
-    void onNextFrame(long presentationTimeUs);
-
-    /** Informs the rendering control that a video frame was rendered. */
-    void onFrameRendered();
-
-    /** Informs the rendering control that a video frame was dropped. */
-    void onFrameDropped();
+    /** Skips the frame. */
+    void skip();
   }
 
   /**
@@ -121,6 +126,18 @@ import java.util.concurrent.Executor;
   /** Input frames come from a {@link Bitmap}. */
   int INPUT_TYPE_BITMAP = 2;
 
+  /** Called when the {@link Renderer} currently feeding this sink is enabled. */
+  void onRendererEnabled(boolean mayRenderStartOfStream);
+
+  /** Called when the {@link Renderer} currently feeding this sink is disabled. */
+  void onRendererDisabled();
+
+  /** Called when the {@link Renderer} currently feeding this sink is started. */
+  void onRendererStarted();
+
+  /** Called when the {@link Renderer} currently feeding this sink is stopped. */
+  void onRendererStopped();
+
   /**
    * Sets a {@link Listener} on this sink. Callbacks are triggered on the supplied {@link Executor}.
    *
@@ -130,68 +147,169 @@ import java.util.concurrent.Executor;
   void setListener(Listener listener, Executor executor);
 
   /**
+   * Initializes the video sink.
+   *
+   * @param sourceFormat The format of the first input video or image.
+   * @throws VideoSink.VideoSinkException If initializing the sink failed.
+   */
+  void initialize(Format sourceFormat) throws VideoSinkException;
+
+  /** Returns whether the video sink is {@linkplain #initialize(Format) initialized}. */
+  boolean isInitialized();
+
+  /**
    * Flushes the video sink.
    *
    * <p>After calling this method, any frames stored inside the video sink are discarded.
+   *
+   * @param resetPosition Whether to reset the current position.
    */
-  void flush();
-
-  /** Whether the video sink is able to immediately render media from the current position. */
-  boolean isReady();
+  void flush(boolean resetPosition);
 
   /**
-   * Whether all queued video frames have been rendered, including the frame marked as last buffer.
+   * Returns whether the video sink is able to immediately render media to its output surface from
+   * the current position.
+   *
+   * <p>The renderer should be {@linkplain Renderer#isReady() ready} if and only if the video sink
+   * is ready.
+   *
+   * @param rendererOtherwiseReady Whether the renderer is ready except for the video sink.
    */
+  boolean isReady(boolean rendererOtherwiseReady);
+
+  /** Returns whether all the data has been rendered to the output surface. */
   boolean isEnded();
 
   /**
-   * Whether frames could be dropped from the sink's {@linkplain #getInputSurface() input surface}.
+   * Returns the input {@link Surface} where the video sink consumes input frames from.
+   *
+   * <p>Must be called after the sink is {@linkplain #initialize(Format) initialized}.
    */
-  boolean isFrameDropAllowedOnInput();
-
-  /** Returns the input {@link Surface} where the video sink consumes input frames from. */
   Surface getInputSurface();
+
+  /** Sets the {@link VideoFrameMetadataListener}. */
+  void setVideoFrameMetadataListener(VideoFrameMetadataListener videoFrameMetadataListener);
 
   /** Sets the playback speed. */
   void setPlaybackSpeed(@FloatRange(from = 0, fromInclusive = false) float speed);
 
+  /** Sets {@linkplain Effect video effects} to apply immediately. */
+  void setVideoEffects(List<Effect> videoEffects);
+
+  /**
+   * Sets {@linkplain Effect video effects} to apply after the next stream {@linkplain
+   * VideoSink#onInputStreamChanged(int, Format) change}.
+   */
+  void setPendingVideoEffects(List<Effect> videoEffects);
+
+  /**
+   * Sets information about the timestamps of the current input stream.
+   *
+   * @param streamStartPositionUs The start position of the buffer presentation timestamps of the
+   *     current stream, in microseconds.
+   * @param streamOffsetUs The offset that is added to the buffer presentation timestamps by the
+   *     player, in microseconds.
+   * @param bufferTimestampAdjustmentUs The timestamp adjustment to add to the buffer presentation
+   *     timestamps to convert them to frame presentation timestamps, in microseconds.
+   * @param lastResetPositionUs The renderer last reset position, in microseconds.
+   */
+  void setStreamTimestampInfo(
+      long streamStartPositionUs,
+      long streamOffsetUs,
+      long bufferTimestampAdjustmentUs,
+      long lastResetPositionUs);
+
+  /** Sets the output surface info. */
+  void setOutputSurfaceInfo(Surface outputSurface, Size outputResolution);
+
+  /** Clears the set output surface info. */
+  void clearOutputSurfaceInfo();
+
+  /**
+   * Changes the {@link C.VideoChangeFrameRateStrategy} used when calling {@link
+   * Surface#setFrameRate}.
+   *
+   * <p>The default value is {@link C#VIDEO_CHANGE_FRAME_RATE_STRATEGY_ONLY_IF_SEAMLESS}.
+   */
+  void setChangeFrameRateStrategy(@C.VideoChangeFrameRateStrategy int changeFrameRateStrategy);
+
+  /**
+   * Enables this video sink to render the start of the stream to its output surface even if the
+   * renderer is not {@linkplain #onRendererStarted() started} yet.
+   *
+   * <p>This is used to update the value of {@code mayRenderStartOfStream} passed to {@link
+   * #onRendererEnabled(boolean)}.
+   */
+  void enableMayRenderStartOfStream();
+
   /**
    * Informs the video sink that a new input stream will be queued.
+   *
+   * <p>Must be called after the sink is {@linkplain #initialize(Format) initialized}.
    *
    * @param inputType The {@link InputType} of the stream.
    * @param format The {@link Format} of the stream.
    */
-  void registerInputStream(@InputType int inputType, Format format);
+  void onInputStreamChanged(@InputType int inputType, Format format);
 
   /**
-   * Informs the video sink that a frame will be queued to its {@linkplain #getInputSurface() input
-   * surface}.
+   * Handles a video input frame.
+   *
+   * <p>Must be called after the corresponding stream is {@linkplain #onInputStreamChanged(int,
+   * Format) signalled}.
    *
    * @param framePresentationTimeUs The frame's presentation time, in microseconds.
    * @param isLastFrame Whether this is the last frame of the video stream.
-   * @return a release timestamp, in nanoseconds, that should be associated when releasing this
-   *     frame, or {@link C#TIME_UNSET} if the sink was not able to register the frame and the
-   *     caller must try again later.
+   * @param positionUs The current playback position, in microseconds.
+   * @param elapsedRealtimeUs {@link SystemClock#elapsedRealtime()} in microseconds, taken
+   *     approximately at the time the playback position was {@code positionUs}.
+   * @param videoFrameHandler The {@link VideoFrameHandler} used to handle the input frame.
+   * @return Whether the frame was handled successfully. If {@code false}, the caller can try again
+   *     later.
    */
-  long registerInputFrame(long framePresentationTimeUs, boolean isLastFrame);
+  boolean handleInputFrame(
+      long framePresentationTimeUs,
+      boolean isLastFrame,
+      long positionUs,
+      long elapsedRealtimeUs,
+      VideoFrameHandler videoFrameHandler)
+      throws VideoSinkException;
 
   /**
-   * Provides an input {@link Bitmap} to the video sink.
+   * Handles an input {@link Bitmap}.
    *
-   * @param inputBitmap The {@link Bitmap} queued to the video sink.
+   * <p>Must be called after the corresponding stream is {@linkplain #onInputStreamChanged(int,
+   * Format) signalled}.
+   *
+   * @param inputBitmap The {@link Bitmap} to queue to the video sink.
    * @param timestampIterator The times within the current stream that the bitmap should be shown
    *     at. The timestamps should be monotonically increasing.
-   * @return Whether the bitmap was queued successfully. A {@code false} value indicates the caller
-   *     must try again later.
+   * @return Whether the bitmap was queued successfully. If {@code false}, the caller can try again
+   *     later.
    */
-  boolean queueBitmap(Bitmap inputBitmap, TimestampIterator timestampIterator);
+  boolean handleInputBitmap(Bitmap inputBitmap, TimestampIterator timestampIterator);
 
   /**
-   * Incrementally renders processed video frames.
+   * Incrementally renders processed video frames to the output surface.
    *
    * @param positionUs The current playback position, in microseconds.
    * @param elapsedRealtimeUs {@link android.os.SystemClock#elapsedRealtime()} in microseconds,
    *     taken approximately at the time the playback position was {@code positionUs}.
+   * @throws VideoSinkException If an error occurs during rendering.
    */
-  void render(long positionUs, long elapsedRealtimeUs);
+  void render(long positionUs, long elapsedRealtimeUs) throws VideoSinkException;
+
+  /**
+   * Joins the video sink to a new stream.
+   *
+   * <p>The sink will mask {@link #isReady} as {@code true} for a short time to avoid interrupting
+   * an ongoing playback, even if the first frame hasn't yet been rendered to the output surface.
+   *
+   * @param renderNextFrameImmediately Whether the next frame should be rendered as soon as possible
+   *     or only at its preferred scheduled release time.
+   */
+  void join(boolean renderNextFrameImmediately);
+
+  /** Releases the sink. */
+  void release();
 }

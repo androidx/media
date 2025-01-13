@@ -19,7 +19,11 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.audio.AudioProcessor;
+import androidx.media3.common.audio.SpeedChangingAudioProcessor;
+import androidx.media3.test.utils.TestSpeedProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.collect.ImmutableList;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -56,7 +60,7 @@ public final class EditedMediaItemBuilderTest {
   }
 
   @Test
-  public void duration_withoutClippingConfiguration() {
+  public void presentationDurationUs_withoutClippingConfiguration() {
     MediaItem mediaItem = MediaItem.fromUri("Uri");
 
     EditedMediaItem editedMediaItem =
@@ -66,7 +70,7 @@ public final class EditedMediaItemBuilderTest {
   }
 
   @Test
-  public void duration_withClippingConfigurationAndEndPosition() {
+  public void presentationDurationUs_withClippingConfigurationAndEndPosition() {
     MediaItem.ClippingConfiguration clippingConfiguration =
         new MediaItem.ClippingConfiguration.Builder().setEndPositionMs(500).build();
     MediaItem mediaItem =
@@ -82,7 +86,7 @@ public final class EditedMediaItemBuilderTest {
   }
 
   @Test
-  public void duration_withClippingConfigurationAndStartEndPosition() {
+  public void presentationDurationUs_withClippingConfigurationAndStartEndPosition() {
     MediaItem.ClippingConfiguration clippingConfiguration =
         new MediaItem.ClippingConfiguration.Builder()
             // 300_000us
@@ -103,7 +107,7 @@ public final class EditedMediaItemBuilderTest {
   }
 
   @Test
-  public void duration_withClippingConfigurationAndStartEndPositionInUs() {
+  public void presentationDurationUs_withClippingConfigurationAndStartEndPositionInUs() {
     MediaItem.ClippingConfiguration clippingConfiguration =
         new MediaItem.ClippingConfiguration.Builder()
             .setStartPositionUs(300_000)
@@ -122,7 +126,7 @@ public final class EditedMediaItemBuilderTest {
   }
 
   @Test
-  public void duration_withClippingConfigurationAndStartPosition() {
+  public void presentationDurationUs_withClippingConfigurationAndStartPosition() {
     MediaItem.ClippingConfiguration clippingConfiguration =
         new MediaItem.ClippingConfiguration.Builder()
             // 300_000us
@@ -138,5 +142,45 @@ public final class EditedMediaItemBuilderTest {
         new EditedMediaItem.Builder(mediaItem).setDurationUs(1_000_000).build();
 
     assertThat(editedMediaItem.getPresentationDurationUs()).isEqualTo(700_000);
+  }
+
+  @Test
+  public void presentationDurationUs_withClippingConfigurationAndDurationAdjustingEffect() {
+    MediaItem.ClippingConfiguration clippingConfiguration =
+        new MediaItem.ClippingConfiguration.Builder().setStartPositionUs(200_000).build();
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri("Uri")
+            .setClippingConfiguration(clippingConfiguration)
+            .build();
+    ImmutableList<AudioProcessor> audioProcessors =
+        ImmutableList.of(
+            new SpeedChangingAudioProcessor(
+                TestSpeedProvider.createWithStartTimes(new long[] {0L}, new float[] {2f})));
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(mediaItem)
+            .setDurationUs(1_000_000)
+            .setRemoveVideo(true)
+            .setEffects(new Effects(audioProcessors, /* videoEffects= */ ImmutableList.of()))
+            .build();
+
+    assertThat(editedMediaItem.getPresentationDurationUs()).isEqualTo(400_000);
+  }
+
+  @Test
+  public void presentationDurationUs_withDurationAdjustingEffect() {
+    MediaItem mediaItem = new MediaItem.Builder().setUri("Uri").build();
+    ImmutableList<AudioProcessor> audioProcessors =
+        ImmutableList.of(
+            new SpeedChangingAudioProcessor(
+                TestSpeedProvider.createWithStartTimes(new long[] {0L}, new float[] {2f})));
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(mediaItem)
+            .setDurationUs(1_000_000)
+            .setRemoveVideo(true)
+            .setEffects(new Effects(audioProcessors, /* videoEffects= */ ImmutableList.of()))
+            .build();
+
+    assertThat(editedMediaItem.getPresentationDurationUs()).isEqualTo(500_000);
   }
 }

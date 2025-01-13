@@ -62,6 +62,7 @@ public final class MimeTypes {
   public static final String VIDEO_MJPEG = BASE_TYPE_VIDEO + "/mjpeg";
   public static final String VIDEO_MP42 = BASE_TYPE_VIDEO + "/mp42";
   public static final String VIDEO_MP43 = BASE_TYPE_VIDEO + "/mp43";
+  @UnstableApi public static final String VIDEO_MV_HEVC = BASE_TYPE_VIDEO + "/mv-hevc";
   @UnstableApi public static final String VIDEO_RAW = BASE_TYPE_VIDEO + "/raw";
   @UnstableApi public static final String VIDEO_UNKNOWN = BASE_TYPE_VIDEO + "/x-unknown";
 
@@ -99,6 +100,7 @@ public final class MimeTypes {
   public static final String AUDIO_OGG = BASE_TYPE_AUDIO + "/ogg";
   public static final String AUDIO_WAV = BASE_TYPE_AUDIO + "/wav";
   public static final String AUDIO_MIDI = BASE_TYPE_AUDIO + "/midi";
+  @UnstableApi public static final String AUDIO_IAMF = BASE_TYPE_AUDIO + "/iamf";
 
   @UnstableApi
   public static final String AUDIO_EXOPLAYER_MIDI = BASE_TYPE_AUDIO + "/x-exoplayer-midi";
@@ -139,9 +141,14 @@ public final class MimeTypes {
   public static final String APPLICATION_VOBSUB = BASE_TYPE_APPLICATION + "/vobsub";
   public static final String APPLICATION_PGS = BASE_TYPE_APPLICATION + "/pgs";
   @UnstableApi public static final String APPLICATION_SCTE35 = BASE_TYPE_APPLICATION + "/x-scte35";
+  public static final String APPLICATION_SDP = BASE_TYPE_APPLICATION + "/sdp";
 
   @UnstableApi
   public static final String APPLICATION_CAMERA_MOTION = BASE_TYPE_APPLICATION + "/x-camera-motion";
+
+  @UnstableApi
+  public static final String APPLICATION_DEPTH_METADATA =
+      BASE_TYPE_APPLICATION + "/x-depth-metadata";
 
   @UnstableApi public static final String APPLICATION_EMSG = BASE_TYPE_APPLICATION + "/x-emsg";
   public static final String APPLICATION_DVBSUBS = BASE_TYPE_APPLICATION + "/dvbsubs";
@@ -161,10 +168,14 @@ public final class MimeTypes {
   // image/ MIME types
 
   public static final String IMAGE_JPEG = BASE_TYPE_IMAGE + "/jpeg";
+  @UnstableApi public static final String IMAGE_JPEG_R = BASE_TYPE_IMAGE + "/jpeg_r";
   @UnstableApi public static final String IMAGE_PNG = BASE_TYPE_IMAGE + "/png";
   @UnstableApi public static final String IMAGE_HEIF = BASE_TYPE_IMAGE + "/heif";
+  @UnstableApi public static final String IMAGE_HEIC = BASE_TYPE_IMAGE + "/heic";
+  @UnstableApi public static final String IMAGE_AVIF = BASE_TYPE_IMAGE + "/avif";
   @UnstableApi public static final String IMAGE_BMP = BASE_TYPE_IMAGE + "/bmp";
   @UnstableApi public static final String IMAGE_WEBP = BASE_TYPE_IMAGE + "/webp";
+  @UnstableApi public static final String IMAGE_RAW = BASE_TYPE_IMAGE + "/raw";
 
   /**
    * A non-standard codec string for E-AC3-JOC. Use of this constant allows for disambiguation
@@ -219,6 +230,7 @@ public final class MimeTypes {
    * Returns whether the given string is a text MIME type, including known text types that use
    * &quot;application&quot; as their base type.
    */
+  @SuppressWarnings("deprecation") // Supporting deprecated MIME types
   @UnstableApi
   @Pure
   public static boolean isText(@Nullable String mimeType) {
@@ -484,6 +496,29 @@ public final class MimeTypes {
   }
 
   /**
+   * Returns the MP4 object type identifier corresponding to a MIME type, as defined in RFC 6381 and
+   * <a href="https://mp4ra.org/registered-types/object-types">MPEG-4 Object Types</a>.
+   *
+   * @param sampleMimeType The MIME type of the track.
+   * @return The corresponding MP4 object type identifier, or {@code null} if it could not be
+   *     determined.
+   */
+  @UnstableApi
+  @Nullable
+  public static Byte getMp4ObjectTypeFromMimeType(String sampleMimeType) {
+    switch (sampleMimeType) {
+      case MimeTypes.AUDIO_AAC:
+        return (byte) 0x40;
+      case MimeTypes.AUDIO_VORBIS:
+        return (byte) 0xDD;
+      case MimeTypes.VIDEO_MP4V:
+        return (byte) 0x20;
+      default:
+        return null;
+    }
+  }
+
+  /**
    * Returns the MIME type corresponding to an MP4 object type identifier, as defined in RFC 6381
    * and https://mp4ra.org/#/object_types.
    *
@@ -512,6 +547,8 @@ public final class MimeTypes {
       case 0x69:
       case 0x6B:
         return MimeTypes.AUDIO_MPEG;
+      case 0x6C:
+        return MimeTypes.IMAGE_JPEG;
       case 0xA3:
         return MimeTypes.VIDEO_VC1;
       case 0xB1:
@@ -564,7 +601,9 @@ public final class MimeTypes {
       return C.TRACK_TYPE_IMAGE;
     } else if (APPLICATION_ID3.equals(mimeType)
         || APPLICATION_EMSG.equals(mimeType)
-        || APPLICATION_SCTE35.equals(mimeType)) {
+        || APPLICATION_SCTE35.equals(mimeType)
+        || APPLICATION_ICY.equals(mimeType)
+        || APPLICATION_AIT.equals(mimeType)) {
       return C.TRACK_TYPE_METADATA;
     } else if (APPLICATION_CAMERA_MOTION.equals(mimeType)) {
       return C.TRACK_TYPE_CAMERA_MOTION;
@@ -646,14 +685,17 @@ public final class MimeTypes {
     }
     mimeType = Ascii.toLowerCase(mimeType);
     switch (mimeType) {
-        // Normalize uncommon versions of some audio MIME types to their standard equivalent.
+      // Normalize uncommon versions of some video MIME types to their standard equivalent.
+      case BASE_TYPE_VIDEO + "/x-mvhevc":
+        return VIDEO_MV_HEVC;
+      // Normalize uncommon versions of some audio MIME types to their standard equivalent.
       case BASE_TYPE_AUDIO + "/x-flac":
         return AUDIO_FLAC;
       case BASE_TYPE_AUDIO + "/mp3":
         return AUDIO_MPEG;
       case BASE_TYPE_AUDIO + "/x-wav":
         return AUDIO_WAV;
-        // Normalize MIME types that are often written with upper-case letters to their common form.
+      // Normalize MIME types that are often written with upper-case letters to their common form.
       case "application/x-mpegurl":
         return APPLICATION_M3U8;
       case "audio/mpeg-l1":

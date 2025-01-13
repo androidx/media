@@ -17,7 +17,7 @@ apply plugin: 'com.android.application'
 android {
     namespace 'androidx.media3.demo.gl'
 
-    compileSdkVersion project.ext.compileSdkVersion
+    compileSdk project.ext.compileSdkVersion
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
@@ -29,7 +29,6 @@ android {
         versionCode project.ext.releaseVersionCode
         minSdkVersion project.ext.minSdkVersion
         targetSdkVersion project.ext.appTargetSdkVersion
-        multiDexEnabled true
     }
 
     buildTypes {
@@ -55,6 +54,5 @@ dependencies {
     implementation project(modulePrefix + 'lib-exoplayer-smoothstreaming')
     implementation project(modulePrefix + 'lib-ui')
     implementation 'androidx.annotation:annotation:' + androidxAnnotationVersion
-    implementation 'androidx.multidex:multidex:' + androidxMultidexVersion
     compileOnly 'org.checkerframework:checker-qual:' + checkerframeworkVersion
 }

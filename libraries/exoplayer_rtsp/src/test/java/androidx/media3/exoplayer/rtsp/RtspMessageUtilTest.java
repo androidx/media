@@ -450,6 +450,12 @@ public final class RtspMessageUtilTest {
   }
 
   @Test
+  public void removeUserInfo_withEncodedAtInUserInfo() {
+    Uri uri = Uri.parse("rtsp://user%40name:pass@foo.bar/foo.mkv");
+    assertThat(RtspMessageUtil.removeUserInfo(uri)).isEqualTo(Uri.parse("rtsp://foo.bar/foo.mkv"));
+  }
+
+  @Test
   public void parseContentLengthHeader_withContentLengthOver31Bits_succeeds() throws Exception {
     String line = "Content-Length: 1000000000000000";
     long contentLength = RtspMessageUtil.parseContentLengthHeader(line);

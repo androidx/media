@@ -28,41 +28,15 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
  */
 @UnstableApi
 public final class OverlaySettings {
-  public final boolean useHdr;
-  public final float alphaScale;
-  public final Pair<Float, Float> backgroundFrameAnchor;
-  public final Pair<Float, Float> overlayFrameAnchor;
-  public final Pair<Float, Float> scale;
-  public final float rotationDegrees;
-
-  private OverlaySettings(
-      boolean useHdr,
-      float alphaScale,
-      Pair<Float, Float> backgroundFrameAnchor,
-      Pair<Float, Float> overlayFrameAnchor,
-      Pair<Float, Float> scale,
-      float rotationDegrees) {
-    this.useHdr = useHdr;
-    this.alphaScale = alphaScale;
-    this.backgroundFrameAnchor = backgroundFrameAnchor;
-    this.overlayFrameAnchor = overlayFrameAnchor;
-    this.scale = scale;
-    this.rotationDegrees = rotationDegrees;
-  }
-
-  /** Returns a new {@link Builder} initialized with the values of this instance. */
-  /* package */ Builder buildUpon() {
-    return new Builder(this);
-  }
 
   /** A builder for {@link OverlaySettings} instances. */
   public static final class Builder {
-    private boolean useHdr;
     private float alphaScale;
     private Pair<Float, Float> backgroundFrameAnchor;
     private Pair<Float, Float> overlayFrameAnchor;
     private Pair<Float, Float> scale;
     private float rotationDegrees;
+    private float hdrLuminanceMultiplier;
 
     /** Creates a new {@link Builder}. */
     public Builder() {
@@ -71,27 +45,15 @@ public final class OverlaySettings {
       overlayFrameAnchor = Pair.create(0f, 0f);
       scale = Pair.create(1f, 1f);
       rotationDegrees = 0f;
+      hdrLuminanceMultiplier = 1f;
     }
 
     private Builder(OverlaySettings overlaySettings) {
-      this.useHdr = overlaySettings.useHdr;
       this.alphaScale = overlaySettings.alphaScale;
       this.backgroundFrameAnchor = overlaySettings.backgroundFrameAnchor;
       this.overlayFrameAnchor = overlaySettings.overlayFrameAnchor;
       this.scale = overlaySettings.scale;
       this.rotationDegrees = overlaySettings.rotationDegrees;
-    }
-
-    /**
-     * Sets whether input overlay comes from an HDR source. If {@code true}, colors will be in
-     * linear RGB BT.2020. If {@code false}, colors will be in linear RGB BT.709.
-     *
-     * <p>Set to {@code false} by default.
-     */
-    @CanIgnoreReturnValue
-    public Builder setUsesHdr(boolean useHdr) {
-      this.useHdr = useHdr;
-      return this;
     }
 
     /**
@@ -113,11 +75,15 @@ public final class OverlaySettings {
      * Sets the coordinates for the anchor point of the overlay within the background frame.
      *
      * <p>The coordinates are specified in Normalised Device Coordinates (NDCs) relative to the
-     * background frame. Set to always return {@code (0,0)} (the center of the background frame) by
-     * default.
+     * background frame. The default value is {@code (0,0)}, the center of the background frame.
      *
-     * <p>For example, a value of {@code (+1,+1)} will move the overlay frames's {@linkplain
-     * #setOverlayFrameAnchor anchor point} to the top right corner of the background frame.
+     * <p>The overlay's {@linkplain #setOverlayFrameAnchor(float, float) anchor point} will be
+     * positioned at the anchor point set in this method. For example, setting a value of {@code
+     * (+1,+1)} will move the {@linkplain #setOverlayFrameAnchor overlay's anchor} to the top right
+     * corner. That is, if the overlay's anchor is at {@code (+1,+1)} (the top right corner), the
+     * overlay's top right corner will be aligned with that of the background frame; whereas if the
+     * overlay's anchor is at {@code (0,0)} (the center), the overlay's center will be positioned at
+     * the top right corner of the background frame.
      *
      * @param x The NDC x-coordinate in the range [-1, 1].
      * @param y The NDC y-coordinate in the range [-1, 1].
@@ -132,16 +98,15 @@ public final class OverlaySettings {
     }
 
     /**
-     * Sets the coordinates for the anchor point of the overlay frame.
+     * Sets the coordinates for the anchor point within the overlay.
      *
-     * <p>The anchor point is the point inside the overlay frame that is placed on the {@linkplain
+     * <p>The anchor point is the point inside the overlay that is placed on the {@linkplain
      * #setBackgroundFrameAnchor background frame anchor}
      *
      * <p>The coordinates are specified in Normalised Device Coordinates (NDCs) relative to the
-     * overlay frame. Set to return {@code (0,0)} (the center of the overlay frame) by default.
+     * overlay. The default value is {@code (0,0)}, the center of the overlay.
      *
-     * <p>For example, a value of {@code (+1,-1)} will result in the overlay frame being positioned
-     * with its bottom right corner positioned at the background frame anchor.
+     * <p>See {@link #setBackgroundFrameAnchor} for examples of how to position an overlay.
      *
      * @param x The NDC x-coordinate in the range [-1, 1].
      * @param y The NDC y-coordinate in the range [-1, 1].
@@ -180,10 +145,69 @@ public final class OverlaySettings {
       return this;
     }
 
+    /**
+     * Set the luminance multiplier of an SDR overlay when overlaid on a HDR frame.
+     *
+     * <p>Scales the luminance of the overlay to adjust the output brightness of the overlay on the
+     * frame. The default value is 1, which scales the overlay colors into the standard HDR
+     * luminance within the processing pipeline. Use 0.5 to scale the luminance of the overlay to
+     * SDR range, so that no extra luminance is added.
+     *
+     * <p>Currently only supported on text overlays
+     */
+    @CanIgnoreReturnValue
+    public Builder setHdrLuminanceMultiplier(float hdrLuminanceMultiplier) {
+      this.hdrLuminanceMultiplier = hdrLuminanceMultiplier;
+      return this;
+    }
+
     /** Creates an instance of {@link OverlaySettings}, using defaults if values are unset. */
     public OverlaySettings build() {
       return new OverlaySettings(
-          useHdr, alphaScale, backgroundFrameAnchor, overlayFrameAnchor, scale, rotationDegrees);
+          alphaScale,
+          backgroundFrameAnchor,
+          overlayFrameAnchor,
+          scale,
+          rotationDegrees,
+          hdrLuminanceMultiplier);
     }
+  }
+
+  /** The alpha scale value of the overlay, altering its translucency. */
+  public final float alphaScale;
+
+  /** The coordinates for the anchor point of the overlay within the background frame. */
+  public final Pair<Float, Float> backgroundFrameAnchor;
+
+  /** The coordinates for the anchor point of the overlay frame. */
+  public final Pair<Float, Float> overlayFrameAnchor;
+
+  /** The scaling of the overlay. */
+  public final Pair<Float, Float> scale;
+
+  /** The rotation of the overlay, counter-clockwise. */
+  public final float rotationDegrees;
+
+  /** The luminance multiplier of an SDR overlay when overlaid on a HDR frame. */
+  public final float hdrLuminanceMultiplier;
+
+  private OverlaySettings(
+      float alphaScale,
+      Pair<Float, Float> backgroundFrameAnchor,
+      Pair<Float, Float> overlayFrameAnchor,
+      Pair<Float, Float> scale,
+      float rotationDegrees,
+      float hdrLuminanceMultiplier) {
+    this.alphaScale = alphaScale;
+    this.backgroundFrameAnchor = backgroundFrameAnchor;
+    this.overlayFrameAnchor = overlayFrameAnchor;
+    this.scale = scale;
+    this.rotationDegrees = rotationDegrees;
+    this.hdrLuminanceMultiplier = hdrLuminanceMultiplier;
+  }
+
+  /** Returns a new {@link Builder} initialized with the values of this instance. */
+  /* package */ Builder buildUpon() {
+    return new Builder(this);
   }
 }

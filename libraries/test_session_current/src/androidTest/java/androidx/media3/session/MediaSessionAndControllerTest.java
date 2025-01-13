@@ -225,7 +225,9 @@ public class MediaSessionAndControllerTest {
         .postAndSync(
             () ->
                 player.notifyPlayWhenReadyChanged(
-                    testPlayWhenReady, Player.PLAYBACK_SUPPRESSION_REASON_NONE));
+                    testPlayWhenReady,
+                    Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
+                    Player.PLAYBACK_SUPPRESSION_REASON_NONE));
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(playWhenReadyRef.get()).isEqualTo(testPlayWhenReady);

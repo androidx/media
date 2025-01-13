@@ -15,10 +15,7 @@
  */
 package androidx.media3.exoplayer.rtsp;
 
-import androidx.media3.common.util.UnstableApi;
-
 /** Represents an RTSP SETUP response. */
-@UnstableApi
 /* package */ final class RtspSetupResponse {
 
   /** The response's status code. */

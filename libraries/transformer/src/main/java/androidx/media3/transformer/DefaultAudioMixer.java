@@ -30,23 +30,34 @@ import androidx.media3.common.audio.AudioProcessor.UnhandledAudioFormatException
 import androidx.media3.common.audio.ChannelMixingMatrix;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import androidx.media3.effect.DebugTraceUtil;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
-/** An {@link AudioMixer} that incrementally mixes source audio into a fixed size mixing buffer. */
+/**
+ * An {@link AudioMixer} that incrementally mixes source audio into a fixed size mixing buffer.
+ *
+ * <p>By default, the output signal is guaranteed to be in the range corresponding to its encoding.
+ * This range is [{@link Short#MIN_VALUE}, {@link Short#MAX_VALUE}] for {@link
+ * C#ENCODING_PCM_16BIT}, and [-1.0, 1.0] for {@link C#ENCODING_PCM_FLOAT}. Before adding a value to
+ * the output buffer, it is first converted to the output encoding (in the corresponding range). It
+ * is then added to the output buffer value, and the result is clipped by moving it to the closest
+ * value in this range.
+ */
 @UnstableApi
 public final class DefaultAudioMixer implements AudioMixer {
 
   /** An {@link AudioMixer.Factory} implementation for {@link DefaultAudioMixer} instances. */
   public static final class Factory implements AudioMixer.Factory {
     private final boolean outputSilenceWithNoSources;
+    private final boolean clipFloatOutput;
 
     /**
-     * Creates an instance that does not {@linkplain #getOutput() output} silence when there are no
-     * {@linkplain #addSource sources}.
+     * Creates an instance. This is equivalent to {@link #Factory(boolean, boolean) new
+     * Factory(false, true)}.
      */
     public Factory() {
-      this(/* outputSilenceWithNoSources= */ false);
+      this(/* outputSilenceWithNoSources= */ false, /* clipFloatOutput= */ true);
     }
 
     /**
@@ -54,20 +65,28 @@ public final class DefaultAudioMixer implements AudioMixer {
      *
      * @param outputSilenceWithNoSources Whether to {@linkplain #getOutput() output} silence when
      *     there are no {@linkplain #addSource sources}.
+     * @param clipFloatOutput Whether to clip the output signal to be in the [-1.0, 1.0] range if
+     *     the output encoding is {@link C#ENCODING_PCM_FLOAT}. This parameter is ignored for
+     *     non-float output signals. For float output signals, non-float input signals are converted
+     *     to float signals in the [-1.0, 1.0] range. All input signals (float or non-float) are
+     *     then added and the result is clipped if and only if {@code clipFloatOutput} is true.
      */
-    public Factory(boolean outputSilenceWithNoSources) {
+    public Factory(boolean outputSilenceWithNoSources, boolean clipFloatOutput) {
       this.outputSilenceWithNoSources = outputSilenceWithNoSources;
+      this.clipFloatOutput = clipFloatOutput;
     }
 
     @Override
     public DefaultAudioMixer create() {
-      return new DefaultAudioMixer(outputSilenceWithNoSources);
+      return new DefaultAudioMixer(outputSilenceWithNoSources, clipFloatOutput);
     }
   }
 
   // TODO(b/290002438, b/276734854): Improve buffer management & determine best default size.
   private static final int DEFAULT_BUFFER_SIZE_MS = 500;
 
+  private final boolean outputSilenceWithNoSources;
+  private final boolean clipFloatOutput;
   private final SparseArray<SourceInfo> sources;
   private int nextSourceId;
   private AudioFormat outputAudioFormat;
@@ -90,7 +109,9 @@ public final class DefaultAudioMixer implements AudioMixer {
    */
   private long maxPositionOfRemovedSources;
 
-  private DefaultAudioMixer(boolean outputSilenceWithNoSources) {
+  private DefaultAudioMixer(boolean outputSilenceWithNoSources, boolean clipFloatOutput) {
+    this.outputSilenceWithNoSources = outputSilenceWithNoSources;
+    this.clipFloatOutput = clipFloatOutput;
     sources = new SparseArray<>();
     outputAudioFormat = AudioFormat.NOT_SET;
     bufferSizeFrames = C.LENGTH_UNSET;
@@ -121,6 +142,13 @@ public final class DefaultAudioMixer implements AudioMixer {
     this.outputAudioFormat = outputAudioFormat;
     bufferSizeFrames = bufferSizeMs * outputAudioFormat.sampleRate / 1000;
     mixerStartTimeUs = startTimeUs;
+    DebugTraceUtil.logEvent(
+        DebugTraceUtil.COMPONENT_AUDIO_MIXER,
+        DebugTraceUtil.EVENT_OUTPUT_FORMAT,
+        mixerStartTimeUs,
+        "%s",
+        outputAudioFormat);
+
     mixingBuffers =
         new MixingBuffer[] {allocateMixingBuffer(0), allocateMixingBuffer(bufferSizeFrames)};
     updateInputFrameLimit();
@@ -162,6 +190,14 @@ public final class DefaultAudioMixer implements AudioMixer {
             sourceFormat,
             ChannelMixingMatrix.create(sourceFormat.channelCount, outputAudioFormat.channelCount),
             startFrameOffset));
+
+    DebugTraceUtil.logEvent(
+        DebugTraceUtil.COMPONENT_AUDIO_MIXER,
+        DebugTraceUtil.EVENT_REGISTER_NEW_INPUT_STREAM,
+        startTimeUs,
+        "source(%s):%s",
+        sourceId,
+        sourceFormat);
 
     return sourceId;
   }
@@ -274,6 +310,12 @@ public final class DefaultAudioMixer implements AudioMixer {
     outputPosition = newOutputPosition;
     updateInputFrameLimit();
 
+    DebugTraceUtil.logEvent(
+        DebugTraceUtil.COMPONENT_AUDIO_MIXER,
+        DebugTraceUtil.EVENT_PRODUCED_OUTPUT,
+        C.TIME_UNSET,
+        "bytesOutput=%s",
+        outputBuffer.remaining());
     return outputBuffer;
   }
 
@@ -295,6 +337,7 @@ public final class DefaultAudioMixer implements AudioMixer {
     inputLimit = C.LENGTH_UNSET;
     outputPosition = 0;
     endPosition = Long.MAX_VALUE;
+    maxPositionOfRemovedSources = outputSilenceWithNoSources ? Long.MAX_VALUE : 0;
   }
 
   private void checkStateIsConfigured() {
@@ -338,7 +381,7 @@ public final class DefaultAudioMixer implements AudioMixer {
   }
 
   /** Per-source information. */
-  private static class SourceInfo {
+  private final class SourceInfo {
     /**
      * Position (in frames) of the next source audio frame to be input by the source, relative to
      * the mixer start.
@@ -399,7 +442,8 @@ public final class DefaultAudioMixer implements AudioMixer {
           mixingAudioFormat,
           channelMixingMatrix,
           framesToMix,
-          /* accumulate= */ true);
+          /* accumulate= */ true,
+          clipFloatOutput);
       position = newPosition;
     }
   }

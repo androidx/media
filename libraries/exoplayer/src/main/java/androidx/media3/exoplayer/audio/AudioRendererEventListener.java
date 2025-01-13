@@ -60,12 +60,6 @@ public interface AudioRendererEventListener {
       String decoderName, long initializedTimestampMs, long initializationDurationMs) {}
 
   /**
-   * @deprecated Use {@link #onAudioInputFormatChanged(Format, DecoderReuseEvaluation)}.
-   */
-  @Deprecated
-  default void onAudioInputFormatChanged(Format format) {}
-
-  /**
    * Called when the format of the media being consumed by the renderer changes.
    *
    * @param format The new format.
@@ -202,16 +196,15 @@ public interface AudioRendererEventListener {
       }
     }
 
-    /** Invokes {@link AudioRendererEventListener#onAudioInputFormatChanged(Format)}. */
-    @SuppressWarnings("deprecation") // Calling deprecated listener method.
+    /**
+     * Invokes {@link AudioRendererEventListener#onAudioInputFormatChanged(Format,
+     * DecoderReuseEvaluation)}.
+     */
     public void inputFormatChanged(
         Format format, @Nullable DecoderReuseEvaluation decoderReuseEvaluation) {
       if (handler != null) {
         handler.post(
-            () -> {
-              castNonNull(listener).onAudioInputFormatChanged(format);
-              castNonNull(listener).onAudioInputFormatChanged(format, decoderReuseEvaluation);
-            });
+            () -> castNonNull(listener).onAudioInputFormatChanged(format, decoderReuseEvaluation));
       }
     }
 

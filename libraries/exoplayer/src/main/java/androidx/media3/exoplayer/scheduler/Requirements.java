@@ -163,6 +163,7 @@ public final class Requirements implements Parcelable {
     return notMetRequirements;
   }
 
+  @SuppressWarnings("deprecation") // Using deprecated NetworkInfo for compatibility with older APIs
   private @RequirementFlags int getNotMetNetworkRequirements(Context context) {
     if (!isNetworkRequired()) {
       return 0;
@@ -201,9 +202,7 @@ public final class Requirements implements Parcelable {
   private boolean isDeviceIdle(Context context) {
     PowerManager powerManager =
         (PowerManager) Assertions.checkNotNull(context.getSystemService(Context.POWER_SERVICE));
-    return Util.SDK_INT >= 23
-        ? powerManager.isDeviceIdleMode()
-        : Util.SDK_INT >= 20 ? !powerManager.isInteractive() : !powerManager.isScreenOn();
+    return Util.SDK_INT >= 23 ? powerManager.isDeviceIdleMode() : !powerManager.isInteractive();
   }
 
   private boolean isStorageNotLow(Context context) {

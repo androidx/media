@@ -28,6 +28,7 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 import android.graphics.Bitmap;
 import android.os.SystemClock;
 import androidx.annotation.IntDef;
+import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.PlaybackException;
@@ -48,7 +49,6 @@ import java.lang.annotation.Target;
 import java.util.ArrayDeque;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
-import org.checkerframework.checker.nullness.qual.Nullable;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
 /** A {@link Renderer} implementation for images. */
@@ -108,14 +108,14 @@ public class ImageRenderer extends BaseRenderer {
   private long largestQueuedPresentationTimeUs;
   private @ReinitializationState int decoderReinitializationState;
   private @C.FirstFrameState int firstFrameState;
-  private @Nullable Format inputFormat;
-  private @Nullable ImageDecoder decoder;
-  private @Nullable DecoderInputBuffer inputBuffer;
+  @Nullable private Format inputFormat;
+  @Nullable private ImageDecoder decoder;
+  @Nullable private DecoderInputBuffer inputBuffer;
   private ImageOutput imageOutput;
-  private @Nullable Bitmap outputBitmap;
+  @Nullable private Bitmap outputBitmap;
   private boolean readyToOutputTiles;
-  private @Nullable TileInfo tileInfo;
-  private @Nullable TileInfo nextTileInfo;
+  @Nullable private TileInfo tileInfo;
+  @Nullable private TileInfo nextTileInfo;
   private int currentTileIndex;
 
   /**
@@ -200,7 +200,8 @@ public class ImageRenderer extends BaseRenderer {
   }
 
   @Override
-  protected void onEnabled(boolean joining, boolean mayRenderStartOfStream) {
+  protected void onEnabled(boolean joining, boolean mayRenderStartOfStream)
+      throws ExoPlaybackException {
     firstFrameState =
         mayRenderStartOfStream
             ? C.FIRST_FRAME_NOT_RENDERED
@@ -273,8 +274,8 @@ public class ImageRenderer extends BaseRenderer {
       throws ExoPlaybackException {
     switch (messageType) {
       case MSG_SET_IMAGE_OUTPUT:
-        @Nullable ImageOutput imageOutput =
-            message instanceof ImageOutput ? (ImageOutput) message : null;
+        @Nullable
+        ImageOutput imageOutput = message instanceof ImageOutput ? (ImageOutput) message : null;
         setImageOutput(imageOutput);
         break;
       default:
@@ -457,11 +458,9 @@ public class ImageRenderer extends BaseRenderer {
         // Input buffers with no data that are also non-EOS, only carry the timestamp for a grid
         // tile. These buffers are not queued.
         boolean shouldQueueBuffer =
-            checkStateNotNull(inputBuffer.data).remaining() > 0
+            (inputBuffer.data != null && inputBuffer.data.remaining() > 0)
                 || checkStateNotNull(inputBuffer).isEndOfStream();
         if (shouldQueueBuffer) {
-          // TODO: b/318696449 - Don't use the deprecated BUFFER_FLAG_DECODE_ONLY with image chunks.
-          checkStateNotNull(inputBuffer).clearFlag(C.BUFFER_FLAG_DECODE_ONLY);
           checkStateNotNull(decoder).queueInputBuffer(checkStateNotNull(inputBuffer));
           currentTileIndex = 0;
         }
@@ -540,26 +539,39 @@ public class ImageRenderer extends BaseRenderer {
     currentTileIndex++;
     // TODO: b/319484746 - ImageRenderer should consider startPositionUs when choosing to output an
     // image.
-    if (nextTileInfo.getPresentationTimeUs() - IMAGE_PRESENTATION_WINDOW_THRESHOLD_US <= positionUs
-        && positionUs
-            <= nextTileInfo.getPresentationTimeUs() + IMAGE_PRESENTATION_WINDOW_THRESHOLD_US) {
-      readyToOutputTiles = true;
-    } else if (tileInfo != null
-        && nextTileInfo != null
-        && tileInfo.getPresentationTimeUs() <= positionUs
-        && positionUs < checkStateNotNull(nextTileInfo).getPresentationTimeUs()) {
-      readyToOutputTiles = true;
-      return;
+    if (!readyToOutputTiles) {
+      long tilePresentationTimeUs = nextTileInfo.getPresentationTimeUs();
+      boolean isNextTileWithinPresentationThreshold =
+          tilePresentationTimeUs - IMAGE_PRESENTATION_WINDOW_THRESHOLD_US <= positionUs
+              && positionUs <= tilePresentationTimeUs + IMAGE_PRESENTATION_WINDOW_THRESHOLD_US;
+      boolean isPositionBetweenTiles =
+          tileInfo != null
+              && tileInfo.getPresentationTimeUs() <= positionUs
+              && positionUs < tilePresentationTimeUs;
+      boolean isNextTileLastInGrid = isTileLastInGrid(checkStateNotNull(nextTileInfo));
+      readyToOutputTiles =
+          isNextTileWithinPresentationThreshold || isPositionBetweenTiles || isNextTileLastInGrid;
+      if (isPositionBetweenTiles && !isNextTileWithinPresentationThreshold) {
+        return;
+      }
     }
     tileInfo = nextTileInfo;
     nextTileInfo = null;
+  }
+
+  private boolean isTileLastInGrid(TileInfo tileInfo) {
+    return checkStateNotNull(inputFormat).tileCountHorizontal == Format.NO_VALUE
+        || inputFormat.tileCountVertical == Format.NO_VALUE
+        || (tileInfo.getTileIndex()
+            == checkStateNotNull(inputFormat).tileCountVertical * inputFormat.tileCountHorizontal
+                - 1);
   }
 
   private Bitmap cropTileFromImageGrid(int tileIndex) {
     checkStateNotNull(outputBitmap);
     int tileWidth = outputBitmap.getWidth() / checkStateNotNull(inputFormat).tileCountHorizontal;
     int tileHeight = outputBitmap.getHeight() / checkStateNotNull(inputFormat).tileCountVertical;
-    int tileStartXCoordinate = tileWidth * (tileIndex % inputFormat.tileCountVertical);
+    int tileStartXCoordinate = tileWidth * (tileIndex % inputFormat.tileCountHorizontal);
     int tileStartYCoordinate = tileHeight * (tileIndex / inputFormat.tileCountHorizontal);
     return Bitmap.createBitmap(
         outputBitmap, tileStartXCoordinate, tileStartYCoordinate, tileWidth, tileHeight);

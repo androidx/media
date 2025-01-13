@@ -15,6 +15,7 @@
  */
 package androidx.media3.session;
 
+import static androidx.media3.test.session.common.CommonConstants.MEDIA_CONTROLLER_PACKAGE_NAME_API_21;
 import static androidx.media3.test.session.common.CommonConstants.SUPPORT_APP_PACKAGE_NAME;
 
 import android.content.Intent;
@@ -23,7 +24,6 @@ import android.os.IBinder;
 import android.text.TextUtils;
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.ConditionVariable;
-import androidx.media3.common.util.Util;
 import androidx.media3.session.MediaSession.ControllerInfo;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -91,11 +91,7 @@ public class MockMediaSessionService extends MediaSessionService {
   public void onDestroy() {
     super.onDestroy();
     TestServiceRegistry.getInstance().cleanUp();
-    if (Util.SDK_INT >= 18) {
-      handlerThread.quitSafely();
-    } else {
-      handlerThread.quit();
-    }
+    handlerThread.quitSafely();
   }
 
   @Override
@@ -124,7 +120,8 @@ public class MockMediaSessionService extends MediaSessionService {
     @Override
     public MediaSession.ConnectionResult onConnect(
         MediaSession session, ControllerInfo controller) {
-      if (TextUtils.equals(SUPPORT_APP_PACKAGE_NAME, controller.getPackageName())) {
+      if (TextUtils.equals(SUPPORT_APP_PACKAGE_NAME, controller.getPackageName())
+          || TextUtils.equals(MEDIA_CONTROLLER_PACKAGE_NAME_API_21, controller.getPackageName())) {
         return MediaSession.Callback.super.onConnect(session, controller);
       }
       return MediaSession.ConnectionResult.reject();

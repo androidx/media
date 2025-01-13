@@ -17,6 +17,7 @@
 package androidx.media3.test.utils.truth;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.truth.Correspondence.tolerance;
 import static com.google.common.truth.Fact.fact;
 import static com.google.common.truth.Fact.simpleFact;
 import static com.google.common.truth.Truth.assertAbout;
@@ -41,6 +42,7 @@ import androidx.media3.common.text.HorizontalTextInVerticalContextSpan;
 import androidx.media3.common.text.RubySpan;
 import androidx.media3.common.text.TextAnnotation;
 import androidx.media3.common.text.TextEmphasisSpan;
+import androidx.media3.common.text.VoiceSpan;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -634,6 +636,42 @@ public final class SpannedSubject extends Subject {
   }
 
   /**
+   * Checks that the subject has an {@link VoiceSpan} from {@code start} to {@code end}.
+   *
+   * @param start The start of the expected span.
+   * @param end The end of the expected span.
+   * @return A {@link VoiceSpan} object for optional additional assertions on the flags.
+   */
+  public VoiceText hasVoiceSpanBetween(int start, int end) {
+    if (actual == null) {
+      failWithoutActual(simpleFact("Spanned must not be null"));
+      return ALREADY_FAILED_WITH_NAME_AND_CLASSES;
+    }
+
+    List<VoiceSpan> voiceSpans = findMatchingSpans(start, end, VoiceSpan.class);
+    if (voiceSpans.size() == 1) {
+      return check("VoiceSpan (start=%s,end=%s)", start, end)
+          .about(voiceSpanSubjects(actual))
+          .that(voiceSpans);
+    }
+    failWithExpectedSpan(start, end, VoiceSpan.class, actual.toString().substring(start, end));
+    return ALREADY_FAILED_WITH_NAME_AND_CLASSES;
+  }
+
+  /**
+   * Checks that the subject has no {@link VoiceSpan}s on any of the text between {@code start} and
+   * {@code end}.
+   *
+   * <p>This fails even if the start and end indexes don't exactly match.
+   *
+   * @param start The start index to start searching for spans.
+   * @param end The end index to stop searching for spans.
+   */
+  public void hasNoVoiceSpanBetween(int start, int end) {
+    hasNoSpansOfTypeBetween(VoiceSpan.class, start, end);
+  }
+
+  /**
    * Checks that the subject has no spans of type {@code spanClazz} on any of the text between
    * {@code start} and {@code end}.
    *
@@ -1070,7 +1108,10 @@ public final class SpannedSubject extends Subject {
         }
       }
 
-      check("sizeChange").that(spanSizes).containsExactly(size);
+      check("sizeChange")
+          .that(spanSizes)
+          .comparingElementsUsing(tolerance(0.0000001))
+          .containsExactly(size);
       return check("flags").about(spanFlags()).that(matchingSpanFlags);
     }
   }
@@ -1265,6 +1306,85 @@ public final class SpannedSubject extends Subject {
       public String toString() {
         return String.format(
             "{markShape=%s,markFill=%s,position=%s}", markShape, markFill, position);
+      }
+    }
+  }
+
+  /** Allows assertions about a span's voice its position. */
+  public interface VoiceText {
+    /**
+     * Checks that at least one of the matched spans has the expected {@code name}.
+     *
+     * @param name The expected name of the voice.
+     * @return A {@link AndSpanFlags} object for optional additional assertions on the flags.
+     */
+    AndSpanFlags withName(String name);
+  }
+
+  private static final VoiceText ALREADY_FAILED_WITH_NAME_AND_CLASSES =
+      (name) -> ALREADY_FAILED_AND_FLAGS;
+
+  private static Factory<VoiceSpanSubject, List<VoiceSpan>> voiceSpanSubjects(
+      Spanned actualSpanned) {
+    return (FailureMetadata metadata, @Nullable List<VoiceSpan> spans) ->
+        new VoiceSpanSubject(metadata, spans, actualSpanned);
+  }
+
+  private static final class VoiceSpanSubject extends Subject implements VoiceText {
+
+    @Nullable private final List<VoiceSpan> actualSpans;
+    private final Spanned actualSpanned;
+
+    private VoiceSpanSubject(
+        FailureMetadata metadata, @Nullable List<VoiceSpan> actualSpans, Spanned actualSpanned) {
+      super(metadata, actualSpans);
+      this.actualSpans = actualSpans;
+      this.actualSpanned = actualSpanned;
+    }
+
+    @Override
+    public AndSpanFlags withName(String name) {
+      List<Integer> matchingSpanFlags = new ArrayList<>();
+      List<Name> voiceName = new ArrayList<>();
+      for (VoiceSpan span : checkNotNull(actualSpans)) {
+        voiceName.add(new Name(span.name));
+        if (span.name.equals(name)) {
+          matchingSpanFlags.add(actualSpanned.getSpanFlags(span));
+        }
+      }
+      check("voiceName").that(voiceName).containsExactly(new Name(name));
+      return check("flags").about(spanFlags()).that(matchingSpanFlags);
+    }
+
+    private static final class Name {
+
+      private final String name;
+
+      private Name(String name) {
+        this.name = name;
+      }
+
+      @Override
+      public boolean equals(@Nullable Object o) {
+        if (this == o) {
+          return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+          return false;
+        }
+
+        Name that = (Name) o;
+        return name.equals(that.name);
+      }
+
+      @Override
+      public int hashCode() {
+        return name.hashCode();
+      }
+
+      @Override
+      public String toString() {
+        return String.format("{name=%s}", name);
       }
     }
   }

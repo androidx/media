@@ -60,12 +60,12 @@ import java.util.Set;
 @UnstableApi
 public final class ConcatenatingMediaSource extends CompositeMediaSource<MediaSourceHolder> {
 
-  private static final int MSG_ADD = 0;
-  private static final int MSG_REMOVE = 1;
-  private static final int MSG_MOVE = 2;
-  private static final int MSG_SET_SHUFFLE_ORDER = 3;
-  private static final int MSG_UPDATE_TIMELINE = 4;
-  private static final int MSG_ON_COMPLETION = 5;
+  private static final int MSG_ADD = 1;
+  private static final int MSG_REMOVE = 2;
+  private static final int MSG_MOVE = 3;
+  private static final int MSG_SET_SHUFFLE_ORDER = 4;
+  private static final int MSG_UPDATE_TIMELINE = 5;
+  private static final int MSG_ON_COMPLETION = 6;
 
   private static final MediaItem PLACEHOLDER_MEDIA_ITEM =
       new MediaItem.Builder().setUri(Uri.EMPTY).build();

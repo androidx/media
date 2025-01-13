@@ -39,7 +39,31 @@ import androidx.media3.exoplayer.source.SampleStream.ReadFlags;
 import java.io.IOException;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
-/** An abstract base class suitable for most {@link Renderer} implementations. */
+/**
+ * An abstract base class suitable for most {@link Renderer} implementations.
+ *
+ * <p>It converts many of the state transitions explained in {@link Renderer} docs to protected
+ * callbacks and provides utilities to access current state values without tracking them manually:
+ *
+ * <ul>
+ *   <li>{@link #onInit}, {@link #onEnabled}, {@link #onStarted}, {@link #onStopped}, {@link
+ *       #onDisabled}, {@link #onReset} and {@link #onRelease} are called for the corresponding
+ *       {@link Renderer} method.
+ *   <li>{@link #onStreamChanged} is called for both the initial stream set via {@link #enable} as
+ *       well as subsequent streams set via {@link #replaceStream}.
+ *   <li>{@link #onPositionReset} is called for the initial reset via {@link #enable} as well as
+ *       subsequent resets via {@link #resetPosition}.
+ *   <li>The current {@link SampleStream} can be read with {@link #readSource} or skipped with
+ *       {@link #skipSource}. {@link #isSourceReady()} returning {@code true} indicates that samples
+ *       are available to be read.
+ *   <li>Current state is available with additional getter methods like {@link
+ *       #getLastResetPositionUs()}, {@link #getPlayerId()}, {@link #getTimeline()}.
+ *   <li>Exceptions can be created with {@link #createRendererException} to fill in additional
+ *       metadata about the renderer automatically.
+ *   <li>The renderer can call {@link #onRendererCapabilitiesChanged()} to tell the player of a
+ *       change in its capabilities, which may lead to new tracks being selected for playback.
+ * </ul>
+ */
 @UnstableApi
 public abstract class BaseRenderer implements Renderer, RendererCapabilities {
 
@@ -392,6 +416,15 @@ public abstract class BaseRenderer implements Renderer, RendererCapabilities {
    */
   protected final long getLastResetPositionUs() {
     return lastResetPositionUs;
+  }
+
+  /**
+   * Returns the offset added to timestamps of buffers read from the {@link SampleStream}.
+   *
+   * <p>Must only be called if the renderer is at least {@link #STATE_ENABLED}.
+   */
+  protected final long getStreamOffsetUs() {
+    return streamOffsetUs;
   }
 
   /** Returns a clear {@link FormatHolder}. */

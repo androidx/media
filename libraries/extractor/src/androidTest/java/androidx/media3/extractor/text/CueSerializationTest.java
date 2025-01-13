@@ -72,7 +72,8 @@ public class CueSerializationTest {
 
     // encoding and decoding
     byte[] encodedCues = encoder.encode(ImmutableList.of(cue), /* durationUs= */ 2000);
-    CuesWithTiming cuesAfterDecoding = decoder.decode(/* startTimeUs= */ 1000, encodedCues);
+    CuesWithTiming cuesAfterDecoding =
+        decoder.decode(/* startTimeUs= */ 1000, encodedCues, /* offset= */ 0, encodedCues.length);
 
     assertThat(cuesAfterDecoding.startTimeUs).isEqualTo(1000);
     assertThat(cuesAfterDecoding.durationUs).isEqualTo(2000);
@@ -115,7 +116,8 @@ public class CueSerializationTest {
 
     // encoding and decoding
     byte[] encodedCues = encoder.encode(ImmutableList.of(bitmapCue), /* durationUs= */ 2000);
-    CuesWithTiming cuesAfterDecoding = decoder.decode(/* startTimeUs= */ 1000, encodedCues);
+    CuesWithTiming cuesAfterDecoding =
+        decoder.decode(/* startTimeUs= */ 1000, encodedCues, /* offset= */ 0, encodedCues.length);
 
     assertThat(cuesAfterDecoding.startTimeUs).isEqualTo(1000);
     assertThat(cuesAfterDecoding.durationUs).isEqualTo(2000);
@@ -140,7 +142,8 @@ public class CueSerializationTest {
 
     // encoding and decoding
     byte[] encodedCues = encoder.encode(ImmutableList.of(mixedSpansCue), /* durationUs= */ 2000);
-    CuesWithTiming cuesAfterDecoding = decoder.decode(/* startTimeUs= */ 1000, encodedCues);
+    CuesWithTiming cuesAfterDecoding =
+        decoder.decode(/* startTimeUs= */ 1000, encodedCues, /* offset= */ 0, encodedCues.length);
 
     assertThat(cuesAfterDecoding.startTimeUs).isEqualTo(1000);
     assertThat(cuesAfterDecoding.durationUs).isEqualTo(2000);

@@ -21,14 +21,17 @@ import androidx.media3.common.C;
 import androidx.media3.common.DataReader;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import androidx.media3.extractor.DefaultExtractorInput;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.extractor.ExtractorsFactory;
 import androidx.media3.extractor.PositionHolder;
+import androidx.media3.extractor.SniffFailure;
 import androidx.media3.extractor.mp3.Mp3Extractor;
+import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import java.io.EOFException;
 import java.io.IOException;
 import java.util.List;
@@ -70,6 +73,8 @@ public final class BundledExtractorsAdapter implements ProgressiveMediaExtractor
       return;
     }
     Extractor[] extractors = extractorsFactory.createExtractors(uri, responseHeaders);
+    ImmutableList.Builder<SniffFailure> sniffFailures =
+        ImmutableList.builderWithExpectedSize(extractors.length);
     if (extractors.length == 1) {
       this.extractor = extractors[0];
     } else {
@@ -78,6 +83,9 @@ public final class BundledExtractorsAdapter implements ProgressiveMediaExtractor
           if (extractor.sniff(extractorInput)) {
             this.extractor = extractor;
             break;
+          } else {
+            List<SniffFailure> sniffFailureDetails = extractor.getSniffFailureDetails();
+            sniffFailures.addAll(sniffFailureDetails);
           }
         } catch (EOFException e) {
           // Do nothing.
@@ -89,9 +97,15 @@ public final class BundledExtractorsAdapter implements ProgressiveMediaExtractor
       if (extractor == null) {
         throw new UnrecognizedInputFormatException(
             "None of the available extractors ("
-                + Util.getCommaDelimitedSimpleClassNames(extractors)
+                + Joiner.on(", ")
+                    .join(
+                        Lists.transform(
+                            ImmutableList.copyOf(extractors),
+                            extractor ->
+                                extractor.getUnderlyingImplementation().getClass().getSimpleName()))
                 + ") could read the stream.",
-            Assertions.checkNotNull(uri));
+            Assertions.checkNotNull(uri),
+            sniffFailures.build());
       }
     }
     extractor.init(output);

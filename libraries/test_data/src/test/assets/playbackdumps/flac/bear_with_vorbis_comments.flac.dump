@@ -343,3 +343,7 @@ AudioSink:
   buffer #32:
     time = 1000002730666
     data = 1
+Listener.onMediaMetadata:
+  MediaMetadata[0]:
+    title = test title
+    artist = test artist

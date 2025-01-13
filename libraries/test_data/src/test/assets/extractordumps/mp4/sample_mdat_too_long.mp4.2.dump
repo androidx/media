@@ -14,9 +14,10 @@ track 0:
     sampleMimeType = video/avc
     codecs = avc1.64001F
     maxInputSize = 36722
+    maxNumReorderSamples = 2
     width = 1080
     height = 720
-    frameRate = 29.970028
+    frameRate = 29.97
     colorInfo:
       lumaBitdepth = 8
       chromaBitdepth = 8

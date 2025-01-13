@@ -37,9 +37,7 @@ import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.Size;
 import androidx.media3.test.utils.BitmapPixelTestUtil;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
-import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -60,20 +58,23 @@ public class SingleColorLutPixelTest {
   @Rule public final TestName testName = new TestName();
 
   private static final String ORIGINAL_PNG_ASSET_PATH =
-      "media/bitmap/sample_mp4_first_frame/linear_colors/original.png";
+      "test-generated-goldens/sample_mp4_first_frame/linear_colors/original.png";
   private static final String LUT_MAP_WHITE_TO_GREEN_ASSET_PATH =
-      "media/bitmap/sample_mp4_first_frame/linear_colors/lut_map_white_to_green.png";
+      "test-generated-goldens/sample_mp4_first_frame/linear_colors/lut_map_white_to_green.png";
   private static final String GRAYSCALE_PNG_ASSET_PATH =
-      "media/bitmap/sample_mp4_first_frame/linear_colors/grayscale.png";
+      "test-generated-goldens/sample_mp4_first_frame/linear_colors/grayscale.png";
   private static final String INVERT_PNG_ASSET_PATH =
-      "media/bitmap/sample_mp4_first_frame/linear_colors/invert.png";
-  private static final String VERTICAL_HALD_IDENTITY_LUT = "media/bitmap/lut/identity.png";
-  private static final String VERTICAL_HALD_GRAYSCALE_LUT = "media/bitmap/lut/grayscale.png";
-  private static final String VERTICAL_HALD_INVERTED_LUT = "media/bitmap/lut/inverted.png";
+      "test-generated-goldens/sample_mp4_first_frame/linear_colors/invert.png";
+  private static final String VERTICAL_HALD_IDENTITY_LUT =
+      "test-generated-goldens/lut/identity.png";
+  private static final String VERTICAL_HALD_GRAYSCALE_LUT =
+      "test-generated-goldens/lut/grayscale.png";
+  private static final String VERTICAL_HALD_INVERTED_LUT =
+      "test-generated-goldens/lut/inverted.png";
 
   private final Context context = getApplicationContext();
 
-  private @MonotonicNonNull String testId;
+  private String testId;
   private @MonotonicNonNull EGLDisplay eglDisplay;
   private @MonotonicNonNull EGLContext eglContext;
   private @MonotonicNonNull EGLSurface placeholderEglSurface;
@@ -95,7 +96,6 @@ public class SingleColorLutPixelTest {
   }
 
   @Before
-  @EnsuresNonNull("testId")
   public void setUpTestId() {
     testId = testName.getMethodName();
   }
@@ -109,7 +109,6 @@ public class SingleColorLutPixelTest {
   }
 
   @Test
-  @RequiresNonNull("testId")
   public void drawFrame_identityCubeLutSize2_leavesFrameUnchanged() throws Exception {
     int[][][] cubeIdentityLut = createIdentityLutCube(/* length= */ 2);
     colorLutShaderProgram =
@@ -130,7 +129,6 @@ public class SingleColorLutPixelTest {
   }
 
   @Test
-  @RequiresNonNull("testId")
   public void drawFrame_identityCubeLutSize64_leavesFrameUnchanged() throws Exception {
     int[][][] cubeIdentityLut = createIdentityLutCube(/* length= */ 64);
     colorLutShaderProgram =
@@ -151,7 +149,6 @@ public class SingleColorLutPixelTest {
   }
 
   @Test
-  @RequiresNonNull("testId")
   public void drawFrame_identityBitmapLutSize2_leavesFrameUnchanged() throws Exception {
     Bitmap bitmapLut = createIdentityLutBitmap(/* length= */ 2);
     colorLutShaderProgram =
@@ -171,7 +168,6 @@ public class SingleColorLutPixelTest {
   }
 
   @Test
-  @RequiresNonNull("testId")
   public void drawFrame_identityBitmapLutSize64_leavesFrameUnchanged() throws Exception {
     Bitmap bitmapLut = createIdentityLutBitmap(/* length= */ 64);
     colorLutShaderProgram =
@@ -191,7 +187,6 @@ public class SingleColorLutPixelTest {
   }
 
   @Test
-  @RequiresNonNull("testId")
   public void drawFrame_identityLutFromHaldImage_leavesFrameUnchanged() throws Exception {
     Bitmap bitmapLut = readBitmap(VERTICAL_HALD_IDENTITY_LUT);
     colorLutShaderProgram =
@@ -211,7 +206,6 @@ public class SingleColorLutPixelTest {
   }
 
   @Test
-  @RequiresNonNull("testId")
   public void drawFrame_mapWhiteToGreen_producesGreenHighlights() throws Exception {
     int length = 3;
     int[][][] mapWhiteToGreen = createIdentityLutCube(length);
@@ -234,7 +228,6 @@ public class SingleColorLutPixelTest {
   }
 
   @Test
-  @RequiresNonNull("testId")
   public void drawFrame_applyInvertedLut_producesInvertedFrame() throws Exception {
     Bitmap invertedLutBitmap = readBitmap(VERTICAL_HALD_INVERTED_LUT);
     colorLutShaderProgram =
@@ -255,7 +248,6 @@ public class SingleColorLutPixelTest {
   }
 
   @Test
-  @RequiresNonNull("testId")
   public void drawFrame_applyGrayscaleLut_producesGrayscaleFrame() throws Exception {
     Bitmap grayscaleLutBitmap = readBitmap(VERTICAL_HALD_GRAYSCALE_LUT);
     colorLutShaderProgram =

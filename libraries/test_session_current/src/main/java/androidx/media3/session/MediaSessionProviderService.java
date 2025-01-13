@@ -16,6 +16,7 @@
 package androidx.media3.session;
 
 import static androidx.media3.common.Player.COMMAND_GET_TRACKS;
+import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.session.MediaSession.ConnectionResult.accept;
 import static androidx.media3.test.session.common.CommonConstants.ACTION_MEDIA3_SESSION;
 import static androidx.media3.test.session.common.CommonConstants.KEY_AUDIO_ATTRIBUTES;
@@ -59,8 +60,11 @@ import static androidx.media3.test.session.common.CommonConstants.KEY_VOLUME;
 import static androidx.media3.test.session.common.MediaSessionConstants.KEY_AVAILABLE_SESSION_COMMANDS;
 import static androidx.media3.test.session.common.MediaSessionConstants.KEY_COMMAND_GET_TASKS_UNAVAILABLE;
 import static androidx.media3.test.session.common.MediaSessionConstants.KEY_CONTROLLER;
+import static androidx.media3.test.session.common.MediaSessionConstants.NOTIFICATION_CONTROLLER_KEY;
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_COMMAND_GET_TRACKS;
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_CONTROLLER_LISTENER_SESSION_REJECTS;
+import static androidx.media3.test.session.common.MediaSessionConstants.TEST_GET_COMMAND_BUTTONS_FOR_MEDIA_ITEMS;
+import static androidx.media3.test.session.common.MediaSessionConstants.TEST_GET_COMMAND_BUTTONS_FOR_MEDIA_ITEMS_COMMANDS_NOT_AVAILABLE;
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_GET_CUSTOM_LAYOUT;
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_GET_SESSION_ACTIVITY;
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_IS_SESSION_COMMAND_AVAILABLE;
@@ -69,6 +73,7 @@ import static androidx.media3.test.session.common.MediaSessionConstants.TEST_ON_
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_ON_VIDEO_SIZE_CHANGED;
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_SET_SHOW_PLAY_BUTTON_IF_SUPPRESSED_TO_FALSE;
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_WITH_CUSTOM_COMMANDS;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 
 import android.app.PendingIntent;
 import android.app.Service;
@@ -76,6 +81,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.RemoteException;
+import android.text.TextUtils;
 import androidx.annotation.Nullable;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
@@ -98,6 +104,7 @@ import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
 import androidx.media3.session.MediaSession.ControllerInfo;
 import androidx.media3.test.session.common.IRemoteMediaSession;
+import androidx.media3.test.session.common.MediaBrowserConstants;
 import androidx.media3.test.session.common.MockActivity;
 import androidx.media3.test.session.common.TestHandler;
 import androidx.media3.test.session.common.TestHandler.TestRunnable;
@@ -108,6 +115,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.Callable;
 
 /**
@@ -207,7 +215,7 @@ public class MediaSessionProviderService extends Service {
                             .add(new SessionCommand("command1", Bundle.EMPTY))
                             .add(new SessionCommand("command2", Bundle.EMPTY))
                             .build(),
-                        Player.Commands.EMPTY);
+                        new Player.Commands.Builder().add(Player.COMMAND_PLAY_PAUSE).build());
                   }
                 });
             break;
@@ -225,6 +233,78 @@ public class MediaSessionProviderService extends Service {
                   public MediaSession.ConnectionResult onConnect(
                       MediaSession session, ControllerInfo controller) {
                     return accept(availableSessionCommands, Player.Commands.EMPTY);
+                  }
+                });
+            break;
+          }
+        case TEST_GET_COMMAND_BUTTONS_FOR_MEDIA_ITEMS:
+        case TEST_GET_COMMAND_BUTTONS_FOR_MEDIA_ITEMS_COMMANDS_NOT_AVAILABLE:
+          {
+            CommandButton playlistAddButton =
+                new CommandButton.Builder(CommandButton.ICON_PLAYLIST_ADD)
+                    .setSessionCommand(
+                        new SessionCommand(
+                            MediaBrowserConstants.COMMAND_PLAYLIST_ADD, Bundle.EMPTY))
+                    .build();
+            CommandButton radioButton =
+                new CommandButton.Builder(CommandButton.ICON_RADIO)
+                    .setSessionCommand(
+                        new SessionCommand(MediaBrowserConstants.COMMAND_RADIO, Bundle.EMPTY))
+                    .build();
+            builder.setCommandButtonsForMediaItems(
+                ImmutableList.of(playlistAddButton, radioButton));
+            mockPlayer.timeline =
+                new PlaylistTimeline(
+                    ImmutableList.of(
+                        new MediaItem.Builder()
+                            .setMediaId("mediaIdWithSupportedCommands")
+                            .setMediaMetadata(
+                                new MediaMetadata.Builder()
+                                    .setSupportedCommands(
+                                        ImmutableList.of(
+                                            MediaBrowserConstants.COMMAND_PLAYLIST_ADD,
+                                            MediaBrowserConstants.COMMAND_RADIO,
+                                            "invalid"))
+                                    .build())
+                            .build()));
+            builder.setCallback(
+                new MediaSession.Callback() {
+                  @Override
+                  public MediaSession.ConnectionResult onConnect(
+                      MediaSession session, ControllerInfo controller) {
+                    if (sessionId.equals(
+                        TEST_GET_COMMAND_BUTTONS_FOR_MEDIA_ITEMS_COMMANDS_NOT_AVAILABLE)) {
+                      return MediaSession.Callback.super.onConnect(session, controller);
+                    }
+                    return new MediaSession.ConnectionResult.AcceptedResultBuilder(session)
+                        .setAvailableSessionCommands(
+                            new SessionCommands.Builder()
+                                .add(checkNotNull(playlistAddButton.sessionCommand))
+                                .add(checkNotNull(radioButton.sessionCommand))
+                                .build())
+                        .build();
+                  }
+
+                  @Override
+                  public ListenableFuture<SessionResult> onCustomCommand(
+                      MediaSession session,
+                      ControllerInfo controller,
+                      SessionCommand customCommand,
+                      Bundle args) {
+                    SessionResult sessionResult =
+                        new SessionResult(SessionError.ERROR_NOT_SUPPORTED);
+                    if (customCommand.equals(playlistAddButton.sessionCommand)
+                        || customCommand.equals(radioButton.sessionCommand)) {
+                      Bundle extras = new Bundle();
+                      String receivedMediaId = args.getString(MediaConstants.EXTRA_KEY_MEDIA_ID);
+                      @SessionResult.Code int resultCode = SessionError.ERROR_BAD_VALUE;
+                      if (receivedMediaId != null) {
+                        extras.putString(MediaConstants.EXTRA_KEY_MEDIA_ID, receivedMediaId);
+                        resultCode = SessionResult.RESULT_SUCCESS;
+                      }
+                      sessionResult = new SessionResult(resultCode, extras);
+                    }
+                    return immediateFuture(sessionResult);
                   }
                 });
             break;
@@ -285,7 +365,7 @@ public class MediaSessionProviderService extends Service {
         case TEST_ON_TRACKS_CHANGED_VIDEO_TO_AUDIO_TRANSITION:
         case TEST_ON_VIDEO_SIZE_CHANGED:
           {
-            mockPlayer.videoSize = MediaTestUtils.createDefaultVideoSize();
+            mockPlayer.videoSize = MediaTestUtils.getDefaultVideoSize();
             mockPlayer.currentTracks = MediaTestUtils.createDefaultVideoTracks();
             break;
           }
@@ -330,7 +410,7 @@ public class MediaSessionProviderService extends Service {
               Bundle connectionHints = new Bundle();
               connectionHints.putBoolean(
                   MediaController.KEY_MEDIA_NOTIFICATION_CONTROLLER_FLAG, true);
-              //noinspection unused
+              connectionHints.putString(KEY_CONTROLLER, NOTIFICATION_CONTROLLER_KEY);
               ListenableFuture<MediaController> unusedFuture =
                   new MediaController.Builder(getApplicationContext(), session.getToken())
                       .setListener(
@@ -549,10 +629,28 @@ public class MediaSessionProviderService extends Service {
           () -> {
             ImmutableList.Builder<CommandButton> builder = new ImmutableList.Builder<>();
             for (Bundle bundle : layout) {
-              builder.add(CommandButton.fromBundle(bundle));
+              builder.add(CommandButton.fromBundle(bundle, MediaSessionStub.VERSION_INT));
             }
             MediaSession session = sessionMap.get(sessionId);
             session.setCustomLayout(builder.build());
+          });
+    }
+
+    @Override
+    @SuppressWarnings("FutureReturnValueIgnored")
+    public void setMediaButtonPreferences(String sessionId, List<Bundle> mediaButtonPreferences)
+        throws RemoteException {
+      if (mediaButtonPreferences == null) {
+        return;
+      }
+      runOnHandler(
+          () -> {
+            ImmutableList.Builder<CommandButton> builder = new ImmutableList.Builder<>();
+            for (Bundle bundle : mediaButtonPreferences) {
+              builder.add(CommandButton.fromBundle(bundle, MediaSessionStub.VERSION_INT));
+            }
+            MediaSession session = sessionMap.get(sessionId);
+            session.setMediaButtonPreferences(builder.build());
           });
     }
 
@@ -568,8 +666,8 @@ public class MediaSessionProviderService extends Service {
           () -> {
             MediaSession mediaSession = sessionMap.get(sessionId);
             for (ControllerInfo controllerInfo : mediaSession.getConnectedControllers()) {
-              if (controllerInfo
-                  .getConnectionHints()
+              Bundle connectionHints = controllerInfo.getConnectionHints();
+              if (connectionHints
                   .getString(KEY_CONTROLLER, /* defaultValue= */ "")
                   .equals(controllerKey)) {
                 mediaSession.setSessionExtras(controllerInfo, extras);
@@ -580,9 +678,53 @@ public class MediaSessionProviderService extends Service {
     }
 
     @Override
-    public void setSessionActivity(String sessionId, PendingIntent sessionActivity)
+    public void sendError(String sessionId, String controllerKey, Bundle sessionError)
         throws RemoteException {
-      runOnHandler(() -> sessionMap.get(sessionId).setSessionActivity(sessionActivity));
+      runOnHandler(
+          () -> {
+            MediaSession mediaSession = checkNotNull(sessionMap.get(sessionId));
+            SessionError error = SessionError.fromBundle(sessionError);
+            if (TextUtils.isEmpty(controllerKey)) {
+              // Broadcast to all connected Media3 controller.
+              mediaSession.sendError(error);
+            } else {
+              // Send to controller with the given controller key in connection hints.
+              for (ControllerInfo controllerInfo : mediaSession.getConnectedControllers()) {
+                if (controllerInfo
+                    .getConnectionHints()
+                    .getString(KEY_CONTROLLER, /* defaultValue= */ "")
+                    .equals(controllerKey)) {
+                  mediaSession.sendError(controllerInfo, error);
+                }
+              }
+            }
+          });
+    }
+
+    @Override
+    public void setSessionActivity(
+        String sessionId, @Nullable String controllerKey, PendingIntent sessionActivity)
+        throws RemoteException {
+      MediaSession mediaSession = sessionMap.get(sessionId);
+      if (mediaSession == null) {
+        return;
+      }
+      if (controllerKey == null) {
+        // Set to all controllers by using the global session method.
+        runOnHandler(() -> mediaSession.setSessionActivity(sessionActivity));
+        return;
+      }
+      List<ControllerInfo> connectedControllers = mediaSession.getConnectedControllers();
+      for (int i = 0; i < connectedControllers.size(); i++) {
+        ControllerInfo controllerInfo = connectedControllers.get(i);
+        @Nullable
+        String connectedControllerKey =
+            controllerInfo.getConnectionHints().getString(KEY_CONTROLLER);
+        if (Objects.equals(controllerKey, connectedControllerKey)) {
+          // Set to controller for that the test case has given the provided controllerKey.
+          runOnHandler(() -> mediaSession.setSessionActivity(controllerInfo, sessionActivity));
+        }
+      }
     }
 
     ////////////////////////////////////////////////////////////////////////////////
@@ -808,13 +950,17 @@ public class MediaSessionProviderService extends Service {
 
     @Override
     public void notifyPlayWhenReadyChanged(
-        String sessionId, boolean playWhenReady, @Player.PlaybackSuppressionReason int reason)
+        String sessionId,
+        boolean playWhenReady,
+        @Player.PlayWhenReadyChangeReason int playWhenReadyChangeReason,
+        @Player.PlaybackSuppressionReason int suppressionReason)
         throws RemoteException {
       runOnHandler(
           () -> {
             MediaSession session = sessionMap.get(sessionId);
             MockPlayer player = (MockPlayer) session.getPlayer();
-            player.notifyPlayWhenReadyChanged(playWhenReady, reason);
+            player.notifyPlayWhenReadyChanged(
+                playWhenReady, playWhenReadyChangeReason, suppressionReason);
           });
     }
 

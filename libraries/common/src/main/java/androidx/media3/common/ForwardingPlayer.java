@@ -30,6 +30,25 @@ import java.util.List;
 /**
  * A {@link Player} that forwards method calls to another {@link Player}. Applications can use this
  * class to suppress or modify specific operations, by overriding the respective methods.
+ *
+ * <p>Subclasses must ensure they maintain consistency with the {@link Player} interface, including
+ * interactions with {@link Player.Listener}, which can be quite fiddly. For example, if removing an
+ * available {@link Player.Command} and disabling the corresponding method, subclasses need to:
+ *
+ * <ul>
+ *   <li>Override {@link #isCommandAvailable(int)} and {@link #getAvailableCommands()}
+ *   <li>Override and no-op the method itself
+ *   <li>Override {@link #addListener(Listener)} and wrap the provided {@link Player.Listener} with
+ *       an implementation that drops calls to {@link
+ *       Player.Listener#onAvailableCommandsChanged(Commands)} and {@link
+ *       Player.Listener#onEvents(Player, Events)} if they were only triggered by a change in
+ *       command availability that is 'invisible' after the command removal.
+ * </ul>
+ *
+ * <p>Many customization use-cases are instead better served by {@link ForwardingSimpleBasePlayer},
+ * which allows subclasses to more concisely modify the behavior of an operation, or disallow a
+ * {@link Player.Command}. In many cases {@link ForwardingSimpleBasePlayer} should be used in
+ * preference to {@code ForwardingPlayer}.
  */
 @UnstableApi
 public class ForwardingPlayer implements Player {
@@ -327,46 +346,10 @@ public class ForwardingPlayer implements Player {
     player.seekForward();
   }
 
-  /**
-   * Calls {@link Player#hasPrevious()} on the delegate and returns the result.
-   *
-   * @deprecated Use {@link #hasPreviousMediaItem()} instead.
-   */
-  @SuppressWarnings("deprecation") // Forwarding to deprecated method
-  @Deprecated
-  @Override
-  public boolean hasPrevious() {
-    return player.hasPrevious();
-  }
-
-  /**
-   * Calls {@link Player#hasPreviousWindow()} on the delegate and returns the result.
-   *
-   * @deprecated Use {@link #hasPreviousMediaItem()} instead.
-   */
-  @SuppressWarnings("deprecation") // Forwarding to deprecated method
-  @Deprecated
-  @Override
-  public boolean hasPreviousWindow() {
-    return player.hasPreviousWindow();
-  }
-
   /** Calls {@link Player#hasPreviousMediaItem()} on the delegate and returns the result. */
   @Override
   public boolean hasPreviousMediaItem() {
     return player.hasPreviousMediaItem();
-  }
-
-  /**
-   * Calls {@link Player#previous()} on the delegate.
-   *
-   * @deprecated Use {@link #seekToPreviousMediaItem()} instead.
-   */
-  @SuppressWarnings("deprecation") // Forwarding to deprecated method
-  @Deprecated
-  @Override
-  public void previous() {
-    player.previous();
   }
 
   /**
@@ -860,6 +843,7 @@ public class ForwardingPlayer implements Player {
   /**
    * @deprecated Use {@link #setDeviceVolume(int, int)} instead.
    */
+  @SuppressWarnings("deprecation") // Intentionally forwarding deprecated method
   @Deprecated
   @Override
   public void setDeviceVolume(int volume) {
@@ -875,6 +859,7 @@ public class ForwardingPlayer implements Player {
   /**
    * @deprecated Use {@link #increaseDeviceVolume(int)} instead.
    */
+  @SuppressWarnings("deprecation") // Intentionally forwarding deprecated method
   @Deprecated
   @Override
   public void increaseDeviceVolume() {
@@ -890,6 +875,7 @@ public class ForwardingPlayer implements Player {
   /**
    * @deprecated Use {@link #decreaseDeviceVolume(int)} instead.
    */
+  @SuppressWarnings("deprecation") // Intentionally forwarding deprecated method
   @Deprecated
   @Override
   public void decreaseDeviceVolume() {
@@ -905,6 +891,7 @@ public class ForwardingPlayer implements Player {
   /**
    * @deprecated Use {@link #setDeviceMuted(boolean, int)} instead.
    */
+  @SuppressWarnings("deprecation") // Intentionally forwarding deprecated method
   @Deprecated
   @Override
   public void setDeviceMuted(boolean muted) {
@@ -1106,6 +1093,7 @@ public class ForwardingPlayer implements Player {
       listener.onSkipSilenceEnabledChanged(skipSilenceEnabled);
     }
 
+    @SuppressWarnings("deprecation") // Intentionally forwarding deprecated method
     @Override
     public void onCues(List<Cue> cues) {
       listener.onCues(cues);

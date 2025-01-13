@@ -27,6 +27,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
+import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.Presentation;
 import androidx.media3.effect.ScaleAndRotateTransformation;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -38,41 +39,45 @@ import org.junit.runner.RunWith;
 
 /** Unit tests for {@link TransformerUtil}. */
 @RunWith(AndroidJUnit4.class)
-public class TransformerUtilTest {
+public final class TransformerUtilTest {
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
+
+  public static final Format FORMAT =
+      new Format.Builder()
+          .setSampleMimeType(VIDEO_H264)
+          .setWidth(1080)
+          .setHeight(720)
+          .setFrameRate(29.97f)
+          .setCodecs("avc1.64001F")
+          .build();
 
   @Test
   public void shouldTranscodeVideo_regularRotationAndTranscodingPresentation_returnsTrue()
       throws Exception {
     MediaItem mediaItem = MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_VIDEO);
-    Format format =
-        new Format.Builder()
-            .setSampleMimeType(VIDEO_H264)
-            .setWidth(1080)
-            .setHeight(720)
-            .setFrameRate(29.97f)
-            .setCodecs("avc1.64001F")
-            .build();
+    GlEffect regularRotation =
+        new ScaleAndRotateTransformation.Builder().setRotationDegrees(90).build();
     ImmutableList<Effect> videoEffects =
-        ImmutableList.of(
-            new ScaleAndRotateTransformation.Builder().setRotationDegrees(90).build(),
-            Presentation.createForHeight(format.height));
+        ImmutableList.of(regularRotation, Presentation.createForHeight(FORMAT.height));
     Effects effects = new Effects(/* audioProcessors= */ ImmutableList.of(), videoEffects);
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(mediaItem).setEffects(effects).build();
     Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence(editedMediaItem)).build();
+        new Composition.Builder(new EditedMediaItemSequence.Builder(editedMediaItem).build())
+            .build();
     MuxerWrapper muxerWrapper =
         new MuxerWrapper(
             temporaryFolder.newFile().getPath(),
             new DefaultMuxer.Factory(),
             new NoOpMuxerListenerImpl(),
             MUXER_MODE_DEFAULT,
-            /* dropSamplesBeforeFirstVideoSample= */ false);
+            /* dropSamplesBeforeFirstVideoSample= */ false,
+            /* appendVideoFormat= */ null,
+            Transformer.DEFAULT_MAX_DELAY_BETWEEN_MUXER_SAMPLES_MS);
 
     assertThat(
             shouldTranscodeVideo(
-                format,
+                FORMAT,
                 composition,
                 /* sequenceIndex= */ 0,
                 new TransformationRequest.Builder().build(),
@@ -84,35 +89,30 @@ public class TransformerUtilTest {
   @Test
   public void shouldTranscodeVideo_irregularRotationAndPresentation_returnsTrue() throws Exception {
     MediaItem mediaItem = MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_VIDEO);
-    Format format =
-        new Format.Builder()
-            .setSampleMimeType(VIDEO_H264)
-            .setWidth(1080)
-            .setHeight(720)
-            .setFrameRate(29.97f)
-            .setCodecs("avc1.64001F")
-            .build();
+    GlEffect irregularRotation =
+        new ScaleAndRotateTransformation.Builder().setRotationDegrees(45).build();
     ImmutableList<Effect> videoEffects =
         ImmutableList.of(
-            new ScaleAndRotateTransformation.Builder().setRotationDegrees(45).build(),
-            Presentation.createForHeight(format.height),
-            new ScaleAndRotateTransformation.Builder().setRotationDegrees(45).build());
+            irregularRotation, Presentation.createForHeight(FORMAT.height), irregularRotation);
     Effects effects = new Effects(/* audioProcessors= */ ImmutableList.of(), videoEffects);
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(mediaItem).setEffects(effects).build();
     Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence(editedMediaItem)).build();
+        new Composition.Builder(new EditedMediaItemSequence.Builder(editedMediaItem).build())
+            .build();
     MuxerWrapper muxerWrapper =
         new MuxerWrapper(
             temporaryFolder.newFile().getPath(),
             new DefaultMuxer.Factory(),
             new NoOpMuxerListenerImpl(),
             MUXER_MODE_DEFAULT,
-            /* dropSamplesBeforeFirstVideoSample= */ false);
+            /* dropSamplesBeforeFirstVideoSample= */ false,
+            /* appendVideoFormat= */ null,
+            Transformer.DEFAULT_MAX_DELAY_BETWEEN_MUXER_SAMPLES_MS);
 
     assertThat(
             shouldTranscodeVideo(
-                format,
+                FORMAT,
                 composition,
                 /* sequenceIndex= */ 0,
                 new TransformationRequest.Builder().build(),

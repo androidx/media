@@ -15,6 +15,7 @@
  */
 package androidx.media3.extractor.avi;
 
+import static java.lang.Math.max;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import androidx.annotation.IntDef;
@@ -27,10 +28,10 @@ import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.extractor.DummyExtractorOutput;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.ExtractorOutput;
+import androidx.media3.extractor.NoOpExtractorOutput;
 import androidx.media3.extractor.PositionHolder;
 import androidx.media3.extractor.SeekMap;
 import androidx.media3.extractor.TrackOutput;
@@ -181,7 +182,7 @@ public final class AviExtractor implements Extractor {
     parseSubtitlesDuringExtraction = (extractorFlags & FLAG_EMIT_RAW_SUBTITLE_DATA) == 0;
     scratch = new ParsableByteArray(/* limit= */ 12);
     chunkHeaderHolder = new ChunkHeaderHolder();
-    extractorOutput = new DummyExtractorOutput();
+    extractorOutput = new NoOpExtractorOutput();
     chunkReaders = new ChunkReader[0];
     moviStart = C.INDEX_UNSET;
     moviEnd = C.INDEX_UNSET;
@@ -411,10 +412,8 @@ public final class AviExtractor implements Extractor {
         // We ignore unknown chunk IDs.
         continue;
       }
-      if ((flags & AVIIF_KEYFRAME) == AVIIF_KEYFRAME) {
-        chunkReader.appendKeyFrameToIndex(offset);
-      }
-      chunkReader.incrementIndexChunkCount();
+      chunkReader.appendIndexChunk(
+          offset, /* isKeyFrame= */ (flags & AVIIF_KEYFRAME) == AVIIF_KEYFRAME);
     }
     for (ChunkReader chunkReader : chunkReaders) {
       chunkReader.compactIndex();
@@ -523,7 +522,7 @@ public final class AviExtractor implements Extractor {
       ChunkReader chunkReader =
           new ChunkReader(
               streamId, trackType, durationUs, aviStreamHeaderChunk.length, trackOutput);
-      this.durationUs = durationUs;
+      this.durationUs = max(this.durationUs, durationUs);
       return chunkReader;
     } else {
       // We don't currently support tracks other than video and audio.

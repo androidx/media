@@ -69,8 +69,6 @@ public final class ThumbRating extends Rating {
     return isThumbsUp == other.isThumbsUp && rated == other.rated;
   }
 
-  // Bundleable implementation.
-
   private static final @RatingType int TYPE = RATING_TYPE_THUMB;
 
   private static final String FIELD_RATED = Util.intToStringMaxRadix(1);
@@ -85,16 +83,6 @@ public final class ThumbRating extends Rating {
     bundle.putBoolean(FIELD_IS_THUMBS_UP, isThumbsUp);
     return bundle;
   }
-
-  /**
-   * Object that can restore a {@link ThumbRating} from a {@link Bundle}.
-   *
-   * @deprecated Use {@link #fromBundle} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
-  public static final Creator<ThumbRating> CREATOR = ThumbRating::fromBundle;
 
   /** Restores a {@code ThumbRating} from a {@link Bundle}. */
   @UnstableApi

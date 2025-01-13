@@ -31,12 +31,14 @@ public final class RawResourceDataSourceContractTest extends DataSourceContractT
 
   private static final byte[] RESOURCE_1_DATA = Util.getUtf8Bytes("resource1 abc\n");
   private static final byte[] RESOURCE_2_DATA = Util.getUtf8Bytes("resource2 abcdef\n");
+  private static final byte[] FONT_DATA = Util.getUtf8Bytes("test font data\n");
 
   @Override
   protected DataSource createDataSource() {
     return new RawResourceDataSource(ApplicationProvider.getApplicationContext());
   }
 
+  @SuppressWarnings("deprecation") // Testing deprecated buildRawResourceUri method
   @Override
   protected ImmutableList<TestResource> getTestResources() {
     // Android packages raw resources into a single file. When reading a resource other than the
@@ -58,13 +60,22 @@ public final class RawResourceDataSourceContractTest extends DataSourceContractT
             .build(),
         // Additional resources using different URI schemes.
         new TestResource.Builder()
-            .setName("android.resource:// with package, type, and name")
+            .setName("android.resource:// with package, 'raw' type, and name")
             .setUri(
                 Uri.parse(
                     "android.resource://"
                         + ApplicationProvider.getApplicationContext().getPackageName()
                         + "/raw/resource1"))
             .setExpectedBytes(RESOURCE_1_DATA)
+            .build(),
+        new TestResource.Builder()
+            .setName("android.resource:// with package, 'font' type, and name")
+            .setUri(
+                Uri.parse(
+                    "android.resource://"
+                        + ApplicationProvider.getApplicationContext().getPackageName()
+                        + "/font/test_font"))
+            .setExpectedBytes(FONT_DATA)
             .build(),
         new TestResource.Builder()
             .setName("android.resource:// with type and name only")
@@ -78,6 +89,11 @@ public final class RawResourceDataSourceContractTest extends DataSourceContractT
             .build(),
         new TestResource.Builder()
             .setName("android.resource:// with ID")
+            .setUri(Uri.parse("android.resource:///" + R.raw.resource1))
+            .setExpectedBytes(RESOURCE_1_DATA)
+            .build(),
+        new TestResource.Builder()
+            .setName("android.resource:// with package and ID")
             .setUri(
                 Uri.parse(
                     "android.resource://"
@@ -90,6 +106,6 @@ public final class RawResourceDataSourceContractTest extends DataSourceContractT
 
   @Override
   protected Uri getNotFoundUri() {
-    return RawResourceDataSource.buildRawResourceUri(Resources.ID_NULL);
+    return Uri.parse("android.resource://" + Resources.ID_NULL);
   }
 }

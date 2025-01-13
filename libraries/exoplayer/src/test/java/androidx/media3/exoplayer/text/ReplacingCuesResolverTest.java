@@ -218,6 +218,47 @@ public final class ReplacingCuesResolverTest {
   }
 
   @Test
+  public void discardCuesBeforeTimeUs_retainsActiveCueWithSetDuration() {
+    ReplacingCuesResolver replacingCuesResolver = new ReplacingCuesResolver();
+    CuesWithTiming activeCue =
+        new CuesWithTiming(FIRST_CUES, /* startTimeUs= */ 3_000_000, /* durationUs= */ 4_000_000);
+    CuesWithTiming laterCue =
+        new CuesWithTiming(SECOND_CUES, /* startTimeUs= */ 8_000_000, /* durationUs= */ 2_000_000);
+    replacingCuesResolver.addCues(activeCue, /* currentPositionUs= */ 5_000_000);
+    replacingCuesResolver.addCues(laterCue, /* currentPositionUs= */ 5_000_000);
+
+    // Discard cues before 5_000_000. activeCue should remain active because it ends at 7_000_000.
+    replacingCuesResolver.discardCuesBeforeTimeUs(5_000_000);
+
+    // Query at a time within activeCue's range to verify it's still there.
+    assertThat(replacingCuesResolver.getCuesAtTimeUs(6_000_000)).isEqualTo(FIRST_CUES);
+    // Ensure that laterCue is unaffected.
+    assertThat(replacingCuesResolver.getCuesAtTimeUs(9_000_000)).isEqualTo(SECOND_CUES);
+  }
+
+  @Test
+  public void discardCuesBeforeTimeUs_retainsActiveCueWithUnsetDuration() {
+    ReplacingCuesResolver replacingCuesResolver = new ReplacingCuesResolver();
+    CuesWithTiming activeCue =
+        new CuesWithTiming(
+            FIRST_CUES, /* startTimeUs= */ 3_000_000, /* durationUs= */ C.TIME_UNSET);
+    CuesWithTiming laterCue =
+        new CuesWithTiming(SECOND_CUES, /* startTimeUs= */ 8_000_000, /* durationUs= */ 2_000_000);
+    replacingCuesResolver.addCues(activeCue, /* currentPositionUs= */ 5_000_000);
+    replacingCuesResolver.addCues(laterCue, /* currentPositionUs= */ 5_000_000);
+
+    // Discard cues before 5_000_000. activeCue should remain active because its
+    // duration is unset, meaning it should remain visible until replaced by a subsequent cue
+    // starting at 8_000_000.
+    replacingCuesResolver.discardCuesBeforeTimeUs(5_000_000);
+
+    // Query at a time within activeCue's range to verify it's still there.
+    assertThat(replacingCuesResolver.getCuesAtTimeUs(6_000_000)).isEqualTo(FIRST_CUES);
+    // Ensure that laterCue is unaffected.
+    assertThat(replacingCuesResolver.getCuesAtTimeUs(9_000_000)).isEqualTo(SECOND_CUES);
+  }
+
+  @Test
   public void clear_clearsAllCues() {
     ReplacingCuesResolver replacingCuesResolver = new ReplacingCuesResolver();
     CuesWithTiming firstCuesWithTiming =

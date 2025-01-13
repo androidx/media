@@ -15,6 +15,7 @@
  */
 package androidx.media3.session;
 
+import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.msToUs;
@@ -28,14 +29,11 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
-import android.support.v4.media.session.MediaSessionCompat;
-import android.support.v4.media.session.PlaybackStateCompat;
 import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.TextureView;
 import androidx.annotation.Nullable;
-import androidx.media.VolumeProviderCompat;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.DeviceInfo;
@@ -52,7 +50,9 @@ import androidx.media3.common.VideoSize;
 import androidx.media3.common.text.CueGroup;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Size;
-import androidx.media3.common.util.Util;
+import androidx.media3.session.legacy.MediaSessionCompat;
+import androidx.media3.session.legacy.PlaybackStateCompat;
+import androidx.media3.session.legacy.VolumeProviderCompat;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
 
@@ -61,16 +61,33 @@ import java.util.List;
  * MediaSession#setPlayer(Player)}. Use this wrapper for extra checks before calling methods and/or
  * overriding the behavior.
  */
-/* package */ class PlayerWrapper extends ForwardingPlayer {
+/* package */ final class PlayerWrapper extends ForwardingPlayer {
 
-  private static final int STATUS_CODE_SUCCESS_COMPAT = -1;
+  /** Describes a legacy error. */
+  public static final class LegacyError {
+    public final boolean isFatal;
+    @PlaybackStateCompat.ErrorCode public final int code;
+    @Nullable public final String message;
+    public final Bundle extras;
+
+    /** Creates an instance. */
+    private LegacyError(
+        boolean isFatal,
+        @PlaybackStateCompat.ErrorCode int code,
+        @Nullable String message,
+        @Nullable Bundle extras) {
+      this.isFatal = isFatal;
+      this.code = code;
+      this.message = message;
+      this.extras = extras != null ? extras : Bundle.EMPTY;
+    }
+  }
 
   private final boolean playIfSuppressed;
-
-  private int legacyStatusCode;
-  @Nullable private String legacyErrorMessage;
-  @Nullable private Bundle legacyErrorExtras;
+  @Nullable private LegacyError legacyError;
+  private Bundle legacyExtras;
   private ImmutableList<CommandButton> customLayout;
+  private ImmutableList<CommandButton> mediaButtonPreferences;
   private SessionCommands availableSessionCommands;
   private Commands availablePlayerCommands;
 
@@ -78,14 +95,17 @@ import java.util.List;
       Player player,
       boolean playIfSuppressed,
       ImmutableList<CommandButton> customLayout,
+      ImmutableList<CommandButton> mediaButtonPreferences,
       SessionCommands availableSessionCommands,
-      Commands availablePlayerCommands) {
+      Commands availablePlayerCommands,
+      Bundle legacyExtras) {
     super(player);
     this.playIfSuppressed = playIfSuppressed;
     this.customLayout = customLayout;
+    this.mediaButtonPreferences = mediaButtonPreferences;
     this.availableSessionCommands = availableSessionCommands;
     this.availablePlayerCommands = availablePlayerCommands;
-    legacyStatusCode = STATUS_CODE_SUCCESS_COMPAT;
+    this.legacyExtras = legacyExtras;
   }
 
   public void setAvailableCommands(
@@ -106,41 +126,60 @@ import java.util.List;
     this.customLayout = customLayout;
   }
 
+  public void setMediaButtonPreferences(ImmutableList<CommandButton> mediaButtonPreferences) {
+    this.mediaButtonPreferences = mediaButtonPreferences;
+  }
+
   /* package */ ImmutableList<CommandButton> getCustomLayout() {
     return customLayout;
   }
 
+  /* package */ ImmutableList<CommandButton> getMediaButtonPreferences() {
+    return mediaButtonPreferences;
+  }
+
+  public void setLegacyExtras(Bundle extras) {
+    checkArgument(!extras.containsKey(EXTRAS_KEY_PLAYBACK_SPEED_COMPAT));
+    checkArgument(!extras.containsKey(EXTRAS_KEY_MEDIA_ID_COMPAT));
+    this.legacyExtras = extras;
+  }
+
+  public Bundle getLegacyExtras() {
+    return legacyExtras;
+  }
+
   /**
-   * Sets the legacy error code.
+   * Sets the legacy error that will be used when the next {@linkplain #createPlaybackStateCompat()
+   * legacy playback state is created}.
    *
    * <p>This sets the legacy {@link PlaybackStateCompat} to {@link PlaybackStateCompat#STATE_ERROR}
-   * and calls {@link PlaybackStateCompat.Builder#setErrorMessage(int, CharSequence)} and {@link
-   * PlaybackStateCompat.Builder#setExtras(Bundle)} with the given arguments.
+   * if the error is fatal, calls {@link PlaybackStateCompat.Builder#setErrorMessage(int,
+   * CharSequence)} and includes the entries of the extras in the {@link Bundle} set with {@link
+   * PlaybackStateCompat.Builder#setExtras(Bundle)}.
    *
-   * <p>Use {@link #clearLegacyErrorStatus()} to clear the error state and to resume to the actual
-   * playback state reflecting the player.
+   * <p>Use {@link #clearLegacyErrorStatus()} to clear the error.
    *
+   * @param isFatal Whether the legacy error is fatal.
    * @param errorCode The legacy error code.
    * @param errorMessage The legacy error message.
    * @param extras The extras.
    */
-  public void setLegacyErrorStatus(int errorCode, String errorMessage, Bundle extras) {
-    checkState(errorCode != STATUS_CODE_SUCCESS_COMPAT);
-    legacyStatusCode = errorCode;
-    legacyErrorMessage = errorMessage;
-    legacyErrorExtras = extras;
+  public void setLegacyError(boolean isFatal, int errorCode, String errorMessage, Bundle extras) {
+    legacyError = new LegacyError(isFatal, errorCode, errorMessage, extras);
   }
 
-  /** Returns the legacy status code. */
-  public int getLegacyStatusCode() {
-    return legacyStatusCode;
+  /** Returns the legacy error or null if not set. */
+  @Nullable
+  public LegacyError getLegacyError() {
+    return legacyError;
   }
 
-  /** Clears the legacy error status. */
+  /**
+   * Clears the legacy error to resolve the error when {@linkplain #createPlaybackStateCompat()
+   * creating} the next legacy playback state.
+   */
   public void clearLegacyErrorStatus() {
-    legacyStatusCode = STATUS_CODE_SUCCESS_COMPAT;
-    legacyErrorMessage = null;
-    legacyErrorExtras = null;
+    legacyError = null;
   }
 
   @Override
@@ -526,13 +565,7 @@ import java.util.List;
     super.replaceMediaItems(fromIndex, toIndex, mediaItems);
   }
 
-  @Deprecated
-  @Override
-  public boolean hasPrevious() {
-    verifyApplicationThread();
-    return super.hasPrevious();
-  }
-
+  @SuppressWarnings("deprecation") // Forwarding deprecated call
   @Deprecated
   @Override
   public boolean hasNext() {
@@ -540,13 +573,7 @@ import java.util.List;
     return super.hasNext();
   }
 
-  @Deprecated
-  @Override
-  public boolean hasPreviousWindow() {
-    verifyApplicationThread();
-    return super.hasPreviousWindow();
-  }
-
+  @SuppressWarnings("deprecation") // Forwarding deprecated call
   @Deprecated
   @Override
   public boolean hasNextWindow() {
@@ -566,13 +593,7 @@ import java.util.List;
     return super.hasNextMediaItem();
   }
 
-  @Deprecated
-  @Override
-  public void previous() {
-    verifyApplicationThread();
-    super.previous();
-  }
-
+  @SuppressWarnings("deprecation") // Forwarding deprecated call
   @Deprecated
   @Override
   public void next() {
@@ -580,6 +601,7 @@ import java.util.List;
     super.next();
   }
 
+  @SuppressWarnings("deprecation") // Forwarding deprecated call
   @Deprecated
   @Override
   public void seekToPreviousWindow() {
@@ -587,6 +609,7 @@ import java.util.List;
     super.seekToPreviousWindow();
   }
 
+  @SuppressWarnings("deprecation") // Forwarding deprecated call
   @Deprecated
   @Override
   public void seekToNextWindow() {
@@ -687,6 +710,7 @@ import java.util.List;
     return super.getMediaItemAt(index);
   }
 
+  @SuppressWarnings("deprecation") // Forwarding deprecated call
   @Deprecated
   @Override
   public int getCurrentWindowIndex() {
@@ -700,6 +724,7 @@ import java.util.List;
     return super.getCurrentMediaItemIndex();
   }
 
+  @SuppressWarnings("deprecation") // Forwarding deprecated call
   @Deprecated
   @Override
   public int getPreviousWindowIndex() {
@@ -713,6 +738,7 @@ import java.util.List;
     return super.getPreviousMediaItemIndex();
   }
 
+  @SuppressWarnings("deprecation") // Forwarding deprecated call
   @Deprecated
   @Override
   public int getNextWindowIndex() {
@@ -971,6 +997,10 @@ import java.util.List;
     return super.isCurrentMediaItemLive();
   }
 
+  public boolean isCurrentMediaItemLiveWithCommandCheck() {
+    return isCommandAvailable(COMMAND_GET_CURRENT_MEDIA_ITEM) && isCurrentMediaItemLive();
+  }
+
   @Override
   public boolean isCurrentMediaItemSeekable() {
     verifyApplicationThread();
@@ -984,17 +1014,21 @@ import java.util.List;
   }
 
   public PlaybackStateCompat createPlaybackStateCompat() {
-    if (legacyStatusCode != STATUS_CODE_SUCCESS_COMPAT) {
+    LegacyError legacyError = this.legacyError;
+    if (legacyError != null && legacyError.isFatal) {
+      Bundle extras = new Bundle(legacyError.extras);
+      extras.putAll(legacyExtras);
       return new PlaybackStateCompat.Builder()
           .setState(
               PlaybackStateCompat.STATE_ERROR,
               /* position= */ PlaybackStateCompat.PLAYBACK_POSITION_UNKNOWN,
-              /* playbackSpeed= */ 0,
+              /* playbackSpeed= */ .0f,
               /* updateTime= */ SystemClock.elapsedRealtime())
           .setActions(0)
           .setBufferedPosition(0)
-          .setErrorMessage(legacyStatusCode, checkNotNull(legacyErrorMessage))
-          .setExtras(checkNotNull(legacyErrorExtras))
+          .setExtras(extras)
+          .setErrorMessage(legacyError.code, checkNotNull(legacyError.message))
+          .setExtras(legacyError.extras)
           .build();
     }
     @Nullable PlaybackException playerError = getPlayerError();
@@ -1012,7 +1046,8 @@ import java.util.List;
             : MediaSessionCompat.QueueItem.UNKNOWN_ID;
     float playbackSpeed = getPlaybackParameters().speed;
     float sessionPlaybackSpeed = isPlaying() ? playbackSpeed : 0f;
-    Bundle extras = new Bundle();
+    Bundle extras = legacyError != null ? new Bundle(legacyError.extras) : new Bundle();
+    extras.putAll(legacyExtras);
     extras.putFloat(EXTRAS_KEY_PLAYBACK_SPEED_COMPAT, playbackSpeed);
     @Nullable MediaItem currentMediaItem = getCurrentMediaItemWithCommandCheck();
     if (currentMediaItem != null && !MediaItem.DEFAULT_MEDIA_ID.equals(currentMediaItem.mediaId)) {
@@ -1030,26 +1065,35 @@ import java.util.List;
             .setBufferedPosition(compatBufferedPosition)
             .setExtras(extras);
 
-    for (int i = 0; i < customLayout.size(); i++) {
-      CommandButton commandButton = customLayout.get(i);
-      if (commandButton.sessionCommand != null) {
-        SessionCommand sessionCommand = commandButton.sessionCommand;
-        if (sessionCommand.commandCode == SessionCommand.COMMAND_CODE_CUSTOM
-            && CommandButton.isEnabled(
-                commandButton, availableSessionCommands, availablePlayerCommands)) {
-          builder.addCustomAction(
-              new PlaybackStateCompat.CustomAction.Builder(
-                      sessionCommand.customAction,
-                      commandButton.displayName,
-                      commandButton.iconResId)
-                  .setExtras(sessionCommand.customExtras)
-                  .build());
+    // TODO: b/332877990 - More accurately reflect media button preferences as custom actions.
+    List<CommandButton> buttonsForCustomActions =
+        mediaButtonPreferences.isEmpty() ? customLayout : mediaButtonPreferences;
+    for (int i = 0; i < buttonsForCustomActions.size(); i++) {
+      CommandButton commandButton = buttonsForCustomActions.get(i);
+      SessionCommand sessionCommand = commandButton.sessionCommand;
+      if (sessionCommand != null
+          && commandButton.isEnabled
+          && sessionCommand.commandCode == SessionCommand.COMMAND_CODE_CUSTOM
+          && CommandButton.isButtonCommandAvailable(
+              commandButton, availableSessionCommands, availablePlayerCommands)) {
+        Bundle actionExtras = sessionCommand.customExtras;
+        if (commandButton.icon != CommandButton.ICON_UNDEFINED) {
+          actionExtras = new Bundle(sessionCommand.customExtras);
+          actionExtras.putInt(
+              MediaConstants.EXTRAS_KEY_COMMAND_BUTTON_ICON_COMPAT, commandButton.icon);
         }
+        builder.addCustomAction(
+            new PlaybackStateCompat.CustomAction.Builder(
+                    sessionCommand.customAction, commandButton.displayName, commandButton.iconResId)
+                .setExtras(actionExtras)
+                .build());
       }
     }
     if (playerError != null) {
       builder.setErrorMessage(
-          PlaybackStateCompat.ERROR_CODE_UNKNOWN_ERROR, Util.castNonNull(playerError.getMessage()));
+          LegacyConversions.convertToLegacyErrorCode(playerError), playerError.getMessage());
+    } else if (legacyError != null) {
+      builder.setErrorMessage(legacyError.code, legacyError.message);
     }
     return builder.build();
   }
@@ -1269,8 +1313,8 @@ import java.util.List;
         return PlaybackStateCompat.ACTION_STOP;
       case Player.COMMAND_ADJUST_DEVICE_VOLUME:
       case Player.COMMAND_CHANGE_MEDIA_ITEMS:
-        // TODO(b/227346735): Handle this through
-        // MediaSessionCompat.setFlags(FLAG_HANDLES_QUEUE_COMMANDS)
+      // TODO(b/227346735): Handle this through
+      // MediaSessionCompat.setFlags(FLAG_HANDLES_QUEUE_COMMANDS)
       case Player.COMMAND_GET_AUDIO_ATTRIBUTES:
       case Player.COMMAND_GET_CURRENT_MEDIA_ITEM:
       case Player.COMMAND_GET_DEVICE_VOLUME:

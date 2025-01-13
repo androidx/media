@@ -19,22 +19,21 @@ package androidx.media3.transformer;
 import static androidx.media3.common.VideoFrameProcessor.INPUT_TYPE_BITMAP;
 import static androidx.media3.common.VideoFrameProcessor.INPUT_TYPE_SURFACE;
 import static androidx.media3.common.VideoFrameProcessor.INPUT_TYPE_TEXTURE_ID;
+import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 
 import android.graphics.Bitmap;
 import android.view.Surface;
 import androidx.annotation.Nullable;
-import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.FrameInfo;
+import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.OnInputFrameProcessedListener;
-import androidx.media3.common.SurfaceInfo;
 import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.TimestampIterator;
-import androidx.media3.effect.Presentation;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
@@ -42,37 +41,46 @@ import java.util.concurrent.atomic.AtomicLong;
 /** A wrapper for {@link VideoFrameProcessor} that handles {@link GraphInput} events. */
 /* package */ final class VideoFrameProcessingWrapper implements GraphInput {
   private final VideoFrameProcessor videoFrameProcessor;
-  private final AtomicLong mediaItemOffsetUs;
-  private final ColorInfo inputColorInfo;
+  private final List<Effect> postProcessingEffects;
   private final long initialTimestampOffsetUs;
-  @Nullable final Presentation presentation;
+  private final AtomicLong mediaItemOffsetUs;
 
   public VideoFrameProcessingWrapper(
       VideoFrameProcessor videoFrameProcessor,
-      ColorInfo inputColorInfo,
-      @Nullable Presentation presentation,
+      List<Effect> postProcessingEffects,
       long initialTimestampOffsetUs) {
     this.videoFrameProcessor = videoFrameProcessor;
-    this.mediaItemOffsetUs = new AtomicLong();
-    // TODO: b/307952514 - Remove inputColorInfo reference.
-    this.inputColorInfo = inputColorInfo;
+    this.postProcessingEffects = postProcessingEffects;
     this.initialTimestampOffsetUs = initialTimestampOffsetUs;
-    this.presentation = presentation;
+    mediaItemOffsetUs = new AtomicLong();
   }
 
   @Override
   public void onMediaItemChanged(
       EditedMediaItem editedMediaItem,
       long durationUs,
-      @Nullable Format trackFormat,
+      @Nullable Format decodedFormat,
       boolean isLast) {
-    if (trackFormat != null) {
-      Size decodedSize = getDecodedSize(trackFormat);
+    checkArgument(!editedMediaItem.isGap());
+    boolean isSurfaceAssetLoaderMediaItem = isMediaItemForSurfaceAssetLoader(editedMediaItem);
+    durationUs = editedMediaItem.getDurationAfterEffectsApplied(durationUs);
+    if (decodedFormat != null) {
+      Size decodedSize = getDecodedSize(decodedFormat);
+      ImmutableList<Effect> combinedEffects =
+          new ImmutableList.Builder<Effect>()
+              .addAll(editedMediaItem.effects.videoEffects)
+              .addAll(postProcessingEffects)
+              .build();
       videoFrameProcessor.registerInputStream(
-          getInputType(checkNotNull(trackFormat.sampleMimeType)),
-          createEffectListWithPresentation(editedMediaItem.effects.videoEffects, presentation),
-          new FrameInfo.Builder(inputColorInfo, decodedSize.getWidth(), decodedSize.getHeight())
-              .setPixelWidthHeightRatio(trackFormat.pixelWidthHeightRatio)
+          isSurfaceAssetLoaderMediaItem
+              ? VideoFrameProcessor.INPUT_TYPE_SURFACE_AUTOMATIC_FRAME_REGISTRATION
+              : getInputTypeForMimeType(checkNotNull(decodedFormat.sampleMimeType)),
+          combinedEffects,
+          new FrameInfo.Builder(
+                  checkNotNull(decodedFormat.colorInfo),
+                  decodedSize.getWidth(),
+                  decodedSize.getHeight())
+              .setPixelWidthHeightRatio(decodedFormat.pixelWidthHeightRatio)
               .setOffsetToAddUs(initialTimestampOffsetUs + mediaItemOffsetUs.get())
               .build());
     }
@@ -93,6 +101,11 @@ import java.util.concurrent.atomic.AtomicLong;
   }
 
   @Override
+  public void setOnInputSurfaceReadyListener(Runnable runnable) {
+    videoFrameProcessor.setOnInputSurfaceReadyListener(runnable);
+  }
+
+  @Override
   public @InputResult int queueInputTexture(int texId, long presentationTimeUs) {
     return videoFrameProcessor.queueInputTexture(texId, presentationTimeUs)
         ? INPUT_RESULT_SUCCESS
@@ -102,11 +115,6 @@ import java.util.concurrent.atomic.AtomicLong;
   @Override
   public Surface getInputSurface() {
     return videoFrameProcessor.getInputSurface();
-  }
-
-  @Override
-  public ColorInfo getExpectedInputColorInfo() {
-    return inputColorInfo;
   }
 
   @Override
@@ -124,10 +132,6 @@ import java.util.concurrent.atomic.AtomicLong;
     videoFrameProcessor.signalEndOfInput();
   }
 
-  public void setOutputSurfaceInfo(@Nullable SurfaceInfo outputSurfaceInfo) {
-    videoFrameProcessor.setOutputSurfaceInfo(outputSurfaceInfo);
-  }
-
   public void release() {
     videoFrameProcessor.release();
   }
@@ -139,17 +143,7 @@ import java.util.concurrent.atomic.AtomicLong;
     return new Size(decodedWidth, decodedHeight);
   }
 
-  private static ImmutableList<Effect> createEffectListWithPresentation(
-      List<Effect> effects, @Nullable Presentation presentation) {
-    if (presentation == null) {
-      return ImmutableList.copyOf(effects);
-    }
-    ImmutableList.Builder<Effect> effectsWithPresentationBuilder = new ImmutableList.Builder<>();
-    effectsWithPresentationBuilder.addAll(effects).add(presentation);
-    return effectsWithPresentationBuilder.build();
-  }
-
-  private static @VideoFrameProcessor.InputType int getInputType(String sampleMimeType) {
+  private static @VideoFrameProcessor.InputType int getInputTypeForMimeType(String sampleMimeType) {
     if (MimeTypes.isImage(sampleMimeType)) {
       return INPUT_TYPE_BITMAP;
     }
@@ -160,5 +154,18 @@ import java.util.concurrent.atomic.AtomicLong;
       return INPUT_TYPE_SURFACE;
     }
     throw new IllegalArgumentException("MIME type not supported " + sampleMimeType);
+  }
+
+  private static boolean isMediaItemForSurfaceAssetLoader(EditedMediaItem editedMediaItem) {
+    @Nullable
+    MediaItem.LocalConfiguration localConfiguration = editedMediaItem.mediaItem.localConfiguration;
+    if (localConfiguration == null) {
+      return false;
+    }
+    @Nullable String scheme = localConfiguration.uri.getScheme();
+    if (scheme == null) {
+      return false;
+    }
+    return scheme.equals(SurfaceAssetLoader.MEDIA_ITEM_URI_SCHEME);
   }
 }

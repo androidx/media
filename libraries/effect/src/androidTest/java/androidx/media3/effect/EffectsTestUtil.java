@@ -36,7 +36,6 @@ import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.NullableType;
-import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.test.utils.TextureBitmapReader;
 import com.google.common.collect.ImmutableList;
@@ -47,7 +46,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
 
 /** Utilities for effects tests. */
-@UnstableApi
 /* package */ class EffectsTestUtil {
 
   /**
@@ -73,7 +71,8 @@ import java.util.concurrent.atomic.AtomicReference;
       maybeSaveTestBitmap(
           testId, String.valueOf(presentationTimeUs), actualBitmap, /* path= */ null);
       float averagePixelAbsoluteDifference =
-          getBitmapAveragePixelAbsoluteDifferenceArgb8888(expectedBitmap, actualBitmap, testId);
+          getBitmapAveragePixelAbsoluteDifferenceArgb8888(
+              expectedBitmap, actualBitmap, testId + "_" + i);
       assertThat(averagePixelAbsoluteDifference)
           .isAtMost(MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE);
     }
@@ -138,9 +137,6 @@ import java.util.concurrent.atomic.AtomicReference;
                             FrameInfo frameInfo) {
                           videoFrameProcessorReadyCountDownLatch.countDown();
                         }
-
-                        @Override
-                        public void onOutputSizeChanged(int width, int height) {}
 
                         @Override
                         public void onOutputFrameAvailableForRendering(long presentationTimeUs) {

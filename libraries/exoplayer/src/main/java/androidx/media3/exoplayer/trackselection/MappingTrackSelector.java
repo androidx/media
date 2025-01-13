@@ -450,7 +450,7 @@ public abstract class MappingTrackSelector extends TrackSelector {
    * @param timeline The {@link Timeline} holding the period for which tracks are to be selected.
    * @return A pair consisting of the track selections and configurations for each renderer. A null
    *     configuration indicates the renderer should be disabled, in which case the track selection
-   *     will also be null. A track selection may also be null for a non-disabled renderer if {@link
+   *     must also be null. A track selection may also be null for a non-disabled renderer if {@link
    *     RendererCapabilities#getTrackType()} is {@link C#TRACK_TYPE_NONE}.
    * @throws ExoPlaybackException If an error occurs while selecting the tracks.
    */

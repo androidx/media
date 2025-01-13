@@ -23,6 +23,7 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -32,7 +33,6 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.List;
 import java.util.Objects;
-import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** Information about the result of an export. */
 @UnstableApi
@@ -46,12 +46,14 @@ public final class ExportResult {
     private int channelCount;
     private int sampleRate;
     @Nullable private String audioEncoderName;
+    @Nullable private String audioMimeType;
     private int averageVideoBitrate;
     @Nullable private ColorInfo colorInfo;
     private int height;
     private int width;
     private int videoFrameCount;
     @Nullable private String videoEncoderName;
+    @Nullable private String videoMimeType;
     private @OptimizationResult int optimizationResult;
     @Nullable private ExportException exportException;
 
@@ -137,6 +139,13 @@ public final class ExportResult {
       return this;
     }
 
+    /** Sets the output audio {@linkplain androidx.media3.common.MimeTypes mime type}. */
+    @CanIgnoreReturnValue
+    public Builder setAudioMimeType(@Nullable String audioMimeType) {
+      this.audioMimeType = audioMimeType;
+      return this;
+    }
+
     /**
      * Sets the average video bitrate.
      *
@@ -199,6 +208,13 @@ public final class ExportResult {
       return this;
     }
 
+    /** Sets the output video {@linkplain androidx.media3.common.MimeTypes mime type}. */
+    @CanIgnoreReturnValue
+    public Builder setVideoMimeType(@Nullable String videoMimeType) {
+      this.videoMimeType = videoMimeType;
+      return this;
+    }
+
     /**
      * Sets {@link OptimizationResult} to indicate an optimization as been successful, or has failed
      * and normal export proceeded instead.
@@ -231,12 +247,14 @@ public final class ExportResult {
           channelCount,
           sampleRate,
           audioEncoderName,
+          audioMimeType,
           averageVideoBitrate,
           colorInfo,
           height,
           width,
           videoFrameCount,
           videoEncoderName,
+          videoMimeType,
           optimizationResult,
           exportException);
     }
@@ -270,13 +288,13 @@ public final class ExportResult {
      * The name of the audio decoder used to process {@code mediaItem}. This field is {@code null}
      * if no audio decoder was used.
      */
-    public final @MonotonicNonNull String audioDecoderName;
+    @Nullable public final String audioDecoderName;
 
     /**
      * The name of the video decoder used to process {@code mediaItem}. This field is {@code null}
      * if no video decoder was used.
      */
-    public final @MonotonicNonNull String videoDecoderName;
+    @Nullable public final String videoDecoderName;
 
     /** Creates an instance. */
     public ProcessedInput(
@@ -359,8 +377,38 @@ public final class ExportResult {
    */
   public static final int OPTIMIZATION_FAILED_FORMAT_MISMATCH = 6;
 
-  /** The list of {@linkplain ProcessedInput processed inputs}. */
-  public final ImmutableList<ProcessedInput> processedInputs;
+  /**
+   * Specifies what conversion process was used to make a track in the output file. One of:
+   *
+   * <ul>
+   *   <li>{@link #CONVERSION_PROCESS_NA}
+   *   <li>{@link #CONVERSION_PROCESS_TRANSCODED}
+   *   <li>{@link #CONVERSION_PROCESS_TRANSMUXED}
+   *   <li>{@link #CONVERSION_PROCESS_TRANSMUXED_AND_TRANSCODED}
+   * </ul>
+   */
+  @Documented
+  @Retention(RetentionPolicy.SOURCE)
+  @Target(TYPE_USE)
+  @IntDef({
+    CONVERSION_PROCESS_NA,
+    CONVERSION_PROCESS_TRANSCODED,
+    CONVERSION_PROCESS_TRANSMUXED,
+    CONVERSION_PROCESS_TRANSMUXED_AND_TRANSCODED
+  })
+  @interface ConversionProcess {}
+
+  /** The output file doesn't contain this track type. */
+  public static final int CONVERSION_PROCESS_NA = 0;
+
+  /** The track was transcoded. */
+  public static final int CONVERSION_PROCESS_TRANSCODED = 1;
+
+  /** The track was transmuxed. */
+  public static final int CONVERSION_PROCESS_TRANSMUXED = 2;
+
+  /** The track was both transcoded and transmuxed. */
+  public static final int CONVERSION_PROCESS_TRANSMUXED_AND_TRANSCODED = 3;
 
   /** The duration of the file in milliseconds, or {@link C#TIME_UNSET} if unset or unknown. */
   public final long durationMs;
@@ -382,6 +430,9 @@ public final class ExportResult {
   /** The name of the audio encoder used, or {@code null} if none were used. */
   @Nullable public final String audioEncoderName;
 
+  /** The output audio {@linkplain MimeTypes mime type}, or {@code null} if unset or unknown. */
+  @Nullable public final String audioMimeType;
+
   /**
    * The average bitrate of the video track data, or {@link C#RATE_UNSET_INT} if unset or unknown.
    */
@@ -402,6 +453,9 @@ public final class ExportResult {
   /** The name of the video encoder used, or {@code null} if none were used. */
   @Nullable public final String videoEncoderName;
 
+  /** The output video {@linkplain MimeTypes mime type}, or {@code null} if unset or unknown. */
+  @Nullable public final String videoMimeType;
+
   /** The result of any requested optimizations. */
   public final @OptimizationResult int optimizationResult;
 
@@ -411,6 +465,19 @@ public final class ExportResult {
    */
   @Nullable public final ExportException exportException;
 
+  /** Returns the {@link ConversionProcess} taken to create the video track in the output file. */
+  public final @ConversionProcess int videoConversionProcess;
+
+  /** Returns the {@link ConversionProcess} taken to create the audio track in the output file. */
+  public final @ConversionProcess int audioConversionProcess;
+
+  /**
+   * The list of {@linkplain ProcessedInput processed inputs}. The list might have some intermediate
+   * {@linkplain ProcessedInput processed inputs} if the export is {@link Transformer#resume
+   * resumed} or any optimization is applied.
+   */
+  /* package */ final ImmutableList<ProcessedInput> processedInputs;
+
   private ExportResult(
       ImmutableList<ProcessedInput> processedInputs,
       long durationMs,
@@ -419,12 +486,14 @@ public final class ExportResult {
       int channelCount,
       int sampleRate,
       @Nullable String audioEncoderName,
+      @Nullable String audioMimeType,
       int averageVideoBitrate,
       @Nullable ColorInfo colorInfo,
       int height,
       int width,
       int videoFrameCount,
       @Nullable String videoEncoderName,
+      @Nullable String videoMimeType,
       @OptimizationResult int optimizationResult,
       @Nullable ExportException exportException) {
     this.processedInputs = processedInputs;
@@ -434,14 +503,22 @@ public final class ExportResult {
     this.channelCount = channelCount;
     this.sampleRate = sampleRate;
     this.audioEncoderName = audioEncoderName;
+    this.audioMimeType = audioMimeType;
     this.averageVideoBitrate = averageVideoBitrate;
     this.colorInfo = colorInfo;
     this.height = height;
     this.width = width;
     this.videoFrameCount = videoFrameCount;
     this.videoEncoderName = videoEncoderName;
+    this.videoMimeType = videoMimeType;
     this.optimizationResult = optimizationResult;
     this.exportException = exportException;
+    audioConversionProcess =
+        getConversionProcess(
+            audioMimeType, optimizationResult, processedInputs, C.TRACK_TYPE_AUDIO);
+    videoConversionProcess =
+        getConversionProcess(
+            videoMimeType, optimizationResult, processedInputs, C.TRACK_TYPE_VIDEO);
   }
 
   public Builder buildUpon() {
@@ -453,12 +530,14 @@ public final class ExportResult {
         .setChannelCount(channelCount)
         .setSampleRate(sampleRate)
         .setAudioEncoderName(audioEncoderName)
+        .setAudioMimeType(audioMimeType)
         .setAverageVideoBitrate(averageVideoBitrate)
         .setColorInfo(colorInfo)
         .setHeight(height)
         .setWidth(width)
         .setVideoFrameCount(videoFrameCount)
         .setVideoEncoderName(videoEncoderName)
+        .setVideoMimeType(videoMimeType)
         .setOptimizationResult(optimizationResult)
         .setExportException(exportException);
   }
@@ -479,12 +558,14 @@ public final class ExportResult {
         && channelCount == result.channelCount
         && sampleRate == result.sampleRate
         && Objects.equals(audioEncoderName, result.audioEncoderName)
+        && Objects.equals(audioMimeType, result.audioMimeType)
         && averageVideoBitrate == result.averageVideoBitrate
         && Objects.equals(colorInfo, result.colorInfo)
         && height == result.height
         && width == result.width
         && videoFrameCount == result.videoFrameCount
         && Objects.equals(videoEncoderName, result.videoEncoderName)
+        && Objects.equals(videoMimeType, result.videoMimeType)
         && optimizationResult == result.optimizationResult
         && Objects.equals(exportException, result.exportException);
   }
@@ -498,14 +579,53 @@ public final class ExportResult {
     result = 31 * result + channelCount;
     result = 31 * result + sampleRate;
     result = 31 * result + Objects.hashCode(audioEncoderName);
+    result = 31 * result + Objects.hashCode(audioMimeType);
     result = 31 * result + averageVideoBitrate;
     result = 31 * result + Objects.hashCode(colorInfo);
     result = 31 * result + height;
     result = 31 * result + width;
     result = 31 * result + videoFrameCount;
     result = 31 * result + Objects.hashCode(videoEncoderName);
+    result = 31 * result + Objects.hashCode(videoMimeType);
     result = 31 * result + optimizationResult;
     result = 31 * result + Objects.hashCode(exportException);
     return result;
+  }
+
+  // Nullness test incorrectly throws monotonic type error when assigning the @Nullable decoderName.
+  @SuppressWarnings("monotonic.type.incompatible")
+  private static @ConversionProcess int getConversionProcess(
+      @Nullable String mimeType,
+      @OptimizationResult int optimizationResult,
+      List<ProcessedInput> processedInputs,
+      @C.TrackType int trackType) {
+    if (mimeType == null) {
+      return CONVERSION_PROCESS_NA;
+    }
+    if (optimizationResult == OPTIMIZATION_SUCCEEDED) { // Trim optimization occurred.
+      return trackType == C.TRACK_TYPE_AUDIO
+          ? CONVERSION_PROCESS_TRANSMUXED
+          : CONVERSION_PROCESS_TRANSMUXED_AND_TRANSCODED;
+    }
+    @ConversionProcess int conversionProcess = CONVERSION_PROCESS_NA;
+    for (ProcessedInput processedInput : processedInputs) {
+      @Nullable
+      String decoderName =
+          trackType == C.TRACK_TYPE_AUDIO
+              ? processedInput.audioDecoderName
+              : processedInput.videoDecoderName;
+      if (decoderName == null) {
+        if (conversionProcess == CONVERSION_PROCESS_TRANSCODED) {
+          return CONVERSION_PROCESS_TRANSMUXED_AND_TRANSCODED;
+        }
+        conversionProcess = CONVERSION_PROCESS_TRANSMUXED;
+      } else {
+        if (conversionProcess == CONVERSION_PROCESS_TRANSMUXED) {
+          return CONVERSION_PROCESS_TRANSMUXED_AND_TRANSCODED;
+        }
+        conversionProcess = CONVERSION_PROCESS_TRANSCODED;
+      }
+    }
+    return conversionProcess;
   }
 }

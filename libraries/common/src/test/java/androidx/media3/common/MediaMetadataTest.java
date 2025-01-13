@@ -20,6 +20,7 @@ import static com.google.common.truth.Truth.assertThat;
 import android.net.Uri;
 import android.os.Bundle;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.collect.ImmutableList;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -42,6 +43,7 @@ public class MediaMetadataTest {
     assertThat(mediaMetadata.displayTitle).isNull();
     assertThat(mediaMetadata.subtitle).isNull();
     assertThat(mediaMetadata.description).isNull();
+    assertThat(mediaMetadata.durationMs).isNull();
     assertThat(mediaMetadata.userRating).isNull();
     assertThat(mediaMetadata.overallRating).isNull();
     assertThat(mediaMetadata.artworkData).isNull();
@@ -67,6 +69,7 @@ public class MediaMetadataTest {
     assertThat(mediaMetadata.compilation).isNull();
     assertThat(mediaMetadata.station).isNull();
     assertThat(mediaMetadata.mediaType).isNull();
+    assertThat(mediaMetadata.supportedCommands).isEmpty();
     assertThat(mediaMetadata.extras).isNull();
   }
 
@@ -121,7 +124,7 @@ public class MediaMetadataTest {
   }
 
   @Test
-  public void populate_withArtworkDataOnly_updatesBothArtWorkUriAndArtworkData() {
+  public void populate_withArtworkDataOnly_updatesBothArtworkUriAndArtworkData() {
     byte[] artworkData = new byte[] {35, 12, 6, 77};
     MediaMetadata mediaMetadata =
         new MediaMetadata.Builder()
@@ -161,6 +164,20 @@ public class MediaMetadataTest {
     assertThat(mediaMetadataFromBundle).isEqualTo(mediaMetadata);
     // Extras is not implemented in MediaMetadata.equals(Object o).
     assertThat(mediaMetadataFromBundle.extras.getString(EXTRAS_KEY)).isEqualTo(EXTRAS_VALUE);
+  }
+
+  /** Regression test for https://github.com/androidx/media/issues/1176. */
+  @Test
+  public void roundTripViaBundle_withJustNonNullExtras_restoresAllData() {
+    Bundle extras = new Bundle();
+    extras.putString("key", "value");
+    MediaMetadata mediaMetadata = new MediaMetadata.Builder().setExtras(extras).build();
+
+    MediaMetadata restoredMetadata = MediaMetadata.fromBundle(mediaMetadata.toBundle());
+
+    assertThat(restoredMetadata).isEqualTo(mediaMetadata);
+    assertThat(restoredMetadata.extras).isNotNull();
+    assertThat(restoredMetadata.extras.get("key")).isEqualTo("value");
   }
 
   @SuppressWarnings("deprecation") // Testing deprecated setter.
@@ -237,6 +254,7 @@ public class MediaMetadataTest {
         .setDisplayTitle("display title")
         .setSubtitle("subtitle")
         .setDescription("description")
+        .setDurationMs(10_000L)
         .setUserRating(new HeartRating(false))
         .setOverallRating(new PercentageRating(87.4f))
         .setArtworkData(
@@ -262,6 +280,7 @@ public class MediaMetadataTest {
         .setCompilation("Amazing songs.")
         .setStation("radio station")
         .setMediaType(MediaMetadata.MEDIA_TYPE_MIXED)
+        .setSupportedCommands(ImmutableList.of("command1", "command2"))
         .setExtras(extras)
         .build();
   }

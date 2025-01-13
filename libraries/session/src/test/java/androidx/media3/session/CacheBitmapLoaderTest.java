@@ -25,6 +25,7 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
 import android.net.Uri;
+import androidx.media3.common.ParserException;
 import androidx.media3.datasource.DataSourceBitmapLoader;
 import androidx.media3.datasource.HttpDataSource;
 import androidx.media3.test.utils.TestUtil;
@@ -124,7 +125,7 @@ public class CacheBitmapLoaderTest {
     assertThat(future1).isSameInstanceAs(future2);
     ExecutionException executionException =
         assertThrows(ExecutionException.class, () -> future1.get(10, SECONDS));
-    assertThat(executionException).hasCauseThat().isInstanceOf(IllegalArgumentException.class);
+    assertThat(executionException).hasCauseThat().isInstanceOf(ParserException.class);
     assertThat(executionException).hasMessageThat().contains("Could not decode image data");
   }
 

@@ -49,12 +49,11 @@
     <item>أسرع بـ 1.5 مرة</item>
     <item>أسرع بمرتين</item>
   </string-array>
-  <string name="exo_track_selection_title_video">فيديو</string>
   <string name="exo_track_selection_title_audio">صوت</string>
-  <string name="exo_track_selection_title_text">نص</string>
   <string name="exo_track_selection_none">بدون اختيار</string>
   <string name="exo_track_selection_auto">تلقائي</string>
   <string name="exo_track_unknown">غير معروف</string>
+  <string name="exo_track_unknown_name">غير معروف (%1$s)</string>
   <string name="exo_track_resolution">%1$d × %2$d</string>
   <string name="exo_track_mono">قناة أحادية</string>
   <string name="exo_track_stereo">استريو</string>

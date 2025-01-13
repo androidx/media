@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 The Android Open Source Project
+ * Copyright 2024 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,27 +17,30 @@ package androidx.media3.container;
 
 import androidx.media3.common.util.UnstableApi;
 
-/** Utilities for MP4 container. */
+/** Utility methods for MP4 containers. */
 @UnstableApi
 public final class Mp4Util {
-  private static final int UNIX_EPOCH_TO_MP4_TIME_DELTA_SECONDS =
-      ((1970 - 1904) * 365 + 17 /* leap year */) * (24 * 60 * 60);
+  /** The original video track without any depth based effects applied. */
+  public static final int EDITABLE_TRACK_TYPE_SHARP = 0;
+
+  /**
+   * A linear encoded depth video track.
+   *
+   * <p>See https://developer.android.com/static/media/camera/camera2/Dynamic-depth-v1.0.pdf for
+   * linear depth encoding.
+   */
+  public static final int EDITABLE_TRACK_TYPE_DEPTH_LINEAR = 1;
+
+  /**
+   * An inverse encoded depth video track.
+   *
+   * <p>See https://developer.android.com/static/media/camera/camera2/Dynamic-depth-v1.0.pdf for
+   * inverse depth encoding.
+   */
+  public static final int EDITABLE_TRACK_TYPE_DEPTH_INVERSE = 2;
+
+  /** A timed metadata of depth video track. */
+  public static final int EDITABLE_TRACK_TYPE_DEPTH_METADATA = 3;
 
   private Mp4Util() {}
-
-  /**
-   * Returns an MP4 timestamp (in seconds since midnight, January 1, 1904) from a Unix epoch
-   * timestamp (in milliseconds since midnight, January 1, 1970).
-   */
-  public static long unixTimeToMp4TimeSeconds(long unixTimestampMs) {
-    return (unixTimestampMs / 1000L + UNIX_EPOCH_TO_MP4_TIME_DELTA_SECONDS);
-  }
-
-  /**
-   * Returns a Unix epoch timestamp (in milliseconds since midnight, January 1, 1970) from an MP4
-   * timestamp (in seconds since midnight, January 1, 1904).
-   */
-  public static long mp4TimeToUnixTimeMs(long mp4TimestampSeconds) {
-    return (mp4TimestampSeconds - UNIX_EPOCH_TO_MP4_TIME_DELTA_SECONDS) * 1000L;
-  }
 }

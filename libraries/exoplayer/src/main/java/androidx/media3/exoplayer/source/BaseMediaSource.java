@@ -202,6 +202,7 @@ public abstract class BaseMediaSource implements MediaSource {
     return !mediaSourceCallers.isEmpty();
   }
 
+  @UnstableApi
   @Override
   public final void addEventListener(Handler handler, MediaSourceEventListener eventListener) {
     Assertions.checkNotNull(handler);
@@ -209,11 +210,13 @@ public abstract class BaseMediaSource implements MediaSource {
     eventDispatcher.addEventListener(handler, eventListener);
   }
 
+  @UnstableApi
   @Override
   public final void removeEventListener(MediaSourceEventListener eventListener) {
     eventDispatcher.removeEventListener(eventListener);
   }
 
+  @UnstableApi
   @Override
   public final void addDrmEventListener(Handler handler, DrmSessionEventListener eventListener) {
     Assertions.checkNotNull(handler);
@@ -221,11 +224,13 @@ public abstract class BaseMediaSource implements MediaSource {
     drmEventDispatcher.addEventListener(handler, eventListener);
   }
 
+  @UnstableApi
   @Override
   public final void removeDrmEventListener(DrmSessionEventListener eventListener) {
     drmEventDispatcher.removeEventListener(eventListener);
   }
 
+  @UnstableApi
   @SuppressWarnings("deprecation") // Overriding deprecated method to make it final.
   @Override
   public final void prepareSource(
@@ -233,6 +238,7 @@ public abstract class BaseMediaSource implements MediaSource {
     prepareSource(caller, mediaTransferListener, PlayerId.UNSET);
   }
 
+  @UnstableApi
   @Override
   public final void prepareSource(
       MediaSourceCaller caller,
@@ -253,6 +259,7 @@ public abstract class BaseMediaSource implements MediaSource {
     }
   }
 
+  @UnstableApi
   @Override
   public final void enable(MediaSourceCaller caller) {
     Assertions.checkNotNull(looper);
@@ -263,6 +270,7 @@ public abstract class BaseMediaSource implements MediaSource {
     }
   }
 
+  @UnstableApi
   @Override
   public final void disable(MediaSourceCaller caller) {
     boolean wasEnabled = !enabledMediaSourceCallers.isEmpty();
@@ -272,6 +280,7 @@ public abstract class BaseMediaSource implements MediaSource {
     }
   }
 
+  @UnstableApi
   @Override
   public final void releaseSource(MediaSourceCaller caller) {
     mediaSourceCallers.remove(caller);

@@ -29,6 +29,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.DrmInitData;
 import androidx.media3.common.DrmInitData.SchemeData;
 import androidx.media3.common.Format;
+import androidx.media3.common.Label;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.Assertions;
@@ -46,12 +47,12 @@ import androidx.media3.exoplayer.upstream.ParsingLoadable;
 import androidx.media3.extractor.metadata.emsg.EventMessage;
 import androidx.media3.extractor.mp4.PsshAtomUtil;
 import com.google.common.base.Ascii;
-import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -405,6 +406,7 @@ public class DashManifestParser extends DefaultHandler
     int audioSamplingRate = parseInt(xpp, "audioSamplingRate", Format.NO_VALUE);
     String language = xpp.getAttributeValue(null, "lang");
     String label = xpp.getAttributeValue(null, "label");
+    List<Label> labels = new ArrayList<>();
     String drmSchemeType = null;
     ArrayList<SchemeData> drmSchemeDatas = new ArrayList<>();
     ArrayList<Descriptor> inbandEventStreams = new ArrayList<>();
@@ -504,7 +506,7 @@ public class DashManifestParser extends DefaultHandler
       } else if (XmlPullParserUtil.isStartTag(xpp, "InbandEventStream")) {
         inbandEventStreams.add(parseDescriptor(xpp, "InbandEventStream"));
       } else if (XmlPullParserUtil.isStartTag(xpp, "Label")) {
-        label = parseLabel(xpp);
+        labels.add(parseLabel(xpp));
       } else if (XmlPullParserUtil.isStartTag(xpp)) {
         parseAdaptationSetChild(xpp);
       }
@@ -517,6 +519,7 @@ public class DashManifestParser extends DefaultHandler
           buildRepresentation(
               representationInfos.get(i),
               label,
+              labels,
               drmSchemeType,
               drmSchemeDatas,
               inbandEventStreams));
@@ -616,7 +619,9 @@ public class DashManifestParser extends DefaultHandler
 
     do {
       xpp.next();
-      if (XmlPullParserUtil.isStartTag(xpp, "clearkey:Laurl") && xpp.next() == XmlPullParser.TEXT) {
+      if ((XmlPullParserUtil.isStartTag(xpp, "clearkey:Laurl")
+              || XmlPullParserUtil.isStartTag(xpp, "dashif:Laurl"))
+          && xpp.next() == XmlPullParser.TEXT) {
         licenseServerUrl = xpp.getText();
       } else if (XmlPullParserUtil.isStartTag(xpp, "ms:laurl")) {
         licenseServerUrl = xpp.getAttributeValue(null, "licenseUrl");
@@ -856,12 +861,15 @@ public class DashManifestParser extends DefaultHandler
   protected Representation buildRepresentation(
       RepresentationInfo representationInfo,
       @Nullable String label,
+      List<Label> labels,
       @Nullable String extraDrmSchemeType,
       ArrayList<SchemeData> extraDrmSchemeDatas,
       ArrayList<Descriptor> extraInbandEventStreams) {
     Format.Builder formatBuilder = representationInfo.format.buildUpon();
-    if (label != null) {
+    if (label != null && labels.isEmpty()) {
       formatBuilder.setLabel(label);
+    } else {
+      formatBuilder.setLabels(labels);
     }
     @Nullable String drmSchemeType = representationInfo.drmSchemeType;
     if (drmSchemeType == null) {
@@ -1206,7 +1214,7 @@ public class DashManifestParser extends DefaultHandler
       throws XmlPullParserException, IOException {
     scratchOutputStream.reset();
     XmlSerializer xmlSerializer = Xml.newSerializer();
-    xmlSerializer.setOutput(scratchOutputStream, Charsets.UTF_8.name());
+    xmlSerializer.setOutput(scratchOutputStream, StandardCharsets.UTF_8.name());
     // Start reading everything between <Event> and </Event>, and serialize them into an Xml
     // byte array.
     xpp.nextToken();
@@ -1405,8 +1413,10 @@ public class DashManifestParser extends DefaultHandler
    * @throws IOException If an error occurs reading the element.
    * @return The parsed label.
    */
-  protected String parseLabel(XmlPullParser xpp) throws XmlPullParserException, IOException {
-    return parseText(xpp, "Label");
+  protected Label parseLabel(XmlPullParser xpp) throws XmlPullParserException, IOException {
+    String lang = xpp.getAttributeValue(null, "lang");
+    String value = parseText(xpp, "Label");
+    return new Label(lang, value);
   }
 
   /**
@@ -1529,7 +1539,7 @@ public class DashManifestParser extends DefaultHandler
     }
     switch (value) {
       case "forced_subtitle":
-        // Support both hyphen and underscore (https://github.com/google/ExoPlayer/issues/9727).
+      // Support both hyphen and underscore (https://github.com/google/ExoPlayer/issues/9727).
       case "forced-subtitle":
         return C.SELECTION_FLAG_FORCED;
       default:
@@ -1598,7 +1608,7 @@ public class DashManifestParser extends DefaultHandler
       case "caption":
         return C.ROLE_FLAG_CAPTION;
       case "forced_subtitle":
-        // Support both hyphen and underscore (https://github.com/google/ExoPlayer/issues/9727).
+      // Support both hyphen and underscore (https://github.com/google/ExoPlayer/issues/9727).
       case "forced-subtitle":
       case "subtitle":
         return C.ROLE_FLAG_SUBTITLE;

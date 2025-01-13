@@ -237,6 +237,8 @@ public class SubtitleExtractor implements Extractor {
               : SubtitleParser.OutputOptions.allCues();
       subtitleParser.parse(
           subtitleData,
+          /* offset= */ 0,
+          /* length= */ bytesRead,
           outputOptions,
           cuesWithTiming -> {
             Sample sample =

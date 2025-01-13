@@ -26,7 +26,6 @@ import android.content.pm.ServiceInfo;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import androidx.annotation.DoNotInline;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.core.app.NotificationManagerCompat;
@@ -55,8 +54,6 @@ import java.util.concurrent.TimeoutException;
  */
 /* package */ final class MediaNotificationManager {
 
-  /* package */ static final String KEY_MEDIA_NOTIFICATION_MANAGER =
-      "androidx.media3.session.MediaNotificationManager";
   private static final String TAG = "MediaNtfMng";
 
   private final MediaSessionService mediaSessionService;
@@ -92,7 +89,7 @@ import java.util.concurrent.TimeoutException;
     }
     MediaControllerListener listener = new MediaControllerListener(mediaSessionService, session);
     Bundle connectionHints = new Bundle();
-    connectionHints.putBoolean(KEY_MEDIA_NOTIFICATION_MANAGER, true);
+    connectionHints.putBoolean(MediaController.KEY_MEDIA_NOTIFICATION_CONTROLLER_FLAG, true);
     ListenableFuture<MediaController> controllerFuture =
         new MediaController.Builder(mediaSessionService, session.getToken())
             .setConnectionHints(connectionHints)
@@ -162,9 +159,9 @@ import java.util.concurrent.TimeoutException;
         // Ignore.
       }
     }
-    ImmutableList<CommandButton> customLayout =
+    ImmutableList<CommandButton> mediaButtonPreferences =
         mediaNotificationController != null
-            ? mediaNotificationController.getCustomLayout()
+            ? mediaNotificationController.getMediaButtonPreferences()
             : ImmutableList.of();
     MediaNotification.Provider.Callback callback =
         notification ->
@@ -175,7 +172,7 @@ import java.util.concurrent.TimeoutException;
         () -> {
           MediaNotification mediaNotification =
               this.mediaNotificationProvider.createNotification(
-                  session, customLayout, actionFactory, callback);
+                  session, mediaButtonPreferences, actionFactory, callback);
           mainExecutor.execute(
               () ->
                   updateNotificationInternal(
@@ -212,14 +209,11 @@ import java.util.concurrent.TimeoutException;
       MediaSession session,
       MediaNotification mediaNotification,
       boolean startInForegroundRequired) {
-    if (Util.SDK_INT >= 21) {
-      // Call Notification.MediaStyle#setMediaSession() indirectly.
-      android.media.session.MediaSession.Token fwkToken =
-          (android.media.session.MediaSession.Token)
-              session.getSessionCompat().getSessionToken().getToken();
-      mediaNotification.notification.extras.putParcelable(
-          Notification.EXTRA_MEDIA_SESSION, fwkToken);
-    }
+    // Call Notification.MediaStyle#setMediaSession() indirectly.
+    android.media.session.MediaSession.Token fwkToken =
+        (android.media.session.MediaSession.Token)
+            session.getSessionCompat().getSessionToken().getToken();
+    mediaNotification.notification.extras.putParcelable(Notification.EXTRA_MEDIA_SESSION, fwkToken);
     this.mediaNotification = mediaNotification;
     if (startInForegroundRequired) {
       startForeground(mediaNotification);
@@ -265,7 +259,7 @@ import java.util.concurrent.TimeoutException;
   @Nullable
   private MediaController getConnectedControllerForSession(MediaSession session) {
     ListenableFuture<MediaController> controller = controllerMap.get(session);
-    if (controller == null) {
+    if (controller == null || !controller.isDone()) {
       return null;
     }
     try {
@@ -326,7 +320,8 @@ import java.util.concurrent.TimeoutException;
     }
 
     @Override
-    public void onCustomLayoutChanged(MediaController controller, List<CommandButton> layout) {
+    public void onMediaButtonPreferencesChanged(
+        MediaController controller, List<CommandButton> mediaButtonPreferences) {
       mediaSessionService.onUpdateNotificationInternal(
           session, /* startInForegroundWhenPaused= */ false);
     }
@@ -381,9 +376,7 @@ import java.util.concurrent.TimeoutException;
     if (Util.SDK_INT >= 24) {
       Api24.stopForeground(mediaSessionService, removeNotifications);
     } else {
-      // For pre-L devices, we must call Service.stopForeground(true) anyway as a workaround
-      // that prevents the media notification from being undismissable.
-      mediaSessionService.stopForeground(removeNotifications || Util.SDK_INT < 21);
+      mediaSessionService.stopForeground(removeNotifications);
     }
     startedInForeground = false;
   }
@@ -391,7 +384,6 @@ import java.util.concurrent.TimeoutException;
   @RequiresApi(24)
   private static class Api24 {
 
-    @DoNotInline
     public static void stopForeground(MediaSessionService service, boolean removeNotification) {
       service.stopForeground(removeNotification ? STOP_FOREGROUND_REMOVE : STOP_FOREGROUND_DETACH);
     }

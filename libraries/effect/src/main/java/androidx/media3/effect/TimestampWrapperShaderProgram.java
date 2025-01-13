@@ -15,24 +15,28 @@
  */
 package androidx.media3.effect;
 
+import static androidx.media3.common.util.Assertions.checkNotNull;
+import static androidx.media3.common.util.Assertions.checkState;
+
 import android.content.Context;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.VideoFrameProcessingException;
-import androidx.media3.common.util.UnstableApi;
 import java.util.concurrent.Executor;
+import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** Applies a {@link TimestampWrapper} to apply a wrapped {@link GlEffect} on certain timestamps. */
-@UnstableApi
-/* package */ final class TimestampWrapperShaderProgram implements GlShaderProgram {
-
-  private final GlShaderProgram copyGlShaderProgram;
-  private int pendingCopyGlShaderProgramFrames;
-  private final GlShaderProgram wrappedGlShaderProgram;
-  private int pendingWrappedGlShaderProgramFrames;
+/* package */ final class TimestampWrapperShaderProgram
+    implements GlShaderProgram, GlShaderProgram.InputListener {
 
   private final long startTimeUs;
   private final long endTimeUs;
+  private final WrappedShaderProgramInputListener wrappedShaderProgramInputListener;
+  private final GlShaderProgram wrappedShaderProgram;
+  private final GlShaderProgram copyShaderProgram;
+
+  private int pendingWrappedGlShaderProgramFrames;
+  private int pendingCopyGlShaderProgramFrames;
 
   /**
    * Creates a {@code TimestampWrapperShaderProgram} instance.
@@ -45,53 +49,54 @@ import java.util.concurrent.Executor;
   public TimestampWrapperShaderProgram(
       Context context, boolean useHdr, TimestampWrapper timestampWrapper)
       throws VideoFrameProcessingException {
-    copyGlShaderProgram = new FrameCache(/* capacity= */ 1).toGlShaderProgram(context, useHdr);
-    wrappedGlShaderProgram = timestampWrapper.glEffect.toGlShaderProgram(context, useHdr);
-
     startTimeUs = timestampWrapper.startTimeUs;
     endTimeUs = timestampWrapper.endTimeUs;
+    wrappedShaderProgram = timestampWrapper.glEffect.toGlShaderProgram(context, useHdr);
+    wrappedShaderProgramInputListener = new WrappedShaderProgramInputListener();
+    wrappedShaderProgram.setInputListener(wrappedShaderProgramInputListener);
+    copyShaderProgram =
+        new FrameCache(/* capacity= */ wrappedShaderProgramInputListener.readyFrameCount)
+            .toGlShaderProgram(context, useHdr);
   }
 
   @Override
   public void setInputListener(InputListener inputListener) {
-    // TODO(b/277726418) Fix over-reported input capacity.
-    copyGlShaderProgram.setInputListener(inputListener);
-    wrappedGlShaderProgram.setInputListener(inputListener);
+    wrappedShaderProgramInputListener.setListener(inputListener);
+    wrappedShaderProgramInputListener.setToForwardingMode(true);
+    copyShaderProgram.setInputListener(inputListener);
   }
 
   @Override
   public void setOutputListener(OutputListener outputListener) {
-    copyGlShaderProgram.setOutputListener(outputListener);
-    wrappedGlShaderProgram.setOutputListener(outputListener);
+    wrappedShaderProgram.setOutputListener(outputListener);
+    copyShaderProgram.setOutputListener(outputListener);
   }
 
   @Override
   public void setErrorListener(Executor errorListenerExecutor, ErrorListener errorListener) {
-    copyGlShaderProgram.setErrorListener(errorListenerExecutor, errorListener);
-    wrappedGlShaderProgram.setErrorListener(errorListenerExecutor, errorListener);
+    wrappedShaderProgram.setErrorListener(errorListenerExecutor, errorListener);
+    copyShaderProgram.setErrorListener(errorListenerExecutor, errorListener);
   }
 
   @Override
   public void queueInputFrame(
       GlObjectsProvider glObjectsProvider, GlTextureInfo inputTexture, long presentationTimeUs) {
-    // TODO(b/277726418) Properly report shader program capacity when switching from wrapped shader
-    //  program to copying shader program.
-    if (presentationTimeUs >= startTimeUs && presentationTimeUs <= endTimeUs) {
+    if (startTimeUs <= presentationTimeUs && presentationTimeUs <= endTimeUs) {
       pendingWrappedGlShaderProgramFrames++;
-      wrappedGlShaderProgram.queueInputFrame(glObjectsProvider, inputTexture, presentationTimeUs);
+      wrappedShaderProgram.queueInputFrame(glObjectsProvider, inputTexture, presentationTimeUs);
     } else {
       pendingCopyGlShaderProgramFrames++;
-      copyGlShaderProgram.queueInputFrame(glObjectsProvider, inputTexture, presentationTimeUs);
+      copyShaderProgram.queueInputFrame(glObjectsProvider, inputTexture, presentationTimeUs);
     }
   }
 
   @Override
   public void releaseOutputFrame(GlTextureInfo outputTexture) {
     if (pendingCopyGlShaderProgramFrames > 0) {
-      copyGlShaderProgram.releaseOutputFrame(outputTexture);
+      copyShaderProgram.releaseOutputFrame(outputTexture);
       pendingCopyGlShaderProgramFrames--;
     } else if (pendingWrappedGlShaderProgramFrames > 0) {
-      wrappedGlShaderProgram.releaseOutputFrame(outputTexture);
+      wrappedShaderProgram.releaseOutputFrame(outputTexture);
       pendingWrappedGlShaderProgramFrames--;
     } else {
       throw new IllegalArgumentException("Output texture not contained in either shader.");
@@ -100,22 +105,61 @@ import java.util.concurrent.Executor;
 
   @Override
   public void signalEndOfCurrentInputStream() {
-    // TODO(b/277726418) Properly handle EOS reporting.
-    // Only sending EOS signal along the wrapped GL shader program path is semantically incorrect,
-    // but it ensures the wrapped shader program receives the EOS signal. On the other hand, the
-    // copy shader program does not need special EOS handling.
-    wrappedGlShaderProgram.signalEndOfCurrentInputStream();
+    // The copy shader program does not need special EOS handling, so only EOS signal along the
+    // wrapped GL shader program.
+    wrappedShaderProgram.signalEndOfCurrentInputStream();
   }
 
   @Override
   public void flush() {
-    copyGlShaderProgram.flush();
-    wrappedGlShaderProgram.flush();
+    wrappedShaderProgramInputListener.setToForwardingMode(false);
+    wrappedShaderProgram.flush();
+    wrappedShaderProgramInputListener.setToForwardingMode(true);
+    copyShaderProgram.flush();
+    pendingCopyGlShaderProgramFrames = 0;
+    pendingWrappedGlShaderProgramFrames = 0;
   }
 
   @Override
   public void release() throws VideoFrameProcessingException {
-    copyGlShaderProgram.release();
-    wrappedGlShaderProgram.release();
+    copyShaderProgram.release();
+    wrappedShaderProgram.release();
+  }
+
+  private static final class WrappedShaderProgramInputListener
+      implements GlShaderProgram.InputListener {
+    public int readyFrameCount;
+
+    private boolean forwardCalls;
+    private @MonotonicNonNull InputListener listener;
+
+    @Override
+    public void onReadyToAcceptInputFrame() {
+      if (listener == null) {
+        readyFrameCount++;
+      }
+      if (forwardCalls) {
+        checkNotNull(listener).onReadyToAcceptInputFrame();
+      }
+    }
+
+    @Override
+    public void onInputFrameProcessed(GlTextureInfo inputTexture) {
+      checkNotNull(listener).onInputFrameProcessed(inputTexture);
+    }
+
+    @Override
+    public void onFlush() {
+      // The listener is flushed from the copy shader program.
+    }
+
+    public void setListener(InputListener listener) {
+      this.listener = listener;
+    }
+
+    public void setToForwardingMode(boolean forwardingMode) {
+      checkState(!forwardingMode || listener != null);
+      this.forwardCalls = forwardingMode;
+    }
   }
 }

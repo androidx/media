@@ -18,30 +18,40 @@ package androidx.media3.session;
 import static androidx.media.utils.MediaConstants.BROWSER_SERVICE_EXTRAS_KEY_SEARCH_SUPPORTED;
 import static androidx.media3.session.MediaConstants.EXTRAS_KEY_COMPLETION_STATUS;
 import static androidx.media3.session.MediaConstants.EXTRAS_VALUE_COMPLETION_STATUS_PARTIALLY_PLAYED;
+import static androidx.media3.session.MediaLibraryService.MediaLibrarySession.LIBRARY_ERROR_REPLICATION_MODE_NONE;
+import static androidx.media3.session.MediaLibraryService.MediaLibrarySession.LIBRARY_ERROR_REPLICATION_MODE_NON_FATAL;
 import static androidx.media3.session.MockMediaLibraryService.CONNECTION_HINTS_CUSTOM_LIBRARY_ROOT;
 import static androidx.media3.session.MockMediaLibraryService.createNotifyChildrenChangedBundle;
+import static androidx.media3.session.legacy.MediaConstants.BROWSER_ROOT_HINTS_KEY_CUSTOM_BROWSER_ACTION_LIMIT;
+import static androidx.media3.session.legacy.MediaConstants.DESCRIPTION_EXTRAS_KEY_CUSTOM_BROWSER_ACTION_ID_LIST;
+import static androidx.media3.test.session.common.CommonConstants.METADATA_ALBUM_TITLE;
+import static androidx.media3.test.session.common.CommonConstants.METADATA_ARTIST;
 import static androidx.media3.test.session.common.CommonConstants.METADATA_ARTWORK_URI;
-import static androidx.media3.test.session.common.CommonConstants.METADATA_DESCRIPTION;
 import static androidx.media3.test.session.common.CommonConstants.METADATA_EXTRA_KEY;
 import static androidx.media3.test.session.common.CommonConstants.METADATA_EXTRA_VALUE;
 import static androidx.media3.test.session.common.CommonConstants.METADATA_MEDIA_URI;
-import static androidx.media3.test.session.common.CommonConstants.METADATA_SUBTITLE;
 import static androidx.media3.test.session.common.CommonConstants.METADATA_TITLE;
 import static androidx.media3.test.session.common.CommonConstants.MOCK_MEDIA3_LIBRARY_SERVICE;
 import static androidx.media3.test.session.common.MediaBrowserConstants.CHILDREN_COUNT;
+import static androidx.media3.test.session.common.MediaBrowserConstants.CONNECTION_HINTS_KEY_LIBRARY_ERROR_REPLICATION_MODE;
 import static androidx.media3.test.session.common.MediaBrowserConstants.CUSTOM_ACTION;
 import static androidx.media3.test.session.common.MediaBrowserConstants.CUSTOM_ACTION_EXTRAS;
+import static androidx.media3.test.session.common.MediaBrowserConstants.EXTRAS_KEY_NOTIFY_CHILDREN_CHANGED_MEDIA_ID;
 import static androidx.media3.test.session.common.MediaBrowserConstants.GET_CHILDREN_RESULT;
 import static androidx.media3.test.session.common.MediaBrowserConstants.LONG_LIST_COUNT;
 import static androidx.media3.test.session.common.MediaBrowserConstants.MEDIA_ID_GET_BROWSABLE_ITEM;
+import static androidx.media3.test.session.common.MediaBrowserConstants.MEDIA_ID_GET_ITEM_WITH_BROWSE_ACTIONS;
 import static androidx.media3.test.session.common.MediaBrowserConstants.MEDIA_ID_GET_ITEM_WITH_METADATA;
 import static androidx.media3.test.session.common.MediaBrowserConstants.MEDIA_ID_GET_PLAYABLE_ITEM;
 import static androidx.media3.test.session.common.MediaBrowserConstants.PARENT_ID;
+import static androidx.media3.test.session.common.MediaBrowserConstants.PARENT_ID_ALLOW_FIRST_ON_GET_CHILDREN;
 import static androidx.media3.test.session.common.MediaBrowserConstants.PARENT_ID_AUTH_EXPIRED_ERROR;
+import static androidx.media3.test.session.common.MediaBrowserConstants.PARENT_ID_AUTH_EXPIRED_ERROR_DEPRECATED;
 import static androidx.media3.test.session.common.MediaBrowserConstants.PARENT_ID_AUTH_EXPIRED_ERROR_KEY_ERROR_RESOLUTION_ACTION_LABEL;
 import static androidx.media3.test.session.common.MediaBrowserConstants.PARENT_ID_ERROR;
 import static androidx.media3.test.session.common.MediaBrowserConstants.PARENT_ID_LONG_LIST;
 import static androidx.media3.test.session.common.MediaBrowserConstants.PARENT_ID_NO_CHILDREN;
+import static androidx.media3.test.session.common.MediaBrowserConstants.PARENT_ID_SKIP_LIMIT_REACHED_ERROR;
 import static androidx.media3.test.session.common.MediaBrowserConstants.ROOT_EXTRAS;
 import static androidx.media3.test.session.common.MediaBrowserConstants.ROOT_EXTRAS_KEY;
 import static androidx.media3.test.session.common.MediaBrowserConstants.ROOT_EXTRAS_VALUE;
@@ -73,10 +83,12 @@ import android.support.v4.media.MediaBrowserCompat.SubscriptionCallback;
 import android.support.v4.media.MediaDescriptionCompat;
 import android.support.v4.media.session.PlaybackStateCompat;
 import android.text.TextUtils;
+import androidx.media3.test.session.common.MediaBrowserConstants;
 import androidx.media3.test.session.common.TestUtils;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.ext.truth.os.BundleSubject;
 import androidx.test.filters.LargeTest;
+import com.google.common.collect.Iterables;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -108,6 +120,71 @@ public class MediaBrowserCompatWithMediaLibraryServiceTest
                 .getExtras()
                 .getInt(ROOT_EXTRAS_KEY, /* defaultValue= */ ROOT_EXTRAS_VALUE + 1))
         .isEqualTo(ROOT_EXTRAS_VALUE);
+    ArrayList<Bundle> mediaItemCommandButtons =
+        browserCompat
+            .getExtras()
+            .getParcelableArrayList(
+                androidx.media3.session.legacy.MediaConstants
+                    .BROWSER_SERVICE_EXTRAS_KEY_CUSTOM_BROWSER_ACTION_ROOT_LIST);
+    assertThat(mediaItemCommandButtons).hasSize(2);
+    assertThat(
+            mediaItemCommandButtons
+                .get(0)
+                .getString(
+                    androidx.media3.session.legacy.MediaConstants
+                        .EXTRAS_KEY_CUSTOM_BROWSER_ACTION_ID))
+        .isEqualTo(MediaBrowserConstants.COMMAND_PLAYLIST_ADD);
+    assertThat(
+            mediaItemCommandButtons
+                .get(0)
+                .getString(
+                    androidx.media3.session.legacy.MediaConstants
+                        .EXTRAS_KEY_CUSTOM_BROWSER_ACTION_LABEL))
+        .isEqualTo("Add to playlist");
+    assertThat(
+            mediaItemCommandButtons
+                .get(0)
+                .getString(
+                    androidx.media3.session.legacy.MediaConstants
+                        .EXTRAS_KEY_CUSTOM_BROWSER_ACTION_ICON_URI))
+        .isEqualTo("content://playlist_add");
+    assertThat(
+            mediaItemCommandButtons
+                .get(0)
+                .getBundle(
+                    androidx.media3.session.legacy.MediaConstants
+                        .EXTRAS_KEY_CUSTOM_BROWSER_ACTION_EXTRAS)
+                .getString("key-1"))
+        .isEqualTo("playlist_add");
+    assertThat(
+            mediaItemCommandButtons
+                .get(1)
+                .getString(
+                    androidx.media3.session.legacy.MediaConstants
+                        .EXTRAS_KEY_CUSTOM_BROWSER_ACTION_ID))
+        .isEqualTo(MediaBrowserConstants.COMMAND_RADIO);
+    assertThat(
+            mediaItemCommandButtons
+                .get(1)
+                .getString(
+                    androidx.media3.session.legacy.MediaConstants
+                        .EXTRAS_KEY_CUSTOM_BROWSER_ACTION_LABEL))
+        .isEqualTo("Radio station");
+    assertThat(
+            mediaItemCommandButtons
+                .get(1)
+                .getString(
+                    androidx.media3.session.legacy.MediaConstants
+                        .EXTRAS_KEY_CUSTOM_BROWSER_ACTION_ICON_URI))
+        .isEqualTo("content://radio");
+    assertThat(
+            mediaItemCommandButtons
+                .get(1)
+                .getBundle(
+                    androidx.media3.session.legacy.MediaConstants
+                        .EXTRAS_KEY_CUSTOM_BROWSER_ACTION_EXTRAS)
+                .getString("key-1"))
+        .isEqualTo("radio");
 
     // Note: Cannot use equals() here because browser compat's extra contains server version,
     // extra binder, and extra messenger.
@@ -161,6 +238,67 @@ public class MediaBrowserCompatWithMediaLibraryServiceTest
   }
 
   @Test
+  public void getItem_playableWithBrowseActions_browseActionCorrectlyConverted() throws Exception {
+    String mediaId = MEDIA_ID_GET_ITEM_WITH_BROWSE_ACTIONS;
+    Bundle rootHints = new Bundle();
+    rootHints.putInt(BROWSER_ROOT_HINTS_KEY_CUSTOM_BROWSER_ACTION_LIMIT, 10);
+    connectAndWait(rootHints);
+    CountDownLatch latch = new CountDownLatch(1);
+    AtomicReference<MediaItem> itemRef = new AtomicReference<>();
+
+    browserCompat.getItem(
+        mediaId,
+        new ItemCallback() {
+          @Override
+          public void onItemLoaded(MediaItem item) {
+            itemRef.set(item);
+            latch.countDown();
+          }
+        });
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(
+            itemRef
+                .get()
+                .getDescription()
+                .getExtras()
+                .getStringArrayList(DESCRIPTION_EXTRAS_KEY_CUSTOM_BROWSER_ACTION_ID_LIST))
+        .containsExactly(
+            MediaBrowserConstants.COMMAND_PLAYLIST_ADD, MediaBrowserConstants.COMMAND_RADIO)
+        .inOrder();
+  }
+
+  @Test
+  public void getItem_maxCommandsForMediaItemSetToBelowMaxAvailableCommands_maxCommandsHonoured()
+      throws Exception {
+    String mediaId = MEDIA_ID_GET_ITEM_WITH_BROWSE_ACTIONS;
+    Bundle rootHints = new Bundle();
+    rootHints.putInt(BROWSER_ROOT_HINTS_KEY_CUSTOM_BROWSER_ACTION_LIMIT, 1);
+    connectAndWait(rootHints);
+    CountDownLatch latch = new CountDownLatch(1);
+    AtomicReference<MediaItem> itemRef = new AtomicReference<>();
+
+    browserCompat.getItem(
+        mediaId,
+        new ItemCallback() {
+          @Override
+          public void onItemLoaded(MediaItem item) {
+            itemRef.set(item);
+            latch.countDown();
+          }
+        });
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(
+            itemRef
+                .get()
+                .getDescription()
+                .getExtras()
+                .getStringArrayList(DESCRIPTION_EXTRAS_KEY_CUSTOM_BROWSER_ACTION_ID_LIST))
+        .containsExactly(MediaBrowserConstants.COMMAND_PLAYLIST_ADD);
+  }
+
+  @Test
   public void getItem_metadata() throws Exception {
     String mediaId = MEDIA_ID_GET_ITEM_WITH_METADATA;
     connectAndWait(/* rootHints= */ Bundle.EMPTY);
@@ -181,8 +319,8 @@ public class MediaBrowserCompatWithMediaLibraryServiceTest
     assertThat(itemRef.get().getMediaId()).isEqualTo(mediaId);
     MediaDescriptionCompat description = itemRef.get().getDescription();
     assertThat(TextUtils.equals(description.getTitle(), METADATA_TITLE)).isTrue();
-    assertThat(TextUtils.equals(description.getSubtitle(), METADATA_SUBTITLE)).isTrue();
-    assertThat(TextUtils.equals(description.getDescription(), METADATA_DESCRIPTION)).isTrue();
+    assertThat(TextUtils.equals(description.getSubtitle(), METADATA_ARTIST)).isTrue();
+    assertThat(TextUtils.equals(description.getDescription(), METADATA_ALBUM_TITLE)).isTrue();
     assertThat(description.getIconUri()).isEqualTo(METADATA_ARTWORK_URI);
     assertThat(description.getMediaUri()).isEqualTo(METADATA_MEDIA_URI);
     BundleSubject.assertThat(description.getExtras())
@@ -289,6 +427,14 @@ public class MediaBrowserCompatWithMediaLibraryServiceTest
           .isEqualTo(EXTRAS_VALUE_COMPLETION_STATUS_PARTIALLY_PLAYED);
       assertThat(mediaItem.getDescription().getIconBitmap()).isNotNull();
       assertThat(onChildrenLoadedWithBundleCalled.get()).isFalse();
+      assertThat(
+              mediaItem
+                  .getDescription()
+                  .getExtras()
+                  .getStringArrayList(DESCRIPTION_EXTRAS_KEY_CUSTOM_BROWSER_ACTION_ID_LIST))
+          .containsExactly(
+              MediaBrowserConstants.COMMAND_PLAYLIST_ADD, MediaBrowserConstants.COMMAND_RADIO)
+          .inOrder();
     }
   }
 
@@ -381,14 +527,49 @@ public class MediaBrowserCompatWithMediaLibraryServiceTest
   }
 
   @Test
-  public void getChildren_authErrorResult() throws Exception {
-    String testParentId = PARENT_ID_AUTH_EXPIRED_ERROR;
+  public void getChildren_errorResultWithDefaultErrorReplication_legacyPlaybackStateWithFatalError()
+      throws Exception {
     connectAndWait(/* rootHints= */ Bundle.EMPTY);
+    subscribeAndAssertServiceCallbackErrorWithAuthErrorReplicated(
+        PARENT_ID_AUTH_EXPIRED_ERROR, /* assertFatalError= */ true);
+  }
+
+  @Test
+  public void
+      getChildren_deprecatedErrorResultWithDefaultErrorReplication_legacyPlaybackStateWithFatalError()
+          throws Exception {
+    connectAndWait(/* rootHints= */ Bundle.EMPTY);
+    // Tests the deprecated approach where apps were expected to pass the error extras back as the
+    // extras of the LibraryParams of the LibraryResult because the SessionError type didn't then
+    // exist as part of the LibraryResult.
+    subscribeAndAssertServiceCallbackErrorWithAuthErrorReplicated(
+        PARENT_ID_AUTH_EXPIRED_ERROR_DEPRECATED, /* assertFatalError= */ true);
+  }
+
+  @Test
+  public void
+      getChildren_errorResultWithNonFatalErrorReplication_legacyPlaybackStateWithNonFatalError()
+          throws Exception {
+    Bundle connectionHints = new Bundle();
+    connectionHints.putInt(
+        CONNECTION_HINTS_KEY_LIBRARY_ERROR_REPLICATION_MODE,
+        LIBRARY_ERROR_REPLICATION_MODE_NON_FATAL);
+    connectForServiceStartWithConnectionHints(connectionHints);
+    connectAndWait(/* rootHints= */ Bundle.EMPTY);
+    // Tests the deprecated approach where apps were expected to pass the error extras back as the
+    // extras of the LibraryParams of the LibraryResult because the SessionError type didn't then
+    // exist as part of the LibraryResult.
+    subscribeAndAssertServiceCallbackErrorWithAuthErrorReplicated(
+        PARENT_ID_AUTH_EXPIRED_ERROR, /* assertFatalError= */ false);
+  }
+
+  private void subscribeAndAssertServiceCallbackErrorWithAuthErrorReplicated(
+      String authExpiredParentId, boolean assertFatalError) throws Exception {
     CountDownLatch errorLatch = new CountDownLatch(1);
     AtomicReference<String> parentIdRefOnError = new AtomicReference<>();
 
     browserCompat.subscribe(
-        testParentId,
+        authExpiredParentId,
         new SubscriptionCallback() {
           @Override
           public void onError(String parentId) {
@@ -398,11 +579,17 @@ public class MediaBrowserCompatWithMediaLibraryServiceTest
         });
 
     assertThat(errorLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
-    assertThat(parentIdRefOnError.get()).isEqualTo(testParentId);
-    assertThat(lastReportedPlaybackStateCompat.getState())
-        .isEqualTo(PlaybackStateCompat.STATE_ERROR);
+    assertThat(parentIdRefOnError.get()).isEqualTo(authExpiredParentId);
+    assertThat(firstPlaybackStateCompatReported.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    if (assertFatalError) {
+      assertThat(Iterables.getLast(reportedPlaybackStatesCompat).getState())
+          .isEqualTo(PlaybackStateCompat.STATE_ERROR);
+    } else {
+      assertThat(Iterables.getLast(reportedPlaybackStatesCompat).getState())
+          .isNotEqualTo(PlaybackStateCompat.STATE_ERROR);
+    }
     assertThat(
-            lastReportedPlaybackStateCompat
+            Iterables.getLast(reportedPlaybackStatesCompat)
                 .getExtras()
                 .getString(MediaConstants.EXTRAS_KEY_ERROR_RESOLUTION_ACTION_LABEL_COMPAT))
         .isEqualTo(PARENT_ID_AUTH_EXPIRED_ERROR_KEY_ERROR_RESOLUTION_ACTION_LABEL);
@@ -423,19 +610,69 @@ public class MediaBrowserCompatWithMediaLibraryServiceTest
     assertThat(successLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(parentIdRefOnChildrenLoaded.get()).isEqualTo(PARENT_ID);
     // Any successful calls remove the error state,
-    assertThat(lastReportedPlaybackStateCompat.getState())
+    assertThat(Iterables.getLast(reportedPlaybackStatesCompat).getState())
         .isNotEqualTo(PlaybackStateCompat.STATE_ERROR);
     assertThat(
-            lastReportedPlaybackStateCompat
+            Iterables.getLast(reportedPlaybackStatesCompat)
                 .getExtras()
                 .getString(MediaConstants.EXTRAS_KEY_ERROR_RESOLUTION_ACTION_LABEL_COMPAT))
         .isNull();
   }
 
   @Test
+  public void getChildren_errorResultWithErrorReplicationDisabled_errorNotReplicated()
+      throws Exception {
+    Bundle connectionHints = new Bundle();
+    connectionHints.putInt(
+        CONNECTION_HINTS_KEY_LIBRARY_ERROR_REPLICATION_MODE, LIBRARY_ERROR_REPLICATION_MODE_NONE);
+    connectForServiceStartWithConnectionHints(connectionHints);
+    connectAndWait(/* rootHints= */ Bundle.EMPTY);
+
+    subscribeAndAssertServiceCallbackErrorWithoutErrorReplication(PARENT_ID_AUTH_EXPIRED_ERROR);
+  }
+
+  @Test
+  public void getChildren_skipLimitReachedErrorResultDefaultErrorCodeSet_errorNotReplicated()
+      throws Exception {
+    connectAndWait(/* rootHints= */ Bundle.EMPTY);
+
+    subscribeAndAssertServiceCallbackErrorWithoutErrorReplication(
+        PARENT_ID_SKIP_LIMIT_REACHED_ERROR);
+  }
+
+  private void subscribeAndAssertServiceCallbackErrorWithoutErrorReplication(String parentId)
+      throws InterruptedException {
+    CountDownLatch errorLatch = new CountDownLatch(1);
+    AtomicReference<String> parentIdRefOnError = new AtomicReference<>();
+    browserCompat.subscribe(
+        parentId,
+        new SubscriptionCallback() {
+          @Override
+          public void onError(String parentId) {
+            parentIdRefOnError.set(parentId);
+            errorLatch.countDown();
+          }
+        });
+
+    assertThat(errorLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(parentIdRefOnError.get()).isEqualTo(parentId);
+    assertThat(reportedPlaybackStatesCompat).isEmpty();
+    assertThat(controllerCompat.getPlaybackState().getErrorCode()).isEqualTo(0);
+    assertThat(controllerCompat.getPlaybackState().getErrorMessage()).isNull();
+
+    // Trigger a playback state update to assert we never get a playback state with error reported.
+    controllerCompat.getTransportControls().play();
+
+    assertThat(firstPlaybackStateCompatReported.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(reportedPlaybackStatesCompat).isNotEmpty();
+    assertThat(controllerCompat.getPlaybackState().getErrorCode()).isEqualTo(0);
+    assertThat(controllerCompat.getPlaybackState().getErrorMessage()).isNull();
+  }
+
+  @Test
   public void getChildren_emptyResult() throws Exception {
     String testParentId = PARENT_ID_NO_CHILDREN;
-    connectAndWait(/* rootHints= */ Bundle.EMPTY);
+    connectAndWait(/* rootHints= */ null);
     CountDownLatch latch = new CountDownLatch(1);
     AtomicReference<List<MediaItem>> childrenRef = new AtomicReference<>();
 
@@ -456,12 +693,11 @@ public class MediaBrowserCompatWithMediaLibraryServiceTest
   }
 
   @Test
-  public void getChildren_nullResult() throws Exception {
+  public void getChildren_errorLibraryResult() throws Exception {
     String testParentId = PARENT_ID_ERROR;
     connectAndWait(/* rootHints= */ Bundle.EMPTY);
     CountDownLatch latch = new CountDownLatch(1);
     AtomicReference<String> parentIdRef = new AtomicReference<>();
-    AtomicBoolean onChildrenLoadedWithBundleCalled = new AtomicBoolean();
 
     browserCompat.subscribe(
         testParentId,
@@ -471,21 +707,14 @@ public class MediaBrowserCompatWithMediaLibraryServiceTest
             parentIdRef.set(parentId);
             latch.countDown();
           }
-
-          @Override
-          public void onChildrenLoaded(String parentId, List<MediaItem> children, Bundle options) {
-            onChildrenLoadedWithBundleCalled.set(true);
-          }
         });
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(parentIdRef.get()).isEqualTo(testParentId);
-    assertThat(onChildrenLoadedWithBundleCalled.get()).isFalse();
   }
 
   @Test
-  public void getChildren_browserNotifyChildrenChanged_callsOnChildrenLoadedTwice()
-      throws Exception {
+  public void subscribe_browserNotifyChildrenChanged_callsOnChildrenLoadedTwice() throws Exception {
     String testParentId = SUBSCRIBE_PARENT_ID_2;
     connectAndWait(/* rootHints= */ Bundle.EMPTY);
     CountDownLatch latch = new CountDownLatch(2);
@@ -513,6 +742,53 @@ public class MediaBrowserCompatWithMediaLibraryServiceTest
     assertThat(childrenList).hasSize(2);
     assertThat(childrenList.get(0)).hasSize(12);
     assertThat(childrenList.get(1)).hasSize(12);
+  }
+
+  @Test
+  public void subscribe_onChildrenChangedWithMaxValue_convertedToOnError() throws Exception {
+    String testParentId = PARENT_ID_ALLOW_FIRST_ON_GET_CHILDREN;
+    connectAndWait(/* rootHints= */ Bundle.EMPTY);
+    CountDownLatch latch = new CountDownLatch(2);
+    List<String> parentIds = new ArrayList<>();
+    List<Bundle> optionsList = new ArrayList<>();
+    List<List<MediaItem>> childrenList = new ArrayList<>();
+    Bundle requestNotifyChildrenWithDelayBundle =
+        createNotifyChildrenChangedBundle(
+            testParentId,
+            /* itemCount= */ Integer.MAX_VALUE,
+            /* delayMs= */ 100L,
+            /* broadcast= */ false);
+    requestNotifyChildrenWithDelayBundle.putInt(MediaBrowserCompat.EXTRA_PAGE_SIZE, 12);
+
+    browserCompat.subscribe(
+        testParentId,
+        requestNotifyChildrenWithDelayBundle,
+        new SubscriptionCallback() {
+          @Override
+          public void onChildrenLoaded(String parentId, List<MediaItem> children, Bundle options) {
+            parentIds.add(parentId);
+            childrenList.add(children);
+            optionsList.add(options);
+            latch.countDown();
+          }
+
+          @Override
+          public void onError(String parentId, Bundle options) {
+            parentIds.add(parentId);
+            optionsList.add(options);
+            latch.countDown();
+          }
+        });
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(parentIds).containsExactly(testParentId, testParentId);
+    assertThat(childrenList).hasSize(1);
+    assertThat(childrenList.get(0)).hasSize(12);
+    assertThat(optionsList).hasSize(2);
+    assertThat(optionsList.get(0).getString(EXTRAS_KEY_NOTIFY_CHILDREN_CHANGED_MEDIA_ID))
+        .isEqualTo(PARENT_ID_ALLOW_FIRST_ON_GET_CHILDREN);
+    assertThat(optionsList.get(1).getString(EXTRAS_KEY_NOTIFY_CHILDREN_CHANGED_MEDIA_ID))
+        .isEqualTo(PARENT_ID_ALLOW_FIRST_ON_GET_CHILDREN);
   }
 
   @Test

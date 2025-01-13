@@ -363,10 +363,12 @@ public class FakeMediaPeriod implements MediaPeriod {
 
   @Override
   public boolean continueLoading(LoadingInfo loadingInfo) {
+    boolean progressMade = false;
     for (FakeSampleStream sampleStream : sampleStreams) {
       sampleStream.writeData(loadingInfo.playbackPositionUs);
+      progressMade = true;
     }
-    return true;
+    return progressMade;
   }
 
   @Override

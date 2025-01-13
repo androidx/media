@@ -16,7 +16,6 @@
 package androidx.media3.common.util;
 
 import static android.opengl.EGL14.EGL_CONTEXT_CLIENT_VERSION;
-import static android.opengl.EGL14.EGL_NO_SURFACE;
 import static android.opengl.GLU.gluErrorString;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkState;
@@ -34,7 +33,6 @@ import android.opengl.GLES20;
 import android.opengl.GLES30;
 import android.opengl.GLUtils;
 import android.opengl.Matrix;
-import androidx.annotation.DoNotInline;
 import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
@@ -98,6 +96,7 @@ public final class GlUtil {
   private static final String EXTENSION_YUV_TARGET = "GL_EXT_YUV_target";
   // https://registry.khronos.org/EGL/extensions/EXT/EGL_EXT_gl_colorspace_bt2020_linear.txt
   private static final String EXTENSION_COLORSPACE_BT2020_PQ = "EGL_EXT_gl_colorspace_bt2020_pq";
+  private static final String EXTENSION_COLORSPACE_BT2020_HLG = "EGL_EXT_gl_colorspace_bt2020_hlg";
   // https://registry.khronos.org/EGL/extensions/KHR/EGL_KHR_gl_colorspace.txt
   private static final int EGL_GL_COLORSPACE_KHR = 0x309D;
   // https://registry.khronos.org/EGL/extensions/EXT/EGL_EXT_gl_colorspace_bt2020_linear.txt
@@ -105,6 +104,11 @@ public final class GlUtil {
   private static final int[] EGL_WINDOW_SURFACE_ATTRIBUTES_BT2020_PQ =
       new int[] {
         EGL_GL_COLORSPACE_KHR, EGL_GL_COLORSPACE_BT2020_PQ_EXT, EGL14.EGL_NONE, EGL14.EGL_NONE
+      };
+  private static final int EGL_GL_COLORSPACE_BT2020_HLG_EXT = 0x3540;
+  private static final int[] EGL_WINDOW_SURFACE_ATTRIBUTES_BT2020_HLG =
+      new int[] {
+        EGL_GL_COLORSPACE_KHR, EGL_GL_COLORSPACE_BT2020_HLG_EXT, EGL14.EGL_NONE, EGL14.EGL_NONE
       };
   private static final int[] EGL_WINDOW_SURFACE_ATTRIBUTES_NONE = new int[] {EGL14.EGL_NONE};
 
@@ -181,7 +185,7 @@ public final class GlUtil {
       return false;
     }
 
-    return Api17.isExtensionSupported(EXTENSION_PROTECTED_CONTENT);
+    return isExtensionSupported(EXTENSION_PROTECTED_CONTENT);
   }
 
   /**
@@ -192,7 +196,7 @@ public final class GlUtil {
    * EGLContext)}.
    */
   public static boolean isSurfacelessContextExtensionSupported() {
-    return Util.SDK_INT >= 17 && Api17.isExtensionSupported(EXTENSION_SURFACELESS_CONTEXT);
+    return isExtensionSupported(EXTENSION_SURFACELESS_CONTEXT);
   }
 
   /**
@@ -202,11 +206,8 @@ public final class GlUtil {
    * for HDR input.
    */
   public static boolean isYuvTargetExtensionSupported() {
-    if (Util.SDK_INT < 17) {
-      return false;
-    }
     @Nullable String glExtensions;
-    if (Util.areEqual(Api17.getCurrentContext(), EGL14.EGL_NO_CONTEXT)) {
+    if (Util.areEqual(EGL14.eglGetCurrentContext(), EGL14.EGL_NO_CONTEXT)) {
       // Create a placeholder context and make it current to allow calling GLES20.glGetString().
       try {
         EGLDisplay eglDisplay = getDefaultEglDisplay();
@@ -226,13 +227,30 @@ public final class GlUtil {
 
   /** Returns whether {@link #EXTENSION_COLORSPACE_BT2020_PQ} is supported. */
   public static boolean isBt2020PqExtensionSupported() {
-    return Util.SDK_INT >= 17 && Api17.isExtensionSupported(EXTENSION_COLORSPACE_BT2020_PQ);
+    // On API<33, the system cannot display PQ content correctly regardless of whether BT2020 PQ
+    // GL extension is supported. Context: http://b/252537203#comment5.
+    return Util.SDK_INT >= 33 && isExtensionSupported(EXTENSION_COLORSPACE_BT2020_PQ);
+  }
+
+  /** Returns whether {@link #EXTENSION_COLORSPACE_BT2020_HLG} is supported. */
+  public static boolean isBt2020HlgExtensionSupported() {
+    return isExtensionSupported(EXTENSION_COLORSPACE_BT2020_HLG);
   }
 
   /** Returns an initialized default {@link EGLDisplay}. */
-  @RequiresApi(17)
   public static EGLDisplay getDefaultEglDisplay() throws GlException {
-    return Api17.getDefaultEglDisplay();
+    EGLDisplay eglDisplay = EGL14.eglGetDisplay(EGL14.EGL_DEFAULT_DISPLAY);
+    checkGlException(!eglDisplay.equals(EGL14.EGL_NO_DISPLAY), "No EGL display.");
+    checkGlException(
+        EGL14.eglInitialize(
+            eglDisplay,
+            /* unusedMajor */ new int[1],
+            /* majorOffset= */ 0,
+            /* unusedMinor */ new int[1],
+            /* minorOffset= */ 0),
+        "Error in eglInitialize.");
+    checkGlError();
+    return eglDisplay;
   }
 
   /**
@@ -243,7 +261,6 @@ public final class GlUtil {
    *
    * @param eglDisplay The {@link EGLDisplay} to create an {@link EGLContext} for.
    */
-  @RequiresApi(17)
   public static EGLContext createEglContext(EGLDisplay eglDisplay) throws GlException {
     return createEglContext(
         EGL14.EGL_NO_CONTEXT, eglDisplay, /* openGlVersion= */ 2, EGL_CONFIG_ATTRIBUTES_RGBA_8888);
@@ -259,7 +276,6 @@ public final class GlUtil {
    * @param configAttributes The attributes to configure EGL with. Accepts either {@link
    *     #EGL_CONFIG_ATTRIBUTES_RGBA_1010102}, or {@link #EGL_CONFIG_ATTRIBUTES_RGBA_8888}.
    */
-  @RequiresApi(17)
   public static EGLContext createEglContext(
       EGLContext sharedContext,
       EGLDisplay eglDisplay,
@@ -270,7 +286,23 @@ public final class GlUtil {
         Arrays.equals(configAttributes, EGL_CONFIG_ATTRIBUTES_RGBA_8888)
             || Arrays.equals(configAttributes, EGL_CONFIG_ATTRIBUTES_RGBA_1010102));
     checkArgument(openGlVersion == 2 || openGlVersion == 3);
-    return Api17.createEglContext(sharedContext, eglDisplay, openGlVersion, configAttributes);
+    int[] contextAttributes = {EGL_CONTEXT_CLIENT_VERSION, openGlVersion, EGL14.EGL_NONE};
+    EGLContext eglContext =
+        EGL14.eglCreateContext(
+            eglDisplay,
+            getEglConfig(eglDisplay, configAttributes),
+            sharedContext,
+            contextAttributes,
+            /* offset= */ 0);
+    if (eglContext == null || eglContext.equals(EGL14.EGL_NO_CONTEXT)) {
+      EGL14.eglTerminate(eglDisplay);
+      throw new GlException(
+          "eglCreateContext() failed to create a valid context. The device may not support EGL"
+              + " version "
+              + openGlVersion);
+    }
+    checkGlError();
+    return eglContext;
   }
 
   /**
@@ -282,10 +314,9 @@ public final class GlUtil {
    * @param surface The surface to wrap; must be a surface, surface texture or surface holder.
    * @param colorTransfer The {@linkplain C.ColorTransfer color transfer characteristics} to which
    *     the {@code surface} is configured. The only accepted values are {@link
-   *     C#COLOR_TRANSFER_SDR}, {@link C#COLOR_TRANSFER_HLG} and {@link C#COLOR_TRANSFER_ST2084}.
+   *     C#COLOR_TRANSFER_SDR}, {@link C#COLOR_TRANSFER_HLG}, and {@link C#COLOR_TRANSFER_ST2084}.
    * @param isEncoderInputSurface Whether the {@code surface} is the input surface of an encoder.
    */
-  @RequiresApi(17)
   public static EGLSurface createEglSurface(
       EGLDisplay eglDisplay,
       Object surface,
@@ -297,26 +328,40 @@ public final class GlUtil {
     if (colorTransfer == C.COLOR_TRANSFER_SDR || colorTransfer == C.COLOR_TRANSFER_GAMMA_2_2) {
       configAttributes = EGL_CONFIG_ATTRIBUTES_RGBA_8888;
       windowAttributes = EGL_WINDOW_SURFACE_ATTRIBUTES_NONE;
-    } else if (colorTransfer == C.COLOR_TRANSFER_ST2084) {
+    } else if (colorTransfer == C.COLOR_TRANSFER_HLG || colorTransfer == C.COLOR_TRANSFER_ST2084) {
       configAttributes = EGL_CONFIG_ATTRIBUTES_RGBA_1010102;
+      // !isEncoderInputSurface means outputting to a display surface. HDR display surfaces
+      // require EGL_GL_COLORSPACE_BT2020_PQ_EXT or EGL_GL_COLORSPACE_BT2020_HLG_EXT.
       if (isEncoderInputSurface) {
-        // Outputting BT2020 PQ with EGL_WINDOW_SURFACE_ATTRIBUTES_BT2020_PQ to an encoder causes
-        // the encoder to incorrectly switch to full range color, even if the encoder is configured
-        // with limited range color, because EGL_WINDOW_SURFACE_ATTRIBUTES_BT2020_PQ sets full range
-        // color output, and GL windowAttributes overrides encoder settings.
+        // Outputting BT2020 PQ or HLG with EGL_WINDOW_SURFACE_ATTRIBUTES_BT2020_PQ to an encoder
+        // causes the encoder to incorrectly switch to full range color, even if the encoder is
+        // configured with limited range color, because EGL_WINDOW_SURFACE_ATTRIBUTES_BT2020_PQ sets
+        // full range color output, and GL windowAttributes overrides encoder settings.
         windowAttributes = EGL_WINDOW_SURFACE_ATTRIBUTES_NONE;
-      } else {
-        // TODO(b/262259999): HDR10 PQ content looks dark on the screen.
+      } else if (colorTransfer == C.COLOR_TRANSFER_ST2084) {
+        if (!isBt2020PqExtensionSupported()) {
+          throw new GlException("BT.2020 PQ OpenGL output isn't supported.");
+        }
+        // TODO(b/262259999): HDR10 PQ content looks dark on the screen, on API 33.
         windowAttributes = EGL_WINDOW_SURFACE_ATTRIBUTES_BT2020_PQ;
+      } else {
+        if (!isBt2020HlgExtensionSupported()) {
+          throw new GlException("BT.2020 HLG OpenGL output isn't supported.");
+        }
+        windowAttributes = EGL_WINDOW_SURFACE_ATTRIBUTES_BT2020_HLG;
       }
-    } else if (colorTransfer == C.COLOR_TRANSFER_HLG) {
-      checkArgument(isEncoderInputSurface, "Outputting HLG to the screen is not supported.");
-      configAttributes = EGL_CONFIG_ATTRIBUTES_RGBA_1010102;
-      windowAttributes = EGL_WINDOW_SURFACE_ATTRIBUTES_NONE;
     } else {
       throw new IllegalArgumentException("Unsupported color transfer: " + colorTransfer);
     }
-    return Api17.createEglSurface(eglDisplay, surface, configAttributes, windowAttributes);
+    EGLSurface eglSurface =
+        EGL14.eglCreateWindowSurface(
+            eglDisplay,
+            getEglConfig(eglDisplay, configAttributes),
+            surface,
+            windowAttributes,
+            /* offset= */ 0);
+    checkEglException("Error creating a new EGL surface");
+    return eglSurface;
   }
 
   /**
@@ -328,7 +373,6 @@ public final class GlUtil {
    * @param configAttributes EGL configuration attributes. Valid arguments include {@link
    *     #EGL_CONFIG_ATTRIBUTES_RGBA_8888} and {@link #EGL_CONFIG_ATTRIBUTES_RGBA_1010102}.
    */
-  @RequiresApi(17)
   private static EGLSurface createPbufferSurface(
       EGLDisplay eglDisplay, int width, int height, int[] configAttributes) throws GlException {
     int[] pbufferAttributes =
@@ -337,7 +381,14 @@ public final class GlUtil {
           EGL14.EGL_HEIGHT, height,
           EGL14.EGL_NONE
         };
-    return Api17.createEglPbufferSurface(eglDisplay, configAttributes, pbufferAttributes);
+    EGLSurface eglSurface =
+        EGL14.eglCreatePbufferSurface(
+            eglDisplay,
+            getEglConfig(eglDisplay, configAttributes),
+            pbufferAttributes,
+            /* offset= */ 0);
+    checkEglException("Error creating a new EGL Pbuffer surface");
+    return eglSurface;
   }
 
   /**
@@ -350,7 +401,6 @@ public final class GlUtil {
    * @param eglDisplay The {@link EGLDisplay} to attach the surface to.
    * @return {@link EGL14#EGL_NO_SURFACE} if supported and a 1x1 pixel buffer surface otherwise.
    */
-  @RequiresApi(17)
   public static EGLSurface createFocusedPlaceholderEglSurface(
       EGLContext eglContext, EGLDisplay eglDisplay) throws GlException {
     // EGL_CONFIG_ATTRIBUTES_RGBA_1010102 could be used for HDR input, but EGL14.EGL_NO_SURFACE
@@ -372,9 +422,16 @@ public final class GlUtil {
    * <p>Returns {@code 0} if no {@link EGLContext} {@linkplain #createFocusedPlaceholderEglSurface
    * is focused}.
    */
-  @RequiresApi(17)
   public static long getContextMajorVersion() throws GlException {
-    return Api17.getContextMajorVersion();
+    int[] currentEglContextVersion = new int[1];
+    EGL14.eglQueryContext(
+        EGL14.eglGetDisplay(EGL14.EGL_DEFAULT_DISPLAY),
+        EGL14.eglGetCurrentContext(),
+        EGL_CONTEXT_CLIENT_VERSION,
+        currentEglContextVersion,
+        /* offset= */ 0);
+    checkGlError();
+    return currentEglContextVersion[0];
   }
 
   /**
@@ -384,10 +441,20 @@ public final class GlUtil {
    * #createFocusedPlaceholderEglSurface is focused}, or the focused {@link EGLContext} version is
    * less than 3.0.
    */
-  @RequiresApi(17)
   public static long createGlSyncFence() throws GlException {
-    // If the context is an OpenGL 3.0 context, we must be running API 18 or later.
-    return Api17.getContextMajorVersion() >= 3 ? Api18.createSyncFence() : 0;
+    if (getContextMajorVersion() >= 3) {
+      long syncObject = GLES30.glFenceSync(GLES30.GL_SYNC_GPU_COMMANDS_COMPLETE, /* flags= */ 0);
+      checkGlError();
+      // Due to specifics of OpenGL, it might happen that the fence creation command is not yet
+      // sent into the GPU command queue, which can cause other threads to wait infinitely if
+      // the glSyncWait/glClientSyncWait command went into the GPU earlier. Hence, we have to
+      // call glFlush to ensure that glFenceSync is inside of the GPU command queue.
+      GLES20.glFlush();
+      checkGlError();
+      return syncObject;
+    } else {
+      return 0;
+    }
   }
 
   /**
@@ -396,22 +463,13 @@ public final class GlUtil {
    * <p>The {@code syncObject} must not be used after deletion.
    */
   public static void deleteSyncObject(long syncObject) throws GlException {
-    // If the sync object is set, we must be running API 18 or later.
-    if (Util.SDK_INT >= 18) {
-      Api18.deleteSyncObject(syncObject);
-    }
+    deleteSyncObjectQuietly(syncObject);
+    checkGlError();
   }
 
   /** Releases the GL sync object if set, suppressing any error. */
   public static void deleteSyncObjectQuietly(long syncObject) {
-    if (Util.SDK_INT >= 18) {
-      try {
-        // glDeleteSync ignores a 0-valued sync object.
-        Api18.deleteSyncObject(syncObject);
-      } catch (GlException unused) {
-        // Suppress exceptions.
-      }
-    }
+    GLES30.glDeleteSync(syncObject);
   }
 
   /**
@@ -424,15 +482,14 @@ public final class GlUtil {
       // Fallback to using glFinish for synchronization when fence creation failed.
       GLES20.glFinish();
     } else {
-      // If the sync object is set, we must be running API 18 or later.
-      Api18.waitSync(syncObject);
+      GLES30.glWaitSync(syncObject, /* flags= */ 0, GLES30.GL_TIMEOUT_IGNORED);
+      checkGlError();
     }
   }
 
   /** Gets the current {@link EGLContext context}. */
-  @RequiresApi(17)
   public static EGLContext getCurrentContext() {
-    return Api17.getCurrentContext();
+    return EGL14.eglGetCurrentContext();
   }
 
   /**
@@ -506,19 +563,16 @@ public final class GlUtil {
    * Makes the specified {@code eglSurface} the render target, using a viewport of {@code width} by
    * {@code height} pixels.
    */
-  @RequiresApi(17)
   public static void focusEglSurface(
       EGLDisplay eglDisplay, EGLContext eglContext, EGLSurface eglSurface, int width, int height)
       throws GlException {
-    Api17.focusRenderTarget(
-        eglDisplay, eglContext, eglSurface, /* framebuffer= */ 0, width, height);
+    focusRenderTarget(eglDisplay, eglContext, eglSurface, /* framebuffer= */ 0, width, height);
   }
 
   /**
    * Makes the specified {@code framebuffer} the render target, using a viewport of {@code width} by
    * {@code height} pixels.
    */
-  @RequiresApi(17)
   public static void focusFramebuffer(
       EGLDisplay eglDisplay,
       EGLContext eglContext,
@@ -527,7 +581,7 @@ public final class GlUtil {
       int width,
       int height)
       throws GlException {
-    Api17.focusRenderTarget(eglDisplay, eglContext, eglSurface, framebuffer, width, height);
+    focusRenderTarget(eglDisplay, eglContext, eglSurface, framebuffer, width, height);
   }
 
   /**
@@ -578,7 +632,7 @@ public final class GlUtil {
    */
   public static int createExternalTexture() throws GlException {
     int texId = generateTexture();
-    bindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, texId);
+    bindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, texId, GLES20.GL_LINEAR);
     return texId;
   }
 
@@ -614,7 +668,6 @@ public final class GlUtil {
     // TODO(b/227624622): Implement a pixel test that confirms 16f has less posterization.
     // TODO - b/309459038: Consider renaming the method, as the created textures are uninitialized.
     if (useHighPrecisionColorComponents) {
-      checkState(Util.SDK_INT >= 18, "GLES30 extensions are not supported below API 18.");
       return createTextureUninitialized(width, height, GLES30.GL_RGBA16F, GLES30.GL_HALF_FLOAT);
     }
     return createTextureUninitialized(width, height, GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE);
@@ -634,7 +687,7 @@ public final class GlUtil {
       throws GlException {
     assertValidTextureSize(width, height);
     int texId = generateTexture();
-    bindTexture(GLES20.GL_TEXTURE_2D, texId);
+    bindTexture(GLES20.GL_TEXTURE_2D, texId, GLES20.GL_LINEAR);
     GLES20.glTexImage2D(
         GLES20.GL_TEXTURE_2D,
         /* level= */ 0,
@@ -660,26 +713,29 @@ public final class GlUtil {
   /** Sets the {@code texId} to contain the {@link Bitmap bitmap} data and size. */
   public static void setTexture(int texId, Bitmap bitmap) throws GlException {
     assertValidTextureSize(bitmap.getWidth(), bitmap.getHeight());
-    bindTexture(GLES20.GL_TEXTURE_2D, texId);
+    bindTexture(GLES20.GL_TEXTURE_2D, texId, GLES20.GL_LINEAR);
     GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, /* level= */ 0, bitmap, /* border= */ 0);
     checkGlError();
   }
 
   /**
-   * Binds the texture of the given type with default configuration of GL_LINEAR filtering and
+   * Binds the texture of the given type with the specified MIN and MAG sampling filter and
    * GL_CLAMP_TO_EDGE wrapping.
    *
    * @param textureTarget The target to which the texture is bound, e.g. {@link
    *     GLES20#GL_TEXTURE_2D} for a two-dimensional texture or {@link
    *     GLES11Ext#GL_TEXTURE_EXTERNAL_OES} for an external texture.
    * @param texId The texture identifier.
+   * @param sampleFilter The texture sample filter for both {@link GLES20#GL_TEXTURE_MAG_FILTER} and
+   *     {@link GLES20#GL_TEXTURE_MIN_FILTER}.
    */
-  public static void bindTexture(int textureTarget, int texId) throws GlException {
+  public static void bindTexture(int textureTarget, int texId, int sampleFilter)
+      throws GlException {
     GLES20.glBindTexture(textureTarget, texId);
     checkGlError();
-    GLES20.glTexParameteri(textureTarget, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR);
+    GLES20.glTexParameteri(textureTarget, GLES20.GL_TEXTURE_MAG_FILTER, sampleFilter);
     checkGlError();
-    GLES20.glTexParameteri(textureTarget, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR);
+    GLES20.glTexParameteri(textureTarget, GLES20.GL_TEXTURE_MIN_FILTER, sampleFilter);
     checkGlError();
     GLES20.glTexParameteri(textureTarget, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE);
     checkGlError();
@@ -721,20 +777,39 @@ public final class GlUtil {
    * <p>This is a no-op if called on already-destroyed {@link EGLDisplay} and {@link EGLContext}
    * instances.
    */
-  @RequiresApi(17)
   public static void destroyEglContext(
       @Nullable EGLDisplay eglDisplay, @Nullable EGLContext eglContext) throws GlException {
-    Api17.destroyEglContext(eglDisplay, eglContext);
+    if (eglDisplay == null || eglDisplay.equals(EGL14.EGL_NO_DISPLAY)) {
+      return;
+    }
+    EGL14.eglMakeCurrent(
+        eglDisplay, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_CONTEXT);
+    checkEglException("Error releasing context");
+    if (eglContext != null && !eglContext.equals(EGL14.EGL_NO_CONTEXT)) {
+      EGL14.eglDestroyContext(eglDisplay, eglContext);
+      checkEglException("Error destroying context");
+    }
+    EGL14.eglReleaseThread();
+    checkEglException("Error releasing thread");
+    EGL14.eglTerminate(eglDisplay);
+    checkEglException("Error terminating display");
   }
 
   /**
    * Destroys the {@link EGLSurface} identified by the provided {@link EGLDisplay} and {@link
    * EGLSurface}.
    */
-  @RequiresApi(17)
   public static void destroyEglSurface(
       @Nullable EGLDisplay eglDisplay, @Nullable EGLSurface eglSurface) throws GlException {
-    Api17.destroyEglSurface(eglDisplay, eglSurface);
+    if (eglDisplay == null || eglDisplay.equals(EGL14.EGL_NO_DISPLAY)) {
+      return;
+    }
+    if (eglSurface == null || eglSurface.equals(EGL14.EGL_NO_SURFACE)) {
+      return;
+    }
+
+    EGL14.eglDestroySurface(eglDisplay, eglSurface);
+    checkEglException("Error destroying surface");
   }
 
   /** Deletes a framebuffer, or silently ignores the method call if {@code fboId} is unused. */
@@ -751,6 +826,181 @@ public final class GlUtil {
   }
 
   /**
+   * Copies the pixels from {@code readFboId} into {@code drawFboId}. Requires OpenGL ES 3.0.
+   *
+   * <p>When the input pixel region (given by {@code readRect}) doesn't have the same size as the
+   * output region (given by {@code drawRect}), this method uses {@link GLES20#GL_LINEAR} filtering
+   * to scale the image contents.
+   *
+   * @param readFboId The framebuffer object to read from.
+   * @param readRect The rectangular region of {@code readFboId} to read from.
+   * @param drawFboId The framebuffer object to draw into.
+   * @param drawRect The rectangular region of {@code drawFboId} to draw into.
+   */
+  public static void blitFrameBuffer(int readFboId, GlRect readRect, int drawFboId, GlRect drawRect)
+      throws GlException {
+    int[] boundFramebuffer = new int[1];
+    GLES20.glGetIntegerv(GLES20.GL_FRAMEBUFFER_BINDING, boundFramebuffer, /* offset= */ 0);
+    checkGlError();
+    GLES30.glBindFramebuffer(GLES30.GL_READ_FRAMEBUFFER, readFboId);
+    checkGlError();
+    GLES30.glBindFramebuffer(GLES30.GL_DRAW_FRAMEBUFFER, drawFboId);
+    checkGlError();
+    GLES30.glBlitFramebuffer(
+        readRect.left,
+        readRect.bottom,
+        readRect.right,
+        readRect.top,
+        drawRect.left,
+        drawRect.bottom,
+        drawRect.right,
+        drawRect.top,
+        GLES30.GL_COLOR_BUFFER_BIT,
+        GLES30.GL_LINEAR);
+    checkGlError();
+    GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, /* framebuffer= */ boundFramebuffer[0]);
+    checkGlError();
+  }
+
+  /**
+   * Creates a pixel buffer object with a data store of the given size and usage {@link
+   * GLES30#GL_DYNAMIC_READ}.
+   *
+   * <p>The buffer is suitable for repeated modification by OpenGL and reads by the application.
+   *
+   * @param size The size of the buffer object's data store.
+   * @return The pixel buffer object.
+   */
+  public static int createPixelBufferObject(int size) throws GlException {
+    int[] ids = new int[1];
+    GLES30.glGenBuffers(/* n= */ 1, ids, /* offset= */ 0);
+    GlUtil.checkGlError();
+
+    GLES30.glBindBuffer(GLES30.GL_PIXEL_PACK_BUFFER, ids[0]);
+    GlUtil.checkGlError();
+
+    GLES30.glBufferData(
+        GLES30.GL_PIXEL_PACK_BUFFER, /* size= */ size, /* data= */ null, GLES30.GL_DYNAMIC_READ);
+    GlUtil.checkGlError();
+
+    GLES30.glBindBuffer(GLES30.GL_PIXEL_PACK_BUFFER, /* buffer= */ 0);
+    GlUtil.checkGlError();
+    return ids[0];
+  }
+
+  /**
+   * Reads pixel data from the {@link GLES30#GL_COLOR_ATTACHMENT0} attachment of a framebuffer into
+   * the data store of a pixel buffer object.
+   *
+   * <p>The texture backing the color attachment of {@code readFboId} and the buffer store of {@code
+   * bufferId} must hold an image of the given {@code width} and {@code height} with format {@link
+   * GLES30#GL_RGBA} and type {@link GLES30#GL_UNSIGNED_BYTE}.
+   *
+   * <p>This a non-blocking call which reads the data asynchronously.
+   *
+   * <p>Requires API 24: This method must call the version of {@link GLES30#glReadPixels(int, int,
+   * int, int, int, int, int)} which accepts an integer offset as the last parameter. This version
+   * of glReadPixels is not available in the Java {@link GLES30} wrapper until API 24.
+   *
+   * <p>HDR support is not yet implemented.
+   *
+   * @param readFboId The framebuffer that holds pixel data.
+   * @param width The image width.
+   * @param height The image height.
+   * @param bufferId The pixel buffer object to read into.
+   */
+  @RequiresApi(24)
+  public static void schedulePixelBufferRead(int readFboId, int width, int height, int bufferId)
+      throws GlException {
+    focusFramebufferUsingCurrentContext(readFboId, width, height);
+    GLES30.glBindBuffer(GLES30.GL_PIXEL_PACK_BUFFER, bufferId);
+    GlUtil.checkGlError();
+
+    GLES30.glReadBuffer(GLES30.GL_COLOR_ATTACHMENT0);
+    GLES30.glReadPixels(
+        /* x= */ 0,
+        /* y= */ 0,
+        width,
+        height,
+        GLES30.GL_RGBA,
+        GLES30.GL_UNSIGNED_BYTE,
+        /* offset= */ 0);
+    GlUtil.checkGlError();
+
+    GLES30.glBindBuffer(GLES30.GL_PIXEL_PACK_BUFFER, /* buffer= */ 0);
+    GlUtil.checkGlError();
+  }
+
+  /**
+   * Maps the pixel buffer object's data store of a given size and returns a {@link ByteBuffer} of
+   * OpenGL managed memory.
+   *
+   * <p>The application must not write into the returned {@link ByteBuffer}.
+   *
+   * <p>The pixel buffer object should have a {@linkplain #schedulePixelBufferRead previously
+   * scheduled pixel buffer read}.
+   *
+   * <p>When the application no longer needs to access the returned buffer, call {@link
+   * #unmapPixelBufferObject}.
+   *
+   * <p>This call blocks until the pixel buffer data from the last {@link #schedulePixelBufferRead}
+   * call is available.
+   *
+   * <p>Requires API 24: see {@link #schedulePixelBufferRead}.
+   *
+   * @param bufferId The pixel buffer object.
+   * @param size The size of the pixel buffer object's data store to be mapped.
+   * @return The {@link ByteBuffer} that holds pixel data.
+   */
+  @RequiresApi(24)
+  public static ByteBuffer mapPixelBufferObject(int bufferId, int size) throws GlException {
+    GLES20.glBindBuffer(GLES30.GL_PIXEL_PACK_BUFFER, bufferId);
+    checkGlError();
+    ByteBuffer mappedPixelBuffer =
+        (ByteBuffer)
+            GLES30.glMapBufferRange(
+                GLES30.GL_PIXEL_PACK_BUFFER,
+                /* offset= */ 0,
+                /* length= */ size,
+                GLES30.GL_MAP_READ_BIT);
+    GlUtil.checkGlError();
+    GLES30.glBindBuffer(GLES30.GL_PIXEL_PACK_BUFFER, /* buffer= */ 0);
+    GlUtil.checkGlError();
+    return mappedPixelBuffer;
+  }
+
+  /**
+   * Unmaps the pixel buffer object {@code bufferId}'s data store.
+   *
+   * <p>The pixel buffer object should be previously {@linkplain #mapPixelBufferObject mapped}.
+   *
+   * <p>After this method returns, accessing data inside a previously {@linkplain
+   * #mapPixelBufferObject mapped} {@link ByteBuffer} results in undefined behaviour.
+   *
+   * <p>When this method returns, the pixel buffer object {@code bufferId} can be reused by {@link
+   * #schedulePixelBufferRead}.
+   *
+   * <p>Requires API 24: see {@link #schedulePixelBufferRead}.
+   *
+   * @param bufferId The pixel buffer object.
+   */
+  @RequiresApi(24)
+  public static void unmapPixelBufferObject(int bufferId) throws GlException {
+    GLES30.glBindBuffer(GLES30.GL_PIXEL_PACK_BUFFER, bufferId);
+    GlUtil.checkGlError();
+    GLES30.glUnmapBuffer(GLES30.GL_PIXEL_PACK_BUFFER);
+    GlUtil.checkGlError();
+    GLES30.glBindBuffer(GLES30.GL_PIXEL_PACK_BUFFER, /* buffer= */ 0);
+    GlUtil.checkGlError();
+  }
+
+  /** Deletes a buffer object, or silently ignores the method call if {@code bufferId} is unused. */
+  public static void deleteBuffer(int bufferId) throws GlException {
+    GLES20.glDeleteBuffers(/* n= */ 1, new int[] {bufferId}, /* offset= */ 0);
+    checkGlError();
+  }
+
+  /**
    * Throws a {@link GlException} with the given message if {@code expression} evaluates to {@code
    * false}.
    */
@@ -760,203 +1010,46 @@ public final class GlUtil {
     }
   }
 
-  @RequiresApi(17)
-  private static final class Api17 {
-    private Api17() {}
-
-    @DoNotInline
-    public static EGLDisplay getDefaultEglDisplay() throws GlException {
-      EGLDisplay eglDisplay = EGL14.eglGetDisplay(EGL14.EGL_DEFAULT_DISPLAY);
-      checkGlException(!eglDisplay.equals(EGL14.EGL_NO_DISPLAY), "No EGL display.");
-      checkGlException(
-          EGL14.eglInitialize(
-              eglDisplay,
-              /* unusedMajor */ new int[1],
-              /* majorOffset= */ 0,
-              /* unusedMinor */ new int[1],
-              /* minorOffset= */ 0),
-          "Error in eglInitialize.");
-      checkGlError();
-      return eglDisplay;
+  private static EGLConfig getEglConfig(EGLDisplay eglDisplay, int[] attributes)
+      throws GlException {
+    EGLConfig[] eglConfigs = new EGLConfig[1];
+    if (!EGL14.eglChooseConfig(
+        eglDisplay,
+        attributes,
+        /* attrib_listOffset= */ 0,
+        eglConfigs,
+        /* configsOffset= */ 0,
+        /* config_size= */ 1,
+        /* unusedNumConfig */ new int[1],
+        /* num_configOffset= */ 0)) {
+      throw new GlException("eglChooseConfig failed.");
     }
-
-    @DoNotInline
-    public static EGLContext createEglContext(
-        EGLContext sharedContext, EGLDisplay eglDisplay, int version, int[] configAttributes)
-        throws GlException {
-      int[] contextAttributes = {EGL_CONTEXT_CLIENT_VERSION, version, EGL14.EGL_NONE};
-      EGLContext eglContext =
-          EGL14.eglCreateContext(
-              eglDisplay,
-              getEglConfig(eglDisplay, configAttributes),
-              sharedContext,
-              contextAttributes,
-              /* offset= */ 0);
-      if (eglContext == null) {
-        EGL14.eglTerminate(eglDisplay);
-        throw new GlException(
-            "eglCreateContext() failed to create a valid context. The device may not support EGL"
-                + " version "
-                + version);
-      }
-      checkGlError();
-      return eglContext;
-    }
-
-    @DoNotInline
-    public static EGLContext getCurrentContext() {
-      return EGL14.eglGetCurrentContext();
-    }
-
-    @DoNotInline
-    private static EGLConfig getEglConfig(EGLDisplay eglDisplay, int[] attributes)
-        throws GlException {
-      EGLConfig[] eglConfigs = new EGLConfig[1];
-      if (!EGL14.eglChooseConfig(
-          eglDisplay,
-          attributes,
-          /* attrib_listOffset= */ 0,
-          eglConfigs,
-          /* configsOffset= */ 0,
-          /* config_size= */ 1,
-          /* unusedNumConfig */ new int[1],
-          /* num_configOffset= */ 0)) {
-        throw new GlException("eglChooseConfig failed.");
-      }
-      return eglConfigs[0];
-    }
-
-    @DoNotInline
-    public static boolean isExtensionSupported(String extensionName) {
-      EGLDisplay display = EGL14.eglGetDisplay(EGL14.EGL_DEFAULT_DISPLAY);
-      @Nullable String eglExtensions = EGL14.eglQueryString(display, EGL10.EGL_EXTENSIONS);
-      return eglExtensions != null && eglExtensions.contains(extensionName);
-    }
-
-    @DoNotInline
-    public static int getContextMajorVersion() throws GlException {
-      int[] currentEglContextVersion = new int[1];
-      EGL14.eglQueryContext(
-          EGL14.eglGetDisplay(EGL14.EGL_DEFAULT_DISPLAY),
-          EGL14.eglGetCurrentContext(),
-          EGL_CONTEXT_CLIENT_VERSION,
-          currentEglContextVersion,
-          /* offset= */ 0);
-      checkGlError();
-      return currentEglContextVersion[0];
-    }
-
-    @DoNotInline
-    public static EGLSurface createEglSurface(
-        EGLDisplay eglDisplay, Object surface, int[] configAttributes, int[] windowAttributes)
-        throws GlException {
-      EGLSurface eglSurface =
-          EGL14.eglCreateWindowSurface(
-              eglDisplay,
-              getEglConfig(eglDisplay, configAttributes),
-              surface,
-              windowAttributes,
-              /* offset= */ 0);
-      checkEglException("Error creating a new EGL surface");
-      return eglSurface;
-    }
-
-    @DoNotInline
-    public static EGLSurface createEglPbufferSurface(
-        EGLDisplay eglDisplay, int[] configAttributes, int[] pbufferAttributes) throws GlException {
-      EGLSurface eglSurface =
-          EGL14.eglCreatePbufferSurface(
-              eglDisplay,
-              getEglConfig(eglDisplay, configAttributes),
-              pbufferAttributes,
-              /* offset= */ 0);
-      checkEglException("Error creating a new EGL Pbuffer surface");
-      return eglSurface;
-    }
-
-    @DoNotInline
-    public static void focusRenderTarget(
-        EGLDisplay eglDisplay,
-        EGLContext eglContext,
-        EGLSurface eglSurface,
-        int framebuffer,
-        int width,
-        int height)
-        throws GlException {
-      EGL14.eglMakeCurrent(eglDisplay, eglSurface, eglSurface, eglContext);
-      checkEglException("Error making context current");
-      focusFramebufferUsingCurrentContext(framebuffer, width, height);
-    }
-
-    @DoNotInline
-    public static void destroyEglContext(
-        @Nullable EGLDisplay eglDisplay, @Nullable EGLContext eglContext) throws GlException {
-      if (eglDisplay == null) {
-        return;
-      }
-      EGL14.eglMakeCurrent(
-          eglDisplay, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_CONTEXT);
-      checkEglException("Error releasing context");
-      if (eglContext != null) {
-        EGL14.eglDestroyContext(eglDisplay, eglContext);
-        checkEglException("Error destroying context");
-      }
-      EGL14.eglReleaseThread();
-      checkEglException("Error releasing thread");
-      EGL14.eglTerminate(eglDisplay);
-      checkEglException("Error terminating display");
-    }
-
-    @DoNotInline
-    public static void destroyEglSurface(
-        @Nullable EGLDisplay eglDisplay, @Nullable EGLSurface eglSurface) throws GlException {
-      if (eglDisplay == null || eglSurface == null) {
-        return;
-      }
-      if (EGL14.eglGetCurrentSurface(EGL14.EGL_DRAW) == EGL_NO_SURFACE) {
-        return;
-      }
-
-      EGL14.eglDestroySurface(eglDisplay, eglSurface);
-      checkEglException("Error destroying surface");
-    }
-
-    @DoNotInline
-    public static void checkEglException(String errorMessage) throws GlException {
-      int error = EGL14.eglGetError();
-      if (error != EGL14.EGL_SUCCESS) {
-        throw new GlException(errorMessage + ", error code: 0x" + Integer.toHexString(error));
-      }
-    }
+    return eglConfigs[0];
   }
 
-  @RequiresApi(18)
-  private static final class Api18 {
-    private Api18() {}
+  private static boolean isExtensionSupported(String extensionName) {
+    EGLDisplay display = EGL14.eglGetDisplay(EGL14.EGL_DEFAULT_DISPLAY);
+    @Nullable String eglExtensions = EGL14.eglQueryString(display, EGL10.EGL_EXTENSIONS);
+    return eglExtensions != null && eglExtensions.contains(extensionName);
+  }
 
-    @DoNotInline
-    public static long createSyncFence() throws GlException {
-      long syncObject = GLES30.glFenceSync(GLES30.GL_SYNC_GPU_COMMANDS_COMPLETE, /* flags= */ 0);
-      checkGlError();
-      // Due to specifics of OpenGL, it might happen that the fence creation command is not yet
-      // sent into the GPU command queue, which can cause other threads to wait infinitely if
-      // the glSyncWait/glClientSyncWait command went into the GPU earlier. Hence, we have to
-      // call glFlush to ensure that glFenceSync is inside of the GPU command queue.
-      GLES20.glFlush();
-      checkGlError();
-      return syncObject;
-    }
+  private static void focusRenderTarget(
+      EGLDisplay eglDisplay,
+      EGLContext eglContext,
+      EGLSurface eglSurface,
+      int framebuffer,
+      int width,
+      int height)
+      throws GlException {
+    EGL14.eglMakeCurrent(eglDisplay, eglSurface, eglSurface, eglContext);
+    checkEglException("Error making context current");
+    focusFramebufferUsingCurrentContext(framebuffer, width, height);
+  }
 
-    @DoNotInline
-    public static void deleteSyncObject(long syncObject) throws GlException {
-      GLES30.glDeleteSync(syncObject);
-      checkGlError();
-    }
-
-    @DoNotInline
-    public static void waitSync(long syncObject) throws GlException {
-      GLES30.glWaitSync(syncObject, /* flags= */ 0, GLES30.GL_TIMEOUT_IGNORED);
-      checkGlError();
+  private static void checkEglException(String errorMessage) throws GlException {
+    int error = EGL14.eglGetError();
+    if (error != EGL14.EGL_SUCCESS) {
+      throw new GlException(errorMessage + ", error code: 0x" + Integer.toHexString(error));
     }
   }
 }

@@ -17,14 +17,11 @@ package androidx.media3.exoplayer.audio;
 
 import static java.lang.annotation.ElementType.TYPE_USE;
 
-import android.annotation.TargetApi;
 import android.media.AudioTimestamp;
 import android.media.AudioTrack;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
-import androidx.media3.common.util.Util;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -94,7 +91,7 @@ import java.lang.annotation.Target;
    */
   private static final int INITIALIZING_DURATION_US = 500_000;
 
-  @Nullable private final AudioTimestampV19 audioTimestamp;
+  @Nullable private final AudioTimestampWrapper audioTimestamp;
 
   private @State int state;
   private long initializeSystemTimeUs;
@@ -105,16 +102,11 @@ import java.lang.annotation.Target;
   /**
    * Creates a new audio timestamp poller.
    *
-   * @param audioTrack The audio track that will provide timestamps, if the platform supports it.
+   * @param audioTrack The audio track that will provide timestamps.
    */
   public AudioTimestampPoller(AudioTrack audioTrack) {
-    if (Util.SDK_INT >= 19) {
-      audioTimestamp = new AudioTimestampV19(audioTrack);
-      reset();
-    } else {
-      audioTimestamp = null;
-      updateState(STATE_NO_TIMESTAMP);
-    }
+    audioTimestamp = new AudioTimestampWrapper(audioTrack);
+    reset();
   }
 
   /**
@@ -127,7 +119,6 @@ import java.lang.annotation.Target;
    * @param systemTimeUs The current system time, in microseconds.
    * @return Whether the timestamp was updated.
    */
-  @TargetApi(19) // audioTimestamp will be null if Util.SDK_INT < 19.
   public boolean maybePollTimestamp(long systemTimeUs) {
     if (audioTimestamp == null || (systemTimeUs - lastTimestampSampleTimeUs) < sampleIntervalUs) {
       return false;
@@ -233,7 +224,6 @@ import java.lang.annotation.Target;
    * If {@link #maybePollTimestamp(long)} or {@link #hasTimestamp()} returned {@code true}, returns
    * the system time at which the latest timestamp was sampled, in microseconds.
    */
-  @TargetApi(19) // audioTimestamp will be null if Util.SDK_INT < 19.
   public long getTimestampSystemTimeUs() {
     return audioTimestamp != null ? audioTimestamp.getTimestampSystemTimeUs() : C.TIME_UNSET;
   }
@@ -242,9 +232,18 @@ import java.lang.annotation.Target;
    * If {@link #maybePollTimestamp(long)} or {@link #hasTimestamp()} returned {@code true}, returns
    * the latest timestamp's position in frames.
    */
-  @TargetApi(19) // audioTimestamp will be null if Util.SDK_INT < 19.
   public long getTimestampPositionFrames() {
     return audioTimestamp != null ? audioTimestamp.getTimestampPositionFrames() : C.INDEX_UNSET;
+  }
+
+  /**
+   * Sets up the poller to expect a reset in audio track frame position due to an impending track
+   * transition and reusing of the {@link AudioTrack}.
+   */
+  public void expectTimestampFramePositionReset() {
+    if (audioTimestamp != null) {
+      audioTimestamp.expectTimestampFramePositionReset();
+    }
   }
 
   private void updateState(@State int state) {
@@ -272,8 +271,7 @@ import java.lang.annotation.Target;
     }
   }
 
-  @RequiresApi(19)
-  private static final class AudioTimestampV19 {
+  private static final class AudioTimestampWrapper {
 
     private final AudioTrack audioTrack;
     private final AudioTimestamp audioTimestamp;
@@ -283,11 +281,23 @@ import java.lang.annotation.Target;
     private long lastTimestampPositionFrames;
 
     /**
+     * Whether to expect a raw playback head reset.
+     *
+     * <p>When an {@link AudioTrack} is reused during offloaded playback, the {@link
+     * AudioTimestamp#framePosition} is reset upon track transition. {@link AudioTimestampWrapper}
+     * must be notified of the impending reset and keep track of total accumulated {@code
+     * AudioTimestamp.framePosition}.
+     */
+    private boolean expectTimestampFramePositionReset;
+
+    private long accumulatedRawTimestampFramePosition;
+
+    /**
      * Creates a new {@link AudioTimestamp} wrapper.
      *
      * @param audioTrack The audio track that will provide timestamps.
      */
-    public AudioTimestampV19(AudioTrack audioTrack) {
+    public AudioTimestampWrapper(AudioTrack audioTrack) {
       this.audioTrack = audioTrack;
       audioTimestamp = new AudioTimestamp();
     }
@@ -303,12 +313,19 @@ import java.lang.annotation.Target;
       if (updated) {
         long rawPositionFrames = audioTimestamp.framePosition;
         if (lastTimestampRawPositionFrames > rawPositionFrames) {
-          // The value must have wrapped around.
-          rawTimestampFramePositionWrapCount++;
+          if (expectTimestampFramePositionReset) {
+            accumulatedRawTimestampFramePosition += lastTimestampRawPositionFrames;
+            expectTimestampFramePositionReset = false;
+          } else {
+            // The value must have wrapped around.
+            rawTimestampFramePositionWrapCount++;
+          }
         }
         lastTimestampRawPositionFrames = rawPositionFrames;
         lastTimestampPositionFrames =
-            rawPositionFrames + (rawTimestampFramePositionWrapCount << 32);
+            rawPositionFrames
+                + accumulatedRawTimestampFramePosition
+                + (rawTimestampFramePositionWrapCount << 32);
       }
       return updated;
     }
@@ -319,6 +336,10 @@ import java.lang.annotation.Target;
 
     public long getTimestampPositionFrames() {
       return lastTimestampPositionFrames;
+    }
+
+    public void expectTimestampFramePositionReset() {
+      expectTimestampFramePositionReset = true;
     }
   }
 }

@@ -19,8 +19,8 @@ package androidx.media3.transformer;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
+import static androidx.media3.container.NalUnitUtil.H264_NAL_UNIT_TYPE_PREFIX;
 import static androidx.media3.container.NalUnitUtil.NAL_START_CODE;
-import static androidx.media3.container.NalUnitUtil.NAL_UNIT_TYPE_PREFIX;
 import static java.lang.Math.min;
 
 import androidx.annotation.Nullable;
@@ -162,7 +162,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       int nalUnitType = scratch[0] & 0x1F;
       boolean svcExtensionFlag = ((scratch[1] & 0xFF) >> 7) == 1;
       checkState(
-          nalUnitType == NAL_UNIT_TYPE_PREFIX && svcExtensionFlag,
+          nalUnitType == H264_NAL_UNIT_TYPE_PREFIX && svcExtensionFlag,
           "Missing SVC extension prefix NAL unit.");
       layer = (scratch[3] & 0xFF) >> 5; // temporal_id
     } else if (mimeType.equals(MimeTypes.VIDEO_H265)) {

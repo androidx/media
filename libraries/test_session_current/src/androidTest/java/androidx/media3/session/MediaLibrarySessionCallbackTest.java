@@ -15,8 +15,9 @@
  */
 package androidx.media3.session;
 
-import static androidx.media3.session.LibraryResult.RESULT_ERROR_NOT_SUPPORTED;
-import static androidx.media3.session.LibraryResult.RESULT_ERROR_SESSION_SETUP_REQUIRED;
+import static androidx.media3.session.SessionError.ERROR_INVALID_STATE;
+import static androidx.media3.session.SessionError.ERROR_NOT_SUPPORTED;
+import static androidx.media3.session.SessionError.ERROR_SESSION_SETUP_REQUIRED;
 import static androidx.media3.test.session.common.MediaBrowserConstants.SUBSCRIBE_PARENT_ID_1;
 import static androidx.media3.test.session.common.TestUtils.TIMEOUT_MS;
 import static com.google.common.truth.Truth.assertThat;
@@ -43,6 +44,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Before;
 import org.junit.ClassRule;
@@ -80,6 +82,38 @@ public class MediaLibrarySessionCallbackTest {
         new MockPlayer.Builder()
             .setApplicationLooper(threadTestRule.getHandler().getLooper())
             .build();
+  }
+
+  @Test
+  public void onConnect_withMaxCommandsForMediaItems_correctMaxLimitInControllerInfo()
+      throws Exception {
+    CountDownLatch latch = new CountDownLatch(/* count= */ 1);
+    AtomicInteger maxCommandsForMediaItems = new AtomicInteger();
+    MediaLibrarySession.Callback sessionCallback =
+        new MediaLibrarySession.Callback() {
+          @Override
+          public MediaSession.ConnectionResult onConnect(
+              MediaSession session, ControllerInfo browser) {
+            maxCommandsForMediaItems.set(browser.getMaxCommandsForMediaItems());
+            latch.countDown();
+            return MediaLibrarySession.Callback.super.onConnect(session, browser);
+          }
+        };
+    MockMediaLibraryService service = new MockMediaLibraryService();
+    service.attachBaseContext(context);
+    MediaLibrarySession session =
+        sessionTestRule.ensureReleaseAfterTest(
+            new MediaLibrarySession.Builder(service, player, sessionCallback)
+                .setId("onConnect_withMaxCommandForMediaItems_correctMaxLimitInControllerInfo")
+                .build());
+    Bundle connectionHints = new Bundle();
+    connectionHints.putInt(
+        MediaControllerProviderService.CONNECTION_HINT_KEY_MAX_COMMANDS_FOR_MEDIA_ITEMS, 14);
+
+    controllerTestRule.createRemoteBrowser(session.getToken(), connectionHints);
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(maxCommandsForMediaItems.get()).isEqualTo(14);
   }
 
   @Test
@@ -166,7 +200,7 @@ public class MediaLibrarySessionCallbackTest {
               @Nullable LibraryParams params) {
             latch.countDown();
             subscribedControllers.addAll(session.getSubscribedControllers(parentId));
-            return Futures.immediateFuture(LibraryResult.ofError(RESULT_ERROR_NOT_SUPPORTED));
+            return Futures.immediateFuture(LibraryResult.ofError(ERROR_NOT_SUPPORTED));
           }
         };
     MockMediaLibraryService service = new MockMediaLibraryService();
@@ -215,7 +249,7 @@ public class MediaLibrarySessionCallbackTest {
     int resultCode = browser.subscribe(testParentId, testParams).resultCode;
 
     assertThat(session.getSubscribedControllers(testParentId)).isEmpty();
-    assertThat(resultCode).isEqualTo(RESULT_ERROR_NOT_SUPPORTED);
+    assertThat(resultCode).isEqualTo(ERROR_NOT_SUPPORTED);
     assertThat(session.getSubscribedControllers(testParentId)).isEmpty();
   }
 
@@ -234,7 +268,7 @@ public class MediaLibrarySessionCallbackTest {
                       public ListenableFuture<LibraryResult<MediaItem>> onGetItem(
                           MediaLibrarySession session, ControllerInfo browser, String mediaId) {
                         return Futures.immediateFuture(
-                            LibraryResult.ofError(RESULT_ERROR_SESSION_SETUP_REQUIRED));
+                            LibraryResult.ofError(ERROR_SESSION_SETUP_REQUIRED));
                       }
                     })
                 .setId("testOnSubscribe")
@@ -244,7 +278,7 @@ public class MediaLibrarySessionCallbackTest {
 
     int resultCode = browser.subscribe(SUBSCRIBE_PARENT_ID_1, testParams).resultCode;
 
-    assertThat(resultCode).isEqualTo(RESULT_ERROR_SESSION_SETUP_REQUIRED);
+    assertThat(resultCode).isEqualTo(ERROR_SESSION_SETUP_REQUIRED);
     assertThat(session.getSubscribedControllers(SUBSCRIBE_PARENT_ID_1)).isEmpty();
   }
 
@@ -413,7 +447,7 @@ public class MediaLibrarySessionCallbackTest {
             /* params= */ null);
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
-    assertThat(recentItem.resultCode).isEqualTo(LibraryResult.RESULT_ERROR_INVALID_STATE);
+    assertThat(recentItem.resultCode).isEqualTo(ERROR_INVALID_STATE);
   }
 
   @Test

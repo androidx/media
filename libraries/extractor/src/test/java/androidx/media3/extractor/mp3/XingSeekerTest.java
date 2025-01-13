@@ -17,7 +17,6 @@ package androidx.media3.extractor.mp3;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import androidx.media3.common.C;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.Util;
 import androidx.media3.extractor.MpegAudioUtil;
@@ -63,12 +62,10 @@ public final class XingSeekerTest {
     xingFrameHeader.setForHeaderData(XING_FRAME_HEADER_DATA);
     seeker =
         XingSeeker.create(
-            C.LENGTH_UNSET,
             XingFrame.parse(xingFrameHeader, new ParsableByteArray(XING_FRAME_PAYLOAD)),
             XING_FRAME_POSITION);
     seekerWithInputLength =
         XingSeeker.create(
-            C.LENGTH_UNSET,
             XingFrame.parse(xingFrameHeader, new ParsableByteArray(XING_FRAME_PAYLOAD)),
             XING_FRAME_POSITION);
     xingFrameSize = xingFrameHeader.frameSize;

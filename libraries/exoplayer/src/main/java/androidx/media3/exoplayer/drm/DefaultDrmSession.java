@@ -29,7 +29,6 @@ import android.os.SystemClock;
 import android.util.Pair;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.DrmInitData.SchemeData;
 import androidx.media3.common.util.Assertions;
@@ -57,7 +56,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
 /** A {@link DrmSession} that supports playbacks using {@link ExoMediaDrm}. */
-@RequiresApi(18)
 /* package */ class DefaultDrmSession implements DrmSession {
 
   /** Thrown when an unexpected exception or error is thrown during provisioning or key requests. */
@@ -118,8 +116,8 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
   private static final String TAG = "DefaultDrmSession";
 
-  private static final int MSG_PROVISION = 0;
-  private static final int MSG_KEYS = 1;
+  private static final int MSG_PROVISION = 1;
+  private static final int MSG_KEYS = 2;
   private static final int MAX_LICENSE_DURATION_TO_RENEW_SECONDS = 60;
 
   /** The DRM scheme datas, or null if this session uses offline keys. */
@@ -396,8 +394,13 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       return true;
     } catch (NotProvisionedException e) {
       provisioningManager.provisionRequired(this);
-    } catch (Exception e) {
-      onError(e, DrmUtil.ERROR_SOURCE_EXO_MEDIA_DRM);
+    } catch (Exception | NoSuchMethodError e) {
+      // Work around b/291440132.
+      if (DrmUtil.isFailureToConstructNotProvisionedException(e)) {
+        provisioningManager.provisionRequired(this);
+      } else {
+        onError(e, DrmUtil.ERROR_SOURCE_EXO_MEDIA_DRM);
+      }
     }
 
     return false;
@@ -474,7 +477,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     try {
       mediaDrm.restoreKeys(sessionId, offlineLicenseKeySetId);
       return true;
-    } catch (Exception e) {
+    } catch (Exception | NoSuchMethodError e) {
       onError(e, DrmUtil.ERROR_SOURCE_EXO_MEDIA_DRM);
     }
     return false;
@@ -494,7 +497,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       currentKeyRequest = mediaDrm.getKeyRequest(scope, schemeDatas, type, keyRequestParameters);
       Util.castNonNull(requestHandler)
           .post(MSG_KEYS, Assertions.checkNotNull(currentKeyRequest), allowRetry);
-    } catch (Exception e) {
+    } catch (Exception | NoSuchMethodError e) {
       onKeysError(e, /* thrownByExoMediaDrm= */ true);
     }
   }
@@ -506,8 +509,8 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     }
     currentKeyRequest = null;
 
-    if (response instanceof Exception) {
-      onKeysError((Exception) response, /* thrownByExoMediaDrm= */ false);
+    if (response instanceof Exception || response instanceof NoSuchMethodError) {
+      onKeysError((Throwable) response, /* thrownByExoMediaDrm= */ false);
       return;
     }
 
@@ -528,7 +531,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
         state = STATE_OPENED_WITH_KEYS;
         dispatchEvent(DrmSessionEventListener.EventDispatcher::drmKeysLoaded);
       }
-    } catch (Exception e) {
+    } catch (Exception | NoSuchMethodError e) {
       onKeysError(e, /* thrownByExoMediaDrm= */ true);
     }
   }
@@ -540,8 +543,12 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     }
   }
 
-  private void onKeysError(Exception e, boolean thrownByExoMediaDrm) {
-    if (e instanceof NotProvisionedException) {
+  /**
+   * @param e Must be an instance of either {@link Exception} or {@link Error}.
+   */
+  private void onKeysError(Throwable e, boolean thrownByExoMediaDrm) {
+    if (e instanceof NotProvisionedException
+        || DrmUtil.isFailureToConstructNotProvisionedException(e)) {
       provisioningManager.provisionRequired(this);
     } else {
       onError(
@@ -552,11 +559,24 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     }
   }
 
-  private void onError(Exception e, @DrmUtil.ErrorSource int errorSource) {
+  /**
+   * @param e Must be an instance of either {@link Exception} or {@link Error}.
+   */
+  private void onError(Throwable e, @DrmUtil.ErrorSource int errorSource) {
     lastException =
         new DrmSessionException(e, DrmUtil.getErrorCodeForMediaDrmException(e, errorSource));
     Log.e(TAG, "DRM session error", e);
-    dispatchEvent(eventDispatcher -> eventDispatcher.drmSessionManagerError(e));
+    if (e instanceof Exception) {
+      dispatchEvent(eventDispatcher -> eventDispatcher.drmSessionManagerError((Exception) e));
+    } else if (e instanceof Error) {
+      // Re-throw all Error types except a NoSuchMethodError caused by b/291440132.
+      if (!DrmUtil.isFailureToConstructResourceBusyException(e)
+          && !DrmUtil.isFailureToConstructNotProvisionedException(e)) {
+        throw (Error) e;
+      }
+    } else {
+      throw new IllegalStateException("Unexpected Throwable subclass", e);
+    }
     if (state != STATE_OPENED_WITH_KEYS) {
       state = STATE_ERROR;
     }

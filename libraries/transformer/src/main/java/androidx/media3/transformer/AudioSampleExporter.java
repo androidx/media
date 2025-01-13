@@ -24,9 +24,12 @@ import static java.lang.Math.min;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
+import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.AudioProcessor.AudioFormat;
 import androidx.media3.common.util.Util;
 import androidx.media3.decoder.DecoderInputBuffer;
+import androidx.media3.effect.DebugTraceUtil;
+import com.google.common.collect.ImmutableList;
 import java.nio.ByteBuffer;
 import org.checkerframework.dataflow.qual.Pure;
 
@@ -50,13 +53,14 @@ import org.checkerframework.dataflow.qual.Pure;
       Format firstInputFormat,
       TransformationRequest transformationRequest,
       EditedMediaItem firstEditedMediaItem,
+      ImmutableList<AudioProcessor> compositionAudioProcessors,
       AudioMixer.Factory mixerFactory,
       Codec.EncoderFactory encoderFactory,
       MuxerWrapper muxerWrapper,
       FallbackListener fallbackListener)
       throws ExportException {
     super(firstAssetLoaderTrackFormat, muxerWrapper);
-    audioGraph = new AudioGraph(mixerFactory);
+    audioGraph = new AudioGraph(mixerFactory, compositionAudioProcessors);
     this.firstInputFormat = firstInputFormat;
     firstInput = audioGraph.registerInput(firstEditedMediaItem, firstInputFormat);
     encoderInputAudioFormat = audioGraph.getOutputAudioFormat();
@@ -74,6 +78,7 @@ import org.checkerframework.dataflow.qual.Pure;
             .setCodecs(firstInputFormat.codecs)
             .build();
 
+    // TODO - b/324426022: Move logic for supported mime types to DefaultEncoderFactory.
     encoder =
         encoderFactory.createForAudioEncoding(
             requestedEncoderFormat
@@ -94,7 +99,7 @@ import org.checkerframework.dataflow.qual.Pure;
   }
 
   @Override
-  public AudioGraphInput getInput(EditedMediaItem editedMediaItem, Format format)
+  public AudioGraphInput getInput(EditedMediaItem editedMediaItem, Format format, int inputIndex)
       throws ExportException {
     if (!returnedFirstInput) {
       // First input initialized in constructor because output AudioFormat is needed.
@@ -121,6 +126,10 @@ import org.checkerframework.dataflow.qual.Pure;
     }
 
     if (audioGraph.isEnded()) {
+      DebugTraceUtil.logEvent(
+          DebugTraceUtil.COMPONENT_AUDIO_GRAPH,
+          DebugTraceUtil.EVENT_OUTPUT_ENDED,
+          C.TIME_END_OF_SOURCE);
       queueEndOfStreamToEncoder();
       return false;
     }

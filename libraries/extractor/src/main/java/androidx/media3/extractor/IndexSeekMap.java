@@ -19,6 +19,7 @@ package androidx.media3.extractor;
 import static androidx.media3.common.util.Assertions.checkArgument;
 
 import androidx.media3.common.C;
+import androidx.media3.common.util.LongArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 
@@ -29,10 +30,10 @@ import androidx.media3.common.util.Util;
 @UnstableApi
 public final class IndexSeekMap implements SeekMap {
 
-  private final long[] positions;
-  private final long[] timesUs;
-  private final long durationUs;
-  private final boolean isSeekable;
+  private final LongArray positions;
+  private final LongArray timesUs;
+
+  private long durationUs;
 
   /**
    * Creates an instance.
@@ -44,23 +45,24 @@ public final class IndexSeekMap implements SeekMap {
   public IndexSeekMap(long[] positions, long[] timesUs, long durationUs) {
     checkArgument(positions.length == timesUs.length);
     int length = timesUs.length;
-    isSeekable = length > 0;
-    if (isSeekable && timesUs[0] > 0) {
+    if (length > 0 && timesUs[0] > 0) {
       // Add (position = 0, timeUs = 0) as first entry.
-      this.positions = new long[length + 1];
-      this.timesUs = new long[length + 1];
-      System.arraycopy(positions, 0, this.positions, 1, length);
-      System.arraycopy(timesUs, 0, this.timesUs, 1, length);
+      this.positions = new LongArray(length + 1);
+      this.timesUs = new LongArray(length + 1);
+      this.positions.add(0L);
+      this.timesUs.add(0L);
     } else {
-      this.positions = positions;
-      this.timesUs = timesUs;
+      this.positions = new LongArray(length);
+      this.timesUs = new LongArray(length);
     }
+    this.positions.addAll(positions);
+    this.timesUs.addAll(timesUs);
     this.durationUs = durationUs;
   }
 
   @Override
   public boolean isSeekable() {
-    return isSeekable;
+    return timesUs.size() > 0;
   }
 
   @Override
@@ -70,18 +72,76 @@ public final class IndexSeekMap implements SeekMap {
 
   @Override
   public SeekMap.SeekPoints getSeekPoints(long timeUs) {
-    if (!isSeekable) {
+    if (timesUs.size() == 0) {
       return new SeekMap.SeekPoints(SeekPoint.START);
     }
     int targetIndex =
         Util.binarySearchFloor(timesUs, timeUs, /* inclusive= */ true, /* stayInBounds= */ true);
-    SeekPoint leftSeekPoint = new SeekPoint(timesUs[targetIndex], positions[targetIndex]);
-    if (leftSeekPoint.timeUs == timeUs || targetIndex == timesUs.length - 1) {
+    SeekPoint leftSeekPoint = new SeekPoint(timesUs.get(targetIndex), positions.get(targetIndex));
+    if (leftSeekPoint.timeUs == timeUs || targetIndex == timesUs.size() - 1) {
       return new SeekMap.SeekPoints(leftSeekPoint);
     } else {
       SeekPoint rightSeekPoint =
-          new SeekPoint(timesUs[targetIndex + 1], positions[targetIndex + 1]);
+          new SeekPoint(timesUs.get(targetIndex + 1), positions.get(targetIndex + 1));
       return new SeekMap.SeekPoints(leftSeekPoint, rightSeekPoint);
     }
+  }
+
+  /**
+   * Adds a seek point to the index.
+   *
+   * <p>Seek points must be added in order.
+   *
+   * @param timeUs The time of the seek point in microseconds.
+   * @param position The position in the stream corresponding to the seek point, in bytes.
+   */
+  public void addSeekPoint(long timeUs, long position) {
+    if (timesUs.size() == 0 && timeUs > 0) {
+      // Add (position = 0, timeUs = 0) as first entry.
+      this.positions.add(0L);
+      this.timesUs.add(0L);
+    }
+    positions.add(position);
+    timesUs.add(timeUs);
+  }
+
+  /**
+   * Maps a position (byte offset) to a corresponding sample timestamp.
+   *
+   * @param position A seek position (byte offset) relative to the start of the stream.
+   * @return The corresponding timestamp of the seek point at or before the given position, in
+   *     microseconds, or {@link C#TIME_UNSET} if no seek points exist.
+   */
+  public long getTimeUs(long position) {
+    if (timesUs.size() == 0) {
+      return C.TIME_UNSET;
+    }
+    int targetIndex =
+        Util.binarySearchFloor(
+            positions, position, /* inclusive= */ true, /* stayInBounds= */ true);
+    return timesUs.get(targetIndex);
+  }
+
+  /**
+   * Returns whether {@code timeUs} (in microseconds) should be considered as part of the index
+   * based on its proximity to the last recorded seek point in the index.
+   *
+   * <p>This method assumes that {@code timeUs} is provided in increasing order, consistent with how
+   * points are added to the index in {@link #addSeekPoint(long, long)}.
+   *
+   * @param timeUs The time in microseconds to check if it is included in the index.
+   * @param minTimeBetweenPointsUs The minimum time in microseconds that should exist between points
+   *     for the current time to be considered as part of the index.
+   */
+  public boolean isTimeUsInIndex(long timeUs, long minTimeBetweenPointsUs) {
+    if (timesUs.size() == 0) {
+      return false;
+    }
+    return timeUs - timesUs.get(timesUs.size() - 1) < minTimeBetweenPointsUs;
+  }
+
+  /** Sets the duration of the input stream, or {@link C#TIME_UNSET} if it is unknown. */
+  public void setDurationUs(long durationUs) {
+    this.durationUs = durationUs;
   }
 }

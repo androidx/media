@@ -62,12 +62,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 public final class TsExtractor implements Extractor {
 
   /**
-   * @deprecated Use {@link #newFactory(SubtitleParser.Factory)} instead.
-   */
-  @Deprecated
-  public static final ExtractorsFactory FACTORY = () -> new Extractor[] {new TsExtractor()};
-
-  /**
    * Creates a factory for {@link TsExtractor} instances with the provided {@link
    * SubtitleParser.Factory}.
    */
@@ -115,6 +109,16 @@ public final class TsExtractor implements Extractor {
    */
   public static final int FLAG_EMIT_RAW_SUBTITLE_DATA = 1;
 
+  /**
+   * @deprecated Use {@link #newFactory(SubtitleParser.Factory)} instead.
+   */
+  @Deprecated
+  public static final ExtractorsFactory FACTORY =
+      () ->
+          new Extractor[] {
+            new TsExtractor(FLAG_EMIT_RAW_SUBTITLE_DATA, SubtitleParser.Factory.UNSUPPORTED)
+          };
+
   public static final int TS_PACKET_SIZE = 188;
   public static final int DEFAULT_TIMESTAMP_SEARCH_BYTES = 600 * TS_PACKET_SIZE;
 
@@ -131,6 +135,7 @@ public final class TsExtractor implements Extractor {
   public static final int TS_STREAM_TYPE_H263 = 0x10; // MPEG-4 Part 2 and H.263
   public static final int TS_STREAM_TYPE_H264 = 0x1B;
   public static final int TS_STREAM_TYPE_H265 = 0x24;
+  public static final int TS_STREAM_TYPE_MHAS = 0x2D;
   public static final int TS_STREAM_TYPE_ID3 = 0x15;
   public static final int TS_STREAM_TYPE_SPLICE_INFO = 0x86;
   public static final int TS_STREAM_TYPE_DVBSUBS = 0x59;
@@ -420,8 +425,9 @@ public final class TsExtractor implements Extractor {
   public @ReadResult int read(ExtractorInput input, PositionHolder seekPosition)
       throws IOException {
     long inputLength = input.getLength();
+    boolean isModeHls = mode == MODE_HLS;
     if (tracksEnded) {
-      boolean canReadDuration = inputLength != C.LENGTH_UNSET && mode != MODE_HLS;
+      boolean canReadDuration = inputLength != C.LENGTH_UNSET && !isModeHls;
       if (canReadDuration && !durationReader.isDurationReadFinished()) {
         return durationReader.readDuration(input, seekPosition, pcrPid);
       }
@@ -442,11 +448,14 @@ public final class TsExtractor implements Extractor {
     }
 
     if (!fillBufferWithAtLeastOnePacket(input)) {
-      // Send a synthesised empty pusi to allow for packetFinished to be triggered on the last unit.
+      // Send a synthesized empty pusi to allow for packetFinished to be triggered on the last unit.
       for (int i = 0; i < tsPayloadReaders.size(); i++) {
         TsPayloadReader payloadReader = tsPayloadReaders.valueAt(i);
         if (payloadReader instanceof PesReader) {
-          payloadReader.consume(new ParsableByteArray(), FLAG_PAYLOAD_UNIT_START_INDICATOR);
+          PesReader pesReader = (PesReader) payloadReader;
+          if (pesReader.canConsumeSynthesizedEmptyPusi(isModeHls)) {
+            pesReader.consume(new ParsableByteArray(), FLAG_PAYLOAD_UNIT_START_INDICATOR);
+          }
         }
       }
       return RESULT_END_OF_INPUT;

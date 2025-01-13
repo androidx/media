@@ -18,10 +18,8 @@ package androidx.media3.test.utils;
 import androidx.annotation.Nullable;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
-import com.google.common.base.Function;
 
 /** Wraps a {@link Format} to allow dumping it. */
 @UnstableApi
@@ -44,67 +42,80 @@ public final class DumpableFormat implements Dumper.Dumpable {
   @Override
   public void dump(Dumper dumper) {
     dumper.startBlock("format " + tag);
-    addIfNonDefault(
-        dumper, "averageBitrate", format, DEFAULT_FORMAT, format -> format.averageBitrate);
-    addIfNonDefault(dumper, "peakBitrate", format, DEFAULT_FORMAT, format -> format.peakBitrate);
-    addIfNonDefault(dumper, "id", format, DEFAULT_FORMAT, format -> format.id);
-    addIfNonDefault(
-        dumper, "containerMimeType", format, DEFAULT_FORMAT, format -> format.containerMimeType);
-    addIfNonDefault(
-        dumper, "sampleMimeType", format, DEFAULT_FORMAT, format -> format.sampleMimeType);
-    addIfNonDefault(dumper, "codecs", format, DEFAULT_FORMAT, format -> format.codecs);
-    addIfNonDefault(dumper, "maxInputSize", format, DEFAULT_FORMAT, format -> format.maxInputSize);
-    addIfNonDefault(dumper, "width", format, DEFAULT_FORMAT, format -> format.width);
-    addIfNonDefault(dumper, "height", format, DEFAULT_FORMAT, format -> format.height);
-    addIfNonDefault(dumper, "frameRate", format, DEFAULT_FORMAT, format -> format.frameRate);
-    addIfNonDefault(
-        dumper, "rotationDegrees", format, DEFAULT_FORMAT, format -> format.rotationDegrees);
-    addIfNonDefault(
-        dumper,
-        "pixelWidthHeightRatio",
+    dumper.addIfNonDefault(
+        "averageBitrate", format, DEFAULT_FORMAT, format -> format.averageBitrate);
+    dumper.addIfNonDefault("peakBitrate", format, DEFAULT_FORMAT, format -> format.peakBitrate);
+    dumper.addIfNonDefault("id", format, DEFAULT_FORMAT, format -> format.id);
+    dumper.addIfNonDefault(
+        "containerMimeType", format, DEFAULT_FORMAT, format -> format.containerMimeType);
+    dumper.addIfNonDefault(
+        "sampleMimeType", format, DEFAULT_FORMAT, format -> format.sampleMimeType);
+    dumper.addIfNonDefault("codecs", format, DEFAULT_FORMAT, format -> format.codecs);
+    dumper.addIfNonDefault("maxInputSize", format, DEFAULT_FORMAT, format -> format.maxInputSize);
+    dumper.addIfNonDefault(
+        "maxNumReorderSamples", format, DEFAULT_FORMAT, format -> format.maxNumReorderSamples);
+    dumper.addIfNonDefault("width", format, DEFAULT_FORMAT, format -> format.width);
+    dumper.addIfNonDefault("height", format, DEFAULT_FORMAT, format -> format.height);
+    dumper.addIfNonDefault(
+        "frameRate",
         format,
         DEFAULT_FORMAT,
-        format -> format.pixelWidthHeightRatio);
+        format -> Util.formatInvariant("%.2f", format.frameRate));
+    dumper.addIfNonDefault(
+        "rotationDegrees", format, DEFAULT_FORMAT, format -> format.rotationDegrees);
+    dumper.addIfNonDefault(
+        "pixelWidthHeightRatio", format, DEFAULT_FORMAT, format -> format.pixelWidthHeightRatio);
     @Nullable ColorInfo colorInfo = format.colorInfo;
     if (colorInfo != null) {
       dumper.startBlock("colorInfo");
-      addIfNonDefault(dumper, "colorSpace", colorInfo, DEFAULT_COLOR_INFO, c -> c.colorSpace);
-      addIfNonDefault(dumper, "colorRange", colorInfo, DEFAULT_COLOR_INFO, c -> c.colorRange);
-      addIfNonDefault(dumper, "colorTransfer", colorInfo, DEFAULT_COLOR_INFO, c -> c.colorTransfer);
+      dumper.addIfNonDefault("colorSpace", colorInfo, DEFAULT_COLOR_INFO, c -> c.colorSpace);
+      dumper.addIfNonDefault("colorRange", colorInfo, DEFAULT_COLOR_INFO, c -> c.colorRange);
+      dumper.addIfNonDefault("colorTransfer", colorInfo, DEFAULT_COLOR_INFO, c -> c.colorTransfer);
       if (colorInfo.hdrStaticInfo != null) {
         dumper.add("hdrStaticInfo", colorInfo.hdrStaticInfo);
       }
-      addIfNonDefault(dumper, "lumaBitdepth", colorInfo, DEFAULT_COLOR_INFO, c -> c.lumaBitdepth);
-      addIfNonDefault(
-          dumper, "chromaBitdepth", colorInfo, DEFAULT_COLOR_INFO, c -> c.chromaBitdepth);
+      dumper.addIfNonDefault("lumaBitdepth", colorInfo, DEFAULT_COLOR_INFO, c -> c.lumaBitdepth);
+      dumper.addIfNonDefault(
+          "chromaBitdepth", colorInfo, DEFAULT_COLOR_INFO, c -> c.chromaBitdepth);
       dumper.endBlock();
     }
-    addIfNonDefault(dumper, "channelCount", format, DEFAULT_FORMAT, format -> format.channelCount);
-    addIfNonDefault(dumper, "sampleRate", format, DEFAULT_FORMAT, format -> format.sampleRate);
-    addIfNonDefault(dumper, "pcmEncoding", format, DEFAULT_FORMAT, format -> format.pcmEncoding);
-    addIfNonDefault(dumper, "encoderDelay", format, DEFAULT_FORMAT, format -> format.encoderDelay);
-    addIfNonDefault(
-        dumper, "encoderPadding", format, DEFAULT_FORMAT, format -> format.encoderPadding);
-    addIfNonDefault(
-        dumper, "subsampleOffsetUs", format, DEFAULT_FORMAT, format -> format.subsampleOffsetUs);
-    addIfNonDefault(
-        dumper,
+    dumper.addIfNonDefault("channelCount", format, DEFAULT_FORMAT, format -> format.channelCount);
+    dumper.addIfNonDefault("sampleRate", format, DEFAULT_FORMAT, format -> format.sampleRate);
+    dumper.addIfNonDefault("pcmEncoding", format, DEFAULT_FORMAT, format -> format.pcmEncoding);
+    dumper.addIfNonDefault("encoderDelay", format, DEFAULT_FORMAT, format -> format.encoderDelay);
+    dumper.addIfNonDefault(
+        "encoderPadding", format, DEFAULT_FORMAT, format -> format.encoderPadding);
+    dumper.addIfNonDefault(
+        "subsampleOffsetUs", format, DEFAULT_FORMAT, format -> format.subsampleOffsetUs);
+    dumper.addIfNonDefault(
         "selectionFlags",
         format,
         DEFAULT_FORMAT,
         format -> Util.getSelectionFlagStrings(format.selectionFlags));
-    addIfNonDefault(
-        dumper,
-        "roleFlags",
+    dumper.addIfNonDefault(
+        "roleFlags", format, DEFAULT_FORMAT, format -> Util.getRoleFlagStrings(format.roleFlags));
+    dumper.addIfNonDefault(
+        "auxiliaryTrackType",
         format,
         DEFAULT_FORMAT,
-        format -> Util.getRoleFlagStrings(format.roleFlags));
-    addIfNonDefault(dumper, "language", format, DEFAULT_FORMAT, format -> format.language);
-    addIfNonDefault(dumper, "label", format, DEFAULT_FORMAT, format -> format.label);
+        format -> Util.getAuxiliaryTrackTypeString(format.auxiliaryTrackType));
+    dumper.addIfNonDefault("language", format, DEFAULT_FORMAT, format -> format.language);
+    dumper.addIfNonDefault("label", format, DEFAULT_FORMAT, format -> format.label);
+    if (!format.labels.isEmpty()) {
+      dumper.startBlock("labels");
+      for (int i = 0; i < format.labels.size(); i++) {
+        String lang = format.labels.get(i).language;
+        if (lang != null) {
+          dumper.add("lang", lang);
+        }
+        dumper.add("value", format.labels.get(i).value);
+      }
+      dumper.endBlock();
+    }
     if (format.drmInitData != null) {
       dumper.add("drmInitData", format.drmInitData.hashCode());
     }
-    addIfNonDefault(dumper, "metadata", format, DEFAULT_FORMAT, format -> format.metadata);
+    dumper.addIfNonDefault("metadata", format, DEFAULT_FORMAT, format -> format.metadata);
     if (!format.initializationData.isEmpty()) {
       dumper.startBlock("initializationData");
       for (int i = 0; i < format.initializationData.size(); i++) {
@@ -132,18 +143,5 @@ public final class DumpableFormat implements Dumper.Dumpable {
     int result = format.hashCode();
     result = 31 * result + tag.hashCode();
     return result;
-  }
-
-  private <T> void addIfNonDefault(
-      Dumper dumper,
-      String field,
-      T value,
-      T defaultValue,
-      Function<T, @NullableType Object> getFieldFunction) {
-    @Nullable Object fieldValue = getFieldFunction.apply(value);
-    @Nullable Object defaultFieldValue = getFieldFunction.apply(defaultValue);
-    if (!Util.areEqual(fieldValue, defaultFieldValue)) {
-      dumper.add(field, fieldValue);
-    }
   }
 }

@@ -236,9 +236,6 @@ public abstract class SimpleDecoder<
     }
   }
 
-  // Setting and checking deprecated decode-only flag for compatibility with custom decoders that
-  // are still using it.
-  @SuppressWarnings("deprecation")
   private boolean decode() throws InterruptedException {
     I inputBuffer;
     O outputBuffer;
@@ -262,11 +259,11 @@ public abstract class SimpleDecoder<
       outputBuffer.addFlag(C.BUFFER_FLAG_END_OF_STREAM);
     } else {
       outputBuffer.timeUs = inputBuffer.timeUs;
-      if (!isAtLeastOutputStartTimeUs(inputBuffer.timeUs) || inputBuffer.isDecodeOnly()) {
-        outputBuffer.addFlag(C.BUFFER_FLAG_DECODE_ONLY);
-      }
       if (inputBuffer.isFirstSample()) {
         outputBuffer.addFlag(C.BUFFER_FLAG_FIRST_SAMPLE);
+      }
+      if (!isAtLeastOutputStartTimeUs(inputBuffer.timeUs)) {
+        outputBuffer.shouldBeSkipped = true;
       }
       @Nullable E exception;
       try {
@@ -292,9 +289,7 @@ public abstract class SimpleDecoder<
     synchronized (lock) {
       if (flushed) {
         outputBuffer.release();
-      } else if ((!outputBuffer.isEndOfStream() && !isAtLeastOutputStartTimeUs(outputBuffer.timeUs))
-          || outputBuffer.isDecodeOnly()
-          || outputBuffer.shouldBeSkipped) {
+      } else if (outputBuffer.shouldBeSkipped) {
         skippedOutputBufferCount++;
         outputBuffer.release();
       } else {

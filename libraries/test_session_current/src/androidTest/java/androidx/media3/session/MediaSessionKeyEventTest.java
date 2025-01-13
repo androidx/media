@@ -45,7 +45,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import org.junit.After;
-import org.junit.Assume;
 import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Rule;
@@ -79,9 +78,6 @@ public class MediaSessionKeyEventTest {
 
   @Before
   public void setUp() throws Exception {
-    if (Util.SDK_INT < 21) {
-      return;
-    }
     Context context = ApplicationProvider.getApplicationContext();
     audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
     handler = threadTestRule.getHandler();
@@ -101,7 +97,9 @@ public class MediaSessionKeyEventTest {
       handler.postAndSync(
           () -> {
             player.notifyPlayWhenReadyChanged(
-                /* playWhenReady= */ true, Player.PLAYBACK_SUPPRESSION_REASON_NONE);
+                /* playWhenReady= */ true,
+                Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
+                Player.PLAYBACK_SUPPRESSION_REASON_NONE);
             player.notifyPlaybackStateChanged(Player.STATE_READY);
           });
     } else {
@@ -126,9 +124,6 @@ public class MediaSessionKeyEventTest {
 
   @After
   public void tearDown() throws Exception {
-    if (Util.SDK_INT < 21) {
-      return;
-    }
     handler.postAndSync(
         () -> {
           if (mediaPlayer != null) {
@@ -141,7 +136,6 @@ public class MediaSessionKeyEventTest {
 
   @Test
   public void playKeyEvent() throws Exception {
-    Assume.assumeTrue(Util.SDK_INT >= 21); // TODO: b/199064299 - Lower minSdk to 19.
     dispatchMediaKeyEvent(KeyEvent.KEYCODE_MEDIA_PLAY, false);
 
     player.awaitMethodCalled(MockPlayer.METHOD_PLAY, TIMEOUT_MS);
@@ -149,7 +143,6 @@ public class MediaSessionKeyEventTest {
 
   @Test
   public void pauseKeyEvent() throws Exception {
-    Assume.assumeTrue(Util.SDK_INT >= 21); // TODO: b/199064299 - Lower minSdk to 19.
     dispatchMediaKeyEvent(KeyEvent.KEYCODE_MEDIA_PAUSE, false);
 
     player.awaitMethodCalled(MockPlayer.METHOD_PAUSE, TIMEOUT_MS);
@@ -157,7 +150,6 @@ public class MediaSessionKeyEventTest {
 
   @Test
   public void nextKeyEvent() throws Exception {
-    Assume.assumeTrue(Util.SDK_INT >= 21); // TODO: b/199064299 - Lower minSdk to 19.
     dispatchMediaKeyEvent(KeyEvent.KEYCODE_MEDIA_NEXT, false);
 
     player.awaitMethodCalled(MockPlayer.METHOD_SEEK_TO_NEXT, TIMEOUT_MS);
@@ -165,7 +157,6 @@ public class MediaSessionKeyEventTest {
 
   @Test
   public void previousKeyEvent() throws Exception {
-    Assume.assumeTrue(Util.SDK_INT >= 21); // TODO: b/199064299 - Lower minSdk to 19.
     dispatchMediaKeyEvent(KeyEvent.KEYCODE_MEDIA_PREVIOUS, false);
 
     player.awaitMethodCalled(MockPlayer.METHOD_SEEK_TO_PREVIOUS, TIMEOUT_MS);
@@ -175,7 +166,6 @@ public class MediaSessionKeyEventTest {
   public void
       fastForwardKeyEvent_mediaNotificationControllerConnected_callFromNotificationController()
           throws Exception {
-    Assume.assumeTrue(Util.SDK_INT >= 21); // TODO: b/199064299 - Lower minSdk to 19.
     MediaController controller = connectMediaNotificationController();
     dispatchMediaKeyEvent(KeyEvent.KEYCODE_MEDIA_FAST_FORWARD, /* doubleTap= */ false);
 
@@ -192,7 +182,7 @@ public class MediaSessionKeyEventTest {
                 .get(0)
                 .getConnectionHints()
                 .getBoolean(
-                    MediaNotificationManager.KEY_MEDIA_NOTIFICATION_MANAGER,
+                    MediaController.KEY_MEDIA_NOTIFICATION_CONTROLLER_FLAG,
                     /* defaultValue= */ false))
         .isTrue();
     threadTestRule.getHandler().postAndSync(controller::release);
@@ -202,8 +192,6 @@ public class MediaSessionKeyEventTest {
   public void
       fastForwardKeyEvent_mediaNotificationControllerNotConnected_callFromLegacyFallbackController()
           throws Exception {
-    Assume.assumeTrue(Util.SDK_INT >= 21); // TODO: b/199064299 - Lower minSdk to 19.
-
     dispatchMediaKeyEvent(KeyEvent.KEYCODE_MEDIA_FAST_FORWARD, false);
 
     player.awaitMethodCalled(MockPlayer.METHOD_SEEK_FORWARD, TIMEOUT_MS);
@@ -218,7 +206,6 @@ public class MediaSessionKeyEventTest {
   @Test
   public void rewindKeyEvent_mediaNotificationControllerConnected_callFromNotificationController()
       throws Exception {
-    Assume.assumeTrue(Util.SDK_INT >= 21); // TODO: b/199064299 - Lower minSdk to 19.
     MediaController controller = connectMediaNotificationController();
 
     dispatchMediaKeyEvent(KeyEvent.KEYCODE_MEDIA_REWIND, false);
@@ -234,7 +221,7 @@ public class MediaSessionKeyEventTest {
                 .get(0)
                 .getConnectionHints()
                 .getBoolean(
-                    MediaNotificationManager.KEY_MEDIA_NOTIFICATION_MANAGER,
+                    MediaController.KEY_MEDIA_NOTIFICATION_CONTROLLER_FLAG,
                     /* defaultValue= */ false))
         .isTrue();
     threadTestRule.getHandler().postAndSync(controller::release);
@@ -244,8 +231,6 @@ public class MediaSessionKeyEventTest {
   public void
       rewindKeyEvent_mediaNotificationControllerNotConnected_callFromLegacyFallbackController()
           throws Exception {
-    Assume.assumeTrue(Util.SDK_INT >= 21); // TODO: b/199064299 - Lower minSdk to 19.
-
     dispatchMediaKeyEvent(KeyEvent.KEYCODE_MEDIA_REWIND, false);
 
     player.awaitMethodCalled(MockPlayer.METHOD_SEEK_BACK, TIMEOUT_MS);
@@ -259,7 +244,6 @@ public class MediaSessionKeyEventTest {
 
   @Test
   public void stopKeyEvent() throws Exception {
-    Assume.assumeTrue(Util.SDK_INT >= 21); // TODO: b/199064299 - Lower minSdk to 19.
     dispatchMediaKeyEvent(KeyEvent.KEYCODE_MEDIA_STOP, false);
 
     player.awaitMethodCalled(MockPlayer.METHOD_STOP, TIMEOUT_MS);
@@ -318,7 +302,6 @@ public class MediaSessionKeyEventTest {
 
   @Test
   public void playPauseKeyEvent_playing_pause() throws Exception {
-    Assume.assumeTrue(Util.SDK_INT >= 21); // TODO: b/199064299 - Lower minSdk to 19.
     handler.postAndSync(
         () -> {
           player.playWhenReady = true;
@@ -332,7 +315,6 @@ public class MediaSessionKeyEventTest {
 
   @Test
   public void playPauseKeyEvent_doubleTapOnPlayPause_seekNext() throws Exception {
-    Assume.assumeTrue(Util.SDK_INT >= 21); // TODO: b/199064299 - Lower minSdk to 19.
     handler.postAndSync(
         () -> {
           player.playWhenReady = true;
@@ -344,6 +326,19 @@ public class MediaSessionKeyEventTest {
     player.awaitMethodCalled(MockPlayer.METHOD_SEEK_TO_NEXT, TIMEOUT_MS);
   }
 
+  @Test
+  public void playPauseKeyEvent_doubleTapOnHeadsetHook_seekNext() throws Exception {
+    handler.postAndSync(
+        () -> {
+          player.playWhenReady = true;
+          player.playbackState = Player.STATE_READY;
+        });
+
+    dispatchMediaKeyEvent(KeyEvent.KEYCODE_HEADSETHOOK, /* doubleTap= */ true);
+
+    player.awaitMethodCalled(MockPlayer.METHOD_SEEK_TO_NEXT, TIMEOUT_MS);
+  }
+
   private MediaController connectMediaNotificationController() throws Exception {
     return threadTestRule
         .getHandler()
@@ -351,7 +346,7 @@ public class MediaSessionKeyEventTest {
             () -> {
               Bundle connectionHints = new Bundle();
               connectionHints.putBoolean(
-                  MediaNotificationManager.KEY_MEDIA_NOTIFICATION_MANAGER, /* value= */ true);
+                  MediaController.KEY_MEDIA_NOTIFICATION_CONTROLLER_FLAG, /* value= */ true);
               return new MediaController.Builder(
                       ApplicationProvider.getApplicationContext(), session.getToken())
                   .setConnectionHints(connectionHints)
@@ -374,10 +369,8 @@ public class MediaSessionKeyEventTest {
       return SUPPORT_APP_PACKAGE_NAME;
     }
     // Legacy controllers
-    if (Util.SDK_INT < 21 || Util.SDK_INT >= 28) {
+    if (Util.SDK_INT >= 28) {
       // Above API 28: package of the app using AudioManager.
-      // Below 21: package of the owner of the session. Note: This is specific to this test setup
-      // where `ApplicationProvider.getContext().packageName == SUPPORT_APP_PACKAGE_NAME`.
       return SUPPORT_APP_PACKAGE_NAME;
     } else if (Util.SDK_INT >= 24) {
       // API 24 - 27: KeyEvent from system service has the package name "android".

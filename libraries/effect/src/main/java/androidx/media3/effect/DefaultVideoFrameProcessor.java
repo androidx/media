@@ -19,22 +19,26 @@ import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
-import static androidx.media3.common.util.Util.SDK_INT;
-import static androidx.media3.effect.DebugTraceUtil.EVENT_VFP_RECEIVE_END_OF_INPUT;
-import static androidx.media3.effect.DebugTraceUtil.EVENT_VFP_REGISTER_NEW_INPUT_STREAM;
-import static androidx.media3.effect.DebugTraceUtil.EVENT_VFP_SIGNAL_ENDED;
-import static androidx.media3.effect.DebugTraceUtil.logEvent;
+import static androidx.media3.common.util.GlUtil.getDefaultEglDisplay;
+import static androidx.media3.effect.DebugTraceUtil.COMPONENT_VFP;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_RECEIVE_END_OF_ALL_INPUT;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_REGISTER_NEW_INPUT_STREAM;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_SIGNAL_ENDED;
 import static com.google.common.collect.Iterables.getFirst;
+import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.SurfaceTexture;
 import android.opengl.EGLContext;
 import android.opengl.EGLDisplay;
+import android.opengl.EGLSurface;
 import android.opengl.GLES20;
 import android.opengl.GLES30;
+import android.util.Pair;
 import android.view.Surface;
 import androidx.annotation.GuardedBy;
+import androidx.annotation.IntDef;
 import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
@@ -44,6 +48,7 @@ import androidx.media3.common.DebugViewProvider;
 import androidx.media3.common.Effect;
 import androidx.media3.common.FrameInfo;
 import androidx.media3.common.GlObjectsProvider;
+import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.OnInputFrameProcessedListener;
 import androidx.media3.common.SurfaceInfo;
 import androidx.media3.common.VideoFrameProcessingException;
@@ -57,6 +62,10 @@ import androidx.media3.common.util.Util;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.lang.annotation.Documented;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -69,9 +78,21 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 /**
  * A {@link VideoFrameProcessor} implementation that applies {@link GlEffect} instances using OpenGL
  * on a background thread.
+ *
+ * <p>When using surface input ({@link #INPUT_TYPE_SURFACE} or {@link
+ * #INPUT_TYPE_SURFACE_AUTOMATIC_FRAME_REGISTRATION}) the surface's format must be supported for
+ * sampling as an external texture in OpenGL. When a {@link android.media.MediaCodec} decoder is
+ * writing to the input surface, the default SDR color format is supported. When an {@link
+ * android.media.ImageWriter} is writing to the input surface, {@link
+ * android.graphics.PixelFormat#RGBA_8888} is supported for SDR data. Support for other formats may
+ * be device-dependent.
  */
 @UnstableApi
 public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
+
+  static {
+    MediaLibraryInfo.registerModule("media3.effect");
+  }
 
   /**
    * Releases the output information stored for textures before and at {@code presentationTimeUs}.
@@ -80,39 +101,127 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
     void release(long presentationTimeUs);
   }
 
+  // LINT.IfChange(working_color_space)
+  /**
+   * Specifies the color space that frames passed to intermediate {@link GlShaderProgram}s will be
+   * represented in.
+   */
+  @Documented
+  @Retention(RetentionPolicy.SOURCE)
+  @Target(TYPE_USE)
+  @IntDef({WORKING_COLOR_SPACE_DEFAULT, WORKING_COLOR_SPACE_ORIGINAL, WORKING_COLOR_SPACE_LINEAR})
+  public @interface WorkingColorSpace {}
+
+  /**
+   * Use BT709 color primaries with the standard SDR transfer function (SMPTE 170m) as the working
+   * color space.
+   *
+   * <p>Any SDR content in a different color space will be transferred to this one.
+   */
+  public static final int WORKING_COLOR_SPACE_DEFAULT = 0;
+
+  /**
+   * Use the original color space of the input as the working color space when the input is SDR.
+   *
+   * <p>Tonemapped HDR content will be represented with BT709 color primaries and the standard SDR
+   * transfer function (SMPTE 170m).
+   *
+   * <p>No color transfers will be applied when the input is SDR.
+   */
+  public static final int WORKING_COLOR_SPACE_ORIGINAL = 1;
+
+  /**
+   * The working color space will have the same primaries as the input and a linear transfer
+   * function.
+   *
+   * <p>This option is not recommended for SDR content since it may lead to color banding since
+   * 8-bit colors are used in SDR processing. It may also cause effects that modify a frame's output
+   * colors (for example {@linkplain OverlayEffect overlays}) to have incorrect output colors.
+   */
+  public static final int WORKING_COLOR_SPACE_LINEAR = 2;
+
   /** A factory for {@link DefaultVideoFrameProcessor} instances. */
   public static final class Factory implements VideoFrameProcessor.Factory {
     private static final String THREAD_NAME = "Effect:DefaultVideoFrameProcessor:GlThread";
 
     /** A builder for {@link DefaultVideoFrameProcessor.Factory} instances. */
     public static final class Builder {
-      private boolean enableColorTransfers;
+      private @WorkingColorSpace int sdrWorkingColorSpace;
       @Nullable private ExecutorService executorService;
       private @MonotonicNonNull GlObjectsProvider glObjectsProvider;
       private GlTextureProducer.@MonotonicNonNull Listener textureOutputListener;
       private int textureOutputCapacity;
+      private boolean requireRegisteringAllInputFrames;
+      private boolean experimentalAdjustSurfaceTextureTransformationMatrix;
+      private boolean experimentalRepeatInputBitmapWithoutResampling;
 
       /** Creates an instance. */
       public Builder() {
-        enableColorTransfers = true;
+        sdrWorkingColorSpace = WORKING_COLOR_SPACE_DEFAULT;
+        requireRegisteringAllInputFrames = true;
+        experimentalAdjustSurfaceTextureTransformationMatrix = true;
+        experimentalRepeatInputBitmapWithoutResampling = true;
       }
 
       private Builder(Factory factory) {
-        enableColorTransfers = factory.enableColorTransfers;
+        sdrWorkingColorSpace = factory.sdrWorkingColorSpace;
         executorService = factory.executorService;
         glObjectsProvider = factory.glObjectsProvider;
         textureOutputListener = factory.textureOutputListener;
         textureOutputCapacity = factory.textureOutputCapacity;
+        requireRegisteringAllInputFrames = !factory.repeatLastRegisteredFrame;
+        experimentalAdjustSurfaceTextureTransformationMatrix =
+            factory.experimentalAdjustSurfaceTextureTransformationMatrix;
+        experimentalRepeatInputBitmapWithoutResampling =
+            factory.experimentalRepeatInputBitmapWithoutResampling;
       }
 
       /**
-       * Sets whether to transfer colors to an intermediate color space when applying effects.
+       * Sets the {@link WorkingColorSpace} in which frames passed to intermediate effects will be
+       * represented.
        *
-       * <p>If the input or output is HDR, this must be {@code true}.
+       * <p>The default value is {@link #WORKING_COLOR_SPACE_LINEAR}.
+       *
+       * <p>This setter doesn't affect the working color space for HDR output, since the working
+       * color space must have a linear transfer function for HDR output.
        */
       @CanIgnoreReturnValue
-      public Builder setEnableColorTransfers(boolean enableColorTransfers) {
-        this.enableColorTransfers = enableColorTransfers;
+      public Builder setSdrWorkingColorSpace(@WorkingColorSpace int sdrWorkingColorSpace) {
+        this.sdrWorkingColorSpace = sdrWorkingColorSpace;
+        return this;
+      }
+
+      /**
+       * Sets whether {@link VideoFrameProcessor#registerInputFrame() registering} every input frame
+       * is required.
+       *
+       * <p>The default value is {@code true}, meaning that all frames input to the {@link
+       * VideoFrameProcessor}'s input {@link #getInputSurface Surface} must be {@linkplain
+       * #registerInputFrame() registered} before they are rendered. In this mode the input format
+       * change between input streams is handled frame-exactly. If {@code false}, {@link
+       * #registerInputFrame} can be called only once for each {@linkplain #registerInputStream
+       * registered input stream} before rendering the first frame to the input {@link
+       * #getInputSurface() Surface}. The same registered {@link FrameInfo} is repeated for the
+       * subsequent frames. To ensure the format change between input streams is applied on the
+       * right frame, the caller needs to {@linkplain #registerInputStream(int, List, FrameInfo)
+       * register} the new input stream strictly after rendering all frames from the previous input
+       * stream. This mode should be used in streams where users don't have direct control over
+       * rendering frames, like in a camera feed.
+       *
+       * <p>Regardless of the value set, {@link #registerInputStream(int, List, FrameInfo)} must be
+       * called for each input stream to specify the format for upcoming frames before calling
+       * {@link #registerInputFrame()}.
+       *
+       * @param requireRegisteringAllInputFrames Whether registering every input frame is required.
+       * @deprecated For automatic frame registration ({@code
+       *     setRequireRegisteringAllInputFrames(false)}), use {@link
+       *     VideoFrameProcessor#INPUT_TYPE_SURFACE_AUTOMATIC_FRAME_REGISTRATION} instead. This call
+       *     can be removed otherwise.
+       */
+      @Deprecated
+      @CanIgnoreReturnValue
+      public Builder setRequireRegisteringAllInputFrames(boolean requireRegisteringAllInputFrames) {
+        this.requireRegisteringAllInputFrames = requireRegisteringAllInputFrames;
         return this;
       }
 
@@ -174,34 +283,86 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
         return this;
       }
 
+      /**
+       * Sets whether the {@link SurfaceTexture#getTransformMatrix(float[])} is adjusted to remove
+       * the scale that cuts off a 1- or 2-texel border around the edge of a crop.
+       *
+       * <p>When set, programs sampling GL_TEXTURE_EXTERNAL_OES from {@link SurfaceTexture} must not
+       * attempt to access data in any cropped region, including via GL_LINEAR resampling filter.
+       *
+       * <p>Defaults to {@code true}.
+       *
+       * @deprecated This experimental method will be removed in a future release.
+       */
+      @CanIgnoreReturnValue
+      @Deprecated
+      public Builder setExperimentalAdjustSurfaceTextureTransformationMatrix(
+          boolean experimentalAdjustSurfaceTextureTransformationMatrix) {
+        this.experimentalAdjustSurfaceTextureTransformationMatrix =
+            experimentalAdjustSurfaceTextureTransformationMatrix;
+        return this;
+      }
+
+      /**
+       * Sets whether {@link BitmapTextureManager} will sample from the input bitmap only once for a
+       * sequence of output frames.
+       *
+       * <p>Defaults to {@code true}. That is, each output frame will sample from the full
+       * resolution input bitmap.
+       *
+       * @deprecated This experimental method will be removed in a future release.
+       */
+      @CanIgnoreReturnValue
+      @Deprecated
+      public Builder setExperimentalRepeatInputBitmapWithoutResampling(
+          boolean experimentalRepeatInputBitmapWithoutResampling) {
+        this.experimentalRepeatInputBitmapWithoutResampling =
+            experimentalRepeatInputBitmapWithoutResampling;
+        return this;
+      }
+
       /** Builds an {@link DefaultVideoFrameProcessor.Factory} instance. */
       public DefaultVideoFrameProcessor.Factory build() {
         return new DefaultVideoFrameProcessor.Factory(
-            enableColorTransfers,
+            sdrWorkingColorSpace,
+            /* repeatLastRegisteredFrame= */ !requireRegisteringAllInputFrames,
             glObjectsProvider == null ? new DefaultGlObjectsProvider() : glObjectsProvider,
             executorService,
             textureOutputListener,
-            textureOutputCapacity);
+            textureOutputCapacity,
+            experimentalAdjustSurfaceTextureTransformationMatrix,
+            experimentalRepeatInputBitmapWithoutResampling);
       }
     }
 
-    private final boolean enableColorTransfers;
+    private final @WorkingColorSpace int sdrWorkingColorSpace;
+    private final boolean repeatLastRegisteredFrame;
     private final GlObjectsProvider glObjectsProvider;
     @Nullable private final ExecutorService executorService;
     @Nullable private final GlTextureProducer.Listener textureOutputListener;
     private final int textureOutputCapacity;
+    private final boolean experimentalAdjustSurfaceTextureTransformationMatrix;
+    private final boolean experimentalRepeatInputBitmapWithoutResampling;
 
     private Factory(
-        boolean enableColorTransfers,
+        @WorkingColorSpace int sdrWorkingColorSpace,
+        boolean repeatLastRegisteredFrame,
         GlObjectsProvider glObjectsProvider,
         @Nullable ExecutorService executorService,
         @Nullable GlTextureProducer.Listener textureOutputListener,
-        int textureOutputCapacity) {
-      this.enableColorTransfers = enableColorTransfers;
+        int textureOutputCapacity,
+        boolean experimentalAdjustSurfaceTextureTransformationMatrix,
+        boolean experimentalRepeatInputBitmapWithoutResampling) {
+      this.sdrWorkingColorSpace = sdrWorkingColorSpace;
+      this.repeatLastRegisteredFrame = repeatLastRegisteredFrame;
       this.glObjectsProvider = glObjectsProvider;
       this.executorService = executorService;
       this.textureOutputListener = textureOutputListener;
       this.textureOutputCapacity = textureOutputCapacity;
+      this.experimentalAdjustSurfaceTextureTransformationMatrix =
+          experimentalAdjustSurfaceTextureTransformationMatrix;
+      this.experimentalRepeatInputBitmapWithoutResampling =
+          experimentalRepeatInputBitmapWithoutResampling;
     }
 
     public Builder buildUpon() {
@@ -213,9 +374,8 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
      *
      * <p>Using HDR {@code outputColorInfo} requires OpenGL ES 3.0.
      *
-     * <p>If outputting HDR content to a display, {@code EGL_GL_COLORSPACE_BT2020_PQ_EXT} is
-     * required, and {@link ColorInfo#colorTransfer outputColorInfo.colorTransfer} must be {@link
-     * C#COLOR_TRANSFER_ST2084}.
+     * <p>If outputting HDR content to a display, {@code EGL_GL_COLORSPACE_BT2020_PQ_EXT} or {@code
+     * EGL_GL_COLORSPACE_BT2020_HLG_EXT} is required.
      *
      * <p>{@code outputColorInfo}'s {@link ColorInfo#colorRange} values are currently ignored, in
      * favor of {@link C#COLOR_RANGE_FULL}.
@@ -257,14 +417,17 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
                       context,
                       debugViewProvider,
                       outputColorInfo,
-                      enableColorTransfers,
+                      sdrWorkingColorSpace,
                       renderFramesAutomatically,
                       videoFrameProcessingTaskExecutor,
                       listenerExecutor,
                       listener,
                       glObjectsProvider,
                       textureOutputListener,
-                      textureOutputCapacity));
+                      textureOutputCapacity,
+                      repeatLastRegisteredFrame,
+                      experimentalAdjustSurfaceTextureTransformationMatrix,
+                      experimentalRepeatInputBitmapWithoutResampling));
 
       try {
         return defaultVideoFrameProcessorFuture.get();
@@ -282,7 +445,6 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
   private final Context context;
   private final GlObjectsProvider glObjectsProvider;
   private final EGLDisplay eglDisplay;
-  private final EGLContext eglContext;
   private final InputSwitcher inputSwitcher;
   private final VideoFrameProcessingTaskExecutor videoFrameProcessingTaskExecutor;
   private final VideoFrameProcessor.Listener listener;
@@ -305,9 +467,12 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
   @GuardedBy("lock")
   private boolean registeredFirstInputStream;
 
+  @GuardedBy("lock")
+  @Nullable
+  private Runnable onInputSurfaceReadyListener;
+
   private final List<Effect> activeEffects;
   private final Object lock;
-  private final boolean enableColorTransfers;
   private final ColorInfo outputColorInfo;
 
   private volatile @MonotonicNonNull FrameInfo nextInputFrameInfo;
@@ -317,19 +482,16 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
       Context context,
       GlObjectsProvider glObjectsProvider,
       EGLDisplay eglDisplay,
-      EGLContext eglContext,
       InputSwitcher inputSwitcher,
       VideoFrameProcessingTaskExecutor videoFrameProcessingTaskExecutor,
-      VideoFrameProcessor.Listener listener,
+      Listener listener,
       Executor listenerExecutor,
       FinalShaderProgramWrapper finalShaderProgramWrapper,
       boolean renderFramesAutomatically,
-      boolean enableColorTransfers,
       ColorInfo outputColorInfo) {
     this.context = context;
     this.glObjectsProvider = glObjectsProvider;
     this.eglDisplay = eglDisplay;
-    this.eglContext = eglContext;
     this.inputSwitcher = inputSwitcher;
     this.videoFrameProcessingTaskExecutor = videoFrameProcessingTaskExecutor;
     this.listener = listener;
@@ -337,7 +499,6 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
     this.renderFramesAutomatically = renderFramesAutomatically;
     this.activeEffects = new ArrayList<>();
     this.lock = new Object();
-    this.enableColorTransfers = enableColorTransfers;
     this.outputColorInfo = outputColorInfo;
     this.finalShaderProgramWrapper = finalShaderProgramWrapper;
     this.intermediateGlShaderPrograms = new ArrayList<>();
@@ -347,7 +508,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
         () -> {
           if (inputStreamEnded) {
             listenerExecutor.execute(listener::onEnded);
-            logEvent(EVENT_VFP_SIGNAL_ENDED, C.TIME_END_OF_SOURCE);
+            DebugTraceUtil.logEvent(COMPONENT_VFP, EVENT_SIGNAL_ENDED, C.TIME_END_OF_SOURCE);
           } else {
             synchronized (lock) {
               if (pendingInputStreamInfo != null) {
@@ -381,15 +542,27 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
    *
    * @param width The default width for input buffers, in pixels.
    * @param height The default height for input buffers, in pixels.
+   * @deprecated Set the input type to {@link
+   *     VideoFrameProcessor#INPUT_TYPE_SURFACE_AUTOMATIC_FRAME_REGISTRATION} instead, which sets
+   *     the default buffer size automatically based on the registered frame info.
    */
+  @Deprecated
   public void setInputDefaultBufferSize(int width, int height) {
     inputSwitcher.setInputDefaultBufferSize(width, height);
   }
 
   @Override
   public boolean queueInputBitmap(Bitmap inputBitmap, TimestampIterator timestampIterator) {
+    checkState(!inputStreamEnded);
     if (!inputStreamRegisteredCondition.isOpen()) {
       return false;
+    }
+    if (ColorInfo.isTransferHdr(outputColorInfo)) {
+      checkArgument(
+          Util.SDK_INT >= 34 && inputBitmap.hasGainmap(),
+          "VideoFrameProcessor configured for HDR output, but either received SDR input, or is on"
+              + " an API level that doesn't support gainmaps. SDR to HDR tonemapping is not"
+              + " supported.");
     }
     FrameInfo frameInfo = checkNotNull(this.nextInputFrameInfo);
     inputSwitcher
@@ -397,13 +570,13 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
         .queueInputBitmap(
             inputBitmap,
             new FrameInfo.Builder(frameInfo).setOffsetToAddUs(frameInfo.offsetToAddUs).build(),
-            timestampIterator,
-            /* useHdr= */ false);
+            timestampIterator);
     return true;
   }
 
   @Override
   public boolean queueInputTexture(int textureId, long presentationTimeUs) {
+    checkState(!inputStreamEnded);
     if (!inputStreamRegisteredCondition.isOpen()) {
       return false;
     }
@@ -415,6 +588,17 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
   @Override
   public void setOnInputFrameProcessedListener(OnInputFrameProcessedListener listener) {
     inputSwitcher.setOnInputFrameProcessedListener(listener);
+  }
+
+  @Override
+  public void setOnInputSurfaceReadyListener(Runnable listener) {
+    synchronized (lock) {
+      if (inputStreamRegisteredCondition.isOpen()) {
+        listener.run();
+      } else {
+        onInputSurfaceReadyListener = listener;
+      }
+    }
   }
 
   @Override
@@ -443,18 +627,15 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
    * {@link C#COLOR_TRANSFER_GAMMA_2_2}, for consistency with other tone-mapping and color behavior
    * in the Android ecosystem (for example, MediaFormat's COLOR_TRANSFER_SDR_VIDEO is defined as
    * SMPTE 170M, but most OEMs process it as Gamma 2.2).
-   *
-   * <p>If either {@link FrameInfo#colorInfo} or {@code outputColorInfo} {@linkplain
-   * ColorInfo#isTransferHdr} are HDR}, color transfers must {@linkplain
-   * Factory.Builder#setEnableColorTransfers be enabled}.
    */
   @Override
   public void registerInputStream(
       @InputType int inputType, List<Effect> effects, FrameInfo frameInfo) {
     // This method is only called after all samples in the current input stream are registered or
     // queued.
-    logEvent(
-        EVENT_VFP_REGISTER_NEW_INPUT_STREAM,
+    DebugTraceUtil.logEvent(
+        COMPONENT_VFP,
+        EVENT_REGISTER_NEW_INPUT_STREAM,
         /* presentationTimeUs= */ frameInfo.offsetToAddUs,
         /* extraFormat= */ "InputType %s - %dx%d",
         /* extraArgs...= */ getInputTypeString(inputType),
@@ -539,7 +720,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
 
   @Override
   public void signalEndOfInput() {
-    logEvent(EVENT_VFP_RECEIVE_END_OF_INPUT, C.TIME_END_OF_SOURCE);
+    DebugTraceUtil.logEvent(COMPONENT_VFP, EVENT_RECEIVE_END_OF_ALL_INPUT, C.TIME_END_OF_SOURCE);
     checkState(!inputStreamEnded);
     inputStreamEnded = true;
     inputSwitcher.signalEndOfInputStream();
@@ -557,16 +738,22 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
    */
   @Override
   public void flush() {
+    if (!inputSwitcher.hasActiveInput()) {
+      return;
+    }
     try {
+      TextureManager textureManager = inputSwitcher.activeTextureManager();
+      textureManager.dropIncomingRegisteredFrames();
+      // Flush pending tasks to prevent any operation to be executed on the frames being processed
+      // before the flush operation.
       videoFrameProcessingTaskExecutor.flush();
-
-      // Flush from the end of the GlShaderProgram pipeline up to the start.
+      textureManager.releaseAllRegisteredFrames();
       CountDownLatch latch = new CountDownLatch(1);
-      inputSwitcher.activeTextureManager().setOnFlushCompleteListener(latch::countDown);
+      textureManager.setOnFlushCompleteListener(latch::countDown);
+      // Flush from the end of the GlShaderProgram pipeline up to the start.
       videoFrameProcessingTaskExecutor.submit(finalShaderProgramWrapper::flush);
       latch.await();
-
-      inputSwitcher.activeTextureManager().setOnFlushCompleteListener(null);
+      textureManager.setOnFlushCompleteListener(null);
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
     }
@@ -619,78 +806,77 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
       Context context,
       DebugViewProvider debugViewProvider,
       ColorInfo outputColorInfo,
-      boolean enableColorTransfers,
+      @WorkingColorSpace int sdrWorkingColorSpace,
       boolean renderFramesAutomatically,
       VideoFrameProcessingTaskExecutor videoFrameProcessingTaskExecutor,
       Executor videoFrameProcessorListenerExecutor,
-      VideoFrameProcessor.Listener listener,
+      Listener listener,
       GlObjectsProvider glObjectsProvider,
       @Nullable GlTextureProducer.Listener textureOutputListener,
-      int textureOutputCapacity)
+      int textureOutputCapacity,
+      boolean repeatLastRegisteredFrame,
+      boolean experimentalAdjustSurfaceTextureTransformationMatrix,
+      boolean experimentalRepeatInputBitmapWithoutResampling)
       throws GlUtil.GlException, VideoFrameProcessingException {
-    EGLDisplay eglDisplay = GlUtil.getDefaultEglDisplay();
+    EGLDisplay eglDisplay = getDefaultEglDisplay();
     int[] configAttributes =
         ColorInfo.isTransferHdr(outputColorInfo)
             ? GlUtil.EGL_CONFIG_ATTRIBUTES_RGBA_1010102
             : GlUtil.EGL_CONFIG_ATTRIBUTES_RGBA_8888;
-    EGLContext eglContext =
+    Pair<EGLContext, EGLSurface> eglContextAndPlaceholderSurface =
         createFocusedEglContextWithFallback(glObjectsProvider, eglDisplay, configAttributes);
 
-    // Not renderFramesAutomatically means outputting to a display surface. HDR display surfaces
-    // require the BT2020 PQ GL extension.
-    if (!renderFramesAutomatically && ColorInfo.isTransferHdr(outputColorInfo)) {
-      // Display hardware supports PQ only.
-      checkArgument(outputColorInfo.colorTransfer == C.COLOR_TRANSFER_ST2084);
-      if (SDK_INT < 33 || !GlUtil.isBt2020PqExtensionSupported()) {
-        GlUtil.destroyEglContext(eglDisplay, eglContext);
-        // On API<33, the system cannot display PQ content correctly regardless of whether BT2020 PQ
-        // GL extension is supported.
-        throw new VideoFrameProcessingException("BT.2020 PQ OpenGL output isn't supported.");
-      }
-    }
     ColorInfo linearColorInfo =
         outputColorInfo
             .buildUpon()
             .setColorTransfer(C.COLOR_TRANSFER_LINEAR)
             .setHdrStaticInfo(null)
             .build();
+    ColorInfo intermediateColorInfo =
+        ColorInfo.isTransferHdr(outputColorInfo)
+            ? linearColorInfo
+            : sdrWorkingColorSpace == WORKING_COLOR_SPACE_LINEAR
+                ? linearColorInfo
+                : outputColorInfo;
     InputSwitcher inputSwitcher =
         new InputSwitcher(
             context,
-            /* outputColorInfo= */ linearColorInfo,
+            /* outputColorInfo= */ intermediateColorInfo,
             glObjectsProvider,
             videoFrameProcessingTaskExecutor,
             /* errorListenerExecutor= */ videoFrameProcessorListenerExecutor,
             /* samplingShaderProgramErrorListener= */ listener::onError,
-            enableColorTransfers);
+            sdrWorkingColorSpace,
+            repeatLastRegisteredFrame,
+            experimentalAdjustSurfaceTextureTransformationMatrix,
+            experimentalRepeatInputBitmapWithoutResampling);
 
     FinalShaderProgramWrapper finalShaderProgramWrapper =
         new FinalShaderProgramWrapper(
             context,
             eglDisplay,
-            eglContext,
+            eglContextAndPlaceholderSurface.first,
+            eglContextAndPlaceholderSurface.second,
             debugViewProvider,
             outputColorInfo,
-            enableColorTransfers,
-            renderFramesAutomatically,
             videoFrameProcessingTaskExecutor,
             videoFrameProcessorListenerExecutor,
             listener,
             textureOutputListener,
-            textureOutputCapacity);
+            textureOutputCapacity,
+            sdrWorkingColorSpace,
+            renderFramesAutomatically);
 
     return new DefaultVideoFrameProcessor(
         context,
         glObjectsProvider,
         eglDisplay,
-        eglContext,
         inputSwitcher,
         videoFrameProcessingTaskExecutor,
         listener,
         videoFrameProcessorListenerExecutor,
         finalShaderProgramWrapper,
         renderFramesAutomatically,
-        enableColorTransfers,
         outputColorInfo);
   }
 
@@ -793,6 +979,8 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
         return "Bitmap";
       case INPUT_TYPE_TEXTURE_ID:
         return "Texture ID";
+      case INPUT_TYPE_SURFACE_AUTOMATIC_FRAME_REGISTRATION:
+        return "Surface with automatic frame registration";
       default:
         throw new IllegalArgumentException(String.valueOf(inputType));
     }
@@ -807,10 +995,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
    */
   private void configureEffects(InputStreamInfo inputStreamInfo, boolean forceReconfigure)
       throws VideoFrameProcessingException {
-    checkColors(
-        /* inputColorInfo= */ inputStreamInfo.frameInfo.colorInfo,
-        outputColorInfo,
-        enableColorTransfers);
+    checkColors(/* inputColorInfo= */ inputStreamInfo.frameInfo.colorInfo, outputColorInfo);
     if (forceReconfigure || !activeEffects.equals(inputStreamInfo.effects)) {
       if (!intermediateGlShaderPrograms.isEmpty()) {
         for (int i = 0; i < intermediateGlShaderPrograms.size(); i++) {
@@ -840,6 +1025,12 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
 
     inputSwitcher.switchToInput(inputStreamInfo.inputType, inputStreamInfo.frameInfo);
     inputStreamRegisteredCondition.open();
+    synchronized (lock) {
+      if (onInputSurfaceReadyListener != null) {
+        onInputSurfaceReadyListener.run();
+        onInputSurfaceReadyListener = null;
+      }
+    }
     listenerExecutor.execute(
         () ->
             listener.onInputStreamRegistered(
@@ -847,11 +1038,12 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
   }
 
   /** Checks that color configuration is valid for {@link DefaultVideoFrameProcessor}. */
-  private static void checkColors(
-      ColorInfo inputColorInfo, ColorInfo outputColorInfo, boolean enableColorTransfers)
+  private static void checkColors(ColorInfo inputColorInfo, ColorInfo outputColorInfo)
       throws VideoFrameProcessingException {
+    if (ColorInfo.isTransferHdr(inputColorInfo)) {
+      checkArgument(inputColorInfo.colorSpace == C.COLOR_SPACE_BT2020);
+    }
     if ((ColorInfo.isTransferHdr(inputColorInfo) || ColorInfo.isTransferHdr(outputColorInfo))) {
-      checkArgument(enableColorTransfers);
       long glVersion;
       try {
         glVersion = GlUtil.getContextMajorVersion();
@@ -869,16 +1061,28 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
     checkArgument(outputColorInfo.isDataSpaceValid());
     checkArgument(outputColorInfo.colorTransfer != C.COLOR_TRANSFER_LINEAR);
 
-    if (inputColorInfo.colorSpace != outputColorInfo.colorSpace
-        || ColorInfo.isTransferHdr(inputColorInfo) != ColorInfo.isTransferHdr(outputColorInfo)) {
-      // OpenGL tone mapping is only implemented for BT2020 to BT709 and HDR to SDR.
-      checkArgument(inputColorInfo.colorSpace == C.COLOR_SPACE_BT2020);
-      checkArgument(outputColorInfo.colorSpace != C.COLOR_SPACE_BT2020);
-      checkArgument(ColorInfo.isTransferHdr(inputColorInfo));
+    if (ColorInfo.isTransferHdr(inputColorInfo) != ColorInfo.isTransferHdr(outputColorInfo)) {
       checkArgument(
-          outputColorInfo.colorTransfer == C.COLOR_TRANSFER_GAMMA_2_2
-              || outputColorInfo.colorTransfer == C.COLOR_TRANSFER_SDR);
+          isSupportedToneMapping(inputColorInfo, outputColorInfo)
+              || isUltraHdr(inputColorInfo, outputColorInfo));
     }
+  }
+
+  private static boolean isSupportedToneMapping(
+      ColorInfo inputColorInfo, ColorInfo outputColorInfo) {
+    // OpenGL tone mapping is only implemented for BT2020 to BT709 and HDR to SDR.
+    return inputColorInfo.colorSpace == C.COLOR_SPACE_BT2020
+        && outputColorInfo.colorSpace != C.COLOR_SPACE_BT2020
+        && ColorInfo.isTransferHdr(inputColorInfo)
+        && (outputColorInfo.colorTransfer == C.COLOR_TRANSFER_GAMMA_2_2
+            || outputColorInfo.colorTransfer == C.COLOR_TRANSFER_SDR);
+  }
+
+  private static boolean isUltraHdr(ColorInfo inputColorInfo, ColorInfo outputColorInfo) {
+    // UltraHDR is is only implemented from SRGB_BT709_FULL to BT2020 HDR.
+    return inputColorInfo.equals(ColorInfo.SRGB_BT709_FULL)
+        && outputColorInfo.colorSpace == C.COLOR_SPACE_BT2020
+        && ColorInfo.isTransferHdr(outputColorInfo);
   }
 
   /**
@@ -899,22 +1103,21 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
       }
     } finally {
       try {
-        GlUtil.destroyEglContext(eglDisplay, eglContext);
+        glObjectsProvider.release(eglDisplay);
       } catch (GlUtil.GlException e) {
-        Log.e(TAG, "Error releasing GL context", e);
+        Log.e(TAG, "Error releasing GL objects", e);
       }
     }
   }
 
-  /** Creates an OpenGL ES 3.0 context if possible, and an OpenGL ES 2.0 context otherwise. */
-  private static EGLContext createFocusedEglContextWithFallback(
+  /**
+   * Creates an OpenGL ES 3.0 context if possible, and an OpenGL ES 2.0 context otherwise.
+   *
+   * <p>See {@link #createFocusedEglContext}.
+   */
+  private static Pair<EGLContext, EGLSurface> createFocusedEglContextWithFallback(
       GlObjectsProvider glObjectsProvider, EGLDisplay eglDisplay, int[] configAttributes)
       throws GlUtil.GlException {
-    if (SDK_INT < 29) {
-      return createFocusedEglContext(
-          glObjectsProvider, eglDisplay, /* openGlVersion= */ 2, configAttributes);
-    }
-
     try {
       return createFocusedEglContext(
           glObjectsProvider, eglDisplay, /* openGlVersion= */ 3, configAttributes);
@@ -927,8 +1130,10 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
   /**
    * Creates an {@link EGLContext} and focus it using a {@linkplain
    * GlObjectsProvider#createFocusedPlaceholderEglSurface placeholder EGL Surface}.
+   *
+   * @return The {@link EGLContext} and a placeholder {@link EGLSurface} as a {@link Pair}.
    */
-  private static EGLContext createFocusedEglContext(
+  private static Pair<EGLContext, EGLSurface> createFocusedEglContext(
       GlObjectsProvider glObjectsProvider,
       EGLDisplay eglDisplay,
       int openGlVersion,
@@ -939,8 +1144,9 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
     // Some OpenGL ES 3.0 contexts returned from createEglContext may throw EGL_BAD_MATCH when being
     // used to createFocusedPlaceHolderEglSurface, despite GL documentation suggesting the contexts,
     // if successfully created, are valid. Check early whether the context is really valid.
-    glObjectsProvider.createFocusedPlaceholderEglSurface(eglContext, eglDisplay);
-    return eglContext;
+    EGLSurface eglSurface =
+        glObjectsProvider.createFocusedPlaceholderEglSurface(eglContext, eglDisplay);
+    return Pair.create(eglContext, eglSurface);
   }
 
   private static final class InputStreamInfo {

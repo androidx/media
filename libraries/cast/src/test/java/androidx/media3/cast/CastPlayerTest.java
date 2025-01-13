@@ -1902,7 +1902,7 @@ public class CastPlayerTest {
   public void getDeviceInfo_returnsCorrectDeviceInfoWithPlaybackTypeRemote() {
     DeviceInfo deviceInfo = castPlayer.getDeviceInfo();
 
-    assertThat(deviceInfo).isEqualTo(CastPlayer.DEVICE_INFO);
+    assertThat(deviceInfo).isEqualTo(CastPlayer.DEVICE_INFO_REMOTE_EMPTY);
     assertThat(deviceInfo.playbackType).isEqualTo(DeviceInfo.PLAYBACK_TYPE_REMOTE);
   }
 

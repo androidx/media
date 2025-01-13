@@ -28,7 +28,6 @@ import android.media.MediaFormat;
 import android.util.Pair;
 import android.util.Range;
 import android.util.Size;
-import androidx.annotation.DoNotInline;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
@@ -96,9 +95,19 @@ public final class EncoderUtil {
     ImmutableList.Builder<MediaCodecInfo> resultBuilder = new ImmutableList.Builder<>();
     for (int i = 0; i < encoders.size(); i++) {
       MediaCodecInfo mediaCodecInfo = encoders.get(i);
-      if (mediaCodecInfo.isAlias()
-          || !isFeatureSupported(
-              mediaCodecInfo, mimeType, MediaCodecInfo.CodecCapabilities.FEATURE_HdrEditing)) {
+      if (mediaCodecInfo.isAlias()) {
+        continue;
+      }
+      boolean hasNeededHdrSupport =
+          isFeatureSupported(
+                  mediaCodecInfo, mimeType, MediaCodecInfo.CodecCapabilities.FEATURE_HdrEditing)
+              || (colorInfo.colorTransfer == C.COLOR_TRANSFER_HLG
+                  && Util.SDK_INT >= 35
+                  && isFeatureSupported(
+                      mediaCodecInfo,
+                      mimeType,
+                      MediaCodecInfo.CodecCapabilities.FEATURE_HlgEditing));
+      if (!hasNeededHdrSupport) {
         continue;
       }
       for (MediaCodecInfo.CodecProfileLevel codecProfileLevel :
@@ -447,12 +456,10 @@ public final class EncoderUtil {
 
   @RequiresApi(29)
   private static final class Api29 {
-    @DoNotInline
     public static boolean isHardwareAccelerated(MediaCodecInfo encoderInfo) {
       return encoderInfo.isHardwareAccelerated();
     }
 
-    @DoNotInline
     public static boolean isSoftwareOnly(MediaCodecInfo encoderInfo) {
       return encoderInfo.isSoftwareOnly();
     }

@@ -154,7 +154,7 @@ public final class CapturingAudioSink extends ForwardingAudioSink implements Dum
     public void dump(Dumper dumper) {
       dumper
           .startBlock("buffer #" + bufferCounter)
-          .add("time", presentationTimeUs)
+          .addTime("time", presentationTimeUs)
           .add("data", dataHashcode)
           .endBlock();
     }

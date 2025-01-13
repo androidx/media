@@ -10,8 +10,10 @@ track 0:
     id = 1
     sampleMimeType = video/avc
     codecs = avc1.64001F
+    maxNumReorderSamples = 2
     width = 1080
     height = 720
+    frameRate = 29.97
     colorInfo:
       lumaBitdepth = 8
       chromaBitdepth = 8

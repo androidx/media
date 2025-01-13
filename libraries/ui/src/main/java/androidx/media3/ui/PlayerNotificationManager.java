@@ -46,6 +46,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.graphics.Bitmap;
 import android.graphics.Color;
+import android.media.session.MediaSession;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
@@ -54,9 +55,9 @@ import androidx.annotation.DrawableRes;
 import androidx.annotation.IntDef;
 import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
+import androidx.core.app.NotificationBuilderWithBuilderAccessor;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
-import androidx.media.app.NotificationCompat.MediaStyle;
 import androidx.media3.common.C;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.NotificationUtil;
@@ -174,7 +175,7 @@ import java.util.Map;
  * Builder#Builder(Context, int, String, MediaDescriptionAdapter)}.
  *
  * <p>Note: This class would require {@link android.Manifest.permission#POST_NOTIFICATIONS}
- * permission if used without a {@linkplain #setMediaSessionToken(MediaSessionCompat.Token) media
+ * permission if used without a {@linkplain #setMediaSessionToken(MediaSession.Token) media
  * session}.
  */
 @UnstableApi
@@ -648,8 +649,8 @@ public class PlayerNotificationManager {
 
   // Internal messages.
 
-  private static final int MSG_START_OR_UPDATE_NOTIFICATION = 0;
-  private static final int MSG_UPDATE_NOTIFICATION_BITMAP = 1;
+  private static final int MSG_START_OR_UPDATE_NOTIFICATION = 1;
+  private static final int MSG_UPDATE_NOTIFICATION_BITMAP = 2;
 
   /**
    * Visibility of notification on the lock screen. One of {@link
@@ -707,7 +708,7 @@ public class PlayerNotificationManager {
   @Nullable private Player player;
   private boolean isNotificationStarted;
   private int currentNotificationTag;
-  @Nullable private MediaSessionCompat.Token mediaSessionToken;
+  @Nullable private MediaSession.Token mediaSessionToken;
   private boolean usePreviousAction;
   private boolean useNextAction;
   private boolean usePreviousActionInCompactView;
@@ -1008,11 +1009,24 @@ public class PlayerNotificationManager {
   }
 
   /**
-   * Sets the {@link MediaSessionCompat.Token}.
-   *
-   * @param token The {@link MediaSessionCompat.Token}.
+   * @deprecated Use {@link #setMediaSessionToken(MediaSession.Token)} and pass in {@code
+   *     (MediaSession.Token) compatToken.getToken()}.
    */
-  public final void setMediaSessionToken(MediaSessionCompat.Token token) {
+  // TODO: b/333355694 - Remove the dependency on androidx.media when this method is removed.
+  @Deprecated
+  public final void setMediaSessionToken(MediaSessionCompat.Token compatToken) {
+    setMediaSessionToken((MediaSession.Token) compatToken.getToken());
+  }
+
+  /**
+   * Sets the {@link MediaSession.Token}.
+   *
+   * <p>When using {@code MediaSessionCompat}, this token can be obtained with {@code
+   * (MediaSession.Token) compatToken.getToken()}.
+   *
+   * @param token The {@link MediaSession.Token}.
+   */
+  public final void setMediaSessionToken(MediaSession.Token token) {
     if (!Util.areEqual(this.mediaSessionToken, token)) {
       mediaSessionToken = token;
       invalidate();
@@ -1142,7 +1156,6 @@ public class PlayerNotificationManager {
    *       duration} (like for example a live stream).
    *   <li>The media is not {@link Player#isPlayingAd() interrupted by an ad}.
    *   <li>The media is played at {@link Player#getPlaybackParameters() regular speed}.
-   *   <li>The device is running at least API 21 (Lollipop).
    * </ul>
    *
    * <p>See {@link NotificationCompat.Builder#setUsesChronometer(boolean)}.
@@ -1230,8 +1243,7 @@ public class PlayerNotificationManager {
    * Creates the notification given the current player state.
    *
    * @param player The player for which state to build a notification.
-   * @param builder The builder used to build the last notification, or {@code null}. Re-using the
-   *     builder when possible can prevent notification flicker when {@code Util#SDK_INT} &lt; 21.
+   * @param builder The builder used to build the last notification, or {@code null}.
    * @param ongoing Whether the notification should be ongoing.
    * @param largeIcon The large icon to be used.
    * @return The {@link NotificationCompat.Builder} on which to call {@link
@@ -1273,15 +1285,8 @@ public class PlayerNotificationManager {
       }
     }
 
-    MediaStyle mediaStyle = new MediaStyle();
-    if (mediaSessionToken != null) {
-      mediaStyle.setMediaSession(mediaSessionToken);
-    }
-    mediaStyle.setShowActionsInCompactView(getActionIndicesForCompactView(actionNames, player));
-    // Configure dismiss action prior to API 21 ('x' button).
-    mediaStyle.setShowCancelButton(!ongoing);
-    mediaStyle.setCancelButtonIntent(dismissPendingIntent);
-    builder.setStyle(mediaStyle);
+    int[] actionIndicesForCompactView = getActionIndicesForCompactView(actionNames, player);
+    builder.setStyle(new MediaStyle(mediaSessionToken, actionIndicesForCompactView));
 
     // Set intent which is sent if the user selects 'clear all'
     builder.setDeleteIntent(dismissPendingIntent);
@@ -1297,9 +1302,7 @@ public class PlayerNotificationManager {
         .setPriority(priority)
         .setDefaults(defaults);
 
-    // Changing "showWhen" causes notification flicker if SDK_INT < 21.
-    if (Util.SDK_INT >= 21
-        && useChronometer
+    if (useChronometer
         && player.isCommandAvailable(COMMAND_GET_CURRENT_MEDIA_ITEM)
         && player.isPlaying()
         && !player.isPlayingAd()
@@ -1562,7 +1565,6 @@ public class PlayerNotificationManager {
 
   private class NotificationBroadcastReceiver extends BroadcastReceiver {
 
-    @SuppressWarnings("deprecation")
     @Override
     public void onReceive(Context context, Intent intent) {
       Player player = PlayerNotificationManager.this.player;
@@ -1606,6 +1608,27 @@ public class PlayerNotificationManager {
           && customActions.containsKey(action)) {
         customActionReceiver.onCustomAction(player, action, intent);
       }
+    }
+  }
+
+  private static final class MediaStyle extends androidx.core.app.NotificationCompat.Style {
+
+    private final int[] actionsToShowInCompact;
+    @Nullable private final MediaSession.Token token;
+
+    public MediaStyle(@Nullable MediaSession.Token token, int[] actionsToShowInCompact) {
+      this.token = token;
+      this.actionsToShowInCompact = actionsToShowInCompact;
+    }
+
+    @Override
+    public void apply(NotificationBuilderWithBuilderAccessor builder) {
+      Notification.MediaStyle style = new Notification.MediaStyle();
+      style.setShowActionsInCompactView(actionsToShowInCompact);
+      if (token != null) {
+        style.setMediaSession(token);
+      }
+      builder.getBuilder().setStyle(style);
     }
   }
 }

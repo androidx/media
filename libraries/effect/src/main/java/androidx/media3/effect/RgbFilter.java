@@ -23,7 +23,12 @@ import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.UnstableApi;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
-/** Provides common color filters. */
+/**
+ * Provides common color filters.
+ *
+ * <p>This effect assumes a {@linkplain DefaultVideoFrameProcessor#WORKING_COLOR_SPACE_LINEAR
+ * linear} working color space.
+ */
 @UnstableApi
 public final class RgbFilter implements RgbMatrix {
   private static final int COLOR_FILTER_GRAYSCALE_INDEX = 1;

@@ -19,7 +19,6 @@ import static androidx.media3.common.MimeTypes.normalizeMimeType;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.net.Uri;
-import android.text.TextUtils;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
@@ -30,7 +29,6 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Pattern;
 
 /** Defines common file type constants and helper methods. */
 @UnstableApi
@@ -60,6 +58,7 @@ public final class FileTypes {
    *   <li>{@link #WEBP}
    *   <li>{@link #BMP}
    *   <li>{@link #HEIF}
+   *   <li>{@link #AVIF}
    * </ul>
    */
   @Documented
@@ -67,7 +66,7 @@ public final class FileTypes {
   @Target(TYPE_USE)
   @IntDef({
     UNKNOWN, AC3, AC4, ADTS, AMR, FLAC, FLV, MATROSKA, MP3, MP4, OGG, PS, TS, WAV, WEBVTT, JPEG,
-    MIDI, AVI, PNG, WEBP, BMP, HEIF
+    MIDI, AVI, PNG, WEBP, BMP, HEIF, AVIF
   })
   public @interface Type {}
 
@@ -137,6 +136,9 @@ public final class FileTypes {
   /** File type for the HEIF format. */
   public static final int HEIF = 20;
 
+  /** File type for the AVIF format. */
+  public static final int AVIF = 21;
+
   @VisibleForTesting /* package */ static final String HEADER_CONTENT_TYPE = "Content-Type";
 
   private static final String EXTENSION_AC3 = ".ac3";
@@ -177,6 +179,8 @@ public final class FileTypes {
   private static final String EXTENSION_BMP = ".bmp";
   private static final String EXTENSION_DIB = ".dib";
   private static final String EXTENSION_HEIC = ".heic";
+  private static final String EXTENSION_HEIF = ".heif";
+  private static final String EXTENSION_AVIF = ".avif";
 
   private FileTypes() {}
 
@@ -249,7 +253,10 @@ public final class FileTypes {
       case MimeTypes.IMAGE_BMP:
         return FileTypes.BMP;
       case MimeTypes.IMAGE_HEIF:
+      case MimeTypes.IMAGE_HEIC:
         return FileTypes.HEIF;
+      case MimeTypes.IMAGE_AVIF:
+        return FileTypes.AVIF;
       default:
         return FileTypes.UNKNOWN;
     }
@@ -323,36 +330,12 @@ public final class FileTypes {
       return FileTypes.WEBP;
     } else if (filename.endsWith(EXTENSION_BMP) || filename.endsWith(EXTENSION_DIB)) {
       return FileTypes.BMP;
-    } else if (filename.endsWith(EXTENSION_HEIC)) {
+    } else if (filename.endsWith(EXTENSION_HEIC) || filename.endsWith(EXTENSION_HEIF)) {
       return FileTypes.HEIF;
+    } else if (filename.endsWith(EXTENSION_AVIF)) {
+      return FileTypes.AVIF;
     } else {
       return FileTypes.UNKNOWN;
     }
-  }
-
-  /**
-   * Returns the file extension of the given {@link Uri} or an empty string if there is no
-   * extension.
-   *
-   * <p>This method is a convenience method for obtaining the extension of a url and has undefined
-   * results for other Strings.
-   */
-  public static String getFileExtensionFromUri(Uri uri) {
-    String path = uri.getPath();
-    if (TextUtils.isEmpty(path)) {
-      return "";
-    }
-    int filenamePos = path.lastIndexOf('/');
-    String filename = 0 <= filenamePos ? path.substring(filenamePos + 1) : path;
-
-    // If the filename contains special characters, we don't consider it valid for our matching
-    // purposes.
-    if (!filename.isEmpty() && Pattern.matches("[a-zA-Z_0-9\\.\\-\\(\\)\\%]+", filename)) {
-      int dotPos = filename.lastIndexOf('.');
-      if (0 <= dotPos) {
-        return filename.substring(dotPos + 1);
-      }
-    }
-    return "";
   }
 }

@@ -525,7 +525,7 @@ public class MediaItemTest {
     clippingConfigurationBundle.remove(FIELD_END_POSITION_US);
 
     MediaItem.ClippingConfiguration clippingConfigurationFromBundle =
-        MediaItem.ClippingConfiguration.CREATOR.fromBundle(clippingConfigurationBundle);
+        MediaItem.ClippingConfiguration.fromBundle(clippingConfigurationBundle);
 
     assertThat(clippingConfigurationFromBundle).isEqualTo(clippingConfiguration);
   }
@@ -1065,6 +1065,24 @@ public class MediaItemTest {
 
     assertThat(mediaItem.localConfiguration).isNotNull();
     assertThat(restoredMediaItem.localConfiguration).isEqualTo(mediaItem.localConfiguration);
+  }
+
+  /** Regression test for internal b/323302460 */
+  @Test
+  public void roundTripViaBundle_withJustNonNullRequestMetadataExtras_restoresAllData() {
+    Bundle extras = new Bundle();
+    extras.putString("key", "value");
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setMediaId("mediaId")
+            .setRequestMetadata(new RequestMetadata.Builder().setExtras(extras).build())
+            .build();
+
+    MediaItem restoredItem = MediaItem.fromBundle(mediaItem.toBundle());
+
+    assertThat(restoredItem).isEqualTo(mediaItem);
+    assertThat(restoredItem.requestMetadata.extras).isNotNull();
+    assertThat(restoredItem.requestMetadata.extras.get("key")).isEqualTo("value");
   }
 
   @Test

@@ -15,11 +15,15 @@
  */
 package androidx.media3.exoplayer.trackselection;
 
+import static androidx.media3.common.util.Assertions.checkArgument;
+
 import androidx.annotation.Nullable;
+import androidx.media3.common.C;
 import androidx.media3.common.Tracks;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import androidx.media3.exoplayer.RendererCapabilities;
 import androidx.media3.exoplayer.RendererConfiguration;
 
 /** The result of a {@link TrackSelector} operation. */
@@ -69,6 +73,9 @@ public final class TrackSelectorResult {
    * @param rendererConfigurations A {@link RendererConfiguration} for each renderer. A null entry
    *     indicates the corresponding renderer should be disabled.
    * @param selections A {@link ExoTrackSelection} array containing the selection for each renderer.
+   *     If the renderer is disabled with a null {@link RendererConfiguration}, then it must have a
+   *     null selection too. It can also have a null selection if it has a {@linkplain
+   *     RendererCapabilities#getTrackType() track type} of {@link C#TRACK_TYPE_NONE}.
    * @param tracks Description of the available tracks and which one were selected.
    * @param info An opaque object that will be returned to {@link
    *     TrackSelector#onSelectionActivated(Object)} should the selection be activated. May be
@@ -79,6 +86,7 @@ public final class TrackSelectorResult {
       @NullableType ExoTrackSelection[] selections,
       Tracks tracks,
       @Nullable Object info) {
+    checkArgument(rendererConfigurations.length == selections.length);
     this.rendererConfigurations = rendererConfigurations;
     this.selections = selections.clone();
     this.tracks = tracks;

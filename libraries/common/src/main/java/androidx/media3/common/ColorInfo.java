@@ -21,6 +21,7 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Arrays;
+import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
 import org.checkerframework.dataflow.qual.Pure;
 
 /**
@@ -30,7 +31,7 @@ import org.checkerframework.dataflow.qual.Pure;
  * #SDR_BT709_LIMITED} instance.
  */
 @UnstableApi
-public final class ColorInfo implements Bundleable {
+public final class ColorInfo {
 
   /**
    * Builds {@link ColorInfo} instances.
@@ -173,8 +174,36 @@ public final class ColorInfo implements Bundleable {
           .build();
 
   /**
+   * Returns whether the given color info is equivalent to values for a standard dynamic range video
+   * that could generally be assumed if no further information is given.
+   *
+   * <p>The color info is deemed to be equivalent to SDR video if it either has unset values or
+   * values matching a 8-bit (chroma+luma), BT.709 or BT.601 color space, SDR transfer and Limited
+   * range color info.
+   *
+   * @param colorInfo The color info to evaluate.
+   * @return Whether the given color info is equivalent to the assumed default SDR color info.
+   */
+  @EnsuresNonNullIf(result = false, expression = "#1")
+  public static boolean isEquivalentToAssumedSdrDefault(@Nullable ColorInfo colorInfo) {
+    if (colorInfo == null) {
+      return true;
+    }
+    return (colorInfo.colorSpace == Format.NO_VALUE
+            || colorInfo.colorSpace == C.COLOR_SPACE_BT709
+            || colorInfo.colorSpace == C.COLOR_SPACE_BT601)
+        && (colorInfo.colorRange == Format.NO_VALUE
+            || colorInfo.colorRange == C.COLOR_RANGE_LIMITED)
+        && (colorInfo.colorTransfer == Format.NO_VALUE
+            || colorInfo.colorTransfer == C.COLOR_TRANSFER_SDR)
+        && colorInfo.hdrStaticInfo == null
+        && (colorInfo.chromaBitdepth == Format.NO_VALUE || colorInfo.chromaBitdepth == 8)
+        && (colorInfo.lumaBitdepth == Format.NO_VALUE || colorInfo.lumaBitdepth == 8);
+  }
+
+  /**
    * Returns the {@link C.ColorSpace} corresponding to the given ISO color primary code, as per
-   * table A.7.21.1 in Rec. ITU-T T.832 (03/2009), or {@link Format#NO_VALUE} if no mapping can be
+   * table A.7.21.1 in Rec. ITU-T T.832 (06/2019), or {@link Format#NO_VALUE} if no mapping can be
    * made.
    */
   @Pure
@@ -190,13 +219,52 @@ public final class ColorInfo implements Bundleable {
       case 9:
         return C.COLOR_SPACE_BT2020;
       default:
+        // Remaining color primaries are either reserved or unspecified.
         return Format.NO_VALUE;
     }
   }
 
   /**
+   * Returns the ISO color primary code corresponding to the given {@link C.ColorSpace}, as per
+   * table A.7.21.1 in Rec. ITU-T T.832 (06/2019). made.
+   */
+  public static int colorSpaceToIsoColorPrimaries(@C.ColorSpace int colorSpace) {
+    switch (colorSpace) {
+      // Default to BT.709 SDR as per the <a
+      // href="https://www.webmproject.org/vp9/mp4/#optional-fields">recommendation</a>.
+      case Format.NO_VALUE:
+      case C.COLOR_SPACE_BT709:
+        return 1;
+      case C.COLOR_SPACE_BT601:
+        return 5;
+      case C.COLOR_SPACE_BT2020:
+        return 9;
+    }
+    return 1;
+  }
+
+  /**
+   * Returns the ISO matrix coefficients code corresponding to the given {@link C.ColorSpace}, as
+   * per table A.7.21.3 in Rec. ITU-T T.832 (06/2019).
+   */
+  public static int colorSpaceToIsoMatrixCoefficients(@C.ColorSpace int colorSpace) {
+    switch (colorSpace) {
+      // Default to BT.709 SDR as per the <a
+      // href="https://www.webmproject.org/vp9/mp4/#optional-fields">recommendation</a>.
+      case Format.NO_VALUE:
+      case C.COLOR_SPACE_BT709:
+        return 1;
+      case C.COLOR_SPACE_BT601:
+        return 6;
+      case C.COLOR_SPACE_BT2020:
+        return 9;
+    }
+    return 1;
+  }
+
+  /**
    * Returns the {@link C.ColorTransfer} corresponding to the given ISO transfer characteristics
-   * code, as per table A.7.21.2 in Rec. ITU-T T.832 (03/2009), or {@link Format#NO_VALUE} if no
+   * code, as per table A.7.21.2 in Rec. ITU-T T.832 (06/2019), or {@link Format#NO_VALUE} if no
    * mapping can be made.
    */
   @Pure
@@ -221,6 +289,31 @@ public final class ColorInfo implements Bundleable {
   }
 
   /**
+   * Returns the ISO transfer characteristics code corresponding to the given {@link
+   * C.ColorTransfer}, as per table A.7.21.2 in Rec. ITU-T T.832 (06/2019).
+   */
+  public static int colorTransferToIsoTransferCharacteristics(@C.ColorTransfer int colorTransfer) {
+    switch (colorTransfer) {
+      // Default to BT.709 SDR as per the <a
+      // href="https://www.webmproject.org/vp9/mp4/#optional-fields">recommendation</a>.
+      case C.COLOR_TRANSFER_LINEAR:
+        return 8;
+      case C.COLOR_TRANSFER_SRGB:
+        return 13;
+      case Format.NO_VALUE:
+      case C.COLOR_TRANSFER_SDR:
+        return 1;
+      case C.COLOR_TRANSFER_ST2084:
+        return 16;
+      case C.COLOR_TRANSFER_HLG:
+        return 18;
+      case C.COLOR_TRANSFER_GAMMA_2_2:
+        return 4;
+    }
+    return 1;
+  }
+
+  /**
    * Returns whether the {@code ColorInfo} uses an HDR {@link C.ColorTransfer}.
    *
    * <p>{@link C#COLOR_TRANSFER_LINEAR} is not considered to be an HDR {@link C.ColorTransfer},
@@ -232,58 +325,31 @@ public final class ColorInfo implements Bundleable {
             || colorInfo.colorTransfer == C.COLOR_TRANSFER_ST2084);
   }
 
-  /** The {@link C.ColorSpace}. */
+  /** The {@link C.ColorSpace}, or {@link Format#NO_VALUE} if not set. */
   public final @C.ColorSpace int colorSpace;
 
-  /** The {@link C.ColorRange}. */
+  /** The {@link C.ColorRange}, or {@link Format#NO_VALUE} if not set. */
   public final @C.ColorRange int colorRange;
 
-  /** The {@link C.ColorTransfer}. */
+  /** The {@link C.ColorTransfer}, or {@link Format#NO_VALUE} if not set. */
   public final @C.ColorTransfer int colorTransfer;
 
   /** HdrStaticInfo as defined in CTA-861.3, or null if none specified. */
   @Nullable public final byte[] hdrStaticInfo;
 
-  /** The bit depth of the luma samples of the video. */
+  /** The bit depth of the luma samples of the video, or {@link Format#NO_VALUE} if not set. */
   public final int lumaBitdepth;
 
-  /** The bit depth of the chroma samples of the video. It may differ from the luma bit depth. */
+  /**
+   * The bit depth of the chroma samples of the video, or {@link Format#NO_VALUE} if not set. It may
+   * differ from the luma bit depth.
+   */
   public final int chromaBitdepth;
 
   // Lazily initialized hashcode.
   private int hashCode;
 
-  /**
-   * Constructs the ColorInfo.
-   *
-   * @param colorSpace The color space of the video.
-   * @param colorRange The color range of the video.
-   * @param colorTransfer The color transfer characteristics of the video.
-   * @param hdrStaticInfo HdrStaticInfo as defined in CTA-861.3, or null if none specified.
-   * @deprecated Use {@link Builder}.
-   */
-  @Deprecated
-  public ColorInfo(
-      @C.ColorSpace int colorSpace,
-      @C.ColorRange int colorRange,
-      @C.ColorTransfer int colorTransfer,
-      @Nullable byte[] hdrStaticInfo) {
-    this(colorSpace, colorRange, colorTransfer, hdrStaticInfo, Format.NO_VALUE, Format.NO_VALUE);
-  }
-
-  /**
-   * Constructs the ColorInfo.
-   *
-   * @param colorSpace The color space of the video.
-   * @param colorRange The color range of the video.
-   * @param colorTransfer The color transfer characteristics of the video.
-   * @param hdrStaticInfo HdrStaticInfo as defined in CTA-861.3, or null if none specified.
-   * @param lumaBitdepth The bit depth of the luma samples of the video.
-   * @param chromaBitdepth The bit depth of the chroma samples of the video.
-   * @deprecated Use {@link Builder}.
-   */
-  @Deprecated
-  public ColorInfo(
+  private ColorInfo(
       @C.ColorSpace int colorSpace,
       @C.ColorRange int colorRange,
       @C.ColorTransfer int colorTransfer,
@@ -419,7 +485,7 @@ public final class ColorInfo implements Bundleable {
       case C.COLOR_SPACE_BT2020:
         return "BT2020";
       default:
-        return "Undefined color space";
+        return "Undefined color space " + colorSpace;
     }
   }
 
@@ -441,7 +507,7 @@ public final class ColorInfo implements Bundleable {
       case C.COLOR_TRANSFER_HLG:
         return "HLG";
       default:
-        return "Undefined color transfer";
+        return "Undefined color transfer " + colorTransfer;
     }
   }
 
@@ -455,11 +521,9 @@ public final class ColorInfo implements Bundleable {
       case C.COLOR_RANGE_FULL:
         return "Full range";
       default:
-        return "Undefined color range";
+        return "Undefined color range " + colorRange;
     }
   }
-
-  // Bundleable implementation
 
   private static final String FIELD_COLOR_SPACE = Util.intToStringMaxRadix(0);
   private static final String FIELD_COLOR_RANGE = Util.intToStringMaxRadix(1);
@@ -468,7 +532,6 @@ public final class ColorInfo implements Bundleable {
   private static final String FIELD_LUMA_BITDEPTH = Util.intToStringMaxRadix(4);
   private static final String FIELD_CHROMA_BITDEPTH = Util.intToStringMaxRadix(5);
 
-  @Override
   public Bundle toBundle() {
     Bundle bundle = new Bundle();
     bundle.putInt(FIELD_COLOR_SPACE, colorSpace);
@@ -480,13 +543,14 @@ public final class ColorInfo implements Bundleable {
     return bundle;
   }
 
-  public static final Creator<ColorInfo> CREATOR =
-      bundle ->
-          new ColorInfo(
-              bundle.getInt(FIELD_COLOR_SPACE, Format.NO_VALUE),
-              bundle.getInt(FIELD_COLOR_RANGE, Format.NO_VALUE),
-              bundle.getInt(FIELD_COLOR_TRANSFER, Format.NO_VALUE),
-              bundle.getByteArray(FIELD_HDR_STATIC_INFO),
-              bundle.getInt(FIELD_LUMA_BITDEPTH, Format.NO_VALUE),
-              bundle.getInt(FIELD_CHROMA_BITDEPTH, Format.NO_VALUE));
+  /** Restores a {@code ColorInfo} from a {@link Bundle}. */
+  public static ColorInfo fromBundle(Bundle bundle) {
+    return new ColorInfo(
+        bundle.getInt(FIELD_COLOR_SPACE, Format.NO_VALUE),
+        bundle.getInt(FIELD_COLOR_RANGE, Format.NO_VALUE),
+        bundle.getInt(FIELD_COLOR_TRANSFER, Format.NO_VALUE),
+        bundle.getByteArray(FIELD_HDR_STATIC_INFO),
+        bundle.getInt(FIELD_LUMA_BITDEPTH, Format.NO_VALUE),
+        bundle.getInt(FIELD_CHROMA_BITDEPTH, Format.NO_VALUE));
+  }
 }

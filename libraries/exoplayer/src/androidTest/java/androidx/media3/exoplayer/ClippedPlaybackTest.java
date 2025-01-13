@@ -20,20 +20,26 @@ import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
 import android.net.Uri;
+import android.os.Looper;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaItem.SubtitleConfiguration;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.text.Cue;
 import androidx.media3.common.text.CueGroup;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.exoplayer.source.ClippingMediaSource;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
+import androidx.media3.exoplayer.text.TextOutput;
+import androidx.media3.exoplayer.text.TextRenderer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -83,18 +89,12 @@ public final class ClippedPlaybackTest {
     getInstrumentation()
         .runOnMainSync(
             () -> {
-              Context context = getInstrumentation().getContext();
               player.set(
-                  new ExoPlayer.Builder(context)
-                      .setMediaSourceFactory(
-                          new DefaultMediaSourceFactory(context)
-                              .experimentalParseSubtitlesDuringExtraction(
-                                  parseSubtitlesDuringExtraction))
-                      .build());
+                  buildPlayer(getInstrumentation().getContext(), parseSubtitlesDuringExtraction));
               player.get().addListener(textCapturer);
               player.get().setMediaItem(mediaItem);
               player.get().prepare();
-              player.get().play();
+              playWhenLoadingIsDone(player.get());
             });
 
     textCapturer.block();
@@ -135,17 +135,14 @@ public final class ClippedPlaybackTest {
     getInstrumentation()
         .runOnMainSync(
             () -> {
-              Context context = getInstrumentation().getContext();
               player.set(
-                  new ExoPlayer.Builder(context)
-                      .setMediaSourceFactory(
-                          new DefaultMediaSourceFactory(context)
-                              .experimentalParseSubtitlesDuringExtraction(
-                                  parseSubtitlesDuringExtraction))
-                      .build());
+                  buildPlayer(getInstrumentation().getContext(), parseSubtitlesDuringExtraction));
               player.get().addListener(textCapturer);
               player.get().setMediaItems(mediaItems);
               player.get().prepare();
+              // We don't need playWhenLoadingIsDone here because playback already waits at the end
+              // of the first period for subtitles to be fully loaded beforetransitioning to the
+              // second period.
               player.get().play();
             });
 
@@ -157,14 +154,58 @@ public final class ClippedPlaybackTest {
         .isEqualTo("This is the first subtitle.");
   }
 
+  // Using deprecated TextRenderer.experimentalSetLegacyDecodingEnabled() and
+  // MediaSource.Factory.experimentalParseSubtitlesDuringExtraction() methods to ensure legacy
+  // subtitle handling keeps working.
+  @SuppressWarnings("deprecation")
+  private static ExoPlayer buildPlayer(Context context, boolean parseSubtitlesDuringExtraction) {
+    return new ExoPlayer.Builder(context)
+        .setRenderersFactory(
+            new DefaultRenderersFactory(context) {
+
+              @Override
+              protected void buildTextRenderers(
+                  Context context,
+                  TextOutput output,
+                  Looper outputLooper,
+                  @ExtensionRendererMode int extensionRendererMode,
+                  ArrayList<Renderer> out) {
+                super.buildTextRenderers(context, output, outputLooper, extensionRendererMode, out);
+                ((TextRenderer) Iterables.getLast(out))
+                    .experimentalSetLegacyDecodingEnabled(!parseSubtitlesDuringExtraction);
+              }
+            })
+        .setMediaSourceFactory(
+            new DefaultMediaSourceFactory(context)
+                .experimentalParseSubtitlesDuringExtraction(parseSubtitlesDuringExtraction))
+        .build();
+  }
+
+  private static void playWhenLoadingIsDone(Player player) {
+    AtomicBoolean loadingStarted = new AtomicBoolean(false);
+    player.addListener(
+        new Player.Listener() {
+          @Override
+          public void onEvents(Player player, Player.Events events) {
+            if (events.contains(Player.EVENT_IS_LOADING_CHANGED)
+                && loadingStarted.getAndSet(player.isLoading())
+                && !player.isLoading()) {
+              player.play();
+            }
+          }
+        });
+  }
+
   private static class TextCapturingPlaybackListener implements Player.Listener {
 
     private final ConditionVariable playbackEnded;
     private final List<List<Cue>> cues;
+    private final AtomicReference<PlaybackException> playerError;
 
     private TextCapturingPlaybackListener() {
       playbackEnded = new ConditionVariable();
-      cues = new ArrayList<>();
+      cues = Collections.synchronizedList(new ArrayList<>());
+      playerError = new AtomicReference<>();
     }
 
     @Override
@@ -179,8 +220,18 @@ public final class ClippedPlaybackTest {
       }
     }
 
-    public void block() throws InterruptedException {
+    @Override
+    public void onPlayerError(PlaybackException error) {
+      playerError.set(error);
+      playbackEnded.open();
+    }
+
+    public void block() throws InterruptedException, PlaybackException {
       playbackEnded.block();
+      PlaybackException playerError = this.playerError.get();
+      if (playerError != null) {
+        throw playerError;
+      }
     }
   }
 }

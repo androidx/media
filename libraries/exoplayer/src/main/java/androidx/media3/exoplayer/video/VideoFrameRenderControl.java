@@ -19,14 +19,12 @@ import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 
-import androidx.annotation.FloatRange;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.util.LongArrayQueue;
 import androidx.media3.common.util.TimedValueQueue;
-import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.ExoPlaybackException;
 
 /** Controls rendering of video frames. */
@@ -81,8 +79,6 @@ import androidx.media3.exoplayer.ExoPlaybackException;
 
   private VideoSize reportedVideoSize;
   private long outputStreamOffsetUs;
-  // TODO b/292111083 - Remove the field and trigger the callback on every video size change.
-  private boolean reportedVideoSizeChange;
   private long lastPresentationTimeUs;
 
   /** Creates an instance. */
@@ -122,13 +118,6 @@ import androidx.media3.exoplayer.ExoPlaybackException;
       // we keep the latest value of pendingOutputVideoSize
       videoSizeChanges.clear();
     }
-    // Do not clear reportedVideoSizeChange because we report a video size change at most once
-    // (b/292111083).
-  }
-
-  /** Returns whether the renderer is ready. */
-  public boolean isReady() {
-    return videoFrameReleaseControl.isReady(/* rendererReady= */ true);
   }
 
   /**
@@ -140,12 +129,6 @@ import androidx.media3.exoplayer.ExoPlaybackException;
    */
   public boolean hasReleasedFrame(long presentationTimeUs) {
     return lastPresentationTimeUs != C.TIME_UNSET && lastPresentationTimeUs >= presentationTimeUs;
-  }
-
-  /** Sets the playback speed. */
-  public void setPlaybackSpeed(@FloatRange(from = 0, fromInclusive = false) float speed) {
-    checkArgument(speed > 0);
-    videoFrameReleaseControl.setPlaybackSpeed(speed);
   }
 
   /**
@@ -197,10 +180,7 @@ import androidx.media3.exoplayer.ExoPlaybackException;
 
   /** Called when the size of the available frames has changed. */
   public void onOutputSizeChanged(int width, int height) {
-    VideoSize newVideoSize = new VideoSize(width, height);
-    if (!Util.areEqual(pendingOutputVideoSize, newVideoSize)) {
-      pendingOutputVideoSize = newVideoSize;
-    }
+    pendingOutputVideoSize = new VideoSize(width, height);
   }
 
   /**
@@ -230,9 +210,8 @@ import androidx.media3.exoplayer.ExoPlaybackException;
     long presentationTimeUs = checkStateNotNull(presentationTimestampsUs.remove());
 
     boolean videoSizeUpdated = maybeUpdateVideoSize(presentationTimeUs);
-    if (videoSizeUpdated && !reportedVideoSizeChange) {
+    if (videoSizeUpdated) {
       frameRenderer.onVideoSizeChanged(reportedVideoSize);
-      reportedVideoSizeChange = true;
     }
     long renderTimeNs =
         shouldRenderImmediately

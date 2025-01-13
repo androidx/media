@@ -27,7 +27,6 @@ import androidx.core.graphics.drawable.IconCompat;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.collect.ImmutableList;
-import java.util.List;
 
 /** A notification for media playbacks. */
 public final class MediaNotification {
@@ -145,15 +144,15 @@ public final class MediaNotification {
      * @param mediaSession The media session.
      * @param actionFactory The {@link ActionFactory} for creating notification {@link
      *     NotificationCompat.Action actions}.
-     * @param customLayout The custom layout {@linkplain MediaSession#setCustomLayout(List) set by
-     *     the session}.
+     * @param mediaButtonPreferences The media button preferences {@linkplain
+     *     MediaSession#setMediaButtonPreferences set by the session}.
      * @param onNotificationChangedCallback A callback that the provider needs to notify when the
      *     notification has changed and needs to be posted again, for example after a bitmap has
      *     been loaded asynchronously.
      */
     MediaNotification createNotification(
         MediaSession mediaSession,
-        ImmutableList<CommandButton> customLayout,
+        ImmutableList<CommandButton> mediaButtonPreferences,
         ActionFactory actionFactory,
         Callback onNotificationChangedCallback);
 

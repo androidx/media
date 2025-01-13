@@ -15,7 +15,9 @@
  */
 package androidx.media3.exoplayer.source.preload;
 
+import static androidx.media3.test.utils.robolectric.RobolectricUtil.runMainLooperUntil;
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
@@ -29,12 +31,11 @@ import static org.mockito.Mockito.when;
 import static org.robolectric.Shadows.shadowOf;
 
 import android.os.Looper;
+import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.TrackGroup;
-import androidx.media3.common.Tracks;
-import androidx.media3.exoplayer.RendererConfiguration;
 import androidx.media3.exoplayer.drm.DrmSessionEventListener;
 import androidx.media3.exoplayer.drm.DrmSessionManager;
 import androidx.media3.exoplayer.source.EmptySampleStream;
@@ -45,12 +46,15 @@ import androidx.media3.exoplayer.source.SampleStream;
 import androidx.media3.exoplayer.source.TrackGroupArray;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import androidx.media3.exoplayer.trackselection.FixedTrackSelection;
-import androidx.media3.exoplayer.trackselection.TrackSelectorResult;
+import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.DefaultAllocator;
 import androidx.media3.test.utils.FakeMediaPeriod;
+import androidx.media3.test.utils.FakeSampleStream;
 import androidx.media3.test.utils.FakeTimeline;
 import androidx.media3.test.utils.FakeTrackSelection;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import java.io.IOException;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Test;
@@ -224,6 +228,409 @@ public final class PreloadMediaPeriodTest {
   }
 
   @Test
+  public void selectTracksForPreloadingSecondTime_forSameSelections_usePreloadedStreams() {
+    MediaPeriod wrappedMediaPeriod = mock(MediaPeriod.class);
+    ExoTrackSelection[] preloadTrackSelections =
+        new ExoTrackSelection[] {
+          new FixedTrackSelection(
+              new TrackGroup(new Format.Builder().setSampleMimeType(MimeTypes.AUDIO_AAC).build()),
+              /* track= */ 0),
+          new FixedTrackSelection(
+              new TrackGroup(new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H264).build()),
+              /* track= */ 0)
+        };
+    when(wrappedMediaPeriod.selectTracks(
+            eq(preloadTrackSelections), any(), any(), any(), /* positionUs= */ eq(0L)))
+        .thenReturn(0L);
+    PreloadMediaPeriod preloadMediaPeriod = new PreloadMediaPeriod(wrappedMediaPeriod);
+    MediaPeriod.Callback callback =
+        new MediaPeriod.Callback() {
+          @Override
+          public void onPrepared(MediaPeriod mediaPeriod) {}
+
+          @Override
+          public void onContinueLoadingRequested(MediaPeriod source) {}
+        };
+    preloadMediaPeriod.prepare(callback, /* positionUs= */ 0L);
+    // Select tracks for preloading.
+    long preloadTrackSelectionStartPositionUs =
+        preloadMediaPeriod.selectTracksForPreloading(preloadTrackSelections, /* positionUs= */ 0L);
+    verify(wrappedMediaPeriod).prepare(any(), anyLong());
+    verify(wrappedMediaPeriod)
+        .selectTracks(
+            eq(preloadTrackSelections),
+            /* mayRetainStreamFlags= */ eq(new boolean[] {false, false}),
+            /* streams= */ any(),
+            /* streamResetFlags= */ any(),
+            /* positionUs= */ eq(0L));
+    reset(wrappedMediaPeriod);
+
+    // Select tracks for preloading the second time based on the same track selections.
+    long newTrackSelectionStartPositionUs =
+        preloadMediaPeriod.selectTracksForPreloading(preloadTrackSelections, /* positionUs= */ 0L);
+
+    verifyNoMoreInteractions(wrappedMediaPeriod);
+    assertThat(newTrackSelectionStartPositionUs).isEqualTo(preloadTrackSelectionStartPositionUs);
+  }
+
+  @Test
+  public void
+      selectTracksForPreloadingSecondTime_forDifferentAdaptiveVideoSelection_usePreloadedStreams() {
+    MediaPeriod wrappedMediaPeriod = mock(MediaPeriod.class);
+    ExoTrackSelection[] preloadTrackSelections =
+        new ExoTrackSelection[] {
+          new FakeTrackSelection(
+              new TrackGroup(
+                  new Format.Builder()
+                      .setWidth(1920)
+                      .setHeight(1080)
+                      .setSampleMimeType(MimeTypes.VIDEO_H264)
+                      .build(),
+                  new Format.Builder()
+                      .setWidth(3840)
+                      .setHeight(2160)
+                      .setSampleMimeType(MimeTypes.VIDEO_H264)
+                      .build()),
+              /* selectedIndex= */ 1),
+          new FakeTrackSelection(
+              new TrackGroup(new Format.Builder().setSampleMimeType(MimeTypes.AUDIO_AAC).build()),
+              /* selectedIndex= */ 0),
+          new FakeTrackSelection(
+              new TrackGroup(
+                  new Format.Builder()
+                      .setSampleMimeType(MimeTypes.TEXT_VTT)
+                      .setLanguage("de")
+                      .build()),
+              /* selectedIndex= */ 0)
+        };
+    when(wrappedMediaPeriod.selectTracks(
+            eq(preloadTrackSelections), any(), any(), any(), /* positionUs= */ eq(0L)))
+        .thenReturn(0L);
+    PreloadMediaPeriod preloadMediaPeriod = new PreloadMediaPeriod(wrappedMediaPeriod);
+    MediaPeriod.Callback callback =
+        new MediaPeriod.Callback() {
+          @Override
+          public void onPrepared(MediaPeriod mediaPeriod) {}
+
+          @Override
+          public void onContinueLoadingRequested(MediaPeriod source) {}
+        };
+    preloadMediaPeriod.prepare(callback, /* positionUs= */ 0L);
+    // Select tracks for preloading.
+    preloadMediaPeriod.selectTracksForPreloading(preloadTrackSelections, /* positionUs= */ 0L);
+    verify(wrappedMediaPeriod).prepare(any(), anyLong());
+    verify(wrappedMediaPeriod)
+        .selectTracks(
+            eq(preloadTrackSelections),
+            /* mayRetainStreamFlags= */ eq(new boolean[] {false, false, false}),
+            /* streams= */ any(),
+            /* streamResetFlags= */ any(),
+            /* positionUs= */ eq(0L));
+    verifyNoMoreInteractions(wrappedMediaPeriod);
+    reset(wrappedMediaPeriod);
+    // Create a new track selections.
+    ExoTrackSelection[] newPreloadTrackSelections =
+        new ExoTrackSelection[] {
+          new FakeTrackSelection(
+              new TrackGroup(
+                  new Format.Builder()
+                      .setWidth(1920)
+                      .setHeight(1080)
+                      .setSampleMimeType(MimeTypes.VIDEO_H264)
+                      .build(),
+                  new Format.Builder()
+                      .setWidth(3840)
+                      .setHeight(2160)
+                      .setSampleMimeType(MimeTypes.VIDEO_H264)
+                      .build()),
+              /* selectedIndex= */ 0),
+          new FakeTrackSelection(
+              new TrackGroup(new Format.Builder().setSampleMimeType(MimeTypes.AUDIO_AAC).build()),
+              /* selectedIndex= */ 0),
+          new FakeTrackSelection(
+              new TrackGroup(
+                  new Format.Builder()
+                      .setSampleMimeType(MimeTypes.TEXT_VTT)
+                      .setLanguage("de")
+                      .build()),
+              /* selectedIndex= */ 0)
+        };
+
+    // Select tracks for preloading the second time based on the new track selections. The
+    // selectTracks method of the wrapped media period must not be called again.
+    long newTrackSelectionStartPositionUs =
+        preloadMediaPeriod.selectTracksForPreloading(
+            newPreloadTrackSelections, /* positionUs= */ 0L);
+
+    verifyNoMoreInteractions(wrappedMediaPeriod);
+    assertThat(newTrackSelectionStartPositionUs).isEqualTo(0L);
+  }
+
+  @Test
+  public void
+      selectTracksForPreloadingSecondTime_forDifferentAdaptiveAudioSelection_usePreloadedStreams() {
+    MediaPeriod wrappedMediaPeriod = mock(MediaPeriod.class);
+    ExoTrackSelection[] preloadTrackSelections =
+        new ExoTrackSelection[] {
+          new FakeTrackSelection(
+              new TrackGroup(
+                  new Format.Builder()
+                      .setWidth(1920)
+                      .setHeight(1080)
+                      .setSampleMimeType(MimeTypes.VIDEO_H264)
+                      .build(),
+                  new Format.Builder()
+                      .setWidth(3840)
+                      .setHeight(2160)
+                      .setSampleMimeType(MimeTypes.VIDEO_H264)
+                      .build()),
+              /* selectedIndex= */ 0),
+          new FakeTrackSelection(
+              new TrackGroup(new Format.Builder().setSampleMimeType(MimeTypes.AUDIO_AAC).build()),
+              /* selectedIndex= */ 0),
+          new FakeTrackSelection(
+              new TrackGroup(
+                  new Format.Builder()
+                      .setSampleMimeType(MimeTypes.TEXT_VTT)
+                      .setLanguage("de")
+                      .build()),
+              /* selectedIndex= */ 0)
+        };
+    when(wrappedMediaPeriod.selectTracks(
+            eq(preloadTrackSelections), any(), any(), any(), /* positionUs= */ eq(0L)))
+        .thenReturn(0L);
+    PreloadMediaPeriod preloadMediaPeriod = new PreloadMediaPeriod(wrappedMediaPeriod);
+    MediaPeriod.Callback callback =
+        new MediaPeriod.Callback() {
+          @Override
+          public void onPrepared(MediaPeriod mediaPeriod) {}
+
+          @Override
+          public void onContinueLoadingRequested(MediaPeriod source) {}
+        };
+    preloadMediaPeriod.prepare(callback, /* positionUs= */ 0L);
+    // Select tracks for preloading.
+    preloadMediaPeriod.selectTracksForPreloading(preloadTrackSelections, /* positionUs= */ 0L);
+    verify(wrappedMediaPeriod).prepare(any(), anyLong());
+    verify(wrappedMediaPeriod)
+        .selectTracks(
+            eq(preloadTrackSelections),
+            /* mayRetainStreamFlags= */ eq(new boolean[] {false, false, false}),
+            /* streams= */ any(),
+            /* streamResetFlags= */ any(),
+            /* positionUs= */ eq(0L));
+    verifyNoMoreInteractions(wrappedMediaPeriod);
+    reset(wrappedMediaPeriod);
+    // Create a new track selections.
+    ExoTrackSelection[] newPreloadTrackSelections =
+        new ExoTrackSelection[] {
+          new FakeTrackSelection(
+              new TrackGroup(
+                  new Format.Builder()
+                      .setWidth(1920)
+                      .setHeight(1080)
+                      .setSampleMimeType(MimeTypes.VIDEO_H264)
+                      .build(),
+                  new Format.Builder()
+                      .setWidth(3840)
+                      .setHeight(2160)
+                      .setSampleMimeType(MimeTypes.VIDEO_H264)
+                      .build()),
+              /* selectedIndex= */ 0),
+          new FakeTrackSelection(
+              new TrackGroup(new Format.Builder().setSampleMimeType(MimeTypes.AUDIO_AAC).build()),
+              /* selectedIndex= */ 1),
+          new FakeTrackSelection(
+              new TrackGroup(
+                  new Format.Builder()
+                      .setSampleMimeType(MimeTypes.TEXT_VTT)
+                      .setLanguage("de")
+                      .build()),
+              /* selectedIndex= */ 0)
+        };
+
+    // Select tracks for preloading the second time based on the new track selections. The
+    // selectTracks method of the wrapped media period must not be called again.
+    long newTrackSelectionStartPositionUs =
+        preloadMediaPeriod.selectTracksForPreloading(
+            newPreloadTrackSelections, /* positionUs= */ 0L);
+
+    verifyNoMoreInteractions(wrappedMediaPeriod);
+    assertThat(newTrackSelectionStartPositionUs).isEqualTo(0L);
+  }
+
+  @Test
+  public void
+      selectTracksForPreloadingSecondTime_forDifferentAdaptiveTextSelection_callOnWrappedPeriodRetainingPreloadedStreams() {
+    MediaPeriod wrappedMediaPeriod = mock(MediaPeriod.class);
+    ExoTrackSelection[] preloadTrackSelections =
+        new ExoTrackSelection[] {
+          new FakeTrackSelection(
+              new TrackGroup(
+                  new Format.Builder()
+                      .setWidth(1920)
+                      .setHeight(1080)
+                      .setSampleMimeType(MimeTypes.VIDEO_H264)
+                      .build(),
+                  new Format.Builder()
+                      .setWidth(3840)
+                      .setHeight(2160)
+                      .setSampleMimeType(MimeTypes.VIDEO_H264)
+                      .build()),
+              /* selectedIndex= */ 0),
+          new FakeTrackSelection(
+              new TrackGroup(new Format.Builder().setSampleMimeType(MimeTypes.AUDIO_AAC).build()),
+              /* selectedIndex= */ 0), //
+          // An adaptive track group for text is practically not possible. The hypothetical case has
+          // been created for test coverage.
+          new FakeTrackSelection(
+              new TrackGroup(
+                  new Format.Builder()
+                      .setSampleMimeType(MimeTypes.TEXT_VTT)
+                      .setLanguage("de")
+                      .build(),
+                  new Format.Builder()
+                      .setSampleMimeType(MimeTypes.TEXT_VTT)
+                      .setLanguage("en")
+                      .build()),
+              /* selectedIndex= */ 0)
+        };
+    when(wrappedMediaPeriod.selectTracks(
+            eq(preloadTrackSelections), any(), any(), any(), /* positionUs= */ eq(0L)))
+        .thenReturn(0L);
+    PreloadMediaPeriod preloadMediaPeriod = new PreloadMediaPeriod(wrappedMediaPeriod);
+    MediaPeriod.Callback callback =
+        new MediaPeriod.Callback() {
+          @Override
+          public void onPrepared(MediaPeriod mediaPeriod) {}
+
+          @Override
+          public void onContinueLoadingRequested(MediaPeriod source) {}
+        };
+    preloadMediaPeriod.prepare(callback, /* positionUs= */ 0L);
+    // Select tracks for preloading.
+    preloadMediaPeriod.selectTracksForPreloading(preloadTrackSelections, /* positionUs= */ 0L);
+    verify(wrappedMediaPeriod).prepare(any(), anyLong());
+    verify(wrappedMediaPeriod)
+        .selectTracks(eq(preloadTrackSelections), any(), any(), any(), /* positionUs= */ eq(0L));
+    verifyNoMoreInteractions(wrappedMediaPeriod);
+    reset(wrappedMediaPeriod);
+    // Create a new track selections.
+    ExoTrackSelection[] newTrackSelections =
+        new ExoTrackSelection[] {
+          new FakeTrackSelection(
+              new TrackGroup(
+                  new Format.Builder()
+                      .setWidth(1920)
+                      .setHeight(1080)
+                      .setSampleMimeType(MimeTypes.VIDEO_H264)
+                      .build(),
+                  new Format.Builder()
+                      .setWidth(3840)
+                      .setHeight(2160)
+                      .setSampleMimeType(MimeTypes.VIDEO_H264)
+                      .build()),
+              /* selectedIndex= */ 0),
+          new FakeTrackSelection(
+              new TrackGroup(new Format.Builder().setSampleMimeType(MimeTypes.AUDIO_AAC).build()),
+              /* selectedIndex= */ 0),
+          // An adaptive track group for text is practically not possible. The hypothetical case has
+          // been created for test coverage.
+          new FakeTrackSelection(
+              new TrackGroup(
+                  new Format.Builder()
+                      .setSampleMimeType(MimeTypes.TEXT_VTT)
+                      .setLanguage("de")
+                      .build(),
+                  new Format.Builder()
+                      .setSampleMimeType(MimeTypes.TEXT_VTT)
+                      .setLanguage("en")
+                      .build()),
+              /* selectedIndex= */ 1)
+        };
+    when(wrappedMediaPeriod.selectTracks(
+            eq(newTrackSelections), any(), any(), any(), /* positionUs= */ eq(0L)))
+        .thenReturn(0L);
+
+    // Select tracks for preloading the second time based on the new track selections. The
+    // selectTracks method of the wrapped media period must be called again.
+    long trackSelectionStartPositionUs =
+        preloadMediaPeriod.selectTracksForPreloading(newTrackSelections, /* positionUs= */ 0L);
+
+    verify(wrappedMediaPeriod)
+        .selectTracks(
+            eq(newTrackSelections),
+            /* mayRetainStreamFlags= */ eq(new boolean[] {true, true, false}),
+            /* streams= */ any(),
+            /* streamResetFlags= */ any(),
+            /* positionUs= */ eq(0L));
+    verifyNoMoreInteractions(wrappedMediaPeriod);
+    assertThat(trackSelectionStartPositionUs).isEqualTo(0L);
+  }
+
+  @Test
+  public void
+      selectTracksForPreloadingSecondTime_forSameSelectionsButAtDifferentPosition_callOnWrappedPeriod() {
+    MediaPeriod wrappedMediaPeriod = mock(MediaPeriod.class);
+    ExoTrackSelection[] preloadTrackSelections =
+        new ExoTrackSelection[] {
+          new FakeTrackSelection(
+              new TrackGroup(new Format.Builder().setSampleMimeType(MimeTypes.AUDIO_AAC).build()),
+              /* selectedIndex= */ 0),
+          new FakeTrackSelection(
+              new TrackGroup(new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H264).build()),
+              /* selectedIndex= */ 0)
+        };
+    when(wrappedMediaPeriod.selectTracks(
+            eq(preloadTrackSelections), any(), any(), any(), /* positionUs= */ eq(0L)))
+        .thenReturn(0L);
+    PreloadMediaPeriod preloadMediaPeriod = new PreloadMediaPeriod(wrappedMediaPeriod);
+    MediaPeriod.Callback callback =
+        new MediaPeriod.Callback() {
+          @Override
+          public void onPrepared(MediaPeriod mediaPeriod) {}
+
+          @Override
+          public void onContinueLoadingRequested(MediaPeriod source) {}
+        };
+    preloadMediaPeriod.prepare(callback, /* positionUs= */ 0L);
+    // Select tracks for preloading.
+    preloadMediaPeriod.selectTracksForPreloading(preloadTrackSelections, /* positionUs= */ 0L);
+    verify(wrappedMediaPeriod).prepare(any(), anyLong());
+    verify(wrappedMediaPeriod)
+        .selectTracks(
+            eq(preloadTrackSelections),
+            /* mayRetainStreamFlags= */ eq(new boolean[] {false, false}),
+            /* streams= */ any(),
+            /* streamResetFlags= */ any(),
+            /* positionUs= */ eq(0L));
+    verifyNoMoreInteractions(wrappedMediaPeriod);
+    reset(wrappedMediaPeriod);
+    when(wrappedMediaPeriod.selectTracks(
+            eq(preloadTrackSelections),
+            /* mayRetainStreamFlags= */ eq(new boolean[] {false, false}),
+            /* streams= */ any(),
+            /* streamResetFlags= */ any(),
+            /* positionUs= */ eq(1234L)))
+        .thenReturn(1234L);
+
+    // Select tracks for preloading based on the same track selections but at a different position.
+    long trackSelectionStartPositionUs =
+        preloadMediaPeriod.selectTracksForPreloading(
+            preloadTrackSelections, /* positionUs= */ 1234L);
+
+    verify(wrappedMediaPeriod)
+        .selectTracks(
+            eq(preloadTrackSelections),
+            /* mayRetainStreamFlags= */ eq(new boolean[] {false, false}),
+            /* streams= */ any(),
+            /* streamResetFlags= */ any(),
+            /* positionUs= */ eq(1234L));
+    verifyNoMoreInteractions(wrappedMediaPeriod);
+    assertThat(trackSelectionStartPositionUs).isEqualTo(1234L);
+  }
+
+  @Test
   public void selectTracks_afterPreloadingForSameSelections_usePreloadedStreams() {
     MediaPeriod wrappedMediaPeriod = mock(MediaPeriod.class);
     ExoTrackSelection[] preloadTrackSelections =
@@ -235,14 +642,6 @@ public final class PreloadMediaPeriodTest {
               new TrackGroup(new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H264).build()),
               /* track= */ 0)
         };
-    TrackSelectorResult preloadTrackSelectorResult =
-        new TrackSelectorResult(
-            new RendererConfiguration[] {
-              RendererConfiguration.DEFAULT, RendererConfiguration.DEFAULT
-            },
-            preloadTrackSelections,
-            Tracks.EMPTY,
-            /* info= */ null);
     SampleStream[] preloadedStreams =
         new SampleStream[] {new EmptySampleStream(), new EmptySampleStream()};
     when(wrappedMediaPeriod.selectTracks(
@@ -272,8 +671,7 @@ public final class PreloadMediaPeriodTest {
     preloadMediaPeriod.prepare(callback, /* positionUs= */ 0L);
     // Select tracks for preloading.
     long preloadTrackSelectionStartPositionUs =
-        preloadMediaPeriod.selectTracksForPreloading(
-            preloadTrackSelectorResult, /* positionUs= */ 0L);
+        preloadMediaPeriod.selectTracksForPreloading(preloadTrackSelections, /* positionUs= */ 0L);
     SampleStream[] streams = new SampleStream[2];
     boolean[] streamResetFlags = new boolean[2];
 
@@ -315,16 +713,6 @@ public final class PreloadMediaPeriodTest {
                       .build()),
               /* selectedIndex= */ 0)
         };
-    TrackSelectorResult preloadTrackSelectorResult =
-        new TrackSelectorResult(
-            new RendererConfiguration[] {
-              RendererConfiguration.DEFAULT,
-              RendererConfiguration.DEFAULT,
-              RendererConfiguration.DEFAULT
-            },
-            preloadTrackSelections,
-            Tracks.EMPTY,
-            /* info= */ null);
     SampleStream[] preloadedStreams =
         new SampleStream[] {
           new EmptySampleStream(), new EmptySampleStream(), new EmptySampleStream()
@@ -359,7 +747,7 @@ public final class PreloadMediaPeriodTest {
         };
     preloadMediaPeriod.prepare(callback, /* positionUs= */ 0L);
     // Select tracks for preloading.
-    preloadMediaPeriod.selectTracksForPreloading(preloadTrackSelectorResult, /* positionUs= */ 0L);
+    preloadMediaPeriod.selectTracksForPreloading(preloadTrackSelections, /* positionUs= */ 0L);
     verify(wrappedMediaPeriod).prepare(any(), anyLong());
     verify(wrappedMediaPeriod)
         .selectTracks(
@@ -466,16 +854,6 @@ public final class PreloadMediaPeriodTest {
                       .build()),
               /* selectedIndex= */ 0)
         };
-    TrackSelectorResult preloadTrackSelectorResult =
-        new TrackSelectorResult(
-            new RendererConfiguration[] {
-              RendererConfiguration.DEFAULT,
-              RendererConfiguration.DEFAULT,
-              RendererConfiguration.DEFAULT
-            },
-            preloadTrackSelections,
-            Tracks.EMPTY,
-            /* info= */ null);
     SampleStream[] preloadedStreams =
         new SampleStream[] {
           new EmptySampleStream(), new EmptySampleStream(), new EmptySampleStream()
@@ -506,7 +884,7 @@ public final class PreloadMediaPeriodTest {
         };
     preloadMediaPeriod.prepare(callback, /* positionUs= */ 0L);
     // Select tracks for preloading.
-    preloadMediaPeriod.selectTracksForPreloading(preloadTrackSelectorResult, /* positionUs= */ 0L);
+    preloadMediaPeriod.selectTracksForPreloading(preloadTrackSelections, /* positionUs= */ 0L);
     verify(wrappedMediaPeriod).prepare(any(), anyLong());
     verify(wrappedMediaPeriod)
         .selectTracks(
@@ -557,7 +935,7 @@ public final class PreloadMediaPeriodTest {
   }
 
   @Test
-  public void selectTracks_afterPreloadingForDifferentAdaptiveAudioSelection_usePreloadStreams() {
+  public void selectTracks_afterPreloadingForDifferentAdaptiveAudioSelection_usePreloadedStreams() {
     MediaPeriod wrappedMediaPeriod = mock(MediaPeriod.class);
     ExoTrackSelection[] preloadTrackSelections =
         new ExoTrackSelection[] {
@@ -587,16 +965,6 @@ public final class PreloadMediaPeriodTest {
                       .build()),
               /* selectedIndex= */ 0)
         };
-    TrackSelectorResult preloadTrackSelectorResult =
-        new TrackSelectorResult(
-            new RendererConfiguration[] {
-              RendererConfiguration.DEFAULT,
-              RendererConfiguration.DEFAULT,
-              RendererConfiguration.DEFAULT
-            },
-            preloadTrackSelections,
-            Tracks.EMPTY,
-            /* info= */ null);
     SampleStream[] preloadedStreams =
         new SampleStream[] {
           new EmptySampleStream(), new EmptySampleStream(), new EmptySampleStream()
@@ -627,7 +995,7 @@ public final class PreloadMediaPeriodTest {
         };
     preloadMediaPeriod.prepare(callback, /* positionUs= */ 0L);
     // Select tracks for preloading.
-    preloadMediaPeriod.selectTracksForPreloading(preloadTrackSelectorResult, /* positionUs= */ 0L);
+    preloadMediaPeriod.selectTracksForPreloading(preloadTrackSelections, /* positionUs= */ 0L);
     verify(wrappedMediaPeriod).prepare(any(), anyLong());
     verify(wrappedMediaPeriod)
         .selectTracks(
@@ -715,16 +1083,6 @@ public final class PreloadMediaPeriodTest {
                       .build()),
               /* selectedIndex= */ 0)
         };
-    TrackSelectorResult trackSelectorResult =
-        new TrackSelectorResult(
-            new RendererConfiguration[] {
-              RendererConfiguration.DEFAULT,
-              RendererConfiguration.DEFAULT,
-              RendererConfiguration.DEFAULT
-            },
-            trackSelections,
-            Tracks.EMPTY,
-            /* info= */ null);
     SampleStream[] preloadedStreams =
         new SampleStream[] {
           new EmptySampleStream(), new EmptySampleStream(), new EmptySampleStream()
@@ -752,7 +1110,7 @@ public final class PreloadMediaPeriodTest {
         };
     preloadMediaPeriod.prepare(callback, /* positionUs= */ 0L);
     // Select tracks for preloading.
-    preloadMediaPeriod.selectTracksForPreloading(trackSelectorResult, /* positionUs= */ 0L);
+    preloadMediaPeriod.selectTracksForPreloading(trackSelections, /* positionUs= */ 0L);
     verify(wrappedMediaPeriod).prepare(any(), anyLong());
     verify(wrappedMediaPeriod)
         .selectTracks(eq(trackSelections), any(), any(), any(), /* positionUs= */ eq(0L));
@@ -863,16 +1221,6 @@ public final class PreloadMediaPeriodTest {
                       .build()),
               /* selectedIndex= */ 0)
         };
-    TrackSelectorResult preloadTrackSelectorResult =
-        new TrackSelectorResult(
-            new RendererConfiguration[] {
-              RendererConfiguration.DEFAULT,
-              RendererConfiguration.DEFAULT,
-              RendererConfiguration.DEFAULT
-            },
-            preloadTrackSelections,
-            Tracks.EMPTY,
-            /* info= */ null);
     SampleStream[] preloadedStreams =
         new SampleStream[] {
           new EmptySampleStream(), new EmptySampleStream(), new EmptySampleStream()
@@ -900,7 +1248,7 @@ public final class PreloadMediaPeriodTest {
         };
     preloadMediaPeriod.prepare(callback, /* positionUs= */ 0L);
     // Select tracks for preloading.
-    preloadMediaPeriod.selectTracksForPreloading(preloadTrackSelectorResult, /* positionUs= */ 0L);
+    preloadMediaPeriod.selectTracksForPreloading(preloadTrackSelections, /* positionUs= */ 0L);
     verify(wrappedMediaPeriod).prepare(any(), anyLong());
     verify(wrappedMediaPeriod)
         .selectTracks(
@@ -999,16 +1347,6 @@ public final class PreloadMediaPeriodTest {
                       .build()),
               /* selectedIndex= */ 0)
         };
-    TrackSelectorResult preloadTrackSelectorResult =
-        new TrackSelectorResult(
-            new RendererConfiguration[] {
-              RendererConfiguration.DEFAULT,
-              RendererConfiguration.DEFAULT,
-              RendererConfiguration.DEFAULT
-            },
-            preloadTrackSelections,
-            Tracks.EMPTY,
-            /* info= */ null);
     SampleStream[] preloadedStreams =
         new SampleStream[] {new EmptySampleStream(), null, new EmptySampleStream()};
     when(wrappedMediaPeriod.selectTracks(
@@ -1038,7 +1376,7 @@ public final class PreloadMediaPeriodTest {
         };
     preloadMediaPeriod.prepare(callback, /* positionUs= */ 0L);
     // Select tracks for preloading.
-    preloadMediaPeriod.selectTracksForPreloading(preloadTrackSelectorResult, /* positionUs= */ 0L);
+    preloadMediaPeriod.selectTracksForPreloading(preloadTrackSelections, /* positionUs= */ 0L);
     verify(wrappedMediaPeriod).prepare(any(), anyLong());
     verify(wrappedMediaPeriod)
         .selectTracks(
@@ -1135,14 +1473,6 @@ public final class PreloadMediaPeriodTest {
               new TrackGroup(new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H264).build()),
               /* selectedIndex= */ 0)
         };
-    TrackSelectorResult preloadTrackSelectorResult =
-        new TrackSelectorResult(
-            new RendererConfiguration[] {
-              RendererConfiguration.DEFAULT, RendererConfiguration.DEFAULT
-            },
-            preloadTrackSelections,
-            Tracks.EMPTY,
-            /* info= */ null);
     SampleStream[] preloadedStreams =
         new SampleStream[] {new EmptySampleStream(), new EmptySampleStream()};
     when(wrappedMediaPeriod.selectTracks(
@@ -1171,7 +1501,7 @@ public final class PreloadMediaPeriodTest {
         };
     preloadMediaPeriod.prepare(callback, /* positionUs= */ 0L);
     // Select tracks for preloading.
-    preloadMediaPeriod.selectTracksForPreloading(preloadTrackSelectorResult, /* positionUs= */ 0L);
+    preloadMediaPeriod.selectTracksForPreloading(preloadTrackSelections, /* positionUs= */ 0L);
     verify(wrappedMediaPeriod).prepare(any(), anyLong());
     verify(wrappedMediaPeriod)
         .selectTracks(
@@ -1238,14 +1568,6 @@ public final class PreloadMediaPeriodTest {
               new TrackGroup(new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H264).build()),
               /* track= */ 0)
         };
-    TrackSelectorResult trackSelectorResult =
-        new TrackSelectorResult(
-            new RendererConfiguration[] {
-              RendererConfiguration.DEFAULT, RendererConfiguration.DEFAULT
-            },
-            trackSelections,
-            Tracks.EMPTY,
-            /* info= */ null);
     when(wrappedMediaPeriod.selectTracks(
             eq(trackSelections), any(), any(), any(), /* positionUs= */ eq(0L)))
         .thenReturn(0L);
@@ -1262,7 +1584,7 @@ public final class PreloadMediaPeriodTest {
     verify(wrappedMediaPeriod).prepare(any(), /* positionUs= */ eq(0L));
 
     // Select tracks for preloading.
-    preloadMediaPeriod.selectTracksForPreloading(trackSelectorResult, /* positionUs= */ 0L);
+    preloadMediaPeriod.selectTracksForPreloading(trackSelections, /* positionUs= */ 0L);
     verify(wrappedMediaPeriod)
         .selectTracks(eq(trackSelections), any(), any(), any(), /* positionUs= */ eq(0L));
     SampleStream[] streams = new SampleStream[2];
@@ -1278,5 +1600,69 @@ public final class PreloadMediaPeriodTest {
     verify(wrappedMediaPeriod, times(2))
         .selectTracks(eq(trackSelections), any(), any(), any(), /* positionUs= */ eq(0L));
     assertThat(trackSelectionStartPositionUs).isEqualTo(0L);
+  }
+
+  @Test
+  public void maybeThrowStreamError_preloadedStreamHasError_errorThrows() throws Exception {
+    Format videoFormat =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_H264)
+            .setAverageBitrate(800_000)
+            .setWidth(1280)
+            .setHeight(720)
+            .build();
+    MediaSource.MediaPeriodId mediaPeriodId =
+        new MediaSource.MediaPeriodId(/* periodUid= */ new Object());
+    FakeMediaPeriod wrappedMediaPeriod =
+        new FakeMediaPeriod(
+            new TrackGroupArray(new TrackGroup(videoFormat)),
+            new DefaultAllocator(/* trimOnReset= */ true, C.DEFAULT_BUFFER_SEGMENT_SIZE),
+            FakeTimeline.TimelineWindowDefinition.DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US,
+            new MediaSourceEventListener.EventDispatcher()
+                .withParameters(/* windowIndex= */ 0, mediaPeriodId)) {
+          @Override
+          protected FakeSampleStream createSampleStream(
+              Allocator allocator,
+              @Nullable MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
+              DrmSessionManager drmSessionManager,
+              DrmSessionEventListener.EventDispatcher drmEventDispatcher,
+              Format initialFormat,
+              List<FakeSampleStream.FakeSampleStreamItem> fakeSampleStreamItems) {
+            return new FakeSampleStream(
+                allocator,
+                mediaSourceEventDispatcher,
+                drmSessionManager,
+                drmEventDispatcher,
+                initialFormat,
+                fakeSampleStreamItems) {
+              @Override
+              public void maybeThrowError() throws IOException {
+                throw new IOException();
+              }
+            };
+          }
+        };
+    PreloadMediaPeriod preloadMediaPeriod = new PreloadMediaPeriod(wrappedMediaPeriod);
+    AtomicBoolean onPreparedOfPreloadCallbackCalled = new AtomicBoolean();
+    MediaPeriod.Callback preloadCallback =
+        new MediaPeriod.Callback() {
+          @Override
+          public void onPrepared(MediaPeriod mediaPeriod) {
+            onPreparedOfPreloadCallbackCalled.set(true);
+          }
+
+          @Override
+          public void onContinueLoadingRequested(MediaPeriod source) {}
+        };
+    preloadMediaPeriod.preload(preloadCallback, /* positionUs= */ 0L);
+    runMainLooperUntil(onPreparedOfPreloadCallbackCalled::get);
+    ExoTrackSelection[] preloadTrackSelections =
+        new ExoTrackSelection[] {
+          new FixedTrackSelection(new TrackGroup(videoFormat), /* track= */ 0)
+        };
+    // PreloadMediaPeriod.selectTracksForPreloading keeps the preloaded stream.
+    preloadMediaPeriod.selectTracksForPreloading(preloadTrackSelections, /* positionUs= */ 0L);
+
+    assertThrows(IOException.class, preloadMediaPeriod::maybeThrowStreamError);
   }
 }

@@ -78,7 +78,6 @@ import androidx.media3.exoplayer.upstream.LoaderErrorThrower;
 import androidx.media3.exoplayer.upstream.ParsingLoadable;
 import androidx.media3.exoplayer.util.SntpClient;
 import androidx.media3.extractor.text.SubtitleParser;
-import com.google.common.base.Charsets;
 import com.google.common.math.LongMath;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.BufferedReader;
@@ -86,6 +85,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.math.RoundingMode;
+import java.nio.charset.StandardCharsets;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.List;
@@ -163,6 +163,7 @@ public final class DashMediaSource extends BaseMediaSource {
       fallbackTargetLiveOffsetMs = DEFAULT_FALLBACK_TARGET_LIVE_OFFSET_MS;
       minLiveStartPositionUs = MIN_LIVE_DEFAULT_START_POSITION_US;
       compositeSequenceableLoaderFactory = new DefaultCompositeSequenceableLoaderFactory();
+      experimentalParseSubtitlesDuringExtraction(true);
     }
 
     @CanIgnoreReturnValue
@@ -205,6 +206,7 @@ public final class DashMediaSource extends BaseMediaSource {
     }
 
     @Override
+    @Deprecated
     @CanIgnoreReturnValue
     public Factory experimentalParseSubtitlesDuringExtraction(
         boolean parseSubtitlesDuringExtraction) {
@@ -384,11 +386,6 @@ public final class DashMediaSource extends BaseMediaSource {
    * if no value is defined in the {@link MediaItem} or the manifest.
    */
   public static final long DEFAULT_FALLBACK_TARGET_LIVE_OFFSET_MS = 30_000;
-
-  /**
-   * @deprecated Use {@link #DEFAULT_FALLBACK_TARGET_LIVE_OFFSET_MS} instead.
-   */
-  @Deprecated public static final long DEFAULT_LIVE_PRESENTATION_DELAY_MS = 30_000;
 
   /** The media id used by media items of dash media sources without a manifest URI. */
   public static final String DEFAULT_MEDIA_ID = "DashMediaSource";
@@ -602,7 +599,6 @@ public final class DashMediaSource extends BaseMediaSource {
     }
     manifestLoadStartTimestampMs = 0;
     manifestLoadEndTimestampMs = 0;
-    manifest = sideloadedManifest ? manifest : null;
     manifestUri = initialManifestUri;
     manifestFatalError = null;
     if (handler != null) {
@@ -662,8 +658,7 @@ public final class DashMediaSource extends BaseMediaSource {
         // After discarding old periods, we should never have more periods than listed in the new
         // manifest. That would mean that a previously announced period is no longer advertised. If
         // this condition occurs, assume that we are hitting a manifest server that is out of sync
-        // and
-        // behind.
+        // and behind.
         Log.w(TAG, "Loaded out of sync manifest");
         isManifestStale = true;
       } else if (expiredManifestPublishTimeUs != C.TIME_UNSET
@@ -696,6 +691,7 @@ public final class DashMediaSource extends BaseMediaSource {
     manifestLoadPending &= manifest.dynamic;
     manifestLoadStartTimestampMs = elapsedRealtimeMs - loadDurationMs;
     manifestLoadEndTimestampMs = elapsedRealtimeMs;
+    firstPeriodId += removedPeriodCount;
 
     synchronized (manifestUriLock) {
       // Checks whether replaceManifestUri(Uri) was called to manually replace the URI between the
@@ -711,18 +707,14 @@ public final class DashMediaSource extends BaseMediaSource {
       }
     }
 
-    if (oldPeriodCount == 0) {
-      if (manifest.dynamic) {
-        if (manifest.utcTiming != null) {
-          resolveUtcTimingElement(manifest.utcTiming);
-        } else {
-          loadNtpTimeOffset();
-        }
+    if (manifest.dynamic && elapsedRealtimeOffsetMs == C.TIME_UNSET) {
+      // Determine elapsedRealtimeOffsetMs before processing the manifest further.
+      if (manifest.utcTiming != null) {
+        resolveUtcTimingElement(manifest.utcTiming);
       } else {
-        processManifest(true);
+        loadNtpTimeOffset();
       }
     } else {
-      firstPeriodId += removedPeriodCount;
       processManifest(true);
     }
   }
@@ -875,6 +867,7 @@ public final class DashMediaSource extends BaseMediaSource {
   private void onUtcTimestampResolutionError(IOException error) {
     Log.e(TAG, "Failed to resolve time offset.", error);
     // Be optimistic and continue in the hope that the device clock is correct.
+    this.elapsedRealtimeOffsetMs = System.currentTimeMillis() - SystemClock.elapsedRealtime();
     processManifest(true);
   }
 
@@ -1467,7 +1460,7 @@ public final class DashMediaSource extends BaseMediaSource {
     @Override
     public Long parse(Uri uri, InputStream inputStream) throws IOException {
       String firstLine =
-          new BufferedReader(new InputStreamReader(inputStream, Charsets.UTF_8)).readLine();
+          new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8)).readLine();
       try {
         Matcher matcher = TIMESTAMP_WITH_TIMEZONE_PATTERN.matcher(firstLine);
         if (!matcher.matches()) {

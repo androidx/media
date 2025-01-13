@@ -32,19 +32,17 @@ public class LegacySubtitleUtil {
    * Converts a {@link Subtitle} to a list of {@link CuesWithTiming} representing it, emitted to
    * {@code output}.
    *
-   * <p>This may only be called with {@link Subtitle} instances where the first event is non-empty
-   * and the last event is an empty cue list.
+   * <p>This may only be called with empty {@link Subtitle} instances, or those where the first
+   * event is non-empty and the last event is an empty cue list.
    */
   public static void toCuesWithTiming(
       Subtitle subtitle, OutputOptions outputOptions, Consumer<CuesWithTiming> output) {
-    int startIndex = getStartIndex(subtitle, outputOptions);
+    int startIndex = getStartIndex(subtitle, outputOptions.startTimeUs);
     boolean startedInMiddleOfCue = false;
-    if (outputOptions.startTimeUs != C.TIME_UNSET) {
+    if (outputOptions.startTimeUs != C.TIME_UNSET && startIndex < subtitle.getEventTimeCount()) {
       List<Cue> cuesAtStartTime = subtitle.getCues(outputOptions.startTimeUs);
       long firstEventTimeUs = subtitle.getEventTime(startIndex);
-      if (!cuesAtStartTime.isEmpty()
-          && startIndex < subtitle.getEventTimeCount()
-          && outputOptions.startTimeUs < firstEventTimeUs) {
+      if (!cuesAtStartTime.isEmpty() && outputOptions.startTimeUs < firstEventTimeUs) {
         output.accept(
             new CuesWithTiming(
                 cuesAtStartTime,
@@ -71,16 +69,20 @@ public class LegacySubtitleUtil {
     }
   }
 
-  private static int getStartIndex(Subtitle subtitle, OutputOptions outputOptions) {
-    if (outputOptions.startTimeUs == C.TIME_UNSET) {
+  /**
+   * Returns the event index from {@code subtitle} that is equal to or after {@code startTimeUs}, or
+   * zero if {@code startTimeUs == C.TIME_UNSET}, or {@code subtitle.getEventTimeCount()} if {@code
+   * startTimeUs} is after all events in {@code subtitle}.
+   */
+  private static int getStartIndex(Subtitle subtitle, long startTimeUs) {
+    if (startTimeUs == C.TIME_UNSET) {
       return 0;
     }
-    int nextEventTimeIndex = subtitle.getNextEventTimeIndex(outputOptions.startTimeUs);
+    int nextEventTimeIndex = subtitle.getNextEventTimeIndex(startTimeUs);
     if (nextEventTimeIndex == C.INDEX_UNSET) {
-      return subtitle.getEventTimeCount();
+      nextEventTimeIndex = subtitle.getEventTimeCount();
     }
-    if (nextEventTimeIndex > 0
-        && subtitle.getEventTime(nextEventTimeIndex - 1) == outputOptions.startTimeUs) {
+    if (nextEventTimeIndex > 0 && subtitle.getEventTime(nextEventTimeIndex - 1) == startTimeUs) {
       nextEventTimeIndex--;
     }
     return nextEventTimeIndex;
@@ -101,6 +103,8 @@ public class LegacySubtitleUtil {
     // It's safe to inspect element i+1, because we already exited the loop above if
     // i == getEventTimeCount() - 1.
     long durationUs = subtitle.getEventTime(eventIndex + 1) - subtitle.getEventTime(eventIndex);
-    output.accept(new CuesWithTiming(cuesForThisStartTime, startTimeUs, durationUs));
+    if (durationUs > 0) {
+      output.accept(new CuesWithTiming(cuesForThisStartTime, startTimeUs, durationUs));
+    }
   }
 }

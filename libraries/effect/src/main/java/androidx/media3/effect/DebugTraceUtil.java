@@ -25,11 +25,12 @@ import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.annotation.StringDef;
 import androidx.media3.common.C;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.SystemClock;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.io.Writer;
@@ -50,157 +51,274 @@ public final class DebugTraceUtil {
 
   /**
    * Whether to store tracing events for debug logging. Should be set to {@code true} for testing
-   * and debugging purposes only, before running transformer.
+   * and debugging purposes only.
    */
   @SuppressWarnings("NonFinalStaticField") // Only for debugging/testing.
   public static boolean enableTracing = false;
 
   /** Events logged by {@link #logEvent}. */
+  @Documented
   @Retention(RetentionPolicy.SOURCE)
   @StringDef({
-    EVENT_VIDEO_INPUT_FORMAT,
-    EVENT_DECODER_DECODED_FRAME,
-    EVENT_VFP_REGISTER_NEW_INPUT_STREAM,
-    EVENT_VFP_SURFACE_TEXTURE_INPUT,
-    EVENT_VFP_QUEUE_FRAME,
-    EVENT_VFP_QUEUE_BITMAP,
-    EVENT_VFP_QUEUE_TEXTURE,
-    EVENT_VFP_RENDERED_TO_OUTPUT_SURFACE,
-    EVENT_VFP_OUTPUT_TEXTURE_RENDERED,
-    EVENT_VFP_FINISH_PROCESSING_INPUT_STREAM,
-    EVENT_COMPOSITOR_OUTPUT_TEXTURE_RENDERED,
-    EVENT_ENCODER_ENCODED_FRAME,
-    EVENT_MUXER_CAN_WRITE_SAMPLE_VIDEO,
-    EVENT_MUXER_WRITE_SAMPLE_VIDEO,
-    EVENT_MUXER_CAN_WRITE_SAMPLE_AUDIO,
-    EVENT_MUXER_WRITE_SAMPLE_AUDIO,
-    EVENT_DECODER_RECEIVE_EOS,
-    EVENT_DECODER_SIGNAL_EOS,
-    EVENT_VFP_RECEIVE_END_OF_INPUT,
-    EVENT_EXTERNAL_TEXTURE_MANAGER_SIGNAL_EOS,
-    EVENT_BITMAP_TEXTURE_MANAGER_SIGNAL_EOS,
-    EVENT_TEX_ID_TEXTURE_MANAGER_SIGNAL_EOS,
-    EVENT_VFP_SIGNAL_ENDED,
-    EVENT_ENCODER_RECEIVE_EOS,
-    EVENT_MUXER_TRACK_ENDED_AUDIO,
-    EVENT_MUXER_TRACK_ENDED_VIDEO
+    EVENT_START,
+    EVENT_INPUT_FORMAT,
+    EVENT_OUTPUT_FORMAT,
+    EVENT_ACCEPTED_INPUT,
+    EVENT_PRODUCED_OUTPUT,
+    EVENT_INPUT_ENDED,
+    EVENT_OUTPUT_ENDED,
+    EVENT_REGISTER_NEW_INPUT_STREAM,
+    EVENT_SURFACE_TEXTURE_INPUT,
+    EVENT_SURFACE_TEXTURE_TRANSFORM_FIX,
+    EVENT_QUEUE_FRAME,
+    EVENT_QUEUE_BITMAP,
+    EVENT_QUEUE_TEXTURE,
+    EVENT_OUTPUT_TEXTURE_RENDERED,
+    EVENT_RENDERED_TO_OUTPUT_SURFACE,
+    EVENT_RECEIVE_END_OF_ALL_INPUT,
+    EVENT_RECEIVE_EOS,
+    EVENT_SIGNAL_EOS,
+    EVENT_SIGNAL_ENDED,
+    EVENT_CAN_WRITE_SAMPLE
   })
-  @Documented
   @Target(TYPE_USE)
-  public @interface DebugTraceEvent {}
+  public @interface Event {}
 
-  public static final String EVENT_VIDEO_INPUT_FORMAT = "VideoInputFormat";
-  public static final String EVENT_DECODER_DECODED_FRAME = "Decoder-DecodedFrame";
-  public static final String EVENT_VFP_REGISTER_NEW_INPUT_STREAM = "VFP-RegisterNewInputStream";
-  public static final String EVENT_VFP_SURFACE_TEXTURE_INPUT = "VFP-SurfaceTextureInput";
-  public static final String EVENT_VFP_QUEUE_FRAME = "VFP-QueueFrame";
-  public static final String EVENT_VFP_QUEUE_BITMAP = "VFP-QueueBitmap";
-  public static final String EVENT_VFP_QUEUE_TEXTURE = "VFP-QueueTexture";
-  public static final String EVENT_VFP_RENDERED_TO_OUTPUT_SURFACE = "VFP-RenderedToOutputSurface";
-  public static final String EVENT_VFP_OUTPUT_TEXTURE_RENDERED = "VFP-OutputTextureRendered";
-  public static final String EVENT_VFP_FINISH_PROCESSING_INPUT_STREAM = "VFP-FinishOneInputStream";
-  public static final String EVENT_COMPOSITOR_OUTPUT_TEXTURE_RENDERED =
-      "COMP-OutputTextureRendered";
-  public static final String EVENT_ENCODER_ENCODED_FRAME = "Encoder-EncodedFrame";
-  public static final String EVENT_MUXER_CAN_WRITE_SAMPLE_VIDEO = "Muxer-CanWriteSample_Video";
-  public static final String EVENT_MUXER_WRITE_SAMPLE_VIDEO = "Muxer-WriteSample_Video";
-  public static final String EVENT_MUXER_CAN_WRITE_SAMPLE_AUDIO = "Muxer-CanWriteSample_Audio";
-  public static final String EVENT_MUXER_WRITE_SAMPLE_AUDIO = "Muxer-WriteSample_Audio";
-  public static final String EVENT_DECODER_RECEIVE_EOS = "Decoder-ReceiveEOS";
-  public static final String EVENT_DECODER_SIGNAL_EOS = "Decoder-SignalEOS";
-  public static final String EVENT_VFP_RECEIVE_END_OF_INPUT = "VFP-ReceiveEndOfAllInput";
-  public static final String EVENT_EXTERNAL_TEXTURE_MANAGER_SIGNAL_EOS =
-      "ExternalTextureManager-SignalEOS";
-  public static final String EVENT_BITMAP_TEXTURE_MANAGER_SIGNAL_EOS =
-      "BitmapTextureManager-SignalEOS";
-  public static final String EVENT_TEX_ID_TEXTURE_MANAGER_SIGNAL_EOS =
-      "TexIdTextureManager-SignalEOS";
-  public static final String EVENT_VFP_SIGNAL_ENDED = "VFP-SignalEnded";
-  public static final String EVENT_ENCODER_RECEIVE_EOS = "Encoder-ReceiveEOS";
-  public static final String EVENT_MUXER_TRACK_ENDED_AUDIO = "Muxer-TrackEnded_Audio";
-  public static final String EVENT_MUXER_TRACK_ENDED_VIDEO = "Muxer-TrackEnded_Video";
+  public static final String EVENT_START = "Start";
+  public static final String EVENT_INPUT_FORMAT = "InputFormat";
+  public static final String EVENT_OUTPUT_FORMAT = "OutputFormat";
+  public static final String EVENT_ACCEPTED_INPUT = "AcceptedInput";
+  public static final String EVENT_PRODUCED_OUTPUT = "ProducedOutput";
+  public static final String EVENT_INPUT_ENDED = "InputEnded";
+  public static final String EVENT_OUTPUT_ENDED = "OutputEnded";
+  public static final String EVENT_REGISTER_NEW_INPUT_STREAM = "RegisterNewInputStream";
+  public static final String EVENT_SURFACE_TEXTURE_INPUT = "SurfaceTextureInput";
+  public static final String EVENT_SURFACE_TEXTURE_TRANSFORM_FIX = "SurfaceTextureTransformFix";
+  public static final String EVENT_QUEUE_FRAME = "QueueFrame";
+  public static final String EVENT_QUEUE_BITMAP = "QueueBitmap";
+  public static final String EVENT_QUEUE_TEXTURE = "QueueTexture";
+  public static final String EVENT_OUTPUT_TEXTURE_RENDERED = "OutputTextureRendered";
+  public static final String EVENT_RENDERED_TO_OUTPUT_SURFACE = "RenderedToOutputSurface";
+  public static final String EVENT_RECEIVE_END_OF_ALL_INPUT = "ReceiveEndOfAllInput";
+  public static final String EVENT_RECEIVE_EOS = "ReceiveEOS";
+  public static final String EVENT_SIGNAL_EOS = "SignalEOS";
+  public static final String EVENT_SIGNAL_ENDED = "SignalEnded";
+  public static final String EVENT_CAN_WRITE_SAMPLE = "CanWriteSample";
 
-  /** List ordered based on expected event ordering. */
-  private static final ImmutableList<String> EVENT_TYPES =
-      ImmutableList.of(
-          EVENT_VIDEO_INPUT_FORMAT,
-          EVENT_DECODER_DECODED_FRAME,
-          EVENT_VFP_REGISTER_NEW_INPUT_STREAM,
-          EVENT_VFP_SURFACE_TEXTURE_INPUT,
-          EVENT_VFP_QUEUE_FRAME,
-          EVENT_VFP_QUEUE_BITMAP,
-          EVENT_VFP_QUEUE_TEXTURE,
-          EVENT_VFP_RENDERED_TO_OUTPUT_SURFACE,
-          EVENT_VFP_OUTPUT_TEXTURE_RENDERED,
-          EVENT_VFP_FINISH_PROCESSING_INPUT_STREAM,
-          EVENT_COMPOSITOR_OUTPUT_TEXTURE_RENDERED,
-          EVENT_ENCODER_ENCODED_FRAME,
-          EVENT_MUXER_CAN_WRITE_SAMPLE_VIDEO,
-          EVENT_MUXER_WRITE_SAMPLE_VIDEO,
-          EVENT_MUXER_CAN_WRITE_SAMPLE_AUDIO,
-          EVENT_MUXER_WRITE_SAMPLE_AUDIO,
-          EVENT_DECODER_RECEIVE_EOS,
-          EVENT_DECODER_SIGNAL_EOS,
-          EVENT_VFP_RECEIVE_END_OF_INPUT,
-          EVENT_EXTERNAL_TEXTURE_MANAGER_SIGNAL_EOS,
-          EVENT_BITMAP_TEXTURE_MANAGER_SIGNAL_EOS,
-          EVENT_TEX_ID_TEXTURE_MANAGER_SIGNAL_EOS,
-          EVENT_VFP_SIGNAL_ENDED,
-          EVENT_ENCODER_RECEIVE_EOS,
-          EVENT_MUXER_TRACK_ENDED_AUDIO,
-          EVENT_MUXER_TRACK_ENDED_VIDEO);
+  /** Components logged by {@link #logEvent}. */
+  @Documented
+  @Retention(RetentionPolicy.SOURCE)
+  @StringDef({
+    COMPONENT_TRANSFORMER_INTERNAL,
+    COMPONENT_ASSET_LOADER,
+    COMPONENT_AUDIO_DECODER,
+    COMPONENT_AUDIO_GRAPH,
+    COMPONENT_AUDIO_MIXER,
+    COMPONENT_AUDIO_ENCODER,
+    COMPONENT_VIDEO_DECODER,
+    COMPONENT_VFP,
+    COMPONENT_BITMAP_TEXTURE_MANAGER,
+    COMPONENT_EXTERNAL_TEXTURE_MANAGER,
+    COMPONENT_TEX_ID_TEXTURE_MANAGER,
+    COMPONENT_COMPOSITOR,
+    COMPONENT_VIDEO_ENCODER,
+    COMPONENT_MUXER
+  })
+  @Target(TYPE_USE)
+  public @interface Component {}
+
+  public static final String COMPONENT_TRANSFORMER_INTERNAL = "TransformerInternal";
+  public static final String COMPONENT_ASSET_LOADER = "AssetLoader";
+  public static final String COMPONENT_AUDIO_DECODER = "AudioDecoder";
+  public static final String COMPONENT_AUDIO_GRAPH = "AudioGraph";
+  public static final String COMPONENT_AUDIO_MIXER = "AudioMixer";
+  public static final String COMPONENT_AUDIO_ENCODER = "AudioEncoder";
+  public static final String COMPONENT_VIDEO_DECODER = "VideoDecoder";
+  public static final String COMPONENT_VFP = "VFP";
+  public static final String COMPONENT_EXTERNAL_TEXTURE_MANAGER = "ExternalTextureManager";
+  public static final String COMPONENT_BITMAP_TEXTURE_MANAGER = "BitmapTextureManager";
+  public static final String COMPONENT_TEX_ID_TEXTURE_MANAGER = "TexIdTextureManager";
+  public static final String COMPONENT_COMPOSITOR = "Compositor";
+  public static final String COMPONENT_VIDEO_ENCODER = "VideoEncoder";
+  public static final String COMPONENT_MUXER = "Muxer";
+
+  // For a given component, events are in the rough expected order that they occur.
+  private static final ImmutableMap<@Component String, List<@Event String>> COMPONENTS_TO_EVENTS =
+      ImmutableMap.<String, List<String>>builder()
+          .put(COMPONENT_TRANSFORMER_INTERNAL, ImmutableList.of(EVENT_START))
+          .put(COMPONENT_ASSET_LOADER, ImmutableList.of(EVENT_INPUT_FORMAT, EVENT_OUTPUT_FORMAT))
+          .put(
+              COMPONENT_AUDIO_DECODER,
+              ImmutableList.of(
+                  EVENT_INPUT_FORMAT,
+                  EVENT_OUTPUT_FORMAT,
+                  EVENT_ACCEPTED_INPUT,
+                  EVENT_PRODUCED_OUTPUT,
+                  EVENT_INPUT_ENDED,
+                  EVENT_OUTPUT_ENDED))
+          .put(
+              COMPONENT_AUDIO_GRAPH,
+              ImmutableList.of(EVENT_REGISTER_NEW_INPUT_STREAM, EVENT_OUTPUT_ENDED))
+          .put(
+              COMPONENT_AUDIO_MIXER,
+              ImmutableList.of(
+                  EVENT_REGISTER_NEW_INPUT_STREAM, EVENT_OUTPUT_FORMAT, EVENT_PRODUCED_OUTPUT))
+          .put(
+              COMPONENT_AUDIO_ENCODER,
+              ImmutableList.of(
+                  EVENT_INPUT_FORMAT,
+                  EVENT_OUTPUT_FORMAT,
+                  EVENT_ACCEPTED_INPUT,
+                  EVENT_PRODUCED_OUTPUT,
+                  EVENT_INPUT_ENDED,
+                  EVENT_OUTPUT_ENDED))
+          .put(
+              COMPONENT_VIDEO_DECODER,
+              ImmutableList.of(
+                  EVENT_INPUT_FORMAT,
+                  EVENT_OUTPUT_FORMAT,
+                  EVENT_ACCEPTED_INPUT,
+                  EVENT_PRODUCED_OUTPUT,
+                  EVENT_INPUT_ENDED,
+                  EVENT_OUTPUT_ENDED))
+          .put(
+              COMPONENT_VFP,
+              ImmutableList.of(
+                  EVENT_REGISTER_NEW_INPUT_STREAM,
+                  EVENT_SURFACE_TEXTURE_INPUT,
+                  EVENT_QUEUE_FRAME,
+                  EVENT_QUEUE_BITMAP,
+                  EVENT_QUEUE_TEXTURE,
+                  EVENT_RENDERED_TO_OUTPUT_SURFACE,
+                  EVENT_OUTPUT_TEXTURE_RENDERED,
+                  EVENT_RECEIVE_END_OF_ALL_INPUT,
+                  EVENT_SIGNAL_ENDED))
+          .put(
+              COMPONENT_EXTERNAL_TEXTURE_MANAGER,
+              ImmutableList.of(EVENT_SIGNAL_EOS, EVENT_SURFACE_TEXTURE_TRANSFORM_FIX))
+          .put(COMPONENT_BITMAP_TEXTURE_MANAGER, ImmutableList.of(EVENT_SIGNAL_EOS))
+          .put(COMPONENT_TEX_ID_TEXTURE_MANAGER, ImmutableList.of(EVENT_SIGNAL_EOS))
+          .put(COMPONENT_COMPOSITOR, ImmutableList.of(EVENT_OUTPUT_TEXTURE_RENDERED))
+          .put(
+              COMPONENT_VIDEO_ENCODER,
+              ImmutableList.of(
+                  EVENT_INPUT_FORMAT,
+                  EVENT_OUTPUT_FORMAT,
+                  EVENT_ACCEPTED_INPUT,
+                  EVENT_PRODUCED_OUTPUT,
+                  EVENT_INPUT_ENDED,
+                  EVENT_OUTPUT_ENDED))
+          .put(
+              COMPONENT_MUXER,
+              ImmutableList.of(
+                  EVENT_INPUT_FORMAT,
+                  EVENT_CAN_WRITE_SAMPLE,
+                  EVENT_ACCEPTED_INPUT,
+                  EVENT_INPUT_ENDED,
+                  EVENT_OUTPUT_ENDED))
+          .buildOrThrow();
+
+  /**
+   * Whether to {@linkplain Log#d(String, String) log} tracing events to the logcat as they occur.
+   * Should be set to {@code true} for testing and debugging purposes only.
+   *
+   * <p>Note that enabling this can add a large amount of logcat lines.
+   *
+   * <p>Requires {@link #enableTracing} to be true.
+   */
+  private static final boolean ENABLE_TRACES_IN_LOGCAT = false;
 
   private static final int MAX_FIRST_LAST_LOGS = 10;
 
   @GuardedBy("DebugTraceUtil.class")
-  private static final Map<String, EventLogger> events = new LinkedHashMap<>();
+  private static final Map<@Component String, Map<@Event String, EventLogger>>
+      componentsToEventsToLogs = new LinkedHashMap<>();
 
   @GuardedBy("DebugTraceUtil.class")
   private static long startTimeMs = SystemClock.DEFAULT.elapsedRealtime();
 
   public static synchronized void reset() {
-    events.clear();
+    componentsToEventsToLogs.clear();
     startTimeMs = SystemClock.DEFAULT.elapsedRealtime();
   }
 
   /**
    * Logs a new event, if debug logging is enabled.
    *
-   * @param eventName The {@linkplain DebugTraceEvent event name} to log.
+   * @param component The {@link Component} to log.
+   * @param event The {@link Event} to log.
    * @param presentationTimeUs The current presentation time of the media. Use {@link C#TIME_UNSET}
    *     if unknown, {@link C#TIME_END_OF_SOURCE} if EOS.
    * @param extraFormat Format string for optional extra information. See {@link
    *     Util#formatInvariant(String, Object...)}.
    * @param extraArgs Arguments for optional extra information.
    */
+  @SuppressWarnings("ComputeIfAbsentContainsKey") // Avoid Java8 for visibility
   public static synchronized void logEvent(
-      @DebugTraceEvent String eventName,
+      @Component String component,
+      @Event String event,
       long presentationTimeUs,
-      @Nullable String extraFormat,
+      String extraFormat,
       Object... extraArgs) {
     if (!enableTracing) {
       return;
     }
     long eventTimeMs = SystemClock.DEFAULT.elapsedRealtime() - startTimeMs;
-    if (!events.containsKey(eventName)) {
-      events.put(eventName, new EventLogger());
+
+    if (!componentsToEventsToLogs.containsKey(component)) {
+      componentsToEventsToLogs.put(component, new LinkedHashMap<>());
     }
-    EventLogger logger = events.get(eventName);
-    @Nullable
-    String extra = extraFormat != null ? Util.formatInvariant(extraFormat, extraArgs) : null;
-    logger.addLog(new EventLog(presentationTimeUs, eventTimeMs, extra));
+    Map<@Event String, EventLogger> events = componentsToEventsToLogs.get(component);
+    if (!events.containsKey(event)) {
+      events.put(event, new EventLogger());
+    }
+    EventLogger logger = events.get(event);
+    String extra = Util.formatInvariant(extraFormat, extraArgs);
+    EventLog eventLog = new EventLog(presentationTimeUs, eventTimeMs, extra);
+    logger.addLog(eventLog);
+    if (ENABLE_TRACES_IN_LOGCAT) {
+      Log.d("DebugTrace-" + component, event + ": " + eventLog);
+    }
   }
 
   /**
    * Logs a new event, if debug logging is enabled.
    *
-   * @param eventName The {@linkplain DebugTraceEvent event name} to log.
+   * @param component The {@link Component} to log.
+   * @param event The {@link Event} to log.
    * @param presentationTimeUs The current presentation time of the media. Use {@link C#TIME_UNSET}
    *     if unknown, {@link C#TIME_END_OF_SOURCE} if EOS.
    */
   public static synchronized void logEvent(
-      @DebugTraceEvent String eventName, long presentationTimeUs) {
-    logEvent(eventName, presentationTimeUs, /* extraFormat= */ null);
+      @Component String component, @Event String event, long presentationTimeUs) {
+    logEvent(component, event, presentationTimeUs, /* extraFormat= */ "");
+  }
+
+  /**
+   * Logs an {@link Event} for a codec, if debug logging is enabled.
+   *
+   * @param isDecoder Whether the codec is a decoder.
+   * @param isVideo Whether the codec is for video.
+   * @param eventName The {@link Event} to log.
+   * @param presentationTimeUs The current presentation time of the media. Use {@link C#TIME_UNSET}
+   *     if unknown, {@link C#TIME_END_OF_SOURCE} if EOS.
+   * @param extraFormat Format string for optional extra information. See {@link
+   *     Util#formatInvariant(String, Object...)}.
+   * @param extraArgs Arguments for optional extra information.
+   */
+  public static synchronized void logCodecEvent(
+      boolean isDecoder,
+      boolean isVideo,
+      @Event String eventName,
+      long presentationTimeUs,
+      String extraFormat,
+      Object... extraArgs) {
+    logEvent(
+        getCodecComponent(isDecoder, isVideo),
+        eventName,
+        presentationTimeUs,
+        extraFormat,
+        extraArgs);
   }
 
   /**
@@ -215,14 +333,24 @@ public final class DebugTraceUtil {
     JsonWriter jsonWriter = new JsonWriter(stringWriter);
     try {
       jsonWriter.beginObject();
-      for (int i = 0; i < EVENT_TYPES.size(); i++) {
-        String eventType = EVENT_TYPES.get(i);
-        jsonWriter.name(eventType);
-        if (!events.containsKey(eventType)) {
-          jsonWriter.value("No events");
-        } else {
-          checkNotNull(events.get(eventType)).toJson(jsonWriter);
+      for (Map.Entry<@Component String, List<@Event String>> componentToEvents :
+          COMPONENTS_TO_EVENTS.entrySet()) {
+        @Component String component = componentToEvents.getKey();
+        List<@Event String> componentEvents = componentToEvents.getValue();
+
+        jsonWriter.name(component);
+        @Nullable
+        Map<@Event String, EventLogger> eventsToLogs = componentsToEventsToLogs.get(component);
+        jsonWriter.beginObject();
+        for (@Event String event : componentEvents) {
+          jsonWriter.name(event);
+          if (eventsToLogs != null && eventsToLogs.containsKey(event)) {
+            checkNotNull(eventsToLogs.get(event)).toJson(jsonWriter);
+          } else {
+            jsonWriter.value("No events");
+          }
         }
+        jsonWriter.endObject();
       }
       jsonWriter.endObject();
       return stringWriter.toString();
@@ -233,24 +361,30 @@ public final class DebugTraceUtil {
     }
   }
 
-  /** Dumps all the logged events to a tsv file. */
+  /** Dumps all the logged events to the {@link Writer} as tab separated values (tsv). */
   public static synchronized void dumpTsv(Writer writer) throws IOException {
     if (!enableTracing) {
       writer.write("Tracing disabled");
       return;
     }
-    writer.write("event\ttimestamp\tpresentation\textra\n");
-    for (Map.Entry<String, EventLogger> entry : events.entrySet()) {
-      ImmutableList<EventLog> eventLogs = entry.getValue().getLogs();
-      for (int i = 0; i < eventLogs.size(); i++) {
-        EventLog eventLog = eventLogs.get(i);
-        writer.write(
-            formatInvariant(
-                "%s\t%d\t%s\t%s\n",
-                entry.getKey(),
-                eventLog.eventTimeMs,
-                presentationTimeToString(eventLog.presentationTimeUs),
-                Strings.nullToEmpty(eventLog.extra)));
+    writer.write("component\tevent\ttimestamp\tpresentation\textra\n");
+    for (Map.Entry<@Component String, Map<@Event String, EventLogger>> componentToEventsToLogs :
+        componentsToEventsToLogs.entrySet()) {
+      @Component String component = componentToEventsToLogs.getKey();
+      Map<@Event String, EventLogger> eventsToLogs = componentToEventsToLogs.getValue();
+      for (Map.Entry<@Event String, EventLogger> eventToLogs : eventsToLogs.entrySet()) {
+        @Event String componentEvent = eventToLogs.getKey();
+        ImmutableList<EventLog> eventLogs = eventToLogs.getValue().getLogs();
+        for (EventLog eventLog : eventLogs) {
+          writer.write(
+              formatInvariant(
+                  "%s\t%s\t%dms\t%s\t%s\n",
+                  component,
+                  componentEvent,
+                  eventLog.eventTimeMs,
+                  presentationTimeToString(eventLog.presentationTimeUs),
+                  eventLog.extra));
+        }
       }
     }
   }
@@ -261,16 +395,32 @@ public final class DebugTraceUtil {
     } else if (presentationTimeUs == C.TIME_END_OF_SOURCE) {
       return "EOS";
     } else {
-      return String.valueOf(presentationTimeUs);
+      return presentationTimeUs + "us";
+    }
+  }
+
+  private static @Component String getCodecComponent(boolean isDecoder, boolean isVideo) {
+    if (isDecoder) {
+      if (isVideo) {
+        return COMPONENT_VIDEO_DECODER;
+      } else {
+        return COMPONENT_AUDIO_DECODER;
+      }
+    } else {
+      if (isVideo) {
+        return COMPONENT_VIDEO_ENCODER;
+      } else {
+        return COMPONENT_AUDIO_ENCODER;
+      }
     }
   }
 
   private static final class EventLog {
     public final long presentationTimeUs;
     public final long eventTimeMs;
-    @Nullable public final String extra;
+    public final String extra;
 
-    private EventLog(long presentationTimeUs, long eventTimeMs, @Nullable String extra) {
+    private EventLog(long presentationTimeUs, long eventTimeMs, String extra) {
       this.presentationTimeUs = presentationTimeUs;
       this.eventTimeMs = eventTimeMs;
       this.extra = extra;
@@ -278,8 +428,8 @@ public final class DebugTraceUtil {
 
     @Override
     public String toString() {
-      return formatInvariant("%s@%d", presentationTimeToString(presentationTimeUs), eventTimeMs)
-          + (extra != null ? formatInvariant("(%s)", extra) : "");
+      return formatInvariant("%s@%dms", presentationTimeToString(presentationTimeUs), eventTimeMs)
+          + (extra.isEmpty() ? "" : formatInvariant("(%s)", extra));
     }
   }
 
@@ -315,11 +465,15 @@ public final class DebugTraceUtil {
       for (EventLog eventLog : firstLogs) {
         jsonWriter.value(eventLog.toString());
       }
-      jsonWriter.endArray().name("last").beginArray();
-      for (EventLog eventLog : lastLogs) {
-        jsonWriter.value(eventLog.toString());
+      jsonWriter.endArray();
+      if (!lastLogs.isEmpty()) {
+        jsonWriter.name("last").beginArray();
+        for (EventLog eventLog : lastLogs) {
+          jsonWriter.value(eventLog.toString());
+        }
+        jsonWriter.endArray();
       }
-      jsonWriter.endArray().endObject();
+      jsonWriter.endObject();
     }
   }
 }

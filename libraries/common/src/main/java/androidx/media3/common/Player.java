@@ -59,7 +59,7 @@ import java.util.List;
  *       thread} unless indicated otherwise. Callbacks in registered listeners are called on the
  *       same thread.
  *   <li>The available functionality can be limited. Player instances provide a set of {@link
- *       #getAvailableCommands() availabe commands} to signal feature support and users of the
+ *       #getAvailableCommands() available commands} to signal feature support and users of the
  *       interface must only call methods if the corresponding {@link Command} is available.
  *   <li>Users can register {@link Player.Listener} callbacks that get informed about state changes.
  *   <li>Player instances need to update the visible state immediately after each method call, even
@@ -242,7 +242,7 @@ public interface Player {
   }
 
   /** Position info describing a playback position involved in a discontinuity. */
-  final class PositionInfo implements Bundleable {
+  final class PositionInfo {
 
     /**
      * The UID of the window, or {@code null} if the timeline is {@link Timeline#isEmpty() empty}.
@@ -385,8 +385,6 @@ public interface Player {
           && Objects.equal(mediaItem, other.mediaItem);
     }
 
-    // Bundleable implementation.
-
     @VisibleForTesting static final String FIELD_MEDIA_ITEM_INDEX = Util.intToStringMaxRadix(0);
     private static final String FIELD_MEDIA_ITEM = Util.intToStringMaxRadix(1);
     @VisibleForTesting static final String FIELD_PERIOD_INDEX = Util.intToStringMaxRadix(2);
@@ -426,10 +424,11 @@ public interface Player {
     }
 
     /**
-     * {@inheritDoc}
+     * Returns a {@link Bundle} representing the information stored in this object.
      *
      * <p>It omits the {@link #windowUid} and {@link #periodUid} fields. The {@link #windowUid} and
-     * {@link #periodUid} of an instance restored by {@link #CREATOR} will always be {@code null}.
+     * {@link #periodUid} of an instance restored by {@link #fromBundle(Bundle)} will always be
+     * {@code null}.
      *
      * @param controllerInterfaceVersion The interface version of the media controller this Bundle
      *     will be sent to.
@@ -462,26 +461,21 @@ public interface Player {
     }
 
     /**
-     * {@inheritDoc}
-     *
-     * <p>It omits the {@link #windowUid} and {@link #periodUid} fields. The {@link #windowUid} and
-     * {@link #periodUid} of an instance restored by {@link #CREATOR} will always be {@code null}.
+     * @deprecated Use {@link #toBundle(int)} instead.
      */
     @UnstableApi
-    @Override
+    @Deprecated
     public Bundle toBundle() {
       return toBundle(Integer.MAX_VALUE);
     }
 
-    /** Object that can restore {@link PositionInfo} from a {@link Bundle}. */
-    @UnstableApi public static final Creator<PositionInfo> CREATOR = PositionInfo::fromBundle;
-
-    private static PositionInfo fromBundle(Bundle bundle) {
+    /** Restores a {@code PositionInfo} from a {@link Bundle}. */
+    @UnstableApi
+    public static PositionInfo fromBundle(Bundle bundle) {
       int mediaItemIndex = bundle.getInt(FIELD_MEDIA_ITEM_INDEX, /* defaultValue= */ 0);
       @Nullable Bundle mediaItemBundle = bundle.getBundle(FIELD_MEDIA_ITEM);
       @Nullable
-      MediaItem mediaItem =
-          mediaItemBundle == null ? null : MediaItem.CREATOR.fromBundle(mediaItemBundle);
+      MediaItem mediaItem = mediaItemBundle == null ? null : MediaItem.fromBundle(mediaItemBundle);
       int periodIndex = bundle.getInt(FIELD_PERIOD_INDEX, /* defaultValue= */ 0);
       long positionMs = bundle.getLong(FIELD_POSITION_MS, /* defaultValue= */ 0);
       long contentPositionMs = bundle.getLong(FIELD_CONTENT_POSITION_MS, /* defaultValue= */ 0);
@@ -506,12 +500,13 @@ public interface Player {
    *
    * <p>Instances are immutable.
    */
-  final class Commands implements Bundleable {
+  final class Commands {
 
     /** A builder for {@link Commands} instances. */
     @UnstableApi
     public static final class Builder {
 
+      @SuppressWarnings("deprecation") // Includes deprecated commands
       private static final @Command int[] SUPPORTED_COMMANDS = {
         COMMAND_PLAY_PAUSE,
         COMMAND_PREPARE,
@@ -735,12 +730,9 @@ public interface Player {
       return flags.hashCode();
     }
 
-    // Bundleable implementation.
-
     private static final String FIELD_COMMANDS = Util.intToStringMaxRadix(0);
 
     @UnstableApi
-    @Override
     public Bundle toBundle() {
       Bundle bundle = new Bundle();
       ArrayList<Integer> commandsBundle = new ArrayList<>();
@@ -751,10 +743,9 @@ public interface Player {
       return bundle;
     }
 
-    /** Object that can restore {@link Commands} from a {@link Bundle}. */
-    @UnstableApi public static final Creator<Commands> CREATOR = Commands::fromBundle;
-
-    private static Commands fromBundle(Bundle bundle) {
+    /** Restores a {@code Commands} from a {@link Bundle}. */
+    @UnstableApi
+    public static Commands fromBundle(Bundle bundle) {
       @Nullable ArrayList<Integer> commands = bundle.getIntegerArrayList(FIELD_COMMANDS);
       if (commands == null) {
         return Commands.EMPTY;
@@ -930,6 +921,9 @@ public interface Player {
 
     /**
      * Called when the value returned from {@link #getPlayWhenReady()} changes.
+     *
+     * <p>The current {@code playWhenReady} value may be re-reported if the {@code reason} for this
+     * value changes.
      *
      * <p>{@link #onEvents(Player, Events)} will also be called to report this event along with
      * other events that happen in the same {@link Looper} message queue iteration.
@@ -1298,6 +1292,7 @@ public interface Player {
    */
   // @Target list includes both 'default' targets and TYPE_USE, to ensure backwards compatibility
   // with Kotlin usages from before TYPE_USE was added.
+  @SuppressWarnings("deprecation") // Includes deprecated command
   @Documented
   @Retention(RetentionPolicy.SOURCE)
   @Target({FIELD, METHOD, PARAMETER, LOCAL_VARIABLE, TYPE_USE})
@@ -1378,7 +1373,8 @@ public interface Player {
     DISCONTINUITY_REASON_SEEK_ADJUSTMENT,
     DISCONTINUITY_REASON_SKIP,
     DISCONTINUITY_REASON_REMOVE,
-    DISCONTINUITY_REASON_INTERNAL
+    DISCONTINUITY_REASON_INTERNAL,
+    DISCONTINUITY_REASON_SILENCE_SKIP
   })
   @interface DiscontinuityReason {}
 
@@ -1409,6 +1405,9 @@ public interface Player {
 
   /** Discontinuity introduced internally (e.g. by the source). */
   int DISCONTINUITY_REASON_INTERNAL = 5;
+
+  /** Discontinuity introduced by a skipped silence. */
+  int DISCONTINUITY_REASON_SILENCE_SKIP = 6;
 
   /**
    * Reasons for timeline changes. One of {@link #TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED} or {@link
@@ -2152,6 +2151,9 @@ public interface Player {
    * Clears the playlist, adds the specified {@linkplain MediaItem media items} and resets the
    * position to the default position.
    *
+   * <p>To replace a span of media items (possibly seamlessly) without clearing the playlist, use
+   * {@link #replaceMediaItems}.
+   *
    * <p>This method must only be called if {@link #COMMAND_CHANGE_MEDIA_ITEMS} is {@linkplain
    * #getAvailableCommands() available}.
    *
@@ -2161,6 +2163,9 @@ public interface Player {
 
   /**
    * Clears the playlist and adds the specified {@linkplain MediaItem media items}.
+   *
+   * <p>To replace a span of media items (possibly seamlessly) without clearing the playlist, use
+   * {@link #replaceMediaItems}.
    *
    * <p>This method must only be called if {@link #COMMAND_CHANGE_MEDIA_ITEMS} is {@linkplain
    * #getAvailableCommands() available}.
@@ -2174,6 +2179,9 @@ public interface Player {
 
   /**
    * Clears the playlist and adds the specified {@linkplain MediaItem media items}.
+   *
+   * <p>To replace a span of media items (possibly seamlessly) without clearing the playlist, use
+   * {@link #replaceMediaItems}.
    *
    * <p>This method must only be called if {@link #COMMAND_CHANGE_MEDIA_ITEMS} is {@linkplain
    * #getAvailableCommands() available}.
@@ -2194,6 +2202,9 @@ public interface Player {
    * Clears the playlist, adds the specified {@link MediaItem} and resets the position to the
    * default position.
    *
+   * <p>To replace a media item (possibly seamlessly) without clearing the playlist, use {@link
+   * #replaceMediaItem}.
+   *
    * <p>This method must only be called if {@link #COMMAND_SET_MEDIA_ITEM} is {@linkplain
    * #getAvailableCommands() available}.
    *
@@ -2203,6 +2214,9 @@ public interface Player {
 
   /**
    * Clears the playlist and adds the specified {@link MediaItem}.
+   *
+   * <p>To replace a media item (possibly seamlessly) without clearing the playlist, use {@link
+   * #replaceMediaItem}.
    *
    * <p>This method must only be called if {@link #COMMAND_SET_MEDIA_ITEM} is {@linkplain
    * #getAvailableCommands() available}.
@@ -2215,6 +2229,9 @@ public interface Player {
 
   /**
    * Clears the playlist and adds the specified {@link MediaItem}.
+   *
+   * <p>To replace a media item (possibly seamlessly) without clearing the playlist, use {@link
+   * #replaceMediaItem}.
    *
    * <p>This method must only be called if {@link #COMMAND_SET_MEDIA_ITEM} is {@linkplain
    * #getAvailableCommands() available}.
@@ -2302,6 +2319,10 @@ public interface Player {
   /**
    * Replaces the media item at the given index of the playlist.
    *
+   * <p>Implementations of this method may attempt to seamlessly continue playback if the currently
+   * playing media item is replaced with a compatible one (e.g. same URL, only metadata has
+   * changed).
+   *
    * <p>This method must only be called if {@link #COMMAND_CHANGE_MEDIA_ITEMS} is {@linkplain
    * #getAvailableCommands() available}.
    *
@@ -2313,6 +2334,10 @@ public interface Player {
 
   /**
    * Replaces the media items at the given range of the playlist.
+   *
+   * <p>Implementations of this method may attempt to seamlessly continue playback if the currently
+   * playing media item is replaced with a compatible one (e.g. same URL, only metadata has
+   * changed).
    *
    * <p>This method must only be called if {@link #COMMAND_CHANGE_MEDIA_ITEMS} is {@linkplain
    * #getAvailableCommands() available}.
@@ -2384,7 +2409,7 @@ public interface Player {
    * change.
    *
    * @return The currently available {@link Commands}.
-   * @see Listener#onAvailableCommandsChanged
+   * @see Listener#onAvailableCommandsChanged(Commands)
    */
   Commands getAvailableCommands();
 
@@ -2611,20 +2636,6 @@ public interface Player {
   void seekForward();
 
   /**
-   * @deprecated Use {@link #hasPreviousMediaItem()} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  boolean hasPrevious();
-
-  /**
-   * @deprecated Use {@link #hasPreviousMediaItem()} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  boolean hasPreviousWindow();
-
-  /**
    * Returns whether a previous media item exists, which may depend on the current repeat mode and
    * whether shuffle mode is enabled.
    *
@@ -2636,13 +2647,6 @@ public interface Player {
    * #getAvailableCommands() available}.
    */
   boolean hasPreviousMediaItem();
-
-  /**
-   * @deprecated Use {@link #seekToPreviousMediaItem()} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  void previous();
 
   /**
    * @deprecated Use {@link #seekToPreviousMediaItem()} instead.
@@ -2851,6 +2855,7 @@ public interface Player {
    */
   TrackSelectionParameters getTrackSelectionParameters();
 
+  // LINT.IfChange(set_track_selection_parameters)
   /**
    * Sets the parameters constraining the track selection.
    *
@@ -2885,6 +2890,8 @@ public interface Player {
    *
    * <p>This method must only be called if {@link #COMMAND_GET_METADATA} is {@linkplain
    * #getAvailableCommands() available}.
+   *
+   * @see Listener#onMediaMetadataChanged(MediaMetadata)
    */
   MediaMetadata getMediaMetadata();
 
@@ -2894,6 +2901,8 @@ public interface Player {
    *
    * <p>This method must only be called if {@link #COMMAND_GET_METADATA} is {@linkplain
    * #getAvailableCommands() available}.
+   *
+   * @see Listener#onPlaylistMetadataChanged(MediaMetadata)
    */
   MediaMetadata getPlaylistMetadata();
 
@@ -3192,6 +3201,8 @@ public interface Player {
    *
    * <p>This method must only be called if {@link #COMMAND_GET_AUDIO_ATTRIBUTES} is {@linkplain
    * #getAvailableCommands() available}.
+   *
+   * @see Listener#onAudioAttributesChanged(AudioAttributes)
    */
   AudioAttributes getAudioAttributes();
 
@@ -3213,6 +3224,7 @@ public interface Player {
    * #getAvailableCommands() available}.
    *
    * @return The linear gain applied to all audio channels.
+   * @see Listener#onVolumeChanged(float)
    */
   @FloatRange(from = 0, to = 1.0)
   float getVolume();
@@ -3309,6 +3321,12 @@ public interface Player {
    * Sets the {@link TextureView} onto which video will be rendered. The player will track the
    * lifecycle of the surface automatically.
    *
+   * <p>Consider using {@link SurfaceView} via {@link #setVideoSurfaceView} instead of {@link
+   * TextureView}. {@link SurfaceView} generally causes lower battery consumption, and has better
+   * handling for HDR and secure content. See <a
+   * href="https://developer.android.com/guide/topics/media/ui/playerview#surfacetype">Choosing a
+   * surface type</a> for more information.
+   *
    * <p>The thread that calls the {@link TextureView.SurfaceTextureListener} methods must be the
    * thread associated with {@link #getApplicationLooper()}.
    *
@@ -3353,6 +3371,8 @@ public interface Player {
    *
    * <p>This method must only be called if {@link #COMMAND_GET_TEXT} is {@linkplain
    * #getAvailableCommands() available}.
+   *
+   * @see Listener#onCues(CueGroup)
    */
   CueGroup getCurrentCues();
 
@@ -3375,6 +3395,8 @@ public interface Player {
    *
    * <p>This method must only be called if {@link #COMMAND_GET_DEVICE_VOLUME} is {@linkplain
    * #getAvailableCommands() available}.
+   *
+   * @see Listener#onDeviceVolumeChanged(int, boolean)
    */
   @IntRange(from = 0)
   int getDeviceVolume();
@@ -3387,6 +3409,8 @@ public interface Player {
    *
    * <p>This method must only be called if {@link #COMMAND_GET_DEVICE_VOLUME} is {@linkplain
    * #getAvailableCommands() available}.
+   *
+   * @see Listener#onDeviceVolumeChanged(int, boolean)
    */
   boolean isDeviceMuted();
 

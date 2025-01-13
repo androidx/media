@@ -19,26 +19,23 @@ import static androidx.annotation.VisibleForTesting.PRIVATE;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
-import static androidx.media3.session.SessionResult.RESULT_ERROR_NOT_SUPPORTED;
+import static androidx.media3.session.SessionError.ERROR_NOT_SUPPORTED;
 import static androidx.media3.session.SessionResult.RESULT_SUCCESS;
 
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.RemoteException;
-import android.support.v4.media.session.MediaControllerCompat;
-import android.support.v4.media.session.MediaSessionCompat;
 import android.view.KeyEvent;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 import androidx.core.app.NotificationCompat;
-import androidx.media.MediaSessionManager.RemoteUserInfo;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.DeviceInfo;
@@ -62,6 +59,10 @@ import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSourceBitmapLoader;
 import androidx.media3.session.MediaLibraryService.LibraryParams;
 import androidx.media3.session.MediaLibraryService.MediaLibrarySession;
+import androidx.media3.session.legacy.LegacyParcelableUtil;
+import androidx.media3.session.legacy.MediaControllerCompat;
+import androidx.media3.session.legacy.MediaSessionCompat;
+import androidx.media3.session.legacy.MediaSessionManager.RemoteUserInfo;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Longs;
@@ -202,24 +203,24 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  * <p>Generally, multiple sessions aren't necessary for most media apps. One exception is if your
  * app can play multiple media content at the same time, but only for the playback of video-only
  * media or remote playback, since the <a
- * href="https://developer.android.com/guide/topics/media-apps/audio-focus">audio focus policy</a>
- * recommends not playing multiple audio content at the same time. Also, keep in mind that multiple
- * media sessions would make Android Auto and Bluetooth devices with display to show your app
- * multiple times, because they list up media sessions, not media apps.
+ * href="https://developer.android.com/media/optimize/audio-focus">audio focus policy</a> recommends
+ * not playing multiple audio content at the same time. Also, keep in mind that multiple media
+ * sessions would make Android Auto and Bluetooth devices with display to show your app multiple
+ * times, because they list up media sessions, not media apps.
  *
  * <h2 id="BackwardCompatibility">Backward Compatibility with Legacy Session APIs</h2>
  *
- * <p>An active {@link MediaSessionCompat} is internally created with the session for backwards
- * compatibility. It's used to handle incoming connections and commands from {@link
- * MediaControllerCompat} instances, and helps to utilize existing APIs that are built with legacy
- * media session APIs.
+ * <p>An active {@code android.support.v4.media.session.MediaSessionCompat} is internally created
+ * with the session for backwards compatibility. It's used to handle incoming connections and
+ * commands from {@code android.support.v4.media.session.MediaControllerCompat} instances, and helps
+ * to utilize existing APIs that are built with legacy media session APIs.
  *
  * <h2 id="CompatibilityController">Backward Compatibility with Legacy Controller APIs</h2>
  *
  * <p>In addition to {@link MediaController}, the session also supports connections from the legacy
- * controller APIs - {@linkplain android.media.session.MediaController framework controller} and
- * {@linkplain MediaControllerCompat AndroidX controller compat}. However, {@link ControllerInfo}
- * may not be precise for legacy controllers. See {@link ControllerInfo} for the details.
+ * controller APIs - {@link android.media.session.MediaController} and {@code
+ * android.support.v4.media.session.MediaControllerCompat}. However, {@link ControllerInfo} may not
+ * be precise for legacy controllers. See {@link ControllerInfo} for the details.
  *
  * <p>Neither an unknown package name nor an unknown UID mean that you should disallow a connection
  * or commands per se. For SDK levels where such issues happen, session tokens can only be obtained
@@ -228,10 +229,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  */
 @DoNotMock
 public class MediaSession {
-
-  static {
-    MediaLibraryInfo.registerModule("media3.session");
-  }
 
   // It's better to have private static lock instead of using MediaSession.class because the
   // private lock object isn't exposed.
@@ -372,6 +369,10 @@ public class MediaSession {
     /**
      * Sets the custom layout of the session.
      *
+     * <p>This method will be deprecated, prefer to use {@link #setMediaButtonPreferences}. Note
+     * that the media button preferences use {@link CommandButton#slots} to define the allowed
+     * button placement.
+     *
      * <p>The button are converted to custom actions in the legacy media session playback state for
      * legacy controllers (see {@code
      * PlaybackStateCompat.Builder#addCustomAction(PlaybackStateCompat.CustomAction)}). When
@@ -386,13 +387,47 @@ public class MediaSession {
      * <p>Use {@code MediaSession.setCustomLayout(..)} to update the custom layout during the life
      * time of the session.
      *
+     * <p>On the controller side, the {@linkplain CommandButton#isEnabled enabled} flag is set to
+     * {@code false} if the available commands of a controller do not allow to use a button.
+     *
      * @param customLayout The ordered list of {@link CommandButton command buttons}.
      * @return The builder to allow chaining.
      */
+    @CanIgnoreReturnValue
     @UnstableApi
     @Override
     public Builder setCustomLayout(List<CommandButton> customLayout) {
       return super.setCustomLayout(customLayout);
+    }
+
+    /**
+     * Sets the media button preferences.
+     *
+     * <p>The button are converted to custom actions in the legacy media session playback state for
+     * legacy controllers (see {@code
+     * PlaybackStateCompat.Builder#addCustomAction(PlaybackStateCompat.CustomAction)}). When
+     * converting, the {@linkplain SessionCommand#customExtras custom extras of the session command}
+     * is used for the extras of the legacy custom action.
+     *
+     * <p>Controllers that connect have the media button preferences of the session available with
+     * the initial connection result by default. Media button preferences specific to a controller
+     * can be set when the controller {@linkplain MediaSession.Callback#onConnect connects} by using
+     * an {@link ConnectionResult.AcceptedResultBuilder}.
+     *
+     * <p>Use {@code MediaSession.setMediaButtonPreferences(..)} to update the media button
+     * preferences during the life time of the session.
+     *
+     * <p>On the controller side, the {@linkplain CommandButton#isEnabled enabled} flag is set to
+     * {@code false} if the available commands of a controller do not allow to use a button.
+     *
+     * @param mediaButtonPreferences The ordered list of {@link CommandButton command buttons}.
+     * @return The builder to allow chaining.
+     */
+    @CanIgnoreReturnValue
+    @UnstableApi
+    @Override
+    public Builder setMediaButtonPreferences(List<CommandButton> mediaButtonPreferences) {
+      return super.setMediaButtonPreferences(mediaButtonPreferences);
     }
 
     /**
@@ -426,6 +461,18 @@ public class MediaSession {
     }
 
     /**
+     * Sets {@link CommandButton command buttons} that can be added as {@linkplain
+     * MediaMetadata.Builder#setSupportedCommands(List) supported media item commands}.
+     *
+     * @param commandButtons The command buttons.
+     */
+    @UnstableApi
+    @Override
+    public Builder setCommandButtonsForMediaItems(List<CommandButton> commandButtons) {
+      return super.setCommandButtonsForMediaItems(commandButtons);
+    }
+
+    /**
      * Builds a {@link MediaSession}.
      *
      * @return A new session.
@@ -443,12 +490,15 @@ public class MediaSession {
           player,
           sessionActivity,
           customLayout,
+          mediaButtonPreferences,
+          commandButtonsForMediaItems,
           callback,
           tokenExtras,
           sessionExtras,
           checkNotNull(bitmapLoader),
           playIfSuppressed,
-          isPeriodicPositionUpdateEnabled);
+          isPeriodicPositionUpdateEnabled,
+          MediaLibrarySession.LIBRARY_ERROR_REPLICATION_MODE_NONE);
     }
   }
 
@@ -461,23 +511,32 @@ public class MediaSession {
     /** The {@linkplain #getInterfaceVersion()} interface version} of legacy controllers. */
     @UnstableApi public static final int LEGACY_CONTROLLER_INTERFACE_VERSION = 0;
 
+    /**
+     * The {@link #getPackageName()} of legacy controllers if a more precise package cannot be
+     * obtained.
+     */
+    public static final String LEGACY_CONTROLLER_PACKAGE_NAME = RemoteUserInfo.LEGACY_CONTROLLER;
+
     private final RemoteUserInfo remoteUserInfo;
     private final int libraryVersion;
     private final int interfaceVersion;
     private final boolean isTrusted;
     @Nullable private final ControllerCb controllerCb;
     private final Bundle connectionHints;
+    private final int maxCommandsForMediaItems;
 
     /**
      * Creates an instance.
      *
      * @param remoteUserInfo The remote user info.
      * @param trusted {@code true} if trusted, {@code false} otherwise.
-     * @param cb ControllerCb. Can be {@code null} only when a MediaBrowserCompat connects to
-     *     MediaSessionService and ControllerInfo is needed for {@link
-     *     MediaSession.Callback#onConnect(MediaSession, ControllerInfo)}.
+     * @param cb ControllerCb. Can be {@code null} only when a {@code
+     *     android.support.v4.media.MediaBrowserCompat} connects to {@link MediaSessionService} and
+     *     {@link ControllerInfo} is needed for {@link MediaSession.Callback#onConnect(MediaSession,
+     *     ControllerInfo)}.
      * @param connectionHints A session-specific argument sent from the controller for the
      *     connection. The contents of this bundle may affect the connection result.
+     * @param maxCommandsForMediaItems The max commands the controller supports for media items.
      */
     /* package */ ControllerInfo(
         RemoteUserInfo remoteUserInfo,
@@ -485,13 +544,15 @@ public class MediaSession {
         int interfaceVersion,
         boolean trusted,
         @Nullable ControllerCb cb,
-        Bundle connectionHints) {
+        Bundle connectionHints,
+        int maxCommandsForMediaItems) {
       this.remoteUserInfo = remoteUserInfo;
       this.libraryVersion = libraryVersion;
       this.interfaceVersion = interfaceVersion;
       isTrusted = trusted;
       controllerCb = cb;
       this.connectionHints = connectionHints;
+      this.maxCommandsForMediaItems = maxCommandsForMediaItems;
     }
 
     /* package */ RemoteUserInfo getRemoteUserInfo() {
@@ -514,25 +575,7 @@ public class MediaSession {
       return interfaceVersion;
     }
 
-    /**
-     * Returns the package name. Can be {@link RemoteUserInfo#LEGACY_CONTROLLER} for
-     * interoperability.
-     *
-     * <p>Interoperability: Package name may not be precisely obtained for legacy controller API on
-     * older device. Here are details.
-     *
-     * <table>
-     * <caption>Summary when package name isn't precise</caption>
-     * <tr><th>SDK version when package name isn't precise</th>
-     *     <th>{@code ControllerInfo#getPackageName()} for legacy controller</th>
-     * <tr><td>{@code SDK_INT < 21}</td>
-     *     <td>Actual package name via {@link PackageManager#getNameForUid} with UID.<br>
-     *         It's sufficient for most cases, but doesn't precisely distinguish caller if it
-     *         uses shared user ID.</td>
-     * <tr><td>{@code 21 <= SDK_INT < 24}</td>
-     *     <td>{@link RemoteUserInfo#LEGACY_CONTROLLER}</td>
-     * </table>
-     */
+    /** Returns the package name, or {@link #LEGACY_CONTROLLER_PACKAGE_NAME} on API &le; 24. */
     public String getPackageName() {
       return remoteUserInfo.getPackageName();
     }
@@ -540,8 +583,8 @@ public class MediaSession {
     /**
      * Returns the UID of the controller. Can be a negative value for interoperability.
      *
-     * <p>Interoperability: If {@code 21 <= SDK_INT < 28}, then UID would be a negative value
-     * because it cannot be obtained.
+     * <p>Interoperability: If {@code SDK_INT < 28}, then UID would be a negative value because it
+     * cannot be obtained.
      */
     public int getUid() {
       return remoteUserInfo.getUid();
@@ -550,6 +593,15 @@ public class MediaSession {
     /** Returns the connection hints sent from controller. */
     public Bundle getConnectionHints() {
       return new Bundle(connectionHints);
+    }
+
+    /**
+     * Returns the max number of commands for a media item. A positive number or 0 (zero) to
+     * indicate that the feature is not supported by the controller.
+     */
+    @UnstableApi
+    public int getMaxCommandsForMediaItems() {
+      return maxCommandsForMediaItems;
     }
 
     /**
@@ -588,7 +640,7 @@ public class MediaSession {
           + remoteUserInfo.getPackageName()
           + ", uid="
           + remoteUserInfo.getUid()
-          + "})";
+          + "}";
     }
 
     @Nullable
@@ -608,24 +660,51 @@ public class MediaSession {
           ControllerInfo.LEGACY_CONTROLLER_INTERFACE_VERSION,
           /* trusted= */ false,
           /* cb= */ null,
-          /* connectionHints= */ Bundle.EMPTY);
+          /* connectionHints= */ Bundle.EMPTY,
+          /* maxCommandsForMediaItems= */ 0);
+    }
+
+    /**
+     * @deprecated Use {@link #createTestOnlyControllerInfo(String, int, int, int, int, boolean,
+     *     Bundle)} instead.
+     */
+    @VisibleForTesting(otherwise = PRIVATE)
+    @SuppressWarnings("UnnecessarilyFullyQualified") // Avoiding clash with Media3 RemoteUserInfo.
+    @Deprecated
+    public static ControllerInfo createTestOnlyControllerInfo(
+        androidx.media.MediaSessionManager.RemoteUserInfo remoteUserInfo,
+        int libraryVersion,
+        int interfaceVersion,
+        boolean trusted,
+        Bundle connectionHints) {
+      return createTestOnlyControllerInfo(
+          remoteUserInfo.getPackageName(),
+          remoteUserInfo.getPid(),
+          remoteUserInfo.getUid(),
+          libraryVersion,
+          interfaceVersion,
+          trusted,
+          connectionHints);
     }
 
     /** Returns a {@link ControllerInfo} suitable for use when testing client code. */
     @VisibleForTesting(otherwise = PRIVATE)
     public static ControllerInfo createTestOnlyControllerInfo(
-        RemoteUserInfo remoteUserInfo,
+        String packageName,
+        int pid,
+        int uid,
         int libraryVersion,
         int interfaceVersion,
         boolean trusted,
         Bundle connectionHints) {
       return new MediaSession.ControllerInfo(
-          remoteUserInfo,
+          new RemoteUserInfo(packageName, pid, uid),
           libraryVersion,
           interfaceVersion,
           trusted,
           /* cb= */ null,
-          connectionHints);
+          connectionHints,
+          /* maxCommandsForMediaItems= */ 0);
     }
   }
 
@@ -639,12 +718,15 @@ public class MediaSession {
       Player player,
       @Nullable PendingIntent sessionActivity,
       ImmutableList<CommandButton> customLayout,
+      ImmutableList<CommandButton> mediaButtonPreferences,
+      ImmutableList<CommandButton> commandButtonsForMediaItems,
       Callback callback,
       Bundle tokenExtras,
       Bundle sessionExtras,
       BitmapLoader bitmapLoader,
       boolean playIfSuppressed,
-      boolean isPeriodicPositionUpdateEnabled) {
+      boolean isPeriodicPositionUpdateEnabled,
+      @MediaLibrarySession.LibraryErrorReplicationMode int libraryErrorReplicationMode) {
     synchronized (STATIC_LOCK) {
       if (SESSION_ID_TO_SESSION_MAP.containsKey(id)) {
         throw new IllegalStateException("Session ID must be unique. ID=" + id);
@@ -658,12 +740,15 @@ public class MediaSession {
             player,
             sessionActivity,
             customLayout,
+            mediaButtonPreferences,
+            commandButtonsForMediaItems,
             callback,
             tokenExtras,
             sessionExtras,
             bitmapLoader,
             playIfSuppressed,
-            isPeriodicPositionUpdateEnabled);
+            isPeriodicPositionUpdateEnabled,
+            libraryErrorReplicationMode);
   }
 
   /* package */ MediaSessionImpl createImpl(
@@ -672,12 +757,15 @@ public class MediaSession {
       Player player,
       @Nullable PendingIntent sessionActivity,
       ImmutableList<CommandButton> customLayout,
+      ImmutableList<CommandButton> mediaButtonPreferences,
+      ImmutableList<CommandButton> commandButtonsForMediaItems,
       Callback callback,
       Bundle tokenExtras,
       Bundle sessionExtras,
       BitmapLoader bitmapLoader,
       boolean playIfSuppressed,
-      boolean isPeriodicPositionUpdateEnabled) {
+      boolean isPeriodicPositionUpdateEnabled,
+      @MediaLibrarySession.LibraryErrorReplicationMode int libraryErrorReplicationMode) {
     return new MediaSessionImpl(
         this,
         context,
@@ -685,6 +773,8 @@ public class MediaSession {
         player,
         sessionActivity,
         customLayout,
+        mediaButtonPreferences,
+        commandButtonsForMediaItems,
         callback,
         tokenExtras,
         sessionExtras,
@@ -725,10 +815,39 @@ public class MediaSession {
    * Builder#setSessionActivity(PendingIntent) building the session}.
    *
    * @param activityPendingIntent The pending intent to start the session activity.
+   * @throws IllegalArgumentException if the {@link PendingIntent} passed into this method is
+   *     {@linkplain PendingIntent#getActivity(Context, int, Intent, int) not an activity}.
    */
   @UnstableApi
   public final void setSessionActivity(PendingIntent activityPendingIntent) {
+    if (Util.SDK_INT >= 31) {
+      checkArgument(Api31.isActivity(activityPendingIntent));
+    }
     impl.setSessionActivity(activityPendingIntent);
+  }
+
+  /**
+   * Sends the session activity to the connected controller.
+   *
+   * <p>This call immediately returns and doesn't wait for a result from the controller.
+   *
+   * <p>Interoperability: This call has no effect when called for a {@linkplain
+   * ControllerInfo#LEGACY_CONTROLLER_VERSION legacy controller}. To set the session activity of the
+   * platform session use {@linkplain #getMediaNotificationControllerInfo() the media notification
+   * controller} as the target controller.
+   *
+   * @param controller The controller to send the session activity to.
+   * @param activityPendingIntent The pending intent to start the session activity.
+   * @throws IllegalArgumentException if the {@link PendingIntent} passed into this method is
+   *     {@linkplain PendingIntent#getActivity(Context, int, Intent, int) not an activity}.
+   */
+  @UnstableApi
+  public final void setSessionActivity(
+      ControllerInfo controller, PendingIntent activityPendingIntent) {
+    if (Util.SDK_INT >= 31) {
+      checkArgument(Api31.isActivity(activityPendingIntent));
+    }
+    impl.setSessionActivity(controller, activityPendingIntent);
   }
 
   /**
@@ -783,7 +902,7 @@ public class MediaSession {
     return impl.getId();
   }
 
-  /** Returns the {@link SessionToken} for creating {@link MediaController}. */
+  /** Returns the {@link SessionToken} for creating {@link MediaController} instances. */
   public final SessionToken getToken() {
     return impl.getToken();
   }
@@ -833,12 +952,12 @@ public class MediaSession {
    *
    * <p>Use this controller info to set {@linkplain #setAvailableCommands(ControllerInfo,
    * SessionCommands, Player.Commands) available commands} and {@linkplain
-   * #setCustomLayout(ControllerInfo, List) custom layout} that are consistently applied to the
-   * media notification on all API levels.
+   * #setMediaButtonPreferences(ControllerInfo, List) media button preferences} that are
+   * consistently applied to the media notification on all API levels.
    *
    * <p>Available {@linkplain SessionCommands session commands} of the media notification controller
-   * are used to enable or disable buttons of the custom layout before it is passed to the
-   * {@linkplain MediaNotification.Provider#createNotification(MediaSession, ImmutableList,
+   * are used to enable or disable buttons of the media button preferences before they are passed to
+   * the {@linkplain MediaNotification.Provider#createNotification(MediaSession, ImmutableList,
    * MediaNotification.ActionFactory, MediaNotification.Provider.Callback) notification provider}.
    * Disabled command buttons are not converted to notification actions when using {@link
    * DefaultMediaNotificationProvider}. This affects the media notification displayed by System UI
@@ -846,9 +965,9 @@ public class MediaSession {
    *
    * <p>The available session commands of the media notification controller are used to maintain
    * custom actions of the platform session (see {@code PlaybackStateCompat.getCustomActions()}).
-   * Command buttons of the custom layout are disabled or enabled according to the available session
-   * commands. Disabled command buttons are not converted to custom actions of the platform session.
-   * This affects the media notification displayed by System UI <a
+   * Command buttons of the media button preferences are disabled or enabled according to the
+   * available session commands. Disabled command buttons are not converted to custom actions of the
+   * platform session. This affects the media notification displayed by System UI <a
    * href="https://developer.android.com/about/versions/13/behavior-changes-13#playback-controls">starting
    * with API 33</a>.
    *
@@ -890,7 +1009,11 @@ public class MediaSession {
   }
 
   /**
-   * Sets the custom layout for the given Media3 controller.
+   * Sets the custom layout for the given controller.
+   *
+   * <p>This method will be deprecated, prefer to use {@link
+   * #setMediaButtonPreferences(ControllerInfo, List)}. Note that the media button preferences use
+   * {@link CommandButton#slots} to define the allowed button placement.
    *
    * <p>Make sure to have the session commands of all command buttons of the custom layout
    * {@linkplain MediaController#getAvailableSessionCommands() available for controllers}. Include
@@ -906,7 +1029,8 @@ public class MediaSession {
    * MediaController#getCustomLayout() controller already has available}. Note that this comparison
    * uses {@link CommandButton#equals} and therefore ignores {@link CommandButton#extras}.
    *
-   * <p>It's up to controller's decision how to represent the layout in its own UI.
+   * <p>On the controller side, the {@linkplain CommandButton#isEnabled enabled} flag is set to
+   * {@code false} if the available commands of the controller do not allow to use a button.
    *
    * <p>Interoperability: This call has no effect when called for a {@linkplain
    * ControllerInfo#LEGACY_CONTROLLER_VERSION legacy controller}.
@@ -923,14 +1047,17 @@ public class MediaSession {
   }
 
   /**
-   * Sets the custom layout that can initially be set when building the session.
+   * Sets the custom layout for all controllers.
+   *
+   * <p>This method will be deprecated, prefer to use {@link #setMediaButtonPreferences(List)}. Note
+   * that the media button preferences use {@link CommandButton#slots} to define the allowed button
+   * placement.
    *
    * <p>Calling this method broadcasts the custom layout to all connected Media3 controllers,
    * including the {@linkplain #getMediaNotificationControllerInfo() media notification controller}.
    *
-   * <p>On the controller side, the {@linkplain CommandButton#isEnabled enabled} flag is set
-   * according to the available commands of the controller which overrides a value that has been set
-   * by the session.
+   * <p>On the controller side, the {@linkplain CommandButton#isEnabled enabled} flag is set to
+   * {@code false} if the available commands of a controller do not allow to use a button.
    *
    * <p>{@link MediaController.Listener#onCustomLayoutChanged(MediaController, List)} is only called
    * if the new custom layout is different to the custom layout the {@linkplain
@@ -942,11 +1069,76 @@ public class MediaSession {
    * the controller {@linkplain MediaSession.Callback#onConnect connects} by using an {@link
    * ConnectionResult.AcceptedResultBuilder}.
    *
-   * @param layout The ordered list of {@link CommandButton}.
+   * @param layout The ordered list of {@linkplain CommandButton command buttons}.
    */
   public final void setCustomLayout(List<CommandButton> layout) {
     checkNotNull(layout, "layout must not be null");
     impl.setCustomLayout(ImmutableList.copyOf(layout));
+  }
+
+  /**
+   * Sets the media button preferences for the given controller.
+   *
+   * <p>Make sure to have the session commands of all command buttons of the media button
+   * preferences {@linkplain MediaController#getAvailableSessionCommands() available for
+   * controllers}. Include the custom session commands a controller should be able to send in the
+   * available commands of the connection result {@linkplain
+   * MediaSession.Callback#onConnect(MediaSession, ControllerInfo) that your app returns when the
+   * controller connects}. The {@link CommandButton#isEnabled} flag is set according to the
+   * available commands of the controller and overrides a value that may have been set by the app.
+   *
+   * <p>On the controller side, {@link
+   * MediaController.Listener#onMediaButtonPreferencesChanged(MediaController, List)} is only called
+   * if the new media button preferences are different to the media button preferences the {@link
+   * MediaController#getMediaButtonPreferences() controller already has available}. Note that this
+   * comparison uses {@link CommandButton#equals} and therefore ignores {@link
+   * CommandButton#extras}.
+   *
+   * <p>On the controller side, the {@linkplain CommandButton#isEnabled enabled} flag is set to
+   * {@code false} if the available commands of the controller do not allow to use a button.
+   *
+   * <p>Interoperability: This call has no effect when called for a {@linkplain
+   * ControllerInfo#LEGACY_CONTROLLER_VERSION legacy controller}.
+   *
+   * @param controller The controller for which to set the media button preferences.
+   * @param mediaButtonPreferences The ordered list of {@linkplain CommandButton command buttons}.
+   */
+  @UnstableApi
+  @CanIgnoreReturnValue
+  public final ListenableFuture<SessionResult> setMediaButtonPreferences(
+      ControllerInfo controller, List<CommandButton> mediaButtonPreferences) {
+    checkNotNull(controller, "controller must not be null");
+    checkNotNull(mediaButtonPreferences, "media button preferences must not be null");
+    return impl.setMediaButtonPreferences(controller, ImmutableList.copyOf(mediaButtonPreferences));
+  }
+
+  /**
+   * Sets the media button preferences for all controllers.
+   *
+   * <p>Calling this method broadcasts the media button preferences to all connected Media3
+   * controllers, including the {@linkplain #getMediaNotificationControllerInfo() media notification
+   * controller}.
+   *
+   * <p>On the controller side, the {@linkplain CommandButton#isEnabled enabled} flag is set to
+   * {@code false} if the available commands of a controller do not allow to use a button.
+   *
+   * <p>{@link MediaController.Listener#onMediaButtonPreferencesChanged(MediaController, List)} is
+   * only called if the new media button preferences are different to the media button preferences
+   * the {@linkplain MediaController#getMediaButtonPreferences() controller already has available}.
+   * Note that {@link Bundle extras} are ignored when comparing {@linkplain CommandButton command
+   * buttons}.
+   *
+   * <p>Controllers that connect after calling this method will have the new media button
+   * preferences available with the initial connection result. Media button preferences specific to
+   * a controller can be set when the controller {@linkplain MediaSession.Callback#onConnect
+   * connects} by using an {@link ConnectionResult.AcceptedResultBuilder}.
+   *
+   * @param mediaButtonPreferences The ordered list of {@linkplain CommandButton command buttons}.
+   */
+  @UnstableApi
+  public final void setMediaButtonPreferences(List<CommandButton> mediaButtonPreferences) {
+    checkNotNull(mediaButtonPreferences, "media button preferences must not be null");
+    impl.setMediaButtonPreferences(ImmutableList.copyOf(mediaButtonPreferences));
   }
 
   /**
@@ -976,6 +1168,10 @@ public class MediaSession {
   /**
    * Returns the custom layout of the session.
    *
+   * <p>This method will be deprecated, prefer to use {@link #getMediaButtonPreferences()} instead.
+   * Note that the media button preferences use {@link CommandButton#slots} to define the allowed
+   * button placement.
+   *
    * <p>For informational purpose only. Mutations on the {@link Bundle} of either a {@link
    * CommandButton} or a {@link SessionCommand} do not have effect. To change the custom layout use
    * {@link #setCustomLayout(List)} or {@link #setCustomLayout(ControllerInfo, List)}.
@@ -986,9 +1182,21 @@ public class MediaSession {
   }
 
   /**
+   * Returns the media button preferences of the session.
+   *
+   * <p>For informational purpose only. Mutations on the {@link Bundle} of either a {@link
+   * CommandButton} or a {@link SessionCommand} do not have effect. To change the media button
+   * preferences use {@link #setMediaButtonPreferences}.
+   */
+  @UnstableApi
+  public ImmutableList<CommandButton> getMediaButtonPreferences() {
+    return impl.getMediaButtonPreferences();
+  }
+
+  /**
    * Broadcasts a custom command to all connected controllers.
    *
-   * <p>This is a synchronous call and doesn't wait for results from the controllers.
+   * <p>This call immediately returns and doesn't wait for a result from the controller.
    *
    * <p>A command is not accepted if it is not a custom command.
    *
@@ -1024,13 +1232,12 @@ public class MediaSession {
    * <p>The initial extras can be set {@linkplain Builder#setSessionExtras(Bundle) when building the
    * session}.
    *
-   * <p>This is a synchronous call and doesn't wait for results from the controllers.
+   * <p>This call immediately returns and doesn't wait for a result from the controller.
    *
    * @param sessionExtras The session extras.
    */
   public final void setSessionExtras(Bundle sessionExtras) {
-    checkNotNull(sessionExtras);
-    impl.setSessionExtras(sessionExtras);
+    impl.setSessionExtras(new Bundle(sessionExtras));
   }
 
   /**
@@ -1041,7 +1248,7 @@ public class MediaSession {
    * ConnectionResult.AcceptedResultBuilder#setSessionExtras(Bundle) building the connection
    * result}.
    *
-   * <p>This is a synchronous call and doesn't wait for results from the controller.
+   * <p>This call immediately returns and doesn't wait for a result from the controller.
    *
    * <p>Interoperability: This call has no effect when called for a {@linkplain
    * ControllerInfo#LEGACY_CONTROLLER_VERSION legacy controller}.
@@ -1051,8 +1258,7 @@ public class MediaSession {
    */
   public final void setSessionExtras(ControllerInfo controller, Bundle sessionExtras) {
     checkNotNull(controller, "controller must not be null");
-    checkNotNull(sessionExtras);
-    impl.setSessionExtras(controller, sessionExtras);
+    impl.setSessionExtras(controller, new Bundle(sessionExtras));
   }
 
   /** Returns the {@link BitmapLoader}. */
@@ -1098,17 +1304,66 @@ public class MediaSession {
     return impl.sendCustomCommand(controller, command, args);
   }
 
+  /**
+   * Sends a non-fatal error to the given controller.
+   *
+   * <p>This will call {@link MediaController.Listener#onError(MediaController, SessionError)} of
+   * the given connected controller.
+   *
+   * <p>When an error is sent to {@linkplain MediaSession#getMediaNotificationControllerInfo()} or a
+   * legacy controller, the error of the {@linkplain android.media.session.PlaybackState playback
+   * state} of the platform session is updated accordingly.
+   *
+   * @param controllerInfo The controller to send the error to.
+   * @param sessionError The session error.
+   * @exception IllegalArgumentException thrown if an error is attempted to be sent to a legacy
+   *     controller.
+   */
+  @UnstableApi
+  public final void sendError(ControllerInfo controllerInfo, SessionError sessionError) {
+    impl.sendError(controllerInfo, sessionError);
+  }
+
+  /**
+   * Sends a non-fatal error to all connected controllers.
+   *
+   * <p>See {@link #sendError(ControllerInfo, SessionError)} for sending an error to a specific
+   * controller only.
+   *
+   * @param sessionError The session error.
+   */
+  @UnstableApi
+  public final void sendError(SessionError sessionError) {
+    impl.sendError(sessionError);
+  }
+
   /* package */ final MediaSessionCompat getSessionCompat() {
     return impl.getSessionCompat();
   }
 
   /**
-   * Returns the {@link MediaSessionCompat.Token} of the {@link MediaSessionCompat} created
-   * internally by this session.
+   * Returns the legacy {@code android.support.v4.media.session.MediaSessionCompat.Token} of the
+   * {@code android.support.v4.media.session.MediaSessionCompat} created internally by this session.
+   *
+   * @deprecated Use {@link #getPlatformToken()} instead.
    */
+  @Deprecated
   @UnstableApi
-  public final MediaSessionCompat.Token getSessionCompatToken() {
-    return impl.getSessionCompat().getSessionToken();
+  public final android.support.v4.media.session.MediaSessionCompat.Token getSessionCompatToken() {
+    return LegacyParcelableUtil.convert(
+        impl.getSessionCompat().getSessionToken(),
+        android.support.v4.media.session.MediaSessionCompat.Token.CREATOR);
+  }
+
+  /**
+   * Returns the platform {@link android.media.session.MediaSession.Token} of the {@link
+   * android.media.session.MediaSession} created internally by this session.
+   */
+  @SuppressWarnings("UnnecessarilyFullyQualified") // Avoiding clash with Media3 token.
+  @UnstableApi
+  public final android.media.session.MediaSession.Token getPlatformToken() {
+    return (android.media.session.MediaSession.Token)
+        impl.getSessionCompat().getSessionToken().getToken();
   }
 
   /**
@@ -1126,6 +1381,7 @@ public class MediaSession {
     impl.connectFromService(controller, controllerInfo);
   }
 
+  @Nullable
   /* package */ final IBinder getLegacyBrowserServiceBinder() {
     return impl.getLegacyBrowserServiceBinder();
   }
@@ -1184,7 +1440,8 @@ public class MediaSession {
      *
      * <p>If this callback is not overridden, it allows all controllers to connect that can access
      * the session. All session and player commands are made available and the {@linkplain
-     * MediaSession#getCustomLayout() custom layout of the session} is included.
+     * MediaSession#getMediaButtonPreferences() media button preferences of the session} are
+     * included.
      *
      * <p>Note that the player commands in {@link ConnectionResult#availablePlayerCommands} will be
      * intersected with the {@link Player#getAvailableCommands() available commands} of the
@@ -1196,8 +1453,8 @@ public class MediaSession {
      * returned by {@link MediaController.Builder#buildAsync()}.
      *
      * <p>The controller isn't connected yet, so calls to the controller (e.g. {@link
-     * #sendCustomCommand}, {@link #setCustomLayout}) will be ignored. Use {@link #onPostConnect}
-     * for custom initialization of the controller instead.
+     * #sendCustomCommand}, {@link #setMediaButtonPreferences}) will be ignored. Use {@link
+     * #onPostConnect} for custom initialization of the controller instead.
      *
      * <p>Interoperability: If a legacy controller is connecting to the session then this callback
      * may block the main thread, even if it's called on a different application thread. If it's
@@ -1205,7 +1462,7 @@ public class MediaSession {
      * callback returns quickly to avoid blocking the main thread for a long period of time.
      *
      * @param session The session for this event.
-     * @param controller The controller information.
+     * @param controller The {@linkplain ControllerInfo controller} information.
      * @return The {@link ConnectionResult}.
      */
     default ConnectionResult onConnect(MediaSession session, ControllerInfo controller) {
@@ -1217,11 +1474,11 @@ public class MediaSession {
      * controller.
      *
      * <p>Note that calls to the controller (e.g. {@link #sendCustomCommand}, {@link
-     * #setCustomLayout}) work here but don't work in {@link #onConnect} because the controller
-     * isn't connected yet in {@link #onConnect}.
+     * #setMediaButtonPreferences}) work here but don't work in {@link #onConnect} because the
+     * controller isn't connected yet in {@link #onConnect}.
      *
      * @param session The session for this event.
-     * @param controller The controller information.
+     * @param controller The {@linkplain ControllerInfo controller} information.
      */
     default void onPostConnect(MediaSession session, ControllerInfo controller) {}
 
@@ -1233,7 +1490,7 @@ public class MediaSession {
      * controller APIs.
      *
      * @param session The session for this event.
-     * @param controller The controller information.
+     * @param controller The {@linkplain ControllerInfo controller} information.
      */
     default void onDisconnected(MediaSession session, ControllerInfo controller) {}
 
@@ -1261,14 +1518,14 @@ public class MediaSession {
      * Futures#immediateFuture(Object)}.
      *
      * @param session The session for this event.
-     * @param controller The controller information.
+     * @param controller The {@linkplain ControllerInfo controller} information.
      * @param mediaId The media id.
      * @param rating The new rating from the controller.
      * @see SessionCommand#COMMAND_CODE_SESSION_SET_RATING
      */
     default ListenableFuture<SessionResult> onSetRating(
         MediaSession session, ControllerInfo controller, String mediaId, Rating rating) {
-      return Futures.immediateFuture(new SessionResult(RESULT_ERROR_NOT_SUPPORTED));
+      return Futures.immediateFuture(new SessionResult(ERROR_NOT_SUPPORTED));
     }
 
     /**
@@ -1284,13 +1541,13 @@ public class MediaSession {
      * Futures#immediateFuture(Object)}.
      *
      * @param session The session for this event.
-     * @param controller The controller information.
+     * @param controller The {@linkplain ControllerInfo controller} information.
      * @param rating The new rating from the controller.
      * @see SessionCommand#COMMAND_CODE_SESSION_SET_RATING
      */
     default ListenableFuture<SessionResult> onSetRating(
         MediaSession session, ControllerInfo controller, Rating rating) {
-      return Futures.immediateFuture(new SessionResult(RESULT_ERROR_NOT_SUPPORTED));
+      return Futures.immediateFuture(new SessionResult(ERROR_NOT_SUPPORTED));
     }
 
     /**
@@ -1301,9 +1558,9 @@ public class MediaSession {
      * been added to the {@link MediaSession.ConnectionResult#availableSessionCommands list of
      * available session commands} in {@link #onConnect} or set via {@link #setAvailableCommands}.
      *
-     * <p>Interoperability: This will be also called by {@link
-     * android.support.v4.media.MediaBrowserCompat#sendCustomAction}. If so, {@code extras} from
-     * {@link android.support.v4.media.MediaBrowserCompat#sendCustomAction} will be considered as
+     * <p>Interoperability: This will be also called by {@code
+     * android.support.v4.media.MediaBrowserCompat.sendCustomAction()}. If so, {@code extras} from
+     * {@code android.support.v4.media.MediaBrowserCompat.sendCustomAction()} will be considered as
      * {@code args} and the custom command will have {@code null} {@link
      * SessionCommand#customExtras}.
      *
@@ -1312,7 +1569,7 @@ public class MediaSession {
      * Futures#immediateFuture(Object)}.
      *
      * @param session The session for this event.
-     * @param controller The controller information.
+     * @param controller The {@linkplain ControllerInfo controller} information.
      * @param customCommand The custom command.
      * @param args A {@link Bundle} for additional arguments. May be empty.
      * @return The result of handling the custom command.
@@ -1323,18 +1580,19 @@ public class MediaSession {
         ControllerInfo controller,
         SessionCommand customCommand,
         Bundle args) {
-      return Futures.immediateFuture(new SessionResult(RESULT_ERROR_NOT_SUPPORTED));
+      return Futures.immediateFuture(new SessionResult(ERROR_NOT_SUPPORTED));
     }
 
     /**
      * Called when a controller requested to add new {@linkplain MediaItem media items} to the
-     * playlist via one of the {@code Player.addMediaItem(s)} methods. Unless overriden, {@link
+     * playlist via one of the {@code Player.addMediaItem(s)} methods. Unless overridden, {@link
      * Callback#onSetMediaItems} will direct {@code Player.setMediaItem(s)} to this method as well.
      *
      * <p>In addition, unless {@link Callback#onSetMediaItems} is overridden, this callback is also
-     * called when an app is using a legacy {@link MediaControllerCompat.TransportControls} to
-     * prepare or play media (for instance when browsing the catalogue and then selecting an item
-     * for preparation from Android Auto that is using the legacy Media1 library).
+     * called when an app is using a legacy {@link
+     * android.support.v4.media.session.MediaControllerCompat.TransportControls} to prepare or play
+     * media (for instance when browsing the catalogue and then selecting an item for preparation
+     * from Android Auto that is using the legacy Media1 library).
      *
      * <p>By default, if and only if each of the provided {@linkplain MediaItem media items} has a
      * set {@link MediaItem.LocalConfiguration} (for example, a URI), then the callback returns the
@@ -1353,16 +1611,17 @@ public class MediaSession {
      * Player#setMediaItems} or {@link Player#addMediaItems} as requested.
      *
      * <p>Interoperability: This method will be called, unless {@link Callback#onSetMediaItems} is
-     * overridden, in response to the following {@link MediaControllerCompat} methods:
+     * overridden, in response to the following {@link
+     * android.support.v4.media.session.MediaControllerCompat} methods:
      *
      * <ul>
-     *   <li>{@link MediaControllerCompat.TransportControls#prepareFromUri prepareFromUri}
-     *   <li>{@link MediaControllerCompat.TransportControls#playFromUri playFromUri}
-     *   <li>{@link MediaControllerCompat.TransportControls#prepareFromMediaId prepareFromMediaId}
-     *   <li>{@link MediaControllerCompat.TransportControls#playFromMediaId playFromMediaId}
-     *   <li>{@link MediaControllerCompat.TransportControls#prepareFromSearch prepareFromSearch}
-     *   <li>{@link MediaControllerCompat.TransportControls#playFromSearch playFromSearch}
-     *   <li>{@link MediaControllerCompat.TransportControls#addQueueItem addQueueItem}
+     *   <li>{@code prepareFromUri}
+     *   <li>{@code playFromUri}
+     *   <li>{@code prepareFromMediaId}
+     *   <li>{@code playFromMediaId}
+     *   <li>{@code prepareFromSearch}
+     *   <li>{@code playFromSearch}
+     *   <li>{@code addQueueItem}
      * </ul>
      *
      * The values of {@link MediaItem#mediaId}, {@link MediaItem.RequestMetadata#mediaUri}, {@link
@@ -1372,7 +1631,7 @@ public class MediaSession {
      * as appropriate once the {@link MediaItem} has been resolved.
      *
      * @param mediaSession The session for this event.
-     * @param controller The controller information.
+     * @param controller The {@linkplain ControllerInfo controller} information.
      * @param mediaItems The list of requested {@link MediaItem media items}.
      * @return A {@link ListenableFuture} for the list of resolved {@link MediaItem media items}
      *     that are playable by the underlying {@link Player}.
@@ -1428,7 +1687,7 @@ public class MediaSession {
      *   <li>{@link MediaControllerCompat.TransportControls#playFromMediaId playFromMediaId}
      *   <li>{@link MediaControllerCompat.TransportControls#prepareFromSearch prepareFromSearch}
      *   <li>{@link MediaControllerCompat.TransportControls#playFromSearch playFromSearch}
-     *   <li>{@link MediaControllerCompat.TransportControls#addQueueItem addQueueItem}
+     *   <li>{@link MediaControllerCompat#addQueueItem addQueueItem}
      * </ul>
      *
      * The values of {@link MediaItem#mediaId}, {@link MediaItem.RequestMetadata#mediaUri}, {@link
@@ -1438,7 +1697,7 @@ public class MediaSession {
      * as appropriate once the {@link MediaItem} has been resolved.
      *
      * @param mediaSession The session for this event.
-     * @param controller The controller information.
+     * @param controller The {@linkplain ControllerInfo controller} information.
      * @param mediaItems The list of requested {@linkplain MediaItem media items}.
      * @param startIndex The start index in the {@link MediaItem} list from which to start playing,
      *     or {@link C#INDEX_UNSET C.INDEX_UNSET} to start playing from the default index in the
@@ -1481,8 +1740,9 @@ public class MediaSession {
      * {@link Player#COMMAND_CHANGE_MEDIA_ITEMS} available.
      *
      * @param mediaSession The media session for which playback resumption is requested.
-     * @param controller The controller that requests the playback resumption. This may be a short
-     *     living controller created only for issuing a play command for resuming playback.
+     * @param controller The {@linkplain ControllerInfo controller} that requests the playback
+     *     resumption. This may be a short living controller created only for issuing a play command
+     *     for resuming playback.
      * @return The {@linkplain MediaItemsWithStartPosition playlist} to resume playback with.
      */
     @UnstableApi
@@ -1507,7 +1767,8 @@ public class MediaSession {
      * to your session.
      *
      * @param session The session that received the media button event.
-     * @param controllerInfo The controller to which the media button event is attributed to.
+     * @param controllerInfo The {@linkplain ControllerInfo controller} to which the media button
+     *     event is attributed to.
      * @param intent The media button intent.
      * @return True if the event was handled, false otherwise.
      */
@@ -1516,6 +1777,27 @@ public class MediaSession {
         MediaSession session, ControllerInfo controllerInfo, Intent intent) {
       return false;
     }
+
+    /**
+     * Called after all concurrent interactions with {@linkplain MediaSession#getPlayer() the
+     * session player} from a controller have finished.
+     *
+     * <p>A controller may call multiple {@link Player} methods within a single {@link Looper}
+     * message. Those {@link Player} method calls are batched together and once finished, this
+     * callback is called to signal that no further {@link Player} interactions coming from this
+     * controller are expected for now.
+     *
+     * <p>Apps can use this callback if they need to trigger different logic depending on whether
+     * certain methods are called together, for example just {@link Player#setMediaItems}, or {@link
+     * Player#setMediaItems} and {@link Player#play} together.
+     *
+     * @param session The {@link MediaSession} that received the {@link Player} calls.
+     * @param controllerInfo The {@linkplain ControllerInfo controller} sending the calls.
+     * @param playerCommands The set of {@link Player.Commands} used to send these calls.
+     */
+    @UnstableApi
+    default void onPlayerInteractionFinished(
+        MediaSession session, ControllerInfo controllerInfo, Player.Commands playerCommands) {}
   }
 
   /** Representation of a list of {@linkplain MediaItem media items} and where to start playing. */
@@ -1584,7 +1866,7 @@ public class MediaSession {
 
   /**
    * A result for {@link Callback#onConnect(MediaSession, ControllerInfo)} to denote the set of
-   * available commands and the custom layout for a {@link ControllerInfo controller}.
+   * available commands and the media button preferences for a {@link ControllerInfo controller}.
    */
   public static final class ConnectionResult {
 
@@ -1594,7 +1876,9 @@ public class MediaSession {
       private SessionCommands availableSessionCommands;
       private Player.Commands availablePlayerCommands = DEFAULT_PLAYER_COMMANDS;
       @Nullable private ImmutableList<CommandButton> customLayout;
+      @Nullable private ImmutableList<CommandButton> mediaButtonPreferences;
       @Nullable private Bundle sessionExtras;
+      @Nullable private PendingIntent sessionActivity;
 
       /**
        * Creates an instance.
@@ -1644,15 +1928,42 @@ public class MediaSession {
        * Sets the custom layout, overriding the {@linkplain MediaSession#getCustomLayout() custom
        * layout of the session}.
        *
+       * <p>This method will be deprecated, prefer to use {@link #setMediaButtonPreferences}. Note
+       * that the media button preferences use {@link CommandButton#slots} to define the allowed
+       * button placement.
+       *
        * <p>The default is null to indicate that the custom layout of the session should be used.
        *
        * <p>Make sure to have the session commands of all command buttons of the custom layout
-       * included in the {@linkplain #setAvailableSessionCommands(SessionCommands)} available
-       * session commands}.
+       * included in the {@linkplain #setAvailableSessionCommands(SessionCommands) available session
+       * commands}. On the controller side, the {@linkplain CommandButton#isEnabled enabled} flag is
+       * set to {@code false} if the available commands of the controller do not allow to use a
+       * button.
        */
       @CanIgnoreReturnValue
       public AcceptedResultBuilder setCustomLayout(@Nullable List<CommandButton> customLayout) {
         this.customLayout = customLayout == null ? null : ImmutableList.copyOf(customLayout);
+        return this;
+      }
+
+      /**
+       * Sets the media button preferences, overriding the {@linkplain
+       * MediaSession#getMediaButtonPreferences() media button preferences of the session}.
+       *
+       * <p>The default is null to indicate that the media button preferences of the session should
+       * be used.
+       *
+       * <p>Make sure to have the session commands of all command buttons of the media button
+       * preferences included in the {@linkplain #setAvailableSessionCommands(SessionCommands)
+       * available session commands}. On the controller side, the {@linkplain
+       * CommandButton#isEnabled enabled} flag is set to {@code false} if the available commands of
+       * the controller do not allow to use a button.
+       */
+      @CanIgnoreReturnValue
+      public AcceptedResultBuilder setMediaButtonPreferences(
+          @Nullable List<CommandButton> mediaButtonPreferences) {
+        this.mediaButtonPreferences =
+            mediaButtonPreferences == null ? null : ImmutableList.copyOf(mediaButtonPreferences);
         return this;
       }
 
@@ -1668,6 +1979,18 @@ public class MediaSession {
         return this;
       }
 
+      /**
+       * Sets the session activity, overriding the {@linkplain MediaSession#getSessionActivity()
+       * session activity of the session}.
+       *
+       * <p>The default is null to indicate that the session activity of the session should be used.
+       */
+      @CanIgnoreReturnValue
+      public AcceptedResultBuilder setSessionActivity(@Nullable PendingIntent sessionActivity) {
+        this.sessionActivity = sessionActivity;
+        return this;
+      }
+
       /** Returns a new {@link ConnectionResult} instance for accepting a connection. */
       public ConnectionResult build() {
         return new ConnectionResult(
@@ -1675,7 +1998,9 @@ public class MediaSession {
             availableSessionCommands,
             availablePlayerCommands,
             customLayout,
-            sessionExtras);
+            mediaButtonPreferences,
+            sessionExtras,
+            sessionActivity);
       }
     }
 
@@ -1703,8 +2028,17 @@ public class MediaSession {
     /** The custom layout or null if the custom layout of the session should be used. */
     @UnstableApi @Nullable public final ImmutableList<CommandButton> customLayout;
 
+    /**
+     * The media button preferences or null if the media button preferences of the session should be
+     * used.
+     */
+    @UnstableApi @Nullable public final ImmutableList<CommandButton> mediaButtonPreferences;
+
     /** The session extras. */
     @UnstableApi @Nullable public final Bundle sessionExtras;
+
+    /** The session activity. */
+    @UnstableApi @Nullable public final PendingIntent sessionActivity;
 
     /** Creates a new instance with the given available session and player commands. */
     private ConnectionResult(
@@ -1712,12 +2046,16 @@ public class MediaSession {
         SessionCommands availableSessionCommands,
         Player.Commands availablePlayerCommands,
         @Nullable ImmutableList<CommandButton> customLayout,
-        @Nullable Bundle sessionExtras) {
+        @Nullable ImmutableList<CommandButton> mediaButtonPreferences,
+        @Nullable Bundle sessionExtras,
+        @Nullable PendingIntent sessionActivity) {
       isAccepted = accepted;
       this.availableSessionCommands = availableSessionCommands;
       this.availablePlayerCommands = availablePlayerCommands;
       this.customLayout = customLayout;
+      this.mediaButtonPreferences = mediaButtonPreferences;
       this.sessionExtras = sessionExtras;
+      this.sessionActivity = sessionActivity;
     }
 
     /**
@@ -1725,8 +2063,8 @@ public class MediaSession {
      *
      * <p>Commands are specific to the controller receiving this connection result.
      *
-     * <p>The controller receives {@linkplain MediaSession#getCustomLayout() the custom layout of
-     * the session}.
+     * <p>The controller receives {@linkplain MediaSession#getMediaButtonPreferences() the media
+     * button preferences of the session}.
      *
      * <p>See {@link AcceptedResultBuilder} for a more flexible way to accept a connection.
      */
@@ -1737,7 +2075,9 @@ public class MediaSession {
           availableSessionCommands,
           availablePlayerCommands,
           /* customLayout= */ null,
-          /* sessionExtras= */ null);
+          /* mediaButtonPreferences= */ null,
+          /* sessionExtras= */ null,
+          /* sessionActivity= */ null);
     }
 
     /** Creates a {@link ConnectionResult} to reject a connection. */
@@ -1747,7 +2087,9 @@ public class MediaSession {
           SessionCommands.EMPTY,
           Player.Commands.EMPTY,
           /* customLayout= */ ImmutableList.of(),
-          /* sessionExtras= */ Bundle.EMPTY);
+          /* mediaButtonPreferences= */ ImmutableList.of(),
+          /* sessionExtras= */ Bundle.EMPTY,
+          /* sessionActivity= */ null);
     }
   }
 
@@ -1766,8 +2108,7 @@ public class MediaSession {
         PlayerInfo playerInfo,
         Player.Commands availableCommands,
         boolean excludeTimeline,
-        boolean excludeTracks,
-        int controllerInterfaceVersion)
+        boolean excludeTracks)
         throws RemoteException {}
 
     default void onPeriodicSessionPositionInfoChanged(
@@ -1783,6 +2124,9 @@ public class MediaSession {
     default void onDisconnected(int seq) throws RemoteException {}
 
     default void setCustomLayout(int seq, List<CommandButton> layout) throws RemoteException {}
+
+    default void setMediaButtonPreferences(int seq, List<CommandButton> mediaButtonPreferences)
+        throws RemoteException {}
 
     default void onSessionActivityChanged(int seq, PendingIntent sessionActivity)
         throws RemoteException {}
@@ -1881,6 +2225,8 @@ public class MediaSession {
         throws RemoteException {}
 
     default void onRenderedFirstFrame(int seq) throws RemoteException {}
+
+    default void onError(int seq, SessionError sessionError) throws RemoteException {}
   }
 
   /**
@@ -1926,6 +2272,8 @@ public class MediaSession {
     /* package */ @MonotonicNonNull BitmapLoader bitmapLoader;
     /* package */ boolean playIfSuppressed;
     /* package */ ImmutableList<CommandButton> customLayout;
+    /* package */ ImmutableList<CommandButton> mediaButtonPreferences;
+    /* package */ ImmutableList<CommandButton> commandButtonsForMediaItems;
     /* package */ boolean isPeriodicPositionUpdateEnabled;
 
     public BuilderBase(Context context, Player player, CallbackT callback) {
@@ -1934,55 +2282,75 @@ public class MediaSession {
       checkArgument(player.canAdvertiseSession());
       id = "";
       this.callback = callback;
-      tokenExtras = Bundle.EMPTY;
-      sessionExtras = Bundle.EMPTY;
+      tokenExtras = new Bundle();
+      sessionExtras = new Bundle();
       customLayout = ImmutableList.of();
+      mediaButtonPreferences = ImmutableList.of();
       playIfSuppressed = true;
       isPeriodicPositionUpdateEnabled = true;
+      commandButtonsForMediaItems = ImmutableList.of();
     }
 
+    @CanIgnoreReturnValue
     @SuppressWarnings("unchecked")
     public BuilderT setSessionActivity(PendingIntent pendingIntent) {
+      if (Util.SDK_INT >= 31) {
+        checkArgument(Api31.isActivity(pendingIntent));
+      }
       sessionActivity = checkNotNull(pendingIntent);
       return (BuilderT) this;
     }
 
+    @CanIgnoreReturnValue
     @SuppressWarnings("unchecked")
     public BuilderT setId(String id) {
       this.id = checkNotNull(id);
       return (BuilderT) this;
     }
 
+    @CanIgnoreReturnValue
     @SuppressWarnings("unchecked")
     /* package */ BuilderT setCallback(CallbackT callback) {
       this.callback = checkNotNull(callback);
       return (BuilderT) this;
     }
 
+    @CanIgnoreReturnValue
     @SuppressWarnings("unchecked")
     public BuilderT setExtras(Bundle tokenExtras) {
       this.tokenExtras = new Bundle(checkNotNull(tokenExtras));
       return (BuilderT) this;
     }
 
+    @CanIgnoreReturnValue
     @SuppressWarnings("unchecked")
     public BuilderT setSessionExtras(Bundle sessionExtras) {
       this.sessionExtras = new Bundle(checkNotNull(sessionExtras));
       return (BuilderT) this;
     }
 
+    @CanIgnoreReturnValue
     @SuppressWarnings("unchecked")
     public BuilderT setBitmapLoader(BitmapLoader bitmapLoader) {
       this.bitmapLoader = checkNotNull(bitmapLoader);
       return (BuilderT) this;
     }
 
+    @CanIgnoreReturnValue
     @SuppressWarnings("unchecked")
     public BuilderT setCustomLayout(List<CommandButton> customLayout) {
       this.customLayout = ImmutableList.copyOf(customLayout);
       return (BuilderT) this;
     }
 
+    @CanIgnoreReturnValue
+    @SuppressWarnings("unchecked")
+    public BuilderT setMediaButtonPreferences(List<CommandButton> mediaButtonPreferences) {
+      this.mediaButtonPreferences = ImmutableList.copyOf(mediaButtonPreferences);
+      return (BuilderT) this;
+    }
+
+    @CanIgnoreReturnValue
     @SuppressWarnings("unchecked")
     public BuilderT setShowPlayButtonIfPlaybackIsSuppressed(
         boolean showPlayButtonIfPlaybackIsSuppressed) {
@@ -1990,6 +2358,14 @@ public class MediaSession {
       return (BuilderT) this;
     }
 
+    @CanIgnoreReturnValue
+    @SuppressWarnings("unchecked")
+    public BuilderT setCommandButtonsForMediaItems(List<CommandButton> commandButtons) {
+      this.commandButtonsForMediaItems = ImmutableList.copyOf(commandButtons);
+      return (BuilderT) this;
+    }
+
+    @CanIgnoreReturnValue
     @SuppressWarnings("unchecked")
     public BuilderT setPeriodicPositionUpdateEnabled(boolean isPeriodicPositionUpdateEnabled) {
       this.isPeriodicPositionUpdateEnabled = isPeriodicPositionUpdateEnabled;
@@ -1997,5 +2373,12 @@ public class MediaSession {
     }
 
     public abstract SessionT build();
+  }
+
+  @RequiresApi(31)
+  private static final class Api31 {
+    public static boolean isActivity(PendingIntent pendingIntent) {
+      return pendingIntent.isActivity();
+    }
   }
 }

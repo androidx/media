@@ -21,7 +21,6 @@ import androidx.media3.common.Format;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.common.base.Objects;
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
@@ -130,6 +129,14 @@ public interface AudioProcessor {
   ByteBuffer EMPTY_BUFFER = ByteBuffer.allocateDirect(0).order(ByteOrder.nativeOrder());
 
   /**
+   * Returns the expected duration of the output stream when the processor is applied given a input
+   * {@code durationUs}.
+   */
+  default long getDurationAfterProcessorApplied(long durationUs) {
+    return durationUs;
+  }
+
+  /**
    * Configures the processor to process input audio with the specified format. After calling this
    * method, call {@link #isActive()} to determine whether the audio processor is active. Returns
    * the configured output audio format if this instance is active.
@@ -144,7 +151,6 @@ public interface AudioProcessor {
    * @return The configured output audio format if this instance is {@link #isActive() active}.
    * @throws UnhandledAudioFormatException Thrown if the specified format can't be handled as input.
    */
-  @CanIgnoreReturnValue
   AudioFormat configure(AudioFormat inputAudioFormat) throws UnhandledAudioFormatException;
 
   /** Returns whether the processor is configured and will process input buffers. */

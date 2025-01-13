@@ -21,6 +21,7 @@ import static androidx.media3.test.session.common.CommonConstants.KEY_COMMAND_BU
 import static androidx.media3.test.session.common.TestUtils.SERVICE_CONNECTION_TIMEOUT_MS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
+import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
@@ -58,6 +59,10 @@ import java.util.concurrent.TimeoutException;
  * app's requests.
  */
 public class MediaControllerProviderService extends Service {
+
+  public static final String CONNECTION_HINT_KEY_MAX_COMMANDS_FOR_MEDIA_ITEMS =
+      "CONNECTION_HINT_KEY_MAX_COMMANDS_FOR_MEDIA_ITEMS";
+
   private static final String TAG = "MCProviderService";
 
   Map<String, MediaController> mediaControllerMap = new HashMap<>();
@@ -122,6 +127,13 @@ public class MediaControllerProviderService extends Service {
         boolean waitForConnection)
         throws RemoteException {
       SessionToken token = SessionToken.fromBundle(tokenBundle);
+      // Allow a test to define with what max number of commands per item to connect.
+      int maxCommandsForMediaItems =
+          connectionHints.containsKey(CONNECTION_HINT_KEY_MAX_COMMANDS_FOR_MEDIA_ITEMS)
+              ? connectionHints.getInt(
+                  CONNECTION_HINT_KEY_MAX_COMMANDS_FOR_MEDIA_ITEMS, /* defaultValue= */ -1)
+              : 0;
+      connectionHints.remove(CONNECTION_HINT_KEY_MAX_COMMANDS_FOR_MEDIA_ITEMS);
       ListenableFuture<? extends MediaController> controllerFuture =
           runOnHandler(
               () -> {
@@ -131,11 +143,17 @@ public class MediaControllerProviderService extends Service {
                   if (connectionHints != null) {
                     builder.setConnectionHints(connectionHints);
                   }
+                  if (maxCommandsForMediaItems >= 0) {
+                    builder.setMaxCommandsForMediaItems(maxCommandsForMediaItems);
+                  }
                   return builder.buildAsync();
                 } else {
                   MediaController.Builder builder = new MediaController.Builder(context, token);
                   if (connectionHints != null) {
                     builder.setConnectionHints(connectionHints);
+                  }
+                  if (maxCommandsForMediaItems >= 0) {
+                    builder.setMaxCommandsForMediaItems(maxCommandsForMediaItems);
                   }
                   return builder.buildAsync();
                 }
@@ -630,6 +648,7 @@ public class MediaControllerProviderService extends Service {
           });
     }
 
+    @SuppressWarnings("deprecation") // Forwarding deprecated method call
     @Override
     public void setDeviceVolume(String controllerId, int volume) throws RemoteException {
       runOnHandler(
@@ -649,6 +668,7 @@ public class MediaControllerProviderService extends Service {
           });
     }
 
+    @SuppressWarnings("deprecation") // Forwarding deprecated method call
     @Override
     public void increaseDeviceVolume(String controllerId) throws RemoteException {
       runOnHandler(
@@ -668,6 +688,7 @@ public class MediaControllerProviderService extends Service {
           });
     }
 
+    @SuppressWarnings("deprecation") // Forwarding deprecated method call
     @Override
     public void decreaseDeviceVolume(String controllerId) throws RemoteException {
       runOnHandler(
@@ -687,6 +708,7 @@ public class MediaControllerProviderService extends Service {
           });
     }
 
+    @SuppressWarnings("deprecation") // Forwarding deprecated method call
     @Override
     public void setDeviceMuted(String controllerId, boolean muted) throws RemoteException {
       runOnHandler(
@@ -845,9 +867,29 @@ public class MediaControllerProviderService extends Service {
     }
 
     @Override
+    public Bundle getMediaButtonPreferences(String controllerId) throws RemoteException {
+      MediaController controller = mediaControllerMap.get(controllerId);
+      ArrayList<Bundle> mediaButtonPreferences = new ArrayList<>();
+      ImmutableList<CommandButton> commandButtons =
+          runOnHandler(controller::getMediaButtonPreferences);
+      for (CommandButton button : commandButtons) {
+        mediaButtonPreferences.add(button.toBundle());
+      }
+      Bundle bundle = new Bundle();
+      bundle.putParcelableArrayList(KEY_COMMAND_BUTTON_LIST, mediaButtonPreferences);
+      return bundle;
+    }
+
+    @Override
     public Bundle getAvailableCommands(String controllerId) throws RemoteException {
       MediaController controller = mediaControllerMap.get(controllerId);
       return runOnHandler(controller::getAvailableCommands).toBundle();
+    }
+
+    @Override
+    public PendingIntent getSessionActivity(String controllerId) throws RemoteException {
+      MediaController controller = mediaControllerMap.get(controllerId);
+      return runOnHandler(controller::getSessionActivity);
     }
 
     @Override

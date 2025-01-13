@@ -22,6 +22,7 @@ import static androidx.media3.test.session.common.TestUtils.SERVICE_CONNECTION_T
 import static com.google.common.truth.Truth.assertWithMessage;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
+import android.app.PendingIntent;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -371,8 +372,10 @@ public class RemoteMediaController {
       throws RemoteException {
     binder.setMediaItemsPreparePlayAddItemsSeek(
         controllerId,
-        BundleCollectionUtil.toBundleList(initialMediaItems, MediaItem::toBundle),
-        BundleCollectionUtil.toBundleList(addedMediaItems, MediaItem::toBundle),
+        BundleCollectionUtil.toBundleList(
+            initialMediaItems, MediaItem::toBundleIncludeLocalConfiguration),
+        BundleCollectionUtil.toBundleList(
+            addedMediaItems, MediaItem::toBundleIncludeLocalConfiguration),
         seekIndex);
   }
 
@@ -381,14 +384,29 @@ public class RemoteMediaController {
     ArrayList<Bundle> list = customLayoutBundle.getParcelableArrayList(KEY_COMMAND_BUTTON_LIST);
     ImmutableList.Builder<CommandButton> customLayout = new ImmutableList.Builder<>();
     for (Bundle bundle : list) {
-      customLayout.add(CommandButton.fromBundle(bundle));
+      customLayout.add(CommandButton.fromBundle(bundle, MediaSessionStub.VERSION_INT));
     }
     return customLayout.build();
+  }
+
+  public ImmutableList<CommandButton> getMediaButtonPreferences() throws RemoteException {
+    Bundle mediaButtonPreferencesBundle = binder.getMediaButtonPreferences(controllerId);
+    ArrayList<Bundle> list =
+        mediaButtonPreferencesBundle.getParcelableArrayList(KEY_COMMAND_BUTTON_LIST);
+    ImmutableList.Builder<CommandButton> mediaButtonPreferences = new ImmutableList.Builder<>();
+    for (Bundle bundle : list) {
+      mediaButtonPreferences.add(CommandButton.fromBundle(bundle, MediaSessionStub.VERSION_INT));
+    }
+    return mediaButtonPreferences.build();
   }
 
   public Player.Commands getAvailableCommands() throws RemoteException {
     Bundle commandsBundle = binder.getAvailableCommands(controllerId);
     return Player.Commands.fromBundle(commandsBundle);
+  }
+
+  public PendingIntent getSessionActivity() throws RemoteException {
+    return binder.getSessionActivity(controllerId);
   }
 
   ////////////////////////////////////////////////////////////////////////////////

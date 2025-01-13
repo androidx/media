@@ -57,7 +57,8 @@ import androidx.media3.common.util.Util;
   private boolean muted;
 
   /** Creates a manager. */
-  public StreamVolumeManager(Context context, Handler eventHandler, Listener listener) {
+  public StreamVolumeManager(
+      Context context, Handler eventHandler, Listener listener, @C.StreamType int streamType) {
     applicationContext = context.getApplicationContext();
     this.eventHandler = eventHandler;
     this.listener = listener;
@@ -65,7 +66,7 @@ import androidx.media3.common.util.Util;
         Assertions.checkStateNotNull(
             (AudioManager) applicationContext.getSystemService(Context.AUDIO_SERVICE));
 
-    streamType = C.STREAM_TYPE_DEFAULT;
+    this.streamType = streamType;
     volume = getVolumeFromManager(audioManager, streamType);
     muted = getMutedFromManager(audioManager, streamType);
 

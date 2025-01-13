@@ -20,6 +20,7 @@ import android.content.Context;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DebugViewProvider;
 import androidx.media3.common.Effect;
+import androidx.media3.common.SurfaceInfo;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.VideoGraph;
@@ -36,7 +37,6 @@ import java.util.concurrent.Executor;
      * Creates a new {@link TransformerVideoGraph} instance.
      *
      * @param context A {@link Context}.
-     * @param inputColorInfo The {@link ColorInfo} for the input frames.
      * @param outputColorInfo The {@link ColorInfo} for the output frames.
      * @param debugViewProvider A {@link DebugViewProvider}.
      * @param listener A {@link Listener}.
@@ -45,20 +45,24 @@ import java.util.concurrent.Executor;
      *     composition.
      * @param compositionEffects A list of {@linkplain Effect effects} to apply to the composition.
      * @param initialTimestampOffsetUs The timestamp offset for the first frame, in microseconds.
+     * @param renderFramesAutomatically If {@code true}, the instance will render output frames to
+     *     the {@linkplain #setOutputSurfaceInfo(SurfaceInfo) output surface} automatically as the
+     *     instance is done processing them. If {@code false}, the instance will block until {@link
+     *     #renderOutputFrameWithMediaPresentationTime()} is called, to render the frame.
      * @return A new instance.
      * @throws VideoFrameProcessingException If a problem occurs while creating the {@link
      *     VideoFrameProcessor}.
      */
     TransformerVideoGraph create(
         Context context,
-        ColorInfo inputColorInfo,
         ColorInfo outputColorInfo,
         DebugViewProvider debugViewProvider,
         Listener listener,
         Executor listenerExecutor,
         VideoCompositorSettings videoCompositorSettings,
         List<Effect> compositionEffects,
-        long initialTimestampOffsetUs)
+        long initialTimestampOffsetUs,
+        boolean renderFramesAutomatically)
         throws VideoFrameProcessingException;
   }
 
@@ -71,6 +75,22 @@ import java.util.concurrent.Executor;
    * <p>This method must called exactly once for every input stream.
    *
    * <p>If the method throws any {@link Exception}, the caller must call {@link #release}.
+   *
+   * @param inputIndex The index of the input, which could be used to order the inputs.
    */
-  GraphInput createInput() throws VideoFrameProcessingException;
+  GraphInput createInput(int inputIndex) throws VideoFrameProcessingException;
+
+  /**
+   * Renders the oldest unrendered output frame that has become {@linkplain
+   * Listener#onOutputFrameAvailableForRendering(long) available for rendering} to the output
+   * surface.
+   *
+   * <p>This method must only be called if {@code renderFramesAutomatically} was set to {@code
+   * false} using the {@link Factory} and should be called exactly once for each frame that becomes
+   * {@linkplain Listener#onOutputFrameAvailableForRendering(long) available for rendering}.
+   *
+   * <p>This will render the output frame to the {@linkplain #setOutputSurfaceInfo output surface}
+   * with the presentation seen in {@link Listener#onOutputFrameAvailableForRendering(long)}.
+   */
+  void renderOutputFrameWithMediaPresentationTime();
 }

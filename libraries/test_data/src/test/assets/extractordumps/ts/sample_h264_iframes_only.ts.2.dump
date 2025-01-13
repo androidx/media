@@ -1,0 +1,73 @@
+seekMap:
+  isSeekable = true
+  duration = 966666
+  getPosition(0) = [[timeUs=0, position=0]]
+  getPosition(1) = [[timeUs=1, position=0]]
+  getPosition(483333) = [[timeUs=483333, position=103846]]
+  getPosition(966666) = [[timeUs=966666, position=207881]]
+numberOfTracks = 1
+track 256:
+  total output bytes = 87806
+  sample count = 12
+  format 0:
+    id = 1/256
+    sampleMimeType = video/avc
+    codecs = avc1.64101F
+    maxNumReorderSamples = 0
+    width = 854
+    height = 480
+    colorInfo:
+      lumaBitdepth = 8
+      chromaBitdepth = 8
+    initializationData:
+      data = length 25, hash 8F89F820
+      data = length 8, hash 9BAAE288
+  sample 0:
+    time = 600000
+    flags = 1
+    data = length 7268, hash DEDEAAE6
+  sample 1:
+    time = 633333
+    flags = 1
+    data = length 7243, hash B5CFF1BB
+  sample 2:
+    time = 666666
+    flags = 1
+    data = length 7335, hash B9E7BA4C
+  sample 3:
+    time = 700000
+    flags = 1
+    data = length 7326, hash 69DDD01
+  sample 4:
+    time = 733333
+    flags = 1
+    data = length 7379, hash 8EA6EDC8
+  sample 5:
+    time = 766666
+    flags = 1
+    data = length 7341, hash 751383
+  sample 6:
+    time = 800000
+    flags = 1
+    data = length 7323, hash E6D08DC8
+  sample 7:
+    time = 833333
+    flags = 1
+    data = length 7302, hash DADFB1AC
+  sample 8:
+    time = 866666
+    flags = 1
+    data = length 7327, hash 401FE473
+  sample 9:
+    time = 900000
+    flags = 1
+    data = length 7340, hash DAAC756E
+  sample 10:
+    time = 933333
+    flags = 1
+    data = length 7334, hash 614FA397
+  sample 11:
+    time = 966666
+    flags = 1
+    data = length 7287, hash A67CBA0A
+tracksEnded = true
