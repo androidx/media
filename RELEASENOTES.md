@@ -44,6 +44,8 @@
         Previously we incorrectly parsed any number of decimal places but always
         assumed the value was in milliseconds, leading to incorrect timestamps
         ([#1997](https://github.com/androidx/media/issues/1997)).
+    *   Add support for VobSub subtitles
+        ([#8260](https://github.com/google/ExoPlayer/issues/8260)).
 *   Metadata:
 *   Image:
 *   DataSource:

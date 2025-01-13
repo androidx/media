@@ -26,6 +26,7 @@ import androidx.media3.extractor.text.ssa.SsaParser;
 import androidx.media3.extractor.text.subrip.SubripParser;
 import androidx.media3.extractor.text.ttml.TtmlParser;
 import androidx.media3.extractor.text.tx3g.Tx3gParser;
+import androidx.media3.extractor.text.vobsub.VobsubParser;
 import androidx.media3.extractor.text.webvtt.Mp4WebvttParser;
 import androidx.media3.extractor.text.webvtt.WebvttParser;
 import java.util.Objects;
@@ -58,6 +59,7 @@ public final class DefaultSubtitleParserFactory implements SubtitleParser.Factor
         || Objects.equals(mimeType, MimeTypes.APPLICATION_SUBRIP)
         || Objects.equals(mimeType, MimeTypes.APPLICATION_TX3G)
         || Objects.equals(mimeType, MimeTypes.APPLICATION_PGS)
+        || Objects.equals(mimeType, MimeTypes.APPLICATION_VOBSUB)
         || Objects.equals(mimeType, MimeTypes.APPLICATION_DVBSUBS)
         || Objects.equals(mimeType, MimeTypes.APPLICATION_TTML);
   }
@@ -79,6 +81,8 @@ public final class DefaultSubtitleParserFactory implements SubtitleParser.Factor
           return Tx3gParser.CUE_REPLACEMENT_BEHAVIOR;
         case MimeTypes.APPLICATION_PGS:
           return PgsParser.CUE_REPLACEMENT_BEHAVIOR;
+        case MimeTypes.APPLICATION_VOBSUB:
+          return VobsubParser.CUE_REPLACEMENT_BEHAVIOR;
         case MimeTypes.APPLICATION_DVBSUBS:
           return DvbParser.CUE_REPLACEMENT_BEHAVIOR;
         case MimeTypes.APPLICATION_TTML:
@@ -107,6 +111,8 @@ public final class DefaultSubtitleParserFactory implements SubtitleParser.Factor
           return new Tx3gParser(format.initializationData);
         case MimeTypes.APPLICATION_PGS:
           return new PgsParser();
+        case MimeTypes.APPLICATION_VOBSUB:
+          return new VobsubParser(format.initializationData);
         case MimeTypes.APPLICATION_DVBSUBS:
           return new DvbParser(format.initializationData);
         case MimeTypes.APPLICATION_TTML:

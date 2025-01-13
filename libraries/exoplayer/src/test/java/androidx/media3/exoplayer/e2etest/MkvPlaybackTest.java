@@ -15,6 +15,8 @@
  */
 package androidx.media3.exoplayer.e2etest;
 
+import static org.robolectric.annotation.GraphicsMode.Mode.NATIVE;
+
 import android.content.Context;
 import android.graphics.SurfaceTexture;
 import android.view.Surface;
@@ -35,9 +37,11 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.ParameterizedRobolectricTestRunner;
 import org.robolectric.ParameterizedRobolectricTestRunner.Parameters;
+import org.robolectric.annotation.GraphicsMode;
 
 /** End-to-end tests using MKV samples. */
 @RunWith(ParameterizedRobolectricTestRunner.class)
+@GraphicsMode(NATIVE)
 public final class MkvPlaybackTest {
   @Parameters(name = "{0}")
   public static ImmutableList<String> mediaSamples() {
@@ -51,7 +55,8 @@ public final class MkvPlaybackTest {
         "sample_with_null_terminated_srt.mkv",
         "sample_with_overlapping_srt.mkv",
         "sample_with_vtt_subtitles.mkv",
-        "sample_with_null_terminated_vtt_subtitles.mkv");
+        "sample_with_null_terminated_vtt_subtitles.mkv",
+        "sample_with_vobsub.mkv");
   }
 
   @ParameterizedRobolectricTestRunner.Parameter public String inputFile;

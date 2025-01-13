@@ -212,6 +212,8 @@ public final class Util {
   private static final String ISM_HLS_FORMAT_EXTENSION = "format=m3u8-aapl";
   private static final String ISM_DASH_FORMAT_EXTENSION = "format=mpd-time-csf";
 
+  private static final int ZLIB_INFLATE_HEADER = 0x78;
+
   // Replacement map of ISO language codes used for normalization.
   @Nullable private static HashMap<String, String> languageTagReplacementMap;
 
@@ -3100,6 +3102,26 @@ public final class Util {
     } finally {
       inflater.reset();
     }
+  }
+
+  /**
+   * Uncompresses the data in {@code input} if it starts with the zlib marker {@code 0x78}.
+   *
+   * @param input Wraps the compressed input data.
+   * @param output Wraps an output buffer to be used to store the uncompressed data. If {@code
+   *     output.data} isn't big enough to hold the uncompressed data, a new array is created. If
+   *     {@code true} is returned then the output's position will be set to 0 and its limit will be
+   *     set to the length of the uncompressed data.
+   * @param inflater If not null, used to uncompress the input. Otherwise a new {@link Inflater} is
+   *     created.
+   * @return Whether the input is uncompressed successfully.
+   */
+  @UnstableApi
+  public static boolean maybeInflate(
+      ParsableByteArray input, ParsableByteArray output, @Nullable Inflater inflater) {
+    return input.bytesLeft() > 0
+        && input.peekUnsignedByte() == ZLIB_INFLATE_HEADER
+        && inflate(input, output, inflater);
   }
 
   /**
