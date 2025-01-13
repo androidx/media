@@ -130,7 +130,7 @@ public class CompositionPlayerTest {
               new Composition.Builder(
                       new EditedMediaItemSequence.Builder(
                               new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
-                                  .setDurationUs(1_000_000)
+                                  .setDurationUs(MP4_ASSET.videoDurationUs)
                                   .build())
                           .build())
                   .build());
@@ -151,7 +151,7 @@ public class CompositionPlayerTest {
               new Composition.Builder(
                       new EditedMediaItemSequence.Builder(
                               new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
-                                  .setDurationUs(1_000_000)
+                                  .setDurationUs(MP4_ASSET.videoDurationUs)
                                   .build())
                           .build())
                   .build());
@@ -176,7 +176,7 @@ public class CompositionPlayerTest {
               new Composition.Builder(
                       new EditedMediaItemSequence.Builder(
                               new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
-                                  .setDurationUs(1_000_000)
+                                  .setDurationUs(MP4_ASSET.videoDurationUs)
                                   .build())
                           .build())
                   .build());
@@ -199,7 +199,7 @@ public class CompositionPlayerTest {
               new Composition.Builder(
                       new EditedMediaItemSequence.Builder(
                               new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
-                                  .setDurationUs(1_000_000)
+                                  .setDurationUs(MP4_ASSET.videoDurationUs)
                                   .build())
                           .build())
                   .build());
@@ -345,7 +345,7 @@ public class CompositionPlayerTest {
 
     EditedMediaItem video =
         new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
-            .setDurationUs(1_000_000)
+            .setDurationUs(MP4_ASSET.videoDurationUs)
             .build();
 
     instrumentation.runOnMainSync(
@@ -370,7 +370,7 @@ public class CompositionPlayerTest {
     PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
     EditedMediaItem video =
         new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
-            .setDurationUs(1_000_000)
+            .setDurationUs(MP4_ASSET.videoDurationUs)
             .build();
     EditedMediaItem image =
         new EditedMediaItem.Builder(
@@ -405,7 +405,7 @@ public class CompositionPlayerTest {
             TestSpeedProvider.createWithStartTimes(new long[] {0}, new float[] {2f}));
     EditedMediaItem video =
         new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
-            .setDurationUs(1_000_000)
+            .setDurationUs(MP4_ASSET.videoDurationUs)
             .setEffects(
                 new Effects(ImmutableList.of(effects.first), ImmutableList.of(effects.second)))
             .build();
@@ -434,7 +434,7 @@ public class CompositionPlayerTest {
             TestSpeedProvider.createWithStartTimes(new long[] {0}, new float[] {0.5f}));
     EditedMediaItem video =
         new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
-            .setDurationUs(1_000_000)
+            .setDurationUs(MP4_ASSET.videoDurationUs)
             .setEffects(
                 new Effects(ImmutableList.of(effects.first), ImmutableList.of(effects.second)))
             .build();
@@ -460,7 +460,7 @@ public class CompositionPlayerTest {
     PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
     EditedMediaItem video =
         new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
-            .setDurationUs(1_000_000)
+            .setDurationUs(MP4_ASSET.videoDurationUs)
             .build();
 
     instrumentation.runOnMainSync(
@@ -497,7 +497,7 @@ public class CompositionPlayerTest {
     PlayerTestListener playerTestListener = new PlayerTestListener(TEST_TIMEOUT_MS);
     EditedMediaItem video =
         new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
-            .setDurationUs(1_000_000)
+            .setDurationUs(MP4_ASSET.videoDurationUs)
             .build();
     instrumentation.runOnMainSync(
         () -> {
