@@ -200,7 +200,12 @@ public final class DashMediaSource extends BaseMediaSource {
     }
 
     /**
-     * {@inheritDoc}
+     * Sets whether subtitles should be parsed as part of extraction (before the sample queue) or as
+     * part of rendering (after the sample queue). Defaults to false (i.e. subtitles will be parsed
+     * as part of rendering).
+     *
+     * <p>This method is experimental. Its default value may change, or it may be renamed or removed
+     * in a future release.
      *
      * <p>This method may only be used with {@link DefaultDashChunkSource.Factory}.
      *
@@ -208,8 +213,8 @@ public final class DashMediaSource extends BaseMediaSource {
      *     rendering.
      * @return This factory, for convenience.
      */
-    // TODO: b/289916598 - Flip the default of this to true.
-    @Override
+    // TODO: b/289916598 - Flip the default of this to true (probably wired up to a single method on
+    //  DefaultMediaSourceFactory via the MediaSource.Factory interface).
     public Factory experimentalParseSubtitlesDuringExtraction(
         boolean parseSubtitlesDuringExtraction) {
       if (parseSubtitlesDuringExtraction) {

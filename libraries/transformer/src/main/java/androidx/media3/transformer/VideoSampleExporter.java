@@ -44,6 +44,7 @@ import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.VideoGraph;
 import androidx.media3.common.util.Consumer;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.effect.DebugTraceUtil;
@@ -97,6 +98,7 @@ import org.checkerframework.dataflow.qual.Pure;
 
     ColorInfo decoderInputColor;
     if (firstInputFormat.colorInfo == null || !firstInputFormat.colorInfo.isDataSpaceValid()) {
+      Log.d(TAG, "colorInfo is null or invalid. Defaulting to SDR_BT709_LIMITED.");
       decoderInputColor = ColorInfo.SDR_BT709_LIMITED;
     } else {
       decoderInputColor = firstInputFormat.colorInfo;
@@ -330,7 +332,6 @@ import org.checkerframework.dataflow.qual.Pure;
               .setFrameRate(inputFormat.frameRate)
               .setSampleMimeType(requestedOutputMimeType)
               .setColorInfo(getSupportedInputColor())
-              .setCodecs(inputFormat.codecs)
               .build();
 
       encoder =
@@ -399,7 +400,7 @@ import org.checkerframework.dataflow.qual.Pure;
         Format requestedFormat,
         Format supportedFormat,
         @Composition.HdrMode int supportedHdrMode) {
-      // TODO(b/255953153): Consider including bitrate in the revised fallback.
+      // TODO(b/259570024): Consider including bitrate in the revised fallback design.
 
       TransformationRequest.Builder supportedRequestBuilder = transformationRequest.buildUpon();
       if (transformationRequest.hdrMode != supportedHdrMode) {

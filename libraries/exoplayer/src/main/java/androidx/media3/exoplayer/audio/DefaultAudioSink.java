@@ -96,16 +96,6 @@ public final class DefaultAudioSink implements AudioSink {
    */
   private static final int AUDIO_TRACK_SMALLER_BUFFER_RETRY_SIZE = 1_000_000;
 
-  /** The minimum duration of the skipped silence to be reported as discontinuity. */
-  private static final int MINIMUM_REPORT_SKIPPED_SILENCE_DURATION_US = 1_000_000;
-
-  /**
-   * The delay of reporting the skipped silence, during which the default audio sink checks if there
-   * is any further skipped silence that is close to the delayed silence. If any, the further
-   * skipped silence will be concatenated to the delayed one.
-   */
-  private static final int REPORT_SKIPPED_SILENCE_DELAY_MS = 100;
-
   /**
    * Thrown when the audio track has provided a spurious timestamp, if {@link
    * #failOnSpuriousAudioTimestamp} is set.
@@ -536,7 +526,7 @@ public final class DefaultAudioSink implements AudioSink {
   @Nullable private ByteBuffer inputBuffer;
   private int inputBufferAccessUnitCount;
   @Nullable private ByteBuffer outputBuffer;
-  private byte @MonotonicNonNull [] preV21OutputBuffer;
+  private @MonotonicNonNull byte[] preV21OutputBuffer;
   private int preV21OutputBufferOffset;
   private boolean handledEndOfStream;
   private boolean stoppedAudioTrack;
@@ -552,16 +542,11 @@ public final class DefaultAudioSink implements AudioSink {
   private boolean offloadDisabledUntilNextConfiguration;
   private boolean isWaitingForOffloadEndOfStreamHandled;
   @Nullable private Looper playbackLooper;
-  private long skippedOutputFrameCountAtLastPosition;
-  private long accumulatedSkippedSilenceDurationUs;
-  private @MonotonicNonNull Handler reportSkippedSilenceHandler;
 
   @RequiresNonNull("#1.audioProcessorChain")
   private DefaultAudioSink(Builder builder) {
     context = builder.context;
-    audioAttributes = AudioAttributes.DEFAULT;
-    audioCapabilities =
-        context != null ? getCapabilities(context, audioAttributes) : builder.audioCapabilities;
+    audioCapabilities = context != null ? getCapabilities(context) : builder.audioCapabilities;
     audioProcessorChain = builder.audioProcessorChain;
     enableFloatOutput = Util.SDK_INT >= 21 && builder.enableFloatOutput;
     preferAudioTrackPlaybackParams = Util.SDK_INT >= 23 && builder.enableAudioTrackPlaybackParams;
@@ -578,6 +563,7 @@ public final class DefaultAudioSink implements AudioSink {
             new ToInt16PcmAudioProcessor(), channelMappingAudioProcessor, trimmingAudioProcessor);
     toFloatPcmAvailableAudioProcessors = ImmutableList.of(new ToFloatPcmAudioProcessor());
     volume = 1f;
+    audioAttributes = AudioAttributes.DEFAULT;
     audioSessionId = C.AUDIO_SESSION_ID_UNSET;
     auxEffectInfo = new AuxEffectInfo(AuxEffectInfo.NO_AUX_EFFECT_ID, 0f);
     mediaPositionParameters =
@@ -617,7 +603,6 @@ public final class DefaultAudioSink implements AudioSink {
 
   @Override
   public @SinkFormatSupport int getFormatSupport(Format format) {
-    maybeStartAudioCapabilitiesReceiver();
     if (MimeTypes.AUDIO_RAW.equals(format.sampleMimeType)) {
       if (!Util.isEncodingLinearPcm(format.pcmEncoding)) {
         Log.w(TAG, "Invalid PCM encoding: " + format.pcmEncoding);
@@ -631,7 +616,7 @@ public final class DefaultAudioSink implements AudioSink {
       // guaranteed to support.
       return SINK_FORMAT_SUPPORTED_WITH_TRANSCODING;
     }
-    if (audioCapabilities.isPassthroughPlaybackSupported(format, audioAttributes)) {
+    if (getAudioCapabilities().isPassthroughPlaybackSupported(format)) {
       return SINK_FORMAT_SUPPORTED_DIRECTLY;
     }
     return SINK_FORMAT_UNSUPPORTED;
@@ -668,7 +653,6 @@ public final class DefaultAudioSink implements AudioSink {
     boolean enableAudioTrackPlaybackParams;
     boolean enableOffloadGapless = false;
 
-    maybeStartAudioCapabilitiesReceiver();
     if (MimeTypes.AUDIO_RAW.equals(inputFormat.sampleMimeType)) {
       Assertions.checkArgument(Util.isEncodingLinearPcm(inputFormat.pcmEncoding));
 
@@ -737,8 +721,7 @@ public final class DefaultAudioSink implements AudioSink {
         outputMode = OUTPUT_MODE_PASSTHROUGH;
         @Nullable
         Pair<Integer, Integer> encodingAndChannelConfig =
-            audioCapabilities.getEncodingAndChannelConfigForPassthrough(
-                inputFormat, audioAttributes);
+            getAudioCapabilities().getEncodingAndChannelConfigForPassthrough(inputFormat);
         if (encodingAndChannelConfig == null) {
           throw new ConfigurationException(
               "Unable to configure passthrough for: " + inputFormat, inputFormat);
@@ -1322,9 +1305,6 @@ public final class DefaultAudioSink implements AudioSink {
       // The audio attributes are ignored in tunneling mode, so no need to reset.
       return;
     }
-    if (audioCapabilitiesReceiver != null) {
-      audioCapabilitiesReceiver.setAudioAttributes(audioAttributes);
-    }
     flush();
   }
 
@@ -1463,11 +1443,6 @@ public final class DefaultAudioSink implements AudioSink {
     }
     writeExceptionPendingExceptionHolder.clear();
     initializationExceptionPendingExceptionHolder.clear();
-    skippedOutputFrameCountAtLastPosition = 0;
-    accumulatedSkippedSilenceDurationUs = 0;
-    if (reportSkippedSilenceHandler != null) {
-      checkNotNull(reportSkippedSilenceHandler).removeCallbacksAndMessages(null);
-    }
   }
 
   @Override
@@ -1497,7 +1472,7 @@ public final class DefaultAudioSink implements AudioSink {
 
   public void onAudioCapabilitiesChanged(AudioCapabilities audioCapabilities) {
     checkState(playbackLooper == Looper.myLooper());
-    if (!audioCapabilities.equals(this.audioCapabilities)) {
+    if (!audioCapabilities.equals(getAudioCapabilities())) {
       this.audioCapabilities = audioCapabilities;
       if (listener != null) {
         listener.onAudioCapabilitiesChanged();
@@ -1670,28 +1645,8 @@ public final class DefaultAudioSink implements AudioSink {
   }
 
   private long applySkipping(long positionUs) {
-    long skippedOutputFrameCountAtCurrentPosition =
-        audioProcessorChain.getSkippedOutputFrameCount();
-    long adjustedPositionUs =
-        positionUs + configuration.framesToDurationUs(skippedOutputFrameCountAtCurrentPosition);
-    if (skippedOutputFrameCountAtCurrentPosition > skippedOutputFrameCountAtLastPosition) {
-      long silenceDurationUs =
-          configuration.framesToDurationUs(
-              skippedOutputFrameCountAtCurrentPosition - skippedOutputFrameCountAtLastPosition);
-      skippedOutputFrameCountAtLastPosition = skippedOutputFrameCountAtCurrentPosition;
-      handleSkippedSilence(silenceDurationUs);
-    }
-    return adjustedPositionUs;
-  }
-
-  private void handleSkippedSilence(long silenceDurationUs) {
-    accumulatedSkippedSilenceDurationUs += silenceDurationUs;
-    if (reportSkippedSilenceHandler == null) {
-      reportSkippedSilenceHandler = new Handler(Looper.myLooper());
-    }
-    reportSkippedSilenceHandler.removeCallbacksAndMessages(null);
-    reportSkippedSilenceHandler.postDelayed(
-        this::maybeReportSkippedSilence, /* delayMillis= */ REPORT_SKIPPED_SILENCE_DELAY_MS);
+    return positionUs
+        + configuration.framesToDurationUs(audioProcessorChain.getSkippedOutputFrameCount());
   }
 
   private boolean isAudioTrackInitialized() {
@@ -1710,15 +1665,16 @@ public final class DefaultAudioSink implements AudioSink {
         : writtenEncodedFrames;
   }
 
-  private void maybeStartAudioCapabilitiesReceiver() {
+  private AudioCapabilities getAudioCapabilities() {
     if (audioCapabilitiesReceiver == null && context != null) {
       // Must be lazily initialized to receive audio capabilities receiver listener event on the
       // current (playback) thread as the constructor is not called in the playback thread.
       playbackLooper = Looper.myLooper();
       audioCapabilitiesReceiver =
-          new AudioCapabilitiesReceiver(context, this::onAudioCapabilitiesChanged, audioAttributes);
+          new AudioCapabilitiesReceiver(context, this::onAudioCapabilitiesChanged);
       audioCapabilities = audioCapabilitiesReceiver.register();
     }
+    return audioCapabilities;
   }
 
   private static boolean isOffloadedPlayback(AudioTrack audioTrack) {
@@ -2267,16 +2223,6 @@ public final class DefaultAudioSink implements AudioSink {
     public void clear() {
       pendingException = null;
     }
-  }
-
-  private void maybeReportSkippedSilence() {
-    if (accumulatedSkippedSilenceDurationUs >= MINIMUM_REPORT_SKIPPED_SILENCE_DURATION_US) {
-      // If the existing silence is already long enough, report the silence
-      listener.onSilenceSkipped();
-    }
-    // Reset the accumulated silence anyway as the later silences are far from the current one
-    // and should be treated separately.
-    accumulatedSkippedSilenceDurationUs = 0;
   }
 
   @RequiresApi(23)

@@ -35,16 +35,12 @@ import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.extractor.PositionHolder;
 import androidx.media3.extractor.SeekMap;
 import androidx.media3.extractor.TrackOutput;
-import androidx.media3.extractor.jpeg.JpegExtractor;
 import androidx.media3.extractor.mkv.MatroskaExtractor;
 import androidx.media3.extractor.mp4.FragmentedMp4Extractor;
-import androidx.media3.extractor.png.PngExtractor;
-import androidx.media3.extractor.text.SubtitleExtractor;
 import androidx.media3.extractor.text.SubtitleParser;
 import androidx.media3.extractor.text.SubtitleTranscodingExtractor;
 import java.io.IOException;
 import java.util.List;
-import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
@@ -90,42 +86,24 @@ public final class BundledChunkExtractor implements ExtractorOutput, ChunkExtrac
       @Nullable String containerMimeType = representationFormat.containerMimeType;
       Extractor extractor;
       if (MimeTypes.isText(containerMimeType)) {
-        if (subtitleParserFactory == null) {
-          // Subtitles will be parsed after decoding
-          return null;
-        } else {
-          extractor =
-              new SubtitleExtractor(
-                  subtitleParserFactory.create(representationFormat), representationFormat);
-        }
+        // Text types do not need an extractor.
+        return null;
       } else if (MimeTypes.isMatroska(containerMimeType)) {
         extractor = new MatroskaExtractor(MatroskaExtractor.FLAG_DISABLE_SEEK_FOR_CUES);
-      } else if (Objects.equals(containerMimeType, MimeTypes.IMAGE_JPEG)) {
-        extractor = new JpegExtractor(JpegExtractor.FLAG_READ_IMAGE);
-      } else if (Objects.equals(containerMimeType, MimeTypes.IMAGE_PNG)) {
-        extractor = new PngExtractor();
       } else {
-        @FragmentedMp4Extractor.Flags int flags = 0;
+        int flags = 0;
         if (enableEventMessageTrack) {
           flags |= FragmentedMp4Extractor.FLAG_ENABLE_EMSG_TRACK;
         }
-        if (subtitleParserFactory == null) {
-          flags |= FragmentedMp4Extractor.FLAG_EMIT_RAW_SUBTITLE_DATA;
-        }
         extractor =
             new FragmentedMp4Extractor(
-                subtitleParserFactory != null
-                    ? subtitleParserFactory
-                    : SubtitleParser.Factory.UNSUPPORTED,
                 flags,
                 /* timestampAdjuster= */ null,
                 /* sideloadedTrack= */ null,
                 closedCaptionFormats,
                 playerEmsgTrackOutput);
       }
-      if (subtitleParserFactory != null
-          && !MimeTypes.isText(containerMimeType)
-          && !(extractor.getUnderlyingImplementation() instanceof FragmentedMp4Extractor)) {
+      if (subtitleParserFactory != null) {
         extractor = new SubtitleTranscodingExtractor(extractor, subtitleParserFactory);
       }
       return new BundledChunkExtractor(extractor, primaryTrackType, representationFormat);

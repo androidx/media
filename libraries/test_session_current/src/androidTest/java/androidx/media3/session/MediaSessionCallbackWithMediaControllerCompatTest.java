@@ -780,7 +780,7 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             /* waitForConnection= */ true);
     KeyEvent keyEvent = new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PLAY);
     Bundle connectionHints = new Bundle();
-    connectionHints.putBoolean(MediaController.KEY_MEDIA_NOTIFICATION_CONTROLLER_FLAG, true);
+    connectionHints.putBoolean(MediaNotificationManager.KEY_MEDIA_NOTIFICATION_MANAGER, true);
     new MediaController.Builder(
             ApplicationProvider.getApplicationContext(), session.get().getToken())
         .setConnectionHints(connectionHints)
@@ -889,7 +889,7 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
                 .setId("dispatchMediaButtonEvent")
                 .build()));
     Bundle connectionHints = new Bundle();
-    connectionHints.putBoolean(MediaController.KEY_MEDIA_NOTIFICATION_CONTROLLER_FLAG, true);
+    connectionHints.putBoolean(MediaNotificationManager.KEY_MEDIA_NOTIFICATION_MANAGER, true);
     new MediaController.Builder(
             ApplicationProvider.getApplicationContext(), session.get().getToken())
         .setConnectionHints(connectionHints)
@@ -1147,7 +1147,7 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
         () -> {
           // Set stream of the session.
           AudioAttributes attrs =
-              LegacyConversions.convertToAudioAttributes(
+              MediaUtils.convertToAudioAttributes(
                   new AudioAttributesCompat.Builder().setLegacyStreamType(stream).build());
           player.audioAttributes = attrs;
           player.notifyAudioAttributesChanged(attrs);
@@ -1195,7 +1195,7 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
         () -> {
           // Set stream of the session.
           AudioAttributes attrs =
-              LegacyConversions.convertToAudioAttributes(
+              MediaUtils.convertToAudioAttributes(
                   new AudioAttributesCompat.Builder().setLegacyStreamType(stream).build());
           player.audioAttributes = attrs;
           player.notifyAudioAttributesChanged(attrs);
@@ -1764,7 +1764,7 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
               String mediaIdOut,
               Rating ratingOut) {
             assertThat(mediaIdOut).isEqualTo(mediaId);
-            assertThat(ratingOut).isEqualTo(LegacyConversions.convertToRating(rating));
+            assertThat(ratingOut).isEqualTo(MediaUtils.convertToRating(rating));
             latch.countDown();
             return Futures.immediateFuture(new SessionResult(RESULT_SUCCESS));
           }

@@ -504,7 +504,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
 
   @Override
   public void onSetRating(RatingCompat ratingCompat, @Nullable Bundle unusedExtras) {
-    @Nullable Rating rating = LegacyConversions.convertToRating(ratingCompat);
+    @Nullable Rating rating = MediaUtils.convertToRating(ratingCompat);
     if (rating == null) {
       Log.w(TAG, "Ignoring invalid RatingCompat " + ratingCompat);
       return;
@@ -535,8 +535,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
         controller ->
             sessionImpl
                 .getPlayerWrapper()
-                .setRepeatMode(
-                    LegacyConversions.convertToRepeatMode(playbackStateCompatRepeatMode)),
+                .setRepeatMode(MediaUtils.convertToRepeatMode(playbackStateCompatRepeatMode)),
         sessionCompat.getCurrentControllerInfo());
   }
 
@@ -547,7 +546,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
         controller ->
             sessionImpl
                 .getPlayerWrapper()
-                .setShuffleModeEnabled(LegacyConversions.convertToShuffleModeEnabled(shuffleMode)),
+                .setShuffleModeEnabled(MediaUtils.convertToShuffleModeEnabled(shuffleMode)),
         sessionCompat.getCurrentControllerInfo());
   }
 
@@ -862,7 +861,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
             Log.w(TAG, "onAddQueueItem(): Media ID shouldn't be empty");
             return;
           }
-          MediaItem mediaItem = LegacyConversions.convertToMediaItem(description);
+          MediaItem mediaItem = MediaUtils.convertToMediaItem(description);
           ListenableFuture<List<MediaItem>> mediaItemsFuture =
               sessionImpl.onAddMediaItemsOnHandler(controller, ImmutableList.of(mediaItem));
           Futures.addCallback(
@@ -1144,7 +1143,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
         sessionCompat.setRatingType(RatingCompat.RATING_NONE);
       } else {
         sessionCompat.setRatingType(
-            LegacyConversions.getRatingCompatStyle(mediaItem.mediaMetadata.userRating));
+            MediaUtils.getRatingCompatStyle(mediaItem.mediaMetadata.userRating));
       }
       updateLegacySessionPlaybackState(sessionImpl.getPlayerWrapper());
     }
@@ -1168,7 +1167,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
         setQueue(sessionCompat, /* queue= */ null);
         return;
       }
-      List<MediaItem> mediaItemList = LegacyConversions.convertToMediaItemList(timeline);
+      List<MediaItem> mediaItemList = MediaUtils.convertToMediaItemList(timeline);
       List<@NullableType ListenableFuture<Bitmap>> bitmapFutures = new ArrayList<>();
       final AtomicInteger resultCount = new AtomicInteger(0);
       Runnable handleBitmapFuturesTask =
@@ -1210,7 +1209,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
             Log.d(TAG, "Failed to get bitmap", e);
           }
         }
-        queueItemList.add(LegacyConversions.convertToQueueItem(mediaItems.get(i), i, bitmap));
+        queueItemList.add(MediaUtils.convertToQueueItem(mediaItems.get(i), i, bitmap));
       }
 
       if (Util.SDK_INT < 21) {
@@ -1246,13 +1245,12 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     public void onShuffleModeEnabledChanged(int seq, boolean shuffleModeEnabled)
         throws RemoteException {
       sessionCompat.setShuffleMode(
-          LegacyConversions.convertToPlaybackStateCompatShuffleMode(shuffleModeEnabled));
+          MediaUtils.convertToPlaybackStateCompatShuffleMode(shuffleModeEnabled));
     }
 
     @Override
     public void onRepeatModeChanged(int seq, @RepeatMode int repeatMode) throws RemoteException {
-      sessionCompat.setRepeatMode(
-          LegacyConversions.convertToPlaybackStateCompatRepeatMode(repeatMode));
+      sessionCompat.setRepeatMode(MediaUtils.convertToPlaybackStateCompatRepeatMode(repeatMode));
     }
 
     @Override
@@ -1260,7 +1258,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       @DeviceInfo.PlaybackType
       int playbackType = sessionImpl.getPlayerWrapper().getDeviceInfo().playbackType;
       if (playbackType == DeviceInfo.PLAYBACK_TYPE_LOCAL) {
-        int legacyStreamType = LegacyConversions.getLegacyStreamType(audioAttributes);
+        int legacyStreamType = MediaUtils.getLegacyStreamType(audioAttributes);
         sessionCompat.setPlaybackToLocal(legacyStreamType);
       }
     }
@@ -1271,7 +1269,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       volumeProviderCompat = player.createVolumeProviderCompat();
       if (volumeProviderCompat == null) {
         int streamType =
-            LegacyConversions.getLegacyStreamType(player.getAudioAttributesWithCommandCheck());
+            MediaUtils.getLegacyStreamType(player.getAudioAttributesWithCommandCheck());
         sessionCompat.setPlaybackToLocal(streamType);
       } else {
         sessionCompat.setPlaybackToRemote(volumeProviderCompat);
@@ -1342,7 +1340,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
                   }
                   setMetadata(
                       sessionCompat,
-                      LegacyConversions.convertToMediaMetadataCompat(
+                      MediaUtils.convertToMediaMetadataCompat(
                           newMediaMetadata,
                           newMediaId,
                           newMediaUri,
@@ -1367,7 +1365,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       }
       setMetadata(
           sessionCompat,
-          LegacyConversions.convertToMediaMetadataCompat(
+          MediaUtils.convertToMediaMetadataCompat(
               newMediaMetadata, newMediaId, newMediaUri, newDurationMs, artworkBitmap));
     }
   }

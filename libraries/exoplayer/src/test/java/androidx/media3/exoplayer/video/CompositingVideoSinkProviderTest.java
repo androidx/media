@@ -18,7 +18,6 @@ package androidx.media3.exoplayer.video;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import android.content.Context;
@@ -41,21 +40,6 @@ import org.mockito.Mockito;
 /** Unit test for {@link CompositingVideoSinkProvider}. */
 @RunWith(AndroidJUnit4.class)
 public final class CompositingVideoSinkProviderTest {
-
-  @Test
-  public void builder_calledMultipleTimes_throws() {
-    CompositingVideoSinkProvider.Builder builder =
-        new CompositingVideoSinkProvider.Builder(ApplicationProvider.getApplicationContext())
-            .setVideoFrameReleaseControl(
-                new VideoFrameReleaseControl(
-                    ApplicationProvider.getApplicationContext(),
-                    mock(VideoFrameReleaseControl.FrameTimingEvaluator.class),
-                    /* allowedJoiningTimeMs= */ 0));
-
-    builder.build();
-
-    assertThrows(IllegalStateException.class, builder::build);
-  }
 
   @Test
   public void initialize() throws VideoSink.VideoSinkException {
@@ -87,17 +71,6 @@ public final class CompositingVideoSinkProviderTest {
   }
 
   @Test
-  public void isInitialized_afterRelease_returnsFalse() throws VideoSink.VideoSinkException {
-    CompositingVideoSinkProvider provider = createCompositingVideoSinkProvider();
-    provider.setVideoEffects(ImmutableList.of());
-    provider.initialize(new Format.Builder().build());
-
-    provider.release();
-
-    assertThat(provider.isInitialized()).isFalse();
-  }
-
-  @Test
   public void initialize_afterRelease_throws() throws VideoSink.VideoSinkException {
     CompositingVideoSinkProvider provider = createCompositingVideoSinkProvider();
     provider.setVideoEffects(ImmutableList.of());
@@ -107,6 +80,20 @@ public final class CompositingVideoSinkProviderTest {
     provider.release();
 
     assertThrows(IllegalStateException.class, () -> provider.initialize(format));
+  }
+
+  @Test
+  public void registerInputStream_withInputTypeBitmap_throws() throws VideoSink.VideoSinkException {
+    CompositingVideoSinkProvider provider = createCompositingVideoSinkProvider();
+    provider.setVideoEffects(ImmutableList.of());
+    provider.initialize(new Format.Builder().build());
+    VideoSink videoSink = provider.getSink();
+
+    assertThrows(
+        UnsupportedOperationException.class,
+        () ->
+            videoSink.registerInputStream(
+                VideoSink.INPUT_TYPE_BITMAP, new Format.Builder().build()));
   }
 
   @Test
@@ -145,36 +132,11 @@ public final class CompositingVideoSinkProviderTest {
   }
 
   private static CompositingVideoSinkProvider createCompositingVideoSinkProvider() {
-    Context context = ApplicationProvider.getApplicationContext();
-    VideoFrameReleaseControl.FrameTimingEvaluator frameTimingEvaluator =
-        new VideoFrameReleaseControl.FrameTimingEvaluator() {
-          @Override
-          public boolean shouldForceReleaseFrame(long earlyUs, long elapsedSinceLastReleaseUs) {
-            return false;
-          }
-
-          @Override
-          public boolean shouldDropFrame(
-              long earlyUs, long elapsedRealtimeUs, boolean isLastFrame) {
-            return false;
-          }
-
-          @Override
-          public boolean shouldIgnoreFrame(
-              long earlyUs,
-              long positionUs,
-              long elapsedRealtimeUs,
-              boolean isLastFrame,
-              boolean treatDroppedBuffersAsSkipped) {
-            return false;
-          }
-        };
-    VideoFrameReleaseControl releaseControl =
-        new VideoFrameReleaseControl(context, frameTimingEvaluator, /* allowedJoiningTimeMs= */ 0);
-    return new CompositingVideoSinkProvider.Builder(context)
-        .setPreviewingVideoGraphFactory(new TestPreviewingVideoGraphFactory())
-        .setVideoFrameReleaseControl(releaseControl)
-        .build();
+    VideoSink.RenderControl renderControl = new TestRenderControl();
+    return new CompositingVideoSinkProvider(
+        ApplicationProvider.getApplicationContext(),
+        new TestPreviewingVideoGraphFactory(),
+        renderControl);
   }
 
   private static class TestPreviewingVideoGraphFactory implements PreviewingVideoGraph.Factory {
@@ -198,5 +160,23 @@ public final class CompositingVideoSinkProviderTest {
       when(videoFrameProcessor.registerInputFrame()).thenReturn(true);
       return previewingVideoGraph;
     }
+  }
+
+  private static class TestRenderControl implements VideoSink.RenderControl {
+
+    @Override
+    public long getFrameRenderTimeNs(
+        long presentationTimeUs, long positionUs, long elapsedRealtimeUs, float playbackSpeed) {
+      return presentationTimeUs;
+    }
+
+    @Override
+    public void onNextFrame(long presentationTimeUs) {}
+
+    @Override
+    public void onFrameRendered() {}
+
+    @Override
+    public void onFrameDropped() {}
   }
 }

@@ -253,7 +253,37 @@ public final class ColorInfo implements Bundleable {
   // Lazily initialized hashcode.
   private int hashCode;
 
-  private ColorInfo(
+  /**
+   * Constructs the ColorInfo.
+   *
+   * @param colorSpace The color space of the video.
+   * @param colorRange The color range of the video.
+   * @param colorTransfer The color transfer characteristics of the video.
+   * @param hdrStaticInfo HdrStaticInfo as defined in CTA-861.3, or null if none specified.
+   * @deprecated Use {@link Builder}.
+   */
+  @Deprecated
+  public ColorInfo(
+      @C.ColorSpace int colorSpace,
+      @C.ColorRange int colorRange,
+      @C.ColorTransfer int colorTransfer,
+      @Nullable byte[] hdrStaticInfo) {
+    this(colorSpace, colorRange, colorTransfer, hdrStaticInfo, Format.NO_VALUE, Format.NO_VALUE);
+  }
+
+  /**
+   * Constructs the ColorInfo.
+   *
+   * @param colorSpace The color space of the video.
+   * @param colorRange The color range of the video.
+   * @param colorTransfer The color transfer characteristics of the video.
+   * @param hdrStaticInfo HdrStaticInfo as defined in CTA-861.3, or null if none specified.
+   * @param lumaBitdepth The bit depth of the luma samples of the video.
+   * @param chromaBitdepth The bit depth of the chroma samples of the video.
+   * @deprecated Use {@link Builder}.
+   */
+  @Deprecated
+  public ColorInfo(
       @C.ColorSpace int colorSpace,
       @C.ColorRange int colorRange,
       @C.ColorTransfer int colorTransfer,
@@ -450,21 +480,13 @@ public final class ColorInfo implements Bundleable {
     return bundle;
   }
 
-  /**
-   * @deprecated Use {@link #fromBundle} instead.
-   */
-  @Deprecated
-  @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
-  public static final Creator<ColorInfo> CREATOR = ColorInfo::fromBundle;
-
-  /** Restores a {@code ColorInfo} from a {@link Bundle}. */
-  public static ColorInfo fromBundle(Bundle bundle) {
-    return new ColorInfo(
-        bundle.getInt(FIELD_COLOR_SPACE, Format.NO_VALUE),
-        bundle.getInt(FIELD_COLOR_RANGE, Format.NO_VALUE),
-        bundle.getInt(FIELD_COLOR_TRANSFER, Format.NO_VALUE),
-        bundle.getByteArray(FIELD_HDR_STATIC_INFO),
-        bundle.getInt(FIELD_LUMA_BITDEPTH, Format.NO_VALUE),
-        bundle.getInt(FIELD_CHROMA_BITDEPTH, Format.NO_VALUE));
-  }
+  public static final Creator<ColorInfo> CREATOR =
+      bundle ->
+          new ColorInfo(
+              bundle.getInt(FIELD_COLOR_SPACE, Format.NO_VALUE),
+              bundle.getInt(FIELD_COLOR_RANGE, Format.NO_VALUE),
+              bundle.getInt(FIELD_COLOR_TRANSFER, Format.NO_VALUE),
+              bundle.getByteArray(FIELD_HDR_STATIC_INFO),
+              bundle.getInt(FIELD_LUMA_BITDEPTH, Format.NO_VALUE),
+              bundle.getInt(FIELD_CHROMA_BITDEPTH, Format.NO_VALUE));
 }

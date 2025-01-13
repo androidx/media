@@ -80,7 +80,7 @@ import androidx.media3.common.TrackSelectionOverride;
 import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.Tracks;
 import androidx.media3.common.util.Assertions;
-import androidx.media3.common.util.BundleCollectionUtil;
+import androidx.media3.common.util.BundleableUtil;
 import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
@@ -528,9 +528,6 @@ import java.util.concurrent.ExecutionException;
                     connectionResult.availablePlayerCommands,
                     playerWrapper.getAvailableCommands(),
                     sessionImpl.getToken().getExtras(),
-                    connectionResult.sessionExtras != null
-                        ? connectionResult.sessionExtras
-                        : sessionImpl.getSessionExtras(),
                     playerInfo);
 
             // Double check if session is still there, because release() can be called in
@@ -543,7 +540,7 @@ import java.util.concurrent.ExecutionException;
                   sequencedFutureManager.obtainNextSequenceNumber(),
                   caller instanceof MediaControllerStub
                       ? state.toBundleInProcess()
-                      : state.toBundleForRemoteProcess(controllerInfo.getInterfaceVersion()));
+                      : state.toBundle(controllerInfo.getInterfaceVersion()));
               connected = true;
             } catch (RemoteException e) {
               // Controller may be died prematurely.
@@ -603,7 +600,7 @@ import java.util.concurrent.ExecutionException;
     }
     ConnectionRequest request;
     try {
-      request = ConnectionRequest.fromBundle(connectionRequestBundle);
+      request = ConnectionRequest.CREATOR.fromBundle(connectionRequestBundle);
     } catch (RuntimeException e) {
       Log.w(TAG, "Ignoring malformed Bundle for ConnectionRequest", e);
       return;
@@ -680,7 +677,7 @@ import java.util.concurrent.ExecutionException;
     }
     SessionResult result;
     try {
-      result = SessionResult.fromBundle(sessionResultBundle);
+      result = SessionResult.CREATOR.fromBundle(sessionResultBundle);
     } catch (RuntimeException e) {
       Log.w(TAG, "Ignoring malformed Bundle for SessionResult", e);
       return;
@@ -862,7 +859,7 @@ import java.util.concurrent.ExecutionException;
     }
     SessionCommand command;
     try {
-      command = SessionCommand.fromBundle(commandBundle);
+      command = SessionCommand.CREATOR.fromBundle(commandBundle);
     } catch (RuntimeException e) {
       Log.w(TAG, "Ignoring malformed Bundle for SessionCommand", e);
       return;
@@ -891,7 +888,7 @@ import java.util.concurrent.ExecutionException;
     }
     Rating rating;
     try {
-      rating = Rating.fromBundle(ratingBundle);
+      rating = Rating.CREATOR.fromBundle(ratingBundle);
     } catch (RuntimeException e) {
       Log.w(TAG, "Ignoring malformed Bundle for Rating", e);
       return;
@@ -913,7 +910,7 @@ import java.util.concurrent.ExecutionException;
     }
     Rating rating;
     try {
-      rating = Rating.fromBundle(ratingBundle);
+      rating = Rating.CREATOR.fromBundle(ratingBundle);
     } catch (RuntimeException e) {
       Log.w(TAG, "Ignoring malformed Bundle for Rating", e);
       return;
@@ -945,7 +942,8 @@ import java.util.concurrent.ExecutionException;
     if (caller == null || playbackParametersBundle == null) {
       return;
     }
-    PlaybackParameters playbackParameters = PlaybackParameters.fromBundle(playbackParametersBundle);
+    PlaybackParameters playbackParameters =
+        PlaybackParameters.CREATOR.fromBundle(playbackParametersBundle);
     queueSessionTaskWithPlayerCommand(
         caller,
         sequenceNumber,
@@ -971,7 +969,7 @@ import java.util.concurrent.ExecutionException;
     }
     MediaItem mediaItem;
     try {
-      mediaItem = MediaItem.fromBundle(mediaItemBundle);
+      mediaItem = MediaItem.CREATOR.fromBundle(mediaItemBundle);
     } catch (RuntimeException e) {
       Log.w(TAG, "Ignoring malformed Bundle for MediaItem", e);
       return;
@@ -1002,7 +1000,7 @@ import java.util.concurrent.ExecutionException;
     }
     MediaItem mediaItem;
     try {
-      mediaItem = MediaItem.fromBundle(mediaItemBundle);
+      mediaItem = MediaItem.CREATOR.fromBundle(mediaItemBundle);
     } catch (RuntimeException e) {
       Log.w(TAG, "Ignoring malformed Bundle for MediaItem", e);
       return;
@@ -1047,8 +1045,8 @@ import java.util.concurrent.ExecutionException;
     List<MediaItem> mediaItemList;
     try {
       mediaItemList =
-          BundleCollectionUtil.fromBundleList(
-              MediaItem::fromBundle, BundleListRetriever.getList(mediaItemsRetriever));
+          BundleableUtil.fromBundleList(
+              MediaItem.CREATOR, BundleListRetriever.getList(mediaItemsRetriever));
     } catch (RuntimeException e) {
       Log.w(TAG, "Ignoring malformed Bundle for MediaItem", e);
       return;
@@ -1085,8 +1083,8 @@ import java.util.concurrent.ExecutionException;
     List<MediaItem> mediaItemList;
     try {
       mediaItemList =
-          BundleCollectionUtil.fromBundleList(
-              MediaItem::fromBundle, BundleListRetriever.getList(mediaItemsRetriever));
+          BundleableUtil.fromBundleList(
+              MediaItem.CREATOR, BundleListRetriever.getList(mediaItemsRetriever));
     } catch (RuntimeException e) {
       Log.w(TAG, "Ignoring malformed Bundle for MediaItem", e);
       return;
@@ -1120,7 +1118,7 @@ import java.util.concurrent.ExecutionException;
     }
     MediaMetadata playlistMetadata;
     try {
-      playlistMetadata = MediaMetadata.fromBundle(playlistMetadataBundle);
+      playlistMetadata = MediaMetadata.CREATOR.fromBundle(playlistMetadataBundle);
     } catch (RuntimeException e) {
       Log.w(TAG, "Ignoring malformed Bundle for MediaMetadata", e);
       return;
@@ -1140,7 +1138,7 @@ import java.util.concurrent.ExecutionException;
     }
     MediaItem mediaItem;
     try {
-      mediaItem = MediaItem.fromBundle(mediaItemBundle);
+      mediaItem = MediaItem.CREATOR.fromBundle(mediaItemBundle);
     } catch (RuntimeException e) {
       Log.w(TAG, "Ignoring malformed Bundle for MediaItem", e);
       return;
@@ -1165,7 +1163,7 @@ import java.util.concurrent.ExecutionException;
     }
     MediaItem mediaItem;
     try {
-      mediaItem = MediaItem.fromBundle(mediaItemBundle);
+      mediaItem = MediaItem.CREATOR.fromBundle(mediaItemBundle);
     } catch (RuntimeException e) {
       Log.w(TAG, "Ignoring malformed Bundle for MediaItem", e);
       return;
@@ -1194,8 +1192,8 @@ import java.util.concurrent.ExecutionException;
     List<MediaItem> mediaItems;
     try {
       mediaItems =
-          BundleCollectionUtil.fromBundleList(
-              MediaItem::fromBundle, BundleListRetriever.getList(mediaItemsRetriever));
+          BundleableUtil.fromBundleList(
+              MediaItem.CREATOR, BundleListRetriever.getList(mediaItemsRetriever));
     } catch (RuntimeException e) {
       Log.w(TAG, "Ignoring malformed Bundle for MediaItem", e);
       return;
@@ -1223,8 +1221,8 @@ import java.util.concurrent.ExecutionException;
     List<MediaItem> mediaItems;
     try {
       mediaItems =
-          BundleCollectionUtil.fromBundleList(
-              MediaItem::fromBundle, BundleListRetriever.getList(mediaItemsRetriever));
+          BundleableUtil.fromBundleList(
+              MediaItem.CREATOR, BundleListRetriever.getList(mediaItemsRetriever));
     } catch (RuntimeException e) {
       Log.w(TAG, "Ignoring malformed Bundle for MediaItem", e);
       return;
@@ -1323,7 +1321,7 @@ import java.util.concurrent.ExecutionException;
     }
     MediaItem mediaItem;
     try {
-      mediaItem = MediaItem.fromBundle(mediaItemBundle);
+      mediaItem = MediaItem.CREATOR.fromBundle(mediaItemBundle);
     } catch (RuntimeException e) {
       Log.w(TAG, "Ignoring malformed Bundle for MediaItem", e);
       return;
@@ -1362,8 +1360,8 @@ import java.util.concurrent.ExecutionException;
     ImmutableList<MediaItem> mediaItems;
     try {
       mediaItems =
-          BundleCollectionUtil.fromBundleList(
-              MediaItem::fromBundle, BundleListRetriever.getList(mediaItemsRetriever));
+          BundleableUtil.fromBundleList(
+              MediaItem.CREATOR, BundleListRetriever.getList(mediaItemsRetriever));
     } catch (RuntimeException e) {
       Log.w(TAG, "Ignoring malformed Bundle for MediaItem", e);
       return;
@@ -1618,7 +1616,7 @@ import java.util.concurrent.ExecutionException;
         sendSessionResultSuccess(
             player ->
                 player.setAudioAttributes(
-                    AudioAttributes.fromBundle(audioAttributes), handleAudioFocus)));
+                    AudioAttributes.CREATOR.fromBundle(audioAttributes), handleAudioFocus)));
   }
 
   @Override
@@ -1696,7 +1694,7 @@ import java.util.concurrent.ExecutionException;
     }
     @Nullable
     LibraryParams libraryParams =
-        libraryParamsBundle == null ? null : LibraryParams.fromBundle(libraryParamsBundle);
+        libraryParamsBundle == null ? null : LibraryParams.CREATOR.fromBundle(libraryParamsBundle);
     dispatchSessionTaskWithSessionCommand(
         caller,
         sequenceNumber,
@@ -1752,7 +1750,7 @@ import java.util.concurrent.ExecutionException;
     }
     @Nullable
     LibraryParams libraryParams =
-        libraryParamsBundle == null ? null : LibraryParams.fromBundle(libraryParamsBundle);
+        libraryParamsBundle == null ? null : LibraryParams.CREATOR.fromBundle(libraryParamsBundle);
     dispatchSessionTaskWithSessionCommand(
         caller,
         sequenceNumber,
@@ -1778,7 +1776,7 @@ import java.util.concurrent.ExecutionException;
     }
     @Nullable
     LibraryParams libraryParams =
-        libraryParamsBundle == null ? null : LibraryParams.fromBundle(libraryParamsBundle);
+        libraryParamsBundle == null ? null : LibraryParams.CREATOR.fromBundle(libraryParamsBundle);
     dispatchSessionTaskWithSessionCommand(
         caller,
         sequenceNumber,
@@ -1813,7 +1811,7 @@ import java.util.concurrent.ExecutionException;
     }
     @Nullable
     LibraryParams libraryParams =
-        libraryParamsBundle == null ? null : LibraryParams.fromBundle(libraryParamsBundle);
+        libraryParamsBundle == null ? null : LibraryParams.CREATOR.fromBundle(libraryParamsBundle);
     dispatchSessionTaskWithSessionCommand(
         caller,
         sequenceNumber,
@@ -1839,7 +1837,7 @@ import java.util.concurrent.ExecutionException;
     }
     @Nullable
     LibraryParams libraryParams =
-        libraryParamsBundle == null ? null : LibraryParams.fromBundle(libraryParamsBundle);
+        libraryParamsBundle == null ? null : LibraryParams.CREATOR.fromBundle(libraryParamsBundle);
     dispatchSessionTaskWithSessionCommand(
         caller,
         sequenceNumber,
@@ -1987,7 +1985,7 @@ import java.util.concurrent.ExecutionException;
         Bundle playerInfoBundle =
             iController instanceof MediaControllerStub
                 ? filteredPlayerInfo.toBundleInProcess()
-                : filteredPlayerInfo.toBundleForRemoteProcess(controllerInterfaceVersion);
+                : filteredPlayerInfo.toBundle(controllerInterfaceVersion);
         iController.onPlayerInfoChangedWithExclusions(
             sequenceNumber,
             playerInfoBundle,
@@ -2000,7 +1998,7 @@ import java.util.concurrent.ExecutionException;
         //noinspection deprecation
         iController.onPlayerInfoChanged(
             sequenceNumber,
-            filteredPlayerInfo.toBundleForRemoteProcess(controllerInterfaceVersion),
+            filteredPlayerInfo.toBundle(controllerInterfaceVersion),
             bundlingExclusionsTimeline);
       }
     }
@@ -2008,8 +2006,7 @@ import java.util.concurrent.ExecutionException;
     @Override
     public void setCustomLayout(int sequenceNumber, List<CommandButton> layout)
         throws RemoteException {
-      iController.onSetCustomLayout(
-          sequenceNumber, BundleCollectionUtil.toBundleList(layout, CommandButton::toBundle));
+      iController.onSetCustomLayout(sequenceNumber, BundleableUtil.toBundleList(layout));
     }
 
     @Override

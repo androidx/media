@@ -32,7 +32,6 @@ import androidx.media3.common.ParserException;
 import androidx.media3.common.util.CodecSpecificDataUtil;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.NullableType;
-import androidx.media3.common.util.ParsableBitArray;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.Mp4LocationData;
@@ -47,6 +46,7 @@ import androidx.media3.extractor.GaplessInfoHolder;
 import androidx.media3.extractor.HevcConfig;
 import androidx.media3.extractor.OpusUtil;
 import androidx.media3.extractor.VorbisUtil;
+import androidx.media3.extractor.metadata.mp4.SmtaMetadataEntry;
 import androidx.media3.extractor.mp4.Atom.LeafAtom;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
@@ -56,7 +56,6 @@ import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Objects;
 
 /** Utility methods for parsing MP4 format atom payloads according to ISO/IEC 14496-12. */
 @SuppressWarnings("ConstantField")
@@ -178,8 +177,7 @@ import java.util.Objects;
       } else if (atomType == Atom.TYPE_smta) {
         udtaData.setPosition(atomPosition);
         metadata =
-            metadata.copyWithAppendedEntriesFrom(
-                SmtaAtomUtil.parseSmta(udtaData, atomPosition + atomSize));
+            metadata.copyWithAppendedEntriesFrom(parseSmta(udtaData, atomPosition + atomSize));
       } else if (atomType == Atom.TYPE_xyz) {
         metadata = metadata.copyWithAppendedEntriesFrom(parseXyz(udtaData));
       }
@@ -828,6 +826,37 @@ import java.util.Objects;
   }
 
   /**
+   * Parses metadata from a Samsung smta atom.
+   *
+   * <p>See [Internal: b/150138465#comment76].
+   */
+  @Nullable
+  private static Metadata parseSmta(ParsableByteArray smta, int limit) {
+    smta.skipBytes(Atom.FULL_HEADER_SIZE);
+    while (smta.getPosition() < limit) {
+      int atomPosition = smta.getPosition();
+      int atomSize = smta.readInt();
+      int atomType = smta.readInt();
+      if (atomType == Atom.TYPE_saut) {
+        if (atomSize < 14) {
+          return null;
+        }
+        smta.skipBytes(5); // author (4), reserved = 0 (1).
+        int recordingMode = smta.readUnsignedByte();
+        if (recordingMode != 12 && recordingMode != 13) {
+          return null;
+        }
+        float captureFrameRate = recordingMode == 12 ? 240 : 120;
+        smta.skipBytes(1); // reserved = 1 (1).
+        int svcTemporalLayerCount = smta.readUnsignedByte();
+        return new Metadata(new SmtaMetadataEntry(captureFrameRate, svcTemporalLayerCount));
+      }
+      smta.setPosition(atomPosition + atomSize);
+    }
+    return null;
+  }
+
+  /**
    * Parses a tkhd atom (defined in ISO/IEC 14496-12).
    *
    * @param tkhd Contents of the tkhd atom to be parsed.
@@ -1223,15 +1252,22 @@ import java.util.Objects;
         colorTransfer =
             ColorInfo.isoTransferCharacteristicsToColorTransfer(transferCharacteristics);
       } else if (childAtomType == Atom.TYPE_av1C) {
+        ExtractorUtil.checkContainerInput(mimeType == null, /* message= */ null);
         mimeType = MimeTypes.VIDEO_AV1;
         parent.setPosition(childStartPosition + Atom.HEADER_SIZE);
-        ColorInfo colorInfo = parseAv1c(parent);
-
-        bitdepthLuma = colorInfo.lumaBitdepth;
-        bitdepthChroma = colorInfo.chromaBitdepth;
-        colorSpace = colorInfo.colorSpace;
-        colorRange = colorInfo.colorRange;
-        colorTransfer = colorInfo.colorTransfer;
+        parent.skipBytes(1);
+        int byte2 = parent.readUnsignedByte();
+        int seqProfile = byte2 >> 5;
+        int byte3 = parent.readUnsignedByte();
+        boolean highBitdepth = ((byte3 >> 6) & 0b1) != 0;
+        // From https://aomediacodec.github.io/av1-spec/av1-spec.pdf#page=44
+        if (seqProfile == 2 && highBitdepth) {
+          boolean twelveBit = ((byte3 >> 5) & 0b1) != 0;
+          bitdepthLuma = twelveBit ? 12 : 10;
+        } else if (seqProfile <= 2) {
+          bitdepthLuma = highBitdepth ? 10 : 8;
+        }
+        bitdepthChroma = bitdepthLuma;
       } else if (childAtomType == Atom.TYPE_clli) {
         if (hdrStaticInfo == null) {
           hdrStaticInfo = allocateHdrStaticInfo();
@@ -1312,8 +1348,8 @@ import java.util.Objects;
         // established by the bitstream. The absence of color descriptors ('colorSpace' and
         // 'colorTransfer') does not necessarily mean that 'colorRange' has default values, hence it
         // is not being verified here.
-        // If 'Atom.TYPE_avcC', 'Atom.TYPE_hvcC', 'Atom.TYPE_vpcC' or 'Atom.TYPE_av1c' is available,
-        // they will take precedence and overwrite any existing values.
+        // If 'Atom.TYPE_avcC', 'Atom.TYPE_hvcC' or 'Atom.TYPE_vpcC' is available, they will take
+        // precedence and overwrite any existing values.
         if (colorSpace == Format.NO_VALUE && colorTransfer == Format.NO_VALUE) {
           int colorType = parent.readInt();
           if (colorType == TYPE_nclx || colorType == TYPE_nclc) {
@@ -1378,138 +1414,6 @@ import java.util.Objects;
     }
 
     out.format = formatBuilder.build();
-  }
-
-  /**
-   * Parses the av1C configuration record and OBU sequence header and returns a {@link ColorInfo}
-   * from their data.
-   *
-   * <p>See av1C configuration record syntax in this <a
-   * href="https://aomediacodec.github.io/av1-isobmff/#av1codecconfigurationbox-syntax">spec</a>.
-   *
-   * <p>See av1C OBU syntax in this <a
-   * href="https://aomediacodec.github.io/av1-spec/av1-spec.pdf">spec</a>.
-   *
-   * <p>The sections referenced in the method are from these specs.
-   *
-   * @param data The av1C atom data.
-   * @return {@link ColorInfo} parsed from the av1C data.
-   */
-  private static ColorInfo parseAv1c(ParsableByteArray data) {
-    ColorInfo.Builder colorInfo = new ColorInfo.Builder();
-    ParsableBitArray bitArray = new ParsableBitArray(data.getData());
-    bitArray.setPosition(data.getPosition() * 8); // Convert byte to bit position.
-
-    // Parse av1C config record for bitdepth info.
-    // See https://aomediacodec.github.io/av1-isobmff/#av1codecconfigurationbox-syntax.
-    bitArray.skipBytes(1); // marker, version
-    int seqProfile = bitArray.readBits(3); // seq_profile
-    bitArray.skipBits(6); // seq_level_idx_0, seq_tier_0
-    boolean highBitdepth = bitArray.readBit(); // high_bitdepth
-    boolean twelveBit = bitArray.readBit(); // twelve_bit
-    if (seqProfile == 2 && highBitdepth) {
-      colorInfo.setLumaBitdepth(twelveBit ? 12 : 10);
-      colorInfo.setChromaBitdepth(twelveBit ? 12 : 10);
-    } else if (seqProfile <= 2) {
-      colorInfo.setLumaBitdepth(highBitdepth ? 10 : 8);
-      colorInfo.setChromaBitdepth(highBitdepth ? 10 : 8);
-    }
-    // Skip monochrome, chroma_subsampling_x, chroma_subsampling_y, chroma_sample_position,
-    // reserved and initial_presentation_delay.
-    bitArray.skipBits(13);
-
-    // 5.3.1. General OBU syntax
-    bitArray.skipBit(); // obu_forbidden_bit
-    int obuType = bitArray.readBits(4); // obu_type
-    if (obuType != 1) { // obu_type != OBU_SEQUENCE_HEADER
-      Log.i(TAG, "Unsupported obu_type: " + obuType);
-      return colorInfo.build();
-    }
-    if (bitArray.readBit()) { // obu_extension_flag
-      Log.i(TAG, "Unsupported obu_extension_flag");
-      return colorInfo.build();
-    }
-    boolean obuHasSizeField = bitArray.readBit(); // obu_has_size_field
-    bitArray.skipBit(); // obu_reserved_1bit
-    // obu_size is unsigned leb128 and if obu_size <= 127 then it can be simplified as readBits(8).
-    if (obuHasSizeField && bitArray.readBits(8) > 127) { // obu_size
-      Log.i(TAG, "Excessive obu_size");
-      return colorInfo.build();
-    }
-    // 5.5.1. General OBU sequence header syntax
-    int obuSeqHeaderSeqProfile = bitArray.readBits(3); // seq_profile
-    bitArray.skipBit(); // still_picture
-    if (bitArray.readBit()) { // reduced_still_picture_header
-      Log.i(TAG, "Unsupported reduced_still_picture_header");
-      return colorInfo.build();
-    }
-    if (bitArray.readBit()) { // timing_info_present_flag
-      Log.i(TAG, "Unsupported timing_info_present_flag");
-      return colorInfo.build();
-    }
-    if (bitArray.readBit()) { // initial_display_delay_present_flag
-      Log.i(TAG, "Unsupported initial_display_delay_present_flag");
-      return colorInfo.build();
-    }
-    int operatingPointsCountMinus1 = bitArray.readBits(5); // operating_points_cnt_minus_1
-    for (int i = 0; i <= operatingPointsCountMinus1; i++) {
-      bitArray.skipBits(12); // operating_point_idc[i]
-      int seqLevelIdx = bitArray.readBits(5); // seq_level_idx[i]
-      if (seqLevelIdx > 7) {
-        bitArray.skipBit(); // seq_tier[i]
-      }
-    }
-    int frameWidthBitsMinus1 = bitArray.readBits(4); // frame_width_bits_minus_1
-    int frameHeightBitsMinus1 = bitArray.readBits(4); // frame_height_bits_minus_1
-    bitArray.skipBits(frameWidthBitsMinus1 + 1); // max_frame_width_minus_1
-    bitArray.skipBits(frameHeightBitsMinus1 + 1); // max_frame_height_minus_1
-    if (bitArray.readBit()) { // frame_id_numbers_present_flag
-      bitArray.skipBits(7); // delta_frame_id_length_minus_2, additional_frame_id_length_minus_1
-    }
-    bitArray.skipBits(7); // use_128x128_superblock...enable_dual_filter: 7 flags
-    boolean enableOrderHint = bitArray.readBit(); // enable_order_hint
-    if (enableOrderHint) {
-      bitArray.skipBits(2); // enable_jnt_comp, enable_ref_frame_mvs
-    }
-    int seqForceScreenContentTools =
-        bitArray.readBit() // seq_choose_screen_content_tools
-            ? 2 // SELECT_SCREEN_CONTENT_TOOLS
-            : bitArray.readBits(1); // seq_force_screen_content_tools
-    if (seqForceScreenContentTools > 0) {
-      if (!bitArray.readBit()) { // seq_choose_integer_mv
-        bitArray.skipBits(1); // seq_force_integer_mv
-      }
-    }
-    if (enableOrderHint) {
-      bitArray.skipBits(3); // order_hint_bits_minus_1
-    }
-    bitArray.skipBits(3); // enable_superres, enable_cdef, enable_restoration
-    // 5.5.2. OBU Color config syntax
-    boolean colorConfigHighBitdepth = bitArray.readBit(); // high_bitdepth
-    if (obuSeqHeaderSeqProfile == 2 && colorConfigHighBitdepth) {
-      bitArray.skipBit(); // twelve_bit
-    }
-
-    boolean monochrome = (obuSeqHeaderSeqProfile != 1) && bitArray.readBit(); // mono_chrome
-
-    if (bitArray.readBit()) { // color_description_present_flag
-      int colorPrimaries = bitArray.readBits(8); // color_primaries
-      int transferCharacteristics = bitArray.readBits(8); // transfer_characteristics
-      int matrixCoefficients = bitArray.readBits(8); // matrix_coefficients
-      int colorRange =
-          (!monochrome
-                  && colorPrimaries == 1 // CP_BT_709
-                  && transferCharacteristics == 13 // TC_SRGB
-                  && matrixCoefficients == 0) // MC_IDENTITY
-              ? 1
-              : bitArray.readBits(1); // color_range;
-      colorInfo
-          .setColorSpace(ColorInfo.isoColorPrimariesToColorSpace(colorPrimaries))
-          .setColorRange((colorRange == 1) ? C.COLOR_RANGE_FULL : C.COLOR_RANGE_LIMITED)
-          .setColorTransfer(
-              ColorInfo.isoTransferCharacteristicsToColorTransfer(transferCharacteristics));
-    }
-    return colorInfo.build();
   }
 
   private static ByteBuffer allocateHdrStaticInfo() {
@@ -1721,45 +1625,15 @@ import java.util.Objects;
       ExtractorUtil.checkContainerInput(childAtomSize > 0, "childAtomSize must be positive");
       int childAtomType = parent.readInt();
       if (childAtomType == Atom.TYPE_mhaC) {
-        // See ISO_IEC_23008-3;2022 MHADecoderConfigurationRecord
+        // See ISO_IEC_23008-3;2019 MHADecoderConfigurationRecord
         // The header consists of: size (4), boxtype 'mhaC' (4), configurationVersion (1),
         // mpegh3daProfileLevelIndication (1), referenceChannelLayout (1), mpegh3daConfigLength (2).
-        parent.setPosition(childPosition + Atom.HEADER_SIZE);
-        parent.skipBytes(1); // configurationVersion
-        int mpeghProfileLevelIndication = parent.readUnsignedByte();
-        parent.skipBytes(1); // mpeghReferenceChannelLayout
-        codecs =
-            Objects.equals(mimeType, MimeTypes.AUDIO_MPEGH_MHM1)
-                ? String.format("mhm1.%02X", mpeghProfileLevelIndication)
-                : String.format("mha1.%02X", mpeghProfileLevelIndication);
-        int mpegh3daConfigLength = parent.readUnsignedShort();
-        byte[] initializationDataBytes = new byte[mpegh3daConfigLength];
-        parent.readBytes(initializationDataBytes, 0, mpegh3daConfigLength);
-        // The mpegh3daConfig should always be the first entry in initializationData.
-        if (initializationData == null) {
-          initializationData = ImmutableList.of(initializationDataBytes);
-        } else {
-          // We assume that the mhaP box has been parsed before and so add the compatible profile
-          // level sets as the second entry.
-          initializationData = ImmutableList.of(initializationDataBytes, initializationData.get(0));
-        }
-      } else if (childAtomType == Atom.TYPE_mhaP) {
-        // See ISO_IEC_23008-3;2022 MHAProfileAndLevelCompatibilitySetBox
-        // The header consists of: size (4), boxtype 'mhaP' (4), numCompatibleSets (1).
-        parent.setPosition(childPosition + Atom.HEADER_SIZE);
-        int numCompatibleSets = parent.readUnsignedByte();
-        if (numCompatibleSets > 0) {
-          byte[] mpeghCompatibleProfileLevelSet = new byte[numCompatibleSets];
-          parent.readBytes(mpeghCompatibleProfileLevelSet, 0, numCompatibleSets);
-          if (initializationData == null) {
-            initializationData = ImmutableList.of(mpeghCompatibleProfileLevelSet);
-          } else {
-            // We assume that the mhaC box has been parsed before and so add the compatible profile
-            // level sets as the second entry.
-            initializationData =
-                ImmutableList.of(initializationData.get(0), mpeghCompatibleProfileLevelSet);
-          }
-        }
+        int mhacHeaderSize = 13;
+        int childAtomBodySize = childAtomSize - mhacHeaderSize;
+        byte[] initializationDataBytes = new byte[childAtomBodySize];
+        parent.setPosition(childPosition + mhacHeaderSize);
+        parent.readBytes(initializationDataBytes, 0, childAtomBodySize);
+        initializationData = ImmutableList.of(initializationDataBytes);
       } else if (childAtomType == Atom.TYPE_esds
           || (isQuickTime && childAtomType == Atom.TYPE_wave)) {
         int esdsAtomPosition =

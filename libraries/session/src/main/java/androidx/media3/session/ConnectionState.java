@@ -25,8 +25,8 @@ import androidx.annotation.Nullable;
 import androidx.core.app.BundleCompat;
 import androidx.media3.common.Bundleable;
 import androidx.media3.common.Player;
-import androidx.media3.common.util.BundleCollectionUtil;
 import androidx.media3.common.util.BundleUtil;
+import androidx.media3.common.util.BundleableUtil;
 import androidx.media3.common.util.Util;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
@@ -53,8 +53,6 @@ import java.util.List;
 
   public final Bundle tokenExtras;
 
-  public final Bundle sessionExtras;
-
   public final PlayerInfo playerInfo;
 
   public final ImmutableList<CommandButton> customLayout;
@@ -69,7 +67,6 @@ import java.util.List;
       Player.Commands playerCommandsFromSession,
       Player.Commands playerCommandsFromPlayer,
       Bundle tokenExtras,
-      Bundle sessionExtras,
       PlayerInfo playerInfo) {
     this.libraryVersion = libraryVersion;
     this.sessionInterfaceVersion = sessionInterfaceVersion;
@@ -80,7 +77,6 @@ import java.util.List;
     this.playerCommandsFromSession = playerCommandsFromSession;
     this.playerCommandsFromPlayer = playerCommandsFromPlayer;
     this.tokenExtras = tokenExtras;
-    this.sessionExtras = sessionExtras;
     this.playerInfo = playerInfo;
   }
 
@@ -94,33 +90,30 @@ import java.util.List;
   private static final String FIELD_PLAYER_COMMANDS_FROM_SESSION = Util.intToStringMaxRadix(4);
   private static final String FIELD_PLAYER_COMMANDS_FROM_PLAYER = Util.intToStringMaxRadix(5);
   private static final String FIELD_TOKEN_EXTRAS = Util.intToStringMaxRadix(6);
-  private static final String FIELD_SESSION_EXTRAS = Util.intToStringMaxRadix(11);
   private static final String FIELD_PLAYER_INFO = Util.intToStringMaxRadix(7);
   private static final String FIELD_SESSION_INTERFACE_VERSION = Util.intToStringMaxRadix(8);
   private static final String FIELD_IN_PROCESS_BINDER = Util.intToStringMaxRadix(10);
 
-  // Next field key = 12
+  // Next field key = 11
 
   @Override
   public Bundle toBundle() {
-    return toBundleForRemoteProcess(Integer.MAX_VALUE);
+    return toBundle(Integer.MAX_VALUE);
   }
 
-  public Bundle toBundleForRemoteProcess(int controllerInterfaceVersion) {
+  public Bundle toBundle(int controllerInterfaceVersion) {
     Bundle bundle = new Bundle();
     bundle.putInt(FIELD_LIBRARY_VERSION, libraryVersion);
     BundleCompat.putBinder(bundle, FIELD_SESSION_BINDER, sessionBinder.asBinder());
     bundle.putParcelable(FIELD_SESSION_ACTIVITY, sessionActivity);
     if (!customLayout.isEmpty()) {
       bundle.putParcelableArrayList(
-          FIELD_CUSTOM_LAYOUT,
-          BundleCollectionUtil.toBundleArrayList(customLayout, CommandButton::toBundle));
+          FIELD_CUSTOM_LAYOUT, BundleableUtil.toBundleArrayList(customLayout));
     }
     bundle.putBundle(FIELD_SESSION_COMMANDS, sessionCommands.toBundle());
     bundle.putBundle(FIELD_PLAYER_COMMANDS_FROM_SESSION, playerCommandsFromSession.toBundle());
     bundle.putBundle(FIELD_PLAYER_COMMANDS_FROM_PLAYER, playerCommandsFromPlayer.toBundle());
     bundle.putBundle(FIELD_TOKEN_EXTRAS, tokenExtras);
-    bundle.putBundle(FIELD_SESSION_EXTRAS, sessionExtras);
     Player.Commands intersectedCommands =
         MediaUtils.intersect(playerCommandsFromSession, playerCommandsFromPlayer);
     bundle.putBundle(
@@ -128,7 +121,7 @@ import java.util.List;
         playerInfo
             .filterByAvailableCommands(
                 intersectedCommands, /* excludeTimeline= */ false, /* excludeTracks= */ false)
-            .toBundleForRemoteProcess(controllerInterfaceVersion));
+            .toBundle(controllerInterfaceVersion));
     bundle.putInt(FIELD_SESSION_INTERFACE_VERSION, sessionInterfaceVersion);
     return bundle;
   }
@@ -143,15 +136,10 @@ import java.util.List;
     return bundle;
   }
 
-  /**
-   * @deprecated Use {@link #fromBundle} instead.
-   */
-  @Deprecated
-  @SuppressWarnings("deprecation") // Deprecated instance of deprecated class
+  /** Object that can restore a {@link ConnectionState} from a {@link Bundle}. */
   public static final Creator<ConnectionState> CREATOR = ConnectionState::fromBundle;
 
-  /** Restores a {@code ConnectionState} from a {@link Bundle}. */
-  public static ConnectionState fromBundle(Bundle bundle) {
+  private static ConnectionState fromBundle(Bundle bundle) {
     @Nullable IBinder inProcessBinder = BundleUtil.getBinder(bundle, FIELD_IN_PROCESS_BINDER);
     if (inProcessBinder instanceof InProcessBinder) {
       return ((InProcessBinder) inProcessBinder).getConnectionState();
@@ -165,30 +153,31 @@ import java.util.List;
     List<Bundle> commandButtonArrayList = bundle.getParcelableArrayList(FIELD_CUSTOM_LAYOUT);
     ImmutableList<CommandButton> customLayout =
         commandButtonArrayList != null
-            ? BundleCollectionUtil.fromBundleList(CommandButton::fromBundle, commandButtonArrayList)
+            ? BundleableUtil.fromBundleList(CommandButton.CREATOR, commandButtonArrayList)
             : ImmutableList.of();
     @Nullable Bundle sessionCommandsBundle = bundle.getBundle(FIELD_SESSION_COMMANDS);
     SessionCommands sessionCommands =
         sessionCommandsBundle == null
             ? SessionCommands.EMPTY
-            : SessionCommands.fromBundle(sessionCommandsBundle);
+            : SessionCommands.CREATOR.fromBundle(sessionCommandsBundle);
     @Nullable
     Bundle playerCommandsFromPlayerBundle = bundle.getBundle(FIELD_PLAYER_COMMANDS_FROM_PLAYER);
     Player.Commands playerCommandsFromPlayer =
         playerCommandsFromPlayerBundle == null
             ? Player.Commands.EMPTY
-            : Player.Commands.fromBundle(playerCommandsFromPlayerBundle);
+            : Player.Commands.CREATOR.fromBundle(playerCommandsFromPlayerBundle);
     @Nullable
     Bundle playerCommandsFromSessionBundle = bundle.getBundle(FIELD_PLAYER_COMMANDS_FROM_SESSION);
     Player.Commands playerCommandsFromSession =
         playerCommandsFromSessionBundle == null
             ? Player.Commands.EMPTY
-            : Player.Commands.fromBundle(playerCommandsFromSessionBundle);
+            : Player.Commands.CREATOR.fromBundle(playerCommandsFromSessionBundle);
     @Nullable Bundle tokenExtras = bundle.getBundle(FIELD_TOKEN_EXTRAS);
-    @Nullable Bundle sessionExtras = bundle.getBundle(FIELD_SESSION_EXTRAS);
     @Nullable Bundle playerInfoBundle = bundle.getBundle(FIELD_PLAYER_INFO);
     PlayerInfo playerInfo =
-        playerInfoBundle == null ? PlayerInfo.DEFAULT : PlayerInfo.fromBundle(playerInfoBundle);
+        playerInfoBundle == null
+            ? PlayerInfo.DEFAULT
+            : PlayerInfo.CREATOR.fromBundle(playerInfoBundle);
     return new ConnectionState(
         libraryVersion,
         sessionInterfaceVersion,
@@ -199,7 +188,6 @@ import java.util.List;
         playerCommandsFromSession,
         playerCommandsFromPlayer,
         tokenExtras == null ? Bundle.EMPTY : tokenExtras,
-        sessionExtras == null ? Bundle.EMPTY : sessionExtras,
         playerInfo);
   }
 

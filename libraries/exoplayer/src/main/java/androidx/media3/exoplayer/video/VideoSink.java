@@ -34,7 +34,7 @@ import java.util.concurrent.Executor;
 
 /** A sink that consumes decoded video frames. */
 @UnstableApi
-public interface VideoSink {
+/* package */ interface VideoSink {
 
   /** Thrown by {@link VideoSink} implementations. */
   final class VideoSinkException extends Exception {
@@ -55,33 +55,54 @@ public interface VideoSink {
     /** Called when the sink renderers the first frame. */
     void onFirstFrameRendered(VideoSink videoSink);
 
-    /** Called when the sink dropped a frame. */
-    void onFrameDropped(VideoSink videoSink);
-
-    /**
-     * Called before a frame is rendered for the first time since setting the surface, and each time
-     * there's a change in the size, rotation or pixel aspect ratio of the video being rendered.
-     */
+    /** Called when the output video size changed. */
     void onVideoSizeChanged(VideoSink videoSink, VideoSize videoSize);
 
     /** Called when the {@link VideoSink} encountered an error. */
     void onError(VideoSink videoSink, VideoSinkException videoSinkException);
+  }
 
-    /** A no-op listener implementation. */
-    Listener NO_OP =
-        new Listener() {
-          @Override
-          public void onFirstFrameRendered(VideoSink videoSink) {}
+  /** Controls the rendering of video frames. */
+  interface RenderControl {
+    /** Signals a frame must be rendered immediately. */
+    long RENDER_TIME_IMMEDIATELY = -1;
 
-          @Override
-          public void onFrameDropped(VideoSink videoSink) {}
+    /** Signals a frame must be dropped. */
+    long RENDER_TIME_DROP = -2;
 
-          @Override
-          public void onVideoSizeChanged(VideoSink videoSink, VideoSize videoSize) {}
+    /** Signals that a frame should not be rendered yet. */
+    long RENDER_TIME_TRY_AGAIN_LATER = -3;
 
-          @Override
-          public void onError(VideoSink videoSink, VideoSinkException videoSinkException) {}
-        };
+    /**
+     * Returns the render timestamp, in nanoseconds, associated with this video frames or one of the
+     * {@code RENDER_TIME_} constants if the frame must be rendered immediately, dropped or not
+     * rendered yet.
+     *
+     * @param presentationTimeUs The presentation time of the video frame, in microseconds.
+     * @param positionUs The current playback position, in microseconds.
+     * @param elapsedRealtimeUs {@link android.os.SystemClock#elapsedRealtime()} in microseconds,
+     *     taken approximately at the time the playback position was {@code positionUs}.
+     * @param playbackSpeed The current playback speed.
+     * @return The render timestamp, in nanoseconds, associated with this frame, or one of the
+     *     {@code RENDER_TIME_} constants if the frame must be rendered immediately, dropped or not
+     *     rendered yet.
+     */
+    long getFrameRenderTimeNs(
+        long presentationTimeUs, long positionUs, long elapsedRealtimeUs, float playbackSpeed);
+
+    /**
+     * Informs the rendering control that a video frame will be rendered. Call this method before
+     * rendering a frame.
+     *
+     * @param presentationTimeUs The frame's presentation time, in microseconds.
+     */
+    void onNextFrame(long presentationTimeUs);
+
+    /** Informs the rendering control that a video frame was rendered. */
+    void onFrameRendered();
+
+    /** Informs the rendering control that a video frame was dropped. */
+    void onFrameDropped();
   }
 
   /**
@@ -171,7 +192,6 @@ public interface VideoSink {
    * @param positionUs The current playback position, in microseconds.
    * @param elapsedRealtimeUs {@link android.os.SystemClock#elapsedRealtime()} in microseconds,
    *     taken approximately at the time the playback position was {@code positionUs}.
-   * @throws VideoSinkException If an error occurs during rendering.
    */
-  void render(long positionUs, long elapsedRealtimeUs) throws VideoSinkException;
+  void render(long positionUs, long elapsedRealtimeUs);
 }
