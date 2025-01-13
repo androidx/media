@@ -20,7 +20,9 @@ import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.muxer.ColorUtils.MEDIAFORMAT_STANDARD_TO_PRIMARIES_AND_MATRIX;
 import static androidx.media3.muxer.ColorUtils.MEDIAFORMAT_TRANSFER_TO_MP4_TRANSFER;
+import static androidx.media3.muxer.Mp4Utils.BYTES_PER_INTEGER;
 import static androidx.media3.muxer.Mp4Utils.MVHD_TIMEBASE;
+import static androidx.media3.muxer.Mp4Utils.UNSIGNED_INT_MAX_VALUE;
 
 import android.media.MediaCodec;
 import android.media.MediaCodec.BufferInfo;
@@ -49,7 +51,13 @@ import java.util.Locale;
  * buffers}.
  */
 /* package */ final class Boxes {
-  private static final int BYTES_PER_INTEGER = 4;
+  // Box size (4 bytes) + Box name (4 bytes)
+  public static final int BOX_HEADER_SIZE = 2 * BYTES_PER_INTEGER;
+
+  public static final int MFHD_BOX_CONTENT_SIZE = 2 * BYTES_PER_INTEGER;
+
+  public static final int TFHD_BOX_CONTENT_SIZE = 4 * BYTES_PER_INTEGER;
+
   // unsigned int(2) sample_depends_on = 2 (bit index 25 and 24)
   private static final int TRUN_BOX_SYNC_SAMPLE_FLAGS = 0b00000010_00000000_00000000_00000000;
   // unsigned int(2) sample_depends_on = 1 (bit index 25 and 24)
@@ -729,16 +737,35 @@ import java.util.Locale;
     return BoxUtils.wrapIntoBox("stsc", contents);
   }
 
-  /** Returns the co64 (chunk offset) box. */
-  public static ByteBuffer co64(List<Long> writtenChunkOffsets) {
+  /** Returns the stco (32-bit chunk offset) box. */
+  public static ByteBuffer stco(List<Long> writtenChunkOffsets) {
     ByteBuffer contents =
-        ByteBuffer.allocate(writtenChunkOffsets.size() * 8 + Mp4Utils.MAX_FIXED_LEAF_BOX_SIZE);
+        ByteBuffer.allocate(2 * BYTES_PER_INTEGER + writtenChunkOffsets.size() * BYTES_PER_INTEGER);
 
-    contents.putInt(0x0); // version.
-    contents.putInt(writtenChunkOffsets.size()); // entry_count.
+    contents.putInt(0x0); // version and flags
+    contents.putInt(writtenChunkOffsets.size()); // entry_count; unsigned int(32)
 
     for (int i = 0; i < writtenChunkOffsets.size(); i++) {
-      contents.putLong(writtenChunkOffsets.get(i)); // chunk_offset.
+      long chunkOffset = writtenChunkOffsets.get(i);
+      checkState(chunkOffset <= UNSIGNED_INT_MAX_VALUE, "Only 32-bit offset is allowed");
+      contents.putInt((int) chunkOffset); // chunk_offset; unsigned int(32)
+    }
+
+    contents.flip();
+    return BoxUtils.wrapIntoBox("stco", contents);
+  }
+
+  /** Returns the co64 (64-bit chunk offset) box. */
+  public static ByteBuffer co64(List<Long> writtenChunkOffsets) {
+    ByteBuffer contents =
+        ByteBuffer.allocate(
+            2 * BYTES_PER_INTEGER + 2 * writtenChunkOffsets.size() * BYTES_PER_INTEGER);
+
+    contents.putInt(0x0); // version and flags
+    contents.putInt(writtenChunkOffsets.size()); // entry_count; unsigned int(32)
+
+    for (int i = 0; i < writtenChunkOffsets.size(); i++) {
+      contents.putLong(writtenChunkOffsets.get(i)); // chunk_offset; unsigned int(64)
     }
 
     contents.flip();
@@ -822,7 +849,7 @@ import java.util.Locale;
 
   /** Returns the movie fragment header (mfhd) box. */
   public static ByteBuffer mfhd(int sequenceNumber) {
-    ByteBuffer contents = ByteBuffer.allocate(2 * BYTES_PER_INTEGER);
+    ByteBuffer contents = ByteBuffer.allocate(MFHD_BOX_CONTENT_SIZE);
     contents.putInt(0x0); // version and flags
     contents.putInt(sequenceNumber); // An unsigned int(32)
     contents.flip();
@@ -835,20 +862,21 @@ import java.util.Locale;
   }
 
   /** Returns a track fragment header (tfhd) box. */
-  public static ByteBuffer tfhd(int trackId) {
-    ByteBuffer contents = ByteBuffer.allocate(2 * BYTES_PER_INTEGER);
-    contents.putInt(0x0); // version and flags
+  public static ByteBuffer tfhd(int trackId, long baseDataOffset) {
+    ByteBuffer contents = ByteBuffer.allocate(TFHD_BOX_CONTENT_SIZE);
+    // 0x000001 base-data-offset-present: indicates the presence of the base-data-offset field.
+    contents.putInt(0x0 | 0x000001); // version and flags
     contents.putInt(trackId);
+    contents.putLong(baseDataOffset);
     contents.flip();
     return BoxUtils.wrapIntoBox("tfhd", contents);
   }
 
   /** Returns a track fragment run (trun) box. */
-  public static ByteBuffer trun(List<SampleMetadata> samplesMetadata) {
-    // 3 integers are required for each sample's metadata.
-    ByteBuffer contents =
-        ByteBuffer.allocate(2 * BYTES_PER_INTEGER + 3 * samplesMetadata.size() * BYTES_PER_INTEGER);
+  public static ByteBuffer trun(List<SampleMetadata> samplesMetadata, int dataOffset) {
+    ByteBuffer contents = ByteBuffer.allocate(getTrunBoxContentSize(samplesMetadata.size()));
 
+    // 0x000001 data-offset-present.
     // 0x000100 sample-duration-present: indicates that each sample has its own duration, otherwise
     // the default is used.
     // 0x000200 sample-size-present: indicates that each sample has its own size, otherwise the
@@ -856,9 +884,10 @@ import java.util.Locale;
     // 0x000400 sample-flags-present: indicates that each sample has its own flags, otherwise the
     // default is used.
     // Version is 0x0.
-    int versionAndFlags = 0x0 | 0x000100 | 0x000200 | 0x000400;
+    int versionAndFlags = 0x0 | 0x000001 | 0x000100 | 0x000200 | 0x000400;
     contents.putInt(versionAndFlags);
     contents.putInt(samplesMetadata.size()); // An unsigned int(32)
+    contents.putInt(dataOffset); // A signed int(32)
     for (int i = 0; i < samplesMetadata.size(); i++) {
       SampleMetadata currentSampleMetadata = samplesMetadata.get(i);
       contents.putInt((int) currentSampleMetadata.durationVu); // An unsigned int(32)
@@ -870,6 +899,13 @@ import java.util.Locale;
     }
     contents.flip();
     return BoxUtils.wrapIntoBox("trun", contents);
+  }
+
+  /** Returns the size required for {@link #trun(List, int)} box content. */
+  public static int getTrunBoxContentSize(int sampleCount) {
+    int trunBoxFixedSize = 3 * BYTES_PER_INTEGER;
+    // 3 int(32-bit) gets written for each sample.
+    return trunBoxFixedSize + 3 * sampleCount * BYTES_PER_INTEGER;
   }
 
   /** Returns a movie extends (mvex) box. */

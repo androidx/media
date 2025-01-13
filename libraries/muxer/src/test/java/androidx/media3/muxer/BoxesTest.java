@@ -498,6 +498,17 @@ public class BoxesTest {
   }
 
   @Test
+  public void createStcoBox_matchesExpected() throws IOException {
+    ImmutableList<Long> chunkOffsets = ImmutableList.of(1_000L, 5_000L, 7_000L, 10_000L);
+
+    ByteBuffer stcoBox = Boxes.stco(chunkOffsets);
+
+    DumpableMp4Box dumpableBox = new DumpableMp4Box(stcoBox);
+    DumpFileAsserts.assertOutput(
+        context, dumpableBox, MuxerTestUtil.getExpectedDumpFilePath("stco_box"));
+  }
+
+  @Test
   public void createCo64Box_matchesExpected() throws IOException {
     ImmutableList<Long> chunkOffsets = ImmutableList.of(1_000L, 5_000L, 7_000L, 10_000L);
 
@@ -539,7 +550,7 @@ public class BoxesTest {
 
   @Test
   public void createTfhdBox_matchesExpected() throws IOException {
-    ByteBuffer tfhdBox = Boxes.tfhd(/* trackId= */ 1);
+    ByteBuffer tfhdBox = Boxes.tfhd(/* trackId= */ 1, /* baseDataOffset= */ 1_000L);
 
     DumpableMp4Box dumpableBox = new DumpableMp4Box(tfhdBox);
     DumpFileAsserts.assertOutput(
@@ -558,7 +569,7 @@ public class BoxesTest {
               /* flags= */ i == 0 ? MediaCodec.BUFFER_FLAG_KEY_FRAME : 0));
     }
 
-    ByteBuffer trunBox = Boxes.trun(samplesMetadata);
+    ByteBuffer trunBox = Boxes.trun(samplesMetadata, /* dataOffset= */ 1_000);
 
     DumpableMp4Box dumpableBox = new DumpableMp4Box(trunBox);
     DumpFileAsserts.assertOutput(

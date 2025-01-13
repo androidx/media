@@ -19,6 +19,7 @@ import android.os.SystemClock;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.TransferListener;
 import androidx.media3.exoplayer.analytics.PlayerId;
@@ -28,6 +29,9 @@ import androidx.media3.exoplayer.source.chunk.ChunkSource;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import androidx.media3.exoplayer.upstream.CmcdConfiguration;
 import androidx.media3.exoplayer.upstream.LoaderErrorThrower;
+import androidx.media3.extractor.Extractor;
+import androidx.media3.extractor.text.SubtitleParser;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
 
 /** A {@link ChunkSource} for DASH streams. */
@@ -36,6 +40,36 @@ public interface DashChunkSource extends ChunkSource {
 
   /** Factory for {@link DashChunkSource}s. */
   interface Factory {
+
+    /**
+     * Sets the {@link SubtitleParser.Factory} to use for parsing subtitles during extraction. The
+     * default factory value is implementation dependent.
+     *
+     * @param subtitleParserFactory The {@link SubtitleParser.Factory} for parsing subtitles during
+     *     extraction.
+     * @return This factory, for convenience.
+     */
+    @CanIgnoreReturnValue
+    default Factory setSubtitleParserFactory(SubtitleParser.Factory subtitleParserFactory) {
+      return this;
+    }
+
+    /**
+     * Sets whether subtitles should be parsed as part of extraction (before being added to the
+     * sample queue) or as part of rendering (when being taken from the sample queue). Defaults to
+     * {@code false} (i.e. subtitles will be parsed as part of rendering).
+     *
+     * <p>This method is experimental and will be renamed or removed in a future release.
+     *
+     * @param parseSubtitlesDuringExtraction Whether to parse subtitles during extraction or
+     *     rendering.
+     * @return This factory, for convenience.
+     */
+    @CanIgnoreReturnValue
+    default Factory experimentalParseSubtitlesDuringExtraction(
+        boolean parseSubtitlesDuringExtraction) {
+      return this;
+    }
 
     /**
      * @param manifestLoaderErrorThrower Throws errors affecting loading of manifests.
@@ -74,6 +108,26 @@ public interface DashChunkSource extends ChunkSource {
         @Nullable TransferListener transferListener,
         PlayerId playerId,
         @Nullable CmcdConfiguration cmcdConfiguration);
+
+    /**
+     * Returns the output {@link Format} of emitted {@linkplain C#TRACK_TYPE_TEXT text samples}
+     * which were originally in {@code sourceFormat}.
+     *
+     * <p>In many cases, where an {@link Extractor} emits samples from the source without mutation,
+     * this method simply returns {@code sourceFormat}. In other cases, such as an {@link Extractor}
+     * that transcodes subtitles from the {@code sourceFormat} to {@link
+     * MimeTypes#APPLICATION_MEDIA3_CUES}, the format is updated to indicate the transcoding that is
+     * taking place.
+     *
+     * <p>Non-text source formats are always returned without mutation.
+     *
+     * @param sourceFormat The original text-based format.
+     * @return The {@link Format} that will be associated with a {@linkplain C#TRACK_TYPE_TEXT text
+     *     track}.
+     */
+    default Format getOutputTextFormat(Format sourceFormat) {
+      return sourceFormat;
+    }
   }
 
   /**

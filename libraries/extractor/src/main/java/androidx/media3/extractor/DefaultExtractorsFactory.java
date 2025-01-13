@@ -249,7 +249,7 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
   /**
    * Sets flags for {@link MatroskaExtractor} instances created by the factory.
    *
-   * @see MatroskaExtractor#MatroskaExtractor(int)
+   * @see MatroskaExtractor#MatroskaExtractor(SubtitleParser.Factory, int)
    * @param flags The flags to use.
    * @return The factory, for convenience.
    */
@@ -368,23 +368,14 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
   }
 
   @Override
-  public DefaultExtractorsFactory experimentalSetTextTrackTranscodingEnabled(
+  public synchronized DefaultExtractorsFactory experimentalSetTextTrackTranscodingEnabled(
       boolean textTrackTranscodingEnabled) {
     this.textTrackTranscodingEnabled = textTrackTranscodingEnabled;
     return this;
   }
 
-  /**
-   * Sets a {@link SubtitleParser.Factory} to use when transcoding text tracks.
-   *
-   * <p>This is only used if {@link #setTextTrackTranscodingEnabled(boolean)} is enabled.
-   *
-   * <p>The default value is {@link DefaultSubtitleParserFactory}.
-   *
-   * @param subtitleParserFactory The factory for {@link SubtitleParser} instances.
-   * @return The factory, for convenience.
-   */
   @CanIgnoreReturnValue
+  @Override
   public synchronized DefaultExtractorsFactory setSubtitleParserFactory(
       SubtitleParser.Factory subtitleParserFactory) {
     this.subtitleParserFactory = subtitleParserFactory;
@@ -441,6 +432,8 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
                   && !(extractor.getUnderlyingImplementation() instanceof FragmentedMp4Extractor)
                   && !(extractor.getUnderlyingImplementation() instanceof Mp4Extractor)
                   && !(extractor.getUnderlyingImplementation() instanceof TsExtractor)
+                  && !(extractor.getUnderlyingImplementation() instanceof AviExtractor)
+                  && !(extractor.getUnderlyingImplementation() instanceof MatroskaExtractor)
               ? new SubtitleTranscodingExtractor(extractor, subtitleParserFactory)
               : extractor;
     }
@@ -489,7 +482,13 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
         extractors.add(new FlvExtractor());
         break;
       case FileTypes.MATROSKA:
-        extractors.add(new MatroskaExtractor(matroskaFlags));
+        extractors.add(
+            new MatroskaExtractor(
+                subtitleParserFactory,
+                matroskaFlags
+                    | (textTrackTranscodingEnabled
+                        ? 0
+                        : MatroskaExtractor.FLAG_EMIT_RAW_SUBTITLE_DATA)));
         break;
       case FileTypes.MP3:
         extractors.add(
@@ -550,7 +549,10 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
         }
         break;
       case FileTypes.AVI:
-        extractors.add(new AviExtractor());
+        extractors.add(
+            new AviExtractor(
+                (textTrackTranscodingEnabled ? 0 : AviExtractor.FLAG_EMIT_RAW_SUBTITLE_DATA),
+                subtitleParserFactory));
         break;
       case FileTypes.PNG:
         extractors.add(new PngExtractor());

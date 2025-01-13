@@ -65,7 +65,6 @@ import androidx.media3.exoplayer.upstream.Loader;
 import androidx.media3.exoplayer.upstream.Loader.LoadErrorAction;
 import androidx.media3.exoplayer.upstream.LoaderErrorThrower;
 import androidx.media3.exoplayer.upstream.ParsingLoadable;
-import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
 import androidx.media3.extractor.text.SubtitleParser;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -93,7 +92,6 @@ public final class SsMediaSource extends BaseMediaSource
     @Nullable private CmcdConfiguration.Factory cmcdConfigurationFactory;
     private DrmSessionManagerProvider drmSessionManagerProvider;
     private LoadErrorHandlingPolicy loadErrorHandlingPolicy;
-    @Nullable private SubtitleParser.Factory subtitleParserFactory;
     private long livePresentationDelayMs;
     @Nullable private ParsingLoadable.Parser<? extends SsManifest> manifestParser;
 
@@ -155,32 +153,18 @@ public final class SsMediaSource extends BaseMediaSource
       return this;
     }
 
-    /**
-     * {@inheritDoc}
-     *
-     * <p>This method may only be used with {@link DefaultSsChunkSource.Factory}.
-     *
-     * @param parseSubtitlesDuringExtraction Whether to parse subtitles during extraction or
-     *     rendering.
-     * @return This factory, for convenience.
-     */
-    // TODO: b/289916598 - Flip the default of this to true.
     @Override
+    @CanIgnoreReturnValue
+    public Factory setSubtitleParserFactory(SubtitleParser.Factory subtitleParserFactory) {
+      chunkSourceFactory.setSubtitleParserFactory(checkNotNull(subtitleParserFactory));
+      return this;
+    }
+
+    @Override
+    @CanIgnoreReturnValue
     public Factory experimentalParseSubtitlesDuringExtraction(
         boolean parseSubtitlesDuringExtraction) {
-      if (parseSubtitlesDuringExtraction) {
-        if (subtitleParserFactory == null) {
-          this.subtitleParserFactory = new DefaultSubtitleParserFactory();
-        }
-      } else {
-        this.subtitleParserFactory = null;
-      }
-      if (chunkSourceFactory instanceof DefaultSsChunkSource.Factory) {
-        ((DefaultSsChunkSource.Factory) chunkSourceFactory)
-            .setSubtitleParserFactory(subtitleParserFactory);
-      } else {
-        throw new IllegalStateException();
-      }
+      chunkSourceFactory.experimentalParseSubtitlesDuringExtraction(parseSubtitlesDuringExtraction);
       return this;
     }
 
@@ -305,7 +289,6 @@ public final class SsMediaSource extends BaseMediaSource
           cmcdConfiguration,
           drmSessionManagerProvider.get(mediaItem),
           loadErrorHandlingPolicy,
-          subtitleParserFactory,
           livePresentationDelayMs);
     }
 
@@ -343,7 +326,6 @@ public final class SsMediaSource extends BaseMediaSource
           cmcdConfiguration,
           drmSessionManagerProvider.get(mediaItem),
           loadErrorHandlingPolicy,
-          subtitleParserFactory,
           livePresentationDelayMs);
     }
 
@@ -387,7 +369,6 @@ public final class SsMediaSource extends BaseMediaSource
   private long manifestLoadStartTimestamp;
   private SsManifest manifest;
   private Handler manifestRefreshHandler;
-  @Nullable private final SubtitleParser.Factory subtitleParserFactory;
 
   @GuardedBy("this")
   private MediaItem mediaItem;
@@ -402,7 +383,6 @@ public final class SsMediaSource extends BaseMediaSource
       @Nullable CmcdConfiguration cmcdConfiguration,
       DrmSessionManager drmSessionManager,
       LoadErrorHandlingPolicy loadErrorHandlingPolicy,
-      @Nullable SubtitleParser.Factory subtitleParserFactory,
       long livePresentationDelayMs) {
     Assertions.checkState(manifest == null || !manifest.isLive);
     this.mediaItem = mediaItem;
@@ -419,7 +399,6 @@ public final class SsMediaSource extends BaseMediaSource
     this.cmcdConfiguration = cmcdConfiguration;
     this.drmSessionManager = drmSessionManager;
     this.loadErrorHandlingPolicy = loadErrorHandlingPolicy;
-    this.subtitleParserFactory = subtitleParserFactory;
     this.livePresentationDelayMs = livePresentationDelayMs;
     this.manifestEventDispatcher = createEventDispatcher(/* mediaPeriodId= */ null);
     sideloadedManifest = manifest != null;
@@ -487,8 +466,7 @@ public final class SsMediaSource extends BaseMediaSource
             loadErrorHandlingPolicy,
             mediaSourceEventDispatcher,
             manifestLoaderErrorThrower,
-            allocator,
-            subtitleParserFactory);
+            allocator);
     mediaPeriods.add(period);
     return period;
   }

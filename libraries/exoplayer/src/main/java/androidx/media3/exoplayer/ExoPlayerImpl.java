@@ -79,6 +79,7 @@ import androidx.media3.common.Timeline;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.Tracks;
+import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.text.Cue;
 import androidx.media3.common.text.CueGroup;
@@ -1274,6 +1275,13 @@ import java.util.concurrent.TimeoutException;
   @Override
   public void setVideoEffects(List<Effect> videoEffects) {
     verifyApplicationThread();
+    try {
+      // LINT.IfChange(set_video_effects)
+      Class.forName("androidx.media3.effect.PreviewingSingleInputVideoGraph$Factory")
+          .getConstructor(VideoFrameProcessor.Factory.class);
+    } catch (ClassNotFoundException | NoSuchMethodException e) {
+      throw new IllegalStateException("Could not find required lib-effect dependencies.", e);
+    }
     sendRendererMessage(TRACK_TYPE_VIDEO, MSG_SET_VIDEO_EFFECTS, videoEffects);
   }
 
@@ -2010,7 +2018,8 @@ import java.util.concurrent.TimeoutException;
       }
       staticAndDynamicMediaMetadata = MediaMetadata.EMPTY;
     }
-    if (!previousPlaybackInfo.staticMetadata.equals(newPlaybackInfo.staticMetadata)) {
+    if (mediaItemTransitioned
+        || !previousPlaybackInfo.staticMetadata.equals(newPlaybackInfo.staticMetadata)) {
       staticAndDynamicMediaMetadata =
           staticAndDynamicMediaMetadata
               .buildUpon()

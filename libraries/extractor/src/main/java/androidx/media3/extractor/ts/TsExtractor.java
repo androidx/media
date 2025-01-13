@@ -15,6 +15,7 @@
  */
 package androidx.media3.extractor.ts;
 
+import static androidx.media3.extractor.ts.TsPayloadReader.EsInfo.AUDIO_TYPE_UNDEFINED;
 import static androidx.media3.extractor.ts.TsPayloadReader.FLAG_PAYLOAD_UNIT_START_INDICATOR;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
@@ -133,6 +134,8 @@ public final class TsExtractor implements Extractor {
   public static final int TS_STREAM_TYPE_ID3 = 0x15;
   public static final int TS_STREAM_TYPE_SPLICE_INFO = 0x86;
   public static final int TS_STREAM_TYPE_DVBSUBS = 0x59;
+  public static final int TS_STREAM_TYPE_DTS_HD = 0x88; // As per ATSC Code Point Registry
+  public static final int TS_STREAM_TYPE_DTS_UHD = 0x8B;
 
   // Stream types that aren't defined by the MPEG-2 TS specification.
   public static final int TS_STREAM_TYPE_DC2_H262 = 0x80;
@@ -679,6 +682,8 @@ public final class TsExtractor implements Extractor {
     private static final int TS_PMT_DESC_DVBSUBS = 0x59;
 
     private static final int TS_PMT_DESC_DVB_EXT_AC4 = 0x15;
+    private static final int TS_PMT_DESC_DVB_EXT_DTS_HD = 0x0E;
+    private static final int TS_PMT_DESC_DVB_EXT_DTS_UHD = 0x21;
 
     private final ParsableBitArray pmtScratch;
     private final SparseArray<@NullableType TsPayloadReader> trackIdToReaderScratch;
@@ -748,7 +753,8 @@ public final class TsExtractor implements Extractor {
       if (mode == MODE_HLS && id3Reader == null) {
         // Setup an ID3 track regardless of whether there's a corresponding entry, in case one
         // appears intermittently during playback. See [Internal: b/20261500].
-        EsInfo id3EsInfo = new EsInfo(TS_STREAM_TYPE_ID3, null, null, Util.EMPTY_BYTE_ARRAY);
+        EsInfo id3EsInfo =
+            new EsInfo(TS_STREAM_TYPE_ID3, null, AUDIO_TYPE_UNDEFINED, null, Util.EMPTY_BYTE_ARRAY);
         id3Reader = payloadReaderFactory.createPayloadReader(TS_STREAM_TYPE_ID3, id3EsInfo);
         if (id3Reader != null) {
           id3Reader.init(
@@ -838,6 +844,7 @@ public final class TsExtractor implements Extractor {
       int descriptorsEndPosition = descriptorsStartPosition + length;
       int streamType = -1;
       String language = null;
+      @EsInfo.AudioType int audioType = AUDIO_TYPE_UNDEFINED;
       List<DvbSubtitleInfo> dvbSubtitleInfos = null;
       while (data.getPosition() < descriptorsEndPosition) {
         int descriptorTag = data.readUnsignedByte();
@@ -868,12 +875,18 @@ public final class TsExtractor implements Extractor {
           if (descriptorTagExt == TS_PMT_DESC_DVB_EXT_AC4) {
             // AC-4_descriptor in DVB (ETSI EN 300 468).
             streamType = TS_STREAM_TYPE_AC4;
+          } else if (descriptorTagExt == TS_PMT_DESC_DVB_EXT_DTS_HD) {
+            // DTS-HD descriptor in DVB (ETSI EN 300 468).
+            streamType = TS_STREAM_TYPE_DTS_HD;
+          } else if (descriptorTagExt == TS_PMT_DESC_DVB_EXT_DTS_UHD) {
+            // DTS-UHD descriptor in DVB (ETSI EN 300 468).
+            streamType = TS_STREAM_TYPE_DTS_UHD;
           }
         } else if (descriptorTag == TS_PMT_DESC_DTS) { // DTS_descriptor
           streamType = TS_STREAM_TYPE_DTS;
         } else if (descriptorTag == TS_PMT_DESC_ISO639_LANG) {
           language = data.readString(3).trim();
-          // Audio type is ignored.
+          audioType = data.readUnsignedByte();
         } else if (descriptorTag == TS_PMT_DESC_DVBSUBS) {
           streamType = TS_STREAM_TYPE_DVBSUBS;
           dvbSubtitleInfos = new ArrayList<>();
@@ -895,6 +908,7 @@ public final class TsExtractor implements Extractor {
       return new EsInfo(
           streamType,
           language,
+          audioType,
           dvbSubtitleInfos,
           Arrays.copyOfRange(data.getData(), descriptorsStartPosition, descriptorsEndPosition));
     }

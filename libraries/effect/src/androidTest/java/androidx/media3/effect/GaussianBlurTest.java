@@ -83,10 +83,11 @@ public class GaussianBlurTest {
 
   // Golden images for these tests were generated on an API 33 emulator. API 26 emulators have a
   // different text rendering implementation that leads to a larger pixel difference.
+
   @Test
   @RequiresNonNull({"textureBitmapReader", "testId"})
   public void gaussianBlur_blursFrame() throws Exception {
-    ImmutableList<Long> frameTimesUs = ImmutableList.of(32_000L);
+    ImmutableList<Long> frameTimesUs = ImmutableList.of(22_000L);
     ImmutableList<Long> actualPresentationTimesUs =
         generateAndProcessFrames(
             BLANK_FRAME_WIDTH,
@@ -96,31 +97,7 @@ public class GaussianBlurTest {
             textureBitmapReader,
             TEXT_SPAN_CONSUMER);
 
-    assertThat(actualPresentationTimesUs).containsExactly(32_000L);
-    getAndAssertOutputBitmaps(textureBitmapReader, actualPresentationTimesUs, testId, ASSET_PATH);
-  }
-
-  @Test
-  @RequiresNonNull({"textureBitmapReader", "testId"})
-  public void gaussianBlur_sigmaChangesWithTime_differentFramesHaveDifferentBlurs()
-      throws Exception {
-    ImmutableList<Long> frameTimesUs = ImmutableList.of(32_000L, 71_000L);
-    ImmutableList<Long> actualPresentationTimesUs =
-        generateAndProcessFrames(
-            BLANK_FRAME_WIDTH,
-            BLANK_FRAME_HEIGHT,
-            frameTimesUs,
-            new SeparableConvolution() {
-              @Override
-              public ConvolutionFunction1D getConvolution(long presentationTimeUs) {
-                return new GaussianFunction(
-                    presentationTimeUs < 40_000L ? 5f : 20f, /* numStandardDeviations= */ 2.0f);
-              }
-            },
-            textureBitmapReader,
-            TEXT_SPAN_CONSUMER);
-
-    assertThat(actualPresentationTimesUs).containsExactly(32_000L, 71_000L);
+    assertThat(actualPresentationTimesUs).containsExactly(22_000L);
     getAndAssertOutputBitmaps(textureBitmapReader, actualPresentationTimesUs, testId, ASSET_PATH);
   }
 }

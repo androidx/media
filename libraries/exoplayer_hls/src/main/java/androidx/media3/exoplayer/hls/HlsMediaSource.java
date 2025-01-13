@@ -58,7 +58,6 @@ import androidx.media3.exoplayer.upstream.CmcdConfiguration;
 import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
 import androidx.media3.extractor.Extractor;
-import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
 import androidx.media3.extractor.text.SubtitleParser;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
@@ -113,7 +112,7 @@ public final class HlsMediaSource extends BaseMediaSource
     @Nullable private CmcdConfiguration.Factory cmcdConfigurationFactory;
     private DrmSessionManagerProvider drmSessionManagerProvider;
     private LoadErrorHandlingPolicy loadErrorHandlingPolicy;
-    @Nullable private SubtitleParser.Factory subtitleParserFactory;
+
     private boolean allowChunklessPreparation;
     private @MetadataType int metadataType;
     private boolean useSessionKeys;
@@ -199,32 +198,18 @@ public final class HlsMediaSource extends BaseMediaSource
       return this;
     }
 
-    /**
-     * {@inheritDoc}
-     *
-     * <p>This method may only be used with {@link DefaultHlsExtractorFactory}.
-     *
-     * @param parseSubtitlesDuringExtraction Whether to parse subtitles during extraction or
-     *     rendering.
-     * @return This factory, for convenience.
-     */
-    // TODO: b/289916598 - Flip the default of this to true.
+    @CanIgnoreReturnValue
     @Override
+    public Factory setSubtitleParserFactory(SubtitleParser.Factory subtitleParserFactory) {
+      extractorFactory.setSubtitleParserFactory(checkNotNull(subtitleParserFactory));
+      return this;
+    }
+
+    @Override
+    @CanIgnoreReturnValue
     public Factory experimentalParseSubtitlesDuringExtraction(
         boolean parseSubtitlesDuringExtraction) {
-      if (parseSubtitlesDuringExtraction) {
-        if (subtitleParserFactory == null) {
-          this.subtitleParserFactory = new DefaultSubtitleParserFactory();
-        }
-      } else {
-        this.subtitleParserFactory = null;
-      }
-      if (extractorFactory instanceof DefaultHlsExtractorFactory) {
-        ((DefaultHlsExtractorFactory) extractorFactory)
-            .experimentalSetSubtitleParserFactory(subtitleParserFactory);
-      } else {
-        throw new IllegalStateException();
-      }
+      extractorFactory.experimentalParseSubtitlesDuringExtraction(parseSubtitlesDuringExtraction);
       return this;
     }
 
@@ -413,7 +398,6 @@ public final class HlsMediaSource extends BaseMediaSource
           mediaItem,
           hlsDataSourceFactory,
           extractorFactory,
-          subtitleParserFactory,
           compositeSequenceableLoaderFactory,
           cmcdConfiguration,
           drmSessionManagerProvider.get(mediaItem),
@@ -445,7 +429,6 @@ public final class HlsMediaSource extends BaseMediaSource
   private final HlsPlaylistTracker playlistTracker;
   private final long elapsedRealTimeOffsetMs;
   private final long timestampAdjusterInitializationTimeoutMs;
-  @Nullable private final SubtitleParser.Factory subtitleParserFactory;
 
   private MediaItem.LiveConfiguration liveConfiguration;
   @Nullable private TransferListener mediaTransferListener;
@@ -457,7 +440,6 @@ public final class HlsMediaSource extends BaseMediaSource
       MediaItem mediaItem,
       HlsDataSourceFactory dataSourceFactory,
       HlsExtractorFactory extractorFactory,
-      @Nullable SubtitleParser.Factory subtitleParserFactory,
       CompositeSequenceableLoaderFactory compositeSequenceableLoaderFactory,
       @Nullable CmcdConfiguration cmcdConfiguration,
       DrmSessionManager drmSessionManager,
@@ -472,7 +454,6 @@ public final class HlsMediaSource extends BaseMediaSource
     this.liveConfiguration = mediaItem.liveConfiguration;
     this.dataSourceFactory = dataSourceFactory;
     this.extractorFactory = extractorFactory;
-    this.subtitleParserFactory = subtitleParserFactory;
     this.compositeSequenceableLoaderFactory = compositeSequenceableLoaderFactory;
     this.cmcdConfiguration = cmcdConfiguration;
     this.drmSessionManager = drmSessionManager;
@@ -547,8 +528,7 @@ public final class HlsMediaSource extends BaseMediaSource
         metadataType,
         useSessionKeys,
         getPlayerId(),
-        timestampAdjusterInitializationTimeoutMs,
-        subtitleParserFactory);
+        timestampAdjusterInitializationTimeoutMs);
   }
 
   @Override

@@ -23,6 +23,7 @@ import android.os.SystemClock;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.UriUtil;
@@ -52,8 +53,10 @@ import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.mp4.FragmentedMp4Extractor;
 import androidx.media3.extractor.mp4.Track;
 import androidx.media3.extractor.mp4.TrackEncryptionBox;
+import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
 import androidx.media3.extractor.text.SubtitleParser;
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.List;
 
@@ -64,22 +67,51 @@ public class DefaultSsChunkSource implements SsChunkSource {
   public static final class Factory implements SsChunkSource.Factory {
 
     private final DataSource.Factory dataSourceFactory;
-    @Nullable private SubtitleParser.Factory subtitleParserFactory;
+    private SubtitleParser.Factory subtitleParserFactory;
+    private boolean parseSubtitlesDuringExtraction;
 
     public Factory(DataSource.Factory dataSourceFactory) {
       this.dataSourceFactory = dataSourceFactory;
+      subtitleParserFactory = new DefaultSubtitleParserFactory();
+    }
+
+    @CanIgnoreReturnValue
+    @Override
+    public Factory setSubtitleParserFactory(SubtitleParser.Factory subtitleParserFactory) {
+      this.subtitleParserFactory = subtitleParserFactory;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    @Override
+    public Factory experimentalParseSubtitlesDuringExtraction(
+        boolean parseSubtitlesDuringExtraction) {
+      this.parseSubtitlesDuringExtraction = parseSubtitlesDuringExtraction;
+      return this;
     }
 
     /**
-     * Sets the {@link SubtitleParser.Factory} to be used for parsing subtitles during extraction,
-     * or {@code null} to parse subtitles during decoding.
+     * {@inheritDoc}
      *
-     * <p>This may only be used with {@link BundledChunkExtractor.Factory}.
+     * <p>This implementation performs transcoding of the original format to {@link
+     * MimeTypes#APPLICATION_MEDIA3_CUES} if it is supported by {@link SubtitleParser.Factory}.
      */
-    /* package */ Factory setSubtitleParserFactory(
-        @Nullable SubtitleParser.Factory subtitleParserFactory) {
-      this.subtitleParserFactory = subtitleParserFactory;
-      return this;
+    @Override
+    public Format getOutputTextFormat(Format sourceFormat) {
+      if (parseSubtitlesDuringExtraction && subtitleParserFactory.supportsFormat(sourceFormat)) {
+        return sourceFormat
+            .buildUpon()
+            .setSampleMimeType(MimeTypes.APPLICATION_MEDIA3_CUES)
+            .setCueReplacementBehavior(
+                subtitleParserFactory.getCueReplacementBehavior(sourceFormat))
+            .setCodecs(
+                sourceFormat.sampleMimeType
+                    + (sourceFormat.codecs != null ? " " + sourceFormat.codecs : ""))
+            .setSubsampleOffsetUs(Format.OFFSET_SAMPLE_RELATIVE)
+            .build();
+      } else {
+        return sourceFormat;
+      }
     }
 
     @Override
@@ -101,7 +133,8 @@ public class DefaultSsChunkSource implements SsChunkSource {
           trackSelection,
           dataSource,
           cmcdConfiguration,
-          subtitleParserFactory);
+          subtitleParserFactory,
+          parseSubtitlesDuringExtraction);
     }
   }
 
@@ -132,6 +165,8 @@ public class DefaultSsChunkSource implements SsChunkSource {
    * @param cmcdConfiguration The {@link CmcdConfiguration} for this chunk source.
    * @param subtitleParserFactory The {@link SubtitleParser.Factory} for parsing subtitles during
    *     extraction.
+   * @param parseSubtitlesDuringExtraction Whether to parse subtitles during extraction or
+   *     rendering.
    */
   public DefaultSsChunkSource(
       LoaderErrorThrower manifestLoaderErrorThrower,
@@ -140,7 +175,8 @@ public class DefaultSsChunkSource implements SsChunkSource {
       ExoTrackSelection trackSelection,
       DataSource dataSource,
       @Nullable CmcdConfiguration cmcdConfiguration,
-      @Nullable SubtitleParser.Factory subtitleParserFactory) {
+      SubtitleParser.Factory subtitleParserFactory,
+      boolean parseSubtitlesDuringExtraction) {
     this.manifestLoaderErrorThrower = manifestLoaderErrorThrower;
     this.manifest = manifest;
     this.streamElementIndex = streamElementIndex;
@@ -177,14 +213,13 @@ public class DefaultSsChunkSource implements SsChunkSource {
       int flags =
           FragmentedMp4Extractor.FLAG_WORKAROUND_EVERY_VIDEO_FRAME_IS_SYNC_FRAME
               | FragmentedMp4Extractor.FLAG_WORKAROUND_IGNORE_TFDT_BOX;
+      if (!parseSubtitlesDuringExtraction) {
+        flags |= FragmentedMp4Extractor.FLAG_EMIT_RAW_SUBTITLE_DATA;
+      }
       Extractor extractor =
           new FragmentedMp4Extractor(
-              subtitleParserFactory == null
-                  ? SubtitleParser.Factory.UNSUPPORTED
-                  : subtitleParserFactory,
-              subtitleParserFactory == null
-                  ? flags | FragmentedMp4Extractor.FLAG_EMIT_RAW_SUBTITLE_DATA
-                  : flags,
+              subtitleParserFactory,
+              flags,
               /* timestampAdjuster= */ null,
               track,
               /* closedCaptionFormats= */ ImmutableList.of(),

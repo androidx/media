@@ -14227,6 +14227,41 @@ public final class ExoPlayerTest {
     assertThat(positionAfterSeek).isEqualTo(0);
   }
 
+  @Test
+  public void repeatingItemWithSameStaticMetadata_keepsMetadata() throws Exception {
+    Format formatWithStaticMetadata =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_H264)
+            .setMetadata(
+                new Metadata(
+                    new BinaryFrame(/* id= */ "", /* data= */ new byte[0]),
+                    new TextInformationFrame(
+                        /* id= */ "TT2",
+                        /* description= */ null,
+                        /* values= */ ImmutableList.of("title"))))
+            .build();
+    ExoPlayer player = new TestExoPlayerBuilder(context).build();
+    player.setMediaSource(new FakeMediaSource(new FakeTimeline(), formatWithStaticMetadata));
+    player.prepare();
+    player.setRepeatMode(Player.REPEAT_MODE_ONE);
+    player.play();
+
+    // Wait until item repeats.
+    runUntilPositionDiscontinuity(player, Player.DISCONTINUITY_REASON_AUTO_TRANSITION);
+    MediaMetadata metadataAfterTransition = player.getMediaMetadata();
+    player.release();
+
+    assertThat(metadataAfterTransition.title).isEqualTo("title");
+  }
+
+  @Test
+  public void setVideoEffects_failsWithoutLibEffectsDep() {
+    ExoPlayer player = new TestExoPlayerBuilder(context).build();
+    IllegalStateException expected =
+        assertThrows(IllegalStateException.class, () -> player.setVideoEffects(ImmutableList.of()));
+    assertThat(expected).hasMessageThat().contains("lib-effect dependencies");
+  }
+
   // Internal methods.
 
   private void addWatchAsSystemFeature() {

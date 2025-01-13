@@ -17,6 +17,11 @@ package androidx.media3.muxer;
 
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
+import static androidx.media3.muxer.Boxes.BOX_HEADER_SIZE;
+import static androidx.media3.muxer.Boxes.MFHD_BOX_CONTENT_SIZE;
+import static androidx.media3.muxer.Boxes.TFHD_BOX_CONTENT_SIZE;
+import static androidx.media3.muxer.Boxes.getTrunBoxContentSize;
+import static androidx.media3.muxer.Mp4Utils.UNSIGNED_INT_MAX_VALUE;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
@@ -26,6 +31,7 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Util;
 import androidx.media3.muxer.Mp4Muxer.TrackToken;
+import com.google.common.collect.ImmutableList;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -114,6 +120,52 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
   }
 
+  private static ImmutableList<ByteBuffer> createTrafBoxes(
+      List<ProcessedTrackInfo> trackInfos, long moofBoxStartPosition) {
+    ImmutableList.Builder<ByteBuffer> trafBoxes = new ImmutableList.Builder<>();
+    int moofBoxSize = calculateMoofBoxSize(trackInfos);
+    int mdatBoxHeaderSize = BOX_HEADER_SIZE;
+    // dataOffset denotes the relative position of the first sample of the track from the
+    // moofBoxStartPosition.
+    int dataOffset = moofBoxSize + mdatBoxHeaderSize;
+    for (int i = 0; i < trackInfos.size(); i++) {
+      ProcessedTrackInfo currentTrackInfo = trackInfos.get(i);
+      trafBoxes.add(
+          Boxes.traf(
+              Boxes.tfhd(currentTrackInfo.trackId, /* baseDataOffset= */ moofBoxStartPosition),
+              Boxes.trun(currentTrackInfo.pendingSamplesMetadata, dataOffset)));
+      dataOffset += currentTrackInfo.totalSamplesSize;
+    }
+    return trafBoxes.build();
+  }
+
+  private static int calculateMoofBoxSize(List<ProcessedTrackInfo> trackInfos) {
+    /* moof box looks like:
+    moof
+        mfhd
+        traf
+           tfhd
+           trun
+        traf
+           tfhd
+           trun
+     */
+    int moofBoxHeaderSize = BOX_HEADER_SIZE;
+    int mfhdBoxSize = BOX_HEADER_SIZE + MFHD_BOX_CONTENT_SIZE;
+    int trafBoxHeaderSize = BOX_HEADER_SIZE;
+    int tfhdBoxSize = BOX_HEADER_SIZE + TFHD_BOX_CONTENT_SIZE;
+    int trunBoxHeaderFixedSize = BOX_HEADER_SIZE;
+    int trafBoxesSize = 0;
+    for (int i = 0; i < trackInfos.size(); i++) {
+      ProcessedTrackInfo trackInfo = trackInfos.get(i);
+      int trunBoxSize =
+          trunBoxHeaderFixedSize + getTrunBoxContentSize(trackInfo.pendingSamplesMetadata.size());
+      trafBoxesSize += trafBoxHeaderSize + tfhdBoxSize + trunBoxSize;
+    }
+
+    return moofBoxHeaderSize + mfhdBoxSize + trafBoxesSize;
+  }
+
   private void createHeader() throws IOException {
     output.position(0L);
     output.write(Boxes.ftyp());
@@ -146,8 +198,20 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   private void createFragment() throws IOException {
-    // Write moof box.
-    List<ByteBuffer> trafBoxes = createTrafBoxes();
+    /* Each fragment looks like:
+    moof
+        mfhd
+        traf
+           tfhd
+           trun
+        traf
+           tfhd
+           trun
+     mdat
+     */
+    ImmutableList<ProcessedTrackInfo> trackInfos = processAllTracks();
+    ImmutableList<ByteBuffer> trafBoxes =
+        createTrafBoxes(trackInfos, /* moofBoxStartPosition= */ output.position());
     if (trafBoxes.isEmpty()) {
       return;
     }
@@ -158,29 +222,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     currentFragmentSequenceNumber++;
   }
 
-  private List<ByteBuffer> createTrafBoxes() {
-    List<ByteBuffer> trafBoxes = new ArrayList<>();
-    for (int i = 0; i < tracks.size(); i++) {
-      Track currentTrack = tracks.get(i);
-      if (!currentTrack.pendingSamplesBufferInfo.isEmpty()) {
-        List<SampleMetadata> samplesMetadata =
-            processPendingSamplesBufferInfo(currentTrack, currentFragmentSequenceNumber);
-        ByteBuffer trun = Boxes.trun(samplesMetadata);
-        trafBoxes.add(Boxes.traf(Boxes.tfhd(/* trackId= */ i + 1), trun));
-      }
-    }
-    return trafBoxes;
-  }
-
   private void writeMdatBox() throws IOException {
     long mdatStartPosition = output.position();
-    // 4 bytes (indicating a 64-bit length field) + 4 bytes (box name) + 8 bytes (the actual length)
-    ByteBuffer header = ByteBuffer.allocate(16);
-    // This 32-bit integer in general contains the total length of the box. Here value 1 indicates
-    // that the actual length is stored as 64-bit integer after the box name.
-    header.putInt(1);
+    int mdatHeaderSize = 8; // 4 bytes (box size) + 4 bytes (box name)
+    ByteBuffer header = ByteBuffer.allocate(mdatHeaderSize);
+    header.putInt(mdatHeaderSize); // The total box size so far.
     header.put(Util.getUtf8Bytes("mdat"));
-    header.putLong(16); // The total box length so far.
     header.flip();
     output.write(header);
 
@@ -201,31 +248,44 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     long currentPosition = output.position();
 
-    // Skip 4 bytes (64-bit length indication) + 4 bytes (box name).
-    output.position(mdatStartPosition + 8);
-    ByteBuffer mdatSize = ByteBuffer.allocate(8); // 64-bit length.
-    // Additional 4 bytes (64-bit length indication) + 4 bytes (box name) + 8 bytes (actual length).
-    mdatSize.putLong(bytesWritten + 16);
-    mdatSize.flip();
-    output.write(mdatSize);
+    output.position(mdatStartPosition);
+    ByteBuffer mdatSizeByteBuffer = ByteBuffer.allocate(4);
+    long mdatSize = bytesWritten + mdatHeaderSize;
+    checkArgument(
+        mdatSize <= UNSIGNED_INT_MAX_VALUE,
+        "Only 32-bit long mdat size supported in the fragmented MP4");
+    mdatSizeByteBuffer.putInt((int) mdatSize);
+    mdatSizeByteBuffer.flip();
+    output.write(mdatSizeByteBuffer);
     output.position(currentPosition);
   }
 
-  private List<SampleMetadata> processPendingSamplesBufferInfo(
-      Track track, int fragmentSequenceNumber) {
+  private ImmutableList<ProcessedTrackInfo> processAllTracks() {
+    ImmutableList.Builder<ProcessedTrackInfo> trackInfos = new ImmutableList.Builder<>();
+    for (int i = 0; i < tracks.size(); i++) {
+      if (!tracks.get(i).pendingSamplesBufferInfo.isEmpty()) {
+        trackInfos.add(processTrack(/* trackId= */ i + 1, tracks.get(i)));
+      }
+    }
+    return trackInfos.build();
+  }
+
+  private ProcessedTrackInfo processTrack(int trackId, Track track) {
     List<BufferInfo> sampleBufferInfos = new ArrayList<>(track.pendingSamplesBufferInfo);
 
     List<Long> sampleDurations =
         Boxes.convertPresentationTimestampsToDurationsVu(
             sampleBufferInfos,
-            /* firstSamplePresentationTimeUs= */ fragmentSequenceNumber == 1
+            /* firstSamplePresentationTimeUs= */ currentFragmentSequenceNumber == 1
                 ? minInputPresentationTimeUs
                 : sampleBufferInfos.get(0).presentationTimeUs,
             track.videoUnitTimebase(),
             Mp4Muxer.LAST_FRAME_DURATION_BEHAVIOR_DUPLICATE_PREV_DURATION);
 
-    List<SampleMetadata> pendingSamplesMetadata = new ArrayList<>(sampleBufferInfos.size());
+    ImmutableList.Builder<SampleMetadata> pendingSamplesMetadata = new ImmutableList.Builder<>();
+    int totalSamplesSize = 0;
     for (int i = 0; i < sampleBufferInfos.size(); i++) {
+      totalSamplesSize += sampleBufferInfos.get(i).size;
       pendingSamplesMetadata.add(
           new SampleMetadata(
               sampleDurations.get(i),
@@ -235,6 +295,19 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     // Clear the queue.
     track.pendingSamplesBufferInfo.clear();
-    return pendingSamplesMetadata;
+    return new ProcessedTrackInfo(trackId, totalSamplesSize, pendingSamplesMetadata.build());
+  }
+
+  private static class ProcessedTrackInfo {
+    public final int trackId;
+    public final int totalSamplesSize;
+    public final ImmutableList<SampleMetadata> pendingSamplesMetadata;
+
+    public ProcessedTrackInfo(
+        int trackId, int totalSamplesSize, ImmutableList<SampleMetadata> pendingSamplesMetadata) {
+      this.trackId = trackId;
+      this.totalSamplesSize = totalSamplesSize;
+      this.pendingSamplesMetadata = pendingSamplesMetadata;
+    }
   }
 }

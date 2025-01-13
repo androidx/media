@@ -67,6 +67,9 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     long videoDurationUs = 0L;
     for (int i = 0; i < tracks.size(); i++) {
       TrackMetadataProvider track = tracks.get(i);
+      if (!isFragmentedMp4 && track.writtenSamples().isEmpty()) {
+        continue;
+      }
       Format format = track.format();
       String languageCode = bcp47LanguageTagToIso3(format.language);
 
@@ -90,7 +93,10 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
       ByteBuffer stts = Boxes.stts(sampleDurationsVu);
       ByteBuffer stsz = Boxes.stsz(track.writtenSamples());
       ByteBuffer stsc = Boxes.stsc(track.writtenChunkSampleCounts());
-      ByteBuffer co64 = Boxes.co64(track.writtenChunkOffsets());
+      ByteBuffer chunkOffsetBox =
+          isFragmentedMp4
+              ? Boxes.stco(track.writtenChunkOffsets())
+              : Boxes.co64(track.writtenChunkOffsets());
 
       String handlerType;
       String handlerName;
@@ -106,7 +112,9 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
           mhdBox = Boxes.vmhd();
           sampleEntryBox = Boxes.videoSampleEntry(format);
           stsdBox = Boxes.stsd(sampleEntryBox);
-          stblBox = Boxes.stbl(stsdBox, stts, stsz, stsc, co64, Boxes.stss(track.writtenSamples()));
+          stblBox =
+              Boxes.stbl(
+                  stsdBox, stts, stsz, stsc, chunkOffsetBox, Boxes.stss(track.writtenSamples()));
           break;
         case C.TRACK_TYPE_AUDIO:
           handlerType = "soun";
@@ -114,7 +122,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
           mhdBox = Boxes.smhd();
           sampleEntryBox = Boxes.audioSampleEntry(format);
           stsdBox = Boxes.stsd(sampleEntryBox);
-          stblBox = Boxes.stbl(stsdBox, stts, stsz, stsc, co64);
+          stblBox = Boxes.stbl(stsdBox, stts, stsz, stsc, chunkOffsetBox);
           break;
         case C.TRACK_TYPE_METADATA:
           // TODO: (b/280443593) - Check if we can identify a metadata track type from a custom
@@ -125,7 +133,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
           mhdBox = Boxes.nmhd();
           sampleEntryBox = Boxes.textMetaDataSampleEntry(format);
           stsdBox = Boxes.stsd(sampleEntryBox);
-          stblBox = Boxes.stbl(stsdBox, stts, stsz, stsc, co64);
+          stblBox = Boxes.stbl(stsdBox, stts, stsz, stsc, chunkOffsetBox);
           break;
         default:
           throw new IllegalArgumentException("Unsupported track type");

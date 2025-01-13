@@ -261,10 +261,10 @@ public class PlayerControlView extends FrameLayout {
   // LINT.IfChange(playback_speeds)
   private static final float[] PLAYBACK_SPEEDS =
       new float[] {0.25f, 0.5f, 0.75f, 1f, 1.25f, 1.5f, 2f};
+  // LINT.ThenChange("../../../../res/values/strings.xml:playback_speeds")
 
   private static final int SETTINGS_PLAYBACK_SPEED_POSITION = 0;
   private static final int SETTINGS_AUDIO_TRACK_SELECTION_POSITION = 1;
-
   private static final int SETTINGS_VIDEO_TRACK_SELECTION_POSITION = 2;
 
   private final PlayerControlViewLayoutManager controlViewLayoutManager;
@@ -1461,7 +1461,7 @@ public class PlayerControlView extends FrameLayout {
       displaySettingsWindow(playbackSpeedAdapter, checkNotNull(settingsButton));
     } else if (position == SETTINGS_AUDIO_TRACK_SELECTION_POSITION) {
       displaySettingsWindow(audioTrackSelectionAdapter, checkNotNull(settingsButton));
-    } else if(position == SETTINGS_VIDEO_TRACK_SELECTION_POSITION) {
+    } else if (position == SETTINGS_VIDEO_TRACK_SELECTION_POSITION) {
       displaySettingsWindow(videoTrackSelectionAdapter, checkNotNull(settingsButton));
     } else {
       settingsWindow.dismiss();
@@ -1578,7 +1578,7 @@ public class PlayerControlView extends FrameLayout {
     return player != null
         && player.isCommandAvailable(COMMAND_PLAY_PAUSE)
         && (!player.isCommandAvailable(COMMAND_GET_TIMELINE)
-        || !player.getCurrentTimeline().isEmpty());
+            || !player.getCurrentTimeline().isEmpty());
   }
 
   @SuppressLint("InlinedApi")
@@ -1772,7 +1772,7 @@ public class PlayerControlView extends FrameLayout {
       } else if (videoTrackButton == view) {
         controlViewLayoutManager.removeHideCallbacks();
         displaySettingsWindow(videoTrackSelectionAdapter, videoTrackButton);
-      }  else if (subtitleButton == view) {
+      } else if (subtitleButton == view) {
         controlViewLayoutManager.removeHideCallbacks();
         displaySettingsWindow(textTrackSelectionAdapter, subtitleButton);
       }
@@ -2102,7 +2102,7 @@ public class PlayerControlView extends FrameLayout {
 
     @Override
     public void onBindViewHolderAtZeroPosition(SubSettingViewHolder holder) {
-      // Audio track selection option includes "Auto" at the top.
+      // Video track selection option includes "Auto" at the top.
       holder.textView.setText(R.string.exo_track_selection_auto);
       // hasSelectionOverride is true means there is an explicit track selection, not "Auto".
       TrackSelectionParameters parameters = checkNotNull(player).getTrackSelectionParameters();
@@ -2152,7 +2152,7 @@ public class PlayerControlView extends FrameLayout {
     @Override
     public void init(List<TrackInformation> trackInformations) {
       this.tracks = trackInformations;
-      // Update subtext in settings menu with current audio track selection.
+      // Update subtext in settings menu with current video track selection.
       TrackSelectionParameters params = checkNotNull(player).getTrackSelectionParameters();
       if (trackInformations.isEmpty()) {
         settingsAdapter.setSubTextAtPosition(
