@@ -450,9 +450,13 @@ import java.lang.reflect.Method;
    * @return Whether the audio track has any pending data to play out.
    */
   public boolean hasPendingData(long writtenFrames) {
-    long currentPositionUs = getCurrentPositionUs(/* sourceEnded= */ false);
-    return writtenFrames > durationUsToSampleCount(currentPositionUs, outputSampleRate)
-        || forceHasPendingData();
+    if (stopTimestampUs != C.TIME_UNSET) {
+      return writtenFrames > getPlaybackHeadPosition() || forceHasPendingData();
+    } else {
+      long currentPositionUs = getCurrentPositionUs(/* sourceEnded= */ false);
+      return writtenFrames > durationUsToSampleCount(currentPositionUs, outputSampleRate)
+          || forceHasPendingData();
+    }
   }
 
   /**
