@@ -25,8 +25,6 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DebugViewProvider;
-import androidx.media3.common.Effect;
-import androidx.media3.common.Format;
 import androidx.media3.common.SurfaceInfo;
 import androidx.media3.common.VideoCompositorSettings;
 import androidx.media3.common.VideoFrameProcessingException;
@@ -34,7 +32,6 @@ import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.VideoGraph;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.util.concurrent.MoreExecutors;
-import java.util.List;
 import java.util.concurrent.Executor;
 
 /** A {@link VideoGraph} that handles one input stream. */
@@ -111,17 +108,6 @@ public abstract class SingleInputVideoGraph implements VideoGraph {
             /* listenerExecutor= */ MoreExecutors.directExecutor(),
             new VideoFrameProcessor.Listener() {
               private long lastProcessedFramePresentationTimeUs;
-              private boolean isEnded;
-
-              @Override
-              public void onInputStreamRegistered(
-                  @VideoFrameProcessor.InputType int inputType,
-                  Format format,
-                  List<Effect> effects) {
-                // An input stream could be registered after VideoFrameProcessor ends, following
-                // a flush() for example.
-                isEnded = false;
-              }
 
               @Override
               public void onOutputSizeChanged(int width, int height) {
@@ -135,12 +121,6 @@ public abstract class SingleInputVideoGraph implements VideoGraph {
 
               @Override
               public void onOutputFrameAvailableForRendering(long presentationTimeUs) {
-                if (isEnded) {
-                  onError(
-                      new VideoFrameProcessingException(
-                          "onOutputFrameAvailableForRendering() received after onEnded()"));
-                  return;
-                }
                 // Frames are rendered automatically.
                 if (presentationTimeUs == 0) {
                   hasProducedFrameWithTimestampZero = true;
@@ -157,11 +137,6 @@ public abstract class SingleInputVideoGraph implements VideoGraph {
 
               @Override
               public void onEnded() {
-                if (isEnded) {
-                  onError(new VideoFrameProcessingException("onEnded() received multiple times"));
-                  return;
-                }
-                isEnded = true;
                 listenerExecutor.execute(
                     () -> listener.onEnded(lastProcessedFramePresentationTimeUs));
               }
