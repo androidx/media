@@ -319,6 +319,23 @@ public final class Mp4Extractor implements Extractor, SeekMap {
     tracks = new Mp4Track[0];
   }
 
+  /**
+   * Returns {@link Flags} denoting if an extractor should parse within GOP sample dependencies.
+   *
+   * @param videoCodecFlags The set of codecs for which to parse within GOP sample dependencies.
+   */
+  public static @Flags int codecsToParseWithinGopSampleDependenciesAsFlags(
+      @C.VideoCodecFlags int videoCodecFlags) {
+    @Flags int flags = 0;
+    if ((videoCodecFlags & C.VIDEO_CODEC_FLAG_H264) != 0) {
+      flags |= FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES;
+    }
+    if ((videoCodecFlags & C.VIDEO_CODEC_FLAG_H265) != 0) {
+      flags |= FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES_H265;
+    }
+    return flags;
+  }
+
   @Override
   public boolean sniff(ExtractorInput input) throws IOException {
     @Nullable

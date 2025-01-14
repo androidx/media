@@ -155,12 +155,9 @@ public final class BundledChunkExtractor implements ExtractorOutput, ChunkExtrac
         if (!parseSubtitlesDuringExtraction) {
           flags |= FragmentedMp4Extractor.FLAG_EMIT_RAW_SUBTITLE_DATA;
         }
-        if ((codecsToParseWithinGopSampleDependencies & C.VIDEO_CODEC_FLAG_H264) != 0) {
-          flags |= FragmentedMp4Extractor.FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES;
-        }
-        if ((codecsToParseWithinGopSampleDependencies & C.VIDEO_CODEC_FLAG_H265) != 0) {
-          flags |= FragmentedMp4Extractor.FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES_H265;
-        }
+        flags |=
+            FragmentedMp4Extractor.codecsToParseWithinGopSampleDependenciesAsFlags(
+                codecsToParseWithinGopSampleDependencies);
         extractor =
             new FragmentedMp4Extractor(
                 subtitleParserFactory,
