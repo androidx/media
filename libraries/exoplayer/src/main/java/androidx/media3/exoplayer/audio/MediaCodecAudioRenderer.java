@@ -677,6 +677,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
     audioSink.flush();
 
     currentPositionUs = positionUs;
+    nextBufferToWritePresentationTimeUs = C.TIME_UNSET;
     hasPendingReportedSkippedSilence = false;
     allowPositionDiscontinuity = true;
   }
@@ -700,6 +701,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
   protected void onDisabled() {
     audioSinkNeedsReset = true;
     inputFormat = null;
+    nextBufferToWritePresentationTimeUs = C.TIME_UNSET;
     try {
       audioSink.flush();
     } finally {
@@ -714,6 +716,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
   @Override
   protected void onReset() {
     hasPendingReportedSkippedSilence = false;
+    nextBufferToWritePresentationTimeUs = C.TIME_UNSET;
     try {
       super.onReset();
     } finally {

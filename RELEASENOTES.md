@@ -36,6 +36,9 @@
         is configured with default parameters.
     *   Fix underflow in `Sonic#getOutputSize()` that could cause
         `DefaultAudioSink` to stall.
+    *   Fix `MediaCodecAudioRenderer.getDurationToProgressUs()` and
+        `DecoderAudioRenderer.getDurationToProgressUs()` so that seeks will
+        correctly reset the provided durations.
 *   Video:
 *   Text:
     *   TTML: Add support for referencing `tts:origin` and `tts:extent` via
