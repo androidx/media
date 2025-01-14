@@ -16,6 +16,7 @@
 package androidx.media3.decoder.opus;
 
 import static androidx.annotation.VisibleForTesting.PACKAGE_PRIVATE;
+import static java.lang.Math.max;
 
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
@@ -109,7 +110,7 @@ public final class OpusDecoder
     channelCount = getChannelCount(headerBytes);
     int gain = readSignedLittleEndian16(headerBytes, 16);
 
-    byte[] streamMap = new byte[channelCount];
+    byte[] streamMap = new byte[max(channelCount, 8)];
     int numStreams;
     int numCoupled;
     if (headerBytes[18] == 0) { // Channel mapping
