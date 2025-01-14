@@ -16,7 +16,7 @@
 package androidx.media3.muxer;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.muxer.AndroidMuxerTestUtil.feedInputDataToMuxer;
+import static androidx.media3.muxer.MuxerTestUtil.feedInputDataToMuxer;
 
 import android.content.Context;
 import androidx.annotation.Nullable;
@@ -36,13 +36,13 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-import org.junit.runners.Parameterized.Parameter;
-import org.junit.runners.Parameterized.Parameters;
+import org.robolectric.ParameterizedRobolectricTestRunner;
+import org.robolectric.ParameterizedRobolectricTestRunner.Parameter;
+import org.robolectric.ParameterizedRobolectricTestRunner.Parameters;
 
-/** End to end parameterized instrumentation tests for {@link Mp4Muxer}. */
-@RunWith(Parameterized.class)
-public class Mp4MuxerEndToEndParameterizedAndroidTest {
+/** End to end parameterized tests for {@link Mp4Muxer}. */
+@RunWith(ParameterizedRobolectricTestRunner.class)
+public class Mp4MuxerEndToEndParameterizedTest {
   // Video Codecs
   private static final String H263_3GP = "bbb_176x144_128kbps_15fps_h263.3gp";
   private static final String H264_MP4 = "sample_no_bframes.mp4";
@@ -126,6 +126,6 @@ public class Mp4MuxerEndToEndParameterizedAndroidTest {
     FakeExtractorOutput fakeExtractorOutput =
         TestUtil.extractAllSamplesFromFilePath(new Mp4Extractor(), checkNotNull(outputPath));
     DumpFileAsserts.assertOutput(
-        context, fakeExtractorOutput, AndroidMuxerTestUtil.getExpectedDumpFilePath(inputFile));
+        context, fakeExtractorOutput, MuxerTestUtil.getExpectedDumpFilePath(inputFile));
   }
 }

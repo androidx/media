@@ -15,9 +15,11 @@
  */
 package androidx.media3.muxer;
 
+import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.muxer.Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER_OR_DUPLICATE_PREVIOUS;
 import static androidx.media3.muxer.MuxerTestUtil.FAKE_VIDEO_FORMAT;
 import static androidx.media3.muxer.MuxerTestUtil.XMP_SAMPLE_DATA;
+import static androidx.media3.muxer.MuxerTestUtil.feedInputDataToMuxer;
 import static androidx.media3.muxer.MuxerTestUtil.getFakeSampleAndSampleInfo;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
@@ -53,6 +55,7 @@ import org.junit.runner.RunWith;
 public class Mp4MuxerEndToEndTest {
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
+  private static final String H265_HDR10_MP4 = "hdr10-720p.mp4";
   private final Context context = ApplicationProvider.getApplicationContext();
 
   @Test
@@ -115,6 +118,30 @@ public class Mp4MuxerEndToEndTest {
 
     byte[] outputFileBytes = TestUtil.getByteArrayFromFilePath(outputFilePath);
     assertThat(outputFileBytes).isEmpty();
+  }
+
+  @Test
+  public void createMp4File_muxerNotClosed_createsPartiallyWrittenValidFile() throws Exception {
+    String outputPath = temporaryFolder.newFile().getPath();
+    Mp4Muxer mp4Muxer = new Mp4Muxer.Builder(new FileOutputStream(outputPath)).build();
+    mp4Muxer.addMetadataEntry(
+        new Mp4TimestampData(
+            /* creationTimestampSeconds= */ 100_000_000L,
+            /* modificationTimestampSeconds= */ 500_000_000L));
+    feedInputDataToMuxer(context, mp4Muxer, H265_HDR10_MP4);
+
+    // Muxer not closed.
+
+    // Audio sample written = 192 out of 195.
+    // Video sample written = 125 out of 127.
+    // Output is still a valid MP4 file.
+    FakeExtractorOutput fakeExtractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(
+            new Mp4Extractor(new DefaultSubtitleParserFactory()), checkNotNull(outputPath));
+    DumpFileAsserts.assertOutput(
+        context,
+        fakeExtractorOutput,
+        MuxerTestUtil.getExpectedDumpFilePath("partial_" + H265_HDR10_MP4));
   }
 
   @Test
@@ -811,6 +838,63 @@ public class Mp4MuxerEndToEndTest {
             new Mp4Extractor(new DefaultSubtitleParserFactory()), outputFilePath);
     fakeExtractorOutput.track(/* id= */ 0, C.TRACK_TYPE_VIDEO).assertSampleCount(4);
     assertThat(fakeExtractorOutput.seekMap.getDurationUs()).isEqualTo(400L);
+  }
+
+  @Test
+  public void createMp4File_withSampleBatchingDisabled_matchesExpected() throws Exception {
+    String outputPath = temporaryFolder.newFile().getPath();
+
+    Mp4Muxer mp4Muxer =
+        new Mp4Muxer.Builder(new FileOutputStream(outputPath))
+            .setSampleBatchingEnabled(false)
+            .build();
+    mp4Muxer.addMetadataEntry(
+        new Mp4TimestampData(
+            /* creationTimestampSeconds= */ 100_000_000L,
+            /* modificationTimestampSeconds= */ 500_000_000L));
+    try {
+      feedInputDataToMuxer(context, mp4Muxer, checkNotNull(H265_HDR10_MP4));
+    } finally {
+      mp4Muxer.close();
+    }
+
+    FakeExtractorOutput fakeExtractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(
+            new Mp4Extractor(new DefaultSubtitleParserFactory()), checkNotNull(outputPath));
+    DumpFileAsserts.assertOutput(
+        context,
+        fakeExtractorOutput,
+        MuxerTestUtil.getExpectedDumpFilePath("sample_batching_disabled_" + H265_HDR10_MP4));
+  }
+
+  @Test
+  public void createMp4File_withSampleBatchingAndAttemptStreamableOutputDisabled_matchesExpected()
+      throws Exception {
+    String outputPath = temporaryFolder.newFile().getPath();
+
+    Mp4Muxer mp4Muxer =
+        new Mp4Muxer.Builder(new FileOutputStream(outputPath))
+            .setSampleBatchingEnabled(false)
+            .setAttemptStreamableOutputEnabled(false)
+            .build();
+    mp4Muxer.addMetadataEntry(
+        new Mp4TimestampData(
+            /* creationTimestampSeconds= */ 100_000_000L,
+            /* modificationTimestampSeconds= */ 500_000_000L));
+    try {
+      feedInputDataToMuxer(context, mp4Muxer, checkNotNull(H265_HDR10_MP4));
+    } finally {
+      mp4Muxer.close();
+    }
+
+    FakeExtractorOutput fakeExtractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(
+            new Mp4Extractor(new DefaultSubtitleParserFactory()), checkNotNull(outputPath));
+    DumpFileAsserts.assertOutput(
+        context,
+        fakeExtractorOutput,
+        MuxerTestUtil.getExpectedDumpFilePath(
+            "sample_batching_and_attempt_streamable_output_disabled_" + H265_HDR10_MP4));
   }
 
   private static void writeFakeSamples(Mp4Muxer muxer, int trackId, int sampleCount)

@@ -16,7 +16,7 @@
 package androidx.media3.muxer;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.muxer.AndroidMuxerTestUtil.feedInputDataToMuxer;
+import static androidx.media3.muxer.MuxerTestUtil.feedInputDataToMuxer;
 
 import android.content.Context;
 import androidx.annotation.Nullable;
@@ -38,13 +38,13 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-import org.junit.runners.Parameterized.Parameter;
-import org.junit.runners.Parameterized.Parameters;
+import org.robolectric.ParameterizedRobolectricTestRunner;
+import org.robolectric.ParameterizedRobolectricTestRunner.Parameter;
+import org.robolectric.ParameterizedRobolectricTestRunner.Parameters;
 
 /** End to end instrumentation tests for {@link FragmentedMp4Muxer}. */
-@RunWith(Parameterized.class)
-public class FragmentedMp4MuxerEndToEndAndroidTest {
+@RunWith(ParameterizedRobolectricTestRunner.class)
+public class FragmentedMp4MuxerEndToEndTest {
   private static final String H264_WITH_PYRAMID_B_FRAMES_MP4 =
       "bbb_800x640_768kbps_30fps_avc_pyramid_3b.mp4";
   private static final String H265_HDR10_MP4 = "hdr10-720p.mp4";
@@ -96,7 +96,7 @@ public class FragmentedMp4MuxerEndToEndAndroidTest {
     DumpFileAsserts.assertOutput(
         context,
         fakeExtractorOutput,
-        AndroidMuxerTestUtil.getExpectedDumpFilePath(inputFile + "_fragmented"));
+        MuxerTestUtil.getExpectedDumpFilePath(inputFile + "_fragmented"));
   }
 
   @Test
@@ -123,6 +123,6 @@ public class FragmentedMp4MuxerEndToEndAndroidTest {
     DumpFileAsserts.assertOutput(
         context,
         dumpableMp4Box,
-        AndroidMuxerTestUtil.getExpectedDumpFilePath(H265_HDR10_MP4 + "_fragmented_box_structure"));
+        MuxerTestUtil.getExpectedDumpFilePath(H265_HDR10_MP4 + "_fragmented_box_structure"));
   }
 }
