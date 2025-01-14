@@ -141,7 +141,11 @@ public final class MediaParserChunkExtractor implements ChunkExtractor {
     }
   }
 
-  public static final ChunkExtractor.Factory FACTORY = new Factory();
+  /**
+   * @deprecated {@link ChunkExtractor.Factory} is mutable, so a static instance is not safe.
+   *     Instantiate a new {@link Factory} instead.
+   */
+  @Deprecated public static final ChunkExtractor.Factory FACTORY = new Factory();
 
   private final OutputConsumerAdapterV30 outputConsumerAdapter;
   private final InputReaderAdapterV30 inputReaderAdapter;
