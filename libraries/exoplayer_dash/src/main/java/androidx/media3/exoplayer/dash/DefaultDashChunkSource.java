@@ -130,6 +130,15 @@ public class DefaultDashChunkSource implements DashChunkSource {
       return this;
     }
 
+    @CanIgnoreReturnValue
+    @Override
+    public Factory experimentalSetCodecsToParseWithinGopSampleDependencies(
+        @C.VideoCodecFlags int codecsToParseWithinGopSampleDependencies) {
+      chunkExtractorFactory.experimentalSetCodecsToParseWithinGopSampleDependencies(
+          codecsToParseWithinGopSampleDependencies);
+      return this;
+    }
+
     @Override
     public DashChunkSource createDashChunkSource(
         LoaderErrorThrower manifestLoaderErrorThrower,

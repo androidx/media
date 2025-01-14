@@ -217,6 +217,15 @@ public final class DashMediaSource extends BaseMediaSource {
       return this;
     }
 
+    @Override
+    @CanIgnoreReturnValue
+    public Factory experimentalSetCodecsToParseWithinGopSampleDependencies(
+        @C.VideoCodecFlags int codecsToParseWithinGopSampleDependencies) {
+      chunkSourceFactory.experimentalSetCodecsToParseWithinGopSampleDependencies(
+          codecsToParseWithinGopSampleDependencies);
+      return this;
+    }
+
     /**
      * Sets the target {@link Player#getCurrentLiveOffset() offset for live streams} that is used if
      * no value is defined in the {@link MediaItem} or the manifest.
