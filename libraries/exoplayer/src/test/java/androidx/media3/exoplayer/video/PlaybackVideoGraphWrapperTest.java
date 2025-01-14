@@ -31,6 +31,7 @@ import androidx.media3.common.Format;
 import androidx.media3.common.OnInputFrameProcessedListener;
 import androidx.media3.common.PreviewingVideoGraph;
 import androidx.media3.common.SurfaceInfo;
+import androidx.media3.common.VideoCompositorSettings;
 import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.VideoGraph;
 import androidx.media3.common.util.TimestampIterator;
@@ -61,7 +62,7 @@ public final class PlaybackVideoGraphWrapperTest {
   public void initializeSink_calledTwice_throws() throws VideoSink.VideoSinkException {
     PlaybackVideoGraphWrapper playbackVideoGraphWrapper =
         createPlaybackVideoGraphWrapper(new FakeVideoFrameProcessor());
-    VideoSink sink = playbackVideoGraphWrapper.getSink();
+    VideoSink sink = playbackVideoGraphWrapper.getSink(/* inputIndex= */ 0);
     sink.initialize(new Format.Builder().build());
 
     assertThrows(IllegalStateException.class, () -> sink.initialize(new Format.Builder().build()));
@@ -76,7 +77,7 @@ public final class PlaybackVideoGraphWrapperTest {
     PlaybackVideoGraphWrapper playbackVideoGraphWrapper =
         createPlaybackVideoGraphWrapper(videoFrameProcessor);
     Format format = new Format.Builder().build();
-    VideoSink sink = playbackVideoGraphWrapper.getSink();
+    VideoSink sink = playbackVideoGraphWrapper.getSink(/* inputIndex= */ 0);
 
     sink.initialize(format);
 
@@ -200,10 +201,16 @@ public final class PlaybackVideoGraphWrapperTest {
         DebugViewProvider debugViewProvider,
         VideoGraph.Listener listener,
         Executor listenerExecutor,
+        VideoCompositorSettings videoCompositorSettings,
         List<Effect> compositionEffects,
         long initialTimestampOffsetUs) {
       when(previewingVideoGraph.getProcessor(anyInt())).thenReturn(videoFrameProcessor);
       return previewingVideoGraph;
+    }
+
+    @Override
+    public boolean supportsMultipleInputs() {
+      return false;
     }
   }
 }

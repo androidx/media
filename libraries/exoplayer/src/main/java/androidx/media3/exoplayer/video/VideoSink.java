@@ -149,9 +149,10 @@ public interface VideoSink {
    * Initializes the video sink.
    *
    * @param sourceFormat The format of the first input video or image.
+   * @return Whether initialization succeeded. If {@code false}, the caller should try again later.
    * @throws VideoSink.VideoSinkException If initializing the sink failed.
    */
-  void initialize(Format sourceFormat) throws VideoSinkException;
+  boolean initialize(Format sourceFormat) throws VideoSinkException;
 
   /** Returns whether the video sink is {@linkplain #initialize(Format) initialized}. */
   boolean isInitialized();

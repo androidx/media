@@ -28,6 +28,7 @@ import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Process;
 import android.util.Pair;
+import android.util.SparseBooleanArray;
 import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
@@ -135,8 +136,8 @@ public final class CompositionPlayer extends SimpleBasePlayer
     }
 
     /**
-     * Sets the {@link Looper} from which the player can be accessed and {@link Player.Listener}
-     * callbacks are dispatched too.
+     * Sets the {@link Looper} from which the player can be accessed and {@link Listener} callbacks
+     * are dispatched too.
      *
      * <p>By default, the builder uses the looper of the thread that calls {@link #build()}.
      *
@@ -231,7 +232,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
      *
      * <p>If no {@link Looper} has been called with {@link #setLooper(Looper)}, then this method
      * must be called within a {@link Looper} thread which is the thread that can access the player
-     * instance and where {@link Player.Listener} callbacks are dispatched.
+     * instance and where {@link Listener} callbacks are dispatched.
      */
     public CompositionPlayer build() {
       checkState(!built);
@@ -291,11 +292,16 @@ public final class CompositionPlayer extends SimpleBasePlayer
   private final PreviewingVideoGraph.Factory previewingVideoGraphFactory;
   private final HandlerWrapper compositionInternalListenerHandler;
 
+  /** Maps from input index to whether the video track is selected in that sequence. */
+  private final SparseBooleanArray videoTracksSelected;
+
   private @MonotonicNonNull HandlerThread playbackThread;
   private @MonotonicNonNull CompositionPlayerInternal compositionPlayerInternal;
   private @MonotonicNonNull ImmutableList<MediaItemData> playlist;
   private @MonotonicNonNull Composition composition;
   private @MonotonicNonNull Size videoOutputSize;
+  private @MonotonicNonNull PlaybackVideoGraphWrapper playbackVideoGraphWrapper;
+
   private long compositionDurationUs;
   private boolean playWhenReady;
   private @PlayWhenReadyChangeReason int playWhenReadyChangeReason;
@@ -324,6 +330,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
     imageDecoderFactory = builder.imageDecoderFactory;
     previewingVideoGraphFactory = checkNotNull(builder.previewingVideoGraphFactory);
     compositionInternalListenerHandler = clock.createHandler(builder.looper, /* callback= */ null);
+    videoTracksSelected = new SparseBooleanArray();
     players = new ArrayList<>();
     compositionDurationUs = C.TIME_UNSET;
     playbackState = STATE_IDLE;
@@ -347,6 +354,10 @@ public final class CompositionPlayer extends SimpleBasePlayer
     checkArgument(!composition.hasGaps());
     checkState(this.composition == null);
     composition = deactivateSpeedAdjustingVideoEffects(composition);
+
+    if (composition.sequences.size() > 1 && !previewingVideoGraphFactory.supportsMultipleInputs()) {
+      Log.w(TAG, "Setting multi-sequence Composition with single input video graph.");
+    }
 
     setCompositionInternal(composition);
     if (videoOutput != null) {
@@ -573,7 +584,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
 
   @Override
   protected ListenableFuture<?> handleSeek(
-      int mediaItemIndex, long positionMs, @Player.Command int seekCommand) {
+      int mediaItemIndex, long positionMs, @Command int seekCommand) {
     resetLivePositionSuppliers();
     CompositionPlayerInternal compositionPlayerInternal =
         checkStateNotNull(this.compositionPlayerInternal);
@@ -679,9 +690,10 @@ public final class CompositionPlayer extends SimpleBasePlayer
     VideoFrameReleaseControl videoFrameReleaseControl =
         new VideoFrameReleaseControl(
             context, new CompositionFrameTimingEvaluator(), /* allowedJoiningTimeMs= */ 0);
-    PlaybackVideoGraphWrapper playbackVideoGraphWrapper =
+    playbackVideoGraphWrapper =
         new PlaybackVideoGraphWrapper.Builder(context, videoFrameReleaseControl)
             .setPreviewingVideoGraphFactory(checkNotNull(previewingVideoGraphFactory))
+            .setCompositorSettings(composition.videoCompositorSettings)
             .setCompositionEffects(composition.effects.videoEffects)
             .setClock(clock)
             .setRequestOpenGlToneMapping(
@@ -694,18 +706,16 @@ public final class CompositionPlayer extends SimpleBasePlayer
     for (int i = 0; i < composition.sequences.size(); i++) {
       EditedMediaItemSequence editedMediaItemSequence = composition.sequences.get(i);
       SequenceRenderersFactory sequenceRenderersFactory =
-          i == 0
-              ? SequenceRenderersFactory.create(
-                  context,
-                  editedMediaItemSequence,
-                  playbackAudioGraphWrapper,
-                  playbackVideoGraphWrapper.getSink(),
-                  imageDecoderFactory,
-                  /* inputIndex= */ i,
-                  /* requestToneMapping= */ composition.hdrMode
-                      == Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_MEDIACODEC)
-              : SequenceRenderersFactory.createForAudio(
-                  context, editedMediaItemSequence, playbackAudioGraphWrapper, /* inputIndex= */ i);
+          SequenceRenderersFactory.create(
+              context,
+              editedMediaItemSequence,
+              playbackAudioGraphWrapper,
+              playbackVideoGraphWrapper.getSink(/* inputIndex= */ i),
+              imageDecoderFactory,
+              /* inputIndex= */ i,
+              /* requestToneMapping= */ composition.hdrMode
+                  == Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_MEDIACODEC);
+
       ExoPlayer.Builder playerBuilder =
           new ExoPlayer.Builder(context)
               .setLooper(getApplicationLooper())
@@ -767,29 +777,36 @@ public final class CompositionPlayer extends SimpleBasePlayer
       EditedMediaItem editedMediaItem = sequence.editedMediaItems.get(i);
       checkArgument(editedMediaItem.durationUs != C.TIME_UNSET);
       long durationUs = editedMediaItem.getPresentationDurationUs();
-      // Generate silence for primary sequence.
-      MediaSource silenceMediaSource =
-          new ClippingMediaSource(
-              new SilenceMediaSource(editedMediaItem.durationUs),
-              editedMediaItem.mediaItem.clippingConfiguration.startPositionUs,
-              editedMediaItem.mediaItem.clippingConfiguration.endPositionUs);
 
-      // The MediaSource that loads the MediaItem
-      MediaSource mainMediaSource = mediaSourceFactory.createMediaSource(editedMediaItem.mediaItem);
-      if (editedMediaItem.removeAudio) {
-        mainMediaSource =
-            new FilteringMediaSource(
-                mainMediaSource, ImmutableSet.of(C.TRACK_TYPE_VIDEO, C.TRACK_TYPE_IMAGE));
-      }
+      MediaSource silenceGeneratedMediaSource =
+          createMediaSourceWithSilence(mediaSourceFactory, editedMediaItem);
 
-      MediaSource mergingMediaSource = new MergingMediaSource(mainMediaSource, silenceMediaSource);
       MediaSource itemMediaSource =
           wrapWithVideoEffectsBasedMediaSources(
-              mergingMediaSource, editedMediaItem.effects.videoEffects, durationUs);
+              silenceGeneratedMediaSource, editedMediaItem.effects.videoEffects, durationUs);
       mediaSourceBuilder.add(
           itemMediaSource, /* initialPlaceholderDurationMs= */ usToMs(durationUs));
     }
     player.setMediaSource(mediaSourceBuilder.build());
+  }
+
+  private static MediaSource createMediaSourceWithSilence(
+      MediaSource.Factory mediaSourceFactory, EditedMediaItem editedMediaItem) {
+    // The MediaSource that loads the MediaItem
+    MediaSource mainMediaSource = mediaSourceFactory.createMediaSource(editedMediaItem.mediaItem);
+    if (editedMediaItem.removeAudio) {
+      mainMediaSource =
+          new FilteringMediaSource(
+              mainMediaSource, ImmutableSet.of(C.TRACK_TYPE_VIDEO, C.TRACK_TYPE_IMAGE));
+    }
+
+    MediaSource silenceMediaSource =
+        new ClippingMediaSource(
+            new SilenceMediaSource(editedMediaItem.durationUs),
+            editedMediaItem.mediaItem.clippingConfiguration.startPositionUs,
+            editedMediaItem.mediaItem.clippingConfiguration.endPositionUs);
+
+    return new MergingMediaSource(mainMediaSource, silenceMediaSource);
   }
 
   private void setSecondaryPlayerSequence(
@@ -804,26 +821,40 @@ public final class CompositionPlayer extends SimpleBasePlayer
     while (accumulatedDurationUs < primarySequenceDurationUs) {
       EditedMediaItem editedMediaItem = sequence.editedMediaItems.get(i);
       long itemPresentationDurationUs = editedMediaItem.getPresentationDurationUs();
-      MediaItem mediaItem = editedMediaItem.mediaItem;
       if (accumulatedDurationUs + itemPresentationDurationUs <= primarySequenceDurationUs) {
         mediaSourceBuilder.add(
-            mediaSourceFactory.createMediaSource(mediaItem),
+            createMediaSourceWithSilence(mediaSourceFactory, editedMediaItem),
             /* initialPlaceholderDurationMs= */ usToMs(itemPresentationDurationUs));
         accumulatedDurationUs += itemPresentationDurationUs;
       } else {
         long remainingDurationUs = primarySequenceDurationUs - accumulatedDurationUs;
         // TODO: b/289989542 - Handle already clipped, or speed adjusted media.
         mediaSourceBuilder.add(
-            new ClippingMediaSource(
-                mediaSourceFactory.createMediaSource(mediaItem),
-                mediaItem.clippingConfiguration.startPositionUs,
-                mediaItem.clippingConfiguration.startPositionUs + remainingDurationUs),
-            /* initialPlaceholderDurationMs= */ usToMs(remainingDurationUs));
+            createMediaSourceWithSilence(
+                mediaSourceFactory, clipToDuration(editedMediaItem, remainingDurationUs)));
         break;
       }
       i = (i + 1) % sequence.editedMediaItems.size();
     }
     player.setMediaSource(mediaSourceBuilder.build());
+  }
+
+  private static EditedMediaItem clipToDuration(EditedMediaItem editedMediaItem, long durationUs) {
+    MediaItem.ClippingConfiguration clippingConfiguration =
+        editedMediaItem.mediaItem.clippingConfiguration;
+    return editedMediaItem
+        .buildUpon()
+        .setMediaItem(
+            editedMediaItem
+                .mediaItem
+                .buildUpon()
+                .setClippingConfiguration(
+                    clippingConfiguration
+                        .buildUpon()
+                        .setEndPositionUs(clippingConfiguration.startPositionUs + durationUs)
+                        .build())
+                .build())
+        .build();
   }
 
   private MediaSource wrapWithVideoEffectsBasedMediaSources(
@@ -872,7 +903,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
 
               @Override
               public Period getPeriod(int periodIndex, Period period, boolean setIds) {
-                Timeline.Period wrappedPeriod = newTimeline.getPeriod(periodIndex, period, setIds);
+                Period wrappedPeriod = newTimeline.getPeriod(periodIndex, period, setIds);
                 wrappedPeriod.durationUs = durationUs;
                 return wrappedPeriod;
               }
@@ -1062,7 +1093,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
     }
   }
 
-  private final class PlayerListener implements Player.Listener {
+  private final class PlayerListener implements Listener {
     private final int playerIndex;
 
     public PlayerListener(int playerIndex) {
@@ -1092,11 +1123,26 @@ public final class CompositionPlayer extends SimpleBasePlayer
     }
   }
 
+  private void onVideoTrackSelection(boolean selected, int inputIndex) {
+    videoTracksSelected.put(inputIndex, selected);
+
+    if (videoTracksSelected.size() == checkNotNull(composition).sequences.size()) {
+      int selectedVideoTracks = 0;
+      for (int i = 0; i < videoTracksSelected.size(); i++) {
+        if (videoTracksSelected.get(videoTracksSelected.keyAt(i))) {
+          selectedVideoTracks++;
+        }
+      }
+
+      checkNotNull(playbackVideoGraphWrapper).setTotalVideoInputCount(selectedVideoTracks);
+    }
+  }
+
   /**
    * A {@link DefaultTrackSelector} extension to de-select generated audio when the audio from the
    * media is playable.
    */
-  private static final class CompositionTrackSelector extends DefaultTrackSelector {
+  private final class CompositionTrackSelector extends DefaultTrackSelector {
 
     private static final String SILENCE_AUDIO_TRACK_GROUP_ID = "1:";
     private final int sequenceIndex;
@@ -1117,44 +1163,41 @@ public final class CompositionPlayer extends SimpleBasePlayer
         @RendererCapabilities.AdaptiveSupport int[] rendererMixedMimeTypeAdaptationSupports,
         Parameters params)
         throws ExoPlaybackException {
-      if (sequenceIndex == 0) {
-        // Currently silence is only generated for the zero-indexed sequence.
-        int audioRenderIndex = C.INDEX_UNSET;
-        for (int i = 0; i < mappedTrackInfo.getRendererCount(); i++) {
-          if (mappedTrackInfo.getRendererType(i) == C.TRACK_TYPE_AUDIO) {
-            audioRenderIndex = i;
-            break;
+      int audioRenderIndex = C.INDEX_UNSET;
+      for (int i = 0; i < mappedTrackInfo.getRendererCount(); i++) {
+        if (mappedTrackInfo.getRendererType(i) == C.TRACK_TYPE_AUDIO) {
+          audioRenderIndex = i;
+          break;
+        }
+      }
+      checkState(audioRenderIndex != C.INDEX_UNSET);
+
+      TrackGroupArray audioTrackGroups = mappedTrackInfo.getTrackGroups(audioRenderIndex);
+      // If there's only one audio TrackGroup, it'll be silence, there's no need to override track
+      // selection.
+      if (audioTrackGroups.length > 1) {
+        boolean mediaAudioIsPlayable = false;
+        int silenceAudioTrackGroupIndex = C.INDEX_UNSET;
+        for (int i = 0; i < audioTrackGroups.length; i++) {
+          if (audioTrackGroups.get(i).id.startsWith(SILENCE_AUDIO_TRACK_GROUP_ID)) {
+            silenceAudioTrackGroupIndex = i;
+            continue;
+          }
+          // For non-silence tracks
+          for (int j = 0; j < audioTrackGroups.get(i).length; j++) {
+            mediaAudioIsPlayable |=
+                RendererCapabilities.getFormatSupport(
+                        rendererFormatSupports[audioRenderIndex][i][j])
+                    == C.FORMAT_HANDLED;
           }
         }
-        checkState(audioRenderIndex != C.INDEX_UNSET);
+        checkState(silenceAudioTrackGroupIndex != C.INDEX_UNSET);
 
-        TrackGroupArray audioTrackGroups = mappedTrackInfo.getTrackGroups(audioRenderIndex);
-        // If there's only one audio TrackGroup, it'll be silence, there's no need to override track
-        // selection.
-        if (audioTrackGroups.length > 1) {
-          boolean mediaAudioIsPlayable = false;
-          int silenceAudioTrackGroupIndex = C.INDEX_UNSET;
-          for (int i = 0; i < audioTrackGroups.length; i++) {
-            if (audioTrackGroups.get(i).id.startsWith(SILENCE_AUDIO_TRACK_GROUP_ID)) {
-              silenceAudioTrackGroupIndex = i;
-              continue;
-            }
-            // For non-silence tracks
-            for (int j = 0; j < audioTrackGroups.get(i).length; j++) {
-              mediaAudioIsPlayable |=
-                  RendererCapabilities.getFormatSupport(
-                          rendererFormatSupports[audioRenderIndex][i][j])
-                      == C.FORMAT_HANDLED;
-            }
-          }
-          checkState(silenceAudioTrackGroupIndex != C.INDEX_UNSET);
-
-          if (mediaAudioIsPlayable) {
-            // Disable silence if the media's audio track is playable.
-            int silenceAudioTrackIndex = audioTrackGroups.length - 1;
-            rendererFormatSupports[audioRenderIndex][silenceAudioTrackIndex][0] =
-                RendererCapabilities.create(C.FORMAT_UNSUPPORTED_TYPE);
-          }
+        if (mediaAudioIsPlayable) {
+          // Disable silence if the media's audio track is playable.
+          int silenceAudioTrackIndex = audioTrackGroups.length - 1;
+          rendererFormatSupports[audioRenderIndex][silenceAudioTrackIndex][0] =
+              RendererCapabilities.create(C.FORMAT_UNSUPPORTED_TYPE);
         }
       }
 
@@ -1171,15 +1214,19 @@ public final class CompositionPlayer extends SimpleBasePlayer
         Parameters params,
         @Nullable String selectedAudioLanguage)
         throws ExoPlaybackException {
+      @Nullable
+      Pair<ExoTrackSelection.Definition, Integer> trackSelection =
+          super.selectVideoTrack(
+              mappedTrackInfo,
+              rendererFormatSupports,
+              mixedMimeTypeSupports,
+              params,
+              selectedAudioLanguage);
       if (disableVideoPlayback) {
-        return null;
+        trackSelection = null;
       }
-      return super.selectVideoTrack(
-          mappedTrackInfo,
-          rendererFormatSupports,
-          mixedMimeTypeSupports,
-          params,
-          selectedAudioLanguage);
+      onVideoTrackSelection(/* selected= */ trackSelection != null, sequenceIndex);
+      return trackSelection;
     }
 
     @Nullable
@@ -1189,10 +1236,15 @@ public final class CompositionPlayer extends SimpleBasePlayer
         @RendererCapabilities.Capabilities int[][][] rendererFormatSupports,
         Parameters params)
         throws ExoPlaybackException {
+      @Nullable
+      Pair<ExoTrackSelection.Definition, Integer> trackSelection =
+          super.selectImageTrack(mappedTrackInfo, rendererFormatSupports, params);
       if (disableVideoPlayback) {
-        return null;
+        trackSelection = null;
       }
-      return super.selectImageTrack(mappedTrackInfo, rendererFormatSupports, params);
+      // Images are treated as video tracks.
+      onVideoTrackSelection(/* selected= */ trackSelection != null, sequenceIndex);
+      return trackSelection;
     }
   }
 }

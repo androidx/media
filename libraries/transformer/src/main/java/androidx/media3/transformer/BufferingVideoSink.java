@@ -108,7 +108,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   @Override
-  public void initialize(Format sourceFormat) throws VideoSinkException {
+  public boolean initialize(Format sourceFormat) throws VideoSinkException {
     executeOrDelayThrowing(
         videoSink -> {
           if (videoSink.isInitialized()) {
@@ -117,6 +117,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           videoSink.initialize(sourceFormat);
         });
     isInitialized = true;
+    return true;
   }
 
   @Override

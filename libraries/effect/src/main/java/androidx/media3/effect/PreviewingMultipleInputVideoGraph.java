@@ -1,11 +1,11 @@
 /*
- * Copyright 2023 The Android Open Source Project
+ * Copyright 2024 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      https://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package androidx.media3.effect;
 
 import android.content.Context;
@@ -28,16 +27,15 @@ import java.util.List;
 import java.util.concurrent.Executor;
 
 /**
- * A {@link PreviewingVideoGraph Previewing} specific implementation of {@link
- * SingleInputVideoGraph}.
+ * A {@linkplain PreviewingVideoGraph previewing} specific implementation of {@link
+ * MultipleInputVideoGraph}.
  */
 @UnstableApi
-public final class PreviewingSingleInputVideoGraph extends SingleInputVideoGraph
+public final class PreviewingMultipleInputVideoGraph extends MultipleInputVideoGraph
     implements PreviewingVideoGraph {
 
-  /** A factory for creating a {@link PreviewingSingleInputVideoGraph}. */
+  /** A factory for creating a {@link PreviewingMultipleInputVideoGraph}. */
   public static final class Factory implements PreviewingVideoGraph.Factory {
-
     private final VideoFrameProcessor.Factory videoFrameProcessorFactory;
 
     /**
@@ -45,15 +43,7 @@ public final class PreviewingSingleInputVideoGraph extends SingleInputVideoGraph
      * default values.
      */
     public Factory() {
-      this(new DefaultVideoFrameProcessor.Factory.Builder().build());
-    }
-
-    /**
-     * Creates an instance that uses the supplied {@code videoFrameProcessorFactory} to create
-     * {@link VideoFrameProcessor} instances.
-     */
-    public Factory(VideoFrameProcessor.Factory videoFrameProcessorFactory) {
-      this.videoFrameProcessorFactory = videoFrameProcessorFactory;
+      videoFrameProcessorFactory = new DefaultVideoFrameProcessor.Factory.Builder().build();
     }
 
     @Override
@@ -66,45 +56,49 @@ public final class PreviewingSingleInputVideoGraph extends SingleInputVideoGraph
         VideoCompositorSettings videoCompositorSettings,
         List<Effect> compositionEffects,
         long initialTimestampOffsetUs) {
-      return new PreviewingSingleInputVideoGraph(
+      return new PreviewingMultipleInputVideoGraph(
           context,
           videoFrameProcessorFactory,
           outputColorInfo,
           debugViewProvider,
           listener,
           listenerExecutor,
+          videoCompositorSettings,
+          compositionEffects,
           initialTimestampOffsetUs);
     }
 
     @Override
     public boolean supportsMultipleInputs() {
-      return false;
+      return true;
     }
   }
 
-  private PreviewingSingleInputVideoGraph(
+  private PreviewingMultipleInputVideoGraph(
       Context context,
       VideoFrameProcessor.Factory videoFrameProcessorFactory,
       ColorInfo outputColorInfo,
       DebugViewProvider debugViewProvider,
       Listener listener,
       Executor listenerExecutor,
+      VideoCompositorSettings videoCompositorSettings,
+      List<Effect> compositionEffects,
       long initialTimestampOffsetUs) {
     super(
         context,
         videoFrameProcessorFactory,
         outputColorInfo,
-        listener,
         debugViewProvider,
+        listener,
         listenerExecutor,
-        VideoCompositorSettings.DEFAULT,
-        // Previewing needs frame render timing.
-        /* renderFramesAutomatically= */ false,
-        initialTimestampOffsetUs);
+        videoCompositorSettings,
+        compositionEffects,
+        initialTimestampOffsetUs,
+        /* renderFramesAutomatically= */ false);
   }
 
   @Override
   public void renderOutputFrame(long renderTimeNs) {
-    getProcessor(getInputIndex()).renderOutputFrame(renderTimeNs);
+    getCompositionVideoFrameProcessor().renderOutputFrame(renderTimeNs);
   }
 }

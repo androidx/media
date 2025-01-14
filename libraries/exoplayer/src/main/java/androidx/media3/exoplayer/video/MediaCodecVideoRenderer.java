@@ -384,7 +384,9 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         eventListener,
         maxDroppedFramesToNotify,
         assumedMinimumCodecOperatingRate,
-        videoSinkProvider == null ? null : videoSinkProvider.getSink());
+        /* videoSink= */ videoSinkProvider == null
+            ? null
+            : videoSinkProvider.getSink(/* inputIndex= */ 0));
   }
 
   /**
@@ -696,11 +698,12 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     // been reset.
     if (!hasSetVideoSink) {
       if (videoEffects != null && videoSink == null) {
-        videoSink =
+        PlaybackVideoGraphWrapper playbackVideoGraphWrapper =
             new PlaybackVideoGraphWrapper.Builder(context, videoFrameReleaseControl)
                 .setClock(getClock())
-                .build()
-                .getSink();
+                .build();
+        playbackVideoGraphWrapper.setTotalVideoInputCount(1);
+        videoSink = playbackVideoGraphWrapper.getSink(/* inputIndex= */ 0);
       }
       hasSetVideoSink = true;
     }
@@ -1222,16 +1225,17 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
 
   @CallSuper
   @Override
-  protected void onReadyToInitializeCodec(MediaCodecInfo codecInfo, Format format)
+  protected boolean maybeInitializeProcessingPipeline(MediaCodecInfo codecInfo, Format format)
       throws ExoPlaybackException {
     if (videoSink != null && !videoSink.isInitialized()) {
       try {
-        videoSink.initialize(format);
+        return videoSink.initialize(format);
       } catch (VideoSink.VideoSinkException e) {
         throw createRendererException(
             e, format, PlaybackException.ERROR_CODE_VIDEO_FRAME_PROCESSOR_INIT_FAILED);
       }
     }
+    return true;
   }
 
   /** Sets the {@linkplain Effect video effects} to apply. */

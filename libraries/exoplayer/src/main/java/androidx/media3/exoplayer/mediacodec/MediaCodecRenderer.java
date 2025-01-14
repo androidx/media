@@ -1100,7 +1100,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
 
   private void maybeInitCodecWithFallback(
       @Nullable MediaCrypto crypto, boolean mediaCryptoRequiresSecureDecoder)
-      throws DecoderInitializationException {
+      throws DecoderInitializationException, ExoPlaybackException {
     Format inputFormat = checkNotNull(this.inputFormat);
     if (availableCodecInfos == null) {
       try {
@@ -1133,6 +1133,10 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     ArrayDeque<MediaCodecInfo> availableCodecInfos = checkNotNull(this.availableCodecInfos);
     while (codec == null) {
       MediaCodecInfo codecInfo = checkNotNull(availableCodecInfos.peekFirst());
+      if (!maybeInitializeProcessingPipeline(codecInfo, inputFormat)) {
+        return;
+      }
+
       if (!shouldInitCodec(codecInfo)) {
         return;
       }
@@ -1216,7 +1220,6 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     if (codecOperatingRate <= assumedMinimumCodecOperatingRate) {
       codecOperatingRate = CODEC_OPERATING_RATE_UNSET;
     }
-    onReadyToInitializeCodec(codecInfo, inputFormat);
     codecInitializingTimestamp = getClock().elapsedRealtime();
     MediaCodecAdapter.Configuration configuration =
         getMediaCodecConfiguration(codecInfo, inputFormat, crypto, codecOperatingRate);
@@ -1487,7 +1490,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   }
 
   /**
-   * Called when ready to initialize the {@link MediaCodecAdapter}.
+   * Initializes the processing pipeline, if needed by the implementation.
    *
    * <p>This method is called just before the renderer obtains the {@linkplain
    * #getMediaCodecConfiguration configuration} for the {@link MediaCodecAdapter} and creates the
@@ -1497,11 +1500,15 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
    *
    * @param codecInfo The {@link MediaCodecInfo} of the codec which will be initialized.
    * @param format The {@link Format} for which the codec is being configured.
+   * @return Returns {@code true} when the processing pipeline is successfully initialized, or the
+   *     {@linkplain MediaCodecRenderer renderer} does not use a processing pipeline. The caller
+   *     should try again later, if {@code false} is returned.
    * @throws ExoPlaybackException If an error occurs preparing for initializing the codec.
    */
-  protected void onReadyToInitializeCodec(MediaCodecInfo codecInfo, Format format)
+  protected boolean maybeInitializeProcessingPipeline(MediaCodecInfo codecInfo, Format format)
       throws ExoPlaybackException {
     // Do nothing.
+    return true;
   }
 
   /**

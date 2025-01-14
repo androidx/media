@@ -108,8 +108,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   @Override
-  public void initialize(Format sourceFormat) {
+  public boolean initialize(Format sourceFormat) {
     // Do nothing as there is no initialization needed.
+    return true;
   }
 
   @Override

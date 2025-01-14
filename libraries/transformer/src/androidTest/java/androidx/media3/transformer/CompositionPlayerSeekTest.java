@@ -38,6 +38,7 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.PreviewingVideoGraph;
+import androidx.media3.common.VideoCompositorSettings;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.VideoGraph;
 import androidx.media3.common.util.NullableType;
@@ -755,6 +756,7 @@ public class CompositionPlayerSeekTest {
         DebugViewProvider debugViewProvider,
         VideoGraph.Listener listener,
         Executor listenerExecutor,
+        VideoCompositorSettings videoCompositorSettings,
         List<Effect> compositionEffects,
         long initialTimestampOffsetUs) {
       return singleInputVideoGraphFactory.create(
@@ -790,8 +792,14 @@ public class CompositionPlayerSeekTest {
             }
           },
           listenerExecutor,
+          videoCompositorSettings,
           compositionEffects,
           initialTimestampOffsetUs);
+    }
+
+    @Override
+    public boolean supportsMultipleInputs() {
+      return singleInputVideoGraphFactory.supportsMultipleInputs();
     }
   }
 

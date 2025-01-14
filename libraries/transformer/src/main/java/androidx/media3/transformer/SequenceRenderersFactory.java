@@ -89,22 +89,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         requestToneMapping);
   }
 
-  /** Creates a renderers factory that for a player that will only play audio. */
-  public static SequenceRenderersFactory createForAudio(
-      Context context,
-      EditedMediaItemSequence sequence,
-      PlaybackAudioGraphWrapper playbackAudioGraphWrapper,
-      int inputIndex) {
-    return new SequenceRenderersFactory(
-        context,
-        sequence,
-        playbackAudioGraphWrapper,
-        /* videoSink= */ null,
-        /* imageDecoderFactory= */ null,
-        inputIndex,
-        /* requestToneMapping= */ false);
-  }
-
   private SequenceRenderersFactory(
       Context context,
       EditedMediaItemSequence sequence,
@@ -410,15 +394,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       super.onEnabled(joining, mayRenderStartOfStream);
       this.mayRenderStartOfStream = mayRenderStartOfStream;
       videoSink.onRendererEnabled(mayRenderStartOfStream);
-      if (!videoSink.isInitialized()) {
-        Format format = new Format.Builder().build();
-        try {
-          videoSink.initialize(format);
-        } catch (VideoSink.VideoSinkException e) {
-          throw createRendererException(
-              e, format, PlaybackException.ERROR_CODE_VIDEO_FRAME_PROCESSOR_INIT_FAILED);
-        }
-      }
       // TODO - b/328444280: Do not set a listener on VideoSink, but MediaCodecVideoRenderer must
       //  unregister itself as a listener too.
       videoSink.setListener(VideoSink.Listener.NO_OP, /* executor= */ (runnable) -> {});
@@ -472,6 +447,20 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
 
     @Override
+    protected boolean maybeInitializeProcessingPipeline() throws ExoPlaybackException {
+      if (videoSink.isInitialized()) {
+        return true;
+      }
+      Format format = new Format.Builder().build();
+      try {
+        return videoSink.initialize(format);
+      } catch (VideoSink.VideoSinkException e) {
+        throw createRendererException(
+            e, format, PlaybackException.ERROR_CODE_VIDEO_FRAME_PROCESSOR_INIT_FAILED);
+      }
+    }
+
+    @Override
     protected void onStopped() {
       super.onStopped();
       videoSink.onRendererStopped();
@@ -503,6 +492,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         pendingExoPlaybackException = null;
         throw exoPlaybackException;
       }
+
       super.render(positionUs, elapsedRealtimeUs);
       try {
         videoSink.render(positionUs, elapsedRealtimeUs);
