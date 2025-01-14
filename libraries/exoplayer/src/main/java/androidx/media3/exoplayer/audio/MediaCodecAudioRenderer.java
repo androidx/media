@@ -515,7 +515,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
   }
 
   @Override
-  public long getDurationToProgressUs(
+  protected long getDurationToProgressUs(
       boolean isOnBufferAvailableListenerRegistered, long positionUs, long elapsedRealtimeUs) {
     if (nextBufferToWritePresentationTimeUs != C.TIME_UNSET) {
       long durationUs =
