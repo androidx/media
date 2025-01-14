@@ -194,8 +194,11 @@ public final class BundledChunkExtractor implements ExtractorOutput, ChunkExtrac
     }
   }
 
-  /** {@link Factory} for {@link BundledChunkExtractor}. */
-  public static final Factory FACTORY = new Factory();
+  /**
+   * @deprecated {@link Factory} is mutable, so a static instance is not safe. Instantiate a new
+   *     {@link Factory} instead.
+   */
+  @Deprecated public static final Factory FACTORY = new Factory();
 
   private static final PositionHolder POSITION_HOLDER = new PositionHolder();
 

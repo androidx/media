@@ -91,10 +91,10 @@ public class DefaultDashChunkSource implements DashChunkSource {
 
     /**
      * Equivalent to {@link #Factory(ChunkExtractor.Factory, DataSource.Factory, int) new
-     * Factory(BundledChunkExtractor.FACTORY, dataSourceFactory, maxSegmentsPerLoad)}.
+     * Factory(new BundledChunkExtractor.Factory(), dataSourceFactory, maxSegmentsPerLoad)}.
      */
     public Factory(DataSource.Factory dataSourceFactory, int maxSegmentsPerLoad) {
-      this(BundledChunkExtractor.FACTORY, dataSourceFactory, maxSegmentsPerLoad);
+      this(new BundledChunkExtractor.Factory(), dataSourceFactory, maxSegmentsPerLoad);
     }
 
     /**
