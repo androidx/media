@@ -143,7 +143,6 @@ public final class Transformer {
       debugViewProvider = DebugViewProvider.NONE;
       clock = Clock.DEFAULT;
       listeners = new ListenerSet<>(looper, clock, (listener, flags) -> {});
-      usePlatformDiagnostics = true;
     }
 
     /** Creates a builder with the values of the provided {@link Transformer}. */
