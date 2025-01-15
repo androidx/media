@@ -24,6 +24,7 @@ import android.media.metrics.EditingEndedEvent;
 import android.media.metrics.EditingSession;
 import android.media.metrics.MediaItemInfo;
 import android.media.metrics.MediaMetricsManager;
+import android.util.Size;
 import android.util.SparseIntArray;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
@@ -222,6 +223,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         if (format.sampleMimeType != null) {
           mediaItemInfoBuilder.addSampleMimeType(format.sampleMimeType);
         }
+        if (format.frameRate != Format.NO_VALUE) {
+          mediaItemInfoBuilder.setVideoFrameRate(format.frameRate);
+        }
+        Size videoSize =
+            new Size(
+                format.width != Format.NO_VALUE ? format.width : MediaItemInfo.VALUE_UNSPECIFIED,
+                format.height != Format.NO_VALUE ? format.height : MediaItemInfo.VALUE_UNSPECIFIED);
+        mediaItemInfoBuilder.setVideoSize(videoSize);
       }
       mediaItemInfoList.add(mediaItemInfoBuilder.build());
     }
