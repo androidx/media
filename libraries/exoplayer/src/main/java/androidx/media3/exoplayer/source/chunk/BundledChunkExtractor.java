@@ -169,29 +169,6 @@ public final class BundledChunkExtractor implements ExtractorOutput, ChunkExtrac
       }
       return new BundledChunkExtractor(extractor, primaryTrackType, representationFormat);
     }
-
-    /**
-     * Sets whether within GOP sample dependency information for {@linkplain MimeTypes#VIDEO_H264
-     * H.264} video should be parsed as part of extraction. Defaults to {@code false}.
-     *
-     * <p>Having access to additional sample dependency information can speed up seeking. See {@link
-     * FragmentedMp4Extractor#FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES}.
-     *
-     * <p>This method is experimental and will be renamed or removed in a future release.
-     *
-     * @deprecated Use {@link #experimentalSetCodecsToParseWithinGopSampleDependencies(int)}
-     *     instead.
-     * @param parseWithinGopSampleDependencies Whether to parse within GOP sample dependencies
-     *     during extraction.
-     * @return This factory, for convenience.
-     */
-    @CanIgnoreReturnValue
-    @Deprecated
-    public Factory experimentalParseWithinGopSampleDependencies(
-        boolean parseWithinGopSampleDependencies) {
-      return experimentalSetCodecsToParseWithinGopSampleDependencies(
-          parseWithinGopSampleDependencies ? C.VIDEO_CODEC_FLAG_H264 : 0);
-    }
   }
 
   /**
