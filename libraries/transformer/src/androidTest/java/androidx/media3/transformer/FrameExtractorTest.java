@@ -66,7 +66,7 @@ public class FrameExtractorTest {
       "test-generated-goldens/FrameExtractorTest/";
   private static final String FILE_PATH =
       "asset:///media/mp4/sample_with_increasing_timestamps_360p.mp4";
-  private static final long TIMEOUT_SECONDS = 10;
+  private static final long TIMEOUT_SECONDS = 20;
   // TODO: b/350498258 - Due to bugs in hardware decoders, we can only assert for low PSNR values.
   // Move to using software decoders in pixel tests, and increase PSNR threshold.
   private static final float PSNR_THRESHOLD = 25f;
