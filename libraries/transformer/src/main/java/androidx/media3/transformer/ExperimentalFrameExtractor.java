@@ -49,6 +49,7 @@ import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 import androidx.concurrent.futures.CallbackToFutureAdapter;
+import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.GlObjectsProvider;
@@ -80,9 +81,11 @@ import androidx.media3.exoplayer.analytics.AnalyticsListener;
 import androidx.media3.exoplayer.mediacodec.MediaCodecAdapter;
 import androidx.media3.exoplayer.mediacodec.MediaCodecInfo;
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.video.MediaCodecVideoRenderer;
 import androidx.media3.exoplayer.video.VideoRendererEventListener;
+import androidx.media3.extractor.DefaultExtractorsFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -273,6 +276,10 @@ public final class ExperimentalFrameExtractor {
    * @param configuration The {@link Configuration} for this frame extractor.
    */
   public ExperimentalFrameExtractor(Context context, Configuration configuration) {
+    MediaSource.Factory mediaSourceFactory =
+        new DefaultMediaSourceFactory(context, new DefaultExtractorsFactory())
+            .experimentalSetCodecsToParseWithinGopSampleDependencies(
+                C.VIDEO_CODEC_FLAG_H264 | C.VIDEO_CODEC_FLAG_H265);
     player =
         new ExoPlayer.Builder(
                 context,
@@ -287,7 +294,8 @@ public final class ExperimentalFrameExtractor {
                           configuration.mediaCodecSelector,
                           videoRendererEventListener,
                           /* toneMapHdrToSdr= */ !configuration.extractHdrFrames)
-                    })
+                    },
+                mediaSourceFactory)
             .setSeekParameters(configuration.seekParameters)
             .build();
     player.addAnalyticsListener(new PlayerListener());

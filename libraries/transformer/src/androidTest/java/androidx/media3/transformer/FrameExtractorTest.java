@@ -21,7 +21,9 @@ import static androidx.media3.exoplayer.SeekParameters.CLOSEST_SYNC;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.maybeSaveTestBitmap;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.readBitmap;
 import static androidx.media3.test.utils.TestUtil.assertBitmapsAreSimilar;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_TRIM_OPTIMIZATION_270;
+import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -472,5 +474,27 @@ public class FrameExtractorTest {
     assertBitmapsAreSimilar(expectedBitmapFirstItem, actualBitmapFirstItem, PSNR_THRESHOLD);
     assertThat(frameSecondItem.presentationTimeMs).isEqualTo(8_531);
     assertBitmapsAreSimilar(expectedBitmapSecondItem, actualBitmapSecondItem, PSNR_THRESHOLD);
+  }
+
+  @Test
+  public void extractFrame_oneFrame_decodesReferenceFramesOnly() throws Exception {
+    assumeFormatsSupported(
+        context, testId, /* inputFormat= */ MP4_ASSET.videoFormat, /* outputFormat= */ null);
+    frameExtractor =
+        new ExperimentalFrameExtractor(
+            context, new ExperimentalFrameExtractor.Configuration.Builder().build());
+    frameExtractor.setMediaItem(
+        MediaItem.fromUri(MP4_ASSET.uri), /* effects= */ ImmutableList.of());
+
+    ListenableFuture<Frame> frameFuture = frameExtractor.getFrame(/* positionMs= */ 967);
+    Frame frame = frameFuture.get(TIMEOUT_SECONDS, SECONDS);
+
+    assertThat(frame.presentationTimeMs).isEqualTo(967);
+    assertThat(
+            frameExtractor
+                .getDecoderCounters()
+                .get(TIMEOUT_SECONDS, SECONDS)
+                .skippedInputBufferCount)
+        .isEqualTo(13);
   }
 }
