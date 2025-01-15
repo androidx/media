@@ -91,7 +91,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import org.junit.After;
 import org.junit.Before;
@@ -148,13 +147,12 @@ public class MediaCodecVideoRendererTest {
           /* forceDisableAdaptive= */ false,
           /* forceSecure= */ false);
 
-  private final AtomicReference<HandlerThread> callbackThread = new AtomicReference<>();
-  private final AtomicReference<HandlerThread> queueingThread = new AtomicReference<>();
-
   private Looper testMainLooper;
   private Surface surface;
   private MediaCodecVideoRenderer mediaCodecVideoRenderer;
   private MediaCodecSelector mediaCodecSelector;
+  @Nullable private HandlerThread callbackThread;
+  @Nullable private HandlerThread queueingThread;
   @Nullable private Format currentOutputFormat;
 
   @Mock private VideoRendererEventListener eventListener;
@@ -181,12 +179,12 @@ public class MediaCodecVideoRendererTest {
             new DefaultMediaCodecAdapterFactory(
                 ApplicationProvider.getApplicationContext(),
                 () -> {
-                  callbackThread.set(new HandlerThread("MCVRTest:MediaCodecAsyncAdapter"));
-                  return callbackThread.get();
+                  callbackThread = new HandlerThread("MCVRTest:MediaCodecAsyncAdapter");
+                  return callbackThread;
                 },
                 () -> {
-                  queueingThread.set(new HandlerThread("MCVRTest:MediaCodecQueueingThread"));
-                  return queueingThread.get();
+                  queueingThread = new HandlerThread("MCVRTest:MediaCodecQueueingThread");
+                  return queueingThread;
                 }),
             mediaCodecSelector,
             /* allowedJoiningTimeMs= */ 0,
@@ -1612,11 +1610,11 @@ public class MediaCodecVideoRendererTest {
   }
 
   private void maybeIdleAsynchronousMediaCodecAdapterThreads() {
-    if (queueingThread.get() != null) {
-      shadowOf(queueingThread.get().getLooper()).idle();
+    if (queueingThread != null) {
+      shadowOf(queueingThread.getLooper()).idle();
     }
-    if (callbackThread.get() != null) {
-      shadowOf(callbackThread.get().getLooper()).idle();
+    if (callbackThread != null) {
+      shadowOf(callbackThread.getLooper()).idle();
     }
   }
 
