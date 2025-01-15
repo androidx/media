@@ -19,12 +19,14 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.content.Context;
 import android.media.MediaCodec;
+import android.os.HandlerThread;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import com.google.common.base.Supplier;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.lang.annotation.Documented;
@@ -57,6 +59,8 @@ public final class DefaultMediaCodecAdapterFactory implements MediaCodecAdapter.
   private static final String TAG = "DMCodecAdapterFactory";
 
   @Nullable private final Context context;
+  @Nullable private final Supplier<HandlerThread> callbackThreadSupplier;
+  @Nullable private final Supplier<HandlerThread> queueingThreadSupplier;
 
   private @Mode int asynchronousMode;
   private boolean asyncCryptoFlagEnabled;
@@ -69,6 +73,8 @@ public final class DefaultMediaCodecAdapterFactory implements MediaCodecAdapter.
     asynchronousMode = MODE_DEFAULT;
     asyncCryptoFlagEnabled = false;
     context = null;
+    callbackThreadSupplier = null;
+    queueingThreadSupplier = null;
   }
 
   /**
@@ -77,9 +83,26 @@ public final class DefaultMediaCodecAdapterFactory implements MediaCodecAdapter.
    * @param context A {@link Context}.
    */
   public DefaultMediaCodecAdapterFactory(Context context) {
+    this(context, null, null);
+  }
+
+  /**
+   * Creates the default media codec adapter factory.
+   *
+   * @param context A {@link Context}.
+   * @param callbackThreadSupplier A supplier of {@link HandlerThread} used for {@link MediaCodec}
+   *     callbacks invoked when buffers are available.
+   * @param queueingThreadSupplier A supplier of {@link HandlerThread} to use for queueing buffers.
+   */
+  public DefaultMediaCodecAdapterFactory(
+      Context context,
+      @Nullable Supplier<HandlerThread> callbackThreadSupplier,
+      @Nullable Supplier<HandlerThread> queueingThreadSupplier) {
     this.context = context;
     asynchronousMode = MODE_DEFAULT;
     asyncCryptoFlagEnabled = false;
+    this.callbackThreadSupplier = callbackThreadSupplier;
+    this.queueingThreadSupplier = queueingThreadSupplier;
   }
 
   /**
@@ -132,7 +155,10 @@ public final class DefaultMediaCodecAdapterFactory implements MediaCodecAdapter.
           "Creating an asynchronous MediaCodec adapter for track type "
               + Util.getTrackTypeString(trackType));
       AsynchronousMediaCodecAdapter.Factory factory =
-          new AsynchronousMediaCodecAdapter.Factory(trackType);
+          callbackThreadSupplier != null && queueingThreadSupplier != null
+              ? new AsynchronousMediaCodecAdapter.Factory(
+                  callbackThreadSupplier, queueingThreadSupplier)
+              : new AsynchronousMediaCodecAdapter.Factory(trackType);
       factory.experimentalSetAsyncCryptoFlagEnabled(asyncCryptoFlagEnabled);
       return factory.createAdapter(configuration);
     }
