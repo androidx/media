@@ -49,6 +49,8 @@
         ([#1997](https://github.com/androidx/media/issues/1997)).
     *   Add support for VobSub subtitles
         ([#8260](https://github.com/google/ExoPlayer/issues/8260)).
+    *   Fix playback hanging when a playlist contains clipped items with CEA-608
+        or CEA-708 captions.
 *   Metadata:
 *   Image:
 *   DataSource:
