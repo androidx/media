@@ -650,6 +650,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
       @ExtensionRendererMode int extensionRendererMode,
       ArrayList<Renderer> out) {
     out.add(new MetadataRenderer(output, outputLooper));
+    out.add(new MetadataRenderer(output, outputLooper));
   }
 
   /**

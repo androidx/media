@@ -16,6 +16,9 @@
         items during playback to reduce media item transition latency.
     *   Fix issue where additional decode-only frames may be displayed in quick
         succession when transitioning to content media after a mid-roll ad.
+    *   Make `DefaultRenderersFactory` add two `MetadataRenderer` instances by
+        default to enable apps to receive two different schemes of metadata by
+        default.
 *   Transformer:
     *   Enable support for Android platform diagnostics via
         `MediaMetricsManager`. Transformer will forward editing events and
