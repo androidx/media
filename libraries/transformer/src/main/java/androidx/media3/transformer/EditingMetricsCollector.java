@@ -28,6 +28,7 @@ import android.util.SparseIntArray;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
+import androidx.media3.common.Format;
 import androidx.media3.common.util.SystemClock;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
@@ -213,7 +214,15 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       MediaItemInfo.Builder mediaItemInfoBuilder = new MediaItemInfo.Builder();
       long durationMs = usToMs(processedInput.durationUs);
       mediaItemInfoBuilder.setDurationMillis(durationMs);
-      // TODO: Collect more information about the MediaItem and pass it to MediaItemInfo.Builder
+      Format format = processedInput.format;
+      if (format != null) {
+        if (format.containerMimeType != null) {
+          mediaItemInfoBuilder.setContainerMimeType(format.containerMimeType);
+        }
+        if (format.sampleMimeType != null) {
+          mediaItemInfoBuilder.addSampleMimeType(format.sampleMimeType);
+        }
+      }
       mediaItemInfoList.add(mediaItemInfoBuilder.build());
     }
     return mediaItemInfoList;
