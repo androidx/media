@@ -39,7 +39,6 @@ import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.AuxEffectInfo;
 import androidx.media3.common.C;
-import androidx.media3.common.DeviceInfo;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
@@ -48,8 +47,6 @@ import androidx.media3.common.PriorityTaskManager;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.Tracks;
-import androidx.media3.common.VideoSize;
-import androidx.media3.common.text.CueGroup;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -167,259 +164,6 @@ import java.util.List;
  */
 public interface ExoPlayer extends Player {
 
-  /**
-   * @deprecated Use {@link ExoPlayer}, as all methods are defined by that interface.
-   */
-  @UnstableApi
-  @Deprecated
-  interface AudioComponent {
-
-    /**
-     * @deprecated Use {@link Player#setAudioAttributes(AudioAttributes, boolean)} instead.
-     */
-    @Deprecated
-    void setAudioAttributes(AudioAttributes audioAttributes, boolean handleAudioFocus);
-
-    /**
-     * @deprecated Use {@link Player#getAudioAttributes()} instead.
-     */
-    @Deprecated
-    AudioAttributes getAudioAttributes();
-
-    /**
-     * @deprecated Use {@link ExoPlayer#setAudioSessionId(int)} instead.
-     */
-    @Deprecated
-    void setAudioSessionId(int audioSessionId);
-
-    /**
-     * @deprecated Use {@link ExoPlayer#getAudioSessionId()} instead.
-     */
-    @Deprecated
-    int getAudioSessionId();
-
-    /**
-     * @deprecated Use {@link ExoPlayer#setAuxEffectInfo(AuxEffectInfo)} instead.
-     */
-    @Deprecated
-    void setAuxEffectInfo(AuxEffectInfo auxEffectInfo);
-
-    /**
-     * @deprecated Use {@link ExoPlayer#clearAuxEffectInfo()} instead.
-     */
-    @Deprecated
-    void clearAuxEffectInfo();
-
-    /**
-     * @deprecated Use {@link Player#setVolume(float)} instead.
-     */
-    @Deprecated
-    void setVolume(float audioVolume);
-
-    /**
-     * @deprecated Use {@link Player#getVolume()} instead.
-     */
-    @Deprecated
-    float getVolume();
-
-    /**
-     * @deprecated Use {@link ExoPlayer#setSkipSilenceEnabled(boolean)} instead.
-     */
-    @Deprecated
-    void setSkipSilenceEnabled(boolean skipSilenceEnabled);
-
-    /**
-     * @deprecated Use {@link ExoPlayer#getSkipSilenceEnabled()} instead.
-     */
-    @Deprecated
-    boolean getSkipSilenceEnabled();
-  }
-
-  /**
-   * @deprecated Use {@link ExoPlayer}, as all methods are defined by that interface.
-   */
-  @UnstableApi
-  @Deprecated
-  interface VideoComponent {
-
-    /**
-     * @deprecated Use {@link ExoPlayer#setVideoScalingMode(int)} instead.
-     */
-    @Deprecated
-    void setVideoScalingMode(@C.VideoScalingMode int videoScalingMode);
-
-    /**
-     * @deprecated Use {@link ExoPlayer#getVideoScalingMode()} instead.
-     */
-    @Deprecated
-    @C.VideoScalingMode
-    int getVideoScalingMode();
-
-    /**
-     * @deprecated Use {@link ExoPlayer#setVideoChangeFrameRateStrategy(int)} instead.
-     */
-    @Deprecated
-    void setVideoChangeFrameRateStrategy(
-        @C.VideoChangeFrameRateStrategy int videoChangeFrameRateStrategy);
-
-    /**
-     * @deprecated Use {@link ExoPlayer#getVideoChangeFrameRateStrategy()} instead.
-     */
-    @Deprecated
-    @C.VideoChangeFrameRateStrategy
-    int getVideoChangeFrameRateStrategy();
-
-    /**
-     * @deprecated Use {@link ExoPlayer#setVideoFrameMetadataListener(VideoFrameMetadataListener)}
-     *     instead.
-     */
-    @Deprecated
-    void setVideoFrameMetadataListener(VideoFrameMetadataListener listener);
-
-    /**
-     * @deprecated Use {@link ExoPlayer#clearVideoFrameMetadataListener(VideoFrameMetadataListener)}
-     *     instead.
-     */
-    @Deprecated
-    void clearVideoFrameMetadataListener(VideoFrameMetadataListener listener);
-
-    /**
-     * @deprecated Use {@link ExoPlayer#setCameraMotionListener(CameraMotionListener)} instead.
-     */
-    @Deprecated
-    void setCameraMotionListener(CameraMotionListener listener);
-
-    /**
-     * @deprecated Use {@link ExoPlayer#clearCameraMotionListener(CameraMotionListener)} instead.
-     */
-    @Deprecated
-    void clearCameraMotionListener(CameraMotionListener listener);
-
-    /**
-     * @deprecated Use {@link Player#clearVideoSurface()} instead.
-     */
-    @Deprecated
-    void clearVideoSurface();
-
-    /**
-     * @deprecated Use {@link Player#clearVideoSurface(Surface)} instead.
-     */
-    @Deprecated
-    void clearVideoSurface(@Nullable Surface surface);
-
-    /**
-     * @deprecated Use {@link Player#setVideoSurface(Surface)} instead.
-     */
-    @Deprecated
-    void setVideoSurface(@Nullable Surface surface);
-
-    /**
-     * @deprecated Use {@link Player#setVideoSurfaceHolder(SurfaceHolder)} instead.
-     */
-    @Deprecated
-    void setVideoSurfaceHolder(@Nullable SurfaceHolder surfaceHolder);
-
-    /**
-     * @deprecated Use {@link Player#clearVideoSurfaceHolder(SurfaceHolder)} instead.
-     */
-    @Deprecated
-    void clearVideoSurfaceHolder(@Nullable SurfaceHolder surfaceHolder);
-
-    /**
-     * @deprecated Use {@link Player#setVideoSurfaceView(SurfaceView)} instead.
-     */
-    @Deprecated
-    void setVideoSurfaceView(@Nullable SurfaceView surfaceView);
-
-    /**
-     * @deprecated Use {@link Player#clearVideoSurfaceView(SurfaceView)} instead.
-     */
-    @Deprecated
-    void clearVideoSurfaceView(@Nullable SurfaceView surfaceView);
-
-    /**
-     * @deprecated Use {@link Player#setVideoTextureView(TextureView)} instead.
-     */
-    @Deprecated
-    void setVideoTextureView(@Nullable TextureView textureView);
-
-    /**
-     * @deprecated Use {@link Player#clearVideoTextureView(TextureView)} instead.
-     */
-    @Deprecated
-    void clearVideoTextureView(@Nullable TextureView textureView);
-
-    /**
-     * @deprecated Use {@link Player#getVideoSize()} instead.
-     */
-    @Deprecated
-    VideoSize getVideoSize();
-  }
-
-  /**
-   * @deprecated Use {@link Player}, as all methods are defined by that interface.
-   */
-  @UnstableApi
-  @Deprecated
-  interface TextComponent {
-
-    /**
-     * @deprecated Use {@link Player#getCurrentCues()} instead.
-     */
-    @Deprecated
-    CueGroup getCurrentCues();
-  }
-
-  /**
-   * @deprecated Use {@link Player}, as all methods are defined by that interface.
-   */
-  @UnstableApi
-  @Deprecated
-  interface DeviceComponent {
-
-    /**
-     * @deprecated Use {@link Player#getDeviceInfo()} instead.
-     */
-    @Deprecated
-    DeviceInfo getDeviceInfo();
-
-    /**
-     * @deprecated Use {@link Player#getDeviceVolume()} instead.
-     */
-    @Deprecated
-    int getDeviceVolume();
-
-    /**
-     * @deprecated Use {@link Player#isDeviceMuted()} instead.
-     */
-    @Deprecated
-    boolean isDeviceMuted();
-
-    /**
-     * @deprecated Use {@link Player#setDeviceVolume(int)} instead.
-     */
-    @Deprecated
-    void setDeviceVolume(int volume);
-
-    /**
-     * @deprecated Use {@link Player#increaseDeviceVolume()} instead.
-     */
-    @Deprecated
-    void increaseDeviceVolume();
-
-    /**
-     * @deprecated Use {@link Player#decreaseDeviceVolume()} instead.
-     */
-    @Deprecated
-    void decreaseDeviceVolume();
-
-    /**
-     * @deprecated Use {@link Player#setDeviceMuted(boolean)} instead.
-     */
-    @Deprecated
-    void setDeviceMuted(boolean muted);
-  }
-
   /** A listener for audio offload events. */
   @UnstableApi
   interface AudioOffloadListener {
@@ -470,7 +214,6 @@ public interface ExoPlayer extends Player {
    *
    * <p>See {@link #Builder(Context)} for the list of default values.
    */
-  @SuppressWarnings("deprecation")
   final class Builder {
 
     /* package */ final Context context;
@@ -1353,6 +1096,7 @@ public interface ExoPlayer extends Player {
       return new ExoPlayerImpl(/* builder= */ this, /* wrappingPlayer= */ null);
     }
 
+    @SuppressWarnings("deprecation") // Building deprecated class.
     /* package */ SimpleExoPlayer buildSimpleExoPlayer() {
       checkState(!buildCalled);
       buildCalled = true;
@@ -1376,46 +1120,6 @@ public interface ExoPlayer extends Player {
   @Override
   @Nullable
   ExoPlaybackException getPlayerError();
-
-  /**
-   * @deprecated Use {@link ExoPlayer}, as the {@link AudioComponent} methods are defined by that
-   *     interface.
-   */
-  @SuppressWarnings("deprecation") // Intentionally returning deprecated type
-  @UnstableApi
-  @Nullable
-  @Deprecated
-  AudioComponent getAudioComponent();
-
-  /**
-   * @deprecated Use {@link ExoPlayer}, as the {@link VideoComponent} methods are defined by that
-   *     interface.
-   */
-  @SuppressWarnings("deprecation") // Intentionally returning deprecated type
-  @UnstableApi
-  @Nullable
-  @Deprecated
-  VideoComponent getVideoComponent();
-
-  /**
-   * @deprecated Use {@link Player}, as the {@link TextComponent} methods are defined by that
-   *     interface.
-   */
-  @SuppressWarnings("deprecation") // Intentionally returning deprecated type
-  @UnstableApi
-  @Nullable
-  @Deprecated
-  TextComponent getTextComponent();
-
-  /**
-   * @deprecated Use {@link Player}, as the {@link DeviceComponent} methods are defined by that
-   *     interface.
-   */
-  @SuppressWarnings("deprecation") // Intentionally returning deprecated type
-  @UnstableApi
-  @Nullable
-  @Deprecated
-  DeviceComponent getDeviceComponent();
 
   /**
    * Adds a listener to receive audio offload events.

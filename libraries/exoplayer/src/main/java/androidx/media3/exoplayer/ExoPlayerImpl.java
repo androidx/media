@@ -119,19 +119,13 @@ import androidx.media3.exoplayer.video.VideoRendererEventListener;
 import androidx.media3.exoplayer.video.spherical.CameraMotionListener;
 import androidx.media3.exoplayer.video.spherical.SphericalGLSurfaceView;
 import com.google.common.collect.ImmutableList;
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArraySet;
 
 /** The default implementation of {@link ExoPlayer}. */
-/* package */ final class ExoPlayerImpl extends BasePlayer
-    implements ExoPlayer,
-        ExoPlayer.AudioComponent,
-        ExoPlayer.VideoComponent,
-        ExoPlayer.TextComponent,
-        ExoPlayer.DeviceComponent {
+/* package */ final class ExoPlayerImpl extends BasePlayer implements ExoPlayer {
 
   static {
     MediaLibraryInfo.registerModule("media3.exoplayer");
@@ -454,42 +448,6 @@ import java.util.concurrent.CopyOnWriteArraySet;
     } finally {
       constructorFinished.open();
     }
-  }
-
-  @CanIgnoreReturnValue
-  @SuppressWarnings("deprecation") // Returning deprecated class.
-  @Override
-  @Deprecated
-  public AudioComponent getAudioComponent() {
-    verifyApplicationThread();
-    return this;
-  }
-
-  @CanIgnoreReturnValue
-  @SuppressWarnings("deprecation") // Returning deprecated class.
-  @Override
-  @Deprecated
-  public VideoComponent getVideoComponent() {
-    verifyApplicationThread();
-    return this;
-  }
-
-  @CanIgnoreReturnValue
-  @SuppressWarnings("deprecation") // Returning deprecated class.
-  @Override
-  @Deprecated
-  public TextComponent getTextComponent() {
-    verifyApplicationThread();
-    return this;
-  }
-
-  @CanIgnoreReturnValue
-  @SuppressWarnings("deprecation") // Returning deprecated class.
-  @Override
-  @Deprecated
-  public DeviceComponent getDeviceComponent() {
-    verifyApplicationThread();
-    return this;
   }
 
   @Override

@@ -98,6 +98,8 @@
         Composable depending on the ContentScale type and cover it with a
         shutter-overlay before the first frame is rendered.
 *   Remove deprecated symbols:
+    *   Removed `ExoPlayer.VideoComponent`, `ExoPlayer.AudioComponent`,
+        `ExoPlayer.TextComponent` and `ExoPlayer.DeviceComponent`.
 
 ## 1.6
 

@@ -23,7 +23,6 @@ import androidx.media3.common.AuxEffectInfo;
 import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
-import androidx.media3.common.Player;
 import androidx.media3.common.PriorityTaskManager;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.UnstableApi;
@@ -51,50 +50,6 @@ import java.util.List;
  */
 @UnstableApi
 public class StubExoPlayer extends StubPlayer implements ExoPlayer {
-
-  /**
-   * @deprecated Use {@link ExoPlayer}, as the {@link AudioComponent} methods are defined by that
-   *     interface.
-   */
-  @SuppressWarnings("deprecation") // Returning deprecated type
-  @Override
-  @Deprecated
-  public AudioComponent getAudioComponent() {
-    throw new UnsupportedOperationException();
-  }
-
-  /**
-   * @deprecated Use {@link ExoPlayer}, as the {@link VideoComponent} methods are defined by that
-   *     interface.
-   */
-  @SuppressWarnings("deprecation") // Returning deprecated type
-  @Override
-  @Deprecated
-  public VideoComponent getVideoComponent() {
-    throw new UnsupportedOperationException();
-  }
-
-  /**
-   * @deprecated Use {@link Player}, as the {@link TextComponent} methods are defined by that
-   *     interface.
-   */
-  @SuppressWarnings("deprecation") // Returning deprecated type
-  @Override
-  @Deprecated
-  public TextComponent getTextComponent() {
-    throw new UnsupportedOperationException();
-  }
-
-  /**
-   * @deprecated Use {@link Player}, as the {@link DeviceComponent} methods are defined by that
-   *     interface.
-   */
-  @SuppressWarnings("deprecation") // Returning deprecated type
-  @Override
-  @Deprecated
-  public DeviceComponent getDeviceComponent() {
-    throw new UnsupportedOperationException();
-  }
 
   @Override
   public Looper getPlaybackLooper() {
