@@ -226,7 +226,6 @@ public final class DefaultVideoCompositor implements VideoCompositor {
 
   @Override
   public synchronized void release() {
-    checkState(allInputsEnded);
     try {
       videoFrameProcessingTaskExecutor.release(/* releaseTask= */ this::releaseGlObjects);
     } catch (InterruptedException e) {
