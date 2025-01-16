@@ -382,6 +382,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
               playerId,
               builder.playbackLooperProvider,
               preloadConfiguration);
+      Looper playbackLooper = internalPlayer.getPlaybackLooper();
 
       volume = 1;
       repeatMode = Player.REPEAT_MODE_OFF;
@@ -424,9 +425,9 @@ import java.util.concurrent.CopyOnWriteArraySet;
       } else {
         streamVolumeManager = null;
       }
-      wakeLockManager = new WakeLockManager(builder.context);
+      wakeLockManager = new WakeLockManager(builder.context, playbackLooper, clock);
       wakeLockManager.setEnabled(builder.wakeMode != C.WAKE_MODE_NONE);
-      wifiLockManager = new WifiLockManager(builder.context);
+      wifiLockManager = new WifiLockManager(builder.context, playbackLooper, clock);
       wifiLockManager.setEnabled(builder.wakeMode == C.WAKE_MODE_NETWORK);
       deviceInfo = createDeviceInfo(streamVolumeManager);
       videoSize = VideoSize.UNKNOWN;
