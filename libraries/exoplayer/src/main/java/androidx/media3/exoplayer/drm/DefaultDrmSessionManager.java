@@ -694,6 +694,7 @@ public class DefaultDrmSessionManager implements DrmSessionManager {
     // If we're short on DRM session resources, first try eagerly releasing all our keepalive
     // sessions and then retry the acquisition.
     if (acquisitionFailedIndicatingResourceShortage(session) && !keepaliveSessions.isEmpty()) {
+      Log.w(TAG, "aquire resource shortage and keepaliveSession size: " + keepaliveSessions.size());
       releaseAllKeepaliveSessions();
       undoAcquisition(session, eventDispatcher);
       session = createAndAcquireSession(schemeDatas, isPlaceholderSession, eventDispatcher);
@@ -705,6 +706,11 @@ public class DefaultDrmSessionManager implements DrmSessionManager {
     if (acquisitionFailedIndicatingResourceShortage(session)
         && shouldReleasePreacquiredSessionsBeforeRetrying
         && !preacquiredSessionReferences.isEmpty()) {
+      Log.w(
+          TAG,
+          "aquire resource shortage and preacquiredSessionReferences size: "
+              + preacquiredSessionReferences.size());
+
       releaseAllPreacquiredSessions();
       if (!keepaliveSessions.isEmpty()) {
         // Some preacquired sessions released above are now in their keepalive timeout phase. We
@@ -940,7 +946,12 @@ public class DefaultDrmSessionManager implements DrmSessionManager {
     public void onReferenceCountIncremented(DefaultDrmSession session, int newReferenceCount) {
       if (sessionKeepaliveMs != C.TIME_UNSET) {
         // The session has been acquired elsewhere so we want to cancel our timeout.
-        keepaliveSessions.remove(session);
+        boolean removed = keepaliveSessions.remove(session);
+        if (removed) {
+          Log.d(
+              TAG,
+              "Using cached session, ref count: " + newReferenceCount + ", session: " + session);
+        }
         checkNotNull(playbackHandler).removeCallbacksAndMessages(session);
       }
     }
@@ -954,7 +965,10 @@ public class DefaultDrmSessionManager implements DrmSessionManager {
         keepaliveSessions.add(session);
         checkNotNull(playbackHandler)
             .postAtTime(
-                () -> session.release(/* eventDispatcher= */ null),
+                () -> {
+                  Log.d(TAG, "keepAlive expired for session: " + session);
+                  session.release(/* eventDispatcher= */ null);
+                },
                 session,
                 /* uptimeMillis= */ SystemClock.uptimeMillis() + sessionKeepaliveMs);
       } else if (newReferenceCount == 0) {
