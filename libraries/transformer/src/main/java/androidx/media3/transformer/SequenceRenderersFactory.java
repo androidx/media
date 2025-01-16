@@ -15,6 +15,9 @@
  */
 package androidx.media3.transformer;
 
+import static androidx.media3.common.PlaybackException.ERROR_CODE_AUDIO_TRACK_WRITE_FAILED;
+import static androidx.media3.common.PlaybackException.ERROR_CODE_VIDEO_FRAME_PROCESSING_FAILED;
+import static androidx.media3.common.PlaybackException.ERROR_CODE_VIDEO_FRAME_PROCESSOR_INIT_FAILED;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
@@ -31,7 +34,6 @@ import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
-import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.ConstantRateTimestampIterator;
 import androidx.media3.common.util.Util;
@@ -126,7 +128,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     if (videoSink != null) {
       renderers.add(
           new SequenceVideoRenderer(
-              checkStateNotNull(context),
+              context,
               eventHandler,
               videoRendererEventListener,
               sequence,
@@ -214,8 +216,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           | AudioSink.WriteException
           | AudioSink.InitializationException
           | AudioSink.ConfigurationException e) {
-        throw createRendererException(
-            e, /* format= */ null, ExoPlaybackException.ERROR_CODE_AUDIO_TRACK_WRITE_FAILED);
+        throw createRendererException(e, /* format= */ null, ERROR_CODE_AUDIO_TRACK_WRITE_FAILED);
       }
     }
 
@@ -264,8 +265,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   private static final class SequenceVideoRenderer extends MediaCodecVideoRenderer {
-
-    private static final String TAG = "SequenceVideoRenderer";
 
     private final EditedMediaItemSequence sequence;
     private final VideoSink videoSink;
@@ -455,8 +454,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       try {
         return videoSink.initialize(format);
       } catch (VideoSink.VideoSinkException e) {
-        throw createRendererException(
-            e, format, PlaybackException.ERROR_CODE_VIDEO_FRAME_PROCESSOR_INIT_FAILED);
+        throw createRendererException(e, format, ERROR_CODE_VIDEO_FRAME_PROCESSOR_INIT_FAILED);
       }
     }
 
@@ -497,8 +495,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       try {
         videoSink.render(positionUs, elapsedRealtimeUs);
       } catch (VideoSink.VideoSinkException e) {
-        throw createRendererException(
-            e, e.format, PlaybackException.ERROR_CODE_VIDEO_FRAME_PROCESSING_FAILED);
+        throw createRendererException(e, e.format, ERROR_CODE_VIDEO_FRAME_PROCESSING_FAILED);
       }
     }
 
@@ -536,12 +533,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     @Override
     public void handleMessage(@MessageType int messageType, @Nullable Object message)
         throws ExoPlaybackException {
-      switch (messageType) {
-        case MSG_SET_WAKEUP_LISTENER:
-          videoSink.setWakeupListener((WakeupListener) checkNotNull(message));
-          break;
-        default:
-          super.handleMessage(messageType, message);
+      if (messageType == MSG_SET_WAKEUP_LISTENER) {
+        videoSink.setWakeupListener((WakeupListener) checkNotNull(message));
+      } else {
+        super.handleMessage(messageType, message);
       }
     }
 
