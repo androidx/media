@@ -1155,11 +1155,11 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
 
     String sampleMimeType = checkNotNull(format.sampleMimeType);
     if (MimeTypes.VIDEO_DOLBY_VISION.equals(sampleMimeType)) {
-      // Dolby vision can be a wrapper around H264 or H265. We assume it's wrapping H265 by default
-      // because it's the common case, and because some devices may fail to allocate the codec when
-      // the larger buffer size required for H264 is requested. We size buffers for H264 only if the
-      // format contains sufficient information for us to determine unambiguously that it's a H264
-      // profile.
+      // Dolby vision can be a wrapper around H.264, H.265 or AV1. We assume it's wrapping H.265 by
+      // default because it's the common case, and because some devices may fail to allocate the
+      // codec when the larger buffer size required for H.264/AV1 is requested. We size buffers
+      // for H.264/AV1 only if the format contains sufficient information for us to determine
+      // unambiguously that it's a H.264/AV1 based profile.
       sampleMimeType = MimeTypes.VIDEO_H265;
       @Nullable
       Pair<Integer, Integer> codecProfileAndLevel = MediaCodecUtil.getCodecProfileAndLevel(format);
@@ -1169,6 +1169,8 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
             || profile == CodecProfileLevel.DolbyVisionProfileDvavPer
             || profile == CodecProfileLevel.DolbyVisionProfileDvavPen) {
           sampleMimeType = MimeTypes.VIDEO_H264;
+        } else if (profile == CodecProfileLevel.DolbyVisionProfileDvav110) {
+          sampleMimeType = MimeTypes.VIDEO_AV1;
         }
       }
     }

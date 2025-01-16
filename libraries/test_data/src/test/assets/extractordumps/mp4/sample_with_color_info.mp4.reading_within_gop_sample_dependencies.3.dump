@@ -14,7 +14,7 @@ track 0:
     id = 1
     containerMimeType = video/mp4
     sampleMimeType = video/dolby-vision
-    codecs = hev1.08.04
+    codecs = dvhe.08.04
     maxInputSize = 40550
     maxNumReorderSamples = 2
     width = 1920
