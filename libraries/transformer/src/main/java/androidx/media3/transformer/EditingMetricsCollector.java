@@ -20,6 +20,7 @@ import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Util.usToMs;
 
 import android.content.Context;
+import android.hardware.DataSpace;
 import android.media.metrics.EditingEndedEvent;
 import android.media.metrics.EditingSession;
 import android.media.metrics.MediaItemInfo;
@@ -29,6 +30,7 @@ import android.util.SparseIntArray;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
+import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.SystemClock;
 import com.google.common.collect.ImmutableList;
@@ -45,6 +47,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   // TODO: b/386328723 - Add missing error codes to EditingEndedEvent.ErrorCode.
   private static final SparseIntArray ERROR_CODE_CONVERSION_MAP = new SparseIntArray();
+  private static final SparseIntArray DATA_SPACE_STANDARD_CONVERSION_MAP = new SparseIntArray();
+  private static final SparseIntArray DATA_SPACE_RANGE_CONVERSION_MAP = new SparseIntArray();
+  private static final SparseIntArray DATA_SPACE_TRANSFER_CONVERSION_MAP = new SparseIntArray();
 
   static {
     ERROR_CODE_CONVERSION_MAP.put(
@@ -104,6 +109,21 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     ERROR_CODE_CONVERSION_MAP.put(
         ExportException.ERROR_CODE_MUXING_TIMEOUT,
         EditingEndedEvent.ERROR_CODE_FAILED_RUNTIME_CHECK);
+    DATA_SPACE_STANDARD_CONVERSION_MAP.put(Format.NO_VALUE, DataSpace.STANDARD_UNSPECIFIED);
+    DATA_SPACE_STANDARD_CONVERSION_MAP.put(C.COLOR_SPACE_BT601, DataSpace.STANDARD_BT601_625);
+    DATA_SPACE_STANDARD_CONVERSION_MAP.put(C.COLOR_SPACE_BT709, DataSpace.STANDARD_BT709);
+    DATA_SPACE_STANDARD_CONVERSION_MAP.put(C.COLOR_SPACE_BT2020, DataSpace.STANDARD_BT2020);
+    DATA_SPACE_RANGE_CONVERSION_MAP.put(Format.NO_VALUE, DataSpace.RANGE_UNSPECIFIED);
+    DATA_SPACE_RANGE_CONVERSION_MAP.put(C.COLOR_RANGE_LIMITED, DataSpace.RANGE_LIMITED);
+    DATA_SPACE_RANGE_CONVERSION_MAP.put(C.COLOR_RANGE_FULL, DataSpace.RANGE_FULL);
+    DATA_SPACE_TRANSFER_CONVERSION_MAP.put(Format.NO_VALUE, DataSpace.TRANSFER_UNSPECIFIED);
+    DATA_SPACE_TRANSFER_CONVERSION_MAP.put(C.COLOR_TRANSFER_LINEAR, DataSpace.TRANSFER_LINEAR);
+    // MediaCodec defines SDR to be SMPTE_170M, but many OEMs use Gamma 2.2.
+    DATA_SPACE_TRANSFER_CONVERSION_MAP.put(C.COLOR_TRANSFER_SDR, DataSpace.TRANSFER_SMPTE_170M);
+    DATA_SPACE_TRANSFER_CONVERSION_MAP.put(C.COLOR_TRANSFER_SRGB, DataSpace.TRANSFER_SRGB);
+    DATA_SPACE_TRANSFER_CONVERSION_MAP.put(C.COLOR_TRANSFER_GAMMA_2_2, DataSpace.TRANSFER_GAMMA2_2);
+    DATA_SPACE_TRANSFER_CONVERSION_MAP.put(C.COLOR_TRANSFER_ST2084, DataSpace.TRANSFER_ST2084);
+    DATA_SPACE_TRANSFER_CONVERSION_MAP.put(C.COLOR_TRANSFER_HLG, DataSpace.TRANSFER_HLG);
   }
 
   private static final int SUCCESS_PROGRESS_PERCENTAGE = 100;
@@ -231,6 +251,20 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                 format.width != Format.NO_VALUE ? format.width : MediaItemInfo.VALUE_UNSPECIFIED,
                 format.height != Format.NO_VALUE ? format.height : MediaItemInfo.VALUE_UNSPECIFIED);
         mediaItemInfoBuilder.setVideoSize(videoSize);
+        if (format.colorInfo != null) {
+          ColorInfo colorInfo = format.colorInfo;
+          int colorStandard =
+              DATA_SPACE_STANDARD_CONVERSION_MAP.get(
+                  colorInfo.colorSpace, DataSpace.STANDARD_UNSPECIFIED);
+          int colorTransfer =
+              DATA_SPACE_TRANSFER_CONVERSION_MAP.get(
+                  colorInfo.colorTransfer, DataSpace.TRANSFER_UNSPECIFIED);
+          int colorRange =
+              DATA_SPACE_RANGE_CONVERSION_MAP.get(
+                  colorInfo.colorRange, DataSpace.RANGE_UNSPECIFIED);
+          mediaItemInfoBuilder.setVideoDataSpace(
+              DataSpace.pack(colorStandard, colorTransfer, colorRange));
+        }
       }
       mediaItemInfoList.add(mediaItemInfoBuilder.build());
     }
