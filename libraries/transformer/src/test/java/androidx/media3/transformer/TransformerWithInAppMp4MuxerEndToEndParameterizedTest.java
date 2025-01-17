@@ -39,9 +39,9 @@ import org.robolectric.ParameterizedRobolectricTestRunner;
 import org.robolectric.ParameterizedRobolectricTestRunner.Parameter;
 import org.robolectric.ParameterizedRobolectricTestRunner.Parameters;
 
-/** End to end parameterized tests for {@link Transformer} with {@link InAppMuxer}. */
+/** End to end parameterized tests for {@link Transformer} with {@link InAppMp4Muxer}. */
 @RunWith(ParameterizedRobolectricTestRunner.class)
-public class TransformerWithInAppMuxerEndToEndParameterizedTest {
+public class TransformerWithInAppMp4MuxerEndToEndParameterizedTest {
 
   private static final String H263_3GP = "mp4/bbb_176x144_128kbps_15fps_h263.3gp";
   private static final String H264_MP4 = "mp4/sample_no_bframes.mp4";
@@ -84,15 +84,13 @@ public class TransformerWithInAppMuxerEndToEndParameterizedTest {
   @Test
   public void transmux_mp4File_outputMatchesExpected() throws Exception {
     Muxer.Factory inAppMuxerFactory =
-        new InAppMuxer.Factory.Builder()
-            .setMetadataProvider(
-                metadataEntries ->
-                    // Add timestamp to make output file deterministic.
-                    metadataEntries.add(
-                        new Mp4TimestampData(
-                            /* creationTimestampSeconds= */ 3_000_000_000L,
-                            /* modificationTimestampSeconds= */ 4_000_000_000L)))
-            .build();
+        new InAppMp4Muxer.Factory(
+            metadataEntries ->
+                // Add timestamp to make output file deterministic.
+                metadataEntries.add(
+                    new Mp4TimestampData(
+                        /* creationTimestampSeconds= */ 3_000_000_000L,
+                        /* modificationTimestampSeconds= */ 4_000_000_000L)));
 
     Transformer transformer =
         new TestTransformerBuilder(context).setMuxerFactory(inAppMuxerFactory).build();

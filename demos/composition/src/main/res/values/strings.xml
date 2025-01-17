@@ -34,6 +34,6 @@
   <string name="output_audio_mime_type" translatable="false">Output audio MIME type</string>
   <string name="output_video_mime_type" translatable="false">Output video MIME type</string>
   <string name="enable_debug_tracing" translatable="false">Enable debug tracing</string>
-  <string name="use_media3_muxer" translatable="false">Use Media3 muxer</string>
-  <string name="produce_fragmented_mp4" translatable="false">Produce fragmented MP4</string>
+  <string name="use_media3_mp4_muxer" translatable="false">Use Media3 Mp4Muxer</string>
+  <string name="use_media3_fragmented_mp4_muxer" translatable="false">Use Media3 FragmentedMp4Muxer</string>
 </resources>

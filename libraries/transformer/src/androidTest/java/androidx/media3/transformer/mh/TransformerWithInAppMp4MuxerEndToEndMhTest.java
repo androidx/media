@@ -27,7 +27,7 @@ import androidx.media3.effect.RgbFilter;
 import androidx.media3.transformer.EditedMediaItem;
 import androidx.media3.transformer.Effects;
 import androidx.media3.transformer.ExportTestResult;
-import androidx.media3.transformer.InAppMuxer;
+import androidx.media3.transformer.InAppMp4Muxer;
 import androidx.media3.transformer.Transformer;
 import androidx.media3.transformer.TransformerAndroidTestRunner;
 import androidx.test.core.app.ApplicationProvider;
@@ -40,9 +40,9 @@ import org.junit.Test;
 import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
-/** End-to-end instrumentation test for {@link Transformer} with {@link InAppMuxer}. */
+/** End-to-end instrumentation test for {@link Transformer} with {@link InAppMp4Muxer}. */
 @RunWith(AndroidJUnit4.class)
-public class TransformerWithInAppMuxerEndToEndMhTest {
+public class TransformerWithInAppMp4MuxerEndToEndMhTest {
   @Rule public final TestName testName = new TestName();
 
   private String testId;
@@ -61,9 +61,7 @@ public class TransformerWithInAppMuxerEndToEndMhTest {
         /* inputFormat= */ MP4_ASSET_AV1_VIDEO.videoFormat,
         /* outputFormat= */ null);
     Transformer transformer =
-        new Transformer.Builder(context)
-            .setMuxerFactory(new InAppMuxer.Factory.Builder().build())
-            .build();
+        new Transformer.Builder(context).setMuxerFactory(new InAppMp4Muxer.Factory()).build();
     ImmutableList<Effect> videoEffects = ImmutableList.of(RgbFilter.createGrayscaleFilter());
     MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_AV1_VIDEO.uri));
     EditedMediaItem editedMediaItem =

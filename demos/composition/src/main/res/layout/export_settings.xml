@@ -79,12 +79,12 @@
     android:orientation="horizontal"
     android:gravity="center_vertical">
     <TextView
-      android:text="@string/use_media3_muxer"
+      android:text="@string/use_media3_mp4_muxer"
       android:layout_height="wrap_content"
       android:layout_width="0dp"
       android:layout_weight="1" />
     <CheckBox
-      android:id="@+id/use_media3_muxer_checkbox"
+      android:id="@+id/use_media3_mp4_muxer_checkbox"
       android:layout_gravity="end"
       android:checked="false"
       android:layout_height="wrap_content"
@@ -96,12 +96,12 @@
     android:orientation="horizontal"
     android:gravity="center_vertical">
     <TextView
-      android:text="@string/produce_fragmented_mp4"
+      android:text="@string/use_media3_fragmented_mp4_muxer"
       android:layout_height="wrap_content"
       android:layout_width="0dp"
       android:layout_weight="1" />
     <CheckBox
-      android:id="@+id/produce_fragmented_mp4_checkbox"
+      android:id="@+id/use_media3_fragmented_mp4_muxer_checkbox"
       android:layout_gravity="end"
       android:checked="false"
       android:layout_height="wrap_content"

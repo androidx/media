@@ -38,9 +38,9 @@ import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
-/** End-to-end instrumentation test for {@link Transformer} with {@link InAppMuxer}. */
+/** End-to-end instrumentation test for {@link Transformer} with {@link InAppMp4Muxer}. */
 @RunWith(Parameterized.class)
-public class TransformerWithInAppMuxerEndToEndAndroidTest {
+public class TransformerWithInAppMp4MuxerEndToEndAndroidTest {
   private static final String MP4_FILE_ASSET_DIRECTORY = "asset:///media/mp4/";
   private static final String H264_MP4 = "sample_no_bframes.mp4";
   private static final String H265_MP4 = "h265_with_metadata_track.mp4";
@@ -66,9 +66,7 @@ public class TransformerWithInAppMuxerEndToEndAndroidTest {
         /* inputFormat= */ MP4_ASSET.videoFormat,
         /* outputFormat= */ MP4_ASSET.videoFormat);
     Transformer transformer =
-        new Transformer.Builder(context)
-            .setMuxerFactory(new InAppMuxer.Factory.Builder().build())
-            .build();
+        new Transformer.Builder(context).setMuxerFactory(new InAppMp4Muxer.Factory()).build();
     ImmutableList<Effect> videoEffects = ImmutableList.of(RgbFilter.createGrayscaleFilter());
     MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_FILE_ASSET_DIRECTORY + inputFile));
     EditedMediaItem editedMediaItem =
@@ -91,9 +89,7 @@ public class TransformerWithInAppMuxerEndToEndAndroidTest {
     assumeTrue(checkNotNull(inputFile).equals(H264_MP4));
     String testId = "audioEditing_completesSuccessfully";
     Transformer transformer =
-        new Transformer.Builder(context)
-            .setMuxerFactory(new InAppMuxer.Factory.Builder().build())
-            .build();
+        new Transformer.Builder(context).setMuxerFactory(new InAppMp4Muxer.Factory()).build();
     ChannelMixingAudioProcessor channelMixingAudioProcessor = new ChannelMixingAudioProcessor();
     channelMixingAudioProcessor.putChannelMixingMatrix(
         ChannelMixingMatrix.create(/* inputChannelCount= */ 1, /* outputChannelCount= */ 2));

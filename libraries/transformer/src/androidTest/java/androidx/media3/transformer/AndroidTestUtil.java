@@ -1385,7 +1385,7 @@ public final class AndroidTestUtil {
   /** Returns a {@link Muxer.Factory} depending upon the API level. */
   public static Muxer.Factory getMuxerFactoryBasedOnApi() {
     // MediaMuxer supports B-frame from API > 24.
-    return SDK_INT > 24 ? new DefaultMuxer.Factory() : new InAppMuxer.Factory.Builder().build();
+    return SDK_INT > 24 ? new DefaultMuxer.Factory() : new InAppMp4Muxer.Factory();
   }
 
   private static boolean canDecode(Format format) throws MediaCodecUtil.DecoderQueryException {

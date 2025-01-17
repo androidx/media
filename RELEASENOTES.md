@@ -29,6 +29,10 @@
         by the user of the device. Apps can opt-out of contributing to platform
         diagnostics for Transformer with
         `Transformer.Builder.setUsePlatformDiagnostics(false)`.
+    *   Split `InAppMuxer` into `InAppMp4Muxer` and `InAppFragmentedMp4Muxer`.
+        `InAppMp4Muxer` is to be used for producing a non-fragmented MP4 file,
+        while `InAppFragmentedMp4Muxer` is to be used for producing a fragmented
+        MP4 file.
 *   Track Selection:
 *   Extractors:
     *   Fix handling of NAL units with lengths expressed in 1 or 2 bytes (rather

@@ -1815,7 +1815,7 @@ public class TransformerEndToEndTest {
                 context,
                 new Transformer.Builder(context)
                     .setVideoMimeType(MimeTypes.VIDEO_H265)
-                    .setMuxerFactory(new InAppMuxer.Factory.Builder().build())
+                    .setMuxerFactory(new InAppMp4Muxer.Factory())
                     .build())
             .build()
             .run(testId, editedMediaItem);
@@ -2112,9 +2112,7 @@ public class TransformerEndToEndTest {
   public void transmux_audioWithEditListUsingInAppMuxer_preservesDuration() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
     Transformer transformer =
-        new Transformer.Builder(context)
-            .setMuxerFactory(new InAppMuxer.Factory.Builder().build())
-            .build();
+        new Transformer.Builder(context).setMuxerFactory(new InAppMp4Muxer.Factory()).build();
     MediaItem mediaItem =
         MediaItem.fromUri(Uri.parse("asset:///media/mp4/long_edit_list_audioonly.mp4"));
 
@@ -2393,7 +2391,7 @@ public class TransformerEndToEndTest {
     // The MediaMuxer is not writing the bitrate hence use the InAppMuxer.
     Transformer transformer =
         new Transformer.Builder(context)
-            .setMuxerFactory(new InAppMuxer.Factory.Builder().build())
+            .setMuxerFactory(new InAppMp4Muxer.Factory())
             .setEncoderFactory(
                 new DefaultEncoderFactory.Builder(context)
                     .setRequestedAudioEncoderSettings(
