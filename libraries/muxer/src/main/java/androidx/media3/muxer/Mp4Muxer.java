@@ -34,6 +34,7 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.container.MdtaMetadataEntry;
@@ -41,6 +42,7 @@ import androidx.media3.container.Mp4LocationData;
 import androidx.media3.container.Mp4OrientationData;
 import androidx.media3.container.Mp4TimestampData;
 import androidx.media3.container.XmpData;
+import com.google.common.collect.ImmutableList;
 import com.google.common.io.ByteStreams;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.FileInputStream;
@@ -334,6 +336,24 @@ public final class Mp4Muxer implements Muxer {
           mp4AtFileParameters);
     }
   }
+
+  /** A list of supported video {@linkplain MimeTypes sample MIME types}. */
+  public static final ImmutableList<String> SUPPORTED_VIDEO_SAMPLE_MIME_TYPES =
+      ImmutableList.of(
+          MimeTypes.VIDEO_AV1,
+          MimeTypes.VIDEO_H263,
+          MimeTypes.VIDEO_H264,
+          MimeTypes.VIDEO_H265,
+          MimeTypes.VIDEO_MP4V);
+
+  /** A list of supported audio {@linkplain MimeTypes sample MIME types}. */
+  public static final ImmutableList<String> SUPPORTED_AUDIO_SAMPLE_MIME_TYPES =
+      ImmutableList.of(
+          MimeTypes.AUDIO_AAC,
+          MimeTypes.AUDIO_AMR_NB,
+          MimeTypes.AUDIO_AMR_WB,
+          MimeTypes.AUDIO_OPUS,
+          MimeTypes.AUDIO_VORBIS);
 
   private static final String TAG = "Mp4Muxer";
 

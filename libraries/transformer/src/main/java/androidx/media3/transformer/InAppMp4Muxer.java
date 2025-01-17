@@ -60,25 +60,6 @@ public final class InAppMp4Muxer implements Muxer {
 
   /** {@link Muxer.Factory} for {@link InAppMp4Muxer}. */
   public static final class Factory implements Muxer.Factory {
-    // TODO: b/372417042 - Move these lists to Mp4Muxer.
-    /** A list of supported video sample MIME types. */
-    private static final ImmutableList<String> SUPPORTED_VIDEO_SAMPLE_MIME_TYPES =
-        ImmutableList.of(
-            MimeTypes.VIDEO_AV1,
-            MimeTypes.VIDEO_H263,
-            MimeTypes.VIDEO_H264,
-            MimeTypes.VIDEO_H265,
-            MimeTypes.VIDEO_MP4V);
-
-    /** A list of supported audio sample MIME types. */
-    private static final ImmutableList<String> SUPPORTED_AUDIO_SAMPLE_MIME_TYPES =
-        ImmutableList.of(
-            MimeTypes.AUDIO_AAC,
-            MimeTypes.AUDIO_AMR_NB,
-            MimeTypes.AUDIO_AMR_WB,
-            MimeTypes.AUDIO_OPUS,
-            MimeTypes.AUDIO_VORBIS);
-
     @Nullable private final MetadataProvider metadataProvider;
 
     private long videoDurationUs;
@@ -141,9 +122,9 @@ public final class InAppMp4Muxer implements Muxer {
     @Override
     public ImmutableList<String> getSupportedSampleMimeTypes(@C.TrackType int trackType) {
       if (trackType == C.TRACK_TYPE_VIDEO) {
-        return SUPPORTED_VIDEO_SAMPLE_MIME_TYPES;
+        return Mp4Muxer.SUPPORTED_VIDEO_SAMPLE_MIME_TYPES;
       } else if (trackType == C.TRACK_TYPE_AUDIO) {
-        return SUPPORTED_AUDIO_SAMPLE_MIME_TYPES;
+        return Mp4Muxer.SUPPORTED_AUDIO_SAMPLE_MIME_TYPES;
       }
       return ImmutableList.of();
     }
