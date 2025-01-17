@@ -21,6 +21,7 @@ import android.media.AudioManager;
 import androidx.annotation.IntDef;
 import androidx.annotation.IntRange;
 import androidx.media3.common.C;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import java.lang.annotation.Documented;
@@ -146,6 +147,42 @@ public final class AudioManagerCompat {
   @IntRange(from = 0)
   public static int getStreamMinVolume(AudioManager audioManager, @C.StreamType int streamType) {
     return Util.SDK_INT >= 28 ? audioManager.getStreamMinVolume(streamType) : 0;
+  }
+
+  /**
+   * Returns the current volume for a particular stream.
+   *
+   * @param audioManager The {@link AudioManager}.
+   * @param streamType The {@link C.StreamType} whose volume is returned.
+   * @return The current volume of the stream.
+   */
+  public static int getStreamVolume(AudioManager audioManager, @C.StreamType int streamType) {
+    // AudioManager#getStreamVolume(int) throws an exception on some devices. See
+    // https://github.com/google/ExoPlayer/issues/8191.
+    try {
+      return audioManager.getStreamVolume(streamType);
+    } catch (RuntimeException e) {
+      Log.w(
+          "AudioManagerCompat",
+          "Could not retrieve stream volume for stream type " + streamType,
+          e);
+      return audioManager.getStreamMaxVolume(streamType);
+    }
+  }
+
+  /**
+   * Returns whether the given stream is muted.
+   *
+   * @param audioManager The {@link AudioManager}.
+   * @param streamType The {@link C.StreamType} to check.
+   * @return Whether the stream is muted.
+   */
+  public static boolean isStreamMute(AudioManager audioManager, @C.StreamType int streamType) {
+    if (Util.SDK_INT >= 23) {
+      return audioManager.isStreamMute(streamType);
+    } else {
+      return getStreamVolume(audioManager, streamType) == 0;
+    }
   }
 
   private AudioManagerCompat() {}

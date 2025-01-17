@@ -421,7 +421,12 @@ import java.util.concurrent.CopyOnWriteArraySet;
       if (builder.deviceVolumeControlEnabled) {
         streamVolumeManager =
             new StreamVolumeManager(
-                builder.context, eventHandler, componentListener, audioAttributes.getStreamType());
+                builder.context,
+                componentListener,
+                audioAttributes.getStreamType(),
+                playbackLooper,
+                applicationLooper,
+                clock);
       } else {
         streamVolumeManager = null;
       }
@@ -429,7 +434,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
       wakeLockManager.setEnabled(builder.wakeMode != C.WAKE_MODE_NONE);
       wifiLockManager = new WifiLockManager(builder.context, playbackLooper, clock);
       wifiLockManager.setEnabled(builder.wakeMode == C.WAKE_MODE_NETWORK);
-      deviceInfo = createDeviceInfo(streamVolumeManager);
+      deviceInfo = DeviceInfo.UNKNOWN;
       videoSize = VideoSize.UNKNOWN;
       surfaceSize = Size.UNKNOWN;
 

@@ -14175,18 +14175,20 @@ public class ExoPlayerTest {
   }
 
   @Test
-  public void releaseAfterVolumeChanges_triggerPendingDeviceVolumeEventsInListener() {
+  public void releaseAfterVolumeChanges_triggerPendingDeviceVolumeEventsInListener()
+      throws Exception {
     ExoPlayer player =
         parameterizeTestExoPlayerBuilder(
                 new TestExoPlayerBuilder(ApplicationProvider.getApplicationContext())
                     .setDeviceVolumeControlEnabled(true))
             .build();
     Player.Listener listener = mock(Player.Listener.class);
-    player.addListener(listener);
+    run(player).untilPendingCommandsAreFullyHandled();
 
     int deviceVolume = player.getDeviceVolume();
     int noVolumeFlags = 0;
     int volumeFlags = C.VOLUME_FLAG_PLAY_SOUND | C.VOLUME_FLAG_VIBRATE;
+    player.addListener(listener);
     try {
       player.setDeviceVolume(deviceVolume + 1, noVolumeFlags); // No-op if at max volume.
       player.setDeviceVolume(deviceVolume - 1, noVolumeFlags); // No-op if at min volume.

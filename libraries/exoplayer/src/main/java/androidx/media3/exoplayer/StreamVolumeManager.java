@@ -15,18 +15,24 @@
  */
 package androidx.media3.exoplayer;
 
+import static androidx.media3.common.util.Assertions.checkNotNull;
+
+import android.annotation.SuppressLint;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.media.AudioManager;
-import android.os.Handler;
+import android.os.Looper;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.audio.AudioManagerCompat;
 import androidx.media3.common.util.Assertions;
+import androidx.media3.common.util.BackgroundThreadStateHandler;
+import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
+import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** A manager that wraps {@link AudioManager} to control/listen audio stream volume. */
 /* package */ final class StreamVolumeManager {
@@ -48,48 +54,71 @@ import androidx.media3.common.util.Util;
   private static final String VOLUME_CHANGED_ACTION = "android.media.VOLUME_CHANGED_ACTION";
 
   private final Context applicationContext;
-  private final Handler eventHandler;
   private final Listener listener;
-  private final AudioManager audioManager;
+  private final BackgroundThreadStateHandler<StreamVolumeState> stateHandler;
 
+  private @MonotonicNonNull AudioManager audioManager;
   @Nullable private VolumeChangeReceiver receiver;
-  private @C.StreamType int streamType;
-  private int volume;
-  private boolean muted;
 
-  /** Creates a manager. */
+  /**
+   * Creates a manager.
+   *
+   * @param context A {@link Context}.
+   * @param listener A {@link Listener} for volume changes.
+   * @param streamType The initial {@link C.StreamType}.
+   * @param audioManagerLooper The background {@link Looper} to run {@link AudioManager} calls on.
+   * @param listenerLooper The {@link Looper} to call {@code listener} methods on.
+   * @param clock The {@link Clock}.
+   */
+  @SuppressWarnings("initialization:methodref.receiver.bound.invalid") // this::method reference
   public StreamVolumeManager(
-      Context context, Handler eventHandler, Listener listener, @C.StreamType int streamType) {
-    applicationContext = context.getApplicationContext();
-    this.eventHandler = eventHandler;
+      Context context,
+      Listener listener,
+      @C.StreamType int streamType,
+      Looper audioManagerLooper,
+      Looper listenerLooper,
+      Clock clock) {
+    this.applicationContext = context.getApplicationContext();
     this.listener = listener;
-    audioManager =
-        Assertions.checkStateNotNull(
-            (AudioManager) applicationContext.getSystemService(Context.AUDIO_SERVICE));
-
-    this.streamType = streamType;
-    volume = getVolumeFromManager(audioManager, streamType);
-    muted = getMutedFromManager(audioManager, streamType);
-
-    VolumeChangeReceiver receiver = new VolumeChangeReceiver();
-    IntentFilter filter = new IntentFilter(VOLUME_CHANGED_ACTION);
-    try {
-      applicationContext.registerReceiver(receiver, filter);
-      this.receiver = receiver;
-    } catch (RuntimeException e) {
-      Log.w(TAG, "Error registering stream volume receiver", e);
-    }
+    StreamVolumeState initialState =
+        new StreamVolumeState(
+            streamType,
+            /* volume= */ 0,
+            /* muted= */ false,
+            /* minVolume= */ 0,
+            /* maxVolume= */ 0);
+    stateHandler =
+        new BackgroundThreadStateHandler<>(
+            initialState,
+            audioManagerLooper,
+            listenerLooper,
+            clock,
+            this::onStreamVolumeStateChanged);
+    stateHandler.runInBackground(
+        () -> {
+          audioManager =
+              Assertions.checkStateNotNull(
+                  (AudioManager) applicationContext.getSystemService(Context.AUDIO_SERVICE));
+          VolumeChangeReceiver receiver = new VolumeChangeReceiver();
+          IntentFilter filter = new IntentFilter(VOLUME_CHANGED_ACTION);
+          try {
+            applicationContext.registerReceiver(receiver, filter);
+            this.receiver = receiver;
+          } catch (RuntimeException e) {
+            Log.w(TAG, "Error registering stream volume receiver", e);
+          }
+          stateHandler.setStateInBackground(generateState(streamType));
+        });
   }
 
   /** Sets the audio stream type. */
   public void setStreamType(@C.StreamType int streamType) {
-    if (this.streamType == streamType) {
-      return;
-    }
-    this.streamType = streamType;
-
-    updateVolumeAndNotifyIfChanged();
-    listener.onStreamTypeChanged(streamType);
+    stateHandler.updateStateAsync(
+        /* placeholderState= */ state ->
+            new StreamVolumeState(
+                streamType, state.volume, state.muted, state.minVolume, state.maxVolume),
+        /* backgroundStateUpdate= */ state ->
+            state.streamType == streamType ? state : generateState(streamType));
   }
 
   /**
@@ -97,7 +126,7 @@ import androidx.media3.common.util.Util;
    * #setStreamType(int)} is called.
    */
   public int getMinVolume() {
-    return AudioManagerCompat.getStreamMinVolume(audioManager, streamType);
+    return stateHandler.get().minVolume;
   }
 
   /**
@@ -105,17 +134,17 @@ import androidx.media3.common.util.Util;
    * #setStreamType(int)} is called.
    */
   public int getMaxVolume() {
-    return AudioManagerCompat.getStreamMaxVolume(audioManager, streamType);
+    return stateHandler.get().maxVolume;
   }
 
   /** Gets the current volume for the current audio stream. */
   public int getVolume() {
-    return volume;
+    return stateHandler.get().volume;
   }
 
   /** Gets whether the current audio stream is muted or not. */
   public boolean isMuted() {
-    return muted;
+    return stateHandler.get().muted;
   }
 
   /**
@@ -125,12 +154,23 @@ import androidx.media3.common.util.Util;
    *     otherwise the volume will not be changed.
    * @param flags Either 0 or a bitwise combination of one or more {@link C.VolumeFlags}.
    */
+  @SuppressLint("WrongConstant") // Setting C.VolumeFlags as audio system volume flags.
   public void setVolume(int volume, @C.VolumeFlags int flags) {
-    if (volume < getMinVolume() || volume > getMaxVolume()) {
-      return;
-    }
-    audioManager.setStreamVolume(streamType, volume, flags);
-    updateVolumeAndNotifyIfChanged();
+    stateHandler.updateStateAsync(
+        /* placeholderState= */ state ->
+            new StreamVolumeState(
+                state.streamType,
+                volume >= state.minVolume && volume <= state.maxVolume ? volume : state.volume,
+                state.muted,
+                state.minVolume,
+                state.maxVolume),
+        /* backgroundStateUpdate= */ state -> {
+          if (volume == state.volume || volume < state.minVolume || volume > state.maxVolume) {
+            return state;
+          }
+          checkNotNull(audioManager).setStreamVolume(state.streamType, volume, flags);
+          return generateState(state.streamType);
+        });
   }
 
   /**
@@ -139,12 +179,24 @@ import androidx.media3.common.util.Util;
    *
    * @param flags Either 0 or a bitwise combination of one or more {@link C.VolumeFlags}.
    */
+  @SuppressLint("WrongConstant") // Setting C.VolumeFlags as audio system volume flags.
   public void increaseVolume(@C.VolumeFlags int flags) {
-    if (volume >= getMaxVolume()) {
-      return;
-    }
-    audioManager.adjustStreamVolume(streamType, AudioManager.ADJUST_RAISE, flags);
-    updateVolumeAndNotifyIfChanged();
+    stateHandler.updateStateAsync(
+        /* placeholderState= */ state ->
+            new StreamVolumeState(
+                state.streamType,
+                state.volume < state.maxVolume ? state.volume + 1 : state.maxVolume,
+                state.muted,
+                state.minVolume,
+                state.maxVolume),
+        /* backgroundStateUpdate= */ state -> {
+          if (state.volume >= state.maxVolume) {
+            return state;
+          }
+          checkNotNull(audioManager)
+              .adjustStreamVolume(state.streamType, AudioManager.ADJUST_RAISE, flags);
+          return generateState(state.streamType);
+        });
   }
 
   /**
@@ -153,12 +205,24 @@ import androidx.media3.common.util.Util;
    *
    * @param flags Either 0 or a bitwise combination of one or more {@link C.VolumeFlags}.
    */
+  @SuppressLint("WrongConstant") // Setting C.VolumeFlags as audio system volume flags.
   public void decreaseVolume(@C.VolumeFlags int flags) {
-    if (volume <= getMinVolume()) {
-      return;
-    }
-    audioManager.adjustStreamVolume(streamType, AudioManager.ADJUST_LOWER, flags);
-    updateVolumeAndNotifyIfChanged();
+    stateHandler.updateStateAsync(
+        /* placeholderState= */ state ->
+            new StreamVolumeState(
+                state.streamType,
+                state.volume > state.minVolume ? state.volume - 1 : state.minVolume,
+                state.muted,
+                state.minVolume,
+                state.maxVolume),
+        /* backgroundStateUpdate= */ state -> {
+          if (state.volume <= state.minVolume) {
+            return state;
+          }
+          checkNotNull(audioManager)
+              .adjustStreamVolume(state.streamType, AudioManager.ADJUST_LOWER, flags);
+          return generateState(state.streamType);
+        });
   }
 
   /**
@@ -167,55 +231,81 @@ import androidx.media3.common.util.Util;
    * @param muted Whether to mute or to unmute the stream.
    * @param flags Either 0 or a bitwise combination of one or more {@link C.VolumeFlags}.
    */
+  @SuppressLint("WrongConstant") // Setting C.VolumeFlags as audio system volume flags.
   public void setMuted(boolean muted, @C.VolumeFlags int flags) {
-    if (Util.SDK_INT >= 23) {
-      audioManager.adjustStreamVolume(
-          streamType, muted ? AudioManager.ADJUST_MUTE : AudioManager.ADJUST_UNMUTE, flags);
-    } else {
-      audioManager.setStreamMute(streamType, muted);
-    }
-    updateVolumeAndNotifyIfChanged();
+    stateHandler.updateStateAsync(
+        /* placeholderState= */ state ->
+            new StreamVolumeState(
+                state.streamType, state.volume, muted, state.minVolume, state.maxVolume),
+        /* backgroundStateUpdate= */ state -> {
+          if (state.muted == muted) {
+            return state;
+          }
+          checkNotNull(audioManager);
+          if (Util.SDK_INT >= 23) {
+            audioManager.adjustStreamVolume(
+                state.streamType,
+                muted ? AudioManager.ADJUST_MUTE : AudioManager.ADJUST_UNMUTE,
+                flags);
+          } else {
+            audioManager.setStreamMute(state.streamType, muted);
+          }
+          return generateState(state.streamType);
+        });
   }
 
   /** Releases the manager. It must be called when the manager is no longer required. */
   public void release() {
-    if (receiver != null) {
-      try {
-        applicationContext.unregisterReceiver(receiver);
-      } catch (RuntimeException e) {
-        Log.w(TAG, "Error unregistering stream volume receiver", e);
-      }
-      receiver = null;
+    stateHandler.updateStateAsync(
+        /* placeholderState= */ state -> state,
+        /* backgroundStateUpdate= */ state -> {
+          if (receiver != null) {
+            try {
+              applicationContext.unregisterReceiver(receiver);
+            } catch (RuntimeException e) {
+              Log.w(TAG, "Error unregistering stream volume receiver", e);
+            }
+            receiver = null;
+          }
+          return state;
+        });
+  }
+
+  private void onStreamVolumeStateChanged(StreamVolumeState oldState, StreamVolumeState newState) {
+    if (oldState.volume != newState.volume || oldState.muted != newState.muted) {
+      listener.onStreamVolumeChanged(newState.volume, newState.muted);
+    }
+    if (oldState.streamType != newState.streamType
+        || oldState.minVolume != newState.minVolume
+        || oldState.maxVolume != newState.maxVolume) {
+      listener.onStreamTypeChanged(newState.streamType);
     }
   }
 
-  private void updateVolumeAndNotifyIfChanged() {
-    int newVolume = getVolumeFromManager(audioManager, streamType);
-    boolean newMuted = getMutedFromManager(audioManager, streamType);
-    if (volume != newVolume || muted != newMuted) {
-      volume = newVolume;
-      muted = newMuted;
-      listener.onStreamVolumeChanged(newVolume, newMuted);
-    }
+  private StreamVolumeState generateState(@C.StreamType int streamType) {
+    checkNotNull(audioManager);
+    int volume = AudioManagerCompat.getStreamVolume(audioManager, streamType);
+    boolean muted = AudioManagerCompat.isStreamMute(audioManager, streamType);
+    int minVolume = AudioManagerCompat.getStreamMinVolume(audioManager, streamType);
+    int maxVolume = AudioManagerCompat.getStreamMaxVolume(audioManager, streamType);
+    return new StreamVolumeState(streamType, volume, muted, minVolume, maxVolume);
   }
 
-  private static int getVolumeFromManager(AudioManager audioManager, @C.StreamType int streamType) {
-    // AudioManager#getStreamVolume(int) throws an exception on some devices. See
-    // https://github.com/google/ExoPlayer/issues/8191.
-    try {
-      return audioManager.getStreamVolume(streamType);
-    } catch (RuntimeException e) {
-      Log.w(TAG, "Could not retrieve stream volume for stream type " + streamType, e);
-      return audioManager.getStreamMaxVolume(streamType);
-    }
-  }
+  private static final class StreamVolumeState {
 
-  private static boolean getMutedFromManager(
-      AudioManager audioManager, @C.StreamType int streamType) {
-    if (Util.SDK_INT >= 23) {
-      return audioManager.isStreamMute(streamType);
-    } else {
-      return getVolumeFromManager(audioManager, streamType) == 0;
+    public final @C.StreamType int streamType;
+    public final int volume;
+    public final boolean muted;
+    public final int minVolume;
+    public final int maxVolume;
+
+    public StreamVolumeState(
+        @C.StreamType int streamType, int volume, boolean muted, int minVolume, int maxVolume) {
+      this.streamType = streamType;
+      this.volume = volume;
+      this.muted = muted;
+      this.minVolume = minVolume;
+      this.maxVolume = maxVolume;
     }
   }
 
@@ -223,7 +313,16 @@ import androidx.media3.common.util.Util;
 
     @Override
     public void onReceive(Context context, Intent intent) {
-      eventHandler.post(StreamVolumeManager.this::updateVolumeAndNotifyIfChanged);
+      // BroadcastReceivers are called on the main thread.
+      stateHandler.runInBackground(
+          () -> {
+            if (receiver == null) {
+              // Stale event. StreamVolumeManager is already released.
+              return;
+            }
+            int streamType = stateHandler.get().streamType;
+            stateHandler.setStateInBackground(generateState(streamType));
+          });
     }
   }
 }

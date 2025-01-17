@@ -19,6 +19,10 @@
     *   Make `DefaultRenderersFactory` add two `MetadataRenderer` instances by
         default to enable apps to receive two different schemes of metadata by
         default.
+    *   Initialize `DeviceInfo` and device volume asynchronously (if enabled via
+        `setDeviceVolumeControlEnabled`). These values won't be available
+        instantly after the `ExoPlayer.Builder.build()` and are notified via
+        `Player.Listener.onDeviceInfoChanged` and `onDeviceVolumeChanged`.
 *   Transformer:
     *   Enable support for Android platform diagnostics via
         `MediaMetricsManager`. Transformer will forward editing events and
