@@ -86,6 +86,7 @@ import java.nio.ByteOrder;
 import java.util.ArrayDeque;
 import java.util.List;
 import java.util.Objects;
+import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
 /** An abstract renderer that uses {@link MediaCodec} to decode samples for rendering. */
@@ -331,10 +332,10 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   private final OggOpusAudioPacketizer oggOpusAudioPacketizer;
 
   @Nullable private Format inputFormat;
-  @Nullable private Format outputFormat;
+  private @MonotonicNonNull Format outputFormat;
   @Nullable private DrmSession codecDrmSession;
   @Nullable private DrmSession sourceDrmSession;
-  @Nullable private WakeupListener wakeupListener;
+  private @MonotonicNonNull WakeupListener wakeupListener;
 
   /**
    * A framework {@link MediaCrypto} for use with {@link MediaCodec#queueSecureInputBuffer(int, int,
@@ -836,8 +837,8 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   public void handleMessage(@MessageType int messageType, @Nullable Object message)
       throws ExoPlaybackException {
     if (messageType == MSG_SET_WAKEUP_LISTENER) {
-      wakeupListener = (WakeupListener) message;
-      onWakeupListenerSet(checkNotNull(wakeupListener));
+      wakeupListener = checkNotNull((WakeupListener) message);
+      onWakeupListenerSet(wakeupListener);
     } else {
       super.handleMessage(messageType, message);
     }
@@ -2468,11 +2469,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
               // TODO(b/298634018): Adjust encoderDelay value based on starting position.
               int numberPreSkipSamples =
                   OpusUtil.getPreSkipSamples(outputFormat.initializationData.get(0));
-              outputFormat =
-                  checkNotNull(outputFormat)
-                      .buildUpon()
-                      .setEncoderDelay(numberPreSkipSamples)
-                      .build();
+              outputFormat = outputFormat.buildUpon().setEncoderDelay(numberPreSkipSamples).build();
             }
             onOutputFormatChanged(outputFormat, /* mediaFormat= */ null);
             waitingForFirstSampleInFormat = false;
@@ -2491,8 +2488,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
                 getLastResetPositionUs(), bypassSampleBuffer.timeUs)) {
               // Packetize as long as frame does not precede the last reset position by more than
               // seek-preroll.
-              oggOpusAudioPacketizer.packetize(
-                  bypassSampleBuffer, checkNotNull(outputFormat).initializationData);
+              oggOpusAudioPacketizer.packetize(bypassSampleBuffer, outputFormat.initializationData);
             }
           }
           if (!haveBypassBatchBufferAndNewSampleSameDecodeOnlyState()
