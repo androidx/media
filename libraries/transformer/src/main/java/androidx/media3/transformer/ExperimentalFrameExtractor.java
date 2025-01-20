@@ -79,7 +79,6 @@ import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.SeekParameters;
 import androidx.media3.exoplayer.analytics.AnalyticsListener;
 import androidx.media3.exoplayer.mediacodec.MediaCodecAdapter;
-import androidx.media3.exoplayer.mediacodec.MediaCodecInfo;
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.exoplayer.source.MediaSource;
@@ -671,13 +670,12 @@ public final class ExperimentalFrameExtractor {
 
     @CallSuper
     @Override
-    protected boolean maybeInitializeProcessingPipeline(MediaCodecInfo codecInfo, Format format)
-        throws ExoPlaybackException {
+    protected boolean maybeInitializeProcessingPipeline(Format format) throws ExoPlaybackException {
       if (isTransferHdr(format.colorInfo) && toneMapHdrToSdr) {
         // Setting the VideoSink format to SDR_BT709_LIMITED tone maps to SDR.
         format = format.buildUpon().setColorInfo(SDR_BT709_LIMITED).build();
       }
-      return super.maybeInitializeProcessingPipeline(codecInfo, format);
+      return super.maybeInitializeProcessingPipeline(format);
     }
 
     @Override

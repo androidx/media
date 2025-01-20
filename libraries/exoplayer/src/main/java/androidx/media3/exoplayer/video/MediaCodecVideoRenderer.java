@@ -1227,8 +1227,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
 
   @CallSuper
   @Override
-  protected boolean maybeInitializeProcessingPipeline(MediaCodecInfo codecInfo, Format format)
-      throws ExoPlaybackException {
+  protected boolean maybeInitializeProcessingPipeline(Format format) throws ExoPlaybackException {
     if (videoSink != null && !videoSink.isInitialized()) {
       try {
         return videoSink.initialize(format);

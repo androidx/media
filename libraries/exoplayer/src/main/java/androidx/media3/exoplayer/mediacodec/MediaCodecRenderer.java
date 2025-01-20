@@ -1133,7 +1133,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     ArrayDeque<MediaCodecInfo> availableCodecInfos = checkNotNull(this.availableCodecInfos);
     while (codec == null) {
       MediaCodecInfo codecInfo = checkNotNull(availableCodecInfos.peekFirst());
-      if (!maybeInitializeProcessingPipeline(codecInfo, inputFormat)) {
+      if (!maybeInitializeProcessingPipeline(inputFormat)) {
         return;
       }
 
@@ -1492,21 +1492,15 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   /**
    * Initializes the processing pipeline, if needed by the implementation.
    *
-   * <p>This method is called just before the renderer obtains the {@linkplain
-   * #getMediaCodecConfiguration configuration} for the {@link MediaCodecAdapter} and creates the
-   * adapter via the passed in {@link MediaCodecAdapter.Factory}.
-   *
    * <p>The default implementation is a no-op.
    *
-   * @param codecInfo The {@link MediaCodecInfo} of the codec which will be initialized.
    * @param format The {@link Format} for which the codec is being configured.
    * @return Returns {@code true} when the processing pipeline is successfully initialized, or the
    *     {@linkplain MediaCodecRenderer renderer} does not use a processing pipeline. The caller
    *     should try again later, if {@code false} is returned.
    * @throws ExoPlaybackException If an error occurs preparing for initializing the codec.
    */
-  protected boolean maybeInitializeProcessingPipeline(MediaCodecInfo codecInfo, Format format)
-      throws ExoPlaybackException {
+  protected boolean maybeInitializeProcessingPipeline(Format format) throws ExoPlaybackException {
     // Do nothing.
     return true;
   }
