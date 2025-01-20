@@ -47,6 +47,8 @@ import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import java.nio.Buffer;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import org.checkerframework.dataflow.qual.Pure;
 
@@ -835,6 +837,9 @@ public final class Cue {
   private static final String FIELD_MULTI_ROW_ALIGNMENT = Util.intToStringMaxRadix(2);
   private static final String FIELD_BITMAP_PARCELABLE = Util.intToStringMaxRadix(3);
   private static final String FIELD_BITMAP_BYTES = Util.intToStringMaxRadix(18);
+  private static final String FIELD_BITMAP_ORIGIN_WIDTH = Util.intToStringMaxRadix(19);
+  private static final String FIELD_BITMAP_ORIGIN_HEIGHT = Util.intToStringMaxRadix(20);
+  private static final String FIELD_BITMAP_COMPRESSED = Util.intToStringMaxRadix(21);
   private static final String FIELD_LINE = Util.intToStringMaxRadix(4);
   private static final String FIELD_LINE_TYPE = Util.intToStringMaxRadix(5);
   private static final String FIELD_LINE_ANCHOR = Util.intToStringMaxRadix(6);
@@ -862,10 +867,22 @@ public final class Cue {
   public Bundle toSerializableBundle() {
     Bundle bundle = toBundleWithoutBitmap();
     if (bitmap != null) {
-      ByteArrayOutputStream output = new ByteArrayOutputStream();
-      // The PNG format is lossless, and the quality parameter is ignored.
-      checkState(bitmap.compress(Bitmap.CompressFormat.PNG, /* quality= */ 0, output));
-      bundle.putByteArray(FIELD_BITMAP_BYTES, output.toByteArray());
+      if (bitmap.getConfig() == Bitmap.Config.ALPHA_8) {
+        // Bitmap compress not support ALPHA_8, so we just copy the buffer.
+        bundle.putBoolean(FIELD_BITMAP_COMPRESSED, false);
+        bundle.putInt(FIELD_BITMAP_ORIGIN_WIDTH, bitmap.getWidth());
+        bundle.putInt(FIELD_BITMAP_ORIGIN_HEIGHT, bitmap.getHeight());
+        byte[] bytes = new byte[bitmap.getWidth() * bitmap.getHeight()];
+        Buffer buffer = ByteBuffer.wrap(bytes);
+        bitmap.copyPixelsToBuffer(buffer);
+        bundle.putByteArray(FIELD_BITMAP_BYTES, bytes);
+      } else {
+        bundle.putBoolean(FIELD_BITMAP_COMPRESSED, true);
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        // The PNG format is lossless, and the quality parameter is ignored.
+        checkState(bitmap.compress(Bitmap.CompressFormat.PNG, /* quality= */ 0, output));
+        bundle.putByteArray(FIELD_BITMAP_BYTES, output.toByteArray());
+      }
     }
     return bundle;
   }
@@ -956,10 +973,22 @@ public final class Cue {
     if (bitmap != null) {
       builder.setBitmap(bitmap);
     } else {
+      boolean compressed = bundle.getBoolean(FIELD_BITMAP_COMPRESSED);
       @Nullable byte[] bitmapBytes = bundle.getByteArray(FIELD_BITMAP_BYTES);
       if (bitmapBytes != null) {
-        builder.setBitmap(
-            BitmapFactory.decodeByteArray(bitmapBytes, /* offset= */ 0, bitmapBytes.length));
+        if (compressed) {
+          builder.setBitmap(
+              BitmapFactory.decodeByteArray(bitmapBytes, /* offset= */ 0, bitmapBytes.length));
+        } else {
+          int bitmapWidth = bundle.getInt(FIELD_BITMAP_ORIGIN_WIDTH);
+          int bitmapHeight = bundle.getInt(FIELD_BITMAP_ORIGIN_HEIGHT);
+          if (bitmapWidth > 0 && bitmapHeight > 0) {
+            bitmap = Bitmap.createBitmap(bitmapWidth,bitmapHeight, Bitmap.Config.ALPHA_8);
+            Buffer buffer = ByteBuffer.wrap(bitmapBytes);
+            bitmap.copyPixelsFromBuffer(buffer);
+            builder.setBitmap(bitmap);
+          }
+        }
       }
     }
     if (bundle.containsKey(FIELD_LINE) && bundle.containsKey(FIELD_LINE_TYPE)) {
