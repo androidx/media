@@ -1400,7 +1400,7 @@ public final class AndroidTestUtil {
   private static String findDecoderForFormat(Format format)
       throws MediaCodecUtil.DecoderQueryException {
     List<androidx.media3.exoplayer.mediacodec.MediaCodecInfo> decoderInfoList =
-        MediaCodecUtil.getDecoderInfosSortedByFormatSupport(
+        MediaCodecUtil.getDecoderInfosSortedByFullFormatSupport(
             MediaCodecUtil.getDecoderInfosSoftMatch(
                 MediaCodecSelector.DEFAULT,
                 format,
