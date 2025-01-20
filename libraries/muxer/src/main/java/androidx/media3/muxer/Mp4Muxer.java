@@ -109,7 +109,7 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
  * </ul>
  */
 @UnstableApi
-public final class Mp4Muxer {
+public final class Mp4Muxer implements AutoCloseable {
   /** Parameters for {@link #FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION}. */
   public static final class Mp4AtFileParameters {
     /** Provides temporary cache files to be used by the muxer. */
@@ -535,6 +535,7 @@ public final class Mp4Muxer {
    *
    * @throws MuxerException If the muxer fails to finish writing the output.
    */
+  @Override
   public void close() throws MuxerException {
     @Nullable MuxerException exception = null;
     try {

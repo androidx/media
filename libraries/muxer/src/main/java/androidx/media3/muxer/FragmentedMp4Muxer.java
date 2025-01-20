@@ -83,7 +83,7 @@ import java.nio.ByteBuffer;
  * </ul>
  */
 @UnstableApi
-public final class FragmentedMp4Muxer {
+public final class FragmentedMp4Muxer implements AutoCloseable {
   /** The default fragment duration. */
   public static final long DEFAULT_FRAGMENT_DURATION_MS = 2_000;
 
@@ -254,6 +254,7 @@ public final class FragmentedMp4Muxer {
    *
    * @throws MuxerException If the muxer fails to finish writing the output.
    */
+  @Override
   public void close() throws MuxerException {
     try {
       fragmentedMp4Writer.close();
