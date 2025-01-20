@@ -18,20 +18,13 @@ package androidx.media3.muxer;
 import static androidx.media3.common.MimeTypes.AUDIO_AAC;
 import static androidx.media3.common.MimeTypes.VIDEO_H264;
 
-import android.content.Context;
 import android.media.MediaCodec;
 import android.media.MediaCodec.BufferInfo;
-import android.net.Uri;
 import android.util.Pair;
 import androidx.media3.common.Format;
-import androidx.media3.common.util.MediaFormatUtil;
-import androidx.media3.exoplayer.MediaExtractorCompat;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.BaseEncoding;
-import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.List;
 
 /** Utilities for muxer test cases. */
 /* package */ class MuxerTestUtil {
@@ -54,13 +47,13 @@ import java.util.List;
           .build();
 
   public static final String XMP_SAMPLE_DATA = "media/xmp/sample_datetime_xmp.xmp";
+  public static final String MP4_FILE_ASSET_DIRECTORY = "asset:///media/mp4/";
 
   private static final byte[] FAKE_H264_SAMPLE =
       BaseEncoding.base16()
           .decode(
               "0000000167F4000A919B2BF3CB3640000003004000000C83C48965800000000168EBE3C448000001658884002BFFFEF5DBF32CAE4A43FF");
 
-  private static final String MP4_FILE_ASSET_DIRECTORY = "asset:///media/mp4/";
   private static final String DUMP_FILE_OUTPUT_DIRECTORY = "muxerdumps";
   private static final String DUMP_FILE_EXTENSION = "dump";
 
@@ -79,40 +72,6 @@ import java.util.List;
     bufferInfo.size = FAKE_H264_SAMPLE.length;
 
     return new Pair<>(sampleDirectBuffer, bufferInfo);
-  }
-
-  public static void feedInputDataToMuxer(Context context, Muxer muxer, String inputFileName)
-      throws IOException, MuxerException {
-    MediaExtractorCompat extractor = new MediaExtractorCompat(context);
-    Uri fileUri = Uri.parse(MP4_FILE_ASSET_DIRECTORY + inputFileName);
-    extractor.setDataSource(fileUri, /* offset= */ 0);
-
-    List<Integer> addedTracks = new ArrayList<>();
-    for (int i = 0; i < extractor.getTrackCount(); i++) {
-      int trackId =
-          muxer.addTrack(MediaFormatUtil.createFormatFromMediaFormat(extractor.getTrackFormat(i)));
-      addedTracks.add(trackId);
-      extractor.selectTrack(i);
-    }
-
-    do {
-      MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
-      bufferInfo.flags = extractor.getSampleFlags();
-      bufferInfo.offset = 0;
-      bufferInfo.presentationTimeUs = extractor.getSampleTime();
-      int sampleSize = (int) extractor.getSampleSize();
-      bufferInfo.size = sampleSize;
-
-      ByteBuffer sampleBuffer = ByteBuffer.allocateDirect(sampleSize);
-      extractor.readSampleData(sampleBuffer, /* offset= */ 0);
-
-      sampleBuffer.rewind();
-
-      muxer.writeSampleData(
-          addedTracks.get(extractor.getSampleTrackIndex()), sampleBuffer, bufferInfo);
-    } while (extractor.advance());
-
-    extractor.release();
   }
 
   private MuxerTestUtil() {}

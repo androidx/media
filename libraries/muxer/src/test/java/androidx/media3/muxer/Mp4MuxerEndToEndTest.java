@@ -18,8 +18,8 @@ package androidx.media3.muxer;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.muxer.Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER_OR_DUPLICATE_PREVIOUS;
 import static androidx.media3.muxer.MuxerTestUtil.FAKE_VIDEO_FORMAT;
+import static androidx.media3.muxer.MuxerTestUtil.MP4_FILE_ASSET_DIRECTORY;
 import static androidx.media3.muxer.MuxerTestUtil.XMP_SAMPLE_DATA;
-import static androidx.media3.muxer.MuxerTestUtil.feedInputDataToMuxer;
 import static androidx.media3.muxer.MuxerTestUtil.getFakeSampleAndSampleInfo;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
@@ -27,14 +27,17 @@ import static org.junit.Assert.assertThrows;
 import android.content.Context;
 import android.media.MediaCodec;
 import android.media.MediaCodec.BufferInfo;
+import android.net.Uri;
 import android.util.Pair;
 import androidx.media3.common.C;
+import androidx.media3.common.util.MediaFormatUtil;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.MdtaMetadataEntry;
 import androidx.media3.container.Mp4LocationData;
 import androidx.media3.container.Mp4OrientationData;
 import androidx.media3.container.Mp4TimestampData;
 import androidx.media3.container.XmpData;
+import androidx.media3.exoplayer.MediaExtractorCompat;
 import androidx.media3.extractor.mp4.Mp4Extractor;
 import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
 import androidx.media3.test.utils.DumpFileAsserts;
@@ -44,7 +47,10 @@ import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -904,5 +910,39 @@ public class Mp4MuxerEndToEndTest {
           getFakeSampleAndSampleInfo(/* presentationTimeUs= */ i);
       muxer.writeSampleData(trackId, sampleAndSampleInfo.first, sampleAndSampleInfo.second);
     }
+  }
+
+  private static void feedInputDataToMuxer(Context context, Mp4Muxer muxer, String inputFileName)
+      throws IOException, MuxerException {
+    MediaExtractorCompat extractor = new MediaExtractorCompat(context);
+    Uri fileUri = Uri.parse(MP4_FILE_ASSET_DIRECTORY + inputFileName);
+    extractor.setDataSource(fileUri, /* offset= */ 0);
+
+    List<Integer> addedTracks = new ArrayList<>();
+    for (int i = 0; i < extractor.getTrackCount(); i++) {
+      int trackId =
+          muxer.addTrack(MediaFormatUtil.createFormatFromMediaFormat(extractor.getTrackFormat(i)));
+      addedTracks.add(trackId);
+      extractor.selectTrack(i);
+    }
+
+    do {
+      MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
+      bufferInfo.flags = extractor.getSampleFlags();
+      bufferInfo.offset = 0;
+      bufferInfo.presentationTimeUs = extractor.getSampleTime();
+      int sampleSize = (int) extractor.getSampleSize();
+      bufferInfo.size = sampleSize;
+
+      ByteBuffer sampleBuffer = ByteBuffer.allocateDirect(sampleSize);
+      extractor.readSampleData(sampleBuffer, /* offset= */ 0);
+
+      sampleBuffer.rewind();
+
+      muxer.writeSampleData(
+          addedTracks.get(extractor.getSampleTrackIndex()), sampleBuffer, bufferInfo);
+    } while (extractor.advance());
+
+    extractor.release();
   }
 }

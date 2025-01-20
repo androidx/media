@@ -16,11 +16,15 @@
 package androidx.media3.muxer;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.muxer.MuxerTestUtil.feedInputDataToMuxer;
+import static androidx.media3.muxer.MuxerTestUtil.MP4_FILE_ASSET_DIRECTORY;
 
 import android.content.Context;
+import android.media.MediaCodec;
+import android.net.Uri;
 import androidx.annotation.Nullable;
+import androidx.media3.common.util.MediaFormatUtil;
 import androidx.media3.container.Mp4TimestampData;
+import androidx.media3.exoplayer.MediaExtractorCompat;
 import androidx.media3.extractor.mp4.FragmentedMp4Extractor;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.DumpableMp4Box;
@@ -31,6 +35,8 @@ import com.google.common.collect.ImmutableList;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.List;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.After;
 import org.junit.Before;
@@ -75,7 +81,7 @@ public class FragmentedMp4MuxerEndToEndTest {
 
   @Test
   public void createFragmentedMp4File_fromInputFileSampleData_matchesExpected() throws Exception {
-    @Nullable Muxer fragmentedMp4Muxer = null;
+    @Nullable FragmentedMp4Muxer fragmentedMp4Muxer = null;
 
     try {
       fragmentedMp4Muxer = new FragmentedMp4Muxer.Builder(checkNotNull(outputStream)).build();
@@ -102,7 +108,7 @@ public class FragmentedMp4MuxerEndToEndTest {
   @Test
   public void createFragmentedMp4File_fromInputFileSampleData_matchesExpectedBoxStructure()
       throws Exception {
-    @Nullable Muxer fragmentedMp4Muxer = null;
+    @Nullable FragmentedMp4Muxer fragmentedMp4Muxer = null;
 
     try {
       fragmentedMp4Muxer = new FragmentedMp4Muxer.Builder(checkNotNull(outputStream)).build();
@@ -124,5 +130,40 @@ public class FragmentedMp4MuxerEndToEndTest {
         context,
         dumpableMp4Box,
         MuxerTestUtil.getExpectedDumpFilePath(H265_HDR10_MP4 + "_fragmented_box_structure"));
+  }
+
+  private static void feedInputDataToMuxer(
+      Context context, FragmentedMp4Muxer muxer, String inputFileName)
+      throws IOException, MuxerException {
+    MediaExtractorCompat extractor = new MediaExtractorCompat(context);
+    Uri fileUri = Uri.parse(MP4_FILE_ASSET_DIRECTORY + inputFileName);
+    extractor.setDataSource(fileUri, /* offset= */ 0);
+
+    List<Integer> addedTracks = new ArrayList<>();
+    for (int i = 0; i < extractor.getTrackCount(); i++) {
+      int trackId =
+          muxer.addTrack(MediaFormatUtil.createFormatFromMediaFormat(extractor.getTrackFormat(i)));
+      addedTracks.add(trackId);
+      extractor.selectTrack(i);
+    }
+
+    do {
+      MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
+      bufferInfo.flags = extractor.getSampleFlags();
+      bufferInfo.offset = 0;
+      bufferInfo.presentationTimeUs = extractor.getSampleTime();
+      int sampleSize = (int) extractor.getSampleSize();
+      bufferInfo.size = sampleSize;
+
+      ByteBuffer sampleBuffer = ByteBuffer.allocateDirect(sampleSize);
+      extractor.readSampleData(sampleBuffer, /* offset= */ 0);
+
+      sampleBuffer.rewind();
+
+      muxer.writeSampleData(
+          addedTracks.get(extractor.getSampleTrackIndex()), sampleBuffer, bufferInfo);
+    } while (extractor.advance());
+
+    extractor.release();
   }
 }
