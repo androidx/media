@@ -24,7 +24,6 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.container.Mp4TimestampData;
 import androidx.media3.extractor.mp4.Mp4Extractor;
 import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
-import androidx.media3.muxer.Muxer;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.FakeExtractorOutput;
 import androidx.test.core.app.ApplicationProvider;

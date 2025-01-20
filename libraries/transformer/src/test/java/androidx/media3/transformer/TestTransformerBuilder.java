@@ -21,7 +21,6 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
-import androidx.media3.muxer.Muxer;
 import androidx.media3.test.utils.FakeClock;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
