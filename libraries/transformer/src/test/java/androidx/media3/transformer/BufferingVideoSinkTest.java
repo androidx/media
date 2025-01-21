@@ -15,15 +15,11 @@
  */
 package androidx.media3.transformer;
 
-import static org.junit.Assert.assertThrows;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import android.content.Context;
-import androidx.media3.common.Format;
-import androidx.media3.common.MimeTypes;
 import androidx.media3.exoplayer.video.VideoSink;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -39,7 +35,7 @@ public class BufferingVideoSinkTest {
   private final Context context = ApplicationProvider.getApplicationContext();
 
   @Test
-  public void executeOperation_withVideoSinkSet_callsVideoSink() throws Exception {
+  public void executeOperation_withVideoSinkSet_callsVideoSink() {
     BufferingVideoSink bufferingVideoSink = new BufferingVideoSink(context);
     VideoSink videoSinkMock = mock(VideoSink.class);
 
@@ -53,7 +49,7 @@ public class BufferingVideoSinkTest {
   }
 
   @Test
-  public void setVideoSink_executesPendingOperations() throws Exception {
+  public void setVideoSink_executesPendingOperations() {
     BufferingVideoSink bufferingVideoSink = new BufferingVideoSink(context);
     VideoSink videoSinkMock = mock(VideoSink.class);
 
@@ -67,27 +63,12 @@ public class BufferingVideoSinkTest {
   }
 
   @Test
-  public void setVideoSink_withFailingPendingOperation_throws() throws Exception {
-    BufferingVideoSink bufferingVideoSink = new BufferingVideoSink(context);
-    VideoSink videoSinkMock = mock(VideoSink.class);
-    Format format = new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H264).build();
-    Mockito.doThrow(new VideoSink.VideoSinkException(new RuntimeException(), format))
-        .when(videoSinkMock)
-        .initialize(any());
-
-    bufferingVideoSink.initialize(format);
-
-    assertThrows(
-        VideoSink.VideoSinkException.class, () -> bufferingVideoSink.setVideoSink(videoSinkMock));
-  }
-
-  @Test
-  public void removeVideoSink_thenExecuteOperations_doesNotCallVideoSink() throws Exception {
+  public void setNullVideoSink_thenExecuteOperations_doesNotCallVideoSink() {
     BufferingVideoSink bufferingVideoSink = new BufferingVideoSink(context);
     VideoSink videoSinkMock = mock(VideoSink.class);
     bufferingVideoSink.setVideoSink(videoSinkMock);
 
-    bufferingVideoSink.removeVideoSink();
+    bufferingVideoSink.setVideoSink(null);
     bufferingVideoSink.onRendererEnabled(/* mayRenderStartOfStream= */ true);
     bufferingVideoSink.onRendererStarted();
 
@@ -96,7 +77,7 @@ public class BufferingVideoSinkTest {
   }
 
   @Test
-  public void clearPendingOperations_clearsPendingOperations() throws Exception {
+  public void clearPendingOperations_clearsPendingOperations() {
     BufferingVideoSink bufferingVideoSink = new BufferingVideoSink(context);
     VideoSink videoSinkMock = mock(VideoSink.class);
 

@@ -33,13 +33,16 @@ import java.util.concurrent.Executor;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
- * A {@link VideoSink} that delays the operations performed on it until it {@linkplain
+ * A {@link VideoSink} that delays most operations performed on it until it {@linkplain
  * #setVideoSink(VideoSink) receives} a sink.
+ *
+ * <p>Some operations are not delayed. Their behavior in case there is no underlying {@link
+ * VideoSink} is documented in the corresponding method.
  */
 /* package */ final class BufferingVideoSink implements VideoSink {
 
   private final Context context;
-  private final List<ThrowingVideoSinkOperation> pendingOperations;
+  private final List<VideoSinkOperation> pendingOperations;
 
   @Nullable private VideoSink videoSink;
   private boolean isInitialized;
@@ -53,22 +56,18 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   /**
    * Sets the {@link VideoSink} to execute the pending and future operations on.
    *
-   * @param videoSink The {@link VideoSink} to execute the operations on.
-   * @throws VideoSinkException If an error occurred executing the pending operations on the sink.
+   * @param videoSink The {@link VideoSink} to execute the operations on, or {@code null} to remove
+   *     the underlying {@link VideoSink}.
    */
-  public void setVideoSink(VideoSink videoSink) throws VideoSinkException {
+  public void setVideoSink(@Nullable VideoSink videoSink) {
     this.videoSink = videoSink;
+    if (videoSink == null) {
+      return;
+    }
     for (int i = 0; i < pendingOperations.size(); i++) {
       pendingOperations.get(i).execute(videoSink);
     }
     pendingOperations.clear();
-  }
-
-  /**
-   * Removes the underlying {@link VideoSink} if it is {@linkplain #setVideoSink(VideoSink) set}.
-   */
-  public void removeVideoSink() {
-    this.videoSink = null;
   }
 
   /** Returns the underlying {@link VideoSink} or {@code null} if there is none. */
@@ -107,17 +106,19 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     executeOrDelay(videoSink -> videoSink.setListener(listener, executor));
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>This operation won't be added to the pending operations if the {@linkplain
+   * #setVideoSink(VideoSink) underlying sink} is {@code null}.
+   *
+   * <p>{@code true} is always returned if the {@linkplain #setVideoSink(VideoSink) underlying sink}
+   * is {@code null}.
+   */
   @Override
   public boolean initialize(Format sourceFormat) throws VideoSinkException {
-    executeOrDelayThrowing(
-        videoSink -> {
-          if (videoSink.isInitialized()) {
-            return;
-          }
-          videoSink.initialize(sourceFormat);
-        });
-    isInitialized = true;
-    return true;
+    isInitialized = videoSink == null || videoSink.initialize(sourceFormat);
+    return isInitialized;
   }
 
   @Override
@@ -130,8 +131,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     executeOrDelay(videoSink -> videoSink.flush(resetPosition));
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>{@code true} is always returned if the {@linkplain #setVideoSink(VideoSink) underlying sink}
+   * is {@code null}.
+   */
   @Override
   public boolean isReady(boolean rendererOtherwiseReady) {
+    // Return true if the VideoSink is null to indicate that the renderer can be started. Indeed,
+    // for prewarming, a VideoSink is set on the BufferingVideoSink when the renderer is started.
     return videoSink == null || videoSink.isReady(rendererOtherwiseReady);
   }
 
@@ -145,6 +154,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     executeOrDelay(VideoSink::signalEndOfInput);
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>{@code false} is always returned if the {@linkplain #setVideoSink(VideoSink) underlying
+   * sink} is {@code null}.
+   */
   @Override
   public boolean isEnded() {
     return videoSink != null && videoSink.isEnded();
@@ -212,6 +227,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     executeOrDelay(videoSink -> videoSink.onInputStreamChanged(inputType, format, videoEffects));
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>{@code false} is always returned if the {@linkplain #setVideoSink(VideoSink) underlying
+   * sink} is {@code null}.
+   */
   @Override
   public boolean handleInputFrame(
       long framePresentationTimeUs, boolean isLastFrame, VideoFrameHandler videoFrameHandler) {
@@ -219,11 +240,23 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         && videoSink.handleInputFrame(framePresentationTimeUs, isLastFrame, videoFrameHandler);
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>{@code false} is always returned if the {@linkplain #setVideoSink(VideoSink) underlying
+   * sink} is {@code null}.
+   */
   @Override
   public boolean handleInputBitmap(Bitmap inputBitmap, TimestampIterator timestampIterator) {
     return videoSink != null && videoSink.handleInputBitmap(inputBitmap, timestampIterator);
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>This operation won't be added to the pending operations if the {@linkplain
+   * #setVideoSink(VideoSink) underlying sink} is {@code null}.
+   */
   @Override
   public void render(long positionUs, long elapsedRealtimeUs) throws VideoSinkException {
     if (videoSink != null) {
@@ -257,15 +290,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
   }
 
-  private void executeOrDelayThrowing(ThrowingVideoSinkOperation operation)
-      throws VideoSinkException {
-    if (videoSink != null) {
-      operation.execute(videoSink);
-    } else {
-      pendingOperations.add(operation);
-    }
-  }
-
   private PlaceholderSurface getPlaceholderSurface() {
     if (placeholderSurface == null) {
       placeholderSurface = PlaceholderSurface.newInstance(context, /* secure= */ false);
@@ -273,14 +297,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     return placeholderSurface;
   }
 
-  private interface ThrowingVideoSinkOperation {
+  private interface VideoSinkOperation {
 
-    void execute(VideoSink videoSink) throws VideoSinkException;
-  }
-
-  private interface VideoSinkOperation extends ThrowingVideoSinkOperation {
-
-    @Override
     void execute(VideoSink videoSink);
   }
 }
