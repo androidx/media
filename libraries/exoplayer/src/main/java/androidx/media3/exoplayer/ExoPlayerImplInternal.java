@@ -961,6 +961,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
     if (!shouldPlayWhenReady()) {
       stopRenderers();
       updatePlaybackPositions();
+      queue.reevaluateBuffer(rendererPositionUs);
     } else {
       if (playbackInfo.playbackState == Player.STATE_READY) {
         mediaClock.start();
@@ -970,7 +971,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
         handler.sendEmptyMessage(MSG_DO_SOME_WORK);
       }
     }
-    queue.reevaluateBuffer(rendererPositionUs);
   }
 
   private void setPauseAtEndOfWindowInternal(boolean pauseAtEndOfWindow)
