@@ -63,6 +63,9 @@
         ([#8260](https://github.com/google/ExoPlayer/issues/8260)).
     *   Fix playback hanging when a playlist contains clipped items with CEA-608
         or CEA-708 captions.
+    *   Fix `IllegalStateException` when an SSA file contains a cue with zero
+        duration (start and end time equal)
+        ([#2052](https://github.com/androidx/media/issues/2052)).
 *   Metadata:
 *   Image:
 *   DataSource:

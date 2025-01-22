@@ -342,16 +342,23 @@ public final class DelegatingSubtitleDecoderWithSsaParserTest {
     assertThat(firstCue.line).isEqualTo(Cue.DIMEN_UNSET);
   }
 
+  /**
+   * Parsing should succeed, skipping the cues with invalid time codes, and parsing the third and
+   * final cues only.
+   */
   @Test
   public void decodeInvalidTimecodes() throws IOException {
-    // Parsing should succeed, parsing the third cue only.
     DelegatingSubtitleDecoder decoder = new DelegatingSubtitleDecoder("SSA", new SsaParser());
     byte[] bytes =
         TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), INVALID_TIMECODES);
     Subtitle subtitle = decoder.decode(bytes, bytes.length, false);
 
-    assertThat(subtitle.getEventTimeCount()).isEqualTo(2);
+    assertThat(subtitle.getEventTimeCount()).isEqualTo(4);
     assertTypicalCue3(subtitle, 0);
+    assertThat(subtitle.getEventTime(2)).isEqualTo(16_560_000);
+    assertThat(subtitle.getEventTime(3)).isEqualTo(17_900_000);
+    assertThat(Iterables.getOnlyElement(subtitle.getCues(16_560_000)).text.toString())
+        .isEqualTo("This is the last subtitle.");
   }
 
   @Test

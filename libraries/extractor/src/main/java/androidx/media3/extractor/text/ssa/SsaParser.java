@@ -334,7 +334,7 @@ public final class SsaParser implements SubtitleParser {
     }
 
     long endTimeUs = parseTimecodeUs(lineValues[format.endTimeIndex]);
-    if (endTimeUs == C.TIME_UNSET) {
+    if (endTimeUs == C.TIME_UNSET || endTimeUs <= startTimeUs) {
       Log.w(TAG, "Skipping invalid timing: " + dialogueLine);
       return;
     }
