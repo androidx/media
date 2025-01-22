@@ -222,7 +222,7 @@ public final class MergingMediaSource extends CompositeMediaSource<Integer> {
       mediaPeriod =
           new ClippingMediaPeriod(
               mediaPeriod,
-              /* enableInitialDiscontinuity= */ true,
+              /* enableInitialDiscontinuity= */ false,
               /* startUs= */ 0,
               /* endUs= */ checkNotNull(clippedDurationsUs.get(id.periodUid)));
       clippedMediaPeriods.put(id.periodUid, (ClippingMediaPeriod) mediaPeriod);

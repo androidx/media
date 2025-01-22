@@ -15,7 +15,6 @@
  */
 package androidx.media3.transformer;
 
-import android.content.Context;
 import android.media.MediaFormat;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.audio.AudioProcessor;
@@ -24,9 +23,6 @@ import androidx.media3.common.audio.ChannelMixingMatrix;
 import androidx.media3.common.audio.SonicAudioProcessor;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
-import androidx.media3.muxer.Muxer;
-import androidx.media3.test.utils.FakeClock;
-import androidx.test.core.app.ApplicationProvider;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import java.util.List;
@@ -64,16 +60,6 @@ public final class TestUtil {
   private static final String DUMP_FILE_EXTENSION = "dump";
 
   private TestUtil() {}
-
-  public static Transformer.Builder createTransformerBuilder(
-      Muxer.Factory muxerFactory, boolean enableFallback) {
-    Context context = ApplicationProvider.getApplicationContext();
-    return new Transformer.Builder(context)
-        .setClock(new FakeClock(/* isAutoAdvancing= */ true))
-        .setMuxerFactory(muxerFactory)
-        .setEncoderFactory(
-            new DefaultEncoderFactory.Builder(context).setEnableFallback(enableFallback).build());
-  }
 
   public static Effects createAudioEffects(AudioProcessor... audioProcessors) {
     return new Effects(

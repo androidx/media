@@ -211,6 +211,16 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
     return this;
   }
 
+  @CanIgnoreReturnValue
+  @Override
+  @UnstableApi
+  public DefaultMediaSourceFactory experimentalSetCodecsToParseWithinGopSampleDependencies(
+      @C.VideoCodecFlags int codecsToParseWithinGopSampleDependencies) {
+    delegateFactoryLoader.setCodecsToParseWithinGopSampleDependencies(
+        codecsToParseWithinGopSampleDependencies);
+    return this;
+  }
+
   /**
    * Sets the {@link AdsLoader.Provider} that provides {@link AdsLoader} instances for media items
    * that have {@link MediaItem.LocalConfiguration#adsConfiguration ads configurations}.
@@ -625,6 +635,7 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
     private DataSource.@MonotonicNonNull Factory dataSourceFactory;
     private boolean parseSubtitlesDuringExtraction;
     private SubtitleParser.Factory subtitleParserFactory;
+    private @C.VideoCodecFlags int codecsToParseWithinGopSampleDependencies;
     @Nullable private CmcdConfiguration.Factory cmcdConfigurationFactory;
     @Nullable private DrmSessionManagerProvider drmSessionManagerProvider;
     @Nullable private LoadErrorHandlingPolicy loadErrorHandlingPolicy;
@@ -664,6 +675,8 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
       }
       mediaSourceFactory.setSubtitleParserFactory(subtitleParserFactory);
       mediaSourceFactory.experimentalParseSubtitlesDuringExtraction(parseSubtitlesDuringExtraction);
+      mediaSourceFactory.experimentalSetCodecsToParseWithinGopSampleDependencies(
+          codecsToParseWithinGopSampleDependencies);
       mediaSourceFactories.put(contentType, mediaSourceFactory);
       return mediaSourceFactory;
     }
@@ -693,6 +706,13 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
       for (MediaSource.Factory mediaSourceFactory : mediaSourceFactories.values()) {
         mediaSourceFactory.setSubtitleParserFactory(subtitleParserFactory);
       }
+    }
+
+    public void setCodecsToParseWithinGopSampleDependencies(
+        @C.VideoCodecFlags int codecsToParseWithinGopSampleDependencies) {
+      this.codecsToParseWithinGopSampleDependencies = codecsToParseWithinGopSampleDependencies;
+      extractorsFactory.experimentalSetCodecsToParseWithinGopSampleDependencies(
+          codecsToParseWithinGopSampleDependencies);
     }
 
     public void setCmcdConfigurationFactory(CmcdConfiguration.Factory cmcdConfigurationFactory) {

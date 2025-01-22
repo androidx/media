@@ -33,7 +33,6 @@ import android.content.Context;
 import android.media.MediaCodecInfo;
 import android.media.MediaFormat;
 import android.os.Build;
-import android.util.Pair;
 import android.util.Size;
 import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
@@ -206,13 +205,14 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
     }
 
     MediaCodecInfo selectedEncoder = mediaCodecInfos.get(0);
-
+    boolean encoderSelectedForRequestedProfile = false;
     if (requestedAudioEncoderSettings.profile != AudioEncoderSettings.NO_VALUE) {
       for (int i = 0; i < mediaCodecInfos.size(); i++) {
         MediaCodecInfo encoderInfo = mediaCodecInfos.get(i);
         if (EncoderUtil.findSupportedEncodingProfiles(encoderInfo, format.sampleMimeType)
             .contains(requestedAudioEncoderSettings.profile)) {
           selectedEncoder = encoderInfo;
+          encoderSelectedForRequestedProfile = true;
           if (format.sampleMimeType.equals(MimeTypes.AUDIO_AAC)) {
             mediaFormat.setInteger(
                 MediaFormat.KEY_AAC_PROFILE, requestedAudioEncoderSettings.profile);
@@ -223,7 +223,16 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
         }
       }
     }
-
+    if (!encoderSelectedForRequestedProfile && enableFallback) {
+      @Nullable
+      EncoderQueryResult encoderQueryResult =
+          findAudioEncoderWithClosestSupportedFormat(format, mediaCodecInfos);
+      if (encoderQueryResult != null) {
+        selectedEncoder = encoderQueryResult.encoder;
+        format = encoderQueryResult.supportedFormat;
+        mediaFormat = createMediaFormatFromFormat(format);
+      }
+    }
     if (requestedAudioEncoderSettings.bitrate != AudioEncoderSettings.NO_VALUE) {
       mediaFormat.setInteger(MediaFormat.KEY_BIT_RATE, requestedAudioEncoderSettings.bitrate);
     }
@@ -261,7 +270,7 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
 
     @Nullable
     VideoEncoderQueryResult encoderAndClosestFormatSupport =
-        findEncoderWithClosestSupportedFormat(
+        findVideoEncoderWithClosestSupportedFormat(
             format, requestedVideoEncoderSettings, videoEncoderSelector, enableFallback);
 
     if (encoderAndClosestFormatSupport == null) {
@@ -392,20 +401,24 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
   }
 
   @Override
+  public boolean audioNeedsEncoding() {
+    return !requestedAudioEncoderSettings.equals(AudioEncoderSettings.DEFAULT);
+  }
+
+  @Override
   public boolean videoNeedsEncoding() {
     return !requestedVideoEncoderSettings.equals(VideoEncoderSettings.DEFAULT);
   }
 
   /**
-   * Finds an {@linkplain MediaCodecInfo encoder} that supports a format closest to the requested
-   * format.
+   * Finds a video {@linkplain MediaCodecInfo encoder} that supports a format closest to the
+   * requested format.
    *
-   * <p>Returns the {@linkplain MediaCodecInfo encoder} and the supported {@link Format} in a {@link
-   * Pair}, or {@code null} if none is found.
+   * <p>Returns a {@link VideoEncoderQueryResult}, or {@code null} if no encoder is found.
    */
   @RequiresNonNull("#1.sampleMimeType")
   @Nullable
-  private static VideoEncoderQueryResult findEncoderWithClosestSupportedFormat(
+  private static VideoEncoderQueryResult findVideoEncoderWithClosestSupportedFormat(
       Format requestedFormat,
       VideoEncoderSettings videoEncoderSettings,
       EncoderSelector encoderSelector,
@@ -571,17 +584,63 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
                 : Integer.MAX_VALUE); // Drops encoder.
   }
 
-  private static final class VideoEncoderQueryResult {
+  /**
+   * Finds an audio {@linkplain MediaCodecInfo encoder} that supports a format closest to the
+   * requested format.
+   *
+   * <p>Returns a {@link EncoderQueryResult}, or {@code null} if no encoder is found.
+   */
+  @RequiresNonNull("#1.sampleMimeType")
+  @Nullable
+  private static EncoderQueryResult findAudioEncoderWithClosestSupportedFormat(
+      Format requestedFormat, ImmutableList<MediaCodecInfo> filteredEncoderInfos) {
+    String mimeType = checkNotNull(requestedFormat.sampleMimeType);
+    if (filteredEncoderInfos.isEmpty()) {
+      return null;
+    }
+    MediaCodecInfo filteredEncoderInfo =
+        filterEncodersBySampleRate(filteredEncoderInfos, mimeType, requestedFormat.sampleRate)
+            .get(0);
+    int sampleRate =
+        EncoderUtil.getClosestSupportedSampleRate(
+            filteredEncoderInfo, mimeType, requestedFormat.sampleRate);
+    Format encoderFormat = requestedFormat.buildUpon().setSampleRate(sampleRate).build();
+    return new EncoderQueryResult(filteredEncoderInfo, encoderFormat);
+  }
+
+  /**
+   * Returns a list of {@linkplain MediaCodecInfo encoders} that support the requested sample rate
+   * most closely.
+   */
+  private static ImmutableList<MediaCodecInfo> filterEncodersBySampleRate(
+      List<MediaCodecInfo> encoders, String mimeType, int requestedSampleRate) {
+    return filterEncoders(
+        encoders,
+        /* cost= */ (encoderInfo) -> {
+          int closestSupportedSampleRate =
+              EncoderUtil.getClosestSupportedSampleRate(encoderInfo, mimeType, requestedSampleRate);
+          return Math.abs(closestSupportedSampleRate - requestedSampleRate);
+        });
+  }
+
+  private static class EncoderQueryResult {
     public final MediaCodecInfo encoder;
     public final Format supportedFormat;
+
+    public EncoderQueryResult(MediaCodecInfo encoder, Format supportedFormat) {
+      this.encoder = encoder;
+      this.supportedFormat = supportedFormat;
+    }
+  }
+
+  private static final class VideoEncoderQueryResult extends EncoderQueryResult {
     public final VideoEncoderSettings supportedEncoderSettings;
 
     public VideoEncoderQueryResult(
         MediaCodecInfo encoder,
         Format supportedFormat,
         VideoEncoderSettings supportedEncoderSettings) {
-      this.encoder = encoder;
-      this.supportedFormat = supportedFormat;
+      super(encoder, supportedFormat);
       this.supportedEncoderSettings = supportedEncoderSettings;
     }
   }

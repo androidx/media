@@ -257,8 +257,29 @@ public final class MediaCodecUtil {
   }
 
   /**
+   * Returns a copy of the provided decoder list sorted such that decoders with complete format
+   * support are listed first. The returned list is modifiable for convenience.
+   */
+  @CheckResult
+  public static List<MediaCodecInfo> getDecoderInfosSortedByFullFormatSupport(
+      List<MediaCodecInfo> decoderInfos, Format format) {
+    decoderInfos = new ArrayList<>(decoderInfos);
+    sortByScore(
+        decoderInfos,
+        decoderInfo -> {
+          try {
+            return decoderInfo.isFormatSupported(format) ? 1 : 0;
+          } catch (DecoderQueryException e) {
+            return -1;
+          }
+        });
+    return decoderInfos;
+  }
+
+  /**
    * Returns a copy of the provided decoder list sorted such that software decoders are listed
-   * first.
+   * first. Break ties by listing non-{@link MediaCodecInfo#vendor} decoders first, due to issues
+   * with decoder reuse with some software vendor codecs. See b/382447848.
    *
    * <p>The returned list is not modifiable.
    */
@@ -266,7 +287,9 @@ public final class MediaCodecUtil {
   public static List<MediaCodecInfo> getDecoderInfosSortedBySoftwareOnly(
       List<MediaCodecInfo> decoderInfos) {
     decoderInfos = new ArrayList<>(decoderInfos);
-    sortByScore(decoderInfos, decoderInfo -> decoderInfo.softwareOnly ? 1 : 0);
+    sortByScore(
+        decoderInfos,
+        decoderInfo -> (decoderInfo.softwareOnly ? 2 : 0) + (decoderInfo.vendor ? 0 : 1));
     return ImmutableList.copyOf(decoderInfos);
   }
 

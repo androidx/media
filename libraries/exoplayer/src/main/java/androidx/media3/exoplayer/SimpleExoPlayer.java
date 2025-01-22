@@ -15,8 +15,6 @@
  */
 package androidx.media3.exoplayer;
 
-import static androidx.annotation.VisibleForTesting.PROTECTED;
-
 import android.content.Context;
 import android.media.AudioDeviceInfo;
 import android.os.Looper;
@@ -70,13 +68,7 @@ import java.util.List;
  */
 @UnstableApi
 @Deprecated
-@SuppressWarnings("deprecation") // Supporting deprecated base classes
-public class SimpleExoPlayer extends BasePlayer
-    implements ExoPlayer,
-        ExoPlayer.AudioComponent,
-        ExoPlayer.VideoComponent,
-        ExoPlayer.TextComponent,
-        ExoPlayer.DeviceComponent {
+public class SimpleExoPlayer extends BasePlayer implements ExoPlayer {
 
   /**
    * @deprecated Use {@link ExoPlayer.Builder} instead.
@@ -431,6 +423,7 @@ public class SimpleExoPlayer extends BasePlayer
   /**
    * @param builder The {@link Builder} to obtain all construction parameters.
    */
+  @SuppressWarnings("deprecation") // Supporting deprecated builder.
   protected SimpleExoPlayer(Builder builder) {
     this(builder.wrappedBuilder);
   }
@@ -451,50 +444,6 @@ public class SimpleExoPlayer extends BasePlayer
   public boolean isSleepingForOffload() {
     blockUntilConstructorFinished();
     return player.isSleepingForOffload();
-  }
-
-  /**
-   * @deprecated Use {@link ExoPlayer}, as the {@link AudioComponent} methods are defined by that
-   *     interface.
-   */
-  @Deprecated
-  @Override
-  @Nullable
-  public AudioComponent getAudioComponent() {
-    return this;
-  }
-
-  /**
-   * @deprecated Use {@link ExoPlayer}, as the {@link VideoComponent} methods are defined by that
-   *     interface.
-   */
-  @Deprecated
-  @Override
-  @Nullable
-  public VideoComponent getVideoComponent() {
-    return this;
-  }
-
-  /**
-   * @deprecated Use {@link Player}, as the {@link TextComponent} methods are defined by that
-   *     interface.
-   */
-  @Deprecated
-  @Override
-  @Nullable
-  public TextComponent getTextComponent() {
-    return this;
-  }
-
-  /**
-   * @deprecated Use {@link Player}, as the {@link DeviceComponent} methods are defined by that
-   *     interface.
-   */
-  @Deprecated
-  @Override
-  @Nullable
-  public DeviceComponent getDeviceComponent() {
-    return this;
   }
 
   @Override
@@ -1024,8 +973,7 @@ public class SimpleExoPlayer extends BasePlayer
 
   @SuppressWarnings("ForOverride") // Forwarding to ForOverride method in ExoPlayerImpl.
   @Override
-  @VisibleForTesting(otherwise = PROTECTED)
-  public void seekTo(
+  protected void seekTo(
       int mediaItemIndex,
       long positionMs,
       @Player.Command int seekCommand,
@@ -1281,6 +1229,7 @@ public class SimpleExoPlayer extends BasePlayer
    */
   @Deprecated
   @Override
+  @SuppressWarnings("deprecation") // Forwarding deprecated method.
   public void setDeviceVolume(int volume) {
     blockUntilConstructorFinished();
     player.setDeviceVolume(volume);
@@ -1297,6 +1246,7 @@ public class SimpleExoPlayer extends BasePlayer
    */
   @Deprecated
   @Override
+  @SuppressWarnings("deprecation") // Forwarding deprecated method.
   public void increaseDeviceVolume() {
     blockUntilConstructorFinished();
     player.increaseDeviceVolume();
@@ -1313,6 +1263,7 @@ public class SimpleExoPlayer extends BasePlayer
    */
   @Deprecated
   @Override
+  @SuppressWarnings("deprecation") // Forwarding deprecated method.
   public void decreaseDeviceVolume() {
     blockUntilConstructorFinished();
     player.decreaseDeviceVolume();
@@ -1329,6 +1280,7 @@ public class SimpleExoPlayer extends BasePlayer
    */
   @Deprecated
   @Override
+  @SuppressWarnings("deprecation") // Forwarding deprecated method.
   public void setDeviceMuted(boolean muted) {
     blockUntilConstructorFinished();
     player.setDeviceMuted(muted);

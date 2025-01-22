@@ -409,7 +409,9 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         maxDroppedFramesToNotify,
         minConsecutiveDroppedFramesToNotify,
         assumedMinimumCodecOperatingRate,
-        videoSinkProvider == null ? null : videoSinkProvider.getSink());
+        /* videoSink= */ videoSinkProvider == null
+            ? null
+            : videoSinkProvider.getSink(/* inputIndex= */ 0));
   }
 
   /**
@@ -726,11 +728,12 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     // been reset.
     if (!hasSetVideoSink) {
       if (videoEffects != null && videoSink == null) {
-        videoSink =
+        PlaybackVideoGraphWrapper playbackVideoGraphWrapper =
             new PlaybackVideoGraphWrapper.Builder(context, videoFrameReleaseControl)
                 .setClock(getClock())
-                .build()
-                .getSink();
+                .build();
+        playbackVideoGraphWrapper.setTotalVideoInputCount(1);
+        videoSink = playbackVideoGraphWrapper.getSink(/* inputIndex= */ 0);
       }
       hasSetVideoSink = true;
     }
@@ -1004,6 +1007,14 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         rendererPriority = (int) checkNotNull(message);
         updateCodecImportance();
         break;
+      case MSG_TRANSFER_RESOURCES:
+        {
+          Surface surface = this.displaySurface;
+          setOutput(null);
+          ((MediaCodecVideoRenderer) checkNotNull(message))
+              .handleMessage(MSG_SET_VIDEO_OUTPUT, surface);
+        }
+        break;
       default:
         super.handleMessage(messageType, message);
     }
@@ -1175,11 +1186,11 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
 
     String sampleMimeType = checkNotNull(format.sampleMimeType);
     if (MimeTypes.VIDEO_DOLBY_VISION.equals(sampleMimeType)) {
-      // Dolby vision can be a wrapper around H264 or H265. We assume it's wrapping H265 by default
-      // because it's the common case, and because some devices may fail to allocate the codec when
-      // the larger buffer size required for H264 is requested. We size buffers for H264 only if the
-      // format contains sufficient information for us to determine unambiguously that it's a H264
-      // profile.
+      // Dolby vision can be a wrapper around H.264, H.265 or AV1. We assume it's wrapping H.265 by
+      // default because it's the common case, and because some devices may fail to allocate the
+      // codec when the larger buffer size required for H.264/AV1 is requested. We size buffers
+      // for H.264/AV1 only if the format contains sufficient information for us to determine
+      // unambiguously that it's a H.264/AV1 based profile.
       sampleMimeType = MimeTypes.VIDEO_H265;
       @Nullable
       Pair<Integer, Integer> codecProfileAndLevel = MediaCodecUtil.getCodecProfileAndLevel(format);
@@ -1189,6 +1200,8 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
             || profile == CodecProfileLevel.DolbyVisionProfileDvavPer
             || profile == CodecProfileLevel.DolbyVisionProfileDvavPen) {
           sampleMimeType = MimeTypes.VIDEO_H264;
+        } else if (profile == CodecProfileLevel.DolbyVisionProfileDvav110) {
+          sampleMimeType = MimeTypes.VIDEO_AV1;
         }
       }
     }
@@ -1245,15 +1258,16 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
 
   @CallSuper
   @Override
-  protected void onReadyToInitializeCodec(Format format) throws ExoPlaybackException {
+  protected boolean maybeInitializeProcessingPipeline(Format format) throws ExoPlaybackException {
     if (videoSink != null && !videoSink.isInitialized()) {
       try {
-        videoSink.initialize(format);
+        return videoSink.initialize(format);
       } catch (VideoSink.VideoSinkException e) {
         throw createRendererException(
             e, format, PlaybackException.ERROR_CODE_VIDEO_FRAME_PROCESSOR_INIT_FAILED);
       }
     }
+    return true;
   }
 
   /** Sets the {@linkplain Effect video effects} to apply. */
@@ -1419,8 +1433,8 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     decodedVideoSize = new VideoSize(width, height, pixelWidthHeightRatio);
 
     if (videoSink != null && pendingVideoSinkInputStreamChange) {
-      onReadyToChangeVideoSinkInputStream();
-      videoSink.onInputStreamChanged(
+      changeVideoSinkInputStream(
+          videoSink,
           /* inputType= */ VideoSink.INPUT_TYPE_SURFACE,
           format
               .buildUpon()
@@ -1435,13 +1449,15 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   }
 
   /**
-   * Called when ready to {@linkplain VideoSink#onInputStreamChanged(int, Format) change} the input
-   * stream when {@linkplain #setVideoEffects video effects} are enabled.
+   * Called when ready to {@linkplain VideoSink#onInputStreamChanged(int, Format, List<Effect>)
+   * change} the input stream.
    *
-   * <p>The default implementation is a no-op.
+   * <p>The default implementation applies this renderer's video effects.
    */
-  protected void onReadyToChangeVideoSinkInputStream() {
-    // do nothing.
+  protected void changeVideoSinkInputStream(
+      VideoSink videoSink, @VideoSink.InputType int inputType, Format format) {
+    List<Effect> videoEffectsToApply = videoEffects != null ? videoEffects : ImmutableList.of();
+    videoSink.onInputStreamChanged(inputType, format, videoEffectsToApply);
   }
 
   @Override
@@ -1539,7 +1555,10 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     // We are not rendering on a surface, the renderer will wait until a surface is set.
     if (displaySurface == null) {
       // Skip frames in sync with playback, so we'll be at the right frame if the mode changes.
-      if (videoFrameReleaseInfo.getEarlyUs() < 30_000) {
+      if ((videoFrameReleaseInfo.getEarlyUs() < 0
+              && shouldSkipLateBuffersWhileUsingPlaceholderSurface())
+          || (videoFrameReleaseInfo.getEarlyUs() < 30_000
+              && frameReleaseAction != VideoFrameReleaseControl.FRAME_RELEASE_TRY_AGAIN_LATER)) {
         skipOutputBuffer(codec, bufferIndex, presentationTimeUs);
         updateVideoFrameProcessingOffsetCounters(videoFrameReleaseInfo.getEarlyUs());
         return true;
@@ -1687,6 +1706,11 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
    * buffer.
    */
   protected boolean shouldSkipBuffersWithIdenticalReleaseTime() {
+    return true;
+  }
+
+  /** Returns whether to skip late buffers while using a placeholder surface. */
+  protected boolean shouldSkipLateBuffersWhileUsingPlaceholderSurface() {
     return true;
   }
 

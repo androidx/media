@@ -26,12 +26,12 @@ import static androidx.media3.transformer.TestUtil.FILE_VIDEO_ONLY;
 import static androidx.media3.transformer.TestUtil.addAudioDecoders;
 import static androidx.media3.transformer.TestUtil.addAudioEncoders;
 import static androidx.media3.transformer.TestUtil.createAudioEffects;
-import static androidx.media3.transformer.TestUtil.createTransformerBuilder;
 import static androidx.media3.transformer.TestUtil.createVolumeScalingAudioProcessor;
 import static androidx.media3.transformer.TestUtil.getDumpFileName;
 import static androidx.media3.transformer.TestUtil.removeEncodersAndDecoders;
 import static org.junit.Assume.assumeFalse;
 
+import android.content.Context;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.test.utils.DumpFileAsserts;
@@ -90,6 +90,8 @@ public final class ParameterizedItemExportTest {
 
   @Parameter public String assetFile;
 
+  private final Context context = ApplicationProvider.getApplicationContext();
+
   @Before
   public void setUp() {
     // Only add RAW decoder, so non-RAW audio has no options for decoding.
@@ -108,7 +110,7 @@ public final class ParameterizedItemExportTest {
     boolean handleAudioAsPcm = !ENCODED_AUDIO_ASSETS.contains(assetFile);
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(handleAudioAsPcm);
     Transformer transformer =
-        createTransformerBuilder(muxerFactory, /* enableFallback= */ false).build();
+        new TestTransformerBuilder(context).setMuxerFactory(muxerFactory).build();
 
     transformer.start(
         MediaItem.fromUri(ASSET_URI_PREFIX + assetFile), outputDir.newFile().getPath());
@@ -125,7 +127,7 @@ public final class ParameterizedItemExportTest {
     assumeFalse(AUDIO_ONLY_ASSETS.contains(assetFile));
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
     Transformer transformer =
-        createTransformerBuilder(muxerFactory, /* enableFallback= */ false).build();
+        new TestTransformerBuilder(context).setMuxerFactory(muxerFactory).build();
 
     EditedMediaItem item =
         new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + assetFile))
@@ -153,7 +155,7 @@ public final class ParameterizedItemExportTest {
         ENCODED_AUDIO_ASSETS.contains(assetFile));
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
     Transformer transformer =
-        createTransformerBuilder(muxerFactory, /* enableFallback= */ false).build();
+        new TestTransformerBuilder(context).setMuxerFactory(muxerFactory).build();
 
     EditedMediaItem item =
         new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + assetFile))
@@ -179,7 +181,7 @@ public final class ParameterizedItemExportTest {
         ENCODED_AUDIO_ASSETS.contains(assetFile));
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
     Transformer transformer =
-        createTransformerBuilder(muxerFactory, /* enableFallback= */ false).build();
+        new TestTransformerBuilder(context).setMuxerFactory(muxerFactory).build();
 
     EditedMediaItem item =
         new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + assetFile)).build();

@@ -20,7 +20,7 @@ import static androidx.media3.common.Player.EVENT_MEDIA_ITEM_TRANSITION;
 import static androidx.media3.common.Player.EVENT_TIMELINE_CHANGED;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.test.utils.TestUtil.assertForwardingClassForwardsAllMethodsExcept;
-import static androidx.media3.test.utils.TestUtil.assertForwardingClassOverridesAllMethods;
+import static androidx.media3.test.utils.TestUtil.assertSubclassOverridesAllMethods;
 import static androidx.media3.test.utils.TestUtil.getInnerClass;
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.ArgumentMatchers.same;
@@ -101,7 +101,7 @@ public class ForwardingPlayerTest {
 
   @Test
   public void forwardingPlayer_overridesAllPlayerMethods() throws Exception {
-    assertForwardingClassOverridesAllMethods(Player.class, ForwardingPlayer.class);
+    assertSubclassOverridesAllMethods(Player.class, ForwardingPlayer.class);
   }
 
   @Test
@@ -122,7 +122,7 @@ public class ForwardingPlayerTest {
     Class<? extends Player.Listener> forwardingListenerClass =
         (Class<? extends Player.Listener>)
             checkNotNull(getInnerClass(ForwardingPlayer.class, "ForwardingListener"));
-    assertForwardingClassOverridesAllMethods(Player.Listener.class, forwardingListenerClass);
+    assertSubclassOverridesAllMethods(Player.Listener.class, forwardingListenerClass);
   }
 
   private static class FakePlayer extends StubPlayer {

@@ -425,16 +425,25 @@ public final class SsaParserTest {
     assertThat(firstCue.line).isEqualTo(Cue.DIMEN_UNSET);
   }
 
+  /**
+   * Parsing should succeed, skipping the cues with invalid time codes, and parsing the third and
+   * final cues only.
+   */
   @Test
   public void parseInvalidTimecodes() throws IOException {
-    // Parsing should succeed, parsing the third cue only.
     SsaParser parser = new SsaParser();
     byte[] bytes =
         TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), INVALID_TIMECODES);
     ImmutableList<CuesWithTiming> allCues = parseAllCues(parser, bytes);
 
-    assertThat(allCues).hasSize(1);
-    assertTypicalCue3(Iterables.getOnlyElement(allCues));
+    assertThat(allCues).hasSize(2);
+    assertTypicalCue3(allCues.get(0));
+    CuesWithTiming finalCue = allCues.get(1);
+    assertThat(finalCue.startTimeUs).isEqualTo(16_560_000);
+    assertThat(finalCue.endTimeUs).isEqualTo(17_900_000);
+    assertThat(finalCue.durationUs).isEqualTo(1_340_000);
+    assertThat(Iterables.getOnlyElement(finalCue.cues).text.toString())
+        .isEqualTo("This is the last subtitle.");
   }
 
   @Test

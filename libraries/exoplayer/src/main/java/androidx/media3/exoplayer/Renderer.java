@@ -209,7 +209,8 @@ public interface Renderer extends PlayerMessage.Target {
         MSG_SET_VIDEO_EFFECTS,
         MSG_SET_VIDEO_OUTPUT_RESOLUTION,
         MSG_SET_IMAGE_OUTPUT,
-        MSG_SET_PRIORITY
+        MSG_SET_PRIORITY,
+        MSG_TRANSFER_RESOURCES
       })
   public @interface MessageType {}
 
@@ -242,10 +243,6 @@ public interface Renderer extends PlayerMessage.Target {
    *
    * <p>If tunneling is enabled by the track selector, the specified audio attributes will be
    * ignored, but they will take effect if audio is later played without tunneling.
-   *
-   * <p>If the device is running a build before platform API version 21, audio attributes cannot be
-   * set directly on the underlying audio track. In this case, the usage will be mapped onto an
-   * equivalent stream type using {@link Util#getStreamTypeForAudioUsage(int)}.
    *
    * <p>To get audio attributes that are equivalent to a legacy stream type, pass the stream type to
    * {@link Util#getAudioUsageForStreamType(int)} and use the returned {@link C.AudioUsage} to build
@@ -350,6 +347,13 @@ public interface Renderer extends PlayerMessage.Target {
    * constants for predefined values.
    */
   int MSG_SET_PRIORITY = 16;
+
+  /**
+   * The type of message that can be passed to a renderer to direct it to transfer relevant
+   * resources to another renderer. The message payload should be a instance of the same {@link
+   * Renderer} type as the renderer being passed the message.
+   */
+  int MSG_TRANSFER_RESOURCES = 17;
 
   /**
    * Applications or extensions may define custom {@code MSG_*} constants that can be passed to

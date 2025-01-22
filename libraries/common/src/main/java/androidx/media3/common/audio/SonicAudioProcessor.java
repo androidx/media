@@ -15,8 +15,11 @@
  */
 package androidx.media3.common.audio;
 
+import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
+import static java.lang.Math.abs;
 
+import androidx.annotation.FloatRange;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -44,6 +47,8 @@ public class SonicAudioProcessor implements AudioProcessor {
    */
   private static final int MIN_BYTES_FOR_DURATION_SCALING_CALCULATION = 1024;
 
+  private final boolean shouldBeActiveWithDefaultParameters;
+
   private int pendingOutputSampleRate;
   private float speed;
   private float pitch;
@@ -64,6 +69,17 @@ public class SonicAudioProcessor implements AudioProcessor {
 
   /** Creates a new Sonic audio processor. */
   public SonicAudioProcessor() {
+    this(/* keepActiveWithDefaultParameters= */ false);
+  }
+
+  /**
+   * Creates a new instance of {@link SonicAudioProcessor}.
+   *
+   * <p>If {@code keepActiveWithDefaultParameters} is set to {@code true}, then {@link #isActive()}
+   * returns {@code true} when parameters have been configured to default values that result in
+   * no-op processing.
+   */
+  /* package */ SonicAudioProcessor(boolean keepActiveWithDefaultParameters) {
     speed = 1f;
     pitch = 1f;
     pendingInputAudioFormat = AudioFormat.NOT_SET;
@@ -74,6 +90,7 @@ public class SonicAudioProcessor implements AudioProcessor {
     shortBuffer = buffer.asShortBuffer();
     outputBuffer = EMPTY_BUFFER;
     pendingOutputSampleRate = SAMPLE_RATE_NO_CHANGE;
+    shouldBeActiveWithDefaultParameters = keepActiveWithDefaultParameters;
   }
 
   /**
@@ -83,7 +100,8 @@ public class SonicAudioProcessor implements AudioProcessor {
    *
    * @param speed The target factor by which playback should be sped up.
    */
-  public final void setSpeed(float speed) {
+  public final void setSpeed(@FloatRange(from = 0f, fromInclusive = false) float speed) {
+    checkArgument(speed > 0f);
     if (this.speed != speed) {
       this.speed = speed;
       pendingSonicRecreation = true;
@@ -97,7 +115,8 @@ public class SonicAudioProcessor implements AudioProcessor {
    *
    * @param pitch The target pitch.
    */
-  public final void setPitch(float pitch) {
+  public final void setPitch(@FloatRange(from = 0f, fromInclusive = false) float pitch) {
+    checkArgument(pitch > 0f);
     if (this.pitch != pitch) {
       this.pitch = pitch;
       pendingSonicRecreation = true;
@@ -113,6 +132,7 @@ public class SonicAudioProcessor implements AudioProcessor {
    * @see #configure(AudioFormat)
    */
   public final void setOutputSampleRateHz(int sampleRateHz) {
+    checkArgument(sampleRateHz == SAMPLE_RATE_NO_CHANGE || sampleRateHz > 0);
     pendingOutputSampleRate = sampleRateHz;
   }
 
@@ -196,9 +216,13 @@ public class SonicAudioProcessor implements AudioProcessor {
   @Override
   public final boolean isActive() {
     return pendingOutputAudioFormat.sampleRate != Format.NO_VALUE
-        && (Math.abs(speed - 1f) >= CLOSE_THRESHOLD
-            || Math.abs(pitch - 1f) >= CLOSE_THRESHOLD
-            || pendingOutputAudioFormat.sampleRate != pendingInputAudioFormat.sampleRate);
+        && (shouldBeActiveWithDefaultParameters || !areParametersSetToDefaultValues());
+  }
+
+  private boolean areParametersSetToDefaultValues() {
+    return abs(speed - 1f) < CLOSE_THRESHOLD
+        && abs(pitch - 1f) < CLOSE_THRESHOLD
+        && pendingOutputAudioFormat.sampleRate == pendingInputAudioFormat.sampleRate;
   }
 
   @Override

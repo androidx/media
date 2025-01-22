@@ -18,6 +18,7 @@ package androidx.media3.exoplayer.image;
 import static androidx.media3.common.C.FIRST_FRAME_NOT_RENDERED;
 import static androidx.media3.common.C.FIRST_FRAME_NOT_RENDERED_ONLY_ALLOWED_IF_STARTED;
 import static androidx.media3.common.C.FIRST_FRAME_RENDERED;
+import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.exoplayer.source.SampleStream.FLAG_REQUIRE_FORMAT;
@@ -47,9 +48,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.ArrayDeque;
-import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
-import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
 /** A {@link Renderer} implementation for images. */
 @UnstableApi
@@ -117,6 +116,7 @@ public class ImageRenderer extends BaseRenderer {
   @Nullable private TileInfo tileInfo;
   @Nullable private TileInfo nextTileInfo;
   private int currentTileIndex;
+  private boolean codecNeedsInitialization;
 
   /**
    * Creates an instance.
@@ -164,7 +164,7 @@ public class ImageRenderer extends BaseRenderer {
       if (result == C.RESULT_FORMAT_READ) {
         // Note that this works because we only expect to enter this if-condition once per playback.
         inputFormat = checkStateNotNull(formatHolder.format);
-        initDecoder();
+        codecNeedsInitialization = true;
       } else if (result == C.RESULT_BUFFER_READ) {
         // End of stream read having not read a format.
         checkState(flagsOnlyBuffer.isEndOfStream());
@@ -175,6 +175,9 @@ public class ImageRenderer extends BaseRenderer {
         // We still don't have a format and can't make progress without one.
         return;
       }
+    }
+    if (decoder == null && !maybeInitCodec()) {
+      return;
     }
     try {
       // Rendering loop.
@@ -315,7 +318,7 @@ public class ImageRenderer extends BaseRenderer {
           // We're waiting to re-initialize the decoder, and have now processed all final buffers.
           releaseDecoderResources();
           checkStateNotNull(inputFormat);
-          initDecoder();
+          maybeInitCodec();
         } else {
           checkStateNotNull(outputBuffer).release();
           if (pendingOutputStreamChanges.isEmpty()) {
@@ -408,6 +411,23 @@ public class ImageRenderer extends BaseRenderer {
   }
 
   /**
+   * Initializes the processing pipeline, if needed by the implementation.
+   *
+   * <p>This method is called before initializing the image decoder.
+   *
+   * <p>The default implementation is a no-op.
+   *
+   * @return Returns {@code true} when the processing pipeline is successfully initialized, or the
+   *     {@code renderer} does not use a processing pipeline. The caller should try again later, if
+   *     {@code false} is returned.
+   * @throws ExoPlaybackException If an error occurs preparing for initializing the codec.
+   */
+  protected boolean maybeInitializeProcessingPipeline() throws ExoPlaybackException {
+    // Do nothing.
+    return true;
+  }
+
+  /**
    * Called when an output buffer is successfully processed.
    *
    * @param presentationTimeUs The timestamp associated with the output buffer.
@@ -483,6 +503,7 @@ public class ImageRenderer extends BaseRenderer {
         return !readyToOutputTiles;
       case C.RESULT_FORMAT_READ:
         inputFormat = checkStateNotNull(formatHolder.format);
+        codecNeedsInitialization = true;
         decoderReinitializationState = REINITIALIZATION_STATE_SIGNAL_END_OF_STREAM_THEN_WAIT;
         return true;
       default:
@@ -490,10 +511,16 @@ public class ImageRenderer extends BaseRenderer {
     }
   }
 
-  @RequiresNonNull("inputFormat")
-  @EnsuresNonNull("decoder")
-  private void initDecoder() throws ExoPlaybackException {
-    if (canCreateDecoderForFormat(inputFormat)) {
+  private boolean maybeInitCodec() throws ExoPlaybackException {
+    if (!maybeInitializeProcessingPipeline()) {
+      return false;
+    }
+
+    if (!codecNeedsInitialization) {
+      return true;
+    }
+
+    if (canCreateDecoderForFormat(checkNotNull(inputFormat))) {
       if (decoder != null) {
         decoder.release();
       }
@@ -504,6 +531,8 @@ public class ImageRenderer extends BaseRenderer {
           inputFormat,
           PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED);
     }
+    codecNeedsInitialization = false;
+    return true;
   }
 
   private boolean canCreateDecoderForFormat(Format format) {

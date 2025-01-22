@@ -644,29 +644,29 @@ public class TestUtil {
 
   /**
    * Use reflection to assert that every non-final method declared on {@code superType} is
-   * overridden by {@code forwardingType}.
+   * overridden by {@code subType}.
    */
-  public static <T> void assertForwardingClassOverridesAllMethods(
-      Class<T> superType, Class<? extends T> forwardingType) throws NoSuchMethodException {
-    assertForwardingClassOverridesAllMethodsExcept(superType, forwardingType, ImmutableSet.of());
+  public static <T> void assertSubclassOverridesAllMethods(
+      Class<T> superType, Class<? extends T> subType) throws NoSuchMethodException {
+    assertSubclassOverridesAllMethodsExcept(superType, subType, ImmutableSet.of());
   }
 
   /**
    * Use reflection to assert that every non-final, non-excluded method declared on {@code
-   * superType} is overridden by {@code forwardingType}.
+   * superType} is overridden by {@code subType}.
    */
-  public static <T> void assertForwardingClassOverridesAllMethodsExcept(
-      Class<T> superType, Class<? extends T> forwardingType, Set<String> excludedMethods)
+  public static <T> void assertSubclassOverridesAllMethodsExcept(
+      Class<T> superType, Class<? extends T> subType, Set<String> excludedMethods)
       throws NoSuchMethodException {
     for (Method method : TestUtil.getPublicOverridableMethods(superType)) {
       if (excludedMethods.contains(method.getName())) {
         continue;
       }
       assertThat(
-              forwardingType
+              subType
                   .getDeclaredMethod(method.getName(), method.getParameterTypes())
                   .getDeclaringClass())
-          .isEqualTo(forwardingType);
+          .isEqualTo(subType);
     }
   }
 
@@ -888,6 +888,46 @@ public class TestUtil {
    */
   public static long generateLong(Random random, long origin, long bound) {
     return (long) (origin + random.nextFloat() * (bound - origin));
+  }
+
+  /**
+   * Returns a non-random {@link ByteBuffer} filled with {@code frameCount * bytesPerFrame} bytes.
+   */
+  public static ByteBuffer getNonRandomByteBuffer(int frameCount, int bytesPerFrame) {
+    int bufferSize = frameCount * bytesPerFrame;
+    ByteBuffer buffer = ByteBuffer.allocateDirect(bufferSize).order(ByteOrder.nativeOrder());
+    for (int i = 0; i < bufferSize; i++) {
+      buffer.put((byte) i);
+    }
+    buffer.rewind();
+    return buffer;
+  }
+
+  /**
+   * Returns a {@link ByteBuffer} filled with alternating 16-bit PCM samples as per the provided
+   * period length.
+   *
+   * <p>The generated samples alternate between {@link Short#MAX_VALUE} and {@link Short#MIN_VALUE}
+   * every {@code period / 2} samples.
+   *
+   * @param sampleCount Number of total PCM samples (not frames) to generate.
+   * @param period Length in PCM samples of one full cycle.
+   */
+  public static ByteBuffer getPeriodicSamplesBuffer(int sampleCount, int period) {
+    int halfPeriod = period / 2;
+    ByteBuffer buffer = ByteBuffer.allocateDirect(sampleCount * 2).order(ByteOrder.nativeOrder());
+    boolean isHigh = false;
+    int counter = 0;
+    while (counter < sampleCount) {
+      short sample = isHigh ? Short.MAX_VALUE : Short.MIN_VALUE;
+      for (int i = 0; i < halfPeriod && counter < sampleCount; i++) {
+        buffer.putShort(sample);
+        counter++;
+      }
+      isHigh = !isHigh;
+    }
+    buffer.rewind();
+    return buffer;
   }
 
   private static final class NoUidOrShufflingTimeline extends Timeline {

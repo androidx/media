@@ -50,10 +50,11 @@ dependencies {
     api project(modulePrefix + 'lib-common')
     api project(modulePrefix + 'lib-common-ktx')
 
-    def composeBom = platform('androidx.compose:compose-bom:2024.01.00')
+    def composeBom = platform('androidx.compose:compose-bom:2024.12.01')
     implementation composeBom
 
-    implementation 'androidx.compose.foundation:foundation'
+    // Remove the version number once b/385138624 is fixed, GMaven doesn't resolve the BOM above
+    implementation 'androidx.compose.foundation:foundation:1.7.6'
     implementation 'androidx.core:core:' + androidxCoreVersion
 
     testImplementation 'androidx.compose.ui:ui-test'
@@ -66,4 +67,6 @@ ext {
     releaseArtifactId = 'media3-ui-compose'
     releaseName = 'Media3 UI Compose module'
 }
-apply from: '../../publish.gradle'
+// TODO(b/385138624): Add this back once we find a workaround for the missing version error of the
+//  `androidx.compose.foundation` dependency.
+// apply from: '../../publish.gradle'

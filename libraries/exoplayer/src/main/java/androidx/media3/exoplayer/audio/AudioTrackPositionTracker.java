@@ -285,7 +285,8 @@ import java.lang.reflect.Method;
   }
 
   public long getCurrentPositionUs(boolean sourceEnded) {
-    if (checkNotNull(this.audioTrack).getPlayState() == PLAYSTATE_PLAYING) {
+    AudioTrack audioTrack = checkNotNull(this.audioTrack);
+    if (audioTrack.getPlayState() == PLAYSTATE_PLAYING) {
       maybeSampleSyncParams();
     }
 
@@ -340,7 +341,9 @@ import java.lang.reflect.Method;
       positionUs /= 1000;
     }
 
-    if (!notifiedPositionIncreasing && positionUs > lastPositionUs) {
+    if (!notifiedPositionIncreasing
+        && positionUs > lastPositionUs
+        && audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING) {
       notifiedPositionIncreasing = true;
       long mediaDurationSinceLastPositionUs = Util.usToMs(positionUs - lastPositionUs);
       long playoutDurationSinceLastPositionUs =
@@ -447,9 +450,13 @@ import java.lang.reflect.Method;
    * @return Whether the audio track has any pending data to play out.
    */
   public boolean hasPendingData(long writtenFrames) {
-    long currentPositionUs = getCurrentPositionUs(/* sourceEnded= */ false);
-    return writtenFrames > durationUsToSampleCount(currentPositionUs, outputSampleRate)
-        || forceHasPendingData();
+    if (stopTimestampUs != C.TIME_UNSET) {
+      return writtenFrames > getPlaybackHeadPosition() || forceHasPendingData();
+    } else {
+      long currentPositionUs = getCurrentPositionUs(/* sourceEnded= */ false);
+      return writtenFrames > durationUsToSampleCount(currentPositionUs, outputSampleRate)
+          || forceHasPendingData();
+    }
   }
 
   /**

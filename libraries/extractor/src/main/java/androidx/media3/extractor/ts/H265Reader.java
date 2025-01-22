@@ -92,7 +92,7 @@ public final class H265Reader implements ElementaryStreamReader {
     pps.reset();
     prefixSei.reset();
     suffixSei.reset();
-    seiReader.flush();
+    seiReader.clear();
     if (sampleReader != null) {
       sampleReader.reset();
     }
@@ -275,6 +275,7 @@ public final class H265Reader implements ElementaryStreamReader {
                 .build())
         .setPixelWidthHeightRatio(spsData.pixelWidthHeightRatio)
         .setMaxNumReorderSamples(spsData.maxNumReorderPics)
+        .setMaxSubLayers(spsData.maxSubLayersMinus1 + 1)
         .setInitializationData(Collections.singletonList(csdData))
         .build();
   }

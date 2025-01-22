@@ -3,8 +3,135 @@
 ### Unreleased changes
 
 *   Common Library:
+    *   Fix bug in `SimpleBasePlayer` where setting a new
+        `currentMediaItemIndex` in `State` after `setPlaylist` with `null`
+        `MediaMetadata` does not reevaluate the metadata
+        ([#1940](https://github.com/androidx/media/issues/1940)).
 *   ExoPlayer:
-    *   Consider language when selecting a video track. By default select a
+    *   Add experimental 'ExoPlayer' pre-warming support for playback using
+        `MediaCodecVideoRenderer`. `DefaultRenderersFactory` can be configured
+        through `experimentalSetEnableMediaCodecVideoRendererPrewarming` to
+        provide a secondary `MediaCodecVideoRenderer` to `ExoPlayer`. If
+        enabled, `ExoPlayer` will pre-process the video of consecutive media
+        items during playback to reduce media item transition latency.
+    *   Fix issue where additional decode-only frames may be displayed in quick
+        succession when transitioning to content media after a mid-roll ad.
+    *   Make `DefaultRenderersFactory` add two `MetadataRenderer` instances by
+        default to enable apps to receive two different schemes of metadata by
+        default.
+    *   Initialize `DeviceInfo` and device volume asynchronously (if enabled via
+        `setDeviceVolumeControlEnabled`). These values won't be available
+        instantly after the `ExoPlayer.Builder.build()` and are notified via
+        `Player.Listener.onDeviceInfoChanged` and `onDeviceVolumeChanged`.
+*   Transformer:
+    *   Enable support for Android platform diagnostics via
+        `MediaMetricsManager`. Transformer will forward editing events and
+        performance data to the platform, which helps to provide system
+        performance and debugging information on the device. This data may also
+        be collected by Google
+        [if sharing usage and diagnostics data is enabled](https://support.google.com/accounts/answer/6078260)
+        by the user of the device. Apps can opt-out of contributing to platform
+        diagnostics for Transformer with
+        `Transformer.Builder.setUsePlatformDiagnostics(false)`.
+    *   Split `InAppMuxer` into `InAppMp4Muxer` and `InAppFragmentedMp4Muxer`.
+        `InAppMp4Muxer` is to be used for producing a non-fragmented MP4 file,
+        while `InAppFragmentedMp4Muxer` is to be used for producing a fragmented
+        MP4 file.
+    *   Move `Muxer` interface from `media3-muxer` to `media3-transformer`.
+*   Track Selection:
+*   Extractors:
+    *   Fix handling of NAL units with lengths expressed in 1 or 2 bytes (rather
+        than 4).
+*   DataSource:
+*   Audio:
+    *   Do not bypass `SonicAudioProcessor` when `SpeedChangingAudioProcessor`
+        is configured with default parameters.
+    *   Fix underflow in `Sonic#getOutputSize()` that could cause
+        `DefaultAudioSink` to stall.
+    *   Fix `MediaCodecAudioRenderer.getDurationToProgressUs()` and
+        `DecoderAudioRenderer.getDurationToProgressUs()` so that seeks will
+        correctly reset the provided durations.
+*   Video:
+*   Text:
+    *   TTML: Add support for referencing `tts:origin` and `tts:extent` via
+        `style` ([#2953](https://github.com/google/ExoPlayer/issues/2953)).
+    *   Restrict WebVTT and SubRip timestamps to exactly 3 decimal places.
+        Previously we incorrectly parsed any number of decimal places but always
+        assumed the value was in milliseconds, leading to incorrect timestamps
+        ([#1997](https://github.com/androidx/media/issues/1997)).
+    *   Add support for VobSub subtitles
+        ([#8260](https://github.com/google/ExoPlayer/issues/8260)).
+    *   Fix playback hanging when a playlist contains clipped items with CEA-608
+        or CEA-708 captions.
+    *   Fix `IllegalStateException` when an SSA file contains a cue with zero
+        duration (start and end time equal)
+        ([#2052](https://github.com/androidx/media/issues/2052)).
+*   Metadata:
+*   Image:
+*   DataSource:
+*   DRM:
+*   Effect:
+*   Muxers:
+    *   Renamed `setSampleCopyEnabled()` method to `setSampleCopyingEnabled()`
+        in both `Mp4Muxer.Builder` and `FragmentedMp4Muxer.Builder`.
+    *   `Mp4Muxer.addTrack()` and `FragmentedMp4Muxer.addTrack()` now return an
+        `int` track id instead of a `TrackToken`.
+    *   `Mp4Muxer` and `FragmentedMp4Muxer` no longer implement `Muxer`
+        interface.
+*   IMA extension:
+*   Session:
+    *   Fix bug where calling a `Player` method on a `MediaController` connected
+        to a legacy session dropped changes of a pending update coming from the
+        legacy session.
+*   UI:
+    *   Add `PresentationState` state holder class and the corresponding
+        `rememberPresentationState` Composable to `media3-ui-compose`.
+*   Downloads:
+*   OkHttp Extension:
+*   Cronet Extension:
+*   RTMP Extension:
+*   HLS Extension:
+    *   Parse `SUPPLEMENTAL-CODECS` tag from HLS playlist to detect Dolby Vision
+        formats ([#1785](https://github.com/androidx/media/pull/1785)).
+*   DASH Extension:
+    *   Fix issue when calculating the update interval for ad insertion in
+        multi-period live streams
+        ([#1698](https://github.com/androidx/media/issues/1698)).
+    *   Parse `scte214:supplementalCodecs` attribute from DASH manifest to
+        detect Dolby Vision formats
+        ([#1785](https://github.com/androidx/media/pull/1785)).
+    *   Improve handling of period transitions in live streams where the period
+        contains media samples beyond the declared period duration
+        ([#1698](https://github.com/androidx/media/issues/1698)).
+*   Smooth Streaming Extension:
+*   RTSP Extension:
+*   Decoder Extensions (FFmpeg, VP9, AV1, etc.):
+*   MIDI extension:
+*   Leanback extension:
+*   Cast Extension:
+*   Test Utilities:
+*   Demo app:
+    *   Use `PresentationState` to control the aspect ratio of `PlayerSurface`
+        Composable depending on the ContentScale type and cover it with a
+        shutter-overlay before the first frame is rendered.
+*   Remove deprecated symbols:
+    *   Removed `ExoPlayer.VideoComponent`, `ExoPlayer.AudioComponent`,
+        `ExoPlayer.TextComponent` and `ExoPlayer.DeviceComponent`.
+
+## 1.6
+
+### 1.6.0-alpha01 (2024-12-20)
+
+This release includes the following changes since the
+[1.5.1 release](#151-2024-12-19):
+
+*   Common Library:
+    *   Remove `Format.toBundle(boolean excludeMetadata)` method, use
+        `Format.toBundle()` instead.
+    *   Add `AudioManagerCompat` and `AudioFocusRequestCompat` to replace the
+        equivalent classes in `androidx.media`.
+*   ExoPlayer:
+    *   Consider language when selecting a video track. By default, select a
         'main' video track that matches the language of the selected audio
         track, if available. Explicit video language preferences can be
         expressed with
@@ -21,45 +148,54 @@
         `bufferForPlaybackAfterRebufferMs` in `DefaultLoadControl` to 1000 and
         2000 ms respectively.
     *   Add `MediaExtractorCompat`, a new class that provides equivalent
-        functionality to platform `MediaExtractor`.
-    *   Move `BasePreloadManager.Listener` to a top level
+        features to platform `MediaExtractor`.
+    *   Move `BasePreloadManager.Listener` to a top-level
         `PreloadManagerListener`.
+    *   `RenderersFactory.createSecondaryRenderer` can be implemented to provide
+        secondary renderers for pre-warming. Pre-warming enables quicker media
+        item transitions during playback.
+    *   Enable sending `CmcdData` for manifest requests in adaptive streaming
+        formats DASH, HLS, and SmoothStreaming
+        ([#1951](https://github.com/androidx/media/issues/1951)).
+    *   Provide `MediaCodecInfo` of the codec that will be initialized in
+        `MediaCodecRenderer.onReadyToInitializeCodec`
+        ([#1963](https://github.com/androidx/media/pull/1963)).
+    *   Change `AdsMediaSource` to allow the `AdPlaybackStates` to grow by
+        appending ad groups. Invalid modifications are detected and throw an
+        exception.
 *   Transformer:
     *   Update parameters of `VideoFrameProcessor.registerInputStream` and
         `VideoFrameProcessor.Listener.onInputStreamRegistered` to use `Format`.
-    *   Add support for transmuxing into alternative backwards compatible
+    *   Add support for transmuxing into alternative backward compatible
         formats.
     *   Generate HDR static metadata when using `DefaultEncoderFactory`.
 *   Extractors:
-    *   MP3: Don't stop playback early when a `VBRI` frame's table of contents
-        doesn't cover all the MP3 data in a file
-        ([#1904](https://github.com/androidx/media/issues/1904)).
-*   DataSource:
+    *   AVI: Fix handling of files with constant bitrate compressed audio where
+        the stream header stores the number of bytes instead of the number of
+        chunks.
 *   Audio:
+    *   Fix `onAudioPositionAdvancing` to be called when playback resumes
+        (previously it was called when playback was paused).
 *   Video:
-    *   Rollback of using `MediaCodecAdapter` supplied pixel aspect ratio values
-        when provided while processing `onOutputFormatChanged`
-        ([#1371](https://github.com/androidx/media/pull/1371)).
+    *   Fix `MediaCodecVideoRenderer` such that when without a `Surface`, the
+        renderer skips just-early frames only if the
+        `VideoFrameReleaseControl.getFrameReleaseAction` is not
+        `FRAME_RELEASE_TRY_AGAIN_LATER`.
 *   Text:
     *   Stop eagerly loading all subtitle files configured with
         `MediaItem.Builder.setSubtitleConfigurations`, and instead only load one
         if it is selected by track selection
         ([#1721](https://github.com/androidx/media/issues/1721)).
-    *   Fix bug in `ReplacingCuesResolver.discardCuesBeforeTimeUs` where the cue
-        active at `timeUs` (started before but not yet ended) was incorrectly
-        discarded ([#1939](https://github.com/androidx/media/issues/1939)).
-*   Metadata:
-*   Image:
-*   DRM:
 *   Effect:
     *   Moved the functionality of `OverlaySettings` into
         `StaticOverlaySettings`. `OverlaySettings` can be subclassed to allow
         dynamic overlay settings.
 *   Muxers:
-*   IMA extension:
+    *   Moved `MuxerException` out of `Muxer` interface to avoid a very long
+        fully qualified name.
 *   Session:
-    *   Add 'Context' as a parameter to
-        'MediaButtonReceiver.shouldStartForegroundService`
+    *   Add `Context` as a parameter to
+        `MediaButtonReceiver.shouldStartForegroundService`
         ([#1887](https://github.com/androidx/media/issues/1887)).
 *   UI:
     *   Add `PlayerSurface` Composable to `media3-ui-compose` module.
@@ -68,24 +204,21 @@
         `rememberPlayPauseButtonState`, `rememberNextButtonState`,
         `rememberPreviousButtonState`, `rememberRepeatButtonState`,
         `rememberShuffleButtonState` Composables to `media3-ui-compose` module.
-*   Downloads:
-*   OkHttp Extension:
-*   Cronet Extension:
-*   RTMP Extension:
 *   HLS Extension:
+    *   Add a first version of `HlsInterstitialsAdsLoader`. The ads loader reads
+        the HLS interstitials of an HLS media playlist and maps them to the
+        `AdPlaybackState` that is passed to the `AdsMediaSource`. This initial
+        version only supports HLS VOD streams with `X-ASSET-URI` attributes.
+    *   Add `HlsInterstitialsAdsLoader.AdsMediaSourceFactory`. Apps can use it
+        to create `AdsMediaSource` instances that use an
+        `HlsInterstitialsAdsLoader` in a convenient and safe way.
 *   DASH Extension:
     *   Add AC-4 Level-4 format support for DASH
         ([#1898](https://github.com/androidx/media/pull/1898)).
-*   Smooth Streaming Extension:
-*   RTSP Extension:
 *   Decoder Extensions (FFmpeg, VP9, AV1, etc.):
     *   Add the MPEG-H decoder module which uses the native MPEG-H decoder
         module to decode MPEG-H audio
         ([#1826](https://github.com/androidx/media/pull/1826)).
-*   MIDI extension:
-*   Leanback extension:
-*   Cast Extension:
-*   Test Utilities:
 *   Demo app:
     *   Add `MinimalControls` (`PlayPauseButton`, `NextButton`,
         `PreviousButton`) and `ExtraControls` (`RepeatButton`, `ShuffleButton`)
@@ -115,7 +248,7 @@
             `EditedMediaItem` passed to `Transformer.start()` instead.
         *   `setListener()`, use `addListener()`, `removeListener()` or
             `removeAllListeners()` instead.
-    *   Remove the following deprecated `Tansformer.Listener` methods:
+    *   Remove the following deprecated `Transformer.Listener` methods:
         *   `onTransformationCompleted(MediaItem)`, use
             `onCompleted(Composition, ExportResult)` instead.
         *   `onTransformationCompleted(MediaItem, TransformationResult)`, use
@@ -147,6 +280,32 @@
         `EditedMediaItem.flattenForSlowMotion` instead.
 
 ## 1.5
+
+### 1.5.1 (2024-12-19)
+
+This release includes the following changes since the
+[1.5.0 release](#150-2024-11-27):
+
+*   ExoPlayer:
+    *   Disable use of asynchronous decryption in MediaCodec to avoid reported
+        codec timeout issues with this platform API
+        ([#1641](https://github.com/androidx/media/issues/1641)).
+*   Extractors:
+    *   MP3: Don't stop playback early when a `VBRI` frame's table of contents
+        doesn't cover all the MP3 data in a file
+        ([#1904](https://github.com/androidx/media/issues/1904)).
+*   Video:
+    *   Rollback of using `MediaCodecAdapter` supplied pixel aspect ratio values
+        when provided while processing `onOutputFormatChanged`
+        ([#1371](https://github.com/androidx/media/pull/1371)).
+*   Text:
+    *   Fix bug in `ReplacingCuesResolver.discardCuesBeforeTimeUs` where the cue
+        active at `timeUs` (started before but not yet ended) was incorrectly
+        discarded ([#1939](https://github.com/androidx/media/issues/1939)).
+*   Metadata:
+    *   Extract disc/track numbering and genre from Vorbis comments into
+        `MediaMetadata`
+        ([#1958](https://github.com/androidx/media/issues/1958)).
 
 ### 1.5.0 (2024-11-27)
 

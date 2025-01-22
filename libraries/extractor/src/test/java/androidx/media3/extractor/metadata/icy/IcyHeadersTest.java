@@ -17,7 +17,6 @@ package androidx.media3.extractor.metadata.icy;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import android.os.Parcel;
 import androidx.media3.common.MediaMetadata;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import org.junit.Test;
@@ -26,27 +25,6 @@ import org.junit.runner.RunWith;
 /** Test for {@link IcyHeaders}. */
 @RunWith(AndroidJUnit4.class)
 public final class IcyHeadersTest {
-
-  @Test
-  public void parcelEquals() {
-    IcyHeaders icyHeaders =
-        new IcyHeaders(
-            /* bitrate= */ 1234,
-            "genre",
-            "name",
-            "url",
-            /* isPublic= */ true,
-            /* metadataInterval= */ 5678);
-    // Write to parcel.
-    Parcel parcel = Parcel.obtain();
-    icyHeaders.writeToParcel(parcel, 0);
-    // Create from parcel.
-    parcel.setDataPosition(0);
-    IcyHeaders fromParcelIcyHeaders = IcyHeaders.CREATOR.createFromParcel(parcel);
-    // Assert equals.
-    assertThat(fromParcelIcyHeaders).isEqualTo(icyHeaders);
-  }
-
   @Test
   public void populateMediaMetadata() {
     IcyHeaders headers =

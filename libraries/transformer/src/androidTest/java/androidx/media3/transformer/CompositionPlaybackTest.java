@@ -16,19 +16,30 @@
 
 package androidx.media3.transformer;
 
+import static androidx.media3.common.Player.DISCONTINUITY_REASON_AUTO_TRANSITION;
+import static androidx.media3.common.Player.REPEAT_MODE_ALL;
+import static androidx.media3.common.Player.REPEAT_MODE_OFF;
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
+import static androidx.media3.common.util.Util.usToMs;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.PNG_ASSET;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 import static com.google.common.truth.Truth.assertThat;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.content.Context;
 import androidx.media3.common.Effect;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.PlaybackException;
+import androidx.media3.common.Player;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.effect.GlEffect;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.After;
 import org.junit.Test;
@@ -42,9 +53,12 @@ public class CompositionPlaybackTest {
   private static final MediaItem VIDEO_MEDIA_ITEM = MediaItem.fromUri(MP4_ASSET.uri);
   private static final long VIDEO_DURATION_US = MP4_ASSET.videoDurationUs;
   private static final ImmutableList<Long> VIDEO_TIMESTAMPS_US = MP4_ASSET.videoTimestampsUs;
-  private static final MediaItem IMAGE_MEDIA_ITEM =
-      new MediaItem.Builder().setUri(PNG_ASSET.uri).setImageDurationMs(200).build();
   private static final long IMAGE_DURATION_US = 200_000;
+  private static final MediaItem IMAGE_MEDIA_ITEM =
+      new MediaItem.Builder()
+          .setUri(PNG_ASSET.uri)
+          .setImageDurationMs(usToMs(IMAGE_DURATION_US))
+          .build();
   // 200 ms at 30 fps (default frame rate)
   private static final ImmutableList<Long> IMAGE_TIMESTAMPS_US =
       ImmutableList.of(0L, 33_333L, 66_667L, 100_000L, 133_333L, 166_667L);
@@ -90,23 +104,13 @@ public class CompositionPlaybackTest {
                     VIDEO_TIMESTAMPS_US, timestampUs -> (VIDEO_DURATION_US + timestampUs)))
             .build();
 
-    getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              player = new CompositionPlayer.Builder(context).build();
-              player.addListener(playerTestListener);
-              player.setComposition(composition);
-              player.prepare();
-              player.play();
-            });
-    playerTestListener.waitUntilPlayerEnded();
-
+    runCompositionPlayer(composition);
     assertThat(inputTimestampRecordingShaderProgram.getInputTimestampsUs())
         .isEqualTo(expectedTimestampsUs);
   }
 
   @Test
-  public void playback_sequenceOfImages_effectsReceiveCorrectTimestamps() throws Exception {
+  public void playback_singleSequenceOfImages_effectsReceiveCorrectTimestamps() throws Exception {
     InputTimestampRecordingShaderProgram inputTimestampRecordingShaderProgram =
         new InputTimestampRecordingShaderProgram();
     Effect videoEffect = (GlEffect) (context, useHdr) -> inputTimestampRecordingShaderProgram;
@@ -129,16 +133,36 @@ public class CompositionPlaybackTest {
                     IMAGE_TIMESTAMPS_US, timestampUs -> (IMAGE_DURATION_US + timestampUs)))
             .build();
 
-    getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              player = new CompositionPlayer.Builder(context).build();
-              player.addListener(playerTestListener);
-              player.setComposition(composition);
-              player.prepare();
-              player.play();
-            });
-    playerTestListener.waitUntilPlayerEnded();
+    runCompositionPlayer(composition);
+
+    assertThat(inputTimestampRecordingShaderProgram.getInputTimestampsUs())
+        .isEqualTo(expectedTimestampsUs);
+  }
+
+  @Test
+  public void playback_singleSequenceOfImages_compositionEffectsReceiveCorrectTimestamps()
+      throws Exception {
+    InputTimestampRecordingShaderProgram inputTimestampRecordingShaderProgram =
+        new InputTimestampRecordingShaderProgram();
+    Effect videoEffect = (GlEffect) (context, useHdr) -> inputTimestampRecordingShaderProgram;
+    EditedMediaItem editedMediaItem = new EditedMediaItem.Builder(IMAGE_MEDIA_ITEM).build();
+    Composition composition =
+        new Composition.Builder(
+                new EditedMediaItemSequence.Builder(editedMediaItem, editedMediaItem).build())
+            .setEffects(
+                new Effects(
+                    /* audioProcessors= */ ImmutableList.of(),
+                    /* videoEffects= */ ImmutableList.of(videoEffect)))
+            .build();
+    ImmutableList<Long> expectedTimestampsUs =
+        new ImmutableList.Builder<Long>()
+            .addAll(IMAGE_TIMESTAMPS_US)
+            .addAll(
+                Iterables.transform(
+                    IMAGE_TIMESTAMPS_US, timestampUs -> (IMAGE_DURATION_US + timestampUs)))
+            .build();
+
+    runCompositionPlayer(composition);
 
     assertThat(inputTimestampRecordingShaderProgram.getInputTimestampsUs())
         .isEqualTo(expectedTimestampsUs);
@@ -177,16 +201,7 @@ public class CompositionPlaybackTest {
                     IMAGE_TIMESTAMPS_US, timestampUs -> (VIDEO_DURATION_US + timestampUs)))
             .build();
 
-    getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              player = new CompositionPlayer.Builder(context).build();
-              player.addListener(playerTestListener);
-              player.setComposition(composition);
-              player.prepare();
-              player.play();
-            });
-    playerTestListener.waitUntilPlayerEnded();
+    runCompositionPlayer(composition);
 
     assertThat(inputTimestampRecordingShaderProgram.getInputTimestampsUs())
         .isEqualTo(expectedTimestampsUs);
@@ -225,24 +240,16 @@ public class CompositionPlaybackTest {
                     VIDEO_TIMESTAMPS_US, timestampUs -> (IMAGE_DURATION_US + timestampUs)))
             .build();
 
-    getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              player = new CompositionPlayer.Builder(context).build();
-              player.addListener(playerTestListener);
-              player.setComposition(composition);
-              player.prepare();
-              player.play();
-            });
-    playerTestListener.waitUntilPlayerEnded();
+    runCompositionPlayer(composition);
 
     assertThat(inputTimestampRecordingShaderProgram.getInputTimestampsUs())
         .isEqualTo(expectedTimestampsUs);
   }
 
   @Test
-  public void playback_sequenceOfThreeVideosWithRemovingFirstAndLastAudio_succeeds()
-      throws Exception {
+  public void
+      playback_sequenceOfThreeVideosWithRemovingFirstAndLastAudio_effectsReceiveCorrectTimestamps()
+          throws Exception {
     InputTimestampRecordingShaderProgram inputTimestampRecordingShaderProgram =
         new InputTimestampRecordingShaderProgram();
     EditedMediaItem videoEditedMediaItem =
@@ -275,23 +282,16 @@ public class CompositionPlaybackTest {
                     VIDEO_TIMESTAMPS_US, timestampUs -> (2 * VIDEO_DURATION_US + timestampUs)))
             .build();
 
-    getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              player = new CompositionPlayer.Builder(context).build();
-              player.addListener(playerTestListener);
-              player.setComposition(composition);
-              player.prepare();
-              player.play();
-            });
-    playerTestListener.waitUntilPlayerEnded();
+    runCompositionPlayer(composition);
 
     assertThat(inputTimestampRecordingShaderProgram.getInputTimestampsUs())
         .isEqualTo(expectedTimestampsUs);
   }
 
   @Test
-  public void playback_sequenceOfThreeVideosWithRemovingMiddleAudio_succeeds() throws Exception {
+  public void
+      playback_sequenceOfThreeVideosWithRemovingMiddleAudio_effectsReceiveCorrectTimestamps()
+          throws Exception {
     InputTimestampRecordingShaderProgram inputTimestampRecordingShaderProgram =
         new InputTimestampRecordingShaderProgram();
     EditedMediaItem videoEditedMediaItem =
@@ -322,16 +322,7 @@ public class CompositionPlaybackTest {
                     VIDEO_TIMESTAMPS_US, timestampUs -> (2 * VIDEO_DURATION_US + timestampUs)))
             .build();
 
-    getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              player = new CompositionPlayer.Builder(context).build();
-              player.addListener(playerTestListener);
-              player.setComposition(composition);
-              player.prepare();
-              player.play();
-            });
-    playerTestListener.waitUntilPlayerEnded();
+    runCompositionPlayer(composition);
 
     assertThat(inputTimestampRecordingShaderProgram.getInputTimestampsUs())
         .isEqualTo(expectedTimestampsUs);
@@ -361,16 +352,7 @@ public class CompositionPlaybackTest {
                     .build())
             .build();
 
-    getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              player = new CompositionPlayer.Builder(context).build();
-              player.addListener(playerTestListener);
-              player.setComposition(composition);
-              player.prepare();
-              player.play();
-            });
-    playerTestListener.waitUntilPlayerEnded();
+    runCompositionPlayer(composition);
 
     assertThat(inputTimestampRecordingShaderProgram.getInputTimestampsUs()).isEmpty();
   }
@@ -398,16 +380,7 @@ public class CompositionPlaybackTest {
                 new EditedMediaItemSequence.Builder(videoEditedMediaItemRemoveVideo).build())
             .build();
 
-    getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              player = new CompositionPlayer.Builder(context).build();
-              player.addListener(playerTestListener);
-              player.setComposition(composition);
-              player.prepare();
-              player.play();
-            });
-    playerTestListener.waitUntilPlayerEnded();
+    runCompositionPlayer(composition);
 
     assertThat(inputTimestampRecordingShaderProgram.getInputTimestampsUs())
         .isEqualTo(VIDEO_TIMESTAMPS_US);
@@ -436,6 +409,62 @@ public class CompositionPlaybackTest {
                     VIDEO_TIMESTAMPS_US, timestampUs -> (VIDEO_DURATION_US + timestampUs)))
             .build();
 
+    runCompositionPlayer(composition);
+
+    assertThat(inputTimestampRecordingShaderProgram.getInputTimestampsUs())
+        .isEqualTo(expectedTimestampsUs);
+  }
+
+  @Test
+  public void playback_withRepeatModeSet_succeeds() throws Exception {
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(VIDEO_MEDIA_ITEM).setDurationUs(VIDEO_DURATION_US).build();
+    Composition composition =
+        new Composition.Builder(new EditedMediaItemSequence.Builder(editedMediaItem).build())
+            .build();
+    CountDownLatch repetitionEndedLatch = new CountDownLatch(2);
+    AtomicReference<@NullableType PlaybackException> playbackException = new AtomicReference<>();
+
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              player = new CompositionPlayer.Builder(context).build();
+              player.addListener(playerTestListener);
+              player.addListener(
+                  new Player.Listener() {
+                    @Override
+                    public void onPositionDiscontinuity(
+                        Player.PositionInfo oldPosition,
+                        Player.PositionInfo newPosition,
+                        int reason) {
+                      if (reason == DISCONTINUITY_REASON_AUTO_TRANSITION) {
+                        repetitionEndedLatch.countDown();
+                      }
+                    }
+
+                    @Override
+                    public void onPlayerError(PlaybackException error) {
+                      playbackException.set(error);
+                      while (repetitionEndedLatch.getCount() > 0) {
+                        repetitionEndedLatch.countDown();
+                      }
+                    }
+                  });
+              player.setComposition(composition);
+              player.setRepeatMode(REPEAT_MODE_ALL);
+              player.prepare();
+              player.play();
+            });
+    boolean latchTimedOut = !repetitionEndedLatch.await(TEST_TIMEOUT_MS, MILLISECONDS);
+
+    assertThat(playbackException.get()).isNull();
+    assertThat(latchTimedOut).isFalse();
+    getInstrumentation().runOnMainSync(() -> player.setRepeatMode(REPEAT_MODE_OFF));
+    playerTestListener.waitUntilPlayerEnded();
+  }
+
+  private void runCompositionPlayer(Composition composition)
+      throws PlaybackException, TimeoutException {
     getInstrumentation()
         .runOnMainSync(
             () -> {
@@ -446,8 +475,5 @@ public class CompositionPlaybackTest {
               player.play();
             });
     playerTestListener.waitUntilPlayerEnded();
-
-    assertThat(inputTimestampRecordingShaderProgram.getInputTimestampsUs())
-        .isEqualTo(expectedTimestampsUs);
   }
 }

@@ -27,7 +27,6 @@ import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
-import androidx.media3.common.MimeTypes;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.util.TimestampAdjuster;
 import androidx.media3.common.util.UriUtil;
@@ -507,20 +506,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     @Nullable CmcdData.Factory cmcdDataFactory = null;
     if (cmcdConfiguration != null) {
       cmcdDataFactory =
-          new CmcdData.Factory(
-                  cmcdConfiguration,
-                  trackSelection,
-                  max(0, bufferedDurationUs),
-                  /* playbackRate= */ loadingInfo.playbackSpeed,
-                  /* streamingFormat= */ CmcdData.Factory.STREAMING_FORMAT_HLS,
-                  /* isLive= */ !playlist.hasEndTag,
-                  /* didRebuffer= */ loadingInfo.rebufferedSince(lastChunkRequestRealtimeMs),
-                  /* isBufferEmpty= */ queue.isEmpty())
-              .setObjectType(
-                  getIsMuxedAudioAndVideo()
-                      ? CmcdData.Factory.OBJECT_TYPE_MUXED_AUDIO_AND_VIDEO
-                      : CmcdData.Factory.getObjectType(trackSelection));
-
+          new CmcdData.Factory(cmcdConfiguration, CmcdData.STREAMING_FORMAT_HLS)
+              .setTrackSelection(trackSelection)
+              .setBufferedDurationUs(max(0, bufferedDurationUs))
+              .setPlaybackRate(loadingInfo.playbackSpeed)
+              .setIsLive(!playlist.hasEndTag)
+              .setDidRebuffer(loadingInfo.rebufferedSince(lastChunkRequestRealtimeMs))
+              .setIsBufferEmpty(queue.isEmpty());
       long nextMediaSequence =
           segmentBaseHolder.partIndex == C.INDEX_UNSET
               ? segmentBaseHolder.mediaSequence + 1
@@ -598,13 +590,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             shouldSpliceIn,
             playerId,
             cmcdDataFactory);
-  }
-
-  private boolean getIsMuxedAudioAndVideo() {
-    Format format = trackGroup.getFormat(trackSelection.getSelectedIndex());
-    String audioMimeType = MimeTypes.getAudioMediaMimeType(format.codecs);
-    String videoMimeType = MimeTypes.getVideoMediaMimeType(format.codecs);
-    return audioMimeType != null && videoMimeType != null;
   }
 
   @Nullable
@@ -933,7 +918,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         new DataSpec.Builder().setUri(keyUri).setFlags(DataSpec.FLAG_ALLOW_GZIP).build();
     if (cmcdDataFactory != null) {
       if (isInitSegment) {
-        cmcdDataFactory.setObjectType(CmcdData.Factory.OBJECT_TYPE_INIT_SEGMENT);
+        cmcdDataFactory.setObjectType(CmcdData.OBJECT_TYPE_INIT_SEGMENT);
       }
       CmcdData cmcdData = cmcdDataFactory.createCmcdData();
       dataSpec = cmcdData.addToDataSpec(dataSpec);

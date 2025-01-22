@@ -36,6 +36,8 @@ import static androidx.media3.transformer.AndroidTestUtil.MP4_TRIM_OPTIMIZATION;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_TRIM_OPTIMIZATION_180;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_TRIM_OPTIMIZATION_270;
 import static androidx.media3.transformer.AndroidTestUtil.PNG_ASSET;
+import static androidx.media3.transformer.AndroidTestUtil.WAV_192KHZ_ASSET;
+import static androidx.media3.transformer.AndroidTestUtil.WAV_96KHZ_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.WAV_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.WEBP_LARGE;
 import static androidx.media3.transformer.AndroidTestUtil.assumeCanEncodeWithProfile;
@@ -43,6 +45,7 @@ import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported
 import static androidx.media3.transformer.AndroidTestUtil.createFrameCountingEffect;
 import static androidx.media3.transformer.AndroidTestUtil.createOpenGlObjects;
 import static androidx.media3.transformer.AndroidTestUtil.generateTextureFromBitmap;
+import static androidx.media3.transformer.AndroidTestUtil.getFallbackAssumingUnsupportedSampleRate;
 import static androidx.media3.transformer.AndroidTestUtil.getMuxerFactoryBasedOnApi;
 import static androidx.media3.transformer.AndroidTestUtil.recordTestSkipped;
 import static androidx.media3.transformer.ExportResult.CONVERSION_PROCESS_NA;
@@ -107,7 +110,6 @@ import androidx.media3.test.utils.TestUtil;
 import androidx.media3.transformer.AssetLoader.CompositionSettings;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import java.io.File;
@@ -117,6 +119,7 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
@@ -1812,7 +1815,7 @@ public class TransformerEndToEndTest {
                 context,
                 new Transformer.Builder(context)
                     .setVideoMimeType(MimeTypes.VIDEO_H265)
-                    .setMuxerFactory(new InAppMuxer.Factory.Builder().build())
+                    .setMuxerFactory(new InAppMp4Muxer.Factory())
                     .build())
             .build()
             .run(testId, editedMediaItem);
@@ -2109,9 +2112,7 @@ public class TransformerEndToEndTest {
   public void transmux_audioWithEditListUsingInAppMuxer_preservesDuration() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
     Transformer transformer =
-        new Transformer.Builder(context)
-            .setMuxerFactory(new InAppMuxer.Factory.Builder().build())
-            .build();
+        new Transformer.Builder(context).setMuxerFactory(new InAppMp4Muxer.Factory()).build();
     MediaItem mediaItem =
         MediaItem.fromUri(Uri.parse("asset:///media/mp4/long_edit_list_audioonly.mp4"));
 
@@ -2357,11 +2358,10 @@ public class TransformerEndToEndTest {
     Transformer transformer =
         new Transformer.Builder(context)
             .setEncoderFactory(
-                new AndroidTestUtil.ForceEncodeEncoderFactory(
-                    new DefaultEncoderFactory.Builder(context)
-                        .setRequestedAudioEncoderSettings(
-                            new AudioEncoderSettings.Builder().setProfile(AACObjectHE).build())
-                        .build()))
+                new DefaultEncoderFactory.Builder(context)
+                    .setRequestedAudioEncoderSettings(
+                        new AudioEncoderSettings.Builder().setProfile(AACObjectHE).build())
+                    .build())
             .build();
     MediaItem mediaItem = new MediaItem.Builder().setUri(MP4_ASSET.uri).build();
     EditedMediaItem editedMediaItem =
@@ -2391,13 +2391,12 @@ public class TransformerEndToEndTest {
     // The MediaMuxer is not writing the bitrate hence use the InAppMuxer.
     Transformer transformer =
         new Transformer.Builder(context)
-            .setMuxerFactory(new InAppMuxer.Factory.Builder().build())
+            .setMuxerFactory(new InAppMp4Muxer.Factory())
             .setEncoderFactory(
-                new AndroidTestUtil.ForceEncodeEncoderFactory(
-                    new DefaultEncoderFactory.Builder(context)
-                        .setRequestedAudioEncoderSettings(
-                            new AudioEncoderSettings.Builder().setBitrate(requestedBitrate).build())
-                        .build()))
+                new DefaultEncoderFactory.Builder(context)
+                    .setRequestedAudioEncoderSettings(
+                        new AudioEncoderSettings.Builder().setBitrate(requestedBitrate).build())
+                    .build())
             .build();
     MediaItem mediaItem = new MediaItem.Builder().setUri(MP4_ASSET.uri).build();
     EditedMediaItem editedMediaItem =
@@ -2417,28 +2416,72 @@ public class TransformerEndToEndTest {
     assertThat(format.bitrate).isEqualTo(requestedBitrate);
   }
 
+  @Test
+  @Ignore("TODO: b/389068218 - Fix this test and re-enable it")
+  public void export_withUnsupportedSampleRateAndFallbackEnabled_exportsWithFallbackSampleRate()
+      throws Exception {
+    int unsupportedSampleRate = 96_000;
+    int fallbackSampleRate =
+        getFallbackAssumingUnsupportedSampleRate(MimeTypes.AUDIO_AAC, unsupportedSampleRate);
+    Transformer transformer =
+        new Transformer.Builder(context)
+            .setEncoderFactory(
+                new DefaultEncoderFactory.Builder(context).setEnableFallback(true).build())
+            .build();
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_96KHZ_ASSET.uri))
+            .setRemoveVideo(true)
+            .build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, editedMediaItem);
+
+    assertThat(result.exportResult.sampleRate).isEqualTo(fallbackSampleRate);
+    assertThat(result.exportResult.durationMs).isWithin(50).of(1_000);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
+  }
+
+  @Test
+  @Ignore("TODO: b/389068218 - Fix this test and re-enable it")
+  public void
+      export_withTwoUnsupportedAndOneSupportedSampleRateAndFallbackEnabled_exportsWithFallbackSampleRate()
+          throws Exception {
+    int unsupportedSampleRate = 192_000;
+    int fallbackSampleRate =
+        getFallbackAssumingUnsupportedSampleRate(MimeTypes.AUDIO_AAC, unsupportedSampleRate);
+    Transformer transformer =
+        new Transformer.Builder(context)
+            .setEncoderFactory(
+                new DefaultEncoderFactory.Builder(context).setEnableFallback(true).build())
+            .build();
+    EditedMediaItemSequence audioSequence =
+        new EditedMediaItemSequence.Builder(
+                new EditedMediaItem.Builder(MediaItem.fromUri(WAV_192KHZ_ASSET.uri))
+                    .setRemoveVideo(true)
+                    .build(),
+                new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
+                    .setRemoveVideo(true)
+                    .build(),
+                new EditedMediaItem.Builder(MediaItem.fromUri(WAV_96KHZ_ASSET.uri))
+                    .setRemoveVideo(true)
+                    .build())
+            .build();
+    Composition composition = new Composition.Builder(audioSequence).build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, composition);
+
+    assertThat(result.exportResult.sampleRate).isEqualTo(fallbackSampleRate);
+    assertThat(result.exportResult.durationMs).isWithin(150).of(3_000);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
+  }
+
   private static boolean shouldSkipDeviceForAacObjectHeProfileEncoding() {
-    // These devices claims to have the AACObjectHE profile but the profile never gets applied.
-    return (Util.SDK_INT == 24 && Ascii.equalsIgnoreCase(Util.MODEL, "xt1650"))
-        || (Util.SDK_INT == 25 && Ascii.equalsIgnoreCase(Util.MODEL, "pixel xl"))
-        || (Util.SDK_INT == 26 && Ascii.equalsIgnoreCase(Util.MODEL, "sm-a9200"))
-        || (Util.SDK_INT == 26 && Ascii.equalsIgnoreCase(Util.MODEL, "sm-g960f"))
-        || (Util.SDK_INT == 26 && Ascii.equalsIgnoreCase(Util.MODEL, "sm-n950u"))
-        || (Util.SDK_INT == 26 && Ascii.equalsIgnoreCase(Util.MODEL, "sm-g965u1"))
-        || (Util.SDK_INT == 26 && Ascii.equalsIgnoreCase(Util.MODEL, "sm-g960u1"))
-        || (Util.SDK_INT == 27 && Ascii.equalsIgnoreCase(Util.MODEL, "tc77"))
-        || (Util.SDK_INT == 27 && Ascii.equalsIgnoreCase(Util.MODEL, "f-01l"))
-        || (Util.SDK_INT == 27 && Ascii.equalsIgnoreCase(Util.MODEL, "sm-n960u1"))
-        || (Util.SDK_INT == 27 && Ascii.equalsIgnoreCase(Util.MODEL, "asus_x00td"))
-        || (Util.SDK_INT == 27 && Ascii.equalsIgnoreCase(Util.MODEL, "nokia 1"))
-        || (Util.SDK_INT == 27 && Ascii.equalsIgnoreCase(Util.MODEL, "redmi 6a"))
-        || (Util.SDK_INT == 27 && Ascii.equalsIgnoreCase(Util.MODEL, "moto e5 play"))
-        || (Util.SDK_INT == 27 && Ascii.equalsIgnoreCase(Util.MODEL, "sm-g610f"))
-        || (Util.SDK_INT == 27 && Ascii.equalsIgnoreCase(Util.MODEL, "sm-t580"))
-        || (Util.SDK_INT == 27 && Ascii.equalsIgnoreCase(Util.MODEL, "cph1803"))
-        || (Util.SDK_INT == 27 && Ascii.equalsIgnoreCase(Util.MODEL, "cph1909"))
-        || (Util.SDK_INT == 27 && Ascii.equalsIgnoreCase(Util.MODEL, "redmi note 5"))
-        || (Util.SDK_INT == 26 && isRunningOnEmulator());
+    return Util.SDK_INT < 29;
   }
 
   private static AudioProcessor createSonic(float pitch) {

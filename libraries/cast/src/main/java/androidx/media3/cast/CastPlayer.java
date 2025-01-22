@@ -15,7 +15,6 @@
  */
 package androidx.media3.cast;
 
-import static androidx.annotation.VisibleForTesting.PROTECTED;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Util.SDK_INT;
 import static androidx.media3.common.util.Util.castNonNull;
@@ -467,8 +466,7 @@ public final class CastPlayer extends BasePlayer {
   // onPositionDiscontinuity(PositionInfo, PositionInfo, @DiscontinuityReason int).
   @SuppressWarnings("deprecation")
   @Override
-  @VisibleForTesting(otherwise = PROTECTED)
-  public void seekTo(
+  protected void seekTo(
       int mediaItemIndex,
       long positionMs,
       @Player.Command int seekCommand,

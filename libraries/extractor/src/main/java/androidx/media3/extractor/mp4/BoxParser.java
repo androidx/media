@@ -98,6 +98,9 @@ public final class BoxParser {
   @SuppressWarnings("ConstantCaseForConstants")
   private static final int TYPE_vide = 0x76696465;
 
+  private static final int SAMPLE_RATE_AMR_NB = 8_000;
+  private static final int SAMPLE_RATE_AMR_WB = 16_000;
+
   /**
    * The threshold number of samples to trim from the start/end of an audio track when applying an
    * edit below which gapless info can be used (rather than removing samples from the sample table).
@@ -1208,6 +1211,7 @@ public final class BoxParser {
     @C.StereoMode int stereoMode = Format.NO_VALUE;
     @Nullable EsdsData esdsData = null;
     int maxNumReorderSamples = Format.NO_VALUE;
+    int maxSubLayers = Format.NO_VALUE;
     @Nullable NalUnitUtil.H265VpsData vpsData = null;
 
     // HDR related metadata.
@@ -1255,6 +1259,7 @@ public final class BoxParser {
           pixelWidthHeightRatio = hevcConfig.pixelWidthHeightRatio;
         }
         maxNumReorderSamples = hevcConfig.maxNumReorderPics;
+        maxSubLayers = hevcConfig.maxSubLayers;
         codecs = hevcConfig.codecs;
         if (hevcConfig.stereoMode != Format.NO_VALUE) {
           // HEVCDecoderConfigurationRecord may include 3D reference displays information SEI.
@@ -1523,6 +1528,7 @@ public final class BoxParser {
             .setStereoMode(stereoMode)
             .setInitializationData(initializationData)
             .setMaxNumReorderSamples(maxNumReorderSamples)
+            .setMaxSubLayers(maxSubLayers)
             .setDrmInitData(drmInitData)
             // Note that if either mdcv or clli are missing, we leave the corresponding HDR static
             // metadata bytes with value zero. See [Internal ref: b/194535665].
@@ -1677,11 +1683,11 @@ public final class BoxParser {
     return colorInfo.build();
   }
 
-  // TODO(Internal: b/375329008):  Add a published spec link of APV codec to the Javadoc.
   /**
    * Parses the apvC configuration record and returns a {@link ColorInfo} from its data.
    *
-   * <p>See apvC configuration record syntax from the spec.
+   * <p>See apvC configuration record syntax from the <a
+   * href="https://github.com/openapv/openapv/blob/main/readme/apv_isobmff.md#syntax-1">spec</a>.
    *
    * <p>The sections referenced in the method are from this spec.
    *
@@ -1692,34 +1698,34 @@ public final class BoxParser {
     ColorInfo.Builder colorInfo = new ColorInfo.Builder();
     ParsableBitArray bitArray = new ParsableBitArray(data.getData());
     bitArray.setPosition(data.getPosition() * 8); // Convert byte to bit position.
-
-    // See Section 2.2.3, APVDecoderConfigurationBox.
-    bitArray.skipBits(6); // configurationVersion
-    boolean isStaticFrameHeader = bitArray.readBit(); // static_frame_header
-    bitArray.skipBit(); // capture_time_distance_ignored
-
-    // Skip largest_frame_header_size (2 bytes), largest_profile_idc (1 byte), largest_level_idc (1
-    // byte), largest_frame_width_minus1 (4 bytes), largest_frame_height_minus1 (4 bytes)
-    bitArray.skipBytes(12);
-    bitArray.skipBits(4); // largest_chromat_format_idc
-
-    int bitDepth = bitArray.readBits(4) + 8; // largest_bit_depth_minus8 + 8
-    colorInfo.setLumaBitdepth(bitDepth);
-    colorInfo.setChromaBitdepth(bitDepth);
-    bitArray.skipBits(8); // largest_capture_time_distance
-
-    if (isStaticFrameHeader) {
-      bitArray.skipBits(7); // reserved_zero_7bits
-      if (!bitArray.readBit()) { // frame_header_repeated
+    bitArray.skipBytes(4); // skip version and flag (4 bytes)
+    // See APVDecoderConfigurationBox syntax.
+    bitArray.skipBytes(1); // configurationVersion
+    int numConfigurationEntries = bitArray.readBits(8); // number_of_configuration_entry
+    for (int i = 0; i < numConfigurationEntries; i++) {
+      bitArray.skipBytes(1); // pbu_type
+      int numberOfFrameInfo = bitArray.readBits(8);
+      for (int j = 0; j < numberOfFrameInfo; j++) {
         bitArray.skipBits(6); // reserved_zero_6bits
         boolean isColorDescriptionPresent =
             bitArray.readBit(); // color_description_present_flag_info
-        bitArray.skipBit(); // use_q_matrix_info
+        bitArray.skipBit(); // capture_time_distance_ignored
+        // Skip profile_idc (1 byte), level_idc (1 byte), band_idc (1 byte), frame_width (4 bytes),
+        // frame_height (4 bytes).
+        bitArray.skipBytes(11);
+        bitArray.skipBits(4); // chroma_format_idc (4 bits)
+        int bitDepth = bitArray.readBits(4) + 8; // bit_depth_minus8 + 8
+        colorInfo.setLumaBitdepth(bitDepth);
+        colorInfo.setChromaBitdepth(bitDepth);
+        bitArray.skipBytes(1); // capture_time_distance
         if (isColorDescriptionPresent) {
           int colorPrimaries = bitArray.readBits(8); // color_primaries
           int transferCharacteristics = bitArray.readBits(8); // transfer_characteristics
+          bitArray.skipBytes(1); // matrix_coefficients
+          boolean fullRangeFlag = bitArray.readBit(); // full_range_flag
           colorInfo
               .setColorSpace(ColorInfo.isoColorPrimariesToColorSpace(colorPrimaries))
+              .setColorRange(fullRangeFlag ? C.COLOR_RANGE_FULL : C.COLOR_RANGE_LIMITED)
               .setColorTransfer(
                   ColorInfo.isoTransferCharacteristicsToColorTransfer(transferCharacteristics));
         }
@@ -1859,12 +1865,20 @@ public final class BoxParser {
       return;
     }
 
-    // As per the IAMF spec (https://aomediacodec.github.io/iamf/#iasampleentry-section),
-    // channelCount and sampleRate SHALL be set to 0 and ignored. We ignore it by using
-    // Format.NO_VALUE instead of 0.
     if (atomType == Mp4Box.TYPE_iamf) {
+      // As per the IAMF spec (https://aomediacodec.github.io/iamf/#iasampleentry-section),
+      // channelCount and sampleRate SHALL be set to 0 and ignored. We ignore it by using
+      // Format.NO_VALUE instead of 0.
       channelCount = Format.NO_VALUE;
       sampleRate = Format.NO_VALUE;
+    } else if (atomType == Mp4Box.TYPE_samr) {
+      // AMR NB audio is always mono, 8kHz
+      channelCount = 1;
+      sampleRate = SAMPLE_RATE_AMR_NB;
+    } else if (atomType == Mp4Box.TYPE_sawb) {
+      // AMR WB audio is always mono, 16kHz
+      channelCount = 1;
+      sampleRate = SAMPLE_RATE_AMR_WB;
     }
 
     int childPosition = parent.getPosition();
@@ -2235,8 +2249,7 @@ public final class BoxParser {
             new StriData(
                 ((striInfo & 0x01) == 0x01),
                 ((striInfo & 0x02) == 0x02),
-                ((striInfo & 0x08) == 0x08),
-                ((striInfo & 0x04) == 0x04)));
+                ((striInfo & 0x08) == 0x08)));
       }
       childPosition += childAtomSize;
     }
@@ -2506,17 +2519,11 @@ public final class BoxParser {
     private final boolean hasLeftEyeView;
     private final boolean hasRightEyeView;
     private final boolean eyeViewsReversed;
-    private final boolean hasAdditionalViews;
 
-    public StriData(
-        boolean hasLeftEyeView,
-        boolean hasRightEyeView,
-        boolean eyeViewsReversed,
-        boolean hasAdditionalViews) {
+    public StriData(boolean hasLeftEyeView, boolean hasRightEyeView, boolean eyeViewsReversed) {
       this.hasLeftEyeView = hasLeftEyeView;
       this.hasRightEyeView = hasRightEyeView;
       this.eyeViewsReversed = eyeViewsReversed;
-      this.hasAdditionalViews = hasAdditionalViews;
     }
   }
 

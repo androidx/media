@@ -77,8 +77,8 @@ public final class ConfigurationActivity extends AppCompatActivity {
   public static final String ENABLE_ANALYZER_MODE = "enable_analyzer_mode";
   public static final String ENABLE_DEBUG_PREVIEW = "enable_debug_preview";
   public static final String ABORT_SLOW_EXPORT = "abort_slow_export";
-  public static final String USE_MEDIA3_MUXER = "use_media3_muxer";
-  public static final String PRODUCE_FRAGMENTED_MP4 = "produce_fragmented_mp4";
+  public static final String USE_MEDIA3_MP4_MUXER = "use_media3_mp4_muxer";
+  public static final String USE_MEDIA3_FRAGMENTED_MP4_MUXER = "use_media3_fragmented_mp4_muxer";
   public static final String HDR_MODE = "hdr_mode";
   public static final String AUDIO_EFFECTS_SELECTIONS = "audio_effects_selections";
   public static final String VIDEO_EFFECTS_SELECTIONS = "video_effects_selections";
@@ -120,10 +120,11 @@ public final class ConfigurationActivity extends AppCompatActivity {
 
   // Audio effect selections.
   public static final int HIGH_PITCHED_INDEX = 0;
-  public static final int SAMPLE_RATE_INDEX = 1;
-  public static final int SKIP_SILENCE_INDEX = 2;
-  public static final int CHANNEL_MIXING_INDEX = 3;
-  public static final int VOLUME_SCALING_INDEX = 4;
+  public static final int SAMPLE_RATE_48K_INDEX = 1;
+  public static final int SAMPLE_RATE_96K_INDEX = 2;
+  public static final int SKIP_SILENCE_INDEX = 3;
+  public static final int CHANNEL_MIXING_INDEX = 4;
+  public static final int VOLUME_SCALING_INDEX = 5;
 
   // Color filter options.
   public static final int COLOR_FILTER_GRAYSCALE = 0;
@@ -176,8 +177,8 @@ public final class ConfigurationActivity extends AppCompatActivity {
   private CheckBox enableDebugPreviewCheckBox;
   private CheckBox enableDebugTracingCheckBox;
   private CheckBox abortSlowExportCheckBox;
-  private CheckBox useMedia3Muxer;
-  private CheckBox produceFragmentedMp4CheckBox;
+  private CheckBox useMedia3Mp4Muxer;
+  private CheckBox useMedia3FragmentedMp4Muxer;
   private Spinner hdrModeSpinner;
   private Button selectAudioEffectsButton;
   private Button selectVideoEffectsButton;
@@ -302,18 +303,18 @@ public final class ConfigurationActivity extends AppCompatActivity {
         (buttonView, isChecked) -> DebugTraceUtil.enableTracing = isChecked);
 
     abortSlowExportCheckBox = findViewById(R.id.abort_slow_export_checkbox);
-    useMedia3Muxer = findViewById(R.id.use_media3_muxer_checkbox);
-    produceFragmentedMp4CheckBox = findViewById(R.id.produce_fragmented_mp4_checkbox);
-    useMedia3Muxer.setOnCheckedChangeListener(
-        (buttonView, isChecked) -> {
-          if (!isChecked) {
-            produceFragmentedMp4CheckBox.setChecked(false);
-          }
-        });
-    produceFragmentedMp4CheckBox.setOnCheckedChangeListener(
+    useMedia3Mp4Muxer = findViewById(R.id.use_media3_mp4_muxer_checkbox);
+    useMedia3FragmentedMp4Muxer = findViewById(R.id.use_media3_fragmented_mp4_muxer_checkbox);
+    useMedia3Mp4Muxer.setOnCheckedChangeListener(
         (buttonView, isChecked) -> {
           if (isChecked) {
-            useMedia3Muxer.setChecked(true);
+            useMedia3FragmentedMp4Muxer.setChecked(false);
+          }
+        });
+    useMedia3FragmentedMp4Muxer.setOnCheckedChangeListener(
+        (buttonView, isChecked) -> {
+          if (isChecked) {
+            useMedia3Mp4Muxer.setChecked(false);
           }
         });
 
@@ -406,8 +407,8 @@ public final class ConfigurationActivity extends AppCompatActivity {
     bundle.putBoolean(ENABLE_ANALYZER_MODE, enableAnalyzerModeCheckBox.isChecked());
     bundle.putBoolean(ENABLE_DEBUG_PREVIEW, enableDebugPreviewCheckBox.isChecked());
     bundle.putBoolean(ABORT_SLOW_EXPORT, abortSlowExportCheckBox.isChecked());
-    bundle.putBoolean(USE_MEDIA3_MUXER, useMedia3Muxer.isChecked());
-    bundle.putBoolean(PRODUCE_FRAGMENTED_MP4, produceFragmentedMp4CheckBox.isChecked());
+    bundle.putBoolean(USE_MEDIA3_MP4_MUXER, useMedia3Mp4Muxer.isChecked());
+    bundle.putBoolean(USE_MEDIA3_FRAGMENTED_MP4_MUXER, useMedia3FragmentedMp4Muxer.isChecked());
     String selectedHdrMode = String.valueOf(hdrModeSpinner.getSelectedItem());
     bundle.putInt(HDR_MODE, HDR_MODE_DESCRIPTIONS.get(selectedHdrMode));
     bundle.putBooleanArray(AUDIO_EFFECTS_SELECTIONS, audioEffectsSelections);

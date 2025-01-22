@@ -60,7 +60,7 @@ public class ForwardingSimpleBasePlayer extends SimpleBasePlayer {
 
   private final Player player;
 
-  private ForwardingPositionSupplier currentPositionSupplier;
+  private LivePositionSuppliers livePositionSuppliers;
   private Metadata lastTimedMetadata;
   private @Player.PlayWhenReadyChangeReason int playWhenReadyChangeReason;
   private @Player.DiscontinuityReason int pendingDiscontinuityReason;
@@ -78,7 +78,7 @@ public class ForwardingSimpleBasePlayer extends SimpleBasePlayer {
     this.lastTimedMetadata = new Metadata(/* presentationTimeUs= */ C.TIME_UNSET);
     this.playWhenReadyChangeReason = Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST;
     this.pendingDiscontinuityReason = Player.DISCONTINUITY_REASON_INTERNAL;
-    this.currentPositionSupplier = new ForwardingPositionSupplier(player);
+    this.livePositionSuppliers = new LivePositionSuppliers(player);
     player.addListener(
         new Listener() {
           @Override
@@ -99,15 +99,8 @@ public class ForwardingSimpleBasePlayer extends SimpleBasePlayer {
               @Player.DiscontinuityReason int reason) {
             pendingDiscontinuityReason = reason;
             pendingPositionDiscontinuityNewPositionMs = newPosition.positionMs;
-            // Any previously created State will directly call through to player.getCurrentPosition
-            // via the existing position supplier. From this point onwards, this is wrong as the
-            // player had a discontinuity and will now return a new position unrelated to the old
-            // State. We can disconnect these old State objects from the underlying Player by fixing
-            // the position to the one before the discontinuity and using a new (live) position
-            // supplier for future State objects.
-            currentPositionSupplier.setConstant(
-                oldPosition.positionMs, oldPosition.contentPositionMs);
-            currentPositionSupplier = new ForwardingPositionSupplier(player);
+            livePositionSuppliers.disconnect(oldPosition.positionMs, oldPosition.contentPositionMs);
+            livePositionSuppliers = new LivePositionSuppliers(player);
           }
 
           @Override
@@ -132,18 +125,18 @@ public class ForwardingSimpleBasePlayer extends SimpleBasePlayer {
   protected State getState() {
     // Ordered alphabetically by State.Builder setters.
     State.Builder state = new State.Builder();
-    ForwardingPositionSupplier positionSupplier = currentPositionSupplier;
+    LivePositionSuppliers positionSuppliers = livePositionSuppliers;
     if (player.isCommandAvailable(Player.COMMAND_GET_CURRENT_MEDIA_ITEM)) {
-      state.setAdBufferedPositionMs(positionSupplier::getBufferedPositionMs);
-      state.setAdPositionMs(positionSupplier::getCurrentPositionMs);
+      state.setAdBufferedPositionMs(positionSuppliers.bufferedPositionSupplier);
+      state.setAdPositionMs(positionSuppliers.currentPositionSupplier);
     }
     if (player.isCommandAvailable(Player.COMMAND_GET_AUDIO_ATTRIBUTES)) {
       state.setAudioAttributes(player.getAudioAttributes());
     }
     state.setAvailableCommands(player.getAvailableCommands());
     if (player.isCommandAvailable(Player.COMMAND_GET_CURRENT_MEDIA_ITEM)) {
-      state.setContentBufferedPositionMs(positionSupplier::getContentBufferedPositionMs);
-      state.setContentPositionMs(positionSupplier::getContentPositionMs);
+      state.setContentBufferedPositionMs(positionSuppliers.contentBufferedPositionSupplier);
+      state.setContentPositionMs(positionSuppliers.contentPositionSupplier);
       if (player.isCommandAvailable(Player.COMMAND_GET_TIMELINE)) {
         state.setCurrentAd(player.getCurrentAdGroupIndex(), player.getCurrentAdIndexInAdGroup());
       }
@@ -194,7 +187,7 @@ public class ForwardingSimpleBasePlayer extends SimpleBasePlayer {
     state.setSurfaceSize(player.getSurfaceSize());
     state.setTimedMetadata(lastTimedMetadata);
     if (player.isCommandAvailable(Player.COMMAND_GET_CURRENT_MEDIA_ITEM)) {
-      state.setTotalBufferedDurationMs(positionSupplier::getTotalBufferedDurationMs);
+      state.setTotalBufferedDurationMs(positionSuppliers.totalBufferedPositionSupplier);
     }
     state.setTrackSelectionParameters(player.getTrackSelectionParameters());
     state.setVideoSize(player.getVideoSize());
@@ -456,44 +449,29 @@ public class ForwardingSimpleBasePlayer extends SimpleBasePlayer {
    * Forwards to the changing position values of the wrapped player until the forwarding is
    * deactivated with constant values.
    */
-  private static final class ForwardingPositionSupplier {
+  private static final class LivePositionSuppliers {
 
-    private final Player player;
+    public final LivePositionSupplier currentPositionSupplier;
+    public final LivePositionSupplier bufferedPositionSupplier;
+    public final LivePositionSupplier contentPositionSupplier;
+    public final LivePositionSupplier contentBufferedPositionSupplier;
+    public final LivePositionSupplier totalBufferedPositionSupplier;
 
-    private long positionsMs;
-    private long contentPositionMs;
-
-    public ForwardingPositionSupplier(Player player) {
-      this.player = player;
-      this.positionsMs = C.TIME_UNSET;
-      this.contentPositionMs = C.TIME_UNSET;
+    public LivePositionSuppliers(Player player) {
+      currentPositionSupplier = new LivePositionSupplier(player::getCurrentPosition);
+      bufferedPositionSupplier = new LivePositionSupplier(player::getBufferedPosition);
+      contentPositionSupplier = new LivePositionSupplier(player::getContentPosition);
+      contentBufferedPositionSupplier =
+          new LivePositionSupplier(player::getContentBufferedPosition);
+      totalBufferedPositionSupplier = new LivePositionSupplier(player::getTotalBufferedDuration);
     }
 
-    public void setConstant(long positionMs, long contentPositionMs) {
-      this.positionsMs = positionMs;
-      this.contentPositionMs = contentPositionMs;
-    }
-
-    public long getCurrentPositionMs() {
-      return positionsMs == C.TIME_UNSET ? player.getCurrentPosition() : positionsMs;
-    }
-
-    public long getBufferedPositionMs() {
-      return positionsMs == C.TIME_UNSET ? player.getBufferedPosition() : positionsMs;
-    }
-
-    public long getContentPositionMs() {
-      return contentPositionMs == C.TIME_UNSET ? player.getContentPosition() : contentPositionMs;
-    }
-
-    public long getContentBufferedPositionMs() {
-      return contentPositionMs == C.TIME_UNSET
-          ? player.getContentBufferedPosition()
-          : contentPositionMs;
-    }
-
-    public long getTotalBufferedDurationMs() {
-      return positionsMs == C.TIME_UNSET ? player.getTotalBufferedDuration() : 0;
+    public void disconnect(long positionMs, long contentPositionMs) {
+      currentPositionSupplier.disconnect(positionMs);
+      bufferedPositionSupplier.disconnect(positionMs);
+      contentPositionSupplier.disconnect(contentPositionMs);
+      contentBufferedPositionSupplier.disconnect(contentPositionMs);
+      totalBufferedPositionSupplier.disconnect(/* finalValue= */ 0);
     }
   }
 }

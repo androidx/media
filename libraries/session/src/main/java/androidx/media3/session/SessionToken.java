@@ -280,7 +280,18 @@ public final class SessionToken {
   }
 
   /**
-   * Creates a token from a {@link Token} or {@code
+   * Creates a token from a platform {@link Token}.
+   *
+   * @param context A {@link Context}.
+   * @param token The platform {@link Token}.
+   * @return A {@link ListenableFuture} for the {@link SessionToken}.
+   */
+  public static ListenableFuture<SessionToken> createSessionToken(Context context, Token token) {
+    return createSessionToken(context, MediaSessionCompat.Token.fromToken(token));
+  }
+
+  /**
+   * Creates a token from a platform {@link Token} or {@code
    * android.support.v4.media.session.MediaSessionCompat.Token}.
    *
    * @param context A {@link Context}.
@@ -295,12 +306,28 @@ public final class SessionToken {
   }
 
   /**
-   * Creates a token from a {@link Token} or {@code
+   * Creates a token from a platform {@link Token}.
+   *
+   * @param context A {@link Context}.
+   * @param token The platform {@link Token}.
+   * @param completionLooper The {@link Looper} on which the returned {@link ListenableFuture}
+   *     completes. This {@link Looper} can't be used to call {@code future.get()} on the returned
+   *     {@link ListenableFuture}.
+   * @return A {@link ListenableFuture} for the {@link SessionToken}.
+   */
+  @UnstableApi
+  public static ListenableFuture<SessionToken> createSessionToken(
+      Context context, Token token, Looper completionLooper) {
+    return createSessionToken(context, MediaSessionCompat.Token.fromToken(token), completionLooper);
+  }
+
+  /**
+   * Creates a token from a platform {@link Token} or {@code
    * android.support.v4.media.session.MediaSessionCompat.Token}.
    *
    * @param context A {@link Context}.
    * @param token The {@link Token} or {@code
-   *     android.support.v4.media.session.MediaSessionCompat.Token}..
+   *     android.support.v4.media.session.MediaSessionCompat.Token}.
    * @param completionLooper The {@link Looper} on which the returned {@link ListenableFuture}
    *     completes. This {@link Looper} can't be used to call {@code future.get()} on the returned
    *     {@link ListenableFuture}.
@@ -310,16 +337,6 @@ public final class SessionToken {
   public static ListenableFuture<SessionToken> createSessionToken(
       Context context, Parcelable token, Looper completionLooper) {
     return createSessionToken(context, createCompatToken(token), completionLooper);
-  }
-
-  private static MediaSessionCompat.Token createCompatToken(
-      Parcelable platformOrLegacyCompatToken) {
-    if (platformOrLegacyCompatToken instanceof Token) {
-      return MediaSessionCompat.Token.fromToken(platformOrLegacyCompatToken);
-    }
-    // Assume this is an android.support.v4.media.session.MediaSessionCompat.Token.
-    return LegacyParcelableUtil.convert(
-        platformOrLegacyCompatToken, MediaSessionCompat.Token.CREATOR);
   }
 
   private static ListenableFuture<SessionToken> createSessionToken(
@@ -428,6 +445,16 @@ public final class SessionToken {
       sessionServiceTokens.add(token);
     }
     return sessionServiceTokens.build();
+  }
+
+  private static MediaSessionCompat.Token createCompatToken(
+      Parcelable platformOrLegacyCompatToken) {
+    if (platformOrLegacyCompatToken instanceof Token) {
+      return MediaSessionCompat.Token.fromToken(platformOrLegacyCompatToken);
+    }
+    // Assume this is an android.support.v4.media.session.MediaSessionCompat.Token.
+    return LegacyParcelableUtil.convert(
+        platformOrLegacyCompatToken, MediaSessionCompat.Token.CREATOR);
   }
 
   // We ask the app to declare the <queries> tags, so it's expected that they are missing.

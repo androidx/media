@@ -23,6 +23,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.Player;
+import androidx.media3.common.util.Util;
 import androidx.media3.test.utils.TestExoPlayerBuilder;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -49,7 +50,10 @@ public class ConnectionStateTest {
             MediaSessionStub.VERSION_INT,
             new MediaSessionStub(session.getImpl()),
             /* sessionActivity= */ PendingIntent.getActivity(
-                context, /* requestCode= */ 0, new Intent(), /* flags= */ 0),
+                context,
+                /* requestCode= */ 0,
+                new Intent(),
+                /* flags= */ Util.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0),
             /* customLayout= */ ImmutableList.of(
                 new CommandButton.Builder(CommandButton.ICON_ARTIST)
                     .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
@@ -116,7 +120,7 @@ public class ConnectionStateTest {
             /* customLayout= */ ImmutableList.of(),
             /* mediaButtonPreferences= */ ImmutableList.of(
                 new CommandButton.Builder(CommandButton.ICON_HEART_FILLED)
-                    .setPlayerCommand(Player.COMMAND_PREPARE)
+                    .setSessionCommand(new SessionCommand("action", Bundle.EMPTY))
                     .build()),
             /* commandButtonsForMediaItems= */ ImmutableList.of(),
             SessionCommands.EMPTY,

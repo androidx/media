@@ -16,10 +16,7 @@
 package androidx.media3.extractor.metadata.id3;
 
 import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotNull;
 
-import android.os.Parcel;
-import android.os.Parcelable;
 import androidx.annotation.Nullable;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.util.UnstableApi;
@@ -64,13 +61,6 @@ public final class TextInformationFrame extends Id3Frame {
       imports = "com.google.common.collect.ImmutableList")
   public TextInformationFrame(String id, @Nullable String description, String value) {
     this(id, description, ImmutableList.of(value));
-  }
-
-  private TextInformationFrame(Parcel in) {
-    this(
-        checkNotNull(in.readString()),
-        in.readString(),
-        ImmutableList.copyOf(checkNotNull(in.createStringArray())));
   }
 
   /**
@@ -220,29 +210,6 @@ public final class TextInformationFrame extends Id3Frame {
   public String toString() {
     return id + ": description=" + description + ": values=" + values;
   }
-
-  // Parcelable implementation.
-
-  @Override
-  public void writeToParcel(Parcel dest, int flags) {
-    dest.writeString(id);
-    dest.writeString(description);
-    dest.writeStringArray(values.toArray(new String[0]));
-  }
-
-  public static final Parcelable.Creator<TextInformationFrame> CREATOR =
-      new Parcelable.Creator<TextInformationFrame>() {
-
-        @Override
-        public TextInformationFrame createFromParcel(Parcel in) {
-          return new TextInformationFrame(in);
-        }
-
-        @Override
-        public TextInformationFrame[] newArray(int size) {
-          return new TextInformationFrame[size];
-        }
-      };
 
   // Private methods
 

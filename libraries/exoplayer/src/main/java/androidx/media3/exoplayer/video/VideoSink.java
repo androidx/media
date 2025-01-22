@@ -149,9 +149,10 @@ public interface VideoSink {
    * Initializes the video sink.
    *
    * @param sourceFormat The format of the first input video or image.
+   * @return Whether initialization succeeded. If {@code false}, the caller should try again later.
    * @throws VideoSink.VideoSinkException If initializing the sink failed.
    */
-  void initialize(Format sourceFormat) throws VideoSinkException;
+  boolean initialize(Format sourceFormat) throws VideoSinkException;
 
   /** Returns whether the video sink is {@linkplain #initialize(Format) initialized}. */
   boolean isInitialized();
@@ -187,8 +188,9 @@ public interface VideoSink {
    *
    * <p>This method returns {@code true} if the end of the last input stream has been {@linkplain
    * #signalEndOfCurrentInputStream() signaled} and all the input frames have been rendered. Note
-   * that a new input stream can be {@linkplain #onInputStreamChanged(int, Format) signaled} even
-   * when this method returns true (in which case the sink will not be ended anymore).
+   * that a new input stream can be {@linkplain #onInputStreamChanged(int, Format, List<Effect>)
+   * signaled} even when this method returns true (in which case the sink will not be ended
+   * anymore).
    */
   boolean isEnded();
 
@@ -207,12 +209,6 @@ public interface VideoSink {
 
   /** Sets {@linkplain Effect video effects} to apply immediately. */
   void setVideoEffects(List<Effect> videoEffects);
-
-  /**
-   * Sets {@linkplain Effect video effects} to apply after the next stream {@linkplain
-   * VideoSink#onInputStreamChanged(int, Format) change}.
-   */
-  void setPendingVideoEffects(List<Effect> videoEffects);
 
   /**
    * Sets information about the timestamps of the current input stream.
@@ -250,20 +246,21 @@ public interface VideoSink {
   void enableMayRenderStartOfStream();
 
   /**
-   * Informs the video sink that a new input stream will be queued.
+   * Informs the video sink that a new input stream will be queued with the given effects.
    *
    * <p>Must be called after the sink is {@linkplain #initialize(Format) initialized}.
    *
    * @param inputType The {@link InputType} of the stream.
    * @param format The {@link Format} of the stream.
+   * @param videoEffects The {@link List<Effect>} to apply to the new stream.
    */
-  void onInputStreamChanged(@InputType int inputType, Format format);
+  void onInputStreamChanged(@InputType int inputType, Format format, List<Effect> videoEffects);
 
   /**
    * Handles a video input frame.
    *
    * <p>Must be called after the corresponding stream is {@linkplain #onInputStreamChanged(int,
-   * Format) signaled}.
+   * Format, List<Effect>) signaled}.
    *
    * @param framePresentationTimeUs The frame's presentation time, in microseconds.
    * @param isLastFrame Whether this is the last frame of the video stream. This flag is set on a
@@ -280,7 +277,7 @@ public interface VideoSink {
    * Handles an input {@link Bitmap}.
    *
    * <p>Must be called after the corresponding stream is {@linkplain #onInputStreamChanged(int,
-   * Format) signaled}.
+   * Format, List<Effect>) signaled}.
    *
    * @param inputBitmap The {@link Bitmap} to queue to the video sink.
    * @param timestampIterator The times within the current stream that the bitmap should be shown

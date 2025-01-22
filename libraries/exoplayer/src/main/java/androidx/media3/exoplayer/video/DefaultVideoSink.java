@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.video;
 
+import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 
 import android.graphics.Bitmap;
@@ -107,8 +108,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   @Override
-  public void initialize(Format sourceFormat) {
+  public boolean initialize(Format sourceFormat) {
     // Do nothing as there is no initialization needed.
+    return true;
   }
 
   @Override
@@ -170,16 +172,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     throw new UnsupportedOperationException();
   }
 
-  /**
-   * {@inheritDoc}
-   *
-   * <p>This method will always throw an {@link UnsupportedOperationException}.
-   */
-  @Override
-  public void setPendingVideoEffects(List<Effect> videoEffects) {
-    throw new UnsupportedOperationException();
-  }
-
   @Override
   public void setStreamTimestampInfo(
       long streamStartPositionUs, long bufferTimestampAdjustmentUs, long lastResetPositionUs) {
@@ -212,8 +204,15 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     videoFrameReleaseControl.allowReleaseFirstFrameBeforeStarted();
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>{@code videoEffects} is required to be empty
+   */
   @Override
-  public void onInputStreamChanged(@InputType int inputType, Format format) {
+  public void onInputStreamChanged(
+      @InputType int inputType, Format format, List<Effect> videoEffects) {
+    checkState(videoEffects.isEmpty());
     if (format.width != inputFormat.width || format.height != inputFormat.height) {
       videoFrameRenderControl.onVideoSizeChanged(format.width, format.height);
     }

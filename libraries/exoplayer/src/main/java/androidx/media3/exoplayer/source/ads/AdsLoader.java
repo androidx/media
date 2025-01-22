@@ -168,11 +168,11 @@ public interface AdsLoader {
    * AdViewProvider, boolean) AdsMediaSource} to indicate the content source needs to be prepared
    * upfront.
    *
-   * @param mediaItem The {@link MediaItem} of the source that produced the timeline.
+   * @param adsMediaSource The ads media source for which the content timeline changed.
    * @param timeline The timeline of the content source.
    */
   @UnstableApi
-  default void handleContentTimelineChanged(MediaItem mediaItem, Timeline timeline) {
+  default void handleContentTimelineChanged(AdsMediaSource adsMediaSource, Timeline timeline) {
     // Do nothing.
   }
 

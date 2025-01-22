@@ -146,9 +146,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
               .build();
       if (cmcdDataFactory != null) {
         CmcdData cmcdData =
-            cmcdDataFactory
-                .setObjectType(CmcdData.Factory.OBJECT_TYPE_INIT_SEGMENT)
-                .createCmcdData();
+            cmcdDataFactory.setObjectType(CmcdData.OBJECT_TYPE_INIT_SEGMENT).createCmcdData();
         initDataSpec = cmcdData.addToDataSpec(initDataSpec);
       }
 

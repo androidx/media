@@ -861,7 +861,8 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
         mainHandler.post(
             () ->
                 setAdPlaybackState(
-                    new AdPlaybackState(adsId).withLivePostrollPlaceholderAppended()));
+                    new AdPlaybackState(adsId)
+                        .withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ true)));
       }
       prepareChildSource(/* id= */ null, serverSideAdInsertionMediaSource);
     }

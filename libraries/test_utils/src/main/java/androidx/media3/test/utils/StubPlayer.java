@@ -153,7 +153,7 @@ public class StubPlayer extends BasePlayer {
   }
 
   @Override
-  public void seekTo(
+  protected void seekTo(
       int mediaItemIndex,
       long positionMs,
       @Player.Command int seekCommand,

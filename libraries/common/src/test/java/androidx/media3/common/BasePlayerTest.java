@@ -15,8 +15,7 @@
  */
 package androidx.media3.common;
 
-import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.verify;
+import static com.google.common.truth.Truth.assertThat;
 
 import androidx.media3.test.utils.FakeTimeline;
 import androidx.media3.test.utils.StubPlayer;
@@ -30,312 +29,314 @@ public class BasePlayerTest {
 
   @Test
   public void seekTo_withIndexAndPosition_usesCommandSeekToMediaItem() {
-    BasePlayer player = spy(new TestBasePlayer());
+    TestBasePlayer player = new TestBasePlayer();
 
     player.seekTo(/* mediaItemIndex= */ 2, /* positionMs= */ 4000);
 
-    verify(player)
-        .seekTo(
-            /* mediaItemIndex= */ 2,
-            /* positionMs= */ 4000,
-            Player.COMMAND_SEEK_TO_MEDIA_ITEM,
-            /* isRepeatingCurrentItem= */ false);
+    player.assertSeekToCall(
+        /* mediaItemIndex= */ 2,
+        /* positionMs= */ 4000,
+        Player.COMMAND_SEEK_TO_MEDIA_ITEM,
+        /* isRepeatingCurrentItem= */ false);
   }
 
   @Test
   public void seekTo_withPosition_usesCommandSeekInCurrentMediaItem() {
-    BasePlayer player =
-        spy(
-            new TestBasePlayer() {
-              @Override
-              public int getCurrentMediaItemIndex() {
-                return 1;
-              }
-            });
+    TestBasePlayer player =
+        new TestBasePlayer() {
+          @Override
+          public int getCurrentMediaItemIndex() {
+            return 1;
+          }
+        };
 
     player.seekTo(/* positionMs= */ 4000);
 
-    verify(player)
-        .seekTo(
-            /* mediaItemIndex= */ 1,
-            /* positionMs= */ 4000,
-            Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM,
-            /* isRepeatingCurrentItem= */ false);
+    player.assertSeekToCall(
+        /* mediaItemIndex= */ 1,
+        /* positionMs= */ 4000,
+        Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM,
+        /* isRepeatingCurrentItem= */ false);
   }
 
   @Test
   public void seekToDefaultPosition_withIndex_usesCommandSeekToMediaItem() {
-    BasePlayer player = spy(new TestBasePlayer());
+    TestBasePlayer player = new TestBasePlayer();
 
     player.seekToDefaultPosition(/* mediaItemIndex= */ 2);
 
-    verify(player)
-        .seekTo(
-            /* mediaItemIndex= */ 2,
-            /* positionMs= */ C.TIME_UNSET,
-            Player.COMMAND_SEEK_TO_MEDIA_ITEM,
-            /* isRepeatingCurrentItem= */ false);
+    player.assertSeekToCall(
+        /* mediaItemIndex= */ 2,
+        /* positionMs= */ C.TIME_UNSET,
+        Player.COMMAND_SEEK_TO_MEDIA_ITEM,
+        /* isRepeatingCurrentItem= */ false);
   }
 
   @Test
   public void seekToDefaultPosition_withoutIndex_usesCommandSeekToDefaultPosition() {
-    BasePlayer player =
-        spy(
-            new TestBasePlayer() {
-              @Override
-              public int getCurrentMediaItemIndex() {
-                return 1;
-              }
-            });
+    TestBasePlayer player =
+        new TestBasePlayer() {
+          @Override
+          public int getCurrentMediaItemIndex() {
+            return 1;
+          }
+        };
 
     player.seekToDefaultPosition();
 
-    verify(player)
-        .seekTo(
-            /* mediaItemIndex= */ 1,
-            /* positionMs= */ C.TIME_UNSET,
-            Player.COMMAND_SEEK_TO_DEFAULT_POSITION,
-            /* isRepeatingCurrentItem= */ false);
+    player.assertSeekToCall(
+        /* mediaItemIndex= */ 1,
+        /* positionMs= */ C.TIME_UNSET,
+        Player.COMMAND_SEEK_TO_DEFAULT_POSITION,
+        /* isRepeatingCurrentItem= */ false);
   }
 
   @Test
   public void seekToNext_usesCommandSeekToNext() {
-    BasePlayer player =
-        spy(
-            new TestBasePlayer() {
-              @Override
-              public int getCurrentMediaItemIndex() {
-                return 1;
-              }
-            });
+    TestBasePlayer player =
+        new TestBasePlayer() {
+          @Override
+          public int getCurrentMediaItemIndex() {
+            return 1;
+          }
+        };
 
     player.seekToNext();
 
-    verify(player)
-        .seekTo(
-            /* mediaItemIndex= */ 2,
-            /* positionMs= */ C.TIME_UNSET,
-            Player.COMMAND_SEEK_TO_NEXT,
-            /* isRepeatingCurrentItem= */ false);
+    player.assertSeekToCall(
+        /* mediaItemIndex= */ 2,
+        /* positionMs= */ C.TIME_UNSET,
+        Player.COMMAND_SEEK_TO_NEXT,
+        /* isRepeatingCurrentItem= */ false);
   }
 
   @Test
   public void seekToNext_withoutNextItem_forwardsCallWithUnsetMediaItemIndex() {
-    BasePlayer player =
-        spy(
-            new TestBasePlayer() {
-              @Override
-              public Timeline getCurrentTimeline() {
-                return new FakeTimeline(/* windowCount= */ 3);
-              }
+    TestBasePlayer player =
+        new TestBasePlayer() {
+          @Override
+          public Timeline getCurrentTimeline() {
+            return new FakeTimeline(/* windowCount= */ 3);
+          }
 
-              @Override
-              public int getCurrentMediaItemIndex() {
-                return 2;
-              }
-            });
+          @Override
+          public int getCurrentMediaItemIndex() {
+            return 2;
+          }
+        };
 
     player.seekToNext();
 
-    verify(player)
-        .seekTo(
-            /* mediaItemIndex= */ C.INDEX_UNSET,
-            /* positionMs= */ C.TIME_UNSET,
-            Player.COMMAND_SEEK_TO_NEXT,
-            /* isRepeatingCurrentItem= */ false);
+    player.assertSeekToCall(
+        /* mediaItemIndex= */ C.INDEX_UNSET,
+        /* positionMs= */ C.TIME_UNSET,
+        Player.COMMAND_SEEK_TO_NEXT,
+        /* isRepeatingCurrentItem= */ false);
   }
 
   @Test
   public void seekToNextMediaItem_usesCommandSeekToNextMediaItem() {
-    BasePlayer player =
-        spy(
-            new TestBasePlayer() {
-              @Override
-              public int getCurrentMediaItemIndex() {
-                return 1;
-              }
-            });
+    TestBasePlayer player =
+        new TestBasePlayer() {
+          @Override
+          public int getCurrentMediaItemIndex() {
+            return 1;
+          }
+        };
 
     player.seekToNextMediaItem();
 
-    verify(player)
-        .seekTo(
-            /* mediaItemIndex= */ 2,
-            /* positionMs= */ C.TIME_UNSET,
-            Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM,
-            /* isRepeatingCurrentItem= */ false);
+    player.assertSeekToCall(
+        /* mediaItemIndex= */ 2,
+        /* positionMs= */ C.TIME_UNSET,
+        Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM,
+        /* isRepeatingCurrentItem= */ false);
   }
 
   @Test
   public void seekToNextMediaItem_withoutNextItem_forwardsCallWithUnsetMediaItemIndex() {
-    BasePlayer player =
-        spy(
-            new TestBasePlayer() {
-              @Override
-              public Timeline getCurrentTimeline() {
-                return new FakeTimeline(/* windowCount= */ 3);
-              }
+    TestBasePlayer player =
+        new TestBasePlayer() {
+          @Override
+          public Timeline getCurrentTimeline() {
+            return new FakeTimeline(/* windowCount= */ 3);
+          }
 
-              @Override
-              public int getCurrentMediaItemIndex() {
-                return 2;
-              }
-            });
+          @Override
+          public int getCurrentMediaItemIndex() {
+            return 2;
+          }
+        };
 
     player.seekToNextMediaItem();
 
-    verify(player)
-        .seekTo(
-            /* mediaItemIndex= */ C.INDEX_UNSET,
-            /* positionMs= */ C.TIME_UNSET,
-            Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM,
-            /* isRepeatingCurrentItem= */ false);
+    player.assertSeekToCall(
+        /* mediaItemIndex= */ C.INDEX_UNSET,
+        /* positionMs= */ C.TIME_UNSET,
+        Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM,
+        /* isRepeatingCurrentItem= */ false);
   }
 
   @Test
   public void seekForward_usesCommandSeekForward() {
-    BasePlayer player =
-        spy(
-            new TestBasePlayer() {
-              @Override
-              public long getSeekForwardIncrement() {
-                return 2000;
-              }
+    TestBasePlayer player =
+        new TestBasePlayer() {
+          @Override
+          public long getSeekForwardIncrement() {
+            return 2000;
+          }
 
-              @Override
-              public int getCurrentMediaItemIndex() {
-                return 1;
-              }
+          @Override
+          public int getCurrentMediaItemIndex() {
+            return 1;
+          }
 
-              @Override
-              public long getCurrentPosition() {
-                return 5000;
-              }
-            });
+          @Override
+          public long getCurrentPosition() {
+            return 5000;
+          }
+        };
 
     player.seekForward();
 
-    verify(player)
-        .seekTo(
-            /* mediaItemIndex= */ 1,
-            /* positionMs= */ 7000,
-            Player.COMMAND_SEEK_FORWARD,
-            /* isRepeatingCurrentItem= */ false);
+    player.assertSeekToCall(
+        /* mediaItemIndex= */ 1,
+        /* positionMs= */ 7000,
+        Player.COMMAND_SEEK_FORWARD,
+        /* isRepeatingCurrentItem= */ false);
   }
 
   @Test
   public void seekToPrevious_usesCommandSeekToPrevious() {
-    BasePlayer player =
-        spy(
-            new TestBasePlayer() {
-              @Override
-              public int getCurrentMediaItemIndex() {
-                return 1;
-              }
+    TestBasePlayer player =
+        new TestBasePlayer() {
+          @Override
+          public int getCurrentMediaItemIndex() {
+            return 1;
+          }
 
-              @Override
-              public long getMaxSeekToPreviousPosition() {
-                return 4000;
-              }
+          @Override
+          public long getMaxSeekToPreviousPosition() {
+            return 4000;
+          }
 
-              @Override
-              public long getCurrentPosition() {
-                return 2000;
-              }
-            });
+          @Override
+          public long getCurrentPosition() {
+            return 2000;
+          }
+        };
 
     player.seekToPrevious();
 
-    verify(player)
-        .seekTo(
-            /* mediaItemIndex= */ 0,
-            /* positionMs= */ C.TIME_UNSET,
-            Player.COMMAND_SEEK_TO_PREVIOUS,
-            /* isRepeatingCurrentItem= */ false);
+    player.assertSeekToCall(
+        /* mediaItemIndex= */ 0,
+        /* positionMs= */ C.TIME_UNSET,
+        Player.COMMAND_SEEK_TO_PREVIOUS,
+        /* isRepeatingCurrentItem= */ false);
   }
 
   @Test
   public void seekToPreviousMediaItem_usesCommandSeekToPreviousMediaItem() {
-    BasePlayer player =
-        spy(
-            new TestBasePlayer() {
-              @Override
-              public int getCurrentMediaItemIndex() {
-                return 1;
-              }
-            });
+    TestBasePlayer player =
+        new TestBasePlayer() {
+          @Override
+          public int getCurrentMediaItemIndex() {
+            return 1;
+          }
+        };
 
     player.seekToPreviousMediaItem();
 
-    verify(player)
-        .seekTo(
-            /* mediaItemIndex= */ 0,
-            /* positionMs= */ C.TIME_UNSET,
-            Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM,
-            /* isRepeatingCurrentItem= */ false);
+    player.assertSeekToCall(
+        /* mediaItemIndex= */ 0,
+        /* positionMs= */ C.TIME_UNSET,
+        Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM,
+        /* isRepeatingCurrentItem= */ false);
   }
 
   @Test
   public void seekToPreviousMediaItem_withoutPreviousItem_forwardsCallWithUnsetMediaItemIndex() {
-    BasePlayer player =
-        spy(
-            new TestBasePlayer() {
-              @Override
-              public int getCurrentMediaItemIndex() {
-                return 0;
-              }
-            });
+    TestBasePlayer player =
+        new TestBasePlayer() {
+          @Override
+          public int getCurrentMediaItemIndex() {
+            return 0;
+          }
+        };
 
     player.seekToPreviousMediaItem();
 
-    verify(player)
-        .seekTo(
-            /* mediaItemIndex= */ C.INDEX_UNSET,
-            /* positionMs= */ C.TIME_UNSET,
-            Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM,
-            /* isRepeatingCurrentItem= */ false);
+    player.assertSeekToCall(
+        /* mediaItemIndex= */ C.INDEX_UNSET,
+        /* positionMs= */ C.TIME_UNSET,
+        Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM,
+        /* isRepeatingCurrentItem= */ false);
   }
 
   @Test
   public void seekBack_usesCommandSeekBack() {
-    BasePlayer player =
-        spy(
-            new TestBasePlayer() {
-              @Override
-              public long getSeekBackIncrement() {
-                return 2000;
-              }
+    TestBasePlayer player =
+        new TestBasePlayer() {
+          @Override
+          public long getSeekBackIncrement() {
+            return 2000;
+          }
 
-              @Override
-              public int getCurrentMediaItemIndex() {
-                return 1;
-              }
+          @Override
+          public int getCurrentMediaItemIndex() {
+            return 1;
+          }
 
-              @Override
-              public long getCurrentPosition() {
-                return 5000;
-              }
-            });
+          @Override
+          public long getCurrentPosition() {
+            return 5000;
+          }
+        };
 
     player.seekBack();
 
-    verify(player)
-        .seekTo(
-            /* mediaItemIndex= */ 1,
-            /* positionMs= */ 3000,
-            Player.COMMAND_SEEK_BACK,
-            /* isRepeatingCurrentItem= */ false);
+    player.assertSeekToCall(
+        /* mediaItemIndex= */ 1,
+        /* positionMs= */ 3000,
+        Player.COMMAND_SEEK_BACK,
+        /* isRepeatingCurrentItem= */ false);
   }
 
   private static class TestBasePlayer extends StubPlayer {
 
-    @Override
-    public void seekTo(
+    private int mediaItemIndex;
+    private long positionMs;
+    private @Player.Command int seekCommand;
+    private boolean isRepeatingCurrentItem;
+
+    public TestBasePlayer() {
+      mediaItemIndex = C.INDEX_UNSET;
+      positionMs = C.TIME_UNSET;
+      seekCommand = Player.COMMAND_INVALID;
+      isRepeatingCurrentItem = false;
+    }
+
+    public void assertSeekToCall(
         int mediaItemIndex,
         long positionMs,
         @Player.Command int seekCommand,
         boolean isRepeatingCurrentItem) {
-      // Do nothing.
+      assertThat(this.mediaItemIndex).isEqualTo(mediaItemIndex);
+      assertThat(this.positionMs).isEqualTo(positionMs);
+      assertThat(this.seekCommand).isEqualTo(seekCommand);
+      assertThat(this.isRepeatingCurrentItem).isEqualTo(isRepeatingCurrentItem);
+    }
+
+    @Override
+    protected void seekTo(
+        int mediaItemIndex,
+        long positionMs,
+        @Player.Command int seekCommand,
+        boolean isRepeatingCurrentItem) {
+      this.mediaItemIndex = mediaItemIndex;
+      this.positionMs = positionMs;
+      this.seekCommand = seekCommand;
+      this.isRepeatingCurrentItem = isRepeatingCurrentItem;
     }
 
     @Override

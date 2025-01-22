@@ -384,6 +384,7 @@ public final class NalUnitUtil {
   public static final class H265SpsData {
 
     public final H265NalHeader nalHeader;
+    public final int maxSubLayersMinus1;
     @Nullable public final H265ProfileTierLevel profileTierLevel;
     public final int chromaFormatIdc;
     public final int bitDepthLumaMinus8;
@@ -399,6 +400,7 @@ public final class NalUnitUtil {
 
     public H265SpsData(
         H265NalHeader nalHeader,
+        int maxSubLayersMinus1,
         @Nullable H265ProfileTierLevel profileTierLevel,
         int chromaFormatIdc,
         int bitDepthLumaMinus8,
@@ -412,6 +414,7 @@ public final class NalUnitUtil {
         @C.ColorRange int colorRange,
         @C.ColorTransfer int colorTransfer) {
       this.nalHeader = nalHeader;
+      this.maxSubLayersMinus1 = maxSubLayersMinus1;
       this.profileTierLevel = profileTierLevel;
       this.chromaFormatIdc = chromaFormatIdc;
       this.bitDepthLumaMinus8 = bitDepthLumaMinus8;
@@ -675,6 +678,65 @@ public final class NalUnitUtil {
     }
     // Treat any other NAL unit type as depended on. This might be too restrictive, but reduces
     // risks around closed captions, HDR metadata in SEI messages.
+    return true;
+  }
+
+  /**
+   * Returns the number of bytes in the NAL unit header.
+   *
+   * <p>The NAL unit header can be used to determine the NAL unit type and whether subsequent NAL
+   * units can depend on the current NAL unit.
+   *
+   * <p>This is {@code nalUnitHeaderBytes} from the H.264 spec, or the size of {@code
+   * nal_unit_header()} in H.265.
+   *
+   * @param format The sample {@link Format}.
+   */
+  public static int numberOfBytesInNalUnitHeader(Format format) {
+    if (Objects.equals(format.sampleMimeType, MimeTypes.VIDEO_H264)) {
+      return 1;
+    }
+    if (Objects.equals(format.sampleMimeType, MimeTypes.VIDEO_H265)
+        || MimeTypes.containsCodecsCorrespondingToMimeType(format.codecs, MimeTypes.VIDEO_H265)) {
+      return 2;
+    }
+    return 0;
+  }
+
+  /**
+   * Returns whether the NAL unit starting with the given bytes can be depended on by subsequent NAL
+   * units in decoding order.
+   *
+   * @param data The array holding the first {@code length} bytes of the NAL unit.
+   * @param offset The offset in {@code data} at which the NAL unit starts.
+   * @param length The number of bytes available.
+   * @param format The sample {@link Format}.
+   */
+  public static boolean isDependedOn(byte[] data, int offset, int length, Format format) {
+    if (Objects.equals(format.sampleMimeType, MimeTypes.VIDEO_H264)) {
+      return isH264NalUnitDependedOn(data[offset]);
+    }
+    if (Objects.equals(format.sampleMimeType, MimeTypes.VIDEO_H265)) {
+      return isH265NalUnitDependedOn(data, offset, length, format);
+    }
+    return true;
+  }
+
+  private static boolean isH265NalUnitDependedOn(
+      byte[] data, int offset, int length, Format format) {
+    H265NalHeader header =
+        parseH265NalHeader(new ParsableNalUnitBitArray(data, offset, /* limit= */ offset + length));
+    if (header.nalUnitType == H265_NAL_UNIT_TYPE_AUD) {
+      // NAL unit delimiters are not depended on.
+      return false;
+    }
+    boolean isSubLayerNonReferencePicture = header.nalUnitType <= 14 && header.nalUnitType % 2 == 0;
+    if (isSubLayerNonReferencePicture && header.temporalId == format.maxSubLayers - 1) {
+      // Sub-layer non-reference (SLNR) pictures cannot be used for inter prediction in the same
+      // temporal layer. That is, SLNR pictures are not depended on if they are part of the highest
+      // temporal layer.
+      return false;
+    }
     return true;
   }
 
@@ -1638,6 +1700,7 @@ public final class NalUnitUtil {
 
     return new H265SpsData(
         nalHeader,
+        maxSubLayersMinus1,
         profileTierLevel,
         chromaFormatIdc,
         bitDepthLumaMinus8,

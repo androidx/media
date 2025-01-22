@@ -29,6 +29,7 @@ import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioTrack;
 import android.net.Uri;
+import android.os.Build;
 import android.provider.Settings.Global;
 import android.util.Pair;
 import android.util.SparseArray;
@@ -368,7 +369,7 @@ public final class AudioCapabilities {
   }
 
   private static boolean deviceMaySetExternalSurroundSoundGlobalSetting() {
-    return "Amazon".equals(Util.MANUFACTURER) || "Xiaomi".equals(Util.MANUFACTURER);
+    return Build.MANUFACTURER.equals("Amazon") || Build.MANUFACTURER.equals("Xiaomi");
   }
 
   private static int getChannelConfigForPassthrough(int channelCount) {

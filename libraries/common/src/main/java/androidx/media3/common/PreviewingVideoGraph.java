@@ -35,6 +35,7 @@ public interface PreviewingVideoGraph extends VideoGraph {
      * @param debugViewProvider A {@link DebugViewProvider}.
      * @param listener A {@link Listener}.
      * @param listenerExecutor The {@link Executor} on which the {@code listener} is invoked.
+     * @param videoCompositorSettings The {@link VideoCompositorSettings}.
      * @param compositionEffects A list of {@linkplain Effect effects} to apply to the composition.
      * @param initialTimestampOffsetUs The timestamp offset for the first frame, in microseconds.
      * @return A new instance.
@@ -47,9 +48,16 @@ public interface PreviewingVideoGraph extends VideoGraph {
         DebugViewProvider debugViewProvider,
         Listener listener,
         Executor listenerExecutor,
+        VideoCompositorSettings videoCompositorSettings,
         List<Effect> compositionEffects,
         long initialTimestampOffsetUs)
         throws VideoFrameProcessingException;
+
+    /**
+     * Returns whether the {@link VideoGraph} implementation supports {@linkplain #registerInput
+     * registering} multiple inputs.
+     */
+    boolean supportsMultipleInputs();
   }
 
   /**

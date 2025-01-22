@@ -389,9 +389,7 @@ public final class DefaultVideoFrameProcessorTextureOutputPixelTest {
     videoFrameProcessorTestRunner.processFirstFrameAndEnd();
     Bitmap actualBitmap = videoFrameProcessorTestRunner.getOutputBitmap();
 
-    // TODO: b/376016540 - use HDR_PSNR_THRESHOLD when HDR videos are processed with high floating
-    //  point precision.
-    assertBitmapsAreSimilar(expectedBitmap, actualBitmap, /* psnrThresholdDb= */ 42.5);
+    assertBitmapsAreSimilar(expectedBitmap, actualBitmap, HDR_PSNR_THRESHOLD);
   }
 
   @Test

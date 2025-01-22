@@ -23,6 +23,7 @@ import static androidx.media3.test.utils.BitmapPixelTestUtil.maybeSaveTestBitmap
 import static androidx.media3.test.utils.BitmapPixelTestUtil.readBitmap;
 import static androidx.media3.test.utils.TestUtil.assertBitmapsAreSimilar;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_COLOR_TEST_1080P_HLG10;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_TRIM_OPTIMIZATION_270;
 import static androidx.media3.transformer.mh.HdrCapabilitiesUtil.assumeDeviceSupportsOpenGlToneMapping;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -56,8 +57,8 @@ public class FrameExtractorHdrTest {
       "test-generated-goldens/sample_mp4_first_frame/electrical_colors/tone_map_hlg_to_sdr.png";
   // File names in test-generated-goldens/FrameExtractorTest end with the presentation time of the
   // extracted frame in seconds and milliseconds (_0.000 for 0s ; _1.567 for 1.567 seconds).
-  private static final String EXTRACT_HLG_PNG_ASSET_PATH =
-      "test-generated-goldens/FrameExtractorTest/hlg10-color-test_0.000.png";
+  private static final String GOLDEN_ASSET_FOLDER_PATH =
+      "test-generated-goldens/FrameExtractorTest/";
   private static final long TIMEOUT_SECONDS = 10;
   private static final float PSNR_THRESHOLD = 25f;
 
@@ -85,10 +86,9 @@ public class FrameExtractorHdrTest {
     assumeDeviceSupportsOpenGlToneMapping(testId, MP4_ASSET_COLOR_TEST_1080P_HLG10.videoFormat);
     frameExtractor =
         new ExperimentalFrameExtractor(
-            context,
-            new ExperimentalFrameExtractor.Configuration.Builder().build(),
-            MediaItem.fromUri(MP4_ASSET_COLOR_TEST_1080P_HLG10.uri),
-            /* effects= */ ImmutableList.of());
+            context, new ExperimentalFrameExtractor.Configuration.Builder().build());
+    frameExtractor.setMediaItem(
+        MediaItem.fromUri(MP4_ASSET_COLOR_TEST_1080P_HLG10.uri), /* effects= */ ImmutableList.of());
 
     ListenableFuture<ExperimentalFrameExtractor.Frame> frameFuture =
         frameExtractor.getFrame(/* positionMs= */ 0);
@@ -111,16 +111,17 @@ public class FrameExtractorHdrTest {
             context,
             new ExperimentalFrameExtractor.Configuration.Builder()
                 .setExtractHdrFrames(true)
-                .build(),
-            MediaItem.fromUri(MP4_ASSET_COLOR_TEST_1080P_HLG10.uri),
-            /* effects= */ ImmutableList.of());
+                .build());
+    frameExtractor.setMediaItem(
+        MediaItem.fromUri(MP4_ASSET_COLOR_TEST_1080P_HLG10.uri), /* effects= */ ImmutableList.of());
 
     ListenableFuture<ExperimentalFrameExtractor.Frame> frameFuture =
         frameExtractor.getFrame(/* positionMs= */ 0);
     ExperimentalFrameExtractor.Frame frame = frameFuture.get(TIMEOUT_SECONDS, SECONDS);
     Bitmap actualBitmap = frame.bitmap;
     Bitmap actualBitmapDefaultColorSpace = removeColorSpace(actualBitmap);
-    Bitmap expectedBitmap = readBitmap(EXTRACT_HLG_PNG_ASSET_PATH);
+    Bitmap expectedBitmap =
+        readBitmap(/* assetString= */ GOLDEN_ASSET_FOLDER_PATH + "hlg10-color-test_0.000.png");
     maybeSaveTestBitmap(
         testId,
         /* bitmapLabel= */ "actualBitmapDefaultColorSpace",
@@ -131,6 +132,45 @@ public class FrameExtractorHdrTest {
     assertThat(actualBitmap.getConfig()).isEqualTo(RGBA_1010102);
     assertThat(actualBitmap.getColorSpace()).isEqualTo(ColorSpace.get(BT2020_HLG));
     assertBitmapsAreSimilar(expectedBitmap, actualBitmap, PSNR_THRESHOLD);
+  }
+
+  @Test
+  public void
+      extractFrame_changeMediaItemFromHdrToSdrWithToneMapping_extractsFrameFromTheCorrectItem()
+          throws Exception {
+    assumeDeviceSupportsOpenGlToneMapping(testId, MP4_ASSET_COLOR_TEST_1080P_HLG10.videoFormat);
+    frameExtractor =
+        new ExperimentalFrameExtractor(
+            context, new ExperimentalFrameExtractor.Configuration.Builder().build());
+    frameExtractor.setMediaItem(
+        MediaItem.fromUri(MP4_ASSET_COLOR_TEST_1080P_HLG10.uri), /* effects= */ ImmutableList.of());
+    ListenableFuture<ExperimentalFrameExtractor.Frame> frameFutureFirstItem =
+        frameExtractor.getFrame(/* positionMs= */ 0);
+    frameExtractor.setMediaItem(
+        MediaItem.fromUri(MP4_TRIM_OPTIMIZATION_270.uri), /* effects= */ ImmutableList.of());
+    ListenableFuture<ExperimentalFrameExtractor.Frame> frameFutureSecondItem =
+        frameExtractor.getFrame(/* positionMs= */ 0);
+
+    ExperimentalFrameExtractor.Frame frameFirstItem =
+        frameFutureFirstItem.get(TIMEOUT_SECONDS, SECONDS);
+    Bitmap actualBitmapFirstItem = frameFirstItem.bitmap;
+    Bitmap expectedBitmapFirstItem = readBitmap(TONE_MAP_HLG_TO_SDR_PNG_ASSET_PATH);
+    maybeSaveTestBitmap(
+        testId, /* bitmapLabel= */ "firstItem", actualBitmapFirstItem, /* path= */ null);
+    ExperimentalFrameExtractor.Frame frameSecondItem =
+        frameFutureSecondItem.get(TIMEOUT_SECONDS, SECONDS);
+    Bitmap actualBitmapSecondItem = frameSecondItem.bitmap;
+    Bitmap expectedBitmapSecondItem =
+        readBitmap(
+            /* assetString= */ GOLDEN_ASSET_FOLDER_PATH
+                + "internal_emulator_transformer_output_180_rotated_0.000.png");
+    maybeSaveTestBitmap(
+        testId, /* bitmapLabel= */ "secondItem", actualBitmapSecondItem, /* path= */ null);
+
+    assertThat(frameFirstItem.presentationTimeMs).isEqualTo(0);
+    assertBitmapsAreSimilar(expectedBitmapFirstItem, actualBitmapFirstItem, PSNR_THRESHOLD);
+    assertThat(frameSecondItem.presentationTimeMs).isEqualTo(0);
+    assertBitmapsAreSimilar(expectedBitmapSecondItem, actualBitmapSecondItem, PSNR_THRESHOLD);
   }
 
   /**

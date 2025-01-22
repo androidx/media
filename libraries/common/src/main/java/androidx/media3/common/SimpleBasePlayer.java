@@ -15,7 +15,6 @@
  */
 package androidx.media3.common;
 
-import static androidx.annotation.VisibleForTesting.PROTECTED;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Util.castNonNull;
@@ -35,7 +34,6 @@ import android.view.TextureView;
 import androidx.annotation.FloatRange;
 import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
-import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.text.CueGroup;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.HandlerWrapper;
@@ -222,7 +220,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
           this.playlist = ((PlaylistTimeline) state.timeline).playlist;
         } else {
           this.currentTracks = state.currentTracks;
-          this.currentMetadata = state.currentMetadata;
+          this.currentMetadata = state.usesDerivedMediaMetadata ? null : state.currentMetadata;
         }
         this.playlistMetadata = state.playlistMetadata;
         this.currentMediaItemIndex = state.currentMediaItemIndex;
@@ -958,9 +956,12 @@ public abstract class SimpleBasePlayer extends BasePlayer {
      */
     public final long discontinuityPositionMs;
 
+    private final boolean usesDerivedMediaMetadata;
+
     private State(Builder builder) {
       Tracks currentTracks = builder.currentTracks;
       MediaMetadata currentMetadata = builder.currentMetadata;
+      boolean usesDerivedMediaMetadata = false;
       if (builder.timeline.isEmpty()) {
         checkArgument(
             builder.playbackState == Player.STATE_IDLE
@@ -1016,6 +1017,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
               getCombinedMediaMetadata(
                   builder.timeline.getWindow(mediaItemIndex, new Timeline.Window()).mediaItem,
                   checkNotNull(currentTracks));
+          usesDerivedMediaMetadata = true;
         }
       }
       if (builder.playerError != null) {
@@ -1092,6 +1094,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
       this.hasPositionDiscontinuity = builder.hasPositionDiscontinuity;
       this.positionDiscontinuityReason = builder.positionDiscontinuityReason;
       this.discontinuityPositionMs = builder.discontinuityPositionMs;
+      this.usesDerivedMediaMetadata = usesDerivedMediaMetadata;
     }
 
     /** Returns a {@link Builder} pre-populated with the current state values. */
@@ -2069,7 +2072,21 @@ public abstract class SimpleBasePlayer extends BasePlayer {
     }
   }
 
-  /** A supplier for a position. */
+  /**
+   * A supplier for a position.
+   *
+   * <p>Convenience methods and classes for creating position suppliers:
+   *
+   * <ul>
+   *   <li>Use {@link #getConstant} for constant or non-moving positions.
+   *   <li>Use {@link #getExtrapolating} for positions advancing with the system clock from a
+   *       provided start time.
+   *   <li>Use {@link LivePositionSupplier} for positions that can be directly obtained from a live
+   *       system. Note that these suppliers should be {@linkplain LivePositionSupplier#disconnect
+   *       disconnected} from the live source as soon as the position is no longer valid, for
+   *       example after a position discontinuity.
+   * </ul>
+   */
   protected interface PositionSupplier {
 
     /** An instance returning a constant position of zero. */
@@ -2100,6 +2117,48 @@ public abstract class SimpleBasePlayer extends BasePlayer {
 
     /** Returns the position. */
     long get();
+  }
+
+  /**
+   * A {@link PositionSupplier} connected to a live provider that returns a new value on each
+   * invocation until it is {@linkplain #disconnect disconnected} from the live source.
+   *
+   * <p>The recommended usage of this class is to create a new instance connected to the live source
+   * and keep returning this instance as long as the position source is still valid. As soon as the
+   * position source becomes invalid, for example when handling a position discontinuity, call
+   * {@link #disconnect} with the final position that will be returned for all future invocations.
+   */
+  protected static final class LivePositionSupplier implements PositionSupplier {
+
+    private final PositionSupplier livePosition;
+
+    private long finalValue;
+
+    /**
+     * Creates the live position supplier.
+     *
+     * @param livePosition The function returning the live position.
+     */
+    public LivePositionSupplier(PositionSupplier livePosition) {
+      this.livePosition = livePosition;
+      this.finalValue = C.TIME_UNSET;
+    }
+
+    /**
+     * Disconnects the position supplier from the live source.
+     *
+     * <p>All future invocations of {@link #get()} will return the provided final position.
+     *
+     * @param finalValue The final position value.
+     */
+    public void disconnect(long finalValue) {
+      this.finalValue = finalValue;
+    }
+
+    @Override
+    public long get() {
+      return finalValue != C.TIME_UNSET ? finalValue : livePosition.get();
+    }
   }
 
   /**
@@ -2450,8 +2509,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
   }
 
   @Override
-  @VisibleForTesting(otherwise = PROTECTED)
-  public final void seekTo(
+  protected final void seekTo(
       int mediaItemIndex,
       long positionMs,
       @Player.Command int seekCommand,
@@ -4008,14 +4066,10 @@ public abstract class SimpleBasePlayer extends BasePlayer {
     }
     // Only mark changes within the current item as a transition if we are repeating automatically
     // or via a seek to next/previous.
-    if (positionDiscontinuityReason == DISCONTINUITY_REASON_AUTO_TRANSITION) {
-      if ((getContentPositionMsInternal(previousState, window)
-              > getContentPositionMsInternal(newState, window))
-          || (newState.hasPositionDiscontinuity
-              && newState.discontinuityPositionMs == C.TIME_UNSET
-              && isRepeatingCurrentItem)) {
-        return MEDIA_ITEM_TRANSITION_REASON_REPEAT;
-      }
+    if (positionDiscontinuityReason == DISCONTINUITY_REASON_AUTO_TRANSITION
+        && getContentPositionMsInternal(previousState, window)
+            > getContentPositionMsInternal(newState, window)) {
+      return MEDIA_ITEM_TRANSITION_REASON_REPEAT;
     }
     if (positionDiscontinuityReason == DISCONTINUITY_REASON_SEEK && isRepeatingCurrentItem) {
       return MEDIA_ITEM_TRANSITION_REASON_SEEK;

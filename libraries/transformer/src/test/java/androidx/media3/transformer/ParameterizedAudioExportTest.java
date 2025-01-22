@@ -23,12 +23,12 @@ import static androidx.media3.transformer.TestUtil.addAudioDecoders;
 import static androidx.media3.transformer.TestUtil.addAudioEncoders;
 import static androidx.media3.transformer.TestUtil.createAudioEffects;
 import static androidx.media3.transformer.TestUtil.createPitchChangingAudioProcessor;
-import static androidx.media3.transformer.TestUtil.createTransformerBuilder;
 import static androidx.media3.transformer.TestUtil.getSequenceDumpFilePath;
 import static androidx.media3.transformer.TestUtil.removeEncodersAndDecoders;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.stream.Collectors.toList;
 
+import android.content.Context;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Util;
@@ -127,6 +127,8 @@ public final class ParameterizedAudioExportTest {
 
   @Parameter public SequenceConfig sequence;
 
+  private final Context context = ApplicationProvider.getApplicationContext();
+
   private final CapturingMuxer.Factory muxerFactory =
       new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
 
@@ -144,7 +146,7 @@ public final class ParameterizedAudioExportTest {
   @Test
   public void export() throws Exception {
     Transformer transformer =
-        createTransformerBuilder(muxerFactory, /* enableFallback= */ false).build();
+        new TestTransformerBuilder(context).setMuxerFactory(muxerFactory).build();
 
     transformer.start(sequence.asComposition(), outputDir.newFile().getPath());
 

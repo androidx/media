@@ -17,6 +17,8 @@ package androidx.media3.common.audio;
 
 import static androidx.media3.common.audio.Sonic.calculateAccumulatedTruncationErrorForResampling;
 import static androidx.media3.common.audio.Sonic.getExpectedFrameCountAfterProcessorApplied;
+import static androidx.media3.common.audio.Sonic.getExpectedInputFrameCountForOutputFrameCount;
+import static androidx.media3.test.utils.TestUtil.getPeriodicSamplesBuffer;
 import static com.google.common.truth.Truth.assertThat;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -109,6 +111,53 @@ public class SonicTest {
     sonic.getOutput(outputBuffer);
 
     assertThat(outputBuffer.array()).isEqualTo(new short[] {0, 4, 8});
+  }
+
+  @Test
+  public void queueEndOfStream_withOutputCountUnderflow_setsNonNegativeOutputSize() {
+    // For speed ranges [0.5; 1) and (1; 1.5], Sonic might need to copy more input frames onto its
+    // output buffer than are available in the input buffer. Sonic keeps track of this "borrowed
+    // frames" number in #remainingInputToCopyFrameCount. When we call #queueEndOfStream(), then
+    // Sonic outputs a final number of frames based roughly on pendingOutputFrameCount +
+    // (inputFrameCount - remainingInputToCopyFrameCount) / speed + remainingInputToCopyFrameCount,
+    // which could result in a negative number if inputFrameCount < remainingInputToCopyFrameCount
+    // and 0.5 <= speed < 1. #getOutputSize() should still always return a non-negative number.
+    ShortBuffer inputBuffer =
+        getPeriodicSamplesBuffer(/* sampleCount= */ 1700, /* period= */ 192).asShortBuffer();
+    Sonic sonic =
+        new Sonic(
+            /* inputSampleRateHz= */ 48000,
+            /* channelCount= */ 1,
+            /* speed= */ 0.95f,
+            /* pitch= */ 1,
+            /* outputSampleRateHz= */ 48000);
+
+    sonic.queueInput(inputBuffer);
+    ShortBuffer outputBuffer = ShortBuffer.allocate(sonic.getOutputSize() / 2);
+    // Drain output, so that pending output frame count is 0.
+    sonic.getOutput(outputBuffer);
+    assertThat(sonic.getOutputSize()).isEqualTo(0);
+    // Queue EOS with empty pending input and output.
+    sonic.queueEndOfStream();
+
+    assertThat(sonic.getOutputSize()).isEqualTo(0);
+  }
+
+  @Test
+  public void queueEndOfStream_withNoInput_setsNonNegativeOutputSize() {
+    Sonic sonic =
+        new Sonic(
+            /* inputSampleRateHz= */ 48000,
+            /* channelCount= */ 1,
+            /* speed= */ 0.95f,
+            /* pitch= */ 1,
+            /* outputSampleRateHz= */ 48000);
+    ShortBuffer outputBuffer = ShortBuffer.allocate(sonic.getOutputSize() / 2);
+
+    sonic.getOutput(outputBuffer);
+    sonic.queueEndOfStream();
+
+    assertThat(sonic.getOutputSize()).isAtLeast(0);
   }
 
   @Test
@@ -259,5 +308,123 @@ public class SonicTest {
     // Accumulated error = error count * individual error = 560.4583 * 0.54 = 305.
     // (All calculations are done on BigDecimal rounded to 20 decimal places, unless indicated).
     assertThat(error).isEqualTo(305);
+  }
+
+  @Test
+  public void getExpectedInputFrameCountForOutputFrameCount_fasterSpeed_returnsExpectedCount() {
+    long inputSamples =
+        getExpectedInputFrameCountForOutputFrameCount(
+            /* inputSampleRateHz= */ 48_000,
+            /* outputSampleRateHz= */ 48_000,
+            /* speed= */ 5,
+            /* pitch= */ 1,
+            /* outputFrameCount= */ 20);
+    assertThat(inputSamples).isEqualTo(100);
+  }
+
+  @Test
+  public void
+      getExpectedInputFrameCountForOutputFrameCount_fasterSpeedAndPitch_returnsExpectedCount() {
+    long inputSamples =
+        getExpectedInputFrameCountForOutputFrameCount(
+            /* inputSampleRateHz= */ 48_000,
+            /* outputSampleRateHz= */ 48_000,
+            /* speed= */ 5,
+            /* pitch= */ 5,
+            /* outputFrameCount= */ 20);
+    assertThat(inputSamples).isEqualTo(100);
+  }
+
+  @Test
+  public void getExpectedInputFrameCountForOutputFrameCount_higherPitch_returnsExpectedCount() {
+    long inputSamples =
+        getExpectedInputFrameCountForOutputFrameCount(
+            /* inputSampleRateHz= */ 48_000,
+            /* outputSampleRateHz= */ 48_000,
+            /* speed= */ 1,
+            /* pitch= */ 5,
+            /* outputFrameCount= */ 20);
+    assertThat(inputSamples).isEqualTo(20);
+  }
+
+  @Test
+  public void getExpectedInputFrameCountForOutputFrameCount_slowerSpeed_returnsExpectedCount() {
+    long inputSamples =
+        getExpectedInputFrameCountForOutputFrameCount(
+            /* inputSampleRateHz= */ 48_000,
+            /* outputSampleRateHz= */ 48_000,
+            /* speed= */ 0.25f,
+            /* pitch= */ 1,
+            /* outputFrameCount= */ 100);
+    assertThat(inputSamples).isEqualTo(25);
+  }
+
+  @Test
+  public void
+      getExpectedInputFrameCountForOutputFrameCount_slowerSpeedAndPitch_returnsExpectedCount() {
+    long inputSamples =
+        getExpectedInputFrameCountForOutputFrameCount(
+            /* inputSampleRateHz= */ 48_000,
+            /* outputSampleRateHz= */ 48_000,
+            /* speed= */ 0.25f,
+            /* pitch= */ 0.25f,
+            /* outputFrameCount= */ 100);
+    assertThat(inputSamples).isEqualTo(25);
+  }
+
+  @Test
+  public void getExpectedInputFrameCountForOutputFrameCount_lowerPitch_returnsExpectedCount() {
+    long inputSamples =
+        getExpectedInputFrameCountForOutputFrameCount(
+            /* inputSampleRateHz= */ 48_000,
+            /* outputSampleRateHz= */ 48_000,
+            /* speed= */ 1,
+            /* pitch= */ 0.75f,
+            /* outputFrameCount= */ 100);
+    assertThat(inputSamples).isEqualTo(100);
+  }
+
+  @Test
+  public void
+      getExpectedInputFrameCountForOutputFrameCount_differentSamplingRates_returnsExpectedCount() {
+    long inputSamples =
+        getExpectedInputFrameCountForOutputFrameCount(
+            /* inputSampleRateHz= */ 48_000,
+            /* outputSampleRateHz= */ 96_000,
+            /* speed= */ 1,
+            /* pitch= */ 1,
+            /* outputFrameCount= */ 100);
+    assertThat(inputSamples).isEqualTo(50);
+  }
+
+  @Test
+  public void
+      getExpectedInputFrameCountForOutputFrameCount_differentPitchSpeedAndSamplingRates_returnsExpectedCount() {
+    long inputSamples =
+        getExpectedInputFrameCountForOutputFrameCount(
+            /* inputSampleRateHz= */ 48_000,
+            /* outputSampleRateHz= */ 96_000,
+            /* speed= */ 5,
+            /* pitch= */ 2,
+            /* outputFrameCount= */ 40);
+    assertThat(inputSamples).isEqualTo(100);
+  }
+
+  @Test
+  public void
+      getExpectedInputFrameCountForOutputFrameCount_withPeriodicResamplingRate_adjustsForTruncationError() {
+    float resamplingRate = 0.33f;
+    long outputLength = 81_521_212;
+    long truncationError = 305;
+
+    long inputSamples =
+        getExpectedInputFrameCountForOutputFrameCount(
+            /* inputSampleRateHz= */ 48_000,
+            /* outputSampleRateHz= */ 48_000,
+            /* speed= */ resamplingRate,
+            /* pitch= */ resamplingRate,
+            /* outputFrameCount= */ outputLength - truncationError);
+
+    assertThat(inputSamples).isEqualTo(26_902_000);
   }
 }

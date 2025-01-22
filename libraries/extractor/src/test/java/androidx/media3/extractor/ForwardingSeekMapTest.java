@@ -26,7 +26,7 @@ public class ForwardingSeekMapTest {
 
   @Test
   public void overridesAllMethods() throws Exception {
-    TestUtil.assertForwardingClassOverridesAllMethods(SeekMap.class, ForwardingSeekMap.class);
+    TestUtil.assertSubclassOverridesAllMethods(SeekMap.class, ForwardingSeekMap.class);
   }
 
   @Test

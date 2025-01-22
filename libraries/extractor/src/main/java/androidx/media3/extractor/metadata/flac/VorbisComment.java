@@ -15,15 +15,12 @@
  */
 package androidx.media3.extractor.metadata.flac;
 
-import static androidx.media3.common.util.Util.castNonNull;
-
-import android.os.Parcel;
-import android.os.Parcelable;
 import androidx.annotation.Nullable;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.base.Ascii;
+import com.google.common.primitives.Ints;
 
 /**
  * @deprecated Use {@link androidx.media3.extractor.metadata.vorbis.VorbisComment} instead.
@@ -51,13 +48,11 @@ public class VorbisComment implements Metadata.Entry {
     this.value = value;
   }
 
-  protected VorbisComment(Parcel in) {
-    this.key = castNonNull(in.readString());
-    this.value = castNonNull(in.readString());
-  }
-
   @Override
   public void populateMediaMetadata(MediaMetadata.Builder builder) {
+    // Vorbis comments can have duplicate keys, but all these fields are singular on MediaMetadata,
+    // so we naively overwrite whatever any previously set value (which results in 'keep last'
+    // semantics).
     switch (key) {
       case "TITLE":
         builder.setTitle(value);
@@ -70,6 +65,33 @@ public class VorbisComment implements Metadata.Entry {
         break;
       case "ALBUMARTIST":
         builder.setAlbumArtist(value);
+        break;
+      case "TRACKNUMBER":
+        @Nullable Integer trackNumber = Ints.tryParse(value);
+        if (trackNumber != null) {
+          builder.setTrackNumber(trackNumber);
+        }
+        break;
+      case "TOTALTRACKS":
+        @Nullable Integer totalTracks = Ints.tryParse(value);
+        if (totalTracks != null) {
+          builder.setTotalTrackCount(totalTracks);
+        }
+        break;
+      case "DISCNUMBER":
+        @Nullable Integer discNumber = Ints.tryParse(value);
+        if (discNumber != null) {
+          builder.setDiscNumber(discNumber);
+        }
+        break;
+      case "TOTALDISCS":
+        @Nullable Integer totalDiscs = Ints.tryParse(value);
+        if (totalDiscs != null) {
+          builder.setTotalDiscCount(totalDiscs);
+        }
+        break;
+      case "GENRE":
+        builder.setGenre(value);
         break;
       case "DESCRIPTION":
         builder.setDescription(value);
@@ -103,31 +125,4 @@ public class VorbisComment implements Metadata.Entry {
     result = 31 * result + value.hashCode();
     return result;
   }
-
-  // Parcelable implementation.
-
-  @Override
-  public void writeToParcel(Parcel dest, int flags) {
-    dest.writeString(key);
-    dest.writeString(value);
-  }
-
-  @Override
-  public int describeContents() {
-    return 0;
-  }
-
-  public static final Parcelable.Creator<VorbisComment> CREATOR =
-      new Parcelable.Creator<VorbisComment>() {
-
-        @Override
-        public VorbisComment createFromParcel(Parcel in) {
-          return new VorbisComment(in);
-        }
-
-        @Override
-        public VorbisComment[] newArray(int size) {
-          return new VorbisComment[size];
-        }
-      };
 }

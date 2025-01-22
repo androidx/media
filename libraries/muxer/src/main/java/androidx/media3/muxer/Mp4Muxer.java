@@ -19,12 +19,12 @@ import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.muxer.Boxes.LARGE_SIZE_BOX_HEADER_SIZE;
-import static androidx.media3.muxer.Boxes.getEdvdBoxHeader;
-import static androidx.media3.muxer.MuxerUtil.getEditableTracksLengthMetadata;
-import static androidx.media3.muxer.MuxerUtil.getEditableTracksOffsetMetadata;
-import static androidx.media3.muxer.MuxerUtil.isEditableVideoTrack;
+import static androidx.media3.muxer.Boxes.getAxteBoxHeader;
+import static androidx.media3.muxer.MuxerUtil.getAuxiliaryTracksLengthMetadata;
+import static androidx.media3.muxer.MuxerUtil.getAuxiliaryTracksOffsetMetadata;
+import static androidx.media3.muxer.MuxerUtil.isAuxiliaryTrack;
 import static androidx.media3.muxer.MuxerUtil.isMetadataSupported;
-import static androidx.media3.muxer.MuxerUtil.populateEditableVideoTracksMetadata;
+import static androidx.media3.muxer.MuxerUtil.populateAuxiliaryTracksMetadata;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.media.MediaCodec;
@@ -34,6 +34,7 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.container.MdtaMetadataEntry;
@@ -41,6 +42,7 @@ import androidx.media3.container.Mp4LocationData;
 import androidx.media3.container.Mp4OrientationData;
 import androidx.media3.container.Mp4TimestampData;
 import androidx.media3.container.XmpData;
+import com.google.common.collect.ImmutableList;
 import com.google.common.io.ByteStreams;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.FileInputStream;
@@ -71,6 +73,7 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
  *         <li>H.264 (AVC)
  *         <li>H.265 (HEVC)
  *         <li>VP9
+ *         <li>APV
  *       </ul>
  *   <li>Audio Codecs:
  *       <ul>
@@ -88,9 +91,9 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
  * <p>To create an MP4 container file, the caller must:
  *
  * <ul>
- *   <li>Add tracks using {@link #addTrack(int, Format)} which will return a {@link TrackToken}.
- *   <li>Use the associated {@link TrackToken} when {@linkplain #writeSampleData(TrackToken,
- *       ByteBuffer, BufferInfo) writing samples} for that track.
+ *   <li>Add tracks using {@link #addTrack(int, Format)} which will return a track id.
+ *   <li>Use the associated track id when {@linkplain #writeSampleData(int, ByteBuffer, BufferInfo)
+ *       writing samples} for that track.
  *   <li>{@link #close} the muxer when all data has been written.
  * </ul>
  *
@@ -99,16 +102,16 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
  * <ul>
  *   <li>Tracks can be added at any point, even after writing some samples to other tracks.
  *   <li>The caller is responsible for ensuring that samples of different track types are well
- *       interleaved by calling {@link #writeSampleData(TrackToken, ByteBuffer, BufferInfo)} in an
- *       order that interleaves samples from different tracks.
+ *       interleaved by calling {@link #writeSampleData(int, ByteBuffer, BufferInfo)} in an order
+ *       that interleaves samples from different tracks.
  *   <li>When writing a file, if an error occurs and the muxer is not closed, then the output MP4
  *       file may still have some partial data.
  * </ul>
  */
 @UnstableApi
-public final class Mp4Muxer implements Muxer {
-  /** Parameters for {@link #FILE_FORMAT_EDITABLE_VIDEO}. */
-  public static final class EditableVideoParameters {
+public final class Mp4Muxer implements AutoCloseable {
+  /** Parameters for {@link #FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION}. */
+  public static final class Mp4AtFileParameters {
     /** Provides temporary cache files to be used by the muxer. */
     public interface CacheFileProvider {
 
@@ -129,12 +132,12 @@ public final class Mp4Muxer implements Muxer {
     /**
      * Creates an instance.
      *
-     * @param shouldInterleaveSamples Whether to interleave editable video track samples with
-     *     primary track samples.
+     * @param shouldInterleaveSamples Whether to interleave auxiliary track samples with primary
+     *     track samples.
      * @param cacheFileProvider A {@link CacheFileProvider}. Required only when {@code
      *     shouldInterleaveSamples} is set to {@code false}, can be {@code null} otherwise.
      */
-    public EditableVideoParameters(
+    public Mp4AtFileParameters(
         boolean shouldInterleaveSamples, @Nullable CacheFileProvider cacheFileProvider) {
       checkArgument(shouldInterleaveSamples || cacheFileProvider != null);
       this.shouldInterleaveSamples = shouldInterleaveSamples;
@@ -177,21 +180,22 @@ public final class Mp4Muxer implements Muxer {
   @Documented
   @Retention(RetentionPolicy.SOURCE)
   @Target(TYPE_USE)
-  @IntDef({FILE_FORMAT_DEFAULT, FILE_FORMAT_EDITABLE_VIDEO})
+  @IntDef({FILE_FORMAT_DEFAULT, FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION})
   public @interface FileFormat {}
 
   /** The default MP4 format. */
   public static final int FILE_FORMAT_DEFAULT = 0;
 
-  // TODO: b/345219017 - Add spec details.
   /**
-   * The editable video file format. In this file format all the tracks with {@linkplain
-   * Format#auxiliaryTrackType} set to {@link C#AUXILIARY_TRACK_TYPE_ORIGINAL}, {@link
-   * C#AUXILIARY_TRACK_TYPE_DEPTH_LINEAR}, {@link C#AUXILIARY_TRACK_TYPE_DEPTH_INVERSE}, or {@link
-   * C#AUXILIARY_TRACK_TYPE_DEPTH_METADATA} are written in the MP4 edit data (edvd box). The rest of
-   * the tracks are written as usual.
+   * The MP4 With Auxiliary Tracks Extension (MP4-AT) file format. In this file format all the
+   * tracks with {@linkplain Format#auxiliaryTrackType} set to {@link
+   * C#AUXILIARY_TRACK_TYPE_ORIGINAL}, {@link C#AUXILIARY_TRACK_TYPE_DEPTH_LINEAR}, {@link
+   * C#AUXILIARY_TRACK_TYPE_DEPTH_INVERSE}, or {@link C#AUXILIARY_TRACK_TYPE_DEPTH_METADATA} are
+   * written in the Auxiliary Tracks MP4 (axte box). The rest of the tracks are written as usual.
+   *
+   * <p>See the file format at https://developer.android.com/media/platform/mp4-at-file-format.
    */
-  public static final int FILE_FORMAT_EDITABLE_VIDEO = 1;
+  public static final int FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION = 1;
 
   /** A builder for {@link Mp4Muxer} instances. */
   public static final class Builder {
@@ -203,12 +207,13 @@ public final class Mp4Muxer implements Muxer {
     private boolean sampleBatchingEnabled;
     private boolean attemptStreamableOutputEnabled;
     private @FileFormat int outputFileFormat;
-    @Nullable private EditableVideoParameters editableVideoParameters;
+    @Nullable private Mp4AtFileParameters mp4AtFileParameters;
 
     /**
      * Creates a {@link Builder} instance with default values.
      *
-     * @param outputStream The {@link FileOutputStream} to write the media data to.
+     * @param outputStream The {@link FileOutputStream} to write the media data to. This stream will
+     *     be automatically closed by the muxer when {@link Mp4Muxer#close()} is called.
      */
     public Builder(FileOutputStream outputStream) {
       this.outputStream = outputStream;
@@ -249,15 +254,15 @@ public final class Mp4Muxer implements Muxer {
     /**
      * Sets whether to enable the sample copy.
      *
-     * <p>If the sample copy is enabled, {@link #writeSampleData(TrackToken, ByteBuffer,
-     * BufferInfo)} copies the input {@link ByteBuffer} and {@link BufferInfo} before it returns, so
-     * it is safe to reuse them immediately. Otherwise, the muxer takes ownership of the {@link
-     * ByteBuffer} and the {@link BufferInfo} and the caller must not modify them.
+     * <p>If the sample copy is enabled, {@link #writeSampleData(int, ByteBuffer, BufferInfo)}
+     * copies the input {@link ByteBuffer} and {@link BufferInfo} before it returns, so it is safe
+     * to reuse them immediately. Otherwise, the muxer takes ownership of the {@link ByteBuffer} and
+     * the {@link BufferInfo} and the caller must not modify them.
      *
      * <p>The default value is {@code true}.
      */
     @CanIgnoreReturnValue
-    public Mp4Muxer.Builder setSampleCopyEnabled(boolean enabled) {
+    public Mp4Muxer.Builder setSampleCopyingEnabled(boolean enabled) {
       this.sampleCopyEnabled = enabled;
       return this;
     }
@@ -265,9 +270,9 @@ public final class Mp4Muxer implements Muxer {
     /**
      * Sets whether to enable sample batching.
      *
-     * <p>If sample batching is enabled, samples are {@linkplain #writeSampleData(TrackToken,
-     * ByteBuffer, BufferInfo) written} in batches for each track, otherwise samples are written as
-     * they arrive.
+     * <p>If sample batching is enabled, samples are written in batches for each track, otherwise
+     * samples are written as they {@linkplain #writeSampleData(int, ByteBuffer, BufferInfo)
+     * arrive}.
      *
      * <p>The default value is {@code true}.
      */
@@ -297,8 +302,8 @@ public final class Mp4Muxer implements Muxer {
      *
      * <p>The default value is {@link #FILE_FORMAT_DEFAULT}.
      *
-     * <p>For {@link #FILE_FORMAT_EDITABLE_VIDEO}, {@link EditableVideoParameters} must also be
-     * {@linkplain #setEditableVideoParameters(EditableVideoParameters)} set}.
+     * <p>For {@link #FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION}, {@link Mp4AtFileParameters}
+     * must also be {@linkplain #setMp4AtFileParameters(Mp4AtFileParameters)} set}.
      */
     @CanIgnoreReturnValue
     public Mp4Muxer.Builder setOutputFileFormat(@FileFormat int fileFormat) {
@@ -306,21 +311,20 @@ public final class Mp4Muxer implements Muxer {
       return this;
     }
 
-    /** Sets the {@link EditableVideoParameters}. */
+    /** Sets the {@link Mp4AtFileParameters}. */
     @CanIgnoreReturnValue
-    public Mp4Muxer.Builder setEditableVideoParameters(
-        EditableVideoParameters editableVideoParameters) {
-      this.editableVideoParameters = editableVideoParameters;
+    public Mp4Muxer.Builder setMp4AtFileParameters(Mp4AtFileParameters mp4AtFileParameters) {
+      this.mp4AtFileParameters = mp4AtFileParameters;
       return this;
     }
 
     /** Builds an {@link Mp4Muxer} instance. */
     public Mp4Muxer build() {
       checkArgument(
-          outputFileFormat == FILE_FORMAT_EDITABLE_VIDEO
-              ? editableVideoParameters != null
-              : editableVideoParameters == null,
-          "EditablevideoParameters must be set for FILE_FORMAT_EDITABLE_VIDEO");
+          outputFileFormat == FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION
+              ? mp4AtFileParameters != null
+              : mp4AtFileParameters == null,
+          "Mp4AtFileParameters must be set for FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION");
       return new Mp4Muxer(
           outputStream,
           lastSampleDurationBehavior,
@@ -329,9 +333,27 @@ public final class Mp4Muxer implements Muxer {
           sampleBatchingEnabled,
           attemptStreamableOutputEnabled,
           outputFileFormat,
-          editableVideoParameters);
+          mp4AtFileParameters);
     }
   }
+
+  /** A list of supported video {@linkplain MimeTypes sample MIME types}. */
+  public static final ImmutableList<String> SUPPORTED_VIDEO_SAMPLE_MIME_TYPES =
+      ImmutableList.of(
+          MimeTypes.VIDEO_AV1,
+          MimeTypes.VIDEO_H263,
+          MimeTypes.VIDEO_H264,
+          MimeTypes.VIDEO_H265,
+          MimeTypes.VIDEO_MP4V);
+
+  /** A list of supported audio {@linkplain MimeTypes sample MIME types}. */
+  public static final ImmutableList<String> SUPPORTED_AUDIO_SAMPLE_MIME_TYPES =
+      ImmutableList.of(
+          MimeTypes.AUDIO_AAC,
+          MimeTypes.AUDIO_AMR_NB,
+          MimeTypes.AUDIO_AMR_WB,
+          MimeTypes.AUDIO_OPUS,
+          MimeTypes.AUDIO_VORBIS);
 
   private static final String TAG = "Mp4Muxer";
 
@@ -343,15 +365,18 @@ public final class Mp4Muxer implements Muxer {
   private final boolean sampleBatchingEnabled;
   private final boolean attemptStreamableOutputEnabled;
   private final @FileFormat int outputFileFormat;
-  @Nullable private final EditableVideoParameters editableVideoParameters;
+  @Nullable private final Mp4AtFileParameters mp4AtFileParameters;
   private final MetadataCollector metadataCollector;
   private final Mp4Writer mp4Writer;
-  private final List<Track> editableVideoTracks;
+  private final List<Track> trackIdToTrack;
+  private final List<Track> auxiliaryTracks;
 
   @Nullable private String cacheFilePath;
   @Nullable private FileOutputStream cacheFileOutputStream;
-  @Nullable private MetadataCollector editableVideoMetadataCollector;
-  @Nullable private Mp4Writer editableVideoMp4Writer;
+  @Nullable private MetadataCollector auxiliaryTracksMetadataCollector;
+  @Nullable private Mp4Writer auxiliaryTracksMp4Writer;
+
+  private int nextTrackId;
 
   private Mp4Muxer(
       FileOutputStream outputStream,
@@ -361,7 +386,7 @@ public final class Mp4Muxer implements Muxer {
       boolean sampleBatchingEnabled,
       boolean attemptStreamableOutputEnabled,
       @FileFormat int outputFileFormat,
-      @Nullable EditableVideoParameters editableVideoParameters) {
+      @Nullable Mp4AtFileParameters mp4AtFileParameters) {
     this.outputStream = outputStream;
     outputChannel = outputStream.getChannel();
     this.lastSampleDurationBehavior = lastFrameDurationBehavior;
@@ -370,7 +395,7 @@ public final class Mp4Muxer implements Muxer {
     this.sampleBatchingEnabled = sampleBatchingEnabled;
     this.attemptStreamableOutputEnabled = attemptStreamableOutputEnabled;
     this.outputFileFormat = outputFileFormat;
-    this.editableVideoParameters = editableVideoParameters;
+    this.mp4AtFileParameters = mp4AtFileParameters;
     metadataCollector = new MetadataCollector();
     mp4Writer =
         new Mp4Writer(
@@ -381,11 +406,12 @@ public final class Mp4Muxer implements Muxer {
             sampleCopyEnabled,
             sampleBatchingEnabled,
             attemptStreamableOutputEnabled);
-    editableVideoTracks = new ArrayList<>();
+    trackIdToTrack = new ArrayList<>();
+    auxiliaryTracks = new ArrayList<>();
   }
 
   /**
-   * {@inheritDoc}
+   * Adds a track of the given media format.
    *
    * <p>Tracks can be added at any point before the muxer is closed, even after writing samples to
    * other tracks.
@@ -393,11 +419,11 @@ public final class Mp4Muxer implements Muxer {
    * <p>The order of tracks remains same in which they are added.
    *
    * @param format The {@link Format} for the track.
-   * @return A unique {@link TrackToken}. It should be used in {@link #writeSampleData}.
+   * @return A unique track id. The track id is non-negative. It should be used in {@link
+   *     #writeSampleData}.
    * @throws MuxerException If an error occurs while adding track.
    */
-  @Override
-  public TrackToken addTrack(Format format) throws MuxerException {
+  public int addTrack(Format format) throws MuxerException {
     return addTrack(/* sortKey= */ 1, format);
   }
 
@@ -408,58 +434,63 @@ public final class Mp4Muxer implements Muxer {
    * other tracks.
    *
    * <p>The final order of tracks is determined by the provided sort key. Tracks with a lower sort
-   * key will always have a lower track id than tracks with a higher sort key. Ordering between
-   * tracks with the same sort key is not specified.
+   * key will be written before tracks with a higher sort key. Ordering between tracks with the same
+   * sort key is not specified.
    *
    * @param sortKey The key used for sorting the track list.
    * @param format The {@link Format} for the track.
-   * @return A unique {@link TrackToken}. It should be used in {@link #writeSampleData}.
+   * @return A unique track id. The track id is non-negative. It should be used in {@link
+   *     #writeSampleData}.
    * @throws MuxerException If an error occurs while adding track.
    */
-  public TrackToken addTrack(int sortKey, Format format) throws MuxerException {
-    if (outputFileFormat == FILE_FORMAT_EDITABLE_VIDEO && isEditableVideoTrack(format)) {
-      if (checkNotNull(editableVideoParameters).shouldInterleaveSamples) {
-        // Editable video tracks are handled by the primary Mp4Writer.
-        return mp4Writer.addEditableVideoTrack(sortKey, format);
+  public int addTrack(int sortKey, Format format) throws MuxerException {
+    Track track;
+    if (outputFileFormat == FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION
+        && isAuxiliaryTrack(format)) {
+      if (checkNotNull(mp4AtFileParameters).shouldInterleaveSamples) {
+        // Auxiliary tracks are handled by the primary Mp4Writer.
+        track = mp4Writer.addAuxiliaryTrack(nextTrackId++, sortKey, format);
+      } else {
+        // Auxiliary tracks are handled by the auxiliary tracks Mp4Writer.
+        try {
+          ensureSetupForAuxiliaryTracks();
+        } catch (FileNotFoundException e) {
+          throw new MuxerException("Cache file not found", e);
+        }
+        track = auxiliaryTracksMp4Writer.addTrack(nextTrackId++, sortKey, format);
+        auxiliaryTracks.add(track);
       }
-      try {
-        ensureSetupForEditableVideoTracks();
-      } catch (FileNotFoundException e) {
-        throw new MuxerException("Cache file not found", e);
-      }
-      Track track = editableVideoMp4Writer.addTrack(sortKey, format);
-      editableVideoTracks.add(track);
-      return track;
+    } else {
+      track = mp4Writer.addTrack(nextTrackId++, sortKey, format);
     }
-    return mp4Writer.addTrack(sortKey, format);
+    trackIdToTrack.add(track);
+    return track.id;
   }
 
   /**
-   * {@inheritDoc}
+   * Writes encoded sample data.
    *
    * <p>When sample batching is {@linkplain Mp4Muxer.Builder#setSampleBatchingEnabled(boolean)
    * enabled}, provide sample data ({@link ByteBuffer}, {@link BufferInfo}) that won't be modified
-   * after calling the {@link #writeSampleData(TrackToken, ByteBuffer, BufferInfo)} method, unless
-   * sample copying is also {@linkplain Mp4Muxer.Builder#setSampleCopyEnabled(boolean) enabled}.
-   * This ensures data integrity within the batch. If sample copying is {@linkplain
-   * Mp4Muxer.Builder#setSampleCopyEnabled(boolean) enabled}, it's safe to modify the data after the
-   * method returns, as the muxer internally creates a sample copy.
+   * after calling the {@link #writeSampleData(int, ByteBuffer, BufferInfo)} method, unless sample
+   * copying is also {@linkplain Mp4Muxer.Builder#setSampleCopyingEnabled(boolean) enabled}. This
+   * ensures data integrity within the batch. If sample copying is {@linkplain
+   * Mp4Muxer.Builder#setSampleCopyingEnabled(boolean) enabled}, it's safe to modify the data after
+   * the method returns, as the muxer internally creates a sample copy.
    *
-   * @param trackToken The {@link TrackToken} for which this sample is being written.
+   * @param trackId The track id for which this sample is being written.
    * @param byteBuffer The encoded sample. The muxer takes ownership of the buffer if {@link
-   *     Builder#setSampleCopyEnabled(boolean) sample copying} is disabled. Otherwise, the position
-   *     of the buffer is updated but the caller retains ownership.
+   *     Builder#setSampleCopyingEnabled(boolean) sample copying} is disabled. Otherwise, the
+   *     position of the buffer is updated but the caller retains ownership.
    * @param bufferInfo The {@link BufferInfo} related to this sample.
    * @throws MuxerException If an error occurs while writing data to the output file.
    */
-  @Override
-  public void writeSampleData(TrackToken trackToken, ByteBuffer byteBuffer, BufferInfo bufferInfo)
+  public void writeSampleData(int trackId, ByteBuffer byteBuffer, BufferInfo bufferInfo)
       throws MuxerException {
-    checkState(trackToken instanceof Track);
-    Track track = (Track) trackToken;
+    Track track = trackIdToTrack.get(trackId);
     try {
-      if (editableVideoTracks.contains(trackToken)) {
-        checkNotNull(editableVideoMp4Writer).writeSampleData(track, byteBuffer, bufferInfo);
+      if (auxiliaryTracks.contains(track)) {
+        checkNotNull(auxiliaryTracksMp4Writer).writeSampleData(track, byteBuffer, bufferInfo);
       } else {
         mp4Writer.writeSampleData(track, byteBuffer, bufferInfo);
       }
@@ -474,7 +505,7 @@ public final class Mp4Muxer implements Muxer {
   }
 
   /**
-   * {@inheritDoc}
+   * Adds {@linkplain Metadata.Entry metadata} about the output file.
    *
    * <p>List of supported {@linkplain Metadata.Entry metadata entries}:
    *
@@ -492,19 +523,25 @@ public final class Mp4Muxer implements Muxer {
    *     IllegalArgumentException} is thrown if the {@linkplain Metadata.Entry metadata} is not
    *     supported.
    */
-  @Override
   public void addMetadataEntry(Metadata.Entry metadataEntry) {
     checkArgument(isMetadataSupported(metadataEntry), "Unsupported metadata");
     metadataCollector.addMetadata(metadataEntry);
   }
 
+  /**
+   * Closes the file.
+   *
+   * <p>The muxer cannot be used anymore once this method returns.
+   *
+   * @throws MuxerException If the muxer fails to finish writing the output.
+   */
   @Override
   public void close() throws MuxerException {
     @Nullable MuxerException exception = null;
     try {
-      finishWritingEditableVideoTracks();
+      finishWritingAuxiliaryTracks();
       finishWritingPrimaryVideoTracks();
-      appendEditableVideoTracksDataToTheOutputFile();
+      appendAuxiliaryTracksDataToTheOutputFile();
     } catch (IOException e) {
       exception = new MuxerException("Failed to finish writing data", e);
     }
@@ -533,17 +570,17 @@ public final class Mp4Muxer implements Muxer {
     }
   }
 
-  @EnsuresNonNull({"editableVideoMp4Writer"})
-  private void ensureSetupForEditableVideoTracks() throws FileNotFoundException {
-    if (editableVideoMp4Writer == null) {
+  @EnsuresNonNull({"auxiliaryTracksMp4Writer"})
+  private void ensureSetupForAuxiliaryTracks() throws FileNotFoundException {
+    if (auxiliaryTracksMp4Writer == null) {
       cacheFilePath =
-          checkNotNull(checkNotNull(editableVideoParameters).cacheFileProvider).getCacheFilePath();
+          checkNotNull(checkNotNull(mp4AtFileParameters).cacheFileProvider).getCacheFilePath();
       cacheFileOutputStream = new FileOutputStream(cacheFilePath);
-      editableVideoMetadataCollector = new MetadataCollector();
-      editableVideoMp4Writer =
+      auxiliaryTracksMetadataCollector = new MetadataCollector();
+      auxiliaryTracksMp4Writer =
           new Mp4Writer(
               cacheFileOutputStream.getChannel(),
-              checkNotNull(editableVideoMetadataCollector),
+              checkNotNull(auxiliaryTracksMetadataCollector),
               annexBToAvccConverter,
               lastSampleDurationBehavior,
               sampleCopyEnabled,
@@ -552,48 +589,48 @@ public final class Mp4Muxer implements Muxer {
     }
   }
 
-  private void finishWritingEditableVideoTracks() throws IOException {
-    if (editableVideoMp4Writer == null) {
-      // Editable video tracks were not added.
+  private void finishWritingAuxiliaryTracks() throws IOException {
+    if (auxiliaryTracksMp4Writer == null) {
+      // Auxiliary tracks were not added.
       return;
     }
-    populateEditableVideoTracksMetadata(
-        checkNotNull(editableVideoMetadataCollector),
+    populateAuxiliaryTracksMetadata(
+        checkNotNull(auxiliaryTracksMetadataCollector),
         metadataCollector.timestampData,
         /* samplesInterleaved= */ false,
-        editableVideoTracks);
-    checkNotNull(editableVideoMp4Writer).finishWritingSamplesAndFinalizeMoovBox();
+        auxiliaryTracks);
+    checkNotNull(auxiliaryTracksMp4Writer).finishWritingSamplesAndFinalizeMoovBox();
   }
 
   private void finishWritingPrimaryVideoTracks() throws IOException {
     // The exact offset is known after writing all the data in mp4Writer.
-    MdtaMetadataEntry placeholderEditableTrackOffset = getEditableTracksOffsetMetadata(0L);
-    if (editableVideoMp4Writer != null) {
-      long editableVideoDataSize = checkNotNull(cacheFileOutputStream).getChannel().size();
-      long edvdBoxSize = LARGE_SIZE_BOX_HEADER_SIZE + editableVideoDataSize;
-      metadataCollector.addMetadata(getEditableTracksLengthMetadata(edvdBoxSize));
-      metadataCollector.addMetadata(placeholderEditableTrackOffset);
+    MdtaMetadataEntry placeholderAuxiliaryTracksOffset = getAuxiliaryTracksOffsetMetadata(0L);
+    if (auxiliaryTracksMp4Writer != null) {
+      long auxiliaryTracksDataSize = checkNotNull(cacheFileOutputStream).getChannel().size();
+      long axteBoxSize = LARGE_SIZE_BOX_HEADER_SIZE + auxiliaryTracksDataSize;
+      metadataCollector.addMetadata(getAuxiliaryTracksLengthMetadata(axteBoxSize));
+      metadataCollector.addMetadata(placeholderAuxiliaryTracksOffset);
     }
     mp4Writer.finishWritingSamplesAndFinalizeMoovBox();
-    if (editableVideoMp4Writer != null) {
+    if (auxiliaryTracksMp4Writer != null) {
       long primaryVideoDataSize = outputChannel.size();
-      metadataCollector.removeMdtaMetadataEntry(placeholderEditableTrackOffset);
-      metadataCollector.addMetadata(getEditableTracksOffsetMetadata(primaryVideoDataSize));
+      metadataCollector.removeMdtaMetadataEntry(placeholderAuxiliaryTracksOffset);
+      metadataCollector.addMetadata(getAuxiliaryTracksOffsetMetadata(primaryVideoDataSize));
       mp4Writer.finalizeMoovBox();
       checkState(
           outputChannel.size() == primaryVideoDataSize,
-          "The editable tracks offset should remain the same");
+          "The auxiliary tracks offset should remain the same");
     }
   }
 
-  private void appendEditableVideoTracksDataToTheOutputFile() throws IOException {
-    if (editableVideoMp4Writer == null) {
-      // Editable video tracks were not added.
+  private void appendAuxiliaryTracksDataToTheOutputFile() throws IOException {
+    if (auxiliaryTracksMp4Writer == null) {
+      // Auxiliary tracks were not added.
       return;
     }
     outputChannel.position(outputChannel.size());
     FileInputStream inputStream = new FileInputStream(checkNotNull(cacheFilePath));
-    outputChannel.write(getEdvdBoxHeader(inputStream.getChannel().size()));
+    outputChannel.write(getAxteBoxHeader(inputStream.getChannel().size()));
     ByteStreams.copy(inputStream, outputStream);
     inputStream.close();
   }

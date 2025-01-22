@@ -159,6 +159,11 @@ public final class ReorderingSeiMessageQueue {
     return result;
   }
 
+  /** Empties the queue, discarding all previously {@linkplain #add added} messages. */
+  public void clear() {
+    pendingSeiMessages.clear();
+  }
+
   /**
    * Empties the queue, passing all messages (least first) to the {@link SeiConsumer} provided
    * during construction.

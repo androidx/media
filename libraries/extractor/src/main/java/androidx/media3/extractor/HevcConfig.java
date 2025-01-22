@@ -95,6 +95,7 @@ public final class HevcConfig {
       // Concatenate the codec-specific data into a single buffer.
       data.setPosition(csdStartPosition);
       byte[] buffer = new byte[csdLength];
+      int maxSubLayers = Format.NO_VALUE;
       int bufferPosition = 0;
       int width = Format.NO_VALUE;
       int height = Format.NO_VALUE;
@@ -131,6 +132,7 @@ public final class HevcConfig {
             NalUnitUtil.H265SpsData spsData =
                 NalUnitUtil.parseH265SpsNalUnit(
                     buffer, bufferPosition, bufferPosition + nalUnitLength, currentVpsData);
+            maxSubLayers = spsData.maxSubLayersMinus1 + 1;
             width = spsData.width;
             height = spsData.height;
             bitdepthLuma = spsData.bitDepthLumaMinus8 + 8;
@@ -172,6 +174,7 @@ public final class HevcConfig {
       return new HevcConfig(
           initializationData,
           lengthSizeMinusOne + 1,
+          maxSubLayers,
           width,
           height,
           bitdepthLuma,
@@ -199,6 +202,9 @@ public final class HevcConfig {
 
   /** The length of the NAL unit length field in the bitstream's container, in bytes. */
   public final int nalUnitLengthFieldLength;
+
+  /** The {@code sps_max_sub_layers_minus1 + 1} value: the number of temporal sub-layers. */
+  public final int maxSubLayers;
 
   /** The width of each decoded frame, or {@link Format#NO_VALUE} if unknown. */
   public final int width;
@@ -258,6 +264,7 @@ public final class HevcConfig {
   private HevcConfig(
       List<byte[]> initializationData,
       int nalUnitLengthFieldLength,
+      int maxSubLayers,
       int width,
       int height,
       int bitdepthLuma,
@@ -272,6 +279,7 @@ public final class HevcConfig {
       @Nullable NalUnitUtil.H265VpsData vpsData) {
     this.initializationData = initializationData;
     this.nalUnitLengthFieldLength = nalUnitLengthFieldLength;
+    this.maxSubLayers = maxSubLayers;
     this.width = width;
     this.height = height;
     this.bitdepthLuma = bitdepthLuma;

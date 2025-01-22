@@ -19,17 +19,20 @@ import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 
 import android.media.MediaCodec.BufferInfo;
+import android.util.SparseArray;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.container.MdtaMetadataEntry;
 import androidx.media3.container.Mp4LocationData;
 import androidx.media3.container.Mp4OrientationData;
 import androidx.media3.container.Mp4TimestampData;
 import androidx.media3.container.XmpData;
+import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.ByteBuffer;
 
 /**
@@ -46,6 +49,7 @@ import java.nio.ByteBuffer;
  *         <li>H.264 (AVC)
  *         <li>H.265 (HEVC)
  *         <li>VP9
+ *         <li>APV
  *       </ul>
  *   <li>Audio Codecs:
  *       <ul>
@@ -63,10 +67,9 @@ import java.nio.ByteBuffer;
  * <p>To create a fragmented MP4 file, the caller must:
  *
  * <ul>
- *   <li>Add tracks using {@link #addTrack(Format)} which will return a {@link Mp4Muxer.TrackToken}.
- *   <li>Use the associated {@link Mp4Muxer.TrackToken} when {@linkplain
- *       #writeSampleData(Mp4Muxer.TrackToken, ByteBuffer, BufferInfo) writing samples} for that
- *       track.
+ *   <li>Add tracks using {@link #addTrack(Format)} which will return a track id.
+ *   <li>Use the associated track id when {@linkplain #writeSampleData(int, ByteBuffer, BufferInfo)
+ *       writing samples} for that track.
  *   <li>{@link #close} the muxer when all data has been written.
  * </ul>
  *
@@ -75,18 +78,18 @@ import java.nio.ByteBuffer;
  * <ul>
  *   <li>All tracks must be added before writing any samples.
  *   <li>The caller is responsible for ensuring that samples of different track types are well
- *       interleaved by calling {@link #writeSampleData(Mp4Muxer.TrackToken, ByteBuffer,
- *       BufferInfo)} in an order that interleaves samples from different tracks.
+ *       interleaved by calling {@link #writeSampleData(int, ByteBuffer, BufferInfo)} in an order
+ *       that interleaves samples from different tracks.
  * </ul>
  */
 @UnstableApi
-public final class FragmentedMp4Muxer implements Muxer {
+public final class FragmentedMp4Muxer implements AutoCloseable {
   /** The default fragment duration. */
   public static final long DEFAULT_FRAGMENT_DURATION_MS = 2_000;
 
   /** A builder for {@link FragmentedMp4Muxer} instances. */
   public static final class Builder {
-    private final FileOutputStream fileOutputStream;
+    private final OutputStream outputStream;
 
     private long fragmentDurationMs;
     private boolean sampleCopyEnabled;
@@ -94,10 +97,11 @@ public final class FragmentedMp4Muxer implements Muxer {
     /**
      * Creates a {@link Builder} instance with default values.
      *
-     * @param fileOutputStream The {@link FileOutputStream} to write the media data to.
+     * @param outputStream The {@link OutputStream} to write the media data to. This stream will be
+     *     automatically closed by the muxer when {@link FragmentedMp4Muxer#close()} is called.
      */
-    public Builder(FileOutputStream fileOutputStream) {
-      this.fileOutputStream = fileOutputStream;
+    public Builder(OutputStream outputStream) {
+      this.outputStream = outputStream;
       fragmentDurationMs = DEFAULT_FRAGMENT_DURATION_MS;
       sampleCopyEnabled = true;
     }
@@ -119,68 +123,96 @@ public final class FragmentedMp4Muxer implements Muxer {
     /**
      * Sets whether to enable the sample copy.
      *
-     * <p>If the sample copy is enabled, {@link #writeSampleData(TrackToken, ByteBuffer,
-     * BufferInfo)} copies the input {@link ByteBuffer} and {@link BufferInfo} before it returns, so
-     * it is safe to reuse them immediately. Otherwise, the muxer takes ownership of the {@link
-     * ByteBuffer} and the {@link BufferInfo} and the caller must not modify them.
+     * <p>If the sample copy is enabled, {@link #writeSampleData(int, ByteBuffer, BufferInfo)}
+     * copies the input {@link ByteBuffer} and {@link BufferInfo} before it returns, so it is safe
+     * to reuse them immediately. Otherwise, the muxer takes ownership of the {@link ByteBuffer} and
+     * the {@link BufferInfo} and the caller must not modify them.
      *
      * <p>The default value is {@code true}.
      */
     @CanIgnoreReturnValue
-    public Builder setSampleCopyEnabled(boolean enabled) {
+    public Builder setSampleCopyingEnabled(boolean enabled) {
       this.sampleCopyEnabled = enabled;
       return this;
     }
 
     /** Builds a {@link FragmentedMp4Muxer} instance. */
     public FragmentedMp4Muxer build() {
-      return new FragmentedMp4Muxer(fileOutputStream, fragmentDurationMs, sampleCopyEnabled);
+      return new FragmentedMp4Muxer(outputStream, fragmentDurationMs, sampleCopyEnabled);
     }
   }
 
+  /** A list of supported video {@linkplain MimeTypes sample MIME types}. */
+  public static final ImmutableList<String> SUPPORTED_VIDEO_SAMPLE_MIME_TYPES =
+      ImmutableList.of(
+          MimeTypes.VIDEO_AV1,
+          MimeTypes.VIDEO_H263,
+          MimeTypes.VIDEO_H264,
+          MimeTypes.VIDEO_H265,
+          MimeTypes.VIDEO_MP4V);
+
+  /** A list of supported audio {@linkplain MimeTypes sample MIME types}. */
+  public static final ImmutableList<String> SUPPORTED_AUDIO_SAMPLE_MIME_TYPES =
+      ImmutableList.of(
+          MimeTypes.AUDIO_AAC,
+          MimeTypes.AUDIO_AMR_NB,
+          MimeTypes.AUDIO_AMR_WB,
+          MimeTypes.AUDIO_OPUS,
+          MimeTypes.AUDIO_VORBIS);
+
   private final FragmentedMp4Writer fragmentedMp4Writer;
   private final MetadataCollector metadataCollector;
+  private final SparseArray<Track> trackIdToTrack;
 
   private FragmentedMp4Muxer(
-      FileOutputStream fileOutputStream, long fragmentDurationMs, boolean sampleCopyEnabled) {
-    checkNotNull(fileOutputStream);
+      OutputStream outputStream, long fragmentDurationMs, boolean sampleCopyEnabled) {
+    checkNotNull(outputStream);
     metadataCollector = new MetadataCollector();
     fragmentedMp4Writer =
         new FragmentedMp4Writer(
-            fileOutputStream,
+            outputStream,
             metadataCollector,
             AnnexBToAvccConverter.DEFAULT,
             fragmentDurationMs,
             sampleCopyEnabled);
-  }
-
-  @Override
-  public TrackToken addTrack(Format format) {
-    return fragmentedMp4Writer.addTrack(/* sortKey= */ 1, format);
+    trackIdToTrack = new SparseArray<>();
   }
 
   /**
-   * {@inheritDoc}
+   * Adds a track of the given media format.
    *
-   * <p>Samples are written to the disk in batches. If {@link Builder#setSampleCopyEnabled(boolean)
-   * sample copying} is disabled, the {@code byteBuffer} and the {@code bufferInfo} must not be
-   * modified after calling this method. Otherwise, they are copied and it is safe to modify them
-   * after this method returns.
+   * <p>All tracks must be added before {@linkplain #writeSampleData writing any samples}.
+   *
+   * @param format The {@link Format} of the track.
+   * @return A track id for this track, which should be passed to {@link #writeSampleData}.
+   */
+  public int addTrack(Format format) {
+    Track track = fragmentedMp4Writer.addTrack(/* sortKey= */ 1, format);
+    trackIdToTrack.append(track.id, track);
+    return track.id;
+  }
+
+  /**
+   * Writes encoded sample data.
+   *
+   * <p>Samples are written to the disk in batches. If {@link
+   * Builder#setSampleCopyingEnabled(boolean) sample copying} is disabled, the {@code byteBuffer}
+   * and the {@code bufferInfo} must not be modified after calling this method. Otherwise, they are
+   * copied and it is safe to modify them after this method returns.
    *
    * <p>Note: Out of order B-frames are currently not supported.
    *
-   * @param trackToken The {@link TrackToken} for which this sample is being written.
+   * @param trackId The track id for which this sample is being written.
    * @param byteBuffer The encoded sample. The muxer takes ownership of the buffer if {@link
-   *     Builder#setSampleCopyEnabled(boolean) sample copying} is disabled. Otherwise, the position
-   *     of the buffer is updated but the caller retains ownership.
+   *     Builder#setSampleCopyingEnabled(boolean) sample copying} is disabled. Otherwise, the
+   *     position of the buffer is updated but the caller retains ownership.
    * @param bufferInfo The {@link BufferInfo} related to this sample.
    * @throws MuxerException If there is any error while writing data to the disk.
    */
-  @Override
-  public void writeSampleData(TrackToken trackToken, ByteBuffer byteBuffer, BufferInfo bufferInfo)
+  public void writeSampleData(int trackId, ByteBuffer byteBuffer, BufferInfo bufferInfo)
       throws MuxerException {
     try {
-      fragmentedMp4Writer.writeSampleData(trackToken, byteBuffer, bufferInfo);
+      fragmentedMp4Writer.writeSampleData(trackIdToTrack.get(trackId), byteBuffer, bufferInfo);
     } catch (IOException e) {
       throw new MuxerException(
           "Failed to write sample for presentationTimeUs="
@@ -192,7 +224,7 @@ public final class FragmentedMp4Muxer implements Muxer {
   }
 
   /**
-   * {@inheritDoc}
+   * Adds {@linkplain Metadata.Entry metadata} about the output file.
    *
    * <p>List of supported {@linkplain Metadata.Entry metadata entries}:
    *
@@ -210,12 +242,18 @@ public final class FragmentedMp4Muxer implements Muxer {
    *     IllegalArgumentException} is thrown if the {@linkplain Metadata.Entry metadata} is not
    *     supported.
    */
-  @Override
   public void addMetadataEntry(Metadata.Entry metadataEntry) {
     checkArgument(MuxerUtil.isMetadataSupported(metadataEntry), "Unsupported metadata");
     metadataCollector.addMetadata(metadataEntry);
   }
 
+  /**
+   * Closes the file.
+   *
+   * <p>The muxer cannot be used anymore once this method returns.
+   *
+   * @throws MuxerException If the muxer fails to finish writing the output.
+   */
   @Override
   public void close() throws MuxerException {
     try {

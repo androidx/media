@@ -23,6 +23,7 @@ import android.graphics.SurfaceTexture;
 import android.net.Uri;
 import android.view.Surface;
 import androidx.media3.common.C;
+import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
@@ -32,6 +33,10 @@ import androidx.media3.exoplayer.analytics.AnalyticsListener;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.exoplayer.source.LoadEventInfo;
 import androidx.media3.exoplayer.source.MediaLoadData;
+import androidx.media3.extractor.Extractor;
+import androidx.media3.extractor.ExtractorsFactory;
+import androidx.media3.extractor.mp4.FragmentedMp4Extractor;
+import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
 import androidx.media3.test.utils.CapturingRenderersFactory;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.FakeClock;
@@ -108,6 +113,82 @@ public class SubtitlePlaybackTest {
   }
 
   @Test
+  public void cea608() throws Exception {
+    Context applicationContext = ApplicationProvider.getApplicationContext();
+    CapturingRenderersFactory capturingRenderersFactory =
+        new CapturingRenderersFactory(applicationContext);
+    ExtractorsFactory fragmentedMp4ExtractorFactory =
+        new FragmentedMp4CaptionsExtractorsFactory(
+            new Format.Builder()
+                .setSampleMimeType(MimeTypes.APPLICATION_CEA608)
+                .setLanguage("en")
+                .build());
+    ExoPlayer player =
+        new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
+            .setMediaSourceFactory(
+                new DefaultMediaSourceFactory(applicationContext, fragmentedMp4ExtractorFactory))
+            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .build();
+    player.setTrackSelectionParameters(
+        player.getTrackSelectionParameters().buildUpon().setPreferredTextLanguage("en").build());
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
+    PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
+
+    player.setMediaItem(MediaItem.fromUri("asset:///media/mp4/fragmented_captions.mp4"));
+    player.prepare();
+    run(player).untilState(Player.STATE_READY);
+    run(player).untilFullyBuffered();
+    player.play();
+    run(player).untilState(Player.STATE_ENDED);
+    player.release();
+    surface.release();
+
+    DumpFileAsserts.assertOutput(
+        applicationContext, playbackOutput, "playbackdumps/subtitles/fragmented_captions.mp4.dump");
+  }
+
+  // b/388765515
+  @Test
+  public void clippedCea608() throws Exception {
+    Context applicationContext = ApplicationProvider.getApplicationContext();
+    ExtractorsFactory fragmentedMp4ExtractorFactory =
+        new FragmentedMp4CaptionsExtractorsFactory(
+            new Format.Builder()
+                .setSampleMimeType(MimeTypes.APPLICATION_CEA608)
+                .setLanguage("en")
+                .build());
+    ExoPlayer player =
+        new ExoPlayer.Builder(applicationContext)
+            .setMediaSourceFactory(
+                new DefaultMediaSourceFactory(applicationContext, fragmentedMp4ExtractorFactory))
+            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .build();
+    player.setTrackSelectionParameters(
+        player.getTrackSelectionParameters().buildUpon().setPreferredTextLanguage("en").build());
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
+    MediaItem mediaItemFull = MediaItem.fromUri("asset:///media/mp4/fragmented_captions.mp4");
+    MediaItem mediaItemClipped =
+        mediaItemFull
+            .buildUpon()
+            .setClippingConfiguration(
+                new MediaItem.ClippingConfiguration.Builder().setEndPositionMs(1830).build())
+            .build();
+
+    player.setMediaItems(ImmutableList.of(mediaItemClipped, mediaItemFull));
+    player.prepare();
+    run(player).untilState(Player.STATE_READY);
+    run(player).untilFullyBuffered();
+    player.play();
+    run(player).untilState(Player.STATE_ENDED);
+    player.release();
+    surface.release();
+
+    // No output assertion, the test just checks that playback completes.
+  }
+
+  @Test
   public void sideloadedSubtitleLoadingError_playbackContinues_errorReportedToAnalyticsListener()
       throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
@@ -150,9 +231,9 @@ public class SubtitlePlaybackTest {
     player.setMediaItem(mediaItem);
     player.prepare();
     run(player).ignoringNonFatalErrors().untilState(Player.STATE_READY);
-    run(player).untilFullyBuffered();
+    run(player).ignoringNonFatalErrors().untilFullyBuffered();
     player.play();
-    run(player).untilState(Player.STATE_ENDED);
+    run(player).ignoringNonFatalErrors().untilState(Player.STATE_ENDED);
     player.release();
     surface.release();
 
@@ -211,9 +292,9 @@ public class SubtitlePlaybackTest {
     player.setMediaItem(mediaItem);
     player.prepare();
     run(player).ignoringNonFatalErrors().untilState(Player.STATE_READY);
-    run(player).untilFullyBuffered();
+    run(player).ignoringNonFatalErrors().untilFullyBuffered();
     player.play();
-    run(player).untilState(Player.STATE_ENDED);
+    run(player).ignoringNonFatalErrors().untilState(Player.STATE_ENDED);
     player.release();
     surface.release();
 
@@ -224,5 +305,31 @@ public class SubtitlePlaybackTest {
         .contains("test subtitle parsing error");
     DumpFileAsserts.assertOutput(
         applicationContext, playbackOutput, "playbackdumps/subtitles/sideloaded-error.mp4.dump");
+  }
+
+  /**
+   * An {@link ExtractorsFactory} which creates a {@link FragmentedMp4Extractor} configured to
+   * extract a single additional caption track.
+   */
+  private static class FragmentedMp4CaptionsExtractorsFactory implements ExtractorsFactory {
+
+    private final Format closedCaptionFormat;
+
+    private FragmentedMp4CaptionsExtractorsFactory(Format closedCaptionFormat) {
+      this.closedCaptionFormat = closedCaptionFormat;
+    }
+
+    @Override
+    public Extractor[] createExtractors() {
+      return new Extractor[] {
+        new FragmentedMp4Extractor(
+            new DefaultSubtitleParserFactory(),
+            /* flags= */ 0,
+            /* timestampAdjuster= */ null,
+            /* sideloadedTrack= */ null,
+            /* closedCaptionFormats= */ ImmutableList.of(closedCaptionFormat),
+            /* additionalEmsgTrackOutput= */ null)
+      };
+    }
   }
 }

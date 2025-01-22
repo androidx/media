@@ -47,6 +47,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
  * An {@link AssetLoader} that is composed of a {@linkplain EditedMediaItemSequence sequence} of
@@ -97,6 +98,7 @@ import java.util.concurrent.atomic.AtomicInteger;
   private boolean decodeVideo;
   private int sequenceLoopCount;
   private int processedInputsSize;
+  private @MonotonicNonNull Format currentInputFormat;
 
   // Accessed when switching asset loader.
   private volatile boolean released;
@@ -191,7 +193,11 @@ import java.util.concurrent.atomic.AtomicInteger;
       ImmutableMap<Integer, String> decoders = getDecoderNames();
       processedInputsBuilder.add(
           new ExportResult.ProcessedInput(
-              mediaItem, decoders.get(C.TRACK_TYPE_AUDIO), decoders.get(C.TRACK_TYPE_VIDEO)));
+              mediaItem,
+              currentAssetDurationUs,
+              currentInputFormat,
+              decoders.get(C.TRACK_TYPE_AUDIO),
+              decoders.get(C.TRACK_TYPE_VIDEO)));
       processedInputsSize++;
     }
   }
@@ -228,6 +234,7 @@ import java.util.concurrent.atomic.AtomicInteger;
         isAudio ? "audio" : "video",
         inputFormat);
 
+    currentInputFormat = inputFormat;
     if (!isCurrentAssetFirstAsset) {
       boolean decode = isAudio ? decodeAudio : decodeVideo;
       if (decode) {

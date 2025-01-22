@@ -23,6 +23,7 @@ import static androidx.media3.extractor.mp4.Mp4Extractor.FLAG_READ_SEF_DATA;
 import android.net.Uri;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
+import androidx.media3.common.C;
 import androidx.media3.common.FileTypes;
 import androidx.media3.common.Format;
 import androidx.media3.common.PlaybackException;
@@ -154,6 +155,7 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
   private int tsTimestampSearchBytes;
   private boolean textTrackTranscodingEnabled;
   private SubtitleParser.Factory subtitleParserFactory;
+  private @C.VideoCodecFlags int codecsToParseWithinGopSampleDependencies;
   private @JpegExtractor.Flags int jpegFlags;
 
   public DefaultExtractorsFactory() {
@@ -387,6 +389,15 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
     return this;
   }
 
+  @CanIgnoreReturnValue
+  @Override
+  public synchronized DefaultExtractorsFactory
+      experimentalSetCodecsToParseWithinGopSampleDependencies(
+          @C.VideoCodecFlags int codecsToParseWithinGopSampleDependencies) {
+    this.codecsToParseWithinGopSampleDependencies = codecsToParseWithinGopSampleDependencies;
+    return this;
+  }
+
   /**
    * Sets flags for {@link JpegExtractor} instances created by the factory.
    *
@@ -498,6 +509,8 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
             new FragmentedMp4Extractor(
                 subtitleParserFactory,
                 fragmentedMp4Flags
+                    | FragmentedMp4Extractor.codecsToParseWithinGopSampleDependenciesAsFlags(
+                        codecsToParseWithinGopSampleDependencies)
                     | (textTrackTranscodingEnabled
                         ? 0
                         : FragmentedMp4Extractor.FLAG_EMIT_RAW_SUBTITLE_DATA)));
@@ -505,6 +518,8 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
             new Mp4Extractor(
                 subtitleParserFactory,
                 mp4Flags
+                    | Mp4Extractor.codecsToParseWithinGopSampleDependenciesAsFlags(
+                        codecsToParseWithinGopSampleDependencies)
                     | (textTrackTranscodingEnabled
                         ? 0
                         : Mp4Extractor.FLAG_EMIT_RAW_SUBTITLE_DATA)));

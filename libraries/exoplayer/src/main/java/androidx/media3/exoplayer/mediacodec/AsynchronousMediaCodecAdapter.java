@@ -74,13 +74,20 @@ import java.nio.ByteBuffer;
               new HandlerThread(createQueueingThreadLabel(trackType)));
     }
 
-    @VisibleForTesting
-    /* package */ Factory(
+    /**
+     * Creates an factory for {@link AsynchronousMediaCodecAdapter} instances.
+     *
+     * @param callbackThreadSupplier A supplier of {@link HandlerThread} used for {@link MediaCodec}
+     *     callbacks invoked when buffers are available.
+     * @param queueingThreadSupplier A supplier of {@link HandlerThread} to use for queueing
+     *     buffers.
+     */
+    public Factory(
         Supplier<HandlerThread> callbackThreadSupplier,
         Supplier<HandlerThread> queueingThreadSupplier) {
       this.callbackThreadSupplier = callbackThreadSupplier;
       this.queueingThreadSupplier = queueingThreadSupplier;
-      enableSynchronousBufferQueueingWithAsyncCryptoFlag = true;
+      enableSynchronousBufferQueueingWithAsyncCryptoFlag = false;
     }
 
     /**

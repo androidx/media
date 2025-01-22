@@ -347,7 +347,7 @@ public final class WebvttCueParser {
           WebvttParserUtil.parseTimestampUs(Assertions.checkNotNull(cueHeaderMatcher.group(1)));
       builder.endTimeUs =
           WebvttParserUtil.parseTimestampUs(Assertions.checkNotNull(cueHeaderMatcher.group(2)));
-    } catch (NumberFormatException e) {
+    } catch (IllegalArgumentException e) {
       Log.w(TAG, "Skipping cue with bad header: " + cueHeaderMatcher.group());
       return null;
     }

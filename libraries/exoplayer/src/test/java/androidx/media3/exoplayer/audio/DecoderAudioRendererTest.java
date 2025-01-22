@@ -449,6 +449,114 @@ public class DecoderAudioRendererTest {
     assertThat(durationToProgressUs).isEqualTo(125_000L);
   }
 
+  @Test
+  public void getDurationToProgressUs_afterResetPosition_returnsDefaultDuration() throws Exception {
+    when(mockAudioSink.handleBuffer(any(), anyLong(), anyInt())).thenReturn(true);
+    when(mockAudioSink.getPlaybackParameters()).thenReturn(PlaybackParameters.DEFAULT);
+    CountDownLatch latchDecode = new CountDownLatch(4);
+    ForwardingAudioSinkWithCountdownLatch countdownLatchAudioSink =
+        new ForwardingAudioSinkWithCountdownLatch(mockAudioSink, latchDecode);
+    audioRenderer = createAudioRenderer(countdownLatchAudioSink);
+    audioRenderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
+    FakeSampleStream fakeSampleStream =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* initialFormat= */ FORMAT,
+            ImmutableList.of(
+                oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME),
+                oneByteSample(/* timeUs= */ 50_000, C.BUFFER_FLAG_KEY_FRAME),
+                oneByteSample(/* timeUs= */ 100_000, C.BUFFER_FLAG_KEY_FRAME),
+                oneByteSample(/* timeUs= */ 150_000, C.BUFFER_FLAG_KEY_FRAME),
+                oneByteSample(/* timeUs= */ 200_000, C.BUFFER_FLAG_KEY_FRAME),
+                END_OF_STREAM_ITEM));
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+    audioRenderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {FORMAT},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(new Object()));
+    // Represents audio sink buffers being full when trying to write 150_000 us sample.
+    when(mockAudioSink.handleBuffer(
+            any(), longThat(presentationTimeUs -> presentationTimeUs == 150_000), anyInt()))
+        .thenReturn(false);
+    audioRenderer.start();
+    while (latchDecode.getCount() != 0) {
+      audioRenderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
+    }
+    audioRenderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
+
+    // Simulate a seek through resetPosition which should flush the audio sink.
+    audioRenderer.stop();
+    audioRenderer.resetPosition(/* positionUs= */ 0);
+    long durationToProgressUs =
+        audioRenderer.getDurationToProgressUs(
+            /* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
+
+    assertThat(durationToProgressUs).isEqualTo(10_000L);
+  }
+
+  @Test
+  public void getDurationToProgressUs_afterDisable_returnsDefaultDuration() throws Exception {
+    when(mockAudioSink.handleBuffer(any(), anyLong(), anyInt())).thenReturn(true);
+    when(mockAudioSink.getPlaybackParameters()).thenReturn(PlaybackParameters.DEFAULT);
+    CountDownLatch latchDecode = new CountDownLatch(4);
+    ForwardingAudioSinkWithCountdownLatch countdownLatchAudioSink =
+        new ForwardingAudioSinkWithCountdownLatch(mockAudioSink, latchDecode);
+    audioRenderer = createAudioRenderer(countdownLatchAudioSink);
+    audioRenderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
+    FakeSampleStream fakeSampleStream =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* initialFormat= */ FORMAT,
+            ImmutableList.of(
+                oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME),
+                oneByteSample(/* timeUs= */ 50_000, C.BUFFER_FLAG_KEY_FRAME),
+                oneByteSample(/* timeUs= */ 100_000, C.BUFFER_FLAG_KEY_FRAME),
+                oneByteSample(/* timeUs= */ 150_000, C.BUFFER_FLAG_KEY_FRAME),
+                oneByteSample(/* timeUs= */ 200_000, C.BUFFER_FLAG_KEY_FRAME),
+                END_OF_STREAM_ITEM));
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+    audioRenderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {FORMAT},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(new Object()));
+    // Represents audio sink buffers being full when trying to write 150_000 us sample.
+    when(mockAudioSink.handleBuffer(
+            any(), longThat(presentationTimeUs -> presentationTimeUs == 150_000), anyInt()))
+        .thenReturn(false);
+    audioRenderer.start();
+    while (latchDecode.getCount() != 0) {
+      audioRenderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
+    }
+    audioRenderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
+
+    // Simulate a seek through resetPosition which should flush the audio sink.
+    audioRenderer.stop();
+    audioRenderer.disable();
+    long durationToProgressUs =
+        audioRenderer.getDurationToProgressUs(
+            /* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
+
+    assertThat(durationToProgressUs).isEqualTo(10_000L);
+  }
+
   private static DecoderAudioRenderer<FakeDecoder> createAudioRenderer(AudioSink audioSink) {
     return new DecoderAudioRenderer<FakeDecoder>(null, null, audioSink) {
       @Override

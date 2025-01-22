@@ -62,9 +62,9 @@ public final class WebvttParserUtil {
    *
    * @param timestamp The timestamp string.
    * @return The parsed timestamp in microseconds.
-   * @throws NumberFormatException If the timestamp could not be parsed.
+   * @throws IllegalArgumentException If the timestamp could not be parsed.
    */
-  public static long parseTimestampUs(String timestamp) throws NumberFormatException {
+  public static long parseTimestampUs(String timestamp) {
     long value = 0;
     String[] parts = Util.splitAtFirst(timestamp, "\\.");
     String[] subparts = Util.split(parts[0], ":");
@@ -73,7 +73,12 @@ public final class WebvttParserUtil {
     }
     value *= 1000;
     if (parts.length == 2) {
-      value += Long.parseLong(parts[1]);
+      String millis = parts[1].trim();
+      if (millis.length() == 3) {
+        value += Long.parseLong(millis);
+      } else {
+        throw new IllegalArgumentException("Expected 3 decimal places, got: " + millis);
+      }
     }
     return value * 1000;
   }

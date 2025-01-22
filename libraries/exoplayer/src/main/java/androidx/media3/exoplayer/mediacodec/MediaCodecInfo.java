@@ -297,12 +297,19 @@ public final class MediaCodecInfo {
   private boolean isCodecProfileAndLevelSupported(
       Format format, boolean checkPerformanceCapabilities) {
     Pair<Integer, Integer> codecProfileAndLevel = MediaCodecUtil.getCodecProfileAndLevel(format);
-    if (format.sampleMimeType != null
-        && format.sampleMimeType.equals(MimeTypes.VIDEO_MV_HEVC)
-        && codecMimeType.equals(MimeTypes.VIDEO_H265)) {
-      // Falling back to single-layer HEVC from MV-HEVC.  Get base layer profile and level.
-      codecProfileAndLevel = MediaCodecUtil.getHevcBaseLayerCodecProfileAndLevel(format);
+    if (format.sampleMimeType != null && format.sampleMimeType.equals(MimeTypes.VIDEO_MV_HEVC)) {
+      String normalizedCodecMimeType = MimeTypes.normalizeMimeType(codecMimeType);
+      if (normalizedCodecMimeType.equals(MimeTypes.VIDEO_MV_HEVC)) {
+        // Currently as there is no formal support for MV-HEVC within Android framework, the profile
+        // is not correctly specified by the underlying codec; just assume the profile obtained from
+        // the MV-HEVC sample is supported.
+        return true;
+      } else if (normalizedCodecMimeType.equals(MimeTypes.VIDEO_H265)) {
+        // Falling back to single-layer HEVC from MV-HEVC.  Get base layer profile and level.
+        codecProfileAndLevel = MediaCodecUtil.getHevcBaseLayerCodecProfileAndLevel(format);
+      }
     }
+
     if (codecProfileAndLevel == null) {
       // If we don't know any better, we assume that the profile and level are supported.
       return true;
@@ -310,15 +317,24 @@ public final class MediaCodecInfo {
     int profile = codecProfileAndLevel.first;
     int level = codecProfileAndLevel.second;
     if (MimeTypes.VIDEO_DOLBY_VISION.equals(format.sampleMimeType)) {
-      // If this codec is H264 or H265, we only support the Dolby Vision base layer and need to map
-      // the Dolby Vision profile to the corresponding base layer profile. Also assume all levels of
-      // this base layer profile are supported.
-      if (MimeTypes.VIDEO_H264.equals(mimeType)) {
-        profile = CodecProfileLevel.AVCProfileHigh;
-        level = 0;
-      } else if (MimeTypes.VIDEO_H265.equals(mimeType)) {
-        profile = CodecProfileLevel.HEVCProfileMain10;
-        level = 0;
+      // If this codec is H.264, H.265 or AV1, we only support the Dolby Vision base layer and need
+      // to map the Dolby Vision profile to the corresponding base layer profile. Also assume all
+      // levels of this base layer profile are supported.
+      switch (mimeType) {
+        case MimeTypes.VIDEO_H264:
+          profile = CodecProfileLevel.AVCProfileHigh;
+          level = 0;
+          break;
+        case MimeTypes.VIDEO_H265:
+          profile = CodecProfileLevel.HEVCProfileMain10;
+          level = 0;
+          break;
+        case MimeTypes.VIDEO_AV1:
+          profile = CodecProfileLevel.AV1ProfileMain10;
+          level = 0;
+          break;
+        default:
+          break;
       }
     }
 

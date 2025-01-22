@@ -35,10 +35,8 @@ import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
 import android.media.Image;
 import android.media.MediaCodecInfo;
-import android.media.MediaFormat;
 import android.opengl.EGLContext;
 import android.opengl.EGLDisplay;
-import android.util.Pair;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
@@ -49,7 +47,6 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.GlRect;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.MediaFormatUtil;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.ByteBufferGlEffect;
@@ -58,8 +55,8 @@ import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.GlShaderProgram;
 import androidx.media3.effect.PassthroughShaderProgram;
 import androidx.media3.effect.ScaleAndRotateTransformation;
+import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
 import androidx.media3.exoplayer.mediacodec.MediaCodecUtil;
-import androidx.media3.muxer.Muxer;
 import androidx.media3.test.utils.BitmapPixelTestUtil;
 import androidx.media3.test.utils.VideoDecodingWrapper;
 import com.google.common.base.Ascii;
@@ -69,6 +66,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -1020,8 +1018,15 @@ public final class AndroidTestUtil {
   public static final AssetInfo MP3_ASSET =
       new AssetInfo.Builder("asset:///media/mp3/test-cbr-info-header.mp3").build();
 
+  // This file contains 1 second of audio at 44.1kHZ.
   public static final AssetInfo WAV_ASSET =
       new AssetInfo.Builder("asset:///media/wav/sample.wav").build();
+
+  public static final AssetInfo WAV_96KHZ_ASSET =
+      new AssetInfo.Builder("asset:///media/wav/sample_96khz.wav").build();
+
+  public static final AssetInfo WAV_192KHZ_ASSET =
+      new AssetInfo.Builder("asset:///media/wav/sample_192khz.wav").build();
 
   /** A {@link GlEffect} that adds delay in the video pipeline by putting the thread to sleep. */
   public static final class DelayEffect implements GlEffect {
@@ -1295,7 +1300,6 @@ public final class AndroidTestUtil {
       @Nullable Format outputFormat,
       boolean isPortraitEncodingEnabled)
       throws IOException, JSONException, MediaCodecUtil.DecoderQueryException {
-    // TODO(b/278657595): Make this capability check match the default codec factory selection code.
     boolean canDecode = inputFormat == null || canDecode(inputFormat);
 
     boolean canEncode = outputFormat == null || canEncode(outputFormat, isPortraitEncodingEnabled);
@@ -1341,27 +1345,81 @@ public final class AndroidTestUtil {
     throw new AssumptionViolatedException("Profile not supported");
   }
 
+  /**
+   * Assumes that the given sample rate is unsupported and returns the fallback sample rate the
+   * device will use to encode.
+   *
+   * @param mimeType The {@linkplain MimeTypes MIME type}.
+   * @param unsupportedSampleRate An unsupported sample rate.
+   * @return The fallback sample rate.
+   * @throws AssumptionViolatedException If the device does not have the required encoder or sample
+   *     rate configuration.
+   */
+  public static int getFallbackAssumingUnsupportedSampleRate(
+      String mimeType, int unsupportedSampleRate) {
+    ImmutableList<MediaCodecInfo> supportedEncoders = EncoderUtil.getSupportedEncoders(mimeType);
+    if (supportedEncoders.isEmpty()) {
+      throw new AssumptionViolatedException("No supported encoders for mime type: " + mimeType);
+    }
+
+    int closestSupportedSampleRate = -1;
+    int minSampleRateCost = Integer.MAX_VALUE;
+    for (int i = 0; i < supportedEncoders.size(); i++) {
+      int actualFallbackSampleRate =
+          EncoderUtil.getClosestSupportedSampleRate(
+              supportedEncoders.get(i), mimeType, unsupportedSampleRate);
+      int sampleRateCost = Math.abs(actualFallbackSampleRate - unsupportedSampleRate);
+      if (sampleRateCost < minSampleRateCost) {
+        minSampleRateCost = sampleRateCost;
+        closestSupportedSampleRate = actualFallbackSampleRate;
+      }
+    }
+    if (closestSupportedSampleRate == unsupportedSampleRate) {
+      throw new AssumptionViolatedException(
+          String.format("Expected sample rate %s to be unsupported", unsupportedSampleRate));
+    }
+    return closestSupportedSampleRate;
+  }
+
   /** Returns a {@link Muxer.Factory} depending upon the API level. */
   public static Muxer.Factory getMuxerFactoryBasedOnApi() {
     // MediaMuxer supports B-frame from API > 24.
-    return SDK_INT > 24 ? new DefaultMuxer.Factory() : new InAppMuxer.Factory.Builder().build();
+    return SDK_INT > 24 ? new DefaultMuxer.Factory() : new InAppMp4Muxer.Factory();
   }
 
-  private static boolean canDecode(Format format) {
+  private static boolean canDecode(Format format) throws MediaCodecUtil.DecoderQueryException {
     if (MimeTypes.isImage(format.sampleMimeType)) {
       return Util.isBitmapFactorySupportedMimeType(format.sampleMimeType);
     }
 
     // Check decoding capability in the same way as the default decoder factory.
-    MediaFormat mediaFormat = MediaFormatUtil.createMediaFormatFromFormat(format);
-    @Nullable
-    Pair<Integer, Integer> codecProfileAndLevel = MediaCodecUtil.getCodecProfileAndLevel(format);
-    if (codecProfileAndLevel != null) {
-      MediaFormatUtil.maybeSetInteger(
-          mediaFormat, MediaFormat.KEY_PROFILE, codecProfileAndLevel.first);
+    return findDecoderForFormat(format) != null && !deviceNeedsDisable8kWorkaround(format);
+  }
+
+  @Nullable
+  private static String findDecoderForFormat(Format format)
+      throws MediaCodecUtil.DecoderQueryException {
+    List<androidx.media3.exoplayer.mediacodec.MediaCodecInfo> decoderInfoList =
+        MediaCodecUtil.getDecoderInfosSortedByFullFormatSupport(
+            MediaCodecUtil.getDecoderInfosSoftMatch(
+                MediaCodecSelector.DEFAULT,
+                format,
+                /* requiresSecureDecoder= */ false,
+                /* requiresTunnelingDecoder= */ false),
+            format);
+
+    for (int i = 0; i < decoderInfoList.size(); i++) {
+      androidx.media3.exoplayer.mediacodec.MediaCodecInfo decoderInfo = decoderInfoList.get(i);
+      // On some devices this method can return false even when the format can be decoded. For
+      // example, Pixel 6a can decode an 8K video but this method returns false. The
+      // DefaultDecoderFactory does not rely on this method rather it directly initialize the
+      // decoder. See b/222095724#comment9.
+      if (decoderInfo.isFormatSupported(format)) {
+        return decoderInfo.name;
+      }
     }
-    return EncoderUtil.findCodecForFormat(mediaFormat, /* isDecoder= */ true) != null
-        && !deviceNeedsDisable8kWorkaround(format);
+
+    return null;
   }
 
   private static boolean deviceNeedsDisable8kWorkaround(Format format) {

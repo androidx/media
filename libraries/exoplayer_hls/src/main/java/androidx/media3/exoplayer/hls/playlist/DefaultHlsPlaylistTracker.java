@@ -29,6 +29,7 @@ import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSource;
+import androidx.media3.datasource.DataSpec;
 import androidx.media3.datasource.HttpDataSource;
 import androidx.media3.exoplayer.hls.HlsDataSourceFactory;
 import androidx.media3.exoplayer.hls.playlist.HlsMediaPlaylist.Part;
@@ -38,6 +39,8 @@ import androidx.media3.exoplayer.hls.playlist.HlsMultivariantPlaylist.Variant;
 import androidx.media3.exoplayer.source.LoadEventInfo;
 import androidx.media3.exoplayer.source.MediaLoadData;
 import androidx.media3.exoplayer.source.MediaSourceEventListener.EventDispatcher;
+import androidx.media3.exoplayer.upstream.CmcdConfiguration;
+import androidx.media3.exoplayer.upstream.CmcdData;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy.LoadErrorInfo;
 import androidx.media3.exoplayer.upstream.Loader;
@@ -69,6 +72,7 @@ public final class DefaultHlsPlaylistTracker
   private final HashMap<Uri, MediaPlaylistBundle> playlistBundles;
   private final CopyOnWriteArrayList<PlaylistEventListener> listeners;
   private final double playlistStuckTargetDurationCoefficient;
+  @Nullable private final CmcdConfiguration cmcdConfiguration;
 
   @Nullable private EventDispatcher eventDispatcher;
   @Nullable private Loader initialPlaylistLoader;
@@ -86,15 +90,18 @@ public final class DefaultHlsPlaylistTracker
    * @param dataSourceFactory A factory for {@link DataSource} instances.
    * @param loadErrorHandlingPolicy The {@link LoadErrorHandlingPolicy}.
    * @param playlistParserFactory An {@link HlsPlaylistParserFactory}.
+   * @param cmcdConfiguration The {@link CmcdConfiguration}.
    */
   public DefaultHlsPlaylistTracker(
       HlsDataSourceFactory dataSourceFactory,
       LoadErrorHandlingPolicy loadErrorHandlingPolicy,
-      HlsPlaylistParserFactory playlistParserFactory) {
+      HlsPlaylistParserFactory playlistParserFactory,
+      @Nullable CmcdConfiguration cmcdConfiguration) {
     this(
         dataSourceFactory,
         loadErrorHandlingPolicy,
         playlistParserFactory,
+        cmcdConfiguration,
         DEFAULT_PLAYLIST_STUCK_TARGET_DURATION_COEFFICIENT);
   }
 
@@ -104,6 +111,7 @@ public final class DefaultHlsPlaylistTracker
    * @param dataSourceFactory A factory for {@link DataSource} instances.
    * @param loadErrorHandlingPolicy The {@link LoadErrorHandlingPolicy}.
    * @param playlistParserFactory An {@link HlsPlaylistParserFactory}.
+   * @param cmcdConfiguration The {@link CmcdConfiguration}.
    * @param playlistStuckTargetDurationCoefficient A coefficient to apply to the target duration of
    *     media playlists in order to determine that a non-changing playlist is stuck. Once a
    *     playlist is deemed stuck, a {@link PlaylistStuckException} is thrown via {@link
@@ -113,10 +121,12 @@ public final class DefaultHlsPlaylistTracker
       HlsDataSourceFactory dataSourceFactory,
       LoadErrorHandlingPolicy loadErrorHandlingPolicy,
       HlsPlaylistParserFactory playlistParserFactory,
+      @Nullable CmcdConfiguration cmcdConfiguration,
       double playlistStuckTargetDurationCoefficient) {
     this.dataSourceFactory = dataSourceFactory;
     this.playlistParserFactory = playlistParserFactory;
     this.loadErrorHandlingPolicy = loadErrorHandlingPolicy;
+    this.cmcdConfiguration = cmcdConfiguration;
     this.playlistStuckTargetDurationCoefficient = playlistStuckTargetDurationCoefficient;
     listeners = new CopyOnWriteArrayList<>();
     playlistBundles = new HashMap<>();
@@ -133,10 +143,22 @@ public final class DefaultHlsPlaylistTracker
     this.playlistRefreshHandler = Util.createHandlerForCurrentLooper();
     this.eventDispatcher = eventDispatcher;
     this.primaryPlaylistListener = primaryPlaylistListener;
+    DataSpec dataSpec =
+        new DataSpec.Builder()
+            .setUri(initialPlaylistUri)
+            .setFlags(DataSpec.FLAG_ALLOW_GZIP)
+            .build();
+    if (cmcdConfiguration != null) {
+      CmcdData cmcdData =
+          new CmcdData.Factory(cmcdConfiguration, CmcdData.STREAMING_FORMAT_HLS)
+              .setObjectType(CmcdData.OBJECT_TYPE_MANIFEST)
+              .createCmcdData();
+      cmcdData.addToDataSpec(dataSpec);
+    }
     ParsingLoadable<HlsPlaylist> multivariantPlaylistLoadable =
         new ParsingLoadable<>(
             dataSourceFactory.createDataSource(C.DATA_TYPE_MANIFEST),
-            initialPlaylistUri,
+            dataSpec,
             C.DATA_TYPE_MANIFEST,
             playlistParserFactory.createPlaylistParser());
     Assertions.checkState(initialPlaylistLoader == null);
@@ -762,12 +784,23 @@ public final class DefaultHlsPlaylistTracker
     private void loadPlaylistImmediately(Uri playlistRequestUri) {
       ParsingLoadable.Parser<HlsPlaylist> mediaPlaylistParser =
           playlistParserFactory.createPlaylistParser(multivariantPlaylist, playlistSnapshot);
+      DataSpec dataSpec =
+          new DataSpec.Builder()
+              .setUri(playlistRequestUri)
+              .setFlags(DataSpec.FLAG_ALLOW_GZIP)
+              .build();
+      if (cmcdConfiguration != null) {
+        CmcdData.Factory cmcdDataFactory =
+            new CmcdData.Factory(cmcdConfiguration, CmcdData.STREAMING_FORMAT_HLS)
+                .setObjectType(CmcdData.OBJECT_TYPE_MANIFEST);
+        if (primaryMediaPlaylistSnapshot != null) {
+          cmcdDataFactory.setIsLive(!primaryMediaPlaylistSnapshot.hasEndTag);
+        }
+        cmcdDataFactory.createCmcdData().addToDataSpec(dataSpec);
+      }
       ParsingLoadable<HlsPlaylist> mediaPlaylistLoadable =
           new ParsingLoadable<>(
-              mediaPlaylistDataSource,
-              playlistRequestUri,
-              C.DATA_TYPE_MANIFEST,
-              mediaPlaylistParser);
+              mediaPlaylistDataSource, dataSpec, C.DATA_TYPE_MANIFEST, mediaPlaylistParser);
       mediaPlaylistLoader.startLoading(
           mediaPlaylistLoadable,
           /* callback= */ this,

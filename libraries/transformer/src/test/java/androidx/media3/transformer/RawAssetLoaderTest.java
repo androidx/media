@@ -16,6 +16,7 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_AVAILABLE;
+import static androidx.media3.transformer.Transformer.PROGRESS_STATE_UNAVAILABLE;
 import static com.google.common.truth.Truth.assertThat;
 import static java.lang.Math.min;
 import static java.lang.Math.round;
@@ -119,6 +120,30 @@ public class RawAssetLoaderTest {
     assertThat(progressState).isEqualTo(PROGRESS_STATE_AVAILABLE);
     assertThat(progressHolder.progress)
         .isEqualTo(round(audioSamplePresentationTimeUs * 100 / (float) audioDurationUs));
+  }
+
+  @Test
+  public void getProgress_withOnlyAudioDataAndUnsetDuration_returnsUnavailableProgress() {
+    long audioSamplePresentationTimeUs = 100;
+    AssetLoader.Listener fakeAssetLoaderListener =
+        new FakeAssetLoaderListener(new FakeAudioSampleConsumer(), /* videoSampleConsumer= */ null);
+    ProgressHolder progressHolder = new ProgressHolder();
+
+    RawAssetLoader rawAssetLoader =
+        new RawAssetLoader(
+            new EditedMediaItem.Builder(new MediaItem.Builder().build()).build(),
+            fakeAssetLoaderListener,
+            FAKE_AUDIO_FORMAT,
+            /* videoFormat= */ null,
+            /* frameProcessedListener= */ null);
+    rawAssetLoader.start();
+    boolean queuedAudioData =
+        rawAssetLoader.queueAudioData(
+            ByteBuffer.wrap(FAKE_AUDIO_DATA), audioSamplePresentationTimeUs, /* isLast= */ false);
+    @Transformer.ProgressState int progressState = rawAssetLoader.getProgress(progressHolder);
+
+    assertThat(queuedAudioData).isTrue();
+    assertThat(progressState).isEqualTo(PROGRESS_STATE_UNAVAILABLE);
   }
 
   @Test

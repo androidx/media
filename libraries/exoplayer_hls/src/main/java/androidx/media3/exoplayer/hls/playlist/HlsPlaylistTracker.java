@@ -21,6 +21,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.hls.HlsDataSourceFactory;
 import androidx.media3.exoplayer.source.MediaSourceEventListener.EventDispatcher;
+import androidx.media3.exoplayer.upstream.CmcdConfiguration;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
 import java.io.IOException;
 
@@ -48,11 +49,13 @@ public interface HlsPlaylistTracker {
      * @param dataSourceFactory The {@link HlsDataSourceFactory} to use for playlist loading.
      * @param loadErrorHandlingPolicy The {@link LoadErrorHandlingPolicy} for playlist load errors.
      * @param playlistParserFactory The {@link HlsPlaylistParserFactory} for playlist parsing.
+     * @param cmcdConfiguration The {@link CmcdConfiguration} to use for playlist loading.
      */
     HlsPlaylistTracker createTracker(
         HlsDataSourceFactory dataSourceFactory,
         LoadErrorHandlingPolicy loadErrorHandlingPolicy,
-        HlsPlaylistParserFactory playlistParserFactory);
+        HlsPlaylistParserFactory playlistParserFactory,
+        @Nullable CmcdConfiguration cmcdConfiguration);
   }
 
   /** Listener for primary playlist changes. */

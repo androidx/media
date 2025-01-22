@@ -324,6 +324,12 @@ import java.util.regex.Pattern;
 
   @Override
   public void reevaluateBuffer(long positionUs) {
+    for (ChunkSampleStream<DashChunkSource> sampleStream : sampleStreams) {
+      if (!sampleStream.isLoading()) {
+        long periodDurationUs = manifest.getPeriodDurationUs(periodIndex);
+        sampleStream.discardUpstreamSamplesForClippedDuration(periodDurationUs);
+      }
+    }
     compositeSequenceableLoader.reevaluateBuffer(positionUs);
   }
 

@@ -312,7 +312,7 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
     checkNotNull(format.sampleMimeType);
     try {
       decoderInfos =
-          MediaCodecUtil.getDecoderInfosSortedByFormatSupport(
+          MediaCodecUtil.getDecoderInfosSortedByFullFormatSupport(
               MediaCodecUtil.getDecoderInfosSoftMatch(
                   mediaCodecSelector,
                   format,

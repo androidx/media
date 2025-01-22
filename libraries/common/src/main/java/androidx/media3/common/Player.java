@@ -3384,8 +3384,7 @@ public interface Player {
    *
    * <p>For devices with {@link DeviceInfo#PLAYBACK_TYPE_LOCAL local playback}, the volume returned
    * by this method varies according to the current {@link C.StreamType stream type}. The stream
-   * type is determined by {@link AudioAttributes#usage} which can be converted to stream type with
-   * {@link Util#getStreamTypeForAudioUsage(int)}.
+   * type is determined by {@link AudioAttributes#getStreamType()}.
    *
    * <p>For devices with {@link DeviceInfo#PLAYBACK_TYPE_REMOTE remote playback}, the volume of the
    * remote device is returned.
@@ -3507,10 +3506,6 @@ public interface Player {
    *
    * <p>If tunneling is enabled by the track selector, the specified audio attributes will be
    * ignored, but they will take effect if audio is later played without tunneling.
-   *
-   * <p>If the device is running a build before platform API version 21, audio attributes cannot be
-   * set directly on the underlying audio track. In this case, the usage will be mapped onto an
-   * equivalent stream type using {@link Util#getStreamTypeForAudioUsage(int)}.
    *
    * <p>If audio focus should be handled, the {@link AudioAttributes#usage} must be {@link
    * C#USAGE_MEDIA} or {@link C#USAGE_GAME}. Other usages will throw an {@link

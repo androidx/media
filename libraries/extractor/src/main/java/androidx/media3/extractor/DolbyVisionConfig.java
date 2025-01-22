@@ -38,16 +38,21 @@ public final class DolbyVisionConfig {
     int dvProfile = (profileData >> 1);
     int dvLevel = ((profileData & 0x1) << 5) | ((data.readUnsignedByte() >> 3) & 0x1F);
     String codecsPrefix;
-    if (dvProfile == 4 || dvProfile == 5 || dvProfile == 7) {
+    if (dvProfile == 4 || dvProfile == 5 || dvProfile == 7 || dvProfile == 8) {
       codecsPrefix = "dvhe";
-    } else if (dvProfile == 8) {
-      codecsPrefix = "hev1";
     } else if (dvProfile == 9) {
-      codecsPrefix = "avc3";
+      codecsPrefix = "dvav";
+    } else if (dvProfile == 10) {
+      codecsPrefix = "dav1";
     } else {
       return null;
     }
-    String codecs = codecsPrefix + ".0" + dvProfile + (dvLevel < 10 ? ".0" : ".") + dvLevel;
+    String codecs =
+        codecsPrefix
+            + (dvProfile < 10 ? ".0" : ".")
+            + dvProfile
+            + (dvLevel < 10 ? ".0" : ".")
+            + dvLevel;
     return new DolbyVisionConfig(dvProfile, dvLevel, codecs);
   }
 

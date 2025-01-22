@@ -16,12 +16,15 @@
 
 package androidx.media3.transformer;
 
+import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.common.util.Util.usToMs;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.PNG_ASSET;
+import static androidx.media3.transformer.AndroidTestUtil.recordTestSkipped;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.content.Context;
@@ -32,9 +35,13 @@ import androidx.media3.common.Effect;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.PlaybackException;
+import androidx.media3.common.Player;
 import androidx.media3.common.PreviewingVideoGraph;
+import androidx.media3.common.VideoCompositorSettings;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.VideoGraph;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.PreviewingSingleInputVideoGraph;
@@ -46,12 +53,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
+import org.junit.AssumptionViolatedException;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
 /**
@@ -61,7 +70,7 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public class CompositionPlayerSeekTest {
 
-  private static final long TEST_TIMEOUT_MS = 10_000;
+  private static final long TEST_TIMEOUT_MS = isRunningOnEmulator() ? 20_000 : 10_000;
 
   private static final MediaItem VIDEO_MEDIA_ITEM = MediaItem.fromUri(MP4_ASSET.uri);
   private static final long VIDEO_DURATION_US = MP4_ASSET.videoDurationUs;
@@ -74,6 +83,8 @@ public class CompositionPlayerSeekTest {
       ImmutableList.of(0L, 33_333L, 66_667L, 100_000L, 133_333L, 166_667L);
   private static final long VIDEO_GRAPH_END_TIMEOUT_MS = 1_000;
 
+  @Rule public final TestName testName = new TestName();
+
   @Rule
   public ActivityScenarioRule<SurfaceTestActivity> rule =
       new ActivityScenarioRule<>(SurfaceTestActivity.class);
@@ -82,11 +93,13 @@ public class CompositionPlayerSeekTest {
       getInstrumentation().getContext().getApplicationContext();
   private final PlayerTestListener playerTestListener = new PlayerTestListener(TEST_TIMEOUT_MS);
 
+  private String testId;
   private CompositionPlayer compositionPlayer;
   private SurfaceView surfaceView;
 
   @Before
   public void setUp() {
+    testId = testName.getMethodName();
     rule.getScenario().onActivity(activity -> surfaceView = activity.getSurfaceView());
   }
 
@@ -104,6 +117,7 @@ public class CompositionPlayerSeekTest {
 
   @Test
   public void seekToZero_afterPlayingSingleSequenceOfTwoVideos() throws Exception {
+    maybeSkipTest();
     InputTimestampRecordingShaderProgram inputTimestampRecordingShaderProgram =
         new InputTimestampRecordingShaderProgram();
     EditedMediaItem video =
@@ -212,6 +226,7 @@ public class CompositionPlayerSeekTest {
 
   @Test
   public void seekToZero_duringPlayingFirstVideoInSingleSequenceOfTwoVideos() throws Exception {
+    maybeSkipTest();
     ImmutableList<MediaItem> mediaItems = ImmutableList.of(VIDEO_MEDIA_ITEM, VIDEO_MEDIA_ITEM);
     ImmutableList<Long> durationsUs = ImmutableList.of(VIDEO_DURATION_US, VIDEO_DURATION_US);
     int numberOfFramesBeforeSeeking = 15;
@@ -238,6 +253,7 @@ public class CompositionPlayerSeekTest {
   @Test
   public void seekToFirstMedia_duringPlayingFirstVideoInSingleSequenceOfTwoVideos()
       throws Exception {
+    maybeSkipTest();
     ImmutableList<MediaItem> mediaItems = ImmutableList.of(VIDEO_MEDIA_ITEM, VIDEO_MEDIA_ITEM);
     ImmutableList<Long> durationsUs = ImmutableList.of(VIDEO_DURATION_US, VIDEO_DURATION_US);
     int numberOfFramesBeforeSeeking = 15;
@@ -266,6 +282,7 @@ public class CompositionPlayerSeekTest {
   @Test
   public void seekToSecondMedia_duringPlayingFirstVideoInSingleSequenceOfTwoVideos()
       throws Exception {
+    maybeSkipTest();
     ImmutableList<MediaItem> mediaItems = ImmutableList.of(VIDEO_MEDIA_ITEM, VIDEO_MEDIA_ITEM);
     ImmutableList<Long> durationsUs = ImmutableList.of(VIDEO_DURATION_US, VIDEO_DURATION_US);
     int numberOfFramesBeforeSeeking = 15;
@@ -293,6 +310,7 @@ public class CompositionPlayerSeekTest {
   @Test
   public void seekToFirstMedia_duringPlayingSecondVideoInSingleSequenceOfTwoVideos()
       throws Exception {
+    maybeSkipTest();
     ImmutableList<MediaItem> mediaItems = ImmutableList.of(VIDEO_MEDIA_ITEM, VIDEO_MEDIA_ITEM);
     ImmutableList<Long> durationsUs = ImmutableList.of(VIDEO_DURATION_US, VIDEO_DURATION_US);
     int numberOfFramesBeforeSeeking = 45;
@@ -325,6 +343,7 @@ public class CompositionPlayerSeekTest {
   @Test
   public void seekToSecondMedia_duringPlayingSecondVideoInSingleSequenceOfTwoVideos()
       throws Exception {
+    maybeSkipTest();
     ImmutableList<MediaItem> mediaItems = ImmutableList.of(VIDEO_MEDIA_ITEM, VIDEO_MEDIA_ITEM);
     ImmutableList<Long> durationsUs = ImmutableList.of(VIDEO_DURATION_US, VIDEO_DURATION_US);
     int numberOfFramesBeforeSeeking = 45;
@@ -356,6 +375,7 @@ public class CompositionPlayerSeekTest {
   @Test
   public void seekToEndOfFirstMedia_duringPlayingFirstVideoInSingleSequenceOfTwoVideos()
       throws Exception {
+    maybeSkipTest();
     ImmutableList<MediaItem> mediaItems = ImmutableList.of(VIDEO_MEDIA_ITEM, VIDEO_MEDIA_ITEM);
     ImmutableList<Long> durationsUs = ImmutableList.of(VIDEO_DURATION_US, VIDEO_DURATION_US);
     int numberOfFramesBeforeSeeking = 15;
@@ -382,6 +402,7 @@ public class CompositionPlayerSeekTest {
   @Test
   public void seekToEndOfSecondVideo_duringPlayingFirstVideoInSingleSequenceOfTwoVideos()
       throws Exception {
+    maybeSkipTest();
     ImmutableList<MediaItem> mediaItems = ImmutableList.of(VIDEO_MEDIA_ITEM, VIDEO_MEDIA_ITEM);
     ImmutableList<Long> durationsUs = ImmutableList.of(VIDEO_DURATION_US, VIDEO_DURATION_US);
     int numberOfFramesBeforeSeeking = 15;
@@ -454,6 +475,7 @@ public class CompositionPlayerSeekTest {
 
   @Test
   public void seekToImage_fromVideoInVideoImageSequence() throws Exception {
+    maybeSkipTest();
     ImmutableList<MediaItem> mediaItems = ImmutableList.of(VIDEO_MEDIA_ITEM, IMAGE_MEDIA_ITEM);
     ImmutableList<Long> durationsUs = ImmutableList.of(VIDEO_DURATION_US, IMAGE_DURATION_US);
     int numberOfFramesBeforeSeeking = 15;
@@ -480,6 +502,7 @@ public class CompositionPlayerSeekTest {
 
   @Test
   public void seekToImage_fromVideoInImageVideoSequence() throws Exception {
+    maybeSkipTest();
     ImmutableList<MediaItem> mediaItems = ImmutableList.of(IMAGE_MEDIA_ITEM, VIDEO_MEDIA_ITEM);
     ImmutableList<Long> durationsUs = ImmutableList.of(IMAGE_DURATION_US, VIDEO_DURATION_US);
     // Plays all 6 image frames, play 9 video frames and seek.
@@ -512,6 +535,7 @@ public class CompositionPlayerSeekTest {
 
   @Test
   public void seekToVideo_fromImageInVideoImageSequence() throws Exception {
+    maybeSkipTest();
     ImmutableList<MediaItem> mediaItems = ImmutableList.of(VIDEO_MEDIA_ITEM, IMAGE_MEDIA_ITEM);
     ImmutableList<Long> durationsUs = ImmutableList.of(VIDEO_DURATION_US, IMAGE_DURATION_US);
     // Play all the video, seek after playing 3 frames of image.
@@ -543,6 +567,7 @@ public class CompositionPlayerSeekTest {
 
   @Test
   public void seekToVideo_fromImageInImageVideoSequence() throws Exception {
+    maybeSkipTest();
     ImmutableList<MediaItem> mediaItems = ImmutableList.of(IMAGE_MEDIA_ITEM, VIDEO_MEDIA_ITEM);
     ImmutableList<Long> durationsUs = ImmutableList.of(IMAGE_DURATION_US, VIDEO_DURATION_US);
     int numberOfFramesBeforeSeeking = 3;
@@ -567,6 +592,14 @@ public class CompositionPlayerSeekTest {
     assertThat(actualTimestampsUs).isEqualTo(expectedTimestampsUs);
   }
 
+  private void maybeSkipTest() throws Exception {
+    if (isRunningOnEmulator() && Util.SDK_INT == 31) {
+      // The audio decoder is failing on API 31 emulator.
+      recordTestSkipped(applicationContext, testId, /* reason= */ "Skipped due to failing decoder");
+      throw new AssumptionViolatedException("Skipped due to failing decoder");
+    }
+  }
+
   /**
    * Plays the first {@code numberOfFramesBeforeSeeking} frames of the provided sequence, seeks to
    * {@code seekTimeMs}, resumes playback until it ends, and returns the timestamps of the processed
@@ -578,59 +611,16 @@ public class CompositionPlayerSeekTest {
       int numberOfFramesBeforeSeeking,
       long seekTimeMs)
       throws Exception {
-    ResettableCountDownLatch framesReceivedLatch =
+    ResettableCountDownLatch frameCountBeforeBlockLatch =
         new ResettableCountDownLatch(numberOfFramesBeforeSeeking);
-    AtomicBoolean shaderProgramShouldBlockInput = new AtomicBoolean();
-
     InputTimestampRecordingShaderProgram inputTimestampRecordingShaderProgram =
-        new InputTimestampRecordingShaderProgram() {
-
-          @Override
-          public void queueInputFrame(
-              GlObjectsProvider glObjectsProvider,
-              GlTextureInfo inputTexture,
-              long presentationTimeUs) {
-            super.queueInputFrame(glObjectsProvider, inputTexture, presentationTimeUs);
-            framesReceivedLatch.countDown();
-            if (framesReceivedLatch.getCount() == 0) {
-              shaderProgramShouldBlockInput.set(true);
-            }
-          }
-
-          @Override
-          public void releaseOutputFrame(GlTextureInfo outputTexture) {
-            // The input listener capacity is reported in the super method, block input by skip
-            // reporting input capacity.
-            if (shaderProgramShouldBlockInput.get()) {
-              return;
-            }
-            super.releaseOutputFrame(outputTexture);
-          }
-
-          @Override
-          public void flush() {
-            super.flush();
-            if (framesReceivedLatch.getCount() == 0) {
-              // The flush is caused by the seek operation. We do this check because the shader
-              // program can be flushed for other reasons, for example at the transition between 2
-              // renderers.
-              shaderProgramShouldBlockInput.set(false);
-              framesReceivedLatch.reset(Integer.MAX_VALUE);
-            }
-          }
-        };
-
-    List<EditedMediaItem> editedMediaItems = new ArrayList<>();
-    for (int i = 0; i < mediaItems.size(); i++) {
-      editedMediaItems.add(
-          createEditedMediaItem(
-              mediaItems.get(i),
-              durationsUs.get(i),
-              /* videoEffect= */ (GlEffect)
-                  (context, useHdr) -> inputTimestampRecordingShaderProgram));
-    }
-
+        createInputTimestampRecordingShaderProgram(frameCountBeforeBlockLatch);
+    Effect videoEffect = (GlEffect) (context, useHdr) -> inputTimestampRecordingShaderProgram;
+    List<EditedMediaItem> editedMediaItems =
+        createEditedMediaItems(mediaItems, durationsUs, videoEffect);
     CountDownLatch videoGraphEnded = new CountDownLatch(1);
+    AtomicReference<@NullableType PlaybackException> playbackException = new AtomicReference<>();
+
     getInstrumentation()
         .runOnMainSync(
             () -> {
@@ -643,6 +633,14 @@ public class CompositionPlayerSeekTest {
               // surface otherwise the player will skip/drop video frames.
               compositionPlayer.setVideoSurfaceView(surfaceView);
               compositionPlayer.addListener(playerTestListener);
+              compositionPlayer.addListener(
+                  new Player.Listener() {
+                    @Override
+                    public void onPlayerError(PlaybackException error) {
+                      playbackException.set(error);
+                      frameCountBeforeBlockLatch.unblock();
+                    }
+                  });
               compositionPlayer.setComposition(
                   new Composition.Builder(
                           new EditedMediaItemSequence.Builder(editedMediaItems).build())
@@ -652,12 +650,83 @@ public class CompositionPlayerSeekTest {
             });
 
     // Wait until the number of frames are received, block further input on the shader program.
-    framesReceivedLatch.await();
+    assertWithMessage("Timeout reached while waiting for frames.")
+        .that(frameCountBeforeBlockLatch.await())
+        .isTrue();
+    if (playbackException.get() != null) {
+      throw playbackException.get();
+    }
     getInstrumentation().runOnMainSync(() -> compositionPlayer.seekTo(seekTimeMs));
     playerTestListener.waitUntilPlayerEnded();
 
     assertThat(videoGraphEnded.await(VIDEO_GRAPH_END_TIMEOUT_MS, MILLISECONDS)).isTrue();
     return inputTimestampRecordingShaderProgram.getInputTimestampsUs();
+  }
+
+  /**
+   * Creates an {@link InputTimestampRecordingShaderProgram} that blocks input after receiving the
+   * number of frames specified by the provided {@link ResettableCountDownLatch}.
+   *
+   * <p>Input is unblocked when the shader program is flushed.
+   */
+  private static InputTimestampRecordingShaderProgram createInputTimestampRecordingShaderProgram(
+      ResettableCountDownLatch frameCountBeforeBlockLatch) {
+    AtomicBoolean shaderProgramShouldBlockInput = new AtomicBoolean();
+    return new InputTimestampRecordingShaderProgram() {
+
+      @Override
+      public void queueInputFrame(
+          GlObjectsProvider glObjectsProvider,
+          GlTextureInfo inputTexture,
+          long presentationTimeUs) {
+        super.queueInputFrame(glObjectsProvider, inputTexture, presentationTimeUs);
+        frameCountBeforeBlockLatch.countDown();
+        if (frameCountBeforeBlockLatch.getCount() == 0) {
+          shaderProgramShouldBlockInput.set(true);
+        }
+      }
+
+      @Override
+      public void releaseOutputFrame(GlTextureInfo outputTexture) {
+        // The input listener capacity is reported in the super method, block input by skip
+        // reporting input capacity.
+        if (shaderProgramShouldBlockInput.get()) {
+          return;
+        }
+        super.releaseOutputFrame(outputTexture);
+      }
+
+      @Override
+      public void flush() {
+        super.flush();
+        if (frameCountBeforeBlockLatch.getCount() == 0) {
+          // The flush is caused by the seek operation. We do this check because the shader
+          // program can be flushed for other reasons, for example at the transition between 2
+          // renderers.
+          shaderProgramShouldBlockInput.set(false);
+          frameCountBeforeBlockLatch.reset(Integer.MAX_VALUE);
+        }
+      }
+    };
+  }
+
+  /**
+   * Returns a list of {@linkplain EditedMediaItem EditedMediaItems}.
+   *
+   * @param mediaItems The {@linkplain MediaItem MediaItems} that should be wrapped.
+   * @param durationsUs The durations of the {@linkplain EditedMediaItem EditedMediaItems}, in
+   *     microseconds.
+   * @param videoEffect The {@link Effect} to apply to each {@link EditedMediaItem}.
+   * @return A list of {@linkplain EditedMediaItem EditedMediaItems}.
+   */
+  private static List<EditedMediaItem> createEditedMediaItems(
+      List<MediaItem> mediaItems, List<Long> durationsUs, Effect videoEffect) {
+    List<EditedMediaItem> editedMediaItems = new ArrayList<>();
+    for (int i = 0; i < mediaItems.size(); i++) {
+      editedMediaItems.add(
+          createEditedMediaItem(mediaItems.get(i), durationsUs.get(i), videoEffect));
+    }
+    return editedMediaItems;
   }
 
   private static EditedMediaItem createEditedMediaItem(
@@ -687,6 +756,7 @@ public class CompositionPlayerSeekTest {
         DebugViewProvider debugViewProvider,
         VideoGraph.Listener listener,
         Executor listenerExecutor,
+        VideoCompositorSettings videoCompositorSettings,
         List<Effect> compositionEffects,
         long initialTimestampOffsetUs) {
       return singleInputVideoGraphFactory.create(
@@ -722,8 +792,14 @@ public class CompositionPlayerSeekTest {
             }
           },
           listenerExecutor,
+          videoCompositorSettings,
           compositionEffects,
           initialTimestampOffsetUs);
+    }
+
+    @Override
+    public boolean supportsMultipleInputs() {
+      return singleInputVideoGraphFactory.supportsMultipleInputs();
     }
   }
 
@@ -734,10 +810,8 @@ public class CompositionPlayerSeekTest {
       latch = new CountDownLatch(count);
     }
 
-    public void await() throws InterruptedException, TimeoutException {
-      if (!latch.await(TEST_TIMEOUT_MS, MILLISECONDS)) {
-        throw new TimeoutException();
-      }
+    public boolean await() throws InterruptedException {
+      return latch.await(TEST_TIMEOUT_MS, MILLISECONDS);
     }
 
     public void countDown() {
@@ -746,6 +820,12 @@ public class CompositionPlayerSeekTest {
 
     public long getCount() {
       return latch.getCount();
+    }
+
+    public void unblock() {
+      while (latch.getCount() > 0) {
+        latch.countDown();
+      }
     }
 
     public void reset(int count) {

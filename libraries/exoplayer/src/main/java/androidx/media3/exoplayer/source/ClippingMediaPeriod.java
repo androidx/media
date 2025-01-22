@@ -137,8 +137,7 @@ public final class ClippingMediaPeriod implements MediaPeriod, MediaPeriod.Callb
             selections, mayRetainStreamFlags, childStreams, streamResetFlags, positionUs);
     pendingInitialDiscontinuityPositionUs =
         isPendingInitialDiscontinuity()
-                && positionUs == startUs
-                && shouldKeepInitialDiscontinuity(startUs, selections)
+                && shouldKeepInitialDiscontinuity(enablePositionUs, selections)
             ? enablePositionUs
             : C.TIME_UNSET;
     Assertions.checkState(

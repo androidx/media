@@ -250,7 +250,9 @@ public class FakeMultiPeriodLiveTimeline extends Timeline {
       boolean isAd = adSequencePattern[lastPeriodIndex % sequencePeriodCount];
       AdPlaybackState adPlaybackState = AdPlaybackState.NONE;
       if (!isContentTimeline) {
-        adPlaybackState = new AdPlaybackState("adsId").withLivePostrollPlaceholderAppended();
+        adPlaybackState =
+            new AdPlaybackState("adsId")
+                .withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ true);
         if (isAd && populateAds) {
           adPlaybackState =
               adPlaybackState

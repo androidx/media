@@ -22,6 +22,7 @@ import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
+import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.UnstableApi;
@@ -284,6 +285,12 @@ public final class ExportResult {
     /** The processed {@link MediaItem}. */
     public final MediaItem mediaItem;
 
+    /** The duration of the media item, in microseconds. */
+    public final long durationUs;
+
+    /** The {@link Format} of the media item. */
+    @Nullable public final Format format;
+
     /**
      * The name of the audio decoder used to process {@code mediaItem}. This field is {@code null}
      * if no audio decoder was used.
@@ -298,8 +305,14 @@ public final class ExportResult {
 
     /** Creates an instance. */
     public ProcessedInput(
-        MediaItem mediaItem, @Nullable String audioDecoderName, @Nullable String videoDecoderName) {
+        MediaItem mediaItem,
+        long durationUs,
+        @Nullable Format format,
+        @Nullable String audioDecoderName,
+        @Nullable String videoDecoderName) {
       this.mediaItem = mediaItem;
+      this.durationUs = durationUs;
+      this.format = format;
       this.audioDecoderName = audioDecoderName;
       this.videoDecoderName = videoDecoderName;
     }

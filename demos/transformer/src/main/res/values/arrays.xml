@@ -35,6 +35,7 @@
   <string-array name="audio_effects_names">
     <item>High pitched</item>
     <item>Sample rate of 48000Hz</item>
+    <item>Sample rate of 96000Hz</item>
     <item>Skip silence</item>
     <item>Mix channels into mono</item>
     <item>Scale volume to 50%</item>

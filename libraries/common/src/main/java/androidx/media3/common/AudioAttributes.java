@@ -170,6 +170,43 @@ public final class AudioAttributes {
     return audioAttributesV21;
   }
 
+  /** Returns the {@link C.StreamType} corresponding to these audio attributes. */
+  @UnstableApi
+  public @C.StreamType int getStreamType() {
+    // Flags to stream type mapping
+    if ((flags & C.FLAG_AUDIBILITY_ENFORCED) == C.FLAG_AUDIBILITY_ENFORCED) {
+      return C.STREAM_TYPE_SYSTEM;
+    }
+    // Usage to stream type mapping
+    switch (usage) {
+      case C.USAGE_ASSISTANCE_SONIFICATION:
+        return C.STREAM_TYPE_SYSTEM;
+      case C.USAGE_VOICE_COMMUNICATION:
+        return C.STREAM_TYPE_VOICE_CALL;
+      case C.USAGE_VOICE_COMMUNICATION_SIGNALLING:
+        return C.STREAM_TYPE_DTMF;
+      case C.USAGE_ALARM:
+        return C.STREAM_TYPE_ALARM;
+      case C.USAGE_NOTIFICATION_RINGTONE:
+        return C.STREAM_TYPE_RING;
+      case C.USAGE_NOTIFICATION:
+      case C.USAGE_NOTIFICATION_COMMUNICATION_REQUEST:
+      case C.USAGE_NOTIFICATION_COMMUNICATION_INSTANT:
+      case C.USAGE_NOTIFICATION_COMMUNICATION_DELAYED:
+      case C.USAGE_NOTIFICATION_EVENT:
+        return C.STREAM_TYPE_NOTIFICATION;
+      case C.USAGE_ASSISTANCE_ACCESSIBILITY:
+        return C.STREAM_TYPE_ACCESSIBILITY;
+      case C.USAGE_MEDIA:
+      case C.USAGE_GAME:
+      case C.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE:
+      case C.USAGE_ASSISTANT:
+      case C.USAGE_UNKNOWN:
+      default:
+        return C.STREAM_TYPE_MUSIC;
+    }
+  }
+
   @Override
   public boolean equals(@Nullable Object obj) {
     if (this == obj) {

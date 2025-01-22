@@ -19,6 +19,7 @@ package androidx.media3.transformer;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
+import static androidx.media3.common.util.Util.SDK_INT;
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.extractor.AacUtil.AAC_LC_AUDIO_SAMPLE_COUNT;
 import static androidx.media3.transformer.ExportException.ERROR_CODE_MUXING_APPEND;
@@ -58,7 +59,6 @@ import androidx.media3.common.util.Util;
 import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
-import androidx.media3.muxer.Muxer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -110,6 +110,7 @@ public final class Transformer {
     private boolean trimOptimizationEnabled;
     private boolean portraitEncodingEnabled;
     private boolean fileStartsOnVideoFrameEnabled;
+    private boolean usePlatformDiagnostics;
     private long maxDelayBetweenMuxerSamplesMs;
     private int maxFramesInEncoder;
     private ListenerSet<Transformer.Listener> listeners;
@@ -156,6 +157,7 @@ public final class Transformer {
       this.trimOptimizationEnabled = transformer.trimOptimizationEnabled;
       this.portraitEncodingEnabled = transformer.portraitEncodingEnabled;
       this.fileStartsOnVideoFrameEnabled = transformer.fileStartsOnVideoFrameEnabled;
+      this.usePlatformDiagnostics = transformer.usePlatformDiagnostics;
       this.maxDelayBetweenMuxerSamplesMs = transformer.maxDelayBetweenMuxerSamplesMs;
       this.maxFramesInEncoder = transformer.maxFramesInEncoder;
       this.listeners = transformer.listeners;
@@ -514,6 +516,26 @@ public final class Transformer {
     }
 
     /**
+     * Sets whether transformer reports diagnostics data to the Android platform.
+     *
+     * <p>If enabled, transformer will use the {@link android.media.metrics.MediaMetricsManager} to
+     * create an {@link android.media.metrics.EditingSession} and forward editing events and
+     * performance data to this session. This helps to provide system performance and debugging
+     * information for media editing on this device. This data may also be collected by Google <a
+     * href="https://support.google.com/accounts/answer/6078260">if sharing usage and diagnostics
+     * data is enabled</a> by the user of the device.
+     *
+     * @param usePlatformDiagnostics Whether transformer reports diagnostics data to the Android
+     *     platform
+     * @return This builder
+     */
+    @CanIgnoreReturnValue
+    public Builder setUsePlatformDiagnostics(boolean usePlatformDiagnostics) {
+      this.usePlatformDiagnostics = usePlatformDiagnostics;
+      return this;
+    }
+
+    /**
      * Builds a {@link Transformer} instance.
      *
      * @throws IllegalStateException If both audio and video have been removed (otherwise the output
@@ -549,6 +571,7 @@ public final class Transformer {
           trimOptimizationEnabled,
           portraitEncodingEnabled,
           fileStartsOnVideoFrameEnabled,
+          usePlatformDiagnostics,
           maxDelayBetweenMuxerSamplesMs,
           maxFramesInEncoder,
           listeners,
@@ -731,6 +754,7 @@ public final class Transformer {
   private final boolean trimOptimizationEnabled;
   private final boolean portraitEncodingEnabled;
   private final boolean fileStartsOnVideoFrameEnabled;
+  private final boolean usePlatformDiagnostics;
   private final long maxDelayBetweenMuxerSamplesMs;
   private final int maxFramesInEncoder;
 
@@ -746,6 +770,7 @@ public final class Transformer {
   private final HandlerWrapper applicationHandler;
   private final ComponentListener componentListener;
   private final ExportResult.Builder exportResultBuilder;
+  private @MonotonicNonNull EditingMetricsCollector editingMetricsCollector;
 
   @Nullable private TransformerInternal transformerInternal;
   @Nullable private MuxerWrapper remuxingMuxerWrapper;
@@ -770,6 +795,7 @@ public final class Transformer {
       boolean trimOptimizationEnabled,
       boolean portraitEncodingEnabled,
       boolean fileStartsOnVideoFrameEnabled,
+      boolean usePlatformDiagnostics,
       long maxDelayBetweenMuxerSamplesMs,
       int maxFramesInEncoder,
       ListenerSet<Listener> listeners,
@@ -791,6 +817,7 @@ public final class Transformer {
     this.trimOptimizationEnabled = trimOptimizationEnabled;
     this.portraitEncodingEnabled = portraitEncodingEnabled;
     this.fileStartsOnVideoFrameEnabled = fileStartsOnVideoFrameEnabled;
+    this.usePlatformDiagnostics = usePlatformDiagnostics;
     this.maxDelayBetweenMuxerSamplesMs = maxDelayBetweenMuxerSamplesMs;
     this.maxFramesInEncoder = maxFramesInEncoder;
     this.listeners = listeners;
@@ -1139,7 +1166,17 @@ public final class Transformer {
     try {
       transformerInternal.cancel();
     } finally {
+      ProgressHolder progressHolder = new ProgressHolder();
+      int progressState = getProgress(progressHolder);
       transformerInternal = null;
+
+      if (canCollectEditingMetrics()) {
+        int progressPercentage =
+            (progressState == PROGRESS_STATE_AVAILABLE)
+                ? progressHolder.progress
+                : C.PERCENTAGE_UNSET;
+        checkNotNull(editingMetricsCollector).onExportCancelled(progressPercentage);
+      }
     }
 
     if (getResumeMetadataFuture != null && !getResumeMetadataFuture.isDone()) {
@@ -1515,6 +1552,10 @@ public final class Transformer {
     }
   }
 
+  private boolean canCollectEditingMetrics() {
+    return SDK_INT >= 35 && usePlatformDiagnostics;
+  }
+
   private void startInternal(
       Composition composition,
       MuxerWrapper muxerWrapper,
@@ -1536,6 +1577,9 @@ public final class Transformer {
               context, new DefaultDecoderFactory.Builder(context).build(), clock);
     }
     DebugTraceUtil.reset();
+    if (canCollectEditingMetrics()) {
+      editingMetricsCollector = new EditingMetricsCollector(context);
+    }
     transformerInternal =
         new TransformerInternal(
             context,
@@ -1559,20 +1603,34 @@ public final class Transformer {
 
   private void onExportCompletedWithSuccess() {
     maybeStopExportWatchdogTimer();
+    ExportResult exportResult = exportResultBuilder.build();
     listeners.queueEvent(
         /* eventFlag= */ C.INDEX_UNSET,
-        listener -> listener.onCompleted(checkNotNull(composition), exportResultBuilder.build()));
+        listener -> listener.onCompleted(checkNotNull(composition), exportResult));
     listeners.flushEvents();
+    if (canCollectEditingMetrics()) {
+      checkNotNull(editingMetricsCollector).onExportSuccess(exportResult.processedInputs);
+    }
     transformerState = TRANSFORMER_STATE_PROCESS_FULL_INPUT;
   }
 
   private void onExportCompletedWithError(ExportException exception) {
     maybeStopExportWatchdogTimer();
+    ExportResult exportResult = exportResultBuilder.build();
     listeners.queueEvent(
         /* eventFlag= */ C.INDEX_UNSET,
-        listener ->
-            listener.onError(checkNotNull(composition), exportResultBuilder.build(), exception));
+        listener -> listener.onError(checkNotNull(composition), exportResult, exception));
     listeners.flushEvents();
+    if (canCollectEditingMetrics()) {
+      ProgressHolder progressHolder = new ProgressHolder();
+      int progressState = getProgress(progressHolder);
+      int progressPercentage =
+          (progressState == PROGRESS_STATE_AVAILABLE)
+              ? progressHolder.progress
+              : C.PERCENTAGE_UNSET;
+      checkNotNull(editingMetricsCollector)
+          .onExportError(progressPercentage, exception, exportResult.processedInputs);
+    }
     transformerState = TRANSFORMER_STATE_PROCESS_FULL_INPUT;
   }
 
@@ -1646,8 +1704,8 @@ public final class Transformer {
       }
 
       exportResultBuilder.setExportException(exportException);
-      transformerInternal = null;
       onExportCompletedWithError(exportException);
+      transformerInternal = null;
     }
 
     // MuxerWrapper.Listener implementation

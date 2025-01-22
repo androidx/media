@@ -26,7 +26,7 @@ public class ForwardingExtractorInputTest {
 
   @Test
   public void overridesAllMethods() throws Exception {
-    TestUtil.assertForwardingClassOverridesAllMethods(
+    TestUtil.assertSubclassOverridesAllMethods(
         ExtractorInput.class, ForwardingExtractorInput.class);
   }
 

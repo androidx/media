@@ -149,6 +149,74 @@ public class SimpleBasePlayerTest {
   }
 
   @Test
+  public void stateBuildUpon_withExplicitTimeline_isEqual() {
+    MediaMetadata mediaMetadata = new MediaMetadata.Builder().setTitle("title").build();
+    Tracks tracks =
+        new Tracks(
+            ImmutableList.of(
+                new Tracks.Group(
+                    new TrackGroup(new Format.Builder().build()),
+                    /* adaptiveSupported= */ true,
+                    /* trackSupport= */ new int[] {C.FORMAT_HANDLED},
+                    /* trackSelected= */ new boolean[] {true})));
+    State state =
+        new State.Builder()
+            .setPlaylist(new FakeTimeline(/* windowCount= */ 3), tracks, mediaMetadata)
+            .build();
+
+    State newState = state.buildUpon().build();
+
+    assertThat(newState).isEqualTo(state);
+    assertThat(newState.hashCode()).isEqualTo(state.hashCode());
+  }
+
+  @Test
+  public void stateBuildUpon_withExplicitTimelineAndNewCurrentIndex_reevalutesMediaMetadata() {
+    Timeline timeline =
+        new FakeTimeline(
+            new FakeTimeline.TimelineWindowDefinition(
+                /* periodCount= */ 1,
+                /* id= */ 0,
+                /* isSeekable= */ true,
+                /* isDynamic= */ true,
+                /* isLive= */ true,
+                /* isPlaceholder= */ false,
+                /* durationUs= */ 1000,
+                /* defaultPositionUs= */ 0,
+                /* windowOffsetInFirstPeriodUs= */ 0,
+                ImmutableList.of(AdPlaybackState.NONE),
+                new MediaItem.Builder()
+                    .setMediaId("1")
+                    .setMediaMetadata(new MediaMetadata.Builder().setArtist("artist1").build())
+                    .build()),
+            new FakeTimeline.TimelineWindowDefinition(
+                /* periodCount= */ 1,
+                /* id= */ 1,
+                /* isSeekable= */ true,
+                /* isDynamic= */ true,
+                /* isLive= */ true,
+                /* isPlaceholder= */ false,
+                /* durationUs= */ 1000,
+                /* defaultPositionUs= */ 0,
+                /* windowOffsetInFirstPeriodUs= */ 0,
+                ImmutableList.of(AdPlaybackState.NONE),
+                new MediaItem.Builder()
+                    .setMediaId("2")
+                    .setMediaMetadata(new MediaMetadata.Builder().setArtist("artist2").build())
+                    .build()));
+    State state =
+        new State.Builder()
+            .setPlaylist(timeline, Tracks.EMPTY, /* currentMetadata= */ null)
+            .setCurrentMediaItemIndex(0)
+            .build();
+
+    State newState = state.buildUpon().setCurrentMediaItemIndex(1).build();
+
+    assertThat(newState.currentMetadata)
+        .isEqualTo(new MediaMetadata.Builder().setArtist("artist2").build());
+  }
+
+  @Test
   public void mediaItemDataBuildUpon_build_isEqual() {
     SimpleBasePlayer.MediaItemData mediaItemData =
         new SimpleBasePlayer.MediaItemData.Builder(/* uid= */ new Object())
@@ -8696,6 +8764,36 @@ public class SimpleBasePlayerTest {
     player.seekToNextMediaItem();
 
     assertThat(callForwarded.get()).isFalse();
+  }
+
+  @Test
+  public void livePositionProvider_returnsChangingLivePosition() {
+    AtomicInteger livePositionMs = new AtomicInteger(/* initialValue= */ 100);
+    SimpleBasePlayer.LivePositionSupplier livePositionSupplier =
+        new SimpleBasePlayer.LivePositionSupplier(livePositionMs::get);
+
+    long position1Ms = livePositionSupplier.get();
+    livePositionMs.set(200);
+    long position2Ms = livePositionSupplier.get();
+    livePositionMs.set(300);
+    long position3Ms = livePositionSupplier.get();
+
+    assertThat(position1Ms).isEqualTo(100);
+    assertThat(position2Ms).isEqualTo(200);
+    assertThat(position3Ms).isEqualTo(300);
+  }
+
+  @Test
+  public void livePositionProvider_disconnect_returnsFinalPosition() {
+    AtomicInteger livePositionMs = new AtomicInteger(/* initialValue= */ 100);
+    SimpleBasePlayer.LivePositionSupplier livePositionSupplier =
+        new SimpleBasePlayer.LivePositionSupplier(livePositionMs::get);
+
+    livePositionSupplier.disconnect(/* finalValue= */ 150);
+    livePositionMs.set(200);
+    long positionMs = livePositionSupplier.get();
+
+    assertThat(positionMs).isEqualTo(150);
   }
 
   private static Object[] getAnyArguments(Method method) {

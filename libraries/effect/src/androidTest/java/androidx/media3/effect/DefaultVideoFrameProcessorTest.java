@@ -47,13 +47,11 @@ import java.util.Objects;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -296,11 +294,10 @@ public class DefaultVideoFrameProcessorTest {
         .isAtLeast(firstStreamLastFrameAvailableTimeMs.get());
   }
 
-  @Ignore("b/350956435 - Re-enable when it's no longer flaky")
   @Test
   public void registerInputStreamWithAutomaticFrameRegistration_succeeds() throws Exception {
     CountDownLatch inputStreamRegisteredCountDownLatch = new CountDownLatch(1);
-    AtomicInteger outputFrameCount = new AtomicInteger();
+    ConditionVariable outputFrameAvailableConditionVariable = new ConditionVariable();
     AtomicReference<@NullableType Exception> error = new AtomicReference<>();
     CountDownLatch endedCountDownLatch = new CountDownLatch(1);
     defaultVideoFrameProcessor =
@@ -316,7 +313,7 @@ public class DefaultVideoFrameProcessorTest {
 
               @Override
               public void onOutputFrameAvailableForRendering(long presentationTimeUs) {
-                outputFrameCount.incrementAndGet();
+                outputFrameAvailableConditionVariable.open();
               }
 
               @Override
@@ -356,6 +353,9 @@ public class DefaultVideoFrameProcessorTest {
       // This causes a frame to become available on the input surface, which is processed by the
       // video frame processor.
       surface.unlockCanvasAndPost(canvas);
+      // Wait for the output frame to be rendered.
+      assertThat(outputFrameAvailableConditionVariable.block(TEST_TIMEOUT_MS)).isTrue();
+      outputFrameAvailableConditionVariable.close();
     }
     defaultVideoFrameProcessor.signalEndOfInput();
 
@@ -363,7 +363,6 @@ public class DefaultVideoFrameProcessorTest {
       throw new IllegalStateException("Test timeout", error.get());
     }
     assertThat(error.get()).isNull();
-    assertThat(outputFrameCount.get()).isEqualTo(inputFrameCount);
   }
 
   private DefaultVideoFrameProcessor createDefaultVideoFrameProcessor(

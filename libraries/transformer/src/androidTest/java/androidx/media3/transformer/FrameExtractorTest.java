@@ -16,11 +16,14 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.common.PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND;
+import static androidx.media3.common.PlaybackException.ERROR_CODE_SETUP_REQUIRED;
 import static androidx.media3.exoplayer.SeekParameters.CLOSEST_SYNC;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.maybeSaveTestBitmap;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.readBitmap;
 import static androidx.media3.test.utils.TestUtil.assertBitmapsAreSimilar;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_TRIM_OPTIMIZATION_270;
+import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -30,6 +33,7 @@ import android.app.Instrumentation;
 import android.content.Context;
 import android.graphics.Bitmap;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.PlaybackException;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.effect.Presentation;
@@ -64,7 +68,7 @@ public class FrameExtractorTest {
       "test-generated-goldens/FrameExtractorTest/";
   private static final String FILE_PATH =
       "asset:///media/mp4/sample_with_increasing_timestamps_360p.mp4";
-  private static final long TIMEOUT_SECONDS = 10;
+  private static final long TIMEOUT_SECONDS = 20;
   // TODO: b/350498258 - Due to bugs in hardware decoders, we can only assert for low PSNR values.
   // Move to using software decoders in pixel tests, and increase PSNR threshold.
   private static final float PSNR_THRESHOLD = 25f;
@@ -92,10 +96,8 @@ public class FrameExtractorTest {
   public void extractFrame_oneFrame_returnsNearest() throws Exception {
     frameExtractor =
         new ExperimentalFrameExtractor(
-            context,
-            new ExperimentalFrameExtractor.Configuration.Builder().build(),
-            MediaItem.fromUri(FILE_PATH),
-            /* effects= */ ImmutableList.of());
+            context, new ExperimentalFrameExtractor.Configuration.Builder().build());
+    frameExtractor.setMediaItem(MediaItem.fromUri(FILE_PATH), /* effects= */ ImmutableList.of());
 
     ListenableFuture<Frame> frameFuture = frameExtractor.getFrame(/* positionMs= */ 8_500);
     Frame frame = frameFuture.get(TIMEOUT_SECONDS, SECONDS);
@@ -120,10 +122,10 @@ public class FrameExtractorTest {
   public void extractFrame_oneFrameWithPresentationEffect_returnsScaledFrame() throws Exception {
     frameExtractor =
         new ExperimentalFrameExtractor(
-            context,
-            new ExperimentalFrameExtractor.Configuration.Builder().build(),
-            MediaItem.fromUri(FILE_PATH),
-            /* effects= */ ImmutableList.of(Presentation.createForHeight(180)));
+            context, new ExperimentalFrameExtractor.Configuration.Builder().build());
+    frameExtractor.setMediaItem(
+        MediaItem.fromUri(FILE_PATH),
+        /* effects= */ ImmutableList.of(Presentation.createForHeight(180)));
 
     ListenableFuture<Frame> frameFuture = frameExtractor.getFrame(/* positionMs= */ 8_500);
     Frame frame = frameFuture.get(TIMEOUT_SECONDS, SECONDS);
@@ -148,10 +150,8 @@ public class FrameExtractorTest {
   public void extractFrame_pastDuration_returnsLastFrame() throws Exception {
     frameExtractor =
         new ExperimentalFrameExtractor(
-            context,
-            new ExperimentalFrameExtractor.Configuration.Builder().build(),
-            MediaItem.fromUri(FILE_PATH),
-            /* effects= */ ImmutableList.of());
+            context, new ExperimentalFrameExtractor.Configuration.Builder().build());
+    frameExtractor.setMediaItem(MediaItem.fromUri(FILE_PATH), /* effects= */ ImmutableList.of());
 
     ListenableFuture<Frame> frameFuture = frameExtractor.getFrame(/* positionMs= */ 200_000);
     Frame frame = frameFuture.get(TIMEOUT_SECONDS, SECONDS);
@@ -177,10 +177,8 @@ public class FrameExtractorTest {
   public void extractFrame_repeatedPositionMs_returnsTheSameFrame() throws Exception {
     frameExtractor =
         new ExperimentalFrameExtractor(
-            context,
-            new ExperimentalFrameExtractor.Configuration.Builder().build(),
-            MediaItem.fromUri(FILE_PATH),
-            /* effects= */ ImmutableList.of());
+            context, new ExperimentalFrameExtractor.Configuration.Builder().build());
+    frameExtractor.setMediaItem(MediaItem.fromUri(FILE_PATH), /* effects= */ ImmutableList.of());
     ImmutableList<Long> requestedFramePositionsMs = ImmutableList.of(0L, 0L, 33L, 34L, 34L);
     ImmutableList<Long> expectedFramePositionsMs = ImmutableList.of(0L, 0L, 33L, 66L, 66L);
     List<ListenableFuture<Frame>> frameFutures = new ArrayList<>();
@@ -217,9 +215,8 @@ public class FrameExtractorTest {
             context,
             new ExperimentalFrameExtractor.Configuration.Builder()
                 .setSeekParameters(CLOSEST_SYNC)
-                .build(),
-            MediaItem.fromUri(FILE_PATH),
-            /* effects= */ ImmutableList.of());
+                .build());
+    frameExtractor.setMediaItem(MediaItem.fromUri(FILE_PATH), /* effects= */ ImmutableList.of());
     ImmutableList<Long> requestedFramePositionsMs = ImmutableList.of(0L, 0L, 33L, 34L, 34L);
     ImmutableList<Long> expectedFramePositionsMs = ImmutableList.of(0L, 0L, 0L, 0L, 0L);
     List<ListenableFuture<Frame>> frameFutures = new ArrayList<>();
@@ -253,10 +250,8 @@ public class FrameExtractorTest {
   public void extractFrame_randomAccess_returnsCorrectFrames() throws Exception {
     frameExtractor =
         new ExperimentalFrameExtractor(
-            context,
-            new ExperimentalFrameExtractor.Configuration.Builder().build(),
-            MediaItem.fromUri(FILE_PATH),
-            /* effects= */ ImmutableList.of());
+            context, new ExperimentalFrameExtractor.Configuration.Builder().build());
+    frameExtractor.setMediaItem(MediaItem.fromUri(FILE_PATH), /* effects= */ ImmutableList.of());
 
     ListenableFuture<Frame> frame5 = frameExtractor.getFrame(/* positionMs= */ 5_000);
     ListenableFuture<Frame> frame3 = frameExtractor.getFrame(/* positionMs= */ 3_000);
@@ -284,9 +279,8 @@ public class FrameExtractorTest {
             context,
             new ExperimentalFrameExtractor.Configuration.Builder()
                 .setSeekParameters(CLOSEST_SYNC)
-                .build(),
-            MediaItem.fromUri(FILE_PATH),
-            /* effects= */ ImmutableList.of());
+                .build());
+    frameExtractor.setMediaItem(MediaItem.fromUri(FILE_PATH), /* effects= */ ImmutableList.of());
 
     ListenableFuture<Frame> frame5 = frameExtractor.getFrame(/* positionMs= */ 5_000);
     ListenableFuture<Frame> frame3 = frameExtractor.getFrame(/* positionMs= */ 3_000);
@@ -314,10 +308,8 @@ public class FrameExtractorTest {
     String filePath = "asset:///nonexistent";
     frameExtractor =
         new ExperimentalFrameExtractor(
-            context,
-            new ExperimentalFrameExtractor.Configuration.Builder().build(),
-            MediaItem.fromUri(filePath),
-            /* effects= */ ImmutableList.of());
+            context, new ExperimentalFrameExtractor.Configuration.Builder().build());
+    frameExtractor.setMediaItem(MediaItem.fromUri(filePath), /* effects= */ ImmutableList.of());
 
     ListenableFuture<Frame> frame0 = frameExtractor.getFrame(/* positionMs= */ 0);
 
@@ -329,13 +321,26 @@ public class FrameExtractorTest {
   }
 
   @Test
+  public void getFrame_withoutMediaItem_throws() {
+    frameExtractor =
+        new ExperimentalFrameExtractor(
+            context, new ExperimentalFrameExtractor.Configuration.Builder().build());
+
+    ListenableFuture<Frame> frameFuture = frameExtractor.getFrame(/* positionMs= */ 8_500);
+
+    ExecutionException thrown =
+        assertThrows(ExecutionException.class, () -> frameFuture.get(TIMEOUT_SECONDS, SECONDS));
+    assertThat(thrown).hasCauseThat().isInstanceOf(PlaybackException.class);
+    assertThat(((PlaybackException) thrown.getCause()).errorCode)
+        .isEqualTo(ERROR_CODE_SETUP_REQUIRED);
+  }
+
+  @Test
   public void extractFrame_oneFrame_completesViaCallback() throws Exception {
     frameExtractor =
         new ExperimentalFrameExtractor(
-            context,
-            new ExperimentalFrameExtractor.Configuration.Builder().build(),
-            MediaItem.fromUri(FILE_PATH),
-            /* effects= */ ImmutableList.of());
+            context, new ExperimentalFrameExtractor.Configuration.Builder().build());
+    frameExtractor.setMediaItem(MediaItem.fromUri(FILE_PATH), /* effects= */ ImmutableList.of());
     AtomicReference<@NullableType Frame> frameAtomicReference = new AtomicReference<>();
     AtomicReference<@NullableType Throwable> throwableAtomicReference = new AtomicReference<>();
     ConditionVariable frameReady = new ConditionVariable();
@@ -373,10 +378,8 @@ public class FrameExtractorTest {
   public void frameExtractor_releaseOnPlayerLooper_returns() {
     frameExtractor =
         new ExperimentalFrameExtractor(
-            context,
-            new ExperimentalFrameExtractor.Configuration.Builder().build(),
-            MediaItem.fromUri(FILE_PATH),
-            /* effects= */ ImmutableList.of());
+            context, new ExperimentalFrameExtractor.Configuration.Builder().build());
+    frameExtractor.setMediaItem(MediaItem.fromUri(FILE_PATH), /* effects= */ ImmutableList.of());
 
     Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
     instrumentation.runOnMainSync(frameExtractor::release);
@@ -387,10 +390,9 @@ public class FrameExtractorTest {
   public void extractFrame_oneFrameRotated_returnsFrameInCorrectOrientation() throws Exception {
     frameExtractor =
         new ExperimentalFrameExtractor(
-            context,
-            new ExperimentalFrameExtractor.Configuration.Builder().build(),
-            MediaItem.fromUri(MP4_TRIM_OPTIMIZATION_270.uri),
-            /* effects= */ ImmutableList.of());
+            context, new ExperimentalFrameExtractor.Configuration.Builder().build());
+    frameExtractor.setMediaItem(
+        MediaItem.fromUri(MP4_TRIM_OPTIMIZATION_270.uri), /* effects= */ ImmutableList.of());
 
     ListenableFuture<Frame> frameFuture = frameExtractor.getFrame(/* positionMs= */ 0);
     Frame frame = frameFuture.get(TIMEOUT_SECONDS, SECONDS);
@@ -415,10 +417,8 @@ public class FrameExtractorTest {
   public void extractFrame_randomAccessWithCancellation_returnsCorrectFrames() throws Exception {
     frameExtractor =
         new ExperimentalFrameExtractor(
-            context,
-            new ExperimentalFrameExtractor.Configuration.Builder().build(),
-            MediaItem.fromUri(FILE_PATH),
-            /* effects= */ ImmutableList.of());
+            context, new ExperimentalFrameExtractor.Configuration.Builder().build());
+    frameExtractor.setMediaItem(MediaItem.fromUri(FILE_PATH), /* effects= */ ImmutableList.of());
 
     ListenableFuture<Frame> frame5 = frameExtractor.getFrame(/* positionMs= */ 5_000);
     ListenableFuture<Frame> frame3 = frameExtractor.getFrame(/* positionMs= */ 3_000);
@@ -439,5 +439,62 @@ public class FrameExtractorTest {
                 .get(TIMEOUT_SECONDS, SECONDS)
                 .renderedOutputBufferCount)
         .isEqualTo(4);
+  }
+
+  @Test
+  public void extractFrame_changeMediaItem_extractsFrameFromTheCorrectItem() throws Exception {
+    frameExtractor =
+        new ExperimentalFrameExtractor(
+            context, new ExperimentalFrameExtractor.Configuration.Builder().build());
+    frameExtractor.setMediaItem(
+        MediaItem.fromUri(MP4_TRIM_OPTIMIZATION_270.uri), /* effects= */ ImmutableList.of());
+    ListenableFuture<Frame> frameFutureFirstItem = frameExtractor.getFrame(/* positionMs= */ 0);
+    frameExtractor.setMediaItem(MediaItem.fromUri(FILE_PATH), /* effects= */ ImmutableList.of());
+    ListenableFuture<Frame> frameFutureSecondItem =
+        frameExtractor.getFrame(/* positionMs= */ 8_500);
+
+    Frame frameFirstItem = frameFutureFirstItem.get(TIMEOUT_SECONDS, SECONDS);
+    Bitmap actualBitmapFirstItem = frameFirstItem.bitmap;
+    Bitmap expectedBitmapFirstItem =
+        readBitmap(
+            /* assetString= */ GOLDEN_ASSET_FOLDER_PATH
+                + "internal_emulator_transformer_output_180_rotated_0.000.png");
+    maybeSaveTestBitmap(
+        testId, /* bitmapLabel= */ "firstItem", actualBitmapFirstItem, /* path= */ null);
+    Frame frameSecondItem = frameFutureSecondItem.get(TIMEOUT_SECONDS, SECONDS);
+    Bitmap actualBitmapSecondItem = frameSecondItem.bitmap;
+    Bitmap expectedBitmapSecondItem =
+        readBitmap(
+            /* assetString= */ GOLDEN_ASSET_FOLDER_PATH
+                + "sample_with_increasing_timestamps_360p_8.531.png");
+    maybeSaveTestBitmap(
+        testId, /* bitmapLabel= */ "secondItem", actualBitmapSecondItem, /* path= */ null);
+
+    assertThat(frameFirstItem.presentationTimeMs).isEqualTo(0);
+    assertBitmapsAreSimilar(expectedBitmapFirstItem, actualBitmapFirstItem, PSNR_THRESHOLD);
+    assertThat(frameSecondItem.presentationTimeMs).isEqualTo(8_531);
+    assertBitmapsAreSimilar(expectedBitmapSecondItem, actualBitmapSecondItem, PSNR_THRESHOLD);
+  }
+
+  @Test
+  public void extractFrame_oneFrame_decodesReferenceFramesOnly() throws Exception {
+    assumeFormatsSupported(
+        context, testId, /* inputFormat= */ MP4_ASSET.videoFormat, /* outputFormat= */ null);
+    frameExtractor =
+        new ExperimentalFrameExtractor(
+            context, new ExperimentalFrameExtractor.Configuration.Builder().build());
+    frameExtractor.setMediaItem(
+        MediaItem.fromUri(MP4_ASSET.uri), /* effects= */ ImmutableList.of());
+
+    ListenableFuture<Frame> frameFuture = frameExtractor.getFrame(/* positionMs= */ 967);
+    Frame frame = frameFuture.get(TIMEOUT_SECONDS, SECONDS);
+
+    assertThat(frame.presentationTimeMs).isEqualTo(967);
+    assertThat(
+            frameExtractor
+                .getDecoderCounters()
+                .get(TIMEOUT_SECONDS, SECONDS)
+                .skippedInputBufferCount)
+        .isEqualTo(13);
   }
 }

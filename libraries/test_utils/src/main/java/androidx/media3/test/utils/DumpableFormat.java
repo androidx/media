@@ -65,6 +65,7 @@ public final class DumpableFormat implements Dumper.Dumpable {
         "rotationDegrees", format, DEFAULT_FORMAT, format -> format.rotationDegrees);
     dumper.addIfNonDefault(
         "pixelWidthHeightRatio", format, DEFAULT_FORMAT, format -> format.pixelWidthHeightRatio);
+    dumper.addIfNonDefault("maxSubLayers", format, DEFAULT_FORMAT, format -> format.maxSubLayers);
     @Nullable ColorInfo colorInfo = format.colorInfo;
     if (colorInfo != null) {
       dumper.startBlock("colorInfo");

@@ -477,6 +477,7 @@ public final class HevcConfigTest {
     ParsableByteArray data = new ParsableByteArray(HVCC_BOX_PAYLOAD);
     HevcConfig hevcConfig = HevcConfig.parse(data);
 
+    assertThat(hevcConfig.maxSubLayers).isEqualTo(1);
     assertThat(hevcConfig.codecs).isEqualTo("hvc1.1.6.L153.B0");
     assertThat(hevcConfig.nalUnitLengthFieldLength).isEqualTo(4);
   }
@@ -487,6 +488,7 @@ public final class HevcConfigTest {
     ParsableByteArray data = new ParsableByteArray(HVCC_BOX_PAYLOAD_WITH_SET_RESERVED_BIT);
     HevcConfig hevcConfig = HevcConfig.parse(data);
 
+    assertThat(hevcConfig.maxSubLayers).isEqualTo(1);
     assertThat(hevcConfig.codecs).isEqualTo("hvc1.1.6.L153.B0");
     assertThat(hevcConfig.nalUnitLengthFieldLength).isEqualTo(4);
   }
@@ -496,12 +498,14 @@ public final class HevcConfigTest {
     ParsableByteArray hevcData = new ParsableByteArray(HVCC_BOX_PAYLOAD_MV_HEVC);
     HevcConfig hevcConfig = HevcConfig.parse(hevcData);
 
+    assertThat(hevcConfig.maxSubLayers).isEqualTo(1);
     assertThat(hevcConfig.codecs).isEqualTo("hvc1.1.6.L120.B0");
     assertThat(hevcConfig.nalUnitLengthFieldLength).isEqualTo(4);
 
     ParsableByteArray lhevcData = new ParsableByteArray(LHVC_BOX_PAYLOAD_MV_HEVC);
     HevcConfig lhevcConfig = HevcConfig.parseLayered(lhevcData, hevcConfig.vpsData);
 
+    assertThat(lhevcConfig.maxSubLayers).isEqualTo(8);
     assertThat(lhevcConfig.codecs).isEqualTo("hvc1.6.40.L120.BF.80");
     assertThat(lhevcConfig.nalUnitLengthFieldLength).isEqualTo(4);
   }

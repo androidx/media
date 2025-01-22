@@ -16,7 +16,7 @@
 package androidx.media3.extractor;
 
 import static androidx.media3.test.utils.TestUtil.assertForwardingClassForwardsAllMethods;
-import static androidx.media3.test.utils.TestUtil.assertForwardingClassOverridesAllMethods;
+import static androidx.media3.test.utils.TestUtil.assertSubclassOverridesAllMethods;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import org.junit.Test;
@@ -27,7 +27,7 @@ public class ForwardingExtractorTest {
 
   @Test
   public void overridesAllMethods() throws Exception {
-    assertForwardingClassOverridesAllMethods(Extractor.class, ForwardingExtractor.class);
+    assertSubclassOverridesAllMethods(Extractor.class, ForwardingExtractor.class);
   }
 
   @Test

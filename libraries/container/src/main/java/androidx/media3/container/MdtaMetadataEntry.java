@@ -18,8 +18,6 @@ package androidx.media3.container;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkState;
 
-import android.os.Parcel;
-import android.os.Parcelable;
 import androidx.annotation.Nullable;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.util.ParsableByteArray;
@@ -41,25 +39,25 @@ public final class MdtaMetadataEntry implements Metadata.Entry {
   /** Key for the capture frame rate (in frames per second). */
   public static final String KEY_ANDROID_CAPTURE_FPS = "com.android.capture.fps";
 
-  // TODO: b/345219017 - Add depth/editing file format spec link after its published.
-  /** Key for editable tracks box (edvd) offset. */
-  public static final String KEY_EDITABLE_TRACKS_OFFSET = "editable.tracks.offset";
+  // See the MP4 With Auxiliary Tracks Extension (MP4-AT) file format at
+  // https://developer.android.com/media/platform/mp4-at-file-format.
+  /** Key for auxiliary tracks extension box (axte) offset. */
+  public static final String KEY_AUXILIARY_TRACKS_OFFSET = "auxiliary.tracks.offset";
 
-  /** Key for editable tracks box (edvd) length. */
-  public static final String KEY_EDITABLE_TRACKS_LENGTH = "editable.tracks.length";
+  /** Key for auxiliary tracks extension box (axte) length. */
+  public static final String KEY_AUXILIARY_TRACKS_LENGTH = "auxiliary.tracks.length";
 
-  /** Key for editable tracks map. */
-  public static final String KEY_EDITABLE_TRACKS_MAP = "editable.tracks.map";
+  /** Key for auxiliary tracks map. */
+  public static final String KEY_AUXILIARY_TRACKS_MAP = "auxiliary.tracks.map";
 
-  /** Key for editable tracks samples location. */
-  public static final String KEY_EDITABLE_TRACKS_SAMPLES_LOCATION =
-      "editable.tracks.samples.location";
+  /** Key for whether auxiliary tracks samples are interleaved. */
+  public static final String KEY_AUXILIARY_TRACKS_INTERLEAVED = "auxiliary.tracks.interleaved";
 
-  /** The editable tracks samples are in edit data MP4. */
-  public static final byte EDITABLE_TRACKS_SAMPLES_LOCATION_IN_EDIT_DATA_MP4 = 0;
+  /** The auxiliary tracks samples are not interleaved and are in the axte.mdat box. */
+  public static final byte AUXILIARY_TRACKS_SAMPLES_NOT_INTERLEAVED = 0;
 
-  /** The editable tracks samples are interleaved with the primary tracks samples. */
-  public static final byte EDITABLE_TRACKS_SAMPLES_LOCATION_INTERLEAVED = 1;
+  /** The auxiliary tracks samples are interleaved in the primary video track’s mdat box. */
+  public static final byte AUXILIARY_TRACKS_SAMPLES_INTERLEAVED = 1;
 
   /** The default locale indicator which implies all speakers in all countries. */
   public static final int DEFAULT_LOCALE_INDICATOR = 0;
@@ -111,20 +109,12 @@ public final class MdtaMetadataEntry implements Metadata.Entry {
     this.typeIndicator = typeIndicator;
   }
 
-  private MdtaMetadataEntry(Parcel in) {
-    key = Util.castNonNull(in.readString());
-    value = Util.castNonNull(in.createByteArray());
-    localeIndicator = in.readInt();
-    typeIndicator = in.readInt();
-    validateData(key, value, typeIndicator);
-  }
-
   /**
-   * Returns the editable track types from the {@linkplain #KEY_EDITABLE_TRACKS_MAP editable tracks
-   * map} metadata.
+   * Returns the auxiliary track types from the {@linkplain #KEY_AUXILIARY_TRACKS_MAP auxiliary
+   * tracks map} metadata.
    */
-  public List<Integer> getEditableTrackTypesFromMap() {
-    checkState(key.equals(KEY_EDITABLE_TRACKS_MAP), "Metadata is not an editable tracks map");
+  public List<Integer> getAuxiliaryTrackTypesFromMap() {
+    checkState(key.equals(KEY_AUXILIARY_TRACKS_MAP), "Metadata is not an auxiliary tracks map");
     // Value has 1 byte version, 1 byte track count, n bytes track types.
     int numberOfTracks = value[1];
     List<Integer> trackTypes = new ArrayList<>();
@@ -179,8 +169,8 @@ public final class MdtaMetadataEntry implements Metadata.Entry {
         formattedValue = String.valueOf(new ParsableByteArray(value).readUnsignedLongToLong());
         break;
       case TYPE_INDICATOR_RESERVED:
-        if (key.equals(KEY_EDITABLE_TRACKS_MAP)) {
-          formattedValue = getFormattedValueForEditableTracksMap(getEditableTrackTypesFromMap());
+        if (key.equals(KEY_AUXILIARY_TRACKS_MAP)) {
+          formattedValue = getFormattedValueForAuxiliaryTracksMap(getAuxiliaryTrackTypesFromMap());
           break;
         }
       // fall through
@@ -191,60 +181,31 @@ public final class MdtaMetadataEntry implements Metadata.Entry {
     return "mdta: key=" + key + ", value=" + formattedValue;
   }
 
-  // Parcelable implementation.
-
-  @Override
-  public void writeToParcel(Parcel dest, int flags) {
-    dest.writeString(key);
-    dest.writeByteArray(value);
-    dest.writeInt(localeIndicator);
-    dest.writeInt(typeIndicator);
-  }
-
-  @Override
-  public int describeContents() {
-    return 0;
-  }
-
-  public static final Parcelable.Creator<MdtaMetadataEntry> CREATOR =
-      new Parcelable.Creator<MdtaMetadataEntry>() {
-
-        @Override
-        public MdtaMetadataEntry createFromParcel(Parcel in) {
-          return new MdtaMetadataEntry(in);
-        }
-
-        @Override
-        public MdtaMetadataEntry[] newArray(int size) {
-          return new MdtaMetadataEntry[size];
-        }
-      };
-
   private static void validateData(String key, byte[] value, int typeIndicator) {
     switch (key) {
       case KEY_ANDROID_CAPTURE_FPS:
         checkArgument(typeIndicator == TYPE_INDICATOR_FLOAT32 && value.length == 4);
         break;
-      case KEY_EDITABLE_TRACKS_OFFSET:
-      case KEY_EDITABLE_TRACKS_LENGTH:
+      case KEY_AUXILIARY_TRACKS_OFFSET:
+      case KEY_AUXILIARY_TRACKS_LENGTH:
         checkArgument(typeIndicator == TYPE_INDICATOR_UNSIGNED_INT64 && value.length == 8);
         break;
-      case KEY_EDITABLE_TRACKS_MAP:
+      case KEY_AUXILIARY_TRACKS_MAP:
         checkArgument(typeIndicator == TYPE_INDICATOR_RESERVED);
         break;
-      case KEY_EDITABLE_TRACKS_SAMPLES_LOCATION:
+      case KEY_AUXILIARY_TRACKS_INTERLEAVED:
         checkArgument(
             typeIndicator == TYPE_INDICATOR_8_BIT_UNSIGNED_INT
                 && value.length == 1
-                && (value[0] == EDITABLE_TRACKS_SAMPLES_LOCATION_IN_EDIT_DATA_MP4
-                    || value[0] == EDITABLE_TRACKS_SAMPLES_LOCATION_INTERLEAVED));
+                && (value[0] == AUXILIARY_TRACKS_SAMPLES_NOT_INTERLEAVED
+                    || value[0] == AUXILIARY_TRACKS_SAMPLES_INTERLEAVED));
         break;
       default:
         // Ignore custom keys.
     }
   }
 
-  private static String getFormattedValueForEditableTracksMap(List<Integer> trackTypes) {
+  private static String getFormattedValueForAuxiliaryTracksMap(List<Integer> trackTypes) {
     StringBuilder sb = new StringBuilder();
     sb.append("track types = ");
     Joiner.on(',').appendTo(sb, trackTypes);

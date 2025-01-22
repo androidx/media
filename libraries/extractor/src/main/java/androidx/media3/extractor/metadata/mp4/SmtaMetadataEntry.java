@@ -15,8 +15,6 @@
  */
 package androidx.media3.extractor.metadata.mp4;
 
-import android.os.Parcel;
-import android.os.Parcelable;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Metadata;
@@ -47,11 +45,6 @@ public final class SmtaMetadataEntry implements Metadata.Entry {
     this.svcTemporalLayerCount = svcTemporalLayerCount;
   }
 
-  private SmtaMetadataEntry(Parcel in) {
-    captureFrameRate = in.readFloat();
-    svcTemporalLayerCount = in.readInt();
-  }
-
   @Override
   public boolean equals(@Nullable Object obj) {
     if (this == obj) {
@@ -80,31 +73,4 @@ public final class SmtaMetadataEntry implements Metadata.Entry {
         + ", svcTemporalLayerCount="
         + svcTemporalLayerCount;
   }
-
-  // Parcelable implementation.
-
-  @Override
-  public void writeToParcel(Parcel dest, int flags) {
-    dest.writeFloat(captureFrameRate);
-    dest.writeInt(svcTemporalLayerCount);
-  }
-
-  @Override
-  public int describeContents() {
-    return 0;
-  }
-
-  public static final Parcelable.Creator<SmtaMetadataEntry> CREATOR =
-      new Parcelable.Creator<SmtaMetadataEntry>() {
-
-        @Override
-        public SmtaMetadataEntry createFromParcel(Parcel in) {
-          return new SmtaMetadataEntry(in);
-        }
-
-        @Override
-        public SmtaMetadataEntry[] newArray(int size) {
-          return new SmtaMetadataEntry[size];
-        }
-      };
 }

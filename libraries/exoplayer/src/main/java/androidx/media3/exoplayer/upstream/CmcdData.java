@@ -16,7 +16,9 @@
 package androidx.media3.exoplayer.upstream;
 
 import static androidx.media3.common.util.Assertions.checkArgument;
+import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
+import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static java.lang.Math.max;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
@@ -26,6 +28,7 @@ import androidx.annotation.Nullable;
 import androidx.annotation.StringDef;
 import androidx.media3.common.C;
 import androidx.media3.common.C.TrackType;
+import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.util.UnstableApi;
@@ -46,6 +49,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.regex.Pattern;
 
 /**
@@ -62,33 +66,6 @@ public final class CmcdData {
   /** {@link CmcdData.Factory} for {@link CmcdData} instances. */
   public static final class Factory {
 
-    /** Represents the Dynamic Adaptive Streaming over HTTP (DASH) format. */
-    public static final String STREAMING_FORMAT_DASH = "d";
-
-    /** Represents the HTTP Live Streaming (HLS) format. */
-    public static final String STREAMING_FORMAT_HLS = "h";
-
-    /** Represents the Smooth Streaming (SS) format. */
-    public static final String STREAMING_FORMAT_SS = "s";
-
-    /** Represents the Video on Demand (VOD) stream type. */
-    public static final String STREAM_TYPE_VOD = "v";
-
-    /** Represents the Live Streaming stream type. */
-    public static final String STREAM_TYPE_LIVE = "l";
-
-    /** Represents the object type for an initialization segment in a media container. */
-    public static final String OBJECT_TYPE_INIT_SEGMENT = "i";
-
-    /** Represents the object type for audio-only content in a media container. */
-    public static final String OBJECT_TYPE_AUDIO_ONLY = "a";
-
-    /** Represents the object type for video-only content in a media container. */
-    public static final String OBJECT_TYPE_VIDEO_ONLY = "v";
-
-    /** Represents the object type for muxed audio and video content in a media container. */
-    public static final String OBJECT_TYPE_MUXED_AUDIO_AND_VIDEO = "av";
-
     /**
      * Custom key names MUST carry a hyphenated prefix to ensure that there will not be a namespace
      * collision with future revisions to this specification. Clients SHOULD use a reverse-DNS
@@ -97,89 +74,40 @@ public final class CmcdData {
     private static final Pattern CUSTOM_KEY_NAME_PATTERN = Pattern.compile(".*-.*");
 
     private final CmcdConfiguration cmcdConfiguration;
-    private final ExoTrackSelection trackSelection;
-    private final long bufferedDurationUs;
-    private final float playbackRate;
-    private final @CmcdData.StreamingFormat String streamingFormat;
-    private final boolean isLive;
-    private final boolean didRebuffer;
-    private final boolean isBufferEmpty;
+    private final @StreamingFormat String streamingFormat;
+    @Nullable private ExoTrackSelection trackSelection;
+    private long bufferedDurationUs;
+    private float playbackRate;
+    @Nullable private Boolean isLive;
+    private boolean didRebuffer;
+    private boolean isBufferEmpty;
     private long chunkDurationUs;
-    @Nullable private @CmcdData.ObjectType String objectType;
+    @Nullable private @ObjectType String objectType;
     @Nullable private String nextObjectRequest;
     @Nullable private String nextRangeRequest;
 
     /**
      * Creates an instance.
      *
-     * @param cmcdConfiguration The {@link CmcdConfiguration} for this chunk source.
-     * @param trackSelection The {@linkplain ExoTrackSelection track selection}.
-     * @param bufferedDurationUs The duration of media currently buffered from the current playback
-     *     position, in microseconds.
-     * @param playbackRate The playback rate indicating the current speed of playback.
-     * @param streamingFormat The streaming format of the media content. Must be one of the allowed
-     *     streaming formats specified by the {@link CmcdData.StreamingFormat} annotation.
-     * @param isLive {@code true} if the media content is being streamed live, {@code false}
-     *     otherwise.
-     * @param didRebuffer {@code true} if a rebuffering event happened between the previous request
-     *     and this one, {@code false} otherwise.
-     * @param isBufferEmpty {@code true} if the queue of buffered chunks is empty, {@code false}
-     *     otherwise.
-     * @throws IllegalArgumentException If {@code bufferedDurationUs} is negative or {@code
-     *     playbackRate} is non-positive.
+     * @param cmcdConfiguration The {@link CmcdConfiguration} for this source.
+     * @param streamingFormat The streaming format of the media content.
      */
-    public Factory(
-        CmcdConfiguration cmcdConfiguration,
-        ExoTrackSelection trackSelection,
-        long bufferedDurationUs,
-        float playbackRate,
-        @CmcdData.StreamingFormat String streamingFormat,
-        boolean isLive,
-        boolean didRebuffer,
-        boolean isBufferEmpty) {
-      checkArgument(bufferedDurationUs >= 0);
-      checkArgument(playbackRate == C.RATE_UNSET || playbackRate > 0);
+    public Factory(CmcdConfiguration cmcdConfiguration, @StreamingFormat String streamingFormat) {
       this.cmcdConfiguration = cmcdConfiguration;
-      this.trackSelection = trackSelection;
-      this.bufferedDurationUs = bufferedDurationUs;
-      this.playbackRate = playbackRate;
+      this.bufferedDurationUs = C.TIME_UNSET;
+      this.playbackRate = C.RATE_UNSET;
       this.streamingFormat = streamingFormat;
-      this.isLive = isLive;
-      this.didRebuffer = didRebuffer;
-      this.isBufferEmpty = isBufferEmpty;
       this.chunkDurationUs = C.TIME_UNSET;
     }
 
     /**
-     * Retrieves the object type value from the given {@link ExoTrackSelection}.
+     * Sets the duration of current media chunk being requested, in microseconds.
      *
-     * @param trackSelection The {@link ExoTrackSelection} from which to retrieve the object type.
-     * @return The object type value as a String if {@link TrackType} can be mapped to one of the
-     *     object types specified by {@link CmcdData.ObjectType} annotation, or {@code null}.
-     * @throws IllegalArgumentException if the provided {@link ExoTrackSelection} is {@code null}.
-     */
-    @Nullable
-    public static @CmcdData.ObjectType String getObjectType(ExoTrackSelection trackSelection) {
-      checkArgument(trackSelection != null);
-      @TrackType
-      int trackType = MimeTypes.getTrackType(trackSelection.getSelectedFormat().sampleMimeType);
-      if (trackType == C.TRACK_TYPE_UNKNOWN) {
-        trackType = MimeTypes.getTrackType(trackSelection.getSelectedFormat().containerMimeType);
-      }
-
-      if (trackType == C.TRACK_TYPE_AUDIO) {
-        return OBJECT_TYPE_AUDIO_ONLY;
-      } else if (trackType == C.TRACK_TYPE_VIDEO) {
-        return OBJECT_TYPE_VIDEO_ONLY;
-      } else {
-        // Track type cannot be mapped to a known object type.
-        return null;
-      }
-    }
-
-    /**
-     * Sets the duration of current media chunk being requested, in microseconds. The default value
-     * is {@link C#TIME_UNSET}.
+     * <p>Must be set to a non-negative value if the {@linkplain #setObjectType(String) object type}
+     * is set and one of {@link #OBJECT_TYPE_AUDIO_ONLY}, {@link #OBJECT_TYPE_VIDEO_ONLY} or {@link
+     * #OBJECT_TYPE_MUXED_AUDIO_AND_VIDEO}.
+     *
+     * <p>Default value is {@link C#TIME_UNSET}.
      *
      * @throws IllegalArgumentException If {@code chunkDurationUs} is negative.
      */
@@ -191,13 +119,16 @@ public final class CmcdData {
     }
 
     /**
-     * Sets the object type of the current object being requested. Must be one of the allowed object
-     * types specified by the {@link CmcdData.ObjectType} annotation.
+     * Sets the object type of the current object being requested.
+     *
+     * <p>Must be set if {@linkplain #setTrackSelection track selection} is not provided. If unset
+     * and a {@linkplain #setTrackSelection track selection} is provided, the object type is derived
+     * from it.
      *
      * <p>Default is {@code null}.
      */
     @CanIgnoreReturnValue
-    public Factory setObjectType(@Nullable @CmcdData.ObjectType String objectType) {
+    public Factory setObjectType(@Nullable @ObjectType String objectType) {
       this.objectType = objectType;
       return this;
     }
@@ -226,31 +157,149 @@ public final class CmcdData {
       return this;
     }
 
+    /**
+     * Sets the {@linkplain ExoTrackSelection track selection} for the media being played.
+     *
+     * <p>Must be set to a non-null value if the {@link #setObjectType(String)} is not {@link
+     * #OBJECT_TYPE_MANIFEST}
+     *
+     * <p>Default is {@code null}.
+     */
+    @CanIgnoreReturnValue
+    public Factory setTrackSelection(ExoTrackSelection trackSelection) {
+      this.trackSelection = trackSelection;
+      return this;
+    }
+
+    /**
+     * Sets the duration of media currently buffered from the current playback position, in
+     * microseconds.
+     *
+     * <p>Must be set to a non-negative value if the {@linkplain #setObjectType(String) object type}
+     * is set and one of {@link #OBJECT_TYPE_AUDIO_ONLY}, {@link #OBJECT_TYPE_VIDEO_ONLY} or {@link
+     * #OBJECT_TYPE_MUXED_AUDIO_AND_VIDEO}.
+     *
+     * <p>Default value is {@link C#TIME_UNSET}.
+     *
+     * @throws IllegalArgumentException If {@code bufferedDurationUs} is negative.
+     */
+    @CanIgnoreReturnValue
+    public Factory setBufferedDurationUs(long bufferedDurationUs) {
+      checkArgument(bufferedDurationUs >= 0);
+      this.bufferedDurationUs = bufferedDurationUs;
+      return this;
+    }
+
+    /**
+     * Sets the playback rate indicating the current speed of playback.
+     *
+     * <p>Default value is {@link C#RATE_UNSET}.
+     *
+     * @throws IllegalArgumentException If {@code playbackRate} is non-positive and not {@link
+     *     C#RATE_UNSET}.
+     */
+    @CanIgnoreReturnValue
+    public Factory setPlaybackRate(float playbackRate) {
+      checkArgument(playbackRate == C.RATE_UNSET || playbackRate > 0);
+      this.playbackRate = playbackRate;
+      return this;
+    }
+
+    /**
+     * Sets whether the media content is being streamed live.
+     *
+     * <p>Default value is {@code false}.
+     */
+    @CanIgnoreReturnValue
+    public Factory setIsLive(boolean isLive) {
+      this.isLive = isLive;
+      return this;
+    }
+
+    /**
+     * Sets whether a rebuffering event occurred between the previous request and this one.
+     *
+     * <p>Default value is {@code false}.
+     */
+    @CanIgnoreReturnValue
+    public Factory setDidRebuffer(boolean didRebuffer) {
+      this.didRebuffer = didRebuffer;
+      return this;
+    }
+
+    /**
+     * Sets whether the queue of buffered chunks is empty.
+     *
+     * <p>Default value is {@code false}.
+     */
+    @CanIgnoreReturnValue
+    public Factory setIsBufferEmpty(boolean isBufferEmpty) {
+      this.isBufferEmpty = isBufferEmpty;
+      return this;
+    }
+
+    /**
+     * Creates a {@link CmcdData} instance.
+     *
+     * @throws IllegalStateException If any required parameters have not been set.
+     */
     public CmcdData createCmcdData() {
+      boolean isManifestObjectType = isManifestObjectType(objectType);
+      if (!isManifestObjectType) {
+        checkStateNotNull(trackSelection, "Track selection must be set");
+      }
+
+      if (objectType == null) {
+        objectType = getObjectTypeFromFormat(checkNotNull(trackSelection).getSelectedFormat());
+      }
+
+      boolean isMediaObjectType = isMediaObjectType(objectType);
+      if (isMediaObjectType) {
+        checkState(bufferedDurationUs != C.TIME_UNSET, "Buffered duration must be set");
+        checkState(chunkDurationUs != C.TIME_UNSET, "Chunk duration must be set");
+      }
+
       ImmutableListMultimap<@CmcdConfiguration.HeaderKey String, String> customData =
           cmcdConfiguration.requestConfig.getCustomData();
       for (String headerKey : customData.keySet()) {
         validateCustomDataListFormat(customData.get(headerKey));
       }
 
-      int bitrateKbps = Util.ceilDivide(trackSelection.getSelectedFormat().bitrate, 1000);
+      int bitrateKbps = C.RATE_UNSET_INT;
+      int topBitrateKbps = C.RATE_UNSET_INT;
+      long latestBitrateEstimateKbps = C.RATE_UNSET_INT;
+      int requestedMaximumThroughputKbps = C.RATE_UNSET_INT;
+
+      if (!isManifestObjectType) {
+        ExoTrackSelection trackSelection = checkNotNull(this.trackSelection);
+        int selectedTrackBitrate = trackSelection.getSelectedFormat().bitrate;
+        bitrateKbps = Util.ceilDivide(selectedTrackBitrate, 1000);
+
+        TrackGroup trackGroup = trackSelection.getTrackGroup();
+        int topBitrate = selectedTrackBitrate;
+        for (int i = 0; i < trackGroup.length; i++) {
+          topBitrate = max(topBitrate, trackGroup.getFormat(i).bitrate);
+        }
+        topBitrateKbps = Util.ceilDivide(topBitrate, 1000);
+
+        if (trackSelection.getLatestBitrateEstimate() != C.RATE_UNSET_INT) {
+          latestBitrateEstimateKbps =
+              Util.ceilDivide(trackSelection.getLatestBitrateEstimate(), 1000);
+        }
+
+        requestedMaximumThroughputKbps =
+            cmcdConfiguration.requestConfig.getRequestedMaximumThroughputKbps(bitrateKbps);
+      }
 
       CmcdObject.Builder cmcdObject = new CmcdObject.Builder();
-      if (!getIsInitSegment()) {
-        if (cmcdConfiguration.isBitrateLoggingAllowed()) {
-          cmcdObject.setBitrateKbps(bitrateKbps);
-        }
-        if (cmcdConfiguration.isTopBitrateLoggingAllowed()) {
-          TrackGroup trackGroup = trackSelection.getTrackGroup();
-          int topBitrate = trackSelection.getSelectedFormat().bitrate;
-          for (int i = 0; i < trackGroup.length; i++) {
-            topBitrate = max(topBitrate, trackGroup.getFormat(i).bitrate);
-          }
-          cmcdObject.setTopBitrateKbps(Util.ceilDivide(topBitrate, 1000));
-        }
-        if (cmcdConfiguration.isObjectDurationLoggingAllowed()) {
-          cmcdObject.setObjectDurationMs(Util.usToMs(chunkDurationUs));
-        }
+      if (cmcdConfiguration.isBitrateLoggingAllowed()) {
+        cmcdObject.setBitrateKbps(bitrateKbps);
+      }
+      if (cmcdConfiguration.isTopBitrateLoggingAllowed()) {
+        cmcdObject.setTopBitrateKbps(topBitrateKbps);
+      }
+      if (isMediaObjectType && cmcdConfiguration.isObjectDurationLoggingAllowed()) {
+        cmcdObject.setObjectDurationMs(Util.usToMs(chunkDurationUs));
       }
       if (cmcdConfiguration.isObjectTypeLoggingAllowed()) {
         cmcdObject.setObjectType(objectType);
@@ -260,16 +309,16 @@ public final class CmcdData {
       }
 
       CmcdRequest.Builder cmcdRequest = new CmcdRequest.Builder();
-      if (!getIsInitSegment() && cmcdConfiguration.isBufferLengthLoggingAllowed()) {
-        cmcdRequest.setBufferLengthMs(Util.usToMs(bufferedDurationUs));
+      if (isMediaObjectType) {
+        if (cmcdConfiguration.isBufferLengthLoggingAllowed()) {
+          cmcdRequest.setBufferLengthMs(Util.usToMs(bufferedDurationUs));
+        }
+        if (cmcdConfiguration.isDeadlineLoggingAllowed()) {
+          cmcdRequest.setDeadlineMs(Util.usToMs((long) (bufferedDurationUs / playbackRate)));
+        }
       }
-      if (cmcdConfiguration.isMeasuredThroughputLoggingAllowed()
-          && trackSelection.getLatestBitrateEstimate() != C.RATE_UNSET_INT) {
-        cmcdRequest.setMeasuredThroughputInKbps(
-            Util.ceilDivide(trackSelection.getLatestBitrateEstimate(), 1000));
-      }
-      if (cmcdConfiguration.isDeadlineLoggingAllowed()) {
-        cmcdRequest.setDeadlineMs(Util.usToMs((long) (bufferedDurationUs / playbackRate)));
+      if (cmcdConfiguration.isMeasuredThroughputLoggingAllowed()) {
+        cmcdRequest.setMeasuredThroughputInKbps(latestBitrateEstimateKbps);
       }
       if (cmcdConfiguration.isStartupLoggingAllowed()) {
         cmcdRequest.setStartup(didRebuffer || isBufferEmpty);
@@ -294,8 +343,8 @@ public final class CmcdData {
       if (cmcdConfiguration.isStreamingFormatLoggingAllowed()) {
         cmcdSession.setStreamingFormat(streamingFormat);
       }
-      if (cmcdConfiguration.isStreamTypeLoggingAllowed()) {
-        cmcdSession.setStreamType(isLive ? STREAM_TYPE_LIVE : STREAM_TYPE_VOD);
+      if (isLive != null && cmcdConfiguration.isStreamTypeLoggingAllowed()) {
+        cmcdSession.setStreamType(checkNotNull(isLive) ? STREAM_TYPE_LIVE : STREAM_TYPE_VOD);
       }
       if (cmcdConfiguration.isPlaybackRateLoggingAllowed()) {
         cmcdSession.setPlaybackRate(playbackRate);
@@ -306,8 +355,7 @@ public final class CmcdData {
 
       CmcdStatus.Builder cmcdStatus = new CmcdStatus.Builder();
       if (cmcdConfiguration.isMaximumRequestThroughputLoggingAllowed()) {
-        cmcdStatus.setMaximumRequestedThroughputKbps(
-            cmcdConfiguration.requestConfig.getRequestedMaximumThroughputKbps(bitrateKbps));
+        cmcdStatus.setMaximumRequestedThroughputKbps(requestedMaximumThroughputKbps);
       }
       if (cmcdConfiguration.isBufferStarvationLoggingAllowed()) {
         cmcdStatus.setBufferStarvation(didRebuffer);
@@ -324,8 +372,38 @@ public final class CmcdData {
           cmcdConfiguration.dataTransmissionMode);
     }
 
-    private boolean getIsInitSegment() {
-      return objectType != null && objectType.equals(OBJECT_TYPE_INIT_SEGMENT);
+    @Nullable
+    private static @ObjectType String getObjectTypeFromFormat(Format format) {
+      String audioMimeType = MimeTypes.getAudioMediaMimeType(format.codecs);
+      String videoMimeType = MimeTypes.getVideoMediaMimeType(format.codecs);
+
+      if (audioMimeType != null && videoMimeType != null) {
+        return OBJECT_TYPE_MUXED_AUDIO_AND_VIDEO;
+      }
+
+      @TrackType int trackType = MimeTypes.getTrackType(format.sampleMimeType);
+      if (trackType == C.TRACK_TYPE_UNKNOWN) {
+        trackType = MimeTypes.getTrackType(format.containerMimeType);
+      }
+
+      if (trackType == C.TRACK_TYPE_AUDIO) {
+        return OBJECT_TYPE_AUDIO_ONLY;
+      } else if (trackType == C.TRACK_TYPE_VIDEO) {
+        return OBJECT_TYPE_VIDEO_ONLY;
+      } else {
+        // Track type cannot be mapped to a known media object type.
+        return null;
+      }
+    }
+
+    private static boolean isManifestObjectType(@Nullable @ObjectType String objectType) {
+      return Objects.equals(objectType, OBJECT_TYPE_MANIFEST);
+    }
+
+    private static boolean isMediaObjectType(@Nullable @ObjectType String objectType) {
+      return Objects.equals(objectType, OBJECT_TYPE_AUDIO_ONLY)
+          || Objects.equals(objectType, OBJECT_TYPE_VIDEO_ONLY)
+          || Objects.equals(objectType, OBJECT_TYPE_MUXED_AUDIO_AND_VIDEO);
     }
 
     private void validateCustomDataListFormat(List<String> customDataList) {
@@ -338,33 +416,60 @@ public final class CmcdData {
 
   /** Indicates the streaming format used for media content. */
   @Retention(RetentionPolicy.SOURCE)
-  @StringDef({
-    Factory.STREAMING_FORMAT_DASH,
-    Factory.STREAMING_FORMAT_HLS,
-    Factory.STREAMING_FORMAT_SS
-  })
+  @StringDef({STREAMING_FORMAT_DASH, STREAMING_FORMAT_HLS, STREAMING_FORMAT_SS})
   @Documented
   @Target(TYPE_USE)
   public @interface StreamingFormat {}
 
+  /** Represents the Dynamic Adaptive Streaming over HTTP (DASH) format. */
+  public static final String STREAMING_FORMAT_DASH = "d";
+
+  /** Represents the HTTP Live Streaming (HLS) format. */
+  public static final String STREAMING_FORMAT_HLS = "h";
+
+  /** Represents the Smooth Streaming (SS) format. */
+  public static final String STREAMING_FORMAT_SS = "s";
+
   /** Indicates the type of streaming for media content. */
   @Retention(RetentionPolicy.SOURCE)
-  @StringDef({Factory.STREAM_TYPE_VOD, Factory.STREAM_TYPE_LIVE})
+  @StringDef({STREAM_TYPE_VOD, STREAM_TYPE_LIVE})
   @Documented
   @Target(TYPE_USE)
   public @interface StreamType {}
 
+  /** Represents the Video on Demand (VOD) stream type. */
+  public static final String STREAM_TYPE_VOD = "v";
+
+  /** Represents the Live Streaming stream type. */
+  public static final String STREAM_TYPE_LIVE = "l";
+
   /** Indicates the media type of current object being requested. */
   @Retention(RetentionPolicy.SOURCE)
   @StringDef({
-    Factory.OBJECT_TYPE_INIT_SEGMENT,
-    Factory.OBJECT_TYPE_AUDIO_ONLY,
-    Factory.OBJECT_TYPE_VIDEO_ONLY,
-    Factory.OBJECT_TYPE_MUXED_AUDIO_AND_VIDEO
+    OBJECT_TYPE_INIT_SEGMENT,
+    OBJECT_TYPE_AUDIO_ONLY,
+    OBJECT_TYPE_VIDEO_ONLY,
+    OBJECT_TYPE_MUXED_AUDIO_AND_VIDEO,
+    OBJECT_TYPE_MANIFEST
   })
   @Documented
   @Target(TYPE_USE)
   public @interface ObjectType {}
+
+  /** Represents the object type for an initialization segment in a media container. */
+  public static final String OBJECT_TYPE_INIT_SEGMENT = "i";
+
+  /** Represents the object type for audio-only content in a media container. */
+  public static final String OBJECT_TYPE_AUDIO_ONLY = "a";
+
+  /** Represents the object type for video-only content in a media container. */
+  public static final String OBJECT_TYPE_VIDEO_ONLY = "v";
+
+  /** Represents the object type for muxed audio and video content in a media container. */
+  public static final String OBJECT_TYPE_MUXED_AUDIO_AND_VIDEO = "av";
+
+  /** Represents the object type for a manifest or playlist file, in a media container. */
+  public static final String OBJECT_TYPE_MANIFEST = "m";
 
   private static final Joiner COMMA_JOINER = Joiner.on(",");
 
@@ -528,10 +633,8 @@ public final class CmcdData {
     public final long objectDurationMs;
 
     /**
-     * The media type of the current object being requested , or {@code null} if unset. Must be one
-     * of the allowed object types specified by the {@link ObjectType} annotation.
-     *
-     * <p>If the object type being requested is unknown, then this key MUST NOT be used.
+     * The media type of the current object being requested. Must be one of the allowed object types
+     * specified by the {@link ObjectType} annotation.
      */
     @Nullable public final @ObjectType String objectType;
 
@@ -607,8 +710,13 @@ public final class CmcdData {
        */
       @CanIgnoreReturnValue
       public Builder setBufferLengthMs(long bufferLengthMs) {
-        checkArgument(bufferLengthMs >= 0 || bufferLengthMs == C.TIME_UNSET);
-        this.bufferLengthMs = ((bufferLengthMs + 50) / 100) * 100;
+        if (bufferLengthMs == C.TIME_UNSET) {
+          this.bufferLengthMs = bufferLengthMs;
+        } else if (bufferLengthMs >= 0) {
+          this.bufferLengthMs = ((bufferLengthMs + 50) / 100) * 100;
+        } else {
+          throw new IllegalArgumentException();
+        }
         return this;
       }
 
@@ -621,10 +729,13 @@ public final class CmcdData {
        */
       @CanIgnoreReturnValue
       public Builder setMeasuredThroughputInKbps(long measuredThroughputInKbps) {
-        checkArgument(
-            measuredThroughputInKbps >= 0 || measuredThroughputInKbps == C.RATE_UNSET_INT);
-        this.measuredThroughputInKbps = ((measuredThroughputInKbps + 50) / 100) * 100;
-
+        if (measuredThroughputInKbps == C.RATE_UNSET_INT) {
+          this.measuredThroughputInKbps = measuredThroughputInKbps;
+        } else if (measuredThroughputInKbps >= 0) {
+          this.measuredThroughputInKbps = ((measuredThroughputInKbps + 50) / 100) * 100;
+        } else {
+          throw new IllegalArgumentException();
+        }
         return this;
       }
 
@@ -637,8 +748,13 @@ public final class CmcdData {
        */
       @CanIgnoreReturnValue
       public Builder setDeadlineMs(long deadlineMs) {
-        checkArgument(deadlineMs >= 0 || deadlineMs == C.TIME_UNSET);
-        this.deadlineMs = ((deadlineMs + 50) / 100) * 100;
+        if (deadlineMs == C.TIME_UNSET) {
+          this.deadlineMs = deadlineMs;
+        } else if (deadlineMs >= 0) {
+          this.deadlineMs = ((deadlineMs + 50) / 100) * 100;
+        } else {
+          throw new IllegalArgumentException();
+        }
         return this;
       }
 

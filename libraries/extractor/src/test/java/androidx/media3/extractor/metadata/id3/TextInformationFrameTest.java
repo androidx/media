@@ -18,7 +18,6 @@ package androidx.media3.extractor.metadata.id3;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
-import android.os.Parcel;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.Metadata;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -30,23 +29,6 @@ import org.junit.runner.RunWith;
 /** Unit test for {@link TextInformationFrame}. */
 @RunWith(AndroidJUnit4.class)
 public class TextInformationFrameTest {
-
-  @Test
-  public void parcelable() {
-    TextInformationFrame textInformationFrameToParcel =
-        new TextInformationFrame("", "", ImmutableList.of(""));
-
-    Parcel parcel = Parcel.obtain();
-    textInformationFrameToParcel.writeToParcel(parcel, 0);
-    parcel.setDataPosition(0);
-
-    TextInformationFrame textInformationFrameFromParcel =
-        TextInformationFrame.CREATOR.createFromParcel(parcel);
-    assertThat(textInformationFrameFromParcel).isEqualTo(textInformationFrameToParcel);
-
-    parcel.recycle();
-  }
-
   @Test
   public void populateMediaMetadata_setsBuilderValues() {
     String title = "the title";

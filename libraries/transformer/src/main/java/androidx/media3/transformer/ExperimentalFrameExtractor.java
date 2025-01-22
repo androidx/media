@@ -24,11 +24,13 @@ import static androidx.media3.common.ColorInfo.SDR_BT709_LIMITED;
 import static androidx.media3.common.ColorInfo.isTransferHdr;
 import static androidx.media3.common.PlaybackException.ERROR_CODE_FAILED_RUNTIME_CHECK;
 import static androidx.media3.common.PlaybackException.ERROR_CODE_INVALID_STATE;
+import static androidx.media3.common.PlaybackException.ERROR_CODE_SETUP_REQUIRED;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.GlUtil.createRgb10A2Texture;
 import static androidx.media3.common.util.Util.SDK_INT;
 import static androidx.media3.common.util.Util.usToMs;
+import static com.google.common.util.concurrent.Futures.immediateCancelledFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import android.content.Context;
@@ -47,6 +49,7 @@ import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 import androidx.concurrent.futures.CallbackToFutureAdapter;
+import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.GlObjectsProvider;
@@ -77,8 +80,11 @@ import androidx.media3.exoplayer.SeekParameters;
 import androidx.media3.exoplayer.analytics.AnalyticsListener;
 import androidx.media3.exoplayer.mediacodec.MediaCodecAdapter;
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
+import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.video.MediaCodecVideoRenderer;
 import androidx.media3.exoplayer.video.VideoRendererEventListener;
+import androidx.media3.extractor.DefaultExtractorsFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -90,7 +96,6 @@ import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-import org.checkerframework.checker.initialization.qual.Initialized;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
@@ -120,7 +125,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  * </ul>
  */
 @UnstableApi
-public final class ExperimentalFrameExtractor implements AnalyticsListener {
+public final class ExperimentalFrameExtractor {
 
   /** Configuration for the frame extractor. */
   public static final class Configuration {
@@ -261,20 +266,19 @@ public final class ExperimentalFrameExtractor implements AnalyticsListener {
    * The last {@link Frame} that was extracted successfully. Accessed on the {@linkplain
    * ExoPlayer#getApplicationLooper() ExoPlayer application thread}.
    */
-  private @MonotonicNonNull Frame lastExtractedFrame;
+  @Nullable private Frame lastExtractedFrame;
 
   /**
    * Creates an instance.
    *
    * @param context {@link Context}.
    * @param configuration The {@link Configuration} for this frame extractor.
-   * @param mediaItem The {@link MediaItem} from which frames are extracted.
-   * @param effects The {@link List} of {@linkplain Effect video effects} to apply to the extracted
-   *     video frames.
    */
-  // TODO: b/350498258 - Support changing the MediaItem.
-  public ExperimentalFrameExtractor(
-      Context context, Configuration configuration, MediaItem mediaItem, List<Effect> effects) {
+  public ExperimentalFrameExtractor(Context context, Configuration configuration) {
+    MediaSource.Factory mediaSourceFactory =
+        new DefaultMediaSourceFactory(context, new DefaultExtractorsFactory())
+            .experimentalSetCodecsToParseWithinGopSampleDependencies(
+                C.VIDEO_CODEC_FLAG_H264 | C.VIDEO_CODEC_FLAG_H265);
     player =
         new ExoPlayer.Builder(
                 context,
@@ -289,32 +293,45 @@ public final class ExperimentalFrameExtractor implements AnalyticsListener {
                           configuration.mediaCodecSelector,
                           videoRendererEventListener,
                           /* toneMapHdrToSdr= */ !configuration.extractHdrFrames)
-                    })
+                    },
+                mediaSourceFactory)
             .setSeekParameters(configuration.seekParameters)
             .build();
+    player.addAnalyticsListener(new PlayerListener());
     playerApplicationThreadHandler = new Handler(player.getApplicationLooper());
     extractedFrameNeedsRendering = new AtomicBoolean();
-    // TODO: b/350498258 - Extracting the first frame is a workaround for ExoPlayer.setVideoEffects
-    //   returning incorrect timestamps if we seek the player before rendering starts from zero.
     frameBeingExtractedCompleterAtomicReference = new AtomicReference<>(null);
+    lastRequestedFrameFuture = immediateCancelledFuture();
+  }
+
+  /**
+   * Sets a new {@link MediaItem}.
+   *
+   * <p>Changing between SDR and HDR {@link MediaItem}s is not supported when {@link
+   * Configuration#extractHdrFrames} is true.
+   *
+   * @param mediaItem The {@link MediaItem} from which frames will be extracted.
+   * @param effects The {@link List} of {@linkplain Effect video effects} to apply to the extracted
+   *     video frames.
+   */
+  public void setMediaItem(MediaItem mediaItem, List<Effect> effects) {
+    ListenableFuture<Frame> previousRequestedFrame = lastRequestedFrameFuture;
+    // TODO: b/350498258 - Extracting the first frame is a workaround for ExoPlayer.setVideoEffects
+    // returning incorrect timestamps if we seek the player before rendering starts from zero.
     lastRequestedFrameFuture =
         CallbackToFutureAdapter.getFuture(
             completer -> {
-              frameBeingExtractedCompleterAtomicReference.set(completer);
-              // TODO: b/350498258 - Refactor this and remove declaring this reference as
-              // initialized to satisfy the nullness checker.
-              @SuppressWarnings("nullness:assignment")
-              @Initialized
-              ExperimentalFrameExtractor thisRef = this;
-              playerApplicationThreadHandler.post(
+              previousRequestedFrame.addListener(
                   () -> {
-                    player.addAnalyticsListener(thisRef);
-                    player.setVideoEffects(thisRef.buildVideoEffects(effects));
+                    frameBeingExtractedCompleterAtomicReference.set(completer);
+                    lastExtractedFrame = null;
+                    player.setVideoEffects(buildVideoEffects(effects));
                     player.setMediaItem(mediaItem);
                     player.setPlayWhenReady(false);
                     player.prepare();
-                  });
-              return "ExperimentalFrameExtractor constructor";
+                  },
+                  playerApplicationThreadHandler::post);
+              return "ExperimentalFrameExtractor.setMediaItem";
             });
   }
 
@@ -369,6 +386,12 @@ public final class ExperimentalFrameExtractor implements AnalyticsListener {
     }
     if (playerError != null) {
       completer.setException(playerError);
+    } else if (player.getCurrentMediaItem() == null) {
+      completer.setException(
+          new PlaybackException(
+              "Player has no current item. Call setMediaItem before getFrame.",
+              null,
+              ERROR_CODE_SETUP_REQUIRED));
     } else {
       checkState(frameBeingExtractedCompleterAtomicReference.compareAndSet(null, completer));
       extractedFrameNeedsRendering.set(false);
@@ -395,35 +418,6 @@ public final class ExperimentalFrameExtractor implements AnalyticsListener {
     waitForRelease.blockUninterruptible();
   }
 
-  // AnalyticsListener
-
-  @Override
-  public void onPlayerError(EventTime eventTime, PlaybackException error) {
-    // Fail the next frame to be extracted. Errors will propagate to later pending requests via
-    // Future callbacks.
-    @Nullable
-    CallbackToFutureAdapter.Completer<Frame> frameBeingExtractedCompleter =
-        frameBeingExtractedCompleterAtomicReference.getAndSet(null);
-    if (frameBeingExtractedCompleter != null) {
-      frameBeingExtractedCompleter.setException(error);
-    }
-  }
-
-  @Override
-  public void onPlaybackStateChanged(EventTime eventTime, @Player.State int state) {
-    // The player enters STATE_BUFFERING at the start of a seek.
-    // At the end of a seek, the player enters STATE_READY after the video renderer position has
-    // been reset, and the renderer reports that it's ready.
-    if (state == Player.STATE_READY && !extractedFrameNeedsRendering.get()) {
-      // If the seek resolves to the current position, the renderer position will not be reset
-      // and extractedFrameNeedsRendering remains false. No frames are rendered. Repeat the
-      // previously returned frame.
-      CallbackToFutureAdapter.Completer<Frame> frameBeingExtractedCompleter =
-          checkNotNull(frameBeingExtractedCompleterAtomicReference.getAndSet(null));
-      frameBeingExtractedCompleter.set(checkNotNull(lastExtractedFrame));
-    }
-  }
-
   @VisibleForTesting
   /* package */ ListenableFuture<@NullableType DecoderCounters> getDecoderCounters() {
     SettableFuture<@NullableType DecoderCounters> decoderCountersSettableFuture =
@@ -445,6 +439,35 @@ public final class ExperimentalFrameExtractor implements AnalyticsListener {
             });
     listBuilder.add(new FrameReader());
     return listBuilder.build();
+  }
+
+  private final class PlayerListener implements AnalyticsListener {
+    @Override
+    public void onPlayerError(EventTime eventTime, PlaybackException error) {
+      // Fail the next frame to be extracted. Errors will propagate to later pending requests via
+      // Future callbacks.
+      @Nullable
+      CallbackToFutureAdapter.Completer<Frame> frameBeingExtractedCompleter =
+          frameBeingExtractedCompleterAtomicReference.getAndSet(null);
+      if (frameBeingExtractedCompleter != null) {
+        frameBeingExtractedCompleter.setException(error);
+      }
+    }
+
+    @Override
+    public void onPlaybackStateChanged(EventTime eventTime, @Player.State int state) {
+      // The player enters STATE_BUFFERING at the start of a seek.
+      // At the end of a seek, the player enters STATE_READY after the video renderer position has
+      // been reset, and the renderer reports that it's ready.
+      if (state == Player.STATE_READY && !extractedFrameNeedsRendering.get()) {
+        // If the seek resolves to the current position, the renderer position will not be reset
+        // and extractedFrameNeedsRendering remains false. No frames are rendered. Repeat the
+        // previously returned frame.
+        CallbackToFutureAdapter.Completer<Frame> frameBeingExtractedCompleter =
+            checkNotNull(frameBeingExtractedCompleterAtomicReference.getAndSet(null));
+        frameBeingExtractedCompleter.set(checkNotNull(lastExtractedFrame));
+      }
+    }
   }
 
   private final class FrameReader implements GlEffect {
@@ -609,7 +632,7 @@ public final class ExperimentalFrameExtractor implements AnalyticsListener {
 
     private boolean frameRenderedSinceLastPositionReset;
     private List<Effect> effectsFromPlayer;
-    private @MonotonicNonNull Effect rotation;
+    @Nullable private Effect rotation;
 
     public FrameExtractorRenderer(
         Context context,
@@ -629,6 +652,18 @@ public final class ExperimentalFrameExtractor implements AnalyticsListener {
     }
 
     @Override
+    protected void onStreamChanged(
+        Format[] formats,
+        long startPositionUs,
+        long offsetUs,
+        MediaSource.MediaPeriodId mediaPeriodId)
+        throws ExoPlaybackException {
+      super.onStreamChanged(formats, startPositionUs, offsetUs, mediaPeriodId);
+      frameRenderedSinceLastPositionReset = false;
+      setRotation(null);
+    }
+
+    @Override
     public void setVideoEffects(List<Effect> effects) {
       effectsFromPlayer = effects;
       setEffectsWithRotation();
@@ -636,12 +671,12 @@ public final class ExperimentalFrameExtractor implements AnalyticsListener {
 
     @CallSuper
     @Override
-    protected void onReadyToInitializeCodec(Format format) throws ExoPlaybackException {
+    protected boolean maybeInitializeProcessingPipeline(Format format) throws ExoPlaybackException {
       if (isTransferHdr(format.colorInfo) && toneMapHdrToSdr) {
         // Setting the VideoSink format to SDR_BT709_LIMITED tone maps to SDR.
         format = format.buildUpon().setColorInfo(SDR_BT709_LIMITED).build();
       }
-      super.onReadyToInitializeCodec(format);
+      return super.maybeInitializeProcessingPipeline(format);
     }
 
     @Override
@@ -654,15 +689,19 @@ public final class ExperimentalFrameExtractor implements AnalyticsListener {
           // Some decoders do not apply rotation. It's no extra cost to rotate with a GL matrix
           // transformation effect instead.
           // https://developer.android.com/reference/android/media/MediaCodec#transformations-when-rendering-onto-surface
-          rotation =
+          setRotation(
               new ScaleAndRotateTransformation.Builder()
                   .setRotationDegrees(360 - format.rotationDegrees)
-                  .build();
-          setEffectsWithRotation();
+                  .build());
           formatHolder.format = format.buildUpon().setRotationDegrees(0).build();
         }
       }
       return super.onInputFormatChanged(formatHolder);
+    }
+
+    private void setRotation(@Nullable Effect rotation) {
+      this.rotation = rotation;
+      setEffectsWithRotation();
     }
 
     private void setEffectsWithRotation() {

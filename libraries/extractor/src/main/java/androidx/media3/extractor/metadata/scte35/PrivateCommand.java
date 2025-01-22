@@ -15,11 +15,8 @@
  */
 package androidx.media3.extractor.metadata.scte35;
 
-import android.os.Parcel;
-import android.os.Parcelable;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 
 /** Represents a private command as defined in SCTE35, Section 9.3.6. */
 @UnstableApi
@@ -40,12 +37,6 @@ public final class PrivateCommand extends SpliceCommand {
     this.commandBytes = commandBytes;
   }
 
-  private PrivateCommand(Parcel in) {
-    ptsAdjustment = in.readLong();
-    identifier = in.readLong();
-    commandBytes = Util.castNonNull(in.createByteArray());
-  }
-
   /* package */ static PrivateCommand parseFromSection(
       ParsableByteArray sectionData, int commandLength, long ptsAdjustment) {
     long identifier = sectionData.readUnsignedInt();
@@ -62,27 +53,4 @@ public final class PrivateCommand extends SpliceCommand {
         + identifier
         + " }";
   }
-
-  // Parcelable implementation.
-
-  @Override
-  public void writeToParcel(Parcel dest, int flags) {
-    dest.writeLong(ptsAdjustment);
-    dest.writeLong(identifier);
-    dest.writeByteArray(commandBytes);
-  }
-
-  public static final Parcelable.Creator<PrivateCommand> CREATOR =
-      new Parcelable.Creator<PrivateCommand>() {
-
-        @Override
-        public PrivateCommand createFromParcel(Parcel in) {
-          return new PrivateCommand(in);
-        }
-
-        @Override
-        public PrivateCommand[] newArray(int size) {
-          return new PrivateCommand[size];
-        }
-      };
 }

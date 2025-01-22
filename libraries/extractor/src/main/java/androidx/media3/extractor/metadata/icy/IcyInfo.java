@@ -15,12 +15,9 @@
  */
 package androidx.media3.extractor.metadata.icy;
 
-import android.os.Parcel;
-import android.os.Parcelable;
 import androidx.annotation.Nullable;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.Metadata;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import java.util.Arrays;
 
@@ -49,12 +46,6 @@ public final class IcyInfo implements Metadata.Entry {
     this.rawMetadata = rawMetadata;
     this.title = title;
     this.url = url;
-  }
-
-  /* package */ IcyInfo(Parcel in) {
-    rawMetadata = Assertions.checkNotNull(in.createByteArray());
-    title = in.readString();
-    url = in.readString();
   }
 
   @Override
@@ -88,32 +79,4 @@ public final class IcyInfo implements Metadata.Entry {
     return String.format(
         "ICY: title=\"%s\", url=\"%s\", rawMetadata.length=\"%s\"", title, url, rawMetadata.length);
   }
-
-  // Parcelable implementation.
-
-  @Override
-  public void writeToParcel(Parcel dest, int flags) {
-    dest.writeByteArray(rawMetadata);
-    dest.writeString(title);
-    dest.writeString(url);
-  }
-
-  @Override
-  public int describeContents() {
-    return 0;
-  }
-
-  public static final Parcelable.Creator<IcyInfo> CREATOR =
-      new Parcelable.Creator<IcyInfo>() {
-
-        @Override
-        public IcyInfo createFromParcel(Parcel in) {
-          return new IcyInfo(in);
-        }
-
-        @Override
-        public IcyInfo[] newArray(int size) {
-          return new IcyInfo[size];
-        }
-      };
 }

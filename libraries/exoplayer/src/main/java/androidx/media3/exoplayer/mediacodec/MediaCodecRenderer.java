@@ -86,6 +86,7 @@ import java.nio.ByteOrder;
 import java.util.ArrayDeque;
 import java.util.List;
 import java.util.Objects;
+import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
 /** An abstract renderer that uses {@link MediaCodec} to decode samples for rendering. */
@@ -331,10 +332,10 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   private final OggOpusAudioPacketizer oggOpusAudioPacketizer;
 
   @Nullable private Format inputFormat;
-  @Nullable private Format outputFormat;
+  private @MonotonicNonNull Format outputFormat;
   @Nullable private DrmSession codecDrmSession;
   @Nullable private DrmSession sourceDrmSession;
-  @Nullable private WakeupListener wakeupListener;
+  private @MonotonicNonNull WakeupListener wakeupListener;
 
   /**
    * A framework {@link MediaCrypto} for use with {@link MediaCodec#queueSecureInputBuffer(int, int,
@@ -836,8 +837,8 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   public void handleMessage(@MessageType int messageType, @Nullable Object message)
       throws ExoPlaybackException {
     if (messageType == MSG_SET_WAKEUP_LISTENER) {
-      wakeupListener = (WakeupListener) message;
-      onWakeupListenerSet(checkNotNull(wakeupListener));
+      wakeupListener = checkNotNull((WakeupListener) message);
+      onWakeupListenerSet(wakeupListener);
     } else {
       super.handleMessage(messageType, message);
     }
@@ -1100,7 +1101,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
 
   private void maybeInitCodecWithFallback(
       @Nullable MediaCrypto crypto, boolean mediaCryptoRequiresSecureDecoder)
-      throws DecoderInitializationException {
+      throws DecoderInitializationException, ExoPlaybackException {
     Format inputFormat = checkNotNull(this.inputFormat);
     if (availableCodecInfos == null) {
       try {
@@ -1133,6 +1134,10 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     ArrayDeque<MediaCodecInfo> availableCodecInfos = checkNotNull(this.availableCodecInfos);
     while (codec == null) {
       MediaCodecInfo codecInfo = checkNotNull(availableCodecInfos.peekFirst());
+      if (!maybeInitializeProcessingPipeline(inputFormat)) {
+        return;
+      }
+
       if (!shouldInitCodec(codecInfo)) {
         return;
       }
@@ -1216,7 +1221,6 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     if (codecOperatingRate <= assumedMinimumCodecOperatingRate) {
       codecOperatingRate = CODEC_OPERATING_RATE_UNSET;
     }
-    onReadyToInitializeCodec(inputFormat);
     codecInitializingTimestamp = getClock().elapsedRealtime();
     MediaCodecAdapter.Configuration configuration =
         getMediaCodecConfiguration(codecInfo, inputFormat, crypto, codecOperatingRate);
@@ -1487,19 +1491,19 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   }
 
   /**
-   * Called when ready to initialize the {@link MediaCodecAdapter}.
-   *
-   * <p>This method is called just before the renderer obtains the {@linkplain
-   * #getMediaCodecConfiguration configuration} for the {@link MediaCodecAdapter} and creates the
-   * adapter via the passed in {@link MediaCodecAdapter.Factory}.
+   * Initializes the processing pipeline, if needed by the implementation.
    *
    * <p>The default implementation is a no-op.
    *
    * @param format The {@link Format} for which the codec is being configured.
+   * @return Returns {@code true} when the processing pipeline is successfully initialized, or the
+   *     {@linkplain MediaCodecRenderer renderer} does not use a processing pipeline. The caller
+   *     should try again later, if {@code false} is returned.
    * @throws ExoPlaybackException If an error occurs preparing for initializing the codec.
    */
-  protected void onReadyToInitializeCodec(Format format) throws ExoPlaybackException {
+  protected boolean maybeInitializeProcessingPipeline(Format format) throws ExoPlaybackException {
     // Do nothing.
+    return true;
   }
 
   /**
@@ -2465,11 +2469,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
               // TODO(b/298634018): Adjust encoderDelay value based on starting position.
               int numberPreSkipSamples =
                   OpusUtil.getPreSkipSamples(outputFormat.initializationData.get(0));
-              outputFormat =
-                  checkNotNull(outputFormat)
-                      .buildUpon()
-                      .setEncoderDelay(numberPreSkipSamples)
-                      .build();
+              outputFormat = outputFormat.buildUpon().setEncoderDelay(numberPreSkipSamples).build();
             }
             onOutputFormatChanged(outputFormat, /* mediaFormat= */ null);
             waitingForFirstSampleInFormat = false;
@@ -2488,8 +2488,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
                 getLastResetPositionUs(), bypassSampleBuffer.timeUs)) {
               // Packetize as long as frame does not precede the last reset position by more than
               // seek-preroll.
-              oggOpusAudioPacketizer.packetize(
-                  bypassSampleBuffer, checkNotNull(outputFormat).initializationData);
+              oggOpusAudioPacketizer.packetize(bypassSampleBuffer, outputFormat.initializationData);
             }
           }
           if (!haveBypassBatchBufferAndNewSampleSameDecodeOnlyState()

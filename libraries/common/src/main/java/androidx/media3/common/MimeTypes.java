@@ -581,6 +581,36 @@ public final class MimeTypes {
   }
 
   /**
+   * Returns whether the given {@code codecs} and {@code supplementalCodecs} correspond to a valid
+   * Dolby Vision codec.
+   *
+   * @param codecs An RFC 6381 codecs string for the base codec. may be null.
+   * @param supplementalCodecs An optional RFC 6381 codecs string for supplemental codecs.
+   * @return Whether the given {@code codecs} and {@code supplementalCodecs} correspond to a valid
+   *     Dolby Vision codec.
+   */
+  @UnstableApi
+  public static boolean isDolbyVisionCodec(
+      @Nullable String codecs, @Nullable String supplementalCodecs) {
+    if (codecs == null) {
+      return false;
+    }
+    if (codecs.startsWith("dvhe") || codecs.startsWith("dvh1")) {
+      // profile 5
+      return true;
+    }
+    if (supplementalCodecs == null) {
+      return false;
+    }
+    // profiles 8, 9 and 10
+    return (supplementalCodecs.startsWith("dvhe") && codecs.startsWith("hev1"))
+        || (supplementalCodecs.startsWith("dvh1") && codecs.startsWith("hvc1"))
+        || (supplementalCodecs.startsWith("dvav") && codecs.startsWith("avc3"))
+        || (supplementalCodecs.startsWith("dva1") && codecs.startsWith("avc1"))
+        || (supplementalCodecs.startsWith("dav1") && codecs.startsWith("av01"));
+  }
+
+  /**
    * Returns the {@link C.TrackType track type} constant corresponding to a specified MIME type,
    * which may be {@link C#TRACK_TYPE_UNKNOWN} if it could not be determined.
    *
@@ -686,6 +716,9 @@ public final class MimeTypes {
     }
     mimeType = Ascii.toLowerCase(mimeType);
     switch (mimeType) {
+      // Normalize uncommon versions of some video MIME types to their standard equivalent.
+      case BASE_TYPE_VIDEO + "/x-mvhevc":
+        return VIDEO_MV_HEVC;
       // Normalize uncommon versions of some audio MIME types to their standard equivalent.
       case BASE_TYPE_AUDIO + "/x-flac":
         return AUDIO_FLAC;

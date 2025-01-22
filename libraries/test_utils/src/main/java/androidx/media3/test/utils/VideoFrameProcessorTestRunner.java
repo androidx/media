@@ -328,6 +328,7 @@ public final class VideoFrameProcessorTestRunner {
     this.effects = effects;
   }
 
+  @SuppressLint("InlinedApi") // Inlined MediaFormat keys.
   public void processFirstFrameAndEnd() throws Exception {
     DecodeOneFrameUtil.decodeOneAssetFileFrame(
         checkNotNull(videoAssetPath),
@@ -336,12 +337,22 @@ public final class VideoFrameProcessorTestRunner {
           public void onContainerExtracted(MediaFormat mediaFormat) {
             videoFrameProcessorReadyCondition.close();
             @Nullable ColorInfo colorInfo = MediaFormatUtil.getColorInfo(mediaFormat);
+            int rotationDegrees =
+                MediaFormatUtil.getInteger(
+                    mediaFormat, MediaFormat.KEY_ROTATION, /* defaultValue= */ 0);
+            int width = mediaFormat.getInteger(MediaFormat.KEY_WIDTH);
+            int height = mediaFormat.getInteger(MediaFormat.KEY_HEIGHT);
+            if (rotationDegrees % 180 == 90) {
+              int tmp = width;
+              width = height;
+              height = tmp;
+            }
             videoFrameProcessor.registerInputStream(
                 INPUT_TYPE_SURFACE,
                 new Format.Builder()
                     .setColorInfo(colorInfo == null ? ColorInfo.SDR_BT709_LIMITED : colorInfo)
-                    .setWidth(mediaFormat.getInteger(MediaFormat.KEY_WIDTH))
-                    .setHeight(mediaFormat.getInteger(MediaFormat.KEY_HEIGHT))
+                    .setWidth(width)
+                    .setHeight(height)
                     .setPixelWidthHeightRatio(pixelWidthHeightRatio)
                     .build(),
                 effects,

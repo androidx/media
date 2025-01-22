@@ -50,6 +50,9 @@ public class DefaultSubtitleParserFactoryTest {
           if (fieldValue.equals(MimeTypes.APPLICATION_DVBSUBS)) {
             formatBuilder.setInitializationData(ImmutableList.of(new byte[] {1, 2, 3, 4}));
           }
+          if (fieldValue.equals(MimeTypes.APPLICATION_VOBSUB)) {
+            formatBuilder.setInitializationData(ImmutableList.of(new byte[] {1, 2, 3, 4}));
+          }
           Format format = formatBuilder.build();
           if (factory.supportsFormat(format)) {
             try {

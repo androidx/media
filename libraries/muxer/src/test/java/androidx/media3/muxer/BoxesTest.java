@@ -735,7 +735,7 @@ public class BoxesTest {
   }
 
   @Test
-  public void createStscBox_matchesExpected() throws IOException {
+  public void createStscBox_withDifferentChunks_matchesExpected() throws IOException {
     ImmutableList<Integer> chunkSampleCounts = ImmutableList.of(100, 500, 200, 100);
 
     ByteBuffer stscBox = Boxes.stsc(chunkSampleCounts);
@@ -743,6 +743,17 @@ public class BoxesTest {
     DumpableMp4Box dumpableBox = new DumpableMp4Box(stscBox);
     DumpFileAsserts.assertOutput(
         context, dumpableBox, MuxerTestUtil.getExpectedDumpFilePath("stsc_box"));
+  }
+
+  @Test
+  public void createStscBox_withSameChunks_matchesExpected() throws IOException {
+    ImmutableList<Integer> chunkSampleCounts = ImmutableList.of(100, 100, 100, 100);
+
+    ByteBuffer stscBox = Boxes.stsc(chunkSampleCounts);
+
+    DumpableMp4Box dumpableBox = new DumpableMp4Box(stscBox);
+    DumpFileAsserts.assertOutput(
+        context, dumpableBox, MuxerTestUtil.getExpectedDumpFilePath("stsc_box_with_same_chunks"));
   }
 
   @Test

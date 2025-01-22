@@ -105,7 +105,7 @@ public final class H264Reader implements ElementaryStreamReader {
     sps.reset();
     pps.reset();
     sei.reset();
-    seiReader.flush();
+    seiReader.clear();
     if (sampleReader != null) {
       sampleReader.reset();
     }

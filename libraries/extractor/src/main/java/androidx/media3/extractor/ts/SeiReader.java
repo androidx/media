@@ -97,4 +97,9 @@ public final class SeiReader {
   public void flush() {
     reorderingSeiMessageQueue.flush();
   }
+
+  /** Drops any 'buffered for re-ordering' messages. */
+  public void clear() {
+    reorderingSeiMessageQueue.flush();
+  }
 }

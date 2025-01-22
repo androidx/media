@@ -24,6 +24,7 @@ import android.os.Handler;
 import android.os.Looper;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
+import androidx.media3.common.C;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.audio.AudioRendererEventListener;
@@ -112,6 +113,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
   private MediaCodecSelector mediaCodecSelector;
   private boolean enableFloatOutput;
   private boolean enableAudioTrackPlaybackParams;
+  private boolean enableMediaCodecVideoRendererPrewarming;
 
   /**
    * @param context A {@link Context}.
@@ -251,6 +253,32 @@ public class DefaultRenderersFactory implements RenderersFactory {
   public final DefaultRenderersFactory setEnableAudioTrackPlaybackParams(
       boolean enableAudioTrackPlaybackParams) {
     this.enableAudioTrackPlaybackParams = enableAudioTrackPlaybackParams;
+    return this;
+  }
+
+  /**
+   * Sets whether a secondary {@link MediaCodecVideoRenderer} will be created through {@link
+   * #buildSecondaryVideoRenderer} for use by {@link ExoPlayer} for pre-warming.
+   *
+   * <p>If enabled, {@link ExoPlayer} will pre-process the video of consecutive media items during
+   * playback to reduce media item transition latency.
+   *
+   * <p>If {@link #buildVideoRenderers} is overridden to provide custom video renderers then to
+   * still enable pre-warming,{@link #buildSecondaryVideoRenderer} must also be overridden to
+   * provide matching secondary custom video renderers.
+   *
+   * <p>This method is experimental. Its default value may change, or it may be renamed or removed
+   * in a future release.
+   *
+   * @param enableMediaCodecVideoRendererPrewarming Whether to enable {@link
+   *     #buildSecondaryVideoRenderer} to provide a secondary {@link MediaCodecVideoRenderer} for
+   *     pre-warming.
+   * @return This factory, for convenience.
+   */
+  @CanIgnoreReturnValue
+  public final DefaultRenderersFactory experimentalSetEnableMediaCodecVideoRendererPrewarming(
+      boolean enableMediaCodecVideoRendererPrewarming) {
+    this.enableMediaCodecVideoRendererPrewarming = enableMediaCodecVideoRendererPrewarming;
     return this;
   }
 
@@ -635,6 +663,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
       @ExtensionRendererMode int extensionRendererMode,
       ArrayList<Renderer> out) {
     out.add(new MetadataRenderer(output, outputLooper));
+    out.add(new MetadataRenderer(output, outputLooper));
   }
 
   /**
@@ -695,6 +724,76 @@ public class DefaultRenderersFactory implements RenderersFactory {
         .setEnableFloatOutput(enableFloatOutput)
         .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
         .build();
+  }
+
+  @Override
+  @Nullable
+  public Renderer createSecondaryRenderer(
+      Renderer renderer,
+      Handler eventHandler,
+      VideoRendererEventListener videoRendererEventListener,
+      AudioRendererEventListener audioRendererEventListener,
+      TextOutput textRendererOutput,
+      MetadataOutput metadataRendererOutput) {
+    if (renderer.getTrackType() == C.TRACK_TYPE_VIDEO) {
+      return buildSecondaryVideoRenderer(
+          renderer,
+          context,
+          extensionRendererMode,
+          mediaCodecSelector,
+          enableDecoderFallback,
+          eventHandler,
+          videoRendererEventListener,
+          allowedVideoJoiningTimeMs);
+    }
+    return null;
+  }
+
+  /**
+   * Builds a secondary video renderer for an {@link ExoPlayer} instance to use for pre-warming.
+   *
+   * <p>The created secondary video {@code Renderer} should match its primary {@link Renderer} in
+   * reported track type support and {@link RendererCapabilities}.
+   *
+   * <p>If {@link #buildVideoRenderers} is overridden to provide custom video renderers, then this
+   * method must also be overridden to supply corresponding custom secondary video renderers.
+   *
+   * @param renderer The primary {@link Renderer} for which to create the secondary.
+   * @param context The {@link Context} associated with the player.
+   * @param extensionRendererMode The extension renderer mode.
+   * @param mediaCodecSelector A decoder selector.
+   * @param enableDecoderFallback Whether to enable fallback to lower-priority decoders if decoder
+   *     initialization fails. This may result in using a decoder that is slower/less efficient than
+   *     the primary decoder.
+   * @param eventHandler A handler associated with the main thread's looper.
+   * @param eventListener An event listener.
+   * @param allowedVideoJoiningTimeMs The maximum duration for which video renderers can attempt to
+   *     seamlessly join an ongoing playback, in milliseconds.
+   * @return The created secondary {@link Renderer renderer instance}.
+   */
+  @Nullable
+  protected Renderer buildSecondaryVideoRenderer(
+      Renderer renderer,
+      Context context,
+      @ExtensionRendererMode int extensionRendererMode,
+      MediaCodecSelector mediaCodecSelector,
+      boolean enableDecoderFallback,
+      Handler eventHandler,
+      VideoRendererEventListener eventListener,
+      long allowedVideoJoiningTimeMs) {
+    if (enableMediaCodecVideoRendererPrewarming
+        && renderer.getClass() == MediaCodecVideoRenderer.class) {
+      return new MediaCodecVideoRenderer(
+          context,
+          getCodecAdapterFactory(),
+          mediaCodecSelector,
+          allowedVideoJoiningTimeMs,
+          enableDecoderFallback,
+          eventHandler,
+          eventListener,
+          MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY);
+    }
+    return null;
   }
 
   /**

@@ -14,13 +14,14 @@ track 0:
     id = 1
     containerMimeType = video/mp4
     sampleMimeType = video/dolby-vision
-    codecs = hev1.08.04
+    codecs = dvhe.08.04
     maxInputSize = 196379
     maxNumReorderSamples = 2
     width = 1920
     height = 1080
     frameRate = 28.03
     rotationDegrees = 90
+    maxSubLayers = 1
     colorInfo:
       colorSpace = 6
       colorRange = 2

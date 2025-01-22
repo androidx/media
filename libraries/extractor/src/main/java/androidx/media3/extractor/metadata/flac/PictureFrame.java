@@ -15,10 +15,6 @@
  */
 package androidx.media3.extractor.metadata.flac;
 
-import static androidx.media3.common.util.Util.castNonNull;
-
-import android.os.Parcel;
-import android.os.Parcelable;
 import androidx.annotation.Nullable;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.Metadata;
@@ -75,17 +71,6 @@ public final class PictureFrame implements Metadata.Entry {
     this.pictureData = pictureData;
   }
 
-  /* package */ PictureFrame(Parcel in) {
-    this.pictureType = in.readInt();
-    this.mimeType = castNonNull(in.readString());
-    this.description = castNonNull(in.readString());
-    this.width = in.readInt();
-    this.height = in.readInt();
-    this.depth = in.readInt();
-    this.colors = in.readInt();
-    this.pictureData = castNonNull(in.createByteArray());
-  }
-
   @Override
   public void populateMediaMetadata(MediaMetadata.Builder builder) {
     builder.maybeSetArtworkData(pictureData, pictureType);
@@ -129,23 +114,6 @@ public final class PictureFrame implements Metadata.Entry {
     return result;
   }
 
-  @Override
-  public void writeToParcel(Parcel dest, int flags) {
-    dest.writeInt(pictureType);
-    dest.writeString(mimeType);
-    dest.writeString(description);
-    dest.writeInt(width);
-    dest.writeInt(height);
-    dest.writeInt(depth);
-    dest.writeInt(colors);
-    dest.writeByteArray(pictureData);
-  }
-
-  @Override
-  public int describeContents() {
-    return 0;
-  }
-
   /**
    * Parses a {@code METADATA_BLOCK_PICTURE} into a {@code PictureFrame} instance.
    *
@@ -176,18 +144,4 @@ public final class PictureFrame implements Metadata.Entry {
     return new PictureFrame(
         pictureType, mimeType, description, width, height, depth, colors, pictureData);
   }
-
-  public static final Parcelable.Creator<PictureFrame> CREATOR =
-      new Parcelable.Creator<PictureFrame>() {
-
-        @Override
-        public PictureFrame createFromParcel(Parcel in) {
-          return new PictureFrame(in);
-        }
-
-        @Override
-        public PictureFrame[] newArray(int size) {
-          return new PictureFrame[size];
-        }
-      };
 }

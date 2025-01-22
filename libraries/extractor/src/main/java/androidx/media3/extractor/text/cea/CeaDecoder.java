@@ -84,7 +84,8 @@ import java.util.ArrayDeque;
   public void queueInputBuffer(SubtitleInputBuffer inputBuffer) throws SubtitleDecoderException {
     Assertions.checkArgument(inputBuffer == dequeuedInputBuffer);
     CeaInputBuffer ceaInputBuffer = (CeaInputBuffer) inputBuffer;
-    if (ceaInputBuffer.timeUs != C.TIME_END_OF_SOURCE
+    if (!ceaInputBuffer.isEndOfStream()
+        && ceaInputBuffer.timeUs != C.TIME_END_OF_SOURCE
         && outputStartTimeUs != C.TIME_UNSET
         && ceaInputBuffer.timeUs < outputStartTimeUs) {
       // We can start decoding anywhere in CEA formats, so discarding on the input side is fine.

@@ -16,8 +16,6 @@
 
 package androidx.media3.extractor.metadata.mp4;
 
-import android.os.Parcel;
-import android.os.Parcelable;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Metadata;
@@ -57,14 +55,6 @@ public final class MotionPhotoMetadata implements Metadata.Entry {
     this.photoPresentationTimestampUs = photoPresentationTimestampUs;
     this.videoStartPosition = videoStartPosition;
     this.videoSize = videoSize;
-  }
-
-  private MotionPhotoMetadata(Parcel in) {
-    photoStartPosition = in.readLong();
-    photoSize = in.readLong();
-    photoPresentationTimestampUs = in.readLong();
-    videoStartPosition = in.readLong();
-    videoSize = in.readLong();
   }
 
   @Override
@@ -107,34 +97,4 @@ public final class MotionPhotoMetadata implements Metadata.Entry {
         + ", videoSize="
         + videoSize;
   }
-
-  // Parcelable implementation.
-
-  @Override
-  public void writeToParcel(Parcel dest, int flags) {
-    dest.writeLong(photoStartPosition);
-    dest.writeLong(photoSize);
-    dest.writeLong(photoPresentationTimestampUs);
-    dest.writeLong(videoStartPosition);
-    dest.writeLong(videoSize);
-  }
-
-  @Override
-  public int describeContents() {
-    return 0;
-  }
-
-  public static final Parcelable.Creator<MotionPhotoMetadata> CREATOR =
-      new Parcelable.Creator<MotionPhotoMetadata>() {
-
-        @Override
-        public MotionPhotoMetadata createFromParcel(Parcel in) {
-          return new MotionPhotoMetadata(in);
-        }
-
-        @Override
-        public MotionPhotoMetadata[] newArray(int size) {
-          return new MotionPhotoMetadata[size];
-        }
-      };
 }
