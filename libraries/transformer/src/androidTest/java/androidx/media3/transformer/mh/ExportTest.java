@@ -390,6 +390,10 @@ public class ExportTest {
         testId,
         /* inputFormat= */ MP4_ASSET_BT2020_SDR.videoFormat,
         /* outputFormat= */ null);
+    // Reference: b/391362064
+    assumeFalse(
+        "Skip due to over-reported decoder capabilities",
+        SDK_INT == 33 && Ascii.equalsIgnoreCase(Util.MODEL, "sm-a325f"));
     Transformer transformer = new Transformer.Builder(context).build();
     MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_BT2020_SDR.uri));
     EditedMediaItem editedMediaItem =
