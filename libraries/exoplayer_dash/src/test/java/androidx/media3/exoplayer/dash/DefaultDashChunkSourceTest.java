@@ -259,9 +259,9 @@ public class DefaultDashChunkSourceTest {
     }
     assertThat(chunks.stream().map(chunk -> chunk.dataSpec.uri.toString()))
         .containsExactly(
-            "http://video.com/baseUrl/a/video/video_0_700000.m4s",
             "http://video.com/baseUrl/a/video/video_0_452000.m4s",
             "http://video.com/baseUrl/a/video/video_0_250000.m4s",
+            "http://video.com/baseUrl/a/video/video_0_700000.m4s",
             "http://video.com/baseUrl/a/video/video_0_1300000.m4s")
         .inOrder();
   }
