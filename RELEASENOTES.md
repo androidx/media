@@ -23,6 +23,9 @@
         `setDeviceVolumeControlEnabled`). These values won't be available
         instantly after the `ExoPlayer.Builder.build()` and are notified via
         `Player.Listener.onDeviceInfoChanged` and `onDeviceVolumeChanged`.
+    *   Reevaluate whether the ongoing load of a chunk should be cancelled when
+        playback is paused
+        ([#1785](https://github.com/androidx/media/pull/1785)).
 *   Transformer:
     *   Enable support for Android platform diagnostics via
         `MediaMetricsManager`. Transformer will forward editing events and

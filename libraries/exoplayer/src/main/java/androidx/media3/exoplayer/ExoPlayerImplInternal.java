@@ -961,6 +961,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
     if (!shouldPlayWhenReady()) {
       stopRenderers();
       updatePlaybackPositions();
+      queue.reevaluateBuffer(rendererPositionUs);
     } else {
       if (playbackInfo.playbackState == Player.STATE_READY) {
         mediaClock.start();
