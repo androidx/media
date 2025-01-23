@@ -527,8 +527,6 @@ public class CompositionPlayerTest {
     playerTestListener.waitUntilPlayerEnded();
 
     instrumentation.runOnMainSync(compositionPlayer::release);
-
-    playerTestListener.waitUntilPlayerIdle();
   }
 
   private static final class TestImageDecoderFactory implements ImageDecoder.Factory {

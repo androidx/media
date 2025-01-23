@@ -43,7 +43,6 @@ import java.util.Objects;
 
   private int audioGraphInputsCreated;
   private int inputAudioSinksCreated;
-  private int inputAudioSinksPlaying;
   private boolean hasRegisteredPrimaryFormat;
   private AudioFormat outputAudioFormat;
   private long outputFramesWritten;
@@ -74,7 +73,6 @@ import java.util.Objects;
     finalAudioSink.release();
     audioGraphInputsCreated = 0;
     inputAudioSinksCreated = 0;
-    inputAudioSinksPlaying = 0;
   }
 
   /** Returns an {@link AudioSink} for a single sequence of non-overlapping raw PCM audio. */
@@ -162,7 +160,6 @@ import java.util.Objects;
 
   private final class SinkController implements AudioGraphInputAudioSink.Controller {
     private final boolean isSequencePrimary;
-    private boolean playing;
 
     public SinkController(int inputIndex) {
       this.isSequencePrimary = inputIndex == PRIMARY_SEQUENCE_INDEX;
@@ -190,42 +187,6 @@ import java.util.Objects;
     @Override
     public long getCurrentPositionUs(boolean sourceEnded) {
       return finalAudioSink.getCurrentPositionUs(sourceEnded);
-    }
-
-    @Override
-    public boolean isEnded() {
-      return finalAudioSink.isEnded();
-    }
-
-    @Override
-    public void onPlay() {
-      if (playing) {
-        return;
-      }
-      playing = true;
-
-      inputAudioSinksPlaying++;
-      if (inputAudioSinksCreated == inputAudioSinksPlaying) {
-        finalAudioSink.play();
-      }
-    }
-
-    @Override
-    public void onPause() {
-      if (!playing) {
-        return;
-      }
-      playing = false;
-
-      if (inputAudioSinksCreated == inputAudioSinksPlaying) {
-        finalAudioSink.pause();
-      }
-      inputAudioSinksPlaying--;
-    }
-
-    @Override
-    public void onReset() {
-      onPause();
     }
   }
 }

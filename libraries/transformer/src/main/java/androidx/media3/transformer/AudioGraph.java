@@ -35,8 +35,6 @@ import java.util.Objects;
 /** Processes raw audio samples. */
 /* package */ final class AudioGraph {
 
-  private static final String TAG = "AudioGraph";
-
   private final List<InputInfo> inputInfos;
   private final AudioMixer mixer;
   private final AudioProcessingPipeline audioProcessingPipeline;
@@ -190,7 +188,6 @@ import java.util.Objects;
     inputInfos.clear();
     mixer.reset();
     audioProcessingPipeline.reset();
-
     finishedInputs = 0;
     mixerOutput = EMPTY_BUFFER;
     mixerAudioFormat = AudioFormat.NOT_SET;
@@ -280,6 +277,7 @@ import java.util.Objects;
   }
 
   private boolean isMixerEnded() {
+    //    return !mixerOutput.hasRemaining() && activeInputCount == 0 && mixer.isEnded();
     return !mixerOutput.hasRemaining() && finishedInputs >= inputInfos.size() && mixer.isEnded();
   }
 

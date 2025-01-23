@@ -317,6 +317,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
   private LivePositionSupplier positionSupplier;
   private LivePositionSupplier bufferedPositionSupplier;
   private LivePositionSupplier totalBufferedDurationSupplier;
+  private boolean isSeeking;
 
   // "this" reference for position suppliers.
   @SuppressWarnings("initialization:methodref.receiver.bound.invalid")
@@ -443,20 +444,6 @@ public final class CompositionPlayer extends SimpleBasePlayer
 
   @Override
   protected State getState() {
-    @Player.State int oldPlaybackState = playbackState;
-    updatePlaybackState();
-    if (oldPlaybackState != STATE_READY && playbackState == STATE_READY && playWhenReady) {
-      for (int i = 0; i < players.size(); i++) {
-        players.get(i).setPlayWhenReady(true);
-      }
-    } else if (oldPlaybackState == STATE_READY
-        && playWhenReady
-        && playbackState == STATE_BUFFERING) {
-      // We were playing but a player got in buffering state, pause the players.
-      for (int i = 0; i < players.size(); i++) {
-        players.get(i).setPlayWhenReady(false);
-      }
-    }
     // TODO: b/328219481 - Report video size change to app.
     State.Builder state =
         new State.Builder()
@@ -501,6 +488,11 @@ public final class CompositionPlayer extends SimpleBasePlayer
     this.playWhenReady = playWhenReady;
     playWhenReadyChangeReason = PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST;
     if (playbackState == STATE_READY) {
+      if (playWhenReady) {
+        finalAudioSink.play();
+      } else {
+        finalAudioSink.pause();
+      }
       for (int i = 0; i < players.size(); i++) {
         players.get(i).setPlayWhenReady(playWhenReady);
       }
@@ -588,6 +580,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
     resetLivePositionSuppliers();
     CompositionPlayerInternal compositionPlayerInternal =
         checkStateNotNull(this.compositionPlayerInternal);
+    isSeeking = true;
     compositionPlayerInternal.startSeek(positionMs);
     for (int i = 0; i < players.size(); i++) {
       players.get(i).seekTo(positionMs);
@@ -640,6 +633,8 @@ public final class CompositionPlayer extends SimpleBasePlayer
       return;
     }
 
+    @Player.State int oldPlaybackState = playbackState;
+
     int idleCount = 0;
     int bufferingCount = 0;
     int endedCount = 0;
@@ -666,10 +661,28 @@ public final class CompositionPlayer extends SimpleBasePlayer
       playbackState = STATE_IDLE;
     } else if (bufferingCount > 0) {
       playbackState = STATE_BUFFERING;
+      if (oldPlaybackState == STATE_READY && playWhenReady) {
+        // We were playing but a player got in buffering state, pause the players.
+        for (int i = 0; i < players.size(); i++) {
+          players.get(i).setPlayWhenReady(false);
+        }
+        if (!isSeeking) {
+          // The finalAudioSink cannot be paused more than once. The audio pipeline pauses it during
+          // a seek, so don't pause here when seeking.
+          finalAudioSink.pause();
+        }
+      }
     } else if (endedCount == players.size()) {
       playbackState = STATE_ENDED;
     } else {
       playbackState = STATE_READY;
+      isSeeking = false;
+      if (oldPlaybackState != STATE_READY && playWhenReady) {
+        for (int i = 0; i < players.size(); i++) {
+          players.get(i).setPlayWhenReady(true);
+        }
+        finalAudioSink.play();
+      }
     }
   }
 
@@ -955,6 +968,8 @@ public final class CompositionPlayer extends SimpleBasePlayer
       for (int i = 0; i < players.size(); i++) {
         players.get(i).stop();
       }
+      updatePlaybackState();
+      // Invalidate the parent class state.
       invalidateState();
     } else {
       Log.w(TAG, errorMessage, cause);
@@ -1105,6 +1120,11 @@ public final class CompositionPlayer extends SimpleBasePlayer
       if (events.containsAny(SUPPORTED_LISTENER_EVENTS)) {
         invalidateState();
       }
+    }
+
+    @Override
+    public void onPlaybackStateChanged(int playbackState) {
+      updatePlaybackState();
     }
 
     @Override
