@@ -307,6 +307,40 @@ public class SubtitlePlaybackTest {
         applicationContext, playbackOutput, "playbackdumps/subtitles/sideloaded-error.mp4.dump");
   }
 
+  // TODO: b/391362063 - Assert that this error gets propagated out after that is implemented.
+  @Test
+  public void muxedSubtitleParsingError_playbackContinues() throws Exception {
+    Context applicationContext = ApplicationProvider.getApplicationContext();
+    CapturingRenderersFactory capturingRenderersFactory =
+        new CapturingRenderersFactory(applicationContext);
+    ExoPlayer player =
+        new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
+            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setMediaSourceFactory(
+                new DefaultMediaSourceFactory(applicationContext)
+                    .setSubtitleParserFactory(
+                        new ThrowingSubtitleParserFactory(
+                            () -> new IllegalStateException("test subtitle parsing error"))))
+            .build();
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
+    PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
+    MediaItem mediaItem =
+        new MediaItem.Builder().setUri("asset:///media/mkv/sample_with_srt.mkv").build();
+
+    player.setMediaItem(mediaItem);
+    player.prepare();
+    run(player).untilState(Player.STATE_READY);
+    run(player).untilFullyBuffered();
+    player.play();
+    run(player).untilState(Player.STATE_ENDED);
+    player.release();
+    surface.release();
+
+    DumpFileAsserts.assertOutput(
+        applicationContext, playbackOutput, "playbackdumps/subtitles/muxed-parsing-error.mkv.dump");
+  }
+
   /**
    * An {@link ExtractorsFactory} which creates a {@link FragmentedMp4Extractor} configured to
    * extract a single additional caption track.

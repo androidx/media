@@ -71,6 +71,9 @@
     *   Fix `IllegalStateException` when an SSA file contains a cue with zero
         duration (start and end time equal)
         ([#2052](https://github.com/androidx/media/issues/2052)).
+    *   Suppress (and log) subtitle parsing errors when subtitles are muxed into
+        the same container as audio and video
+        ([#2052](https://github.com/androidx/media/issues/2052)).
 *   Metadata:
 *   Image:
 *   DataSource:
