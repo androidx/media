@@ -50,6 +50,7 @@ import androidx.media3.transformer.Composition;
 import androidx.media3.transformer.EditedMediaItem;
 import androidx.media3.transformer.EncoderUtil;
 import androidx.media3.transformer.ExportException;
+import androidx.media3.transformer.ExportResult;
 import androidx.media3.transformer.ExportTestResult;
 import androidx.media3.transformer.TransformationRequest;
 import androidx.media3.transformer.Transformer;
@@ -207,15 +208,72 @@ public final class HdrEditingTest {
   }
 
   @Test
-  public void exportAndTranscode_dolbyVisionFile_whenHdrEditingIsSupported() throws Exception {
+  public void exportAndTranscode_hlg10VideoToDolbyVision_whenDolbyVisionSupported()
+      throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET_1080P_5_SECOND_HLG10.videoFormat,
+        /* outputFormat= */ MP4_ASSET_1080P_5_SECOND_HLG10
+            .videoFormat
+            .buildUpon()
+            .setSampleMimeType(MimeTypes.VIDEO_DOLBY_VISION)
+            .setCodecs(null)
+            .build());
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_1080P_5_SECOND_HLG10.uri));
+    EditedMediaItem editedMediaItem = new EditedMediaItem.Builder(mediaItem).build();
+    Transformer transformer =
+        new Transformer.Builder(context).setVideoMimeType(MimeTypes.VIDEO_DOLBY_VISION).build();
+
+    ExportTestResult exportTestResult =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, editedMediaItem);
+    ExportResult exportResult = exportTestResult.exportResult;
+
+    assertThat(exportResult.videoMimeType).isEqualTo(MimeTypes.VIDEO_DOLBY_VISION);
+    Format videoTrackFormat =
+        retrieveTrackFormat(context, exportTestResult.filePath, C.TRACK_TYPE_VIDEO);
+    assertThat(videoTrackFormat.sampleMimeType).isEqualTo(MimeTypes.VIDEO_DOLBY_VISION);
+    int actualColorTransfer = videoTrackFormat.colorInfo.colorTransfer;
+    assertThat(actualColorTransfer).isEqualTo(C.COLOR_TRANSFER_HLG);
+  }
+
+  @Test
+  public void exportAndTranscode_dolbyVisionFileToDolbyVision_whenDolbyVisionSupported()
+      throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
     Format format = MP4_ASSET_DOLBY_VISION_HDR.videoFormat;
-    // Check HDR support for both VIDEO_DOLBY_VISION and VIDEO_H265 mime types.
-    if (EncoderUtil.getSupportedEncodersForHdrEditing(format.sampleMimeType, format.colorInfo)
-        .isEmpty()) {
-      assumeDeviceSupportsHdrEditing(
-          testId, format.buildUpon().setSampleMimeType(MimeTypes.VIDEO_H265).build());
-    }
+    assumeFormatsSupported(context, testId, /* inputFormat= */ format, /* outputFormat= */ format);
+    Transformer transformer = new Transformer.Builder(context).build();
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_DOLBY_VISION_HDR.uri));
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(mediaItem).setEffects(FORCE_TRANSCODE_VIDEO_EFFECTS).build();
+
+    ExportTestResult exportTestResult =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, editedMediaItem);
+    ExportResult exportResult = exportTestResult.exportResult;
+
+    assertThat(exportResult.videoMimeType).isEqualTo(MimeTypes.VIDEO_DOLBY_VISION);
+    Format videoTrackFormat =
+        retrieveTrackFormat(context, exportTestResult.filePath, C.TRACK_TYPE_VIDEO);
+    assertThat(videoTrackFormat.sampleMimeType).isEqualTo(MimeTypes.VIDEO_DOLBY_VISION);
+    int actualColorTransfer = videoTrackFormat.colorInfo.colorTransfer;
+    assertThat(actualColorTransfer).isEqualTo(C.COLOR_TRANSFER_HLG);
+  }
+
+  @Test
+  public void
+      exportAndTranscode_dolbyVisionFileToHlg_whenDolbyVisionIsNotSupportedAndHlgIsSupported()
+          throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    Format format = MP4_ASSET_DOLBY_VISION_HDR.videoFormat;
+    assumeDeviceDoesNotSupportHdrEditing(testId, format);
+    assumeDeviceSupportsHdrEditing(
+        testId, format.buildUpon().setSampleMimeType(MimeTypes.VIDEO_H265).build());
     assumeFormatsSupported(context, testId, /* inputFormat= */ format, /* outputFormat= */ null);
     Transformer transformer = new Transformer.Builder(context).build();
     MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_DOLBY_VISION_HDR.uri));
@@ -226,11 +284,13 @@ public final class HdrEditingTest {
         new TransformerAndroidTestRunner.Builder(context, transformer)
             .build()
             .run(testId, editedMediaItem);
-    @C.ColorTransfer
-    int actualColorTransfer =
-        retrieveTrackFormat(context, exportTestResult.filePath, C.TRACK_TYPE_VIDEO)
-            .colorInfo
-            .colorTransfer;
+    ExportResult exportResult = exportTestResult.exportResult;
+
+    assertThat(exportResult.videoMimeType).isEqualTo(MimeTypes.VIDEO_H265);
+    Format videoTrackFormat =
+        retrieveTrackFormat(context, exportTestResult.filePath, C.TRACK_TYPE_VIDEO);
+    assertThat(videoTrackFormat.sampleMimeType).isEqualTo(MimeTypes.VIDEO_H265);
+    int actualColorTransfer = videoTrackFormat.colorInfo.colorTransfer;
     assertThat(actualColorTransfer).isEqualTo(C.COLOR_TRANSFER_HLG);
   }
 
@@ -398,6 +458,66 @@ public final class HdrEditingTest {
                 })
             .build();
     MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_1080P_5_SECOND_HLG10.uri));
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(mediaItem).setEffects(FORCE_TRANSCODE_VIDEO_EFFECTS).build();
+
+    try {
+      ExportTestResult exportTestResult =
+          new TransformerAndroidTestRunner.Builder(context, transformer)
+              .build()
+              .run(testId, editedMediaItem);
+      assertThat(isToneMappingFallbackApplied.get()).isTrue();
+      @C.ColorTransfer
+      int actualColorTransfer =
+          retrieveTrackFormat(context, exportTestResult.filePath, C.TRACK_TYPE_VIDEO)
+              .colorInfo
+              .colorTransfer;
+      assertThat(actualColorTransfer).isEqualTo(C.COLOR_TRANSFER_SDR);
+    } catch (ExportException exception) {
+      if (exception.getCause() != null) {
+        @Nullable String message = exception.getCause().getMessage();
+        if (message != null
+            && (Objects.equals(message, "Decoding HDR is not supported on this device.")
+                || message.contains(
+                    "OpenGL ES 3.0 context support is required for HDR input or output.")
+                || Objects.equals(message, "Device lacks YUV extension support."))) {
+          return;
+        }
+      }
+      throw exception;
+    }
+  }
+
+  @Test
+  public void exportAndTranscode_dolbyVisionFile_whenHdrEditingUnsupported_toneMapsOrThrows()
+      throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    Format format = MP4_ASSET_DOLBY_VISION_HDR.videoFormat;
+    // Check HDR support for both VIDEO_DOLBY_VISION and VIDEO_H265 mime types.
+    assumeDeviceDoesNotSupportHdrEditing(testId, format);
+    assumeDeviceDoesNotSupportHdrEditing(
+        testId, format.buildUpon().setSampleMimeType(MimeTypes.VIDEO_H265).build());
+    assumeFormatsSupported(context, testId, /* inputFormat= */ format, /* outputFormat= */ null);
+    AtomicBoolean isFallbackListenerInvoked = new AtomicBoolean();
+    AtomicBoolean isToneMappingFallbackApplied = new AtomicBoolean();
+    Transformer transformer =
+        new Transformer.Builder(context)
+            .addListener(
+                new Transformer.Listener() {
+                  @Override
+                  public void onFallbackApplied(
+                      Composition composition,
+                      TransformationRequest originalTransformationRequest,
+                      TransformationRequest fallbackTransformationRequest) {
+                    isFallbackListenerInvoked.set(true);
+                    assertThat(originalTransformationRequest.hdrMode).isEqualTo(HDR_MODE_KEEP_HDR);
+                    isToneMappingFallbackApplied.set(
+                        fallbackTransformationRequest.hdrMode
+                            == HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL);
+                  }
+                })
+            .build();
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_DOLBY_VISION_HDR.uri));
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(mediaItem).setEffects(FORCE_TRANSCODE_VIDEO_EFFECTS).build();
 

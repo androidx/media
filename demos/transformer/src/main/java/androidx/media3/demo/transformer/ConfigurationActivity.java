@@ -266,7 +266,8 @@ public final class ConfigurationActivity extends AppCompatActivity {
         MimeTypes.VIDEO_H264,
         MimeTypes.VIDEO_H265,
         MimeTypes.VIDEO_MP4V,
-        MimeTypes.VIDEO_AV1);
+        MimeTypes.VIDEO_AV1,
+        MimeTypes.VIDEO_DOLBY_VISION);
 
     ArrayAdapter<String> resolutionHeightAdapter =
         new ArrayAdapter<>(/* context= */ this, R.layout.spinner_item);

@@ -339,6 +339,12 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
       }
     }
 
+    // MediaFormat#KEY_COLOR_TRANSFER_REQUEST is available from API 31.
+    if (SDK_INT >= 31 && decoderInfos.get(0).codecMimeType.equals(MimeTypes.VIDEO_DOLBY_VISION)) {
+      // Ignore the dolby vision dynamic metadata.
+      mediaFormat.setInteger(
+          MediaFormat.KEY_COLOR_TRANSFER_REQUEST, MediaFormat.COLOR_TRANSFER_HLG);
+    }
     List<ExportException> codecInitExceptions = new ArrayList<>();
     DefaultCodec codec =
         createCodecFromDecoderInfos(

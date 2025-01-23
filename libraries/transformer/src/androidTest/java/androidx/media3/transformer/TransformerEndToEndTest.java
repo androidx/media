@@ -1776,31 +1776,44 @@ public class TransformerEndToEndTest {
   }
 
   @Test
-  public void dolbyVisionVideo_noEffects_transmuxesToHevc() throws Exception {
-    assumeTrue("This test requires B-frame support", Util.SDK_INT > 24);
-    assumeTrue(
-        new DefaultMuxer.Factory()
-            .getSupportedSampleMimeTypes(C.TRACK_TYPE_VIDEO)
-            .contains(MimeTypes.VIDEO_H265));
+  public void transmuxDolbyVisionVideo_whenMuxerDoesNotSupportDolbyVision_transmuxesToHevc()
+      throws Exception {
+    // Hevc support is available from API 24.
+    // The asset has B-frames and B-frame support is available from API 25.
+    // Dolby vision support is available from API 33.
+    assumeTrue(Util.SDK_INT >= 25 && Util.SDK_INT < 33);
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(MP4_ASSET_DOLBY_VISION_HDR.uri)))
             .setRemoveAudio(true)
             .build();
 
     ExportTestResult result =
-        new TransformerAndroidTestRunner.Builder(
-                context,
-                new Transformer.Builder(context).setVideoMimeType(MimeTypes.VIDEO_H265).build())
+        new TransformerAndroidTestRunner.Builder(context, new Transformer.Builder(context).build())
             .build()
             .run(testId, editedMediaItem);
 
-    MediaExtractorCompat mediaExtractor = new MediaExtractorCompat(context);
-    mediaExtractor.setDataSource(Uri.parse(result.filePath), /* offset= */ 0);
-    checkState(mediaExtractor.getTrackCount() == 1);
-    MediaFormat mediaFormat = mediaExtractor.getTrackFormat(/* trackIndex= */ 0);
-    Format format = createFormatFromMediaFormat(mediaFormat);
+    Format format = retrieveTrackFormat(context, result.filePath, C.TRACK_TYPE_VIDEO);
     assertThat(format.sampleMimeType).isEqualTo(MimeTypes.VIDEO_H265);
     assertThat(result.exportResult.videoConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSMUXED);
+  }
+
+  @Test
+  public void transmuxDolbyVisionVideo_transmuxesSuccessfully() throws Exception {
+    assumeTrue("Dolby vision support available from API 33", Util.SDK_INT >= 33);
+    Transformer transformer = new Transformer.Builder(context).build();
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_DOLBY_VISION_HDR.uri));
+
+    ExportTestResult exportTestResult =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, mediaItem);
+
+    Format trackFormat =
+        retrieveTrackFormat(context, exportTestResult.filePath, C.TRACK_TYPE_VIDEO);
+    assertThat(trackFormat.sampleMimeType).isEqualTo(MimeTypes.VIDEO_DOLBY_VISION);
+    assertThat(trackFormat.codecs).isEqualTo("dvhe.08.02");
+    assertThat(exportTestResult.exportResult.videoConversionProcess)
+        .isEqualTo(CONVERSION_PROCESS_TRANSMUXED);
   }
 
   @Test

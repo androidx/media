@@ -66,7 +66,11 @@ public final class HdrCapabilitiesUtil {
     checkState(ColorInfo.isTransferHdr(format.colorInfo));
     if (EncoderUtil.getSupportedEncodersForHdrEditing(format.sampleMimeType, format.colorInfo)
         .isEmpty()) {
-      String skipReason = "No HDR editing support for " + format.colorInfo;
+      String skipReason =
+          "No HDR editing supported for sample mime type "
+              + format.sampleMimeType
+              + " and color info "
+              + format.colorInfo;
       recordTestSkipped(getApplicationContext(), testId, skipReason);
       throw new AssumptionViolatedException(skipReason);
     }
@@ -82,7 +86,11 @@ public final class HdrCapabilitiesUtil {
     checkState(ColorInfo.isTransferHdr(format.colorInfo));
     if (!EncoderUtil.getSupportedEncodersForHdrEditing(format.sampleMimeType, format.colorInfo)
         .isEmpty()) {
-      String skipReason = "HDR editing support for " + format.colorInfo;
+      String skipReason =
+          "HDR editing supported for sample mime type "
+              + format.sampleMimeType
+              + " and color info "
+              + format.colorInfo;
       recordTestSkipped(getApplicationContext(), testId, skipReason);
       throw new AssumptionViolatedException(skipReason);
     }

@@ -41,6 +41,8 @@
         while `InAppFragmentedMp4Muxer` is to be used for producing a fragmented
         MP4 file.
     *   Move `Muxer` interface from `media3-muxer` to `media3-transformer`.
+    *   Add support for transcoding and transmuxing Dolby Vision (profile 8)
+        format.
 *   Track Selection:
 *   Extractors:
     *   Fix handling of NAL units with lengths expressed in 1 or 2 bytes (rather

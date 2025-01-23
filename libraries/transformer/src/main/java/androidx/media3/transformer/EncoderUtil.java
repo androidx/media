@@ -112,18 +112,27 @@ public final class EncoderUtil {
   @RequiresApi(33)
   public static boolean isHdrEditingSupported(
       MediaCodecInfo mediaCodecInfo, String mimeType, ColorInfo colorInfo) {
-    ImmutableList<Integer> allowedColorProfiles =
-        getCodecProfilesForHdrFormat(mimeType, colorInfo.colorTransfer);
-    boolean hasNeededHdrSupport =
-        isFeatureSupported(
-                mediaCodecInfo, mimeType, MediaCodecInfo.CodecCapabilities.FEATURE_HdrEditing)
-            || (colorInfo.colorTransfer == C.COLOR_TRANSFER_HLG
-                && Util.SDK_INT >= 35
-                && isFeatureSupported(
-                    mediaCodecInfo, mimeType, MediaCodecInfo.CodecCapabilities.FEATURE_HlgEditing));
+    boolean hasNeededHdrSupport = false;
+    // Some Dolby Vision encoders do not advertise FEATURE_HlgEditing but correctly support 10-bit
+    // input surface.
+    if (mimeType.equals(MimeTypes.VIDEO_DOLBY_VISION)) {
+      hasNeededHdrSupport = true;
+    } else {
+      hasNeededHdrSupport =
+          isFeatureSupported(
+                  mediaCodecInfo, mimeType, MediaCodecInfo.CodecCapabilities.FEATURE_HdrEditing)
+              || (colorInfo.colorTransfer == C.COLOR_TRANSFER_HLG
+                  && Util.SDK_INT >= 35
+                  && isFeatureSupported(
+                      mediaCodecInfo,
+                      mimeType,
+                      MediaCodecInfo.CodecCapabilities.FEATURE_HlgEditing));
+    }
     if (!hasNeededHdrSupport) {
       return false;
     }
+    ImmutableList<Integer> allowedColorProfiles =
+        getCodecProfilesForHdrFormat(mimeType, colorInfo.colorTransfer);
     for (MediaCodecInfo.CodecProfileLevel codecProfileLevel :
         mediaCodecInfo.getCapabilitiesForType(mimeType).profileLevels) {
       if (allowedColorProfiles.contains(codecProfileLevel.profile)) {
@@ -171,6 +180,12 @@ public final class EncoderUtil {
         } else if (colorTransfer == C.COLOR_TRANSFER_ST2084) {
           return ImmutableList.of(MediaCodecInfo.CodecProfileLevel.AV1ProfileMain10HDR10);
         }
+        break;
+      case MimeTypes.VIDEO_DOLBY_VISION:
+        if (colorTransfer == C.COLOR_TRANSFER_HLG) {
+          return ImmutableList.of(MediaCodecInfo.CodecProfileLevel.DolbyVisionProfileDvheSt);
+        }
+        // CodecProfileLevel does not support PQ for Dolby Vision.
         break;
       default:
         break;
