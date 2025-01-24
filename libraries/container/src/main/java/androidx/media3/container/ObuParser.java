@@ -16,6 +16,7 @@
 package androidx.media3.container;
 
 import static androidx.media3.common.util.Assertions.checkArgument;
+import static java.lang.Math.min;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.ParsableBitArray;
@@ -136,9 +137,10 @@ public final class ObuParser {
     public final int orderHintBits;
 
     /**
-     * Returns a {@link SequenceHeader} parsed from the input {@link #OBU_SEQUENCE_HEADER}.
+     * Returns a {@link SequenceHeader} parsed from the input OBU, or {@code null} if the AV1
+     * bitstream is not yet supported.
      *
-     * <p>Returns {@code null} if the AV1 bitstream is not yet supported.
+     * @param obu The input OBU with type {@link #OBU_SEQUENCE_HEADER}.
      */
     @Nullable
     public static SequenceHeader parse(Obu obu) {
@@ -153,7 +155,7 @@ public final class ObuParser {
     private SequenceHeader(Obu obu) throws NotYetImplementedException {
       checkArgument(obu.type == OBU_SEQUENCE_HEADER);
       byte[] data = new byte[obu.payload.remaining()];
-      // Do not modify obu.payload as we read.
+      // Do not modify obu.payload while reading it.
       obu.payload.asReadOnlyBuffer().get(data);
       ParsableBitArray obuData = new ParsableBitArray(data);
       obuData.skipBits(4); // seq_profile and still_picture
@@ -249,6 +251,94 @@ public final class ObuParser {
     // bits.
     if (leadingZeros < 32) {
       parsableBitArray.skipBits(leadingZeros);
+    }
+  }
+
+  /** An AV1 Frame Header. */
+  public static final class FrameHeader {
+    private static final int PROBE_BYTES = 4;
+
+    private static final int FRAME_TYPE_KEY_FRAME = 0;
+    private static final int FRAME_TYPE_INTRA_ONLY_FRAME = 2;
+    private static final int FRAME_TYPE_SWITCH_FRAME = 3;
+
+    private final boolean isDependedOn;
+
+    /** Returns whether the frame header is depended on by subsequent frames. */
+    public boolean isDependedOn() {
+      return isDependedOn;
+    }
+
+    /**
+     * Returns a {@link FrameHeader} parsed from the input OBU, or {@code null} if the AV1 bitstream
+     * is not yet supported.
+     *
+     * @param sequenceHeader The most recent sequence header before the frame header.
+     * @param obu The input OBU with type {@link #OBU_FRAME} or {@link #OBU_FRAME_HEADER}.
+     */
+    @Nullable
+    public static FrameHeader parse(SequenceHeader sequenceHeader, Obu obu) {
+      try {
+        return new FrameHeader(sequenceHeader, obu);
+      } catch (NotYetImplementedException ignored) {
+        return null;
+      }
+    }
+
+    private FrameHeader(SequenceHeader sequenceHeader, Obu obu) throws NotYetImplementedException {
+      checkArgument(obu.type == OBU_FRAME || obu.type == OBU_FRAME_HEADER);
+      byte[] bytes = new byte[min(PROBE_BYTES, obu.payload.remaining())];
+      // Do not modify obu.payload while reading it.
+      obu.payload.asReadOnlyBuffer().get(bytes);
+      ParsableBitArray obuData = new ParsableBitArray(bytes);
+      throwWhenFeatureRequired(sequenceHeader.reducedStillPictureHeader);
+      boolean showExistingFrame = obuData.readBit();
+      if (showExistingFrame) {
+        // TODO: b/391108133 - Treat showExistingFrame as depended on. The picture was already
+        // decoded and the player may not save a lot of resources by rendering. Check if this
+        // assumption is correct!
+        isDependedOn = true;
+        return;
+      }
+      int frameType = obuData.readBits(2);
+      boolean showFrame = obuData.readBit();
+      throwWhenFeatureRequired(sequenceHeader.decoderModelInfoPresentFlag);
+      if (!showFrame) {
+        // show_frame equal to 0 specifies that this frame should not be immediately output.
+        // If a frame is output later, then it is depended on.
+        isDependedOn = true;
+        return;
+      }
+      boolean errorResilientMode;
+      if (frameType == FRAME_TYPE_SWITCH_FRAME || (frameType == FRAME_TYPE_KEY_FRAME)) {
+        errorResilientMode = true;
+      } else {
+        errorResilientMode = obuData.readBit();
+      }
+      obuData.skipBit(); // disable_cdf_update
+      throwWhenFeatureRequired(!sequenceHeader.seqForceScreenContentTools);
+      boolean allowScreenContentTools = obuData.readBit();
+      if (allowScreenContentTools) {
+        throwWhenFeatureRequired(!sequenceHeader.seqForceIntegerMv);
+        obuData.skipBit(); // force_integer_mv
+      }
+      throwWhenFeatureRequired(sequenceHeader.frameIdNumbersPresentFlag);
+      if (frameType != FRAME_TYPE_SWITCH_FRAME) {
+        obuData.skipBit(); // frame_size_override_flag
+      }
+      obuData.skipBits(sequenceHeader.orderHintBits); // order_hint
+      if (frameType != FRAME_TYPE_INTRA_ONLY_FRAME
+          && frameType != FRAME_TYPE_KEY_FRAME
+          && !errorResilientMode) {
+        obuData.skipBits(3); // primary_ref_frame
+      }
+      int refreshFrameFlags;
+      if (frameType == FRAME_TYPE_SWITCH_FRAME || (frameType == FRAME_TYPE_KEY_FRAME)) {
+        refreshFrameFlags = (1 << 8) - 1;
+      } else {
+        refreshFrameFlags = obuData.readBits(8);
+      }
+      isDependedOn = refreshFrameFlags != 0;
     }
   }
 

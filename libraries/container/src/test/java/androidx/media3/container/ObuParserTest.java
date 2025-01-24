@@ -44,6 +44,12 @@ public class ObuParserTest {
   private static final ByteBuffer DELIMITER_AND_HEADER_AND_PADDING_WITH_EXTENSION_AND_MISSING_SIZE =
       ByteBuffer.wrap(createByteArray(0x16, 0x00, 0x00, 0x1A, 0x01, 0xC8, 0x78, 0xFF, 0xFF, 0xFF));
 
+  private static final ByteBuffer NON_REFERENCE_FRAME =
+      ByteBuffer.wrap(
+          createByteArray(
+              0x32, 0x1A, 0x30, 0xC0, 0x00, 0x1D, 0x66, 0x68, 0x46, 0xC9, 0x38, 0x00, 0x60, 0x10,
+              0x20, 0x80, 0x20, 0x00, 0x00, 0x01, 0x8B, 0x7A, 0x87, 0xF9, 0xAA, 0x2D, 0x0F, 0x2C));
+
   @Test
   public void split_sequenceHeaderAndFrame_parsesCorrectTypesAndSizes() {
     List<ObuParser.Obu> obuList = ObuParser.split(SEQUENCE_HEADER_AND_FRAME);
@@ -81,5 +87,40 @@ public class ObuParserTest {
     assertThat(sequenceHeader.seqForceScreenContentTools).isTrue();
     assertThat(sequenceHeader.seqForceIntegerMv).isTrue();
     assertThat(sequenceHeader.orderHintBits).isEqualTo(7);
+  }
+
+  @Test
+  public void parseFrameHeader_fromFrame_returnsIsDependedOn() {
+    List<ObuParser.Obu> obuList = ObuParser.split(SEQUENCE_HEADER_AND_FRAME);
+    ObuParser.Obu sequenceHeaderObu = obuList.get(0);
+    ObuParser.SequenceHeader sequenceHeader = ObuParser.SequenceHeader.parse(sequenceHeaderObu);
+    ObuParser.Obu frameObu = obuList.get(1);
+
+    ObuParser.FrameHeader frameHeader = ObuParser.FrameHeader.parse(sequenceHeader, frameObu);
+
+    assertThat(frameHeader.isDependedOn()).isTrue();
+  }
+
+  @Test
+  public void parseFrameHeader_fromFrameHeader_returnsIsDependedOn() {
+    ObuParser.Obu sequenceHeaderObu = ObuParser.split(SEQUENCE_HEADER_AND_FRAME).get(0);
+    ObuParser.SequenceHeader sequenceHeader = ObuParser.SequenceHeader.parse(sequenceHeaderObu);
+    ObuParser.Obu frameHeaderObu =
+        ObuParser.split(DELIMITER_AND_HEADER_AND_PADDING_WITH_EXTENSION_AND_MISSING_SIZE).get(1);
+
+    ObuParser.FrameHeader frameHeader = ObuParser.FrameHeader.parse(sequenceHeader, frameHeaderObu);
+
+    assertThat(frameHeader.isDependedOn()).isTrue();
+  }
+
+  @Test
+  public void parseFrameHeader_fromNonReferenceFrame_returnsNotDependedOn() {
+    ObuParser.Obu sequenceHeaderObu = ObuParser.split(SEQUENCE_HEADER_AND_FRAME).get(0);
+    ObuParser.SequenceHeader sequenceHeader = ObuParser.SequenceHeader.parse(sequenceHeaderObu);
+    ObuParser.Obu frameObu = ObuParser.split(NON_REFERENCE_FRAME).get(0);
+
+    ObuParser.FrameHeader frameHeader = ObuParser.FrameHeader.parse(sequenceHeader, frameObu);
+
+    assertThat(frameHeader.isDependedOn()).isFalse();
   }
 }
