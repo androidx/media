@@ -68,4 +68,18 @@ public class ObuParserTest {
     assertThat(obuList.get(2).type).isEqualTo(OBU_PADDING);
     assertThat(obuList.get(2).payload.remaining()).isEqualTo(3);
   }
+
+  @Test
+  public void sequenceHeader_parses() {
+    ObuParser.Obu sequenceHeaderObu = ObuParser.split(SEQUENCE_HEADER_AND_FRAME).get(0);
+
+    ObuParser.SequenceHeader sequenceHeader = ObuParser.SequenceHeader.parse(sequenceHeaderObu);
+
+    assertThat(sequenceHeader.reducedStillPictureHeader).isFalse();
+    assertThat(sequenceHeader.decoderModelInfoPresentFlag).isFalse();
+    assertThat(sequenceHeader.frameIdNumbersPresentFlag).isFalse();
+    assertThat(sequenceHeader.seqForceScreenContentTools).isTrue();
+    assertThat(sequenceHeader.seqForceIntegerMv).isTrue();
+    assertThat(sequenceHeader.orderHintBits).isEqualTo(7);
+  }
 }

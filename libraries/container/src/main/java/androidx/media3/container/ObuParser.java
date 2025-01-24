@@ -15,6 +15,10 @@
  */
 package androidx.media3.container;
 
+import static androidx.media3.common.util.Assertions.checkArgument;
+
+import androidx.annotation.Nullable;
+import androidx.media3.common.util.ParsableBitArray;
 import androidx.media3.common.util.UnstableApi;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -110,6 +114,153 @@ public final class ObuParser {
     }
     return value;
   }
+
+  /** An AV1 Sequence header. */
+  public static final class SequenceHeader {
+    /** See {@code reduced_still_picture_header}. */
+    public final boolean reducedStillPictureHeader;
+
+    /** See {@code decoder_model_info_present_flag}. */
+    public final boolean decoderModelInfoPresentFlag;
+
+    /** See {@code frame_id_numbers_present_flag}. */
+    public final boolean frameIdNumbersPresentFlag;
+
+    /** See {@code seq_force_screen_content_tools}. */
+    public final boolean seqForceScreenContentTools;
+
+    /** See {@code seq_force_integer_mv}. */
+    public final boolean seqForceIntegerMv;
+
+    /** See {@code OrderHintBits}. */
+    public final int orderHintBits;
+
+    /**
+     * Returns a {@link SequenceHeader} parsed from the input {@link #OBU_SEQUENCE_HEADER}.
+     *
+     * <p>Returns {@code null} if the AV1 bitstream is not yet supported.
+     */
+    @Nullable
+    public static SequenceHeader parse(Obu obu) {
+      try {
+        return new SequenceHeader(obu);
+      } catch (NotYetImplementedException ignored) {
+        return null;
+      }
+    }
+
+    /** Parses a {@link #OBU_SEQUENCE_HEADER} and creates an instance. */
+    private SequenceHeader(Obu obu) throws NotYetImplementedException {
+      checkArgument(obu.type == OBU_SEQUENCE_HEADER);
+      byte[] data = new byte[obu.payload.remaining()];
+      // Do not modify obu.payload as we read.
+      obu.payload.asReadOnlyBuffer().get(data);
+      ParsableBitArray obuData = new ParsableBitArray(data);
+      obuData.skipBits(4); // seq_profile and still_picture
+      reducedStillPictureHeader = obuData.readBit();
+      throwWhenFeatureRequired(reducedStillPictureHeader);
+      boolean timingInfoPresentFlag = obuData.readBit();
+      if (timingInfoPresentFlag) {
+        skipTimingInfo(obuData);
+        decoderModelInfoPresentFlag = obuData.readBit();
+        if (decoderModelInfoPresentFlag) {
+          // skip decoder_model_info()
+          obuData.skipBits(47);
+        }
+      } else {
+        decoderModelInfoPresentFlag = false;
+      }
+      boolean initialDisplayDelayPresentFlag = obuData.readBit();
+      int operatingPointsCntMinus1 = obuData.readBits(5);
+      for (int i = 0; i <= operatingPointsCntMinus1; i++) {
+        obuData.skipBits(12); // operating_point_idc[ i ]
+        int seqLevelIdx = obuData.readBits(5);
+        if (seqLevelIdx > 7) {
+          obuData.skipBit(); // seq_tier[ i ]
+        }
+        throwWhenFeatureRequired(decoderModelInfoPresentFlag);
+        if (initialDisplayDelayPresentFlag) {
+          boolean initialDisplayDelayPresentForThisOpFlag = obuData.readBit();
+          if (initialDisplayDelayPresentForThisOpFlag) {
+            obuData.skipBits(4); // initial_display_delay_minus_1[ i ]
+          }
+        }
+      }
+      int frameWidthBitsMinus1 = obuData.readBits(4);
+      int frameHeightBitsMinus1 = obuData.readBits(4);
+      obuData.skipBits(frameWidthBitsMinus1 + 1); // max_frame_width_minus_1
+      obuData.skipBits(frameHeightBitsMinus1 + 1); // max_frame_height_minus_1
+      frameIdNumbersPresentFlag = obuData.readBit();
+      throwWhenFeatureRequired(frameIdNumbersPresentFlag);
+      // use_128x128_superblock, enable_filter_intra, and enable_intra_edge_filter
+      obuData.skipBits(3);
+      // enable_interintra_compound, enable_masked_compound, enable_warped_motion, and
+      // enable_dual_filter
+      obuData.skipBits(4);
+      boolean enableOrderHint = obuData.readBit();
+      if (enableOrderHint) {
+        obuData.skipBits(2); // enable_jnt_comp and enable_ref_frame_mvs
+      }
+      boolean seqChooseScreenContentTools = obuData.readBit();
+      if (seqChooseScreenContentTools) {
+        seqForceScreenContentTools = true;
+      } else {
+        seqForceScreenContentTools = obuData.readBit();
+      }
+      if (seqForceScreenContentTools) {
+        boolean seqChooseIntegerMv = obuData.readBit();
+        if (seqChooseIntegerMv) {
+          seqForceIntegerMv = true;
+        } else {
+          seqForceIntegerMv = obuData.readBit();
+        }
+      } else {
+        seqForceIntegerMv = true;
+      }
+      if (enableOrderHint) {
+        int orderHintBitsMinus1 = obuData.readBits(3);
+        orderHintBits = orderHintBitsMinus1 + 1;
+      } else {
+        orderHintBits = 0;
+      }
+    }
+
+    /** Advances the bit array by skipping the {@code timing_info()} syntax element. */
+    private static void skipTimingInfo(ParsableBitArray parsableBitArray) {
+      parsableBitArray.skipBits(64); // num_units_in_display_tick and time_scale
+      boolean equalPictureInterval = parsableBitArray.readBit();
+      if (equalPictureInterval) {
+        skipUvlc(parsableBitArray);
+      }
+    }
+  }
+
+  /** Advances the bit array by skipping the {@code uvlc()} process. */
+  private static void skipUvlc(ParsableBitArray parsableBitArray) {
+    int leadingZeros = 0;
+    while (true) {
+      boolean done = parsableBitArray.readBit();
+      if (done) {
+        break;
+      }
+      leadingZeros++;
+    }
+    // 32 or more leading zeros returns (1 << 32) - 1 from the uvlc() process without reading more
+    // bits.
+    if (leadingZeros < 32) {
+      parsableBitArray.skipBits(leadingZeros);
+    }
+  }
+
+  /** Full AV1 bitstream parsing is not yet implemented. */
+  private static void throwWhenFeatureRequired(boolean expression)
+      throws NotYetImplementedException {
+    if (expression) {
+      throw new NotYetImplementedException();
+    }
+  }
+
+  private static class NotYetImplementedException extends Exception {}
 
   private ObuParser() {
     // Prevent instantiation.
