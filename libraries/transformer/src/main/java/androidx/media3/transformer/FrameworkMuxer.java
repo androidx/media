@@ -99,6 +99,7 @@ import java.util.Locale;
     }
   }
 
+  public static final String MUXER_NAME = "android.media:" + SDK_INT;
   public static final String MUXER_STOPPING_FAILED_ERROR_MESSAGE = "Failed to stop the MediaMuxer";
 
   // MediaMuxer supported sample formats are documented in MediaMuxer.addTrack(MediaFormat).

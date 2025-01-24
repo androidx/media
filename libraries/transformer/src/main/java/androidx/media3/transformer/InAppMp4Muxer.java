@@ -20,6 +20,7 @@ import android.media.MediaCodec.BufferInfo;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
+import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Log;
@@ -122,6 +123,9 @@ public final class InAppMp4Muxer implements Muxer {
       return ImmutableList.of();
     }
   }
+
+  public static final String MUXER_NAME =
+      "androidx.media3.media3-muxer:" + MediaLibraryInfo.VERSION;
 
   private static final String TAG = "InAppMp4Muxer";
   private static final int TRACK_ID_UNSET = -1;

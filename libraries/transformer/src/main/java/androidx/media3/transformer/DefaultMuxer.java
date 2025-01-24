@@ -76,6 +76,7 @@ public final class DefaultMuxer implements Muxer {
     }
   }
 
+  public static final String MUXER_NAME = FrameworkMuxer.MUXER_NAME;
   private final Muxer muxer;
 
   private DefaultMuxer(Muxer muxer) {
