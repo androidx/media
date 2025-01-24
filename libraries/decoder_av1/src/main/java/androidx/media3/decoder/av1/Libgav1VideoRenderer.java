@@ -78,17 +78,22 @@ public class Libgav1VideoRenderer extends DecoderVideoRenderer {
    * @param eventListener A listener of events. May be null if delivery of events is not required.
    * @param maxDroppedFramesToNotify The maximum number of frames that can be dropped between
    *     invocations of {@link VideoRendererEventListener#onDroppedFrames(int, long)}.
+   * @param minConsecutiveDroppedFramesToNotify The minimum number of consecutive frames that must
+   *     be dropped for {@link VideoRendererEventListener#onConsecutiveDroppedFrames(int, long)} to
+   *     be called.
    */
   public Libgav1VideoRenderer(
       long allowedJoiningTimeMs,
       @Nullable Handler eventHandler,
       @Nullable VideoRendererEventListener eventListener,
-      int maxDroppedFramesToNotify) {
+      int maxDroppedFramesToNotify,
+      int minConsecutiveDroppedFramesToNotify) {
     this(
         allowedJoiningTimeMs,
         eventHandler,
         eventListener,
         maxDroppedFramesToNotify,
+        minConsecutiveDroppedFramesToNotify,
         THREAD_COUNT_AUTODETECT,
         DEFAULT_NUM_OF_INPUT_BUFFERS,
         DEFAULT_NUM_OF_OUTPUT_BUFFERS);
@@ -104,6 +109,9 @@ public class Libgav1VideoRenderer extends DecoderVideoRenderer {
    * @param eventListener A listener of events. May be null if delivery of events is not required.
    * @param maxDroppedFramesToNotify The maximum number of frames that can be dropped between
    *     invocations of {@link VideoRendererEventListener#onDroppedFrames(int, long)}.
+   * @param minConsecutiveDroppedFramesToNotify The minimum number of consecutive frames that must
+   *     be dropped for {@link VideoRendererEventListener#onConsecutiveDroppedFrames(int, long)} to
+   *     be called.
    * @param threads Number of threads libgav1 will use to decode. If {@link
    *     #THREAD_COUNT_AUTODETECT} is passed, then the number of threads to use is autodetected
    *     based on CPU capabilities.
@@ -115,10 +123,16 @@ public class Libgav1VideoRenderer extends DecoderVideoRenderer {
       @Nullable Handler eventHandler,
       @Nullable VideoRendererEventListener eventListener,
       int maxDroppedFramesToNotify,
+      int minConsecutiveDroppedFramesToNotify,
       int threads,
       int numInputBuffers,
       int numOutputBuffers) {
-    super(allowedJoiningTimeMs, eventHandler, eventListener, maxDroppedFramesToNotify);
+    super(
+      allowedJoiningTimeMs,
+      eventHandler,
+      eventListener,
+      maxDroppedFramesToNotify,
+      minConsecutiveDroppedFramesToNotify);
     this.threads = threads;
     this.numInputBuffers = numInputBuffers;
     this.numOutputBuffers = numOutputBuffers;

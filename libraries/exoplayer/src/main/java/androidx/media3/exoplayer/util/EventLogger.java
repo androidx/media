@@ -453,6 +453,13 @@ public class EventLogger implements AnalyticsListener {
 
   @UnstableApi
   @Override
+  public void onConsecutiveDroppedVideoFrames(
+      EventTime eventTime, int consecutiveDroppedFrames, long elapsedMs) {
+    logd(eventTime, "consecutiveDroppedFrames", Integer.toString(consecutiveDroppedFrames));
+  }
+
+  @UnstableApi
+  @Override
   public void onVideoDecoderReleased(EventTime eventTime, String decoderName) {
     logd(eventTime, "videoDecoderReleased", decoderName);
   }

@@ -113,6 +113,7 @@ public abstract class DecoderVideoRenderer extends BaseRenderer {
 
   private final long allowedJoiningTimeMs;
   private final int maxDroppedFramesToNotify;
+  private final int minConsecutiveDroppedFramesToNotify;
   private final EventDispatcher eventDispatcher;
   private final TimedValueQueue<Format> formatQueue;
   private final DecoderInputBuffer flagsOnlyBuffer;
@@ -150,6 +151,7 @@ public abstract class DecoderVideoRenderer extends BaseRenderer {
 
   private long droppedFrameAccumulationStartTimeMs;
   private int droppedFrames;
+  private long consecutiveDroppedFrameAccumulationStartTimeMs;
   private int consecutiveDroppedFrameCount;
   private int buffersInCodecCount;
   private long lastRenderTimeUs;
@@ -165,15 +167,20 @@ public abstract class DecoderVideoRenderer extends BaseRenderer {
    * @param eventListener A listener of events. May be null if delivery of events is not required.
    * @param maxDroppedFramesToNotify The maximum number of frames that can be dropped between
    *     invocations of {@link VideoRendererEventListener#onDroppedFrames(int, long)}.
+   * @param minConsecutiveDroppedFramesToNotify The minimum number of consecutive frames that must
+   *     be dropped for {@link VideoRendererEventListener#onConsecutiveDroppedFrames(int, long)} to
+   *     be called.
    */
   protected DecoderVideoRenderer(
       long allowedJoiningTimeMs,
       @Nullable Handler eventHandler,
       @Nullable VideoRendererEventListener eventListener,
-      int maxDroppedFramesToNotify) {
+      int maxDroppedFramesToNotify,
+      int minConsecutiveDroppedFramesToNotify) {
     super(C.TRACK_TYPE_VIDEO);
     this.allowedJoiningTimeMs = allowedJoiningTimeMs;
     this.maxDroppedFramesToNotify = maxDroppedFramesToNotify;
+    this.minConsecutiveDroppedFramesToNotify = minConsecutiveDroppedFramesToNotify;
     joiningDeadlineMs = C.TIME_UNSET;
     formatQueue = new TimedValueQueue<>();
     flagsOnlyBuffer = DecoderInputBuffer.newNoDataInstance();
@@ -296,7 +303,7 @@ public abstract class DecoderVideoRenderer extends BaseRenderer {
     outputStreamEnded = false;
     lowerFirstFrameState(C.FIRST_FRAME_NOT_RENDERED);
     initialPositionUs = C.TIME_UNSET;
-    consecutiveDroppedFrameCount = 0;
+    maybeNotifyConsecutiveDroppedFrames();
     if (decoder != null) {
       flushDecoder();
     }
@@ -319,6 +326,7 @@ public abstract class DecoderVideoRenderer extends BaseRenderer {
   protected void onStopped() {
     joiningDeadlineMs = C.TIME_UNSET;
     maybeNotifyDroppedFrames();
+    maybeNotifyConsecutiveDroppedFrames();
   }
 
   @Override
@@ -603,8 +611,8 @@ public abstract class DecoderVideoRenderer extends BaseRenderer {
       } else {
         renderOutputBufferToSurface(outputBuffer, checkNotNull(outputSurface));
       }
-      consecutiveDroppedFrameCount = 0;
       decoderCounters.renderedOutputBufferCount++;
+      maybeNotifyConsecutiveDroppedFrames();
       maybeNotifyRenderedFirstFrame();
     }
   }
@@ -994,6 +1002,17 @@ public abstract class DecoderVideoRenderer extends BaseRenderer {
       droppedFrames = 0;
       droppedFrameAccumulationStartTimeMs = now;
     }
+  }
+
+  private void maybeNotifyConsecutiveDroppedFrames() {
+    if (consecutiveDroppedFrameCount > 0
+        && consecutiveDroppedFrameCount >= minConsecutiveDroppedFramesToNotify) {
+      long elapsedMs = SystemClock.elapsedRealtime() - consecutiveDroppedFrameAccumulationStartTimeMs;
+      eventDispatcher.consecutiveDroppedFrames(consecutiveDroppedFrameCount, elapsedMs);
+    }
+    // Always reset the counter to 0, even if the threshold is not reached.
+    consecutiveDroppedFrameCount = 0;
+    consecutiveDroppedFrameAccumulationStartTimeMs = SystemClock.elapsedRealtime();
   }
 
   private static boolean isBufferLate(long earlyUs) {
