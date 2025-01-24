@@ -253,7 +253,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       ExportResult.ProcessedInput processedInput = processedInputs.get(i);
       MediaItemInfo.Builder mediaItemInfoBuilder = new MediaItemInfo.Builder();
       long durationMs = usToMs(processedInput.durationUs);
-      mediaItemInfoBuilder.setDurationMillis(durationMs);
+      mediaItemInfoBuilder.setClipDurationMillis(durationMs);
       Format format = processedInput.format;
       if (format != null) {
         if (format.containerMimeType != null) {
