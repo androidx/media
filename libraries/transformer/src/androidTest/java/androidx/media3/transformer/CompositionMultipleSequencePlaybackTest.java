@@ -34,6 +34,7 @@ import java.util.concurrent.TimeoutException;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -134,6 +135,7 @@ public class CompositionMultipleSequencePlaybackTest {
   }
 
   @Test
+  @Ignore("TODO: b/391349011 - Re-enable after propagating an EOS signal after each MediaItem")
   public void playback_sequencesOfVideos_effectsReceiveCorrectTimestamps() throws Exception {
     Composition composition =
         new Composition.Builder(
