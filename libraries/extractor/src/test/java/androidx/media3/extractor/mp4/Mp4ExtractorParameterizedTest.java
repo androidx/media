@@ -204,6 +204,11 @@ public final class Mp4ExtractorParameterizedTest {
   }
 
   @Test
+  public void mp4SampleWithEditListAndNoSyncFrameBeforeEdit() throws Exception {
+    assertExtractorBehavior("media/mp4/sample_edit_list_no_sync_frame_before_edit.mp4");
+  }
+
+  @Test
   public void mp4SampleWithEmptyTrack() throws Exception {
     assertExtractorBehavior("media/mp4/sample_empty_track.mp4");
   }

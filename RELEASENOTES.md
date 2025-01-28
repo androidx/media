@@ -47,6 +47,9 @@
 *   Extractors:
     *   Fix handling of NAL units with lengths expressed in 1 or 2 bytes (rather
         than 4).
+    *   Fix `ArrayIndexOutOfBoundsException` in MP4 edit lists when the edit
+        list starts at a non-sync frame with no preceding sync frame
+        ([#2062](https://github.com/androidx/media/issues/2062)).
 *   DataSource:
 *   Audio:
     *   Do not bypass `SonicAudioProcessor` when `SpeedChangingAudioProcessor`

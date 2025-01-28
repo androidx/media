@@ -724,16 +724,15 @@ public final class BoxParser {
         // frames appear after their respective sync frames. This ensures that although the result
         // of the binary search might not be entirely accurate (due to the out-of-order timestamps),
         // the following logic ensures correctness for both start and end indices.
-        //
+
         // The startIndices calculation finds the largest timestamp that is less than or equal to
         // editMediaTime. It then walks backward to ensure the index points to a sync frame, since
-        // decoding must start from a keyframe.
+        // decoding must start from a keyframe. If a sync frame is not found by walking backward, it
+        // walks forward from the initially found index to find a sync frame.
         startIndices[i] =
             Util.binarySearchFloor(
                 timestamps, editMediaTime, /* inclusive= */ true, /* stayInBounds= */ true);
-        while (startIndices[i] >= 0 && (flags[startIndices[i]] & C.BUFFER_FLAG_KEY_FRAME) == 0) {
-          startIndices[i]--;
-        }
+
         // The endIndices calculation finds the smallest timestamp that is greater than
         // editMediaTime + editDuration, except when omitZeroDurationClippedSample is true, in which
         // case it finds the smallest timestamp that is greater than or equal to editMediaTime +
@@ -744,7 +743,21 @@ public final class BoxParser {
                 editMediaTime + editDuration,
                 /* inclusive= */ omitZeroDurationClippedSample,
                 /* stayInBounds= */ false);
-        if (track.type == C.TRACK_TYPE_VIDEO) {
+
+        int initialStartIndex = startIndices[i];
+        while (startIndices[i] >= 0 && (flags[startIndices[i]] & C.BUFFER_FLAG_KEY_FRAME) == 0) {
+          startIndices[i]--;
+        }
+
+        if (startIndices[i] < 0) {
+          startIndices[i] = initialStartIndex;
+          while (startIndices[i] < endIndices[i]
+              && (flags[startIndices[i]] & C.BUFFER_FLAG_KEY_FRAME) == 0) {
+            startIndices[i]++;
+          }
+        }
+
+        if (track.type == C.TRACK_TYPE_VIDEO && startIndices[i] != endIndices[i]) {
           // To account for out-of-order video frames that may have timestamps smaller than or equal
           // to editMediaTime + editDuration, but still fall within the valid range, the loop walks
           // forward through the timestamps array to ensure all frames with timestamps within the
