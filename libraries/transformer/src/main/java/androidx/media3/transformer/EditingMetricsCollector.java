@@ -262,6 +262,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         if (videoFormat.sampleMimeType != null) {
           mediaItemInfoBuilder.addSampleMimeType(videoFormat.sampleMimeType);
         }
+        if (videoFormat.codecs != null) {
+          mediaItemInfoBuilder.addCodecName(videoFormat.codecs);
+        }
         if (videoFormat.frameRate != Format.NO_VALUE) {
           mediaItemInfoBuilder.setVideoFrameRate(videoFormat.frameRate);
         }
@@ -293,6 +296,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       if (audioFormat != null) {
         if (audioFormat.sampleMimeType != null) {
           mediaItemInfoBuilder.addSampleMimeType(audioFormat.sampleMimeType);
+        }
+        if (audioFormat.codecs != null) {
+          mediaItemInfoBuilder.addCodecName(audioFormat.codecs);
         }
         if (audioFormat.channelCount != Format.NO_VALUE) {
           mediaItemInfoBuilder.setAudioChannelCount(audioFormat.channelCount);
