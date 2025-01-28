@@ -15,8 +15,11 @@
  */
 package androidx.media3.effect;
 
+import static androidx.media3.common.C.TEXTURE_MIN_FILTER_LINEAR;
+
 import android.content.Context;
 import android.opengl.Matrix;
+import androidx.media3.common.C;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.UnstableApi;
@@ -45,6 +48,14 @@ public interface GlMatrixTransformation extends GlEffect {
    */
   default Size configure(int inputWidth, int inputHeight) {
     return new Size(inputWidth, inputHeight);
+  }
+
+  /**
+   * Returns the {@linkplain C.TextureMinFilter texture minification filter} to use for sampling the
+   * input texture when applying this matrix transformation.
+   */
+  default @C.TextureMinFilter int getGlTextureMinFilter() {
+    return TEXTURE_MIN_FILTER_LINEAR;
   }
 
   /**

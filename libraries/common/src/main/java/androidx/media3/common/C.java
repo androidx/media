@@ -30,6 +30,7 @@ import android.media.MediaCodec;
 import android.media.MediaCrypto;
 import android.media.MediaFormat;
 import android.net.Uri;
+import android.opengl.GLES20;
 import android.view.Surface;
 import androidx.annotation.IntDef;
 import androidx.media3.common.util.UnstableApi;
@@ -1692,6 +1693,40 @@ public final class C {
 
   /** The first frame was rendered. */
   @UnstableApi public static final int FIRST_FRAME_RENDERED = 3;
+
+  /**
+   * Texture filtering algorithm for minification.
+   *
+   * <p>Possible values are:
+   *
+   * <ul>
+   *   <li>{@link #TEXTURE_MIN_FILTER_LINEAR}
+   *   <li>{@link #TEXTURE_MIN_FILTER_LINEAR_MIPMAP_LINEAR}
+   * </ul>
+   *
+   * <p>The algorithms are ordered by increasing visual quality and computational cost.
+   */
+  @UnstableApi
+  @Documented
+  @Retention(RetentionPolicy.SOURCE)
+  @Target(TYPE_USE)
+  @IntDef({TEXTURE_MIN_FILTER_LINEAR, TEXTURE_MIN_FILTER_LINEAR_MIPMAP_LINEAR})
+  public @interface TextureMinFilter {}
+
+  /**
+   * Returns the weighted average of the four texture elements that are closest to the specified
+   * texture coordinates.
+   */
+  @UnstableApi public static final int TEXTURE_MIN_FILTER_LINEAR = GLES20.GL_LINEAR;
+
+  /**
+   * Chooses the two mipmaps that most closely match the size of the pixel being textured and uses
+   * the {@link C#TEXTURE_MIN_FILTER_LINEAR} criterion (a weighted average of the texture elements
+   * that are closest to the specified texture coordinates) to produce a texture value from each
+   * mipmap. The final texture value is a weighted average of those two values.
+   */
+  @UnstableApi
+  public static final int TEXTURE_MIN_FILTER_LINEAR_MIPMAP_LINEAR = GLES20.GL_LINEAR_MIPMAP_LINEAR;
 
   /**
    * @deprecated Use {@link Util#usToMs(long)}.
