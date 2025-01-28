@@ -98,7 +98,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private boolean decodeVideo;
   private int sequenceLoopCount;
   private int processedInputsSize;
-  private @MonotonicNonNull Format currentInputFormat;
+  private @MonotonicNonNull Format currentAudioInputFormat;
+  private @MonotonicNonNull Format currentVideoInputFormat;
 
   // Accessed when switching asset loader.
   private volatile boolean released;
@@ -195,7 +196,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           new ExportResult.ProcessedInput(
               mediaItem,
               currentAssetDurationUs,
-              currentInputFormat,
+              currentAudioInputFormat,
+              currentVideoInputFormat,
               decoders.get(C.TRACK_TYPE_AUDIO),
               decoders.get(C.TRACK_TYPE_VIDEO)));
       processedInputsSize++;
@@ -234,7 +236,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         isAudio ? "audio" : "video",
         inputFormat);
 
-    currentInputFormat = inputFormat;
+    if (isAudio) {
+      currentAudioInputFormat = inputFormat;
+    } else {
+      currentVideoInputFormat = inputFormat;
+    }
+
     if (!isCurrentAssetFirstAsset) {
       boolean decode = isAudio ? decodeAudio : decodeVideo;
       if (decode) {

@@ -254,24 +254,28 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       MediaItemInfo.Builder mediaItemInfoBuilder = new MediaItemInfo.Builder();
       long durationMs = usToMs(processedInput.durationUs);
       mediaItemInfoBuilder.setClipDurationMillis(durationMs);
-      Format format = processedInput.format;
-      if (format != null) {
-        if (format.containerMimeType != null) {
-          mediaItemInfoBuilder.setContainerMimeType(format.containerMimeType);
+      @Nullable Format videoFormat = processedInput.videoFormat;
+      if (videoFormat != null) {
+        if (videoFormat.containerMimeType != null) {
+          mediaItemInfoBuilder.setContainerMimeType(videoFormat.containerMimeType);
         }
-        if (format.sampleMimeType != null) {
-          mediaItemInfoBuilder.addSampleMimeType(format.sampleMimeType);
+        if (videoFormat.sampleMimeType != null) {
+          mediaItemInfoBuilder.addSampleMimeType(videoFormat.sampleMimeType);
         }
-        if (format.frameRate != Format.NO_VALUE) {
-          mediaItemInfoBuilder.setVideoFrameRate(format.frameRate);
+        if (videoFormat.frameRate != Format.NO_VALUE) {
+          mediaItemInfoBuilder.setVideoFrameRate(videoFormat.frameRate);
         }
         Size videoSize =
             new Size(
-                format.width != Format.NO_VALUE ? format.width : MediaItemInfo.VALUE_UNSPECIFIED,
-                format.height != Format.NO_VALUE ? format.height : MediaItemInfo.VALUE_UNSPECIFIED);
+                videoFormat.width != Format.NO_VALUE
+                    ? videoFormat.width
+                    : MediaItemInfo.VALUE_UNSPECIFIED,
+                videoFormat.height != Format.NO_VALUE
+                    ? videoFormat.height
+                    : MediaItemInfo.VALUE_UNSPECIFIED);
         mediaItemInfoBuilder.setVideoSize(videoSize);
-        if (format.colorInfo != null) {
-          ColorInfo colorInfo = format.colorInfo;
+        if (videoFormat.colorInfo != null) {
+          ColorInfo colorInfo = videoFormat.colorInfo;
           int colorStandard =
               DATA_SPACE_STANDARD_CONVERSION_MAP.get(
                   colorInfo.colorSpace, DataSpace.STANDARD_UNSPECIFIED);
