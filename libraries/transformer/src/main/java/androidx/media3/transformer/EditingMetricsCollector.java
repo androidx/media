@@ -289,6 +289,18 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               DataSpace.pack(colorStandard, colorTransfer, colorRange));
         }
       }
+      Format audioFormat = processedInput.audioFormat;
+      if (audioFormat != null) {
+        if (audioFormat.sampleMimeType != null) {
+          mediaItemInfoBuilder.addSampleMimeType(audioFormat.sampleMimeType);
+        }
+        if (audioFormat.channelCount != Format.NO_VALUE) {
+          mediaItemInfoBuilder.setAudioChannelCount(audioFormat.channelCount);
+        }
+        if (audioFormat.sampleRate != Format.NO_VALUE) {
+          mediaItemInfoBuilder.setAudioSampleRateHz(audioFormat.sampleRate);
+        }
+      }
       mediaItemInfoList.add(mediaItemInfoBuilder.build());
     }
     return mediaItemInfoList;

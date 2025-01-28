@@ -526,8 +526,8 @@ public final class Transformer {
      * data is enabled</a> by the user of the device.
      *
      * @param usePlatformDiagnostics Whether transformer reports diagnostics data to the Android
-     *     platform
-     * @return This builder
+     *     platform.
+     * @return This builder.
      */
     @CanIgnoreReturnValue
     public Builder setUsePlatformDiagnostics(boolean usePlatformDiagnostics) {
