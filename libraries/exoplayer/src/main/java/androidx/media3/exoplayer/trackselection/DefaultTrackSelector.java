@@ -17,8 +17,8 @@ package androidx.media3.exoplayer.trackselection;
 
 import static androidx.media3.common.TrackSelectionParameters.AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_DISABLED;
 import static androidx.media3.common.TrackSelectionParameters.AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_REQUIRED;
+import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
-import static androidx.media3.common.util.Util.castNonNull;
 import static androidx.media3.exoplayer.RendererCapabilities.AUDIO_OFFLOAD_GAPLESS_SUPPORTED;
 import static androidx.media3.exoplayer.RendererCapabilities.AUDIO_OFFLOAD_NOT_SUPPORTED;
 import static androidx.media3.exoplayer.RendererCapabilities.AUDIO_OFFLOAD_SPEED_CHANGE_SUPPORTED;
@@ -2397,16 +2397,11 @@ public class DefaultTrackSelector extends MappingTrackSelector
   private final Object lock;
   @Nullable public final Context context;
   private final ExoTrackSelection.Factory trackSelectionFactory;
-  private final boolean deviceIsTV;
 
   @GuardedBy("lock")
   private Parameters parameters;
 
-  @GuardedBy("lock")
-  @Nullable
-  private SpatializerWrapperV32 spatializer;
-
-  @GuardedBy("lock")
+  @Nullable private SpatializerWrapperV32 spatializer;
   private AudioAttributes audioAttributes;
 
   /**
@@ -2481,10 +2476,6 @@ public class DefaultTrackSelector extends MappingTrackSelector
       this.parameters = defaultParameters.buildUpon().set(parameters).build();
     }
     this.audioAttributes = AudioAttributes.DEFAULT;
-    this.deviceIsTV = context != null && Util.isTv(context);
-    if (!deviceIsTV && context != null && Util.SDK_INT >= 32) {
-      spatializer = SpatializerWrapperV32.tryCreateInstance(context);
-    }
     if (this.parameters.constrainAudioChannelCountToDeviceCapabilities && context == null) {
       Log.w(TAG, AUDIO_CHANNEL_COUNT_CONSTRAINTS_WARN_MESSAGE);
     }
@@ -2492,10 +2483,8 @@ public class DefaultTrackSelector extends MappingTrackSelector
 
   @Override
   public void release() {
-    synchronized (lock) {
-      if (Util.SDK_INT >= 32 && spatializer != null) {
-        spatializer.release();
-      }
+    if (Util.SDK_INT >= 32 && spatializer != null) {
+      spatializer.release();
     }
     super.release();
   }
@@ -2524,14 +2513,11 @@ public class DefaultTrackSelector extends MappingTrackSelector
 
   @Override
   public void setAudioAttributes(AudioAttributes audioAttributes) {
-    boolean audioAttributesChanged;
-    synchronized (lock) {
-      audioAttributesChanged = !this.audioAttributes.equals(audioAttributes);
-      this.audioAttributes = audioAttributes;
+    if (this.audioAttributes.equals(audioAttributes)) {
+      return;
     }
-    if (audioAttributesChanged) {
-      maybeInvalidateForAudioChannelCountConstraints();
-    }
+    this.audioAttributes = audioAttributes;
+    maybeInvalidateForAudioChannelCountConstraints();
   }
 
   /**
@@ -2605,13 +2591,11 @@ public class DefaultTrackSelector extends MappingTrackSelector
     Parameters parameters;
     synchronized (lock) {
       parameters = this.parameters;
-      if (parameters.constrainAudioChannelCountToDeviceCapabilities
-          && Util.SDK_INT >= 32
-          && spatializer != null) {
-        // Initialize the spatializer now so we can get a reference to the playback looper with
-        // Looper.myLooper().
-        spatializer.ensureInitialized(this, checkStateNotNull(Looper.myLooper()));
-      }
+    }
+    if (parameters.constrainAudioChannelCountToDeviceCapabilities
+        && Util.SDK_INT >= 32
+        && spatializer == null) {
+      spatializer = new SpatializerWrapperV32(context, /* defaultTrackSelector= */ this);
     }
     int rendererCount = mappedTrackInfo.getRendererCount();
     ExoTrackSelection.@NullableType Definition[] definitions =
@@ -2852,7 +2836,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
                 params,
                 support,
                 hasVideoRendererWithMappedTracksFinal,
-                this::isAudioFormatWithinAudioChannelCountConstraints,
+                format -> isAudioFormatWithinAudioChannelCountConstraints(format, params),
                 rendererMixedMimeTypeAdaptationSupports[rendererIndex]),
         AudioTrackInfo::compareSelections);
   }
@@ -2874,22 +2858,20 @@ public class DefaultTrackSelector extends MappingTrackSelector
    *   <li>Audio spatialization is applicable and {@code format} can be spatialized.
    * </ul>
    */
-  private boolean isAudioFormatWithinAudioChannelCountConstraints(Format format) {
-    synchronized (lock) {
-      return !parameters.constrainAudioChannelCountToDeviceCapabilities
-          || deviceIsTV
-          || (format.channelCount == Format.NO_VALUE || format.channelCount <= 2)
-          || (isDolbyAudio(format)
-              && (Util.SDK_INT < 32
-                  || spatializer == null
-                  || !spatializer.isSpatializationSupported()))
-          || (Util.SDK_INT >= 32
-              && spatializer != null
-              && spatializer.isSpatializationSupported()
-              && spatializer.isAvailable()
-              && spatializer.isEnabled()
-              && spatializer.canBeSpatialized(audioAttributes, format));
-    }
+  private boolean isAudioFormatWithinAudioChannelCountConstraints(
+      Format format, Parameters parameters) {
+    return !parameters.constrainAudioChannelCountToDeviceCapabilities
+        || (format.channelCount == Format.NO_VALUE || format.channelCount <= 2)
+        || (isDolbyAudio(format)
+            && (Util.SDK_INT < 32
+                || spatializer == null
+                || !spatializer.isSpatializationSupported()))
+        || (Util.SDK_INT >= 32
+            && spatializer != null
+            && spatializer.isSpatializationSupported()
+            && spatializer.isAvailable()
+            && spatializer.isEnabled()
+            && spatializer.canBeSpatialized(audioAttributes, format));
   }
 
   // Text track selection implementation.
@@ -3068,7 +3050,6 @@ public class DefaultTrackSelector extends MappingTrackSelector
     synchronized (lock) {
       shouldInvalidate =
           parameters.constrainAudioChannelCountToDeviceCapabilities
-              && !deviceIsTV
               && Util.SDK_INT >= 32
               && spatializer != null
               && spatializer.isSpatializationSupported();
@@ -4240,29 +4221,26 @@ public class DefaultTrackSelector extends MappingTrackSelector
   @RequiresApi(32)
   private static class SpatializerWrapperV32 {
 
-    private final Spatializer spatializer;
+    @Nullable private final Spatializer spatializer;
     private final boolean spatializationSupported;
+    @Nullable private final Handler handler;
+    @Nullable private final Spatializer.OnSpatializerStateChangedListener listener;
 
-    @Nullable private Handler handler;
-    @Nullable private Spatializer.OnSpatializerStateChangedListener listener;
-
-    @Nullable
-    public static SpatializerWrapperV32 tryCreateInstance(Context context) {
+    public SpatializerWrapperV32(
+        @Nullable Context context, DefaultTrackSelector defaultTrackSelector) {
       @Nullable
-      AudioManager audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
-      return audioManager == null ? null : new SpatializerWrapperV32(audioManager.getSpatializer());
-    }
-
-    private SpatializerWrapperV32(Spatializer spatializer) {
-      this.spatializer = spatializer;
-      this.spatializationSupported =
-          spatializer.getImmersiveAudioLevel() != Spatializer.SPATIALIZER_IMMERSIVE_LEVEL_NONE;
-    }
-
-    public void ensureInitialized(DefaultTrackSelector defaultTrackSelector, Looper looper) {
-      if (listener != null || handler != null) {
+      AudioManager audioManager =
+          context == null ? null : (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
+      if (audioManager == null || Util.isTv(checkNotNull(context))) {
+        spatializer = null;
+        spatializationSupported = false;
+        handler = null;
+        listener = null;
         return;
       }
+      this.spatializer = audioManager.getSpatializer();
+      this.spatializationSupported =
+          spatializer.getImmersiveAudioLevel() != Spatializer.SPATIALIZER_IMMERSIVE_LEVEL_NONE;
       this.listener =
           new Spatializer.OnSpatializerStateChangedListener() {
             @Override
@@ -4275,7 +4253,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
               defaultTrackSelector.maybeInvalidateForAudioChannelCountConstraints();
             }
           };
-      this.handler = new Handler(looper);
+      this.handler = new Handler(checkStateNotNull(Looper.myLooper()));
       spatializer.addOnSpatializerStateChangedListener(handler::post, listener);
     }
 
@@ -4284,11 +4262,11 @@ public class DefaultTrackSelector extends MappingTrackSelector
     }
 
     public boolean isAvailable() {
-      return spatializer.isAvailable();
+      return checkNotNull(spatializer).isAvailable();
     }
 
     public boolean isEnabled() {
-      return spatializer.isEnabled();
+      return checkNotNull(spatializer).isEnabled();
     }
 
     public boolean canBeSpatialized(AudioAttributes audioAttributes, Format format) {
@@ -4324,18 +4302,17 @@ public class DefaultTrackSelector extends MappingTrackSelector
       if (format.sampleRate != Format.NO_VALUE) {
         builder.setSampleRate(format.sampleRate);
       }
-      return spatializer.canBeSpatialized(
-          audioAttributes.getAudioAttributesV21().audioAttributes, builder.build());
+      return checkNotNull(spatializer)
+          .canBeSpatialized(
+              audioAttributes.getAudioAttributesV21().audioAttributes, builder.build());
     }
 
     public void release() {
-      if (listener == null || handler == null) {
+      if (spatializer == null || listener == null || handler == null) {
         return;
       }
       spatializer.removeOnSpatializerStateChangedListener(listener);
-      castNonNull(handler).removeCallbacksAndMessages(/* token= */ null);
-      handler = null;
-      listener = null;
+      handler.removeCallbacksAndMessages(/* token= */ null);
     }
   }
 }

@@ -438,7 +438,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
       videoSize = VideoSize.UNKNOWN;
       surfaceSize = Size.UNKNOWN;
 
-      trackSelector.setAudioAttributes(audioAttributes);
+      internalPlayer.setAudioAttributes(audioAttributes);
       sendRendererMessage(TRACK_TYPE_AUDIO, MSG_SET_AUDIO_SESSION_ID, audioSessionId);
       sendRendererMessage(TRACK_TYPE_VIDEO, MSG_SET_AUDIO_SESSION_ID, audioSessionId);
       sendRendererMessage(TRACK_TYPE_AUDIO, MSG_SET_AUDIO_ATTRIBUTES, audioAttributes);
@@ -1054,7 +1054,6 @@ import java.util.concurrent.CopyOnWriteArraySet;
     playbackInfo.bufferedPositionUs = playbackInfo.positionUs;
     playbackInfo.totalBufferedDurationUs = 0;
     analyticsCollector.release();
-    trackSelector.release();
     removeSurfaceCallbacks();
     if (ownedSurface != null) {
       ownedSurface.release();
@@ -1471,8 +1470,9 @@ import java.util.concurrent.CopyOnWriteArraySet;
           listener -> listener.onAudioAttributesChanged(newAudioAttributes));
     }
 
+    internalPlayer.setAudioAttributes(audioAttributes);
+
     audioFocusManager.setAudioAttributes(handleAudioFocus ? newAudioAttributes : null);
-    trackSelector.setAudioAttributes(newAudioAttributes);
     boolean playWhenReady = getPlayWhenReady();
     @AudioFocusManager.PlayerCommand
     int playerCommand = audioFocusManager.updateAudioFocus(playWhenReady, getPlaybackState());

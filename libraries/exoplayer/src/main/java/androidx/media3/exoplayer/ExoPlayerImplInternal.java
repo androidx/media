@@ -34,6 +34,7 @@ import android.util.Pair;
 import androidx.annotation.CheckResult;
 import androidx.annotation.Nullable;
 import androidx.media3.common.AdPlaybackState;
+import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.IllegalSeekPositionException;
@@ -160,6 +161,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
   private static final int MSG_SET_PRELOAD_CONFIGURATION = 28;
   private static final int MSG_PREPARE = 29;
   private static final int MSG_SET_VIDEO_OUTPUT = 30;
+  private static final int MSG_SET_AUDIO_ATTRIBUTES = 31;
 
   private static final long BUFFERING_MAXIMUM_INTERVAL_MS =
       Util.usToMs(Renderer.DEFAULT_DURATION_TO_PROGRESS_US);
@@ -449,6 +451,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
         .sendToTarget();
   }
 
+  public void setAudioAttributes(AudioAttributes audioAttributes) {
+    handler.obtainMessage(MSG_SET_AUDIO_ATTRIBUTES, audioAttributes).sendToTarget();
+  }
+
   @Override
   public synchronized void sendMessage(PlayerMessage message) {
     if (released || !playbackLooper.getThread().isAlive()) {
@@ -665,6 +671,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
           break;
         case MSG_UPDATE_MEDIA_SOURCES_WITH_MEDIA_ITEMS:
           updateMediaSourcesWithMediaItemsInternal(msg.arg1, msg.arg2, (List<MediaItem>) msg.obj);
+          break;
+        case MSG_SET_AUDIO_ATTRIBUTES:
+          setAudioAttributesInternal((AudioAttributes) msg.obj);
           break;
         case MSG_RELEASE:
           releaseInternal();
@@ -933,6 +942,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
     Timeline timeline =
         mediaSourceList.updateMediaSourcesWithMediaItems(fromIndex, toIndex, mediaItems);
     handleMediaSourceListInfoRefreshed(timeline, /* isSourceRefresh= */ false);
+  }
+
+  private void setAudioAttributesInternal(AudioAttributes audioAttributes) {
+    trackSelector.setAudioAttributes(audioAttributes);
   }
 
   private void notifyTrackSelectionPlayWhenReadyChanged(boolean playWhenReady) {
@@ -1634,6 +1647,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
           /* resetError= */ false);
       releaseRenderers();
       loadControl.onReleased(playerId);
+      trackSelector.release();
       setState(Player.STATE_IDLE);
     } finally {
       playbackLooperProvider.releaseLooper();
