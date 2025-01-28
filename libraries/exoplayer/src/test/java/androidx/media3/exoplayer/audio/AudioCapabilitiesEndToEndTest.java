@@ -93,7 +93,7 @@ public class AudioCapabilitiesEndToEndTest {
     applicationContext = ApplicationProvider.getApplicationContext();
     audioManager = (AudioManager) applicationContext.getSystemService(Context.AUDIO_SERVICE);
     shadowOf(audioManager).setOutputDevices(ImmutableList.of());
-    defaultParameters = Parameters.getDefaults(applicationContext);
+    defaultParameters = Parameters.DEFAULT;
     selectedTracks = new ArrayList<>();
     analyticsListenerReceivedCallbacks = new ArrayList<>();
   }

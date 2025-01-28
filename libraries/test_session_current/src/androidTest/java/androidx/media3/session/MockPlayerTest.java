@@ -538,7 +538,7 @@ public class MockPlayerTest {
   @Test
   public void setTrackSelectionParameters() {
     TrackSelectionParameters trackSelectionParameters =
-        TrackSelectionParameters.DEFAULT_WITHOUT_CONTEXT.buildUpon().setMaxAudioBitrate(10).build();
+        TrackSelectionParameters.DEFAULT.buildUpon().setMaxAudioBitrate(10).build();
 
     player.setTrackSelectionParameters(trackSelectionParameters);
 

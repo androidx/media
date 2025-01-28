@@ -1345,7 +1345,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
 
   @Override
   public TrackSelectionParameters getTrackSelectionParameters() {
-    return TrackSelectionParameters.DEFAULT_WITHOUT_CONTEXT;
+    return TrackSelectionParameters.DEFAULT;
   }
 
   @Override
@@ -2434,7 +2434,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
             seekForwardIncrementMs,
             maxSeekToPreviousPositionMs,
             /* currentTracks= */ Tracks.EMPTY,
-            /* parameters= */ TrackSelectionParameters.DEFAULT_WITHOUT_CONTEXT);
+            /* parameters= */ TrackSelectionParameters.DEFAULT);
 
     return new ControllerInfo(
         playerInfo,

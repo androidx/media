@@ -462,7 +462,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
           /* seekForwardIncrementMs= */ C.DEFAULT_SEEK_FORWARD_INCREMENT_MS,
           /* maxSeekToPreviousPositionMs= */ C.DEFAULT_MAX_SEEK_TO_PREVIOUS_POSITION_MS,
           /* currentTracks= */ Tracks.EMPTY,
-          TrackSelectionParameters.DEFAULT_WITHOUT_CONTEXT);
+          TrackSelectionParameters.DEFAULT);
 
   @Nullable public final PlaybackException playerError;
 
@@ -1003,7 +1003,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
     if (!currentTracks.equals(Tracks.EMPTY)) {
       bundle.putBundle(FIELD_CURRENT_TRACKS, currentTracks.toBundle());
     }
-    if (!trackSelectionParameters.equals(TrackSelectionParameters.DEFAULT_WITHOUT_CONTEXT)) {
+    if (!trackSelectionParameters.equals(TrackSelectionParameters.DEFAULT)) {
       bundle.putBundle(FIELD_TRACK_SELECTION_PARAMETERS, trackSelectionParameters.toBundle());
     }
     return bundle;
@@ -1117,7 +1117,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
     Bundle trackSelectionParametersBundle = bundle.getBundle(FIELD_TRACK_SELECTION_PARAMETERS);
     TrackSelectionParameters trackSelectionParameters =
         trackSelectionParametersBundle == null
-            ? TrackSelectionParameters.DEFAULT_WITHOUT_CONTEXT
+            ? TrackSelectionParameters.DEFAULT
             : TrackSelectionParameters.fromBundle(trackSelectionParametersBundle);
     return new PlayerInfo(
         playerError,

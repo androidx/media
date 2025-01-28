@@ -315,7 +315,7 @@ public class DownloadTracker {
           TrackSelectionDialog.createForTracksAndParameters(
               /* titleId= */ R.string.exo_download_description,
               tracks,
-              DownloadHelper.getDefaultTrackSelectorParameters(context),
+              DownloadHelper.DEFAULT_TRACK_SELECTOR_PARAMETERS,
               /* allowAdaptiveSelections= */ false,
               /* allowMultipleOverrides= */ true,
               /* onTracksSelectedListener= */ this,

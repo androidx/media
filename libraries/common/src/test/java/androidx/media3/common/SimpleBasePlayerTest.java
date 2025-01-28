@@ -101,7 +101,7 @@ public class SimpleBasePlayerTest {
             .setSeekForwardIncrementMs(4000)
             .setMaxSeekToPreviousPositionMs(3000)
             .setPlaybackParameters(new PlaybackParameters(/* speed= */ 2f))
-            .setTrackSelectionParameters(TrackSelectionParameters.DEFAULT_WITHOUT_CONTEXT)
+            .setTrackSelectionParameters(TrackSelectionParameters.DEFAULT)
             .setAudioAttributes(
                 new AudioAttributes.Builder().setContentType(C.AUDIO_CONTENT_TYPE_MOVIE).build())
             .setVolume(0.5f)
@@ -280,10 +280,7 @@ public class SimpleBasePlayerTest {
             /* message= */ null, /* cause= */ null, PlaybackException.ERROR_CODE_DECODING_FAILED);
     PlaybackParameters playbackParameters = new PlaybackParameters(/* speed= */ 2f);
     TrackSelectionParameters trackSelectionParameters =
-        TrackSelectionParameters.DEFAULT_WITHOUT_CONTEXT
-            .buildUpon()
-            .setMaxVideoBitrate(1000)
-            .build();
+        TrackSelectionParameters.DEFAULT.buildUpon().setMaxVideoBitrate(1000).build();
     AudioAttributes audioAttributes =
         new AudioAttributes.Builder().setContentType(C.AUDIO_CONTENT_TYPE_MOVIE).build();
     VideoSize videoSize = new VideoSize(/* width= */ 200, /* height= */ 400);
@@ -945,10 +942,7 @@ public class SimpleBasePlayerTest {
             /* message= */ null, /* cause= */ null, PlaybackException.ERROR_CODE_DECODING_FAILED);
     PlaybackParameters playbackParameters = new PlaybackParameters(/* speed= */ 2f);
     TrackSelectionParameters trackSelectionParameters =
-        TrackSelectionParameters.DEFAULT_WITHOUT_CONTEXT
-            .buildUpon()
-            .setMaxVideoBitrate(1000)
-            .build();
+        TrackSelectionParameters.DEFAULT.buildUpon().setMaxVideoBitrate(1000).build();
     AudioAttributes audioAttributes =
         new AudioAttributes.Builder().setContentType(C.AUDIO_CONTENT_TYPE_MOVIE).build();
     VideoSize videoSize = new VideoSize(/* width= */ 200, /* height= */ 400);
@@ -1368,7 +1362,7 @@ public class SimpleBasePlayerTest {
             .setSeekForwardIncrementMs(2000)
             .setMaxSeekToPreviousPositionMs(8000)
             .setPlaybackParameters(PlaybackParameters.DEFAULT)
-            .setTrackSelectionParameters(TrackSelectionParameters.DEFAULT_WITHOUT_CONTEXT)
+            .setTrackSelectionParameters(TrackSelectionParameters.DEFAULT)
             .setAudioAttributes(AudioAttributes.DEFAULT)
             .setVolume(1f)
             .setVideoSize(VideoSize.UNKNOWN)
@@ -1407,10 +1401,7 @@ public class SimpleBasePlayerTest {
             /* message= */ null, /* cause= */ null, PlaybackException.ERROR_CODE_DECODING_FAILED);
     PlaybackParameters playbackParameters = new PlaybackParameters(/* speed= */ 2f);
     TrackSelectionParameters trackSelectionParameters =
-        TrackSelectionParameters.DEFAULT_WITHOUT_CONTEXT
-            .buildUpon()
-            .setMaxVideoBitrate(1000)
-            .build();
+        TrackSelectionParameters.DEFAULT.buildUpon().setMaxVideoBitrate(1000).build();
     AudioAttributes audioAttributes =
         new AudioAttributes.Builder().setContentType(C.AUDIO_CONTENT_TYPE_MOVIE).build();
     VideoSize videoSize = new VideoSize(/* width= */ 200, /* height= */ 400);

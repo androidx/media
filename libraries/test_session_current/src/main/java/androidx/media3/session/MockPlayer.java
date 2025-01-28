@@ -371,7 +371,7 @@ public class MockPlayer implements Player {
     commands = new Player.Commands.Builder().addAllCommands().build();
 
     currentTracks = Tracks.EMPTY;
-    trackSelectionParameters = TrackSelectionParameters.DEFAULT_WITHOUT_CONTEXT;
+    trackSelectionParameters = TrackSelectionParameters.DEFAULT;
   }
 
   @Override

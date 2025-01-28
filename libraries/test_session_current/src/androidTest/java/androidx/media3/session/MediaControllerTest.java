@@ -2028,7 +2028,7 @@ public class MediaControllerTest {
             .build();
     Tracks currentTracks = new Tracks(trackGroups);
     TrackSelectionParameters trackSelectionParameters =
-        TrackSelectionParameters.DEFAULT_WITHOUT_CONTEXT.buildUpon().setMaxVideoSizeSd().build();
+        TrackSelectionParameters.DEFAULT.buildUpon().setMaxVideoSizeSd().build();
     Timeline timeline = MediaTestUtils.createTimeline(5);
     int currentMediaItemIndex = 3;
     MediaItem currentMediaItem =
@@ -2249,7 +2249,7 @@ public class MediaControllerTest {
   public void getTrackSelectionParameters_returnsTrackSelectionParametersOfPlayerInSession()
       throws Exception {
     TrackSelectionParameters parameters =
-        TrackSelectionParameters.DEFAULT_WITHOUT_CONTEXT.buildUpon().setMaxVideoSizeSd().build();
+        TrackSelectionParameters.DEFAULT.buildUpon().setMaxVideoSizeSd().build();
     Bundle playerConfig =
         new RemoteMediaSession.MockPlayerConfigBuilder()
             .setTrackSelectionParameters(parameters)
@@ -3066,7 +3066,7 @@ public class MediaControllerTest {
                     /* trackSupport= */ new int[1],
                     /* trackSelected= */ new boolean[1])));
     TrackSelectionParameters trackSelectionParameters =
-        TrackSelectionParameters.DEFAULT_WITHOUT_CONTEXT
+        TrackSelectionParameters.DEFAULT
             .buildUpon()
             .addOverride(
                 new TrackSelectionOverride(playerTrackGroupForOverride, /* trackIndex= */ 0))

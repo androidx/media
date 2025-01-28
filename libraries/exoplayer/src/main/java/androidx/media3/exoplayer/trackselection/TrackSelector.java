@@ -183,7 +183,7 @@ public abstract class TrackSelector {
 
   /** Returns the current parameters for track selection. */
   public TrackSelectionParameters getParameters() {
-    return TrackSelectionParameters.DEFAULT_WITHOUT_CONTEXT;
+    return TrackSelectionParameters.DEFAULT;
   }
 
   /**

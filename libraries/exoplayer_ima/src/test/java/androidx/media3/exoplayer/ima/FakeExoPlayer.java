@@ -267,7 +267,7 @@ import androidx.media3.test.utils.StubExoPlayer;
 
   @Override
   public TrackSelectionParameters getTrackSelectionParameters() {
-    return TrackSelectionParameters.DEFAULT_WITHOUT_CONTEXT;
+    return TrackSelectionParameters.DEFAULT;
   }
 
   @Override

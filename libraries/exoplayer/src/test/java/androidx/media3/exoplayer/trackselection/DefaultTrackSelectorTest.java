@@ -89,6 +89,8 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.robolectric.shadows.ShadowDisplay;
+import org.robolectric.shadows.ShadowDisplayManager;
 
 /** Unit tests for {@link DefaultTrackSelector}. */
 @RunWith(AndroidJUnit4.class)
@@ -171,7 +173,7 @@ public final class DefaultTrackSelectorTest {
   public void setUp() {
     when(bandwidthMeter.getBitrateEstimate()).thenReturn(1000000L);
     Context context = ApplicationProvider.getApplicationContext();
-    defaultParameters = Parameters.getDefaults(context);
+    defaultParameters = Parameters.DEFAULT;
     trackSelector = new DefaultTrackSelector(context);
     trackSelector.init(invalidationListener, bandwidthMeter);
   }
@@ -2518,6 +2520,127 @@ public final class DefaultTrackSelectorTest {
   }
 
   @Test
+  public void selectTracks_withViewportSize_selectsTrackWithinViewport() throws Exception {
+    Format formatH264Low =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_H264)
+            .setAverageBitrate(400)
+            .setWidth(600)
+            .setHeight(400)
+            .build();
+    Format formatH264Mid =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_H264)
+            .setAverageBitrate(800)
+            .setWidth(1200)
+            .setHeight(800)
+            .build();
+    Format formatH264High =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_H264)
+            .setAverageBitrate(2000)
+            .setWidth(2400)
+            .setHeight(1600)
+            .build();
+    TrackGroup adaptiveGroup = new TrackGroup(formatH264Low, formatH264Mid, formatH264High);
+    TrackGroupArray trackGroups = new TrackGroupArray(adaptiveGroup);
+
+    // Choose a viewport between low and mid, so that the low resolution only fits if orientation
+    // changes are allowed.
+    trackSelector.setParameters(
+        defaultParameters
+            .buildUpon()
+            .setViewportSize(
+                /* viewportWidth= */ 450,
+                /* viewportHeight= */ 650,
+                /* viewportOrientationMayChange= */ true));
+    TrackSelectorResult result =
+        trackSelector.selectTracks(
+            new RendererCapabilities[] {VIDEO_CAPABILITIES}, trackGroups, periodId, TIMELINE);
+    assertThat(result.length).isEqualTo(1);
+    assertAdaptiveSelection(result.selections[0], adaptiveGroup, /* expectedTracks...= */ 1, 0);
+
+    trackSelector.setParameters(
+        defaultParameters
+            .buildUpon()
+            .setViewportSize(
+                /* viewportWidth= */ 450,
+                /* viewportHeight= */ 650,
+                /* viewportOrientationMayChange= */ false));
+    result =
+        trackSelector.selectTracks(
+            new RendererCapabilities[] {VIDEO_CAPABILITIES}, trackGroups, periodId, TIMELINE);
+    assertThat(result.length).isEqualTo(1);
+    assertFixedSelection(result.selections[0], adaptiveGroup, /* expectedTrack= */ 0);
+
+    // Verify that selecting (almost) exactly one resolution does not include the next larger one.
+    trackSelector.setParameters(
+        defaultParameters
+            .buildUpon()
+            .setViewportSize(
+                /* viewportWidth= */ 1201,
+                /* viewportHeight= */ 801,
+                /* viewportOrientationMayChange= */ true));
+    result =
+        trackSelector.selectTracks(
+            new RendererCapabilities[] {VIDEO_CAPABILITIES}, trackGroups, periodId, TIMELINE);
+    assertThat(result.length).isEqualTo(1);
+    assertAdaptiveSelection(result.selections[0], adaptiveGroup, /* expectedTracks...= */ 1, 0);
+  }
+
+  @Test
+  public void selectTracks_withViewportSizeSetToPhysicalDisplaySize_selectsTrackWithinDisplaySize()
+      throws Exception {
+    Format formatH264Low =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_H264)
+            .setAverageBitrate(400)
+            .setWidth(600)
+            .setHeight(400)
+            .build();
+    Format formatH264Mid =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_H264)
+            .setAverageBitrate(800)
+            .setWidth(1200)
+            .setHeight(800)
+            .build();
+    Format formatH264High =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_H264)
+            .setAverageBitrate(2000)
+            .setWidth(2400)
+            .setHeight(1600)
+            .build();
+    TrackGroup adaptiveGroup = new TrackGroup(formatH264Low, formatH264Mid, formatH264High);
+    TrackGroupArray trackGroups = new TrackGroupArray(adaptiveGroup);
+    // Choose a display size (450x650) between low and mid, so that the low resolution only fits if
+    // orientation changes are allowed.
+    ShadowDisplayManager.changeDisplay(
+        ShadowDisplay.getDefaultDisplay().getDisplayId(), "w450dp-h650dp-160dpi");
+
+    trackSelector.setParameters(
+        defaultParameters
+            .buildUpon()
+            .setViewportSizeToPhysicalDisplaySize(/* viewportOrientationMayChange= */ true));
+    TrackSelectorResult result =
+        trackSelector.selectTracks(
+            new RendererCapabilities[] {VIDEO_CAPABILITIES}, trackGroups, periodId, TIMELINE);
+    assertThat(result.length).isEqualTo(1);
+    assertAdaptiveSelection(result.selections[0], adaptiveGroup, /* expectedTracks...= */ 1, 0);
+
+    trackSelector.setParameters(
+        defaultParameters
+            .buildUpon()
+            .setViewportSizeToPhysicalDisplaySize(/* viewportOrientationMayChange= */ false));
+    result =
+        trackSelector.selectTracks(
+            new RendererCapabilities[] {VIDEO_CAPABILITIES}, trackGroups, periodId, TIMELINE);
+    assertThat(result.length).isEqualTo(1);
+    assertFixedSelection(result.selections[0], adaptiveGroup, /* expectedTrack= */ 0);
+  }
+
+  @Test
   public void
       selectTracks_withSingleTrackAndOffloadPreferenceEnabled_returnsRendererConfigOffloadModeEnabledGaplessRequired()
           throws Exception {
@@ -3295,7 +3418,7 @@ public final class DefaultTrackSelectorTest {
    * variables.
    */
   private static Parameters buildParametersForEqualsTest() {
-    return Parameters.DEFAULT_WITHOUT_CONTEXT
+    return Parameters.DEFAULT
         .buildUpon()
         // Video
         .setMaxVideoSize(/* maxVideoWidth= */ 0, /* maxVideoHeight= */ 1)

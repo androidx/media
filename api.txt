@@ -1096,12 +1096,13 @@ package androidx.media3.common {
   public class TrackSelectionParameters {
     method public androidx.media3.common.TrackSelectionParameters.Builder buildUpon();
     method public static androidx.media3.common.TrackSelectionParameters fromBundle(android.os.Bundle);
-    method public static androidx.media3.common.TrackSelectionParameters getDefaults(android.content.Context);
+    method @Deprecated public static androidx.media3.common.TrackSelectionParameters getDefaults(android.content.Context);
     method @CallSuper public android.os.Bundle toBundle();
     field public final com.google.common.collect.ImmutableSet<java.lang.Integer> disabledTrackTypes;
     field public final boolean forceHighestSupportedBitrate;
     field public final boolean forceLowestBitrate;
     field @androidx.media3.common.C.SelectionFlags public final int ignoredTextSelectionFlags;
+    field public final boolean isViewportSizeLimitedByPhysicalDisplaySize;
     field public final int maxAudioBitrate;
     field public final int maxAudioChannelCount;
     field public final int maxVideoBitrate;
@@ -1121,13 +1122,15 @@ package androidx.media3.common {
     field public final com.google.common.collect.ImmutableList<java.lang.String> preferredVideoMimeTypes;
     field @androidx.media3.common.C.RoleFlags public final int preferredVideoRoleFlags;
     field public final boolean selectUndeterminedTextLanguage;
+    field public final boolean usePreferredTextLanguagesAndRoleFlagsFromCaptioningManager;
     field public final int viewportHeight;
     field public final boolean viewportOrientationMayChange;
     field public final int viewportWidth;
   }
 
   public static class TrackSelectionParameters.Builder {
-    ctor public TrackSelectionParameters.Builder(android.content.Context);
+    ctor public TrackSelectionParameters.Builder();
+    ctor @Deprecated @com.google.errorprone.annotations.InlineMe(replacement="this()") public TrackSelectionParameters.Builder(android.content.Context);
     method public androidx.media3.common.TrackSelectionParameters.Builder addOverride(androidx.media3.common.TrackSelectionOverride);
     method public androidx.media3.common.TrackSelectionParameters build();
     method public androidx.media3.common.TrackSelectionParameters.Builder clearOverride(androidx.media3.common.TrackGroup);
@@ -1154,7 +1157,8 @@ package androidx.media3.common {
     method public androidx.media3.common.TrackSelectionParameters.Builder setPreferredAudioMimeTypes(java.lang.String...);
     method public androidx.media3.common.TrackSelectionParameters.Builder setPreferredAudioRoleFlags(@androidx.media3.common.C.RoleFlags int);
     method public androidx.media3.common.TrackSelectionParameters.Builder setPreferredTextLanguage(@Nullable String);
-    method public androidx.media3.common.TrackSelectionParameters.Builder setPreferredTextLanguageAndRoleFlagsToCaptioningManagerSettings(android.content.Context);
+    method public androidx.media3.common.TrackSelectionParameters.Builder setPreferredTextLanguageAndRoleFlagsToCaptioningManagerSettings();
+    method @Deprecated public androidx.media3.common.TrackSelectionParameters.Builder setPreferredTextLanguageAndRoleFlagsToCaptioningManagerSettings(android.content.Context);
     method public androidx.media3.common.TrackSelectionParameters.Builder setPreferredTextLanguages(java.lang.String...);
     method public androidx.media3.common.TrackSelectionParameters.Builder setPreferredTextRoleFlags(@androidx.media3.common.C.RoleFlags int);
     method public androidx.media3.common.TrackSelectionParameters.Builder setPreferredVideoMimeType(@Nullable String);
@@ -1163,7 +1167,8 @@ package androidx.media3.common {
     method public androidx.media3.common.TrackSelectionParameters.Builder setSelectUndeterminedTextLanguage(boolean);
     method public androidx.media3.common.TrackSelectionParameters.Builder setTrackTypeDisabled(@androidx.media3.common.C.TrackType int, boolean);
     method public androidx.media3.common.TrackSelectionParameters.Builder setViewportSize(int, int, boolean);
-    method public androidx.media3.common.TrackSelectionParameters.Builder setViewportSizeToPhysicalDisplaySize(android.content.Context, boolean);
+    method @Deprecated public androidx.media3.common.TrackSelectionParameters.Builder setViewportSizeToPhysicalDisplaySize(android.content.Context, boolean);
+    method public androidx.media3.common.TrackSelectionParameters.Builder setViewportSizeToPhysicalDisplaySize(boolean);
   }
 
   public final class Tracks {

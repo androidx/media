@@ -159,7 +159,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
         seekForwardIncrementMs = C.DEFAULT_SEEK_FORWARD_INCREMENT_MS;
         maxSeekToPreviousPositionMs = C.DEFAULT_MAX_SEEK_TO_PREVIOUS_POSITION_MS;
         playbackParameters = PlaybackParameters.DEFAULT;
-        trackSelectionParameters = TrackSelectionParameters.DEFAULT_WITHOUT_CONTEXT;
+        trackSelectionParameters = TrackSelectionParameters.DEFAULT;
         audioAttributes = AudioAttributes.DEFAULT;
         volume = 1f;
         videoSize = VideoSize.UNKNOWN;

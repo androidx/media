@@ -862,7 +862,7 @@ public class MediaSessionPlayerTest {
   @Test
   public void setTrackSelectionParameters() throws Exception {
     TrackSelectionParameters trackSelectionParameters =
-        TrackSelectionParameters.DEFAULT_WITHOUT_CONTEXT.buildUpon().setMaxAudioBitrate(10).build();
+        TrackSelectionParameters.DEFAULT.buildUpon().setMaxAudioBitrate(10).build();
 
     controller.setTrackSelectionParameters(trackSelectionParameters);
 

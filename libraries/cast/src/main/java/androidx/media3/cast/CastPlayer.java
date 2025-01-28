@@ -637,7 +637,7 @@ public final class CastPlayer extends BasePlayer {
 
   @Override
   public TrackSelectionParameters getTrackSelectionParameters() {
-    return TrackSelectionParameters.DEFAULT_WITHOUT_CONTEXT;
+    return TrackSelectionParameters.DEFAULT;
   }
 
   @Override

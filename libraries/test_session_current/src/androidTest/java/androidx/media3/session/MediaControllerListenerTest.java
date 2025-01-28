@@ -1005,7 +1005,7 @@ public class MediaControllerListenerTest {
   @Test
   public void onTrackSelectionParametersChanged() throws Exception {
     RemoteMediaSession.RemoteMockPlayer player = remoteSession.getMockPlayer();
-    player.setTrackSelectionParameters(TrackSelectionParameters.DEFAULT_WITHOUT_CONTEXT);
+    player.setTrackSelectionParameters(TrackSelectionParameters.DEFAULT);
     MediaController controller = controllerTestRule.createController(remoteSession.getToken());
     AtomicReference<TrackSelectionParameters> parametersFromParamRef = new AtomicReference<>();
     AtomicReference<TrackSelectionParameters> parametersFromGetterRef = new AtomicReference<>();
@@ -1031,10 +1031,7 @@ public class MediaControllerListenerTest {
     threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
 
     TrackSelectionParameters parameters =
-        TrackSelectionParameters.DEFAULT_WITHOUT_CONTEXT
-            .buildUpon()
-            .setMaxAudioBitrate(100)
-            .build();
+        TrackSelectionParameters.DEFAULT.buildUpon().setMaxAudioBitrate(100).build();
     player.notifyTrackSelectionParametersChanged(parameters);
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();

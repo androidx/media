@@ -98,29 +98,27 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 @UnstableApi
 public final class DownloadHelper {
 
-  /**
-   * Default track selection parameters for downloading, but without any {@link Context}
-   * constraints.
-   *
-   * <p>If possible, use {@link #getDefaultTrackSelectorParameters(Context)} instead.
-   *
-   * @see DefaultTrackSelector.Parameters#DEFAULT_WITHOUT_CONTEXT
-   */
-  public static final DefaultTrackSelector.Parameters
-      DEFAULT_TRACK_SELECTOR_PARAMETERS_WITHOUT_CONTEXT =
-          DefaultTrackSelector.Parameters.DEFAULT_WITHOUT_CONTEXT
-              .buildUpon()
-              .setForceHighestSupportedBitrate(true)
-              .setConstrainAudioChannelCountToDeviceCapabilities(false)
-              .build();
+  /** Default track selection parameters for downloading. */
+  public static final DefaultTrackSelector.Parameters DEFAULT_TRACK_SELECTOR_PARAMETERS =
+      DefaultTrackSelector.Parameters.DEFAULT
+          .buildUpon()
+          .setForceHighestSupportedBitrate(true)
+          .setConstrainAudioChannelCountToDeviceCapabilities(false)
+          .build();
 
-  /** Returns the default parameters used for track selection for downloading. */
+  /**
+   * @deprecated Use {@link #DEFAULT_TRACK_SELECTOR_PARAMETERS} instead.
+   */
+  @Deprecated
+  public static final DefaultTrackSelector.Parameters
+      DEFAULT_TRACK_SELECTOR_PARAMETERS_WITHOUT_CONTEXT = DEFAULT_TRACK_SELECTOR_PARAMETERS;
+
+  /**
+   * @deprecated Use {@link #DEFAULT_TRACK_SELECTOR_PARAMETERS} instead.
+   */
+  @Deprecated
   public static DefaultTrackSelector.Parameters getDefaultTrackSelectorParameters(Context context) {
-    return DefaultTrackSelector.Parameters.getDefaults(context)
-        .buildUpon()
-        .setForceHighestSupportedBitrate(true)
-        .setConstrainAudioChannelCountToDeviceCapabilities(false)
-        .build();
+    return DEFAULT_TRACK_SELECTOR_PARAMETERS;
   }
 
   /** A callback to be notified when the {@link DownloadHelper} is prepared. */
@@ -179,7 +177,7 @@ public final class DownloadHelper {
     Assertions.checkArgument(isProgressive(checkNotNull(mediaItem.localConfiguration)));
     return forMediaItem(
         mediaItem,
-        getDefaultTrackSelectorParameters(context),
+        DEFAULT_TRACK_SELECTOR_PARAMETERS,
         /* renderersFactory= */ null,
         /* dataSourceFactory= */ null,
         /* drmSessionManager= */ null);
@@ -207,7 +205,7 @@ public final class DownloadHelper {
       @Nullable DataSource.Factory dataSourceFactory) {
     return forMediaItem(
         mediaItem,
-        getDefaultTrackSelectorParameters(context),
+        DEFAULT_TRACK_SELECTOR_PARAMETERS,
         renderersFactory,
         dataSourceFactory,
         /* drmSessionManager= */ null);
@@ -541,7 +539,7 @@ public final class DownloadHelper {
       assertPreparedWithMedia();
 
       TrackSelectionParameters.Builder parametersBuilder =
-          DEFAULT_TRACK_SELECTOR_PARAMETERS_WITHOUT_CONTEXT.buildUpon();
+          DEFAULT_TRACK_SELECTOR_PARAMETERS.buildUpon();
       // Prefer highest supported bitrate for downloads.
       parametersBuilder.setForceHighestSupportedBitrate(true);
       // Disable all non-audio track types supported by the renderers.
@@ -581,7 +579,7 @@ public final class DownloadHelper {
       assertPreparedWithMedia();
 
       TrackSelectionParameters.Builder parametersBuilder =
-          DEFAULT_TRACK_SELECTOR_PARAMETERS_WITHOUT_CONTEXT.buildUpon();
+          DEFAULT_TRACK_SELECTOR_PARAMETERS.buildUpon();
       parametersBuilder.setSelectUndeterminedTextLanguage(selectUndeterminedTextLanguage);
       // Prefer highest supported bitrate for downloads.
       parametersBuilder.setForceHighestSupportedBitrate(true);

@@ -129,7 +129,7 @@ public class DownloadHelperTest {
         new DownloadHelper(
             testMediaItem,
             new TestMediaSource(),
-            DownloadHelper.DEFAULT_TRACK_SELECTOR_PARAMETERS_WITHOUT_CONTEXT,
+            DownloadHelper.DEFAULT_TRACK_SELECTOR_PARAMETERS,
             new DefaultRendererCapabilitiesList.Factory(renderersFactory)
                 .createRendererCapabilitiesList());
   }
@@ -257,7 +257,7 @@ public class DownloadHelperTest {
       throws Exception {
     prepareDownloadHelper(downloadHelper);
     DefaultTrackSelector.Parameters parameters =
-        new DefaultTrackSelector.ParametersBuilder(getApplicationContext())
+        new DefaultTrackSelector.Parameters.Builder()
             .setPreferredAudioLanguage("de")
             .setPreferredTextLanguage("de")
             .setRendererDisabled(/* rendererIndex= */ 2, true)
@@ -461,7 +461,7 @@ public class DownloadHelperTest {
     DownloadHelper downloadHelper =
         DownloadHelper.forMediaItem(
             testMediaItem,
-            DownloadHelper.DEFAULT_TRACK_SELECTOR_PARAMETERS_WITHOUT_CONTEXT,
+            DownloadHelper.DEFAULT_TRACK_SELECTOR_PARAMETERS,
             renderersFactory,
             new FakeDataSource.Factory());
 
@@ -541,7 +541,7 @@ public class DownloadHelperTest {
                 downloadHelper.set(
                     DownloadHelper.forMediaItem(
                         testMediaItem,
-                        TrackSelectionParameters.getDefaults(getApplicationContext()),
+                        TrackSelectionParameters.DEFAULT,
                         renderersFactory,
                         new FakeDataSource.Factory()));
               } catch (Throwable e) {
@@ -572,7 +572,7 @@ public class DownloadHelperTest {
                 downloadHelper.set(
                     DownloadHelper.forMediaItem(
                         testMediaItem,
-                        TrackSelectionParameters.getDefaults(getApplicationContext()),
+                        TrackSelectionParameters.DEFAULT,
                         renderersFactory,
                         new FakeDataSource.Factory(),
                         new DefaultDrmSessionManager.Builder()
@@ -619,7 +619,7 @@ public class DownloadHelperTest {
                     new DownloadHelper(
                         testMediaItem,
                         new FakeMediaSource(),
-                        TrackSelectionParameters.getDefaults(getApplicationContext()),
+                        TrackSelectionParameters.DEFAULT,
                         emptyRendererCapabilitiesList));
               } catch (Throwable e) {
                 exception.set(e);

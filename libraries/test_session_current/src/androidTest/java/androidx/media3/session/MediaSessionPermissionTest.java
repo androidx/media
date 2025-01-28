@@ -280,9 +280,7 @@ public class MediaSessionPermissionTest {
   public void setTrackSelectionParameters() throws Exception {
     testOnCommandRequest(
         COMMAND_SET_TRACK_SELECTION_PARAMETERS,
-        controller ->
-            controller.setTrackSelectionParameters(
-                TrackSelectionParameters.DEFAULT_WITHOUT_CONTEXT));
+        controller -> controller.setTrackSelectionParameters(TrackSelectionParameters.DEFAULT));
   }
 
   @Test
