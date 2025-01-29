@@ -29,6 +29,7 @@ import android.os.PersistableBundle;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.test.core.app.ApplicationProvider;
+import androidx.test.filters.SdkSuppress;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import java.io.FileDescriptor;
@@ -97,6 +98,7 @@ public class MediaExtractorContractTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 24)
   public void setDataSource_withAssetFileDescriptor_returnsCorrectTrackCount() throws IOException {
     AssetFileDescriptor afd =
         ApplicationProvider.getApplicationContext().getAssets().openFd("media/mp4/sample.mp4");
