@@ -127,18 +127,21 @@ public class MediaExtractorContractTest {
     }
 
     @Override
+    @SuppressWarnings("UseSdkSuppress") // https://issuetracker.google.com/382253664
     @RequiresApi(24)
     public Object getDrmInitData() {
       return mediaExtractor.getDrmInitData();
     }
 
     @Override
+    @SuppressWarnings("UseSdkSuppress") // https://issuetracker.google.com/382253664
     @RequiresApi(31)
     public LogSessionId getLogSessionId() {
       return mediaExtractor.getLogSessionId();
     }
 
     @Override
+    @SuppressWarnings("UseSdkSuppress") // https://issuetracker.google.com/382253664
     @RequiresApi(26)
     public PersistableBundle getMetrics() {
       return mediaExtractor.getMetrics();
@@ -160,6 +163,7 @@ public class MediaExtractorContractTest {
     }
 
     @Override
+    @SuppressWarnings("UseSdkSuppress") // https://issuetracker.google.com/382253664
     @RequiresApi(28)
     public long getSampleSize() {
       return mediaExtractor.getSampleSize();
@@ -211,6 +215,7 @@ public class MediaExtractorContractTest {
     }
 
     @Override
+    @SuppressWarnings("UseSdkSuppress") // https://issuetracker.google.com/382253664
     @RequiresApi(24)
     public void setDataSource(AssetFileDescriptor assetFileDescriptor) throws IOException {
       mediaExtractor.setDataSource(assetFileDescriptor);
@@ -222,6 +227,7 @@ public class MediaExtractorContractTest {
     }
 
     @Override
+    @SuppressWarnings("UseSdkSuppress") // https://issuetracker.google.com/382253664
     @RequiresApi(23)
     public void setDataSource(MediaDataSource mediaDataSource) throws IOException {
       mediaExtractor.setDataSource(mediaDataSource);
@@ -251,6 +257,7 @@ public class MediaExtractorContractTest {
     }
 
     @Override
+    @SuppressWarnings("UseSdkSuppress") // https://issuetracker.google.com/382253664
     @RequiresApi(31)
     public void setLogSessionId(LogSessionId logSessionId) {
       mediaExtractor.setLogSessionId(logSessionId);
@@ -281,18 +288,21 @@ public class MediaExtractorContractTest {
     }
 
     @Override
+    @SuppressWarnings("UseSdkSuppress") // https://issuetracker.google.com/382253664
     @RequiresApi(24)
     public Object getDrmInitData() {
       return mediaExtractorCompat.getDrmInitData();
     }
 
     @Override
+    @SuppressWarnings("UseSdkSuppress") // https://issuetracker.google.com/382253664
     @RequiresApi(31)
     public LogSessionId getLogSessionId() {
       return mediaExtractorCompat.getLogSessionId();
     }
 
     @Override
+    @SuppressWarnings("UseSdkSuppress") // https://issuetracker.google.com/382253664
     @RequiresApi(26)
     public PersistableBundle getMetrics() {
       return mediaExtractorCompat.getMetrics();
@@ -314,6 +324,7 @@ public class MediaExtractorContractTest {
     }
 
     @Override
+    @SuppressWarnings("UseSdkSuppress") // https://issuetracker.google.com/382253664
     @RequiresApi(28)
     public long getSampleSize() {
       return mediaExtractorCompat.getSampleSize();
@@ -365,6 +376,7 @@ public class MediaExtractorContractTest {
     }
 
     @Override
+    @SuppressWarnings("UseSdkSuppress") // https://issuetracker.google.com/382253664
     @RequiresApi(24)
     public void setDataSource(AssetFileDescriptor assetFileDescriptor) throws IOException {
       mediaExtractorCompat.setDataSource(assetFileDescriptor);
@@ -376,6 +388,7 @@ public class MediaExtractorContractTest {
     }
 
     @Override
+    @SuppressWarnings("UseSdkSuppress") // https://issuetracker.google.com/382253664
     @RequiresApi(23)
     public void setDataSource(MediaDataSource mediaDataSource) throws IOException {
       mediaExtractorCompat.setDataSource(mediaDataSource);
@@ -405,6 +418,7 @@ public class MediaExtractorContractTest {
     }
 
     @Override
+    @SuppressWarnings("UseSdkSuppress") // https://issuetracker.google.com/382253664
     @RequiresApi(31)
     public void setLogSessionId(LogSessionId logSessionId) {
       mediaExtractorCompat.setLogSessionId(logSessionId);
@@ -423,12 +437,15 @@ public class MediaExtractorContractTest {
 
     long getCachedDuration();
 
+    @SuppressWarnings("UseSdkSuppress") // https://issuetracker.google.com/382253664
     @RequiresApi(24)
     Object getDrmInitData();
 
+    @SuppressWarnings("UseSdkSuppress") // https://issuetracker.google.com/382253664
     @RequiresApi(31)
     LogSessionId getLogSessionId();
 
+    @SuppressWarnings("UseSdkSuppress") // https://issuetracker.google.com/382253664
     @RequiresApi(26)
     PersistableBundle getMetrics();
 
@@ -438,6 +455,7 @@ public class MediaExtractorContractTest {
 
     int getSampleFlags();
 
+    @SuppressWarnings("UseSdkSuppress") // https://issuetracker.google.com/382253664
     @RequiresApi(28)
     long getSampleSize();
 
@@ -459,11 +477,13 @@ public class MediaExtractorContractTest {
 
     void selectTrack(int trackIndex);
 
+    @SuppressWarnings("UseSdkSuppress") // https://issuetracker.google.com/382253664
     @RequiresApi(24)
     void setDataSource(AssetFileDescriptor assetFileDescriptor) throws IOException;
 
     void setDataSource(FileDescriptor fileDescriptor) throws IOException;
 
+    @SuppressWarnings("UseSdkSuppress") // https://issuetracker.google.com/382253664
     @RequiresApi(23)
     void setDataSource(MediaDataSource mediaDataSource) throws IOException;
 
@@ -476,6 +496,7 @@ public class MediaExtractorContractTest {
 
     void setDataSource(String path, @Nullable Map<String, String> headers) throws IOException;
 
+    @SuppressWarnings("UseSdkSuppress") // https://issuetracker.google.com/382253664
     @RequiresApi(31)
     void setLogSessionId(LogSessionId logSessionId);
 
