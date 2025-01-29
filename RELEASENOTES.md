@@ -9,6 +9,7 @@
 *   Extractors:
 *   DataSource:
 *   Audio:
+    *   Make `androidx.media3.common.audio.SonicAudioProcessor` final.
 *   Video:
 *   Text:
 *   Metadata:
@@ -35,6 +36,7 @@
 *   Test Utilities:
 *   Demo app:
 *   Remove deprecated symbols:
+    *   Removed `androidx.media3.exoplayer.audio.SonicAudioProcessor`.
 
 ## 1.6
 
