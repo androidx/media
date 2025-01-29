@@ -814,9 +814,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         videoSink.flush(/* resetPosition= */ true);
       }
       videoSink.setStreamTimestampInfo(
-          getOutputStreamStartPositionUs(),
-          getBufferTimestampAdjustmentUs(),
-          getLastResetPositionUs());
+          getOutputStreamStartPositionUs(), getBufferTimestampAdjustmentUs());
       pendingVideoSinkInputStreamChange = true;
     }
     super.onPositionReset(positionUs, joining);
@@ -1480,6 +1478,11 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     long presentationTimeUs = bufferPresentationTimeUs - outputStreamOffsetUs;
 
     if (videoSink != null) {
+      // Skip decode-only buffers, e.g. after seeking, immediately.
+      if (isDecodeOnlyBuffer && !isLastBuffer) {
+        skipOutputBuffer(codec, bufferIndex, presentationTimeUs);
+        return true;
+      }
       long framePresentationTimeUs = bufferPresentationTimeUs + getBufferTimestampAdjustmentUs();
       return videoSink.handleInputFrame(
           framePresentationTimeUs,
@@ -1631,9 +1634,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       // Signaling end of the previous stream.
       videoSink.signalEndOfCurrentInputStream();
       videoSink.setStreamTimestampInfo(
-          getOutputStreamStartPositionUs(),
-          getBufferTimestampAdjustmentUs(),
-          getLastResetPositionUs());
+          getOutputStreamStartPositionUs(), getBufferTimestampAdjustmentUs());
     } else {
       videoFrameReleaseControl.onProcessedStreamChange();
     }

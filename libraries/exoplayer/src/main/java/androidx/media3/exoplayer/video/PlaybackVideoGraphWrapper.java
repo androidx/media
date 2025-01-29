@@ -441,7 +441,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     if (newOutputStreamStartPositionUs != null
         && newOutputStreamStartPositionUs != outputStreamStartPositionUs) {
       defaultVideoSink.setStreamTimestampInfo(
-          newOutputStreamStartPositionUs, bufferTimestampAdjustmentUs, /* unused */ C.TIME_UNSET);
+          newOutputStreamStartPositionUs, bufferTimestampAdjustmentUs);
       outputStreamStartPositionUs = newOutputStreamStartPositionUs;
     }
     boolean isLastFrame =
@@ -588,8 +588,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     if (streamStartPositionsUs.size() == 1) {
       long lastStartPositionUs = checkNotNull(streamStartPositionsUs.pollFirst());
       // defaultVideoSink should use the latest startPositionUs if none is passed after flushing.
-      defaultVideoSink.setStreamTimestampInfo(
-          lastStartPositionUs, bufferTimestampAdjustmentUs, /* unused */ C.TIME_UNSET);
+      defaultVideoSink.setStreamTimestampInfo(lastStartPositionUs, bufferTimestampAdjustmentUs);
     }
     lastOutputBufferPresentationTimeUs = C.TIME_UNSET;
     finalBufferPresentationTimeUs = C.TIME_UNSET;
@@ -611,7 +610,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
   private void setBufferTimestampAdjustment(long bufferTimestampAdjustmentUs) {
     this.bufferTimestampAdjustmentUs = bufferTimestampAdjustmentUs;
     defaultVideoSink.setStreamTimestampInfo(
-        outputStreamStartPositionUs, bufferTimestampAdjustmentUs, /* unused */ C.TIME_UNSET);
+        outputStreamStartPositionUs, bufferTimestampAdjustmentUs);
   }
 
   private boolean shouldRenderToInputVideoSink() {
@@ -638,7 +637,6 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     @Nullable private Format inputFormat;
     private @InputType int inputType;
     private long inputBufferTimestampAdjustmentUs;
-    private long lastResetPositionUs;
 
     /**
      * The buffer presentation timestamp, in microseconds, of the most recently registered frame.
@@ -796,7 +794,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
 
     @Override
     public void setStreamTimestampInfo(
-        long streamStartPositionUs, long bufferTimestampAdjustmentUs, long lastResetPositionUs) {
+        long streamStartPositionUs, long bufferTimestampAdjustmentUs) {
       // Input timestamps should always be positive because they are offset by ExoPlayer. Adding a
       // position to the queue with timestamp 0 should therefore always apply it as long as it is
       // the only position in the queue.
@@ -809,7 +807,6 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
       // directly at the output of the VideoGraph because no frame has been input yet following the
       // flush.
       PlaybackVideoGraphWrapper.this.setBufferTimestampAdjustment(inputBufferTimestampAdjustmentUs);
-      this.lastResetPositionUs = lastResetPositionUs;
     }
 
     @Override
@@ -837,26 +834,10 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     public boolean handleInputFrame(
         long framePresentationTimeUs, boolean isLastFrame, VideoFrameHandler videoFrameHandler) {
       checkState(isInitialized());
+
       if (!shouldRenderToInputVideoSink()) {
         return false;
       }
-
-      // The sink takes in frames with monotonically increasing, non-offset frame
-      // timestamps. That is, with two ten-second long videos, the first frame of the second video
-      // should bear a timestamp of 10s seen from VideoFrameProcessor; while in ExoPlayer, the
-      // timestamp of the said frame would be 0s, but the streamOffset is incremented by 10s to
-      // include the duration of the first video. Thus this correction is needed to account for the
-      // different handling of presentation timestamps in ExoPlayer and VideoFrameProcessor.
-      //
-      // inputBufferTimestampAdjustmentUs adjusts the frame presentation time (which is relative to
-      // the start of a composition) to the buffer timestamp (that corresponds to the player
-      // position).
-      long bufferPresentationTimeUs = framePresentationTimeUs - inputBufferTimestampAdjustmentUs;
-      if (bufferPresentationTimeUs < lastResetPositionUs && !isLastFrame) {
-        videoFrameHandler.skip();
-        return true;
-      }
-
       if (checkStateNotNull(videoFrameProcessor).getPendingInputFrameCount()
           >= videoFrameProcessorMaxPendingFrameCount) {
         return false;
@@ -865,7 +846,17 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
         return false;
       }
 
-      lastBufferPresentationTimeUs = bufferPresentationTimeUs;
+      // The sink takes in frames with monotonically increasing, non-offset frame
+      // timestamps. That is, with two 10s long videos, the first frame of the second video should
+      // bear a timestamp of 10s seen from VideoFrameProcessor; while in ExoPlayer, the timestamp of
+      // the said frame would be 0s, but the streamOffset is incremented by 10s to include the
+      // duration of the first video. Thus this correction is needed to account for the different
+      // handling of presentation timestamps in ExoPlayer and VideoFrameProcessor.
+      //
+      // inputBufferTimestampAdjustmentUs adjusts the frame presentation time (which is relative to
+      // the start of a composition) to the buffer timestamp (that corresponds to the player
+      // position).
+      lastBufferPresentationTimeUs = framePresentationTimeUs - inputBufferTimestampAdjustmentUs;
       // Use the frame presentation time as render time so that the SurfaceTexture is accompanied
       // by this timestamp. Setting a realtime based release time is only relevant when rendering to
       // a SurfaceView, but we render to a surface in this case.

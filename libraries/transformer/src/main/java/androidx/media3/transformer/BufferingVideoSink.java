@@ -193,12 +193,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   @Override
-  public void setStreamTimestampInfo(
-      long streamStartPositionUs, long bufferTimestampAdjustmentUs, long lastResetPositionUs) {
+  public void setStreamTimestampInfo(long streamStartPositionUs, long bufferTimestampAdjustmentUs) {
     executeOrDelay(
         videoSink ->
-            videoSink.setStreamTimestampInfo(
-                streamStartPositionUs, bufferTimestampAdjustmentUs, lastResetPositionUs));
+            videoSink.setStreamTimestampInfo(streamStartPositionUs, bufferTimestampAdjustmentUs));
   }
 
   @Override

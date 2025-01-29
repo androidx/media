@@ -505,9 +505,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       if (inputStreamPending) {
         checkState(streamStartPositionUs != C.TIME_UNSET);
         videoSink.setStreamTimestampInfo(
-            streamStartPositionUs,
-            /* bufferTimestampAdjustmentUs= */ offsetToCompositionTimeUs,
-            getLastResetPositionUs());
+            streamStartPositionUs, /* bufferTimestampAdjustmentUs= */ offsetToCompositionTimeUs);
         videoSink.onInputStreamChanged(
             VideoSink.INPUT_TYPE_BITMAP,
             new Format.Builder()
