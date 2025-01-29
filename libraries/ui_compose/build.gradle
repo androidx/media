@@ -67,6 +67,4 @@ ext {
     releaseArtifactId = 'media3-ui-compose'
     releaseName = 'Media3 UI Compose module'
 }
-// TODO(b/385138624): Add this back once we find a workaround for the missing version error of the
-//  `androidx.compose.foundation` dependency.
-// apply from: '../../publish.gradle'
+apply from: '../../publish.gradle'
