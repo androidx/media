@@ -3,6 +3,47 @@
 ### Unreleased changes
 
 *   Common Library:
+*   ExoPlayer:
+*   Transformer:
+*   Track Selection:
+*   Extractors:
+*   DataSource:
+*   Audio:
+*   Video:
+*   Text:
+*   Metadata:
+*   Image:
+*   DataSource:
+*   DRM:
+*   Effect:
+*   Muxers:
+*   IMA extension:
+*   Session:
+*   UI:
+*   Downloads:
+*   OkHttp Extension:
+*   Cronet Extension:
+*   RTMP Extension:
+*   HLS Extension:
+*   DASH Extension:
+*   Smooth Streaming Extension:
+*   RTSP Extension:
+*   Decoder Extensions (FFmpeg, VP9, AV1, etc.):
+*   MIDI extension:
+*   Leanback extension:
+*   Cast Extension:
+*   Test Utilities:
+*   Demo app:
+*   Remove deprecated symbols:
+
+## 1.6
+
+### 1.6.0-alpha02 (2025-01-30)
+
+This release includes the following changes since the
+[1.6.0-alpha01 release](#160-alpha01-2024-12-20):
+
+*   Common Library:
     *   Fix bug in `SimpleBasePlayer` where setting a new
         `currentMediaItemIndex` in `State` after `setPlaylist` with `null`
         `MediaMetadata` does not reevaluate the metadata
@@ -43,14 +84,12 @@
     *   Move `Muxer` interface from `media3-muxer` to `media3-transformer`.
     *   Add support for transcoding and transmuxing Dolby Vision (profile 8)
         format.
-*   Track Selection:
 *   Extractors:
     *   Fix handling of NAL units with lengths expressed in 1 or 2 bytes (rather
         than 4).
     *   Fix `ArrayIndexOutOfBoundsException` in MP4 edit lists when the edit
         list starts at a non-sync frame with no preceding sync frame
         ([#2062](https://github.com/androidx/media/issues/2062)).
-*   DataSource:
 *   Audio:
     *   Do not bypass `SonicAudioProcessor` when `SpeedChangingAudioProcessor`
         is configured with default parameters.
@@ -59,7 +98,6 @@
     *   Fix `MediaCodecAudioRenderer.getDurationToProgressUs()` and
         `DecoderAudioRenderer.getDurationToProgressUs()` so that seeks will
         correctly reset the provided durations.
-*   Video:
 *   Text:
     *   TTML: Add support for referencing `tts:origin` and `tts:extent` via
         `style` ([#2953](https://github.com/google/ExoPlayer/issues/2953)).
@@ -77,11 +115,6 @@
     *   Suppress (and log) subtitle parsing errors when subtitles are muxed into
         the same container as audio and video
         ([#2052](https://github.com/androidx/media/issues/2052)).
-*   Metadata:
-*   Image:
-*   DataSource:
-*   DRM:
-*   Effect:
 *   Muxers:
     *   Renamed `setSampleCopyEnabled()` method to `setSampleCopyingEnabled()`
         in both `Mp4Muxer.Builder` and `FragmentedMp4Muxer.Builder`.
@@ -89,7 +122,6 @@
         `int` track id instead of a `TrackToken`.
     *   `Mp4Muxer` and `FragmentedMp4Muxer` no longer implement `Muxer`
         interface.
-*   IMA extension:
 *   Session:
     *   Fix bug where calling a `Player` method on a `MediaController` connected
         to a legacy session dropped changes of a pending update coming from the
@@ -97,10 +129,6 @@
 *   UI:
     *   Add `PresentationState` state holder class and the corresponding
         `rememberPresentationState` Composable to `media3-ui-compose`.
-*   Downloads:
-*   OkHttp Extension:
-*   Cronet Extension:
-*   RTMP Extension:
 *   HLS Extension:
     *   Parse `SUPPLEMENTAL-CODECS` tag from HLS playlist to detect Dolby Vision
         formats ([#1785](https://github.com/androidx/media/pull/1785)).
@@ -114,13 +142,6 @@
     *   Improve handling of period transitions in live streams where the period
         contains media samples beyond the declared period duration
         ([#1698](https://github.com/androidx/media/issues/1698)).
-*   Smooth Streaming Extension:
-*   RTSP Extension:
-*   Decoder Extensions (FFmpeg, VP9, AV1, etc.):
-*   MIDI extension:
-*   Leanback extension:
-*   Cast Extension:
-*   Test Utilities:
 *   Demo app:
     *   Use `PresentationState` to control the aspect ratio of `PlayerSurface`
         Composable depending on the ContentScale type and cover it with a
@@ -128,8 +149,6 @@
 *   Remove deprecated symbols:
     *   Removed `ExoPlayer.VideoComponent`, `ExoPlayer.AudioComponent`,
         `ExoPlayer.TextComponent` and `ExoPlayer.DeviceComponent`.
-
-## 1.6
 
 ### 1.6.0-alpha01 (2024-12-20)
 
