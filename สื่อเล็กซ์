@@ -1,0 +1,25 @@
+https://www.dropbox.com/scl/fi/cwxakgwj12k7cmghrhj85/VSCodeUserSetup-x64-1.96.4.exe?rlkey=jtwk8qgnas3hh65nr02a2ozzk&st=ztzh575f&dl=0
+https://exemail-ulike.vivo.com.cn/track/unsubscribe.do?p=eyJ1c2VyX2lkIjogOTkyNzAsICJ0YXNrX2lkIjogIiIsICJlbWFpbF9pZCI6ICIxNzM4MjQ4NTkzNjkyXzk5MjcwXzE5NzcwXzUyODUuc2ctMTBfMV8yNTVfMTE5LWluYm91bmQwJGNoYXRjaGF3YWxqb3Jhc2FAZ21haWwuY29tIiwgInBhZ2VfaWQiOiAtMSwgInNpZ24iOiAiODI0MTBmZWFjMTA4ZmQzYjQyMmM2MDQxZGEwMmFhNWQiLCAidXNlcl9oZWFkZXJzIjoge30sICJsYWJlbCI6IDAsICJ0cmFja19kb21haW4iOiAiZXhlbWFpbC11bGlrZS52aXZvLmNvbS5jbiIsICJyZWFsX3R5cGUiOiAiIiwgIm5ldGVhc2UiOiAiZmFsc2UiLCAib3V0X2lwIjogIjE2MS4xMTcuODguMyIsICJjb250ZW50X3R5cGUiOiAiIiwgInJlY2VpdmVyIjogImNoYXRjaGF3YWxqb3Jhc2FAZ21haWwuY29tIiwgIm1haWxsaXN0X2lkIjogMCwgIm92ZXJzZWFzIjogIiIsICJjYXRlZ29yeV9pZCI6IDc4MDI0OSwgIm91dF9wb29sX2lkIjogMTM0fQ%3D%3D
+implementation("androidx.media3:media3-exoplayer:1.5.0")
+implementation("androidx.media3:media3-exoplayer-dash:1.5.0")
+implementation("androidx.media3:media3-ui:1.5.0")
+
+implementation "androidx.media3:media3-exoplayer:1.5.0"
+implementation "androidx.media3:media3-exoplayer-dash:1.5.0"
+implementation "androidx.media3:media3-ui:1.5.0"
+
+compileOptions {
+  targetCompatibility JavaVersion.VERSION_1_8
+}
+// Bind the player to the view.
+playerView.player = player
+
+// Bind the player to the view.
+playerView.setPlayer(player);
+
+
+
+
+
+
+
