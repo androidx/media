@@ -1619,7 +1619,7 @@ public final class Transformer {
         listener -> listener.onCompleted(checkNotNull(composition), exportResult));
     listeners.flushEvents();
     if (canCollectEditingMetrics()) {
-      checkNotNull(editingMetricsCollector).onExportSuccess(exportResult.processedInputs);
+      checkNotNull(editingMetricsCollector).onExportSuccess(exportResult);
     }
     transformerState = TRANSFORMER_STATE_PROCESS_FULL_INPUT;
   }
@@ -1639,7 +1639,7 @@ public final class Transformer {
               ? progressHolder.progress
               : C.PERCENTAGE_UNSET;
       checkNotNull(editingMetricsCollector)
-          .onExportError(progressPercentage, exception, exportResult.processedInputs);
+          .onExportError(progressPercentage, exception, exportResult);
     }
     transformerState = TRANSFORMER_STATE_PROCESS_FULL_INPUT;
   }

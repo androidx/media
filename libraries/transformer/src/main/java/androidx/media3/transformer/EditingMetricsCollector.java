@@ -161,9 +161,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   /**
    * Called when export completes with success.
    *
-   * @param processedInputs The list of {@link ExportResult.ProcessedInput} instances.
+   * @param exportResult The {@link ExportResult} of the export.
    */
-  public void onExportSuccess(ImmutableList<ExportResult.ProcessedInput> processedInputs) {
+  public void onExportSuccess(ExportResult exportResult) {
     if (editingSession == null) {
       return;
     }
@@ -171,11 +171,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         createEditingEndedEventBuilder(EditingEndedEvent.FINAL_STATE_SUCCEEDED)
             .setFinalProgressPercent(SUCCESS_PROGRESS_PERCENTAGE);
 
-    List<MediaItemInfo> inputMediaItemInfoList = getMediaItemInfos(processedInputs);
+    List<MediaItemInfo> inputMediaItemInfoList =
+        getInputMediaItemInfos(exportResult.processedInputs);
     for (int i = 0; i < inputMediaItemInfoList.size(); i++) {
       MediaItemInfo inputMediaItemInfo = inputMediaItemInfoList.get(i);
       editingEndedEventBuilder.addInputMediaItemInfo(inputMediaItemInfo);
     }
+    editingEndedEventBuilder.setOutputMediaItemInfo(getOutputMediaItemInfo(exportResult));
 
     editingSession.reportEditingEndedEvent(editingEndedEventBuilder.build());
     editingSession.close();
@@ -187,12 +189,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * @param progressPercentage The progress of the export operation in percent. Value is {@link
    *     C#PERCENTAGE_UNSET} if unknown or between 0 and 100 inclusive.
    * @param exportException The {@link ExportException} describing the exception.
-   * @param processedInputs The list of {@link ExportResult.ProcessedInput} instances.
+   * @param exportResult The {@link ExportResult} of the export.
    */
   public void onExportError(
-      int progressPercentage,
-      ExportException exportException,
-      ImmutableList<ExportResult.ProcessedInput> processedInputs) {
+      int progressPercentage, ExportException exportException, ExportResult exportResult) {
     if (editingSession == null) {
       return;
     }
@@ -203,11 +203,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       editingEndedEventBuilder.setFinalProgressPercent(progressPercentage);
     }
 
-    List<MediaItemInfo> inputMediaItemInfoList = getMediaItemInfos(processedInputs);
+    List<MediaItemInfo> inputMediaItemInfoList =
+        getInputMediaItemInfos(exportResult.processedInputs);
     for (int i = 0; i < inputMediaItemInfoList.size(); i++) {
       MediaItemInfo inputMediaItemInfo = inputMediaItemInfoList.get(i);
       editingEndedEventBuilder.addInputMediaItemInfo(inputMediaItemInfo);
     }
+    editingEndedEventBuilder.setOutputMediaItemInfo(getOutputMediaItemInfo(exportResult));
 
     editingSession.reportEditingEndedEvent(editingEndedEventBuilder.build());
     editingSession.close();
@@ -246,7 +248,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     return editingEndedEventBuilder;
   }
 
-  private static List<MediaItemInfo> getMediaItemInfos(
+  private static List<MediaItemInfo> getInputMediaItemInfos(
       ImmutableList<ExportResult.ProcessedInput> processedInputs) {
     List<MediaItemInfo> mediaItemInfoList = new ArrayList<>();
     for (int i = 0; i < processedInputs.size(); i++) {
@@ -310,6 +312,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       mediaItemInfoList.add(mediaItemInfoBuilder.build());
     }
     return mediaItemInfoList;
+  }
+
+  private static MediaItemInfo getOutputMediaItemInfo(ExportResult exportResult) {
+    MediaItemInfo.Builder mediaItemInfoBuilder = new MediaItemInfo.Builder();
+    if (exportResult.durationMs != C.TIME_UNSET) {
+      mediaItemInfoBuilder.setDurationMillis(exportResult.durationMs);
+    }
+    return mediaItemInfoBuilder.build();
   }
 
   private static int getEditingEndedEventErrorCode(@ExportException.ErrorCode int errorCode) {
