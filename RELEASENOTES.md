@@ -1,41 +1,5 @@
 # Release notes
 
-### Unreleased changes
-
-*   Common Library:
-*   ExoPlayer:
-*   Transformer:
-*   Track Selection:
-*   Extractors:
-*   DataSource:
-*   Audio:
-*   Video:
-*   Text:
-*   Metadata:
-*   Image:
-*   DataSource:
-*   DRM:
-*   Effect:
-*   Muxers:
-*   IMA extension:
-*   Session:
-*   UI:
-*   Downloads:
-*   OkHttp Extension:
-*   Cronet Extension:
-*   RTMP Extension:
-*   HLS Extension:
-*   DASH Extension:
-*   Smooth Streaming Extension:
-*   RTSP Extension:
-*   Decoder Extensions (FFmpeg, VP9, AV1, etc.):
-*   MIDI extension:
-*   Leanback extension:
-*   Cast Extension:
-*   Test Utilities:
-*   Demo app:
-*   Remove deprecated symbols:
-
 ## 1.6
 
 ### 1.6.0-alpha02 (2025-01-30)
@@ -60,15 +24,15 @@ This release includes the following changes since the
     *   Make `DefaultRenderersFactory` add two `MetadataRenderer` instances by
         default to enable apps to receive two different schemes of metadata by
         default.
-    *   Initialize `DeviceInfo` and device volume asynchronously (if enabled via
-        `setDeviceVolumeControlEnabled`). These values won't be available
-        instantly after the `ExoPlayer.Builder.build()` and are notified via
+    *   Initialize `DeviceInfo` and device volume asynchronously (if enabled
+        using `setDeviceVolumeControlEnabled`). These values won't be available
+        instantly after the `ExoPlayer.Builder.build()` and are notified using
         `Player.Listener.onDeviceInfoChanged` and `onDeviceVolumeChanged`.
     *   Reevaluate whether the ongoing load of a chunk should be cancelled when
         playback is paused
         ([#1785](https://github.com/androidx/media/pull/1785)).
 *   Transformer:
-    *   Enable support for Android platform diagnostics via
+    *   Enable support for Android platform diagnostics using
         `MediaMetricsManager`. Transformer will forward editing events and
         performance data to the platform, which helps to provide system
         performance and debugging information on the device. This data may also
@@ -91,15 +55,15 @@ This release includes the following changes since the
         list starts at a non-sync frame with no preceding sync frame
         ([#2062](https://github.com/androidx/media/issues/2062)).
 *   Audio:
-    *   Do not bypass `SonicAudioProcessor` when `SpeedChangingAudioProcessor`
-        is configured with default parameters.
+    *   Don't bypass `SonicAudioProcessor` when `SpeedChangingAudioProcessor` is
+        configured with default parameters.
     *   Fix underflow in `Sonic#getOutputSize()` that could cause
         `DefaultAudioSink` to stall.
     *   Fix `MediaCodecAudioRenderer.getDurationToProgressUs()` and
         `DecoderAudioRenderer.getDurationToProgressUs()` so that seeks will
         correctly reset the provided durations.
 *   Text:
-    *   TTML: Add support for referencing `tts:origin` and `tts:extent` via
+    *   TTML: Add support for referencing `tts:origin` and `tts:extent` using
         `style` ([#2953](https://github.com/google/ExoPlayer/issues/2953)).
     *   Restrict WebVTT and SubRip timestamps to exactly 3 decimal places.
         Previously we incorrectly parsed any number of decimal places but always
@@ -119,7 +83,7 @@ This release includes the following changes since the
     *   Renamed `setSampleCopyEnabled()` method to `setSampleCopyingEnabled()`
         in both `Mp4Muxer.Builder` and `FragmentedMp4Muxer.Builder`.
     *   `Mp4Muxer.addTrack()` and `FragmentedMp4Muxer.addTrack()` now return an
-        `int` track id instead of a `TrackToken`.
+        `int` track ID instead of a `TrackToken`.
     *   `Mp4Muxer` and `FragmentedMp4Muxer` no longer implement `Muxer`
         interface.
 *   Session:
