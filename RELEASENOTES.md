@@ -56,26 +56,26 @@ This release includes the following changes since the
         ([#1940](https://github.com/androidx/media/issues/1940)).
 *   ExoPlayer:
     *   Add experimental 'ExoPlayer' pre-warming support for playback using
-        `MediaCodecVideoRenderer`. `DefaultRenderersFactory` can be configured
+        `MediaCodecVideoRenderer`. You can configure `DefaultRenderersFactory`
         through `experimentalSetEnableMediaCodecVideoRendererPrewarming` to
         provide a secondary `MediaCodecVideoRenderer` to `ExoPlayer`. If
-        enabled, `ExoPlayer` will pre-process the video of consecutive media
-        items during playback to reduce media item transition latency.
+        enabled, `ExoPlayer` pre-processes the video of consecutive media items
+        during playback to reduce media item transition latency.
     *   Fix issue where additional decode-only frames may be displayed in quick
         succession when transitioning to content media after a mid-roll ad.
-    *   Make `DefaultRenderersFactory` add two `MetadataRenderer` instances by
-        default to enable apps to receive two different schemes of metadata by
-        default.
+    *   Make `DefaultRenderersFactory` add two `MetadataRenderer` instances to
+        enable apps to receive two different schemes of metadata by default.
     *   Initialize `DeviceInfo` and device volume asynchronously (if enabled
-        using `setDeviceVolumeControlEnabled`). These values won't be available
-        instantly after the `ExoPlayer.Builder.build()` and are notified using
-        `Player.Listener.onDeviceInfoChanged` and `onDeviceVolumeChanged`.
+        using `setDeviceVolumeControlEnabled`). These values aren't available
+        instantly after `ExoPlayer.Builder.build()`, and `Player.Listener`
+        notifies changes through `onDeviceInfoChanged` and
+        `onDeviceVolumeChanged`.
     *   Reevaluate whether the ongoing load of a chunk should be cancelled when
         playback is paused
         ([#1785](https://github.com/androidx/media/pull/1785)).
 *   Transformer:
     *   Enable support for Android platform diagnostics using
-        `MediaMetricsManager`. Transformer will forward editing events and
+        `MediaMetricsManager`. Transformer forwards editing events and
         performance data to the platform, which helps to provide system
         performance and debugging information on the device. This data may also
         be collected by Google
@@ -84,9 +84,8 @@ This release includes the following changes since the
         diagnostics for Transformer with
         `Transformer.Builder.setUsePlatformDiagnostics(false)`.
     *   Split `InAppMuxer` into `InAppMp4Muxer` and `InAppFragmentedMp4Muxer`.
-        `InAppMp4Muxer` is to be used for producing a non-fragmented MP4 file,
-        while `InAppFragmentedMp4Muxer` is to be used for producing a fragmented
-        MP4 file.
+        You use `InAppMp4Muxer` to produce a non-fragmented MP4 file, while
+        `InAppFragmentedMp4Muxer` is for producing a fragmented MP4 file.
     *   Move `Muxer` interface from `media3-muxer` to `media3-transformer`.
     *   Add support for transcoding and transmuxing Dolby Vision (profile 8)
         format.
@@ -102,8 +101,8 @@ This release includes the following changes since the
     *   Fix underflow in `Sonic#getOutputSize()` that could cause
         `DefaultAudioSink` to stall.
     *   Fix `MediaCodecAudioRenderer.getDurationToProgressUs()` and
-        `DecoderAudioRenderer.getDurationToProgressUs()` so that seeks will
-        correctly reset the provided durations.
+        `DecoderAudioRenderer.getDurationToProgressUs()` so that seeks correctly
+        reset the provided durations.
 *   Text:
     *   TTML: Add support for referencing `tts:origin` and `tts:extent` using
         `style` ([#2953](https://github.com/google/ExoPlayer/issues/2953)).
@@ -130,8 +129,7 @@ This release includes the following changes since the
         interface.
 *   Session:
     *   Fix bug where calling a `Player` method on a `MediaController` connected
-        to a legacy session dropped changes of a pending update coming from the
-        legacy session.
+        to a legacy session dropped changes from a pending update.
 *   UI:
     *   Add `PresentationState` state holder class and the corresponding
         `rememberPresentationState` Composable to `media3-ui-compose`.
@@ -150,7 +148,7 @@ This release includes the following changes since the
         ([#1698](https://github.com/androidx/media/issues/1698)).
 *   Demo app:
     *   Use `PresentationState` to control the aspect ratio of `PlayerSurface`
-        Composable depending on the ContentScale type and cover it with a
+        Composable. This depends on the ContentScale type and covers it with a
         shutter-overlay before the first frame is rendered.
 *   Remove deprecated symbols:
     *   Removed `ExoPlayer.VideoComponent`, `ExoPlayer.AudioComponent`,
