@@ -60,7 +60,7 @@ public final class ClippingMediaSourceTest {
   }
 
   @Test
-  public void noClipping() throws IOException {
+  public void noClipping_returnsExpectedTimeline() throws IOException {
     Timeline timeline =
         new SinglePeriodTimeline(
             TEST_PERIOD_DURATION_US,
@@ -81,7 +81,7 @@ public final class ClippingMediaSourceTest {
   }
 
   @Test
-  public void clippingUnseekableWindowThrows() throws IOException {
+  public void clipping_withUnseekableWindow_throws() throws IOException {
     Timeline timeline =
         new SinglePeriodTimeline(
             TEST_PERIOD_DURATION_US,
@@ -103,7 +103,7 @@ public final class ClippingMediaSourceTest {
   }
 
   @Test
-  public void clippingUnseekableWindowWithUnknownDurationThrows() throws IOException {
+  public void clipping_withUnseekableWindowWithUnknownDuration_throws() throws IOException {
     Timeline timeline =
         new SinglePeriodTimeline(
             /* durationUs= */ C.TIME_UNSET,
@@ -125,7 +125,34 @@ public final class ClippingMediaSourceTest {
   }
 
   @Test
-  public void clippingStartExceedsEndThrows() throws IOException {
+  public void clipping_withUnseekableWindowAndAllowedUnseekableMedia_returnsExpectedTimeline()
+      throws IOException {
+    Timeline timeline =
+        new SinglePeriodTimeline(
+            TEST_PERIOD_DURATION_US,
+            /* isSeekable= */ false,
+            /* isDynamic= */ false,
+            /* useLiveConfiguration= */ false,
+            /* manifest= */ null,
+            MediaItem.fromUri(Uri.EMPTY));
+    FakeMediaSource fakeMediaSource = new FakeMediaSource(timeline);
+    ClippingMediaSource mediaSource =
+        new ClippingMediaSource.Builder(fakeMediaSource)
+            .setStartPositionUs(1)
+            .setEndPositionUs(TEST_PERIOD_DURATION_US - 1)
+            .setAllowUnseekableMedia(true)
+            .build();
+
+    Timeline clippedTimeline = getClippedTimelines(fakeMediaSource, mediaSource)[0];
+
+    assertThat(clippedTimeline.getWindow(0, window).getDurationUs())
+        .isEqualTo(TEST_PERIOD_DURATION_US - 2);
+    assertThat(clippedTimeline.getPeriod(0, period).getDurationUs())
+        .isEqualTo(TEST_PERIOD_DURATION_US - 1);
+  }
+
+  @Test
+  public void clipping_startExceedsEnd_throws() throws IOException {
     Timeline timeline =
         new SinglePeriodTimeline(
             TEST_PERIOD_DURATION_US,
@@ -147,7 +174,7 @@ public final class ClippingMediaSourceTest {
   }
 
   @Test
-  public void clippingStart() throws IOException {
+  public void clipping_startOnly_returnsExpectedTimeline() throws IOException {
     Timeline timeline =
         new SinglePeriodTimeline(
             TEST_PERIOD_DURATION_US,
@@ -166,7 +193,7 @@ public final class ClippingMediaSourceTest {
   }
 
   @Test
-  public void clippingEnd() throws IOException {
+  public void clipping_endOnly_returnsExpectedTimeline() throws IOException {
     Timeline timeline =
         new SinglePeriodTimeline(
             TEST_PERIOD_DURATION_US,
@@ -185,7 +212,8 @@ public final class ClippingMediaSourceTest {
   }
 
   @Test
-  public void clippingStartAndEndInitial() throws IOException {
+  public void clipping_startAndEndWithInitialPlaceHolderTimeline_returnsExpectedTimeline()
+      throws IOException {
     // Timeline that's dynamic and not seekable. A child source might report such a timeline prior
     // to it having loaded sufficient data to establish its duration and seekability. Such timelines
     // should not result in clipping failure.
@@ -201,7 +229,7 @@ public final class ClippingMediaSourceTest {
   }
 
   @Test
-  public void clippingToEndOfSourceWithDurationSetsDuration() throws IOException {
+  public void clipping_toEndOfSourceWithDuration_setsDuration() throws IOException {
     // Create a child timeline that has a known duration.
     Timeline timeline =
         new SinglePeriodTimeline(
@@ -220,7 +248,7 @@ public final class ClippingMediaSourceTest {
   }
 
   @Test
-  public void clippingToEndOfSourceWithUnsetDurationDoesNotSetDuration() throws IOException {
+  public void clipping_toEndOfSourceWithUnsetDuration_doesNotSetDuration() throws IOException {
     // Create a child timeline that has an unknown duration.
     Timeline timeline =
         new SinglePeriodTimeline(
@@ -239,7 +267,7 @@ public final class ClippingMediaSourceTest {
   }
 
   @Test
-  public void clippingStartAndEnd() throws IOException {
+  public void clipping_startAndEnd_returnsExpectedTimeline() throws IOException {
     Timeline timeline =
         new SinglePeriodTimeline(
             TEST_PERIOD_DURATION_US,
@@ -259,7 +287,7 @@ public final class ClippingMediaSourceTest {
   }
 
   @Test
-  public void clippingFromDefaultPosition() throws IOException {
+  public void clipping_fromDefaultPosition_returnsExpectedTimeline() throws IOException {
     Timeline timeline =
         new SinglePeriodTimeline(
             /* periodDurationUs= */ 3 * TEST_PERIOD_DURATION_US,
@@ -282,7 +310,8 @@ public final class ClippingMediaSourceTest {
   }
 
   @Test
-  public void allowDynamicUpdatesWithOverlappingLiveWindow() throws IOException {
+  public void clipping_allowDynamicUpdatesWithOverlappingLiveWindow_returnsExpectedTimelines()
+      throws IOException {
     Timeline timeline1 =
         new SinglePeriodTimeline(
             /* periodDurationUs= */ 2 * TEST_PERIOD_DURATION_US,
@@ -333,7 +362,8 @@ public final class ClippingMediaSourceTest {
   }
 
   @Test
-  public void allowDynamicUpdatesWithNonOverlappingLiveWindow() throws IOException {
+  public void clipping_allowDynamicUpdatesWithNonOverlappingLiveWindow_returnsExpectedTimeline()
+      throws IOException {
     Timeline timeline1 =
         new SinglePeriodTimeline(
             /* periodDurationUs= */ 2 * TEST_PERIOD_DURATION_US,
@@ -384,7 +414,8 @@ public final class ClippingMediaSourceTest {
   }
 
   @Test
-  public void disallowDynamicUpdatesWithOverlappingLiveWindow() throws IOException {
+  public void clipping_disallowDynamicUpdatesWithOverlappingLiveWindow_returnsExpectedTimeline()
+      throws IOException {
     Timeline timeline1 =
         new SinglePeriodTimeline(
             /* periodDurationUs= */ 2 * TEST_PERIOD_DURATION_US,
@@ -436,7 +467,8 @@ public final class ClippingMediaSourceTest {
   }
 
   @Test
-  public void disallowDynamicUpdatesWithNonOverlappingLiveWindow() throws IOException {
+  public void clipping_disallowDynamicUpdatesWithNonOverlappingLiveWindow_returnsExpectedTimeline()
+      throws IOException {
     Timeline timeline1 =
         new SinglePeriodTimeline(
             /* periodDurationUs= */ 2 * TEST_PERIOD_DURATION_US,
@@ -486,7 +518,7 @@ public final class ClippingMediaSourceTest {
   }
 
   @Test
-  public void windowAndPeriodIndices() throws IOException {
+  public void returnsExpectedTimeline_multiWindowAndPeriod_setsCorrectIndices() throws IOException {
     Timeline timeline =
         new FakeTimeline(
             new TimelineWindowDefinition(1, 111, true, false, TEST_PERIOD_DURATION_US));

@@ -4,6 +4,8 @@
 
 *   Common Library:
 *   ExoPlayer:
+    *   Add option to `ClippingMediaSource` to allow clipping in unseekable
+        media.
 *   Transformer:
 *   Track Selection:
 *   Extractors:

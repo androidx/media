@@ -57,6 +57,7 @@ public final class ClippingMediaSource extends WrappingMediaSource {
     private boolean enableInitialDiscontinuity;
     private boolean allowDynamicClippingUpdates;
     private boolean relativeToDefaultPosition;
+    private boolean allowUnseekableMedia;
     private boolean buildCalled;
 
     /**
@@ -195,6 +196,25 @@ public final class ClippingMediaSource extends WrappingMediaSource {
       return this;
     }
 
+    /**
+     * Sets whether clipping to a non-zero start position in unseekable media is allowed.
+     *
+     * <p>Note that this is inefficient because the player needs to read and decode all samples from
+     * the beginning of the file and it should only be used if the seek start position is small and
+     * the entire data before the start position fits into memory.
+     *
+     * <p>The default value is {@code false}.
+     *
+     * @param allowUnseekableMedia Whether a non-zero start position in unseekable media is allowed.
+     * @return This builder.
+     */
+    @CanIgnoreReturnValue
+    public Builder setAllowUnseekableMedia(boolean allowUnseekableMedia) {
+      checkState(!buildCalled);
+      this.allowUnseekableMedia = allowUnseekableMedia;
+      return this;
+    }
+
     /** Builds the {@link ClippingMediaSource}. */
     public ClippingMediaSource build() {
       buildCalled = true;
@@ -259,6 +279,7 @@ public final class ClippingMediaSource extends WrappingMediaSource {
   private final boolean enableInitialDiscontinuity;
   private final boolean allowDynamicClippingUpdates;
   private final boolean relativeToDefaultPosition;
+  private final boolean allowUnseekableMedia;
   private final ArrayList<ClippingMediaPeriod> mediaPeriods;
   private final Timeline.Window window;
 
@@ -313,6 +334,7 @@ public final class ClippingMediaSource extends WrappingMediaSource {
     this.enableInitialDiscontinuity = builder.enableInitialDiscontinuity;
     this.allowDynamicClippingUpdates = builder.allowDynamicClippingUpdates;
     this.relativeToDefaultPosition = builder.relativeToDefaultPosition;
+    this.allowUnseekableMedia = builder.allowUnseekableMedia;
     mediaPeriods = new ArrayList<>();
     window = new Timeline.Window();
   }
@@ -398,7 +420,8 @@ public final class ClippingMediaSource extends WrappingMediaSource {
               : periodEndUs - windowPositionInPeriodUs;
     }
     try {
-      clippingTimeline = new ClippingTimeline(timeline, windowStartUs, windowEndUs);
+      clippingTimeline =
+          new ClippingTimeline(timeline, windowStartUs, windowEndUs, allowUnseekableMedia);
     } catch (IllegalClippingException e) {
       clippingError = e;
       // The clipping error won't be propagated while we have existing MediaPeriods. Setting the
@@ -426,9 +449,11 @@ public final class ClippingMediaSource extends WrappingMediaSource {
      * @param startUs The number of microseconds to clip from the start of {@code timeline}.
      * @param endUs The end position in microseconds for the clipped timeline relative to the start
      *     of {@code timeline}, or {@link C#TIME_END_OF_SOURCE} to clip no samples from the end.
+     * @param allowUnseekableMedia Whether to allow non-zero start positions in unseekable media.
      * @throws IllegalClippingException If the timeline could not be clipped.
      */
-    public ClippingTimeline(Timeline timeline, long startUs, long endUs)
+    public ClippingTimeline(
+        Timeline timeline, long startUs, long endUs, boolean allowUnseekableMedia)
         throws IllegalClippingException {
       super(timeline);
       if (timeline.getPeriodCount() != 1) {
@@ -436,7 +461,7 @@ public final class ClippingMediaSource extends WrappingMediaSource {
       }
       Window window = timeline.getWindow(0, new Window());
       startUs = max(0, startUs);
-      if (!window.isPlaceholder && startUs != 0 && !window.isSeekable) {
+      if (!allowUnseekableMedia && !window.isPlaceholder && startUs != 0 && !window.isSeekable) {
         throw new IllegalClippingException(IllegalClippingException.REASON_NOT_SEEKABLE_TO_START);
       }
       long resolvedEndUs = endUs == C.TIME_END_OF_SOURCE ? window.durationUs : max(0, endUs);

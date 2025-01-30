@@ -24,6 +24,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.TrackGroup;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.exoplayer.FormatHolder;
 import androidx.media3.exoplayer.LoadingInfo;
@@ -174,6 +175,26 @@ public class ClippingMediaPeriodTest {
   }
 
   @Test
+  public void
+      readDiscontinuity_prepareFromNonZeroClipStartPositionWithUnseekableStream_returnsPreparePosition()
+          throws Exception {
+    TrackGroupArray trackGroups =
+        new TrackGroupArray(AUDIO_TRACK_GROUP_ALL_SYNC_SAMPLES, VIDEO_TRACK_GROUP);
+    ClippingMediaPeriod clippingMediaPeriod =
+        new ClippingMediaPeriod(
+            getUnseekableFakeMediaPeriod(trackGroups),
+            /* enableInitialDiscontinuity= */ true,
+            /* startUs= */ 250,
+            /* endUs= */ 500);
+
+    prepareMediaPeriodAndSelectTracks(
+        clippingMediaPeriod, /* preparePositionUs= */ 250, trackGroups);
+    long discontinuityPositionUs = clippingMediaPeriod.readDiscontinuity();
+
+    assertThat(discontinuityPositionUs).isEqualTo(250);
+  }
+
+  @Test
   public void readDiscontinuity_prepareFromZero_returnsUnset() throws Exception {
     TrackGroupArray trackGroups =
         new TrackGroupArray(AUDIO_TRACK_GROUP_ALL_SYNC_SAMPLES, VIDEO_TRACK_GROUP);
@@ -263,6 +284,24 @@ public class ClippingMediaPeriodTest {
     assertThat(discontinuityPositionUs).isEqualTo(C.TIME_UNSET);
   }
 
+  @Test
+  public void seekTo_withUnseekableMedia_returnsAtLeastStartPositionUs() throws Exception {
+    TrackGroupArray trackGroups =
+        new TrackGroupArray(AUDIO_TRACK_GROUP_ALL_SYNC_SAMPLES, VIDEO_TRACK_GROUP);
+    ClippingMediaPeriod clippingMediaPeriod =
+        new ClippingMediaPeriod(
+            getUnseekableFakeMediaPeriod(trackGroups),
+            /* enableInitialDiscontinuity= */ true,
+            /* startUs= */ 300,
+            /* endUs= */ 500);
+    prepareMediaPeriodAndSelectTracks(
+        clippingMediaPeriod, /* preparePositionUs= */ 400, trackGroups);
+
+    long seekPositionUs = clippingMediaPeriod.seekToUs(350);
+
+    assertThat(seekPositionUs).isAtLeast(300);
+  }
+
   private static SampleStream[] prepareMediaPeriodAndSelectTracks(
       MediaPeriod mediaPeriod, long preparePositionUs, TrackGroupArray trackGroups)
       throws TimeoutException {
@@ -306,5 +345,34 @@ public class ClippingMediaPeriodTest {
         DrmSessionManager.DRM_UNSUPPORTED,
         new DrmSessionEventListener.EventDispatcher(),
         /* deferOnPrepared= */ false);
+  }
+
+  private static FakeMediaPeriod getUnseekableFakeMediaPeriod(TrackGroupArray trackGroups) {
+    return new FakeMediaPeriod(
+        trackGroups,
+        new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+        /* trackDataFactory= */ (format, mediaPeriodId) -> ImmutableList.of(),
+        new MediaSourceEventListener.EventDispatcher()
+            .withParameters(
+                /* windowIndex= */ 0, new MediaSource.MediaPeriodId(/* periodUid= */ new Object())),
+        DrmSessionManager.DRM_UNSUPPORTED,
+        new DrmSessionEventListener.EventDispatcher(),
+        /* deferOnPrepared= */ false) {
+      @Override
+      public long seekToUs(long positionUs) {
+        return super.seekToUs(/* positionUs= */ 0);
+      }
+
+      @Override
+      public long selectTracks(
+          @NullableType ExoTrackSelection[] selections,
+          boolean[] mayRetainStreamFlags,
+          @NullableType SampleStream[] streams,
+          boolean[] streamResetFlags,
+          long positionUs) {
+        return super.selectTracks(
+            selections, mayRetainStreamFlags, streams, streamResetFlags, /* positionUs= */ 0);
+      }
+    };
   }
 }
