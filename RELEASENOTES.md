@@ -11,6 +11,10 @@
 *   Audio:
     *   Make `androidx.media3.common.audio.SonicAudioProcessor` final.
 *   Video:
+    *   Change `MediaCodecVideoRenderer.shouldUsePlaceholderSurface` to
+        protected so that applications can override to block usage of
+        placeholder surfaces
+        ([#1905](https://github.com/androidx/media/pull/1905)).
 *   Text:
 *   Metadata:
 *   Image:
