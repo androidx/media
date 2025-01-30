@@ -25,9 +25,12 @@ import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.NetworkInfo.DetailedState;
 import android.net.Uri;
+import android.os.Handler;
+import android.os.Looper;
 import android.telephony.TelephonyDisplayInfo;
 import android.telephony.TelephonyManager;
 import androidx.media3.common.C;
+import androidx.media3.common.util.BackgroundExecutor;
 import androidx.media3.common.util.NetworkTypeObserver;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSource;
@@ -757,9 +760,10 @@ public final class ExperimentalBandwidthMeterTest {
     // the current network state if a receiver for this intent is registered.
     ApplicationProvider.getApplicationContext()
         .sendStickyBroadcast(new Intent(ConnectivityManager.CONNECTIVITY_ACTION));
-    // Trigger initialization of static network type observer.
+    // Trigger initialization of static network type observer using the main handler to ensure we
+    // can wait for the initialization to be done.
+    BackgroundExecutor.set(new Handler(Looper.getMainLooper())::post);
     NetworkTypeObserver.getInstance(ApplicationProvider.getApplicationContext());
-    // Wait until all pending messages are handled and the network initialization is done.
     ShadowLooper.idleMainLooper();
   }
 

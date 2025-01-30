@@ -17,6 +17,7 @@ package androidx.media3.common.util;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
 
+import android.annotation.SuppressLint;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -34,8 +35,11 @@ import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
+import com.google.errorprone.annotations.InlineMe;
 import java.lang.ref.WeakReference;
+import java.util.Iterator;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.Executor;
 
 /**
  * Observer for network type changes.
@@ -61,13 +65,15 @@ public final class NetworkTypeObserver {
 
   @Nullable private static NetworkTypeObserver staticInstance;
 
-  private final Handler mainHandler;
-  // This class needs to hold weak references as it doesn't require listeners to unregister.
-  private final CopyOnWriteArrayList<WeakReference<Listener>> listeners;
-  private final Object networkTypeLock;
+  private final Executor backgroundExecutor;
+  private final CopyOnWriteArrayList<ListenerHolder> listeners;
+  private final Object lock;
 
-  @GuardedBy("networkTypeLock")
+  @GuardedBy("lock")
   private @C.NetworkType int networkType;
+
+  @GuardedBy("lock")
+  private boolean isInitialized;
 
   /**
    * Returns a network type observer instance.
@@ -88,13 +94,22 @@ public final class NetworkTypeObserver {
   }
 
   private NetworkTypeObserver(Context context) {
-    mainHandler = new Handler(Looper.getMainLooper());
+    backgroundExecutor = BackgroundExecutor.get();
     listeners = new CopyOnWriteArrayList<>();
-    networkTypeLock = new Object();
+    lock = new Object();
     networkType = C.NETWORK_TYPE_UNKNOWN;
-    IntentFilter filter = new IntentFilter();
-    filter.addAction(ConnectivityManager.CONNECTIVITY_ACTION);
-    context.registerReceiver(new Receiver(), filter);
+    backgroundExecutor.execute(() -> init(context));
+  }
+
+  /**
+   * @deprecated Use {@link #register(Listener, Executor)} instead.
+   */
+  @InlineMe(
+      replacement = "this.register(listener, new Handler(Looper.getMainLooper())::post)",
+      imports = {"android.os.Handler", "android.os.Looper"})
+  @Deprecated
+  public void register(Listener listener) {
+    register(listener, /* executor= */ new Handler(Looper.getMainLooper())::post);
   }
 
   /**
@@ -103,44 +118,68 @@ public final class NetworkTypeObserver {
    * <p>The current network type will be reported to the listener after registration.
    *
    * @param listener The {@link Listener}.
+   * @param executor The {@link Executor} to call the {@code listener} on.
    */
-  public void register(Listener listener) {
+  public void register(Listener listener, Executor executor) {
     removeClearedReferences();
-    listeners.add(new WeakReference<>(listener));
-    // Simulate an initial update on the main thread (like the sticky broadcast we'd receive if
-    // we were to register a separate broadcast receiver for each listener).
-    mainHandler.post(() -> listener.onNetworkTypeChanged(getNetworkType()));
+    boolean isInitialized;
+    ListenerHolder listenerHolder = new ListenerHolder(listener, executor);
+    synchronized (lock) {
+      listeners.add(listenerHolder);
+      isInitialized = this.isInitialized;
+    }
+    if (isInitialized) {
+      // Simulate an initial update (like the sticky broadcast we'd receive if we were to register a
+      // separate broadcast receiver for each listener).
+      listenerHolder.callOnNetworkTypeChanged();
+    }
   }
 
   /** Returns the current network type. */
   public @C.NetworkType int getNetworkType() {
-    synchronized (networkTypeLock) {
+    synchronized (lock) {
       return networkType;
     }
   }
 
+  @SuppressLint("UnprotectedReceiver") // Protected system broadcasts must not specify protection.
+  private void init(Context context) {
+    IntentFilter filter = new IntentFilter();
+    filter.addAction(ConnectivityManager.CONNECTIVITY_ACTION);
+    context.registerReceiver(new Receiver(), filter);
+  }
+
   private void removeClearedReferences() {
-    for (WeakReference<Listener> listenerReference : listeners) {
-      if (listenerReference.get() == null) {
-        listeners.remove(listenerReference);
+    for (ListenerHolder listener : listeners) {
+      if (listener.canBeRemoved()) {
+        listeners.remove(listener);
       }
     }
   }
 
+  private void handleConnectivityActionBroadcast(Context context) {
+    @C.NetworkType int networkType = getNetworkTypeFromConnectivityManager(context);
+    if (Util.SDK_INT >= 31 && networkType == C.NETWORK_TYPE_4G) {
+      // Delay update of the network type to check whether this is actually 5G-NSA.
+      Api31.disambiguate4gAnd5gNsa(context, /* instance= */ NetworkTypeObserver.this);
+    } else {
+      updateNetworkType(networkType);
+    }
+  }
+
   private void updateNetworkType(@C.NetworkType int networkType) {
-    synchronized (networkTypeLock) {
-      if (this.networkType == networkType) {
+    removeClearedReferences();
+    Iterator<ListenerHolder> currentListeners;
+    synchronized (lock) {
+      if (isInitialized && this.networkType == networkType) {
         return;
       }
+      isInitialized = true;
       this.networkType = networkType;
+      currentListeners = listeners.iterator();
     }
-    for (WeakReference<Listener> listenerReference : listeners) {
-      @Nullable Listener listener = listenerReference.get();
-      if (listener != null) {
-        listener.onNetworkTypeChanged(networkType);
-      } else {
-        listeners.remove(listenerReference);
-      }
+    while (currentListeners.hasNext()) {
+      currentListeners.next().callOnNetworkTypeChanged();
     }
   }
 
@@ -214,13 +253,7 @@ public final class NetworkTypeObserver {
 
     @Override
     public void onReceive(Context context, Intent intent) {
-      @C.NetworkType int networkType = getNetworkTypeFromConnectivityManager(context);
-      if (Util.SDK_INT >= 31 && networkType == C.NETWORK_TYPE_4G) {
-        // Delay update of the network type to check whether this is actually 5G-NSA.
-        Api31.disambiguate4gAnd5gNsa(context, /* instance= */ NetworkTypeObserver.this);
-      } else {
-        updateNetworkType(networkType);
-      }
+      backgroundExecutor.execute(() -> handleConnectivityActionBroadcast(context));
     }
   }
 
@@ -232,7 +265,7 @@ public final class NetworkTypeObserver {
         TelephonyManager telephonyManager =
             checkNotNull((TelephonyManager) context.getSystemService(Context.TELEPHONY_SERVICE));
         DisplayInfoCallback callback = new DisplayInfoCallback(instance);
-        telephonyManager.registerTelephonyCallback(context.getMainExecutor(), callback);
+        telephonyManager.registerTelephonyCallback(instance.backgroundExecutor, callback);
         // We are only interested in the initial response with the current state, so unregister
         // the listener immediately.
         telephonyManager.unregisterTelephonyCallback(callback);
@@ -260,6 +293,32 @@ public final class NetworkTypeObserver {
                 || overrideNetworkType == TelephonyDisplayInfo.OVERRIDE_NETWORK_TYPE_NR_ADVANCED;
         instance.updateNetworkType(is5gNsa ? C.NETWORK_TYPE_5G_NSA : C.NETWORK_TYPE_4G);
       }
+    }
+  }
+
+  private final class ListenerHolder {
+
+    // This class needs to hold weak references as it doesn't require listeners to unregister.
+    private final WeakReference<Listener> listener;
+    private final Executor executor;
+
+    public ListenerHolder(Listener listener, Executor executor) {
+      this.listener = new WeakReference<>(listener);
+      this.executor = executor;
+    }
+
+    public boolean canBeRemoved() {
+      return listener.get() == null;
+    }
+
+    public void callOnNetworkTypeChanged() {
+      executor.execute(
+          () -> {
+            Listener listener = this.listener.get();
+            if (listener != null) {
+              listener.onNetworkTypeChanged(getNetworkType());
+            }
+          });
     }
   }
 }
