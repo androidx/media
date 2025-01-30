@@ -583,13 +583,13 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
         && !mediaItem.clippingConfiguration.relativeToDefaultPosition) {
       return mediaSource;
     }
-    return new ClippingMediaSource(
-        mediaSource,
-        mediaItem.clippingConfiguration.startPositionUs,
-        mediaItem.clippingConfiguration.endPositionUs,
-        /* enableInitialDiscontinuity= */ !mediaItem.clippingConfiguration.startsAtKeyFrame,
-        /* allowDynamicClippingUpdates= */ mediaItem.clippingConfiguration.relativeToLiveWindow,
-        mediaItem.clippingConfiguration.relativeToDefaultPosition);
+    return new ClippingMediaSource.Builder(mediaSource)
+        .setStartPositionUs(mediaItem.clippingConfiguration.startPositionUs)
+        .setEndPositionUs(mediaItem.clippingConfiguration.endPositionUs)
+        .setEnableInitialDiscontinuity(!mediaItem.clippingConfiguration.startsAtKeyFrame)
+        .setAllowDynamicClippingUpdates(mediaItem.clippingConfiguration.relativeToLiveWindow)
+        .setRelativeToDefaultPosition(mediaItem.clippingConfiguration.relativeToDefaultPosition)
+        .build();
   }
 
   private MediaSource maybeWrapWithAdsMediaSource(MediaItem mediaItem, MediaSource mediaSource) {

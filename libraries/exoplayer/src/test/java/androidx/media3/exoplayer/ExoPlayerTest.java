@@ -694,16 +694,18 @@ public class ExoPlayerTest {
             .build();
     // Use media sources with discontinuities so that enabled streams are set to final.
     ClippingMediaSource clippedFakeAudioSource =
-        new ClippingMediaSource(
-            new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.AUDIO_FORMAT), 0, 300_000L);
+        new ClippingMediaSource.Builder(
+                new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.AUDIO_FORMAT))
+            .setEndPositionMs(300)
+            .build();
     ClippingMediaSource clippedFakeAudioVideoSource =
-        new ClippingMediaSource(
-            new FakeMediaSource(
-                new FakeTimeline(),
-                ExoPlayerTestRunner.VIDEO_FORMAT,
-                ExoPlayerTestRunner.AUDIO_FORMAT),
-            0,
-            300_000L);
+        new ClippingMediaSource.Builder(
+                new FakeMediaSource(
+                    new FakeTimeline(),
+                    ExoPlayerTestRunner.VIDEO_FORMAT,
+                    ExoPlayerTestRunner.AUDIO_FORMAT))
+            .setEndPositionMs(300)
+            .build();
     player.setMediaSources(
         ImmutableList.of(
             clippedFakeAudioSource, clippedFakeAudioVideoSource, clippedFakeAudioSource));
@@ -3825,8 +3827,10 @@ public class ExoPlayerTest {
     long startPositionUs = 300_000;
     long expectedDurationUs = 700_000;
     MediaSource mediaSource =
-        new ClippingMediaSource(
-            new FakeMediaSource(), startPositionUs, startPositionUs + expectedDurationUs);
+        new ClippingMediaSource.Builder(new FakeMediaSource())
+            .setStartPositionUs(startPositionUs)
+            .setEndPositionUs(startPositionUs + expectedDurationUs)
+            .build();
     Clock clock = new FakeClock(/* isAutoAdvancing= */ true);
     AtomicReference<Player> playerReference = new AtomicReference<>();
     AtomicLong positionAtDiscontinuityMs = new AtomicLong(C.TIME_UNSET);
@@ -3964,10 +3968,9 @@ public class ExoPlayerTest {
       throws Exception {
     FakeMediaSource mediaSource = new FakeMediaSource(/* timeline= */ null);
     MediaSource clippedMediaSource =
-        new ClippingMediaSource(
-            mediaSource,
-            /* startPositionUs= */ 3 * C.MICROS_PER_SECOND,
-            /* endPositionUs= */ C.TIME_END_OF_SOURCE);
+        new ClippingMediaSource.Builder(mediaSource)
+            .setStartPositionUs(3 * C.MICROS_PER_SECOND)
+            .build();
     MediaSource concatenatedMediaSource = new ConcatenatingMediaSource(clippedMediaSource);
     AtomicLong positionWhenReady = new AtomicLong();
     ActionSchedule actionSchedule =

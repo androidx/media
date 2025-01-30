@@ -188,13 +188,17 @@ public final class MergingPlaylistPlaybackTest {
             C.TRACK_TYPE_AUDIO);
     if (videoClipped) {
       videoSource =
-          new ClippingMediaSource(
-              videoSource, /* startPositionUs= */ 300_000, /* endPositionUs= */ 600_000);
+          new ClippingMediaSource.Builder(videoSource)
+              .setStartPositionMs(300)
+              .setEndPositionMs(600)
+              .build();
     }
     if (audioClipped) {
       audioSource =
-          new ClippingMediaSource(
-              audioSource, /* startPositionUs= */ 500_000, /* endPositionUs= */ 800_000);
+          new ClippingMediaSource.Builder(audioSource)
+              .setStartPositionMs(500)
+              .setEndPositionMs(800)
+              .build();
     }
     return new MergingMediaSource(
         /* adjustPeriodTimeOffsets= */ true,

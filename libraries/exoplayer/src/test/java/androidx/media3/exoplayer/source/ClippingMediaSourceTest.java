@@ -15,7 +15,6 @@
  */
 package androidx.media3.exoplayer.source;
 
-import static androidx.media3.common.util.Util.msToUs;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
@@ -574,13 +573,13 @@ public final class ClippingMediaSourceTest {
     FakeMediaSource fakeMediaSource = new FakeMediaSource();
     fakeMediaSource.setCanUpdateMediaItems(true);
     fakeMediaSource.updateMediaItem(mediaItem);
-    return new ClippingMediaSource(
-        fakeMediaSource,
-        msToUs(mediaItem.clippingConfiguration.startPositionMs),
-        msToUs(mediaItem.clippingConfiguration.endPositionMs),
-        mediaItem.clippingConfiguration.startsAtKeyFrame,
-        mediaItem.clippingConfiguration.relativeToLiveWindow,
-        mediaItem.clippingConfiguration.relativeToDefaultPosition);
+    return new ClippingMediaSource.Builder(fakeMediaSource)
+        .setStartPositionMs(mediaItem.clippingConfiguration.startPositionMs)
+        .setEndPositionMs(mediaItem.clippingConfiguration.endPositionMs)
+        .setEnableInitialDiscontinuity(!mediaItem.clippingConfiguration.startsAtKeyFrame)
+        .setAllowDynamicClippingUpdates(mediaItem.clippingConfiguration.relativeToLiveWindow)
+        .setRelativeToDefaultPosition(mediaItem.clippingConfiguration.relativeToDefaultPosition)
+        .build();
   }
 
   /**
@@ -589,7 +588,11 @@ public final class ClippingMediaSourceTest {
   private static Timeline getClippedTimeline(Timeline timeline, long startUs, long endUs)
       throws IOException {
     FakeMediaSource fakeMediaSource = new FakeMediaSource(timeline);
-    ClippingMediaSource mediaSource = new ClippingMediaSource(fakeMediaSource, startUs, endUs);
+    ClippingMediaSource mediaSource =
+        new ClippingMediaSource.Builder(fakeMediaSource)
+            .setStartPositionUs(startUs)
+            .setEndPositionUs(endUs)
+            .build();
     return getClippedTimelines(fakeMediaSource, mediaSource)[0];
   }
 
@@ -599,7 +602,11 @@ public final class ClippingMediaSourceTest {
   private static Timeline getClippedTimeline(Timeline timeline, long durationUs)
       throws IOException {
     FakeMediaSource fakeMediaSource = new FakeMediaSource(timeline);
-    ClippingMediaSource mediaSource = new ClippingMediaSource(fakeMediaSource, durationUs);
+    ClippingMediaSource mediaSource =
+        new ClippingMediaSource.Builder(fakeMediaSource)
+            .setEndPositionUs(durationUs)
+            .setRelativeToDefaultPosition(true)
+            .build();
     return getClippedTimelines(fakeMediaSource, mediaSource)[0];
   }
 
@@ -617,13 +624,12 @@ public final class ClippingMediaSourceTest {
       throws IOException {
     FakeMediaSource fakeMediaSource = new FakeMediaSource(firstTimeline);
     ClippingMediaSource mediaSource =
-        new ClippingMediaSource(
-            fakeMediaSource,
-            startUs,
-            endUs,
-            /* enableInitialDiscontinuity= */ true,
-            allowDynamicUpdates,
-            fromDefaultPosition);
+        new ClippingMediaSource.Builder(fakeMediaSource)
+            .setStartPositionUs(startUs)
+            .setEndPositionUs(endUs)
+            .setAllowDynamicClippingUpdates(allowDynamicUpdates)
+            .setRelativeToDefaultPosition(fromDefaultPosition)
+            .build();
     return getClippedTimelines(fakeMediaSource, mediaSource, additionalTimelines);
   }
 

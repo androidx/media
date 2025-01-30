@@ -814,10 +814,10 @@ public final class CompositionPlayer extends SimpleBasePlayer
     }
 
     MediaSource silenceMediaSource =
-        new ClippingMediaSource(
-            new SilenceMediaSource(editedMediaItem.durationUs),
-            editedMediaItem.mediaItem.clippingConfiguration.startPositionUs,
-            editedMediaItem.mediaItem.clippingConfiguration.endPositionUs);
+        new ClippingMediaSource.Builder(new SilenceMediaSource(editedMediaItem.durationUs))
+            .setStartPositionUs(editedMediaItem.mediaItem.clippingConfiguration.startPositionUs)
+            .setEndPositionUs(editedMediaItem.mediaItem.clippingConfiguration.endPositionUs)
+            .build();
 
     return new MergingMediaSource(mainMediaSource, silenceMediaSource);
   }
