@@ -280,18 +280,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                     : MediaItemInfo.VALUE_UNSPECIFIED);
         mediaItemInfoBuilder.setVideoSize(videoSize);
         if (videoFormat.colorInfo != null) {
-          ColorInfo colorInfo = videoFormat.colorInfo;
-          int colorStandard =
-              DATA_SPACE_STANDARD_CONVERSION_MAP.get(
-                  colorInfo.colorSpace, DataSpace.STANDARD_UNSPECIFIED);
-          int colorTransfer =
-              DATA_SPACE_TRANSFER_CONVERSION_MAP.get(
-                  colorInfo.colorTransfer, DataSpace.TRANSFER_UNSPECIFIED);
-          int colorRange =
-              DATA_SPACE_RANGE_CONVERSION_MAP.get(
-                  colorInfo.colorRange, DataSpace.RANGE_UNSPECIFIED);
-          mediaItemInfoBuilder.setVideoDataSpace(
-              DataSpace.pack(colorStandard, colorTransfer, colorRange));
+          mediaItemInfoBuilder.setVideoDataSpace(getVideoDataSpace(videoFormat.colorInfo));
         }
       }
       Format audioFormat = processedInput.audioFormat;
@@ -319,7 +308,22 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     if (exportResult.durationMs != C.TIME_UNSET) {
       mediaItemInfoBuilder.setDurationMillis(exportResult.durationMs);
     }
+    if (exportResult.colorInfo != null) {
+      mediaItemInfoBuilder.setVideoDataSpace(getVideoDataSpace(exportResult.colorInfo));
+    }
     return mediaItemInfoBuilder.build();
+  }
+
+  private static int getVideoDataSpace(ColorInfo colorInfo) {
+    int colorStandard =
+        DATA_SPACE_STANDARD_CONVERSION_MAP.get(
+            colorInfo.colorSpace, DataSpace.STANDARD_UNSPECIFIED);
+    int colorTransfer =
+        DATA_SPACE_TRANSFER_CONVERSION_MAP.get(
+            colorInfo.colorTransfer, DataSpace.TRANSFER_UNSPECIFIED);
+    int colorRange =
+        DATA_SPACE_RANGE_CONVERSION_MAP.get(colorInfo.colorRange, DataSpace.RANGE_UNSPECIFIED);
+    return DataSpace.pack(colorStandard, colorTransfer, colorRange);
   }
 
   private static int getEditingEndedEventErrorCode(@ExportException.ErrorCode int errorCode) {
