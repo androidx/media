@@ -18,4 +18,5 @@
   <dimen name="regular_padding">8dp</dimen>
   <dimen name="large_padding">12dp</dimen>
   <dimen name="android_view_height">256dp</dimen>
+  <dimen name="color_circle_size">40dp</dimen>
 </resources>

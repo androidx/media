@@ -27,5 +27,7 @@
   <string name="confetti_overlay">Confetti Overlay</string>
   <string name="custom_text_overlay">Custom Text Overlay</string>
   <string name="text">Text</string>
+  <string name="text_color">Text color</string>
+  <string name="unknown_color">Unknown color</string>
   <string name="alpha">Alpha</string>
 </resources>

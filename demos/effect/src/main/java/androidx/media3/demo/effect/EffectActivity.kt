@@ -18,7 +18,9 @@ package androidx.media3.demo.effect
 import android.Manifest
 import android.net.Uri
 import android.os.Bundle
+import android.text.Spannable
 import android.text.SpannableString
+import android.text.style.ForegroundColorSpan
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -27,21 +29,30 @@ import androidx.annotation.OptIn
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
@@ -59,6 +70,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.stringResource
@@ -294,8 +307,15 @@ class EffectActivity : ComponentActivity() {
         if (effectControlsState.confettiOverlayChecked) {
           overlaysBuilder.add(ConfettiOverlay())
         }
-        if (effectControlsState.textOverlayChecked && effectControlsState.textOverlayText != null) {
-          val spannableOverlayText = SpannableString(effectControlsState.textOverlayText)
+        val textOverlayText = effectControlsState.textOverlayText
+        if (effectControlsState.textOverlayChecked && textOverlayText != null) {
+          val spannableOverlayText = SpannableString(textOverlayText)
+          spannableOverlayText.setSpan(
+            ForegroundColorSpan(effectControlsState.textOverlayColor.toArgb()),
+            /* start= */ 0,
+            textOverlayText.length,
+            Spannable.SPAN_EXCLUSIVE_EXCLUSIVE,
+          )
           val staticOverlaySettings =
             StaticOverlaySettings.Builder()
               .setAlphaScale(effectControlsState.textOverlayAlpha)
@@ -396,6 +416,16 @@ class EffectActivity : ComponentActivity() {
                 Modifier.fillMaxWidth().padding(bottom = dimensionResource(R.dimen.large_padding)),
             )
             Row {
+              ColorsDropDownMenu(effectControlsState.textOverlayColor) { color ->
+                onEffectControlsStateChange(
+                  effectControlsState.copy(
+                    effectsChanged = effectControlsState.textOverlayText != null,
+                    textOverlayColor = color,
+                  )
+                )
+              }
+            }
+            Row {
               Text(
                 text =
                   stringResource(R.string.alpha) +
@@ -420,6 +450,52 @@ class EffectActivity : ComponentActivity() {
               )
             }
           }
+        }
+      }
+    }
+  }
+
+  @kotlin.OptIn(ExperimentalMaterial3Api::class)
+  @Composable
+  fun ColorsDropDownMenu(color: Color, onItemSelected: (Color) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    ExposedDropdownMenuBox(
+      expanded = expanded,
+      onExpandedChange = { expanded = it },
+      modifier = Modifier.fillMaxWidth().padding(bottom = dimensionResource(R.dimen.large_padding)),
+    ) {
+      OutlinedTextField(
+        modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable),
+        value = COLOR_NAMES[color] ?: stringResource(R.string.unknown_color),
+        onValueChange = {},
+        readOnly = true,
+        singleLine = true,
+        label = { Text(stringResource(R.string.text_color)) },
+        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+        colors = ExposedDropdownMenuDefaults.textFieldColors(),
+      )
+      ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+        for (color in COLORS) {
+          DropdownMenuItem(
+            text = {
+              Text(
+                COLOR_NAMES[color] ?: stringResource(R.string.unknown_color),
+                style = MaterialTheme.typography.bodyLarge,
+              )
+            },
+            onClick = {
+              onItemSelected(color)
+              expanded = false
+            },
+            contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding,
+            leadingIcon = {
+              Box(
+                modifier =
+                  Modifier.size(dimensionResource(R.dimen.color_circle_size))
+                    .background(color, CircleShape)
+              )
+            },
+          )
         }
       }
     }
@@ -474,10 +550,39 @@ class EffectActivity : ComponentActivity() {
     val confettiOverlayChecked: Boolean = false,
     val textOverlayChecked: Boolean = false,
     val textOverlayText: String? = null,
+    val textOverlayColor: Color = COLORS[0],
     val textOverlayAlpha: Float = 1f,
   )
 
   private companion object {
     const val JSON_FILENAME = "media.playlist.json"
+    val COLORS =
+      listOf(
+        Color.Black,
+        Color.DarkGray,
+        Color.Gray,
+        Color.LightGray,
+        Color.White,
+        Color.Red,
+        Color.Green,
+        Color.Blue,
+        Color.Yellow,
+        Color.Cyan,
+        Color.Magenta,
+      )
+    val COLOR_NAMES =
+      mapOf(
+        Color.Black to "Black",
+        Color.DarkGray to "Dark Gray",
+        Color.Gray to "Gray",
+        Color.LightGray to "Light Gray",
+        Color.White to "White",
+        Color.Red to "Red",
+        Color.Green to "Green",
+        Color.Blue to "Blue",
+        Color.Yellow to "Yellow",
+        Color.Cyan to "Cyan",
+        Color.Magenta to "Magenta",
+      )
   }
 }
