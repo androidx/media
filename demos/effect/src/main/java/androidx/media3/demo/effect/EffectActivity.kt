@@ -18,6 +18,7 @@ package androidx.media3.demo.effect
 import android.Manifest
 import android.net.Uri
 import android.os.Bundle
+import android.text.SpannableString
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -41,6 +42,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
@@ -69,6 +71,8 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.common.util.Util.SDK_INT
 import androidx.media3.effect.Contrast
 import androidx.media3.effect.OverlayEffect
+import androidx.media3.effect.StaticOverlaySettings
+import androidx.media3.effect.TextOverlay
 import androidx.media3.effect.TextureOverlay
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
@@ -290,6 +294,16 @@ class EffectActivity : ComponentActivity() {
         if (effectControlsState.confettiOverlayChecked) {
           overlaysBuilder.add(ConfettiOverlay())
         }
+        if (effectControlsState.textOverlayChecked && effectControlsState.textOverlayText != null) {
+          val spannableOverlayText = SpannableString(effectControlsState.textOverlayText)
+          val staticOverlaySettings =
+            StaticOverlaySettings.Builder()
+              .setAlphaScale(effectControlsState.textOverlayAlpha)
+              .build()
+          overlaysBuilder.add(
+            TextOverlay.createStaticTextOverlay(spannableOverlayText, staticOverlaySettings)
+          )
+        }
         effectsList += OverlayEffect(overlaysBuilder.build())
 
         onApplyEffectsClicked(effectsList)
@@ -355,6 +369,59 @@ class EffectActivity : ComponentActivity() {
           },
         )
       }
+      item {
+        EffectItem(
+          name = stringResource(R.string.custom_text_overlay),
+          enabled = enabled,
+          onCheckedChange = { checked ->
+            onEffectControlsStateChange(
+              effectControlsState.copy(effectsChanged = !checked, textOverlayChecked = checked)
+            )
+          },
+        ) {
+          Column {
+            OutlinedTextField(
+              value = effectControlsState.textOverlayText ?: "",
+              onValueChange = { newTextOverlayText ->
+                onEffectControlsStateChange(
+                  effectControlsState.copy(
+                    effectsChanged = true,
+                    textOverlayText = newTextOverlayText.ifEmpty { null },
+                  )
+                )
+              },
+              label = { Text(stringResource(R.string.text)) },
+              singleLine = true,
+              modifier =
+                Modifier.fillMaxWidth().padding(bottom = dimensionResource(R.dimen.large_padding)),
+            )
+            Row {
+              Text(
+                text =
+                  stringResource(R.string.alpha) +
+                    " = %.2f".format(effectControlsState.textOverlayAlpha),
+                style = MaterialTheme.typography.bodyLarge,
+                modifier =
+                  Modifier.padding(dimensionResource(id = R.dimen.large_padding)).weight(1f),
+              )
+              Slider(
+                value = effectControlsState.textOverlayAlpha,
+                onValueChange = { newAlphaValue ->
+                  val newRoundedAlphaValue = "%.2f".format(newAlphaValue).toFloat()
+                  onEffectControlsStateChange(
+                    effectControlsState.copy(
+                      effectsChanged = effectControlsState.textOverlayText != null,
+                      textOverlayAlpha = newRoundedAlphaValue,
+                    )
+                  )
+                },
+                valueRange = 0f..1f,
+                modifier = Modifier.weight(2f),
+              )
+            }
+          }
+        }
+      }
     }
   }
 
@@ -401,13 +468,16 @@ class EffectActivity : ComponentActivity() {
     }
   }
 
-  data class EffectControlsState(
+  private data class EffectControlsState(
     val effectsChanged: Boolean = false,
     val contrastValue: Float = 0f,
     val confettiOverlayChecked: Boolean = false,
+    val textOverlayChecked: Boolean = false,
+    val textOverlayText: String? = null,
+    val textOverlayAlpha: Float = 1f,
   )
 
-  companion object {
+  private companion object {
     const val JSON_FILENAME = "media.playlist.json"
   }
 }
