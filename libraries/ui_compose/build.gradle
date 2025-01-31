@@ -67,4 +67,5 @@ ext {
     releaseArtifactId = 'media3-ui-compose'
     releaseName = 'Media3 UI Compose module'
 }
-apply from: '../../publish.gradle'
+// TODO(b/393553578): Add this back once we find a workaround to exclude it from Media3 Javadoc prebuilts
+// apply from: '../../publish.gradle'
