@@ -21,6 +21,7 @@ import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.usToMs;
+import static java.lang.Math.max;
 import static java.lang.Math.min;
 
 import android.content.Context;
@@ -825,9 +826,19 @@ public final class CompositionPlayer extends SimpleBasePlayer
   private void setSecondaryPlayerSequence(
       ExoPlayer player, EditedMediaItemSequence sequence, long primarySequenceDurationUs) {
 
-    // TODO: b/331392198 - Repeat only looping sequences, after sequences can be of arbitrary
-    //  length.
     ConcatenatingMediaSource2.Builder mediaSourceBuilder = new ConcatenatingMediaSource2.Builder();
+
+    if (!sequence.isLooping) {
+      for (int i = 0; i < sequence.editedMediaItems.size(); i++) {
+        EditedMediaItem editedMediaItem = sequence.editedMediaItems.get(i);
+        mediaSourceBuilder.add(
+            createMediaSourceWithSilence(mediaSourceFactory, editedMediaItem),
+            /* initialPlaceholderDurationMs= */ usToMs(
+                editedMediaItem.getPresentationDurationUs()));
+      }
+      player.setMediaSource(mediaSourceBuilder.build());
+      return;
+    }
 
     long accumulatedDurationUs = 0;
     int i = 0;
@@ -927,7 +938,15 @@ public final class CompositionPlayer extends SimpleBasePlayer
   }
 
   private long getContentPositionMs() {
-    return players.isEmpty() ? C.TIME_UNSET : players.get(0).getContentPosition();
+    if (players.isEmpty()) {
+      return 0;
+    }
+
+    long lastContentPositionMs = 0;
+    for (int i = 0; i < players.size(); i++) {
+      lastContentPositionMs = max(lastContentPositionMs, players.get(i).getContentPosition());
+    }
+    return lastContentPositionMs;
   }
 
   private long getBufferedPositionMs() {
@@ -937,9 +956,15 @@ public final class CompositionPlayer extends SimpleBasePlayer
     // Return the minimum buffered position among players.
     long minBufferedPositionMs = Integer.MAX_VALUE;
     for (int i = 0; i < players.size(); i++) {
-      minBufferedPositionMs = min(minBufferedPositionMs, players.get(i).getBufferedPosition());
+      @Player.State int playbackState = players.get(i).getPlaybackState();
+      if (playbackState == STATE_READY || playbackState == STATE_BUFFERING) {
+        minBufferedPositionMs = min(minBufferedPositionMs, players.get(i).getBufferedPosition());
+      }
     }
-    return minBufferedPositionMs;
+    return minBufferedPositionMs == Integer.MAX_VALUE
+        // All players are ended or idle.
+        ? 0
+        : minBufferedPositionMs;
   }
 
   private long getTotalBufferedDurationMs() {
@@ -949,10 +974,16 @@ public final class CompositionPlayer extends SimpleBasePlayer
     // Return the minimum total buffered duration among players.
     long minTotalBufferedDurationMs = Integer.MAX_VALUE;
     for (int i = 0; i < players.size(); i++) {
-      minTotalBufferedDurationMs =
-          min(minTotalBufferedDurationMs, players.get(i).getTotalBufferedDuration());
+      @Player.State int playbackState = players.get(i).getPlaybackState();
+      if (playbackState == STATE_READY || playbackState == STATE_BUFFERING) {
+        minTotalBufferedDurationMs =
+            min(minTotalBufferedDurationMs, players.get(i).getTotalBufferedDuration());
+      }
     }
-    return minTotalBufferedDurationMs;
+    return minTotalBufferedDurationMs == Integer.MAX_VALUE
+        // All players are ended or idle.
+        ? 0
+        : minTotalBufferedDurationMs;
   }
 
   private boolean getRenderedFirstFrameAndReset() {
@@ -1043,7 +1074,12 @@ public final class CompositionPlayer extends SimpleBasePlayer
 
   private static long getCompositionDurationUs(Composition composition) {
     checkState(!composition.sequences.isEmpty());
-    return getSequenceDurationUs(composition.sequences.get(0));
+    long longestSequenceDurationUs = Integer.MIN_VALUE;
+    for (int i = 0; i < composition.sequences.size(); i++) {
+      longestSequenceDurationUs =
+          max(longestSequenceDurationUs, getSequenceDurationUs(composition.sequences.get(i)));
+    }
+    return longestSequenceDurationUs;
   }
 
   private static long getSequenceDurationUs(EditedMediaItemSequence sequence) {
