@@ -16,6 +16,7 @@
 package androidx.media3.effect;
 
 import android.content.Context;
+import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Effect;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.UnstableApi;
@@ -41,6 +42,19 @@ public interface GlEffect extends Effect {
    */
   GlShaderProgram toGlShaderProgram(Context context, boolean useHdr)
       throws VideoFrameProcessingException;
+
+  /**
+   * Returns a {@link GlShaderProgram} that applies the effect.
+   *
+   * @param context A {@link Context}.
+   * @param colorInfo The {@link ColorInfo} of the input.
+   * @throws VideoFrameProcessingException If an error occurs while creating the {@link
+   *     GlShaderProgram}.
+   */
+  default GlShaderProgram toGlShaderProgram(Context context, ColorInfo colorInfo)
+      throws VideoFrameProcessingException {
+    return toGlShaderProgram(context, /* useHdr= */ ColorInfo.isTransferHdr(colorInfo));
+  }
 
   /**
    * Returns whether a {@link GlEffect} applies no change at every timestamp.

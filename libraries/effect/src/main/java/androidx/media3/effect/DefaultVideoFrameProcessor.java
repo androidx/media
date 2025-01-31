@@ -419,7 +419,6 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
               () ->
                   createOpenGlObjectsAndFrameProcessor(
                       context,
-                      debugViewProvider,
                       outputColorInfo,
                       sdrWorkingColorSpace,
                       renderFramesAutomatically,
@@ -479,6 +478,10 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
 
   private final List<Effect> activeEffects;
   private final Object lock;
+
+  /** The {@link ColorInfo} that all {@link Effect effects} work in. */
+  private final ColorInfo workingColorInfo;
+
   private final ColorInfo outputColorInfo;
 
   private volatile @MonotonicNonNull FrameInfo nextInputFrameInfo;
@@ -494,6 +497,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
       Executor listenerExecutor,
       FinalShaderProgramWrapper finalShaderProgramWrapper,
       boolean renderFramesAutomatically,
+      ColorInfo workingColorInfo,
       ColorInfo outputColorInfo) {
     this.context = context;
     this.glObjectsProvider = glObjectsProvider;
@@ -505,6 +509,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
     this.renderFramesAutomatically = renderFramesAutomatically;
     this.activeEffects = new ArrayList<>();
     this.lock = new Object();
+    this.workingColorInfo = workingColorInfo;
     this.outputColorInfo = outputColorInfo;
     this.finalShaderProgramWrapper = finalShaderProgramWrapper;
     this.intermediateGlShaderPrograms = new ArrayList<>();
@@ -817,7 +822,6 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
    */
   private static DefaultVideoFrameProcessor createOpenGlObjectsAndFrameProcessor(
       Context context,
-      DebugViewProvider debugViewProvider,
       ColorInfo outputColorInfo,
       @WorkingColorSpace int sdrWorkingColorSpace,
       boolean renderFramesAutomatically,
@@ -845,12 +849,13 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
             .setColorTransfer(C.COLOR_TRANSFER_LINEAR)
             .setHdrStaticInfo(null)
             .build();
-    ColorInfo intermediateColorInfo =
-        ColorInfo.isTransferHdr(outputColorInfo)
-            ? linearColorInfo
-            : sdrWorkingColorSpace == WORKING_COLOR_SPACE_LINEAR
-                ? linearColorInfo
-                : outputColorInfo;
+    ColorInfo intermediateColorInfo;
+    if (ColorInfo.isTransferHdr(outputColorInfo)
+        || sdrWorkingColorSpace == WORKING_COLOR_SPACE_LINEAR) {
+      intermediateColorInfo = linearColorInfo;
+    } else {
+      intermediateColorInfo = outputColorInfo;
+    }
     InputSwitcher inputSwitcher =
         new InputSwitcher(
             context,
@@ -870,7 +875,6 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
             eglDisplay,
             eglContextAndPlaceholderSurface.first,
             eglContextAndPlaceholderSurface.second,
-            debugViewProvider,
             outputColorInfo,
             videoFrameProcessingTaskExecutor,
             videoFrameProcessorListenerExecutor,
@@ -890,6 +894,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
         videoFrameProcessorListenerExecutor,
         finalShaderProgramWrapper,
         renderFramesAutomatically,
+        intermediateColorInfo,
         outputColorInfo);
   }
 
@@ -902,7 +907,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
    *
    * @param context The {@link Context}.
    * @param effects The list of {@link GlEffect effects}.
-   * @param outputColorInfo The {@link ColorInfo} on {@code DefaultVideoFrameProcessor} output.
+   * @param workingColorInfo The {@link ColorInfo} the {@link List<Effect> effects} work in.
    * @param finalShaderProgramWrapper The {@link FinalShaderProgramWrapper} to apply the {@link
    *     GlMatrixTransformation GlMatrixTransformations} and {@link RgbMatrix RgbMatrices} after all
    *     other {@link GlEffect GlEffects}.
@@ -911,7 +916,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
   private static ImmutableList<GlShaderProgram> createGlShaderPrograms(
       Context context,
       List<Effect> effects,
-      ColorInfo outputColorInfo,
+      ColorInfo workingColorInfo,
       FinalShaderProgramWrapper finalShaderProgramWrapper)
       throws VideoFrameProcessingException {
     ImmutableList.Builder<GlShaderProgram> shaderProgramListBuilder = new ImmutableList.Builder<>();
@@ -938,16 +943,18 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
       ImmutableList<GlMatrixTransformation> matrixTransformations =
           matrixTransformationListBuilder.build();
       ImmutableList<RgbMatrix> rgbMatrices = rgbMatrixListBuilder.build();
-      boolean isOutputTransferHdr = ColorInfo.isTransferHdr(outputColorInfo);
       if (!matrixTransformations.isEmpty() || !rgbMatrices.isEmpty()) {
         DefaultShaderProgram defaultShaderProgram =
             DefaultShaderProgram.create(
-                context, matrixTransformations, rgbMatrices, isOutputTransferHdr);
+                context,
+                matrixTransformations,
+                rgbMatrices,
+                ColorInfo.isTransferHdr(workingColorInfo));
         shaderProgramListBuilder.add(defaultShaderProgram);
         matrixTransformationListBuilder = new ImmutableList.Builder<>();
         rgbMatrixListBuilder = new ImmutableList.Builder<>();
       }
-      shaderProgramListBuilder.add(glEffect.toGlShaderProgram(context, isOutputTransferHdr));
+      shaderProgramListBuilder.add(glEffect.toGlShaderProgram(context, workingColorInfo));
     }
 
     finalShaderProgramWrapper.setMatrixTransformations(
@@ -1023,7 +1030,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
       // FinalShaderProgramWrapper.
       intermediateGlShaderPrograms.addAll(
           createGlShaderPrograms(
-              context, inputStreamInfo.effects, outputColorInfo, finalShaderProgramWrapper));
+              context, inputStreamInfo.effects, workingColorInfo, finalShaderProgramWrapper));
       inputSwitcher.setDownstreamShaderProgram(
           getFirst(intermediateGlShaderPrograms, /* defaultValue= */ finalShaderProgramWrapper));
       chainShaderProgramsWithListeners(

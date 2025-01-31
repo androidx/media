@@ -57,6 +57,7 @@ import androidx.media3.common.util.ListenerSet;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.DebugTraceUtil;
+import androidx.media3.effect.DebugViewEffect;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import com.google.common.collect.ImmutableList;
@@ -492,8 +493,10 @@ public final class Transformer {
      *
      * @param debugViewProvider Provider for debug views.
      * @return This builder.
+     * @deprecated Add a {@link DebugViewEffect} to the list of video effects instead.
      */
     @CanIgnoreReturnValue
+    @Deprecated
     public Builder setDebugViewProvider(DebugViewProvider debugViewProvider) {
       this.debugViewProvider = debugViewProvider;
       return this;
@@ -1589,6 +1592,19 @@ public final class Transformer {
         muxerName = DefaultMuxer.MUXER_NAME;
       }
       editingMetricsCollector = new EditingMetricsCollector(context, EXPORTER_NAME, muxerName);
+    }
+    if (debugViewProvider != DebugViewProvider.NONE) {
+      ImmutableList<Effect> videoEffectsWithDebugView =
+          new ImmutableList.Builder<Effect>()
+              .addAll(composition.effects.videoEffects)
+              .add(new DebugViewEffect(debugViewProvider))
+              .build();
+      composition =
+          composition
+              .buildUpon()
+              .setEffects(
+                  new Effects(composition.effects.audioProcessors, videoEffectsWithDebugView))
+              .build();
     }
     transformerInternal =
         new TransformerInternal(
