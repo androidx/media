@@ -69,7 +69,8 @@ import java.util.ArrayList;
             allowedVideoJoiningTimeMs,
             eventHandler,
             eventListener,
-            MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY));
+            MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY,
+            MIN_CONSECUTIVE_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY));
   }
 
   /**

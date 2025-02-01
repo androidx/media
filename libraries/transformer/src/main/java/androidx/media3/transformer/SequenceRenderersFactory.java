@@ -23,6 +23,7 @@ import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.exoplayer.DefaultRenderersFactory.DEFAULT_ALLOWED_VIDEO_JOINING_TIME_MS;
 import static androidx.media3.exoplayer.DefaultRenderersFactory.MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY;
+import static androidx.media3.exoplayer.DefaultRenderersFactory.MIN_CONSECUTIVE_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY;
 
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -290,6 +291,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           eventHandler,
           videoRendererEventListener,
           MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY,
+          MIN_CONSECUTIVE_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY,
           /* assumedMinimumCodecOperatingRate= */ DEFAULT_FRAME_RATE,
           videoSink);
       this.sequence = sequence;

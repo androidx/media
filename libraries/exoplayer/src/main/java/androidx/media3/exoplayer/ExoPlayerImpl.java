@@ -3014,6 +3014,11 @@ import java.util.concurrent.CopyOnWriteArraySet;
     }
 
     @Override
+    public void onConsecutiveDroppedFrames(int count, long elapsed) {
+      analyticsCollector.onConsecutiveDroppedFrames(count, elapsed);
+    }
+
+    @Override
     public void onVideoSizeChanged(VideoSize newVideoSize) {
       videoSize = newVideoSize;
       listeners.sendEvent(
