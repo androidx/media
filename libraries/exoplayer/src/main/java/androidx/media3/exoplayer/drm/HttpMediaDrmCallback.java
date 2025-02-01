@@ -113,7 +113,7 @@ public final class HttpMediaDrmCallback implements MediaDrmCallback {
   }
 
   @Override
-  public byte[] executeProvisionRequest(UUID uuid, ProvisionRequest request)
+  public KeyResponse executeProvisionRequest(UUID uuid, ProvisionRequest request)
       throws MediaDrmCallbackException {
     String url =
         request.getDefaultUrl() + "&signedRequest=" + Util.fromUtf8Bytes(request.getData());
@@ -125,7 +125,8 @@ public final class HttpMediaDrmCallback implements MediaDrmCallback {
   }
 
   @Override
-  public byte[] executeKeyRequest(UUID uuid, KeyRequest request) throws MediaDrmCallbackException {
+  public KeyResponse executeKeyRequest(UUID uuid, KeyRequest request)
+      throws MediaDrmCallbackException {
     String url = request.getLicenseServerUrl();
     if (forceDefaultLicenseUrl || TextUtils.isEmpty(url)) {
       url = defaultLicenseUrl;
