@@ -308,6 +308,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     if (exportResult.durationMs != C.TIME_UNSET) {
       mediaItemInfoBuilder.setDurationMillis(exportResult.durationMs);
     }
+    mediaItemInfoBuilder.setVideoSampleCount(exportResult.videoFrameCount);
+    Size videoSize =
+        new Size(
+            exportResult.width != C.LENGTH_UNSET
+                ? exportResult.width
+                : MediaItemInfo.VALUE_UNSPECIFIED,
+            exportResult.height != C.LENGTH_UNSET
+                ? exportResult.height
+                : MediaItemInfo.VALUE_UNSPECIFIED);
+    mediaItemInfoBuilder.setVideoSize(videoSize);
     if (exportResult.colorInfo != null) {
       mediaItemInfoBuilder.setVideoDataSpace(getVideoDataSpace(exportResult.colorInfo));
     }
