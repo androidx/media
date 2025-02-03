@@ -15,26 +15,48 @@
  */
 package androidx.media3.exoplayer;
 
+import android.annotation.SuppressLint;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.media.AudioManager;
-import android.os.Handler;
+import android.os.Looper;
+import androidx.media3.common.util.Clock;
+import androidx.media3.common.util.HandlerWrapper;
 
 /* package */ final class AudioBecomingNoisyManager {
 
   private final Context context;
   private final AudioBecomingNoisyReceiver receiver;
-  private boolean receiverRegistered;
+  private final HandlerWrapper backgroundHandler;
+
+  private boolean isEnabled;
 
   public interface EventListener {
     void onAudioBecomingNoisy();
   }
 
-  public AudioBecomingNoisyManager(Context context, Handler eventHandler, EventListener listener) {
+  /**
+   * Creates the audio becoming noisy manager.
+   *
+   * @param context A {@link Context}.
+   * @param backgroundLooper The playback background {link Looper}.
+   * @param eventLooper The event listener {@link Looper}.
+   * @param listener The {@link EventListener}
+   * @param clock The {@link Clock} to schedule handler messages.
+   */
+  public AudioBecomingNoisyManager(
+      Context context,
+      Looper backgroundLooper,
+      Looper eventLooper,
+      EventListener listener,
+      Clock clock) {
     this.context = context.getApplicationContext();
-    this.receiver = new AudioBecomingNoisyReceiver(eventHandler, listener);
+    this.backgroundHandler = clock.createHandler(backgroundLooper, /* callback= */ null);
+    this.receiver =
+        new AudioBecomingNoisyReceiver(
+            clock.createHandler(eventLooper, /* callback= */ null), listener);
   }
 
   /**
@@ -44,22 +66,28 @@ import android.os.Handler;
    *
    * @param enabled True if the listener should be notified when audio is becoming noisy.
    */
+  @SuppressLint("UnprotectedReceiver") // Protected system broadcasts must not specify protection.
   public void setEnabled(boolean enabled) {
-    if (enabled && !receiverRegistered) {
-      context.registerReceiver(
-          receiver, new IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY));
-      receiverRegistered = true;
-    } else if (!enabled && receiverRegistered) {
-      context.unregisterReceiver(receiver);
-      receiverRegistered = false;
+    if (enabled == isEnabled) {
+      return;
+    }
+    if (enabled) {
+      backgroundHandler.post(
+          () ->
+              context.registerReceiver(
+                  receiver, new IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY)));
+      isEnabled = true;
+    } else {
+      backgroundHandler.post(() -> context.unregisterReceiver(receiver));
+      isEnabled = false;
     }
   }
 
-  private final class AudioBecomingNoisyReceiver extends BroadcastReceiver implements Runnable {
+  private final class AudioBecomingNoisyReceiver extends BroadcastReceiver {
     private final EventListener listener;
-    private final Handler eventHandler;
+    private final HandlerWrapper eventHandler;
 
-    public AudioBecomingNoisyReceiver(Handler eventHandler, EventListener listener) {
+    public AudioBecomingNoisyReceiver(HandlerWrapper eventHandler, EventListener listener) {
       this.eventHandler = eventHandler;
       this.listener = listener;
     }
@@ -67,13 +95,12 @@ import android.os.Handler;
     @Override
     public void onReceive(Context context, Intent intent) {
       if (AudioManager.ACTION_AUDIO_BECOMING_NOISY.equals(intent.getAction())) {
-        eventHandler.post(this);
+        eventHandler.post(this::callListenerIfEnabled);
       }
     }
 
-    @Override
-    public void run() {
-      if (receiverRegistered) {
+    private void callListenerIfEnabled() {
+      if (isEnabled) {
         listener.onAudioBecomingNoisy();
       }
     }

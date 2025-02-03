@@ -402,7 +402,8 @@ import java.util.concurrent.CopyOnWriteArraySet;
       }
 
       audioBecomingNoisyManager =
-          new AudioBecomingNoisyManager(builder.context, eventHandler, componentListener);
+          new AudioBecomingNoisyManager(
+              builder.context, playbackLooper, builder.looper, componentListener, clock);
       audioBecomingNoisyManager.setEnabled(builder.handleAudioBecomingNoisy);
       audioFocusManager = new AudioFocusManager(builder.context, eventHandler, componentListener);
       audioFocusManager.setAudioAttributes(builder.handleAudioFocus ? audioAttributes : null);

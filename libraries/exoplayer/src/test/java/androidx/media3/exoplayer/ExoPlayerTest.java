@@ -6457,6 +6457,7 @@ public class ExoPlayerTest {
     player.play();
 
     player.setHandleAudioBecomingNoisy(false);
+    runUntilPendingCommandsAreFullyHandled(player);
     deliverBroadcast(new Intent(AudioManager.ACTION_AUDIO_BECOMING_NOISY));
     runUntilPendingCommandsAreFullyHandled(player);
     boolean playWhenReadyAfterBroadcast = player.getPlayWhenReady();
@@ -6471,6 +6472,7 @@ public class ExoPlayerTest {
     player.play();
 
     player.setHandleAudioBecomingNoisy(true);
+    runUntilPendingCommandsAreFullyHandled(player);
     deliverBroadcast(new Intent(AudioManager.ACTION_AUDIO_BECOMING_NOISY));
     runUntilPendingCommandsAreFullyHandled(player);
     boolean playWhenReadyAfterBroadcast = player.getPlayWhenReady();
