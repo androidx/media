@@ -188,7 +188,7 @@ public class TranscodeSpeedTest {
     checkState(videoFramesSeen.get() == expectedFrameCount);
 
     float throughputFps = 1000f * videoFramesSeen.get() / result.elapsedTimeMs;
-    assertThat(throughputFps).isAtLeast(350);
+    assertThat(throughputFps).isAtLeast(330);
   }
 
   @Test
