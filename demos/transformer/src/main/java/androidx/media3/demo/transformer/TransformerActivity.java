@@ -61,7 +61,6 @@ import androidx.media3.datasource.DataSourceBitmapLoader;
 import androidx.media3.effect.BitmapOverlay;
 import androidx.media3.effect.Contrast;
 import androidx.media3.effect.DebugTraceUtil;
-import androidx.media3.effect.DebugViewEffect;
 import androidx.media3.effect.DrawableOverlay;
 import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.GlShaderProgram;
@@ -312,6 +311,10 @@ public final class TransformerActivity extends AppCompatActivity {
         transformerBuilder.setMuxerFactory(new InAppFragmentedMp4Muxer.Factory());
       }
 
+      if (bundle.getBoolean(ConfigurationActivity.ENABLE_DEBUG_PREVIEW)) {
+        transformerBuilder.setDebugViewProvider(new DemoDebugViewProvider());
+      }
+
       if (bundle.getBoolean(ConfigurationActivity.ENABLE_ANALYZER_MODE)) {
         return ExperimentalAnalyzerModeFactory.buildAnalyzer(
             this.getApplicationContext(), transformerBuilder.build());
@@ -560,10 +563,6 @@ public final class TransformerActivity extends AppCompatActivity {
     if (resolutionHeight != C.LENGTH_UNSET) {
       effects.add(LanczosResample.scaleToFit(10000, resolutionHeight));
       effects.add(Presentation.createForHeight(resolutionHeight));
-    }
-
-    if (bundle.getBoolean(ConfigurationActivity.ENABLE_DEBUG_PREVIEW)) {
-      effects.add(new DebugViewEffect(new DemoDebugViewProvider()));
     }
 
     return effects.build();
