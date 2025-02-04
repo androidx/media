@@ -172,7 +172,7 @@ public final class GlUtil {
       return false;
     }
     if (Util.SDK_INT < 26
-        && ("samsung".equals(Build.MANUFACTURER) || "XT1650".equals(Util.MODEL))) {
+        && ("samsung".equals(Build.MANUFACTURER) || "XT1650".equals(Build.MODEL))) {
       // Samsung devices running Nougat are known to be broken. See
       // https://github.com/google/ExoPlayer/issues/3373 and [Internal: b/37197802].
       // Moto Z XT1650 is also affected. See

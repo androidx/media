@@ -1264,10 +1264,10 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
             HEVC_MAX_INPUT_SIZE_THRESHOLD,
             getMaxSampleSize(/* pixelCount= */ width * height, /* minCompressionRatio= */ 2));
       case MimeTypes.VIDEO_H264:
-        if ("BRAVIA 4K 2015".equals(Util.MODEL) // Sony Bravia 4K
+        if ("BRAVIA 4K 2015".equals(Build.MODEL) // Sony Bravia 4K
             || ("Amazon".equals(Build.MANUFACTURER)
-                && ("KFSOWI".equals(Util.MODEL) // Kindle Soho
-                    || ("AFTS".equals(Util.MODEL) && codecInfo.secure)))) { // Fire TV Gen 2
+                && ("KFSOWI".equals(Build.MODEL) // Kindle Soho
+                    || ("AFTS".equals(Build.MODEL) && codecInfo.secure)))) { // Fire TV Gen 2
           // Use the default value for cases where platform limitations may prevent buffers of the
           // calculated maximum input size from being allocated.
           return Format.NO_VALUE;
@@ -2391,7 +2391,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       // https://github.com/google/ExoPlayer/issues/4468#issuecomment-459291645.
       return true;
     }
-    switch (Util.MODEL) {
+    switch (Build.MODEL) {
       // Workaround for some Fire OS devices.
       case "AFTA":
       case "AFTN":
@@ -2571,7 +2571,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         default:
           break; // Do nothing.
       }
-      switch (Util.MODEL) {
+      switch (Build.MODEL) {
         case "JSN-L21":
           return true;
         default:

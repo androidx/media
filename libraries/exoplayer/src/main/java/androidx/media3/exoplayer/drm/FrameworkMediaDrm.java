@@ -501,10 +501,10 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
     if ((Util.SDK_INT < 23 && C.WIDEVINE_UUID.equals(uuid))
         || (C.PLAYREADY_UUID.equals(uuid)
             && "Amazon".equals(Build.MANUFACTURER)
-            && ("AFTB".equals(Util.MODEL) // Fire TV Gen 1
-                || "AFTS".equals(Util.MODEL) // Fire TV Gen 2
-                || "AFTM".equals(Util.MODEL) // Fire TV Stick Gen 1
-                || "AFTT".equals(Util.MODEL)))) { // Fire TV Stick Gen 2
+            && ("AFTB".equals(Build.MODEL) // Fire TV Gen 1
+                || "AFTS".equals(Build.MODEL) // Fire TV Gen 2
+                || "AFTM".equals(Build.MODEL) // Fire TV Stick Gen 1
+                || "AFTT".equals(Build.MODEL)))) { // Fire TV Stick Gen 2
       byte[] psshData = PsshAtomUtil.parseSchemeSpecificData(initData, uuid);
       if (psshData != null) {
         // Extraction succeeded, so return the extracted data.
@@ -541,7 +541,7 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
    * <p>See <a href="https://github.com/google/ExoPlayer/issues/4413">GitHub issue #4413</a>.
    */
   private static boolean needsForceWidevineL3Workaround() {
-    return "ASUS_Z00AD".equals(Util.MODEL);
+    return "ASUS_Z00AD".equals(Build.MODEL);
   }
 
   /**

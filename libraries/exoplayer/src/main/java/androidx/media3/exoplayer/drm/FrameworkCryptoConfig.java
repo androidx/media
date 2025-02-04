@@ -20,7 +20,6 @@ import android.media.MediaCrypto;
 import android.os.Build;
 import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import androidx.media3.decoder.CryptoConfig;
 import java.util.UUID;
 
@@ -38,8 +37,8 @@ public final class FrameworkCryptoConfig implements CryptoConfig {
    */
   public static final boolean WORKAROUND_DEVICE_NEEDS_KEYS_TO_CONFIGURE_CODEC =
       "Amazon".equals(Build.MANUFACTURER)
-          && ("AFTM".equals(Util.MODEL) // Fire TV Stick Gen 1
-              || "AFTB".equals(Util.MODEL)); // Fire TV Gen 1
+          && ("AFTM".equals(Build.MODEL) // Fire TV Stick Gen 1
+              || "AFTB".equals(Build.MODEL)); // Fire TV Gen 1
 
   /** The DRM scheme UUID. */
   public final UUID uuid;

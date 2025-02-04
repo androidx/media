@@ -1059,7 +1059,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
    */
   private static boolean deviceDoesntSupportOperatingRate() {
     return Util.SDK_INT == 23
-        && ("ZTE B2017G".equals(Util.MODEL) || "AXON 7 mini".equals(Util.MODEL));
+        && ("ZTE B2017G".equals(Build.MODEL) || "AXON 7 mini".equals(Build.MODEL));
   }
 
   /**

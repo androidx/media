@@ -25,6 +25,7 @@ import android.net.ConnectivityManager;
 import android.net.NetworkCapabilities;
 import android.net.NetworkInfo;
 import android.net.Uri;
+import android.os.Build;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
@@ -465,7 +466,7 @@ public class TransformerAndroidTestRunner {
       // ExportTestResult.
       throw interruptedException;
     } catch (Throwable analysisFailure) {
-      if (Util.SDK_INT == 21 && Ascii.toLowerCase(Util.MODEL).contains("nexus")) {
+      if (Util.SDK_INT == 21 && Ascii.toLowerCase(Build.MODEL).contains("nexus")) {
         // b/233584640, b/230093713
         Log.i(TAG, testId + ": Skipping SSIM calculation due to known device-specific issue");
       } else {
