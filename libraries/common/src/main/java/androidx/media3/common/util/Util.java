@@ -160,33 +160,24 @@ public final class Util {
   @UnstableApi public static final int SDK_INT = Build.VERSION.SDK_INT;
 
   /**
-   * Like {@link Build#DEVICE}, but in a place where it can be conveniently overridden for local
-   * testing.
+   * @deprecated Use {@link Build#DEVICE} instead.
    */
-  // TODO: b/384699964 - Deprecate this and migrate usages to Build.DEVICE which works better with
-  //  Robolectric's ShadowBuild.setDevice().
-  @UnstableApi public static final String DEVICE = Build.DEVICE;
+  @UnstableApi @Deprecated public static final String DEVICE = Build.DEVICE;
 
   /**
-   * Like {@link Build#MANUFACTURER}, but in a place where it can be conveniently overridden for
-   * local testing.
+   * @deprecated Use {@link Build#MANUFACTURER} instead.
    */
-  // TODO: b/384699964 - Deprecate this and migrate usages to Build.MANUFACTURER which works better
-  //  with Robolectric's ShadowBuild.setManufacturer().
-  @UnstableApi public static final String MANUFACTURER = Build.MANUFACTURER;
+  @UnstableApi @Deprecated public static final String MANUFACTURER = Build.MANUFACTURER;
 
   /**
-   * Like {@link Build#MODEL}, but in a place where it can be conveniently overridden for local
-   * testing.
+   * @deprecated Use {@link Build#MODEL} instead.
    */
-  // TODO: b/384699964 - Deprecate this and migrate usages to Build.MODEL which works better with
-  //  Robolectric's ShadowBuild.setModel().
-  @UnstableApi public static final String MODEL = Build.MODEL;
+  @UnstableApi @Deprecated public static final String MODEL = Build.MODEL;
 
   /** A concise description of the device that it can be useful to log for debugging purposes. */
   @UnstableApi
   public static final String DEVICE_DEBUG_INFO =
-      DEVICE + ", " + MODEL + ", " + MANUFACTURER + ", " + SDK_INT;
+      Build.DEVICE + ", " + Build.MODEL + ", " + Build.MANUFACTURER + ", " + SDK_INT;
 
   /** An empty byte array. */
   @UnstableApi public static final byte[] EMPTY_BYTE_ARRAY = new byte[0];
@@ -482,7 +473,7 @@ public final class Util {
   /** Returns true if the code path is currently running on an emulator. */
   @UnstableApi
   public static boolean isRunningOnEmulator() {
-    String deviceName = Ascii.toLowerCase(Util.DEVICE);
+    String deviceName = Ascii.toLowerCase(Build.DEVICE);
     return deviceName.contains("emulator")
         || deviceName.contains("emu64a")
         || deviceName.contains("emu64x")
@@ -3245,8 +3236,8 @@ public final class Util {
       }
 
       // Sony Android TVs advertise support for 4k output via a system feature.
-      if ("Sony".equals(MANUFACTURER)
-          && MODEL.startsWith("BRAVIA")
+      if ("Sony".equals(Build.MANUFACTURER)
+          && Build.MODEL.startsWith("BRAVIA")
           && context.getPackageManager().hasSystemFeature("com.sony.dtv.hardware.panel.qfhd")) {
         return new Point(3840, 2160);
       }
@@ -3495,9 +3486,9 @@ public final class Util {
     return SDK_INT < 29
         || context.getApplicationInfo().targetSdkVersion < 29
         || ((SDK_INT == 30
-                && (Ascii.equalsIgnoreCase(MODEL, "moto g(20)")
-                    || Ascii.equalsIgnoreCase(MODEL, "rmx3231")))
-            || (SDK_INT == 34 && Ascii.equalsIgnoreCase(MODEL, "sm-x200")));
+                && (Ascii.equalsIgnoreCase(Build.MODEL, "moto g(20)")
+                    || Ascii.equalsIgnoreCase(Build.MODEL, "rmx3231")))
+            || (SDK_INT == 34 && Ascii.equalsIgnoreCase(Build.MODEL, "sm-x200")));
   }
 
   /**

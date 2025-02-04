@@ -24,6 +24,7 @@ import static org.junit.Assume.assumeFalse;
 
 import android.content.Context;
 import android.media.MediaCodec.BufferInfo;
+import android.os.Build;
 import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
@@ -412,9 +413,9 @@ public class TransformerPauseResumeTest {
     // expected.
     // On vivo 1820 and vivo 1906, the process crashes unexpectedly (see b/310566201).
     return (Util.SDK_INT == 26 && Util.isRunningOnEmulator())
-        || (Util.SDK_INT == 27 && Ascii.equalsIgnoreCase(Util.MODEL, "vivo 1820"))
-        || (Util.SDK_INT == 28 && Ascii.equalsIgnoreCase(Util.MODEL, "vivo 1901"))
-        || (Util.SDK_INT == 28 && Ascii.equalsIgnoreCase(Util.MODEL, "vivo 1906"));
+        || (Util.SDK_INT == 27 && Ascii.equalsIgnoreCase(Build.MODEL, "vivo 1820"))
+        || (Util.SDK_INT == 28 && Ascii.equalsIgnoreCase(Build.MODEL, "vivo 1901"))
+        || (Util.SDK_INT == 28 && Ascii.equalsIgnoreCase(Build.MODEL, "vivo 1906"));
   }
 
   private static final class FrameBlockingMuxerFactory implements Muxer.Factory {

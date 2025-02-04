@@ -26,6 +26,7 @@ import static com.google.common.truth.Truth.assertWithMessage;
 
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.os.Build;
 import androidx.annotation.Nullable;
 import androidx.media3.common.Effect;
 import androidx.media3.common.MediaItem;
@@ -177,9 +178,9 @@ public final class SequenceEffectTestUtil {
    */
   public static boolean decoderProducesWashedOutColours(MediaCodecInfo mediaCodecInfo) {
     return mediaCodecInfo.name.equals("OMX.google.h264.decoder")
-        && (Util.MODEL.equals("ANE-LX1")
-            || Util.MODEL.equals("MHA-L29")
-            || Util.MODEL.equals("COR-L29"));
+        && (Build.MODEL.equals("ANE-LX1")
+            || Build.MODEL.equals("MHA-L29")
+            || Build.MODEL.equals("COR-L29"));
   }
 
   /**

@@ -28,6 +28,7 @@ import android.media.AudioFormat;
 import android.media.MediaCodec;
 import android.media.MediaCrypto;
 import android.media.MediaFormat;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import androidx.annotation.CallSuper;
@@ -1058,7 +1059,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
    */
   private static boolean deviceDoesntSupportOperatingRate() {
     return Util.SDK_INT == 23
-        && ("ZTE B2017G".equals(Util.MODEL) || "AXON 7 mini".equals(Util.MODEL));
+        && ("ZTE B2017G".equals(Build.MODEL) || "AXON 7 mini".equals(Build.MODEL));
   }
 
   /**
@@ -1071,10 +1072,10 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
     // The workaround applies to Samsung Galaxy S6 and Samsung Galaxy S7.
     return Util.SDK_INT < 24
         && "OMX.SEC.aac.dec".equals(codecName)
-        && "samsung".equals(Util.MANUFACTURER)
-        && (Util.DEVICE.startsWith("zeroflte")
-            || Util.DEVICE.startsWith("herolte")
-            || Util.DEVICE.startsWith("heroqlte"));
+        && "samsung".equals(Build.MANUFACTURER)
+        && (Build.DEVICE.startsWith("zeroflte")
+            || Build.DEVICE.startsWith("herolte")
+            || Build.DEVICE.startsWith("heroqlte"));
   }
 
   /**

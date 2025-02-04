@@ -22,6 +22,7 @@ import static org.junit.Assume.assumeFalse;
 
 import android.content.Context;
 import android.net.Uri;
+import android.os.Build;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Util;
@@ -64,10 +65,10 @@ public final class TranscodeQualityTest {
         /* outputFormat= */ AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS.videoFormat);
     // Skip on specific pre-API 34 devices where calculating SSIM fails.
     assumeFalse(
-        (Util.SDK_INT < 33 && (Util.MODEL.equals("SM-F711U1") || Util.MODEL.equals("SM-F926U1")))
-            || (Util.SDK_INT == 33 && Util.MODEL.equals("LE2121")));
+        (Util.SDK_INT < 33 && (Build.MODEL.equals("SM-F711U1") || Build.MODEL.equals("SM-F926U1")))
+            || (Util.SDK_INT == 33 && Build.MODEL.equals("LE2121")));
     // Skip on specific API 21 devices that aren't able to decode and encode at this resolution.
-    assumeFalse(Util.SDK_INT == 21 && Util.MODEL.equals("Nexus 7"));
+    assumeFalse(Util.SDK_INT == 21 && Build.MODEL.equals("Nexus 7"));
     Transformer transformer =
         new Transformer.Builder(context)
             .setVideoMimeType(MimeTypes.VIDEO_H264)
@@ -109,8 +110,8 @@ public final class TranscodeQualityTest {
             .setSampleMimeType(MimeTypes.VIDEO_H265)
             .build());
     assumeFalse(
-        (Util.SDK_INT < 33 && (Util.MODEL.equals("SM-F711U1") || Util.MODEL.equals("SM-F926U1")))
-            || (Util.SDK_INT == 33 && Util.MODEL.equals("LE2121")));
+        (Util.SDK_INT < 33 && (Build.MODEL.equals("SM-F711U1") || Build.MODEL.equals("SM-F926U1")))
+            || (Util.SDK_INT == 33 && Build.MODEL.equals("LE2121")));
     Transformer transformer =
         new Transformer.Builder(context).setVideoMimeType(MimeTypes.VIDEO_H265).build();
     MediaItem mediaItem =

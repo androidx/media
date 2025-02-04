@@ -37,6 +37,7 @@ import android.media.MediaCodecInfo.AudioCapabilities;
 import android.media.MediaCodecInfo.CodecCapabilities;
 import android.media.MediaCodecInfo.CodecProfileLevel;
 import android.media.MediaCodecInfo.VideoCapabilities;
+import android.os.Build;
 import android.util.Pair;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
@@ -790,7 +791,7 @@ public final class MediaCodecInfo {
    */
   private static boolean needsDisableAdaptationWorkaround(String name) {
     return Util.SDK_INT <= 22
-        && ("ODROID-XU3".equals(Util.MODEL) || "Nexus 10".equals(Util.MODEL))
+        && ("ODROID-XU3".equals(Build.MODEL) || "Nexus 10".equals(Build.MODEL))
         && ("OMX.Exynos.AVC.Decoder".equals(name) || "OMX.Exynos.AVC.Decoder.secure".equals(name));
   }
 
@@ -803,7 +804,7 @@ public final class MediaCodecInfo {
    *     new format's configuration data.
    */
   private static boolean needsAdaptationReconfigureWorkaround(String name) {
-    return Util.MODEL.startsWith("SM-T230") && "OMX.MARVELL.VIDEO.HW.CODA7542DECODER".equals(name);
+    return Build.MODEL.startsWith("SM-T230") && "OMX.MARVELL.VIDEO.HW.CODA7542DECODER".equals(name);
   }
 
   /**
@@ -831,7 +832,7 @@ public final class MediaCodecInfo {
    * @return Whether to enable the workaround.
    */
   private static boolean needsRotatedVerticalResolutionWorkaround(String name) {
-    if ("OMX.MTK.VIDEO.DECODER.HEVC".equals(name) && "mcv5a".equals(Util.DEVICE)) {
+    if ("OMX.MTK.VIDEO.DECODER.HEVC".equals(name) && "mcv5a".equals(Build.DEVICE)) {
       // See https://github.com/google/ExoPlayer/issues/6612.
       return false;
     }
@@ -846,6 +847,6 @@ public final class MediaCodecInfo {
     // See https://github.com/google/ExoPlayer/issues/3537
     return MimeTypes.VIDEO_H265.equals(mimeType)
         && CodecProfileLevel.HEVCProfileMain10 == profile
-        && ("sailfish".equals(Util.DEVICE) || "marlin".equals(Util.DEVICE));
+        && ("sailfish".equals(Build.DEVICE) || "marlin".equals(Build.DEVICE));
   }
 }

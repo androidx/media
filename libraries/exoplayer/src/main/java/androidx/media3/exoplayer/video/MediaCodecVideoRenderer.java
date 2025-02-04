@@ -36,6 +36,7 @@ import android.media.MediaCodecInfo.CodecCapabilities;
 import android.media.MediaCodecInfo.CodecProfileLevel;
 import android.media.MediaCrypto;
 import android.media.MediaFormat;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
@@ -1263,10 +1264,10 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
             HEVC_MAX_INPUT_SIZE_THRESHOLD,
             getMaxSampleSize(/* pixelCount= */ width * height, /* minCompressionRatio= */ 2));
       case MimeTypes.VIDEO_H264:
-        if ("BRAVIA 4K 2015".equals(Util.MODEL) // Sony Bravia 4K
-            || ("Amazon".equals(Util.MANUFACTURER)
-                && ("KFSOWI".equals(Util.MODEL) // Kindle Soho
-                    || ("AFTS".equals(Util.MODEL) && codecInfo.secure)))) { // Fire TV Gen 2
+        if ("BRAVIA 4K 2015".equals(Build.MODEL) // Sony Bravia 4K
+            || ("Amazon".equals(Build.MANUFACTURER)
+                && ("KFSOWI".equals(Build.MODEL) // Kindle Soho
+                    || ("AFTS".equals(Build.MODEL) && codecInfo.secure)))) { // Fire TV Gen 2
           // Use the default value for cases where platform limitations may prevent buffers of the
           // calculated maximum input size from being allocated.
           return Format.NO_VALUE;
@@ -2293,7 +2294,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     // also lose sync [Internal: b/26453592]. Even after M, the devices may apply post processing
     // operations that can modify frame output timestamps, which is incompatible with ExoPlayer's
     // logic for skipping decode-only frames.
-    return "NVIDIA".equals(Util.MANUFACTURER);
+    return "NVIDIA".equals(Build.MANUFACTURER);
   }
 
   /*
@@ -2371,7 +2372,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       // https://github.com/google/ExoPlayer/issues/8014.
       // https://github.com/google/ExoPlayer/issues/8329.
       // https://github.com/google/ExoPlayer/issues/9710.
-      switch (Util.DEVICE) {
+      switch (Build.DEVICE) {
         case "aquaman":
         case "dangal":
         case "dangalUHD":
@@ -2385,12 +2386,12 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
           break; // Do nothing.
       }
     }
-    if (Util.SDK_INT <= 27 && "HWEML".equals(Util.DEVICE)) {
+    if (Util.SDK_INT <= 27 && "HWEML".equals(Build.DEVICE)) {
       // Workaround for Huawei P20:
       // https://github.com/google/ExoPlayer/issues/4468#issuecomment-459291645.
       return true;
     }
-    switch (Util.MODEL) {
+    switch (Build.MODEL) {
       // Workaround for some Fire OS devices.
       case "AFTA":
       case "AFTN":
@@ -2425,7 +2426,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       // https://github.com/google/ExoPlayer/issues/6503.
       // https://github.com/google/ExoPlayer/issues/8014,
       // https://github.com/google/ExoPlayer/pull/8030.
-      switch (Util.DEVICE) {
+      switch (Build.DEVICE) {
         case "1601":
         case "1713":
         case "1714":
@@ -2570,7 +2571,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         default:
           break; // Do nothing.
       }
-      switch (Util.MODEL) {
+      switch (Build.MODEL) {
         case "JSN-L21":
           return true;
         default:

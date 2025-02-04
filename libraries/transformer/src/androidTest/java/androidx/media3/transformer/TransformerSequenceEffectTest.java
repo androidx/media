@@ -46,12 +46,12 @@ import static androidx.media3.transformer.SequenceEffectTestUtil.tryToExportComp
 import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
+import android.os.Build;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
-import androidx.media3.common.util.Util;
 import androidx.media3.effect.BitmapOverlay;
 import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
@@ -361,13 +361,13 @@ public final class TransformerSequenceEffectTest {
                 .build());
     // Some devices need a very high bitrate to avoid encoding artifacts.
     int bitrate = 30_000_000;
-    if (Ascii.equalsIgnoreCase(Util.MODEL, "mi a2 lite")
-        || Ascii.equalsIgnoreCase(Util.MODEL, "redmi 8")
-        || Ascii.equalsIgnoreCase(Util.MODEL, "sm-f711u1")
-        || Ascii.equalsIgnoreCase(Util.MODEL, "sm-f916u1")
-        || Ascii.equalsIgnoreCase(Util.MODEL, "sm-f926u1")
-        || Ascii.equalsIgnoreCase(Util.MODEL, "sm-g981u1")
-        || Ascii.equalsIgnoreCase(Util.MODEL, "tb-q706")) {
+    if (Ascii.equalsIgnoreCase(Build.MODEL, "mi a2 lite")
+        || Ascii.equalsIgnoreCase(Build.MODEL, "redmi 8")
+        || Ascii.equalsIgnoreCase(Build.MODEL, "sm-f711u1")
+        || Ascii.equalsIgnoreCase(Build.MODEL, "sm-f916u1")
+        || Ascii.equalsIgnoreCase(Build.MODEL, "sm-f926u1")
+        || Ascii.equalsIgnoreCase(Build.MODEL, "sm-g981u1")
+        || Ascii.equalsIgnoreCase(Build.MODEL, "tb-q706")) {
       // And some devices need a lower bitrate because VideoDecodingWrapper fails to decode high
       // bitrate output, or FrameworkMuxer fails to mux.
       bitrate = 10_000_000;

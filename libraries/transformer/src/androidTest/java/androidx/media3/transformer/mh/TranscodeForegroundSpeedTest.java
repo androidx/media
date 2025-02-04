@@ -22,13 +22,13 @@ import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
 import android.net.Uri;
+import android.os.Build;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.audio.ChannelMixingAudioProcessor;
 import androidx.media3.common.audio.ChannelMixingMatrix;
 import androidx.media3.common.audio.SonicAudioProcessor;
 import androidx.media3.common.util.Clock;
-import androidx.media3.common.util.Util;
 import androidx.media3.effect.Presentation;
 import androidx.media3.transformer.AndroidTestUtil;
 import androidx.media3.transformer.AssetLoader;
@@ -77,10 +77,10 @@ public class TranscodeForegroundSpeedTest {
       export1080pWithAudioTo720p_onMediumPerformanceDeviceWithDynamicScheduling_completesWithAtLeast140Fps()
           throws Exception {
     assumeTrue(
-        Ascii.toLowerCase(Util.MODEL).contains("pixel 2")
-            || Ascii.toLowerCase(Util.MODEL).contains("dn2103")
-            || Ascii.toLowerCase(Util.MODEL).contains("sm-g960f")
-            || Ascii.toLowerCase(Util.MODEL).contains("g8441"));
+        Ascii.toLowerCase(Build.MODEL).contains("pixel 2")
+            || Ascii.toLowerCase(Build.MODEL).contains("dn2103")
+            || Ascii.toLowerCase(Build.MODEL).contains("sm-g960f")
+            || Ascii.toLowerCase(Build.MODEL).contains("g8441"));
     assumeFormatsSupported(
         context,
         testId,
@@ -102,13 +102,13 @@ public class TranscodeForegroundSpeedTest {
       export1080pWithAudioTo720p_onLowerPerformanceDevicesWithDynamicScheduling_completesWithAtLeast60Fps()
           throws Exception {
     assumeTrue(
-        (Ascii.toLowerCase(Util.MODEL).contains("f-01l")
-            || Ascii.toLowerCase(Util.MODEL).contains("asus_x00td")
-            || Ascii.toLowerCase(Util.MODEL).contains("redmi note 5")
-            || Ascii.toLowerCase(Util.MODEL).contains("mha-l29")
-            || Ascii.toLowerCase(Util.MODEL).contains("oneplus a6013")
-            || Ascii.toLowerCase(Util.MODEL).contains("cph1803")
-            || Ascii.toLowerCase(Util.MODEL).contains("mi a2 lite")));
+        (Ascii.toLowerCase(Build.MODEL).contains("f-01l")
+            || Ascii.toLowerCase(Build.MODEL).contains("asus_x00td")
+            || Ascii.toLowerCase(Build.MODEL).contains("redmi note 5")
+            || Ascii.toLowerCase(Build.MODEL).contains("mha-l29")
+            || Ascii.toLowerCase(Build.MODEL).contains("oneplus a6013")
+            || Ascii.toLowerCase(Build.MODEL).contains("cph1803")
+            || Ascii.toLowerCase(Build.MODEL).contains("mi a2 lite")));
     assumeFormatsSupported(
         context,
         testId,

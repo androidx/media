@@ -37,7 +37,6 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.MediaFormatUtil;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.mediacodec.MediaCodecInfo;
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
 import androidx.media3.exoplayer.mediacodec.MediaCodecUtil;
@@ -422,28 +421,28 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
         && format.height >= 4320
         && format.sampleMimeType != null
         && format.sampleMimeType.equals(MimeTypes.VIDEO_H265)
-        && (Util.MODEL.equals("SM-F711U1") || Util.MODEL.equals("SM-F926U1"));
+        && (Build.MODEL.equals("SM-F711U1") || Build.MODEL.equals("SM-F926U1"));
   }
 
   private static boolean deviceNeedsDisableToneMappingWorkaround(
       @C.ColorTransfer int colorTransfer) {
-    if (Util.MANUFACTURER.equals("Google") && Build.ID.startsWith("TP1A")) {
+    if (Build.MANUFACTURER.equals("Google") && Build.ID.startsWith("TP1A")) {
       // Some Pixel 6 builds report support for tone mapping but the feature doesn't work
       // (see b/249297370#comment8).
       return true;
     }
     if (colorTransfer == C.COLOR_TRANSFER_HLG
-        && (Util.MODEL.startsWith("SM-F936")
-            || Util.MODEL.startsWith("SM-F916")
-            || Util.MODEL.startsWith("SM-F721")
-            || Util.MODEL.equals("SM-X900"))) {
+        && (Build.MODEL.startsWith("SM-F936")
+            || Build.MODEL.startsWith("SM-F916")
+            || Build.MODEL.startsWith("SM-F721")
+            || Build.MODEL.equals("SM-X900"))) {
       // Some Samsung Galaxy Z Fold devices report support for HLG tone mapping but the feature only
       // works on PQ (see b/282791751#comment7).
       return true;
     }
     if (SDK_INT < 34
         && colorTransfer == C.COLOR_TRANSFER_ST2084
-        && Util.MODEL.startsWith("SM-F936")) {
+        && Build.MODEL.startsWith("SM-F936")) {
       // The Samsung Fold 4 HDR10 codec plugin for tonemapping sets incorrect crop values, so block
       // using it (see b/290725189).
       return true;
@@ -453,7 +452,7 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
 
   private static boolean deviceNeedsNoFrameRateWorkaround() {
     // Redmi Note 9 Pro fails if KEY_FRAME_RATE is set too high (see b/278076311).
-    return SDK_INT < 30 && Util.DEVICE.equals("joyeuse");
+    return SDK_INT < 30 && Build.DEVICE.equals("joyeuse");
   }
 
   private static boolean decoderSupportsKeyAllowFrameDrop(Context context) {
@@ -470,9 +469,9 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
     // hardware decoder + software encoder (17 fps).
     // Due to b/267740292 using hardware to software encoder fallback is risky.
     return format.width * format.height >= 1920 * 1080
-        && (Ascii.equalsIgnoreCase(Util.MODEL, "vivo 1906")
-            || Ascii.equalsIgnoreCase(Util.MODEL, "redmi 7a")
-            || Ascii.equalsIgnoreCase(Util.MODEL, "redmi 8"));
+        && (Ascii.equalsIgnoreCase(Build.MODEL, "vivo 1906")
+            || Ascii.equalsIgnoreCase(Build.MODEL, "redmi 7a")
+            || Ascii.equalsIgnoreCase(Build.MODEL, "redmi 8"));
   }
 
   private static ExportException createExportException(Format format, String reason) {

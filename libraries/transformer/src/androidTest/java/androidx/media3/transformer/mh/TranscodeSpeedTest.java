@@ -27,6 +27,7 @@ import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
 import android.net.Uri;
+import android.os.Build;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
@@ -115,13 +116,13 @@ public class TranscodeSpeedTest {
     Transformer transformer =
         new Transformer.Builder(context).setVideoMimeType(MimeTypes.VIDEO_H264).build();
     boolean isHighPerformance =
-        Ascii.toLowerCase(Util.MODEL).contains("pixel")
-            && (Ascii.toLowerCase(Util.MODEL).contains("6")
-                || Ascii.toLowerCase(Util.MODEL).contains("7")
-                || Ascii.toLowerCase(Util.MODEL).contains("8")
-                || Ascii.toLowerCase(Util.MODEL).contains("fold")
-                || Ascii.toLowerCase(Util.MODEL).contains("tablet"));
-    if (Util.SDK_INT == 33 && Ascii.toLowerCase(Util.MODEL).contains("pixel 6")) {
+        Ascii.toLowerCase(Build.MODEL).contains("pixel")
+            && (Ascii.toLowerCase(Build.MODEL).contains("6")
+                || Ascii.toLowerCase(Build.MODEL).contains("7")
+                || Ascii.toLowerCase(Build.MODEL).contains("8")
+                || Ascii.toLowerCase(Build.MODEL).contains("fold")
+                || Ascii.toLowerCase(Build.MODEL).contains("tablet"));
+    if (Util.SDK_INT == 33 && Ascii.toLowerCase(Build.MODEL).contains("pixel 6")) {
       // Pixel 6 is usually quick, unless it's on API 33. See b/358519058.
       isHighPerformance = false;
     }
@@ -159,14 +160,14 @@ public class TranscodeSpeedTest {
       analyzeVideo_onHighPerformanceDevice_withConfiguredOperatingRate_completesWithHighThroughput()
           throws Exception {
     assumeTrue(
-        Ascii.toLowerCase(Util.MODEL).contains("pixel")
-            && (Ascii.toLowerCase(Util.MODEL).contains("6")
-                || Ascii.toLowerCase(Util.MODEL).contains("7")
-                || Ascii.toLowerCase(Util.MODEL).contains("8")
-                || Ascii.toLowerCase(Util.MODEL).contains("fold")
-                || Ascii.toLowerCase(Util.MODEL).contains("tablet")));
+        Ascii.toLowerCase(Build.MODEL).contains("pixel")
+            && (Ascii.toLowerCase(Build.MODEL).contains("6")
+                || Ascii.toLowerCase(Build.MODEL).contains("7")
+                || Ascii.toLowerCase(Build.MODEL).contains("8")
+                || Ascii.toLowerCase(Build.MODEL).contains("fold")
+                || Ascii.toLowerCase(Build.MODEL).contains("tablet")));
     // Pixel 6 is usually quick, unless it's on API 33. See b/358519058.
-    assumeFalse(Util.SDK_INT == 33 && Ascii.toLowerCase(Util.MODEL).contains("pixel 6"));
+    assumeFalse(Util.SDK_INT == 33 && Ascii.toLowerCase(Build.MODEL).contains("pixel 6"));
     AtomicInteger videoFramesSeen = new AtomicInteger(/* initialValue= */ 0);
     MediaItem mediaItem =
         MediaItem.fromUri(Uri.parse(MP4_LONG_ASSET_WITH_INCREASING_TIMESTAMPS.uri))

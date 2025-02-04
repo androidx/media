@@ -37,6 +37,7 @@ import android.media.Image;
 import android.media.MediaCodecInfo;
 import android.opengl.EGLContext;
 import android.opengl.EGLDisplay;
+import android.os.Build;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
@@ -1121,7 +1122,7 @@ public final class AndroidTestUtil {
       throws IOException, InterruptedException {
     // b/298599172 - runUntilComparisonFrameOrEnded fails on this device because reading decoder
     //  output as a bitmap doesn't work.
-    assumeFalse(Util.SDK_INT == 21 && Ascii.toLowerCase(Util.MODEL).contains("nexus"));
+    assumeFalse(Util.SDK_INT == 21 && Ascii.toLowerCase(Build.MODEL).contains("nexus"));
     ImmutableList.Builder<Bitmap> bitmaps = new ImmutableList.Builder<>();
     try (VideoDecodingWrapper decodingWrapper =
         new VideoDecodingWrapper(
@@ -1430,8 +1431,8 @@ public final class AndroidTestUtil {
         && format.height >= 4320
         && format.sampleMimeType != null
         && format.sampleMimeType.equals(MimeTypes.VIDEO_H265)
-        && (Ascii.equalsIgnoreCase(Util.MODEL, "SM-F711U1")
-            || Ascii.equalsIgnoreCase(Util.MODEL, "SM-F926U1"));
+        && (Ascii.equalsIgnoreCase(Build.MODEL, "SM-F711U1")
+            || Ascii.equalsIgnoreCase(Build.MODEL, "SM-F926U1"));
   }
 
   private static boolean canEncode(Format format, boolean isPortraitEncodingEnabled) {

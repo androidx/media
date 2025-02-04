@@ -24,11 +24,11 @@ import static androidx.media3.transformer.mh.UnoptimizedGlEffect.NO_OP_EFFECT;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.graphics.Bitmap;
+import android.os.Build;
 import android.util.Log;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
-import androidx.media3.common.util.Util;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.test.utils.VideoFrameProcessorTestRunner;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -60,7 +60,8 @@ public final class ToneMapHdrToSdrUsingOpenGlPixelTest {
    * substantial distortions introduced by changes in tested components will cause the test to fail.
    */
   private static final float MAXIMUM_DEVICE_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE =
-      !Ascii.equalsIgnoreCase(Util.MODEL, "dn2103") && !Ascii.equalsIgnoreCase(Util.MODEL, "v2059")
+      !Ascii.equalsIgnoreCase(Build.MODEL, "dn2103")
+              && !Ascii.equalsIgnoreCase(Build.MODEL, "v2059")
           ? 6f
           : 7f;
 
