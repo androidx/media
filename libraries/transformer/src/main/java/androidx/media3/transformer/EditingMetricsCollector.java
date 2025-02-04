@@ -256,6 +256,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       MediaItemInfo.Builder mediaItemInfoBuilder = new MediaItemInfo.Builder();
       long durationMs = usToMs(processedInput.durationUs);
       mediaItemInfoBuilder.setClipDurationMillis(durationMs);
+      if (processedInput.videoDecoderName != null) {
+        mediaItemInfoBuilder.addCodecName(processedInput.videoDecoderName);
+      }
+      if (processedInput.audioDecoderName != null) {
+        mediaItemInfoBuilder.addCodecName(processedInput.audioDecoderName);
+      }
       @Nullable Format videoFormat = processedInput.videoFormat;
       if (videoFormat != null) {
         if (videoFormat.containerMimeType != null) {
@@ -263,9 +269,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         }
         if (videoFormat.sampleMimeType != null) {
           mediaItemInfoBuilder.addSampleMimeType(videoFormat.sampleMimeType);
-        }
-        if (videoFormat.codecs != null) {
-          mediaItemInfoBuilder.addCodecName(videoFormat.codecs);
         }
         if (videoFormat.frameRate != Format.NO_VALUE) {
           mediaItemInfoBuilder.setVideoFrameRate(videoFormat.frameRate);
@@ -287,9 +290,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       if (audioFormat != null) {
         if (audioFormat.sampleMimeType != null) {
           mediaItemInfoBuilder.addSampleMimeType(audioFormat.sampleMimeType);
-        }
-        if (audioFormat.codecs != null) {
-          mediaItemInfoBuilder.addCodecName(audioFormat.codecs);
         }
         if (audioFormat.channelCount != Format.NO_VALUE) {
           mediaItemInfoBuilder.setAudioChannelCount(audioFormat.channelCount);
