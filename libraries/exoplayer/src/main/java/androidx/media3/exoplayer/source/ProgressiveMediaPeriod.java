@@ -87,14 +87,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   interface Listener {
 
     /**
-     * Called when the duration, the ability to seek within the period, or the categorization as
-     * live stream changes.
+     * Called when the duration, the {@link SeekMap} of the period, or the categorization as live
+     * stream changes.
      *
      * @param durationUs The duration of the period, or {@link C#TIME_UNSET}.
-     * @param isSeekable Whether the period is seekable.
+     * @param seekMap The {@link SeekMap}.
      * @param isLive Whether the period is live.
      */
-    void onSourceInfoRefreshed(long durationUs, boolean isSeekable, boolean isLive);
+    void onSourceInfoRefreshed(long durationUs, SeekMap seekMap, boolean isLive);
   }
 
   private static final String TAG = "ProgressiveMediaPeriod";
@@ -637,14 +637,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   public void onLoadCompleted(
       ExtractingLoadable loadable, long elapsedRealtimeMs, long loadDurationMs) {
     if (durationUs == C.TIME_UNSET && seekMap != null) {
-      boolean isSeekable = seekMap.isSeekable();
       long largestQueuedTimestampUs =
           getLargestQueuedTimestampUs(/* includeDisabledTracks= */ true);
       durationUs =
           largestQueuedTimestampUs == Long.MIN_VALUE
               ? 0
               : largestQueuedTimestampUs + DEFAULT_LAST_SAMPLE_DURATION_US;
-      listener.onSourceInfoRefreshed(durationUs, isSeekable, isLive);
+      listener.onSourceInfoRefreshed(durationUs, seekMap, isLive);
     }
     StatsDataSource dataSource = loadable.dataSource;
     LoadEventInfo loadEventInfo =
@@ -829,7 +828,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     isLive = !isLengthKnown && seekMap.getDurationUs() == C.TIME_UNSET;
     dataType = isLive ? C.DATA_TYPE_MEDIA_PROGRESSIVE_LIVE : C.DATA_TYPE_MEDIA;
     if (prepared) {
-      listener.onSourceInfoRefreshed(durationUs, seekMap.isSeekable(), isLive);
+      listener.onSourceInfoRefreshed(durationUs, seekMap, isLive);
     } else {
       maybeFinishPrepare();
     }
@@ -892,7 +891,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             }
           };
     }
-    listener.onSourceInfoRefreshed(durationUs, seekMap.isSeekable(), isLive);
+    listener.onSourceInfoRefreshed(durationUs, seekMap, isLive);
     prepared = true;
     checkNotNull(callback).onPrepared(this);
   }

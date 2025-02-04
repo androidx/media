@@ -42,6 +42,7 @@ import androidx.media3.extractor.DefaultExtractorsFactory;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.extractor.ExtractorsFactory;
+import androidx.media3.extractor.SeekMap;
 import androidx.media3.extractor.TrackOutput;
 import com.google.common.base.Supplier;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -61,6 +62,24 @@ import java.util.concurrent.Executor;
 @UnstableApi
 public final class ProgressiveMediaSource extends BaseMediaSource
     implements ProgressiveMediaPeriod.Listener {
+
+  /**
+   * A listener of {@linkplain ProgressiveMediaSource progressive media sources}, which will be
+   * notified of source events.
+   */
+  public interface Listener {
+
+    /**
+     * Called when the {@link SeekMap} of the source has been extracted from the stream.
+     *
+     * <p>Called on the playback thread.
+     *
+     * @param source The {@link MediaSource} whose {@link SeekMap} has been extracted from the
+     *     stream.
+     * @param seekMap The source's {@link SeekMap}.
+     */
+    void onSeekMap(MediaSource source, SeekMap seekMap);
+  }
 
   /** Factory for {@link ProgressiveMediaSource}s. */
   @SuppressWarnings("deprecation") // Implement deprecated type for backwards compatibility.
@@ -307,6 +326,8 @@ public final class ProgressiveMediaSource extends BaseMediaSource
   @GuardedBy("this")
   private MediaItem mediaItem;
 
+  @Nullable private Listener listener;
+
   private ProgressiveMediaSource(
       MediaItem mediaItem,
       DataSource.Factory dataSourceFactory,
@@ -399,12 +420,31 @@ public final class ProgressiveMediaSource extends BaseMediaSource
     drmSessionManager.release();
   }
 
+  /**
+   * Sets the {@link Listener}.
+   *
+   * <p>This method must be called on the playback thread.
+   */
+  public void setListener(Listener listener) {
+    this.listener = listener;
+  }
+
+  /**
+   * Clears the {@link Listener}.
+   *
+   * <p>This method must be called on the playback thread.
+   */
+  public void clearListener() {
+    this.listener = null;
+  }
+
   // ProgressiveMediaPeriod.Listener implementation.
 
   @Override
-  public void onSourceInfoRefreshed(long durationUs, boolean isSeekable, boolean isLive) {
+  public void onSourceInfoRefreshed(long durationUs, SeekMap seekMap, boolean isLive) {
     // If we already have the duration from a previous source info refresh, use it.
     durationUs = durationUs == C.TIME_UNSET ? timelineDurationUs : durationUs;
+    boolean isSeekable = seekMap.isSeekable();
     if (!timelineIsPlaceholder
         && timelineDurationUs == durationUs
         && timelineIsSeekable == isSeekable
@@ -417,6 +457,9 @@ public final class ProgressiveMediaSource extends BaseMediaSource
     timelineIsLive = isLive;
     timelineIsPlaceholder = false;
     notifySourceInfoRefreshed();
+    if (listener != null) {
+      listener.onSeekMap(this, seekMap);
+    }
   }
 
   // Internal methods.

@@ -39,6 +39,7 @@ import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import androidx.media3.exoplayer.trackselection.FixedTrackSelection;
 import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy;
+import androidx.media3.extractor.SeekMap;
 import androidx.media3.test.utils.MediaSourceTestRunner;
 import androidx.media3.test.utils.TestUtil;
 import androidx.media3.test.utils.robolectric.RobolectricUtil;
@@ -151,7 +152,8 @@ public class ProgressiveMediaSourceTest {
         new ProgressiveMediaSource.Factory(dataSourceFactory)
             .enableLazyLoadingWithSingleTrack(/* trackId= */ 42, format)
             .createMediaSource(MediaItem.fromUri(mediaUri));
-    MediaSourceTestRunner mediaSourceTestRunner = new MediaSourceTestRunner(mediaSource);
+    ProgressiveMediaSourceTestRunner mediaSourceTestRunner =
+        new ProgressiveMediaSourceTestRunner(mediaSource);
     ConditionVariable loadCompleted = new ConditionVariable();
     mediaSourceTestRunner.runOnPlaybackThread(
         () ->
@@ -168,6 +170,9 @@ public class ProgressiveMediaSourceTest {
                   }
                 }));
 
+    AtomicReference<SeekMap> seekMapReference = new AtomicReference<>();
+    ProgressiveMediaSource.Listener listener = (source, seekMap) -> seekMapReference.set(seekMap);
+    mediaSourceTestRunner.setListener(listener);
     Timeline timeline = mediaSourceTestRunner.prepareSource();
     MediaPeriod mediaPeriod =
         mediaSourceTestRunner.createPeriod(
@@ -178,6 +183,7 @@ public class ProgressiveMediaSourceTest {
 
     assertThat(preparedLatch.await(DEFAULT_TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(openedUris).isEmpty();
+    assertThat(seekMapReference.get()).isNotNull();
 
     ListenableFuture<Boolean> isLoading =
         mediaSourceTestRunner.asyncRunOnPlaybackThread(
@@ -205,6 +211,7 @@ public class ProgressiveMediaSourceTest {
     assertThat(openedUris).containsExactly(mediaUri);
 
     mediaSourceTestRunner.releasePeriod(mediaPeriod);
+    mediaSourceTestRunner.clearListener();
     mediaSourceTestRunner.releaseSource();
     mediaSourceTestRunner.release();
   }
@@ -278,5 +285,23 @@ public class ProgressiveMediaSourceTest {
         new SampleStream[1],
         /* streamResetFlags= */ new boolean[] {false},
         /* positionUs= */ 0);
+  }
+
+  private static final class ProgressiveMediaSourceTestRunner extends MediaSourceTestRunner {
+
+    private final ProgressiveMediaSource mediaSource;
+
+    public ProgressiveMediaSourceTestRunner(ProgressiveMediaSource mediaSource) {
+      super(mediaSource);
+      this.mediaSource = mediaSource;
+    }
+
+    public void setListener(ProgressiveMediaSource.Listener listener) {
+      runOnPlaybackThread(() -> mediaSource.setListener(listener));
+    }
+
+    public void clearListener() {
+      runOnPlaybackThread(mediaSource::clearListener);
+    }
   }
 }

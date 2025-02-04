@@ -360,7 +360,7 @@ public class MediaSourceTestRunner {
     playbackThread.quit();
   }
 
-  private class MediaSourceListener implements MediaSourceCaller, MediaSourceEventListener {
+  public class MediaSourceListener implements MediaSourceCaller, MediaSourceEventListener {
 
     // MediaSourceCaller methods.
 
