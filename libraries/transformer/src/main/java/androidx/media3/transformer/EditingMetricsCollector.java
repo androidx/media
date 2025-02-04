@@ -308,6 +308,24 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     if (exportResult.durationMs != C.TIME_UNSET) {
       mediaItemInfoBuilder.setDurationMillis(exportResult.durationMs);
     }
+    if (exportResult.audioMimeType != null) {
+      mediaItemInfoBuilder.addSampleMimeType(exportResult.audioMimeType);
+    }
+    if (exportResult.videoMimeType != null) {
+      mediaItemInfoBuilder.addSampleMimeType(exportResult.videoMimeType);
+    }
+    if (exportResult.channelCount != C.LENGTH_UNSET) {
+      mediaItemInfoBuilder.setAudioChannelCount(exportResult.channelCount);
+    }
+    if (exportResult.sampleRate != C.RATE_UNSET_INT) {
+      mediaItemInfoBuilder.setAudioSampleRateHz(exportResult.sampleRate);
+    }
+    if (exportResult.audioEncoderName != null) {
+      mediaItemInfoBuilder.addCodecName(exportResult.audioEncoderName);
+    }
+    if (exportResult.videoEncoderName != null) {
+      mediaItemInfoBuilder.addCodecName(exportResult.videoEncoderName);
+    }
     mediaItemInfoBuilder.setVideoSampleCount(exportResult.videoFrameCount);
     Size videoSize =
         new Size(
