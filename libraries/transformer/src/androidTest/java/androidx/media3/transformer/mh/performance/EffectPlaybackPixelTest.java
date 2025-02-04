@@ -431,7 +431,7 @@ public class EffectPlaybackPixelTest {
   private static class NoFrameDroppedVideoRenderer extends MediaCodecVideoRenderer {
 
     public NoFrameDroppedVideoRenderer(Context context, MediaCodecSelector mediaCodecSelector) {
-      super(context, mediaCodecSelector);
+      super(new Builder(context).setMediaCodecSelector(mediaCodecSelector));
     }
 
     @Override

@@ -22,6 +22,7 @@ import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.f
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.oneByteSample;
 import static androidx.media3.test.utils.FakeTimeline.TimelineWindowDefinition.DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US;
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -175,23 +176,24 @@ public class MediaCodecVideoRendererTest {
                     /* forceSecure= */ false));
     mediaCodecVideoRenderer =
         new MediaCodecVideoRenderer(
-            ApplicationProvider.getApplicationContext(),
-            new DefaultMediaCodecAdapterFactory(
-                ApplicationProvider.getApplicationContext(),
-                () -> {
-                  callbackThread = new HandlerThread("MCVRTest:MediaCodecAsyncAdapter");
-                  return callbackThread;
-                },
-                () -> {
-                  queueingThread = new HandlerThread("MCVRTest:MediaCodecQueueingThread");
-                  return queueingThread;
-                }),
-            mediaCodecSelector,
-            /* allowedJoiningTimeMs= */ 0,
-            /* enableDecoderFallback= */ false,
-            /* eventHandler= */ new Handler(testMainLooper),
-            /* eventListener= */ eventListener,
-            /* maxDroppedFramesToNotify= */ 1) {
+            new MediaCodecVideoRenderer.Builder(ApplicationProvider.getApplicationContext())
+                .setCodecAdapterFactory(
+                    new DefaultMediaCodecAdapterFactory(
+                        ApplicationProvider.getApplicationContext(),
+                        () -> {
+                          callbackThread = new HandlerThread("MCVRTest:MediaCodecAsyncAdapter");
+                          return callbackThread;
+                        },
+                        () -> {
+                          queueingThread = new HandlerThread("MCVRTest:MediaCodecQueueingThread");
+                          return queueingThread;
+                        }))
+                .setMediaCodecSelector(mediaCodecSelector)
+                .setAllowedJoiningTimeMs(0)
+                .setEnableDecoderFallback(false)
+                .setEventHandler(new Handler(testMainLooper))
+                .setEventListener(eventListener)
+                .setMaxDroppedFramesToNotify(1)) {
           @Override
           protected @Capabilities int supportsFormat(
               MediaCodecSelector mediaCodecSelector, Format format) {
@@ -1336,13 +1338,13 @@ public class MediaCodecVideoRendererTest {
           }
         };
     MediaCodecVideoRenderer renderer =
-        new MediaCodecVideoRenderer(
-            ApplicationProvider.getApplicationContext(),
-            mediaCodecSelector,
-            /* allowedJoiningTimeMs= */ 0,
-            /* eventHandler= */ new Handler(testMainLooper),
-            /* eventListener= */ eventListener,
-            /* maxDroppedFramesToNotify= */ 1);
+        new MediaCodecVideoRenderer.Builder(ApplicationProvider.getApplicationContext())
+            .setMediaCodecSelector(mediaCodecSelector)
+            .setAllowedJoiningTimeMs(0)
+            .setEventHandler(new Handler(testMainLooper))
+            .setEventListener(eventListener)
+            .setMaxDroppedFramesToNotify(1)
+            .build();
     renderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
 
     @Capabilities
@@ -1421,13 +1423,13 @@ public class MediaCodecVideoRendererTest {
           }
         };
     MediaCodecVideoRenderer renderer =
-        new MediaCodecVideoRenderer(
-            ApplicationProvider.getApplicationContext(),
-            mediaCodecSelector,
-            /* allowedJoiningTimeMs= */ 0,
-            /* eventHandler= */ new Handler(testMainLooper),
-            /* eventListener= */ eventListener,
-            /* maxDroppedFramesToNotify= */ 1);
+        new MediaCodecVideoRenderer.Builder(ApplicationProvider.getApplicationContext())
+            .setMediaCodecSelector(mediaCodecSelector)
+            .setAllowedJoiningTimeMs(0)
+            .setEventHandler(new Handler(testMainLooper))
+            .setEventListener(eventListener)
+            .setMaxDroppedFramesToNotify(1)
+            .build();
     renderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
 
     @Capabilities int capabilitiesDvheDtr = renderer.supportsFormat(formatDvheDtr);
@@ -1481,13 +1483,13 @@ public class MediaCodecVideoRendererTest {
               H264_PROFILE8_LEVEL4_HW_MEDIA_CODEC_INFO, H264_PROFILE8_LEVEL5_SW_MEDIA_CODEC_INFO);
         };
     MediaCodecVideoRenderer renderer =
-        new MediaCodecVideoRenderer(
-            ApplicationProvider.getApplicationContext(),
-            mediaCodecSelector,
-            /* allowedJoiningTimeMs= */ 0,
-            /* eventHandler= */ new Handler(testMainLooper),
-            /* eventListener= */ eventListener,
-            /* maxDroppedFramesToNotify= */ 1);
+        new MediaCodecVideoRenderer.Builder(ApplicationProvider.getApplicationContext())
+            .setMediaCodecSelector(mediaCodecSelector)
+            .setAllowedJoiningTimeMs(0)
+            .setEventHandler(new Handler(testMainLooper))
+            .setEventListener(eventListener)
+            .setMaxDroppedFramesToNotify(1)
+            .build();
     renderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
 
     List<MediaCodecInfo> mediaCodecInfoList =
@@ -1524,13 +1526,13 @@ public class MediaCodecVideoRendererTest {
               H264_PROFILE8_LEVEL5_SW_MEDIA_CODEC_INFO, H264_PROFILE8_LEVEL4_HW_MEDIA_CODEC_INFO);
         };
     MediaCodecVideoRenderer renderer =
-        new MediaCodecVideoRenderer(
-            ApplicationProvider.getApplicationContext(),
-            mediaCodecSelector,
-            /* allowedJoiningTimeMs= */ 0,
-            /* eventHandler= */ new Handler(testMainLooper),
-            /* eventListener= */ eventListener,
-            /* maxDroppedFramesToNotify= */ 1);
+        new MediaCodecVideoRenderer.Builder(ApplicationProvider.getApplicationContext())
+            .setMediaCodecSelector(mediaCodecSelector)
+            .setAllowedJoiningTimeMs(0)
+            .setEventHandler(new Handler(testMainLooper))
+            .setEventListener(eventListener)
+            .setMaxDroppedFramesToNotify(1)
+            .build();
     renderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
 
     List<MediaCodecInfo> mediaCodecInfoList =
@@ -1607,6 +1609,15 @@ public class MediaCodecVideoRendererTest {
     mediaCodecVideoRenderer.handleMessage(Renderer.MSG_SET_VIDEO_OUTPUT, newSurface);
 
     assertThat(surfacesSet).containsExactly(newSurface);
+  }
+
+  @Test
+  public void build_calledTwice_throwsIllegalStateException() throws Exception {
+    MediaCodecVideoRenderer.Builder mediaCodecVideoRendererBuilder =
+        new MediaCodecVideoRenderer.Builder(ApplicationProvider.getApplicationContext());
+    mediaCodecVideoRendererBuilder.build();
+
+    assertThrows(IllegalStateException.class, mediaCodecVideoRendererBuilder::build);
   }
 
   private void maybeIdleAsynchronousMediaCodecAdapterThreads() {

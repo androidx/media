@@ -205,14 +205,14 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
         @Nullable VideoRendererEventListener eventListener,
         int maxDroppedFramesToNotify) {
       super(
-          context,
-          codecAdapterFactory,
-          mediaCodecSelector,
-          allowedJoiningTimeMs,
-          enableDecoderFallback,
-          eventHandler,
-          eventListener,
-          maxDroppedFramesToNotify);
+          new Builder(context)
+              .setCodecAdapterFactory(codecAdapterFactory)
+              .setMediaCodecSelector(mediaCodecSelector)
+              .setAllowedJoiningTimeMs(allowedJoiningTimeMs)
+              .setEnableDecoderFallback(enableDecoderFallback)
+              .setEventHandler(eventHandler)
+              .setEventListener(eventListener)
+              .setMaxDroppedFramesToNotify(maxDroppedFramesToNotify));
     }
 
     @Override

@@ -640,12 +640,12 @@ public final class ExperimentalFrameExtractor {
         VideoRendererEventListener videoRendererEventListener,
         boolean toneMapHdrToSdr) {
       super(
-          context,
-          mediaCodecSelector,
-          /* allowedJoiningTimeMs= */ 0,
-          Util.createHandlerForCurrentOrMainLooper(),
-          videoRendererEventListener,
-          /* maxDroppedFramesToNotify= */ 0);
+          new Builder(context)
+              .setMediaCodecSelector(mediaCodecSelector)
+              .setAllowedJoiningTimeMs(0)
+              .setEventHandler(Util.createHandlerForCurrentOrMainLooper())
+              .setEventListener(videoRendererEventListener)
+              .setMaxDroppedFramesToNotify(0));
       this.toneMapHdrToSdr = toneMapHdrToSdr;
       effectsFromPlayer = ImmutableList.of();
     }

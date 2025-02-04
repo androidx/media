@@ -367,15 +367,15 @@ public class DefaultRenderersFactory implements RenderersFactory {
       long allowedVideoJoiningTimeMs,
       ArrayList<Renderer> out) {
     MediaCodecVideoRenderer videoRenderer =
-        new MediaCodecVideoRenderer(
-            context,
-            getCodecAdapterFactory(),
-            mediaCodecSelector,
-            allowedVideoJoiningTimeMs,
-            enableDecoderFallback,
-            eventHandler,
-            eventListener,
-            MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY);
+        new MediaCodecVideoRenderer.Builder(context)
+            .setCodecAdapterFactory(getCodecAdapterFactory())
+            .setMediaCodecSelector(mediaCodecSelector)
+            .setAllowedJoiningTimeMs(allowedVideoJoiningTimeMs)
+            .setEnableDecoderFallback(enableDecoderFallback)
+            .setEventHandler(eventHandler)
+            .setEventListener(eventListener)
+            .setMaxDroppedFramesToNotify(MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY)
+            .build();
     out.add(videoRenderer);
 
     if (extensionRendererMode == EXTENSION_RENDERER_MODE_OFF) {
@@ -770,15 +770,15 @@ public class DefaultRenderersFactory implements RenderersFactory {
       long allowedVideoJoiningTimeMs) {
     if (enableMediaCodecVideoRendererPrewarming
         && renderer.getClass() == MediaCodecVideoRenderer.class) {
-      return new MediaCodecVideoRenderer(
-          context,
-          getCodecAdapterFactory(),
-          mediaCodecSelector,
-          allowedVideoJoiningTimeMs,
-          enableDecoderFallback,
-          eventHandler,
-          eventListener,
-          MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY);
+      return new MediaCodecVideoRenderer.Builder(context)
+          .setCodecAdapterFactory(getCodecAdapterFactory())
+          .setMediaCodecSelector(mediaCodecSelector)
+          .setAllowedJoiningTimeMs(allowedVideoJoiningTimeMs)
+          .setEnableDecoderFallback(enableDecoderFallback)
+          .setEventHandler(eventHandler)
+          .setEventListener(eventListener)
+          .setMaxDroppedFramesToNotify(MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY)
+          .build();
     }
     return null;
   }
