@@ -21,10 +21,10 @@ track 256:
       lumaBitdepth = 8
       chromaBitdepth = 8
     initializationData:
-      data = length 29, hash 4C2CAE9C
+      data = length 28, hash 2750DE4
       data = length 9, hash D971CD89
   sample 0:
     time = 100100
     flags = 0
-    data = length 254, hash 36EBDA1
+    data = length 255, hash 66DC6D3F
 tracksEnded = true
