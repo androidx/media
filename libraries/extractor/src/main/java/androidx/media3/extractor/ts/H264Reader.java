@@ -140,6 +140,7 @@ public final class H264Reader implements ElementaryStreamReader {
 
     // Scan the appended data, processing NAL units as they are encountered
     while (true) {
+      int prefixSize = 3;
       int nalUnitOffset = NalUnitUtil.findNalUnit(dataArray, offset, limit, prefixFlags);
 
       if (nalUnitOffset == limit) {
@@ -150,6 +151,13 @@ public final class H264Reader implements ElementaryStreamReader {
 
       // We've seen the start of a NAL unit of the following type.
       int nalUnitType = NalUnitUtil.getNalUnitType(dataArray, nalUnitOffset);
+
+      // Case of a 4 byte start code prefix 0x00000001, recoil NAL unit offset by one byte
+      // to avoid previous byte being assigned to the previous access unit.
+      if (nalUnitOffset > 0 && dataArray[nalUnitOffset - 1] == 0x00) {
+        nalUnitOffset--;
+        prefixSize = 4;
+      }
 
       // This is the number of bytes from the current offset to the start of the next NAL unit.
       // It may be negative if the NAL unit started in the previously consumed data.
@@ -170,7 +178,7 @@ public final class H264Reader implements ElementaryStreamReader {
       // Indicate the start of the next NAL unit.
       startNalUnit(absolutePosition, nalUnitType, pesTimeUs);
       // Continue scanning the data.
-      offset = nalUnitOffset + 3;
+      offset = nalUnitOffset + prefixSize;
     }
   }
 
@@ -528,7 +536,7 @@ public final class H264Reader implements ElementaryStreamReader {
     }
 
     private void outputSample(int offset) {
-      if (sampleTimeUs == C.TIME_UNSET) {
+      if (sampleTimeUs == C.TIME_UNSET || nalUnitStartPosition == samplePosition) {
         return;
       }
       @C.BufferFlags int flags = sampleIsKeyframe ? C.BUFFER_FLAG_KEY_FRAME : 0;
