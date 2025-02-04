@@ -847,13 +847,14 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
 
   private static boolean deviceNeedsDefaultFrameRateWorkaround() {
     // Redmi Note 9 Pro fails if KEY_FRAME_RATE is set too high (see b/278076311).
-    return SDK_INT < 30 && Util.DEVICE.equals("joyeuse");
+    return SDK_INT < 30 && Build.DEVICE.equals("joyeuse");
   }
 
   private static boolean deviceNeedsNoH264HighProfileWorkaround() {
     // The H.264/AVC encoder produces B-frames when high profile is chosen despite configuration to
     // turn them off, so force not using high profile on these devices (see b/306617392).
     // TODO(b/229420356): Remove once the in-app muxer is the default and B-frames are supported.
-    return Util.SDK_INT == 27 && (Util.DEVICE.equals("ASUS_X00T_3") || Util.DEVICE.equals("TC77"));
+    return Util.SDK_INT == 27
+        && (Build.DEVICE.equals("ASUS_X00T_3") || Build.DEVICE.equals("TC77"));
   }
 }

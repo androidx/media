@@ -387,7 +387,7 @@ public final class AudioCapabilities {
 
     // Workaround for Nexus Player not reporting support for mono passthrough. See
     // [Internal: b/34268671].
-    if (Util.SDK_INT <= 26 && "fugu".equals(Util.DEVICE) && channelCount == 1) {
+    if (Util.SDK_INT <= 26 && "fugu".equals(Build.DEVICE) && channelCount == 1) {
       channelCount = 2;
     }
 

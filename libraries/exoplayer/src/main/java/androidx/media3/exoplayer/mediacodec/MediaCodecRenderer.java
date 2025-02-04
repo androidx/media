@@ -39,6 +39,7 @@ import android.media.MediaCrypto;
 import android.media.MediaCryptoException;
 import android.media.MediaFormat;
 import android.media.metrics.LogSessionId;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.SystemClock;
 import androidx.annotation.CallSuper;
@@ -2567,10 +2568,10 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
       return ADAPTATION_WORKAROUND_MODE_ALWAYS;
     } else if (Util.SDK_INT < 24
         && ("OMX.Nvidia.h264.decode".equals(name) || "OMX.Nvidia.h264.decode.secure".equals(name))
-        && ("flounder".equals(Util.DEVICE)
-            || "flounder_lte".equals(Util.DEVICE)
-            || "grouper".equals(Util.DEVICE)
-            || "tilapia".equals(Util.DEVICE))) {
+        && ("flounder".equals(Build.DEVICE)
+            || "flounder_lte".equals(Build.DEVICE)
+            || "grouper".equals(Build.DEVICE)
+            || "tilapia".equals(Build.DEVICE))) {
       return ADAPTATION_WORKAROUND_MODE_SAME_RESOLUTION;
     } else {
       return ADAPTATION_WORKAROUND_MODE_NEVER;

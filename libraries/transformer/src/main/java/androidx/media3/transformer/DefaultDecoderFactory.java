@@ -453,7 +453,7 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
 
   private static boolean deviceNeedsNoFrameRateWorkaround() {
     // Redmi Note 9 Pro fails if KEY_FRAME_RATE is set too high (see b/278076311).
-    return SDK_INT < 30 && Util.DEVICE.equals("joyeuse");
+    return SDK_INT < 30 && Build.DEVICE.equals("joyeuse");
   }
 
   private static boolean decoderSupportsKeyAllowFrameDrop(Context context) {

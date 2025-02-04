@@ -37,6 +37,7 @@ import android.media.MediaCodecInfo.AudioCapabilities;
 import android.media.MediaCodecInfo.CodecCapabilities;
 import android.media.MediaCodecInfo.CodecProfileLevel;
 import android.media.MediaCodecInfo.VideoCapabilities;
+import android.os.Build;
 import android.util.Pair;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
@@ -831,7 +832,7 @@ public final class MediaCodecInfo {
    * @return Whether to enable the workaround.
    */
   private static boolean needsRotatedVerticalResolutionWorkaround(String name) {
-    if ("OMX.MTK.VIDEO.DECODER.HEVC".equals(name) && "mcv5a".equals(Util.DEVICE)) {
+    if ("OMX.MTK.VIDEO.DECODER.HEVC".equals(name) && "mcv5a".equals(Build.DEVICE)) {
       // See https://github.com/google/ExoPlayer/issues/6612.
       return false;
     }
@@ -846,6 +847,6 @@ public final class MediaCodecInfo {
     // See https://github.com/google/ExoPlayer/issues/3537
     return MimeTypes.VIDEO_H265.equals(mimeType)
         && CodecProfileLevel.HEVCProfileMain10 == profile
-        && ("sailfish".equals(Util.DEVICE) || "marlin".equals(Util.DEVICE));
+        && ("sailfish".equals(Build.DEVICE) || "marlin".equals(Build.DEVICE));
   }
 }

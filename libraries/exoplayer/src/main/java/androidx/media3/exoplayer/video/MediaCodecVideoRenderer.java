@@ -36,6 +36,7 @@ import android.media.MediaCodecInfo.CodecCapabilities;
 import android.media.MediaCodecInfo.CodecProfileLevel;
 import android.media.MediaCrypto;
 import android.media.MediaFormat;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
@@ -2371,7 +2372,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       // https://github.com/google/ExoPlayer/issues/8014.
       // https://github.com/google/ExoPlayer/issues/8329.
       // https://github.com/google/ExoPlayer/issues/9710.
-      switch (Util.DEVICE) {
+      switch (Build.DEVICE) {
         case "aquaman":
         case "dangal":
         case "dangalUHD":
@@ -2385,7 +2386,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
           break; // Do nothing.
       }
     }
-    if (Util.SDK_INT <= 27 && "HWEML".equals(Util.DEVICE)) {
+    if (Util.SDK_INT <= 27 && "HWEML".equals(Build.DEVICE)) {
       // Workaround for Huawei P20:
       // https://github.com/google/ExoPlayer/issues/4468#issuecomment-459291645.
       return true;
@@ -2425,7 +2426,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       // https://github.com/google/ExoPlayer/issues/6503.
       // https://github.com/google/ExoPlayer/issues/8014,
       // https://github.com/google/ExoPlayer/pull/8030.
-      switch (Util.DEVICE) {
+      switch (Build.DEVICE) {
         case "1601":
         case "1713":
         case "1714":

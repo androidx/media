@@ -42,6 +42,7 @@ import static org.junit.Assume.assumeTrue;
 import android.content.Context;
 import android.media.MediaFormat;
 import android.net.Uri;
+import android.os.Build;
 import android.util.Pair;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
@@ -180,7 +181,7 @@ public class ExportTest {
             .setEncoderFactory(new ForceEncodeEncoderFactory(context))
             .build();
     MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_4K60_PORTRAIT.uri));
-    boolean skipCalculateSsim = Util.SDK_INT < 30 && Util.DEVICE.equals("joyeuse");
+    boolean skipCalculateSsim = Util.SDK_INT < 30 && Build.DEVICE.equals("joyeuse");
 
     ExportTestResult result =
         new TransformerAndroidTestRunner.Builder(context, transformer)

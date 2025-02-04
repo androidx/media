@@ -160,12 +160,9 @@ public final class Util {
   @UnstableApi public static final int SDK_INT = Build.VERSION.SDK_INT;
 
   /**
-   * Like {@link Build#DEVICE}, but in a place where it can be conveniently overridden for local
-   * testing.
+   * @deprecated Use {@link Build#DEVICE} instead.
    */
-  // TODO: b/384699964 - Deprecate this and migrate usages to Build.DEVICE which works better with
-  //  Robolectric's ShadowBuild.setDevice().
-  @UnstableApi public static final String DEVICE = Build.DEVICE;
+  @UnstableApi @Deprecated public static final String DEVICE = Build.DEVICE;
 
   /**
    * Like {@link Build#MANUFACTURER}, but in a place where it can be conveniently overridden for
@@ -186,7 +183,7 @@ public final class Util {
   /** A concise description of the device that it can be useful to log for debugging purposes. */
   @UnstableApi
   public static final String DEVICE_DEBUG_INFO =
-      DEVICE + ", " + MODEL + ", " + MANUFACTURER + ", " + SDK_INT;
+      Build.DEVICE + ", " + MODEL + ", " + MANUFACTURER + ", " + SDK_INT;
 
   /** An empty byte array. */
   @UnstableApi public static final byte[] EMPTY_BYTE_ARRAY = new byte[0];
@@ -482,7 +479,7 @@ public final class Util {
   /** Returns true if the code path is currently running on an emulator. */
   @UnstableApi
   public static boolean isRunningOnEmulator() {
-    String deviceName = Ascii.toLowerCase(Util.DEVICE);
+    String deviceName = Ascii.toLowerCase(Build.DEVICE);
     return deviceName.contains("emulator")
         || deviceName.contains("emu64a")
         || deviceName.contains("emu64x")

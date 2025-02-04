@@ -28,6 +28,7 @@ import android.media.AudioFormat;
 import android.media.MediaCodec;
 import android.media.MediaCrypto;
 import android.media.MediaFormat;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import androidx.annotation.CallSuper;
@@ -1072,9 +1073,9 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
     return Util.SDK_INT < 24
         && "OMX.SEC.aac.dec".equals(codecName)
         && "samsung".equals(Util.MANUFACTURER)
-        && (Util.DEVICE.startsWith("zeroflte")
-            || Util.DEVICE.startsWith("herolte")
-            || Util.DEVICE.startsWith("heroqlte"));
+        && (Build.DEVICE.startsWith("zeroflte")
+            || Build.DEVICE.startsWith("herolte")
+            || Build.DEVICE.startsWith("heroqlte"));
   }
 
   /**

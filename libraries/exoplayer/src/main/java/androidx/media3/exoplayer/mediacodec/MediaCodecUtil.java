@@ -22,6 +22,7 @@ import android.annotation.SuppressLint;
 import android.media.MediaCodecInfo.CodecCapabilities;
 import android.media.MediaCodecInfo.CodecProfileLevel;
 import android.media.MediaCodecList;
+import android.os.Build;
 import android.text.TextUtils;
 import android.util.Pair;
 import androidx.annotation.CheckResult;
@@ -559,14 +560,14 @@ public final class MediaCodecUtil {
     if (Util.SDK_INT < 24
         && ("OMX.SEC.aac.dec".equals(name) || "OMX.Exynos.AAC.Decoder".equals(name))
         && "samsung".equals(Util.MANUFACTURER)
-        && (Util.DEVICE.startsWith("zeroflte") // Galaxy S6
-            || Util.DEVICE.startsWith("zerolte") // Galaxy S6 Edge
-            || Util.DEVICE.startsWith("zenlte") // Galaxy S6 Edge+
-            || "SC-05G".equals(Util.DEVICE) // Galaxy S6
-            || "marinelteatt".equals(Util.DEVICE) // Galaxy S6 Active
-            || "404SC".equals(Util.DEVICE) // Galaxy S6 Edge
-            || "SC-04G".equals(Util.DEVICE)
-            || "SCV31".equals(Util.DEVICE))) {
+        && (Build.DEVICE.startsWith("zeroflte") // Galaxy S6
+            || Build.DEVICE.startsWith("zerolte") // Galaxy S6 Edge
+            || Build.DEVICE.startsWith("zenlte") // Galaxy S6 Edge+
+            || "SC-05G".equals(Build.DEVICE) // Galaxy S6
+            || "marinelteatt".equals(Build.DEVICE) // Galaxy S6 Active
+            || "404SC".equals(Build.DEVICE) // Galaxy S6 Edge
+            || "SC-04G".equals(Build.DEVICE)
+            || "SCV31".equals(Build.DEVICE))) {
       return false;
     }
 
@@ -590,7 +591,7 @@ public final class MediaCodecUtil {
   private static void applyWorkarounds(String mimeType, List<MediaCodecInfo> decoderInfos) {
     if (MimeTypes.AUDIO_RAW.equals(mimeType)) {
       if (Util.SDK_INT < 26
-          && Util.DEVICE.equals("R9")
+          && Build.DEVICE.equals("R9")
           && decoderInfos.size() == 1
           && decoderInfos.get(0).name.equals("OMX.MTK.AUDIO.DECODER.RAW")) {
         // This device does not list a generic raw audio decoder, yet it can be instantiated by
