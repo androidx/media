@@ -97,6 +97,12 @@ public class DefaultRenderersFactory implements RenderersFactory {
    */
   public static final int MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY = 50;
 
+  /**
+   * The minimum number of consecutive video frames that would be dropped to
+   * consider invoking {@link VideoRendererEventListener#onConsecutiveDroppedFrames(int, long)}.
+   */
+  public static final int MIN_CONSECUTIVE_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY = 5;
+
   private static final String TAG = "DefaultRenderersFactory";
 
   private final Context context;
@@ -375,7 +381,8 @@ public class DefaultRenderersFactory implements RenderersFactory {
             enableDecoderFallback,
             eventHandler,
             eventListener,
-            MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY);
+            MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY,
+            MIN_CONSECUTIVE_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY);
     out.add(videoRenderer);
 
     if (extensionRendererMode == EXTENSION_RENDERER_MODE_OFF) {
@@ -394,6 +401,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
               long.class,
               android.os.Handler.class,
               androidx.media3.exoplayer.video.VideoRendererEventListener.class,
+              int.class,
               int.class);
       Renderer renderer =
           (Renderer)
@@ -401,7 +409,8 @@ public class DefaultRenderersFactory implements RenderersFactory {
                   allowedVideoJoiningTimeMs,
                   eventHandler,
                   eventListener,
-                  MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY);
+                  MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY,
+                  MIN_CONSECUTIVE_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY);
       out.add(extensionRendererIndex++, renderer);
       Log.i(TAG, "Loaded LibvpxVideoRenderer.");
     } catch (ClassNotFoundException e) {
@@ -419,6 +428,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
               long.class,
               android.os.Handler.class,
               androidx.media3.exoplayer.video.VideoRendererEventListener.class,
+              int.class,
               int.class);
       Renderer renderer =
           (Renderer)
@@ -426,7 +436,8 @@ public class DefaultRenderersFactory implements RenderersFactory {
                   allowedVideoJoiningTimeMs,
                   eventHandler,
                   eventListener,
-                  MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY);
+                  MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY,
+                  MIN_CONSECUTIVE_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY);
       out.add(extensionRendererIndex++, renderer);
       Log.i(TAG, "Loaded Libgav1VideoRenderer.");
     } catch (ClassNotFoundException e) {
@@ -445,6 +456,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
               long.class,
               android.os.Handler.class,
               androidx.media3.exoplayer.video.VideoRendererEventListener.class,
+              int.class,
               int.class);
       Renderer renderer =
           (Renderer)
@@ -452,7 +464,8 @@ public class DefaultRenderersFactory implements RenderersFactory {
                   allowedVideoJoiningTimeMs,
                   eventHandler,
                   eventListener,
-                  MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY);
+                  MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY,
+                  MIN_CONSECUTIVE_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY);
       out.add(extensionRendererIndex++, renderer);
       Log.i(TAG, "Loaded FfmpegVideoRenderer.");
     } catch (ClassNotFoundException e) {

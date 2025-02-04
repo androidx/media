@@ -82,7 +82,8 @@ public final class DecoderVideoRendererTest {
             /* allowedJoiningTimeMs= */ 0,
             new Handler(),
             eventListener,
-            /* maxDroppedFramesToNotify= */ -1) {
+            /* maxDroppedFramesToNotify= */ -1,
+            /* minConsecutiveDroppedFramesToNotify= */ -1) {
 
           private final Phaser inputBuffersInCodecPhaser = new Phaser();
           private @C.VideoOutputMode int outputMode;

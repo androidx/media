@@ -645,7 +645,8 @@ public final class ExperimentalFrameExtractor {
           /* allowedJoiningTimeMs= */ 0,
           Util.createHandlerForCurrentOrMainLooper(),
           videoRendererEventListener,
-          /* maxDroppedFramesToNotify= */ 0);
+          /* maxDroppedFramesToNotify= */ 0,
+          /* minConsecutiveDroppedFramesToNotify= */ 0);
       this.toneMapHdrToSdr = toneMapHdrToSdr;
       effectsFromPlayer = ImmutableList.of();
     }
