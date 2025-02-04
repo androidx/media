@@ -1072,7 +1072,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
     // The workaround applies to Samsung Galaxy S6 and Samsung Galaxy S7.
     return Util.SDK_INT < 24
         && "OMX.SEC.aac.dec".equals(codecName)
-        && "samsung".equals(Util.MANUFACTURER)
+        && "samsung".equals(Build.MANUFACTURER)
         && (Build.DEVICE.startsWith("zeroflte")
             || Build.DEVICE.startsWith("herolte")
             || Build.DEVICE.startsWith("heroqlte"));

@@ -2617,7 +2617,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
                 || "OMX.bcm.vdec.avc.tunnel.secure".equals(name)
                 || "OMX.bcm.vdec.hevc.tunnel".equals(name)
                 || "OMX.bcm.vdec.hevc.tunnel.secure".equals(name)))
-        || ("Amazon".equals(Util.MANUFACTURER) && "AFTS".equals(Util.MODEL) && codecInfo.secure);
+        || ("Amazon".equals(Build.MANUFACTURER) && "AFTS".equals(Util.MODEL) && codecInfo.secure);
   }
 
   /**

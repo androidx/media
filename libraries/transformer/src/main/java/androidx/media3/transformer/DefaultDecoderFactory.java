@@ -427,7 +427,7 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
 
   private static boolean deviceNeedsDisableToneMappingWorkaround(
       @C.ColorTransfer int colorTransfer) {
-    if (Util.MANUFACTURER.equals("Google") && Build.ID.startsWith("TP1A")) {
+    if (Build.MANUFACTURER.equals("Google") && Build.ID.startsWith("TP1A")) {
       // Some Pixel 6 builds report support for tone mapping but the feature doesn't work
       // (see b/249297370#comment8).
       return true;

@@ -559,7 +559,7 @@ public final class MediaCodecUtil {
     // Work around https://github.com/google/ExoPlayer/issues/3249.
     if (Util.SDK_INT < 24
         && ("OMX.SEC.aac.dec".equals(name) || "OMX.Exynos.AAC.Decoder".equals(name))
-        && "samsung".equals(Util.MANUFACTURER)
+        && "samsung".equals(Build.MANUFACTURER)
         && (Build.DEVICE.startsWith("zeroflte") // Galaxy S6
             || Build.DEVICE.startsWith("zerolte") // Galaxy S6 Edge
             || Build.DEVICE.startsWith("zenlte") // Galaxy S6 Edge+

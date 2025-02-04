@@ -33,6 +33,7 @@ import android.opengl.GLES20;
 import android.opengl.GLES30;
 import android.opengl.GLUtils;
 import android.opengl.Matrix;
+import android.os.Build;
 import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
@@ -170,7 +171,8 @@ public final class GlUtil {
     if (Util.SDK_INT < 24) {
       return false;
     }
-    if (Util.SDK_INT < 26 && ("samsung".equals(Util.MANUFACTURER) || "XT1650".equals(Util.MODEL))) {
+    if (Util.SDK_INT < 26
+        && ("samsung".equals(Build.MANUFACTURER) || "XT1650".equals(Util.MODEL))) {
       // Samsung devices running Nougat are known to be broken. See
       // https://github.com/google/ExoPlayer/issues/3373 and [Internal: b/37197802].
       // Moto Z XT1650 is also affected. See

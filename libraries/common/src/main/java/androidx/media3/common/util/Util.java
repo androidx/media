@@ -165,12 +165,9 @@ public final class Util {
   @UnstableApi @Deprecated public static final String DEVICE = Build.DEVICE;
 
   /**
-   * Like {@link Build#MANUFACTURER}, but in a place where it can be conveniently overridden for
-   * local testing.
+   * @deprecated Use {@link Build#MANUFACTURER} instead.
    */
-  // TODO: b/384699964 - Deprecate this and migrate usages to Build.MANUFACTURER which works better
-  //  with Robolectric's ShadowBuild.setManufacturer().
-  @UnstableApi public static final String MANUFACTURER = Build.MANUFACTURER;
+  @UnstableApi @Deprecated public static final String MANUFACTURER = Build.MANUFACTURER;
 
   /**
    * Like {@link Build#MODEL}, but in a place where it can be conveniently overridden for local
@@ -183,7 +180,7 @@ public final class Util {
   /** A concise description of the device that it can be useful to log for debugging purposes. */
   @UnstableApi
   public static final String DEVICE_DEBUG_INFO =
-      Build.DEVICE + ", " + MODEL + ", " + MANUFACTURER + ", " + SDK_INT;
+      Build.DEVICE + ", " + MODEL + ", " + Build.MANUFACTURER + ", " + SDK_INT;
 
   /** An empty byte array. */
   @UnstableApi public static final byte[] EMPTY_BYTE_ARRAY = new byte[0];
@@ -3242,7 +3239,7 @@ public final class Util {
       }
 
       // Sony Android TVs advertise support for 4k output via a system feature.
-      if ("Sony".equals(MANUFACTURER)
+      if ("Sony".equals(Build.MANUFACTURER)
           && MODEL.startsWith("BRAVIA")
           && context.getPackageManager().hasSystemFeature("com.sony.dtv.hardware.panel.qfhd")) {
         return new Point(3840, 2160);

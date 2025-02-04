@@ -26,6 +26,7 @@ import android.media.MediaDrmException;
 import android.media.NotProvisionedException;
 import android.media.UnsupportedSchemeException;
 import android.media.metrics.LogSessionId;
+import android.os.Build;
 import android.os.PersistableBundle;
 import android.text.TextUtils;
 import androidx.annotation.Nullable;
@@ -499,7 +500,7 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
     // Some Amazon devices also require data to be extracted from the PSSH atom for PlayReady.
     if ((Util.SDK_INT < 23 && C.WIDEVINE_UUID.equals(uuid))
         || (C.PLAYREADY_UUID.equals(uuid)
-            && "Amazon".equals(Util.MANUFACTURER)
+            && "Amazon".equals(Build.MANUFACTURER)
             && ("AFTB".equals(Util.MODEL) // Fire TV Gen 1
                 || "AFTS".equals(Util.MODEL) // Fire TV Gen 2
                 || "AFTM".equals(Util.MODEL) // Fire TV Stick Gen 1

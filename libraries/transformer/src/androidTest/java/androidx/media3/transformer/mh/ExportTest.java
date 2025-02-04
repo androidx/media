@@ -381,7 +381,7 @@ public class ExportTest {
   public void exportTranscodeBt2020Sdr() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
     // Reference: b/262732842#comment51
-    if (SDK_INT <= 27 && Util.MANUFACTURER.equals("samsung")) {
+    if (SDK_INT <= 27 && Build.MANUFACTURER.equals("samsung")) {
       String reason = "Some older Samsung encoders report a non-specified error code";
       recordTestSkipped(context, testId, reason);
       throw new AssumptionViolatedException(reason);

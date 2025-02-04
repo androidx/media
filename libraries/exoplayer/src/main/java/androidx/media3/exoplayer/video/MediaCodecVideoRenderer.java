@@ -1265,7 +1265,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
             getMaxSampleSize(/* pixelCount= */ width * height, /* minCompressionRatio= */ 2));
       case MimeTypes.VIDEO_H264:
         if ("BRAVIA 4K 2015".equals(Util.MODEL) // Sony Bravia 4K
-            || ("Amazon".equals(Util.MANUFACTURER)
+            || ("Amazon".equals(Build.MANUFACTURER)
                 && ("KFSOWI".equals(Util.MODEL) // Kindle Soho
                     || ("AFTS".equals(Util.MODEL) && codecInfo.secure)))) { // Fire TV Gen 2
           // Use the default value for cases where platform limitations may prevent buffers of the
@@ -2294,7 +2294,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     // also lose sync [Internal: b/26453592]. Even after M, the devices may apply post processing
     // operations that can modify frame output timestamps, which is incompatible with ExoPlayer's
     // logic for skipping decode-only frames.
-    return "NVIDIA".equals(Util.MANUFACTURER);
+    return "NVIDIA".equals(Build.MANUFACTURER);
   }
 
   /*
