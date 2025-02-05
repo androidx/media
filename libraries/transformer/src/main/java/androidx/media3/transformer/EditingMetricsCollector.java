@@ -32,6 +32,7 @@ import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.SystemClock;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
@@ -269,6 +270,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         }
         if (videoFormat.sampleMimeType != null) {
           mediaItemInfoBuilder.addSampleMimeType(videoFormat.sampleMimeType);
+          mediaItemInfoBuilder.addDataType(getDataTypes(videoFormat.sampleMimeType));
         }
         if (videoFormat.frameRate != Format.NO_VALUE) {
           mediaItemInfoBuilder.setVideoFrameRate(videoFormat.frameRate);
@@ -290,6 +292,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       if (audioFormat != null) {
         if (audioFormat.sampleMimeType != null) {
           mediaItemInfoBuilder.addSampleMimeType(audioFormat.sampleMimeType);
+          mediaItemInfoBuilder.addDataType(getDataTypes(audioFormat.sampleMimeType));
         }
         if (audioFormat.channelCount != Format.NO_VALUE) {
           mediaItemInfoBuilder.setAudioChannelCount(audioFormat.channelCount);
@@ -310,9 +313,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
     if (exportResult.audioMimeType != null) {
       mediaItemInfoBuilder.addSampleMimeType(exportResult.audioMimeType);
+      mediaItemInfoBuilder.addDataType(getDataTypes(exportResult.audioMimeType));
     }
     if (exportResult.videoMimeType != null) {
       mediaItemInfoBuilder.addSampleMimeType(exportResult.videoMimeType);
+      mediaItemInfoBuilder.addDataType(getDataTypes(exportResult.videoMimeType));
     }
     if (exportResult.channelCount != C.LENGTH_UNSET) {
       mediaItemInfoBuilder.setAudioChannelCount(exportResult.channelCount);
@@ -340,6 +345,20 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       mediaItemInfoBuilder.setVideoDataSpace(getVideoDataSpace(exportResult.colorInfo));
     }
     return mediaItemInfoBuilder.build();
+  }
+
+  private static long getDataTypes(@Nullable String sampleMimeType) {
+    long dataTypes = 0L;
+    if (MimeTypes.isAudio(sampleMimeType)) {
+      dataTypes |= MediaItemInfo.DATA_TYPE_AUDIO;
+    }
+    if (MimeTypes.isVideo(sampleMimeType)) {
+      dataTypes |= MediaItemInfo.DATA_TYPE_VIDEO;
+    }
+    if (MimeTypes.isImage(sampleMimeType)) {
+      dataTypes |= MediaItemInfo.DATA_TYPE_IMAGE;
+    }
+    return dataTypes;
   }
 
   private static int getVideoDataSpace(ColorInfo colorInfo) {
