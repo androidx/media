@@ -19,6 +19,9 @@
         protected so that applications can override to block usage of
         placeholder surfaces
         ([#1905](https://github.com/androidx/media/pull/1905)).
+    *   Add experimental `ExoPlayer` AV1 sample dependency parsing to speed up
+        seeking. Enable it with the new
+        `DefaultRenderersFactory.experimentalSetParseAv1SampleDependencies` API.
 *   Text:
 *   Metadata:
 *   Image:

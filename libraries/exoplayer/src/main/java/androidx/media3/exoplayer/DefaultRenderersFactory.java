@@ -25,6 +25,7 @@ import android.os.Looper;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.audio.AudioRendererEventListener;
@@ -108,6 +109,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
   private boolean enableFloatOutput;
   private boolean enableAudioTrackPlaybackParams;
   private boolean enableMediaCodecVideoRendererPrewarming;
+  private boolean parseAv1SampleDependencies;
 
   /**
    * @param context A {@link Context}.
@@ -277,6 +279,24 @@ public class DefaultRenderersFactory implements RenderersFactory {
   }
 
   /**
+   * Sets whether {@link MimeTypes#VIDEO_AV1} bitstream parsing for sample dependency information is
+   * enabled. Knowing which input frames are not depended on can speed up seeking and reduce dropped
+   * frames.
+   *
+   * <p>Defaults to {@code false}.
+   *
+   * <p>This method is experimental and will be renamed or removed in a future release.
+   *
+   * @param parseAv1SampleDependencies Whether bitstream parsing is enabled.
+   */
+  @CanIgnoreReturnValue
+  public final DefaultRenderersFactory experimentalSetParseAv1SampleDependencies(
+      boolean parseAv1SampleDependencies) {
+    this.parseAv1SampleDependencies = parseAv1SampleDependencies;
+    return this;
+  }
+
+  /**
    * Sets the maximum duration for which video renderers can attempt to seamlessly join an ongoing
    * playback.
    *
@@ -375,6 +395,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
             .setEventHandler(eventHandler)
             .setEventListener(eventListener)
             .setMaxDroppedFramesToNotify(MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY)
+            .experimentalSetParseAv1SampleDependencies(parseAv1SampleDependencies)
             .build();
     out.add(videoRenderer);
 
@@ -778,6 +799,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
           .setEventHandler(eventHandler)
           .setEventListener(eventListener)
           .setMaxDroppedFramesToNotify(MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY)
+          .experimentalSetParseAv1SampleDependencies(parseAv1SampleDependencies)
           .build();
     }
     return null;

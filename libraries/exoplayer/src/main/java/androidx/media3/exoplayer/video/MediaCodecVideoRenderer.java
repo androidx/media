@@ -157,6 +157,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   private final boolean deviceNeedsNoPostProcessWorkaround;
   private final VideoFrameReleaseControl videoFrameReleaseControl;
   private final VideoFrameReleaseControl.FrameReleaseInfo videoFrameReleaseInfo;
+  @Nullable private final Av1SampleDependencyParser av1SampleDependencyParser;
 
   private @MonotonicNonNull CodecMaxValues codecMaxValues;
   private boolean codecNeedsSetOutputSurfaceWorkaround;
@@ -202,6 +203,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     private int maxDroppedFramesToNotify;
     private float assumedMinimumCodecOperatingRate;
     @Nullable private VideoSink videoSink;
+    private boolean parseAv1SampleDependencies;
 
     /**
      * Creates a new builder.
@@ -307,6 +309,21 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     @CanIgnoreReturnValue
     public Builder setVideoSink(@Nullable VideoSink videoSink) {
       this.videoSink = videoSink;
+      return this;
+    }
+
+    /**
+     * Sets whether {@link MimeTypes#VIDEO_AV1} bitstream parsing for sample dependency information
+     * is enabled. Knowing which input frames are not depended on can speed up seeking and reduce
+     * dropped frames.
+     *
+     * <p>Defaults to {@code false}.
+     *
+     * <p>This method is experimental and will be renamed or removed in a future release.
+     */
+    @CanIgnoreReturnValue
+    public Builder experimentalSetParseAv1SampleDependencies(boolean parseAv1SampleDependencies) {
+      this.parseAv1SampleDependencies = parseAv1SampleDependencies;
       return this;
     }
 
@@ -527,6 +544,8 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     rendererPriority = C.PRIORITY_PLAYBACK;
     startPositionUs = C.TIME_UNSET;
     periodDurationUs = C.TIME_UNSET;
+    av1SampleDependencyParser =
+        builder.parseAv1SampleDependencies ? new Av1SampleDependencyParser() : null;
   }
 
   // FrameTimingEvaluator methods
@@ -1397,10 +1416,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
 
   @Override
   protected boolean shouldSkipDecoderInputBuffer(DecoderInputBuffer buffer) {
-    if (!buffer.notDependedOn()) {
-      // Buffer is depended on. Do not skip.
-      return false;
-    }
     if (isBufferProbablyLastSample(buffer)) {
       // Make sure to decode and render the last frame.
       return false;
@@ -1411,7 +1426,23 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       return false;
     }
     // Skip buffers without sample dependencies that won't be rendered.
-    return isBufferBeforeStartTime(buffer);
+    if (!isBufferBeforeStartTime(buffer)) {
+      return false;
+    }
+    if (buffer.notDependedOn()) {
+      return true;
+    }
+    if (av1SampleDependencyParser != null
+        && checkNotNull(getCodecInfo()).mimeType.equals(MimeTypes.VIDEO_AV1)
+        && buffer.data != null) {
+      ByteBuffer readOnlySample = buffer.data.asReadOnlyBuffer();
+      readOnlySample.flip();
+      int sampleLimitAfterSkippingNonReferenceFrames =
+          av1SampleDependencyParser.sampleLimitAfterSkippingNonReferenceFrame(readOnlySample);
+      // TODO: b/391108133 - support skipping parts of AV1 input buffers.
+      return sampleLimitAfterSkippingNonReferenceFrames == readOnlySample.position();
+    }
+    return false;
   }
 
   private boolean isBufferProbablyLastSample(DecoderInputBuffer buffer) {

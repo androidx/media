@@ -136,6 +136,14 @@ public final class ShadowMediaCodecConfig extends ExternalResource {
             /* profileLevels= */ ImmutableList.of(),
             /* colorFormats= */ ImmutableList.of(
                 MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible)));
+    codecs.put(
+        MimeTypes.VIDEO_AV1,
+        new CodecImpl(
+            /* codecName= */ "exotest.video.av1",
+            /* mimeType= */ MimeTypes.VIDEO_AV1,
+            /* profileLevels= */ ImmutableList.of(),
+            /* colorFormats= */ ImmutableList.of(
+                MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible)));
 
     // Audio codecs
     codecs.put(
