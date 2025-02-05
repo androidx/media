@@ -44,7 +44,6 @@ import androidx.media3.common.util.Log;
 import androidx.media3.common.util.LongArrayQueue;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import java.io.IOException;
@@ -78,8 +77,6 @@ public final class DefaultVideoCompositor implements VideoCompositor {
   //  * Use a lock to synchronize inputFrameInfos more narrowly, to reduce blocking.
   //  * Add support for mixing SDR streams with different ColorInfo.
   //  * Add support for HDR input.
-
-  private static final String THREAD_NAME = "Effect:DefaultVideoCompositor:GlThread";
   private static final String TAG = "DefaultVideoCompositor";
 
   private final VideoCompositor.Listener listener;
@@ -101,8 +98,6 @@ public final class DefaultVideoCompositor implements VideoCompositor {
 
   private @MonotonicNonNull ColorInfo configuredColorInfo;
 
-  // Only used on the GL Thread.
-  private @MonotonicNonNull EGLContext eglContext;
   private @MonotonicNonNull EGLDisplay eglDisplay;
   private @MonotonicNonNull EGLSurface placeholderEglSurface;
   private int primaryInputIndex;
@@ -110,14 +105,14 @@ public final class DefaultVideoCompositor implements VideoCompositor {
   /**
    * Creates an instance.
    *
-   * <p>If a non-null {@code executorService} is set, the {@link ExecutorService} must be
-   * {@linkplain ExecutorService#shutdown shut down} by the caller.
+   * <p>The {@link ExecutorService} must be {@linkplain ExecutorService#shutdown shut down} by the
+   * caller.
    */
   public DefaultVideoCompositor(
       Context context,
       GlObjectsProvider glObjectsProvider,
       VideoCompositorSettings settings,
-      @Nullable ExecutorService executorService,
+      ExecutorService executorService,
       VideoCompositor.Listener listener,
       GlTextureProducer.Listener textureOutputListener,
       @IntRange(from = 1) int textureOutputCapacity) {
@@ -134,14 +129,9 @@ public final class DefaultVideoCompositor implements VideoCompositor {
     outputTextureTimestamps = new LongArrayQueue(textureOutputCapacity);
     syncObjects = new LongArrayQueue(textureOutputCapacity);
 
-    boolean ownsExecutor = executorService == null;
-    ExecutorService instanceExecutorService =
-        ownsExecutor ? Util.newSingleThreadExecutor(THREAD_NAME) : checkNotNull(executorService);
     videoFrameProcessingTaskExecutor =
         new VideoFrameProcessingTaskExecutor(
-            instanceExecutorService,
-            /* shouldShutdownExecutorService= */ ownsExecutor,
-            listener::onError);
+            executorService, /* shouldShutdownExecutorService= */ false, listener::onError);
     videoFrameProcessingTaskExecutor.submit(this::setupGlObjects);
   }
 
@@ -293,7 +283,7 @@ public final class DefaultVideoCompositor implements VideoCompositor {
   // Below methods must be called on the GL thread.
   private void setupGlObjects() throws GlUtil.GlException {
     eglDisplay = GlUtil.getDefaultEglDisplay();
-    eglContext =
+    EGLContext eglContext =
         glObjectsProvider.createEglContext(
             eglDisplay, /* openGlVersion= */ 2, GlUtil.EGL_CONFIG_ATTRIBUTES_RGBA_8888);
     placeholderEglSurface =
