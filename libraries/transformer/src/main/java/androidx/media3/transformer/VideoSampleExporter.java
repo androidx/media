@@ -214,7 +214,10 @@ import org.checkerframework.dataflow.qual.Pure;
 
   @Override
   protected boolean isMuxerInputEnded() {
-    return encoderWrapper.isEnded();
+    // Sometimes the encoder fails to produce an output buffer with end of stream flag after
+    // end of stream is signalled. See b/365484741.
+    // Treat empty encoder (no frames in progress) as if it has ended.
+    return encoderWrapper.isEnded() || videoGraph.hasEncoderReleasedAllBuffersAfterEndOfStream();
   }
 
   /**
@@ -580,6 +583,18 @@ import org.checkerframework.dataflow.qual.Pure;
     @Override
     public void release() {
       videoGraph.release();
+    }
+
+    public boolean hasEncoderReleasedAllBuffersAfterEndOfStream() {
+      if (renderFramesAutomatically) {
+        // Video graph wrapper does not track encoder buffers.
+        return false;
+      }
+      boolean isEndOfStreamSeen =
+          (VideoSampleExporter.this.finalFramePresentationTimeUs != C.TIME_UNSET);
+      synchronized (lock) {
+        return framesInEncoder == 0 && isEndOfStreamSeen;
+      }
     }
 
     public void onEncoderBufferReleased() {
