@@ -157,4 +157,25 @@ public class Av1SampleDependencyParserTest {
     assertThat(sampleLimitAfterSkippingNonReferenceFrames)
         .isEqualTo(notDependedOnFrame.length + notDependedOnFrame.length);
   }
+
+  @Test
+  public void sampleLimitAfterSkippingNonReferenceFrame_withEightDelayedObus_returnsFullSample() {
+    ByteBuffer sample = ByteBuffer.allocate(256);
+    sample.put(sequenceHeader);
+    sample.put(temporalDelimiter);
+    sample.put(dependedOnFrame);
+    sample.put(temporalDelimiter);
+    sample.put(dependedOnFrame);
+    sample.put(temporalDelimiter);
+    sample.put(padding);
+    sample.put(dependedOnFrame);
+    sample.put(notDependedOnFrame);
+    sample.flip();
+    Av1SampleDependencyParser av1SampleDependencyParser = new Av1SampleDependencyParser();
+
+    int sampleLimitAfterSkippingNonReferenceFrames =
+        av1SampleDependencyParser.sampleLimitAfterSkippingNonReferenceFrame(sample);
+
+    assertThat(sampleLimitAfterSkippingNonReferenceFrames).isEqualTo(sample.limit());
+  }
 }

@@ -1434,9 +1434,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
       return true;
     }
 
-    if (shouldSkipDecoderInputBuffer(buffer)) {
-      buffer.clear();
-      decoderCounters.skippedInputBufferCount += 1;
+    if (shouldDiscardDecoderInputBuffer(buffer)) {
       return true;
     }
 
@@ -1750,6 +1748,33 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
    * @param buffer The input buffer.
    */
   protected boolean shouldSkipDecoderInputBuffer(DecoderInputBuffer buffer) {
+    return false;
+  }
+
+  /**
+   * Returns whether the input buffer should be discarded before decoding.
+   *
+   * <p>Implement this method to to skip decoding of buffers that are not needed during a seek, or
+   * to drop input buffers that cannot be rendered on time. See {@link
+   * C#BUFFER_FLAG_NOT_DEPENDED_ON}.
+   *
+   * <p>Subclasses that implement this method are responsible for updating {@link #decoderCounters}.
+   * For codecs with out-of-order buffers, consecutive dropped input buffers may have to be counted
+   * after frame reordering. For example, in {@link #processOutputBuffer}.
+   *
+   * <p>Implementations of this method must update the {@linkplain DecoderInputBuffer#data decoder
+   * input buffer contents}. Data that is only used for output at the current {@link
+   * DecoderInputBuffer#timeUs} should be removed. Data that is referenced by later input buffers
+   * should remain in the current buffer.
+   *
+   * @param buffer The input buffer.
+   */
+  protected boolean shouldDiscardDecoderInputBuffer(DecoderInputBuffer buffer) {
+    if (shouldSkipDecoderInputBuffer(buffer)) {
+      buffer.clear();
+      decoderCounters.skippedInputBufferCount += 1;
+      return true;
+    }
     return false;
   }
 

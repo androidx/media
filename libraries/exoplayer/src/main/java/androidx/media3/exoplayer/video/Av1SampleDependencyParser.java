@@ -30,6 +30,15 @@ import java.util.List;
 
 /** An AV1 bitstream parser that identifies frames that are not depended on. */
 /* package */ final class Av1SampleDependencyParser {
+  /**
+   * When {@link #sampleLimitAfterSkippingNonReferenceFrame(ByteBuffer)} partially skips a temporal
+   * unit, the decoder input buffer is left with extra reference frames that need to be decoded.
+   *
+   * <p>The AV1 spec defines {@code NUM_REF_FRAMES = 8} - delaying more than 8 reference frames will
+   * overwrite the same output slots.
+   */
+  private static final int MAX_OBU_COUNT_FOR_PARTIAL_SKIP = 8;
+
   @Nullable private SequenceHeader sequenceHeader;
 
   /**
@@ -59,7 +68,7 @@ import java.util.List;
       }
       last--;
     }
-    if (skippedFramesCount > 1) {
+    if (skippedFramesCount > 1 || last + 1 >= MAX_OBU_COUNT_FOR_PARTIAL_SKIP) {
       return sample.limit();
     }
     if (last >= 0) {

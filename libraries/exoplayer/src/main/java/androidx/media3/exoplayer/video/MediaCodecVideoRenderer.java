@@ -1415,7 +1415,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   }
 
   @Override
-  protected boolean shouldSkipDecoderInputBuffer(DecoderInputBuffer buffer) {
+  protected boolean shouldDiscardDecoderInputBuffer(DecoderInputBuffer buffer) {
     if (isBufferProbablyLastSample(buffer)) {
       // Make sure to decode and render the last frame.
       return false;
@@ -1429,7 +1429,12 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     if (!isBufferBeforeStartTime(buffer)) {
       return false;
     }
+    if (buffer.hasSupplementalData()) {
+      return false;
+    }
     if (buffer.notDependedOn()) {
+      buffer.clear();
+      decoderCounters.skippedInputBufferCount += 1;
       return true;
     }
     if (av1SampleDependencyParser != null
@@ -1439,8 +1444,16 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       readOnlySample.flip();
       int sampleLimitAfterSkippingNonReferenceFrames =
           av1SampleDependencyParser.sampleLimitAfterSkippingNonReferenceFrame(readOnlySample);
-      // TODO: b/391108133 - support skipping parts of AV1 input buffers.
-      return sampleLimitAfterSkippingNonReferenceFrames == readOnlySample.position();
+      boolean hasSpaceForNextFrame =
+          sampleLimitAfterSkippingNonReferenceFrames + checkNotNull(codecMaxValues).inputSize
+              < readOnlySample.capacity();
+      if (sampleLimitAfterSkippingNonReferenceFrames != readOnlySample.limit()
+          && hasSpaceForNextFrame) {
+        checkNotNull(buffer.data).position(sampleLimitAfterSkippingNonReferenceFrames);
+        decoderCounters.skippedInputBufferCount += 1;
+        return true;
+      }
+      return false;
     }
     return false;
   }
