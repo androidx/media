@@ -1544,6 +1544,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
       }
     }
 
+    // Disable pre-warming as following logic will reset any pre-warming media periods.
+    disableAndResetPrewarmingRenderers();
+
     // Do the actual seeking.
     if (newPlayingPeriodHolder != null) {
       queue.removeAfter(newPlayingPeriodHolder);

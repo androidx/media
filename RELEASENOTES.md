@@ -6,6 +6,8 @@
 *   ExoPlayer:
     *   Add option to `ClippingMediaSource` to allow clipping in unseekable
         media.
+    *   Fix bug where seeking with pre-warming could block following media item
+        transition.
 *   Transformer:
 *   Track Selection:
 *   Extractors:

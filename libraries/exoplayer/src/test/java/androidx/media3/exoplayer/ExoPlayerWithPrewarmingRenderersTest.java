@@ -622,6 +622,57 @@ public class ExoPlayerWithPrewarmingRenderersTest {
 
   @Test
   public void
+      seek_intoCurrentPeriodWithPrimaryBeforeReadingPeriodAdvanced_resetsPrewarmingRenderer()
+          throws Exception {
+    Clock fakeClock = new FakeClock(/* isAutoAdvancing= */ true);
+    ExoPlayer player =
+        new TestExoPlayerBuilder(context)
+            .setClock(fakeClock)
+            .setRenderersFactory(
+                new FakeRenderersFactorySupportingSecondaryVideoRenderer(fakeClock))
+            .build();
+    Renderer videoRenderer = player.getRenderer(/* index= */ 0);
+    Renderer secondaryVideoRenderer = player.getSecondaryRenderer(/* index= */ 0);
+    // Set a playlist that allows a new renderer to be enabled early.
+    player.setMediaSources(
+        ImmutableList.of(
+            // Use FakeBlockingMediaSource so that reading period is not advanced when pre-warming.
+            new FakeBlockingMediaSource(new FakeTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT),
+            new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT),
+            new FakeMediaSource(
+                new FakeTimeline(),
+                ExoPlayerTestRunner.VIDEO_FORMAT,
+                ExoPlayerTestRunner.AUDIO_FORMAT)));
+    player.prepare();
+
+    // Play a bit until the second renderer is pre-warming.
+    player.play();
+    run(player)
+        .untilBackgroundThreadCondition(
+            () -> secondaryVideoRenderer.getState() == Renderer.STATE_ENABLED);
+    @Renderer.State int videoState1 = videoRenderer.getState();
+    @Renderer.State int secondaryVideoState1 = secondaryVideoRenderer.getState();
+    SampleStream secondaryVideoStream1 = secondaryVideoRenderer.getStream();
+    // Seek to position in current period.
+    player.seekTo(/* mediaItemIndex= */ 0, /* positionMs= */ 3000);
+    run(player).untilPendingCommandsAreFullyHandled();
+    run(player)
+        .untilBackgroundThreadCondition(
+            () -> secondaryVideoRenderer.getState() == Renderer.STATE_ENABLED);
+    @Renderer.State int videoState2 = videoRenderer.getState();
+    @Renderer.State int secondaryVideoState2 = secondaryVideoRenderer.getState();
+    SampleStream secondaryVideoStream2 = secondaryVideoRenderer.getStream();
+    player.release();
+
+    assertThat(videoState1).isEqualTo(Renderer.STATE_STARTED);
+    assertThat(secondaryVideoState1).isEqualTo(Renderer.STATE_ENABLED);
+    assertThat(videoState2).isEqualTo(Renderer.STATE_STARTED);
+    assertThat(secondaryVideoState2).isEqualTo(Renderer.STATE_ENABLED);
+    assertThat(secondaryVideoStream1).isNotEqualTo(secondaryVideoStream2);
+  }
+
+  @Test
+  public void
       seek_intoCurrentPeriodWithSecondaryBeforeReadingPeriodAdvanced_doesNotSwapToPrimaryRenderer()
           throws Exception {
     Clock fakeClock = new FakeClock(/* isAutoAdvancing= */ true);
@@ -650,9 +701,13 @@ public class ExoPlayerWithPrewarmingRenderersTest {
     run(player).untilPendingCommandsAreFullyHandled();
     @Renderer.State int videoState1 = videoRenderer.getState();
     @Renderer.State int secondaryVideoState1 = secondaryVideoRenderer.getState();
+    SampleStream videoStream1 = videoRenderer.getStream();
     // Seek to position in current period.
     player.seekTo(/* mediaItemIndex= */ 1, /* positionMs= */ 3000);
     run(player).untilPendingCommandsAreFullyHandled();
+    run(player)
+        .untilBackgroundThreadCondition(() -> videoRenderer.getState() == Renderer.STATE_ENABLED);
+    SampleStream videoStream2 = videoRenderer.getStream();
     @Renderer.State int videoState2 = videoRenderer.getState();
     @Renderer.State int secondaryVideoState2 = secondaryVideoRenderer.getState();
     player.release();
@@ -661,6 +716,7 @@ public class ExoPlayerWithPrewarmingRenderersTest {
     assertThat(secondaryVideoState1).isEqualTo(Renderer.STATE_STARTED);
     assertThat(videoState2).isEqualTo(Renderer.STATE_ENABLED);
     assertThat(secondaryVideoState2).isEqualTo(Renderer.STATE_STARTED);
+    assertThat(videoStream1).isNotEqualTo(videoStream2);
   }
 
   @Test
