@@ -1377,6 +1377,16 @@ import java.util.concurrent.atomic.AtomicBoolean;
                     rendererHolder.getMinDurationToProgressUs(
                         rendererPositionUs, rendererPositionElapsedRealtimeUs)));
       }
+
+      // Do not schedule next doSomeWork past the playing period transition point.
+      MediaPeriodHolder nextPlayingPeriodHolder =
+          queue.getPlayingPeriod() != null ? queue.getPlayingPeriod().getNext() : null;
+      if (nextPlayingPeriodHolder != null
+          && rendererPositionUs
+                  + msToUs(wakeUpTimeIntervalMs) * playbackInfo.playbackParameters.speed
+              >= nextPlayingPeriodHolder.getStartPositionRendererTime()) {
+        wakeUpTimeIntervalMs = min(wakeUpTimeIntervalMs, BUFFERING_MAXIMUM_INTERVAL_MS);
+      }
     }
     handler.sendEmptyMessageAtTime(
         MSG_DO_SOME_WORK, thisOperationStartTimeMs + wakeUpTimeIntervalMs);
