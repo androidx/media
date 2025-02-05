@@ -797,7 +797,10 @@ import java.util.Map;
 
   private void resumeContentInternal() {
     if (imaAdInfo != null) {
-      adPlaybackState = adPlaybackState.withSkippedAdGroup(imaAdInfo.adGroupIndex);
+      // Remove any pending timeout tasks as CONTENT_RESUME_REQUESTED may occur instead of loadAd.
+      // See [Internal: b/330750756].
+      handler.removeCallbacks(adLoadTimeoutRunnable);
+      adPlaybackState = adPlaybackState.withSkippedAdGroup(checkNotNull(imaAdInfo).adGroupIndex);
       updateAdPlaybackState();
     }
   }
