@@ -517,7 +517,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
 
   @Override
   protected long getDurationToProgressUs(
-      boolean isOnBufferAvailableListenerRegistered, long positionUs, long elapsedRealtimeUs) {
+      long positionUs, long elapsedRealtimeUs, boolean isOnBufferAvailableListenerRegistered) {
     if (nextBufferToWritePresentationTimeUs != C.TIME_UNSET) {
       long durationUs =
           (long)
@@ -531,7 +531,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
       return max(DEFAULT_DURATION_TO_PROGRESS_US, durationUs);
     }
     return super.getDurationToProgressUs(
-        isOnBufferAvailableListenerRegistered, positionUs, elapsedRealtimeUs);
+        positionUs, elapsedRealtimeUs, isOnBufferAvailableListenerRegistered);
   }
 
   @Override

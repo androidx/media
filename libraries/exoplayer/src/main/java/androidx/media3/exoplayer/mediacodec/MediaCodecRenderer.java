@@ -497,9 +497,9 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   @Override
   public final long getDurationToProgressUs(long positionUs, long elapsedRealtimeUs) {
     return getDurationToProgressUs(
-        /* isOnBufferAvailableListenerRegistered= */ codecRegisteredOnBufferAvailableListener,
         positionUs,
-        elapsedRealtimeUs);
+        elapsedRealtimeUs,
+        /* isOnBufferAvailableListenerRegistered= */ codecRegisteredOnBufferAvailableListener);
   }
 
   /**
@@ -521,17 +521,17 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
    * decoder input and output buffers become available. These callbacks may affect the calculated
    * minimum time playback must advance before a {@link #render} call can make progress.
    *
-   * @param isOnBufferAvailableListenerRegistered Whether the {@code Renderer} is using a {@link
-   *     MediaCodecAdapter} with successfully registered {@link
-   *     MediaCodecAdapter.OnBufferAvailableListener OnBufferAvailableListener}.
    * @param positionUs The current media time in microseconds, measured at the start of the current
    *     iteration of the rendering loop.
    * @param elapsedRealtimeUs {@link android.os.SystemClock#elapsedRealtime()} in microseconds,
    *     measured at the start of the current iteration of the rendering loop.
+   * @param isOnBufferAvailableListenerRegistered Whether the {@code Renderer} is using a {@link
+   *     MediaCodecAdapter} with successfully registered {@link
+   *     MediaCodecAdapter.OnBufferAvailableListener OnBufferAvailableListener}.
    * @return minimum time playback must advance before renderer is able to make progress.
    */
   protected long getDurationToProgressUs(
-      boolean isOnBufferAvailableListenerRegistered, long positionUs, long elapsedRealtimeUs) {
+      long positionUs, long elapsedRealtimeUs, boolean isOnBufferAvailableListenerRegistered) {
     return super.getDurationToProgressUs(positionUs, elapsedRealtimeUs);
   }
 
