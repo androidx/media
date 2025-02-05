@@ -4,24 +4,12 @@
 
 *   Common Library:
 *   ExoPlayer:
-    *   Add option to `ClippingMediaSource` to allow clipping in unseekable
-        media.
-    *   Fix bug where seeking with pre-warming could block following media item
-        transition.
 *   Transformer:
 *   Track Selection:
 *   Extractors:
 *   DataSource:
 *   Audio:
-    *   Make `androidx.media3.common.audio.SonicAudioProcessor` final.
 *   Video:
-    *   Change `MediaCodecVideoRenderer.shouldUsePlaceholderSurface` to
-        protected so that applications can override to block usage of
-        placeholder surfaces
-        ([#1905](https://github.com/androidx/media/pull/1905)).
-    *   Add experimental `ExoPlayer` AV1 sample dependency parsing to speed up
-        seeking. Enable it with the new
-        `DefaultRenderersFactory.experimentalSetParseAv1SampleDependencies` API.
 *   Text:
 *   Metadata:
 *   Image:
@@ -29,7 +17,6 @@
 *   DRM:
 *   Effect:
 *   Muxers:
-    *   Disable `Mp4Muxer` sample batching and copying by default.
 *   IMA extension:
 *   Session:
 *   UI:
@@ -48,9 +35,33 @@
 *   Test Utilities:
 *   Demo app:
 *   Remove deprecated symbols:
-    *   Removed `androidx.media3.exoplayer.audio.SonicAudioProcessor`.
 
 ## 1.6
+
+### 1.6.0-alpha03 (2025-02-06)
+
+This release includes the following changes since the
+[1.6.0-alpha02 release](#160-alpha02-2025-01-30):
+
+*   ExoPlayer:
+    *   Add option to `ClippingMediaSource` to allow clipping in unseekable
+        media.
+    *   Fix bug where seeking with pre-warming could block following media item
+        transition.
+*   Audio:
+    *   Make `androidx.media3.common.audio.SonicAudioProcessor` final.
+*   Video:
+    *   Change `MediaCodecVideoRenderer.shouldUsePlaceholderSurface` to
+        protected so that applications can override to block usage of
+        placeholder surfaces
+        ([#1905](https://github.com/androidx/media/pull/1905)).
+    *   Add experimental `ExoPlayer` AV1 sample dependency parsing to speed up
+        seeking. Enable it with the new
+        `DefaultRenderersFactory.experimentalSetParseAv1SampleDependencies` API.
+*   Muxers:
+    *   Disable `Mp4Muxer` sample batching and copying by default.
+*   Remove deprecated symbols:
+    *   Removed `androidx.media3.exoplayer.audio.SonicAudioProcessor`.
 
 ### 1.6.0-alpha02 (2025-01-30)
 
