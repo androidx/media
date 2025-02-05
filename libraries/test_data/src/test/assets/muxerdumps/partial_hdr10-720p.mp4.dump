@@ -1,15 +1,15 @@
 seekMap:
   isSeekable = true
-  duration = 4171700
+  duration = 3989300
   getPosition(0) = [[timeUs=0, position=400052]]
   getPosition(1) = [[timeUs=0, position=400052], [timeUs=1002955, position=430177]]
-  getPosition(2085850) = [[timeUs=2003566, position=2503758], [timeUs=3003444, position=4426916]]
-  getPosition(4171700) = [[timeUs=4003277, position=4459282]]
+  getPosition(1994650) = [[timeUs=1002955, position=430177], [timeUs=2003566, position=2562813]]
+  getPosition(3989300) = [[timeUs=3003444, position=4426916]]
 numberOfTracks = 2
 track 0:
-  total output bytes = 7822354
-  sample count = 125
-  track duration = 4171700
+  total output bytes = 5843480
+  sample count = 93
+  track duration = 3103400
   format 0:
     id = 1
     containerMimeType = video/mp4
@@ -19,7 +19,7 @@ track 0:
     maxNumReorderSamples = 0
     width = 1280
     height = 720
-    frameRate = 29.96
+    frameRate = 29.97
     maxSubLayers = 1
     colorInfo:
       colorSpace = 6
@@ -400,140 +400,12 @@ track 0:
     data = length 56416, hash 3CB6F5AD
   sample 92:
     time = 3070100
-    flags = 0
-    data = length 54110, hash 7B27C656
-  sample 93:
-    time = 3103422
-    flags = 0
-    data = length 68308, hash C7F4AE80
-  sample 94:
-    time = 3136755
-    flags = 0
-    data = length 67629, hash 48E625B6
-  sample 95:
-    time = 3170111
-    flags = 0
-    data = length 66968, hash D46F0E01
-  sample 96:
-    time = 3203411
-    flags = 0
-    data = length 53022, hash 91852F32
-  sample 97:
-    time = 3236733
-    flags = 0
-    data = length 66729, hash 12CA7617
-  sample 98:
-    time = 3270066
-    flags = 0
-    data = length 53556, hash 904B00CF
-  sample 99:
-    time = 3303388
-    flags = 0
-    data = length 63459, hash AB813676
-  sample 100:
-    time = 3336722
-    flags = 0
-    data = length 63637, hash 8B0750F6
-  sample 101:
-    time = 3370044
-    flags = 0
-    data = length 64700, hash 8922E5BE
-  sample 102:
-    time = 3403377
-    flags = 0
-    data = length 54680, hash 4F49EB3D
-  sample 103:
-    time = 3436700
-    flags = 0
-    data = length 62600, hash 9DF2F9F5
-  sample 104:
-    time = 3470033
-    flags = 0
-    data = length 69506, hash DB702311
-  sample 105:
-    time = 3503366
-    flags = 0
-    data = length 50277, hash 1034F0A6
-  sample 106:
-    time = 3536722
-    flags = 0
-    data = length 52100, hash 33745B51
-  sample 107:
-    time = 3570011
-    flags = 0
-    data = length 65067, hash F73FE2C7
-  sample 108:
-    time = 3603344
-    flags = 0
-    data = length 68940, hash 4331DA16
-  sample 109:
-    time = 3636677
-    flags = 0
-    data = length 55215, hash 68087A40
-  sample 110:
-    time = 3670011
-    flags = 0
-    data = length 56090, hash 2F483911
-  sample 111:
-    time = 3703333
-    flags = 0
-    data = length 58356, hash D7D190C6
-  sample 112:
-    time = 3736655
-    flags = 0
-    data = length 57368, hash 2F6B7918
-  sample 113:
-    time = 3769988
-    flags = 0
-    data = length 56591, hash 19B696D2
-  sample 114:
-    time = 3803311
-    flags = 0
-    data = length 54748, hash 7E0CE70E
-  sample 115:
-    time = 3836633
-    flags = 0
-    data = length 73133, hash CFA46EE4
-  sample 116:
-    time = 3869966
-    flags = 0
-    data = length 52577, hash 5E174B5
-  sample 117:
-    time = 3903300
-    flags = 0
-    data = length 74756, hash 5A571060
-  sample 118:
-    time = 3936622
-    flags = 0
-    data = length 67171, hash 6F13FB2C
-  sample 119:
-    time = 3969944
-    flags = 0
-    data = length 42130, hash DAE94DB2
-  sample 120:
-    time = 4003277
-    flags = 1
-    data = length 120199, hash 32DEA792
-  sample 121:
-    time = 4036600
-    flags = 0
-    data = length 51028, hash FC7AF64F
-  sample 122:
-    time = 4069922
-    flags = 0
-    data = length 51879, hash 74852E0E
-  sample 123:
-    time = 4103255
-    flags = 0
-    data = length 51443, hash B735512A
-  sample 124:
-    time = 4137455
     flags = 536870912
-    data = length 65012, hash DB29A2CD
+    data = length 54110, hash 7B27C656
 track 1:
-  total output bytes = 131233
-  sample count = 192
-  track duration = 4095900
+  total output bytes = 127864
+  sample count = 187
+  track duration = 3989300
   format 0:
     averageBitrate = 256000
     peakBitrate = 256000
@@ -1294,26 +1166,6 @@ track 1:
     data = length 580, hash B38C9C63
   sample 186:
     time = 4010937
-    flags = 1
-    data = length 583, hash 5668BFCE
-  sample 187:
-    time = 4032270
-    flags = 1
-    data = length 631, hash 7E86C98E
-  sample 188:
-    time = 4053604
-    flags = 1
-    data = length 656, hash 95A41C9B
-  sample 189:
-    time = 4074937
-    flags = 1
-    data = length 822, hash 2A045560
-  sample 190:
-    time = 4096270
-    flags = 1
-    data = length 643, hash 551E7C72
-  sample 191:
-    time = 4117604
     flags = 536870913
-    data = length 617, hash 463482D9
+    data = length 583, hash 5668BFCE
 tracksEnded = true

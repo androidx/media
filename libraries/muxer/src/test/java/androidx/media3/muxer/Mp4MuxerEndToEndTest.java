@@ -138,8 +138,10 @@ public class Mp4MuxerEndToEndTest {
 
     // Muxer not closed.
 
-    // Audio sample written = 192 out of 195.
-    // Video sample written = 125 out of 127.
+    // The output depends on Mp4Muxer.MOOV_BOX_UPDATE_INTERVAL_US and whether or not
+    // sample batching is enabled.
+    // Audio sample written = 187 out of 195.
+    // Video sample written = 93 out of 127.
     // Output is still a valid MP4 file.
     FakeExtractorOutput fakeExtractorOutput =
         TestUtil.extractAllSamplesFromFilePath(

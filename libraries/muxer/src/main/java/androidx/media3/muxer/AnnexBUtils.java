@@ -20,6 +20,7 @@ import static androidx.media3.common.util.Assertions.checkState;
 import androidx.media3.common.MimeTypes;
 import com.google.common.collect.ImmutableList;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 
 /** NAL unit utilities for start codes and emulation prevention. */
 /* package */ final class AnnexBUtils {
@@ -40,11 +41,13 @@ import java.nio.ByteBuffer;
     if (input.remaining() == 0) {
       return ImmutableList.of();
     }
+    input = input.asReadOnlyBuffer();
+    input.order(ByteOrder.BIG_ENDIAN);
 
     // The algorithm always searches for 0x000001 start code but it will work for 0x00000001 start
     // code as well because the first 0 will be considered as a leading 0 and will be skipped.
 
-    int nalStartCodeIndex = skipLeadingZerosAndFindNalStartCodeIndex(input, /* currentIndex= */ 0);
+    int nalStartCodeIndex = skipLeadingZerosAndFindNalStartCodeIndex(input, input.position());
 
     int nalStartIndex = nalStartCodeIndex + THREE_BYTE_NAL_START_CODE_SIZE;
     boolean readingNalUnit = true;
@@ -69,7 +72,6 @@ import java.nio.ByteBuffer;
       }
     }
 
-    input.rewind();
     return nalUnits.build();
   }
 

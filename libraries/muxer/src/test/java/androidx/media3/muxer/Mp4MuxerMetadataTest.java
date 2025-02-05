@@ -20,7 +20,6 @@ import static androidx.media3.container.MdtaMetadataEntry.TYPE_INDICATOR_FLOAT32
 import static androidx.media3.container.MdtaMetadataEntry.TYPE_INDICATOR_STRING;
 import static androidx.media3.muxer.MuxerTestUtil.FAKE_VIDEO_FORMAT;
 import static androidx.media3.muxer.MuxerTestUtil.XMP_SAMPLE_DATA;
-import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
 import android.media.MediaCodec.BufferInfo;
@@ -292,7 +291,6 @@ public class Mp4MuxerMetadataTest {
 
     try {
       muxer.writeSampleData(trackId, sampleAndSampleInfo.first, sampleAndSampleInfo.second);
-      assertThat(sampleAndSampleInfo.first.remaining()).isEqualTo(0);
     } finally {
       muxer.close();
     }

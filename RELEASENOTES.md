@@ -24,6 +24,7 @@
 *   DRM:
 *   Effect:
 *   Muxers:
+    *   Disable `Mp4Muxer` sample batching and copying by default.
 *   IMA extension:
 *   Session:
 *   UI:

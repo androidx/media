@@ -92,21 +92,20 @@ import java.util.List;
     }
 
     ByteBuffer byteBufferToAdd = byteBuffer;
-    BufferInfo bufferInfoToAdd = bufferInfo;
-
     if (sampleCopyEnabled) {
       // Copy sample data and release the original buffer.
       byteBufferToAdd = ByteBuffer.allocateDirect(byteBuffer.remaining());
       byteBufferToAdd.put(byteBuffer);
       byteBufferToAdd.rewind();
-
-      bufferInfoToAdd = new BufferInfo();
-      bufferInfoToAdd.set(
-          /* newOffset= */ byteBufferToAdd.position(),
-          /* newSize= */ byteBufferToAdd.remaining(),
-          bufferInfo.presentationTimeUs,
-          bufferInfo.flags);
     }
+
+    // Always copy the buffer info as it is retained until the track is finalized.
+    BufferInfo bufferInfoToAdd = new BufferInfo();
+    bufferInfoToAdd.set(
+        /* newOffset= */ byteBufferToAdd.position(),
+        /* newSize= */ byteBufferToAdd.remaining(),
+        bufferInfo.presentationTimeUs,
+        bufferInfo.flags);
 
     pendingSamplesBufferInfo.addLast(bufferInfoToAdd);
     pendingSamplesByteBuffer.addLast(byteBufferToAdd);

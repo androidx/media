@@ -219,8 +219,6 @@ public final class Mp4Muxer implements AutoCloseable {
       this.outputStream = outputStream;
       lastSampleDurationBehavior =
           LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER_OR_DUPLICATE_PREVIOUS;
-      sampleCopyEnabled = true;
-      sampleBatchingEnabled = true;
       attemptStreamableOutputEnabled = true;
       outputFileFormat = FILE_FORMAT_DEFAULT;
     }
@@ -259,7 +257,11 @@ public final class Mp4Muxer implements AutoCloseable {
      * to reuse them immediately. Otherwise, the muxer takes ownership of the {@link ByteBuffer} and
      * the {@link BufferInfo} and the caller must not modify them.
      *
-     * <p>The default value is {@code true}.
+     * <p>When {@linkplain #setSampleBatchingEnabled(boolean) sample batching} is disabled, samples
+     * are written as they {@linkplain #writeSampleData(int, ByteBuffer, BufferInfo) arrive} and
+     * sample copying is disabled.
+     *
+     * <p>The default value is {@code false}.
      */
     @CanIgnoreReturnValue
     public Mp4Muxer.Builder setSampleCopyingEnabled(boolean enabled) {
@@ -274,7 +276,13 @@ public final class Mp4Muxer implements AutoCloseable {
      * samples are written as they {@linkplain #writeSampleData(int, ByteBuffer, BufferInfo)
      * arrive}.
      *
-     * <p>The default value is {@code true}.
+     * <p>When sample batching is enabled, and {@linkplain #setSampleCopyingEnabled(boolean) sample
+     * copying} is disabled the {@link ByteBuffer} contents provided to {@link #writeSampleData(int,
+     * ByteBuffer, BufferInfo)} should not be modified. Otherwise, if sample batching is disabled or
+     * sample copying is enabled, the {@linkplain ByteBuffer sample data} contents can be modified
+     * after calling {@link #writeSampleData(int, ByteBuffer, BufferInfo)}.
+     *
+     * <p>The default value is {@code false}.
      */
     @CanIgnoreReturnValue
     public Mp4Muxer.Builder setSampleBatchingEnabled(boolean enabled) {
@@ -391,7 +399,7 @@ public final class Mp4Muxer implements AutoCloseable {
     outputChannel = outputStream.getChannel();
     this.lastSampleDurationBehavior = lastFrameDurationBehavior;
     this.annexBToAvccConverter = annexBToAvccConverter;
-    this.sampleCopyEnabled = sampleCopyEnabled;
+    this.sampleCopyEnabled = sampleBatchingEnabled && sampleCopyEnabled;
     this.sampleBatchingEnabled = sampleBatchingEnabled;
     this.attemptStreamableOutputEnabled = attemptStreamableOutputEnabled;
     this.outputFileFormat = outputFileFormat;
@@ -469,14 +477,6 @@ public final class Mp4Muxer implements AutoCloseable {
 
   /**
    * Writes encoded sample data.
-   *
-   * <p>When sample batching is {@linkplain Mp4Muxer.Builder#setSampleBatchingEnabled(boolean)
-   * enabled}, provide sample data ({@link ByteBuffer}, {@link BufferInfo}) that won't be modified
-   * after calling the {@link #writeSampleData(int, ByteBuffer, BufferInfo)} method, unless sample
-   * copying is also {@linkplain Mp4Muxer.Builder#setSampleCopyingEnabled(boolean) enabled}. This
-   * ensures data integrity within the batch. If sample copying is {@linkplain
-   * Mp4Muxer.Builder#setSampleCopyingEnabled(boolean) enabled}, it's safe to modify the data after
-   * the method returns, as the muxer internally creates a sample copy.
    *
    * @param trackId The track id for which this sample is being written.
    * @param byteBuffer The encoded sample. The muxer takes ownership of the buffer if {@link

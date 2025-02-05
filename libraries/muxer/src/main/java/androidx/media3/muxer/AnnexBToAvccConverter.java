@@ -15,8 +15,6 @@
  */
 package androidx.media3.muxer;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
-
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.collect.ImmutableList;
 import java.nio.ByteBuffer;
@@ -34,9 +32,6 @@ public interface AnnexBToAvccConverter {
         if (!inputBuffer.hasRemaining()) {
           return inputBuffer;
         }
-
-        checkArgument(
-            inputBuffer.position() == 0, "The input buffer should have position set to 0.");
 
         ImmutableList<ByteBuffer> nalUnitList = AnnexBUtils.findNalUnits(inputBuffer);
 
