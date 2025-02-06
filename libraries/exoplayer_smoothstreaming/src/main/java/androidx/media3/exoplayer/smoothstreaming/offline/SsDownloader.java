@@ -32,7 +32,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
 
-// LINT.IfChange(javadoc)
 /**
  * A downloader for SmoothStreaming streams.
  *

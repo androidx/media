@@ -29,7 +29,6 @@ import androidx.media3.common.util.Util;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
 
-// LINT.IfChange(javadoc)
 /**
  * A {@link Binder} to transfer a list of {@link Bundle Bundles} across processes by splitting the
  * list into multiple transactions.

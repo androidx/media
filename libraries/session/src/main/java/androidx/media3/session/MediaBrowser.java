@@ -156,7 +156,6 @@ public final class MediaBrowser extends MediaController {
       return this;
     }
 
-    // LINT.IfChange(build_async)
     /**
      * Builds a {@link MediaBrowser} asynchronously.
      *

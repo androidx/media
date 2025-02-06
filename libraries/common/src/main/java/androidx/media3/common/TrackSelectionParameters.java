@@ -47,7 +47,6 @@ import java.util.Set;
 import org.checkerframework.checker.initialization.qual.UnknownInitialization;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 
-// LINT.IfChange(javadoc)
 /**
  * Parameters for controlling track selection.
  *

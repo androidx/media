@@ -25,7 +25,6 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import java.util.List;
 
-// LINT.IfChange(javadoc)
 /**
  * A {@link SimpleBasePlayer} that forwards all calls to another {@link Player} instance.
  *
