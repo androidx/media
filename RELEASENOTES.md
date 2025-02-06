@@ -10,6 +10,9 @@
 *   DataSource:
 *   Audio:
 *   Video:
+    *   Add experimental `ExoPlayer` API to drop late `MediaCodecVideoRenderer`
+        decoder input buffers that are not depended on. Enable it with
+        `DefaultRenderersFactory.experimentalSetLateThresholdToDropDecoderInputUs`.
 *   Text:
 *   Metadata:
 *   Image:

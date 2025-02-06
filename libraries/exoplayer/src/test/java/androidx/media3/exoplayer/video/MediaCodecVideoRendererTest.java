@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.video;
 
+import static android.media.MediaCodec.INFO_TRY_AGAIN_LATER;
 import static android.view.Display.DEFAULT_DISPLAY;
 import static androidx.media3.common.util.Util.msToUs;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.END_OF_STREAM_ITEM;
@@ -90,6 +91,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.PriorityQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
@@ -958,6 +960,395 @@ public class MediaCodecVideoRendererTest {
     shadowOf(testMainLooper).idle();
 
     assertThat(currentOutputFormat).isEqualTo(VIDEO_H264);
+  }
+
+  @Test
+  public void render_withLateBufferWithoutDependencies_dropsInputBuffers() throws Exception {
+    FakeTimeline fakeTimeline =
+        new FakeTimeline(
+            new FakeTimeline.TimelineWindowDefinition(
+                /* isSeekable= */ true, /* isDynamic= */ false, /* durationUs= */ 1_000_000));
+    FakeSampleStream fakeSampleStream =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* initialFormat= */ VIDEO_H264,
+            ImmutableList.of(
+                oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME), // First buffer.
+                oneByteSample(
+                    /* timeUs= */ 20_000))); // Late buffer triggers input buffer dropping.
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+    mediaCodecVideoRenderer =
+        new MediaCodecVideoRenderer(
+            new MediaCodecVideoRenderer.Builder(ApplicationProvider.getApplicationContext())
+                .setCodecAdapterFactory(
+                    new DefaultMediaCodecAdapterFactory(
+                        ApplicationProvider.getApplicationContext(),
+                        () -> {
+                          callbackThread = new HandlerThread("MCVRTest:MediaCodecAsyncAdapter");
+                          return callbackThread;
+                        },
+                        () -> {
+                          queueingThread = new HandlerThread("MCVRTest:MediaCodecQueueingThread");
+                          return queueingThread;
+                        }))
+                .setMediaCodecSelector(mediaCodecSelector)
+                .setAllowedJoiningTimeMs(0)
+                .setEnableDecoderFallback(false)
+                .setEventHandler(new Handler(testMainLooper))
+                .setEventListener(eventListener)
+                .setMaxDroppedFramesToNotify(1)
+                .experimentalSetLateThresholdToDropDecoderInputUs(50_000)) {
+          @Override
+          protected @Capabilities int supportsFormat(
+              MediaCodecSelector mediaCodecSelector, Format format) {
+            return RendererCapabilities.create(C.FORMAT_HANDLED);
+          }
+        };
+
+    mediaCodecVideoRenderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
+    mediaCodecVideoRenderer.handleMessage(Renderer.MSG_SET_VIDEO_OUTPUT, surface);
+    mediaCodecVideoRenderer.setTimeline(fakeTimeline);
+    mediaCodecVideoRenderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {VIDEO_H264},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(fakeTimeline.getUidOfPeriod(0)));
+    shadowOf(testMainLooper).idle();
+    ArgumentCaptor<DecoderCounters> argumentDecoderCounters =
+        ArgumentCaptor.forClass(DecoderCounters.class);
+    verify(eventListener).onVideoEnabled(argumentDecoderCounters.capture());
+    DecoderCounters decoderCounters = argumentDecoderCounters.getValue();
+
+    mediaCodecVideoRenderer.start();
+    mediaCodecVideoRenderer.render(0, SystemClock.elapsedRealtime() * 1000);
+    while (decoderCounters.renderedOutputBufferCount == 0) {
+      mediaCodecVideoRenderer.render(10_000, SystemClock.elapsedRealtime() * 1000);
+    }
+    // Ensure existing buffer will be ~280ms late and new (not yet read) buffers are available
+    // to be dropped.
+    int posUs = 300_000;
+    fakeSampleStream.append(
+        ImmutableList.of(
+            oneByteSample(/* timeUs= */ 30_000, C.BUFFER_FLAG_NOT_DEPENDED_ON), // Dropped on input.
+            oneByteSample(/* timeUs= */ 300_000), // Caught up - render.
+            oneByteSample(/* timeUs= */ 500_000), // Last buffer is always rendered.
+            END_OF_STREAM_ITEM));
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+    mediaCodecVideoRenderer.setCurrentStreamFinal();
+    // Render until the non-dropped frame is reached and then increase time to reach the end.
+    while (decoderCounters.renderedOutputBufferCount < 2) {
+      mediaCodecVideoRenderer.render(posUs, SystemClock.elapsedRealtime() * 1000);
+    }
+    while (!mediaCodecVideoRenderer.isEnded()) {
+      mediaCodecVideoRenderer.render(posUs, SystemClock.elapsedRealtime() * 1000);
+      posUs += 2_000;
+    }
+
+    assertThat(decoderCounters.droppedInputBufferCount).isEqualTo(1);
+    assertThat(decoderCounters.droppedBufferCount).isEqualTo(2);
+    assertThat(decoderCounters.maxConsecutiveDroppedBufferCount).isEqualTo(2);
+    assertThat(decoderCounters.droppedToKeyframeCount).isEqualTo(0);
+  }
+
+  // TODO: b/390604981 - Run the test on older SDK levels to ensure it uses a MediaCodec shadow
+  // with more than one buffer slot.
+  @Config(minSdk = 30)
+  @Test
+  public void render_afterVeryLateBuffer_doesNotDropInputBuffers() throws Exception {
+    FakeTimeline fakeTimeline =
+        new FakeTimeline(
+            new FakeTimeline.TimelineWindowDefinition(
+                /* isSeekable= */ true, /* isDynamic= */ false, /* durationUs= */ 2_000_000));
+    FakeSampleStream fakeSampleStream =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* initialFormat= */ VIDEO_H264,
+            ImmutableList.of(
+                oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME), // First buffer.
+                oneByteSample(/* timeUs= */ 20_000))); // Very late buffer.
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+    mediaCodecVideoRenderer =
+        new MediaCodecVideoRenderer(
+            new MediaCodecVideoRenderer.Builder(ApplicationProvider.getApplicationContext())
+                .setCodecAdapterFactory(
+                    new DefaultMediaCodecAdapterFactory(
+                        ApplicationProvider.getApplicationContext(),
+                        () -> {
+                          callbackThread = new HandlerThread("MCVRTest:MediaCodecAsyncAdapter");
+                          return callbackThread;
+                        },
+                        () -> {
+                          queueingThread = new HandlerThread("MCVRTest:MediaCodecQueueingThread");
+                          return queueingThread;
+                        }))
+                .setMediaCodecSelector(mediaCodecSelector)
+                .setAllowedJoiningTimeMs(0)
+                .setEnableDecoderFallback(false)
+                .setEventHandler(new Handler(testMainLooper))
+                .setEventListener(eventListener)
+                .setMaxDroppedFramesToNotify(1)
+                .experimentalSetLateThresholdToDropDecoderInputUs(50_000)) {
+          @Override
+          protected @Capabilities int supportsFormat(
+              MediaCodecSelector mediaCodecSelector, Format format) {
+            return RendererCapabilities.create(C.FORMAT_HANDLED);
+          }
+        };
+
+    mediaCodecVideoRenderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
+    mediaCodecVideoRenderer.handleMessage(Renderer.MSG_SET_VIDEO_OUTPUT, surface);
+    mediaCodecVideoRenderer.setTimeline(fakeTimeline);
+    mediaCodecVideoRenderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {VIDEO_H264},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(fakeTimeline.getUidOfPeriod(0)));
+    shadowOf(testMainLooper).idle();
+    ArgumentCaptor<DecoderCounters> argumentDecoderCounters =
+        ArgumentCaptor.forClass(DecoderCounters.class);
+    verify(eventListener).onVideoEnabled(argumentDecoderCounters.capture());
+    DecoderCounters decoderCounters = argumentDecoderCounters.getValue();
+
+    mediaCodecVideoRenderer.start();
+    mediaCodecVideoRenderer.render(0, SystemClock.elapsedRealtime() * 1000);
+    while (decoderCounters.renderedOutputBufferCount == 0) {
+      mediaCodecVideoRenderer.render(10_000, SystemClock.elapsedRealtime() * 1000);
+    }
+    // Ensure existing buffer will be 1 second late and new (not yet read) buffers are available
+    // to be skipped and to skip to in the input stream.
+    int posUs = 1_020_000;
+    fakeSampleStream.append(
+        ImmutableList.of(
+            oneByteSample(/* timeUs= */ 30_000), // Dropped input buffer when skipping to keyframe.
+            oneByteSample(/* timeUs= */ 1_020_000, C.BUFFER_FLAG_KEY_FRAME),
+            oneByteSample(/* timeUs= */ 1_040_000, C.BUFFER_FLAG_NOT_DEPENDED_ON),
+            oneByteSample(/* timeUs= */ 1_060_000, C.BUFFER_FLAG_NOT_DEPENDED_ON),
+            oneByteSample(/* timeUs= */ 2_000_000, C.BUFFER_FLAG_NOT_DEPENDED_ON),
+            END_OF_STREAM_ITEM));
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+    mediaCodecVideoRenderer.setCurrentStreamFinal();
+    // Render until the new keyframe has been processed and then increase time to reach the end.
+    while (decoderCounters.renderedOutputBufferCount < 2) {
+      mediaCodecVideoRenderer.render(posUs, SystemClock.elapsedRealtime() * 1000);
+      maybeIdleAsynchronousMediaCodecAdapterThreads();
+    }
+    while (!mediaCodecVideoRenderer.isEnded()) {
+      maybeIdleAsynchronousMediaCodecAdapterThreads();
+      mediaCodecVideoRenderer.render(posUs, SystemClock.elapsedRealtime() * 1000);
+      posUs += 1_000;
+    }
+
+    assertThat(decoderCounters.renderedOutputBufferCount).isEqualTo(5);
+    assertThat(decoderCounters.droppedInputBufferCount).isEqualTo(1);
+    assertThat(decoderCounters.droppedToKeyframeCount).isEqualTo(1);
+  }
+
+  @Test
+  public void render_afterVeryLateBuffer_countsDroppedInputBuffersCorrectly() throws Exception {
+    FakeTimeline fakeTimeline =
+        new FakeTimeline(
+            new FakeTimeline.TimelineWindowDefinition(
+                /* isSeekable= */ true, /* isDynamic= */ false, /* durationUs= */ 3_000_000));
+    FakeSampleStream fakeSampleStream =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* initialFormat= */ VIDEO_H264,
+            ImmutableList.of(
+                oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME), // First buffer.
+                oneByteSample(/* timeUs= */ 20_000))); // Late buffer.
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+    mediaCodecVideoRenderer =
+        new MediaCodecVideoRenderer(
+            new MediaCodecVideoRenderer.Builder(ApplicationProvider.getApplicationContext())
+                .setCodecAdapterFactory(
+                    new ForwardingSynchronousMediaCodecAdapterWithReordering.Factory())
+                .setMediaCodecSelector(mediaCodecSelector)
+                .setAllowedJoiningTimeMs(0)
+                .setEnableDecoderFallback(false)
+                .setEventHandler(new Handler(testMainLooper))
+                .setEventListener(eventListener)
+                .setMaxDroppedFramesToNotify(1)
+                .experimentalSetLateThresholdToDropDecoderInputUs(50_000)) {
+          @Override
+          protected @Capabilities int supportsFormat(
+              MediaCodecSelector mediaCodecSelector, Format format) {
+            return RendererCapabilities.create(C.FORMAT_HANDLED);
+          }
+        };
+
+    mediaCodecVideoRenderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
+    mediaCodecVideoRenderer.handleMessage(Renderer.MSG_SET_VIDEO_OUTPUT, surface);
+    mediaCodecVideoRenderer.setTimeline(fakeTimeline);
+    mediaCodecVideoRenderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {VIDEO_H264},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(fakeTimeline.getUidOfPeriod(0)));
+    shadowOf(testMainLooper).idle();
+    ArgumentCaptor<DecoderCounters> argumentDecoderCounters =
+        ArgumentCaptor.forClass(DecoderCounters.class);
+    verify(eventListener).onVideoEnabled(argumentDecoderCounters.capture());
+    DecoderCounters decoderCounters = argumentDecoderCounters.getValue();
+
+    mediaCodecVideoRenderer.start();
+    mediaCodecVideoRenderer.render(0, SystemClock.elapsedRealtime() * 1000);
+    while (decoderCounters.renderedOutputBufferCount == 0) {
+      mediaCodecVideoRenderer.render(10_000, SystemClock.elapsedRealtime() * 1000);
+    }
+    fakeSampleStream.append(
+        ImmutableList.of(
+            // Dropped input buffer.
+            oneByteSample(/* timeUs= */ 500_000, C.BUFFER_FLAG_NOT_DEPENDED_ON),
+            oneByteSample(300_000), // Render.
+            oneByteSample(400_000) // Very late buffer.
+            ));
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+    // Render until the frame at time 300_000 us is displayed.
+    int posUs = 300_000;
+    while (decoderCounters.renderedOutputBufferCount < 2) {
+      maybeIdleAsynchronousMediaCodecAdapterThreads();
+      mediaCodecVideoRenderer.render(posUs, SystemClock.elapsedRealtime() * 1000);
+    }
+    fakeSampleStream.append(
+        ImmutableList.of(
+            oneByteSample(
+                /* timeUs= */ 1_000_000), // Dropped input buffer when skipping to keyframe.
+            oneByteSample(/* timeUs= */ 2_020_000, C.BUFFER_FLAG_KEY_FRAME),
+            oneByteSample(/* timeUs= */ 3_000_000),
+            END_OF_STREAM_ITEM));
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+    mediaCodecVideoRenderer.setCurrentStreamFinal();
+    posUs = 2_020_000;
+    while (decoderCounters.renderedOutputBufferCount + decoderCounters.skippedOutputBufferCount
+        < 3) {
+      mediaCodecVideoRenderer.render(posUs, SystemClock.elapsedRealtime() * 1000);
+      maybeIdleAsynchronousMediaCodecAdapterThreads();
+    }
+    while (!mediaCodecVideoRenderer.isEnded()) {
+      maybeIdleAsynchronousMediaCodecAdapterThreads();
+      mediaCodecVideoRenderer.render(posUs, SystemClock.elapsedRealtime() * 1000);
+      posUs += 1_000;
+    }
+
+    assertThat(decoderCounters.droppedInputBufferCount).isEqualTo(2);
+    assertThat(decoderCounters.droppedToKeyframeCount).isEqualTo(1);
+  }
+
+  @Test
+  public void
+      render_withLateBufferAndOutOfOrderSamplesWithoutDependencies_dropsInputBuffersAndRendersLast()
+          throws Exception {
+    FakeTimeline fakeTimeline =
+        new FakeTimeline(
+            new FakeTimeline.TimelineWindowDefinition(
+                /* isSeekable= */ true, /* isDynamic= */ false, /* durationUs= */ 1_000_000));
+    FakeSampleStream fakeSampleStream =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* initialFormat= */ VIDEO_H264,
+            ImmutableList.of(
+                oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME), // First buffer.
+                oneByteSample(
+                    /* timeUs= */ 20_000))); // Late buffer triggers input buffer dropping.
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+    mediaCodecVideoRenderer =
+        new MediaCodecVideoRenderer(
+            new MediaCodecVideoRenderer.Builder(ApplicationProvider.getApplicationContext())
+                .setCodecAdapterFactory(
+                    new ForwardingSynchronousMediaCodecAdapterWithReordering.Factory())
+                .setMediaCodecSelector(mediaCodecSelector)
+                .setAllowedJoiningTimeMs(0)
+                .setEnableDecoderFallback(false)
+                .setEventHandler(new Handler(testMainLooper))
+                .setEventListener(eventListener)
+                .setMaxDroppedFramesToNotify(1)
+                .experimentalSetLateThresholdToDropDecoderInputUs(200_000)) {
+          @Override
+          protected @Capabilities int supportsFormat(
+              MediaCodecSelector mediaCodecSelector, Format format) {
+            return RendererCapabilities.create(C.FORMAT_HANDLED);
+          }
+        };
+
+    mediaCodecVideoRenderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
+    mediaCodecVideoRenderer.handleMessage(Renderer.MSG_SET_VIDEO_OUTPUT, surface);
+    mediaCodecVideoRenderer.setTimeline(fakeTimeline);
+    mediaCodecVideoRenderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {VIDEO_H264},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(fakeTimeline.getUidOfPeriod(0)));
+    shadowOf(testMainLooper).idle();
+    ArgumentCaptor<DecoderCounters> argumentDecoderCounters =
+        ArgumentCaptor.forClass(DecoderCounters.class);
+    verify(eventListener).onVideoEnabled(argumentDecoderCounters.capture());
+    DecoderCounters decoderCounters = argumentDecoderCounters.getValue();
+
+    mediaCodecVideoRenderer.start();
+    mediaCodecVideoRenderer.render(0, SystemClock.elapsedRealtime() * 1000);
+    while (decoderCounters.renderedOutputBufferCount == 0) {
+      mediaCodecVideoRenderer.render(10_000, SystemClock.elapsedRealtime() * 1000);
+    }
+    // Ensure existing buffer will be ~280ms late and new (not yet read) buffers are available
+    // to be dropped.
+    int posUs = 300_000;
+    fakeSampleStream.append(
+        ImmutableList.of(
+            oneByteSample(/* timeUs= */ 300_000), // Render.
+            oneByteSample(/* timeUs= */ 320_000), // Render.
+            // Drop consecutive input buffers that aren't consecutive output buffers.
+            oneByteSample(/* timeUs= */ 310_000, C.BUFFER_FLAG_NOT_DEPENDED_ON),
+            oneByteSample(/* timeUs= */ 330_000, C.BUFFER_FLAG_NOT_DEPENDED_ON),
+            // Last buffer is always rendered.
+            oneByteSample(/* timeUs= */ 500_000, C.BUFFER_FLAG_NOT_DEPENDED_ON),
+            END_OF_STREAM_ITEM));
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+    mediaCodecVideoRenderer.setCurrentStreamFinal();
+    // Render until the first frame is reached and then increase time to reach the end.
+    while (decoderCounters.renderedOutputBufferCount < 2) {
+      mediaCodecVideoRenderer.render(posUs, SystemClock.elapsedRealtime() * 1000);
+    }
+    while (!mediaCodecVideoRenderer.isEnded()) {
+      mediaCodecVideoRenderer.render(posUs, SystemClock.elapsedRealtime() * 1000);
+      posUs += 2_000;
+    }
+
+    assertThat(decoderCounters.droppedInputBufferCount).isEqualTo(2);
+    assertThat(decoderCounters.droppedBufferCount).isEqualTo(3);
+    assertThat(decoderCounters.maxConsecutiveDroppedBufferCount).isEqualTo(1);
+    assertThat(decoderCounters.droppedToKeyframeCount).isEqualTo(0);
   }
 
   @Test
@@ -1993,6 +2384,56 @@ public class MediaCodecVideoRendererTest {
         .setWidth(width)
         .setHeight(height)
         .build();
+  }
+
+  private static final class ForwardingSynchronousMediaCodecAdapterWithReordering
+      extends ForwardingSynchronousMediaCodecAdapter {
+    /** A factory for {@link ForwardingSynchronousMediaCodecAdapterWithReordering} instances. */
+    public static final class Factory implements MediaCodecAdapter.Factory {
+      @Override
+      public MediaCodecAdapter createAdapter(Configuration configuration) throws IOException {
+        return new ForwardingSynchronousMediaCodecAdapterWithReordering(
+            new SynchronousMediaCodecAdapter.Factory().createAdapter(configuration));
+      }
+    }
+
+    private final PriorityQueue<Long> timestamps;
+
+    ForwardingSynchronousMediaCodecAdapterWithReordering(MediaCodecAdapter adapter) {
+      super(adapter);
+      timestamps = new PriorityQueue<>();
+    }
+
+    @Override
+    public int dequeueOutputBufferIndex(MediaCodec.BufferInfo bufferInfo) {
+      int outputBufferIndex = super.dequeueOutputBufferIndex(bufferInfo);
+      Long smallestTimestamp = timestamps.peek();
+      if (smallestTimestamp != null && outputBufferIndex != INFO_TRY_AGAIN_LATER) {
+        bufferInfo.presentationTimeUs = smallestTimestamp;
+      }
+      return outputBufferIndex;
+    }
+
+    @Override
+    public void queueInputBuffer(
+        int index, int offset, int size, long presentationTimeUs, int flags) {
+      if ((flags & C.BUFFER_FLAG_END_OF_STREAM) == 0) {
+        timestamps.add(presentationTimeUs);
+      }
+      super.queueInputBuffer(index, offset, size, presentationTimeUs, flags);
+    }
+
+    @Override
+    public void releaseOutputBuffer(int index, boolean render) {
+      timestamps.poll();
+      super.releaseOutputBuffer(index, render);
+    }
+
+    @Override
+    public void releaseOutputBuffer(int index, long renderTimeStampNs) {
+      timestamps.poll();
+      super.releaseOutputBuffer(index, renderTimeStampNs);
+    }
   }
 
   private static final class ForwardingSynchronousMediaCodecAdapterWithBufferLimit

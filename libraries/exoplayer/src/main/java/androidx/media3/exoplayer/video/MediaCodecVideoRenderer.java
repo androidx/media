@@ -82,6 +82,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.nio.ByteBuffer;
 import java.util.List;
+import java.util.PriorityQueue;
 import org.checkerframework.checker.initialization.qual.Initialized;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
@@ -159,6 +160,13 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   private final VideoFrameReleaseControl.FrameReleaseInfo videoFrameReleaseInfo;
   @Nullable private final Av1SampleDependencyParser av1SampleDependencyParser;
 
+  /**
+   * The earliest time threshold, in microseconds, after which decoder input buffers may be dropped.
+   */
+  private final long minEarlyUsToDropDecoderInput;
+
+  private final PriorityQueue<Long> droppedDecoderInputBufferTimestamps;
+
   private @MonotonicNonNull CodecMaxValues codecMaxValues;
   private boolean codecNeedsSetOutputSurfaceWorkaround;
   private boolean codecHandlesHdr10PlusOutOfBandMetadata;
@@ -190,6 +198,8 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   private long periodDurationUs;
   private boolean pendingVideoSinkInputStreamChange;
 
+  private boolean shouldDropDecoderInputBuffers;
+
   /** A builder to create {@link MediaCodecVideoRenderer} instances. */
   public static final class Builder {
     private final Context context;
@@ -204,6 +214,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     private float assumedMinimumCodecOperatingRate;
     @Nullable private VideoSink videoSink;
     private boolean parseAv1SampleDependencies;
+    private long lateThresholdToDropDecoderInputUs;
 
     /**
      * Creates a new builder.
@@ -215,6 +226,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       this.mediaCodecSelector = MediaCodecSelector.DEFAULT;
       this.codecAdapterFactory = MediaCodecAdapter.Factory.getDefault(context);
       this.assumedMinimumCodecOperatingRate = 30;
+      this.lateThresholdToDropDecoderInputUs = C.TIME_UNSET;
     }
 
     /** Sets the {@link MediaCodecSelector decoder selector}. */
@@ -324,6 +336,22 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     @CanIgnoreReturnValue
     public Builder experimentalSetParseAv1SampleDependencies(boolean parseAv1SampleDependencies) {
       this.parseAv1SampleDependencies = parseAv1SampleDependencies;
+      return this;
+    }
+
+    /**
+     * Sets the late threshold for rendered output buffers, in microseconds, after which decoder
+     * input buffers may be dropped.
+     *
+     * <p>The default value is {@link C#TIME_UNSET} and therefore no input buffers will be dropped
+     * due to this logic.
+     *
+     * <p>This method is experimental and will be renamed or removed in a future release.
+     */
+    @CanIgnoreReturnValue
+    public Builder experimentalSetLateThresholdToDropDecoderInputUs(
+        long lateThresholdToDropDecoderInputUs) {
+      this.lateThresholdToDropDecoderInputUs = lateThresholdToDropDecoderInputUs;
       return this;
     }
 
@@ -546,6 +574,11 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     periodDurationUs = C.TIME_UNSET;
     av1SampleDependencyParser =
         builder.parseAv1SampleDependencies ? new Av1SampleDependencyParser() : null;
+    droppedDecoderInputBufferTimestamps = new PriorityQueue<>();
+    minEarlyUsToDropDecoderInput =
+        builder.lateThresholdToDropDecoderInputUs != C.TIME_UNSET
+            ? -builder.lateThresholdToDropDecoderInputUs
+            : C.TIME_UNSET;
   }
 
   // FrameTimingEvaluator methods
@@ -568,6 +601,9 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       boolean isLastFrame,
       boolean treatDroppedBuffersAsSkipped)
       throws ExoPlaybackException {
+    if (minEarlyUsToDropDecoderInput != C.TIME_UNSET) {
+      shouldDropDecoderInputBuffers = earlyUs < minEarlyUsToDropDecoderInput;
+    }
     return shouldDropBuffersToKeyframe(earlyUs, elapsedRealtimeUs, isLastFrame)
         && maybeDropBuffersToKeyframe(positionUs, treatDroppedBuffersAsSkipped);
   }
@@ -1215,6 +1251,8 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   @Override
   protected void resetCodecStateForFlush() {
     super.resetCodecStateForFlush();
+    droppedDecoderInputBufferTimestamps.clear();
+    shouldDropDecoderInputBuffers = false;
     buffersInCodecCount = 0;
   }
 
@@ -1425,8 +1463,8 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       // block processed. Skipping input buffers before the decoder is not allowed.
       return false;
     }
-    // Skip buffers without sample dependencies that won't be rendered.
-    if (!isBufferBeforeStartTime(buffer)) {
+    boolean shouldSkipDecoderInputBuffer = isBufferBeforeStartTime(buffer);
+    if (!shouldSkipDecoderInputBuffer && !shouldDropDecoderInputBuffers) {
       return false;
     }
     if (buffer.hasSupplementalData()) {
@@ -1434,7 +1472,11 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     }
     if (buffer.notDependedOn()) {
       buffer.clear();
-      decoderCounters.skippedInputBufferCount += 1;
+      if (shouldSkipDecoderInputBuffer) {
+        decoderCounters.skippedInputBufferCount += 1;
+      } else if (shouldDropDecoderInputBuffers) {
+        droppedDecoderInputBufferTimestamps.add(buffer.timeUs);
+      }
       return true;
     }
     if (av1SampleDependencyParser != null
@@ -1450,7 +1492,11 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       if (sampleLimitAfterSkippingNonReferenceFrames != readOnlySample.limit()
           && hasSpaceForNextFrame) {
         checkNotNull(buffer.data).position(sampleLimitAfterSkippingNonReferenceFrames);
-        decoderCounters.skippedInputBufferCount += 1;
+        if (shouldSkipDecoderInputBuffer) {
+          decoderCounters.skippedInputBufferCount += 1;
+        } else if (shouldDropDecoderInputBuffers) {
+          droppedDecoderInputBufferTimestamps.add(buffer.timeUs);
+        }
         return true;
       }
       return false;
@@ -1595,6 +1641,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
 
     long outputStreamOffsetUs = getOutputStreamOffsetUs();
     long presentationTimeUs = bufferPresentationTimeUs - outputStreamOffsetUs;
+    updateDroppedBufferCountersWithInputBuffers(presentationTimeUs);
 
     if (videoSink != null) {
       // Skip decode-only buffers, e.g. after seeking, immediately.
@@ -1867,10 +1914,13 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     if (treatDroppedBuffersAsSkipped) {
       decoderCounters.skippedInputBufferCount += droppedSourceBufferCount;
       decoderCounters.skippedOutputBufferCount += buffersInCodecCount;
+      decoderCounters.skippedInputBufferCount += droppedDecoderInputBufferTimestamps.size();
     } else {
       decoderCounters.droppedToKeyframeCount++;
       updateDroppedBufferCounters(
-          droppedSourceBufferCount, /* droppedDecoderBufferCount= */ buffersInCodecCount);
+          /* droppedInputBufferCount= */ droppedSourceBufferCount
+              + droppedDecoderInputBufferTimestamps.size(),
+          /* droppedDecoderBufferCount= */ buffersInCodecCount);
     }
     flushOrReinitializeCodec();
     if (videoSink != null) {
@@ -1899,6 +1949,23 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     if (maxDroppedFramesToNotify > 0 && droppedFrames >= maxDroppedFramesToNotify) {
       maybeNotifyDroppedFrames();
     }
+  }
+
+  /**
+   * Updates counters to reflect dropped input buffers prior to {@code presentationTimeUs}.
+   *
+   * @param presentationTimeUs The presentation timestamp of the last processed output buffer, in
+   *     microseconds.
+   */
+  private void updateDroppedBufferCountersWithInputBuffers(long presentationTimeUs) {
+    int droppedInputBufferCount = 0;
+    Long minDroppedDecoderBufferTimeUs;
+    while ((minDroppedDecoderBufferTimeUs = droppedDecoderInputBufferTimestamps.peek()) != null
+        && minDroppedDecoderBufferTimeUs < presentationTimeUs) {
+      droppedInputBufferCount++;
+      droppedDecoderInputBufferTimestamps.poll();
+    }
+    updateDroppedBufferCounters(droppedInputBufferCount, /* droppedDecoderBufferCount= */ 0);
   }
 
   /**

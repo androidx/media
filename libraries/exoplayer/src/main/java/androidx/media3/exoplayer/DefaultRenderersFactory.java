@@ -110,6 +110,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
   private boolean enableAudioTrackPlaybackParams;
   private boolean enableMediaCodecVideoRendererPrewarming;
   private boolean parseAv1SampleDependencies;
+  private long lateThresholdToDropDecoderInputUs;
 
   /**
    * @param context A {@link Context}.
@@ -120,6 +121,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
     extensionRendererMode = EXTENSION_RENDERER_MODE_OFF;
     allowedVideoJoiningTimeMs = DEFAULT_ALLOWED_VIDEO_JOINING_TIME_MS;
     mediaCodecSelector = MediaCodecSelector.DEFAULT;
+    lateThresholdToDropDecoderInputUs = C.TIME_UNSET;
   }
 
   /**
@@ -313,6 +315,24 @@ public class DefaultRenderersFactory implements RenderersFactory {
     return this;
   }
 
+  /**
+   * Sets the late threshold for rendered output buffers, in microseconds, after which decoder input
+   * buffers may be dropped.
+   *
+   * <p>The default value is {@link C#TIME_UNSET} and therefore no input buffers will be dropped due
+   * to this logic.
+   *
+   * <p>This method is experimental and will be renamed or removed in a future release.
+   *
+   * @param lateThresholdToDropDecoderInputUs The threshold.
+   */
+  @CanIgnoreReturnValue
+  public final DefaultRenderersFactory experimentalSetLateThresholdToDropDecoderInputUs(
+      long lateThresholdToDropDecoderInputUs) {
+    this.lateThresholdToDropDecoderInputUs = lateThresholdToDropDecoderInputUs;
+    return this;
+  }
+
   @Override
   public Renderer[] createRenderers(
       Handler eventHandler,
@@ -396,6 +416,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
             .setEventListener(eventListener)
             .setMaxDroppedFramesToNotify(MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY)
             .experimentalSetParseAv1SampleDependencies(parseAv1SampleDependencies)
+            .experimentalSetLateThresholdToDropDecoderInputUs(lateThresholdToDropDecoderInputUs)
             .build();
     out.add(videoRenderer);
 
@@ -800,6 +821,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
           .setEventListener(eventListener)
           .setMaxDroppedFramesToNotify(MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY)
           .experimentalSetParseAv1SampleDependencies(parseAv1SampleDependencies)
+          .experimentalSetLateThresholdToDropDecoderInputUs(lateThresholdToDropDecoderInputUs)
           .build();
     }
     return null;
