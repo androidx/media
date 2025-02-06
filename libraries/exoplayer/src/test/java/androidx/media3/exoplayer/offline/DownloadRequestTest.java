@@ -104,12 +104,14 @@ public class DownloadRequestTest {
             .setKeySetId(keySetId1)
             .setCustomCacheKey("key1")
             .setData(data1)
+            .setByteRange(/* offset= */ 0, /* length= */ 10)
             .build();
     DownloadRequest request2 =
         new DownloadRequest.Builder(/* id= */ "id1", uri2)
             .setKeySetId(keySetId2)
             .setCustomCacheKey("key2")
             .setData(data2)
+            .setByteRange(/* offset= */ 10, /* length= */ 20)
             .build();
 
     // uri, keySetId, customCacheKey and data should be from the request being merged.
@@ -118,12 +120,16 @@ public class DownloadRequestTest {
     assertThat(mergedRequest.keySetId).isEqualTo(keySetId2);
     assertThat(mergedRequest.customCacheKey).isEqualTo("key2");
     assertThat(mergedRequest.data).isEqualTo(data2);
+    assertThat(mergedRequest.byteRange.offset).isEqualTo(10);
+    assertThat(mergedRequest.byteRange.length).isEqualTo(20);
 
     mergedRequest = request2.copyWithMergedRequest(request1);
     assertThat(mergedRequest.uri).isEqualTo(uri1);
     assertThat(mergedRequest.keySetId).isEqualTo(keySetId1);
     assertThat(mergedRequest.customCacheKey).isEqualTo("key1");
     assertThat(mergedRequest.data).isEqualTo(data1);
+    assertThat(mergedRequest.byteRange.offset).isEqualTo(0);
+    assertThat(mergedRequest.byteRange.length).isEqualTo(10);
   }
 
   @Test
@@ -137,6 +143,7 @@ public class DownloadRequestTest {
             .setKeySetId(new byte[] {1, 2, 3, 4, 5})
             .setCustomCacheKey("key")
             .setData(new byte[] {1, 2, 3, 4, 5})
+            .setByteRange(/* offset= */ 0, /* length= */ 20)
             .build();
     Parcel parcel = Parcel.obtain();
     requestToParcel.writeToParcel(parcel, 0);
@@ -181,6 +188,23 @@ public class DownloadRequestTest {
     DownloadRequest request14 = createRequest(uri1);
     DownloadRequest request15 = createRequest(uri1);
     assertEqual(request14, request15);
+
+    DownloadRequest request16 = createRequest(uri1);
+    DownloadRequest request17 =
+        createRequest(uri1, /* byteRangeOffset= */ 0, /* byteRangeLength= */ 20);
+    assertNotEqual(request16, request17);
+
+    DownloadRequest request18 =
+        createRequest(uri1, /* byteRangeOffset= */ 0, /* byteRangeLength= */ 20);
+    DownloadRequest request19 =
+        createRequest(uri1, /* byteRangeOffset= */ 0, /* byteRangeLength= */ 20);
+    assertEqual(request18, request19);
+
+    DownloadRequest request20 =
+        createRequest(uri1, /* byteRangeOffset= */ 0, /* byteRangeLength= */ 10);
+    DownloadRequest request21 =
+        createRequest(uri1, /* byteRangeOffset= */ 0, /* byteRangeLength= */ 20);
+    assertNotEqual(request20, request21);
   }
 
   private static void assertNotEqual(DownloadRequest request1, DownloadRequest request2) {
@@ -196,5 +220,12 @@ public class DownloadRequestTest {
 
   private static DownloadRequest createRequest(Uri uri, StreamKey... keys) {
     return new DownloadRequest.Builder(uri.toString(), uri).setStreamKeys(asList(keys)).build();
+  }
+
+  private static DownloadRequest createRequest(
+      Uri uri, long byteRangeOffset, long byteRangeLength) {
+    return new DownloadRequest.Builder(uri.toString(), uri)
+        .setByteRange(byteRangeOffset, byteRangeLength)
+        .build();
   }
 }

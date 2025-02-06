@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.offline;
 
+import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Util.castNonNull;
 
 import android.net.Uri;
@@ -25,7 +26,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.StreamKey;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.common.collect.ImmutableList;
@@ -35,6 +35,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 /** Defines content to be downloaded. */
 @UnstableApi
@@ -52,11 +53,13 @@ public final class DownloadRequest implements Parcelable {
     @Nullable private byte[] keySetId;
     @Nullable private String customCacheKey;
     @Nullable private byte[] data;
+    @Nullable private ByteRange byteRange;
 
     /** Creates a new instance with the specified id and uri. */
     public Builder(String id, Uri uri) {
       this.id = id;
       this.uri = uri;
+      this.byteRange = null;
     }
 
     /** Sets the {@link DownloadRequest#mimeType}. */
@@ -94,6 +97,21 @@ public final class DownloadRequest implements Parcelable {
       return this;
     }
 
+    /**
+     * Sets the byte range to be downloaded.
+     *
+     * <p>This will be ignored for DASH, HLS and SmoothStreaming downloads.
+     *
+     * @param offset The offset that the download should start from.
+     * @param length The length from the {@code offset} to be downloaded, or @link C#LENGTH_UNSET}
+     *     if the media should be downloaded to the end.
+     */
+    @CanIgnoreReturnValue
+    public Builder setByteRange(long offset, long length) {
+      this.byteRange = new ByteRange(offset, length);
+      return this;
+    }
+
     public DownloadRequest build() {
       return new DownloadRequest(
           id,
@@ -102,7 +120,8 @@ public final class DownloadRequest implements Parcelable {
           streamKeys != null ? streamKeys : ImmutableList.of(),
           keySetId,
           customCacheKey,
-          data);
+          data,
+          byteRange);
     }
   }
 
@@ -134,6 +153,9 @@ public final class DownloadRequest implements Parcelable {
   /** Application defined data associated with the download. May be empty. */
   public final byte[] data;
 
+  /** The byte range to be downloaded. Must be null for DASH, HLS and SmoothStreaming downloads. */
+  @Nullable public final ByteRange byteRange;
+
   /**
    * @param id See {@link #id}.
    * @param uri See {@link #uri}.
@@ -149,13 +171,16 @@ public final class DownloadRequest implements Parcelable {
       List<StreamKey> streamKeys,
       @Nullable byte[] keySetId,
       @Nullable String customCacheKey,
-      @Nullable byte[] data) {
+      @Nullable byte[] data,
+      @Nullable ByteRange byteRange) {
     @C.ContentType int contentType = Util.inferContentTypeForUriAndMimeType(uri, mimeType);
     if (contentType == C.CONTENT_TYPE_DASH
         || contentType == C.CONTENT_TYPE_HLS
         || contentType == C.CONTENT_TYPE_SS) {
-      Assertions.checkArgument(
-          customCacheKey == null, "customCacheKey must be null for type: " + contentType);
+      checkArgument(customCacheKey == null, "customCacheKey must be null for type: " + contentType);
+      this.byteRange = null;
+    } else {
+      this.byteRange = byteRange;
     }
     this.id = id;
     this.uri = uri;
@@ -181,6 +206,7 @@ public final class DownloadRequest implements Parcelable {
     keySetId = in.createByteArray();
     customCacheKey = in.readString();
     data = castNonNull(in.createByteArray());
+    byteRange = in.readParcelable(ByteRange.class.getClassLoader());
   }
 
   /**
@@ -190,7 +216,8 @@ public final class DownloadRequest implements Parcelable {
    * @return The copy with the specified ID.
    */
   public DownloadRequest copyWithId(String id) {
-    return new DownloadRequest(id, uri, mimeType, streamKeys, keySetId, customCacheKey, data);
+    return new DownloadRequest(
+        id, uri, mimeType, streamKeys, keySetId, customCacheKey, data, byteRange);
   }
 
   /**
@@ -200,7 +227,8 @@ public final class DownloadRequest implements Parcelable {
    * @return The copy with the specified key set ID.
    */
   public DownloadRequest copyWithKeySetId(@Nullable byte[] keySetId) {
-    return new DownloadRequest(id, uri, mimeType, streamKeys, keySetId, customCacheKey, data);
+    return new DownloadRequest(
+        id, uri, mimeType, streamKeys, keySetId, customCacheKey, data, byteRange);
   }
 
   /**
@@ -215,7 +243,7 @@ public final class DownloadRequest implements Parcelable {
    * @throws IllegalArgumentException If the requests do not have the same {@link #id}.
    */
   public DownloadRequest copyWithMergedRequest(DownloadRequest newRequest) {
-    Assertions.checkArgument(id.equals(newRequest.id));
+    checkArgument(id.equals(newRequest.id));
     List<StreamKey> mergedKeys;
     if (streamKeys.isEmpty() || newRequest.streamKeys.isEmpty()) {
       // If either streamKeys is empty then all streams should be downloaded.
@@ -236,7 +264,8 @@ public final class DownloadRequest implements Parcelable {
         mergedKeys,
         newRequest.keySetId,
         newRequest.customCacheKey,
-        newRequest.data);
+        newRequest.data,
+        newRequest.byteRange);
   }
 
   /** Returns a {@link MediaItem} for the content defined by the request. */
@@ -263,15 +292,16 @@ public final class DownloadRequest implements Parcelable {
     DownloadRequest that = (DownloadRequest) o;
     return id.equals(that.id)
         && uri.equals(that.uri)
-        && Util.areEqual(mimeType, that.mimeType)
+        && Objects.equals(mimeType, that.mimeType)
         && streamKeys.equals(that.streamKeys)
         && Arrays.equals(keySetId, that.keySetId)
-        && Util.areEqual(customCacheKey, that.customCacheKey)
-        && Arrays.equals(data, that.data);
+        && Objects.equals(customCacheKey, that.customCacheKey)
+        && Arrays.equals(data, that.data)
+        && Objects.equals(byteRange, that.byteRange);
   }
 
   @Override
-  public final int hashCode() {
+  public int hashCode() {
     int result = 31 * id.hashCode();
     result = 31 * result + uri.hashCode();
     result = 31 * result + (mimeType != null ? mimeType.hashCode() : 0);
@@ -279,6 +309,7 @@ public final class DownloadRequest implements Parcelable {
     result = 31 * result + Arrays.hashCode(keySetId);
     result = 31 * result + (customCacheKey != null ? customCacheKey.hashCode() : 0);
     result = 31 * result + Arrays.hashCode(data);
+    result = 31 * result + (byteRange != null ? byteRange.hashCode() : 0);
     return result;
   }
 
@@ -301,6 +332,7 @@ public final class DownloadRequest implements Parcelable {
     dest.writeByteArray(keySetId);
     dest.writeString(customCacheKey);
     dest.writeByteArray(data);
+    dest.writeParcelable(byteRange, /* parcelableFlags= */ 0);
   }
 
   public static final Parcelable.Creator<DownloadRequest> CREATOR =
@@ -316,4 +348,66 @@ public final class DownloadRequest implements Parcelable {
           return new DownloadRequest[size];
         }
       };
+
+  /** Defines the byte range. */
+  public static final class ByteRange implements Parcelable {
+
+    /** The offset of the byte range. */
+    public final long offset;
+
+    /** The length of the byte range. */
+    public final long length;
+
+    /* package */ ByteRange(long offset, long length) {
+      checkArgument(offset >= 0);
+      checkArgument(length >= 0 || length == C.LENGTH_UNSET);
+      this.offset = offset;
+      this.length = length;
+    }
+
+    /* package */ ByteRange(Parcel in) {
+      this(in.readLong(), in.readLong());
+    }
+
+    @Override
+    public boolean equals(@Nullable Object o) {
+      if (!(o instanceof ByteRange)) {
+        return false;
+      }
+      ByteRange that = (ByteRange) o;
+      return offset == that.offset && length == that.length;
+    }
+
+    @Override
+    public int hashCode() {
+      int result = 31 * (int) offset;
+      result = 31 * result + (int) length;
+      return result;
+    }
+
+    @Override
+    public int describeContents() {
+      return 0;
+    }
+
+    @Override
+    public void writeToParcel(Parcel dest, int flags) {
+      dest.writeLong(offset);
+      dest.writeLong(length);
+    }
+
+    public static final Parcelable.Creator<ByteRange> CREATOR =
+        new Parcelable.Creator<ByteRange>() {
+
+          @Override
+          public ByteRange createFromParcel(Parcel in) {
+            return new ByteRange(in);
+          }
+
+          @Override
+          public ByteRange[] newArray(int size) {
+            return new ByteRange[size];
+          }
+        };
+  }
 }
