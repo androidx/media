@@ -277,7 +277,6 @@ import java.util.Objects;
   }
 
   private boolean isMixerEnded() {
-    //    return !mixerOutput.hasRemaining() && activeInputCount == 0 && mixer.isEnded();
     return !mixerOutput.hasRemaining() && finishedInputs >= inputInfos.size() && mixer.isEnded();
   }
 

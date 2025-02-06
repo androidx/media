@@ -816,13 +816,14 @@ public final class DefaultVideoCompositorPixelTest {
         String testId,
         TextureBitmapReader textureBitmapReader,
         VideoCompositor videoCompositor,
-        @Nullable ExecutorService executorService,
+        ExecutorService executorService,
         GlObjectsProvider glObjectsProvider,
         int inputIndex) {
       videoCompositor.registerInputSource(inputIndex);
       DefaultVideoFrameProcessor.Factory.Builder defaultVideoFrameProcessorFactoryBuilder =
           new DefaultVideoFrameProcessor.Factory.Builder()
               .setGlObjectsProvider(glObjectsProvider)
+              .setExecutorService(executorService)
               .setSdrWorkingColorSpace(DefaultVideoFrameProcessor.WORKING_COLOR_SPACE_LINEAR)
               .setTextureOutput(
                   /* textureOutputListener= */ (outputTextureProducer,
@@ -840,9 +841,6 @@ public final class DefaultVideoCompositorPixelTest {
                         presentationTimeUs);
                   },
                   /* textureOutputCapacity= */ 2);
-      if (executorService != null) {
-        defaultVideoFrameProcessorFactoryBuilder.setExecutorService(executorService);
-      }
       return new VideoFrameProcessorTestRunner.Builder()
           .setTestId(testId)
           .setVideoFrameProcessorFactory(defaultVideoFrameProcessorFactoryBuilder.build())
