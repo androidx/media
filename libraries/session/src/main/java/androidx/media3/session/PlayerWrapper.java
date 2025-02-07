@@ -618,22 +618,6 @@ import java.util.List;
     super.replaceMediaItems(fromIndex, toIndex, mediaItems);
   }
 
-  @SuppressWarnings("deprecation") // Forwarding deprecated call
-  @Deprecated
-  @Override
-  public boolean hasNext() {
-    verifyApplicationThread();
-    return super.hasNext();
-  }
-
-  @SuppressWarnings("deprecation") // Forwarding deprecated call
-  @Deprecated
-  @Override
-  public boolean hasNextWindow() {
-    verifyApplicationThread();
-    return super.hasNextWindow();
-  }
-
   @Override
   public boolean hasPreviousMediaItem() {
     verifyApplicationThread();

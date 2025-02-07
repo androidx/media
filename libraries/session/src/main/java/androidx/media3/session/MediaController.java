@@ -1537,26 +1537,6 @@ public class MediaController implements Player {
     return isConnected() ? impl.getNextMediaItemIndex() : C.INDEX_UNSET;
   }
 
-  /**
-   * @deprecated Use {@link #hasNextMediaItem()} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  @Override
-  public final boolean hasNext() {
-    return hasNextMediaItem();
-  }
-
-  /**
-   * @deprecated Use {@link #hasNextMediaItem()} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  @Override
-  public final boolean hasNextWindow() {
-    return hasNextMediaItem();
-  }
-
   @Override
   public final boolean hasPreviousMediaItem() {
     verifyApplicationThread();

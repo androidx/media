@@ -2704,20 +2704,6 @@ public interface Player {
   void seekToPrevious();
 
   /**
-   * @deprecated Use {@link #hasNextMediaItem()} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  boolean hasNext();
-
-  /**
-   * @deprecated Use {@link #hasNextMediaItem()} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  boolean hasNextWindow();
-
-  /**
    * Returns whether a next {@link MediaItem} exists, which may depend on the current repeat mode
    * and whether shuffle mode is enabled.
    *

@@ -186,24 +186,6 @@ public abstract class BasePlayer implements Player {
     }
   }
 
-  /**
-   * @deprecated Use {@link #hasNextMediaItem()} instead.
-   */
-  @Deprecated
-  @Override
-  public final boolean hasNext() {
-    return hasNextMediaItem();
-  }
-
-  /**
-   * @deprecated Use {@link #hasNextMediaItem()} instead.
-   */
-  @Deprecated
-  @Override
-  public final boolean hasNextWindow() {
-    return hasNextMediaItem();
-  }
-
   @Override
   public final boolean hasNextMediaItem() {
     return getNextMediaItemIndex() != C.INDEX_UNSET;
