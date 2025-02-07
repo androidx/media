@@ -15,6 +15,7 @@
  */
 apply from: '../../constants.gradle'
 apply plugin: 'com.android.application'
+apply plugin: 'kotlin-android'
 
 android {
     namespace 'androidx.media3.demo.composition'
@@ -24,6 +25,10 @@ android {
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    kotlinOptions {
+        jvmTarget = '1.8'
     }
 
     defaultConfig {
@@ -46,10 +51,14 @@ android {
         // This demo app isn't indexed and doesn't have translations.
         disable 'GoogleAppIndexingWarning','MissingTranslation'
     }
+
+    buildFeatures {
+        viewBinding true
+    }
 }
 
 dependencies {
-    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'androidx.appcompat:appcompat:1.7.0'
     implementation 'com.google.android.material:material:' + androidxMaterialVersion
     implementation project(modulePrefix + 'lib-effect')
     implementation project(modulePrefix + 'lib-exoplayer')
