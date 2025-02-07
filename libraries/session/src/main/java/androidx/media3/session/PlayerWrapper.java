@@ -632,14 +632,6 @@ import java.util.List;
   @SuppressWarnings("deprecation") // Forwarding deprecated call
   @Deprecated
   @Override
-  public void next() {
-    verifyApplicationThread();
-    super.next();
-  }
-
-  @SuppressWarnings("deprecation") // Forwarding deprecated call
-  @Deprecated
-  @Override
   public void seekToPreviousWindow() {
     verifyApplicationThread();
     super.seekToPreviousWindow();

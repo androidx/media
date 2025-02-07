@@ -2721,13 +2721,6 @@ public interface Player {
    */
   @UnstableApi
   @Deprecated
-  void next();
-
-  /**
-   * @deprecated Use {@link #seekToNextMediaItem()} instead.
-   */
-  @UnstableApi
-  @Deprecated
   void seekToNextWindow();
 
   /**
