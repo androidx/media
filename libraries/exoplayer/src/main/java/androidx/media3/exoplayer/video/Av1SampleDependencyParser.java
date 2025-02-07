@@ -16,6 +16,7 @@
 package androidx.media3.exoplayer.video;
 
 import static androidx.media3.container.ObuParser.OBU_FRAME;
+import static androidx.media3.container.ObuParser.OBU_FRAME_HEADER;
 import static androidx.media3.container.ObuParser.OBU_PADDING;
 import static androidx.media3.container.ObuParser.OBU_SEQUENCE_HEADER;
 import static androidx.media3.container.ObuParser.OBU_TEMPORAL_DELIMITER;
@@ -63,7 +64,7 @@ import java.util.List;
     int skippedFramesCount = 0;
     int last = obuList.size() - 1;
     while (last >= 0 && canSkipObu(obuList.get(last))) {
-      if (obuList.get(last).type == OBU_FRAME) {
+      if (obuList.get(last).type == OBU_FRAME || obuList.get(last).type == OBU_FRAME_HEADER) {
         skippedFramesCount++;
       }
       last--;
@@ -86,7 +87,7 @@ import java.util.List;
     if (obu.type == OBU_TEMPORAL_DELIMITER || obu.type == OBU_PADDING) {
       return true;
     }
-    if (obu.type == OBU_FRAME && sequenceHeader != null) {
+    if ((obu.type == OBU_FRAME || obu.type == OBU_FRAME_HEADER) && sequenceHeader != null) {
       FrameHeader frameHeader = FrameHeader.parse(sequenceHeader, obu);
       return frameHeader != null && !frameHeader.isDependedOn();
     }

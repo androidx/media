@@ -294,10 +294,7 @@ public final class ObuParser {
       throwWhenFeatureRequired(sequenceHeader.reducedStillPictureHeader);
       boolean showExistingFrame = obuData.readBit();
       if (showExistingFrame) {
-        // TODO: b/391108133 - Treat showExistingFrame as depended on. The picture was already
-        // decoded and the player may not save a lot of resources by rendering. Check if this
-        // assumption is correct!
-        isDependedOn = true;
+        isDependedOn = false;
         return;
       }
       int frameType = obuData.readBits(2);

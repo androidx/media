@@ -102,7 +102,7 @@ public class ObuParserTest {
   }
 
   @Test
-  public void parseFrameHeader_fromFrameHeader_returnsIsDependedOn() {
+  public void parseFrameHeader_fromShowExistingFrameHeader_returnsIsNotDependedOn() {
     ObuParser.Obu sequenceHeaderObu = ObuParser.split(SEQUENCE_HEADER_AND_FRAME).get(0);
     ObuParser.SequenceHeader sequenceHeader = ObuParser.SequenceHeader.parse(sequenceHeaderObu);
     ObuParser.Obu frameHeaderObu =
@@ -110,7 +110,7 @@ public class ObuParserTest {
 
     ObuParser.FrameHeader frameHeader = ObuParser.FrameHeader.parse(sequenceHeader, frameHeaderObu);
 
-    assertThat(frameHeader.isDependedOn()).isTrue();
+    assertThat(frameHeader.isDependedOn()).isFalse();
   }
 
   @Test
