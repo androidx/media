@@ -1,5 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- Copyright 2024 The Android Open Source Project
+<?xml version="1.0" encoding="utf-8"?><!-- Copyright 2024 The Android Open Source Project
 
      Licensed under the Apache License, Version 2.0 (the "License");
      you may not use this file except in compliance with the License.
@@ -36,4 +35,5 @@
   <string name="enable_debug_tracing" translatable="false">Enable debug tracing</string>
   <string name="use_media3_mp4_muxer" translatable="false">Use Media3 Mp4Muxer</string>
   <string name="use_media3_fragmented_mp4_muxer" translatable="false">Use Media3 FragmentedMp4Muxer</string>
+  <string name="title_activity_main">MainActivity</string>
 </resources>

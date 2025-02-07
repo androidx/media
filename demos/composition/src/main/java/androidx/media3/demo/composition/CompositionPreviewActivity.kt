@@ -62,8 +62,6 @@ import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.common.base.Stopwatch
 import com.google.common.base.Ticker
-import com.google.common.collect.ImmutableList
-import com.google.common.collect.ImmutableMap
 import org.json.JSONException
 import java.io.File
 import java.io.IOException
