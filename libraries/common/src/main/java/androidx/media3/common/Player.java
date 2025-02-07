@@ -2710,13 +2710,6 @@ public interface Player {
   boolean hasNextMediaItem();
 
   /**
-   * @deprecated Use {@link #seekToNextMediaItem()} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  void seekToNextWindow();
-
-  /**
    * Seeks to the default position of the next {@link MediaItem}, which may depend on the current
    * repeat mode and whether shuffle mode is enabled. Does nothing if {@link #hasNextMediaItem()} is
    * {@code false}.
