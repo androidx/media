@@ -2154,7 +2154,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
             mediaClock.getPlaybackParameters().speed,
             playbackInfo.playWhenReady,
             isRebuffering,
-            targetLiveOffsetUs));
+            targetLiveOffsetUs,
+            lastRebufferRealtimeMs));
   }
 
   private boolean isTimelineReady() {
@@ -2874,7 +2875,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
             mediaClock.getPlaybackParameters().speed,
             playbackInfo.playWhenReady,
             isRebuffering,
-            targetLiveOffsetUs);
+            targetLiveOffsetUs,
+            lastRebufferRealtimeMs);
     boolean shouldContinueLoading = loadControl.shouldContinueLoading(loadParameters);
     MediaPeriodHolder playingPeriodHolder = queue.getPlayingPeriod();
     if (!shouldContinueLoading
@@ -3132,7 +3134,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
             mediaClock.getPlaybackParameters().speed,
             playbackInfo.playWhenReady,
             isRebuffering,
-            targetLiveOffsetUs),
+            targetLiveOffsetUs,
+            lastRebufferRealtimeMs),
         trackGroups,
         trackSelectorResult.selections);
   }
