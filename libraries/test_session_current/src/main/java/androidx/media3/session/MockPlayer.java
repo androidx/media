@@ -1090,15 +1090,6 @@ public class MockPlayer implements Player {
     throw new UnsupportedOperationException();
   }
 
-  /**
-   * @deprecated Use {@link #seekToNextMediaItem()} instead.
-   */
-  @Deprecated
-  @Override
-  public void seekToNextWindow() {
-    throw new UnsupportedOperationException();
-  }
-
   @Override
   public void seekToPreviousMediaItem() {
     checkNotNull(conditionVariables.get(METHOD_SEEK_TO_PREVIOUS_MEDIA_ITEM)).open();

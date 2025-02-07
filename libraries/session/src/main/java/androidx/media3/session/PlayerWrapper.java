@@ -630,14 +630,6 @@ import java.util.List;
     return super.hasNextMediaItem();
   }
 
-  @SuppressWarnings("deprecation") // Forwarding deprecated call
-  @Deprecated
-  @Override
-  public void seekToNextWindow() {
-    verifyApplicationThread();
-    super.seekToNextWindow();
-  }
-
   @Override
   public void seekToPreviousMediaItem() {
     verifyApplicationThread();

@@ -1566,16 +1566,6 @@ public class MediaController implements Player {
   }
 
   /**
-   * @deprecated Use {@link #seekToNextMediaItem()} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  @Override
-  public final void seekToNextWindow() {
-    seekToNextMediaItem();
-  }
-
-  /**
    * {@inheritDoc}
    *
    * <p>Interoperability: When connected to {@code

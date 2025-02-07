@@ -31,12 +31,12 @@ public class PlayerTest {
    * This test picks a method on the {@link Player} interface that is known will never be
    * stabilised, and asserts that it is required to be implemented (therefore enforcing that {@link
    * Player} is unstable-for-implementors). If this test fails because the {@link
-   * Player#seekToNextWindow()} method is removed, it should be replaced with an equivalent
+   * Player#getCurrentWindowIndex()} method is removed, it should be replaced with an equivalent
    * unstable, unimplemented method.
    */
   @Test
   public void testAtLeastOneUnstableUnimplementedMethodExists() throws Exception {
-    Method seekToNextWindowMethod = Player.class.getMethod("seekToNextWindow");
-    assertThat(seekToNextWindowMethod.isDefault()).isFalse();
+    Method getCurrentWindowIndexMethod = Player.class.getMethod("getCurrentWindowIndex");
+    assertThat(getCurrentWindowIndexMethod.isDefault()).isFalse();
   }
 }
