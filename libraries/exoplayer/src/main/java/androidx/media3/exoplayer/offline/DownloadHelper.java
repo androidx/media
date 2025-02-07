@@ -41,12 +41,10 @@ import androidx.media3.datasource.TransferListener;
 import androidx.media3.exoplayer.DefaultRendererCapabilitiesList;
 import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.LoadingInfo;
-import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.RendererCapabilities;
 import androidx.media3.exoplayer.RendererCapabilitiesList;
 import androidx.media3.exoplayer.RenderersFactory;
 import androidx.media3.exoplayer.analytics.PlayerId;
-import androidx.media3.exoplayer.audio.AudioRendererEventListener;
 import androidx.media3.exoplayer.drm.DrmSessionManager;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.exoplayer.source.MediaPeriod;
@@ -66,7 +64,6 @@ import androidx.media3.exoplayer.trackselection.TrackSelectorResult;
 import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.BandwidthMeter;
 import androidx.media3.exoplayer.upstream.DefaultAllocator;
-import androidx.media3.exoplayer.video.VideoRendererEventListener;
 import androidx.media3.extractor.ExtractorsFactory;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -142,28 +139,6 @@ public final class DownloadHelper {
 
   /** Thrown at an attempt to download live content. */
   public static class LiveContentUnsupportedException extends IOException {}
-
-  /**
-   * @deprecated This method leaks un-released {@link Renderer} instances. There is no direct
-   *     replacement. Equivalent functionality can be implemented by constructing the renderer
-   *     instances, calling {@link Renderer#getCapabilities()} on each one, then releasing the
-   *     renderers when the capabilities are no longer required.
-   */
-  @Deprecated
-  public static RendererCapabilities[] getRendererCapabilities(RenderersFactory renderersFactory) {
-    Renderer[] renderers =
-        renderersFactory.createRenderers(
-            Util.createHandlerForCurrentOrMainLooper(),
-            new VideoRendererEventListener() {},
-            new AudioRendererEventListener() {},
-            (cues) -> {},
-            (metadata) -> {});
-    RendererCapabilities[] capabilities = new RendererCapabilities[renderers.length];
-    for (int i = 0; i < renderers.length; i++) {
-      capabilities[i] = renderers[i].getCapabilities();
-    }
-    return capabilities;
-  }
 
   /**
    * Creates a {@link DownloadHelper} for the given progressive media item.
@@ -322,26 +297,6 @@ public final class DownloadHelper {
   private List<ExoTrackSelection> @MonotonicNonNull [][] trackSelectionsByPeriodAndRenderer;
   private List<ExoTrackSelection> @MonotonicNonNull [][]
       immutableTrackSelectionsByPeriodAndRenderer;
-
-  /**
-   * @deprecated The {@link Renderer} instances used to produce {@code rendererCapabilities} must be
-   *     kept alive for the lifetime of this {@code DownloadHelper} instance and then released (to
-   *     avoid a resource leak). Use {@link DownloadHelper#DownloadHelper(MediaItem, MediaSource,
-   *     TrackSelectionParameters, RendererCapabilitiesList)} instead to avoid needing to manually
-   *     manage this bookkeeping.
-   */
-  @Deprecated
-  public DownloadHelper(
-      MediaItem mediaItem,
-      @Nullable MediaSource mediaSource,
-      TrackSelectionParameters trackSelectionParameters,
-      RendererCapabilities[] rendererCapabilities) {
-    this(
-        mediaItem,
-        mediaSource,
-        trackSelectionParameters,
-        new UnreleaseableRendererCapabilitiesList(rendererCapabilities));
-  }
 
   /**
    * Creates download helper.

@@ -38,6 +38,15 @@
 *   Test Utilities:
 *   Demo app:
 *   Remove deprecated symbols:
+    *   Remove the following deprecated `DownloadHelper` methods:
+        *   Constructor `DownloadHelper(MediaItem, @Nullable MediaSource,
+            TrackSelectionParameters, RendererCapabilities[])`, use
+            `DownloadHelper(MediaItem, @Nullable MediaSource,
+            TrackSelectionParameters, RendererCapabilitiesList)` instead.
+        *   `getRendererCapabilities(RenderersFactory)`, equivalent
+            functionality can be achieved by creating a
+            `DefaultRendererCapabilitiesList` with a `RenderersFactory`, and
+            calling `DefaultRendererCapabilitiesList.getRendererCapabilities()`.
 
 ## 1.6
 
