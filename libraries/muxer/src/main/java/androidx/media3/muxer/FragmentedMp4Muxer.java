@@ -58,6 +58,7 @@ import java.nio.ByteBuffer;
  *         <li>AMR-WB (Wideband AMR)
  *         <li>Opus
  *         <li>Vorbis
+ *         <li>Raw Audio
  *       </ul>
  *   <li>Metadata
  * </ul>
@@ -158,7 +159,8 @@ public final class FragmentedMp4Muxer implements AutoCloseable {
           MimeTypes.AUDIO_AMR_NB,
           MimeTypes.AUDIO_AMR_WB,
           MimeTypes.AUDIO_OPUS,
-          MimeTypes.AUDIO_VORBIS);
+          MimeTypes.AUDIO_VORBIS,
+          MimeTypes.AUDIO_RAW);
 
   private final FragmentedMp4Writer fragmentedMp4Writer;
   private final MetadataCollector metadataCollector;

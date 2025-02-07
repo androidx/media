@@ -82,6 +82,7 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
  *         <li>AMR-WB (Wideband AMR)
  *         <li>Opus
  *         <li>Vorbis
+ *         <li>Raw Audio
  *       </ul>
  *   <li>Metadata
  * </ul>
@@ -361,7 +362,8 @@ public final class Mp4Muxer implements AutoCloseable {
           MimeTypes.AUDIO_AMR_NB,
           MimeTypes.AUDIO_AMR_WB,
           MimeTypes.AUDIO_OPUS,
-          MimeTypes.AUDIO_VORBIS);
+          MimeTypes.AUDIO_VORBIS,
+          MimeTypes.AUDIO_RAW);
 
   private static final String TAG = "Mp4Muxer";
 

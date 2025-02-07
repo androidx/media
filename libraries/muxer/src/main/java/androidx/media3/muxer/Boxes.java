@@ -685,6 +685,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
   }
 
   /** Returns a codec specific box. */
+  @SuppressWarnings("MergeCases")
   public static ByteBuffer codecSpecificBox(Format format) {
     String mimeType = checkNotNull(format.sampleMimeType);
     switch (mimeType) {
@@ -697,6 +698,8 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
         return damrBox(/* mode= */ (short) 0x83FF); // mode set: all enabled for AMR-WB
       case MimeTypes.AUDIO_OPUS:
         return dOpsBox(format);
+      case MimeTypes.AUDIO_RAW:
+        return ByteBuffer.allocate(0); // No codec specific box for raw audio.
       case MimeTypes.VIDEO_H263:
         return d263Box(format);
       case MimeTypes.VIDEO_H264:
@@ -1690,6 +1693,14 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
         return "s263";
       case MimeTypes.AUDIO_OPUS:
         return "Opus";
+      case MimeTypes.AUDIO_RAW:
+        if (format.pcmEncoding == C.ENCODING_PCM_16BIT) {
+          return "sowt";
+        } else if (format.pcmEncoding == C.ENCODING_PCM_16BIT_BIG_ENDIAN) {
+          return "twos";
+        } else {
+          throw new IllegalArgumentException("Unsupported PCM encoding: " + format.pcmEncoding);
+        }
       case MimeTypes.VIDEO_H264:
         return "avc1";
       case MimeTypes.VIDEO_H265:

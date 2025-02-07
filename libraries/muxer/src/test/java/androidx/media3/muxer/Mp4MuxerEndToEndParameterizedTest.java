@@ -73,6 +73,7 @@ public class Mp4MuxerEndToEndParameterizedTest {
   private static final String AMR_WB_3GP = "bbb_mono_16kHz_23.05kbps_amrwb.3gp";
   private static final String OPUS_OGG = "bbb_6ch_8kHz_opus.ogg";
   private static final String VORBIS_OGG = "bbb_1ch_16kHz_q10_vorbis.ogg";
+  private static final String RAW_WAV = "bbb_2ch_44kHz.wav";
 
   @Parameters(name = "{0}")
   public static ImmutableList<String> mediaSamples() {
@@ -92,7 +93,8 @@ public class Mp4MuxerEndToEndParameterizedTest {
         AMR_NB_3GP,
         AMR_WB_3GP,
         OPUS_OGG,
-        VORBIS_OGG);
+        VORBIS_OGG,
+        RAW_WAV);
   }
 
   @Parameter public @MonotonicNonNull String inputFile;
