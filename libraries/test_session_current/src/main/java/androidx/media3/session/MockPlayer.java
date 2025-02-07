@@ -1080,24 +1080,6 @@ public class MockPlayer implements Player {
     checkNotNull(conditionVariables.get(METHOD_REPLACE_MEDIA_ITEMS)).open();
   }
 
-  /**
-   * @deprecated Use {@link #hasNextMediaItem()} instead.
-   */
-  @Deprecated
-  @Override
-  public boolean hasNext() {
-    throw new UnsupportedOperationException();
-  }
-
-  /**
-   * @deprecated Use {@link #hasNextMediaItem()} instead.
-   */
-  @Deprecated
-  @Override
-  public boolean hasNextWindow() {
-    throw new UnsupportedOperationException();
-  }
-
   @Override
   public boolean hasPreviousMediaItem() {
     throw new UnsupportedOperationException();

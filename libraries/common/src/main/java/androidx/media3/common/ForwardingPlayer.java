@@ -382,30 +382,6 @@ public class ForwardingPlayer implements Player {
     return player.getMaxSeekToPreviousPosition();
   }
 
-  /**
-   * Calls {@link Player#hasNext()} on the delegate and returns the result.
-   *
-   * @deprecated Use {@link #hasNextMediaItem()} instead.
-   */
-  @SuppressWarnings("deprecation") // Forwarding to deprecated method
-  @Deprecated
-  @Override
-  public boolean hasNext() {
-    return player.hasNext();
-  }
-
-  /**
-   * Calls {@link Player#hasNextWindow()} on the delegate and returns the result.
-   *
-   * @deprecated Use {@link #hasNextMediaItem()} instead.
-   */
-  @SuppressWarnings("deprecation") // Forwarding to deprecated method
-  @Deprecated
-  @Override
-  public boolean hasNextWindow() {
-    return player.hasNextWindow();
-  }
-
   /** Calls {@link Player#hasNextMediaItem()} on the delegate and returns the result. */
   @Override
   public boolean hasNextMediaItem() {
