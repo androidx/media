@@ -588,9 +588,11 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
 
   private static Constructor<? extends Extractor> getMidiExtractorConstructor()
       throws ClassNotFoundException, NoSuchMethodException {
+    // LINT.IfChange
     return Class.forName("androidx.media3.decoder.midi.MidiExtractor")
         .asSubclass(Extractor.class)
         .getConstructor();
+    // LINT.ThenChange(../../../../../../proguard-rules.txt)
   }
 
   @Nullable
@@ -599,6 +601,7 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
           NoSuchMethodException,
           InvocationTargetException,
           IllegalAccessException {
+    // LINT.IfChange
     @SuppressWarnings("nullness:argument")
     boolean isFlacNativeLibraryAvailable =
         Boolean.TRUE.equals(
@@ -611,6 +614,7 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
           .getConstructor(int.class);
     }
     return null;
+    // LINT.ThenChange(../../../../../../proguard-rules.txt)
   }
 
   private static final class ExtensionLoader {

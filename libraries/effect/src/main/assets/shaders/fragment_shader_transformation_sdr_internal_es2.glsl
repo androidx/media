@@ -43,10 +43,12 @@ const int GL_TRUE = 1;
 const int COLOR_TRANSFER_LINEAR = 1;
 const int COLOR_TRANSFER_SRGB = 2;
 const int COLOR_TRANSFER_SDR_VIDEO = 3;
+// LINT.ThenChange(../../../../../common/src/main/java/androidx/media3/common/C.java:color_transfer)
 // LINT.IfChange(working_color_space)
 const int WORKING_COLOR_SPACE_DEFAULT = 0;
 const int WORKING_COLOR_SPACE_ORIGINAL = 1;
 const int WORKING_COLOR_SPACE_LINEAR = 2;
+// LINT.ThenChange(../../../../../effect/src/main/java/androidx/media3/effect/DefaultVideoFrameProcessor.java:working_color_space)
 
 // Output colors for an obviously visible error.
 const vec3 ERROR_COLOR_RED = vec3(1.0, 0.0, 0.0);

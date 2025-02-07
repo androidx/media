@@ -1288,6 +1288,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
       // LINT.IfChange(set_video_effects)
       Class.forName("androidx.media3.effect.PreviewingSingleInputVideoGraph$Factory")
           .getConstructor(VideoFrameProcessor.Factory.class);
+      // LINT.ThenChange(video/PlaybackVideoGraphWrapper.java)
     } catch (ClassNotFoundException | NoSuchMethodException e) {
       throw new IllegalStateException("Could not find required lib-effect dependencies.", e);
     }

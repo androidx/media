@@ -1025,6 +1025,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
         long initialTimestampOffsetUs)
         throws VideoFrameProcessingException {
       try {
+        // LINT.IfChange
         Class<?> previewingSingleInputVideoGraphFactoryClass =
             Class.forName("androidx.media3.effect.PreviewingSingleInputVideoGraph$Factory");
         PreviewingVideoGraph.Factory factory =
@@ -1032,6 +1033,9 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
                 previewingSingleInputVideoGraphFactoryClass
                     .getConstructor(VideoFrameProcessor.Factory.class)
                     .newInstance(videoFrameProcessorFactory);
+        // LINT.ThenChange(
+        //     ../../../../../../../proguard-rules.txt,
+        //     ../ExoPlayerImpl.java:set_video_effects)
         return factory.create(
             context,
             outputColorInfo,
@@ -1063,6 +1067,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
             Suppliers.memoize(
                 () -> {
                   try {
+                    // LINT.IfChange
                     Class<?> defaultVideoFrameProcessorFactoryBuilderClass =
                         Class.forName(
                             "androidx.media3.effect.DefaultVideoFrameProcessor$Factory$Builder");
@@ -1075,6 +1080,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
                             defaultVideoFrameProcessorFactoryBuilderClass
                                 .getMethod("build")
                                 .invoke(builder));
+                    // LINT.ThenChange(../../../../../../../proguard-rules.txt)
                   } catch (Exception e) {
                     throw new IllegalStateException(e);
                   }

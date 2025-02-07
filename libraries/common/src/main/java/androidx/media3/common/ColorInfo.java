@@ -487,6 +487,7 @@ public final class ColorInfo {
       default:
         return "Undefined color space " + colorSpace;
     }
+    // LINT.ThenChange(C.java:color_space)
   }
 
   private static String colorTransferToString(@C.ColorTransfer int colorTransfer) {
@@ -509,6 +510,7 @@ public final class ColorInfo {
       default:
         return "Undefined color transfer " + colorTransfer;
     }
+    // LINT.ThenChange(C.java:color_transfer)
   }
 
   private static String colorRangeToString(@C.ColorRange int colorRange) {
@@ -523,6 +525,7 @@ public final class ColorInfo {
       default:
         return "Undefined color range " + colorRange;
     }
+    // LINT.ThenChange(C.java:color_range)
   }
 
   private static final String FIELD_COLOR_SPACE = Util.intToStringMaxRadix(0);

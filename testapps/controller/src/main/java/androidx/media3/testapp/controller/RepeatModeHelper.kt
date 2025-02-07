@@ -31,8 +31,10 @@ class RepeatModeHelper(activity: Activity, mediaController: MediaController) {
   private val container: ViewGroup = activity.findViewById(R.id.group_toggle_repeat)
   private val spinner: Spinner = container.findViewById(R.id.repeat_mode_spinner)
   private val icon: ImageView = container.findViewById(R.id.repeat_mode_icon)
+  // LINT.IfChange
   private val modes: List<Int> =
     listOf(Player.REPEAT_MODE_OFF, Player.REPEAT_MODE_ONE, Player.REPEAT_MODE_ALL)
+  // LINT.ThenChange(../../../../../res/values/options.xml)
 
   init {
     spinner.onItemSelectedListener =

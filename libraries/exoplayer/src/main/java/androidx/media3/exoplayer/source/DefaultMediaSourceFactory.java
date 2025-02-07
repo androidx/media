@@ -770,6 +770,7 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
         return mediaSourceFactorySupplier;
       }
 
+      // LINT.IfChange
       DataSource.Factory dataSourceFactory = checkNotNull(this.dataSourceFactory);
       Class<? extends MediaSource.Factory> clazz;
       switch (contentType) {
@@ -804,6 +805,7 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
         default:
           throw new IllegalArgumentException("Unrecognized contentType: " + contentType);
       }
+      // LINT.ThenChange(../../../../../proguard-rules.txt)
       mediaSourceFactorySuppliers.put(contentType, mediaSourceFactorySupplier);
       return mediaSourceFactorySupplier;
     }

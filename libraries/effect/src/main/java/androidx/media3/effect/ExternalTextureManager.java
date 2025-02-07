@@ -77,6 +77,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   // LINT.IfChange(SURFACE_TEXTURE_TIMEOUT_MS)
   private static final long SURFACE_TEXTURE_TIMEOUT_MS = isRunningOnEmulator() ? 20_000 : 500;
 
+  // LINT.ThenChange(
+  // ../../../../../../../transformer/src/main/java/androidx/media3/transformer/Transformer.java:DEFAULT_MAX_DELAY_BETWEEN_MUXER_SAMPLES_MS)
+
   private final GlObjectsProvider glObjectsProvider;
   private @MonotonicNonNull ExternalShaderProgram externalShaderProgram;
   private final int externalTexId;

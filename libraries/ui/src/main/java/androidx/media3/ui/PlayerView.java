@@ -257,6 +257,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
    */
   @UnstableApi public static final int IMAGE_DISPLAY_MODE_FILL = 1;
 
+  // LINT.IfChange
   /**
    * Determines when the buffering view is shown. One of {@link #SHOW_BUFFERING_NEVER}, {@link
    * #SHOW_BUFFERING_WHEN_PLAYING} or {@link #SHOW_BUFFERING_ALWAYS}.
@@ -283,11 +284,15 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
    */
   @UnstableApi public static final int SHOW_BUFFERING_ALWAYS = 2;
 
+  // LINT.ThenChange(../../../../res/values/attrs.xml)
+
+  // LINT.IfChange
   private static final int SURFACE_TYPE_NONE = 0;
   private static final int SURFACE_TYPE_SURFACE_VIEW = 1;
   private static final int SURFACE_TYPE_TEXTURE_VIEW = 2;
   private static final int SURFACE_TYPE_SPHERICAL_GL_SURFACE_VIEW = 3;
   private static final int SURFACE_TYPE_VIDEO_DECODER_GL_SURFACE_VIEW = 4;
+  // LINT.ThenChange(../../../../res/values/attrs.xml)
 
   private final ComponentListener componentListener;
   @Nullable private final AspectRatioFrameLayout contentFrame;
@@ -454,9 +459,11 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
           break;
         case SURFACE_TYPE_SPHERICAL_GL_SURFACE_VIEW:
           try {
+            // LINT.IfChange
             Class<?> clazz =
                 Class.forName("androidx.media3.exoplayer.video.spherical.SphericalGLSurfaceView");
             surfaceView = (View) clazz.getConstructor(Context.class).newInstance(context);
+            // LINT.ThenChange(../../../../../../proguard-rules.txt)
           } catch (Exception e) {
             throw new IllegalStateException(
                 "spherical_gl_surface_view requires an ExoPlayer dependency", e);
@@ -465,9 +472,11 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
           break;
         case SURFACE_TYPE_VIDEO_DECODER_GL_SURFACE_VIEW:
           try {
+            // LINT.IfChange
             Class<?> clazz =
                 Class.forName("androidx.media3.exoplayer.video.VideoDecoderGLSurfaceView");
             surfaceView = (View) clazz.getConstructor(Context.class).newInstance(context);
+            // LINT.ThenChange(../../../../../../proguard-rules.txt)
           } catch (Exception e) {
             throw new IllegalStateException(
                 "video_decoder_gl_surface_view requires an ExoPlayer dependency", e);

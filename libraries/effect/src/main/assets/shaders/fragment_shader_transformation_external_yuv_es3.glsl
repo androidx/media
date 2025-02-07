@@ -53,6 +53,7 @@ const int COLOR_TRANSFER_LINEAR = 1;
 const int COLOR_TRANSFER_GAMMA_2_2 = 10;
 const int COLOR_TRANSFER_ST2084 = 6;
 const int COLOR_TRANSFER_HLG = 7;
+// LINT.ThenChange(../../../../../common/src/main/java/androidx/media3/common/C.java:color_transfer)
 
 // Matrix values based on computeXYZMatrix(BT2020Primaries, BT2020WhitePoint)
 // https://cs.android.com/android/platform/superproject/+/master:frameworks/base/libs/hwui/utils/HostColorSpace.cpp;l=200-232;drc=86bd214059cd6150304888a285941bf74af5b687

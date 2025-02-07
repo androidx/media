@@ -3323,6 +3323,7 @@ public final class Util {
     if ((selectionFlags & C.SELECTION_FLAG_FORCED) != 0) {
       result.add("forced");
     }
+    // LINT.ThenChange()
     return result;
   }
 
@@ -3382,6 +3383,7 @@ public final class Util {
     if ((roleFlags & C.ROLE_FLAG_AUXILIARY) != 0) {
       result.add("auxiliary");
     }
+    // LINT.ThenChange()
     return result;
   }
 
@@ -3402,6 +3404,7 @@ public final class Util {
         return "depth metadata";
       default:
         throw new IllegalStateException("Unsupported auxiliary track type");
+        // LINT.ThenChange()
     }
   }
 

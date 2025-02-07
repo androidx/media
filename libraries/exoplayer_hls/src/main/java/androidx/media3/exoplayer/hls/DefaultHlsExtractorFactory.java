@@ -255,6 +255,7 @@ public final class DefaultHlsExtractorFactory implements HlsExtractorFactory {
       default:
         return null;
     }
+    // LINT.ThenChange(BundledHlsMediaChunkExtractor.java:extractor_instantiation)
   }
 
   private static TsExtractor createTsExtractor(

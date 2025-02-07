@@ -477,6 +477,7 @@ public final class MediaFormatUtil {
         || colorSpace == C.COLOR_SPACE_BT709
         || colorSpace == C.COLOR_SPACE_BT2020
         || colorSpace == Format.NO_VALUE;
+    // LINT.ThenChange(../C.java:color_space)
   }
 
   /** Whether this is a valid {@link C.ColorRange} instance. */
@@ -485,6 +486,7 @@ public final class MediaFormatUtil {
     return colorRange == C.COLOR_RANGE_LIMITED
         || colorRange == C.COLOR_RANGE_FULL
         || colorRange == Format.NO_VALUE;
+    // LINT.ThenChange(../C.java:color_range)
   }
 
   /** Whether this is a valid {@link C.ColorTransfer} instance. */
@@ -497,6 +499,7 @@ public final class MediaFormatUtil {
         || colorTransfer == C.COLOR_TRANSFER_ST2084
         || colorTransfer == C.COLOR_TRANSFER_HLG
         || colorTransfer == Format.NO_VALUE;
+    // LINT.ThenChange(../C.java:color_transfer)
   }
 
   private MediaFormatUtil() {}

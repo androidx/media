@@ -38,6 +38,7 @@ const vec3 ERROR_COLOR_BLUE = vec3(0.0, 0.0, 1.0);
 // LINT.IfChange(color_transfer)
 const int COLOR_TRANSFER_ST2084 = 6;
 const int COLOR_TRANSFER_HLG = 7;
+// LINT.ThenChange(../../../../../common/src/main/java/androidx/media3/common/C.java:color_transfer)
 
 // HLG OETF for one channel.
 highp float hlgOetfSingleChannel(highp float linearChannel) {

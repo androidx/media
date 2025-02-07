@@ -39,9 +39,11 @@ class PreparePlayHelper(activity: Activity, private val mediaController: MediaCo
 
   companion object {
     // Indices of the values in the "input_options" string array.
+    // LINT.IfChange
     private const val INDEX_SEARCH = 0
     private const val INDEX_MEDIA_ID = 1
     private const val INDEX_URI = 2
+    // LINT.ThenChange(../../../../../res/values/options.xml)
   }
 
   @SuppressWarnings("FutureReturnValueIgnored")

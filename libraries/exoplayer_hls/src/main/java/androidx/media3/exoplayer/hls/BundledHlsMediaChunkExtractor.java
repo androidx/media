@@ -145,6 +145,7 @@ public final class BundledHlsMediaChunkExtractor implements HlsMediaChunkExtract
       throw new IllegalStateException(
           "Unexpected extractor type for recreation: " + extractor.getClass().getSimpleName());
     }
+    // LINT.ThenChange(DefaultHlsExtractorFactory.java:extractor_instantiation)
     return new BundledHlsMediaChunkExtractor(
         newExtractorInstance,
         multivariantPlaylistFormat,

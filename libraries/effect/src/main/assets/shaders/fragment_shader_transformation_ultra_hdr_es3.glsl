@@ -60,6 +60,7 @@ const int COLOR_TRANSFER_LINEAR = 1;
 const int COLOR_TRANSFER_GAMMA_2_2 = 10;
 const int COLOR_TRANSFER_ST2084 = 6;
 const int COLOR_TRANSFER_HLG = 7;
+// LINT.ThenChange(../../../../../common/src/main/java/androidx/media3/common/C.java:color_transfer)
 
 // Output color for an obviously visible error.
 const vec3 ERROR_COLOR_BLUE = vec3(0.0, 0.0, 1.0);

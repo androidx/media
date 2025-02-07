@@ -70,6 +70,7 @@ highp vec3 applyOetf(highp vec3 linearColor) {
   // LINT.IfChange(color_transfer_oetf)
   const int COLOR_TRANSFER_SDR_VIDEO = 3;
   const int COLOR_TRANSFER_GAMMA_2_2 = 10;
+  // LINT.ThenChange(../../../../../common/src/main/java/androidx/media3/common/C.java:color_transfer)
   if (uOutputColorTransfer == COLOR_TRANSFER_SDR_VIDEO) {
     return smpte170mOetf(linearColor);
   } else if (uOutputColorTransfer == COLOR_TRANSFER_GAMMA_2_2) {

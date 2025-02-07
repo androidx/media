@@ -341,8 +341,10 @@ public final class DefaultDataSource implements DataSource {
   private DataSource getRtmpDataSource() {
     if (rtmpDataSource == null) {
       try {
+        // LINT.IfChange
         Class<?> clazz = Class.forName("androidx.media3.datasource.rtmp.RtmpDataSource");
         rtmpDataSource = (DataSource) clazz.getConstructor().newInstance();
+        // LINT.ThenChange(../../../../../../proguard-rules.txt)
         addListenersToDataSource(rtmpDataSource);
       } catch (ClassNotFoundException e) {
         // Expected if the app was built without the RTMP extension.

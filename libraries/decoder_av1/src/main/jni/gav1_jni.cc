@@ -78,16 +78,22 @@ const int kMaxPlanes = 3;
 // https://developer.android.com/reference/android/graphics/ImageFormat.html#YV12.
 const int kImageFormatYV12 = 0x32315659;
 
+// LINT.IfChange
 // Output modes.
 const int kOutputModeYuv = 0;
 const int kOutputModeSurfaceYuv = 1;
+// LINT.ThenChange(../../../../common/src/main/java/androidx/media3/common/C.java)
 
+// LINT.IfChange
 const int kColorSpaceUnknown = 0;
+// LINT.ThenChange(../../../../decoder/src/main/java/androidx/media3/decoder/VideoDecoderOutputBuffer.java)
 
+// LINT.IfChange
 // Return codes for jni methods.
 const int kStatusError = 0;
 const int kStatusOk = 1;
 const int kStatusDecodeOnly = 2;
+// LINT.ThenChange(../java/androidx/media3/decoder/av1/Gav1Decoder.java)
 
 // Status codes specific to the JNI wrapper code.
 enum JniStatusCode {
