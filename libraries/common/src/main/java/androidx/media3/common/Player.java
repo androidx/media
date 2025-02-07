@@ -2649,13 +2649,6 @@ public interface Player {
   boolean hasPreviousMediaItem();
 
   /**
-   * @deprecated Use {@link #seekToPreviousMediaItem()} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  void seekToPreviousWindow();
-
-  /**
    * Seeks to the default position of the previous {@link MediaItem}, which may depend on the
    * current repeat mode and whether shuffle mode is enabled. Does nothing if {@link
    * #hasPreviousMediaItem()} is {@code false}.

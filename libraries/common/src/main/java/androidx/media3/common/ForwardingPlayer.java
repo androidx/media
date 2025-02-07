@@ -352,18 +352,6 @@ public class ForwardingPlayer implements Player {
     return player.hasPreviousMediaItem();
   }
 
-  /**
-   * Calls {@link Player#seekToPreviousWindow()} on the delegate.
-   *
-   * @deprecated Use {@link #seekToPreviousMediaItem()} instead.
-   */
-  @SuppressWarnings("deprecation") // Forwarding to deprecated method
-  @Deprecated
-  @Override
-  public void seekToPreviousWindow() {
-    player.seekToPreviousWindow();
-  }
-
   /** Calls {@link Player#seekToPreviousMediaItem()} on the delegate. */
   @Override
   public void seekToPreviousMediaItem() {

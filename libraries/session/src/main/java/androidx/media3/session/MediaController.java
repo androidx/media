@@ -1550,16 +1550,6 @@ public class MediaController implements Player {
   }
 
   /**
-   * @deprecated Use {@link #seekToPreviousMediaItem()} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  @Override
-  public final void seekToPreviousWindow() {
-    seekToPreviousMediaItem();
-  }
-
-  /**
    * {@inheritDoc}
    *
    * <p>Interoperability: When connected to {@code
