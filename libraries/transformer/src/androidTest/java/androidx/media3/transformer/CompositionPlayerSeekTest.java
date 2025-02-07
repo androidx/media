@@ -356,6 +356,47 @@ public class CompositionPlayerSeekTest {
   }
 
   @Test
+  public void seekToEndOfSecondImage_afterPlayingSingleSequenceOfTwoImages() throws Exception {
+    // Seeks to the end of the second image
+    long seekTimeMs = usToMs(2 * IMAGE_DURATION_US);
+    ImmutableList<Long> sequenceTimestampsUs =
+        new ImmutableList.Builder<Long>()
+            // Plays the first image
+            .addAll(IMAGE_TIMESTAMPS_US)
+            // Plays the second image
+            .addAll(
+                transform(IMAGE_TIMESTAMPS_US, timestampUs -> (IMAGE_DURATION_US + timestampUs)))
+            // Plays the last image frame, which is one microsecond smaller than the total duration.
+            .add(399_999L)
+            .build();
+
+    assertThat(
+            playSequenceUntilEndedAndSeekAndGetTimestampsUs(
+                ImmutableList.of(IMAGE_MEDIA_ITEM, IMAGE_MEDIA_ITEM), seekTimeMs))
+        .isEqualTo(sequenceTimestampsUs);
+  }
+
+  @Test
+  public void seekToAfterEndOfSecondImage_afterPlayingSingleSequenceOfTwoImages() throws Exception {
+    long seekTimeMs = usToMs(3 * IMAGE_DURATION_US);
+    ImmutableList<Long> sequenceTimestampsUs =
+        new ImmutableList.Builder<Long>()
+            // Plays the first image
+            .addAll(IMAGE_TIMESTAMPS_US)
+            // Plays the second image
+            .addAll(
+                transform(IMAGE_TIMESTAMPS_US, timestampUs -> (IMAGE_DURATION_US + timestampUs)))
+            // Plays the last image frame, which is one microsecond smaller than the total duration.
+            .add(399_999L)
+            .build();
+
+    assertThat(
+            playSequenceUntilEndedAndSeekAndGetTimestampsUs(
+                ImmutableList.of(IMAGE_MEDIA_ITEM, IMAGE_MEDIA_ITEM), seekTimeMs))
+        .isEqualTo(sequenceTimestampsUs);
+  }
+
+  @Test
   public void seekToZero_afterPlayingSingleSequenceOfVideoAndImage() throws Exception {
     maybeSkipTest();
     ImmutableList<Long> sequenceTimestampsUs =
