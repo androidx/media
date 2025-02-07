@@ -18,9 +18,9 @@ package androidx.media3.exoplayer;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.Assertions;
-import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.source.MediaPeriod;
 import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
+import java.util.Objects;
 
 /** Stores the information required to load and play a {@link MediaPeriod}. */
 /* package */ final class MediaPeriodInfo {
@@ -170,7 +170,7 @@ import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
         && isLastInTimelinePeriod == that.isLastInTimelinePeriod
         && isLastInTimelineWindow == that.isLastInTimelineWindow
         && isFinal == that.isFinal
-        && Util.areEqual(id, that.id);
+        && Objects.equals(id, that.id);
   }
 
   @Override

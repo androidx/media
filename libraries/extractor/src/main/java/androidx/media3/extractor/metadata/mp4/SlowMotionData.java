@@ -21,10 +21,10 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
-import com.google.common.base.Objects;
 import com.google.common.collect.ComparisonChain;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 
 /** Holds information about the segments of slow motion playback within a track. */
 @UnstableApi
@@ -92,7 +92,7 @@ public final class SlowMotionData implements Metadata.Entry {
 
     @Override
     public int hashCode() {
-      return Objects.hashCode(startTimeMs, endTimeMs, speedDivisor);
+      return Objects.hash(startTimeMs, endTimeMs, speedDivisor);
     }
   }
 

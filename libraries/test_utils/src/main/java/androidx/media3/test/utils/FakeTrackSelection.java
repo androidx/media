@@ -25,8 +25,8 @@ import androidx.media3.exoplayer.source.chunk.MediaChunk;
 import androidx.media3.exoplayer.source.chunk.MediaChunkIterator;
 import androidx.media3.exoplayer.trackselection.BaseTrackSelection;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
-import com.google.common.base.Objects;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * A fake {@link ExoTrackSelection} that only returns 1 fixed track, and allows querying the number
@@ -127,13 +127,12 @@ public class FakeTrackSelection extends BaseTrackSelection {
         && releaseCount == that.releaseCount
         && isEnabled == that.isEnabled
         && selectedIndex == that.selectedIndex
-        && Objects.equal(rendererTrackGroup, that.rendererTrackGroup);
+        && Objects.equals(rendererTrackGroup, that.rendererTrackGroup);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(
-        rendererTrackGroup, enableCount, releaseCount, isEnabled, selectedIndex);
+    return Objects.hash(rendererTrackGroup, enableCount, releaseCount, isEnabled, selectedIndex);
   }
 
   private static int[] getAllTrackIndices(TrackGroup trackGroup) {

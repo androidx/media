@@ -26,6 +26,7 @@ import com.google.common.primitives.Ints;
 import com.google.errorprone.annotations.InlineMe;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /** Text information ID3 frame. */
 @UnstableApi
@@ -192,8 +193,8 @@ public final class TextInformationFrame extends Id3Frame {
       return false;
     }
     TextInformationFrame other = (TextInformationFrame) obj;
-    return Util.areEqual(id, other.id)
-        && Util.areEqual(description, other.description)
+    return Objects.equals(id, other.id)
+        && Objects.equals(description, other.description)
         && values.equals(other.values);
   }
 

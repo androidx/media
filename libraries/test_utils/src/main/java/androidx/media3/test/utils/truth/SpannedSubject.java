@@ -45,7 +45,6 @@ import androidx.media3.common.text.TextEmphasisSpan;
 import androidx.media3.common.text.VoiceSpan;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import com.google.common.truth.Fact;
 import com.google.common.truth.FailureMetadata;
 import com.google.common.truth.Subject;
@@ -53,6 +52,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
 /** A Truth {@link Subject} for assertions on {@link Spanned} instances containing text styling. */
@@ -1000,7 +1000,7 @@ public final class SpannedSubject extends Subject {
 
       for (TypefaceSpan span : checkNotNull(actualSpans)) {
         spanFontFamilies.add(span.getFamily());
-        if (Util.areEqual(span.getFamily(), fontFamily)) {
+        if (Objects.equals(span.getFamily(), fontFamily)) {
           matchingSpanFlags.add(actualSpanned.getSpanFlags(span));
         }
       }

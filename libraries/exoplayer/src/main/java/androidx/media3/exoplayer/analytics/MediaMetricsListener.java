@@ -75,6 +75,7 @@ import java.io.IOException;
 import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
 import java.util.HashMap;
+import java.util.Objects;
 import java.util.UUID;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
@@ -483,7 +484,7 @@ public final class MediaMetricsListener
 
   private void maybeUpdateVideoFormat(
       long realtimeMs, @Nullable Format videoFormat, @C.SelectionReason int trackSelectionReason) {
-    if (Util.areEqual(currentVideoFormat, videoFormat)) {
+    if (Objects.equals(currentVideoFormat, videoFormat)) {
       return;
     }
     if (currentVideoFormat == null && trackSelectionReason == C.SELECTION_REASON_UNKNOWN) {
@@ -496,7 +497,7 @@ public final class MediaMetricsListener
 
   private void maybeUpdateAudioFormat(
       long realtimeMs, @Nullable Format audioFormat, @C.SelectionReason int trackSelectionReason) {
-    if (Util.areEqual(currentAudioFormat, audioFormat)) {
+    if (Objects.equals(currentAudioFormat, audioFormat)) {
       return;
     }
     if (currentAudioFormat == null && trackSelectionReason == C.SELECTION_REASON_UNKNOWN) {
@@ -509,7 +510,7 @@ public final class MediaMetricsListener
 
   private void maybeUpdateTextFormat(
       long realtimeMs, @Nullable Format textFormat, @C.SelectionReason int trackSelectionReason) {
-    if (Util.areEqual(currentTextFormat, textFormat)) {
+    if (Objects.equals(currentTextFormat, textFormat)) {
       return;
     }
     if (currentTextFormat == null && trackSelectionReason == C.SELECTION_REASON_UNKNOWN) {

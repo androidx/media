@@ -25,10 +25,10 @@ import androidx.media3.common.Timeline;
 import androidx.media3.common.util.Util;
 import androidx.media3.session.legacy.MediaMetadataCompat;
 import androidx.media3.session.legacy.MediaSessionCompat.QueueItem;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * An immutable class to represent the current {@link Timeline} backed by {@linkplain QueueItem
@@ -258,13 +258,13 @@ import java.util.List;
       return false;
     }
     QueueTimeline other = (QueueTimeline) obj;
-    return Objects.equal(queuedMediaItems, other.queuedMediaItems)
-        && Objects.equal(fakeQueuedMediaItem, other.fakeQueuedMediaItem);
+    return Objects.equals(queuedMediaItems, other.queuedMediaItems)
+        && Objects.equals(fakeQueuedMediaItem, other.fakeQueuedMediaItem);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(queuedMediaItems, fakeQueuedMediaItem);
+    return Objects.hash(queuedMediaItems, fakeQueuedMediaItem);
   }
 
   private QueuedMediaItem getQueuedMediaItem(int index) {

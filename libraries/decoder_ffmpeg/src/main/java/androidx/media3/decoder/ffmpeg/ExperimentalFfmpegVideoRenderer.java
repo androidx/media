@@ -26,7 +26,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.TraceUtil;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import androidx.media3.decoder.CryptoConfig;
 import androidx.media3.decoder.Decoder;
 import androidx.media3.decoder.DecoderInputBuffer;
@@ -35,6 +34,7 @@ import androidx.media3.exoplayer.DecoderReuseEvaluation;
 import androidx.media3.exoplayer.RendererCapabilities;
 import androidx.media3.exoplayer.video.DecoderVideoRenderer;
 import androidx.media3.exoplayer.video.VideoRendererEventListener;
+import java.util.Objects;
 
 // TODO: Merge actual implementation in https://github.com/google/ExoPlayer/pull/7132.
 /**
@@ -124,7 +124,7 @@ public final class ExperimentalFfmpegVideoRenderer extends DecoderVideoRenderer 
   @Override
   protected DecoderReuseEvaluation canReuseDecoder(
       String decoderName, Format oldFormat, Format newFormat) {
-    boolean sameMimeType = Util.areEqual(oldFormat.sampleMimeType, newFormat.sampleMimeType);
+    boolean sameMimeType = Objects.equals(oldFormat.sampleMimeType, newFormat.sampleMimeType);
     // TODO: Ability to reuse the decoder may be MIME type dependent.
     return new DecoderReuseEvaluation(
         decoderName,

@@ -28,7 +28,6 @@ import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.ParsableBitArray;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import androidx.media3.extractor.Ac3Util;
 import androidx.media3.extractor.Ac3Util.SyncFrameInfo;
 import androidx.media3.extractor.ExtractorOutput;
@@ -38,6 +37,7 @@ import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
@@ -219,7 +219,7 @@ public final class Ac3Reader implements ElementaryStreamReader {
     if (format == null
         || frameInfo.channelCount != format.channelCount
         || frameInfo.sampleRate != format.sampleRate
-        || !Util.areEqual(frameInfo.mimeType, format.sampleMimeType)) {
+        || !Objects.equals(frameInfo.mimeType, format.sampleMimeType)) {
       Format.Builder formatBuilder =
           new Format.Builder()
               .setId(formatId)

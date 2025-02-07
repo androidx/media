@@ -17,7 +17,7 @@ package androidx.media3.exoplayer.dash.manifest;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
+import java.util.Objects;
 
 /** A descriptor, as defined by ISO 23009-1, 2nd edition, 5.8.2. */
 @UnstableApi
@@ -52,9 +52,9 @@ public final class Descriptor {
       return false;
     }
     Descriptor other = (Descriptor) obj;
-    return Util.areEqual(schemeIdUri, other.schemeIdUri)
-        && Util.areEqual(value, other.value)
-        && Util.areEqual(id, other.id);
+    return Objects.equals(schemeIdUri, other.schemeIdUri)
+        && Objects.equals(value, other.value)
+        && Objects.equals(id, other.id);
   }
 
   @Override

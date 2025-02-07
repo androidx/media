@@ -22,7 +22,7 @@ import androidx.annotation.IntRange;
 import androidx.media3.common.C;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.ListenerSet;
-import androidx.media3.common.util.Util;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -95,11 +95,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 
     TransformationRequest.Builder fallbackRequestBuilder =
         fallbackTransformationRequest.buildUpon();
-    if (!Util.areEqual(
+    if (!Objects.equals(
         transformationRequest.audioMimeType, originalTransformationRequest.audioMimeType)) {
       fallbackRequestBuilder.setAudioMimeType(transformationRequest.audioMimeType);
     }
-    if (!Util.areEqual(
+    if (!Objects.equals(
         transformationRequest.videoMimeType, originalTransformationRequest.videoMimeType)) {
       fallbackRequestBuilder.setVideoMimeType(transformationRequest.videoMimeType);
     }

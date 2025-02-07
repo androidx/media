@@ -18,8 +18,8 @@ package androidx.media3.extractor.metadata.id3;
 import androidx.annotation.Nullable;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import java.util.Arrays;
+import java.util.Objects;
 
 /** APIC (Attached Picture) ID3 frame. */
 @UnstableApi
@@ -56,8 +56,8 @@ public final class ApicFrame extends Id3Frame {
     }
     ApicFrame other = (ApicFrame) obj;
     return pictureType == other.pictureType
-        && Util.areEqual(mimeType, other.mimeType)
-        && Util.areEqual(description, other.description)
+        && Objects.equals(mimeType, other.mimeType)
+        && Objects.equals(description, other.description)
         && Arrays.equals(pictureData, other.pictureData);
   }
 
