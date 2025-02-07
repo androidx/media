@@ -46,6 +46,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * {@link AnalyticsListener} to gather {@link PlaybackStats} from the player.
@@ -778,7 +779,7 @@ public final class PlaybackStatsListener
     }
 
     private void maybeUpdateVideoFormat(EventTime eventTime, @Nullable Format newFormat) {
-      if (Util.areEqual(currentVideoFormat, newFormat)) {
+      if (Objects.equals(currentVideoFormat, newFormat)) {
         return;
       }
       maybeRecordVideoFormatTime(eventTime.realtimeMs);
@@ -797,7 +798,7 @@ public final class PlaybackStatsListener
     }
 
     private void maybeUpdateAudioFormat(EventTime eventTime, @Nullable Format newFormat) {
-      if (Util.areEqual(currentAudioFormat, newFormat)) {
+      if (Objects.equals(currentAudioFormat, newFormat)) {
         return;
       }
       maybeRecordAudioFormatTime(eventTime.realtimeMs);

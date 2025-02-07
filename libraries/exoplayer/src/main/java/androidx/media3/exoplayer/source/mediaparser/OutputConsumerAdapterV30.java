@@ -67,6 +67,7 @@ import java.nio.IntBuffer;
 import java.nio.LongBuffer;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -507,7 +508,7 @@ public final class OutputConsumerAdapterV30 implements MediaParser.OutputConsume
             .setAccessibilityChannel(mediaFormatAccessibilityChannel);
     for (int i = 0; i < muxedCaptionFormats.size(); i++) {
       Format muxedCaptionFormat = muxedCaptionFormats.get(i);
-      if (Util.areEqual(muxedCaptionFormat.sampleMimeType, mediaFormatMimeType)
+      if (Objects.equals(muxedCaptionFormat.sampleMimeType, mediaFormatMimeType)
           && muxedCaptionFormat.accessibilityChannel == mediaFormatAccessibilityChannel) {
         // The track's format matches this muxedCaptionFormat, so we apply the manifest format
         // information to the track.

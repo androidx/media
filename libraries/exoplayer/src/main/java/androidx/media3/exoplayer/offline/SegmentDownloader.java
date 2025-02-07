@@ -43,6 +43,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 
@@ -475,7 +476,7 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
     return dataSpec1.uri.equals(dataSpec2.uri)
         && dataSpec1.length != C.LENGTH_UNSET
         && (dataSpec1.position + dataSpec1.length == dataSpec2.position)
-        && Util.areEqual(dataSpec1.key, dataSpec2.key)
+        && Objects.equals(dataSpec1.key, dataSpec2.key)
         && dataSpec1.flags == dataSpec2.flags
         && dataSpec1.httpMethod == dataSpec2.httpMethod
         && dataSpec1.httpRequestHeaders.equals(dataSpec2.httpRequestHeaders);

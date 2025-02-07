@@ -1660,7 +1660,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
           overrides = new HashMap<>();
           selectionOverrides.put(rendererIndex, overrides);
         }
-        if (overrides.containsKey(groups) && Util.areEqual(overrides.get(groups), override)) {
+        if (overrides.containsKey(groups) && Objects.equals(overrides.get(groups), override)) {
           // The override is unchanged.
           return this;
         }
@@ -2268,7 +2268,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
       for (Map.Entry<TrackGroupArray, @NullableType SelectionOverride> firstEntry :
           first.entrySet()) {
         TrackGroupArray key = firstEntry.getKey();
-        if (!second.containsKey(key) || !Util.areEqual(firstEntry.getValue(), second.get(key))) {
+        if (!second.containsKey(key) || !Objects.equals(firstEntry.getValue(), second.get(key))) {
           return false;
         }
       }
@@ -3706,7 +3706,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
     @Override
     public boolean isCompatibleForAdaptationWith(VideoTrackInfo otherTrack) {
       return (allowMixedMimeTypes
-              || Util.areEqual(format.sampleMimeType, otherTrack.format.sampleMimeType))
+              || Objects.equals(format.sampleMimeType, otherTrack.format.sampleMimeType))
           && (parameters.allowVideoMixedDecoderSupportAdaptiveness
               || (this.usesPrimaryDecoder == otherTrack.usesPrimaryDecoder
                   && this.usesHardwareAcceleration == otherTrack.usesHardwareAcceleration));
@@ -4013,7 +4013,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
               .compareFalseFirst(this.isObjectBasedAudio, other.isObjectBasedAudio)
               .compare(this.channelCount, other.channelCount, qualityOrdering)
               .compare(this.sampleRate, other.sampleRate, qualityOrdering);
-      if (Util.areEqual(this.language, other.language)) {
+      if (Objects.equals(this.language, other.language)) {
         // Only compare bit rates of tracks with matching language information.
         comparisonChain = comparisonChain.compare(this.bitrate, other.bitrate, qualityOrdering);
       }

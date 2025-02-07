@@ -68,6 +68,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
@@ -160,7 +161,7 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
     for (Map.Entry<Object, AdPlaybackState> entry : adPlaybackStates.entrySet()) {
       Object periodUid = entry.getKey();
       AdPlaybackState adPlaybackState = entry.getValue();
-      checkArgument(Util.areEqual(adsId, adPlaybackState.adsId));
+      checkArgument(Objects.equals(adsId, adPlaybackState.adsId));
       @Nullable AdPlaybackState oldAdPlaybackState = this.adPlaybackStates.get(periodUid);
       if (oldAdPlaybackState != null) {
         for (int adGroupIndex = adPlaybackState.removedAdGroupCount;
@@ -869,7 +870,7 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
           streamResetFlags[i] = !mayRetainStreamFlags[i] || streams[i] == null;
           if (streamResetFlags[i]) {
             streams[i] =
-                Util.areEqual(trackSelections[i], selections[i])
+                Objects.equals(trackSelections[i], selections[i])
                     ? new SampleStreamImpl(mediaPeriod, /* streamIndex= */ i)
                     : new EmptySampleStream();
           }

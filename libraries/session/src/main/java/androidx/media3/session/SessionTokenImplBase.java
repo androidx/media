@@ -27,7 +27,7 @@ import android.text.TextUtils;
 import androidx.annotation.Nullable;
 import androidx.core.app.BundleCompat;
 import androidx.media3.common.util.Util;
-import com.google.common.base.Objects;
+import java.util.Objects;
 
 /* package */ final class SessionTokenImplBase implements SessionToken.SessionTokenImpl {
 
@@ -112,7 +112,7 @@ import com.google.common.base.Objects;
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(
+    return Objects.hash(
         uid,
         type,
         libraryVersion,
@@ -136,9 +136,9 @@ import com.google.common.base.Objects;
         && interfaceVersion == other.interfaceVersion
         && TextUtils.equals(packageName, other.packageName)
         && TextUtils.equals(serviceName, other.serviceName)
-        && Objects.equal(componentName, other.componentName)
-        && Objects.equal(iSession, other.iSession)
-        && Objects.equal(platformToken, other.platformToken);
+        && Objects.equals(componentName, other.componentName)
+        && Objects.equals(iSession, other.iSession)
+        && Objects.equals(platformToken, other.platformToken);
   }
 
   @Override

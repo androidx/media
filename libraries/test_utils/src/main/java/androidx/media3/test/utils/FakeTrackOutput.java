@@ -34,6 +34,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 /** A fake {@link TrackOutput}. */
 @UnstableApi
@@ -277,7 +278,7 @@ public final class FakeTrackOutput implements TrackOutput, Dumper.Dumpable {
           && startOffset == that.startOffset
           && endOffset == that.endOffset
           && index == that.index
-          && Util.areEqual(cryptoData, that.cryptoData);
+          && Objects.equals(cryptoData, that.cryptoData);
     }
 
     @Override

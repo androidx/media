@@ -22,7 +22,7 @@ import androidx.annotation.FloatRange;
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
-import com.google.common.base.Objects;
+import java.util.Objects;
 
 /** A rating expressed as a percentage. */
 public final class PercentageRating extends Rating {
@@ -59,7 +59,7 @@ public final class PercentageRating extends Rating {
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(percent);
+    return Objects.hash(percent);
   }
 
   @Override

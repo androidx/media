@@ -54,6 +54,7 @@ import java.lang.annotation.Target;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
@@ -243,7 +244,7 @@ public final class AdsMediaSource extends CompositeMediaSource<MediaPeriodId> {
 
   @Override
   public boolean canUpdateMediaItem(MediaItem mediaItem) {
-    return Util.areEqual(getAdsConfiguration(getMediaItem()), getAdsConfiguration(mediaItem))
+    return Objects.equals(getAdsConfiguration(getMediaItem()), getAdsConfiguration(mediaItem))
         && contentMediaSource.canUpdateMediaItem(mediaItem);
   }
 

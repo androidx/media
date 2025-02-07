@@ -23,9 +23,9 @@ import androidx.media3.common.Metadata;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /** ICY headers. */
 @UnstableApi
@@ -185,9 +185,9 @@ public final class IcyHeaders implements Metadata.Entry {
     }
     IcyHeaders other = (IcyHeaders) obj;
     return bitrate == other.bitrate
-        && Util.areEqual(genre, other.genre)
-        && Util.areEqual(name, other.name)
-        && Util.areEqual(url, other.url)
+        && Objects.equals(genre, other.genre)
+        && Objects.equals(name, other.name)
+        && Objects.equals(url, other.url)
         && isPublic == other.isPublic
         && metadataInterval == other.metadataInterval;
   }

@@ -93,6 +93,7 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.TimeZone;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -538,7 +539,7 @@ public final class DashMediaSource extends BaseMediaSource {
     return newConfiguration != null
         && newConfiguration.uri.equals(existingConfiguration.uri)
         && newConfiguration.streamKeys.equals(existingConfiguration.streamKeys)
-        && Util.areEqual(newConfiguration.drmConfiguration, existingConfiguration.drmConfiguration)
+        && Objects.equals(newConfiguration.drmConfiguration, existingConfiguration.drmConfiguration)
         && existingMediaItem.liveConfiguration.equals(mediaItem.liveConfiguration);
   }
 
@@ -839,17 +840,17 @@ public final class DashMediaSource extends BaseMediaSource {
 
   private void resolveUtcTimingElement(UtcTimingElement timingElement) {
     String scheme = timingElement.schemeIdUri;
-    if (Util.areEqual(scheme, "urn:mpeg:dash:utc:direct:2014")
-        || Util.areEqual(scheme, "urn:mpeg:dash:utc:direct:2012")) {
+    if (Objects.equals(scheme, "urn:mpeg:dash:utc:direct:2014")
+        || Objects.equals(scheme, "urn:mpeg:dash:utc:direct:2012")) {
       resolveUtcTimingElementDirect(timingElement);
-    } else if (Util.areEqual(scheme, "urn:mpeg:dash:utc:http-iso:2014")
-        || Util.areEqual(scheme, "urn:mpeg:dash:utc:http-iso:2012")) {
+    } else if (Objects.equals(scheme, "urn:mpeg:dash:utc:http-iso:2014")
+        || Objects.equals(scheme, "urn:mpeg:dash:utc:http-iso:2012")) {
       resolveUtcTimingElementHttp(timingElement, new Iso8601Parser());
-    } else if (Util.areEqual(scheme, "urn:mpeg:dash:utc:http-xsdate:2014")
-        || Util.areEqual(scheme, "urn:mpeg:dash:utc:http-xsdate:2012")) {
+    } else if (Objects.equals(scheme, "urn:mpeg:dash:utc:http-xsdate:2014")
+        || Objects.equals(scheme, "urn:mpeg:dash:utc:http-xsdate:2012")) {
       resolveUtcTimingElementHttp(timingElement, new XsDateTimeParser());
-    } else if (Util.areEqual(scheme, "urn:mpeg:dash:utc:ntp:2014")
-        || Util.areEqual(scheme, "urn:mpeg:dash:utc:ntp:2012")) {
+    } else if (Objects.equals(scheme, "urn:mpeg:dash:utc:ntp:2014")
+        || Objects.equals(scheme, "urn:mpeg:dash:utc:ntp:2012")) {
       loadNtpTimeOffset();
     } else {
       // Unsupported scheme.

@@ -85,6 +85,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
@@ -560,7 +561,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
 
   @Override
   protected ListenableFuture<?> handleClearVideoOutput(@Nullable Object videoOutput) {
-    checkArgument(Util.areEqual(videoOutput, this.videoOutput));
+    checkArgument(Objects.equals(videoOutput, this.videoOutput));
 
     this.videoOutput = null;
     if (composition == null) {

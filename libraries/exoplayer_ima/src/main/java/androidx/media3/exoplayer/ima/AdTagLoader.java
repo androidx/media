@@ -64,7 +64,6 @@ import com.google.ads.interactivemedia.v3.api.ImaSdkSettings;
 import com.google.ads.interactivemedia.v3.api.player.AdMediaInfo;
 import com.google.ads.interactivemedia.v3.api.player.ContentProgressProvider;
 import com.google.ads.interactivemedia.v3.api.player.VideoAdPlayer;
-import com.google.ads.interactivemedia.v3.api.player.VideoAdPlayer.VideoAdPlayerCallback;
 import com.google.ads.interactivemedia.v3.api.player.VideoProgressUpdate;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
@@ -76,6 +75,7 @@ import java.lang.annotation.Target;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /** Handles loading and playback of a single ad tag. */
 /* package */ final class AdTagLoader implements Player.Listener {
@@ -1365,7 +1365,7 @@ import java.util.Map;
     @Override
     public void onAdsManagerLoaded(AdsManagerLoadedEvent adsManagerLoadedEvent) {
       AdsManager adsManager = adsManagerLoadedEvent.getAdsManager();
-      if (!Util.areEqual(pendingAdRequestContext, adsManagerLoadedEvent.getUserRequestContext())) {
+      if (!Objects.equals(pendingAdRequestContext, adsManagerLoadedEvent.getUserRequestContext())) {
         adsManager.destroy();
         return;
       }

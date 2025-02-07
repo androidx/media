@@ -17,7 +17,7 @@ package androidx.media3.exoplayer.dash.manifest;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
+import java.util.Objects;
 
 /** A parsed program information element. */
 @UnstableApi
@@ -59,11 +59,11 @@ public final class ProgramInformation {
       return false;
     }
     ProgramInformation other = (ProgramInformation) obj;
-    return Util.areEqual(this.title, other.title)
-        && Util.areEqual(this.source, other.source)
-        && Util.areEqual(this.copyright, other.copyright)
-        && Util.areEqual(this.moreInformationURL, other.moreInformationURL)
-        && Util.areEqual(this.lang, other.lang);
+    return Objects.equals(this.title, other.title)
+        && Objects.equals(this.source, other.source)
+        && Objects.equals(this.copyright, other.copyright)
+        && Objects.equals(this.moreInformationURL, other.moreInformationURL)
+        && Objects.equals(this.lang, other.lang);
   }
 
   @Override

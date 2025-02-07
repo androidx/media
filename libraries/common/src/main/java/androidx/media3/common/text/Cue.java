@@ -40,7 +40,6 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
-import com.google.common.base.Objects;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.ByteArrayOutputStream;
 import java.lang.annotation.Documented;
@@ -48,6 +47,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.ArrayList;
+import java.util.Objects;
 import org.checkerframework.dataflow.qual.Pure;
 
 /** Contains information about a specific cue, including textual content and formatting data. */
@@ -396,7 +396,7 @@ public final class Cue {
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(
+    return Objects.hash(
         text,
         textAlignment,
         multiRowAlignment,

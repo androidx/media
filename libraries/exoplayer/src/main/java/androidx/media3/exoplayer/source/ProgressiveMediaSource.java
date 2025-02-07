@@ -46,6 +46,7 @@ import androidx.media3.extractor.SeekMap;
 import androidx.media3.extractor.TrackOutput;
 import com.google.common.base.Supplier;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.util.Objects;
 import java.util.concurrent.Executor;
 
 /**
@@ -363,7 +364,7 @@ public final class ProgressiveMediaSource extends BaseMediaSource
     return newConfiguration != null
         && newConfiguration.uri.equals(existingConfiguration.uri)
         && newConfiguration.imageDurationMs == existingConfiguration.imageDurationMs
-        && Util.areEqual(newConfiguration.customCacheKey, existingConfiguration.customCacheKey);
+        && Objects.equals(newConfiguration.customCacheKey, existingConfiguration.customCacheKey);
   }
 
   @Override
