@@ -151,15 +151,6 @@ public abstract class BasePlayer implements Player {
     return getPreviousMediaItemIndex() != C.INDEX_UNSET;
   }
 
-  /**
-   * @deprecated Use {@link #seekToPreviousMediaItem()} instead.
-   */
-  @Deprecated
-  @Override
-  public final void seekToPreviousWindow() {
-    seekToPreviousMediaItem();
-  }
-
   @Override
   public final void seekToPreviousMediaItem() {
     seekToPreviousMediaItemInternal(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM);

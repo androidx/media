@@ -1091,15 +1091,6 @@ public class MockPlayer implements Player {
   }
 
   /**
-   * @deprecated Use {@link #seekToPreviousMediaItem()} instead.
-   */
-  @Deprecated
-  @Override
-  public void seekToPreviousWindow() {
-    throw new UnsupportedOperationException();
-  }
-
-  /**
    * @deprecated Use {@link #seekToNextMediaItem()} instead.
    */
   @Deprecated
