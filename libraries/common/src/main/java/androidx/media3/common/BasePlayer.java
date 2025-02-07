@@ -196,15 +196,6 @@ public abstract class BasePlayer implements Player {
    */
   @Deprecated
   @Override
-  public final void next() {
-    seekToNextMediaItem();
-  }
-
-  /**
-   * @deprecated Use {@link #seekToNextMediaItem()} instead.
-   */
-  @Deprecated
-  @Override
   public final void seekToNextWindow() {
     seekToNextMediaItem();
   }

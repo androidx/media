@@ -389,18 +389,6 @@ public class ForwardingPlayer implements Player {
   }
 
   /**
-   * Calls {@link Player#next()} on the delegate.
-   *
-   * @deprecated Use {@link #seekToNextMediaItem()} instead.
-   */
-  @SuppressWarnings("deprecation") // Forwarding to deprecated method
-  @Deprecated
-  @Override
-  public void next() {
-    player.next();
-  }
-
-  /**
    * Calls {@link Player#seekToNextWindow()} on the delegate.
    *
    * @deprecated Use {@link #seekToNextMediaItem()} instead.
