@@ -13,57 +13,40 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package androidx.media3.demo.composition;
+package androidx.media3.demo.composition
 
-import android.view.LayoutInflater;
-import android.view.View;
-import android.view.ViewGroup;
-import android.widget.TextView;
-import androidx.recyclerview.widget.RecyclerView;
-import java.util.List;
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import android.widget.TextView
+import androidx.recyclerview.widget.RecyclerView
 
-/** A {@link RecyclerView.Adapter} that displays assets in a sequence in a {@link RecyclerView}. */
-public final class AssetItemAdapter extends RecyclerView.Adapter<AssetItemAdapter.ViewHolder> {
-  private static final String TAG = "AssetItemAdapter";
-
-  private final List<String> data;
-
-  /**
-   * Creates a new instance
-   *
-   * @param data A list of items to populate RecyclerView with.
-   */
-  public AssetItemAdapter(List<String> data) {
-    this.data = data;
-  }
-
-  @Override
-  public ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
-    View v = LayoutInflater.from(parent.getContext()).inflate(R.layout.preset_item, parent, false);
-    return new ViewHolder(v);
-  }
-
-  @Override
-  public void onBindViewHolder(ViewHolder holder, int position) {
-    holder.getTextView().setText(data.get(position));
-  }
-
-  @Override
-  public int getItemCount() {
-    return data.size();
-  }
-
-  /** A {@link RecyclerView.ViewHolder} used to build {@link AssetItemAdapter}. */
-  public static final class ViewHolder extends RecyclerView.ViewHolder {
-    private final TextView textView;
-
-    private ViewHolder(View view) {
-      super(view);
-      textView = view.findViewById(R.id.preset_name_text);
+/**
+ * A [RecyclerView.Adapter] that displays assets in a sequence in a [RecyclerView].
+ *
+ * @param data A list of items to populate RecyclerView with.
+ */
+class AssetItemAdapter(private val data: MutableList<String>) :
+    RecyclerView.Adapter<AssetItemAdapter.ViewHolder>() {
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
+        val v = LayoutInflater.from(parent.context).inflate(R.layout.preset_item, parent, false)
+        return ViewHolder(v)
     }
 
-    private TextView getTextView() {
-      return textView;
+    override fun onBindViewHolder(holder: ViewHolder, position: Int) {
+        holder.textView.text = data[position]
     }
-  }
+
+    override fun getItemCount(): Int {
+        return data.size
+    }
+
+    /** A [RecyclerView.ViewHolder] used to build [AssetItemAdapter].  */
+    class ViewHolder internal constructor(view: View) : RecyclerView.ViewHolder(view) {
+        internal val textView: TextView = view.findViewById<TextView>(R.id.preset_name_text)
+    }
+
+    companion object {
+        private const val TAG = "AssetItemAdapter"
+    }
 }
