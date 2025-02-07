@@ -74,4 +74,8 @@
     <item>5000000</item>
     <item>2170000</item>
   </integer-array>
+  <string-array name="preset_configuration">
+    <item>Sequential multi-asset</item>
+    <item>2x2 multi-asset</item>
+  </string-array>
 </resources>

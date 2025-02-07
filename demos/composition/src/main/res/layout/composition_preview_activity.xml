@@ -19,6 +19,7 @@
   android:layout_width="match_parent"
   android:layout_height="match_parent"
   android:keepScreenOn="true"
+  android:background="@color/white"
   android:padding="16dp">
 
   <com.google.android.material.card.MaterialCardView
@@ -44,6 +45,7 @@
         android:layout_marginBottom="8dp"
         android:padding="8dp"
         android:textAppearance="@style/TextAppearance.AppCompat.Medium"
+        android:textColor="@color/white"
         android:text="@string/preview_composition" />
 
       <FrameLayout
