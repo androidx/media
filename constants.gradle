@@ -30,7 +30,8 @@ project.ext {
     // https://cs.android.com/android/platform/superproject/main/+/main:external/guava/METADATA
     guavaVersion = '33.3.1-android'
     glideVersion = '4.14.2'
-    kotlinxCoroutinesVersion = '1.8.1'
+    // Not the same as kotlin version, https://github.com/Kotlin/kotlinx.coroutines/releases
+    kotlinxCoroutinesVersion = '1.9.0'
     leakCanaryVersion = '2.10'
     mockitoVersion = '3.12.4'
     robolectricVersion = '4.14.1'
