@@ -16,16 +16,13 @@
 
 package androidx.media3.transformer.mh.analysis;
 
-import static androidx.media3.common.C.MEDIA_CODEC_PRIORITY_NON_REALTIME;
-import static androidx.media3.common.C.MEDIA_CODEC_PRIORITY_REALTIME;
 import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
-import static androidx.media3.transformer.AndroidTestUtil.recordTestSkipped;
+import static androidx.media3.transformer.VideoEncoderSettings.NO_VALUE;
+import static androidx.media3.transformer.VideoEncoderSettings.RATE_UNSET;
 
 import android.content.Context;
 import android.net.Uri;
 import androidx.media3.common.MediaItem;
-import androidx.media3.common.util.Util;
 import androidx.media3.transformer.AndroidTestUtil;
 import androidx.media3.transformer.AndroidTestUtil.AssetInfo;
 import androidx.media3.transformer.DefaultEncoderFactory;
@@ -35,6 +32,7 @@ import androidx.media3.transformer.TransformerAndroidTestRunner;
 import androidx.media3.transformer.VideoEncoderSettings;
 import androidx.test.core.app.ApplicationProvider;
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.HashMap;
 import java.util.Map;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -54,39 +52,29 @@ public class EncoderPerformanceAnalysisTest {
 
   private static final ImmutableList<AssetInfo> INPUT_ASSETS =
       ImmutableList.of(
-          AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S,
-          AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS,
-          AndroidTestUtil.MP4_ASSET_4K60_PORTRAIT);
+          AndroidTestUtil.MP4_ASSET_H264_4K_10SEC_VIDEO,
+          AndroidTestUtil.MP4_ASSET_H264_1080P_10SEC_VIDEO,
+          AndroidTestUtil.MP4_ASSET_1080P_5_SECOND_HLG10);
 
-  private static final ImmutableList<Integer> OPERATING_RATE_SETTINGS =
-      ImmutableList.of(VideoEncoderSettings.NO_VALUE, 30, Integer.MAX_VALUE);
-
-  private static final ImmutableList<Integer> PRIORITY_SETTINGS =
-      ImmutableList.of(
-          // Use NO_VALUE to skip setting priority.
-          VideoEncoderSettings.NO_VALUE,
-          MEDIA_CODEC_PRIORITY_NON_REALTIME,
-          MEDIA_CODEC_PRIORITY_REALTIME);
+  private static final ImmutableList<Integer> OPERATING_RATE_AND_PRIORITIES =
+      ImmutableList.of(RATE_UNSET, NO_VALUE);
+  private static final ImmutableList<Boolean> ENABLE_FALLBACK = ImmutableList.of(true, false);
 
   @Parameter(0)
-  public @MonotonicNonNull AssetInfo assetInfo;
+  public @MonotonicNonNull TestConfig config;
 
-  @Parameter(1)
-  public int operatingRate;
-
-  @Parameter(2)
-  public int priority;
-
-  @Parameters(name = "analyzePerformance_{0}_OpRate={1}_Priority={2}")
+  @Parameters(name = "analyzePerformance_{0}")
   public static ImmutableList<Object[]> parameters() {
     ImmutableList.Builder<Object[]> parametersBuilder = new ImmutableList.Builder<>();
     for (int i = 0; i < INPUT_ASSETS.size(); i++) {
-      for (int j = 0; j < OPERATING_RATE_SETTINGS.size(); j++) {
-        for (int k = 0; k < PRIORITY_SETTINGS.size(); k++) {
-          parametersBuilder.add(
-              new Object[] {
-                INPUT_ASSETS.get(i), OPERATING_RATE_SETTINGS.get(j), PRIORITY_SETTINGS.get(k)
-              });
+      for (int operatingRateAndPriority : OPERATING_RATE_AND_PRIORITIES) {
+        for (boolean enableFallback : ENABLE_FALLBACK) {
+          TestConfig.Builder configBuilder =
+              new TestConfig.Builder(INPUT_ASSETS.get(i))
+                  .setOperatingRate(operatingRateAndPriority)
+                  .setPriority(operatingRateAndPriority)
+                  .setEnableFallback(enableFallback);
+          parametersBuilder.add(new Object[] {configBuilder.build()});
         }
       }
     }
@@ -95,52 +83,135 @@ public class EncoderPerformanceAnalysisTest {
 
   @Test
   public void analyzeEncoderPerformance() throws Exception {
-    checkNotNull(assetInfo.uri);
-    String filename = checkNotNull(Uri.parse(assetInfo.uri).getLastPathSegment());
-    String testId =
-        Util.formatInvariant(
-            "analyzePerformance_%s_OpRate_%d_Priority_%d", filename, operatingRate, priority);
+    checkNotNull(config.assetInfo.uri);
     Context context = ApplicationProvider.getApplicationContext();
 
-    assumeFormatsSupported(
-        context,
-        testId,
-        /* inputFormat= */ assetInfo.videoFormat,
-        /* outputFormat= */ assetInfo.videoFormat);
-
-    if (Util.SDK_INT < 23) {
-      recordTestSkipped(
-          context,
-          testId,
-          /* reason= */ "API version lacks support for setting operating rate and priority.");
-      return;
-    }
-
-    Map<String, Object> inputValues = new HashMap<>();
-    inputValues.put("inputFilename", filename);
-    inputValues.put("operatingRate", operatingRate);
-    inputValues.put("priority", priority);
+    VideoEncoderSettings.Builder settingsBuilder = new VideoEncoderSettings.Builder();
+    settingsBuilder.setEncoderPerformanceParameters(config.operatingRate, config.priority);
 
     Transformer transformer =
         new Transformer.Builder(context)
             .setEncoderFactory(
                 new AndroidTestUtil.ForceEncodeEncoderFactory(
                     /* wrappedEncoderFactory= */ new DefaultEncoderFactory.Builder(context)
-                        .setRequestedVideoEncoderSettings(
-                            new VideoEncoderSettings.Builder()
-                                .setEncoderPerformanceParameters(operatingRate, priority)
-                                .build())
-                        .setEnableFallback(false)
+                        .setRequestedVideoEncoderSettings(settingsBuilder.build())
+                        .setEnableFallback(config.enableFallback)
                         .build()))
             .build();
     EditedMediaItem editedMediaItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(assetInfo.uri)))
-            .setRemoveAudio(true)
-            .build();
+        new EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(config.assetInfo.uri))).build();
 
     new TransformerAndroidTestRunner.Builder(context, transformer)
-        .setInputValues(inputValues)
+        .setInputValues(config.getInputValues())
         .build()
-        .run(testId, editedMediaItem);
+        .run(config.getTestId(), editedMediaItem);
+  }
+
+  /** Wrapper class storing values that can be used to test. */
+  private static class TestConfig {
+
+    public static class Builder {
+
+      private final AssetInfo assetInfo;
+      private boolean enableFallback;
+      private int operatingRate;
+      private int priority;
+      private int profile;
+      private int level;
+
+      public Builder(AssetInfo assetInfo) {
+        this.assetInfo = assetInfo;
+        enableFallback = true;
+        operatingRate = NO_VALUE;
+        priority = NO_VALUE;
+        profile = NO_VALUE;
+        level = NO_VALUE;
+      }
+
+      @CanIgnoreReturnValue
+      public Builder setEnableFallback(boolean enableFallback) {
+        this.enableFallback = enableFallback;
+        return this;
+      }
+
+      @CanIgnoreReturnValue
+      public Builder setOperatingRate(int operatingRate) {
+        this.operatingRate = operatingRate;
+        return this;
+      }
+
+      @CanIgnoreReturnValue
+      public Builder setPriority(int priority) {
+        this.priority = priority;
+        return this;
+      }
+
+      @CanIgnoreReturnValue
+      public Builder setProfile(int profile) {
+        this.profile = profile;
+        return this;
+      }
+
+      @CanIgnoreReturnValue
+      public Builder setLevel(int level) {
+        this.level = level;
+        return this;
+      }
+
+      public TestConfig build() {
+        return new TestConfig(assetInfo, enableFallback, operatingRate, priority, profile, level);
+      }
+    }
+
+    public final AssetInfo assetInfo;
+    public final boolean enableFallback;
+    public final int operatingRate;
+    public final int priority;
+    public final int profile;
+    public final int level;
+
+    private TestConfig(
+        AssetInfo assetInfo,
+        boolean enableFallback,
+        int operatingRate,
+        int priority,
+        int profile,
+        int level) {
+      this.assetInfo = assetInfo;
+      this.enableFallback = enableFallback;
+      this.operatingRate = operatingRate;
+      this.priority = priority;
+      this.profile = profile;
+      this.level = level;
+    }
+
+    public String getTestId() {
+      StringBuilder testIdBuilder = new StringBuilder();
+      testIdBuilder.append(
+          String.format(
+              "analyzePerformance_%s_Fallback_%d_OpRate_%d_Priority_%d_Profile_%d_Level_%d",
+              getFilename(), enableFallback ? 1 : 0, operatingRate, priority, profile, level));
+      return testIdBuilder.toString();
+    }
+
+    public Map<String, Object> getInputValues() {
+      Map<String, Object> inputValues = new HashMap<>();
+      inputValues.put("inputFilename", getFilename());
+      inputValues.put("enableFallback", enableFallback);
+      inputValues.put("operatingRate", operatingRate);
+      inputValues.put("priority", priority);
+      inputValues.put("profile", profile);
+      inputValues.put("level", level);
+      return inputValues;
+    }
+
+    private String getFilename() {
+      return checkNotNull(Uri.parse(assetInfo.uri).getLastPathSegment());
+    }
+
+    @Override
+    public String toString() {
+      return getTestId();
+    }
   }
 }

@@ -385,6 +385,28 @@ public final class AndroidTestUtil {
                   .build())
           .build();
 
+  public static final AssetInfo MP4_ASSET_H264_1080P_10SEC_VIDEO =
+      new AssetInfo.Builder("asset:///media/mp4/h264_1080p_30fps_10sec.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H264)
+                  .setWidth(1080)
+                  .setHeight(720)
+                  .setFrameRate(30.0f)
+                  .build())
+          .build();
+
+  public static final AssetInfo MP4_ASSET_H264_4K_10SEC_VIDEO =
+      new AssetInfo.Builder("asset:///media/mp4/h264_4k_30fps_10sec.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H264)
+                  .setWidth(3840)
+                  .setHeight(2160)
+                  .setFrameRate(30.0f)
+                  .build())
+          .build();
+
   public static final AssetInfo MP4_ASSET_AV1_VIDEO =
       new AssetInfo.Builder("asset:///media/mp4/sample_av1.mp4")
           .setVideoFormat(
@@ -1260,7 +1282,9 @@ public final class AndroidTestUtil {
       Log.i(TAG, testId + ": " + line);
     }
 
-    File analysisFile = createExternalCacheFile(context, /* fileName= */ testId + "-result.txt");
+    File analysisFile =
+        createExternalCacheFile(
+            context, /* directoryName= */ "analysis", /* fileName= */ testId + "-result.txt");
     try (FileWriter fileWriter = new FileWriter(analysisFile)) {
       fileWriter.write(analysisContents);
     }
@@ -1471,10 +1495,30 @@ public final class AndroidTestUtil {
    * Creates a {@link File} of the {@code fileName} in the application cache directory.
    *
    * <p>If a file of that name already exists, it is overwritten.
+   *
+   * @param context The {@link Context}.
+   * @param fileName The filename to save to the cache.
    */
   /* package */ static File createExternalCacheFile(Context context, String fileName)
       throws IOException {
-    File file = new File(context.getExternalCacheDir(), fileName);
+    return createExternalCacheFile(context, /* directoryName= */ "", fileName);
+  }
+
+  /**
+   * Creates a {@link File} of the {@code fileName} in a directory {@code directoryName} within the
+   * application cache directory.
+   *
+   * <p>If a file of that name already exists, it is overwritten.
+   *
+   * @param context The {@link Context}.
+   * @param directoryName The directory name within the external cache to save the file in.
+   * @param fileName The filename to save to the cache.
+   */
+  /* package */ static File createExternalCacheFile(
+      Context context, String directoryName, String fileName) throws IOException {
+    File fileDirectory = new File(context.getExternalCacheDir(), directoryName);
+    fileDirectory.mkdirs();
+    File file = new File(fileDirectory, fileName);
     checkState(!file.exists() || file.delete(), "Could not delete file: " + file.getAbsolutePath());
     checkState(file.createNewFile(), "Could not create file: " + file.getAbsolutePath());
     return file;
