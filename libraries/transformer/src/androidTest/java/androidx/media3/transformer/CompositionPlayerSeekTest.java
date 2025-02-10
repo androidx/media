@@ -126,7 +126,10 @@ public class CompositionPlayerSeekTest {
 
   @Test
   public void seekToZero_afterPlayingSingleSequenceOfTwoVideos() throws Exception {
-    maybeSkipTest();
+    if (isRunningOnEmulator() && Util.SDK_INT == 31) {
+      // The audio decoder is failing on API 31 emulator.
+      skipTest("Skipped due to failing decoder");
+    }
     ImmutableList<Long> sequenceTimestampsUs =
         new ImmutableList.Builder<Long>()
             // Plays the first video
@@ -150,7 +153,10 @@ public class CompositionPlayerSeekTest {
 
   @Test
   public void seekToFirstVideo_afterPlayingSingleSequenceOfTwoVideos() throws Exception {
-    maybeSkipTest();
+    if (isRunningOnEmulator() && Util.SDK_INT == 31) {
+      // The audio decoder is failing on API 31 emulator.
+      skipTest("Skipped due to failing decoder");
+    }
     // Skips the first three video frames
     long seekTimeMs = 100;
     ImmutableList<Long> sequenceTimestampsUs =
@@ -174,7 +180,10 @@ public class CompositionPlayerSeekTest {
 
   @Test
   public void seekToStartOfSecondVideo_afterPlayingSingleSequenceOfTwoVideos() throws Exception {
-    maybeSkipTest();
+    if (isRunningOnEmulator() && Util.SDK_INT == 31) {
+      // The audio decoder is failing on API 31 emulator.
+      skipTest("Skipped due to failing decoder");
+    }
     // Seeks to the end of the first video
     long seekTimeMs = usToMs(VIDEO_DURATION_US);
     ImmutableList<Long> sequenceTimestampsUs =
@@ -197,7 +206,10 @@ public class CompositionPlayerSeekTest {
 
   @Test
   public void seekToSecondVideo_afterPlayingSingleSequenceOfTwoVideos() throws Exception {
-    maybeSkipTest();
+    if (isRunningOnEmulator() && Util.SDK_INT == 31) {
+      // The audio decoder is failing on API 31 emulator.
+      skipTest("Skipped due to failing decoder");
+    }
     // Skips the first three image frames of the second image.
     long seekTimeMs = usToMs(VIDEO_DURATION_US) + 100;
     ImmutableList<Long> sequenceTimestampsUs =
@@ -222,7 +234,10 @@ public class CompositionPlayerSeekTest {
 
   @Test
   public void seekToEndOfSecondVideo_afterPlayingSingleSequenceOfTwoVideos() throws Exception {
-    maybeSkipTest();
+    if (isRunningOnEmulator() && Util.SDK_INT == 31) {
+      // The audio decoder is failing on API 31 emulator.
+      skipTest("Skipped due to failing decoder");
+    }
     // Seeks to the end of the second video
     long seekTimeMs = usToMs(2 * VIDEO_DURATION_US);
     ImmutableList<Long> sequenceTimestampsUs =
@@ -244,7 +259,10 @@ public class CompositionPlayerSeekTest {
 
   @Test
   public void seekToAfterEndOfSecondVideo_afterPlayingSingleSequenceOfTwoVideos() throws Exception {
-    maybeSkipTest();
+    if (isRunningOnEmulator() && Util.SDK_INT == 31) {
+      // The audio decoder is failing on API 31 emulator.
+      skipTest("Skipped due to failing decoder");
+    }
     long seekTimeMs = usToMs(3 * VIDEO_DURATION_US);
     ImmutableList<Long> sequenceTimestampsUs =
         new ImmutableList.Builder<Long>()
@@ -398,7 +416,10 @@ public class CompositionPlayerSeekTest {
 
   @Test
   public void seekToZero_afterPlayingSingleSequenceOfVideoAndImage() throws Exception {
-    maybeSkipTest();
+    if (isRunningOnEmulator() && Util.SDK_INT == 31) {
+      // The audio decoder is failing on API 31 emulator.
+      skipTest("Skipped due to failing decoder");
+    }
     ImmutableList<Long> sequenceTimestampsUs =
         new ImmutableList.Builder<Long>()
             // Plays the video
@@ -422,7 +443,10 @@ public class CompositionPlayerSeekTest {
 
   @Test
   public void seekToVideo_afterPlayingSingleSequenceOfVideoAndImage() throws Exception {
-    maybeSkipTest();
+    if (isRunningOnEmulator() && Util.SDK_INT == 31) {
+      // The audio decoder is failing on API 31 emulator.
+      skipTest("Skipped due to failing decoder");
+    }
     // Skips three video frames
     long seekTimeMs = 100;
     ImmutableList<Long> sequenceTimestampsUs =
@@ -447,7 +471,10 @@ public class CompositionPlayerSeekTest {
 
   @Test
   public void seekToImage_afterPlayingSingleSequenceOfVideoAndImage() throws Exception {
-    maybeSkipTest();
+    if (isRunningOnEmulator() && Util.SDK_INT == 31) {
+      // The audio decoder is failing on API 31 emulator.
+      skipTest("Skipped due to failing decoder");
+    }
     // Skips video frames and three image frames
     long seekTimeMs = usToMs(VIDEO_DURATION_US) + 100;
     ImmutableList<Long> sequenceTimestampsUs =
@@ -472,7 +499,11 @@ public class CompositionPlayerSeekTest {
 
   @Test
   public void seekToZero_afterPlayingSingleSequenceOfImageAndVideo() throws Exception {
-    maybeSkipTest();
+    if (isRunningOnEmulator()) {
+      // The MediaCodec decoder's output surface is sometimes dropping frames on emulator despite
+      // using MediaFormat.KEY_ALLOW_FRAME_DROP.
+      skipTest("Skipped due to surface dropping frames");
+    }
     ImmutableList<Long> sequenceTimestampsUs =
         new ImmutableList.Builder<Long>()
             // Plays the image
@@ -496,7 +527,11 @@ public class CompositionPlayerSeekTest {
 
   @Test
   public void seekToImage_afterPlayingSingleSequenceOfImageAndVideo() throws Exception {
-    maybeSkipTest();
+    if (isRunningOnEmulator()) {
+      // The MediaCodec decoder's output surface is sometimes dropping frames on emulator despite
+      // using MediaFormat.KEY_ALLOW_FRAME_DROP.
+      skipTest("Skipped due to surface dropping frames");
+    }
     // Skips three image frames
     long seekTimeMs = 100;
     ImmutableList<Long> sequenceTimestampsUs =
@@ -520,7 +555,10 @@ public class CompositionPlayerSeekTest {
 
   @Test
   public void seekToVideo_afterPlayingSingleSequenceOfImageAndVideo() throws Exception {
-    maybeSkipTest();
+    if (isRunningOnEmulator() && Util.SDK_INT == 31) {
+      // The audio decoder is failing on API 31 emulator.
+      skipTest("Skipped due to failing decoder");
+    }
     // Skips to the first video frame.
     long seekTimeMs = usToMs(IMAGE_DURATION_US);
     ImmutableList<Long> sequenceTimestampsUs =
@@ -543,7 +581,10 @@ public class CompositionPlayerSeekTest {
 
   @Test
   public void seekToZero_duringPlayingFirstVideoInSingleSequenceOfTwoVideos() throws Exception {
-    maybeSkipTest();
+    if (isRunningOnEmulator() && Util.SDK_INT == 31) {
+      // The audio decoder is failing on API 31 emulator.
+      skipTest("Skipped due to failing decoder");
+    }
     ImmutableList<MediaItemConfig> mediaItems =
         ImmutableList.of(VIDEO_MEDIA_ITEM, VIDEO_MEDIA_ITEM);
     int numberOfFramesBeforeSeeking = 15;
@@ -569,7 +610,10 @@ public class CompositionPlayerSeekTest {
   @Test
   public void seekToSecondVideo_duringPlayingFirstVideoInSingleSequenceOfTwoVideos()
       throws Exception {
-    maybeSkipTest();
+    if (isRunningOnEmulator() && Util.SDK_INT == 31) {
+      // The audio decoder is failing on API 31 emulator.
+      skipTest("Skipped due to failing decoder");
+    }
     ImmutableList<MediaItemConfig> mediaItems =
         ImmutableList.of(VIDEO_MEDIA_ITEM, VIDEO_MEDIA_ITEM);
     int numberOfFramesBeforeSeeking = 15;
@@ -596,7 +640,10 @@ public class CompositionPlayerSeekTest {
   @Test
   public void seekToFirstVideo_duringPlayingSecondVideoInSingleSequenceOfTwoVideos()
       throws Exception {
-    maybeSkipTest();
+    if (isRunningOnEmulator() && Util.SDK_INT == 31) {
+      // The audio decoder is failing on API 31 emulator.
+      skipTest("Skipped due to failing decoder");
+    }
     ImmutableList<MediaItemConfig> mediaItems =
         ImmutableList.of(VIDEO_MEDIA_ITEM, VIDEO_MEDIA_ITEM);
     int numberOfFramesBeforeSeeking = 45;
@@ -627,7 +674,10 @@ public class CompositionPlayerSeekTest {
   @Test
   public void seekToEndOfFirstVideo_duringPlayingFirstVideoInSingleSequenceOfTwoVideos()
       throws Exception {
-    maybeSkipTest();
+    if (isRunningOnEmulator() && Util.SDK_INT == 31) {
+      // The audio decoder is failing on API 31 emulator.
+      skipTest("Skipped due to failing decoder");
+    }
     ImmutableList<MediaItemConfig> mediaItems =
         ImmutableList.of(VIDEO_MEDIA_ITEM, VIDEO_MEDIA_ITEM);
     int numberOfFramesBeforeSeeking = 15;
@@ -652,7 +702,10 @@ public class CompositionPlayerSeekTest {
   @Test
   public void seekToEndOfSecondVideo_duringPlayingFirstVideoInSingleSequenceOfTwoVideos()
       throws Exception {
-    maybeSkipTest();
+    if (isRunningOnEmulator() && Util.SDK_INT == 31) {
+      // The audio decoder is failing on API 31 emulator.
+      skipTest("Skipped due to failing decoder");
+    }
     ImmutableList<MediaItemConfig> mediaItems =
         ImmutableList.of(VIDEO_MEDIA_ITEM, VIDEO_MEDIA_ITEM);
     int numberOfFramesBeforeSeeking = 15;
@@ -675,7 +728,10 @@ public class CompositionPlayerSeekTest {
 
   @Test
   public void seekToFirstImage_duringPlayingFirstImageInSequenceOfTwoImages() throws Exception {
-    maybeSkipTest();
+    if (isRunningOnEmulator() && Util.SDK_INT == 31) {
+      // The audio decoder is failing on API 31 emulator.
+      skipTest("Skipped due to failing decoder");
+    }
     ImmutableList<MediaItemConfig> mediaItems = ImmutableList.of(IMAGE_MEDIA_ITEM);
     int numberOfFramesBeforeSeeking = 2;
     // Should skip the first 3 frames.
@@ -722,7 +778,10 @@ public class CompositionPlayerSeekTest {
 
   @Test
   public void seekToImage_duringPlayingFirstImageInSequenceOfVideoAndImage() throws Exception {
-    maybeSkipTest();
+    if (isRunningOnEmulator() && Util.SDK_INT == 31) {
+      // The audio decoder is failing on API 31 emulator.
+      skipTest("Skipped due to failing decoder");
+    }
     ImmutableList<MediaItemConfig> mediaItems =
         ImmutableList.of(VIDEO_MEDIA_ITEM, IMAGE_MEDIA_ITEM);
     int numberOfFramesBeforeSeeking = 15;
@@ -748,7 +807,10 @@ public class CompositionPlayerSeekTest {
 
   @Test
   public void seekToVideo_duringPlayingFirstImageInSequenceOfImageAndVideo() throws Exception {
-    maybeSkipTest();
+    if (isRunningOnEmulator() && Util.SDK_INT == 31) {
+      // The audio decoder is failing on API 31 emulator.
+      skipTest("Skipped due to failing decoder");
+    }
     ImmutableList<MediaItemConfig> mediaItems =
         ImmutableList.of(IMAGE_MEDIA_ITEM, VIDEO_MEDIA_ITEM);
     int numberOfFramesBeforeSeeking = 3;
@@ -772,12 +834,9 @@ public class CompositionPlayerSeekTest {
     assertThat(actualTimestampsUs).isEqualTo(expectedTimestampsUs);
   }
 
-  private void maybeSkipTest() throws Exception {
-    if (isRunningOnEmulator() && Util.SDK_INT == 31) {
-      // The audio decoder is failing on API 31 emulator.
-      recordTestSkipped(applicationContext, testId, /* reason= */ "Skipped due to failing decoder");
-      throw new AssumptionViolatedException("Skipped due to failing decoder");
-    }
+  private void skipTest(String reason) throws Exception {
+    recordTestSkipped(applicationContext, testId, reason);
+    throw new AssumptionViolatedException(reason);
   }
 
   /**
