@@ -5,6 +5,8 @@
 *   Common Library:
 *   ExoPlayer:
 *   Transformer:
+    *   Add `MediaProjectionAssetLoader`, which provides media from a
+        `MediaProjection` for screen recording.
 *   Track Selection:
 *   Extractors:
 *   DataSource:

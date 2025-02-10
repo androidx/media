@@ -65,6 +65,8 @@ dependencies {
     testImplementation 'com.google.truth:truth:' + truthVersion
     androidTestImplementation 'junit:junit:' + junitVersion
     androidTestImplementation 'androidx.test:runner:' + androidxTestRunnerVersion
+    androidTestImplementation 'androidx.test.uiautomator:uiautomator:' + androidxTestUiAutomatorVersion
+    androidTestImplementation 'androidx.window:window:' + androidxWindowVersion
     androidTestImplementation 'com.google.truth:truth:' + truthVersion
     androidTestImplementation project(modulePrefix + 'test-utils')
 }
