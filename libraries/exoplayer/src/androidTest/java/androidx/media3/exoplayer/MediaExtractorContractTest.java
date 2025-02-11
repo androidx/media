@@ -16,6 +16,7 @@
 package androidx.media3.exoplayer;
 
 import static com.google.common.truth.Truth.assertThat;
+import static java.lang.Math.min;
 
 import android.content.Context;
 import android.content.res.AssetFileDescriptor;
@@ -28,18 +29,30 @@ import android.net.Uri;
 import android.os.PersistableBundle;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
+import androidx.media3.common.C;
+import androidx.media3.test.utils.AssetContentProvider;
+import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.filters.SdkSuppress;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
+import com.google.common.io.Files;
+import java.io.File;
 import java.io.FileDescriptor;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import okhttp3.mockwebserver.MockResponse;
+import okhttp3.mockwebserver.MockWebServer;
+import okio.Buffer;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameter;
@@ -83,13 +96,15 @@ public class MediaExtractorContractTest {
   }
 
   @Parameter public Function<Context, MediaExtractorProxy> mediaExtractorProxyFactory;
+  @Rule public final TemporaryFolder tempFolder = new TemporaryFolder();
 
   private MediaExtractorProxy mediaExtractorProxy;
+  private Context context;
 
   @Before
   public void setUp() {
-    mediaExtractorProxy =
-        mediaExtractorProxyFactory.apply(ApplicationProvider.getApplicationContext());
+    context = ApplicationProvider.getApplicationContext();
+    mediaExtractorProxy = mediaExtractorProxyFactory.apply(context);
   }
 
   @After
@@ -100,12 +115,135 @@ public class MediaExtractorContractTest {
   @Test
   @SdkSuppress(minSdkVersion = 24)
   public void setDataSource_withAssetFileDescriptor_returnsCorrectTrackCount() throws IOException {
-    AssetFileDescriptor afd =
-        ApplicationProvider.getApplicationContext().getAssets().openFd("media/mp4/sample.mp4");
+    AssetFileDescriptor afd = context.getAssets().openFd("media/mp4/sample.mp4");
 
     mediaExtractorProxy.setDataSource(afd);
 
     assertThat(mediaExtractorProxy.getTrackCount()).isEqualTo(2);
+  }
+
+  @Test
+  public void setDataSource_withFileDescriptor_returnsCorrectTrackCount() throws IOException {
+    File file = tempFolder.newFile();
+    Files.write(TestUtil.getByteArray(context, /* fileName= */ "media/mp4/sample.mp4"), file);
+
+    try (FileInputStream inputStream = new FileInputStream(file)) {
+      mediaExtractorProxy.setDataSource(inputStream.getFD());
+    }
+
+    assertThat(mediaExtractorProxy.getTrackCount()).isEqualTo(2);
+  }
+
+  @Test
+  public void setDataSource_withFileDescriptorOffsetAndLength_returnsCorrectTrackCount()
+      throws IOException {
+    AssetFileDescriptor afd =
+        ApplicationProvider.getApplicationContext().getAssets().openFd("media/mp4/sample.mp4");
+
+    mediaExtractorProxy.setDataSource(
+        afd.getFileDescriptor(), afd.getStartOffset(), afd.getLength());
+
+    assertThat(mediaExtractorProxy.getTrackCount()).isEqualTo(2);
+  }
+
+  @Test
+  @SdkSuppress(minSdkVersion = 23)
+  public void setDataSource_withMediaDataSource_returnsCorrectTrackCount() throws IOException {
+    byte[] fileData = TestUtil.getByteArray(context, /* fileName= */ "media/mp4/sample.mp4");
+    MediaDataSource mediaDataSource =
+        new MediaDataSource() {
+          @Override
+          public int readAt(long position, byte[] buffer, int offset, int size) {
+            if (size == 0) {
+              return 0;
+            }
+
+            if (position > getSize()) {
+              return C.RESULT_END_OF_INPUT;
+            }
+
+            size = min(size, (int) (getSize() - position));
+
+            System.arraycopy(fileData, (int) position, buffer, offset, size);
+            return size;
+          }
+
+          @Override
+          public long getSize() {
+            return fileData.length;
+          }
+
+          @Override
+          public void close() {}
+        };
+
+    mediaExtractorProxy.setDataSource(mediaDataSource);
+
+    assertThat(mediaExtractorProxy.getTrackCount()).isEqualTo(2);
+  }
+
+  @Test
+  public void setDataSource_withFilePath_returnsCorrectTrackCount() throws IOException {
+    File file = tempFolder.newFile();
+    Files.write(TestUtil.getByteArray(context, /* fileName= */ "media/mp4/sample.mp4"), file);
+
+    mediaExtractorProxy.setDataSource(file.getAbsolutePath());
+
+    assertThat(mediaExtractorProxy.getTrackCount()).isEqualTo(2);
+  }
+
+  @Test
+  public void setDataSource_withHttpUrlAsString_returnsCorrectTrackCount() throws IOException {
+    try (MockWebServer mockWebServer = new MockWebServer()) {
+      byte[] fileData = TestUtil.getByteArray(context, /* fileName= */ "media/mp4/sample.mp4");
+      mockWebServer.enqueue(new MockResponse().setBody(new Buffer().write(fileData)));
+
+      mediaExtractorProxy.setDataSource(mockWebServer.url("/test-path").toString());
+
+      assertThat(mediaExtractorProxy.getTrackCount()).isEqualTo(2);
+    }
+  }
+
+  @Test
+  public void setDataSource_withHttpUrlAsStringAndHeaders_returnsCorrectTrackCountAndHeaders()
+      throws Exception {
+    try (MockWebServer mockWebServer = new MockWebServer()) {
+      byte[] fileData = TestUtil.getByteArray(context, /* fileName= */ "media/mp4/sample.mp4");
+      mockWebServer.enqueue(new MockResponse().setBody(new Buffer().write(fileData)));
+      Map<String, String> headers = new HashMap<>();
+      headers.put("k", "v");
+
+      mediaExtractorProxy.setDataSource(mockWebServer.url("/test-path").toString(), headers);
+
+      assertThat(mediaExtractorProxy.getTrackCount()).isEqualTo(2);
+      assertThat(mockWebServer.takeRequest().getHeaders().get("k")).isEqualTo("v");
+    }
+  }
+
+  @Test
+  public void setDataSource_withContentUri_returnsCorrectTrackCount() throws Exception {
+    Uri contentUri = AssetContentProvider.buildUri("media/mp4/sample.mp4", /* pipeMode= */ false);
+
+    mediaExtractorProxy.setDataSource(context, contentUri, /* headers= */ null);
+
+    assertThat(mediaExtractorProxy.getTrackCount()).isEqualTo(2);
+  }
+
+  @Test
+  public void setDataSource_withHttpUrlAsContentUriAndHeaders_returnsCorrectTrackCountAndHeaders()
+      throws Exception {
+    try (MockWebServer mockWebServer = new MockWebServer()) {
+      byte[] fileData = TestUtil.getByteArray(context, /* fileName= */ "media/mp4/sample.mp4");
+      mockWebServer.enqueue(new MockResponse().setBody(new Buffer().write(fileData)));
+      Map<String, String> headers = new HashMap<>();
+      headers.put("k", "v");
+
+      mediaExtractorProxy.setDataSource(
+          context, Uri.parse(mockWebServer.url("/test-path").toString()), headers);
+
+      assertThat(mediaExtractorProxy.getTrackCount()).isEqualTo(2);
+      assertThat(mockWebServer.takeRequest().getHeaders().get("k")).isEqualTo("v");
+    }
   }
 
   private static class FrameworkMediaExtractorProxy implements MediaExtractorProxy {
