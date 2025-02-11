@@ -485,6 +485,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
   private final List<Effect> activeEffects;
   private final Object lock;
   private final ColorInfo outputColorInfo;
+  private final DebugViewProvider debugViewProvider;
 
   private volatile @MonotonicNonNull FrameInfo nextInputFrameInfo;
   private volatile boolean inputStreamEnded;
@@ -499,7 +500,8 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
       Executor listenerExecutor,
       FinalShaderProgramWrapper finalShaderProgramWrapper,
       boolean renderFramesAutomatically,
-      ColorInfo outputColorInfo) {
+      ColorInfo outputColorInfo,
+      DebugViewProvider debugViewProvider) {
     this.context = context;
     this.glObjectsProvider = glObjectsProvider;
     this.eglDisplay = eglDisplay;
@@ -511,6 +513,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
     this.activeEffects = new ArrayList<>();
     this.lock = new Object();
     this.outputColorInfo = outputColorInfo;
+    this.debugViewProvider = debugViewProvider;
     this.finalShaderProgramWrapper = finalShaderProgramWrapper;
     this.intermediateGlShaderPrograms = new ArrayList<>();
     this.inputStreamRegisteredCondition = new ConditionVariable();
@@ -875,7 +878,6 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
             eglDisplay,
             eglContextAndPlaceholderSurface.first,
             eglContextAndPlaceholderSurface.second,
-            debugViewProvider,
             outputColorInfo,
             videoFrameProcessingTaskExecutor,
             videoFrameProcessorListenerExecutor,
@@ -895,7 +897,8 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
         videoFrameProcessorListenerExecutor,
         finalShaderProgramWrapper,
         renderFramesAutomatically,
-        outputColorInfo);
+        outputColorInfo,
+        debugViewProvider);
   }
 
   /**
@@ -940,10 +943,10 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
         rgbMatrixListBuilder.add((RgbMatrix) glEffect);
         continue;
       }
+      boolean isOutputTransferHdr = ColorInfo.isTransferHdr(outputColorInfo);
       ImmutableList<GlMatrixTransformation> matrixTransformations =
           matrixTransformationListBuilder.build();
       ImmutableList<RgbMatrix> rgbMatrices = rgbMatrixListBuilder.build();
-      boolean isOutputTransferHdr = ColorInfo.isTransferHdr(outputColorInfo);
       if (!matrixTransformations.isEmpty() || !rgbMatrices.isEmpty()) {
         DefaultShaderProgram defaultShaderProgram =
             DefaultShaderProgram.create(
@@ -1024,11 +1027,16 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
         intermediateGlShaderPrograms.clear();
       }
 
+      ImmutableList.Builder<Effect> effectsListBuilder =
+          new ImmutableList.Builder<Effect>().addAll(inputStreamInfo.effects);
+      if (debugViewProvider != DebugViewProvider.NONE) {
+        effectsListBuilder.add(new DebugViewEffect(debugViewProvider, outputColorInfo));
+      }
       // The GlShaderPrograms that should be inserted in between InputSwitcher and
       // FinalShaderProgramWrapper.
       intermediateGlShaderPrograms.addAll(
           createGlShaderPrograms(
-              context, inputStreamInfo.effects, outputColorInfo, finalShaderProgramWrapper));
+              context, effectsListBuilder.build(), outputColorInfo, finalShaderProgramWrapper));
       inputSwitcher.setDownstreamShaderProgram(
           getFirst(intermediateGlShaderPrograms, /* defaultValue= */ finalShaderProgramWrapper));
       chainShaderProgramsWithListeners(
