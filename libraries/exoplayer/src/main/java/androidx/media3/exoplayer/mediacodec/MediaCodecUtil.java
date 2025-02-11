@@ -151,7 +151,12 @@ public final class MediaCodecUtil {
     if (cachedDecoderInfos != null) {
       return cachedDecoderInfos;
     }
-    MediaCodecListCompat mediaCodecList = new MediaCodecListCompatV21(secure, tunneling);
+
+    // MV-HEVC is handled by a special codec in the media_codecs.xml file.  We need to get
+    // ALL_CODECS list to include the special codec.
+    boolean specialCodec = mimeType.equals(MimeTypes.VIDEO_MV_HEVC);
+    MediaCodecListCompat mediaCodecList =
+        new MediaCodecListCompatV21(secure, tunneling, specialCodec);
     ArrayList<MediaCodecInfo> decoderInfos = getDecoderInfosInternal(key, mediaCodecList);
     if (secure && decoderInfos.isEmpty() && Util.SDK_INT <= 23) {
       // Some devices don't list secure decoders on API level 21 [Internal: b/18678462]. Try the
@@ -797,9 +802,10 @@ public final class MediaCodecUtil {
 
     @Nullable private android.media.MediaCodecInfo[] mediaCodecInfos;
 
-    public MediaCodecListCompatV21(boolean includeSecure, boolean includeTunneling) {
+    public MediaCodecListCompatV21(
+        boolean includeSecure, boolean includeTunneling, boolean includeSpecialCodec) {
       codecKind =
-          includeSecure || includeTunneling
+          includeSecure || includeTunneling || includeSpecialCodec
               ? MediaCodecList.ALL_CODECS
               : MediaCodecList.REGULAR_CODECS;
     }
