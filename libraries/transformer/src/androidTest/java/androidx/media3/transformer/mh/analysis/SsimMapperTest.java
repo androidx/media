@@ -118,7 +118,7 @@ public class SsimMapperTest {
     List<Object[]> parameterList = new ArrayList<>();
     for (AssetInfo assetInfo : INPUT_ASSETS) {
       parameterList.add(new Object[] {assetInfo, MimeTypes.VIDEO_H264});
-      // TODO(b/210593256): Test pre 24 once in-app muxing implemented.
+      // TODO: b/210593256 - Test pre 24 once in-app muxing implemented.
       if (Util.SDK_INT >= 24) {
         parameterList.add(new Object[] {assetInfo, MimeTypes.VIDEO_H265});
       }
@@ -271,7 +271,7 @@ public class SsimMapperTest {
     }
 
     private double exportAndGetSsim(int bitrate) throws Exception {
-      // TODO(b/238094555): Force specific encoders to be used.
+      // TODO: b/238094555 - Force specific encoders to be used.
 
       String fileName = checkNotNull(getLast(FORWARD_SLASH_SPLITTER.split(videoUri)));
       String testId = String.format("%s_%s_%s", testIdPrefix, bitrate, fileName);

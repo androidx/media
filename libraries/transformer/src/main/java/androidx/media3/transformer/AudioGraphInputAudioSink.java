@@ -118,7 +118,7 @@ import java.util.Objects;
       throws ConfigurationException {
     checkArgument(supportsFormat(inputFormat));
     EditedMediaItem editedMediaItem = checkStateNotNull(currentEditedMediaItemInfo).editedMediaItem;
-    // TODO(b/303029969): Evaluate throwing vs ignoring for null outputChannels.
+    // TODO: b/303029969 - Evaluate throwing vs ignoring for null outputChannels.
     checkArgument(outputChannels == null);
     currentInputFormat = inputFormat;
 

@@ -48,7 +48,7 @@ import org.junit.runner.RunWith;
  * <p>Uses a {@link DefaultVideoFrameProcessor} to process one frame, and checks that the actual
  * output matches expected output, either from a golden file or from another edit.
  */
-// TODO(b/263395272): Move this test to effects/mh tests.
+// TODO: b/263395272 - Move this test to effects/mh tests.
 @RunWith(AndroidJUnit4.class)
 public final class ToneMapHdrToSdrUsingOpenGlPixelTest {
   private static final String TAG = "ToneMapHdrToSdrGl";
@@ -148,7 +148,7 @@ public final class ToneMapHdrToSdrUsingOpenGlPixelTest {
     Bitmap actualBitmap = videoFrameProcessorTestRunner.getOutputBitmap();
 
     Log.i(TAG, "Successfully tone mapped.");
-    // TODO(b/207848601): Switch to using proper tooling for testing against golden data.
+    // TODO: b/207848601 - Switch to using proper tooling for testing against golden data.
     float averagePixelAbsoluteDifference =
         getBitmapAveragePixelAbsoluteDifferenceArgb8888(expectedBitmap, actualBitmap, testId);
     assertThat(averagePixelAbsoluteDifference)
@@ -170,7 +170,7 @@ public final class ToneMapHdrToSdrUsingOpenGlPixelTest {
     Bitmap actualBitmap = videoFrameProcessorTestRunner.getOutputBitmap();
 
     Log.i(TAG, "Successfully tone mapped.");
-    // TODO(b/207848601): Switch to using proper tooling for testing against golden data.
+    // TODO: b/207848601 - Switch to using proper tooling for testing against golden data.
     float averagePixelAbsoluteDifference =
         getBitmapAveragePixelAbsoluteDifferenceArgb8888(expectedBitmap, actualBitmap, testId);
     assertThat(averagePixelAbsoluteDifference)
@@ -192,7 +192,7 @@ public final class ToneMapHdrToSdrUsingOpenGlPixelTest {
     Bitmap actualBitmap = videoFrameProcessorTestRunner.getOutputBitmap();
 
     Log.i(TAG, "Successfully tone mapped.");
-    // TODO(b/207848601): Switch to using proper tooling for testing against golden data.
+    // TODO: b/207848601 - Switch to using proper tooling for testing against golden data.
     float averagePixelAbsoluteDifference =
         getBitmapAveragePixelAbsoluteDifferenceArgb8888(expectedBitmap, actualBitmap, testId);
     assertThat(averagePixelAbsoluteDifference)
@@ -215,7 +215,7 @@ public final class ToneMapHdrToSdrUsingOpenGlPixelTest {
     Bitmap actualBitmap = videoFrameProcessorTestRunner.getOutputBitmap();
 
     Log.i(TAG, "Successfully tone mapped.");
-    // TODO(b/207848601): Switch to using proper tooling for testing against golden data.
+    // TODO: b/207848601 - Switch to using proper tooling for testing against golden data.
     float averagePixelAbsoluteDifference =
         getBitmapAveragePixelAbsoluteDifferenceArgb8888(expectedBitmap, actualBitmap, testId);
     assertThat(averagePixelAbsoluteDifference)
@@ -241,7 +241,7 @@ public final class ToneMapHdrToSdrUsingOpenGlPixelTest {
     Bitmap actualBitmap = videoFrameProcessorTestRunner.getOutputBitmap();
 
     Log.i(TAG, "Successfully tone mapped.");
-    // TODO(b/207848601): Switch to using proper tooling for testing against golden data.
+    // TODO: b/207848601 - Switch to using proper tooling for testing against golden data.
     float averagePixelAbsoluteDifference =
         getBitmapAveragePixelAbsoluteDifferenceArgb8888(expectedBitmap, actualBitmap, testId);
     assertThat(averagePixelAbsoluteDifference)

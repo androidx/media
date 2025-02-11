@@ -218,7 +218,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     @Nullable private EditedMediaItem pendingEditedMediaItem;
     private long pendingOffsetToCompositionTimeUs;
 
-    // TODO - b/320007703: Revisit the abstractions needed here (editedMediaItemProvider and
+    // TODO: b/320007703 - Revisit the abstractions needed here (editedMediaItemProvider and
     //  Supplier<EditedMediaItem>) once we finish all the wiring to support multiple sequences.
     public SequenceAudioRenderer(
         Context context,
@@ -504,7 +504,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       super.onEnabled(joining, mayRenderStartOfStream);
       this.mayRenderStartOfStream = mayRenderStartOfStream;
       videoSink.onRendererEnabled(mayRenderStartOfStream);
-      // TODO - b/328444280: Do not set a listener on VideoSink, but MediaCodecVideoRenderer must
+      // TODO: b/328444280 - Do not set a listener on VideoSink, but MediaCodecVideoRenderer must
       //  unregister itself as a listener too.
       videoSink.setListener(VideoSink.Listener.NO_OP, /* executor= */ (runnable) -> {});
     }

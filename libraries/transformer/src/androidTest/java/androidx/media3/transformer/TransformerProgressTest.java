@@ -235,7 +235,7 @@ public class TransformerProgressTest {
 
     assertThat(transformerExceptionFuture.get()).isNull();
     assertThat(progresses).isInOrder();
-    // TODO - b/322145448 Make tests more deterministic and produce at least one progress output.
+    // TODO: b/322145448 - Make tests more deterministic and produce at least one progress output.
     if (!progresses.isEmpty()) {
       // The progress list could be empty if the export ends before any progress can be retrieved.
       assertThat(Iterables.getFirst(progresses, /* defaultValue= */ -1)).isAtLeast(0);

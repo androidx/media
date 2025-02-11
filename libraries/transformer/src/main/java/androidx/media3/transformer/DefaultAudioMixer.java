@@ -82,7 +82,7 @@ public final class DefaultAudioMixer implements AudioMixer {
     }
   }
 
-  // TODO(b/290002438, b/276734854): Improve buffer management & determine best default size.
+  // TODO: b/290002438, b/276734854 - Improve buffer management & determine best default size.
   private static final int DEFAULT_BUFFER_SIZE_MS = 500;
 
   private final boolean outputSilenceWithNoSources;
@@ -302,7 +302,7 @@ public final class DefaultAudioMixer implements AudioMixer {
     outputBuffer = outputBuffer.slice().order(ByteOrder.nativeOrder());
 
     if (newOutputPosition == mixingBuffer.limit) {
-      // TODO(b/264926272): Generalize for >2 mixing buffers.
+      // TODO: b/264926272 - Generalize for >2 mixing buffers.
       mixingBuffers[0] = mixingBuffers[1];
       mixingBuffers[1] = allocateMixingBuffer(mixingBuffers[1].limit);
     }

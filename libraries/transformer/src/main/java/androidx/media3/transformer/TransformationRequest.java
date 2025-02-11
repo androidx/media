@@ -124,7 +124,7 @@ public final class TransformationRequest {
     }
 
     @CanIgnoreReturnValue
-    // TODO(b/255953153): remove this method once fallback has been refactored.
+    // TODO: b/255953153 - Remove this method once fallback has been refactored.
     /* package */ Builder setResolution(int outputHeight) {
       this.outputHeight = outputHeight;
       return this;

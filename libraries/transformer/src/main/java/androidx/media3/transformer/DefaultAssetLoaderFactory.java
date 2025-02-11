@@ -48,7 +48,7 @@ public final class DefaultAssetLoaderFactory implements AssetLoader.Factory {
 
   // Limit decoded images to 4096x4096 - should be large enough for most image to video
   // transcode operations, and smaller than GL_MAX_TEXTURE_SIZE for most devices.
-  // TODO: b/356072337 - consider reading this from GL_MAX_TEXTURE_SIZE. This requires an
+  // TODO: b/356072337 - Consider reading this from GL_MAX_TEXTURE_SIZE. This requires an
   //   active OpenGL context.
   private static final int MAXIMUM_BITMAP_OUTPUT_DIMENSION = 4096;
 
@@ -77,7 +77,7 @@ public final class DefaultAssetLoaderFactory implements AssetLoader.Factory {
    */
   public DefaultAssetLoaderFactory(
       Context context, Codec.DecoderFactory decoderFactory, Clock clock) {
-    // TODO: b/381519379 - deprecate this constructor and replace with a builder.
+    // TODO: b/381519379 - Deprecate this constructor and replace with a builder.
     this.context = context.getApplicationContext();
     this.decoderFactory = decoderFactory;
     this.clock = clock;
@@ -106,7 +106,7 @@ public final class DefaultAssetLoaderFactory implements AssetLoader.Factory {
    * @param bitmapLoader The {@link BitmapLoader} to use to load and decode images.
    */
   public DefaultAssetLoaderFactory(Context context, BitmapLoader bitmapLoader) {
-    // TODO: b/381519379 - deprecate this constructor and replace with a builder.
+    // TODO: b/381519379 - Deprecate this constructor and replace with a builder.
     this.context = context.getApplicationContext();
     this.bitmapLoader = bitmapLoader;
     decoderFactory = new DefaultDecoderFactory.Builder(context).build();
@@ -133,7 +133,7 @@ public final class DefaultAssetLoaderFactory implements AssetLoader.Factory {
       Clock clock,
       @Nullable MediaSource.Factory mediaSourceFactory,
       BitmapLoader bitmapLoader) {
-    // TODO: b/381519379 - deprecate this constructor and replace with a builder.
+    // TODO: b/381519379 - Deprecate this constructor and replace with a builder.
     this.context = context.getApplicationContext();
     this.decoderFactory = decoderFactory;
     this.clock = clock;
@@ -163,7 +163,7 @@ public final class DefaultAssetLoaderFactory implements AssetLoader.Factory {
       @Nullable MediaSource.Factory mediaSourceFactory,
       BitmapLoader bitmapLoader,
       TrackSelector.Factory trackSelectorFactory) {
-    // TODO: b/381519379 - deprecate this constructor and replace with a builder.
+    // TODO: b/381519379 - Deprecate this constructor and replace with a builder.
     this.context = context.getApplicationContext();
     this.decoderFactory = decoderFactory;
     this.clock = clock;
@@ -180,7 +180,7 @@ public final class DefaultAssetLoaderFactory implements AssetLoader.Factory {
       CompositionSettings compositionSettings) {
     MediaItem mediaItem = editedMediaItem.mediaItem;
     boolean isImage = isImage(context, mediaItem);
-    // TODO: b/350499931 - use the MediaItem's imageDurationMs instead of the EditedMediaItem's
+    // TODO: b/350499931 - Use the MediaItem's imageDurationMs instead of the EditedMediaItem's
     //  durationUs to export motion photos as video
     boolean exportVideoFromMotionPhoto = isImage && editedMediaItem.durationUs == C.TIME_UNSET;
     if (isImage && !exportVideoFromMotionPhoto) {

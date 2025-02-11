@@ -1665,7 +1665,7 @@ public final class Transformer {
         exportResultBuilder.setVideoEncoderName(videoEncoderName);
       }
 
-      // TODO(b/213341814): Add event flags for Transformer events.
+      // TODO: b/213341814 - Add event flags for Transformer events.
       transformerInternal = null;
       if (transformerState == TRANSFORMER_STATE_REMUX_PROCESSED_VIDEO) {
         processRemainingVideo();

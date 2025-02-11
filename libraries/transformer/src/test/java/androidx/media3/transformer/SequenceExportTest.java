@@ -518,7 +518,7 @@ public final class SequenceExportTest {
     assertThat(getRootCause(exception)).hasMessageThat().isEqualTo("Gaps can not be transmuxed.");
   }
 
-  // TODO - b/369154363: Enable test after shouldTranscode inconsistency is resolved.
+  // TODO: b/369154363 - Enable test after shouldTranscode inconsistency is resolved.
   @Ignore
   @Test
   public void transmuxAudio_gapItem_throws() throws Exception {

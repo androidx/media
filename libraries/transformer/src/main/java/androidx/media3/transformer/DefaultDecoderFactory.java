@@ -256,7 +256,7 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
             format, /* reason= */ "Tone-mapping HDR is not supported on this device.");
       }
       if (SDK_INT < 29) {
-        // TODO(b/266837571, b/267171669): Remove API version restriction after fixing linked bugs.
+        // TODO: b/266837571, b/267171669 - Remove API version restriction after fixing linked bugs.
         throw createExportException(
             format, /* reason= */ "Decoding HDR is not supported on this device.");
       }

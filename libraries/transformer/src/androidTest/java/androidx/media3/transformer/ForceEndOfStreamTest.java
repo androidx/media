@@ -72,7 +72,7 @@ public class ForceEndOfStreamTest {
 
   @Test
   public void transcode_decoderDroppingLastFourFrames_exportSucceeds() throws Exception {
-    // TODO: b/370050055 - do we need API 29+, or the device list from
+    // TODO: b/370050055 - Do we need API 29+, or the device list from
     //  Util.isFrameDropAllowedOnSurfaceInput?
     assumeTrue(Util.SDK_INT >= 29);
     assumeFormatsSupported(
@@ -94,7 +94,7 @@ public class ForceEndOfStreamTest {
 
   @Test
   public void transcode_decoderDroppingNoFrame_exportSucceeds() throws Exception {
-    // TODO: b/370050055 - do we need API 29+, or the device list from
+    // TODO: b/370050055 - Do we need API 29+, or the device list from
     //  Util.isFrameDropAllowedOnSurfaceInput?
     assumeTrue(Util.SDK_INT >= 29);
     assumeFormatsSupported(
@@ -116,7 +116,7 @@ public class ForceEndOfStreamTest {
   @Test
   public void transcode_withSlowVideoEffect_exportSucceedsWithCorrectNumberOfFrames()
       throws Exception {
-    // TODO: b/370050055 - do we need API 29+, or the device list from
+    // TODO: b/370050055 - Do we need API 29+, or the device list from
     //  Util.isFrameDropAllowedOnSurfaceInput?
     assumeTrue(Util.SDK_INT >= 29);
     assumeFormatsSupported(

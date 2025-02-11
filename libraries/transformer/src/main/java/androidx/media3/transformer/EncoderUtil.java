@@ -151,7 +151,7 @@ public final class EncoderUtil {
   @SuppressWarnings("InlinedApi") // Safe use of inlined constants from newer API versions.
   public static ImmutableList<Integer> getCodecProfilesForHdrFormat(
       String mimeType, @ColorTransfer int colorTransfer) {
-    // TODO(b/239174610): Add a way to determine profiles for DV and HDR10+.
+    // TODO: b/239174610 - Add a way to determine profiles for DV and HDR10+.
     switch (mimeType) {
       case MimeTypes.VIDEO_VP9:
         if (colorTransfer == C.COLOR_TRANSFER_HLG || colorTransfer == C.COLOR_TRANSFER_ST2084) {
@@ -327,7 +327,7 @@ public final class EncoderUtil {
    */
   public static int findHighestSupportedEncodingLevel(
       MediaCodecInfo encoderInfo, String mimeType, int profile) {
-    // TODO(b/214964116): Merge into MediaCodecUtil.
+    // TODO: b/214964116 - Merge into MediaCodecUtil.
     MediaCodecInfo.CodecProfileLevel[] profileLevels =
         encoderInfo.getCapabilitiesForType(mimeType).profileLevels;
 
@@ -400,7 +400,7 @@ public final class EncoderUtil {
 
   /** Checks if a {@linkplain MediaCodecInfo codec} is hardware-accelerated. */
   public static boolean isHardwareAccelerated(MediaCodecInfo encoderInfo, String mimeType) {
-    // TODO(b/214964116): Merge into MediaCodecUtil.
+    // TODO: b/214964116 - Merge into MediaCodecUtil.
     if (Util.SDK_INT >= 29) {
       return Api29.isHardwareAccelerated(encoderInfo);
     }

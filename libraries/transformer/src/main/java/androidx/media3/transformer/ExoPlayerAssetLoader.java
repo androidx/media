@@ -83,7 +83,7 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
      *     testing.
      */
     public Factory(Context context, Codec.DecoderFactory decoderFactory, Clock clock) {
-      // TODO: b/381519379 - deprecate this constructor and replace with a builder.
+      // TODO: b/381519379 - Deprecate this constructor and replace with a builder.
       this(
           context,
           decoderFactory,
@@ -108,7 +108,7 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
         Codec.DecoderFactory decoderFactory,
         Clock clock,
         MediaSource.Factory mediaSourceFactory) {
-      // TODO: b/381519379 - deprecate this constructor and replace with a builder.
+      // TODO: b/381519379 - Deprecate this constructor and replace with a builder.
       this(context, decoderFactory, clock, mediaSourceFactory, /* trackSelectorFactory= */ null);
     }
 
@@ -131,7 +131,7 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
         Clock clock,
         @Nullable MediaSource.Factory mediaSourceFactory,
         @Nullable TrackSelector.Factory trackSelectorFactory) {
-      // TODO: b/381519379 - deprecate this constructor and replace with a builder.
+      // TODO: b/381519379 - Deprecate this constructor and replace with a builder.
       this.context = context;
       this.decoderFactory = decoderFactory;
       this.clock = clock;

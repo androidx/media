@@ -152,7 +152,7 @@ public final class MediaItemExportTest {
     transformer.start(new Composition.Builder(gapSequence).build(), outputDir.newFile().getPath());
     ExportResult result = TransformerTestRunner.runLooper(transformer);
 
-    // TODO(b/355201372) - Assert 500ms duration.
+    // TODO: b/355201372 - Assert 500ms duration.
     assertThat(result.durationMs).isAtLeast(487);
     assertThat(result.durationMs).isAtMost(500);
 
@@ -992,7 +992,7 @@ public final class MediaItemExportTest {
     transformer.start(mediaItem, outputDir.newFile("second").getPath());
     ExportResult exportResult = TransformerTestRunner.runLooper(transformer);
 
-    // TODO(b/264974805): Make export output deterministic and check it against dump file.
+    // TODO: b/264974805 - Make export output deterministic and check it against dump file.
     assertThat(exportResult.exportException).isNull();
   }
 

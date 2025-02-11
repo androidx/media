@@ -49,7 +49,7 @@ import java.util.List;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
 /** A default implementation of {@link Codec.EncoderFactory}. */
-// TODO(b/224949986) Split audio and video encoder factory.
+// TODO: b/224949986 - Split audio and video encoder factory.
 @UnstableApi
 public final class DefaultEncoderFactory implements Codec.EncoderFactory {
   private static final int DEFAULT_AUDIO_BITRATE = 128 * 1024;
@@ -339,7 +339,7 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
     }
 
     if (Util.SDK_INT >= 31 && ColorInfo.isTransferHdr(format.colorInfo)) {
-      // TODO(b/260389841): Validate the picked encoder supports HDR editing.
+      // TODO: b/260389841 - Validate the picked encoder supports HDR editing.
       if (EncoderUtil.getSupportedColorFormats(encoderInfo, mimeType)
           .contains(MediaCodecInfo.CodecCapabilities.COLOR_Format32bitABGR2101010)) {
         mediaFormat.setInteger(
@@ -526,7 +526,7 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
   /** Returns a list of encoders that support the requested resolution most closely. */
   private static ImmutableList<MediaCodecInfo> filterEncodersByResolution(
       List<MediaCodecInfo> encoders, String mimeType, int requestedWidth, int requestedHeight) {
-    // TODO(b/267740292): Investigate the fallback logic that might prefer software encoders.
+    // TODO: b/267740292 - Investigate the fallback logic that might prefer software encoders.
     return filterEncoders(
         encoders,
         /* cost= */ (encoderInfo) -> {
@@ -676,8 +676,8 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
    */
   private static void adjustMediaFormatForH264EncoderSettings(
       @Nullable ColorInfo colorInfo, MediaCodecInfo encoderInfo, MediaFormat mediaFormat) {
-    // TODO(b/210593256): Remove overriding profile/level (before API 29) after switching to in-app
-    // muxing.
+    // TODO: b/210593256 - Remove overriding profile/level (before API 29) after switching to in-app
+    //  muxing.
     String mimeType = MimeTypes.VIDEO_H264;
     if (Util.SDK_INT >= 29) {
       int expectedEncodingProfile = MediaCodecInfo.CodecProfileLevel.AVCProfileHigh;
@@ -714,8 +714,8 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
         if (!mediaFormat.containsKey(MediaFormat.KEY_LEVEL)) {
           mediaFormat.setInteger(MediaFormat.KEY_LEVEL, supportedEncodingLevel);
         }
-        // TODO(b/210593256): Set KEY_LATENCY to 2 to enable B-frame production after in-app muxing
-        // is the default and it supports B-frames.
+        // TODO: b/210593256 - Set KEY_LATENCY to 2 to enable B-frame production after in-app muxing
+        //  is the default and it supports B-frames.
         mediaFormat.setInteger(MediaFormat.KEY_LATENCY, 1);
       }
     } else if (Util.SDK_INT >= 24) {
@@ -793,7 +793,7 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
    * </ul>
    */
   private static int getSuggestedBitrate(int width, int height, float frameRate) {
-    // TODO(b/238094555) Refactor into a BitrateProvider.
+    // TODO: b/238094555 - Refactor into a BitrateProvider.
     // Assume medium motion factor.
     // 1080p60 -> 16.6Mbps, 720p30 -> 3.7Mbps.
     return (int) (width * height * frameRate * 0.07 * 2);
@@ -835,7 +835,7 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
   private static boolean deviceNeedsNoH264HighProfileWorkaround() {
     // The H.264/AVC encoder produces B-frames when high profile is chosen despite configuration to
     // turn them off, so force not using high profile on these devices (see b/306617392).
-    // TODO(b/229420356): Remove once the in-app muxer is the default and B-frames are supported.
+    // TODO: b/229420356 - Remove once the in-app muxer is the default and B-frames are supported.
     return Util.SDK_INT == 27
         && (Build.DEVICE.equals("ASUS_X00T_3") || Build.DEVICE.equals("TC77"));
   }

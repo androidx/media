@@ -309,7 +309,7 @@ public class ExportTest {
   public void exportSef() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
     if (SDK_INT < 25) {
-      // TODO(b/210593256): Remove test skipping after using an in-app muxer that supports B-frames
+      // TODO: b/210593256 - Remove test skipping after using an in-app muxer that supports B-frames
       //  before API 25.
       recordTestSkipped(context, testId, /* reason= */ "API version lacks muxing support");
       return;
@@ -334,7 +334,7 @@ public class ExportTest {
   public void exportSefH265() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
     if (SDK_INT < 25) {
-      // TODO(b/210593256): Remove test skipping after using an in-app muxer that supports B-frames
+      // TODO: b/210593256 - Remove test skipping after using an in-app muxer that supports B-frames
       //  before API 25.
       recordTestSkipped(context, testId, /* reason= */ "API version lacks muxing support");
       return;

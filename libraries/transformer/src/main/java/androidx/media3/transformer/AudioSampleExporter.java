@@ -87,7 +87,7 @@ import org.checkerframework.dataflow.qual.Pure;
             .setCodecs(firstInputFormat.codecs)
             .build();
 
-    // TODO - b/324426022: Move logic for supported mime types to DefaultEncoderFactory.
+    // TODO: b/324426022 - Move logic for supported mime types to DefaultEncoderFactory.
     encoder =
         encoderFactory.createForAudioEncoding(
             requestedEncoderFormat
@@ -222,7 +222,7 @@ import org.checkerframework.dataflow.qual.Pure;
   @Pure
   private static TransformationRequest createFallbackTransformationRequest(
       TransformationRequest transformationRequest, Format requestedFormat, Format actualFormat) {
-    // TODO(b/255953153): Consider including bitrate and other audio characteristics in the revised
+    // TODO: b/255953153 - Consider including bitrate and other audio characteristics in the revised
     //  fallback.
     if (Util.areEqual(requestedFormat.sampleMimeType, actualFormat.sampleMimeType)) {
       return transformationRequest;

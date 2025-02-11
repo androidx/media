@@ -207,8 +207,8 @@ public final class ImageAssetLoader implements AssetLoader {
             () -> queueBitmapInternal(bitmap, format), QUEUE_BITMAP_INTERVAL_MS, MILLISECONDS);
         return;
       }
-      // TODO(b/262693274): consider using listener.onDurationUs() or the MediaItem change
-      //    callback rather than setting duration here.
+      // TODO: b/262693274 - Consider using listener.onDurationUs() or the MediaItem change callback
+      //  rather than setting duration here.
       @InputResult
       int result =
           sampleConsumer.queueInputBitmap(

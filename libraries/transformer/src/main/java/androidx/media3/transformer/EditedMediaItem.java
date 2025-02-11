@@ -140,7 +140,7 @@ public final class EditedMediaItem {
      */
     @CanIgnoreReturnValue
     public Builder setFlattenForSlowMotion(boolean flattenForSlowMotion) {
-      // TODO(b/233986762): Support clipping with SEF flattening.
+      // TODO: b/233986762 - Support clipping with SEF flattening.
       checkArgument(
           mediaItem.clippingConfiguration.equals(MediaItem.ClippingConfiguration.UNSET)
               || !flattenForSlowMotion,
@@ -190,8 +190,8 @@ public final class EditedMediaItem {
      * @param frameRate The frame rate, in frames per second.
      * @return This builder.
      */
-    // TODO(b/210593170): Remove/deprecate frameRate parameter when frameRate parameter is added to
-    //     transformer.
+    // TODO: b/210593170 - Remove/deprecate frameRate parameter when frameRate parameter is added to
+    //  transformer.
     @CanIgnoreReturnValue
     public Builder setFrameRate(@IntRange(from = 0) int frameRate) {
       checkArgument(frameRate > 0);
@@ -272,7 +272,7 @@ public final class EditedMediaItem {
    * The duration of the image in the output video for image {@link MediaItem}, or the media
    * duration for other types of {@link MediaItem}, in microseconds.
    */
-  // TODO - b/309767764: Consider merging with presentationDurationUs.
+  // TODO: b/309767764 - Consider merging with presentationDurationUs.
   public final long durationUs;
 
   /** The frame rate of the image in the output video, in frames per second. */
@@ -317,7 +317,7 @@ public final class EditedMediaItem {
     if (presentationDurationUs == C.TIME_UNSET) {
       if (mediaItem.clippingConfiguration.equals(MediaItem.ClippingConfiguration.UNSET)
           || durationUs == C.TIME_UNSET) {
-        // TODO - b/290734981: Use presentationDurationUs for image presentation
+        // TODO: b/290734981 - Use presentationDurationUs for image presentation
         presentationDurationUs = durationUs;
       } else {
         MediaItem.ClippingConfiguration clippingConfiguration = mediaItem.clippingConfiguration;

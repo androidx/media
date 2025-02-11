@@ -529,7 +529,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       int assetLoaderProgressState =
           sequenceAssetLoaders.get(i).getProgress(internalProgressHolder);
       if (assetLoaderProgressState != PROGRESS_STATE_AVAILABLE) {
-        // TODO - b/322136131 : Check for inconsistent state transitions.
+        // TODO: b/322136131 - Check for inconsistent state transitions.
         synchronized (progressLock) {
           progressState = assetLoaderProgressState;
           progressValue = 0;
@@ -704,7 +704,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       } else {
         Format firstFormat;
         if (MimeTypes.isVideo(assetLoaderOutputFormat.sampleMimeType)) {
-          // TODO(b/267301878): Pass firstAssetLoaderOutputFormat once surface creation not in VSP.
+          // TODO: b/267301878 - Pass firstAssetLoaderOutputFormat once surface creation not in VSP.
           boolean isMediaCodecToneMappingRequested =
               transformationRequest.hdrMode == HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_MEDIACODEC;
           ColorInfo decoderOutputColor =

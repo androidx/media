@@ -46,7 +46,7 @@ import org.robolectric.ParameterizedRobolectricTestRunner.Parameters;
  * For example, a buffer containing 4 float values (of {@link #AUDIO_FORMAT_STEREO_PCM_FLOAT}) would
  * be 2000us of data (4 values = 2 frames).
  */
-// TODO(b/290002720): Expand and generalize parameterized test cases.
+// TODO: b/290002720 - Expand and generalize parameterized test cases.
 @RunWith(ParameterizedRobolectricTestRunner.class)
 public final class DefaultAudioMixerTest {
 

@@ -92,7 +92,7 @@ import java.util.concurrent.atomic.AtomicLong;
     AudioFormat inputAudioFormat = new AudioFormat(inputFormat);
     checkArgument(isInputAudioFormatValid(inputAudioFormat), /* errorMessage= */ inputAudioFormat);
 
-    // TODO(b/323148735) - Use improved buffer assignment logic.
+    // TODO: b/323148735 - Use improved buffer assignment logic.
     availableInputBuffers = new ConcurrentLinkedQueue<>();
     ByteBuffer emptyBuffer = ByteBuffer.allocateDirect(0).order(ByteOrder.nativeOrder());
     for (int i = 0; i < MAX_INPUT_BUFFER_COUNT; i++) {
@@ -530,7 +530,7 @@ import java.util.concurrent.atomic.AtomicLong;
       audioProcessors.add(sampleRateChanger);
     }
 
-    // TODO(b/262706549): Handle channel mixing with AudioMixer.
+    // TODO: b/262706549 - Handle channel mixing with AudioMixer.
     // ChannelMixingMatrix.create only has defaults for mono/stereo input/output.
     if (requiredOutputAudioFormat.channelCount == 1
         || requiredOutputAudioFormat.channelCount == 2) {

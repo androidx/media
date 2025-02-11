@@ -2297,7 +2297,7 @@ public class TransformerEndToEndTest {
         .run(testId, editedMediaItem);
     // The test file contains 44100 samples (1 sec @44.1KHz, mono). We expect to receive 44100 / 1.5
     // samples.
-    // TODO (b/361768785): Remove unexpected last sample when Sonic's resampler returns the right
+    // TODO: b/361768785 - Remove unexpected last sample when Sonic's resampler returns the right
     //  number of samples.
     assertThat(readBytes.get() / 2).isWithin(1).of(29400);
   }

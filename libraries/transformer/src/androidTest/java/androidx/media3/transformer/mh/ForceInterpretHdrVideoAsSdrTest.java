@@ -64,7 +64,7 @@ public class ForceInterpretHdrVideoAsSdrTest {
     Context context = ApplicationProvider.getApplicationContext();
 
     if (SDK_INT < 29) {
-      // TODO(b/269759013): Fix failures under API 29 to expand confidence on all API versions.
+      // TODO: b/269759013 - Fix failures under API 29 to expand confidence on all API versions.
       recordTestSkipped(
           context, testId, /* reason= */ "Under API 29, this API is considered best-effort.");
       return;
@@ -105,7 +105,7 @@ public class ForceInterpretHdrVideoAsSdrTest {
     Context context = ApplicationProvider.getApplicationContext();
 
     if (SDK_INT < 29) {
-      // TODO(b/269759013): Fix failures under API 29 to expand confidence on all API versions.
+      // TODO: b/269759013 - Fix failures under API 29 to expand confidence on all API versions.
       recordTestSkipped(
           context, testId, /* reason= */ "Under API 29, this API is considered best-effort.");
       return;

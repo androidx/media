@@ -314,7 +314,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             new SampleConsumerWrapper(wrappedAudioSampleConsumer, C.TRACK_TYPE_AUDIO));
       }
     } else {
-      // TODO(b/270533049): Remove the check below when implementing blank video frames generation.
+      // TODO: b/270533049 - Remove the check below when implementing blank video frames generation.
       boolean videoTrackDisappeared =
           reportedTrackCount.get() == 1
               && trackType == C.TRACK_TYPE_AUDIO

@@ -93,7 +93,7 @@ import org.checkerframework.dataflow.qual.Pure;
       boolean portraitEncodingEnabled,
       int maxFramesInEncoder)
       throws ExportException {
-    // TODO(b/278259383) Consider delaying configuration of VideoSampleExporter to use the decoder
+    // TODO: b/278259383 - Consider delaying configuration of VideoSampleExporter to use the decoder
     //  output format instead of the extractor output format, to match AudioSampleExporter behavior.
     super(firstInputFormat, muxerWrapper);
     this.initialTimestampOffsetUs = initialTimestampOffsetUs;
@@ -327,7 +327,7 @@ import org.checkerframework.dataflow.qual.Pure;
               .setCodecs(inputFormat.codecs)
               .build();
 
-      // TODO - b/324426022: Move logic for supported mime types to DefaultEncoderFactory.
+      // TODO: b/324426022 - Move logic for supported mime types to DefaultEncoderFactory.
       encoder =
           encoderFactory.createForVideoEncoding(
               requestedEncoderFormat
@@ -395,7 +395,7 @@ import org.checkerframework.dataflow.qual.Pure;
         Format requestedFormat,
         Format supportedFormat,
         @Composition.HdrMode int supportedHdrMode) {
-      // TODO(b/255953153): Consider including bitrate in the revised fallback.
+      // TODO: b/255953153 - Consider including bitrate in the revised fallback.
 
       TransformationRequest.Builder supportedRequestBuilder = transformationRequest.buildUpon();
       if (transformationRequest.hdrMode != supportedHdrMode) {
