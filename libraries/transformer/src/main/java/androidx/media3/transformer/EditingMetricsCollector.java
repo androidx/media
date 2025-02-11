@@ -16,7 +16,6 @@
 
 package androidx.media3.transformer;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Util.usToMs;
 
 import android.content.Context;
@@ -37,14 +36,63 @@ import androidx.media3.common.util.SystemClock;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.List;
-import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
- * A metrics collector that collects editing events and forwards them to an {@link EditingSession}
- * created by {@link MediaMetricsManager}.
+ * A metrics collector that collects editing events and forwards them to {@link MetricsReporter}.
  */
 @RequiresApi(35)
 /* package */ final class EditingMetricsCollector {
+
+  /** Reports the collected metrics. */
+  public interface MetricsReporter extends AutoCloseable {
+
+    /**
+     * Reports the given {@link EditingEndedEvent}.
+     *
+     * <p>The method should be called at most once.
+     */
+    void reportMetrics(EditingEndedEvent editingEndedEvent);
+  }
+
+  /**
+   * A default implementation of {@link MetricsReporter} that reports metrics to an {@link
+   * EditingSession}.
+   */
+  static final class DefaultMetricsReporter implements MetricsReporter {
+
+    /** The {@link EditingSession} to report collected metrics to. */
+    @Nullable private EditingSession editingSession;
+
+    /**
+     * Creates an instance.
+     *
+     * @param context A {@link Context}.
+     */
+    public DefaultMetricsReporter(Context context) {
+      @Nullable
+      MediaMetricsManager mediaMetricsManager =
+          (MediaMetricsManager) context.getSystemService(Context.MEDIA_METRICS_SERVICE);
+      if (mediaMetricsManager != null) {
+        editingSession = mediaMetricsManager.createEditingSession();
+      }
+    }
+
+    @Override
+    public void reportMetrics(EditingEndedEvent editingEndedEvent) {
+      if (editingSession != null) {
+        editingSession.reportEditingEndedEvent(editingEndedEvent);
+        close();
+      }
+    }
+
+    @Override
+    public void close() {
+      if (editingSession != null) {
+        editingSession.close();
+        editingSession = null;
+      }
+    }
+  }
 
   // TODO: b/386328723 - Add missing error codes to EditingEndedEvent.ErrorCode.
   private static final SparseIntArray ERROR_CODE_CONVERSION_MAP = new SparseIntArray();
@@ -128,10 +176,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   private static final int SUCCESS_PROGRESS_PERCENTAGE = 100;
+  private final long startTimeMs;
   private final String exporterName;
   @Nullable private final String muxerName;
-  private @MonotonicNonNull EditingSession editingSession;
-  private long startTimeMs;
+  private final MetricsReporter metricsReporter;
 
   /**
    * Creates an instance.
@@ -141,22 +189,18 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * <p>Both {@code exporterName} and {@code muxerName} should follow the format
    * "<packageName>:<version>".
    *
-   * @param context The {@link Context}.
+   * @param metricsReporter The {@link MetricsReporter} to report metrics.
    * @param exporterName Java package name and version of the library or application implementing
    *     the editing operation.
    * @param muxerName Java package name and version of the library or application that writes to the
    *     output file.
    */
-  public EditingMetricsCollector(Context context, String exporterName, @Nullable String muxerName) {
-    @Nullable
-    MediaMetricsManager mediaMetricsManager =
-        (MediaMetricsManager) context.getSystemService(Context.MEDIA_METRICS_SERVICE);
-    if (mediaMetricsManager != null) {
-      editingSession = checkNotNull(mediaMetricsManager.createEditingSession());
-      startTimeMs = SystemClock.DEFAULT.elapsedRealtime();
-    }
+  public EditingMetricsCollector(
+      MetricsReporter metricsReporter, String exporterName, @Nullable String muxerName) {
+    this.metricsReporter = metricsReporter;
     this.exporterName = exporterName;
     this.muxerName = muxerName;
+    startTimeMs = SystemClock.DEFAULT.elapsedRealtime();
   }
 
   /**
@@ -165,9 +209,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * @param exportResult The {@link ExportResult} of the export.
    */
   public void onExportSuccess(ExportResult exportResult) {
-    if (editingSession == null) {
-      return;
-    }
     EditingEndedEvent.Builder editingEndedEventBuilder =
         createEditingEndedEventBuilder(EditingEndedEvent.FINAL_STATE_SUCCEEDED)
             .setFinalProgressPercent(SUCCESS_PROGRESS_PERCENTAGE);
@@ -180,8 +221,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
     editingEndedEventBuilder.setOutputMediaItemInfo(getOutputMediaItemInfo(exportResult));
 
-    editingSession.reportEditingEndedEvent(editingEndedEventBuilder.build());
-    editingSession.close();
+    metricsReporter.reportMetrics(editingEndedEventBuilder.build());
   }
 
   /**
@@ -194,9 +234,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    */
   public void onExportError(
       int progressPercentage, ExportException exportException, ExportResult exportResult) {
-    if (editingSession == null) {
-      return;
-    }
     EditingEndedEvent.Builder editingEndedEventBuilder =
         createEditingEndedEventBuilder(EditingEndedEvent.FINAL_STATE_ERROR)
             .setErrorCode(getEditingEndedEventErrorCode(exportException.errorCode));
@@ -212,8 +249,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
     editingEndedEventBuilder.setOutputMediaItemInfo(getOutputMediaItemInfo(exportResult));
 
-    editingSession.reportEditingEndedEvent(editingEndedEventBuilder.build());
-    editingSession.close();
+    metricsReporter.reportMetrics(editingEndedEventBuilder.build());
   }
 
   /**
@@ -223,16 +259,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    *     C#PERCENTAGE_UNSET} if unknown or between 0 and 100 inclusive.
    */
   public void onExportCancelled(int progressPercentage) {
-    if (editingSession == null) {
-      return;
-    }
     EditingEndedEvent.Builder editingEndedEventBuilder =
         createEditingEndedEventBuilder(EditingEndedEvent.FINAL_STATE_CANCELED);
     if (progressPercentage != C.PERCENTAGE_UNSET) {
       editingEndedEventBuilder.setFinalProgressPercent(progressPercentage);
     }
-    editingSession.reportEditingEndedEvent(editingEndedEventBuilder.build());
-    editingSession.close();
+
+    metricsReporter.reportMetrics(editingEndedEventBuilder.build());
   }
 
   private EditingEndedEvent.Builder createEditingEndedEventBuilder(int finalState) {

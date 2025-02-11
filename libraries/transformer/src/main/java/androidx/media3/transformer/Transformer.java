@@ -1588,7 +1588,11 @@ public final class Transformer {
       } else if (muxerFactory instanceof DefaultMuxer.Factory) {
         muxerName = DefaultMuxer.MUXER_NAME;
       }
-      editingMetricsCollector = new EditingMetricsCollector(context, EXPORTER_NAME, muxerName);
+      editingMetricsCollector =
+          new EditingMetricsCollector(
+              new EditingMetricsCollector.DefaultMetricsReporter(context),
+              EXPORTER_NAME,
+              muxerName);
     }
     transformerInternal =
         new TransformerInternal(
