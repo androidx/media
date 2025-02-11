@@ -258,6 +258,11 @@ public class ForceEndOfStreamTest {
         wrappedDecoder.signalEndOfInputStream();
       }
 
+      @Override
+      public Format getInputFormat() throws ExportException {
+        return wrappedDecoder.getInputFormat();
+      }
+
       @Nullable
       @Override
       public Format getOutputFormat() throws ExportException {

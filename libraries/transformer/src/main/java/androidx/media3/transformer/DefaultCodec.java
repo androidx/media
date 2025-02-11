@@ -273,6 +273,16 @@ public final class DefaultCodec implements Codec {
   }
 
   @Override
+  public Format getInputFormat() throws ExportException {
+    try {
+      return convertToFormat(mediaCodec.getInputFormat(), isDecoder, configurationFormat.metadata);
+    } catch (RuntimeException e) {
+      Log.d(TAG, "MediaCodec error", e);
+      throw createExportException(e);
+    }
+  }
+
+  @Override
   @Nullable
   public Format getOutputFormat() throws ExportException {
     // The format is updated when dequeueing a 'special' buffer index, so attempt to dequeue now.

@@ -160,6 +160,11 @@ public final class ExperimentalAnalyzerModeFactory {
     }
 
     @Override
+    public Format getInputFormat() {
+      return configurationFormat;
+    }
+
+    @Override
     @Nullable
     public Format getOutputFormat() {
       return configurationFormat;

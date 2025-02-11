@@ -265,32 +265,26 @@ public class DefaultEncoderFactoryTest {
 
   @Test
   public void createForAudioEncoding_unsupportedSampleRateWithFallback() throws Exception {
-    Format requestedAudioFormat = createAudioFormat(MimeTypes.AUDIO_AAC, /* sampleRate= */ 192_000);
+    int highestSupportedSampleRate = 96_000;
+    int unsupportedSampleRate = 192_000;
+    Format requestedAudioFormat = createAudioFormat(MimeTypes.AUDIO_AAC, unsupportedSampleRate);
 
-    Format actualAudioFormat =
+    DefaultCodec codec =
         new DefaultEncoderFactory.Builder(context)
             .setEnableFallback(true)
             .build()
-            .createForAudioEncoding(requestedAudioFormat)
-            .getConfigurationFormat();
+            .createForAudioEncoding(requestedAudioFormat);
 
-    assertThat(actualAudioFormat.sampleMimeType).isEqualTo(MimeTypes.AUDIO_AAC);
-    assertThat(actualAudioFormat.sampleRate).isEqualTo(96_000);
-  }
-
-  @Test
-  public void createForAudioEncoding_unsupportedSampleRateWithoutFallback() throws Exception {
-    Format requestedAudioFormat = createAudioFormat(MimeTypes.AUDIO_AAC, /* sampleRate= */ 192_000);
-
-    Format actualAudioFormat =
-        new DefaultEncoderFactory.Builder(context)
-            .setEnableFallback(false)
-            .build()
-            .createForAudioEncoding(requestedAudioFormat)
-            .getConfigurationFormat();
-
-    assertThat(actualAudioFormat.sampleMimeType).isEqualTo(MimeTypes.AUDIO_AAC);
-    assertThat(actualAudioFormat.sampleRate).isEqualTo(192_000);
+    Format inputFormat = codec.getInputFormat();
+    Format configurationFormat = codec.getConfigurationFormat();
+    Format outputFormat = codec.getOutputFormat();
+    assertThat(outputFormat).isNotNull();
+    assertThat(inputFormat.sampleMimeType).isEqualTo(MimeTypes.AUDIO_AAC);
+    assertThat(configurationFormat.sampleMimeType).isEqualTo(MimeTypes.AUDIO_AAC);
+    assertThat(outputFormat.sampleMimeType).isEqualTo(MimeTypes.AUDIO_AAC);
+    assertThat(inputFormat.sampleRate).isEqualTo(highestSupportedSampleRate);
+    assertThat(configurationFormat.sampleRate).isEqualTo(highestSupportedSampleRate);
+    assertThat(outputFormat.sampleRate).isEqualTo(highestSupportedSampleRate);
   }
 
   private static Format createVideoFormat(String mimeType, int width, int height, int frameRate) {

@@ -9,6 +9,7 @@
 *   Transformer:
     *   Add `MediaProjectionAssetLoader`, which provides media from a
         `MediaProjection` for screen recording.
+    *   Add `#getInputFormat()` to `Codec` interface.
 *   Track Selection:
 *   Extractors:
 *   DataSource:

@@ -183,6 +183,17 @@ public interface Codec {
   void signalEndOfInputStream() throws ExportException;
 
   /**
+   * Returns the {@link Format} accepted by the codec.
+   *
+   * <p>This format may differ from the {@link Format} returned by {@link
+   * #getConfigurationFormat()}, depending on the underlying codec and configuration format
+   * requested.
+   *
+   * @throws ExportException If the underlying decoder or encoder encounters a problem.
+   */
+  Format getInputFormat() throws ExportException;
+
+  /**
    * Returns the current output format, or {@code null} if unavailable.
    *
    * @throws ExportException If the underlying decoder or encoder encounters a problem.
