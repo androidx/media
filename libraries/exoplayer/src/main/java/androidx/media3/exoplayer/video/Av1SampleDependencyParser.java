@@ -83,6 +83,11 @@ import java.util.List;
     updateSequenceHeaders(split(sample));
   }
 
+  /** Resets the parser state. */
+  public void reset() {
+    sequenceHeader = null;
+  }
+
   private boolean canSkipObu(ObuParser.Obu obu) {
     if (obu.type == OBU_TEMPORAL_DELIMITER || obu.type == OBU_PADDING) {
       return true;

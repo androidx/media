@@ -1254,6 +1254,9 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     droppedDecoderInputBufferTimestamps.clear();
     shouldDropDecoderInputBuffers = false;
     buffersInCodecCount = 0;
+    if (av1SampleDependencyParser != null) {
+      av1SampleDependencyParser.reset();
+    }
   }
 
   @Override
@@ -1428,6 +1431,11 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   @CallSuper
   @Override
   protected void onQueueInputBuffer(DecoderInputBuffer buffer) throws ExoPlaybackException {
+    if (av1SampleDependencyParser != null
+        && checkNotNull(getCodecInfo()).mimeType.equals(MimeTypes.VIDEO_AV1)
+        && buffer.data != null) {
+      av1SampleDependencyParser.queueInputBuffer(buffer.data);
+    }
     // In tunneling mode the device may do frame rate conversion, so in general we can't keep track
     // of the number of buffers in the codec.
     if (!tunneling) {
