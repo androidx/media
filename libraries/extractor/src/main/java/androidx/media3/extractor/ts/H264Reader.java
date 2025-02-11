@@ -187,7 +187,10 @@ public final class H264Reader implements ElementaryStreamReader {
     assertTracksCreated();
     if (isEndOfInput) {
       seiReader.flush();
-      sampleReader.end(totalBytesWritten);
+      // Simulate end of current NAL unit and start an AUD one to trigger output of current sample
+      endNalUnit(totalBytesWritten, 0, 0, pesTimeUs);
+      startNalUnit(totalBytesWritten, NalUnitUtil.H264_NAL_UNIT_TYPE_AUD, pesTimeUs);
+      endNalUnit(totalBytesWritten, 0, 0, pesTimeUs);
     }
   }
 
@@ -517,14 +520,6 @@ public final class H264Reader implements ElementaryStreamReader {
       }
       setSampleIsKeyframe();
       return sampleIsKeyframe;
-    }
-
-    public void end(long position) {
-      setSampleIsKeyframe();
-      // Output a final sample with the NAL units currently held
-      nalUnitStartPosition = position;
-      outputSample(/* offset= */ 0);
-      readingSample = false;
     }
 
     private void setSampleIsKeyframe() {
