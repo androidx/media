@@ -19,6 +19,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringArrayResource
+import androidx.media3.demo.composition.CompositionPreviewViewModel.Companion.COMPOSITION_LAYOUT
+import androidx.media3.demo.composition.CompositionPreviewViewModel.Companion.LAYOUT_EXTRA
 import androidx.media3.demo.composition.ui.DropDownSpinner
 import androidx.media3.demo.composition.ui.theme.CompositionDemoTheme
 
@@ -38,16 +40,17 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    fun startPreviewActivity() {
+    fun startPreviewActivity(layoutSelection: String) {
         val intent = Intent(this, CompositionPreviewActivity::class.java)
+        Log.d("CPVMF", "Sending layout of $layoutSelection")
+        intent.putExtra(LAYOUT_EXTRA, layoutSelection)
         startActivity(intent)
     }
 }
 
 @Composable
-fun PresetSelector(startPreviewActivity: () -> Unit, modifier: Modifier = Modifier) {
-    val presetOptions = stringArrayResource(R.array.preset_configuration)
-    var selectedPreset by remember { mutableStateOf(presetOptions[0]) }
+fun PresetSelector(startPreviewActivity: (String) -> Unit, modifier: Modifier = Modifier) {
+    var selectedPreset by remember { mutableStateOf(COMPOSITION_LAYOUT[0]) }
     var expanded by remember { mutableStateOf(false) }
 
     Column(modifier = modifier) {
@@ -58,12 +61,12 @@ fun PresetSelector(startPreviewActivity: () -> Unit, modifier: Modifier = Modifi
         DropDownSpinner(
             expanded,
             selectedPreset,
-            presetOptions.toList(),
+            COMPOSITION_LAYOUT,
             { newExpandedState -> expanded = newExpandedState },
             { newSelection -> selectedPreset = newSelection }
         )
         Button(onClick = {
-            startPreviewActivity()
+            startPreviewActivity(selectedPreset)
             Log.d("MainActivity", "Selected: $selectedPreset")
         }) {
             Text("Select")

@@ -17,6 +17,7 @@ package androidx.media3.demo.composition
 
 import android.content.pm.ActivityInfo
 import android.os.Bundle
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -76,7 +77,9 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.util.Util
+import androidx.media3.demo.composition.CompositionPreviewViewModel.Companion.COMPOSITION_LAYOUT
 import androidx.media3.demo.composition.CompositionPreviewViewModel.Companion.HDR_MODE_DESCRIPTIONS
+import androidx.media3.demo.composition.CompositionPreviewViewModel.Companion.LAYOUT_EXTRA
 import androidx.media3.demo.composition.CompositionPreviewViewModel.Companion.MUXER_OPTIONS
 import androidx.media3.demo.composition.CompositionPreviewViewModel.Companion.RESOLUTION_HEIGHTS
 import androidx.media3.demo.composition.CompositionPreviewViewModel.Companion.SAME_AS_INPUT_OPTION
@@ -100,7 +103,10 @@ class CompositionPreviewActivity : AppCompatActivity() {
             window.setColorMode(ActivityInfo.COLOR_MODE_HDR)
         }
 
-        val viewModel: CompositionPreviewViewModel by viewModels()
+
+        val compositionLayout = intent.getStringExtra(LAYOUT_EXTRA) ?: COMPOSITION_LAYOUT[0]
+        Log.d("CPVMF", "Received layout of $compositionLayout")
+        val viewModel: CompositionPreviewViewModel by viewModels { CompositionPreviewViewModelFactory(application, compositionLayout) }
 
         // TODO(nevmital): Update to follow https://developer.android.com/topic/architecture/ui-layer/events#consuming-trigger-updates
         viewModel.toastMessage.observe(this) { newMessage ->
@@ -158,18 +164,16 @@ class CompositionPreviewActivity : AppCompatActivity() {
         AnimatedPane(modifier = modifier.safeContentPadding()) {
             // Main pane content
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(text = stringResource(R.string.preview_composition))
+                Text(text = "${viewModel.compositionLayout} ${stringResource(R.string.preview_composition)}")
                 AndroidView(
                     factory = { context -> PlayerView(context) },
                     update = { playerView ->
-                        viewModel.compositionPlayer?.let {
-                            playerView.player = it
-                        }
+                        playerView.player = viewModel.compositionPlayer
                         playerView.useController = false
                     },
                     modifier = Modifier.weight(1f)
                 )
-                //PlayerSurface(compositionPlayer, SURFACE_TYPE_SURFACE_VIEW)
+//                PlayerSurface(viewModel.compositionPlayer, SURFACE_TYPE_SURFACE_VIEW)
                 HorizontalDivider(thickness = 2.dp, modifier = Modifier.padding(0.dp, 4.dp))
                 VideoSequenceList(viewModel)
                 Row(
