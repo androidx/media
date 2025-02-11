@@ -23,7 +23,6 @@ import static androidx.media3.common.MimeTypes.VIDEO_MP4;
 import static androidx.media3.test.utils.TestUtil.buildTestData;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
-import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
 import android.media.MediaCodec;
@@ -41,7 +40,6 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.ParsableByteArray;
-import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DefaultDataSource;
 import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.extractor.Extractor;
@@ -58,6 +56,7 @@ import androidx.media3.extractor.mp4.PsshAtomUtil;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.filters.SdkSuppress;
 import androidx.test.platform.app.InstrumentationRegistry;
 import com.google.common.base.Function;
 import com.google.common.io.Files;
@@ -722,22 +721,14 @@ public class MediaExtractorCompatTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 31)
   public void getLogSessionId_withUnsetSessionId_returnsNone() {
-    assumeTrue(Util.SDK_INT >= 31);
-    // Needed to keep lint happy (it doesn't understand the assumeTrue call alone)
-    if (Util.SDK_INT < 31) {
-      return;
-    }
     assertThat(mediaExtractorCompat.getLogSessionId()).isEqualTo(LogSessionId.LOG_SESSION_ID_NONE);
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 31)
   public void getLogSessionId_withSetSessionId_returnsSetSessionId() {
-    assumeTrue(Util.SDK_INT >= 31);
-    // Needed to keep lint happy (it doesn't understand the assumeTrue call alone)
-    if (Util.SDK_INT < 31) {
-      return;
-    }
     MediaMetricsManager mediaMetricsManager =
         InstrumentationRegistry.getInstrumentation()
             .getTargetContext()
@@ -1023,12 +1014,8 @@ public class MediaExtractorCompatTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 26)
   public void getMetrics_withMp4DataSource_returnsExpectedMetricsBundle() throws IOException {
-    assumeTrue(Util.SDK_INT >= 26);
-    // Needed to keep lint happy (it doesn't understand the assumeTrue call alone)
-    if (Util.SDK_INT < 26) {
-      return;
-    }
     Context context = ApplicationProvider.getApplicationContext();
     Uri contentUri = Uri.parse("asset:///media/mp4/sample.mp4");
     MediaExtractorCompat mediaExtractorCompat = new MediaExtractorCompat(context);
