@@ -74,9 +74,4 @@
     <item>5000000</item>
     <item>2170000</item>
   </integer-array>
-  <string-array name="preset_configuration">
-    <item>Sequential</item>
-    <item>2x2</item>
-    <item>PiP overlay</item>
-  </string-array>
 </resources>
