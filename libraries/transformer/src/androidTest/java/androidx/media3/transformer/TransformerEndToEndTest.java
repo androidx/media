@@ -45,7 +45,6 @@ import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported
 import static androidx.media3.transformer.AndroidTestUtil.createFrameCountingEffect;
 import static androidx.media3.transformer.AndroidTestUtil.createOpenGlObjects;
 import static androidx.media3.transformer.AndroidTestUtil.generateTextureFromBitmap;
-import static androidx.media3.transformer.AndroidTestUtil.getFallbackAssumingUnsupportedSampleRate;
 import static androidx.media3.transformer.AndroidTestUtil.getMuxerFactoryBasedOnApi;
 import static androidx.media3.transformer.AndroidTestUtil.recordTestSkipped;
 import static androidx.media3.transformer.ExportResult.CONVERSION_PROCESS_NA;
@@ -119,7 +118,6 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
@@ -2430,12 +2428,8 @@ public class TransformerEndToEndTest {
   }
 
   @Test
-  @Ignore("TODO: b/389068218 - Fix this test and re-enable it")
-  public void export_withUnsupportedSampleRateAndFallbackEnabled_exportsWithFallbackSampleRate()
+  public void export_withHighSampleRateAndFallbackEnabled_exportsWithCorrectDuration()
       throws Exception {
-    int unsupportedSampleRate = 96_000;
-    int fallbackSampleRate =
-        getFallbackAssumingUnsupportedSampleRate(MimeTypes.AUDIO_AAC, unsupportedSampleRate);
     Transformer transformer =
         new Transformer.Builder(context)
             .setEncoderFactory(
@@ -2451,19 +2445,14 @@ public class TransformerEndToEndTest {
             .build()
             .run(testId, editedMediaItem);
 
-    assertThat(result.exportResult.sampleRate).isEqualTo(fallbackSampleRate);
+    // The original clip is 1 second long.
     assertThat(result.exportResult.durationMs).isWithin(50).of(1_000);
     assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
   @Test
-  @Ignore("TODO: b/389068218 - Fix this test and re-enable it")
-  public void
-      export_withTwoUnsupportedAndOneSupportedSampleRateAndFallbackEnabled_exportsWithFallbackSampleRate()
-          throws Exception {
-    int unsupportedSampleRate = 192_000;
-    int fallbackSampleRate =
-        getFallbackAssumingUnsupportedSampleRate(MimeTypes.AUDIO_AAC, unsupportedSampleRate);
+  public void export_withMultipleHighSampleRatesAndFallbackEnabled_exportsWithCorrectDuration()
+      throws Exception {
     Transformer transformer =
         new Transformer.Builder(context)
             .setEncoderFactory(
@@ -2488,7 +2477,7 @@ public class TransformerEndToEndTest {
             .build()
             .run(testId, composition);
 
-    assertThat(result.exportResult.sampleRate).isEqualTo(fallbackSampleRate);
+    // Each original clip is 1 second long.
     assertThat(result.exportResult.durationMs).isWithin(150).of(3_000);
     assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }

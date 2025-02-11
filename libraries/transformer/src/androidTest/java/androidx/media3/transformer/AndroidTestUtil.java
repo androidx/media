@@ -1370,42 +1370,6 @@ public final class AndroidTestUtil {
     throw new AssumptionViolatedException("Profile not supported");
   }
 
-  /**
-   * Assumes that the given sample rate is unsupported and returns the fallback sample rate the
-   * device will use to encode.
-   *
-   * @param mimeType The {@linkplain MimeTypes MIME type}.
-   * @param unsupportedSampleRate An unsupported sample rate.
-   * @return The fallback sample rate.
-   * @throws AssumptionViolatedException If the device does not have the required encoder or sample
-   *     rate configuration.
-   */
-  public static int getFallbackAssumingUnsupportedSampleRate(
-      String mimeType, int unsupportedSampleRate) {
-    ImmutableList<MediaCodecInfo> supportedEncoders = EncoderUtil.getSupportedEncoders(mimeType);
-    if (supportedEncoders.isEmpty()) {
-      throw new AssumptionViolatedException("No supported encoders for mime type: " + mimeType);
-    }
-
-    int closestSupportedSampleRate = -1;
-    int minSampleRateCost = Integer.MAX_VALUE;
-    for (int i = 0; i < supportedEncoders.size(); i++) {
-      int actualFallbackSampleRate =
-          EncoderUtil.getClosestSupportedSampleRate(
-              supportedEncoders.get(i), mimeType, unsupportedSampleRate);
-      int sampleRateCost = Math.abs(actualFallbackSampleRate - unsupportedSampleRate);
-      if (sampleRateCost < minSampleRateCost) {
-        minSampleRateCost = sampleRateCost;
-        closestSupportedSampleRate = actualFallbackSampleRate;
-      }
-    }
-    if (closestSupportedSampleRate == unsupportedSampleRate) {
-      throw new AssumptionViolatedException(
-          String.format("Expected sample rate %s to be unsupported", unsupportedSampleRate));
-    }
-    return closestSupportedSampleRate;
-  }
-
   /** Returns a {@link Muxer.Factory} depending upon the API level. */
   public static Muxer.Factory getMuxerFactoryBasedOnApi() {
     // MediaMuxer supports B-frame from API > 24.

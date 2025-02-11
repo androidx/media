@@ -98,7 +98,7 @@ import org.checkerframework.dataflow.qual.Pure;
                         muxerWrapper.getSupportedSampleMimeTypes(C.TRACK_TYPE_AUDIO)))
                 .build());
 
-    AudioFormat actualEncoderAudioFormat = new AudioFormat(encoder.getConfigurationFormat());
+    AudioFormat actualEncoderAudioFormat = new AudioFormat(encoder.getInputFormat());
     // This occurs when the encoder does not support the requested format. In this case, the audio
     // graph output needs to be resampled to a sample rate matching the encoder input to avoid
     // distorted audio.
