@@ -16,7 +16,9 @@
 package androidx.media3.session;
 
 import static androidx.media3.session.MediaConstants.EXTRAS_KEY_COMMAND_BUTTON_ICON_COMPAT;
+import static androidx.media3.session.MediaConstants.EXTRAS_KEY_COMPLETION_STATUS;
 import static androidx.media3.session.MediaConstants.EXTRAS_KEY_MEDIA_TYPE_COMPAT;
+import static androidx.media3.session.MediaConstants.EXTRAS_VALUE_COMPLETION_STATUS_PARTIALLY_PLAYED;
 import static androidx.media3.session.MediaConstants.EXTRA_KEY_ROOT_CHILDREN_BROWSABLE_ONLY;
 import static androidx.media3.session.legacy.MediaBrowserCompat.MediaItem.FLAG_BROWSABLE;
 import static androidx.media3.session.legacy.MediaBrowserCompat.MediaItem.FLAG_PLAYABLE;
@@ -150,6 +152,8 @@ public final class LegacyConversionsTest {
 
   @Test
   public void convertToMediaDescriptionCompat_setsExpectedValues() {
+    Bundle extras = new Bundle();
+    extras.putInt(EXTRAS_KEY_COMPLETION_STATUS, EXTRAS_VALUE_COMPLETION_STATUS_PARTIALLY_PLAYED);
     MediaMetadata metadata =
         new MediaMetadata.Builder()
             .setTitle("testTitle")
@@ -158,6 +162,7 @@ public final class LegacyConversionsTest {
             .setWriter("testWriter")
             .setMediaType(MediaMetadata.MEDIA_TYPE_MUSIC)
             .setDurationMs(10_000L)
+            .setExtras(extras)
             .build();
     MediaItem mediaItem =
         new MediaItem.Builder().setMediaId("testId").setMediaMetadata(metadata).build();
@@ -171,6 +176,8 @@ public final class LegacyConversionsTest {
     assertThat(descriptionCompat.getDescription().toString()).isEqualTo("testAlbumTitle");
     assertThat(descriptionCompat.getExtras().getLong(EXTRAS_KEY_MEDIA_TYPE_COMPAT))
         .isEqualTo(MediaMetadata.MEDIA_TYPE_MUSIC);
+    assertThat(descriptionCompat.getExtras().getInt(EXTRAS_KEY_COMPLETION_STATUS))
+        .isEqualTo(EXTRAS_VALUE_COMPLETION_STATUS_PARTIALLY_PLAYED);
   }
 
   @Test
