@@ -45,7 +45,6 @@ android {
 
 dependencies {
     api project(modulePrefix + 'lib-common')
-    implementation project(modulePrefix + 'lib-exoplayer')
     implementation 'androidx.core:core:' + androidxCoreVersion
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:' + kotlinxCoroutinesVersion
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:' + kotlinxCoroutinesVersion
