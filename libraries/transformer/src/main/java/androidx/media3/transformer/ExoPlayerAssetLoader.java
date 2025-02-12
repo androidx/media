@@ -17,7 +17,6 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.exoplayer.DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS;
 import static androidx.media3.exoplayer.DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_MS;
 import static androidx.media3.exoplayer.DefaultLoadControl.DEFAULT_MAX_BUFFER_MS;
@@ -45,6 +44,7 @@ import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.DefaultLoadControl;
 import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.exoplayer.ExoTimeoutException;
 import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.RenderersFactory;
 import androidx.media3.exoplayer.audio.AudioRendererEventListener;
@@ -182,12 +182,6 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
 
   private static final String TAG = "ExoPlayerAssetLoader";
 
-  /**
-   * The timeout value, in milliseconds, to set on the internal {@link ExoPlayer} instance when
-   * running on an emulator.
-   */
-  private static final long EMULATOR_RELEASE_TIMEOUT_MS = 5_000;
-
   private final Context context;
   private final EditedMediaItem editedMediaItem;
   private final CapturingDecoderFactory decoderFactory;
@@ -234,8 +228,7 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
             .setTrackSelector(trackSelector)
             .setLoadControl(loadControl)
             .setLooper(looper)
-            .setUsePlatformDiagnostics(false)
-            .setReleaseTimeoutMs(getReleaseTimeoutMs());
+            .setUsePlatformDiagnostics(false);
     if (decoderFactory instanceof DefaultDecoderFactory) {
       playerBuilder.experimentalSetDynamicSchedulingEnabled(
           ((DefaultDecoderFactory) decoderFactory).isDynamicSchedulingEnabled());
@@ -403,6 +396,14 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
 
     @Override
     public void onPlayerError(PlaybackException error) {
+      Throwable cause = error.getCause();
+      if ((cause instanceof ExoTimeoutException)
+          && ((ExoTimeoutException) cause).timeoutOperation
+              == ExoTimeoutException.TIMEOUT_OPERATION_RELEASE) {
+        // Don't throw if releasing the player timed out to prevent the export to fail.
+        Log.e(TAG, "Releasing the player timed out.", error);
+        return;
+      }
       @ExportException.ErrorCode
       int errorCode =
           checkNotNull(
@@ -420,12 +421,5 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
       }
       Log.w(TAG, "Unsupported track type: " + trackType);
     }
-  }
-
-  private static long getReleaseTimeoutMs() {
-    // b/297916906 - Emulators need a larger timeout for releasing.
-    return isRunningOnEmulator()
-        ? EMULATOR_RELEASE_TIMEOUT_MS
-        : ExoPlayer.DEFAULT_RELEASE_TIMEOUT_MS;
   }
 }
