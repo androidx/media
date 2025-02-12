@@ -3460,7 +3460,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
    *     index is in the range {@code fromIndex} &lt; {@code toIndex} &lt;= {@link
    *     #getMediaItemCount()}.
    * @param newIndex The new index of the first moved item. The index is in the range {@code 0}
-   *     &lt;= {@code newIndex} &lt; {@link #getMediaItemCount() - (toIndex - fromIndex)}.
+   *     &lt;= {@code newIndex} &lt;= {@link #getMediaItemCount() - (toIndex - fromIndex)}.
    * @return A {@link ListenableFuture} indicating the completion of all immediate {@link State}
    *     changes caused by this call.
    */
