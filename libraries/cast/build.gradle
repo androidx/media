@@ -26,7 +26,7 @@ android {
 dependencies {
     api 'com.google.android.gms:play-services-cast-framework:21.3.0'
     implementation 'androidx.annotation:annotation:' + androidxAnnotationVersion
-    implementation project(modulePrefix + 'lib-common')
+    api project(modulePrefix + 'lib-common')
     compileOnly 'org.checkerframework:checker-qual:' + checkerframeworkVersion
     compileOnly 'org.jetbrains.kotlin:kotlin-annotations-jvm:' + kotlinAnnotationsVersion
     testImplementation project(modulePrefix + 'test-utils')

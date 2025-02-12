@@ -35,8 +35,8 @@ android {
 }
 
 dependencies {
-    implementation project(modulePrefix + 'lib-common')
-    implementation project(modulePrefix + 'lib-database')
+    api project(modulePrefix + 'lib-common')
+    api project(modulePrefix + 'lib-database')
     implementation 'androidx.annotation:annotation:' + androidxAnnotationVersion
     implementation 'androidx.exifinterface:exifinterface:' + androidxExifInterfaceVersion
     compileOnly 'com.google.code.findbugs:jsr305:' + jsr305Version

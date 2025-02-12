@@ -26,10 +26,10 @@ android {
 }
 
 dependencies {
-    implementation project(modulePrefix + 'lib-exoplayer')
-    implementation project(modulePrefix + 'lib-decoder')
-    implementation project(modulePrefix + 'lib-extractor')
-    implementation project(modulePrefix + 'lib-common')
+    api project(modulePrefix + 'lib-exoplayer')
+    api project(modulePrefix + 'lib-decoder')
+    api project(modulePrefix + 'lib-extractor')
+    api project(modulePrefix + 'lib-common')
     implementation 'androidx.annotation:annotation:' + androidxAnnotationVersion
     // Jsyn v17.1.0
     implementation 'com.github.philburk:jsyn:40a41092cbab558d7d410ec43d93bb1e4121e86a'
