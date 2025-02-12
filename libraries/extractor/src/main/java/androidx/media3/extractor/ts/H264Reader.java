@@ -518,6 +518,8 @@ public final class H264Reader implements ElementaryStreamReader {
         sampleIsKeyframe = false;
         readingSample = true;
       }
+      // Reset NAL unit type to avoid stale state
+      nalUnitType = NalUnitUtil.H264_NAL_UNIT_TYPE_UNSPECIFIED;
       setSampleIsKeyframe();
       return sampleIsKeyframe;
     }
