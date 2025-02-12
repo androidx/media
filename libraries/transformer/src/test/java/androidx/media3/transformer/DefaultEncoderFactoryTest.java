@@ -234,7 +234,7 @@ public class DefaultEncoderFactoryTest {
   @Config(sdk = 29)
   @Test
   public void
-      createForVideoEncoding_withH264Encoding_configuresEncoderWithCorrectPerformanceSettings()
+      createForVideoEncoding_withH264EncodingOnApi31_configuresEncoderWithCorrectPerformanceSettings()
           throws Exception {
     Format requestedVideoFormat = createVideoFormat(MimeTypes.VIDEO_H264, 1920, 1080, 30);
     Codec videoEncoder =
@@ -248,7 +248,79 @@ public class DefaultEncoderFactoryTest {
     assertThat(configurationMediaFormat.containsKey(MediaFormat.KEY_PRIORITY)).isTrue();
     assertThat(configurationMediaFormat.getInteger(MediaFormat.KEY_PRIORITY)).isEqualTo(1);
     assertThat(configurationMediaFormat.containsKey(MediaFormat.KEY_OPERATING_RATE)).isTrue();
-    assertThat(configurationMediaFormat.getInteger(MediaFormat.KEY_OPERATING_RATE)).isEqualTo(1000);
+    assertThat(configurationMediaFormat.getInteger(MediaFormat.KEY_OPERATING_RATE))
+        .isEqualTo(Integer.MAX_VALUE);
+  }
+
+  @Config(sdk = 31)
+  @Test
+  public void
+      createForVideoEncoding_withH264EncodingOnApi29AndConservativeDefault_configuresEncoderWithCorrectPerformanceSettings()
+          throws Exception {
+    Format requestedVideoFormat = createVideoFormat(MimeTypes.VIDEO_H264, 1920, 1080, 30);
+    Codec videoEncoder =
+        new DefaultEncoderFactory.Builder(context)
+            .setRequestedVideoEncoderSettings(
+                new VideoEncoderSettings.Builder()
+                    .setEncoderPerformanceParameters(/* operatingRate= */ -1, /* priority= */ 1)
+                    .build())
+            .build()
+            .createForVideoEncoding(requestedVideoFormat);
+
+    assertThat(videoEncoder).isInstanceOf(DefaultCodec.class);
+    MediaFormat configurationMediaFormat =
+        ((DefaultCodec) videoEncoder).getConfigurationMediaFormat();
+    assertThat(configurationMediaFormat.containsKey(MediaFormat.KEY_PRIORITY)).isTrue();
+    assertThat(configurationMediaFormat.getInteger(MediaFormat.KEY_PRIORITY)).isEqualTo(1);
+    assertThat(configurationMediaFormat.containsKey(MediaFormat.KEY_OPERATING_RATE)).isTrue();
+    assertThat(configurationMediaFormat.getInteger(MediaFormat.KEY_OPERATING_RATE)).isEqualTo(-1);
+  }
+
+  @Config(sdk = 31)
+  @Test
+  public void
+      createForVideoEncoding_withOperatingRateUnset_configuresEncoderWithCorrectPerformanceSettings()
+          throws Exception {
+    Format requestedVideoFormat = createVideoFormat(MimeTypes.VIDEO_H264, 1920, 1080, 30);
+    Codec videoEncoder =
+        new DefaultEncoderFactory.Builder(context)
+            .setRequestedVideoEncoderSettings(
+                new VideoEncoderSettings.Builder()
+                    .setEncoderPerformanceParameters(
+                        /* operatingRate= */ VideoEncoderSettings.RATE_UNSET, /* priority= */ 1)
+                    .build())
+            .build()
+            .createForVideoEncoding(requestedVideoFormat);
+
+    assertThat(videoEncoder).isInstanceOf(DefaultCodec.class);
+    MediaFormat configurationMediaFormat =
+        ((DefaultCodec) videoEncoder).getConfigurationMediaFormat();
+    assertThat(configurationMediaFormat.containsKey(MediaFormat.KEY_PRIORITY)).isTrue();
+    assertThat(configurationMediaFormat.getInteger(MediaFormat.KEY_PRIORITY)).isEqualTo(1);
+    assertThat(configurationMediaFormat.containsKey(MediaFormat.KEY_OPERATING_RATE)).isFalse();
+  }
+
+  @Config(sdk = 31)
+  @Test
+  public void
+      createForVideoEncoding_withOperatingRatePriorityUnset_configuresEncoderWithCorrectPerformanceSettings()
+          throws Exception {
+    Format requestedVideoFormat = createVideoFormat(MimeTypes.VIDEO_H264, 1920, 1080, 30);
+    Codec videoEncoder =
+        new DefaultEncoderFactory.Builder(context)
+            .setRequestedVideoEncoderSettings(
+                new VideoEncoderSettings.Builder()
+                    .setEncoderPerformanceParameters(
+                        VideoEncoderSettings.RATE_UNSET, VideoEncoderSettings.RATE_UNSET)
+                    .build())
+            .build()
+            .createForVideoEncoding(requestedVideoFormat);
+
+    assertThat(videoEncoder).isInstanceOf(DefaultCodec.class);
+    MediaFormat configurationMediaFormat =
+        ((DefaultCodec) videoEncoder).getConfigurationMediaFormat();
+    assertThat(configurationMediaFormat.containsKey(MediaFormat.KEY_PRIORITY)).isFalse();
+    assertThat(configurationMediaFormat.containsKey(MediaFormat.KEY_OPERATING_RATE)).isFalse();
   }
 
   @Test

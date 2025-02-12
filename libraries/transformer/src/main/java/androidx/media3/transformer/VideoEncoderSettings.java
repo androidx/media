@@ -174,8 +174,8 @@ public final class VideoEncoderSettings {
      * Sets encoding operating rate and priority. The default values are {@link #NO_VALUE}, which is
      * treated as configuring the encoder for maximum throughput.
      *
-     * <p>To disable the configuration for operating rate and priority, use {@link #RATE_UNSET} for
-     * both arguments.
+     * <p>To disable the configuration for either operating rate or priority, use {@link
+     * #RATE_UNSET} for that argument.
      *
      * @param operatingRate The {@link MediaFormat#KEY_OPERATING_RATE operating rate} in frames per
      *     second.
@@ -185,7 +185,6 @@ public final class VideoEncoderSettings {
     @CanIgnoreReturnValue
     @VisibleForTesting
     public Builder setEncoderPerformanceParameters(int operatingRate, int priority) {
-      checkArgument((operatingRate == RATE_UNSET) == (priority == RATE_UNSET));
       this.operatingRate = operatingRate;
       this.priority = priority;
       return this;

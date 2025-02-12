@@ -370,18 +370,16 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
 
     int operatingRate = supportedVideoEncoderSettings.operatingRate;
     int priority = supportedVideoEncoderSettings.priority;
-    if (Util.SDK_INT >= 23
-        && operatingRate != VideoEncoderSettings.RATE_UNSET
-        && priority != VideoEncoderSettings.RATE_UNSET) {
-      // Setting operating rate and priority is supported from API 23.
+    // Setting operating rate and priority is supported from API 23.
+    if (Util.SDK_INT >= 23) {
       if (operatingRate == VideoEncoderSettings.NO_VALUE
           && priority == VideoEncoderSettings.NO_VALUE) {
         adjustMediaFormatForEncoderPerformanceSettings(mediaFormat);
       } else {
-        if (operatingRate != VideoEncoderSettings.NO_VALUE) {
+        if (operatingRate != VideoEncoderSettings.RATE_UNSET) {
           mediaFormat.setInteger(MediaFormat.KEY_OPERATING_RATE, operatingRate);
         }
-        if (priority != VideoEncoderSettings.NO_VALUE) {
+        if (priority != VideoEncoderSettings.RATE_UNSET) {
           mediaFormat.setInteger(MediaFormat.KEY_PRIORITY, priority);
         }
       }
@@ -651,7 +649,7 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
    *
    * <p>The adjustment is applied in-place to {@code mediaFormat}.
    */
-  static void adjustMediaFormatForEncoderPerformanceSettings(MediaFormat mediaFormat) {
+  private static void adjustMediaFormatForEncoderPerformanceSettings(MediaFormat mediaFormat) {
     if (Util.SDK_INT < 25) {
       // Not setting priority and operating rate achieves better encoding performance.
       return;
@@ -661,9 +659,27 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
 
     if (Util.SDK_INT == 26) {
       mediaFormat.setInteger(MediaFormat.KEY_OPERATING_RATE, DEFAULT_FRAME_RATE);
+    } else if (deviceNeedsLowerOperatingRateAvoidingOverflowWorkaround()) {
+      mediaFormat.setInteger(MediaFormat.KEY_OPERATING_RATE, 1000);
     } else {
-      mediaFormat.setInteger(MediaFormat.KEY_OPERATING_RATE, /* value= */ 1000);
+      mediaFormat.setInteger(MediaFormat.KEY_OPERATING_RATE, Integer.MAX_VALUE);
     }
+  }
+
+  private static boolean deviceNeedsLowerOperatingRateAvoidingOverflowWorkaround() {
+    // On these chipsets, setting an operating rate close to Integer.MAX_VALUE will cause the
+    // encoder to throw at configuration time. Setting the operating rate to 1000 avoids being close
+    // to an integer overflow limit while being higher than a maximum feasible operating rate. See
+    // [internal b/311206113, b/317297946, b/312299527].
+    return Util.SDK_INT >= 31
+        && Util.SDK_INT <= 34
+        && (Build.SOC_MODEL.equals("SM8550")
+            || Build.SOC_MODEL.equals("SM7450")
+            || Build.SOC_MODEL.equals("SM6450")
+            || Build.SOC_MODEL.equals("SC9863A")
+            || Build.SOC_MODEL.equals("T612")
+            || Build.SOC_MODEL.equals("T606")
+            || Build.SOC_MODEL.equals("T603"));
   }
 
   /**
