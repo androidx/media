@@ -46,7 +46,7 @@
 *   Test Utilities:
 *   Demo app:
 *   Remove deprecated symbols:
-    *   Remove the following deprecated `DownloadHelper` methods:
+    *   Removed the following deprecated `DownloadHelper` methods:
         *   Constructor `DownloadHelper(MediaItem, @Nullable MediaSource,
             TrackSelectionParameters, RendererCapabilities[])`, use
             `DownloadHelper(MediaItem, @Nullable MediaSource,
@@ -55,6 +55,11 @@
             functionality can be achieved by creating a
             `DefaultRendererCapabilitiesList` with a `RenderersFactory`, and
             calling `DefaultRendererCapabilitiesList.getRendererCapabilities()`.
+    *   Removed
+        `PlayerNotificationManager.setMediaSessionToken(MediaSessionCompat)`
+        method. Use
+        `PlayerNotificationManager.setMediaSessionToken(MediaSession.Token)` and
+        pass in `(MediaSession.Token) compatToken.getToken()`instead.
 
 ## 1.6
 

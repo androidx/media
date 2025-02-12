@@ -50,7 +50,6 @@ import android.media.session.MediaSession;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
-import android.support.v4.media.session.MediaSessionCompat;
 import androidx.annotation.DrawableRes;
 import androidx.annotation.IntDef;
 import androidx.annotation.IntRange;
@@ -1006,16 +1005,6 @@ public class PlayerNotificationManager {
     }
     this.useStopAction = useStopAction;
     invalidate();
-  }
-
-  /**
-   * @deprecated Use {@link #setMediaSessionToken(MediaSession.Token)} and pass in {@code
-   *     (MediaSession.Token) compatToken.getToken()}.
-   */
-  // TODO: b/333355694 - Remove the dependency on androidx.media when this method is removed.
-  @Deprecated
-  public final void setMediaSessionToken(MediaSessionCompat.Token compatToken) {
-    setMediaSessionToken((MediaSession.Token) compatToken.getToken());
   }
 
   /**
