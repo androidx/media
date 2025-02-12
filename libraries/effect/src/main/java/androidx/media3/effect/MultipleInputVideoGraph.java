@@ -76,7 +76,7 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
   private final Context context;
 
   private final ColorInfo outputColorInfo;
-  private final SingleContextGlObjectsProvider glObjectsProvider;
+  private final GlObjectsProvider glObjectsProvider;
   private final DebugViewProvider debugViewProvider;
   private final VideoGraph.Listener listener;
   private final Executor listenerExecutor;
@@ -310,12 +310,9 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
         sharedExecutorService.submit(
             () -> {
               try {
-                // The eglContext is not released by any of the frame processors.
-                if (glObjectsProvider.singleEglContext != null) {
-                  destroyEglContext(getDefaultEglDisplay(), glObjectsProvider.singleEglContext);
-                }
+                glObjectsProvider.release(getDefaultEglDisplay());
               } catch (Exception e) {
-                Log.e(TAG, "Error releasing GL context", e);
+                Log.e(TAG, "Error releasing GlObjectsProvider", e);
               }
             });
 
@@ -520,8 +517,10 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
     }
 
     @Override
-    public void release(EGLDisplay eglDisplay) {
-      // The eglContext is released in the VideoGraph after all VideoFrameProcessors are released.
+    public void release(EGLDisplay eglDisplay) throws GlException {
+      if (singleEglContext != null) {
+        destroyEglContext(eglDisplay, singleEglContext);
+      }
     }
   }
 }

@@ -235,6 +235,10 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
        * Sets the {@link GlObjectsProvider}.
        *
        * <p>The default value is a {@link DefaultGlObjectsProvider}.
+       *
+       * <p>If both the {@link GlObjectsProvider} and the {@link ExecutorService} are set, it's the
+       * caller's responsibility to release the {@link GlObjectsProvider} on the {@link
+       * ExecutorService}'s thread.
        */
       @CanIgnoreReturnValue
       public Builder setGlObjectsProvider(GlObjectsProvider glObjectsProvider) {
@@ -408,16 +412,16 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
         throws VideoFrameProcessingException {
       // TODO(b/261188041) Add tests to verify the Listener is invoked on the given Executor.
 
-      boolean shouldShutdownExecutorService = executorService == null;
       ExecutorService instanceExecutorService =
           executorService == null ? Util.newSingleThreadExecutor(THREAD_NAME) : executorService;
-
+      boolean shouldShutdownExecutorService = executorService == null;
       VideoFrameProcessingTaskExecutor videoFrameProcessingTaskExecutor =
           new VideoFrameProcessingTaskExecutor(
               instanceExecutorService, shouldShutdownExecutorService, listener::onError);
 
-      GlObjectsProvider glObjectsProvider =
-          this.glObjectsProvider == null ? new DefaultGlObjectsProvider() : this.glObjectsProvider;
+      boolean shouldReleaseGlObjectsProvider = glObjectsProvider == null || executorService == null;
+      GlObjectsProvider instanceGlObjectsProvider =
+          glObjectsProvider == null ? new DefaultGlObjectsProvider() : glObjectsProvider;
 
       Future<DefaultVideoFrameProcessor> defaultVideoFrameProcessorFuture =
           instanceExecutorService.submit(
@@ -431,7 +435,8 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
                       videoFrameProcessingTaskExecutor,
                       listenerExecutor,
                       listener,
-                      glObjectsProvider,
+                      instanceGlObjectsProvider,
+                      shouldReleaseGlObjectsProvider,
                       textureOutputListener,
                       textureOutputCapacity,
                       repeatLastRegisteredFrame,
@@ -453,6 +458,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
 
   private final Context context;
   private final GlObjectsProvider glObjectsProvider;
+  private final boolean shouldReleaseGlObjectsProvider;
   private final EGLDisplay eglDisplay;
   private final InputSwitcher inputSwitcher;
   private final VideoFrameProcessingTaskExecutor videoFrameProcessingTaskExecutor;
@@ -493,6 +499,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
   private DefaultVideoFrameProcessor(
       Context context,
       GlObjectsProvider glObjectsProvider,
+      boolean shouldReleaseGlObjectsProvider,
       EGLDisplay eglDisplay,
       InputSwitcher inputSwitcher,
       VideoFrameProcessingTaskExecutor videoFrameProcessingTaskExecutor,
@@ -504,6 +511,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
       DebugViewProvider debugViewProvider) {
     this.context = context;
     this.glObjectsProvider = glObjectsProvider;
+    this.shouldReleaseGlObjectsProvider = shouldReleaseGlObjectsProvider;
     this.eglDisplay = eglDisplay;
     this.inputSwitcher = inputSwitcher;
     this.videoFrameProcessingTaskExecutor = videoFrameProcessingTaskExecutor;
@@ -833,6 +841,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
       Executor videoFrameProcessorListenerExecutor,
       Listener listener,
       GlObjectsProvider glObjectsProvider,
+      boolean shouldReleaseGlObjectsProvider,
       @Nullable GlTextureProducer.Listener textureOutputListener,
       int textureOutputCapacity,
       boolean repeatLastRegisteredFrame,
@@ -890,6 +899,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
     return new DefaultVideoFrameProcessor(
         context,
         glObjectsProvider,
+        shouldReleaseGlObjectsProvider,
         eglDisplay,
         inputSwitcher,
         videoFrameProcessingTaskExecutor,
@@ -1139,10 +1149,12 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
         Log.e(TAG, "Error releasing shader program", e);
       }
     } finally {
-      try {
-        glObjectsProvider.release(eglDisplay);
-      } catch (GlUtil.GlException e) {
-        Log.e(TAG, "Error releasing GL objects", e);
+      if (shouldReleaseGlObjectsProvider) {
+        try {
+          glObjectsProvider.release(eglDisplay);
+        } catch (GlUtil.GlException e) {
+          Log.e(TAG, "Error releasing GL objects", e);
+        }
       }
     }
   }

@@ -48,6 +48,7 @@ import androidx.media3.common.OverlaySettings;
 import androidx.media3.common.VideoCompositorSettings;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.GlUtil;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.AlphaScale;
@@ -74,6 +75,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.After;
@@ -94,6 +96,7 @@ public final class DefaultVideoCompositorPixelTest {
 
   @Rule public final TestName testName = new TestName();
 
+  private static final String TAG = "DefaultVideoCompositorPixelTest";
   private static final String ORIGINAL_PNG_ASSET_PATH = "media/png/media3test_srgb.png";
   private static final String TEST_DIRECTORY = "test-generated-goldens/CompositorTestTimestamps/";
   private static final ImmutableList<ImmutableList<Effect>> TWO_INPUT_COMPOSITOR_EFFECT_LISTS =
@@ -623,6 +626,7 @@ public final class DefaultVideoCompositorPixelTest {
     private final List<VideoFrameProcessorTestRunner> inputVideoFrameProcessorTestRunners;
     private final VideoCompositor videoCompositor;
     private final ExecutorService sharedExecutorService;
+    private final GlObjectsProvider glObjectsProvider;
     private final AtomicReference<VideoFrameProcessingException> compositionException;
     private final CountDownLatch compositorEnded;
     private final String testId;
@@ -660,7 +664,7 @@ public final class DefaultVideoCompositorPixelTest {
       this.testId = testId;
       timeoutMs = inputEffectLists.size() * VIDEO_FRAME_PROCESSING_WAIT_MS;
       sharedExecutorService = Util.newSingleThreadExecutor("Effect:Shared:GlThread");
-      GlObjectsProvider glObjectsProvider = new DefaultGlObjectsProvider();
+      glObjectsProvider = new DefaultGlObjectsProvider();
 
       compositionException = new AtomicReference<>();
       outputTimestampsToBitmaps = new LinkedHashMap<>();
@@ -800,7 +804,15 @@ public final class DefaultVideoCompositorPixelTest {
         inputVideoFrameProcessorTestRunners.get(i).release();
       }
       videoCompositor.release();
-
+      Future<?> unused =
+          sharedExecutorService.submit(
+              () -> {
+                try {
+                  glObjectsProvider.release(GlUtil.getDefaultEglDisplay());
+                } catch (Exception e) {
+                  Log.e(TAG, "Error releasing GlObjectsProvider", e);
+                }
+              });
       try {
         sharedExecutorService.shutdown();
         if (!sharedExecutorService.awaitTermination(timeoutMs, MILLISECONDS)) {

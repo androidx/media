@@ -10,6 +10,9 @@
     *   Add `MediaProjectionAssetLoader`, which provides media from a
         `MediaProjection` for screen recording.
     *   Add `#getInputFormat()` to `Codec` interface.
+    *   Shift the responsibility to release the `GlObjectsProvider` onto the
+        caller in `DefaultVideoFrameProcessor` and `DefaultVideoCompositor` when
+        possible.
 *   Track Selection:
 *   Extractors:
 *   DataSource:

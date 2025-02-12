@@ -105,8 +105,9 @@ public final class DefaultVideoCompositor implements VideoCompositor {
   /**
    * Creates an instance.
    *
-   * <p>The {@link ExecutorService} must be {@linkplain ExecutorService#shutdown shut down} by the
-   * caller.
+   * <p>It's the caller's responsibility to {@linkplain GlObjectsProvider#release(EGLDisplay)
+   * release} the {@link GlObjectsProvider} on the {@link ExecutorService}'s thread, and to
+   * {@linkplain ExecutorService#shutdown shut down} the {@link ExecutorService}.
    */
   public DefaultVideoCompositor(
       Context context,
@@ -409,12 +410,6 @@ public final class DefaultVideoCompositor implements VideoCompositor {
       GlUtil.destroyEglSurface(eglDisplay, placeholderEglSurface);
     } catch (GlUtil.GlException e) {
       Log.e(TAG, "Error releasing GL resources", e);
-    } finally {
-      try {
-        glObjectsProvider.release(checkNotNull(eglDisplay));
-      } catch (GlUtil.GlException e) {
-        Log.e(TAG, "Error releasing GL objects", e);
-      }
     }
   }
 
