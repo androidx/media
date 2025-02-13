@@ -21,8 +21,8 @@ import static androidx.media3.exoplayer.source.ads.ServerSideAdInsertionUtil.add
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.END_OF_STREAM_ITEM;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.oneByteSample;
 import static androidx.media3.test.utils.robolectric.RobolectricUtil.runMainLooperUntil;
+import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.playUntilPosition;
-import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.run;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.runUntilPendingCommandsAreFullyHandled;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.runUntilPlaybackState;
 import static com.google.common.truth.Truth.assertThat;
@@ -524,7 +524,7 @@ public final class ServerSideAdInsertionMediaSourceTest {
 
     // Add ad at the current playback position during playback.
     runUntilPlaybackState(player, Player.STATE_READY);
-    run(player).untilFullyBuffered();
+    advance(player).untilFullyBuffered();
     AdPlaybackState secondAdPlaybackState =
         addAdGroupToAdPlaybackState(
             firstAdPlaybackState,

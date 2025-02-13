@@ -15,7 +15,7 @@
  */
 package androidx.media3.exoplayer.ima;
 
-import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.run;
+import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
@@ -96,13 +96,13 @@ public class ImaServerSideAdInsertionMediaSourceTest {
                 MediaItem.fromUri("ssai://dai.google.com/?assetKey=ABC&format=0&adsId=2"));
     player.setMediaSource(mediaSource);
     player.prepare();
-    run(player).untilPendingCommandsAreFullyHandled();
+    advance(player).untilPendingCommandsAreFullyHandled();
 
     // Clearing the playlist will cause internal state of the ads source to be invalid and
     // potentially accessing empty timelines. See b/354026260. The test simply ensures that clearing
     // the playlist will not throw any exceptions.
     player.clearMediaItems();
-    run(player).untilPendingCommandsAreFullyHandled();
+    advance(player).untilPendingCommandsAreFullyHandled();
     player.release();
   }
 }

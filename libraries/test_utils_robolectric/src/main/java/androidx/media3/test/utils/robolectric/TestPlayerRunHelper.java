@@ -38,6 +38,7 @@ import androidx.media3.exoplayer.source.LoadEventInfo;
 import androidx.media3.exoplayer.source.MediaLoadData;
 import androidx.media3.test.utils.ThreadTestUtil;
 import com.google.common.base.Supplier;
+import com.google.errorprone.annotations.InlineMe;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -544,7 +545,7 @@ public final class TestPlayerRunHelper {
    * <p>Callers can use the returned {@link PlayerRunResult} to run the main {@link Looper} until
    * certain conditions are met.
    */
-  public static PlayerRunResult run(Player player) {
+  public static PlayerRunResult advance(Player player) {
     return new PlayerRunResult(
         player, /* playBeforeWaiting= */ false, /* throwNonFatalErrors= */ true);
   }
@@ -555,9 +556,31 @@ public final class TestPlayerRunHelper {
    * <p>Callers can use the returned {@link ExoPlayerRunResult} to run the main {@link Looper} until
    * certain conditions are met.
    */
-  public static ExoPlayerRunResult run(ExoPlayer player) {
+  public static ExoPlayerRunResult advance(ExoPlayer player) {
     return new ExoPlayerRunResult(
         player, /* playBeforeWaiting= */ false, /* throwNonFatalErrors= */ true);
+  }
+
+  /**
+   * @deprecated Use {@link #advance(Player)} instead.
+   */
+  @InlineMe(
+      replacement = "TestPlayerRunHelper.advance(player)",
+      imports = "androidx.media3.test.utils.robolectric.TestPlayerRunHelper")
+  @Deprecated
+  public static PlayerRunResult run(Player player) {
+    return advance(player);
+  }
+
+  /**
+   * @deprecated Use {@link #advance(ExoPlayer)} instead.
+   */
+  @InlineMe(
+      replacement = "TestPlayerRunHelper.advance(player)",
+      imports = "androidx.media3.test.utils.robolectric.TestPlayerRunHelper")
+  @Deprecated
+  public static ExoPlayerRunResult run(ExoPlayer player) {
+    return advance(player);
   }
 
   /**
@@ -566,8 +589,8 @@ public final class TestPlayerRunHelper {
    * <p>Callers can use the returned {@link PlayerRunResult} to run the main {@link Looper} until
    * certain conditions are met.
    *
-   * <p>This is the same as {@link #run(Player)} but ensures {@link Player#play()} is called before
-   * waiting in subsequent {@code untilXXX(...)} methods.
+   * <p>This is the same as {@link #advance(Player)} but ensures {@link Player#play()} is called
+   * before waiting in subsequent {@code untilXXX(...)} methods.
    */
   public static PlayerRunResult play(Player player) {
     return new PlayerRunResult(
@@ -580,8 +603,8 @@ public final class TestPlayerRunHelper {
    * <p>Callers can use the returned {@link ExoPlayerRunResult} to run the main {@link Looper} until
    * certain conditions are met.
    *
-   * <p>This is the same as {@link #run(ExoPlayer)} but ensures {@link ExoPlayer#play()} is called
-   * before waiting in subsequent {@code untilXXX(...)} methods.
+   * <p>This is the same as {@link #advance(ExoPlayer)} but ensures {@link ExoPlayer#play()} is
+   * called before waiting in subsequent {@code untilXXX(...)} methods.
    */
   public static ExoPlayerRunResult play(ExoPlayer player) {
     return new ExoPlayerRunResult(
@@ -595,7 +618,8 @@ public final class TestPlayerRunHelper {
    * <p>If a fatal {@link PlaybackException} occurs it will be thrown wrapped in an {@link
    * IllegalStateException}.
    *
-   * <p>New usages should prefer {@link #run(Player)} and {@link PlayerRunResult#untilState(int)}.
+   * <p>New usages should prefer {@link #advance(Player)} and {@link
+   * PlayerRunResult#untilState(int)}.
    *
    * @param player The {@link Player}.
    * @param expectedState The expected {@link Player.State}.
@@ -605,7 +629,7 @@ public final class TestPlayerRunHelper {
   public static void runUntilPlaybackState(Player player, @Player.State int expectedState)
       throws TimeoutException {
     try {
-      run(player).untilState(expectedState);
+      advance(player).untilState(expectedState);
     } catch (PlaybackException e) {
       throw new IllegalStateException(e);
     }
@@ -618,7 +642,7 @@ public final class TestPlayerRunHelper {
    * <p>If a fatal {@link PlaybackException} occurs it will be thrown wrapped in an {@link
    * IllegalStateException}.
    *
-   * <p>New usages should prefer {@link #run(Player)} and {@link
+   * <p>New usages should prefer {@link #advance(Player)} and {@link
    * PlayerRunResult#untilPlayWhenReadyIs(boolean)}.
    *
    * @param player The {@link Player}.
@@ -629,7 +653,7 @@ public final class TestPlayerRunHelper {
   public static void runUntilPlayWhenReady(Player player, boolean expectedPlayWhenReady)
       throws TimeoutException {
     try {
-      run(player).untilPlayWhenReadyIs(expectedPlayWhenReady);
+      advance(player).untilPlayWhenReadyIs(expectedPlayWhenReady);
     } catch (PlaybackException e) {
       throw new IllegalStateException(e);
     }
@@ -642,7 +666,7 @@ public final class TestPlayerRunHelper {
    * <p>If a fatal {@link PlaybackException} occurs it will be thrown wrapped in an {@link
    * IllegalStateException}.
    *
-   * <p>New usages should prefer {@link #run(Player)} and {@link
+   * <p>New usages should prefer {@link #advance(Player)} and {@link
    * PlayerRunResult#untilLoadingIs(boolean)}.
    *
    * @param player The {@link Player}.
@@ -653,7 +677,7 @@ public final class TestPlayerRunHelper {
   public static void runUntilIsLoading(Player player, boolean expectedIsLoading)
       throws TimeoutException {
     try {
-      run(player).untilLoadingIs(expectedIsLoading);
+      advance(player).untilLoadingIs(expectedIsLoading);
     } catch (PlaybackException e) {
       throw new IllegalStateException(e);
     }
@@ -666,7 +690,7 @@ public final class TestPlayerRunHelper {
    * <p>If a fatal {@link PlaybackException} occurs it will be thrown wrapped in an {@link
    * IllegalStateException}.
    *
-   * <p>New usages should prefer {@link #run(Player)} and {@link
+   * <p>New usages should prefer {@link #advance(Player)} and {@link
    * PlayerRunResult#untilTimelineChangesTo(Timeline)}.
    *
    * @param player The {@link Player}.
@@ -677,7 +701,7 @@ public final class TestPlayerRunHelper {
   public static void runUntilTimelineChanged(Player player, Timeline expectedTimeline)
       throws TimeoutException {
     try {
-      run(player).untilTimelineChangesTo(expectedTimeline);
+      advance(player).untilTimelineChangesTo(expectedTimeline);
     } catch (PlaybackException e) {
       throw new IllegalStateException(e);
     }
@@ -689,7 +713,7 @@ public final class TestPlayerRunHelper {
    * <p>If a fatal {@link PlaybackException} occurs it will be thrown wrapped in an {@link
    * IllegalStateException}.
    *
-   * <p>New usages should prefer {@link #run(Player)} and {@link
+   * <p>New usages should prefer {@link #advance(Player)} and {@link
    * PlayerRunResult#untilTimelineChanges()}.
    *
    * @param player The {@link Player}.
@@ -699,7 +723,7 @@ public final class TestPlayerRunHelper {
    */
   public static Timeline runUntilTimelineChanged(Player player) throws TimeoutException {
     try {
-      return run(player).untilTimelineChanges();
+      return advance(player).untilTimelineChanges();
     } catch (PlaybackException e) {
       throw new IllegalStateException(e);
     }
@@ -713,7 +737,7 @@ public final class TestPlayerRunHelper {
    * <p>If a fatal {@link PlaybackException} occurs it will be thrown wrapped in an {@link
    * IllegalStateException}.
    *
-   * <p>New usages should prefer {@link #run(Player)} and {@link
+   * <p>New usages should prefer {@link #advance(Player)} and {@link
    * PlayerRunResult#untilPositionDiscontinuityWithReason(int)}.
    *
    * @param player The {@link Player}.
@@ -724,7 +748,7 @@ public final class TestPlayerRunHelper {
   public static void runUntilPositionDiscontinuity(
       Player player, @Player.DiscontinuityReason int expectedReason) throws TimeoutException {
     try {
-      run(player).untilPositionDiscontinuityWithReason(expectedReason);
+      advance(player).untilPositionDiscontinuityWithReason(expectedReason);
     } catch (PlaybackException e) {
       throw new IllegalStateException(e);
     }
@@ -735,7 +759,7 @@ public final class TestPlayerRunHelper {
    *
    * <p>Non-fatal errors are ignored.
    *
-   * <p>New usages should prefer {@link #run(ExoPlayer)} and {@link
+   * <p>New usages should prefer {@link #advance(ExoPlayer)} and {@link
    * ExoPlayerRunResult#untilPlayerError()}.
    *
    * @param player The {@link Player}.
@@ -744,7 +768,7 @@ public final class TestPlayerRunHelper {
    *     exceeded.
    */
   public static ExoPlaybackException runUntilError(ExoPlayer player) throws TimeoutException {
-    return run(player).untilPlayerError();
+    return advance(player).untilPlayerError();
   }
 
   /**
@@ -754,7 +778,7 @@ public final class TestPlayerRunHelper {
    * <p>If a fatal {@link PlaybackException} occurs it will be thrown wrapped in an {@link
    * IllegalStateException}.
    *
-   * <p>New usages should prefer {@link #run(ExoPlayer)} and {@link
+   * <p>New usages should prefer {@link #advance(ExoPlayer)} and {@link
    * ExoPlayerRunResult#untilSleepingForOffloadBecomes(boolean)}.
    *
    * @param player The {@link Player}.
@@ -765,7 +789,7 @@ public final class TestPlayerRunHelper {
   public static void runUntilSleepingForOffload(ExoPlayer player, boolean expectedSleepForOffload)
       throws TimeoutException {
     try {
-      run(player).untilSleepingForOffloadBecomes(expectedSleepForOffload);
+      advance(player).untilSleepingForOffloadBecomes(expectedSleepForOffload);
     } catch (PlaybackException e) {
       throw new IllegalStateException(e);
     }
@@ -778,7 +802,7 @@ public final class TestPlayerRunHelper {
    * <p>If a fatal {@link PlaybackException} occurs it will be thrown wrapped in an {@link
    * IllegalStateException}.
    *
-   * <p>New usages should prefer {@link #run(Player)} and {@link
+   * <p>New usages should prefer {@link #advance(Player)} and {@link
    * PlayerRunResult#untilFirstFrameIsRendered()}.
    *
    * @param player The {@link Player}.
@@ -787,7 +811,7 @@ public final class TestPlayerRunHelper {
    */
   public static void runUntilRenderedFirstFrame(ExoPlayer player) throws TimeoutException {
     try {
-      run(player).untilFirstFrameIsRendered();
+      advance(player).untilFirstFrameIsRendered();
     } catch (PlaybackException e) {
       throw new IllegalStateException(e);
     }
@@ -805,7 +829,7 @@ public final class TestPlayerRunHelper {
    * <p>If a fatal {@link PlaybackException} occurs it will be thrown wrapped in an {@link
    * IllegalStateException}.
    *
-   * <p>New usages should prefer {@link #run(ExoPlayer)} and {@link
+   * <p>New usages should prefer {@link #advance(ExoPlayer)} and {@link
    * ExoPlayerRunResult#untilPosition(int, long)}.
    *
    * @param player The {@link Player}.
@@ -835,7 +859,7 @@ public final class TestPlayerRunHelper {
    * <p>If a fatal {@link PlaybackException} occurs it will be thrown wrapped in an {@link
    * IllegalStateException}.
    *
-   * <p>New usages should prefer {@link #run(ExoPlayer)} and {@link
+   * <p>New usages should prefer {@link #advance(ExoPlayer)} and {@link
    * ExoPlayerRunResult#untilStartOfMediaItem(int)}.
    *
    * @param player The {@link Player}.
@@ -864,7 +888,7 @@ public final class TestPlayerRunHelper {
    */
   public static void runUntilPendingCommandsAreFullyHandled(ExoPlayer player)
       throws TimeoutException {
-    run(player).untilPendingCommandsAreFullyHandled();
+    advance(player).untilPendingCommandsAreFullyHandled();
   }
 
   private static void verifyMainTestThread(Player player) {

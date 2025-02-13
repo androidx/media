@@ -18,7 +18,7 @@ package androidx.media3.exoplayer;
 import static androidx.media3.common.Player.REPEAT_MODE_ONE;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.END_OF_STREAM_ITEM;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.oneByteSample;
-import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.run;
+import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.runUntilError;
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -114,13 +114,13 @@ public class ExoPlayerWithPrewarmingRenderersTest {
 
     // Play a bit until the second renderer is being pre-warmed.
     player.play();
-    run(player)
+    advance(player)
         .untilBackgroundThreadCondition(
             () -> secondaryVideoRenderer.getState() == Renderer.STATE_ENABLED);
     @Renderer.State int videoState1 = videoRenderer.getState();
     @Renderer.State int secondaryVideoState1 = secondaryVideoRenderer.getState();
     // Play until second item is started.
-    run(player)
+    advance(player)
         .untilBackgroundThreadCondition(
             () -> secondaryVideoRenderer.getState() == Renderer.STATE_STARTED);
     @Renderer.State int videoState2 = videoRenderer.getState();
@@ -162,18 +162,18 @@ public class ExoPlayerWithPrewarmingRenderersTest {
 
     // Play a bit until the secondary renderer is being pre-warmed.
     player.play();
-    run(player)
+    advance(player)
         .untilBackgroundThreadCondition(
             () -> secondaryVideoRenderer.getState() == Renderer.STATE_ENABLED);
     @Renderer.State int videoState1 = videoRenderer.getState();
     @Renderer.State int secondaryVideoState1 = secondaryVideoRenderer.getState();
     // Play until until the primary renderer is being pre-warmed.
-    run(player)
+    advance(player)
         .untilBackgroundThreadCondition(() -> videoRenderer.getState() == Renderer.STATE_ENABLED);
     @Renderer.State int videoState2 = videoRenderer.getState();
     @Renderer.State int secondaryVideoState2 = secondaryVideoRenderer.getState();
     // Play until past transition back to primary renderer for third media item.
-    run(player)
+    advance(player)
         .untilBackgroundThreadCondition(() -> videoRenderer.getState() == Renderer.STATE_STARTED);
     @Renderer.State int videoState3 = videoRenderer.getState();
     @Renderer.State int secondaryVideoState3 = secondaryVideoRenderer.getState();
@@ -210,7 +210,7 @@ public class ExoPlayerWithPrewarmingRenderersTest {
     player.prepare();
 
     // Advance media periods until secondary renderer is being pre-warmed.
-    run(player)
+    advance(player)
         .untilBackgroundThreadCondition(
             () -> secondaryVideoRenderer.getState() == Renderer.STATE_ENABLED);
     @Renderer.State int secondaryVideoState = secondaryVideoRenderer.getState();
@@ -251,19 +251,19 @@ public class ExoPlayerWithPrewarmingRenderersTest {
 
     // Play a bit until the primary renderer has been enabled, but not yet started.
     player.play();
-    run(player)
+    advance(player)
         .untilBackgroundThreadCondition(
             () -> secondaryVideoRenderer.getState() == Renderer.STATE_STARTED);
-    run(player)
+    advance(player)
         .untilBackgroundThreadCondition(() -> videoRenderer.getState() == Renderer.STATE_ENABLED);
     @Renderer.State int videoState1 = videoRenderer.getState();
     @Renderer.State int secondaryVideoState1 = secondaryVideoRenderer.getState();
     player.pause();
-    run(player).untilPendingCommandsAreFullyHandled();
+    advance(player).untilPendingCommandsAreFullyHandled();
     @Renderer.State int videoState2 = videoRenderer.getState();
     @Renderer.State int secondaryVideoState2 = secondaryVideoRenderer.getState();
     player.play();
-    run(player)
+    advance(player)
         .untilBackgroundThreadCondition(
             () -> secondaryVideoRenderer.getState() == Renderer.STATE_STARTED);
     @Renderer.State int videoState3 = videoRenderer.getState();
@@ -302,16 +302,16 @@ public class ExoPlayerWithPrewarmingRenderersTest {
     player.prepare();
 
     // Play a bit until the primary renderer has been enabled, but not yet started.
-    run(player).untilState(Player.STATE_READY);
+    advance(player).untilState(Player.STATE_READY);
     player.play();
-    run(player).untilPendingCommandsAreFullyHandled();
+    advance(player).untilPendingCommandsAreFullyHandled();
     @Renderer.State int videoState1 = videoRenderer.getState();
     @Renderer.State int secondaryVideoState1 = secondaryVideoRenderer.getState();
     player.pause();
-    run(player).untilPendingCommandsAreFullyHandled();
+    advance(player).untilPendingCommandsAreFullyHandled();
     @Renderer.State int videoState2 = videoRenderer.getState();
     player.play();
-    run(player).untilPendingCommandsAreFullyHandled();
+    advance(player).untilPendingCommandsAreFullyHandled();
     @Renderer.State int videoState3 = videoRenderer.getState();
     player.release();
 
@@ -349,10 +349,10 @@ public class ExoPlayerWithPrewarmingRenderersTest {
 
     // Play a bit until the primary renderer is being prewarmed, but not yet started.
     player.play();
-    run(player)
+    advance(player)
         .untilBackgroundThreadCondition(
             () -> secondaryVideoRenderer.getState() == Renderer.STATE_STARTED);
-    run(player)
+    advance(player)
         .untilBackgroundThreadCondition(() -> videoRenderer.getState() == Renderer.STATE_ENABLED);
     @Renderer.State int videoState1 = videoRenderer.getState();
     @Renderer.State int secondaryVideoState1 = secondaryVideoRenderer.getState();
@@ -363,8 +363,8 @@ public class ExoPlayerWithPrewarmingRenderersTest {
             .buildUpon()
             .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, true)
             .build());
-    run(player).untilPendingCommandsAreFullyHandled();
-    run(player)
+    advance(player).untilPendingCommandsAreFullyHandled();
+    advance(player)
         .untilBackgroundThreadCondition(() -> videoRenderer.getState() == Renderer.STATE_ENABLED);
     @Renderer.State int videoState2 = videoRenderer.getState();
     @Renderer.State int secondaryVideoState2 = secondaryVideoRenderer.getState();
@@ -409,9 +409,9 @@ public class ExoPlayerWithPrewarmingRenderersTest {
     player.prepare();
 
     // Play a bit until the primary renderer is being pre-warmed, but not yet started.
-    run(player).untilState(Player.STATE_READY);
+    advance(player).untilState(Player.STATE_READY);
     player.play();
-    run(player).untilPendingCommandsAreFullyHandled();
+    advance(player).untilPendingCommandsAreFullyHandled();
     @Renderer.State int videoState1 = videoRenderer.getState();
     @Renderer.State int secondaryVideoState1 = secondaryVideoRenderer.getState();
     SampleStream sampleStream1 = videoRenderer.getStream();
@@ -422,11 +422,11 @@ public class ExoPlayerWithPrewarmingRenderersTest {
             .buildUpon()
             .setMaxVideoBitrate(videoFormat1.averageBitrate)
             .build());
-    run(player).untilPendingCommandsAreFullyHandled();
-    run(player)
+    advance(player).untilPendingCommandsAreFullyHandled();
+    advance(player)
         .untilBackgroundThreadCondition(
             () -> secondaryVideoRenderer.getState() == Renderer.STATE_ENABLED);
-    run(player).untilPendingCommandsAreFullyHandled();
+    advance(player).untilPendingCommandsAreFullyHandled();
     @Renderer.State int videoState2 = videoRenderer.getState();
     @Renderer.State int secondaryVideoState2 = secondaryVideoRenderer.getState();
     SampleStream sampleStream2 = videoRenderer.getStream();
@@ -466,9 +466,9 @@ public class ExoPlayerWithPrewarmingRenderersTest {
     player.prepare();
 
     // Play until the second renderer has been enabled and reading period has not advanced.
-    run(player).untilState(Player.STATE_READY);
+    advance(player).untilState(Player.STATE_READY);
     player.play();
-    run(player).untilPendingCommandsAreFullyHandled();
+    advance(player).untilPendingCommandsAreFullyHandled();
     @Renderer.State int videoState1 = videoRenderer.getState();
     @Renderer.State int secondaryVideoState1 = secondaryVideoRenderer.getState();
     SampleStream videoStream1 = videoRenderer.getStream();
@@ -480,10 +480,10 @@ public class ExoPlayerWithPrewarmingRenderersTest {
             .buildUpon()
             .setMaxVideoBitrate(videoFormat2.averageBitrate)
             .build());
-    run(player)
+    advance(player)
         .untilBackgroundThreadCondition(
             () -> secondaryVideoRenderer.getState() == Renderer.STATE_ENABLED);
-    run(player).untilPendingCommandsAreFullyHandled();
+    advance(player).untilPendingCommandsAreFullyHandled();
     SampleStream videoStream2 = videoRenderer.getStream();
     SampleStream secondaryVideoStream2 = secondaryVideoRenderer.getStream();
     player.release();
@@ -521,9 +521,9 @@ public class ExoPlayerWithPrewarmingRenderersTest {
     player.prepare();
 
     // Play until the second renderer has been enabled and reading period has not advanced.
-    run(player).untilState(Player.STATE_READY);
+    advance(player).untilState(Player.STATE_READY);
     player.play();
-    run(player).untilPendingCommandsAreFullyHandled();
+    advance(player).untilPendingCommandsAreFullyHandled();
     @Renderer.State int videoState1 = videoRenderer.getState();
     @Renderer.State int secondaryVideoState1 = secondaryVideoRenderer.getState();
     SampleStream videoStream1 = videoRenderer.getStream();
@@ -534,7 +534,7 @@ public class ExoPlayerWithPrewarmingRenderersTest {
             .buildUpon()
             .setMaxVideoBitrate(videoFormat2.averageBitrate)
             .build());
-    run(player).untilPendingCommandsAreFullyHandled();
+    advance(player).untilPendingCommandsAreFullyHandled();
     SampleStream videoStream2 = videoRenderer.getStream();
     player.release();
 
@@ -598,14 +598,14 @@ public class ExoPlayerWithPrewarmingRenderersTest {
 
     // Play a bit until the final media source has been prepared and gone through track selection.
     player.play();
-    run(player).untilBackgroundThreadCondition(() -> selectedAudioTrack.get() != null);
+    advance(player).untilBackgroundThreadCondition(() -> selectedAudioTrack.get() != null);
     @Renderer.State int videoState1 = videoRenderer.getState();
     @Renderer.State int secondaryVideoState1 = secondaryVideoRenderer.getState();
     SampleStream secondaryVideoStream1 = secondaryVideoRenderer.getStream();
     // Disable the Audio track to trigger track reselection.
     player.setTrackSelectionParameters(
         player.getTrackSelectionParameters().buildUpon().setMaxAudioBitrate(60_000).build());
-    run(player)
+    advance(player)
         .untilBackgroundThreadCondition(() -> audioRenderer.getState() == Renderer.STATE_DISABLED);
     @Renderer.State int videoState2 = videoRenderer.getState();
     @Renderer.State int secondaryVideoState2 = secondaryVideoRenderer.getState();
@@ -647,7 +647,7 @@ public class ExoPlayerWithPrewarmingRenderersTest {
 
     // Play a bit until the second renderer is pre-warming.
     player.play();
-    run(player)
+    advance(player)
         .untilBackgroundThreadCondition(
             () -> secondaryVideoRenderer.getState() == Renderer.STATE_ENABLED);
     @Renderer.State int videoState1 = videoRenderer.getState();
@@ -655,8 +655,8 @@ public class ExoPlayerWithPrewarmingRenderersTest {
     SampleStream secondaryVideoStream1 = secondaryVideoRenderer.getStream();
     // Seek to position in current period.
     player.seekTo(/* mediaItemIndex= */ 0, /* positionMs= */ 3000);
-    run(player).untilPendingCommandsAreFullyHandled();
-    run(player)
+    advance(player).untilPendingCommandsAreFullyHandled();
+    advance(player)
         .untilBackgroundThreadCondition(
             () -> secondaryVideoRenderer.getState() == Renderer.STATE_ENABLED);
     @Renderer.State int videoState2 = videoRenderer.getState();
@@ -697,15 +697,15 @@ public class ExoPlayerWithPrewarmingRenderersTest {
     player.prepare();
 
     // Play a bit until the second renderer is started.
-    run(player).untilStartOfMediaItem(/* mediaItemIndex= */ 1);
-    run(player).untilPendingCommandsAreFullyHandled();
+    advance(player).untilStartOfMediaItem(/* mediaItemIndex= */ 1);
+    advance(player).untilPendingCommandsAreFullyHandled();
     @Renderer.State int videoState1 = videoRenderer.getState();
     @Renderer.State int secondaryVideoState1 = secondaryVideoRenderer.getState();
     SampleStream videoStream1 = videoRenderer.getStream();
     // Seek to position in current period.
     player.seekTo(/* mediaItemIndex= */ 1, /* positionMs= */ 3000);
-    run(player).untilPendingCommandsAreFullyHandled();
-    run(player)
+    advance(player).untilPendingCommandsAreFullyHandled();
+    advance(player)
         .untilBackgroundThreadCondition(() -> videoRenderer.getState() == Renderer.STATE_ENABLED);
     SampleStream videoStream2 = videoRenderer.getStream();
     @Renderer.State int videoState2 = videoRenderer.getState();
@@ -744,18 +744,18 @@ public class ExoPlayerWithPrewarmingRenderersTest {
 
     // Play a bit until the second renderer is started.
     player.play();
-    run(player)
+    advance(player)
         .untilBackgroundThreadCondition(
             () -> secondaryVideoRenderer.getState() == Renderer.STATE_STARTED);
-    run(player)
+    advance(player)
         .untilBackgroundThreadCondition(() -> videoRenderer.getState() == Renderer.STATE_ENABLED);
     @Renderer.State int videoState1 = videoRenderer.getState();
     @Renderer.State int secondaryVideoState1 = secondaryVideoRenderer.getState();
     // Seek to position in current period.
     player.seekTo(/* mediaItemIndex= */ 1, /* positionMs= */ 500);
-    run(player).untilPendingCommandsAreFullyHandled();
+    advance(player).untilPendingCommandsAreFullyHandled();
     // Play until secondary renderer is being pre-warmed on third media item.
-    run(player)
+    advance(player)
         .untilBackgroundThreadCondition(
             () -> secondaryVideoRenderer.getState() == Renderer.STATE_ENABLED);
     @Renderer.State int videoState2 = videoRenderer.getState();
@@ -793,13 +793,13 @@ public class ExoPlayerWithPrewarmingRenderersTest {
     player.prepare();
 
     // Play a bit until the second renderer is started.
-    run(player).untilStartOfMediaItem(/* mediaItemIndex= */ 1);
-    run(player).untilPendingCommandsAreFullyHandled();
+    advance(player).untilStartOfMediaItem(/* mediaItemIndex= */ 1);
+    advance(player).untilPendingCommandsAreFullyHandled();
     @Renderer.State int videoState1 = videoRenderer.getState();
     @Renderer.State int secondaryVideoState1 = secondaryVideoRenderer.getState();
     // Seek to position in following period.
     player.seekTo(/* mediaItemIndex= */ 2, /* positionMs= */ 3000);
-    run(player).untilPendingCommandsAreFullyHandled();
+    advance(player).untilPendingCommandsAreFullyHandled();
     @Renderer.State int videoState2 = videoRenderer.getState();
     @Renderer.State int secondaryVideoState2 = secondaryVideoRenderer.getState();
     player.release();
@@ -841,16 +841,16 @@ public class ExoPlayerWithPrewarmingRenderersTest {
 
     // Play a bit until the second renderer is started and primary is pre-warming.
     player.play();
-    run(player)
+    advance(player)
         .untilBackgroundThreadCondition(
             () -> secondaryVideoRenderer.getState() == Renderer.STATE_STARTED);
-    run(player)
+    advance(player)
         .untilBackgroundThreadCondition(() -> videoRenderer.getState() == Renderer.STATE_ENABLED);
     @Renderer.State int videoState1 = videoRenderer.getState();
     @Renderer.State int secondaryVideoState1 = secondaryVideoRenderer.getState();
     // Remove the reading period.
     player.removeMediaItem(1);
-    run(player).untilPendingCommandsAreFullyHandled();
+    advance(player).untilPendingCommandsAreFullyHandled();
     @Renderer.State int videoState2 = videoRenderer.getState();
     @Renderer.State int secondaryVideoState2 = secondaryVideoRenderer.getState();
     player.release();
@@ -894,15 +894,15 @@ public class ExoPlayerWithPrewarmingRenderersTest {
 
     // Play a bit until the second renderer is started and primary is pre-warming.
     player.play();
-    run(player)
+    advance(player)
         .untilBackgroundThreadCondition(
             () -> secondaryVideoRenderer.getState() == Renderer.STATE_STARTED);
-    run(player)
+    advance(player)
         .untilBackgroundThreadCondition(() -> videoRenderer.getState() == Renderer.STATE_ENABLED);
     @Renderer.State int videoState1 = videoRenderer.getState();
     @Renderer.State int secondaryVideoState1 = secondaryVideoRenderer.getState();
     player.removeMediaItem(1);
-    run(player).untilPendingCommandsAreFullyHandled();
+    advance(player).untilPendingCommandsAreFullyHandled();
     @Renderer.State int videoState2 = videoRenderer.getState();
     @Renderer.State int secondaryVideoState2 = secondaryVideoRenderer.getState();
     player.release();
@@ -946,17 +946,17 @@ public class ExoPlayerWithPrewarmingRenderersTest {
 
     // Play a bit until the second renderer is started and primary is pre-warming.
     player.play();
-    run(player)
+    advance(player)
         .untilBackgroundThreadCondition(
             () -> secondaryVideoRenderer.getState() == Renderer.STATE_STARTED);
-    run(player)
+    advance(player)
         .untilBackgroundThreadCondition(() -> videoRenderer.getState() == Renderer.STATE_ENABLED);
     @Renderer.State int videoState1 = videoRenderer.getState();
     @Renderer.State int secondaryVideoState1 = secondaryVideoRenderer.getState();
     // Remove pre-warming media item.
     player.removeMediaItem(2);
-    run(player).untilPendingCommandsAreFullyHandled();
-    run(player)
+    advance(player).untilPendingCommandsAreFullyHandled();
+    advance(player)
         .untilBackgroundThreadCondition(
             () -> secondaryVideoRenderer.getState() == Renderer.STATE_ENABLED);
     @Renderer.State int videoState2 = videoRenderer.getState();
@@ -999,15 +999,15 @@ public class ExoPlayerWithPrewarmingRenderersTest {
     player.prepare();
 
     // Play a bit until the second renderer is started.
-    run(player).untilStartOfMediaItem(/* mediaItemIndex= */ 1);
-    run(player).untilPendingCommandsAreFullyHandled();
+    advance(player).untilStartOfMediaItem(/* mediaItemIndex= */ 1);
+    advance(player).untilPendingCommandsAreFullyHandled();
     @Renderer.State int videoState1 = videoRenderer.getState();
     @Renderer.State int secondaryVideoState1 = secondaryVideoRenderer.getState();
     // Replace media item past pre-warming period.
     player.replaceMediaItem(
         3,
         new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT).getMediaItem());
-    run(player).untilPendingCommandsAreFullyHandled();
+    advance(player).untilPendingCommandsAreFullyHandled();
     @Renderer.State int videoState2 = videoRenderer.getState();
     @Renderer.State int secondaryVideoState2 = secondaryVideoRenderer.getState();
     player.release();
@@ -1044,15 +1044,15 @@ public class ExoPlayerWithPrewarmingRenderersTest {
     player.prepare();
 
     // Play a bit until the primary renderer is pre-warming.
-    run(player).untilStartOfMediaItem(/* mediaItemIndex= */ 1);
-    run(player).untilPendingCommandsAreFullyHandled();
+    advance(player).untilStartOfMediaItem(/* mediaItemIndex= */ 1);
+    advance(player).untilPendingCommandsAreFullyHandled();
     @Renderer.State int videoState1 = videoRenderer.getState();
     @Renderer.State int secondaryVideoState1 = secondaryVideoRenderer.getState();
     // Replace pre-warming media item.
     player.replaceMediaItem(
         2,
         new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT).getMediaItem());
-    run(player).untilPendingCommandsAreFullyHandled();
+    advance(player).untilPendingCommandsAreFullyHandled();
     @Renderer.State int videoState2 = videoRenderer.getState();
     @Renderer.State int secondaryVideoState2 = secondaryVideoRenderer.getState();
     player.release();
@@ -1094,15 +1094,15 @@ public class ExoPlayerWithPrewarmingRenderersTest {
 
     // Play a bit until the second renderer is started and primary is pre-warming.
     player.play();
-    run(player)
+    advance(player)
         .untilBackgroundThreadCondition(
             () -> secondaryVideoRenderer.getState() == Renderer.STATE_STARTED);
-    run(player)
+    advance(player)
         .untilBackgroundThreadCondition(() -> videoRenderer.getState() == Renderer.STATE_ENABLED);
     @Renderer.State int videoState1 = videoRenderer.getState();
     @Renderer.State int secondaryVideoState1 = secondaryVideoRenderer.getState();
     player.setRepeatMode(REPEAT_MODE_ONE);
-    run(player).untilPendingCommandsAreFullyHandled();
+    advance(player).untilPendingCommandsAreFullyHandled();
     @Renderer.State int videoState2 = videoRenderer.getState();
     @Renderer.State int secondaryVideoState2 = secondaryVideoRenderer.getState();
     player.release();
@@ -1140,9 +1140,9 @@ public class ExoPlayerWithPrewarmingRenderersTest {
     player.prepare();
 
     // Play a bit until the second renderer is enabled and throws errors.
-    run(player).untilState(Player.STATE_READY);
+    advance(player).untilState(Player.STATE_READY);
     player.play();
-    run(player).untilPendingCommandsAreFullyHandled();
+    advance(player).untilPendingCommandsAreFullyHandled();
     @Renderer.State int videoState = videoRenderer.getState();
     @Renderer.State int secondaryVideoState = secondaryVideoRenderer.getState();
     player.release();
@@ -1179,17 +1179,17 @@ public class ExoPlayerWithPrewarmingRenderersTest {
     player.prepare();
 
     // Play a bit until the second renderer is enabled and throws error.
-    run(player).untilState(Player.STATE_READY);
+    advance(player).untilState(Player.STATE_READY);
     player.play();
-    run(player).untilPendingCommandsAreFullyHandled();
+    advance(player).untilPendingCommandsAreFullyHandled();
     @Renderer.State int videoState1 = videoRenderer.getState();
     @Renderer.State int secondaryVideoState1 = secondaryVideoRenderer.getState();
     assertThat(attemptedRenderWithSecondaryRenderer.get()).isTrue();
 
     attemptedRenderWithSecondaryRenderer.set(false);
     // Play a bit so that primary renderer is enabled on second media item.
-    run(player).untilStartOfMediaItem(/* mediaItemIndex= */ 1);
-    run(player).untilPendingCommandsAreFullyHandled();
+    advance(player).untilStartOfMediaItem(/* mediaItemIndex= */ 1);
+    advance(player).untilPendingCommandsAreFullyHandled();
     @Renderer.State int videoState2 = videoRenderer.getState();
     @Renderer.State int secondaryVideoState2 = secondaryVideoRenderer.getState();
     player.release();
@@ -1229,16 +1229,16 @@ public class ExoPlayerWithPrewarmingRenderersTest {
     player.prepare();
 
     // Play a bit until the second renderer is enabled and throws error.
-    run(player).untilState(Player.STATE_READY);
+    advance(player).untilState(Player.STATE_READY);
     player.play();
-    run(player).untilBackgroundThreadCondition(attemptedRenderWithSecondaryRenderer::get);
+    advance(player).untilBackgroundThreadCondition(attemptedRenderWithSecondaryRenderer::get);
     @Renderer.State int videoState1 = videoRenderer.getState();
     @Renderer.State int secondaryVideoState1 = secondaryVideoRenderer.getState();
     assertThat(attemptedRenderWithSecondaryRenderer.get()).isTrue();
 
     shouldSecondaryRendererThrow.set(false);
-    run(player).untilStartOfMediaItem(/* mediaItemIndex= */ 1);
-    run(player).untilPendingCommandsAreFullyHandled();
+    advance(player).untilStartOfMediaItem(/* mediaItemIndex= */ 1);
+    advance(player).untilPendingCommandsAreFullyHandled();
     @Renderer.State int videoState2 = videoRenderer.getState();
     @Renderer.State int secondaryVideoState2 = secondaryVideoRenderer.getState();
     player.release();
@@ -1278,19 +1278,19 @@ public class ExoPlayerWithPrewarmingRenderersTest {
     player.prepare();
 
     // Play a bit until the second renderer is started.
-    run(player).untilState(Player.STATE_READY);
+    advance(player).untilState(Player.STATE_READY);
     player.play();
-    run(player).untilPendingCommandsAreFullyHandled();
+    advance(player).untilPendingCommandsAreFullyHandled();
     @Renderer.State int videoState1 = videoRenderer.getState();
     @Renderer.State int secondaryVideoState1 = secondaryVideoRenderer.getState();
     assertThat(attemptedRenderWithSecondaryRenderer.get()).isTrue();
-    run(player).untilPosition(/* mediaItemIndex= */ 0, /* positionMs= */ 500);
-    run(player).untilPendingCommandsAreFullyHandled();
+    advance(player).untilPosition(/* mediaItemIndex= */ 0, /* positionMs= */ 500);
+    advance(player).untilPendingCommandsAreFullyHandled();
     @Renderer.State int videoState2 = videoRenderer.getState();
     @Renderer.State int secondaryVideoState2 = secondaryVideoRenderer.getState();
     shouldSecondaryRendererThrow.set(false);
-    run(player).untilPosition(/* mediaItemIndex= */ 1, /* positionMs= */ 500);
-    run(player).untilPendingCommandsAreFullyHandled();
+    advance(player).untilPosition(/* mediaItemIndex= */ 1, /* positionMs= */ 500);
+    advance(player).untilPendingCommandsAreFullyHandled();
     @Renderer.State int videoState3 = videoRenderer.getState();
     @Renderer.State int secondaryVideoState3 = secondaryVideoRenderer.getState();
     player.release();
@@ -1361,17 +1361,17 @@ public class ExoPlayerWithPrewarmingRenderersTest {
 
     // Play a bit until the second renderer is pre-warming.
     player.play();
-    run(player)
+    advance(player)
         .untilBackgroundThreadCondition(
             () -> secondaryVideoRenderer.getState() == Renderer.STATE_ENABLED);
     @Renderer.State int videoState1 = videoRenderer.getState();
     @Renderer.State int secondaryVideoState1 = secondaryVideoRenderer.getState();
-    run(player)
+    advance(player)
         .untilBackgroundThreadCondition(() -> videoRenderer.getState() == Renderer.STATE_ENABLED);
     @Renderer.State int videoState2 = videoRenderer.getState();
     @Renderer.State int secondaryVideoState2 = secondaryVideoRenderer.getState();
     shouldPrimaryRendererThrow.set(true);
-    run(player)
+    advance(player)
         .untilBackgroundThreadCondition(() -> videoRenderer.getState() == Renderer.STATE_DISABLED);
     @Renderer.State int videoState3 = videoRenderer.getState();
     @Renderer.State int secondaryVideoState3 = secondaryVideoRenderer.getState();
@@ -1442,22 +1442,22 @@ public class ExoPlayerWithPrewarmingRenderersTest {
     player.prepare();
 
     // Play a bit until the second renderer is enabled.
-    run(player).untilState(Player.STATE_READY);
+    advance(player).untilState(Player.STATE_READY);
     player.play();
-    run(player).untilPendingCommandsAreFullyHandled();
+    advance(player).untilPendingCommandsAreFullyHandled();
     @Renderer.State int videoState1 = videoRenderer.getState();
     @Renderer.State int secondaryVideoState1 = secondaryVideoRenderer.getState();
     // Force primary renderer to error, killing playback.
     shouldPrimaryRendererThrow.set(true);
-    run(player).untilPlayerError();
+    advance(player).untilPlayerError();
     @Renderer.State int videoState2 = videoRenderer.getState();
     @Renderer.State int secondaryVideoState2 = secondaryVideoRenderer.getState();
     // Restart playback with primary renderer functioning properly.
     shouldPrimaryRendererThrow.set(false);
     player.prepare();
     player.play();
-    run(player).untilPosition(/* mediaItemIndex= */ 0, /* positionMs= */ 500);
-    run(player).untilPendingCommandsAreFullyHandled();
+    advance(player).untilPosition(/* mediaItemIndex= */ 0, /* positionMs= */ 500);
+    advance(player).untilPendingCommandsAreFullyHandled();
     @Renderer.State int videoState3 = videoRenderer.getState();
     @Renderer.State int secondaryVideoState3 = secondaryVideoRenderer.getState();
     player.release();
@@ -1499,8 +1499,8 @@ public class ExoPlayerWithPrewarmingRenderersTest {
     player.prepare();
 
     // Play a bit until on second media item and the primary renderer is pre-warming.
-    run(player).untilStartOfMediaItem(/* mediaItemIndex= */ 1);
-    run(player).untilPendingCommandsAreFullyHandled();
+    advance(player).untilStartOfMediaItem(/* mediaItemIndex= */ 1);
+    advance(player).untilPendingCommandsAreFullyHandled();
     @Renderer.State int videoState1 = videoRenderer.getState();
     @Renderer.State int secondaryVideoState1 = secondaryVideoRenderer.getState();
     // Force secondary renderer to error, killing playback.
@@ -1510,7 +1510,7 @@ public class ExoPlayerWithPrewarmingRenderersTest {
     shouldSecondaryRendererThrow.set(false);
     player.prepare();
     // Play until secondary renderer is pre-warming.
-    run(player)
+    advance(player)
         .untilBackgroundThreadCondition(
             () -> secondaryVideoRenderer.getState() == Renderer.STATE_ENABLED);
     @Renderer.State int videoState2 = videoRenderer.getState();

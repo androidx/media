@@ -211,7 +211,7 @@ public class CompositionPlayerTest {
 
     player.setComposition(buildComposition());
     player.prepare();
-    TestPlayerRunHelper.run(player).untilState(Player.STATE_READY);
+    TestPlayerRunHelper.advance(player).untilState(Player.STATE_READY);
 
     player.release();
 
@@ -838,7 +838,7 @@ public class CompositionPlayerTest {
     player.play();
 
     player.seekTo(/* positionMs= */ 1100);
-    TestPlayerRunHelper.run(player).untilState(Player.STATE_ENDED);
+    TestPlayerRunHelper.advance(player).untilState(Player.STATE_ENDED);
     player.release();
   }
 

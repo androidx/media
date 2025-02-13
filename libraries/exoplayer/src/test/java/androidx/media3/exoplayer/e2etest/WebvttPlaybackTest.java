@@ -15,8 +15,8 @@
  */
 package androidx.media3.exoplayer.e2etest;
 
+import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.play;
-import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.run;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
@@ -97,10 +97,10 @@ public class WebvttPlaybackTest {
 
     player.setMediaItem(mediaItem);
     player.prepare();
-    run(player).untilState(Player.STATE_READY);
-    run(player).untilFullyBuffered();
+    advance(player).untilState(Player.STATE_READY);
+    advance(player).untilFullyBuffered();
     player.play();
-    run(player).untilState(Player.STATE_ENDED);
+    advance(player).untilState(Player.STATE_ENDED);
     player.release();
     surface.release();
 
@@ -140,15 +140,15 @@ public class WebvttPlaybackTest {
     // Play media fully (with back buffer) to ensure we have all the segment data available.
     player.setMediaItem(mediaItem);
     player.prepare();
-    run(player).untilState(Player.STATE_READY);
-    run(player).untilFullyBuffered();
+    advance(player).untilState(Player.STATE_READY);
+    advance(player).untilFullyBuffered();
     player.play();
-    run(player).untilState(Player.STATE_ENDED);
+    advance(player).untilState(Player.STATE_ENDED);
 
     // Seek back to within first subtitle.
     player.seekTo(1000);
     player.play();
-    run(player).untilState(Player.STATE_ENDED);
+    advance(player).untilState(Player.STATE_ENDED);
     player.release();
     surface.release();
 
@@ -365,7 +365,7 @@ public class WebvttPlaybackTest {
       }
       player.pause();
       player.play();
-      run(player).untilPendingCommandsAreFullyHandled();
+      advance(player).untilPendingCommandsAreFullyHandled();
     }
     if (player.getPlayerError() != null) {
       throw player.getPlayerError();

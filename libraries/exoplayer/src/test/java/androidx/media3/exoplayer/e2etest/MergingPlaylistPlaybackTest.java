@@ -15,7 +15,7 @@
  */
 package androidx.media3.exoplayer.e2etest;
 
-import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.run;
+import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
@@ -108,7 +108,7 @@ public final class MergingPlaylistPlaybackTest {
     player.prepare();
     // Load all content prior to play to reduce flaky-ness resulting from the playback advancement
     // speed and handling of discontinuities.
-    run(player).untilFullyBuffered();
+    advance(player).untilFullyBuffered();
     // Reset the listener to avoid verifying the onIsLoadingChanged events from prepare().
     reset(listener);
     player.play();
@@ -154,7 +154,7 @@ public final class MergingPlaylistPlaybackTest {
     player.prepare();
     // Load all content prior to play to reduce flaky-ness resulting from the playback advancement
     // speed and handling of discontinuities.
-    run(player).untilFullyBuffered();
+    advance(player).untilFullyBuffered();
     // Reset the listener to avoid verifying the onIsLoadingChanged events from prepare().
     reset(listener);
     player.play();

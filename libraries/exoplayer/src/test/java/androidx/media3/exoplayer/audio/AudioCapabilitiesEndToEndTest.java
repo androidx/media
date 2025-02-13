@@ -19,7 +19,7 @@ import static android.media.AudioFormat.CHANNEL_OUT_5POINT1;
 import static android.media.AudioFormat.CHANNEL_OUT_STEREO;
 import static android.media.AudioFormat.ENCODING_AC3;
 import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.run;
+import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -143,7 +143,7 @@ public class AudioCapabilitiesEndToEndTest {
     player.addListener(listener);
 
     player.play();
-    run(player).ignoringNonFatalErrors().untilState(Player.STATE_ENDED);
+    advance(player).ignoringNonFatalErrors().untilState(Player.STATE_ENDED);
     player.release();
 
     ArgumentCaptor<Tracks> tracks = ArgumentCaptor.forClass(Tracks.class);
@@ -207,7 +207,7 @@ public class AudioCapabilitiesEndToEndTest {
     player.addAnalyticsListener(createAnalyticsListener());
 
     player.play();
-    run(player).ignoringNonFatalErrors().untilState(Player.STATE_ENDED);
+    advance(player).ignoringNonFatalErrors().untilState(Player.STATE_ENDED);
     player.release();
 
     // We expect to start playing audio via passthrough and mid-playback switch to a local decoder.

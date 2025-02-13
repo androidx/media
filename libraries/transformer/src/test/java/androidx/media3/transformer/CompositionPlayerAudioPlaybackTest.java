@@ -75,7 +75,7 @@ public final class CompositionPlayerAudioPlaybackTest {
     player.setComposition(composition);
     player.prepare();
     player.play();
-    TestPlayerRunHelper.run(player).untilState(Player.STATE_ENDED);
+    TestPlayerRunHelper.advance(player).untilState(Player.STATE_ENDED);
     player.release();
 
     DumpFileAsserts.assertOutput(
@@ -105,7 +105,7 @@ public final class CompositionPlayerAudioPlaybackTest {
     player.setComposition(composition);
     player.prepare();
     player.play();
-    TestPlayerRunHelper.run(player).untilState(Player.STATE_ENDED);
+    TestPlayerRunHelper.advance(player).untilState(Player.STATE_ENDED);
     player.release();
 
     DumpFileAsserts.assertOutput(
@@ -132,7 +132,7 @@ public final class CompositionPlayerAudioPlaybackTest {
     player.setComposition(composition);
     player.prepare();
     player.play();
-    TestPlayerRunHelper.run(player).untilState(Player.STATE_ENDED);
+    TestPlayerRunHelper.advance(player).untilState(Player.STATE_ENDED);
     player.release();
 
     DumpFileAsserts.assertOutput(
@@ -157,7 +157,7 @@ public final class CompositionPlayerAudioPlaybackTest {
     player.setComposition(composition);
     player.prepare();
     player.play();
-    TestPlayerRunHelper.run(player).untilState(Player.STATE_ENDED);
+    TestPlayerRunHelper.advance(player).untilState(Player.STATE_ENDED);
     player.release();
 
     DumpFileAsserts.assertOutput(
@@ -199,7 +199,7 @@ public final class CompositionPlayerAudioPlaybackTest {
     player.setComposition(composition);
     player.prepare();
     player.play();
-    TestPlayerRunHelper.run(player).untilState(Player.STATE_ENDED);
+    TestPlayerRunHelper.advance(player).untilState(Player.STATE_ENDED);
     player.release();
 
     DumpFileAsserts.assertOutput(
@@ -496,7 +496,7 @@ public final class CompositionPlayerAudioPlaybackTest {
     player.seekTo(/* positionMs= */ 500);
     player.prepare();
     player.play();
-    TestPlayerRunHelper.run(player).untilState(Player.STATE_ENDED);
+    TestPlayerRunHelper.advance(player).untilState(Player.STATE_ENDED);
     player.release();
 
     DumpFileAsserts.assertOutput(
@@ -525,7 +525,7 @@ public final class CompositionPlayerAudioPlaybackTest {
     player.seekTo(/* positionMs= */ 1200);
     player.prepare();
     player.play();
-    TestPlayerRunHelper.run(player).untilState(Player.STATE_ENDED);
+    TestPlayerRunHelper.advance(player).untilState(Player.STATE_ENDED);
     player.release();
 
     DumpFileAsserts.assertOutput(
@@ -557,7 +557,7 @@ public final class CompositionPlayerAudioPlaybackTest {
     player.seekTo(/* positionMs= */ 500);
     player.prepare();
     player.play();
-    TestPlayerRunHelper.run(player).untilState(Player.STATE_ENDED);
+    TestPlayerRunHelper.advance(player).untilState(Player.STATE_ENDED);
     player.release();
 
     DumpFileAsserts.assertOutput(
@@ -599,7 +599,7 @@ public final class CompositionPlayerAudioPlaybackTest {
     player.seekTo(/* positionMs= */ 800);
     player.prepare();
     player.play();
-    TestPlayerRunHelper.run(player).untilState(Player.STATE_ENDED);
+    TestPlayerRunHelper.advance(player).untilState(Player.STATE_ENDED);
     player.release();
 
     DumpFileAsserts.assertOutput(

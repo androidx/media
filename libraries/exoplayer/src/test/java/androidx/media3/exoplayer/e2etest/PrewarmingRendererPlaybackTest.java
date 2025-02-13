@@ -15,7 +15,7 @@
  */
 package androidx.media3.exoplayer.e2etest;
 
-import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.run;
+import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
 
 import android.content.Context;
 import android.graphics.SurfaceTexture;
@@ -165,7 +165,7 @@ public class PrewarmingRendererPlaybackTest {
     player.prepare();
     player.play();
 
-    run(player).untilStartOfMediaItem(1);
+    advance(player).untilStartOfMediaItem(1);
 
     // Stop and reset player to simulate stop, reset, and transition back to using primary.
     player.stop();
