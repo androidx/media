@@ -120,6 +120,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
     private @MonotonicNonNull AudioSink audioSink;
     private MediaSource.Factory mediaSourceFactory;
     private ImageDecoder.Factory imageDecoderFactory;
+    private boolean videoPrewarmingEnabled;
     private Clock clock;
     private PreviewingVideoGraph.@MonotonicNonNull Factory previewingVideoGraphFactory;
     private boolean built;
@@ -133,6 +134,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
       this.context = context.getApplicationContext();
       mediaSourceFactory = new DefaultMediaSourceFactory(context);
       imageDecoderFactory = ImageDecoder.Factory.DEFAULT;
+      videoPrewarmingEnabled = true;
       clock = Clock.DEFAULT;
     }
 
@@ -194,6 +196,22 @@ public final class CompositionPlayer extends SimpleBasePlayer
     @CanIgnoreReturnValue
     public Builder setImageDecoderFactory(ImageDecoder.Factory imageDecoderFactory) {
       this.imageDecoderFactory = imageDecoderFactory;
+      return this;
+    }
+
+    /**
+     * Sets whether to enable prewarming of the video renderers.
+     *
+     * <p>The default value is {@code true}.
+     *
+     * @param videoPrewarmingEnabled Whether to enable video prewarming.
+     * @return This builder, for convenience.
+     */
+    @VisibleForTesting
+    @CanIgnoreReturnValue
+    /* package */ Builder setVideoPrewarmingEnabled(boolean videoPrewarmingEnabled) {
+      // TODO: b/369817794 - Remove this setter once the tests are run on a device with API < 23.
+      this.videoPrewarmingEnabled = videoPrewarmingEnabled;
       return this;
     }
 
@@ -291,6 +309,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
   private final MediaSource.Factory mediaSourceFactory;
   private final ImageDecoder.Factory imageDecoderFactory;
   private final PreviewingVideoGraph.Factory previewingVideoGraphFactory;
+  private final boolean videoPrewarmingEnabled;
   private final HandlerWrapper compositionInternalListenerHandler;
 
   /** Maps from input index to whether the video track is selected in that sequence. */
@@ -331,6 +350,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
     mediaSourceFactory = builder.mediaSourceFactory;
     imageDecoderFactory = builder.imageDecoderFactory;
     previewingVideoGraphFactory = checkNotNull(builder.previewingVideoGraphFactory);
+    videoPrewarmingEnabled = builder.videoPrewarmingEnabled;
     compositionInternalListenerHandler = clock.createHandler(builder.looper, /* callback= */ null);
     videoTracksSelected = new SparseBooleanArray();
     players = new ArrayList<>();
@@ -728,7 +748,8 @@ public final class CompositionPlayer extends SimpleBasePlayer
               imageDecoderFactory,
               /* inputIndex= */ i,
               /* requestToneMapping= */ composition.hdrMode
-                  == Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_MEDIACODEC);
+                  == Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_MEDIACODEC,
+              videoPrewarmingEnabled);
 
       ExoPlayer.Builder playerBuilder =
           new ExoPlayer.Builder(context)

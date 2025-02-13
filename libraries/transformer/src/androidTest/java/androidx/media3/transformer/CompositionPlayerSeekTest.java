@@ -803,13 +803,49 @@ public class CompositionPlayerSeekTest {
     assertThat(actualTimestampsUs).isEqualTo(expectedTimestampsUs);
   }
 
+  @Test
+  public void
+      seekToSecondVideo_duringPlayingFirstVideoInSingleSequenceOfTwoVideosWithPrewarmingDisabled()
+          throws Exception {
+    assumeFalse(
+        "Skipped due to failing audio decoder", isRunningOnEmulator() && Util.SDK_INT == 31);
+    ImmutableList<MediaItemConfig> mediaItems =
+        ImmutableList.of(VIDEO_MEDIA_ITEM, VIDEO_MEDIA_ITEM);
+    int numberOfFramesBeforeSeeking = 15;
+    // 100ms into the second video, should skip the first 3 frames.
+    long seekTimeMs = 1124;
+    ImmutableList<Long> expectedTimestampsUs =
+        new ImmutableList.Builder<Long>()
+            // Plays the first 15 frames of the first video
+            .addAll(
+                Iterables.limit(VIDEO_TIMESTAMPS_US, /* limitSize= */ numberOfFramesBeforeSeeking))
+            // Skipping the first 3 frames of the second video
+            .addAll(
+                transform(
+                    Iterables.skip(VIDEO_TIMESTAMPS_US, /* numberToSkip= */ 3),
+                    timestampUs -> (VIDEO_DURATION_US + timestampUs)))
+            .build();
+
+    ImmutableList<Long> actualTimestampsUs =
+        playSequenceAndGetTimestampsUs(
+            mediaItems,
+            numberOfFramesBeforeSeeking,
+            seekTimeMs,
+            /* videoPrewarmingEnabled= */ false);
+
+    assertThat(actualTimestampsUs).isEqualTo(expectedTimestampsUs);
+  }
+
   /**
    * Plays the first {@code numberOfFramesBeforeSeeking} frames of the provided sequence, seeks to
    * {@code seekTimeMs}, resumes playback until it ends, and returns the timestamps of the processed
    * frames, in microsecond.
    */
   private ImmutableList<Long> playSequenceAndGetTimestampsUs(
-      List<MediaItemConfig> mediaItems, int numberOfFramesBeforeSeeking, long seekTimeMs)
+      List<MediaItemConfig> mediaItems,
+      int numberOfFramesBeforeSeeking,
+      long seekTimeMs,
+      boolean videoPrewarmingEnabled)
       throws Exception {
     ResettableCountDownLatch frameCountBeforeBlockLatch =
         new ResettableCountDownLatch(numberOfFramesBeforeSeeking);
@@ -834,6 +870,7 @@ public class CompositionPlayerSeekTest {
                   new CompositionPlayer.Builder(applicationContext)
                       .setPreviewingVideoGraphFactory(
                           new ListenerCapturingVideoGraphFactory(videoGraphEnded))
+                      .setVideoPrewarmingEnabled(videoPrewarmingEnabled)
                       .build();
               // Set a surface on the player even though there is no UI on this test. We need a
               // surface otherwise the player will skip/drop video frames.
@@ -867,6 +904,18 @@ public class CompositionPlayerSeekTest {
 
     assertThat(videoGraphEnded.await(VIDEO_GRAPH_END_TIMEOUT_MS, MILLISECONDS)).isTrue();
     return inputTimestampRecordingShaderProgram.getInputTimestampsUs();
+  }
+
+  /**
+   * Plays the first {@code numberOfFramesBeforeSeeking} frames of the provided sequence, seeks to
+   * {@code seekTimeMs}, resumes playback until it ends, and returns the timestamps of the processed
+   * frames, in microsecond.
+   */
+  private ImmutableList<Long> playSequenceAndGetTimestampsUs(
+      List<MediaItemConfig> mediaItems, int numberOfFramesBeforeSeeking, long seekTimeMs)
+      throws Exception {
+    return playSequenceAndGetTimestampsUs(
+        mediaItems, numberOfFramesBeforeSeeking, seekTimeMs, /* videoPrewarmingEnabled= */ true);
   }
 
   /**

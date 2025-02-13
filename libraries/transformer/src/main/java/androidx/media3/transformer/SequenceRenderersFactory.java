@@ -73,6 +73,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   @Nullable private final ImageDecoder.Factory imageDecoderFactory;
   private final int inputIndex;
   private final boolean requestToneMapping;
+  private final boolean videoPrewarmingEnabled;
 
   /** Creates a renderers factory for a player that will play video, image and audio. */
   public static SequenceRenderersFactory create(
@@ -82,7 +83,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       VideoSink videoSink,
       ImageDecoder.Factory imageDecoderFactory,
       int inputIndex,
-      boolean requestToneMapping) {
+      boolean requestToneMapping,
+      boolean videoPrewarmingEnabled) {
     return new SequenceRenderersFactory(
         context,
         sequence,
@@ -90,7 +92,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         videoSink,
         imageDecoderFactory,
         inputIndex,
-        requestToneMapping);
+        requestToneMapping,
+        videoPrewarmingEnabled);
   }
 
   private SequenceRenderersFactory(
@@ -100,7 +103,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       @Nullable VideoSink videoSink,
       @Nullable ImageDecoder.Factory imageDecoderFactory,
       int inputIndex,
-      boolean requestToneMapping) {
+      boolean requestToneMapping,
+      boolean videoPrewarmingEnabled) {
     this.context = context;
     this.sequence = sequence;
     this.playbackAudioGraphWrapper = playbackAudioGraphWrapper;
@@ -108,6 +112,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.imageDecoderFactory = imageDecoderFactory;
     this.inputIndex = inputIndex;
     this.requestToneMapping = requestToneMapping;
+    this.videoPrewarmingEnabled = videoPrewarmingEnabled;
   }
 
   @Override
@@ -206,8 +211,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   @ChecksSdkIntAtLeast(api = 23)
-  private static boolean isVideoPrewarmingEnabled() {
-    return SDK_INT >= 23;
+  private boolean isVideoPrewarmingEnabled() {
+    return videoPrewarmingEnabled && SDK_INT >= 23;
   }
 
   private static final class SequenceAudioRenderer extends MediaCodecAudioRenderer {
