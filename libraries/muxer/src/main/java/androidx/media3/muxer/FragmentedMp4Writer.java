@@ -115,6 +115,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final boolean sampleCopyEnabled;
   private final @Mp4Muxer.LastSampleDurationBehavior int lastSampleDurationBehavior;
   private final List<Track> tracks;
+  private final LinearByteBufferAllocator linearByteBufferAllocator;
 
   private @MonotonicNonNull Track videoTrack;
   private int currentFragmentSequenceNumber;
@@ -151,6 +152,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     tracks = new ArrayList<>();
     minInputPresentationTimeUs = Long.MAX_VALUE;
     currentFragmentSequenceNumber = 1;
+    linearByteBufferAllocator = new LinearByteBufferAllocator(/* initialCapacity= */ 0);
   }
 
   public Track addTrack(int sortKey, Format format) {
@@ -325,6 +327,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         outputChannel.write(currentTrackInfo.pendingSamplesByteBuffer.get(sampleIndex));
       }
     }
+    linearByteBufferAllocator.reset();
   }
 
   private ImmutableList<ProcessedTrackInfo> processAllTracks() {
@@ -346,7 +349,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     if (doesSampleContainAnnexBNalUnits(checkNotNull(track.format.sampleMimeType))) {
       while (!track.pendingSamplesByteBuffer.isEmpty()) {
         ByteBuffer currentSampleByteBuffer = track.pendingSamplesByteBuffer.removeFirst();
-        currentSampleByteBuffer = annexBToAvccConverter.process(currentSampleByteBuffer);
+        currentSampleByteBuffer =
+            annexBToAvccConverter.process(currentSampleByteBuffer, linearByteBufferAllocator);
         pendingSamplesByteBuffer.add(currentSampleByteBuffer);
         BufferInfo currentSampleBufferInfo = track.pendingSamplesBufferInfo.removeFirst();
         currentSampleBufferInfo.set(

@@ -57,6 +57,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
   private final List<Track> tracks;
   private final List<Track> auxiliaryTracks;
   private final AtomicBoolean hasWrittenSamples;
+  private final LinearByteBufferAllocator linearByteBufferAllocator;
 
   // Stores location of the space reserved for the moov box at the beginning of the file (after ftyp
   // box)
@@ -106,6 +107,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
     canWriteMoovAtStart = attemptStreamableOutputEnabled;
     lastMoovWritten = Range.closed(0L, 0L);
     lastMoovWrittenAtSampleTimestampUs = 0L;
+    linearByteBufferAllocator = new LinearByteBufferAllocator(/* initialCapacity= */ 0);
   }
 
   /**
@@ -459,7 +461,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
       // Convert the H.264/H.265 samples from Annex-B format (output by MediaCodec) to
       // Avcc format (required by MP4 container).
       if (doesSampleContainAnnexBNalUnits(checkNotNull(track.format.sampleMimeType))) {
-        currentSampleByteBuffer = annexBToAvccConverter.process(currentSampleByteBuffer);
+        currentSampleByteBuffer =
+            annexBToAvccConverter.process(currentSampleByteBuffer, linearByteBufferAllocator);
         currentSampleBufferInfo.set(
             currentSampleByteBuffer.position(),
             currentSampleByteBuffer.remaining(),
@@ -472,6 +475,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
       maybeExtendMdatAndRewriteMoov(currentSampleByteBuffer.remaining());
 
       mdatDataEnd += outputFileChannel.write(currentSampleByteBuffer, mdatDataEnd);
+      linearByteBufferAllocator.reset();
       track.writtenSamples.add(currentSampleBufferInfo);
     } while (!track.pendingSamplesBufferInfo.isEmpty());
     checkState(mdatDataEnd <= mdatEnd);
