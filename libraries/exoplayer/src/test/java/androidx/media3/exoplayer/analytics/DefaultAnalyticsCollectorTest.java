@@ -135,6 +135,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Test;
@@ -2092,7 +2093,7 @@ public final class DefaultAnalyticsCollectorTest {
     }
   }
 
-  private static ExoPlayer setupPlayer() {
+  private static ExoPlayer setupPlayer() throws TimeoutException {
     Clock clock = new FakeClock(/* isAutoAdvancing= */ true);
     return setupPlayer(
         /* renderersFactory= */ (eventHandler,
@@ -2110,11 +2111,12 @@ public final class DefaultAnalyticsCollectorTest {
         clock);
   }
 
-  private static ExoPlayer setupPlayer(RenderersFactory renderersFactory) {
+  private static ExoPlayer setupPlayer(RenderersFactory renderersFactory) throws TimeoutException {
     return setupPlayer(renderersFactory, new FakeClock(/* isAutoAdvancing= */ true));
   }
 
-  private static ExoPlayer setupPlayer(RenderersFactory renderersFactory, Clock clock) {
+  private static ExoPlayer setupPlayer(RenderersFactory renderersFactory, Clock clock)
+      throws TimeoutException {
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 0));
     ExoPlayer player =
         new TestExoPlayerBuilder(ApplicationProvider.getApplicationContext())
@@ -2122,6 +2124,7 @@ public final class DefaultAnalyticsCollectorTest {
             .setRenderersFactory(renderersFactory)
             .build();
     player.setVideoSurface(surface);
+    advance(player).untilPendingCommandsAreFullyHandled();
     return player;
   }
 

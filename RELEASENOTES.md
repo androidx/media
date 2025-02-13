@@ -6,6 +6,10 @@
     *   Upgrade Kotlin from 1.9.20 to 2.0.20 and use Compose Compiler Gradle
         plugin. Upgrade KotlinX Coroutines library from 1.8.1 to 1.9.0.
 *   ExoPlayer:
+    *   Initial audio session id is no longer immediately available after
+        creating the player. You can use
+        `AnalyticsListener.onAudioSessionIdChanged` to listen to the initial
+        update if required.
 *   Transformer:
     *   Add `MediaProjectionAssetLoader`, which provides media from a
         `MediaProjection` for screen recording, and add support for screen

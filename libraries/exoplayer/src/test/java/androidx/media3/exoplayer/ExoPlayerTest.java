@@ -7276,6 +7276,7 @@ public class ExoPlayerTest {
             .build();
     player.setRepeatMode(Player.REPEAT_MODE_ONE);
     player.setMediaSource(mediaSource);
+    advance(player).untilPendingCommandsAreFullyHandled();
 
     player.prepare();
     advance(player).untilPendingCommandsAreFullyHandled();
@@ -12440,6 +12441,7 @@ public class ExoPlayerTest {
   @Test
   public void onEvents_correspondToListenerCalls() throws Exception {
     ExoPlayer player = parameterizeTestExoPlayerBuilder(new TestExoPlayerBuilder(context)).build();
+    advance(player).untilPendingCommandsAreFullyHandled();
     Player.Listener listener = mock(Player.Listener.class);
     player.addListener(listener);
     Format formatWithStaticMetadata =
@@ -16300,6 +16302,58 @@ public class ExoPlayerTest {
     player.release();
 
     assertThat(reportedSpeedChanges).containsExactly(2f, 1.5f, 1f).inOrder();
+  }
+
+  @Test
+  public void builderBuild_createsInitialAudioSessionId() throws Exception {
+    ExoPlayer player = new ExoPlayer.Builder(context).build();
+    Player.Listener listener = mock(Player.Listener.class);
+    player.addListener(listener);
+
+    int audioSessionIdAfterBuild = player.getAudioSessionId();
+    advance(player).untilPendingCommandsAreFullyHandled();
+    int audioSessionIdAfterInit = player.getAudioSessionId();
+    player.release();
+
+    assertThat(audioSessionIdAfterBuild).isEqualTo(C.AUDIO_SESSION_ID_UNSET);
+    assertThat(audioSessionIdAfterInit).isNotEqualTo(C.AUDIO_SESSION_ID_UNSET);
+    verify(listener).onAudioSessionIdChanged(audioSessionIdAfterInit);
+  }
+
+  @Test
+  public void setAudioSessionId_withDefinedId_updatesGetterAndListener() throws Exception {
+    ExoPlayer player = new ExoPlayer.Builder(context).build();
+    Player.Listener listener = mock(Player.Listener.class);
+    player.addListener(listener);
+
+    player.setAudioSessionId(1234);
+    int audioSessionId = player.getAudioSessionId();
+    // Verify there are no further or duplicated updates.
+    advance(player).untilPendingCommandsAreFullyHandled();
+    int audioSessionIdAfterIdle = player.getAudioSessionId();
+    player.release();
+
+    assertThat(audioSessionId).isEqualTo(1234);
+    assertThat(audioSessionIdAfterIdle).isEqualTo(1234);
+    verify(listener).onAudioSessionIdChanged(anyInt());
+    verify(listener).onAudioSessionIdChanged(1234);
+  }
+
+  @Test
+  public void setAudioSessionId_withUndefinedId_updatesGetterAndListener() throws Exception {
+    ExoPlayer player = new ExoPlayer.Builder(context).build();
+    advance(player).untilPendingCommandsAreFullyHandled();
+    Player.Listener listener = mock(Player.Listener.class);
+    player.addListener(listener);
+
+    int initialAudioSessionId = player.getAudioSessionId();
+    player.setAudioSessionId(C.AUDIO_SESSION_ID_UNSET);
+    advance(player).untilPendingCommandsAreFullyHandled();
+    int audioSessionId = player.getAudioSessionId();
+    player.release();
+
+    assertThat(audioSessionId).isNotEqualTo(initialAudioSessionId);
+    verify(listener).onAudioSessionIdChanged(audioSessionId);
   }
 
   // Internal methods.

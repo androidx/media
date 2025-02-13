@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer;
 
+import static androidx.media3.common.C.AUDIO_SESSION_ID_UNSET;
 import static androidx.media3.common.C.TRACK_TYPE_AUDIO;
 import static androidx.media3.common.C.TRACK_TYPE_CAMERA_MOTION;
 import static androidx.media3.common.C.TRACK_TYPE_IMAGE;
@@ -82,6 +83,7 @@ import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.text.Cue;
 import androidx.media3.common.text.CueGroup;
+import androidx.media3.common.util.BackgroundThreadStateHandler;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.HandlerWrapper;
@@ -178,6 +180,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
   @Nullable private AudioManager audioManager;
   private final boolean suppressPlaybackOnUnsuitableOutput;
   @Nullable private final SuitableOutputChecker suitableOutputChecker;
+  private final BackgroundThreadStateHandler<Integer> audioSessionIdState;
 
   private @RepeatMode int repeatMode;
   private boolean shuffleModeEnabled;
@@ -205,7 +208,6 @@ import java.util.concurrent.CopyOnWriteArraySet;
   private Size surfaceSize;
   @Nullable private DecoderCounters videoDecoderCounters;
   @Nullable private DecoderCounters audioDecoderCounters;
-  private int audioSessionId;
   private AudioAttributes audioAttributes;
   private float volume;
   private boolean skipSilenceEnabled;
@@ -390,7 +392,6 @@ import java.util.concurrent.CopyOnWriteArraySet;
       playlistMetadata = MediaMetadata.EMPTY;
       staticAndDynamicMediaMetadata = MediaMetadata.EMPTY;
       maskingWindowIndex = C.INDEX_UNSET;
-      audioSessionId = Util.generateAudioSessionIdV21(applicationContext);
       currentCueGroup = CueGroup.EMPTY_TIME_ZERO;
       throwsWhenUsingWrongThread = true;
 
@@ -401,6 +402,17 @@ import java.util.concurrent.CopyOnWriteArraySet;
         internalPlayer.experimentalSetForegroundModeTimeoutMs(builder.foregroundModeTimeoutMs);
       }
 
+      audioSessionIdState =
+          new BackgroundThreadStateHandler<>(
+              AUDIO_SESSION_ID_UNSET,
+              playbackLooper,
+              applicationLooper,
+              clock,
+              /* onStateChanged= */ this::onAudioSessionIdChanged);
+      audioSessionIdState.runInBackground(
+          () ->
+              audioSessionIdState.setStateInBackground(
+                  Util.generateAudioSessionIdV21(applicationContext)));
       audioBecomingNoisyManager =
           new AudioBecomingNoisyManager(
               builder.context, playbackLooper, builder.looper, componentListener, clock);
@@ -440,8 +452,6 @@ import java.util.concurrent.CopyOnWriteArraySet;
       surfaceSize = Size.UNKNOWN;
 
       internalPlayer.setAudioAttributes(audioAttributes);
-      sendRendererMessage(TRACK_TYPE_AUDIO, MSG_SET_AUDIO_SESSION_ID, audioSessionId);
-      sendRendererMessage(TRACK_TYPE_VIDEO, MSG_SET_AUDIO_SESSION_ID, audioSessionId);
       sendRendererMessage(TRACK_TYPE_AUDIO, MSG_SET_AUDIO_ATTRIBUTES, audioAttributes);
       sendRendererMessage(TRACK_TYPE_VIDEO, MSG_SET_SCALING_MODE, videoScalingMode);
       sendRendererMessage(
@@ -1491,24 +1501,22 @@ import java.util.concurrent.CopyOnWriteArraySet;
   @Override
   public void setAudioSessionId(int audioSessionId) {
     verifyApplicationThread();
-    if (this.audioSessionId == audioSessionId) {
+    if (audioSessionIdState.get() == audioSessionId) {
       return;
     }
-    if (audioSessionId == C.AUDIO_SESSION_ID_UNSET) {
-      audioSessionId = Util.generateAudioSessionIdV21(applicationContext);
-    }
-    this.audioSessionId = audioSessionId;
-    sendRendererMessage(TRACK_TYPE_AUDIO, MSG_SET_AUDIO_SESSION_ID, audioSessionId);
-    sendRendererMessage(TRACK_TYPE_VIDEO, MSG_SET_AUDIO_SESSION_ID, audioSessionId);
-    int finalAudioSessionId = audioSessionId;
-    listeners.sendEvent(
-        EVENT_AUDIO_SESSION_ID, listener -> listener.onAudioSessionIdChanged(finalAudioSessionId));
+    audioSessionIdState.updateStateAsync(
+        /* placeholderState= */ previousId ->
+            audioSessionId != AUDIO_SESSION_ID_UNSET ? audioSessionId : previousId,
+        /* backgroundStateUpdate= */ previousId ->
+            audioSessionId != AUDIO_SESSION_ID_UNSET
+                ? audioSessionId
+                : Util.generateAudioSessionIdV21(applicationContext));
   }
 
   @Override
   public int getAudioSessionId() {
     verifyApplicationThread();
-    return audioSessionId;
+    return audioSessionIdState.get();
   }
 
   @Override
@@ -2932,6 +2940,14 @@ import java.util.concurrent.CopyOnWriteArraySet;
           PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
           Player.PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT);
     }
+  }
+
+  private void onAudioSessionIdChanged(int oldAudioSessionId, int newAudioSessionId) {
+    verifyApplicationThread();
+    sendRendererMessage(TRACK_TYPE_AUDIO, MSG_SET_AUDIO_SESSION_ID, newAudioSessionId);
+    sendRendererMessage(TRACK_TYPE_VIDEO, MSG_SET_AUDIO_SESSION_ID, newAudioSessionId);
+    listeners.sendEvent(
+        EVENT_AUDIO_SESSION_ID, listener -> listener.onAudioSessionIdChanged(newAudioSessionId));
   }
 
   private static DeviceInfo createDeviceInfo(@Nullable StreamVolumeManager streamVolumeManager) {
