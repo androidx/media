@@ -1424,6 +1424,7 @@ public class MediaCodecVideoRendererTest {
           }
         };
 
+    long offsetUs = 1_000_000_000L;
     mediaCodecVideoRenderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
     mediaCodecVideoRenderer.handleMessage(Renderer.MSG_SET_VIDEO_OUTPUT, surface);
     mediaCodecVideoRenderer.setTimeline(fakeTimeline);
@@ -1434,8 +1435,8 @@ public class MediaCodecVideoRendererTest {
         /* positionUs= */ 0,
         /* joining= */ false,
         /* mayRenderStartOfStream= */ true,
-        /* startPositionUs= */ 0,
-        /* offsetUs= */ 0,
+        /* startPositionUs= */ offsetUs,
+        offsetUs,
         new MediaSource.MediaPeriodId(fakeTimeline.getUidOfPeriod(0)));
     shadowOf(testMainLooper).idle();
     ArgumentCaptor<DecoderCounters> argumentDecoderCounters =
@@ -1444,13 +1445,13 @@ public class MediaCodecVideoRendererTest {
     DecoderCounters decoderCounters = argumentDecoderCounters.getValue();
 
     mediaCodecVideoRenderer.start();
-    mediaCodecVideoRenderer.render(0, SystemClock.elapsedRealtime() * 1000);
+    mediaCodecVideoRenderer.render(offsetUs, SystemClock.elapsedRealtime() * 1000);
     while (decoderCounters.renderedOutputBufferCount == 0) {
-      mediaCodecVideoRenderer.render(10_000, SystemClock.elapsedRealtime() * 1000);
+      mediaCodecVideoRenderer.render(offsetUs + 10_000, SystemClock.elapsedRealtime() * 1000);
     }
     // Ensure existing buffer will be ~280ms late and new (not yet read) buffers are available
     // to be dropped.
-    int posUs = 300_000;
+    long posUs = offsetUs + 300_000;
     fakeSampleStream.append(
         ImmutableList.of(
             oneByteSample(/* timeUs= */ 300_000), // Render.

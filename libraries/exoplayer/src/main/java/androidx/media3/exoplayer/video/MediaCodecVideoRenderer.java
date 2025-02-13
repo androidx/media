@@ -1649,7 +1649,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
 
     long outputStreamOffsetUs = getOutputStreamOffsetUs();
     long presentationTimeUs = bufferPresentationTimeUs - outputStreamOffsetUs;
-    updateDroppedBufferCountersWithInputBuffers(presentationTimeUs);
+    updateDroppedBufferCountersWithInputBuffers(bufferPresentationTimeUs);
 
     if (videoSink != null) {
       // Skip decode-only buffers, e.g. after seeking, immediately.
@@ -1960,16 +1960,16 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   }
 
   /**
-   * Updates counters to reflect dropped input buffers prior to {@code presentationTimeUs}.
+   * Updates counters to reflect dropped input buffers prior to {@code bufferPresentationTimeUs}.
    *
-   * @param presentationTimeUs The presentation timestamp of the last processed output buffer, in
-   *     microseconds.
+   * @param bufferPresentationTimeUs The presentation timestamp of the last processed output buffer,
+   *     in microseconds.
    */
-  private void updateDroppedBufferCountersWithInputBuffers(long presentationTimeUs) {
+  private void updateDroppedBufferCountersWithInputBuffers(long bufferPresentationTimeUs) {
     int droppedInputBufferCount = 0;
     Long minDroppedDecoderBufferTimeUs;
     while ((minDroppedDecoderBufferTimeUs = droppedDecoderInputBufferTimestamps.peek()) != null
-        && minDroppedDecoderBufferTimeUs < presentationTimeUs) {
+        && minDroppedDecoderBufferTimeUs < bufferPresentationTimeUs) {
       droppedInputBufferCount++;
       droppedDecoderInputBufferTimestamps.poll();
     }
