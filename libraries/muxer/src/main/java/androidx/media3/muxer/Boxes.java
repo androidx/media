@@ -688,6 +688,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
   @SuppressWarnings("MergeCases")
   public static ByteBuffer codecSpecificBox(Format format) {
     String mimeType = checkNotNull(format.sampleMimeType);
+    // LINT.IfChange(codec_specific_boxes)
     switch (mimeType) {
       case MimeTypes.AUDIO_AAC:
       case MimeTypes.AUDIO_VORBIS:
@@ -717,6 +718,8 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
       default:
         throw new IllegalArgumentException("Unsupported format: " + mimeType);
     }
+    // LINT.ThenChange(Mp4Muxer.java:supported_mime_types,
+    // FragmentedMp4Muxer.java:supported_mime_types)
   }
 
   /**

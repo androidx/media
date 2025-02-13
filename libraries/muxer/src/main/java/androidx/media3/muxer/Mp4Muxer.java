@@ -346,6 +346,7 @@ public final class Mp4Muxer implements AutoCloseable {
     }
   }
 
+  // LINT.IfChange(supported_mime_types)
   /** A list of supported video {@linkplain MimeTypes sample MIME types}. */
   public static final ImmutableList<String> SUPPORTED_VIDEO_SAMPLE_MIME_TYPES =
       ImmutableList.of(
@@ -364,6 +365,8 @@ public final class Mp4Muxer implements AutoCloseable {
           MimeTypes.AUDIO_OPUS,
           MimeTypes.AUDIO_VORBIS,
           MimeTypes.AUDIO_RAW);
+
+  // LINT.ThenChange(Boxes.java:codec_specific_boxes)
 
   private static final String TAG = "Mp4Muxer";
 
