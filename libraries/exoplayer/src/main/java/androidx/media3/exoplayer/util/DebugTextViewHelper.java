@@ -182,6 +182,8 @@ public class DebugTextViewHelper {
         + counters.skippedOutputBufferCount
         + " rb:"
         + counters.renderedOutputBufferCount
+        + " dib:"
+        + counters.droppedInputBufferCount
         + " db:"
         + counters.droppedBufferCount
         + " mcdb:"
