@@ -58,6 +58,7 @@
     <item>HDR (HDR10+) H265 limited range video (encoding may fail)</item>
     <item>HDR (HLG) H265 limited range video (encoding may fail)</item>
     <item>720p H264 video with no audio (B-frames)</item>
+    <item>Record screen</item>
   </string-array>
   <string-array name="preset_uris">
     <item>https://storage.googleapis.com/exoplayer-test-media-1/mp4/android-screens-10s.mp4</item>
@@ -77,5 +78,6 @@
     <item>https://storage.googleapis.com/exoplayer-test-media-1/mp4/samsung-s21-hdr-hdr10.mp4</item>
     <item>https://storage.googleapis.com/exoplayer-test-media-1/mp4/Pixel7Pro_HLG_1080P.mp4</item>
     <item>https://storage.googleapis.com/exoplayer-test-media-1/mp4/sample_video_track_only.mp4</item>
+    <item>transformer_surface_asset:media_projection</item>
   </string-array>
 </resources>

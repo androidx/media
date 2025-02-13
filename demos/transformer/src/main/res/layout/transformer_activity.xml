@@ -165,6 +165,12 @@
             android:layout_width="match_parent"
             android:text="@string/resume"/>
 
+          <Button
+            android:id="@+id/stop_capture_button"
+            android:layout_height="wrap_content"
+            android:layout_width="match_parent"
+            android:text="@string/stop_capture"/>
+
           <androidx.media3.ui.AspectRatioFrameLayout
             android:id="@+id/debug_aspect_ratio_frame_layout"
             android:layout_width="match_parent"

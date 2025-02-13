@@ -8,7 +8,8 @@
 *   ExoPlayer:
 *   Transformer:
     *   Add `MediaProjectionAssetLoader`, which provides media from a
-        `MediaProjection` for screen recording.
+        `MediaProjection` for screen recording, and add support for screen
+        recording to the Transformer demo app.
     *   Add `#getInputFormat()` to `Codec` interface.
     *   Shift the responsibility to release the `GlObjectsProvider` onto the
         caller in `DefaultVideoFrameProcessor` and `DefaultVideoCompositor` when
