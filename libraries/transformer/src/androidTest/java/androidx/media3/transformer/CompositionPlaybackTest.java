@@ -23,10 +23,10 @@ import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.common.util.Util.usToMs;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.PNG_ASSET;
-import static androidx.media3.transformer.AndroidTestUtil.recordTestSkipped;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.junit.Assume.assumeFalse;
 
 import android.content.Context;
 import androidx.media3.common.Effect;
@@ -43,18 +43,12 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.After;
-import org.junit.AssumptionViolatedException;
-import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
 /** Playback tests for {@link CompositionPlayer} */
 @RunWith(AndroidJUnit4.class)
 public class CompositionPlaybackTest {
-
-  @Rule public final TestName testName = new TestName();
 
   private static final long TEST_TIMEOUT_MS = isRunningOnEmulator() ? 20_000 : 10_000;
   private static final MediaItem VIDEO_MEDIA_ITEM = MediaItem.fromUri(MP4_ASSET.uri);
@@ -73,13 +67,7 @@ public class CompositionPlaybackTest {
   private final Context context = getInstrumentation().getContext().getApplicationContext();
   private final PlayerTestListener playerTestListener = new PlayerTestListener(TEST_TIMEOUT_MS);
 
-  private String testId;
   private @MonotonicNonNull CompositionPlayer player;
-
-  @Before
-  public void setUp() {
-    testId = testName.getMethodName();
-  }
 
   @After
   public void tearDown() {
@@ -222,12 +210,9 @@ public class CompositionPlaybackTest {
 
   @Test
   public void playback_sequenceOfImageAndVideo_effectsReceiveCorrectTimestamps() throws Exception {
-    if (isRunningOnEmulator()) {
-      // The MediaCodec decoder's output surface is sometimes dropping frames on emulator despite
-      // using MediaFormat.KEY_ALLOW_FRAME_DROP.
-      recordTestSkipped(context, testId, /* reason= */ "Skipped due to surface dropping frames");
-      throw new AssumptionViolatedException("Skipped due to surface dropping frames");
-    }
+    // The MediaCodec decoder's output surface is sometimes dropping frames on emulator despite
+    // using MediaFormat.KEY_ALLOW_FRAME_DROP.
+    assumeFalse("Skipped on emulator due to surface dropping frames", isRunningOnEmulator());
     InputTimestampRecordingShaderProgram inputTimestampRecordingShaderProgram =
         new InputTimestampRecordingShaderProgram();
     Effect videoEffect = (GlEffect) (context, useHdr) -> inputTimestampRecordingShaderProgram;

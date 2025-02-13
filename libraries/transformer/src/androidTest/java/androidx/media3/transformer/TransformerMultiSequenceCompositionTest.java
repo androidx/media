@@ -26,9 +26,9 @@ import static androidx.media3.transformer.AndroidTestUtil.JPG_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
 import static androidx.media3.transformer.AndroidTestUtil.extractBitmapsFromVideo;
-import static androidx.media3.transformer.AndroidTestUtil.recordTestSkipped;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static org.junit.Assume.assumeFalse;
 
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -51,7 +51,6 @@ import com.google.common.collect.ImmutableList;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
-import org.junit.AssumptionViolatedException;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -235,11 +234,9 @@ public final class TransformerMultiSequenceCompositionTest {
 
   @Test
   public void export_completesWithConsistentFrameCount() throws Exception {
-    if (isRunningOnEmulator() && Util.SDK_INT == 31) {
-      // The decoder is failing on API 31 emulator.
-      recordTestSkipped(context, testId, /* reason= */ "Skipped due to failing decoder");
-      throw new AssumptionViolatedException("Skipped due to failing decoder");
-    }
+    assumeFalse(
+        "Skipped due to failing video decoder on API 31 emulator",
+        isRunningOnEmulator() && Util.SDK_INT == 31);
     assumeFormatsSupported(
         context,
         testId,
