@@ -1415,6 +1415,7 @@ import java.util.List;
     @Nullable private final MediaItem mediaItem;
     private final boolean isSeekable;
     private final boolean isDynamic;
+    private final boolean isPlaceholder;
     @Nullable private final MediaItem.LiveConfiguration liveConfiguration;
     private final long durationUs;
 
@@ -1422,6 +1423,13 @@ import java.util.List;
       mediaItem = player.getCurrentMediaItem();
       isSeekable = player.isCurrentMediaItemSeekable();
       isDynamic = player.isCurrentMediaItemDynamic();
+      Timeline timeline = player.getCurrentTimeline();
+      isPlaceholder =
+          !timeline.isEmpty()
+              && player
+                  .getCurrentTimeline()
+                  .getWindow(player.getCurrentMediaItemIndex(), new Window())
+                  .isPlaceholder;
       liveConfiguration =
           player.isCurrentMediaItemLive() ? MediaItem.LiveConfiguration.UNSET : null;
       durationUs = msToUs(player.getContentDuration());
@@ -1449,6 +1457,7 @@ import java.util.List;
           /* firstPeriodIndex= */ 0,
           /* lastPeriodIndex= */ 0,
           /* positionInFirstPeriodUs= */ 0);
+      window.isPlaceholder = isPlaceholder;
       return window;
     }
 
@@ -1465,6 +1474,7 @@ import java.util.List;
           /* windowIndex= */ 0,
           durationUs,
           /* positionInWindowUs= */ 0);
+      period.isPlaceholder = isPlaceholder;
       return period;
     }
 
