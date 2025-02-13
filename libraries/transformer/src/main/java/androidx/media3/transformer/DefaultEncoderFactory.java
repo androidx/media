@@ -385,6 +385,13 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
       }
     }
 
+    long repeatPreviousFrameIntervalUs =
+        supportedVideoEncoderSettings.repeatPreviousFrameIntervalUs;
+    if (repeatPreviousFrameIntervalUs != VideoEncoderSettings.NO_VALUE) {
+      mediaFormat.setLong(
+          MediaFormat.KEY_REPEAT_PREVIOUS_FRAME_AFTER, repeatPreviousFrameIntervalUs);
+    }
+
     if (Util.SDK_INT >= 35) {
       mediaFormat.setInteger(MediaFormat.KEY_IMPORTANCE, max(0, -codecPriority));
     }

@@ -82,6 +82,7 @@ public final class VideoEncoderSettings {
     private float iFrameIntervalSeconds;
     private int operatingRate;
     private int priority;
+    private long repeatPreviousFrameIntervalUs;
     private boolean enableHighQualityTargeting;
 
     /** Creates a new instance. */
@@ -93,6 +94,7 @@ public final class VideoEncoderSettings {
       this.iFrameIntervalSeconds = DEFAULT_I_FRAME_INTERVAL_SECONDS;
       this.operatingRate = NO_VALUE;
       this.priority = NO_VALUE;
+      this.repeatPreviousFrameIntervalUs = NO_VALUE;
     }
 
     private Builder(VideoEncoderSettings videoEncoderSettings) {
@@ -103,6 +105,7 @@ public final class VideoEncoderSettings {
       this.iFrameIntervalSeconds = videoEncoderSettings.iFrameIntervalSeconds;
       this.operatingRate = videoEncoderSettings.operatingRate;
       this.priority = videoEncoderSettings.priority;
+      this.repeatPreviousFrameIntervalUs = videoEncoderSettings.repeatPreviousFrameIntervalUs;
       this.enableHighQualityTargeting = videoEncoderSettings.enableHighQualityTargeting;
     }
 
@@ -191,6 +194,21 @@ public final class VideoEncoderSettings {
     }
 
     /**
+     * Sets the threshold duration between input frames beyond which to repeat the previous frame if
+     * no new frame has been received, in microseconds. The default value is {@link #NO_VALUE},
+     * which means that frames are not automatically repeated.
+     *
+     * @param repeatPreviousFrameIntervalUs The {@linkplain
+     *     MediaFormat#KEY_REPEAT_PREVIOUS_FRAME_AFTER frame repeat interval}, in microseconds.
+     * @return This builder.
+     */
+    @CanIgnoreReturnValue
+    public Builder setRepeatPreviousFrameIntervalUs(long repeatPreviousFrameIntervalUs) {
+      this.repeatPreviousFrameIntervalUs = repeatPreviousFrameIntervalUs;
+      return this;
+    }
+
+    /**
      * Sets whether to enable automatic adjustment of the bitrate to target a high quality encoding.
      *
      * <p>This method is experimental and may be removed or changed without warning.
@@ -223,6 +241,7 @@ public final class VideoEncoderSettings {
           iFrameIntervalSeconds,
           operatingRate,
           priority,
+          repeatPreviousFrameIntervalUs,
           enableHighQualityTargeting);
     }
   }
@@ -248,6 +267,12 @@ public final class VideoEncoderSettings {
   /** The encoder {@link MediaFormat#KEY_PRIORITY priority}. */
   public final int priority;
 
+  /**
+   * The {@linkplain MediaFormat#KEY_REPEAT_PREVIOUS_FRAME_AFTER frame repeat interval}, in
+   * microseconds.
+   */
+  public final long repeatPreviousFrameIntervalUs;
+
   /** Whether the encoder should automatically set the bitrate to target a high quality encoding. */
   public final boolean enableHighQualityTargeting;
 
@@ -259,6 +284,7 @@ public final class VideoEncoderSettings {
       float iFrameIntervalSeconds,
       int operatingRate,
       int priority,
+      long repeatPreviousFrameIntervalUs,
       boolean enableHighQualityTargeting) {
     this.bitrate = bitrate;
     this.bitrateMode = bitrateMode;
@@ -267,6 +293,7 @@ public final class VideoEncoderSettings {
     this.iFrameIntervalSeconds = iFrameIntervalSeconds;
     this.operatingRate = operatingRate;
     this.priority = priority;
+    this.repeatPreviousFrameIntervalUs = repeatPreviousFrameIntervalUs;
     this.enableHighQualityTargeting = enableHighQualityTargeting;
   }
 
@@ -293,6 +320,7 @@ public final class VideoEncoderSettings {
         && iFrameIntervalSeconds == that.iFrameIntervalSeconds
         && operatingRate == that.operatingRate
         && priority == that.priority
+        && repeatPreviousFrameIntervalUs == that.repeatPreviousFrameIntervalUs
         && enableHighQualityTargeting == that.enableHighQualityTargeting;
   }
 
@@ -306,6 +334,9 @@ public final class VideoEncoderSettings {
     result = 31 * result + Float.floatToIntBits(iFrameIntervalSeconds);
     result = 31 * result + operatingRate;
     result = 31 * result + priority;
+    result =
+        31 * result
+            + (int) (repeatPreviousFrameIntervalUs ^ (repeatPreviousFrameIntervalUs >>> 32));
     result = 31 * result + (enableHighQualityTargeting ? 1 : 0);
     return result;
   }

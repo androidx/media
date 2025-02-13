@@ -324,6 +324,42 @@ public class DefaultEncoderFactoryTest {
   }
 
   @Test
+  public void
+      createForVideoEncoding_withRepeatPreviousFrameIntervalUs_configuresEncoderWithRepeatPreviousFrameIntervalUs()
+          throws Exception {
+    Format requestedVideoFormat = createVideoFormat(MimeTypes.VIDEO_H264, 1920, 1080, 30);
+    DefaultCodec videoEncoder =
+        new DefaultEncoderFactory.Builder(context)
+            .setRequestedVideoEncoderSettings(
+                new VideoEncoderSettings.Builder().setRepeatPreviousFrameIntervalUs(33_333).build())
+            .build()
+            .createForVideoEncoding(requestedVideoFormat);
+
+    assertThat(
+            videoEncoder
+                .getConfigurationMediaFormat()
+                .getLong(MediaFormat.KEY_REPEAT_PREVIOUS_FRAME_AFTER))
+        .isEqualTo(33_333);
+  }
+
+  @Test
+  public void
+      createForVideoEncoding_withDefaultEncoderSettings_doesNotConfigureRepeatPreviousFrameIntervalUs()
+          throws Exception {
+    Format requestedVideoFormat = createVideoFormat(MimeTypes.VIDEO_H264, 1920, 1080, 30);
+    DefaultCodec videoEncoder =
+        new DefaultEncoderFactory.Builder(context)
+            .build()
+            .createForVideoEncoding(requestedVideoFormat);
+
+    assertThat(
+            videoEncoder
+                .getConfigurationMediaFormat()
+                .containsKey(MediaFormat.KEY_REPEAT_PREVIOUS_FRAME_AFTER))
+        .isFalse();
+  }
+
+  @Test
   public void createForVideoEncoding_withNoAvailableEncoderFromEncoderSelector_throws() {
     Format requestedVideoFormat = createVideoFormat(MimeTypes.VIDEO_H264, 1920, 1080, 30);
     assertThrows(
