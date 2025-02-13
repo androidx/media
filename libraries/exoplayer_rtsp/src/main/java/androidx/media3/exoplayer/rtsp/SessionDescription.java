@@ -21,11 +21,11 @@ import static androidx.media3.common.util.Util.castNonNull;
 import android.net.Uri;
 import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
-import androidx.media3.common.util.Util;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.HashMap;
+import java.util.Objects;
 
 /**
  * Records all the information in a SDP message.
@@ -311,15 +311,15 @@ import java.util.HashMap;
     return bitrate == that.bitrate
         && attributes.equals(that.attributes)
         && mediaDescriptionList.equals(that.mediaDescriptionList)
-        && Util.areEqual(origin, that.origin)
-        && Util.areEqual(sessionName, that.sessionName)
-        && Util.areEqual(timing, that.timing)
-        && Util.areEqual(sessionInfo, that.sessionInfo)
-        && Util.areEqual(uri, that.uri)
-        && Util.areEqual(emailAddress, that.emailAddress)
-        && Util.areEqual(phoneNumber, that.phoneNumber)
-        && Util.areEqual(connection, that.connection)
-        && Util.areEqual(key, that.key);
+        && Objects.equals(origin, that.origin)
+        && Objects.equals(sessionName, that.sessionName)
+        && Objects.equals(timing, that.timing)
+        && Objects.equals(sessionInfo, that.sessionInfo)
+        && Objects.equals(uri, that.uri)
+        && Objects.equals(emailAddress, that.emailAddress)
+        && Objects.equals(phoneNumber, that.phoneNumber)
+        && Objects.equals(connection, that.connection)
+        && Objects.equals(key, that.key);
   }
 
   @Override

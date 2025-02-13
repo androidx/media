@@ -653,8 +653,8 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
     return newConfiguration != null
         && newConfiguration.uri.equals(existingConfiguration.uri)
         && newConfiguration.streamKeys.equals(existingConfiguration.streamKeys)
-        && Util.areEqual(newConfiguration.customCacheKey, existingConfiguration.customCacheKey)
-        && Util.areEqual(newConfiguration.drmConfiguration, existingConfiguration.drmConfiguration)
+        && Objects.equals(newConfiguration.customCacheKey, existingConfiguration.customCacheKey)
+        && Objects.equals(newConfiguration.drmConfiguration, existingConfiguration.drmConfiguration)
         && existingMediaItem.liveConfiguration.equals(mediaItem.liveConfiguration);
   }
 

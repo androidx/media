@@ -63,6 +63,7 @@ import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** A {@link MediaPeriod} that loads an HLS stream. */
@@ -750,7 +751,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       scratchIndicesList.clear();
       // Group all renditions with matching name.
       for (int renditionIndex = 0; renditionIndex < audioRenditions.size(); renditionIndex++) {
-        if (Util.areEqual(name, audioRenditions.get(renditionIndex).name)) {
+        if (Objects.equals(name, audioRenditions.get(renditionIndex).name)) {
           Rendition rendition = audioRenditions.get(renditionIndex);
           scratchIndicesList.add(renditionIndex);
           scratchPlaylistUrls.add(rendition.url);

@@ -64,6 +64,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -653,7 +654,7 @@ public final class ImaAdsLoader implements AdsLoader {
   private void maybeUpdateCurrentAdTagLoader() {
     @Nullable AdTagLoader oldAdTagLoader = currentAdTagLoader;
     @Nullable AdTagLoader newAdTagLoader = getCurrentAdTagLoader();
-    if (!Util.areEqual(oldAdTagLoader, newAdTagLoader)) {
+    if (!Objects.equals(oldAdTagLoader, newAdTagLoader)) {
       if (oldAdTagLoader != null) {
         oldAdTagLoader.deactivate();
       }

@@ -1365,7 +1365,7 @@ public final class AdPlaybackState {
       return false;
     }
     AdPlaybackState that = (AdPlaybackState) o;
-    return Util.areEqual(adsId, that.adsId)
+    return Objects.equals(adsId, that.adsId)
         && adGroupCount == that.adGroupCount
         && adResumePositionUs == that.adResumePositionUs
         && contentDurationUs == that.contentDurationUs

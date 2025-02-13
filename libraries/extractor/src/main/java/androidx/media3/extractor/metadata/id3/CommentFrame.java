@@ -17,7 +17,7 @@ package androidx.media3.extractor.metadata.id3;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
+import java.util.Objects;
 
 /** Comment ID3 frame. */
 @UnstableApi
@@ -45,9 +45,9 @@ public final class CommentFrame extends Id3Frame {
       return false;
     }
     CommentFrame other = (CommentFrame) obj;
-    return Util.areEqual(description, other.description)
-        && Util.areEqual(language, other.language)
-        && Util.areEqual(text, other.text);
+    return Objects.equals(description, other.description)
+        && Objects.equals(language, other.language)
+        && Objects.equals(text, other.text);
   }
 
   @Override

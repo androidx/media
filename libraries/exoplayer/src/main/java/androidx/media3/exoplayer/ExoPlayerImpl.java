@@ -122,6 +122,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArraySet;
 
 /** The default implementation of {@link ExoPlayer}. */
@@ -1460,7 +1461,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
     if (playerReleased) {
       return;
     }
-    if (!Util.areEqual(this.audioAttributes, newAudioAttributes)) {
+    if (!Objects.equals(this.audioAttributes, newAudioAttributes)) {
       this.audioAttributes = newAudioAttributes;
       sendRendererMessage(TRACK_TYPE_AUDIO, MSG_SET_AUDIO_ATTRIBUTES, newAudioAttributes);
       if (streamVolumeManager != null) {
@@ -1613,7 +1614,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
   @Override
   public void setPriorityTaskManager(@Nullable PriorityTaskManager priorityTaskManager) {
     verifyApplicationThread();
-    if (Util.areEqual(this.priorityTaskManager, priorityTaskManager)) {
+    if (Objects.equals(this.priorityTaskManager, priorityTaskManager)) {
       return;
     }
     if (isPriorityTaskManagerRegistered) {

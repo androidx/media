@@ -62,6 +62,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** Source of Hls (possibly adaptive) chunks. */
@@ -367,7 +368,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       return CHUNK_PUBLICATION_STATE_PRELOAD;
     }
     Uri newUri = Uri.parse(UriUtil.resolve(mediaPlaylist.baseUri, newPart.url));
-    return Util.areEqual(newUri, mediaChunk.dataSpec.uri)
+    return Objects.equals(newUri, mediaChunk.dataSpec.uri)
         ? CHUNK_PUBLICATION_STATE_PUBLISHED
         : CHUNK_PUBLICATION_STATE_REMOVED;
   }

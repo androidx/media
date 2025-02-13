@@ -39,7 +39,7 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.text.Cue;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.Util;
+import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
@@ -163,13 +163,13 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       windowColor = cue.windowColorSet ? cue.windowColor : style.windowColor;
     }
     if (areCharSequencesEqual(this.cueText, cue.text)
-        && Util.areEqual(this.cueTextAlignment, cue.textAlignment)
+        && Objects.equals(this.cueTextAlignment, cue.textAlignment)
         && this.cueBitmap == cue.bitmap
         && this.cueLine == cue.line
         && this.cueLineType == cue.lineType
-        && Util.areEqual(this.cueLineAnchor, cue.lineAnchor)
+        && Objects.equals(this.cueLineAnchor, cue.lineAnchor)
         && this.cuePosition == cue.position
-        && Util.areEqual(this.cuePositionAnchor, cue.positionAnchor)
+        && Objects.equals(this.cuePositionAnchor, cue.positionAnchor)
         && this.cueSize == cue.size
         && this.cueBitmapHeight == cue.bitmapHeight
         && this.foregroundColor == style.foregroundColor
@@ -177,7 +177,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
         && this.windowColor == windowColor
         && this.edgeType == style.edgeType
         && this.edgeColor == style.edgeColor
-        && Util.areEqual(this.textPaint.getTypeface(), style.typeface)
+        && Objects.equals(this.textPaint.getTypeface(), style.typeface)
         && this.defaultTextSizePx == defaultTextSizePx
         && this.cueTextSizePx == cueTextSizePx
         && this.bottomPaddingFraction == bottomPaddingFraction

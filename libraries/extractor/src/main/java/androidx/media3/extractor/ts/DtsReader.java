@@ -31,6 +31,7 @@ import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.extractor.TrackOutput;
 import androidx.media3.extractor.ts.TsPayloadReader.TrackIdGenerator;
 import com.google.common.primitives.Ints;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
@@ -316,7 +317,7 @@ public final class DtsReader implements ElementaryStreamReader {
     if (format == null
         || dtsHeader.channelCount != format.channelCount
         || dtsHeader.sampleRate != format.sampleRate
-        || !Util.areEqual(dtsHeader.mimeType, format.sampleMimeType)) {
+        || !Objects.equals(dtsHeader.mimeType, format.sampleMimeType)) {
       Format.Builder formatBuilder = format == null ? new Format.Builder() : format.buildUpon();
       format =
           formatBuilder
