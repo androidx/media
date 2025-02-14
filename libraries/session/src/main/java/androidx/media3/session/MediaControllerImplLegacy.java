@@ -1647,16 +1647,20 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
       if (!oldControllerInfo.mediaButtonPreferences.equals(
           newControllerInfo.mediaButtonPreferences)) {
         getInstance()
-            .notifyControllerListener(
-                listener -> {
-                  ignoreFuture(
-                      listener.onSetCustomLayout(
-                          getInstance(), newControllerInfo.mediaButtonPreferences));
-                  listener.onCustomLayoutChanged(
-                      getInstance(), newControllerInfo.mediaButtonPreferences);
-                  listener.onMediaButtonPreferencesChanged(
-                      getInstance(), newControllerInfo.mediaButtonPreferences);
-                });
+            .applicationHandler
+            .post(
+                () ->
+                    getInstance()
+                        .notifyControllerListener(
+                            listener -> {
+                              ignoreFuture(
+                                  listener.onSetCustomLayout(
+                                      getInstance(), newControllerInfo.mediaButtonPreferences));
+                              listener.onCustomLayoutChanged(
+                                  getInstance(), newControllerInfo.mediaButtonPreferences);
+                              listener.onMediaButtonPreferencesChanged(
+                                  getInstance(), newControllerInfo.mediaButtonPreferences);
+                            }));
       }
       return;
     }
