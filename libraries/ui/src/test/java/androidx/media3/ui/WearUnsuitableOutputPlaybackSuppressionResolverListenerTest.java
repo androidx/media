@@ -15,6 +15,7 @@
  */
 package androidx.media3.ui;
 
+import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.runUntilPlayWhenReady;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.runUntilPlaybackState;
 import static androidx.test.ext.truth.content.IntentSubject.assertThat;
@@ -38,6 +39,7 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
 import androidx.media3.common.Player.PlayWhenReadyChangeReason;
 import androidx.media3.common.util.Util;
+import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.test.utils.FakeClock;
 import androidx.media3.test.utils.FakeSuitableOutputChecker;
 import androidx.media3.test.utils.TestExoPlayerBuilder;
@@ -75,11 +77,11 @@ public class WearUnsuitableOutputPlaybackSuppressionResolverListenerTest {
 
   private ShadowPackageManager shadowPackageManager;
   private ShadowApplication shadowApplication;
-  private Player testPlayer;
+  private ExoPlayer testPlayer;
   private FakeSuitableOutputChecker suitableMediaOutputChecker;
 
   @Before
-  public void setUp() {
+  public void setUp() throws Exception {
     shadowPackageManager =
         shadowOf(ApplicationProvider.getApplicationContext().getPackageManager());
     shadowPackageManager.setSystemFeature(PackageManager.FEATURE_WATCH, /* supported= */ true);
@@ -95,6 +97,7 @@ public class WearUnsuitableOutputPlaybackSuppressionResolverListenerTest {
       builder.setSuitableOutputChecker(suitableMediaOutputChecker);
     }
     testPlayer = builder.build();
+    advance(testPlayer).untilPendingCommandsAreFullyHandled();
 
     shadowApplication = shadowOf((Application) ApplicationProvider.getApplicationContext());
   }
@@ -816,8 +819,7 @@ public class WearUnsuitableOutputPlaybackSuppressionResolverListenerTest {
 
     addConnectedAudioOutput(
         AudioDeviceInfo.TYPE_BLUETOOTH_A2DP, /* notifyAudioDeviceCallbacks= */ true);
-    runUntilPlayWhenReady(testPlayer, /* expectedPlayWhenReady= */ false);
-    shadowOf(Looper.getMainLooper()).idle();
+    advance(testPlayer).untilPendingCommandsAreFullyHandled();
 
     assertThat(ShadowPowerManager.getLatestWakeLock()).isNotNull();
     assertThat(ShadowPowerManager.getLatestWakeLock().isHeld()).isFalse();
@@ -959,7 +961,7 @@ public class WearUnsuitableOutputPlaybackSuppressionResolverListenerTest {
         fakeComponentName, new IntentFilter(fakeActionName));
   }
 
-  private void setupConnectedAudioOutput(int... deviceTypes) {
+  private void setupConnectedAudioOutput(int... deviceTypes) throws TimeoutException {
     ShadowAudioManager shadowAudioManager =
         shadowOf(ApplicationProvider.getApplicationContext().getSystemService(AudioManager.class));
     for (int deviceType : deviceTypes) {
@@ -967,6 +969,7 @@ public class WearUnsuitableOutputPlaybackSuppressionResolverListenerTest {
           AudioDeviceInfoBuilder.newBuilder().setType(deviceType).build(),
           /* notifyAudioDeviceCallbacks= */ true);
     }
+    advance(testPlayer).untilPendingCommandsAreFullyHandled();
   }
 
   private void addConnectedAudioOutput(int deviceTypes, boolean notifyAudioDeviceCallbacks) {

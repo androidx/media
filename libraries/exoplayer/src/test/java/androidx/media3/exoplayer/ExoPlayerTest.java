@@ -15035,6 +15035,7 @@ public class ExoPlayerTest {
         parameterizeTestExoPlayerBuilder(
                 new TestExoPlayerBuilder(context).setSuppressPlaybackOnUnsuitableOutput(true))
             .build();
+    advance(player).untilPendingCommandsAreFullyHandled();
     player.setMediaItem(
         MediaItem.fromUri("asset:///media/mp4/sample_with_increasing_timestamps_360p.mp4"));
     player.addListener(
@@ -15051,7 +15052,7 @@ public class ExoPlayerTest {
 
     player.play();
     player.stop();
-    runUntilPlaybackState(player, Player.STATE_IDLE);
+    advance(player).untilState(Player.STATE_IDLE);
 
     assertThat(playbackSuppressionList)
         .containsExactly(Player.PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT);
@@ -15113,6 +15114,7 @@ public class ExoPlayerTest {
         parameterizeTestExoPlayerBuilder(
                 new TestExoPlayerBuilder(context).setSuppressPlaybackOnUnsuitableOutput(true))
             .build();
+    advance(player).untilPendingCommandsAreFullyHandled();
     player.setMediaItem(
         MediaItem.fromUri("asset:///media/mp4/sample_with_increasing_timestamps_360p.mp4"));
     player.addListener(
@@ -15131,7 +15133,7 @@ public class ExoPlayerTest {
     player.play();
     player.play();
     player.stop();
-    runUntilPlaybackState(player, Player.STATE_IDLE);
+    advance(player).untilState(Player.STATE_IDLE);
 
     assertThat(playbackSuppressionList)
         .containsExactly(
@@ -15241,12 +15243,13 @@ public class ExoPlayerTest {
     player.prepare();
     player.play();
     player.pause();
-    runUntilPlaybackState(player, Player.STATE_READY);
+    advance(player).untilState(Player.STATE_READY);
 
     addConnectedAudioOutput(
         AudioDeviceInfo.TYPE_BLUETOOTH_A2DP, /* notifyAudioDeviceCallbacks= */ true);
+    advance(player).untilPendingCommandsAreFullyHandled();
     player.stop();
-    runUntilPlaybackState(player, Player.STATE_IDLE);
+    advance(player).untilState(Player.STATE_IDLE);
 
     assertThat(playbackSuppressionList)
         .containsExactly(
@@ -15298,11 +15301,12 @@ public class ExoPlayerTest {
   public void addSuitableOutputWhenPlaybackNotSuppressed_shouldNotRemovePlaybackSuppression()
       throws Exception {
     addWatchAsSystemFeature();
-    setupConnectedAudioOutput(AudioDeviceInfo.TYPE_BUILTIN_SPEAKER);
+    setupConnectedAudioOutput(AudioDeviceInfo.TYPE_USB_DEVICE);
     ExoPlayer player =
         parameterizeTestExoPlayerBuilder(
                 new TestExoPlayerBuilder(context).setSuppressPlaybackOnUnsuitableOutput(true))
             .build();
+    advance(player).untilPendingCommandsAreFullyHandled();
     player.setMediaItem(
         MediaItem.fromUri("asset:///media/mp4/sample_with_increasing_timestamps_360p.mp4"));
     PlaybackSuppressionReasonChangedListener playbackSuppressionReasonChangedListener =
@@ -15313,8 +15317,9 @@ public class ExoPlayerTest {
 
     addConnectedAudioOutput(
         AudioDeviceInfo.TYPE_BLUETOOTH_A2DP, /* notifyAudioDeviceCallbacks= */ true);
+    advance(player).untilPendingCommandsAreFullyHandled();
     player.stop();
-    runUntilPlaybackState(player, Player.STATE_IDLE);
+    advance(player).untilState(Player.STATE_IDLE);
 
     assertThat(playbackSuppressionReasonChangedListener.getReasonChangedList()).isEmpty();
     player.release();
@@ -15341,14 +15346,15 @@ public class ExoPlayerTest {
         MediaItem.fromUri("asset:///media/mp4/sample_with_increasing_timestamps_360p.mp4"));
     player.prepare();
     player.play();
-    runUntilPlaybackState(player, Player.STATE_READY);
+    advance(player).untilState(Player.STATE_READY);
     PlaybackSuppressionReasonChangedListener playbackSuppressionReasonChangedListener =
         new PlaybackSuppressionReasonChangedListener();
     player.addListener(playbackSuppressionReasonChangedListener);
 
     removeConnectedAudioOutput(AudioDeviceInfo.TYPE_BLUETOOTH_A2DP);
+    advance(player).untilPendingCommandsAreFullyHandled();
     player.stop();
-    runUntilPlaybackState(player, Player.STATE_IDLE);
+    advance(player).untilState(Player.STATE_IDLE);
 
     assertThat(playbackSuppressionReasonChangedListener.getReasonChangedList())
         .containsExactly(Player.PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT);

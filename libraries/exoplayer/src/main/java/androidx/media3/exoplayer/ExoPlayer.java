@@ -24,7 +24,6 @@ import android.content.Context;
 import android.media.AudioDeviceInfo;
 import android.media.AudioTrack;
 import android.media.MediaCodec;
-import android.os.Handler;
 import android.os.Looper;
 import android.os.Process;
 import android.view.Surface;
@@ -460,7 +459,7 @@ public interface ExoPlayer extends Player {
       usePlatformDiagnostics = true;
       playerName = "";
       priority = C.PRIORITY_PLAYBACK;
-      suitableOutputChecker = new DefaultSuitableOutputChecker(context, new Handler(looper));
+      suitableOutputChecker = new DefaultSuitableOutputChecker();
     }
 
     /**
