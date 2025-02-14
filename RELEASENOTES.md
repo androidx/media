@@ -35,6 +35,9 @@
 *   Muxers:
 *   IMA extension:
 *   Session:
+    *   Keep notification visible when playback enters an error or stopped
+        state. The notification is only removed if the playlist is cleared or
+        the player is released.
 *   UI:
 *   Downloads:
 *   OkHttp Extension:
