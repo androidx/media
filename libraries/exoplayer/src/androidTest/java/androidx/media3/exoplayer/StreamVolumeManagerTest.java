@@ -16,6 +16,7 @@
 package androidx.media3.exoplayer;
 
 import static com.google.common.truth.Truth.assertThat;
+import static java.lang.Math.max;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.content.Context;
@@ -243,7 +244,9 @@ public class StreamVolumeManagerTest {
   }
 
   @Test
-  public void setVolumeMuted_changesMuteState() {
+  public void setVolumeMuted_changesMuteState() throws Exception {
+    int volumeFlags = C.VOLUME_FLAG_SHOW_UI | C.VOLUME_FLAG_VIBRATE;
+    AtomicInteger targetVolume = new AtomicInteger();
     testThread.runOnMainThread(
         () -> {
           int minVolume = streamVolumeManager.getMinVolume();
@@ -251,19 +254,33 @@ public class StreamVolumeManagerTest {
           if (minVolume == maxVolume || minVolume > 0) {
             return;
           }
-          int volumeFlags = C.VOLUME_FLAG_SHOW_UI | C.VOLUME_FLAG_VIBRATE;
-
-          streamVolumeManager.setVolume(maxVolume, volumeFlags);
+          targetVolume.set(max(maxVolume - 1, 1));
+          streamVolumeManager.setVolume(targetVolume.get(), volumeFlags);
           assertThat(streamVolumeManager.isMuted()).isFalse();
 
           streamVolumeManager.setMuted(true, volumeFlags);
           assertThat(streamVolumeManager.isMuted()).isTrue();
           assertThat(testListener.lastStreamVolumeMuted).isTrue();
+          assertThat(testListener.lastStreamVolume).isEqualTo(0);
+        });
+    idleBackgroundThread();
+    testThread.runOnMainThread(
+        () -> {
+          assertThat(streamVolumeManager.isMuted()).isTrue();
+          assertThat(testListener.lastStreamVolumeMuted).isTrue();
+          assertThat(testListener.lastStreamVolume).isEqualTo(0);
 
           streamVolumeManager.setMuted(false, volumeFlags);
           assertThat(streamVolumeManager.isMuted()).isFalse();
           assertThat(testListener.lastStreamVolumeMuted).isFalse();
-          assertThat(testListener.lastStreamVolume).isEqualTo(maxVolume);
+          assertThat(testListener.lastStreamVolume).isEqualTo(targetVolume.get());
+        });
+    idleBackgroundThread();
+    testThread.runOnMainThread(
+        () -> {
+          assertThat(streamVolumeManager.isMuted()).isFalse();
+          assertThat(testListener.lastStreamVolumeMuted).isFalse();
+          assertThat(testListener.lastStreamVolume).isEqualTo(targetVolume.get());
         });
   }
 

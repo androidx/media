@@ -59,6 +59,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   private @MonotonicNonNull AudioManager audioManager;
   @Nullable private VolumeChangeReceiver receiver;
+  private int volumeBeforeMute;
 
   /**
    * Creates a manager.
@@ -161,7 +162,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             new StreamVolumeState(
                 state.streamType,
                 volume >= state.minVolume && volume <= state.maxVolume ? volume : state.volume,
-                state.muted,
+                /* muted= */ volume == 0,
                 state.minVolume,
                 state.maxVolume),
         /* backgroundStateUpdate= */ state -> {
@@ -186,7 +187,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             new StreamVolumeState(
                 state.streamType,
                 state.volume < state.maxVolume ? state.volume + 1 : state.maxVolume,
-                state.muted,
+                /* muted= */ false,
                 state.minVolume,
                 state.maxVolume),
         /* backgroundStateUpdate= */ state -> {
@@ -212,7 +213,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             new StreamVolumeState(
                 state.streamType,
                 state.volume > state.minVolume ? state.volume - 1 : state.minVolume,
-                state.muted,
+                /* muted= */ state.volume <= 1,
                 state.minVolume,
                 state.maxVolume),
         /* backgroundStateUpdate= */ state -> {
@@ -236,7 +237,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     stateHandler.updateStateAsync(
         /* placeholderState= */ state ->
             new StreamVolumeState(
-                state.streamType, state.volume, muted, state.minVolume, state.maxVolume),
+                state.streamType,
+                state.muted == muted ? state.volume : (muted ? 0 : volumeBeforeMute),
+                muted,
+                state.minVolume,
+                state.maxVolume),
         /* backgroundStateUpdate= */ state -> {
           if (state.muted == muted) {
             return state;
@@ -272,6 +277,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   private void onStreamVolumeStateChanged(StreamVolumeState oldState, StreamVolumeState newState) {
+    if (!oldState.muted && newState.muted) {
+      volumeBeforeMute = oldState.volume;
+    }
     if (oldState.volume != newState.volume || oldState.muted != newState.muted) {
       listener.onStreamVolumeChanged(newState.volume, newState.muted);
     }
