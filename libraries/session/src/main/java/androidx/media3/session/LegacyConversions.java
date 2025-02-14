@@ -1096,12 +1096,14 @@ import java.util.concurrent.TimeoutException;
     if (playbackStateCompat == null) {
       return Player.STATE_IDLE;
     }
+    boolean isEnded = convertToIsEnded(playbackStateCompat, currentMediaMetadata, timeDiffMs);
     switch (playbackStateCompat.getState()) {
       case PlaybackStateCompat.STATE_CONNECTING:
       case PlaybackStateCompat.STATE_ERROR:
       case PlaybackStateCompat.STATE_NONE:
-      case PlaybackStateCompat.STATE_STOPPED:
         return Player.STATE_IDLE;
+      case PlaybackStateCompat.STATE_STOPPED:
+        return isEnded ? Player.STATE_ENDED : Player.STATE_IDLE;
       case PlaybackStateCompat.STATE_BUFFERING:
       case PlaybackStateCompat.STATE_FAST_FORWARDING:
       case PlaybackStateCompat.STATE_REWINDING:
@@ -1112,13 +1114,7 @@ import java.util.concurrent.TimeoutException;
       case PlaybackStateCompat.STATE_PLAYING:
         return Player.STATE_READY;
       case PlaybackStateCompat.STATE_PAUSED:
-        long duration = convertToDurationMs(currentMediaMetadata);
-        if (duration == C.TIME_UNSET) {
-          return Player.STATE_READY;
-        }
-        long currentPosition =
-            convertToCurrentPositionMs(playbackStateCompat, currentMediaMetadata, timeDiffMs);
-        return (currentPosition < duration) ? Player.STATE_READY : Player.STATE_ENDED;
+        return isEnded ? Player.STATE_ENDED : Player.STATE_READY;
       default:
         throw new ConversionException(
             "Invalid state of PlaybackStateCompat: " + playbackStateCompat.getState());
@@ -1746,6 +1742,19 @@ import java.util.concurrent.TimeoutException;
             androidx.media3.session.legacy.MediaConstants
                 .BROWSER_ROOT_HINTS_KEY_CUSTOM_BROWSER_ACTION_LIMIT,
             /* defaultValue= */ 0));
+  }
+
+  private static boolean convertToIsEnded(
+      PlaybackStateCompat playbackStateCompat,
+      @Nullable MediaMetadataCompat currentMediaMetadata,
+      long timeDiffMs) {
+    long durationMs = convertToDurationMs(currentMediaMetadata);
+    if (durationMs == C.TIME_UNSET) {
+      return false;
+    }
+    long currentPositionMs =
+        convertToCurrentPositionMs(playbackStateCompat, currentMediaMetadata, timeDiffMs);
+    return currentPositionMs >= durationMs;
   }
 
   private static byte[] convertToByteArray(Bitmap bitmap) throws IOException {
