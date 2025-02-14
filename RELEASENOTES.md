@@ -35,6 +35,13 @@
 *   Muxers:
 *   IMA extension:
 *   Session:
+    *   Keep foreground service state for an additional 10 minutes when playback
+        pauses, stops or fails. This allows users to resume playback within this
+        timeout without risking foreground service restrictions on various
+        devices. Note that simply calling `player.pause()` can no longer be used
+        to stop the foreground service before `stopSelf()` when overriding
+        `onTaskRemoved`, use `MediaSessionService.pauseAllPlayersAndStopSelf()`
+        instead.
     *   Keep notification visible when playback enters an error or stopped
         state. The notification is only removed if the playlist is cleared or
         the player is released.
