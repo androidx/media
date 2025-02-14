@@ -251,9 +251,7 @@ import java.util.concurrent.TimeoutException;
 
   private boolean shouldShowNotification(MediaSession session) {
     MediaController controller = getConnectedControllerForSession(session);
-    return controller != null
-        && !controller.getCurrentTimeline().isEmpty()
-        && controller.getPlaybackState() != Player.STATE_IDLE;
+    return controller != null && !controller.getCurrentTimeline().isEmpty();
   }
 
   @Nullable
