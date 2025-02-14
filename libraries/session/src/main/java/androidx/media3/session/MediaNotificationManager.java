@@ -26,6 +26,7 @@ import android.content.pm.ServiceInfo;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.Message;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.core.app.NotificationManagerCompat;
@@ -52,14 +53,17 @@ import java.util.concurrent.TimeoutException;
  *
  * <p>All methods must be called on the main thread.
  */
-/* package */ final class MediaNotificationManager {
+/* package */ final class MediaNotificationManager implements Handler.Callback {
 
   private static final String TAG = "MediaNtfMng";
+  private static final int MSG_USER_ENGAGED_TIMEOUT = 1;
+  private static final long USER_ENGAGED_TIMEOUT_MS = 600_000;
 
   private final MediaSessionService mediaSessionService;
   private final MediaNotification.Provider mediaNotificationProvider;
   private final MediaNotification.ActionFactory actionFactory;
   private final NotificationManagerCompat notificationManagerCompat;
+  private final Handler mainHandler;
   private final Executor mainExecutor;
   private final Intent startSelfIntent;
   private final Map<MediaSession, ListenableFuture<MediaController>> controllerMap;
@@ -67,6 +71,8 @@ import java.util.concurrent.TimeoutException;
   private int totalNotificationCount;
   @Nullable private MediaNotification mediaNotification;
   private boolean startedInForeground;
+  private boolean isUserEngaged;
+  private boolean isUserEngagedTimeoutEnabled;
 
   public MediaNotificationManager(
       MediaSessionService mediaSessionService,
@@ -76,11 +82,12 @@ import java.util.concurrent.TimeoutException;
     this.mediaNotificationProvider = mediaNotificationProvider;
     this.actionFactory = actionFactory;
     notificationManagerCompat = NotificationManagerCompat.from(mediaSessionService);
-    Handler mainHandler = new Handler(Looper.getMainLooper());
+    mainHandler = Util.createHandler(Looper.getMainLooper(), /* callback= */ this);
     mainExecutor = (runnable) -> Util.postOrRun(mainHandler, runnable);
     startSelfIntent = new Intent(mediaSessionService, mediaSessionService.getClass());
     controllerMap = new HashMap<>();
     startedInForeground = false;
+    isUserEngagedTimeoutEnabled = true;
   }
 
   public void addSession(MediaSession session) {
@@ -184,20 +191,66 @@ import java.util.concurrent.TimeoutException;
     return startedInForeground;
   }
 
-  /* package */ boolean shouldRunInForeground(
-      MediaSession session, boolean startInForegroundWhenPaused) {
-    @Nullable MediaController controller = getConnectedControllerForSession(session);
-    return controller != null
-        && (controller.getPlayWhenReady() || startInForegroundWhenPaused)
-        && (controller.getPlaybackState() == Player.STATE_READY
-            || controller.getPlaybackState() == Player.STATE_BUFFERING);
+  @Override
+  public boolean handleMessage(Message msg) {
+    if (msg.what == MSG_USER_ENGAGED_TIMEOUT) {
+      List<MediaSession> sessions = mediaSessionService.getSessions();
+      for (int i = 0; i < sessions.size(); i++) {
+        mediaSessionService.onUpdateNotificationInternal(
+            sessions.get(i), /* startInForegroundWhenPaused= */ false);
+      }
+      return true;
+    }
+    return false;
+  }
+
+  /* package */ boolean shouldRunInForeground(boolean startInForegroundWhenPaused) {
+    boolean isUserEngaged = isAnySessionUserEngaged(startInForegroundWhenPaused);
+    if (this.isUserEngaged && !isUserEngaged && isUserEngagedTimeoutEnabled) {
+      mainHandler.sendEmptyMessageDelayed(MSG_USER_ENGAGED_TIMEOUT, USER_ENGAGED_TIMEOUT_MS);
+    } else if (isUserEngaged) {
+      mainHandler.removeMessages(MSG_USER_ENGAGED_TIMEOUT);
+    }
+    this.isUserEngaged = isUserEngaged;
+    boolean hasPendingTimeout = mainHandler.hasMessages(MSG_USER_ENGAGED_TIMEOUT);
+    return isUserEngaged || hasPendingTimeout;
+  }
+
+  private boolean isAnySessionUserEngaged(boolean startInForegroundWhenPaused) {
+    List<MediaSession> sessions = mediaSessionService.getSessions();
+    for (int i = 0; i < sessions.size(); i++) {
+      @Nullable MediaController controller = getConnectedControllerForSession(sessions.get(i));
+      if (controller != null
+          && (controller.getPlayWhenReady() || startInForegroundWhenPaused)
+          && (controller.getPlaybackState() == Player.STATE_READY
+              || controller.getPlaybackState() == Player.STATE_BUFFERING)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Permanently disable the user engaged timeout, which is needed to immediately stop the
+   * foreground service.
+   */
+  /* package */ void disableUserEngagedTimeout() {
+    isUserEngagedTimeoutEnabled = false;
+    if (mainHandler.hasMessages(MSG_USER_ENGAGED_TIMEOUT)) {
+      mainHandler.removeMessages(MSG_USER_ENGAGED_TIMEOUT);
+      List<MediaSession> sessions = mediaSessionService.getSessions();
+      for (int i = 0; i < sessions.size(); i++) {
+        mediaSessionService.onUpdateNotificationInternal(
+            sessions.get(i), /* startInForegroundWhenPaused= */ false);
+      }
+    }
   }
 
   private void onNotificationUpdated(
       int notificationSequence, MediaSession session, MediaNotification mediaNotification) {
     if (notificationSequence == totalNotificationCount) {
       boolean startInForegroundRequired =
-          shouldRunInForeground(session, /* startInForegroundWhenPaused= */ false);
+          shouldRunInForeground(/* startInForegroundWhenPaused= */ false);
       updateNotificationInternal(session, mediaNotification, startInForegroundRequired);
     }
   }
@@ -233,11 +286,8 @@ import java.util.concurrent.TimeoutException;
    *     foreground.
    */
   private void maybeStopForegroundService(boolean removeNotifications) {
-    List<MediaSession> sessions = mediaSessionService.getSessions();
-    for (int i = 0; i < sessions.size(); i++) {
-      if (shouldRunInForeground(sessions.get(i), /* startInForegroundWhenPaused= */ false)) {
-        return;
-      }
+    if (shouldRunInForeground(/* startInForegroundWhenPaused= */ false)) {
+      return;
     }
     stopForeground(removeNotifications);
     if (removeNotifications && mediaNotification != null) {
