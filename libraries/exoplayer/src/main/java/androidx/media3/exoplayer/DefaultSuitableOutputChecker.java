@@ -31,8 +31,11 @@ import android.media.MediaRouter2.RoutingController;
 import android.media.RouteDiscoveryPreference;
 import android.media.RoutingSessionInfo;
 import android.os.Handler;
+import android.os.Looper;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
+import androidx.media3.common.util.BackgroundThreadStateHandler;
+import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.Util;
 import com.google.common.collect.ImmutableList;
 import java.util.concurrent.Executor;
@@ -43,26 +46,26 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @Nullable private final SuitableOutputChecker impl;
 
-  /**
-   * Creates the default {@link SuitableOutputChecker}.
-   *
-   * @param context A {@link Context}.
-   * @param eventHandler A {@link Handler} to trigger {@link Callback} methods on.
-   */
-  public DefaultSuitableOutputChecker(Context context, Handler eventHandler) {
+  /** Creates the default {@link SuitableOutputChecker}. */
+  public DefaultSuitableOutputChecker() {
     if (Util.SDK_INT >= 35) {
-      impl = new ImplApi35(context, eventHandler);
+      impl = new ImplApi35();
     } else if (Util.SDK_INT >= 23) {
-      impl = new ImplApi23(context, eventHandler);
+      impl = new ImplApi23();
     } else {
       impl = null;
     }
   }
 
   @Override
-  public void enable(Callback callback) {
+  public void enable(
+      Callback callback,
+      Context context,
+      Looper callbackLooper,
+      Looper backgroundLooper,
+      Clock clock) {
     if (impl != null) {
-      impl.enable(callback);
+      impl.enable(callback, context, callbackLooper, backgroundLooper, clock);
     }
   }
 
@@ -85,61 +88,63 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                 /* preferredFeatures= */ ImmutableList.of(), /* activeScan= */ false)
             .build();
 
-    private final Context applicationContext;
-    private final Handler eventHandler;
-
     private @MonotonicNonNull MediaRouter2 router;
     private @MonotonicNonNull RouteCallback routeCallback;
     @Nullable private ControllerCallback controllerCallback;
-    private boolean isSelectedOutputSuitableForPlayback;
-
-    public ImplApi35(Context context, Handler eventHandler) {
-      this.applicationContext = context.getApplicationContext();
-      this.eventHandler = eventHandler;
-    }
+    private @MonotonicNonNull BackgroundThreadStateHandler<Boolean> isSuitableForPlaybackState;
 
     @SuppressLint("ThreadSafe") // Handler is thread-safe, but not annotated.
     @Override
-    public void enable(Callback callback) {
-      router = MediaRouter2.getInstance(applicationContext);
-      routeCallback = new RouteCallback() {};
-      Executor executor =
-          new Executor() {
-            @Override
-            public void execute(Runnable command) {
-              Util.postOrRun(eventHandler, command);
-            }
-          };
-      router.registerRouteCallback(executor, routeCallback, EMPTY_DISCOVERY_PREFERENCE);
-      controllerCallback =
-          new ControllerCallback() {
-            @Override
-            public void onControllerUpdated(RoutingController controller) {
-              boolean isCurrentSelectedOutputSuitableForPlayback =
-                  isSelectedOutputSuitableForPlayback(router);
-              if (isSelectedOutputSuitableForPlayback
-                  != isCurrentSelectedOutputSuitableForPlayback) {
-                isSelectedOutputSuitableForPlayback = isCurrentSelectedOutputSuitableForPlayback;
-                callback.onSelectedOutputSuitabilityChanged(
-                    isCurrentSelectedOutputSuitableForPlayback);
-              }
-            }
-          };
-      router.registerControllerCallback(executor, controllerCallback);
-      isSelectedOutputSuitableForPlayback = isSelectedOutputSuitableForPlayback(router);
+    public void enable(
+        Callback callback,
+        Context context,
+        Looper callbackLooper,
+        Looper backgroundLooper,
+        Clock clock) {
+      isSuitableForPlaybackState =
+          new BackgroundThreadStateHandler<>(
+              /* initialState= */ true,
+              backgroundLooper,
+              callbackLooper,
+              clock,
+              /* onStateChanged= */ (oldState, newState) ->
+                  callback.onSelectedOutputSuitabilityChanged(newState));
+      isSuitableForPlaybackState.runInBackground(
+          () -> {
+            checkNotNull(isSuitableForPlaybackState);
+            router = MediaRouter2.getInstance(context);
+            routeCallback = new RouteCallback() {};
+            Executor backgroundExecutor = isSuitableForPlaybackState::runInBackground;
+            router.registerRouteCallback(
+                backgroundExecutor, routeCallback, EMPTY_DISCOVERY_PREFERENCE);
+            controllerCallback =
+                new ControllerCallback() {
+                  @Override
+                  public void onControllerUpdated(RoutingController controller) {
+                    isSuitableForPlaybackState.setStateInBackground(
+                        isSelectedOutputSuitableForPlayback(router));
+                  }
+                };
+            router.registerControllerCallback(backgroundExecutor, controllerCallback);
+            isSuitableForPlaybackState.setStateInBackground(
+                isSelectedOutputSuitableForPlayback(router));
+          });
     }
 
     @Override
     public void disable() {
-      checkStateNotNull(controllerCallback, "SuitableOutputChecker is not enabled");
-      checkNotNull(router).unregisterControllerCallback(controllerCallback);
-      controllerCallback = null;
-      router.unregisterRouteCallback(checkNotNull(routeCallback));
+      checkStateNotNull(isSuitableForPlaybackState)
+          .runInBackground(
+              () -> {
+                checkNotNull(router).unregisterControllerCallback(checkNotNull(controllerCallback));
+                controllerCallback = null;
+                router.unregisterRouteCallback(checkNotNull(routeCallback));
+              });
     }
 
     @Override
     public boolean isSelectedOutputSuitableForPlayback() {
-      return isSelectedOutputSuitableForPlayback;
+      return isSuitableForPlaybackState == null ? true : isSuitableForPlaybackState.get();
     }
 
     private static boolean isSelectedOutputSuitableForPlayback(MediaRouter2 router) {
@@ -173,67 +178,72 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   @RequiresApi(23)
   private static final class ImplApi23 implements SuitableOutputChecker {
 
-    private final Context applicationContext;
-    private final Handler eventHandler;
-
     @Nullable private AudioManager audioManager;
     private @MonotonicNonNull AudioDeviceCallback audioDeviceCallback;
-    private boolean isSelectedOutputSuitableForPlayback;
-
-    public ImplApi23(Context context, Handler eventHandler) {
-      this.applicationContext = context.getApplicationContext();
-      this.eventHandler = eventHandler;
-    }
+    private @MonotonicNonNull BackgroundThreadStateHandler<Boolean> isSuitableForPlaybackState;
 
     @Override
-    public void enable(Callback callback) {
-      AudioManager audioManager =
-          (AudioManager) applicationContext.getSystemService(Context.AUDIO_SERVICE);
-      if (audioManager == null) {
-        isSelectedOutputSuitableForPlayback = true;
-        return;
-      }
-      this.audioManager = audioManager;
-      audioDeviceCallback =
-          new AudioDeviceCallback() {
-            @Override
-            public void onAudioDevicesAdded(AudioDeviceInfo[] addedDevices) {
-              updateIsSelectedOutputSuitableForPlayback(callback);
+    public void enable(
+        Callback callback,
+        Context context,
+        Looper callbackLooper,
+        Looper backgroundLooper,
+        Clock clock) {
+      isSuitableForPlaybackState =
+          new BackgroundThreadStateHandler<>(
+              /* initialState= */ true,
+              backgroundLooper,
+              callbackLooper,
+              clock,
+              /* onStateChanged= */ (oldState, newState) ->
+                  callback.onSelectedOutputSuitabilityChanged(newState));
+      isSuitableForPlaybackState.runInBackground(
+          () -> {
+            checkNotNull(isSuitableForPlaybackState);
+            if (!Util.isWear(context)) {
+              return;
             }
+            AudioManager audioManager =
+                (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
+            if (audioManager == null) {
+              return;
+            }
+            this.audioManager = audioManager;
+            audioDeviceCallback =
+                new AudioDeviceCallback() {
+                  @Override
+                  public void onAudioDevicesAdded(AudioDeviceInfo[] addedDevices) {
+                    isSuitableForPlaybackState.setStateInBackground(hasSupportedAudioOutput());
+                  }
 
-            @Override
-            public void onAudioDevicesRemoved(AudioDeviceInfo[] removedDevices) {
-              updateIsSelectedOutputSuitableForPlayback(callback);
-            }
-          };
-      audioManager.registerAudioDeviceCallback(audioDeviceCallback, eventHandler);
-      isSelectedOutputSuitableForPlayback = hasSupportedAudioOutput();
+                  @Override
+                  public void onAudioDevicesRemoved(AudioDeviceInfo[] removedDevices) {
+                    isSuitableForPlaybackState.setStateInBackground(hasSupportedAudioOutput());
+                  }
+                };
+            audioManager.registerAudioDeviceCallback(
+                audioDeviceCallback, new Handler(checkNotNull(Looper.myLooper())));
+            isSuitableForPlaybackState.setStateInBackground(hasSupportedAudioOutput());
+          });
     }
 
     @Override
     public void disable() {
-      if (audioManager != null) {
-        audioManager.unregisterAudioDeviceCallback(checkNotNull(audioDeviceCallback));
-      }
+      checkNotNull(isSuitableForPlaybackState)
+          .runInBackground(
+              () -> {
+                if (audioManager != null) {
+                  audioManager.unregisterAudioDeviceCallback(checkNotNull(audioDeviceCallback));
+                }
+              });
     }
 
     @Override
     public boolean isSelectedOutputSuitableForPlayback() {
-      return isSelectedOutputSuitableForPlayback;
-    }
-
-    private void updateIsSelectedOutputSuitableForPlayback(Callback callback) {
-      boolean isSelectedOutputSuitableForPlayback = hasSupportedAudioOutput();
-      if (this.isSelectedOutputSuitableForPlayback != isSelectedOutputSuitableForPlayback) {
-        this.isSelectedOutputSuitableForPlayback = isSelectedOutputSuitableForPlayback;
-        callback.onSelectedOutputSuitabilityChanged(isSelectedOutputSuitableForPlayback);
-      }
+      return isSuitableForPlaybackState == null ? true : isSuitableForPlaybackState.get();
     }
 
     private boolean hasSupportedAudioOutput() {
-      if (!Util.isWear(applicationContext)) {
-        return true;
-      }
       AudioDeviceInfo[] audioDeviceInfos =
           checkStateNotNull(audioManager).getDevices(AudioManager.GET_DEVICES_OUTPUTS);
       for (AudioDeviceInfo device : audioDeviceInfos) {

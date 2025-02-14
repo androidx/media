@@ -413,7 +413,12 @@ import java.util.concurrent.CopyOnWriteArraySet;
 
       if (builder.suppressPlaybackOnUnsuitableOutput) {
         suitableOutputChecker = builder.suitableOutputChecker;
-        suitableOutputChecker.enable(this::onSelectedOutputSuitabilityChanged);
+        suitableOutputChecker.enable(
+            this::onSelectedOutputSuitabilityChanged,
+            applicationContext,
+            applicationLooper,
+            playbackLooper,
+            clock);
       } else {
         suitableOutputChecker = null;
       }
