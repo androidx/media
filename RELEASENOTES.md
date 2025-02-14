@@ -78,6 +78,12 @@
         method. Use
         `PlayerNotificationManager.setMediaSessionToken(MediaSession.Token)` and
         pass in `(MediaSession.Token) compatToken.getToken()`instead.
+    *   Removed deprecated `Player.hasNext()`, `Player.hasNextWindow()`. Use
+        `Player.hasNextMediaItem()` instead.
+    *   Removed deprecated `Player.next()`. Use `Player.seekToNextMediaItem()` instead.
+    *   Removed deprecated `Player.seekToPreviousWindow()`. Use `Player.seekToPreviousMediaItem()`
+        instead.
+    *   Removed deprecated `Player.seekToNextWindow()`. Use `Player.seekToNextMediaItem()` instead.
 
 ## 1.6
 
