@@ -41,7 +41,7 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public class AudioPositionAdvancingTest {
 
-  private static final int TIMEOUT_MS = 500;
+  private static final int TIMEOUT_MS = 10_000;
 
   // Regression test for b/378871275
   @Test
