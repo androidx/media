@@ -1461,6 +1461,84 @@ public class MediaControllerWithMediaSessionCompatTest {
   }
 
   @Test
+  public void setPlaybackState_toStoppedWithEndPosition_notifiesPlaybackStateEnded()
+      throws Exception {
+    long testDuration = 1_000;
+    session.setPlaybackState(
+        new PlaybackStateCompat.Builder()
+            .setState(PlaybackStateCompat.STATE_PLAYING, /* position= */ 0, /* playbackSpeed= */ 1f)
+            .build());
+    session.setMetadata(
+        new MediaMetadataCompat.Builder().putLong(METADATA_KEY_DURATION, testDuration).build());
+
+    MediaController controller = controllerTestRule.createController(session.getSessionToken());
+    CountDownLatch latch = new CountDownLatch(1);
+    AtomicInteger playbackStateFromParamRef = new AtomicInteger();
+    AtomicInteger playbackStateFromGetterRef = new AtomicInteger();
+    Player.Listener listener =
+        new Player.Listener() {
+          @Override
+          public void onPlaybackStateChanged(@Player.State int playbackState) {
+            playbackStateFromParamRef.set(playbackState);
+            playbackStateFromGetterRef.set(controller.getPlaybackState());
+            latch.countDown();
+          }
+        };
+    threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
+
+    session.setPlaybackState(
+        new PlaybackStateCompat.Builder()
+            .setState(
+                PlaybackStateCompat.STATE_STOPPED,
+                /* position= */ testDuration,
+                /* playbackSpeed= */ 1f)
+            .build());
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(playbackStateFromParamRef.get()).isEqualTo(Player.STATE_ENDED);
+    assertThat(playbackStateFromGetterRef.get()).isEqualTo(Player.STATE_ENDED);
+  }
+
+  @Test
+  public void setPlaybackState_toStoppedBeforeEndPosition_notifiesPlaybackStateIdle()
+      throws Exception {
+    long testDuration = 1_000;
+    session.setPlaybackState(
+        new PlaybackStateCompat.Builder()
+            .setState(PlaybackStateCompat.STATE_PLAYING, /* position= */ 0, /* playbackSpeed= */ 1f)
+            .build());
+    session.setMetadata(
+        new MediaMetadataCompat.Builder().putLong(METADATA_KEY_DURATION, testDuration).build());
+
+    MediaController controller = controllerTestRule.createController(session.getSessionToken());
+    CountDownLatch latch = new CountDownLatch(1);
+    AtomicInteger playbackStateFromParamRef = new AtomicInteger();
+    AtomicInteger playbackStateFromGetterRef = new AtomicInteger();
+    Player.Listener listener =
+        new Player.Listener() {
+          @Override
+          public void onPlaybackStateChanged(@Player.State int playbackState) {
+            playbackStateFromParamRef.set(playbackState);
+            playbackStateFromGetterRef.set(controller.getPlaybackState());
+            latch.countDown();
+          }
+        };
+    threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
+
+    session.setPlaybackState(
+        new PlaybackStateCompat.Builder()
+            .setState(
+                PlaybackStateCompat.STATE_STOPPED,
+                /* position= */ testDuration / 2,
+                /* playbackSpeed= */ 1f)
+            .build());
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(playbackStateFromParamRef.get()).isEqualTo(Player.STATE_IDLE);
+    assertThat(playbackStateFromGetterRef.get()).isEqualTo(Player.STATE_IDLE);
+  }
+
+  @Test
   public void setPlaybackState_withSpeed_notifiesOnPlaybackParametersChanged() throws Exception {
     MediaController controller = controllerTestRule.createController(session.getSessionToken());
     CountDownLatch latch = new CountDownLatch(1);
