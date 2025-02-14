@@ -50,6 +50,7 @@ import androidx.media3.common.VideoSize;
 import androidx.media3.common.text.CueGroup;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Size;
+import androidx.media3.common.util.Util;
 import androidx.media3.session.legacy.MediaSessionCompat;
 import androidx.media3.session.legacy.PlaybackStateCompat;
 import androidx.media3.session.legacy.VolumeProviderCompat;
@@ -1084,13 +1085,16 @@ import java.util.List;
           .build();
     }
     @Nullable PlaybackException playerError = getPlayerError();
+    boolean shouldShowPlayButton = Util.shouldShowPlayButton(/* player= */ this, playIfSuppressed);
     int state =
-        LegacyConversions.convertToPlaybackStateCompatState(/* player= */ this, playIfSuppressed);
+        LegacyConversions.convertToPlaybackStateCompatState(
+            /* player= */ this, shouldShowPlayButton);
     // Always advertise ACTION_SET_RATING.
     long actions = PlaybackStateCompat.ACTION_SET_RATING;
     Commands availableCommands = intersect(availablePlayerCommands, getAvailableCommands());
     for (int i = 0; i < availableCommands.size(); i++) {
-      actions |= convertCommandToPlaybackStateActions(availableCommands.get(i));
+      actions |=
+          convertCommandToPlaybackStateActions(availableCommands.get(i), shouldShowPlayButton);
     }
     if (!mediaButtonPreferences.isEmpty()
         && !legacyExtras.getBoolean(MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_PREV)) {
@@ -1346,12 +1350,13 @@ import java.util.List;
   }
 
   @SuppressWarnings("deprecation") // Uses deprecated PlaybackStateCompat actions.
-  private static long convertCommandToPlaybackStateActions(@Command int command) {
+  private static long convertCommandToPlaybackStateActions(
+      @Command int command, boolean shouldShowPlayButton) {
     switch (command) {
       case Player.COMMAND_PLAY_PAUSE:
-        return PlaybackStateCompat.ACTION_PAUSE
-            | PlaybackStateCompat.ACTION_PLAY
-            | PlaybackStateCompat.ACTION_PLAY_PAUSE;
+        return shouldShowPlayButton
+            ? PlaybackStateCompat.ACTION_PLAY | PlaybackStateCompat.ACTION_PLAY_PAUSE
+            : PlaybackStateCompat.ACTION_PAUSE | PlaybackStateCompat.ACTION_PLAY_PAUSE;
       case Player.COMMAND_PREPARE:
         return PlaybackStateCompat.ACTION_PREPARE;
       case Player.COMMAND_SEEK_BACK:

@@ -77,7 +77,6 @@ import androidx.media3.common.Timeline;
 import androidx.media3.common.Timeline.Period;
 import androidx.media3.common.Timeline.Window;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.Util;
 import androidx.media3.session.MediaLibraryService.LibraryParams;
 import androidx.media3.session.legacy.AudioAttributesCompat;
 import androidx.media3.session.legacy.MediaBrowserCompat;
@@ -1027,12 +1026,11 @@ import java.util.concurrent.TimeoutException;
 
   /** Converts {@link Player}' states to state of {@link PlaybackStateCompat}. */
   @PlaybackStateCompat.State
-  public static int convertToPlaybackStateCompatState(Player player, boolean playIfSuppressed) {
+  public static int convertToPlaybackStateCompatState(Player player, boolean shouldShowPlayButton) {
     if (player.getPlayerError() != null) {
       return PlaybackStateCompat.STATE_ERROR;
     }
     @Player.State int playbackState = player.getPlaybackState();
-    boolean shouldShowPlayButton = Util.shouldShowPlayButton(player, playIfSuppressed);
     switch (playbackState) {
       case Player.STATE_IDLE:
         return PlaybackStateCompat.STATE_NONE;
@@ -1370,8 +1368,9 @@ import java.util.concurrent.TimeoutException;
       boolean isSessionReady) {
     Player.Commands.Builder playerCommandsBuilder = new Player.Commands.Builder();
     long actions = playbackStateCompat == null ? 0 : playbackStateCompat.getActions();
-    if ((hasAction(actions, PlaybackStateCompat.ACTION_PLAY)
-            && hasAction(actions, PlaybackStateCompat.ACTION_PAUSE))
+    boolean playWhenReady = convertToPlayWhenReady(playbackStateCompat);
+    if ((hasAction(actions, PlaybackStateCompat.ACTION_PLAY) && !playWhenReady)
+        || (hasAction(actions, PlaybackStateCompat.ACTION_PAUSE) && playWhenReady)
         || hasAction(actions, PlaybackStateCompat.ACTION_PLAY_PAUSE)) {
       playerCommandsBuilder.add(COMMAND_PLAY_PAUSE);
     }

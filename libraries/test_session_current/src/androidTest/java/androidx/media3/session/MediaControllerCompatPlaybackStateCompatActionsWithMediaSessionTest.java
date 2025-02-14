@@ -78,10 +78,14 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
   @Rule public final HandlerThreadTestRule threadTestRule = new HandlerThreadTestRule(TAG);
 
   @Test
-  public void playerWithCommandPlayPause_actionsPlayAndPauseAndPlayPauseAdvertised()
+  public void playerWithCommandPlayPauseAndShouldShowPlayButton_actionsPlayAndPlayPauseAdvertised()
       throws Exception {
     Player player =
-        createPlayerWithAvailableCommand(createDefaultPlayer(), Player.COMMAND_PLAY_PAUSE);
+        createPlayerWithAvailableCommand(
+            createPlayer(
+                /* onPostCreationTask= */ createdPlayer ->
+                    createdPlayer.setMediaItem(MediaItem.fromUri("asset://media/wav/sample.wav"))),
+            Player.COMMAND_PLAY_PAUSE);
     MediaSession mediaSession = createMediaSession(player);
     MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
 
@@ -89,7 +93,7 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
 
     assertThat(actions & PlaybackStateCompat.ACTION_PLAY_PAUSE).isNotEqualTo(0);
     assertThat(actions & PlaybackStateCompat.ACTION_PLAY).isNotEqualTo(0);
-    assertThat(actions & PlaybackStateCompat.ACTION_PAUSE).isNotEqualTo(0);
+    assertThat(actions & PlaybackStateCompat.ACTION_PAUSE).isEqualTo(0);
 
     CountDownLatch latch = new CountDownLatch(2);
     List<Boolean> receivedPlayWhenReady = new ArrayList<>();
@@ -109,6 +113,51 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(receivedPlayWhenReady).containsExactly(true, false).inOrder();
+
+    mediaSession.release();
+    releasePlayer(player);
+  }
+
+  @Test
+  public void
+      playerWithCommandPlayPauseAndShouldShowPauseButton_actionsPauseAndPlayPauseAdvertised()
+          throws Exception {
+    Player player =
+        createPlayerWithAvailableCommand(
+            createPlayer(
+                /* onPostCreationTask= */ createdPlayer -> {
+                  createdPlayer.setMediaItem(MediaItem.fromUri("asset://media/wav/sample.wav"));
+                  createdPlayer.prepare();
+                  createdPlayer.play();
+                }),
+            Player.COMMAND_PLAY_PAUSE);
+    MediaSession mediaSession = createMediaSession(player);
+    MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
+
+    long actions = controllerCompat.getPlaybackState().getActions();
+
+    assertThat(actions & PlaybackStateCompat.ACTION_PLAY_PAUSE).isNotEqualTo(0);
+    assertThat(actions & PlaybackStateCompat.ACTION_PLAY).isEqualTo(0);
+    assertThat(actions & PlaybackStateCompat.ACTION_PAUSE).isNotEqualTo(0);
+
+    CountDownLatch latch = new CountDownLatch(2);
+    List<Boolean> receivedPlayWhenReady = new ArrayList<>();
+    Player.Listener listener =
+        new Player.Listener() {
+          @Override
+          public void onPlayWhenReadyChanged(
+              boolean playWhenReady, @Player.PlayWhenReadyChangeReason int reason) {
+            receivedPlayWhenReady.add(playWhenReady);
+            latch.countDown();
+          }
+        };
+    player.addListener(listener);
+
+    controllerCompat.getTransportControls().pause();
+    controllerCompat.getTransportControls().play();
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(receivedPlayWhenReady).containsExactly(false, true).inOrder();
 
     mediaSession.release();
     releasePlayer(player);
