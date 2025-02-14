@@ -15,6 +15,8 @@
  */
 package androidx.media3.exoplayer;
 
+import static androidx.media3.common.C.CENC_TYPE_cenc;
+import static androidx.media3.common.C.WIDEVINE_UUID;
 import static com.google.common.truth.Truth.assertThat;
 import static java.lang.Math.min;
 
@@ -25,11 +27,14 @@ import android.media.MediaDataSource;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.media.metrics.LogSessionId;
+import android.media.metrics.MediaMetricsManager;
+import android.media.metrics.PlaybackSession;
 import android.net.Uri;
 import android.os.PersistableBundle;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
+import androidx.media3.common.DrmInitData;
 import androidx.media3.test.utils.AssetContentProvider;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
@@ -95,8 +100,8 @@ public class MediaExtractorContractTest {
         });
   }
 
-  @Parameter public Function<Context, MediaExtractorProxy> mediaExtractorProxyFactory;
   @Rule public final TemporaryFolder tempFolder = new TemporaryFolder();
+  @Parameter public Function<Context, MediaExtractorProxy> mediaExtractorProxyFactory;
 
   private MediaExtractorProxy mediaExtractorProxy;
   private Context context;
@@ -137,8 +142,7 @@ public class MediaExtractorContractTest {
   @Test
   public void setDataSource_withFileDescriptorOffsetAndLength_returnsCorrectTrackCount()
       throws IOException {
-    AssetFileDescriptor afd =
-        ApplicationProvider.getApplicationContext().getAssets().openFd("media/mp4/sample.mp4");
+    AssetFileDescriptor afd = context.getAssets().openFd("media/mp4/sample.mp4");
 
     mediaExtractorProxy.setDataSource(
         afd.getFileDescriptor(), afd.getStartOffset(), afd.getLength());
@@ -221,7 +225,7 @@ public class MediaExtractorContractTest {
   }
 
   @Test
-  public void setDataSource_withContentUri_returnsCorrectTrackCount() throws Exception {
+  public void setDataSource_withContentUri_returnsCorrectTrackCount() throws IOException {
     Uri contentUri = AssetContentProvider.buildUri("media/mp4/sample.mp4", /* pipeMode= */ false);
 
     mediaExtractorProxy.setDataSource(context, contentUri, /* headers= */ null);
@@ -244,6 +248,73 @@ public class MediaExtractorContractTest {
       assertThat(mediaExtractorProxy.getTrackCount()).isEqualTo(2);
       assertThat(mockWebServer.takeRequest().getHeaders().get("k")).isEqualTo("v");
     }
+  }
+
+  @Test
+  @SdkSuppress(minSdkVersion = 31)
+  public void getLogSessionId_withUnsetSessionId_returnsNone() {
+    assertThat(mediaExtractorProxy.getLogSessionId()).isEqualTo(LogSessionId.LOG_SESSION_ID_NONE);
+  }
+
+  @Test
+  @SdkSuppress(minSdkVersion = 31)
+  public void getLogSessionId_withSetSessionId_returnsSetSessionId() {
+    MediaMetricsManager mediaMetricsManager = context.getSystemService(MediaMetricsManager.class);
+    PlaybackSession playbackSession = mediaMetricsManager.createPlaybackSession();
+    LogSessionId logSessionId = playbackSession.getSessionId();
+
+    mediaExtractorProxy.setLogSessionId(logSessionId);
+
+    assertThat(mediaExtractorProxy.getLogSessionId()).isEqualTo(logSessionId);
+  }
+
+  @Test
+  @SdkSuppress(minSdkVersion = 30)
+  public void getDrmInitData_forPsshV0EncryptedFile_returnsCorrectWidevineSchemeData()
+      throws IOException {
+    AssetFileDescriptor afd =
+        context.getAssets().openFd("media/drm/sample_fragmented_widevine.mp4");
+    mediaExtractorProxy.setDataSource(afd);
+
+    Object drmInitDataObject = mediaExtractorProxy.getDrmInitData();
+
+    if (mediaExtractorProxy instanceof FrameworkMediaExtractorProxy) {
+      android.media.DrmInitData frameworkDrmInitData =
+          (android.media.DrmInitData) drmInitDataObject;
+      assertThat(frameworkDrmInitData.getSchemeInitDataCount()).isEqualTo(1);
+      assertThat(frameworkDrmInitData.getSchemeInitDataAt(0).mimeType).isEqualTo(CENC_TYPE_cenc);
+      assertThat(frameworkDrmInitData.getSchemeInitDataAt(0).uuid).isEqualTo(WIDEVINE_UUID);
+    } else {
+      DrmInitData drmInitData = (DrmInitData) drmInitDataObject;
+      assertThat(drmInitData.schemeDataCount).isEqualTo(1);
+      assertThat(drmInitData.schemeType).isEqualTo(CENC_TYPE_cenc);
+      assertThat(drmInitData.get(0).uuid).isEqualTo(WIDEVINE_UUID);
+    }
+  }
+
+  @Test
+  public void getPsshInfo_forPsshV0EncryptedFile_returnsCorrectWidevinePsshData()
+      throws IOException {
+    AssetFileDescriptor afd =
+        context.getAssets().openFd("media/drm/sample_fragmented_widevine.mp4");
+    mediaExtractorProxy.setDataSource(
+        afd.getFileDescriptor(), afd.getStartOffset(), afd.getLength());
+
+    Map<UUID, byte[]> psshInfo = mediaExtractorProxy.getPsshInfo();
+
+    assertThat(psshInfo).containsKey(WIDEVINE_UUID);
+    byte[] expectedSchemeData =
+        new byte[] {
+          (byte) 0x08, (byte) 0x01, (byte) 0x12, (byte) 0x01, (byte) 0x35,
+          (byte) 0x1A, (byte) 0x0D, (byte) 0x77, (byte) 0x69, (byte) 0x64,
+          (byte) 0x65, (byte) 0x76, (byte) 0x69, (byte) 0x6E, (byte) 0x65,
+          (byte) 0x5F, (byte) 0x74, (byte) 0x65, (byte) 0x73, (byte) 0x74,
+          (byte) 0x22, (byte) 0x0A, (byte) 0x32, (byte) 0x30, (byte) 0x31,
+          (byte) 0x35, (byte) 0x5F, (byte) 0x74, (byte) 0x65, (byte) 0x61,
+          (byte) 0x72, (byte) 0x73, (byte) 0x2A, (byte) 0x02, (byte) 0x53,
+          (byte) 0x44
+        };
+    assertThat(psshInfo.get(WIDEVINE_UUID)).isEqualTo(expectedSchemeData);
   }
 
   private static class FrameworkMediaExtractorProxy implements MediaExtractorProxy {
