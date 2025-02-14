@@ -16356,6 +16356,114 @@ public class ExoPlayerTest {
     verify(listener).onAudioSessionIdChanged(audioSessionId);
   }
 
+  @Test
+  public void setVideoScalingMode_isSetOnPrimaryAndSecondaryVideoRenderers() throws Exception {
+    AtomicBoolean videoScalingSetOnAudioRenderer = new AtomicBoolean();
+    AtomicBoolean videoScalingSetOnVideoRenderer1 = new AtomicBoolean();
+    AtomicBoolean videoScalingSetOnVideoRenderer2 = new AtomicBoolean();
+    AtomicBoolean videoScalingSetOnSecondaryAudioRenderer = new AtomicBoolean();
+    AtomicBoolean videoScalingSetOnSecondaryVideoRenderer = new AtomicBoolean();
+    ExoPlayer player =
+        new ExoPlayer.Builder(context)
+            .setRenderersFactory(
+                new RenderersFactory() {
+                  private boolean secondaryRendererCreated = false;
+
+                  @Override
+                  public Renderer[] createRenderers(
+                      Handler handler,
+                      VideoRendererEventListener videoRendererEventListener,
+                      AudioRendererEventListener audioRendererEventListener,
+                      TextOutput textRendererOutput,
+                      MetadataOutput metadataRendererOutput) {
+                    return new Renderer[] {
+                      new FakeRenderer(C.TRACK_TYPE_AUDIO) {
+                        @Override
+                        public void handleMessage(
+                            @MessageType int messageType, @Nullable Object message)
+                            throws ExoPlaybackException {
+                          if (messageType == Renderer.MSG_SET_SCALING_MODE) {
+                            videoScalingSetOnAudioRenderer.set(true);
+                          }
+                          super.handleMessage(messageType, message);
+                        }
+                      },
+                      new FakeRenderer(C.TRACK_TYPE_VIDEO) {
+                        @Override
+                        public void handleMessage(
+                            @MessageType int messageType, @Nullable Object message)
+                            throws ExoPlaybackException {
+                          if (messageType == Renderer.MSG_SET_SCALING_MODE) {
+                            videoScalingSetOnVideoRenderer1.set(true);
+                          }
+                          super.handleMessage(messageType, message);
+                        }
+                      },
+                      new FakeRenderer(C.TRACK_TYPE_VIDEO) {
+                        @Override
+                        public void handleMessage(
+                            @MessageType int messageType, @Nullable Object message)
+                            throws ExoPlaybackException {
+                          if (messageType == Renderer.MSG_SET_SCALING_MODE) {
+                            videoScalingSetOnVideoRenderer2.set(true);
+                          }
+                          super.handleMessage(messageType, message);
+                        }
+                      }
+                    };
+                  }
+
+                  @Nullable
+                  @Override
+                  public Renderer createSecondaryRenderer(
+                      Renderer renderer,
+                      Handler eventHandler,
+                      VideoRendererEventListener videoRendererEventListener,
+                      AudioRendererEventListener audioRendererEventListener,
+                      TextOutput textRendererOutput,
+                      MetadataOutput metadataRendererOutput) {
+                    if (renderer.getTrackType() == C.TRACK_TYPE_AUDIO) {
+                      return new FakeRenderer(C.TRACK_TYPE_AUDIO) {
+                        @Override
+                        public void handleMessage(
+                            @MessageType int messageType, @Nullable Object message)
+                            throws ExoPlaybackException {
+                          if (messageType == Renderer.MSG_SET_SCALING_MODE) {
+                            videoScalingSetOnSecondaryAudioRenderer.set(true);
+                          }
+                          super.handleMessage(messageType, message);
+                        }
+                      };
+                    }
+                    if (!secondaryRendererCreated) {
+                      secondaryRendererCreated = true;
+                      return new FakeRenderer(C.TRACK_TYPE_VIDEO) {
+                        @Override
+                        public void handleMessage(
+                            @MessageType int messageType, @Nullable Object message)
+                            throws ExoPlaybackException {
+                          if (messageType == Renderer.MSG_SET_SCALING_MODE) {
+                            videoScalingSetOnSecondaryVideoRenderer.set(true);
+                          }
+                          super.handleMessage(messageType, message);
+                        }
+                      };
+                    }
+                    return null;
+                  }
+                })
+            .build();
+
+    player.setVideoScalingMode(C.VIDEO_SCALING_MODE_SCALE_TO_FIT_WITH_CROPPING);
+    advance(player).untilPendingCommandsAreFullyHandled();
+
+    assertThat(videoScalingSetOnAudioRenderer.get()).isFalse();
+    assertThat(videoScalingSetOnVideoRenderer1.get()).isTrue();
+    assertThat(videoScalingSetOnVideoRenderer2.get()).isTrue();
+    assertThat(videoScalingSetOnSecondaryAudioRenderer.get()).isFalse();
+    assertThat(videoScalingSetOnSecondaryVideoRenderer.get()).isTrue();
+  }
+
   // Internal methods.
 
   private void addWatchAsSystemFeature() {

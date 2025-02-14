@@ -2875,6 +2875,11 @@ import java.util.concurrent.CopyOnWriteArraySet;
         createMessageInternal(renderer).setType(messageType).setPayload(payload).send();
       }
     }
+    for (@Nullable Renderer renderer : secondaryRenderers) {
+      if (renderer != null && (trackType == -1 || renderer.getTrackType() == trackType)) {
+        createMessageInternal(renderer).setType(messageType).setPayload(payload).send();
+      }
+    }
   }
 
   private void updatePriorityTaskManagerForIsLoadingChange(boolean isLoading) {
