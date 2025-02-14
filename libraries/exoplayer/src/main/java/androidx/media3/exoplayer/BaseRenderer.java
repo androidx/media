@@ -27,7 +27,6 @@ import androidx.media3.common.Timeline;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.decoder.DecoderInputBuffer.InsufficientCapacityException;
 import androidx.media3.exoplayer.analytics.PlayerId;
@@ -37,6 +36,7 @@ import androidx.media3.exoplayer.source.SampleStream;
 import androidx.media3.exoplayer.source.SampleStream.ReadDataResult;
 import androidx.media3.exoplayer.source.SampleStream.ReadFlags;
 import java.io.IOException;
+import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
@@ -208,7 +208,7 @@ public abstract class BaseRenderer implements Renderer, RendererCapabilities {
 
   @Override
   public final void setTimeline(Timeline timeline) {
-    if (!Util.areEqual(this.timeline, timeline)) {
+    if (!Objects.equals(this.timeline, timeline)) {
       this.timeline = timeline;
       onTimelineChanged(this.timeline);
     }

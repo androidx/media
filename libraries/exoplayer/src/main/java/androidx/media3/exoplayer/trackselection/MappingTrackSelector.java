@@ -48,6 +48,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.Arrays;
+import java.util.Objects;
 
 /**
  * Base class for {@link TrackSelector}s that first establish a mapping between {@link TrackGroup}s
@@ -310,7 +311,7 @@ public abstract class MappingTrackSelector extends TrackSelector {
         if (handledTrackCount++ == 0) {
           firstSampleMimeType = sampleMimeType;
         } else {
-          multipleMimeTypes |= !Util.areEqual(firstSampleMimeType, sampleMimeType);
+          multipleMimeTypes |= !Objects.equals(firstSampleMimeType, sampleMimeType);
         }
         adaptiveSupport =
             min(

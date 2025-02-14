@@ -37,13 +37,13 @@ import androidx.media3.common.audio.AudioFocusRequestCompat;
 import androidx.media3.common.audio.AudioManagerCompat;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
-import com.google.common.base.Objects;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** Manages requesting and responding to changes in audio focus. */
@@ -167,7 +167,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    *     managed automatically.
    */
   public void setAudioAttributes(@Nullable AudioAttributes audioAttributes) {
-    if (!Objects.equal(this.audioAttributes, audioAttributes)) {
+    if (!Objects.equals(this.audioAttributes, audioAttributes)) {
       this.audioAttributes = audioAttributes;
       focusGainToRequest = convertAudioAttributesToFocusGain(audioAttributes);
       Assertions.checkArgument(

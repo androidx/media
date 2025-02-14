@@ -433,8 +433,8 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
       for (int i = 0; i < schemeDatas.size(); i++) {
         SchemeData schemeData = schemeDatas.get(i);
         byte[] schemeDataData = Assertions.checkNotNull(schemeData.data);
-        if (Util.areEqual(schemeData.mimeType, firstSchemeData.mimeType)
-            && Util.areEqual(schemeData.licenseServerUrl, firstSchemeData.licenseServerUrl)
+        if (Objects.equals(schemeData.mimeType, firstSchemeData.mimeType)
+            && Objects.equals(schemeData.licenseServerUrl, firstSchemeData.licenseServerUrl)
             && PsshAtomUtil.isPsshAtom(schemeDataData)) {
           concatenatedDataLength += schemeDataData.length;
         } else {

@@ -57,12 +57,12 @@ import androidx.media3.exoplayer.drm.DrmSession;
 import androidx.media3.exoplayer.source.LoadEventInfo;
 import androidx.media3.exoplayer.source.MediaLoadData;
 import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import java.io.IOException;
 import java.util.List;
+import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
@@ -1123,11 +1123,11 @@ public class DefaultAnalyticsCollector implements AnalyticsCollector {
       ImmutableMap.Builder<MediaPeriodId, Timeline> builder = ImmutableMap.builder();
       if (mediaPeriodQueue.isEmpty()) {
         addTimelineForMediaPeriodId(builder, playingMediaPeriod, preferredTimeline);
-        if (!Objects.equal(readingMediaPeriod, playingMediaPeriod)) {
+        if (!Objects.equals(readingMediaPeriod, playingMediaPeriod)) {
           addTimelineForMediaPeriodId(builder, readingMediaPeriod, preferredTimeline);
         }
-        if (!Objects.equal(currentPlayerMediaPeriod, playingMediaPeriod)
-            && !Objects.equal(currentPlayerMediaPeriod, readingMediaPeriod)) {
+        if (!Objects.equals(currentPlayerMediaPeriod, playingMediaPeriod)
+            && !Objects.equals(currentPlayerMediaPeriod, readingMediaPeriod)) {
           addTimelineForMediaPeriodId(builder, currentPlayerMediaPeriod, preferredTimeline);
         }
       } else {

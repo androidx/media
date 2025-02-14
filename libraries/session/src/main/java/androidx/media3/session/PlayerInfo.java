@@ -49,8 +49,8 @@ import androidx.media3.common.text.CueGroup;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
-import com.google.common.base.Objects;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.util.Objects;
 
 /**
  * Information about the player that {@link MediaSession} uses to send its state to {@link
@@ -116,7 +116,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
     @Override
     public int hashCode() {
-      return Objects.hashCode(isTimelineExcluded, areCurrentTracksExcluded);
+      return Objects.hash(isTimelineExcluded, areCurrentTracksExcluded);
     }
   }
 

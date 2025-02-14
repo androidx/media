@@ -72,6 +72,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * Starts, updates and cancels a media style notification reflecting the player state. The actions
@@ -1016,7 +1017,7 @@ public class PlayerNotificationManager {
    * @param token The {@link MediaSession.Token}.
    */
   public final void setMediaSessionToken(MediaSession.Token token) {
-    if (!Util.areEqual(this.mediaSessionToken, token)) {
+    if (!Objects.equals(this.mediaSessionToken, token)) {
       mediaSessionToken = token;
       invalidate();
     }

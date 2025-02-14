@@ -37,7 +37,6 @@ import androidx.media3.common.text.CueGroup;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
-import com.google.common.base.Objects;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
@@ -45,6 +44,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * A media player interface defining high-level functionality, such as the ability to play, pause,
@@ -352,13 +352,13 @@ public interface Player {
       }
       PositionInfo that = (PositionInfo) o;
       return equalsForBundling(that)
-          && Objects.equal(windowUid, that.windowUid)
-          && Objects.equal(periodUid, that.periodUid);
+          && Objects.equals(windowUid, that.windowUid)
+          && Objects.equals(periodUid, that.periodUid);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hashCode(
+      return Objects.hash(
           windowUid,
           mediaItemIndex,
           mediaItem,
@@ -382,7 +382,7 @@ public interface Player {
           && contentPositionMs == other.contentPositionMs
           && adGroupIndex == other.adGroupIndex
           && adIndexInAdGroup == other.adIndexInAdGroup
-          && Objects.equal(mediaItem, other.mediaItem);
+          && Objects.equals(mediaItem, other.mediaItem);
     }
 
     @VisibleForTesting static final String FIELD_MEDIA_ITEM_INDEX = Util.intToStringMaxRadix(0);
