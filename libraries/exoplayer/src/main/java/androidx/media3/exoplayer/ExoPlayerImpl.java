@@ -45,9 +45,7 @@ import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Rect;
 import android.graphics.SurfaceTexture;
-import android.media.AudioDeviceCallback;
 import android.media.AudioDeviceInfo;
-import android.media.AudioManager;
 import android.media.MediaFormat;
 import android.os.Handler;
 import android.os.Looper;
@@ -176,8 +174,6 @@ import java.util.concurrent.CopyOnWriteArraySet;
   private final WakeLockManager wakeLockManager;
   private final WifiLockManager wifiLockManager;
   private final long detachSurfaceTimeoutMs;
-  @Nullable private AudioManager audioManager;
-  private final boolean suppressPlaybackOnUnsuitableOutput;
   @Nullable private final SuitableOutputChecker suitableOutputChecker;
   private final BackgroundThreadStateHandler<Integer> audioSessionIdState;
 
@@ -293,7 +289,6 @@ import java.util.concurrent.CopyOnWriteArraySet;
       this.applicationLooper = builder.looper;
       this.clock = builder.clock;
       this.wrappingPlayer = wrappingPlayer == null ? this : wrappingPlayer;
-      this.suppressPlaybackOnUnsuitableOutput = builder.suppressPlaybackOnUnsuitableOutput;
       listeners =
           new ListenerSet<>(
               applicationLooper,
@@ -416,15 +411,11 @@ import java.util.concurrent.CopyOnWriteArraySet;
       audioFocusManager = new AudioFocusManager(builder.context, eventHandler, componentListener);
       audioFocusManager.setAudioAttributes(builder.handleAudioFocus ? audioAttributes : null);
 
-      suitableOutputChecker = builder.suitableOutputChecker;
-      if (suitableOutputChecker != null && Util.SDK_INT >= 35) {
+      if (builder.suppressPlaybackOnUnsuitableOutput) {
+        suitableOutputChecker = builder.suitableOutputChecker;
         suitableOutputChecker.enable(this::onSelectedOutputSuitabilityChanged);
-      } else if (suppressPlaybackOnUnsuitableOutput && Util.SDK_INT >= 23) {
-        audioManager = (AudioManager) applicationContext.getSystemService(Context.AUDIO_SERVICE);
-        Api23.registerAudioDeviceCallback(
-            audioManager,
-            new NoSuitableOutputPlaybackSuppressionAudioDeviceCallback(),
-            new Handler(applicationLooper));
+      } else {
+        suitableOutputChecker = null;
       }
 
       if (builder.deviceVolumeControlEnabled) {
@@ -1037,6 +1028,9 @@ import java.util.concurrent.CopyOnWriteArraySet;
     wakeLockManager.setStayAwake(false);
     wifiLockManager.setStayAwake(false);
     audioFocusManager.release();
+    if (suitableOutputChecker != null) {
+      suitableOutputChecker.disable();
+    }
     if (!internalPlayer.release()) {
       // One of the renderers timed out releasing its resources.
       listeners.sendEvent(
@@ -1052,9 +1046,6 @@ import java.util.concurrent.CopyOnWriteArraySet;
     bandwidthMeter.removeEventListener(analyticsCollector);
     if (playbackInfo.sleepingForOffload) {
       playbackInfo = playbackInfo.copyWithEstimatedPosition();
-    }
-    if (suitableOutputChecker != null && Util.SDK_INT >= 35) {
-      suitableOutputChecker.disable();
     }
     playbackInfo = playbackInfo.copyWithPlaybackState(Player.STATE_IDLE);
     playbackInfo = playbackInfo.copyWithLoadingMediaPeriodId(playbackInfo.periodId);
@@ -2793,8 +2784,8 @@ import java.util.concurrent.CopyOnWriteArraySet;
     if (playerCommand == AudioFocusManager.PLAYER_COMMAND_WAIT_FOR_CALLBACK) {
       return Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS;
     }
-    if (suppressPlaybackOnUnsuitableOutput) {
-      if (playWhenReady && !hasSupportedAudioOutput()) {
+    if (suitableOutputChecker != null) {
+      if (playWhenReady && !suitableOutputChecker.isSelectedOutputSuitableForPlayback()) {
         return Player.PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT;
       }
       if (!playWhenReady
@@ -2804,19 +2795,6 @@ import java.util.concurrent.CopyOnWriteArraySet;
       }
     }
     return Player.PLAYBACK_SUPPRESSION_REASON_NONE;
-  }
-
-  private boolean hasSupportedAudioOutput() {
-    if (Util.SDK_INT >= 35 && suitableOutputChecker != null) {
-      return suitableOutputChecker.isSelectedOutputSuitableForPlayback();
-    } else if (Util.SDK_INT >= 23 && audioManager != null) {
-      return Api23.isSuitableExternalAudioOutputPresentInAudioDeviceInfoList(
-          applicationContext, audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS));
-    } else {
-      // The Audio Manager API to determine the list of connected audio devices is available only in
-      // API >= 23.
-      return true;
-    }
   }
 
   private void updateWakeAndWifiLock() {
@@ -2927,6 +2905,10 @@ import java.util.concurrent.CopyOnWriteArraySet;
   }
 
   private void onSelectedOutputSuitabilityChanged(boolean isSelectedOutputSuitableForPlayback) {
+    if (playerReleased) {
+      // Stale event.
+      return;
+    }
     if (isSelectedOutputSuitableForPlayback) {
       if (playbackInfo.playbackSuppressionReason
           == Player.PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT) {
@@ -3395,80 +3377,6 @@ import java.util.concurrent.CopyOnWriteArraySet;
             }
             playerId.setLogSessionId(listener.getLogSessionId());
           });
-    }
-  }
-
-  @RequiresApi(23)
-  private static final class Api23 {
-    private Api23() {}
-
-    public static boolean isSuitableExternalAudioOutputPresentInAudioDeviceInfoList(
-        Context context, AudioDeviceInfo[] audioDeviceInfos) {
-      if (!Util.isWear(context)) {
-        return true;
-      }
-      for (AudioDeviceInfo device : audioDeviceInfos) {
-        if (device.getType() == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP
-            || device.getType() == AudioDeviceInfo.TYPE_LINE_ANALOG
-            || device.getType() == AudioDeviceInfo.TYPE_LINE_DIGITAL
-            || device.getType() == AudioDeviceInfo.TYPE_USB_DEVICE
-            || device.getType() == AudioDeviceInfo.TYPE_WIRED_HEADPHONES
-            || device.getType() == AudioDeviceInfo.TYPE_WIRED_HEADSET) {
-          return true;
-        }
-        if (Util.SDK_INT >= 26 && device.getType() == AudioDeviceInfo.TYPE_USB_HEADSET) {
-          return true;
-        }
-        if (Util.SDK_INT >= 28 && device.getType() == AudioDeviceInfo.TYPE_HEARING_AID) {
-          return true;
-        }
-        if (Util.SDK_INT >= 31
-            && (device.getType() == AudioDeviceInfo.TYPE_BLE_HEADSET
-                || device.getType() == AudioDeviceInfo.TYPE_BLE_SPEAKER)) {
-          return true;
-        }
-        if (Util.SDK_INT >= 33 && device.getType() == AudioDeviceInfo.TYPE_BLE_BROADCAST) {
-          return true;
-        }
-      }
-      return false;
-    }
-
-    public static void registerAudioDeviceCallback(
-        AudioManager audioManager, AudioDeviceCallback audioDeviceCallback, Handler handler) {
-      audioManager.registerAudioDeviceCallback(audioDeviceCallback, handler);
-    }
-  }
-
-  /**
-   * A {@link AudioDeviceCallback} to change playback suppression reason when suitable audio outputs
-   * are either added in unsuitable output based playback suppression state or removed during an
-   * ongoing playback.
-   */
-  @RequiresApi(23)
-  private final class NoSuitableOutputPlaybackSuppressionAudioDeviceCallback
-      extends AudioDeviceCallback {
-
-    @Override
-    public void onAudioDevicesAdded(AudioDeviceInfo[] addedDevices) {
-      if (hasSupportedAudioOutput()
-          && playbackInfo.playbackSuppressionReason
-              == Player.PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT) {
-        updatePlaybackInfoForPlayWhenReadyAndSuppressionReasonStates(
-            playbackInfo.playWhenReady,
-            PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
-            Player.PLAYBACK_SUPPRESSION_REASON_NONE);
-      }
-    }
-
-    @Override
-    public void onAudioDevicesRemoved(AudioDeviceInfo[] removedDevices) {
-      if (!hasSupportedAudioOutput()) {
-        updatePlaybackInfoForPlayWhenReadyAndSuppressionReasonStates(
-            playbackInfo.playWhenReady,
-            PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
-            Player.PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT);
-      }
     }
   }
 }

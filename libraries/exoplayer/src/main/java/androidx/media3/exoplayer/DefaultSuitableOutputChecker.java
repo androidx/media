@@ -15,9 +15,14 @@
  */
 package androidx.media3.exoplayer;
 
+import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
+import android.media.AudioDeviceCallback;
+import android.media.AudioDeviceInfo;
+import android.media.AudioManager;
 import android.media.MediaRoute2Info;
 import android.media.MediaRouter2;
 import android.media.MediaRouter2.ControllerCallback;
@@ -31,88 +36,231 @@ import androidx.annotation.RequiresApi;
 import androidx.media3.common.util.Util;
 import com.google.common.collect.ImmutableList;
 import java.util.concurrent.Executor;
+import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** Default implementation for {@link SuitableOutputChecker}. */
-@RequiresApi(35)
 /* package */ final class DefaultSuitableOutputChecker implements SuitableOutputChecker {
 
-  private static final RouteDiscoveryPreference EMPTY_DISCOVERY_PREFERENCE =
-      new RouteDiscoveryPreference.Builder(
-              /* preferredFeatures= */ ImmutableList.of(), /* activeScan= */ false)
-          .build();
+  @Nullable private final SuitableOutputChecker impl;
 
-  private final MediaRouter2 router;
-  private final RouteCallback routeCallback;
-  private final Executor executor;
-
-  @Nullable private ControllerCallback controllerCallback;
-  private boolean isPreviousSelectedOutputSuitableForPlayback;
-
+  /**
+   * Creates the default {@link SuitableOutputChecker}.
+   *
+   * @param context A {@link Context}.
+   * @param eventHandler A {@link Handler} to trigger {@link Callback} methods on.
+   */
   public DefaultSuitableOutputChecker(Context context, Handler eventHandler) {
-    router = MediaRouter2.getInstance(context);
-    routeCallback = new RouteCallback() {};
-    executor =
-        new Executor() {
-          @Override
-          public void execute(Runnable command) {
-            Util.postOrRun(eventHandler, command);
-          }
-        };
+    if (Util.SDK_INT >= 35) {
+      impl = new ImplApi35(context, eventHandler);
+    } else if (Util.SDK_INT >= 23) {
+      impl = new ImplApi23(context, eventHandler);
+    } else {
+      impl = null;
+    }
   }
 
   @Override
   public void enable(Callback callback) {
-    router.registerRouteCallback(executor, routeCallback, EMPTY_DISCOVERY_PREFERENCE);
-    controllerCallback =
-        new ControllerCallback() {
-          @Override
-          public void onControllerUpdated(RoutingController controller) {
-            boolean isCurrentSelectedOutputSuitableForPlayback =
-                isSelectedOutputSuitableForPlayback();
-            if (isPreviousSelectedOutputSuitableForPlayback
-                != isCurrentSelectedOutputSuitableForPlayback) {
-              isPreviousSelectedOutputSuitableForPlayback =
-                  isCurrentSelectedOutputSuitableForPlayback;
-              callback.onSelectedOutputSuitabilityChanged(
-                  isCurrentSelectedOutputSuitableForPlayback);
-            }
-          }
-        };
-    router.registerControllerCallback(executor, controllerCallback);
-    isPreviousSelectedOutputSuitableForPlayback = isSelectedOutputSuitableForPlayback();
+    if (impl != null) {
+      impl.enable(callback);
+    }
   }
 
   @Override
   public void disable() {
-    checkStateNotNull(controllerCallback, "SuitableOutputChecker is not enabled");
-    router.unregisterControllerCallback(controllerCallback);
-    controllerCallback = null;
-    router.unregisterRouteCallback(routeCallback);
+    if (impl != null) {
+      impl.disable();
+    }
   }
 
   @Override
   public boolean isSelectedOutputSuitableForPlayback() {
-    checkStateNotNull(controllerCallback, "SuitableOutputChecker is not enabled");
-    int transferReason = router.getSystemController().getRoutingSessionInfo().getTransferReason();
-    boolean wasTransferInitiatedBySelf = router.getSystemController().wasTransferInitiatedBySelf();
-    for (MediaRoute2Info routeInfo : router.getSystemController().getSelectedRoutes()) {
-      if (isRouteSuitableForMediaPlayback(routeInfo, transferReason, wasTransferInitiatedBySelf)) {
-        return true;
-      }
-    }
-    return false;
+    return impl == null || impl.isSelectedOutputSuitableForPlayback();
   }
 
-  private static boolean isRouteSuitableForMediaPlayback(
-      MediaRoute2Info routeInfo, int transferReason, boolean wasTransferInitiatedBySelf) {
-    int suitabilityStatus = routeInfo.getSuitabilityStatus();
+  @RequiresApi(35)
+  private static final class ImplApi35 implements SuitableOutputChecker {
+    private static final RouteDiscoveryPreference EMPTY_DISCOVERY_PREFERENCE =
+        new RouteDiscoveryPreference.Builder(
+                /* preferredFeatures= */ ImmutableList.of(), /* activeScan= */ false)
+            .build();
 
-    if (suitabilityStatus == MediaRoute2Info.SUITABILITY_STATUS_SUITABLE_FOR_MANUAL_TRANSFER) {
-      return (transferReason == RoutingSessionInfo.TRANSFER_REASON_SYSTEM_REQUEST
-              || transferReason == RoutingSessionInfo.TRANSFER_REASON_APP)
-          && wasTransferInitiatedBySelf;
+    private final Context applicationContext;
+    private final Handler eventHandler;
+
+    private @MonotonicNonNull MediaRouter2 router;
+    private @MonotonicNonNull RouteCallback routeCallback;
+    @Nullable private ControllerCallback controllerCallback;
+    private boolean isSelectedOutputSuitableForPlayback;
+
+    public ImplApi35(Context context, Handler eventHandler) {
+      this.applicationContext = context.getApplicationContext();
+      this.eventHandler = eventHandler;
     }
 
-    return suitabilityStatus == MediaRoute2Info.SUITABILITY_STATUS_SUITABLE_FOR_DEFAULT_TRANSFER;
+    @SuppressLint("ThreadSafe") // Handler is thread-safe, but not annotated.
+    @Override
+    public void enable(Callback callback) {
+      router = MediaRouter2.getInstance(applicationContext);
+      routeCallback = new RouteCallback() {};
+      Executor executor =
+          new Executor() {
+            @Override
+            public void execute(Runnable command) {
+              Util.postOrRun(eventHandler, command);
+            }
+          };
+      router.registerRouteCallback(executor, routeCallback, EMPTY_DISCOVERY_PREFERENCE);
+      controllerCallback =
+          new ControllerCallback() {
+            @Override
+            public void onControllerUpdated(RoutingController controller) {
+              boolean isCurrentSelectedOutputSuitableForPlayback =
+                  isSelectedOutputSuitableForPlayback(router);
+              if (isSelectedOutputSuitableForPlayback
+                  != isCurrentSelectedOutputSuitableForPlayback) {
+                isSelectedOutputSuitableForPlayback = isCurrentSelectedOutputSuitableForPlayback;
+                callback.onSelectedOutputSuitabilityChanged(
+                    isCurrentSelectedOutputSuitableForPlayback);
+              }
+            }
+          };
+      router.registerControllerCallback(executor, controllerCallback);
+      isSelectedOutputSuitableForPlayback = isSelectedOutputSuitableForPlayback(router);
+    }
+
+    @Override
+    public void disable() {
+      checkStateNotNull(controllerCallback, "SuitableOutputChecker is not enabled");
+      checkNotNull(router).unregisterControllerCallback(controllerCallback);
+      controllerCallback = null;
+      router.unregisterRouteCallback(checkNotNull(routeCallback));
+    }
+
+    @Override
+    public boolean isSelectedOutputSuitableForPlayback() {
+      return isSelectedOutputSuitableForPlayback;
+    }
+
+    private static boolean isSelectedOutputSuitableForPlayback(MediaRouter2 router) {
+      int transferReason =
+          checkNotNull(router).getSystemController().getRoutingSessionInfo().getTransferReason();
+      boolean wasTransferInitiatedBySelf =
+          router.getSystemController().wasTransferInitiatedBySelf();
+      for (MediaRoute2Info routeInfo : router.getSystemController().getSelectedRoutes()) {
+        if (isRouteSuitableForMediaPlayback(
+            routeInfo, transferReason, wasTransferInitiatedBySelf)) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    private static boolean isRouteSuitableForMediaPlayback(
+        MediaRoute2Info routeInfo, int transferReason, boolean wasTransferInitiatedBySelf) {
+      int suitabilityStatus = routeInfo.getSuitabilityStatus();
+
+      if (suitabilityStatus == MediaRoute2Info.SUITABILITY_STATUS_SUITABLE_FOR_MANUAL_TRANSFER) {
+        return (transferReason == RoutingSessionInfo.TRANSFER_REASON_SYSTEM_REQUEST
+                || transferReason == RoutingSessionInfo.TRANSFER_REASON_APP)
+            && wasTransferInitiatedBySelf;
+      }
+
+      return suitabilityStatus == MediaRoute2Info.SUITABILITY_STATUS_SUITABLE_FOR_DEFAULT_TRANSFER;
+    }
+  }
+
+  @RequiresApi(23)
+  private static final class ImplApi23 implements SuitableOutputChecker {
+
+    private final Context applicationContext;
+    private final Handler eventHandler;
+
+    @Nullable private AudioManager audioManager;
+    private @MonotonicNonNull AudioDeviceCallback audioDeviceCallback;
+    private boolean isSelectedOutputSuitableForPlayback;
+
+    public ImplApi23(Context context, Handler eventHandler) {
+      this.applicationContext = context.getApplicationContext();
+      this.eventHandler = eventHandler;
+    }
+
+    @Override
+    public void enable(Callback callback) {
+      AudioManager audioManager =
+          (AudioManager) applicationContext.getSystemService(Context.AUDIO_SERVICE);
+      if (audioManager == null) {
+        isSelectedOutputSuitableForPlayback = true;
+        return;
+      }
+      this.audioManager = audioManager;
+      audioDeviceCallback =
+          new AudioDeviceCallback() {
+            @Override
+            public void onAudioDevicesAdded(AudioDeviceInfo[] addedDevices) {
+              updateIsSelectedOutputSuitableForPlayback(callback);
+            }
+
+            @Override
+            public void onAudioDevicesRemoved(AudioDeviceInfo[] removedDevices) {
+              updateIsSelectedOutputSuitableForPlayback(callback);
+            }
+          };
+      audioManager.registerAudioDeviceCallback(audioDeviceCallback, eventHandler);
+      isSelectedOutputSuitableForPlayback = hasSupportedAudioOutput();
+    }
+
+    @Override
+    public void disable() {
+      if (audioManager != null) {
+        audioManager.unregisterAudioDeviceCallback(checkNotNull(audioDeviceCallback));
+      }
+    }
+
+    @Override
+    public boolean isSelectedOutputSuitableForPlayback() {
+      return isSelectedOutputSuitableForPlayback;
+    }
+
+    private void updateIsSelectedOutputSuitableForPlayback(Callback callback) {
+      boolean isSelectedOutputSuitableForPlayback = hasSupportedAudioOutput();
+      if (this.isSelectedOutputSuitableForPlayback != isSelectedOutputSuitableForPlayback) {
+        this.isSelectedOutputSuitableForPlayback = isSelectedOutputSuitableForPlayback;
+        callback.onSelectedOutputSuitabilityChanged(isSelectedOutputSuitableForPlayback);
+      }
+    }
+
+    private boolean hasSupportedAudioOutput() {
+      if (!Util.isWear(applicationContext)) {
+        return true;
+      }
+      AudioDeviceInfo[] audioDeviceInfos =
+          checkStateNotNull(audioManager).getDevices(AudioManager.GET_DEVICES_OUTPUTS);
+      for (AudioDeviceInfo device : audioDeviceInfos) {
+        if (device.getType() == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP
+            || device.getType() == AudioDeviceInfo.TYPE_LINE_ANALOG
+            || device.getType() == AudioDeviceInfo.TYPE_LINE_DIGITAL
+            || device.getType() == AudioDeviceInfo.TYPE_USB_DEVICE
+            || device.getType() == AudioDeviceInfo.TYPE_WIRED_HEADPHONES
+            || device.getType() == AudioDeviceInfo.TYPE_WIRED_HEADSET) {
+          return true;
+        }
+        if (Util.SDK_INT >= 26 && device.getType() == AudioDeviceInfo.TYPE_USB_HEADSET) {
+          return true;
+        }
+        if (Util.SDK_INT >= 28 && device.getType() == AudioDeviceInfo.TYPE_HEARING_AID) {
+          return true;
+        }
+        if (Util.SDK_INT >= 31
+            && (device.getType() == AudioDeviceInfo.TYPE_BLE_HEADSET
+                || device.getType() == AudioDeviceInfo.TYPE_BLE_SPEAKER)) {
+          return true;
+        }
+        if (Util.SDK_INT >= 33 && device.getType() == AudioDeviceInfo.TYPE_BLE_BROADCAST) {
+          return true;
+        }
+      }
+      return false;
+    }
   }
 }

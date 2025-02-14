@@ -94,6 +94,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 import static org.robolectric.Shadows.shadowOf;
+import static org.robolectric.annotation.Config.ALL_SDKS;
 
 import android.content.Context;
 import android.content.Intent;
@@ -14022,7 +14023,7 @@ public class ExoPlayerTest {
   }
 
   @Test
-  @Config(sdk = Config.ALL_SDKS)
+  @Config(sdk = ALL_SDKS)
   public void builder_inBackgroundThreadWithAllowedAnyThreadMethods_doesNotThrow()
       throws Exception {
     AtomicReference<Player> playerReference = new AtomicReference<>();
@@ -15023,6 +15024,8 @@ public class ExoPlayerTest {
    * Tests playback suppression for playback with only unsuitable outputs (e.g. builtin speaker) on
    * the Wear OS.
    */
+  // TODO: remove maxSdk once Robolectric supports MediaRouter2 (b/382017156)
+  @Config(minSdk = 23, maxSdk = 34)
   @Test
   public void play_withOnlyUnsuitableOutputsOnWear_shouldSuppressPlayback() throws Exception {
     addWatchAsSystemFeature();
@@ -15059,6 +15062,8 @@ public class ExoPlayerTest {
    * Tests no playback suppression for playback with suitable output (e.g. BluetoothA2DP) on the
    * Wear OS.
    */
+  // TODO: remove maxSdk once Robolectric supports MediaRouter2 (b/382017156)
+  @Config(minSdk = 23, maxSdk = 34)
   @Test
   public void play_withAtleastOneSuitableOutputOnWear_shouldNotSuppressPlayback() throws Exception {
     addWatchAsSystemFeature();
@@ -15095,6 +15100,8 @@ public class ExoPlayerTest {
    * Tests same playback suppression reason for multiple play calls with only unsuitable output
    * (e.g. builtin speaker) on the Wear OS.
    */
+  // TODO: remove maxSdk once Robolectric supports MediaRouter2 (b/382017156)
+  @Config(minSdk = 23, maxSdk = 34)
   @Test
   public void
       play_callMultipleTimesOnUnsuitableOutputFollowedByPause_shouldRetainSameSuppressionReason()
@@ -15134,6 +15141,8 @@ public class ExoPlayerTest {
   }
 
   /** Tests playback suppression for playback on the built-speaker on non-Wear OS surfaces. */
+  // TODO: remove maxSdk once Robolectric supports MediaRouter2 (b/382017156)
+  @Config(minSdk = 23, maxSdk = 34)
   @Test
   public void play_onBuiltinSpeakerWithoutWearPresentAsSystemFeature_shouldNotSuppressPlayback()
       throws Exception {
@@ -15171,6 +15180,8 @@ public class ExoPlayerTest {
    * speaker) on Wear OS but {@link
    * ExoPlayer.Builder#setSuppressPlaybackOnUnsuitableOutput(boolean)} is not called with true.
    */
+  // TODO: remove maxSdk once Robolectric supports MediaRouter2 (b/382017156)
+  @Config(minSdk = 23, maxSdk = 34)
   @Test
   public void
       play_withOnlyUnsuitableOutputsWithoutEnablingPlaybackSuppression_shouldNotSuppressPlayback()
@@ -15206,6 +15217,8 @@ public class ExoPlayerTest {
    * Player#PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT} when a suitable audio output is
    * added.
    */
+  // TODO: remove maxSdk once Robolectric supports MediaRouter2 (b/382017156)
+  @Config(minSdk = 23, maxSdk = 34)
   @Test
   public void addSuitableOutputWhenPlaybackSuppressed_shouldRemovePlaybackSuppression()
       throws Exception {
@@ -15246,6 +15259,8 @@ public class ExoPlayerTest {
    * Tests no change in the playback suppression reason when an unsuitable audio output is connected
    * while playback was suppressed earlier.
    */
+  // TODO: remove maxSdk once Robolectric supports MediaRouter2 (b/382017156)
+  @Config(minSdk = 23, maxSdk = 34)
   @Test
   public void addUnsuitableOutputWhenPlaybackIsSuppressed_shouldNotRemovePlaybackSuppression()
       throws Exception {
@@ -15277,6 +15292,8 @@ public class ExoPlayerTest {
    * Tests no change in the playback suppression reason when a suitable audio output is added but
    * playback was not suppressed earlier.
    */
+  // TODO: remove maxSdk once Robolectric supports MediaRouter2 (b/382017156)
+  @Config(minSdk = 23, maxSdk = 34)
   @Test
   public void addSuitableOutputWhenPlaybackNotSuppressed_shouldNotRemovePlaybackSuppression()
       throws Exception {
@@ -15308,6 +15325,8 @@ public class ExoPlayerTest {
    * Player#PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT} when all the suitable audio outputs
    * have been removed during an ongoing playback.
    */
+  // TODO: remove maxSdk once Robolectric supports MediaRouter2 (b/382017156)
+  @Config(minSdk = 23, maxSdk = 34)
   @Test
   public void removeAllSuitableOutputsWhenPlaybackOngoing_shouldSetPlaybackSuppression()
       throws Exception {
@@ -15340,6 +15359,8 @@ public class ExoPlayerTest {
    * Tests no change in the playback suppression reason when any unsuitable audio outputs has been
    * removed during an ongoing playback but some suitable audio outputs are still available.
    */
+  // TODO: remove maxSdk once Robolectric supports MediaRouter2 (b/382017156)
+  @Config(minSdk = 23, maxSdk = 34)
   @Test
   public void removeAnyUnsuitableOutputWhenPlaybackOngoing_shouldNotSetPlaybackSuppression()
       throws Exception {
@@ -15376,6 +15397,8 @@ public class ExoPlayerTest {
    * removed during an ongoing playback but at least one another suitable audio output is still
    * connected to the device.
    */
+  // TODO: remove maxSdk once Robolectric supports MediaRouter2 (b/382017156)
+  @Config(minSdk = 23, maxSdk = 34)
   @Test
   public void
       removeAnySuitableOutputButOneSuitableDeviceStillConnected_shouldNotSetPlaybackSuppression()
@@ -15406,9 +15429,8 @@ public class ExoPlayerTest {
     player.release();
   }
 
-  /** Tests suppression of playback when no situable output is found. */
+  /** Tests suppression of playback when no suitable output is found. */
   @Test
-  @Config(minSdk = 35)
   public void verifySuitableOutput_shouldSuppressPlaybackWhenNoSuitableOutputAvailable()
       throws Exception {
     FakeSuitableOutputChecker suitableMediaOutputChecker =
@@ -15439,7 +15461,6 @@ public class ExoPlayerTest {
 
   /** Tests no occurrences of suppression of playback when situable output is found. */
   @Test
-  @Config(minSdk = 35)
   public void verifySuitableOutput_shouldNotSuppressPlaybackWhenSuitableOutputIsAvailable()
       throws Exception {
     FakeSuitableOutputChecker suitableMediaOutputChecker =
@@ -15472,7 +15493,6 @@ public class ExoPlayerTest {
    * disabled.
    */
   @Test
-  @Config(minSdk = 35)
   public void
       verifySuitableOutput_playbackSuppressionOnUnsuitableOutputDisabled_shouldNotSuppressPlayback()
           throws Exception {
@@ -15502,7 +15522,6 @@ public class ExoPlayerTest {
 
   /** Tests removal of suppression of playback when a suitable output is added. */
   @Test
-  @Config(minSdk = 35)
   public void verifySuitableOutput_shouldRemovePlaybackSuppressionOnAdditionOfSuitableOutput()
       throws Exception {
     FakeSuitableOutputChecker suitableMediaOutputChecker =
@@ -15538,7 +15557,6 @@ public class ExoPlayerTest {
 
   /** Tests suppression of playback when a suitable output is removed. */
   @Test
-  @Config(minSdk = 35)
   public void verifySuitableOutput_shouldSuppressPlaybackOnRemovalOfSuitableOutput()
       throws Exception {
     FakeSuitableOutputChecker suitableMediaOutputChecker =
@@ -15571,7 +15589,6 @@ public class ExoPlayerTest {
 
   /** Tests suppression of playback back again when a suitable output added before is removed. */
   @Test
-  @Config(minSdk = 35)
   public void verifySuitableOutput_shouldSuppressPlaybackAgainAfterRemovalOfAddedSuitableOutput()
       throws Exception {
     FakeSuitableOutputChecker suitableMediaOutputChecker =

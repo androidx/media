@@ -18,7 +18,6 @@ package androidx.media3.test.utils;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
-import android.os.Build.VERSION;
 import android.os.Looper;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
@@ -423,7 +422,7 @@ public class TestExoPlayerBuilder {
             .setDeviceVolumeControlEnabled(deviceVolumeControlEnabled)
             .setSuppressPlaybackOnUnsuitableOutput(suppressPlaybackWhenUnsuitableOutput)
             .experimentalSetDynamicSchedulingEnabled(dynamicSchedulingEnabled);
-    if (VERSION.SDK_INT >= 35 && suitableOutputChecker != null) {
+    if (suitableOutputChecker != null) {
       builder.setSuitableOutputChecker(suitableOutputChecker);
     }
     if (mediaSourceFactory != null) {
