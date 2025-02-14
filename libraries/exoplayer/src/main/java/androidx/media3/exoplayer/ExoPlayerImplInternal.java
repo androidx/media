@@ -162,6 +162,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
   private static final int MSG_PREPARE = 29;
   private static final int MSG_SET_VIDEO_OUTPUT = 30;
   private static final int MSG_SET_AUDIO_ATTRIBUTES = 31;
+  private static final int MSG_SET_VOLUME = 32;
 
   private static final long BUFFERING_MAXIMUM_INTERVAL_MS =
       Util.usToMs(Renderer.DEFAULT_DURATION_TO_PROGRESS_US);
@@ -455,6 +456,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
     handler.obtainMessage(MSG_SET_AUDIO_ATTRIBUTES, audioAttributes).sendToTarget();
   }
 
+  public void setVolume(float volume) {
+    handler.obtainMessage(MSG_SET_VOLUME, volume).sendToTarget();
+  }
+
   @Override
   public synchronized void sendMessage(PlayerMessage message) {
     if (released || !playbackLooper.getThread().isAlive()) {
@@ -674,6 +679,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
           break;
         case MSG_SET_AUDIO_ATTRIBUTES:
           setAudioAttributesInternal((AudioAttributes) msg.obj);
+          break;
+        case MSG_SET_VOLUME:
+          setVolumeInternal((Float) msg.obj);
           break;
         case MSG_RELEASE:
           releaseInternal();
@@ -946,6 +954,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
   private void setAudioAttributesInternal(AudioAttributes audioAttributes) {
     trackSelector.setAudioAttributes(audioAttributes);
+  }
+
+  private void setVolumeInternal(float volume) throws ExoPlaybackException {
+    for (RendererHolder renderer : renderers) {
+      renderer.setVolume(volume);
+    }
   }
 
   private void notifyTrackSelectionPlayWhenReadyChanged(boolean playWhenReady) {

@@ -37,7 +37,6 @@ import static androidx.media3.exoplayer.Renderer.MSG_SET_SKIP_SILENCE_ENABLED;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_VIDEO_EFFECTS;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_VIDEO_FRAME_METADATA_LISTENER;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_VIDEO_OUTPUT_RESOLUTION;
-import static androidx.media3.exoplayer.Renderer.MSG_SET_VOLUME;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
@@ -1538,7 +1537,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
       return;
     }
     this.volume = volume;
-    sendVolumeToRenderers();
+    sendVolumeToInternalPlayer();
     float finalVolume = volume;
     listeners.sendEvent(EVENT_VOLUME_CHANGED, listener -> listener.onVolumeChanged(finalVolume));
   }
@@ -2737,9 +2736,9 @@ import java.util.concurrent.CopyOnWriteArraySet;
     }
   }
 
-  private void sendVolumeToRenderers() {
+  private void sendVolumeToInternalPlayer() {
     float scaledVolume = volume * audioFocusManager.getVolumeMultiplier();
-    sendRendererMessage(TRACK_TYPE_AUDIO, MSG_SET_VOLUME, scaledVolume);
+    internalPlayer.setVolume(scaledVolume);
   }
 
   private void updatePlayWhenReady(
@@ -3224,7 +3223,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
 
     @Override
     public void setVolumeMultiplier(float volumeMultiplier) {
-      sendVolumeToRenderers();
+      sendVolumeToInternalPlayer();
     }
 
     @Override

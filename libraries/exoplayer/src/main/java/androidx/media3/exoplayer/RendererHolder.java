@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer;
 
+import static androidx.media3.common.C.TRACK_TYPE_AUDIO;
 import static androidx.media3.common.C.TRACK_TYPE_VIDEO;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
@@ -771,6 +772,17 @@ import java.util.Objects;
       checkNotNull(secondaryRenderer).handleMessage(Renderer.MSG_SET_VIDEO_OUTPUT, videoOutput);
     } else {
       primaryRenderer.handleMessage(Renderer.MSG_SET_VIDEO_OUTPUT, videoOutput);
+    }
+  }
+
+  /** Sets the volume on the renderer. */
+  public void setVolume(float volume) throws ExoPlaybackException {
+    if (getTrackType() != TRACK_TYPE_AUDIO) {
+      return;
+    }
+    primaryRenderer.handleMessage(Renderer.MSG_SET_VOLUME, volume);
+    if (secondaryRenderer != null) {
+      secondaryRenderer.handleMessage(Renderer.MSG_SET_VOLUME, volume);
     }
   }
 
