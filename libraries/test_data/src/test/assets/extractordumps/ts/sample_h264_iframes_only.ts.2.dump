@@ -21,54 +21,54 @@ track 256:
       lumaBitdepth = 8
       chromaBitdepth = 8
     initializationData:
-      data = length 25, hash 8F89F820
+      data = length 24, hash 994683E0
       data = length 8, hash 9BAAE288
   sample 0:
     time = 600000
     flags = 1
-    data = length 7268, hash DEDEAAE6
+    data = length 7268, hash 30E4EB7C
   sample 1:
     time = 633333
     flags = 1
-    data = length 7243, hash B5CFF1BB
+    data = length 7243, hash C8D6D83
   sample 2:
     time = 666666
     flags = 1
-    data = length 7335, hash B9E7BA4C
+    data = length 7335, hash 57DE5D2
   sample 3:
     time = 700000
     flags = 1
-    data = length 7326, hash 69DDD01
+    data = length 7326, hash 374AFB81
   sample 4:
     time = 733333
     flags = 1
-    data = length 7379, hash 8EA6EDC8
+    data = length 7379, hash E2C2DDD6
   sample 5:
     time = 766666
     flags = 1
-    data = length 7341, hash 751383
+    data = length 7341, hash DAB6DB3B
   sample 6:
     time = 800000
     flags = 1
-    data = length 7323, hash E6D08DC8
+    data = length 7323, hash EDC1AFD6
   sample 7:
     time = 833333
     flags = 1
-    data = length 7302, hash DADFB1AC
+    data = length 7302, hash C80BAB76
   sample 8:
     time = 866666
     flags = 1
-    data = length 7327, hash 401FE473
+    data = length 7327, hash 85ED8CB
   sample 9:
     time = 900000
     flags = 1
-    data = length 7340, hash DAAC756E
+    data = length 7340, hash 8D715DF4
   sample 10:
     time = 933333
     flags = 1
-    data = length 7334, hash 614FA397
+    data = length 7334, hash CF2D482B
   sample 11:
     time = 966666
     flags = 1
-    data = length 7287, hash A67CBA0A
+    data = length 7288, hash 24B1602C
 tracksEnded = true
