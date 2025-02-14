@@ -19,7 +19,6 @@ import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.annotation.RestrictTo;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.SuitableOutputChecker;
@@ -28,7 +27,6 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 /** Fake implementation for {@link SuitableOutputChecker}. */
 @RestrictTo(LIBRARY_GROUP)
 @UnstableApi
-@RequiresApi(35)
 public final class FakeSuitableOutputChecker implements SuitableOutputChecker {
 
   /** Builder for {@link FakeSuitableOutputChecker} instance. */

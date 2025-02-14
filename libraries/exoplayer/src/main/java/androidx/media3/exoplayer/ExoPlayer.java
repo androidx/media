@@ -252,7 +252,7 @@ public interface ExoPlayer extends Player {
     /* package */ boolean suppressPlaybackOnUnsuitableOutput;
     /* package */ String playerName;
     /* package */ boolean dynamicSchedulingEnabled;
-    @Nullable /* package */ SuitableOutputChecker suitableOutputChecker;
+    /* package */ SuitableOutputChecker suitableOutputChecker;
 
     /**
      * Creates a builder.
@@ -282,6 +282,7 @@ public interface ExoPlayer extends Player {
      *   <li>{@link AudioAttributes}: {@link AudioAttributes#DEFAULT}, not handling audio focus
      *   <li>{@link C.WakeMode}: {@link C#WAKE_MODE_NONE}
      *   <li>{@code handleAudioBecomingNoisy}: {@code false}
+     *   <li>{@code suppressPlaybackOnUnsuitableOutput}: {@code false}
      *   <li>{@code skipSilenceEnabled}: {@code false}
      *   <li>{@link C.VideoScalingMode}: {@link C#VIDEO_SCALING_MODE_DEFAULT}
      *   <li>{@link C.VideoChangeFrameRateStrategy}: {@link
@@ -459,6 +460,7 @@ public interface ExoPlayer extends Player {
       usePlatformDiagnostics = true;
       playerName = "";
       priority = C.PRIORITY_PLAYBACK;
+      suitableOutputChecker = new DefaultSuitableOutputChecker(context, new Handler(looper));
     }
 
     /**
@@ -1021,7 +1023,6 @@ public interface ExoPlayer extends Player {
     @UnstableApi
     @RestrictTo(LIBRARY_GROUP)
     @VisibleForTesting
-    @RequiresApi(35)
     public Builder setSuitableOutputChecker(SuitableOutputChecker suitableOutputChecker) {
       checkState(!buildCalled);
       this.suitableOutputChecker = suitableOutputChecker;
@@ -1088,11 +1089,6 @@ public interface ExoPlayer extends Player {
     public ExoPlayer build() {
       checkState(!buildCalled);
       buildCalled = true;
-      if (suitableOutputChecker == null
-          && Util.SDK_INT >= 35
-          && suppressPlaybackOnUnsuitableOutput) {
-        suitableOutputChecker = new DefaultSuitableOutputChecker(context, new Handler(looper));
-      }
       return new ExoPlayerImpl(/* builder= */ this, /* wrappingPlayer= */ null);
     }
 

@@ -17,12 +17,10 @@ package androidx.media3.exoplayer;
 
 import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
 
-import androidx.annotation.RequiresApi;
 import androidx.annotation.RestrictTo;
 import androidx.media3.common.util.UnstableApi;
 
 /** Provides methods to check the suitability of selected media outputs. */
-@RequiresApi(35)
 @RestrictTo(LIBRARY_GROUP)
 @UnstableApi
 public interface SuitableOutputChecker {
