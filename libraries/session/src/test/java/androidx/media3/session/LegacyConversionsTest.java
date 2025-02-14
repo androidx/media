@@ -712,9 +712,31 @@ public final class LegacyConversionsTest {
   }
 
   @Test
-  public void convertToPlayerCommands_withJustPlayAction_playPauseCommandNotAvailable() {
+  public void convertToPlayerCommands_withJustPlayActionWhileNotReady_playPauseCommandAvailable() {
     PlaybackStateCompat playbackStateCompat =
-        new PlaybackStateCompat.Builder().setActions(PlaybackStateCompat.ACTION_PLAY).build();
+        new PlaybackStateCompat.Builder()
+            .setState(PlaybackStateCompat.STATE_ERROR, /* position= */ 0, /* playbackSpeed= */ 1f)
+            .setActions(PlaybackStateCompat.ACTION_PLAY)
+            .build();
+
+    Player.Commands playerCommands =
+        LegacyConversions.convertToPlayerCommands(
+            playbackStateCompat,
+            /* volumeControlType= */ VolumeProviderCompat.VOLUME_CONTROL_FIXED,
+            /* sessionFlags= */ 0,
+            /* isSessionReady= */ true);
+
+    assertThat(getCommandsAsList(playerCommands)).contains(Player.COMMAND_PLAY_PAUSE);
+  }
+
+  @Test
+  public void convertToPlayerCommands_withJustPlayActionWhileReady_playPauseCommandNotAvailable() {
+    PlaybackStateCompat playbackStateCompat =
+        new PlaybackStateCompat.Builder()
+            .setState(
+                PlaybackStateCompat.STATE_BUFFERING, /* position= */ 0, /* playbackSpeed= */ 1f)
+            .setActions(PlaybackStateCompat.ACTION_PLAY)
+            .build();
 
     Player.Commands playerCommands =
         LegacyConversions.convertToPlayerCommands(
@@ -727,9 +749,13 @@ public final class LegacyConversionsTest {
   }
 
   @Test
-  public void convertToPlayerCommands_withJustPauseAction_playPauseCommandNotAvailable() {
+  public void
+      convertToPlayerCommands_withJustPauseActionWhileNotReady_playPauseCommandNotAvailable() {
     PlaybackStateCompat playbackStateCompat =
-        new PlaybackStateCompat.Builder().setActions(PlaybackStateCompat.ACTION_PAUSE).build();
+        new PlaybackStateCompat.Builder()
+            .setState(PlaybackStateCompat.STATE_ERROR, /* position= */ 0, /* playbackSpeed= */ 1f)
+            .setActions(PlaybackStateCompat.ACTION_PAUSE)
+            .build();
 
     Player.Commands playerCommands =
         LegacyConversions.convertToPlayerCommands(
@@ -739,6 +765,25 @@ public final class LegacyConversionsTest {
             /* isSessionReady= */ true);
 
     assertThat(getCommandsAsList(playerCommands)).doesNotContain(Player.COMMAND_PLAY_PAUSE);
+  }
+
+  @Test
+  public void convertToPlayerCommands_withJustPauseActionWhileReady_playPauseCommandAvailable() {
+    PlaybackStateCompat playbackStateCompat =
+        new PlaybackStateCompat.Builder()
+            .setState(
+                PlaybackStateCompat.STATE_BUFFERING, /* position= */ 0, /* playbackSpeed= */ 1f)
+            .setActions(PlaybackStateCompat.ACTION_PAUSE)
+            .build();
+
+    Player.Commands playerCommands =
+        LegacyConversions.convertToPlayerCommands(
+            playbackStateCompat,
+            /* volumeControlType= */ VolumeProviderCompat.VOLUME_CONTROL_FIXED,
+            /* sessionFlags= */ 0,
+            /* isSessionReady= */ true);
+
+    assertThat(getCommandsAsList(playerCommands)).contains(Player.COMMAND_PLAY_PAUSE);
   }
 
   @Test

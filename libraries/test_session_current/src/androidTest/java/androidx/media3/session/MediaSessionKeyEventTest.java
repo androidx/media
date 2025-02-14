@@ -136,6 +136,14 @@ public class MediaSessionKeyEventTest {
 
   @Test
   public void playKeyEvent() throws Exception {
+    handler.postAndSync(
+        () -> {
+          // Update state to allow play event to be triggered.
+          player.notifyPlayWhenReadyChanged(
+              /* playWhenReady= */ false,
+              Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
+              Player.PLAYBACK_SUPPRESSION_REASON_NONE);
+        });
     dispatchMediaKeyEvent(KeyEvent.KEYCODE_MEDIA_PLAY, false);
 
     player.awaitMethodCalled(MockPlayer.METHOD_PLAY, TIMEOUT_MS);
@@ -143,6 +151,15 @@ public class MediaSessionKeyEventTest {
 
   @Test
   public void pauseKeyEvent() throws Exception {
+    handler.postAndSync(
+        () -> {
+          // Update state to allow pause event to be triggered.
+          player.notifyPlayWhenReadyChanged(
+              /* playWhenReady= */ true,
+              Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
+              Player.PLAYBACK_SUPPRESSION_REASON_NONE);
+          player.notifyPlaybackStateChanged(Player.STATE_READY);
+        });
     dispatchMediaKeyEvent(KeyEvent.KEYCODE_MEDIA_PAUSE, false);
 
     player.awaitMethodCalled(MockPlayer.METHOD_PAUSE, TIMEOUT_MS);

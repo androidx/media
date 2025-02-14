@@ -672,16 +672,29 @@ public class MediaSessionTest {
                     })
                 .build()));
     MediaSessionImpl impl = session.get().getImpl();
+    ControllerInfo controllerInfo = createMediaButtonCaller();
 
     threadTestRule
         .getHandler()
         .postAndSync(
             () -> {
-              ControllerInfo controllerInfo = createMediaButtonCaller();
               assertThat(
                       impl.onMediaButtonEvent(
                           controllerInfo, getMediaButtonIntent(KEYCODE_MEDIA_PLAY)))
                   .isTrue();
+            });
+    player.awaitMethodCalled(MockPlayer.METHOD_PLAY, TIMEOUT_MS);
+    threadTestRule
+        .getHandler()
+        .postAndSync(
+            () -> {
+              // Update state to allow pause event to be triggered.
+              player.notifyPlaybackStateChanged(Player.STATE_READY);
+              player.notifyPlayWhenReadyChanged(
+                  /* playWhenReady= */ true,
+                  Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
+                  Player.PLAYBACK_SUPPRESSION_REASON_NONE);
+
               assertThat(
                       impl.onMediaButtonEvent(
                           controllerInfo, getMediaButtonIntent(KEYCODE_MEDIA_PAUSE)))
@@ -717,12 +730,10 @@ public class MediaSessionTest {
     player.awaitMethodCalled(MockPlayer.METHOD_SEEK_TO_PREVIOUS, TIMEOUT_MS);
     player.awaitMethodCalled(MockPlayer.METHOD_STOP, TIMEOUT_MS);
     assertThat(callerCollectorPlayer.callingControllers).hasSize(7);
-    for (ControllerInfo controllerInfo : callerCollectorPlayer.callingControllers) {
-      assertThat(session.get().isMediaNotificationController(controllerInfo)).isFalse();
-      assertThat(controllerInfo.getControllerVersion())
-          .isEqualTo(ControllerInfo.LEGACY_CONTROLLER_VERSION);
-      assertThat(controllerInfo.getPackageName())
-          .isEqualTo(getControllerCallerPackageName(controllerInfo));
+    for (ControllerInfo info : callerCollectorPlayer.callingControllers) {
+      assertThat(session.get().isMediaNotificationController(info)).isFalse();
+      assertThat(info.getControllerVersion()).isEqualTo(ControllerInfo.LEGACY_CONTROLLER_VERSION);
+      assertThat(info.getPackageName()).isEqualTo(getControllerCallerPackageName(info));
     }
   }
 
