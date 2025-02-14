@@ -39,7 +39,7 @@ public class CommandButtonTest {
     CommandButton button =
         new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
             .setDisplayName("button")
-            .setIconResId(R.drawable.media3_notification_small_icon)
+            .setCustomIconResId(R.drawable.media3_notification_small_icon)
             .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
             .build();
     Player.Commands availablePlayerCommands =
@@ -61,7 +61,7 @@ public class CommandButtonTest {
     CommandButton button =
         new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
             .setDisplayName("button")
-            .setIconResId(R.drawable.media3_notification_small_icon)
+            .setCustomIconResId(R.drawable.media3_notification_small_icon)
             .setSessionCommand(command1)
             .build();
     SessionCommands availableSessionCommands =
@@ -82,14 +82,14 @@ public class CommandButtonTest {
     CommandButton button1 =
         new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
             .setDisplayName("button1")
-            .setIconResId(R.drawable.media3_notification_small_icon)
+            .setCustomIconResId(R.drawable.media3_notification_small_icon)
             .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
             .build();
     SessionCommand command2 = new SessionCommand("command2", Bundle.EMPTY);
     CommandButton button2 =
         new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
             .setDisplayName("button2")
-            .setIconResId(R.drawable.media3_notification_small_icon)
+            .setCustomIconResId(R.drawable.media3_notification_small_icon)
             .setSessionCommand(command2)
             .build();
     SessionCommands availableSessionCommands =
@@ -115,7 +115,7 @@ public class CommandButtonTest {
     CommandButton button =
         new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
             .setDisplayName("button1")
-            .setIconResId(R.drawable.media3_notification_small_icon)
+            .setCustomIconResId(R.drawable.media3_notification_small_icon)
             .setIconUri(uri)
             .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
             .build();
@@ -128,7 +128,7 @@ public class CommandButtonTest {
     CommandButton button =
         new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
             .setDisplayName("button1")
-            .setIconResId(R.drawable.media3_notification_small_icon)
+            .setCustomIconResId(R.drawable.media3_notification_small_icon)
             .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
             .build();
 
@@ -141,7 +141,7 @@ public class CommandButtonTest {
     CommandButton button =
         new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
             .setDisplayName("button1")
-            .setIconResId(R.drawable.media3_notification_small_icon)
+            .setCustomIconResId(R.drawable.media3_notification_small_icon)
             .setIconUri(uri)
             .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
             .build();
@@ -157,7 +157,7 @@ public class CommandButtonTest {
     CommandButton button =
         new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
             .setDisplayName("button1")
-            .setIconResId(R.drawable.media3_notification_small_icon)
+            .setCustomIconResId(R.drawable.media3_notification_small_icon)
             .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
             .build();
 
@@ -172,7 +172,7 @@ public class CommandButtonTest {
     assertThat(
             new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
                 .setDisplayName("button")
-                .setIconResId(R.drawable.media3_notification_small_icon)
+                .setCustomIconResId(R.drawable.media3_notification_small_icon)
                 .setIconUri(Uri.parse("content://test"))
                 .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
                 .setSlots(CommandButton.SLOT_FORWARD, CommandButton.SLOT_CENTRAL)
@@ -180,7 +180,7 @@ public class CommandButtonTest {
         .isEqualTo(
             new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
                 .setDisplayName("button")
-                .setIconResId(R.drawable.media3_notification_small_icon)
+                .setCustomIconResId(R.drawable.media3_notification_small_icon)
                 .setIconUri(Uri.parse("content://test"))
                 .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
                 .setSlots(CommandButton.SLOT_FORWARD, CommandButton.SLOT_CENTRAL)
@@ -192,7 +192,7 @@ public class CommandButtonTest {
     CommandButton button =
         new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
             .setDisplayName("button")
-            .setIconResId(R.drawable.media3_notification_small_icon)
+            .setCustomIconResId(R.drawable.media3_notification_small_icon)
             .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
             .setSlots(CommandButton.SLOT_BACK)
             .build();
@@ -203,7 +203,7 @@ public class CommandButtonTest {
         .isNotEqualTo(
             new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
                 .setDisplayName("button2")
-                .setIconResId(R.drawable.media3_notification_small_icon)
+                .setCustomIconResId(R.drawable.media3_notification_small_icon)
                 .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
                 .setSlots(CommandButton.SLOT_BACK)
                 .build());
@@ -212,13 +212,13 @@ public class CommandButtonTest {
             new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
                 .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
                 .setDisplayName("button")
-                .setIconResId(R.drawable.media3_notification_small_icon)
+                .setCustomIconResId(R.drawable.media3_notification_small_icon)
                 .setSlots(CommandButton.SLOT_BACK)
                 .build());
     assertThat(button)
         .isNotEqualTo(
             new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
-                .setIconResId(R.drawable.media3_icon_play)
+                .setCustomIconResId(R.drawable.media3_icon_play)
                 .setDisplayName("button")
                 .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
                 .setSlots(CommandButton.SLOT_BACK)
@@ -228,7 +228,7 @@ public class CommandButtonTest {
             new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
                 .setEnabled(false)
                 .setDisplayName("button")
-                .setIconResId(R.drawable.media3_notification_small_icon)
+                .setCustomIconResId(R.drawable.media3_notification_small_icon)
                 .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
                 .setSlots(CommandButton.SLOT_BACK)
                 .build());
@@ -237,14 +237,14 @@ public class CommandButtonTest {
             new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
                 .setSessionCommand(new SessionCommand(SessionCommand.COMMAND_CODE_LIBRARY_GET_ITEM))
                 .setDisplayName("button")
-                .setIconResId(R.drawable.media3_notification_small_icon)
+                .setCustomIconResId(R.drawable.media3_notification_small_icon)
                 .setSlots(CommandButton.SLOT_BACK)
                 .build());
     assertThat(button)
         .isNotEqualTo(
             new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
                 .setDisplayName("button")
-                .setIconResId(R.drawable.media3_notification_small_icon)
+                .setCustomIconResId(R.drawable.media3_notification_small_icon)
                 .setIconUri(Uri.parse("content://test"))
                 .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
                 .setSlots(CommandButton.SLOT_BACK)
@@ -253,7 +253,7 @@ public class CommandButtonTest {
         .isNotEqualTo(
             new CommandButton.Builder(CommandButton.ICON_NEXT)
                 .setDisplayName("button")
-                .setIconResId(R.drawable.media3_notification_small_icon)
+                .setCustomIconResId(R.drawable.media3_notification_small_icon)
                 .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
                 .setSlots(CommandButton.SLOT_BACK)
                 .build());
@@ -261,7 +261,7 @@ public class CommandButtonTest {
         .isNotEqualTo(
             new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
                 .setDisplayName("button")
-                .setIconResId(R.drawable.media3_notification_small_icon)
+                .setCustomIconResId(R.drawable.media3_notification_small_icon)
                 .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
                 .setSlots(CommandButton.SLOT_FORWARD)
                 .build());
@@ -273,7 +273,7 @@ public class CommandButtonTest {
         new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
             .setDisplayName("button")
             .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
-            .setIconResId(R.drawable.media3_notification_small_icon);
+            .setCustomIconResId(R.drawable.media3_notification_small_icon);
     CommandButton button1 = builder.build();
     Bundle extras2 = new Bundle();
     extras2.putInt("something", 0);
@@ -341,27 +341,27 @@ public class CommandButtonTest {
     assertThat(
             new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
                 .setDisplayName("button")
-                .setIconResId(R.drawable.media3_notification_small_icon)
+                .setCustomIconResId(R.drawable.media3_notification_small_icon)
                 .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
                 .build()
                 .hashCode())
         .isEqualTo(
             new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
                 .setDisplayName("button")
-                .setIconResId(R.drawable.media3_notification_small_icon)
+                .setCustomIconResId(R.drawable.media3_notification_small_icon)
                 .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
                 .build()
                 .hashCode());
     assertThat(
             new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
-                .setIconResId(R.drawable.media3_notification_small_icon)
+                .setCustomIconResId(R.drawable.media3_notification_small_icon)
                 .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
                 .build()
                 .hashCode())
         .isNotEqualTo(
             new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
                 .setDisplayName("button")
-                .setIconResId(R.drawable.media3_notification_small_icon)
+                .setCustomIconResId(R.drawable.media3_notification_small_icon)
                 .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
                 .build()
                 .hashCode());
@@ -372,7 +372,7 @@ public class CommandButtonTest {
     CommandButton.Builder builder =
         new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
             .setDisplayName("button")
-            .setIconResId(R.drawable.media3_notification_small_icon);
+            .setCustomIconResId(R.drawable.media3_notification_small_icon);
     assertThrows(IllegalStateException.class, builder::build);
   }
 
@@ -496,7 +496,7 @@ public class CommandButtonTest {
         new CommandButton.Builder(CommandButton.ICON_CLOSED_CAPTIONS)
             .setDisplayName("name")
             .setEnabled(true)
-            .setIconResId(R.drawable.media3_notification_small_icon)
+            .setCustomIconResId(R.drawable.media3_notification_small_icon)
             .setIconUri(Uri.parse("content://test"))
             .setExtras(extras)
             .setSessionCommand(new SessionCommand(SessionCommand.COMMAND_CODE_SESSION_SET_RATING))
@@ -506,7 +506,7 @@ public class CommandButtonTest {
         new CommandButton.Builder(CommandButton.ICON_CLOSED_CAPTIONS)
             .setDisplayName("name")
             .setEnabled(true)
-            .setIconResId(R.drawable.media3_notification_small_icon)
+            .setCustomIconResId(R.drawable.media3_notification_small_icon)
             .setIconUri(Uri.parse("content://test"))
             .setExtras(extras)
             .setPlayerCommand(Player.COMMAND_GET_METADATA)

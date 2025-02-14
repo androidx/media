@@ -56,10 +56,7 @@ import java.util.List;
  */
 public final class CommandButton {
 
-  // TODO: b/328238954 - Stabilize these constants and the corresponding methods, and deprecate the
-  //  methods that do not use these constants.
   /** An icon constant for a button. Must be one of the {@code CommandButton.ICON_} constants. */
-  @UnstableApi
   @Documented
   @Retention(RetentionPolicy.SOURCE)
   @Target(TYPE_USE)
@@ -147,276 +144,276 @@ public final class CommandButton {
    * An icon constant representing an undefined icon, for example a custom icon not covered by the
    * existing constants.
    */
-  @UnstableApi public static final int ICON_UNDEFINED = 0;
+  public static final int ICON_UNDEFINED = 0;
 
   /** An icon showing a play symbol (a right facing triangle). */
-  @UnstableApi public static final int ICON_PLAY = 0xe037;
+  public static final int ICON_PLAY = 0xe037;
 
   /** An icon showing a pause symbol (two vertical bars). */
-  @UnstableApi public static final int ICON_PAUSE = 0xe034;
+  public static final int ICON_PAUSE = 0xe034;
 
   /** An icon showing a stop symbol (a square). */
-  @UnstableApi public static final int ICON_STOP = 0xe047;
+  public static final int ICON_STOP = 0xe047;
 
   /** An icon showing a next symbol (a right facing triangle with a vertical bar). */
-  @UnstableApi public static final int ICON_NEXT = 0xe044;
+  public static final int ICON_NEXT = 0xe044;
 
   /** An icon showing a previous symbol (a left facing triangle with a vertical bar). */
-  @UnstableApi public static final int ICON_PREVIOUS = 0xe045;
+  public static final int ICON_PREVIOUS = 0xe045;
 
   /** An icon showing a skip forward symbol (an open clock-wise arrow). */
-  @UnstableApi public static final int ICON_SKIP_FORWARD = 0xf6f4;
+  public static final int ICON_SKIP_FORWARD = 0xf6f4;
 
   /**
    * An icon showing a skip forward 5 seconds symbol (an open clockwise arrow with the number 5).
    */
-  @UnstableApi public static final int ICON_SKIP_FORWARD_5 = 0xe058;
+  public static final int ICON_SKIP_FORWARD_5 = 0xe058;
 
   /**
    * An icon showing a skip forward 10 seconds symbol (an open clockwise arrow with the number 10).
    */
-  @UnstableApi public static final int ICON_SKIP_FORWARD_10 = 0xe056;
+  public static final int ICON_SKIP_FORWARD_10 = 0xe056;
 
   /**
    * An icon showing a skip forward 15 seconds symbol (an open clockwise arrow with the number 15).
    */
-  @UnstableApi public static final int ICON_SKIP_FORWARD_15 = 0xfe056;
+  public static final int ICON_SKIP_FORWARD_15 = 0xfe056;
 
   /**
    * An icon showing a skip forward 30 seconds symbol (an open clockwise arrow with the number 30).
    */
-  @UnstableApi public static final int ICON_SKIP_FORWARD_30 = 0xe057;
+  public static final int ICON_SKIP_FORWARD_30 = 0xe057;
 
   /** An icon showing a skip back symbol (an open anti-clockwise arrow). */
-  @UnstableApi public static final int ICON_SKIP_BACK = 0xe042;
+  public static final int ICON_SKIP_BACK = 0xe042;
 
   /**
    * An icon showing a skip back 5 seconds symbol (an open anti-clockwise arrow with the number 5).
    */
-  @UnstableApi public static final int ICON_SKIP_BACK_5 = 0xe05b;
+  public static final int ICON_SKIP_BACK_5 = 0xe05b;
 
   /**
    * An icon showing a skip back 10 seconds symbol (an open anti-clockwise arrow with the number
    * 10).
    */
-  @UnstableApi public static final int ICON_SKIP_BACK_10 = 0xe059;
+  public static final int ICON_SKIP_BACK_10 = 0xe059;
 
   /**
    * An icon showing a skip back 15 seconds symbol (an open anti-clockwise arrow with the number
    * 15).
    */
-  @UnstableApi public static final int ICON_SKIP_BACK_15 = 0xfe059;
+  public static final int ICON_SKIP_BACK_15 = 0xfe059;
 
   /**
    * An icon showing a skip back 30 seconds symbol (an open anti-clockwise arrow with the number
    * 30).
    */
-  @UnstableApi public static final int ICON_SKIP_BACK_30 = 0xe05a;
+  public static final int ICON_SKIP_BACK_30 = 0xe05a;
 
   /** An icon showing a fast forward symbol (two right facing triangles). */
-  @UnstableApi public static final int ICON_FAST_FORWARD = 0xe01f;
+  public static final int ICON_FAST_FORWARD = 0xe01f;
 
   /** An icon showing a rewind symbol (two left facing triangles). */
-  @UnstableApi public static final int ICON_REWIND = 0xe020;
+  public static final int ICON_REWIND = 0xe020;
 
   /** An icon showing a repeat all symbol (two open clockwise arrows). */
-  @UnstableApi public static final int ICON_REPEAT_ALL = 0xe040;
+  public static final int ICON_REPEAT_ALL = 0xe040;
 
   /** An icon showing a repeat one symbol (two open clockwise arrows with an overlaid number 1). */
-  @UnstableApi public static final int ICON_REPEAT_ONE = 0xe041;
+  public static final int ICON_REPEAT_ONE = 0xe041;
 
   /**
    * An icon showing a disabled repeat symbol (two open clockwise arrows, in a color representing a
    * disabled state).
    */
-  @UnstableApi public static final int ICON_REPEAT_OFF = 0xfe040;
+  public static final int ICON_REPEAT_OFF = 0xfe040;
 
   /** An icon showing a shuffle symbol (two diagonal upward and downward facing arrows). */
-  @UnstableApi public static final int ICON_SHUFFLE_ON = 0xe043;
+  public static final int ICON_SHUFFLE_ON = 0xe043;
 
   /**
    * An icon showing a disabled shuffle symbol (two diagonal upward and downward facing arrows, in a
    * color representing a disabled state).
    */
-  @UnstableApi public static final int ICON_SHUFFLE_OFF = 0xfe044;
+  public static final int ICON_SHUFFLE_OFF = 0xfe044;
 
   /**
    * An icon showing a shuffle symbol with a start (two diagonal upward and downward facing arrows
    * with an overlaid star).
    */
-  @UnstableApi public static final int ICON_SHUFFLE_STAR = 0xfe043;
+  public static final int ICON_SHUFFLE_STAR = 0xfe043;
 
   /** An icon showing a filled heart symbol. */
-  @UnstableApi public static final int ICON_HEART_FILLED = 0xfe87d;
+  public static final int ICON_HEART_FILLED = 0xfe87d;
 
   /** An icon showing an unfilled heart symbol. */
-  @UnstableApi public static final int ICON_HEART_UNFILLED = 0xe87d;
+  public static final int ICON_HEART_UNFILLED = 0xe87d;
 
   /** An icon showing a filled star symbol. */
-  @UnstableApi public static final int ICON_STAR_FILLED = 0xfe838;
+  public static final int ICON_STAR_FILLED = 0xfe838;
 
   /** An icon showing an unfilled star symbol. */
-  @UnstableApi public static final int ICON_STAR_UNFILLED = 0xe838;
+  public static final int ICON_STAR_UNFILLED = 0xe838;
 
   /** An icon showing a filled bookmark symbol. */
-  @UnstableApi public static final int ICON_BOOKMARK_FILLED = 0xfe866;
+  public static final int ICON_BOOKMARK_FILLED = 0xfe866;
 
   /** An icon showing an unfilled bookmark symbol. */
-  @UnstableApi public static final int ICON_BOOKMARK_UNFILLED = 0xe866;
+  public static final int ICON_BOOKMARK_UNFILLED = 0xe866;
 
   /** An icon showing a filled thumb-up symbol. */
-  @UnstableApi public static final int ICON_THUMB_UP_FILLED = 0xfe8dc;
+  public static final int ICON_THUMB_UP_FILLED = 0xfe8dc;
 
   /** An icon showing an unfilled thumb-up symbol. */
-  @UnstableApi public static final int ICON_THUMB_UP_UNFILLED = 0xe8dc;
+  public static final int ICON_THUMB_UP_UNFILLED = 0xe8dc;
 
   /** An icon showing a filled thumb-down symbol. */
-  @UnstableApi public static final int ICON_THUMB_DOWN_FILLED = 0xfe8db;
+  public static final int ICON_THUMB_DOWN_FILLED = 0xfe8db;
 
   /** An icon showing an unfilled thumb-down symbol. */
-  @UnstableApi public static final int ICON_THUMB_DOWN_UNFILLED = 0xe8db;
+  public static final int ICON_THUMB_DOWN_UNFILLED = 0xe8db;
 
   /** An icon showing a filled flag symbol. */
-  @UnstableApi public static final int ICON_FLAG_FILLED = 0xfe153;
+  public static final int ICON_FLAG_FILLED = 0xfe153;
 
   /** An icon showing an unfilled flag symbol. */
-  @UnstableApi public static final int ICON_FLAG_UNFILLED = 0xe153;
+  public static final int ICON_FLAG_UNFILLED = 0xe153;
 
   /** An icon showing a plus symbol. */
-  @UnstableApi public static final int ICON_PLUS = 0xe145;
+  public static final int ICON_PLUS = 0xe145;
 
   /** An icon showing a minus symbol. */
-  @UnstableApi public static final int ICON_MINUS = 0xe15b;
+  public static final int ICON_MINUS = 0xe15b;
 
   /** An icon showing an add to playlist symbol (multiple horizontal bars with a small plus). */
-  @UnstableApi public static final int ICON_PLAYLIST_ADD = 0xe03b;
+  public static final int ICON_PLAYLIST_ADD = 0xe03b;
 
   /**
    * An icon showing an remove from playlist symbol (multiple horizontal bars with a small minus).
    */
-  @UnstableApi public static final int ICON_PLAYLIST_REMOVE = 0xeb80;
+  public static final int ICON_PLAYLIST_REMOVE = 0xeb80;
 
   /** An icon showing an add to queue symbol (a stylized TV with a plus). */
-  @UnstableApi public static final int ICON_QUEUE_ADD = 0xe05c;
+  public static final int ICON_QUEUE_ADD = 0xe05c;
 
   /**
    * An icon showing a play next queue item symbol (a stylized TV with a plus and a right-facing
    * arrow).
    */
-  @UnstableApi public static final int ICON_QUEUE_NEXT = 0xe066;
+  public static final int ICON_QUEUE_NEXT = 0xe066;
 
   /** An icon showing a remove from queue symbol (a stylized TV with a minus). */
-  @UnstableApi public static final int ICON_QUEUE_REMOVE = 0xe067;
+  public static final int ICON_QUEUE_REMOVE = 0xe067;
 
   /** An icon showing a block symbol (a circle with a diagonal line). */
-  @UnstableApi public static final int ICON_BLOCK = 0xe14b;
+  public static final int ICON_BLOCK = 0xe14b;
 
   /** An icon showing a filled circle with a plus. */
-  @UnstableApi public static final int ICON_PLUS_CIRCLE_FILLED = 0xfe147;
+  public static final int ICON_PLUS_CIRCLE_FILLED = 0xfe147;
 
   /** An icon showing an unfilled circle with a plus. */
-  @UnstableApi public static final int ICON_PLUS_CIRCLE_UNFILLED = 0xe147;
+  public static final int ICON_PLUS_CIRCLE_UNFILLED = 0xe147;
 
   /** An icon showing a filled circle with a minus. */
-  @UnstableApi public static final int ICON_MINUS_CIRCLE_FILLED = 0xfe148;
+  public static final int ICON_MINUS_CIRCLE_FILLED = 0xfe148;
 
   /** An icon showing an unfilled circle with a minus. */
-  @UnstableApi public static final int ICON_MINUS_CIRCLE_UNFILLED = 0xfe149;
+  public static final int ICON_MINUS_CIRCLE_UNFILLED = 0xfe149;
 
   /** An icon showing a filled circle with a check mark. */
-  @UnstableApi public static final int ICON_CHECK_CIRCLE_FILLED = 0xfe86c;
+  public static final int ICON_CHECK_CIRCLE_FILLED = 0xfe86c;
 
   /** An icon showing a unfilled circle with a check mark. */
-  @UnstableApi public static final int ICON_CHECK_CIRCLE_UNFILLED = 0xe86c;
+  public static final int ICON_CHECK_CIRCLE_UNFILLED = 0xe86c;
 
   /**
    * An icon showing a playback speed symbol (a right facing triangle in a circle with half-dashed,
    * half-solid contour).
    */
-  @UnstableApi public static final int ICON_PLAYBACK_SPEED = 0xe068;
+  public static final int ICON_PLAYBACK_SPEED = 0xe068;
 
   /** An icon showing a 0.5x speed symbol. */
-  @UnstableApi public static final int ICON_PLAYBACK_SPEED_0_5 = 0xf4e2;
+  public static final int ICON_PLAYBACK_SPEED_0_5 = 0xf4e2;
 
   /** An icon showing a 0.8x speed symbol. */
-  @UnstableApi public static final int ICON_PLAYBACK_SPEED_0_8 = 0xff4e2;
+  public static final int ICON_PLAYBACK_SPEED_0_8 = 0xff4e2;
 
   /** An icon showing a 1.0x speed symbol. */
-  @UnstableApi public static final int ICON_PLAYBACK_SPEED_1_0 = 0xefcd;
+  public static final int ICON_PLAYBACK_SPEED_1_0 = 0xefcd;
 
   /** An icon showing a 1.2x speed symbol. */
-  @UnstableApi public static final int ICON_PLAYBACK_SPEED_1_2 = 0xf4e1;
+  public static final int ICON_PLAYBACK_SPEED_1_2 = 0xf4e1;
 
   /** An icon showing a 1.5x speed symbol. */
-  @UnstableApi public static final int ICON_PLAYBACK_SPEED_1_5 = 0xf4e0;
+  public static final int ICON_PLAYBACK_SPEED_1_5 = 0xf4e0;
 
   /** An icon showing a 1.8x speed symbol. */
-  @UnstableApi public static final int ICON_PLAYBACK_SPEED_1_8 = 0xff4e0;
+  public static final int ICON_PLAYBACK_SPEED_1_8 = 0xff4e0;
 
   /** An icon showing a 2.0x speed symbol. */
-  @UnstableApi public static final int ICON_PLAYBACK_SPEED_2_0 = 0xf4eb;
+  public static final int ICON_PLAYBACK_SPEED_2_0 = 0xf4eb;
 
   /** An icon showing a settings symbol (a stylized cog). */
-  @UnstableApi public static final int ICON_SETTINGS = 0xe8b8;
+  public static final int ICON_SETTINGS = 0xe8b8;
 
   /** An icon showing a quality selection symbol (multiple horizontal bars with sliders). */
-  @UnstableApi public static final int ICON_QUALITY = 0xe429;
+  public static final int ICON_QUALITY = 0xe429;
 
   /** An icon showing a subtitles symbol (a rectangle filled with dots and horizontal lines). */
-  @UnstableApi public static final int ICON_SUBTITLES = 0xe048;
+  public static final int ICON_SUBTITLES = 0xe048;
 
   /**
    * An icon showing a subtitles off symbol (a rectangle filled with dots and horizontal lines, with
    * a large diagonal line across).
    */
-  @UnstableApi public static final int ICON_SUBTITLES_OFF = 0xef72;
+  public static final int ICON_SUBTITLES_OFF = 0xef72;
 
   /** An icon showing a closed caption symbol (a rectangle with the letters CC). */
-  @UnstableApi public static final int ICON_CLOSED_CAPTIONS = 0xe01c;
+  public static final int ICON_CLOSED_CAPTIONS = 0xe01c;
 
   /**
    * An icon showing a closed caption off symbol (a rectangle with the letters CC, with a large
    * diagonal line across).
    */
-  @UnstableApi public static final int ICON_CLOSED_CAPTIONS_OFF = 0xf1dc;
+  public static final int ICON_CLOSED_CAPTIONS_OFF = 0xf1dc;
 
   /** An icon showing a sync symbol (two open anti-clockwise arrows). */
-  @UnstableApi public static final int ICON_SYNC = 0xe627;
+  public static final int ICON_SYNC = 0xe627;
 
   /**
    * An icon showing a share symbol (three dots connected by two diagonal lines, open on the right).
    */
-  @UnstableApi public static final int ICON_SHARE = 0xe80d;
+  public static final int ICON_SHARE = 0xe80d;
 
   /** An icon showing a volume up symbol (a stylized speaker with multiple sound waves). */
-  @UnstableApi public static final int ICON_VOLUME_UP = 0xe050;
+  public static final int ICON_VOLUME_UP = 0xe050;
 
   /** An icon showing a volume down symbol (a stylized speaker with a single small sound wave). */
-  @UnstableApi public static final int ICON_VOLUME_DOWN = 0xe04d;
+  public static final int ICON_VOLUME_DOWN = 0xe04d;
 
   /**
    * An icon showing a volume off symbol (a stylized speaker with multiple sound waves, with a large
    * diagonal line across).
    */
-  @UnstableApi public static final int ICON_VOLUME_OFF = 0xe04f;
+  public static final int ICON_VOLUME_OFF = 0xe04f;
 
   /** An icon showing an artist symbol (a stylized person with a musical note). */
-  @UnstableApi public static final int ICON_ARTIST = 0xe01a;
+  public static final int ICON_ARTIST = 0xe01a;
 
   /** An icon showing an album symbol (a stylized LP record). */
-  @UnstableApi public static final int ICON_ALBUM = 0xe019;
+  public static final int ICON_ALBUM = 0xe019;
 
   /** An icon showing a radio symbol (left and right facing sound waves). */
-  @UnstableApi public static final int ICON_RADIO = 0xe51e;
+  public static final int ICON_RADIO = 0xe51e;
 
   /** An icon showing an signal symbol (a vertical mast with circular sounds waves). */
-  @UnstableApi public static final int ICON_SIGNAL = 0xf048;
+  public static final int ICON_SIGNAL = 0xf048;
 
   /**
    * An icon showing an feed symbol (a dot in the bottom-left with multiple concentric quarter
    * circles).
    */
-  @UnstableApi public static final int ICON_FEED = 0xe0e5;
+  public static final int ICON_FEED = 0xe0e5;
 
   // TODO: b/332877990 - Stabilize these constants and other slot APIs
   /**
@@ -482,10 +479,11 @@ public final class CommandButton {
     @Nullable private ImmutableIntArray slots;
 
     /**
-     * [will be deprecated] Use {@link #Builder(int)} instead to define the {@link Icon} for this
-     * button. A separate resource id via {@link #setIconResId(int)} is no longer required unless
-     * for {@link #ICON_UNDEFINED}.
+     * @deprecated Use {@link #Builder(int)} instead to define the {@link Icon} for this button. A
+     *     separate resource id via {@link #setIconResId(int)} is no longer required unless for
+     *     {@link #ICON_UNDEFINED}.
      */
+    @Deprecated
     public Builder() {
       this(ICON_UNDEFINED);
     }
@@ -495,7 +493,6 @@ public final class CommandButton {
      *
      * @param icon The {@link Icon} that should be shown for this button.
      */
-    @UnstableApi
     public Builder(@Icon int icon) {
       this(icon, getIconResIdForIconConstant(icon));
     }
@@ -553,13 +550,12 @@ public final class CommandButton {
     }
 
     /**
-     * [will be deprecated] The icon should be defined with the constructor {@link Icon} parameter
-     * in {@link #Builder(int)} instead.
-     *
-     * <p>If the existing list of icons is not sufficient, use {@link #ICON_UNDEFINED} for the
-     * constructor {@link Icon} parameter, and set a separate resource id with {@link
-     * #setCustomIconResId}.
+     * @deprecated The icon should be defined with the constructor {@link Icon} parameter in {@link
+     *     #Builder(int)} instead. If the existing list of icons is not sufficient, use {@link
+     *     #ICON_UNDEFINED} for the constructor {@link Icon} parameter, and set a separate resource
+     *     id with {@link #setCustomIconResId}.
      */
+    @Deprecated
     @CanIgnoreReturnValue
     public Builder setIconResId(@DrawableRes int resId) {
       return setCustomIconResId(resId);
@@ -574,7 +570,6 @@ public final class CommandButton {
      * @param resId The resource id of a custom icon.
      * @return This builder for chaining.
      */
-    @UnstableApi
     @CanIgnoreReturnValue
     public Builder setCustomIconResId(@DrawableRes int resId) {
       iconResId = resId;
@@ -1098,7 +1093,7 @@ public final class CommandButton {
   public final @Player.Command int playerCommand;
 
   /** The {@link Icon} of the button. */
-  @UnstableApi public final @Icon int icon;
+  public final @Icon int icon;
 
   /**
    * The fallback icon resource ID of the button.

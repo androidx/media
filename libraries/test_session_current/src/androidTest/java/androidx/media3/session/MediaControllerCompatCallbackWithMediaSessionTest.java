@@ -1070,13 +1070,13 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
             new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
                 .setSessionCommand(command1)
                 .setDisplayName("command1")
-                .setIconResId(1)
+                .setCustomIconResId(1)
                 .build()
                 .copyWithIsEnabled(true),
             new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
                 .setSessionCommand(command2)
                 .setDisplayName("command2")
-                .setIconResId(2)
+                .setCustomIconResId(2)
                 .build()
                 .copyWithIsEnabled(true));
     List<PlaybackStateCompat> reportedPlaybackStates = new ArrayList<>();

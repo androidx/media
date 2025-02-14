@@ -41,7 +41,6 @@ open class DemoMediaLibrarySessionCallback(context: Context) :
     MediaItemTree.initialize(context.assets)
   }
 
-  @OptIn(UnstableApi::class) // TODO: b/328238954 - Remove once new CommandButton icons are stable.
   private val commandButtons: List<CommandButton> =
     listOf(
       CommandButton.Builder(CommandButton.ICON_SHUFFLE_OFF)

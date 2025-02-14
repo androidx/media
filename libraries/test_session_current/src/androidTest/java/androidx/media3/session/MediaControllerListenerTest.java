@@ -2454,7 +2454,7 @@ public class MediaControllerListenerTest {
         new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
             .setSessionCommand(new SessionCommand("action1", extras1))
             .setDisplayName("actionName1")
-            .setIconResId(1)
+            .setCustomIconResId(1)
             .build();
     Bundle extras2 = new Bundle();
     extras2.putString("key", "value-2");
@@ -2462,7 +2462,7 @@ public class MediaControllerListenerTest {
         new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
             .setSessionCommand(new SessionCommand("action2", extras2))
             .setDisplayName("actionName2")
-            .setIconResId(2)
+            .setCustomIconResId(2)
             .build();
     buttons.add(button1);
     buttons.add(button2);
