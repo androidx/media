@@ -49,7 +49,6 @@ import android.media.AudioDeviceCallback;
 import android.media.AudioDeviceInfo;
 import android.media.AudioManager;
 import android.media.MediaFormat;
-import android.media.metrics.LogSessionId;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Pair;
@@ -354,14 +353,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
               playbackInfoUpdateHandler.post(() -> handlePlaybackInfo(playbackInfoUpdate));
       playbackInfo = PlaybackInfo.createDummy(emptyTrackSelectorResult);
       analyticsCollector.setPlayer(this.wrappingPlayer, applicationLooper);
-      PlayerId playerId =
-          Util.SDK_INT < 31
-              ? new PlayerId(builder.playerName)
-              : Api31.registerMediaMetricsListener(
-                  applicationContext,
-                  /* player= */ this,
-                  builder.usePlatformDiagnostics,
-                  builder.playerName);
+      PlayerId playerId = new PlayerId(builder.playerName);
       internalPlayer =
           new ExoPlayerImplInternal(
               renderers,
@@ -400,6 +392,10 @@ import java.util.concurrent.CopyOnWriteArraySet;
       addAudioOffloadListener(componentListener);
       if (builder.foregroundModeTimeoutMs > 0) {
         internalPlayer.experimentalSetForegroundModeTimeoutMs(builder.foregroundModeTimeoutMs);
+      }
+      if (Util.SDK_INT >= 31) {
+        Api31.registerMediaMetricsListener(
+            applicationContext, /* player= */ this, builder.usePlatformDiagnostics, playerId);
       }
 
       audioSessionIdState =
@@ -3383,17 +3379,22 @@ import java.util.concurrent.CopyOnWriteArraySet;
   private static final class Api31 {
     private Api31() {}
 
-    public static PlayerId registerMediaMetricsListener(
-        Context context, ExoPlayerImpl player, boolean usePlatformDiagnostics, String playerName) {
-      @Nullable MediaMetricsListener listener = MediaMetricsListener.create(context);
-      if (listener == null) {
-        Log.w(TAG, "MediaMetricsService unavailable.");
-        return new PlayerId(LogSessionId.LOG_SESSION_ID_NONE, playerName);
-      }
-      if (usePlatformDiagnostics) {
-        player.addAnalyticsListener(listener);
-      }
-      return new PlayerId(listener.getLogSessionId(), playerName);
+    public static void registerMediaMetricsListener(
+        Context context, ExoPlayerImpl player, boolean usePlatformDiagnostics, PlayerId playerId) {
+      HandlerWrapper playbackThreadHandler =
+          player.getClock().createHandler(player.getPlaybackLooper(), /* callback= */ null);
+      playbackThreadHandler.post(
+          () -> {
+            @Nullable MediaMetricsListener listener = MediaMetricsListener.create(context);
+            if (listener == null) {
+              Log.w(TAG, "MediaMetricsService unavailable.");
+              return;
+            }
+            if (usePlatformDiagnostics) {
+              player.addAnalyticsListener(listener);
+            }
+            playerId.setLogSessionId(listener.getLogSessionId());
+          });
     }
   }
 

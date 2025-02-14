@@ -17,7 +17,6 @@ package androidx.media3.exoplayer;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import android.media.metrics.LogSessionId;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
@@ -59,11 +58,7 @@ public class DefaultLoadControlTest {
   public void setUp() throws Exception {
     builder = new Builder();
     allocator = new DefaultAllocator(true, C.DEFAULT_BUFFER_SEGMENT_SIZE);
-    playerId =
-        Util.SDK_INT < 31
-            ? new PlayerId(/* playerName= */ "")
-            : new PlayerId(
-                /* logSessionId= */ LogSessionId.LOG_SESSION_ID_NONE, /* playerName= */ "");
+    playerId = new PlayerId(/* playerName= */ "");
     timeline =
         new SinglePeriodTimeline(
             /* durationUs= */ 10_000_000L,
@@ -130,7 +125,7 @@ public class DefaultLoadControlTest {
         /* bufferForPlaybackAfterRebufferMs= */ 0);
     build();
     // A second player uses the load control.
-    PlayerId playerId2 = new PlayerId(LogSessionId.LOG_SESSION_ID_NONE, /* playerName= */ "");
+    PlayerId playerId2 = new PlayerId(/* playerName= */ "");
     Timeline timeline2 = new FakeTimeline();
     MediaSource.MediaPeriodId mediaPeriodId2 =
         new MediaSource.MediaPeriodId(
@@ -731,7 +726,7 @@ public class DefaultLoadControlTest {
 
   @Test
   public void onPrepared_updatesTargetBufferBytes_correctDefaultTargetBufferSize() {
-    PlayerId playerId2 = new PlayerId(LogSessionId.LOG_SESSION_ID_NONE, /* playerName= */ "");
+    PlayerId playerId2 = new PlayerId(/* playerName= */ "");
     loadControl = builder.setAllocator(allocator).build();
 
     loadControl.onPrepared(playerId);
@@ -743,7 +738,7 @@ public class DefaultLoadControlTest {
 
   @Test
   public void onTrackSelected_updatesTargetBufferBytes_correctTargetBufferSizeFromTrackType() {
-    PlayerId playerId2 = new PlayerId(LogSessionId.LOG_SESSION_ID_NONE, /* playerName= */ "");
+    PlayerId playerId2 = new PlayerId(/* playerName= */ "");
     loadControl = builder.setAllocator(allocator).build();
     loadControl.onPrepared(playerId);
     loadControl.onPrepared(playerId2);
@@ -791,7 +786,7 @@ public class DefaultLoadControlTest {
 
   @Test
   public void onRelease_removesLoadingStateOfPlayer() {
-    PlayerId playerId2 = new PlayerId(LogSessionId.LOG_SESSION_ID_NONE, /* playerName= */ "");
+    PlayerId playerId2 = new PlayerId(/* playerName= */ "");
     loadControl = builder.setAllocator(allocator).build();
     loadControl.onPrepared(playerId);
     loadControl.onPrepared(playerId2);
