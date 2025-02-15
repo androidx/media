@@ -68,6 +68,7 @@ libraries/decoder_opus/src/main/jni/libopus
 
 # FLAC decoder extension
 libraries/decoder_flac/src/main/jni/flac
+libraries/decoder_flac/src/main/jni/libflac
 
 # FFmpeg decoder extension
 libraries/decoder_ffmpeg/src/main/jni/ffmpeg
