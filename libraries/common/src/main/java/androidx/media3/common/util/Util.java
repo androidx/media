@@ -795,7 +795,7 @@ public final class Util {
     if (!looper.getThread().isAlive()) {
       return false;
     }
-    if (handler.getLooper() == Looper.myLooper()) {
+    if (looper == Looper.myLooper()) {
       runnable.run();
       return true;
     } else {
