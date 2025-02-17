@@ -20,6 +20,7 @@ import static androidx.media3.transformer.AndroidTestUtil.JPG_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
 import static com.google.common.truth.Truth.assertThat;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assume.assumeTrue;
 
@@ -40,10 +41,13 @@ import androidx.test.platform.app.InstrumentationRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Range;
 import java.nio.ByteBuffer;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
@@ -52,8 +56,11 @@ import org.junit.runner.RunWith;
 public class EditingMetricsCollectorTest {
   private static final String EXPORTER_NAME =
       "androidx.media3.media3-transformer:" + MediaLibraryInfo.VERSION;
+  private static final int DEFAULT_TIMEOUT_SECONDS = 120;
+  private static final long PRESENTATION_TIME_US_TO_BLOCK_FRAME = 50_000L;
 
   @Rule public final TestName testName = new TestName();
+  @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
   private final Context context = InstrumentationRegistry.getInstrumentation().getContext();
   private String testId;
 
@@ -221,6 +228,44 @@ public class EditingMetricsCollectorTest {
     assertThat(editingEndedEvent.getFinalProgressPercent()).isIn(Range.closed(0f, 100f));
     assertThat(editingEndedEvent.getErrorCode())
         .isEqualTo(EditingEndedEvent.ERROR_CODE_MUXING_FAILED);
+  }
+
+  @Test
+  public void exportCancelled_populatesEditingEndedEvent() throws Exception {
+    assumeTrue("Reporting metrics requires API 35", Util.SDK_INT >= 35);
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET.videoFormat,
+        /* outputFormat= */ MP4_ASSET.videoFormat);
+    AtomicReference<EditingEndedEvent> editingEndedEventAtomicReference = new AtomicReference<>();
+    CountDownLatch countDownLatch = new CountDownLatch(1);
+    Transformer transformer =
+        new Transformer.Builder(context)
+            .setUsePlatformDiagnostics(true)
+            .setMetricsReporterFactory(
+                new TestMetricsReporterFactory(context, editingEndedEventAtomicReference::set))
+            .setMuxerFactory(
+                new AndroidTestUtil.FrameBlockingMuxerFactory(
+                    PRESENTATION_TIME_US_TO_BLOCK_FRAME, countDownLatch::countDown))
+            .build();
+    EditedMediaItem audioVideoItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri)).build();
+    String outputPath = temporaryFolder.newFile("output.mp4").getAbsolutePath();
+
+    InstrumentationRegistry.getInstrumentation()
+        .runOnMainSync(() -> transformer.start(audioVideoItem, outputPath));
+    if (!countDownLatch.await(DEFAULT_TIMEOUT_SECONDS, SECONDS)) {
+      throw new TimeoutException(
+          "Transformer timed out after " + DEFAULT_TIMEOUT_SECONDS + " seconds.");
+    }
+    InstrumentationRegistry.getInstrumentation().runOnMainSync(transformer::cancel);
+
+    EditingEndedEvent editingEndedEvent = editingEndedEventAtomicReference.get();
+    assertThat(editingEndedEvent.getFinalState()).isEqualTo(EditingEndedEvent.FINAL_STATE_CANCELED);
+    assertThat(editingEndedEvent.getTimeSinceCreatedMillis()).isAtLeast(0);
+    assertThat(editingEndedEvent.getExporterName()).isEqualTo(EXPORTER_NAME);
+    assertThat(editingEndedEvent.getFinalProgressPercent()).isIn(Range.closed(0f, 100f));
   }
 
   private static final class TestMetricsReporterFactory
