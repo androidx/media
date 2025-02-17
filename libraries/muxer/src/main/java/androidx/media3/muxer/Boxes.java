@@ -1523,7 +1523,13 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     byte[] csd0 = format.initializationData.get(0);
     checkArgument(csd0.length > 0, "csd-0 is empty for avpC box.");
 
-    return BoxUtils.wrapIntoBox("apvC", ByteBuffer.wrap(csd0));
+    int versionAndFlags = 0;
+    ByteBuffer apvcBoxContent = ByteBuffer.allocate(csd0.length + BYTES_PER_INTEGER);
+    apvcBoxContent.putInt(versionAndFlags);
+    apvcBoxContent.put(csd0);
+    apvcBoxContent.flip();
+
+    return BoxUtils.wrapIntoBox("apvC", apvcBoxContent);
   }
 
   /** Returns the av1C box. */

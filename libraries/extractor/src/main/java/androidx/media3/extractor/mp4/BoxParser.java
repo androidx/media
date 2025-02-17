@@ -1476,13 +1476,13 @@ public final class BoxParser {
       } else if (childAtomType == Mp4Box.TYPE_apvC) {
         mimeType = MimeTypes.VIDEO_APV;
 
-        int childAtomBodySize = childAtomSize - Mp4Box.HEADER_SIZE;
+        int childAtomBodySize = childAtomSize - Mp4Box.FULL_HEADER_SIZE;
         byte[] initializationDataChunk = new byte[childAtomBodySize];
+        parent.setPosition(childStartPosition + Mp4Box.FULL_HEADER_SIZE); // Skip version and flags.
         parent.readBytes(initializationDataChunk, /* offset= */ 0, childAtomBodySize);
         initializationData = ImmutableList.of(initializationDataChunk);
 
-        parent.setPosition(childStartPosition + Mp4Box.HEADER_SIZE);
-        ColorInfo colorInfo = parseApvc(parent);
+        ColorInfo colorInfo = parseApvc(new ParsableByteArray(initializationDataChunk));
 
         bitdepthLuma = colorInfo.lumaBitdepth;
         bitdepthChroma = colorInfo.chromaBitdepth;
@@ -1711,8 +1711,7 @@ public final class BoxParser {
     ColorInfo.Builder colorInfo = new ColorInfo.Builder();
     ParsableBitArray bitArray = new ParsableBitArray(data.getData());
     bitArray.setPosition(data.getPosition() * 8); // Convert byte to bit position.
-    bitArray.skipBytes(4); // skip version and flag (4 bytes)
-    // See APVDecoderConfigurationBox syntax.
+    // See APVDecoderConfigurationRecord syntax.
     bitArray.skipBytes(1); // configurationVersion
     int numConfigurationEntries = bitArray.readBits(8); // number_of_configuration_entry
     for (int i = 0; i < numConfigurationEntries; i++) {
