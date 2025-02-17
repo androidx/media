@@ -27,7 +27,7 @@
     tools:ignore="MissingApplicationIcon,HardcodedDebugMode"
     android:usesCleartextTraffic="true">
     <provider
-      android:authorities="androidx.media3.test.utils.AssetContentProvider"
+      android:authorities="androidx.media3.exoplayer.test.AssetContentProvider"
       android:name="androidx.media3.test.utils.AssetContentProvider"/>
   </application>
 

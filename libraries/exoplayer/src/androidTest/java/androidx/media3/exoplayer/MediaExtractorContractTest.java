@@ -72,6 +72,8 @@ import org.junit.runners.Parameterized.Parameters;
 @RunWith(Parameterized.class)
 public class MediaExtractorContractTest {
 
+  private static final String AUTHORITY = "androidx.media3.exoplayer.test.AssetContentProvider";
+
   @Parameters(name = "{0}")
   public static ImmutableList<Function<Context, MediaExtractorProxy>>
       mediaExtractorProxyFactories() {
@@ -226,7 +228,8 @@ public class MediaExtractorContractTest {
 
   @Test
   public void setDataSource_withContentUri_returnsCorrectTrackCount() throws IOException {
-    Uri contentUri = AssetContentProvider.buildUri("media/mp4/sample.mp4", /* pipeMode= */ false);
+    Uri contentUri =
+        AssetContentProvider.buildUri(AUTHORITY, "media/mp4/sample.mp4", /* pipeMode= */ false);
 
     mediaExtractorProxy.setDataSource(context, contentUri, /* headers= */ null);
 

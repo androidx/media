@@ -27,7 +27,7 @@
       android:usesCleartextTraffic="true"
       tools:ignore="MissingApplicationIcon,HardcodedDebugMode">
     <provider
-      android:authorities="androidx.media3.test.utils.AssetContentProvider"
+      android:authorities="androidx.media3.datasource.test.AssetContentProvider"
       android:name="androidx.media3.test.utils.AssetContentProvider"/>
   </application>
 
