@@ -251,8 +251,7 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
    *
    * <p>Use {@link Builder#setRequestedVideoEncoderSettings} with {@link
    * VideoEncoderSettings#bitrate} set to request for a specific encoding bitrate. Bitrate settings
-   * in {@link Format} are ignored when {@link VideoEncoderSettings#bitrate} or {@link
-   * VideoEncoderSettings#enableHighQualityTargeting} is set.
+   * in {@link Format} are ignored when {@link VideoEncoderSettings#bitrate} is set.
    */
   @Override
   public DefaultCodec createForVideoEncoding(Format format) throws ExportException {
@@ -292,14 +291,6 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
       // supportedVideoEncoderSettings is identical to requestedVideoEncoderSettings.
       if (supportedVideoEncoderSettings.bitrate != VideoEncoderSettings.NO_VALUE) {
         finalBitrate = supportedVideoEncoderSettings.bitrate;
-      } else if (supportedVideoEncoderSettings.enableHighQualityTargeting) {
-        finalBitrate =
-            new DeviceMappedEncoderBitrateProvider()
-                .getBitrate(
-                    encoderInfo.getName(),
-                    encoderSupportedFormat.width,
-                    encoderSupportedFormat.height,
-                    encoderSupportedFormat.frameRate);
       } else if (encoderSupportedFormat.averageBitrate != Format.NO_VALUE) {
         finalBitrate = encoderSupportedFormat.averageBitrate;
       } else {
@@ -462,23 +453,19 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
                 requestedFormat.width,
                 requestedFormat.height));
 
-    int requestedBitrate = Format.NO_VALUE;
-    // Encoders are not filtered by bitrate if high quality targeting is enabled.
-    if (!videoEncoderSettings.enableHighQualityTargeting) {
-      requestedBitrate =
-          videoEncoderSettings.bitrate != VideoEncoderSettings.NO_VALUE
-              ? videoEncoderSettings.bitrate
-              : requestedFormat.averageBitrate != Format.NO_VALUE
-                  ? requestedFormat.averageBitrate
-                  : getSuggestedBitrate(
-                      finalResolution.getWidth(),
-                      finalResolution.getHeight(),
-                      requestedFormat.frameRate);
-      filteredEncoderInfos =
-          filterEncodersByBitrate(filteredEncoderInfos, mimeType, requestedBitrate);
-      if (filteredEncoderInfos.isEmpty()) {
-        return null;
-      }
+    int requestedBitrate =
+        videoEncoderSettings.bitrate != VideoEncoderSettings.NO_VALUE
+            ? videoEncoderSettings.bitrate
+            : requestedFormat.averageBitrate != Format.NO_VALUE
+                ? requestedFormat.averageBitrate
+                : getSuggestedBitrate(
+                    finalResolution.getWidth(),
+                    finalResolution.getHeight(),
+                    requestedFormat.frameRate);
+    filteredEncoderInfos =
+        filterEncodersByBitrate(filteredEncoderInfos, mimeType, requestedBitrate);
+    if (filteredEncoderInfos.isEmpty()) {
+      return null;
     }
 
     filteredEncoderInfos =
@@ -496,18 +483,6 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
             .setWidth(finalResolution.getWidth())
             .setHeight(finalResolution.getHeight());
     MediaCodecInfo pickedEncoderInfo = filteredEncoderInfos.get(0);
-    if (videoEncoderSettings.enableHighQualityTargeting) {
-      requestedBitrate =
-          new DeviceMappedEncoderBitrateProvider()
-              .getBitrate(
-                  pickedEncoderInfo.getName(),
-                  finalResolution.getWidth(),
-                  finalResolution.getHeight(),
-                  requestedFormat.frameRate);
-      // Resets the flag after getting a targeted bitrate, so that supportedEncodingSetting can have
-      // bitrate set.
-      supportedEncodingSettingBuilder.experimentalSetEnableHighQualityTargeting(false);
-    }
     int closestSupportedBitrate =
         EncoderUtil.getSupportedBitrateRange(pickedEncoderInfo, mimeType).clamp(requestedBitrate);
     supportedEncodingSettingBuilder.setBitrate(closestSupportedBitrate);

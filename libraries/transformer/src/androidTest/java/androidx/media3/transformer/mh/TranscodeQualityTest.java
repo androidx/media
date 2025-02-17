@@ -27,12 +27,10 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Util;
 import androidx.media3.transformer.AndroidTestUtil;
-import androidx.media3.transformer.DefaultEncoderFactory;
 import androidx.media3.transformer.EditedMediaItem;
 import androidx.media3.transformer.ExportTestResult;
 import androidx.media3.transformer.Transformer;
 import androidx.media3.transformer.TransformerAndroidTestRunner;
-import androidx.media3.transformer.VideoEncoderSettings;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import org.junit.Before;
@@ -51,49 +49,6 @@ public final class TranscodeQualityTest {
   @Before
   public void setUpTestId() {
     testId = testName.getMethodName();
-  }
-
-  @Test
-  public void exportHighQualityTargetingAvcToAvc1920x1080_ssimIsGreaterThan95Percent()
-      throws Exception {
-    Context context = ApplicationProvider.getApplicationContext();
-
-    assumeFormatsSupported(
-        context,
-        testId,
-        /* inputFormat= */ AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS.videoFormat,
-        /* outputFormat= */ AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS.videoFormat);
-    // Skip on specific pre-API 34 devices where calculating SSIM fails.
-    assumeFalse(
-        (Util.SDK_INT < 33 && (Build.MODEL.equals("SM-F711U1") || Build.MODEL.equals("SM-F926U1")))
-            || (Util.SDK_INT == 33 && Build.MODEL.equals("LE2121")));
-    // Skip on specific API 21 devices that aren't able to decode and encode at this resolution.
-    assumeFalse(Util.SDK_INT == 21 && Build.MODEL.equals("Nexus 7"));
-    Transformer transformer =
-        new Transformer.Builder(context)
-            .setVideoMimeType(MimeTypes.VIDEO_H264)
-            .setEncoderFactory(
-                new DefaultEncoderFactory.Builder(context)
-                    .setRequestedVideoEncoderSettings(
-                        new VideoEncoderSettings.Builder()
-                            .experimentalSetEnableHighQualityTargeting(true)
-                            .build())
-                    .build())
-            .build();
-    MediaItem mediaItem =
-        MediaItem.fromUri(Uri.parse(AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS.uri));
-    EditedMediaItem editedMediaItem =
-        new EditedMediaItem.Builder(mediaItem).setRemoveAudio(true).build();
-
-    ExportTestResult result =
-        new TransformerAndroidTestRunner.Builder(context, transformer)
-            .setRequestCalculateSsim(true)
-            .build()
-            .run(testId, editedMediaItem);
-
-    if (result.ssim != ExportTestResult.SSIM_UNSET) {
-      assertThat(result.ssim).isGreaterThan(0.90);
-    }
   }
 
   @Test

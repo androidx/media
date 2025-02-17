@@ -19,7 +19,6 @@ package androidx.media3.transformer;
 import static android.media.MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR;
 import static android.media.MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR;
 import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkState;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.annotation.SuppressLint;
@@ -83,7 +82,6 @@ public final class VideoEncoderSettings {
     private int operatingRate;
     private int priority;
     private long repeatPreviousFrameIntervalUs;
-    private boolean enableHighQualityTargeting;
 
     /** Creates a new instance. */
     public Builder() {
@@ -106,13 +104,10 @@ public final class VideoEncoderSettings {
       this.operatingRate = videoEncoderSettings.operatingRate;
       this.priority = videoEncoderSettings.priority;
       this.repeatPreviousFrameIntervalUs = videoEncoderSettings.repeatPreviousFrameIntervalUs;
-      this.enableHighQualityTargeting = videoEncoderSettings.enableHighQualityTargeting;
     }
 
     /**
      * Sets {@link VideoEncoderSettings#bitrate}. The default value is {@link #NO_VALUE}.
-     *
-     * <p>Can not be set if enabling {@link #experimentalSetEnableHighQualityTargeting(boolean)}.
      *
      * @param bitrate The {@link VideoEncoderSettings#bitrate} in bits per second.
      * @return This builder.
@@ -208,31 +203,8 @@ public final class VideoEncoderSettings {
       return this;
     }
 
-    /**
-     * Sets whether to enable automatic adjustment of the bitrate to target a high quality encoding.
-     *
-     * <p>This method is experimental and may be removed or changed without warning.
-     *
-     * <p>Default value is {@code false}.
-     *
-     * <p>Requires {@link android.media.MediaCodecInfo.EncoderCapabilities#BITRATE_MODE_VBR}.
-     *
-     * <p>Can not be enabled alongside setting a custom bitrate with {@link #setBitrate(int)}.
-     */
-    @CanIgnoreReturnValue
-    public Builder experimentalSetEnableHighQualityTargeting(boolean enableHighQualityTargeting) {
-      this.enableHighQualityTargeting = enableHighQualityTargeting;
-      return this;
-    }
-
     /** Builds the instance. */
     public VideoEncoderSettings build() {
-      checkState(
-          !enableHighQualityTargeting || bitrate == NO_VALUE,
-          "Bitrate can not be set if enabling high quality targeting.");
-      checkState(
-          !enableHighQualityTargeting || bitrateMode == BITRATE_MODE_VBR,
-          "Bitrate mode must be VBR if enabling high quality targeting.");
       return new VideoEncoderSettings(
           bitrate,
           bitrateMode,
@@ -241,8 +213,7 @@ public final class VideoEncoderSettings {
           iFrameIntervalSeconds,
           operatingRate,
           priority,
-          repeatPreviousFrameIntervalUs,
-          enableHighQualityTargeting);
+          repeatPreviousFrameIntervalUs);
     }
   }
 
@@ -273,9 +244,6 @@ public final class VideoEncoderSettings {
    */
   public final long repeatPreviousFrameIntervalUs;
 
-  /** Whether the encoder should automatically set the bitrate to target a high quality encoding. */
-  public final boolean enableHighQualityTargeting;
-
   private VideoEncoderSettings(
       int bitrate,
       int bitrateMode,
@@ -284,8 +252,7 @@ public final class VideoEncoderSettings {
       float iFrameIntervalSeconds,
       int operatingRate,
       int priority,
-      long repeatPreviousFrameIntervalUs,
-      boolean enableHighQualityTargeting) {
+      long repeatPreviousFrameIntervalUs) {
     this.bitrate = bitrate;
     this.bitrateMode = bitrateMode;
     this.profile = profile;
@@ -294,7 +261,6 @@ public final class VideoEncoderSettings {
     this.operatingRate = operatingRate;
     this.priority = priority;
     this.repeatPreviousFrameIntervalUs = repeatPreviousFrameIntervalUs;
-    this.enableHighQualityTargeting = enableHighQualityTargeting;
   }
 
   /**
@@ -320,8 +286,7 @@ public final class VideoEncoderSettings {
         && iFrameIntervalSeconds == that.iFrameIntervalSeconds
         && operatingRate == that.operatingRate
         && priority == that.priority
-        && repeatPreviousFrameIntervalUs == that.repeatPreviousFrameIntervalUs
-        && enableHighQualityTargeting == that.enableHighQualityTargeting;
+        && repeatPreviousFrameIntervalUs == that.repeatPreviousFrameIntervalUs;
   }
 
   @Override
@@ -337,7 +302,6 @@ public final class VideoEncoderSettings {
     result =
         31 * result
             + (int) (repeatPreviousFrameIntervalUs ^ (repeatPreviousFrameIntervalUs >>> 32));
-    result = 31 * result + (enableHighQualityTargeting ? 1 : 0);
     return result;
   }
 }
