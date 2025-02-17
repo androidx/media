@@ -34,6 +34,7 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
 import android.media.Image;
+import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.opengl.EGLContext;
 import android.opengl.EGLDisplay;
@@ -44,6 +45,7 @@ import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.GlTextureInfo;
+import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.GlRect;
 import androidx.media3.common.util.GlUtil;
@@ -58,6 +60,7 @@ import androidx.media3.effect.PassthroughShaderProgram;
 import androidx.media3.effect.ScaleAndRotateTransformation;
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
 import androidx.media3.exoplayer.mediacodec.MediaCodecUtil;
+import androidx.media3.muxer.MuxerException;
 import androidx.media3.test.utils.BitmapPixelTestUtil;
 import androidx.media3.test.utils.VideoDecodingWrapper;
 import com.google.common.base.Ascii;
@@ -67,6 +70,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -1218,6 +1222,87 @@ public final class AndroidTestUtil {
     @Override
     public boolean videoNeedsEncoding() {
       return true;
+    }
+  }
+
+  /** A {@link Muxer.Factory} that creates {@link FrameBlockingMuxer} instances. */
+  public static final class FrameBlockingMuxerFactory implements Muxer.Factory {
+    private final Muxer.Factory wrappedMuxerFactory;
+    private final FrameBlockingMuxer.Listener listener;
+    private final long presentationTimeUsToBlockFrame;
+
+    FrameBlockingMuxerFactory(
+        long presentationTimeUsToBlockFrame, FrameBlockingMuxer.Listener listener) {
+      this.wrappedMuxerFactory = new DefaultMuxer.Factory();
+      this.listener = listener;
+      this.presentationTimeUsToBlockFrame = presentationTimeUsToBlockFrame;
+    }
+
+    @Override
+    public Muxer create(String path) throws MuxerException {
+      return new FrameBlockingMuxer(
+          wrappedMuxerFactory.create(path), presentationTimeUsToBlockFrame, listener);
+    }
+
+    @Override
+    public ImmutableList<String> getSupportedSampleMimeTypes(@C.TrackType int trackType) {
+      return wrappedMuxerFactory.getSupportedSampleMimeTypes(trackType);
+    }
+  }
+
+  /** A {@link Muxer} that blocks writing video frames after a specific presentation timestamp. */
+  public static final class FrameBlockingMuxer implements Muxer {
+    interface Listener {
+      void onFrameBlocked();
+    }
+
+    private final Muxer wrappedMuxer;
+    private final FrameBlockingMuxer.Listener listener;
+    private final long presentationTimeUsToBlockFrame;
+
+    private boolean notifiedListener;
+    private int videoTrackId;
+
+    private FrameBlockingMuxer(
+        Muxer wrappedMuxer,
+        long presentationTimeUsToBlockFrame,
+        FrameBlockingMuxer.Listener listener) {
+      this.wrappedMuxer = wrappedMuxer;
+      this.listener = listener;
+      this.presentationTimeUsToBlockFrame = presentationTimeUsToBlockFrame;
+    }
+
+    @Override
+    public int addTrack(Format format) throws MuxerException {
+      int trackId = wrappedMuxer.addTrack(format);
+      if (MimeTypes.isVideo(format.sampleMimeType)) {
+        videoTrackId = trackId;
+      }
+      return trackId;
+    }
+
+    @Override
+    public void writeSampleData(int trackId, ByteBuffer data, MediaCodec.BufferInfo bufferInfo)
+        throws MuxerException {
+      if (trackId == videoTrackId
+          && bufferInfo.presentationTimeUs >= presentationTimeUsToBlockFrame) {
+        if (!notifiedListener) {
+          listener.onFrameBlocked();
+          notifiedListener = true;
+        }
+        return;
+      }
+      wrappedMuxer.writeSampleData(trackId, data, bufferInfo);
+    }
+
+    @Override
+    public void addMetadataEntry(Metadata.Entry metadataEntry) {
+      wrappedMuxer.addMetadataEntry(metadataEntry);
+    }
+
+    @Override
+    public void close() throws MuxerException {
+      wrappedMuxer.close();
     }
   }
 
