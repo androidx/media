@@ -3,29 +3,13 @@
 ### Unreleased changes
 
 *   Common Library:
-    *   Upgrade Kotlin from 1.9.20 to 2.0.20 and use Compose Compiler Gradle
-        plugin. Upgrade KotlinX Coroutines library from 1.8.1 to 1.9.0.
 *   ExoPlayer:
-    *   Initial audio session id is no longer immediately available after
-        creating the player. You can use
-        `AnalyticsListener.onAudioSessionIdChanged` to listen to the initial
-        update if required.
 *   Transformer:
-    *   Add `MediaProjectionAssetLoader`, which provides media from a
-        `MediaProjection` for screen recording, and add support for screen
-        recording to the Transformer demo app.
-    *   Add `#getInputFormat()` to `Codec` interface.
-    *   Shift the responsibility to release the `GlObjectsProvider` onto the
-        caller in `DefaultVideoFrameProcessor` and `DefaultVideoCompositor` when
-        possible.
 *   Track Selection:
 *   Extractors:
 *   DataSource:
 *   Audio:
 *   Video:
-    *   Add experimental `ExoPlayer` API to drop late `MediaCodecVideoRenderer`
-        decoder input buffers that are not depended on. Enable it with
-        `DefaultRenderersFactory.experimentalSetLateThresholdToDropDecoderInputUs`.
 *   Text:
 *   Metadata:
 *   Image:
@@ -35,19 +19,6 @@
 *   Muxers:
 *   IMA extension:
 *   Session:
-    *   Keep foreground service state for an additional 10 minutes when playback
-        pauses, stops or fails. This allows users to resume playback within this
-        timeout without risking foreground service restrictions on various
-        devices. Note that simply calling `player.pause()` can no longer be used
-        to stop the foreground service before `stopSelf()` when overriding
-        `onTaskRemoved`, use `MediaSessionService.pauseAllPlayersAndStopSelf()`
-        instead.
-    *   Keep notification visible when playback enters an error or stopped
-        state. The notification is only removed if the playlist is cleared or
-        the player is released.
-    *   Improve handling of Android platform MediaSession actions ACTION_PLAY
-        and ACTION_PAUSE to only set one of them according to the available
-        commands and also accept if only one of them is set.
 *   UI:
 *   Downloads:
 *   OkHttp Extension:
@@ -64,6 +35,49 @@
 *   Test Utilities:
 *   Demo app:
 *   Remove deprecated symbols:
+
+## 1.6
+
+### 1.6.0-beta01 (2025-02-26)
+
+This release includes the following changes since the
+[1.6.0-alpha03 release](#160-alpha03-2025-02-06):
+
+*   Common Library:
+    *   Upgrade Kotlin from 1.9.20 to 2.0.20 and use Compose Compiler Gradle
+        plugin. Upgrade KotlinX Coroutines library from 1.8.1 to 1.9.0.
+*   ExoPlayer:
+    *   Initial audio session id is no longer immediately available after
+        creating the player. You can use
+        `AnalyticsListener.onAudioSessionIdChanged` to listen to the initial
+        update if required.
+*   Transformer:
+    *   Add `MediaProjectionAssetLoader`, which provides media from a
+        `MediaProjection` for screen recording, and add support for screen
+        recording to the Transformer demo app.
+    *   Add `#getInputFormat()` to `Codec` interface.
+    *   Shift the responsibility to release the `GlObjectsProvider` onto the
+        caller in `DefaultVideoFrameProcessor` and `DefaultVideoCompositor` when
+        possible.
+*   Video:
+    *   Add experimental `ExoPlayer` API to drop late `MediaCodecVideoRenderer`
+        decoder input buffers that are not depended on. Enable it with
+        `DefaultRenderersFactory.experimentalSetLateThresholdToDropDecoderInputUs`.
+*   Session:
+    *   Keep foreground service state for an additional 10 minutes when playback
+        pauses, stops or fails. This allows users to resume playback within this
+        timeout without risking foreground service restrictions on various
+        devices. Note that simply calling `player.pause()` can no longer be used
+        to stop the foreground service before `stopSelf()` when overriding
+        `onTaskRemoved`, use `MediaSessionService.pauseAllPlayersAndStopSelf()`
+        instead.
+    *   Keep notification visible when playback enters an error or stopped
+        state. The notification is only removed if the playlist is cleared or
+        the player is released.
+    *   Improve handling of Android platform MediaSession actions ACTION_PLAY
+        and ACTION_PAUSE to only set one of them according to the available
+        commands and also accept if only one of them is set.
+*   Remove deprecated symbols:
     *   Removed the following deprecated `DownloadHelper` methods:
         *   Constructor `DownloadHelper(MediaItem, @Nullable MediaSource,
             TrackSelectionParameters, RendererCapabilities[])`, use
@@ -78,8 +92,6 @@
         method. Use
         `PlayerNotificationManager.setMediaSessionToken(MediaSession.Token)` and
         pass in `(MediaSession.Token) compatToken.getToken()`instead.
-
-## 1.6
 
 ### 1.6.0-alpha03 (2025-02-06)
 
