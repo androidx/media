@@ -20,17 +20,26 @@ import static androidx.media3.transformer.AndroidTestUtil.JPG_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
+import android.media.MediaCodec;
 import android.media.metrics.EditingEndedEvent;
 import android.media.metrics.MediaItemInfo;
 import android.util.Size;
+import androidx.media3.common.C;
+import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaLibraryInfo;
+import androidx.media3.common.Metadata;
 import androidx.media3.common.util.Util;
+import androidx.media3.muxer.MuxerException;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Range;
+import java.nio.ByteBuffer;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Before;
 import org.junit.Rule;
@@ -179,6 +188,41 @@ public class EditingMetricsCollectorTest {
             new Size(exportTestResult.exportResult.width, exportTestResult.exportResult.height));
   }
 
+  @Test
+  public void exportError_populatesEditingEndedEvent() throws Exception {
+    assumeTrue("Reporting metrics requires API 35", Util.SDK_INT >= 35);
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET.videoFormat,
+        /* outputFormat= */ MP4_ASSET.videoFormat);
+    AtomicReference<EditingEndedEvent> editingEndedEventAtomicReference = new AtomicReference<>();
+    Transformer transformer =
+        new Transformer.Builder(context)
+            .setUsePlatformDiagnostics(true)
+            .setMetricsReporterFactory(
+                new TestMetricsReporterFactory(context, editingEndedEventAtomicReference::set))
+            .setMuxerFactory(new FailingMuxerFactory())
+            .build();
+    EditedMediaItem audioVideoItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri)).build();
+
+    assertThrows(
+        ExportException.class,
+        () ->
+            new TransformerAndroidTestRunner.Builder(context, transformer)
+                .build()
+                .run(testId, audioVideoItem));
+
+    EditingEndedEvent editingEndedEvent = editingEndedEventAtomicReference.get();
+    assertThat(editingEndedEvent.getFinalState()).isEqualTo(EditingEndedEvent.FINAL_STATE_ERROR);
+    assertThat(editingEndedEvent.getTimeSinceCreatedMillis()).isAtLeast(0);
+    assertThat(editingEndedEvent.getExporterName()).isEqualTo(EXPORTER_NAME);
+    assertThat(editingEndedEvent.getFinalProgressPercent()).isIn(Range.closed(0f, 100f));
+    assertThat(editingEndedEvent.getErrorCode())
+        .isEqualTo(EditingEndedEvent.ERROR_CODE_MUXING_FAILED);
+  }
+
   private static final class TestMetricsReporterFactory
       implements EditingMetricsCollector.MetricsReporter.Factory {
 
@@ -222,6 +266,60 @@ public class EditingMetricsCollectorTest {
     @Override
     public void close() throws Exception {
       wrappedMetricsReporter.close();
+    }
+  }
+
+  private static final class FailingMuxerFactory implements Muxer.Factory {
+
+    private final Muxer.Factory wrappedMuxerFactory;
+
+    public FailingMuxerFactory() {
+      this.wrappedMuxerFactory = new DefaultMuxer.Factory();
+    }
+
+    @Override
+    public Muxer create(String path) throws MuxerException {
+      return new FailingMuxer(wrappedMuxerFactory.create(path));
+    }
+
+    @Override
+    public ImmutableList<String> getSupportedSampleMimeTypes(@C.TrackType int trackType) {
+      return wrappedMuxerFactory.getSupportedSampleMimeTypes(trackType);
+    }
+  }
+
+  private static final class FailingMuxer implements Muxer {
+    private final Muxer wrappedMuxer;
+    private boolean firstSampleWritten;
+
+    public FailingMuxer(Muxer wrappedMuxer) {
+      this.wrappedMuxer = wrappedMuxer;
+    }
+
+    @Override
+    public int addTrack(Format format) throws MuxerException {
+      return wrappedMuxer.addTrack(format);
+    }
+
+    @Override
+    public void writeSampleData(
+        int trackId, ByteBuffer byteBuffer, MediaCodec.BufferInfo bufferInfo)
+        throws MuxerException {
+      if (firstSampleWritten) {
+        throw new MuxerException("Failed to write sample data", new RuntimeException());
+      }
+      wrappedMuxer.writeSampleData(trackId, byteBuffer, bufferInfo);
+      firstSampleWritten = true;
+    }
+
+    @Override
+    public void addMetadataEntry(Metadata.Entry metadataEntry) {
+      wrappedMuxer.addMetadataEntry(metadataEntry);
+    }
+
+    @Override
+    public void close() throws MuxerException {
+      wrappedMuxer.close();
     }
   }
 }
