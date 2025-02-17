@@ -23,25 +23,19 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assume.assumeFalse;
 
 import android.content.Context;
-import android.media.MediaCodec.BufferInfo;
 import android.os.Build;
 import androidx.media3.common.C;
 import androidx.media3.common.Effect;
-import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
-import androidx.media3.common.Metadata;
-import androidx.media3.common.MimeTypes;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.SonicAudioProcessor;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.RgbFilter;
-import androidx.media3.muxer.MuxerException;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
 import java.io.File;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -58,7 +52,7 @@ import org.junit.runner.RunWith;
 public class TransformerPauseResumeTest {
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
-  private static final long DEFAULT_PRESENTATION_TIME_US_TO_BLOCK_FRAME = 5_000_000L;
+  private static final long PRESENTATION_TIME_US_TO_BLOCK_FRAME = 5_000_000L;
   private static final int DEFAULT_TIMEOUT_SECONDS = 120;
   private static final int MP4_ASSET_FRAME_COUNT = 932;
 
@@ -402,9 +396,12 @@ public class TransformerPauseResumeTest {
         .build();
   }
 
-  private static Transformer buildBlockingTransformer(FrameBlockingMuxer.Listener listener) {
+  private static Transformer buildBlockingTransformer(
+      AndroidTestUtil.FrameBlockingMuxer.Listener listener) {
     return new Transformer.Builder(getApplicationContext())
-        .setMuxerFactory(new FrameBlockingMuxerFactory(listener))
+        .setMuxerFactory(
+            new AndroidTestUtil.FrameBlockingMuxerFactory(
+                PRESENTATION_TIME_US_TO_BLOCK_FRAME, listener))
         .build();
   }
 
@@ -416,75 +413,5 @@ public class TransformerPauseResumeTest {
         || (Util.SDK_INT == 27 && Ascii.equalsIgnoreCase(Build.MODEL, "vivo 1820"))
         || (Util.SDK_INT == 28 && Ascii.equalsIgnoreCase(Build.MODEL, "vivo 1901"))
         || (Util.SDK_INT == 28 && Ascii.equalsIgnoreCase(Build.MODEL, "vivo 1906"));
-  }
-
-  private static final class FrameBlockingMuxerFactory implements Muxer.Factory {
-    private final Muxer.Factory wrappedMuxerFactory;
-    private final FrameBlockingMuxer.Listener listener;
-
-    public FrameBlockingMuxerFactory(FrameBlockingMuxer.Listener listener) {
-      this.wrappedMuxerFactory = new DefaultMuxer.Factory();
-      this.listener = listener;
-    }
-
-    @Override
-    public Muxer create(String path) throws MuxerException {
-      return new FrameBlockingMuxer(wrappedMuxerFactory.create(path), listener);
-    }
-
-    @Override
-    public ImmutableList<String> getSupportedSampleMimeTypes(@C.TrackType int trackType) {
-      return wrappedMuxerFactory.getSupportedSampleMimeTypes(trackType);
-    }
-  }
-
-  private static final class FrameBlockingMuxer implements Muxer {
-    interface Listener {
-      void onFrameBlocked();
-    }
-
-    private final Muxer wrappedMuxer;
-    private final FrameBlockingMuxer.Listener listener;
-
-    private boolean notifiedListener;
-    private int videoTrackId;
-
-    private FrameBlockingMuxer(Muxer wrappedMuxer, FrameBlockingMuxer.Listener listener) {
-      this.wrappedMuxer = wrappedMuxer;
-      this.listener = listener;
-    }
-
-    @Override
-    public int addTrack(Format format) throws MuxerException {
-      int trackId = wrappedMuxer.addTrack(format);
-      if (MimeTypes.isVideo(format.sampleMimeType)) {
-        videoTrackId = trackId;
-      }
-      return trackId;
-    }
-
-    @Override
-    public void writeSampleData(int trackId, ByteBuffer data, BufferInfo bufferInfo)
-        throws MuxerException {
-      if (trackId == videoTrackId
-          && bufferInfo.presentationTimeUs >= DEFAULT_PRESENTATION_TIME_US_TO_BLOCK_FRAME) {
-        if (!notifiedListener) {
-          listener.onFrameBlocked();
-          notifiedListener = true;
-        }
-        return;
-      }
-      wrappedMuxer.writeSampleData(trackId, data, bufferInfo);
-    }
-
-    @Override
-    public void addMetadataEntry(Metadata.Entry metadataEntry) {
-      wrappedMuxer.addMetadataEntry(metadataEntry);
-    }
-
-    @Override
-    public void close() throws MuxerException {
-      wrappedMuxer.close();
-    }
   }
 }
