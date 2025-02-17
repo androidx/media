@@ -16,6 +16,7 @@
 
 package androidx.media3.transformer;
 
+import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.usToMs;
 
 import android.content.Context;
@@ -32,6 +33,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.SystemClock;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
@@ -45,6 +47,11 @@ import java.util.List;
 
   /** Reports the collected metrics. */
   public interface MetricsReporter extends AutoCloseable {
+    /** Factory for metrics reporters */
+    interface Factory {
+      /** Returns a new {@link MetricsReporter}. */
+      MetricsReporter create();
+    }
 
     /**
      * Reports the given {@link EditingEndedEvent}.
@@ -59,16 +66,31 @@ import java.util.List;
    * EditingSession}.
    */
   static final class DefaultMetricsReporter implements MetricsReporter {
+    /** A {@link MetricsReporter.Factory} for {@link DefaultMetricsReporter}. */
+    public static final class Factory implements MetricsReporter.Factory {
+      private final Context context;
+
+      /**
+       * Creates an instance.
+       *
+       * @param context The {@link Context}.
+       */
+      public Factory(Context context) {
+        this.context = context;
+      }
+
+      @Override
+      public MetricsReporter create() {
+        return new DefaultMetricsReporter(context);
+      }
+    }
 
     /** The {@link EditingSession} to report collected metrics to. */
     @Nullable private EditingSession editingSession;
 
-    /**
-     * Creates an instance.
-     *
-     * @param context A {@link Context}.
-     */
-    public DefaultMetricsReporter(Context context) {
+    private boolean metricsReported;
+
+    private DefaultMetricsReporter(Context context) {
       @Nullable
       MediaMetricsManager mediaMetricsManager =
           (MediaMetricsManager) context.getSystemService(Context.MEDIA_METRICS_SERVICE);
@@ -79,9 +101,10 @@ import java.util.List;
 
     @Override
     public void reportMetrics(EditingEndedEvent editingEndedEvent) {
+      checkState(!metricsReported, "Metrics have already been reported.");
       if (editingSession != null) {
         editingSession.reportEditingEndedEvent(editingEndedEvent);
-        close();
+        metricsReported = true;
       }
     }
 
@@ -94,6 +117,7 @@ import java.util.List;
     }
   }
 
+  private static final String TAG = "EditingMetricsCollector";
   // TODO: b/386328723 - Add missing error codes to EditingEndedEvent.ErrorCode.
   private static final SparseIntArray ERROR_CODE_CONVERSION_MAP = new SparseIntArray();
   private static final SparseIntArray DATA_SPACE_STANDARD_CONVERSION_MAP = new SparseIntArray();
@@ -222,6 +246,11 @@ import java.util.List;
     editingEndedEventBuilder.setOutputMediaItemInfo(getOutputMediaItemInfo(exportResult));
 
     metricsReporter.reportMetrics(editingEndedEventBuilder.build());
+    try {
+      metricsReporter.close();
+    } catch (Exception e) {
+      Log.e(TAG, "error while closing the metrics reporter", e);
+    }
   }
 
   /**
@@ -250,6 +279,11 @@ import java.util.List;
     editingEndedEventBuilder.setOutputMediaItemInfo(getOutputMediaItemInfo(exportResult));
 
     metricsReporter.reportMetrics(editingEndedEventBuilder.build());
+    try {
+      metricsReporter.close();
+    } catch (Exception e) {
+      Log.e(TAG, "error while closing the metrics reporter", e);
+    }
   }
 
   /**
@@ -266,6 +300,11 @@ import java.util.List;
     }
 
     metricsReporter.reportMetrics(editingEndedEventBuilder.build());
+    try {
+      metricsReporter.close();
+    } catch (Exception e) {
+      Log.e(TAG, "error while closing the metrics reporter", e);
+    }
   }
 
   private EditingEndedEvent.Builder createEditingEndedEventBuilder(int finalState) {
