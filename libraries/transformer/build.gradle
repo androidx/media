@@ -53,7 +53,7 @@ dependencies {
     implementation project(modulePrefix + 'lib-container')
     api project(modulePrefix + 'lib-exoplayer')
     api project(modulePrefix + 'lib-effect')
-    implementation project(modulePrefix + 'lib-muxer')
+    api project(modulePrefix + 'lib-muxer')
     compileOnly 'com.google.errorprone:error_prone_annotations:' + errorProneVersion
     compileOnly 'org.checkerframework:checker-qual:' + checkerframeworkVersion
     compileOnly 'org.jetbrains.kotlin:kotlin-annotations-jvm:' + kotlinAnnotationsVersion
