@@ -122,6 +122,8 @@ public final class Transformer {
     private Looper looper;
     private DebugViewProvider debugViewProvider;
     private Clock clock;
+    private EditingMetricsCollector.MetricsReporter.@MonotonicNonNull Factory
+        metricsReporterFactory;
 
     /**
      * Creates a builder with default values.
@@ -142,6 +144,10 @@ public final class Transformer {
       debugViewProvider = DebugViewProvider.NONE;
       clock = Clock.DEFAULT;
       listeners = new ListenerSet<>(looper, clock, (listener, flags) -> {});
+      if (SDK_INT >= 35) {
+        metricsReporterFactory =
+            new EditingMetricsCollector.DefaultMetricsReporter.Factory(context);
+      }
     }
 
     /** Creates a builder with the values of the provided {@link Transformer}. */
@@ -169,6 +175,7 @@ public final class Transformer {
       this.looper = transformer.looper;
       this.debugViewProvider = transformer.debugViewProvider;
       this.clock = transformer.clock;
+      this.metricsReporterFactory = transformer.metricsReporterFactory;
     }
 
     /**
@@ -516,6 +523,23 @@ public final class Transformer {
     }
 
     /**
+     * Sets the {@link EditingMetricsCollector.MetricsReporter.Factory} that will be used to report
+     * the metrics.
+     *
+     * <p>The default value is {@link EditingMetricsCollector.DefaultMetricsReporter.Factory}.
+     *
+     * @param metricsReporterFactory A {@link EditingMetricsCollector.MetricsReporter.Factory}.
+     * @return This builder.
+     */
+    @CanIgnoreReturnValue
+    @VisibleForTesting
+    /* package */ Builder setMetricsReporterFactory(
+        EditingMetricsCollector.MetricsReporter.Factory metricsReporterFactory) {
+      this.metricsReporterFactory = metricsReporterFactory;
+      return this;
+    }
+
+    /**
      * Sets whether transformer reports diagnostics data to the Android platform.
      *
      * <p>If enabled, transformer will use the {@link android.media.metrics.MediaMetricsManager} to
@@ -582,7 +606,8 @@ public final class Transformer {
           muxerFactory,
           looper,
           debugViewProvider,
-          clock);
+          clock,
+          metricsReporterFactory);
     }
 
     private void checkSampleMimeType(String sampleMimeType) {
@@ -772,7 +797,7 @@ public final class Transformer {
   private final HandlerWrapper applicationHandler;
   private final ComponentListener componentListener;
   private final ExportResult.Builder exportResultBuilder;
-  private @MonotonicNonNull EditingMetricsCollector editingMetricsCollector;
+  @Nullable private final EditingMetricsCollector.MetricsReporter.Factory metricsReporterFactory;
 
   @Nullable private TransformerInternal transformerInternal;
   @Nullable private MuxerWrapper remuxingMuxerWrapper;
@@ -783,6 +808,7 @@ public final class Transformer {
   private TransmuxTranscodeHelper.@MonotonicNonNull ResumeMetadata resumeMetadata;
   private @MonotonicNonNull ListenableFuture<TransmuxTranscodeHelper.ResumeMetadata>
       getResumeMetadataFuture;
+  private @MonotonicNonNull EditingMetricsCollector editingMetricsCollector;
   private @MonotonicNonNull ListenableFuture<Void> copyOutputFuture;
   @Nullable private Mp4Info mediaItemInfo;
   @Nullable private WatchdogTimer exportWatchdogTimer;
@@ -808,7 +834,8 @@ public final class Transformer {
       Muxer.Factory muxerFactory,
       Looper looper,
       DebugViewProvider debugViewProvider,
-      Clock clock) {
+      Clock clock,
+      @Nullable EditingMetricsCollector.MetricsReporter.Factory metricsReporterFactory) {
     checkState(!removeAudio || !removeVideo, "Audio and video cannot both be removed.");
     this.context = context;
     this.transformationRequest = transformationRequest;
@@ -831,6 +858,7 @@ public final class Transformer {
     this.looper = looper;
     this.debugViewProvider = debugViewProvider;
     this.clock = clock;
+    this.metricsReporterFactory = metricsReporterFactory;
     transformerState = TRANSFORMER_STATE_PROCESS_FULL_INPUT;
     applicationHandler = clock.createHandler(looper, /* callback= */ null);
     componentListener = new ComponentListener();
@@ -1590,9 +1618,7 @@ public final class Transformer {
       }
       editingMetricsCollector =
           new EditingMetricsCollector(
-              new EditingMetricsCollector.DefaultMetricsReporter(context),
-              EXPORTER_NAME,
-              muxerName);
+              checkNotNull(metricsReporterFactory).create(), EXPORTER_NAME, muxerName);
     }
     transformerInternal =
         new TransformerInternal(
