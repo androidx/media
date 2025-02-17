@@ -38,14 +38,13 @@ import java.io.IOException;
 public final class AssetContentProvider extends ContentProvider
     implements ContentProvider.PipeDataWriter<Object> {
 
-  private static final String AUTHORITY = "androidx.media3.test.utils.AssetContentProvider";
   private static final String PARAM_PIPE_MODE = "pipe-mode";
 
-  public static Uri buildUri(String filePath, boolean pipeMode) {
+  public static Uri buildUri(String authority, String filePath, boolean pipeMode) {
     Uri.Builder builder =
         new Uri.Builder()
             .scheme(ContentResolver.SCHEME_CONTENT)
-            .authority(AUTHORITY)
+            .authority(authority)
             .path(filePath);
     if (pipeMode) {
       builder.appendQueryParameter(PARAM_PIPE_MODE, "1");
