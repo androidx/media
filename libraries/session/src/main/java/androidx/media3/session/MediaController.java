@@ -493,7 +493,7 @@ public class MediaController implements Player {
      */
     @UnstableApi
     default void onSessionActivityChanged(
-        MediaController controller, PendingIntent sessionActivity) {}
+        MediaController controller, @Nullable PendingIntent sessionActivity) {}
 
     /**
      * Called when an non-fatal error {@linkplain

@@ -19,6 +19,8 @@
 *   Muxers:
 *   IMA extension:
 *   Session:
+    *   Make `MediaSession.setSessionActivity(PendingIntent)` accept null
+        ([#2109](https://github.com/androidx/media/issues/2109)).
 *   UI:
 *   Downloads:
 *   OkHttp Extension:

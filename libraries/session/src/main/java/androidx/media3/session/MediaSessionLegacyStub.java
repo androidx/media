@@ -1137,7 +1137,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     }
 
     @Override
-    public void onSessionActivityChanged(int seq, PendingIntent sessionActivity) {
+    public void onSessionActivityChanged(int seq, @Nullable PendingIntent sessionActivity) {
       sessionCompat.setSessionActivity(sessionActivity);
     }
 

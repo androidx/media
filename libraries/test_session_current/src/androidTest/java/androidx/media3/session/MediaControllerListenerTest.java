@@ -2566,14 +2566,19 @@ public class MediaControllerListenerTest {
         PendingIntent.getActivity(
             context, 0, intent, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
     CountDownLatch latch = new CountDownLatch(1);
+    CountDownLatch nullLatch = new CountDownLatch(1);
     List<PendingIntent> receivedSessionActivities = new ArrayList<>();
     MediaController.Listener listener =
         new MediaController.Listener() {
           @Override
           public void onSessionActivityChanged(
-              MediaController controller, PendingIntent sessionActivity) {
-            receivedSessionActivities.add(sessionActivity);
-            latch.countDown();
+              MediaController controller, @Nullable PendingIntent sessionActivity) {
+            if (sessionActivity == null) {
+              nullLatch.countDown();
+            } else {
+              receivedSessionActivities.add(sessionActivity);
+              latch.countDown();
+            }
           }
         };
     MediaController controller =
@@ -2585,6 +2590,13 @@ public class MediaControllerListenerTest {
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(controller.getSessionActivity()).isEqualTo(sessionActivity);
+    assertThat(receivedSessionActivities).containsExactly(sessionActivity);
+
+    remoteSession.setSessionActivity(/* controllerKey= */ null, sessionActivity);
+    remoteSession.setSessionActivity(/* controllerKey= */ null, null);
+
+    assertThat(nullLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(controller.getSessionActivity()).isNull();
     assertThat(receivedSessionActivities).containsExactly(sessionActivity);
   }
 
@@ -2601,7 +2613,7 @@ public class MediaControllerListenerTest {
         new MediaController.Listener() {
           @Override
           public void onSessionActivityChanged(
-              MediaController controller, PendingIntent sessionActivity) {
+              MediaController controller, @Nullable PendingIntent sessionActivity) {
             receivedSessionActivities1.add(sessionActivity);
             latch1.countDown();
           }
@@ -2610,15 +2622,17 @@ public class MediaControllerListenerTest {
     connectionHints1.putString(KEY_CONTROLLER, "ctrl-1");
     MediaController controller1 =
         controllerTestRule.createController(remoteSession.getToken(), connectionHints1, listener1);
-    List<PendingIntent> receivedSessionActivities2 = new ArrayList<>();
+    AtomicInteger controller2CallbackCount = new AtomicInteger();
     CountDownLatch latch2 = new CountDownLatch(1);
     MediaController.Listener listener2 =
         new MediaController.Listener() {
           @Override
           public void onSessionActivityChanged(
-              MediaController controller, PendingIntent sessionActivity) {
-            receivedSessionActivities2.add(sessionActivity);
-            latch2.countDown();
+              MediaController controller, @Nullable PendingIntent sessionActivity) {
+            controller2CallbackCount.incrementAndGet();
+            if (sessionActivity == null) {
+              latch2.countDown();
+            }
           }
         };
     Bundle connectionHints2 = new Bundle();
@@ -2634,14 +2648,16 @@ public class MediaControllerListenerTest {
     assertThat(controller1.getSessionActivity()).isEqualTo(sessionActivity);
     assertThat(controller2.getSessionActivity()).isNull();
     assertThat(receivedSessionActivities1).containsExactly(sessionActivity);
-    assertThat(receivedSessionActivities2).isEmpty();
+    assertThat(controller2CallbackCount.get()).isEqualTo(0);
 
     remoteSession.setSessionActivity(/* controllerKey= */ "ctrl-2", sessionActivity);
+    remoteSession.setSessionActivity(/* controllerKey= */ "ctrl-2", null);
 
     assertThat(latch2.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
-    assertThat(controller2.getSessionActivity()).isEqualTo(sessionActivity);
+    assertThat(controller1.getSessionActivity()).isEqualTo(sessionActivity);
+    assertThat(controller2.getSessionActivity()).isNull();
     assertThat(receivedSessionActivities1).containsExactly(sessionActivity);
-    assertThat(receivedSessionActivities2).containsExactly(sessionActivity);
+    assertThat(controller2CallbackCount.get()).isEqualTo(2);
   }
 
   @Test

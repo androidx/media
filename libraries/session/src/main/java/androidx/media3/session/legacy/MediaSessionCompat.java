@@ -550,7 +550,7 @@ public class MediaSessionCompat {
    *
    * @param pi The intent to launch to show UI for this Session.
    */
-  public void setSessionActivity(PendingIntent pi) {
+  public void setSessionActivity(@Nullable PendingIntent pi) {
     mImpl.setSessionActivity(pi);
   }
 
@@ -2219,7 +2219,7 @@ public class MediaSessionCompat {
 
     void setMetadata(@Nullable MediaMetadataCompat metadata);
 
-    void setSessionActivity(PendingIntent pi);
+    void setSessionActivity(@Nullable PendingIntent pi);
 
     void setMediaButtonReceiver(@Nullable PendingIntent mbr);
 
@@ -2700,7 +2700,7 @@ public class MediaSessionCompat {
     }
 
     @Override
-    public void setSessionActivity(PendingIntent pi) {
+    public void setSessionActivity(@Nullable PendingIntent pi) {
       synchronized (mLock) {
         mSessionActivity = pi;
       }
@@ -4053,7 +4053,7 @@ public class MediaSessionCompat {
     }
 
     @Override
-    public void setSessionActivity(PendingIntent pi) {
+    public void setSessionActivity(@Nullable PendingIntent pi) {
       mSessionFwk.setSessionActivity(pi);
     }
 

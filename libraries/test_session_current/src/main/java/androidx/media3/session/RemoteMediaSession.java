@@ -218,7 +218,7 @@ public class RemoteMediaSession {
     binder.setSessionExtrasForController(sessionId, controllerKey, extras);
   }
 
-  public void setSessionActivity(String controllerKey, PendingIntent sessionActivity)
+  public void setSessionActivity(String controllerKey, @Nullable PendingIntent sessionActivity)
       throws RemoteException {
     binder.setSessionActivity(sessionId, controllerKey, sessionActivity);
   }

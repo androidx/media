@@ -214,10 +214,6 @@ import org.checkerframework.checker.nullness.qual.NonNull;
   @Override
   public void onSessionActivityChanged(int seq, @Nullable PendingIntent sessionActivity)
       throws RemoteException {
-    if (sessionActivity == null) {
-      Log.w(TAG, "Ignoring null session activity intent");
-      return;
-    }
     dispatchControllerTaskOnHandler(
         controller -> controller.onSetSessionActivity(seq, sessionActivity));
   }

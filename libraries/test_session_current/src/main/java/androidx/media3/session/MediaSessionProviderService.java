@@ -703,7 +703,7 @@ public class MediaSessionProviderService extends Service {
 
     @Override
     public void setSessionActivity(
-        String sessionId, @Nullable String controllerKey, PendingIntent sessionActivity)
+        String sessionId, @Nullable String controllerKey, @Nullable PendingIntent sessionActivity)
         throws RemoteException {
       MediaSession mediaSession = sessionMap.get(sessionId);
       if (mediaSession == null) {

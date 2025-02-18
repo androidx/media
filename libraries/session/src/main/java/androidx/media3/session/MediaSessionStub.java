@@ -2098,9 +2098,10 @@ import java.util.concurrent.ExecutionException;
       }
     }
 
+    @SuppressWarnings("nullness:argument") // sessionActivity can be null.
     @Override
-    public void onSessionActivityChanged(int sequenceNumber, PendingIntent sessionActivity)
-        throws RemoteException {
+    public void onSessionActivityChanged(
+        int sequenceNumber, @Nullable PendingIntent sessionActivity) throws RemoteException {
       iController.onSessionActivityChanged(sequenceNumber, sessionActivity);
     }
 
