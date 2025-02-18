@@ -789,13 +789,16 @@ public class MediaSession {
    * Updates the session activity that was set when {@linkplain
    * Builder#setSessionActivity(PendingIntent) building the session}.
    *
-   * @param activityPendingIntent The pending intent to start the session activity.
+   * <p>Note: When a controller is connected to the session that has a version smaller than 1.6.0,
+   * then setting the session activity to null has no effect on the controller side.
+   *
+   * @param activityPendingIntent The pending intent to start the session activity or null.
    * @throws IllegalArgumentException if the {@link PendingIntent} passed into this method is
    *     {@linkplain PendingIntent#getActivity(Context, int, Intent, int) not an activity}.
    */
   @UnstableApi
-  public final void setSessionActivity(PendingIntent activityPendingIntent) {
-    if (Util.SDK_INT >= 31) {
+  public final void setSessionActivity(@Nullable PendingIntent activityPendingIntent) {
+    if (Util.SDK_INT >= 31 && activityPendingIntent != null) {
       checkArgument(Api31.isActivity(activityPendingIntent));
     }
     impl.setSessionActivity(activityPendingIntent);
@@ -818,8 +821,8 @@ public class MediaSession {
    */
   @UnstableApi
   public final void setSessionActivity(
-      ControllerInfo controller, PendingIntent activityPendingIntent) {
-    if (Util.SDK_INT >= 31) {
+      ControllerInfo controller, @Nullable PendingIntent activityPendingIntent) {
+    if (Util.SDK_INT >= 31 && activityPendingIntent != null) {
       checkArgument(Api31.isActivity(activityPendingIntent));
     }
     impl.setSessionActivity(controller, activityPendingIntent);
@@ -2088,7 +2091,7 @@ public class MediaSession {
     default void setMediaButtonPreferences(int seq, List<CommandButton> mediaButtonPreferences)
         throws RemoteException {}
 
-    default void onSessionActivityChanged(int seq, PendingIntent sessionActivity)
+    default void onSessionActivityChanged(int seq, @Nullable PendingIntent sessionActivity)
         throws RemoteException {}
 
     default void onSessionExtrasChanged(int seq, Bundle sessionExtras) throws RemoteException {}

@@ -95,7 +95,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 import org.checkerframework.checker.initialization.qual.Initialized;
-import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /* package */ class MediaSessionImpl {
 
@@ -136,7 +135,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   private PlayerInfo playerInfo;
   private PlayerWrapper playerWrapper;
-  private @MonotonicNonNull PendingIntent sessionActivity;
+  @Nullable private PendingIntent sessionActivity;
   @Nullable private PlayerListener playerListener;
   @Nullable private MediaSession.Listener mediaSessionListener;
   @Nullable private ControllerInfo controllerForCurrentRequest;
@@ -850,7 +849,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   @UnstableApi
-  protected void setSessionActivity(PendingIntent sessionActivity) {
+  protected void setSessionActivity(@Nullable PendingIntent sessionActivity) {
     this.sessionActivity = sessionActivity;
     ImmutableList<ControllerInfo> connectedControllers =
         sessionStub.getConnectedControllersManager().getConnectedControllers();
@@ -860,7 +859,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   @UnstableApi
-  protected void setSessionActivity(ControllerInfo controller, PendingIntent sessionActivity) {
+  protected void setSessionActivity(
+      ControllerInfo controller, @Nullable PendingIntent sessionActivity) {
     if (controller.getControllerVersion() >= 3
         && sessionStub.getConnectedControllersManager().isConnected(controller)) {
       dispatchRemoteControllerTaskWithoutReturn(

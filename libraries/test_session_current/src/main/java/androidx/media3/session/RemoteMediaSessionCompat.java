@@ -156,7 +156,7 @@ public class RemoteMediaSessionCompat {
     binder.setShuffleMode(sessionTag, shuffleMode);
   }
 
-  public void setSessionActivity(PendingIntent intent) throws RemoteException {
+  public void setSessionActivity(@Nullable PendingIntent intent) throws RemoteException {
     binder.setSessionActivity(sessionTag, intent);
   }
 

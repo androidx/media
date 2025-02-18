@@ -35,6 +35,8 @@ This release includes the following changes since the
         to stop the foreground service before `stopSelf()` when overriding
         `onTaskRemoved`, use `MediaSessionService.pauseAllPlayersAndStopSelf()`
         instead.
+    *   Make `MediaSession.setSessionActivity(PendingIntent)` accept null
+        ([#2109](https://github.com/androidx/media/issues/2109)).
     *   Keep notification visible when playback enters an error or stopped
         state. The notification is only removed if the playlist is cleared or
         the player is released.

@@ -93,6 +93,7 @@ import com.google.common.util.concurrent.MoreExecutors;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
@@ -3079,8 +3080,8 @@ import org.checkerframework.checker.nullness.qual.NonNull;
             });
   }
 
-  public void onSetSessionActivity(int seq, PendingIntent sessionActivity) {
-    if (!isConnected()) {
+  public void onSetSessionActivity(int seq, @Nullable PendingIntent sessionActivity) {
+    if (!isConnected() || Objects.equals(this.sessionActivity, sessionActivity)) {
       return;
     }
     this.sessionActivity = sessionActivity;

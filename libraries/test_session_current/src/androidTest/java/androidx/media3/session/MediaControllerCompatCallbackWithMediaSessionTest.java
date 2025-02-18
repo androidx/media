@@ -1217,6 +1217,7 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
     assertThat(playbackStateExtrasFromController.get()).string("key-0").isEqualTo("value-0");
   }
 
+  @SuppressWarnings("deprecation") // Testing access through deprecated androidx.media library
   @Test
   public void setSessionActivity_forAllControllers_changedWhenReceivedWithSetter()
       throws Exception {
@@ -1224,12 +1225,17 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
     PendingIntent sessionActivity =
         PendingIntent.getActivity(
             context, 0, intent, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
-    CountDownLatch latch = new CountDownLatch(1);
+    CountDownLatch playingLatch = new CountDownLatch(1);
+    CountDownLatch bufferingLatch = new CountDownLatch(1);
     MediaControllerCompat.Callback callback =
         new MediaControllerCompat.Callback() {
           @Override
           public void onPlaybackStateChanged(PlaybackStateCompat state) {
-            latch.countDown();
+            if (state.getState() == PlaybackStateCompat.STATE_BUFFERING) {
+              bufferingLatch.countDown();
+            } else if (state.getState() == PlaybackStateCompat.STATE_PLAYING) {
+              playingLatch.countDown();
+            }
           }
         };
     controllerCompat.registerCallback(callback, handler);
@@ -1238,12 +1244,25 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
     session.setSessionActivity(/* controllerKey= */ null, sessionActivity);
     // The legacy API has no change listener for the session activity. Changing the state to
     // trigger a callback.
+    session
+        .getMockPlayer()
+        .notifyPlayWhenReadyChanged(
+            true,
+            Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
+            Player.PLAYBACK_SUPPRESSION_REASON_NONE);
     session.getMockPlayer().notifyPlaybackStateChanged(STATE_READY);
 
-    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(playingLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(controllerCompat.getSessionActivity()).isEqualTo(sessionActivity);
+
+    session.setSessionActivity(/* controllerKey= */ null, null);
+    session.getMockPlayer().notifyPlaybackStateChanged(Player.STATE_BUFFERING);
+
+    assertThat(bufferingLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(controllerCompat.getSessionActivity()).isNull();
   }
 
+  @SuppressWarnings("deprecation") // Testing access through deprecated androidx.media library
   @Test
   public void setSessionActivity_setToNotificationController_changedWhenReceivedWithSetter()
       throws Exception {
@@ -1251,24 +1270,41 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
     PendingIntent sessionActivity =
         PendingIntent.getActivity(
             context, 0, intent, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
-    CountDownLatch latch = new CountDownLatch(1);
+    CountDownLatch playingLatch = new CountDownLatch(1);
+    CountDownLatch bufferingLatch = new CountDownLatch(1);
     MediaControllerCompat.Callback callback =
         new MediaControllerCompat.Callback() {
           @Override
           public void onPlaybackStateChanged(PlaybackStateCompat state) {
-            latch.countDown();
+            if (state.getState() == PlaybackStateCompat.STATE_BUFFERING) {
+              bufferingLatch.countDown();
+            } else if (state.getState() == PlaybackStateCompat.STATE_PLAYING) {
+              playingLatch.countDown();
+            }
           }
         };
     controllerCompat.registerCallback(callback, handler);
     assertThat(controllerCompat.getSessionActivity()).isNull();
 
     session.setSessionActivity(NOTIFICATION_CONTROLLER_KEY, sessionActivity);
+    session
+        .getMockPlayer()
+        .notifyPlayWhenReadyChanged(
+            true,
+            Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
+            Player.PLAYBACK_SUPPRESSION_REASON_NONE);
     // The legacy API has no change listener for the session activity. Changing the state to
     // trigger a callback.
     session.getMockPlayer().notifyPlaybackStateChanged(STATE_READY);
 
-    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(playingLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(controllerCompat.getSessionActivity()).isEqualTo(sessionActivity);
+
+    session.setSessionActivity(NOTIFICATION_CONTROLLER_KEY, null);
+    session.getMockPlayer().notifyPlaybackStateChanged(Player.STATE_BUFFERING);
+
+    assertThat(bufferingLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(controllerCompat.getSessionActivity()).isNull();
   }
 
   @Test
