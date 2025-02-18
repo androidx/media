@@ -1,5 +1,44 @@
 # Release notes
 
+### Unreleased changes
+
+*   Common Library:
+    *   Change `SimpleBasePlayer.State` access from protected to public to make
+        it easier to handle updates in other classes
+        ([#2128](https://github.com/androidx/media/issues/2128)).
+*   ExoPlayer:
+*   Transformer:
+*   Track Selection:
+*   Extractors:
+*   DataSource:
+*   Audio:
+*   Video:
+*   Text:
+*   Metadata:
+*   Image:
+*   DataSource:
+*   DRM:
+*   Effect:
+*   Muxers:
+*   IMA extension:
+*   Session:
+*   UI:
+*   Downloads:
+*   OkHttp Extension:
+*   Cronet Extension:
+*   RTMP Extension:
+*   HLS Extension:
+*   DASH Extension:
+*   Smooth Streaming Extension:
+*   RTSP Extension:
+*   Decoder Extensions (FFmpeg, VP9, AV1, etc.):
+*   MIDI extension:
+*   Leanback extension:
+*   Cast Extension:
+*   Test Utilities:
+*   Demo app:
+*   Remove deprecated symbols:
+
 ## 1.6
 
 ### 1.6.0-beta01 (2025-02-26)

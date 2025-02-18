@@ -96,7 +96,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 public abstract class SimpleBasePlayer extends BasePlayer {
 
   /** An immutable state description of the player. */
-  protected static final class State {
+  public static final class State {
 
     /** A builder for {@link State} objects. */
     public static final class Builder {
