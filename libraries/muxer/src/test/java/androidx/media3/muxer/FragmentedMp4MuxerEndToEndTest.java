@@ -51,13 +51,14 @@ import org.robolectric.ParameterizedRobolectricTestRunner.Parameters;
 /** End to end instrumentation tests for {@link FragmentedMp4Muxer}. */
 @RunWith(ParameterizedRobolectricTestRunner.class)
 public class FragmentedMp4MuxerEndToEndTest {
+  private static final String H264_MP4 = "sample_no_bframes.mp4";
   private static final String H264_WITH_PYRAMID_B_FRAMES_MP4 =
       "bbb_800x640_768kbps_30fps_avc_pyramid_3b.mp4";
   private static final String H265_HDR10_MP4 = "hdr10-720p.mp4";
 
   @Parameters(name = "{0}")
   public static ImmutableList<String> mediaSamples() {
-    return ImmutableList.of(H264_WITH_PYRAMID_B_FRAMES_MP4, H265_HDR10_MP4);
+    return ImmutableList.of(H264_MP4, H264_WITH_PYRAMID_B_FRAMES_MP4, H265_HDR10_MP4);
   }
 
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
