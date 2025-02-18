@@ -120,6 +120,7 @@ public class FakeRenderer extends BaseRenderer {
                 getIndex(),
                 format,
                 C.FORMAT_UNSUPPORTED_TYPE,
+                getMediaPeriodId(),
                 /* isRecoverable= */ false,
                 PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED);
           }

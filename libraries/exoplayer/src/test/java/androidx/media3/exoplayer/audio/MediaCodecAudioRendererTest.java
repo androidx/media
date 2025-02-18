@@ -312,6 +312,7 @@ public class MediaCodecAudioRendererTest {
                       /* rendererIndex= */ 0,
                       format,
                       C.FORMAT_HANDLED,
+                      /* mediaPeriodId= */ null,
                       /* isRecoverable= */ false,
                       PlaybackException.ERROR_CODE_UNSPECIFIED));
             }

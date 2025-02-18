@@ -693,7 +693,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
     } catch (ExoPlaybackException e) {
       if (e.type == ExoPlaybackException.TYPE_RENDERER) {
         @Nullable MediaPeriodHolder readingPeriod = queue.getReadingPeriod();
-        if (readingPeriod != null) {
+        if (readingPeriod != null && e.mediaPeriodId == null) {
           // We can assume that all renderer errors happen in the context of the reading period. See
           // [internal: b/150584930#comment4] for exceptions that aren't covered by this assumption.
           e =
