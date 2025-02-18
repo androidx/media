@@ -48,7 +48,7 @@ class RepeatButtonStateTest {
   }
 
   @Test
-  fun buttonClicked_withLimitedNumberOfModes_playerShuffleModeChangedToNextInSequence() {
+  fun buttonClicked_withLimitedNumberOfModes_playerRepeatModeChangedToNextInSequence() {
     val player = TestPlayer()
     val state = RepeatButtonState(player, listOf(Player.REPEAT_MODE_OFF, Player.REPEAT_MODE_ONE))
     assertThat(state.repeatModeState).isEqualTo(Player.REPEAT_MODE_OFF)
