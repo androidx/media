@@ -3,6 +3,9 @@
 ### Unreleased changes
 
 *   Common Library:
+    *   Change `SimpleBasePlayer.State` access from protected to public to make
+        it easier to handle updates in other classes
+        ([#2128](https://github.com/androidx/media/issues/2128)).
 *   ExoPlayer:
 *   Transformer:
 *   Track Selection:
