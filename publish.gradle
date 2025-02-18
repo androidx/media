@@ -62,4 +62,3 @@ afterEvaluate {
         }
     }
 }
-tasks.withType(PublishToMavenRepository) { it.dependsOn lint, test }
