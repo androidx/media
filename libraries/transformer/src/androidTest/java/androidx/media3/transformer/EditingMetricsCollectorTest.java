@@ -19,6 +19,7 @@ import static androidx.media3.common.util.Util.usToMs;
 import static androidx.media3.transformer.AndroidTestUtil.JPG_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
+import static androidx.media3.transformer.AndroidTestUtil.recordTestSkipped;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.assertThrows;
@@ -44,6 +45,7 @@ import java.nio.ByteBuffer;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
+import org.junit.AssumptionViolatedException;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -67,6 +69,30 @@ public class EditingMetricsCollectorTest {
   @Before
   public void setUpTestId() {
     testId = testName.getMethodName();
+  }
+
+  @Test
+  public void export_usePlatformDiagnosticsDisabled_doesNotCollectMetrics() throws Exception {
+    if (Util.SDK_INT < 35) {
+      String reason = "Metrics collection is unsupported below API 35.";
+      recordTestSkipped(context, testId, reason);
+      throw new AssumptionViolatedException(reason);
+    }
+    AtomicReference<EditingEndedEvent> editingEndedEventAtomicReference = new AtomicReference<>();
+    Transformer transformer =
+        new Transformer.Builder(context)
+            .setUsePlatformDiagnostics(false)
+            .setMetricsReporterFactory(
+                new TestMetricsReporterFactory(context, editingEndedEventAtomicReference::set))
+            .build();
+    EditedMediaItem audioVideoItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri)).build();
+
+    new TransformerAndroidTestRunner.Builder(context, transformer)
+        .build()
+        .run(testId, audioVideoItem);
+
+    assertThat(editingEndedEventAtomicReference.get()).isNull();
   }
 
   @Test
