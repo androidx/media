@@ -1892,6 +1892,20 @@ public class ExoPlayerTest {
   }
 
   @Test
+  public void stopWhileLoading_correctMaskingIsLoading() throws Exception {
+    ExoPlayer player = new TestExoPlayerBuilder(context).build();
+    player.setMediaSource(new FakeMediaSource(new FakeTimeline(/* windowCount= */ 1)));
+    player.prepare();
+    advance(player).untilLoadingIs(true);
+
+    assertThat(player.isLoading()).isTrue();
+    player.stop();
+    assertThat(player.isLoading()).isFalse();
+
+    player.release();
+  }
+
+  @Test
   public void stop_releasesMediaSource() throws Exception {
     Timeline timeline = new FakeTimeline();
     final FakeMediaSource mediaSource =
@@ -2087,6 +2101,18 @@ public class ExoPlayerTest {
     assertThat(currentPosition[2]).isEqualTo(currentPosition[0]);
     assertThat(bufferedPosition[2]).isEqualTo(1000);
     assertThat(totalBufferedDuration[2]).isEqualTo(0);
+  }
+
+  @Test
+  public void releaseWhileLoading_correctMaskingIsLoading() throws Exception {
+    ExoPlayer player = new TestExoPlayerBuilder(context).build();
+    player.setMediaSource(new FakeMediaSource(new FakeTimeline(/* windowCount= */ 1)));
+    player.prepare();
+    advance(player).untilLoadingIs(true);
+
+    assertThat(player.isLoading()).isTrue();
+    player.release();
+    assertThat(player.isLoading()).isFalse();
   }
 
   @Test
@@ -8811,6 +8837,29 @@ public class ExoPlayerTest {
   }
 
   @Test
+  public void setMediaSourcesWhileLoading_noSeekEmpty_correctMaskingIsLoading() throws Exception {
+    ExoPlayer player = new TestExoPlayerBuilder(context).build();
+    player.setMediaSource(new FakeMediaSource(new FakeTimeline(/* windowCount= */ 1)));
+    player.prepare();
+    advance(player).untilLoadingIs(true);
+
+    assertThat(player.isLoading()).isTrue();
+    // Set a media item with empty timeline.
+    FakeMediaSource fakeMediaSource =
+        new FakeMediaSource(Timeline.EMPTY) {
+          @Override
+          @Nullable
+          public Timeline getInitialTimeline() {
+            return getTimeline();
+          }
+        };
+    player.setMediaSource(fakeMediaSource, /* resetPosition= */ false);
+    assertThat(player.isLoading()).isFalse();
+
+    player.release();
+  }
+
+  @Test
   public void addMediaSources_whenEmptyInitialSeek_correctPeriodMasking() throws Exception {
     final long[] positions = new long[2];
     Arrays.fill(positions, C.TIME_UNSET);
@@ -9267,6 +9316,27 @@ public class ExoPlayerTest {
     assertThat(bufferedPositions[0]).isGreaterThan(0);
     assertThat(bufferedPositions[1]).isEqualTo(0);
     assertThat(bufferedPositions[2]).isEqualTo(0);
+  }
+
+  @Test
+  public void removeMediaItemsWhileLoading_currentItemRemovedThatIsTheLast_correctMaskingIsLoading()
+      throws Exception {
+    ExoPlayer player = new TestExoPlayerBuilder(context).build();
+    MediaSource firstMediaSource = new FakeMediaSource(new FakeTimeline(/* windowCount= */ 1));
+    MediaSource secondMediaSource = new FakeMediaSource(new FakeTimeline(/* windowCount= */ 1));
+    MediaSource thirdMediaSource = new FakeMediaSource(new FakeTimeline(/* windowCount= */ 1));
+    player.setMediaSources(
+        ImmutableList.of(firstMediaSource, secondMediaSource, thirdMediaSource),
+        /* startMediaItemIndex= */ 2,
+        /* startPositionMs= */ C.TIME_UNSET);
+    player.prepare();
+    advance(player).untilLoadingIs(true);
+
+    assertThat(player.isLoading()).isTrue();
+    player.removeMediaItem(/* index= */ 2);
+    assertThat(player.isLoading()).isFalse();
+
+    player.release();
   }
 
   @Test

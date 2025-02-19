@@ -531,8 +531,8 @@ import java.util.concurrent.CopyOnWriteArraySet;
     }
     PlaybackInfo playbackInfo = this.playbackInfo.copyWithPlaybackError(null);
     playbackInfo =
-        playbackInfo.copyWithPlaybackState(
-            playbackInfo.timeline.isEmpty() ? STATE_ENDED : STATE_BUFFERING);
+        maskPlaybackState(
+            playbackInfo, playbackInfo.timeline.isEmpty() ? STATE_ENDED : STATE_BUFFERING);
     // Trigger internal prepare first before updating the playback info and notifying external
     // listeners to ensure that new operations issued in the listener notifications reach the
     // player after this prepare. The internal player can't change the playback info immediately
@@ -905,7 +905,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
     PlaybackInfo newPlaybackInfo = playbackInfo;
     if (playbackInfo.playbackState == Player.STATE_READY
         || (playbackInfo.playbackState == Player.STATE_ENDED && !timeline.isEmpty())) {
-      newPlaybackInfo = playbackInfo.copyWithPlaybackState(Player.STATE_BUFFERING);
+      newPlaybackInfo = maskPlaybackState(playbackInfo, Player.STATE_BUFFERING);
     }
     int oldMaskingMediaItemIndex = getCurrentMediaItemIndex();
     newPlaybackInfo =
@@ -1051,7 +1051,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
     if (playbackInfo.sleepingForOffload) {
       playbackInfo = playbackInfo.copyWithEstimatedPosition();
     }
-    playbackInfo = playbackInfo.copyWithPlaybackState(Player.STATE_IDLE);
+    playbackInfo = maskPlaybackState(playbackInfo, Player.STATE_IDLE);
     playbackInfo = playbackInfo.copyWithLoadingMediaPeriodId(playbackInfo.periodId);
     playbackInfo.bufferedPositionUs = playbackInfo.positionUs;
     playbackInfo.totalBufferedDurationUs = 0;
@@ -1882,7 +1882,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
         this.playbackInfo.copyWithLoadingMediaPeriodId(this.playbackInfo.periodId);
     playbackInfo.bufferedPositionUs = playbackInfo.positionUs;
     playbackInfo.totalBufferedDurationUs = 0;
-    playbackInfo = playbackInfo.copyWithPlaybackState(Player.STATE_IDLE);
+    playbackInfo = maskPlaybackState(playbackInfo, Player.STATE_IDLE);
     if (error != null) {
       playbackInfo = playbackInfo.copyWithPlaybackError(error);
     }
@@ -2360,7 +2360,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
         maskingPlaybackState = STATE_BUFFERING;
       }
     }
-    newPlaybackInfo = newPlaybackInfo.copyWithPlaybackState(maskingPlaybackState);
+    newPlaybackInfo = maskPlaybackState(newPlaybackInfo, maskingPlaybackState);
     internalPlayer.setMediaSources(
         holders, startWindowIndex, Util.msToUs(startPositionMs), shuffleOrder);
     boolean positionDiscontinuity =
@@ -2434,7 +2434,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
             && toIndex == currentMediaSourceCount
             && currentIndex >= newPlaybackInfo.timeline.getWindowCount();
     if (transitionsToEnded) {
-      newPlaybackInfo = newPlaybackInfo.copyWithPlaybackState(STATE_ENDED);
+      newPlaybackInfo = maskPlaybackState(newPlaybackInfo, STATE_ENDED);
     }
     internalPlayer.removeMediaSources(fromIndex, toIndex, shuffleOrder);
     return newPlaybackInfo;
@@ -2554,6 +2554,14 @@ import java.util.concurrent.CopyOnWriteArraySet;
               playbackInfo.trackSelectorResult,
               playbackInfo.staticMetadata);
       playbackInfo.bufferedPositionUs = maskedBufferedPositionUs;
+    }
+    return playbackInfo;
+  }
+
+  private static PlaybackInfo maskPlaybackState(PlaybackInfo playbackInfo, int playbackState) {
+    playbackInfo = playbackInfo.copyWithPlaybackState(playbackState);
+    if (playbackState == STATE_IDLE || playbackState == STATE_ENDED) {
+      playbackInfo = playbackInfo.copyWithIsLoading(false);
     }
     return playbackInfo;
   }

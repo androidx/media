@@ -7,6 +7,9 @@
         it easier to handle updates in other classes
         ([#2128](https://github.com/androidx/media/issues/2128)).
 *   ExoPlayer:
+    *   Fix a bug where `ExoPlayer.isLoading()` remains `true` while it has
+        transitioned to `STATE_IDLE` or `STATE_ENDED`
+        ([#2133](https://github.com/androidx/media/issues/2133)).
 *   Transformer:
 *   Track Selection:
 *   Extractors:
