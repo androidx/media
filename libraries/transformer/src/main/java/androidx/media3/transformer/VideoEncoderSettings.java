@@ -26,7 +26,6 @@ import android.media.MediaCodecInfo;
 import android.media.MediaFormat;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
-import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.UnstableApi;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -181,7 +180,6 @@ public final class VideoEncoderSettings {
      * @return This builder.
      */
     @CanIgnoreReturnValue
-    @VisibleForTesting
     public Builder setEncoderPerformanceParameters(int operatingRate, int priority) {
       this.operatingRate = operatingRate;
       this.priority = priority;
