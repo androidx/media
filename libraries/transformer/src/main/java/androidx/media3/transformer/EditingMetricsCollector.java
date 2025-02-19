@@ -23,6 +23,7 @@ import android.content.Context;
 import android.hardware.DataSpace;
 import android.media.metrics.EditingEndedEvent;
 import android.media.metrics.EditingSession;
+import android.media.metrics.LogSessionId;
 import android.media.metrics.MediaItemInfo;
 import android.media.metrics.MediaMetricsManager;
 import android.util.Size;
@@ -114,6 +115,18 @@ import java.util.List;
         editingSession.close();
         editingSession = null;
       }
+    }
+
+    /**
+     * Returns the {@link LogSessionId} associated with the current editing session, or {@code null}
+     * if no {@link EditingSession} is active.
+     */
+    @Nullable
+    public LogSessionId getLogSessionId() {
+      if (editingSession != null) {
+        return editingSession.getSessionId();
+      }
+      return null;
     }
   }
 
