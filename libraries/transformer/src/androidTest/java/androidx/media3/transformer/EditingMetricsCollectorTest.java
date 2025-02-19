@@ -28,8 +28,10 @@ import static org.junit.Assume.assumeTrue;
 import android.content.Context;
 import android.media.MediaCodec;
 import android.media.metrics.EditingEndedEvent;
+import android.media.metrics.LogSessionId;
 import android.media.metrics.MediaItemInfo;
 import android.util.Size;
+import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
@@ -83,7 +85,15 @@ public class EditingMetricsCollectorTest {
         new Transformer.Builder(context)
             .setUsePlatformDiagnostics(false)
             .setMetricsReporterFactory(
-                new TestMetricsReporterFactory(context, editingEndedEventAtomicReference::set))
+                new TestMetricsReporterFactory(
+                    context,
+                    new TestMetricsReporter.Listener() {
+
+                      @Override
+                      public void onMetricsReported(EditingEndedEvent editingEndedEvent) {
+                        editingEndedEventAtomicReference.set(editingEndedEvent);
+                      }
+                    }))
             .build();
     EditedMediaItem audioVideoItem =
         new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri)).build();
@@ -108,7 +118,15 @@ public class EditingMetricsCollectorTest {
         new Transformer.Builder(context)
             .setUsePlatformDiagnostics(true)
             .setMetricsReporterFactory(
-                new TestMetricsReporterFactory(context, editingEndedEventAtomicReference::set))
+                new TestMetricsReporterFactory(
+                    context,
+                    new TestMetricsReporter.Listener() {
+
+                      @Override
+                      public void onMetricsReported(EditingEndedEvent editingEndedEvent) {
+                        editingEndedEventAtomicReference.set(editingEndedEvent);
+                      }
+                    }))
             .build();
     EditedMediaItem audioVideoItem =
         new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri)).build();
@@ -234,7 +252,15 @@ public class EditingMetricsCollectorTest {
         new Transformer.Builder(context)
             .setUsePlatformDiagnostics(true)
             .setMetricsReporterFactory(
-                new TestMetricsReporterFactory(context, editingEndedEventAtomicReference::set))
+                new TestMetricsReporterFactory(
+                    context,
+                    new TestMetricsReporter.Listener() {
+
+                      @Override
+                      public void onMetricsReported(EditingEndedEvent editingEndedEvent) {
+                        editingEndedEventAtomicReference.set(editingEndedEvent);
+                      }
+                    }))
             .setMuxerFactory(new FailingMuxerFactory())
             .build();
     EditedMediaItem audioVideoItem =
@@ -270,7 +296,15 @@ public class EditingMetricsCollectorTest {
         new Transformer.Builder(context)
             .setUsePlatformDiagnostics(true)
             .setMetricsReporterFactory(
-                new TestMetricsReporterFactory(context, editingEndedEventAtomicReference::set))
+                new TestMetricsReporterFactory(
+                    context,
+                    new TestMetricsReporter.Listener() {
+
+                      @Override
+                      public void onMetricsReported(EditingEndedEvent editingEndedEvent) {
+                        editingEndedEventAtomicReference.set(editingEndedEvent);
+                      }
+                    }))
             .setMuxerFactory(
                 new AndroidTestUtil.FrameBlockingMuxerFactory(
                     PRESENTATION_TIME_US_TO_BLOCK_FRAME, countDownLatch::countDown))
@@ -294,6 +328,41 @@ public class EditingMetricsCollectorTest {
     assertThat(editingEndedEvent.getFinalProgressPercent()).isIn(Range.closed(0f, 100f));
   }
 
+  @Test
+  public void exportTwice_createsUniqueSessions() throws Exception {
+    assumeTrue("Reporting metrics requires API 35", Util.SDK_INT >= 35);
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET.videoFormat,
+        /* outputFormat= */ MP4_ASSET.videoFormat);
+    AtomicReference<LogSessionId> logSessionIdAtomicReference = new AtomicReference<>();
+    Transformer transformer =
+        new Transformer.Builder(context)
+            .setUsePlatformDiagnostics(true)
+            .setMetricsReporterFactory(
+                new TestMetricsReporterFactory(
+                    context,
+                    new TestMetricsReporter.Listener() {
+                      @Override
+                      public void onMetricsReporterCreated(LogSessionId logSessionId) {
+                        logSessionIdAtomicReference.set(logSessionId);
+                      }
+                    }))
+            .build();
+    EditedMediaItem audioVideoItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri)).build();
+
+    TransformerAndroidTestRunner transformerAndroidTestRunner =
+        new TransformerAndroidTestRunner.Builder(context, transformer).build();
+    transformerAndroidTestRunner.run(testId, audioVideoItem);
+    LogSessionId firstLogSessionId = logSessionIdAtomicReference.get();
+    transformerAndroidTestRunner.run(testId, audioVideoItem);
+    LogSessionId secondLogSessionId = logSessionIdAtomicReference.get();
+
+    assertThat(firstLogSessionId.getStringId()).isNotEqualTo(secondLogSessionId.getStringId());
+  }
+
   private static final class TestMetricsReporterFactory
       implements EditingMetricsCollector.MetricsReporter.Factory {
 
@@ -315,7 +384,9 @@ public class EditingMetricsCollectorTest {
   private static final class TestMetricsReporter
       implements EditingMetricsCollector.MetricsReporter {
     public interface Listener {
-      void onMetricsReported(EditingEndedEvent editingEndedEvent);
+      default void onMetricsReporterCreated(LogSessionId logSessionId) {}
+
+      default void onMetricsReported(EditingEndedEvent editingEndedEvent) {}
     }
 
     private final EditingMetricsCollector.MetricsReporter wrappedMetricsReporter;
@@ -326,6 +397,15 @@ public class EditingMetricsCollectorTest {
         TestMetricsReporter.Listener listener) {
       this.wrappedMetricsReporter = metricsReporter;
       this.listener = listener;
+      if (wrappedMetricsReporter instanceof EditingMetricsCollector.DefaultMetricsReporter) {
+        @Nullable
+        LogSessionId logSessionId =
+            ((EditingMetricsCollector.DefaultMetricsReporter) wrappedMetricsReporter)
+                .getLogSessionId();
+        if (logSessionId != null) {
+          listener.onMetricsReporterCreated(logSessionId);
+        }
+      }
     }
 
     @Override
