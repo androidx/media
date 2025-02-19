@@ -448,19 +448,17 @@ public final class TsExtractor implements Extractor {
     }
 
     if (!fillBufferWithAtLeastOnePacket(input)) {
-      // Send a synthesized empty pusi to allow for packetFinished to be triggered on the last unit.
-      for (int i = 0; i < tsPayloadReaders.size(); i++) {
-        TsPayloadReader payloadReader = tsPayloadReaders.valueAt(i);
-        if (payloadReader instanceof PesReader) {
-          PesReader pesReader = (PesReader) payloadReader;
-          if (pesReader.canConsumeSynthesizedEmptyPusi(isModeHls)) {
-            pesReader.consume(new ParsableByteArray(), FLAG_PAYLOAD_UNIT_START_INDICATOR);
+// Send a synthesised empty pusi to allow for packetFinished to be triggered on the last unit.
+      if (mode != MODE_HLS) { // see https://github.com/androidx/media/pull/419 PR
+        for (int i = 0; i < tsPayloadReaders.size(); i++) {
+          TsPayloadReader payloadReader = tsPayloadReaders.valueAt(i);
+          if (payloadReader instanceof PesReader) {
+            payloadReader.consume(new ParsableByteArray(), FLAG_PAYLOAD_UNIT_START_INDICATOR);
           }
         }
       }
       return RESULT_END_OF_INPUT;
     }
-
     int endOfPacket = findEndOfFirstTsPacketInBuffer();
     int limit = tsPacketBuffer.limit();
     if (endOfPacket > limit) {
