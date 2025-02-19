@@ -151,7 +151,9 @@ public final class FragmentedMp4Muxer implements AutoCloseable {
           MimeTypes.VIDEO_H263,
           MimeTypes.VIDEO_H264,
           MimeTypes.VIDEO_H265,
-          MimeTypes.VIDEO_MP4V);
+          MimeTypes.VIDEO_MP4V,
+          MimeTypes.VIDEO_VP9,
+          MimeTypes.VIDEO_APV);
 
   /** A list of supported audio {@linkplain MimeTypes sample MIME types}. */
   public static final ImmutableList<String> SUPPORTED_AUDIO_SAMPLE_MIME_TYPES =
