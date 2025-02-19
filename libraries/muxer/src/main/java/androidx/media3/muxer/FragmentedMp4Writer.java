@@ -28,8 +28,7 @@ import static androidx.media3.muxer.MuxerUtil.UNSIGNED_INT_MAX_VALUE;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
-import android.media.MediaCodec;
-import android.media.MediaCodec.BufferInfo;
+import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Util;
@@ -164,7 +163,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     return track;
   }
 
-  public void writeSampleData(Track track, ByteBuffer byteBuffer, MediaCodec.BufferInfo bufferInfo)
+  public void writeSampleData(Track track, ByteBuffer byteBuffer, BufferInfo bufferInfo)
       throws IOException {
     if (!headerCreated) {
       createHeader();
@@ -250,15 +249,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             tracks, metadataCollector, /* isFragmentedMp4= */ true, lastSampleDurationBehavior));
   }
 
-  private boolean shouldFlushPendingSamples(
-      Track track, MediaCodec.BufferInfo nextSampleBufferInfo) {
+  private boolean shouldFlushPendingSamples(Track track, BufferInfo nextSampleBufferInfo) {
     // If video track is present then fragment will be created based on group of pictures and
     // track's duration so far.
     if (videoTrack != null) {
       // Video samples can be written only when complete group of pictures are present.
       if (track.equals(videoTrack)
           && track.hadKeyframe
-          && ((nextSampleBufferInfo.flags & MediaCodec.BUFFER_FLAG_KEY_FRAME) > 0)) {
+          && ((nextSampleBufferInfo.flags & C.BUFFER_FLAG_KEY_FRAME) > 0)) {
         BufferInfo firstPendingSample = checkNotNull(track.pendingSamplesBufferInfo.peekFirst());
         BufferInfo lastPendingSample = checkNotNull(track.pendingSamplesBufferInfo.peekLast());
         return lastPendingSample.presentationTimeUs - firstPendingSample.presentationTimeUs
@@ -353,11 +351,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             annexBToAvccConverter.process(currentSampleByteBuffer, linearByteBufferAllocator);
         pendingSamplesByteBuffer.add(currentSampleByteBuffer);
         BufferInfo currentSampleBufferInfo = track.pendingSamplesBufferInfo.removeFirst();
-        currentSampleBufferInfo.set(
-            currentSampleByteBuffer.position(),
-            currentSampleByteBuffer.remaining(),
-            currentSampleBufferInfo.presentationTimeUs,
-            currentSampleBufferInfo.flags);
+        currentSampleBufferInfo =
+            new BufferInfo(
+                currentSampleBufferInfo.presentationTimeUs,
+                currentSampleByteBuffer.remaining(),
+                currentSampleBufferInfo.flags);
         pendingSamplesBufferInfoBuilder.add(currentSampleBufferInfo);
       }
     } else {

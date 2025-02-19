@@ -22,7 +22,6 @@ import static androidx.media3.muxer.MuxerTestUtil.FAKE_VIDEO_FORMAT;
 import static androidx.media3.muxer.MuxerTestUtil.XMP_SAMPLE_DATA;
 
 import android.content.Context;
-import android.media.MediaCodec.BufferInfo;
 import android.util.Pair;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.MdtaMetadataEntry;

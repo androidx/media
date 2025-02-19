@@ -15,8 +15,9 @@
  */
 package androidx.media3.transformer;
 
+import static androidx.media3.muxer.MuxerUtil.getMuxerBufferInfoFromMediaCodecBufferInfo;
+
 import android.media.MediaCodec;
-import android.media.MediaCodec.BufferInfo;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaLibraryInfo;
@@ -138,7 +139,7 @@ public final class InAppFragmentedMp4Muxer implements Muxer {
   }
 
   @Override
-  public void writeSampleData(int trackId, ByteBuffer byteBuffer, BufferInfo bufferInfo)
+  public void writeSampleData(int trackId, ByteBuffer byteBuffer, MediaCodec.BufferInfo bufferInfo)
       throws MuxerException {
     if (videoDurationUs != C.TIME_UNSET
         && trackId == videoTrackId
@@ -152,7 +153,8 @@ public final class InAppFragmentedMp4Muxer implements Muxer {
               videoDurationUs));
       return;
     }
-    muxer.writeSampleData(trackId, byteBuffer, bufferInfo);
+    muxer.writeSampleData(
+        trackId, byteBuffer, getMuxerBufferInfoFromMediaCodecBufferInfo(bufferInfo));
   }
 
   @Override
@@ -165,7 +167,7 @@ public final class InAppFragmentedMp4Muxer implements Muxer {
   @Override
   public void close() throws MuxerException {
     if (videoDurationUs != C.TIME_UNSET && videoTrackId != TRACK_ID_UNSET) {
-      BufferInfo bufferInfo = new BufferInfo();
+      MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
       bufferInfo.set(
           /* newOffset= */ 0,
           /* newSize= */ 0,

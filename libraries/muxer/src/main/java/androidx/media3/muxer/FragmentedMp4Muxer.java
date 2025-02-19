@@ -18,7 +18,6 @@ package androidx.media3.muxer;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 
-import android.media.MediaCodec.BufferInfo;
 import android.util.SparseArray;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;

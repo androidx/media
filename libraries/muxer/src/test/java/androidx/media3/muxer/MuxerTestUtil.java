@@ -18,9 +18,8 @@ package androidx.media3.muxer;
 import static androidx.media3.common.MimeTypes.AUDIO_AAC;
 import static androidx.media3.common.MimeTypes.VIDEO_H264;
 
-import android.media.MediaCodec;
-import android.media.MediaCodec.BufferInfo;
 import android.util.Pair;
+import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.BaseEncoding;
@@ -66,10 +65,8 @@ import java.nio.ByteBuffer;
     sampleDirectBuffer.put(FAKE_H264_SAMPLE);
     sampleDirectBuffer.rewind();
 
-    BufferInfo bufferInfo = new BufferInfo();
-    bufferInfo.presentationTimeUs = presentationTimeUs;
-    bufferInfo.flags = MediaCodec.BUFFER_FLAG_KEY_FRAME;
-    bufferInfo.size = FAKE_H264_SAMPLE.length;
+    BufferInfo bufferInfo =
+        new BufferInfo(presentationTimeUs, FAKE_H264_SAMPLE.length, C.BUFFER_FLAG_KEY_FRAME);
 
     return new Pair<>(sampleDirectBuffer, bufferInfo);
   }

@@ -16,10 +16,10 @@
 package androidx.media3.muxer;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
+import static androidx.media3.common.util.Util.getBufferFlagsFromMediaCodecFlags;
 import static androidx.media3.muxer.MuxerTestUtil.MP4_FILE_ASSET_DIRECTORY;
 
 import android.content.Context;
-import android.media.MediaCodec;
 import android.net.Uri;
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.MediaFormatUtil;
@@ -149,12 +149,12 @@ public class FragmentedMp4MuxerEndToEndTest {
     }
 
     do {
-      MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
-      bufferInfo.flags = extractor.getSampleFlags();
-      bufferInfo.offset = 0;
-      bufferInfo.presentationTimeUs = extractor.getSampleTime();
       int sampleSize = (int) extractor.getSampleSize();
-      bufferInfo.size = sampleSize;
+      BufferInfo bufferInfo =
+          new BufferInfo(
+              extractor.getSampleTime(),
+              sampleSize,
+              getBufferFlagsFromMediaCodecFlags(extractor.getSampleFlags()));
 
       ByteBuffer sampleBuffer = ByteBuffer.allocateDirect(sampleSize);
       extractor.readSampleData(sampleBuffer, /* offset= */ 0);

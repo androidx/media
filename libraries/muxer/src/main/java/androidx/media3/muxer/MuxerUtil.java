@@ -15,10 +15,12 @@
  */
 package androidx.media3.muxer;
 
+import static androidx.media3.common.util.Util.getBufferFlagsFromMediaCodecFlags;
 import static androidx.media3.container.MdtaMetadataEntry.AUXILIARY_TRACKS_SAMPLES_INTERLEAVED;
 import static androidx.media3.container.MdtaMetadataEntry.AUXILIARY_TRACKS_SAMPLES_NOT_INTERLEAVED;
 import static androidx.media3.container.MdtaMetadataEntry.TYPE_INDICATOR_8_BIT_UNSIGNED_INT;
 
+import android.media.MediaCodec;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
@@ -48,6 +50,15 @@ public final class MuxerUtil {
         || (metadata instanceof MdtaMetadataEntry
             && isMdtaMetadataEntrySupported((MdtaMetadataEntry) metadata))
         || metadata instanceof XmpData;
+  }
+
+  /** Returns {@link BufferInfo} corresponding to the {@link MediaCodec.BufferInfo}. */
+  public static BufferInfo getMuxerBufferInfoFromMediaCodecBufferInfo(
+      MediaCodec.BufferInfo mediaCodecBufferInfo) {
+    return new BufferInfo(
+        mediaCodecBufferInfo.presentationTimeUs,
+        mediaCodecBufferInfo.size,
+        getBufferFlagsFromMediaCodecFlags(mediaCodecBufferInfo.flags));
   }
 
   /**

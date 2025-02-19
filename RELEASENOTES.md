@@ -20,6 +20,8 @@
 *   DRM:
 *   Effect:
 *   Muxers:
+    *   `writeSampleData()` API now uses muxer specific `BufferInfo` class
+        instead of `MediaCodec.BufferInfo`.
 *   IMA extension:
 *   Session:
     *   Make `MediaSession.setSessionActivity(PendingIntent)` accept null

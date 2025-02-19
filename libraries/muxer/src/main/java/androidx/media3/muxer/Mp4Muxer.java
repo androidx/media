@@ -27,8 +27,6 @@ import static androidx.media3.muxer.MuxerUtil.isMetadataSupported;
 import static androidx.media3.muxer.MuxerUtil.populateAuxiliaryTracksMetadata;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
-import android.media.MediaCodec;
-import android.media.MediaCodec.BufferInfo;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
@@ -160,19 +158,19 @@ public final class Mp4Muxer implements AutoCloseable {
   public static final int LAST_SAMPLE_DURATION_BEHAVIOR_SET_TO_ZERO = 0;
 
   /**
-   * Use the {@link MediaCodec#BUFFER_FLAG_END_OF_STREAM end of stream sample} to set the duration
-   * of the last sample.
+   * Use the {@link C#BUFFER_FLAG_END_OF_STREAM end of stream sample} to set the duration of the
+   * last sample.
    *
    * <p>After {@linkplain #writeSampleData writing} all the samples for a track, the app must
    * {@linkplain #writeSampleData write} an empty sample with flag {@link
-   * MediaCodec#BUFFER_FLAG_END_OF_STREAM}. The timestamp of this sample should be equal to the
-   * desired track duration.
+   * C#BUFFER_FLAG_END_OF_STREAM}. The timestamp of this sample should be equal to the desired track
+   * duration.
    *
-   * <p>Once a sample with flag {@link MediaCodec#BUFFER_FLAG_END_OF_STREAM} is {@linkplain
-   * #writeSampleData written}, no more samples can be written for that track.
+   * <p>Once a sample with flag {@link C#BUFFER_FLAG_END_OF_STREAM} is {@linkplain #writeSampleData
+   * written}, no more samples can be written for that track.
    *
-   * <p>If no explicit {@link MediaCodec#BUFFER_FLAG_END_OF_STREAM} sample is passed, then the
-   * duration of the last sample will be same as that of the sample before that.
+   * <p>If no explicit {@link C#BUFFER_FLAG_END_OF_STREAM} sample is passed, then the duration of
+   * the last sample will be same as that of the sample before that.
    */
   public static final int
       LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER_OR_DUPLICATE_PREVIOUS = 1;

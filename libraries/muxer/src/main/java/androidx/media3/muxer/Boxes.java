@@ -24,8 +24,6 @@ import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import android.media.MediaCodec;
-import android.media.MediaCodec.BufferInfo;
 import android.media.MediaCodecInfo;
 import android.util.Pair;
 import androidx.annotation.Nullable;
@@ -1045,7 +1043,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
   }
 
   /** Returns the stsz (sample size) box. */
-  public static ByteBuffer stsz(List<MediaCodec.BufferInfo> writtenSamples) {
+  public static ByteBuffer stsz(List<BufferInfo> writtenSamples) {
     ByteBuffer contents = ByteBuffer.allocate(writtenSamples.size() * 4 + MAX_FIXED_LEAF_BOX_SIZE);
 
     contents.putInt(0x0); // version and flags
@@ -1133,7 +1131,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
   }
 
   /** Returns the stss (sync sample) box. */
-  public static ByteBuffer stss(List<MediaCodec.BufferInfo> writtenSamples) {
+  public static ByteBuffer stss(List<BufferInfo> writtenSamples) {
     ByteBuffer contents = ByteBuffer.allocate(writtenSamples.size() * 4 + MAX_FIXED_LEAF_BOX_SIZE);
 
     contents.putInt(0x0); // version and flags
@@ -1146,8 +1144,8 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     int currentSampleNumber = 1;
     int totalKeyFrames = 0;
     for (int i = 0; i < writtenSamples.size(); i++) {
-      MediaCodec.BufferInfo info = writtenSamples.get(i);
-      if ((info.flags & MediaCodec.BUFFER_FLAG_KEY_FRAME) > 0) {
+      BufferInfo info = writtenSamples.get(i);
+      if ((info.flags & C.BUFFER_FLAG_KEY_FRAME) > 0) {
         contents.putInt(currentSampleNumber);
         totalKeyFrames++;
       }
@@ -1258,7 +1256,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
       contents.putInt(currentSampleMetadata.durationVu); // An unsigned int(32)
       contents.putInt(currentSampleMetadata.size); // An unsigned int(32)
       contents.putInt(
-          (currentSampleMetadata.flags & MediaCodec.BUFFER_FLAG_KEY_FRAME) != 0
+          (currentSampleMetadata.flags & C.BUFFER_FLAG_KEY_FRAME) != 0
               ? TRUN_BOX_SYNC_SAMPLE_FLAGS
               : TRUN_BOX_NON_SYNC_SAMPLE_FLAGS);
       if (hasBFrame) {

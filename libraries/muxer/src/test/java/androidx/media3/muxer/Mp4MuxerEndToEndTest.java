@@ -16,6 +16,7 @@
 package androidx.media3.muxer;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
+import static androidx.media3.common.util.Util.getBufferFlagsFromMediaCodecFlags;
 import static androidx.media3.muxer.Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER_OR_DUPLICATE_PREVIOUS;
 import static androidx.media3.muxer.MuxerTestUtil.FAKE_VIDEO_FORMAT;
 import static androidx.media3.muxer.MuxerTestUtil.MP4_FILE_ASSET_DIRECTORY;
@@ -25,8 +26,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import android.content.Context;
-import android.media.MediaCodec;
-import android.media.MediaCodec.BufferInfo;
 import android.net.Uri;
 import android.util.Pair;
 import androidx.media3.common.C;
@@ -791,12 +790,11 @@ public class Mp4MuxerEndToEndTest {
       mp4Muxer.writeSampleData(track, sample3.first, sample3.second);
       mp4Muxer.writeSampleData(track, sample4.first, sample4.second);
       // Write end of stream sample.
-      BufferInfo endOfStreamBufferInfo = new BufferInfo();
-      endOfStreamBufferInfo.set(
-          /* newOffset= */ 0,
-          /* newSize= */ 0,
-          /* newTimeUs= */ expectedDurationUs,
-          /* newFlags= */ MediaCodec.BUFFER_FLAG_END_OF_STREAM);
+      BufferInfo endOfStreamBufferInfo =
+          new BufferInfo(
+              /* presentationTimeUs= */ expectedDurationUs,
+              /* size= */ 0,
+              C.BUFFER_FLAG_END_OF_STREAM);
       mp4Muxer.writeSampleData(track, ByteBuffer.allocate(0), endOfStreamBufferInfo);
     } finally {
       mp4Muxer.close();
@@ -929,12 +927,12 @@ public class Mp4MuxerEndToEndTest {
     }
 
     do {
-      MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
-      bufferInfo.flags = extractor.getSampleFlags();
-      bufferInfo.offset = 0;
-      bufferInfo.presentationTimeUs = extractor.getSampleTime();
       int sampleSize = (int) extractor.getSampleSize();
-      bufferInfo.size = sampleSize;
+      BufferInfo bufferInfo =
+          new BufferInfo(
+              extractor.getSampleTime(),
+              sampleSize,
+              getBufferFlagsFromMediaCodecFlags(extractor.getSampleFlags()));
 
       ByteBuffer sampleBuffer = ByteBuffer.allocateDirect(sampleSize);
       extractor.readSampleData(sampleBuffer, /* offset= */ 0);

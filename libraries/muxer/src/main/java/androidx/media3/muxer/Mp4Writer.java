@@ -27,7 +27,6 @@ import static androidx.media3.muxer.MuxerUtil.populateAuxiliaryTracksMetadata;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
-import android.media.MediaCodec.BufferInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.MdtaMetadataEntry;
@@ -463,11 +462,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
       if (doesSampleContainAnnexBNalUnits(checkNotNull(track.format.sampleMimeType))) {
         currentSampleByteBuffer =
             annexBToAvccConverter.process(currentSampleByteBuffer, linearByteBufferAllocator);
-        currentSampleBufferInfo.set(
-            currentSampleByteBuffer.position(),
-            currentSampleByteBuffer.remaining(),
-            currentSampleBufferInfo.presentationTimeUs,
-            currentSampleBufferInfo.flags);
+        currentSampleBufferInfo =
+            new BufferInfo(
+                currentSampleBufferInfo.presentationTimeUs,
+                currentSampleByteBuffer.remaining(),
+                currentSampleBufferInfo.flags);
       }
 
       // If the original sample had 3 bytes NAL start code instead of 4 bytes, then after AnnexB to

@@ -3478,6 +3478,20 @@ public final class Util {
     }
   }
 
+  /** Returns {@link C.BufferFlags} corresponding to {@link MediaCodec} flags. */
+  @UnstableApi
+  public static @C.BufferFlags int getBufferFlagsFromMediaCodecFlags(int mediaCodecFlags) {
+    @C.BufferFlags int flags = 0;
+    if ((mediaCodecFlags & MediaCodec.BUFFER_FLAG_KEY_FRAME) == MediaCodec.BUFFER_FLAG_KEY_FRAME) {
+      flags |= C.BUFFER_FLAG_KEY_FRAME;
+    }
+    if ((mediaCodecFlags & MediaCodec.BUFFER_FLAG_END_OF_STREAM)
+        == MediaCodec.BUFFER_FLAG_END_OF_STREAM) {
+      flags |= C.BUFFER_FLAG_END_OF_STREAM;
+    }
+    return flags;
+  }
+
   @UnstableApi
   public static boolean isFrameDropAllowedOnSurfaceInput(Context context) {
     // Prior to API 29, decoders may drop frames to keep their output surface from growing out of
