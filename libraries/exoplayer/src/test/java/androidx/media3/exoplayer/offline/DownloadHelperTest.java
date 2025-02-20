@@ -18,8 +18,10 @@ package androidx.media3.exoplayer.offline;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.junit.Assert.assertThrows;
 import static org.robolectric.shadows.ShadowLooper.shadowMainLooper;
 
+import android.content.Context;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
@@ -447,6 +449,121 @@ public class DownloadHelperTest {
             new StreamKey(/* periodIndex= */ 0, /* groupIndex= */ 2, /* streamIndex= */ 0));
   }
 
+  @Test
+  public void
+      getDownloadRequest_createsDownloadRequestWithConcreteTimeRange_requestContainsConcreteByteRange()
+          throws Exception {
+    Context context = getApplicationContext();
+    DownloadHelper downloadHelper =
+        DownloadHelper.forMediaItem(
+            context,
+            MediaItem.fromUri("asset:///media/mp4/long_1080p_lowbitrate.mp4"),
+            new DefaultDataSource.Factory(context));
+    prepareDownloadHelper(downloadHelper);
+
+    DownloadRequest downloadRequest =
+        downloadHelper.getDownloadRequest(
+            /* data= */ null, /* startPositionMs= */ 0, /* durationMs= */ 30000);
+
+    assertThat(downloadRequest.byteRange).isNotNull();
+    assertThat(downloadRequest.byteRange.offset).isAtLeast(0);
+    assertThat(downloadRequest.byteRange.length).isGreaterThan(0);
+  }
+
+  @Test
+  public void
+      getDownloadRequest_createsDownloadRequestWithUnsetStartPosition_requestContainsConcreteByteRange()
+          throws Exception {
+    Context context = getApplicationContext();
+    DownloadHelper downloadHelper =
+        DownloadHelper.forMediaItem(
+            context,
+            MediaItem.fromUri("asset:///media/mp4/long_1080p_lowbitrate.mp4"),
+            new DefaultDataSource.Factory(context));
+    prepareDownloadHelper(downloadHelper);
+
+    DownloadRequest downloadRequest =
+        downloadHelper.getDownloadRequest(
+            /* data= */ null, /* startPositionMs= */ C.TIME_UNSET, /* durationMs= */ 30000);
+
+    assertThat(downloadRequest.byteRange).isNotNull();
+    assertThat(downloadRequest.byteRange.offset).isAtLeast(0);
+    assertThat(downloadRequest.byteRange.length).isGreaterThan(0);
+  }
+
+  @Test
+  public void getDownloadRequest_createsDownloadRequestWithUnsetLength_requestContainsUnsetLength()
+      throws Exception {
+    Context context = getApplicationContext();
+    DownloadHelper downloadHelper =
+        DownloadHelper.forMediaItem(
+            context,
+            MediaItem.fromUri("asset:///media/mp4/long_1080p_lowbitrate.mp4"),
+            new DefaultDataSource.Factory(context));
+    prepareDownloadHelper(downloadHelper);
+
+    DownloadRequest downloadRequest =
+        downloadHelper.getDownloadRequest(
+            /* data= */ null, /* startPositionMs= */ 30000, /* durationMs= */ C.TIME_UNSET);
+
+    assertThat(downloadRequest.byteRange).isNotNull();
+    assertThat(downloadRequest.byteRange.offset).isAtLeast(0);
+    assertThat(downloadRequest.byteRange.length).isEqualTo(C.LENGTH_UNSET);
+  }
+
+  @Test
+  public void
+      getDownloadRequest_createsDownloadRequestForTooShortStreamWithTimeRange_requestContainsUnsetLength()
+          throws Exception {
+    Context context = getApplicationContext();
+    DownloadHelper downloadHelper =
+        DownloadHelper.forMediaItem(
+            context,
+            MediaItem.fromUri("asset:///media/mp4/sample.mp4"),
+            new DefaultDataSource.Factory(context));
+    prepareDownloadHelper(downloadHelper);
+
+    DownloadRequest downloadRequest =
+        downloadHelper.getDownloadRequest(
+            /* data= */ null, /* startPositionMs= */ 0, /* durationMs= */ 30000);
+
+    assertThat(downloadRequest.byteRange).isNotNull();
+    assertThat(downloadRequest.byteRange.offset).isAtLeast(0);
+    assertThat(downloadRequest.byteRange.length).isEqualTo(C.LENGTH_UNSET);
+  }
+
+  @Test
+  public void
+      getDownloadRequest_createsDownloadRequestWithoutTimeRange_requestContainsNullByteRange()
+          throws Exception {
+    Context context = getApplicationContext();
+    DownloadHelper downloadHelper =
+        DownloadHelper.forMediaItem(
+            getApplicationContext(),
+            MediaItem.fromUri("asset:///media/mp4/sample.mp4"),
+            new DefaultDataSource.Factory(context));
+    prepareDownloadHelper(downloadHelper);
+
+    DownloadRequest downloadRequest = downloadHelper.getDownloadRequest(/* data= */ null);
+
+    assertThat(downloadRequest.byteRange).isNull();
+  }
+
+  @Test
+  public void
+      getDownloadRequest_createDownloadRequestWithTimeRangeForNonProgressiveStream_throwsIllegalStateException()
+          throws Exception {
+    // We use this.downloadHelper as it was created with a TestMediaSource, thus the DownloadHelper
+    // will treat it as non-progressive.
+    prepareDownloadHelper(downloadHelper);
+
+    assertThrows(
+        IllegalStateException.class,
+        () ->
+            downloadHelper.getDownloadRequest(
+                /* data= */ null, /* startPositionMs= */ 0, /* durationMs= */ 10000));
+  }
+
   // https://github.com/androidx/media/issues/1224
   @Test
   public void prepareThenRelease_renderersReleased() throws Exception {
@@ -460,10 +577,10 @@ public class DownloadHelperTest {
             new Renderer[] {textRenderer, audioRenderer, videoRenderer};
     DownloadHelper downloadHelper =
         DownloadHelper.forMediaItem(
-            testMediaItem,
+            MediaItem.fromUri("asset:///media/mp4/sample.mp4"),
             DownloadHelper.DEFAULT_TRACK_SELECTOR_PARAMETERS,
             renderersFactory,
-            new FakeDataSource.Factory());
+            new DefaultDataSource.Factory(getApplicationContext()));
 
     prepareDownloadHelper(downloadHelper);
     downloadHelper.release();

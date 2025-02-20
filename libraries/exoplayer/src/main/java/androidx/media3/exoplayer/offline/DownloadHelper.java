@@ -16,13 +16,18 @@
 package androidx.media3.exoplayer.offline;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
+import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.castNonNull;
+import static java.lang.Math.min;
+import static java.lang.annotation.ElementType.TYPE_USE;
+import static java.lang.annotation.RetentionPolicy.SOURCE;
 
 import android.content.Context;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Message;
 import android.util.SparseIntArray;
+import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
@@ -33,11 +38,14 @@ import androidx.media3.common.TrackSelectionOverride;
 import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.Tracks;
 import androidx.media3.common.util.Assertions;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.TransferListener;
+import androidx.media3.datasource.cache.Cache;
+import androidx.media3.datasource.cache.CacheDataSource;
 import androidx.media3.exoplayer.DefaultRendererCapabilitiesList;
 import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.LoadingInfo;
@@ -51,6 +59,7 @@ import androidx.media3.exoplayer.source.MediaPeriod;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import androidx.media3.exoplayer.source.MediaSource.MediaSourceCaller;
+import androidx.media3.exoplayer.source.ProgressiveMediaSource;
 import androidx.media3.exoplayer.source.TrackGroupArray;
 import androidx.media3.exoplayer.source.chunk.MediaChunk;
 import androidx.media3.exoplayer.source.chunk.MediaChunkIterator;
@@ -65,7 +74,11 @@ import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.BandwidthMeter;
 import androidx.media3.exoplayer.upstream.DefaultAllocator;
 import androidx.media3.extractor.ExtractorsFactory;
+import androidx.media3.extractor.SeekMap;
 import java.io.IOException;
+import java.lang.annotation.Documented;
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -118,6 +131,20 @@ public final class DownloadHelper {
     return DEFAULT_TRACK_SELECTOR_PARAMETERS;
   }
 
+  @Documented
+  @Retention(SOURCE)
+  @Target(TYPE_USE)
+  @IntDef({
+    MODE_NOT_PREPARE,
+    MODE_PREPARE_PROGRESSIVE_SOURCE,
+    MODE_PREPARE_NON_PROGRESSIVE_SOURCE_AND_SELECT_TRACKS
+  })
+  private @interface Mode {}
+
+  private static final int MODE_NOT_PREPARE = 0;
+  private static final int MODE_PREPARE_PROGRESSIVE_SOURCE = 1;
+  private static final int MODE_PREPARE_NON_PROGRESSIVE_SOURCE_AND_SELECT_TRACKS = 2;
+
   /** A callback to be notified when the {@link DownloadHelper} is prepared. */
   public interface Callback {
 
@@ -163,12 +190,35 @@ public final class DownloadHelper {
    *
    * @param context The context.
    * @param mediaItem A {@link MediaItem}.
+   * @param dataSourceFactory A {@link DataSource.Factory} used to load the manifest for adaptive
+   *     streams or the {@link SeekMap} for progressive streams. In the latter case, this has to be
+   *     a {@link CacheDataSource.Factory} for the {@link Cache} into which downloads will be
+   *     written.
+   * @throws IllegalStateException If the corresponding module is missing for DASH, HLS or
+   *     SmoothStreaming media items.
+   */
+  public static DownloadHelper forMediaItem(
+      Context context, MediaItem mediaItem, DataSource.Factory dataSourceFactory) {
+    return forMediaItem(
+        mediaItem,
+        getDefaultTrackSelectorParameters(context),
+        /* renderersFactory= */ null,
+        dataSourceFactory,
+        /* drmSessionManager= */ null);
+  }
+
+  /**
+   * Creates a {@link DownloadHelper} for the given media item.
+   *
+   * @param context The context.
+   * @param mediaItem A {@link MediaItem}.
    * @param renderersFactory A {@link RenderersFactory} creating the renderers for which tracks are
    *     selected.
    * @param dataSourceFactory A {@link DataSource.Factory} used to load the manifest for adaptive
-   *     streams. This argument is required for adaptive streams and ignored for progressive
-   *     streams.
-   * @return A {@link DownloadHelper}.
+   *     streams or the {@link SeekMap} for progressive streams. This argument is required for
+   *     adaptive streams or when requesting partial downloads for progressive streams. In the
+   *     latter case, this has to be a {@link CacheDataSource.Factory} for the {@link Cache} into
+   *     which downloads will be written.
    * @throws IllegalStateException If the corresponding module is missing for DASH, HLS or
    *     SmoothStreaming media items.
    * @throws IllegalArgumentException If the {@code dataSourceFactory} is null for adaptive streams.
@@ -195,9 +245,10 @@ public final class DownloadHelper {
    * @param trackSelectionParameters {@link TrackSelectionParameters} for selecting tracks for
    *     downloading.
    * @param dataSourceFactory A {@link DataSource.Factory} used to load the manifest for adaptive
-   *     streams. This argument is required for adaptive streams and ignored for progressive
-   *     streams.
-   * @return A {@link DownloadHelper}.
+   *     streams or the {@link SeekMap} for progressive streams. This argument is required for
+   *     adaptive streams or when requesting partial downloads for progressive streams. In the
+   *     latter case, this has to be a {@link CacheDataSource.Factory} for the {@link Cache} into
+   *     which downloads will be written.
    * @throws IllegalStateException If the corresponding module is missing for DASH, HLS or
    *     SmoothStreaming media items.
    * @throws IllegalArgumentException If the {@code dataSourceFactory} is null for adaptive streams.
@@ -224,11 +275,12 @@ public final class DownloadHelper {
    * @param trackSelectionParameters {@link TrackSelectionParameters} for selecting tracks for
    *     downloading.
    * @param dataSourceFactory A {@link DataSource.Factory} used to load the manifest for adaptive
-   *     streams. This argument is required for adaptive streams and ignored for progressive
-   *     streams.
+   *     streams or the {@link SeekMap} for progressive streams. This argument is required for
+   *     adaptive streams or when requesting partial downloads for progressive streams. In the
+   *     latter case, this has to be a {@link CacheDataSource.Factory} for the {@link Cache} into
+   *     which downloads will be written.
    * @param drmSessionManager An optional {@link DrmSessionManager}. Used to help determine which
    *     tracks can be selected.
-   * @return A {@link DownloadHelper}.
    * @throws IllegalStateException If the corresponding module is missing for DASH, HLS or
    *     SmoothStreaming media items.
    * @throws IllegalArgumentException If the {@code dataSourceFactory} is null for adaptive streams.
@@ -243,7 +295,7 @@ public final class DownloadHelper {
     Assertions.checkArgument(isProgressive || dataSourceFactory != null);
     return new DownloadHelper(
         mediaItem,
-        isProgressive
+        isProgressive && dataSourceFactory == null
             ? null
             : createMediaSourceInternal(
                 mediaItem, castNonNull(dataSourceFactory), drmSessionManager),
@@ -281,8 +333,11 @@ public final class DownloadHelper {
         downloadRequest.toMediaItem(), dataSourceFactory, drmSessionManager);
   }
 
+  private static final String TAG = "DownloadHelper";
+
   private final MediaItem.LocalConfiguration localConfiguration;
   @Nullable private final MediaSource mediaSource;
+  private final @Mode int mode;
   private final DefaultTrackSelector trackSelector;
   private final RendererCapabilitiesList rendererCapabilities;
   private final SparseIntArray scratchSet;
@@ -290,6 +345,7 @@ public final class DownloadHelper {
   private final Timeline.Window window;
 
   private boolean isPreparedWithMedia;
+  private boolean areTracksSelected;
   private @MonotonicNonNull Callback callback;
   private @MonotonicNonNull MediaPreparer mediaPreparer;
   private TrackGroupArray @MonotonicNonNull [] trackGroupArrays;
@@ -316,6 +372,12 @@ public final class DownloadHelper {
       RendererCapabilitiesList rendererCapabilities) {
     this.localConfiguration = checkNotNull(mediaItem.localConfiguration);
     this.mediaSource = mediaSource;
+    this.mode =
+        (mediaSource == null)
+            ? MODE_NOT_PREPARE
+            : (mediaSource instanceof ProgressiveMediaSource)
+                ? MODE_PREPARE_PROGRESSIVE_SOURCE
+                : MODE_PREPARE_NON_PROGRESSIVE_SOURCE_AND_SELECT_TRACKS;
     this.trackSelector =
         new DefaultTrackSelector(trackSelectionParameters, new DownloadTrackSelection.Factory());
     this.rendererCapabilities = rendererCapabilities;
@@ -334,8 +396,8 @@ public final class DownloadHelper {
   public void prepare(Callback callback) {
     Assertions.checkState(this.callback == null);
     this.callback = callback;
-    if (mediaSource != null) {
-      mediaPreparer = new MediaPreparer(mediaSource, /* downloadHelper= */ this);
+    if (mode != MODE_NOT_PREPARE) {
+      mediaPreparer = new MediaPreparer(checkNotNull(mediaSource), /* downloadHelper= */ this);
     } else {
       callbackHandler.post(() -> callback.onPrepared(this));
     }
@@ -374,7 +436,7 @@ public final class DownloadHelper {
       return 0;
     }
     assertPreparedWithMedia();
-    return trackGroupArrays.length;
+    return mediaPreparer.mediaPeriods.length;
   }
 
   /**
@@ -386,7 +448,7 @@ public final class DownloadHelper {
    *     content.
    */
   public Tracks getTracks(int periodIndex) {
-    assertPreparedWithMedia();
+    assertPreparedWithNonProgressiveSourceAndTracksSelected();
     return TrackSelectionUtil.buildTracks(
         mappedTrackInfos[periodIndex], immutableTrackSelectionsByPeriodAndRenderer[periodIndex]);
   }
@@ -402,7 +464,7 @@ public final class DownloadHelper {
    *     content.
    */
   public TrackGroupArray getTrackGroups(int periodIndex) {
-    assertPreparedWithMedia();
+    assertPreparedWithNonProgressiveSourceAndTracksSelected();
     return trackGroupArrays[periodIndex];
   }
 
@@ -414,7 +476,7 @@ public final class DownloadHelper {
    * @return The {@link MappedTrackInfo} for the period.
    */
   public MappedTrackInfo getMappedTrackInfo(int periodIndex) {
-    assertPreparedWithMedia();
+    assertPreparedWithNonProgressiveSourceAndTracksSelected();
     return mappedTrackInfos[periodIndex];
   }
 
@@ -427,7 +489,7 @@ public final class DownloadHelper {
    * @return A list of selected {@link ExoTrackSelection track selections}.
    */
   public List<ExoTrackSelection> getTrackSelections(int periodIndex, int rendererIndex) {
-    assertPreparedWithMedia();
+    assertPreparedWithNonProgressiveSourceAndTracksSelected();
     return immutableTrackSelectionsByPeriodAndRenderer[periodIndex][rendererIndex];
   }
 
@@ -438,7 +500,7 @@ public final class DownloadHelper {
    * @param periodIndex The period index for which track selections are cleared.
    */
   public void clearTrackSelections(int periodIndex) {
-    assertPreparedWithMedia();
+    assertPreparedWithNonProgressiveSourceAndTracksSelected();
     for (int i = 0; i < rendererCapabilities.size(); i++) {
       trackSelectionsByPeriodAndRenderer[periodIndex][i].clear();
     }
@@ -455,7 +517,7 @@ public final class DownloadHelper {
   public void replaceTrackSelections(
       int periodIndex, TrackSelectionParameters trackSelectionParameters) {
     try {
-      assertPreparedWithMedia();
+      assertPreparedWithNonProgressiveSourceAndTracksSelected();
       clearTrackSelections(periodIndex);
       addTrackSelectionInternal(periodIndex, trackSelectionParameters);
     } catch (ExoPlaybackException e) {
@@ -474,7 +536,7 @@ public final class DownloadHelper {
   public void addTrackSelection(
       int periodIndex, TrackSelectionParameters trackSelectionParameters) {
     try {
-      assertPreparedWithMedia();
+      assertPreparedWithNonProgressiveSourceAndTracksSelected();
       addTrackSelectionInternal(periodIndex, trackSelectionParameters);
     } catch (ExoPlaybackException e) {
       throw new IllegalStateException(e);
@@ -491,7 +553,7 @@ public final class DownloadHelper {
    */
   public void addAudioLanguagesToSelection(String... languages) {
     try {
-      assertPreparedWithMedia();
+      assertPreparedWithNonProgressiveSourceAndTracksSelected();
 
       TrackSelectionParameters.Builder parametersBuilder =
           DEFAULT_TRACK_SELECTOR_PARAMETERS.buildUpon();
@@ -531,7 +593,7 @@ public final class DownloadHelper {
   public void addTextLanguagesToSelection(
       boolean selectUndeterminedTextLanguage, String... languages) {
     try {
-      assertPreparedWithMedia();
+      assertPreparedWithNonProgressiveSourceAndTracksSelected();
 
       TrackSelectionParameters.Builder parametersBuilder =
           DEFAULT_TRACK_SELECTOR_PARAMETERS.buildUpon();
@@ -576,7 +638,7 @@ public final class DownloadHelper {
       DefaultTrackSelector.Parameters trackSelectorParameters,
       List<SelectionOverride> overrides) {
     try {
-      assertPreparedWithMedia();
+      assertPreparedWithNonProgressiveSourceAndTracksSelected();
       DefaultTrackSelector.Parameters.Builder builder = trackSelectorParameters.buildUpon();
       for (int i = 0; i < mappedTrackInfos[periodIndex].getRendererCount(); i++) {
         builder.setRendererDisabled(/* rendererIndex= */ i, /* disabled= */ i != rendererIndex);
@@ -601,10 +663,30 @@ public final class DownloadHelper {
    * after preparation completes. The uri of the {@link DownloadRequest} will be used as content id.
    *
    * @param data Application provided data to store in {@link DownloadRequest#data}.
-   * @return The built {@link DownloadRequest}.
    */
   public DownloadRequest getDownloadRequest(@Nullable byte[] data) {
     return getDownloadRequest(localConfiguration.uri.toString(), data);
+  }
+
+  /**
+   * Builds a {@link DownloadRequest} for downloading the selected tracks and time range. Must not
+   * be called until preparation completes.
+   *
+   * <p>This method is only supported for progressive streams.
+   *
+   * @param data Application provided data to store in {@link DownloadRequest#data}.
+   * @param startPositionMs The start position (in milliseconds) of the media that download should
+   *     cover from, or {@link C#TIME_UNSET} if the download should cover from the default start
+   *     position.
+   * @param durationMs The end position (in milliseconds) of the media that download should cover
+   *     to, or {@link C#TIME_UNSET} if the download should cover to the end of the media. If the
+   *     {@code endPositionMs} is larger than the duration of the media, then the download will
+   *     cover to the end of the media.
+   * @throws IllegalStateException If the media item is of type DASH, HLS or SmoothStreaming.
+   */
+  public DownloadRequest getDownloadRequest(
+      @Nullable byte[] data, long startPositionMs, long durationMs) {
+    return getDownloadRequest(localConfiguration.uri.toString(), data, startPositionMs, durationMs);
   }
 
   /**
@@ -613,9 +695,40 @@ public final class DownloadHelper {
    *
    * @param id The unique content id.
    * @param data Application provided data to store in {@link DownloadRequest#data}.
-   * @return The built {@link DownloadRequest}.
    */
   public DownloadRequest getDownloadRequest(String id, @Nullable byte[] data) {
+    return getDownloadRequestBuilder(id, data).build();
+  }
+
+  /**
+   * Builds a {@link DownloadRequest} for downloading the selected tracks and time range. Must not
+   * be called until preparation completes.
+   *
+   * <p>This method is only supported for progressive streams.
+   *
+   * @param id The unique content id.
+   * @param data Application provided data to store in {@link DownloadRequest#data}.
+   * @param startPositionMs The start position (in milliseconds) of the media that download should
+   *     cover from, or {@link C#TIME_UNSET} if the download should cover from the default start
+   *     position.
+   * @param durationMs The duration (in milliseconds) of the media that download should cover, or
+   *     {@link C#TIME_UNSET} if the download should cover to the end of the media. If the end
+   *     position resolved from {@code startPositionMs} and {@code durationMs} is beyond the
+   *     duration of the media, then the download will just cover to the end of the media.
+   * @throws IllegalStateException If the media item is of type DASH, HLS or SmoothStreaming.
+   */
+  public DownloadRequest getDownloadRequest(
+      String id, @Nullable byte[] data, long startPositionMs, long durationMs) {
+    checkState(
+        mode == MODE_PREPARE_PROGRESSIVE_SOURCE,
+        "Partial download is only supported for progressive streams");
+    DownloadRequest.Builder builder = getDownloadRequestBuilder(id, data);
+    assertPreparedWithProgressiveSource();
+    populateDownloadRequestBuilderWithDownloadRange(builder, startPositionMs, durationMs);
+    return builder.build();
+  }
+
+  private DownloadRequest.Builder getDownloadRequestBuilder(String id, @Nullable byte[] data) {
     DownloadRequest.Builder requestBuilder =
         new DownloadRequest.Builder(id, localConfiguration.uri)
             .setMimeType(localConfiguration.mimeType)
@@ -625,22 +738,75 @@ public final class DownloadHelper {
                     : null)
             .setCustomCacheKey(localConfiguration.customCacheKey)
             .setData(data);
-    if (mediaSource == null) {
-      return requestBuilder.build();
-    }
-    assertPreparedWithMedia();
-    List<StreamKey> streamKeys = new ArrayList<>();
-    List<ExoTrackSelection> allSelections = new ArrayList<>();
-    int periodCount = trackSelectionsByPeriodAndRenderer.length;
-    for (int periodIndex = 0; periodIndex < periodCount; periodIndex++) {
-      allSelections.clear();
-      int rendererCount = trackSelectionsByPeriodAndRenderer[periodIndex].length;
-      for (int rendererIndex = 0; rendererIndex < rendererCount; rendererIndex++) {
-        allSelections.addAll(trackSelectionsByPeriodAndRenderer[periodIndex][rendererIndex]);
+    if (mode == MODE_PREPARE_NON_PROGRESSIVE_SOURCE_AND_SELECT_TRACKS) {
+      assertPreparedWithNonProgressiveSourceAndTracksSelected();
+      List<StreamKey> streamKeys = new ArrayList<>();
+      List<ExoTrackSelection> allSelections = new ArrayList<>();
+      int periodCount = trackSelectionsByPeriodAndRenderer.length;
+      for (int periodIndex = 0; periodIndex < periodCount; periodIndex++) {
+        allSelections.clear();
+        int rendererCount = trackSelectionsByPeriodAndRenderer[periodIndex].length;
+        for (int rendererIndex = 0; rendererIndex < rendererCount; rendererIndex++) {
+          allSelections.addAll(trackSelectionsByPeriodAndRenderer[periodIndex][rendererIndex]);
+        }
+        streamKeys.addAll(mediaPreparer.mediaPeriods[periodIndex].getStreamKeys(allSelections));
       }
-      streamKeys.addAll(mediaPreparer.mediaPeriods[periodIndex].getStreamKeys(allSelections));
+      requestBuilder.setStreamKeys(streamKeys);
     }
-    return requestBuilder.setStreamKeys(streamKeys).build();
+    return requestBuilder;
+  }
+
+  private void populateDownloadRequestBuilderWithDownloadRange(
+      DownloadRequest.Builder requestBuilder, long startPositionMs, long durationMs) {
+    assertPreparedWithProgressiveSource();
+    Timeline timeline = mediaPreparer.timeline;
+    if (mediaPreparer.mediaPeriods.length > 1) {
+      Log.w(TAG, "Partial download is only supported for single period.");
+      return;
+    }
+
+    Timeline.Window window = new Timeline.Window();
+    Timeline.Period period = new Timeline.Period();
+    long periodStartPositionUs =
+        timeline.getPeriodPositionUs(
+                window,
+                period,
+                /* windowIndex= */ 0,
+                /* windowPositionUs= */ Util.msToUs(startPositionMs))
+            .second;
+
+    long periodEndPositionUs = C.TIME_UNSET;
+    if (durationMs != C.TIME_UNSET) {
+      periodEndPositionUs = periodStartPositionUs + Util.msToUs(durationMs);
+      if (period.durationUs != C.TIME_UNSET) {
+        periodEndPositionUs = min(periodEndPositionUs, period.durationUs - 1);
+      }
+    }
+
+    // SeekMap should be available for prepared progressive media.
+    SeekMap seekMap = mediaPreparer.seekMap;
+    if (seekMap.isSeekable()) {
+      long byteRangeStartPositionOffset =
+          seekMap.getSeekPoints(periodStartPositionUs).first.position;
+      long byteRangeLength = C.LENGTH_UNSET;
+      if (periodEndPositionUs != C.TIME_UNSET) {
+        long byteRangeEndPositionOffset =
+            seekMap.getSeekPoints(periodEndPositionUs).second.position;
+        // When the start and end positions are after the last seek point, they will both have only
+        // that one mapped seek point. Then we should download from that seek point to the end of
+        // the media, otherwise nothing will be downloaded as the resolved length is 0.
+        boolean areStartAndEndPositionsAfterTheLastSeekPoint =
+            periodStartPositionUs != periodEndPositionUs
+                && byteRangeStartPositionOffset == byteRangeEndPositionOffset;
+        byteRangeLength =
+            !areStartAndEndPositionsAfterTheLastSeekPoint
+                ? byteRangeEndPositionOffset - byteRangeStartPositionOffset
+                : C.LENGTH_UNSET;
+      }
+      requestBuilder.setByteRange(byteRangeStartPositionOffset, byteRangeLength);
+    } else {
+      Log.w(TAG, "Cannot set download byte range for progressive stream that is unseekable");
+    }
   }
 
   @RequiresNonNull({
@@ -670,28 +836,34 @@ public final class DownloadHelper {
     checkNotNull(mediaPreparer);
     checkNotNull(mediaPreparer.mediaPeriods);
     checkNotNull(mediaPreparer.timeline);
-    int periodCount = mediaPreparer.mediaPeriods.length;
-    int rendererCount = rendererCapabilities.size();
-    trackSelectionsByPeriodAndRenderer =
-        (List<ExoTrackSelection>[][]) new List<?>[periodCount][rendererCount];
-    immutableTrackSelectionsByPeriodAndRenderer =
-        (List<ExoTrackSelection>[][]) new List<?>[periodCount][rendererCount];
-    for (int i = 0; i < periodCount; i++) {
-      for (int j = 0; j < rendererCount; j++) {
-        trackSelectionsByPeriodAndRenderer[i][j] = new ArrayList<>();
-        immutableTrackSelectionsByPeriodAndRenderer[i][j] =
-            Collections.unmodifiableList(trackSelectionsByPeriodAndRenderer[i][j]);
+    if (mode == MODE_PREPARE_NON_PROGRESSIVE_SOURCE_AND_SELECT_TRACKS) {
+      int periodCount = mediaPreparer.mediaPeriods.length;
+      int rendererCount = rendererCapabilities.size();
+      trackSelectionsByPeriodAndRenderer =
+          (List<ExoTrackSelection>[][]) new List<?>[periodCount][rendererCount];
+      immutableTrackSelectionsByPeriodAndRenderer =
+          (List<ExoTrackSelection>[][]) new List<?>[periodCount][rendererCount];
+      for (int i = 0; i < periodCount; i++) {
+        for (int j = 0; j < rendererCount; j++) {
+          trackSelectionsByPeriodAndRenderer[i][j] = new ArrayList<>();
+          immutableTrackSelectionsByPeriodAndRenderer[i][j] =
+              Collections.unmodifiableList(trackSelectionsByPeriodAndRenderer[i][j]);
+        }
       }
+      trackGroupArrays = new TrackGroupArray[periodCount];
+      mappedTrackInfos = new MappedTrackInfo[periodCount];
+      for (int i = 0; i < periodCount; i++) {
+        trackGroupArrays[i] = mediaPreparer.mediaPeriods[i].getTrackGroups();
+        TrackSelectorResult trackSelectorResult = runTrackSelection(/* periodIndex= */ i);
+        trackSelector.onSelectionActivated(trackSelectorResult.info);
+        mappedTrackInfos[i] = checkNotNull(trackSelector.getCurrentMappedTrackInfo());
+      }
+      setPreparedWithNonProgressiveSourceAndTracksSelected();
+    } else {
+      checkState(mode == MODE_PREPARE_PROGRESSIVE_SOURCE);
+      checkNotNull(mediaPreparer.seekMap);
+      setPreparedWithProgressiveSource();
     }
-    trackGroupArrays = new TrackGroupArray[periodCount];
-    mappedTrackInfos = new MappedTrackInfo[periodCount];
-    for (int i = 0; i < periodCount; i++) {
-      trackGroupArrays[i] = mediaPreparer.mediaPeriods[i].getTrackGroups();
-      TrackSelectorResult trackSelectorResult = runTrackSelection(/* periodIndex= */ i);
-      trackSelector.onSelectionActivated(trackSelectorResult.info);
-      mappedTrackInfos[i] = checkNotNull(trackSelector.getCurrentMappedTrackInfo());
-    }
-    setPreparedWithMedia();
     checkNotNull(callbackHandler).post(() -> checkNotNull(callback).onPrepared(this));
   }
 
@@ -708,8 +880,26 @@ public final class DownloadHelper {
     "mediaPreparer.timeline",
     "mediaPreparer.mediaPeriods"
   })
-  private void setPreparedWithMedia() {
+  private void setPreparedWithNonProgressiveSourceAndTracksSelected() {
     isPreparedWithMedia = true;
+    areTracksSelected = true;
+  }
+
+  @RequiresNonNull({
+    "mediaPreparer",
+    "mediaPreparer.timeline",
+    "mediaPreparer.seekMap",
+    "mediaPreparer.mediaPeriods"
+  })
+  private void setPreparedWithProgressiveSource() {
+    isPreparedWithMedia = true;
+  }
+
+  @EnsuresNonNull({"mediaPreparer", "mediaPreparer.timeline", "mediaPreparer.mediaPeriods"})
+  @SuppressWarnings("nullness:contracts.postcondition")
+  private void assertPreparedWithMedia() {
+    Assertions.checkState(mode != MODE_NOT_PREPARE);
+    Assertions.checkState(isPreparedWithMedia);
   }
 
   @EnsuresNonNull({
@@ -722,7 +912,21 @@ public final class DownloadHelper {
     "mediaPreparer.mediaPeriods"
   })
   @SuppressWarnings("nullness:contracts.postcondition")
-  private void assertPreparedWithMedia() {
+  private void assertPreparedWithNonProgressiveSourceAndTracksSelected() {
+    Assertions.checkState(mode == MODE_PREPARE_NON_PROGRESSIVE_SOURCE_AND_SELECT_TRACKS);
+    Assertions.checkState(isPreparedWithMedia);
+    Assertions.checkState(areTracksSelected);
+  }
+
+  @EnsuresNonNull({
+    "mediaPreparer",
+    "mediaPreparer.timeline",
+    "mediaPreparer.seekMap",
+    "mediaPreparer.mediaPeriods"
+  })
+  @SuppressWarnings("nullness:contracts.postcondition")
+  private void assertPreparedWithProgressiveSource() {
+    Assertions.checkState(mode == MODE_PREPARE_PROGRESSIVE_SOURCE);
     Assertions.checkState(isPreparedWithMedia);
   }
 
@@ -783,8 +987,10 @@ public final class DownloadHelper {
       MediaItem mediaItem,
       DataSource.Factory dataSourceFactory,
       @Nullable DrmSessionManager drmSessionManager) {
-    DefaultMediaSourceFactory mediaSourceFactory =
-        new DefaultMediaSourceFactory(dataSourceFactory, ExtractorsFactory.EMPTY);
+    MediaSource.Factory mediaSourceFactory =
+        isProgressive(checkNotNull(mediaItem.localConfiguration))
+            ? new ProgressiveMediaSource.Factory(dataSourceFactory)
+            : new DefaultMediaSourceFactory(dataSourceFactory, ExtractorsFactory.EMPTY);
     if (drmSessionManager != null) {
       mediaSourceFactory.setDrmSessionManagerProvider(unusedMediaItem -> drmSessionManager);
     }
@@ -798,7 +1004,10 @@ public final class DownloadHelper {
   }
 
   private static final class MediaPreparer
-      implements MediaSourceCaller, MediaPeriod.Callback, Handler.Callback {
+      implements MediaSourceCaller,
+          ProgressiveMediaSource.Listener,
+          MediaPeriod.Callback,
+          Handler.Callback {
 
     private static final int MESSAGE_PREPARE_SOURCE = 1;
     private static final int MESSAGE_CHECK_FOR_FAILURE = 2;
@@ -817,6 +1026,7 @@ public final class DownloadHelper {
     private final Handler mediaSourceHandler;
 
     public @MonotonicNonNull Timeline timeline;
+    public @MonotonicNonNull SeekMap seekMap;
     public MediaPeriod @MonotonicNonNull [] mediaPeriods;
 
     private boolean released;
@@ -850,6 +1060,9 @@ public final class DownloadHelper {
     public boolean handleMessage(Message msg) {
       switch (msg.what) {
         case MESSAGE_PREPARE_SOURCE:
+          if (mediaSource instanceof ProgressiveMediaSource) {
+            ((ProgressiveMediaSource) mediaSource).setListener(this);
+          }
           mediaSource.prepareSource(
               /* caller= */ this, /* mediaTransferListener= */ null, PlayerId.UNSET);
           mediaSourceHandler.sendEmptyMessage(MESSAGE_CHECK_FOR_FAILURE);
@@ -882,6 +1095,9 @@ public final class DownloadHelper {
             for (MediaPeriod period : mediaPeriods) {
               mediaSource.releasePeriod(period);
             }
+          }
+          if (mediaSource instanceof ProgressiveMediaSource) {
+            ((ProgressiveMediaSource) mediaSource).clearListener();
           }
           mediaSource.releaseSource(this);
           mediaSourceHandler.removeCallbacksAndMessages(null);
@@ -922,6 +1138,13 @@ public final class DownloadHelper {
       for (MediaPeriod mediaPeriod : mediaPeriods) {
         mediaPeriod.prepare(/* callback= */ this, /* positionUs= */ 0);
       }
+    }
+
+    // ProgressiveMediaSource.Listener implementation.
+
+    @Override
+    public void onSeekMap(MediaSource source, SeekMap seekMap) {
+      this.seekMap = seekMap;
     }
 
     // MediaPeriod.Callback implementation.
