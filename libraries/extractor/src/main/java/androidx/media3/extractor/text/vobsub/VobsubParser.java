@@ -106,6 +106,9 @@ public final class VobsubParser implements SubtitleParser {
 
   private static final class CueBuilder {
 
+    private static final int CMD_FORCE_START = 0;
+    private static final int CMD_START = 1;
+    private static final int CMD_STOP = 2;
     private static final int CMD_COLORS = 3;
     private static final int CMD_ALPHA = 4;
     private static final int CMD_AREA = 5;
@@ -197,6 +200,11 @@ public final class VobsubParser implements SubtitleParser {
             if (!parseControlOffsets(buffer)) {
               return;
             }
+            break;
+          case CMD_FORCE_START:
+          case CMD_START:
+          case CMD_STOP:
+            // ignore unused commands without arguments
             break;
           case CMD_END:
           default:
