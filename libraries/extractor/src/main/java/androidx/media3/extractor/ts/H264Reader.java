@@ -140,7 +140,6 @@ public final class H264Reader implements ElementaryStreamReader {
 
     // Scan the appended data, processing NAL units as they are encountered
     while (true) {
-      int prefixSize = 3;
       int nalUnitOffset = NalUnitUtil.findNalUnit(dataArray, offset, limit, prefixFlags);
 
       if (nalUnitOffset == limit) {
@@ -154,6 +153,7 @@ public final class H264Reader implements ElementaryStreamReader {
 
       // Case of a 4 byte start code prefix 0x00000001, recoil NAL unit offset by one byte
       // to avoid previous byte being assigned to the previous access unit.
+      int prefixSize = 3;
       if (nalUnitOffset > 0 && dataArray[nalUnitOffset - 1] == 0x00) {
         nalUnitOffset--;
         prefixSize = 4;

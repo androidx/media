@@ -128,7 +128,6 @@ public final class H265Reader implements ElementaryStreamReader {
 
       // Scan the appended data, processing NAL units as they are encountered
       while (offset < limit) {
-        int prefixSize = 3;
         int nalUnitOffset = NalUnitUtil.findNalUnit(dataArray, offset, limit, prefixFlags);
 
         if (nalUnitOffset == limit) {
@@ -142,6 +141,7 @@ public final class H265Reader implements ElementaryStreamReader {
 
         // Case of a 4 byte start code prefix 0x00000001, recoil NAL unit offset by one byte
         // to avoid previous byte being assigned to the previous access unit.
+        int prefixSize = 3;
         if (nalUnitOffset > 0 && dataArray[nalUnitOffset - 1] == 0x00) {
           nalUnitOffset--;
           prefixSize = 4;
@@ -177,7 +177,8 @@ public final class H265Reader implements ElementaryStreamReader {
     assertTracksCreated();
     if (isEndOfInput) {
       seiReader.flush();
-      // Simulate end of current NAL unit and start an unspecified one to trigger output of current sample
+      // Simulate end of current NAL unit and start an unspecified one to trigger output of current
+      // sample
       endNalUnit(totalBytesWritten, 0, 0, pesTimeUs);
       startNalUnit(totalBytesWritten, 0, NalUnitUtil.H265_NAL_UNIT_TYPE_UNSPECIFIED, pesTimeUs);
     }
