@@ -165,7 +165,7 @@ public class DownloadManagerDashTest {
   }
 
   @Test
-  public void handleDownloadRequest_withInferringRequest_success() throws Throwable {
+  public void handleDownloadRequest_withInterferingRequest_success() throws Throwable {
     fakeDataSet
         .newData("audio_segment_2")
         .appendReadAction(() -> handleDownloadRequest(fakeStreamKey2))

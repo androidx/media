@@ -27,6 +27,10 @@
 *   Session:
 *   UI:
 *   Downloads:
+    *   Fix bug in `CacheWriter` that leaves data sources open and cache areas
+        locked in case the data source throws an `Exception` other than
+        `IOException`
+        ([#9760](https://github.com/google/ExoPlayer/issues/9760)).
 *   OkHttp Extension:
 *   Cronet Extension:
 *   RTMP Extension:

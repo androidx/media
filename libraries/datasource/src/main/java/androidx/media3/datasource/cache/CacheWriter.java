@@ -159,7 +159,7 @@ public final class CacheWriter {
       try {
         resolvedLength = dataSource.open(boundedDataSpec);
         isDataSourceOpen = true;
-      } catch (IOException e) {
+      } catch (Exception e) {
         DataSourceUtil.closeQuietly(dataSource);
       }
     }
@@ -172,7 +172,7 @@ public final class CacheWriter {
           dataSpec.buildUpon().setPosition(position).setLength(C.LENGTH_UNSET).build();
       try {
         resolvedLength = dataSource.open(unboundedDataSpec);
-      } catch (IOException e) {
+      } catch (Exception e) {
         DataSourceUtil.closeQuietly(dataSource);
         throw e;
       }
@@ -195,7 +195,7 @@ public final class CacheWriter {
       if (isLastBlock) {
         onRequestEndPosition(position + totalBytesRead);
       }
-    } catch (IOException e) {
+    } catch (Exception e) {
       DataSourceUtil.closeQuietly(dataSource);
       throw e;
     }
