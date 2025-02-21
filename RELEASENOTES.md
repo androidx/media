@@ -35,6 +35,13 @@
         locked in case the data source throws an `Exception` other than
         `IOException`
         ([#9760](https://github.com/google/ExoPlayer/issues/9760)).
+    *   Add partial download support for progressive streams. Apps can prepare a
+        progressive stream with `DownloadHelper`, and request a
+        `DownloadRequest` from the helper with specifying the time-based media
+        start and end positions that the download should cover. The returned
+        `DownloadRequest` carries the resolved byte range, with which a
+        `ProgressiveDownloader` can be created and download the content
+        correspondingly.
 *   OkHttp Extension:
 *   Cronet Extension:
 *   RTMP Extension:

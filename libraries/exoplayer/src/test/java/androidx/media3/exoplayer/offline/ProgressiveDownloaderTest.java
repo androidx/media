@@ -69,6 +69,27 @@ public class ProgressiveDownloaderTest {
   }
 
   @Test
+  public void download_withNonDefaultByteRange_succeeds() throws Exception {
+    Uri uri = Uri.parse("test:///test.mp4");
+    FakeDataSet data = new FakeDataSet();
+    data.newData(uri).appendReadData(1024);
+    DataSource.Factory upstreamDataSource = new FakeDataSource.Factory().setFakeDataSet(data);
+    MediaItem mediaItem = MediaItem.fromUri(uri);
+    CacheDataSource.Factory cacheDataSourceFactory =
+        new CacheDataSource.Factory()
+            .setCache(downloadCache)
+            .setUpstreamDataSourceFactory(upstreamDataSource);
+    ProgressiveDownloader downloader =
+        new ProgressiveDownloader(
+            mediaItem, cacheDataSourceFactory, /* position= */ 0, /* length= */ 100);
+    TestProgressListener progressListener = new TestProgressListener();
+
+    downloader.download(progressListener);
+
+    assertThat(progressListener.bytesDownloaded).isEqualTo(100);
+  }
+
+  @Test
   public void download_afterReadFailure_succeeds() throws Exception {
     Uri uri = Uri.parse("test:///test.mp4");
 

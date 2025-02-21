@@ -78,13 +78,16 @@ public class DefaultDownloaderFactory implements DownloaderFactory {
       case C.CONTENT_TYPE_SS:
         return createDownloader(request, contentType);
       case C.CONTENT_TYPE_OTHER:
+        @Nullable DownloadRequest.ByteRange byteRange = request.byteRange;
         return new ProgressiveDownloader(
             new MediaItem.Builder()
                 .setUri(request.uri)
                 .setCustomCacheKey(request.customCacheKey)
                 .build(),
             cacheDataSourceFactory,
-            executor);
+            executor,
+            (byteRange != null) ? byteRange.offset : 0,
+            (byteRange != null) ? byteRange.length : C.LENGTH_UNSET);
       default:
         throw new IllegalArgumentException("Unsupported type: " + contentType);
     }
