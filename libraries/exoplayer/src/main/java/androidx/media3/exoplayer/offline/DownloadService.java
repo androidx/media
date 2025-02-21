@@ -39,6 +39,7 @@ import androidx.media3.exoplayer.scheduler.Requirements.RequirementFlags;
 import androidx.media3.exoplayer.scheduler.Scheduler;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
@@ -1096,7 +1097,7 @@ public abstract class DownloadService extends Service {
     // Internal methods.
 
     private boolean schedulerNeedsUpdate(Requirements requirements) {
-      return !Util.areEqual(scheduledRequirements, requirements);
+      return !Objects.equals(scheduledRequirements, requirements);
     }
 
     @RequiresNonNull("scheduler")

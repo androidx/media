@@ -21,7 +21,7 @@ import android.os.Bundle;
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
-import com.google.common.base.Objects;
+import java.util.Objects;
 
 /**
  * A rating expressed as "heart" or "no heart". It can be used to indicate whether the content is a
@@ -60,7 +60,7 @@ public final class HeartRating extends Rating {
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(rated, isHeart);
+    return Objects.hash(rated, isHeart);
   }
 
   @Override

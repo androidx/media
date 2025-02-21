@@ -104,6 +104,7 @@ import java.lang.ref.WeakReference;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
@@ -2194,7 +2195,7 @@ import java.util.concurrent.ExecutionException;
         return false;
       }
       Controller2Cb other = (Controller2Cb) obj;
-      return Util.areEqual(getCallbackBinder(), other.getCallbackBinder());
+      return Objects.equals(getCallbackBinder(), other.getCallbackBinder());
     }
   }
 }

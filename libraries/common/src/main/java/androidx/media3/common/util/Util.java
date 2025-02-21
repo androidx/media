@@ -563,7 +563,7 @@ public final class Util {
   @UnstableApi
   public static boolean contains(@NullableType Object[] items, @Nullable Object item) {
     for (Object arrayItem : items) {
-      if (areEqual(arrayItem, item)) {
+      if (Objects.equals(arrayItem, item)) {
         return true;
       }
     }

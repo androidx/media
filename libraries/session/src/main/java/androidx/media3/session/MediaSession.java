@@ -62,7 +62,6 @@ import androidx.media3.session.MediaLibraryService.MediaLibrarySession;
 import androidx.media3.session.legacy.MediaControllerCompat;
 import androidx.media3.session.legacy.MediaSessionCompat;
 import androidx.media3.session.legacy.MediaSessionManager.RemoteUserInfo;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Longs;
 import com.google.common.util.concurrent.Futures;
@@ -71,6 +70,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.DoNotMock;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
@@ -614,7 +614,7 @@ public class MediaSession {
 
     @Override
     public int hashCode() {
-      return Objects.hashCode(controllerCb, remoteUserInfo);
+      return Objects.hash(controllerCb, remoteUserInfo);
     }
 
     @Override
@@ -627,7 +627,7 @@ public class MediaSession {
       }
       ControllerInfo other = (ControllerInfo) obj;
       if (controllerCb != null || other.controllerCb != null) {
-        return Util.areEqual(controllerCb, other.controllerCb);
+        return Objects.equals(controllerCb, other.controllerCb);
       }
       return remoteUserInfo.equals(other.remoteUserInfo);
     }
@@ -766,7 +766,7 @@ public class MediaSession {
   /* package */ static MediaSession getSession(Uri sessionUri) {
     synchronized (STATIC_LOCK) {
       for (MediaSession session : SESSION_ID_TO_SESSION_MAP.values()) {
-        if (Util.areEqual(session.getUri(), sessionUri)) {
+        if (Objects.equals(session.getUri(), sessionUri)) {
           return session;
         }
       }
@@ -1814,8 +1814,8 @@ public class MediaSession {
       MediaItemsWithStartPosition other = (MediaItemsWithStartPosition) obj;
 
       return mediaItems.equals(other.mediaItems)
-          && Util.areEqual(startIndex, other.startIndex)
-          && Util.areEqual(startPositionMs, other.startPositionMs);
+          && Objects.equals(startIndex, other.startIndex)
+          && Objects.equals(startPositionMs, other.startPositionMs);
     }
 
     @Override

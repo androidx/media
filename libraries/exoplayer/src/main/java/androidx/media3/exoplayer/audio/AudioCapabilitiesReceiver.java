@@ -33,6 +33,7 @@ import androidx.annotation.RequiresApi;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import java.util.Objects;
 
 /**
  * Receives broadcast events indicating changes to the device's audio capabilities, notifying a
@@ -132,7 +133,7 @@ public final class AudioCapabilitiesReceiver {
    */
   @RequiresApi(23)
   public void setRoutedDevice(@Nullable AudioDeviceInfo routedDevice) {
-    if (Util.areEqual(
+    if (Objects.equals(
         routedDevice, this.routedDevice == null ? null : this.routedDevice.audioDeviceInfo)) {
       return;
     }

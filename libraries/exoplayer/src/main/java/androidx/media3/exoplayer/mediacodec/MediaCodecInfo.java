@@ -51,6 +51,7 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.DecoderReuseEvaluation;
 import androidx.media3.exoplayer.DecoderReuseEvaluation.DecoderDiscardReasons;
+import java.util.Objects;
 
 /** Information about a {@link MediaCodec} for a given MIME type. */
 @SuppressWarnings("InlinedApi")
@@ -407,7 +408,7 @@ public final class MediaCodecInfo {
    */
   public DecoderReuseEvaluation canReuseCodec(Format oldFormat, Format newFormat) {
     @DecoderDiscardReasons int discardReasons = 0;
-    if (!Util.areEqual(oldFormat.sampleMimeType, newFormat.sampleMimeType)) {
+    if (!Objects.equals(oldFormat.sampleMimeType, newFormat.sampleMimeType)) {
       discardReasons |= DISCARD_REASON_MIME_TYPE_CHANGED;
     }
 
@@ -421,7 +422,7 @@ public final class MediaCodecInfo {
       }
       if ((!ColorInfo.isEquivalentToAssumedSdrDefault(oldFormat.colorInfo)
               || !ColorInfo.isEquivalentToAssumedSdrDefault(newFormat.colorInfo))
-          && !Util.areEqual(oldFormat.colorInfo, newFormat.colorInfo)) {
+          && !Objects.equals(oldFormat.colorInfo, newFormat.colorInfo)) {
         // Don't perform detailed checks if both ColorInfos fall within the default SDR assumption.
         discardReasons |= DISCARD_REASON_VIDEO_COLOR_INFO_CHANGED;
       }

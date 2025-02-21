@@ -97,7 +97,6 @@ import androidx.media3.common.VideoSize;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.HandlerWrapper;
-import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.DecoderCounters;
 import androidx.media3.exoplayer.DecoderReuseEvaluation;
 import androidx.media3.exoplayer.ExoPlaybackException;
@@ -134,6 +133,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -2144,7 +2144,7 @@ public final class DefaultAnalyticsCollectorTest {
         return false;
       }
       EventWindowAndPeriodId event = (EventWindowAndPeriodId) other;
-      return windowIndex == event.windowIndex && Util.areEqual(mediaPeriodId, event.mediaPeriodId);
+      return windowIndex == event.windowIndex && Objects.equals(mediaPeriodId, event.mediaPeriodId);
     }
 
     @Override

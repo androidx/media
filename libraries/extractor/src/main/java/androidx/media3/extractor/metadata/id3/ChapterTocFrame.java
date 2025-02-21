@@ -17,8 +17,8 @@ package androidx.media3.extractor.metadata.id3;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import java.util.Arrays;
+import java.util.Objects;
 
 /** Chapter table of contents ID3 frame. */
 @UnstableApi
@@ -67,7 +67,7 @@ public final class ChapterTocFrame extends Id3Frame {
     ChapterTocFrame other = (ChapterTocFrame) obj;
     return isRoot == other.isRoot
         && isOrdered == other.isOrdered
-        && Util.areEqual(elementId, other.elementId)
+        && Objects.equals(elementId, other.elementId)
         && Arrays.equals(children, other.children)
         && Arrays.equals(subFrames, other.subFrames);
   }

@@ -17,7 +17,7 @@ package androidx.media3.extractor.metadata.id3;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
+import java.util.Objects;
 
 /** Internal ID3 frame that is intended for use by the player. */
 @UnstableApi
@@ -45,9 +45,9 @@ public final class InternalFrame extends Id3Frame {
       return false;
     }
     InternalFrame other = (InternalFrame) obj;
-    return Util.areEqual(description, other.description)
-        && Util.areEqual(domain, other.domain)
-        && Util.areEqual(text, other.text);
+    return Objects.equals(description, other.description)
+        && Objects.equals(domain, other.domain)
+        && Objects.equals(text, other.text);
   }
 
   @Override

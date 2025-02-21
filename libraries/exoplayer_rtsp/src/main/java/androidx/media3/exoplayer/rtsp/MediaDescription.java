@@ -34,6 +34,7 @@ import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.HashMap;
+import java.util.Objects;
 
 /** Represents one media description section in a SDP message. */
 /* package */ final class MediaDescription {
@@ -345,9 +346,9 @@ import java.util.HashMap;
         && bitrate == other.bitrate
         && attributes.equals(other.attributes)
         && rtpMapAttribute.equals(other.rtpMapAttribute)
-        && Util.areEqual(mediaTitle, other.mediaTitle)
-        && Util.areEqual(connection, other.connection)
-        && Util.areEqual(key, other.key);
+        && Objects.equals(mediaTitle, other.mediaTitle)
+        && Objects.equals(connection, other.connection)
+        && Objects.equals(key, other.key);
   }
 
   @Override

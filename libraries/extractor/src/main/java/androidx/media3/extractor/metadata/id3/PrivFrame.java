@@ -17,8 +17,8 @@ package androidx.media3.extractor.metadata.id3;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import java.util.Arrays;
+import java.util.Objects;
 
 /** PRIV (Private) ID3 frame. */
 @UnstableApi
@@ -44,7 +44,7 @@ public final class PrivFrame extends Id3Frame {
       return false;
     }
     PrivFrame other = (PrivFrame) obj;
-    return Util.areEqual(owner, other.owner) && Arrays.equals(privateData, other.privateData);
+    return Objects.equals(owner, other.owner) && Arrays.equals(privateData, other.privateData);
   }
 
   @Override

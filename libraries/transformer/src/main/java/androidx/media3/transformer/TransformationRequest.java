@@ -22,8 +22,8 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.util.Objects;
 
 /** A media transformation request. */
 @UnstableApi
@@ -196,8 +196,8 @@ public final class TransformationRequest {
     }
     TransformationRequest that = (TransformationRequest) o;
     return outputHeight == that.outputHeight
-        && Util.areEqual(audioMimeType, that.audioMimeType)
-        && Util.areEqual(videoMimeType, that.videoMimeType)
+        && Objects.equals(audioMimeType, that.audioMimeType)
+        && Objects.equals(videoMimeType, that.videoMimeType)
         && hdrMode == that.hdrMode;
   }
 

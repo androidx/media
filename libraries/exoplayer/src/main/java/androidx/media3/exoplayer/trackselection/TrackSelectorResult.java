@@ -22,9 +22,9 @@ import androidx.media3.common.C;
 import androidx.media3.common.Tracks;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.RendererCapabilities;
 import androidx.media3.exoplayer.RendererConfiguration;
+import java.util.Objects;
 
 /** The result of a {@link TrackSelector} operation. */
 @UnstableApi
@@ -133,7 +133,7 @@ public final class TrackSelectorResult {
     if (other == null) {
       return false;
     }
-    return Util.areEqual(rendererConfigurations[index], other.rendererConfigurations[index])
-        && Util.areEqual(selections[index], other.selections[index]);
+    return Objects.equals(rendererConfigurations[index], other.rendererConfigurations[index])
+        && Objects.equals(selections[index], other.selections[index]);
   }
 }

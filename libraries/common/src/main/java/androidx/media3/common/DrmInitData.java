@@ -28,6 +28,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 /** Initialization data for one or more DRM schemes. */
@@ -160,7 +161,7 @@ public final class DrmInitData implements Comparator<SchemeData>, Parcelable {
    */
   @CheckResult
   public DrmInitData copyWithSchemeType(@Nullable String schemeType) {
-    if (Util.areEqual(this.schemeType, schemeType)) {
+    if (Objects.equals(this.schemeType, schemeType)) {
       return this;
     }
     return new DrmInitData(schemeType, false, schemeDatas);
@@ -204,7 +205,7 @@ public final class DrmInitData implements Comparator<SchemeData>, Parcelable {
       return false;
     }
     DrmInitData other = (DrmInitData) obj;
-    return Util.areEqual(schemeType, other.schemeType)
+    return Objects.equals(schemeType, other.schemeType)
         && Arrays.equals(schemeDatas, other.schemeDatas);
   }
 
@@ -352,9 +353,9 @@ public final class DrmInitData implements Comparator<SchemeData>, Parcelable {
         return true;
       }
       SchemeData other = (SchemeData) obj;
-      return Util.areEqual(licenseServerUrl, other.licenseServerUrl)
-          && Util.areEqual(mimeType, other.mimeType)
-          && Util.areEqual(uuid, other.uuid)
+      return Objects.equals(licenseServerUrl, other.licenseServerUrl)
+          && Objects.equals(mimeType, other.mimeType)
+          && Objects.equals(uuid, other.uuid)
           && Arrays.equals(data, other.data);
     }
 
