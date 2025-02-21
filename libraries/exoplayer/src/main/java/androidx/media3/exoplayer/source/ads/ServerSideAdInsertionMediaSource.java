@@ -46,6 +46,7 @@ import androidx.media3.exoplayer.LoadingInfo;
 import androidx.media3.exoplayer.SeekParameters;
 import androidx.media3.exoplayer.drm.DrmSession;
 import androidx.media3.exoplayer.drm.DrmSessionEventListener;
+import androidx.media3.exoplayer.drm.KeyRequestInfo;
 import androidx.media3.exoplayer.source.BaseMediaSource;
 import androidx.media3.exoplayer.source.EmptySampleStream;
 import androidx.media3.exoplayer.source.ForwardingTimeline;
@@ -357,15 +358,18 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
   }
 
   @Override
-  public void onDrmKeysLoaded(int windowIndex, @Nullable MediaPeriodId mediaPeriodId) {
+  public void onDrmKeysLoaded(
+      int windowIndex,
+      @Nullable MediaPeriodId mediaPeriodId,
+      @Nullable KeyRequestInfo keyRequestInfo) {
     @Nullable
     MediaPeriodImpl mediaPeriod =
         getMediaPeriodForEvent(
             mediaPeriodId, /* mediaLoadData= */ null, /* useLoadingPeriod= */ false);
     if (mediaPeriod == null) {
-      drmEventDispatcherWithoutId.drmKeysLoaded();
+      drmEventDispatcherWithoutId.drmKeysLoaded(keyRequestInfo);
     } else {
-      mediaPeriod.drmEventDispatcher.drmKeysLoaded();
+      mediaPeriod.drmEventDispatcher.drmKeysLoaded(keyRequestInfo);
     }
   }
 
