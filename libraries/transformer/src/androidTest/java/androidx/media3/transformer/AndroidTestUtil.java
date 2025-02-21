@@ -62,6 +62,8 @@ import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
 import androidx.media3.exoplayer.mediacodec.MediaCodecUtil;
 import androidx.media3.muxer.MuxerException;
 import androidx.media3.test.utils.BitmapPixelTestUtil;
+import androidx.media3.test.utils.FakeExtractorOutput;
+import androidx.media3.test.utils.FakeTrackOutput;
 import androidx.media3.test.utils.VideoDecodingWrapper;
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
@@ -1136,6 +1138,21 @@ public final class AndroidTestUtil {
     // output, so allow both color spaces in output files when checking for SDR.
     assertThat(colorInfo.colorSpace)
         .isAnyOf(C.COLOR_SPACE_BT709, C.COLOR_SPACE_BT601, Format.NO_VALUE);
+  }
+
+  /**
+   * Returns the {@linkplain FakeTrackOutput video track} from the {@link FakeExtractorOutput} or
+   * {@code null} if a video track is not found.
+   */
+  @Nullable
+  public static FakeTrackOutput getVideoTrackOutput(FakeExtractorOutput extractorOutput) {
+    for (int i = 0; i < extractorOutput.numberOfTracks; i++) {
+      FakeTrackOutput trackOutput = extractorOutput.trackOutputs.get(i);
+      if (MimeTypes.isVideo(checkNotNull(trackOutput.lastFormat).sampleMimeType)) {
+        return trackOutput;
+      }
+    }
+    return null;
   }
 
   public static ImmutableList<Bitmap> extractBitmapsFromVideo(Context context, String filePath)

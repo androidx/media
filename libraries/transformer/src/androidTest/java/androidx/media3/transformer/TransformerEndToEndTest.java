@@ -46,6 +46,7 @@ import static androidx.media3.transformer.AndroidTestUtil.createFrameCountingEff
 import static androidx.media3.transformer.AndroidTestUtil.createOpenGlObjects;
 import static androidx.media3.transformer.AndroidTestUtil.generateTextureFromBitmap;
 import static androidx.media3.transformer.AndroidTestUtil.getMuxerFactoryBasedOnApi;
+import static androidx.media3.transformer.AndroidTestUtil.getVideoTrackOutput;
 import static androidx.media3.transformer.AndroidTestUtil.recordTestSkipped;
 import static androidx.media3.transformer.ExportResult.CONVERSION_PROCESS_NA;
 import static androidx.media3.transformer.ExportResult.CONVERSION_PROCESS_TRANSCODED;
@@ -70,7 +71,6 @@ import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Message;
 import android.util.Pair;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
@@ -2535,17 +2535,6 @@ public class TransformerEndToEndTest {
           new TextureAssetLoader(editedMediaItem, listener, format, frameProcessedListener);
       return textureAssetLoader;
     }
-  }
-
-  @Nullable
-  private static FakeTrackOutput getVideoTrackOutput(FakeExtractorOutput extractorOutput) {
-    for (int i = 0; i < extractorOutput.numberOfTracks; i++) {
-      FakeTrackOutput trackOutput = extractorOutput.trackOutputs.get(i);
-      if (MimeTypes.isVideo(checkNotNull(trackOutput.lastFormat).sampleMimeType)) {
-        return trackOutput;
-      }
-    }
-    return null;
   }
 
   private static final class VideoUnsupportedEncoderFactory implements Codec.EncoderFactory {
