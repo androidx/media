@@ -3486,7 +3486,9 @@ public abstract class SimpleBasePlayer extends BasePlayer {
   protected ListenableFuture<?> handleReplaceMediaItems(
       int fromIndex, int toIndex, List<MediaItem> mediaItems) {
     ListenableFuture<?> addFuture = handleAddMediaItems(toIndex, mediaItems);
-    if (fromIndex == toIndex) return addFuture;
+    if (fromIndex == toIndex) {
+      return addFuture;
+    }
     ListenableFuture<?> removeFuture = handleRemoveMediaItems(fromIndex, toIndex);
     return Util.transformFutureAsync(addFuture, unused -> removeFuture);
   }
