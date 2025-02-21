@@ -59,7 +59,7 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public class EditingMetricsCollectorTest {
   private static final String EXPORTER_NAME =
-      "androidx.media3.media3-transformer:" + MediaLibraryInfo.VERSION;
+      "androidx.media3:media3-transformer:" + MediaLibraryInfo.VERSION;
   private static final int DEFAULT_TIMEOUT_SECONDS = 120;
   private static final long PRESENTATION_TIME_US_TO_BLOCK_FRAME = 50_000L;
 

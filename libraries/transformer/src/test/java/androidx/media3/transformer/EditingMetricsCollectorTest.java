@@ -42,9 +42,9 @@ public final class EditingMetricsCollectorTest {
 
   private static final int MEDIA_DURATION_US = 1_000_000_000;
   private static final String EXPORTER_NAME =
-      "androidx.media3.media3-transformer:" + MediaLibraryInfo.VERSION;
+      "androidx.media3:media3-transformer:" + MediaLibraryInfo.VERSION;
   private static final String MUXER_NAME =
-      "androidx.media3.media3-muxer:" + MediaLibraryInfo.VERSION;
+      "androidx.media3:media3-muxer:" + MediaLibraryInfo.VERSION;
   private static final String VIDEO_MIME_TYPE = "video/hevc";
   private static final String AUDIO_MIME_TYPE = "audio/mp4a-latm";
   private static final String VIDEO_ENCODER_NAME = "c2.android.hevc.encoder";
