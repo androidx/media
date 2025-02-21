@@ -13,6 +13,8 @@
 *   Transformer:
 *   Track Selection:
 *   Extractors:
+    *   Fix issue where TS streams can get stuck on some devices
+        ([#2069](https://github.com/androidx/media/issues/2069)).
 *   DataSource:
 *   Audio:
 *   Video:
