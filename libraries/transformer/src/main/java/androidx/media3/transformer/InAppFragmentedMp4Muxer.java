@@ -111,7 +111,7 @@ public final class InAppFragmentedMp4Muxer implements Muxer {
   }
 
   public static final String MUXER_NAME =
-      "androidx.media3.media3-muxer:" + MediaLibraryInfo.VERSION;
+      "androidx.media3:media3-muxer:" + MediaLibraryInfo.VERSION;
 
   private static final String TAG = "InAppFragmentedMp4Muxer";
   private static final int TRACK_ID_UNSET = -1;

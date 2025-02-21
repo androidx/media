@@ -771,7 +771,7 @@ public final class Transformer {
   private static final int TRANSFORMER_STATE_PROCESS_MEDIA_START = 5;
   private static final int TRANSFORMER_STATE_REMUX_REMAINING_MEDIA = 6;
   private static final String EXPORTER_NAME =
-      "androidx.media3.media3-transformer:" + MediaLibraryInfo.VERSION;
+      "androidx.media3:media3-transformer:" + MediaLibraryInfo.VERSION;
   private final Context context;
   private final TransformationRequest transformationRequest;
   private final ImmutableList<AudioProcessor> audioProcessors;
