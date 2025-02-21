@@ -87,7 +87,7 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
   private final ExecutorService sharedExecutorService;
 
   private final DefaultVideoFrameProcessor.Factory videoFrameProcessorFactory;
-  private final Queue<CompositorOutputTextureInfo> compositorOutputTextures;
+  private final Queue<TimedGlTextureInfo> compositorOutputTextures;
   private final SparseArray<CompositorOutputTextureRelease> compositorOutputTextureReleases;
 
   private final long initialTimestampOffsetUs;
@@ -363,8 +363,7 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
     DebugTraceUtil.logEvent(
         COMPONENT_COMPOSITOR, EVENT_OUTPUT_TEXTURE_RENDERED, presentationTimeUs);
 
-    compositorOutputTextures.add(
-        new CompositorOutputTextureInfo(outputTexture, presentationTimeUs));
+    compositorOutputTextures.add(new TimedGlTextureInfo(outputTexture, presentationTimeUs));
     compositorOutputTextureReleases.put(
         outputTexture.texId,
         new CompositorOutputTextureRelease(textureProducer, presentationTimeUs));
@@ -421,7 +420,7 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
       return;
     }
 
-    @Nullable CompositorOutputTextureInfo outputTexture = compositorOutputTextures.peek();
+    @Nullable TimedGlTextureInfo outputTexture = compositorOutputTextures.peek();
     if (outputTexture == null) {
       return;
     }
@@ -444,16 +443,6 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
                 e instanceof VideoFrameProcessingException
                     ? (VideoFrameProcessingException) e
                     : VideoFrameProcessingException.from(e)));
-  }
-
-  private static final class CompositorOutputTextureInfo {
-    public final GlTextureInfo glTextureInfo;
-    public final long presentationTimeUs;
-
-    private CompositorOutputTextureInfo(GlTextureInfo glTextureInfo, long presentationTimeUs) {
-      this.glTextureInfo = glTextureInfo;
-      this.presentationTimeUs = presentationTimeUs;
-    }
   }
 
   private static final class CompositorOutputTextureRelease {

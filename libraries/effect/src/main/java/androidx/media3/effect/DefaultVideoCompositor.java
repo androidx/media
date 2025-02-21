@@ -201,8 +201,7 @@ public final class DefaultVideoCompositor implements VideoCompositor {
     InputFrameInfo inputFrameInfo =
         new InputFrameInfo(
             textureProducer,
-            inputTexture,
-            presentationTimeUs,
+            new TimedGlTextureInfo(inputTexture, presentationTimeUs),
             settings.getOverlaySettings(inputIndex, presentationTimeUs));
     inputSource.frameInfos.add(inputFrameInfo);
 
@@ -260,13 +259,15 @@ public final class DefaultVideoCompositor implements VideoCompositor {
     // nextTimestampToComposite.
     @Nullable InputFrameInfo nextPrimaryFrame = primaryInputSource.frameInfos.peek();
     long nextTimestampToComposite =
-        nextPrimaryFrame != null ? nextPrimaryFrame.presentationTimeUs : C.TIME_UNSET;
+        nextPrimaryFrame != null
+            ? nextPrimaryFrame.timedGlTextureInfo.presentationTimeUs
+            : C.TIME_UNSET;
 
     int numberOfSecondaryFramesBeforeOrAtNextTargetTimestamp =
         Iterables.size(
             Iterables.filter(
                 secondaryInputSource.frameInfos,
-                frame -> frame.presentationTimeUs <= nextTimestampToComposite));
+                frame -> frame.timedGlTextureInfo.presentationTimeUs <= nextTimestampToComposite));
     releaseFrames(
         secondaryInputSource,
         /* numberOfFramesToRelease= */ max(
@@ -277,7 +278,7 @@ public final class DefaultVideoCompositor implements VideoCompositor {
     for (int i = 0; i < numberOfFramesToRelease; i++) {
       InputFrameInfo frameInfoToRelease = inputSource.frameInfos.remove();
       frameInfoToRelease.textureProducer.releaseOutputTexture(
-          frameInfoToRelease.presentationTimeUs);
+          frameInfoToRelease.timedGlTextureInfo.presentationTimeUs);
     }
   }
 
@@ -302,7 +303,7 @@ public final class DefaultVideoCompositor implements VideoCompositor {
 
     ImmutableList.Builder<Size> inputSizes = new ImmutableList.Builder<>();
     for (int i = 0; i < framesToComposite.size(); i++) {
-      GlTextureInfo texture = framesToComposite.get(i).texture;
+      GlTextureInfo texture = framesToComposite.get(i).timedGlTextureInfo.glTextureInfo;
       inputSizes.add(new Size(texture.width, texture.height));
     }
     Size outputSize = settings.getOutputSize(inputSizes.build());
@@ -310,7 +311,7 @@ public final class DefaultVideoCompositor implements VideoCompositor {
         glObjectsProvider, outputSize.getWidth(), outputSize.getHeight());
 
     GlTextureInfo outputTexture = outputTexturePool.useTexture();
-    long outputPresentationTimestampUs = primaryInputFrame.presentationTimeUs;
+    long outputPresentationTimestampUs = primaryInputFrame.timedGlTextureInfo.presentationTimeUs;
     outputTextureTimestamps.add(outputPresentationTimestampUs);
 
     compositorGlProgram.drawFrame(framesToComposite, outputTexture);
@@ -369,16 +370,18 @@ public final class DefaultVideoCompositor implements VideoCompositor {
       Iterator<InputFrameInfo> frameInfosIterator = secondaryInputSource.frameInfos.iterator();
       while (frameInfosIterator.hasNext()) {
         InputFrameInfo candidateFrame = frameInfosIterator.next();
-        long candidateTimestampUs = candidateFrame.presentationTimeUs;
+        long candidateTimestampUs = candidateFrame.timedGlTextureInfo.presentationTimeUs;
         long candidateAbsDistance =
-            abs(candidateTimestampUs - primaryFrameToComposite.presentationTimeUs);
+            abs(
+                candidateTimestampUs
+                    - primaryFrameToComposite.timedGlTextureInfo.presentationTimeUs);
 
         if (candidateAbsDistance < minTimeDiffFromPrimaryUs) {
           minTimeDiffFromPrimaryUs = candidateAbsDistance;
           secondaryFrameToComposite = candidateFrame;
         }
 
-        if (candidateTimestampUs > primaryFrameToComposite.presentationTimeUs
+        if (candidateTimestampUs > primaryFrameToComposite.timedGlTextureInfo.presentationTimeUs
             || (!frameInfosIterator.hasNext() && secondaryInputSource.isInputEnded)) {
           framesToComposite.add(checkNotNull(secondaryFrameToComposite));
           break;
@@ -503,7 +506,7 @@ public final class DefaultVideoCompositor implements VideoCompositor {
 
     private void blendOntoFocusedTexture(InputFrameInfo inputFrameInfo) throws GlUtil.GlException {
       GlProgram glProgram = checkNotNull(this.glProgram);
-      GlTextureInfo inputTexture = inputFrameInfo.texture;
+      GlTextureInfo inputTexture = inputFrameInfo.timedGlTextureInfo.glTextureInfo;
       glProgram.setSamplerTexIdUniform("uTexSampler", inputTexture.texId, /* texUnitIndex= */ 0);
       float[] transformationMatrix =
           overlayMatrixProvider.getTransformationMatrix(
@@ -537,18 +540,15 @@ public final class DefaultVideoCompositor implements VideoCompositor {
   /** Holds information on a frame and how to release it. */
   private static final class InputFrameInfo {
     public final GlTextureProducer textureProducer;
-    public final GlTextureInfo texture;
-    public final long presentationTimeUs;
+    public final TimedGlTextureInfo timedGlTextureInfo;
     public final OverlaySettings overlaySettings;
 
     public InputFrameInfo(
         GlTextureProducer textureProducer,
-        GlTextureInfo texture,
-        long presentationTimeUs,
+        TimedGlTextureInfo timedGlTextureInfo,
         OverlaySettings overlaySettings) {
       this.textureProducer = textureProducer;
-      this.texture = texture;
-      this.presentationTimeUs = presentationTimeUs;
+      this.timedGlTextureInfo = timedGlTextureInfo;
       this.overlaySettings = overlaySettings;
     }
   }

@@ -28,7 +28,6 @@ import android.opengl.EGLContext;
 import android.opengl.EGLDisplay;
 import android.opengl.EGLExt;
 import android.opengl.EGLSurface;
-import android.util.Pair;
 import android.view.Surface;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
@@ -86,7 +85,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final VideoFrameProcessingTaskExecutor videoFrameProcessingTaskExecutor;
   private final Executor videoFrameProcessorListenerExecutor;
   private final VideoFrameProcessor.Listener videoFrameProcessorListener;
-  private final Queue<Pair<GlTextureInfo, Long>> availableFrames;
+  private final Queue<TimedGlTextureInfo> availableFrames;
   private final TexturePool outputTexturePool;
   private final LongArrayQueue outputTextureTimestamps; // Synchronized with outputTexturePool.
   private final LongArrayQueue syncObjects;
@@ -221,7 +220,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             presentationTimeUs,
             /* renderTimeNs= */ presentationTimeUs * 1000);
       } else {
-        availableFrames.add(Pair.create(inputTexture, presentationTimeUs));
+        availableFrames.add(new TimedGlTextureInfo(inputTexture, presentationTimeUs));
       }
       inputListener.onReadyToAcceptInputFrame();
     } else {
@@ -307,11 +306,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       return;
     }
     checkState(!renderFramesAutomatically);
-    Pair<GlTextureInfo, Long> oldestAvailableFrame = availableFrames.remove();
+    TimedGlTextureInfo oldestAvailableFrame = availableFrames.remove();
     renderFrame(
         glObjectsProvider,
-        /* inputTexture= */ oldestAvailableFrame.first,
-        /* presentationTimeUs= */ oldestAvailableFrame.second,
+        oldestAvailableFrame.glTextureInfo,
+        oldestAvailableFrame.presentationTimeUs,
         renderTimeNs);
     if (availableFrames.isEmpty() && isInputStreamEndedWithPendingAvailableFrames) {
       checkNotNull(onInputStreamProcessedListener).onInputStreamProcessed();
