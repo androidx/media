@@ -151,15 +151,6 @@ public abstract class BasePlayer implements Player {
     return getPreviousMediaItemIndex() != C.INDEX_UNSET;
   }
 
-  /**
-   * @deprecated Use {@link #seekToPreviousMediaItem()} instead.
-   */
-  @Deprecated
-  @Override
-  public final void seekToPreviousWindow() {
-    seekToPreviousMediaItem();
-  }
-
   @Override
   public final void seekToPreviousMediaItem() {
     seekToPreviousMediaItemInternal(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM);
@@ -186,45 +177,9 @@ public abstract class BasePlayer implements Player {
     }
   }
 
-  /**
-   * @deprecated Use {@link #hasNextMediaItem()} instead.
-   */
-  @Deprecated
-  @Override
-  public final boolean hasNext() {
-    return hasNextMediaItem();
-  }
-
-  /**
-   * @deprecated Use {@link #hasNextMediaItem()} instead.
-   */
-  @Deprecated
-  @Override
-  public final boolean hasNextWindow() {
-    return hasNextMediaItem();
-  }
-
   @Override
   public final boolean hasNextMediaItem() {
     return getNextMediaItemIndex() != C.INDEX_UNSET;
-  }
-
-  /**
-   * @deprecated Use {@link #seekToNextMediaItem()} instead.
-   */
-  @Deprecated
-  @Override
-  public final void next() {
-    seekToNextMediaItem();
-  }
-
-  /**
-   * @deprecated Use {@link #seekToNextMediaItem()} instead.
-   */
-  @Deprecated
-  @Override
-  public final void seekToNextWindow() {
-    seekToNextMediaItem();
   }
 
   @Override
