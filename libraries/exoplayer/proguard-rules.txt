@@ -31,7 +31,7 @@
 }
 -dontnote androidx.media3.decoder.midi.MidiRenderer
 -keepclassmembers class androidx.media3.decoder.midi.MidiRenderer {
-  <init>(android.content.Context);
+  <init>(android.content.Context, android.os.Handler, androidx.media3.exoplayer.audio.AudioRendererEventListener, androidx.media3.exoplayer.audio.AudioSink);
 }
 -dontnote androidx.media3.decoder.mpegh.MpeghAudioRenderer
 -keepclassmembers class androidx.media3.decoder.mpegh.MpeghAudioRenderer {
