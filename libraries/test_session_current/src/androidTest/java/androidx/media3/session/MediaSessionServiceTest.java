@@ -323,6 +323,8 @@ public class MediaSessionServiceTest {
     RemoteMediaController remoteController =
         controllerTestRule.createRemoteController(token, /* waitForConnection= */ true, testHints);
 
+    MockMediaSessionService service =
+        (MockMediaSessionService) TestServiceRegistry.getInstance().getServiceInstance();
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(
             controllerInfoList
@@ -352,8 +354,7 @@ public class MediaSessionServiceTest {
     assertThat(customAction2.getName().toString()).isEqualTo("button3");
     assertThat(customAction2.getIcon()).isEqualTo(R.drawable.media3_notification_small_icon);
     mediaSession.release();
-    ((MockMediaSessionService) TestServiceRegistry.getInstance().getServiceInstance())
-        .blockUntilAllControllersUnbind(TIMEOUT_MS);
+    service.blockUntilAllControllersUnbind(TIMEOUT_MS);
   }
 
   @Test
@@ -438,6 +439,8 @@ public class MediaSessionServiceTest {
     RemoteMediaController remoteController =
         controllerTestRule.createRemoteController(token, /* waitForConnection= */ true, testHints);
 
+    MockMediaSessionService service =
+        (MockMediaSessionService) TestServiceRegistry.getInstance().getServiceInstance();
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(
             controllerInfoList
@@ -467,8 +470,7 @@ public class MediaSessionServiceTest {
     assertThat(customAction2.getName().toString()).isEqualTo("button3");
     assertThat(customAction2.getIcon()).isEqualTo(R.drawable.media3_notification_small_icon);
     mediaSession.release();
-    ((MockMediaSessionService) TestServiceRegistry.getInstance().getServiceInstance())
-        .blockUntilAllControllersUnbind(TIMEOUT_MS);
+    service.blockUntilAllControllersUnbind(TIMEOUT_MS);
   }
 
   /**
