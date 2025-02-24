@@ -207,6 +207,9 @@ public interface VideoFrameProcessor {
    * <p>Can be called many times after {@link #registerInputStream registering the input stream} to
    * put multiple frames in the same input stream.
    *
+   * <p>An implementation could {@link Bitmap#recycle} the passed in {@link Bitmap}, so it may not
+   * be suitable for reuse.
+   *
    * @param inputBitmap The {@link Bitmap} queued to the {@code VideoFrameProcessor}.
    * @param timestampIterator A {@link TimestampIterator} generating the exact timestamps that the
    *     bitmap should be shown at.

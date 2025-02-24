@@ -566,6 +566,12 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
     inputSwitcher.setInputDefaultBufferSize(width, height);
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>The passed in {@link Bitmap} argument cannot be reused after this method returns {@code
+   * true}, as it will be {@linkplain Bitmap#recycle recycled} by the processing pipeline.
+   */
   @Override
   public boolean queueInputBitmap(Bitmap inputBitmap, TimestampIterator timestampIterator) {
     checkState(!inputStreamEnded);
