@@ -101,6 +101,7 @@ public class MediaSessionServiceTest {
     List<ControllerInfo> playbackCommandControllerInfos = new ArrayList<>();
     List<ControllerInfo> onDisconnectedCommandControllerInfos = new ArrayList<>();
     AtomicReference<MediaSession> session = new AtomicReference<>();
+    ConditionVariable disconnected = new ConditionVariable();
     testServiceRegistry.setOnGetSessionHandler(
         controllerInfo -> {
           // The controllerInfo passed to the onGetSession of the service.
@@ -136,8 +137,8 @@ public class MediaSessionServiceTest {
                           if (!session.isMediaNotificationController(controller)) {
                             // The controllerInfo when disconnecting.
                             onDisconnectedCommandControllerInfos.add(controller);
+                            disconnected.open();
                           }
-                          MediaSession.Callback.super.onDisconnected(session, controller);
                         }
                       })
                   .build());
@@ -150,6 +151,8 @@ public class MediaSessionServiceTest {
     // Get the started service instance after creation.
     MockMediaSessionService service =
         (MockMediaSessionService) testServiceRegistry.getServiceInstance();
+    // TestServiceRegistry is taken care of and cleaned up @After the test.
+    service.setCleanupServiceRegistryOnDestroy(false);
     controller.setRepeatMode(Player.REPEAT_MODE_ONE);
     List<ControllerInfo> connectedControllerManagerControllerInfos = new ArrayList<>();
     for (ControllerInfo controllerInfo : session.get().getConnectedControllers()) {
@@ -159,9 +162,12 @@ public class MediaSessionServiceTest {
       }
     }
 
+    // The controller that was bound to the service unbinds when released. Because the service was
+    // never started (as in `onStartCommand()` was never called), the service is immediately
+    // terminated by the system when the last bound client unbinds.
     controller.release();
 
-    service.blockUntilAllControllersUnbind(TIMEOUT_MS);
+    assertThat(disconnected.block(TIMEOUT_MS)).isTrue();
     assertThat(onGetSessionControllerInfos).hasSize(1);
     assertThat(onGetSessionControllerInfos).isEqualTo(onConnectControllerInfos);
     assertThat(onGetSessionControllerInfos).isEqualTo(playbackCommandControllerInfos);

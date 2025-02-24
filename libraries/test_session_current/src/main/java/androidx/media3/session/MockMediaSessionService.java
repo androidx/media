@@ -38,11 +38,24 @@ public class MockMediaSessionService extends MediaSessionService {
 
   @Nullable public MediaSession session;
   @Nullable private HandlerThread handlerThread;
+  private boolean cleanupServiceRegistryOnDestroy;
 
   public MockMediaSessionService() {
     boundControllerCount = new AtomicInteger(/* initialValue= */ 0);
     allControllersUnbound = new ConditionVariable();
     allControllersUnbound.open();
+    cleanupServiceRegistryOnDestroy = true;
+  }
+
+  /**
+   * Whether the service should clean up the service registry {@link #onDestroy()} by calling {@link
+   * TestServiceRegistry#cleanUp()} on {@link TestServiceRegistry#getInstance()}.
+   *
+   * <p>The cleanup will release all sessions of the service. A test can clean up when tearing down
+   * the test, to prevent the sessions to be released by the service.
+   */
+  public void setCleanupServiceRegistryOnDestroy(boolean cleanupServiceRegistryOnDestroy) {
+    this.cleanupServiceRegistryOnDestroy = cleanupServiceRegistryOnDestroy;
   }
 
   /** Returns whether at least one controller is bound to this service. */
@@ -90,7 +103,9 @@ public class MockMediaSessionService extends MediaSessionService {
   @Override
   public void onDestroy() {
     super.onDestroy();
-    TestServiceRegistry.getInstance().cleanUp();
+    if (cleanupServiceRegistryOnDestroy) {
+      TestServiceRegistry.getInstance().cleanUp();
+    }
     handlerThread.quitSafely();
   }
 
