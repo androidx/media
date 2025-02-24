@@ -43,6 +43,8 @@ public class Av1SampleDependencyParserTest {
           0x32, 0x1A, 0x30, 0xC0, 0x00, 0x1D, 0x66, 0x68, 0x46, 0xC9, 0x38, 0x00, 0x60, 0x10, 0x20,
           0x80, 0x20, 0x00, 0x00, 0x01, 0x8B, 0x7A, 0x87, 0xF9, 0xAA, 0x2D, 0x0F, 0x2C);
 
+  private static final byte[] frameHeader = createByteArray(0x1A, 0x01, 0xC8);
+
   private static final byte[] temporalDelimiter = createByteArray(0x12, 0x00);
 
   private static final byte[] padding = createByteArray(0x7a, 0x02, 0xFF, 0xFF);
@@ -56,7 +58,8 @@ public class Av1SampleDependencyParserTest {
     Av1SampleDependencyParser av1SampleDependencyParser = new Av1SampleDependencyParser();
 
     int sampleLimitAfterSkippingNonReferenceFrames =
-        av1SampleDependencyParser.sampleLimitAfterSkippingNonReferenceFrame(sample);
+        av1SampleDependencyParser.sampleLimitAfterSkippingNonReferenceFrame(
+            sample, /* skipFrameHeaders= */ true);
 
     assertThat(sampleLimitAfterSkippingNonReferenceFrames)
         .isEqualTo(sequenceHeader.length + dependedOnFrame.length);
@@ -72,7 +75,8 @@ public class Av1SampleDependencyParserTest {
     Av1SampleDependencyParser av1SampleDependencyParser = new Av1SampleDependencyParser();
 
     int sampleLimitAfterSkippingNonReferenceFrames =
-        av1SampleDependencyParser.sampleLimitAfterSkippingNonReferenceFrame(sample);
+        av1SampleDependencyParser.sampleLimitAfterSkippingNonReferenceFrame(
+            sample, /* skipFrameHeaders= */ true);
 
     assertThat(sampleLimitAfterSkippingNonReferenceFrames).isEqualTo(sequenceHeader.length);
   }
@@ -86,7 +90,8 @@ public class Av1SampleDependencyParserTest {
 
     av1SampleDependencyParser.queueInputBuffer(header);
     int sampleLimitAfterSkippingNonReferenceFrames =
-        av1SampleDependencyParser.sampleLimitAfterSkippingNonReferenceFrame(frame);
+        av1SampleDependencyParser.sampleLimitAfterSkippingNonReferenceFrame(
+            frame, /* skipFrameHeaders= */ true);
 
     assertThat(sampleLimitAfterSkippingNonReferenceFrames).isEqualTo(0);
   }
@@ -104,7 +109,8 @@ public class Av1SampleDependencyParserTest {
 
     av1SampleDependencyParser.queueInputBuffer(header);
     int sampleLimitAfterSkippingNonReferenceFrames =
-        av1SampleDependencyParser.sampleLimitAfterSkippingNonReferenceFrame(sample);
+        av1SampleDependencyParser.sampleLimitAfterSkippingNonReferenceFrame(
+            sample, /* skipFrameHeaders= */ true);
 
     assertThat(sampleLimitAfterSkippingNonReferenceFrames).isEqualTo(0);
   }
@@ -123,7 +129,8 @@ public class Av1SampleDependencyParserTest {
 
     av1SampleDependencyParser.queueInputBuffer(header);
     int sampleLimitAfterSkippingNonReferenceFrames =
-        av1SampleDependencyParser.sampleLimitAfterSkippingNonReferenceFrame(sample);
+        av1SampleDependencyParser.sampleLimitAfterSkippingNonReferenceFrame(
+            sample, /* skipFrameHeaders= */ true);
 
     assertThat(sampleLimitAfterSkippingNonReferenceFrames)
         .isEqualTo(temporalDelimiter.length + padding.length + dependedOnFrame.length);
@@ -135,7 +142,8 @@ public class Av1SampleDependencyParserTest {
     Av1SampleDependencyParser av1SampleDependencyParser = new Av1SampleDependencyParser();
 
     int sampleLimitAfterSkippingNonReferenceFrames =
-        av1SampleDependencyParser.sampleLimitAfterSkippingNonReferenceFrame(frame);
+        av1SampleDependencyParser.sampleLimitAfterSkippingNonReferenceFrame(
+            frame, /* skipFrameHeaders= */ true);
 
     assertThat(sampleLimitAfterSkippingNonReferenceFrames).isEqualTo(notDependedOnFrame.length);
   }
@@ -152,7 +160,8 @@ public class Av1SampleDependencyParserTest {
 
     av1SampleDependencyParser.queueInputBuffer(header);
     int sampleLimitAfterSkippingNonReferenceFrames =
-        av1SampleDependencyParser.sampleLimitAfterSkippingNonReferenceFrame(sample);
+        av1SampleDependencyParser.sampleLimitAfterSkippingNonReferenceFrame(
+            sample, /* skipFrameHeaders= */ true);
 
     assertThat(sampleLimitAfterSkippingNonReferenceFrames)
         .isEqualTo(notDependedOnFrame.length + notDependedOnFrame.length);
@@ -174,7 +183,8 @@ public class Av1SampleDependencyParserTest {
     Av1SampleDependencyParser av1SampleDependencyParser = new Av1SampleDependencyParser();
 
     int sampleLimitAfterSkippingNonReferenceFrames =
-        av1SampleDependencyParser.sampleLimitAfterSkippingNonReferenceFrame(sample);
+        av1SampleDependencyParser.sampleLimitAfterSkippingNonReferenceFrame(
+            sample, /* skipFrameHeaders= */ true);
 
     assertThat(sampleLimitAfterSkippingNonReferenceFrames).isEqualTo(sample.limit());
   }
@@ -189,8 +199,39 @@ public class Av1SampleDependencyParserTest {
     av1SampleDependencyParser.queueInputBuffer(header);
     av1SampleDependencyParser.reset();
     int sampleLimitAfterSkippingNonReferenceFrames =
-        av1SampleDependencyParser.sampleLimitAfterSkippingNonReferenceFrame(frame);
+        av1SampleDependencyParser.sampleLimitAfterSkippingNonReferenceFrame(
+            frame, /* skipFrameHeaders= */ true);
 
     assertThat(sampleLimitAfterSkippingNonReferenceFrames).isEqualTo(notDependedOnFrame.length);
+  }
+
+  @Test
+  public void
+      sampleLimitAfterSkippingNonReferenceFrame_withSkipFrameHeadersTrue_returnsEmptySample() {
+    ByteBuffer header = ByteBuffer.wrap(sequenceHeader);
+    ByteBuffer sample = ByteBuffer.wrap(frameHeader);
+    Av1SampleDependencyParser av1SampleDependencyParser = new Av1SampleDependencyParser();
+
+    av1SampleDependencyParser.queueInputBuffer(header);
+    int sampleLimitAfterSkippingNonReferenceFrame =
+        av1SampleDependencyParser.sampleLimitAfterSkippingNonReferenceFrame(
+            sample, /* skipFrameHeaders= */ true);
+
+    assertThat(sampleLimitAfterSkippingNonReferenceFrame).isEqualTo(0);
+  }
+
+  @Test
+  public void
+      sampleLimitAfterSkippingNonReferenceFrame_withSkipFrameHeadersFalse_returnsFullSample() {
+    ByteBuffer header = ByteBuffer.wrap(sequenceHeader);
+    ByteBuffer sample = ByteBuffer.wrap(frameHeader);
+    Av1SampleDependencyParser av1SampleDependencyParser = new Av1SampleDependencyParser();
+
+    av1SampleDependencyParser.queueInputBuffer(header);
+    int sampleLimitAfterSkippingNonReferenceFrame =
+        av1SampleDependencyParser.sampleLimitAfterSkippingNonReferenceFrame(
+            sample, /* skipFrameHeaders= */ false);
+
+    assertThat(sampleLimitAfterSkippingNonReferenceFrame).isEqualTo(frameHeader.length);
   }
 }

@@ -32,8 +32,9 @@ import java.util.List;
 /** An AV1 bitstream parser that identifies frames that are not depended on. */
 /* package */ final class Av1SampleDependencyParser {
   /**
-   * When {@link #sampleLimitAfterSkippingNonReferenceFrame(ByteBuffer)} partially skips a temporal
-   * unit, the decoder input buffer is left with extra reference frames that need to be decoded.
+   * When {@link #sampleLimitAfterSkippingNonReferenceFrame(ByteBuffer, boolean)} partially skips a
+   * temporal unit, the decoder input buffer is left with extra reference frames that need to be
+   * decoded.
    *
    * <p>The AV1 spec defines {@code NUM_REF_FRAMES = 8} - delaying more than 8 reference frames will
    * overwrite the same output slots.
@@ -50,20 +51,22 @@ import java.util.List;
    * that aren't shown are used as reference, but the shown frame may not be used as reference.
    * Frequently, the shown frame is the last frame in the temporal unit.
    *
-   * <p>If the last frame in the temporal unit is a non-reference {@link ObuParser#OBU_FRAME}, this
-   * method returns a new {@link ByteBuffer#limit()} value that would leave only the frames used as
-   * reference in the input {@code sample}.
+   * <p>If the last frame in the temporal unit is a non-reference {@link ObuParser#OBU_FRAME} or
+   * {@link ObuParser#OBU_FRAME_HEADER}, this method returns a new {@link ByteBuffer#limit()} value
+   * that would leave only the frames used as reference in the input {@code sample}.
    *
    * <p>See <a href=https://aomediacodec.github.io/av1-spec/#ordering-of-obus>Ordering of OBUs</a>.
    *
    * @param sample The sample data for one AV1 temporal unit.
+   * @param skipFrameHeaders Whether to skip {@link ObuParser#OBU_FRAME_HEADER}.
    */
-  public int sampleLimitAfterSkippingNonReferenceFrame(ByteBuffer sample) {
+  public int sampleLimitAfterSkippingNonReferenceFrame(
+      ByteBuffer sample, boolean skipFrameHeaders) {
     List<ObuParser.Obu> obuList = split(sample);
     updateSequenceHeaders(obuList);
     int skippedFramesCount = 0;
     int last = obuList.size() - 1;
-    while (last >= 0 && canSkipObu(obuList.get(last))) {
+    while (last >= 0 && canSkipObu(obuList.get(last), skipFrameHeaders)) {
       if (obuList.get(last).type == OBU_FRAME || obuList.get(last).type == OBU_FRAME_HEADER) {
         skippedFramesCount++;
       }
@@ -88,9 +91,12 @@ import java.util.List;
     sequenceHeader = null;
   }
 
-  private boolean canSkipObu(ObuParser.Obu obu) {
+  private boolean canSkipObu(ObuParser.Obu obu, boolean skipFrameHeaders) {
     if (obu.type == OBU_TEMPORAL_DELIMITER || obu.type == OBU_PADDING) {
       return true;
+    }
+    if (obu.type == OBU_FRAME_HEADER && !skipFrameHeaders) {
+      return false;
     }
     if ((obu.type == OBU_FRAME || obu.type == OBU_FRAME_HEADER) && sequenceHeader != null) {
       FrameHeader frameHeader = FrameHeader.parse(sequenceHeader, obu);

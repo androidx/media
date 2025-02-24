@@ -214,6 +214,13 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
   }
 
   /**
+   * Returns the {@link CapturingMediaCodecAdapter.Factory} as a {@link MediaCodecAdapter.Factory}.
+   */
+  protected MediaCodecAdapter.Factory getMediaCodecAdapterFactory() {
+    return mediaCodecAdapterFactory;
+  }
+
+  /**
    * A {@link MediaCodecVideoRenderer} that will not skip or drop buffers due to slow processing.
    */
   private static class CapturingMediaCodecVideoRenderer extends MediaCodecVideoRenderer {

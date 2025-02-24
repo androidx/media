@@ -60,6 +60,7 @@ import androidx.media3.common.util.Size;
 import androidx.media3.common.util.TraceUtil;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import androidx.media3.container.ObuParser;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.exoplayer.DecoderCounters;
 import androidx.media3.exoplayer.DecoderReuseEvaluation;
@@ -148,6 +149,18 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
    */
   private static final long OFFSET_FROM_PERIOD_END_TO_TREAT_AS_LAST_US = 100_000L;
 
+  /**
+   * The maximum number of consecutive dropped input buffers that allow discarding frame headers.
+   *
+   * <p>Discarding input buffers of type {@link ObuParser#OBU_FRAME_HEADER} speeds up decoding by
+   * not showing already-decoded frames. This is less beneficial than discarding {@link
+   * ObuParser#OBU_FRAME} which reduces the total number of decoded frames.
+   *
+   * <p>Dropping too many consecutive input buffers reduces the update frequency of {@link
+   * #shouldDropDecoderInputBuffers}, and can harm user experience.
+   */
+  private static final int MAX_CONSECUTIVE_DROPPED_INPUT_BUFFERS_COUNT_TO_DISCARD_HEADER = 0;
+
   private static boolean evaluatedDeviceNeedsSetOutputSurfaceWorkaround;
   private static boolean deviceNeedsSetOutputSurfaceWorkaround;
 
@@ -199,6 +212,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   private boolean pendingVideoSinkInputStreamChange;
 
   private boolean shouldDropDecoderInputBuffers;
+  private int consecutiveDroppedInputBufferCount;
 
   /** A builder to create {@link MediaCodecVideoRenderer} instances. */
   public static final class Builder {
@@ -1254,6 +1268,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     droppedDecoderInputBufferTimestamps.clear();
     shouldDropDecoderInputBuffers = false;
     buffersInCodecCount = 0;
+    consecutiveDroppedInputBufferCount = 0;
     if (av1SampleDependencyParser != null) {
       av1SampleDependencyParser.reset();
     }
@@ -1436,6 +1451,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         && buffer.data != null) {
       av1SampleDependencyParser.queueInputBuffer(buffer.data);
     }
+    consecutiveDroppedInputBufferCount = 0;
     // In tunneling mode the device may do frame rate conversion, so in general we can't keep track
     // of the number of buffers in the codec.
     if (!tunneling) {
@@ -1484,16 +1500,22 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         decoderCounters.skippedInputBufferCount += 1;
       } else if (shouldDropDecoderInputBuffers) {
         droppedDecoderInputBufferTimestamps.add(buffer.timeUs);
+        consecutiveDroppedInputBufferCount += 1;
       }
       return true;
     }
     if (av1SampleDependencyParser != null
         && checkNotNull(getCodecInfo()).mimeType.equals(MimeTypes.VIDEO_AV1)
         && buffer.data != null) {
+      boolean skipFrameHeaders =
+          shouldSkipDecoderInputBuffer
+              || consecutiveDroppedInputBufferCount
+                  <= MAX_CONSECUTIVE_DROPPED_INPUT_BUFFERS_COUNT_TO_DISCARD_HEADER;
       ByteBuffer readOnlySample = buffer.data.asReadOnlyBuffer();
       readOnlySample.flip();
       int sampleLimitAfterSkippingNonReferenceFrames =
-          av1SampleDependencyParser.sampleLimitAfterSkippingNonReferenceFrame(readOnlySample);
+          av1SampleDependencyParser.sampleLimitAfterSkippingNonReferenceFrame(
+              readOnlySample, skipFrameHeaders);
       boolean hasSpaceForNextFrame =
           sampleLimitAfterSkippingNonReferenceFrames + checkNotNull(codecMaxValues).inputSize
               < readOnlySample.capacity();
@@ -1504,6 +1526,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
           decoderCounters.skippedInputBufferCount += 1;
         } else if (shouldDropDecoderInputBuffers) {
           droppedDecoderInputBufferTimestamps.add(buffer.timeUs);
+          consecutiveDroppedInputBufferCount += 1;
         }
         return true;
       }
