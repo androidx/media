@@ -145,6 +145,7 @@ public final class Transformer {
       clock = Clock.DEFAULT;
       listeners = new ListenerSet<>(looper, clock, (listener, flags) -> {});
       if (SDK_INT >= 35) {
+        usePlatformDiagnostics = true;
         metricsReporterFactory =
             new EditingMetricsCollector.DefaultMetricsReporter.Factory(context);
       }
@@ -548,6 +549,8 @@ public final class Transformer {
      * information for media editing on this device. This data may also be collected by Google <a
      * href="https://support.google.com/accounts/answer/6078260">if sharing usage and diagnostics
      * data is enabled</a> by the user of the device.
+     *
+     * <p>The default value is {@code true}.
      *
      * @param usePlatformDiagnostics Whether transformer reports diagnostics data to the Android
      *     platform.
