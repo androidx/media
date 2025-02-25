@@ -325,6 +325,61 @@ public class AdPlaybackStateTest {
   }
 
   @Test
+  public void withRemovedAdGroupCountBefore() {
+    AdPlaybackState adPlaybackState =
+        new AdPlaybackState("adsId", 6_000_000L, 18_000_000L)
+            .withAdCount(/* adGroupIndex= */ 1, /* adCount= */ 1)
+            .withAdId(1, 0, "ad1-0")
+            .withAvailableAdMediaItem(
+                /* adGroupIndex= */ 1,
+                /* adIndexInAdGroup= */ 0,
+                new MediaItem.Builder()
+                    .setUri("http://example.com/media-1-0.m3u8")
+                    .setMimeType(MimeTypes.APPLICATION_M3U8)
+                    .build());
+
+    assertThat(adPlaybackState.withRemovedAdGroupCountBefore(/* timeUs= */ 6_000_000L))
+        .isEqualTo(adPlaybackState);
+    assertThat(adPlaybackState.withRemovedAdGroupCountBefore(/* timeUs= */ 6_000_001L))
+        .isEqualTo(adPlaybackState.withRemovedAdGroupCount(/* removedAdGroupCount= */ 1));
+    assertThat(adPlaybackState.withRemovedAdGroupCountBefore(/* timeUs= */ 18_000_000L))
+        .isEqualTo(adPlaybackState.withRemovedAdGroupCount(/* removedAdGroupCount= */ 1));
+    assertThat(adPlaybackState.withRemovedAdGroupCountBefore(/* timeUs= */ 18_000_001L))
+        .isEqualTo(adPlaybackState.withRemovedAdGroupCount(/* removedAdGroupCount= */ 2));
+    assertThat(
+            adPlaybackState.withRemovedAdGroupCountBefore(/* timeUs= */ 18_000_001L).adGroupCount)
+        .isEqualTo(2);
+  }
+
+  @Test
+  public void withRemovedAdGroupCountBefore_withLivePlaceholder() {
+    AdPlaybackState adPlaybackState =
+        new AdPlaybackState("adsId", 6_000_000L, 18_000_000L)
+            .withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ false)
+            .withAdCount(/* adGroupIndex= */ 1, /* adCount= */ 1)
+            .withAdId(1, 0, "ad1-0")
+            .withAvailableAdMediaItem(
+                /* adGroupIndex= */ 1,
+                /* adIndexInAdGroup= */ 0,
+                new MediaItem.Builder()
+                    .setUri("http://example.com/media-1-0.m3u8")
+                    .setMimeType(MimeTypes.APPLICATION_M3U8)
+                    .build());
+
+    assertThat(adPlaybackState.withRemovedAdGroupCountBefore(/* timeUs= */ 6_000_000L))
+        .isEqualTo(adPlaybackState);
+    assertThat(adPlaybackState.withRemovedAdGroupCountBefore(/* timeUs= */ 6_000_001L))
+        .isEqualTo(adPlaybackState.withRemovedAdGroupCount(/* removedAdGroupCount= */ 1));
+    assertThat(adPlaybackState.withRemovedAdGroupCountBefore(/* timeUs= */ 18_000_000L))
+        .isEqualTo(adPlaybackState.withRemovedAdGroupCount(/* removedAdGroupCount= */ 1));
+    assertThat(adPlaybackState.withRemovedAdGroupCountBefore(/* timeUs= */ 18_000_001L))
+        .isEqualTo(adPlaybackState.withRemovedAdGroupCount(/* removedAdGroupCount= */ 2));
+    assertThat(
+            adPlaybackState.withRemovedAdGroupCountBefore(/* timeUs= */ 18_000_001L).adGroupCount)
+        .isEqualTo(3);
+  }
+
+  @Test
   public void withAvailableAd_forClientSideAdGroup_throwsRuntimeException() {
     AdPlaybackState state =
         new AdPlaybackState(TEST_ADS_ID, TEST_AD_GROUP_TIMES_US)

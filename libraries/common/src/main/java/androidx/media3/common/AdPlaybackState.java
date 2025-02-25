@@ -1150,6 +1150,27 @@ public final class AdPlaybackState {
   }
 
   /**
+   * Returns an instance with ad groups removed until and excluding the first post roll ad group or
+   * the first ad group with {@link AdGroup#timeUs} larger than the given time, in microseconds.
+   *
+   * <p>Any ad group with {@link AdGroup#timeUs} set to {@link C#TIME_END_OF_SOURCE} is considered a
+   * post roll ad group.
+   */
+  @CheckResult
+  public AdPlaybackState withRemovedAdGroupCountBefore(long timeUs) {
+    int newRemovedAdGroupCount;
+    for (newRemovedAdGroupCount = removedAdGroupCount;
+        newRemovedAdGroupCount < adGroupCount;
+        newRemovedAdGroupCount++) {
+      AdGroup adGroup = getAdGroup(newRemovedAdGroupCount);
+      if (timeUs <= adGroup.timeUs || adGroup.timeUs == C.TIME_END_OF_SOURCE) {
+        break;
+      }
+    }
+    return withRemovedAdGroupCount(newRemovedAdGroupCount);
+  }
+
+  /**
    * Returns an instance with the specified {@link AdGroup#contentResumeOffsetUs}, in microseconds,
    * for the specified ad group.
    */
