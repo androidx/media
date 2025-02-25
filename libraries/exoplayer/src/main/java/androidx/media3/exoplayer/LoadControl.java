@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer;
 
+import android.os.SystemClock;
 import androidx.media3.common.C;
 import androidx.media3.common.Player;
 import androidx.media3.common.Timeline;
@@ -81,6 +82,18 @@ public interface LoadControl {
     public final long targetLiveOffsetUs;
 
     /**
+     * Sets the time at which the last rebuffering occurred, in milliseconds since boot including
+     * time spent in sleep.
+     *
+     * <p>The time base used is the same as that measured by {@link SystemClock#elapsedRealtime}.
+     *
+     * <p><b>Note:</b> If rebuffer events are not known when the load is started or continued, or if
+     * no rebuffering has occurred, or if there have been any user interactions such as seeking or
+     * stopping the player, the value will be set to {@link C#TIME_UNSET}.
+     */
+    public final long lastRebufferRealtimeMs;
+
+    /**
      * Creates parameters for {@link LoadControl} methods.
      *
      * @param playerId See {@link #playerId}.
@@ -92,6 +105,7 @@ public interface LoadControl {
      * @param playWhenReady See {@link #playWhenReady}.
      * @param rebuffering See {@link #rebuffering}.
      * @param targetLiveOffsetUs See {@link #targetLiveOffsetUs}.
+     * @param lastRebufferRealtimeMs see {@link #lastRebufferRealtimeMs}
      */
     public Parameters(
         PlayerId playerId,
@@ -102,7 +116,8 @@ public interface LoadControl {
         float playbackSpeed,
         boolean playWhenReady,
         boolean rebuffering,
-        long targetLiveOffsetUs) {
+        long targetLiveOffsetUs,
+        long lastRebufferRealtimeMs) {
       this.playerId = playerId;
       this.timeline = timeline;
       this.mediaPeriodId = mediaPeriodId;
@@ -112,6 +127,7 @@ public interface LoadControl {
       this.playWhenReady = playWhenReady;
       this.rebuffering = rebuffering;
       this.targetLiveOffsetUs = targetLiveOffsetUs;
+      this.lastRebufferRealtimeMs = lastRebufferRealtimeMs;
     }
   }
 
