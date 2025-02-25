@@ -55,6 +55,8 @@
 *   RTSP Extension:
 *   Decoder Extensions (FFmpeg, VP9, AV1, etc.):
 *   MIDI extension:
+    *   Plumb custom `AudioSink` and `AudioRendererEventListener` instances into
+        `MidiRenderer`.
 *   Leanback extension:
 *   Cast Extension:
 *   Test Utilities:
