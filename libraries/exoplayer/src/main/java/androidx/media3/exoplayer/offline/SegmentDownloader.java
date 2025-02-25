@@ -102,24 +102,6 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
   private volatile boolean isCanceled;
 
   /**
-   * @deprecated Use {@link SegmentDownloader#SegmentDownloader(MediaItem, Parser,
-   *     CacheDataSource.Factory, Executor, long)} instead.
-   */
-  @Deprecated
-  public SegmentDownloader(
-      MediaItem mediaItem,
-      Parser<M> manifestParser,
-      CacheDataSource.Factory cacheDataSourceFactory,
-      Executor executor) {
-    this(
-        mediaItem,
-        manifestParser,
-        cacheDataSourceFactory,
-        executor,
-        DEFAULT_MAX_MERGED_SEGMENT_START_TIME_DIFF_MS);
-  }
-
-  /**
    * @param mediaItem The {@link MediaItem} to be downloaded.
    * @param manifestParser A parser for manifests belonging to the media to be downloaded.
    * @param cacheDataSourceFactory A {@link CacheDataSource.Factory} for the cache into which the

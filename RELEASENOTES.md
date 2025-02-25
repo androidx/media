@@ -58,6 +58,10 @@
 *   Test Utilities:
 *   Demo app:
 *   Remove deprecated symbols:
+    *   Removed deprecated `SegmentDownloader` constructor
+        `SegmentDownloader(MediaItem, Parser<M>, CacheDataSource.Factory,
+        Executor)` and the corresponding constructors in its subclasses
+        `DashDownloader`, `HlsDownloader` and `SsDownloader`.
 
 ## 1.6
 

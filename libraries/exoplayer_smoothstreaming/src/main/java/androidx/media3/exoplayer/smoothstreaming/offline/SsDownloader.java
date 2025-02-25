@@ -98,24 +98,6 @@ public final class SsDownloader extends SegmentDownloader<SsManifest> {
   }
 
   /**
-   * @deprecated Use {@link SsDownloader#SsDownloader(MediaItem, Parser, CacheDataSource.Factory,
-   *     Executor, long)} instead.
-   */
-  @Deprecated
-  public SsDownloader(
-      MediaItem mediaItem,
-      Parser<SsManifest> manifestParser,
-      CacheDataSource.Factory cacheDataSourceFactory,
-      Executor executor) {
-    this(
-        mediaItem,
-        manifestParser,
-        cacheDataSourceFactory,
-        executor,
-        DEFAULT_MAX_MERGED_SEGMENT_START_TIME_DIFF_MS);
-  }
-
-  /**
    * Creates a new instance.
    *
    * @param mediaItem The {@link MediaItem} to be downloaded.

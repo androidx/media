@@ -98,24 +98,6 @@ public final class HlsDownloader extends SegmentDownloader<HlsPlaylist> {
   }
 
   /**
-   * @deprecated Use {@link HlsDownloader#HlsDownloader(MediaItem, Parser, CacheDataSource.Factory,
-   *     Executor, long)} instead.
-   */
-  @Deprecated
-  public HlsDownloader(
-      MediaItem mediaItem,
-      Parser<HlsPlaylist> manifestParser,
-      CacheDataSource.Factory cacheDataSourceFactory,
-      Executor executor) {
-    this(
-        mediaItem,
-        manifestParser,
-        cacheDataSourceFactory,
-        executor,
-        DEFAULT_MAX_MERGED_SEGMENT_START_TIME_DIFF_MS);
-  }
-
-  /**
    * Creates a new instance.
    *
    * @param mediaItem The {@link MediaItem} to be downloaded.

@@ -110,24 +110,6 @@ public final class DashDownloader extends SegmentDownloader<DashManifest> {
   }
 
   /**
-   * @deprecated Use {@link DashDownloader#DashDownloader(MediaItem, Parser,
-   *     CacheDataSource.Factory, Executor, long)} instead.
-   */
-  @Deprecated
-  public DashDownloader(
-      MediaItem mediaItem,
-      Parser<DashManifest> manifestParser,
-      CacheDataSource.Factory cacheDataSourceFactory,
-      Executor executor) {
-    this(
-        mediaItem,
-        manifestParser,
-        cacheDataSourceFactory,
-        executor,
-        DEFAULT_MAX_MERGED_SEGMENT_START_TIME_DIFF_MS);
-  }
-
-  /**
    * Creates a new instance.
    *
    * @param mediaItem The {@link MediaItem} to be downloaded.
