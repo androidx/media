@@ -27,15 +27,18 @@ import static androidx.media3.transformer.Transformer.PROGRESS_STATE_NOT_STARTED
 import static androidx.media3.transformer.TransformerUtil.getProcessedTrackType;
 
 import android.graphics.Bitmap;
+import android.graphics.Color;
 import android.os.Looper;
 import android.view.Surface;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.OnInputFrameProcessedListener;
 import androidx.media3.common.util.Clock;
+import androidx.media3.common.util.ConstantRateTimestampIterator;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.TimestampIterator;
 import androidx.media3.common.util.Util;
@@ -61,6 +64,18 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           .setSampleRate(44100)
           .setChannelCount(2)
           .build();
+
+  private static final Format BLANK_IMAGE_BITMAP_FORMAT =
+      new Format.Builder()
+          .setWidth(1)
+          .setHeight(1)
+          .setSampleMimeType(MimeTypes.IMAGE_RAW)
+          .setColorInfo(ColorInfo.SRGB_BT709_FULL)
+          .build();
+
+  private static final float BLANK_IMAGE_FRAME_RATE = 30.0f;
+
+  private static final int RETRY_DELAY_MS = 10;
 
   private final List<EditedMediaItem> editedMediaItems;
   private final boolean isLooping;
@@ -314,14 +329,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             new SampleConsumerWrapper(wrappedAudioSampleConsumer, C.TRACK_TYPE_AUDIO));
       }
     } else {
-      // TODO: b/270533049 - Remove the check below when implementing blank video frames generation.
-      boolean videoTrackDisappeared =
-          reportedTrackCount.get() == 1
-              && trackType == C.TRACK_TYPE_AUDIO
-              && sampleConsumersByTrackType.size() == 2;
-      checkState(
-          !videoTrackDisappeared,
-          "Inputs with no video track are not supported when the output contains a video track");
       sampleConsumer =
           checkStateNotNull(
               sampleConsumersByTrackType.get(trackType),
@@ -335,15 +342,34 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
     onMediaItemChanged(trackType, format);
     if (reportedTrackCount.get() == 1 && sampleConsumersByTrackType.size() == 2) {
-      for (Map.Entry<Integer, SampleConsumerWrapper> entry :
-          sampleConsumersByTrackType.entrySet()) {
-        int outputTrackType = entry.getKey();
-        if (trackType != outputTrackType) {
-          onMediaItemChanged(outputTrackType, /* outputFormat= */ null);
-        }
+      // One track is missing from the current media item.
+      if (trackType == C.TRACK_TYPE_AUDIO) {
+        // Fill video gap with blank frames.
+        onMediaItemChanged(C.TRACK_TYPE_VIDEO, /* outputFormat= */ BLANK_IMAGE_BITMAP_FORMAT);
+        nonEndedTrackCount.incrementAndGet();
+        Bitmap bitmap =
+            Bitmap.createBitmap(
+                new int[] {Color.BLACK}, /* width= */ 1, /* height= */ 1, Bitmap.Config.ARGB_8888);
+        handler.post(() -> insertBlankFrames(bitmap));
+      } else {
+        // Generate audio silence in the AudioGraph by signalling null format.
+        onMediaItemChanged(C.TRACK_TYPE_AUDIO, /* outputFormat= */ null);
       }
     }
     return sampleConsumer;
+  }
+
+  private void insertBlankFrames(Bitmap bitmap) {
+    SampleConsumerWrapper videoSampleConsumer =
+        checkNotNull(sampleConsumersByTrackType.get(C.TRACK_TYPE_VIDEO));
+    if (videoSampleConsumer.queueInputBitmap(
+            bitmap,
+            new ConstantRateTimestampIterator(currentAssetDurationUs, BLANK_IMAGE_FRAME_RATE))
+        != SampleConsumer.INPUT_RESULT_SUCCESS) {
+      handler.postDelayed(() -> insertBlankFrames(bitmap), RETRY_DELAY_MS);
+    } else {
+      videoSampleConsumer.signalEndOfVideoInput();
+    }
   }
 
   private void onMediaItemChanged(int trackType, @Nullable Format outputFormat) {
@@ -646,8 +672,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    */
   private final class GapSignalingAssetLoader implements AssetLoader {
 
-    private static final int OUTPUT_FORMAT_RETRY_DELAY_MS = 10;
-
     private final long durationUs;
     private final Format trackFormat;
     private final Format decodedFormat;
@@ -700,8 +724,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           outputtedFormat = true;
           sampleConsumerWrapper.onGapSignalled();
         } else {
-          handler.postDelayed(
-              this::outputFormatToSequenceAssetLoader, OUTPUT_FORMAT_RETRY_DELAY_MS);
+          handler.postDelayed(this::outputFormatToSequenceAssetLoader, RETRY_DELAY_MS);
         }
 
       } catch (ExportException e) {
