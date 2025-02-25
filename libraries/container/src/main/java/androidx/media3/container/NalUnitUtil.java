@@ -106,6 +106,9 @@ public final class NalUnitUtil {
    */
   @Deprecated public static final int NAL_UNIT_TYPE_PREFIX = H264_NAL_UNIT_TYPE_PREFIX;
 
+  /** H.264 unspecified NAL unit. */
+  public static final int H264_NAL_UNIT_TYPE_UNSPECIFIED = 24;
+
   /** H.265 coded slice segment of a random access skipped leading picture (RASL_R). */
   public static final int H265_NAL_UNIT_TYPE_RASL_R = 9;
 
@@ -132,6 +135,9 @@ public final class NalUnitUtil {
 
   /** H.265 suffixed supplemental enhancement information (SUFFIX_SEI_NUT). */
   public static final int H265_NAL_UNIT_TYPE_SUFFIX_SEI = 40;
+
+  /** H.265 unspecified NAL unit. */
+  public static final int H265_NAL_UNIT_TYPE_UNSPECIFIED = 48;
 
   /** Holds data parsed from a H.264 sequence parameter set NAL unit. */
   public static final class SpsData {
