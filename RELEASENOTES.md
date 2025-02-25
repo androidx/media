@@ -25,6 +25,9 @@
 *   Image:
 *   DataSource:
 *   DRM:
+    *   Fix `MediaCodec$CryptoException: Operation not supported in this
+        configuration` error when playing ClearKey content on API < 27 devices
+        ([#1732](https://github.com/androidx/media/issues/1732)).
 *   Effect:
 *   Muxers:
     *   `writeSampleData()` API now uses muxer specific `BufferInfo` class

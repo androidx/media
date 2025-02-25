@@ -298,11 +298,14 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
     } else {
       MediaCrypto mediaCrypto = null;
       try {
-        mediaCrypto = new MediaCrypto(uuid, sessionId);
+        mediaCrypto = new MediaCrypto(adjustUuid(uuid), sessionId);
         result = mediaCrypto.requiresSecureDecoderComponent(mimeType);
       } catch (MediaCryptoException e) {
-        // This shouldn't happen, but if it does then assume that a secure decoder may be required.
-        result = true;
+        // This shouldn't happen, but if it does then assume that most DRM schemes need a secure
+        // decoder but ClearKey doesn't (because ClearKey never uses secure decryption). Requesting
+        // a secure decoder when it's not supported leads to playback failures:
+        // https://github.com/androidx/media/issues/1732
+        result = !uuid.equals(C.CLEARKEY_UUID);
       } finally {
         if (mediaCrypto != null) {
           mediaCrypto.release();
