@@ -72,6 +72,7 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
@@ -153,7 +154,7 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
 
                   @Override
                   public void onDisconnected(MediaSession session, ControllerInfo controller) {
-                    if (Util.areEqual(connectedController, controller)) {
+                    if (Objects.equals(connectedController, controller)) {
                       disconnectedLatch.countDown();
                     }
                   }
@@ -197,7 +198,7 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
 
                   @Override
                   public void onDisconnected(MediaSession session, ControllerInfo controller) {
-                    if (Util.areEqual(connectedController, controller)) {
+                    if (Objects.equals(connectedController, controller)) {
                       disconnectedLatch.countDown();
                     }
                   }

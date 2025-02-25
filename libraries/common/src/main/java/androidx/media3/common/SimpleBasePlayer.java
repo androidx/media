@@ -1793,9 +1793,9 @@ public abstract class SimpleBasePlayer extends BasePlayer {
       return this.uid.equals(mediaItemData.uid)
           && this.tracks.equals(mediaItemData.tracks)
           && this.mediaItem.equals(mediaItemData.mediaItem)
-          && Util.areEqual(this.mediaMetadata, mediaItemData.mediaMetadata)
-          && Util.areEqual(this.manifest, mediaItemData.manifest)
-          && Util.areEqual(this.liveConfiguration, mediaItemData.liveConfiguration)
+          && Objects.equals(this.mediaMetadata, mediaItemData.mediaMetadata)
+          && Objects.equals(this.manifest, mediaItemData.manifest)
+          && Objects.equals(this.liveConfiguration, mediaItemData.liveConfiguration)
           && this.presentationStartTimeMs == mediaItemData.presentationStartTimeMs
           && this.windowStartTimeMs == mediaItemData.windowStartTimeMs
           && this.elapsedRealtimeEpochOffsetMs == mediaItemData.elapsedRealtimeEpochOffsetMs
@@ -3622,7 +3622,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
           Player.EVENT_MEDIA_ITEM_TRANSITION,
           listener -> listener.onMediaItemTransition(mediaItem, mediaItemTransitionReason));
     }
-    if (!Util.areEqual(previousState.playerError, newState.playerError)) {
+    if (!Objects.equals(previousState.playerError, newState.playerError)) {
       listeners.queueEvent(
           Player.EVENT_PLAYER_ERROR,
           listener -> listener.onPlayerErrorChanged(newState.playerError));

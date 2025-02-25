@@ -21,7 +21,6 @@ import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
-import static androidx.media3.common.util.Util.areEqual;
 import static androidx.media3.common.util.Util.contains;
 import static androidx.media3.common.util.Util.usToMs;
 import static androidx.media3.effect.DebugTraceUtil.COMPONENT_MUXER;
@@ -399,7 +398,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         // format but these fields can be ignored.
         // TODO: b/308180225 - Compare Format.colorInfo as well.
         Format existingFormat = videoTrackInfo.format;
-        if (!areEqual(existingFormat.sampleMimeType, format.sampleMimeType)) {
+        if (!Objects.equals(existingFormat.sampleMimeType, format.sampleMimeType)) {
           throw new AppendTrackFormatException(
               "Video format mismatch - sampleMimeType: "
                   + existingFormat.sampleMimeType
@@ -433,7 +432,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         TrackInfo audioTrackInfo = trackTypeToInfo.get(C.TRACK_TYPE_AUDIO);
 
         Format existingFormat = audioTrackInfo.format;
-        if (!areEqual(existingFormat.sampleMimeType, format.sampleMimeType)) {
+        if (!Objects.equals(existingFormat.sampleMimeType, format.sampleMimeType)) {
           throw new AppendTrackFormatException(
               "Audio format mismatch - sampleMimeType: "
                   + existingFormat.sampleMimeType

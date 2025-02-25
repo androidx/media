@@ -17,7 +17,7 @@ package androidx.media3.extractor.metadata.id3;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
+import java.util.Objects;
 
 /** Url link ID3 frame. */
 @UnstableApi
@@ -42,8 +42,8 @@ public final class UrlLinkFrame extends Id3Frame {
     }
     UrlLinkFrame other = (UrlLinkFrame) obj;
     return id.equals(other.id)
-        && Util.areEqual(description, other.description)
-        && Util.areEqual(url, other.url);
+        && Objects.equals(description, other.description)
+        && Objects.equals(url, other.url);
   }
 
   @Override

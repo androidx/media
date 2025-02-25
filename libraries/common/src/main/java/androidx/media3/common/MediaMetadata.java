@@ -29,7 +29,6 @@ import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.lang.annotation.Documented;
@@ -39,6 +38,7 @@ import java.lang.annotation.Target;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Metadata of a {@link MediaItem}, playlist, or a combination of multiple sources of {@link
@@ -249,8 +249,8 @@ public final class MediaMetadata {
     @CanIgnoreReturnValue
     public Builder maybeSetArtworkData(byte[] artworkData, @PictureType int artworkDataType) {
       if (this.artworkData == null
-          || Util.areEqual(artworkDataType, PICTURE_TYPE_FRONT_COVER)
-          || !Util.areEqual(this.artworkDataType, PICTURE_TYPE_FRONT_COVER)) {
+          || artworkDataType == PICTURE_TYPE_FRONT_COVER
+          || !Objects.equals(this.artworkDataType, PICTURE_TYPE_FRONT_COVER)) {
         this.artworkData = artworkData.clone();
         this.artworkDataType = artworkDataType;
       }
@@ -1221,47 +1221,47 @@ public final class MediaMetadata {
       return false;
     }
     MediaMetadata that = (MediaMetadata) obj;
-    return Util.areEqual(title, that.title)
-        && Util.areEqual(artist, that.artist)
-        && Util.areEqual(albumTitle, that.albumTitle)
-        && Util.areEqual(albumArtist, that.albumArtist)
-        && Util.areEqual(displayTitle, that.displayTitle)
-        && Util.areEqual(subtitle, that.subtitle)
-        && Util.areEqual(description, that.description)
-        && Util.areEqual(durationMs, that.durationMs)
-        && Util.areEqual(userRating, that.userRating)
-        && Util.areEqual(overallRating, that.overallRating)
+    return Objects.equals(title, that.title)
+        && Objects.equals(artist, that.artist)
+        && Objects.equals(albumTitle, that.albumTitle)
+        && Objects.equals(albumArtist, that.albumArtist)
+        && Objects.equals(displayTitle, that.displayTitle)
+        && Objects.equals(subtitle, that.subtitle)
+        && Objects.equals(description, that.description)
+        && Objects.equals(durationMs, that.durationMs)
+        && Objects.equals(userRating, that.userRating)
+        && Objects.equals(overallRating, that.overallRating)
         && Arrays.equals(artworkData, that.artworkData)
-        && Util.areEqual(artworkDataType, that.artworkDataType)
-        && Util.areEqual(artworkUri, that.artworkUri)
-        && Util.areEqual(trackNumber, that.trackNumber)
-        && Util.areEqual(totalTrackCount, that.totalTrackCount)
-        && Util.areEqual(folderType, that.folderType)
-        && Util.areEqual(isBrowsable, that.isBrowsable)
-        && Util.areEqual(isPlayable, that.isPlayable)
-        && Util.areEqual(recordingYear, that.recordingYear)
-        && Util.areEqual(recordingMonth, that.recordingMonth)
-        && Util.areEqual(recordingDay, that.recordingDay)
-        && Util.areEqual(releaseYear, that.releaseYear)
-        && Util.areEqual(releaseMonth, that.releaseMonth)
-        && Util.areEqual(releaseDay, that.releaseDay)
-        && Util.areEqual(writer, that.writer)
-        && Util.areEqual(composer, that.composer)
-        && Util.areEqual(conductor, that.conductor)
-        && Util.areEqual(discNumber, that.discNumber)
-        && Util.areEqual(totalDiscCount, that.totalDiscCount)
-        && Util.areEqual(genre, that.genre)
-        && Util.areEqual(compilation, that.compilation)
-        && Util.areEqual(station, that.station)
-        && Util.areEqual(mediaType, that.mediaType)
-        && Util.areEqual(supportedCommands, that.supportedCommands)
+        && Objects.equals(artworkDataType, that.artworkDataType)
+        && Objects.equals(artworkUri, that.artworkUri)
+        && Objects.equals(trackNumber, that.trackNumber)
+        && Objects.equals(totalTrackCount, that.totalTrackCount)
+        && Objects.equals(folderType, that.folderType)
+        && Objects.equals(isBrowsable, that.isBrowsable)
+        && Objects.equals(isPlayable, that.isPlayable)
+        && Objects.equals(recordingYear, that.recordingYear)
+        && Objects.equals(recordingMonth, that.recordingMonth)
+        && Objects.equals(recordingDay, that.recordingDay)
+        && Objects.equals(releaseYear, that.releaseYear)
+        && Objects.equals(releaseMonth, that.releaseMonth)
+        && Objects.equals(releaseDay, that.releaseDay)
+        && Objects.equals(writer, that.writer)
+        && Objects.equals(composer, that.composer)
+        && Objects.equals(conductor, that.conductor)
+        && Objects.equals(discNumber, that.discNumber)
+        && Objects.equals(totalDiscCount, that.totalDiscCount)
+        && Objects.equals(genre, that.genre)
+        && Objects.equals(compilation, that.compilation)
+        && Objects.equals(station, that.station)
+        && Objects.equals(mediaType, that.mediaType)
+        && Objects.equals(supportedCommands, that.supportedCommands)
         && ((extras == null) == (that.extras == null));
   }
 
   @SuppressWarnings("deprecation") // Hashing deprecated fields.
   @Override
   public int hashCode() {
-    return Objects.hashCode(
+    return Objects.hash(
         title,
         artist,
         albumTitle,

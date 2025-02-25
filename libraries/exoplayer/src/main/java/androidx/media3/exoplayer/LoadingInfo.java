@@ -21,8 +21,8 @@ import android.os.SystemClock;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
-import com.google.common.base.Objects;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.util.Objects;
 
 /** Information about the player state when loading is started or continued. */
 @UnstableApi
@@ -152,6 +152,6 @@ public final class LoadingInfo {
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(playbackPositionUs, playbackSpeed, lastRebufferRealtimeMs);
+    return Objects.hash(playbackPositionUs, playbackSpeed, lastRebufferRealtimeMs);
   }
 }

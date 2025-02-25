@@ -42,11 +42,11 @@ import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.LongArrayQueue;
 import androidx.media3.common.util.Size;
-import androidx.media3.common.util.Util;
 import androidx.media3.effect.DefaultVideoFrameProcessor.WorkingColorSpace;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
@@ -340,7 +340,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     if (textureOutputListener != null) {
       return;
     }
-    if (Util.areEqual(this.outputSurfaceInfo, outputSurfaceInfo)) {
+    if (Objects.equals(this.outputSurfaceInfo, outputSurfaceInfo)) {
       return;
     }
 
@@ -479,7 +479,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       this.inputHeight = inputHeight;
       Size outputSizeBeforeSurfaceTransformation =
           MatrixUtils.configureAndGetOutputSize(inputWidth, inputHeight, matrixTransformations);
-      if (!Util.areEqual(
+      if (!Objects.equals(
           this.outputSizeBeforeSurfaceTransformation, outputSizeBeforeSurfaceTransformation)) {
         this.outputSizeBeforeSurfaceTransformation = outputSizeBeforeSurfaceTransformation;
         videoFrameProcessorListenerExecutor.execute(

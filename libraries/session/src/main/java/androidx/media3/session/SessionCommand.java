@@ -27,12 +27,12 @@ import androidx.media3.common.Rating;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.session.MediaLibraryService.LibraryParams;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import java.util.Objects;
 
 /**
  * A command that a {@link MediaController} can send to a {@link MediaSession}.
@@ -168,7 +168,7 @@ public final class SessionCommand {
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(customAction, commandCode);
+    return Objects.hash(customAction, commandCode);
   }
 
   private static final String FIELD_COMMAND_CODE = Util.intToStringMaxRadix(0);
@@ -196,5 +196,4 @@ public final class SessionCommand {
       return new SessionCommand(customAction, customExtras == null ? Bundle.EMPTY : customExtras);
     }
   }
-  ;
 }

@@ -18,8 +18,8 @@ package androidx.media3.extractor.metadata.id3;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import java.util.Arrays;
+import java.util.Objects;
 
 /** Chapter information ID3 frame. */
 @UnstableApi
@@ -78,7 +78,7 @@ public final class ChapterFrame extends Id3Frame {
         && endTimeMs == other.endTimeMs
         && startOffset == other.startOffset
         && endOffset == other.endOffset
-        && Util.areEqual(chapterId, other.chapterId)
+        && Objects.equals(chapterId, other.chapterId)
         && Arrays.equals(subFrames, other.subFrames);
   }
 

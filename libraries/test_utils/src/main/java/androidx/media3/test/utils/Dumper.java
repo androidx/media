@@ -26,6 +26,7 @@ import com.google.common.base.Function;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Arrays;
 import java.util.Locale;
+import java.util.Objects;
 
 /** Helper utility to dump field values. */
 @UnstableApi
@@ -90,7 +91,7 @@ public final class Dumper {
   @CanIgnoreReturnValue
   public Dumper addIfNonDefault(
       String field, @Nullable Object value, @Nullable Object defaultValue) {
-    if (!Util.areEqual(value, defaultValue)) {
+    if (!Objects.equals(value, defaultValue)) {
       checkNotNull(value);
       add(field, value);
     }

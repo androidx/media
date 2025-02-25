@@ -21,8 +21,8 @@ import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import java.util.Arrays;
+import java.util.Objects;
 
 /** An Event Message (emsg) as defined in ISO 23009-1. */
 @UnstableApi
@@ -131,8 +131,8 @@ public final class EventMessage implements Metadata.Entry {
     EventMessage other = (EventMessage) obj;
     return durationMs == other.durationMs
         && id == other.id
-        && Util.areEqual(schemeIdUri, other.schemeIdUri)
-        && Util.areEqual(value, other.value)
+        && Objects.equals(schemeIdUri, other.schemeIdUri)
+        && Objects.equals(value, other.value)
         && Arrays.equals(messageData, other.messageData);
   }
 

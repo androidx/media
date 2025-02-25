@@ -39,6 +39,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 
 /** Representation of a media item. */
@@ -915,8 +916,8 @@ public final class MediaItem {
 
       DrmConfiguration other = (DrmConfiguration) obj;
       return scheme.equals(other.scheme)
-          && Util.areEqual(licenseUri, other.licenseUri)
-          && Util.areEqual(licenseRequestHeaders, other.licenseRequestHeaders)
+          && Objects.equals(licenseUri, other.licenseUri)
+          && Objects.equals(licenseRequestHeaders, other.licenseRequestHeaders)
           && multiSession == other.multiSession
           && forceDefaultLicenseUri == other.forceDefaultLicenseUri
           && playClearContentWithoutKey == other.playClearContentWithoutKey
@@ -1090,7 +1091,7 @@ public final class MediaItem {
       }
 
       AdsConfiguration other = (AdsConfiguration) obj;
-      return adTagUri.equals(other.adTagUri) && Util.areEqual(adsId, other.adsId);
+      return adTagUri.equals(other.adTagUri) && Objects.equals(adsId, other.adsId);
     }
 
     @Override
@@ -1209,14 +1210,14 @@ public final class MediaItem {
       LocalConfiguration other = (LocalConfiguration) obj;
 
       return uri.equals(other.uri)
-          && Util.areEqual(mimeType, other.mimeType)
-          && Util.areEqual(drmConfiguration, other.drmConfiguration)
-          && Util.areEqual(adsConfiguration, other.adsConfiguration)
+          && Objects.equals(mimeType, other.mimeType)
+          && Objects.equals(drmConfiguration, other.drmConfiguration)
+          && Objects.equals(adsConfiguration, other.adsConfiguration)
           && streamKeys.equals(other.streamKeys)
-          && Util.areEqual(customCacheKey, other.customCacheKey)
+          && Objects.equals(customCacheKey, other.customCacheKey)
           && subtitleConfigurations.equals(other.subtitleConfigurations)
-          && Util.areEqual(tag, other.tag)
-          && Util.areEqual(imageDurationMs, other.imageDurationMs);
+          && Objects.equals(tag, other.tag)
+          && imageDurationMs == other.imageDurationMs;
     }
 
     @Override
@@ -1714,12 +1715,12 @@ public final class MediaItem {
       SubtitleConfiguration other = (SubtitleConfiguration) obj;
 
       return uri.equals(other.uri)
-          && Util.areEqual(mimeType, other.mimeType)
-          && Util.areEqual(language, other.language)
+          && Objects.equals(mimeType, other.mimeType)
+          && Objects.equals(language, other.language)
           && selectionFlags == other.selectionFlags
           && roleFlags == other.roleFlags
-          && Util.areEqual(label, other.label)
-          && Util.areEqual(id, other.id);
+          && Objects.equals(label, other.label)
+          && Objects.equals(id, other.id);
     }
 
     @Override
@@ -2216,8 +2217,8 @@ public final class MediaItem {
         return false;
       }
       RequestMetadata that = (RequestMetadata) o;
-      return Util.areEqual(mediaUri, that.mediaUri)
-          && Util.areEqual(searchQuery, that.searchQuery)
+      return Objects.equals(mediaUri, that.mediaUri)
+          && Objects.equals(searchQuery, that.searchQuery)
           && ((extras == null) == (that.extras == null));
     }
 
@@ -2337,12 +2338,12 @@ public final class MediaItem {
 
     MediaItem other = (MediaItem) obj;
 
-    return Util.areEqual(mediaId, other.mediaId)
+    return Objects.equals(mediaId, other.mediaId)
         && clippingConfiguration.equals(other.clippingConfiguration)
-        && Util.areEqual(localConfiguration, other.localConfiguration)
-        && Util.areEqual(liveConfiguration, other.liveConfiguration)
-        && Util.areEqual(mediaMetadata, other.mediaMetadata)
-        && Util.areEqual(requestMetadata, other.requestMetadata);
+        && Objects.equals(localConfiguration, other.localConfiguration)
+        && Objects.equals(liveConfiguration, other.liveConfiguration)
+        && Objects.equals(mediaMetadata, other.mediaMetadata)
+        && Objects.equals(requestMetadata, other.requestMetadata);
   }
 
   @Override

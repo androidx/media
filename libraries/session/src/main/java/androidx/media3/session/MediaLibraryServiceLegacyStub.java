@@ -56,6 +56,7 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
@@ -625,7 +626,7 @@ import java.util.concurrent.atomic.AtomicReference;
       synchronized (lock) {
         for (int i = this.searchRequests.size() - 1; i >= 0; i--) {
           SearchRequest iter = this.searchRequests.get(i);
-          if (Util.areEqual(remoteUserInfo, iter.remoteUserInfo) && iter.query.equals(query)) {
+          if (Objects.equals(remoteUserInfo, iter.remoteUserInfo) && iter.query.equals(query)) {
             searchRequests.add(iter);
             this.searchRequests.remove(i);
           }
@@ -695,7 +696,7 @@ import java.util.concurrent.atomic.AtomicReference;
         return false;
       }
       BrowserLegacyCb other = (BrowserLegacyCb) obj;
-      return Util.areEqual(remoteUserInfo, other.remoteUserInfo);
+      return Objects.equals(remoteUserInfo, other.remoteUserInfo);
     }
   }
 

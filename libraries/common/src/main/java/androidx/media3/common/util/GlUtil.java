@@ -43,6 +43,7 @@ import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import javax.microedition.khronos.egl.EGL10;
 
 /** OpenGL ES utilities. */
@@ -209,7 +210,7 @@ public final class GlUtil {
    */
   public static boolean isYuvTargetExtensionSupported() {
     @Nullable String glExtensions;
-    if (Util.areEqual(EGL14.eglGetCurrentContext(), EGL14.EGL_NO_CONTEXT)) {
+    if (Objects.equals(EGL14.eglGetCurrentContext(), EGL14.EGL_NO_CONTEXT)) {
       // Create a placeholder context and make it current to allow calling GLES20.glGetString().
       try {
         EGLDisplay eglDisplay = getDefaultEglDisplay();

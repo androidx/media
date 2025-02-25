@@ -28,6 +28,7 @@ import androidx.media3.exoplayer.drm.DrmSession;
 import androidx.media3.exoplayer.drm.DrmSessionEventListener;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.Objects;
 
 /**
  * Composite {@link MediaSource} consisting of multiple child sources.
@@ -365,11 +366,11 @@ public abstract class CompositeMediaSource<T> extends BaseMediaSource {
       }
       int windowIndex = getWindowIndexForChildWindowIndex(id, childWindowIndex);
       if (mediaSourceEventDispatcher.windowIndex != windowIndex
-          || !Util.areEqual(mediaSourceEventDispatcher.mediaPeriodId, mediaPeriodId)) {
+          || !Objects.equals(mediaSourceEventDispatcher.mediaPeriodId, mediaPeriodId)) {
         mediaSourceEventDispatcher = createEventDispatcher(windowIndex, mediaPeriodId);
       }
       if (drmEventDispatcher.windowIndex != windowIndex
-          || !Util.areEqual(drmEventDispatcher.mediaPeriodId, mediaPeriodId)) {
+          || !Objects.equals(drmEventDispatcher.mediaPeriodId, mediaPeriodId)) {
         drmEventDispatcher = createDrmEventDispatcher(windowIndex, mediaPeriodId);
       }
       return true;

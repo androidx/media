@@ -17,8 +17,8 @@ package androidx.media3.extractor.metadata.id3;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import java.util.Arrays;
+import java.util.Objects;
 
 /** GEOB (General Encapsulated Object) ID3 frame. */
 @UnstableApi
@@ -48,9 +48,9 @@ public final class GeobFrame extends Id3Frame {
       return false;
     }
     GeobFrame other = (GeobFrame) obj;
-    return Util.areEqual(mimeType, other.mimeType)
-        && Util.areEqual(filename, other.filename)
-        && Util.areEqual(description, other.description)
+    return Objects.equals(mimeType, other.mimeType)
+        && Objects.equals(filename, other.filename)
+        && Objects.equals(description, other.description)
         && Arrays.equals(data, other.data);
   }
 

@@ -36,7 +36,6 @@ import androidx.media3.common.Player;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.ImmutableIntArray;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -46,6 +45,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * A button for a {@link SessionCommand} or {@link Player.Command} that can be displayed by
@@ -592,8 +592,8 @@ public final class CommandButton {
     @CanIgnoreReturnValue
     public Builder setIconUri(Uri uri) {
       checkArgument(
-          Objects.equal(uri.getScheme(), ContentResolver.SCHEME_CONTENT)
-              || Objects.equal(uri.getScheme(), ContentResolver.SCHEME_ANDROID_RESOURCE),
+          Objects.equals(uri.getScheme(), ContentResolver.SCHEME_CONTENT)
+              || Objects.equals(uri.getScheme(), ContentResolver.SCHEME_ANDROID_RESOURCE),
           "Only content or resource Uris are supported for CommandButton");
       this.iconUri = uri;
       return this;
@@ -1223,11 +1223,11 @@ public final class CommandButton {
       return false;
     }
     CommandButton button = (CommandButton) obj;
-    return Objects.equal(sessionCommand, button.sessionCommand)
+    return Objects.equals(sessionCommand, button.sessionCommand)
         && playerCommand == button.playerCommand
         && icon == button.icon
         && iconResId == button.iconResId
-        && Objects.equal(iconUri, button.iconUri)
+        && Objects.equals(iconUri, button.iconUri)
         && TextUtils.equals(displayName, button.displayName)
         && isEnabled == button.isEnabled
         && slots.equals(button.slots);
@@ -1235,7 +1235,7 @@ public final class CommandButton {
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(
+    return Objects.hash(
         sessionCommand, playerCommand, icon, iconResId, displayName, isEnabled, iconUri, slots);
   }
 
@@ -1357,8 +1357,8 @@ public final class CommandButton {
       builder.setPlayerCommand(playerCommand);
     }
     if (iconUri != null
-        && (Objects.equal(iconUri.getScheme(), ContentResolver.SCHEME_CONTENT)
-            || Objects.equal(iconUri.getScheme(), ContentResolver.SCHEME_ANDROID_RESOURCE))) {
+        && (Objects.equals(iconUri.getScheme(), ContentResolver.SCHEME_CONTENT)
+            || Objects.equals(iconUri.getScheme(), ContentResolver.SCHEME_ANDROID_RESOURCE))) {
       builder.setIconUri(iconUri);
     }
     return builder

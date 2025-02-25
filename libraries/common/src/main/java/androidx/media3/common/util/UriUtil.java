@@ -22,6 +22,7 @@ import android.text.TextUtils;
 import androidx.annotation.Nullable;
 import com.google.common.base.Ascii;
 import java.util.List;
+import java.util.Objects;
 
 /** Utility methods for manipulating URIs. */
 @UnstableApi
@@ -306,7 +307,7 @@ public final class UriUtil {
         baseUriScheme == null
             ? targetUriScheme == null
             : targetUriScheme != null && Ascii.equalsIgnoreCase(baseUriScheme, targetUriScheme);
-    if (!isSameScheme || !Util.areEqual(baseUri.getAuthority(), targetUri.getAuthority())) {
+    if (!isSameScheme || !Objects.equals(baseUri.getAuthority(), targetUri.getAuthority())) {
       // Different schemes or authorities, cannot find relative path, return targetUri.
       return targetUri.toString();
     }
