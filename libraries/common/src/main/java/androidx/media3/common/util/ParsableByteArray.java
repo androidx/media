@@ -252,9 +252,13 @@ public final class ParsableByteArray {
   /**
    * Peeks at the next char (as decoded by {@code charset})
    *
+   * <p>If {@code charset} is UTF-8, only single-byte characters are supported and this method
+   * returns zero if {@link #position} is pointing to any part of a multi-byte character.
+   *
    * @throws IllegalArgumentException if charset is not supported. Only US_ASCII, UTF-8, UTF-16,
    *     UTF-16BE, and UTF-16LE are supported.
    */
+  // TODO: b/398845842 - Make this work 'correctly' for multi-byte UTF-8, or deprecate it.
   public char peekChar(Charset charset) {
     Assertions.checkArgument(
         SUPPORTED_CHARSETS_FOR_READLINE.contains(charset), "Unsupported charset: " + charset);
@@ -732,18 +736,19 @@ public final class ParsableByteArray {
     byte charByte1;
     byte charByte2;
     byte characterSize;
-    if ((charset.equals(StandardCharsets.UTF_8) || charset.equals(StandardCharsets.US_ASCII))
-        && bytesLeft() >= 1) {
+    if (bytesLeft() >= 1
+        && ((charset.equals(StandardCharsets.UTF_8) && (data[position] & 0x80) == 0)
+            || charset.equals(StandardCharsets.US_ASCII))) {
+      // TODO: b/398845842 - Handle multi-byte UTF-8.
       charByte1 = 0;
       charByte2 = data[position];
       characterSize = 1;
-    } else if ((charset.equals(StandardCharsets.UTF_16)
-            || charset.equals(StandardCharsets.UTF_16BE))
-        && bytesLeft() >= 2) {
+    } else if (bytesLeft() >= 2
+        && (charset.equals(StandardCharsets.UTF_16) || charset.equals(StandardCharsets.UTF_16BE))) {
       charByte1 = data[position];
       charByte2 = data[position + 1];
       characterSize = 2;
-    } else if (charset.equals(StandardCharsets.UTF_16LE) && bytesLeft() >= 2) {
+    } else if (bytesLeft() >= 2 && charset.equals(StandardCharsets.UTF_16LE)) {
       charByte1 = data[position + 1];
       charByte2 = data[position];
       characterSize = 2;
