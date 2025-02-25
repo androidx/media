@@ -10,6 +10,8 @@
     *   Fix a bug where `ExoPlayer.isLoading()` remains `true` while it has
         transitioned to `STATE_IDLE` or `STATE_ENDED`
         ([#2133](https://github.com/androidx/media/issues/2133)).
+    *   Add `lastRebufferRealtimeMs` to `LoadControl.Parameter`
+        ([#2113](https://github.com/androidx/media/pull/2113))
 *   Transformer:
 *   Track Selection:
 *   Extractors:
