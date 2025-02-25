@@ -2807,7 +2807,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     @Nullable
     @Player.MediaItemTransitionReason
     Integer mediaItemTransitionReason =
-        !Util.areEqual(oldPlayerInfo.getCurrentMediaItem(), finalPlayerInfo.getCurrentMediaItem())
+        !Objects.equals(oldPlayerInfo.getCurrentMediaItem(), finalPlayerInfo.getCurrentMediaItem())
             ? finalPlayerInfo.mediaItemTransitionReason
             : null;
 
@@ -2840,8 +2840,8 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     if (!isConnected()) {
       return;
     }
-    boolean playerCommandsChanged = !Util.areEqual(playerCommandsFromSession, playerCommands);
-    boolean sessionCommandsChanged = !Util.areEqual(this.sessionCommands, sessionCommands);
+    boolean playerCommandsChanged = !Objects.equals(playerCommandsFromSession, playerCommands);
+    boolean sessionCommandsChanged = !Objects.equals(this.sessionCommands, sessionCommands);
     if (!playerCommandsChanged && !sessionCommandsChanged) {
       return;
     }
@@ -2854,7 +2854,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
           createIntersectedCommandsEnsuringCommandReleaseAvailable(
               playerCommandsFromSession, playerCommandsFromPlayer);
       intersectedPlayerCommandsChanged =
-          !Util.areEqual(intersectedPlayerCommands, prevIntersectedPlayerCommands);
+          !Objects.equals(intersectedPlayerCommands, prevIntersectedPlayerCommands);
     }
     boolean mediaButtonPreferencesChanged = false;
     boolean customLayoutChanged = false;
@@ -2908,7 +2908,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     if (!isConnected()) {
       return;
     }
-    if (Util.areEqual(playerCommandsFromPlayer, commandsFromPlayer)) {
+    if (Objects.equals(playerCommandsFromPlayer, commandsFromPlayer)) {
       return;
     }
     playerCommandsFromPlayer = commandsFromPlayer;
@@ -2917,7 +2917,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
         createIntersectedCommandsEnsuringCommandReleaseAvailable(
             playerCommandsFromSession, playerCommandsFromPlayer);
     boolean intersectedPlayerCommandsChanged =
-        !Util.areEqual(intersectedPlayerCommands, prevIntersectedPlayerCommands);
+        !Objects.equals(intersectedPlayerCommands, prevIntersectedPlayerCommands);
     boolean mediaButtonPreferencesChanged = false;
     boolean customLayoutChanged = false;
     if (intersectedPlayerCommandsChanged) {

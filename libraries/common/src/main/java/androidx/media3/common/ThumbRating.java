@@ -21,7 +21,7 @@ import android.os.Bundle;
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
-import com.google.common.base.Objects;
+import java.util.Objects;
 
 /** A rating expressed as "thumbs up" or "thumbs down". */
 public final class ThumbRating extends Rating {
@@ -57,7 +57,7 @@ public final class ThumbRating extends Rating {
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(rated, isThumbsUp);
+    return Objects.hash(rated, isThumbsUp);
   }
 
   @Override

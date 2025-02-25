@@ -63,13 +63,13 @@ import androidx.media3.exoplayer.source.MediaLoadData;
 import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import androidx.media3.exoplayer.trackselection.TrackSelection;
 import androidx.media3.exoplayer.video.VideoDecoderOutputBufferRenderer;
-import com.google.common.base.Objects;
 import java.io.IOException;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * A listener for analytics events.
@@ -572,15 +572,15 @@ public interface AnalyticsListener {
           && currentWindowIndex == eventTime.currentWindowIndex
           && currentPlaybackPositionMs == eventTime.currentPlaybackPositionMs
           && totalBufferedDurationMs == eventTime.totalBufferedDurationMs
-          && Objects.equal(timeline, eventTime.timeline)
-          && Objects.equal(mediaPeriodId, eventTime.mediaPeriodId)
-          && Objects.equal(currentTimeline, eventTime.currentTimeline)
-          && Objects.equal(currentMediaPeriodId, eventTime.currentMediaPeriodId);
+          && Objects.equals(timeline, eventTime.timeline)
+          && Objects.equals(mediaPeriodId, eventTime.mediaPeriodId)
+          && Objects.equals(currentTimeline, eventTime.currentTimeline)
+          && Objects.equals(currentMediaPeriodId, eventTime.currentMediaPeriodId);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hashCode(
+      return Objects.hash(
           realtimeMs,
           timeline,
           windowIndex,

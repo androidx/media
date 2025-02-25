@@ -48,7 +48,6 @@ import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.VideoGraph;
 import androidx.media3.common.util.Consumer;
-import androidx.media3.common.util.Util;
 import androidx.media3.decoder.DecoderInputBuffer;
 import com.google.common.util.concurrent.MoreExecutors;
 import java.nio.ByteBuffer;
@@ -402,7 +401,7 @@ import org.checkerframework.dataflow.qual.Pure;
         supportedRequestBuilder.setHdrMode(supportedHdrMode);
       }
 
-      if (!Util.areEqual(requestedFormat.sampleMimeType, supportedFormat.sampleMimeType)) {
+      if (!Objects.equals(requestedFormat.sampleMimeType, supportedFormat.sampleMimeType)) {
         supportedRequestBuilder.setVideoMimeType(supportedFormat.sampleMimeType);
       }
 

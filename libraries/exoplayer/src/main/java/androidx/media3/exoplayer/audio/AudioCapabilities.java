@@ -50,6 +50,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 /** Represents the set of audio formats that a device is capable of playing. */
@@ -517,7 +518,7 @@ public final class AudioCapabilities {
       AudioProfile audioProfile = (AudioProfile) other;
       return encoding == audioProfile.encoding
           && maxChannelCount == audioProfile.maxChannelCount
-          && Util.areEqual(channelMasks, audioProfile.channelMasks);
+          && Objects.equals(channelMasks, audioProfile.channelMasks);
     }
 
     @Override

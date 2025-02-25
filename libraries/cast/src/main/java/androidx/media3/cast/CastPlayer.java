@@ -73,6 +73,7 @@ import com.google.android.gms.common.api.PendingResult;
 import com.google.android.gms.common.api.ResultCallback;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
+import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
 /**
@@ -909,7 +910,7 @@ public final class CastPlayer extends BasePlayer {
             ? currentTimeline.getPeriod(currentWindowIndex, period, /* setIds= */ true).uid
             : null;
     if (!playingPeriodChangedByTimelineChange
-        && !Util.areEqual(oldPeriodUid, currentPeriodUid)
+        && !Objects.equals(oldPeriodUid, currentPeriodUid)
         && pendingSeekCount == 0) {
       // Report discontinuity and media item auto transition.
       currentTimeline.getPeriod(oldWindowIndex, period, /* setIds= */ true);

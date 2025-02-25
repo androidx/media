@@ -41,6 +41,7 @@ import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import java.util.Objects;
 
 /** Thrown when a non locally recoverable playback failure occurs. */
 public final class ExoPlaybackException extends PlaybackException {
@@ -351,11 +352,11 @@ public final class ExoPlaybackException extends PlaybackException {
     // true.
     ExoPlaybackException other = (ExoPlaybackException) Util.castNonNull(that);
     return type == other.type
-        && Util.areEqual(rendererName, other.rendererName)
+        && Objects.equals(rendererName, other.rendererName)
         && rendererIndex == other.rendererIndex
-        && Util.areEqual(rendererFormat, other.rendererFormat)
+        && Objects.equals(rendererFormat, other.rendererFormat)
         && rendererFormatSupport == other.rendererFormatSupport
-        && Util.areEqual(mediaPeriodId, other.mediaPeriodId)
+        && Objects.equals(mediaPeriodId, other.mediaPeriodId)
         && isRecoverable == other.isRecoverable;
   }
 

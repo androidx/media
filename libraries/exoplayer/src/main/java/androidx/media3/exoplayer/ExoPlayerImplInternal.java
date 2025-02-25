@@ -77,6 +77,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /** Implements the internal behavior of {@link ExoPlayerImpl}. */
@@ -2327,7 +2328,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
         int oldWindowIndex = oldTimeline.getPeriodByUid(oldPeriodId.periodUid, period).windowIndex;
         oldWindowUid = oldTimeline.getWindow(oldWindowIndex, window).uid;
       }
-      if (!Util.areEqual(oldWindowUid, windowUid) || forceSetTargetOffsetOverride) {
+      if (!Objects.equals(oldWindowUid, windowUid) || forceSetTargetOffsetOverride) {
         // Reset overridden target live offset to media values if window changes or if seekTo
         // default live position.
         livePlaybackSpeedControl.setTargetLiveOffsetOverrideUs(C.TIME_UNSET);

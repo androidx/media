@@ -56,6 +56,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
@@ -499,7 +500,7 @@ public class DefaultDrmSessionManager implements DrmSessionManager {
       // Only use an existing session if it has matching init data.
       session = null;
       for (DefaultDrmSession existingSession : sessions) {
-        if (Util.areEqual(existingSession.schemeDatas, schemeDatas)) {
+        if (Objects.equals(existingSession.schemeDatas, schemeDatas)) {
           session = existingSession;
           break;
         }

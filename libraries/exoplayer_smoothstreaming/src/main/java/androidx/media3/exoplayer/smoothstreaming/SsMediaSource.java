@@ -73,6 +73,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /** A SmoothStreaming {@link MediaSource}. */
 @UnstableApi
@@ -424,7 +425,8 @@ public final class SsMediaSource extends BaseMediaSource
     return newConfiguration != null
         && newConfiguration.uri.equals(existingConfiguration.uri)
         && newConfiguration.streamKeys.equals(existingConfiguration.streamKeys)
-        && Util.areEqual(newConfiguration.drmConfiguration, existingConfiguration.drmConfiguration);
+        && Objects.equals(
+            newConfiguration.drmConfiguration, existingConfiguration.drmConfiguration);
   }
 
   @Override
