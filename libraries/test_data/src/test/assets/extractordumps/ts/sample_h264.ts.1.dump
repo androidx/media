@@ -21,90 +21,90 @@ track 256:
       lumaBitdepth = 8
       chromaBitdepth = 8
     initializationData:
-      data = length 29, hash A220FDE0
+      data = length 28, hash 78D7C620
       data = length 9, hash D971CD89
   sample 0:
     time = 333333
     flags = 0
-    data = length 177, hash 7E6DB5B7
+    data = length 177, hash 2E796387
   sample 1:
     time = 400000
     flags = 1
-    data = length 11054, hash 1FC7442D
+    data = length 11054, hash F88DAD5
   sample 2:
     time = 533333
     flags = 0
-    data = length 302, hash 5432E85C
+    data = length 302, hash 8AF4C6
   sample 3:
     time = 466666
     flags = 0
-    data = length 302, hash 95A21C90
+    data = length 302, hash 8F0A6A12
   sample 4:
     time = 433333
     flags = 0
-    data = length 96, hash 8C98DBB8
+    data = length 96, hash 32B6396A
   sample 5:
     time = 500000
     flags = 0
-    data = length 198, hash 114E22D9
+    data = length 198, hash 9D64D0A9
   sample 6:
     time = 666666
     flags = 0
-    data = length 303, hash C2C45716
+    data = length 303, hash 470A29C8
   sample 7:
     time = 600000
     flags = 0
-    data = length 168, hash 1B048DCA
+    data = length 168, hash D1EBAB18
   sample 8:
     time = 566666
     flags = 0
-    data = length 98, hash 3AA3B8B4
+    data = length 98, hash 69F34C6E
   sample 9:
     time = 633333
     flags = 0
-    data = length 108, hash 4F67E6F8
+    data = length 108, hash ECDDA32A
   sample 10:
     time = 700000
     flags = 0
-    data = length 110, hash 625A9B91
+    data = length 110, hash D77B6F1
   sample 11:
     time = 733333
     flags = 1
-    data = length 11235, hash 8EDDEB9
+    data = length 11235, hash BBB44EC5
   sample 12:
     time = 866666
     flags = 0
-    data = length 358, hash 797276E4
+    data = length 358, hash 1A21273E
   sample 13:
     time = 800000
     flags = 0
-    data = length 336, hash B92DBED9
+    data = length 336, hash F0603229
   sample 14:
     time = 766666
     flags = 0
-    data = length 105, hash 223F3D12
+    data = length 105, hash EF20F2CC
   sample 15:
     time = 833333
     flags = 0
-    data = length 106, hash DF8D1552
+    data = length 106, hash C9702210
   sample 16:
     time = 1000000
     flags = 0
-    data = length 235, hash 6127527D
+    data = length 235, hash EBD51481
   sample 17:
     time = 933333
     flags = 0
-    data = length 109, hash E8E69F9F
+    data = length 109, hash 77764B9F
   sample 18:
     time = 900000
     flags = 0
-    data = length 84, hash 54E55CB4
+    data = length 84, hash 74F4BEE
   sample 19:
     time = 966666
     flags = 0
-    data = length 93, hash B6B6263C
+    data = length 93, hash 9522F962
   sample 20:
     time = 1033333
     flags = 0
-    data = length 234, hash A48D3D90
+    data = length 235, hash BECC682E
 tracksEnded = true

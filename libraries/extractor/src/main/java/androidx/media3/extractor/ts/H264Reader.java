@@ -151,6 +151,14 @@ public final class H264Reader implements ElementaryStreamReader {
       // We've seen the start of a NAL unit of the following type.
       int nalUnitType = NalUnitUtil.getNalUnitType(dataArray, nalUnitOffset);
 
+      // Case of a 4 byte start code prefix 0x00000001, recoil NAL unit offset by one byte
+      // to avoid previous byte being assigned to the previous access unit.
+      int prefixSize = 3;
+      if (nalUnitOffset > 0 && dataArray[nalUnitOffset - 1] == 0x00) {
+        nalUnitOffset--;
+        prefixSize = 4;
+      }
+
       // This is the number of bytes from the current offset to the start of the next NAL unit.
       // It may be negative if the NAL unit started in the previously consumed data.
       int lengthToNalUnit = nalUnitOffset - offset;
@@ -170,7 +178,7 @@ public final class H264Reader implements ElementaryStreamReader {
       // Indicate the start of the next NAL unit.
       startNalUnit(absolutePosition, nalUnitType, pesTimeUs);
       // Continue scanning the data.
-      offset = nalUnitOffset + 3;
+      offset = nalUnitOffset + prefixSize;
     }
   }
 
@@ -179,7 +187,10 @@ public final class H264Reader implements ElementaryStreamReader {
     assertTracksCreated();
     if (isEndOfInput) {
       seiReader.flush();
-      sampleReader.end(totalBytesWritten);
+      // Simulate end of current NAL unit and start an AUD one to trigger output of current sample
+      endNalUnit(totalBytesWritten, 0, 0, pesTimeUs);
+      startNalUnit(totalBytesWritten, NalUnitUtil.H264_NAL_UNIT_TYPE_AUD, pesTimeUs);
+      endNalUnit(totalBytesWritten, 0, 0, pesTimeUs);
     }
   }
 
@@ -508,15 +519,9 @@ public final class H264Reader implements ElementaryStreamReader {
         readingSample = true;
       }
       setSampleIsKeyframe();
+      // Reset NAL unit type to avoid stale state
+      nalUnitType = NalUnitUtil.H264_NAL_UNIT_TYPE_UNSPECIFIED;
       return sampleIsKeyframe;
-    }
-
-    public void end(long position) {
-      setSampleIsKeyframe();
-      // Output a final sample with the NAL units currently held
-      nalUnitStartPosition = position;
-      outputSample(/* offset= */ 0);
-      readingSample = false;
     }
 
     private void setSampleIsKeyframe() {
@@ -528,7 +533,7 @@ public final class H264Reader implements ElementaryStreamReader {
     }
 
     private void outputSample(int offset) {
-      if (sampleTimeUs == C.TIME_UNSET) {
+      if (sampleTimeUs == C.TIME_UNSET || nalUnitStartPosition == samplePosition) {
         return;
       }
       @C.BufferFlags int flags = sampleIsKeyframe ? C.BUFFER_FLAG_KEY_FRAME : 0;
