@@ -17,6 +17,8 @@
 *   Audio:
 *   Video:
 *   Text:
+    *   Fix handling of multi-byte UTF-8 characters in WebVTT files using CR
+        line endings ([#2167](https://github.com/androidx/media/issues/2167)).
 *   Metadata:
 *   Image:
 *   DataSource:

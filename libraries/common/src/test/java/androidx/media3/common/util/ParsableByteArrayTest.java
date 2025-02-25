@@ -680,6 +680,31 @@ public final class ParsableByteArrayTest {
   }
 
   @Test
+  public void readTwoLinesWithCr_utf8() {
+    byte[] bytes = "foo\rbar".getBytes(StandardCharsets.UTF_8);
+    ParsableByteArray parser = new ParsableByteArray(bytes);
+
+    assertThat(parser.readLine()).isEqualTo("foo");
+    assertThat(parser.getPosition()).isEqualTo(4);
+    assertThat(parser.readLine()).isEqualTo("bar");
+    assertThat(parser.getPosition()).isEqualTo(7);
+    assertThat(parser.readLine()).isNull();
+  }
+
+  // https://github.com/androidx/media/issues/2167
+  @Test
+  public void readTwoLinesWithCrAndWideChar_utf8() {
+    byte[] bytes = "foo\r\uD83D\uDE1B".getBytes(StandardCharsets.UTF_8);
+    ParsableByteArray parser = new ParsableByteArray(bytes);
+
+    assertThat(parser.readLine()).isEqualTo("foo");
+    assertThat(parser.getPosition()).isEqualTo(4);
+    assertThat(parser.readLine()).isEqualTo("\uD83D\uDE1B");
+    assertThat(parser.getPosition()).isEqualTo(8);
+    assertThat(parser.readLine()).isNull();
+  }
+
+  @Test
   public void readTwoLinesWithCrFollowedByLf_utf8() {
     byte[] bytes = "foo\r\nbar".getBytes(StandardCharsets.UTF_8);
     ParsableByteArray parser = new ParsableByteArray(bytes);
