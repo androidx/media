@@ -27,6 +27,7 @@ import android.content.Context;
 import android.media.AudioFocusRequest;
 import android.media.AudioManager;
 import android.os.Handler;
+import android.os.Looper;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
@@ -137,10 +138,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * Constructs an AudioFocusManager to automatically handle audio focus for a player.
    *
    * @param context The current context.
-   * @param eventHandler A {@link Handler} to for the thread on which the player is used.
+   * @param eventLooper A {@link Looper} for the thread on which the audio focus manager is used.
    * @param playerControl A {@link PlayerControl} to handle commands from this instance.
    */
-  public AudioFocusManager(Context context, Handler eventHandler, PlayerControl playerControl) {
+  public AudioFocusManager(Context context, Looper eventLooper, PlayerControl playerControl) {
     this.audioManager =
         Suppliers.memoize(
             () ->
@@ -148,7 +149,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                     (AudioManager)
                         context.getApplicationContext().getSystemService(Context.AUDIO_SERVICE)));
     this.playerControl = playerControl;
-    this.eventHandler = eventHandler;
+    this.eventHandler = new Handler(eventLooper);
     this.audioFocusState = AUDIO_FOCUS_STATE_NOT_REQUESTED;
   }
 

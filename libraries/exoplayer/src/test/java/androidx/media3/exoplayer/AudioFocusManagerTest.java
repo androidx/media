@@ -25,7 +25,6 @@ import static org.robolectric.Shadows.shadowOf;
 import android.content.Context;
 import android.media.AudioFocusRequest;
 import android.media.AudioManager;
-import android.os.Handler;
 import android.os.Looper;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
@@ -59,9 +58,7 @@ public class AudioFocusManagerTest {
     testPlayerControl = new TestPlayerControl();
     audioFocusManager =
         new AudioFocusManager(
-            ApplicationProvider.getApplicationContext(),
-            new Handler(Looper.myLooper()),
-            testPlayerControl);
+            ApplicationProvider.getApplicationContext(), Looper.myLooper(), testPlayerControl);
   }
 
   @Test
