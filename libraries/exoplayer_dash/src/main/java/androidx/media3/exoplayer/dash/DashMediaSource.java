@@ -112,7 +112,7 @@ public final class DashMediaSource extends BaseMediaSource {
     private final DashChunkSource.Factory chunkSourceFactory;
     @Nullable private final DataSource.Factory manifestDataSourceFactory;
 
-    private CmcdConfiguration.Factory cmcdConfigurationFactory;
+    @Nullable private CmcdConfiguration.Factory cmcdConfigurationFactory;
     private DrmSessionManagerProvider drmSessionManagerProvider;
     private CompositeSequenceableLoaderFactory compositeSequenceableLoaderFactory;
     private LoadErrorHandlingPolicy loadErrorHandlingPolicy;
