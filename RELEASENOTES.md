@@ -49,6 +49,10 @@
 *   MIDI extension:
 *   Leanback extension:
 *   Cast Extension:
+    *   Bump the `play-services-cast-framework` dependency to 21.5.0 to fix a
+        `FLAG_MUTABLE` crash in apps targeting API 34+ on devices with Google
+        Play services installed but disabled
+        ([#2178](https://github.com/androidx/media/issues/2178)).
 *   Test Utilities:
 *   Demo app:
 *   Remove deprecated symbols:
