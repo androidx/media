@@ -109,6 +109,7 @@ public final class HlsMediaSource extends BaseMediaSource
     @Nullable private HlsExtractorFactory extractorFactory;
     @Nullable private SubtitleParser.Factory subtitleParserFactoryOverride;
     private boolean parseSubtitlesDuringExtraction;
+    private @C.VideoCodecFlags int codecsToParseWithinGopSampleDependencies;
     private HlsPlaylistParserFactory playlistParserFactory;
     private HlsPlaylistTracker.Factory playlistTrackerFactory;
     private CompositeSequenceableLoaderFactory compositeSequenceableLoaderFactory;
@@ -217,6 +218,14 @@ public final class HlsMediaSource extends BaseMediaSource
     public Factory experimentalParseSubtitlesDuringExtraction(
         boolean parseSubtitlesDuringExtraction) {
       this.parseSubtitlesDuringExtraction = parseSubtitlesDuringExtraction;
+      return this;
+    }
+
+    @Override
+    @CanIgnoreReturnValue
+    public Factory experimentalSetCodecsToParseWithinGopSampleDependencies(
+        @C.VideoCodecFlags int codecsToParseWithinGopSampleDependencies) {
+      this.codecsToParseWithinGopSampleDependencies = codecsToParseWithinGopSampleDependencies;
       return this;
     }
 
@@ -396,6 +405,8 @@ public final class HlsMediaSource extends BaseMediaSource
         extractorFactory.setSubtitleParserFactory(subtitleParserFactoryOverride);
       }
       extractorFactory.experimentalParseSubtitlesDuringExtraction(parseSubtitlesDuringExtraction);
+      extractorFactory.experimentalSetCodecsToParseWithinGopSampleDependencies(
+          codecsToParseWithinGopSampleDependencies);
       HlsExtractorFactory extractorFactory = this.extractorFactory;
       HlsPlaylistParserFactory playlistParserFactory = this.playlistParserFactory;
       List<StreamKey> streamKeys = mediaItem.localConfiguration.streamKeys;

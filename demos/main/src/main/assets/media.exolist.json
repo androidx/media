@@ -257,6 +257,10 @@
       {
         "name": "Apple media playlist (AAC)",
         "uri": "https://devstreaming-cdn.apple.com/videos/streaming/examples/bipbop_4x3/gear0/prog_index.m3u8"
+      },
+      {
+        "name": "Bitmovin (FMP4)",
+        "uri": "https://bitdash-a.akamaihd.net/content/MI201109210084_1/m3u8s-fmp4/f08e80da-bf1d-4e3d-8899-f0f6155f6efa.m3u8"
       }
     ]
   },
