@@ -19,7 +19,6 @@ import androidx.annotation.Nullable;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Chars;
 import com.google.common.primitives.Ints;
-import com.google.common.primitives.UnsignedBytes;
 import com.google.errorprone.annotations.CheckReturnValue;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
@@ -721,8 +720,8 @@ public final class ParsableByteArray {
 
   /**
    * Peeks at the character at {@link #position} (as decoded by {@code charset}), returns it and the
-   * number of bytes the character takes up within the array packed into an int. First four bytes
-   * are the character and the second four is the size in bytes it takes. Returns 0 if {@link
+   * number of bytes the character takes up within the array packed into an int. First two bytes are
+   * the character and the second two is the size in bytes it takes. Returns 0 if {@link
    * #bytesLeft()} doesn't allow reading a whole character in {@code charset} or if the {@code
    * charset} is not one of US_ASCII, UTF-8, UTF-16, UTF-16BE, or UTF-16LE.
    *
@@ -730,23 +729,27 @@ public final class ParsableByteArray {
    * bytes for UTF-16).
    */
   private int peekCharacterAndSize(Charset charset) {
-    byte character;
-    short characterSize;
+    byte charByte1;
+    byte charByte2;
+    byte characterSize;
     if ((charset.equals(StandardCharsets.UTF_8) || charset.equals(StandardCharsets.US_ASCII))
         && bytesLeft() >= 1) {
-      character = (byte) Chars.checkedCast(UnsignedBytes.toInt(data[position]));
+      charByte1 = 0;
+      charByte2 = data[position];
       characterSize = 1;
     } else if ((charset.equals(StandardCharsets.UTF_16)
             || charset.equals(StandardCharsets.UTF_16BE))
         && bytesLeft() >= 2) {
-      character = (byte) Chars.fromBytes(data[position], data[position + 1]);
+      charByte1 = data[position];
+      charByte2 = data[position + 1];
       characterSize = 2;
     } else if (charset.equals(StandardCharsets.UTF_16LE) && bytesLeft() >= 2) {
-      character = (byte) Chars.fromBytes(data[position + 1], data[position]);
+      charByte1 = data[position + 1];
+      charByte2 = data[position];
       characterSize = 2;
     } else {
       return 0;
     }
-    return (Chars.checkedCast(character) << Short.SIZE) + characterSize;
+    return Ints.fromBytes(charByte1, charByte2, (byte) 0, characterSize);
   }
 }
