@@ -34,7 +34,8 @@ public final class MidiRenderer extends DecoderAudioRenderer<MidiDecoder> {
   private final Context context;
 
   /** Creates the renderer instance. */
-  public MidiRenderer(Context context,
+  public MidiRenderer(
+      Context context,
       @Nullable Handler eventHandler,
       @Nullable AudioRendererEventListener eventListener,
       AudioSink audioSink) {
