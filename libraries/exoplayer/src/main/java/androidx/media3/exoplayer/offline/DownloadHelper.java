@@ -18,6 +18,7 @@ package androidx.media3.exoplayer.offline;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.castNonNull;
+import static androidx.media3.common.util.Util.getFormatSupportString;
 import static java.lang.Math.min;
 import static java.lang.annotation.ElementType.TYPE_USE;
 import static java.lang.annotation.RetentionPolicy.SOURCE;
@@ -30,6 +31,7 @@ import android.util.SparseIntArray;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.StreamKey;
 import androidx.media3.common.Timeline;
@@ -75,6 +77,7 @@ import androidx.media3.exoplayer.upstream.BandwidthMeter;
 import androidx.media3.exoplayer.upstream.DefaultAllocator;
 import androidx.media3.extractor.ExtractorsFactory;
 import androidx.media3.extractor.SeekMap;
+import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
@@ -199,12 +202,34 @@ public final class DownloadHelper {
    */
   public static DownloadHelper forMediaItem(
       Context context, MediaItem mediaItem, DataSource.Factory dataSourceFactory) {
+    return forMediaItem(context, mediaItem, dataSourceFactory, /* debugLoggingEnabled= */ false);
+  }
+
+  /**
+   * Creates a {@link DownloadHelper} for the given media item.
+   *
+   * @param context The context.
+   * @param mediaItem A {@link MediaItem}.
+   * @param dataSourceFactory A {@link DataSource.Factory} used to load the manifest for adaptive
+   *     streams or the {@link SeekMap} for progressive streams. In the latter case, this has to be
+   *     a {@link CacheDataSource.Factory} for the {@link Cache} into which downloads will be
+   *     written.
+   * @param debugLoggingEnabled Whether to log debug information.
+   * @throws IllegalStateException If the corresponding module is missing for DASH, HLS or
+   *     SmoothStreaming media items.
+   */
+  public static DownloadHelper forMediaItem(
+      Context context,
+      MediaItem mediaItem,
+      DataSource.Factory dataSourceFactory,
+      boolean debugLoggingEnabled) {
     return forMediaItem(
         mediaItem,
         getDefaultTrackSelectorParameters(context),
         /* renderersFactory= */ null,
         dataSourceFactory,
-        /* drmSessionManager= */ null);
+        /* drmSessionManager= */ null,
+        debugLoggingEnabled);
   }
 
   /**
@@ -229,11 +254,39 @@ public final class DownloadHelper {
       @Nullable RenderersFactory renderersFactory,
       @Nullable DataSource.Factory dataSourceFactory) {
     return forMediaItem(
+        context, mediaItem, renderersFactory, dataSourceFactory, /* debugLoggingEnabled= */ false);
+  }
+
+  /**
+   * Creates a {@link DownloadHelper} for the given media item.
+   *
+   * @param context The context.
+   * @param mediaItem A {@link MediaItem}.
+   * @param renderersFactory A {@link RenderersFactory} creating the renderers for which tracks are
+   *     selected.
+   * @param dataSourceFactory A {@link DataSource.Factory} used to load the manifest for adaptive
+   *     streams or the {@link SeekMap} for progressive streams. This argument is required for
+   *     adaptive streams or when requesting partial downloads for progressive streams. In the
+   *     latter case, this has to be a {@link CacheDataSource.Factory} for the {@link Cache} into
+   *     which downloads will be written.
+   * @param debugLoggingEnabled Whether to log debug information.
+   * @throws IllegalStateException If the corresponding module is missing for DASH, HLS or
+   *     SmoothStreaming media items.
+   * @throws IllegalArgumentException If the {@code dataSourceFactory} is null for adaptive streams.
+   */
+  public static DownloadHelper forMediaItem(
+      Context context,
+      MediaItem mediaItem,
+      @Nullable RenderersFactory renderersFactory,
+      @Nullable DataSource.Factory dataSourceFactory,
+      boolean debugLoggingEnabled) {
+    return forMediaItem(
         mediaItem,
         DEFAULT_TRACK_SELECTOR_PARAMETERS,
         renderersFactory,
         dataSourceFactory,
-        /* drmSessionManager= */ null);
+        /* drmSessionManager= */ null,
+        debugLoggingEnabled);
   }
 
   /**
@@ -263,7 +316,40 @@ public final class DownloadHelper {
         trackSelectionParameters,
         renderersFactory,
         dataSourceFactory,
-        /* drmSessionManager= */ null);
+        /* debugLoggingEnabled= */ false);
+  }
+
+  /**
+   * Creates a {@link DownloadHelper} for the given media item.
+   *
+   * @param mediaItem A {@link MediaItem}.
+   * @param renderersFactory A {@link RenderersFactory} creating the renderers for which tracks are
+   *     selected.
+   * @param trackSelectionParameters {@link TrackSelectionParameters} for selecting tracks for
+   *     downloading.
+   * @param dataSourceFactory A {@link DataSource.Factory} used to load the manifest for adaptive
+   *     streams or the {@link SeekMap} for progressive streams. This argument is required for
+   *     adaptive streams or when requesting partial downloads for progressive streams. In the
+   *     latter case, this has to be a {@link CacheDataSource.Factory} for the {@link Cache} into
+   *     which downloads will be written.
+   * @param debugLoggingEnabled Whether to log debug information.
+   * @throws IllegalStateException If the corresponding module is missing for DASH, HLS or
+   *     SmoothStreaming media items.
+   * @throws IllegalArgumentException If the {@code dataSourceFactory} is null for adaptive streams.
+   */
+  public static DownloadHelper forMediaItem(
+      MediaItem mediaItem,
+      TrackSelectionParameters trackSelectionParameters,
+      @Nullable RenderersFactory renderersFactory,
+      @Nullable DataSource.Factory dataSourceFactory,
+      boolean debugLoggingEnabled) {
+    return forMediaItem(
+        mediaItem,
+        trackSelectionParameters,
+        renderersFactory,
+        dataSourceFactory,
+        /* drmSessionManager= */ null,
+        debugLoggingEnabled);
   }
 
   /**
@@ -291,6 +377,42 @@ public final class DownloadHelper {
       @Nullable RenderersFactory renderersFactory,
       @Nullable DataSource.Factory dataSourceFactory,
       @Nullable DrmSessionManager drmSessionManager) {
+    return forMediaItem(
+        mediaItem,
+        trackSelectionParameters,
+        renderersFactory,
+        dataSourceFactory,
+        drmSessionManager,
+        /* debugLoggingEnabled= */ false);
+  }
+
+  /**
+   * Creates a {@link DownloadHelper} for the given media item.
+   *
+   * @param mediaItem A {@link MediaItem}.
+   * @param renderersFactory A {@link RenderersFactory} creating the renderers for which tracks are
+   *     selected.
+   * @param trackSelectionParameters {@link TrackSelectionParameters} for selecting tracks for
+   *     downloading.
+   * @param dataSourceFactory A {@link DataSource.Factory} used to load the manifest for adaptive
+   *     streams or the {@link SeekMap} for progressive streams. This argument is required for
+   *     adaptive streams or when requesting partial downloads for progressive streams. In the
+   *     latter case, this has to be a {@link CacheDataSource.Factory} for the {@link Cache} into
+   *     which downloads will be written.
+   * @param drmSessionManager An optional {@link DrmSessionManager}. Used to help determine which
+   *     tracks can be selected.
+   * @param debugLoggingEnabled Whether to log debug information.
+   * @throws IllegalStateException If the corresponding module is missing for DASH, HLS or
+   *     SmoothStreaming media items.
+   * @throws IllegalArgumentException If the {@code dataSourceFactory} is null for adaptive streams.
+   */
+  public static DownloadHelper forMediaItem(
+      MediaItem mediaItem,
+      TrackSelectionParameters trackSelectionParameters,
+      @Nullable RenderersFactory renderersFactory,
+      @Nullable DataSource.Factory dataSourceFactory,
+      @Nullable DrmSessionManager drmSessionManager,
+      boolean debugLoggingEnabled) {
     boolean isProgressive = isProgressive(checkNotNull(mediaItem.localConfiguration));
     Assertions.checkArgument(isProgressive || dataSourceFactory != null);
     return new DownloadHelper(
@@ -303,7 +425,8 @@ public final class DownloadHelper {
         renderersFactory != null
             ? new DefaultRendererCapabilitiesList.Factory(renderersFactory)
                 .createRendererCapabilitiesList()
-            : new UnreleaseableRendererCapabilitiesList(new RendererCapabilities[0]));
+            : new UnreleaseableRendererCapabilitiesList(new RendererCapabilities[0]),
+        debugLoggingEnabled);
   }
 
   /**
@@ -340,6 +463,7 @@ public final class DownloadHelper {
   private final @Mode int mode;
   private final DefaultTrackSelector trackSelector;
   private final RendererCapabilitiesList rendererCapabilities;
+  private final boolean debugLoggingEnabled;
   private final SparseIntArray scratchSet;
   private final Handler callbackHandler;
   private final Timeline.Window window;
@@ -370,6 +494,32 @@ public final class DownloadHelper {
       @Nullable MediaSource mediaSource,
       TrackSelectionParameters trackSelectionParameters,
       RendererCapabilitiesList rendererCapabilities) {
+    this(
+        mediaItem,
+        mediaSource,
+        trackSelectionParameters,
+        rendererCapabilities,
+        /* debugLoggingEnabled= */ false);
+  }
+
+  /**
+   * Creates download helper.
+   *
+   * @param mediaItem The media item.
+   * @param mediaSource A {@link MediaSource} for which tracks are selected, or null if no track
+   *     selection needs to be made.
+   * @param trackSelectionParameters {@link TrackSelectionParameters} for selecting tracks for
+   *     downloading.
+   * @param rendererCapabilities The {@link RendererCapabilitiesList} of the renderers for which
+   *     tracks are selected.
+   * @param debugLoggingEnabled Whether to log debug information.
+   */
+  public DownloadHelper(
+      MediaItem mediaItem,
+      @Nullable MediaSource mediaSource,
+      TrackSelectionParameters trackSelectionParameters,
+      RendererCapabilitiesList rendererCapabilities,
+      boolean debugLoggingEnabled) {
     this.localConfiguration = checkNotNull(mediaItem.localConfiguration);
     this.mediaSource = mediaSource;
     this.mode =
@@ -381,6 +531,7 @@ public final class DownloadHelper {
     this.trackSelector =
         new DefaultTrackSelector(trackSelectionParameters, new DownloadTrackSelection.Factory());
     this.rendererCapabilities = rendererCapabilities;
+    this.debugLoggingEnabled = debugLoggingEnabled;
     this.scratchSet = new SparseIntArray();
     trackSelector.init(/* listener= */ () -> {}, new FakeBandwidthMeter());
     callbackHandler = Util.createHandlerForCurrentOrMainLooper();
@@ -980,6 +1131,9 @@ public final class DownloadHelper {
         existingSelectionList.add(newSelection);
       }
     }
+    if (debugLoggingEnabled) {
+      logTrackSelectorResult(periodIndex, trackSelectorResult);
+    }
     return trackSelectorResult;
   }
 
@@ -1001,6 +1155,32 @@ public final class DownloadHelper {
     return Util.inferContentTypeForUriAndMimeType(
             localConfiguration.uri, localConfiguration.mimeType)
         == C.CONTENT_TYPE_OTHER;
+  }
+
+  private static void logTrackSelectorResult(
+      int periodIndex, TrackSelectorResult trackSelectorResult) {
+    Log.d(TAG, "Track selections changed, period index: " + periodIndex + ", tracks [");
+    ImmutableList<Tracks.Group> trackGroups = trackSelectorResult.tracks.getGroups();
+    for (int groupIndex = 0; groupIndex < trackGroups.size(); groupIndex++) {
+      Tracks.Group trackGroup = trackGroups.get(groupIndex);
+      Log.d(TAG, "  group [");
+      for (int trackIndex = 0; trackIndex < trackGroup.length; trackIndex++) {
+        String status = trackGroup.isTrackSelected(trackIndex) ? "[X]" : "[ ]";
+        String formatSupport = getFormatSupportString(trackGroup.getTrackSupport(trackIndex));
+        Log.d(
+            TAG,
+            "    "
+                + status
+                + " Track:"
+                + trackIndex
+                + ", "
+                + Format.toLogString(trackGroup.getTrackFormat(trackIndex))
+                + ", supported="
+                + formatSupport);
+      }
+      Log.d(TAG, "  ]");
+    }
+    Log.d(TAG, "]");
   }
 
   private static final class MediaPreparer
