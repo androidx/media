@@ -83,7 +83,7 @@ public class FakeMediaSource extends BaseMediaSource {
   public static FakeMediaSource createWithWindowId(Object windowId) {
     return new FakeMediaSource(
         new FakeTimeline(
-            new FakeTimeline.TimelineWindowDefinition(/* periodCount= */ 1, windowId)));
+            new FakeTimeline.TimelineWindowDefinition.Builder().setUid(windowId).build()));
   }
 
   /** The media item used by the fake media source. */

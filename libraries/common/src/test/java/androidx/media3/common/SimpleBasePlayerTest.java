@@ -172,38 +172,29 @@ public class SimpleBasePlayerTest {
 
   @Test
   public void stateBuildUpon_withExplicitTimelineAndNewCurrentIndex_reevalutesMediaMetadata() {
-    Timeline timeline =
-        new FakeTimeline(
-            new FakeTimeline.TimelineWindowDefinition(
-                /* periodCount= */ 1,
-                /* id= */ 0,
-                /* isSeekable= */ true,
-                /* isDynamic= */ true,
-                /* isLive= */ true,
-                /* isPlaceholder= */ false,
-                /* durationUs= */ 1000,
-                /* defaultPositionUs= */ 0,
-                /* windowOffsetInFirstPeriodUs= */ 0,
-                ImmutableList.of(AdPlaybackState.NONE),
+    FakeTimeline.TimelineWindowDefinition timelineWindowDefinition0 =
+        new FakeTimeline.TimelineWindowDefinition.Builder()
+            .setDynamic(true)
+            .setLive(true)
+            .setDurationUs(1000L)
+            .setWindowPositionInFirstPeriodUs(0L)
+            .setMediaItem(
+                new MediaItem.Builder()
+                    .setMediaId("0")
+                    .setMediaMetadata(new MediaMetadata.Builder().setArtist("artist0").build())
+                    .build())
+            .build();
+    FakeTimeline.TimelineWindowDefinition timelineWindowDefinition1 =
+        timelineWindowDefinition0
+            .buildUpon()
+            .setUid(1)
+            .setMediaItem(
                 new MediaItem.Builder()
                     .setMediaId("1")
                     .setMediaMetadata(new MediaMetadata.Builder().setArtist("artist1").build())
-                    .build()),
-            new FakeTimeline.TimelineWindowDefinition(
-                /* periodCount= */ 1,
-                /* id= */ 1,
-                /* isSeekable= */ true,
-                /* isDynamic= */ true,
-                /* isLive= */ true,
-                /* isPlaceholder= */ false,
-                /* durationUs= */ 1000,
-                /* defaultPositionUs= */ 0,
-                /* windowOffsetInFirstPeriodUs= */ 0,
-                ImmutableList.of(AdPlaybackState.NONE),
-                new MediaItem.Builder()
-                    .setMediaId("2")
-                    .setMediaMetadata(new MediaMetadata.Builder().setArtist("artist2").build())
-                    .build()));
+                    .build())
+            .build();
+    Timeline timeline = new FakeTimeline(timelineWindowDefinition0, timelineWindowDefinition1);
     State state =
         new State.Builder()
             .setPlaylist(timeline, Tracks.EMPTY, /* currentMetadata= */ null)
@@ -213,7 +204,7 @@ public class SimpleBasePlayerTest {
     State newState = state.buildUpon().setCurrentMediaItemIndex(1).build();
 
     assertThat(newState.currentMetadata)
-        .isEqualTo(new MediaMetadata.Builder().setArtist("artist2").build());
+        .isEqualTo(new MediaMetadata.Builder().setArtist("artist1").build());
   }
 
   @Test
@@ -430,25 +421,20 @@ public class SimpleBasePlayerTest {
 
   @Test
   public void
-      stateBuilderBuild_withUndefinedMediaMetadataAndExplicitTimeline_derivesMediaMetadataFromTracksAndMediaItem()
-          throws Exception {
+      stateBuilderBuild_withUndefinedMediaMetadataAndExplicitTimeline_derivesMediaMetadataFromTracksAndMediaItem() {
     Timeline timeline =
         new FakeTimeline(
-            new FakeTimeline.TimelineWindowDefinition(
-                /* periodCount= */ 1,
-                /* id= */ 0,
-                /* isSeekable= */ true,
-                /* isDynamic= */ true,
-                /* isLive= */ true,
-                /* isPlaceholder= */ false,
-                /* durationUs= */ 1000,
-                /* defaultPositionUs= */ 0,
-                /* windowOffsetInFirstPeriodUs= */ 0,
-                ImmutableList.of(AdPlaybackState.NONE),
-                new MediaItem.Builder()
-                    .setMediaId("1")
-                    .setMediaMetadata(new MediaMetadata.Builder().setArtist("artist").build())
-                    .build()));
+            new FakeTimeline.TimelineWindowDefinition.Builder()
+                .setDynamic(true)
+                .setLive(true)
+                .setDurationUs(1000L)
+                .setWindowPositionInFirstPeriodUs(0L)
+                .setMediaItem(
+                    new MediaItem.Builder()
+                        .setMediaId("1")
+                        .setMediaMetadata(new MediaMetadata.Builder().setArtist("artist").build())
+                        .build())
+                .build());
     Tracks tracks =
         new Tracks(
             ImmutableList.of(
@@ -7558,7 +7544,6 @@ public class SimpleBasePlayerTest {
     verifyNoMoreInteractions(listener);
   }
 
-  @SuppressWarnings("deprecation") // Testing deprecated listener call.
   @Test
   public void
       replaceMediaItems_asyncHandlingFromEmptyToEmpty_usesPlaceholderStateAndInformsListeners() {

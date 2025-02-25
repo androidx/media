@@ -104,8 +104,7 @@ public final class ImaAdsLoaderTest {
   private static final long CONTENT_DURATION_US = 10 * C.MICROS_PER_SECOND;
   private static final Timeline CONTENT_TIMELINE =
       new FakeTimeline(
-          new TimelineWindowDefinition(
-              /* isSeekable= */ true, /* isDynamic= */ false, CONTENT_DURATION_US));
+          new TimelineWindowDefinition.Builder().setDurationUs(CONTENT_DURATION_US).build());
   private static final long CONTENT_PERIOD_DURATION_US =
       CONTENT_TIMELINE.getPeriod(/* periodIndex= */ 0, new Period()).durationUs;
   private static final Uri TEST_URI = Uri.parse("https://www.google.com");
@@ -224,7 +223,12 @@ public final class ImaAdsLoaderTest {
   public void start_withPlaceholderContent_initializedAdsLoader() {
     timelineWindowDefinitions =
         new TimelineWindowDefinition[] {
-          getInitialTimelineWindowDefinition(TEST_ADS_ID, /* isPlaceholder= */ true)
+          new TimelineWindowDefinition.Builder()
+              .setPlaceholder(true)
+              .setDurationUs(CONTENT_DURATION_US)
+              .setAdPlaybackStates(
+                  ImmutableList.of(new AdPlaybackState(ImaAdsLoaderTest.TEST_ADS_ID)))
+              .build()
         };
 
     when(mockAdsManager.getAdCuePoints()).thenReturn(PREROLL_CUE_POINTS_SECONDS);
@@ -1459,17 +1463,10 @@ public final class ImaAdsLoaderTest {
                       periodIndex % timelineWindowDefinition.adPlaybackStates.size())
                   .adsId);
       timelineWindowDefinitions[periodIndex] =
-          new TimelineWindowDefinition(
-              timelineWindowDefinition.periodCount,
-              timelineWindowDefinition.id,
-              timelineWindowDefinition.isSeekable,
-              timelineWindowDefinition.isDynamic,
-              timelineWindowDefinition.isLive,
-              timelineWindowDefinition.isPlaceholder,
-              timelineWindowDefinition.durationUs,
-              timelineWindowDefinition.defaultPositionUs,
-              timelineWindowDefinition.windowOffsetInFirstPeriodUs,
-              adPlaybackState);
+          timelineWindowDefinition
+              .buildUpon()
+              .setAdPlaybackStates(ImmutableList.of(adPlaybackState))
+              .build();
       fakePlayer.updateTimeline(
           new FakeTimeline(timelineWindowDefinitions), Player.TIMELINE_CHANGE_REASON_SOURCE_UPDATE);
     }
@@ -1491,22 +1488,9 @@ public final class ImaAdsLoaderTest {
   }
 
   private static TimelineWindowDefinition getInitialTimelineWindowDefinition(Object adsId) {
-    return getInitialTimelineWindowDefinition(adsId, /* isPlaceholder= */ false);
-  }
-
-  private static TimelineWindowDefinition getInitialTimelineWindowDefinition(
-      Object adsId, boolean isPlaceholder) {
-    return new TimelineWindowDefinition(
-        /* periodCount= */ 1,
-        /* id= */ new Object(),
-        /* isSeekable= */ true,
-        /* isDynamic= */ false,
-        /* isLive= */ false,
-        /* isPlaceholder= */ isPlaceholder,
-        /* durationUs= */ CONTENT_DURATION_US,
-        /* defaultPositionUs= */ 0,
-        /* windowOffsetInFirstPeriodUs= */ TimelineWindowDefinition
-            .DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US,
-        new AdPlaybackState(adsId));
+    return new TimelineWindowDefinition.Builder()
+        .setDurationUs(CONTENT_DURATION_US)
+        .setAdPlaybackStates(ImmutableList.of(new AdPlaybackState(adsId)))
+        .build();
   }
 }

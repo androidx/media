@@ -101,32 +101,17 @@ public class HlsInterstitialsAdsLoaderTest {
                 .createMediaSource(contentMediaItem);
     // The content timeline with empty ad playback state.
     contentWindowDefinition =
-        new FakeTimeline.TimelineWindowDefinition(
-            /* periodCount= */ 1,
-            "windowId",
-            /* isSeekable= */ true,
-            /* isDynamic= */ false,
-            /* isLive= */ false,
-            /* isPlaceholder= */ false,
-            /* durationUs= */ 90_000_000L,
-            /* defaultPositionUs= */ 0L,
-            /* windowOffsetInFirstPeriodUs= */ 0L,
-            ImmutableList.of(AdPlaybackState.NONE),
-            contentMediaItem);
+        new FakeTimeline.TimelineWindowDefinition.Builder()
+            .setDurationUs(90_000_000L)
+            .setMediaItem(contentMediaItem)
+            .build();
     // The ads timeline with a minimal ad playback state with the ads ID.
     adsMediaSourceWindowDefinition =
-        new FakeTimeline.TimelineWindowDefinition(
-            /* periodCount= */ 1,
-            "windowId",
-            /* isSeekable= */ true,
-            /* isDynamic= */ false,
-            /* isLive= */ false,
-            /* isPlaceholder= */ false,
-            /* durationUs= */ 90_000_000L,
-            /* defaultPositionUs= */ 0L,
-            /* windowOffsetInFirstPeriodUs= */ 0L,
-            ImmutableList.of(new AdPlaybackState("adsId")),
-            contentMediaItem);
+        new FakeTimeline.TimelineWindowDefinition.Builder()
+            .setDurationUs(90_000_000L)
+            .setMediaItem(contentMediaItem)
+            .setAdPlaybackStates(ImmutableList.of(new AdPlaybackState("adsId")))
+            .build();
   }
 
   @Test
@@ -163,21 +148,15 @@ public class HlsInterstitialsAdsLoaderTest {
             defaultMediaSourceFactory,
             adsLoader,
             mockAdViewProvider);
+
     when(mockPlayer.getCurrentTimeline())
         .thenReturn(
             new FakeTimeline(
-                new FakeTimeline.TimelineWindowDefinition(
-                    /* periodCount= */ 1,
-                    "windowId",
-                    /* isSeekable= */ true,
-                    /* isDynamic= */ true,
-                    /* isLive= */ false,
-                    /* isPlaceholder= */ false,
-                    /* durationUs= */ C.TIME_UNSET,
-                    /* defaultPositionUs= */ 0L,
-                    /* windowOffsetInFirstPeriodUs= */ 0L,
-                    ImmutableList.of(AdPlaybackState.NONE),
-                    mp4MediaItem)));
+                new FakeTimeline.TimelineWindowDefinition.Builder()
+                    .setDynamic(true)
+                    .setDurationUs(C.TIME_UNSET)
+                    .setMediaItem(mp4MediaItem)
+                    .build()));
     adsLoader.setPlayer(mockPlayer);
 
     adsLoader.start(adsMediaSource, adTagDataSpec, "adsId", mockAdViewProvider, mockEventListener);
@@ -186,22 +165,16 @@ public class HlsInterstitialsAdsLoaderTest {
   }
 
   @Test
-  public void start_liveWindow_emptyAdPlaybackState() throws IOException {
+  public void start_liveWindow_emptyAdPlaybackState() {
     when(mockPlayer.getCurrentTimeline())
         .thenReturn(
             new FakeTimeline(
-                new FakeTimeline.TimelineWindowDefinition(
-                    /* periodCount= */ 1,
-                    "windowId",
-                    /* isSeekable= */ true,
-                    /* isDynamic= */ true,
-                    /* isLive= */ true,
-                    /* isPlaceholder= */ false,
-                    /* durationUs= */ C.TIME_UNSET,
-                    /* defaultPositionUs= */ 0L,
-                    /* windowOffsetInFirstPeriodUs= */ 0L,
-                    ImmutableList.of(AdPlaybackState.NONE),
-                    contentMediaItem)));
+                new FakeTimeline.TimelineWindowDefinition.Builder()
+                    .setDynamic(true)
+                    .setLive(true)
+                    .setDurationUs(C.TIME_UNSET)
+                    .setMediaItem(contentMediaItem)
+                    .build()));
     adsLoader.setPlayer(mockPlayer);
 
     adsLoader.start(adsMediaSource, adTagDataSpec, "adsId", mockAdViewProvider, mockEventListener);
@@ -247,18 +220,11 @@ public class HlsInterstitialsAdsLoaderTest {
     when(mockPlayer.getCurrentTimeline())
         .thenReturn(
             new FakeTimeline(
-                new FakeTimeline.TimelineWindowDefinition(
-                    /* periodCount= */ 1,
-                    "windowId",
-                    /* isSeekable= */ true,
-                    /* isDynamic= */ true,
-                    /* isLive= */ false,
-                    /* isPlaceholder= */ false,
-                    /* durationUs= */ C.TIME_UNSET,
-                    /* defaultPositionUs= */ 0L,
-                    /* windowOffsetInFirstPeriodUs= */ 0L,
-                    ImmutableList.of(AdPlaybackState.NONE),
-                    mp4MediaItem)));
+                new FakeTimeline.TimelineWindowDefinition.Builder()
+                    .setDynamic(true)
+                    .setDurationUs(C.TIME_UNSET)
+                    .setMediaItem(mp4MediaItem)
+                    .build()));
     adsLoader.setPlayer(mockPlayer);
     adsLoader.start(adsMediaSource, adTagDataSpec, "adsId", mockAdViewProvider, mockEventListener);
 

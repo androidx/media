@@ -1069,13 +1069,10 @@ public final class DefaultAnalyticsCollectorTest {
     AtomicInteger playedAdCount = new AtomicInteger(0);
     Timeline adTimeline =
         new FakeTimeline(
-            new TimelineWindowDefinition(
-                /* periodCount= */ 1,
-                /* id= */ 0,
-                /* isSeekable= */ true,
-                /* isDynamic= */ false,
-                contentDurationsUs,
-                adPlaybackState.get()));
+            new TimelineWindowDefinition.Builder()
+                .setDurationUs(contentDurationsUs)
+                .setAdPlaybackStates(ImmutableList.of(adPlaybackState.get()))
+                .build());
     FakeMediaSource fakeMediaSource =
         new FakeMediaSource(
             adTimeline,
@@ -1117,13 +1114,10 @@ public final class DefaultAnalyticsCollectorTest {
                           /* adIndexInAdGroup= */ 0));
               fakeMediaSource.setNewSourceInfo(
                   new FakeTimeline(
-                      new TimelineWindowDefinition(
-                          /* periodCount= */ 1,
-                          /* id= */ 0,
-                          /* isSeekable= */ true,
-                          /* isDynamic= */ false,
-                          contentDurationsUs,
-                          adPlaybackState.get())),
+                      new TimelineWindowDefinition.Builder()
+                          .setDurationUs(contentDurationsUs)
+                          .setAdPlaybackStates(ImmutableList.of(adPlaybackState.get()))
+                          .build()),
                   /* sendManifestLoadEvents= */ false);
             }
           }
@@ -1308,15 +1302,15 @@ public final class DefaultAnalyticsCollectorTest {
         TimelineWindowDefinition.DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US;
     Timeline adTimeline =
         new FakeTimeline(
-            new TimelineWindowDefinition(
-                /* periodCount= */ 1,
-                /* id= */ 0,
-                /* isSeekable= */ true,
-                /* isDynamic= */ false,
-                10 * C.MICROS_PER_SECOND,
-                FakeTimeline.createAdPlaybackState(
-                    /* adsPerAdGroup= */ 1, /* adGroupTimesUs...= */
-                    windowOffsetInFirstPeriodUs + 5 * C.MICROS_PER_SECOND)));
+            new TimelineWindowDefinition.Builder()
+                .setDurationUs(10 * C.MICROS_PER_SECOND)
+                .setAdPlaybackStates(
+                    ImmutableList.of(
+                        FakeTimeline.createAdPlaybackState(
+                            /* adsPerAdGroup= */ 1,
+                            /* adGroupTimesUs...= */ windowOffsetInFirstPeriodUs
+                                + 5 * C.MICROS_PER_SECOND)))
+                .build());
     FakeMediaSource fakeMediaSource =
         new FakeMediaSource(
             adTimeline,

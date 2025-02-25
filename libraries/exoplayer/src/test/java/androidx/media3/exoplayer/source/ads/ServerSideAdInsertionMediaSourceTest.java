@@ -110,17 +110,11 @@ public final class ServerSideAdInsertionMediaSourceTest {
   public void timeline_vodSinglePeriod_containsAdsDefinedInAdPlaybackState() throws Exception {
     FakeTimeline wrappedTimeline =
         new FakeTimeline(
-            new FakeTimeline.TimelineWindowDefinition(
-                /* periodCount= */ 1,
-                /* id= */ 0,
-                /* isSeekable= */ true,
-                /* isDynamic= */ false,
-                /* isLive= */ false,
-                /* isPlaceholder= */ false,
-                /* durationUs= */ 10_000_000,
-                /* defaultPositionUs= */ 3_000_000,
-                /* windowOffsetInFirstPeriodUs= */ 42_000_000L,
-                AdPlaybackState.NONE));
+            new FakeTimeline.TimelineWindowDefinition.Builder()
+                .setDurationUs(10_000_000L)
+                .setDefaultPositionUs(3_000_000L)
+                .setWindowPositionInFirstPeriodUs(42_000_000L)
+                .build());
     ServerSideAdInsertionMediaSource mediaSource =
         new ServerSideAdInsertionMediaSource(
             new FakeMediaSource(wrappedTimeline), /* adPlaybackStateUpdater= */ null);
@@ -202,17 +196,11 @@ public final class ServerSideAdInsertionMediaSourceTest {
             .withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ true);
     FakeTimeline wrappedTimeline =
         new FakeTimeline(
-            new FakeTimeline.TimelineWindowDefinition(
-                /* periodCount= */ 1,
-                /* id= */ 0,
-                /* isSeekable= */ true,
-                /* isDynamic= */ false,
-                /* isLive= */ false,
-                /* isPlaceholder= */ false,
-                /* durationUs= */ 10_000_000L,
-                /* defaultPositionUs= */ 3_000_000L,
-                /* windowOffsetInFirstPeriodUs= */ 0L,
-                AdPlaybackState.NONE));
+            new FakeTimeline.TimelineWindowDefinition.Builder()
+                .setDurationUs(10_000_000L)
+                .setDefaultPositionUs(3_000_000L)
+                .setWindowPositionInFirstPeriodUs(0L)
+                .build());
     ServerSideAdInsertionMediaSource mediaSource =
         new ServerSideAdInsertionMediaSource(
             new FakeMediaSource(wrappedTimeline), /* adPlaybackStateUpdater= */ null);
