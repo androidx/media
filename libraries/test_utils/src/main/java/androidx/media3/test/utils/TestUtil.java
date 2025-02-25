@@ -78,6 +78,7 @@ import java.lang.reflect.Modifier;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
+import java.nio.ShortBuffer;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -171,6 +172,14 @@ public class TestUtil {
   public static float[] createFloatArray(ByteBuffer byteBuffer) {
     FloatBuffer buffer = byteBuffer.asFloatBuffer();
     float[] content = new float[buffer.remaining()];
+    buffer.get(content);
+    return content;
+  }
+
+  /** Gets the underlying data of the {@link ByteBuffer} as a {@code short[]}. */
+  public static short[] createShortArray(ByteBuffer byteBuffer) {
+    ShortBuffer buffer = byteBuffer.asShortBuffer();
+    short[] content = new short[buffer.remaining()];
     buffer.get(content);
     return content;
   }
