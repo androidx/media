@@ -33,7 +33,18 @@ public final class MidiRenderer extends DecoderAudioRenderer<MidiDecoder> {
 
   private final Context context;
 
-  /** Creates the renderer instance. */
+  /**
+   * @deprecated Use {@link #MidiRenderer(Context, Handler, AudioRendererEventListener, AudioSink)}
+   * instead.
+   */
+  @Deprecated
+  public MidiRenderer(Context context) {
+    this.context = context.getApplicationContext();
+  }
+  
+  /**
+   * Creates the renderer instance.
+   */
   public MidiRenderer(
       Context context,
       @Nullable Handler eventHandler,
