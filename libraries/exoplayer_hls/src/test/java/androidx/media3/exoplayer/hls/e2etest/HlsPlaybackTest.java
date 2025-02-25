@@ -29,6 +29,7 @@ import android.graphics.SurfaceTexture;
 import android.net.Uri;
 import android.view.Surface;
 import androidx.annotation.Nullable;
+import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
 import androidx.media3.datasource.DefaultDataSource;
@@ -42,6 +43,7 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.exoplayer.source.LoadEventInfo;
 import androidx.media3.exoplayer.source.MediaLoadData;
 import androidx.media3.exoplayer.upstream.CmcdConfiguration;
+import androidx.media3.extractor.DefaultExtractorsFactory;
 import androidx.media3.test.utils.CapturingRenderersFactory;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.FakeClock;
@@ -462,6 +464,39 @@ public final class HlsPlaybackTest {
     // Every started load should be completed.
     assertThat(loadCompletedUris).containsExactlyElementsIn(loadStartedUris);
     assertThat(loadCompletedDataSpecUris).containsExactlyElementsIn(loadStartedUris);
+  }
+
+  @Test
+  public void playVideo_usingWithinGopSampleDependencies_withSeek() throws Exception {
+    Context applicationContext = ApplicationProvider.getApplicationContext();
+    CapturingRenderersFactory capturingRenderersFactory =
+        new CapturingRenderersFactory(applicationContext);
+    DefaultMediaSourceFactory defaultMediaSourceFactory =
+        new DefaultMediaSourceFactory(applicationContext, new DefaultExtractorsFactory());
+    defaultMediaSourceFactory.experimentalSetCodecsToParseWithinGopSampleDependencies(
+        C.VIDEO_CODEC_FLAG_H264);
+    ExoPlayer player =
+        new ExoPlayer.Builder(
+                applicationContext, capturingRenderersFactory, defaultMediaSourceFactory)
+            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .build();
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
+    PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
+
+    player.setMediaItem(
+        MediaItem.fromUri("asset:///media/hls/standalone-webvtt/multivariant_playlist.m3u8"));
+    player.seekTo(500L);
+    player.prepare();
+    player.play();
+    advance(player).untilState(Player.STATE_ENDED);
+    player.release();
+    surface.release();
+
+    DumpFileAsserts.assertOutput(
+        applicationContext,
+        playbackOutput,
+        "playbackdumps/hls/standalone-webvtt-optimized-seek.dump");
   }
 
   private static class AnalyticsListenerImpl implements AnalyticsListener {
