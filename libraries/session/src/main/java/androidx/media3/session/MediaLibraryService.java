@@ -875,9 +875,11 @@ public abstract class MediaLibraryService extends MediaSessionService {
    * Parameters for the interaction between {@link MediaBrowser} and {@link MediaLibrarySession}.
    *
    * <p>When a {@link MediaBrowser} specifies the parameters, the {@link MediaLibrarySession} is
-   * recommended to do the best effort to provide a result regarding the parameters, but it's not an
-   * error even though {@link MediaLibrarySession} doesn't return the parameters since they are
-   * optional.
+   * recommended to provide a result matching the parameters, but it's not an error if {@link
+   * MediaLibrarySession} can't fulfil the request.
+   *
+   * <p>Multiple parameters can be combined together, for example to request {@linkplain
+   * #isSuggested suggested} items that are also {@linkplain #isOffline offline}.
    */
   public static final class LibraryParams {
 
