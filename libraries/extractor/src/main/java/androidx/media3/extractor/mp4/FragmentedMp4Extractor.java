@@ -47,6 +47,7 @@ import androidx.media3.container.ReorderingSeiMessageQueue;
 import androidx.media3.extractor.Ac4Util;
 import androidx.media3.extractor.CeaUtil;
 import androidx.media3.extractor.ChunkIndex;
+import androidx.media3.extractor.ChunkIndicesWrapper;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.ExtractorOutput;
@@ -245,6 +246,11 @@ public class FragmentedMp4Extractor implements Extractor {
 
   // Whether extractorOutput.seekMap has been called.
   private boolean haveOutputSeekMap;
+
+  // Whether a fragmented sidx has been fully collected and output.
+  private boolean haveOutputSeekMapComplete;
+  private final ChunkIndicesWrapper wrappingSegmentIndex = new ChunkIndicesWrapper();
+  private long resetCallerSeekTo;
 
   /**
    * @deprecated Use {@link #FragmentedMp4Extractor(SubtitleParser.Factory)} instead
@@ -509,26 +515,56 @@ public class FragmentedMp4Extractor implements Extractor {
     // Do nothing
   }
 
+  private void readRemainingSidxAtomsIntoTrack(ExtractorInput input) throws IOException {
+    enterReadingAtomHeaderState();
+    while (readAtomHeader(input, true)) {
+      if (atomType == Mp4Box.TYPE_sidx) {
+        ParsableByteArray inputArray = new ParsableByteArray((int) atomSize);
+        System.arraycopy(atomHeader.getData(), 0, inputArray.getData(), 0, Mp4Box.HEADER_SIZE);
+        input.readFully(
+            inputArray.getData(), Mp4Box.HEADER_SIZE, (int) (atomSize - atomHeaderBytesRead));
+        LeafBox leafBox = new LeafBox(Mp4Box.TYPE_sidx, inputArray);
+        Pair<Long, ChunkIndex> sidxCur = parseSidx(leafBox.data, input.getPeekPosition());
+        wrappingSegmentIndex.merge(sidxCur.second);
+      } else {
+        input.skipFully((int) atomSize - atomHeaderBytesRead, true);
+      }
+      enterReadingAtomHeaderState();
+    }
+  }
+
   @Override
   public int read(ExtractorInput input, PositionHolder seekPosition) throws IOException {
-    while (true) {
-      switch (parserState) {
-        case STATE_READING_ATOM_HEADER:
-          if (!readAtomHeader(input)) {
-            reorderingSeiMessageQueue.flush();
-            return Extractor.RESULT_END_OF_INPUT;
-          }
-          break;
-        case STATE_READING_ATOM_PAYLOAD:
-          readAtomPayload(input);
-          break;
-        case STATE_READING_ENCRYPTION_DATA:
-          readEncryptionData(input);
-          break;
-        default:
-          if (readSample(input)) {
-            return RESULT_CONTINUE;
-          }
+    try {
+      while (true) {
+        switch (parserState) {
+          case STATE_READING_ATOM_HEADER:
+            if (!readAtomHeader(input, false)) {
+              if (resetCallerSeekTo > 0) {
+                seekPosition.position = resetCallerSeekTo;
+                return Extractor.RESULT_SEEK;
+              } else {
+                reorderingSeiMessageQueue.flush();
+                return Extractor.RESULT_END_OF_INPUT;
+              }
+            }
+            break;
+          case STATE_READING_ATOM_PAYLOAD:
+            readAtomPayload(input);
+            break;
+          case STATE_READING_ENCRYPTION_DATA:
+            readEncryptionData(input);
+            break;
+          default:
+            if (readSample(input)) {
+              return RESULT_CONTINUE;
+            }
+        }
+      }
+    } finally {
+      if (resetCallerSeekTo > 0) {
+        seekPosition.position = resetCallerSeekTo;
+        resetCallerSeekTo = 0;
       }
     }
   }
@@ -538,7 +574,7 @@ public class FragmentedMp4Extractor implements Extractor {
     atomHeaderBytesRead = 0;
   }
 
-  private boolean readAtomHeader(ExtractorInput input) throws IOException {
+  private boolean readAtomHeader(ExtractorInput input, boolean skipAtomParse) throws IOException {
     if (atomHeaderBytesRead == 0) {
       // Read the standard length atom header.
       if (!input.readFully(atomHeader.getData(), 0, Mp4Box.HEADER_SIZE, true)) {
@@ -571,6 +607,10 @@ public class FragmentedMp4Extractor implements Extractor {
     if (atomSize < atomHeaderBytesRead) {
       throw ParserException.createForUnsupportedContainerFeature(
           "Atom size less than header length (unsupported).");
+    }
+
+    if (skipAtomParse) {
+      return true;
     }
 
     long atomPosition = input.getPosition() - atomHeaderBytesRead;
@@ -639,7 +679,7 @@ public class FragmentedMp4Extractor implements Extractor {
     @Nullable ParsableByteArray atomData = this.atomData;
     if (atomData != null) {
       input.readFully(atomData.getData(), Mp4Box.HEADER_SIZE, atomPayloadSize);
-      onLeafAtomRead(new LeafBox(atomType, atomData), input.getPosition());
+      onLeafAtomRead(new LeafBox(atomType, atomData), input.getPosition(), input);
     } else {
       input.skipFully(atomPayloadSize);
     }
@@ -653,14 +693,27 @@ public class FragmentedMp4Extractor implements Extractor {
     enterReadingAtomHeaderState();
   }
 
-  private void onLeafAtomRead(LeafBox leaf, long inputPosition) throws ParserException {
+  private void onLeafAtomRead(LeafBox leaf, long inputPosition, ExtractorInput input)
+      throws ParserException, IOException {
     if (!containerAtoms.isEmpty()) {
       containerAtoms.peek().add(leaf);
     } else if (leaf.type == Mp4Box.TYPE_sidx) {
       Pair<Long, ChunkIndex> result = parseSidx(leaf.data, inputPosition);
-      segmentIndexEarliestPresentationTimeUs = result.first;
-      extractorOutput.seekMap(result.second);
-      haveOutputSeekMap = true;
+
+      wrappingSegmentIndex.merge(result.second);
+      if (!haveOutputSeekMap) {
+        segmentIndexEarliestPresentationTimeUs = result.first;
+        extractorOutput.seekMap(result.second);
+        haveOutputSeekMap = true;
+      } else if (!haveOutputSeekMapComplete && wrappingSegmentIndex.size() > 1) {
+        resetCallerSeekTo = inputPosition;
+        try {
+          readRemainingSidxAtomsIntoTrack(input);
+          haveOutputSeekMapComplete = true;
+        } finally {
+          extractorOutput.seekMap(wrappingSegmentIndex.toChunkIndex());
+        }
+      }
     } else if (leaf.type == Mp4Box.TYPE_emsg) {
       onEmsgLeafAtomRead(leaf.data);
     }

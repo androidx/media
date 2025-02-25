@@ -153,6 +153,9 @@ This release includes the following changes since the
         `DefaultRenderersFactory.experimentalSetParseAv1SampleDependencies` API.
 *   Muxers:
     *   Disable `Mp4Muxer` sample batching and copying by default.
+*   Extractors:
+    *   Fix seek on fragmented mp4 with multiple sidx atoms.
+        ([#9373](https://github.com/google/ExoPlayer/issues/9373))
 *   Remove deprecated symbols:
     *   Removed `androidx.media3.exoplayer.audio.SonicAudioProcessor`.
 
