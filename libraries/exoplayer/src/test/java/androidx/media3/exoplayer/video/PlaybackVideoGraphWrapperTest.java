@@ -152,6 +152,9 @@ public final class PlaybackVideoGraphWrapperTest {
     }
 
     @Override
+    public void redraw() {}
+
+    @Override
     public void registerInputStream(
         @InputType int inputType, Format format, List<Effect> effects, long offsetToAddUs) {
       registeredEffects = effects;

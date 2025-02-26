@@ -19,6 +19,7 @@ import static androidx.media3.common.VideoFrameProcessor.DROP_OUTPUT_FRAME;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
+import static androidx.media3.common.util.Util.castNonNull;
 import static androidx.media3.common.util.Util.contains;
 import static androidx.media3.common.util.Util.getMaxPendingFramesCountForMediaCodecDecoders;
 import static androidx.media3.exoplayer.video.VideoSink.INPUT_TYPE_SURFACE;
@@ -698,6 +699,12 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     @EnsuresNonNullIf(result = true, expression = "videoFrameProcessor")
     public boolean isInitialized() {
       return videoFrameProcessor != null;
+    }
+
+    @Override
+    public void redraw() {
+      checkState(isInitialized());
+      castNonNull(videoFrameProcessor).redraw();
     }
 
     @Override

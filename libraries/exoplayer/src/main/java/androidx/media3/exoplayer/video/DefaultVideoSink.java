@@ -119,6 +119,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   @Override
+  public void redraw() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
   public void flush(boolean resetPosition) {
     if (resetPosition) {
       videoFrameReleaseControl.reset();

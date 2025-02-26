@@ -127,6 +127,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   @Override
+  public void redraw() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
   public void flush(boolean resetPosition) {
     executeOrDelay(videoSink -> videoSink.flush(resetPosition));
   }

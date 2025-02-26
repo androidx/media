@@ -624,6 +624,11 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
     return inputSwitcher.getInputSurface();
   }
 
+  @Override
+  public void redraw() {
+    throw new UnsupportedOperationException();
+  }
+
   /**
    * {@inheritDoc}
    *

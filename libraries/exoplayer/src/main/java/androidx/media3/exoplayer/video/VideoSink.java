@@ -157,6 +157,9 @@ public interface VideoSink {
   /** Returns whether the video sink is {@linkplain #initialize(Format) initialized}. */
   boolean isInitialized();
 
+  /** Redraws the {@linkplain #setVideoEffects video effects} immediately. */
+  void redraw();
+
   /**
    * Flushes the video sink.
    *

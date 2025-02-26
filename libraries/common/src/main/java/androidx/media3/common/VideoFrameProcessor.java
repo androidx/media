@@ -26,6 +26,7 @@ import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.TimestampIterator;
 import androidx.media3.common.util.UnstableApi;
+import com.google.common.collect.ImmutableList;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -201,6 +202,9 @@ public interface VideoFrameProcessor {
   @SuppressWarnings("GoodTime-ApiWithNumericTimeUnit") // This is a named constant, not a time unit.
   long RENDER_OUTPUT_FRAME_WITH_PRESENTATION_TIME = -3;
 
+  /** A maker for passing to {@link #registerInputStream} to signal a redraw. */
+  ImmutableList<Effect> REDRAW = ImmutableList.of(new Effect() {});
+
   /**
    * Provides an input {@link Bitmap} to the {@link VideoFrameProcessor}.
    *
@@ -271,6 +275,12 @@ public interface VideoFrameProcessor {
    *     {@linkplain #INPUT_TYPE_SURFACE surface input}.
    */
   Surface getInputSurface();
+
+  /**
+   * Updates an {@linkplain Listener#onOutputFrameAvailableForRendering available frame} with the
+   * modified effects.
+   */
+  void redraw();
 
   /**
    * Informs the {@code VideoFrameProcessor} that a new input stream will be queued with the list of

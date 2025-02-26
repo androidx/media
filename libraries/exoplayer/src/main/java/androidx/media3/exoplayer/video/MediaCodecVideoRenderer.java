@@ -53,6 +53,7 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Timeline;
+import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.MediaFormatUtil;
@@ -1389,6 +1390,14 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
 
   /** Sets the {@linkplain Effect video effects} to apply. */
   public void setVideoEffects(List<Effect> effects) {
+    if (effects.equals(VideoFrameProcessor.REDRAW)) {
+      if (videoSink == null || !videoSink.isInitialized()) {
+        return;
+      }
+      videoSink.redraw();
+      return;
+    }
+
     videoEffects = effects;
     if (videoSink != null) {
       videoSink.setVideoEffects(effects);
