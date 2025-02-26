@@ -429,13 +429,15 @@ public class DefaultRenderersFactory implements RenderersFactory {
     }
 
     try {
-      // Full class names used for constructor args so the LINT rule triggers if any of them move.
       // LINT.IfChange
       Class<?> clazz = Class.forName("androidx.media3.decoder.vp9.LibvpxVideoRenderer");
+      // Full class names used for media3 constructor args so the LINT rule triggers if any of them
+      // move.
+      @SuppressWarnings("UnnecessarilyFullyQualified")
       Constructor<?> constructor =
           clazz.getConstructor(
               long.class,
-              android.os.Handler.class,
+              Handler.class,
               androidx.media3.exoplayer.video.VideoRendererEventListener.class,
               int.class);
       // LINT.ThenChange(../../../../../../proguard-rules.txt)
@@ -456,13 +458,15 @@ public class DefaultRenderersFactory implements RenderersFactory {
     }
 
     try {
-      // Full class names used for constructor args so the LINT rule triggers if any of them move.
       // LINT.IfChange
       Class<?> clazz = Class.forName("androidx.media3.decoder.av1.Libgav1VideoRenderer");
+      // Full class names used for media3 constructor args so the LINT rule triggers if any of them
+      // move.
+      @SuppressWarnings("UnnecessarilyFullyQualified")
       Constructor<?> constructor =
           clazz.getConstructor(
               long.class,
-              android.os.Handler.class,
+              Handler.class,
               androidx.media3.exoplayer.video.VideoRendererEventListener.class,
               int.class);
       // LINT.ThenChange(../../../../../../proguard-rules.txt)
@@ -483,14 +487,16 @@ public class DefaultRenderersFactory implements RenderersFactory {
     }
 
     try {
-      // Full class names used for constructor args so the LINT rule triggers if any of them move.
       // LINT.IfChange
       Class<?> clazz =
           Class.forName("androidx.media3.decoder.ffmpeg.ExperimentalFfmpegVideoRenderer");
+      // Full class names used for media3 constructor args so the LINT rule triggers if any of them
+      // move.
+      @SuppressWarnings("UnnecessarilyFullyQualified")
       Constructor<?> constructor =
           clazz.getConstructor(
               long.class,
-              android.os.Handler.class,
+              Handler.class,
               androidx.media3.exoplayer.video.VideoRendererEventListener.class,
               int.class);
       // LINT.ThenChange(../../../../../../proguard-rules.txt)
@@ -554,13 +560,15 @@ public class DefaultRenderersFactory implements RenderersFactory {
     }
 
     try {
-      // Full class names used for constructor args so the LINT rule triggers if any of them move.
       // LINT.IfChange
       Class<?> clazz = Class.forName("androidx.media3.decoder.midi.MidiRenderer");
+      // Full class names used for media3 constructor args so the LINT rule triggers if any of them
+      // move.
+      @SuppressWarnings("UnnecessarilyFullyQualified")
       Constructor<?> constructor =
           clazz.getConstructor(
               Context.class,
-              android.os.Handler.class,
+              Handler.class,
               androidx.media3.exoplayer.audio.AudioRendererEventListener.class,
               androidx.media3.exoplayer.audio.AudioSink.class);
       // LINT.ThenChange(../../../../../../proguard-rules.txt)
@@ -576,12 +584,14 @@ public class DefaultRenderersFactory implements RenderersFactory {
     }
 
     try {
-      // Full class names used for constructor args so the LINT rule triggers if any of them move.
       // LINT.IfChange
       Class<?> clazz = Class.forName("androidx.media3.decoder.opus.LibopusAudioRenderer");
+      // Full class names used for media3 constructor args so the LINT rule triggers if any of them
+      // move.
+      @SuppressWarnings("UnnecessarilyFullyQualified")
       Constructor<?> constructor =
           clazz.getConstructor(
-              android.os.Handler.class,
+              Handler.class,
               androidx.media3.exoplayer.audio.AudioRendererEventListener.class,
               androidx.media3.exoplayer.audio.AudioSink.class);
       // LINT.ThenChange(../../../../../../proguard-rules.txt)
@@ -597,12 +607,14 @@ public class DefaultRenderersFactory implements RenderersFactory {
     }
 
     try {
-      // Full class names used for constructor args so the LINT rule triggers if any of them move.
       // LINT.IfChange
       Class<?> clazz = Class.forName("androidx.media3.decoder.flac.LibflacAudioRenderer");
+      // Full class names used for media3 constructor args so the LINT rule triggers if any of them
+      // move.
+      @SuppressWarnings("UnnecessarilyFullyQualified")
       Constructor<?> constructor =
           clazz.getConstructor(
-              android.os.Handler.class,
+              Handler.class,
               androidx.media3.exoplayer.audio.AudioRendererEventListener.class,
               androidx.media3.exoplayer.audio.AudioSink.class);
       // LINT.ThenChange(../../../../../../proguard-rules.txt)
@@ -618,12 +630,14 @@ public class DefaultRenderersFactory implements RenderersFactory {
     }
 
     try {
-      // Full class names used for constructor args so the LINT rule triggers if any of them move.
       // LINT.IfChange
       Class<?> clazz = Class.forName("androidx.media3.decoder.ffmpeg.FfmpegAudioRenderer");
+      // Full class names used for media3 constructor args so the LINT rule triggers if any of them
+      // move.
+      @SuppressWarnings("UnnecessarilyFullyQualified")
       Constructor<?> constructor =
           clazz.getConstructor(
-              android.os.Handler.class,
+              Handler.class,
               androidx.media3.exoplayer.audio.AudioRendererEventListener.class,
               androidx.media3.exoplayer.audio.AudioSink.class);
       // LINT.ThenChange(../../../../../../proguard-rules.txt)
@@ -642,10 +656,13 @@ public class DefaultRenderersFactory implements RenderersFactory {
       // Full class names used for constructor args so the LINT rule triggers if any of them move.
       // LINT.IfChange
       Class<?> clazz = Class.forName("androidx.media3.decoder.iamf.LibiamfAudioRenderer");
+      // Full class names used for media3 constructor args so the LINT rule triggers if any of them
+      // move.
+      @SuppressWarnings("UnnecessarilyFullyQualified")
       Constructor<?> constructor =
           clazz.getConstructor(
               Context.class,
-              android.os.Handler.class,
+              Handler.class,
               androidx.media3.exoplayer.audio.AudioRendererEventListener.class,
               androidx.media3.exoplayer.audio.AudioSink.class);
       // LINT.ThenChange(../../../../../../proguard-rules.txt)
@@ -665,7 +682,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
       Class<?> clazz = Class.forName("androidx.media3.decoder.mpegh.MpeghAudioRenderer");
       Constructor<?> constructor =
           clazz.getConstructor(
-              android.os.Handler.class,
+              Handler.class,
               androidx.media3.exoplayer.audio.AudioRendererEventListener.class,
               androidx.media3.exoplayer.audio.AudioSink.class);
       Renderer renderer =
