@@ -36,21 +36,16 @@ import androidx.media3.common.PlaybackException;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ConditionVariable;
-import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.common.base.Ascii;
 import com.google.common.base.Predicate;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HttpHeaders;
 import com.google.common.primitives.Longs;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.io.InterruptedIOException;
-import java.net.CookieHandler;
-import java.net.CookieManager;
 import java.net.SocketTimeoutException;
-import java.net.URI;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
@@ -938,6 +933,14 @@ public final class HttpEngineDataSource extends BaseDataSource implements HttpDa
   }
 
   @Nullable
+  private static String parseCookies(@Nullable List<String> setCookieHeaders) {
+    if (setCookieHeaders == null || setCookieHeaders.isEmpty()) {
+      return null;
+    }
+    return TextUtils.join(";", setCookieHeaders);
+  }
+
+  @Nullable
   private static String getFirstHeader(Map<String, List<String>> allHeaders, String headerName) {
     @Nullable List<String> headers = allHeaders.get(headerName);
     return headers != null && !headers.isEmpty() ? headers.get(0) : null;
@@ -958,8 +961,7 @@ public final class HttpEngineDataSource extends BaseDataSource implements HttpDa
    * A wrapper class that manages a {@link UrlRequest} and the {@link UrlRequestCallback} associated
    * with that request.
    */
-  @VisibleForTesting
-  /* private */ static final class UrlRequestWrapper {
+  private static final class UrlRequestWrapper {
 
     private final UrlRequest urlRequest;
     private final UrlRequestCallback urlRequestCallback;
@@ -1002,19 +1004,12 @@ public final class HttpEngineDataSource extends BaseDataSource implements HttpDa
     }
   }
 
-  @VisibleForTesting
-  /* private */ final class UrlRequestCallback implements UrlRequest.Callback {
+  private final class UrlRequestCallback implements UrlRequest.Callback {
 
-    private static final String TAG = "HttpEngineDataSource";
     private volatile boolean isClosed = false;
 
     public void close() {
       this.isClosed = true;
-    }
-
-    @SuppressWarnings("argument.type.incompatible")
-    private void resetDefaultCookieHandler() {
-      CookieHandler.setDefault(null);
     }
 
     @Override
@@ -1045,21 +1040,6 @@ public final class HttpEngineDataSource extends BaseDataSource implements HttpDa
         resetConnectTimeout();
       }
 
-      boolean hasDefaultCookieHandler = CookieHandler.getDefault() != null;
-      if (!hasDefaultCookieHandler && handleSetCookieRequests) {
-        // a temporary CookieManager is created for the duration of this request - this guarantees
-        // redirects preserve the cookies correctly.
-        CookieManager cm = new CookieManager();
-        CookieHandler.setDefault(cm);
-      }
-
-      storeCookiesFromHeaders(info);
-      String cookieHeaders = getCookieHeader(info.getUrl(), info.getHeaders().getAsMap());
-
-      if (!hasDefaultCookieHandler && handleSetCookieRequests) {
-        resetDefaultCookieHandler();
-      }
-
       boolean shouldKeepPost =
           keepPostFor302Redirects
               && dataSpec.httpMethod == DataSpec.HTTP_METHOD_POST
@@ -1067,12 +1047,17 @@ public final class HttpEngineDataSource extends BaseDataSource implements HttpDa
 
       // request.followRedirect() transforms a POST request into a GET request, so if we want to
       // keep it as a POST we need to fall through to the manual redirect logic below.
-      if (!shouldKeepPost) {
-        // No cookies, or we're not handling them - so just follow the redirect.
-        if (!handleSetCookieRequests || TextUtils.isEmpty(cookieHeaders)) {
-          request.followRedirect();
-          return;
-        }
+      if (!shouldKeepPost && !handleSetCookieRequests) {
+        request.followRedirect();
+        return;
+      }
+
+      @Nullable
+      String cookieHeadersValue =
+          parseCookies(info.getHeaders().getAsMap().get(HttpHeaders.SET_COOKIE));
+      if (!shouldKeepPost && TextUtils.isEmpty(cookieHeadersValue)) {
+        request.followRedirect();
+        return;
       }
 
       request.cancel();
@@ -1090,15 +1075,13 @@ public final class HttpEngineDataSource extends BaseDataSource implements HttpDa
       } else {
         redirectUrlDataSpec = dataSpec.withUri(Uri.parse(newLocationUrl));
       }
-
-      if (!TextUtils.isEmpty(cookieHeaders)) {
+      if (!TextUtils.isEmpty(cookieHeadersValue)) {
         Map<String, String> requestHeaders = new HashMap<>();
         requestHeaders.putAll(dataSpec.httpRequestHeaders);
-        requestHeaders.put(HttpHeaders.COOKIE, cookieHeaders);
+        requestHeaders.put(HttpHeaders.COOKIE, cookieHeadersValue);
         redirectUrlDataSpec =
             redirectUrlDataSpec.buildUpon().setHttpRequestHeaders(requestHeaders).build();
       }
-
       UrlRequestWrapper redirectUrlRequestWrapper;
       try {
         redirectUrlRequestWrapper = buildRequestWrapper(redirectUrlDataSpec);
@@ -1113,56 +1096,11 @@ public final class HttpEngineDataSource extends BaseDataSource implements HttpDa
       currentUrlRequestWrapper.start();
     }
 
-    /**
-     * Stores the cookie headers from the response in the default {@link CookieHandler}.
-     *
-     * <p>This is a no-op if the {@link CookieHandler} is not set .
-     */
-    static void storeCookiesFromHeaders(UrlResponseInfo info) {
-      CookieHandler cookieHandler = CookieHandler.getDefault();
-      if (cookieHandler != null) {
-        try {
-          cookieHandler.put(new URI(info.getUrl()), info.getHeaders().getAsMap());
-        } catch (Exception e) {
-          Log.w(TAG, "Failed to store cookies in CookieHandler", e);
-        }
-      }
-    }
-
-    static String getCookieHeader(String url) {
-      return getCookieHeader(url, ImmutableMap.of());
-    }
-
-    // getCookieHeader maps Set-Cookie2 (RFC 2965) to Cookie just like CookieManager does.
-    static String getCookieHeader(String url, Map<String, List<String>> headers) {
-      CookieHandler cookieHandler = CookieHandler.getDefault();
-      if (cookieHandler == null) {
-        return "";
-      }
-
-      Map<String, List<String>> cookieHeaders = ImmutableMap.of();
-      try {
-        cookieHeaders = cookieHandler.get(new URI(url), headers);
-      } catch (Exception e) {
-        Log.w(TAG, "Failed to read cookies from CookieHandler", e);
-      }
-
-      StringBuilder cookies = new StringBuilder();
-      if (cookieHeaders.containsKey(HttpHeaders.COOKIE)) {
-        List<String> cookiesList = cookieHeaders.get(HttpHeaders.COOKIE);
-        for (String cookie : cookiesList) {
-          cookies.append(cookie).append("; ");
-        }
-      }
-      return cookies.toString().stripTrailing();
-    }
-
     @Override
     public synchronized void onResponseStarted(UrlRequest request, UrlResponseInfo info) {
       if (isClosed) {
         return;
       }
-      storeCookiesFromHeaders(info);
       responseInfo = info;
       operation.open();
     }
