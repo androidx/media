@@ -526,7 +526,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
     this.intermediateGlShaderPrograms = new ArrayList<>();
     this.inputStreamRegisteredCondition = new ConditionVariable();
     inputStreamRegisteredCondition.open();
-    this.finalShaderProgramWrapper.setOnInputStreamProcessedListener(
+    this.finalShaderProgramWrapper.setListener(
         () -> {
           if (inputStreamEnded) {
             listenerExecutor.execute(listener::onEnded);

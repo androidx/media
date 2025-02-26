@@ -66,7 +66,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  */
 /* package */ final class FinalShaderProgramWrapper implements GlShaderProgram, GlTextureProducer {
 
-  interface OnInputStreamProcessedListener {
+  public interface Listener {
+    /**
+     * Called when one input stream is fully processed following {@link
+     * #signalEndOfCurrentInputStream()}.
+     */
     void onInputStreamProcessed();
   }
 
@@ -103,7 +107,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private boolean isInputStreamEndedWithPendingAvailableFrames;
   private InputListener inputListener;
   private @MonotonicNonNull Size outputSizeBeforeSurfaceTransformation;
-  @Nullable private OnInputStreamProcessedListener onInputStreamProcessedListener;
+  private @MonotonicNonNull Listener listener;
   private boolean matrixTransformationsChanged;
   private boolean outputSurfaceInfoChanged;
   @Nullable private SurfaceInfo outputSurfaceInfo;
@@ -120,7 +124,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       VideoFrameProcessingTaskExecutor videoFrameProcessingTaskExecutor,
       Executor videoFrameProcessorListenerExecutor,
       VideoFrameProcessor.Listener videoFrameProcessorListener,
-      @Nullable Listener textureOutputListener,
+      @Nullable GlTextureProducer.Listener textureOutputListener,
       int textureOutputCapacity,
       @WorkingColorSpace int sdrWorkingColorSpace,
       boolean renderFramesAutomatically) {
@@ -188,17 +192,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     throw new UnsupportedOperationException();
   }
 
-  public void setOnInputStreamProcessedListener(
-      @Nullable OnInputStreamProcessedListener onInputStreamProcessedListener) {
+  public void setListener(Listener listener) {
     videoFrameProcessingTaskExecutor.verifyVideoFrameProcessingThread();
-    this.onInputStreamProcessedListener = onInputStreamProcessedListener;
+    this.listener = listener;
   }
 
   @Override
   public void signalEndOfCurrentInputStream() {
     videoFrameProcessingTaskExecutor.verifyVideoFrameProcessingThread();
     if (availableFrames.isEmpty()) {
-      checkNotNull(onInputStreamProcessedListener).onInputStreamProcessed();
+      checkNotNull(listener).onInputStreamProcessed();
       isInputStreamEndedWithPendingAvailableFrames = false;
     } else {
       checkState(!renderFramesAutomatically);
@@ -313,7 +316,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         oldestAvailableFrame.presentationTimeUs,
         renderTimeNs);
     if (availableFrames.isEmpty() && isInputStreamEndedWithPendingAvailableFrames) {
-      checkNotNull(onInputStreamProcessedListener).onInputStreamProcessed();
+      checkNotNull(listener).onInputStreamProcessed();
       isInputStreamEndedWithPendingAvailableFrames = false;
     }
   }
