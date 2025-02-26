@@ -30,6 +30,7 @@ internal fun ExtraControls(player: Player, modifier: Modifier = Modifier) {
     horizontalArrangement = Arrangement.Center,
     verticalAlignment = Alignment.CenterVertically,
   ) {
+    PlaybackSpeedPopUpButton(player)
     ShuffleButton(player)
     RepeatButton(player)
   }

@@ -1,5 +1,9 @@
 # Release notes
 
+* UI:
+    *   Add `PlaybackSpeedState` class and the corresponding
+        `rememberPlaybackSpeedState` Composable to `media3-ui-compose` module.
+
 ## 1.6
 
 ### 1.6.0-rc01 (2025-03-12)
@@ -77,8 +81,6 @@ This release includes the following changes since the
         to stop the foreground service before `stopSelf()` when overriding
         `onTaskRemoved`, use `MediaSessionService.pauseAllPlayersAndStopSelf()`
         instead.
-    *   Make `MediaSession.setSessionActivity(PendingIntent)` accept null
-        ([#2109](https://github.com/androidx/media/issues/2109)).
     *   Keep notification visible when playback enters an error or stopped
         state. The notification is only removed if the playlist is cleared or
         the player is released.
