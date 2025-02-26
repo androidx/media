@@ -34,6 +34,8 @@
 *   Muxers:
     *   `writeSampleData()` API now uses muxer specific `BufferInfo` class
         instead of `MediaCodec.BufferInfo`.
+    *   Fix a bug in `FragmentedMp4Muxer` that creates a lot of fragments when
+        only audio track is written.
 *   IMA extension:
 *   Session:
     *   Make `MediaSession.setSessionActivity(PendingIntent)` accept null

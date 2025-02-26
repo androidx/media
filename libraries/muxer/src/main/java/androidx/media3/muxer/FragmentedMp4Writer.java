@@ -291,6 +291,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     writeMdatBox(trackInfos);
 
     currentFragmentSequenceNumber++;
+    maxTrackDurationUs = 0;
   }
 
   private void writeMdatBox(List<ProcessedTrackInfo> trackInfos) throws IOException {

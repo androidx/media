@@ -55,6 +55,7 @@ public class FragmentedMp4MuxerEndToEndTest {
   private static final String H264_WITH_PYRAMID_B_FRAMES_MP4 =
       "bbb_800x640_768kbps_30fps_avc_pyramid_3b.mp4";
   private static final String H265_HDR10_MP4 = "hdr10-720p.mp4";
+  private static final String AUDIO_ONLY_MP4 = "sample_audio_only_15s.mp4";
 
   @Parameters(name = "{0}")
   public static ImmutableList<String> mediaSamples() {
@@ -131,6 +132,34 @@ public class FragmentedMp4MuxerEndToEndTest {
         context,
         dumpableMp4Box,
         MuxerTestUtil.getExpectedDumpFilePath(H265_HDR10_MP4 + "_fragmented_box_structure"));
+  }
+
+  @Test
+  public void createFragmentedMp4File_fromAudioOnlyInputFile_writesExpectedFragments()
+      throws Exception {
+    @Nullable FragmentedMp4Muxer fragmentedMp4Muxer = null;
+
+    try {
+      fragmentedMp4Muxer = new FragmentedMp4Muxer.Builder(checkNotNull(outputStream)).build();
+      fragmentedMp4Muxer.addMetadataEntry(
+          new Mp4TimestampData(
+              /* creationTimestampSeconds= */ 100_000_000L,
+              /* modificationTimestampSeconds= */ 500_000_000L));
+      feedInputDataToMuxer(context, fragmentedMp4Muxer, AUDIO_ONLY_MP4);
+    } finally {
+      if (fragmentedMp4Muxer != null) {
+        fragmentedMp4Muxer.close();
+      }
+    }
+
+    DumpableMp4Box dumpableMp4Box =
+        new DumpableMp4Box(
+            ByteBuffer.wrap(TestUtil.getByteArrayFromFilePath(checkNotNull(outputPath))));
+    // For a 15 sec audio, there should be 8 fragments (2 sec fragment duration).
+    DumpFileAsserts.assertOutput(
+        context,
+        dumpableMp4Box,
+        MuxerTestUtil.getExpectedDumpFilePath(AUDIO_ONLY_MP4 + "_fragmented_box_structure"));
   }
 
   private static void feedInputDataToMuxer(
