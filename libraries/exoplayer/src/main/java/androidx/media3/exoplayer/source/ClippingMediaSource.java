@@ -200,7 +200,7 @@ public final class ClippingMediaSource extends WrappingMediaSource {
      * Sets whether clipping to a non-zero start position in unseekable media is allowed.
      *
      * <p>Note that this is inefficient because the player needs to read and decode all samples from
-     * the beginning of the file and it should only be used if the seek start position is small and
+     * the beginning of the file and it should only be used if the clip start position is small and
      * the entire data before the start position fits into memory.
      *
      * <p>The default value is {@code false}.

@@ -589,6 +589,7 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
         .setEnableInitialDiscontinuity(!mediaItem.clippingConfiguration.startsAtKeyFrame)
         .setAllowDynamicClippingUpdates(mediaItem.clippingConfiguration.relativeToLiveWindow)
         .setRelativeToDefaultPosition(mediaItem.clippingConfiguration.relativeToDefaultPosition)
+        .setAllowUnseekableMedia(mediaItem.clippingConfiguration.allowUnseekableMedia)
         .build();
   }
 
