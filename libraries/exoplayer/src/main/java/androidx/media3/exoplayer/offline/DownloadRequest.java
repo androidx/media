@@ -54,12 +54,14 @@ public final class DownloadRequest implements Parcelable {
     @Nullable private String customCacheKey;
     @Nullable private byte[] data;
     @Nullable private ByteRange byteRange;
+    @Nullable private TimeRange timeRange;
 
     /** Creates a new instance with the specified id and uri. */
     public Builder(String id, Uri uri) {
       this.id = id;
       this.uri = uri;
       this.byteRange = null;
+      this.timeRange = null;
     }
 
     /** Sets the {@link DownloadRequest#mimeType}. */
@@ -112,6 +114,22 @@ public final class DownloadRequest implements Parcelable {
       return this;
     }
 
+    /**
+     * Sets the time range to be downloaded.
+     *
+     * <p>This will be ignored progressive downloads.
+     *
+     * @param startPositionUs The start position in microseconds that the download should start
+     *     from.
+     * @param durationUs The duration in microseconds from the {@code startPositionUs} to be
+     *     downloaded, or @link C#TIME_UNSET} if the media should be downloaded to the end.
+     */
+    @CanIgnoreReturnValue
+    public Builder setTimeRange(long startPositionUs, long durationUs) {
+      this.timeRange = new TimeRange(startPositionUs, durationUs);
+      return this;
+    }
+
     public DownloadRequest build() {
       return new DownloadRequest(
           id,
@@ -121,7 +139,8 @@ public final class DownloadRequest implements Parcelable {
           keySetId,
           customCacheKey,
           data,
-          byteRange);
+          byteRange,
+          timeRange);
     }
   }
 
@@ -156,6 +175,9 @@ public final class DownloadRequest implements Parcelable {
   /** The byte range to be downloaded. Must be null for DASH, HLS and SmoothStreaming downloads. */
   @Nullable public final ByteRange byteRange;
 
+  /** The time range to be downloaded. Must be null progressive downloads. */
+  @Nullable public final TimeRange timeRange;
+
   /**
    * @param id See {@link #id}.
    * @param uri See {@link #uri}.
@@ -163,6 +185,8 @@ public final class DownloadRequest implements Parcelable {
    * @param streamKeys See {@link #streamKeys}.
    * @param customCacheKey See {@link #customCacheKey}.
    * @param data See {@link #data}.
+   * @param byteRange See {@link #byteRange}.
+   * @param timeRange See {@link #timeRange}.
    */
   private DownloadRequest(
       String id,
@@ -172,15 +196,18 @@ public final class DownloadRequest implements Parcelable {
       @Nullable byte[] keySetId,
       @Nullable String customCacheKey,
       @Nullable byte[] data,
-      @Nullable ByteRange byteRange) {
+      @Nullable ByteRange byteRange,
+      @Nullable TimeRange timeRange) {
     @C.ContentType int contentType = Util.inferContentTypeForUriAndMimeType(uri, mimeType);
     if (contentType == C.CONTENT_TYPE_DASH
         || contentType == C.CONTENT_TYPE_HLS
         || contentType == C.CONTENT_TYPE_SS) {
       checkArgument(customCacheKey == null, "customCacheKey must be null for type: " + contentType);
       this.byteRange = null;
+      this.timeRange = timeRange;
     } else {
       this.byteRange = byteRange;
+      this.timeRange = null;
     }
     this.id = id;
     this.uri = uri;
@@ -207,6 +234,7 @@ public final class DownloadRequest implements Parcelable {
     customCacheKey = in.readString();
     data = castNonNull(in.createByteArray());
     byteRange = in.readParcelable(ByteRange.class.getClassLoader());
+    timeRange = in.readParcelable(TimeRange.class.getClassLoader());
   }
 
   /**
@@ -217,7 +245,7 @@ public final class DownloadRequest implements Parcelable {
    */
   public DownloadRequest copyWithId(String id) {
     return new DownloadRequest(
-        id, uri, mimeType, streamKeys, keySetId, customCacheKey, data, byteRange);
+        id, uri, mimeType, streamKeys, keySetId, customCacheKey, data, byteRange, timeRange);
   }
 
   /**
@@ -228,7 +256,7 @@ public final class DownloadRequest implements Parcelable {
    */
   public DownloadRequest copyWithKeySetId(@Nullable byte[] keySetId) {
     return new DownloadRequest(
-        id, uri, mimeType, streamKeys, keySetId, customCacheKey, data, byteRange);
+        id, uri, mimeType, streamKeys, keySetId, customCacheKey, data, byteRange, timeRange);
   }
 
   /**
@@ -265,7 +293,8 @@ public final class DownloadRequest implements Parcelable {
         newRequest.keySetId,
         newRequest.customCacheKey,
         newRequest.data,
-        newRequest.byteRange);
+        newRequest.byteRange,
+        newRequest.timeRange);
   }
 
   /** Returns a {@link MediaItem} for the content defined by the request. */
@@ -297,7 +326,8 @@ public final class DownloadRequest implements Parcelable {
         && Arrays.equals(keySetId, that.keySetId)
         && Objects.equals(customCacheKey, that.customCacheKey)
         && Arrays.equals(data, that.data)
-        && Objects.equals(byteRange, that.byteRange);
+        && Objects.equals(byteRange, that.byteRange)
+        && Objects.equals(timeRange, that.timeRange);
   }
 
   @Override
@@ -310,6 +340,7 @@ public final class DownloadRequest implements Parcelable {
     result = 31 * result + (customCacheKey != null ? customCacheKey.hashCode() : 0);
     result = 31 * result + Arrays.hashCode(data);
     result = 31 * result + (byteRange != null ? byteRange.hashCode() : 0);
+    result = 31 * result + (timeRange != null ? timeRange.hashCode() : 0);
     return result;
   }
 
@@ -333,6 +364,7 @@ public final class DownloadRequest implements Parcelable {
     dest.writeString(customCacheKey);
     dest.writeByteArray(data);
     dest.writeParcelable(byteRange, /* parcelableFlags= */ 0);
+    dest.writeParcelable(timeRange, /* parcelableFlags= */ 0);
   }
 
   public static final Parcelable.Creator<DownloadRequest> CREATOR =
@@ -407,6 +439,67 @@ public final class DownloadRequest implements Parcelable {
           @Override
           public ByteRange[] newArray(int size) {
             return new ByteRange[size];
+          }
+        };
+  }
+
+  /** Defines the time range. */
+  public static final class TimeRange implements Parcelable {
+
+    /** The start position of the time range, in microseconds. */
+    public final long startPositionUs;
+
+    /** The duration of the time range, in microseconds. */
+    public final long durationUs;
+
+    /* package */ TimeRange(long startPositionUs, long durationUs) {
+      checkArgument(durationUs >= 0 || durationUs == C.TIME_UNSET);
+      this.startPositionUs = startPositionUs;
+      this.durationUs = durationUs;
+    }
+
+    /* package */ TimeRange(Parcel in) {
+      this(in.readLong(), in.readLong());
+    }
+
+    @Override
+    public boolean equals(@Nullable Object o) {
+      if (!(o instanceof TimeRange)) {
+        return false;
+      }
+      TimeRange that = (TimeRange) o;
+      return startPositionUs == that.startPositionUs && durationUs == that.durationUs;
+    }
+
+    @Override
+    public int hashCode() {
+      int result = 31 * (int) startPositionUs;
+      result = 31 * result + (int) durationUs;
+      return result;
+    }
+
+    @Override
+    public int describeContents() {
+      return 0;
+    }
+
+    @Override
+    public void writeToParcel(Parcel dest, int flags) {
+      dest.writeLong(startPositionUs);
+      dest.writeLong(durationUs);
+    }
+
+    public static final Parcelable.Creator<TimeRange> CREATOR =
+        new Parcelable.Creator<TimeRange>() {
+
+          @Override
+          public TimeRange createFromParcel(Parcel in) {
+            return new TimeRange(in);
+          }
+
+          @Override
+          public TimeRange[] newArray(int size) {
+            return new TimeRange[size];
           }
         };
   }
