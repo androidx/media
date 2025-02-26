@@ -52,12 +52,6 @@ import java.util.List;
           .compound(
               Ordering.<Long>natural().reverse().onResultOf((CuesWithTiming c) -> c.durationUs));
 
-  /**
-   * An {@link Ordering} which sorts cues in ascending layer priority
-   */
-  private static final Ordering<Cue> CUES_LAYER_PRIORITY_COMPARATOR =
-      Ordering.<Integer>natural().onResultOf(c -> c.layer);
-
   /** Sorted by {@link CuesWithTiming#startTimeUs} ascending. */
   private final List<CuesWithTiming> cuesWithTimingList;
 
@@ -103,8 +97,7 @@ import java.util.List;
     for (int i = 0; i < sortedResult.size(); i++) {
       result.addAll(sortedResult.get(i).cues);
     }
-    // sort by layer
-    return ImmutableList.sortedCopyOf(CUES_LAYER_PRIORITY_COMPARATOR, result.build());
+    return result.build();
   }
 
   @Override

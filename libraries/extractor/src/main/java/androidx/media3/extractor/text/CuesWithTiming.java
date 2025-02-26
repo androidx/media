@@ -21,19 +21,11 @@ import androidx.media3.common.Format;
 import androidx.media3.common.text.Cue;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Ordering;
 import java.util.List;
 
 /** A list of {@link Cue} instances with a start time and duration. */
 @UnstableApi
 public class CuesWithTiming {
-
-  /**
-   * An {@link Ordering} which sorts cues in ascending layer priority
-   */
-  private static final Ordering<Cue> CUES_LAYER_PRIORITY_COMPARATOR =
-      Ordering.<Integer>natural().onResultOf(c -> c.layer);
-
   /** The cues to show on screen. */
   public final ImmutableList<Cue> cues;
 
@@ -75,7 +67,7 @@ public class CuesWithTiming {
 
   /** Creates an instance. */
   public CuesWithTiming(List<Cue> cues, long startTimeUs, long durationUs) {
-    this.cues = ImmutableList.sortedCopyOf(CUES_LAYER_PRIORITY_COMPARATOR, cues);
+    this.cues = ImmutableList.copyOf(cues);
     this.startTimeUs = startTimeUs;
     this.durationUs = durationUs;
     this.endTimeUs =
