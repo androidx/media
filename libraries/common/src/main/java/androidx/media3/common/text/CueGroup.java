@@ -31,10 +31,10 @@ import java.util.List;
 public final class CueGroup {
 
   /**
-   * An {@link Ordering} which sorts cues in ascending layer priority
+   * An {@link Ordering} which sorts cues in ascending zIndex priority
    */
-  private static final Ordering<Cue> CUES_LAYER_PRIORITY_COMPARATOR =
-      Ordering.<Integer>natural().onResultOf(c -> c.layer);
+  private static final Ordering<Cue> CUES_PRIORITY_COMPARATOR =
+      Ordering.<Integer>natural().onResultOf(c -> c.zIndex);
 
   /** An empty group with no {@link Cue Cues} and presentation time of zero. */
   @UnstableApi
@@ -61,7 +61,7 @@ public final class CueGroup {
   /** Creates a CueGroup. */
   @UnstableApi
   public CueGroup(List<Cue> cues, long presentationTimeUs) {
-    this.cues = ImmutableList.sortedCopyOf(CUES_LAYER_PRIORITY_COMPARATOR, cues);
+    this.cues = ImmutableList.sortedCopyOf(CUES_PRIORITY_COMPARATOR, cues);
     this.presentationTimeUs = presentationTimeUs;
   }
 

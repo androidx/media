@@ -410,7 +410,9 @@ public final class SsaParser implements SubtitleParser {
       float screenWidth,
       float screenHeight) {
     SpannableString spannableText = new SpannableString(text);
-    Cue.Builder cue = new Cue.Builder().setText(spannableText).setLayer(layer);
+    Cue.Builder cue = new Cue.Builder()
+        .setText(spannableText)
+        .setZIndex(layer);
 
     if (style != null) {
       if (style.primaryColor != null) {

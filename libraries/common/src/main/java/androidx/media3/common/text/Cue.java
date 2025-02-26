@@ -310,9 +310,9 @@ public final class Cue {
   public final float shearDegrees;
 
   /**
-   * The layer for cue, the larger cue will render above the smaller cue.
+   * The z index for cue, the larger index will render above the smaller index.
    */
-  public final int layer;
+  public final int zIndex;
 
   private Cue(
       @Nullable CharSequence text,
@@ -332,7 +332,7 @@ public final class Cue {
       int windowColor,
       @VerticalType int verticalType,
       float shearDegrees,
-      int layer) {
+      int zIndex) {
     // Exactly one of text or bitmap should be set.
     if (text == null) {
       Assertions.checkNotNull(bitmap);
@@ -362,7 +362,7 @@ public final class Cue {
     this.textSize = textSize;
     this.verticalType = verticalType;
     this.shearDegrees = shearDegrees;
-    this.layer = layer;
+    this.zIndex = zIndex;
   }
 
   /** Returns a new {@link Cue.Builder} initialized with the same values as this Cue. */
@@ -399,7 +399,7 @@ public final class Cue {
         && textSize == that.textSize
         && verticalType == that.verticalType
         && shearDegrees == that.shearDegrees
-        && layer == that.layer;
+        && zIndex == that.zIndex;
   }
 
   @Override
@@ -422,7 +422,7 @@ public final class Cue {
         textSize,
         verticalType,
         shearDegrees,
-        layer);
+        zIndex);
   }
 
   /** A builder for {@link Cue} objects. */
@@ -445,7 +445,7 @@ public final class Cue {
     @ColorInt private int windowColor;
     private @VerticalType int verticalType;
     private float shearDegrees;
-    private int layer;
+    private int zIndex;
 
     public Builder() {
       text = null;
@@ -484,7 +484,7 @@ public final class Cue {
       windowColor = cue.windowColor;
       verticalType = cue.verticalType;
       shearDegrees = cue.shearDegrees;
-      layer = cue.layer;
+      zIndex = cue.zIndex;
     }
 
     /**
@@ -817,19 +817,19 @@ public final class Cue {
       return verticalType;
     }
 
-    /** Sets the layer for this Cue. */
+    /** Sets the zIndex for this Cue. */
     @CanIgnoreReturnValue
-    public Builder setLayer(int layer) {
-      this.layer = layer;
+    public Builder setZIndex(int zIndex) {
+      this.zIndex = zIndex;
       return this;
     }
 
     /**
-     * Gets the layer for this Cue.
+     * Gets the zIndex for this Cue.
      */
     @Pure
-    public @VerticalType int getLayer() {
-      return layer;
+    public int getZIndex() {
+      return zIndex;
     }
 
     /** Build the cue. */
@@ -852,7 +852,7 @@ public final class Cue {
           windowColor,
           verticalType,
           shearDegrees,
-          layer);
+          zIndex);
     }
   }
 
@@ -875,7 +875,7 @@ public final class Cue {
   private static final String FIELD_WINDOW_COLOR_SET = Util.intToStringMaxRadix(14);
   private static final String FIELD_VERTICAL_TYPE = Util.intToStringMaxRadix(15);
   private static final String FIELD_SHEAR_DEGREES = Util.intToStringMaxRadix(16);
-  private static final String FIELD_LAYER = Util.intToStringMaxRadix(19);
+  private static final String FIELD_Z_INDEX = Util.intToStringMaxRadix(19);
 
   /**
    * Returns a {@link Bundle} that can be serialized to bytes.
@@ -951,7 +951,7 @@ public final class Cue {
     bundle.putInt(FIELD_WINDOW_COLOR, windowColor);
     bundle.putInt(FIELD_VERTICAL_TYPE, verticalType);
     bundle.putFloat(FIELD_SHEAR_DEGREES, shearDegrees);
-    bundle.putInt(FIELD_LAYER, layer);
+    bundle.putInt(FIELD_Z_INDEX, zIndex);
     return bundle;
   }
 
@@ -1024,8 +1024,8 @@ public final class Cue {
     if (bundle.containsKey(FIELD_SHEAR_DEGREES)) {
       builder.setShearDegrees(bundle.getFloat(FIELD_SHEAR_DEGREES));
     }
-    if (bundle.containsKey(FIELD_LAYER)) {
-      builder.setLayer(bundle.getInt(FIELD_LAYER));
+    if (bundle.containsKey(FIELD_Z_INDEX)) {
+      builder.setZIndex(bundle.getInt(FIELD_Z_INDEX));
     }
     return builder.build();
   }

@@ -85,7 +85,6 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   private int parentTop;
   private int parentRight;
   private int parentBottom;
-  private int cueLayer;
 
   // Derived drawing variables.
   private @MonotonicNonNull StaticLayout textLayout;
@@ -185,8 +184,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
         && this.parentLeft == cueBoxLeft
         && this.parentTop == cueBoxTop
         && this.parentRight == cueBoxRight
-        && this.parentBottom == cueBoxBottom
-        && this.cueLayer == cue.layer) {
+        && this.parentBottom == cueBoxBottom) {
       // We can use the cached layout.
       drawLayout(canvas, isTextCue);
       return;
@@ -215,7 +213,6 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     this.parentTop = cueBoxTop;
     this.parentRight = cueBoxRight;
     this.parentBottom = cueBoxBottom;
-    this.cueLayer = cue.layer;
 
     if (isTextCue) {
       Assertions.checkNotNull(cueText);
