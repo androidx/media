@@ -32,6 +32,8 @@
         ([#1732](https://github.com/androidx/media/issues/1732)).
 *   Effect:
 *   Muxers:
+    *   Fix a bug in `FragmentedMp4Muxer` that creates a lot of fragments when
+        only audio track is written.
 *   IMA extension:
 *   Session:
 *   UI:
