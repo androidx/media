@@ -62,6 +62,8 @@
 *   RTSP Extension:
 *   Decoder Extensions (FFmpeg, VP9, AV1, etc.):
 *   MIDI extension:
+    *   Plumb custom `AudioSink` and `AudioRendererEventListener` instances into
+        `MidiRenderer`.
 *   Leanback extension:
 *   Cast Extension:
     *   Bump the `play-services-cast-framework` dependency to 21.5.0 to fix a

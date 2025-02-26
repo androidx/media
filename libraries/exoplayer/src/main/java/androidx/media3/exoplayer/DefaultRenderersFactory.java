@@ -557,9 +557,15 @@ public class DefaultRenderersFactory implements RenderersFactory {
       // Full class names used for constructor args so the LINT rule triggers if any of them move.
       // LINT.IfChange
       Class<?> clazz = Class.forName("androidx.media3.decoder.midi.MidiRenderer");
-      Constructor<?> constructor = clazz.getConstructor(Context.class);
+      Constructor<?> constructor =
+          clazz.getConstructor(
+              Context.class,
+              android.os.Handler.class,
+              androidx.media3.exoplayer.audio.AudioRendererEventListener.class,
+              androidx.media3.exoplayer.audio.AudioSink.class);
       // LINT.ThenChange(../../../../../../proguard-rules.txt)
-      Renderer renderer = (Renderer) constructor.newInstance(context);
+      Renderer renderer =
+          (Renderer) constructor.newInstance(context, eventHandler, eventListener, audioSink);
       out.add(extensionRendererIndex++, renderer);
       Log.i(TAG, "Loaded MidiRenderer.");
     } catch (ClassNotFoundException e) {
