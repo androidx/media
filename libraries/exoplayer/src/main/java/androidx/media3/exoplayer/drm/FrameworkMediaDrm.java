@@ -42,6 +42,7 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.extractor.mp4.PsshAtomUtil;
+import androidx.media3.extractor.mp4.PsshAtomUtil.PsshAtom;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
@@ -477,8 +478,7 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
   }
 
   private static UUID adjustUuid(UUID uuid) {
-    // ClearKey had to be accessed using the Common PSSH UUID prior to API level 27.
-    return Util.SDK_INT < 27 && C.CLEARKEY_UUID.equals(uuid) ? C.COMMON_PSSH_UUID : uuid;
+    return cdmRequiresCommonPsshUuid(uuid) ? C.COMMON_PSSH_UUID : uuid;
   }
 
   private static byte[] adjustRequestInitData(UUID uuid, byte[] initData) {
@@ -492,6 +492,13 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
       initData =
           PsshAtomUtil.buildPsshAtom(
               C.PLAYREADY_UUID, addLaUrlAttributeIfMissing(schemeSpecificData));
+    }
+    if (cdmRequiresCommonPsshUuid(uuid)) {
+      PsshAtom psshAtom = PsshAtomUtil.parsePsshAtom(initData);
+      if (psshAtom != null) {
+        initData =
+            PsshAtomUtil.buildPsshAtom(C.COMMON_PSSH_UUID, psshAtom.keyIds, psshAtom.schemeData);
+      }
     }
 
     // Prior to API level 21, the Widevine CDM required scheme specific data to be extracted from
@@ -532,6 +539,11 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
       return ClearKeyUtil.adjustRequestData(requestData);
     }
     return requestData;
+  }
+
+  private static boolean cdmRequiresCommonPsshUuid(UUID uuid) {
+    // ClearKey had to be accessed using the Common PSSH UUID prior to API level 27.
+    return Util.SDK_INT < 27 && Objects.equals(uuid, C.CLEARKEY_UUID);
   }
 
   private static void forceWidevineL3(MediaDrm mediaDrm) {
