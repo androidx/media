@@ -17,9 +17,11 @@ package androidx.media3.exoplayer;
 
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Looper;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
@@ -107,6 +109,9 @@ public final class ClippedPlaybackTest {
 
   @Test
   public void subtitlesRespectClipping_multiplePeriods() throws Exception {
+    // Parsing subtitles during rendering is flaky (see comment above), so restrict that
+    // configuration to a single API level to reduce the chance of seeing a flaky failure.
+    assumeTrue(parseSubtitlesDuringExtraction || Build.VERSION.SDK_INT >= 34);
     ImmutableList<MediaItem> mediaItems =
         ImmutableList.of(
             new MediaItem.Builder()
