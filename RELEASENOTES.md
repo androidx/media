@@ -41,6 +41,8 @@
     *   Make `MediaSession.setSessionActivity(PendingIntent)` accept null
         ([#2109](https://github.com/androidx/media/issues/2109)).
 *   UI:
+    *   Add `PlaybackSpeedState` class and the corresponding
+        `rememberPlaybackSpeedState` Composable to `media3-ui-compose` module.
 *   Downloads:
     *   Fix bug in `CacheWriter` that leaves data sources open and cache areas
         locked in case the data source throws an `Exception` other than
@@ -72,6 +74,8 @@
         ([#2178](https://github.com/androidx/media/issues/2178)).
 *   Test Utilities:
 *   Demo app:
+    *   Add `PlaybackSpeedPopUpButton` Composable UI element to be part of
+        `ExtraControls` in `demo-compose`.
 *   Remove deprecated symbols:
     *   Removed deprecated `SegmentDownloader` constructor
         `SegmentDownloader(MediaItem, Parser<M>, CacheDataSource.Factory,

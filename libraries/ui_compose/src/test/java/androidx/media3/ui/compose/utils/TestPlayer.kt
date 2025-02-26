@@ -17,6 +17,7 @@
 package androidx.media3.ui.compose.utils
 
 import android.os.Looper
+import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.SimpleBasePlayer
 import com.google.common.collect.ImmutableList
@@ -88,6 +89,13 @@ internal class TestPlayer : SimpleBasePlayer(Looper.myLooper()!!) {
 
   override fun handleSetRepeatMode(repeatMode: Int): ListenableFuture<*> {
     state = state.buildUpon().setRepeatMode(repeatMode).build()
+    return Futures.immediateVoidFuture()
+  }
+
+  override fun handleSetPlaybackParameters(
+    playbackParameters: PlaybackParameters
+  ): ListenableFuture<*> {
+    state = state.buildUpon().setPlaybackParameters(playbackParameters).build()
     return Futures.immediateVoidFuture()
   }
 
