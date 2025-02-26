@@ -2016,7 +2016,7 @@ public final class DefaultAudioSink implements AudioSink {
       }
       @Nullable AudioDeviceInfo routedDevice = router.getRoutedDevice();
       if (routedDevice != null) {
-        capabilitiesReceiver.setRoutedDevice(router.getRoutedDevice());
+        capabilitiesReceiver.setRoutedDevice(routedDevice);
       }
     }
   }
