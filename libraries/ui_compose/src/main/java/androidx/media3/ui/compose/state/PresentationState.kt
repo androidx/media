@@ -24,8 +24,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.unit.Density
-import androidx.compose.ui.unit.Dp
 import androidx.media3.common.C
 import androidx.media3.common.Player
 import androidx.media3.common.Timeline
@@ -35,8 +33,8 @@ import androidx.media3.common.util.UnstableApi
 
 /**
  * Remembers the value of [PresentationState] created based on the passed [Player] and launches a
- * coroutine to listen to [Player]'s changes. If the [Player] instance changes between compositions,
- * produces and remembers a new value.
+ * coroutine to listen to [Player's][Player] changes. If the [Player] instance changes between
+ * compositions, produces and remembers a new value.
  */
 @UnstableApi
 @Composable
@@ -52,11 +50,11 @@ fun rememberPresentationState(player: Player): PresentationState {
  *
  * @property[videoSizeDp] wraps [Player.getVideoSize] in Compose's [Size], becomes `null` when
  *   either height or width of the video is zero. Takes into account
- *   [VideoSize.pixelWidthHeightRatio] to return a Size in [Dp], i.e. device-independent pixel. To
- *   use this measurement in Compose's Drawing and Layout stages, convert it into pixels using
- *   [Density.toPx]. Note that for cases where `pixelWidthHeightRatio` is not equal to 1, the
- *   rescaling will be down, i.e. reducing the width or the height to achieve the same aspect ratio
- *   in square pixels.
+ *   [VideoSize.pixelWidthHeightRatio] to return a Size in [Dp][androidx.compose.ui.unit.Dp], i.e.
+ *   device-independent pixel. To use this measurement in Compose's Drawing and Layout stages,
+ *   convert it into pixels using [Density.toPx][androidx.compose.ui.unit.Density.toPx]. Note that
+ *   for cases where `pixelWidthHeightRatio` is not equal to 1, the rescaling will be down, i.e.
+ *   reducing the width or the height to achieve the same aspect ratio in square pixels.
  * @property[coverSurface] set to false when the Player emits [Player.EVENT_RENDERED_FIRST_FRAME]
  *   and reset back to true on [Player.EVENT_TRACKS_CHANGED] depending on the number and type of
  *   tracks.

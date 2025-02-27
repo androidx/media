@@ -29,8 +29,8 @@ import androidx.media3.common.util.UnstableApi
 
 /**
  * Remember the value of [RepeatButtonState] created based on the passed [Player] and launch a
- * coroutine to listen to [Player]'s changes. If the [Player] instance changes between compositions,
- * produce and remember a new value.
+ * coroutine to listen to [Player's][Player] changes. If the [Player] instance changes between
+ * compositions, produce and remember a new value.
  */
 @UnstableApi
 @Composable
@@ -53,9 +53,9 @@ fun rememberRepeatButtonState(
  *   button is clicked. Defaults to [Player.REPEAT_MODE_OFF], [Player.REPEAT_MODE_ONE],
  *   [Player.REPEAT_MODE_ALL].
  * @property[isEnabled] determined by `isCommandAvailable(Player.COMMAND_SET_REPEAT_MODE)`
- * @property[repeatModeState] determined by [Player]'s `repeatMode`. Note that there is no guarantee
- *   for this state to be one from [toggleModeSequence]. A button click in such case will toggle the
- *   mode into the first one of [toggleModeSequence].
+ * @property[repeatModeState] determined by [Player's][Player] `repeatMode`. Note that there is no
+ *   guarantee for this state to be one from [toggleModeSequence]. A button click in such case will
+ *   toggle the mode into the first one of [toggleModeSequence].
  */
 @UnstableApi
 class RepeatButtonState(
