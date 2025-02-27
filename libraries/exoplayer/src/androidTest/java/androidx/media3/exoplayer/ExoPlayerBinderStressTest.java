@@ -24,6 +24,7 @@ import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter;
 import androidx.media3.exoplayer.util.EventLogger;
 import androidx.media3.test.utils.BinderStressCreator;
+import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SdkSuppress;
@@ -41,7 +42,7 @@ public class ExoPlayerBinderStressTest {
   @Test
   public void binderStressTest() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
-    SurfaceView surfaceView = new SurfaceView(context);
+    SurfaceView surfaceView = TestUtil.createSurfaceView(context);
 
     BinderStressCreator.verifyNoSystemBinderCalls(
         /* systemUnderTest= */ () -> {
