@@ -80,6 +80,12 @@ class RepeatButtonState(
     player.repeatMode = getNextRepeatModeInSequence()
   }
 
+  /**
+   * Subscribes to updates from [Player.Events] and listens to
+   * * [Player.EVENT_REPEAT_MODE_CHANGED] in order to determine the latest [Player.getRepeatMode].
+   * * [Player.EVENT_AVAILABLE_COMMANDS_CHANGED] in order to determine whether the button should be
+   *   enabled, i.e. respond to user input.
+   */
   suspend fun observe(): Nothing =
     player.listen { events ->
       if (

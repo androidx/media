@@ -58,6 +58,13 @@ class ShuffleButtonState(private val player: Player) {
     player.shuffleModeEnabled = !player.shuffleModeEnabled
   }
 
+  /**
+   * Subscribes to updates from [Player.Events] and listens to
+   * * [Player.EVENT_SHUFFLE_MODE_ENABLED_CHANGED] in order to determine the latest
+   *   [Player.getShuffleModeEnabled].
+   * * [Player.EVENT_AVAILABLE_COMMANDS_CHANGED] in order to determine whether the button should be
+   *   enabled, i.e. respond to user input.
+   */
   suspend fun observe(): Nothing =
     player.listen { events ->
       if (

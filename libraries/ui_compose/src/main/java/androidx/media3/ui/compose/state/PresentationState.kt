@@ -79,6 +79,12 @@ class PresentationState(private val player: Player) {
 
   private var lastPeriodUidWithTracks: Any? = null
 
+  /**
+   * Subscribes to updates from [Player.Events] and listens to
+   * * [Player.EVENT_VIDEO_SIZE_CHANGED] to determine pixelWidthHeightRatio-adjusted video size
+   * * [Player.EVENT_RENDERED_FIRST_FRAME] and [Player.EVENT_TRACKS_CHANGED]to determine whether the
+   *   surface is ready to be shown
+   */
   suspend fun observe(): Nothing =
     player.listen { events ->
       if (events.contains(Player.EVENT_VIDEO_SIZE_CHANGED)) {
