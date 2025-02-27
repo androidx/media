@@ -23,19 +23,16 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.media3.common.Player
-import androidx.media3.common.Timeline
 import androidx.media3.common.listen
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.common.util.Util.handlePauseButtonAction
-import androidx.media3.common.util.Util.handlePlayButtonAction
 import androidx.media3.common.util.Util.handlePlayPauseButtonAction
 import androidx.media3.common.util.Util.shouldEnablePlayPauseButton
 import androidx.media3.common.util.Util.shouldShowPlayButton
 
 /**
  * Remembers the value of [PlayPauseButtonState] created based on the passed [Player] and launch a
- * coroutine to listen to [Player]'s changes. If the [Player] instance changes between compositions,
- * produce and remember a new value.
+ * coroutine to listen to [Player's][Player] changes. If the [Player] instance changes between
+ * compositions, produce and remember a new value.
  */
 @UnstableApi
 @Composable
@@ -50,7 +47,7 @@ fun rememberPlayPauseButtonState(player: Player): PlayPauseButtonState {
  * component representing a PlayPause button.
  *
  * @property[isEnabled] determined by `isCommandAvailable(Player.COMMAND_PLAY_PAUSE)` and having
- *   something in the [Timeline] to play
+ *   something in the [Timeline][androidx.media3.common.Timeline] to play
  * @property[showPlay] determined by [shouldShowPlayButton]
  */
 @UnstableApi
@@ -68,9 +65,9 @@ class PlayPauseButtonState(private val player: Player) {
    * The [Player] update that follows can take a form of [Player.play], [Player.pause],
    * [Player.prepare] or [Player.seekToDefaultPosition].
    *
-   * @see [handlePlayButtonAction]
-   * @see [handlePauseButtonAction]
-   * @see [shouldShowPlayButton]
+   * @see [androidx.media3.common.util.Util.handlePlayButtonAction]
+   * @see [androidx.media3.common.util.Util.handlePauseButtonAction]
+   * @see [androidx.media3.common.util.Util.shouldShowPlayButton]
    */
   fun onClick() {
     handlePlayPauseButtonAction(player)

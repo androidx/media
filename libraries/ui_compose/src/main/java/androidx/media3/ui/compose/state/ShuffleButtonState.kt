@@ -28,8 +28,8 @@ import androidx.media3.common.util.UnstableApi
 
 /**
  * Remember the value of [ShuffleButtonState] created based on the passed [Player] and launch a
- * coroutine to listen to [Player]'s changes. If the [Player] instance changes between compositions,
- * produce and remember a new value.
+ * coroutine to listen to [Player's][Player] changes. If the [Player] instance changes between
+ * compositions, produce and remember a new value.
  */
 @UnstableApi
 @Composable
@@ -44,7 +44,7 @@ fun rememberShuffleButtonState(player: Player): ShuffleButtonState {
  * On/Off button.
  *
  * @property[isEnabled] determined by `isCommandAvailable(Player.COMMAND_SET_SHUFFLE_MODE)`
- * @property[shuffleOn] determined by [Player]'s `shuffleModeEnabled`
+ * @property[shuffleOn] determined by [Player's][Player] `shuffleModeEnabled`
  */
 @UnstableApi
 class ShuffleButtonState(private val player: Player) {
