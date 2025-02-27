@@ -22,7 +22,6 @@ import android.media.AudioFocusRequest;
 import android.media.AudioManager;
 import android.os.Handler;
 import android.os.Looper;
-import android.os.Message;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.AudioAttributes;
@@ -56,7 +55,7 @@ public final class AudioFocusRequestCompat {
     this.audioAttributes = audioFocusRequestCompat;
     this.pauseOnDuck = pauseOnDuck;
 
-    if (Util.SDK_INT < 26 && focusChangeHandler.getLooper() != Looper.getMainLooper()) {
+    if (Util.SDK_INT < 26) {
       this.onAudioFocusChangeListener =
           new OnAudioFocusChangeListenerHandlerCompat(
               onAudioFocusChangeListener, focusChangeHandler);
@@ -326,9 +325,7 @@ public final class AudioFocusRequestCompat {
    * a specific thread prior to API 26.
    */
   private static class OnAudioFocusChangeListenerHandlerCompat
-      implements Handler.Callback, AudioManager.OnAudioFocusChangeListener {
-
-    private static final int FOCUS_CHANGE = 0x002a74b2;
+      implements AudioManager.OnAudioFocusChangeListener {
 
     private final Handler handler;
     private final AudioManager.OnAudioFocusChangeListener listener;
@@ -336,21 +333,12 @@ public final class AudioFocusRequestCompat {
     /* package */ OnAudioFocusChangeListenerHandlerCompat(
         AudioManager.OnAudioFocusChangeListener listener, Handler handler) {
       this.listener = listener;
-      this.handler = Util.createHandler(handler.getLooper(), /* callback= */ this);
+      this.handler = Util.createHandler(handler.getLooper(), /* callback= */ null);
     }
 
     @Override
     public void onAudioFocusChange(int focusChange) {
-      handler.sendMessage(Message.obtain(handler, FOCUS_CHANGE, focusChange, 0));
-    }
-
-    @Override
-    public boolean handleMessage(Message message) {
-      if (message.what == FOCUS_CHANGE) {
-        listener.onAudioFocusChange(message.arg1);
-        return true;
-      }
-      return false;
+      Util.postOrRun(handler, () -> listener.onAudioFocusChange(focusChange));
     }
   }
 }
