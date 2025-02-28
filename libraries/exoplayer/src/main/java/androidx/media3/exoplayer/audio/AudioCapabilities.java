@@ -40,6 +40,7 @@ import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.audio.AudioManagerCompat;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.common.collect.ImmutableList;
@@ -142,8 +143,7 @@ public final class AudioCapabilities {
       @Nullable Intent intent,
       AudioAttributes audioAttributes,
       @Nullable AudioDeviceInfoApi23 routedDevice) {
-    AudioManager audioManager =
-        (AudioManager) checkNotNull(context.getSystemService(Context.AUDIO_SERVICE));
+    AudioManager audioManager = AudioManagerCompat.getAudioManager(context);
     AudioDeviceInfoApi23 currentDevice =
         routedDevice != null
             ? routedDevice

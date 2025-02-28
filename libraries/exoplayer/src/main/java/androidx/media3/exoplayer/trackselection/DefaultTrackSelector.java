@@ -54,6 +54,7 @@ import androidx.media3.common.TrackGroup;
 import androidx.media3.common.TrackSelectionOverride;
 import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.TrackSelectionParameters.AudioOffloadPreferences;
+import androidx.media3.common.audio.AudioManagerCompat;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.BundleCollectionUtil;
 import androidx.media3.common.util.Log;
@@ -4280,7 +4281,8 @@ public class DefaultTrackSelector extends MappingTrackSelector
         @Nullable Context context, DefaultTrackSelector defaultTrackSelector) {
       @Nullable
       AudioManager audioManager =
-          context == null ? null : (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
+          context == null ? null : AudioManagerCompat.getAudioManager(context);
+      ;
       if (audioManager == null || Util.isTv(checkNotNull(context))) {
         spatializer = null;
         spatializationSupported = false;

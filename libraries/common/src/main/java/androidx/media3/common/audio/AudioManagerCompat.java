@@ -15,12 +15,18 @@
  */
 package androidx.media3.common.audio;
 
+import static androidx.media3.common.util.Assertions.checkNotNull;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
+import android.content.Context;
 import android.media.AudioManager;
+import android.os.Looper;
 import androidx.annotation.IntDef;
 import androidx.annotation.IntRange;
+import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.util.BackgroundExecutor;
+import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -28,10 +34,13 @@ import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** Compatibility layer for {@link AudioManager} with fallbacks for older Android versions. */
 @UnstableApi
 public final class AudioManagerCompat {
+
+  private static final String TAG = "AudioManagerCompat";
 
   /**
    * Audio focus gain types. One of {@link #AUDIOFOCUS_NONE}, {@link #AUDIOFOCUS_GAIN}, {@link
@@ -82,6 +91,55 @@ public final class AudioManagerCompat {
    */
   public static final int AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE =
       AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE;
+
+  @SuppressWarnings("NonFinalStaticField") // Lazily initialized under class lock
+  @Nullable
+  private static AudioManager audioManager;
+
+  @SuppressWarnings("NonFinalStaticField") // Lazily initialized under class lock
+  private static @MonotonicNonNull Context applicationContext;
+
+  /**
+   * Returns the {@link AudioManager}.
+   *
+   * <p>This method avoids potential threading issues where AudioManager keeps access to the thread
+   * it was created on until after this thread is stopped.
+   *
+   * <p>It is recommended to use this method from a background thread.
+   *
+   * @param context A {@link Context}.
+   * @return The {@link AudioManager}.
+   */
+  public static synchronized AudioManager getAudioManager(Context context) {
+    Context applicationContext = context.getApplicationContext();
+    if (AudioManagerCompat.applicationContext != applicationContext) {
+      // Reset cached instance if the application context changed. This should only happen in tests.
+      audioManager = null;
+    }
+    if (audioManager != null) {
+      return audioManager;
+    }
+    @Nullable Looper myLooper = Looper.myLooper();
+    if (myLooper == null || myLooper == Looper.getMainLooper()) {
+      // The AudioManager will assume the main looper as default callback anyway, so create the
+      // instance here without using BackgroundExecutor.
+      audioManager = (AudioManager) applicationContext.getSystemService(Context.AUDIO_SERVICE);
+      return checkNotNull(audioManager);
+    }
+    // Create the audio manager on the BackgroundExecutor to avoid running the potentially blocking
+    // command on the main thread but still use a thread that is guaranteed to exist for the
+    // lifetime of the app.
+    ConditionVariable audioManagerSetCondition = new ConditionVariable();
+    BackgroundExecutor.get()
+        .execute(
+            () -> {
+              audioManager =
+                  (AudioManager) applicationContext.getSystemService(Context.AUDIO_SERVICE);
+              audioManagerSetCondition.open();
+            });
+    audioManagerSetCondition.blockUninterruptible();
+    return checkNotNull(audioManager);
+  }
 
   /**
    * Requests audio focus. See the {@link AudioFocusRequestCompat} for information about the options
