@@ -66,6 +66,7 @@ import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.RestrictTo;
+import androidx.media3.common.audio.AudioManagerCompat;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.session.legacy.MediaSessionManager.RemoteUserInfo;
@@ -2335,7 +2336,7 @@ public class MediaSessionCompat {
       }
       mContext = context;
       mSessionInfo = sessionInfo;
-      mAudioManager = (AudioManager) checkNotNull(context.getSystemService(Context.AUDIO_SERVICE));
+      mAudioManager = AudioManagerCompat.getAudioManager(context);
       mMediaButtonReceiverComponentName = mbrComponent;
       mMediaButtonReceiverIntent = mbrIntent;
       mStub = new MediaSessionStub(/* mediaSessionImpl= */ this, context.getPackageName(), tag);

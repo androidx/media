@@ -142,12 +142,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * @param playerControl A {@link PlayerControl} to handle commands from this instance.
    */
   public AudioFocusManager(Context context, Looper eventLooper, PlayerControl playerControl) {
-    this.audioManager =
-        Suppliers.memoize(
-            () ->
-                checkNotNull(
-                    (AudioManager)
-                        context.getApplicationContext().getSystemService(Context.AUDIO_SERVICE)));
+    this.audioManager = Suppliers.memoize(() -> AudioManagerCompat.getAudioManager(context));
     this.playerControl = playerControl;
     this.eventHandler = new Handler(eventLooper);
     this.audioFocusState = AUDIO_FOCUS_STATE_NOT_REQUESTED;
