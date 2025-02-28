@@ -37,7 +37,6 @@ import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.RenderersFactory;
 import androidx.media3.exoplayer.audio.AudioRendererEventListener;
-import androidx.media3.exoplayer.audio.DefaultAudioSink;
 import androidx.media3.exoplayer.audio.MediaCodecAudioRenderer;
 import androidx.media3.exoplayer.image.ImageDecoder;
 import androidx.media3.exoplayer.image.ImageOutput;
@@ -89,7 +88,7 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
   public CapturingRenderersFactory(Context context) {
     this.context = context;
     this.mediaCodecAdapterFactory = new CapturingMediaCodecAdapter.Factory(context);
-    this.audioSink = new CapturingAudioSink(new DefaultAudioSink.Builder(context).build());
+    this.audioSink = CapturingAudioSink.create();
     this.imageOutput = new CapturingImageOutput();
     this.imageDecoderFactory = ImageDecoder.Factory.DEFAULT;
     this.textRendererFactory = TextRenderer::new;

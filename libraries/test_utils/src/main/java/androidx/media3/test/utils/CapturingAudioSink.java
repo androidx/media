@@ -15,29 +15,51 @@
  */
 package androidx.media3.test.utils;
 
+import static androidx.media3.common.util.Assertions.checkNotNull;
+
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.audio.AudioSink;
+import androidx.media3.exoplayer.audio.DefaultAudioSink;
 import androidx.media3.exoplayer.audio.ForwardingAudioSink;
+import androidx.media3.exoplayer.audio.TeeAudioProcessor;
+import androidx.test.core.app.ApplicationProvider;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
-/** A {@link ForwardingAudioSink} that captures configuration, discontinuity and buffer events. */
+/**
+ * An {@link AudioSink} forwarding to {@link DefaultAudioSink} that captures configuration,
+ * discontinuity and buffer events.
+ */
 @UnstableApi
 public final class CapturingAudioSink extends ForwardingAudioSink implements Dumper.Dumpable {
 
   private final List<Dumper.Dumpable> interceptedData;
 
-  @Nullable private ByteBuffer currentBuffer;
   private int bufferCount;
+  private long lastPresentationTimeUs;
 
-  public CapturingAudioSink(AudioSink sink) {
+  /** Creates the capturing audio sink. */
+  public static CapturingAudioSink create() {
+    InterceptingBufferSink interceptingBufferSink = new InterceptingBufferSink();
+    return new CapturingAudioSink(
+        new DefaultAudioSink.Builder(ApplicationProvider.getApplicationContext())
+            .setAudioProcessorChain(
+                new DefaultAudioSink.DefaultAudioProcessorChain(
+                    new TeeAudioProcessor(interceptingBufferSink)))
+            .build(),
+        interceptingBufferSink);
+  }
+
+  private CapturingAudioSink(AudioSink sink, InterceptingBufferSink interceptingBufferSink) {
     super(sink);
     interceptedData = new ArrayList<>();
+    interceptingBufferSink.setCapturingAudioSink(this);
   }
 
   @Override
@@ -63,30 +85,13 @@ public final class CapturingAudioSink extends ForwardingAudioSink implements Dum
   public boolean handleBuffer(
       ByteBuffer buffer, long presentationTimeUs, int encodedAccessUnitCount)
       throws InitializationException, WriteException {
-    // handleBuffer is called repeatedly with the same buffer until it's been fully consumed by the
-    // sink. We only want to dump each buffer once, and we need to do so before the sink being
-    // forwarded to has a chance to modify its position.
-    if (buffer != currentBuffer) {
-      interceptedData.add(new DumpableBuffer(bufferCount++, buffer, presentationTimeUs));
-      currentBuffer = buffer;
+    lastPresentationTimeUs = presentationTimeUs;
+    if (!buffer.hasRemaining()) {
+      // Empty buffers are not processed any further and need to be intercepted here.
+      // TODO: b/174737370 - Output audio bytes in Robolectric to avoid this situation.
+      interceptedData.add(new DumpableBuffer(bufferCount++, buffer, lastPresentationTimeUs));
     }
-    boolean fullyConsumed = super.handleBuffer(buffer, presentationTimeUs, encodedAccessUnitCount);
-    if (fullyConsumed) {
-      currentBuffer = null;
-    }
-    return fullyConsumed;
-  }
-
-  @Override
-  public void flush() {
-    currentBuffer = null;
-    super.flush();
-  }
-
-  @Override
-  public void reset() {
-    currentBuffer = null;
-    super.reset();
+    return super.handleBuffer(buffer, presentationTimeUs, encodedAccessUnitCount);
   }
 
   @Override
@@ -99,6 +104,29 @@ public final class CapturingAudioSink extends ForwardingAudioSink implements Dum
       interceptedData.get(i).dump(dumper);
     }
     dumper.endBlock();
+  }
+
+  private static final class InterceptingBufferSink implements TeeAudioProcessor.AudioBufferSink {
+
+    private @MonotonicNonNull CapturingAudioSink capturingAudioSink;
+
+    public void setCapturingAudioSink(CapturingAudioSink capturingAudioSink) {
+      this.capturingAudioSink = capturingAudioSink;
+    }
+
+    @Override
+    public void flush(int sampleRateHz, int channelCount, @C.PcmEncoding int encoding) {}
+
+    @Override
+    public void handleBuffer(ByteBuffer buffer) {
+      checkNotNull(capturingAudioSink)
+          .interceptedData
+          .add(
+              new DumpableBuffer(
+                  capturingAudioSink.bufferCount++,
+                  buffer,
+                  capturingAudioSink.lastPresentationTimeUs));
+    }
   }
 
   private static final class DumpableConfiguration implements Dumper.Dumpable {

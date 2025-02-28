@@ -27,7 +27,6 @@ import android.content.Context;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
 import androidx.media3.exoplayer.audio.AudioSink;
-import androidx.media3.exoplayer.audio.DefaultAudioSink;
 import androidx.media3.test.utils.CapturingAudioSink;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.FakeClock;
@@ -53,7 +52,7 @@ public final class CompositionPlayerAudioPlaybackTest {
 
   @Before
   public void setUp() throws Exception {
-    capturingAudioSink = new CapturingAudioSink(new DefaultAudioSink.Builder(context).build());
+    capturingAudioSink = CapturingAudioSink.create();
   }
 
   @Test
