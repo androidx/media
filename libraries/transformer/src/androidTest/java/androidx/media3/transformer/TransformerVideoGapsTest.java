@@ -16,6 +16,7 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
+import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
 import static androidx.media3.transformer.AndroidTestUtil.getVideoTrackOutput;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
@@ -66,7 +67,6 @@ public class TransformerVideoGapsTest {
                         AUDIO_ONLY_MEDIA_ITEM, AUDIO_VIDEO_MEDIA_ITEM, AUDIO_VIDEO_MEDIA_ITEM)
                     .build())
             .build();
-
     TransformerAndroidTestRunner transformerAndroidTestRunner =
         new TransformerAndroidTestRunner.Builder(context, transformer).build();
 
@@ -76,8 +76,10 @@ public class TransformerVideoGapsTest {
 
   @Test
   public void
-      export_withThreeMediaItemsAndSecondMediaItemHavingNoVideo_insertsBlankFrameForSecondMediaItem()
+      export_withThreeMediaItemsAndSecondMediaItemHavingNoVideo_insertsBlankFramesForSecondMediaItem()
           throws Exception {
+    assumeFormatsSupported(
+        context, testId, /* inputFormat= */ MP4_ASSET.videoFormat, /* outputFormat= */ null);
     Transformer transformer = new Transformer.Builder(context).build();
     Composition composition =
         new Composition.Builder(
@@ -103,8 +105,10 @@ public class TransformerVideoGapsTest {
 
   @Test
   public void
-      export_withThreeMediaItemsAndLastMediaItemHavingNoVideo_insertsBlankFrameForLastMediaItem()
+      export_withThreeMediaItemsAndLastMediaItemHavingNoVideo_insertsBlankFramesForLastMediaItem()
           throws Exception {
+    assumeFormatsSupported(
+        context, testId, /* inputFormat= */ MP4_ASSET.videoFormat, /* outputFormat= */ null);
     Transformer transformer = new Transformer.Builder(context).build();
     Composition composition =
         new Composition.Builder(
