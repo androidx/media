@@ -1029,11 +1029,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   protected void onDisabled() {
     reportedVideoSize = null;
     periodDurationUs = C.TIME_UNSET;
-    if (videoSink != null) {
-      videoSink.onRendererDisabled();
-    } else {
-      videoFrameReleaseControl.onDisabled();
-    }
     maybeSetupTunnelingForFirstFrame();
     haveReportedFirstFrameRenderedForCurrentSurface = false;
     tunnelingOnFrameRenderedListener = null;

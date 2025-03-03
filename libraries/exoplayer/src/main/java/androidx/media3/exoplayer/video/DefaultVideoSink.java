@@ -87,11 +87,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   @Override
-  public void onRendererDisabled() {
-    videoFrameReleaseControl.onDisabled();
-  }
-
-  @Override
   public void onRendererStarted() {
     videoFrameReleaseControl.onStarted();
   }

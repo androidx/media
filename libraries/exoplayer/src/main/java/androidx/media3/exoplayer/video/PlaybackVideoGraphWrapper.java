@@ -668,11 +668,6 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     }
 
     @Override
-    public void onRendererDisabled() {
-      defaultVideoSink.onRendererDisabled();
-    }
-
-    @Override
     public void onRendererStarted() {
       defaultVideoSink.onRendererStarted();
     }

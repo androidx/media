@@ -214,11 +214,6 @@ public final class VideoFrameReleaseControl {
             : C.FIRST_FRAME_NOT_RENDERED_ONLY_ALLOWED_IF_STARTED;
   }
 
-  /** Called when the renderer is disabled. */
-  public void onDisabled() {
-    lowerFirstFrameState(C.FIRST_FRAME_NOT_RENDERED_ONLY_ALLOWED_IF_STARTED);
-  }
-
   /** Called when the renderer is started. */
   public void onStarted() {
     started = true;

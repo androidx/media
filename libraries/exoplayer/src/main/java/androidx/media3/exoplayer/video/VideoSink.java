@@ -128,9 +128,6 @@ public interface VideoSink {
   /** Called when the {@link Renderer} currently feeding this sink is enabled. */
   void onRendererEnabled(boolean mayRenderStartOfStream);
 
-  /** Called when the {@link Renderer} currently feeding this sink is disabled. */
-  void onRendererDisabled();
-
   /** Called when the {@link Renderer} currently feeding this sink is started. */
   void onRendererStarted();
 

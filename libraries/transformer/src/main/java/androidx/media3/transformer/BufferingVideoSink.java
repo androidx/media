@@ -87,11 +87,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   @Override
-  public void onRendererDisabled() {
-    executeOrDelay(VideoSink::onRendererDisabled);
-  }
-
-  @Override
   public void onRendererStarted() {
     executeOrDelay(VideoSink::onRendererStarted);
   }

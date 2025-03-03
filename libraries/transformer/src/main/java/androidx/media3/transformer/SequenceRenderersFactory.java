@@ -515,12 +515,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
 
     @Override
-    protected void onDisabled() {
-      super.onDisabled();
-      videoSink.onRendererDisabled();
-    }
-
-    @Override
     public boolean isEnded() {
       return super.isEnded()
           && videoSink.isEnded()
