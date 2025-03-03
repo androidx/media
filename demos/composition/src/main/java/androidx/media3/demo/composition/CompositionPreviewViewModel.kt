@@ -64,9 +64,10 @@ class CompositionPreviewViewModel(application: Application, val compositionLayou
         }
     })
     var mediaItemTitles = mutableStateListOf<String>()
-    var selectedMediaItems = mutableStateListOf<Boolean>()
+    var selectedMediaItems = mutableStateListOf<Boolean>() // TODO(nevmital): Update this to a list of indices, which can support reordering and duplicates
     var selectedMediaTitles = mutableStateListOf<String>()
-    var applyVideoEffects by mutableStateOf<Boolean>(false)
+    var selectedMediaEffects = mutableStateListOf<Boolean>()
+    //var applyVideoEffects by mutableStateOf<Boolean>(false)
     var includeBackgroundAudioTrack by mutableStateOf<Boolean>(false)
     var outputResolution by mutableStateOf<String>(RESOLUTION_HEIGHTS[0])
     var outputHdrMode by mutableIntStateOf(Composition.HDR_MODE_KEEP_HDR)
@@ -79,6 +80,8 @@ class CompositionPreviewViewModel(application: Application, val compositionLayou
     val enableDebugTracing: StateFlow<Boolean> = _enableDebugTracing.asStateFlow()
 
     var toastMessage = MutableLiveData<String?>(null)
+
+    private val individualVideoEffects = listOf<Effect>(createDizzyCropEffect(), RgbFilter.createGrayscaleFilter())
 
     val mediaItemUris = application.resources.getStringArray(/* id= */R.array.preset_uris)
     val mediaItemDurationsUs = application.resources.getIntArray(/* id= */R.array.preset_durations)
@@ -93,11 +96,7 @@ class CompositionPreviewViewModel(application: Application, val compositionLayou
         selectedMediaItems[0] = true
         selectedMediaItems[2] = true
         // Load initial selected media item titles
-        for (i in selectedMediaItems.indices) {
-            if (selectedMediaItems[i]) {
-                selectedMediaTitles.add(mediaItemTitles[i])
-            }
-        }
+        updateSelectedItems(selectedMediaItems)
     }
 
     fun enableDebugTracing(enable: Boolean) {
@@ -107,41 +106,43 @@ class CompositionPreviewViewModel(application: Application, val compositionLayou
 
     fun updateSelectedItems(selectedItems: List<Boolean>) {
         selectedMediaTitles.clear()
+        selectedMediaEffects.clear()
         selectedItems.forEachIndexed { index, isSelected ->
             selectedMediaItems[index] = isSelected
             if(isSelected) {
                 selectedMediaTitles.add(mediaItemTitles[index])
+                selectedMediaEffects.add(false)
             }
         }
     }
 
+    fun updateEffects(index: Int, checked: Boolean) {
+        selectedMediaEffects[index] = checked
+    }
+
     fun prepareComposition(): Composition {
         val mediaItems = mutableListOf<EditedMediaItem>()
-        val videoEffects = mutableListOf<Effect>()
-        if (applyVideoEffects) {
-            videoEffects.add(createDizzyCropEffect())
-            videoEffects.add(RgbFilter.createGrayscaleFilter())
-        }
 
+        val universalVideoEffects = mutableListOf<Effect>()
         if (SAME_AS_INPUT_OPTION != outputResolution) {
             val resolutionHeight = outputResolution.toInt()
-            videoEffects.add(LanczosResample.scaleToFit(10000, resolutionHeight))
-            videoEffects.add(Presentation.createForHeight(resolutionHeight))
+            universalVideoEffects.add(LanczosResample.scaleToFit(10000, resolutionHeight))
+            universalVideoEffects.add(Presentation.createForHeight(resolutionHeight))
         }
         // Preview requires all sequences to be the same duration, so calculate main sequence duration
         // and limit background sequence duration to match.
         var videoSequenceDurationUs = 0L
         for (i in selectedMediaItems.indices) {
             if (selectedMediaItems[i]) {
-//                val pitchChanger = SonicAudioProcessor()
-//                pitchChanger.setPitch(if (mediaItems.size % 2 == 0) 2f else 0.2f)
                 val mediaItem = MediaItem.Builder().setUri(mediaItemUris[i])
                     .setImageDurationMs(Util.usToMs(mediaItemDurationsUs[i].toLong())) // Ignored for audio/video
                     .build()
+                val applyEffects = selectedMediaEffects[selectedMediaTitles.indexOf(mediaItemTitles[i])] // TODO(nevmital): Remove later, only needed temporarily
+                val allVideoEffects = universalVideoEffects + if (applyEffects) individualVideoEffects else emptyList()
                 val itemBuilder = EditedMediaItem.Builder(mediaItem).setEffects(
                     Effects(
-                        /* audioProcessors= */emptyList(), //listOf(pitchChanger),
-                        /* videoEffects= */videoEffects
+                        /* audioProcessors= */emptyList(),
+                        /* videoEffects= */allVideoEffects
                     )
                 ).setDurationUs(mediaItemDurationsUs[i].toLong())
                 videoSequenceDurationUs += mediaItemDurationsUs[i].toLong()
@@ -153,7 +154,7 @@ class CompositionPreviewViewModel(application: Application, val compositionLayou
             COMPOSITION_LAYOUT[2] -> 2 // PiP Overlay
             else -> 1 // Sequence
         }
-        val videoSequenceBuilders = MutableList<EditedMediaItemSequence.Builder>(numSequences, { _ -> EditedMediaItemSequence.Builder() })
+        val videoSequenceBuilders = MutableList<EditedMediaItemSequence.Builder>(numSequences) { _ -> EditedMediaItemSequence.Builder() }
         val videoSequences = mutableListOf<EditedMediaItemSequence>()
         for(sequence in 0..<numSequences) {
             var hasItem = false
@@ -167,8 +168,6 @@ class CompositionPreviewViewModel(application: Application, val compositionLayou
                 Log.d(TAG, "Sequence #$sequence has ${videoSequences.last().editedMediaItems.size} item(s)")
             }
         }
-        //val videoSequence = EditedMediaItemSequence.Builder(mediaItems).build()
-        //val compositionSequences = mutableListOf<EditedMediaItemSequence>(videoSequence)
         if (includeBackgroundAudioTrack) {
             videoSequences.add(getAudioBackgroundSequence(Util.usToMs(videoSequenceDurationUs)))
         }
