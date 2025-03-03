@@ -65,10 +65,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           .setChannelCount(2)
           .build();
 
+  private static final int BLANK_IMAGE_BITMAP_WIDTH = 1;
+  private static final int BLANK_IMAGE_BITMAP_HEIGHT = 1;
   private static final Format BLANK_IMAGE_BITMAP_FORMAT =
       new Format.Builder()
-          .setWidth(1)
-          .setHeight(1)
+          .setWidth(BLANK_IMAGE_BITMAP_WIDTH)
+          .setHeight(BLANK_IMAGE_BITMAP_HEIGHT)
           .setSampleMimeType(MimeTypes.IMAGE_RAW)
           .setColorInfo(ColorInfo.SRGB_BT709_FULL)
           .build();
@@ -347,16 +349,21 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         // Fill video gap with blank frames.
         onMediaItemChanged(C.TRACK_TYPE_VIDEO, /* outputFormat= */ BLANK_IMAGE_BITMAP_FORMAT);
         nonEndedTrackCount.incrementAndGet();
-        Bitmap bitmap =
-            Bitmap.createBitmap(
-                new int[] {Color.BLACK}, /* width= */ 1, /* height= */ 1, Bitmap.Config.ARGB_8888);
-        handler.post(() -> insertBlankFrames(bitmap));
+        handler.post(() -> insertBlankFrames(getBlankImageBitmap()));
       } else {
         // Generate audio silence in the AudioGraph by signalling null format.
         onMediaItemChanged(C.TRACK_TYPE_AUDIO, /* outputFormat= */ null);
       }
     }
     return sampleConsumer;
+  }
+
+  private static Bitmap getBlankImageBitmap() {
+    return Bitmap.createBitmap(
+        new int[] {Color.BLACK},
+        BLANK_IMAGE_BITMAP_WIDTH,
+        BLANK_IMAGE_BITMAP_HEIGHT,
+        Bitmap.Config.ARGB_8888);
   }
 
   private void insertBlankFrames(Bitmap bitmap) {
