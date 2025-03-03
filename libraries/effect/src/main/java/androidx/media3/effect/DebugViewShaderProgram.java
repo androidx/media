@@ -68,6 +68,8 @@ public final class DebugViewShaderProgram implements GlShaderProgram {
   private Executor errorListenerExecutor;
 
   private @MonotonicNonNull EGLDisplay eglDisplay;
+  private int outputWidth = C.LENGTH_UNSET;
+  private int outputHeight = C.LENGTH_UNSET;
 
   public DebugViewShaderProgram(
       Context context, DebugViewProvider debugViewProvider, ColorInfo outputColorInfo) {
@@ -154,9 +156,13 @@ public final class DebugViewShaderProgram implements GlShaderProgram {
       eglDisplay = getDefaultEglDisplay();
     }
     EGLContext eglContext = GlUtil.getCurrentContext();
+    if (outputWidth == C.LENGTH_UNSET || outputHeight == C.LENGTH_UNSET) {
+      outputWidth = inputWidth;
+      outputHeight = inputHeight;
+    }
     @Nullable
     SurfaceView debugSurfaceView =
-        debugViewProvider.getDebugPreviewSurfaceView(inputWidth, inputHeight);
+        debugViewProvider.getDebugPreviewSurfaceView(outputWidth, outputHeight);
     if (debugSurfaceView != null && !Objects.equals(this.debugSurfaceView, debugSurfaceView)) {
       debugSurfaceViewWrapper =
           new SurfaceViewWrapper(
@@ -164,10 +170,16 @@ public final class DebugViewShaderProgram implements GlShaderProgram {
     }
     this.debugSurfaceView = debugSurfaceView;
     if (defaultShaderProgram == null) {
+      ImmutableList.Builder<GlMatrixTransformation> matrixTransformationListBuilder =
+          new ImmutableList.Builder<>();
+      matrixTransformationListBuilder.add(
+          Presentation.createForWidthAndHeight(
+              outputWidth, outputHeight, Presentation.LAYOUT_SCALE_TO_FIT));
+
       defaultShaderProgram =
           DefaultShaderProgram.createApplyingOetf(
               context,
-              /* matrixTransformations= */ ImmutableList.of(),
+              /* matrixTransformations= */ matrixTransformationListBuilder.build(),
               /* rgbMatrices= */ ImmutableList.of(),
               outputColorInfo,
               outputColorInfo.colorTransfer == C.COLOR_TRANSFER_LINEAR
