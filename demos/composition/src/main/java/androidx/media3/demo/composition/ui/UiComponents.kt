@@ -32,9 +32,10 @@ fun <T> DropDownSpinner(
     selectedOption: T?,
     dropDownOptions: List<T>,
     changeDropDownOpen: (Boolean) -> Unit,
-    changeSelectedOption: (T) -> Unit
+    changeSelectedOption: (T) -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    Column {
+    Column(modifier = modifier) {
         Box {
             OutlinedTextField(
                 value = (selectedOption ?: "").toString(),
