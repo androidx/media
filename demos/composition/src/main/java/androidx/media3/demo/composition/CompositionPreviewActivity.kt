@@ -46,12 +46,18 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.Star
+import androidx.compose.material.icons.twotone.Star
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ElevatedButton
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
@@ -76,8 +82,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.media3.common.MimeTypes
@@ -175,7 +184,7 @@ class CompositionPreviewActivity : AppCompatActivity() {
                     fontWeight = FontWeight.Bold
                 )
                 val playerViewModifier = if(scrollState.canScrollForward || scrollState.canScrollBackward) {
-                    Modifier.heightIn(min = 200.dp)
+                    Modifier.heightIn(min = 250.dp)
                 } else {
                     Modifier.weight(1f)
                 }
@@ -190,17 +199,6 @@ class CompositionPreviewActivity : AppCompatActivity() {
 //                PlayerSurface(viewModel.compositionPlayer, SURFACE_TYPE_SURFACE_VIEW)
                 HorizontalDivider(thickness = 2.dp, modifier = Modifier.padding(0.dp, 4.dp))
                 VideoSequenceList(viewModel)
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        text = stringResource(R.string.add_effects),
-                        modifier = Modifier.padding(0.dp, 0.dp, 8.dp, 0.dp)
-                    )
-                    Switch(viewModel.applyVideoEffects, { checked -> viewModel.applyVideoEffects = checked })
-                }
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -369,22 +367,56 @@ class CompositionPreviewActivity : AppCompatActivity() {
         ) {
             Column(
                 verticalArrangement = Arrangement.spacedBy(4.dp),
-                modifier = Modifier.padding(8.dp)
+                modifier = Modifier.fillMaxWidth().padding(8.dp)
             ) {
-                Text(text = stringResource(R.string.video_sequence_items))
+                Text(
+                    text = "Video sequence items",
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                )
+                Text(
+                    text = "Click the star to apply effects",
+                    fontSize = 12.sp,
+                    fontStyle = FontStyle.Italic,
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                )
+                HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.secondary)
                 LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
-                    modifier = Modifier.heightIn(max = 100.dp).fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth().heightIn(max = 200.dp) // Needs a defined max height since it's in a scrollable column
                 ) {
                     viewModel.selectedMediaTitles.forEachIndexed { index, title ->
                         item {
-                            Text(text = "${index + 1}. $title")
-                            //HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.secondary)
+                            Row (
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    text = "${index + 1}. $title",
+                                    modifier = Modifier.padding(0.dp, 0.dp, 8.dp, 0.dp).weight(1f)
+                                )
+                                IconToggleButton(
+                                    checked = viewModel.selectedMediaEffects[index],
+                                    onCheckedChange = { checked -> viewModel.updateEffects(index, checked) }
+                                ) {
+                                    if(viewModel.selectedMediaEffects[index]) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Star,
+                                            contentDescription = "Apply effects to item ${index + 1}"
+                                        )
+                                    } else {
+                                        Icon(
+                                            imageVector = Icons.TwoTone.Star,
+                                            contentDescription = "Apply effects to item ${index + 1}"
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }
+                HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.secondary)
                 ElevatedButton(
-                    { showDialog = true },
+                    onClick = { showDialog = true },
                     modifier = Modifier.align(Alignment.CenterHorizontally)
                 ) {
                     Text(text = stringResource(R.string.edit))
