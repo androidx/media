@@ -31,17 +31,21 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeContentPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
@@ -72,6 +76,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
@@ -146,7 +151,7 @@ class CompositionPreviewActivity : AppCompatActivity() {
                                 onBack = { navigator.navigateBack() }
                             )
                         },
-                        modifier = Modifier.padding(innerPadding)
+                        modifier = Modifier.padding(innerPadding).padding(16.dp, 8.dp)
                     )
                 }
             }
@@ -161,35 +166,50 @@ class CompositionPreviewActivity : AppCompatActivity() {
         viewModel: CompositionPreviewViewModel,
         modifier: Modifier = Modifier,
     ) {
-        AnimatedPane(modifier = modifier.safeContentPadding()) {
+        AnimatedPane {
             // Main pane content
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(text = "${viewModel.compositionLayout} ${stringResource(R.string.preview_composition)}")
+            val scrollState = rememberScrollState()
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.fillMaxSize().verticalScroll(scrollState)) {
+                Text(
+                    text = "${viewModel.compositionLayout} ${stringResource(R.string.preview_composition)}",
+                    fontWeight = FontWeight.Bold
+                )
+                val playerViewModifier = if(scrollState.canScrollForward || scrollState.canScrollBackward) {
+                    Modifier.heightIn(min = 200.dp)
+                } else {
+                    Modifier.weight(1f)
+                }
                 AndroidView(
                     factory = { context -> PlayerView(context) },
                     update = { playerView ->
                         playerView.player = viewModel.compositionPlayer
                         playerView.useController = false
                     },
-                    modifier = Modifier.weight(1f)
+                    modifier = playerViewModifier
                 )
 //                PlayerSurface(viewModel.compositionPlayer, SURFACE_TYPE_SURFACE_VIEW)
                 HorizontalDivider(thickness = 2.dp, modifier = Modifier.padding(0.dp, 4.dp))
                 VideoSequenceList(viewModel)
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(text = stringResource(R.string.add_effects))
+                    Text(
+                        text = stringResource(R.string.add_effects),
+                        modifier = Modifier.padding(0.dp, 0.dp, 8.dp, 0.dp)
+                    )
                     Switch(viewModel.applyVideoEffects, { checked -> viewModel.applyVideoEffects = checked })
                 }
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(text = stringResource(R.string.add_background_audio))
+                    Text(
+                        text = stringResource(R.string.add_background_audio),
+                        modifier = Modifier.padding(0.dp, 0.dp, 8.dp, 0.dp)
+                    )
                     Switch(viewModel.includeBackgroundAudioTrack, { checked -> viewModel.includeBackgroundAudioTrack = checked })
                 }
                 OutputSettings(viewModel)
@@ -222,14 +242,21 @@ class CompositionPreviewActivity : AppCompatActivity() {
         var isAudioTypeExpanded by remember { mutableStateOf(false) }
         var isVideoTypeExpanded by remember { mutableStateOf(false) }
 
-        AnimatedPane(modifier = modifier.safeContentPadding()) {
+        AnimatedPane {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = "Export settings",
+                    fontWeight = FontWeight.Bold
+                )
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(text = stringResource(R.string.output_audio_mime_type))
+                    Text(
+                        text = stringResource(R.string.output_audio_mime_type),
+                        modifier = Modifier.padding(0.dp, 0.dp, 8.dp, 0.dp)
+                    )
                     DropDownSpinner(
                         isAudioTypeExpanded,
                         viewModel.outputAudioMimeType,
@@ -245,10 +272,13 @@ class CompositionPreviewActivity : AppCompatActivity() {
                 }
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(text = stringResource(R.string.output_video_mime_type))
+                    Text(
+                        text = stringResource(R.string.output_video_mime_type),
+                        modifier = Modifier.padding(0.dp, 0.dp, 8.dp, 0.dp)
+                    )
                     DropDownSpinner(
                         isVideoTypeExpanded,
                         viewModel.outputVideoMimeType,
@@ -266,27 +296,35 @@ class CompositionPreviewActivity : AppCompatActivity() {
                 }
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(text = stringResource(R.string.enable_debug_tracing))
+                    Text(
+                        text = stringResource(R.string.enable_debug_tracing),
+                        modifier = Modifier.padding(0.dp, 0.dp, 8.dp, 0.dp)
+                    )
                     val debugTracingEnabled by viewModel.enableDebugTracing.collectAsState()
                     Switch(debugTracingEnabled, { checked -> viewModel.enableDebugTracing(checked) })
                 }
-                Column(modifier.selectableGroup()) {
+                Column(Modifier.selectableGroup()) {
                     MUXER_OPTIONS.forEach { text ->
-                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            modifier = Modifier.selectable(
-                                selected = text == viewModel.muxerOption,
-                                onClick = { viewModel.muxerOption = text },
-                                role = Role.RadioButton
-                            )
+                        Row(horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier
+                                .selectable(
+                                    selected = text == viewModel.muxerOption,
+                                    onClick = { viewModel.muxerOption = text },
+                                    role = Role.RadioButton
+                                )
+                                .fillMaxWidth()
                         ) {
+                            Text(
+                                text = text,
+                                modifier = Modifier.padding(0.dp, 0.dp, 8.dp, 0.dp)
+                            )
                             RadioButton(
                                 selected = (text == viewModel.muxerOption),
                                 onClick = null
                             )
-                            Text(text = text)
                         }
                     }
                 }
@@ -336,7 +374,7 @@ class CompositionPreviewActivity : AppCompatActivity() {
                 Text(text = stringResource(R.string.video_sequence_items))
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(2.dp),
-                    modifier = Modifier.height(80.dp).fillMaxWidth()
+                    modifier = Modifier.heightIn(max = 100.dp).fillMaxWidth()
                 ) {
                     viewModel.selectedMediaTitles.forEachIndexed { index, title ->
                         item {
@@ -373,7 +411,8 @@ class CompositionPreviewActivity : AppCompatActivity() {
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Text(
-                        text = stringResource(R.string.select_preset_title),
+                        text = "Select videos",
+                        fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(0.dp, 8.dp)
                     )
                     LazyColumn(
@@ -420,10 +459,13 @@ class CompositionPreviewActivity : AppCompatActivity() {
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text(text = stringResource(R.string.output_video_resolution))
+                Text(
+                    text = stringResource(R.string.output_video_resolution),
+                    modifier = Modifier.padding(0.dp, 0.dp, 8.dp, 0.dp)
+                )
                 DropDownSpinner(
                     resolutionExpanded,
                     viewModel.outputResolution,
@@ -434,10 +476,13 @@ class CompositionPreviewActivity : AppCompatActivity() {
             }
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text(text = stringResource(R.string.hdr_mode))
+                Text(
+                    text = stringResource(R.string.hdr_mode),
+                    modifier = Modifier.padding(0.dp, 0.dp, 8.dp, 0.dp)
+                )
                 DropDownSpinner(
                     hdrExpanded,
                     selectedHdrMode,
