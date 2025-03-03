@@ -3,51 +3,28 @@
 ### Unreleased changes
 
 *   Common Library:
-    *   Change `SimpleBasePlayer.State` access from protected to public to make
-        it easier to handle updates in other classes
-        ([#2128](https://github.com/androidx/media/issues/2128)).
 *   ExoPlayer:
-    *   Fix a bug where `ExoPlayer.isLoading()` remains `true` while it has
-        transitioned to `STATE_IDLE` or `STATE_ENDED`
-        ([#2133](https://github.com/androidx/media/issues/2133)).
-    *   Add `lastRebufferRealtimeMs` to `LoadControl.Parameter`
-        ([#2113](https://github.com/androidx/media/pull/2113))
 *   Transformer:
 *   Track Selection:
 *   Extractors:
-    *   Fix issue where TS streams can get stuck on some devices
-        ([#2069](https://github.com/androidx/media/issues/2069)).
 *   DataSource:
 *   Audio:
 *   Video:
 *   Text:
-    *   Fix handling of multi-byte UTF-8 characters in WebVTT files using CR
-        line endings ([#2167](https://github.com/androidx/media/issues/2167)).
 *   Metadata:
 *   Image:
 *   DataSource:
 *   DRM:
-    *   Fix `MediaCodec$CryptoException: Operation not supported in this
-        configuration` error when playing ClearKey content on API < 27 devices
-        ([#1732](https://github.com/androidx/media/issues/1732)).
 *   Effect:
 *   Muxers:
     *   `writeSampleData()` API now uses muxer specific `BufferInfo` class
         instead of `MediaCodec.BufferInfo`.
-    *   Fix a bug in `FragmentedMp4Muxer` that creates a lot of fragments when
-        only audio track is written.
 *   IMA extension:
 *   Session:
-    *   Make `MediaSession.setSessionActivity(PendingIntent)` accept null
-        ([#2109](https://github.com/androidx/media/issues/2109)).
 *   UI:
     *   Add `PlaybackSpeedState` class and the corresponding
         `rememberPlaybackSpeedState` Composable to `media3-ui-compose` module.
 *   Downloads:
-    *   Fix bug in `CacheWriter` that leaves data sources open and cache areas
-        locked in case the data source throws an `Exception` other than
-        `IOException`
-        ([#9760](https://github.com/google/ExoPlayer/issues/9760)).
     *   Add partial download support for progressive streams. Apps can prepare a
         progressive stream with `DownloadHelper`, and request a
         `DownloadRequest` from the helper with specifying the time-based media
@@ -64,14 +41,8 @@
 *   RTSP Extension:
 *   Decoder Extensions (FFmpeg, VP9, AV1, etc.):
 *   MIDI extension:
-    *   Plumb custom `AudioSink` and `AudioRendererEventListener` instances into
-        `MidiRenderer`.
 *   Leanback extension:
 *   Cast Extension:
-    *   Bump the `play-services-cast-framework` dependency to 21.5.0 to fix a
-        `FLAG_MUTABLE` crash in apps targeting API 34+ on devices with Google
-        Play services installed but disabled
-        ([#2178](https://github.com/androidx/media/issues/2178)).
 *   Test Utilities:
 *   Demo app:
     *   Add `PlaybackSpeedPopUpButton` Composable UI element to be part of
@@ -91,6 +62,48 @@
         `Player.seekToNextMediaItem()` instead.
 
 ## 1.6
+
+### 1.6.0-rc01 (2025-03-12)
+
+This release includes the following changes since
+[1.6.0-beta01 release](#160-beta01-2025-02-26):
+
+*   Common Library:
+    *   Change `SimpleBasePlayer.State` access from protected to public to make
+        it easier to handle updates in other classes
+        ([#2128](https://github.com/androidx/media/issues/2128)).
+*   ExoPlayer:
+    *   Fix a bug where `ExoPlayer.isLoading()` remains `true` while it has
+        transitioned to `STATE_IDLE` or `STATE_ENDED`
+        ([#2133](https://github.com/androidx/media/issues/2133)).
+    *   Add `lastRebufferRealtimeMs` to `LoadControl.Parameter`
+        ([#2113](https://github.com/androidx/media/pull/2113))
+*   Extractors:
+    *   Fix issue where TS streams can get stuck on some devices
+        ([#2069](https://github.com/androidx/media/issues/2069)).
+*   Text:
+    *   Fix handling of multi-byte UTF-8 characters in WebVTT files using CR
+        line endings ([#2167](https://github.com/androidx/media/issues/2167)).
+*   DRM:
+    *   Fix `MediaCodec$CryptoException: Operation not supported in this
+        configuration` error when playing ClearKey content on API < 27 devices
+        ([#1732](https://github.com/androidx/media/issues/1732)).
+*   Muxers:
+    *   Fix a bug in `FragmentedMp4Muxer` that creates a lot of fragments when
+        only audio track is written.
+*   Downloads:
+    *   Fix bug in `CacheWriter` that leaves data sources open and cache areas
+        locked in case the data source throws an `Exception` other than
+        `IOException`
+        ([#9760](https://github.com/google/ExoPlayer/issues/9760)).
+*   MIDI extension:
+    *   Plumb custom `AudioSink` and `AudioRendererEventListener` instances into
+        `MidiRenderer`.
+*   Cast Extension:
+    *   Bump the `play-services-cast-framework` dependency to 21.5.0 to fix a
+        `FLAG_MUTABLE` crash in apps targeting API 34+ on devices with Google
+        Play services installed but disabled
+        ([#2178](https://github.com/androidx/media/issues/2178)).
 
 ### 1.6.0-beta01 (2025-02-26)
 
@@ -125,6 +138,8 @@ This release includes the following changes since the
         to stop the foreground service before `stopSelf()` when overriding
         `onTaskRemoved`, use `MediaSessionService.pauseAllPlayersAndStopSelf()`
         instead.
+    *   Make `MediaSession.setSessionActivity(PendingIntent)` accept null
+        ([#2109](https://github.com/androidx/media/issues/2109)).
     *   Keep notification visible when playback enters an error or stopped
         state. The notification is only removed if the playlist is cleared or
         the player is released.
