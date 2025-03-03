@@ -45,9 +45,14 @@ import androidx.media3.common.util.Util;
 import androidx.media3.datasource.HttpDataSource.HttpDataSourceException;
 import androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
 import java.io.InterruptedIOException;
+import java.net.CookieHandler;
+import java.net.CookieManager;
 import java.net.SocketTimeoutException;
+import java.net.URI;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -80,8 +85,14 @@ public final class HttpEngineDataSourceTest {
 
   private static final int TEST_CONNECT_TIMEOUT_MS = 100;
   private static final int TEST_READ_TIMEOUT_MS = 100;
-  private static final String TEST_URL = "http://google.com";
+  private static final String TEST_URL = "http://google.com/video/";
   private static final String TEST_CONTENT_TYPE = "test/test";
+  private static final String TEST_REQUEST_COOKIE = "foo=bar";
+  private static final String TEST_REQUEST_COOKIE_2 = "baz=qux";
+  private static final String TEST_RESPONSE_SET_COOKIE =
+      TEST_REQUEST_COOKIE + ";path=/video; expires 31-12-2099 23:59:59 GMT";
+  private static final String TEST_RESPONSE_SET_COOKIE_2 =
+      TEST_REQUEST_COOKIE_2 + ";path=/; expires 31-12-2099 23:59:59 GMT";
   private static final byte[] TEST_POST_BODY = Util.getUtf8Bytes("test post body");
   private static final long TEST_CONTENT_LENGTH = 16000L;
 
@@ -141,6 +152,8 @@ public final class HttpEngineDataSourceTest {
     // This value can be anything since the DataSpec is unset.
     testResponseHeader.put("Content-Length", Long.toString(TEST_CONTENT_LENGTH));
     testUrlResponseInfo = createUrlResponseInfo(/* statusCode= */ 200);
+
+    CookieHandler.setDefault(null);
   }
 
   @After
@@ -272,15 +285,15 @@ public final class HttpEngineDataSourceTest {
   @Test
   public void requestHeadersSet() throws HttpDataSourceException {
     Map<String, String> headersSet = new HashMap<>();
-    doAnswer(
+    when(mockUrlRequestBuilder.addHeader(
+            ArgumentMatchers.anyString(), ArgumentMatchers.anyString()))
+        .thenAnswer(
             (invocation) -> {
               String key = invocation.getArgument(0);
               String value = invocation.getArgument(1);
               headersSet.put(key, value);
               return null;
-            })
-        .when(mockUrlRequestBuilder)
-        .addHeader(ArgumentMatchers.anyString(), ArgumentMatchers.anyString());
+            });
 
     dataSourceUnderTest.setRequestProperty("defaultHeader2", "dataSourceOverridesDefault");
     dataSourceUnderTest.setRequestProperty("dataSourceHeader1", "dataSourceValue1");
@@ -447,8 +460,7 @@ public final class HttpEngineDataSourceTest {
       assertThat(e).isInstanceOf(HttpDataSource.InvalidContentTypeException.class);
       // Check for connection not automatically closed.
       verify(mockUrlRequest, never()).cancel();
-      assertThat(testedContentTypes).hasSize(1);
-      assertThat(testedContentTypes.get(0)).isEqualTo(TEST_CONTENT_TYPE);
+      assertThat(testedContentTypes).containsExactly(TEST_CONTENT_TYPE);
     }
   }
 
@@ -1277,7 +1289,7 @@ public final class HttpEngineDataSourceTest {
                 .createDataSource();
     mockSingleRedirectSuccess(/* responseCode= */ 302);
     dataSourceUnderTest.setRequestProperty("Content-Type", TEST_CONTENT_TYPE);
-    testResponseHeader.put("Set-Cookie", "testcookie=testcookie; Path=/video");
+    testResponseHeader.put("Set-Cookie", TEST_RESPONSE_SET_COOKIE);
 
     dataSourceUnderTest.open(testPostDataSpec);
 
@@ -1447,6 +1459,52 @@ public final class HttpEngineDataSourceTest {
 
     dataSourceUnderTest.open(testDataSpec);
     verify(mockUrlRequestBuilder).setDirectExecutorAllowed(true);
+  }
+
+  @Test
+  public void getCookieHeader_noCookieHandler() {
+    assertThat(HttpEngineDataSource.getCookieHeader(TEST_URL)).isEmpty();
+    assertThat(CookieHandler.getDefault()).isNull();
+  }
+
+  @Test
+  public void getCookieHeader_emptyCookieHandler() {
+    CookieHandler.setDefault(new CookieManager());
+    assertThat(HttpEngineDataSource.getCookieHeader(TEST_URL)).isEmpty();
+  }
+
+  @Test
+  public void getCookieHeader_cookieHandler() throws Exception {
+    CookieManager cm = new CookieManager();
+    cm.put(
+        new URI(TEST_URL),
+        ImmutableMap.of(
+            "Set-Cookie", ImmutableList.of(TEST_RESPONSE_SET_COOKIE, TEST_RESPONSE_SET_COOKIE_2)));
+    CookieHandler.setDefault(cm);
+
+    assertThat(HttpEngineDataSource.getCookieHeader(TEST_URL))
+        .isEqualTo(TEST_REQUEST_COOKIE + "; " + TEST_REQUEST_COOKIE_2 + ";");
+  }
+
+  @Test
+  public void getCookieHeader_cookieHandlerCookie2() throws Exception {
+    CookieManager cm = new CookieManager();
+    cm.put(
+        new URI(TEST_URL),
+        ImmutableMap.of(
+            "Set-Cookie2", ImmutableList.of(TEST_RESPONSE_SET_COOKIE, TEST_RESPONSE_SET_COOKIE_2)));
+    CookieHandler.setDefault(cm);
+
+    // This asserts the surprising behavior of CookieManager - Set-Cookie2 is translated to Cookie,
+    // not Cookie2.
+    assertThat(cm.get(new URI(TEST_URL), ImmutableMap.of("", ImmutableList.of()))).isNotEmpty();
+    assertThat(cm.get(new URI(TEST_URL), ImmutableMap.of("", ImmutableList.of())).get("Cookie"))
+        .containsExactly(TEST_REQUEST_COOKIE, TEST_REQUEST_COOKIE_2);
+    assertThat(cm.get(new URI(TEST_URL), ImmutableMap.of("", ImmutableList.of())))
+        .doesNotContainKey("Cookie2");
+
+    assertThat(HttpEngineDataSource.getCookieHeader(TEST_URL))
+        .isEqualTo(TEST_REQUEST_COOKIE + "; " + TEST_REQUEST_COOKIE_2 + ";");
   }
 
   // Helper methods.
