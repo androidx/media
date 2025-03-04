@@ -19,7 +19,6 @@ package androidx.media3.transformer;
 import static androidx.media3.common.VideoFrameProcessor.INPUT_TYPE_BITMAP;
 import static androidx.media3.common.VideoFrameProcessor.INPUT_TYPE_SURFACE;
 import static androidx.media3.common.VideoFrameProcessor.INPUT_TYPE_TEXTURE_ID;
-import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 
 import android.graphics.Bitmap;
@@ -59,7 +58,6 @@ import java.util.concurrent.atomic.AtomicLong;
       long durationUs,
       @Nullable Format decodedFormat,
       boolean isLast) {
-    checkArgument(!editedMediaItem.isGap());
     boolean isSurfaceAssetLoaderMediaItem = isMediaItemForSurfaceAssetLoader(editedMediaItem);
     durationUs = editedMediaItem.getDurationAfterEffectsApplied(durationUs);
     if (decodedFormat != null) {

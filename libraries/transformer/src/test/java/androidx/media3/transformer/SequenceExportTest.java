@@ -539,24 +539,6 @@ public final class SequenceExportTest {
   }
 
   @Test
-  public void start_videoGap_throws() throws Exception {
-    Transformer transformer = new TestTransformerBuilder(context).build();
-    EditedMediaItem audioVideoItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW_VIDEO))
-            .build();
-    EditedMediaItemSequence sequence =
-        new EditedMediaItemSequence.Builder().addItem(audioVideoItem).addGap(500_000).build();
-
-    transformer.start(new Composition.Builder(sequence).build(), outputDir.newFile().getPath());
-
-    ExportException exception =
-        assertThrows(ExportException.class, () -> TransformerTestRunner.runLooper(transformer));
-    assertThat(getRootCause(exception))
-        .hasMessageThat()
-        .isEqualTo("Gaps in video sequences are not supported.");
-  }
-
-  @Test
   public void start_gapVideo_throws() throws Exception {
     Transformer transformer = new TestTransformerBuilder(context).build();
     EditedMediaItem audioVideoItem =

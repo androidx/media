@@ -87,7 +87,7 @@ public final class EditedMediaItemSequence {
      *
      * <p>A gap is a period of time with no media.
      *
-     * <p>Gaps are only supported in sequences of audio.
+     * <p>Gaps at the start of the sequence are not supported if the sequence has video.
      *
      * @param durationUs The duration of the gap, in milliseconds.
      * @return This builder, for convenience.
