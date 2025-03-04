@@ -26,6 +26,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
+import androidx.media3.test.utils.TestUtil;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.primitives.Bytes;
 import java.nio.ByteBuffer;
@@ -943,6 +944,290 @@ public final class ParsableByteArrayTest {
     assertThat(parser.readLine(UTF_16LE)).isEqualTo("bar");
     assertThat(parser.getPosition()).isEqualTo(22);
     assertThat(parser.readLine(UTF_16LE)).isNull();
+  }
+
+  @Test
+  public void peekChar() {
+    // Use UTF_16BE to avoid encoding a BOM.
+    ParsableByteArray parser = new ParsableByteArray("foo".getBytes(UTF_16BE));
+
+    assertThat(parser.peekChar()).isEqualTo('f');
+  }
+
+  @Test
+  public void peekChar_returnsHighSurrogateFromPair() {
+    // Use UTF_16BE to avoid encoding a BOM.
+    ParsableByteArray parser = new ParsableByteArray("\uD83D\uDE1B".getBytes(UTF_16BE));
+
+    // Compare ints instead of chars for unprintable characters, so the failure messages are better.
+    assertThat((int) parser.peekChar()).isEqualTo(0xD83D);
+  }
+
+  @Test
+  public void peekChar_returnsLowSurrogateFromPair() {
+    // Use UTF_16BE to avoid encoding a BOM.
+    ParsableByteArray parser = new ParsableByteArray("\uD83D\uDE1B".getBytes(UTF_16BE));
+    parser.setPosition(2);
+
+    // Compare ints instead of chars for unprintable characters, so the failure messages are better.
+    assertThat((int) parser.peekChar()).isEqualTo(0xDE1B);
+  }
+
+  @Test
+  public void peekChar_splitSurrogate() {
+    // Encode only a low surrogate char
+    ParsableByteArray parser = new ParsableByteArray(TestUtil.createByteArray(0xDE, 0x1B));
+
+    // Compare ints instead of chars for unprintable characters, so the failure messages are better.
+    assertThat((int) parser.peekChar()).isEqualTo(0xDE1B);
+  }
+
+  @Test
+  public void peekChar_misaligned_returnsGarbage() {
+    // Use UTF_16BE to avoid encoding a BOM.
+    ParsableByteArray parser = new ParsableByteArray("foo".getBytes(UTF_16BE));
+    // Move the position so we are reading the second byte of 'f' and the first byte of 'o'.
+    parser.setPosition(1);
+
+    assertThat(parser.peekChar()).isEqualTo('昀');
+  }
+
+  @Test
+  public void peekChar_ascii() {
+    byte[] bytes = "foo".getBytes(US_ASCII);
+    ParsableByteArray parser = new ParsableByteArray(bytes);
+
+    assertThat(parser.peekChar(US_ASCII)).isEqualTo('f');
+  }
+
+  @Test
+  public void peekChar_ascii_invalid_returns8BitCharacterAnyway() {
+    // Choose é from ISO 8859-1 which is not valid 7-bit ASCII (since it has a high MSB).
+    ParsableByteArray parser = new ParsableByteArray(TestUtil.createByteArray(0xE9));
+
+    assertThat(parser.peekChar(US_ASCII)).isEqualTo('é');
+  }
+
+  @Test
+  public void peekChar_ascii_atLimit_throwsException() {
+    // Set the limit before the end of the byte array.
+    ParsableByteArray parser = new ParsableByteArray("foo".getBytes(US_ASCII), /* limit= */ 2);
+    parser.setPosition(2);
+
+    // Compare ints instead of chars for unprintable characters, so the failure messages are better.
+    assertThat((int) parser.peekChar(US_ASCII)).isEqualTo(0);
+  }
+
+  @Test
+  public void peekChar_utf8_oneByteCharacter() {
+    byte[] bytes = "foo".getBytes(UTF_8);
+    ParsableByteArray parser = new ParsableByteArray(bytes);
+
+    assertThat(parser.peekChar(UTF_8)).isEqualTo('f');
+  }
+
+  @Test
+  public void peekChar_utf8_twoByteCharacter_returnsZero() {
+    byte[] bytes = "étude".getBytes(UTF_8);
+    ParsableByteArray parser = new ParsableByteArray(bytes);
+
+    // Compare ints instead of chars for unprintable characters, so the failure messages are better.
+    assertThat((int) parser.peekChar(UTF_8)).isEqualTo(0);
+  }
+
+  @Test
+  public void peekChar_utf8_threeByteCharacter_returnsZero() {
+    ParsableByteArray parser = new ParsableByteArray("ऊ".getBytes(UTF_8));
+
+    // Compare ints instead of chars for unprintable characters, so the failure messages are better.
+    assertThat(parser.peekChar(UTF_8)).isEqualTo(0);
+  }
+
+  @Test
+  public void peekChar_utf8_fourByteCharacter_returnsZero() {
+    byte[] bytes = "\uD83D\uDE1B".getBytes(UTF_8);
+    ParsableByteArray parser = new ParsableByteArray(bytes);
+
+    // Compare ints instead of chars for unprintable characters, so the failure messages are better.
+    assertThat((int) parser.peekChar(UTF_8)).isEqualTo(0);
+  }
+
+  @Test
+  public void peekChar_utf8_splitFourByteChar_returnsZero() {
+    byte[] bytes = "\uD83D\uDE1B".getBytes(UTF_8);
+    ParsableByteArray parser = new ParsableByteArray(bytes);
+    parser.skipBytes(2);
+
+    // Compare ints instead of chars for unprintable characters, so the failure messages are better.
+    assertThat((int) parser.peekChar(UTF_8)).isEqualTo(0);
+  }
+
+  @Test
+  public void peekChar_utf8_atLimit_returnsZero() {
+    // Set the limit before the end of the byte array.
+    ParsableByteArray parser = new ParsableByteArray("foo".getBytes(UTF_8), /* limit= */ 2);
+    parser.setPosition(2);
+
+    // Compare ints instead of chars for unprintable characters, so the failure messages are better.
+    assertThat((int) parser.peekChar(UTF_8)).isEqualTo(0);
+  }
+
+  @Test
+  public void peekChar_utf8_invalidByteSequence() {
+    // 2-byte start character not followed by anything.
+    ParsableByteArray parser = new ParsableByteArray(TestUtil.createByteArray(0xC1));
+    assertThat(parser.peekChar(UTF_8)).isEqualTo(0);
+
+    // 2-byte character truncated by limit.
+    parser = new ParsableByteArray("é".getBytes(UTF_8), /* limit= */ 1);
+    assertThat(parser.peekChar(UTF_8)).isEqualTo(0);
+
+    // 2-byte start character not followed by a continuation byte.
+    parser = new ParsableByteArray(TestUtil.createByteArray(0xC1, 'a'));
+    assertThat(parser.peekChar(UTF_8)).isEqualTo(0);
+
+    // 3-byte start character followed by only one byte.
+    parser = new ParsableByteArray(TestUtil.createByteArray(0xE1, 0x81));
+    assertThat(parser.peekChar(UTF_8)).isEqualTo(0);
+
+    // 3-byte character truncated by limit.
+    parser = new ParsableByteArray("ऊ".getBytes(UTF_8), /* limit= */ 2);
+    assertThat(parser.peekChar(UTF_8)).isEqualTo(0);
+
+    // 3-byte start character followed by only one continuation byte.
+    parser = new ParsableByteArray(TestUtil.createByteArray(0xE1, 0x81, 'a'));
+    assertThat(parser.peekChar(UTF_8)).isEqualTo(0);
+
+    // 4-byte start character followed by only two bytes.
+    parser = new ParsableByteArray(TestUtil.createByteArray(0xF1, 0x81, 0x81));
+    assertThat(parser.peekChar(UTF_8)).isEqualTo(0);
+
+    // 4-byte character truncated by limit.
+    parser = new ParsableByteArray("\uD83D\uDE1B".getBytes(UTF_8), /* limit= */ 3);
+    assertThat(parser.peekChar(UTF_8)).isEqualTo(0);
+
+    // 4-byte start character followed by only two continuation bytes.
+    parser = new ParsableByteArray(TestUtil.createByteArray(0xF1, 0x81, 0x81, 'a'));
+    assertThat(parser.peekChar(UTF_8)).isEqualTo(0);
+  }
+
+  @Test
+  public void peekChar_utf16() {
+    // Use UTF_16BE to avoid encoding a BOM.
+    ParsableByteArray parser = new ParsableByteArray("foo".getBytes(UTF_16BE));
+
+    char expectedChar = 'f';
+    assertThat(parser.peekChar(UTF_16)).isEqualTo(expectedChar);
+    assertThat(parser.peekChar(UTF_16BE)).isEqualTo(expectedChar);
+  }
+
+  @Test
+  public void peekChar_utf16_basicMultilingualPlane() {
+    // Use UTF_16BE to avoid encoding a BOM.
+    ParsableByteArray parser = new ParsableByteArray("étude".getBytes(UTF_16BE));
+
+    char expectedChar = 'é';
+    assertThat(parser.peekChar(UTF_16)).isEqualTo(expectedChar);
+    assertThat(parser.peekChar(UTF_16BE)).isEqualTo(expectedChar);
+  }
+
+  @Test
+  public void peekChar_utf16_surrogatePair_returnsHighSurrogate() {
+    // Use UTF_16BE to avoid encoding a BOM.
+    ParsableByteArray parser = new ParsableByteArray("\uD83D\uDE1B".getBytes(UTF_16BE));
+
+    // Compare ints instead of chars for unprintable characters, so the failure messages are better.
+    int expectedChar = 0xD83D;
+    assertThat((int) parser.peekChar(UTF_16)).isEqualTo(expectedChar);
+    assertThat((int) parser.peekChar(UTF_16BE)).isEqualTo(expectedChar);
+  }
+
+  @Test
+  public void peekChar_utf16_splitSurrogatePair_returnsLowSurrogate() {
+    // Use UTF_16BE to avoid encoding a BOM.
+    ParsableByteArray parser = new ParsableByteArray("\uD83D\uDE1B".getBytes(UTF_16BE));
+    parser.skipBytes(2);
+
+    // Compare ints instead of chars for unprintable characters, so the failure messages are better.
+    int expectedChar = 0xDE1B;
+    assertThat((int) parser.peekChar(UTF_16)).isEqualTo(expectedChar);
+    assertThat((int) parser.peekChar(UTF_16BE)).isEqualTo(expectedChar);
+  }
+
+  @Test
+  public void peekChar_utf16_misaligned_returnsGarbage() {
+    // Use UTF_16BE to avoid encoding a BOM.
+    ParsableByteArray parser = new ParsableByteArray("foo".getBytes(UTF_16BE));
+    // Move the position so we are reading the second byte of 'f' and the first byte of 'o'.
+    parser.setPosition(1);
+
+    char expectedChar = '昀';
+    assertThat(parser.peekChar(UTF_16)).isEqualTo(expectedChar);
+    assertThat(parser.peekChar(UTF_16BE)).isEqualTo(expectedChar);
+  }
+
+  @Test
+  public void peekChar_utf16_atLimit_returnsZero() {
+    // Use UTF_16BE to avoid encoding a BOM. Set the limit before the end of the byte array.
+    ParsableByteArray parser = new ParsableByteArray("foo".getBytes(UTF_16BE), /* limit= */ 2);
+    // Only one readable byte, not enough for a UTF-16 code unit.
+    parser.setPosition(1);
+
+    // Compare ints instead of chars for unprintable characters, so the failure messages are better.
+    int expectedChar = 0;
+    assertThat((int) parser.peekChar(UTF_16)).isEqualTo(expectedChar);
+    assertThat((int) parser.peekChar(UTF_16BE)).isEqualTo(expectedChar);
+  }
+
+  @Test
+  public void peekChar_utf16le() {
+    ParsableByteArray parser = new ParsableByteArray("foo".getBytes(UTF_16LE));
+
+    assertThat(parser.peekChar(UTF_16LE)).isEqualTo('f');
+  }
+
+  @Test
+  public void peekChar_utf16le_basicMultilingualPlane() {
+    ParsableByteArray parser = new ParsableByteArray("étude".getBytes(UTF_16LE));
+
+    assertThat(parser.peekChar(UTF_16LE)).isEqualTo('é');
+  }
+
+  @Test
+  public void peekChar_utf16le_surrogatePair_returnsHighSurrogate() {
+    ParsableByteArray parser = new ParsableByteArray("\uD83D\uDE1B".getBytes(UTF_16LE));
+
+    // Compare ints instead of chars for unprintable characters, so the failure messages are better.
+    assertThat((int) parser.peekChar(UTF_16LE)).isEqualTo(0xD83D);
+  }
+
+  @Test
+  public void peekChar_utf16le_splitSurrogatePair_returnsLowSurrogate() {
+    ParsableByteArray parser = new ParsableByteArray("\uD83D\uDE1B".getBytes(UTF_16LE));
+    parser.skipBytes(2);
+
+    // Compare ints instead of chars for unprintable characters, so the failure messages are better.
+    assertThat((int) parser.peekChar(UTF_16LE)).isEqualTo(0xDE1B);
+  }
+
+  @Test
+  public void peekChar_utf16le_misaligned_returnsGarbage() {
+    ParsableByteArray parser = new ParsableByteArray("foo".getBytes(UTF_16LE));
+    // Move the position so we are reading the second byte of 'f' and the first byte of 'o'.
+    parser.setPosition(1);
+
+    assertThat(parser.peekChar(UTF_16LE)).isEqualTo('漀');
+  }
+
+  @Test
+  public void peekChar_utf16le_atLimit_returnsZero() {
+    // Set the limit before the end of the byte array.
+    ParsableByteArray parser = new ParsableByteArray("foo".getBytes(UTF_16LE), /* limit= */ 2);
+    // Only one readable byte, not enough for a UTF-16 code unit.
+    parser.setPosition(1);
+
+    // Compare ints instead of chars for unprintable characters, so the failure messages are better.
+    assertThat((int) parser.peekChar(UTF_16LE)).isEqualTo(0);
   }
 
   @Test
