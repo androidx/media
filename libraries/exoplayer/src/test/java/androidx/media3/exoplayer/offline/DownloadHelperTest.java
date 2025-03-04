@@ -60,6 +60,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Before;
 import org.junit.BeforeClass;
@@ -134,6 +135,41 @@ public class DownloadHelperTest {
             DownloadHelper.DEFAULT_TRACK_SELECTOR_PARAMETERS,
             new DefaultRendererCapabilitiesList.Factory(renderersFactory)
                 .createRendererCapabilitiesList());
+  }
+
+  @Test
+  public void prepare_withoutMediaSource_tracksInfoNotAvailable() throws Exception {
+    // DownloadHelper will be constructed without MediaSource if no DataSource.Factory is provided.
+    DownloadHelper downloadHelper =
+        DownloadHelper.forMediaItem(
+            getApplicationContext(), MediaItem.fromUri("asset:///media/mp4/sample.mp4"));
+
+    boolean tracksInfoAvailable = prepareDownloadHelper(downloadHelper);
+
+    assertThat(tracksInfoAvailable).isFalse();
+  }
+
+  @Test
+  public void prepare_prepareProgressiveSource_tracksInfoNotAvailable() throws Exception {
+    Context context = getApplicationContext();
+    DownloadHelper downloadHelper =
+        DownloadHelper.forMediaItem(
+            context,
+            MediaItem.fromUri("asset:///media/mp4/sample.mp4"),
+            new DefaultDataSource.Factory(context));
+
+    boolean tracksInfoAvailable = prepareDownloadHelper(downloadHelper);
+
+    assertThat(tracksInfoAvailable).isFalse();
+  }
+
+  @Test
+  public void prepare_prepareNonProgressiveSource_tracksInfoAvailable() throws Exception {
+    // We use this.downloadHelper as it was created with a TestMediaSource, thus the DownloadHelper
+    // will treat it as non-progressive.
+    boolean tracksInfoAvailable = prepareDownloadHelper(downloadHelper);
+
+    assertThat(tracksInfoAvailable).isTrue();
   }
 
   @Test
@@ -749,14 +785,16 @@ public class DownloadHelperTest {
     assertThat(exception.get()).isNull();
   }
 
-  private static void prepareDownloadHelper(DownloadHelper downloadHelper) throws Exception {
+  private static boolean prepareDownloadHelper(DownloadHelper downloadHelper) throws Exception {
+    AtomicBoolean tracksInfoAvailableRef = new AtomicBoolean();
     AtomicReference<Exception> prepareException = new AtomicReference<>(null);
     CountDownLatch preparedLatch = new CountDownLatch(1);
     downloadHelper.prepare(
         new Callback() {
           @Override
-          public void onPrepared(DownloadHelper helper) {
+          public void onPrepared(DownloadHelper helper, boolean tracksInfoAvailable) {
             preparedLatch.countDown();
+            tracksInfoAvailableRef.set(tracksInfoAvailable);
           }
 
           @Override
@@ -771,6 +809,8 @@ public class DownloadHelperTest {
     if (prepareException.get() != null) {
       throw prepareException.get();
     }
+
+    return tracksInfoAvailableRef.get();
   }
 
   private static Format createVideoFormat(int bitrate) {

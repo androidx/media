@@ -155,8 +155,9 @@ public final class DownloadHelper {
      * Called when preparation completes.
      *
      * @param helper The reporting {@link DownloadHelper}.
+     * @param tracksInfoAvailable Whether tracks information is available.
      */
-    void onPrepared(DownloadHelper helper);
+    void onPrepared(DownloadHelper helper, boolean tracksInfoAvailable);
 
     /**
      * Called when preparation fails.
@@ -550,7 +551,7 @@ public final class DownloadHelper {
     if (mode != MODE_NOT_PREPARE) {
       mediaPreparer = new MediaPreparer(checkNotNull(mediaSource), /* downloadHelper= */ this);
     } else {
-      callbackHandler.post(() -> callback.onPrepared(this));
+      callbackHandler.post(() -> callback.onPrepared(this, /* tracksInfoAvailable= */ false));
     }
   }
 
@@ -564,12 +565,12 @@ public final class DownloadHelper {
   }
 
   /**
-   * Returns the manifest, or null if no manifest is loaded. Must not be called until after
-   * preparation completes.
+   * Returns the manifest, or null if no manifest is loaded. Must not be called until {@link
+   * Callback#onPrepared(DownloadHelper, boolean)} is triggered.
    */
   @Nullable
   public Object getManifest() {
-    if (mediaSource == null) {
+    if (mode == MODE_NOT_PREPARE) {
       return null;
     }
     assertPreparedWithMedia();
@@ -579,11 +580,11 @@ public final class DownloadHelper {
   }
 
   /**
-   * Returns the number of periods for which media is available. Must not be called until after
-   * preparation completes.
+   * Returns the number of periods for which media is available. Must not be called until {@link
+   * Callback#onPrepared(DownloadHelper, boolean)} is triggered.
    */
   public int getPeriodCount() {
-    if (mediaSource == null) {
+    if (mode == MODE_NOT_PREPARE) {
       return 0;
     }
     assertPreparedWithMedia();
@@ -591,8 +592,9 @@ public final class DownloadHelper {
   }
 
   /**
-   * Returns {@link Tracks} for the given period. Must not be called until after preparation
-   * completes.
+   * Returns {@link Tracks} for the given period. Must not be called until {@link
+   * Callback#onPrepared(DownloadHelper, boolean)} is triggered and the passed {@code
+   * tracksInfoAvailable} is {@code true}.
    *
    * @param periodIndex The period index.
    * @return The {@link Tracks} for the period. May be {@link Tracks#EMPTY} for single stream
@@ -605,8 +607,9 @@ public final class DownloadHelper {
   }
 
   /**
-   * Returns the track groups for the given period. Must not be called until after preparation
-   * completes.
+   * Returns the track groups for the given period. Must not be called until {@link
+   * Callback#onPrepared(DownloadHelper, boolean)} is triggered and the passed {@code
+   * tracksInfoAvailable} is {@code true}.
    *
    * <p>Use {@link #getMappedTrackInfo(int)} to get the track groups mapped to renderers.
    *
@@ -620,8 +623,9 @@ public final class DownloadHelper {
   }
 
   /**
-   * Returns the mapped track info for the given period. Must not be called until after preparation
-   * completes.
+   * Returns the mapped track info for the given period. Must not be called until {@link
+   * Callback#onPrepared(DownloadHelper, boolean)} is triggered and the passed {@code
+   * tracksInfoAvailable} is {@code true}.
    *
    * @param periodIndex The period index.
    * @return The {@link MappedTrackInfo} for the period.
@@ -633,7 +637,8 @@ public final class DownloadHelper {
 
   /**
    * Returns all {@link ExoTrackSelection track selections} for a period and renderer. Must not be
-   * called until after preparation completes.
+   * called until {@link Callback#onPrepared(DownloadHelper, boolean)} is triggered and the passed
+   * {@code tracksInfoAvailable} is {@code true}.
    *
    * @param periodIndex The period index.
    * @param rendererIndex The renderer index.
@@ -645,8 +650,9 @@ public final class DownloadHelper {
   }
 
   /**
-   * Clears the selection of tracks for a period. Must not be called until after preparation
-   * completes.
+   * Clears the selection of tracks for a period. Must not be called until {@link
+   * Callback#onPrepared(DownloadHelper, boolean)} is triggered and the passed {@code
+   * tracksInfoAvailable} is {@code true}.
    *
    * @param periodIndex The period index for which track selections are cleared.
    */
@@ -658,8 +664,9 @@ public final class DownloadHelper {
   }
 
   /**
-   * Replaces a selection of tracks to be downloaded. Must not be called until after preparation
-   * completes.
+   * Replaces a selection of tracks to be downloaded. Must not be called until {@link
+   * Callback#onPrepared(DownloadHelper, boolean)} is triggered and the passed {@code
+   * tracksInfoAvailable} is {@code true}.
    *
    * @param periodIndex The period index for which the track selection is replaced.
    * @param trackSelectionParameters The {@link TrackSelectionParameters} to obtain the new
@@ -677,8 +684,9 @@ public final class DownloadHelper {
   }
 
   /**
-   * Adds a selection of tracks to be downloaded. Must not be called until after preparation
-   * completes.
+   * Adds a selection of tracks to be downloaded. Must not be called until {@link
+   * Callback#onPrepared(DownloadHelper, boolean)} is triggered and the passed {@code
+   * tracksInfoAvailable} is {@code true}.
    *
    * @param periodIndex The period index this track selection is added for.
    * @param trackSelectionParameters The {@link TrackSelectionParameters} to obtain the new
@@ -697,7 +705,8 @@ public final class DownloadHelper {
   /**
    * Convenience method to add selections of tracks for all specified audio languages. If an audio
    * track in one of the specified languages is not available, the default fallback audio track is
-   * used instead. Must not be called until after preparation completes.
+   * used instead. Must not be called until {@link Callback#onPrepared(DownloadHelper, boolean)} is
+   * triggered and the passed {@code tracksInfoAvailable} is {@code true}.
    *
    * @param languages A list of audio languages for which tracks should be added to the download
    *     selection, as IETF BCP 47 conformant tags.
@@ -733,7 +742,8 @@ public final class DownloadHelper {
 
   /**
    * Convenience method to add selections of tracks for all specified text languages. Must not be
-   * called until after preparation completes.
+   * called until {@link Callback#onPrepared(DownloadHelper, boolean)} is triggered and the passed
+   * {@code tracksInfoAvailable} is {@code true}.
    *
    * @param selectUndeterminedTextLanguage Whether a text track with undetermined language should be
    *     selected for downloading if no track with one of the specified {@code languages} is
@@ -774,7 +784,8 @@ public final class DownloadHelper {
 
   /**
    * Convenience method to add a selection of tracks to be downloaded for a single renderer. Must
-   * not be called until after preparation completes.
+   * not be called until {@link Callback#onPrepared(DownloadHelper, boolean)} is triggered and the
+   * passed {@code tracksInfoAvailable} is {@code true}.
    *
    * @param periodIndex The period index the track selection is added for.
    * @param rendererIndex The renderer index the track selection is added for.
@@ -987,6 +998,7 @@ public final class DownloadHelper {
     checkNotNull(mediaPreparer);
     checkNotNull(mediaPreparer.mediaPeriods);
     checkNotNull(mediaPreparer.timeline);
+    boolean tracksInfoAvailable;
     if (mode == MODE_PREPARE_NON_PROGRESSIVE_SOURCE_AND_SELECT_TRACKS) {
       int periodCount = mediaPreparer.mediaPeriods.length;
       int rendererCount = rendererCapabilities.size();
@@ -1009,13 +1021,16 @@ public final class DownloadHelper {
         trackSelector.onSelectionActivated(trackSelectorResult.info);
         mappedTrackInfos[i] = checkNotNull(trackSelector.getCurrentMappedTrackInfo());
       }
+      tracksInfoAvailable = true;
       setPreparedWithNonProgressiveSourceAndTracksSelected();
     } else {
       checkState(mode == MODE_PREPARE_PROGRESSIVE_SOURCE);
       checkNotNull(mediaPreparer.seekMap);
+      tracksInfoAvailable = false;
       setPreparedWithProgressiveSource();
     }
-    checkNotNull(callbackHandler).post(() -> checkNotNull(callback).onPrepared(this));
+    checkNotNull(callbackHandler)
+        .post(() -> checkNotNull(callback).onPrepared(this, tracksInfoAvailable));
   }
 
   private void onMediaPreparationFailed(IOException error) {
