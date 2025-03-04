@@ -623,6 +623,16 @@ public final class ParsableByteArrayTest {
   }
 
   @Test
+  public void readSingleLineWithEndingCr_ascii() {
+    byte[] bytes = "foo\r".getBytes(US_ASCII);
+    ParsableByteArray parser = new ParsableByteArray(bytes);
+
+    assertThat(parser.readLine(US_ASCII)).isEqualTo("foo");
+    assertThat(parser.getPosition()).isEqualTo(4);
+    assertThat(parser.readLine(US_ASCII)).isNull();
+  }
+
+  @Test
   public void readTwoLinesWithCrFollowedByLf_ascii() {
     byte[] bytes = "foo\r\nbar".getBytes(US_ASCII);
     ParsableByteArray parser = new ParsableByteArray(bytes);
@@ -677,6 +687,16 @@ public final class ParsableByteArrayTest {
   @Test
   public void readSingleLineWithEndingLf_utf8() {
     byte[] bytes = "foo\n".getBytes(UTF_8);
+    ParsableByteArray parser = new ParsableByteArray(bytes);
+
+    assertThat(parser.readLine()).isEqualTo("foo");
+    assertThat(parser.getPosition()).isEqualTo(4);
+    assertThat(parser.readLine()).isNull();
+  }
+
+  @Test
+  public void readSingleLineWithEndingCr_utf8() {
+    byte[] bytes = "foo\r".getBytes(UTF_8);
     ParsableByteArray parser = new ParsableByteArray(bytes);
 
     assertThat(parser.readLine()).isEqualTo("foo");
@@ -776,6 +796,18 @@ public final class ParsableByteArrayTest {
   }
 
   @Test
+  public void readSingleLineWithEndingCr_utf16() {
+    // Use UTF_16BE because we don't want the leading BOM that's added by getBytes(UTF_16). We
+    // explicitly test with a BOM elsewhere.
+    byte[] bytes = "foo\r".getBytes(UTF_16BE);
+    ParsableByteArray parser = new ParsableByteArray(bytes);
+
+    assertThat(parser.readLine(UTF_16)).isEqualTo("foo");
+    assertThat(parser.getPosition()).isEqualTo(8);
+    assertThat(parser.readLine(UTF_16)).isNull();
+  }
+
+  @Test
   public void readTwoLinesWithCrFollowedByLf_utf16() {
     // Use UTF_16BE because we don't want the leading BOM that's added by getBytes(UTF_16). We
     // explicitly test with a BOM elsewhere.
@@ -843,6 +875,16 @@ public final class ParsableByteArrayTest {
   }
 
   @Test
+  public void readSingleLineWithEndingCr_utf16be() {
+    byte[] bytes = "foo\r".getBytes(UTF_16BE);
+    ParsableByteArray parser = new ParsableByteArray(bytes);
+
+    assertThat(parser.readLine(UTF_16BE)).isEqualTo("foo");
+    assertThat(parser.getPosition()).isEqualTo(8);
+    assertThat(parser.readLine(UTF_16BE)).isNull();
+  }
+
+  @Test
   public void readTwoLinesWithCrFollowedByLf_utf16be() {
     byte[] bytes = "foo\r\nbar".getBytes(UTF_16BE);
     ParsableByteArray parser = new ParsableByteArray(bytes);
@@ -897,6 +939,16 @@ public final class ParsableByteArrayTest {
   @Test
   public void readSingleLineWithEndingLf_utf16le() {
     byte[] bytes = "foo\n".getBytes(UTF_16LE);
+    ParsableByteArray parser = new ParsableByteArray(bytes);
+
+    assertThat(parser.readLine(UTF_16LE)).isEqualTo("foo");
+    assertThat(parser.getPosition()).isEqualTo(8);
+    assertThat(parser.readLine(UTF_16LE)).isNull();
+  }
+
+  @Test
+  public void readSingleLineWithEndingCr_utf16le() {
+    byte[] bytes = "foo\r".getBytes(UTF_16LE);
     ParsableByteArray parser = new ParsableByteArray(bytes);
 
     assertThat(parser.readLine(UTF_16LE)).isEqualTo("foo");
