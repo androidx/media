@@ -1739,7 +1739,8 @@ public class TransformerEndToEndTest {
 
     ChannelMixingAudioProcessor channelMixingAudioProcessor = new ChannelMixingAudioProcessor();
     channelMixingAudioProcessor.putChannelMixingMatrix(
-        ChannelMixingMatrix.create(/* inputChannelCount= */ 1, /* outputChannelCount= */ 2));
+        ChannelMixingMatrix.createForConstantGain(
+            /* inputChannelCount= */ 1, /* outputChannelCount= */ 2));
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(MP4_ASSET.uri)))
             .setRemoveVideo(true)

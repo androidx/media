@@ -41,9 +41,11 @@ public final class ChannelMixingAudioProcessorTest {
   public void setUp() {
     audioProcessor = new ChannelMixingAudioProcessor();
     audioProcessor.putChannelMixingMatrix(
-        ChannelMixingMatrix.create(/* inputChannelCount= */ 2, /* outputChannelCount= */ 1));
+        ChannelMixingMatrix.createForConstantGain(
+            /* inputChannelCount= */ 2, /* outputChannelCount= */ 1));
     audioProcessor.putChannelMixingMatrix(
-        ChannelMixingMatrix.create(/* inputChannelCount= */ 1, /* outputChannelCount= */ 2));
+        ChannelMixingMatrix.createForConstantGain(
+            /* inputChannelCount= */ 1, /* outputChannelCount= */ 2));
   }
 
   @Test
@@ -102,7 +104,8 @@ public final class ChannelMixingAudioProcessorTest {
   @Test
   public void configureWithIdentityMatrix_isActiveReturnsFalse() throws Exception {
     audioProcessor.putChannelMixingMatrix(
-        ChannelMixingMatrix.create(/* inputChannelCount= */ 2, /* outputChannelCount= */ 2));
+        ChannelMixingMatrix.createForConstantGain(
+            /* inputChannelCount= */ 2, /* outputChannelCount= */ 2));
 
     audioProcessor.configure(AUDIO_FORMAT_48KHZ_STEREO_16BIT);
     assertThat(audioProcessor.isActive()).isFalse();
@@ -133,7 +136,8 @@ public final class ChannelMixingAudioProcessorTest {
   @Test
   public void scaledMixingMatrix_queueInput_outputIsScaled() throws Exception {
     audioProcessor.putChannelMixingMatrix(
-        ChannelMixingMatrix.create(/* inputChannelCount= */ 2, /* outputChannelCount= */ 2)
+        ChannelMixingMatrix.createForConstantGain(
+                /* inputChannelCount= */ 2, /* outputChannelCount= */ 2)
             .scaleBy(0.5f));
 
     audioProcessor.configure(AUDIO_FORMAT_48KHZ_STEREO_16BIT);

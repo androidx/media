@@ -169,7 +169,8 @@ public class TranscodeForegroundSpeedTest {
     sonicAudioProcessor.setOutputSampleRateHz(44_100);
     ChannelMixingAudioProcessor mixingAudioProcessor = new ChannelMixingAudioProcessor();
     mixingAudioProcessor.putChannelMixingMatrix(
-        ChannelMixingMatrix.create(/* inputChannelCount= */ 2, /* outputChannelCount= */ 1));
+        ChannelMixingMatrix.createForConstantGain(
+            /* inputChannelCount= */ 2, /* outputChannelCount= */ 1));
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(mediaItem)
             .setEffects(

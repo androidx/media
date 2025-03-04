@@ -16,6 +16,8 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.common.audio.AudioProcessor.EMPTY_BUFFER;
+import static androidx.media3.common.audio.ChannelMixingMatrix.createForConstantGain;
+import static androidx.media3.common.audio.ChannelMixingMatrix.createForConstantPower;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.contains;
@@ -51,13 +53,36 @@ public final class DefaultAudioMixer implements AudioMixer {
   public static final class Factory implements AudioMixer.Factory {
     private final boolean outputSilenceWithNoSources;
     private final boolean clipFloatOutput;
+    private final boolean useConstantPowerMixingMatrices;
 
     /**
-     * Creates an instance. This is equivalent to {@link #Factory(boolean, boolean) new
-     * Factory(false, true)}.
+     * Creates an instance. This is equivalent to {@link #Factory(boolean, boolean, boolean) new
+     * Factory(false, true, false)}.
      */
     public Factory() {
-      this(/* outputSilenceWithNoSources= */ false, /* clipFloatOutput= */ true);
+      this(
+          /* outputSilenceWithNoSources= */ false,
+          /* clipFloatOutput= */ true,
+          /* useConstantPowerMixingMatrices= */ false);
+    }
+
+    /**
+     * Creates an instance. This is equivalent to {@link #Factory(boolean, boolean, boolean) new
+     * Factory(outputSilenceWithNoSources, clipFloatOutput, false)}.
+     *
+     * @param outputSilenceWithNoSources Whether to {@linkplain #getOutput() output} silence when
+     *     there are no {@linkplain #addSource sources}.
+     * @param clipFloatOutput Whether to clip the output signal to be in the [-1.0, 1.0] range if
+     *     the output encoding is {@link C#ENCODING_PCM_FLOAT}. This parameter is ignored for
+     *     non-float output signals. For float output signals, non-float input signals are converted
+     *     to float signals in the [-1.0, 1.0] range. All input signals (float or non-float) are
+     *     then added and the result is clipped if and only if {@code clipFloatOutput} is true.
+     */
+    public Factory(boolean outputSilenceWithNoSources, boolean clipFloatOutput) {
+      this(
+          /* outputSilenceWithNoSources= */ outputSilenceWithNoSources,
+          /* clipFloatOutput= */ clipFloatOutput,
+          /* useConstantPowerMixingMatrices= */ false);
     }
 
     /**
@@ -70,15 +95,24 @@ public final class DefaultAudioMixer implements AudioMixer {
      *     non-float output signals. For float output signals, non-float input signals are converted
      *     to float signals in the [-1.0, 1.0] range. All input signals (float or non-float) are
      *     then added and the result is clipped if and only if {@code clipFloatOutput} is true.
+     * @param useConstantPowerMixingMatrices Whether to upmix/downmix using {@linkplain
+     *     ChannelMixingMatrix#createForConstantPower(int, int) constant power mixing matrices}. If
+     *     {@code false}, uses {@linkplain ChannelMixingMatrix#createForConstantGain constant gain
+     *     mixing matrices}.
      */
-    public Factory(boolean outputSilenceWithNoSources, boolean clipFloatOutput) {
+    public Factory(
+        boolean outputSilenceWithNoSources,
+        boolean clipFloatOutput,
+        boolean useConstantPowerMixingMatrices) {
       this.outputSilenceWithNoSources = outputSilenceWithNoSources;
       this.clipFloatOutput = clipFloatOutput;
+      this.useConstantPowerMixingMatrices = useConstantPowerMixingMatrices;
     }
 
     @Override
     public DefaultAudioMixer create() {
-      return new DefaultAudioMixer(outputSilenceWithNoSources, clipFloatOutput);
+      return new DefaultAudioMixer(
+          outputSilenceWithNoSources, clipFloatOutput, useConstantPowerMixingMatrices);
     }
   }
 
@@ -87,6 +121,7 @@ public final class DefaultAudioMixer implements AudioMixer {
 
   private final boolean outputSilenceWithNoSources;
   private final boolean clipFloatOutput;
+  private final boolean useConstantPowerMixingMatrices;
   private final SparseArray<SourceInfo> sources;
   private int nextSourceId;
   private AudioFormat outputAudioFormat;
@@ -109,9 +144,13 @@ public final class DefaultAudioMixer implements AudioMixer {
    */
   private long maxPositionOfRemovedSources;
 
-  private DefaultAudioMixer(boolean outputSilenceWithNoSources, boolean clipFloatOutput) {
+  private DefaultAudioMixer(
+      boolean outputSilenceWithNoSources,
+      boolean clipFloatOutput,
+      boolean useConstantPowerMixingMatrices) {
     this.outputSilenceWithNoSources = outputSilenceWithNoSources;
     this.clipFloatOutput = clipFloatOutput;
+    this.useConstantPowerMixingMatrices = useConstantPowerMixingMatrices;
     sources = new SparseArray<>();
     outputAudioFormat = AudioFormat.NOT_SET;
     bufferSizeFrames = C.LENGTH_UNSET;
@@ -188,7 +227,9 @@ public final class DefaultAudioMixer implements AudioMixer {
         sourceId,
         new SourceInfo(
             sourceFormat,
-            ChannelMixingMatrix.create(sourceFormat.channelCount, outputAudioFormat.channelCount),
+            useConstantPowerMixingMatrices
+                ? createForConstantPower(sourceFormat.channelCount, outputAudioFormat.channelCount)
+                : createForConstantGain(sourceFormat.channelCount, outputAudioFormat.channelCount),
             startFrameOffset));
 
     DebugTraceUtil.logEvent(

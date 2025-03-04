@@ -88,7 +88,7 @@ public final class TestUtil {
     ChannelMixingAudioProcessor audioProcessor = new ChannelMixingAudioProcessor();
     for (int channel = 1; channel <= 6; channel++) {
       audioProcessor.putChannelMixingMatrix(
-          ChannelMixingMatrix.create(
+          ChannelMixingMatrix.createForConstantGain(
                   /* inputChannelCount= */ channel, /* outputChannelCount= */ channel)
               .scaleBy(scale));
     }
@@ -100,7 +100,7 @@ public final class TestUtil {
     ChannelMixingAudioProcessor audioProcessor = new ChannelMixingAudioProcessor();
     for (int inputChannelCount = 1; inputChannelCount <= 2; inputChannelCount++) {
       audioProcessor.putChannelMixingMatrix(
-          ChannelMixingMatrix.create(inputChannelCount, outputChannelCount));
+          ChannelMixingMatrix.createForConstantGain(inputChannelCount, outputChannelCount));
     }
     return audioProcessor;
   }

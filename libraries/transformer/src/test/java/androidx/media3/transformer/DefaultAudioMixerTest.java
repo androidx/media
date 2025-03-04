@@ -68,7 +68,10 @@ public final class DefaultAudioMixerTest {
   @Before
   public void setup() {
     mixer =
-        new DefaultAudioMixer.Factory(outputSilenceWithNoSources, /* clipFloatOutput= */ true)
+        new DefaultAudioMixer.Factory(
+                outputSilenceWithNoSources,
+                /* clipFloatOutput= */ true,
+                /* useConstantPowerMixingMatrices= */ false)
             .create();
   }
 

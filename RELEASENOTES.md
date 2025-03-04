@@ -9,6 +9,7 @@
 *   Extractors:
 *   DataSource:
 *   Audio:
+    *   Allow constant power upmixing/downmixing in DefaultAudioMixer.
 *   Video:
 *   Text:
 *   Metadata:

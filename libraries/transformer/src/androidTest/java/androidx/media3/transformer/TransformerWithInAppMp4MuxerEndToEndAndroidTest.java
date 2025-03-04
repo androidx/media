@@ -92,7 +92,8 @@ public class TransformerWithInAppMp4MuxerEndToEndAndroidTest {
         new Transformer.Builder(context).setMuxerFactory(new InAppMp4Muxer.Factory()).build();
     ChannelMixingAudioProcessor channelMixingAudioProcessor = new ChannelMixingAudioProcessor();
     channelMixingAudioProcessor.putChannelMixingMatrix(
-        ChannelMixingMatrix.create(/* inputChannelCount= */ 1, /* outputChannelCount= */ 2));
+        ChannelMixingMatrix.createForConstantGain(
+            /* inputChannelCount= */ 1, /* outputChannelCount= */ 2));
     MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_FILE_ASSET_DIRECTORY + H264_MP4));
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(mediaItem)
