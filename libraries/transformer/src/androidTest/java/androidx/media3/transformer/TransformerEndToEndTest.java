@@ -82,6 +82,8 @@ import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.AudioProcessor.AudioFormat;
 import androidx.media3.common.audio.ChannelMixingAudioProcessor;
 import androidx.media3.common.audio.ChannelMixingMatrix;
+import androidx.media3.common.audio.DefaultGainProvider;
+import androidx.media3.common.audio.GainProcessor;
 import androidx.media3.common.audio.SonicAudioProcessor;
 import androidx.media3.common.audio.SpeedProvider;
 import androidx.media3.common.util.CodecSpecificDataUtil;
@@ -113,6 +115,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import java.io.File;
 import java.nio.ByteBuffer;
+import java.nio.ShortBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -2490,6 +2493,40 @@ public class TransformerEndToEndTest {
     }
     // Each original clip is 1 second long.
     assertThat(result.exportResult.durationMs).isWithin(150).of(3_000);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
+  }
+
+  @Test
+  public void export_withMutingGainProvider_processesMutedAudio() throws Exception {
+    Transformer transformer = new Transformer.Builder(context).build();
+    DefaultGainProvider provider = new DefaultGainProvider.Builder(/* defaultGain= */ 0f).build();
+    GainProcessor gainProcessor = new GainProcessor(provider);
+    TeeAudioProcessor teeAudioProcessor =
+        new TeeAudioProcessor(
+            new TeeAudioProcessor.AudioBufferSink() {
+              @Override
+              public void flush(int sampleRateHz, int channelCount, @C.PcmEncoding int encoding) {}
+
+              @Override
+              public void handleBuffer(ByteBuffer buffer) {
+                ShortBuffer samplesBuffer = buffer.asShortBuffer();
+                while (samplesBuffer.hasRemaining()) {
+                  assertThat(samplesBuffer.get()).isEqualTo(0);
+                }
+              }
+            });
+
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
+            .setEffects(
+                new Effects(ImmutableList.of(gainProcessor, teeAudioProcessor), ImmutableList.of()))
+            .build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer).build().run(testId, item);
+
+    // Tolerance required due to bug in durationMs (b/355201372).
+    assertThat(result.exportResult.durationMs).isWithin(40).of(1000);
     assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 

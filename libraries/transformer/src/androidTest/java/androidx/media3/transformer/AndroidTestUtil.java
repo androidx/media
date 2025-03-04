@@ -1057,6 +1057,9 @@ public final class AndroidTestUtil {
   public static final AssetInfo WAV_192KHZ_ASSET =
       new AssetInfo.Builder("asset:///media/wav/sample_192khz.wav").build();
 
+  public static final AssetInfo FLAC_STEREO_ASSET =
+      new AssetInfo.Builder("asset:///media/flac/bear.flac").build();
+
   /** A {@link GlEffect} that adds delay in the video pipeline by putting the thread to sleep. */
   public static final class DelayEffect implements GlEffect {
     private final long delayMs;
