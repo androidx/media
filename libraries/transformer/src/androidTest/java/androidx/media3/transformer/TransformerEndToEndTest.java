@@ -2472,11 +2472,22 @@ public class TransformerEndToEndTest {
             .build();
     Composition composition = new Composition.Builder(audioSequence).build();
 
-    ExportTestResult result =
-        new TransformerAndroidTestRunner.Builder(context, transformer)
-            .build()
-            .run(testId, composition);
-
+    ExportTestResult result;
+    try {
+      result =
+          new TransformerAndroidTestRunner.Builder(context, transformer)
+              .build()
+              .run(testId, composition);
+    } catch (ExportException e) {
+      if (e.codecInfo.isDecoder) {
+        recordTestSkipped(
+            context,
+            testId,
+            /* reason= */ "Ignore decoder failures, as some devices cannot decode 192KHz");
+        assumeTrue(false);
+      }
+      throw e;
+    }
     // Each original clip is 1 second long.
     assertThat(result.exportResult.durationMs).isWithin(150).of(3_000);
     assertThat(new File(result.filePath).length()).isGreaterThan(0);
