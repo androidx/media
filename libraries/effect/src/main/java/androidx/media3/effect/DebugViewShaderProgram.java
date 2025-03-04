@@ -68,14 +68,16 @@ public final class DebugViewShaderProgram implements GlShaderProgram {
   private Executor errorListenerExecutor;
 
   private @MonotonicNonNull EGLDisplay eglDisplay;
-  private int outputWidth = C.LENGTH_UNSET;
-  private int outputHeight = C.LENGTH_UNSET;
+  private int outputWidth;
+  private int outputHeight;
 
   public DebugViewShaderProgram(
       Context context, DebugViewProvider debugViewProvider, ColorInfo outputColorInfo) {
     this.context = context;
     this.debugViewProvider = debugViewProvider;
     this.outputColorInfo = outputColorInfo;
+    this.outputWidth = C.LENGTH_UNSET;
+    this.outputHeight = C.LENGTH_UNSET;
     inputListener = new InputListener() {};
     outputListener = new OutputListener() {};
     errorListener =
