@@ -311,7 +311,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
         rendererCapabilities[i].setListener(rendererCapabilitiesListener);
       }
       if (secondaryRenderers[i] != null) {
-        secondaryRenderers[i].init(/* index= */ i + renderers.length, playerId, clock);
+        secondaryRenderers[i].init(/* index= */ i, playerId, clock);
         hasSecondaryRenderers = true;
       }
       this.renderers[i] = new RendererHolder(renderers[i], secondaryRenderers[i], /* index= */ i);
@@ -741,13 +741,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
         if (readingPeriod != null && e.mediaPeriodId == null) {
           // We can assume that all renderer errors happen in the context of the reading period. See
           // [internal: b/150584930#comment4] for exceptions that aren't covered by this assumption.
-          e =
-              e.copyWithMediaPeriodId(
-                  (renderers[e.rendererIndex % renderers.length].isRendererPrewarming(
-                              e.rendererIndex)
-                          && readingPeriod.getNext() != null)
-                      ? readingPeriod.getNext().info.id
-                      : readingPeriod.info.id);
+          e = e.copyWithMediaPeriodId(readingPeriod.info.id);
         }
       }
       if (e.isRecoverable
@@ -769,8 +763,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
         handler.sendMessageAtFrontOfQueue(
             handler.obtainMessage(MSG_ATTEMPT_RENDERER_ERROR_RECOVERY, e));
       } else if (e.type == ExoPlaybackException.TYPE_RENDERER
-          && renderers[e.rendererIndex % renderers.length].isRendererPrewarming(
-              /* id= */ e.rendererIndex)) {
+          && e.mediaPeriodId != null
+          && isRendererPrewarmingMediaPeriod(e.rendererIndex, e.mediaPeriodId)) {
         // TODO(b/380273486): Investigate recovery for pre-warming renderer errors
         isPrewarmingDisabledUntilNextTransition = true;
         disableAndResetPrewarmingRenderers();
@@ -2078,6 +2072,14 @@ import java.util.concurrent.atomic.AtomicBoolean;
           enabledRendererCountBeforeDisabling - renderer.getEnabledRendererCount();
     }
     prewarmingMediaPeriodDiscontinuity = C.TIME_UNSET;
+  }
+
+  private boolean isRendererPrewarmingMediaPeriod(int rendererIndex, MediaPeriodId mediaPeriodId) {
+    if (queue.getPrewarmingPeriod() == null
+        || !queue.getPrewarmingPeriod().info.id.equals(mediaPeriodId)) {
+      return false;
+    }
+    return renderers[rendererIndex].isPrewarmingPeriod(queue.getPrewarmingPeriod());
   }
 
   private void reselectTracksInternalAndSeek() throws ExoPlaybackException {
