@@ -10,6 +10,7 @@
 *   DataSource:
 *   Audio:
     *   Allow constant power upmixing/downmixing in DefaultAudioMixer.
+    *   Add support for float PCM to `ChannelMappingAudioProcessor`.
 *   Video:
 *   Text:
 *   Metadata:
