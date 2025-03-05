@@ -3,6 +3,42 @@
 * UI:
     *   Add `PlaybackSpeedState` class and the corresponding
         `rememberPlaybackSpeedState` Composable to `media3-ui-compose` module.
+*   Downloads:
+    *   Add partial download support for progressive streams. Apps can prepare a
+        progressive stream with `DownloadHelper`, and request a
+        `DownloadRequest` from the helper with specifying the time-based media
+        start and end positions that the download should cover. The returned
+        `DownloadRequest` carries the resolved byte range, with which a
+        `ProgressiveDownloader` can be created and download the content
+        correspondingly.
+*   OkHttp extension:
+*   Cronet extension:
+*   RTMP extension:
+*   HLS extension:
+*   DASH extension:
+*   Smooth Streaming extension:
+*   RTSP extension:
+*   Decoder extensions (FFmpeg, VP9, AV1, etc.):
+*   MIDI extension:
+*   Leanback extension:
+*   Cast extension:
+*   Test Utilities:
+*   Demo app:
+    *   Add `PlaybackSpeedPopUpButton` Composable UI element to be part of
+        `ExtraControls` in `demo-compose`.
+*   Remove deprecated symbols:
+    *   Removed deprecated `SegmentDownloader` constructor
+        `SegmentDownloader(MediaItem, Parser<M>, CacheDataSource.Factory,
+        Executor)` and the corresponding constructors in its subclasses
+        `DashDownloader`, `HlsDownloader` and `SsDownloader`.
+    *   Removed deprecated `Player.hasNext()`, `Player.hasNextWindow()`. Use
+        `Player.hasNextMediaItem()` instead.
+    *   Removed deprecated `Player.next()`. Use `Player.seekToNextMediaItem()`
+        instead.
+    *   Removed deprecated `Player.seekToPreviousWindow()`. Use
+        `Player.seekToPreviousMediaItem()` instead.
+    *   Removed deprecated `Player.seekToNextWindow()`. Use
+        `Player.seekToNextMediaItem()` instead.
 
 ## 1.6
 
@@ -20,7 +56,7 @@ This release includes the following changes since
         transitioned to `STATE_IDLE` or `STATE_ENDED`
         ([#2133](https://github.com/androidx/media/issues/2133)).
     *   Add `lastRebufferRealtimeMs` to `LoadControl.Parameter`
-        ([#2113](https://github.com/androidx/media/pull/2113))
+        ([#2113](https://github.com/androidx/media/pull/2113)).
 *   Extractors:
     *   Fix issue where TS streams can get stuck on some devices
         ([#2069](https://github.com/androidx/media/issues/2069)).
@@ -42,7 +78,7 @@ This release includes the following changes since
 *   MIDI extension:
     *   Plumb custom `AudioSink` and `AudioRendererEventListener` instances into
         `MidiRenderer`.
-*   Cast Extension:
+*   Cast extension:
     *   Bump the `play-services-cast-framework` dependency to 21.5.0 to fix a
         `FLAG_MUTABLE` crash in apps targeting API 34+ on devices with Google
         Play services installed but disabled
@@ -81,6 +117,8 @@ This release includes the following changes since the
         to stop the foreground service before `stopSelf()` when overriding
         `onTaskRemoved`, use `MediaSessionService.pauseAllPlayersAndStopSelf()`
         instead.
+    *   Make `MediaSession.setSessionActivity(PendingIntent)` accept null
+        ([#2109](https://github.com/androidx/media/issues/2109)).
     *   Keep notification visible when playback enters an error or stopped
         state. The notification is only removed if the playlist is cleared or
         the player is released.
@@ -217,10 +255,10 @@ This release includes the following changes since the
 *   UI:
     *   Add `PresentationState` state holder class and the corresponding
         `rememberPresentationState` Composable to `media3-ui-compose`.
-*   HLS Extension:
+*   HLS extension:
     *   Parse `SUPPLEMENTAL-CODECS` tag from HLS playlist to detect Dolby Vision
         formats ([#1785](https://github.com/androidx/media/pull/1785)).
-*   DASH Extension:
+*   DASH extension:
     *   Fix issue when calculating the update interval for ad insertion in
         multi-period live streams
         ([#1698](https://github.com/androidx/media/issues/1698)).
@@ -322,7 +360,7 @@ This release includes the following changes since the
         `rememberPlayPauseButtonState`, `rememberNextButtonState`,
         `rememberPreviousButtonState`, `rememberRepeatButtonState`,
         `rememberShuffleButtonState` Composables to `media3-ui-compose` module.
-*   HLS Extension:
+*   HLS extension:
     *   Add a first version of `HlsInterstitialsAdsLoader`. The ads loader reads
         the HLS interstitials of an HLS media playlist and maps them to the
         `AdPlaybackState` that is passed to the `AdsMediaSource`. This initial
@@ -330,10 +368,10 @@ This release includes the following changes since the
     *   Add `HlsInterstitialsAdsLoader.AdsMediaSourceFactory`. Apps can use it
         to create `AdsMediaSource` instances that use an
         `HlsInterstitialsAdsLoader` in a convenient and safe way.
-*   DASH Extension:
+*   DASH extension:
     *   Add AC-4 Level-4 format support for DASH
         ([#1898](https://github.com/androidx/media/pull/1898)).
-*   Decoder Extensions (FFmpeg, VP9, AV1, etc.):
+*   Decoder extensions (FFmpeg, VP9, AV1, etc.):
     *   Add the MPEG-H decoder module which uses the native MPEG-H decoder
         module to decode MPEG-H audio
         ([#1826](https://github.com/androidx/media/pull/1826)).
@@ -709,19 +747,19 @@ This release includes the following changes since the
         [#184](https://github.com/androidx/media/issues/184)).
     *   Fix bug where the "None" choice in the text selection is not working if
         there are app-defined text track selection preferences.
-*   DASH Extension:
+*   DASH extension:
     *   Add support for periods starting in the middle of a segment
         ([#1440](https://github.com/androidx/media/issues/1440)).
-*   Smooth Streaming Extension:
+*   Smooth Streaming extension:
     *   Fix a `Bad magic number for Bundle` error when playing SmoothStreaming
         streams with text tracks
         ([#1779](https://github.com/androidx/media/issues/1779)).
-*   RTSP Extension:
+*   RTSP extension:
     *   Fix user info removal for URLs that contain encoded @ characters
         ([#1138](https://github.com/androidx/media/pull/1138)).
     *   Fix crashing when parsing of RTP packets with header extensions
         ([#1225](https://github.com/androidx/media/pull/1225)).
-*   Decoder Extensions (FFmpeg, VP9, AV1, etc.):
+*   Decoder extensions (FFmpeg, VP9, AV1, etc.):
     *   Add the IAMF decoder module, which provides support for playback of MP4
         files containing IAMF tracks using the libiamf native library to
         synthesize audio.
@@ -730,7 +768,7 @@ This release includes the following changes since the
             binaural playback support is currently not available.
     *   Add 16 KB page support for decoder extensions on Android 15
         ([#1685](https://github.com/androidx/media/issues/1685)).
-*   Cast Extension:
+*   Cast extension:
     *   Stop cleaning the timeline after the CastSession disconnects, which
         enables the sender app to resume playback locally after a disconnection.
     *   Populate CastPlayer's `DeviceInfo` when a `Context` is provided. This
@@ -811,7 +849,7 @@ This release includes the following changes since the
         `MediaButtonReceiver` when deciding whether to ignore it to avoid a
         `ForegroundServiceDidNotStartInTimeException`
         ([#1581](https://github.com/androidx/media/issues/1581)).
-*   RTSP Extension:
+*   RTSP extension:
     *   Skip invalid Media Descriptions in SDP parsing
         ([#1087](https://github.com/androidx/media/issues/1472)).
 
@@ -1156,12 +1194,12 @@ This release includes the following changes since the
         instances, which can eventually result in an app crashing with
         `IllegalStateException: Too many receivers, total of 1000, registered
         for pid` ([#1224](https://github.com/androidx/media/issues/1224)).
-*   Cronet Extension:
+*   Cronet extension:
     *   Fix `SocketTimeoutException` in `CronetDataSource`. In some versions of
         Cronet, the request provided by the callback is not always the same.
         This leads to callback not completing and request timing out
         (https://issuetracker.google.com/328442628).
-*   HLS Extension:
+*   HLS extension:
     *   Fix bug where pending EMSG samples waiting for a discontinuity were
         delegated in `HlsSampleStreamWrapper` with an incorrect offset causing
         an `IndexOutOfBoundsException` or an `IllegalArgumentException`
@@ -1175,13 +1213,13 @@ This release includes the following changes since the
     *   Fix bug where enabling CMCD for HLS live streams causes
         `ArrayIndexOutOfBoundsException`
         ([#1395](https://github.com/androidx/media/issues/1395)).
-*   DASH Extension:
+*   DASH extension:
     *   Fix bug where re-preparing a multi-period live stream can throw an
         `IndexOutOfBoundsException`
         ([#1329](https://github.com/androidx/media/issues/1329)).
     *   Add support for `dashif:Laurl` license urls
         ([#1345](https://github.com/androidx/media/issues/1345)).
-*   Cast Extension:
+*   Cast extension:
     *   Fix bug that converted the album title of the `MediaQueueItem` to the
         artist in the Media3 media item
         ([#1255](https://github.com/androidx/media/pull/1255)).
@@ -1329,13 +1367,13 @@ This release includes the following changes since the
     *   Fallback to include audio track language name if `Locale` cannot
         identify a display name
         ([#988](https://github.com/androidx/media/issues/988)).
-*   DASH Extension:
+*   DASH extension:
     *   Populate all `Label` elements from the manifest into `Format.labels`
         ([#1054](https://github.com/androidx/media/pull/1054)).
-*   RTSP Extension:
+*   RTSP extension:
     *   Skip empty session information values (i-tags) in SDP parsing
         ([#1087](https://github.com/androidx/media/issues/1087)).
-*   Decoder Extensions (FFmpeg, VP9, AV1, MIDI, etc.):
+*   Decoder extensions (FFmpeg, VP9, AV1, MIDI, etc.):
     *   Disable the MIDI extension as a local dependency by default because it
         requires an additional Maven repository to be configured. Users who need
         this module from a local dependency
@@ -1488,12 +1526,12 @@ This release includes the following changes since the
         not transmitted between media controllers and sessions.
     *   Add constructor to `MediaLibrarySession.Builder` that only takes a
         `Context` instead of a `MediaLibraryService`.
-*   HLS Extension:
+*   HLS extension:
     *   Reduce `HlsMediaPeriod` to package-private visibility. This type
         shouldn't be directly depended on from outside the HLS package.
     *   Resolve seeks to beginning of a segment more efficiently
         ([#1031](https://github.com/androidx/media/pull/1031)).
-*   Decoder Extensions (FFmpeg, VP9, AV1, MIDI, etc.):
+*   Decoder extensions (FFmpeg, VP9, AV1, MIDI, etc.):
     *   MIDI decoder: Ignore SysEx event messages
         ([#710](https://github.com/androidx/media/pull/710)).
 *   Test Utilities:
@@ -1591,16 +1629,16 @@ This release includes the following changes since the
     *   Fix issue where the numbers in the fast forward button of the
         `PlayerControlView` were misaligned
         ([#547](https://github.com/androidx/media/issues/547)).
-*   DASH Extension:
+*   DASH extension:
     *   Parse "f800" as channel count of 5 for Dolby in DASH manifest
         ([#688](https://github.com/androidx/media/issues/688)).
-*   Decoder Extensions (FFmpeg, VP9, AV1, MIDI, etc.):
+*   Decoder extensions (FFmpeg, VP9, AV1, MIDI, etc.):
     *   MIDI: Fix issue where seeking forward skips the Program Change events
         ([#704](https://github.com/androidx/media/issues/704)).
     *   Migrate to FFmpeg 6.0 and update supported NDK to `r26b`
         ([#707](https://github.com/androidx/media/pull/707),
         [#867](https://github.com/androidx/media/pull/867)).
-*   Cast Extension:
+*   Cast extension:
     *   Sanitize creation of a `Timeline` to not crash the app when loading
         media fails on the cast device
         ([#708](https://github.com/androidx/media/issues/708)).
@@ -1838,11 +1876,11 @@ This release includes the following changes since the
         add `dataSync` as `foregroundServiceType` in the manifest and add the
         `FOREGROUND_SERVICE_DATA_SYNC` permission
         ([#11239](https://github.com/google/ExoPlayer/issues/11239)).
-*   HLS Extension:
+*   HLS extension:
     *   Refresh the HLS live playlist with an interval calculated from the last
         load start time rather than the last load completed time
         ([#663](https://github.com/androidx/media/issues/663)).
-*   DASH Extension:
+*   DASH extension:
     *   Allow multiple of the same DASH identifier in segment template url.
     *   Add experimental support for parsing subtitles during extraction. This
         has better support for merging overlapping subtitles, including
@@ -1850,7 +1888,7 @@ This release includes the following changes since the
         can enable this using
         `DashMediaSource.Factory.experimentalParseSubtitlesDuringExtraction()`
         ([#288](https://github.com/androidx/media/issues/288)).
-*   RTSP Extension:
+*   RTSP extension:
     *   Fix a race condition that could lead to `IndexOutOfBoundsException` when
         falling back to TCP, or playback hanging in some situations.
     *   Check state in RTSP setup when returning loading state of
@@ -1861,7 +1899,7 @@ This release includes the following changes since the
     *   Use RTSP Setup Response timeout value in time interval of sending
         keep-alive RTSP Options requests
         ([#662](https://github.com/androidx/media/issues/662)).
-*   Decoder Extensions (FFmpeg, VP9, AV1, MIDI, etc.):
+*   Decoder extensions (FFmpeg, VP9, AV1, MIDI, etc.):
     *   Release the MIDI decoder module, which provides support for playback of
         standard MIDI files using the Jsyn library to synthesize audio.
     *   Add `DecoderOutputBuffer.shouldBeSkipped` to directly mark output
@@ -2138,20 +2176,20 @@ This release contains the following changes since the
     *   Add Util methods `shouldShowPlayButton` and
         `handlePlayPauseButtonAction` to write custom UI elements with a
         play/pause button.
-*   RTSP Extension:
+*   RTSP extension:
     *   For MPEG4-LATM, use default profile-level-id value if absent in Describe
         Response SDP message
         ([#302](https://github.com/androidx/media/issues/302)).
     *   Use base Uri for relative path resolution from the RTSP session if
         present in DESCRIBE response header
         ([#11160](https://github.com/google/ExoPlayer/issues/11160)).
-*   DASH Extension:
+*   DASH extension:
     *   Remove the media time offset from `MediaLoadData.startTimeMs` and
         `MediaLoadData.endTimeMs` for multi period DASH streams.
     *   Fix a bug where re-preparing a multi-period live Dash media source
         produced a `IndexOutOfBoundsException`
         ([#10838](https://github.com/google/ExoPlayer/issues/10838)).
-*   HLS Extension:
+*   HLS extension:
     *   Add
         `HlsMediaSource.Factory.setTimestampAdjusterInitializationTimeoutMs(long)`
         to set a timeout for the loading thread to wait for the
