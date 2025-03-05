@@ -1,44 +1,12 @@
 # Release notes
 
-* UI:
+### Unreleased changes
+
+*   Audio:
+    *   Add support for float PCM to `ChannelMappingAudioProcessor`
+*   UI:
     *   Add `PlaybackSpeedState` class and the corresponding
         `rememberPlaybackSpeedState` Composable to `media3-ui-compose` module.
-*   Downloads:
-    *   Add partial download support for progressive streams. Apps can prepare a
-        progressive stream with `DownloadHelper`, and request a
-        `DownloadRequest` from the helper with specifying the time-based media
-        start and end positions that the download should cover. The returned
-        `DownloadRequest` carries the resolved byte range, with which a
-        `ProgressiveDownloader` can be created and download the content
-        correspondingly.
-*   OkHttp extension:
-*   Cronet extension:
-*   RTMP extension:
-*   HLS extension:
-*   DASH extension:
-*   Smooth Streaming extension:
-*   RTSP extension:
-*   Decoder extensions (FFmpeg, VP9, AV1, etc.):
-*   MIDI extension:
-*   Leanback extension:
-*   Cast extension:
-*   Test Utilities:
-*   Demo app:
-    *   Add `PlaybackSpeedPopUpButton` Composable UI element to be part of
-        `ExtraControls` in `demo-compose`.
-*   Remove deprecated symbols:
-    *   Removed deprecated `SegmentDownloader` constructor
-        `SegmentDownloader(MediaItem, Parser<M>, CacheDataSource.Factory,
-        Executor)` and the corresponding constructors in its subclasses
-        `DashDownloader`, `HlsDownloader` and `SsDownloader`.
-    *   Removed deprecated `Player.hasNext()`, `Player.hasNextWindow()`. Use
-        `Player.hasNextMediaItem()` instead.
-    *   Removed deprecated `Player.next()`. Use `Player.seekToNextMediaItem()`
-        instead.
-    *   Removed deprecated `Player.seekToPreviousWindow()`. Use
-        `Player.seekToPreviousMediaItem()` instead.
-    *   Removed deprecated `Player.seekToNextWindow()`. Use
-        `Player.seekToNextMediaItem()` instead.
 
 ## 1.6
 
