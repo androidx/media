@@ -227,7 +227,7 @@ public final class SsaParser implements SubtitleParser {
   private void parseScriptInfo(ParsableByteArray data, Charset charset) {
     @Nullable String currentLine;
     while ((currentLine = data.readLine(charset)) != null
-        && (data.bytesLeft() == 0 || data.peekChar(charset) != '[')) {
+        && (data.bytesLeft() == 0 || data.peekCodePoint(charset) != '[')) {
       String[] infoNameAndValue = currentLine.split(":");
       if (infoNameAndValue.length != 2) {
         continue;
@@ -266,7 +266,7 @@ public final class SsaParser implements SubtitleParser {
     @Nullable SsaStyle.Format formatInfo = null;
     @Nullable String currentLine;
     while ((currentLine = data.readLine(charset)) != null
-        && (data.bytesLeft() == 0 || data.peekChar(charset) != '[')) {
+        && (data.bytesLeft() == 0 || data.peekCodePoint(charset) != '[')) {
       if (currentLine.startsWith(FORMAT_LINE_PREFIX)) {
         formatInfo = SsaStyle.Format.fromFormatLine(currentLine);
       } else if (currentLine.startsWith(STYLE_LINE_PREFIX)) {
