@@ -102,7 +102,7 @@ import androidx.media3.exoplayer.ExoPlaybackException;
     lastPresentationTimeUs = C.TIME_UNSET;
   }
 
-  /** Flushes the renderer. */
+  /** Flushes the render control. */
   public void flush() {
     presentationTimestampsUs.clear();
     latestInputPresentationTimeUs = C.TIME_UNSET;
