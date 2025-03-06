@@ -156,8 +156,8 @@ public final class TestUtil {
       addCodec(
           mimeType,
           new ShadowMediaCodec.CodecConfig(
-              /* inputBufferSize= */ 100_000,
-              /* outputBufferSize= */ 100_000,
+              /* inputBufferSize= */ 150_000,
+              /* outputBufferSize= */ 150_000,
               /* codec= */ (in, out) -> out.put(in)),
           /* colorFormats= */ ImmutableList.of(),
           /* isDecoder= */ true);
@@ -175,8 +175,8 @@ public final class TestUtil {
   public static void addAudioEncoders(String... mimeTypes) {
     addAudioEncoders(
         new ShadowMediaCodec.CodecConfig(
-            /* inputBufferSize= */ 100_000,
-            /* outputBufferSize= */ 100_000,
+            /* inputBufferSize= */ 150_000,
+            /* outputBufferSize= */ 150_000,
             /* codec= */ (in, out) -> out.put(in)),
         mimeTypes);
   }
