@@ -22,6 +22,9 @@ import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.exoplayer.DecoderReuseEvaluation.DISCARD_REASON_MAX_INPUT_SIZE_EXCEEDED;
 import static androidx.media3.exoplayer.DecoderReuseEvaluation.DISCARD_REASON_VIDEO_MAX_RESOLUTION_EXCEEDED;
 import static androidx.media3.exoplayer.DecoderReuseEvaluation.REUSE_RESULT_NO;
+import static androidx.media3.exoplayer.video.VideoFrameReleaseControl.RELEASE_FIRST_FRAME_IMMEDIATELY;
+import static androidx.media3.exoplayer.video.VideoFrameReleaseControl.RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED;
+import static androidx.media3.exoplayer.video.VideoFrameReleaseControl.RELEASE_FIRST_FRAME_WHEN_STARTED;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -911,7 +914,11 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       }
     } else {
       videoFrameReleaseControl.setClock(getClock());
-      videoFrameReleaseControl.onEnabled(mayRenderStartOfStream);
+      int firstFrameReleaseInstruction =
+          mayRenderStartOfStream
+              ? RELEASE_FIRST_FRAME_IMMEDIATELY
+              : RELEASE_FIRST_FRAME_WHEN_STARTED;
+      videoFrameReleaseControl.onStreamChanged(firstFrameReleaseInstruction);
     }
   }
 
@@ -1837,7 +1844,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       videoSink.setStreamTimestampInfo(
           getOutputStreamStartPositionUs(), getBufferTimestampAdjustmentUs());
     } else {
-      videoFrameReleaseControl.onProcessedStreamChange();
+      videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED);
     }
     pendingVideoSinkInputStreamChange = true;
     maybeSetupTunnelingForFirstFrame();

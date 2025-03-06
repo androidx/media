@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.video;
 
+import static androidx.media3.exoplayer.video.VideoFrameReleaseControl.RELEASE_FIRST_FRAME_IMMEDIATELY;
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
@@ -44,7 +45,7 @@ public class VideoFrameRenderControlTest {
     VideoFrameRenderControl videoFrameRenderControl =
         new VideoFrameRenderControl(frameRenderer, videoFrameReleaseControl);
 
-    videoFrameReleaseControl.onEnabled(/* releaseFirstFrameBeforeStarted= */ true);
+    videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
     videoFrameRenderControl.onVideoSizeChanged(
         /* width= */ VIDEO_WIDTH, /* height= */ VIDEO_HEIGHT);
     videoFrameRenderControl.onFrameAvailableForRendering(/* presentationTimeUs= */ 0);
@@ -72,7 +73,7 @@ public class VideoFrameRenderControlTest {
     VideoFrameRenderControl videoFrameRenderControl =
         new VideoFrameRenderControl(frameRenderer, videoFrameReleaseControl);
 
-    videoFrameReleaseControl.onEnabled(/* releaseFirstFrameBeforeStarted= */ true);
+    videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
     videoFrameReleaseControl.onStarted();
     videoFrameRenderControl.onVideoSizeChanged(
         /* width= */ VIDEO_WIDTH, /* height= */ VIDEO_HEIGHT);
@@ -117,7 +118,7 @@ public class VideoFrameRenderControlTest {
     VideoFrameRenderControl videoFrameRenderControl =
         new VideoFrameRenderControl(frameRenderer, videoFrameReleaseControl);
 
-    videoFrameReleaseControl.onEnabled(/* releaseFirstFrameBeforeStarted= */ true);
+    videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
     videoFrameReleaseControl.onStarted();
     videoFrameRenderControl.onVideoSizeChanged(
         /* width= */ VIDEO_WIDTH, /* height= */ VIDEO_HEIGHT);
@@ -164,7 +165,7 @@ public class VideoFrameRenderControlTest {
     VideoFrameRenderControl videoFrameRenderControl =
         new VideoFrameRenderControl(frameRenderer, videoFrameReleaseControl);
 
-    videoFrameReleaseControl.onEnabled(/* releaseFirstFrameBeforeStarted= */ true);
+    videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
     videoFrameReleaseControl.onStarted();
     videoFrameRenderControl.onVideoSizeChanged(
         /* width= */ VIDEO_WIDTH, /* height= */ VIDEO_HEIGHT);
@@ -202,7 +203,7 @@ public class VideoFrameRenderControlTest {
     VideoFrameRenderControl videoFrameRenderControl =
         new VideoFrameRenderControl(frameRenderer, videoFrameReleaseControl);
 
-    videoFrameReleaseControl.onEnabled(/* releaseFirstFrameBeforeStarted= */ true);
+    videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
     videoFrameReleaseControl.onStarted();
     videoFrameRenderControl.onVideoSizeChanged(
         /* width= */ VIDEO_WIDTH, /* height= */ VIDEO_HEIGHT);
@@ -247,7 +248,7 @@ public class VideoFrameRenderControlTest {
     VideoFrameRenderControl videoFrameRenderControl =
         new VideoFrameRenderControl(frameRenderer, videoFrameReleaseControl);
 
-    videoFrameReleaseControl.onEnabled(/* releaseFirstFrameBeforeStarted= */ true);
+    videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
     videoFrameRenderControl.onVideoSizeChanged(
         /* width= */ VIDEO_WIDTH, /* height= */ VIDEO_HEIGHT);
     videoFrameRenderControl.onFrameAvailableForRendering(/* presentationTimeUs= */ 0);
@@ -265,7 +266,7 @@ public class VideoFrameRenderControlTest {
     VideoFrameRenderControl videoFrameRenderControl =
         new VideoFrameRenderControl(frameRenderer, videoFrameReleaseControl);
 
-    videoFrameReleaseControl.onEnabled(/* releaseFirstFrameBeforeStarted= */ true);
+    videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
     videoFrameRenderControl.onVideoSizeChanged(
         /* width= */ VIDEO_WIDTH, /* height= */ VIDEO_HEIGHT);
     videoFrameRenderControl.onFrameAvailableForRendering(/* presentationTimeUs= */ 0);

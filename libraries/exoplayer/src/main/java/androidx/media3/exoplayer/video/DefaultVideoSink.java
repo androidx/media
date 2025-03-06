@@ -17,6 +17,8 @@ package androidx.media3.exoplayer.video;
 
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
+import static androidx.media3.exoplayer.video.VideoFrameReleaseControl.RELEASE_FIRST_FRAME_IMMEDIATELY;
+import static androidx.media3.exoplayer.video.VideoFrameReleaseControl.RELEASE_FIRST_FRAME_WHEN_STARTED;
 
 import android.graphics.Bitmap;
 import android.view.Surface;
@@ -83,7 +85,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @Override
   public void onRendererEnabled(boolean mayRenderStartOfStream) {
-    videoFrameReleaseControl.onEnabled(mayRenderStartOfStream);
+    int firstFrameReleaseInstruction =
+        mayRenderStartOfStream ? RELEASE_FIRST_FRAME_IMMEDIATELY : RELEASE_FIRST_FRAME_WHEN_STARTED;
+    videoFrameReleaseControl.onStreamChanged(firstFrameReleaseInstruction);
   }
 
   @Override

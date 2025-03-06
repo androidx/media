@@ -15,6 +15,8 @@
  */
 package androidx.media3.exoplayer.video;
 
+import static androidx.media3.exoplayer.video.VideoFrameReleaseControl.RELEASE_FIRST_FRAME_IMMEDIATELY;
+import static androidx.media3.exoplayer.video.VideoFrameReleaseControl.RELEASE_FIRST_FRAME_WHEN_STARTED;
 import static com.google.common.truth.Truth.assertThat;
 
 import androidx.media3.exoplayer.ExoPlaybackException;
@@ -98,21 +100,12 @@ public class VideoFrameReleaseControlTest {
   }
 
   @Test
-  public void onFrameReleasedIsFirstFrame_resetsAfterOnEnabled() {
+  public void onFrameReleasedIsFirstFrame_resetsAfterOnStreamChanged() {
     VideoFrameReleaseControl videoFrameReleaseControl = createVideoFrameReleaseControl();
 
-    assertThat(videoFrameReleaseControl.onFrameReleasedIsFirstFrame()).isTrue();
-    videoFrameReleaseControl.onEnabled(/* releaseFirstFrameBeforeStarted= */ true);
-
-    assertThat(videoFrameReleaseControl.onFrameReleasedIsFirstFrame()).isTrue();
-  }
-
-  @Test
-  public void onFrameReleasedIsFirstFrame_resetsAfterOnProcessedStreamChange() {
-    VideoFrameReleaseControl videoFrameReleaseControl = createVideoFrameReleaseControl();
-
-    assertThat(videoFrameReleaseControl.onFrameReleasedIsFirstFrame()).isTrue();
-    videoFrameReleaseControl.onProcessedStreamChange();
+    videoFrameReleaseControl.onFrameReleasedIsFirstFrame();
+    assertThat(videoFrameReleaseControl.onFrameReleasedIsFirstFrame()).isFalse();
+    videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
 
     assertThat(videoFrameReleaseControl.onFrameReleasedIsFirstFrame()).isTrue();
   }
@@ -144,7 +137,7 @@ public class VideoFrameReleaseControlTest {
     VideoFrameReleaseControl.FrameReleaseInfo frameReleaseInfo =
         new VideoFrameReleaseControl.FrameReleaseInfo();
     VideoFrameReleaseControl videoFrameReleaseControl = createVideoFrameReleaseControl();
-    videoFrameReleaseControl.onEnabled(/* releaseFirstFrameBeforeStarted= */ true);
+    videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
 
     assertThat(
             videoFrameReleaseControl.getFrameReleaseAction(
@@ -163,7 +156,7 @@ public class VideoFrameReleaseControlTest {
     VideoFrameReleaseControl.FrameReleaseInfo frameReleaseInfo =
         new VideoFrameReleaseControl.FrameReleaseInfo();
     VideoFrameReleaseControl videoFrameReleaseControl = createVideoFrameReleaseControl();
-    videoFrameReleaseControl.onEnabled(/* releaseFirstFrameBeforeStarted= */ false);
+    videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_WHEN_STARTED);
 
     assertThat(
             videoFrameReleaseControl.getFrameReleaseAction(
@@ -185,7 +178,7 @@ public class VideoFrameReleaseControlTest {
     FakeClock clock = new FakeClock(/* isAutoAdvancing= */ false);
     VideoFrameReleaseControl videoFrameReleaseControl = createVideoFrameReleaseControl();
     videoFrameReleaseControl.setClock(clock);
-    videoFrameReleaseControl.onEnabled(/* releaseFirstFrameBeforeStarted= */ false);
+    videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_WHEN_STARTED);
 
     videoFrameReleaseControl.onStarted();
 
@@ -208,7 +201,7 @@ public class VideoFrameReleaseControlTest {
     FakeClock clock = new FakeClock(/* isAutoAdvancing= */ false);
     VideoFrameReleaseControl videoFrameReleaseControl = createVideoFrameReleaseControl();
     videoFrameReleaseControl.setClock(clock);
-    videoFrameReleaseControl.onEnabled(/* releaseFirstFrameBeforeStarted= */ true);
+    videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
 
     // First frame released.
     assertThat(
@@ -242,7 +235,7 @@ public class VideoFrameReleaseControlTest {
     FakeClock clock = new FakeClock(/* isAutoAdvancing= */ false);
     VideoFrameReleaseControl videoFrameReleaseControl = createVideoFrameReleaseControl();
     videoFrameReleaseControl.setClock(clock);
-    videoFrameReleaseControl.onEnabled(/* releaseFirstFrameBeforeStarted= */ true);
+    videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
     videoFrameReleaseControl.onStarted();
 
     // First frame released.
@@ -277,7 +270,7 @@ public class VideoFrameReleaseControlTest {
     FakeClock clock = new FakeClock(/* isAutoAdvancing= */ false);
     VideoFrameReleaseControl videoFrameReleaseControl = createVideoFrameReleaseControl();
     videoFrameReleaseControl.setClock(clock);
-    videoFrameReleaseControl.onEnabled(/* releaseFirstFrameBeforeStarted= */ true);
+    videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
 
     videoFrameReleaseControl.onStarted();
 
@@ -320,7 +313,7 @@ public class VideoFrameReleaseControlTest {
                 /* shouldIgnoreFrame= */ false),
             /* allowedJoiningTimeMs= */ 0);
     videoFrameReleaseControl.setClock(clock);
-    videoFrameReleaseControl.onEnabled(/* releaseFirstFrameBeforeStarted= */ true);
+    videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
 
     videoFrameReleaseControl.onStarted();
 
@@ -365,7 +358,7 @@ public class VideoFrameReleaseControlTest {
                 /* shouldIgnoreFrame= */ false),
             /* allowedJoiningTimeMs= */ 1234);
     videoFrameReleaseControl.setClock(clock);
-    videoFrameReleaseControl.onEnabled(/* releaseFirstFrameBeforeStarted= */ true);
+    videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
     videoFrameReleaseControl.onStarted();
 
     // Start joining.
@@ -409,7 +402,7 @@ public class VideoFrameReleaseControlTest {
                 /* shouldIgnoreFrame= */ false),
             /* allowedJoiningTimeMs= */ 1234);
     videoFrameReleaseControl.setClock(clock);
-    videoFrameReleaseControl.onEnabled(/* releaseFirstFrameBeforeStarted= */ true);
+    videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
     videoFrameReleaseControl.onStarted();
 
     // Start joining.
@@ -452,7 +445,7 @@ public class VideoFrameReleaseControlTest {
                 /* shouldIgnoreFrame= */ true),
             /* allowedJoiningTimeMs= */ 0);
     videoFrameReleaseControl.setClock(clock);
-    videoFrameReleaseControl.onEnabled(/* releaseFirstFrameBeforeStarted= */ true);
+    videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
 
     videoFrameReleaseControl.onStarted();
 

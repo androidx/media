@@ -42,6 +42,35 @@ import java.lang.annotation.Target;
 public final class VideoFrameReleaseControl {
 
   /**
+   * The instruction provided to {@link #onStreamChanged(int)} for releasing the first frame.
+   *
+   * <p>One of {@link #RELEASE_FIRST_FRAME_IMMEDIATELY}, {@link #RELEASE_FIRST_FRAME_WHEN_STARTED}
+   * or {@link #RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED}.
+   */
+  @Documented
+  @Retention(RetentionPolicy.SOURCE)
+  @Target(TYPE_USE)
+  @UnstableApi
+  @IntDef({
+    RELEASE_FIRST_FRAME_IMMEDIATELY,
+    RELEASE_FIRST_FRAME_WHEN_STARTED,
+    RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED
+  })
+  public @interface FirstFrameReleaseInstruction {}
+
+  /** Instructs to release the first frame as soon as possible. */
+  public static final int RELEASE_FIRST_FRAME_IMMEDIATELY = 0;
+
+  /** Instructs to release the first frame when rendering starts. */
+  public static final int RELEASE_FIRST_FRAME_WHEN_STARTED = 1;
+
+  /**
+   * Instructs to release the first frame when the playback position reaches the stream start
+   * position.
+   */
+  public static final int RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED = 2;
+
+  /**
    * The frame release action returned by {@link #getFrameReleaseAction(long, long, long, long,
    * boolean, FrameReleaseInfo)}.
    *
@@ -206,12 +235,25 @@ public final class VideoFrameReleaseControl {
     clock = Clock.DEFAULT;
   }
 
-  /** Called when the renderer is enabled. */
-  public void onEnabled(boolean releaseFirstFrameBeforeStarted) {
-    firstFrameState =
-        releaseFirstFrameBeforeStarted
-            ? C.FIRST_FRAME_NOT_RENDERED
-            : C.FIRST_FRAME_NOT_RENDERED_ONLY_ALLOWED_IF_STARTED;
+  /**
+   * Called when the stream changes.
+   *
+   * <p>Must also be called for the first stream.
+   */
+  public void onStreamChanged(@FirstFrameReleaseInstruction int firstFrameReleaseInstruction) {
+    switch (firstFrameReleaseInstruction) {
+      case RELEASE_FIRST_FRAME_IMMEDIATELY:
+        firstFrameState = C.FIRST_FRAME_NOT_RENDERED;
+        break;
+      case RELEASE_FIRST_FRAME_WHEN_STARTED:
+        firstFrameState = C.FIRST_FRAME_NOT_RENDERED_ONLY_ALLOWED_IF_STARTED;
+        break;
+      case RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED:
+        lowerFirstFrameState(C.FIRST_FRAME_NOT_RENDERED_AFTER_STREAM_CHANGE);
+        break;
+      default:
+        throw new IllegalStateException();
+    }
   }
 
   /** Called when the renderer is started. */
@@ -226,11 +268,6 @@ public final class VideoFrameReleaseControl {
     started = false;
     joiningDeadlineMs = C.TIME_UNSET;
     frameReleaseHelper.onStopped();
-  }
-
-  /** Called when the renderer processed a stream change. */
-  public void onProcessedStreamChange() {
-    lowerFirstFrameState(C.FIRST_FRAME_NOT_RENDERED_AFTER_STREAM_CHANGE);
   }
 
   /** Called when the display surface changed. */
