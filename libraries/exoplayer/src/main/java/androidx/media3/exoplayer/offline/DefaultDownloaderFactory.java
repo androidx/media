@@ -153,5 +153,5 @@ public class DefaultDownloaderFactory implements DownloaderFactory {
       throw new IllegalStateException("Downloader constructor missing", e);
     }
   }
-  // LINT.ThenChange(../../../../../proguard-rules.txt)
+  // LINT.ThenChange(../../../../../../../proguard-rules.txt)
 }
