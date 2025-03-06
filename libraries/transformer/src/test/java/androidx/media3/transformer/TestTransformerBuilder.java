@@ -16,13 +16,20 @@
 package androidx.media3.transformer;
 
 import android.content.Context;
+import android.media.MediaCodec;
 import android.os.Looper;
+import androidx.media3.common.C;
+import androidx.media3.common.Format;
+import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import androidx.media3.muxer.MuxerException;
 import androidx.media3.test.utils.FakeClock;
+import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -53,6 +60,7 @@ public final class TestTransformerBuilder {
   private Muxer.Factory muxerFactory;
   private boolean fallbackEnabled;
   private Looper looper;
+  private boolean forceTransformerToFail;
 
   /** Creates a new instance. */
   public TestTransformerBuilder(Context context) {
@@ -178,6 +186,23 @@ public final class TestTransformerBuilder {
     return this;
   }
 
+  /**
+   * Sets whether Transformer should be forced to fail.
+   *
+   * <p>If set, transformer's {@link Transformer.Listener#onError(Composition, ExportResult,
+   * ExportException)} callback will be called when transformer fails.
+   *
+   * <p>The default value is {@code false}.
+   *
+   * @param forceTransformerToFail Whether Transformer should be forced to fail.
+   * @return This builder.
+   */
+  @CanIgnoreReturnValue
+  public TestTransformerBuilder setForceTransformerToFail(boolean forceTransformerToFail) {
+    this.forceTransformerToFail = forceTransformerToFail;
+    return this;
+  }
+
   /** Builds a {@link Transformer} instance for testing with Robolectric. */
   public Transformer build() {
     Codec.EncoderFactory encoderFactory =
@@ -187,7 +212,8 @@ public final class TestTransformerBuilder {
             .experimentalSetTrimOptimizationEnabled(trimOptimizationEnabled)
             .setMaxDelayBetweenMuxerSamplesMs(maxDelayBetweenMuxerSamplesMs)
             .setAssetLoaderFactory(assetLoaderFactory)
-            .setMuxerFactory(muxerFactory)
+            .setMuxerFactory(
+                forceTransformerToFail ? new FailingMuxer.Factory(muxerFactory) : muxerFactory)
             .setEncoderFactory(encoderFactory)
             .setLooper(looper)
             .setClock(clock);
@@ -198,5 +224,56 @@ public final class TestTransformerBuilder {
       transformerBuilder.addListener(listener);
     }
     return transformerBuilder.build();
+  }
+
+  private static final class FailingMuxer implements Muxer {
+
+    /** A {@link Muxer.Factory} for {@link FailingMuxer}. */
+    public static final class Factory implements Muxer.Factory {
+
+      private final Muxer.Factory wrappedMuxerFactory;
+
+      public Factory(Muxer.Factory wrappedMuxerFactory) {
+        this.wrappedMuxerFactory = wrappedMuxerFactory;
+      }
+
+      @Override
+      public Muxer create(String path) throws MuxerException {
+        return new FailingMuxer(wrappedMuxerFactory.create(path));
+      }
+
+      @Override
+      public ImmutableList<String> getSupportedSampleMimeTypes(@C.TrackType int trackType) {
+        return wrappedMuxerFactory.getSupportedSampleMimeTypes(trackType);
+      }
+    }
+
+    private final Muxer wrappedMuxer;
+
+    public FailingMuxer(Muxer wrappedMuxer) {
+      this.wrappedMuxer = wrappedMuxer;
+    }
+
+    @Override
+    public int addTrack(Format format) throws MuxerException {
+      return wrappedMuxer.addTrack(format);
+    }
+
+    @Override
+    public void writeSampleData(
+        int trackId, ByteBuffer byteBuffer, MediaCodec.BufferInfo bufferInfo)
+        throws MuxerException {
+      throw new MuxerException("Failed to write sample data", new RuntimeException());
+    }
+
+    @Override
+    public void addMetadataEntry(Metadata.Entry metadataEntry) {
+      wrappedMuxer.addMetadataEntry(metadataEntry);
+    }
+
+    @Override
+    public void close() throws MuxerException {
+      wrappedMuxer.close();
+    }
   }
 }
