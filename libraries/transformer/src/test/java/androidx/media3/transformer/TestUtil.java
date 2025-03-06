@@ -15,7 +15,8 @@
  */
 package androidx.media3.transformer;
 
-import android.media.MediaFormat;
+import static androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig.configureShadowMediaCodec;
+
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.ChannelMixingAudioProcessor;
@@ -24,10 +25,8 @@ import androidx.media3.common.audio.SonicAudioProcessor;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Ints;
 import java.util.List;
 import java.util.StringJoiner;
-import org.robolectric.shadows.MediaCodecInfoBuilder;
 import org.robolectric.shadows.ShadowMediaCodec;
 import org.robolectric.shadows.ShadowMediaCodecList;
 
@@ -209,33 +208,17 @@ public final class TestUtil {
   private static void addCodec(
       String mimeType,
       ShadowMediaCodec.CodecConfig codecConfig,
-      List<Integer> colorFormats,
+      ImmutableList<Integer> colorFormats,
       boolean isDecoder) {
     String codecName =
         Util.formatInvariant(
             isDecoder ? "exo.%s.decoder" : "exo.%s.encoder", mimeType.replace('/', '-'));
-    if (isDecoder) {
-      ShadowMediaCodec.addDecoder(codecName, codecConfig);
-    } else {
-      ShadowMediaCodec.addEncoder(codecName, codecConfig);
-    }
-
-    MediaFormat mediaFormat = new MediaFormat();
-    mediaFormat.setString(MediaFormat.KEY_MIME, mimeType);
-    MediaCodecInfoBuilder.CodecCapabilitiesBuilder codecCapabilities =
-        MediaCodecInfoBuilder.CodecCapabilitiesBuilder.newBuilder()
-            .setMediaFormat(mediaFormat)
-            .setIsEncoder(!isDecoder);
-
-    if (!colorFormats.isEmpty()) {
-      codecCapabilities.setColorFormats(Ints.toArray(colorFormats));
-    }
-
-    ShadowMediaCodecList.addCodec(
-        MediaCodecInfoBuilder.newBuilder()
-            .setName(codecName)
-            .setIsEncoder(!isDecoder)
-            .setCapabilities(codecCapabilities.build())
-            .build());
+    configureShadowMediaCodec(
+        codecName,
+        mimeType,
+        !isDecoder,
+        /* profileLevels= */ ImmutableList.of(),
+        colorFormats,
+        codecConfig);
   }
 }

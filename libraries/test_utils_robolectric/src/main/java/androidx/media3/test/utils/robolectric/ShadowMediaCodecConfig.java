@@ -63,6 +63,49 @@ public final class ShadowMediaCodecConfig extends ExternalResource {
     supportedMimeTypes = new HashSet<>(mimeTypes);
   }
 
+  /**
+   * Configures a shadow MediaCodec.
+   *
+   * @param codecName The name of the codec.
+   * @param mimeType The MIME type of the codec.
+   * @param isEncoder Whether the codec is an encoder or a decoder.
+   * @param profileLevels A list of profiles and levels supported by the codec.
+   * @param colorFormats A list of color formats supported by the codec.
+   * @param codecConfig The {@link ShadowMediaCodec.CodecConfig} for the codec, specifying its
+   *     behavior.
+   */
+  public static void configureShadowMediaCodec(
+      String codecName,
+      String mimeType,
+      boolean isEncoder,
+      ImmutableList<CodecProfileLevel> profileLevels,
+      ImmutableList<Integer> colorFormats,
+      ShadowMediaCodec.CodecConfig codecConfig) {
+    MediaFormat mediaFormat = new MediaFormat();
+    mediaFormat.setString(MediaFormat.KEY_MIME, mimeType);
+    MediaCodecInfoBuilder.CodecCapabilitiesBuilder capabilities =
+        MediaCodecInfoBuilder.CodecCapabilitiesBuilder.newBuilder()
+            .setMediaFormat(mediaFormat)
+            .setIsEncoder(isEncoder);
+    if (!profileLevels.isEmpty()) {
+      capabilities.setProfileLevels(profileLevels.toArray(new CodecProfileLevel[0]));
+    }
+    if (!colorFormats.isEmpty()) {
+      capabilities.setColorFormats(Ints.toArray(colorFormats));
+    }
+    ShadowMediaCodecList.addCodec(
+        MediaCodecInfoBuilder.newBuilder()
+            .setName(codecName)
+            .setIsEncoder(isEncoder)
+            .setCapabilities(capabilities.build())
+            .build());
+    if (isEncoder) {
+      ShadowMediaCodec.addEncoder(codecName, codecConfig);
+    } else {
+      ShadowMediaCodec.addDecoder(codecName, codecConfig);
+    }
+  }
+
   public void addSupportedMimeTypes(String... mimeTypes) {
     for (String mimeType : mimeTypes) {
       checkState(!supportedMimeTypes.contains(mimeType), "MIME type already added: " + mimeType);
@@ -231,29 +274,19 @@ public final class ShadowMediaCodecConfig extends ExternalResource {
     }
 
     public void configure() {
-      MediaFormat mediaFormat = new MediaFormat();
-      mediaFormat.setString(MediaFormat.KEY_MIME, mimeType);
-      MediaCodecInfoBuilder.CodecCapabilitiesBuilder capabilities =
-          MediaCodecInfoBuilder.CodecCapabilitiesBuilder.newBuilder().setMediaFormat(mediaFormat);
-      if (!profileLevels.isEmpty()) {
-        capabilities.setProfileLevels(
-            profileLevels.toArray(new MediaCodecInfo.CodecProfileLevel[0]));
-      }
-      if (!colorFormats.isEmpty()) {
-        capabilities.setColorFormats(Ints.toArray(colorFormats));
-      }
-      ShadowMediaCodecList.addCodec(
-          MediaCodecInfoBuilder.newBuilder()
-              .setName(codecName)
-              .setCapabilities(capabilities.build())
-              .build());
       // TODO: Update ShadowMediaCodec to consider the MediaFormat.KEY_MAX_INPUT_SIZE value passed
       // to configure() so we don't have to specify large buffers here.
       int bufferSize = mimeType.equals(MimeTypes.VIDEO_H265) ? 250_000 : 150_000;
-      ShadowMediaCodec.addDecoder(
+      configureShadowMediaCodec(
           codecName,
+          mimeType,
+          /* isEncoder= */ false,
+          profileLevels,
+          colorFormats,
           new ShadowMediaCodec.CodecConfig(
-              /* inputBufferSize= */ bufferSize, /* outputBufferSize= */ bufferSize, this));
+              /* inputBufferSize= */ bufferSize,
+              /* outputBufferSize= */ bufferSize,
+              /* codec= */ this));
     }
 
     @Override
