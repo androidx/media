@@ -941,6 +941,10 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     super.onStreamChanged(formats, startPositionUs, offsetUs, mediaPeriodId);
     if (this.startPositionUs == C.TIME_UNSET) {
       this.startPositionUs = startPositionUs;
+      if (videoSink != null) {
+        videoSink.setStreamTimestampInfo(
+            getOutputStreamStartPositionUs(), getBufferTimestampAdjustmentUs());
+      }
     }
     updatePeriodDurationUs(mediaPeriodId);
   }
@@ -965,8 +969,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         // MediaCodec once the codec is flushed.
         videoSink.flush(/* resetPosition= */ true);
       }
-      videoSink.setStreamTimestampInfo(
-          getOutputStreamStartPositionUs(), getBufferTimestampAdjustmentUs());
       pendingVideoSinkInputStreamChange = true;
     }
     super.onPositionReset(positionUs, joining);
