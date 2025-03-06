@@ -183,6 +183,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   private final long minEarlyUsToDropDecoderInput;
 
   private final PriorityQueue<Long> droppedDecoderInputBufferTimestamps;
+  private final boolean enableMediaCodecBufferDecodeOnlyFlag;
 
   private @MonotonicNonNull CodecMaxValues codecMaxValues;
   private boolean codecNeedsSetOutputSurfaceWorkaround;
@@ -233,6 +234,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     @Nullable private VideoSink videoSink;
     private boolean parseAv1SampleDependencies;
     private long lateThresholdToDropDecoderInputUs;
+    private boolean enableMediaCodecBufferDecodeOnlyFlag;
 
     /**
      * Creates a new builder.
@@ -370,6 +372,26 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     public Builder experimentalSetLateThresholdToDropDecoderInputUs(
         long lateThresholdToDropDecoderInputUs) {
       this.lateThresholdToDropDecoderInputUs = lateThresholdToDropDecoderInputUs;
+      return this;
+    }
+
+    /**
+     * Sets whether the {@link MediaCodec#BUFFER_FLAG_DECODE_ONLY} flag will be included when
+     * queuing decode-only input buffers to the decoder.
+     *
+     * <p>If {@code false}, then only if the decoder is set up in tunneling mode will decode-only
+     * input buffers be queued with the {@link MediaCodec#BUFFER_FLAG_DECODE_ONLY} flag. The default
+     * value is {@code false}.
+     *
+     * <p>Requires API 34.
+     *
+     * <p>This method is experimental and will be renamed or removed in a future release.
+     */
+    @RequiresApi(34)
+    @CanIgnoreReturnValue
+    public Builder experimentalSetEnableMediaCodecBufferDecodeOnlyFlag(
+        boolean enableMediaCodecBufferDecodeOnlyFlag) {
+      this.enableMediaCodecBufferDecodeOnlyFlag = enableMediaCodecBufferDecodeOnlyFlag;
       return this;
     }
 
@@ -597,6 +619,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         builder.lateThresholdToDropDecoderInputUs != C.TIME_UNSET
             ? -builder.lateThresholdToDropDecoderInputUs
             : C.TIME_UNSET;
+    enableMediaCodecBufferDecodeOnlyFlag = builder.enableMediaCodecBufferDecodeOnlyFlag;
   }
 
   // FrameTimingEvaluator methods
@@ -1479,11 +1502,13 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
 
   @Override
   protected int getCodecBufferFlags(DecoderInputBuffer buffer) {
-    if (Util.SDK_INT >= 34 && tunneling && isBufferBeforeStartTime(buffer)) {
+    if (Util.SDK_INT >= 34
+        && (enableMediaCodecBufferDecodeOnlyFlag || tunneling)
+        && isBufferBeforeStartTime(buffer)) {
       // The buffer likely needs to be dropped because its timestamp is less than the start time.
-      // We can't decide to do this after decoding because we won't get the buffer back from the
-      // codec in tunneling mode. This may not work perfectly, e.g. when the codec is doing frame
-      // rate conversion, but it's still better than not dropping the buffers at all.
+      // If tunneling, we can't decide to do this after decoding because we won't get the buffer
+      // back from the codec in tunneling mode. This may not work perfectly, e.g. when the codec is
+      // doing frame rate conversion, but it's still better than not dropping the buffers at all.
       return MediaCodec.BUFFER_FLAG_DECODE_ONLY;
     }
     return 0;

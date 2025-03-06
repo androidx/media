@@ -12,6 +12,11 @@
     *   Allow constant power upmixing/downmixing in DefaultAudioMixer.
     *   Add support for float PCM to `ChannelMappingAudioProcessor`.
 *   Video:
+    *   Add experimental `ExoPlayer` API to include the
+        `MediaCodec.BUFFER_FLAG_DECODE_ONLY` flag when queuing decode-only input
+        buffers. This flag will signal the decoder to skip the decode-only
+        buffers thereby resulting in faster seeking. Enable it with
+        `DefaultRenderersFactory.experimentalSetEnableMediaCodecBufferDecodeOnlyFlag`.
 *   Text:
 *   Metadata:
 *   Image:
