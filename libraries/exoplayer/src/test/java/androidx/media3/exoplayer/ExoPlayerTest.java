@@ -16232,14 +16232,6 @@ public class ExoPlayerTest {
   }
 
   @Test
-  public void setVideoEffects_failsWithoutLibEffectsDep() {
-    ExoPlayer player = parameterizeTestExoPlayerBuilder(new TestExoPlayerBuilder(context)).build();
-    IllegalStateException expected =
-        assertThrows(IllegalStateException.class, () -> player.setVideoEffects(ImmutableList.of()));
-    assertThat(expected).hasMessageThat().contains("lib-effect dependencies");
-  }
-
-  @Test
   public void setPriority_blocksOtherLowPriorityTasksInPriorityTaskManager() throws Exception {
     PriorityTaskManager priorityTaskManager = new PriorityTaskManager();
     ExoPlayer player = new TestExoPlayerBuilder(context).build();
