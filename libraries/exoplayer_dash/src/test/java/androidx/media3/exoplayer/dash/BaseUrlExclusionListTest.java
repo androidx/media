@@ -17,6 +17,7 @@ package androidx.media3.exoplayer.dash;
 
 import static androidx.media3.exoplayer.dash.manifest.BaseUrl.DEFAULT_DVB_PRIORITY;
 import static androidx.media3.exoplayer.dash.manifest.BaseUrl.DEFAULT_WEIGHT;
+import static androidx.media3.exoplayer.dash.manifest.BaseUrl.PRIORITY_UNSET;
 import static androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy.DEFAULT_LOCATION_EXCLUSION_MS;
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -272,6 +273,87 @@ public class BaseUrlExclusionListTest {
                 /* url= */ "d", /* serviceLocation= */ "d", /* priority= */ 3, /* weight= */ 1));
 
     assertThat(BaseUrlExclusionList.getPriorityCount(baseUrls)).isEqualTo(3);
+    assertThat(BaseUrlExclusionList.getPriorityCount(ImmutableList.of())).isEqualTo(0);
+  }
+
+  @Test
+  public void getPriorityCountAfterExclusion_priorityUnset_correctPriorityCount() {
+    List<BaseUrl> baseUrls =
+        ImmutableList.of(
+            new BaseUrl(
+                /* url= */ "a",
+                /* serviceLocation= */ "a",
+                /* priority= */ PRIORITY_UNSET,
+                /* weight= */ 1),
+            new BaseUrl(
+                /* url= */ "b",
+                /* serviceLocation= */ "b",
+                /* priority= */ PRIORITY_UNSET,
+                /* weight= */ 1),
+            new BaseUrl(
+                /* url= */ "c",
+                /* serviceLocation= */ "c",
+                /* priority= */ PRIORITY_UNSET,
+                /* weight= */ 1),
+            new BaseUrl(
+                /* url= */ "d",
+                /* serviceLocation= */ "d",
+                /* priority= */ PRIORITY_UNSET,
+                /* weight= */ 1),
+            new BaseUrl(
+                /* url= */ "e",
+                /* serviceLocation= */ "e",
+                /* priority= */ PRIORITY_UNSET,
+                /* weight= */ 1));
+    BaseUrlExclusionList baseUrlExclusionList = new BaseUrlExclusionList();
+
+    // Empty base URL list.
+    assertThat(baseUrlExclusionList.getPriorityCountAfterExclusion(ImmutableList.of()))
+        .isEqualTo(0);
+
+    assertThat(baseUrlExclusionList.getPriorityCountAfterExclusion(baseUrls)).isEqualTo(5);
+    // Exclude base urls.
+    baseUrlExclusionList.exclude(baseUrls.get(0), DEFAULT_LOCATION_EXCLUSION_MS);
+    assertThat(baseUrlExclusionList.getPriorityCountAfterExclusion(baseUrls)).isEqualTo(4);
+    baseUrlExclusionList.exclude(baseUrls.get(1), 2 * DEFAULT_LOCATION_EXCLUSION_MS);
+    assertThat(baseUrlExclusionList.getPriorityCountAfterExclusion(baseUrls)).isEqualTo(3);
+    baseUrlExclusionList.exclude(baseUrls.get(3), 3 * DEFAULT_LOCATION_EXCLUSION_MS);
+    assertThat(baseUrlExclusionList.getPriorityCountAfterExclusion(baseUrls)).isEqualTo(2);
+    // Time passes.
+    ShadowSystemClock.advanceBy(Duration.ofMillis(DEFAULT_LOCATION_EXCLUSION_MS));
+    assertThat(baseUrlExclusionList.getPriorityCountAfterExclusion(baseUrls)).isEqualTo(3);
+    ShadowSystemClock.advanceBy(Duration.ofMillis(DEFAULT_LOCATION_EXCLUSION_MS));
+    assertThat(baseUrlExclusionList.getPriorityCountAfterExclusion(baseUrls)).isEqualTo(4);
+    ShadowSystemClock.advanceBy(Duration.ofMillis(DEFAULT_LOCATION_EXCLUSION_MS));
+    assertThat(baseUrlExclusionList.getPriorityCountAfterExclusion(baseUrls)).isEqualTo(5);
+  }
+
+  @Test
+  public void getPriorityCount_priorityUnset_correctPriorityCount() {
+    List<BaseUrl> baseUrls =
+        ImmutableList.of(
+            new BaseUrl(
+                /* url= */ "a",
+                /* serviceLocation= */ "a",
+                /* priority= */ PRIORITY_UNSET,
+                /* weight= */ 1),
+            new BaseUrl(
+                /* url= */ "b",
+                /* serviceLocation= */ "b",
+                /* priority= */ PRIORITY_UNSET,
+                /* weight= */ 1),
+            new BaseUrl(
+                /* url= */ "c",
+                /* serviceLocation= */ "c",
+                /* priority= */ PRIORITY_UNSET,
+                /* weight= */ 1),
+            new BaseUrl(
+                /* url= */ "d",
+                /* serviceLocation= */ "d",
+                /* priority= */ PRIORITY_UNSET,
+                /* weight= */ 1));
+
+    assertThat(BaseUrlExclusionList.getPriorityCount(baseUrls)).isEqualTo(4);
     assertThat(BaseUrlExclusionList.getPriorityCount(ImmutableList.of())).isEqualTo(0);
   }
 }

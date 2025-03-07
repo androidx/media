@@ -126,7 +126,11 @@ public final class BaseUrlExclusionList {
     Set<Integer> priorities = new HashSet<>();
     List<BaseUrl> includedBaseUrls = applyExclusions(baseUrls);
     for (int i = 0; i < includedBaseUrls.size(); i++) {
-      priorities.add(includedBaseUrls.get(i).priority);
+      int priority = includedBaseUrls.get(i).priority;
+      if (priority == BaseUrl.PRIORITY_UNSET) {
+        return includedBaseUrls.size();
+      }
+      priorities.add(priority);
     }
     return priorities.size();
   }
@@ -140,7 +144,11 @@ public final class BaseUrlExclusionList {
   public static int getPriorityCount(List<BaseUrl> baseUrls) {
     Set<Integer> priorities = new HashSet<>();
     for (int i = 0; i < baseUrls.size(); i++) {
-      priorities.add(baseUrls.get(i).priority);
+      int priority = baseUrls.get(i).priority;
+      if (priority == BaseUrl.PRIORITY_UNSET) {
+        return baseUrls.size();
+      }
+      priorities.add(priority);
     }
     return priorities.size();
   }
