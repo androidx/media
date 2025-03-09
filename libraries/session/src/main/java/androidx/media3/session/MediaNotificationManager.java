@@ -152,7 +152,7 @@ import java.util.concurrent.TimeoutException;
    */
   public void updateNotification(MediaSession session, boolean startInForegroundRequired) {
     if (!mediaSessionService.isSessionAdded(session) || !shouldShowNotification(session)) {
-      maybeStopForegroundService(/* removeNotifications= */ true);
+      removeNotification();
       return;
     }
 
@@ -275,22 +275,16 @@ import java.util.concurrent.TimeoutException;
       // (https://github.com/androidx/media/issues/192).
       notificationManagerCompat.notify(
           mediaNotification.notificationId, mediaNotification.notification);
-      maybeStopForegroundService(/* removeNotifications= */ false);
+      stopForeground(/* removeNotifications= */ false);
     }
   }
 
-  /**
-   * Stops the service from the foreground, if no player is actively playing content.
-   *
-   * @param removeNotifications Whether to remove notifications, if the service is stopped from the
-   *     foreground.
-   */
-  private void maybeStopForegroundService(boolean removeNotifications) {
-    if (shouldRunInForeground(/* startInForegroundWhenPaused= */ false)) {
-      return;
-    }
-    stopForeground(removeNotifications);
-    if (removeNotifications && mediaNotification != null) {
+  /** Removes the notification and stops the foreground service if running. */
+  private void removeNotification() {
+    // To hide the notification on all API levels, we need to call both Service.stopForeground(true)
+    // and notificationManagerCompat.cancel(notificationId).
+    stopForeground(/* removeNotifications= */ true);
+    if (mediaNotification != null) {
       notificationManagerCompat.cancel(mediaNotification.notificationId);
       // Update the notification count so that if a pending notification callback arrives (e.g., a
       // bitmap is loaded), we don't show the notification.
@@ -419,8 +413,6 @@ import java.util.concurrent.TimeoutException;
   }
 
   private void stopForeground(boolean removeNotifications) {
-    // To hide the notification on all API levels, we need to call both Service.stopForeground(true)
-    // and notificationManagerCompat.cancel(notificationId).
     if (Util.SDK_INT >= 24) {
       Api24.stopForeground(mediaSessionService, removeNotifications);
     } else {

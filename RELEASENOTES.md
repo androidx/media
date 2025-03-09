@@ -28,6 +28,8 @@
         instead of `MediaCodec.BufferInfo`.
 *   IMA extension:
 *   Session:
+    *   Fix bug where a stale notification stays visible when the playlist is
+        cleared ([#2211](https://github.com/androidx/media/issues/2211)).
 *   UI:
     *   Add `PlaybackSpeedState` class and the corresponding
         `rememberPlaybackSpeedState` Composable to `media3-ui-compose` module.
