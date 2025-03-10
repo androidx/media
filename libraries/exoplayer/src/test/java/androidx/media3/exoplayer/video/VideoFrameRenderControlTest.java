@@ -16,6 +16,7 @@
 package androidx.media3.exoplayer.video;
 
 import static androidx.media3.exoplayer.video.VideoFrameReleaseControl.RELEASE_FIRST_FRAME_IMMEDIATELY;
+import static androidx.media3.exoplayer.video.VideoFrameReleaseControl.RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED;
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
@@ -122,7 +123,8 @@ public class VideoFrameRenderControlTest {
     videoFrameReleaseControl.onStarted();
     videoFrameRenderControl.onVideoSizeChanged(
         /* width= */ VIDEO_WIDTH, /* height= */ VIDEO_HEIGHT);
-    videoFrameRenderControl.onStreamStartPositionChanged(/* streamStartPositionUs= */ 10_000);
+    videoFrameRenderControl.onStreamChanged(
+        RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED, /* streamStartPositionUs= */ 10_000);
     videoFrameRenderControl.onFrameAvailableForRendering(/* presentationTimeUs= */ 0);
     videoFrameRenderControl.render(/* positionUs= */ 0, /* elapsedRealtimeUs= */ 0);
 
@@ -136,7 +138,8 @@ public class VideoFrameRenderControlTest {
 
     // 10 milliseconds pass
     clock.advanceTime(/* timeDiffMs= */ 10);
-    videoFrameRenderControl.onStreamStartPositionChanged(/* streamStartPositionUs= */ 20_000);
+    videoFrameRenderControl.onStreamChanged(
+        RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED, /* streamStartPositionUs= */ 20_000);
     videoFrameRenderControl.onFrameAvailableForRendering(/* presentationTimeUs= */ 10_000);
     videoFrameRenderControl.render(/* positionUs= */ 10_000, /* elapsedRealtimeUs= */ 0);
 

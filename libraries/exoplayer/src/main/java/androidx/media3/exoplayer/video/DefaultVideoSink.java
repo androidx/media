@@ -18,6 +18,7 @@ package androidx.media3.exoplayer.video;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.exoplayer.video.VideoFrameReleaseControl.RELEASE_FIRST_FRAME_IMMEDIATELY;
+import static androidx.media3.exoplayer.video.VideoFrameReleaseControl.RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED;
 import static androidx.media3.exoplayer.video.VideoFrameReleaseControl.RELEASE_FIRST_FRAME_WHEN_STARTED;
 
 import android.graphics.Bitmap;
@@ -87,7 +88,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   public void onRendererEnabled(boolean mayRenderStartOfStream) {
     int firstFrameReleaseInstruction =
         mayRenderStartOfStream ? RELEASE_FIRST_FRAME_IMMEDIATELY : RELEASE_FIRST_FRAME_WHEN_STARTED;
-    videoFrameReleaseControl.onStreamChanged(firstFrameReleaseInstruction);
+    videoFrameRenderControl.onStreamChanged(firstFrameReleaseInstruction, streamStartPositionUs);
   }
 
   @Override
@@ -179,7 +180,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   @Override
   public void setStreamTimestampInfo(long streamStartPositionUs, long bufferTimestampAdjustmentUs) {
     if (streamStartPositionUs != this.streamStartPositionUs) {
-      videoFrameRenderControl.onStreamStartPositionChanged(streamStartPositionUs);
+      videoFrameRenderControl.onStreamChanged(
+          RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED, streamStartPositionUs);
       this.streamStartPositionUs = streamStartPositionUs;
     }
     this.bufferTimestampAdjustmentUs = bufferTimestampAdjustmentUs;
