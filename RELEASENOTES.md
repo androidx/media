@@ -4,6 +4,7 @@
 
 *   Audio:
     *   Add support for float PCM to `ChannelMappingAudioProcessor`.
+    *   Add support for float PCM to `TrimmingAudioProcessor`.
 *   Session:
     *   Fix bug where a stale notification stays visible when the playlist is
         cleared ([#2211](https://github.com/androidx/media/issues/2211)).
