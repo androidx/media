@@ -57,7 +57,6 @@ import java.util.concurrent.TimeoutException;
 
   private static final String TAG = "MediaNtfMng";
   private static final int MSG_USER_ENGAGED_TIMEOUT = 1;
-  private static final long USER_ENGAGED_TIMEOUT_MS = 600_000;
 
   private final MediaSessionService mediaSessionService;
   private final MediaNotification.Provider mediaNotificationProvider;
@@ -73,6 +72,7 @@ import java.util.concurrent.TimeoutException;
   private boolean startedInForeground;
   private boolean isUserEngaged;
   private boolean isUserEngagedTimeoutEnabled;
+  private long userEngagedTimeoutMs;
 
   public MediaNotificationManager(
       MediaSessionService mediaSessionService,
@@ -88,6 +88,7 @@ import java.util.concurrent.TimeoutException;
     controllerMap = new HashMap<>();
     startedInForeground = false;
     isUserEngagedTimeoutEnabled = true;
+    userEngagedTimeoutMs = MediaSessionService.DEFAULT_FOREGROUND_SERVICE_TIMEOUT_MS;
   }
 
   public void addSession(MediaSession session) {
@@ -191,6 +192,10 @@ import java.util.concurrent.TimeoutException;
     return startedInForeground;
   }
 
+  public void setUserEngagedTimeoutMs(long userEngagedTimeoutMs) {
+    this.userEngagedTimeoutMs = userEngagedTimeoutMs;
+  }
+
   @Override
   public boolean handleMessage(Message msg) {
     if (msg.what == MSG_USER_ENGAGED_TIMEOUT) {
@@ -206,8 +211,9 @@ import java.util.concurrent.TimeoutException;
 
   /* package */ boolean shouldRunInForeground(boolean startInForegroundWhenPaused) {
     boolean isUserEngaged = isAnySessionUserEngaged(startInForegroundWhenPaused);
-    if (this.isUserEngaged && !isUserEngaged && isUserEngagedTimeoutEnabled) {
-      mainHandler.sendEmptyMessageDelayed(MSG_USER_ENGAGED_TIMEOUT, USER_ENGAGED_TIMEOUT_MS);
+    boolean useTimeout = isUserEngagedTimeoutEnabled && userEngagedTimeoutMs > 0;
+    if (this.isUserEngaged && !isUserEngaged && useTimeout) {
+      mainHandler.sendEmptyMessageDelayed(MSG_USER_ENGAGED_TIMEOUT, userEngagedTimeoutMs);
     } else if (isUserEngaged) {
       mainHandler.removeMessages(MSG_USER_ENGAGED_TIMEOUT);
     }

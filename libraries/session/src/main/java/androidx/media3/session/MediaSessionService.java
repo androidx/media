@@ -159,6 +159,12 @@ public abstract class MediaSessionService extends Service {
   /** The action for {@link Intent} filter that must be declared by the service. */
   public static final String SERVICE_INTERFACE = "androidx.media3.session.MediaSessionService";
 
+  /**
+   * The default timeout for a session to stay in a foreground service state after it paused,
+   * stopped, failed or ended.
+   */
+  @UnstableApi public static final long DEFAULT_FOREGROUND_SERVICE_TIMEOUT_MS = 600_000;
+
   private static final String TAG = "MSessionService";
 
   private final Object lock;
@@ -472,15 +478,37 @@ public abstract class MediaSessionService extends Service {
   }
 
   /**
+   * Sets the timeout for a session to stay in a foreground service state after it paused, stopped,
+   * failed or ended.
+   *
+   * <p>Has no effect on already running timeouts.
+   *
+   * <p>The default and maximum value is {@link #DEFAULT_FOREGROUND_SERVICE_TIMEOUT_MS}. If a larger
+   * value is provided, it will be clamped down to {@link #DEFAULT_FOREGROUND_SERVICE_TIMEOUT_MS}.
+   *
+   * @param foregroundServiceTimeoutMs The timeout in milliseconds.
+   */
+  @UnstableApi
+  public final void setForegroundServiceTimeoutMs(long foregroundServiceTimeoutMs) {
+    getMediaNotificationManager()
+        .setUserEngagedTimeoutMs(
+            Util.constrainValue(
+                foregroundServiceTimeoutMs,
+                /* min= */ 0,
+                /* max= */ DEFAULT_FOREGROUND_SERVICE_TIMEOUT_MS));
+  }
+
+  /**
    * Returns whether there is a session with ongoing user-engaged playback that is run in a
    * foreground service.
    *
    * <p>It is only possible to terminate the service with {@link #stopSelf()} if this method returns
    * {@code false}.
    *
-   * <p>Note that sessions are kept in foreground and this method returns {@code true} for a period
-   * of 10 minutes after they paused, stopped or failed. Use {@link #pauseAllPlayersAndStopSelf()}
-   * to pause all ongoing playbacks immediately and terminate the service.
+   * <p>Note that sessions are kept in foreground and this method returns {@code true} for the
+   * {@linkplain #setForegroundServiceTimeoutMs foreground service timeout} after they paused,
+   * stopped, failed or ended. Use {@link #pauseAllPlayersAndStopSelf()} to pause all ongoing
+   * playbacks immediately and terminate the service.
    */
   @UnstableApi
   public boolean isPlaybackOngoing() {
