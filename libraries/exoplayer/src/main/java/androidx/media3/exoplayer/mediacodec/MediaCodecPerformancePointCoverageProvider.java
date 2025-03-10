@@ -165,19 +165,19 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                   /* requiresSecureDecoder= */ requiresSecureDecoder,
                   /* requiresTunnelingDecoder= */ false);
           for (int i = 0; i < decoderInfos.size(); i++) {
-            if (decoderInfos.get(i).capabilities != null
-                && decoderInfos.get(i).capabilities.getVideoCapabilities() != null) {
-              List<PerformancePoint> performancePointListH264 =
-                  decoderInfos
-                      .get(i)
-                      .capabilities
-                      .getVideoCapabilities()
-                      .getSupportedPerformancePoints();
-              if (performancePointListH264 != null && !performancePointListH264.isEmpty()) {
-                PerformancePoint targetPerformancePointH264 =
-                    new PerformancePoint(/* width= */ 1280, /* height= */ 720, /* frameRate= */ 60);
-                return evaluatePerformancePointCoverage(
-                    performancePointListH264, targetPerformancePointH264);
+            if (decoderInfos.get(i).capabilities != null) {
+              VideoCapabilities videoCapabilities =
+                  decoderInfos.get(i).capabilities.getVideoCapabilities();
+              if (videoCapabilities != null) {
+                List<PerformancePoint> performancePointListH264 =
+                    videoCapabilities.getSupportedPerformancePoints();
+                if (performancePointListH264 != null && !performancePointListH264.isEmpty()) {
+                  PerformancePoint targetPerformancePointH264 =
+                      new PerformancePoint(
+                          /* width= */ 1280, /* height= */ 720, /* frameRate= */ 60);
+                  return evaluatePerformancePointCoverage(
+                      performancePointListH264, targetPerformancePointH264);
+                }
               }
             }
           }
