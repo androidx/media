@@ -15,13 +15,11 @@
  */
 package androidx.media3.transformer;
 
-import static androidx.media3.common.PlaybackException.ERROR_CODE_VIDEO_FRAME_PROCESSOR_INIT_FAILED;
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.transformer.AndroidTestUtil.JPG_SINGLE_PIXEL_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static org.junit.Assert.assertThrows;
 
 import android.app.Instrumentation;
 import android.content.Context;
@@ -30,7 +28,6 @@ import android.util.Pair;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.TextureView;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DebugViewProvider;
@@ -38,12 +35,7 @@ import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
-import androidx.media3.common.PlaybackException;
-import androidx.media3.common.PreviewingVideoGraph;
-import androidx.media3.common.SurfaceInfo;
 import androidx.media3.common.VideoCompositorSettings;
-import androidx.media3.common.VideoFrameProcessingException;
-import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.VideoGraph;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.util.SystemClock;
@@ -51,7 +43,8 @@ import androidx.media3.common.util.Util;
 import androidx.media3.datasource.AssetDataSource;
 import androidx.media3.datasource.DataSourceUtil;
 import androidx.media3.datasource.DataSpec;
-import androidx.media3.effect.PreviewingSingleInputVideoGraph;
+import androidx.media3.effect.DefaultVideoFrameProcessor;
+import androidx.media3.effect.SingleInputVideoGraph;
 import androidx.media3.exoplayer.RendererCapabilities;
 import androidx.media3.exoplayer.image.BitmapFactoryImageDecoder;
 import androidx.media3.exoplayer.image.ImageDecoder;
@@ -457,53 +450,6 @@ public class CompositionPlayerTest {
   }
 
   @Test
-  public void playback_videoGraphWrapperFails_playerRaisesError() {
-    PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
-    EditedMediaItem video =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
-            .setDurationUs(MP4_ASSET.videoDurationUs)
-            .build();
-
-    instrumentation.runOnMainSync(
-        () -> {
-          compositionPlayer =
-              new CompositionPlayer.Builder(applicationContext)
-                  .setPreviewingVideoGraphFactory(
-                      new PreviewingVideoGraph.Factory() {
-                        @Override
-                        public PreviewingVideoGraph create(
-                            Context context,
-                            ColorInfo outputColorInfo,
-                            DebugViewProvider debugViewProvider,
-                            VideoGraph.Listener listener,
-                            Executor listenerExecutor,
-                            VideoCompositorSettings videoCompositorSettings,
-                            List<Effect> compositionEffects,
-                            long initialTimestampOffsetUs)
-                            throws VideoFrameProcessingException {
-                          throw new VideoFrameProcessingException(
-                              "Test video graph failed to initialize");
-                        }
-
-                        @Override
-                        public boolean supportsMultipleInputs() {
-                          return false;
-                        }
-                      })
-                  .build();
-          compositionPlayer.addListener(listener);
-          compositionPlayer.setComposition(
-              new Composition.Builder(new EditedMediaItemSequence.Builder(video).build()).build());
-          compositionPlayer.prepare();
-          compositionPlayer.play();
-        });
-
-    PlaybackException thrownException =
-        assertThrows(PlaybackException.class, listener::waitUntilPlayerEnded);
-    assertThat(thrownException.errorCode).isEqualTo(ERROR_CODE_VIDEO_FRAME_PROCESSOR_INIT_FAILED);
-  }
-
-  @Test
   public void release_videoGraphWrapperFailsDuringRelease_playerDoesNotRaiseError()
       throws Exception {
     PlayerTestListener playerTestListener = new PlayerTestListener(TEST_TIMEOUT_MS);
@@ -515,7 +461,34 @@ public class CompositionPlayerTest {
         () -> {
           compositionPlayer =
               new CompositionPlayer.Builder(applicationContext)
-                  .setPreviewingVideoGraphFactory(new FailingReleaseVideoGraph.Factory())
+                  .setVideoGraphFactory(
+                      new VideoGraph.Factory() {
+                        @Override
+                        public VideoGraph create(
+                            Context context,
+                            ColorInfo outputColorInfo,
+                            DebugViewProvider debugViewProvider,
+                            VideoGraph.Listener listener,
+                            Executor listenerExecutor,
+                            VideoCompositorSettings videoCompositorSettings,
+                            List<Effect> compositionEffects,
+                            long initialTimestampOffsetUs,
+                            boolean renderFramesAutomatically) {
+                          return new FailingReleaseVideoGraph(
+                              context,
+                              outputColorInfo,
+                              debugViewProvider,
+                              listener,
+                              listenerExecutor,
+                              videoCompositorSettings,
+                              renderFramesAutomatically);
+                        }
+
+                        @Override
+                        public boolean supportsMultipleInputs() {
+                          return false;
+                        }
+                      })
                   .build();
           compositionPlayer.addListener(playerTestListener);
           compositionPlayer.setComposition(
@@ -559,106 +532,31 @@ public class CompositionPlayerTest {
     }
   }
 
-  private static final class FailingReleaseVideoGraph extends ForwardingVideoGraph {
-    public static final class Factory implements PreviewingVideoGraph.Factory {
-
-      @Override
-      public PreviewingVideoGraph create(
-          Context context,
-          ColorInfo outputColorInfo,
-          DebugViewProvider debugViewProvider,
-          Listener listener,
-          Executor listenerExecutor,
-          VideoCompositorSettings videoCompositorSettings,
-          List<Effect> compositionEffects,
-          long initialTimestampOffsetUs)
-          throws VideoFrameProcessingException {
-        return new FailingReleaseVideoGraph(
-            context,
-            outputColorInfo,
-            debugViewProvider,
-            listener,
-            listenerExecutor,
-            videoCompositorSettings,
-            compositionEffects,
-            initialTimestampOffsetUs);
-      }
-
-      @Override
-      public boolean supportsMultipleInputs() {
-        return false;
-      }
-    }
-
-    private FailingReleaseVideoGraph(
+  private static final class FailingReleaseVideoGraph extends SingleInputVideoGraph {
+    public FailingReleaseVideoGraph(
         Context context,
         ColorInfo outputColorInfo,
         DebugViewProvider debugViewProvider,
-        VideoGraph.Listener listener,
+        Listener listener,
         Executor listenerExecutor,
         VideoCompositorSettings videoCompositorSettings,
-        List<Effect> compositionEffects,
-        long initialTimestampOffsetUs) {
+        boolean renderFramesAutomatically) {
       super(
-          new PreviewingSingleInputVideoGraph.Factory()
-              .create(
-                  context,
-                  outputColorInfo,
-                  debugViewProvider,
-                  listener,
-                  listenerExecutor,
-                  videoCompositorSettings,
-                  compositionEffects,
-                  initialTimestampOffsetUs));
+          context,
+          new DefaultVideoFrameProcessor.Factory.Builder().build(),
+          outputColorInfo,
+          listener,
+          /* compositionEffects= */ ImmutableList.of(),
+          debugViewProvider,
+          listenerExecutor,
+          videoCompositorSettings,
+          renderFramesAutomatically);
     }
 
     @Override
     public void release() {
+      super.release();
       throw new RuntimeException("VideoGraph release error");
-    }
-  }
-
-  private static class ForwardingVideoGraph implements PreviewingVideoGraph {
-
-    private final PreviewingVideoGraph videoGraph;
-
-    public ForwardingVideoGraph(PreviewingVideoGraph videoGraph) {
-      this.videoGraph = videoGraph;
-    }
-
-    @Override
-    public void initialize() throws VideoFrameProcessingException {
-      videoGraph.initialize();
-    }
-
-    @Override
-    public void registerInput(int inputIndex) throws VideoFrameProcessingException {
-      videoGraph.registerInput(inputIndex);
-    }
-
-    @Override
-    public VideoFrameProcessor getProcessor(int inputId) {
-      return videoGraph.getProcessor(inputId);
-    }
-
-    @Override
-    public void setOutputSurfaceInfo(@Nullable SurfaceInfo outputSurfaceInfo) {
-      videoGraph.setOutputSurfaceInfo(outputSurfaceInfo);
-    }
-
-    @Override
-    public boolean hasProducedFrameWithTimestampZero() {
-      return videoGraph.hasProducedFrameWithTimestampZero();
-    }
-
-    @Override
-    public void release() {
-      videoGraph.release();
-    }
-
-    @Override
-    public void renderOutputFrame(long renderTimeNs) {
-      videoGraph.renderOutputFrame(renderTimeNs);
     }
   }
 }

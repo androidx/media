@@ -288,7 +288,7 @@ public interface VideoFrameProcessor {
    *
    * <p>After registering the first input stream, this method must only be called after the last
    * frame of the already-registered input stream has been {@linkplain #registerInputFrame
-   * registered}, last bitmap {@link #queueInputBitmap queued} or last texture id {@linkplain
+   * registered}, last bitmap {@linkplain #queueInputBitmap queued} or last texture id {@linkplain
    * #queueInputTexture queued}.
    *
    * <p>This method blocks the calling thread until the previous calls to this method finish, that

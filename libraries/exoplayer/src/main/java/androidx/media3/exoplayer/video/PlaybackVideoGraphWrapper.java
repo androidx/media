@@ -19,7 +19,6 @@ import static androidx.media3.common.VideoFrameProcessor.DROP_OUTPUT_FRAME;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
-import static androidx.media3.common.util.Util.castNonNull;
 import static androidx.media3.common.util.Util.contains;
 import static androidx.media3.common.util.Util.getMaxPendingFramesCountForMediaCodecDecoders;
 import static androidx.media3.exoplayer.video.VideoSink.INPUT_TYPE_SURFACE;
@@ -41,7 +40,6 @@ import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DebugViewProvider;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
-import androidx.media3.common.PreviewingVideoGraph;
 import androidx.media3.common.SurfaceInfo;
 import androidx.media3.common.VideoCompositorSettings;
 import androidx.media3.common.VideoFrameProcessingException;
@@ -67,7 +65,6 @@ import java.lang.annotation.Target;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.Executor;
-import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
@@ -125,7 +122,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     private final VideoFrameReleaseControl videoFrameReleaseControl;
 
     private VideoFrameProcessor.@MonotonicNonNull Factory videoFrameProcessorFactory;
-    private PreviewingVideoGraph.@MonotonicNonNull Factory previewingVideoGraphFactory;
+    private VideoGraph.@MonotonicNonNull Factory videoGraphFactory;
     private List<Effect> compositionEffects;
     private VideoCompositorSettings compositorSettings;
     private Clock clock;
@@ -159,18 +156,17 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     }
 
     /**
-     * Sets the {@link PreviewingVideoGraph.Factory} that will be used for creating {@link
-     * PreviewingVideoGraph} instances.
+     * Sets the {@link VideoGraph.Factory} that will be used for creating {@link VideoGraph}
+     * instances.
      *
-     * <p>By default, the {@code PreviewingSingleInputVideoGraph.Factory} will be used.
+     * <p>By default, the {@code SingleInputVideoGraph.Factory} will be used.
      *
-     * @param previewingVideoGraphFactory The {@link PreviewingVideoGraph.Factory}.
+     * @param videoGraphFactory The {@link VideoGraph.Factory}.
      * @return This builder, for convenience.
      */
     @CanIgnoreReturnValue
-    public Builder setPreviewingVideoGraphFactory(
-        PreviewingVideoGraph.Factory previewingVideoGraphFactory) {
-      this.previewingVideoGraphFactory = previewingVideoGraphFactory;
+    public Builder setVideoGraphFactory(VideoGraph.Factory videoGraphFactory) {
+      this.videoGraphFactory = videoGraphFactory;
       return this;
     }
 
@@ -235,12 +231,11 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     public PlaybackVideoGraphWrapper build() {
       checkState(!built);
 
-      if (previewingVideoGraphFactory == null) {
+      if (videoGraphFactory == null) {
         if (videoFrameProcessorFactory == null) {
           videoFrameProcessorFactory = new ReflectiveDefaultVideoFrameProcessorFactory();
         }
-        previewingVideoGraphFactory =
-            new ReflectivePreviewingSingleInputVideoGraphFactory(videoFrameProcessorFactory);
+        videoGraphFactory = new ReflectiveSingleInputVideoGraphFactory(videoFrameProcessorFactory);
       }
       PlaybackVideoGraphWrapper playbackVideoGraphWrapper = new PlaybackVideoGraphWrapper(this);
       built = true;
@@ -270,7 +265,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
    */
   private final TimedValueQueue<Long> streamStartPositionsUs;
 
-  private final PreviewingVideoGraph.Factory previewingVideoGraphFactory;
+  private final VideoGraph.Factory videoGraphFactory;
   private final SparseArray<InputVideoSink> inputVideoSinks;
   private final List<Effect> compositionEffects;
   private final VideoCompositorSettings compositorSettings;
@@ -282,7 +277,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
 
   private Format videoGraphOutputFormat;
   private @MonotonicNonNull HandlerWrapper handler;
-  private @MonotonicNonNull PreviewingVideoGraph videoGraph;
+  private @MonotonicNonNull VideoGraph videoGraph;
   private long outputStreamStartPositionUs;
   @Nullable private Pair<Surface, Size> currentSurfaceAndSize;
   private int pendingFlushCount;
@@ -313,7 +308,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
   private PlaybackVideoGraphWrapper(Builder builder) {
     context = builder.context;
     streamStartPositionsUs = new TimedValueQueue<>();
-    previewingVideoGraphFactory = checkStateNotNull(builder.previewingVideoGraphFactory);
+    videoGraphFactory = checkStateNotNull(builder.videoGraphFactory);
     inputVideoSinks = new SparseArray<>();
     compositionEffects = builder.compositionEffects;
     compositorSettings = builder.compositorSettings;
@@ -469,8 +464,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
 
   // Internal methods
 
-  @Nullable
-  private VideoFrameProcessor registerInput(Format sourceFormat, int inputIndex)
+  private boolean registerInput(Format sourceFormat, int inputIndex)
       throws VideoSink.VideoSinkException {
     if (inputIndex == PRIMARY_SEQUENCE_INDEX) {
       checkState(state == STATE_CREATED);
@@ -493,7 +487,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
       handler = clock.createHandler(checkStateNotNull(Looper.myLooper()), /* callback= */ null);
       try {
         videoGraph =
-            previewingVideoGraphFactory.create(
+            videoGraphFactory.create(
                 context,
                 outputColorInfo,
                 DebugViewProvider.NONE,
@@ -501,12 +495,12 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
                 /* listenerExecutor= */ handler::post,
                 compositorSettings,
                 compositionEffects,
-                /* initialTimestampOffsetUs= */ 0);
+                /* initialTimestampOffsetUs= */ 0,
+                /* renderFramesAutomatically= */ false);
         videoGraph.initialize();
       } catch (VideoFrameProcessingException e) {
         throw new VideoSink.VideoSinkException(e, sourceFormat);
       }
-
       if (currentSurfaceAndSize != null) {
         Surface surface = currentSurfaceAndSize.first;
         Size size = currentSurfaceAndSize.second;
@@ -517,7 +511,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     } else {
       if (!isInitialized()) {
         // Make sure the primary sequence is initialized first.
-        return null;
+        return false;
       }
     }
 
@@ -529,7 +523,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     registeredVideoInputCount++;
     defaultVideoSink.setListener(
         new DefaultVideoSinkListener(), /* executor= */ checkNotNull(handler)::post);
-    return videoGraph.getProcessor(inputIndex);
+    return true;
   }
 
   private boolean isInitialized() {
@@ -632,7 +626,6 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     private final int inputIndex;
 
     private ImmutableList<Effect> videoEffects;
-    @Nullable private VideoFrameProcessor videoFrameProcessor;
     @Nullable private Format inputFormat;
     private @InputType int inputType;
     private long inputBufferTimestampAdjustmentUs;
@@ -645,6 +638,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     private VideoSink.Listener listener;
     private Executor listenerExecutor;
     private boolean signaledEndOfStream;
+    private boolean isInitialized;
 
     /** Creates a new instance. */
     public InputVideoSink(Context context, int inputIndex) {
@@ -684,26 +678,25 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     @Override
     public boolean initialize(Format sourceFormat) throws VideoSinkException {
       checkState(!isInitialized());
-      videoFrameProcessor = PlaybackVideoGraphWrapper.this.registerInput(sourceFormat, inputIndex);
-      return videoFrameProcessor != null;
+      isInitialized = PlaybackVideoGraphWrapper.this.registerInput(sourceFormat, inputIndex);
+      return isInitialized;
     }
 
     @Override
-    @EnsuresNonNullIf(result = true, expression = "videoFrameProcessor")
     public boolean isInitialized() {
-      return videoFrameProcessor != null;
+      return isInitialized;
     }
 
     @Override
     public void redraw() {
       checkState(isInitialized());
-      castNonNull(videoFrameProcessor).redraw();
+      checkNotNull(videoGraph).redraw();
     }
 
     @Override
     public void flush(boolean resetPosition) {
       if (isInitialized()) {
-        videoFrameProcessor.flush();
+        checkNotNull(videoGraph).flush();
       }
       lastBufferPresentationTimeUs = C.TIME_UNSET;
       PlaybackVideoGraphWrapper.this.flush(resetPosition);
@@ -735,7 +728,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
         return;
       }
       if (isInitialized()) {
-        videoFrameProcessor.signalEndOfInput();
+        checkNotNull(videoGraph).signalEndOfInput(inputIndex);
         signaledEndOfStream = true;
       }
     }
@@ -767,7 +760,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     @Override
     public Surface getInputSurface() {
       checkState(isInitialized());
-      return checkStateNotNull(videoFrameProcessor).getInputSurface();
+      return checkNotNull(videoGraph).getInputSurface(inputIndex);
     }
 
     @Override
@@ -841,11 +834,11 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
       if (!shouldRenderToInputVideoSink()) {
         return false;
       }
-      if (checkStateNotNull(videoFrameProcessor).getPendingInputFrameCount()
+      if (checkNotNull(videoGraph).getPendingInputFrameCount(inputIndex)
           >= videoFrameProcessorMaxPendingFrameCount) {
         return false;
       }
-      if (!checkStateNotNull(videoFrameProcessor).registerInputFrame()) {
+      if (!checkNotNull(videoGraph).registerInputFrame(inputIndex)) {
         return false;
       }
 
@@ -871,7 +864,8 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     public boolean handleInputBitmap(Bitmap inputBitmap, TimestampIterator timestampIterator) {
       checkState(isInitialized());
       if (!shouldRenderToInputVideoSink()
-          || !checkNotNull(videoFrameProcessor).queueInputBitmap(inputBitmap, timestampIterator)) {
+          || !checkNotNull(videoGraph)
+              .queueInputBitmap(inputIndex, inputBitmap, timestampIterator)) {
         return false;
       }
 
@@ -947,7 +941,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
      * <p>Effects are pending until a new input stream is registered.
      */
     private void setPendingVideoEffects(List<Effect> newVideoEffects) {
-      if (previewingVideoGraphFactory.supportsMultipleInputs()) {
+      if (videoGraphFactory.supportsMultipleInputs()) {
         this.videoEffects = ImmutableList.copyOf(newVideoEffects);
       } else {
         this.videoEffects =
@@ -964,9 +958,9 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
               .buildUpon()
               .setColorInfo(getAdjustedInputColorInfo(inputFormat.colorInfo))
               .build();
-      checkStateNotNull(videoFrameProcessor)
+      checkNotNull(videoGraph)
           .registerInputStream(
-              inputType, adjustedInputFormat, videoEffects, /* offsetToAddUs= */ 0);
+              inputIndex, inputType, adjustedInputFormat, videoEffects, /* offsetToAddUs= */ 0);
     }
   }
 
@@ -1002,22 +996,18 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     }
   }
 
-  /**
-   * Delays reflection for loading a {@linkplain PreviewingVideoGraph.Factory
-   * PreviewingSingleInputVideoGraph} instance.
-   */
-  private static final class ReflectivePreviewingSingleInputVideoGraphFactory
-      implements PreviewingVideoGraph.Factory {
+  /** Delays reflection for loading a {@link VideoGraph.Factory SingleInputVideoGraph} instance. */
+  private static final class ReflectiveSingleInputVideoGraphFactory implements VideoGraph.Factory {
 
     private final VideoFrameProcessor.Factory videoFrameProcessorFactory;
 
-    public ReflectivePreviewingSingleInputVideoGraphFactory(
+    public ReflectiveSingleInputVideoGraphFactory(
         VideoFrameProcessor.Factory videoFrameProcessorFactory) {
       this.videoFrameProcessorFactory = videoFrameProcessorFactory;
     }
 
     @Override
-    public PreviewingVideoGraph create(
+    public VideoGraph create(
         Context context,
         ColorInfo outputColorInfo,
         DebugViewProvider debugViewProvider,
@@ -1025,32 +1015,34 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
         Executor listenerExecutor,
         VideoCompositorSettings videoCompositorSettings,
         List<Effect> compositionEffects,
-        long initialTimestampOffsetUs)
-        throws VideoFrameProcessingException {
+        long initialTimestampOffsetUs,
+        boolean renderFramesAutomatically) {
+      VideoGraph.Factory factory;
       try {
         // LINT.IfChange
-        Class<?> previewingSingleInputVideoGraphFactoryClass =
-            Class.forName("androidx.media3.effect.PreviewingSingleInputVideoGraph$Factory");
-        PreviewingVideoGraph.Factory factory =
-            (PreviewingVideoGraph.Factory)
-                previewingSingleInputVideoGraphFactoryClass
+        Class<?> singleInputVideoGraphFactoryClass =
+            Class.forName("androidx.media3.effect.SingleInputVideoGraph$Factory");
+        factory =
+            (VideoGraph.Factory)
+                singleInputVideoGraphFactoryClass
                     .getConstructor(VideoFrameProcessor.Factory.class)
                     .newInstance(videoFrameProcessorFactory);
         // LINT.ThenChange(
         //     ../../../../../../../proguard-rules.txt,
         //     ../ExoPlayerImpl.java:set_video_effects)
-        return factory.create(
-            context,
-            outputColorInfo,
-            debugViewProvider,
-            listener,
-            listenerExecutor,
-            videoCompositorSettings,
-            compositionEffects,
-            initialTimestampOffsetUs);
       } catch (Exception e) {
-        throw VideoFrameProcessingException.from(e);
+        throw new IllegalStateException(e);
       }
+      return factory.create(
+          context,
+          outputColorInfo,
+          debugViewProvider,
+          listener,
+          listenerExecutor,
+          videoCompositorSettings,
+          compositionEffects,
+          initialTimestampOffsetUs,
+          renderFramesAutomatically);
     }
 
     @Override

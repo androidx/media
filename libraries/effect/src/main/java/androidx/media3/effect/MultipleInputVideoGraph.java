@@ -31,10 +31,12 @@ import static androidx.media3.effect.DebugTraceUtil.EVENT_OUTPUT_TEXTURE_RENDERE
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.content.Context;
+import android.graphics.Bitmap;
 import android.opengl.EGLContext;
 import android.opengl.EGLDisplay;
 import android.opengl.EGLSurface;
 import android.util.SparseArray;
+import android.view.Surface;
 import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
@@ -44,6 +46,7 @@ import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.GlTextureInfo;
+import androidx.media3.common.OnInputFrameProcessedListener;
 import androidx.media3.common.SurfaceInfo;
 import androidx.media3.common.VideoCompositorSettings;
 import androidx.media3.common.VideoFrameProcessingException;
@@ -51,6 +54,7 @@ import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.VideoGraph;
 import androidx.media3.common.util.GlUtil.GlException;
 import androidx.media3.common.util.Log;
+import androidx.media3.common.util.TimestampIterator;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.util.concurrent.MoreExecutors;
 import java.util.ArrayDeque;
@@ -64,7 +68,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** A {@link VideoGraph} that handles multiple input streams. */
 @UnstableApi
-public abstract class MultipleInputVideoGraph implements VideoGraph {
+public final class MultipleInputVideoGraph implements VideoGraph {
 
   private static final String TAG = "MultiInputVG";
   private static final String SHARED_EXECUTOR_NAME = "Effect:MultipleInputVideoGraph:Thread";
@@ -90,7 +94,6 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
   private final Queue<TimedGlTextureInfo> compositorOutputTextures;
   private final SparseArray<CompositorOutputTextureRelease> compositorOutputTextureReleases;
 
-  private final long initialTimestampOffsetUs;
   private final boolean renderFramesAutomatically;
 
   @Nullable private VideoFrameProcessor compositionVideoFrameProcessor;
@@ -104,7 +107,52 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
 
   private volatile boolean hasProducedFrameWithTimestampZero;
 
-  protected MultipleInputVideoGraph(
+  /** A {@link VideoGraph.Factory} for {@link MultipleInputVideoGraph}. */
+  public static final class Factory implements VideoGraph.Factory {
+    private final VideoFrameProcessor.Factory videoFrameProcessorFactory;
+
+    /**
+     * A {@code Factory} for {@link MultipleInputVideoGraph} that uses a {@link
+     * DefaultVideoFrameProcessor.Factory}.
+     */
+    public Factory() {
+      this(new DefaultVideoFrameProcessor.Factory.Builder().build());
+    }
+
+    public Factory(VideoFrameProcessor.Factory videoFrameProcessorFactory) {
+      this.videoFrameProcessorFactory = videoFrameProcessorFactory;
+    }
+
+    @Override
+    public MultipleInputVideoGraph create(
+        Context context,
+        ColorInfo outputColorInfo,
+        DebugViewProvider debugViewProvider,
+        Listener listener,
+        Executor listenerExecutor,
+        VideoCompositorSettings videoCompositorSettings,
+        List<Effect> compositionEffects,
+        long initialTimestampOffsetUs,
+        boolean renderFramesAutomatically) {
+      return new MultipleInputVideoGraph(
+          context,
+          videoFrameProcessorFactory,
+          outputColorInfo,
+          debugViewProvider,
+          listener,
+          listenerExecutor,
+          videoCompositorSettings,
+          compositionEffects,
+          renderFramesAutomatically);
+    }
+
+    @Override
+    public boolean supportsMultipleInputs() {
+      return true;
+    }
+  }
+
+  private MultipleInputVideoGraph(
       Context context,
       VideoFrameProcessor.Factory videoFrameProcessorFactory,
       ColorInfo outputColorInfo,
@@ -113,7 +161,6 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
       Executor listenerExecutor,
       VideoCompositorSettings videoCompositorSettings,
       List<Effect> compositionEffects,
-      long initialTimestampOffsetUs,
       boolean renderFramesAutomatically) {
     checkArgument(videoFrameProcessorFactory instanceof DefaultVideoFrameProcessor.Factory);
     this.context = context;
@@ -123,7 +170,6 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
     this.listenerExecutor = listenerExecutor;
     this.videoCompositorSettings = videoCompositorSettings;
     this.compositionEffects = new ArrayList<>(compositionEffects);
-    this.initialTimestampOffsetUs = initialTimestampOffsetUs;
     this.renderFramesAutomatically = renderFramesAutomatically;
     lastRenderedPresentationTimeUs = C.TIME_UNSET;
     preProcessors = new SparseArray<>();
@@ -269,12 +315,6 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
   }
 
   @Override
-  public VideoFrameProcessor getProcessor(int inputIndex) {
-    checkState(contains(preProcessors, inputIndex));
-    return preProcessors.get(inputIndex);
-  }
-
-  @Override
   public void setOutputSurfaceInfo(@Nullable SurfaceInfo outputSurfaceInfo) {
     checkNotNull(compositionVideoFrameProcessor).setOutputSurfaceInfo(outputSurfaceInfo);
   }
@@ -282,6 +322,75 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
   @Override
   public boolean hasProducedFrameWithTimestampZero() {
     return hasProducedFrameWithTimestampZero;
+  }
+
+  @Override
+  public boolean queueInputBitmap(
+      int inputIndex, Bitmap inputBitmap, TimestampIterator timestampIterator) {
+    return getProcessor(inputIndex).queueInputBitmap(inputBitmap, timestampIterator);
+  }
+
+  @Override
+  public boolean queueInputTexture(int inputIndex, int textureId, long presentationTimeUs) {
+    return getProcessor(inputIndex).queueInputTexture(textureId, presentationTimeUs);
+  }
+
+  @Override
+  public void setOnInputFrameProcessedListener(
+      int inputIndex, OnInputFrameProcessedListener listener) {
+    getProcessor(inputIndex).setOnInputFrameProcessedListener(listener);
+  }
+
+  @Override
+  public void setOnInputSurfaceReadyListener(int inputIndex, Runnable listener) {
+    getProcessor(inputIndex).setOnInputSurfaceReadyListener(listener);
+  }
+
+  @Override
+  public Surface getInputSurface(int inputIndex) {
+    return getProcessor(inputIndex).getInputSurface();
+  }
+
+  @Override
+  public void registerInputStream(
+      int inputIndex,
+      @VideoFrameProcessor.InputType int inputType,
+      Format format,
+      List<Effect> effects,
+      long offsetToAddUs) {
+    getProcessor(inputIndex).registerInputStream(inputType, format, effects, offsetToAddUs);
+  }
+
+  @Override
+  public boolean registerInputFrame(int inputIndex) {
+    return getProcessor(inputIndex).registerInputFrame();
+  }
+
+  @Override
+  public int getPendingInputFrameCount(int inputIndex) {
+    return getProcessor(inputIndex).getPendingInputFrameCount();
+  }
+
+  @Override
+  public void renderOutputFrame(long renderTimeNs) {
+    checkNotNull(compositionVideoFrameProcessor).renderOutputFrame(renderTimeNs);
+  }
+
+  @Override
+  public void redraw() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public void flush() {
+    for (int i = 0; i < preProcessors.size(); i++) {
+      preProcessors.get(preProcessors.keyAt(i)).flush();
+    }
+  }
+
+  @Override
+  public void signalEndOfInput(int inputIndex) {
+    getProcessor(inputIndex).signalEndOfInput();
   }
 
   @Override
@@ -327,12 +436,9 @@ public abstract class MultipleInputVideoGraph implements VideoGraph {
     released = true;
   }
 
-  protected VideoFrameProcessor getCompositionVideoFrameProcessor() {
-    return checkStateNotNull(compositionVideoFrameProcessor);
-  }
-
-  protected long getInitialTimestampOffsetUs() {
-    return initialTimestampOffsetUs;
+  private VideoFrameProcessor getProcessor(int inputIndex) {
+    checkState(contains(preProcessors, inputIndex));
+    return preProcessors.get(inputIndex);
   }
 
   // This method is called on the sharedExecutorService.

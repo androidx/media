@@ -1278,7 +1278,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
     verifyApplicationThread();
     try {
       // LINT.IfChange(set_video_effects)
-      Class.forName("androidx.media3.effect.PreviewingSingleInputVideoGraph$Factory")
+      Class.forName("androidx.media3.effect.SingleInputVideoGraph$Factory")
           .getConstructor(VideoFrameProcessor.Factory.class);
       // LINT.ThenChange(video/PlaybackVideoGraphWrapper.java)
     } catch (ClassNotFoundException | NoSuchMethodException e) {

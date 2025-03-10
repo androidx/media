@@ -41,10 +41,10 @@ import androidx.media3.common.Effect;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
-import androidx.media3.common.PreviewingVideoGraph;
 import androidx.media3.common.SimpleBasePlayer;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.VideoFrameProcessingException;
+import androidx.media3.common.VideoGraph;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.audio.SpeedProvider;
 import androidx.media3.common.util.Clock;
@@ -53,7 +53,7 @@ import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
-import androidx.media3.effect.PreviewingSingleInputVideoGraph;
+import androidx.media3.effect.SingleInputVideoGraph;
 import androidx.media3.effect.TimestampAdjustment;
 import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.ExoPlayer;
@@ -123,7 +123,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
     private ImageDecoder.Factory imageDecoderFactory;
     private boolean videoPrewarmingEnabled;
     private Clock clock;
-    private PreviewingVideoGraph.@MonotonicNonNull Factory previewingVideoGraphFactory;
+    private VideoGraph.@MonotonicNonNull Factory videoGraphFactory;
     private boolean built;
 
     /**
@@ -232,18 +232,17 @@ public final class CompositionPlayer extends SimpleBasePlayer
     }
 
     /**
-     * Sets the {@link PreviewingVideoGraph.Factory} that will be used by the player.
+     * Sets the {@link VideoGraph.Factory} that will be used by the player.
      *
-     * <p>By default, a {@link PreviewingSingleInputVideoGraph.Factory} is used.
+     * <p>By default, a {@link SingleInputVideoGraph.Factory} is used.
      *
-     * @param previewingVideoGraphFactory The {@link PreviewingVideoGraph.Factory}.
+     * @param videoGraphFactory The {@link VideoGraph.Factory}.
      * @return This builder, for convenience.
      */
     @VisibleForTesting
     @CanIgnoreReturnValue
-    public Builder setPreviewingVideoGraphFactory(
-        PreviewingVideoGraph.Factory previewingVideoGraphFactory) {
-      this.previewingVideoGraphFactory = previewingVideoGraphFactory;
+    public Builder setVideoGraphFactory(VideoGraph.Factory videoGraphFactory) {
+      this.videoGraphFactory = videoGraphFactory;
       return this;
     }
 
@@ -262,8 +261,8 @@ public final class CompositionPlayer extends SimpleBasePlayer
       if (audioSink == null) {
         audioSink = new DefaultAudioSink.Builder(context).build();
       }
-      if (previewingVideoGraphFactory == null) {
-        previewingVideoGraphFactory = new PreviewingSingleInputVideoGraph.Factory();
+      if (videoGraphFactory == null) {
+        videoGraphFactory = new SingleInputVideoGraph.Factory();
       }
       CompositionPlayer compositionPlayer = new CompositionPlayer(this);
       built = true;
@@ -309,7 +308,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
   private final AudioSink finalAudioSink;
   private final MediaSource.Factory mediaSourceFactory;
   private final ImageDecoder.Factory imageDecoderFactory;
-  private final PreviewingVideoGraph.Factory previewingVideoGraphFactory;
+  private final VideoGraph.Factory videoGraphFactory;
   private final boolean videoPrewarmingEnabled;
   private final HandlerWrapper compositionInternalListenerHandler;
 
@@ -350,7 +349,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
     finalAudioSink = checkNotNull(builder.audioSink);
     mediaSourceFactory = builder.mediaSourceFactory;
     imageDecoderFactory = builder.imageDecoderFactory;
-    previewingVideoGraphFactory = checkNotNull(builder.previewingVideoGraphFactory);
+    videoGraphFactory = checkNotNull(builder.videoGraphFactory);
     videoPrewarmingEnabled = builder.videoPrewarmingEnabled;
     compositionInternalListenerHandler = clock.createHandler(builder.looper, /* callback= */ null);
     videoTracksSelected = new SparseBooleanArray();
@@ -378,7 +377,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
     checkState(this.composition == null);
     composition = deactivateSpeedAdjustingVideoEffects(composition);
 
-    if (composition.sequences.size() > 1 && !previewingVideoGraphFactory.supportsMultipleInputs()) {
+    if (composition.sequences.size() > 1 && !videoGraphFactory.supportsMultipleInputs()) {
       Log.w(TAG, "Setting multi-sequence Composition with single input video graph.");
     }
 
@@ -727,7 +726,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
             context, new CompositionFrameTimingEvaluator(), /* allowedJoiningTimeMs= */ 0);
     playbackVideoGraphWrapper =
         new PlaybackVideoGraphWrapper.Builder(context, videoFrameReleaseControl)
-            .setPreviewingVideoGraphFactory(checkNotNull(previewingVideoGraphFactory))
+            .setVideoGraphFactory(checkNotNull(videoGraphFactory))
             .setCompositorSettings(composition.videoCompositorSettings)
             .setCompositionEffects(composition.effects.videoEffects)
             .setClock(clock)

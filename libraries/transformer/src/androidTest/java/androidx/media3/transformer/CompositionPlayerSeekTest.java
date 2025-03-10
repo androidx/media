@@ -39,14 +39,13 @@ import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
-import androidx.media3.common.PreviewingVideoGraph;
 import androidx.media3.common.VideoCompositorSettings;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.VideoGraph;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.GlEffect;
-import androidx.media3.effect.PreviewingSingleInputVideoGraph;
+import androidx.media3.effect.SingleInputVideoGraph;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
@@ -868,8 +867,7 @@ public class CompositionPlayerSeekTest {
             () -> {
               compositionPlayer =
                   new CompositionPlayer.Builder(applicationContext)
-                      .setPreviewingVideoGraphFactory(
-                          new ListenerCapturingVideoGraphFactory(videoGraphEnded))
+                      .setVideoGraphFactory(new ListenerCapturingVideoGraphFactory(videoGraphEnded))
                       .setVideoPrewarmingEnabled(videoPrewarmingEnabled)
                       .build();
               // Set a surface on the player even though there is no UI on this test. We need a
@@ -945,8 +943,7 @@ public class CompositionPlayerSeekTest {
             () -> {
               compositionPlayer =
                   new CompositionPlayer.Builder(applicationContext)
-                      .setPreviewingVideoGraphFactory(
-                          new ListenerCapturingVideoGraphFactory(videoGraphEnded))
+                      .setVideoGraphFactory(new ListenerCapturingVideoGraphFactory(videoGraphEnded))
                       .build();
               // Set a surface on the player even though there is no UI on this test. We need a
               // surface otherwise the player will skip/drop video frames.
@@ -1037,19 +1034,18 @@ public class CompositionPlayerSeekTest {
         .build();
   }
 
-  private static final class ListenerCapturingVideoGraphFactory
-      implements PreviewingVideoGraph.Factory {
+  private static final class ListenerCapturingVideoGraphFactory implements VideoGraph.Factory {
 
-    private final PreviewingSingleInputVideoGraph.Factory singleInputVideoGraphFactory;
+    private final VideoGraph.Factory singleInputVideoGraphFactory;
     private final CountDownLatch videoGraphEnded;
 
     public ListenerCapturingVideoGraphFactory(CountDownLatch videoGraphEnded) {
-      singleInputVideoGraphFactory = new PreviewingSingleInputVideoGraph.Factory();
+      singleInputVideoGraphFactory = new SingleInputVideoGraph.Factory();
       this.videoGraphEnded = videoGraphEnded;
     }
 
     @Override
-    public PreviewingVideoGraph create(
+    public VideoGraph create(
         Context context,
         ColorInfo outputColorInfo,
         DebugViewProvider debugViewProvider,
@@ -1057,7 +1053,8 @@ public class CompositionPlayerSeekTest {
         Executor listenerExecutor,
         VideoCompositorSettings videoCompositorSettings,
         List<Effect> compositionEffects,
-        long initialTimestampOffsetUs) {
+        long initialTimestampOffsetUs,
+        boolean renderFramesAutomatically) {
       return singleInputVideoGraphFactory.create(
           context,
           outputColorInfo,
@@ -1093,7 +1090,8 @@ public class CompositionPlayerSeekTest {
           listenerExecutor,
           videoCompositorSettings,
           compositionEffects,
-          initialTimestampOffsetUs);
+          initialTimestampOffsetUs,
+          renderFramesAutomatically);
     }
 
     @Override
