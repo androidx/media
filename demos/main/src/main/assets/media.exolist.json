@@ -642,6 +642,10 @@
     "name": "Subtitles",
     "samples": [
       {
+        "name": "Overlapping SSA muxed into MKV + muxed font",
+        "uri": "asset:///test_video.mkv"
+      },
+      {
         "name": "TTML positioning",
         "uri": "https://html5demos.com/assets/dizzy.mp4",
         "subtitle_uri": "https://storage.googleapis.com/exoplayer-test-media-1/ttml/netflix_ttml_sample.xml",

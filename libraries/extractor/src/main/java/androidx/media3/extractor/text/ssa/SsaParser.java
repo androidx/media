@@ -37,12 +37,14 @@ import androidx.media3.common.util.Log;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import androidx.media3.extractor.mkv.FontAttachment;
 import androidx.media3.extractor.text.CuesWithTiming;
 import androidx.media3.extractor.text.SubtitleParser;
 import com.google.common.base.Ascii;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -91,9 +93,17 @@ public final class SsaParser implements SubtitleParser {
    * <p>Parsed from the {@code PlayResY} value in the {@code [Script Info]} section.
    */
   private float screenHeight;
+  /**
+   * The font attached to the video.
+   */
+  private List<FontAttachment> videoFonts;
 
   public SsaParser() {
-    this(/* initializationData= */ null);
+    this(/* initializationData= */ null, /* videoFonts= */ new ArrayList<>());
+  }
+
+  public SsaParser(@Nullable List<byte[]> initializationData) {
+    this(initializationData, /* videoFonts= */ new ArrayList<>());
   }
 
   /**
@@ -105,9 +115,10 @@ public final class SsaParser implements SubtitleParser {
    *     samples. The header is everything in an SSA file before the {@code [Events]} section (i.e.
    *     {@code [Script Info]} and optional {@code [V4+ Styles]} section.
    */
-  public SsaParser(@Nullable List<byte[]> initializationData) {
+  public SsaParser(@Nullable List<byte[]> initializationData, List<FontAttachment> videoFonts) {
     screenWidth = Cue.DIMEN_UNSET;
     screenHeight = Cue.DIMEN_UNSET;
+    this.videoFonts = videoFonts;
     parsableByteArray = new ParsableByteArray();
 
     if (initializationData != null && !initializationData.isEmpty()) {

@@ -21,7 +21,12 @@ import androidx.media3.common.Format;
 import androidx.media3.common.Format.CueReplacementBehavior;
 import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.extractor.mkv.FontAttachment;
 import com.google.common.collect.ImmutableList;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Parses subtitle data into timed {@linkplain CuesWithTiming} instances.
@@ -35,7 +40,9 @@ import com.google.common.collect.ImmutableList;
 public interface SubtitleParser {
 
   /** Factory for {@link SubtitleParser} instances. */
-  interface Factory {
+  abstract class Factory {
+    private List<FontAttachment> fonts = new ArrayList<>();
+
 
     /** A subtitle parser factory that supports no formats. */
     public static final Factory UNSUPPORTED =
@@ -64,7 +71,7 @@ public interface SubtitleParser {
      * @param format The {@link Format}.
      * @return Whether the factory can instantiate a suitable {@link SubtitleParser}.
      */
-    boolean supportsFormat(Format format);
+    public abstract boolean supportsFormat(Format format);
 
     /**
      * Returns the {@link CueReplacementBehavior} of the {@link SubtitleParser} implementation that
@@ -75,7 +82,7 @@ public interface SubtitleParser {
      *     supported} by this factory.
      */
     @CueReplacementBehavior
-    int getCueReplacementBehavior(Format format);
+    public abstract int getCueReplacementBehavior(Format format);
 
     /**
      * Creates a {@link SubtitleParser} for the given {@link Format}.
@@ -84,7 +91,15 @@ public interface SubtitleParser {
      * @throws IllegalArgumentException if {@code format} is {@linkplain #supportsFormat(Format) not
      *     supported} by this factory.
      */
-    SubtitleParser create(Format format);
+    public abstract SubtitleParser create(Format format);
+
+    public void addFont(FontAttachment fontAttachment) {
+      this.fonts.add(fontAttachment);
+    }
+
+    public List<FontAttachment> getFonts() {
+      return this.fonts;
+    }
   }
 
   /**

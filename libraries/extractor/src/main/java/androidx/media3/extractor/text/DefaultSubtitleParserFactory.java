@@ -48,7 +48,7 @@ import java.util.Objects;
  * </ul>
  */
 @UnstableApi
-public final class DefaultSubtitleParserFactory implements SubtitleParser.Factory {
+public final class DefaultSubtitleParserFactory extends SubtitleParser.Factory {
 
   @Override
   public boolean supportsFormat(Format format) {
@@ -100,7 +100,7 @@ public final class DefaultSubtitleParserFactory implements SubtitleParser.Factor
     if (mimeType != null) {
       switch (mimeType) {
         case MimeTypes.TEXT_SSA:
-          return new SsaParser(format.initializationData);
+          return new SsaParser(format.initializationData, this.getFonts());
         case MimeTypes.TEXT_VTT:
           return new WebvttParser();
         case MimeTypes.APPLICATION_MP4VTT:
