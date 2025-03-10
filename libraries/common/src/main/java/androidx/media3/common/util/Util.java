@@ -3061,7 +3061,7 @@ public final class Util {
   @UnstableApi
   public static boolean inflate(
       ParsableByteArray input, ParsableByteArray output, @Nullable Inflater inflater) {
-    if (input.bytesLeft() <= 0) {
+    if (input.bytesLeft() == 0) {
       return false;
     }
     if (output.capacity() < input.bytesLeft()) {

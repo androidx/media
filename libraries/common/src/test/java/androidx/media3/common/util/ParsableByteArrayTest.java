@@ -78,6 +78,26 @@ public final class ParsableByteArrayTest {
   }
 
   @Test
+  public void bytesLeft() {
+    ParsableByteArray array = getTestDataArray();
+    assertThat(array.bytesLeft()).isEqualTo(TEST_DATA.length);
+
+    array.setPosition(1);
+    array.setLimit(2);
+    assertThat(array.bytesLeft()).isEqualTo(1);
+  }
+
+  @Test
+  public void bytesLeft_positionExceedsLimit_returnsZero() {
+    ParsableByteArray array = getTestDataArray();
+    array.setLimit(1);
+    // readInt advances position without checking limit (see b/147657250)
+    int unused = array.readInt();
+
+    assertThat(array.bytesLeft()).isEqualTo(0);
+  }
+
+  @Test
   public void readShort() {
     testReadShort((short) -1);
     testReadShort((short) 0);

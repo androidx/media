@@ -142,7 +142,7 @@ public final class ParsableByteArray {
 
   /** Returns the number of bytes yet to be read. */
   public int bytesLeft() {
-    return limit - position;
+    return Math.max(limit - position, 0);
   }
 
   /** Returns the limit. */
@@ -261,7 +261,7 @@ public final class ParsableByteArray {
   public char peekChar(Charset charset) {
     Assertions.checkArgument(
         SUPPORTED_CHARSETS_FOR_READLINE.contains(charset), "Unsupported charset: " + charset);
-    if (bytesLeft() < 1) {
+    if (bytesLeft() == 0) {
       return 0;
     }
     if (charset.equals(StandardCharsets.US_ASCII)) {
