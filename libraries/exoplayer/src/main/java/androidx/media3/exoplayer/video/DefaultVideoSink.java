@@ -178,12 +178,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   @Override
-  public void setStreamTimestampInfo(long streamStartPositionUs, long bufferTimestampAdjustmentUs) {
+  public void setStreamStartPositionUs(long streamStartPositionUs) {
     if (streamStartPositionUs != this.streamStartPositionUs) {
       videoFrameRenderControl.onStreamChanged(
           RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED, streamStartPositionUs);
       this.streamStartPositionUs = streamStartPositionUs;
     }
+  }
+
+  @Override
+  public void setBufferTimestampAdjustmentUs(long bufferTimestampAdjustmentUs) {
     this.bufferTimestampAdjustmentUs = bufferTimestampAdjustmentUs;
   }
 

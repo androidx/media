@@ -587,6 +587,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       int mediaItemIndex = getTimeline().getIndexOfPeriod(mediaPeriodId.periodUid);
       currentEditedMediaItem = sequence.editedMediaItems.get(mediaItemIndex);
       offsetToCompositionTimeUs = getOffsetToCompositionTimeUs(sequence, mediaItemIndex, offsetUs);
+      videoSink.setBufferTimestampAdjustmentUs(offsetToCompositionTimeUs);
       timestampIterator = createTimestampIterator(/* positionUs= */ startPositionUs);
       videoEffects = currentEditedMediaItem.effects.videoEffects;
       inputStreamPending = true;
@@ -614,8 +615,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         long positionUs, long elapsedRealtimeUs, Bitmap outputImage, long timeUs) {
       if (inputStreamPending) {
         checkState(streamStartPositionUs != C.TIME_UNSET);
-        videoSink.setStreamTimestampInfo(
-            streamStartPositionUs, /* bufferTimestampAdjustmentUs= */ offsetToCompositionTimeUs);
+        videoSink.setStreamStartPositionUs(streamStartPositionUs);
         videoSink.onInputStreamChanged(
             VideoSink.INPUT_TYPE_BITMAP,
             new Format.Builder()

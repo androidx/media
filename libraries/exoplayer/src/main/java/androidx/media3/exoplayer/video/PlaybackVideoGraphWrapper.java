@@ -441,8 +441,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
         streamStartPositionsUs.pollFloor(bufferPresentationTimeUs);
     if (newOutputStreamStartPositionUs != null
         && newOutputStreamStartPositionUs != outputStreamStartPositionUs) {
-      defaultVideoSink.setStreamTimestampInfo(
-          newOutputStreamStartPositionUs, bufferTimestampAdjustmentUs);
+      defaultVideoSink.setStreamStartPositionUs(newOutputStreamStartPositionUs);
       outputStreamStartPositionUs = newOutputStreamStartPositionUs;
     }
     boolean isLastFrame =
@@ -589,7 +588,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     if (streamStartPositionsUs.size() == 1) {
       long lastStartPositionUs = checkNotNull(streamStartPositionsUs.pollFirst());
       // defaultVideoSink should use the latest startPositionUs if none is passed after flushing.
-      defaultVideoSink.setStreamTimestampInfo(lastStartPositionUs, bufferTimestampAdjustmentUs);
+      defaultVideoSink.setStreamStartPositionUs(lastStartPositionUs);
     }
     lastOutputBufferPresentationTimeUs = C.TIME_UNSET;
     finalBufferPresentationTimeUs = C.TIME_UNSET;
@@ -610,8 +609,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
 
   private void setBufferTimestampAdjustment(long bufferTimestampAdjustmentUs) {
     this.bufferTimestampAdjustmentUs = bufferTimestampAdjustmentUs;
-    defaultVideoSink.setStreamTimestampInfo(
-        outputStreamStartPositionUs, bufferTimestampAdjustmentUs);
+    defaultVideoSink.setBufferTimestampAdjustmentUs(bufferTimestampAdjustmentUs);
   }
 
   private boolean shouldRenderToInputVideoSink() {
@@ -795,14 +793,17 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     }
 
     @Override
-    public void setStreamTimestampInfo(
-        long streamStartPositionUs, long bufferTimestampAdjustmentUs) {
+    public void setStreamStartPositionUs(long streamStartPositionUs) {
       // Input timestamps should always be positive because they are offset by ExoPlayer. Adding a
       // position to the queue with timestamp 0 should therefore always apply it as long as it is
       // the only position in the queue.
       streamStartPositionsUs.add(
           lastBufferPresentationTimeUs == C.TIME_UNSET ? 0 : lastBufferPresentationTimeUs + 1,
           streamStartPositionUs);
+    }
+
+    @Override
+    public void setBufferTimestampAdjustmentUs(long bufferTimestampAdjustmentUs) {
       inputBufferTimestampAdjustmentUs = bufferTimestampAdjustmentUs;
       // The buffer timestamp adjustment is only allowed to change after a flush to make sure that
       // the buffer timestamps are increasing. We can update the buffer timestamp adjustment

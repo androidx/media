@@ -965,8 +965,8 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     if (this.startPositionUs == C.TIME_UNSET) {
       this.startPositionUs = startPositionUs;
       if (videoSink != null) {
-        videoSink.setStreamTimestampInfo(
-            getOutputStreamStartPositionUs(), getBufferTimestampAdjustmentUs());
+        videoSink.setStreamStartPositionUs(getOutputStreamStartPositionUs());
+        videoSink.setBufferTimestampAdjustmentUs(getBufferTimestampAdjustmentUs());
       }
     }
     updatePeriodDurationUs(mediaPeriodId);
@@ -1868,8 +1868,8 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     if (videoSink != null) {
       // Signaling end of the previous stream.
       videoSink.signalEndOfCurrentInputStream();
-      videoSink.setStreamTimestampInfo(
-          getOutputStreamStartPositionUs(), getBufferTimestampAdjustmentUs());
+      videoSink.setStreamStartPositionUs(getOutputStreamStartPositionUs());
+      videoSink.setBufferTimestampAdjustmentUs(getBufferTimestampAdjustmentUs());
     } else {
       videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED);
     }

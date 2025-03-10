@@ -211,14 +211,20 @@ public interface VideoSink {
   void setVideoEffects(List<Effect> videoEffects);
 
   /**
-   * Sets information about the timestamps of the current input stream.
+   * Sets the current stream start position.
    *
    * @param streamStartPositionUs The start position of the buffer presentation timestamps of the
    *     current stream, in microseconds.
+   */
+  void setStreamStartPositionUs(long streamStartPositionUs);
+
+  /**
+   * Sets the buffer timestamp adjustment.
+   *
    * @param bufferTimestampAdjustmentUs The timestamp adjustment to add to the buffer presentation
    *     timestamps to convert them to frame presentation timestamps, in microseconds.
    */
-  void setStreamTimestampInfo(long streamStartPositionUs, long bufferTimestampAdjustmentUs);
+  void setBufferTimestampAdjustmentUs(long bufferTimestampAdjustmentUs);
 
   /** Sets the output surface info. */
   void setOutputSurfaceInfo(Surface outputSurface, Size outputResolution);
