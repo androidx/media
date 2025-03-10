@@ -602,7 +602,8 @@ public final class DefaultAudioSink implements AudioSink {
         ImmutableList.of(
             new ToInt16PcmAudioProcessor(), channelMappingAudioProcessor, trimmingAudioProcessor);
     toFloatPcmAvailableAudioProcessors =
-        ImmutableList.of(new ToFloatPcmAudioProcessor(), channelMappingAudioProcessor);
+        ImmutableList.of(
+            new ToFloatPcmAudioProcessor(), channelMappingAudioProcessor, trimmingAudioProcessor);
     volume = 1f;
     audioSessionId = C.AUDIO_SESSION_ID_UNSET;
     auxEffectInfo = new AuxEffectInfo(AuxEffectInfo.NO_AUX_EFFECT_ID, 0f);

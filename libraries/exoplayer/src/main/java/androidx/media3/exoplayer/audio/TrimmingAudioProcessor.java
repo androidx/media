@@ -26,8 +26,6 @@ import java.nio.ByteBuffer;
 /** Audio processor for trimming samples from the start/end of data. */
 /* package */ final class TrimmingAudioProcessor extends BaseAudioProcessor {
 
-  private static final @C.PcmEncoding int OUTPUT_ENCODING = C.ENCODING_PCM_16BIT;
-
   private int trimStartFrames;
   private int trimEndFrames;
   private boolean reconfigurationPending;
@@ -80,7 +78,8 @@ import java.nio.ByteBuffer;
   @Override
   public AudioFormat onConfigure(AudioFormat inputAudioFormat)
       throws UnhandledAudioFormatException {
-    if (inputAudioFormat.encoding != OUTPUT_ENCODING) {
+    if (inputAudioFormat.encoding != C.ENCODING_PCM_16BIT
+        && inputAudioFormat.encoding != C.ENCODING_PCM_FLOAT) {
       throw new UnhandledAudioFormatException(inputAudioFormat);
     }
     reconfigurationPending = true;
