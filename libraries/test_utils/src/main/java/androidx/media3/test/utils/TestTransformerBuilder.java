@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package androidx.media3.transformer;
+package androidx.media3.test.utils;
 
 import android.content.Context;
 import android.media.MediaCodec;
@@ -26,7 +26,14 @@ import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.muxer.MuxerException;
-import androidx.media3.test.utils.FakeClock;
+import androidx.media3.transformer.AssetLoader;
+import androidx.media3.transformer.Codec;
+import androidx.media3.transformer.DefaultAssetLoaderFactory;
+import androidx.media3.transformer.DefaultDecoderFactory;
+import androidx.media3.transformer.DefaultEncoderFactory;
+import androidx.media3.transformer.DefaultMuxer;
+import androidx.media3.transformer.Muxer;
+import androidx.media3.transformer.Transformer;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.nio.ByteBuffer;
@@ -36,9 +43,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
  * A builder of {@link Transformer} instances for testing with Robolectric.
- *
- * <p>To transcode audio, add the required codecs using {@link TestUtil#addAudioDecoders} and {@link
- * TestUtil#addAudioEncoders}.
  *
  * <p>Transcoding video is unsupported in Robolectric tests. In order for a {@link Transformer} test
  * instance to succeed with video input, make sure to configure the export in such a way that video
