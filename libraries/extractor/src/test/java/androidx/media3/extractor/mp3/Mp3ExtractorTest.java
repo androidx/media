@@ -62,6 +62,18 @@ public final class Mp3ExtractorTest {
   }
 
   @Test
+  public void mp3SampleWithXingHeader_noTableOfContents_cbrSeekingAlways() throws Exception {
+    String filename = "mp3/bear-vbr-xing-header-no-toc.mp3";
+    ExtractorAsserts.assertBehavior(
+        () -> new Mp3Extractor(Mp3Extractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING_ALWAYS),
+        "media/" + filename,
+        new AssertionConfig.Builder()
+            .setDumpFilesPrefix("extractordumps/" + filename + ".cbr-seeking-always")
+            .build(),
+        simulationConfig);
+  }
+
+  @Test
   public void mp3SampleWithInfoHeader() throws Exception {
     ExtractorAsserts.assertBehavior(
         Mp3Extractor::new, "media/mp3/test-cbr-info-header.mp3", simulationConfig);
