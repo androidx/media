@@ -935,6 +935,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       if (wakeupListener != null) {
         videoSink.setWakeupListener(wakeupListener);
       }
+      experimentalEnableProcessedStreamChangedAtStart();
     } else {
       videoFrameReleaseControl.setClock(getClock());
       int firstFrameReleaseInstruction =
@@ -962,13 +963,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       MediaSource.MediaPeriodId mediaPeriodId)
       throws ExoPlaybackException {
     super.onStreamChanged(formats, startPositionUs, offsetUs, mediaPeriodId);
-    if (this.startPositionUs == C.TIME_UNSET) {
-      this.startPositionUs = startPositionUs;
-      if (videoSink != null) {
-        videoSink.setStreamStartPositionUs(getOutputStreamStartPositionUs());
-        videoSink.setBufferTimestampAdjustmentUs(getBufferTimestampAdjustmentUs());
-      }
-    }
     updatePeriodDurationUs(mediaPeriodId);
   }
 
@@ -992,7 +986,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         // MediaCodec once the codec is flushed.
         videoSink.flush(/* resetPosition= */ true);
       }
-      pendingVideoSinkInputStreamChange = true;
     }
     super.onPositionReset(positionUs, joining);
     if (videoSink == null) {
@@ -1869,6 +1862,9 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       // Signaling end of the previous stream.
       videoSink.signalEndOfCurrentInputStream();
       videoSink.setStreamStartPositionUs(getOutputStreamStartPositionUs());
+      if (this.startPositionUs == C.TIME_UNSET) {
+        this.startPositionUs = getOutputStreamStartPositionUs();
+      }
       videoSink.setBufferTimestampAdjustmentUs(getBufferTimestampAdjustmentUs());
     } else {
       videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED);

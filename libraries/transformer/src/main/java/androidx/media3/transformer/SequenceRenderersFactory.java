@@ -329,7 +329,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       this.bufferingVideoSink = bufferingVideoSink;
       this.requestToneMapping = requestToneMapping;
       this.pendingEffects = ImmutableList.of();
-      experimentalEnableProcessedStreamChangedAtStart();
     }
 
     @Override
