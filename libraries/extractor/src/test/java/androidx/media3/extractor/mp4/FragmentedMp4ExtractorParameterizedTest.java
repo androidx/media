@@ -89,6 +89,13 @@ public final class FragmentedMp4ExtractorParameterizedTest {
   }
 
   @Test
+  public void sampleSeekableMultipleSidx() throws Exception {
+    assertExtractorBehavior(
+        /* closedCaptionFormats= */ ImmutableList.of(),
+        "media/mp4/sample_fragmented_seekable_multi_sidx.mp4");
+  }
+
+  @Test
   public void sampleWithSeiPayloadInputHasNoCaptions() throws Exception {
     // Enabling the CEA-608 track enables SEI payload parsing.
     List<Format> closedCaptions =
