@@ -503,15 +503,14 @@ public final class Mp3Extractor implements Extractor {
 
     if (resultSeeker == null
         || (!resultSeeker.isSeekable() && (flags & FLAG_ENABLE_CONSTANT_BITRATE_SEEKING) != 0)) {
+      // Either we found no seek or VBR info, so we must assume the file is CBR (even without the
+      // flag(s) being set), or an 'enable CBR seeking flag' is set and we found some seek info,
+      // but not enough to seek with. In either case, we fall back to CBR seeking.
       resultSeeker =
           getConstantBitrateSeeker(
               input, (flags & FLAG_ENABLE_CONSTANT_BITRATE_SEEKING_ALWAYS) != 0);
     }
-
-    if (resultSeeker != null) {
-      realTrackOutput.durationUs(resultSeeker.getDurationUs());
-    }
-
+    realTrackOutput.durationUs(resultSeeker.getDurationUs());
     return resultSeeker;
   }
 
