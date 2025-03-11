@@ -1013,6 +1013,74 @@ public class HlsInterstitialsAdsLoaderTest {
 
   @Test
   public void
+      handleContentTimelineChanged_livePlaylistUpdatesPreRollAndPostRoll_addPreRollIgnorePostRoll()
+          throws IOException {
+    assertThat(
+            callHandleContentTimelineChangedForLiveAndCaptureAdPlaybackStates(
+                adsLoader,
+                /* startAdsLoader= */ true,
+                /* windowOffsetInFirstPeriodUs= */ 0L,
+                "#EXTM3U\n"
+                    + "#EXT-X-TARGETDURATION:6\n"
+                    + "#EXT-X-MEDIA-SEQUENCE:0\n"
+                    + "#EXT-X-DATERANGE:"
+                    + "ID=\"ad0-0\","
+                    + "CLASS=\"com.apple.hls.interstitial\","
+                    + "START-DATE=\"2020-01-02T22:00:00.000Z\","
+                    + "CUE=\"POST\","
+                    + "X-ASSET-URI=\"http://example.com/media-0-0.m3u8\""
+                    + "\n"
+                    + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:00:00.000Z\n"
+                    + "#EXTINF:6,\nmain0.0.ts\n"
+                    + "#EXTINF:6,\nmain1.0.ts\n"
+                    + "#EXTINF:6,\nmain2.0.ts\n"
+                    + "#EXTINF:6,\nmain3.0.ts\n"
+                    + "#EXTINF:6,\nmain4.0.ts\n"
+                    + "\n",
+                "#EXTM3U\n"
+                    + "#EXT-X-TARGETDURATION:6\n"
+                    + "#EXT-X-MEDIA-SEQUENCE:0\n"
+                    + "#EXT-X-DATERANGE:"
+                    + "ID=\"ad0-0\","
+                    + "CLASS=\"com.apple.hls.interstitial\","
+                    + "START-DATE=\"2020-01-02T22:00:00.000Z\","
+                    + "CUE=\"POST\","
+                    + "X-ASSET-URI=\"http://example.com/media-0-0.m3u8\""
+                    + "\n"
+                    + "#EXT-X-DATERANGE:"
+                    + "ID=\"ad1-0\","
+                    + "CLASS=\"com.apple.hls.interstitial\","
+                    + "START-DATE=\"2020-01-02T20:00:00.000Z\","
+                    + "CUE=\"PRE\","
+                    + "X-ASSET-URI=\"http://example.com/media-1-0.m3u8\""
+                    + "\n"
+                    + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:00:06.000Z\n"
+                    + "#EXTINF:6,\nmain1.0.ts\n" // pre-roll queue point
+                    + "#EXTINF:6,\nmain2.0.ts\n"
+                    + "#EXTINF:6,\nmain3.0.ts\n"
+                    + "#EXTINF:6,\nmain4.0.ts\n"
+                    + "#EXTINF:6,\nmain5.0.ts\n"
+                    + "\n"))
+        .containsExactly(
+            new AdPlaybackState("adsId")
+                .withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ false),
+            new AdPlaybackState("adsId", 6_000_000L)
+                .withAdResumePositionUs(0)
+                .withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 1)
+                .withAdId(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0, "ad1-0")
+                .withAvailableAdMediaItem(
+                    /* adGroupIndex= */ 0,
+                    /* adIndexInAdGroup= */ 0,
+                    new MediaItem.Builder()
+                        .setUri("http://example.com/media-1-0.m3u8")
+                        .setMimeType(MimeTypes.APPLICATION_M3U8)
+                        .build())
+                .withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ false))
+        .inOrder();
+  }
+
+  @Test
+  public void
       handleContentTimelineChanged_livePlaylistUpdateNewAdAfterPlayedAd_correctAdPlaybackStateUpdates()
           throws IOException {
     callHandleContentTimelineChangedForLiveAndCaptureAdPlaybackStates(
