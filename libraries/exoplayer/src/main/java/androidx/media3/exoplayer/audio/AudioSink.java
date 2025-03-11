@@ -592,6 +592,15 @@ public interface AudioSink {
   default void setOutputStreamOffsetUs(long outputStreamOffsetUs) {}
 
   /**
+   * Returns the size of the underlying {@link AudioTrack} buffer in microseconds. If unsupported or
+   * the {@link AudioTrack} is not initialized then return {@link C#TIME_UNSET};
+   *
+   * <p>If the {@link AudioTrack} is configured with a compressed encoding, then the returned
+   * duration is an estimated minimum based on the encoding's maximum encoded byte rate.
+   */
+  long getAudioTrackBufferSizeUs();
+
+  /**
    * Enables tunneling, if possible. The sink is reset if tunneling was previously disabled.
    * Enabling tunneling is only possible if the sink is based on a platform {@link AudioTrack}, and
    * requires platform API version 21 onwards.

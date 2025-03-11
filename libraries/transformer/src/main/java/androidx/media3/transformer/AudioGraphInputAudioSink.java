@@ -251,6 +251,11 @@ import java.util.Objects;
   }
 
   @Override
+  public long getAudioTrackBufferSizeUs() {
+    return C.TIME_UNSET;
+  }
+
+  @Override
   public void setPlaybackParameters(PlaybackParameters playbackParameters) {}
 
   @Override

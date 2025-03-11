@@ -71,6 +71,7 @@ import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import java.math.RoundingMode;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayDeque;
@@ -1455,6 +1456,23 @@ public final class DefaultAudioSink implements AudioSink {
   }
 
   @Override
+  public long getAudioTrackBufferSizeUs() {
+    if (!isAudioTrackInitialized()) {
+      return C.TIME_UNSET;
+    }
+    if (Util.SDK_INT >= 23) {
+      return Api23.getAudioTrackBufferSizeUs(audioTrack, configuration);
+    }
+    long byteRate =
+        configuration.outputMode == OUTPUT_MODE_PCM
+            ? (long) configuration.outputSampleRate * configuration.outputPcmFrameSize
+            : DefaultAudioTrackBufferSizeProvider.getMaximumEncodedRateBytesPerSecond(
+                configuration.outputEncoding);
+    return Util.scaleLargeValue(
+        configuration.bufferSize, C.MICROS_PER_SECOND, byteRate, RoundingMode.DOWN);
+  }
+
+  @Override
   public void enableTunnelingV21() {
     Assertions.checkState(externalAudioSessionIdProvided);
     if (!tunneling) {
@@ -2364,6 +2382,18 @@ public final class DefaultAudioSink implements AudioSink {
         AudioTrack audioTrack, @Nullable AudioDeviceInfoApi23 audioDeviceInfo) {
       audioTrack.setPreferredDevice(
           audioDeviceInfo == null ? null : audioDeviceInfo.audioDeviceInfo);
+    }
+
+    public static long getAudioTrackBufferSizeUs(
+        AudioTrack audioTrack, Configuration configuration) {
+      return configuration.outputMode == OUTPUT_MODE_PCM
+          ? configuration.framesToDurationUs(audioTrack.getBufferSizeInFrames())
+          : Util.scaleLargeValue(
+              audioTrack.getBufferSizeInFrames(),
+              C.MICROS_PER_SECOND,
+              DefaultAudioTrackBufferSizeProvider.getMaximumEncodedRateBytesPerSecond(
+                  configuration.outputEncoding),
+              RoundingMode.DOWN);
     }
   }
 
