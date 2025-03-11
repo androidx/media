@@ -609,6 +609,33 @@ public final class CompositionPlayerAudioPlaybackTest {
             + "_then_sample_rf64.wav_clipped_seek_to_800_ms.dump");
   }
 
+  @Test
+  public void playSingleSequence_replayAfterEnd_outputCorrectSamples() throws Exception {
+    CompositionPlayer player = createCompositionPlayer(context, capturingAudioSink);
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW))
+            .setDurationUs(1_000_000L)
+            .build();
+    EditedMediaItemSequence sequence = new EditedMediaItemSequence.Builder(editedMediaItem).build();
+    Composition composition = new Composition.Builder(sequence).build();
+
+    player.setComposition(composition);
+    player.prepare();
+    // First Play
+    player.play();
+    TestPlayerRunHelper.advance(player).untilState(Player.STATE_ENDED);
+    // Second Play
+    player.seekToDefaultPosition();
+    player.play();
+    TestPlayerRunHelper.advance(player).untilState(Player.STATE_ENDED);
+    player.release();
+
+    DumpFileAsserts.assertOutput(
+        context,
+        capturingAudioSink,
+        PREVIEW_DUMP_FILE_EXTENSION + FILE_AUDIO_RAW + "_playedTwice.dump");
+  }
+
   private static CompositionPlayer createCompositionPlayer(Context context, AudioSink audioSink) {
     return new CompositionPlayer.Builder(context)
         .setClock(new FakeClock(/* isAutoAdvancing= */ true))
