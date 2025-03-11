@@ -703,7 +703,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
     }
     Timeline oldTimeline = getCurrentTimeline();
     pendingOperationAcks++;
-    Util.moveItems(mediaSourceHolderSnapshots, fromIndex, toIndex, newFromIndex);
+    moveMediaSourceHolders(fromIndex, toIndex, newFromIndex);
     Timeline newTimeline = createMaskingTimeline();
     PlaybackInfo newPlaybackInfo =
         maskTimelineAndPosition(
@@ -723,6 +723,11 @@ import java.util.concurrent.CopyOnWriteArraySet;
         /* ignored */ C.TIME_UNSET,
         /* ignored */ C.INDEX_UNSET,
         /* repeatCurrentMediaItem= */ false);
+  }
+
+  private void moveMediaSourceHolders(int fromIndex, int toIndex, int newFromIndex) {
+    Util.moveItems(mediaSourceHolderSnapshots, fromIndex, toIndex, newFromIndex);
+    shuffleOrder = shuffleOrder.cloneAndMove(fromIndex, toIndex, newFromIndex);
   }
 
   @Override
