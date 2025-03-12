@@ -74,6 +74,8 @@
         `Player.seekToPreviousMediaItem()` instead.
     *   Removed deprecated `Player.seekToNextWindow()`. Use
         `Player.seekToNextMediaItem()` instead.
+    *   Removed deprecated `BaseAudioProcessor` in `exoplayer` module. Use
+        `BaseAudioProcessor` under `common` module.
 
 ## 1.6
 
