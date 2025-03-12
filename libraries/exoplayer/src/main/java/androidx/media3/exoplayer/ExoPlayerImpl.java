@@ -19,6 +19,7 @@ import static androidx.media3.common.C.AUDIO_SESSION_ID_UNSET;
 import static androidx.media3.common.C.TRACK_TYPE_AUDIO;
 import static androidx.media3.common.C.TRACK_TYPE_CAMERA_MOTION;
 import static androidx.media3.common.C.TRACK_TYPE_IMAGE;
+import static androidx.media3.common.C.TRACK_TYPE_TEXT;
 import static androidx.media3.common.C.TRACK_TYPE_VIDEO;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
@@ -2812,8 +2813,11 @@ import java.util.concurrent.CopyOnWriteArraySet;
       surfaceSize = new Size(width, height);
       listeners.sendEvent(
           EVENT_SURFACE_SIZE_CHANGED, listener -> listener.onSurfaceSizeChanged(width, height));
+      Size size = new Size(width, height);
       sendRendererMessage(
-          TRACK_TYPE_VIDEO, MSG_SET_VIDEO_OUTPUT_RESOLUTION, new Size(width, height));
+          TRACK_TYPE_VIDEO, MSG_SET_VIDEO_OUTPUT_RESOLUTION, size);
+      sendRendererMessage(
+          TRACK_TYPE_TEXT, MSG_SET_VIDEO_OUTPUT_RESOLUTION, size);
     }
   }
 
