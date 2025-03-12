@@ -28,6 +28,7 @@ import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.Player;
 import androidx.media3.common.Timeline;
+import androidx.media3.common.VideoSize;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.UnstableApi;
@@ -210,7 +211,8 @@ public interface Renderer extends PlayerMessage.Target {
         MSG_SET_VIDEO_OUTPUT_RESOLUTION,
         MSG_SET_IMAGE_OUTPUT,
         MSG_SET_PRIORITY,
-        MSG_TRANSFER_RESOURCES
+        MSG_TRANSFER_RESOURCES,
+        MSG_EVENT_VIDEO_SIZE_CHANGED
       })
   public @interface MessageType {}
 
@@ -354,6 +356,12 @@ public interface Renderer extends PlayerMessage.Target {
    * Renderer} type as the renderer being passed the message.
    */
   int MSG_TRANSFER_RESOURCES = 17;
+
+  /**
+   * The type of a message that can be passed to a renderer to tell it that the video resolution
+   * changed. The message payload should be a {@link VideoSize}.
+   */
+  int MSG_EVENT_VIDEO_SIZE_CHANGED = 18;
 
   /**
    * Applications or extensions may define custom {@code MSG_*} constants that can be passed to

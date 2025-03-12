@@ -25,6 +25,7 @@ import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.castNonNull;
+import static androidx.media3.exoplayer.Renderer.MSG_EVENT_VIDEO_SIZE_CHANGED;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_AUDIO_ATTRIBUTES;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_AUDIO_SESSION_ID;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_AUX_EFFECT_INFO;
@@ -3089,6 +3090,8 @@ import java.util.concurrent.CopyOnWriteArraySet;
       videoSize = newVideoSize;
       listeners.sendEvent(
           EVENT_VIDEO_SIZE_CHANGED, listener -> listener.onVideoSizeChanged(newVideoSize));
+      sendRendererMessage(
+          TRACK_TYPE_TEXT, MSG_EVENT_VIDEO_SIZE_CHANGED, newVideoSize);
     }
 
     @Override
