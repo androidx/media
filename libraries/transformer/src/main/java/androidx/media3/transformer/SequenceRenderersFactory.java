@@ -435,7 +435,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     @Override
     protected void changeVideoSinkInputStream(
         VideoSink videoSink, @VideoSink.InputType int inputType, Format format) {
-      videoSink.onInputStreamChanged(inputType, format, pendingEffects);
+      videoSink.onInputStreamChanged(
+          inputType, format, getOutputStreamStartPositionUs(), pendingEffects);
     }
 
     private void activateBufferingVideoSink() {
@@ -614,7 +615,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         long positionUs, long elapsedRealtimeUs, Bitmap outputImage, long timeUs) {
       if (inputStreamPending) {
         checkState(streamStartPositionUs != C.TIME_UNSET);
-        videoSink.setStreamStartPositionUs(streamStartPositionUs);
         videoSink.onInputStreamChanged(
             VideoSink.INPUT_TYPE_BITMAP,
             new Format.Builder()
@@ -624,6 +624,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                 .setColorInfo(ColorInfo.SRGB_BT709_FULL)
                 .setFrameRate(/* frameRate= */ DEFAULT_FRAME_RATE)
                 .build(),
+            streamStartPositionUs,
             videoEffects);
         inputStreamPending = false;
       }

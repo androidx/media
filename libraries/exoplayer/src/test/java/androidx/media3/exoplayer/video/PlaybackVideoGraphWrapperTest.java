@@ -75,13 +75,15 @@ public final class PlaybackVideoGraphWrapperTest {
     PlaybackVideoGraphWrapper playbackVideoGraphWrapper =
         createPlaybackVideoGraphWrapper(testVideoGraphFactory);
     Format format = new Format.Builder().build();
+    long startPositionUs = 0;
     VideoSink sink = playbackVideoGraphWrapper.getSink(/* inputIndex= */ 0);
 
     sink.initialize(format);
 
-    sink.onInputStreamChanged(VideoSink.INPUT_TYPE_SURFACE, format, firstEffects);
-    sink.onInputStreamChanged(VideoSink.INPUT_TYPE_SURFACE, format, secondEffects);
-    sink.onInputStreamChanged(VideoSink.INPUT_TYPE_SURFACE, format, ImmutableList.of());
+    sink.onInputStreamChanged(VideoSink.INPUT_TYPE_SURFACE, format, startPositionUs, firstEffects);
+    sink.onInputStreamChanged(VideoSink.INPUT_TYPE_SURFACE, format, startPositionUs, secondEffects);
+    sink.onInputStreamChanged(
+        VideoSink.INPUT_TYPE_SURFACE, format, startPositionUs, ImmutableList.of());
     testVideoGraphFactory.verifyRegisteredEffectsMatches(/* invocationTimes= */ 3);
     assertThat(testVideoGraphFactory.getCapturedEffects())
         .isEqualTo(ImmutableList.of(firstEffects, secondEffects, ImmutableList.of()));

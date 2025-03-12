@@ -178,15 +178,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   @Override
-  public void setStreamStartPositionUs(long streamStartPositionUs) {
-    if (streamStartPositionUs != this.streamStartPositionUs) {
-      videoFrameRenderControl.onStreamChanged(
-          RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED, streamStartPositionUs);
-      this.streamStartPositionUs = streamStartPositionUs;
-    }
-  }
-
-  @Override
   public void setBufferTimestampAdjustmentUs(long bufferTimestampAdjustmentUs) {
     this.bufferTimestampAdjustmentUs = bufferTimestampAdjustmentUs;
   }
@@ -220,7 +211,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    */
   @Override
   public void onInputStreamChanged(
-      @InputType int inputType, Format format, List<Effect> videoEffects) {
+      @InputType int inputType, Format format, long startPositionUs, List<Effect> videoEffects) {
     checkState(videoEffects.isEmpty());
     if (format.width != inputFormat.width || format.height != inputFormat.height) {
       videoFrameRenderControl.onVideoSizeChanged(format.width, format.height);
@@ -229,6 +220,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       videoFrameReleaseControl.setFrameRate(format.frameRate);
     }
     inputFormat = format;
+    if (startPositionUs != this.streamStartPositionUs) {
+      videoFrameRenderControl.onStreamChanged(
+          RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED, startPositionUs);
+      this.streamStartPositionUs = startPositionUs;
+    }
   }
 
   @Override

@@ -188,7 +188,7 @@ public interface VideoSink {
    *
    * <p>This method returns {@code true} if the end of the last input stream has been {@linkplain
    * #signalEndOfCurrentInputStream() signaled} and all the input frames have been rendered. Note
-   * that a new input stream can be {@linkplain #onInputStreamChanged(int, Format, List<Effect>)
+   * that a new input stream can be {@linkplain #onInputStreamChanged(int, Format, long, List)
    * signaled} even when this method returns true (in which case the sink will not be ended
    * anymore).
    */
@@ -209,14 +209,6 @@ public interface VideoSink {
 
   /** Sets {@linkplain Effect video effects} to apply immediately. */
   void setVideoEffects(List<Effect> videoEffects);
-
-  /**
-   * Sets the current stream start position.
-   *
-   * @param streamStartPositionUs The start position of the buffer presentation timestamps of the
-   *     current stream, in microseconds.
-   */
-  void setStreamStartPositionUs(long streamStartPositionUs);
 
   /**
    * Sets the buffer timestamp adjustment.
@@ -256,15 +248,18 @@ public interface VideoSink {
    *
    * @param inputType The {@link InputType} of the stream.
    * @param format The {@link Format} of the stream.
+   * @param startPositionUs The start position of the buffer presentation timestamps of the stream,
+   *     in microseconds.
    * @param videoEffects The {@link List<Effect>} to apply to the new stream.
    */
-  void onInputStreamChanged(@InputType int inputType, Format format, List<Effect> videoEffects);
+  void onInputStreamChanged(
+      @InputType int inputType, Format format, long startPositionUs, List<Effect> videoEffects);
 
   /**
    * Handles a video input frame.
    *
    * <p>Must be called after the corresponding stream is {@linkplain #onInputStreamChanged(int,
-   * Format, List<Effect>) signaled}.
+   * Format, long, List) signaled}.
    *
    * @param framePresentationTimeUs The frame's presentation time, in microseconds.
    * @param isLastFrame Whether this is the last frame of the video stream. This flag is set on a
@@ -281,7 +276,7 @@ public interface VideoSink {
    * Handles an input {@link Bitmap}.
    *
    * <p>Must be called after the corresponding stream is {@linkplain #onInputStreamChanged(int,
-   * Format, List<Effect>) signaled}.
+   * Format, long, List) signaled}.
    *
    * @param inputBitmap The {@link Bitmap} to queue to the video sink.
    * @param timestampIterator The times within the current stream that the bitmap should be shown

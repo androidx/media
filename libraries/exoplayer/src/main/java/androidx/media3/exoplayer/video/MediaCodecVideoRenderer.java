@@ -1643,7 +1643,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   }
 
   /**
-   * Called when ready to {@linkplain VideoSink#onInputStreamChanged(int, Format, List<Effect>)
+   * Called when ready to {@linkplain VideoSink#onInputStreamChanged(int, Format, long, List)
    * change} the input stream.
    *
    * <p>The default implementation applies this renderer's video effects.
@@ -1651,7 +1651,8 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   protected void changeVideoSinkInputStream(
       VideoSink videoSink, @VideoSink.InputType int inputType, Format format) {
     List<Effect> videoEffectsToApply = videoEffects != null ? videoEffects : ImmutableList.of();
-    videoSink.onInputStreamChanged(inputType, format, videoEffectsToApply);
+    videoSink.onInputStreamChanged(
+        inputType, format, getOutputStreamStartPositionUs(), videoEffectsToApply);
   }
 
   @Override
@@ -1861,7 +1862,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     if (videoSink != null) {
       // Signaling end of the previous stream.
       videoSink.signalEndOfCurrentInputStream();
-      videoSink.setStreamStartPositionUs(getOutputStreamStartPositionUs());
       if (this.startPositionUs == C.TIME_UNSET) {
         this.startPositionUs = getOutputStreamStartPositionUs();
       }

@@ -193,11 +193,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   @Override
-  public void setStreamStartPositionUs(long streamStartPositionUs) {
-    executeOrDelay(videoSink -> videoSink.setStreamStartPositionUs(streamStartPositionUs));
-  }
-
-  @Override
   public void setBufferTimestampAdjustmentUs(long bufferTimestampAdjustmentUs) {
     executeOrDelay(
         videoSink -> videoSink.setBufferTimestampAdjustmentUs(bufferTimestampAdjustmentUs));
@@ -225,8 +220,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @Override
   public void onInputStreamChanged(
-      @InputType int inputType, Format format, List<Effect> videoEffects) {
-    executeOrDelay(videoSink -> videoSink.onInputStreamChanged(inputType, format, videoEffects));
+      @InputType int inputType, Format format, long startPositionUs, List<Effect> videoEffects) {
+    executeOrDelay(
+        videoSink ->
+            videoSink.onInputStreamChanged(inputType, format, startPositionUs, videoEffects));
   }
 
   /**

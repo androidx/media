@@ -407,15 +407,13 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     // We forward output size changes to the sink even if we are still flushing.
     videoGraphOutputFormat =
         videoGraphOutputFormat.buildUpon().setWidth(width).setHeight(height).build();
-    defaultVideoSink.onInputStreamChanged(
-        INPUT_TYPE_SURFACE, videoGraphOutputFormat, /* videoEffects= */ ImmutableList.of());
+    onOutputStreamChanged();
   }
 
   @Override
   public void onOutputFrameRateChanged(float frameRate) {
     videoGraphOutputFormat = videoGraphOutputFormat.buildUpon().setFrameRate(frameRate).build();
-    defaultVideoSink.onInputStreamChanged(
-        INPUT_TYPE_SURFACE, videoGraphOutputFormat, /* videoEffects= */ ImmutableList.of());
+    onOutputStreamChanged();
   }
 
   @Override
@@ -436,8 +434,8 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
         streamStartPositionsUs.pollFloor(bufferPresentationTimeUs);
     if (newOutputStreamStartPositionUs != null
         && newOutputStreamStartPositionUs != outputStreamStartPositionUs) {
-      defaultVideoSink.setStreamStartPositionUs(newOutputStreamStartPositionUs);
       outputStreamStartPositionUs = newOutputStreamStartPositionUs;
+      onOutputStreamChanged();
     }
     boolean isLastFrame =
         finalBufferPresentationTimeUs != C.TIME_UNSET
@@ -580,9 +578,9 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
       streamStartPositionsUs.pollFirst();
     }
     if (streamStartPositionsUs.size() == 1) {
-      long lastStartPositionUs = checkNotNull(streamStartPositionsUs.pollFirst());
-      // defaultVideoSink should use the latest startPositionUs if none is passed after flushing.
-      defaultVideoSink.setStreamStartPositionUs(lastStartPositionUs);
+      // Use the latest startPositionUs if none is passed after flushing.
+      outputStreamStartPositionUs = checkNotNull(streamStartPositionsUs.pollFirst());
+      onOutputStreamChanged();
     }
     lastOutputBufferPresentationTimeUs = C.TIME_UNSET;
     finalBufferPresentationTimeUs = C.TIME_UNSET;
@@ -617,6 +615,14 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     }
 
     return inputColorInfo;
+  }
+
+  private void onOutputStreamChanged() {
+    defaultVideoSink.onInputStreamChanged(
+        INPUT_TYPE_SURFACE,
+        videoGraphOutputFormat,
+        outputStreamStartPositionUs,
+        /* videoEffects= */ ImmutableList.of());
   }
 
   /** Receives input from an ExoPlayer renderer and forwards it to the video graph. */
@@ -740,7 +746,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
 
     @Override
     public void onInputStreamChanged(
-        @InputType int inputType, Format format, List<Effect> videoEffects) {
+        @InputType int inputType, Format format, long startPositionUs, List<Effect> videoEffects) {
       checkState(isInitialized());
       switch (inputType) {
         case INPUT_TYPE_SURFACE:
@@ -755,6 +761,12 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
       finalBufferPresentationTimeUs = C.TIME_UNSET;
       hasSignaledEndOfCurrentInputStream = false;
       registerInputStream(format);
+      // Input timestamps should always be positive because they are offset by ExoPlayer. Adding a
+      // position to the queue with timestamp 0 should therefore always apply it as long as it is
+      // the only position in the queue.
+      streamStartPositionsUs.add(
+          lastBufferPresentationTimeUs == C.TIME_UNSET ? 0 : lastBufferPresentationTimeUs + 1,
+          startPositionUs);
     }
 
     @Override
@@ -783,16 +795,6 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
       if (inputFormat != null) {
         registerInputStream(inputFormat);
       }
-    }
-
-    @Override
-    public void setStreamStartPositionUs(long streamStartPositionUs) {
-      // Input timestamps should always be positive because they are offset by ExoPlayer. Adding a
-      // position to the queue with timestamp 0 should therefore always apply it as long as it is
-      // the only position in the queue.
-      streamStartPositionsUs.add(
-          lastBufferPresentationTimeUs == C.TIME_UNSET ? 0 : lastBufferPresentationTimeUs + 1,
-          streamStartPositionUs);
     }
 
     @Override
