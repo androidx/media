@@ -7,6 +7,10 @@
 *   Transformer:
 *   Track Selection:
 *   Extractors:
+    *   MP3: Use duration and data size from unseekable Xing, VBRI and similar
+        variable bitrate metadata when falling back to constant bitrate seeking
+        due to `FLAG_ENABLE_CONSTANT_BITRATE_SEEKING(_ALWAYS)`
+        ([#2194](https://github.com/androidx/media/issues/2194)).
 *   DataSource:
 *   Audio:
     *   Allow constant power upmixing/downmixing in DefaultAudioMixer.

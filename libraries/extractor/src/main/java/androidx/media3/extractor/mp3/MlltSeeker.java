@@ -124,6 +124,11 @@ import androidx.media3.extractor.metadata.id3.MlltFrame;
   }
 
   @Override
+  public long getDataStartPosition() {
+    return 0;
+  }
+
+  @Override
   public long getDataEndPosition() {
     return C.INDEX_UNSET;
   }
