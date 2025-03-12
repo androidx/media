@@ -212,7 +212,8 @@ public interface Renderer extends PlayerMessage.Target {
         MSG_SET_IMAGE_OUTPUT,
         MSG_SET_PRIORITY,
         MSG_TRANSFER_RESOURCES,
-        MSG_EVENT_VIDEO_SIZE_CHANGED
+        MSG_EVENT_VIDEO_SIZE_CHANGED,
+        MSG_EVENT_VIDEO_FORMAT_CHANGED
       })
   public @interface MessageType {}
 
@@ -362,6 +363,12 @@ public interface Renderer extends PlayerMessage.Target {
    * changed. The message payload should be a {@link VideoSize}.
    */
   int MSG_EVENT_VIDEO_SIZE_CHANGED = 18;
+
+  /**
+   * The type of a message that can be passed to a renderer to tell it that the video format
+   * changed. The message payload should be a {@link Format}.
+   */
+  int MSG_EVENT_VIDEO_FORMAT_CHANGED = 19;
 
   /**
    * Applications or extensions may define custom {@code MSG_*} constants that can be passed to
