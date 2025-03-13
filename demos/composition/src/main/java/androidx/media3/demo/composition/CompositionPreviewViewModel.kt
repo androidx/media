@@ -26,8 +26,8 @@ import androidx.media3.common.util.Util
 import androidx.media3.demo.composition.MatrixTransformationFactory.createDizzyCropEffect
 import androidx.media3.effect.DebugTraceUtil
 import androidx.media3.effect.LanczosResample
+import androidx.media3.effect.MultipleInputVideoGraph
 import androidx.media3.effect.Presentation
-import androidx.media3.effect.PreviewingMultipleInputVideoGraph
 import androidx.media3.effect.RgbFilter
 import androidx.media3.effect.StaticOverlaySettings
 import androidx.media3.transformer.Composition
@@ -374,7 +374,7 @@ class CompositionPreviewViewModel(application: Application, val compositionLayou
         val playerBuilder = CompositionPlayer.Builder(getApplication())
         if(compositionLayout != COMPOSITION_LAYOUT[0]) {
             playerBuilder
-                .setPreviewingVideoGraphFactory(PreviewingMultipleInputVideoGraph.Factory())
+                .setVideoGraphFactory(MultipleInputVideoGraph.Factory())
         }
         val player = playerBuilder.build()
         player.addListener(object : Player.Listener {

@@ -16,6 +16,7 @@
 apply from: '../../constants.gradle'
 apply plugin: 'com.android.application'
 apply plugin: 'kotlin-android'
+apply plugin: 'org.jetbrains.kotlin.plugin.compose'
 
 android {
     namespace 'androidx.media3.demo.composition'
@@ -30,9 +31,6 @@ android {
     kotlinOptions {
         jvmTarget = '11'
     }
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.3"
-    }
 
     defaultConfig {
         versionName project.ext.releaseVersion
@@ -45,7 +43,7 @@ android {
         release {
             shrinkResources true
             minifyEnabled true
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.txt'
+//            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.txt'
             signingConfig signingConfigs.debug
         }
     }
@@ -56,7 +54,6 @@ android {
     }
 
     buildFeatures {
-        viewBinding true
         compose true
     }
 }
