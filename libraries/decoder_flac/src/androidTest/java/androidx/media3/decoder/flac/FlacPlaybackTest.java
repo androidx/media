@@ -48,6 +48,7 @@ public class FlacPlaybackTest {
 
   private static final String BEAR_FLAC_16BIT = "mka/bear-flac-16bit.mka";
   private static final String BEAR_FLAC_24BIT = "mka/bear-flac-24bit.mka";
+  private static final String BEAR_FLAC_32BIT = "mka/bear-flac-32bit.mka";
 
   @Before
   public void setUp() {
@@ -64,6 +65,11 @@ public class FlacPlaybackTest {
   @Test
   public void test24BitPlayback() throws Exception {
     playAndAssertAudioSinkInput(BEAR_FLAC_24BIT);
+  }
+
+  @Test
+  public void test32BitPlayback() throws Exception {
+    playAndAssertAudioSinkInput(BEAR_FLAC_32BIT);
   }
 
   private static void playAndAssertAudioSinkInput(String fileName) throws Exception {
