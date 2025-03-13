@@ -18,6 +18,7 @@ package androidx.media3.test.utils.robolectric;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
+import static androidx.media3.exoplayer.mediacodec.MediaCodecUtil.createCodecProfileLevel;
 
 import android.media.MediaCodecInfo;
 import android.media.MediaCodecInfo.CodecProfileLevel;
@@ -145,7 +146,7 @@ public final class ShadowMediaCodecConfig extends ExternalResource {
             /* codecName= */ "exotest.video.avc",
             /* mimeType= */ MimeTypes.VIDEO_H264,
             /* profileLevels= */ ImmutableList.of(
-                createProfileLevel(
+                createCodecProfileLevel(
                     MediaCodecInfo.CodecProfileLevel.AVCProfileHigh,
                     MediaCodecInfo.CodecProfileLevel.AVCLevel62)),
             /* colorFormats= */ ImmutableList.of(
@@ -156,7 +157,7 @@ public final class ShadowMediaCodecConfig extends ExternalResource {
             /* codecName= */ "exotest.video.hevc",
             /* mimeType= */ MimeTypes.VIDEO_H265,
             /* profileLevels= */ ImmutableList.of(
-                createProfileLevel(
+                createCodecProfileLevel(
                     CodecProfileLevel.HEVCProfileMain, CodecProfileLevel.HEVCMainTierLevel61)),
             /* colorFormats= */ ImmutableList.of(
                 MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible)));
@@ -166,7 +167,7 @@ public final class ShadowMediaCodecConfig extends ExternalResource {
             /* codecName= */ "exotest.video.mpeg2",
             /* mimeType= */ MimeTypes.VIDEO_MPEG2,
             /* profileLevels= */ ImmutableList.of(
-                createProfileLevel(
+                createCodecProfileLevel(
                     MediaCodecInfo.CodecProfileLevel.MPEG2ProfileMain,
                     MediaCodecInfo.CodecProfileLevel.MPEG2LevelML)),
             /* colorFormats= */ ImmutableList.of(
@@ -230,13 +231,6 @@ public final class ShadowMediaCodecConfig extends ExternalResource {
         new CodecImpl(/* codecName= */ "exotest.audio.raw", /* mimeType= */ MimeTypes.AUDIO_RAW));
 
     return codecs.buildOrThrow();
-  }
-
-  private static MediaCodecInfo.CodecProfileLevel createProfileLevel(int profile, int level) {
-    MediaCodecInfo.CodecProfileLevel profileLevel = new MediaCodecInfo.CodecProfileLevel();
-    profileLevel.profile = profile;
-    profileLevel.level = level;
-    return profileLevel;
   }
 
   /**

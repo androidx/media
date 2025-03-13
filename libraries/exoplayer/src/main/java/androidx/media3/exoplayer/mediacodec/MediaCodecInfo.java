@@ -30,6 +30,7 @@ import static androidx.media3.exoplayer.DecoderReuseEvaluation.REUSE_RESULT_YES_
 import static androidx.media3.exoplayer.DecoderReuseEvaluation.REUSE_RESULT_YES_WITH_RECONFIGURATION;
 import static androidx.media3.exoplayer.mediacodec.MediaCodecPerformancePointCoverageProvider.COVERAGE_RESULT_NO;
 import static androidx.media3.exoplayer.mediacodec.MediaCodecPerformancePointCoverageProvider.COVERAGE_RESULT_YES;
+import static androidx.media3.exoplayer.mediacodec.MediaCodecUtil.createCodecProfileLevel;
 
 import android.graphics.Point;
 import android.media.MediaCodec;
@@ -775,12 +776,8 @@ public final class MediaCodecInfo {
       level = CodecProfileLevel.VP9Level1;
     }
 
-    CodecProfileLevel profileLevel = new CodecProfileLevel();
     // Since this method is for legacy devices only, assume that only profile 0 is supported.
-    profileLevel.profile = CodecProfileLevel.VP9Profile0;
-    profileLevel.level = level;
-
-    return new CodecProfileLevel[] {profileLevel};
+    return new CodecProfileLevel[] {createCodecProfileLevel(CodecProfileLevel.VP9Profile0, level)};
   }
 
   /**

@@ -16,8 +16,18 @@
 package androidx.media3.exoplayer.video;
 
 import static android.media.MediaCodec.INFO_TRY_AGAIN_LATER;
+import static android.media.MediaCodecInfo.CodecProfileLevel.AVCLevel42;
+import static android.media.MediaCodecInfo.CodecProfileLevel.AVCProfileBaseline;
+import static android.media.MediaCodecInfo.CodecProfileLevel.AVCProfileHigh;
+import static android.media.MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelFhd30;
+import static android.media.MediaCodecInfo.CodecProfileLevel.DolbyVisionProfileDvheDtr;
+import static android.media.MediaCodecInfo.CodecProfileLevel.HEVCHighTierLevel51;
+import static android.media.MediaCodecInfo.CodecProfileLevel.HEVCMainTierLevel41;
+import static android.media.MediaCodecInfo.CodecProfileLevel.HEVCProfileMain;
+import static android.media.MediaCodecInfo.CodecProfileLevel.HEVCProfileMain10;
 import static android.view.Display.DEFAULT_DISPLAY;
 import static androidx.media3.common.util.Util.msToUs;
+import static androidx.media3.exoplayer.mediacodec.MediaCodecUtil.createCodecProfileLevel;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.END_OF_STREAM_ITEM;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.format;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.oneByteSample;
@@ -139,8 +149,7 @@ public class MediaCodecVideoRendererTest {
           /* name= */ "h264-codec-hw",
           /* mimeType= */ MimeTypes.VIDEO_H264,
           /* codecMimeType= */ MimeTypes.VIDEO_H264,
-          /* capabilities= */ createCodecCapabilities(
-              CodecProfileLevel.AVCProfileHigh, CodecProfileLevel.AVCLevel4),
+          /* capabilities= */ createCodecCapabilities(AVCProfileHigh, CodecProfileLevel.AVCLevel4),
           /* hardwareAccelerated= */ true,
           /* softwareOnly= */ false,
           /* vendor= */ false,
@@ -152,8 +161,7 @@ public class MediaCodecVideoRendererTest {
           /* name= */ "h264-codec-sw",
           /* mimeType= */ MimeTypes.VIDEO_H264,
           /* codecMimeType= */ MimeTypes.VIDEO_H264,
-          /* capabilities= */ createCodecCapabilities(
-              CodecProfileLevel.AVCProfileHigh, CodecProfileLevel.AVCLevel5),
+          /* capabilities= */ createCodecCapabilities(AVCProfileHigh, CodecProfileLevel.AVCLevel5),
           /* hardwareAccelerated= */ false,
           /* softwareOnly= */ true,
           /* vendor= */ false,
@@ -1817,11 +1825,10 @@ public class MediaCodecVideoRendererTest {
             case MimeTypes.VIDEO_H264:
               CodecCapabilities capabilitiesH264 = new CodecCapabilities();
               capabilitiesH264.profileLevels =
-                  new CodecProfileLevel[] {new CodecProfileLevel(), new CodecProfileLevel()};
-              capabilitiesH264.profileLevels[0].profile = CodecProfileLevel.AVCProfileBaseline;
-              capabilitiesH264.profileLevels[0].level = CodecProfileLevel.AVCLevel42;
-              capabilitiesH264.profileLevels[1].profile = CodecProfileLevel.AVCProfileHigh;
-              capabilitiesH264.profileLevels[1].level = CodecProfileLevel.AVCLevel42;
+                  new CodecProfileLevel[] {
+                    createCodecProfileLevel(AVCProfileBaseline, AVCLevel42),
+                    createCodecProfileLevel(AVCProfileHigh, AVCLevel42)
+                  };
               return ImmutableList.of(
                   MediaCodecInfo.newInstance(
                       /* name= */ "h264-codec",
@@ -1836,11 +1843,10 @@ public class MediaCodecVideoRendererTest {
             case MimeTypes.VIDEO_H265:
               CodecCapabilities capabilitiesH265 = new CodecCapabilities();
               capabilitiesH265.profileLevels =
-                  new CodecProfileLevel[] {new CodecProfileLevel(), new CodecProfileLevel()};
-              capabilitiesH265.profileLevels[0].profile = CodecProfileLevel.HEVCProfileMain;
-              capabilitiesH265.profileLevels[0].level = CodecProfileLevel.HEVCMainTierLevel41;
-              capabilitiesH265.profileLevels[1].profile = CodecProfileLevel.HEVCProfileMain10;
-              capabilitiesH265.profileLevels[1].level = CodecProfileLevel.HEVCHighTierLevel51;
+                  new CodecProfileLevel[] {
+                    createCodecProfileLevel(HEVCProfileMain, HEVCMainTierLevel41),
+                    createCodecProfileLevel(HEVCProfileMain10, HEVCHighTierLevel51)
+                  };
               return ImmutableList.of(
                   MediaCodecInfo.newInstance(
                       /* name= */ "h265-codec",
@@ -1899,11 +1905,8 @@ public class MediaCodecVideoRendererTest {
           switch (mimeType) {
             case MimeTypes.VIDEO_DOLBY_VISION:
               {
-                CodecCapabilities capabilitiesDolby = new CodecCapabilities();
-                capabilitiesDolby.profileLevels = new CodecProfileLevel[] {new CodecProfileLevel()};
-                capabilitiesDolby.profileLevels[0].profile =
-                    CodecProfileLevel.DolbyVisionProfileDvheDtr;
-                capabilitiesDolby.profileLevels[0].level = CodecProfileLevel.DolbyVisionLevelFhd30;
+                CodecCapabilities capabilitiesDolby =
+                    createCodecCapabilities(DolbyVisionProfileDvheDtr, DolbyVisionLevelFhd30);
                 return ImmutableList.of(
                     MediaCodecInfo.newInstance(
                         /* name= */ "dvhe-codec",
@@ -1920,11 +1923,10 @@ public class MediaCodecVideoRendererTest {
               {
                 CodecCapabilities capabilitiesH265 = new CodecCapabilities();
                 capabilitiesH265.profileLevels =
-                    new CodecProfileLevel[] {new CodecProfileLevel(), new CodecProfileLevel()};
-                capabilitiesH265.profileLevels[0].profile = CodecProfileLevel.HEVCProfileMain;
-                capabilitiesH265.profileLevels[0].level = CodecProfileLevel.HEVCMainTierLevel41;
-                capabilitiesH265.profileLevels[1].profile = CodecProfileLevel.HEVCProfileMain10;
-                capabilitiesH265.profileLevels[1].level = CodecProfileLevel.HEVCHighTierLevel51;
+                    new CodecProfileLevel[] {
+                      createCodecProfileLevel(HEVCProfileMain, HEVCMainTierLevel41),
+                      createCodecProfileLevel(HEVCProfileMain10, HEVCHighTierLevel51)
+                    };
                 return ImmutableList.of(
                     MediaCodecInfo.newInstance(
                         /* name= */ "h265-codec",
@@ -2150,9 +2152,7 @@ public class MediaCodecVideoRendererTest {
 
   private static CodecCapabilities createCodecCapabilities(int profile, int level) {
     CodecCapabilities capabilities = new CodecCapabilities();
-    capabilities.profileLevels = new CodecProfileLevel[] {new CodecProfileLevel()};
-    capabilities.profileLevels[0].profile = profile;
-    capabilities.profileLevels[0].level = level;
+    capabilities.profileLevels = new CodecProfileLevel[] {createCodecProfileLevel(profile, level)};
     return capabilities;
   }
 
