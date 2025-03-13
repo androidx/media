@@ -43,6 +43,7 @@ public final class CapturingAudioSink extends ForwardingAudioSink implements Dum
 
   private int bufferCount;
   private long lastPresentationTimeUs;
+  @Nullable private ByteBuffer currentBuffer;
 
   /** Creates the capturing audio sink. */
   public static CapturingAudioSink create() {
@@ -86,12 +87,19 @@ public final class CapturingAudioSink extends ForwardingAudioSink implements Dum
       ByteBuffer buffer, long presentationTimeUs, int encodedAccessUnitCount)
       throws InitializationException, WriteException {
     lastPresentationTimeUs = presentationTimeUs;
-    if (!buffer.hasRemaining()) {
+    // The handleBuffer is called repeatedly with the same buffer until it's been fully consumed by
+    // the sink. We only want to dump each buffer once.
+    if (buffer != currentBuffer && !buffer.hasRemaining()) {
       // Empty buffers are not processed any further and need to be intercepted here.
       // TODO: b/174737370 - Output audio bytes in Robolectric to avoid this situation.
       interceptedData.add(new DumpableBuffer(bufferCount++, buffer, lastPresentationTimeUs));
+      currentBuffer = buffer;
     }
-    return super.handleBuffer(buffer, presentationTimeUs, encodedAccessUnitCount);
+    boolean fullyBuffered = super.handleBuffer(buffer, presentationTimeUs, encodedAccessUnitCount);
+    if (fullyBuffered) {
+      currentBuffer = null;
+    }
+    return fullyBuffered;
   }
 
   @Override
