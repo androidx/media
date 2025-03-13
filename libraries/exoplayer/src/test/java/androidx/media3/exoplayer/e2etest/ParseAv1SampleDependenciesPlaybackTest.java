@@ -211,12 +211,6 @@ public class ParseAv1SampleDependenciesPlaybackTest {
       }
 
       @Override
-      protected boolean shouldSkipLateBuffersWhileUsingPlaceholderSurface() {
-        // Do not skip buffers while using placeholder surface due to slow processing.
-        return false;
-      }
-
-      @Override
       protected boolean shouldForceRenderOutputBuffer(long earlyUs, long elapsedSinceLastRenderUs) {
         // An auto-advancing FakeClock can make a lot of progress before
         // AsynchronousMediaCodecAdapter produces an output buffer - causing all output buffers to

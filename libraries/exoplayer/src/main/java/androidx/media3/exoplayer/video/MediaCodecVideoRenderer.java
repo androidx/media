@@ -1723,11 +1723,8 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
 
     // We are not rendering on a surface, the renderer will wait until a surface is set.
     if (displaySurface == null) {
-      // Skip frames in sync with playback, so we'll be at the right frame if the mode changes.
-      if ((videoFrameReleaseInfo.getEarlyUs() < 0
-              && shouldSkipLateBuffersWhileUsingPlaceholderSurface())
-          || (videoFrameReleaseInfo.getEarlyUs() < 30_000
-              && frameReleaseAction != VideoFrameReleaseControl.FRAME_RELEASE_TRY_AGAIN_LATER)) {
+      // Skip frames in sync with playback, so we'll be at the right frame if a surface is set.
+      if (getState() == STATE_STARTED && videoFrameReleaseInfo.getEarlyUs() < 30_000) {
         skipOutputBuffer(codec, bufferIndex, presentationTimeUs);
         updateVideoFrameProcessingOffsetCounters(videoFrameReleaseInfo.getEarlyUs());
         return true;
@@ -1873,11 +1870,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
    * buffer.
    */
   protected boolean shouldSkipBuffersWithIdenticalReleaseTime() {
-    return true;
-  }
-
-  /** Returns whether to skip late buffers while using a placeholder surface. */
-  protected boolean shouldSkipLateBuffersWhileUsingPlaceholderSurface() {
     return true;
   }
 
