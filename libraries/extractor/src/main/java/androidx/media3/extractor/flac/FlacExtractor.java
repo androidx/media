@@ -51,7 +51,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 /**
  * Extracts data from FLAC container format.
  *
- * <p>The format specification can be found at https://xiph.org/flac/format.html.
+ * <p>The format is specified in RFC 9639.
  */
 @UnstableApi
 public final class FlacExtractor implements Extractor {
