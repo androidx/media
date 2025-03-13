@@ -24,6 +24,7 @@ import android.opengl.EGLExt;
 import android.view.Surface;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
+import androidx.media3.common.util.SystemClock;
 import androidx.media3.common.util.TimestampIterator;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.collect.ImmutableList;
@@ -187,10 +188,10 @@ public interface VideoFrameProcessor {
   }
 
   /**
-   * Indicates the frame should be rendered immediately after {@link #renderOutputFrame(long)} is
-   * invoked.
+   * @deprecated Pass {@link SystemClock#nanoTime()} to {@link #renderOutputFrame} to render an
+   *     output frame immediately.
    */
-  long RENDER_OUTPUT_FRAME_IMMEDIATELY = -1;
+  @Deprecated long RENDER_OUTPUT_FRAME_IMMEDIATELY = -1;
 
   /** Indicates the frame should be dropped after {@link #renderOutputFrame(long)} is invoked. */
   long DROP_OUTPUT_FRAME = -2;
@@ -366,10 +367,10 @@ public interface VideoFrameProcessor {
    *
    * @param renderTimeNs The render time to use for the frame, in nanoseconds. The render time can
    *     be before or after the current system time. Use {@link #DROP_OUTPUT_FRAME} to drop the
-   *     frame, or {@link #RENDER_OUTPUT_FRAME_IMMEDIATELY} to render the frame immediately, or
-   *     {@link #RENDER_OUTPUT_FRAME_WITH_PRESENTATION_TIME} to render the frame to the {@linkplain
-   *     #setOutputSurfaceInfo output surface} with the presentation timestamp seen in {@link
-   *     Listener#onOutputFrameAvailableForRendering(long)}.
+   *     frame or {@link #RENDER_OUTPUT_FRAME_WITH_PRESENTATION_TIME} to render the frame to the
+   *     {@linkplain #setOutputSurfaceInfo output surface} with the presentation timestamp seen in
+   *     {@link Listener#onOutputFrameAvailableForRendering(long)}. If the frame should be rendered
+   *     immediately, pass in {@link SystemClock#nanoTime()}.
    */
   void renderOutputFrame(long renderTimeNs);
 

@@ -21,9 +21,9 @@ import static androidx.media3.exoplayer.video.VideoFrameReleaseControl.RELEASE_F
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
-import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.util.LongArrayQueue;
+import androidx.media3.common.util.SystemClock;
 import androidx.media3.common.util.TimedValueQueue;
 import androidx.media3.exoplayer.ExoPlaybackException;
 
@@ -44,8 +44,7 @@ import androidx.media3.exoplayer.ExoPlaybackException;
      * oldest frame that is available for rendering}.
      *
      * @param renderTimeNs The specific time, in nano seconds, that this frame should be rendered or
-     *     {@link VideoFrameProcessor#RENDER_OUTPUT_FRAME_IMMEDIATELY} if the frame needs to be
-     *     rendered immediately.
+     *     {@link SystemClock#nanoTime()} if the frame needs to be rendered immediately.
      * @param presentationTimeUs The frame's presentation time, in microseconds, which was announced
      *     with {@link VideoFrameRenderControl#onFrameAvailableForRendering(long)}.
      * @param isFirstFrame Whether this is the first frame of the stream.
@@ -239,7 +238,7 @@ import androidx.media3.exoplayer.ExoPlaybackException;
     }
     long renderTimeNs =
         shouldRenderImmediately
-            ? VideoFrameProcessor.RENDER_OUTPUT_FRAME_IMMEDIATELY
+            ? SystemClock.DEFAULT.nanoTime()
             : videoFrameReleaseInfo.getReleaseTimeNs();
     frameRenderer.renderFrame(
         renderTimeNs, presentationTimeUs, videoFrameReleaseControl.onFrameReleasedIsFirstFrame());

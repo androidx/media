@@ -231,7 +231,7 @@ public class DefaultVideoFrameProcessorTest {
                   firstStreamLastFrameAvailableTimeMs.set(SystemClock.DEFAULT.elapsedRealtime());
                 }
                 defaultVideoFrameProcessor.renderOutputFrame(
-                    VideoFrameProcessor.RENDER_OUTPUT_FRAME_IMMEDIATELY);
+                    /* renderTimeNs= */ SystemClock.DEFAULT.nanoTime());
               }
 
               @Override

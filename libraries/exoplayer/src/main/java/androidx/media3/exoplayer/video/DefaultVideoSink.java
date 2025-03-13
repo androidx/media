@@ -58,7 +58,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 /* package */ final class DefaultVideoSink implements VideoSink {
 
   private final VideoFrameReleaseControl videoFrameReleaseControl;
-  private final Clock clock;
   private final VideoFrameRenderControl videoFrameRenderControl;
   private final Queue<VideoFrameHandler> videoFrameHandlers;
 
@@ -73,7 +72,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   public DefaultVideoSink(VideoFrameReleaseControl videoFrameReleaseControl, Clock clock) {
     this.videoFrameReleaseControl = videoFrameReleaseControl;
     videoFrameReleaseControl.setClock(clock);
-    this.clock = clock;
     videoFrameRenderControl =
         new VideoFrameRenderControl(new FrameRendererImpl(), videoFrameReleaseControl);
     videoFrameHandlers = new ArrayDeque<>();
@@ -299,7 +297,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       Format format = outputFormat == null ? new Format.Builder().build() : outputFormat;
       videoFrameMetadataListener.onVideoFrameAboutToBeRendered(
           /* presentationTimeUs= */ bufferPresentationTimeUs,
-          /* releaseTimeNs= */ clock.nanoTime(),
+          /* releaseTimeNs= */ renderTimeNs,
           format,
           /* mediaFormat= */ null);
       videoFrameHandlers.remove().render(renderTimeNs);
