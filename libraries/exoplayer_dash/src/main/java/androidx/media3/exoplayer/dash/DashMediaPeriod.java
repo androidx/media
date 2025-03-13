@@ -72,6 +72,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -624,7 +625,9 @@ import java.util.regex.Pattern;
             @Nullable
             Integer otherAdaptationSetIndex =
                 adaptationSetIdToIndex.get(Long.parseLong(adaptationSetId));
-            if (otherAdaptationSetIndex != null) {
+            if (otherAdaptationSetIndex != null
+                && canMergeAdaptationSets(
+                    adaptationSet, adaptationSets.get(otherAdaptationSetIndex))) {
               mergedGroupIndex = min(mergedGroupIndex, otherAdaptationSetIndex);
             }
           }
@@ -648,6 +651,20 @@ import java.util.regex.Pattern;
       Arrays.sort(groupedAdaptationSetIndices[i]);
     }
     return groupedAdaptationSetIndices;
+  }
+
+  private static boolean canMergeAdaptationSets(
+      AdaptationSet adaptationSet1, AdaptationSet adaptationSet2) {
+    if (adaptationSet1.type != adaptationSet2.type) {
+      return false;
+    }
+    if (adaptationSet1.representations.isEmpty() || adaptationSet2.representations.isEmpty()) {
+      return true;
+    }
+    Format format1 = adaptationSet1.representations.get(0).format;
+    Format format2 = adaptationSet2.representations.get(0).format;
+    return Objects.equals(format1.language, format2.language)
+        && format1.roleFlags == format2.roleFlags;
   }
 
   /**

@@ -11,6 +11,10 @@
 *   UI:
     *   Add `PlaybackSpeedState` class and the corresponding
         `rememberPlaybackSpeedState` Composable to `media3-ui-compose` module.
+*   DASH extension:
+    *   Fix issue where adaptation sets marked with `adaptation-set-switching`
+        but different languages or role flags are merged together
+        ([#2222](https://github.com/androidx/media/issues/2222)).
 
 ## 1.6
 
