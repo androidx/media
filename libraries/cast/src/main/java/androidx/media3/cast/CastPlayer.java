@@ -16,6 +16,7 @@
 package androidx.media3.cast;
 
 import static androidx.media3.common.util.Assertions.checkArgument;
+import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Util.SDK_INT;
 import static androidx.media3.common.util.Util.castNonNull;
 import static java.lang.Math.min;
@@ -166,6 +167,7 @@ public final class CastPlayer extends BasePlayer {
   private long pendingSeekPositionMs;
   @Nullable private PositionInfo pendingMediaItemRemovalPosition;
   private MediaMetadata mediaMetadata;
+  private MediaMetadata playlistMetadata;
   private DeviceInfo deviceInfo;
 
   /**
@@ -268,6 +270,7 @@ public final class CastPlayer extends BasePlayer {
     playbackState = STATE_IDLE;
     currentTimeline = CastTimeline.EMPTY_CAST_TIMELINE;
     mediaMetadata = MediaMetadata.EMPTY;
+    playlistMetadata = MediaMetadata.EMPTY;
     currentTracks = Tracks.EMPTY;
     availableCommands = new Commands.Builder().addAll(PERMANENT_AVAILABLE_COMMANDS).build();
     pendingSeekWindowIndex = C.INDEX_UNSET;
@@ -656,14 +659,19 @@ public final class CastPlayer extends BasePlayer {
 
   @Override
   public MediaMetadata getPlaylistMetadata() {
-    // CastPlayer does not currently support metadata.
-    return MediaMetadata.EMPTY;
+    return playlistMetadata;
   }
 
-  /** This method is not supported and does nothing. */
   @Override
-  public void setPlaylistMetadata(MediaMetadata mediaMetadata) {
-    // CastPlayer does not currently support metadata.
+  public void setPlaylistMetadata(MediaMetadata playlistMetadata) {
+    checkNotNull(playlistMetadata);
+    if (playlistMetadata.equals(this.playlistMetadata)) {
+      return;
+    }
+    this.playlistMetadata = playlistMetadata;
+    listeners.sendEvent(
+        EVENT_PLAYLIST_METADATA_CHANGED,
+        listener -> listener.onPlaylistMetadataChanged(this.playlistMetadata));
   }
 
   @Override

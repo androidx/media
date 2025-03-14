@@ -1800,7 +1800,7 @@ public class CastPlayerTest {
   }
 
   @Test
-  public void setMediaItems_doesNotifyOnMetadataChanged() {
+  public void setMediaItems_doesNotifyOnMediaMetadataChanged() {
     when(mockRemoteMediaClient.queueJumpToItem(anyInt(), anyLong(), eq(null)))
         .thenReturn(mockPendingResult);
     ArgumentCaptor<MediaMetadata> metadataCaptor = ArgumentCaptor.forClass(MediaMetadata.class);
@@ -1827,7 +1827,7 @@ public class CastPlayerTest {
                 .build());
     castPlayer.addListener(mockListener);
 
-    MediaMetadata intitalMetadata = castPlayer.getMediaMetadata();
+    MediaMetadata initialMetadata = castPlayer.getMediaMetadata();
     castPlayer.setMediaItems(firstPlaylist, /* startIndex= */ 0, /* startPositionMs= */ 2000L);
     updateTimeLine(firstPlaylist, /* mediaQueueItemIds= */ new int[] {1}, /* currentItemId= */ 1);
     MediaMetadata firstMetadata = castPlayer.getMediaMetadata();
@@ -1850,7 +1850,7 @@ public class CastPlayerTest {
             secondPlaylist.get(1).mediaMetadata,
             secondPlaylist.get(0).mediaMetadata)
         .inOrder();
-    assertThat(intitalMetadata).isEqualTo(MediaMetadata.EMPTY);
+    assertThat(initialMetadata).isEqualTo(MediaMetadata.EMPTY);
     assertThat(ImmutableList.of(firstMetadata, secondMetadata, thirdMetadata))
         .containsExactly(
             firstPlaylist.get(0).mediaMetadata,
@@ -1896,6 +1896,35 @@ public class CastPlayerTest {
 
     verify(mockListener, times(3)).onMediaItemTransition(any(), anyInt());
     verify(mockListener, never()).onMediaMetadataChanged(any());
+  }
+
+  @Test
+  public void setPlaylistMetadata_doesNotifyOnPlaylistMetadataChanged() {
+    castPlayer.addListener(mockListener);
+
+    MediaMetadata metadata = new MediaMetadata.Builder().setArtist("foo").build();
+
+    assertThat(castPlayer.getPlaylistMetadata()).isEqualTo(MediaMetadata.EMPTY);
+
+    castPlayer.setPlaylistMetadata(metadata);
+
+    assertThat(castPlayer.getPlaylistMetadata()).isEqualTo(metadata);
+
+    verify(mockListener).onPlaylistMetadataChanged(metadata);
+  }
+
+  @Test
+  public void setPlaylistMetadata_equalMetadata_doesNotNotifyOnPlaylistMetadataChanged() {
+    castPlayer.addListener(mockListener);
+
+    MediaMetadata metadata = new MediaMetadata.Builder().setArtist("foo").build();
+
+    castPlayer.setPlaylistMetadata(metadata);
+    castPlayer.setPlaylistMetadata(metadata);
+
+    assertThat(castPlayer.getPlaylistMetadata()).isEqualTo(metadata);
+
+    verify(mockListener, times(1)).onPlaylistMetadataChanged(metadata);
   }
 
   @Test
