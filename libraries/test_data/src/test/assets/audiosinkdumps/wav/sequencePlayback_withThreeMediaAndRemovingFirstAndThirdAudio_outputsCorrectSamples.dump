@@ -138,34 +138,44 @@ AudioSink:
     data = 272 zeroes
   buffer #44:
     time = 1000000
-    data = 1072516495
+    channel[0] = -85819864
+    channel[1] = -85819864
   buffer #45:
     time = 1100000
-    data = 1080356869
+    channel[0] = 566487491
+    channel[1] = 566487491
   buffer #46:
     time = 1200000
-    data = 885365699
+    channel[0] = -1256531710
+    channel[1] = -1256531710
   buffer #47:
     time = 1300000
-    data = -1015251545
+    channel[0] = 793455796
+    channel[1] = 793455796
   buffer #48:
     time = 1400000
-    data = -159485629
+    channel[0] = -268235582
+    channel[1] = -268235582
   buffer #49:
     time = 1500000
-    data = -797815221
+    channel[0] = -8136122
+    channel[1] = -8136122
   buffer #50:
     time = 1600000
-    data = -347578263
+    channel[0] = 1750866613
+    channel[1] = 1750866613
   buffer #51:
     time = 1700000
-    data = -943138441
+    channel[0] = -1100753636
+    channel[1] = -1100753636
   buffer #52:
     time = 1800000
-    data = -215647269
+    channel[0] = 507833230
+    channel[1] = 507833230
   buffer #53:
     time = 1900000
-    data = -667240285
+    channel[0] = 1472467506
+    channel[1] = 1472467506
   buffer #54:
     time = 2000000
     data = 4096 zeroes

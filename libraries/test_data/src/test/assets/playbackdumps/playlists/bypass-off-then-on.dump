@@ -1390,31 +1390,31 @@ AudioSink:
     sampleRate = 44100
   buffer #137:
     time = 1000002741000
-    data = -85819864
+    channel[0] = -85819864
   buffer #138:
     time = 1000002841000
-    data = 566487491
+    channel[0] = 566487491
   buffer #139:
     time = 1000002941000
-    data = -1256531710
+    channel[0] = -1256531710
   buffer #140:
     time = 1000003041000
-    data = 793455796
+    channel[0] = 793455796
   buffer #141:
     time = 1000003141000
-    data = -268235582
+    channel[0] = -268235582
   buffer #142:
     time = 1000003241000
-    data = -8136122
+    channel[0] = -8136122
   buffer #143:
     time = 1000003341000
-    data = 1750866613
+    channel[0] = 1750866613
   buffer #144:
     time = 1000003441000
-    data = -1100753636
+    channel[0] = -1100753636
   buffer #145:
     time = 1000003541000
-    data = 507833230
+    channel[0] = 507833230
   buffer #146:
     time = 1000003641000
-    data = 1472467506
+    channel[0] = 1472467506

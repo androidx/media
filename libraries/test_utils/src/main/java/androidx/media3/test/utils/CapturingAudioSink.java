@@ -16,11 +16,14 @@
 package androidx.media3.test.utils;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
+import static androidx.media3.common.util.Assertions.checkState;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.audio.AudioSink;
 import androidx.media3.exoplayer.audio.DefaultAudioSink;
 import androidx.media3.exoplayer.audio.ForwardingAudioSink;
@@ -30,6 +33,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
@@ -44,6 +48,7 @@ public final class CapturingAudioSink extends ForwardingAudioSink implements Dum
   private int bufferCount;
   private long lastPresentationTimeUs;
   @Nullable private ByteBuffer currentBuffer;
+  private @MonotonicNonNull Format format;
 
   /** Creates the capturing audio sink. */
   public static CapturingAudioSink create() {
@@ -66,6 +71,7 @@ public final class CapturingAudioSink extends ForwardingAudioSink implements Dum
   @Override
   public void configure(Format inputFormat, int specifiedBufferSize, @Nullable int[] outputChannels)
       throws ConfigurationException {
+    this.format = inputFormat;
     interceptedData.add(
         new DumpableConfiguration(
             inputFormat.pcmEncoding,
@@ -92,7 +98,8 @@ public final class CapturingAudioSink extends ForwardingAudioSink implements Dum
     if (buffer != currentBuffer && !buffer.hasRemaining()) {
       // Empty buffers are not processed any further and need to be intercepted here.
       // TODO: b/174737370 - Output audio bytes in Robolectric to avoid this situation.
-      interceptedData.add(new DumpableBuffer(bufferCount++, buffer, lastPresentationTimeUs));
+      interceptedData.add(
+          new DumpableBuffer(bufferCount++, checkNotNull(format), buffer, lastPresentationTimeUs));
       currentBuffer = buffer;
     }
     boolean fullyBuffered = super.handleBuffer(buffer, presentationTimeUs, encodedAccessUnitCount);
@@ -117,13 +124,16 @@ public final class CapturingAudioSink extends ForwardingAudioSink implements Dum
   private static final class InterceptingBufferSink implements TeeAudioProcessor.AudioBufferSink {
 
     private @MonotonicNonNull CapturingAudioSink capturingAudioSink;
+    private @MonotonicNonNull Format format;
 
     public void setCapturingAudioSink(CapturingAudioSink capturingAudioSink) {
       this.capturingAudioSink = capturingAudioSink;
     }
 
     @Override
-    public void flush(int sampleRateHz, int channelCount, @C.PcmEncoding int encoding) {}
+    public void flush(int sampleRateHz, int channelCount, @C.PcmEncoding int encoding) {
+      this.format = Util.getPcmFormat(encoding, channelCount, sampleRateHz);
+    }
 
     @Override
     public void handleBuffer(ByteBuffer buffer) {
@@ -132,6 +142,7 @@ public final class CapturingAudioSink extends ForwardingAudioSink implements Dum
           .add(
               new DumpableBuffer(
                   capturingAudioSink.bufferCount++,
+                  checkNotNull(format),
                   buffer,
                   capturingAudioSink.lastPresentationTimeUs));
     }
@@ -173,31 +184,85 @@ public final class CapturingAudioSink extends ForwardingAudioSink implements Dum
 
     private final int bufferCounter;
     private final long presentationTimeUs;
-    private final String dataDumpValue;
 
-    public DumpableBuffer(int bufferCounter, ByteBuffer buffer, long presentationTimeUs) {
+    /** Exactly one of this and {@link #perChannelHashCodes} is non-null. */
+    @Nullable private final String dataDumpValue;
+
+    /** Exactly one of this and {@link #dataDumpValue} is non-null. */
+    @Nullable private final int[] perChannelHashCodes;
+
+    public DumpableBuffer(
+        int bufferCounter, Format format, ByteBuffer buffer, long presentationTimeUs) {
       this.bufferCounter = bufferCounter;
       this.presentationTimeUs = presentationTimeUs;
-      int initialPosition = buffer.position();
       if (buffer.remaining() == 0) {
         this.dataDumpValue = "empty";
+        this.perChannelHashCodes = null;
+        return;
+      }
+      // Store the position so we can reset it later.
+      int initialPosition = buffer.position();
+      if (Objects.equals(format.sampleMimeType, MimeTypes.AUDIO_RAW)
+          && format.pcmEncoding != C.ENCODING_INVALID
+          && format.pcmEncoding != Format.NO_VALUE) {
+        int byteDepth = Util.getByteDepth(format.pcmEncoding);
+        int frameSize = format.channelCount * byteDepth;
+        int remainingBytes = buffer.remaining();
+        checkState(
+            remainingBytes % frameSize == 0,
+            "buffer.remaining()="
+                + remainingBytes
+                + ", channelCount="
+                + format.channelCount
+                + ", pcmEncoding="
+                + format.pcmEncoding);
+        byte[][] perChannelData =
+            new byte[format.channelCount][remainingBytes / format.channelCount];
+        for (int i = 0; byteDepth <= buffer.remaining(); i += byteDepth) {
+          int channel = (i / byteDepth) % format.channelCount;
+          int destPos = (i / frameSize) * byteDepth;
+          buffer.get(perChannelData[channel], destPos, byteDepth);
+        }
+        if (isAllZeroes(perChannelData)) {
+          this.dataDumpValue = (perChannelData.length * perChannelData[0].length) + " zeroes";
+          this.perChannelHashCodes = null;
+        } else {
+          this.perChannelHashCodes = new int[format.channelCount];
+          for (int i = 0; i < format.channelCount; i++) {
+            this.perChannelHashCodes[i] = Arrays.hashCode(perChannelData[i]);
+          }
+          this.dataDumpValue = null;
+        }
       } else {
-        // Compute a hash of the buffer data without changing its position.
         byte[] data = new byte[buffer.remaining()];
         buffer.get(data);
-        buffer.position(initialPosition);
         this.dataDumpValue =
             isAllZeroes(data) ? data.length + " zeroes" : String.valueOf(Arrays.hashCode(data));
+        this.perChannelHashCodes = null;
       }
+      buffer.position(initialPosition);
     }
 
     @Override
     public void dump(Dumper dumper) {
-      dumper
-          .startBlock("buffer #" + bufferCounter)
-          .addTime("time", presentationTimeUs)
-          .add("data", dataDumpValue)
-          .endBlock();
+      dumper.startBlock("buffer #" + bufferCounter).addTime("time", presentationTimeUs);
+      if (perChannelHashCodes != null) {
+        for (int i = 0; i < perChannelHashCodes.length; i++) {
+          dumper.add("channel[" + i + "]", perChannelHashCodes[i]);
+        }
+      } else {
+        dumper.add("data", checkNotNull(dataDumpValue));
+      }
+      dumper.endBlock();
+    }
+
+    private static boolean isAllZeroes(byte[][] data) {
+      for (byte[] d : data) {
+        if (!isAllZeroes(d)) {
+          return false;
+        }
+      }
+      return true;
     }
 
     private static boolean isAllZeroes(byte[] data) {
