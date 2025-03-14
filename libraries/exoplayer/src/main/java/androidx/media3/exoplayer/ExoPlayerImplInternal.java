@@ -215,10 +215,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
   private final HandlerWrapper applicationLooperHandler;
   private final boolean hasSecondaryRenderers;
   private final AudioFocusManager audioFocusManager;
-
-  @SuppressWarnings("unused")
   private SeekParameters seekParameters;
-
   private PlaybackInfo playbackInfo;
   private PlaybackInfoUpdate playbackInfoUpdate;
   private boolean released;
