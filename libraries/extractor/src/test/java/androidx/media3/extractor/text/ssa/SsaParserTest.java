@@ -23,7 +23,9 @@ import android.graphics.Color;
 import android.text.Layout;
 import android.text.Spanned;
 import androidx.media3.common.text.Cue;
+import androidx.media3.common.util.Consumer;
 import androidx.media3.extractor.text.CuesWithTiming;
+import androidx.media3.extractor.text.Subtitle;
 import androidx.media3.extractor.text.SubtitleParser;
 import androidx.media3.extractor.text.SubtitleParser.OutputOptions;
 import androidx.media3.test.utils.TestUtil;
@@ -62,6 +64,7 @@ public final class SsaParserTest {
   private static final String STYLE_BOLD_ITALIC = "media/ssa/style_bold_italic";
   private static final String STYLE_UNDERLINE = "media/ssa/style_underline";
   private static final String STYLE_STRIKEOUT = "media/ssa/style_strikeout";
+  private static final String STYLE_MARGIN = "media/ssa/style_margin";
 
   @Test
   public void cuesReplacementBehaviorIsMerge() throws IOException {
@@ -97,6 +100,81 @@ public final class SsaParserTest {
     assertThat(cue.lineAnchor).isEqualTo(Cue.TYPE_UNSET);
     assertThat(cue.line).isEqualTo(Cue.DIMEN_UNSET);
     assertThat(cue.lineType).isEqualTo(Cue.LINE_TYPE_FRACTION);
+  }
+
+  @Test
+  public void parseMargins() throws IOException {
+    SsaParser parser = new SsaParser();
+    byte[] bytes =
+        TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), STYLE_MARGIN);
+    ImmutableList<CuesWithTiming> allCues = parseAllCues(parser, bytes);
+
+    // PlayResX = 1280px, PlayResY = 720px
+
+    // Alignment 1, position anchor = start, position = (0.05f, 0.95f)
+    // margin_left = 128px = 0.1f, margin_right 256px = 0.2f
+    Cue firstCue = allCues.get(0).cues.get(0);
+    assertThat(firstCue.position).isEqualTo(0.15f); // = 0.05f + margin_left
+    assertThat(firstCue.lineType).isEqualTo(Cue.LINE_TYPE_FRACTION);
+    assertThat(firstCue.line).isEqualTo(0.95f);
+    assertThat(firstCue.size).isEqualTo(0.7f); // = 1f - margin_right - margin_left
+
+    // Alignment 6, position anchor = end, position = (0.95f, 0.5f)
+    // margin_left = 128px = 0.1f, margin_right = 256px = 0.2f
+    Cue secondClue = allCues.get(1).cues.get(0);
+    assertThat(secondClue.position).isEqualTo(0.75f); // = 1f - margin_right
+    assertThat(secondClue.lineType).isEqualTo(Cue.LINE_TYPE_FRACTION);
+    assertThat(secondClue.line).isEqualTo(0.5f);
+    assertThat(secondClue.size).isEqualTo(0.7f); // = 1f - margin_right - margin_left
+
+    // Alignment 2, position anchor = middle, position = (0.5f, 0.95f)
+    // margin_left = 128px = 0.1f, margin_right = 256px = 0.2f
+    Cue thirdClue = allCues.get(2).cues.get(0);
+    assertThat(thirdClue.position).isEqualTo(0.45f); // 0.5f + (margin_left - margin_right)/2
+    assertThat(thirdClue.lineType).isEqualTo(Cue.LINE_TYPE_FRACTION);
+    assertThat(thirdClue.line).isEqualTo(0.95f);
+    assertThat(thirdClue.size).isEqualTo(0.7f); // = 1f - margin_right - margin_left
+
+    // Alignment 5, position anchor = middle, position = (0.5f, 0.5f)
+    // margin_vertical = 144px = 0.2f but needs to be ignored when alignment is middle [4,5,6]
+    Cue fourthClue = allCues.get(3).cues.get(0);
+    assertThat(fourthClue.position).isEqualTo(0.5f);
+    assertThat(fourthClue.lineType).isEqualTo(Cue.LINE_TYPE_FRACTION);
+    assertThat(fourthClue.line).isEqualTo(0.5f);
+
+    // Alignment 2, position anchor = middle, position = (0.5f, 0.95f)
+    // margin_vertical = 144px = 0.2f, to be applied from bottom when alignment is bottom [1,2,3]
+    Cue fifthClue = allCues.get(4).cues.get(0);
+    assertThat(fifthClue.position).isEqualTo(0.5f);
+    assertThat(fifthClue.lineType).isEqualTo(Cue.LINE_TYPE_FRACTION);
+    assertThat(fifthClue.line).isEqualTo(0.75f); // = 0.95f - margin_vertical
+
+    // Alignment 9, position anchor = end, position = (0.95f, 0.05f)
+    // margin_vertical = 144px = 0.2f, to be applied from top when alignment is top [7,8,9]
+    Cue sixthClue = allCues.get(5).cues.get(0);
+    assertThat(sixthClue.position).isEqualTo(0.95f);
+    assertThat(sixthClue.lineType).isEqualTo(Cue.LINE_TYPE_FRACTION);
+    assertThat(sixthClue.line).isEqualTo(0.25f); // = 0.05f + margin_vertical
+
+    // Alignment 2, position anchor = middle, position = (0.5f, 0.95f)
+    // margin_left = 128px = 0.1f, margin_vertical = 144px = 0.2f, margin_right = 0f (from Dialogue)
+    Cue seventhClue = allCues.get(6).cues.get(0);
+    assertThat(seventhClue.position).isEqualTo(0.55f); // 0.5f + (margin_left - margin_right)/2
+    assertThat(seventhClue.lineType).isEqualTo(Cue.LINE_TYPE_FRACTION);
+    assertThat(seventhClue.line).isEqualTo(0.75f); // 0.95f - margin_vertical
+    assertThat(seventhClue.size).isEqualTo(0.9f); // 1f - margin_right - margin_left
+
+    // Position override {\pos(640,180)} -> ignore margins
+    Cue eighthClue = allCues.get(7).cues.get(0);
+    assertThat(eighthClue.position).isEqualTo(0.5f);
+    assertThat(eighthClue.lineType).isEqualTo(Cue.LINE_TYPE_FRACTION);
+    assertThat(eighthClue.line).isEqualTo(0.25f);
+
+    // Alignment override {\an5}, position = (0.5f, 0.5f) -> ignore margins
+    Cue ninthClue = allCues.get(8).cues.get(0);
+    assertThat(ninthClue.position).isEqualTo(0.5f);
+    assertThat(ninthClue.lineType).isEqualTo(Cue.LINE_TYPE_FRACTION);
+    assertThat(ninthClue.line).isEqualTo(0.5f);
   }
 
   @Test
