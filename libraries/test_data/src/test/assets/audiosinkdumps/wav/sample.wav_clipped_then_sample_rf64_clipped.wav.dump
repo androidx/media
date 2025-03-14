@@ -27,4 +27,4 @@ AudioSink:
     data = -2129352270
   buffer #7:
     time = 700000
-    data = 961
+    data = 2 zeroes

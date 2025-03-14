@@ -173,17 +173,22 @@ public final class CapturingAudioSink extends ForwardingAudioSink implements Dum
 
     private final int bufferCounter;
     private final long presentationTimeUs;
-    private final int dataHashcode;
+    private final String dataDumpValue;
 
     public DumpableBuffer(int bufferCounter, ByteBuffer buffer, long presentationTimeUs) {
       this.bufferCounter = bufferCounter;
       this.presentationTimeUs = presentationTimeUs;
-      // Compute a hash of the buffer data without changing its position.
       int initialPosition = buffer.position();
-      byte[] data = new byte[buffer.remaining()];
-      buffer.get(data);
-      buffer.position(initialPosition);
-      this.dataHashcode = Arrays.hashCode(data);
+      if (buffer.remaining() == 0) {
+        this.dataDumpValue = "empty";
+      } else {
+        // Compute a hash of the buffer data without changing its position.
+        byte[] data = new byte[buffer.remaining()];
+        buffer.get(data);
+        buffer.position(initialPosition);
+        this.dataDumpValue =
+            isAllZeroes(data) ? data.length + " zeroes" : String.valueOf(Arrays.hashCode(data));
+      }
     }
 
     @Override
@@ -191,8 +196,17 @@ public final class CapturingAudioSink extends ForwardingAudioSink implements Dum
       dumper
           .startBlock("buffer #" + bufferCounter)
           .addTime("time", presentationTimeUs)
-          .add("data", dataHashcode)
+          .add("data", dataDumpValue)
           .endBlock();
+    }
+
+    private static boolean isAllZeroes(byte[] data) {
+      for (byte b : data) {
+        if (b != 0) {
+          return false;
+        }
+      }
+      return true;
     }
   }
 
