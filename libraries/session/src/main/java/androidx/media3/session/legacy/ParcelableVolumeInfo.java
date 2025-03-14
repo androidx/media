@@ -37,15 +37,6 @@ public class ParcelableVolumeInfo implements Parcelable {
   public int maxVolume;
   public int currentVolume;
 
-  public ParcelableVolumeInfo(
-      int volumeType, int audioStream, int controlType, int maxVolume, int currentVolume) {
-    this.volumeType = volumeType;
-    this.audioStream = audioStream;
-    this.controlType = controlType;
-    this.maxVolume = maxVolume;
-    this.currentVolume = currentVolume;
-  }
-
   public ParcelableVolumeInfo(Parcel from) {
     volumeType = from.readInt();
     controlType = from.readInt();
