@@ -87,6 +87,20 @@ public class ObuParserTest {
     assertThat(sequenceHeader.seqForceScreenContentTools).isTrue();
     assertThat(sequenceHeader.seqForceIntegerMv).isTrue();
     assertThat(sequenceHeader.orderHintBits).isEqualTo(7);
+    assertThat(sequenceHeader.seqProfile).isEqualTo(0);
+    assertThat(sequenceHeader.seqLevelIdx0).isEqualTo(4);
+    assertThat(sequenceHeader.seqTier0).isEqualTo(0);
+    assertThat(sequenceHeader.initialDisplayDelayPresentFlag).isFalse();
+    assertThat(sequenceHeader.initialDisplayDelayMinus1).isEqualTo(0);
+    assertThat(sequenceHeader.highBitdepth).isFalse();
+    assertThat(sequenceHeader.twelveBit).isFalse();
+    assertThat(sequenceHeader.monochrome).isFalse();
+    assertThat(sequenceHeader.subsamplingX).isTrue();
+    assertThat(sequenceHeader.subsamplingY).isTrue();
+    assertThat(sequenceHeader.chromaSamplePosition).isEqualTo(0);
+    assertThat(sequenceHeader.colorPrimaries).isEqualTo(1);
+    assertThat(sequenceHeader.transferCharacteristics).isEqualTo(1);
+    assertThat(sequenceHeader.matrixCoefficients).isEqualTo(1);
   }
 
   @Test
