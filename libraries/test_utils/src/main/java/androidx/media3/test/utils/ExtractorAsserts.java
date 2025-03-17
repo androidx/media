@@ -264,8 +264,9 @@ public final class ExtractorAsserts {
       path[0] = "extractordumps";
       dumpFilesPrefix = Joiner.on('/').join(path);
     }
+    extractor = factory.create();
     assertOutput(
-        factory.create(),
+        extractor,
         dumpFilesPrefix,
         fileData,
         context,
@@ -274,6 +275,7 @@ public final class ExtractorAsserts {
         simulationConfig.simulateIOErrors,
         simulationConfig.simulateUnknownLength,
         simulationConfig.simulatePartialReads);
+    extractor.release();
   }
 
   /**
