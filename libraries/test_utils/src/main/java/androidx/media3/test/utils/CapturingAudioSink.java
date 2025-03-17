@@ -41,9 +41,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  * discontinuity and buffer events.
  */
 @UnstableApi
-public final class CapturingAudioSink extends ForwardingAudioSink implements Dumper.Dumpable {
+public class CapturingAudioSink extends ForwardingAudioSink implements Dumper.Dumpable {
 
   private final List<Dumper.Dumpable> interceptedData;
+  private final AudioSink audioSink;
 
   private int bufferCount;
   private long lastPresentationTimeUs;
@@ -53,19 +54,26 @@ public final class CapturingAudioSink extends ForwardingAudioSink implements Dum
   /** Creates the capturing audio sink. */
   public static CapturingAudioSink create() {
     InterceptingBufferSink interceptingBufferSink = new InterceptingBufferSink();
-    return new CapturingAudioSink(
-        new DefaultAudioSink.Builder(ApplicationProvider.getApplicationContext())
-            .setAudioProcessorChain(
-                new DefaultAudioSink.DefaultAudioProcessorChain(
-                    new TeeAudioProcessor(interceptingBufferSink)))
-            .build(),
-        interceptingBufferSink);
+    CapturingAudioSink capturingAudioSink =
+        new CapturingAudioSink(
+            new DefaultAudioSink.Builder(ApplicationProvider.getApplicationContext())
+                .setAudioProcessorChain(
+                    new DefaultAudioSink.DefaultAudioProcessorChain(
+                        new TeeAudioProcessor(interceptingBufferSink)))
+                .build());
+    interceptingBufferSink.setCapturingAudioSink(capturingAudioSink);
+    return capturingAudioSink;
   }
 
-  private CapturingAudioSink(AudioSink sink, InterceptingBufferSink interceptingBufferSink) {
+  protected CapturingAudioSink(AudioSink sink) {
     super(sink);
+    audioSink = sink;
     interceptedData = new ArrayList<>();
-    interceptingBufferSink.setCapturingAudioSink(this);
+  }
+
+  /** Returns the wrapped {@link AudioSink}. */
+  protected final AudioSink getDelegateAudioSink() {
+    return audioSink;
   }
 
   @Override
@@ -121,7 +129,7 @@ public final class CapturingAudioSink extends ForwardingAudioSink implements Dum
     dumper.endBlock();
   }
 
-  private static final class InterceptingBufferSink implements TeeAudioProcessor.AudioBufferSink {
+  public static final class InterceptingBufferSink implements TeeAudioProcessor.AudioBufferSink {
 
     private @MonotonicNonNull CapturingAudioSink capturingAudioSink;
     private @MonotonicNonNull Format format;

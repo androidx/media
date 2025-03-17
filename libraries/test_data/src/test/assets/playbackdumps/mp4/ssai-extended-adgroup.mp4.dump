@@ -593,9 +593,6 @@ AudioSink:
   buffer #19:
     time = 1000000485179
     data = empty
-  discontinuity:
-  discontinuity:
-  discontinuity:
   buffer #20:
     time = 1000000508399
     data = empty
