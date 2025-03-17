@@ -17,8 +17,6 @@
 *   DataSource:
 *   Audio:
     *   Allow constant power upmixing/downmixing in DefaultAudioMixer.
-    *   Add support for float PCM to `ChannelMappingAudioProcessor`.
-    *   Add support for float PCM to `TrimmingAudioProcessor`.
 *   Video:
     *   Add experimental `ExoPlayer` API to include the
         `MediaCodec.BUFFER_FLAG_DECODE_ONLY` flag when queuing decode-only input
@@ -36,11 +34,7 @@
         instead of `MediaCodec.BufferInfo`.
 *   IMA extension:
 *   Session:
-    *   Fix bug where a stale notification stays visible when the playlist is
-        cleared ([#2211](https://github.com/androidx/media/issues/2211)).
 *   UI:
-    *   Add `PlaybackSpeedState` class and the corresponding
-        `rememberPlaybackSpeedState` Composable to `media3-ui-compose` module.
 *   Downloads:
     *   Add partial download support for progressive streams. Apps can prepare a
         progressive stream with `DownloadHelper`, and request a
@@ -56,9 +50,6 @@
     *   Loosen the condition for seeking to sync positions in a HLS stream
         ([#2209](https://github.com/androidx/media/issues/2209)).
 *   DASH extension:
-    *   Fix issue where adaptation sets marked with `adaptation-set-switching`
-        but different languages or role flags are merged together
-        ([#2222](https://github.com/androidx/media/issues/2222)).
 *   Smooth Streaming extension:
 *   RTSP extension:
 *   Decoder extensions (FFmpeg, VP9, AV1, etc.):
@@ -86,6 +77,25 @@
         `BaseAudioProcessor` under `common` module.
 
 ## 1.6
+
+### 1.6.0-rc02 (2025-03-18)
+
+This release includes the following changes since
+[1.6.0-rc01 release](#160-rc01-2025-03-12):
+
+*   Audio:
+    *   Add support for float PCM to `ChannelMappingAudioProcessor`.
+    *   Add support for float PCM to `TrimmingAudioProcessor`.
+*   Session:
+    *   Fix bug where a stale notification stays visible when the playlist is
+        cleared ([#2211](https://github.com/androidx/media/issues/2211)).
+*   UI:
+    *   Add `PlaybackSpeedState` class and the corresponding
+        `rememberPlaybackSpeedState` Composable to `media3-ui-compose` module.
+*   DASH extension:
+    *   Fix issue where adaptation sets marked with `adaptation-set-switching`
+        but different languages or role flags are merged together
+        ([#2222](https://github.com/androidx/media/issues/2222)).
 
 ### 1.6.0-rc01 (2025-03-12)
 
