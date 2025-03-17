@@ -11,6 +11,9 @@
         variable bitrate metadata when falling back to constant bitrate seeking
         due to `FLAG_ENABLE_CONSTANT_BITRATE_SEEKING(_ALWAYS)`
         ([#2194](https://github.com/androidx/media/issues/2194)).
+    *   FLAC: Add support for 32-bit FLAC files. Previously these would fail to
+        play with `IllegalStateException: Playback stuck buffering and not
+        loading` ([#2197](https://github.com/androidx/media/issues/2197)).
 *   DataSource:
 *   Audio:
     *   Allow constant power upmixing/downmixing in DefaultAudioMixer.
