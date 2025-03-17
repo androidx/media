@@ -26,6 +26,7 @@ import static androidx.media3.exoplayer.hls.playlist.HlsMediaPlaylist.Interstiti
 import static java.lang.Math.max;
 
 import android.content.Context;
+import android.net.Uri;
 import androidx.annotation.Nullable;
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.AdViewProvider;
@@ -74,6 +75,114 @@ import java.util.Set;
  */
 @UnstableApi
 public final class HlsInterstitialsAdsLoader implements AdsLoader {
+
+  /** Holds a list of {@linkplain Asset assets}. */
+  public static final class AssetList {
+
+    /* package */ static final AssetList EMPTY =
+        new AssetList(ImmutableList.of(), ImmutableList.of());
+
+    /** The list of assets. */
+    public final ImmutableList<Asset> assets;
+
+    /** The list of string attributes of the asset list JSON object. */
+    public final ImmutableList<StringAttribute> stringAttributes;
+
+    /** Creates an instance. */
+    /* package */ AssetList(
+        ImmutableList<Asset> assets, ImmutableList<StringAttribute> stringAttributes) {
+      this.assets = assets;
+      this.stringAttributes = stringAttributes;
+    }
+
+    @Override
+    public boolean equals(@Nullable Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof AssetList)) {
+        return false;
+      }
+      AssetList assetList = (AssetList) o;
+      return Objects.equals(assets, assetList.assets)
+          && Objects.equals(stringAttributes, assetList.stringAttributes);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(assets, stringAttributes);
+    }
+  }
+
+  /**
+   * An asset with a URI and a duration.
+   *
+   * <p>See RFC 8216bis, appendix D.2, X-ASSET-LIST.
+   */
+  public static final class Asset {
+
+    /** A uri to an HLS source. */
+    public final Uri uri;
+
+    /** The duration, in microseconds. */
+    public final long durationUs;
+
+    /** Creates an instance. */
+    /* package */ Asset(Uri uri, long durationUs) {
+      this.uri = uri;
+      this.durationUs = durationUs;
+    }
+
+    @Override
+    public boolean equals(@Nullable Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof Asset)) {
+        return false;
+      }
+      Asset asset = (Asset) o;
+      return durationUs == asset.durationUs && Objects.equals(uri, asset.uri);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(uri, durationUs);
+    }
+  }
+
+  /** A string attribute with its name and value. */
+  public static final class StringAttribute {
+
+    /** The name of the attribute. */
+    public final String name;
+
+    /** The value of the attribute. */
+    public final String value;
+
+    /** Creates an instance. */
+    /* package */ StringAttribute(String name, String value) {
+      this.name = name;
+      this.value = value;
+    }
+
+    @Override
+    public boolean equals(@Nullable Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof StringAttribute)) {
+        return false;
+      }
+      StringAttribute that = (StringAttribute) o;
+      return Objects.equals(name, that.name) && Objects.equals(value, that.value);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(name, value);
+    }
+  }
 
   /**
    * A {@link MediaSource.Factory} to create a media source to play HLS streams with interstitials.
