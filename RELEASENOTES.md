@@ -29,6 +29,9 @@
 *   DataSource:
 *   DRM:
 *   Effect:
+    *   Add `Presentation.createForShortSide(int)` that creates a `Presentation`
+        that ensures the shortest side always matches the given value,
+        regardless of input orientation.
 *   Muxers:
     *   `writeSampleData()` API now uses muxer specific `BufferInfo` class
         instead of `MediaCodec.BufferInfo`.

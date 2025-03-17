@@ -218,7 +218,7 @@ public final class CompositionPreviewActivity extends AppCompatActivity {
     if (!SAME_AS_INPUT_OPTION.equals(selectedResolutionHeight)) {
       int resolutionHeight = Integer.parseInt(selectedResolutionHeight);
       videoEffectsBuilder.add(LanczosResample.scaleToFit(10000, resolutionHeight));
-      videoEffectsBuilder.add(Presentation.createForHeight(resolutionHeight));
+      videoEffectsBuilder.add(Presentation.createForShortSide(resolutionHeight));
     }
     ImmutableList<Effect> videoEffects = videoEffectsBuilder.build();
     for (int i = 0; i < selectedMediaItems.length; i++) {
