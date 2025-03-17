@@ -2,6 +2,10 @@
 
 ### Unreleased changes
 
+*   Extractors: 
+    *   FLAC: Add support for 32-bit FLAC files. Previously these would fail to
+        play with `IllegalStateException: Playback stuck buffering and not
+        loading` ([#2197](https://github.com/androidx/media/issues/2197)).
 *   Audio:
     *   Add support for float PCM to `ChannelMappingAudioProcessor`.
     *   Add support for float PCM to `TrimmingAudioProcessor`.

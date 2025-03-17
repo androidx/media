@@ -45,6 +45,17 @@ public class FlacExtractorTest {
   }
 
   @Test
+  public void sample32bit() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        FlacExtractor::new,
+        "media/flac/bear_32bit.flac",
+        new AssertionConfig.Builder()
+            .setDumpFilesPrefix("extractordumps/flac/bear_32bit_flac")
+            .build(),
+        simulationConfig);
+  }
+
+  @Test
   public void sampleWithId3HeaderAndId3Enabled() throws Exception {
     ExtractorAsserts.assertBehavior(
         FlacExtractor::new,

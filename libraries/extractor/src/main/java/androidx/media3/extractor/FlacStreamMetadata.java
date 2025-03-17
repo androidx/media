@@ -365,6 +365,7 @@ public final class FlacStreamMetadata {
     }
   }
 
+  /** Return the frame header representation of bit depth, as defined in RFC 9639 section 9.1.4. */
   private static int getBitsPerSampleLookupKey(int bitsPerSample) {
     switch (bitsPerSample) {
       case 8:
@@ -377,6 +378,8 @@ public final class FlacStreamMetadata {
         return 5;
       case 24:
         return 6;
+      case 32:
+        return 7;
       default:
         return NOT_IN_LOOKUP_TABLE;
     }
