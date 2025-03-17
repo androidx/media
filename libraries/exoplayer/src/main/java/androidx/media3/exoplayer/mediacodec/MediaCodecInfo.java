@@ -43,6 +43,7 @@ import android.util.Pair;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
+import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -268,6 +269,10 @@ public final class MediaCodecInfo {
       return false;
     }
 
+    if (!isCompressedAudioBitDepthSupported(format)) {
+      return false;
+    }
+
     if (isVideo) {
       if (format.width <= 0 || format.height <= 0) {
         return true;
@@ -289,7 +294,8 @@ public final class MediaCodecInfo {
    */
   public boolean isFormatFunctionallySupported(Format format) {
     return isSampleMimeTypeSupported(format)
-        && isCodecProfileAndLevelSupported(format, /* checkPerformanceCapabilities= */ false);
+        && isCodecProfileAndLevelSupported(format, /* checkPerformanceCapabilities= */ false)
+        && isCompressedAudioBitDepthSupported(format);
   }
 
   private boolean isSampleMimeTypeSupported(Format format) {
@@ -363,6 +369,17 @@ public final class MediaCodecInfo {
     }
     logNoSupport("codec.profileLevel, " + format.codecs + ", " + codecMimeType);
     return false;
+  }
+
+  private boolean isCompressedAudioBitDepthSupported(Format format) {
+    // MediaCodec doesn't have a way to query FLAC decoder bit-depth support.
+    // c2.android.flac.decoder is known not to support 32-bit until API 34. We optimistically assume
+    // that another (unrecognized) FLAC decoder does support 32-bit on all API levels where it
+    // exists.
+    return !Objects.equals(format.sampleMimeType, MimeTypes.AUDIO_FLAC)
+        || format.pcmEncoding != C.ENCODING_PCM_32BIT
+        || Util.SDK_INT >= 34
+        || !name.equals("c2.android.flac.decoder");
   }
 
   /** Whether the codec handles HDR10+ out-of-band metadata. */
