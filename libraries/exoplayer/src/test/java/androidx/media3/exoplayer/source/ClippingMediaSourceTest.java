@@ -248,6 +248,32 @@ public final class ClippingMediaSourceTest {
   }
 
   @Test
+  public void clipping_toEndOfSourceWithDurationAndStartExceedingDuration_returnsExpectedTimeline()
+      throws IOException {
+    Timeline timeline =
+        new SinglePeriodTimeline(
+            /* durationUs= */ TEST_PERIOD_DURATION_US,
+            /* isSeekable= */ true,
+            /* isDynamic= */ false,
+            /* useLiveConfiguration= */ false,
+            /* manifest= */ null,
+            MediaItem.fromUri(Uri.EMPTY));
+
+    Timeline clippedTimeline =
+        getClippedTimeline(
+            timeline,
+            /* startUs= */ TEST_PERIOD_DURATION_US + 100,
+            /* endUs= */ C.TIME_END_OF_SOURCE);
+
+    assertThat(clippedTimeline.getWindow(/* windowIndex= */ 0, window).getDurationUs())
+        .isEqualTo(0);
+    assertThat(clippedTimeline.getWindow(/* windowIndex= */ 0, window).getPositionInFirstPeriodUs())
+        .isEqualTo(TEST_PERIOD_DURATION_US);
+    assertThat(clippedTimeline.getPeriod(/* periodIndex= */ 0, period).getDurationUs())
+        .isEqualTo(TEST_PERIOD_DURATION_US);
+  }
+
+  @Test
   public void clipping_toEndOfSourceWithUnsetDuration_doesNotSetDuration() throws IOException {
     // Create a child timeline that has an unknown duration.
     Timeline timeline =
