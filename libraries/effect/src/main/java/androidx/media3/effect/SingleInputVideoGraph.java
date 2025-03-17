@@ -278,7 +278,7 @@ public class SingleInputVideoGraph implements VideoGraph {
 
   @Override
   public void redraw() {
-    throw new UnsupportedOperationException();
+    checkStateNotNull(videoFrameProcessor).redraw();
   }
 
   @Override

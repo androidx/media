@@ -870,9 +870,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     if (!hasSetVideoSink) {
       if (videoEffects != null && videoSink == null) {
         PlaybackVideoGraphWrapper playbackVideoGraphWrapper =
-            new PlaybackVideoGraphWrapper.Builder(context, videoFrameReleaseControl)
-                .setClock(getClock())
-                .build();
+            createPlaybackVideoGraphWrapper(context, videoFrameReleaseControl);
         playbackVideoGraphWrapper.setTotalVideoInputCount(1);
         videoSink = playbackVideoGraphWrapper.getSink(/* inputIndex= */ 0);
       }
@@ -944,6 +942,15 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
               : RELEASE_FIRST_FRAME_WHEN_STARTED;
       videoFrameReleaseControl.onStreamChanged(firstFrameReleaseInstruction);
     }
+  }
+
+  /** Creates a {@link PlaybackVideoGraphWrapper} instance. */
+  protected PlaybackVideoGraphWrapper createPlaybackVideoGraphWrapper(
+      Context context, VideoFrameReleaseControl videoFrameReleaseControl) {
+    // TODO: b/391109644 - Add a more explicit API to enable replaying.
+    return new PlaybackVideoGraphWrapper.Builder(context, videoFrameReleaseControl)
+        .setClock(getClock())
+        .build();
   }
 
   @Override

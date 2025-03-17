@@ -62,6 +62,7 @@ import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import java.lang.reflect.Method;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.Executor;
@@ -128,6 +129,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     private Clock clock;
     private boolean requestOpenGlToneMapping;
     private boolean built;
+    private boolean enableReplayableCache;
 
     /** Creates a builder. */
     public Builder(Context context, VideoFrameReleaseControl videoFrameReleaseControl) {
@@ -223,6 +225,21 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     }
 
     /**
+     * Sets whether to enable replayable cache.
+     *
+     * <p>By default, the replayable cache is not enabled. Enable it to achieve accurate effect
+     * update, at the cost of using more power and computing resources.
+     *
+     * @param enableReplayableCache Whether replayable cache is enabled.
+     * @return This builder, for convenience.
+     */
+    @CanIgnoreReturnValue
+    public Builder setEnableReplayableCache(boolean enableReplayableCache) {
+      this.enableReplayableCache = enableReplayableCache;
+      return this;
+    }
+
+    /**
      * Builds the {@link PlaybackVideoGraphWrapper}.
      *
      * <p>This method must be called at most once and will throw an {@link IllegalStateException} if
@@ -233,7 +250,8 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
 
       if (videoGraphFactory == null) {
         if (videoFrameProcessorFactory == null) {
-          videoFrameProcessorFactory = new ReflectiveDefaultVideoFrameProcessorFactory();
+          videoFrameProcessorFactory =
+              new ReflectiveDefaultVideoFrameProcessorFactory(enableReplayableCache);
         }
         videoGraphFactory = new ReflectiveSingleInputVideoGraphFactory(videoFrameProcessorFactory);
       }
@@ -696,6 +714,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     @Override
     public void redraw() {
       checkState(isInitialized());
+      PlaybackVideoGraphWrapper.this.flush(/* resetPosition= */ false);
       checkNotNull(videoGraph).redraw();
     }
 
@@ -1059,29 +1078,25 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
    */
   private static final class ReflectiveDefaultVideoFrameProcessorFactory
       implements VideoFrameProcessor.Factory {
-    private static final Supplier<VideoFrameProcessor.Factory>
-        VIDEO_FRAME_PROCESSOR_FACTORY_SUPPLIER =
-            Suppliers.memoize(
-                () -> {
-                  try {
-                    // LINT.IfChange
-                    Class<?> defaultVideoFrameProcessorFactoryBuilderClass =
-                        Class.forName(
-                            "androidx.media3.effect.DefaultVideoFrameProcessor$Factory$Builder");
-                    Object builder =
-                        defaultVideoFrameProcessorFactoryBuilderClass
-                            .getConstructor()
-                            .newInstance();
-                    return (VideoFrameProcessor.Factory)
-                        checkNotNull(
-                            defaultVideoFrameProcessorFactoryBuilderClass
-                                .getMethod("build")
-                                .invoke(builder));
-                    // LINT.ThenChange(../../../../../../../proguard-rules.txt)
-                  } catch (Exception e) {
-                    throw new IllegalStateException(e);
-                  }
-                });
+
+    private static final Supplier<Class<?>> DEFAULT_VIDEO_FRAME_PROCESSOR_FACTORY_BUILDER_CLASS =
+        Suppliers.memoize(
+            () -> {
+              try {
+                // LINT.IfChange
+                return Class.forName(
+                    "androidx.media3.effect.DefaultVideoFrameProcessor$Factory$Builder");
+                // LINT.ThenChange(../../../../../../../proguard-rules.txt)
+              } catch (Exception e) {
+                throw new IllegalStateException(e);
+              }
+            });
+
+    private final boolean enableReplayableCache;
+
+    public ReflectiveDefaultVideoFrameProcessorFactory(boolean enableReplayableCache) {
+      this.enableReplayableCache = enableReplayableCache;
+    }
 
     @Override
     public VideoFrameProcessor create(
@@ -1092,15 +1107,31 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
         Executor listenerExecutor,
         VideoFrameProcessor.Listener listener)
         throws VideoFrameProcessingException {
-      return VIDEO_FRAME_PROCESSOR_FACTORY_SUPPLIER
-          .get()
-          .create(
-              context,
-              debugViewProvider,
-              outputColorInfo,
-              renderFramesAutomatically,
-              listenerExecutor,
-              listener);
+      try {
+        Class<?> defaultVideoFrameProcessorFactoryBuilderClass =
+            DEFAULT_VIDEO_FRAME_PROCESSOR_FACTORY_BUILDER_CLASS.get();
+        Object builder =
+            defaultVideoFrameProcessorFactoryBuilderClass.getConstructor().newInstance();
+        Method setUseReplayableCacheMethod =
+            defaultVideoFrameProcessorFactoryBuilderClass.getMethod(
+                "setEnableReplayableCache", boolean.class);
+        setUseReplayableCacheMethod.invoke(builder, enableReplayableCache);
+        VideoFrameProcessor.Factory factory =
+            (VideoFrameProcessor.Factory)
+                checkNotNull(
+                    defaultVideoFrameProcessorFactoryBuilderClass
+                        .getMethod("build")
+                        .invoke(builder));
+        return factory.create(
+            context,
+            debugViewProvider,
+            outputColorInfo,
+            renderFramesAutomatically,
+            listenerExecutor,
+            listener);
+      } catch (Exception e) {
+        throw new VideoFrameProcessingException(e);
+      }
     }
   }
 }

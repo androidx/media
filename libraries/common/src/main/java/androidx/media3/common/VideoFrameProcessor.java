@@ -280,6 +280,8 @@ public interface VideoFrameProcessor {
   /**
    * Updates an {@linkplain Listener#onOutputFrameAvailableForRendering available frame} with the
    * modified effects.
+   *
+   * <p>This method can be called from any thread.
    */
   void redraw();
 
