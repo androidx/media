@@ -2,7 +2,16 @@
 
 ### Unreleased changes
 
-*   Extractors: 
+
+
+## 1.6
+
+### 1.6.0-rc02 (2025-03-18)
+
+This release includes the following changes since
+[1.6.0-rc01 release](#160-rc01-2025-03-12):
+
+*   Extractors:
     *   FLAC: Add support for 32-bit FLAC files. Previously these would fail to
         play with `IllegalStateException: Playback stuck buffering and not
         loading` ([#2197](https://github.com/androidx/media/issues/2197)).
@@ -22,8 +31,6 @@
 *   HLS extension:
     *   Loosen the condition for seeking to sync positions in a HLS stream
         ([#2209](https://github.com/androidx/media/issues/2209)).
-
-## 1.6
 
 ### 1.6.0-rc01 (2025-03-12)
 
