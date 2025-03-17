@@ -2531,6 +2531,27 @@ public class TransformerEndToEndTest {
     assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
+  @Test
+  public void composition_withOneLoopingSequence_throwsIllegalArgumentException() throws Exception {
+    EditedMediaItem item = new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri)).build();
+    EditedMediaItemSequence sequence =
+        new EditedMediaItemSequence.Builder(item).setIsLooping(true).build();
+    assertThrows(IllegalArgumentException.class, () -> new Composition.Builder(sequence).build());
+  }
+
+  @Test
+  public void composition_withMultipleLoopingSequences_throwsIllegalArgumentException()
+      throws Exception {
+    EditedMediaItem item = new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri)).build();
+    EditedMediaItemSequence firstSequence =
+        new EditedMediaItemSequence.Builder(item).setIsLooping(true).build();
+    EditedMediaItemSequence secondSequence =
+        new EditedMediaItemSequence.Builder(item).setIsLooping(true).build();
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> new Composition.Builder(firstSequence, secondSequence).build());
+  }
+
   private static boolean shouldSkipDeviceForAacObjectHeProfileEncoding() {
     return Util.SDK_INT < 29;
   }
