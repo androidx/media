@@ -53,6 +53,8 @@
 *   Cronet extension:
 *   RTMP extension:
 *   HLS extension:
+    *   Loosen the condition for seeking to sync positions in a HLS stream
+        ([#2209](https://github.com/androidx/media/issues/2209)).
 *   DASH extension:
     *   Fix issue where adaptation sets marked with `adaptation-set-switching`
         but different languages or role flags are merged together
