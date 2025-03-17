@@ -111,7 +111,7 @@ public class DefaultEncoderFactoryTest {
     Format actualVideoFormat =
         new DefaultEncoderFactory.Builder(context)
             .build()
-            .createForVideoEncoding(requestedVideoFormat)
+            .createForVideoEncoding(requestedVideoFormat, /* logSessionId= */ null)
             .getConfigurationFormat();
 
     assertThat(actualVideoFormat.sampleMimeType).isEqualTo(MimeTypes.VIDEO_H264);
@@ -129,7 +129,9 @@ public class DefaultEncoderFactoryTest {
     ExportException exportException =
         assertThrows(
             ExportException.class,
-            () -> encoderFactory.createForVideoEncoding(requestedVideoFormat));
+            () ->
+                encoderFactory.createForVideoEncoding(
+                    requestedVideoFormat, /* logSessionId= */ null));
     assertThat(exportException.errorCode).isEqualTo(ERROR_CODE_ENCODING_FORMAT_UNSUPPORTED);
   }
 
@@ -140,7 +142,7 @@ public class DefaultEncoderFactoryTest {
     Format actualVideoFormat =
         new DefaultEncoderFactory.Builder(context)
             .build()
-            .createForVideoEncoding(requestedVideoFormat)
+            .createForVideoEncoding(requestedVideoFormat, /* logSessionId= */ null)
             .getConfigurationFormat();
 
     assertThat(actualVideoFormat.width).isEqualTo(1920);
@@ -158,7 +160,7 @@ public class DefaultEncoderFactoryTest {
         new DefaultEncoderFactory.Builder(context)
             .setRequestedVideoEncoderSettings(VideoEncoderSettings.DEFAULT)
             .build()
-            .createForVideoEncoding(requestedVideoFormat)
+            .createForVideoEncoding(requestedVideoFormat, /* logSessionId= */ null)
             .getConfigurationFormat();
 
     assertThat(actualVideoFormat.sampleMimeType).isEqualTo(MimeTypes.VIDEO_H264);
@@ -175,7 +177,7 @@ public class DefaultEncoderFactoryTest {
     Format actualVideoFormat =
         new DefaultEncoderFactory.Builder(context)
             .build()
-            .createForVideoEncoding(requestedVideoFormat)
+            .createForVideoEncoding(requestedVideoFormat, /* logSessionId= */ null)
             .getConfigurationFormat();
 
     assertThat(actualVideoFormat.sampleMimeType).isEqualTo(MimeTypes.VIDEO_H264);
@@ -198,7 +200,7 @@ public class DefaultEncoderFactoryTest {
             .setRequestedVideoEncoderSettings(
                 new VideoEncoderSettings.Builder().setBitrate(10_000_000).build())
             .build()
-            .createForVideoEncoding(requestedVideoFormat)
+            .createForVideoEncoding(requestedVideoFormat, /* logSessionId= */ null)
             .getConfigurationFormat();
 
     assertThat(actualVideoFormat.sampleMimeType).isEqualTo(MimeTypes.VIDEO_H264);
@@ -216,7 +218,7 @@ public class DefaultEncoderFactoryTest {
     Codec videoEncoder =
         new DefaultEncoderFactory.Builder(context)
             .build()
-            .createForVideoEncoding(requestedVideoFormat);
+            .createForVideoEncoding(requestedVideoFormat, /* logSessionId= */ null);
 
     assertThat(videoEncoder).isInstanceOf(DefaultCodec.class);
     MediaFormat configurationMediaFormat =
@@ -241,7 +243,7 @@ public class DefaultEncoderFactoryTest {
                     .setEncoderPerformanceParameters(/* operatingRate= */ -1, /* priority= */ 1)
                     .build())
             .build()
-            .createForVideoEncoding(requestedVideoFormat);
+            .createForVideoEncoding(requestedVideoFormat, /* logSessionId= */ null);
 
     assertThat(videoEncoder).isInstanceOf(DefaultCodec.class);
     MediaFormat configurationMediaFormat =
@@ -266,7 +268,7 @@ public class DefaultEncoderFactoryTest {
                         /* operatingRate= */ VideoEncoderSettings.RATE_UNSET, /* priority= */ 1)
                     .build())
             .build()
-            .createForVideoEncoding(requestedVideoFormat);
+            .createForVideoEncoding(requestedVideoFormat, /* logSessionId= */ null);
 
     assertThat(videoEncoder).isInstanceOf(DefaultCodec.class);
     MediaFormat configurationMediaFormat =
@@ -290,7 +292,7 @@ public class DefaultEncoderFactoryTest {
                         VideoEncoderSettings.RATE_UNSET, VideoEncoderSettings.RATE_UNSET)
                     .build())
             .build()
-            .createForVideoEncoding(requestedVideoFormat);
+            .createForVideoEncoding(requestedVideoFormat, /* logSessionId= */ null);
 
     assertThat(videoEncoder).isInstanceOf(DefaultCodec.class);
     MediaFormat configurationMediaFormat =
@@ -309,7 +311,7 @@ public class DefaultEncoderFactoryTest {
             .setRequestedVideoEncoderSettings(
                 new VideoEncoderSettings.Builder().setRepeatPreviousFrameIntervalUs(33_333).build())
             .build()
-            .createForVideoEncoding(requestedVideoFormat);
+            .createForVideoEncoding(requestedVideoFormat, /* logSessionId= */ null);
 
     assertThat(
             videoEncoder
@@ -326,7 +328,7 @@ public class DefaultEncoderFactoryTest {
     DefaultCodec videoEncoder =
         new DefaultEncoderFactory.Builder(context)
             .build()
-            .createForVideoEncoding(requestedVideoFormat);
+            .createForVideoEncoding(requestedVideoFormat, /* logSessionId= */ null);
 
     assertThat(
             videoEncoder
@@ -344,7 +346,7 @@ public class DefaultEncoderFactoryTest {
             new DefaultEncoderFactory.Builder(context)
                 .setVideoEncoderSelector((mimeType) -> ImmutableList.of())
                 .build()
-                .createForVideoEncoding(requestedVideoFormat));
+                .createForVideoEncoding(requestedVideoFormat, /* logSessionId= */ null));
   }
 
   @Test
@@ -357,7 +359,7 @@ public class DefaultEncoderFactoryTest {
         new DefaultEncoderFactory.Builder(context)
             .setEnableFallback(true)
             .build()
-            .createForAudioEncoding(requestedAudioFormat);
+            .createForAudioEncoding(requestedAudioFormat, /* logSessionId= */ null);
 
     Format inputFormat = codec.getInputFormat();
     Format configurationFormat = codec.getConfigurationFormat();

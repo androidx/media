@@ -37,6 +37,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.media.MediaCodec;
+import android.media.metrics.LogSessionId;
 import android.util.Pair;
 import android.view.Surface;
 import androidx.annotation.Nullable;
@@ -99,7 +100,8 @@ import org.checkerframework.dataflow.qual.Pure;
       long initialTimestampOffsetUs,
       boolean hasMultipleInputs,
       boolean portraitEncodingEnabled,
-      int maxFramesInEncoder)
+      int maxFramesInEncoder,
+      @Nullable LogSessionId logSessionId)
       throws ExportException {
     // TODO: b/278259383 - Consider delaying configuration of VideoSampleExporter to use the decoder
     //  output format instead of the extractor output format, to match AudioSampleExporter behavior.
@@ -137,7 +139,8 @@ import org.checkerframework.dataflow.qual.Pure;
             portraitEncodingEnabled,
             muxerWrapper.getSupportedSampleMimeTypes(C.TRACK_TYPE_VIDEO),
             transformationRequest,
-            fallbackListener);
+            fallbackListener,
+            logSessionId);
     encoderOutputBuffer =
         new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_DISABLED);
 
@@ -252,6 +255,7 @@ import org.checkerframework.dataflow.qual.Pure;
     private final FallbackListener fallbackListener;
     private final String requestedOutputMimeType;
     private final @Composition.HdrMode int hdrModeAfterFallback;
+    @Nullable private final LogSessionId logSessionId;
 
     private @MonotonicNonNull SurfaceInfo encoderSurfaceInfo;
 
@@ -265,7 +269,8 @@ import org.checkerframework.dataflow.qual.Pure;
         boolean portraitEncodingEnabled,
         List<String> muxerSupportedMimeTypes,
         TransformationRequest transformationRequest,
-        FallbackListener fallbackListener) {
+        FallbackListener fallbackListener,
+        @Nullable LogSessionId logSessionId) {
       checkArgument(inputFormat.colorInfo != null);
       this.encoderFactory = encoderFactory;
       this.inputFormat = inputFormat;
@@ -273,6 +278,7 @@ import org.checkerframework.dataflow.qual.Pure;
       this.muxerSupportedMimeTypes = muxerSupportedMimeTypes;
       this.transformationRequest = transformationRequest;
       this.fallbackListener = fallbackListener;
+      this.logSessionId = logSessionId;
       Pair<String, Integer> outputMimeTypeAndHdrModeAfterFallback =
           getRequestedOutputMimeTypeAndHdrModeAfterFallback(inputFormat, transformationRequest);
       requestedOutputMimeType = outputMimeTypeAndHdrModeAfterFallback.first;
@@ -347,7 +353,8 @@ import org.checkerframework.dataflow.qual.Pure;
                   .setSampleMimeType(
                       findSupportedMimeTypeForEncoderAndMuxer(
                           requestedEncoderFormat, muxerSupportedMimeTypes))
-                  .build());
+                  .build(),
+              logSessionId);
 
       Format actualEncoderFormat = encoder.getConfigurationFormat();
 

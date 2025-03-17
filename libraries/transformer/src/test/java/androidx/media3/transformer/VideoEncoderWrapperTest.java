@@ -25,8 +25,10 @@ import static org.mockito.Mockito.when;
 import android.media.MediaCodecInfo;
 import android.media.MediaCodecInfo.CodecProfileLevel;
 import android.media.MediaFormat;
+import android.media.metrics.LogSessionId;
 import android.net.Uri;
 import android.os.Looper;
+import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
@@ -74,7 +76,8 @@ public final class VideoEncoderWrapperTest {
           /* portraitEncodingEnabled= */ false,
           /* muxerSupportedMimeTypes= */ ImmutableList.of(MimeTypes.VIDEO_H264),
           emptyTransformationRequest,
-          fallbackListener);
+          fallbackListener,
+          /* logSessionId= */ null);
 
   @Before
   public void setUp() {
@@ -184,12 +187,12 @@ public final class VideoEncoderWrapperTest {
     }
 
     @Override
-    public Codec createForAudioEncoding(Format format) {
+    public Codec createForAudioEncoding(Format format, @Nullable LogSessionId logSessionId) {
       throw new UnsupportedOperationException();
     }
 
     @Override
-    public Codec createForVideoEncoding(Format format) {
+    public Codec createForVideoEncoding(Format format, @Nullable LogSessionId logSessionId) {
       Codec mockEncoder = mock(Codec.class);
       if (fallbackWidth != C.LENGTH_UNSET) {
         format = format.buildUpon().setWidth(fallbackWidth).build();

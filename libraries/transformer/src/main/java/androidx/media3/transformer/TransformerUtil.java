@@ -29,8 +29,11 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
+import android.media.MediaFormat;
+import android.media.metrics.LogSessionId;
 import android.util.Pair;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Effect;
@@ -373,6 +376,25 @@ public final class TransformerUtil {
         return MimeTypes.IMAGE_AVIF;
       default:
         return null;
+    }
+  }
+
+  /** Utility for setting LogSessionId on MediaFormat (API 35+). */
+  @RequiresApi(35)
+  public static final class Api35 {
+    private Api35() {}
+
+    /**
+     * Sets the log session ID to the provided {@link MediaFormat}.
+     *
+     * @param mediaFormat The {@link MediaFormat} to set the log session ID on.
+     * @param logSessionId The {@link LogSessionId} to set.
+     */
+    public static void setLogSessionIdToMediaCodecFormat(
+        MediaFormat mediaFormat, LogSessionId logSessionId) {
+      if (!logSessionId.equals(LogSessionId.LOG_SESSION_ID_NONE)) {
+        mediaFormat.setString("log-session-id", logSessionId.getStringId());
+      }
     }
   }
 }

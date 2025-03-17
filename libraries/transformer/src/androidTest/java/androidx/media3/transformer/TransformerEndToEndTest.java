@@ -64,6 +64,7 @@ import static org.junit.Assume.assumeTrue;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.media.MediaFormat;
+import android.media.metrics.LogSessionId;
 import android.net.Uri;
 import android.opengl.EGLContext;
 import android.os.Handler;
@@ -71,6 +72,7 @@ import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Message;
 import android.util.Pair;
+import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
@@ -2616,12 +2618,14 @@ public class TransformerEndToEndTest {
     }
 
     @Override
-    public Codec createForAudioEncoding(Format format) throws ExportException {
-      return encoderFactory.createForAudioEncoding(format);
+    public Codec createForAudioEncoding(Format format, @Nullable LogSessionId logSessionId)
+        throws ExportException {
+      return encoderFactory.createForAudioEncoding(format, logSessionId);
     }
 
     @Override
-    public Codec createForVideoEncoding(Format format) throws ExportException {
+    public Codec createForVideoEncoding(Format format, @Nullable LogSessionId logSessionId)
+        throws ExportException {
       throw ExportException.createForCodec(
           new IllegalArgumentException(),
           ExportException.ERROR_CODE_ENCODER_INIT_FAILED,

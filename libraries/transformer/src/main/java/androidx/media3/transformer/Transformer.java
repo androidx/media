@@ -36,6 +36,7 @@ import static java.lang.Math.round;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.content.Context;
+import android.media.metrics.LogSessionId;
 import android.os.Looper;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
@@ -1601,15 +1602,7 @@ public final class Transformer {
       transformationRequest =
           transformationRequest.buildUpon().setHdrMode(composition.hdrMode).build();
     }
-    FallbackListener fallbackListener =
-        new FallbackListener(composition, listeners, applicationHandler, transformationRequest);
-    AssetLoader.Factory assetLoaderFactory = this.assetLoaderFactory;
-    if (useDefaultAssetLoaderFactory || assetLoaderFactory == null) {
-      assetLoaderFactory =
-          new DefaultAssetLoaderFactory(
-              context, new DefaultDecoderFactory.Builder(context).build(), clock);
-    }
-    DebugTraceUtil.reset();
+    LogSessionId logSessionId = null;
     if (canCollectEditingMetrics()) {
       @Nullable String muxerName = null;
       if (muxerFactory instanceof InAppMp4Muxer.Factory) {
@@ -1619,10 +1612,24 @@ public final class Transformer {
       } else if (muxerFactory instanceof DefaultMuxer.Factory) {
         muxerName = DefaultMuxer.MUXER_NAME;
       }
+      EditingMetricsCollector.MetricsReporter metricsReporter =
+          checkNotNull(metricsReporterFactory).create();
+      if (metricsReporter instanceof EditingMetricsCollector.DefaultMetricsReporter) {
+        logSessionId =
+            ((EditingMetricsCollector.DefaultMetricsReporter) metricsReporter).getLogSessionId();
+      }
       editingMetricsCollector =
-          new EditingMetricsCollector(
-              checkNotNull(metricsReporterFactory).create(), EXPORTER_NAME, muxerName);
+          new EditingMetricsCollector(metricsReporter, EXPORTER_NAME, muxerName);
     }
+    FallbackListener fallbackListener =
+        new FallbackListener(composition, listeners, applicationHandler, transformationRequest);
+    AssetLoader.Factory assetLoaderFactory = this.assetLoaderFactory;
+    if (useDefaultAssetLoaderFactory || assetLoaderFactory == null) {
+      assetLoaderFactory =
+          new DefaultAssetLoaderFactory(
+              context, new DefaultDecoderFactory.Builder(context).build(), clock, logSessionId);
+    }
+    DebugTraceUtil.reset();
     transformerInternal =
         new TransformerInternal(
             context,
@@ -1640,7 +1647,8 @@ public final class Transformer {
             applicationHandler,
             debugViewProvider,
             clock,
-            initialTimestampOffsetUs);
+            initialTimestampOffsetUs,
+            logSessionId);
     transformerInternal.start();
   }
 

@@ -31,6 +31,7 @@ import static androidx.media3.transformer.TransformerUtil.isImage;
 import static java.lang.Math.min;
 
 import android.content.Context;
+import android.media.metrics.LogSessionId;
 import android.os.Handler;
 import android.os.Looper;
 import androidx.annotation.Nullable;
@@ -72,6 +73,7 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
     private final Clock clock;
     @Nullable private final MediaSource.Factory mediaSourceFactory;
     @Nullable private final TrackSelector.Factory trackSelectorFactory;
+    @Nullable private final LogSessionId logSessionId;
 
     /**
      * Creates an instance using a {@link DefaultMediaSourceFactory}.
@@ -89,7 +91,8 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
           decoderFactory,
           clock,
           /* mediaSourceFactory= */ null,
-          /* trackSelectorFactory= */ null);
+          /* trackSelectorFactory= */ null,
+          /* logSessionId= */ null);
     }
 
     /**
@@ -109,7 +112,13 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
         Clock clock,
         MediaSource.Factory mediaSourceFactory) {
       // TODO: b/381519379 - Deprecate this constructor and replace with a builder.
-      this(context, decoderFactory, clock, mediaSourceFactory, /* trackSelectorFactory= */ null);
+      this(
+          context,
+          decoderFactory,
+          clock,
+          mediaSourceFactory,
+          /* trackSelectorFactory= */ null,
+          /* logSessionId= */ null);
     }
 
     /**
@@ -124,19 +133,23 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
      *     transform.
      * @param trackSelectorFactory The {@link TrackSelector.Factory} to use when selecting the track
      *     to transform.
+     * @param logSessionId The optional {@link LogSessionId} of the {@link
+     *     android.media.metrics.EditingSession}.
      */
     public Factory(
         Context context,
         Codec.DecoderFactory decoderFactory,
         Clock clock,
         @Nullable MediaSource.Factory mediaSourceFactory,
-        @Nullable TrackSelector.Factory trackSelectorFactory) {
+        @Nullable TrackSelector.Factory trackSelectorFactory,
+        @Nullable LogSessionId logSessionId) {
       // TODO: b/381519379 - Deprecate this constructor and replace with a builder.
       this.context = context;
       this.decoderFactory = decoderFactory;
       this.clock = clock;
       this.mediaSourceFactory = mediaSourceFactory;
       this.trackSelectorFactory = trackSelectorFactory;
+      this.logSessionId = logSessionId;
     }
 
     @Override
@@ -176,7 +189,8 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
           looper,
           listener,
           clock,
-          trackSelectorFactory);
+          trackSelectorFactory,
+          logSessionId);
     }
   }
 
@@ -198,7 +212,8 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
       Looper looper,
       Listener listener,
       Clock clock,
-      TrackSelector.Factory trackSelectorFactory) {
+      TrackSelector.Factory trackSelectorFactory,
+      @Nullable LogSessionId logSessionId) {
     this.context = context;
     this.editedMediaItem = editedMediaItem;
     this.decoderFactory = new CapturingDecoderFactory(decoderFactory);
@@ -223,7 +238,8 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
                     editedMediaItem.flattenForSlowMotion,
                     this.decoderFactory,
                     hdrMode,
-                    listener))
+                    listener,
+                    logSessionId))
             .setMediaSourceFactory(mediaSourceFactory)
             .setTrackSelector(trackSelector)
             .setLoadControl(loadControl)
@@ -291,6 +307,7 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
     private final Codec.DecoderFactory decoderFactory;
     private final @Composition.HdrMode int hdrMode;
     private final Listener assetLoaderListener;
+    @Nullable private final LogSessionId logSessionId;
 
     public RenderersFactoryImpl(
         boolean removeAudio,
@@ -298,13 +315,15 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
         boolean flattenForSlowMotion,
         Codec.DecoderFactory decoderFactory,
         @Composition.HdrMode int hdrMode,
-        Listener assetLoaderListener) {
+        Listener assetLoaderListener,
+        @Nullable LogSessionId logSessionId) {
       this.removeAudio = removeAudio;
       this.removeVideo = removeVideo;
       this.flattenForSlowMotion = flattenForSlowMotion;
       this.decoderFactory = decoderFactory;
       this.hdrMode = hdrMode;
       this.assetLoaderListener = assetLoaderListener;
+      this.logSessionId = logSessionId;
       mediaClock = new TransformerMediaClock();
     }
 
@@ -318,12 +337,18 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
       ArrayList<Renderer> renderers = new ArrayList<>();
       if (!removeAudio) {
         renderers.add(
-            new ExoAssetLoaderAudioRenderer(decoderFactory, mediaClock, assetLoaderListener));
+            new ExoAssetLoaderAudioRenderer(
+                decoderFactory, mediaClock, assetLoaderListener, logSessionId));
       }
       if (!removeVideo) {
         renderers.add(
             new ExoAssetLoaderVideoRenderer(
-                flattenForSlowMotion, decoderFactory, hdrMode, mediaClock, assetLoaderListener));
+                flattenForSlowMotion,
+                decoderFactory,
+                hdrMode,
+                mediaClock,
+                assetLoaderListener,
+                logSessionId));
       }
       return renderers.toArray(new Renderer[renderers.size()]);
     }
