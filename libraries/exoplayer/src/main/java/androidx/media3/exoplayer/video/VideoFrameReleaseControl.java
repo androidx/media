@@ -71,7 +71,7 @@ public final class VideoFrameReleaseControl {
 
   /**
    * The frame release action returned by {@link #getFrameReleaseAction(long, long, long, long,
-   * boolean, FrameReleaseInfo)}.
+   * boolean, boolean, FrameReleaseInfo)}.
    *
    * <p>One of {@link #FRAME_RELEASE_IMMEDIATELY}, {@link #FRAME_RELEASE_SCHEDULED}, {@link
    * #FRAME_RELEASE_DROP}, {@link #FRAME_RELEASE_IGNORE}, {@link ##FRAME_RELEASE_SKIP} or {@link
@@ -208,14 +208,15 @@ public final class VideoFrameReleaseControl {
   private boolean joiningRenderNextFrameImmediately;
   private float playbackSpeed;
   private Clock clock;
+  private boolean hasOutputSurface;
 
   /**
    * Creates an instance.
    *
    * @param applicationContext The application context.
    * @param frameTimingEvaluator The {@link FrameTimingEvaluator} that will assist in {@linkplain
-   *     #getFrameReleaseAction(long, long, long, long, boolean, FrameReleaseInfo) frame release
-   *     actions}.
+   *     #getFrameReleaseAction(long, long, long, long, boolean, boolean, FrameReleaseInfo) frame
+   *     release actions}.
    * @param allowedJoiningTimeMs The maximum duration in milliseconds for which the caller can
    *     attempt to seamlessly join an ongoing playback.
    */
@@ -271,6 +272,7 @@ public final class VideoFrameReleaseControl {
 
   /** Called when the display surface changed. */
   public void setOutputSurface(@Nullable Surface outputSurface) {
+    hasOutputSurface = outputSurface != null;
     frameReleaseHelper.onSurfaceChanged(outputSurface);
     lowerFirstFrameState(C.FIRST_FRAME_NOT_RENDERED);
   }
@@ -355,6 +357,8 @@ public final class VideoFrameReleaseControl {
    * @param elapsedRealtimeUs {@link android.os.SystemClock#elapsedRealtime()} in microseconds,
    *     taken approximately at the time the playback position was {@code positionUs}.
    * @param outputStreamStartPositionUs The stream's start position, in microseconds.
+   * @param isDecodeOnlyFrame Whether the frame is decode-only because its presentation time is
+   *     before the intended start time.
    * @param isLastFrame Whether the frame is known to contain the last frame of the current stream.
    * @param frameReleaseInfo A {@link FrameReleaseInfo} that will be filled with detailed data only
    *     if the method returns {@link #FRAME_RELEASE_IMMEDIATELY} or {@link
@@ -367,6 +371,7 @@ public final class VideoFrameReleaseControl {
       long positionUs,
       long elapsedRealtimeUs,
       long outputStreamStartPositionUs,
+      boolean isDecodeOnlyFrame,
       boolean isLastFrame,
       FrameReleaseInfo frameReleaseInfo)
       throws ExoPlaybackException {
@@ -383,6 +388,23 @@ public final class VideoFrameReleaseControl {
     frameReleaseInfo.earlyUs =
         calculateEarlyTimeUs(positionUs, elapsedRealtimeUs, presentationTimeUs);
 
+    if (isDecodeOnlyFrame && !isLastFrame) {
+      return FRAME_RELEASE_SKIP;
+    }
+    if (!hasOutputSurface) {
+      // Skip frames in sync with playback, so we'll be at the right frame if a surface is set.
+      if (frameTimingEvaluator.shouldIgnoreFrame(
+          frameReleaseInfo.earlyUs,
+          positionUs,
+          elapsedRealtimeUs,
+          isLastFrame,
+          /* treatDroppedBuffersAsSkipped= */ true)) {
+        return FRAME_RELEASE_IGNORE;
+      }
+      return started && frameReleaseInfo.earlyUs < 30_000
+          ? FRAME_RELEASE_SKIP
+          : FRAME_RELEASE_TRY_AGAIN_LATER;
+    }
     if (shouldForceRelease(positionUs, frameReleaseInfo.earlyUs, outputStreamStartPositionUs)) {
       return FRAME_RELEASE_IMMEDIATELY;
     }
