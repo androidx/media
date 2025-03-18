@@ -710,7 +710,8 @@ public final class MediaCodecInfo {
   private static boolean isDetachedSurfaceSupported(@Nullable CodecCapabilities capabilities) {
     return Util.SDK_INT >= 35
         && capabilities != null
-        && capabilities.isFeatureSupported(CodecCapabilities.FEATURE_DetachedSurface);
+        && capabilities.isFeatureSupported(CodecCapabilities.FEATURE_DetachedSurface)
+        && !needsDetachedSurfaceUnsupportedWorkaround();
   }
 
   private static boolean areSizeAndRateSupported(
@@ -858,13 +859,18 @@ public final class MediaCodecInfo {
   }
 
   /**
-   * Whether a profile is excluded from the list of supported profiles. This may happen when a
-   * device declares support for a profile it doesn't actually support.
+   * Returns whether a profile is excluded from the list of supported profiles. This may happen when
+   * a device declares support for a profile it doesn't actually support.
    */
   private static boolean needsProfileExcludedWorkaround(String mimeType, int profile) {
     // See https://github.com/google/ExoPlayer/issues/3537
     return MimeTypes.VIDEO_H265.equals(mimeType)
         && CodecProfileLevel.HEVCProfileMain10 == profile
         && ("sailfish".equals(Build.DEVICE) || "marlin".equals(Build.DEVICE));
+  }
+
+  /** Returns whether the device is known to have issues with the detached surface mode. */
+  private static boolean needsDetachedSurfaceUnsupportedWorkaround() {
+    return Build.MANUFACTURER.equals("Xiaomi") || Build.MANUFACTURER.equals("OPPO");
   }
 }

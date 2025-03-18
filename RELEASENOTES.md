@@ -18,6 +18,9 @@ This release includes the following changes since
     *   Fix issue where a player without a surface was ready immediately and
         very slow decoding any pending frames
         ([#1973](https://github.com/androidx/media/issues/1973)).
+    *   Exclude Xiaomi and OPPO devices from detached surface mode to avoid
+        screen flickering
+        ([#2059](https://github.com/androidx/media/issues/2059)).
 *   Session:
     *   Fix bug where a stale notification stays visible when the playlist is
         cleared ([#2211](https://github.com/androidx/media/issues/2211)).
