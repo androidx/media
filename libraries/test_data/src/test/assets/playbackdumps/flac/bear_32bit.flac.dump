@@ -218,88 +218,88 @@ AudioSink:
     sampleRate = 48000
   buffer #0:
     time = 1000000000000
-    data = empty
+    data = 1
   buffer #1:
     time = 1000000096000
-    data = empty
+    data = 1
   buffer #2:
     time = 1000000192000
-    data = empty
+    data = 1
   buffer #3:
     time = 1000000288000
-    data = empty
+    data = 1
   buffer #4:
     time = 1000000384000
-    data = empty
+    data = 1
   buffer #5:
     time = 1000000480000
-    data = empty
+    data = 1
   buffer #6:
     time = 1000000576000
-    data = empty
+    data = 1
   buffer #7:
     time = 1000000672000
-    data = empty
+    data = 1
   buffer #8:
     time = 1000000768000
-    data = empty
+    data = 1
   buffer #9:
     time = 1000000864000
-    data = empty
+    data = 1
   buffer #10:
     time = 1000000960000
-    data = empty
+    data = 1
   buffer #11:
     time = 1000001056000
-    data = empty
+    data = 1
   buffer #12:
     time = 1000001152000
-    data = empty
+    data = 1
   buffer #13:
     time = 1000001248000
-    data = empty
+    data = 1
   buffer #14:
     time = 1000001344000
-    data = empty
+    data = 1
   buffer #15:
     time = 1000001440000
-    data = empty
+    data = 1
   buffer #16:
     time = 1000001536000
-    data = empty
+    data = 1
   buffer #17:
     time = 1000001632000
-    data = empty
+    data = 1
   buffer #18:
     time = 1000001728000
-    data = empty
+    data = 1
   buffer #19:
     time = 1000001824000
-    data = empty
+    data = 1
   buffer #20:
     time = 1000001920000
-    data = empty
+    data = 1
   buffer #21:
     time = 1000002016000
-    data = empty
+    data = 1
   buffer #22:
     time = 1000002112000
-    data = empty
+    data = 1
   buffer #23:
     time = 1000002208000
-    data = empty
+    data = 1
   buffer #24:
     time = 1000002304000
-    data = empty
+    data = 1
   buffer #25:
     time = 1000002400000
-    data = empty
+    data = 1
   buffer #26:
     time = 1000002496000
-    data = empty
+    data = 1
   buffer #27:
     time = 1000002592000
-    data = empty
+    data = 1
   buffer #28:
     time = 1000002688000
-    data = empty
+    data = 1

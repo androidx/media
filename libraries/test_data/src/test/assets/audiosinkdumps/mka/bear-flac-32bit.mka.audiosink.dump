@@ -7,88 +7,88 @@ AudioSink:
     sampleRate = 48000
   buffer #0:
     time = 1000000000000
-    data = -746929509
+    data = -1114790117
   buffer #1:
     time = 1000000096000
-    data = 1843221663
+    data = 1109358239
   buffer #2:
     time = 1000000192000
-    data = -753315018
+    data = -1390909642
   buffer #3:
     time = 1000000288000
-    data = -987395536
+    data = 1301700528
   buffer #4:
     time = 1000000384000
-    data = -301290316
+    data = -1371865164
   buffer #5:
     time = 1000000480000
-    data = -1165200562
+    data = -1270732978
   buffer #6:
     time = 1000000576000
-    data = 650616491
+    data = -1635218965
   buffer #7:
     time = 1000000672000
-    data = -1758005883
+    data = -862006715
   buffer #8:
     time = 1000000768000
-    data = -1749269438
+    data = -842384638
   buffer #9:
     time = 1000000864000
-    data = -1167887824
+    data = 1048507376
   buffer #10:
     time = 1000000960000
-    data = -1159777940
+    data = -1430443924
   buffer #11:
     time = 1000001056000
-    data = 94231483
+    data = -2008482309
   buffer #12:
     time = 1000001152000
-    data = 1164961407
+    data = -91746561
   buffer #13:
     time = 1000001248000
-    data = -667334254
+    data = 1501394578
   buffer #14:
     time = 1000001344000
-    data = 353133318
+    data = -1090544762
   buffer #15:
     time = 1000001440000
-    data = -979797234
+    data = 489373262
   buffer #16:
     time = 1000001536000
-    data = -420363394
+    data = 866284286
   buffer #17:
     time = 1000001632000
-    data = 55072236
+    data = 1969987180
   buffer #18:
     time = 1000001728000
-    data = 1205528859
+    data = -1480336229
   buffer #19:
     time = 1000001824000
-    data = 1645315121
+    data = -1261838671
   buffer #20:
     time = 1000001920000
-    data = -1077485570
+    data = -755552386
   buffer #21:
     time = 1000002016000
-    data = 110538032
+    data = -1812531856
   buffer #22:
     time = 1000002112000
-    data = 902882525
+    data = -728226851
   buffer #23:
     time = 1000002208000
-    data = -1559538454
+    data = 312473130
   buffer #24:
     time = 1000002304000
-    data = -1297310517
+    data = -1407777717
   buffer #25:
     time = 1000002400000
-    data = 608958818
+    data = -1841130142
   buffer #26:
     time = 1000002496000
-    data = 402297267
+    data = 247967283
   buffer #27:
     time = 1000002592000
-    data = -546536196
+    data = -1728142596
   buffer #28:
     time = 1000002688000
-    data = -1541360306
+    data = -1987604530
