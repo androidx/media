@@ -1,9 +1,5 @@
 # Release notes
 
-### Unreleased changes
-
-
-
 ## 1.6
 
 ### 1.6.0-rc02 (2025-03-18)
@@ -18,6 +14,10 @@ This release includes the following changes since
 *   Audio:
     *   Add support for float PCM to `ChannelMappingAudioProcessor`.
     *   Add support for float PCM to `TrimmingAudioProcessor`.
+*   Video:
+    *   Fix issue where a player without a surface was ready immediately and
+        very slow decoding any pending frames
+        ([#1973](https://github.com/androidx/media/issues/1973)).
 *   Session:
     *   Fix bug where a stale notification stays visible when the playlist is
         cleared ([#2211](https://github.com/androidx/media/issues/2211)).
