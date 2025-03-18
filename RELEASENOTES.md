@@ -11,9 +11,6 @@
         variable bitrate metadata when falling back to constant bitrate seeking
         due to `FLAG_ENABLE_CONSTANT_BITRATE_SEEKING(_ALWAYS)`
         ([#2194](https://github.com/androidx/media/issues/2194)).
-    *   FLAC: Add support for 32-bit FLAC files. Previously these would fail to
-        play with `IllegalStateException: Playback stuck buffering and not
-        loading` ([#2197](https://github.com/androidx/media/issues/2197)).
 *   DataSource:
 *   Audio:
     *   Allow constant power upmixing/downmixing in DefaultAudioMixer.
@@ -23,9 +20,6 @@
         buffers. This flag will signal the decoder to skip the decode-only
         buffers thereby resulting in faster seeking. Enable it with
         `DefaultRenderersFactory.experimentalSetEnableMediaCodecBufferDecodeOnlyFlag`.
-    *   Fix issue where a player without a surface was ready immediately and
-        very slow decoding any pending frames
-        ([#1973](https://github.com/androidx/media/issues/1973)).
 *   Text:
 *   Metadata:
 *   Image:
@@ -53,8 +47,6 @@
 *   Cronet extension:
 *   RTMP extension:
 *   HLS extension:
-    *   Loosen the condition for seeking to sync positions in a HLS stream
-        ([#2209](https://github.com/androidx/media/issues/2209)).
 *   DASH extension:
 *   Smooth Streaming extension:
 *   RTSP extension:
@@ -89,9 +81,17 @@
 This release includes the following changes since
 [1.6.0-rc01 release](#160-rc01-2025-03-12):
 
+*   Extractors:
+    *   FLAC: Add support for 32-bit FLAC files. Previously these would fail to
+        play with `IllegalStateException: Playback stuck buffering and not
+        loading` ([#2197](https://github.com/androidx/media/issues/2197)).
 *   Audio:
     *   Add support for float PCM to `ChannelMappingAudioProcessor`.
     *   Add support for float PCM to `TrimmingAudioProcessor`.
+*   Video:
+    *   Fix issue where a player without a surface was ready immediately and
+        very slow decoding any pending frames
+        ([#1973](https://github.com/androidx/media/issues/1973)).
 *   Session:
     *   Fix bug where a stale notification stays visible when the playlist is
         cleared ([#2211](https://github.com/androidx/media/issues/2211)).
@@ -102,6 +102,9 @@ This release includes the following changes since
     *   Fix issue where adaptation sets marked with `adaptation-set-switching`
         but different languages or role flags are merged together
         ([#2222](https://github.com/androidx/media/issues/2222)).
+*   HLS extension:
+    *   Loosen the condition for seeking to sync positions in an HLS stream
+        ([#2209](https://github.com/androidx/media/issues/2209)).
 
 ### 1.6.0-rc01 (2025-03-12)
 
