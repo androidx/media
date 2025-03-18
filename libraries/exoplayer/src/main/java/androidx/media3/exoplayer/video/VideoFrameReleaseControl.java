@@ -209,6 +209,7 @@ public final class VideoFrameReleaseControl {
   private float playbackSpeed;
   private Clock clock;
   private boolean hasOutputSurface;
+  private boolean frameReadyWithoutSurface;
 
   /**
    * Creates an instance.
@@ -273,6 +274,7 @@ public final class VideoFrameReleaseControl {
   /** Called when the display surface changed. */
   public void setOutputSurface(@Nullable Surface outputSurface) {
     hasOutputSurface = outputSurface != null;
+    frameReadyWithoutSurface = false;
     frameReleaseHelper.onSurfaceChanged(outputSurface);
     lowerFirstFrameState(C.FIRST_FRAME_NOT_RENDERED);
   }
@@ -316,7 +318,9 @@ public final class VideoFrameReleaseControl {
    * @return Whether the release control is ready.
    */
   public boolean isReady(boolean otherwiseReady) {
-    if (otherwiseReady && firstFrameState == C.FIRST_FRAME_RENDERED) {
+    if (otherwiseReady
+        && (firstFrameState == C.FIRST_FRAME_RENDERED
+            || (!hasOutputSurface && frameReadyWithoutSurface))) {
       // Ready. If we were joining then we've now joined, so clear the joining deadline.
       joiningDeadlineMs = C.TIME_UNSET;
       return true;
@@ -392,6 +396,7 @@ public final class VideoFrameReleaseControl {
       return FRAME_RELEASE_SKIP;
     }
     if (!hasOutputSurface) {
+      frameReadyWithoutSurface = true;
       // Skip frames in sync with playback, so we'll be at the right frame if a surface is set.
       if (frameTimingEvaluator.shouldIgnoreFrame(
           frameReleaseInfo.earlyUs,

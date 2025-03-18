@@ -1023,7 +1023,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     if (videoSink != null) {
       return videoSink.isReady(rendererOtherwiseReady);
     }
-    if (rendererOtherwiseReady && (getCodec() == null || displaySurface == null || tunneling)) {
+    if (rendererOtherwiseReady && (getCodec() == null || tunneling)) {
       // Not releasing frames.
       return true;
     }
@@ -1185,22 +1185,22 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       if (displaySurface != null) {
         // If we know the video size, report it again immediately.
         maybeRenotifyVideoSizeChanged();
-        if (state == STATE_STARTED) {
-          // We want to "join" playback to prevent an intermediate buffering state in the player
-          // before we rendered the new first frame. Since there is no reason to believe the next
-          // frame is delayed and the renderer needs to catch up, we still request to render the
-          // next frame as soon as possible.
-          if (videoSink != null) {
-            videoSink.join(/* renderNextFrameImmediately= */ true);
-          } else {
-            videoFrameReleaseControl.join(/* renderNextFrameImmediately= */ true);
-          }
-        }
       } else {
         // The display surface has been removed.
         reportedVideoSize = null;
         if (videoSink != null) {
           videoSink.clearOutputSurfaceInfo();
+        }
+      }
+      if (state == STATE_STARTED) {
+        // We want to "join" playback to prevent an intermediate buffering state in the player
+        // before we rendered the new first frame. Since there is no reason to believe the next
+        // frame is delayed and the renderer needs to catch up, we still request to render the
+        // next frame as soon as possible.
+        if (videoSink != null) {
+          videoSink.join(/* renderNextFrameImmediately= */ true);
+        } else {
+          videoFrameReleaseControl.join(/* renderNextFrameImmediately= */ true);
         }
       }
       maybeSetupTunnelingForFirstFrame();

@@ -36,6 +36,7 @@ import static androidx.media3.test.utils.FakeTimeline.TimelineWindowDefinition.D
 import static androidx.media3.test.utils.TestUtil.createByteArray;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -422,6 +423,49 @@ public class MediaCodecVideoRendererTest {
 
     verify(eventListener).onVideoEnabled(argumentDecoderCounters.capture());
     assertThat(argumentDecoderCounters.getValue().skippedOutputBufferCount).isEqualTo(0);
+  }
+
+  @Test
+  public void render_withNewSurfaceAndAlreadyReadyWithPlaceholder_canRenderFirstFrameImmediately()
+      throws Exception {
+    FakeSampleStream fakeSampleStream =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* initialFormat= */ VIDEO_H264,
+            ImmutableList.of(
+                oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME),
+                oneByteSample(/* timeUs= */ 10_000),
+                oneByteSample(/* timeUs= */ 20_000),
+                oneByteSample(/* timeUs= */ 30_000),
+                END_OF_STREAM_ITEM));
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+    // Set placeholder surface.
+    mediaCodecVideoRenderer.handleMessage(Renderer.MSG_SET_VIDEO_OUTPUT, null);
+    // Enable at a non-zero start position to ensure the renderer isn't ready with one render call.
+    mediaCodecVideoRenderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {VIDEO_H264},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 20_000,
+        /* offsetUs= */ 0,
+        /* mediaPeriodId= */ new MediaSource.MediaPeriodId(new Object()));
+    while (!mediaCodecVideoRenderer.isReady()) {
+      mediaCodecVideoRenderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
+    }
+    ShadowLooper.idleMainLooper(); // Ensure all pending events are delivered.
+    verify(eventListener, never()).onRenderedFirstFrame(any(), anyLong());
+
+    mediaCodecVideoRenderer.handleMessage(Renderer.MSG_SET_VIDEO_OUTPUT, surface);
+    mediaCodecVideoRenderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
+    ShadowLooper.idleMainLooper(); // Ensure all pending events are delivered.
+
+    verify(eventListener).onRenderedFirstFrame(any(), anyLong());
   }
 
   @Test

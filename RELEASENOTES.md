@@ -23,6 +23,9 @@
         buffers. This flag will signal the decoder to skip the decode-only
         buffers thereby resulting in faster seeking. Enable it with
         `DefaultRenderersFactory.experimentalSetEnableMediaCodecBufferDecodeOnlyFlag`.
+    *   Fix issue where a player without a surface was ready immediately and
+        very slow decoding any pending frames
+        ([#1973](https://github.com/androidx/media/issues/1973)).
 *   Text:
 *   Metadata:
 *   Image:
