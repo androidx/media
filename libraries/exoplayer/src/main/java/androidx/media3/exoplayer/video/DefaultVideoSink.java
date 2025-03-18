@@ -129,7 +129,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @Override
   public boolean isReady(boolean rendererOtherwiseReady) {
-    return videoFrameReleaseControl.isReady(rendererOtherwiseReady);
+    return outputSurface == null || videoFrameReleaseControl.isReady(rendererOtherwiseReady);
   }
 
   @Override

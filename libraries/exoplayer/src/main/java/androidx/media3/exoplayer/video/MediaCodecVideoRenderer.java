@@ -1697,9 +1697,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
           });
     }
 
-    // The frame release action should be retrieved for all frames (even the ones that will be
-    // skipped), because the release control estimates the content frame rate from frame timestamps
-    // and we want to have this information known as early as possible, especially during seeking.
     @VideoFrameReleaseControl.FrameReleaseAction
     int frameReleaseAction =
         videoFrameReleaseControl.getFrameReleaseAction(
@@ -1707,31 +1704,9 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
             positionUs,
             elapsedRealtimeUs,
             getOutputStreamStartPositionUs(),
+            isDecodeOnlyBuffer,
             isLastBuffer,
             videoFrameReleaseInfo);
-
-    if (frameReleaseAction == VideoFrameReleaseControl.FRAME_RELEASE_IGNORE) {
-      // The buffer is no longer valid and needs to be ignored.
-      return false;
-    }
-
-    // Skip decode-only buffers, e.g. after seeking, immediately.
-    if (isDecodeOnlyBuffer && !isLastBuffer) {
-      skipOutputBuffer(codec, bufferIndex, presentationTimeUs);
-      return true;
-    }
-
-    // We are not rendering on a surface, the renderer will wait until a surface is set.
-    if (displaySurface == null) {
-      // Skip frames in sync with playback, so we'll be at the right frame if a surface is set.
-      if (getState() == STATE_STARTED && videoFrameReleaseInfo.getEarlyUs() < 30_000) {
-        skipOutputBuffer(codec, bufferIndex, presentationTimeUs);
-        updateVideoFrameProcessingOffsetCounters(videoFrameReleaseInfo.getEarlyUs());
-        return true;
-      }
-      return false;
-    }
-
     switch (frameReleaseAction) {
       case VideoFrameReleaseControl.FRAME_RELEASE_IMMEDIATELY:
         long releaseTimeNs = getClock().nanoTime();
@@ -1748,6 +1723,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         updateVideoFrameProcessingOffsetCounters(videoFrameReleaseInfo.getEarlyUs());
         return true;
       case VideoFrameReleaseControl.FRAME_RELEASE_TRY_AGAIN_LATER:
+      case VideoFrameReleaseControl.FRAME_RELEASE_IGNORE:
         return false;
       case VideoFrameReleaseControl.FRAME_RELEASE_SCHEDULED:
         releaseFrame(checkStateNotNull(codec), bufferIndex, presentationTimeUs, format);

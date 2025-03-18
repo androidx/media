@@ -20,10 +20,14 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 
+import android.graphics.SurfaceTexture;
+import android.view.Surface;
 import androidx.media3.common.VideoSize;
 import androidx.media3.test.utils.FakeClock;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.InOrder;
@@ -35,6 +39,18 @@ public class VideoFrameRenderControlTest {
 
   private static final int VIDEO_WIDTH = 640;
   private static final int VIDEO_HEIGHT = 480;
+
+  private Surface surface;
+
+  @Before
+  public void setUp() {
+    surface = new Surface(new SurfaceTexture(/* texName= */ 0));
+  }
+
+  @After
+  public void tearDown() {
+    surface.release();
+  }
 
   @Test
   public void releaseFirstFrame() throws Exception {
@@ -275,7 +291,7 @@ public class VideoFrameRenderControlTest {
     assertThat(videoFrameRenderControl.isEnded()).isFalse();
   }
 
-  private static VideoFrameReleaseControl createVideoFrameReleaseControl() {
+  private VideoFrameReleaseControl createVideoFrameReleaseControl() {
     return createVideoFrameReleaseControl(
         new TestFrameTimingEvaluator(
             /* shouldForceReleaseFrames= */ false,
@@ -283,12 +299,15 @@ public class VideoFrameRenderControlTest {
             /* shouldIgnoreFrames= */ false));
   }
 
-  private static VideoFrameReleaseControl createVideoFrameReleaseControl(
+  private VideoFrameReleaseControl createVideoFrameReleaseControl(
       VideoFrameReleaseControl.FrameTimingEvaluator frameTimingEvaluator) {
-    return new VideoFrameReleaseControl(
-        ApplicationProvider.getApplicationContext(),
-        frameTimingEvaluator,
-        /* allowedJoiningTimeMs= */ 0);
+    VideoFrameReleaseControl videoFrameReleaseControl =
+        new VideoFrameReleaseControl(
+            ApplicationProvider.getApplicationContext(),
+            frameTimingEvaluator,
+            /* allowedJoiningTimeMs= */ 0);
+    videoFrameReleaseControl.setOutputSurface(surface);
+    return videoFrameReleaseControl;
   }
 
   private static class TestFrameTimingEvaluator
