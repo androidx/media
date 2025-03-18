@@ -233,7 +233,8 @@ public final class DashMediaPeriodTest {
   private static DashMediaPeriod createDashMediaPeriod(DashManifest manifest, int periodIndex) {
     MediaPeriodId mediaPeriodId = new MediaPeriodId(/* periodUid= */ new Object());
     DashChunkSource.Factory chunkSourceFactory = mock(DashChunkSource.Factory.class);
-    when(chunkSourceFactory.getOutputTextFormat(any())).thenCallRealMethod();
+    when(chunkSourceFactory.getOutputTextFormat(any()))
+        .then(invocation -> invocation.getArguments()[0]);
     return new DashMediaPeriod(
         /* id= */ periodIndex,
         manifest,
