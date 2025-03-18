@@ -196,6 +196,32 @@ public class CompositionExportTest {
   }
 
   @Test
+  public void start_longerLoopingSequence_hasNonLoopingSequenceDuration() throws Exception {
+    Transformer transformer = new TestTransformerBuilder(context).build();
+    EditedMediaItem audioEditedMediaItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_ONLY)).build();
+    EditedMediaItemSequence loopingAudioSequence =
+        new EditedMediaItemSequence.Builder(audioEditedMediaItem, audioEditedMediaItem)
+            .setIsLooping(true)
+            .build();
+    EditedMediaItem videoEditedMediaItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_VIDEO_ONLY)).build();
+    EditedMediaItemSequence videoSequence =
+        new EditedMediaItemSequence.Builder(videoEditedMediaItem).build();
+    Composition composition =
+        new Composition.Builder(loopingAudioSequence, videoSequence)
+            .setTransmuxAudio(true)
+            .setTransmuxVideo(true)
+            .build();
+
+    transformer.start(composition, outputDir.newFile().getPath());
+    ExportResult exportResult = TransformerTestRunner.runLooper(transformer);
+
+    // Video file duration is 1001 ms and audio file duration is 1044 ms.
+    assertThat(exportResult.durationMs).isLessThan(1_001);
+  }
+
+  @Test
   public void start_compositionOfConcurrentAudio_isCorrect() throws Exception {
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
     Transformer transformer =

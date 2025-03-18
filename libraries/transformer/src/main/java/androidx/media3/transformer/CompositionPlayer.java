@@ -1097,8 +1097,11 @@ public final class CompositionPlayer extends SimpleBasePlayer
     checkState(!composition.sequences.isEmpty());
     long longestSequenceDurationUs = Integer.MIN_VALUE;
     for (int i = 0; i < composition.sequences.size(); i++) {
-      longestSequenceDurationUs =
-          max(longestSequenceDurationUs, getSequenceDurationUs(composition.sequences.get(i)));
+      EditedMediaItemSequence sequence = composition.sequences.get(i);
+      if (sequence.isLooping) {
+        continue;
+      }
+      longestSequenceDurationUs = max(longestSequenceDurationUs, getSequenceDurationUs(sequence));
     }
     return longestSequenceDurationUs;
   }
