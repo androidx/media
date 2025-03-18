@@ -29,7 +29,7 @@ This release includes the following changes since
         but different languages or role flags are merged together
         ([#2222](https://github.com/androidx/media/issues/2222)).
 *   HLS extension:
-    *   Loosen the condition for seeking to sync positions in a HLS stream
+    *   Loosen the condition for seeking to sync positions in an HLS stream
         ([#2209](https://github.com/androidx/media/issues/2209)).
 
 ### 1.6.0-rc01 (2025-03-12)
