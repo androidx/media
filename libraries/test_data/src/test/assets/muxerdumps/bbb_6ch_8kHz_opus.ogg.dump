@@ -17,7 +17,6 @@ track 0:
     maxInputSize = 1185
     channelCount = 6
     sampleRate = 48000
-    language = ```
     metadata = entries=[Mp4Timestamp: creation time=100000000, modification time=500000000, timescale=10000]
     initializationData:
       data = length 27, hash 9EE6F879
