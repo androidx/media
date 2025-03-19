@@ -1,5 +1,83 @@
 # Release notes
 
+*   Cast extension:
+    *   Add support for playlist metadata
+        ([#2235](https://github.com/androidx/media/pull/2235)).
+
+### Unreleased changes
+
+*   Common Library:
+*   ExoPlayer:
+*   Transformer:
+*   Track Selection:
+*   Extractors:
+    *   MP3: Use duration and data size from unseekable Xing, VBRI and similar
+        variable bitrate metadata when falling back to constant bitrate seeking
+        due to `FLAG_ENABLE_CONSTANT_BITRATE_SEEKING(_ALWAYS)`
+        ([#2194](https://github.com/androidx/media/issues/2194)).
+*   DataSource:
+*   Audio:
+    *   Allow constant power upmixing/downmixing in DefaultAudioMixer.
+*   Video:
+    *   Add experimental `ExoPlayer` API to include the
+        `MediaCodec.BUFFER_FLAG_DECODE_ONLY` flag when queuing decode-only input
+        buffers. This flag will signal the decoder to skip the decode-only
+        buffers thereby resulting in faster seeking. Enable it with
+        `DefaultRenderersFactory.experimentalSetEnableMediaCodecBufferDecodeOnlyFlag`.
+*   Text:
+*   Metadata:
+*   Image:
+*   DataSource:
+*   DRM:
+*   Effect:
+    *   Add `Presentation.createForShortSide(int)` that creates a `Presentation`
+        that ensures the shortest side always matches the given value,
+        regardless of input orientation.
+*   Muxers:
+    *   `writeSampleData()` API now uses muxer specific `BufferInfo` class
+        instead of `MediaCodec.BufferInfo`.
+*   IMA extension:
+*   Session:
+*   UI:
+*   Downloads:
+    *   Add partial download support for progressive streams. Apps can prepare a
+        progressive stream with `DownloadHelper`, and request a
+        `DownloadRequest` from the helper with specifying the time-based media
+        start and end positions that the download should cover. The returned
+        `DownloadRequest` carries the resolved byte range, with which a
+        `ProgressiveDownloader` can be created and download the content
+        correspondingly.
+*   OkHttp extension:
+*   Cronet extension:
+*   RTMP extension:
+*   HLS extension:
+*   DASH extension:
+*   Smooth Streaming extension:
+*   RTSP extension:
+*   Decoder extensions (FFmpeg, VP9, AV1, etc.):
+*   MIDI extension:
+*   Leanback extension:
+*   Cast extension:
+*   Test Utilities:
+*   Demo app:
+    *   Add `PlaybackSpeedPopUpButton` Composable UI element to be part of
+        `ExtraControls` in `demo-compose`.
+*   Remove deprecated symbols:
+    *   Removed deprecated `SegmentDownloader` constructor
+        `SegmentDownloader(MediaItem, Parser<M>, CacheDataSource.Factory,
+        Executor)` and the corresponding constructors in its subclasses
+        `DashDownloader`, `HlsDownloader` and `SsDownloader`.
+    *   Removed deprecated `Player.hasNext()`, `Player.hasNextWindow()`. Use
+        `Player.hasNextMediaItem()` instead.
+    *   Removed deprecated `Player.next()`. Use `Player.seekToNextMediaItem()`
+        instead.
+    *   Removed deprecated `Player.seekToPreviousWindow()`. Use
+        `Player.seekToPreviousMediaItem()` instead.
+    *   Removed deprecated `Player.seekToNextWindow()`. Use
+        `Player.seekToNextMediaItem()` instead.
+    *   Removed deprecated `BaseAudioProcessor` in `exoplayer` module. Use
+        `BaseAudioProcessor` under `common` module.
+
 ## 1.6
 
 ### 1.6.0 (2025-03-26)
