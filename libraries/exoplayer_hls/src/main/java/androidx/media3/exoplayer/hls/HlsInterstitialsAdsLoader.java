@@ -32,6 +32,7 @@ import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.AdViewProvider;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MediaItem.AdsConfiguration;
 import androidx.media3.common.MediaItem.LocalConfiguration;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
@@ -295,7 +296,7 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
      * Called when the ads loader was started for the given HLS media item and ads ID.
      *
      * @param mediaItem The {@link MediaItem} of the content media source.
-     * @param adsId The ads ID of the ads media source.
+     * @param adsId The ads identifier (see {@link AdsConfiguration#adsId}).
      * @param adViewProvider {@linkplain AdViewProvider Provider} of views for the ad UI.
      */
     default void onStart(MediaItem mediaItem, Object adsId, AdViewProvider adViewProvider) {
@@ -307,7 +308,7 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
      * the content source can be accessed through {@link Window#manifest}.
      *
      * @param mediaItem The {@link MediaItem} of the content media source.
-     * @param adsId The ads ID of the ads media source.
+     * @param adsId The ads identifier (see {@link AdsConfiguration#adsId}).
      * @param hlsContentTimeline The latest {@link Timeline}.
      */
     default void onContentTimelineChanged(
@@ -316,10 +317,64 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
     }
 
     /**
+     * Called when the asset list has been started to load for the given ad.
+     *
+     * @param mediaItem The {@link MediaItem} with which the {@linkplain MediaSource content media
+     *     source} was created.
+     * @param adsId The ads identifier (see {@link AdsConfiguration#adsId}).
+     * @param adGroupIndex The index of the ad group of the ad period.
+     * @param adIndexInAdGroup The index of the ad in the ad group of the ad period.
+     */
+    default void onAssetListLoadStarted(
+        MediaItem mediaItem, Object adsId, int adGroupIndex, int adIndexInAdGroup) {
+      // Do nothing.
+    }
+
+    /**
+     * Called when an asset list has completed to load for the given ad.
+     *
+     * @param mediaItem The {@link MediaItem} with which the {@linkplain MediaSource content media
+     *     source} was created.
+     * @param adsId The ads identifier (see {@link AdsConfiguration#adsId}).
+     * @param adGroupIndex The index of the ad group of the ad period.
+     * @param adIndexInAdGroup The index of the ad in the ad group of the ad period.
+     * @param assetList The {@link AssetList} for which loading has completed.
+     */
+    default void onAssetListLoadCompleted(
+        MediaItem mediaItem,
+        Object adsId,
+        int adGroupIndex,
+        int adIndexInAdGroup,
+        AssetList assetList) {
+      // Do nothing.
+    }
+
+    /**
+     * Called when an asset list has failed to load for the given ad.
+     *
+     * @param mediaItem The {@link MediaItem} with which the {@linkplain MediaSource content media
+     *     source} was created.
+     * @param adsId The ads identifier (see {@link AdsConfiguration#adsId}).
+     * @param adGroupIndex The index of the ad group of the ad period.
+     * @param adIndexInAdGroup The index of the ad in the ad group of the ad period.
+     * @param ioException The exception, may be null if cancelled.
+     * @param cancelled Whether the load was cancelled.
+     */
+    default void onAssetListLoadFailed(
+        MediaItem mediaItem,
+        Object adsId,
+        int adGroupIndex,
+        int adIndexInAdGroup,
+        @Nullable IOException ioException,
+        boolean cancelled) {
+      // Do nothing.
+    }
+
+    /**
      * Called when preparation of an ad period has completed successfully.
      *
      * @param mediaItem The {@link MediaItem} of the content media source.
-     * @param adsId The ads ID of the ads media source.
+     * @param adsId The ads identifier (see {@link AdsConfiguration#adsId}).
      * @param adGroupIndex The index of the ad group in the ad media source.
      * @param adIndexInAdGroup The index of the ad in the ad group.
      */
@@ -332,7 +387,7 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
      * Called when preparation of an ad period failed.
      *
      * @param mediaItem The {@link MediaItem} of the content media source.
-     * @param adsId The ads ID of the ads media source.
+     * @param adsId The ads identifier (see {@link AdsConfiguration#adsId}).
      * @param adGroupIndex The index of the ad group in the ad media source.
      * @param adIndexInAdGroup The index of the ad in the ad group.
      * @param exception The {@link IOException} thrown when preparing.
@@ -351,7 +406,7 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
      * media item.
      *
      * @param mediaItem The {@link MediaItem} of the content media source.
-     * @param adsId The ads ID of the ads media source.
+     * @param adsId The ads identifier (see {@link AdsConfiguration#adsId}).
      * @param adGroupIndex The index of the ad group in the ad media source.
      * @param adIndexInAdGroup The index of the ad in the ad group.
      * @param metadata The emitted {@link Metadata}.
@@ -370,7 +425,7 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
      * content period, or the playlist ended.
      *
      * @param mediaItem The {@link MediaItem} of the content media source.
-     * @param adsId The ads ID of the ads media source.
+     * @param adsId The ads identifier (see {@link AdsConfiguration#adsId}).
      * @param adGroupIndex The index of the ad group in the ad media source.
      * @param adIndexInAdGroup The index of the ad in the ad group.
      */
@@ -383,7 +438,7 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
      * Called when the ads loader was stopped for the given HLS media item.
      *
      * @param mediaItem The {@link MediaItem} of the content media source.
-     * @param adsId The ads ID of the ads media source.
+     * @param adsId The ads identifier (see {@link AdsConfiguration#adsId}).
      * @param adPlaybackState The {@link AdPlaybackState} after the ad media source was released.
      */
     default void onStop(MediaItem mediaItem, Object adsId, AdPlaybackState adPlaybackState) {
