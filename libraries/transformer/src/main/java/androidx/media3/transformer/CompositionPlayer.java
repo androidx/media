@@ -239,7 +239,6 @@ public final class CompositionPlayer extends SimpleBasePlayer
      * @param videoGraphFactory The {@link VideoGraph.Factory}.
      * @return This builder, for convenience.
      */
-    @VisibleForTesting
     @CanIgnoreReturnValue
     public Builder setVideoGraphFactory(VideoGraph.Factory videoGraphFactory) {
       this.videoGraphFactory = videoGraphFactory;
