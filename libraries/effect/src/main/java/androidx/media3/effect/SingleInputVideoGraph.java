@@ -172,14 +172,17 @@ public class SingleInputVideoGraph implements VideoGraph {
               }
 
               @Override
-              public void onOutputFrameAvailableForRendering(long presentationTimeUs) {
+              public void onOutputFrameAvailableForRendering(
+                  long presentationTimeUs, boolean isRedrawnFrame) {
                 // Frames are rendered automatically.
                 if (presentationTimeUs == 0) {
                   hasProducedFrameWithTimestampZero = true;
                 }
                 lastProcessedFramePresentationTimeUs = presentationTimeUs;
                 listenerExecutor.execute(
-                    () -> listener.onOutputFrameAvailableForRendering(presentationTimeUs));
+                    () ->
+                        listener.onOutputFrameAvailableForRendering(
+                            presentationTimeUs, isRedrawnFrame));
               }
 
               @Override

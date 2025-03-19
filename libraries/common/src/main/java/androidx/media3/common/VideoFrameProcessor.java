@@ -172,8 +172,12 @@ public interface VideoFrameProcessor {
      * rendering.
      *
      * @param presentationTimeUs The presentation time of the frame, in microseconds.
+     * @param isRedrawnFrame Whether the frame is a frame that is {@linkplain #redraw redrawn},
+     *     redrawn frames are rendered directly thus {@link #renderOutputFrame} must not be called
+     *     on such frames.
      */
-    default void onOutputFrameAvailableForRendering(long presentationTimeUs) {}
+    default void onOutputFrameAvailableForRendering(
+        long presentationTimeUs, boolean isRedrawnFrame) {}
 
     /**
      * Called when an exception occurs during asynchronous video frame processing.
@@ -354,15 +358,16 @@ public interface VideoFrameProcessor {
 
   /**
    * Renders the oldest unrendered output frame that has become {@linkplain
-   * Listener#onOutputFrameAvailableForRendering(long) available for rendering} at the given {@code
-   * renderTimeNs}.
+   * Listener#onOutputFrameAvailableForRendering(long, boolean) available for rendering} at the
+   * given {@code renderTimeNs}.
    *
    * <p>This will either render the output frame to the {@linkplain #setOutputSurfaceInfo output
    * surface}, or drop the frame, per {@code renderTimeNs}.
    *
    * <p>This method must only be called if {@code renderFramesAutomatically} was set to {@code
    * false} using the {@link Factory} and should be called exactly once for each frame that becomes
-   * {@linkplain Listener#onOutputFrameAvailableForRendering(long) available for rendering}.
+   * {@linkplain Listener#onOutputFrameAvailableForRendering(long, boolean) available for
+   * rendering}.
    *
    * <p>The {@code renderTimeNs} may be passed to {@link EGLExt#eglPresentationTimeANDROID}
    * depending on the implementation.
@@ -371,8 +376,8 @@ public interface VideoFrameProcessor {
    *     be before or after the current system time. Use {@link #DROP_OUTPUT_FRAME} to drop the
    *     frame or {@link #RENDER_OUTPUT_FRAME_WITH_PRESENTATION_TIME} to render the frame to the
    *     {@linkplain #setOutputSurfaceInfo output surface} with the presentation timestamp seen in
-   *     {@link Listener#onOutputFrameAvailableForRendering(long)}. If the frame should be rendered
-   *     immediately, pass in {@link SystemClock#nanoTime()}.
+   *     {@link Listener#onOutputFrameAvailableForRendering(long, boolean)}. If the frame should be
+   *     rendered immediately, pass in {@link SystemClock#nanoTime()}.
    */
   void renderOutputFrame(long renderTimeNs);
 

@@ -570,7 +570,8 @@ import org.checkerframework.dataflow.qual.Pure;
     }
 
     @Override
-    public void onOutputFrameAvailableForRendering(long framePresentationTimeUs) {
+    public void onOutputFrameAvailableForRendering(
+        long framePresentationTimeUs, boolean isRedrawnFrame) {
       if (!renderFramesAutomatically) {
         synchronized (lock) {
           framesAvailableToRender += 1;

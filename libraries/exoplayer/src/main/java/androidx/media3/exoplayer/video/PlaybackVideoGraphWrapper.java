@@ -297,6 +297,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
   private Format videoGraphOutputFormat;
   private @MonotonicNonNull HandlerWrapper handler;
   private @MonotonicNonNull VideoGraph videoGraph;
+  private @MonotonicNonNull VideoFrameMetadataListener videoFrameMetadataListener;
   private long outputStreamStartPositionUs;
   private @VideoSink.FirstFrameReleaseInstruction int nextFirstOutputFrameReleaseInstruction;
   @Nullable private Pair<Surface, Size> currentSurfaceAndSize;
@@ -438,7 +439,8 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
   }
 
   @Override
-  public void onOutputFrameAvailableForRendering(long framePresentationTimeUs) {
+  public void onOutputFrameAvailableForRendering(
+      long framePresentationTimeUs, boolean isRedrawnFrame) {
     if (pendingFlushCount > 0) {
       // Ignore available frames while flushing
       return;
@@ -447,9 +449,22 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
       // Wake up the player when not playing to render the frame more promptly.
       wakeupListener.onWakeup();
     }
+
+    long bufferPresentationTimeUs = framePresentationTimeUs - bufferTimestampAdjustmentUs;
+    if (isRedrawnFrame) {
+      // Redrawn frames are rendered directly in the processing pipeline.
+      if (videoFrameMetadataListener != null) {
+        videoFrameMetadataListener.onVideoFrameAboutToBeRendered(
+            /* presentationTimeUs= */ bufferPresentationTimeUs,
+            /* releaseTimeNs= */ C.TIME_UNSET,
+            videoGraphOutputFormat,
+            /* mediaFormat= */ null);
+      }
+      return;
+    }
+
     // The frame presentation time is relative to the start of the Composition and without the
     // renderer offset
-    long bufferPresentationTimeUs = framePresentationTimeUs - bufferTimestampAdjustmentUs;
     lastOutputBufferPresentationTimeUs = bufferPresentationTimeUs;
     Long newOutputStreamStartPositionUs =
         streamStartPositionsUs.pollFloor(bufferPresentationTimeUs);
@@ -614,6 +629,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
 
   private void setVideoFrameMetadataListener(
       VideoFrameMetadataListener videoFrameMetadataListener) {
+    this.videoFrameMetadataListener = videoFrameMetadataListener;
     defaultVideoSink.setVideoFrameMetadataListener(videoFrameMetadataListener);
   }
 

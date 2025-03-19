@@ -220,10 +220,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   public void queueInputFrame(
       GlObjectsProvider glObjectsProvider, GlTextureInfo inputTexture, long presentationTimeUs) {
     videoFrameProcessingTaskExecutor.verifyVideoFrameProcessingThread();
+
     if (!isWaitingForRedrawFrame()) {
       // Don't report output available when redrawing - the redrawn frames are released immediately.
       videoFrameProcessorListenerExecutor.execute(
-          () -> videoFrameProcessorListener.onOutputFrameAvailableForRendering(presentationTimeUs));
+          () ->
+              videoFrameProcessorListener.onOutputFrameAvailableForRendering(
+                  presentationTimeUs, /* isRedrawnFrame= */ false));
     }
 
     if (textureOutputListener == null) {
@@ -238,6 +241,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         if (isWaitingForRedrawFrame()) {
           if (presentationTimeUs == redrawFramePresentationTimeUs) {
             redrawFramePresentationTimeUs = C.TIME_UNSET;
+            videoFrameProcessorListenerExecutor.execute(
+                () ->
+                    videoFrameProcessorListener.onOutputFrameAvailableForRendering(
+                        presentationTimeUs, /* isRedrawnFrame= */ true));
             renderFrame(
                 glObjectsProvider,
                 inputTexture,
