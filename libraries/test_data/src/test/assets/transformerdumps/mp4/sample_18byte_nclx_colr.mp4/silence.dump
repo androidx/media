@@ -5,6 +5,8 @@ format audio:
   sampleRate = 44100
   pcmEncoding = 2
 format video:
+  averageBitrate = 718288
+  peakBitrate = 718288
   id = 1
   containerMimeType = video/mp4
   sampleMimeType = video/avc

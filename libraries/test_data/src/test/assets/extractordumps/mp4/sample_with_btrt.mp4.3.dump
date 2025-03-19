@@ -1,18 +1,18 @@
 seekMap:
   isSeekable = true
-  duration = 1001000
-  getPosition(0) = [[timeUs=0, position=1160]]
-  getPosition(1) = [[timeUs=0, position=1160]]
-  getPosition(500500) = [[timeUs=0, position=1160]]
-  getPosition(1001000) = [[timeUs=0, position=1160]]
-numberOfTracks = 1
+  duration = 1089000
+  getPosition(0) = [[timeUs=0, position=48]]
+  getPosition(1) = [[timeUs=0, position=48]]
+  getPosition(544500) = [[timeUs=0, position=48]]
+  getPosition(1089000) = [[timeUs=0, position=48]]
+numberOfTracks = 2
 track 0:
   total output bytes = 89876
   sample count = 30
   track duration = 1001000
   format 0:
-    averageBitrate = 718288
-    peakBitrate = 718288
+    averageBitrate = 718289
+    peakBitrate = 718289
     id = 1
     containerMimeType = video/mp4
     sampleMimeType = video/avc
@@ -23,12 +23,9 @@ track 0:
     height = 720
     frameRate = 29.97
     colorInfo:
-      colorSpace = 1
-      colorRange = 2
-      colorTransfer = 3
       lumaBitdepth = 8
       chromaBitdepth = 8
-    metadata = entries=[Mp4Timestamp: creation time=3718109610, modification time=3718109610, timescale=1000]
+    metadata = entries=[TSSE: description=null: values=[Lavf61.7.100], Mp4Timestamp: creation time=0, modification time=0, timescale=1000]
     initializationData:
       data = length 29, hash 4746B5D9
       data = length 10, hash 7A0D0F2B
@@ -152,4 +149,26 @@ track 0:
     time = 934266
     flags = 536870912
     data = length 568, hash 4FE5C8EA
+track 1:
+  total output bytes = 6
+  sample count = 1
+  track duration = 1089000
+  format 0:
+    averageBitrate = 72956
+    peakBitrate = 74502
+    id = 2
+    containerMimeType = video/mp4
+    sampleMimeType = audio/mp4a-latm
+    codecs = mp4a.40.2
+    maxInputSize = 294
+    channelCount = 1
+    sampleRate = 44100
+    language = und
+    metadata = entries=[TSSE: description=null: values=[Lavf61.7.100], Mp4Timestamp: creation time=0, modification time=0, timescale=1000]
+    initializationData:
+      data = length 2, hash 5F7
+  sample 0:
+    time = 1064678
+    flags = 536870913
+    data = length 6, hash 31B22286
 tracksEnded = true
