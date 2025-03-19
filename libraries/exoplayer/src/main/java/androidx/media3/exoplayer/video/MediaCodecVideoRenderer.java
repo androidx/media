@@ -22,9 +22,9 @@ import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.exoplayer.DecoderReuseEvaluation.DISCARD_REASON_MAX_INPUT_SIZE_EXCEEDED;
 import static androidx.media3.exoplayer.DecoderReuseEvaluation.DISCARD_REASON_VIDEO_MAX_RESOLUTION_EXCEEDED;
 import static androidx.media3.exoplayer.DecoderReuseEvaluation.REUSE_RESULT_NO;
-import static androidx.media3.exoplayer.video.VideoFrameReleaseControl.RELEASE_FIRST_FRAME_IMMEDIATELY;
-import static androidx.media3.exoplayer.video.VideoFrameReleaseControl.RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED;
-import static androidx.media3.exoplayer.video.VideoFrameReleaseControl.RELEASE_FIRST_FRAME_WHEN_STARTED;
+import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_IMMEDIATELY;
+import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED;
+import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_WHEN_STARTED;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -1650,7 +1650,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   }
 
   /**
-   * Called when ready to {@linkplain VideoSink#onInputStreamChanged(int, Format, long, List)
+   * Called when ready to {@linkplain VideoSink#onInputStreamChanged(int, Format, long, int, List)
    * change} the input stream.
    *
    * <p>The default implementation applies this renderer's video effects.
@@ -1659,7 +1659,11 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       VideoSink videoSink, @VideoSink.InputType int inputType, Format format) {
     List<Effect> videoEffectsToApply = videoEffects != null ? videoEffects : ImmutableList.of();
     videoSink.onInputStreamChanged(
-        inputType, format, getOutputStreamStartPositionUs(), videoEffectsToApply);
+        inputType,
+        format,
+        getOutputStreamStartPositionUs(),
+        RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED,
+        videoEffectsToApply);
   }
 
   @Override

@@ -220,10 +220,15 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @Override
   public void onInputStreamChanged(
-      @InputType int inputType, Format format, long startPositionUs, List<Effect> videoEffects) {
+      @InputType int inputType,
+      Format format,
+      long startPositionUs,
+      @FirstFrameReleaseInstruction int firstFrameReleaseInstruction,
+      List<Effect> videoEffects) {
     executeOrDelay(
         videoSink ->
-            videoSink.onInputStreamChanged(inputType, format, startPositionUs, videoEffects));
+            videoSink.onInputStreamChanged(
+                inputType, format, startPositionUs, firstFrameReleaseInstruction, videoEffects));
   }
 
   /**

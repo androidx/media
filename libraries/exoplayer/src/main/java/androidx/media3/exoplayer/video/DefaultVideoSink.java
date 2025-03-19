@@ -17,9 +17,6 @@ package androidx.media3.exoplayer.video;
 
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
-import static androidx.media3.exoplayer.video.VideoFrameReleaseControl.RELEASE_FIRST_FRAME_IMMEDIATELY;
-import static androidx.media3.exoplayer.video.VideoFrameReleaseControl.RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED;
-import static androidx.media3.exoplayer.video.VideoFrameReleaseControl.RELEASE_FIRST_FRAME_WHEN_STARTED;
 
 import android.graphics.Bitmap;
 import android.view.Surface;
@@ -82,11 +79,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     videoFrameMetadataListener = (presentationTimeUs, releaseTimeNs, format, mediaFormat) -> {};
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>This method will always throw an {@link UnsupportedOperationException}.
+   */
   @Override
   public void onRendererEnabled(boolean mayRenderStartOfStream) {
-    int firstFrameReleaseInstruction =
-        mayRenderStartOfStream ? RELEASE_FIRST_FRAME_IMMEDIATELY : RELEASE_FIRST_FRAME_WHEN_STARTED;
-    videoFrameRenderControl.onStreamChanged(firstFrameReleaseInstruction, streamStartPositionUs);
+    throw new UnsupportedOperationException();
   }
 
   @Override
@@ -197,9 +197,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     videoFrameReleaseControl.setChangeFrameRateStrategy(changeFrameRateStrategy);
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>This method will always throw an {@link UnsupportedOperationException}.
+   */
   @Override
   public void enableMayRenderStartOfStream() {
-    videoFrameReleaseControl.allowReleaseFirstFrameBeforeStarted();
+    throw new UnsupportedOperationException();
   }
 
   /**
@@ -209,7 +214,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    */
   @Override
   public void onInputStreamChanged(
-      @InputType int inputType, Format format, long startPositionUs, List<Effect> videoEffects) {
+      @InputType int inputType,
+      Format format,
+      long startPositionUs,
+      @FirstFrameReleaseInstruction int firstFrameReleaseInstruction,
+      List<Effect> videoEffects) {
     checkState(videoEffects.isEmpty());
     if (format.width != inputFormat.width || format.height != inputFormat.height) {
       videoFrameRenderControl.onVideoSizeChanged(format.width, format.height);
@@ -219,8 +228,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
     inputFormat = format;
     if (startPositionUs != this.streamStartPositionUs) {
-      videoFrameRenderControl.onStreamChanged(
-          RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED, startPositionUs);
+      videoFrameRenderControl.onStreamChanged(firstFrameReleaseInstruction, startPositionUs);
       this.streamStartPositionUs = startPositionUs;
     }
   }

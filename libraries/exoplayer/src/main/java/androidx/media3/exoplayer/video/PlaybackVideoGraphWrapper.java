@@ -22,6 +22,7 @@ import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.contains;
 import static androidx.media3.common.util.Util.getMaxPendingFramesCountForMediaCodecDecoders;
 import static androidx.media3.exoplayer.video.VideoSink.INPUT_TYPE_SURFACE;
+import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.content.Context;
@@ -297,6 +298,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
   private @MonotonicNonNull HandlerWrapper handler;
   private @MonotonicNonNull VideoGraph videoGraph;
   private long outputStreamStartPositionUs;
+  private @VideoSink.FirstFrameReleaseInstruction int nextFirstOutputFrameReleaseInstruction;
   @Nullable private Pair<Surface, Size> currentSurfaceAndSize;
   private int pendingFlushCount;
   private @State int state;
@@ -347,6 +349,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     listeners = new CopyOnWriteArraySet<>();
     requestOpenGlToneMapping = builder.requestOpenGlToneMapping;
     videoGraphOutputFormat = new Format.Builder().build();
+    outputStreamStartPositionUs = C.TIME_UNSET;
     lastOutputBufferPresentationTimeUs = C.TIME_UNSET;
     finalBufferPresentationTimeUs = C.TIME_UNSET;
     totalVideoInputCount = C.LENGTH_UNSET;
@@ -425,13 +428,13 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     // We forward output size changes to the sink even if we are still flushing.
     videoGraphOutputFormat =
         videoGraphOutputFormat.buildUpon().setWidth(width).setHeight(height).build();
-    onOutputStreamChanged();
+    onOutputStreamChanged(nextFirstOutputFrameReleaseInstruction);
   }
 
   @Override
   public void onOutputFrameRateChanged(float frameRate) {
     videoGraphOutputFormat = videoGraphOutputFormat.buildUpon().setFrameRate(frameRate).build();
-    onOutputStreamChanged();
+    onOutputStreamChanged(nextFirstOutputFrameReleaseInstruction);
   }
 
   @Override
@@ -453,7 +456,8 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     if (newOutputStreamStartPositionUs != null
         && newOutputStreamStartPositionUs != outputStreamStartPositionUs) {
       outputStreamStartPositionUs = newOutputStreamStartPositionUs;
-      onOutputStreamChanged();
+      onOutputStreamChanged(nextFirstOutputFrameReleaseInstruction);
+      nextFirstOutputFrameReleaseInstruction = RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED;
     }
     boolean isLastFrame =
         finalBufferPresentationTimeUs != C.TIME_UNSET
@@ -598,7 +602,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     if (streamStartPositionsUs.size() == 1) {
       // Use the latest startPositionUs if none is passed after flushing.
       outputStreamStartPositionUs = checkNotNull(streamStartPositionsUs.pollFirst());
-      onOutputStreamChanged();
+      onOutputStreamChanged(nextFirstOutputFrameReleaseInstruction);
     }
     lastOutputBufferPresentationTimeUs = C.TIME_UNSET;
     finalBufferPresentationTimeUs = C.TIME_UNSET;
@@ -635,11 +639,13 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     return inputColorInfo;
   }
 
-  private void onOutputStreamChanged() {
+  private void onOutputStreamChanged(
+      @VideoSink.FirstFrameReleaseInstruction int firstFrameReleaseInstruction) {
     defaultVideoSink.onInputStreamChanged(
         INPUT_TYPE_SURFACE,
         videoGraphOutputFormat,
         outputStreamStartPositionUs,
+        firstFrameReleaseInstruction,
         /* videoEffects= */ ImmutableList.of());
   }
 
@@ -680,7 +686,10 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
 
     @Override
     public void onRendererEnabled(boolean mayRenderStartOfStream) {
-      defaultVideoSink.onRendererEnabled(mayRenderStartOfStream);
+      nextFirstOutputFrameReleaseInstruction =
+          mayRenderStartOfStream
+              ? RELEASE_FIRST_FRAME_IMMEDIATELY
+              : RELEASE_FIRST_FRAME_WHEN_STARTED;
     }
 
     @Override
@@ -765,7 +774,11 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
 
     @Override
     public void onInputStreamChanged(
-        @InputType int inputType, Format format, long startPositionUs, List<Effect> videoEffects) {
+        @InputType int inputType,
+        Format format,
+        long startPositionUs,
+        @FirstFrameReleaseInstruction int firstFrameReleaseInstruction,
+        List<Effect> videoEffects) {
       checkState(isInitialized());
       switch (inputType) {
         case INPUT_TYPE_SURFACE:
@@ -844,7 +857,9 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
 
     @Override
     public void enableMayRenderStartOfStream() {
-      defaultVideoSink.enableMayRenderStartOfStream();
+      if (nextFirstOutputFrameReleaseInstruction == RELEASE_FIRST_FRAME_WHEN_STARTED) {
+        nextFirstOutputFrameReleaseInstruction = RELEASE_FIRST_FRAME_IMMEDIATELY;
+      }
     }
 
     @Override

@@ -15,8 +15,8 @@
  */
 package androidx.media3.exoplayer.video;
 
-import static androidx.media3.exoplayer.video.VideoFrameReleaseControl.RELEASE_FIRST_FRAME_IMMEDIATELY;
-import static androidx.media3.exoplayer.video.VideoFrameReleaseControl.RELEASE_FIRST_FRAME_WHEN_STARTED;
+import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_IMMEDIATELY;
+import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_WHEN_STARTED;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.graphics.SurfaceTexture;
@@ -587,7 +587,7 @@ public class VideoFrameReleaseControlTest {
                 /* isDecodeOnlyFrame= */ true,
                 /* isLastFrame= */ true,
                 frameReleaseInfo))
-        .isEqualTo(VideoFrameReleaseControl.RELEASE_FIRST_FRAME_IMMEDIATELY);
+        .isEqualTo(RELEASE_FIRST_FRAME_IMMEDIATELY);
   }
 
   @Test

@@ -125,6 +125,35 @@ public interface VideoSink {
   /** Input frames come from a {@link Bitmap}. */
   int INPUT_TYPE_BITMAP = 2;
 
+  /**
+   * The instruction provided when the stream changes for releasing the first frame.
+   *
+   * <p>One of {@link #RELEASE_FIRST_FRAME_IMMEDIATELY}, {@link #RELEASE_FIRST_FRAME_WHEN_STARTED}
+   * or {@link #RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED}.
+   */
+  @Documented
+  @Retention(RetentionPolicy.SOURCE)
+  @Target(TYPE_USE)
+  @UnstableApi
+  @IntDef({
+    RELEASE_FIRST_FRAME_IMMEDIATELY,
+    RELEASE_FIRST_FRAME_WHEN_STARTED,
+    RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED
+  })
+  @interface FirstFrameReleaseInstruction {}
+
+  /** Instructs to release the first frame as soon as possible. */
+  int RELEASE_FIRST_FRAME_IMMEDIATELY = 0;
+
+  /** Instructs to release the first frame when rendering starts. */
+  int RELEASE_FIRST_FRAME_WHEN_STARTED = 1;
+
+  /**
+   * Instructs to release the first frame when the playback position reaches the stream start
+   * position.
+   */
+  int RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED = 2;
+
   /** Called when the {@link Renderer} currently feeding this sink is enabled. */
   void onRendererEnabled(boolean mayRenderStartOfStream);
 
@@ -188,7 +217,7 @@ public interface VideoSink {
    *
    * <p>This method returns {@code true} if the end of the last input stream has been {@linkplain
    * #signalEndOfCurrentInputStream() signaled} and all the input frames have been rendered. Note
-   * that a new input stream can be {@linkplain #onInputStreamChanged(int, Format, long, List)
+   * that a new input stream can be {@linkplain #onInputStreamChanged(int, Format, long, int, List)
    * signaled} even when this method returns true (in which case the sink will not be ended
    * anymore).
    */
@@ -250,16 +279,22 @@ public interface VideoSink {
    * @param format The {@link Format} of the stream.
    * @param startPositionUs The start position of the buffer presentation timestamps of the stream,
    *     in microseconds.
+   * @param firstFrameReleaseInstruction The {@link FirstFrameReleaseInstruction} indicating when to
+   *     release the stream's first frame.
    * @param videoEffects The {@link List<Effect>} to apply to the new stream.
    */
   void onInputStreamChanged(
-      @InputType int inputType, Format format, long startPositionUs, List<Effect> videoEffects);
+      @InputType int inputType,
+      Format format,
+      long startPositionUs,
+      @FirstFrameReleaseInstruction int firstFrameReleaseInstruction,
+      List<Effect> videoEffects);
 
   /**
    * Handles a video input frame.
    *
    * <p>Must be called after the corresponding stream is {@linkplain #onInputStreamChanged(int,
-   * Format, long, List) signaled}.
+   * Format, long, int, List) signaled}.
    *
    * @param framePresentationTimeUs The frame's presentation time, in microseconds.
    * @param isLastFrame Whether this is the last frame of the video stream. This flag is set on a
@@ -276,7 +311,7 @@ public interface VideoSink {
    * Handles an input {@link Bitmap}.
    *
    * <p>Must be called after the corresponding stream is {@linkplain #onInputStreamChanged(int,
-   * Format, long, List) signaled}.
+   * Format, long, int, List) signaled}.
    *
    * @param inputBitmap The {@link Bitmap} to queue to the video sink.
    * @param timestampIterator The times within the current stream that the bitmap should be shown

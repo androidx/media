@@ -15,6 +15,8 @@
  */
 package androidx.media3.exoplayer.video;
 
+import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_IMMEDIATELY;
+import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -80,10 +82,24 @@ public final class PlaybackVideoGraphWrapperTest {
 
     sink.initialize(format);
 
-    sink.onInputStreamChanged(VideoSink.INPUT_TYPE_SURFACE, format, startPositionUs, firstEffects);
-    sink.onInputStreamChanged(VideoSink.INPUT_TYPE_SURFACE, format, startPositionUs, secondEffects);
     sink.onInputStreamChanged(
-        VideoSink.INPUT_TYPE_SURFACE, format, startPositionUs, ImmutableList.of());
+        VideoSink.INPUT_TYPE_SURFACE,
+        format,
+        startPositionUs,
+        RELEASE_FIRST_FRAME_IMMEDIATELY,
+        firstEffects);
+    sink.onInputStreamChanged(
+        VideoSink.INPUT_TYPE_SURFACE,
+        format,
+        startPositionUs,
+        RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED,
+        secondEffects);
+    sink.onInputStreamChanged(
+        VideoSink.INPUT_TYPE_SURFACE,
+        format,
+        startPositionUs,
+        RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED,
+        ImmutableList.of());
     testVideoGraphFactory.verifyRegisteredEffectsMatches(/* invocationTimes= */ 3);
     assertThat(testVideoGraphFactory.getCapturedEffects())
         .isEqualTo(ImmutableList.of(firstEffects, secondEffects, ImmutableList.of()));

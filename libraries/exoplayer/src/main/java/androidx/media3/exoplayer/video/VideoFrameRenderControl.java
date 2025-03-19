@@ -17,7 +17,7 @@ package androidx.media3.exoplayer.video;
 
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.exoplayer.video.VideoFrameReleaseControl.RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED;
+import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
@@ -179,7 +179,7 @@ import androidx.media3.exoplayer.ExoPlaybackException;
   }
 
   public void onStreamChanged(
-      @VideoFrameReleaseControl.FirstFrameReleaseInstruction int firstFrameReleaseInstruction,
+      @VideoSink.FirstFrameReleaseInstruction int firstFrameReleaseInstruction,
       long streamStartPositionUs) {
     if (presentationTimestampsUs.isEmpty()) {
       videoFrameReleaseControl.onStreamChanged(firstFrameReleaseInstruction);

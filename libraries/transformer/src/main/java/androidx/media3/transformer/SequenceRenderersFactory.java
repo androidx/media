@@ -24,6 +24,7 @@ import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.SDK_INT;
 import static androidx.media3.exoplayer.DefaultRenderersFactory.DEFAULT_ALLOWED_VIDEO_JOINING_TIME_MS;
 import static androidx.media3.exoplayer.DefaultRenderersFactory.MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY;
+import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED;
 
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -436,7 +437,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     protected void changeVideoSinkInputStream(
         VideoSink videoSink, @VideoSink.InputType int inputType, Format format) {
       videoSink.onInputStreamChanged(
-          inputType, format, getOutputStreamStartPositionUs(), pendingEffects);
+          inputType,
+          format,
+          getOutputStreamStartPositionUs(),
+          RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED,
+          pendingEffects);
     }
 
     private void activateBufferingVideoSink() {
@@ -625,6 +630,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                 .setFrameRate(/* frameRate= */ DEFAULT_FRAME_RATE)
                 .build(),
             streamStartPositionUs,
+            RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED,
             videoEffects);
         inputStreamPending = false;
       }

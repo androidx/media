@@ -17,6 +17,9 @@ package androidx.media3.exoplayer.video;
 
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Util.msToUs;
+import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_IMMEDIATELY;
+import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED;
+import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_WHEN_STARTED;
 import static java.lang.Math.min;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
@@ -39,35 +42,6 @@ import java.lang.annotation.Target;
 /** Controls the releasing of video frames. */
 @UnstableApi
 public final class VideoFrameReleaseControl {
-
-  /**
-   * The instruction provided to {@link #onStreamChanged(int)} for releasing the first frame.
-   *
-   * <p>One of {@link #RELEASE_FIRST_FRAME_IMMEDIATELY}, {@link #RELEASE_FIRST_FRAME_WHEN_STARTED}
-   * or {@link #RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED}.
-   */
-  @Documented
-  @Retention(RetentionPolicy.SOURCE)
-  @Target(TYPE_USE)
-  @UnstableApi
-  @IntDef({
-    RELEASE_FIRST_FRAME_IMMEDIATELY,
-    RELEASE_FIRST_FRAME_WHEN_STARTED,
-    RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED
-  })
-  public @interface FirstFrameReleaseInstruction {}
-
-  /** Instructs to release the first frame as soon as possible. */
-  public static final int RELEASE_FIRST_FRAME_IMMEDIATELY = 0;
-
-  /** Instructs to release the first frame when rendering starts. */
-  public static final int RELEASE_FIRST_FRAME_WHEN_STARTED = 1;
-
-  /**
-   * Instructs to release the first frame when the playback position reaches the stream start
-   * position.
-   */
-  public static final int RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED = 2;
 
   /**
    * The frame release action returned by {@link #getFrameReleaseAction(long, long, long, long,
@@ -241,7 +215,8 @@ public final class VideoFrameReleaseControl {
    *
    * <p>Must also be called for the first stream.
    */
-  public void onStreamChanged(@FirstFrameReleaseInstruction int firstFrameReleaseInstruction) {
+  public void onStreamChanged(
+      @VideoSink.FirstFrameReleaseInstruction int firstFrameReleaseInstruction) {
     switch (firstFrameReleaseInstruction) {
       case RELEASE_FIRST_FRAME_IMMEDIATELY:
         firstFrameState = C.FIRST_FRAME_NOT_RENDERED;
