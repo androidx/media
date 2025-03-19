@@ -1223,6 +1223,7 @@ public final class BoxParser {
     @Nullable byte[] projectionData = null;
     @C.StereoMode int stereoMode = Format.NO_VALUE;
     @Nullable EsdsData esdsData = null;
+    @Nullable BtrtData btrtData = null;
     int maxNumReorderSamples = Format.NO_VALUE;
     int maxSubLayers = Format.NO_VALUE;
     @Nullable NalUnitUtil.H265VpsData vpsData = null;
@@ -1446,6 +1447,8 @@ public final class BoxParser {
         if (initializationDataBytes != null) {
           initializationData = ImmutableList.of(initializationDataBytes);
         }
+      } else if (childAtomType == Mp4Box.TYPE_btrt) {
+        btrtData = parseBtrtFromParent(parent, childStartPosition);
       } else if (childAtomType == Mp4Box.TYPE_pasp) {
         pixelWidthHeightRatio = parsePaspFromParent(parent, childStartPosition);
         pixelWidthHeightRatioFromPasp = true;
@@ -1555,7 +1558,12 @@ public final class BoxParser {
                     .setChromaBitdepth(bitdepthChroma)
                     .build());
 
-    if (esdsData != null) {
+    // Prefer btrtData over esdsData for video track.
+    if (btrtData != null) {
+      formatBuilder
+          .setAverageBitrate(Ints.saturatedCast(btrtData.avgBitrate))
+          .setPeakBitrate(Ints.saturatedCast(btrtData.maxBitrate));
+    } else if (esdsData != null) {
       formatBuilder
           .setAverageBitrate(Ints.saturatedCast(esdsData.bitrate))
           .setPeakBitrate(Ints.saturatedCast(esdsData.peakBitrate));
@@ -1834,6 +1842,7 @@ public final class BoxParser {
     @C.PcmEncoding int pcmEncoding = Format.NO_VALUE;
     @Nullable String codecs = null;
     @Nullable EsdsData esdsData = null;
+    @Nullable BtrtData btrtData = null;
 
     if (quickTimeSoundDescriptionVersion == 0 || quickTimeSoundDescriptionVersion == 1) {
       channelCount = parent.readUnsignedShort();
@@ -2040,6 +2049,8 @@ public final class BoxParser {
             }
           }
         }
+      } else if (childAtomType == Mp4Box.TYPE_btrt) {
+        btrtData = parseBtrtFromParent(parent, childPosition);
       } else if (childAtomType == Mp4Box.TYPE_dac3) {
         parent.setPosition(Mp4Box.HEADER_SIZE + childPosition);
         out.format =
@@ -2127,10 +2138,15 @@ public final class BoxParser {
               .setDrmInitData(drmInitData)
               .setLanguage(language);
 
+      // Prefer esdsData over btrtData for audio track.
       if (esdsData != null) {
         formatBuilder
             .setAverageBitrate(Ints.saturatedCast(esdsData.bitrate))
             .setPeakBitrate(Ints.saturatedCast(esdsData.peakBitrate));
+      } else if (btrtData != null) {
+        formatBuilder
+            .setAverageBitrate(Ints.saturatedCast(btrtData.avgBitrate))
+            .setPeakBitrate(Ints.saturatedCast(btrtData.maxBitrate));
       }
 
       out.format = formatBuilder.build();
@@ -2219,6 +2235,20 @@ public final class BoxParser {
         /* initializationData= */ initializationData,
         /* bitrate= */ bitrate > 0 ? bitrate : Format.NO_VALUE,
         /* peakBitrate= */ peakBitrate > 0 ? peakBitrate : Format.NO_VALUE);
+  }
+
+  /**
+   * Returns bitrate data contained in a btrt box, as specified by Section 8.5.2.2 in ISO/IEC
+   * 14496-12:2012(E).
+   */
+  private static BtrtData parseBtrtFromParent(ParsableByteArray parent, int position) {
+    parent.setPosition(position + Mp4Box.HEADER_SIZE);
+
+    parent.skipBytes(4); // bufferSizeDB
+    long maxBitrate = parent.readUnsignedInt();
+    long avgBitrate = parent.readUnsignedInt();
+
+    return new BtrtData(avgBitrate, maxBitrate);
   }
 
   /**
@@ -2523,6 +2553,17 @@ public final class BoxParser {
       this.initializationData = initializationData;
       this.bitrate = bitrate;
       this.peakBitrate = peakBitrate;
+    }
+  }
+
+  /** Data parsed from btrt box. */
+  private static final class BtrtData {
+    private final long avgBitrate;
+    private final long maxBitrate;
+
+    public BtrtData(long avgBitrate, long maxBitrate) {
+      this.avgBitrate = avgBitrate;
+      this.maxBitrate = maxBitrate;
     }
   }
 
