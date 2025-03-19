@@ -997,13 +997,25 @@ public final class BoxParser {
         mediaDurationUs = Util.scaleLargeTimestamp(mediaDuration, C.MICROS_PER_SECOND, timescale);
       }
     }
-    int languageCode = mdhd.readUnsignedShort();
-    String language =
-        ""
-            + (char) (((languageCode >> 10) & 0x1F) + 0x60)
-            + (char) (((languageCode >> 5) & 0x1F) + 0x60)
-            + (char) ((languageCode & 0x1F) + 0x60);
+
+    String language = getLanguageFromCode(/* languageCode= */ mdhd.readUnsignedShort());
     return new MdhdData(timescale, mediaDurationUs, language);
+  }
+
+  @Nullable
+  private static String getLanguageFromCode(int languageCode) {
+    char[] chars = {
+      (char) (((languageCode >> 10) & 0x1F) + 0x60),
+      (char) (((languageCode >> 5) & 0x1F) + 0x60),
+      (char) ((languageCode & 0x1F) + 0x60)
+    };
+
+    for (char c : chars) {
+      if (c < 'a' || c > 'z') {
+        return null;
+      }
+    }
+    return new String(chars);
   }
 
   /**
@@ -1012,7 +1024,7 @@ public final class BoxParser {
    * @param stsd The stsd atom to decode.
    * @param trackId The track's identifier in its container.
    * @param rotationDegrees The rotation of the track in degrees.
-   * @param language The language of the track.
+   * @param language The language of the track, or {@code null} if unset.
    * @param drmInitData {@link DrmInitData} to be included in the format, or {@code null}.
    * @param isQuickTime True for QuickTime media. False otherwise.
    * @return An object containing the parsed data.
@@ -1021,7 +1033,7 @@ public final class BoxParser {
       ParsableByteArray stsd,
       int trackId,
       int rotationDegrees,
-      String language,
+      @Nullable String language,
       @Nullable DrmInitData drmInitData,
       boolean isQuickTime)
       throws ParserException {
@@ -1125,7 +1137,7 @@ public final class BoxParser {
       int position,
       int atomSize,
       int trackId,
-      String language,
+      @Nullable String language,
       StsdData out) {
     parent.setPosition(position + Mp4Box.HEADER_SIZE + StsdData.STSD_HEADER_SIZE);
 
@@ -1820,7 +1832,7 @@ public final class BoxParser {
       int position,
       int size,
       int trackId,
-      String language,
+      @Nullable String language,
       boolean isQuickTime,
       @Nullable DrmInitData drmInitData,
       StsdData out,
@@ -2593,9 +2605,9 @@ public final class BoxParser {
   private static final class MdhdData {
     private final long timescale;
     private final long mediaDurationUs;
-    private final String language;
+    @Nullable private final String language;
 
-    public MdhdData(long timescale, long mediaDurationUs, String language) {
+    public MdhdData(long timescale, long mediaDurationUs, @Nullable String language) {
       this.timescale = timescale;
       this.mediaDurationUs = mediaDurationUs;
       this.language = language;
