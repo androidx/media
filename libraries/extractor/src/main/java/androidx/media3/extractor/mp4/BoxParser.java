@@ -1069,6 +1069,7 @@ public final class BoxParser {
             childStartPosition,
             childAtomSize,
             trackId,
+            language,
             rotationDegrees,
             drmInitData,
             out,
@@ -1186,6 +1187,7 @@ public final class BoxParser {
       int position,
       int size,
       int trackId,
+      @Nullable String language,
       int rotationDegrees,
       @Nullable DrmInitData drmInitData,
       StsdData out,
@@ -1558,6 +1560,7 @@ public final class BoxParser {
             .setMaxNumReorderSamples(maxNumReorderSamples)
             .setMaxSubLayers(maxSubLayers)
             .setDrmInitData(drmInitData)
+            .setLanguage(language)
             // Note that if either mdcv or clli are missing, we leave the corresponding HDR static
             // metadata bytes with value zero. See [Internal ref: b/194535665].
             .setColorInfo(
