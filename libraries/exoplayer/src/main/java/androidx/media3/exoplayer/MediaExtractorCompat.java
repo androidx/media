@@ -1002,7 +1002,6 @@ public final class MediaExtractorCompat {
         FormatHolder scratchFormatHolder, DecoderInputBuffer scratchNoDataDecoderInputBuffer) {
       Format format = getFormat(scratchFormatHolder, scratchNoDataDecoderInputBuffer);
       MediaFormat mediaFormatResult = MediaFormatUtil.createMediaFormatFromFormat(format);
-      mediaFormatResult.setInteger(MediaFormat.KEY_TRACK_ID, getIdOfBackingTrack());
       if (compatibilityTrackMimeType != null) {
         if (Util.SDK_INT >= 29) {
           mediaFormatResult.removeKey(MediaFormat.KEY_CODECS_STRING);
