@@ -701,11 +701,13 @@ public class MediaExtractorCompatTest {
   public void getTrackFormat_withMultipleTracks_returnsCorrectTrackId() throws IOException {
     fakeExtractor.addReadAction(
         (input, seekPosition) -> {
-          TrackOutput output1 = extractorOutput.track(/* id= */ 1, C.TRACK_TYPE_VIDEO);
-          TrackOutput output2 = extractorOutput.track(/* id= */ 2, C.TRACK_TYPE_AUDIO);
+          TrackOutput output1 = extractorOutput.track(/* id= */ 0, C.TRACK_TYPE_VIDEO);
+          TrackOutput output2 = extractorOutput.track(/* id= */ 1, C.TRACK_TYPE_AUDIO);
           extractorOutput.endTracks();
-          output1.format(PLACEHOLDER_FORMAT_VIDEO);
-          output2.format(PLACEHOLDER_FORMAT_AUDIO);
+          output1.format(
+              new Format.Builder().setId(1).setSampleMimeType(MimeTypes.VIDEO_H264).build());
+          output2.format(
+              new Format.Builder().setId(2).setSampleMimeType(MimeTypes.AUDIO_AAC).build());
           return Extractor.RESULT_CONTINUE;
         });
 
