@@ -23,7 +23,6 @@ import static androidx.media3.exoplayer.mediacodec.MediaCodecUtil.createCodecPro
 import android.media.MediaCodecInfo;
 import android.media.MediaCodecInfo.CodecProfileLevel;
 import android.media.MediaFormat;
-import androidx.media3.common.C;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.mediacodec.MediaCodecUtil;
@@ -150,7 +149,9 @@ public final class ShadowMediaCodecConfig extends ExternalResource {
                     MediaCodecInfo.CodecProfileLevel.AVCProfileHigh,
                     MediaCodecInfo.CodecProfileLevel.AVCLevel62)),
             /* colorFormats= */ ImmutableList.of(
-                MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible)));
+                MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible),
+            /* isPassthrough= */ true,
+            /* isEncoder= */ false));
     codecs.put(
         MimeTypes.VIDEO_H265,
         new CodecImpl(
@@ -160,7 +161,9 @@ public final class ShadowMediaCodecConfig extends ExternalResource {
                 createCodecProfileLevel(
                     CodecProfileLevel.HEVCProfileMain, CodecProfileLevel.HEVCMainTierLevel61)),
             /* colorFormats= */ ImmutableList.of(
-                MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible)));
+                MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible),
+            /* isPassthrough= */ true,
+            /* isEncoder= */ false));
     codecs.put(
         MimeTypes.VIDEO_MPEG2,
         new CodecImpl(
@@ -171,7 +174,9 @@ public final class ShadowMediaCodecConfig extends ExternalResource {
                     MediaCodecInfo.CodecProfileLevel.MPEG2ProfileMain,
                     MediaCodecInfo.CodecProfileLevel.MPEG2LevelML)),
             /* colorFormats= */ ImmutableList.of(
-                MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible)));
+                MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible),
+            /* isPassthrough= */ true,
+            /* isEncoder= */ false));
     codecs.put(
         MimeTypes.VIDEO_VP9,
         new CodecImpl(
@@ -179,7 +184,9 @@ public final class ShadowMediaCodecConfig extends ExternalResource {
             /* mimeType= */ MimeTypes.VIDEO_VP9,
             /* profileLevels= */ ImmutableList.of(),
             /* colorFormats= */ ImmutableList.of(
-                MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible)));
+                MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible),
+            /* isPassthrough= */ true,
+            /* isEncoder= */ false));
     codecs.put(
         MimeTypes.VIDEO_AV1,
         new CodecImpl(
@@ -187,9 +194,11 @@ public final class ShadowMediaCodecConfig extends ExternalResource {
             /* mimeType= */ MimeTypes.VIDEO_AV1,
             /* profileLevels= */ ImmutableList.of(),
             /* colorFormats= */ ImmutableList.of(
-                MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible)));
+                MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible),
+            /* isPassthrough= */ true,
+            /* isEncoder= */ false));
 
-    // Audio codecs
+    // Frame-dropping audio decoders.
     codecs.put(
         MimeTypes.AUDIO_AAC,
         new CodecImpl(/* codecName= */ "exotest.audio.aac", /* mimeType= */ MimeTypes.AUDIO_AAC));
@@ -234,10 +243,8 @@ public final class ShadowMediaCodecConfig extends ExternalResource {
   }
 
   /**
-   * A {@link ShadowMediaCodec.CodecConfig.Codec} that passes data through without modifying it.
-   *
-   * <p>Note: This currently drops all audio data - removing this restriction is tracked in
-   * [internal b/174737370].
+   * A {@link ShadowMediaCodec.CodecConfig.Codec} that provides pass-through or frame dropping
+   * encoders and decoders.
    */
   private static final class CodecImpl implements ShadowMediaCodec.CodecConfig.Codec {
 
@@ -245,26 +252,53 @@ public final class ShadowMediaCodecConfig extends ExternalResource {
     private final String mimeType;
     private final ImmutableList<MediaCodecInfo.CodecProfileLevel> profileLevels;
     private final ImmutableList<Integer> colorFormats;
-    private final @C.TrackType int trackType;
+    private final boolean isPassthrough;
+    private final boolean isEncoder;
 
+    /**
+     * Creates a frame dropping decoder with the specified {@code codecName} and {@code mimeType}.
+     *
+     * <p>This method is equivalent to {@code new CodecImpl(codecName, mimeType, ImmutableList.of(),
+     * ImmutableList.of(), false, false)}.
+     *
+     * @param codecName The name of the codec.
+     * @param mimeType The MIME type of the codec.
+     */
     public CodecImpl(String codecName, String mimeType) {
       this(
           codecName,
           mimeType,
           /* profileLevels= */ ImmutableList.of(),
-          /* colorFormats= */ ImmutableList.of());
+          /* colorFormats= */ ImmutableList.of(),
+          /* isPassthrough= */ false,
+          /* isEncoder= */ false);
     }
 
+    /**
+     * Creates an instance.
+     *
+     * @param codecName The name of the codec.
+     * @param mimeType The MIME type of the codec.
+     * @param profileLevels A list of profiles and levels supported by the codec.
+     * @param colorFormats A list of color formats supported by the codec.
+     * @param isPassthrough If {@code true}, the codec acts as a pass-through codec, directly
+     *     copying input data to the output. If {@code false}, the codec drops frames.
+     * @param isEncoder If {@code true}, the codec is an encoder. If {@code false}, the codec is a
+     *     decoder.
+     */
     public CodecImpl(
         String codecName,
         String mimeType,
         ImmutableList<CodecProfileLevel> profileLevels,
-        ImmutableList<Integer> colorFormats) {
+        ImmutableList<Integer> colorFormats,
+        boolean isPassthrough,
+        boolean isEncoder) {
       this.codecName = codecName;
       this.mimeType = mimeType;
       this.profileLevels = profileLevels;
       this.colorFormats = colorFormats;
-      trackType = MimeTypes.getTrackType(mimeType);
+      this.isPassthrough = isPassthrough;
+      this.isEncoder = isEncoder;
     }
 
     public void configure() {
@@ -274,7 +308,7 @@ public final class ShadowMediaCodecConfig extends ExternalResource {
       configureShadowMediaCodec(
           codecName,
           mimeType,
-          /* isEncoder= */ false,
+          isEncoder,
           profileLevels,
           colorFormats,
           new ShadowMediaCodec.CodecConfig(
@@ -285,12 +319,12 @@ public final class ShadowMediaCodecConfig extends ExternalResource {
 
     @Override
     public void process(ByteBuffer in, ByteBuffer out) {
-      byte[] bytes = new byte[in.remaining()];
-      in.get(bytes);
-
       // TODO(internal b/174737370): Output audio bytes as well.
-      if (trackType != C.TRACK_TYPE_AUDIO) {
-        out.put(bytes);
+      if (isPassthrough) {
+        out.put(in);
+      } else {
+        byte[] bytes = new byte[in.remaining()];
+        in.get(bytes);
       }
     }
   }
