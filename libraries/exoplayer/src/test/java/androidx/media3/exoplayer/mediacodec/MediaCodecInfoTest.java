@@ -16,6 +16,8 @@
 package androidx.media3.exoplayer.mediacodec;
 
 import static androidx.media3.common.MimeTypes.AUDIO_AAC;
+import static androidx.media3.common.MimeTypes.AUDIO_E_AC3;
+import static androidx.media3.common.MimeTypes.AUDIO_E_AC3_JOC;
 import static androidx.media3.common.MimeTypes.VIDEO_AV1;
 import static androidx.media3.common.MimeTypes.VIDEO_H264;
 import static androidx.media3.exoplayer.DecoderReuseEvaluation.DISCARD_REASON_AUDIO_CHANNEL_COUNT_CHANGED;
@@ -69,6 +71,24 @@ public final class MediaCodecInfoTest {
           .setSampleMimeType(AUDIO_AAC)
           .setChannelCount(5)
           .setSampleRate(44100)
+          .setAverageBitrate(5000)
+          .setInitializationData(ImmutableList.of(new byte[] {4, 4, 1, 0, 0}))
+          .build();
+
+  private static final Format FORMAT_EAC3 =
+      new Format.Builder()
+          .setSampleMimeType(AUDIO_E_AC3)
+          .setChannelCount(6)
+          .setSampleRate(48000)
+          .setAverageBitrate(5000)
+          .setInitializationData(ImmutableList.of(new byte[] {4, 4, 1, 0, 0}))
+          .build();
+
+  private static final Format FORMAT_EAC3JOC =
+      new Format.Builder()
+          .setSampleMimeType(AUDIO_E_AC3_JOC)
+          .setChannelCount(12)
+          .setSampleRate(48000)
           .setAverageBitrate(5000)
           .setInitializationData(ImmutableList.of(new byte[] {4, 4, 1, 0, 0}))
           .build();
@@ -299,6 +319,43 @@ public final class MediaCodecInfoTest {
                 DISCARD_REASON_INITIALIZATION_DATA_CHANGED));
   }
 
+  @Test
+  public void canReuseCodec_eac3_returnsYesWithoutReconfiguration() {
+    MediaCodecInfo codecInfo = buildEac3CodecInfo();
+
+    Format variantFormat =
+        FORMAT_EAC3
+            .buildUpon()
+            .setInitializationData(ImmutableList.of(new byte[] {0}))
+            .build();
+    assertThat(codecInfo.canReuseCodec(FORMAT_EAC3, variantFormat))
+        .isEqualTo(
+            new DecoderReuseEvaluation(
+                codecInfo.name,
+                FORMAT_EAC3,
+                variantFormat,
+                DecoderReuseEvaluation.REUSE_RESULT_YES_WITHOUT_RECONFIGURATION,
+                /* discardReasons= */ 0));
+  }
+  @Test
+  public void canReuseCodec_eac3joc_returnsYesWithoutReconfiguration() {
+    MediaCodecInfo codecInfo = buildEac3JocCodecInfo();
+
+    Format variantFormat =
+        FORMAT_EAC3JOC
+            .buildUpon()
+            .setInitializationData(ImmutableList.of(new byte[] {0}))
+            .build();
+    assertThat(codecInfo.canReuseCodec(FORMAT_EAC3JOC, variantFormat))
+        .isEqualTo(
+            new DecoderReuseEvaluation(
+                codecInfo.name,
+                FORMAT_EAC3JOC,
+                variantFormat,
+                DecoderReuseEvaluation.REUSE_RESULT_YES_WITHOUT_RECONFIGURATION,
+                /* discardReasons= */ 0));
+  }
+
   private static MediaCodecInfo buildH264CodecInfo(boolean adaptive) {
     return new MediaCodecInfo(
         "h264",
@@ -323,6 +380,36 @@ public final class MediaCodecInfoTest {
         /* hardwareAccelerated= */ false,
         /* softwareOnly= */ true,
         /* vendor= */ false,
+        /* adaptive= */ false,
+        /* tunneling= */ false,
+        /* secure= */ false,
+        /* detachedSurfaceSupported= */ false);
+  }
+
+  private static MediaCodecInfo buildEac3CodecInfo() {
+    return new MediaCodecInfo(
+        "eac3joc",
+        AUDIO_E_AC3,
+        AUDIO_E_AC3,
+        /* capabilities= */ null,
+        /* hardwareAccelerated= */ false,
+        /* softwareOnly= */ true,
+        /* vendor= */ true,
+        /* adaptive= */ false,
+        /* tunneling= */ false,
+        /* secure= */ false,
+        /* detachedSurfaceSupported= */ false);
+  }
+
+  private static MediaCodecInfo buildEac3JocCodecInfo() {
+    return new MediaCodecInfo(
+        "eac3joc",
+        AUDIO_E_AC3_JOC,
+        AUDIO_E_AC3_JOC,
+        /* capabilities= */ null,
+        /* hardwareAccelerated= */ false,
+        /* softwareOnly= */ true,
+        /* vendor= */ true,
         /* adaptive= */ false,
         /* tunneling= */ false,
         /* secure= */ false,
