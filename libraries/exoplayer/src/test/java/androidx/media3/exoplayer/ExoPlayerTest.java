@@ -142,6 +142,7 @@ import androidx.media3.common.util.SystemClock;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.TransferListener;
 import androidx.media3.decoder.DecoderInputBuffer;
+import androidx.media3.exoplayer.ExoPlayer.PreloadConfiguration;
 import androidx.media3.exoplayer.analytics.AnalyticsListener;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.audio.AudioRendererEventListener;
@@ -200,7 +201,6 @@ import androidx.media3.test.utils.TestExoPlayerBuilder;
 import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
 import androidx.media3.test.utils.robolectric.TestPlayerRunHelper;
 import androidx.test.core.app.ApplicationProvider;
-import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -229,6 +229,9 @@ import org.mockito.ArgumentMatcher;
 import org.mockito.ArgumentMatchers;
 import org.mockito.InOrder;
 import org.mockito.Mockito;
+import org.robolectric.ParameterizedRobolectricTestRunner;
+import org.robolectric.ParameterizedRobolectricTestRunner.Parameter;
+import org.robolectric.ParameterizedRobolectricTestRunner.Parameters;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadows.AudioDeviceInfoBuilder;
 import org.robolectric.shadows.ShadowAudioManager;
@@ -236,8 +239,8 @@ import org.robolectric.shadows.ShadowLooper;
 import org.robolectric.shadows.ShadowPackageManager;
 
 /** Unit test for {@link ExoPlayer}. */
-@RunWith(AndroidJUnit4.class)
-public class ExoPlayerTest {
+@RunWith(ParameterizedRobolectricTestRunner.class)
+public final class ExoPlayerTest {
 
   private static final String TAG = "ExoPlayerTest";
 
@@ -250,12 +253,26 @@ public class ExoPlayerTest {
 
   private static final String SAMPLE_URI = "asset://android_asset/media/mp4/sample.mp4";
 
-  private Context context;
-  private Timeline placeholderTimeline;
+  @Parameters(name = "preload={0}")
+  public static ImmutableList<Object[]> params() {
+    return ImmutableList.of(
+        new Object[] {false, new PreloadConfiguration(C.TIME_UNSET)},
+        new Object[] {true, new PreloadConfiguration(5_000_000L)});
+  }
 
   @Rule
   public ShadowMediaCodecConfig mediaCodecConfig =
       ShadowMediaCodecConfig.forAllSupportedMimeTypes();
+
+  // The explicit boolean parameter is only used to give clear test names.
+  @Parameter(0)
+  public boolean unusedIsPreloadEnabled;
+
+  @Parameter(1)
+  public ExoPlayer.PreloadConfiguration preloadConfiguration;
+
+  private Context context;
+  private Timeline placeholderTimeline;
 
   @Before
   public void setUp() {
@@ -265,29 +282,13 @@ public class ExoPlayerTest {
             FakeTimeline.FAKE_MEDIA_ITEM.buildUpon().setTag(0).build());
   }
 
-  /**
-   * Returns the target preload duration, in microseconds, or {@link C#TIME_UNSET} if preloading
-   * should be disabled.
-   *
-   * <p>Return {@link C#TIME_UNSET} by default. Override this method to run tests with a different
-   * target preload duration.
-   */
-  // TODO(issuetracker.google.com/316040980): Replace this by a parameterized field when resolved.
-  protected long getTargetPreloadDurationUs() {
-    return C.TIME_UNSET;
-  }
-
   private TestExoPlayerBuilder parameterizeTestExoPlayerBuilder(TestExoPlayerBuilder builder) {
-    return builder.setPreloadConfiguration(createPreloadConfiguration());
+    return builder.setPreloadConfiguration(preloadConfiguration);
   }
 
   private ExoPlayerTestRunner.Builder parameterizeExoPlayerTestRunnerBuilder(
       ExoPlayerTestRunner.Builder builder) {
-    return builder.setPreloadConfiguration(createPreloadConfiguration());
-  }
-
-  private ExoPlayer.PreloadConfiguration createPreloadConfiguration() {
-    return new ExoPlayer.PreloadConfiguration(getTargetPreloadDurationUs());
+    return builder.setPreloadConfiguration(preloadConfiguration);
   }
 
   /**
@@ -15853,7 +15854,7 @@ public class ExoPlayerTest {
                 new DefaultRenderersFactory(context).setAllowedVideoJoiningTimeMs(0))
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))
             .build();
-    player.setPreloadConfiguration(createPreloadConfiguration());
+    player.setPreloadConfiguration(preloadConfiguration);
     player.setPauseAtEndOfMediaItems(true);
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 0));
     player.setVideoSurface(surface);
