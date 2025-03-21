@@ -40,6 +40,7 @@ import android.media.MediaCodecInfo.CodecProfileLevel;
 import android.media.MediaCodecInfo.VideoCapabilities;
 import android.os.Build;
 import android.util.Pair;
+import android.util.Range;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
@@ -731,7 +732,18 @@ public final class MediaCodecInfo {
       // floor to avoid situations where a range check in areSizeAndRateSupported fails due to
       // slightly exceeding the limits for a standard format (e.g., 1080p at 30 fps).
       double floorFrameRate = Math.floor(frameRate);
-      return capabilities.areSizeAndRateSupported(width, height, floorFrameRate);
+      if (!capabilities.areSizeAndRateSupported(width, height, floorFrameRate)) {
+        return false;
+      }
+      if (Util.SDK_INT < 24) {
+        return true;
+      }
+      @Nullable
+      Range<Double> achievableFrameRates = capabilities.getAchievableFrameRatesFor(width, height);
+      if (achievableFrameRates == null) {
+        return true;
+      }
+      return floorFrameRate <= achievableFrameRates.getUpper();
     }
   }
 

@@ -20,6 +20,8 @@
         buffers. This flag will signal the decoder to skip the decode-only
         buffers thereby resulting in faster seeking. Enable it with
         `DefaultRenderersFactory.experimentalSetEnableMediaCodecBufferDecodeOnlyFlag`.
+    *   Improve codec performance checks for software video codecs. This may
+        lead to some additional tracks being marked as `EXCEEDS_CAPABILITIES`.
 *   Text:
 *   Metadata:
 *   Image:
