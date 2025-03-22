@@ -765,15 +765,10 @@ import java.util.concurrent.ExecutionException;
         controller,
         sequenceNumber,
         COMMAND_PLAY_PAUSE,
-        sendSessionResultSuccess(
-            player -> {
-              @Nullable MediaSessionImpl impl = sessionImpl.get();
-              if (impl == null || impl.isReleased()) {
-                return;
-              }
-              impl.handleMediaControllerPlayRequest(
-                  controller, /* callOnPlayerInteractionFinished= */ false);
-            }));
+        sendSessionResultWhenReady(
+            (session, theController, sequenceId) ->
+                session.handleMediaControllerPlayRequest(
+                    theController, /* callOnPlayerInteractionFinished= */ false)));
   }
 
   @Override
