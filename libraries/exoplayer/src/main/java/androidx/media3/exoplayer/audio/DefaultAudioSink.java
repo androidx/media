@@ -540,6 +540,7 @@ public final class DefaultAudioSink implements AudioSink {
   private final TrimmingAudioProcessor trimmingAudioProcessor;
   private final ImmutableList<AudioProcessor> toIntPcmAvailableAudioProcessors;
   private final ImmutableList<AudioProcessor> toFloatPcmAvailableAudioProcessors;
+  private final ImmutableList<AudioProcessor> forPreProcessingAvailableAudioProcessors;
   private final AudioTrackPositionTracker audioTrackPositionTracker;
   private final ArrayDeque<MediaPositionParameters> mediaPositionParametersCheckpoints;
   private final boolean preferAudioTrackPlaybackParams;
@@ -620,12 +621,10 @@ public final class DefaultAudioSink implements AudioSink {
     audioTrackPositionTracker = new AudioTrackPositionTracker(new PositionTrackerListener());
     channelMappingAudioProcessor = new ChannelMappingAudioProcessor();
     trimmingAudioProcessor = new TrimmingAudioProcessor();
-    toIntPcmAvailableAudioProcessors =
-        ImmutableList.of(
-            new ToInt16PcmAudioProcessor(), channelMappingAudioProcessor, trimmingAudioProcessor);
-    toFloatPcmAvailableAudioProcessors =
-        ImmutableList.of(
-            new ToFloatPcmAudioProcessor(), channelMappingAudioProcessor, trimmingAudioProcessor);
+    toIntPcmAvailableAudioProcessors = ImmutableList.of(new ToInt16PcmAudioProcessor());
+    toFloatPcmAvailableAudioProcessors = ImmutableList.of(new ToFloatPcmAudioProcessor());
+    forPreProcessingAvailableAudioProcessors =
+        ImmutableList.of(trimmingAudioProcessor, channelMappingAudioProcessor);
     volume = 1f;
     audioSessionId = C.AUDIO_SESSION_ID_UNSET;
     auxEffectInfo = new AuxEffectInfo(AuxEffectInfo.NO_AUX_EFFECT_ID, 0f);
@@ -727,6 +726,7 @@ public final class DefaultAudioSink implements AudioSink {
       inputPcmFrameSize = Util.getPcmFrameSize(inputFormat.pcmEncoding, inputFormat.channelCount);
 
       ImmutableList.Builder<AudioProcessor> pipelineProcessors = new ImmutableList.Builder<>();
+      pipelineProcessors.addAll(forPreProcessingAvailableAudioProcessors);
       if (shouldUseFloatOutput(inputFormat.pcmEncoding)) {
         pipelineProcessors.addAll(toFloatPcmAvailableAudioProcessors);
       } else {
