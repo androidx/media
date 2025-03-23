@@ -23,6 +23,7 @@ import androidx.media3.common.Format;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.BaseAudioProcessor;
 import androidx.media3.common.util.Assertions;
+import androidx.media3.common.util.Util;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 
@@ -56,8 +57,7 @@ import java.util.Arrays;
       return AudioFormat.NOT_SET;
     }
 
-    if (inputAudioFormat.encoding != C.ENCODING_PCM_16BIT
-        && inputAudioFormat.encoding != C.ENCODING_PCM_FLOAT) {
+    if (!Util.isEncodingLinearPcm(inputAudioFormat.encoding)) {
       throw new UnhandledAudioFormatException(inputAudioFormat);
     }
 
@@ -91,8 +91,20 @@ import java.util.Arrays;
       for (int channelIndex : outputChannels) {
         int inputIndex = position + getByteDepth(inputAudioFormat.encoding) * channelIndex;
         switch (inputAudioFormat.encoding) {
+          case C.ENCODING_PCM_8BIT:
+            buffer.put(inputBuffer.get(inputIndex));
+            break;
           case C.ENCODING_PCM_16BIT:
+          case C.ENCODING_PCM_16BIT_BIG_ENDIAN:
             buffer.putShort(inputBuffer.getShort(inputIndex));
+            break;
+          case C.ENCODING_PCM_24BIT:
+          case C.ENCODING_PCM_24BIT_BIG_ENDIAN:
+            Util.putInt24(buffer, Util.getInt24(inputBuffer, inputIndex));
+            break;
+          case C.ENCODING_PCM_32BIT:
+          case C.ENCODING_PCM_32BIT_BIG_ENDIAN:
+            buffer.putInt(inputBuffer.getInt(inputIndex));
             break;
           case C.ENCODING_PCM_FLOAT:
             buffer.putFloat(inputBuffer.getFloat(inputIndex));
