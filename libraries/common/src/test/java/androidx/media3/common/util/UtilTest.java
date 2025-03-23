@@ -21,6 +21,7 @@ import static androidx.media3.common.util.Util.contentEquals;
 import static androidx.media3.common.util.Util.contentHashCode;
 import static androidx.media3.common.util.Util.escapeFileName;
 import static androidx.media3.common.util.Util.getCodecsOfType;
+import static androidx.media3.common.util.Util.getInt24;
 import static androidx.media3.common.util.Util.getStringForTime;
 import static androidx.media3.common.util.Util.gzip;
 import static androidx.media3.common.util.Util.maxValue;
@@ -28,6 +29,7 @@ import static androidx.media3.common.util.Util.minValue;
 import static androidx.media3.common.util.Util.parseXsDateTime;
 import static androidx.media3.common.util.Util.parseXsDuration;
 import static androidx.media3.common.util.Util.percentFloat;
+import static androidx.media3.common.util.Util.putInt24;
 import static androidx.media3.common.util.Util.unescapeFileName;
 import static androidx.media3.test.utils.TestUtil.buildTestData;
 import static androidx.media3.test.utils.TestUtil.buildTestString;
@@ -1675,6 +1677,52 @@ public class UtilTest {
     sparseArray2.put(1, 4);
 
     assertThat(contentHashCode(sparseArray1)).isNotEqualTo(contentHashCode(sparseArray2));
+  }
+
+  @Test
+  public void putInt24_littleEndian() {
+    ByteBuffer buf = ByteBuffer.allocateDirect(2 * 3).order(ByteOrder.LITTLE_ENDIAN);
+    assertThrows(IllegalArgumentException.class, () -> putInt24(buf, 0xFF000000));
+    assertThrows(IllegalArgumentException.class, () -> putInt24(buf, 0x8FFFFFFF));
+    assertThrows(IllegalArgumentException.class, () -> putInt24(buf, 0x01FFFFFF));
+    putInt24(buf, -1);
+    putInt24(buf, 0x123456);
+    buf.rewind();
+    assertThat(createByteArray(buf))
+        .isEqualTo(new byte[] {(byte) 0xff, (byte) 0xff, (byte) 0xff, 0x56, 0x34, 0x12});
+    assertThat(getInt24(buf, 0)).isEqualTo(0xffffffff);
+    assertThat(getInt24(buf, 0) & 0xffffff).isEqualTo(0xffffff);
+    assertThat(getInt24(buf, 0)).isEqualTo(-1);
+    assertThat(getInt24(buf, 3)).isEqualTo(0x00123456);
+
+    buf.rewind();
+    putInt24(buf, 0xff0001);
+    putInt24(buf, 0x00ff02);
+    assertThat(getInt24(buf, 0) & 0xffffff).isEqualTo(0xff0001);
+    assertThat(getInt24(buf, 3) & 0xffffff).isEqualTo(0x00ff02);
+  }
+
+  @Test
+  public void putInt24_bigEndian() {
+    ByteBuffer buf = ByteBuffer.allocateDirect(2 * 3).order(ByteOrder.BIG_ENDIAN);
+    assertThrows(IllegalArgumentException.class, () -> putInt24(buf, 0xFF000000));
+    assertThrows(IllegalArgumentException.class, () -> putInt24(buf, 0x8FFFFFFF));
+    assertThrows(IllegalArgumentException.class, () -> putInt24(buf, 0x01FFFFFF));
+    putInt24(buf, -1);
+    putInt24(buf, 0x123456);
+    buf.rewind();
+    assertThat(createByteArray(buf))
+        .isEqualTo(new byte[] {(byte) 0xff, (byte) 0xff, (byte) 0xff, 0x12, 0x34, 0x56});
+    assertThat(getInt24(buf, 0)).isEqualTo(0xffffffff);
+    assertThat(getInt24(buf, 0) & 0xffffff).isEqualTo(0xffffff);
+    assertThat(getInt24(buf, 0)).isEqualTo(-1);
+    assertThat(getInt24(buf, 3)).isEqualTo(0x00123456);
+
+    buf.rewind();
+    putInt24(buf, 0xff0001);
+    putInt24(buf, 0x00ff02);
+    assertThat(getInt24(buf, 0) & 0xffffff).isEqualTo(0xff0001);
+    assertThat(getInt24(buf, 3) & 0xffffff).isEqualTo(0x00ff02);
   }
 
   private static void assertEscapeUnescapeFileName(String fileName, String escapedFileName) {
