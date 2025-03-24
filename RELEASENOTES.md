@@ -45,6 +45,8 @@
         `DownloadRequest` carries the resolved byte range, with which a
         `ProgressiveDownloader` can be created and download the content
         correspondingly.
+    *   Add `DownloadHelper.Factory` with which the static
+        `DownloadHelper.forMediaItem()` methods are replaced.
 *   OkHttp extension:
 *   Cronet extension:
 *   RTMP extension:
