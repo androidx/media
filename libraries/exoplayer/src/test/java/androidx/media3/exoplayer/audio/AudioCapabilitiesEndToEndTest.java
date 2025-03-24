@@ -19,6 +19,8 @@ import static android.media.AudioFormat.CHANNEL_OUT_5POINT1;
 import static android.media.AudioFormat.CHANNEL_OUT_STEREO;
 import static android.media.AudioFormat.ENCODING_AC3;
 import static androidx.media3.common.util.Assertions.checkNotNull;
+import static androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig.CODEC_INFO_AAC;
+import static androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig.CODEC_INFO_AC3;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.Mockito.mock;
@@ -124,7 +126,7 @@ public class AudioCapabilitiesEndToEndTest {
   @Config(minSdk = 29)
   public void playAc3WithDirectPlayback_directPlaybackNotSupportMidPlayback_recoversToAac()
       throws Exception {
-    shadowMediaCodecConfig.addSupportedMimeTypes(MimeTypes.AUDIO_AAC);
+    shadowMediaCodecConfig.addDecoders(CODEC_INFO_AAC);
     setupDefaultPcmSupport();
     addDirectPlaybackSupportForAC3();
     setUiModeToTv();
@@ -189,7 +191,7 @@ public class AudioCapabilitiesEndToEndTest {
   public void
       playAc3WithDirectPlayback_directPlaybackNotSupportMidPlaybackButDeviceHasAc3Codec_recoversToAc3()
           throws Throwable {
-    shadowMediaCodecConfig.addSupportedMimeTypes(MimeTypes.AUDIO_AAC, MimeTypes.AUDIO_AC3);
+    shadowMediaCodecConfig.addDecoders(CODEC_INFO_AAC, CODEC_INFO_AC3);
     setupDefaultPcmSupport();
     addDirectPlaybackSupportForAC3();
     setUiModeToTv();
@@ -249,7 +251,7 @@ public class AudioCapabilitiesEndToEndTest {
     final AtomicBoolean directPlaybackSupportAddedReference = new AtomicBoolean();
 
     setupDefaultPcmSupport();
-    shadowMediaCodecConfig.addSupportedMimeTypes(MimeTypes.AUDIO_AAC);
+    shadowMediaCodecConfig.addDecoders(CODEC_INFO_AAC);
     setUiModeToTv();
     RenderersFactory renderersFactory =
         createRenderersFactory(
@@ -323,7 +325,7 @@ public class AudioCapabilitiesEndToEndTest {
     final AtomicBoolean directPlaybackSupportAddedReference = new AtomicBoolean();
 
     setupDefaultPcmSupport();
-    shadowMediaCodecConfig.addSupportedMimeTypes(MimeTypes.AUDIO_AAC, MimeTypes.AUDIO_AC3);
+    shadowMediaCodecConfig.addDecoders(CODEC_INFO_AAC, CODEC_INFO_AC3);
     setUiModeToTv();
     RenderersFactory renderersFactory =
         createRenderersFactory(
@@ -396,7 +398,7 @@ public class AudioCapabilitiesEndToEndTest {
       throws Throwable {
     final AtomicBoolean directPlaybackSupportAddedReference = new AtomicBoolean();
 
-    shadowMediaCodecConfig.addSupportedMimeTypes(MimeTypes.AUDIO_AAC);
+    shadowMediaCodecConfig.addDecoders(CODEC_INFO_AAC);
     setupDefaultPcmSupport();
     setUiModeToTv();
     RenderersFactory renderersFactory =
