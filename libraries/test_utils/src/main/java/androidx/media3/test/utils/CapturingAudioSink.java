@@ -80,12 +80,7 @@ public class CapturingAudioSink extends ForwardingAudioSink implements Dumper.Du
   public void configure(Format inputFormat, int specifiedBufferSize, @Nullable int[] outputChannels)
       throws ConfigurationException {
     this.format = inputFormat;
-    interceptedData.add(
-        new DumpableConfiguration(
-            inputFormat.pcmEncoding,
-            inputFormat.channelCount,
-            inputFormat.sampleRate,
-            outputChannels));
+    interceptedData.add(new DumpableConfiguration(inputFormat, outputChannels));
     super.configure(inputFormat, specifiedBufferSize, outputChannels);
   }
 
@@ -158,29 +153,25 @@ public class CapturingAudioSink extends ForwardingAudioSink implements Dumper.Du
 
   private static final class DumpableConfiguration implements Dumper.Dumpable {
 
-    private final @C.PcmEncoding int inputPcmEncoding;
-    private final int inputChannelCount;
-    private final int inputSampleRate;
+    private final Format inputFormat;
     @Nullable private final int[] outputChannels;
 
-    public DumpableConfiguration(
-        @C.PcmEncoding int inputPcmEncoding,
-        int inputChannelCount,
-        int inputSampleRate,
-        @Nullable int[] outputChannels) {
-      this.inputPcmEncoding = inputPcmEncoding;
-      this.inputChannelCount = inputChannelCount;
-      this.inputSampleRate = inputSampleRate;
+    public DumpableConfiguration(Format inputFormat, @Nullable int[] outputChannels) {
+      this.inputFormat = inputFormat;
       this.outputChannels = outputChannels;
     }
 
     @Override
     public void dump(Dumper dumper) {
+      dumper.startBlock("config");
+      if (inputFormat.sampleMimeType != null
+          && !inputFormat.sampleMimeType.equals(MimeTypes.AUDIO_RAW)) {
+        dumper.add("mimeType", inputFormat.sampleMimeType);
+      }
       dumper
-          .startBlock("config")
-          .add("pcmEncoding", inputPcmEncoding)
-          .add("channelCount", inputChannelCount)
-          .add("sampleRate", inputSampleRate);
+          .add("pcmEncoding", inputFormat.pcmEncoding)
+          .add("channelCount", inputFormat.channelCount)
+          .add("sampleRate", inputFormat.sampleRate);
       if (outputChannels != null) {
         dumper.add("outputChannels", Arrays.toString(outputChannels));
       }
