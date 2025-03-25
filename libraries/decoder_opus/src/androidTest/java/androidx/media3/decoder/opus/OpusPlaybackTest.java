@@ -29,7 +29,6 @@ import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.RenderersFactory;
 import androidx.media3.exoplayer.audio.AudioSink;
-import androidx.media3.exoplayer.audio.DefaultAudioSink;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.ProgressiveMediaSource;
 import androidx.media3.extractor.mkv.MatroskaExtractor;
@@ -74,9 +73,7 @@ public class OpusPlaybackTest {
   }
 
   private void playUri(String fileName) throws Exception {
-    CapturingAudioSink audioSink =
-        new CapturingAudioSink(
-            new DefaultAudioSink.Builder(ApplicationProvider.getApplicationContext()).build());
+    CapturingAudioSink audioSink = CapturingAudioSink.create();
 
     TestPlaybackRunnable testPlaybackRunnable =
         new TestPlaybackRunnable(

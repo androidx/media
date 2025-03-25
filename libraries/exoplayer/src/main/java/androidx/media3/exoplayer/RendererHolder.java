@@ -82,12 +82,6 @@ import java.util.Objects;
     return isPrimaryRendererPrewarming() || isSecondaryRendererPrewarming();
   }
 
-  public boolean isRendererPrewarming(int id) {
-    boolean isPrewarmingPrimaryRenderer = isPrimaryRendererPrewarming() && id == index;
-    boolean isPrewarmingSecondaryRenderer = isSecondaryRendererPrewarming() && id != index;
-    return isPrewarmingPrimaryRenderer || isPrewarmingSecondaryRenderer;
-  }
-
   private boolean isPrimaryRendererPrewarming() {
     return prewarmingState == RENDERER_PREWARMING_STATE_PREWARMING_PRIMARY
         || prewarmingState == RENDERER_PREWARMING_STATE_TRANSITIONING_TO_PRIMARY;
@@ -315,6 +309,21 @@ import java.util.Objects;
    */
   public boolean isReadingFromPeriod(@Nullable MediaPeriodHolder period) {
     return getRendererReadingFromPeriod(period) != null;
+  }
+
+  /**
+   * Returns whether a {@link Renderer} is prewarming and enabled on a {@link MediaPeriodHolder
+   * media period}.
+   *
+   * @param period The {@link MediaPeriodHolder media period} to check.
+   */
+  public boolean isPrewarmingPeriod(MediaPeriodHolder period) {
+    boolean isPrimaryRendererPrewarming =
+        isPrimaryRendererPrewarming() && getRendererReadingFromPeriod(period) == primaryRenderer;
+    boolean isSecondaryRendererPrewarming =
+        isSecondaryRendererPrewarming()
+            && getRendererReadingFromPeriod(period) == secondaryRenderer;
+    return isPrimaryRendererPrewarming || isSecondaryRendererPrewarming;
   }
 
   /**

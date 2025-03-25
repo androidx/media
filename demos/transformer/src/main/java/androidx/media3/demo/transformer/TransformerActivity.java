@@ -677,8 +677,8 @@ public final class TransformerActivity extends AppCompatActivity {
     int resolutionHeight =
         bundle.getInt(ConfigurationActivity.RESOLUTION_HEIGHT, /* defaultValue= */ C.LENGTH_UNSET);
     if (resolutionHeight != C.LENGTH_UNSET) {
-      effects.add(LanczosResample.scaleToFit(10000, resolutionHeight));
-      effects.add(Presentation.createForHeight(resolutionHeight));
+      effects.add(LanczosResample.scaleToFitWithFlexibleOrientation(10000, resolutionHeight));
+      effects.add(Presentation.createForShortSide(resolutionHeight));
     }
 
     return effects.build();

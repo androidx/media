@@ -67,6 +67,18 @@ public class RtspMediaSourceTest {
   }
 
   @Test
+  public void canUpdateMediaItem_withChangeToRtspFromRtspt_returnsTrue() {
+    MediaItem initialMediaItem = new MediaItem.Builder().setUri("rtspt://test.test").build();
+    MediaItem updatedMediaItem =
+        TestUtil.buildFullyCustomizedMediaItem().buildUpon().setUri("rtsp://test.test").build();
+    MediaSource mediaSource = buildMediaSource(initialMediaItem);
+
+    boolean canUpdateMediaItem = mediaSource.canUpdateMediaItem(updatedMediaItem);
+
+    assertThat(canUpdateMediaItem).isTrue();
+  }
+
+  @Test
   public void updateMediaItem_createsTimelineWithUpdatedItem() throws Exception {
     MediaItem initialMediaItem =
         new MediaItem.Builder().setUri("http://test.test").setTag("tag1").build();

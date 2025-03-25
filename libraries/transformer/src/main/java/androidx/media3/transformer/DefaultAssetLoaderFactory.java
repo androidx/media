@@ -22,6 +22,7 @@ import static androidx.media3.transformer.TransformerUtil.isImage;
 import android.content.Context;
 import android.graphics.BitmapFactory;
 import android.graphics.ColorSpace;
+import android.media.metrics.LogSessionId;
 import android.os.Looper;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
@@ -58,6 +59,7 @@ public final class DefaultAssetLoaderFactory implements AssetLoader.Factory {
   @Nullable private final MediaSource.Factory mediaSourceFactory;
   private final BitmapLoader bitmapLoader;
   @Nullable private final TrackSelector.Factory trackSelectorFactory;
+  @Nullable private final LogSessionId logSessionId;
 
   private AssetLoader.@MonotonicNonNull Factory imageAssetLoaderFactory;
   private AssetLoader.@MonotonicNonNull Factory exoPlayerAssetLoaderFactory;
@@ -74,15 +76,21 @@ public final class DefaultAssetLoaderFactory implements AssetLoader.Factory {
    *     necessary).
    * @param clock The {@link Clock} to use. It should always be {@link Clock#DEFAULT}, except for
    *     testing.
+   * @param logSessionId The optional {@link LogSessionId} of the {@link
+   *     android.media.metrics.EditingSession}.
    */
   public DefaultAssetLoaderFactory(
-      Context context, Codec.DecoderFactory decoderFactory, Clock clock) {
+      Context context,
+      Codec.DecoderFactory decoderFactory,
+      Clock clock,
+      @Nullable LogSessionId logSessionId) {
     // TODO: b/381519379 - Deprecate this constructor and replace with a builder.
     this.context = context.getApplicationContext();
     this.decoderFactory = decoderFactory;
     this.clock = clock;
     this.mediaSourceFactory = null;
     this.trackSelectorFactory = null;
+    this.logSessionId = logSessionId;
     @Nullable BitmapFactory.Options options = null;
     if (Util.SDK_INT >= 26) {
       options = new BitmapFactory.Options();
@@ -113,6 +121,7 @@ public final class DefaultAssetLoaderFactory implements AssetLoader.Factory {
     clock = Clock.DEFAULT;
     mediaSourceFactory = null;
     trackSelectorFactory = null;
+    logSessionId = null;
   }
 
   /**
@@ -140,6 +149,7 @@ public final class DefaultAssetLoaderFactory implements AssetLoader.Factory {
     this.mediaSourceFactory = mediaSourceFactory;
     this.bitmapLoader = bitmapLoader;
     this.trackSelectorFactory = null;
+    this.logSessionId = null;
   }
 
   /**
@@ -170,6 +180,7 @@ public final class DefaultAssetLoaderFactory implements AssetLoader.Factory {
     this.mediaSourceFactory = mediaSourceFactory;
     this.bitmapLoader = bitmapLoader;
     this.trackSelectorFactory = trackSelectorFactory;
+    this.logSessionId = null;
   }
 
   @Override
@@ -196,7 +207,12 @@ public final class DefaultAssetLoaderFactory implements AssetLoader.Factory {
     if (exoPlayerAssetLoaderFactory == null) {
       exoPlayerAssetLoaderFactory =
           new ExoPlayerAssetLoader.Factory(
-              context, decoderFactory, clock, mediaSourceFactory, trackSelectorFactory);
+              context,
+              decoderFactory,
+              clock,
+              mediaSourceFactory,
+              trackSelectorFactory,
+              logSessionId);
     }
     return exoPlayerAssetLoaderFactory.createAssetLoader(
         editedMediaItem, looper, listener, compositionSettings);

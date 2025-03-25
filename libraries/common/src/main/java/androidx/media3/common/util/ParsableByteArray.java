@@ -15,12 +15,18 @@
  */
 package androidx.media3.common.util;
 
+import static java.nio.ByteOrder.BIG_ENDIAN;
+import static java.nio.ByteOrder.LITTLE_ENDIAN;
+
 import androidx.annotation.Nullable;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Chars;
 import com.google.common.primitives.Ints;
+import com.google.common.primitives.UnsignedBytes;
+import com.google.common.primitives.UnsignedInts;
 import com.google.errorprone.annotations.CheckReturnValue;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
@@ -32,6 +38,9 @@ import java.util.Arrays;
 @UnstableApi
 @CheckReturnValue
 public final class ParsableByteArray {
+
+  /** A value that is outside the valid range of unicode code points. */
+  public static final int INVALID_CODE_POINT = 0x11_0000;
 
   private static final char[] CR_AND_LF = {'\r', '\n'};
   private static final char[] LF = {'\n'};
@@ -133,7 +142,7 @@ public final class ParsableByteArray {
 
   /** Returns the number of bytes yet to be read. */
   public int bytesLeft() {
-    return limit - position;
+    return Math.max(limit - position, 0);
   }
 
   /** Returns the limit. */
@@ -239,30 +248,74 @@ public final class ParsableByteArray {
     return (data[position] & 0xFF);
   }
 
-  /**
-   * Peeks at the next char.
-   *
-   * <p>Equivalent to passing {@link StandardCharsets#UTF_16} or {@link StandardCharsets#UTF_16BE}
-   * to {@link #peekChar(Charset)}.
-   */
+  /** Peeks at the next two bytes and interprets them as a big-endian char. */
   public char peekChar() {
-    return (char) ((data[position] & 0xFF) << 8 | (data[position + 1] & 0xFF));
+    return peekChar(BIG_ENDIAN, /* offset= */ 0);
   }
 
   /**
-   * Peeks at the next char (as decoded by {@code charset})
-   *
-   * <p>If {@code charset} is UTF-8, only single-byte characters are supported and this method
-   * returns zero if {@link #position} is pointing to any part of a multi-byte character.
-   *
-   * @throws IllegalArgumentException if charset is not supported. Only US_ASCII, UTF-8, UTF-16,
-   *     UTF-16BE, and UTF-16LE are supported.
+   * @deprecated Either use {@link #peekChar()} to peek the next two bytes (big-endian) or {@link
+   *     #peekCodePoint(Charset)} to peek in a {@link Charset}-aware way.
    */
-  // TODO: b/398845842 - Make this work 'correctly' for multi-byte UTF-8, or deprecate it.
+  @Deprecated
   public char peekChar(Charset charset) {
     Assertions.checkArgument(
         SUPPORTED_CHARSETS_FOR_READLINE.contains(charset), "Unsupported charset: " + charset);
-    return (char) (peekCharacterAndSize(charset) >> Short.SIZE);
+    if (bytesLeft() == 0) {
+      return 0;
+    }
+    if (charset.equals(StandardCharsets.US_ASCII)) {
+      return (char) peekUnsignedByte();
+    } else if (charset.equals(StandardCharsets.UTF_8)) {
+      return (data[position] & 0x80) == 0 ? (char) peekUnsignedByte() : 0;
+    } else {
+      // UTF-16
+      if (bytesLeft() < 2) {
+        return 0;
+      }
+      ByteOrder byteOrder = charset.equals(StandardCharsets.UTF_16LE) ? LITTLE_ENDIAN : BIG_ENDIAN;
+      return peekChar(byteOrder, /* offset= */ 0);
+    }
+  }
+
+  /** Peek the UTF-16 char at {@link #position}{@code + offset}. */
+  private char peekChar(ByteOrder byteOrder, int offset) {
+    return byteOrder == BIG_ENDIAN
+        ? Chars.fromBytes(data[position + offset], data[position + offset + 1])
+        : Chars.fromBytes(data[position + offset + 1], data[position + offset]);
+  }
+
+  /**
+   * Peeks at the code point starting at {@link #getPosition()} as interpreted by {@code charset}.
+   *
+   * <p>The exact behaviour depends on {@code charset}:
+   *
+   * <ul>
+   *   <li>US_ASCII: Returns the byte at {@link #getPosition()} if it's valid ASCII (less than
+   *       {@code 0x80}), otherwise returns {@link #INVALID_CODE_POINT}.
+   *   <li>UTF-8: If {@link #getPosition()} is the start of a UTF-8 code unit the whole unit is
+   *       decoded and returned. Otherwise {@link #INVALID_CODE_POINT} is returned.
+   *   <li>UTF-16 (all endian-nesses):
+   *       <ul>
+   *         <li>If {@link #getPosition()} is at the start of a {@linkplain
+   *             Character#isHighSurrogate(char) high surrogate} code unit and the following two
+   *             bytes are a {@linkplain Character#isLowSurrogate(char)} low surrogate} code unit,
+   *             the {@linkplain Character#toCodePoint(char, char) combined code point} is returned.
+   *         <li>Otherwise the single code unit starting at {@link #getPosition()} is returned
+   *             directly.
+   *         <li>UTF-16 has no support for byte-level synchronization, so if {@link #getPosition()}
+   *             is not aligned with the start of a UTF-16 code unit then the result is undefined.
+   *       </ul>
+   * </ul>
+   *
+   * @throws IllegalArgumentException if charset is not supported. Only US_ASCII, UTF-8, UTF-16,
+   *     UTF-16BE, and UTF-16LE are supported.
+   * @throws IndexOutOfBoundsException if {@link #bytesLeft()} doesn't allow reading the smallest
+   *     code unit in {@code charset} (1 byte for ASCII and UTF-8, 2 bytes for UTF-16).
+   */
+  public int peekCodePoint(Charset charset) {
+    int codePointAndSize = peekCodePointAndSize(charset);
+    return codePointAndSize != 0 ? Ints.checkedCast(codePointAndSize >>> 8) : INVALID_CODE_POINT;
   }
 
   /** Reads the next byte as an unsigned value. */
@@ -708,53 +761,145 @@ public final class ParsableByteArray {
    * without advancing {@link #position}. Returns {@code 0} if {@link #bytesLeft()} doesn't allow
    * reading a whole character in {@code charset}.
    *
-   * <p>Only supports characters in {@code chars} that occupy a single code unit (i.e. one byte for
-   * UTF-8 and two bytes for UTF-16).
+   * <p>Only supports characters in {@code chars} that are in the Basic Multilingual Plane (occupy a
+   * single char).
    */
   private char readCharacterIfInList(Charset charset, char[] chars) {
-    int characterAndSize = peekCharacterAndSize(charset);
+    if (bytesLeft() < getSmallestCodeUnitSize(charset)) {
+      return 0;
+    }
+    int codePointAndSize = peekCodePointAndSize(charset);
+    if (codePointAndSize == 0) {
+      return 0;
+    }
 
-    if (characterAndSize != 0 && Chars.contains(chars, (char) (characterAndSize >> Short.SIZE))) {
-      position += characterAndSize & 0xFFFF;
-      return (char) (characterAndSize >> Short.SIZE);
+    int codePoint = UnsignedInts.checkedCast(codePointAndSize >>> 8);
+    if (Character.isSupplementaryCodePoint(codePoint)) {
+      return 0;
+    }
+    char c = Chars.checkedCast(codePoint);
+    if (Chars.contains(chars, c)) {
+      position += Ints.checkedCast(codePointAndSize & 0xFF);
+      return c;
     } else {
       return 0;
     }
   }
 
   /**
-   * Peeks at the character at {@link #position} (as decoded by {@code charset}), returns it and the
-   * number of bytes the character takes up within the array packed into an int. First two bytes are
-   * the character and the second two is the size in bytes it takes. Returns 0 if {@link
-   * #bytesLeft()} doesn't allow reading a whole character in {@code charset} or if the {@code
-   * charset} is not one of US_ASCII, UTF-8, UTF-16, UTF-16BE, or UTF-16LE.
+   * Peeks at the code unit at {@link #position} (as decoded by {@code charset}), and the number of
+   * bytes it occupies within {@link #data}.
    *
-   * <p>Only supports characters that occupy a single code unit (i.e. one byte for UTF-8 and two
-   * bytes for UTF-16).
+   * <p>See {@link #peekCodePoint(Charset)} for detailed per-charset behaviour & edge cases.
+   *
+   * @return The code point in the upper 24 bits, and the size in bytes in the lower 8 bits. Or zero
+   *     if no valid code unit starts at {@link #position} and fits within {@link #bytesLeft()}.
+   * @throws IndexOutOfBoundsException if {@link #bytesLeft()} doesn't allow reading the smallest
+   *     code unit in {@code charset} (1 byte for ASCII and UTF-8, 2 bytes for UTF-16).
+   * @throws IllegalArgumentException if charset is not supported. Only US_ASCII, UTF-8, UTF-16,
+   *     UTF-16BE, and UTF-16LE are supported.
    */
-  private int peekCharacterAndSize(Charset charset) {
-    byte charByte1;
-    byte charByte2;
-    byte characterSize;
-    if (bytesLeft() >= 1
-        && ((charset.equals(StandardCharsets.UTF_8) && (data[position] & 0x80) == 0)
-            || charset.equals(StandardCharsets.US_ASCII))) {
-      // TODO: b/398845842 - Handle multi-byte UTF-8.
-      charByte1 = 0;
-      charByte2 = data[position];
-      characterSize = 1;
-    } else if (bytesLeft() >= 2
-        && (charset.equals(StandardCharsets.UTF_16) || charset.equals(StandardCharsets.UTF_16BE))) {
-      charByte1 = data[position];
-      charByte2 = data[position + 1];
-      characterSize = 2;
-    } else if (bytesLeft() >= 2 && charset.equals(StandardCharsets.UTF_16LE)) {
-      charByte1 = data[position + 1];
-      charByte2 = data[position];
-      characterSize = 2;
+  private int peekCodePointAndSize(Charset charset) {
+    Assertions.checkArgument(
+        SUPPORTED_CHARSETS_FOR_READLINE.contains(charset), "Unsupported charset: " + charset);
+    if (bytesLeft() < getSmallestCodeUnitSize(charset)) {
+      throw new IndexOutOfBoundsException("position=" + position + ", limit=" + limit);
+    }
+    int codePoint;
+    byte codePointSize;
+    if (charset.equals(StandardCharsets.US_ASCII)) {
+      if ((data[position] & 0x80) != 0) {
+        return 0;
+      }
+      codePoint = UnsignedBytes.toInt(data[position]);
+      codePointSize = 1;
+    } else if (charset.equals(StandardCharsets.UTF_8)) {
+      codePointSize = peekUtf8CodeUnitSize();
+      switch (codePointSize) {
+        case 1:
+          codePoint = UnsignedBytes.toInt(data[position]);
+          break;
+        case 2:
+          codePoint = decodeUtf8CodeUnit(0, 0, data[position], data[position + 1]);
+          break;
+        case 3:
+          int firstByteWithoutStartCode = data[position] & 0xF;
+          codePoint =
+              decodeUtf8CodeUnit(
+                  0, firstByteWithoutStartCode, data[position + 1], data[position + 2]);
+          break;
+        case 4:
+          codePoint =
+              decodeUtf8CodeUnit(
+                  data[position], data[position + 1], data[position + 2], data[position + 3]);
+          break;
+        case 0:
+        default:
+          return 0;
+      }
     } else {
+      // UTF-16
+      ByteOrder byteOrder = charset.equals(StandardCharsets.UTF_16LE) ? LITTLE_ENDIAN : BIG_ENDIAN;
+      char c = peekChar(byteOrder, /* offset= */ 0);
+      if (Character.isHighSurrogate(c) && bytesLeft() >= 4) {
+        char lowSurrogate = peekChar(byteOrder, /* offset= */ 2);
+        codePoint = Character.toCodePoint(c, lowSurrogate);
+        codePointSize = 4;
+      } else {
+        // This is either a BMP code point, an unpaired surrogate, or position is in the middle of
+        // a matching surrogate pair.
+        codePoint = c;
+        codePointSize = 2;
+      }
+    }
+    return (codePoint << 8) | codePointSize;
+  }
+
+  private static int getSmallestCodeUnitSize(Charset charset) {
+    Assertions.checkArgument(
+        SUPPORTED_CHARSETS_FOR_READLINE.contains(charset), "Unsupported charset: " + charset);
+    return charset.equals(StandardCharsets.UTF_8) || charset.equals(StandardCharsets.US_ASCII)
+        ? 1
+        : 2;
+  }
+
+  /**
+   * Returns the size (in bytes) of the UTF-8 code unit starting at {@link #position}. Returns zero
+   * if no full UTF-8 code unit seems to start at {@link #position}.
+   */
+  private byte peekUtf8CodeUnitSize() {
+    if ((data[position] & 0x80) == 0) {
+      return 1;
+    } else if ((data[position] & 0xE0) == 0xC0
+        && bytesLeft() >= 2
+        && isUtf8ContinuationByte(data[position + 1])) {
+      return 2;
+    } else if ((data[position] & 0xF0) == 0xE0
+        && bytesLeft() >= 3
+        && isUtf8ContinuationByte(data[position + 1])
+        && isUtf8ContinuationByte(data[position + 2])) {
+      return 3;
+    } else if ((data[position] & 0xF8) == 0xF0
+        && bytesLeft() >= 4
+        && isUtf8ContinuationByte(data[position + 1])
+        && isUtf8ContinuationByte(data[position + 2])
+        && isUtf8ContinuationByte(data[position + 3])) {
+      return 4;
+    } else {
+      // We found a pattern that doesn't seem to be valid UTF-8.
       return 0;
     }
-    return Ints.fromBytes(charByte1, charByte2, (byte) 0, characterSize);
+  }
+
+  private static boolean isUtf8ContinuationByte(byte b) {
+    return (b & 0xC0) == 0x80;
+  }
+
+  private static int decodeUtf8CodeUnit(int b1, int b2, int b3, int b4) {
+    return Ints.fromBytes(
+        (byte) 0,
+        UnsignedBytes.checkedCast(((b1 & 0x7) << 2) | (b2 & 0b0011_0000) >> 4),
+        UnsignedBytes.checkedCast(((byte) b2 & 0xF) << 4 | ((byte) b3 & 0b0011_1100) >> 2),
+        UnsignedBytes.checkedCast(((byte) b3 & 0x3) << 6 | ((byte) b4 & 0x3F)));
   }
 }

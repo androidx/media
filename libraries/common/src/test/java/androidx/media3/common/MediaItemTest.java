@@ -450,6 +450,7 @@ public class MediaItemTest {
                     .setRelativeToLiveWindow(true)
                     .setRelativeToDefaultPosition(true)
                     .setStartsAtKeyFrame(true)
+                    .setAllowUnseekableMedia(true)
                     .build())
             .build();
 
@@ -458,6 +459,7 @@ public class MediaItemTest {
     assertThat(mediaItem.clippingConfiguration.relativeToLiveWindow).isTrue();
     assertThat(mediaItem.clippingConfiguration.relativeToDefaultPosition).isTrue();
     assertThat(mediaItem.clippingConfiguration.startsAtKeyFrame).isTrue();
+    assertThat(mediaItem.clippingConfiguration.allowUnseekableMedia).isTrue();
     assertThat(mediaItem.clippingConfiguration).isEqualTo(mediaItem.clippingProperties);
   }
 
@@ -475,6 +477,7 @@ public class MediaItemTest {
     assertThat(clippingConfiguration.relativeToLiveWindow).isFalse();
     assertThat(clippingConfiguration.relativeToDefaultPosition).isFalse();
     assertThat(clippingConfiguration.startsAtKeyFrame).isFalse();
+    assertThat(clippingConfiguration.allowUnseekableMedia).isFalse();
     assertThat(clippingConfiguration).isEqualTo(MediaItem.ClippingConfiguration.UNSET);
   }
 
@@ -503,6 +506,7 @@ public class MediaItemTest {
             .setStartPositionMs(1000L)
             .setEndPositionUs(2000_031L)
             .setStartsAtKeyFrame(true)
+            .setAllowUnseekableMedia(true)
             .build();
 
     MediaItem.ClippingConfiguration clippingConfigurationFromBundle =

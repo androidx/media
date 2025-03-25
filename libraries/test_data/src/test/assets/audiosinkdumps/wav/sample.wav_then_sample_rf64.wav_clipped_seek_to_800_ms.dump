@@ -6,4 +6,5 @@ AudioSink:
     sampleRate = 48000
   buffer #0:
     time = 800000
-    data = 932319027
+    channel[0] = -629060931
+    channel[1] = -1194598665

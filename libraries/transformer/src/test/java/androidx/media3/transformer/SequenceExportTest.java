@@ -40,6 +40,7 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.audio.SonicAudioProcessor;
 import androidx.media3.effect.RgbFilter;
 import androidx.media3.test.utils.DumpFileAsserts;
+import androidx.media3.test.utils.TestTransformerBuilder;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
@@ -536,24 +537,6 @@ public final class SequenceExportTest {
     ExportException exception =
         assertThrows(ExportException.class, () -> TransformerTestRunner.runLooper(transformer));
     assertThat(getRootCause(exception)).hasMessageThat().isEqualTo("Gaps can not be transmuxed.");
-  }
-
-  @Test
-  public void start_videoGap_throws() throws Exception {
-    Transformer transformer = new TestTransformerBuilder(context).build();
-    EditedMediaItem audioVideoItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW_VIDEO))
-            .build();
-    EditedMediaItemSequence sequence =
-        new EditedMediaItemSequence.Builder().addItem(audioVideoItem).addGap(500_000).build();
-
-    transformer.start(new Composition.Builder(sequence).build(), outputDir.newFile().getPath());
-
-    ExportException exception =
-        assertThrows(ExportException.class, () -> TransformerTestRunner.runLooper(transformer));
-    assertThat(getRootCause(exception))
-        .hasMessageThat()
-        .isEqualTo("Gaps in video sequences are not supported.");
   }
 
   @Test

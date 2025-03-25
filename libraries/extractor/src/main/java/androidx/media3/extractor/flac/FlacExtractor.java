@@ -51,7 +51,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 /**
  * Extracts data from FLAC container format.
  *
- * <p>The format specification can be found at https://xiph.org/flac/format.html.
+ * <p>The format is specified in RFC 9639.
  */
 @UnstableApi
 public final class FlacExtractor implements Extractor {
@@ -310,9 +310,13 @@ public final class FlacExtractor implements Extractor {
       currentFrameFirstSampleNumber = nextFrameFirstSampleNumber;
     }
 
-    if (buffer.bytesLeft() < FlacConstants.MAX_FRAME_HEADER_SIZE) {
-      // The next frame header may not fit in the rest of the buffer, so put the trailing bytes at
-      // the start of the buffer, and reset the position and limit.
+    int remainingBufferCapacity = buffer.getData().length - buffer.limit();
+    if (buffer.bytesLeft() < FlacConstants.MAX_FRAME_HEADER_SIZE
+        && remainingBufferCapacity < FlacConstants.MAX_FRAME_HEADER_SIZE) {
+      // We're running out of bytes to read before buffer.limit, and the next frame header may not
+      // fit in the rest of buffer.data beyond buffer.limit, so we move the bytes between
+      // buffer.position and buffer.limit to the start of buffer.data, and reset the position and
+      // limit.
       int bytesLeft = buffer.bytesLeft();
       System.arraycopy(
           buffer.getData(), buffer.getPosition(), buffer.getData(), /* destPos= */ 0, bytesLeft);

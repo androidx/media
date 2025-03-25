@@ -618,22 +618,6 @@ import java.util.List;
     super.replaceMediaItems(fromIndex, toIndex, mediaItems);
   }
 
-  @SuppressWarnings("deprecation") // Forwarding deprecated call
-  @Deprecated
-  @Override
-  public boolean hasNext() {
-    verifyApplicationThread();
-    return super.hasNext();
-  }
-
-  @SuppressWarnings("deprecation") // Forwarding deprecated call
-  @Deprecated
-  @Override
-  public boolean hasNextWindow() {
-    verifyApplicationThread();
-    return super.hasNextWindow();
-  }
-
   @Override
   public boolean hasPreviousMediaItem() {
     verifyApplicationThread();
@@ -644,30 +628,6 @@ import java.util.List;
   public boolean hasNextMediaItem() {
     verifyApplicationThread();
     return super.hasNextMediaItem();
-  }
-
-  @SuppressWarnings("deprecation") // Forwarding deprecated call
-  @Deprecated
-  @Override
-  public void next() {
-    verifyApplicationThread();
-    super.next();
-  }
-
-  @SuppressWarnings("deprecation") // Forwarding deprecated call
-  @Deprecated
-  @Override
-  public void seekToPreviousWindow() {
-    verifyApplicationThread();
-    super.seekToPreviousWindow();
-  }
-
-  @SuppressWarnings("deprecation") // Forwarding deprecated call
-  @Deprecated
-  @Override
-  public void seekToNextWindow() {
-    verifyApplicationThread();
-    super.seekToNextWindow();
   }
 
   @Override

@@ -19,6 +19,7 @@ import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.muxer.AnnexBUtils.doesSampleContainAnnexBNalUnits;
+import static androidx.media3.muxer.Av1ConfigUtil.createAv1CodecConfigurationRecord;
 import static androidx.media3.muxer.Boxes.BOX_HEADER_SIZE;
 import static androidx.media3.muxer.Boxes.MFHD_BOX_CONTENT_SIZE;
 import static androidx.media3.muxer.Boxes.TFHD_BOX_CONTENT_SIZE;
@@ -40,6 +41,7 @@ import java.nio.channels.Channels;
 import java.nio.channels.WritableByteChannel;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
@@ -165,6 +167,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   public void writeSampleData(Track track, ByteBuffer byteBuffer, BufferInfo bufferInfo)
       throws IOException {
+    if (Objects.equals(track.format.sampleMimeType, MimeTypes.VIDEO_AV1)
+        && track.format.initializationData.isEmpty()
+        && track.parsedCsd == null) {
+      track.parsedCsd = createAv1CodecConfigurationRecord(byteBuffer.duplicate());
+    }
     if (!headerCreated) {
       createHeader();
       headerCreated = true;
@@ -291,6 +298,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     writeMdatBox(trackInfos);
 
     currentFragmentSequenceNumber++;
+    maxTrackDurationUs = 0;
   }
 
   private void writeMdatBox(List<ProcessedTrackInfo> trackInfos) throws IOException {

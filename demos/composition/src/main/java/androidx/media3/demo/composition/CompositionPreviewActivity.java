@@ -217,13 +217,11 @@ public final class CompositionPreviewActivity extends AppCompatActivity {
     String selectedResolutionHeight = String.valueOf(resolutionHeightSpinner.getSelectedItem());
     if (!SAME_AS_INPUT_OPTION.equals(selectedResolutionHeight)) {
       int resolutionHeight = Integer.parseInt(selectedResolutionHeight);
-      videoEffectsBuilder.add(LanczosResample.scaleToFit(10000, resolutionHeight));
-      videoEffectsBuilder.add(Presentation.createForHeight(resolutionHeight));
+      videoEffectsBuilder.add(
+          LanczosResample.scaleToFitWithFlexibleOrientation(10000, resolutionHeight));
+      videoEffectsBuilder.add(Presentation.createForShortSide(resolutionHeight));
     }
     ImmutableList<Effect> videoEffects = videoEffectsBuilder.build();
-    // Preview requires all sequences to be the same duration, so calculate main sequence duration
-    // and limit background sequence duration to match.
-    long videoSequenceDurationUs = 0;
     for (int i = 0; i < selectedMediaItems.length; i++) {
       if (selectedMediaItems[i]) {
         SonicAudioProcessor pitchChanger = new SonicAudioProcessor();
@@ -240,7 +238,6 @@ public final class CompositionPreviewActivity extends AppCompatActivity {
                         /* audioProcessors= */ ImmutableList.of(pitchChanger),
                         /* videoEffects= */ videoEffects))
                 .setDurationUs(presetDurationsUs[i]);
-        videoSequenceDurationUs += presetDurationsUs[i];
         mediaItems.add(itemBuilder.build());
       }
     }
@@ -248,7 +245,7 @@ public final class CompositionPreviewActivity extends AppCompatActivity {
     List<EditedMediaItemSequence> compositionSequences = new ArrayList<>();
     compositionSequences.add(videoSequence);
     if (includeBackgroundAudioTrack) {
-      compositionSequences.add(getAudioBackgroundSequence(Util.usToMs(videoSequenceDurationUs)));
+      compositionSequences.add(getAudioBackgroundSequence());
     }
     SonicAudioProcessor sampleRateChanger = new SonicAudioProcessor();
     sampleRateChanger.setOutputSampleRateHz(8_000);
@@ -264,19 +261,11 @@ public final class CompositionPreviewActivity extends AppCompatActivity {
         .build();
   }
 
-  private EditedMediaItemSequence getAudioBackgroundSequence(long durationMs) {
-    MediaItem audioMediaItem =
-        new MediaItem.Builder()
-            .setUri(AUDIO_URI)
-            .setClippingConfiguration(
-                new MediaItem.ClippingConfiguration.Builder()
-                    .setStartPositionMs(0)
-                    .setEndPositionMs(durationMs)
-                    .build())
-            .build();
+  private static EditedMediaItemSequence getAudioBackgroundSequence() {
+    MediaItem audioMediaItem = new MediaItem.Builder().setUri(AUDIO_URI).build();
     EditedMediaItem audioItem =
         new EditedMediaItem.Builder(audioMediaItem).setDurationUs(59_000_000).build();
-    return new EditedMediaItemSequence.Builder(audioItem).build();
+    return new EditedMediaItemSequence.Builder(audioItem).setIsLooping(true).build();
   }
 
   private void previewComposition() {

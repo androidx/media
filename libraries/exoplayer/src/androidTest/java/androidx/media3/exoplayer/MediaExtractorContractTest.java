@@ -35,6 +35,8 @@ import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.DrmInitData;
+import androidx.media3.common.MimeTypes;
+import androidx.media3.extractor.mp4.Mp4Extractor;
 import androidx.media3.test.utils.AssetContentProvider;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
@@ -318,6 +320,25 @@ public class MediaExtractorContractTest {
           (byte) 0x44
         };
     assertThat(psshInfo.get(WIDEVINE_UUID)).isEqualTo(expectedSchemeData);
+  }
+
+  @Test
+  @SdkSuppress(minSdkVersion = 26)
+  public void getMetrics_withMp4DataSource_returnsExpectedMetricsBundle() throws IOException {
+    AssetFileDescriptor afd = context.getAssets().openFd("media/mp4/sample.mp4");
+    mediaExtractorProxy.setDataSource(
+        afd.getFileDescriptor(), afd.getStartOffset(), afd.getLength());
+
+    PersistableBundle bundle = mediaExtractorProxy.getMetrics();
+
+    String expectedFormat =
+        mediaExtractorProxy instanceof FrameworkMediaExtractorProxy
+            ? "MPEG4Extractor"
+            : Mp4Extractor.class.getSimpleName();
+    assertThat(bundle.getString(MediaExtractor.MetricsConstants.FORMAT)).isEqualTo(expectedFormat);
+    assertThat(bundle.getString(MediaExtractor.MetricsConstants.MIME_TYPE))
+        .isEqualTo(MimeTypes.VIDEO_MP4);
+    assertThat(bundle.getInt(MediaExtractor.MetricsConstants.TRACKS)).isEqualTo(2);
   }
 
   private static class FrameworkMediaExtractorProxy implements MediaExtractorProxy {

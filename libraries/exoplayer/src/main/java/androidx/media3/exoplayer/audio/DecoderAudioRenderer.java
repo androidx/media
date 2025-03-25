@@ -22,6 +22,7 @@ import static androidx.media3.exoplayer.DecoderReuseEvaluation.REUSE_RESULT_NO;
 import static androidx.media3.exoplayer.source.SampleStream.FLAG_REQUIRE_FORMAT;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static java.lang.Math.max;
+import static java.lang.Math.min;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.media.AudioDeviceInfo;
@@ -246,16 +247,23 @@ public abstract class DecoderAudioRenderer<
     if (nextBufferToWritePresentationTimeUs == C.TIME_UNSET) {
       return super.getDurationToProgressUs(positionUs, elapsedRealtimeUs);
     }
-    long durationUs =
+    // Compare written, yet-to-play content duration against the audio track buffer size.
+    long writtenDurationUs = (nextBufferToWritePresentationTimeUs - positionUs);
+    long audioTrackBufferDurationUs = audioSink.getAudioTrackBufferSizeUs();
+    long bufferedDurationUs =
+        audioTrackBufferDurationUs != C.TIME_UNSET
+            ? min(audioTrackBufferDurationUs, writtenDurationUs)
+            : writtenDurationUs;
+    bufferedDurationUs =
         (long)
-            ((nextBufferToWritePresentationTimeUs - positionUs)
+            (bufferedDurationUs
                 / (getPlaybackParameters() != null ? getPlaybackParameters().speed : 1.0f)
                 / 2);
     if (isStarted) {
       // Account for the elapsed time since the start of this iteration of the rendering loop.
-      durationUs -= Util.msToUs(getClock().elapsedRealtime()) - elapsedRealtimeUs;
+      bufferedDurationUs -= Util.msToUs(getClock().elapsedRealtime()) - elapsedRealtimeUs;
     }
-    return max(DEFAULT_DURATION_TO_PROGRESS_US, durationUs);
+    return max(DEFAULT_DURATION_TO_PROGRESS_US, bufferedDurationUs);
   }
 
   @Override

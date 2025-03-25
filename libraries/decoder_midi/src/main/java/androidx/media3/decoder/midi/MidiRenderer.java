@@ -16,12 +16,15 @@
 package androidx.media3.decoder.midi;
 
 import android.content.Context;
+import android.os.Handler;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.decoder.CryptoConfig;
+import androidx.media3.exoplayer.audio.AudioRendererEventListener;
+import androidx.media3.exoplayer.audio.AudioSink;
 import androidx.media3.exoplayer.audio.DecoderAudioRenderer;
 
 /** Decodes and renders MIDI audio. */
@@ -30,8 +33,22 @@ public final class MidiRenderer extends DecoderAudioRenderer<MidiDecoder> {
 
   private final Context context;
 
-  /** Creates the renderer instance. */
+  /**
+   * @deprecated Use {@link #MidiRenderer(Context, Handler, AudioRendererEventListener, AudioSink)}
+   *     instead.
+   */
+  @Deprecated
   public MidiRenderer(Context context) {
+    this.context = context.getApplicationContext();
+  }
+
+  /** Creates the renderer instance. */
+  public MidiRenderer(
+      Context context,
+      @Nullable Handler eventHandler,
+      @Nullable AudioRendererEventListener eventListener,
+      AudioSink audioSink) {
+    super(eventHandler, eventListener, audioSink);
     this.context = context.getApplicationContext();
   }
 

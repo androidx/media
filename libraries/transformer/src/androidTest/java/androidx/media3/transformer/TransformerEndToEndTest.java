@@ -64,6 +64,7 @@ import static org.junit.Assume.assumeTrue;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.media.MediaFormat;
+import android.media.metrics.LogSessionId;
 import android.net.Uri;
 import android.opengl.EGLContext;
 import android.os.Handler;
@@ -71,6 +72,7 @@ import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Message;
 import android.util.Pair;
+import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
@@ -82,6 +84,8 @@ import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.AudioProcessor.AudioFormat;
 import androidx.media3.common.audio.ChannelMixingAudioProcessor;
 import androidx.media3.common.audio.ChannelMixingMatrix;
+import androidx.media3.common.audio.DefaultGainProvider;
+import androidx.media3.common.audio.GainProcessor;
 import androidx.media3.common.audio.SonicAudioProcessor;
 import androidx.media3.common.audio.SpeedProvider;
 import androidx.media3.common.util.CodecSpecificDataUtil;
@@ -113,6 +117,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import java.io.File;
 import java.nio.ByteBuffer;
+import java.nio.ShortBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -1736,7 +1741,8 @@ public class TransformerEndToEndTest {
 
     ChannelMixingAudioProcessor channelMixingAudioProcessor = new ChannelMixingAudioProcessor();
     channelMixingAudioProcessor.putChannelMixingMatrix(
-        ChannelMixingMatrix.create(/* inputChannelCount= */ 1, /* outputChannelCount= */ 2));
+        ChannelMixingMatrix.createForConstantGain(
+            /* inputChannelCount= */ 1, /* outputChannelCount= */ 2));
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(MP4_ASSET.uri)))
             .setRemoveVideo(true)
@@ -2472,14 +2478,80 @@ public class TransformerEndToEndTest {
             .build();
     Composition composition = new Composition.Builder(audioSequence).build();
 
-    ExportTestResult result =
-        new TransformerAndroidTestRunner.Builder(context, transformer)
-            .build()
-            .run(testId, composition);
-
+    ExportTestResult result;
+    try {
+      result =
+          new TransformerAndroidTestRunner.Builder(context, transformer)
+              .build()
+              .run(testId, composition);
+    } catch (ExportException e) {
+      if (e.codecInfo.isDecoder) {
+        recordTestSkipped(
+            context,
+            testId,
+            /* reason= */ "Ignore decoder failures, as some devices cannot decode 192KHz");
+        assumeTrue(false);
+      }
+      throw e;
+    }
     // Each original clip is 1 second long.
     assertThat(result.exportResult.durationMs).isWithin(150).of(3_000);
     assertThat(new File(result.filePath).length()).isGreaterThan(0);
+  }
+
+  @Test
+  public void export_withMutingGainProvider_processesMutedAudio() throws Exception {
+    Transformer transformer = new Transformer.Builder(context).build();
+    DefaultGainProvider provider = new DefaultGainProvider.Builder(/* defaultGain= */ 0f).build();
+    GainProcessor gainProcessor = new GainProcessor(provider);
+    TeeAudioProcessor teeAudioProcessor =
+        new TeeAudioProcessor(
+            new TeeAudioProcessor.AudioBufferSink() {
+              @Override
+              public void flush(int sampleRateHz, int channelCount, @C.PcmEncoding int encoding) {}
+
+              @Override
+              public void handleBuffer(ByteBuffer buffer) {
+                ShortBuffer samplesBuffer = buffer.asShortBuffer();
+                while (samplesBuffer.hasRemaining()) {
+                  assertThat(samplesBuffer.get()).isEqualTo(0);
+                }
+              }
+            });
+
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
+            .setEffects(
+                new Effects(ImmutableList.of(gainProcessor, teeAudioProcessor), ImmutableList.of()))
+            .build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer).build().run(testId, item);
+
+    // Tolerance required due to bug in durationMs (b/355201372).
+    assertThat(result.exportResult.durationMs).isWithin(40).of(1000);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
+  }
+
+  @Test
+  public void composition_withOneLoopingSequence_throwsIllegalArgumentException() throws Exception {
+    EditedMediaItem item = new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri)).build();
+    EditedMediaItemSequence sequence =
+        new EditedMediaItemSequence.Builder(item).setIsLooping(true).build();
+    assertThrows(IllegalArgumentException.class, () -> new Composition.Builder(sequence).build());
+  }
+
+  @Test
+  public void composition_withMultipleLoopingSequences_throwsIllegalArgumentException()
+      throws Exception {
+    EditedMediaItem item = new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri)).build();
+    EditedMediaItemSequence firstSequence =
+        new EditedMediaItemSequence.Builder(item).setIsLooping(true).build();
+    EditedMediaItemSequence secondSequence =
+        new EditedMediaItemSequence.Builder(item).setIsLooping(true).build();
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> new Composition.Builder(firstSequence, secondSequence).build());
   }
 
   private static boolean shouldSkipDeviceForAacObjectHeProfileEncoding() {
@@ -2546,12 +2618,14 @@ public class TransformerEndToEndTest {
     }
 
     @Override
-    public Codec createForAudioEncoding(Format format) throws ExportException {
-      return encoderFactory.createForAudioEncoding(format);
+    public Codec createForAudioEncoding(Format format, @Nullable LogSessionId logSessionId)
+        throws ExportException {
+      return encoderFactory.createForAudioEncoding(format, logSessionId);
     }
 
     @Override
-    public Codec createForVideoEncoding(Format format) throws ExportException {
+    public Codec createForVideoEncoding(Format format, @Nullable LogSessionId logSessionId)
+        throws ExportException {
       throw ExportException.createForCodec(
           new IllegalArgumentException(),
           ExportException.ERROR_CODE_ENCODER_INIT_FAILED,

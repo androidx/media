@@ -169,7 +169,6 @@ import java.util.concurrent.CopyOnWriteArraySet;
   private final ComponentListener componentListener;
   private final FrameMetadataListener frameMetadataListener;
   private final AudioBecomingNoisyManager audioBecomingNoisyManager;
-  private final AudioFocusManager audioFocusManager;
   @Nullable private final StreamVolumeManager streamVolumeManager;
   private final WakeLockManager wakeLockManager;
   private final WifiLockManager wifiLockManager;
@@ -351,6 +350,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
       PlayerId playerId = new PlayerId(builder.playerName);
       internalPlayer =
           new ExoPlayerImplInternal(
+              applicationContext,
               renderers,
               secondaryRenderers,
               trackSelector,
@@ -408,8 +408,6 @@ import java.util.concurrent.CopyOnWriteArraySet;
           new AudioBecomingNoisyManager(
               builder.context, playbackLooper, builder.looper, componentListener, clock);
       audioBecomingNoisyManager.setEnabled(builder.handleAudioBecomingNoisy);
-      audioFocusManager = new AudioFocusManager(builder.context, eventHandler, componentListener);
-      audioFocusManager.setAudioAttributes(builder.handleAudioFocus ? audioAttributes : null);
 
       if (builder.suppressPlaybackOnUnsuitableOutput) {
         suitableOutputChecker = builder.suitableOutputChecker;
@@ -443,7 +441,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
       videoSize = VideoSize.UNKNOWN;
       surfaceSize = Size.UNKNOWN;
 
-      internalPlayer.setAudioAttributes(audioAttributes);
+      internalPlayer.setAudioAttributes(audioAttributes, builder.handleAudioFocus);
       sendRendererMessage(TRACK_TYPE_AUDIO, MSG_SET_AUDIO_ATTRIBUTES, audioAttributes);
       sendRendererMessage(TRACK_TYPE_VIDEO, MSG_SET_SCALING_MODE, videoScalingMode);
       sendRendererMessage(
@@ -523,10 +521,6 @@ import java.util.concurrent.CopyOnWriteArraySet;
   @Override
   public void prepare() {
     verifyApplicationThread();
-    boolean playWhenReady = getPlayWhenReady();
-    @AudioFocusManager.PlayerCommand
-    int playerCommand = audioFocusManager.updateAudioFocus(playWhenReady, Player.STATE_BUFFERING);
-    updatePlayWhenReady(playWhenReady, playerCommand, getPlayWhenReadyChangeReason(playerCommand));
     if (playbackInfo.playbackState != Player.STATE_IDLE) {
       return;
     }
@@ -804,9 +798,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
   @Override
   public void setPlayWhenReady(boolean playWhenReady) {
     verifyApplicationThread();
-    @AudioFocusManager.PlayerCommand
-    int playerCommand = audioFocusManager.updateAudioFocus(playWhenReady, getPlaybackState());
-    updatePlayWhenReady(playWhenReady, playerCommand, getPlayWhenReadyChangeReason(playerCommand));
+    updatePlayWhenReady(playWhenReady, PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST);
   }
 
   @Override
@@ -1007,7 +999,6 @@ import java.util.concurrent.CopyOnWriteArraySet;
   @Override
   public void stop() {
     verifyApplicationThread();
-    audioFocusManager.updateAudioFocus(getPlayWhenReady(), Player.STATE_IDLE);
     stopInternal(/* error= */ null);
     currentCueGroup = new CueGroup(ImmutableList.of(), playbackInfo.positionUs);
   }
@@ -1032,7 +1023,6 @@ import java.util.concurrent.CopyOnWriteArraySet;
     }
     wakeLockManager.setStayAwake(false);
     wifiLockManager.setStayAwake(false);
-    audioFocusManager.release();
     if (suitableOutputChecker != null) {
       suitableOutputChecker.disable();
     }
@@ -1288,7 +1278,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
     verifyApplicationThread();
     try {
       // LINT.IfChange(set_video_effects)
-      Class.forName("androidx.media3.effect.PreviewingSingleInputVideoGraph$Factory")
+      Class.forName("androidx.media3.effect.SingleInputVideoGraph$Factory")
           .getConstructor(VideoFrameProcessor.Factory.class);
       // LINT.ThenChange(video/PlaybackVideoGraphWrapper.java)
     } catch (ClassNotFoundException | NoSuchMethodException e) {
@@ -1474,13 +1464,8 @@ import java.util.concurrent.CopyOnWriteArraySet;
           listener -> listener.onAudioAttributesChanged(newAudioAttributes));
     }
 
-    internalPlayer.setAudioAttributes(audioAttributes);
+    internalPlayer.setAudioAttributes(audioAttributes, handleAudioFocus);
 
-    audioFocusManager.setAudioAttributes(handleAudioFocus ? newAudioAttributes : null);
-    boolean playWhenReady = getPlayWhenReady();
-    @AudioFocusManager.PlayerCommand
-    int playerCommand = audioFocusManager.updateAudioFocus(playWhenReady, getPlaybackState());
-    updatePlayWhenReady(playWhenReady, playerCommand, getPlayWhenReadyChangeReason(playerCommand));
     listeners.flushEvents();
   }
 
@@ -1538,7 +1523,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
       return;
     }
     this.volume = volume;
-    sendVolumeToInternalPlayer();
+    internalPlayer.setVolume(volume);
     float finalVolume = volume;
     listeners.sendEvent(EVENT_VOLUME_CHANGED, listener -> listener.onVolumeChanged(finalVolume));
   }
@@ -2745,31 +2730,15 @@ import java.util.concurrent.CopyOnWriteArraySet;
     }
   }
 
-  private void sendVolumeToInternalPlayer() {
-    float scaledVolume = volume * audioFocusManager.getVolumeMultiplier();
-    internalPlayer.setVolume(scaledVolume);
-  }
-
   private void updatePlayWhenReady(
-      boolean playWhenReady,
-      @AudioFocusManager.PlayerCommand int playerCommand,
-      @Player.PlayWhenReadyChangeReason int playWhenReadyChangeReason) {
-    playWhenReady = playWhenReady && playerCommand != AudioFocusManager.PLAYER_COMMAND_DO_NOT_PLAY;
+      boolean playWhenReady, @Player.PlayWhenReadyChangeReason int playWhenReadyChangeReason) {
     @PlaybackSuppressionReason
-    int playbackSuppressionReason = computePlaybackSuppressionReason(playWhenReady, playerCommand);
+    int playbackSuppressionReason = computePlaybackSuppressionReason(playWhenReady);
     if (playbackInfo.playWhenReady == playWhenReady
         && playbackInfo.playbackSuppressionReason == playbackSuppressionReason
         && playbackInfo.playWhenReadyChangeReason == playWhenReadyChangeReason) {
       return;
     }
-    updatePlaybackInfoForPlayWhenReadyAndSuppressionReasonStates(
-        playWhenReady, playWhenReadyChangeReason, playbackSuppressionReason);
-  }
-
-  private void updatePlaybackInfoForPlayWhenReadyAndSuppressionReasonStates(
-      boolean playWhenReady,
-      @Player.PlayWhenReadyChangeReason int playWhenReadyChangeReason,
-      @PlaybackSuppressionReason int playbackSuppressionReason) {
     pendingOperationAcks++;
     // Position estimation and copy must occur before changing/masking playback state.
     PlaybackInfo newPlaybackInfo =
@@ -2791,21 +2760,15 @@ import java.util.concurrent.CopyOnWriteArraySet;
         /* repeatCurrentMediaItem= */ false);
   }
 
-  @PlaybackSuppressionReason
-  private int computePlaybackSuppressionReason(
-      boolean playWhenReady, @AudioFocusManager.PlayerCommand int playerCommand) {
-    if (playerCommand == AudioFocusManager.PLAYER_COMMAND_WAIT_FOR_CALLBACK) {
-      return Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS;
+  private @PlaybackSuppressionReason int computePlaybackSuppressionReason(boolean playWhenReady) {
+    if (suitableOutputChecker != null
+        && !suitableOutputChecker.isSelectedOutputSuitableForPlayback()) {
+      return Player.PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT;
     }
-    if (suitableOutputChecker != null) {
-      if (playWhenReady && !suitableOutputChecker.isSelectedOutputSuitableForPlayback()) {
-        return Player.PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT;
-      }
-      if (!playWhenReady
-          && playbackInfo.playbackSuppressionReason
-              == PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT) {
-        return Player.PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT;
-      }
+    if (playbackInfo.playbackSuppressionReason
+            == Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS
+        && !playWhenReady) {
+      return Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS;
     }
     return Player.PLAYBACK_SUPPRESSION_REASON_NONE;
   }
@@ -2925,16 +2888,10 @@ import java.util.concurrent.CopyOnWriteArraySet;
     if (isSelectedOutputSuitableForPlayback) {
       if (playbackInfo.playbackSuppressionReason
           == Player.PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT) {
-        updatePlaybackInfoForPlayWhenReadyAndSuppressionReasonStates(
-            playbackInfo.playWhenReady,
-            PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
-            Player.PLAYBACK_SUPPRESSION_REASON_NONE);
+        updatePlayWhenReady(playbackInfo.playWhenReady, PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST);
       }
     } else {
-      updatePlaybackInfoForPlayWhenReadyAndSuppressionReasonStates(
-          playbackInfo.playWhenReady,
-          PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
-          Player.PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT);
+      updatePlayWhenReady(playbackInfo.playWhenReady, PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST);
     }
   }
 
@@ -2951,12 +2908,6 @@ import java.util.concurrent.CopyOnWriteArraySet;
         .setMinVolume(streamVolumeManager != null ? streamVolumeManager.getMinVolume() : 0)
         .setMaxVolume(streamVolumeManager != null ? streamVolumeManager.getMaxVolume() : 0)
         .build();
-  }
-
-  private static int getPlayWhenReadyChangeReason(int playerCommand) {
-    return playerCommand == AudioFocusManager.PLAYER_COMMAND_DO_NOT_PLAY
-        ? PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS
-        : PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST;
   }
 
   private static final class MediaSourceHolderSnapshot implements MediaSourceInfoHolder {
@@ -2995,7 +2946,6 @@ import java.util.concurrent.CopyOnWriteArraySet;
           SurfaceHolder.Callback,
           TextureView.SurfaceTextureListener,
           SphericalGLSurfaceView.VideoSurfaceListener,
-          AudioFocusManager.PlayerControl,
           AudioBecomingNoisyManager.EventListener,
           StreamVolumeManager.Listener,
           AudioOffloadListener {
@@ -3228,28 +3178,12 @@ import java.util.concurrent.CopyOnWriteArraySet;
       setVideoOutputInternal(/* videoOutput= */ null);
     }
 
-    // AudioFocusManager.PlayerControl implementation
-
-    @Override
-    public void setVolumeMultiplier(float volumeMultiplier) {
-      sendVolumeToInternalPlayer();
-    }
-
-    @Override
-    public void executePlayerCommand(@AudioFocusManager.PlayerCommand int playerCommand) {
-      boolean playWhenReady = getPlayWhenReady();
-      updatePlayWhenReady(
-          playWhenReady, playerCommand, getPlayWhenReadyChangeReason(playerCommand));
-    }
-
     // AudioBecomingNoisyManager.EventListener implementation.
 
     @Override
     public void onAudioBecomingNoisy() {
       updatePlayWhenReady(
-          /* playWhenReady= */ false,
-          AudioFocusManager.PLAYER_COMMAND_DO_NOT_PLAY,
-          Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_BECOMING_NOISY);
+          /* playWhenReady= */ false, Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_BECOMING_NOISY);
     }
 
     // StreamVolumeManager.Listener implementation.

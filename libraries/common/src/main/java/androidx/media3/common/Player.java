@@ -2649,13 +2649,6 @@ public interface Player {
   boolean hasPreviousMediaItem();
 
   /**
-   * @deprecated Use {@link #seekToPreviousMediaItem()} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  void seekToPreviousWindow();
-
-  /**
    * Seeks to the default position of the previous {@link MediaItem}, which may depend on the
    * current repeat mode and whether shuffle mode is enabled. Does nothing if {@link
    * #hasPreviousMediaItem()} is {@code false}.
@@ -2704,20 +2697,6 @@ public interface Player {
   void seekToPrevious();
 
   /**
-   * @deprecated Use {@link #hasNextMediaItem()} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  boolean hasNext();
-
-  /**
-   * @deprecated Use {@link #hasNextMediaItem()} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  boolean hasNextWindow();
-
-  /**
    * Returns whether a next {@link MediaItem} exists, which may depend on the current repeat mode
    * and whether shuffle mode is enabled.
    *
@@ -2729,20 +2708,6 @@ public interface Player {
    * #getAvailableCommands() available}.
    */
   boolean hasNextMediaItem();
-
-  /**
-   * @deprecated Use {@link #seekToNextMediaItem()} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  void next();
-
-  /**
-   * @deprecated Use {@link #seekToNextMediaItem()} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  void seekToNextWindow();
 
   /**
    * Seeks to the default position of the next {@link MediaItem}, which may depend on the current

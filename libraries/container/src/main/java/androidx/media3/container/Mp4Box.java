@@ -246,6 +246,9 @@ public abstract class Mp4Box {
   public static final int TYPE_esds = 0x65736473;
 
   @SuppressWarnings("ConstantCaseForConstants")
+  public static final int TYPE_btrt = 0x62747274;
+
+  @SuppressWarnings("ConstantCaseForConstants")
   public static final int TYPE_moof = 0x6d6f6f66;
 
   @SuppressWarnings("ConstantCaseForConstants")

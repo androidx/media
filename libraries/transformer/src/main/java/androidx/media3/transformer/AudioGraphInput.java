@@ -536,10 +536,10 @@ import java.util.concurrent.atomic.AtomicLong;
         || requiredOutputAudioFormat.channelCount == 2) {
       ChannelMixingAudioProcessor channelCountChanger = new ChannelMixingAudioProcessor();
       channelCountChanger.putChannelMixingMatrix(
-          ChannelMixingMatrix.create(
+          ChannelMixingMatrix.createForConstantGain(
               /* inputChannelCount= */ 1, requiredOutputAudioFormat.channelCount));
       channelCountChanger.putChannelMixingMatrix(
-          ChannelMixingMatrix.create(
+          ChannelMixingMatrix.createForConstantGain(
               /* inputChannelCount= */ 2, requiredOutputAudioFormat.channelCount));
       audioProcessors.add(channelCountChanger);
     }

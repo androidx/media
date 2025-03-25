@@ -31,6 +31,8 @@ public final class BackgroundExecutor {
    *
    * <p>Must only be used for quick, high-priority tasks to ensure other background tasks are not
    * blocked.
+   *
+   * <p>The thread is guaranteed to be alive for the lifetime of the application.
    */
   public static synchronized Executor get() {
     if (staticInstance == null) {
@@ -41,6 +43,9 @@ public final class BackgroundExecutor {
 
   /**
    * Sets the {@link Executor} to be returned from {@link #get()}.
+   *
+   * <p>Note that the thread of the provided {@link Executor} must stay alive for the lifetime of
+   * the application.
    *
    * @param executor An {@link Executor} that runs tasks on background threads and should only be
    *     used for quick, high-priority tasks to ensure other background tasks are not blocked.

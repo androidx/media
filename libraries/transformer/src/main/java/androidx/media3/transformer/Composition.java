@@ -431,6 +431,9 @@ public final class Composition {
     checkArgument(
         !transmuxAudio || !forceAudioTrack,
         "Audio transmuxing and audio track forcing are not allowed together.");
+    checkArgument(
+        hasNonLoopingSequence(sequences),
+        "Composition must have at least one non-looping sequence.");
     this.sequences = ImmutableList.copyOf(sequences);
     this.videoCompositorSettings = videoCompositorSettings;
     this.effects = effects;
@@ -448,6 +451,15 @@ public final class Composition {
   /* package */ boolean hasGaps() {
     for (int i = 0; i < sequences.size(); i++) {
       if (sequences.get(i).hasGaps()) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private static boolean hasNonLoopingSequence(List<EditedMediaItemSequence> sequences) {
+    for (EditedMediaItemSequence sequence : sequences) {
+      if (!sequence.isLooping) {
         return true;
       }
     }

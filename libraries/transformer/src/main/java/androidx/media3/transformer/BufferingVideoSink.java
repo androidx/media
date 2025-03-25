@@ -82,23 +82,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   @Override
-  public void onRendererEnabled(boolean mayRenderStartOfStream) {
-    executeOrDelay(videoSink -> videoSink.onRendererEnabled(mayRenderStartOfStream));
+  public void onStarted() {
+    executeOrDelay(VideoSink::onStarted);
   }
 
   @Override
-  public void onRendererDisabled() {
-    executeOrDelay(VideoSink::onRendererDisabled);
-  }
-
-  @Override
-  public void onRendererStarted() {
-    executeOrDelay(VideoSink::onRendererStarted);
-  }
-
-  @Override
-  public void onRendererStopped() {
-    executeOrDelay(VideoSink::onRendererStopped);
+  public void onStopped() {
+    executeOrDelay(VideoSink::onStopped);
   }
 
   @Override
@@ -127,6 +117,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   @Override
+  public void redraw() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
   public void flush(boolean resetPosition) {
     executeOrDelay(videoSink -> videoSink.flush(resetPosition));
   }
@@ -138,10 +133,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * is {@code null}.
    */
   @Override
-  public boolean isReady(boolean rendererOtherwiseReady) {
+  public boolean isReady(boolean otherwiseReady) {
     // Return true if the VideoSink is null to indicate that the renderer can be started. Indeed,
     // for prewarming, a VideoSink is set on the BufferingVideoSink when the renderer is started.
-    return videoSink == null || videoSink.isReady(rendererOtherwiseReady);
+    return videoSink == null || videoSink.isReady(otherwiseReady);
   }
 
   @Override
@@ -193,10 +188,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   @Override
-  public void setStreamTimestampInfo(long streamStartPositionUs, long bufferTimestampAdjustmentUs) {
+  public void setBufferTimestampAdjustmentUs(long bufferTimestampAdjustmentUs) {
     executeOrDelay(
-        videoSink ->
-            videoSink.setStreamTimestampInfo(streamStartPositionUs, bufferTimestampAdjustmentUs));
+        videoSink -> videoSink.setBufferTimestampAdjustmentUs(bufferTimestampAdjustmentUs));
   }
 
   @Override
@@ -215,14 +209,21 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   @Override
-  public void enableMayRenderStartOfStream() {
-    executeOrDelay(VideoSink::enableMayRenderStartOfStream);
+  public void onInputStreamChanged(
+      @InputType int inputType,
+      Format format,
+      long startPositionUs,
+      @FirstFrameReleaseInstruction int firstFrameReleaseInstruction,
+      List<Effect> videoEffects) {
+    executeOrDelay(
+        videoSink ->
+            videoSink.onInputStreamChanged(
+                inputType, format, startPositionUs, firstFrameReleaseInstruction, videoEffects));
   }
 
   @Override
-  public void onInputStreamChanged(
-      @InputType int inputType, Format format, List<Effect> videoEffects) {
-    executeOrDelay(videoSink -> videoSink.onInputStreamChanged(inputType, format, videoEffects));
+  public void allowReleaseFirstFrameBeforeStarted() {
+    executeOrDelay(VideoSink::allowReleaseFirstFrameBeforeStarted);
   }
 
   /**

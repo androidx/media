@@ -17,8 +17,6 @@
 package androidx.media3.ui.compose
 
 import android.view.Surface
-import android.view.SurfaceView
-import android.view.TextureView
 import androidx.annotation.IntDef
 import androidx.compose.foundation.AndroidEmbeddedExternalSurface
 import androidx.compose.foundation.AndroidExternalSurface
@@ -33,8 +31,9 @@ import androidx.media3.common.util.UnstableApi
 /**
  * Provides a dedicated drawing [Surface] for media playbacks using a [Player].
  *
- * The player's video output is displayed with either a [SurfaceView]/[AndroidExternalSurface] or a
- * [TextureView]/[AndroidEmbeddedExternalSurface].
+ * The player's video output is displayed with either a
+ * [android.view.SurfaceView]/[AndroidExternalSurface] or a
+ * [android.view.TextureView]/[AndroidEmbeddedExternalSurface].
  *
  * [Player] takes care of attaching the rendered output to the [Surface] and clearing it, when it is
  * destroyed.
@@ -45,7 +44,11 @@ import androidx.media3.common.util.UnstableApi
  */
 @UnstableApi
 @Composable
-fun PlayerSurface(player: Player, surfaceType: @SurfaceType Int, modifier: Modifier = Modifier) {
+fun PlayerSurface(
+  player: Player,
+  modifier: Modifier = Modifier,
+  surfaceType: @SurfaceType Int = SURFACE_TYPE_SURFACE_VIEW,
+) {
   // Player might change between compositions,
   // we need long-lived surface-related lambdas to always use the latest value
   val currentPlayer by rememberUpdatedState(player)
@@ -83,7 +86,7 @@ fun PlayerSurface(player: Player, surfaceType: @SurfaceType Int, modifier: Modif
 @IntDef(SURFACE_TYPE_SURFACE_VIEW, SURFACE_TYPE_TEXTURE_VIEW)
 annotation class SurfaceType
 
-/** Surface type equivalent to [SurfaceView] . */
+/** Surface type equivalent to [android.view.SurfaceView]. */
 @UnstableApi const val SURFACE_TYPE_SURFACE_VIEW = 1
-/** Surface type equivalent to [TextureView]. */
+/** Surface type equivalent to [android.view.TextureView]. */
 @UnstableApi const val SURFACE_TYPE_TEXTURE_VIEW = 2

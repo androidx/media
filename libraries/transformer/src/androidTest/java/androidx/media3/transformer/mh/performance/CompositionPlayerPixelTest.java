@@ -43,7 +43,7 @@ import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.MatrixTransformation;
-import androidx.media3.effect.PreviewingMultipleInputVideoGraph;
+import androidx.media3.effect.MultipleInputVideoGraph;
 import androidx.media3.effect.StaticOverlaySettings;
 import androidx.media3.transformer.Composition;
 import androidx.media3.transformer.CompositionPlayer;
@@ -216,8 +216,7 @@ public class CompositionPlayerPixelTest {
             () -> {
               player =
                   new CompositionPlayer.Builder(context)
-                      .setPreviewingVideoGraphFactory(
-                          new PreviewingMultipleInputVideoGraph.Factory())
+                      .setVideoGraphFactory(new MultipleInputVideoGraph.Factory())
                       .build();
               outputImageReader.setOnImageAvailableListener(
                   imageReader -> {
@@ -316,8 +315,7 @@ public class CompositionPlayerPixelTest {
             () -> {
               player =
                   new CompositionPlayer.Builder(context)
-                      .setPreviewingVideoGraphFactory(
-                          new PreviewingMultipleInputVideoGraph.Factory())
+                      .setVideoGraphFactory(new MultipleInputVideoGraph.Factory())
                       .build();
               outputImageReader.setOnImageAvailableListener(
                   imageReader -> {

@@ -41,6 +41,7 @@ public final class MkaPlaybackTest {
     return ImmutableList.of(
         "bear-flac-16bit.mka",
         "bear-flac-24bit.mka",
+        "bear-flac-32bit.mka",
         "bear-opus.mka",
         "bear-opus-negative-gain.mka");
   }

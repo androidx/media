@@ -21,7 +21,9 @@ import static org.junit.Assert.assertThrows;
 import android.net.Uri;
 import androidx.media3.common.C;
 import androidx.media3.datasource.ByteArrayDataSource;
-import androidx.media3.exoplayer.hls.AssetListParser.Asset;
+import androidx.media3.exoplayer.hls.HlsInterstitialsAdsLoader.Asset;
+import androidx.media3.exoplayer.hls.HlsInterstitialsAdsLoader.AssetList;
+import androidx.media3.exoplayer.hls.HlsInterstitialsAdsLoader.StringAttribute;
 import androidx.media3.exoplayer.upstream.ParsingLoadable;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
@@ -43,7 +45,7 @@ public class AssetListParserTest {
                 + "{\"URI\": \"http://2\", \"DURATION\":2.34}"
                 + "] }")
             .getBytes(Charset.defaultCharset());
-    ParsingLoadable<AssetListParser.AssetList> parsingLoadable =
+    ParsingLoadable<AssetList> parsingLoadable =
         new ParsingLoadable<>(
             new ByteArrayDataSource(assetListBytes),
             Uri.EMPTY,
@@ -65,7 +67,7 @@ public class AssetListParserTest {
         TestUtil.getByteArray(
             ApplicationProvider.getApplicationContext(),
             "media/hls/interstitials/x_asset_list_mixed_elements.json");
-    ParsingLoadable<AssetListParser.AssetList> parsingLoadable =
+    ParsingLoadable<AssetList> parsingLoadable =
         new ParsingLoadable<>(
             new ByteArrayDataSource(assetListBytes),
             Uri.EMPTY,
@@ -83,16 +85,16 @@ public class AssetListParserTest {
         .inOrder();
     assertThat(parsingLoadable.getResult().stringAttributes)
         .containsExactly(
-            new AssetListParser.StringAttribute("foo", "foo"),
-            new AssetListParser.StringAttribute("fooBar", "fooBar"),
-            new AssetListParser.StringAttribute("ASSETS", "stringValue"))
+            new StringAttribute("foo", "foo"),
+            new StringAttribute("fooBar", "fooBar"),
+            new StringAttribute("ASSETS", "stringValue"))
         .inOrder();
   }
 
   @Test
   public void load_withJsonArrayAsRoot_emptyResult() throws IOException {
     byte[] assetListBytes = "[]".getBytes(Charset.defaultCharset());
-    ParsingLoadable<AssetListParser.AssetList> parsingLoadable =
+    ParsingLoadable<AssetList> parsingLoadable =
         new ParsingLoadable<>(
             new ByteArrayDataSource(assetListBytes),
             Uri.EMPTY,
@@ -107,7 +109,7 @@ public class AssetListParserTest {
 
   @Test
   public void load_emptyInputStream_throwsEOFException() throws IOException {
-    ParsingLoadable<AssetListParser.AssetList> parsingLoadable =
+    ParsingLoadable<AssetList> parsingLoadable =
         new ParsingLoadable<>(
             new ByteArrayDataSource(" ".getBytes(Charset.defaultCharset())),
             Uri.EMPTY,

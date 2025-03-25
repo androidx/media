@@ -32,6 +32,7 @@ import static java.lang.Math.round;
 import android.content.Context;
 import android.media.MediaCodecInfo;
 import android.media.MediaFormat;
+import android.media.metrics.LogSessionId;
 import android.os.Build;
 import android.util.Size;
 import androidx.annotation.IntRange;
@@ -190,7 +191,8 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
   }
 
   @Override
-  public DefaultCodec createForAudioEncoding(Format format) throws ExportException {
+  public DefaultCodec createForAudioEncoding(Format format, @Nullable LogSessionId logSessionId)
+      throws ExportException {
     if (format.bitrate == Format.NO_VALUE) {
       format = format.buildUpon().setAverageBitrate(DEFAULT_AUDIO_BITRATE).build();
     }
@@ -236,6 +238,9 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
     if (requestedAudioEncoderSettings.bitrate != AudioEncoderSettings.NO_VALUE) {
       mediaFormat.setInteger(MediaFormat.KEY_BIT_RATE, requestedAudioEncoderSettings.bitrate);
     }
+    if (SDK_INT >= 35 && logSessionId != null) {
+      TransformerUtil.Api35.setLogSessionIdToMediaCodecFormat(mediaFormat, logSessionId);
+    }
 
     return new DefaultCodec(
         context,
@@ -254,7 +259,8 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
    * in {@link Format} are ignored when {@link VideoEncoderSettings#bitrate} is set.
    */
   @Override
-  public DefaultCodec createForVideoEncoding(Format format) throws ExportException {
+  public DefaultCodec createForVideoEncoding(Format format, @Nullable LogSessionId logSessionId)
+      throws ExportException {
     if (format.frameRate == Format.NO_VALUE || deviceNeedsDefaultFrameRateWorkaround()) {
       format = format.buildUpon().setFrameRate(DEFAULT_FRAME_RATE).build();
     }
@@ -385,6 +391,9 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
 
     if (Util.SDK_INT >= 35) {
       mediaFormat.setInteger(MediaFormat.KEY_IMPORTANCE, max(0, -codecPriority));
+      if (logSessionId != null) {
+        TransformerUtil.Api35.setLogSessionIdToMediaCodecFormat(mediaFormat, logSessionId);
+      }
     }
 
     return new DefaultCodec(

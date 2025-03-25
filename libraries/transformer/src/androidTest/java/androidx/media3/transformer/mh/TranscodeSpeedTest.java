@@ -229,7 +229,8 @@ public class TranscodeSpeedTest {
     Codec.DecoderFactory decoderFactory =
         new DefaultDecoderFactory.Builder(context).setShouldConfigureOperatingRate(true).build();
     AssetLoader.Factory assetLoaderFactory =
-        new DefaultAssetLoaderFactory(context, decoderFactory, Clock.DEFAULT);
+        new DefaultAssetLoaderFactory(
+            context, decoderFactory, Clock.DEFAULT, /* logSessionId= */ null);
     Transformer transformer =
         ExperimentalAnalyzerModeFactory.buildAnalyzer(context)
             .buildUpon()

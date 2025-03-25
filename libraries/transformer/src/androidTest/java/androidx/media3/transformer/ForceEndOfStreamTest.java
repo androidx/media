@@ -26,6 +26,7 @@ import static org.junit.Assume.assumeTrue;
 import android.content.Context;
 import android.media.MediaCodec;
 import android.media.MediaFormat;
+import android.media.metrics.LogSessionId;
 import android.view.Surface;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
@@ -166,7 +167,8 @@ public class ForceEndOfStreamTest {
             new DefaultAssetLoaderFactory(
                 context,
                 new FrameDroppingDecoderFactory(context, MP4_ASSET.videoFrameCount, framesToSkip),
-                Clock.DEFAULT))
+                Clock.DEFAULT,
+                /* logSessionId= */ null))
         .build();
   }
 
@@ -192,17 +194,21 @@ public class ForceEndOfStreamTest {
     }
 
     @Override
-    public Codec createForAudioDecoding(Format format) throws ExportException {
-      return defaultDecoderFactory.createForAudioDecoding(format);
+    public Codec createForAudioDecoding(Format format, @Nullable LogSessionId logSessionId)
+        throws ExportException {
+      return defaultDecoderFactory.createForAudioDecoding(format, logSessionId);
     }
 
     @Override
     public Codec createForVideoDecoding(
-        Format format, Surface outputSurface, boolean requestSdrToneMapping)
+        Format format,
+        Surface outputSurface,
+        boolean requestSdrToneMapping,
+        @Nullable LogSessionId logSessionId)
         throws ExportException {
       return new FrameDroppingDecoder(
           defaultDecoderFactory.createForVideoDecoding(
-              format, outputSurface, requestSdrToneMapping),
+              format, outputSurface, requestSdrToneMapping, logSessionId),
           sourceFrameCount,
           framesToDrop);
     }

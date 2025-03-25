@@ -163,6 +163,11 @@ public class ForwardingAudioSink implements AudioSink {
   }
 
   @Override
+  public long getAudioTrackBufferSizeUs() {
+    return sink.getAudioTrackBufferSizeUs();
+  }
+
+  @Override
   public void enableTunnelingV21() {
     sink.enableTunnelingV21();
   }

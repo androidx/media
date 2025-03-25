@@ -42,6 +42,7 @@ import static java.lang.Math.max;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.content.Context;
+import android.media.metrics.LogSessionId;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Message;
@@ -201,7 +202,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       HandlerWrapper applicationHandler,
       DebugViewProvider debugViewProvider,
       Clock clock,
-      long videoSampleTimestampOffsetUs) {
+      long videoSampleTimestampOffsetUs,
+      @Nullable LogSessionId logSessionId) {
     this.context = context;
     this.composition = composition;
     this.encoderFactory = new CapturingEncoderFactory(encoderFactory);
@@ -240,7 +242,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               audioMixerFactory,
               videoFrameProcessorFactory,
               fallbackListener,
-              debugViewProvider);
+              debugViewProvider,
+              logSessionId);
       EditedMediaItemSequence sequence = composition.sequences.get(i);
       sequenceAssetLoaders.add(
           new SequenceAssetLoader(
@@ -555,6 +558,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     private final VideoFrameProcessor.Factory videoFrameProcessorFactory;
     private final FallbackListener fallbackListener;
     private final DebugViewProvider debugViewProvider;
+    @Nullable private final LogSessionId logSessionId;
     private long currentSequenceDurationUs;
 
     public SequenceAssetLoaderListener(
@@ -564,7 +568,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         AudioMixer.Factory audioMixerFactory,
         VideoFrameProcessor.Factory videoFrameProcessorFactory,
         FallbackListener fallbackListener,
-        DebugViewProvider debugViewProvider) {
+        DebugViewProvider debugViewProvider,
+        @Nullable LogSessionId logSessionId) {
       this.sequenceIndex = sequenceIndex;
       this.firstEditedMediaItem = composition.sequences.get(sequenceIndex).editedMediaItems.get(0);
       this.composition = composition;
@@ -573,6 +578,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       this.videoFrameProcessorFactory = videoFrameProcessorFactory;
       this.fallbackListener = fallbackListener;
       this.debugViewProvider = debugViewProvider;
+      this.logSessionId = logSessionId;
     }
 
     @Override
@@ -599,10 +605,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         @AssetLoader.SupportedOutputTypes int supportedOutputTypes) {
       @C.TrackType
       int trackType = getProcessedTrackType(firstAssetLoaderInputFormat.sampleMimeType);
-
-      checkArgument(
-          trackType != TRACK_TYPE_VIDEO || !composition.sequences.get(sequenceIndex).hasGaps(),
-          "Gaps in video sequences are not supported.");
 
       synchronized (assetLoaderLock) {
         assetLoaderInputTracker.registerTrack(sequenceIndex, firstAssetLoaderInputFormat);
@@ -700,7 +702,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                 audioMixerFactory,
                 encoderFactory,
                 muxerWrapper,
-                fallbackListener));
+                fallbackListener,
+                logSessionId));
       } else {
         Format firstFormat;
         if (MimeTypes.isVideo(assetLoaderOutputFormat.sampleMimeType)) {
@@ -742,7 +745,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                 videoSampleTimestampOffsetUs,
                 /* hasMultipleInputs= */ assetLoaderInputTracker.hasMultipleConcurrentVideoTracks(),
                 portraitEncodingEnabled,
-                maxFramesInEncoder));
+                maxFramesInEncoder,
+                logSessionId));
       }
     }
 

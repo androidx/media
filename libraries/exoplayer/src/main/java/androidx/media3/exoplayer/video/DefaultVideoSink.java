@@ -55,7 +55,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 /* package */ final class DefaultVideoSink implements VideoSink {
 
   private final VideoFrameReleaseControl videoFrameReleaseControl;
-  private final Clock clock;
   private final VideoFrameRenderControl videoFrameRenderControl;
   private final Queue<VideoFrameHandler> videoFrameHandlers;
 
@@ -70,7 +69,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   public DefaultVideoSink(VideoFrameReleaseControl videoFrameReleaseControl, Clock clock) {
     this.videoFrameReleaseControl = videoFrameReleaseControl;
     videoFrameReleaseControl.setClock(clock);
-    this.clock = clock;
     videoFrameRenderControl =
         new VideoFrameRenderControl(new FrameRendererImpl(), videoFrameReleaseControl);
     videoFrameHandlers = new ArrayDeque<>();
@@ -82,22 +80,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   @Override
-  public void onRendererEnabled(boolean mayRenderStartOfStream) {
-    videoFrameReleaseControl.onEnabled(mayRenderStartOfStream);
-  }
-
-  @Override
-  public void onRendererDisabled() {
-    videoFrameReleaseControl.onDisabled();
-  }
-
-  @Override
-  public void onRendererStarted() {
+  public void onStarted() {
     videoFrameReleaseControl.onStarted();
   }
 
   @Override
-  public void onRendererStopped() {
+  public void onStopped() {
     videoFrameReleaseControl.onStopped();
   }
 
@@ -119,6 +107,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   @Override
+  public void redraw() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
   public void flush(boolean resetPosition) {
     if (resetPosition) {
       videoFrameReleaseControl.reset();
@@ -128,8 +121,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   @Override
-  public boolean isReady(boolean rendererOtherwiseReady) {
-    return videoFrameReleaseControl.isReady(rendererOtherwiseReady);
+  public boolean isReady(boolean otherwiseReady) {
+    return videoFrameReleaseControl.isReady(otherwiseReady);
   }
 
   @Override
@@ -173,11 +166,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   @Override
-  public void setStreamTimestampInfo(long streamStartPositionUs, long bufferTimestampAdjustmentUs) {
-    if (streamStartPositionUs != this.streamStartPositionUs) {
-      videoFrameRenderControl.onStreamStartPositionChanged(streamStartPositionUs);
-      this.streamStartPositionUs = streamStartPositionUs;
-    }
+  public void setBufferTimestampAdjustmentUs(long bufferTimestampAdjustmentUs) {
     this.bufferTimestampAdjustmentUs = bufferTimestampAdjustmentUs;
   }
 
@@ -198,11 +187,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     videoFrameReleaseControl.setChangeFrameRateStrategy(changeFrameRateStrategy);
   }
 
-  @Override
-  public void enableMayRenderStartOfStream() {
-    videoFrameReleaseControl.allowReleaseFirstFrameBeforeStarted();
-  }
-
   /**
    * {@inheritDoc}
    *
@@ -210,7 +194,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    */
   @Override
   public void onInputStreamChanged(
-      @InputType int inputType, Format format, List<Effect> videoEffects) {
+      @InputType int inputType,
+      Format format,
+      long startPositionUs,
+      @FirstFrameReleaseInstruction int firstFrameReleaseInstruction,
+      List<Effect> videoEffects) {
     checkState(videoEffects.isEmpty());
     if (format.width != inputFormat.width || format.height != inputFormat.height) {
       videoFrameRenderControl.onVideoSizeChanged(format.width, format.height);
@@ -219,6 +207,15 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       videoFrameReleaseControl.setFrameRate(format.frameRate);
     }
     inputFormat = format;
+    if (startPositionUs != this.streamStartPositionUs) {
+      videoFrameRenderControl.onStreamChanged(firstFrameReleaseInstruction, startPositionUs);
+      this.streamStartPositionUs = startPositionUs;
+    }
+  }
+
+  @Override
+  public void allowReleaseFirstFrameBeforeStarted() {
+    videoFrameReleaseControl.allowReleaseFirstFrameBeforeStarted();
   }
 
   @Override
@@ -293,7 +290,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       Format format = outputFormat == null ? new Format.Builder().build() : outputFormat;
       videoFrameMetadataListener.onVideoFrameAboutToBeRendered(
           /* presentationTimeUs= */ bufferPresentationTimeUs,
-          /* releaseTimeNs= */ clock.nanoTime(),
+          /* releaseTimeNs= */ renderTimeNs,
           format,
           /* mediaFormat= */ null);
       videoFrameHandlers.remove().render(renderTimeNs);

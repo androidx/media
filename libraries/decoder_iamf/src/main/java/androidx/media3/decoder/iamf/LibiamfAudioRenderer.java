@@ -26,6 +26,7 @@ import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.audio.AudioManagerCompat;
 import androidx.media3.common.util.TraceUtil;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -95,10 +96,7 @@ public class LibiamfAudioRenderer extends DecoderAudioRenderer<IamfDecoder> {
       return false;
     }
 
-    AudioManager audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
-    if (audioManager == null) {
-      return false;
-    }
+    AudioManager audioManager = AudioManagerCompat.getAudioManager(context);
     AudioFormat audioFormat =
         new AudioFormat.Builder()
             .setEncoding(IamfDecoder.OUTPUT_PCM_ENCODING)

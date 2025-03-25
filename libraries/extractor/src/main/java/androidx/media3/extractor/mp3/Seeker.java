@@ -34,6 +34,12 @@ import androidx.media3.extractor.SeekMap;
   long getTimeUs(long position);
 
   /**
+   * Returns the position (byte offset) in the stream that is immediately before audio data, or 0 if
+   * not known.
+   */
+  long getDataStartPosition();
+
+  /**
    * Returns the position (byte offset) in the stream that is immediately after audio data, or
    * {@link C#INDEX_UNSET} if not known.
    */
@@ -54,6 +60,11 @@ import androidx.media3.extractor.SeekMap;
 
     @Override
     public long getTimeUs(long position) {
+      return 0;
+    }
+
+    @Override
+    public long getDataStartPosition() {
       return 0;
     }
 

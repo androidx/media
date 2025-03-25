@@ -50,6 +50,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.PolyNull;
 
 /** Writes out various types of boxes as per MP4 (ISO/IEC 14496-12) standards. */
@@ -145,6 +146,14 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
         continue;
       }
       Format format = track.format;
+      if (Objects.equals(track.format.sampleMimeType, MimeTypes.VIDEO_AV1)
+          && format.initializationData.isEmpty()) {
+        format =
+            format
+                .buildUpon()
+                .setInitializationData(ImmutableList.of(checkNotNull(track.parsedCsd)))
+                .build();
+      }
       String languageCode = bcp47LanguageTagToIso3(format.language);
 
       // Generate the sample durations to calculate the total duration for tkhd box.
@@ -1533,11 +1542,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
   /** Returns the av1C box. */
   private static ByteBuffer av1CBox(Format format) {
     // For AV1, the entire codec-specific box is packed into csd-0.
-    checkArgument(
-        !format.initializationData.isEmpty(), "csd-0 is not found in the format for av1C box");
-
     byte[] csd0 = format.initializationData.get(0);
-    checkArgument(csd0.length > 0, "csd-0 is empty for av1C box.");
 
     return BoxUtils.wrapIntoBox("av1C", ByteBuffer.wrap(csd0));
   }

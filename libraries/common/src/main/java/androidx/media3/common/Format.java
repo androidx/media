@@ -1039,7 +1039,10 @@ public final class Format {
   /** The audio sampling rate in Hz, or {@link #NO_VALUE} if unknown or not applicable. */
   public final int sampleRate;
 
-  /** The {@link C.PcmEncoding} for PCM audio. Set to {@link #NO_VALUE} for other media types. */
+  /**
+   * The {@link C.PcmEncoding} for PCM or losslessly compressed audio. Set to {@link #NO_VALUE} for
+   * other media types.
+   */
   @UnstableApi public final @C.PcmEncoding int pcmEncoding;
 
   /**

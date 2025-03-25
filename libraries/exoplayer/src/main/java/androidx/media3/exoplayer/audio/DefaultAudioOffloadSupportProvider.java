@@ -26,6 +26,7 @@ import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.audio.AudioManagerCompat;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -116,17 +117,13 @@ public final class DefaultAudioOffloadSupportProvider
     }
 
     if (context != null) {
-      AudioManager audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
-      if (audioManager != null) {
-        String offloadVariableRateSupportedKeyValue =
-            audioManager.getParameters(/* keys= */ OFFLOAD_VARIABLE_RATE_SUPPORTED_KEY);
-        isOffloadVariableRateSupported =
-            offloadVariableRateSupportedKeyValue != null
-                && offloadVariableRateSupportedKeyValue.equals(
-                    OFFLOAD_VARIABLE_RATE_SUPPORTED_KEY + "=1");
-      } else {
-        isOffloadVariableRateSupported = false;
-      }
+      AudioManager audioManager = AudioManagerCompat.getAudioManager(context);
+      String offloadVariableRateSupportedKeyValue =
+          audioManager.getParameters(/* keys= */ OFFLOAD_VARIABLE_RATE_SUPPORTED_KEY);
+      isOffloadVariableRateSupported =
+          offloadVariableRateSupportedKeyValue != null
+              && offloadVariableRateSupportedKeyValue.equals(
+                  OFFLOAD_VARIABLE_RATE_SUPPORTED_KEY + "=1");
     } else {
       isOffloadVariableRateSupported = false;
     }

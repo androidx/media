@@ -104,7 +104,7 @@ public class WaveformAudioBufferSink implements TeeAudioProcessor.AudioBufferSin
    * @param barsPerSecond The number of bars that should be generated per each second of audio.
    * @param outputChannelCount The number of channels that the output waveform should contain. If
    *     this is different than the number of input channels, the audio will be mixed using the
-   *     {@linkplain ChannelMixingMatrix#create default mixing matrix}.
+   *     {@linkplain ChannelMixingMatrix#createForConstantGain default mixing matrix}.
    * @param listener The listener to be notified when a new waveform bar has been generated.
    */
   public WaveformAudioBufferSink(int barsPerSecond, int outputChannelCount, Listener listener) {
@@ -123,7 +123,8 @@ public class WaveformAudioBufferSink implements TeeAudioProcessor.AudioBufferSin
     samplesPerBar = sampleRateHz / barsPerSecond;
     inputAudioFormat = new AudioFormat(sampleRateHz, channelCount, encoding);
     mixingAudioFormat = new AudioFormat(sampleRateHz, outputChannels.size(), C.ENCODING_PCM_FLOAT);
-    channelMixingMatrix = ChannelMixingMatrix.create(channelCount, outputChannels.size());
+    channelMixingMatrix =
+        ChannelMixingMatrix.createForConstantGain(channelCount, outputChannels.size());
   }
 
   @Override

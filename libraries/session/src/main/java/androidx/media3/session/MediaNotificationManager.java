@@ -57,7 +57,6 @@ import java.util.concurrent.TimeoutException;
 
   private static final String TAG = "MediaNtfMng";
   private static final int MSG_USER_ENGAGED_TIMEOUT = 1;
-  private static final long USER_ENGAGED_TIMEOUT_MS = 600_000;
 
   private final MediaSessionService mediaSessionService;
   private final MediaNotification.Provider mediaNotificationProvider;
@@ -73,6 +72,7 @@ import java.util.concurrent.TimeoutException;
   private boolean startedInForeground;
   private boolean isUserEngaged;
   private boolean isUserEngagedTimeoutEnabled;
+  private long userEngagedTimeoutMs;
 
   public MediaNotificationManager(
       MediaSessionService mediaSessionService,
@@ -88,6 +88,7 @@ import java.util.concurrent.TimeoutException;
     controllerMap = new HashMap<>();
     startedInForeground = false;
     isUserEngagedTimeoutEnabled = true;
+    userEngagedTimeoutMs = MediaSessionService.DEFAULT_FOREGROUND_SERVICE_TIMEOUT_MS;
   }
 
   public void addSession(MediaSession session) {
@@ -152,7 +153,7 @@ import java.util.concurrent.TimeoutException;
    */
   public void updateNotification(MediaSession session, boolean startInForegroundRequired) {
     if (!mediaSessionService.isSessionAdded(session) || !shouldShowNotification(session)) {
-      maybeStopForegroundService(/* removeNotifications= */ true);
+      removeNotification();
       return;
     }
 
@@ -191,6 +192,10 @@ import java.util.concurrent.TimeoutException;
     return startedInForeground;
   }
 
+  public void setUserEngagedTimeoutMs(long userEngagedTimeoutMs) {
+    this.userEngagedTimeoutMs = userEngagedTimeoutMs;
+  }
+
   @Override
   public boolean handleMessage(Message msg) {
     if (msg.what == MSG_USER_ENGAGED_TIMEOUT) {
@@ -206,8 +211,9 @@ import java.util.concurrent.TimeoutException;
 
   /* package */ boolean shouldRunInForeground(boolean startInForegroundWhenPaused) {
     boolean isUserEngaged = isAnySessionUserEngaged(startInForegroundWhenPaused);
-    if (this.isUserEngaged && !isUserEngaged && isUserEngagedTimeoutEnabled) {
-      mainHandler.sendEmptyMessageDelayed(MSG_USER_ENGAGED_TIMEOUT, USER_ENGAGED_TIMEOUT_MS);
+    boolean useTimeout = isUserEngagedTimeoutEnabled && userEngagedTimeoutMs > 0;
+    if (this.isUserEngaged && !isUserEngaged && useTimeout) {
+      mainHandler.sendEmptyMessageDelayed(MSG_USER_ENGAGED_TIMEOUT, userEngagedTimeoutMs);
     } else if (isUserEngaged) {
       mainHandler.removeMessages(MSG_USER_ENGAGED_TIMEOUT);
     }
@@ -275,22 +281,16 @@ import java.util.concurrent.TimeoutException;
       // (https://github.com/androidx/media/issues/192).
       notificationManagerCompat.notify(
           mediaNotification.notificationId, mediaNotification.notification);
-      maybeStopForegroundService(/* removeNotifications= */ false);
+      stopForeground(/* removeNotifications= */ false);
     }
   }
 
-  /**
-   * Stops the service from the foreground, if no player is actively playing content.
-   *
-   * @param removeNotifications Whether to remove notifications, if the service is stopped from the
-   *     foreground.
-   */
-  private void maybeStopForegroundService(boolean removeNotifications) {
-    if (shouldRunInForeground(/* startInForegroundWhenPaused= */ false)) {
-      return;
-    }
-    stopForeground(removeNotifications);
-    if (removeNotifications && mediaNotification != null) {
+  /** Removes the notification and stops the foreground service if running. */
+  private void removeNotification() {
+    // To hide the notification on all API levels, we need to call both Service.stopForeground(true)
+    // and notificationManagerCompat.cancel(notificationId).
+    stopForeground(/* removeNotifications= */ true);
+    if (mediaNotification != null) {
       notificationManagerCompat.cancel(mediaNotification.notificationId);
       // Update the notification count so that if a pending notification callback arrives (e.g., a
       // bitmap is loaded), we don't show the notification.
@@ -419,8 +419,6 @@ import java.util.concurrent.TimeoutException;
   }
 
   private void stopForeground(boolean removeNotifications) {
-    // To hide the notification on all API levels, we need to call both Service.stopForeground(true)
-    // and notificationManagerCompat.cancel(notificationId).
     if (Util.SDK_INT >= 24) {
       Api24.stopForeground(mediaSessionService, removeNotifications);
     } else {

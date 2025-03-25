@@ -1459,6 +1459,10 @@ public interface ExoPlayer extends Player {
    * Renderer#MSG_SET_VIDEO_OUTPUT_RESOLUTION} after calling this method. For {@link SurfaceView},
    * {@link TextureView} and {@link SurfaceHolder} output this happens automatically.
    *
+   * <p>Pass {@link androidx.media3.common.VideoFrameProcessor#REDRAW} to force the effect pipeline
+   * to redraw the effects immediately. To accurately interleave redraws, listen to {@link
+   * VideoFrameMetadataListener#onVideoFrameAboutToBeRendered} events.
+   *
    * <p>The following limitations exist for using {@linkplain Effect video effects}:
    *
    * <ul>

@@ -1463,14 +1463,14 @@ public final class HttpEngineDataSourceTest {
 
   @Test
   public void getCookieHeader_noCookieHandler() {
-    assertThat(HttpEngineDataSource.UrlRequestCallback.getCookieHeader(TEST_URL)).isEmpty();
+    assertThat(HttpEngineDataSource.getCookieHeader(TEST_URL)).isEmpty();
     assertThat(CookieHandler.getDefault()).isNull();
   }
 
   @Test
   public void getCookieHeader_emptyCookieHandler() {
     CookieHandler.setDefault(new CookieManager());
-    assertThat(HttpEngineDataSource.UrlRequestCallback.getCookieHeader(TEST_URL)).isEmpty();
+    assertThat(HttpEngineDataSource.getCookieHeader(TEST_URL)).isEmpty();
   }
 
   @Test
@@ -1482,7 +1482,19 @@ public final class HttpEngineDataSourceTest {
             "Set-Cookie", ImmutableList.of(TEST_RESPONSE_SET_COOKIE, TEST_RESPONSE_SET_COOKIE_2)));
     CookieHandler.setDefault(cm);
 
-    assertThat(HttpEngineDataSource.UrlRequestCallback.getCookieHeader(TEST_URL))
+    assertThat(HttpEngineDataSource.getCookieHeader(TEST_URL))
+        .isEqualTo(TEST_REQUEST_COOKIE + "; " + TEST_REQUEST_COOKIE_2 + ";");
+  }
+
+  @Test
+  public void getCookieHeader_cookieHandlerCustomHandler() throws Exception {
+    CookieManager cm = new CookieManager();
+    cm.put(
+        new URI(TEST_URL),
+        ImmutableMap.of(
+            "Set-Cookie", ImmutableList.of(TEST_RESPONSE_SET_COOKIE, TEST_RESPONSE_SET_COOKIE_2)));
+
+    assertThat(HttpEngineDataSource.getCookieHeader(TEST_URL, cm))
         .isEqualTo(TEST_REQUEST_COOKIE + "; " + TEST_REQUEST_COOKIE_2 + ";");
   }
 
@@ -1503,7 +1515,7 @@ public final class HttpEngineDataSourceTest {
     assertThat(cm.get(new URI(TEST_URL), ImmutableMap.of("", ImmutableList.of())))
         .doesNotContainKey("Cookie2");
 
-    assertThat(HttpEngineDataSource.UrlRequestCallback.getCookieHeader(TEST_URL))
+    assertThat(HttpEngineDataSource.getCookieHeader(TEST_URL))
         .isEqualTo(TEST_REQUEST_COOKIE + "; " + TEST_REQUEST_COOKIE_2 + ";");
   }
 

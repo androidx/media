@@ -28,8 +28,8 @@ import androidx.media3.common.util.UnstableApi
 
 /**
  * Remembers the value of [PreviousButtonState] created based on the passed [Player] and launch a
- * coroutine to listen to [Player]'s changes. If the [Player] instance changes between compositions,
- * produce and remember a new value.
+ * coroutine to listen to [Player's][Player] changes. If the [Player] instance changes between
+ * compositions, produce and remember a new value.
  */
 @UnstableApi
 @Composable
@@ -56,6 +56,11 @@ class PreviousButtonState(private val player: Player) {
     player.seekToPrevious()
   }
 
+  /**
+   * Subscribes to updates from [Player.Events] and listens to
+   * [Player.EVENT_AVAILABLE_COMMANDS_CHANGED] in order to determine whether the button should be
+   * enabled, i.e. respond to user input.
+   */
   suspend fun observe(): Nothing =
     player.listen { events ->
       if (events.contains(Player.EVENT_AVAILABLE_COMMANDS_CHANGED)) {

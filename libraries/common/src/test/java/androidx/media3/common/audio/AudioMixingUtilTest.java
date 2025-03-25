@@ -41,13 +41,17 @@ public final class AudioMixingUtilTest {
       new AudioFormat(/* sampleRate= */ 44100, /* channelCount= */ 1, C.ENCODING_PCM_16BIT);
 
   private static final ChannelMixingMatrix STEREO_TO_STEREO =
-      ChannelMixingMatrix.create(/* inputChannelCount= */ 2, /* outputChannelCount= */ 2);
+      ChannelMixingMatrix.createForConstantGain(
+          /* inputChannelCount= */ 2, /* outputChannelCount= */ 2);
   private static final ChannelMixingMatrix MONO_TO_STEREO =
-      ChannelMixingMatrix.create(/* inputChannelCount= */ 1, /* outputChannelCount= */ 2);
+      ChannelMixingMatrix.createForConstantGain(
+          /* inputChannelCount= */ 1, /* outputChannelCount= */ 2);
   private static final ChannelMixingMatrix STEREO_TO_MONO =
-      ChannelMixingMatrix.create(/* inputChannelCount= */ 2, /* outputChannelCount= */ 1);
+      ChannelMixingMatrix.createForConstantGain(
+          /* inputChannelCount= */ 2, /* outputChannelCount= */ 1);
   private static final ChannelMixingMatrix MONO_TO_MONO =
-      ChannelMixingMatrix.create(/* inputChannelCount= */ 1, /* outputChannelCount= */ 1);
+      ChannelMixingMatrix.createForConstantGain(
+          /* inputChannelCount= */ 1, /* outputChannelCount= */ 1);
 
   @Test
   public void mixToStereoFloat_withStereoFloatInput() {

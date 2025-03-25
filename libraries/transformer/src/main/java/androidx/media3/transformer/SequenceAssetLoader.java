@@ -65,10 +65,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           .setChannelCount(2)
           .build();
 
+  private static final int BLANK_IMAGE_BITMAP_WIDTH = 1;
+  private static final int BLANK_IMAGE_BITMAP_HEIGHT = 1;
   private static final Format BLANK_IMAGE_BITMAP_FORMAT =
       new Format.Builder()
-          .setWidth(1)
-          .setHeight(1)
+          .setWidth(BLANK_IMAGE_BITMAP_WIDTH)
+          .setHeight(BLANK_IMAGE_BITMAP_HEIGHT)
           .setSampleMimeType(MimeTypes.IMAGE_RAW)
           .setColorInfo(ColorInfo.SRGB_BT709_FULL)
           .build();
@@ -123,6 +125,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private volatile long currentAssetDurationAfterEffectsAppliedUs;
   private volatile long maxSequenceDurationUs;
   private volatile boolean isMaxSequenceDurationUsFinal;
+  private volatile boolean sequenceHasAudio;
+  private volatile boolean sequenceHasVideo;
 
   public SequenceAssetLoader(
       EditedMediaItemSequence sequence,
@@ -134,7 +138,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       Looper looper) {
     editedMediaItems = sequence.editedMediaItems;
     isLooping = sequence.isLooping;
-    this.forceAudioTrack = forceAudioTrack;
+    this.forceAudioTrack = forceAudioTrack || sequence.editedMediaItems.get(0).isGap();
     this.assetLoaderFactory = new GapInterceptingAssetLoaderFactory(assetLoaderFactory);
     this.compositionSettings = compositionSettings;
     sequenceAssetLoaderListener = listener;
@@ -307,6 +311,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     SampleConsumerWrapper sampleConsumer;
     if (isCurrentAssetFirstAsset) {
+      if (trackType == C.TRACK_TYPE_VIDEO) {
+        sequenceHasVideo = true;
+      } else {
+        sequenceHasAudio = true;
+      }
       @Nullable
       SampleConsumer wrappedSampleConsumer = sequenceAssetLoaderListener.onOutputFormat(format);
       if (wrappedSampleConsumer == null) {
@@ -347,16 +356,21 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         // Fill video gap with blank frames.
         onMediaItemChanged(C.TRACK_TYPE_VIDEO, /* outputFormat= */ BLANK_IMAGE_BITMAP_FORMAT);
         nonEndedTrackCount.incrementAndGet();
-        Bitmap bitmap =
-            Bitmap.createBitmap(
-                new int[] {Color.BLACK}, /* width= */ 1, /* height= */ 1, Bitmap.Config.ARGB_8888);
-        handler.post(() -> insertBlankFrames(bitmap));
+        handler.post(() -> insertBlankFrames(getBlankImageBitmap()));
       } else {
         // Generate audio silence in the AudioGraph by signalling null format.
         onMediaItemChanged(C.TRACK_TYPE_AUDIO, /* outputFormat= */ null);
       }
     }
     return sampleConsumer;
+  }
+
+  private static Bitmap getBlankImageBitmap() {
+    return Bitmap.createBitmap(
+        new int[] {Color.BLACK},
+        BLANK_IMAGE_BITMAP_WIDTH,
+        BLANK_IMAGE_BITMAP_HEIGHT,
+        Bitmap.Config.ARGB_8888);
   }
 
   private void insertBlankFrames(Bitmap bitmap) {
@@ -387,7 +401,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         /* durationUs= */ (trackType == C.TRACK_TYPE_AUDIO && isLooping && decodeAudio)
             ? C.TIME_UNSET
             : currentAssetDurationUs,
-        /* decodedFormat= */ editedMediaItem.isGap() ? null : outputFormat,
+        /* decodedFormat= */ (editedMediaItem.isGap() && trackType == C.TRACK_TYPE_AUDIO)
+            ? null
+            : outputFormat,
         /* isLast= */ isLastMediaItemInSequence());
   }
 
@@ -589,9 +605,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       }
     }
 
-    private void onGapSignalled() {
-      nonEndedTrackCount.decrementAndGet();
-      if (!isLastMediaItemInSequence()) {
+    private void onAudioGapSignalled() {
+      int nonEndedTracks = nonEndedTrackCount.decrementAndGet();
+      if (nonEndedTracks == 0 && !isLastMediaItemInSequence()) {
         switchAssetLoader();
       }
     }
@@ -673,15 +689,21 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final class GapSignalingAssetLoader implements AssetLoader {
 
     private final long durationUs;
-    private final Format trackFormat;
-    private final Format decodedFormat;
+    private final boolean shouldProduceAudio;
+    private final boolean shouldProduceVideo;
+    private final Format audioTrackFormat;
+    private final Format audioTrackDecodedFormat;
 
-    private boolean outputtedFormat;
+    private boolean producedAudio;
+    private boolean producedVideo;
 
     private GapSignalingAssetLoader(long durationUs) {
       this.durationUs = durationUs;
-      this.trackFormat = new Format.Builder().setSampleMimeType(MimeTypes.AUDIO_RAW).build();
-      this.decodedFormat =
+      shouldProduceAudio = sequenceHasAudio || forceAudioTrack;
+      shouldProduceVideo = sequenceHasVideo;
+      checkState(shouldProduceAudio || shouldProduceVideo);
+      this.audioTrackFormat = new Format.Builder().setSampleMimeType(MimeTypes.AUDIO_RAW).build();
+      this.audioTrackDecodedFormat =
           new Format.Builder()
               .setSampleMimeType(MimeTypes.AUDIO_RAW)
               .setSampleRate(44100)
@@ -693,14 +715,28 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     @Override
     public void start() {
       onDurationUs(durationUs);
-      onTrackCount(1);
-      onTrackAdded(trackFormat, SUPPORTED_OUTPUT_TYPE_DECODED);
+      int trackCount = shouldProduceAudio && shouldProduceVideo ? 2 : 1;
+      onTrackCount(trackCount);
+      if (shouldProduceAudio) {
+        onTrackAdded(audioTrackFormat, SUPPORTED_OUTPUT_TYPE_DECODED);
+      }
+      if (shouldProduceVideo) {
+        onTrackAdded(BLANK_IMAGE_BITMAP_FORMAT, SUPPORTED_OUTPUT_TYPE_DECODED);
+      }
       outputFormatToSequenceAssetLoader();
     }
 
     @Override
     public @Transformer.ProgressState int getProgress(ProgressHolder progressHolder) {
-      progressHolder.progress = outputtedFormat ? 99 : 0;
+      boolean audioPending = shouldProduceAudio && !producedAudio;
+      boolean videoPending = shouldProduceVideo && !producedVideo;
+      if (audioPending && videoPending) {
+        progressHolder.progress = 0;
+      } else if (!audioPending && !videoPending) {
+        progressHolder.progress = 99;
+      } else {
+        progressHolder.progress = 50;
+      }
       return PROGRESS_STATE_AVAILABLE;
     }
 
@@ -714,19 +750,35 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     /** Outputs the gap format, scheduling to try again if unsuccessful. */
     private void outputFormatToSequenceAssetLoader() {
-      try {
-        if (outputtedFormat) {
-          return;
-        }
+      boolean audioPending = shouldProduceAudio && !producedAudio;
+      boolean videoPending = shouldProduceVideo && !producedVideo;
+      checkState(audioPending || videoPending);
 
-        @Nullable SampleConsumerWrapper sampleConsumerWrapper = onOutputFormat(decodedFormat);
-        if (sampleConsumerWrapper != null) {
-          outputtedFormat = true;
-          sampleConsumerWrapper.onGapSignalled();
-        } else {
+      try {
+        boolean shouldRetry = false;
+        if (audioPending) {
+          @Nullable
+          SampleConsumerWrapper sampleConsumerWrapper = onOutputFormat(audioTrackDecodedFormat);
+          if (sampleConsumerWrapper == null) {
+            shouldRetry = true;
+          } else {
+            sampleConsumerWrapper.onAudioGapSignalled();
+            producedAudio = true;
+          }
+        }
+        if (videoPending) {
+          @Nullable
+          SampleConsumerWrapper sampleConsumerWrapper = onOutputFormat(BLANK_IMAGE_BITMAP_FORMAT);
+          if (sampleConsumerWrapper == null) {
+            shouldRetry = true;
+          } else {
+            insertBlankFrames(getBlankImageBitmap());
+            producedVideo = true;
+          }
+        }
+        if (shouldRetry) {
           handler.postDelayed(this::outputFormatToSequenceAssetLoader, RETRY_DELAY_MS);
         }
-
       } catch (ExportException e) {
         onError(e);
       } catch (RuntimeException e) {

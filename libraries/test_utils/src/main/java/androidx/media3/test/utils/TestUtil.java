@@ -29,7 +29,9 @@ import android.graphics.Color;
 import android.media.MediaCodec;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Looper;
 import android.os.Parcel;
+import android.view.SurfaceView;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -54,6 +56,7 @@ import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.PositionHolder;
 import androidx.media3.extractor.SeekMap;
 import androidx.media3.extractor.metadata.MetadataInputBuffer;
+import androidx.test.platform.app.InstrumentationRegistry;
 import com.google.common.base.Function;
 import com.google.common.collect.BoundType;
 import com.google.common.collect.ImmutableList;
@@ -90,6 +93,7 @@ import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.mockito.Mockito;
 
@@ -937,6 +941,21 @@ public class TestUtil {
     }
     buffer.rewind();
     return buffer;
+  }
+
+  /**
+   * Creates a {@link SurfaceView} for tests where the creation is moved to the main thread if run
+   * on a non-Looper thread. This is needed on API &lt; 26 where {@link SurfaceView} cannot be
+   * created on a non-Looper thread.
+   */
+  public static SurfaceView createSurfaceView(Context context) {
+    if (Util.SDK_INT >= 26 || Looper.myLooper() != null) {
+      return new SurfaceView(context);
+    }
+    AtomicReference<SurfaceView> surfaceView = new AtomicReference<>();
+    InstrumentationRegistry.getInstrumentation()
+        .runOnMainSync(() -> surfaceView.set(new SurfaceView(context)));
+    return surfaceView.get();
   }
 
   private static final class NoUidOrShufflingTimeline extends Timeline {

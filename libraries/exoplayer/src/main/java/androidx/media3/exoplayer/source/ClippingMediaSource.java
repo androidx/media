@@ -200,7 +200,7 @@ public final class ClippingMediaSource extends WrappingMediaSource {
      * Sets whether clipping to a non-zero start position in unseekable media is allowed.
      *
      * <p>Note that this is inefficient because the player needs to read and decode all samples from
-     * the beginning of the file and it should only be used if the seek start position is small and
+     * the beginning of the file and it should only be used if the clip start position is small and
      * the entire data before the start position fits into memory.
      *
      * <p>The default value is {@code false}.
@@ -456,6 +456,10 @@ public final class ClippingMediaSource extends WrappingMediaSource {
         Timeline timeline, long startUs, long endUs, boolean allowUnseekableMedia)
         throws IllegalClippingException {
       super(timeline);
+      if (endUs != C.TIME_END_OF_SOURCE && endUs < startUs) {
+        throw new IllegalClippingException(
+            IllegalClippingException.REASON_START_EXCEEDS_END, startUs, endUs);
+      }
       if (timeline.getPeriodCount() != 1) {
         throw new IllegalClippingException(IllegalClippingException.REASON_INVALID_PERIOD_COUNT);
       }
@@ -464,25 +468,22 @@ public final class ClippingMediaSource extends WrappingMediaSource {
       if (!allowUnseekableMedia && !window.isPlaceholder && startUs != 0 && !window.isSeekable) {
         throw new IllegalClippingException(IllegalClippingException.REASON_NOT_SEEKABLE_TO_START);
       }
-      long resolvedEndUs = endUs == C.TIME_END_OF_SOURCE ? window.durationUs : max(0, endUs);
+      endUs = endUs == C.TIME_END_OF_SOURCE ? window.durationUs : max(0, endUs);
       if (window.durationUs != C.TIME_UNSET) {
-        if (resolvedEndUs > window.durationUs) {
-          resolvedEndUs = window.durationUs;
+        if (endUs > window.durationUs) {
+          endUs = window.durationUs;
         }
-        if (startUs > resolvedEndUs) {
-          throw new IllegalClippingException(
-              IllegalClippingException.REASON_START_EXCEEDS_END,
-              startUs,
-              /* endUs= */ resolvedEndUs);
+        if (startUs > endUs) {
+          startUs = endUs;
         }
       }
       this.startUs = startUs;
-      this.endUs = resolvedEndUs;
-      durationUs = resolvedEndUs == C.TIME_UNSET ? C.TIME_UNSET : (resolvedEndUs - startUs);
+      this.endUs = endUs;
+      durationUs = endUs == C.TIME_UNSET ? C.TIME_UNSET : (endUs - startUs);
       isDynamic =
           window.isDynamic
-              && (resolvedEndUs == C.TIME_UNSET
-                  || (window.durationUs != C.TIME_UNSET && resolvedEndUs == window.durationUs));
+              && (endUs == C.TIME_UNSET
+                  || (window.durationUs != C.TIME_UNSET && endUs == window.durationUs));
     }
 
     @Override

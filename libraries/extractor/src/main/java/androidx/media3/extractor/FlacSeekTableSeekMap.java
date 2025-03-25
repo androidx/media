@@ -22,7 +22,7 @@ import androidx.media3.common.util.Util;
 
 /**
  * A {@link SeekMap} implementation for FLAC streams that contain a <a
- * href="https://xiph.org/flac/format.html#metadata_block_seektable">seek table</a>.
+ * href="https://www.rfc-editor.org/rfc/rfc9639.html#name-seek-table">seek table</a>.
  */
 @UnstableApi
 public final class FlacSeekTableSeekMap implements SeekMap {

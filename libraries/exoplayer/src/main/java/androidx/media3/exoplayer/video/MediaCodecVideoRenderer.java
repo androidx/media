@@ -22,6 +22,9 @@ import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.exoplayer.DecoderReuseEvaluation.DISCARD_REASON_MAX_INPUT_SIZE_EXCEEDED;
 import static androidx.media3.exoplayer.DecoderReuseEvaluation.DISCARD_REASON_VIDEO_MAX_RESOLUTION_EXCEEDED;
 import static androidx.media3.exoplayer.DecoderReuseEvaluation.REUSE_RESULT_NO;
+import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_IMMEDIATELY;
+import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED;
+import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_WHEN_STARTED;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -53,6 +56,7 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Timeline;
+import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.MediaFormatUtil;
@@ -179,12 +183,14 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   private final long minEarlyUsToDropDecoderInput;
 
   private final PriorityQueue<Long> droppedDecoderInputBufferTimestamps;
+  private final boolean enableMediaCodecBufferDecodeOnlyFlag;
 
   private @MonotonicNonNull CodecMaxValues codecMaxValues;
   private boolean codecNeedsSetOutputSurfaceWorkaround;
   private boolean codecHandlesHdr10PlusOutOfBandMetadata;
   private @MonotonicNonNull VideoSink videoSink;
   private boolean hasSetVideoSink;
+  private @VideoSink.FirstFrameReleaseInstruction int nextVideoSinkFirstFrameReleaseInstruction;
   private @MonotonicNonNull List<Effect> videoEffects;
   @Nullable private Surface displaySurface;
   @Nullable private PlaceholderSurface placeholderSurface;
@@ -229,6 +235,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     @Nullable private VideoSink videoSink;
     private boolean parseAv1SampleDependencies;
     private long lateThresholdToDropDecoderInputUs;
+    private boolean enableMediaCodecBufferDecodeOnlyFlag;
 
     /**
      * Creates a new builder.
@@ -366,6 +373,26 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     public Builder experimentalSetLateThresholdToDropDecoderInputUs(
         long lateThresholdToDropDecoderInputUs) {
       this.lateThresholdToDropDecoderInputUs = lateThresholdToDropDecoderInputUs;
+      return this;
+    }
+
+    /**
+     * Sets whether the {@link MediaCodec#BUFFER_FLAG_DECODE_ONLY} flag will be included when
+     * queuing decode-only input buffers to the decoder.
+     *
+     * <p>If {@code false}, then only if the decoder is set up in tunneling mode will decode-only
+     * input buffers be queued with the {@link MediaCodec#BUFFER_FLAG_DECODE_ONLY} flag. The default
+     * value is {@code false}.
+     *
+     * <p>Requires API 34.
+     *
+     * <p>This method is experimental and will be renamed or removed in a future release.
+     */
+    @RequiresApi(34)
+    @CanIgnoreReturnValue
+    public Builder experimentalSetEnableMediaCodecBufferDecodeOnlyFlag(
+        boolean enableMediaCodecBufferDecodeOnlyFlag) {
+      this.enableMediaCodecBufferDecodeOnlyFlag = enableMediaCodecBufferDecodeOnlyFlag;
       return this;
     }
 
@@ -593,6 +620,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         builder.lateThresholdToDropDecoderInputUs != C.TIME_UNSET
             ? -builder.lateThresholdToDropDecoderInputUs
             : C.TIME_UNSET;
+    enableMediaCodecBufferDecodeOnlyFlag = builder.enableMediaCodecBufferDecodeOnlyFlag;
   }
 
   // FrameTimingEvaluator methods
@@ -843,9 +871,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     if (!hasSetVideoSink) {
       if (videoEffects != null && videoSink == null) {
         PlaybackVideoGraphWrapper playbackVideoGraphWrapper =
-            new PlaybackVideoGraphWrapper.Builder(context, videoFrameReleaseControl)
-                .setClock(getClock())
-                .build();
+            createPlaybackVideoGraphWrapper(context, videoFrameReleaseControl);
         playbackVideoGraphWrapper.setTotalVideoInputCount(1);
         videoSink = playbackVideoGraphWrapper.getSink(/* inputIndex= */ 0);
       }
@@ -903,21 +929,44 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       if (videoEffects != null) {
         videoSink.setVideoEffects(videoEffects);
       }
-      videoSink.onRendererEnabled(mayRenderStartOfStream);
+      nextVideoSinkFirstFrameReleaseInstruction =
+          mayRenderStartOfStream
+              ? RELEASE_FIRST_FRAME_IMMEDIATELY
+              : RELEASE_FIRST_FRAME_WHEN_STARTED;
       @Nullable WakeupListener wakeupListener = getWakeupListener();
       if (wakeupListener != null) {
         videoSink.setWakeupListener(wakeupListener);
       }
+      experimentalEnableProcessedStreamChangedAtStart();
     } else {
       videoFrameReleaseControl.setClock(getClock());
-      videoFrameReleaseControl.onEnabled(mayRenderStartOfStream);
+      int firstFrameReleaseInstruction =
+          mayRenderStartOfStream
+              ? RELEASE_FIRST_FRAME_IMMEDIATELY
+              : RELEASE_FIRST_FRAME_WHEN_STARTED;
+      videoFrameReleaseControl.onStreamChanged(firstFrameReleaseInstruction);
     }
+  }
+
+  /** Creates a {@link PlaybackVideoGraphWrapper} instance. */
+  protected PlaybackVideoGraphWrapper createPlaybackVideoGraphWrapper(
+      Context context, VideoFrameReleaseControl videoFrameReleaseControl) {
+    // TODO: b/391109644 - Add a more explicit API to enable replaying.
+    return new PlaybackVideoGraphWrapper.Builder(context, videoFrameReleaseControl)
+        .setClock(getClock())
+        .build();
   }
 
   @Override
   public void enableMayRenderStartOfStream() {
     if (videoSink != null) {
-      videoSink.enableMayRenderStartOfStream();
+      if (nextVideoSinkFirstFrameReleaseInstruction == RELEASE_FIRST_FRAME_IMMEDIATELY
+          || nextVideoSinkFirstFrameReleaseInstruction == RELEASE_FIRST_FRAME_WHEN_STARTED) {
+        // The first stream change hasn't been queued to the sink.
+        nextVideoSinkFirstFrameReleaseInstruction = RELEASE_FIRST_FRAME_IMMEDIATELY;
+      } else {
+        videoSink.allowReleaseFirstFrameBeforeStarted();
+      }
     } else {
       videoFrameReleaseControl.allowReleaseFirstFrameBeforeStarted();
     }
@@ -931,9 +980,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       MediaSource.MediaPeriodId mediaPeriodId)
       throws ExoPlaybackException {
     super.onStreamChanged(formats, startPositionUs, offsetUs, mediaPeriodId);
-    if (this.startPositionUs == C.TIME_UNSET) {
-      this.startPositionUs = startPositionUs;
-    }
     updatePeriodDurationUs(mediaPeriodId);
   }
 
@@ -957,9 +1003,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         // MediaCodec once the codec is flushed.
         videoSink.flush(/* resetPosition= */ true);
       }
-      videoSink.setStreamTimestampInfo(
-          getOutputStreamStartPositionUs(), getBufferTimestampAdjustmentUs());
-      pendingVideoSinkInputStreamChange = true;
     }
     super.onPositionReset(positionUs, joining);
     if (videoSink == null) {
@@ -990,7 +1033,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     if (videoSink != null) {
       return videoSink.isReady(rendererOtherwiseReady);
     }
-    if (rendererOtherwiseReady && (getCodec() == null || displaySurface == null || tunneling)) {
+    if (rendererOtherwiseReady && (getCodec() == null || tunneling)) {
       // Not releasing frames.
       return true;
     }
@@ -1006,7 +1049,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     totalVideoFrameProcessingOffsetUs = 0;
     videoFrameProcessingOffsetCount = 0;
     if (videoSink != null) {
-      videoSink.onRendererStarted();
+      videoSink.onStarted();
     } else {
       videoFrameReleaseControl.onStarted();
     }
@@ -1017,7 +1060,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     maybeNotifyDroppedFrames();
     maybeNotifyVideoFrameProcessingOffset();
     if (videoSink != null) {
-      videoSink.onRendererStopped();
+      videoSink.onStopped();
     } else {
       videoFrameReleaseControl.onStopped();
     }
@@ -1028,11 +1071,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   protected void onDisabled() {
     reportedVideoSize = null;
     periodDurationUs = C.TIME_UNSET;
-    if (videoSink != null) {
-      videoSink.onRendererDisabled();
-    } else {
-      videoFrameReleaseControl.onDisabled();
-    }
     maybeSetupTunnelingForFirstFrame();
     haveReportedFirstFrameRenderedForCurrentSurface = false;
     tunnelingOnFrameRenderedListener = null;
@@ -1157,22 +1195,22 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       if (displaySurface != null) {
         // If we know the video size, report it again immediately.
         maybeRenotifyVideoSizeChanged();
-        if (state == STATE_STARTED) {
-          // We want to "join" playback to prevent an intermediate buffering state in the player
-          // before we rendered the new first frame. Since there is no reason to believe the next
-          // frame is delayed and the renderer needs to catch up, we still request to render the
-          // next frame as soon as possible.
-          if (videoSink != null) {
-            videoSink.join(/* renderNextFrameImmediately= */ true);
-          } else {
-            videoFrameReleaseControl.join(/* renderNextFrameImmediately= */ true);
-          }
-        }
       } else {
         // The display surface has been removed.
         reportedVideoSize = null;
         if (videoSink != null) {
           videoSink.clearOutputSurfaceInfo();
+        }
+      }
+      if (state == STATE_STARTED) {
+        // We want to "join" playback to prevent an intermediate buffering state in the player
+        // before we rendered the new first frame. Since there is no reason to believe the next
+        // frame is delayed and the renderer needs to catch up, we still request to render the
+        // next frame as soon as possible.
+        if (videoSink != null) {
+          videoSink.join(/* renderNextFrameImmediately= */ true);
+        } else {
+          videoFrameReleaseControl.join(/* renderNextFrameImmediately= */ true);
         }
       }
       maybeSetupTunnelingForFirstFrame();
@@ -1389,6 +1427,14 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
 
   /** Sets the {@linkplain Effect video effects} to apply. */
   public void setVideoEffects(List<Effect> effects) {
+    if (effects.equals(VideoFrameProcessor.REDRAW)) {
+      if (videoSink == null || !videoSink.isInitialized()) {
+        return;
+      }
+      videoSink.redraw();
+      return;
+    }
+
     videoEffects = effects;
     if (videoSink != null) {
       videoSink.setVideoEffects(effects);
@@ -1466,11 +1512,13 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
 
   @Override
   protected int getCodecBufferFlags(DecoderInputBuffer buffer) {
-    if (Util.SDK_INT >= 34 && tunneling && isBufferBeforeStartTime(buffer)) {
+    if (Util.SDK_INT >= 34
+        && (enableMediaCodecBufferDecodeOnlyFlag || tunneling)
+        && isBufferBeforeStartTime(buffer)) {
       // The buffer likely needs to be dropped because its timestamp is less than the start time.
-      // We can't decide to do this after decoding because we won't get the buffer back from the
-      // codec in tunneling mode. This may not work perfectly, e.g. when the codec is doing frame
-      // rate conversion, but it's still better than not dropping the buffers at all.
+      // If tunneling, we can't decide to do this after decoding because we won't get the buffer
+      // back from the codec in tunneling mode. This may not work perfectly, e.g. when the codec is
+      // doing frame rate conversion, but it's still better than not dropping the buffers at all.
       return MediaCodec.BUFFER_FLAG_DECODE_ONLY;
     }
     return 0;
@@ -1604,7 +1652,10 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
               .setWidth(width)
               .setHeight(height)
               .setPixelWidthHeightRatio(pixelWidthHeightRatio)
-              .build());
+              .build(),
+          nextVideoSinkFirstFrameReleaseInstruction);
+      nextVideoSinkFirstFrameReleaseInstruction =
+          RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED;
     } else {
       videoFrameReleaseControl.setFrameRate(format.frameRate);
     }
@@ -1612,15 +1663,23 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   }
 
   /**
-   * Called when ready to {@linkplain VideoSink#onInputStreamChanged(int, Format, List<Effect>)
+   * Called when ready to {@linkplain VideoSink#onInputStreamChanged(int, Format, long, int, List)
    * change} the input stream.
    *
    * <p>The default implementation applies this renderer's video effects.
    */
   protected void changeVideoSinkInputStream(
-      VideoSink videoSink, @VideoSink.InputType int inputType, Format format) {
+      VideoSink videoSink,
+      @VideoSink.InputType int inputType,
+      Format format,
+      @VideoSink.FirstFrameReleaseInstruction int firstFrameReleaseInstruction) {
     List<Effect> videoEffectsToApply = videoEffects != null ? videoEffects : ImmutableList.of();
-    videoSink.onInputStreamChanged(inputType, format, videoEffectsToApply);
+    videoSink.onInputStreamChanged(
+        inputType,
+        format,
+        getOutputStreamStartPositionUs(),
+        firstFrameReleaseInstruction,
+        videoEffectsToApply);
   }
 
   @Override
@@ -1697,9 +1756,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
           });
     }
 
-    // The frame release action should be retrieved for all frames (even the ones that will be
-    // skipped), because the release control estimates the content frame rate from frame timestamps
-    // and we want to have this information known as early as possible, especially during seeking.
     @VideoFrameReleaseControl.FrameReleaseAction
     int frameReleaseAction =
         videoFrameReleaseControl.getFrameReleaseAction(
@@ -1707,34 +1763,9 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
             positionUs,
             elapsedRealtimeUs,
             getOutputStreamStartPositionUs(),
+            isDecodeOnlyBuffer,
             isLastBuffer,
             videoFrameReleaseInfo);
-
-    if (frameReleaseAction == VideoFrameReleaseControl.FRAME_RELEASE_IGNORE) {
-      // The buffer is no longer valid and needs to be ignored.
-      return false;
-    }
-
-    // Skip decode-only buffers, e.g. after seeking, immediately.
-    if (isDecodeOnlyBuffer && !isLastBuffer) {
-      skipOutputBuffer(codec, bufferIndex, presentationTimeUs);
-      return true;
-    }
-
-    // We are not rendering on a surface, the renderer will wait until a surface is set.
-    if (displaySurface == null) {
-      // Skip frames in sync with playback, so we'll be at the right frame if the mode changes.
-      if ((videoFrameReleaseInfo.getEarlyUs() < 0
-              && shouldSkipLateBuffersWhileUsingPlaceholderSurface())
-          || (videoFrameReleaseInfo.getEarlyUs() < 30_000
-              && frameReleaseAction != VideoFrameReleaseControl.FRAME_RELEASE_TRY_AGAIN_LATER)) {
-        skipOutputBuffer(codec, bufferIndex, presentationTimeUs);
-        updateVideoFrameProcessingOffsetCounters(videoFrameReleaseInfo.getEarlyUs());
-        return true;
-      }
-      return false;
-    }
-
     switch (frameReleaseAction) {
       case VideoFrameReleaseControl.FRAME_RELEASE_IMMEDIATELY:
         long releaseTimeNs = getClock().nanoTime();
@@ -1751,6 +1782,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         updateVideoFrameProcessingOffsetCounters(videoFrameReleaseInfo.getEarlyUs());
         return true;
       case VideoFrameReleaseControl.FRAME_RELEASE_TRY_AGAIN_LATER:
+      case VideoFrameReleaseControl.FRAME_RELEASE_IGNORE:
         return false;
       case VideoFrameReleaseControl.FRAME_RELEASE_SCHEDULED:
         releaseFrame(checkStateNotNull(codec), bufferIndex, presentationTimeUs, format);
@@ -1830,10 +1862,12 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     if (videoSink != null) {
       // Signaling end of the previous stream.
       videoSink.signalEndOfCurrentInputStream();
-      videoSink.setStreamTimestampInfo(
-          getOutputStreamStartPositionUs(), getBufferTimestampAdjustmentUs());
+      if (this.startPositionUs == C.TIME_UNSET) {
+        this.startPositionUs = getOutputStreamStartPositionUs();
+      }
+      videoSink.setBufferTimestampAdjustmentUs(getBufferTimestampAdjustmentUs());
     } else {
-      videoFrameReleaseControl.onProcessedStreamChange();
+      videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED);
     }
     pendingVideoSinkInputStreamChange = true;
     maybeSetupTunnelingForFirstFrame();
@@ -1873,11 +1907,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
    * buffer.
    */
   protected boolean shouldSkipBuffersWithIdenticalReleaseTime() {
-    return true;
-  }
-
-  /** Returns whether to skip late buffers while using a placeholder surface. */
-  protected boolean shouldSkipLateBuffersWhileUsingPlaceholderSurface() {
     return true;
   }
 

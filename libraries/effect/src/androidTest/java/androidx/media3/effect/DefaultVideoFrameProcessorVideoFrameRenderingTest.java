@@ -33,6 +33,7 @@ import androidx.media3.common.SurfaceInfo;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.util.NullableType;
+import androidx.media3.common.util.SystemClock;
 import androidx.media3.common.util.Util;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
@@ -149,7 +150,7 @@ public final class DefaultVideoFrameProcessorVideoFrameRenderingTest {
   public void controlledFrameRendering_withOneFrameRequestImmediateRender_rendersframe()
       throws Exception {
     long originalPresentationTimeUs = 1234;
-    long renderTimesNs = VideoFrameProcessor.RENDER_OUTPUT_FRAME_IMMEDIATELY;
+    long renderTimesNs = SystemClock.DEFAULT.nanoTime();
     AtomicLong actualPresentationTimeUs = new AtomicLong();
     processFramesToEndOfStream(
         /* inputPresentationTimesUs= */ ImmutableList.of(originalPresentationTimeUs),
@@ -293,7 +294,8 @@ public final class DefaultVideoFrameProcessorVideoFrameRenderingTest {
                       }
 
                       @Override
-                      public void onOutputFrameAvailableForRendering(long presentationTimeUs) {
+                      public void onOutputFrameAvailableForRendering(
+                          long presentationTimeUs, boolean isRedrawnFrame) {
                         onFrameAvailableListener.onFrameAvailableForRendering(presentationTimeUs);
                       }
 

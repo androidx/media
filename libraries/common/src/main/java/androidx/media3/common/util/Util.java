@@ -95,6 +95,7 @@ import androidx.media3.common.ParserException;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.Player.Commands;
+import androidx.media3.common.audio.AudioManagerCompat;
 import androidx.media3.common.audio.AudioProcessor;
 import com.google.common.base.Ascii;
 import com.google.common.io.ByteStreams;
@@ -2485,9 +2486,7 @@ public final class Util {
    */
   @UnstableApi
   public static int generateAudioSessionIdV21(Context context) {
-    @Nullable
-    AudioManager audioManager = ((AudioManager) context.getSystemService(Context.AUDIO_SERVICE));
-    return audioManager == null ? AudioManager.ERROR : audioManager.generateAudioSessionId();
+    return AudioManagerCompat.getAudioManager(context).generateAudioSessionId();
   }
 
   /**
@@ -2571,7 +2570,8 @@ public final class Util {
    */
   public static @ContentType int inferContentType(Uri uri) {
     @Nullable String scheme = uri.getScheme();
-    if (scheme != null && Ascii.equalsIgnoreCase("rtsp", scheme)) {
+    if (scheme != null
+        && (Ascii.equalsIgnoreCase("rtsp", scheme) || Ascii.equalsIgnoreCase("rtspt", scheme))) {
       return C.CONTENT_TYPE_RTSP;
     }
 
@@ -3062,7 +3062,7 @@ public final class Util {
   @UnstableApi
   public static boolean inflate(
       ParsableByteArray input, ParsableByteArray output, @Nullable Inflater inflater) {
-    if (input.bytesLeft() <= 0) {
+    if (input.bytesLeft() == 0) {
       return false;
     }
     if (output.capacity() < input.bytesLeft()) {

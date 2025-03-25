@@ -326,6 +326,8 @@ public final class HttpEngineDataSource extends BaseDataSource implements HttpDa
   // The size of read buffer passed to cronet UrlRequest.read().
   private static final int READ_BUFFER_SIZE_BYTES = 32 * 1024;
 
+  private static final String TAG = "HttpEngineDataSource";
+
   private final HttpEngine httpEngine;
   private final Executor executor;
   private final int requestPriority;
@@ -714,7 +716,7 @@ public final class HttpEngineDataSource extends BaseDataSource implements HttpDa
   @UnstableApi
   @VisibleForTesting
   @Nullable
-  UrlRequest.Callback getCurrentUrlRequestCallback() {
+  UrlRequestCallback getCurrentUrlRequestCallback() {
     return currentUrlRequestWrapper == null
         ? null
         : currentUrlRequestWrapper.getUrlRequestCallback();
@@ -954,12 +956,66 @@ public final class HttpEngineDataSource extends BaseDataSource implements HttpDa
     return remaining;
   }
 
+  // Stores the cookie headers from the response in the default {@link CookieHandler}.
+  private static void storeCookiesFromHeaders(UrlResponseInfo info) {
+    storeCookiesFromHeaders(info, CookieHandler.getDefault());
+  }
+
+  // Stores the cookie headers from the response in the provided {@link CookieHandler}.
+  private static void storeCookiesFromHeaders(
+      UrlResponseInfo info, @Nullable CookieHandler cookieHandler) {
+    if (cookieHandler == null) {
+      return;
+    }
+
+    try {
+      cookieHandler.put(new URI(info.getUrl()), info.getHeaders().getAsMap());
+    } catch (Exception e) {
+      Log.w(TAG, "Failed to store cookies in CookieHandler", e);
+    }
+  }
+
+  @VisibleForTesting
+  /* private */ static String getCookieHeader(String url) {
+    return getCookieHeader(url, ImmutableMap.of(), CookieHandler.getDefault());
+  }
+
+  @VisibleForTesting
+  /* private */ static String getCookieHeader(String url, @Nullable CookieHandler cookieHandler) {
+    return getCookieHeader(url, ImmutableMap.of(), cookieHandler);
+  }
+
+  // getCookieHeader maps Set-Cookie2 (RFC 2965) to Cookie just like CookieManager does.
+  private static String getCookieHeader(
+      String url, Map<String, List<String>> headers, @Nullable CookieHandler cookieHandler) {
+    if (cookieHandler == null) {
+      return "";
+    }
+
+    Map<String, List<String>> cookieHeaders = ImmutableMap.of();
+    try {
+      cookieHeaders = cookieHandler.get(new URI(url), headers);
+    } catch (Exception e) {
+      Log.w(TAG, "Failed to read cookies from CookieHandler", e);
+    }
+
+    StringBuilder cookies = new StringBuilder();
+    if (cookieHeaders.containsKey(HttpHeaders.COOKIE)) {
+      List<String> cookiesList = cookieHeaders.get(HttpHeaders.COOKIE);
+      if (cookiesList != null) {
+        for (String cookie : cookiesList) {
+          cookies.append(cookie).append("; ");
+        }
+      }
+    }
+    return cookies.toString().stripTrailing();
+  }
+
   /**
    * A wrapper class that manages a {@link UrlRequest} and the {@link UrlRequestCallback} associated
    * with that request.
    */
-  @VisibleForTesting
-  /* private */ static final class UrlRequestWrapper {
+  private static final class UrlRequestWrapper {
 
     private final UrlRequest urlRequest;
     private final UrlRequestCallback urlRequestCallback;
@@ -982,7 +1038,7 @@ public final class HttpEngineDataSource extends BaseDataSource implements HttpDa
       urlRequest.cancel();
     }
 
-    public UrlRequest.Callback getUrlRequestCallback() {
+    public UrlRequestCallback getUrlRequestCallback() {
       return urlRequestCallback;
     }
 
@@ -1002,19 +1058,11 @@ public final class HttpEngineDataSource extends BaseDataSource implements HttpDa
     }
   }
 
-  @VisibleForTesting
-  /* private */ final class UrlRequestCallback implements UrlRequest.Callback {
-
-    private static final String TAG = "HttpEngineDataSource";
+  final class UrlRequestCallback implements UrlRequest.Callback {
     private volatile boolean isClosed = false;
 
     public void close() {
       this.isClosed = true;
-    }
-
-    @SuppressWarnings("argument.type.incompatible")
-    private void resetDefaultCookieHandler() {
-      CookieHandler.setDefault(null);
     }
 
     @Override
@@ -1045,20 +1093,17 @@ public final class HttpEngineDataSource extends BaseDataSource implements HttpDa
         resetConnectTimeout();
       }
 
-      boolean hasDefaultCookieHandler = CookieHandler.getDefault() != null;
-      if (!hasDefaultCookieHandler && handleSetCookieRequests) {
+      CookieHandler cookieHandler = CookieHandler.getDefault();
+
+      if (cookieHandler == null && handleSetCookieRequests) {
         // a temporary CookieManager is created for the duration of this request - this guarantees
         // redirects preserve the cookies correctly.
-        CookieManager cm = new CookieManager();
-        CookieHandler.setDefault(cm);
+        cookieHandler = new CookieManager();
       }
 
-      storeCookiesFromHeaders(info);
-      String cookieHeaders = getCookieHeader(info.getUrl(), info.getHeaders().getAsMap());
-
-      if (!hasDefaultCookieHandler && handleSetCookieRequests) {
-        resetDefaultCookieHandler();
-      }
+      storeCookiesFromHeaders(info, cookieHandler);
+      String cookieHeaders =
+          getCookieHeader(info.getUrl(), info.getHeaders().getAsMap(), cookieHandler);
 
       boolean shouldKeepPost =
           keepPostFor302Redirects
@@ -1111,50 +1156,6 @@ public final class HttpEngineDataSource extends BaseDataSource implements HttpDa
       }
       currentUrlRequestWrapper = redirectUrlRequestWrapper;
       currentUrlRequestWrapper.start();
-    }
-
-    /**
-     * Stores the cookie headers from the response in the default {@link CookieHandler}.
-     *
-     * <p>This is a no-op if the {@link CookieHandler} is not set .
-     */
-    static void storeCookiesFromHeaders(UrlResponseInfo info) {
-      CookieHandler cookieHandler = CookieHandler.getDefault();
-      if (cookieHandler != null) {
-        try {
-          cookieHandler.put(new URI(info.getUrl()), info.getHeaders().getAsMap());
-        } catch (Exception e) {
-          Log.w(TAG, "Failed to store cookies in CookieHandler", e);
-        }
-      }
-    }
-
-    static String getCookieHeader(String url) {
-      return getCookieHeader(url, ImmutableMap.of());
-    }
-
-    // getCookieHeader maps Set-Cookie2 (RFC 2965) to Cookie just like CookieManager does.
-    static String getCookieHeader(String url, Map<String, List<String>> headers) {
-      CookieHandler cookieHandler = CookieHandler.getDefault();
-      if (cookieHandler == null) {
-        return "";
-      }
-
-      Map<String, List<String>> cookieHeaders = ImmutableMap.of();
-      try {
-        cookieHeaders = cookieHandler.get(new URI(url), headers);
-      } catch (Exception e) {
-        Log.w(TAG, "Failed to read cookies from CookieHandler", e);
-      }
-
-      StringBuilder cookies = new StringBuilder();
-      if (cookieHeaders.containsKey(HttpHeaders.COOKIE)) {
-        List<String> cookiesList = cookieHeaders.get(HttpHeaders.COOKIE);
-        for (String cookie : cookiesList) {
-          cookies.append(cookie).append("; ");
-        }
-      }
-      return cookies.toString().stripTrailing();
     }
 
     @Override
