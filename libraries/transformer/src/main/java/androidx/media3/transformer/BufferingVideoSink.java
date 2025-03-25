@@ -82,11 +82,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   @Override
-  public void onRendererEnabled(boolean mayRenderStartOfStream) {
-    executeOrDelay(videoSink -> videoSink.onRendererEnabled(mayRenderStartOfStream));
-  }
-
-  @Override
   public void onRendererStarted() {
     executeOrDelay(VideoSink::onRendererStarted);
   }
@@ -214,11 +209,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   @Override
-  public void enableMayRenderStartOfStream() {
-    executeOrDelay(VideoSink::enableMayRenderStartOfStream);
-  }
-
-  @Override
   public void onInputStreamChanged(
       @InputType int inputType,
       Format format,
@@ -229,6 +219,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         videoSink ->
             videoSink.onInputStreamChanged(
                 inputType, format, startPositionUs, firstFrameReleaseInstruction, videoEffects));
+  }
+
+  @Override
+  public void allowReleaseFirstFrameBeforeStarted() {
+    executeOrDelay(VideoSink::allowReleaseFirstFrameBeforeStarted);
   }
 
   /**

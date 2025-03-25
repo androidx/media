@@ -190,6 +190,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   private boolean codecHandlesHdr10PlusOutOfBandMetadata;
   private @MonotonicNonNull VideoSink videoSink;
   private boolean hasSetVideoSink;
+  private @VideoSink.FirstFrameReleaseInstruction int nextVideoSinkFirstFrameReleaseInstruction;
   private @MonotonicNonNull List<Effect> videoEffects;
   @Nullable private Surface displaySurface;
   @Nullable private PlaceholderSurface placeholderSurface;
@@ -928,7 +929,10 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       if (videoEffects != null) {
         videoSink.setVideoEffects(videoEffects);
       }
-      videoSink.onRendererEnabled(mayRenderStartOfStream);
+      nextVideoSinkFirstFrameReleaseInstruction =
+          mayRenderStartOfStream
+              ? RELEASE_FIRST_FRAME_IMMEDIATELY
+              : RELEASE_FIRST_FRAME_WHEN_STARTED;
       @Nullable WakeupListener wakeupListener = getWakeupListener();
       if (wakeupListener != null) {
         videoSink.setWakeupListener(wakeupListener);
@@ -956,7 +960,13 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   @Override
   public void enableMayRenderStartOfStream() {
     if (videoSink != null) {
-      videoSink.enableMayRenderStartOfStream();
+      if (nextVideoSinkFirstFrameReleaseInstruction == RELEASE_FIRST_FRAME_IMMEDIATELY
+          || nextVideoSinkFirstFrameReleaseInstruction == RELEASE_FIRST_FRAME_WHEN_STARTED) {
+        // The first stream change hasn't been queued to the sink.
+        nextVideoSinkFirstFrameReleaseInstruction = RELEASE_FIRST_FRAME_IMMEDIATELY;
+      } else {
+        videoSink.allowReleaseFirstFrameBeforeStarted();
+      }
     } else {
       videoFrameReleaseControl.allowReleaseFirstFrameBeforeStarted();
     }
@@ -1642,7 +1652,10 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
               .setWidth(width)
               .setHeight(height)
               .setPixelWidthHeightRatio(pixelWidthHeightRatio)
-              .build());
+              .build(),
+          nextVideoSinkFirstFrameReleaseInstruction);
+      nextVideoSinkFirstFrameReleaseInstruction =
+          RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED;
     } else {
       videoFrameReleaseControl.setFrameRate(format.frameRate);
     }
@@ -1656,13 +1669,16 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
    * <p>The default implementation applies this renderer's video effects.
    */
   protected void changeVideoSinkInputStream(
-      VideoSink videoSink, @VideoSink.InputType int inputType, Format format) {
+      VideoSink videoSink,
+      @VideoSink.InputType int inputType,
+      Format format,
+      @VideoSink.FirstFrameReleaseInstruction int firstFrameReleaseInstruction) {
     List<Effect> videoEffectsToApply = videoEffects != null ? videoEffects : ImmutableList.of();
     videoSink.onInputStreamChanged(
         inputType,
         format,
         getOutputStreamStartPositionUs(),
-        RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED,
+        firstFrameReleaseInstruction,
         videoEffectsToApply);
   }
 

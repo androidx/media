@@ -79,16 +79,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     videoFrameMetadataListener = (presentationTimeUs, releaseTimeNs, format, mediaFormat) -> {};
   }
 
-  /**
-   * {@inheritDoc}
-   *
-   * <p>This method will always throw an {@link UnsupportedOperationException}.
-   */
-  @Override
-  public void onRendererEnabled(boolean mayRenderStartOfStream) {
-    throw new UnsupportedOperationException();
-  }
-
   @Override
   public void onRendererStarted() {
     videoFrameReleaseControl.onStarted();
@@ -200,16 +190,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   /**
    * {@inheritDoc}
    *
-   * <p>This method will always throw an {@link UnsupportedOperationException}.
-   */
-  @Override
-  public void enableMayRenderStartOfStream() {
-    throw new UnsupportedOperationException();
-  }
-
-  /**
-   * {@inheritDoc}
-   *
    * <p>{@code videoEffects} is required to be empty
    */
   @Override
@@ -231,6 +211,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       videoFrameRenderControl.onStreamChanged(firstFrameReleaseInstruction, startPositionUs);
       this.streamStartPositionUs = startPositionUs;
     }
+  }
+
+  @Override
+  public void allowReleaseFirstFrameBeforeStarted() {
+    videoFrameReleaseControl.allowReleaseFirstFrameBeforeStarted();
   }
 
   @Override

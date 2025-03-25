@@ -22,7 +22,6 @@ import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.contains;
 import static androidx.media3.common.util.Util.getMaxPendingFramesCountForMediaCodecDecoders;
 import static androidx.media3.exoplayer.video.VideoSink.INPUT_TYPE_SURFACE;
-import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.content.Context;
@@ -281,12 +280,6 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
 
   private final Context context;
 
-  /**
-   * A queue of unprocessed input frame start positions. Each position is associated with the
-   * timestamp from which it should be applied.
-   */
-  private final TimedValueQueue<Long> streamStartPositionsUs;
-
   private final VideoGraph.Factory videoGraphFactory;
   private final SparseArray<InputVideoSink> inputVideoSinks;
   private final List<Effect> compositionEffects;
@@ -297,12 +290,18 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
   private final CopyOnWriteArraySet<PlaybackVideoGraphWrapper.Listener> listeners;
   private final boolean requestOpenGlToneMapping;
 
+  /**
+   * A queue of unprocessed stream changes. Each stream change is associated with the timestamp from
+   * which it should be applied.
+   */
+  private TimedValueQueue<StreamChangeInfo> pendingStreamChanges;
+
   private Format videoGraphOutputFormat;
   private @MonotonicNonNull HandlerWrapper handler;
   private @MonotonicNonNull VideoGraph videoGraph;
   private @MonotonicNonNull VideoFrameMetadataListener videoFrameMetadataListener;
   private long outputStreamStartPositionUs;
-  private @VideoSink.FirstFrameReleaseInstruction int nextFirstOutputFrameReleaseInstruction;
+  private @VideoSink.FirstFrameReleaseInstruction int outputStreamFirstFrameReleaseInstruction;
   @Nullable private Pair<Surface, Size> currentSurfaceAndSize;
   private int pendingFlushCount;
   private @State int state;
@@ -331,7 +330,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
 
   private PlaybackVideoGraphWrapper(Builder builder) {
     context = builder.context;
-    streamStartPositionsUs = new TimedValueQueue<>();
+    pendingStreamChanges = new TimedValueQueue<>();
     videoGraphFactory = checkStateNotNull(builder.videoGraphFactory);
     inputVideoSinks = new SparseArray<>();
     compositionEffects = builder.compositionEffects;
@@ -432,13 +431,13 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     // We forward output size changes to the sink even if we are still flushing.
     videoGraphOutputFormat =
         videoGraphOutputFormat.buildUpon().setWidth(width).setHeight(height).build();
-    onOutputStreamChanged(nextFirstOutputFrameReleaseInstruction);
+    onOutputStreamChanged();
   }
 
   @Override
   public void onOutputFrameRateChanged(float frameRate) {
     videoGraphOutputFormat = videoGraphOutputFormat.buildUpon().setFrameRate(frameRate).build();
-    onOutputStreamChanged(nextFirstOutputFrameReleaseInstruction);
+    onOutputStreamChanged();
   }
 
   @Override
@@ -469,13 +468,11 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     // The frame presentation time is relative to the start of the Composition and without the
     // renderer offset
     lastOutputBufferPresentationTimeUs = bufferPresentationTimeUs;
-    Long newOutputStreamStartPositionUs =
-        streamStartPositionsUs.pollFloor(bufferPresentationTimeUs);
-    if (newOutputStreamStartPositionUs != null
-        && newOutputStreamStartPositionUs != outputStreamStartPositionUs) {
-      outputStreamStartPositionUs = newOutputStreamStartPositionUs;
-      onOutputStreamChanged(nextFirstOutputFrameReleaseInstruction);
-      nextFirstOutputFrameReleaseInstruction = RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED;
+    StreamChangeInfo streamChangeInfo = pendingStreamChanges.pollFloor(bufferPresentationTimeUs);
+    if (streamChangeInfo != null) {
+      outputStreamStartPositionUs = streamChangeInfo.startPositionUs;
+      outputStreamFirstFrameReleaseInstruction = streamChangeInfo.firstFrameReleaseInstruction;
+      onOutputStreamChanged();
     }
     boolean isLastFrame =
         finalBufferPresentationTimeUs != C.TIME_UNSET
@@ -623,13 +620,15 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     }
     pendingFlushCount++;
     defaultVideoSink.flush(resetPosition);
-    while (streamStartPositionsUs.size() > 1) {
-      streamStartPositionsUs.pollFirst();
+    while (pendingStreamChanges.size() > 1) {
+      pendingStreamChanges.pollFirst();
     }
-    if (streamStartPositionsUs.size() == 1) {
-      // Use the latest startPositionUs if none is passed after flushing.
-      outputStreamStartPositionUs = checkNotNull(streamStartPositionsUs.pollFirst());
-      onOutputStreamChanged(nextFirstOutputFrameReleaseInstruction);
+    if (pendingStreamChanges.size() == 1) {
+      // Use the latest stream change info if none is passed after flushing.
+      StreamChangeInfo streamChangeInfo = checkNotNull(pendingStreamChanges.pollFirst());
+      outputStreamStartPositionUs = streamChangeInfo.startPositionUs;
+      outputStreamFirstFrameReleaseInstruction = streamChangeInfo.firstFrameReleaseInstruction;
+      onOutputStreamChanged();
     }
     lastOutputBufferPresentationTimeUs = C.TIME_UNSET;
     finalBufferPresentationTimeUs = C.TIME_UNSET;
@@ -667,13 +666,12 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     return inputColorInfo;
   }
 
-  private void onOutputStreamChanged(
-      @VideoSink.FirstFrameReleaseInstruction int firstFrameReleaseInstruction) {
+  private void onOutputStreamChanged() {
     defaultVideoSink.onInputStreamChanged(
         INPUT_TYPE_SURFACE,
         videoGraphOutputFormat,
         outputStreamStartPositionUs,
-        firstFrameReleaseInstruction,
+        outputStreamFirstFrameReleaseInstruction,
         /* videoEffects= */ ImmutableList.of());
   }
 
@@ -710,14 +708,6 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
       lastBufferPresentationTimeUs = C.TIME_UNSET;
       listener = VideoSink.Listener.NO_OP;
       listenerExecutor = NO_OP_EXECUTOR;
-    }
-
-    @Override
-    public void onRendererEnabled(boolean mayRenderStartOfStream) {
-      nextFirstOutputFrameReleaseInstruction =
-          mayRenderStartOfStream
-              ? RELEASE_FIRST_FRAME_IMMEDIATELY
-              : RELEASE_FIRST_FRAME_WHEN_STARTED;
     }
 
     @Override
@@ -808,12 +798,8 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
         @FirstFrameReleaseInstruction int firstFrameReleaseInstruction,
         List<Effect> videoEffects) {
       checkState(isInitialized());
-      switch (inputType) {
-        case INPUT_TYPE_SURFACE:
-        case INPUT_TYPE_BITMAP:
-          break;
-        default:
-          throw new UnsupportedOperationException("Unsupported input type " + inputType);
+      if (inputType != INPUT_TYPE_SURFACE && inputType != INPUT_TYPE_BITMAP) {
+        throw new UnsupportedOperationException("Unsupported input type " + inputType);
       }
       setPendingVideoEffects(videoEffects);
       this.inputType = inputType;
@@ -822,11 +808,56 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
       hasSignaledEndOfCurrentInputStream = false;
       registerInputStream(format);
       // Input timestamps should always be positive because they are offset by ExoPlayer. Adding a
-      // position to the queue with timestamp 0 should therefore always apply it as long as it is
-      // the only position in the queue.
-      streamStartPositionsUs.add(
-          lastBufferPresentationTimeUs == C.TIME_UNSET ? 0 : lastBufferPresentationTimeUs + 1,
-          startPositionUs);
+      // stream change info to the queue with timestamp 0 should therefore always apply it as long
+      // as it is the only one in the queue.
+      long fromTimestampUs =
+          lastBufferPresentationTimeUs == C.TIME_UNSET ? 0 : lastBufferPresentationTimeUs + 1;
+      pendingStreamChanges.add(
+          fromTimestampUs,
+          new StreamChangeInfo(startPositionUs, firstFrameReleaseInstruction, fromTimestampUs));
+    }
+
+    @Override
+    public void allowReleaseFirstFrameBeforeStarted() {
+      // We know that this sink is connected to renderers. Each renderer will first queue a stream
+      // change that has firstFrameReleaseInstruction set to either RELEASE_FIRST_FRAME_IMMEDIATELY
+      // or RELEASE_FIRST_FRAME_WHEN_STARTED, and then queue stream changes that have
+      // firstFrameReleaseInstruction set to RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED.
+      // When a renderer queues the first stream change, all previous streams should have been fully
+      // processed.
+      // We want to release the first frame immediately if the firstFrameReleaseInstruction of the
+      // first stream change queued by the current renderer was RELEASE_FIRST_FRAME_WHEN_STARTED and
+      // the first frame hasn't been released yet.
+      if (pendingStreamChanges.size() == 0) {
+        // All the stream changes have already been processed by the VideoGraph. Delegate to the
+        // downstream component.
+        defaultVideoSink.allowReleaseFirstFrameBeforeStarted();
+        return;
+      }
+      TimedValueQueue<StreamChangeInfo> newPendingStreamChanges = new TimedValueQueue<>();
+      boolean isFirstStreamChange = true;
+      while (pendingStreamChanges.size() > 0) {
+        StreamChangeInfo streamChangeInfo = checkNotNull(pendingStreamChanges.pollFirst());
+        if (isFirstStreamChange) {
+          if (streamChangeInfo.firstFrameReleaseInstruction == RELEASE_FIRST_FRAME_IMMEDIATELY
+              || streamChangeInfo.firstFrameReleaseInstruction
+                  == RELEASE_FIRST_FRAME_WHEN_STARTED) {
+            // The first stream change hasn't been processed by the VideoGraph yet.
+            streamChangeInfo =
+                new StreamChangeInfo(
+                    streamChangeInfo.startPositionUs,
+                    RELEASE_FIRST_FRAME_IMMEDIATELY,
+                    streamChangeInfo.fromTimestampUs);
+          } else {
+            // The first stream change has already been processed by the VideoGraph. Delegate to the
+            // downstream component.
+            defaultVideoSink.allowReleaseFirstFrameBeforeStarted();
+          }
+          isFirstStreamChange = false;
+        }
+        newPendingStreamChanges.add(streamChangeInfo.fromTimestampUs, streamChangeInfo);
+      }
+      pendingStreamChanges = newPendingStreamChanges;
     }
 
     @Override
@@ -881,13 +912,6 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     public void setChangeFrameRateStrategy(
         @C.VideoChangeFrameRateStrategy int changeFrameRateStrategy) {
       defaultVideoSink.setChangeFrameRateStrategy(changeFrameRateStrategy);
-    }
-
-    @Override
-    public void enableMayRenderStartOfStream() {
-      if (nextFirstOutputFrameReleaseInstruction == RELEASE_FIRST_FRAME_WHEN_STARTED) {
-        nextFirstOutputFrameReleaseInstruction = RELEASE_FIRST_FRAME_IMMEDIATELY;
-      }
     }
 
     @Override
@@ -1057,6 +1081,21 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
         listener.onError(
             PlaybackVideoGraphWrapper.this, VideoFrameProcessingException.from(videoSinkException));
       }
+    }
+  }
+
+  private static final class StreamChangeInfo {
+    public final long startPositionUs;
+    public final @VideoSink.FirstFrameReleaseInstruction int firstFrameReleaseInstruction;
+    public final long fromTimestampUs;
+
+    public StreamChangeInfo(
+        long startPositionUs,
+        @VideoSink.FirstFrameReleaseInstruction int firstFrameReleaseInstruction,
+        long fromTimestampUs) {
+      this.startPositionUs = startPositionUs;
+      this.firstFrameReleaseInstruction = firstFrameReleaseInstruction;
+      this.fromTimestampUs = fromTimestampUs;
     }
   }
 

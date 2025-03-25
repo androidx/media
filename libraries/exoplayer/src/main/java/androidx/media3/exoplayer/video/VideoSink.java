@@ -154,9 +154,6 @@ public interface VideoSink {
    */
   int RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED = 2;
 
-  /** Called when the {@link Renderer} currently feeding this sink is enabled. */
-  void onRendererEnabled(boolean mayRenderStartOfStream);
-
   /** Called when the {@link Renderer} currently feeding this sink is started. */
   void onRendererStarted();
 
@@ -262,15 +259,6 @@ public interface VideoSink {
   void setChangeFrameRateStrategy(@C.VideoChangeFrameRateStrategy int changeFrameRateStrategy);
 
   /**
-   * Enables this video sink to render the start of the stream to its output surface even if the
-   * renderer is not {@linkplain #onRendererStarted() started} yet.
-   *
-   * <p>This is used to update the value of {@code mayRenderStartOfStream} passed to {@link
-   * #onRendererEnabled(boolean)}.
-   */
-  void enableMayRenderStartOfStream();
-
-  /**
    * Informs the video sink that a new input stream will be queued with the given effects.
    *
    * <p>Must be called after the sink is {@linkplain #initialize(Format) initialized}.
@@ -289,6 +277,15 @@ public interface VideoSink {
       long startPositionUs,
       @FirstFrameReleaseInstruction int firstFrameReleaseInstruction,
       List<Effect> videoEffects);
+
+  /**
+   * Allows the sink to release the first frame even if rendering is not {@linkplain
+   * #onRendererStarted() started}.
+   *
+   * <p>This is used to update the {@link FirstFrameReleaseInstruction} of the {@linkplain
+   * #onInputStreamChanged(int, Format, long, int, List) stream} that is currently being processed.
+   */
+  void allowReleaseFirstFrameBeforeStarted();
 
   /**
    * Handles a video input frame.

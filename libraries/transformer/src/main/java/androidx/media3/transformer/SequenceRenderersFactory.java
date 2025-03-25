@@ -24,7 +24,9 @@ import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.SDK_INT;
 import static androidx.media3.exoplayer.DefaultRenderersFactory.DEFAULT_ALLOWED_VIDEO_JOINING_TIME_MS;
 import static androidx.media3.exoplayer.DefaultRenderersFactory.MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY;
+import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_IMMEDIATELY;
 import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED;
+import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_WHEN_STARTED;
 
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -435,12 +437,15 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     @Override
     protected void changeVideoSinkInputStream(
-        VideoSink videoSink, @VideoSink.InputType int inputType, Format format) {
+        VideoSink videoSink,
+        @VideoSink.InputType int inputType,
+        Format format,
+        @VideoSink.FirstFrameReleaseInstruction int firstFrameReleaseInstruction) {
       videoSink.onInputStreamChanged(
           inputType,
           format,
           getOutputStreamStartPositionUs(),
-          RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED,
+          firstFrameReleaseInstruction,
           pendingEffects);
     }
 
@@ -493,6 +498,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     private boolean inputStreamPending;
     private long streamStartPositionUs;
     private boolean mayRenderStartOfStream;
+    private @VideoSink.FirstFrameReleaseInstruction int nextFirstFrameReleaseInstruction;
     private long offsetToCompositionTimeUs;
 
     public SequenceImageRenderer(
@@ -513,7 +519,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         throws ExoPlaybackException {
       super.onEnabled(joining, mayRenderStartOfStream);
       this.mayRenderStartOfStream = mayRenderStartOfStream;
-      videoSink.onRendererEnabled(mayRenderStartOfStream);
+      nextFirstFrameReleaseInstruction =
+          mayRenderStartOfStream
+              ? RELEASE_FIRST_FRAME_IMMEDIATELY
+              : RELEASE_FIRST_FRAME_WHEN_STARTED;
       // TODO: b/328444280 - Do not set a listener on VideoSink, but MediaCodecVideoRenderer must
       //  unregister itself as a listener too.
       videoSink.setListener(VideoSink.Listener.NO_OP, /* executor= */ (runnable) -> {});
@@ -630,8 +639,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                 .setFrameRate(/* frameRate= */ DEFAULT_FRAME_RATE)
                 .build(),
             streamStartPositionUs,
-            RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED,
+            nextFirstFrameReleaseInstruction,
             videoEffects);
+        nextFirstFrameReleaseInstruction = RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED;
         inputStreamPending = false;
       }
       if (!videoSink.handleInputBitmap(outputImage, checkStateNotNull(timestampIterator))) {
