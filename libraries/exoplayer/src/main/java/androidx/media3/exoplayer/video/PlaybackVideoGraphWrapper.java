@@ -48,7 +48,9 @@ import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.VideoGraph;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.util.Clock;
+import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.HandlerWrapper;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.TimedValueQueue;
 import androidx.media3.common.util.TimestampIterator;
@@ -268,6 +270,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
   @IntDef({STATE_CREATED, STATE_INITIALIZED, STATE_RELEASED})
   private @interface State {}
 
+  private static final String TAG = "PlaybackVidGraphWrapper";
   private static final int STATE_CREATED = 0;
   private static final int STATE_INITIALIZED = 1;
   private static final int STATE_RELEASED = 2;
@@ -507,17 +510,26 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
       ColorInfo outputColorInfo;
       if (requestOpenGlToneMapping) {
         outputColorInfo = ColorInfo.SDR_BT709_LIMITED;
+      } else if (inputColorInfo.colorTransfer == C.COLOR_TRANSFER_HLG
+          && Util.SDK_INT < 34
+          && GlUtil.isBt2020PqExtensionSupported()) {
+        // PQ SurfaceView output is supported from API 33, but HLG output is supported from API
+        // 34. Therefore, convert HLG to PQ if PQ is supported, so that HLG input can be displayed
+        // properly on API 33.
+        outputColorInfo =
+            inputColorInfo.buildUpon().setColorTransfer(C.COLOR_TRANSFER_ST2084).build();
+        // Force OpenGL tone mapping if the GL extension required to output HDR colors is not
+        // available. OpenGL tone mapping is only supported on API 29+.
+      } else if (!GlUtil.isColorTransferSupported(inputColorInfo.colorTransfer)
+          && Util.SDK_INT >= 29) {
+        Log.w(
+            TAG,
+            Util.formatInvariant(
+                "Color transfer %d is not supported. Falling back to OpenGl tone mapping.",
+                inputColorInfo.colorTransfer));
+        outputColorInfo = ColorInfo.SDR_BT709_LIMITED;
       } else {
         outputColorInfo = inputColorInfo;
-        if (outputColorInfo.colorTransfer == C.COLOR_TRANSFER_HLG && Util.SDK_INT < 34) {
-          // PQ SurfaceView output is supported from API 33, but HLG output is supported from API
-          // 34.
-          // Therefore, convert HLG to PQ below API 34, so that HLG input can be displayed properly
-          // on
-          // API 33.
-          outputColorInfo =
-              outputColorInfo.buildUpon().setColorTransfer(C.COLOR_TRANSFER_ST2084).build();
-        }
       }
       handler = clock.createHandler(checkStateNotNull(Looper.myLooper()), /* callback= */ null);
       try {
