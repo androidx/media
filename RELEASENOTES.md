@@ -54,6 +54,9 @@
 *   DASH extension:
 *   Smooth Streaming extension:
 *   RTSP extension:
+    *   Add support for URI with RTSPT scheme as a way to configure the RTSP
+        session to use TCP
+        ([#1484](https://github.com/androidx/media/issues/1484)).
 *   Decoder extensions (FFmpeg, VP9, AV1, etc.):
 *   MIDI extension:
 *   Leanback extension:

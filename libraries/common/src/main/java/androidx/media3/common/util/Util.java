@@ -2570,7 +2570,8 @@ public final class Util {
    */
   public static @ContentType int inferContentType(Uri uri) {
     @Nullable String scheme = uri.getScheme();
-    if (scheme != null && Ascii.equalsIgnoreCase("rtsp", scheme)) {
+    if (scheme != null
+        && (Ascii.equalsIgnoreCase("rtsp", scheme) || Ascii.equalsIgnoreCase("rtspt", scheme))) {
       return C.CONTENT_TYPE_RTSP;
     }
 
