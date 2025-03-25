@@ -741,25 +741,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
           e = e.copyWithMediaPeriodId(readingPeriod.info.id);
         }
       }
-      if (e.isRecoverable
-          && (pendingRecoverableRendererError == null
-              || e.errorCode == PlaybackException.ERROR_CODE_AUDIO_TRACK_OFFLOAD_INIT_FAILED
-              || e.errorCode == PlaybackException.ERROR_CODE_AUDIO_TRACK_OFFLOAD_WRITE_FAILED)) {
-        // If pendingRecoverableRendererError != null and error was
-        // ERROR_CODE_AUDIO_TRACK_OFFLOAD_WRITE_FAILED then upon retry, renderer will attempt with
-        // offload disabled.
-        Log.w(TAG, "Recoverable renderer error", e);
-        if (pendingRecoverableRendererError != null) {
-          pendingRecoverableRendererError.addSuppressed(e);
-          e = pendingRecoverableRendererError;
-        } else {
-          pendingRecoverableRendererError = e;
-        }
-        // Given that the player is now in an unhandled exception state, the error needs to be
-        // recovered or the player stopped before any other message is handled.
-        handler.sendMessageAtFrontOfQueue(
-            handler.obtainMessage(MSG_ATTEMPT_RENDERER_ERROR_RECOVERY, e));
-      } else if (e.type == ExoPlaybackException.TYPE_RENDERER
+      if (e.type == ExoPlaybackException.TYPE_RENDERER
           && e.mediaPeriodId != null
           && isRendererPrewarmingMediaPeriod(e.rendererIndex, e.mediaPeriodId)) {
         // TODO(b/380273486): Investigate recovery for pre-warming renderer errors
@@ -778,6 +760,24 @@ import java.util.concurrent.atomic.AtomicBoolean;
           maybeContinueLoading();
           handler.sendEmptyMessage(MSG_DO_SOME_WORK);
         }
+      } else if (e.isRecoverable
+          && (pendingRecoverableRendererError == null
+              || e.errorCode == PlaybackException.ERROR_CODE_AUDIO_TRACK_OFFLOAD_INIT_FAILED
+              || e.errorCode == PlaybackException.ERROR_CODE_AUDIO_TRACK_OFFLOAD_WRITE_FAILED)) {
+        // If pendingRecoverableRendererError != null and error was
+        // ERROR_CODE_AUDIO_TRACK_OFFLOAD_WRITE_FAILED then upon retry, renderer will attempt with
+        // offload disabled.
+        Log.w(TAG, "Recoverable renderer error", e);
+        if (pendingRecoverableRendererError != null) {
+          pendingRecoverableRendererError.addSuppressed(e);
+          e = pendingRecoverableRendererError;
+        } else {
+          pendingRecoverableRendererError = e;
+        }
+        // Given that the player is now in an unhandled exception state, the error needs to be
+        // recovered or the player stopped before any other message is handled.
+        handler.sendMessageAtFrontOfQueue(
+            handler.obtainMessage(MSG_ATTEMPT_RENDERER_ERROR_RECOVERY, e));
       } else {
         if (pendingRecoverableRendererError != null) {
           pendingRecoverableRendererError.addSuppressed(e);
