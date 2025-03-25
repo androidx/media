@@ -1049,7 +1049,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     totalVideoFrameProcessingOffsetUs = 0;
     videoFrameProcessingOffsetCount = 0;
     if (videoSink != null) {
-      videoSink.onRendererStarted();
+      videoSink.onStarted();
     } else {
       videoFrameReleaseControl.onStarted();
     }
@@ -1060,7 +1060,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     maybeNotifyDroppedFrames();
     maybeNotifyVideoFrameProcessingOffset();
     if (videoSink != null) {
-      videoSink.onRendererStopped();
+      videoSink.onStopped();
     } else {
       videoFrameReleaseControl.onStopped();
     }

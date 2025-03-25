@@ -82,13 +82,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   @Override
-  public void onRendererStarted() {
-    executeOrDelay(VideoSink::onRendererStarted);
+  public void onStarted() {
+    executeOrDelay(VideoSink::onStarted);
   }
 
   @Override
-  public void onRendererStopped() {
-    executeOrDelay(VideoSink::onRendererStopped);
+  public void onStopped() {
+    executeOrDelay(VideoSink::onStopped);
   }
 
   @Override
@@ -133,10 +133,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * is {@code null}.
    */
   @Override
-  public boolean isReady(boolean rendererOtherwiseReady) {
+  public boolean isReady(boolean otherwiseReady) {
     // Return true if the VideoSink is null to indicate that the renderer can be started. Indeed,
     // for prewarming, a VideoSink is set on the BufferingVideoSink when the renderer is started.
-    return videoSink == null || videoSink.isReady(rendererOtherwiseReady);
+    return videoSink == null || videoSink.isReady(otherwiseReady);
   }
 
   @Override

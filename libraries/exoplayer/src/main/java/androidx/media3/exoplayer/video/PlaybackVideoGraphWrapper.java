@@ -592,9 +592,8 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     }
   }
 
-  private boolean isReady(boolean rendererOtherwiseReady) {
-    return defaultVideoSink.isReady(
-        /* rendererOtherwiseReady= */ rendererOtherwiseReady && pendingFlushCount == 0);
+  private boolean isReady(boolean otherwiseReady) {
+    return defaultVideoSink.isReady(/* otherwiseReady= */ otherwiseReady && pendingFlushCount == 0);
   }
 
   private boolean isEnded() {
@@ -711,13 +710,13 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     }
 
     @Override
-    public void onRendererStarted() {
-      defaultVideoSink.onRendererStarted();
+    public void onStarted() {
+      defaultVideoSink.onStarted();
     }
 
     @Override
-    public void onRendererStopped() {
-      defaultVideoSink.onRendererStopped();
+    public void onStopped() {
+      defaultVideoSink.onStopped();
     }
 
     @Override
@@ -760,9 +759,9 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     }
 
     @Override
-    public boolean isReady(boolean rendererOtherwiseReady) {
+    public boolean isReady(boolean otherwiseReady) {
       return PlaybackVideoGraphWrapper.this.isReady(
-          /* rendererOtherwiseReady= */ rendererOtherwiseReady && isInitialized());
+          /* otherwiseReady= */ otherwiseReady && isInitialized());
     }
 
     @Override

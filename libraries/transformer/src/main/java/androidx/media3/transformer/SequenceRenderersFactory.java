@@ -540,7 +540,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       if (mayRenderStartOfStream) {
         // The image renderer is not playing after a video. We must wait until the first frame is
         // rendered.
-        return videoSink.isReady(/* rendererOtherwiseReady= */ super.isReady());
+        return videoSink.isReady(/* otherwiseReady= */ super.isReady());
       } else {
         // The image renderer is playing after a video. We don't need to wait until the first frame
         // is rendered.
@@ -566,7 +566,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     @Override
     protected void onStarted() throws ExoPlaybackException {
       super.onStarted();
-      videoSink.onRendererStarted();
+      videoSink.onStarted();
     }
 
     @Override
@@ -585,7 +585,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     @Override
     protected void onStopped() {
       super.onStopped();
-      videoSink.onRendererStopped();
+      videoSink.onStopped();
     }
 
     @Override

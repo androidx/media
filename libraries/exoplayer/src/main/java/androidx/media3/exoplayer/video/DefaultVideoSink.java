@@ -80,12 +80,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   @Override
-  public void onRendererStarted() {
+  public void onStarted() {
     videoFrameReleaseControl.onStarted();
   }
 
   @Override
-  public void onRendererStopped() {
+  public void onStopped() {
     videoFrameReleaseControl.onStopped();
   }
 
@@ -121,8 +121,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   @Override
-  public boolean isReady(boolean rendererOtherwiseReady) {
-    return videoFrameReleaseControl.isReady(rendererOtherwiseReady);
+  public boolean isReady(boolean otherwiseReady) {
+    return videoFrameReleaseControl.isReady(otherwiseReady);
   }
 
   @Override

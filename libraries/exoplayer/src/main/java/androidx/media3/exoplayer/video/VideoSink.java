@@ -36,12 +36,7 @@ import java.lang.annotation.Target;
 import java.util.List;
 import java.util.concurrent.Executor;
 
-/**
- * A sink that consumes decoded video frames and images from video and image {@linkplain
- * androidx.media3.exoplayer.Renderer renderers}.
- *
- * <p>Multiple renderers can feed the same sink, but not in parallel.
- */
+/** A sink that consumes decoded video frames and images. */
 @UnstableApi
 public interface VideoSink {
 
@@ -154,11 +149,11 @@ public interface VideoSink {
    */
   int RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED = 2;
 
-  /** Called when the {@link Renderer} currently feeding this sink is started. */
-  void onRendererStarted();
+  /** Called when rendering starts. */
+  void onStarted();
 
-  /** Called when the {@link Renderer} currently feeding this sink is stopped. */
-  void onRendererStopped();
+  /** Called when rendering stops. */
+  void onStopped();
 
   /**
    * Sets a {@link Listener} on this sink. Callbacks are triggered on the supplied {@link Executor}.
@@ -196,12 +191,11 @@ public interface VideoSink {
    * Returns whether the video sink is able to immediately render media to its output surface from
    * the current position.
    *
-   * <p>The renderer should be {@linkplain Renderer#isReady() ready} if and only if the video sink
-   * is ready.
+   * <p>The caller should be ready if and only if the video sink is ready.
    *
-   * @param rendererOtherwiseReady Whether the renderer is ready except for the video sink.
+   * @param otherwiseReady Whether the caller is ready except for the video sink.
    */
-  boolean isReady(boolean rendererOtherwiseReady);
+  boolean isReady(boolean otherwiseReady);
 
   /** Signals the end of the current input stream. */
   void signalEndOfCurrentInputStream();
@@ -279,8 +273,8 @@ public interface VideoSink {
       List<Effect> videoEffects);
 
   /**
-   * Allows the sink to release the first frame even if rendering is not {@linkplain
-   * #onRendererStarted() started}.
+   * Allows the sink to release the first frame even if rendering is not {@linkplain #onStarted()
+   * started}.
    *
    * <p>This is used to update the {@link FirstFrameReleaseInstruction} of the {@linkplain
    * #onInputStreamChanged(int, Format, long, int, List) stream} that is currently being processed.
