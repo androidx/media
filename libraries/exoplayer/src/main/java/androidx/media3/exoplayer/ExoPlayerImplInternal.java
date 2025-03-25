@@ -750,7 +750,26 @@ import java.util.concurrent.atomic.AtomicBoolean;
                       : readingPeriod.info.id);
         }
       }
-      if (e.isRecoverable
+      if (e.type == ExoPlaybackException.TYPE_RENDERER
+          && e.mediaPeriodId != null
+          && isRendererPrewarmingMediaPeriod(e.rendererIndex, e.mediaPeriodId)) {
+        // TODO(b/380273486): Investigate recovery for pre-warming renderer errors
+        isPrewarmingDisabledUntilNextTransition = true;
+        disableAndResetPrewarmingRenderers();
+        // Remove periods from the queue starting at the pre-warming period.
+        MediaPeriodHolder prewarmingPeriod = queue.getPrewarmingPeriod();
+        MediaPeriodHolder periodToRemoveAfter = queue.getPlayingPeriod();
+        if (queue.getPlayingPeriod() != prewarmingPeriod) {
+          while (periodToRemoveAfter != null && periodToRemoveAfter.getNext() != prewarmingPeriod) {
+            periodToRemoveAfter = periodToRemoveAfter.getNext();
+          }
+        }
+        queue.removeAfter(periodToRemoveAfter);
+        if (playbackInfo.playbackState != Player.STATE_ENDED) {
+          maybeContinueLoading();
+          handler.sendEmptyMessage(MSG_DO_SOME_WORK);
+        }
+      } else if (e.isRecoverable
           && (pendingRecoverableRendererError == null
               || e.errorCode == PlaybackException.ERROR_CODE_AUDIO_TRACK_OFFLOAD_INIT_FAILED
               || e.errorCode == PlaybackException.ERROR_CODE_AUDIO_TRACK_OFFLOAD_WRITE_FAILED)) {
@@ -768,25 +787,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
         // recovered or the player stopped before any other message is handled.
         handler.sendMessageAtFrontOfQueue(
             handler.obtainMessage(MSG_ATTEMPT_RENDERER_ERROR_RECOVERY, e));
-      } else if (e.type == ExoPlaybackException.TYPE_RENDERER
-          && renderers[e.rendererIndex % renderers.length].isRendererPrewarming(
-              /* id= */ e.rendererIndex)) {
-        // TODO(b/380273486): Investigate recovery for pre-warming renderer errors
-        isPrewarmingDisabledUntilNextTransition = true;
-        disableAndResetPrewarmingRenderers();
-        // Remove periods from the queue starting at the pre-warming period.
-        MediaPeriodHolder prewarmingPeriod = queue.getPrewarmingPeriod();
-        MediaPeriodHolder periodToRemoveAfter = queue.getPlayingPeriod();
-        if (queue.getPlayingPeriod() != prewarmingPeriod) {
-          while (periodToRemoveAfter != null && periodToRemoveAfter.getNext() != prewarmingPeriod) {
-            periodToRemoveAfter = periodToRemoveAfter.getNext();
-          }
-        }
-        queue.removeAfter(periodToRemoveAfter);
-        if (playbackInfo.playbackState != Player.STATE_ENDED) {
-          maybeContinueLoading();
-          handler.sendEmptyMessage(MSG_DO_SOME_WORK);
-        }
       } else {
         if (pendingRecoverableRendererError != null) {
           pendingRecoverableRendererError.addSuppressed(e);
