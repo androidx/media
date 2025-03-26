@@ -80,43 +80,26 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
 
   /** Listener for {@link PlaybackVideoGraphWrapper} events. */
   public interface Listener {
-    /**
-     * Called when the video frame processor renders the first frame.
-     *
-     * @param playbackVideoGraphWrapper The {@link PlaybackVideoGraphWrapper} which triggered this
-     *     event.
-     */
-    void onFirstFrameRendered(PlaybackVideoGraphWrapper playbackVideoGraphWrapper);
+    /** Called when the video frame processor renders the first frame. */
+    void onFirstFrameRendered();
 
-    /**
-     * Called when the video frame processor dropped a frame.
-     *
-     * @param playbackVideoGraphWrapper The {@link PlaybackVideoGraphWrapper} which triggered this
-     *     event.
-     */
-    void onFrameDropped(PlaybackVideoGraphWrapper playbackVideoGraphWrapper);
+    /** Called when the video frame processor dropped a frame. */
+    void onFrameDropped();
 
     /**
      * Called before a frame is rendered for the first time since setting the surface, and each time
      * there's a change in the size, rotation or pixel aspect ratio of the video being rendered.
      *
-     * @param playbackVideoGraphWrapper The {@link PlaybackVideoGraphWrapper} which triggered this
-     *     event.
      * @param videoSize The video size.
      */
-    void onVideoSizeChanged(
-        PlaybackVideoGraphWrapper playbackVideoGraphWrapper, VideoSize videoSize);
+    void onVideoSizeChanged(VideoSize videoSize);
 
     /**
      * Called when the video frame processor encountered an error.
      *
-     * @param playbackVideoGraphWrapper The {@link PlaybackVideoGraphWrapper} which triggered this
-     *     event.
      * @param videoFrameProcessingException The error.
      */
-    void onError(
-        PlaybackVideoGraphWrapper playbackVideoGraphWrapper,
-        VideoFrameProcessingException videoFrameProcessingException);
+    void onError(VideoFrameProcessingException videoFrameProcessingException);
   }
 
   /** A builder for {@link PlaybackVideoGraphWrapper} instances. */
@@ -493,7 +476,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
   @Override
   public void onError(VideoFrameProcessingException exception) {
     for (PlaybackVideoGraphWrapper.Listener listener : listeners) {
-      listener.onError(/* playbackVideoGraphWrapper= */ this, exception);
+      listener.onError(exception);
     }
   }
 
@@ -987,30 +970,27 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     // PlaybackVideoGraphWrapper.Listener implementation
 
     @Override
-    public void onFirstFrameRendered(PlaybackVideoGraphWrapper playbackVideoGraphWrapper) {
+    public void onFirstFrameRendered() {
       VideoSink.Listener currentListener = listener;
       listenerExecutor.execute(() -> currentListener.onFirstFrameRendered(/* videoSink= */ this));
     }
 
     @Override
-    public void onFrameDropped(PlaybackVideoGraphWrapper playbackVideoGraphWrapper) {
+    public void onFrameDropped() {
       VideoSink.Listener currentListener = listener;
       listenerExecutor.execute(
           () -> currentListener.onFrameDropped(checkStateNotNull(/* reference= */ this)));
     }
 
     @Override
-    public void onVideoSizeChanged(
-        PlaybackVideoGraphWrapper playbackVideoGraphWrapper, VideoSize videoSize) {
+    public void onVideoSizeChanged(VideoSize videoSize) {
       VideoSink.Listener currentListener = listener;
       listenerExecutor.execute(
           () -> currentListener.onVideoSizeChanged(/* videoSink= */ this, videoSize));
     }
 
     @Override
-    public void onError(
-        PlaybackVideoGraphWrapper playbackVideoGraphWrapper,
-        VideoFrameProcessingException videoFrameProcessingException) {
+    public void onError(VideoFrameProcessingException videoFrameProcessingException) {
       VideoSink.Listener currentListener = listener;
       listenerExecutor.execute(
           () ->
@@ -1056,29 +1036,28 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     @Override
     public void onFirstFrameRendered(VideoSink videoSink) {
       for (PlaybackVideoGraphWrapper.Listener listener : listeners) {
-        listener.onFirstFrameRendered(PlaybackVideoGraphWrapper.this);
+        listener.onFirstFrameRendered();
       }
     }
 
     @Override
     public void onFrameDropped(VideoSink videoSink) {
       for (PlaybackVideoGraphWrapper.Listener listener : listeners) {
-        listener.onFrameDropped(PlaybackVideoGraphWrapper.this);
+        listener.onFrameDropped();
       }
     }
 
     @Override
     public void onVideoSizeChanged(VideoSink videoSink, VideoSize videoSize) {
       for (PlaybackVideoGraphWrapper.Listener listener : listeners) {
-        listener.onVideoSizeChanged(PlaybackVideoGraphWrapper.this, videoSize);
+        listener.onVideoSizeChanged(videoSize);
       }
     }
 
     @Override
     public void onError(VideoSink videoSink, VideoSink.VideoSinkException videoSinkException) {
       for (PlaybackVideoGraphWrapper.Listener listener : listeners) {
-        listener.onError(
-            PlaybackVideoGraphWrapper.this, VideoFrameProcessingException.from(videoSinkException));
+        listener.onError(VideoFrameProcessingException.from(videoSinkException));
       }
     }
   }
