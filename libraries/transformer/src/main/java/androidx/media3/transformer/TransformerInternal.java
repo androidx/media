@@ -248,7 +248,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       sequenceAssetLoaders.add(
           new SequenceAssetLoader(
               sequence,
-              composition.forceAudioTrack,
               assetLoaderFactory,
               new CompositionSettings(
                   transformationRequest.hdrMode, composition.retainHdrFromUltraHdrImage),

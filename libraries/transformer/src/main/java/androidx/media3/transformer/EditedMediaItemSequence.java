@@ -18,6 +18,7 @@ package androidx.media3.transformer;
 import static androidx.media3.common.util.Assertions.checkArgument;
 
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -35,6 +36,7 @@ public final class EditedMediaItemSequence {
   public static final class Builder {
     private final ImmutableList.Builder<EditedMediaItem> items;
     private boolean isLooping;
+    private boolean forceAudioTrack;
 
     /** Creates an instance. */
     public Builder(EditedMediaItem... editedMediaItems) {
@@ -44,6 +46,15 @@ public final class EditedMediaItemSequence {
     /* Creates an instance. */
     public Builder(List<EditedMediaItem> editedMediaItems) {
       items = new ImmutableList.Builder<EditedMediaItem>().addAll(editedMediaItems);
+    }
+
+    /** Creates a new instance to build upon the provided {@link EditedMediaItemSequence}. */
+    private Builder(EditedMediaItemSequence editedMediaItemSequence) {
+      items =
+          new ImmutableList.Builder<EditedMediaItem>()
+              .addAll(editedMediaItemSequence.editedMediaItems);
+      isLooping = editedMediaItemSequence.isLooping;
+      forceAudioTrack = editedMediaItemSequence.forceAudioTrack;
     }
 
     /**
@@ -117,6 +128,41 @@ public final class EditedMediaItemSequence {
     }
 
     /**
+     * Forces silent audio in the {@linkplain EditedMediaItemSequence sequence}.
+     *
+     * <p>This flag is necessary when:
+     *
+     * <ul>
+     *   <li>The first {@link EditedMediaItem} in the sequence does not contain audio, but
+     *       subsequent items do.
+     *   <li>The first item in the sequence is a {@linkplain #addGap(long) gap} and the subsequent
+     *       {@linkplain EditedMediaItem media items} contain audio.
+     * </ul>
+     *
+     * <p>If the flag is not set appropriately, then the export will {@linkplain
+     * Transformer.Listener#onError(Composition, ExportResult, ExportException) fail}.
+     *
+     * <p>If the first {@link EditedMediaItem} already contains audio, this flag has no effect.
+     *
+     * <p>The MIME type of the output's audio track can be set using {@link
+     * Transformer.Builder#setAudioMimeType(String)}. The sample rate and channel count can be set
+     * by passing relevant {@link AudioProcessor} instances to the {@link Composition}.
+     *
+     * <p>Forcing an audio track and {@linkplain Composition.Builder#setTransmuxAudio(boolean)
+     * requesting audio transmuxing} are not allowed together because generating silence requires
+     * transcoding.
+     *
+     * <p>The default value is {@code false}.
+     *
+     * @param forceAudioTrack Whether to force audio track.
+     */
+    @CanIgnoreReturnValue
+    public Builder setForceAudioTrack(boolean forceAudioTrack) {
+      this.forceAudioTrack = forceAudioTrack;
+      return this;
+    }
+
+    /**
      * Builds the {@link EditedMediaItemSequence}.
      *
      * <p>There must be at least one item in the sequence.
@@ -147,6 +193,9 @@ public final class EditedMediaItemSequence {
    */
   public final boolean isLooping;
 
+  /** Forces silent audio in the {@linkplain EditedMediaItemSequence sequence}. */
+  public final boolean forceAudioTrack;
+
   /**
    * @deprecated Use {@link Builder}.
    */
@@ -172,11 +221,17 @@ public final class EditedMediaItemSequence {
     this(new Builder().addItems(editedMediaItems).setIsLooping(isLooping));
   }
 
+  /** Returns a {@link Builder} initialized with the values of this instance. */
+  public Builder buildUpon() {
+    return new Builder(this);
+  }
+
   private EditedMediaItemSequence(EditedMediaItemSequence.Builder builder) {
     this.editedMediaItems = builder.items.build();
     checkArgument(
         !editedMediaItems.isEmpty(), "The sequence must contain at least one EditedMediaItem.");
     this.isLooping = builder.isLooping;
+    this.forceAudioTrack = builder.forceAudioTrack;
   }
 
   /** Return whether any items are a {@linkplain Builder#addGap(long) gap}. */
