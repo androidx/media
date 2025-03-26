@@ -152,6 +152,16 @@ public final class MatroskaExtractorTest {
   }
 
   @Test
+  public void mkvSample_threeSeekHeads() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        getExtractorFactory(subtitlesParsedDuringExtraction),
+        "media/mkv/sample_three_seekheads.mkv",
+        getAssertionConfigWithPrefix(
+            "media/mkv/sample_three_seekheads.mkv", subtitlesParsedDuringExtraction),
+        simulationConfig);
+  }
+
+  @Test
   public void mkvSample_withVorbisAudio() throws Exception {
     ExtractorAsserts.assertBehavior(
         getExtractorFactory(subtitlesParsedDuringExtraction),
