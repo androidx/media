@@ -220,7 +220,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @Override
   public boolean handleInputFrame(
-      long framePresentationTimeUs, boolean isLastFrame, VideoFrameHandler videoFrameHandler) {
+      long framePresentationTimeUs, VideoFrameHandler videoFrameHandler) {
     videoFrameHandlers.add(videoFrameHandler);
     long bufferPresentationTimeUs = framePresentationTimeUs - bufferTimestampAdjustmentUs;
     videoFrameRenderControl.onFrameAvailableForRendering(bufferPresentationTimeUs);

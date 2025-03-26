@@ -275,15 +275,11 @@ public interface VideoSink {
    * Format, long, int, List) signaled}.
    *
    * @param framePresentationTimeUs The frame's presentation time, in microseconds.
-   * @param isLastFrame Whether this is the last frame of the video stream. This flag is set on a
-   *     best effort basis, and any logic relying on it should degrade gracefully to handle cases
-   *     where it's not set.
    * @param videoFrameHandler The {@link VideoFrameHandler} used to handle the input frame.
    * @return Whether the frame was handled successfully. If {@code false}, the caller can try again
    *     later.
    */
-  boolean handleInputFrame(
-      long framePresentationTimeUs, boolean isLastFrame, VideoFrameHandler videoFrameHandler);
+  boolean handleInputFrame(long framePresentationTimeUs, VideoFrameHandler videoFrameHandler);
 
   /**
    * Handles an input {@link Bitmap}.

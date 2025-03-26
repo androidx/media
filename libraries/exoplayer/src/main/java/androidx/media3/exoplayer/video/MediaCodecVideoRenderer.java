@@ -1741,7 +1741,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       long framePresentationTimeUs = bufferPresentationTimeUs + getBufferTimestampAdjustmentUs();
       return videoSink.handleInputFrame(
           framePresentationTimeUs,
-          isLastBuffer,
           new VideoSink.VideoFrameHandler() {
             @Override
             public void render(long renderTimestampNs) {

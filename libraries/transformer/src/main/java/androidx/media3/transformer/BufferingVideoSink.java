@@ -234,9 +234,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    */
   @Override
   public boolean handleInputFrame(
-      long framePresentationTimeUs, boolean isLastFrame, VideoFrameHandler videoFrameHandler) {
+      long framePresentationTimeUs, VideoFrameHandler videoFrameHandler) {
     return videoSink != null
-        && videoSink.handleInputFrame(framePresentationTimeUs, isLastFrame, videoFrameHandler);
+        && videoSink.handleInputFrame(framePresentationTimeUs, videoFrameHandler);
   }
 
   /**

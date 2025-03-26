@@ -457,10 +457,10 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
       outputStreamFirstFrameReleaseInstruction = streamChangeInfo.firstFrameReleaseInstruction;
       onOutputStreamChanged();
     }
+    defaultVideoSink.handleInputFrame(framePresentationTimeUs, videoFrameHandler);
     boolean isLastFrame =
         finalBufferPresentationTimeUs != C.TIME_UNSET
             && bufferPresentationTimeUs >= finalBufferPresentationTimeUs;
-    defaultVideoSink.handleInputFrame(framePresentationTimeUs, isLastFrame, videoFrameHandler);
     if (isLastFrame) {
       // TODO b/257464707 - Support extensively modified media.
       defaultVideoSink.signalEndOfCurrentInputStream();
@@ -895,7 +895,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
 
     @Override
     public boolean handleInputFrame(
-        long framePresentationTimeUs, boolean isLastFrame, VideoFrameHandler videoFrameHandler) {
+        long framePresentationTimeUs, VideoFrameHandler videoFrameHandler) {
       checkState(isInitialized());
 
       if (!shouldRenderToInputVideoSink()) {
