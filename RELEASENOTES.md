@@ -4,6 +4,8 @@
 
 *   Common Library:
 *   ExoPlayer:
+    *   Fix sending `CmcdData` in manifest requests for DASH, HLS, and
+        SmoothStreaming ([#2253](https://github.com/androidx/media/pull/2253)).
 *   Transformer:
 *   Track Selection:
 *   Extractors:
