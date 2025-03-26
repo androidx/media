@@ -775,6 +775,7 @@ public final class Mp4Extractor implements Extractor, SeekMap {
           track.type,
           mdtaMetadata,
           formatBuilder,
+          track.format.metadata,
           slowMotionMetadataEntries.isEmpty() ? null : new Metadata(slowMotionMetadataEntries),
           udtaMetadata,
           mvhdMetadata);
