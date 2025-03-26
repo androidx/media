@@ -780,9 +780,6 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
         @FirstFrameReleaseInstruction int firstFrameReleaseInstruction,
         List<Effect> videoEffects) {
       checkState(isInitialized());
-      if (inputType != INPUT_TYPE_SURFACE && inputType != INPUT_TYPE_BITMAP) {
-        throw new UnsupportedOperationException("Unsupported input type " + inputType);
-      }
       setPendingVideoEffects(videoEffects);
       this.inputType = inputType;
       this.inputFormat = format;
@@ -1025,9 +1022,18 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
               .buildUpon()
               .setColorInfo(getAdjustedInputColorInfo(inputFormat.colorInfo))
               .build();
+      @VideoFrameProcessor.InputType
+      int videoGraphInputType =
+          inputType == INPUT_TYPE_SURFACE
+              ? VideoFrameProcessor.INPUT_TYPE_SURFACE
+              : VideoFrameProcessor.INPUT_TYPE_BITMAP;
       checkNotNull(videoGraph)
           .registerInputStream(
-              inputIndex, inputType, adjustedInputFormat, videoEffects, /* offsetToAddUs= */ 0);
+              inputIndex,
+              videoGraphInputType,
+              adjustedInputFormat,
+              videoEffects,
+              /* offsetToAddUs= */ 0);
     }
   }
 
