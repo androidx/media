@@ -37,6 +37,7 @@ import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.DolbyVisionConfig;
+import androidx.media3.container.Mp4AlternateGroupData;
 import androidx.media3.container.Mp4Box;
 import androidx.media3.container.Mp4Box.LeafBox;
 import androidx.media3.container.Mp4LocationData;
@@ -380,21 +381,38 @@ public final class BoxParser {
         }
       }
     }
-    return stsdData.format == null
-        ? null
-        : new Track(
-            tkhdData.id,
-            trackType,
-            mdhdData.timescale,
-            movieTimescale,
-            durationUs,
-            mdhdData.mediaDurationUs,
-            stsdData.format,
-            stsdData.requiredSampleTransformation,
-            stsdData.trackEncryptionBoxes,
-            stsdData.nalUnitLengthFieldLength,
-            editListDurations,
-            editListMediaTimes);
+    if (stsdData.format == null) {
+      return null;
+    }
+    Format format;
+    if (tkhdData.alternateGroup != 0) {
+      Mp4AlternateGroupData alternateGroupEntry =
+          new Mp4AlternateGroupData(tkhdData.alternateGroup);
+      format =
+          stsdData
+              .format
+              .buildUpon()
+              .setMetadata(
+                  stsdData.format.metadata != null
+                      ? stsdData.format.metadata.copyWithAppendedEntries(alternateGroupEntry)
+                      : new Metadata(alternateGroupEntry))
+              .build();
+    } else {
+      format = stsdData.format;
+    }
+    return new Track(
+        tkhdData.id,
+        trackType,
+        mdhdData.timescale,
+        movieTimescale,
+        durationUs,
+        mdhdData.mediaDurationUs,
+        format,
+        stsdData.requiredSampleTransformation,
+        stsdData.trackEncryptionBoxes,
+        stsdData.nalUnitLengthFieldLength,
+        editListDurations,
+        editListMediaTimes);
   }
 
   /**
@@ -913,7 +931,9 @@ public final class BoxParser {
       }
     }
 
-    tkhd.skipBytes(16);
+    tkhd.skipBytes(10);
+    int alternateGroup = tkhd.readUnsignedShort();
+    tkhd.skipBytes(4);
     int a00 = tkhd.readInt();
     int a01 = tkhd.readInt();
     tkhd.skipBytes(4);
@@ -933,7 +953,7 @@ public final class BoxParser {
       rotationDegrees = 0;
     }
 
-    return new TkhdData(trackId, duration, rotationDegrees);
+    return new TkhdData(trackId, duration, alternateGroup, rotationDegrees);
   }
 
   /**
@@ -2543,11 +2563,13 @@ public final class BoxParser {
 
     private final int id;
     private final long duration;
+    private final int alternateGroup;
     private final int rotationDegrees;
 
-    public TkhdData(int id, long duration, int rotationDegrees) {
+    public TkhdData(int id, long duration, int alternateGroup, int rotationDegrees) {
       this.id = id;
       this.duration = duration;
+      this.alternateGroup = alternateGroup;
       this.rotationDegrees = rotationDegrees;
     }
   }

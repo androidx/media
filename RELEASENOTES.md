@@ -11,6 +11,9 @@
         variable bitrate metadata when falling back to constant bitrate seeking
         due to `FLAG_ENABLE_CONSTANT_BITRATE_SEEKING(_ALWAYS)`
         ([#2194](https://github.com/androidx/media/issues/2194)).
+    *   MP4: Parse `alternate_group` from the `tkhd` box and expose it as an
+        `Mp4AlternateGroupData` entry in each track's `Format.metadata`
+        ([#2242](https://github.com/androidx/media/issues/2242)).
 *   DataSource:
 *   Audio:
     *   Allow constant power upmixing/downmixing in DefaultAudioMixer.

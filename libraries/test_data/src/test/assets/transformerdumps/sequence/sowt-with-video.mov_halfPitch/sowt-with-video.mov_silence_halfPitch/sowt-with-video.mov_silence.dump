@@ -4,7 +4,7 @@ format audio:
   channelCount = 2
   sampleRate = 48000
   pcmEncoding = 2
-  metadata = entries=[Mp4Timestamp: creation time=0, modification time=0, timescale=1000]
+  metadata = entries=[Mp4AlternateGroup: 1, Mp4Timestamp: creation time=0, modification time=0, timescale=1000]
 format video:
   id = 1
   containerMimeType = video/mp4
@@ -25,6 +25,7 @@ format video:
     data = length 34, hash 8D738018
     data = length 10, hash 7A0D0F2B
 container metadata:
+  entry = Mp4AlternateGroup: 1
   entry = Mp4Timestamp: creation time=0, modification time=0, timescale=1000
   entry = Mp4Timestamp: creation time=0, modification time=0, timescale=1000
 sample:
