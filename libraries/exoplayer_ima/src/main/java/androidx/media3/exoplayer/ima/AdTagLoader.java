@@ -143,6 +143,8 @@ import java.util.Objects;
   private final Timeline.Period period;
   private final Handler handler;
   private final ComponentListener componentListener;
+  private final ContentPlaybackAdapter contentPlaybackAdapter;
+  private final VideoAdPlayerImpl videoAdPlayerImpl;
   private final List<EventListener> eventListeners;
   private final List<VideoAdPlayer.VideoAdPlayerCallback> adCallbacks;
   private final Runnable updateAdProgressRunnable;
@@ -262,6 +264,8 @@ import java.util.Objects;
     period = new Timeline.Period();
     handler = Util.createHandler(getImaLooper(), /* callback= */ null);
     componentListener = new ComponentListener();
+    contentPlaybackAdapter = new ContentPlaybackAdapter();
+    videoAdPlayerImpl = new VideoAdPlayerImpl();
     eventListeners = new ArrayList<>();
     adCallbacks = new ArrayList<>(/* initialCapacity= */ 1);
     if (configuration.applicationVideoAdPlayerCallback != null) {
@@ -281,10 +285,10 @@ import java.util.Objects;
     adLoadTimeoutRunnable = this::handleAdLoadTimeout;
     if (adViewGroup != null) {
       adDisplayContainer =
-          imaFactory.createAdDisplayContainer(adViewGroup, /* player= */ componentListener);
+          imaFactory.createAdDisplayContainer(adViewGroup, /* player= */ videoAdPlayerImpl);
     } else {
       adDisplayContainer =
-          imaFactory.createAudioAdDisplayContainer(context, /* player= */ componentListener);
+          imaFactory.createAudioAdDisplayContainer(context, /* player= */ videoAdPlayerImpl);
     }
     if (configuration.companionAdSlots != null) {
       adDisplayContainer.setCompanionSlots(configuration.companionAdSlots);
@@ -578,7 +582,7 @@ import java.util.Objects;
     if (configuration.vastLoadTimeoutMs != TIMEOUT_UNSET) {
       request.setVastLoadTimeout(configuration.vastLoadTimeoutMs);
     }
-    request.setContentProgressProvider(componentListener);
+    request.setContentProgressProvider(contentPlaybackAdapter);
     adsLoader.requestAds(request);
     return adsLoader;
   }
@@ -1353,42 +1357,7 @@ import java.util.Objects;
     }
   }
 
-  private final class ComponentListener
-      implements AdsLoadedListener,
-          ContentProgressProvider,
-          AdEventListener,
-          AdErrorListener,
-          VideoAdPlayer {
-
-    // AdsLoader.AdsLoadedListener implementation.
-
-    @Override
-    public void onAdsManagerLoaded(AdsManagerLoadedEvent adsManagerLoadedEvent) {
-      AdsManager adsManager = adsManagerLoadedEvent.getAdsManager();
-      if (!Objects.equals(pendingAdRequestContext, adsManagerLoadedEvent.getUserRequestContext())) {
-        adsManager.destroy();
-        return;
-      }
-      pendingAdRequestContext = null;
-      AdTagLoader.this.adsManager = adsManager;
-      adsManager.addAdErrorListener(this);
-      if (configuration.applicationAdErrorListener != null) {
-        adsManager.addAdErrorListener(configuration.applicationAdErrorListener);
-      }
-      adsManager.addAdEventListener(this);
-      if (configuration.applicationAdEventListener != null) {
-        adsManager.addAdEventListener(configuration.applicationAdEventListener);
-      }
-      try {
-        adPlaybackState =
-            new AdPlaybackState(adsId, getAdGroupTimesUsForCuePoints(adsManager.getAdCuePoints()));
-        updateAdPlaybackState();
-      } catch (RuntimeException e) {
-        maybeNotifyInternalError("onAdsManagerLoaded", e);
-      }
-    }
-
-    // ContentProgressProvider implementation.
+  private final class ContentPlaybackAdapter implements ContentProgressProvider {
 
     @Override
     public VideoProgressUpdate getContentProgress() {
@@ -1418,6 +1387,38 @@ import java.util.Objects;
       }
 
       return videoProgressUpdate;
+    }
+  }
+
+  private final class ComponentListener
+      implements AdsLoadedListener, AdEventListener, AdErrorListener {
+
+    // AdsLoader.AdsLoadedListener implementation.
+
+    @Override
+    public void onAdsManagerLoaded(AdsManagerLoadedEvent adsManagerLoadedEvent) {
+      AdsManager adsManager = adsManagerLoadedEvent.getAdsManager();
+      if (!Objects.equals(pendingAdRequestContext, adsManagerLoadedEvent.getUserRequestContext())) {
+        adsManager.destroy();
+        return;
+      }
+      pendingAdRequestContext = null;
+      AdTagLoader.this.adsManager = adsManager;
+      adsManager.addAdErrorListener(this);
+      if (configuration.applicationAdErrorListener != null) {
+        adsManager.addAdErrorListener(configuration.applicationAdErrorListener);
+      }
+      adsManager.addAdEventListener(this);
+      if (configuration.applicationAdEventListener != null) {
+        adsManager.addAdEventListener(configuration.applicationAdEventListener);
+      }
+      try {
+        adPlaybackState =
+            new AdPlaybackState(adsId, getAdGroupTimesUsForCuePoints(adsManager.getAdCuePoints()));
+        updateAdPlaybackState();
+      } catch (RuntimeException e) {
+        maybeNotifyInternalError("onAdsManagerLoaded", e);
+      }
     }
 
     // AdEvent.AdEventListener implementation.
@@ -1460,8 +1461,9 @@ import java.util.Objects;
       }
       maybeNotifyPendingAdLoadError();
     }
+  }
 
-    // VideoAdPlayer implementation.
+  class VideoAdPlayerImpl implements VideoAdPlayer {
 
     @Override
     public void addCallback(VideoAdPlayerCallback videoAdPlayerCallback) {
