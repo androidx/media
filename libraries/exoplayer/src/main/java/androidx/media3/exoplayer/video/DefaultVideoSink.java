@@ -276,14 +276,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               .setHeight(videoSize.height)
               .setSampleMimeType(MimeTypes.VIDEO_RAW)
               .build();
-      listenerExecutor.execute(() -> listener.onVideoSizeChanged(DefaultVideoSink.this, videoSize));
+      listenerExecutor.execute(() -> listener.onVideoSizeChanged(videoSize));
     }
 
     @Override
     public void renderFrame(
         long renderTimeNs, long bufferPresentationTimeUs, boolean isFirstFrame) {
       if (isFirstFrame && outputSurface != null) {
-        listenerExecutor.execute(() -> listener.onFirstFrameRendered(DefaultVideoSink.this));
+        listenerExecutor.execute(() -> listener.onFirstFrameRendered());
       }
       // TODO - b/292111083: outputFormat is initialized after the first frame is rendered because
       //  onVideoSizeChanged is announced after the first frame is available for rendering.
@@ -298,7 +298,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     @Override
     public void dropFrame() {
-      listenerExecutor.execute(() -> listener.onFrameDropped(DefaultVideoSink.this));
+      listenerExecutor.execute(() -> listener.onFrameDropped());
       videoFrameHandlers.remove().skip();
     }
   }

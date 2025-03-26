@@ -969,21 +969,19 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     @Override
     public void onFirstFrameRendered() {
       VideoSink.Listener currentListener = listener;
-      listenerExecutor.execute(() -> currentListener.onFirstFrameRendered(/* videoSink= */ this));
+      listenerExecutor.execute(currentListener::onFirstFrameRendered);
     }
 
     @Override
     public void onFrameDropped() {
       VideoSink.Listener currentListener = listener;
-      listenerExecutor.execute(
-          () -> currentListener.onFrameDropped(checkStateNotNull(/* reference= */ this)));
+      listenerExecutor.execute(currentListener::onFrameDropped);
     }
 
     @Override
     public void onVideoSizeChanged(VideoSize videoSize) {
       VideoSink.Listener currentListener = listener;
-      listenerExecutor.execute(
-          () -> currentListener.onVideoSizeChanged(/* videoSink= */ this, videoSize));
+      listenerExecutor.execute(() -> currentListener.onVideoSizeChanged(videoSize));
     }
 
     @Override
@@ -992,7 +990,6 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
       listenerExecutor.execute(
           () ->
               currentListener.onError(
-                  /* videoSink= */ this,
                   new VideoSinkException(
                       videoFrameProcessingException, checkStateNotNull(this.inputFormat))));
     }
@@ -1040,28 +1037,28 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
   private final class DefaultVideoSinkListener implements VideoSink.Listener {
 
     @Override
-    public void onFirstFrameRendered(VideoSink videoSink) {
+    public void onFirstFrameRendered() {
       for (PlaybackVideoGraphWrapper.Listener listener : listeners) {
         listener.onFirstFrameRendered();
       }
     }
 
     @Override
-    public void onFrameDropped(VideoSink videoSink) {
+    public void onFrameDropped() {
       for (PlaybackVideoGraphWrapper.Listener listener : listeners) {
         listener.onFrameDropped();
       }
     }
 
     @Override
-    public void onVideoSizeChanged(VideoSink videoSink, VideoSize videoSize) {
+    public void onVideoSizeChanged(VideoSize videoSize) {
       for (PlaybackVideoGraphWrapper.Listener listener : listeners) {
         listener.onVideoSizeChanged(videoSize);
       }
     }
 
     @Override
-    public void onError(VideoSink videoSink, VideoSink.VideoSinkException videoSinkException) {
+    public void onError(VideoSink.VideoSinkException videoSinkException) {
       for (PlaybackVideoGraphWrapper.Listener listener : listeners) {
         listener.onError(VideoFrameProcessingException.from(videoSinkException));
       }

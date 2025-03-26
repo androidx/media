@@ -884,14 +884,14 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       videoSink.setListener(
           new VideoSink.Listener() {
             @Override
-            public void onFirstFrameRendered(VideoSink videoSink) {
+            public void onFirstFrameRendered() {
               if (displaySurface != null) {
                 notifyRenderedFirstFrame();
               }
             }
 
             @Override
-            public void onFrameDropped(VideoSink videoSink) {
+            public void onFrameDropped() {
               if (displaySurface != null) {
                 updateDroppedBufferCounters(
                     /* droppedInputBufferCount= */ 0, /* droppedDecoderBufferCount= */ 1);
@@ -899,15 +899,14 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
             }
 
             @Override
-            public void onVideoSizeChanged(VideoSink videoSink, VideoSize videoSize) {
+            public void onVideoSizeChanged(VideoSize videoSize) {
               // TODO: b/292111083 - Report video size change to app. Video size reporting is
               //  removed at the moment to ensure the first frame is rendered, and the video is
               //  rendered after switching on/off the screen.
             }
 
             @Override
-            public void onError(
-                VideoSink videoSink, VideoSink.VideoSinkException videoSinkException) {
+            public void onError(VideoSink.VideoSinkException videoSinkException) {
               setPendingPlaybackException(
                   createRendererException(
                       videoSinkException,

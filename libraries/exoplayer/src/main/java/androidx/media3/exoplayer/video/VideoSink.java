@@ -57,36 +57,23 @@ public interface VideoSink {
   /** Listener for {@link VideoSink} events. */
   interface Listener {
     /** Called when the sink renders the first frame on the output surface. */
-    void onFirstFrameRendered(VideoSink videoSink);
+    default void onFirstFrameRendered() {}
 
     /** Called when the sink dropped a frame. */
-    void onFrameDropped(VideoSink videoSink);
+    default void onFrameDropped() {}
 
     /**
      * Called before a frame is rendered for the first time after setting the output surface, and
      * each time there's a change in the size, rotation or pixel aspect ratio of the video being
      * rendered.
      */
-    void onVideoSizeChanged(VideoSink videoSink, VideoSize videoSize);
+    default void onVideoSizeChanged(VideoSize videoSize) {}
 
     /** Called when the {@link VideoSink} encountered an error. */
-    void onError(VideoSink videoSink, VideoSinkException videoSinkException);
+    default void onError(VideoSinkException videoSinkException) {}
 
     /** A no-op listener implementation. */
-    Listener NO_OP =
-        new Listener() {
-          @Override
-          public void onFirstFrameRendered(VideoSink videoSink) {}
-
-          @Override
-          public void onFrameDropped(VideoSink videoSink) {}
-
-          @Override
-          public void onVideoSizeChanged(VideoSink videoSink, VideoSize videoSize) {}
-
-          @Override
-          public void onError(VideoSink videoSink, VideoSinkException videoSinkException) {}
-        };
+    Listener NO_OP = new Listener() {};
   }
 
   /** Handler for a video frame. */
