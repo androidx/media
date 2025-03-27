@@ -1645,6 +1645,7 @@ public final class CastPlayer extends BasePlayer {
         // TODO b/364580007 - Populate volume information, and implement Player volume-related
         //  methods.
         return new DeviceInfo.Builder(DeviceInfo.PLAYBACK_TYPE_REMOTE)
+            .setMaxVolume(remoteController.getVolumeMax())
             .setRoutingControllerId(remoteController.getId())
             .build();
       }
