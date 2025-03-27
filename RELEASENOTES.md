@@ -6,6 +6,9 @@
 *   ExoPlayer:
     *   Fix sending `CmcdData` in manifest requests for DASH, HLS, and
         SmoothStreaming ([#2253](https://github.com/androidx/media/pull/2253)).
+    *   Fix issue where media item transition fails due to recoverable renderer
+        error during initialization of the next media item
+        ([#2229](https://github.com/androidx/media/issues/2229)).
 *   Transformer:
 *   Track Selection:
 *   Extractors:

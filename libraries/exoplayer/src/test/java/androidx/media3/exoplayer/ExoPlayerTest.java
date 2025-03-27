@@ -148,6 +148,7 @@ import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.audio.AudioRendererEventListener;
 import androidx.media3.exoplayer.drm.DrmSessionEventListener;
 import androidx.media3.exoplayer.drm.DrmSessionManager;
+import androidx.media3.exoplayer.mediacodec.MediaCodecRenderer;
 import androidx.media3.exoplayer.metadata.MetadataOutput;
 import androidx.media3.exoplayer.source.ClippingMediaSource;
 import androidx.media3.exoplayer.source.ConcatenatingMediaSource;
@@ -16691,6 +16692,84 @@ public final class ExoPlayerTest {
     assertThat(videoScalingSetOnVideoRenderer2.get()).isTrue();
     assertThat(videoScalingSetOnSecondaryAudioRenderer.get()).isFalse();
     assertThat(videoScalingSetOnSecondaryVideoRenderer.get()).isTrue();
+  }
+
+  @Test
+  public void
+      play_withRecoverableErrorAfterAdvancingReadingPeriod_advancesPlayingPeriodWhileErrorHandling()
+          throws Exception {
+    Clock fakeClock = new FakeClock(/* isAutoAdvancing= */ true);
+    AtomicBoolean shouldRendererThrowRecoverableError = new AtomicBoolean(false);
+    AtomicInteger onStreamChangedCount = new AtomicInteger(0);
+    ExoPlayer player =
+        new TestExoPlayerBuilder(context)
+            .setClock(fakeClock)
+            .setRenderersFactory(
+                new RenderersFactory() {
+                  @Override
+                  public Renderer[] createRenderers(
+                      Handler eventHandler,
+                      VideoRendererEventListener videoRendererEventListener,
+                      AudioRendererEventListener audioRendererEventListener,
+                      TextOutput textRendererOutput,
+                      MetadataOutput metadataRendererOutput) {
+                    return new Renderer[] {
+                      new FakeVideoRenderer(
+                          SystemClock.DEFAULT.createHandler(
+                              eventHandler.getLooper(), /* callback= */ null),
+                          videoRendererEventListener) {
+                        @Override
+                        protected void onStreamChanged(
+                            Format[] formats,
+                            long startPositionUs,
+                            long offsetUs,
+                            MediaSource.MediaPeriodId mediaPeriodId)
+                            throws ExoPlaybackException {
+                          super.onStreamChanged(formats, startPositionUs, offsetUs, mediaPeriodId);
+                          onStreamChangedCount.getAndIncrement();
+                        }
+
+                        @Override
+                        public void render(long positionUs, long elapsedRealtimeUs)
+                            throws ExoPlaybackException {
+                          if (!shouldRendererThrowRecoverableError.get()) {
+                            super.render(positionUs, elapsedRealtimeUs);
+                          } else {
+                            shouldRendererThrowRecoverableError.set(false);
+                            throw createRendererException(
+                                new MediaCodecRenderer.DecoderInitializationException(
+                                    new Format.Builder().build(),
+                                    new IllegalArgumentException(),
+                                    false,
+                                    0),
+                                this.getFormatHolder().format,
+                                true,
+                                PlaybackException.ERROR_CODE_DECODER_INIT_FAILED);
+                          }
+                        }
+                      }
+                    };
+                  }
+                })
+            .build();
+    player.setMediaSources(
+        ImmutableList.of(
+            new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT),
+            new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT)));
+    player.prepare();
+
+    // Play a bit until the reading period has advanced.
+    player.play();
+    advance(player).untilBackgroundThreadCondition(() -> onStreamChangedCount.get() == 2);
+    shouldRendererThrowRecoverableError.set(true);
+    runUntilPlaybackState(player, Player.STATE_ENDED);
+
+    player.release();
+
+    // onStreamChanged should occur thrice;
+    // 1 during first enable, 2 during replace stream, 3 during error recovery
+    assertThat(onStreamChangedCount.get()).isEqualTo(3);
+    assertThat(shouldRendererThrowRecoverableError.get()).isFalse();
   }
 
   // Internal methods.
