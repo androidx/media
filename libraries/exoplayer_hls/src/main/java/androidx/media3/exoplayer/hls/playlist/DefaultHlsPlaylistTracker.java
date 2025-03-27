@@ -153,7 +153,7 @@ public final class DefaultHlsPlaylistTracker
           new CmcdData.Factory(cmcdConfiguration, CmcdData.STREAMING_FORMAT_HLS)
               .setObjectType(CmcdData.OBJECT_TYPE_MANIFEST)
               .createCmcdData();
-      cmcdData.addToDataSpec(dataSpec);
+      dataSpec = cmcdData.addToDataSpec(dataSpec);
     }
     ParsingLoadable<HlsPlaylist> multivariantPlaylistLoadable =
         new ParsingLoadable<>(
@@ -796,7 +796,7 @@ public final class DefaultHlsPlaylistTracker
         if (primaryMediaPlaylistSnapshot != null) {
           cmcdDataFactory.setIsLive(!primaryMediaPlaylistSnapshot.hasEndTag);
         }
-        cmcdDataFactory.createCmcdData().addToDataSpec(dataSpec);
+        dataSpec = cmcdDataFactory.createCmcdData().addToDataSpec(dataSpec);
       }
       ParsingLoadable<HlsPlaylist> mediaPlaylistLoadable =
           new ParsingLoadable<>(
