@@ -100,6 +100,8 @@
 *   Cast extension:
     *   Add support for playlist metadata
         ([#2235](https://github.com/androidx/media/pull/2235)).
+    *   Add support for `setVolume()`, `getVolume()`, `isDeviceMuted()`, and `setDeviceMuted()`
+        ([#2279](https://github.com/androidx/media/pull/2279)).
 *   Test Utilities:
 *   Demo app:
     *   Add `PlaybackSpeedPopUpButton` Composable UI element to be part of
