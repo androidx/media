@@ -16,6 +16,7 @@
 package androidx.media3.cast;
 
 import static androidx.media3.common.Player.COMMAND_ADJUST_DEVICE_VOLUME;
+import static androidx.media3.common.Player.COMMAND_ADJUST_DEVICE_VOLUME_WITH_FLAGS;
 import static androidx.media3.common.Player.COMMAND_CHANGE_MEDIA_ITEMS;
 import static androidx.media3.common.Player.COMMAND_GET_AUDIO_ATTRIBUTES;
 import static androidx.media3.common.Player.COMMAND_GET_CURRENT_MEDIA_ITEM;
@@ -26,6 +27,7 @@ import static androidx.media3.common.Player.COMMAND_GET_TIMELINE;
 import static androidx.media3.common.Player.COMMAND_GET_VOLUME;
 import static androidx.media3.common.Player.COMMAND_PLAY_PAUSE;
 import static androidx.media3.common.Player.COMMAND_PREPARE;
+import static androidx.media3.common.Player.COMMAND_RELEASE;
 import static androidx.media3.common.Player.COMMAND_SEEK_BACK;
 import static androidx.media3.common.Player.COMMAND_SEEK_FORWARD;
 import static androidx.media3.common.Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM;
@@ -48,6 +50,7 @@ import static androidx.media3.common.Player.DISCONTINUITY_REASON_REMOVE;
 import static androidx.media3.common.Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED;
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -137,6 +140,7 @@ public class CastPlayerTest {
     when(mockRemoteMediaClient.isPaused()).thenReturn(true);
     when(mockMediaStatus.getQueueRepeatMode()).thenReturn(MediaStatus.REPEAT_MODE_REPEAT_OFF);
     when(mockMediaStatus.getStreamVolume()).thenReturn(1.0);
+    when(mockMediaStatus.isMute()).thenReturn(false);
     when(mockMediaStatus.getPlaybackRate()).thenReturn(1.0d);
     mediaItemConverter = new DefaultMediaItemConverter();
     castPlayer = new CastPlayer(mockCastContext, mediaItemConverter);
@@ -438,6 +442,60 @@ public class CastPlayerTest {
     remoteMediaClientCallback.onStatusUpdated();
     verify(mockListener).onVolumeChanged(0.75f);
     assertThat(castPlayer.getVolume()).isEqualTo(0.75f);
+  }
+
+  @Test
+  public void setDeviceMuted_masksRemoteState() {
+    when(mockRemoteMediaClient.setStreamMute(anyBoolean())).thenReturn(mockPendingResult);
+    assertThat(castPlayer.isDeviceMuted()).isFalse();
+
+    castPlayer.setDeviceMuted(true, 0);
+    verify(mockPendingResult).setResultCallback(setResultCallbackArgumentCaptor.capture());
+    assertThat(castPlayer.isDeviceMuted()).isTrue();
+    verify(mockListener).onDeviceVolumeChanged(0, true);
+
+    // There is a status update in the middle, which should be hidden by masking.
+    when(mockMediaStatus.isMute()).thenReturn(false);
+    remoteMediaClientCallback.onStatusUpdated();
+    verifyNoMoreInteractions(mockListener);
+
+    // Upon result, the mediaStatus now exposes the new muted state.
+    when(mockMediaStatus.isMute()).thenReturn(true);
+    setResultCallbackArgumentCaptor
+        .getValue()
+        .onResult(mock(RemoteMediaClient.MediaChannelResult.class));
+    verifyNoMoreInteractions(mockListener);
+  }
+
+  @Test
+  public void setDeviceMuted_updatesUponResultChange() {
+    when(mockRemoteMediaClient.setStreamMute(anyBoolean())).thenReturn(mockPendingResult);
+
+    castPlayer.setDeviceMuted(true, 0);
+    verify(mockPendingResult).setResultCallback(setResultCallbackArgumentCaptor.capture());
+    assertThat(castPlayer.isDeviceMuted()).isTrue();
+    verify(mockListener).onDeviceVolumeChanged(0, true);
+
+    // There is a status update in the middle, which should be hidden by masking.
+    when(mockMediaStatus.isMute()).thenReturn(false);
+    remoteMediaClientCallback.onStatusUpdated();
+    verifyNoMoreInteractions(mockListener);
+
+    // Upon result, the device is not muted. The state should reflect that.
+    setResultCallbackArgumentCaptor
+        .getValue()
+        .onResult(mock(RemoteMediaClient.MediaChannelResult.class));
+    verify(mockListener).onDeviceVolumeChanged(0, false);
+    assertThat(castPlayer.isDeviceMuted()).isFalse();
+  }
+
+  @Test
+  public void isDeviceMuted_changesOnStatusUpdates() {
+    assertThat(castPlayer.isDeviceMuted()).isFalse();
+    when(mockMediaStatus.isMute()).thenReturn(true);
+    remoteMediaClientCallback.onStatusUpdated();
+    verify(mockListener).onDeviceVolumeChanged(0, true);
+    assertThat(castPlayer.isDeviceMuted()).isTrue();
   }
 
   @Test
@@ -1458,14 +1516,16 @@ public class CastPlayerTest {
     assertThat(castPlayer.isCommandAvailable(COMMAND_SET_VOLUME)).isFalse();
     assertThat(castPlayer.isCommandAvailable(COMMAND_SET_DEVICE_VOLUME)).isFalse();
     assertThat(castPlayer.isCommandAvailable(COMMAND_ADJUST_DEVICE_VOLUME)).isFalse();
+    assertThat(castPlayer.isCommandAvailable(COMMAND_ADJUST_DEVICE_VOLUME_WITH_FLAGS)).isFalse();
     assertThat(castPlayer.isCommandAvailable(COMMAND_SET_VIDEO_SURFACE)).isFalse();
     assertThat(castPlayer.isCommandAvailable(COMMAND_GET_TEXT)).isFalse();
-    assertThat(castPlayer.isCommandAvailable(Player.COMMAND_RELEASE)).isTrue();
+    assertThat(castPlayer.isCommandAvailable(COMMAND_RELEASE)).isTrue();
   }
 
   @Test
-  public void isCommandAvailable_setVolumeIsSupported() {
+  public void isCommandAvailable_withVolumeCommands() {
     when(mockMediaStatus.isMediaCommandSupported(MediaStatus.COMMAND_SET_VOLUME)).thenReturn(true);
+    when(mockMediaStatus.isMediaCommandSupported(MediaStatus.COMMAND_TOGGLE_MUTE)).thenReturn(true);
 
     int[] mediaQueueItemIds = new int[] {1, 2};
     List<MediaItem> mediaItems = createMediaItems(mediaQueueItemIds);
@@ -1499,10 +1559,11 @@ public class CastPlayerTest {
     assertThat(castPlayer.isCommandAvailable(COMMAND_GET_DEVICE_VOLUME)).isFalse();
     assertThat(castPlayer.isCommandAvailable(COMMAND_SET_VOLUME)).isTrue();
     assertThat(castPlayer.isCommandAvailable(COMMAND_SET_DEVICE_VOLUME)).isFalse();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_ADJUST_DEVICE_VOLUME)).isFalse();
+    assertThat(castPlayer.isCommandAvailable(COMMAND_ADJUST_DEVICE_VOLUME)).isTrue();
+    assertThat(castPlayer.isCommandAvailable(COMMAND_ADJUST_DEVICE_VOLUME_WITH_FLAGS)).isTrue();
     assertThat(castPlayer.isCommandAvailable(COMMAND_SET_VIDEO_SURFACE)).isFalse();
     assertThat(castPlayer.isCommandAvailable(COMMAND_GET_TEXT)).isFalse();
-    assertThat(castPlayer.isCommandAvailable(Player.COMMAND_RELEASE)).isTrue();
+    assertThat(castPlayer.isCommandAvailable(COMMAND_RELEASE)).isTrue();
   }
 
   @Test
