@@ -1350,8 +1350,10 @@ public class TransformerEndToEndTest {
             .setRemoveAudio(true)
             .build();
     Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence.Builder(editedMediaItem).build())
-            .experimentalSetForceAudioTrack(true)
+        new Composition.Builder(
+                new EditedMediaItemSequence.Builder(editedMediaItem)
+                    .setForceAudioTrack(true)
+                    .build())
             .build();
     ExportTestResult result =
         new TransformerAndroidTestRunner.Builder(context, transformer)
@@ -1443,8 +1445,9 @@ public class TransformerEndToEndTest {
             .build();
     Composition composition =
         new Composition.Builder(
-                new EditedMediaItemSequence.Builder(editedMediaItem, editedMediaItem).build())
-            .experimentalSetForceAudioTrack(true)
+                new EditedMediaItemSequence.Builder(editedMediaItem, editedMediaItem)
+                    .setForceAudioTrack(true)
+                    .build())
             .build();
     ExportTestResult result =
         new TransformerAndroidTestRunner.Builder(context, transformer)

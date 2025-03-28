@@ -135,8 +135,8 @@ public final class ParameterizedItemExportTest {
             .setRemoveAudio(true)
             .build();
     Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence.Builder(item).build())
-            .experimentalSetForceAudioTrack(true)
+        new Composition.Builder(
+                new EditedMediaItemSequence.Builder(item).setForceAudioTrack(true).build())
             .build();
 
     transformer.start(composition, outputDir.newFile().getPath());
