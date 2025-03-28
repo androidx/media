@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.C.AUDIO_SESSION_ID_UNSET;
 import static androidx.media3.common.C.TRACK_TYPE_AUDIO;
 import static androidx.media3.common.C.TRACK_TYPE_CAMERA_MOTION;
@@ -394,7 +395,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
       if (builder.foregroundModeTimeoutMs > 0) {
         internalPlayer.experimentalSetForegroundModeTimeoutMs(builder.foregroundModeTimeoutMs);
       }
-      if (Util.SDK_INT >= 31) {
+      if (SDK_INT >= 31) {
         Api31.registerMediaMetricsListener(
             applicationContext, /* player= */ this, builder.usePlatformDiagnostics, playerId);
       }

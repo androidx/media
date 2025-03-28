@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 
@@ -48,9 +49,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   /** Creates the default {@link SuitableOutputChecker}. */
   public DefaultSuitableOutputChecker() {
-    if (Util.SDK_INT >= 35) {
+    if (SDK_INT >= 35) {
       impl = new ImplApi35();
-    } else if (Util.SDK_INT >= 23) {
+    } else if (SDK_INT >= 23) {
       impl = new ImplApi23();
     } else {
       impl = null;
@@ -255,18 +256,18 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             || device.getType() == AudioDeviceInfo.TYPE_WIRED_HEADSET) {
           return true;
         }
-        if (Util.SDK_INT >= 26 && device.getType() == AudioDeviceInfo.TYPE_USB_HEADSET) {
+        if (SDK_INT >= 26 && device.getType() == AudioDeviceInfo.TYPE_USB_HEADSET) {
           return true;
         }
-        if (Util.SDK_INT >= 28 && device.getType() == AudioDeviceInfo.TYPE_HEARING_AID) {
+        if (SDK_INT >= 28 && device.getType() == AudioDeviceInfo.TYPE_HEARING_AID) {
           return true;
         }
-        if (Util.SDK_INT >= 31
+        if (SDK_INT >= 31
             && (device.getType() == AudioDeviceInfo.TYPE_BLE_HEADSET
                 || device.getType() == AudioDeviceInfo.TYPE_BLE_SPEAKER)) {
           return true;
         }
-        if (Util.SDK_INT >= 33 && device.getType() == AudioDeviceInfo.TYPE_BLE_BROADCAST) {
+        if (SDK_INT >= 33 && device.getType() == AudioDeviceInfo.TYPE_BLE_BROADCAST) {
           return true;
         }
       }

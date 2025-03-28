@@ -16,10 +16,10 @@
 package androidx.media3.transformer;
 
 import static android.media.MediaCodecInfo.CodecProfileLevel.AACObjectHE;
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.MediaFormatUtil.createFormatFromMediaFormat;
-import static androidx.media3.common.util.Util.SDK_INT;
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.test.utils.TestUtil.retrieveTrackFormat;
 import static androidx.media3.transformer.AndroidTestUtil.JPG_ASSET;
@@ -91,7 +91,6 @@ import androidx.media3.common.audio.SonicAudioProcessor;
 import androidx.media3.common.audio.SpeedProvider;
 import androidx.media3.common.util.CodecSpecificDataUtil;
 import androidx.media3.common.util.GlUtil;
-import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSourceBitmapLoader;
 import androidx.media3.effect.Contrast;
 import androidx.media3.effect.DefaultGlObjectsProvider;
@@ -1108,7 +1107,7 @@ public class TransformerEndToEndTest {
   @Test
   public void clippedMedia_trimOptimizationEnabled_completesWithOptimizationApplied()
       throws Exception {
-    if (!isRunningOnEmulator() || Util.SDK_INT < 33) {
+    if (!isRunningOnEmulator() || SDK_INT < 33) {
       // The trim optimization is only guaranteed to work on emulator for this (emulator-transcoded)
       // file.
       recordTestSkipped(context, testId, /* reason= */ "SDK 33+ Emulator only test");
@@ -1144,7 +1143,7 @@ public class TransformerEndToEndTest {
   public void
       clippedMedia_trimOptimizationEnabled_inputFileRotated270_completesWithOptimizationApplied()
           throws Exception {
-    if (!isRunningOnEmulator() || Util.SDK_INT < 33) {
+    if (!isRunningOnEmulator() || SDK_INT < 33) {
       // The trim optimization is only guaranteed to work on emulator for this (emulator-transcoded)
       // file.
       recordTestSkipped(context, testId, /* reason= */ "SDK 33+ Emulator only test");
@@ -1181,7 +1180,7 @@ public class TransformerEndToEndTest {
   public void
       clippedMedia_trimOptimizationEnabled_inputFileRotated180_completesWithOptimizationApplied()
           throws Exception {
-    if (!isRunningOnEmulator() || Util.SDK_INT < 33) {
+    if (!isRunningOnEmulator() || SDK_INT < 33) {
       // The trim optimization is only guaranteed to work on emulator for this (emulator-transcoded)
       // file.
       recordTestSkipped(context, testId, /* reason= */ "SDK 33+ Emulator only test");
@@ -1218,7 +1217,7 @@ public class TransformerEndToEndTest {
   public void
       clippedMediaAudioRemovedNoOpEffectAndRotated_trimOptimizationEnabled_completedWithOptimizationAppliedAndCorrectOrientation()
           throws Exception {
-    if (!isRunningOnEmulator() || Util.SDK_INT < 33) {
+    if (!isRunningOnEmulator() || SDK_INT < 33) {
       // The trim optimization is only guaranteed to work on emulator for this (emulator-transcoded)
       // file.
       recordTestSkipped(context, testId, /* reason= */ "SDK 33+ Emulator only test");
@@ -1801,7 +1800,7 @@ public class TransformerEndToEndTest {
     // Hevc support is available from API 24.
     // The asset has B-frames and B-frame support is available from API 25.
     // Dolby vision support is available from API 33.
-    assumeTrue(Util.SDK_INT >= 25 && Util.SDK_INT < 33);
+    assumeTrue(SDK_INT >= 25 && SDK_INT < 33);
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(MP4_ASSET_DOLBY_VISION_HDR.uri)))
             .setRemoveAudio(true)
@@ -1819,7 +1818,7 @@ public class TransformerEndToEndTest {
 
   @Test
   public void transmuxDolbyVisionVideo_transmuxesSuccessfully() throws Exception {
-    assumeTrue("Dolby vision support available from API 33", Util.SDK_INT >= 33);
+    assumeTrue("Dolby vision support available from API 33", SDK_INT >= 33);
     Transformer transformer = new Transformer.Builder(context).build();
     MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_DOLBY_VISION_HDR.uri));
 
@@ -2124,7 +2123,7 @@ public class TransformerEndToEndTest {
     FakeTrackOutput audioTrack = fakeExtractorOutput.trackOutputs.get(0);
     int expectedSampleCount = 68;
     audioTrack.assertSampleCount(expectedSampleCount);
-    if (Util.SDK_INT >= 30) {
+    if (SDK_INT >= 30) {
       // TODO: b/324842222 - Mp4Extractor doesn't interpret Transformer's generated output as
       //  "gapless" audio. The generated file should have encoderDelay = 742 and first
       //  sample PTS of 0.
@@ -2178,8 +2177,7 @@ public class TransformerEndToEndTest {
   @Test
   public void transmux_videoWithEditList_trimsFirstIdrFrameDuration() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
-    assumeTrue(
-        "MediaMuxer doesn't support B frames reliably on older SDK versions", Util.SDK_INT >= 29);
+    assumeTrue("MediaMuxer doesn't support B frames reliably on older SDK versions", SDK_INT >= 29);
     Transformer transformer = new Transformer.Builder(context).build();
     MediaItem mediaItem =
         MediaItem.fromUri(Uri.parse("asset:///media/mp4/iibbibb_editlist_videoonly.mp4"));
@@ -2259,7 +2257,7 @@ public class TransformerEndToEndTest {
         /* outputFormat= */ MP4_ASSET_WITH_SHORTER_AUDIO.videoFormat);
     assumeTrue(
         "Old SDKs have large audio encoder buffer, and hits deadlocks due to b/329087277.",
-        Util.SDK_INT >= 31);
+        SDK_INT >= 31);
     Context context = ApplicationProvider.getApplicationContext();
     Transformer transformer = new Transformer.Builder(context).build();
     MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_WITH_SHORTER_AUDIO.uri));
@@ -2419,7 +2417,7 @@ public class TransformerEndToEndTest {
   public void export_setAudioEncodingBitrate_configuresEncoderWithRequestedBitrate()
       throws Exception {
     // On API 23, the encoder output format does not seem to contain bitrate, hence the test fails.
-    assumeTrue(Util.SDK_INT > 23);
+    assumeTrue(SDK_INT > 23);
     Context context = ApplicationProvider.getApplicationContext();
     int requestedBitrate = 60_000;
     // The MediaMuxer is not writing the bitrate hence use the InAppMuxer.
@@ -2590,7 +2588,7 @@ public class TransformerEndToEndTest {
   }
 
   private static boolean shouldSkipDeviceForAacObjectHeProfileEncoding() {
-    return Util.SDK_INT < 29;
+    return SDK_INT < 29;
   }
 
   private static AudioProcessor createSonic(float pitch) {

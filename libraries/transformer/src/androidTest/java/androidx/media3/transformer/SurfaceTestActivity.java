@@ -15,13 +15,14 @@
  */
 package androidx.media3.transformer;
 
+import static android.os.Build.VERSION.SDK_INT;
+
 import android.app.Activity;
 import android.app.KeyguardManager;
 import android.os.Bundle;
 import android.view.SurfaceView;
 import android.view.TextureView;
 import android.view.WindowManager;
-import androidx.media3.common.util.Util;
 import androidx.media3.transformer.test.R;
 
 /** An activity with surfaces for testing purposes. */
@@ -50,7 +51,7 @@ public final class SurfaceTestActivity extends Activity {
   }
 
   private static void setKeepScreenOn(Activity activity) {
-    if (Util.SDK_INT >= 27) {
+    if (SDK_INT >= 27) {
       activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
       activity.setTurnScreenOn(true);
       activity.setShowWhenLocked(true);

@@ -15,6 +15,7 @@
  */
 package androidx.media3.session;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static android.view.KeyEvent.KEYCODE_MEDIA_FAST_FORWARD;
 import static android.view.KeyEvent.KEYCODE_MEDIA_NEXT;
 import static android.view.KeyEvent.KEYCODE_MEDIA_PAUSE;
@@ -47,7 +48,6 @@ import androidx.media3.common.ForwardingPlayer;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.Util;
 import androidx.media3.session.MediaSession.ControllerInfo;
 import androidx.media3.test.session.common.HandlerThreadTestRule;
 import androidx.media3.test.session.common.MainLooperTestRule;
@@ -208,7 +208,7 @@ public class MediaSessionTest {
 
   @Test
   public void builderSetSessionActivity_nonActivityIntent_throwsIllegalArgumentException() {
-    Assume.assumeTrue(Util.SDK_INT >= 31);
+    Assume.assumeTrue(SDK_INT >= 31);
     PendingIntent pendingIntent =
         PendingIntent.getBroadcast(
             ApplicationProvider.getApplicationContext(),
@@ -226,7 +226,7 @@ public class MediaSessionTest {
 
   @Test
   public void setSessionActivity_nonActivityIntent_throwsIllegalArgumentException() {
-    Assume.assumeTrue(Util.SDK_INT >= 31);
+    Assume.assumeTrue(SDK_INT >= 31);
     PendingIntent pendingIntent =
         PendingIntent.getBroadcast(
             ApplicationProvider.getApplicationContext(),
@@ -1035,7 +1035,7 @@ public class MediaSessionTest {
    * <p>Calling this method should only be required to test legacy behaviour.
    */
   private static String getControllerCallerPackageName(ControllerInfo controllerInfo) {
-    return (Util.SDK_INT > 23
+    return (SDK_INT > 23
             || controllerInfo.getControllerVersion() != ControllerInfo.LEGACY_CONTROLLER_VERSION)
         ? ApplicationProvider.getApplicationContext().getPackageName()
         : MediaSessionManager.RemoteUserInfo.LEGACY_CONTROLLER;

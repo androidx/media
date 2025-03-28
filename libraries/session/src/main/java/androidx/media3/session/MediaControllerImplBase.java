@@ -15,6 +15,7 @@
  */
 package androidx.media3.session;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkIndex;
 import static androidx.media3.common.util.Assertions.checkNotNull;
@@ -415,7 +416,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
       return;
     }
 
-    if (Util.SDK_INT >= 31 && platformController != null) {
+    if (SDK_INT >= 31 && platformController != null) {
       // Ensure the platform session gets allow-listed to start a foreground service after receiving
       // the play command.
       platformController
@@ -2533,7 +2534,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 
   private boolean requestConnectToService() {
     int flags =
-        Util.SDK_INT >= 29
+        SDK_INT >= 29
             ? Context.BIND_AUTO_CREATE | Context.BIND_INCLUDE_CAPABILITIES
             : Context.BIND_AUTO_CREATE;
 

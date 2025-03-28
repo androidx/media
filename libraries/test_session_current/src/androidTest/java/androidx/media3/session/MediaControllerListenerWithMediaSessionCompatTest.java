@@ -15,6 +15,7 @@
  */
 package androidx.media3.session;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.test.session.common.TestUtils.TIMEOUT_MS;
 import static androidx.media3.test.session.common.TestUtils.getEventsAsList;
 import static com.google.common.truth.Truth.assertThat;
@@ -37,7 +38,6 @@ import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.ConditionVariable;
-import androidx.media3.common.util.Util;
 import androidx.media3.session.legacy.MediaMetadataCompat;
 import androidx.media3.test.session.R;
 import androidx.media3.test.session.common.CommonConstants;
@@ -349,7 +349,7 @@ public class MediaControllerListenerWithMediaSessionCompatTest {
     // We need to trigger MediaControllerCompat.Callback.onAudioInfoChanged in order to raise the
     // onAudioAttributesChanged() callback. In API 21 and 22, onAudioInfoChanged is not called when
     // playback is changed to local.
-    assumeTrue(Util.SDK_INT > 22);
+    assumeTrue(SDK_INT > 22);
 
     session.setPlaybackToRemote(
         /* volumeControl= */ VolumeProviderCompat.VOLUME_CONTROL_ABSOLUTE,
@@ -414,7 +414,7 @@ public class MediaControllerListenerWithMediaSessionCompatTest {
           }
         };
     threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
-    String testRoutingSessionId = Util.SDK_INT >= 30 ? "route" : null;
+    String testRoutingSessionId = SDK_INT >= 30 ? "route" : null;
 
     session.setPlaybackToRemote(
         /* volumeControl= */ VolumeProviderCompat.VOLUME_CONTROL_ABSOLUTE,

@@ -15,6 +15,7 @@
  */
 package androidx.media3.session;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static android.support.v4.media.MediaMetadataCompat.METADATA_KEY_ADVERTISEMENT;
 import static android.support.v4.media.MediaMetadataCompat.METADATA_KEY_ALBUM_ART;
 import static android.support.v4.media.MediaMetadataCompat.METADATA_KEY_ARTIST;
@@ -72,7 +73,6 @@ import androidx.media3.common.Player.RepeatMode;
 import androidx.media3.common.Player.State;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.BitmapLoader;
-import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSourceBitmapLoader;
 import androidx.media3.test.session.common.HandlerThreadTestRule;
 import androidx.media3.test.session.common.MainLooperTestRule;
@@ -370,7 +370,7 @@ public class MediaControllerWithMediaSessionCompatTest {
     Intent sessionActivity = new Intent(context, MockActivity.class);
     PendingIntent pi =
         PendingIntent.getActivity(
-            context, 0, sessionActivity, Util.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0);
+            context, 0, sessionActivity, SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0);
     session.setSessionActivity(pi);
 
     MediaController controller = controllerTestRule.createController(session.getSessionToken());
@@ -576,7 +576,7 @@ public class MediaControllerWithMediaSessionCompatTest {
     assertThat(TextUtils.equals(metadata.description, testDescription)).isTrue();
     assertThat(metadata.artworkUri).isEqualTo(testIconUri);
     assertThat(metadata.artworkData).isEqualTo(testArtworkData);
-    if (Util.SDK_INT >= 23) {
+    if (SDK_INT >= 23) {
       // TODO(b/199055952): Test mediaUri for all API levels once the bug is fixed.
       assertThat(mediaItem.requestMetadata.mediaUri).isEqualTo(testMediaUri);
     }
@@ -1604,7 +1604,7 @@ public class MediaControllerWithMediaSessionCompatTest {
     int volumeControlType = VolumeProviderCompat.VOLUME_CONTROL_ABSOLUTE;
     int maxVolume = 100;
     int currentVolume = 45;
-    String routingSessionId = Util.SDK_INT >= 30 ? "route" : null;
+    String routingSessionId = SDK_INT >= 30 ? "route" : null;
 
     AtomicReference<DeviceInfo> deviceInfoRef = new AtomicReference<>();
     CountDownLatch latchForDeviceInfo = new CountDownLatch(1);
@@ -1639,7 +1639,7 @@ public class MediaControllerWithMediaSessionCompatTest {
 
   @Test
   public void setPlaybackToLocal_notifiesDeviceInfoAndVolume() throws Exception {
-    if (Util.SDK_INT <= 22) {
+    if (SDK_INT <= 22) {
       // In API 21 and 22, onAudioInfoChanged is not called.
       return;
     }

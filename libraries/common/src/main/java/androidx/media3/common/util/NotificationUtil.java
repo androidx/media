@@ -15,6 +15,7 @@
  */
 package androidx.media3.common.util;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
@@ -113,7 +114,7 @@ public final class NotificationUtil {
       @StringRes int nameResourceId,
       @StringRes int descriptionResourceId,
       @Importance int importance) {
-    if (Util.SDK_INT >= 26) {
+    if (SDK_INT >= 26) {
       NotificationManager notificationManager =
           checkNotNull(
               (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE));
