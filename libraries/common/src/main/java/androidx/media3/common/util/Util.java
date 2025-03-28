@@ -155,10 +155,9 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
 public final class Util {
 
   /**
-   * Like {@link Build.VERSION#SDK_INT}, but in a place where it can be conveniently overridden for
-   * local testing.
+   * @deprecated Use {@link Build.VERSION#SDK_INT} instead.
    */
-  @UnstableApi public static final int SDK_INT = Build.VERSION.SDK_INT;
+  @UnstableApi @Deprecated public static final int SDK_INT = Build.VERSION.SDK_INT;
 
   /**
    * @deprecated Use {@link Build#DEVICE} instead.
@@ -178,7 +177,7 @@ public final class Util {
   /** A concise description of the device that it can be useful to log for debugging purposes. */
   @UnstableApi
   public static final String DEVICE_DEBUG_INFO =
-      Build.DEVICE + ", " + Build.MODEL + ", " + Build.MANUFACTURER + ", " + SDK_INT;
+      Build.DEVICE + ", " + Build.MODEL + ", " + Build.MANUFACTURER + ", " + Build.VERSION.SDK_INT;
 
   /** An empty byte array. */
   @UnstableApi public static final byte[] EMPTY_BYTE_ARRAY = new byte[0];
@@ -249,7 +248,7 @@ public final class Util {
   /**
    * Registers a {@link BroadcastReceiver} that's not intended to receive broadcasts from other
    * apps. This will be enforced by specifying {@link Context#RECEIVER_NOT_EXPORTED} if {@link
-   * #SDK_INT} is 33 or above.
+   * Build.VERSION#SDK_INT} is 33 or above.
    *
    * <p>Do not use this method if registering a receiver for a <a
    * href="https://android.googlesource.com/platform/frameworks/base/+/master/core/res/AndroidManifest.xml">protected
@@ -264,7 +263,7 @@ public final class Util {
   @Nullable
   public static Intent registerReceiverNotExported(
       Context context, @Nullable BroadcastReceiver receiver, IntentFilter filter) {
-    if (SDK_INT < 33) {
+    if (Build.VERSION.SDK_INT < 33) {
       return context.registerReceiver(receiver, filter);
     } else {
       return context.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED);
@@ -272,8 +271,8 @@ public final class Util {
   }
 
   /**
-   * Calls {@link Context#startForegroundService(Intent)} if {@link #SDK_INT} is 26 or higher, or
-   * {@link Context#startService(Intent)} otherwise.
+   * Calls {@link Context#startForegroundService(Intent)} if {@link Build.VERSION#SDK_INT} is 26 or
+   * higher, or {@link Context#startService(Intent)} otherwise.
    *
    * @param context The context to call.
    * @param intent The intent to pass to the called method.
@@ -282,7 +281,7 @@ public final class Util {
   @UnstableApi
   @Nullable
   public static ComponentName startForegroundService(Context context, Intent intent) {
-    if (SDK_INT >= 26) {
+    if (Build.VERSION.SDK_INT >= 26) {
       return context.startForegroundService(intent);
     } else {
       return context.startService(intent);
@@ -307,7 +306,7 @@ public final class Util {
       Notification notification,
       int foregroundServiceType,
       String foregroundServiceManifestType) {
-    if (Util.SDK_INT >= 29) {
+    if (Build.VERSION.SDK_INT >= 29) {
       Api29.startForeground(
           service,
           notificationId,
@@ -352,7 +351,7 @@ public final class Util {
    */
   public static boolean maybeRequestReadStoragePermission(
       Activity activity, MediaItem... mediaItems) {
-    if (SDK_INT < 23) {
+    if (Build.VERSION.SDK_INT < 23) {
       return false;
     }
     for (MediaItem mediaItem : mediaItems) {
@@ -377,7 +376,7 @@ public final class Util {
     if (!isReadStoragePermissionRequestNeeded(activity, uri)) {
       return false;
     }
-    if (SDK_INT < 33) {
+    if (Build.VERSION.SDK_INT < 33) {
       return requestExternalStoragePermission(activity);
     } else {
       return requestReadMediaPermissions(activity);
@@ -386,7 +385,7 @@ public final class Util {
 
   @ChecksSdkIntAtLeast(api = 23)
   private static boolean isReadStoragePermissionRequestNeeded(Activity activity, Uri uri) {
-    if (SDK_INT < 23) {
+    if (Build.VERSION.SDK_INT < 23) {
       // Permission automatically granted via manifest below API 23.
       return false;
     }
@@ -440,7 +439,7 @@ public final class Util {
    * @return Whether it may be possible to load the URIs of the given media items.
    */
   public static boolean checkCleartextTrafficPermitted(MediaItem... mediaItems) {
-    if (SDK_INT < 24) {
+    if (Build.VERSION.SDK_INT < 24) {
       // We assume cleartext traffic is permitted.
       return true;
     }
@@ -511,7 +510,7 @@ public final class Util {
       return false;
     }
 
-    if (Util.SDK_INT >= 31) {
+    if (Build.VERSION.SDK_INT >= 31) {
       return sparseArray1.contentEquals(sparseArray2);
     }
 
@@ -540,7 +539,7 @@ public final class Util {
    */
   @UnstableApi
   public static <T> int contentHashCode(SparseArray<T> sparseArray) {
-    if (Util.SDK_INT >= 31) {
+    if (Build.VERSION.SDK_INT >= 31) {
       return sparseArray.contentHashCode();
     }
     int hash = 17;
@@ -2296,7 +2295,7 @@ public final class Util {
       case 8:
         return AudioFormat.CHANNEL_OUT_7POINT1_SURROUND;
       case 10:
-        if (Util.SDK_INT >= 32) {
+        if (Build.VERSION.SDK_INT >= 32) {
           return AudioFormat.CHANNEL_OUT_5POINT1POINT4;
         } else {
           // Before API 32, height channel masks are not available. For those 10-channel streams
@@ -2306,7 +2305,7 @@ public final class Util {
       case 12:
         return AudioFormat.CHANNEL_OUT_7POINT1POINT4;
       case 24:
-        if (Util.SDK_INT >= 32) {
+        if (Build.VERSION.SDK_INT >= 32) {
           return AudioFormat.CHANNEL_OUT_7POINT1POINT4
               | AudioFormat.CHANNEL_OUT_FRONT_LEFT_OF_CENTER
               | AudioFormat.CHANNEL_OUT_FRONT_RIGHT_OF_CENTER
@@ -3070,7 +3069,9 @@ public final class Util {
   /** Returns the default {@link Locale.Category#DISPLAY DISPLAY} {@link Locale}. */
   @UnstableApi
   public static Locale getDefaultDisplayLocale() {
-    return SDK_INT >= 24 ? Locale.getDefault(Locale.Category.DISPLAY) : Locale.getDefault();
+    return Build.VERSION.SDK_INT >= 24
+        ? Locale.getDefault(Locale.Category.DISPLAY)
+        : Locale.getDefault();
   }
 
   /**
@@ -3165,7 +3166,7 @@ public final class Util {
    */
   @UnstableApi
   public static boolean isAutomotive(Context context) {
-    return SDK_INT >= 23
+    return Build.VERSION.SDK_INT >= 23
         && context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE);
   }
 
@@ -3241,7 +3242,7 @@ public final class Util {
       // vendor.display-size instead.
       @Nullable
       String displaySize =
-          SDK_INT < 28
+          Build.VERSION.SDK_INT < 28
               ? getSystemProperty("sys.display-size")
               : getSystemProperty("vendor.display-size");
       // If we managed to read the display size, attempt to parse it.
@@ -3270,7 +3271,7 @@ public final class Util {
     }
 
     Point displaySize = new Point();
-    if (SDK_INT >= 23) {
+    if (Build.VERSION.SDK_INT >= 23) {
       getDisplaySizeV23(display, displaySize);
     } else {
       display.getRealSize(displaySize);
@@ -3324,9 +3325,9 @@ public final class Util {
         return true;
       case MimeTypes.IMAGE_HEIF:
       case MimeTypes.IMAGE_HEIC:
-        return Util.SDK_INT >= 26;
+        return Build.VERSION.SDK_INT >= 26;
       case MimeTypes.IMAGE_AVIF:
-        return Util.SDK_INT >= 34;
+        return Build.VERSION.SDK_INT >= 34;
       default:
         return false;
     }
@@ -3526,12 +3527,12 @@ public final class Util {
     // full.
     // Some devices might drop frames despite setting {@link
     // MediaFormat#KEY_ALLOW_FRAME_DROP} to 0. See b/307518793, b/289983935 and b/353487886.
-    return SDK_INT < 29
+    return Build.VERSION.SDK_INT < 29
         || context.getApplicationInfo().targetSdkVersion < 29
-        || ((SDK_INT == 30
+        || ((Build.VERSION.SDK_INT == 30
                 && (Ascii.equalsIgnoreCase(Build.MODEL, "moto g(20)")
                     || Ascii.equalsIgnoreCase(Build.MODEL, "rmx3231")))
-            || (SDK_INT == 34 && Ascii.equalsIgnoreCase(Build.MODEL, "sm-x200")));
+            || (Build.VERSION.SDK_INT == 34 && Ascii.equalsIgnoreCase(Build.MODEL, "sm-x200")));
   }
 
   /**
@@ -3818,7 +3819,7 @@ public final class Util {
 
   private static String[] getSystemLocales() {
     Configuration config = Resources.getSystem().getConfiguration();
-    return SDK_INT >= 24
+    return Build.VERSION.SDK_INT >= 24
         ? getSystemLocalesV24(config)
         : new String[] {getLocaleLanguageTag(config.locale)};
   }

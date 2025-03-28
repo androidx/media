@@ -15,13 +15,13 @@
  */
 package androidx.media3.common;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Assertions.checkIndex;
 import static androidx.media3.common.util.Assertions.checkState;
 
 import android.util.SparseBooleanArray;
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
 /**
@@ -222,7 +222,7 @@ public final class FlagSet {
       return false;
     }
     FlagSet that = (FlagSet) o;
-    if (Util.SDK_INT < 24) {
+    if (SDK_INT < 24) {
       // SparseBooleanArray.equals() is not implemented on API levels below 24.
       if (size() != that.size()) {
         return false;
@@ -240,7 +240,7 @@ public final class FlagSet {
 
   @Override
   public int hashCode() {
-    if (Util.SDK_INT < 24) {
+    if (SDK_INT < 24) {
       // SparseBooleanArray.hashCode() is not implemented on API levels below 24.
       int hashCode = size();
       for (int i = 0; i < size(); i++) {

@@ -15,6 +15,7 @@
  */
 package androidx.media3.transformer;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.MimeTypes.IMAGE_JPEG;
 import static androidx.media3.common.MimeTypes.IMAGE_PNG;
 import static androidx.media3.common.MimeTypes.IMAGE_WEBP;
@@ -24,7 +25,6 @@ import static androidx.media3.common.MimeTypes.VIDEO_H264;
 import static androidx.media3.common.MimeTypes.VIDEO_H265;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
-import static androidx.media3.common.util.Util.SDK_INT;
 import static androidx.media3.test.utils.TestUtil.retrieveTrackFormat;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
@@ -1293,7 +1293,7 @@ public final class AndroidTestUtil {
       throws IOException, InterruptedException {
     // b/298599172 - runUntilComparisonFrameOrEnded fails on this device because reading decoder
     //  output as a bitmap doesn't work.
-    assumeFalse(Util.SDK_INT == 21 && Ascii.toLowerCase(Build.MODEL).contains("nexus"));
+    assumeFalse(SDK_INT == 21 && Ascii.toLowerCase(Build.MODEL).contains("nexus"));
     ImmutableList.Builder<Bitmap> bitmaps = new ImmutableList.Builder<>();
     try (VideoDecodingWrapper decodingWrapper =
         new VideoDecodingWrapper(

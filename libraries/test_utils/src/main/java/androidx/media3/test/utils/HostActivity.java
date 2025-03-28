@@ -15,6 +15,7 @@
  */
 package androidx.media3.test.utils;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static org.junit.Assert.fail;
 
 import android.app.Activity;
@@ -196,7 +197,7 @@ public final class HostActivity extends Activity implements SurfaceHolder.Callba
   @Override
   public void onPause() {
     super.onPause();
-    if (Util.SDK_INT <= 23) {
+    if (SDK_INT <= 23) {
       maybeStopHostedTest();
     }
   }
@@ -204,7 +205,7 @@ public final class HostActivity extends Activity implements SurfaceHolder.Callba
   @Override
   public void onStop() {
     super.onStop();
-    if (Util.SDK_INT > 23) {
+    if (SDK_INT > 23) {
       maybeStopHostedTest();
     }
     if (wakeLock != null) {

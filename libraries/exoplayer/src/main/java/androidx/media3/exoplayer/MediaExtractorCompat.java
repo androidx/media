@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.annotation.VisibleForTesting.NONE;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
@@ -45,7 +46,6 @@ import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.MediaFormatUtil;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DataSourceUtil;
 import androidx.media3.datasource.DataSpec;
@@ -1003,7 +1003,7 @@ public final class MediaExtractorCompat {
       Format format = getFormat(scratchFormatHolder, scratchNoDataDecoderInputBuffer);
       MediaFormat mediaFormatResult = MediaFormatUtil.createMediaFormatFromFormat(format);
       if (compatibilityTrackMimeType != null) {
-        if (Util.SDK_INT >= 29) {
+        if (SDK_INT >= 29) {
           mediaFormatResult.removeKey(MediaFormat.KEY_CODECS_STRING);
         }
         mediaFormatResult.setString(MediaFormat.KEY_MIME, compatibilityTrackMimeType);

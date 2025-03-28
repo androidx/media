@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.audio;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.exoplayer.DecoderReuseEvaluation.DISCARD_REASON_DRM_SESSION_CHANGED;
 import static androidx.media3.exoplayer.DecoderReuseEvaluation.DISCARD_REASON_REUSE_NOT_IMPLEMENTED;
@@ -762,7 +763,7 @@ public abstract class DecoderAudioRenderer<
         audioSink.setAudioSessionId((Integer) message);
         break;
       case MSG_SET_PREFERRED_AUDIO_DEVICE:
-        if (Util.SDK_INT >= 23) {
+        if (SDK_INT >= 23) {
           Api23.setAudioSinkPreferredDevice(audioSink, message);
         }
         break;
