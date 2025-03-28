@@ -15,6 +15,7 @@
  */
 package androidx.media3.decoder.iamf;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static com.google.common.truth.Truth.assertWithMessage;
 
 import android.content.Context;
@@ -28,7 +29,6 @@ import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
-import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DefaultDataSource;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.Renderer;
@@ -99,7 +99,7 @@ public class IamfPlaybackTest {
     @Override
     public void run() {
       Looper.prepare();
-      if (Util.SDK_INT >= 32) { // Spatializer is only available on API 32 and above.
+      if (SDK_INT >= 32) { // Spatializer is only available on API 32 and above.
         AudioManager audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
         // Lint can't follow the indirection from AudioFormat.ENCODING_PCM_16BIT to
         // IamfDecoder.OUTPUT_PCM_ENCODING.

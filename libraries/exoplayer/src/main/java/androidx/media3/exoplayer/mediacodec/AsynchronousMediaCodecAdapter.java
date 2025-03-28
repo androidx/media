@@ -16,6 +16,7 @@
 
 package androidx.media3.exoplayer.mediacodec;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.media.MediaCodec;
@@ -35,7 +36,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.TraceUtil;
-import androidx.media3.common.util.Util;
 import androidx.media3.decoder.CryptoInfo;
 import com.google.common.base.Supplier;
 import java.io.IOException;
@@ -129,7 +129,7 @@ import java.nio.ByteBuffer;
         TraceUtil.endSection();
         if (configuration.surface == null
             && configuration.codecInfo.detachedSurfaceSupported
-            && Util.SDK_INT >= 35) {
+            && SDK_INT >= 35) {
           flags |= MediaCodec.CONFIGURE_FLAG_DETACHED_SURFACE;
         }
         codecAdapter.initialize(
@@ -147,11 +147,11 @@ import java.nio.ByteBuffer;
 
     @ChecksSdkIntAtLeast(api = 34)
     private static boolean useSynchronousBufferQueueingWithAsyncCryptoFlag(Format format) {
-      if (Util.SDK_INT < 34) {
+      if (SDK_INT < 34) {
         return false;
       }
       // CONFIGURE_FLAG_USE_CRYPTO_ASYNC only works for audio on API 35+ (see b/316565675).
-      return Util.SDK_INT >= 35 || MimeTypes.isVideo(format.sampleMimeType);
+      return SDK_INT >= 35 || MimeTypes.isVideo(format.sampleMimeType);
     }
   }
 
@@ -198,7 +198,7 @@ import java.nio.ByteBuffer;
     TraceUtil.beginSection("startCodec");
     codec.start();
     TraceUtil.endSection();
-    if (Util.SDK_INT >= 35 && loudnessCodecController != null) {
+    if (SDK_INT >= 35 && loudnessCodecController != null) {
       loudnessCodecController.addMediaCodec(codec);
     }
     state = STATE_INITIALIZED;
@@ -289,11 +289,11 @@ import java.nio.ByteBuffer;
           // MediaCodec.release() returns too early before fully detaching a Surface, and a
           // subsequent MediaCodec.configure() call using the same Surface then fails. See
           // https://github.com/google/ExoPlayer/issues/8696 and b/191966399.
-          if (Util.SDK_INT >= 30 && Util.SDK_INT < 33) {
+          if (SDK_INT >= 30 && SDK_INT < 33) {
             codec.stop();
           }
         } finally {
-          if (Util.SDK_INT >= 35 && loudnessCodecController != null) {
+          if (SDK_INT >= 35 && loudnessCodecController != null) {
             loudnessCodecController.removeMediaCodec(codec);
           }
           codec.release();

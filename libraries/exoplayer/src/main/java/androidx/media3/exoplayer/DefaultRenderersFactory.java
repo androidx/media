@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.content.Context;
@@ -29,7 +30,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.audio.AudioRendererEventListener;
 import androidx.media3.exoplayer.audio.AudioSink;
 import androidx.media3.exoplayer.audio.DefaultAudioSink;
@@ -440,7 +440,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
             .setMaxDroppedFramesToNotify(MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY)
             .experimentalSetParseAv1SampleDependencies(parseAv1SampleDependencies)
             .experimentalSetLateThresholdToDropDecoderInputUs(lateThresholdToDropDecoderInputUs);
-    if (Util.SDK_INT >= 34) {
+    if (SDK_INT >= 34) {
       videoRendererBuilder =
           videoRendererBuilder.experimentalSetEnableMediaCodecBufferDecodeOnlyFlag(
               enableMediaCodecBufferDecodeOnlyFlag);
@@ -889,7 +889,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
               .setMaxDroppedFramesToNotify(MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY)
               .experimentalSetParseAv1SampleDependencies(parseAv1SampleDependencies)
               .experimentalSetLateThresholdToDropDecoderInputUs(lateThresholdToDropDecoderInputUs);
-      if (Util.SDK_INT >= 34) {
+      if (SDK_INT >= 34) {
         builder =
             builder.experimentalSetEnableMediaCodecBufferDecodeOnlyFlag(
                 enableMediaCodecBufferDecodeOnlyFlag);
