@@ -408,7 +408,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
   // PlaybackVideoGraphWrapper.Listener methods. Called on playback thread.
 
   @Override
-  public void onFirstFrameRendered(PlaybackVideoGraphWrapper playbackVideoGraphWrapper) {
+  public void onFirstFrameRendered() {
     applicationHandler.post(
         () -> {
           CompositionPlayer.this.renderedFirstFrame = true;
@@ -417,21 +417,18 @@ public final class CompositionPlayer extends SimpleBasePlayer
   }
 
   @Override
-  public void onFrameDropped(PlaybackVideoGraphWrapper playbackVideoGraphWrapper) {
+  public void onFrameDropped() {
     // Do not post to application thread on each dropped frame, because onFrameDropped
     // may be called frequently when resources are already scarce.
   }
 
   @Override
-  public void onVideoSizeChanged(
-      PlaybackVideoGraphWrapper playbackVideoGraphWrapper, VideoSize videoSize) {
+  public void onVideoSizeChanged(VideoSize videoSize) {
     // TODO: b/328219481 - Report video size change to app.
   }
 
   @Override
-  public void onError(
-      PlaybackVideoGraphWrapper playbackVideoGraphWrapper,
-      VideoFrameProcessingException videoFrameProcessingException) {
+  public void onError(VideoFrameProcessingException videoFrameProcessingException) {
     // The error will also be surfaced from the underlying ExoPlayer instance via
     // PlayerListener.onPlayerError, and it will arrive to the composition player twice.
     applicationHandler.post(
