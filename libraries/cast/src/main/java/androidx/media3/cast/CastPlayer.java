@@ -34,6 +34,7 @@ import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.TextureView;
 import androidx.annotation.IntRange;
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
@@ -154,6 +155,8 @@ public final class CastPlayer extends BasePlayer {
   // Internal state.
   private final StateHolder<Boolean> playWhenReady;
   private final StateHolder<Integer> repeatMode;
+  private final StateHolder<Float> volume;
+  private final StateHolder<Boolean> deviceMuted;
   private final StateHolder<PlaybackParameters> playbackParameters;
   @Nullable private RemoteMediaClient remoteMediaClient;
   private CastTimeline currentTimeline;
@@ -266,6 +269,8 @@ public final class CastPlayer extends BasePlayer {
             (listener, flags) -> listener.onEvents(/* player= */ this, new Events(flags)));
     playWhenReady = new StateHolder<>(false);
     repeatMode = new StateHolder<>(REPEAT_MODE_OFF);
+    volume = new StateHolder<>(1f);
+    deviceMuted = new StateHolder<>(false);
     playbackParameters = new StateHolder<>(PlaybackParameters.DEFAULT);
     playbackState = STATE_IDLE;
     currentTimeline = CastTimeline.EMPTY_CAST_TIMELINE;
@@ -755,14 +760,33 @@ public final class CastPlayer extends BasePlayer {
     return AudioAttributes.DEFAULT;
   }
 
-  /** This method is not supported and does nothing. */
   @Override
-  public void setVolume(float volume) {}
+  public void setVolume(float volume) {
+    if (remoteMediaClient == null) {
+      return;
+    }
+    // We update the local state and send the message to the receiver app, which will cause the
+    // operation to be perceived as synchronous by the user. When the operation reports a result,
+    // the local state will be updated to reflect the state reported by the Cast SDK.
+    setVolumeAndNotifyIfChanged(volume);
+    listeners.flushEvents();
+    PendingResult<MediaChannelResult> pendingResult = remoteMediaClient.setStreamVolume(volume);
+    this.volume.pendingResultCallback =
+        new ResultCallback<MediaChannelResult>() {
+          @Override
+          public void onResult(@NonNull MediaChannelResult result) {
+            if (remoteMediaClient != null) {
+              updateVolumeAndNotifyIfChanged(this);
+              listeners.flushEvents();
+            }
+          }
+        };
+    pendingResult.setResultCallback(this.volume.pendingResultCallback);
+  }
 
-  /** This method is not supported and returns 1. */
   @Override
   public float getVolume() {
-    return 1;
+    return volume.value;
   }
 
   /** This method is not supported and does nothing. */
@@ -835,10 +859,9 @@ public final class CastPlayer extends BasePlayer {
     return 0;
   }
 
-  /** This method is not supported and always returns {@code false}. */
   @Override
   public boolean isDeviceMuted() {
-    return false;
+    return deviceMuted.value;
   }
 
   /**
@@ -879,11 +902,33 @@ public final class CastPlayer extends BasePlayer {
    */
   @Deprecated
   @Override
-  public void setDeviceMuted(boolean muted) {}
+  public void setDeviceMuted(boolean muted) {
+    setDeviceMuted(muted, 0);
+  }
 
-  /** This method is not supported and does nothing. */
   @Override
-  public void setDeviceMuted(boolean muted, @C.VolumeFlags int flags) {}
+  public void setDeviceMuted(boolean muted, @C.VolumeFlags int flags) {
+    if (remoteMediaClient == null) {
+      return;
+    }
+    // We update the local state and send the message to the receiver app, which will cause the
+    // operation to be perceived as synchronous by the user. When the operation reports a result,
+    // the local state will be updated to reflect the state reported by the Cast SDK.
+    setDeviceMutedAndNotifyIfChanged(muted);
+    listeners.flushEvents();
+    PendingResult<MediaChannelResult> pendingResult = remoteMediaClient.setStreamMute(muted);
+    this.deviceMuted.pendingResultCallback =
+        new ResultCallback<MediaChannelResult>() {
+          @Override
+          public void onResult(@NonNull MediaChannelResult result) {
+            if (remoteMediaClient != null) {
+              updateDeviceMutedAndNotifyIfChanged(this);
+              listeners.flushEvents();
+            }
+          }
+        };
+    pendingResult.setResultCallback(this.deviceMuted.pendingResultCallback);
+  }
 
   /** This method is not supported and does nothing. */
   @Override
@@ -907,6 +952,8 @@ public final class CastPlayer extends BasePlayer {
             : null;
     updatePlayerStateAndNotifyIfChanged(/* resultCallback= */ null);
     updateRepeatModeAndNotifyIfChanged(/* resultCallback= */ null);
+    updateVolumeAndNotifyIfChanged(/* resultCallback= */ null);
+    updateDeviceMutedAndNotifyIfChanged(/* resultCallback= */ null);
     updatePlaybackRateAndNotifyIfChanged(/* resultCallback= */ null);
     boolean playingPeriodChangedByTimelineChange = updateTimelineAndNotifyIfChanged();
     Timeline currentTimeline = getCurrentTimeline();
@@ -1019,6 +1066,22 @@ public final class CastPlayer extends BasePlayer {
     if (repeatMode.acceptsUpdate(resultCallback)) {
       setRepeatModeAndNotifyIfChanged(fetchRepeatMode(remoteMediaClient));
       repeatMode.clearPendingResultCallback();
+    }
+  }
+
+  @RequiresNonNull("remoteMediaClient")
+  private void updateVolumeAndNotifyIfChanged(@Nullable ResultCallback<?> resultCallback) {
+    if (volume.acceptsUpdate(resultCallback)) {
+      setVolumeAndNotifyIfChanged(fetchVolume(remoteMediaClient));
+      volume.clearPendingResultCallback();
+    }
+  }
+
+  @RequiresNonNull("remoteMediaClient")
+  private void updateDeviceMutedAndNotifyIfChanged(@Nullable ResultCallback<?> resultCallback) {
+    if (deviceMuted.acceptsUpdate(resultCallback)) {
+      setDeviceMutedAndNotifyIfChanged(fetchDeviceMuted(remoteMediaClient));
+      deviceMuted.clearPendingResultCallback();
     }
   }
 
@@ -1157,12 +1220,38 @@ public final class CastPlayer extends BasePlayer {
 
   private void updateAvailableCommandsAndNotifyIfChanged() {
     Commands previousAvailableCommands = availableCommands;
-    availableCommands = Util.getAvailableCommands(/* player= */ this, PERMANENT_AVAILABLE_COMMANDS);
+    availableCommands =
+        Util.getAvailableCommands(/* player= */ this, PERMANENT_AVAILABLE_COMMANDS)
+            .buildUpon()
+            .addIf(COMMAND_SET_VOLUME, isSetVolumeCommandAvailable())
+            .addIf(COMMAND_ADJUST_DEVICE_VOLUME, isToggleMuteCommandAvailable())
+            .addIf(COMMAND_ADJUST_DEVICE_VOLUME_WITH_FLAGS, isToggleMuteCommandAvailable())
+            .build();
     if (!availableCommands.equals(previousAvailableCommands)) {
       listeners.queueEvent(
           Player.EVENT_AVAILABLE_COMMANDS_CHANGED,
           listener -> listener.onAvailableCommandsChanged(availableCommands));
     }
+  }
+
+  private boolean isSetVolumeCommandAvailable() {
+    if (remoteMediaClient != null) {
+      MediaStatus mediaStatus = remoteMediaClient.getMediaStatus();
+      if (mediaStatus != null) {
+        return mediaStatus.isMediaCommandSupported(MediaStatus.COMMAND_SET_VOLUME);
+      }
+    }
+    return false;
+  }
+
+  private boolean isToggleMuteCommandAvailable() {
+    if (remoteMediaClient != null) {
+      MediaStatus mediaStatus = remoteMediaClient.getMediaStatus();
+      if (mediaStatus != null) {
+        return mediaStatus.isMediaCommandSupported(MediaStatus.COMMAND_TOGGLE_MUTE);
+      }
+    }
+    return false;
   }
 
   private void setMediaItemsInternal(
@@ -1260,6 +1349,25 @@ public final class CastPlayer extends BasePlayer {
       this.repeatMode.value = repeatMode;
       listeners.queueEvent(
           Player.EVENT_REPEAT_MODE_CHANGED, listener -> listener.onRepeatModeChanged(repeatMode));
+      updateAvailableCommandsAndNotifyIfChanged();
+    }
+  }
+
+  private void setVolumeAndNotifyIfChanged(float volume) {
+    if (this.volume.value != volume) {
+      this.volume.value = volume;
+      listeners.queueEvent(
+          Player.EVENT_VOLUME_CHANGED, listener -> listener.onVolumeChanged(volume));
+      updateAvailableCommandsAndNotifyIfChanged();
+    }
+  }
+
+  private void setDeviceMutedAndNotifyIfChanged(boolean muted) {
+    if (this.deviceMuted.value != muted) {
+      this.deviceMuted.value = muted;
+      listeners.queueEvent(
+          Player.EVENT_DEVICE_VOLUME_CHANGED,
+          listener -> listener.onDeviceVolumeChanged(getDeviceVolume(), muted));
       updateAvailableCommandsAndNotifyIfChanged();
     }
   }
@@ -1376,6 +1484,24 @@ public final class CastPlayer extends BasePlayer {
       default:
         throw new IllegalStateException();
     }
+  }
+
+  private static float fetchVolume(RemoteMediaClient remoteMediaClient) {
+    MediaStatus mediaStatus = remoteMediaClient.getMediaStatus();
+    if (mediaStatus == null) {
+      // No media session active, yet.
+      return 1f;
+    }
+    return (float) mediaStatus.getStreamVolume();
+  }
+
+  private static boolean fetchDeviceMuted(RemoteMediaClient remoteMediaClient) {
+    MediaStatus mediaStatus = remoteMediaClient.getMediaStatus();
+    if (mediaStatus == null) {
+      // No media session active, yet.
+      return false;
+    }
+    return mediaStatus.isMute();
   }
 
   private static int fetchCurrentWindowIndex(
@@ -1642,9 +1768,9 @@ public final class CastPlayer extends BasePlayer {
         // There's only one remote routing controller. It's safe to assume it's the Cast routing
         // controller.
         RoutingController remoteController = controllers.get(1);
-        // TODO b/364580007 - Populate volume information, and implement Player volume-related
-        //  methods.
+        // TODO b/364580007 - Populate min volume information.
         return new DeviceInfo.Builder(DeviceInfo.PLAYBACK_TYPE_REMOTE)
+            .setMaxVolume(remoteController.getVolumeMax())
             .setRoutingControllerId(remoteController.getId())
             .build();
       }
