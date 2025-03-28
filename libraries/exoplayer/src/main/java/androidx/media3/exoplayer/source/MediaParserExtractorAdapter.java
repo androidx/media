@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.source;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.exoplayer.source.mediaparser.MediaParserUtil.PARAMETER_EAGERLY_EXPOSE_TRACK_TYPE;
 import static androidx.media3.exoplayer.source.mediaparser.MediaParserUtil.PARAMETER_INCLUDE_SUPPLEMENTAL_DATA;
 import static androidx.media3.exoplayer.source.mediaparser.MediaParserUtil.PARAMETER_IN_BAND_CRYPTO_INFO;
@@ -28,7 +29,6 @@ import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.DataReader;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.source.mediaparser.InputReaderAdapterV30;
 import androidx.media3.exoplayer.source.mediaparser.MediaParserUtil;
@@ -107,7 +107,7 @@ public final class MediaParserExtractorAdapter implements ProgressiveMediaExtrac
       mediaParser.setParameter(parameter.getKey(), parameter.getValue());
     }
     parserName = MediaParser.PARSER_NAME_UNKNOWN;
-    if (Util.SDK_INT >= 31) {
+    if (SDK_INT >= 31) {
       MediaParserUtil.setLogSessionIdOnMediaParser(mediaParser, playerId);
     }
   }

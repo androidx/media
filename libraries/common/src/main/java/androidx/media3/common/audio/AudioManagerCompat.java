@@ -15,6 +15,7 @@
  */
 package androidx.media3.common.audio;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
@@ -29,7 +30,6 @@ import androidx.media3.common.util.BackgroundExecutor;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -154,7 +154,7 @@ public final class AudioManagerCompat {
   @SuppressWarnings("deprecation")
   public static int requestAudioFocus(
       AudioManager audioManager, AudioFocusRequestCompat focusRequest) {
-    if (Util.SDK_INT >= 26) {
+    if (SDK_INT >= 26) {
       return audioManager.requestAudioFocus(focusRequest.getAudioFocusRequest());
     } else {
       return audioManager.requestAudioFocus(
@@ -176,7 +176,7 @@ public final class AudioManagerCompat {
   @SuppressWarnings("deprecation")
   public static int abandonAudioFocusRequest(
       AudioManager audioManager, AudioFocusRequestCompat focusRequest) {
-    if (Util.SDK_INT >= 26) {
+    if (SDK_INT >= 26) {
       return audioManager.abandonAudioFocusRequest(focusRequest.getAudioFocusRequest());
     } else {
       return audioManager.abandonAudioFocus(focusRequest.getOnAudioFocusChangeListener());
@@ -204,7 +204,7 @@ public final class AudioManagerCompat {
    */
   @IntRange(from = 0)
   public static int getStreamMinVolume(AudioManager audioManager, @C.StreamType int streamType) {
-    return Util.SDK_INT >= 28 ? audioManager.getStreamMinVolume(streamType) : 0;
+    return SDK_INT >= 28 ? audioManager.getStreamMinVolume(streamType) : 0;
   }
 
   /**
@@ -233,7 +233,7 @@ public final class AudioManagerCompat {
    * @return Whether the stream is muted.
    */
   public static boolean isStreamMute(AudioManager audioManager, @C.StreamType int streamType) {
-    if (Util.SDK_INT >= 23) {
+    if (SDK_INT >= 23) {
       return audioManager.isStreamMute(streamType);
     } else {
       return getStreamVolume(audioManager, streamType) == 0;

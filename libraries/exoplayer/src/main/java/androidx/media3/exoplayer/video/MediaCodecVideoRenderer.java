@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.video;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static android.view.Display.DEFAULT_DISPLAY;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
@@ -744,7 +745,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     @DecoderSupport
     int decoderSupport = isPreferredDecoder ? DECODER_SUPPORT_PRIMARY : DECODER_SUPPORT_FALLBACK;
 
-    if (Util.SDK_INT >= 26
+    if (SDK_INT >= 26
         && MimeTypes.VIDEO_DOLBY_VISION.equals(format.sampleMimeType)
         && !Api26.doesDisplaySupportDolbyVision(context)) {
       decoderSupport = DECODER_SUPPORT_FALLBACK_MIMETYPE;
@@ -815,7 +816,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     if (format.sampleMimeType == null) {
       return ImmutableList.of();
     }
-    if (Util.SDK_INT >= 26
+    if (SDK_INT >= 26
         && MimeTypes.VIDEO_DOLBY_VISION.equals(format.sampleMimeType)
         && !Api26.doesDisplaySupportDolbyVision(context)) {
       List<MediaCodecInfo> alternativeDecoderInfos =
@@ -1184,7 +1185,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       if (codec != null && videoSink == null) {
         MediaCodecInfo codecInfo = checkNotNull(getCodecInfo());
         boolean canUpdateSurface = hasSurfaceForCodec(codecInfo);
-        if (Util.SDK_INT >= 23 && canUpdateSurface && !codecNeedsSetOutputSurfaceWorkaround) {
+        if (SDK_INT >= 23 && canUpdateSurface && !codecNeedsSetOutputSurfaceWorkaround) {
           setOutputSurface(codec, getSurfaceForCodec(codecInfo));
         } else {
           releaseCodec();
@@ -1229,7 +1230,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   @Override
   protected boolean getCodecNeedsEosPropagation() {
     // Since API 23, onFrameRenderedListener allows for detection of the renderer EOS.
-    return tunneling && Util.SDK_INT < 23;
+    return tunneling && SDK_INT < 23;
   }
 
   @Override
@@ -1502,7 +1503,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     if (!tunneling) {
       buffersInCodecCount++;
     }
-    if (Util.SDK_INT < 23 && tunneling) {
+    if (SDK_INT < 23 && tunneling) {
       // In tunneled mode before API 23 we don't have a way to know when the buffer is output, so
       // treat it as if it were output immediately.
       onProcessedTunneledBuffer(buffer.timeUs);
@@ -1511,7 +1512,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
 
   @Override
   protected int getCodecBufferFlags(DecoderInputBuffer buffer) {
-    if (Util.SDK_INT >= 34
+    if (SDK_INT >= 34
         && (enableMediaCodecBufferDecodeOnlyFlag || tunneling)
         && isBufferBeforeStartTime(buffer)) {
       // The buffer likely needs to be dropped because its timestamp is less than the start time.
@@ -2123,11 +2124,11 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   }
 
   protected boolean shouldUseDetachedSurface(MediaCodecInfo codecInfo) {
-    return Util.SDK_INT >= 35 && codecInfo.detachedSurfaceSupported;
+    return SDK_INT >= 35 && codecInfo.detachedSurfaceSupported;
   }
 
   protected boolean shouldUsePlaceholderSurface(MediaCodecInfo codecInfo) {
-    return Util.SDK_INT >= 23
+    return SDK_INT >= 23
         && !tunneling
         && !codecNeedsSetOutputSurfaceWorkaround(codecInfo.name)
         && (!codecInfo.secure || PlaceholderSurface.isSecureSupported(context));
@@ -2141,7 +2142,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   }
 
   private void maybeSetupTunnelingForFirstFrame() {
-    if (!tunneling || Util.SDK_INT < 23) {
+    if (!tunneling || SDK_INT < 23) {
       // The first frame notification for tunneling is triggered by onQueueInputBuffer prior to API
       // level 23 and no setup is needed here.
       return;
@@ -2152,7 +2153,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       return;
     }
     tunnelingOnFrameRenderedListener = new OnFrameRenderedListenerV23(codec);
-    if (Util.SDK_INT >= 33) {
+    if (SDK_INT >= 33) {
       // This should be the default anyway according to the API contract, but some devices are known
       // to not adhere to this contract and need to get the parameter explicitly. See
       // https://github.com/androidx/media/issues/1169.
@@ -2168,7 +2169,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       // If codec is null, then the importance will be set when initializing the codec.
       return;
     }
-    if (Util.SDK_INT >= 35) {
+    if (SDK_INT >= 35) {
       Bundle codecParameters = new Bundle();
       codecParameters.putInt(MediaFormat.KEY_IMPORTANCE, max(0, -rendererPriority));
       codec.setParameters(codecParameters);
@@ -2234,9 +2235,9 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   }
 
   private void setOutputSurface(MediaCodecAdapter codec, @Nullable Surface surface) {
-    if (Util.SDK_INT >= 23 && surface != null) {
+    if (SDK_INT >= 23 && surface != null) {
       setOutputSurfaceV23(codec, surface);
-    } else if (Util.SDK_INT >= 35) {
+    } else if (SDK_INT >= 35) {
       detachOutputSurfaceV35(codec);
     } else {
       throw new IllegalStateException();
@@ -2300,7 +2301,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     MediaFormatUtil.maybeSetInteger(
         mediaFormat, MediaFormat.KEY_MAX_INPUT_SIZE, codecMaxValues.inputSize);
     // Set codec configuration values.
-    if (Util.SDK_INT >= 23) {
+    if (SDK_INT >= 23) {
       mediaFormat.setInteger(MediaFormat.KEY_PRIORITY, 0 /* realtime priority */);
       if (codecOperatingRate != CODEC_OPERATING_RATE_UNSET) {
         mediaFormat.setFloat(MediaFormat.KEY_OPERATING_RATE, codecOperatingRate);
@@ -2314,7 +2315,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       mediaFormat.setFeatureEnabled(CodecCapabilities.FEATURE_TunneledPlayback, true);
       mediaFormat.setInteger(MediaFormat.KEY_AUDIO_SESSION_ID, tunnelingAudioSessionId);
     }
-    if (Util.SDK_INT >= 35) {
+    if (SDK_INT >= 35) {
       mediaFormat.setInteger(MediaFormat.KEY_IMPORTANCE, max(0, -rendererPriority));
     }
     return mediaFormat;
@@ -2534,7 +2535,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   }
 
   private static boolean evaluateDeviceNeedsSetOutputSurfaceWorkaround() {
-    if (Util.SDK_INT <= 28) {
+    if (SDK_INT <= 28) {
       // Workaround for MiTV and MiBox devices which have been observed broken up to API 28.
       // https://github.com/google/ExoPlayer/issues/5169,
       // https://github.com/google/ExoPlayer/issues/6899.
@@ -2555,7 +2556,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
           break; // Do nothing.
       }
     }
-    if (Util.SDK_INT <= 27 && "HWEML".equals(Build.DEVICE)) {
+    if (SDK_INT <= 27 && "HWEML".equals(Build.DEVICE)) {
       // Workaround for Huawei P20:
       // https://github.com/google/ExoPlayer/issues/4468#issuecomment-459291645.
       return true;
@@ -2575,7 +2576,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       default:
         break; // Do nothing.
     }
-    if (Util.SDK_INT <= 26) {
+    if (SDK_INT <= 26) {
       // In general, devices running API level 27 or later should be unaffected unless observed
       // otherwise. Enable the workaround on a per-device basis. Works around:
       // https://github.com/google/ExoPlayer/issues/3236,
@@ -2772,7 +2773,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       // This was fixed in https://android-review.googlesource.com/1156807.
       //
       // The workaround queues the event for subsequent processing, where the lock will not be held.
-      if (Util.SDK_INT < 30) {
+      if (SDK_INT < 30) {
         Message message =
             Message.obtain(
                 handler,

@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.mediacodec;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.annotation.VisibleForTesting.NONE;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Util.castNonNull;
@@ -30,7 +31,6 @@ import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.NullableType;
-import androidx.media3.common.util.Util;
 import androidx.media3.decoder.CryptoInfo;
 import java.util.ArrayDeque;
 import java.util.Arrays;
@@ -298,7 +298,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     frameworkCryptoInfo.key = checkNotNull(copy(cryptoInfo.key, frameworkCryptoInfo.key));
     frameworkCryptoInfo.iv = checkNotNull(copy(cryptoInfo.iv, frameworkCryptoInfo.iv));
     frameworkCryptoInfo.mode = cryptoInfo.mode;
-    if (Util.SDK_INT >= 24) {
+    if (SDK_INT >= 24) {
       android.media.MediaCodec.CryptoInfo.Pattern pattern =
           new android.media.MediaCodec.CryptoInfo.Pattern(
               cryptoInfo.encryptedBlocks, cryptoInfo.clearBlocks);

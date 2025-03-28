@@ -15,6 +15,7 @@
  */
 package androidx.media3.session;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static android.view.KeyEvent.KEYCODE_MEDIA_FAST_FORWARD;
 import static android.view.KeyEvent.KEYCODE_MEDIA_NEXT;
 import static android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE;
@@ -43,7 +44,6 @@ import androidx.annotation.RequiresApi;
 import androidx.core.app.NotificationCompat;
 import androidx.core.graphics.drawable.IconCompat;
 import androidx.media3.common.Player;
-import androidx.media3.common.util.Util;
 
 /** The default {@link MediaNotification.ActionFactory}. */
 /* package */ final class DefaultActionFactory implements MediaNotification.ActionFactory {
@@ -117,7 +117,7 @@ import androidx.media3.common.util.Util;
     intent.setData(mediaSession.getImpl().getUri());
     intent.setComponent(new ComponentName(service, service.getClass()));
     intent.putExtra(Intent.EXTRA_KEY_EVENT, new KeyEvent(KeyEvent.ACTION_DOWN, keyCode));
-    if (Util.SDK_INT >= 26
+    if (SDK_INT >= 26
         && command == COMMAND_PLAY_PAUSE
         && !mediaSession.getPlayer().getPlayWhenReady()) {
       return Api26.createForegroundServicePendingIntent(service, keyCode, intent);
@@ -126,7 +126,7 @@ import androidx.media3.common.util.Util;
           service,
           /* requestCode= */ keyCode,
           intent,
-          Util.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0);
+          SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0);
     }
   }
 
@@ -161,8 +161,7 @@ import androidx.media3.common.util.Util;
         service,
         /* requestCode= */ ++customActionPendingIntentRequestCode,
         intent,
-        PendingIntent.FLAG_UPDATE_CURRENT
-            | (Util.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0));
+        PendingIntent.FLAG_UPDATE_CURRENT | (SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0));
   }
 
   /** Returns whether {@code intent} was part of a {@link #createMediaAction media action}. */

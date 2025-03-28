@@ -15,6 +15,7 @@
  */
 package androidx.media3.transformer.mh;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_720P_4_SECOND_HDR10;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_BT2020_SDR;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_COLOR_TEST_1080P_HLG10;
@@ -30,7 +31,6 @@ import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.VideoGraph;
 import androidx.media3.common.util.GlUtil;
-import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
 import androidx.media3.exoplayer.video.VideoFrameReleaseControl;
 import androidx.media3.exoplayer.video.VideoSink;
@@ -99,7 +99,7 @@ public class PlaybackVideoGraphWrapperTest {
 
     ColorInfo expectedColorInfo;
     // HLG is converted to PQ on API 33.
-    if (Util.SDK_INT < 34 && GlUtil.isBt2020PqExtensionSupported()) {
+    if (SDK_INT < 34 && GlUtil.isBt2020PqExtensionSupported()) {
       expectedColorInfo =
           inputFormat.colorInfo.buildUpon().setColorTransfer(C.COLOR_TRANSFER_ST2084).build();
     } else {

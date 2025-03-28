@@ -15,6 +15,7 @@
  */
 package androidx.media3.transformer.mh;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
@@ -27,7 +28,6 @@ import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.GlUtil.GlException;
-import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.mediacodec.MediaCodecUtil;
 import androidx.media3.transformer.EncoderUtil;
 import java.io.IOException;
@@ -48,7 +48,7 @@ public final class HdrCapabilitiesUtil {
   public static void assumeDeviceSupportsOpenGlToneMapping(String testId, Format inputFormat)
       throws JSONException, IOException, MediaCodecUtil.DecoderQueryException {
     Context context = getApplicationContext();
-    if (Util.SDK_INT < 29) {
+    if (SDK_INT < 29) {
       recordTestSkipped(context, testId, SKIP_REASON_NO_OPENGL_UNDER_API_29);
       throw new AssumptionViolatedException(SKIP_REASON_NO_OPENGL_UNDER_API_29);
     }
