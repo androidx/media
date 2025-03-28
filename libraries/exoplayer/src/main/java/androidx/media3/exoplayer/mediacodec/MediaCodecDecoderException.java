@@ -15,6 +15,8 @@
  */
 package androidx.media3.exoplayer.mediacodec;
 
+import static android.os.Build.VERSION.SDK_INT;
+
 import android.media.MediaCodec;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
@@ -43,7 +45,7 @@ public class MediaCodecDecoderException extends DecoderException {
             ? ((MediaCodec.CodecException) cause).getDiagnosticInfo()
             : null;
     errorCode =
-        Util.SDK_INT >= 23
+        SDK_INT >= 23
             ? getErrorCodeV23(cause)
             : Util.getErrorCodeFromPlatformDiagnosticsInfo(diagnosticInfo);
   }

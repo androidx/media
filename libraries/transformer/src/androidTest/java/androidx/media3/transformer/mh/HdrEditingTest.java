@@ -15,6 +15,7 @@
  */
 package androidx.media3.transformer.mh;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.effect.DefaultVideoFrameProcessor.WORKING_COLOR_SPACE_ORIGINAL;
 import static androidx.media3.test.utils.DecodeOneFrameUtil.decodeOneMediaItemFrame;
 import static androidx.media3.test.utils.TestUtil.retrieveTrackFormat;
@@ -42,7 +43,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
-import androidx.media3.common.util.Util;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.exoplayer.video.PlaceholderSurface;
 import androidx.media3.test.utils.DecodeOneFrameUtil;
@@ -99,7 +99,7 @@ public final class HdrEditingTest {
   public void export_transmuxHdr10File() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
 
-    if (Util.SDK_INT < 24) {
+    if (SDK_INT < 24) {
       // TODO: b/285543404 - Remove suppression once we can transmux H.265/HEVC before API 24.
       recordTestSkipped(context, testId, /* reason= */ "Can't transmux H.265/HEVC before API 24");
       return;
@@ -130,7 +130,7 @@ public final class HdrEditingTest {
   public void export_transmuxHlg10File() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
 
-    if (Util.SDK_INT < 24) {
+    if (SDK_INT < 24) {
       // TODO: b/285543404 - Remove suppression once we can transmux H.265/HEVC before API 24.
       recordTestSkipped(context, testId, /* reason= */ "Can't transmux H.265/HEVC before API 24");
       return;

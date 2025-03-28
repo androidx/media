@@ -15,6 +15,7 @@
  */
 package androidx.media3.transformer;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_TRIM_OPTIMIZATION;
@@ -33,7 +34,6 @@ import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.NullableType;
-import androidx.media3.common.util.Util;
 import androidx.media3.effect.BaseGlShaderProgram;
 import androidx.media3.effect.Brightness;
 import androidx.media3.effect.DebugTraceUtil;
@@ -169,7 +169,7 @@ public class TransformerProgressTest {
     // The trim optimization is only guaranteed to work on emulator for this file.
     assumeTrue(isRunningOnEmulator());
     // MediaCodec returns a segmentation fault fails at this SDK level on emulators.
-    assumeFalse(Util.SDK_INT == 26);
+    assumeFalse(SDK_INT == 26);
     Transformer transformer =
         new Transformer.Builder(context).experimentalSetTrimOptimizationEnabled(true).build();
     MediaItem mediaItem =
@@ -249,7 +249,7 @@ public class TransformerProgressTest {
     // The trim optimization is only guaranteed to work on emulator for this file.
     assumeTrue(isRunningOnEmulator());
     // MediaCodec returns a segmentation fault fails at this SDK level on emulators.
-    assumeFalse(Util.SDK_INT == 26);
+    assumeFalse(SDK_INT == 26);
     Transformer transformer =
         new Transformer.Builder(context).experimentalSetTrimOptimizationEnabled(true).build();
     MediaItem mediaItem =

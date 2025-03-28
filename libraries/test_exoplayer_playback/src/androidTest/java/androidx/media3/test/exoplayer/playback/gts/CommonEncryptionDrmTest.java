@@ -15,13 +15,13 @@
  */
 package androidx.media3.test.exoplayer.playback.gts;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.test.exoplayer.playback.gts.GtsTestUtil.shouldSkipWidevineTest;
 import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.Player;
-import androidx.media3.common.util.Util;
 import androidx.media3.test.utils.ActionSchedule;
 import androidx.media3.test.utils.HostActivity;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -88,7 +88,7 @@ public final class CommonEncryptionDrmTest {
   public void cbcsSchemeTypeV25() {
     // cbcs support was added in API 24, but it is stable from API 25 onwards.
     // See [internal: b/65634809].
-    assumeTrue(Util.SDK_INT >= 25);
+    assumeTrue(SDK_INT >= 25);
     testRunner
         .setStreamName("test_widevine_h264_scheme_cbcs")
         .setManifestUrl(DashTestData.WIDEVINE_SCHEME_CBCS)

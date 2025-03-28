@@ -15,6 +15,8 @@
  */
 package androidx.media3.decoder.iamf;
 
+import static android.os.Build.VERSION.SDK_INT;
+
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.media.AudioFormat;
@@ -92,7 +94,7 @@ public class LibiamfAudioRenderer extends DecoderAudioRenderer<IamfDecoder> {
   @SuppressLint("WrongConstant")
   private boolean isSpatializationSupported() {
     // Spatializer is only available on API 32 and above.
-    if (Util.SDK_INT < 32) {
+    if (SDK_INT < 32) {
       return false;
     }
 

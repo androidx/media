@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.audio;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Util.castNonNull;
 import static androidx.media3.common.util.Util.durationUsToSampleCount;
@@ -618,8 +619,7 @@ import java.lang.reflect.Method;
    * b/18899620, b/19187573, b/21145353].
    */
   private static boolean needsPassthroughWorkarounds(@C.Encoding int outputEncoding) {
-    return Util.SDK_INT < 23
-        && (outputEncoding == C.ENCODING_AC3 || outputEncoding == C.ENCODING_E_AC3);
+    return SDK_INT < 23 && (outputEncoding == C.ENCODING_AC3 || outputEncoding == C.ENCODING_E_AC3);
   }
 
   private long getPlaybackHeadPositionUs() {
@@ -679,7 +679,7 @@ import java.lang.reflect.Method;
       rawPlaybackHeadPosition += passthroughWorkaroundPauseOffset;
     }
 
-    if (Util.SDK_INT <= 29) {
+    if (SDK_INT <= 29) {
       if (rawPlaybackHeadPosition == 0
           && this.rawPlaybackHeadPosition > 0
           && state == PLAYSTATE_PLAYING) {

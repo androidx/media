@@ -17,6 +17,7 @@ package androidx.media3.transformer;
 
 import static android.app.Activity.RESULT_OK;
 import static android.content.Context.MEDIA_PROJECTION_SERVICE;
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 import static com.google.common.truth.Truth.assertThat;
@@ -86,7 +87,7 @@ public final class MediaProjectionAssetLoaderTest {
     // The test does pass on some earlier builds (back to API 23) but not on all devices.
     assumeTrue(
         Util.isRunningOnEmulator()
-            || (Util.SDK_INT >= 29
+            || (SDK_INT >= 29
                 && !Util.isWear(getInstrumentation().getContext())
                 && Build.MODEL.startsWith("Pixel")));
   }

@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.analytics;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Util.castNonNull;
 
@@ -764,7 +765,7 @@ public final class MediaMetricsListener
           int subErrorCode = Util.getErrorCodeFromPlatformDiagnosticsInfo(diagnosticsInfo);
           int errorCode = getDrmErrorCode(subErrorCode);
           return new ErrorInfo(errorCode, subErrorCode);
-        } else if (Util.SDK_INT >= 23 && cause instanceof MediaDrmResetException) {
+        } else if (SDK_INT >= 23 && cause instanceof MediaDrmResetException) {
           return new ErrorInfo(PlaybackErrorEvent.ERROR_DRM_SYSTEM_ERROR, /* subErrorCode= */ 0);
         } else if (cause instanceof NotProvisionedException) {
           return new ErrorInfo(

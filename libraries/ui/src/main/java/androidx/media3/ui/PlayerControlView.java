@@ -15,6 +15,7 @@
  */
 package androidx.media3.ui;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.Player.COMMAND_GET_CURRENT_MEDIA_ITEM;
 import static androidx.media3.common.Player.COMMAND_GET_TIMELINE;
 import static androidx.media3.common.Player.COMMAND_GET_TRACKS;
@@ -745,7 +746,7 @@ public class PlayerControlView extends FrameLayout {
     settingsView.setLayoutManager(new LinearLayoutManager(getContext()));
     settingsWindow =
         new PopupWindow(settingsView, LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT, true);
-    if (Util.SDK_INT < 23) {
+    if (SDK_INT < 23) {
       // Work around issue where tapping outside of the menu area or pressing the back button
       // doesn't dismiss the menu as expected. See: https://github.com/google/ExoPlayer/issues/8272.
       settingsWindow.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
@@ -2015,7 +2016,7 @@ public class PlayerControlView extends FrameLayout {
 
     public SettingViewHolder(View itemView) {
       super(itemView);
-      if (Util.SDK_INT < 26) {
+      if (SDK_INT < 26) {
         // Workaround for https://github.com/google/ExoPlayer/issues/9061.
         itemView.setFocusable(true);
       }
@@ -2326,7 +2327,7 @@ public class PlayerControlView extends FrameLayout {
 
     public SubSettingViewHolder(View itemView) {
       super(itemView);
-      if (Util.SDK_INT < 26) {
+      if (SDK_INT < 26) {
         // Workaround for https://github.com/google/ExoPlayer/issues/9061.
         itemView.setFocusable(true);
       }

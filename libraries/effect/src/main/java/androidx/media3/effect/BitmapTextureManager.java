@@ -15,6 +15,7 @@
  */
 package androidx.media3.effect;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
@@ -32,7 +33,6 @@ import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.TimestampIterator;
-import androidx.media3.common.util.Util;
 import java.util.Queue;
 import java.util.concurrent.LinkedBlockingQueue;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -218,7 +218,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               /* rboId= */ C.INDEX_UNSET,
               frameInfo.format.width,
               frameInfo.format.height);
-      if (Util.SDK_INT >= 34 && bitmap.hasGainmap()) {
+      if (SDK_INT >= 34 && bitmap.hasGainmap()) {
         checkNotNull(repeatingGainmapShaderProgram).setGainmap(checkNotNull(bitmap.getGainmap()));
       }
       if (signalRepeatingSequence) {
