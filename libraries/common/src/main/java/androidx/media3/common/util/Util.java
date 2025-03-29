@@ -1224,6 +1224,22 @@ public final class Util {
   }
 
   /**
+   * Returns the percentage of numerator divided by denominator. Note that this may return {@link
+   * Float#POSITIVE_INFINITY}, {@link Float#NEGATIVE_INFINITY} or {@link Float#NaN} if the
+   * denominator is zero.
+   *
+   * @param numerator The numerator.
+   * @param denominator The denominator.
+   */
+  @UnstableApi
+  public static float percent(long numerator, long denominator) {
+    if (denominator != 0 && numerator == denominator) {
+      return 100f;
+    }
+    return ((float) numerator / denominator) * 100;
+  }
+
+  /**
    * Returns the index of the first occurrence of {@code value} in {@code array}, or {@link
    * C#INDEX_UNSET} if {@code value} is not contained in {@code array}.
    *

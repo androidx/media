@@ -27,6 +27,7 @@ import static androidx.media3.common.util.Util.maxValue;
 import static androidx.media3.common.util.Util.minValue;
 import static androidx.media3.common.util.Util.parseXsDateTime;
 import static androidx.media3.common.util.Util.parseXsDuration;
+import static androidx.media3.common.util.Util.percent;
 import static androidx.media3.common.util.Util.unescapeFileName;
 import static androidx.media3.test.utils.TestUtil.buildTestData;
 import static androidx.media3.test.utils.TestUtil.buildTestString;
@@ -145,6 +146,34 @@ public class UtilTest {
 
     res = Util.subtractWithOverflowDefault(Long.MAX_VALUE, -1, /* overflowResult= */ 12345);
     assertThat(res).isEqualTo(12345);
+  }
+
+  @Test
+  public void percent_numeratorEqualToDenominator_returnsOneHundred() {
+    // With numerator and denominator both being 812345L, the percentage calculated in another way
+    // (numerator * 100f / denominator) will be 99.99999f. We then use this value to verify that
+    // this doesn't happen for Util.percent() method.
+    assertThat(percent(812345L, 812345L)).isEqualTo(100f);
+  }
+
+  @Test
+  public void percent_numeratorNotEqualToDenominator_returnsCorrectValue() {
+    assertThat(percent(500L, 2000L)).isEqualTo(25f);
+  }
+
+  @Test
+  public void percent_positiveNumeratorAndZeroDenominator_returnsPositiveInfinity() {
+    assertThat(percent(1L, 0L)).isPositiveInfinity();
+  }
+
+  @Test
+  public void percent_negativeNumeratorAndZeroDenominator_returnsNegativeInfinity() {
+    assertThat(percent(-1L, 0L)).isNegativeInfinity();
+  }
+
+  @Test
+  public void percent_numeratorAndDenominatorAreBothZero_returnsNaN() {
+    assertThat(percent(0L, 0L)).isNaN();
   }
 
   @Test
