@@ -881,62 +881,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       // Configure the VideoSink every time the renderer is enabled, in case the parameters have
       // been overridden by another renderer. Also configure the VideoSink with the parameters that
       // have been set on the renderer before creating the VideoSink.
-      videoSink.setListener(
-          new VideoSink.Listener() {
-
-            @Override
-            public void onFrameAvailableForRendering() {
-              @Nullable WakeupListener wakeupListener = getWakeupListener();
-              if (wakeupListener != null) {
-                wakeupListener.onWakeup();
-              }
-            }
-
-            @Override
-            public void onFirstFrameRendered() {
-              if (displaySurface != null) {
-                notifyRenderedFirstFrame();
-              }
-            }
-
-            @Override
-            public void onFrameDropped() {
-              if (displaySurface != null) {
-                updateDroppedBufferCounters(
-                    /* droppedInputBufferCount= */ 0, /* droppedDecoderBufferCount= */ 1);
-              }
-            }
-
-            @Override
-            public void onVideoSizeChanged(VideoSize videoSize) {
-              // TODO: b/292111083 - Report video size change to app. Video size reporting is
-              //  removed at the moment to ensure the first frame is rendered, and the video is
-              //  rendered after switching on/off the screen.
-            }
-
-            @Override
-            public void onError(VideoSink.VideoSinkException videoSinkException) {
-              setPendingPlaybackException(
-                  createRendererException(
-                      videoSinkException,
-                      videoSinkException.format,
-                      PlaybackException.ERROR_CODE_VIDEO_FRAME_PROCESSING_FAILED));
-            }
-          },
-          // Pass a direct executor since the callback handling involves posting on the app looper
-          // again, so there's no need to do two hops.
-          directExecutor());
-      if (frameMetadataListener != null) {
-        videoSink.setVideoFrameMetadataListener(frameMetadataListener);
-      }
-      if (displaySurface != null && !outputResolution.equals(Size.UNKNOWN)) {
-        videoSink.setOutputSurfaceInfo(displaySurface, outputResolution);
-      }
-      videoSink.setChangeFrameRateStrategy(changeFrameRateStrategy);
-      videoSink.setPlaybackSpeed(getPlaybackSpeed());
-      if (videoEffects != null) {
-        videoSink.setVideoEffects(videoEffects);
-      }
+      configureVideoSink();
       nextVideoSinkFirstFrameReleaseInstruction =
           mayRenderStartOfStream
               ? RELEASE_FIRST_FRAME_IMMEDIATELY
@@ -949,6 +894,66 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
               ? RELEASE_FIRST_FRAME_IMMEDIATELY
               : RELEASE_FIRST_FRAME_WHEN_STARTED;
       videoFrameReleaseControl.onStreamChanged(firstFrameReleaseInstruction);
+    }
+  }
+
+  @RequiresNonNull("videoSink")
+  private void configureVideoSink() {
+    videoSink.setListener(
+        new VideoSink.Listener() {
+
+          @Override
+          public void onFrameAvailableForRendering() {
+            @Nullable WakeupListener wakeupListener = getWakeupListener();
+            if (wakeupListener != null) {
+              wakeupListener.onWakeup();
+            }
+          }
+
+          @Override
+          public void onFirstFrameRendered() {
+            if (displaySurface != null) {
+              notifyRenderedFirstFrame();
+            }
+          }
+
+          @Override
+          public void onFrameDropped() {
+            if (displaySurface != null) {
+              updateDroppedBufferCounters(
+                  /* droppedInputBufferCount= */ 0, /* droppedDecoderBufferCount= */ 1);
+            }
+          }
+
+          @Override
+          public void onVideoSizeChanged(VideoSize videoSize) {
+            // TODO: b/292111083 - Report video size change to app. Video size reporting is
+            //  removed at the moment to ensure the first frame is rendered, and the video is
+            //  rendered after switching on/off the screen.
+          }
+
+          @Override
+          public void onError(VideoSink.VideoSinkException videoSinkException) {
+            setPendingPlaybackException(
+                createRendererException(
+                    videoSinkException,
+                    videoSinkException.format,
+                    PlaybackException.ERROR_CODE_VIDEO_FRAME_PROCESSING_FAILED));
+          }
+        },
+        // Pass a direct executor since the callback handling involves posting on the app looper
+        // again, so there's no need to do two hops.
+        directExecutor());
+    if (frameMetadataListener != null) {
+      videoSink.setVideoFrameMetadataListener(frameMetadataListener);
+    }
+    if (displaySurface != null && !outputResolution.equals(Size.UNKNOWN)) {
+      videoSink.setOutputSurfaceInfo(displaySurface, outputResolution);
+    }
+    videoSink.setChangeFrameRateStrategy(changeFrameRateStrategy);
+    videoSink.setPlaybackSpeed(getPlaybackSpeed());
+    if (videoEffects != null) {
+      videoSink.setVideoEffects(videoEffects);
     }
   }
 
