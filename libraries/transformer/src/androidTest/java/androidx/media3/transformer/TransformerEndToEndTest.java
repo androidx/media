@@ -19,6 +19,7 @@ import static android.media.MediaCodecInfo.CodecProfileLevel.AACObjectHE;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.MediaFormatUtil.createFormatFromMediaFormat;
+import static androidx.media3.common.util.Util.SDK_INT;
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.test.utils.TestUtil.retrieveTrackFormat;
 import static androidx.media3.transformer.AndroidTestUtil.JPG_ASSET;
@@ -2555,6 +2556,24 @@ public class TransformerEndToEndTest {
     assertThrows(
         IllegalArgumentException.class,
         () -> new Composition.Builder(firstSequence, secondSequence).build());
+  }
+
+  @Test
+  public void transmux_apvFile_transmuxesSuccessfully() throws Exception {
+    // MediaMuxer supports APV from API 36.
+    assumeTrue(SDK_INT >= 36);
+    String apvFile = "asset:///media/mp4/sample_with_apvc.mp4";
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(apvFile))).build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, new Transformer.Builder(context).build())
+            .build()
+            .run(testId, editedMediaItem);
+
+    Format format = retrieveTrackFormat(context, result.filePath, C.TRACK_TYPE_VIDEO);
+    assertThat(format.sampleMimeType).isEqualTo(MimeTypes.VIDEO_APV);
+    assertThat(result.exportResult.videoConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSMUXED);
   }
 
   private static boolean shouldSkipDeviceForAacObjectHeProfileEncoding() {
