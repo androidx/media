@@ -74,6 +74,11 @@ public interface SubtitleDecoderFactory {
 
         @Override
         public SubtitleDecoder createDecoder(Format format) {
+          if (delegate.supportsFormat(format)) {
+            SubtitleParser subtitleParser = delegate.create(format);
+            return new DelegatingSubtitleDecoder(
+                subtitleParser.getClass().getSimpleName() + "Decoder", subtitleParser);
+          }
           @Nullable String mimeType = format.sampleMimeType;
           if (mimeType != null) {
             switch (mimeType) {
@@ -88,11 +93,6 @@ public interface SubtitleDecoderFactory {
               default:
                 break;
             }
-          }
-          if (delegate.supportsFormat(format)) {
-            SubtitleParser subtitleParser = delegate.create(format);
-            return new DelegatingSubtitleDecoder(
-                subtitleParser.getClass().getSimpleName() + "Decoder", subtitleParser);
           }
           throw new IllegalArgumentException(
               "Attempted to create decoder for unsupported MIME type: " + mimeType);
