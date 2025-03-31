@@ -186,7 +186,8 @@ class CompositionPreviewActivity : AppCompatActivity() {
                 val playerViewModifier = if(scrollState.canScrollForward || scrollState.canScrollBackward) {
                     Modifier.heightIn(min = 250.dp)
                 } else {
-                    Modifier.weight(1f)
+                    Modifier
+                    //Modifier.weight(1f)
                 }
                 AndroidView(
                     factory = { context -> PlayerView(context) },

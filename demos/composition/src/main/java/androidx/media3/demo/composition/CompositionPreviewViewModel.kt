@@ -156,9 +156,9 @@ class CompositionPreviewViewModel(application: Application, val compositionLayou
         }
         val videoSequenceBuilders = MutableList<EditedMediaItemSequence.Builder>(numSequences) { _ -> EditedMediaItemSequence.Builder() }
         val videoSequences = mutableListOf<EditedMediaItemSequence>()
-        for(sequence in 0..<numSequences) {
+        for(sequence in 0 until numSequences) {
             var hasItem = false
-            for(item in sequence..<mediaItems.size step numSequences) {
+            for(item in sequence until mediaItems.size step numSequences) {
                 hasItem = true
                 Log.d(TAG, "Adding item $item to sequence $sequence")
                 videoSequenceBuilders[sequence].addItem(mediaItems[item])
@@ -212,28 +212,28 @@ class CompositionPreviewViewModel(application: Application, val compositionLayou
                         return when(inputId) {
                             0 -> {
                                 StaticOverlaySettings.Builder()
-                                    .setScale(0.25f, 0.25f)
+                                    .setScale(0.5f, 0.5f)
                                     .setOverlayFrameAnchor(0f, 0f) // Middle of overlay
                                     .setBackgroundFrameAnchor(-0.5f, 0.5f) // Top-left section of background
                                     .build()
                             }
                             1 -> {
                                 StaticOverlaySettings.Builder()
-                                    .setScale(0.25f, 0.25f)
+                                    .setScale(0.5f, 0.5f)
                                     .setOverlayFrameAnchor(0f, 0f) // Middle of overlay
                                     .setBackgroundFrameAnchor(0.5f, 0.5f) // Top-right section of background
                                     .build()
                             }
                             2 -> {
                                 StaticOverlaySettings.Builder()
-                                    .setScale(0.25f, 0.25f)
+                                    .setScale(0.5f, 0.5f)
                                     .setOverlayFrameAnchor(0f, 0f) // Middle of overlay
                                     .setBackgroundFrameAnchor(-0.5f, -0.5f) // Bottom-left section of background
                                     .build()
                             }
                             3 -> {
                                 StaticOverlaySettings.Builder()
-                                    .setScale(0.25f, 0.25f)
+                                    .setScale(0.5f, 0.5f)
                                     .setOverlayFrameAnchor(0f, 0f) // Middle of overlay
                                     .setBackgroundFrameAnchor(0.5f, -0.5f) // Bottom-right section of background
                                     .build()
