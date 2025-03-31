@@ -2075,7 +2075,6 @@ public final class Util {
    * @param applicationName String that will be prefix'ed to the generated user agent.
    * @return A user agent string generated using the applicationName and the library version.
    */
-  @UnstableApi
   public static String getUserAgent(Context context, String applicationName) {
     String versionName;
     try {

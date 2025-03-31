@@ -1265,6 +1265,7 @@ package androidx.media3.common.util {
     method public static boolean checkCleartextTrafficPermitted(androidx.media3.common.MediaItem...);
     method @Nullable public static String getAdaptiveMimeTypeForContentType(@androidx.media3.common.C.ContentType int);
     method @Nullable public static java.util.UUID getDrmUuid(String);
+    method public static String getUserAgent(android.content.Context, String);
     method public static boolean handlePauseButtonAction(@Nullable androidx.media3.common.Player);
     method public static boolean handlePlayButtonAction(@Nullable androidx.media3.common.Player);
     method public static boolean handlePlayPauseButtonAction(@Nullable androidx.media3.common.Player);
@@ -1304,6 +1305,7 @@ package androidx.media3.datasource {
 
   public static final class DefaultHttpDataSource.Factory implements androidx.media3.datasource.HttpDataSource.Factory {
     ctor public DefaultHttpDataSource.Factory();
+    method public androidx.media3.datasource.DefaultHttpDataSource.Factory setUserAgent(@Nullable String);
   }
 
   public interface HttpDataSource extends androidx.media3.datasource.DataSource {
@@ -1344,6 +1346,7 @@ package androidx.media3.datasource.cronet {
 
   public static final class CronetDataSource.Factory implements androidx.media3.datasource.HttpDataSource.Factory {
     ctor public CronetDataSource.Factory(org.chromium.net.CronetEngine, java.util.concurrent.Executor);
+    method public androidx.media3.datasource.cronet.CronetDataSource.Factory setUserAgent(@Nullable String);
   }
 
   public final class CronetUtil {
@@ -1359,6 +1362,7 @@ package androidx.media3.datasource.okhttp {
 
   public static final class OkHttpDataSource.Factory implements androidx.media3.datasource.HttpDataSource.Factory {
     ctor public OkHttpDataSource.Factory(okhttp3.Call.Factory);
+    method public androidx.media3.datasource.okhttp.OkHttpDataSource.Factory setUserAgent(@Nullable String);
   }
 
 }
