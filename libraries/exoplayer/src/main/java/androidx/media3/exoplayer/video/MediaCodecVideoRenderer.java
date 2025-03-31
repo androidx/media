@@ -883,6 +883,15 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       // have been set on the renderer before creating the VideoSink.
       videoSink.setListener(
           new VideoSink.Listener() {
+
+            @Override
+            public void onFrameAvailableForRendering() {
+              @Nullable WakeupListener wakeupListener = getWakeupListener();
+              if (wakeupListener != null) {
+                wakeupListener.onWakeup();
+              }
+            }
+
             @Override
             public void onFirstFrameRendered() {
               if (displaySurface != null) {
@@ -932,10 +941,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
           mayRenderStartOfStream
               ? RELEASE_FIRST_FRAME_IMMEDIATELY
               : RELEASE_FIRST_FRAME_WHEN_STARTED;
-      @Nullable WakeupListener wakeupListener = getWakeupListener();
-      if (wakeupListener != null) {
-        videoSink.setWakeupListener(wakeupListener);
-      }
       experimentalEnableProcessedStreamChangedAtStart();
     } else {
       videoFrameReleaseControl.setClock(getClock());
@@ -1462,13 +1467,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   protected void onCodecError(Exception codecError) {
     Log.e(TAG, "Video codec error", codecError);
     eventDispatcher.videoCodecError(codecError);
-  }
-
-  @Override
-  protected void onWakeupListenerSet(WakeupListener wakeupListener) {
-    if (videoSink != null) {
-      videoSink.setWakeupListener(wakeupListener);
-    }
   }
 
   @Override

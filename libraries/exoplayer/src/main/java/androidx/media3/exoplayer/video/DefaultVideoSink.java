@@ -30,7 +30,6 @@ import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.TimestampIterator;
 import androidx.media3.exoplayer.ExoPlaybackException;
-import androidx.media3.exoplayer.Renderer;
 import java.util.ArrayDeque;
 import java.util.List;
 import java.util.Queue;
@@ -46,7 +45,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  * <ul>
  *   <li>Applying video effects
  *   <li>Inputting bitmaps
- *   <li>Setting a WakeupListener
  * </ul>
  *
  * <p>The {@linkplain #getInputSurface() input} and {@linkplain #setOutputSurfaceInfo(Surface, Size)
@@ -224,6 +222,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     videoFrameHandlers.add(videoFrameHandler);
     long bufferPresentationTimeUs = framePresentationTimeUs - bufferTimestampAdjustmentUs;
     videoFrameRenderControl.onFrameAvailableForRendering(bufferPresentationTimeUs);
+    listenerExecutor.execute(() -> listener.onFrameAvailableForRendering());
     return true;
   }
 
@@ -244,16 +243,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     } catch (ExoPlaybackException e) {
       throw new VideoSinkException(e, inputFormat);
     }
-  }
-
-  /**
-   * {@inheritDoc}
-   *
-   * <p>This method will always throw an {@link UnsupportedOperationException}.
-   */
-  @Override
-  public void setWakeupListener(Renderer.WakeupListener wakeupListener) {
-    throw new UnsupportedOperationException();
   }
 
   @Override

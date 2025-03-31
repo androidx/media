@@ -27,6 +27,7 @@ import static androidx.media3.exoplayer.DefaultRenderersFactory.MAX_DROPPED_VIDE
 import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_IMMEDIATELY;
 import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED;
 import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_WHEN_STARTED;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -500,6 +501,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     private boolean mayRenderStartOfStream;
     private @VideoSink.FirstFrameReleaseInstruction int nextFirstFrameReleaseInstruction;
     private long offsetToCompositionTimeUs;
+    private @MonotonicNonNull WakeupListener wakeupListener;
 
     public SequenceImageRenderer(
         EditedMediaItemSequence sequence,
@@ -523,9 +525,17 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           mayRenderStartOfStream
               ? RELEASE_FIRST_FRAME_IMMEDIATELY
               : RELEASE_FIRST_FRAME_WHEN_STARTED;
-      // TODO: b/328444280 - Do not set a listener on VideoSink, but MediaCodecVideoRenderer must
-      //  unregister itself as a listener too.
-      videoSink.setListener(VideoSink.Listener.NO_OP, /* executor= */ (runnable) -> {});
+      // TODO: b/328444280 - Unregister as a listener when the renderer is not used anymore
+      videoSink.setListener(
+          new VideoSink.Listener() {
+            @Override
+            public void onFrameAvailableForRendering() {
+              if (wakeupListener != null) {
+                wakeupListener.onWakeup();
+              }
+            }
+          },
+          directExecutor());
     }
 
     @Override
@@ -658,7 +668,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     public void handleMessage(@MessageType int messageType, @Nullable Object message)
         throws ExoPlaybackException {
       if (messageType == MSG_SET_WAKEUP_LISTENER) {
-        videoSink.setWakeupListener((WakeupListener) checkNotNull(message));
+        this.wakeupListener = (WakeupListener) checkNotNull(message);
       } else {
         super.handleMessage(messageType, message);
       }

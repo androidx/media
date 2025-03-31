@@ -23,7 +23,6 @@ import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.TimestampIterator;
-import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.video.PlaceholderSurface;
 import androidx.media3.exoplayer.video.VideoFrameMetadataListener;
 import androidx.media3.exoplayer.video.VideoSink;
@@ -261,11 +260,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     if (videoSink != null) {
       videoSink.render(positionUs, elapsedRealtimeUs);
     }
-  }
-
-  @Override
-  public void setWakeupListener(Renderer.WakeupListener wakeupListener) {
-    executeOrDelay(videoSink -> videoSink.setWakeupListener(wakeupListener));
   }
 
   @Override

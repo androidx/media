@@ -55,7 +55,6 @@ import androidx.media3.common.util.TimedValueQueue;
 import androidx.media3.common.util.TimestampIterator;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
-import androidx.media3.exoplayer.Renderer;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
@@ -80,11 +79,15 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
 
   /** Listener for {@link PlaybackVideoGraphWrapper} events. */
   public interface Listener {
-    /** Called when the video frame processor renders the first frame. */
-    void onFirstFrameRendered();
 
-    /** Called when the video frame processor dropped a frame. */
-    void onFrameDropped();
+    /** Called when an output frame is available for rendering. */
+    default void onFrameAvailableForRendering() {}
+
+    /** Called when the first output frame is rendered. */
+    default void onFirstFrameRendered() {}
+
+    /** Called when an output frame is dropped. */
+    default void onFrameDropped() {}
 
     /**
      * Called before a frame is rendered for the first time since setting the surface, and each time
@@ -92,14 +95,14 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
      *
      * @param videoSize The video size.
      */
-    void onVideoSizeChanged(VideoSize videoSize);
+    default void onVideoSizeChanged(VideoSize videoSize) {}
 
     /**
-     * Called when the video frame processor encountered an error.
+     * Called when an error occurs.
      *
      * @param videoFrameProcessingException The error.
      */
-    void onError(VideoFrameProcessingException videoFrameProcessingException);
+    default void onError(VideoFrameProcessingException videoFrameProcessingException) {}
   }
 
   /** A builder for {@link PlaybackVideoGraphWrapper} instances. */
@@ -288,7 +291,6 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
   @Nullable private Pair<Surface, Size> currentSurfaceAndSize;
   private int pendingFlushCount;
   private @State int state;
-  @Nullable private Renderer.WakeupListener wakeupListener;
 
   /**
    * The buffer presentation time of the frame most recently output by the video graph, in
@@ -430,9 +432,9 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
       // Ignore available frames while flushing
       return;
     }
-    if (wakeupListener != null) {
+    for (PlaybackVideoGraphWrapper.Listener listener : listeners) {
       // Wake up the player when not playing to render the frame more promptly.
-      wakeupListener.onWakeup();
+      listener.onFrameAvailableForRendering();
     }
 
     long bufferPresentationTimeUs = framePresentationTimeUs - bufferTimestampAdjustmentUs;
@@ -950,11 +952,6 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     }
 
     @Override
-    public void setWakeupListener(Renderer.WakeupListener wakeupListener) {
-      PlaybackVideoGraphWrapper.this.wakeupListener = wakeupListener;
-    }
-
-    @Override
     public void join(boolean renderNextFrameImmediately) {
       defaultVideoSink.join(renderNextFrameImmediately);
     }
@@ -965,6 +962,12 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     }
 
     // PlaybackVideoGraphWrapper.Listener implementation
+
+    @Override
+    public void onFrameAvailableForRendering() {
+      VideoSink.Listener currentListener = listener;
+      listenerExecutor.execute(currentListener::onFrameAvailableForRendering);
+    }
 
     @Override
     public void onFirstFrameRendered() {

@@ -28,7 +28,6 @@ import androidx.media3.common.VideoSize;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.TimestampIterator;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.exoplayer.Renderer;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -56,6 +55,10 @@ public interface VideoSink {
 
   /** Listener for {@link VideoSink} events. */
   interface Listener {
+
+    /** Called when an output frame is available for rendering. */
+    default void onFrameAvailableForRendering() {}
+
     /** Called when the sink renders the first frame on the output surface. */
     default void onFirstFrameRendered() {}
 
@@ -304,9 +307,6 @@ public interface VideoSink {
    * @throws VideoSinkException If an error occurs during rendering.
    */
   void render(long positionUs, long elapsedRealtimeUs) throws VideoSinkException;
-
-  /** Sets a {@link Renderer.WakeupListener} on the {@code VideoSink}. */
-  void setWakeupListener(Renderer.WakeupListener wakeupListener);
 
   /**
    * Joins the video sink to a new stream.
