@@ -38,10 +38,10 @@ import org.junit.runner.RunWith;
 
 /**
  * End-to-end instrumentation tests for {@link Transformer} when the {@link EditedMediaItemSequence}
- * has video gaps.
+ * has gaps.
  */
 @RunWith(AndroidJUnit4.class)
-public class TransformerVideoGapsTest {
+public class TransformerGapsTest {
   private static final EditedMediaItem AUDIO_VIDEO_MEDIA_ITEM =
       new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri)).build();
   private static final EditedMediaItem AUDIO_ONLY_MEDIA_ITEM =
