@@ -782,7 +782,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
         @FirstFrameReleaseInstruction int firstFrameReleaseInstruction,
         List<Effect> videoEffects) {
       checkState(isInitialized());
-      setPendingVideoEffects(videoEffects);
+      this.videoEffects = ImmutableList.copyOf(videoEffects);
       this.inputType = inputType;
       this.inputFormat = format;
       finalBufferPresentationTimeUs = C.TIME_UNSET;
@@ -863,7 +863,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
       if (this.videoEffects.equals(videoEffects)) {
         return;
       }
-      setPendingVideoEffects(videoEffects);
+      this.videoEffects = ImmutableList.copyOf(videoEffects);
       if (inputFormat != null) {
         registerInputStream(inputFormat);
       }
@@ -998,23 +998,6 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     }
 
     // Private methods
-
-    /**
-     * Sets the pending video effects.
-     *
-     * <p>Effects are pending until a new input stream is registered.
-     */
-    private void setPendingVideoEffects(List<Effect> newVideoEffects) {
-      if (videoGraphFactory.supportsMultipleInputs()) {
-        this.videoEffects = ImmutableList.copyOf(newVideoEffects);
-      } else {
-        this.videoEffects =
-            new ImmutableList.Builder<Effect>()
-                .addAll(newVideoEffects)
-                .addAll(compositionEffects)
-                .build();
-      }
-    }
 
     private void registerInputStream(Format inputFormat) {
       Format adjustedInputFormat =
