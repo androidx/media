@@ -1527,11 +1527,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       // Make sure to decode and render the last frame.
       return false;
     }
-    if (buffer.isEncrypted()) {
-      // Commonly used decryption algorithms require updating the initialization vector for each
-      // block processed. Skipping input buffers before the decoder is not allowed.
-      return false;
-    }
     boolean shouldSkipDecoderInputBuffer = isBufferBeforeStartTime(buffer);
     if (!shouldSkipDecoderInputBuffer && !shouldDropDecoderInputBuffers) {
       return false;
