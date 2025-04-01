@@ -3,6 +3,7 @@
 ### Unreleased changes
 
 *   Common Library:
+    *   Deprecate `Util.SDK_INT`. Use `Build.VERSION.SDK_INT` instead.
 *   ExoPlayer:
     *   Add `ExoPlayer.setScrubbingModeEnabled(boolean)` method. This optimizes
         the player for many frequent seeks (for example, from a user dragging a
