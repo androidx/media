@@ -17,11 +17,12 @@ package androidx.media3.transformer;
 
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
-import static androidx.media3.transformer.AndroidTestUtil.getVideoTrackOutput;
+import static androidx.media3.transformer.AndroidTestUtil.getTrackOutput;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import android.content.Context;
+import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.extractor.mp4.Mp4Extractor;
 import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
@@ -98,7 +99,7 @@ public class TransformerGapsTest {
     FakeExtractorOutput fakeExtractorOutput =
         TestUtil.extractAllSamplesFromFilePath(
             new Mp4Extractor(new DefaultSubtitleParserFactory()), result.filePath);
-    FakeTrackOutput videoTrackOutput = getVideoTrackOutput(fakeExtractorOutput);
+    FakeTrackOutput videoTrackOutput = getTrackOutput(fakeExtractorOutput, C.TRACK_TYPE_VIDEO);
     // The gap is for 1024ms with 30 fps.
     int expectedBlankFrames = 31;
     assertThat(videoTrackOutput.getSampleCount())
@@ -127,7 +128,7 @@ public class TransformerGapsTest {
     FakeExtractorOutput fakeExtractorOutput =
         TestUtil.extractAllSamplesFromFilePath(
             new Mp4Extractor(new DefaultSubtitleParserFactory()), result.filePath);
-    FakeTrackOutput videoTrackOutput = getVideoTrackOutput(fakeExtractorOutput);
+    FakeTrackOutput videoTrackOutput = getTrackOutput(fakeExtractorOutput, C.TRACK_TYPE_VIDEO);
     // The gap is for 1024ms with 30 fps.
     int expectedBlankFrames = 31;
     assertThat(videoTrackOutput.getSampleCount())
@@ -183,7 +184,7 @@ public class TransformerGapsTest {
     FakeExtractorOutput fakeExtractorOutput =
         TestUtil.extractAllSamplesFromFilePath(
             new Mp4Extractor(new DefaultSubtitleParserFactory()), result.filePath);
-    FakeTrackOutput videoTrackOutput = getVideoTrackOutput(fakeExtractorOutput);
+    FakeTrackOutput videoTrackOutput = getTrackOutput(fakeExtractorOutput, C.TRACK_TYPE_VIDEO);
     // The gap is for 1 sec with 30 fps.
     int expectedBlankFrames = 30;
     assertThat(videoTrackOutput.getSampleCount())
@@ -216,7 +217,7 @@ public class TransformerGapsTest {
     FakeExtractorOutput fakeExtractorOutput =
         TestUtil.extractAllSamplesFromFilePath(
             new Mp4Extractor(new DefaultSubtitleParserFactory()), result.filePath);
-    FakeTrackOutput videoTrackOutput = getVideoTrackOutput(fakeExtractorOutput);
+    FakeTrackOutput videoTrackOutput = getTrackOutput(fakeExtractorOutput, C.TRACK_TYPE_VIDEO);
     // The gap is for 1 sec with 30 fps.
     int expectedBlankFrames = 30;
     assertThat(videoTrackOutput.getSampleCount())
@@ -271,7 +272,7 @@ public class TransformerGapsTest {
     FakeExtractorOutput fakeExtractorOutput =
         TestUtil.extractAllSamplesFromFilePath(
             new Mp4Extractor(new DefaultSubtitleParserFactory()), result.filePath);
-    FakeTrackOutput videoTrackOutput = getVideoTrackOutput(fakeExtractorOutput);
+    FakeTrackOutput videoTrackOutput = getTrackOutput(fakeExtractorOutput, C.TRACK_TYPE_VIDEO);
     // The gap is for 1 sec with 30 fps.
     int expectedBlankFrames = 30;
     assertThat(videoTrackOutput.getSampleCount())
@@ -303,7 +304,7 @@ public class TransformerGapsTest {
     FakeExtractorOutput fakeExtractorOutput =
         TestUtil.extractAllSamplesFromFilePath(
             new Mp4Extractor(new DefaultSubtitleParserFactory()), result.filePath);
-    FakeTrackOutput videoTrackOutput = getVideoTrackOutput(fakeExtractorOutput);
+    FakeTrackOutput videoTrackOutput = getTrackOutput(fakeExtractorOutput, C.TRACK_TYPE_VIDEO);
     // The gap is for 1 sec with 30 fps.
     int expectedBlankFrames = 30;
     assertThat(videoTrackOutput.getSampleCount())
@@ -336,7 +337,7 @@ public class TransformerGapsTest {
     FakeExtractorOutput fakeExtractorOutput =
         TestUtil.extractAllSamplesFromFilePath(
             new Mp4Extractor(new DefaultSubtitleParserFactory()), result.filePath);
-    FakeTrackOutput videoTrackOutput = getVideoTrackOutput(fakeExtractorOutput);
+    FakeTrackOutput videoTrackOutput = getTrackOutput(fakeExtractorOutput, C.TRACK_TYPE_VIDEO);
     // The gap is for 1024ms with 30 fps.
     int expectedBlankFramesForAudioOnlyItem = 31;
     // The gap is for 1 sec with 30 fps.

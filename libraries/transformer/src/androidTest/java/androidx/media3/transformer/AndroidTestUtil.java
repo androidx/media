@@ -69,6 +69,7 @@ import androidx.media3.effect.ScaleAndRotateTransformation;
 import androidx.media3.effect.SingleInputVideoGraph;
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
 import androidx.media3.exoplayer.mediacodec.MediaCodecUtil;
+import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.muxer.MuxerException;
 import androidx.media3.test.utils.BitmapPixelTestUtil;
 import androidx.media3.test.utils.FakeExtractorOutput;
@@ -1239,14 +1240,21 @@ public final class AndroidTestUtil {
   }
 
   /**
-   * Returns the {@linkplain FakeTrackOutput video track} from the {@link FakeExtractorOutput} or
-   * {@code null} if a video track is not found.
+   * Returns a {@link FakeTrackOutput} of given {@link C.TrackType} from the {@link
+   * FakeExtractorOutput}.
+   *
+   * @param extractorOutput The {@link ExtractorOutput} to get the {@link FakeTrackOutput} from.
+   * @param trackType The {@link C.TrackType}.
+   * @return The {@link FakeTrackOutput} or {@code null} if a track is not found.
    */
   @Nullable
-  public static FakeTrackOutput getVideoTrackOutput(FakeExtractorOutput extractorOutput) {
+  public static FakeTrackOutput getTrackOutput(
+      FakeExtractorOutput extractorOutput, @C.TrackType int trackType) {
     for (int i = 0; i < extractorOutput.numberOfTracks; i++) {
       FakeTrackOutput trackOutput = extractorOutput.trackOutputs.get(i);
-      if (MimeTypes.isVideo(checkNotNull(trackOutput.lastFormat).sampleMimeType)) {
+      String sampleMimeType = checkNotNull(trackOutput.lastFormat).sampleMimeType;
+      if ((trackType == C.TRACK_TYPE_AUDIO && MimeTypes.isAudio(sampleMimeType))
+          || (trackType == C.TRACK_TYPE_VIDEO && MimeTypes.isVideo(sampleMimeType))) {
         return trackOutput;
       }
     }
