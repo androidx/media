@@ -272,8 +272,10 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
   public @Transformer.ProgressState int getProgress(ProgressHolder progressHolder) {
     if (progressState == PROGRESS_STATE_AVAILABLE) {
       long durationMs = player.getDuration();
-      long positionMs = player.getCurrentPosition();
-      progressHolder.progress = min((int) (positionMs * 100 / durationMs), 99);
+      // The player position can become greater than the duration. This happens if the player is
+      // using a StandaloneMediaClock because the renderers have ended.
+      long positionMs = min(player.getCurrentPosition(), durationMs);
+      progressHolder.progress = (int) (positionMs * 100 / durationMs);
     }
     return progressState;
   }
