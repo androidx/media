@@ -637,6 +637,11 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     defaultVideoSink.setBufferTimestampAdjustmentUs(bufferTimestampAdjustmentUs);
   }
 
+  private void setChangeFrameRateStrategy(
+      @C.VideoChangeFrameRateStrategy int changeFrameRateStrategy) {
+    defaultVideoSink.setChangeFrameRateStrategy(changeFrameRateStrategy);
+  }
+
   private boolean shouldRenderToInputVideoSink() {
     return totalVideoInputCount != C.LENGTH_UNSET
         && totalVideoInputCount == registeredVideoInputCount;
@@ -850,12 +855,16 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     @Override
     public void setVideoFrameMetadataListener(
         VideoFrameMetadataListener videoFrameMetadataListener) {
-      PlaybackVideoGraphWrapper.this.setVideoFrameMetadataListener(videoFrameMetadataListener);
+      if (inputIndex == PRIMARY_SEQUENCE_INDEX) {
+        PlaybackVideoGraphWrapper.this.setVideoFrameMetadataListener(videoFrameMetadataListener);
+      }
     }
 
     @Override
     public void setPlaybackSpeed(@FloatRange(from = 0, fromInclusive = false) float speed) {
-      PlaybackVideoGraphWrapper.this.setPlaybackSpeed(speed);
+      if (inputIndex == PRIMARY_SEQUENCE_INDEX) {
+        PlaybackVideoGraphWrapper.this.setPlaybackSpeed(speed);
+      }
     }
 
     @Override
@@ -892,7 +901,9 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     @Override
     public void setChangeFrameRateStrategy(
         @C.VideoChangeFrameRateStrategy int changeFrameRateStrategy) {
-      defaultVideoSink.setChangeFrameRateStrategy(changeFrameRateStrategy);
+      if (inputIndex == PRIMARY_SEQUENCE_INDEX) {
+        PlaybackVideoGraphWrapper.this.setChangeFrameRateStrategy(changeFrameRateStrategy);
+      }
     }
 
     @Override
