@@ -10595,7 +10595,6 @@ public final class ExoPlayerTest {
     player.release();
   }
 
-  @SuppressWarnings("deprecation") // Checking old volume commands
   @Test
   public void isCommandAvailable_isTrueForAvailableCommands() {
     ExoPlayer player = parameterizeTestExoPlayerBuilder(new TestExoPlayerBuilder(context)).build();
@@ -14139,35 +14138,24 @@ public final class ExoPlayerTest {
             .build();
     // Live stream timeline with unassigned next ad group.
     AdPlaybackState initialAdPlaybackState =
-        new AdPlaybackState(
-                /* adsId= */ new Object(), /* adGroupTimesUs...= */ C.TIME_END_OF_SOURCE)
-            .withIsServerSideInserted(/* adGroupIndex= */ 0, /* isServerSideInserted= */ true)
-            .withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 1)
-            .withAdDurationsUs(new long[][] {new long[] {10 * C.MICROS_PER_SECOND}});
+        new AdPlaybackState(/* adsId= */ new Object())
+            .withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ true);
     // Updated timeline with ad group at 18 seconds.
     long firstSampleTimeUs = TimelineWindowDefinition.DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US;
-    Timeline initialTimeline =
-        new FakeTimeline(
-            new TimelineWindowDefinition(
-                /* periodCount= */ 1,
-                /* id= */ 0,
-                /* isSeekable= */ true,
-                /* isDynamic= */ true,
-                /* durationUs= */ C.TIME_UNSET,
-                initialAdPlaybackState));
+    TimelineWindowDefinition initialTimelineWindowDefinition =
+        new TimelineWindowDefinition.Builder()
+            .setDynamic(true)
+            .setDurationUs(C.TIME_UNSET)
+            .setUid(0)
+            .setAdPlaybackStates(ImmutableList.of(initialAdPlaybackState))
+            .build();
+    Timeline initialTimeline = new FakeTimeline(initialTimelineWindowDefinition);
     AdPlaybackState updatedAdPlaybackState =
-        initialAdPlaybackState.withAdGroupTimeUs(
-            /* adGroupIndex= */ 0,
-            /* adGroupTimeUs= */ firstSampleTimeUs + 18 * C.MICROS_PER_SECOND);
-    Timeline updatedTimeline =
-        new FakeTimeline(
-            new TimelineWindowDefinition(
-                /* periodCount= */ 1,
-                /* id= */ 0,
-                /* isSeekable= */ true,
-                /* isDynamic= */ true,
-                /* durationUs= */ C.TIME_UNSET,
-                updatedAdPlaybackState));
+        initialAdPlaybackState
+            .withNewAdGroup(0, firstSampleTimeUs + 18 * C.MICROS_PER_SECOND)
+            .withIsServerSideInserted(/* adGroupIndex= */ 0, /* isServerSideInserted= */ true)
+            .withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 1)
+            .withAdDurationsUs(/* adGroupIndex= */ 0, new long[] {10 * C.MICROS_PER_SECOND});
     // Add samples to allow player to load and start playing (but no EOS as this is a live stream).
     FakeMediaSource mediaSource =
         new FakeMediaSource(
@@ -14181,16 +14169,26 @@ public final class ExoPlayerTest {
 
     // Set updated ad group once we reach 20 seconds, and then continue playing until 40 seconds.
     player
-        .createMessage((message, payload) -> mediaSource.setNewSourceInfo(updatedTimeline))
-        .setPosition(20_000)
+        .createMessage(
+            (message, payload) ->
+                mediaSource.setNewSourceInfo(
+                    new FakeTimeline(
+                        initialTimelineWindowDefinition
+                            .buildUpon()
+                            .setAdPlaybackStates(ImmutableList.of(updatedAdPlaybackState))
+                            .build())))
+        .setPosition(20_000L)
         .send();
     player.setMediaSource(mediaSource);
     player.prepare();
-    playUntilPosition(player, /* mediaItemIndex= */ 0, /* positionMs= */ 40_000);
+    playUntilPosition(player, /* mediaItemIndex= */ 0, /* positionMs= */ 40_000L);
+    Timeline timeline = player.getCurrentTimeline();
     player.release();
 
     // Assert that the renderer hasn't been reset despite the inserted ad group.
     assertThat(videoRenderer.get().positionResetCount).isEqualTo(1);
+    assertThat(timeline.getPeriod(0, new Timeline.Period()).adPlaybackState.adGroupCount)
+        .isEqualTo(2);
   }
 
   @Test
