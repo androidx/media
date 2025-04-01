@@ -135,29 +135,6 @@ public class TransformerGapsTest {
         .isEqualTo(2 * MP4_ASSET.videoFrameCount + expectedBlankFrames);
   }
 
-  // TODO: b/391111085 - Change test when gaps at the start of the sequence are supported.
-  @Test
-  public void export_withTwoVideoOnlyMediaItemsAndGapAtStart_throws() {
-    Transformer transformer = new Transformer.Builder(context).build();
-    Composition composition =
-        new Composition.Builder(
-                new EditedMediaItemSequence.Builder()
-                    .addGap(/* durationUs= */ 1_000_000)
-                    .addItem(VIDEO_ONLY_MEDIA_ITEM)
-                    .addItem(VIDEO_ONLY_MEDIA_ITEM)
-                    .build())
-            .build();
-    TransformerAndroidTestRunner transformerAndroidTestRunner =
-        new TransformerAndroidTestRunner.Builder(context, transformer).build();
-
-    // An IllegalStateException is thrown instead of an ExportException because the exception is
-    // thrown very early in the setup phase and its not caught.
-    // TODO: b/391111085 - Throw exception when the sequence without force audio/video flag is
-    // built.
-    assertThrows(
-        IllegalStateException.class, () -> transformerAndroidTestRunner.run(testId, composition));
-  }
-
   @Test
   public void export_withTwoVideoOnlyMediaItemsAndGapInMiddle_insertsBlankFramesForGap()
       throws Exception {
@@ -224,27 +201,15 @@ public class TransformerGapsTest {
         .isEqualTo(2 * MP4_ASSET.videoFrameCount + expectedBlankFrames);
   }
 
-  // TODO: b/391111085 - Change test when gaps at the start of the sequence are supported.
   @Test
-  public void export_withTwoMediaItemsAndGapAtStart_throws() {
-    Transformer transformer = new Transformer.Builder(context).build();
-    Composition composition =
-        new Composition.Builder(
-                new EditedMediaItemSequence.Builder()
-                    .addGap(/* durationUs= */ 1_000_000)
-                    .addItem(AUDIO_VIDEO_MEDIA_ITEM)
-                    .addItem(AUDIO_VIDEO_MEDIA_ITEM)
-                    .build())
-            .build();
-    TransformerAndroidTestRunner transformerAndroidTestRunner =
-        new TransformerAndroidTestRunner.Builder(context, transformer).build();
+  public void buildSequence_withTwoMediaItemsAndGapAtStart_throws() {
+    EditedMediaItemSequence.Builder sequenceBuilder =
+        new EditedMediaItemSequence.Builder()
+            .addGap(/* durationUs= */ 1_000_000)
+            .addItem(AUDIO_VIDEO_MEDIA_ITEM)
+            .addItem(AUDIO_VIDEO_MEDIA_ITEM);
 
-    // An IllegalStateException is thrown instead of an ExportException because the exception is
-    // thrown very early in the setup phase and its not caught.
-    // TODO: b/391111085 - Throw exception when the sequence without force audio/video flag is
-    // built.
-    assertThrows(
-        IllegalStateException.class, () -> transformerAndroidTestRunner.run(testId, composition));
+    assertThrows(IllegalArgumentException.class, sequenceBuilder::build);
   }
 
   @Test

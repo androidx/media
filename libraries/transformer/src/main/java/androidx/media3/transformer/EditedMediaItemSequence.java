@@ -98,6 +98,9 @@ public final class EditedMediaItemSequence {
      *
      * <p>A gap is a period of time with no media.
      *
+     * <p>If the gap is at the start of the sequence then {@linkplain #setForceAudioTrack(boolean)
+     * force audio track} flag must be set to force silent audio.
+     *
      * <p>Gaps at the start of the sequence are not supported if the sequence has video.
      *
      * @param durationUs The duration of the gap, in milliseconds.
@@ -230,6 +233,9 @@ public final class EditedMediaItemSequence {
     this.editedMediaItems = builder.items.build();
     checkArgument(
         !editedMediaItems.isEmpty(), "The sequence must contain at least one EditedMediaItem.");
+    checkArgument(
+        !editedMediaItems.get(0).isGap() || builder.forceAudioTrack,
+        "If the first item in the sequence is a Gap, then forceAudioTrack flag must be set");
     this.isLooping = builder.isLooping;
     this.forceAudioTrack = builder.forceAudioTrack;
   }
