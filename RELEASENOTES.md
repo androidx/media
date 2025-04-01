@@ -7,6 +7,9 @@
 ### Unreleased changes
 
 *   Common Library:
+    *   Add `PlaybackParameters.withPitch(float)` method for easily copying a
+        `PlaybackParameters` with a new `pitch` value
+        ([#2257](https://github.com/androidx/media/issues/2257)).
 *   ExoPlayer:
     *   Fix sending `CmcdData` in manifest requests for DASH, HLS, and
         SmoothStreaming ([#2253](https://github.com/androidx/media/pull/2253)).
