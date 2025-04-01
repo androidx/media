@@ -148,7 +148,7 @@ public final class MediaItemExportTest {
         new TestTransformerBuilder(context).setMuxerFactory(muxerFactory).build();
 
     EditedMediaItemSequence gapSequence =
-        new EditedMediaItemSequence.Builder().addGap(500_000).build();
+        new EditedMediaItemSequence.Builder().addGap(500_000).setForceAudioTrack(true).build();
 
     transformer.start(new Composition.Builder(gapSequence).build(), outputDir.newFile().getPath());
     ExportResult result = TransformerTestRunner.runLooper(transformer);

@@ -551,7 +551,11 @@ public final class SequenceExportTest {
         new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW_VIDEO))
             .build();
     EditedMediaItemSequence sequence =
-        new EditedMediaItemSequence.Builder().addGap(500_000).addItem(audioVideoItem).build();
+        new EditedMediaItemSequence.Builder()
+            .addGap(500_000)
+            .addItem(audioVideoItem)
+            .setForceAudioTrack(true)
+            .build();
     Composition composition = new Composition.Builder(sequence).build();
 
     transformer.start(composition, outputDir.newFile().getPath());
@@ -567,7 +571,11 @@ public final class SequenceExportTest {
     Transformer transformer =
         new TestTransformerBuilder(context).setMuxerFactory(muxerFactory).build();
     EditedMediaItemSequence sequence =
-        new EditedMediaItemSequence.Builder().addGap(300_000).addGap(200_000).build();
+        new EditedMediaItemSequence.Builder()
+            .addGap(300_000)
+            .addGap(200_000)
+            .setForceAudioTrack(true)
+            .build();
     Composition composition = new Composition.Builder(sequence).build();
 
     transformer.start(composition, outputDir.newFile().getPath());
@@ -614,6 +622,7 @@ public final class SequenceExportTest {
             .addGap(200_000)
             .addGap(500_000)
             .addItem(audioItem)
+            .setForceAudioTrack(true)
             .build();
     Composition composition = new Composition.Builder(sequence).build();
 
@@ -709,6 +718,7 @@ public final class SequenceExportTest {
             .addItem(firstAudioItem)
             .addGap(200_000)
             .addItem(secondAudioItem)
+            .setForceAudioTrack(true)
             .build();
     Composition composition = new Composition.Builder(sequence).build();
 

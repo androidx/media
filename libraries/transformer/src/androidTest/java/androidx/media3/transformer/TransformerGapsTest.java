@@ -149,8 +149,12 @@ public class TransformerGapsTest {
     TransformerAndroidTestRunner transformerAndroidTestRunner =
         new TransformerAndroidTestRunner.Builder(context, transformer).build();
 
+    // An IllegalStateException is thrown instead of an ExportException because the exception is
+    // thrown very early in the setup phase and its not caught.
+    // TODO: b/391111085 - Throw exception when the sequence without force audio/video flag is
+    // built.
     assertThrows(
-        ExportException.class, () -> transformerAndroidTestRunner.run(testId, composition));
+        IllegalStateException.class, () -> transformerAndroidTestRunner.run(testId, composition));
   }
 
   @Test
@@ -234,8 +238,12 @@ public class TransformerGapsTest {
     TransformerAndroidTestRunner transformerAndroidTestRunner =
         new TransformerAndroidTestRunner.Builder(context, transformer).build();
 
+    // An IllegalStateException is thrown instead of an ExportException because the exception is
+    // thrown very early in the setup phase and its not caught.
+    // TODO: b/391111085 - Throw exception when the sequence without force audio/video flag is
+    // built.
     assertThrows(
-        ExportException.class, () -> transformerAndroidTestRunner.run(testId, composition));
+        IllegalStateException.class, () -> transformerAndroidTestRunner.run(testId, composition));
   }
 
   @Test

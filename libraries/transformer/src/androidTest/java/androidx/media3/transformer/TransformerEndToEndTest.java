@@ -1887,6 +1887,7 @@ public class TransformerEndToEndTest {
                 new EditedMediaItemSequence.Builder()
                     .addGap(100_000)
                     .addItem(editedMediaItem)
+                    .setForceAudioTrack(true)
                     .build(),
                 new EditedMediaItemSequence.Builder(editedMediaItem).build())
             .build();

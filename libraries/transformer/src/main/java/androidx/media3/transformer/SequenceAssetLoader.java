@@ -137,7 +137,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       Looper looper) {
     editedMediaItems = sequence.editedMediaItems;
     isLooping = sequence.isLooping;
-    this.forceAudioTrack = sequence.forceAudioTrack || sequence.editedMediaItems.get(0).isGap();
+    this.forceAudioTrack = sequence.forceAudioTrack;
     this.assetLoaderFactory = new GapInterceptingAssetLoaderFactory(assetLoaderFactory);
     this.compositionSettings = compositionSettings;
     sequenceAssetLoaderListener = listener;

@@ -10,6 +10,10 @@
         error during initialization of the next media item
         ([#2229](https://github.com/androidx/media/issues/2229)).
 *   Transformer:
+    *   Filling an initial gap (added via `addGap()`) with silent audio now
+        requires explicitly setting `setForceAudioTrack(true)` in
+        `EditedMediaItemSequence.Builder`. If the gap is in the middle of the
+        sequence, then this flag is not required.
 *   Track Selection:
 *   Extractors:
     *   MP3: Use duration and data size from unseekable Xing, VBRI and similar
