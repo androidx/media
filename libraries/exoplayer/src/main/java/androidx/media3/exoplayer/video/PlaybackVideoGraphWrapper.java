@@ -368,7 +368,9 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
   public VideoSink getSink(int inputIndex) {
     checkState(!contains(inputVideoSinks, inputIndex));
     InputVideoSink inputVideoSink = new InputVideoSink(context, inputIndex);
-    addListener(inputVideoSink);
+    if (inputIndex == PRIMARY_SEQUENCE_INDEX) {
+      addListener(inputVideoSink);
+    }
     inputVideoSinks.put(inputIndex, inputVideoSink);
     return inputVideoSink;
   }
@@ -536,6 +538,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
         maybeSetOutputSurfaceInfo(surface, size.getWidth(), size.getHeight());
       }
       defaultVideoSink.initialize(sourceFormat);
+      defaultVideoSink.setListener(new DefaultVideoSinkListener(), /* executor= */ handler::post);
       state = STATE_INITIALIZED;
     } else {
       if (!isInitialized()) {
@@ -550,8 +553,6 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
       throw new VideoSink.VideoSinkException(e, sourceFormat);
     }
     registeredVideoInputCount++;
-    defaultVideoSink.setListener(
-        new DefaultVideoSinkListener(), /* executor= */ checkNotNull(handler)::post);
     return true;
   }
 
