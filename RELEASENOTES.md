@@ -13,6 +13,19 @@
 *   ExoPlayer:
     *   Fix sending `CmcdData` in manifest requests for DASH, HLS, and
         SmoothStreaming ([#2253](https://github.com/androidx/media/pull/2253)).
+<<<<<<< HEAD
+=======
+    *   Fix issue where media item transition fails due to recoverable renderer
+        error during initialization of the next media item
+        ([#2229](https://github.com/androidx/media/issues/2229)).
+    *   Add `ExoPlayer.setScrubbingModeEnabled(boolean)` method. This optimizes
+        the player for many frequent seeks (for example, from a user dragging a
+        scrubber bar around).
+    *   `AdPlaybackState.withAdDurationsUs(long[][])` can be used after ad
+        groups have been removed. The user still needs to pass in an array of
+        durations for removed ad groups which can be empty or null
+        ([#2267](https://github.com/androidx/media/issues/2267)).
+>>>>>>> d133300627 (Make AdPlaybackState.withAdDurationsUs work with removed ad groups)
 *   Transformer:
 *   Track Selection:
 *   Extractors:

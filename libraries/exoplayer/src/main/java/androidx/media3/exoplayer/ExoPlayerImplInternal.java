@@ -751,8 +751,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
         }
       }
       if (e.type == ExoPlaybackException.TYPE_RENDERER
-          && e.mediaPeriodId != null
-          && isRendererPrewarmingMediaPeriod(e.rendererIndex, e.mediaPeriodId)) {
+          && renderers[e.rendererIndex % renderers.length].isRendererPrewarming(
+              /* id= */ e.rendererIndex)) {
         // TODO(b/380273486): Investigate recovery for pre-warming renderer errors
         isPrewarmingDisabledUntilNextTransition = true;
         disableAndResetPrewarmingRenderers();

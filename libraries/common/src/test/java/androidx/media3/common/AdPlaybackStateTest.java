@@ -1036,4 +1036,110 @@ public class AdPlaybackStateTest {
     assertThat(AdPlaybackState.AdGroup.fromBundle(adGroup.toBundle()).ids[1]).isNull();
     assertThat(AdPlaybackState.AdGroup.fromBundle(adGroup.toBundle())).isEqualTo(adGroup);
   }
+
+  @Test
+  public void setDurationsUs_withRemovedAdGroups_updatedCorrectlyAndSafely() {
+    AdPlaybackState adPlaybackState =
+        new AdPlaybackState("adsId")
+            .withLivePostrollPlaceholderAppended(false)
+            .withNewAdGroup(/* adGroupIndex= */ 0, 10_000)
+            .withAdCount(/* adGroupIndex= */ 0, 1)
+            .withAvailableAdMediaItem(
+                /* adGroupIndex= */ 0,
+                /* adIndexInAdGroup= */ 0,
+                MediaItem.fromUri("http://example.com/0-0"))
+            .withNewAdGroup(/* adGroupIndex= */ 1, 11_000)
+            .withAdCount(/* adGroupIndex= */ 1, 2)
+            .withAvailableAdMediaItem(
+                /* adGroupIndex= */ 1,
+                /* adIndexInAdGroup= */ 0,
+                MediaItem.fromUri("http://example.com/1-0"))
+            .withAvailableAdMediaItem(
+                /* adGroupIndex= */ 1,
+                /* adIndexInAdGroup= */ 1,
+                MediaItem.fromUri("http://example.com/1-1"))
+            .withNewAdGroup(/* adGroupIndex= */ 2, 12_000)
+            .withAdCount(/* adGroupIndex= */ 2, 1)
+            .withAvailableAdMediaItem(
+                /* adGroupIndex= */ 2,
+                /* adIndexInAdGroup= */ 0,
+                MediaItem.fromUri("http://example.com/2-0"));
+    long[][] adDurationsUs = {
+      new long[] {10L}, new long[] {20L, 21L}, new long[] {30L}, new long[] {C.TIME_END_OF_SOURCE}
+    };
+
+    adPlaybackState =
+        adPlaybackState
+            .withAdDurationsUs(adDurationsUs)
+            .withRemovedAdGroupCount(/* removedAdGroupCount= */ 1);
+
+    assertThat(adPlaybackState.adGroupCount).isEqualTo(4);
+    assertThat(adPlaybackState.getAdGroup(/* adGroupIndex= */ 0).durationsUs).hasLength(0);
+    assertThat(adPlaybackState.getAdGroup(/* adGroupIndex= */ 0).count).isEqualTo(0);
+    assertThat(adPlaybackState.getAdGroup(/* adGroupIndex= */ 0).states).hasLength(0);
+    assertThat(adPlaybackState.getAdGroup(/* adGroupIndex= */ 0).isPlaceholder).isFalse();
+    assertThat(adPlaybackState.getAdGroup(/* adGroupIndex= */ 0).mediaItems).hasLength(0);
+    assertThat(adPlaybackState.getAdGroup(/* adGroupIndex= */ 0).ids).hasLength(0);
+    assertThat(adPlaybackState.getAdGroup(/* adGroupIndex= */ 1).durationsUs)
+        .asList()
+        .containsExactly(20L, 21L)
+        .inOrder();
+    assertThat(adPlaybackState.getAdGroup(/* adGroupIndex= */ 2).durationsUs)
+        .asList()
+        .containsExactly(30L);
+    assertThat(adPlaybackState.getAdGroup(/* adGroupIndex= */ 3).durationsUs)
+        .asList()
+        .containsExactly(C.TIME_END_OF_SOURCE);
+
+    adDurationsUs[1][0] = 120L;
+    adDurationsUs[1][1] = 121L;
+    adPlaybackState = adPlaybackState.withAdDurationsUs(adDurationsUs);
+
+    assertThat(adPlaybackState.getAdGroup(/* adGroupIndex= */ 1).durationsUs)
+        .asList()
+        .containsExactly(120L, 121L)
+        .inOrder();
+    assertThat(adPlaybackState.getAdGroup(/* adGroupIndex= */ 2).durationsUs)
+        .asList()
+        .containsExactly(30L);
+    assertThat(adPlaybackState.getAdGroup(/* adGroupIndex= */ 3).durationsUs)
+        .asList()
+        .containsExactly(C.TIME_END_OF_SOURCE);
+
+    adDurationsUs[0] = null;
+    adDurationsUs[1] = null;
+    adDurationsUs[2][0] = C.TIME_UNSET;
+    adPlaybackState =
+        adPlaybackState
+            .withRemovedAdGroupCount(/* removedAdGroupCount= */ 2)
+            .withAdDurationsUs(adDurationsUs);
+
+    assertThat(adPlaybackState.getAdGroup(/* adGroupIndex= */ 1).durationsUs).hasLength(0);
+    assertThat(adPlaybackState.getAdGroup(/* adGroupIndex= */ 2).durationsUs)
+        .asList()
+        .containsExactly(C.TIME_UNSET);
+    assertThat(adPlaybackState.getAdGroup(/* adGroupIndex= */ 3).durationsUs)
+        .asList()
+        .containsExactly(C.TIME_END_OF_SOURCE);
+
+    adDurationsUs[2] = null;
+    adDurationsUs[3][0] = 0L;
+    adPlaybackState =
+        adPlaybackState
+            .withRemovedAdGroupCount(/* removedAdGroupCount= */ 3)
+            .withAdDurationsUs(adDurationsUs);
+
+    assertThat(adPlaybackState.getAdGroup(/* adGroupIndex= */ 2).durationsUs).hasLength(0);
+    assertThat(adPlaybackState.getAdGroup(/* adGroupIndex= */ 3).durationsUs)
+        .asList()
+        .containsExactly(0L);
+
+    adDurationsUs[3] = null;
+    adPlaybackState =
+        adPlaybackState
+            .withRemovedAdGroupCount(/* removedAdGroupCount= */ 4)
+            .withAdDurationsUs(adDurationsUs);
+
+    assertThat(adPlaybackState.getAdGroup(/* adGroupIndex= */ 3).durationsUs).hasLength(0);
+  }
 }
