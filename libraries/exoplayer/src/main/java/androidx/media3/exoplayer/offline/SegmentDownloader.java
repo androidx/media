@@ -16,7 +16,7 @@
 package androidx.media3.exoplayer.offline;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Util.percent;
+import static androidx.media3.common.util.Util.percentFloat;
 
 import android.net.Uri;
 import androidx.annotation.Nullable;
@@ -537,9 +537,9 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
 
     private float getPercentDownloaded() {
       if (contentLength != C.LENGTH_UNSET && contentLength != 0) {
-        return percent(bytesDownloaded, contentLength);
+        return percentFloat(bytesDownloaded, contentLength);
       } else if (totalSegments != 0) {
-        return percent(segmentsDownloaded, totalSegments);
+        return percentFloat(segmentsDownloaded, totalSegments);
       } else {
         return C.PERCENTAGE_UNSET;
       }

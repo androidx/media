@@ -1224,15 +1224,26 @@ public final class Util {
   }
 
   /**
-   * Returns the percentage of numerator divided by denominator. Note that this may return {@link
-   * Float#POSITIVE_INFINITY}, {@link Float#NEGATIVE_INFINITY} or {@link Float#NaN} if the
-   * denominator is zero.
-   *
-   * @param numerator The numerator.
-   * @param denominator The denominator.
+   * Returns the integer percentage of {@code numerator} divided by {@code denominator}. This uses
+   * integer arithmetic (round down).
    */
   @UnstableApi
-  public static float percent(long numerator, long denominator) {
+  public static int percentInt(long numerator, long denominator) {
+    long numeratorTimes100 = LongMath.saturatedMultiply(numerator, 100);
+    long result =
+        numeratorTimes100 != Long.MAX_VALUE && numeratorTimes100 != Long.MIN_VALUE
+            ? numeratorTimes100 / denominator
+            : (numerator / (denominator / 100));
+    return Ints.checkedCast(result);
+  }
+
+  /**
+   * Returns the floating point percentage of {@code numerator} divided by {@code denominator}. Note
+   * that this may return {@link Float#POSITIVE_INFINITY}, {@link Float#NEGATIVE_INFINITY} or {@link
+   * Float#NaN} if the denominator is zero.
+   */
+  @UnstableApi
+  public static float percentFloat(long numerator, long denominator) {
     if (denominator != 0 && numerator == denominator) {
       return 100f;
     }

@@ -19,6 +19,7 @@ import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
+import static androidx.media3.common.util.Util.percentInt;
 import static androidx.media3.effect.DebugTraceUtil.COMPONENT_ASSET_LOADER;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_INPUT_FORMAT;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_OUTPUT_FORMAT;
@@ -178,7 +179,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       return progressState;
     }
 
-    int progress = currentMediaItemIndex * 100 / mediaItemCount;
+    int progress = percentInt(currentMediaItemIndex, mediaItemCount);
     if (progressState == PROGRESS_STATE_AVAILABLE) {
       progress += progressHolder.progress / mediaItemCount;
     }
