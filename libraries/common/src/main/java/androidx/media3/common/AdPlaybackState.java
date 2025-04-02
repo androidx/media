@@ -1072,14 +1072,23 @@ public final class AdPlaybackState {
   /**
    * Returns an instance with the specified ad durations, in microseconds.
    *
-   * <p>Must only be used if {@link #removedAdGroupCount} is 0.
+   * <p>The number of arrays of durations ({@code adDurations.length}) must always be equal to
+   * {@link #adGroupCount}. This is required even on an instance created with {@link
+   * #withRemovedAdGroupCount(int)}. The array of durations at the index of a removed ad group can
+   * be null or empty.
+   *
+   * @throws IllegalArgumentException if {@code adDurations.length != adGroupCount}.
    */
   @CheckResult
   public AdPlaybackState withAdDurationsUs(long[][] adDurationUs) {
-    checkState(removedAdGroupCount == 0);
+    checkArgument(adDurationUs.length == adGroupCount);
     AdGroup[] adGroups = Util.nullSafeArrayCopy(this.adGroups, this.adGroups.length);
-    for (int adGroupIndex = 0; adGroupIndex < adGroupCount; adGroupIndex++) {
-      adGroups[adGroupIndex] = adGroups[adGroupIndex].withAdDurationsUs(adDurationUs[adGroupIndex]);
+    for (int correctedAdGroupIndex = 0;
+        correctedAdGroupIndex < adGroupCount - removedAdGroupCount;
+        correctedAdGroupIndex++) {
+      adGroups[correctedAdGroupIndex] =
+          adGroups[correctedAdGroupIndex].withAdDurationsUs(
+              adDurationUs[removedAdGroupCount + correctedAdGroupIndex]);
     }
     return new AdPlaybackState(
         adsId, adGroups, adResumePositionUs, contentDurationUs, removedAdGroupCount);

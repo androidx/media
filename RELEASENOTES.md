@@ -15,6 +15,10 @@
     *   Add `ExoPlayer.setScrubbingModeEnabled(boolean)` method. This optimizes
         the player for many frequent seeks (for example, from a user dragging a
         scrubber bar around).
+    *   `AdPlaybackState.withAdDurationsUs(long[][])` can be used after ad
+        groups have been removed. The user still needs to pass in an array of
+        durations for removed ad groups which can be empty or null
+        ([#2267](https://github.com/androidx/media/issues/2267)).
 *   Transformer:
     *   Filling an initial gap (added via `addGap()`) with silent audio now
         requires explicitly setting `setForceAudioTrack(true)` in
