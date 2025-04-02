@@ -216,6 +216,11 @@ public class StubExoPlayer extends StubPlayer implements ExoPlayer {
   }
 
   @Override
+  public void setScrubbingModeEnabled(boolean scrubbingModeEnabled) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
   public void setVideoEffects(List<Effect> videoEffects) {
     throw new UnsupportedOperationException();
   }

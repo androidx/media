@@ -12,6 +12,9 @@
     *   Fix issue where media item transition fails due to recoverable renderer
         error during initialization of the next media item
         ([#2229](https://github.com/androidx/media/issues/2229)).
+    *   Add `ExoPlayer.setScrubbingModeEnabled(boolean)` method. This optimizes
+        the player for many frequent seeks (for example, from a user dragging a
+        scrubber bar around).
 *   Transformer:
     *   Filling an initial gap (added via `addGap()`) with silent audio now
         requires explicitly setting `setForceAudioTrack(true)` in

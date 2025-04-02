@@ -35,7 +35,6 @@ import static androidx.media3.exoplayer.Renderer.MSG_SET_PRIORITY;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_SCALING_MODE;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_SKIP_SILENCE_ENABLED;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_VIDEO_EFFECTS;
-import static androidx.media3.exoplayer.Renderer.MSG_SET_VIDEO_FRAME_METADATA_LISTENER;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_VIDEO_OUTPUT_RESOLUTION;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -182,6 +181,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
   private @DiscontinuityReason int pendingDiscontinuityReason;
   private boolean pendingDiscontinuity;
   private boolean foregroundMode;
+  private boolean scrubbingModeEnabled;
   private SeekParameters seekParameters;
   private ShuffleOrder shuffleOrder;
   private PreloadConfiguration preloadConfiguration;
@@ -370,7 +370,8 @@ import java.util.concurrent.CopyOnWriteArraySet;
               playbackInfoUpdateListener,
               playerId,
               builder.playbackLooperProvider,
-              preloadConfiguration);
+              preloadConfiguration,
+              frameMetadataListener);
       Looper playbackLooper = internalPlayer.getPlaybackLooper();
 
       volume = 1;
@@ -447,8 +448,6 @@ import java.util.concurrent.CopyOnWriteArraySet;
       sendRendererMessage(
           TRACK_TYPE_VIDEO, MSG_SET_CHANGE_FRAME_RATE_STRATEGY, videoChangeFrameRateStrategy);
       sendRendererMessage(TRACK_TYPE_AUDIO, MSG_SET_SKIP_SILENCE_ENABLED, skipSilenceEnabled);
-      sendRendererMessage(
-          TRACK_TYPE_VIDEO, MSG_SET_VIDEO_FRAME_METADATA_LISTENER, frameMetadataListener);
       sendRendererMessage(
           TRACK_TYPE_CAMERA_MOTION, MSG_SET_CAMERA_MOTION_LISTENER, frameMetadataListener);
       sendRendererMessage(MSG_SET_PRIORITY, priority);
@@ -1551,6 +1550,17 @@ import java.util.concurrent.CopyOnWriteArraySet;
     listeners.sendEvent(
         EVENT_SKIP_SILENCE_ENABLED_CHANGED,
         listener -> listener.onSkipSilenceEnabledChanged(newSkipSilenceEnabled));
+  }
+
+  @Override
+  public void setScrubbingModeEnabled(boolean scrubbingModeEnabled) {
+    verifyApplicationThread();
+    if (scrubbingModeEnabled == this.scrubbingModeEnabled) {
+      return;
+    }
+    this.scrubbingModeEnabled = scrubbingModeEnabled;
+    internalPlayer.setScrubbingModeEnabled(scrubbingModeEnabled);
+    updatePlayWhenReady(playbackInfo.playWhenReady, playbackInfo.playWhenReadyChangeReason);
   }
 
   @Override
@@ -2761,6 +2771,9 @@ import java.util.concurrent.CopyOnWriteArraySet;
   }
 
   private @PlaybackSuppressionReason int computePlaybackSuppressionReason(boolean playWhenReady) {
+    if (scrubbingModeEnabled) {
+      return Player.PLAYBACK_SUPPRESSION_REASON_SCRUBBING;
+    }
     if (suitableOutputChecker != null
         && !suitableOutputChecker.isSelectedOutputSuitableForPlayback()) {
       return Player.PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT;

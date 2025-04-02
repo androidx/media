@@ -1450,6 +1450,20 @@ public interface ExoPlayer extends Player {
   boolean getSkipSilenceEnabled();
 
   /**
+   * Sets whether to optimize the player for scrubbing (many frequent seeks).
+   *
+   * <p>The player may consume more resources in this mode, so it should only be used for short
+   * periods of time in response to user interaction (e.g. dragging on a progress bar UI element).
+   *
+   * <p>During scrubbing mode playback is {@linkplain Player#getPlaybackSuppressionReason()
+   * suppressed} with {@link Player#PLAYBACK_SUPPRESSION_REASON_SCRUBBING}.
+   *
+   * @param scrubbingModeEnabled Whether scrubbing mode should be enabled.
+   */
+  @UnstableApi
+  void setScrubbingModeEnabled(boolean scrubbingModeEnabled);
+
+  /**
    * Sets a {@link List} of {@linkplain Effect video effects} that will be applied to each video
    * frame.
    *

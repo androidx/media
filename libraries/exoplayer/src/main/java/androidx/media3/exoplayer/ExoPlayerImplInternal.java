@@ -28,6 +28,7 @@ import static java.lang.Math.max;
 import static java.lang.Math.min;
 
 import android.content.Context;
+import android.media.MediaFormat;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
@@ -72,6 +73,7 @@ import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import androidx.media3.exoplayer.trackselection.TrackSelector;
 import androidx.media3.exoplayer.trackselection.TrackSelectorResult;
 import androidx.media3.exoplayer.upstream.BandwidthMeter;
+import androidx.media3.exoplayer.video.VideoFrameMetadataListener;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
@@ -89,7 +91,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
         MediaSourceList.MediaSourceListInfoRefreshListener,
         PlaybackParametersListener,
         PlayerMessage.Sender,
-        AudioFocusManager.PlayerControl {
+        AudioFocusManager.PlayerControl,
+        VideoFrameMetadataListener {
 
   private static final String TAG = "ExoPlayerImplInternal";
 
@@ -168,6 +171,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
   private static final int MSG_SET_VOLUME = 32;
   private static final int MSG_AUDIO_FOCUS_PLAYER_COMMAND = 33;
   private static final int MSG_AUDIO_FOCUS_VOLUME_MULTIPLIER = 34;
+  private static final int MSG_SET_VIDEO_FRAME_METADATA_LISTENER = 35;
+  private static final int MSG_SET_SCRUBBING_MODE_ENABLED = 36;
+  private static final int MSG_SEEK_COMPLETED_IN_SCRUBBING_MODE = 37;
 
   private static final long BUFFERING_MAXIMUM_INTERVAL_MS =
       Util.usToMs(Renderer.DEFAULT_DURATION_TO_PROGRESS_US);
@@ -216,6 +222,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
   private final boolean hasSecondaryRenderers;
   private final AudioFocusManager audioFocusManager;
   private SeekParameters seekParameters;
+  private boolean scrubbingModeEnabled;
+  private boolean seekIsPendingWhileScrubbing;
+  @Nullable private SeekPosition queuedSeekWhileScrubbing;
   private PlaybackInfo playbackInfo;
   private PlaybackInfoUpdate playbackInfoUpdate;
   private boolean released;
@@ -265,7 +274,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
       PlaybackInfoUpdateListener playbackInfoUpdateListener,
       PlayerId playerId,
       @Nullable PlaybackLooperProvider playbackLooperProvider,
-      PreloadConfiguration preloadConfiguration) {
+      PreloadConfiguration preloadConfiguration,
+      VideoFrameMetadataListener videoFrameMetadataListener) {
     this.playbackInfoUpdateListener = playbackInfoUpdateListener;
     this.trackSelector = trackSelector;
     this.emptyTrackSelectorResult = emptyTrackSelectorResult;
@@ -340,6 +350,15 @@ import java.util.concurrent.atomic.AtomicBoolean;
     handler = clock.createHandler(this.playbackLooper, this);
 
     audioFocusManager = new AudioFocusManager(context, playbackLooper, /* playerControl= */ this);
+    VideoFrameMetadataListener internalVideoFrameMetadataListener =
+        (presentationTimeUs, releaseTimeNs, format, mediaFormat) -> {
+          videoFrameMetadataListener.onVideoFrameAboutToBeRendered(
+              presentationTimeUs, releaseTimeNs, format, mediaFormat);
+          onVideoFrameAboutToBeRendered(presentationTimeUs, releaseTimeNs, format, mediaFormat);
+        };
+    handler
+        .obtainMessage(MSG_SET_VIDEO_FRAME_METADATA_LISTENER, internalVideoFrameMetadataListener)
+        .sendToTarget();
   }
 
   private MediaPeriodHolder createMediaPeriodHolder(
@@ -403,6 +422,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
   public void setSeekParameters(SeekParameters seekParameters) {
     handler.obtainMessage(MSG_SET_SEEK_PARAMETERS, seekParameters).sendToTarget();
+  }
+
+  public void setScrubbingModeEnabled(boolean scrubbingModeEnabled) {
+    handler.obtainMessage(MSG_SET_SCRUBBING_MODE_ENABLED, scrubbingModeEnabled).sendToTarget();
   }
 
   public void stop() {
@@ -481,6 +504,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
   private void handleAudioFocusVolumeMultiplierChange() throws ExoPlaybackException {
     setVolumeInternal(volume);
+  }
+
+  private void setVideoFrameMetadataListenerInternal(
+      VideoFrameMetadataListener videoFrameMetadataListener) throws ExoPlaybackException {
+    for (RendererHolder renderer : renderers) {
+      renderer.setVideoFrameMetadataListener(videoFrameMetadataListener);
+    }
   }
 
   @Override
@@ -613,6 +643,19 @@ import java.util.concurrent.atomic.AtomicBoolean;
     handler.obtainMessage(MSG_AUDIO_FOCUS_PLAYER_COMMAND, playerCommand, 0).sendToTarget();
   }
 
+  // VideoFrameMetadataListener implementation
+
+  @Override
+  public void onVideoFrameAboutToBeRendered(
+      long presentationTimeUs,
+      long releaseTimeNs,
+      Format format,
+      @Nullable MediaFormat mediaFormat) {
+    if (seekIsPendingWhileScrubbing) {
+      handler.obtainMessage(MSG_SEEK_COMPLETED_IN_SCRUBBING_MODE).sendToTarget();
+    }
+  }
+
   // Handler.Callback implementation.
 
   @SuppressWarnings({"unchecked", "WrongConstant"}) // Casting message payload types and IntDef.
@@ -643,13 +686,23 @@ import java.util.concurrent.atomic.AtomicBoolean;
           doSomeWork();
           break;
         case MSG_SEEK_TO:
-          seekToInternal((SeekPosition) msg.obj);
+          seekToInternal((SeekPosition) msg.obj, /* incrementAcks= */ true);
+          break;
+        case MSG_SEEK_COMPLETED_IN_SCRUBBING_MODE:
+          seekIsPendingWhileScrubbing = false;
+          if (queuedSeekWhileScrubbing != null) {
+            seekToInternal(queuedSeekWhileScrubbing, /* incrementAcks= */ false);
+            queuedSeekWhileScrubbing = null;
+          }
           break;
         case MSG_SET_PLAYBACK_PARAMETERS:
           setPlaybackParametersInternal((PlaybackParameters) msg.obj);
           break;
         case MSG_SET_SEEK_PARAMETERS:
           setSeekParametersInternal((SeekParameters) msg.obj);
+          break;
+        case MSG_SET_SCRUBBING_MODE_ENABLED:
+          setScrubbingModeEnabledInternal((Boolean) msg.obj);
           break;
         case MSG_SET_FOREGROUND_MODE:
           setForegroundModeInternal(
@@ -724,6 +777,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
           break;
         case MSG_AUDIO_FOCUS_VOLUME_MULTIPLIER:
           handleAudioFocusVolumeMultiplierChange();
+          break;
+        case MSG_SET_VIDEO_FRAME_METADATA_LISTENER:
+          setVideoFrameMetadataListenerInternal((VideoFrameMetadataListener) msg.obj);
           break;
         case MSG_RELEASE:
           releaseInternal();
@@ -1486,8 +1542,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
         MSG_DO_SOME_WORK, thisOperationStartTimeMs + wakeUpTimeIntervalMs);
   }
 
-  private void seekToInternal(SeekPosition seekPosition) throws ExoPlaybackException {
-    playbackInfoUpdate.incrementPendingOperationAcks(/* operationAcks= */ 1);
+  private void seekToInternal(SeekPosition seekPosition, boolean incrementAcks)
+      throws ExoPlaybackException {
+    playbackInfoUpdate.incrementPendingOperationAcks(incrementAcks ? 1 : 0);
+    if (seekIsPendingWhileScrubbing) {
+      queuedSeekWhileScrubbing = seekPosition;
+      return;
+    }
 
     MediaPeriodId periodId;
     long periodPositionUs;
@@ -1568,6 +1629,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
             return;
           }
         }
+        seekIsPendingWhileScrubbing = scrubbingModeEnabled;
         newPeriodPositionUs =
             seekToPeriodPosition(
                 periodId,
@@ -1698,6 +1760,20 @@ import java.util.concurrent.atomic.AtomicBoolean;
     this.seekParameters = seekParameters;
   }
 
+  private void setScrubbingModeEnabledInternal(boolean scrubbingModeEnabled)
+      throws ExoPlaybackException {
+    this.scrubbingModeEnabled = scrubbingModeEnabled;
+    if (!scrubbingModeEnabled) {
+      seekIsPendingWhileScrubbing = false;
+      handler.removeMessages(MSG_SEEK_COMPLETED_IN_SCRUBBING_MODE);
+      if (queuedSeekWhileScrubbing != null) {
+        // Immediately seek to the latest received scrub position (interrupting a pending seek).
+        seekToInternal(queuedSeekWhileScrubbing, /* incrementAcks= */ false);
+        queuedSeekWhileScrubbing = null;
+      }
+    }
+  }
+
   private void setForegroundModeInternal(
       boolean foregroundMode, @Nullable AtomicBoolean processedFlag) {
     if (this.foregroundMode != foregroundMode) {
@@ -1773,6 +1849,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
       boolean releaseMediaSourceList,
       boolean resetError) {
     handler.removeMessages(MSG_DO_SOME_WORK);
+    seekIsPendingWhileScrubbing = false;
+    queuedSeekWhileScrubbing = null;
     pendingRecoverableRendererError = null;
     updateRebufferingState(/* isRebuffering= */ false, /* resetLastRebufferRealtimeMs= */ true);
     mediaClock.stop();

@@ -741,6 +741,8 @@ public class EventLogger implements AnalyticsListener {
         return "TRANSIENT_AUDIO_FOCUS_LOSS";
       case Player.PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT:
         return "UNSUITABLE_AUDIO_OUTPUT";
+      case Player.PLAYBACK_SUPPRESSION_REASON_SCRUBBING:
+        return "SCRUBBING";
       default:
         return "?";
     }
