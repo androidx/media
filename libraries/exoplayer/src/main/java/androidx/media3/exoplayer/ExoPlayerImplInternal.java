@@ -74,7 +74,6 @@ import androidx.media3.exoplayer.trackselection.TrackSelector;
 import androidx.media3.exoplayer.trackselection.TrackSelectorResult;
 import androidx.media3.exoplayer.upstream.BandwidthMeter;
 import androidx.media3.exoplayer.video.VideoFrameMetadataListener;
-import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -227,7 +226,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
   @Nullable private SeekPosition queuedSeekWhileScrubbing;
   private PlaybackInfo playbackInfo;
   private PlaybackInfoUpdate playbackInfoUpdate;
-  private boolean released;
+  private boolean releasedOnApplicationThread;
   private boolean pauseAtEndOfWindow;
   private boolean pendingPauseAtEndOfPeriod;
   private boolean isRebuffering;
@@ -514,8 +513,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
   }
 
   @Override
-  public synchronized void sendMessage(PlayerMessage message) {
-    if (released || !playbackLooper.getThread().isAlive()) {
+  public void sendMessage(PlayerMessage message) {
+    if (releasedOnApplicationThread || !playbackLooper.getThread().isAlive()) {
       Log.w(TAG, "Ignoring messages sent after release.");
       message.markAsProcessed(/* isDelivered= */ false);
       return;
@@ -529,8 +528,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
    * @param foregroundMode Whether foreground mode should be enabled.
    * @return Whether the operations succeeded. If false, the operation timed out.
    */
-  public synchronized boolean setForegroundMode(boolean foregroundMode) {
-    if (released || !playbackLooper.getThread().isAlive()) {
+  public boolean setForegroundMode(boolean foregroundMode) {
+    if (releasedOnApplicationThread || !playbackLooper.getThread().isAlive()) {
       return true;
     }
     if (foregroundMode) {
@@ -541,7 +540,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
       handler
           .obtainMessage(MSG_SET_FOREGROUND_MODE, /* foregroundMode */ 0, 0, processedFlag)
           .sendToTarget();
-      waitUninterruptibly(/* condition= */ processedFlag::get, setForegroundModeTimeoutMs);
+      waitUninterruptibly(processedFlag, setForegroundModeTimeoutMs);
       return processedFlag.get();
     }
   }
@@ -557,8 +556,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
    *     C#TIME_UNSET} then the method will not block on the message delivery.
    * @return Whether the operation succeeded. If false, the operation timed out.
    */
-  public synchronized boolean setVideoOutput(@Nullable Object videoOutput, long timeoutMs) {
-    if (released || !playbackLooper.getThread().isAlive()) {
+  public boolean setVideoOutput(@Nullable Object videoOutput, long timeoutMs) {
+    if (releasedOnApplicationThread || !playbackLooper.getThread().isAlive()) {
       return true;
     }
     AtomicBoolean processedFlag = new AtomicBoolean();
@@ -566,7 +565,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
         .obtainMessage(MSG_SET_VIDEO_OUTPUT, new Pair<>(videoOutput, processedFlag))
         .sendToTarget();
     if (timeoutMs != C.TIME_UNSET) {
-      waitUninterruptibly(/* condition= */ processedFlag::get, timeoutMs);
+      waitUninterruptibly(processedFlag, timeoutMs);
       return processedFlag.get();
     }
     return true;
@@ -577,13 +576,15 @@ import java.util.concurrent.atomic.AtomicBoolean;
    *
    * @return Whether the release succeeded. If false, the release timed out.
    */
-  public synchronized boolean release() {
-    if (released || !playbackLooper.getThread().isAlive()) {
+  public boolean release() {
+    if (releasedOnApplicationThread || !playbackLooper.getThread().isAlive()) {
       return true;
     }
-    handler.sendEmptyMessage(MSG_RELEASE);
-    waitUninterruptibly(/* condition= */ () -> released, releaseTimeoutMs);
-    return released;
+    releasedOnApplicationThread = true;
+    AtomicBoolean processedFlag = new AtomicBoolean();
+    handler.obtainMessage(MSG_RELEASE, processedFlag).sendToTarget();
+    waitUninterruptibly(processedFlag, releaseTimeoutMs);
+    return processedFlag.get();
   }
 
   public Looper getPlaybackLooper() {
@@ -782,7 +783,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
           setVideoFrameMetadataListenerInternal((VideoFrameMetadataListener) msg.obj);
           break;
         case MSG_RELEASE:
-          releaseInternal();
+          releaseInternal(/* processedFlag= */ (AtomicBoolean) msg.obj);
           // Return immediately to not send playback info updates after release.
           return true;
         default:
@@ -926,7 +927,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
    * @param condition The condition.
    * @param timeoutMs The time in milliseconds to wait for the condition to become true.
    */
-  private synchronized void waitUninterruptibly(Supplier<Boolean> condition, long timeoutMs) {
+  private synchronized void waitUninterruptibly(AtomicBoolean condition, long timeoutMs) {
     long deadlineMs = clock.elapsedRealtime() + timeoutMs;
     long remainingMs = timeoutMs;
     boolean wasInterrupted = false;
@@ -1822,7 +1823,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
     setState(Player.STATE_IDLE);
   }
 
-  private void releaseInternal() {
+  private void releaseInternal(AtomicBoolean processedFlag) {
     try {
       resetInternal(
           /* resetRenderers= */ true,
@@ -1837,7 +1838,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
     } finally {
       playbackLooperProvider.releaseLooper();
       synchronized (this) {
-        released = true;
+        processedFlag.set(true);
         notifyAll();
       }
     }
