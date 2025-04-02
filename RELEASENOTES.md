@@ -47,6 +47,8 @@
 *   IMA extension:
 *   Session:
 *   UI:
+    *   Enable `PlayerSurface` to work with `ExoPlayer.setVideoEffects` and
+        `CompositionPlayer`.
 *   Downloads:
     *   Add partial download support for progressive streams. Apps can prepare a
         progressive stream with `DownloadHelper`, and request a

@@ -41,6 +41,9 @@ internal class TestPlayer : SimpleBasePlayer(Looper.myLooper()!!) {
       .setPlayWhenReady(true, PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
       .build()
 
+  var videoOutput: Any? = null
+    private set
+
   override fun getState(): State {
     return state
   }
@@ -96,6 +99,18 @@ internal class TestPlayer : SimpleBasePlayer(Looper.myLooper()!!) {
     playbackParameters: PlaybackParameters
   ): ListenableFuture<*> {
     state = state.buildUpon().setPlaybackParameters(playbackParameters).build()
+    return Futures.immediateVoidFuture()
+  }
+
+  override fun handleSetVideoOutput(videoOutput: Any): ListenableFuture<*> {
+    this.videoOutput = videoOutput
+    return Futures.immediateVoidFuture()
+  }
+
+  override fun handleClearVideoOutput(videoOutput: Any?): ListenableFuture<*> {
+    if (videoOutput == null || videoOutput == this.videoOutput) {
+      this.videoOutput = null
+    }
     return Futures.immediateVoidFuture()
   }
 
