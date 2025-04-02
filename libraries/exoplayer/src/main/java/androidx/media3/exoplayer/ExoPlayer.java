@@ -485,6 +485,9 @@ public interface ExoPlayer extends Player {
      * <p>If enabled, ExoPlayer's playback loop will run as rarely as possible by scheduling work
      * for when {@link Renderer} progress can be made.
      *
+     * <p>If a custom {@link AudioSink} is used then it must correctly implement {@link
+     * AudioSink#getAudioTrackBufferSizeUs()} to enable dynamic scheduling for audio playback.
+     *
      * <p>This method is experimental, and will be renamed or removed in a future release.
      *
      * @param dynamicSchedulingEnabled Whether to enable dynamic scheduling.
