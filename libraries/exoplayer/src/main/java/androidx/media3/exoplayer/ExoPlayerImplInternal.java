@@ -54,6 +54,7 @@ import androidx.media3.common.Player.RepeatMode;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Clock;
+import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.TraceUtil;
@@ -80,7 +81,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 /** Implements the internal behavior of {@link ExoPlayerImpl}. */
 /* package */ final class ExoPlayerImplInternal
@@ -536,12 +536,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
       handler.obtainMessage(MSG_SET_FOREGROUND_MODE, /* foregroundMode */ 1, 0).sendToTarget();
       return true;
     } else {
-      AtomicBoolean processedFlag = new AtomicBoolean();
+      ConditionVariable processedCondition = new ConditionVariable(clock);
       handler
-          .obtainMessage(MSG_SET_FOREGROUND_MODE, /* foregroundMode */ 0, 0, processedFlag)
+          .obtainMessage(MSG_SET_FOREGROUND_MODE, /* foregroundMode */ 0, 0, processedCondition)
           .sendToTarget();
-      waitUninterruptibly(processedFlag, setForegroundModeTimeoutMs);
-      return processedFlag.get();
+      return processedCondition.blockUninterruptible(setForegroundModeTimeoutMs);
     }
   }
 
@@ -560,13 +559,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
     if (releasedOnApplicationThread || !playbackLooper.getThread().isAlive()) {
       return true;
     }
-    AtomicBoolean processedFlag = new AtomicBoolean();
+    ConditionVariable processedCondition = new ConditionVariable(clock);
     handler
-        .obtainMessage(MSG_SET_VIDEO_OUTPUT, new Pair<>(videoOutput, processedFlag))
+        .obtainMessage(MSG_SET_VIDEO_OUTPUT, new Pair<>(videoOutput, processedCondition))
         .sendToTarget();
     if (timeoutMs != C.TIME_UNSET) {
-      waitUninterruptibly(processedFlag, timeoutMs);
-      return processedFlag.get();
+      return processedCondition.blockUninterruptible(timeoutMs);
     }
     return true;
   }
@@ -581,10 +579,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
       return true;
     }
     releasedOnApplicationThread = true;
-    AtomicBoolean processedFlag = new AtomicBoolean();
-    handler.obtainMessage(MSG_RELEASE, processedFlag).sendToTarget();
-    waitUninterruptibly(processedFlag, releaseTimeoutMs);
-    return processedFlag.get();
+    ConditionVariable processedCondition = new ConditionVariable(clock);
+    handler.obtainMessage(MSG_RELEASE, processedCondition).sendToTarget();
+    return processedCondition.blockUninterruptible(releaseTimeoutMs);
   }
 
   public Looper getPlaybackLooper() {
@@ -707,13 +704,15 @@ import java.util.concurrent.atomic.AtomicBoolean;
           break;
         case MSG_SET_FOREGROUND_MODE:
           setForegroundModeInternal(
-              /* foregroundMode= */ msg.arg1 != 0, /* processedFlag= */ (AtomicBoolean) msg.obj);
+              /* foregroundMode= */ msg.arg1 != 0,
+              /* processedCondition= */ (ConditionVariable) msg.obj);
           break;
         case MSG_SET_VIDEO_OUTPUT:
-          Pair<Object, AtomicBoolean> setVideoOutputPayload = (Pair<Object, AtomicBoolean>) msg.obj;
+          Pair<Object, ConditionVariable> setVideoOutputPayload =
+              (Pair<Object, ConditionVariable>) msg.obj;
           setVideoOutputInternal(
               /* videoOutput= */ setVideoOutputPayload.first,
-              /* processedFlag= */ setVideoOutputPayload.second);
+              /* processedCondition= */ setVideoOutputPayload.second);
           break;
         case MSG_STOP:
           stopInternal(/* forceResetRenderers= */ false, /* acknowledgeStop= */ true);
@@ -783,7 +782,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
           setVideoFrameMetadataListenerInternal((VideoFrameMetadataListener) msg.obj);
           break;
         case MSG_RELEASE:
-          releaseInternal(/* processedFlag= */ (AtomicBoolean) msg.obj);
+          releaseInternal(/* processedCondition= */ (ConditionVariable) msg.obj);
           // Return immediately to not send playback info updates after release.
           return true;
         default:
@@ -914,36 +913,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
     Log.e(TAG, "Playback error", error);
     stopInternal(/* forceResetRenderers= */ false, /* acknowledgeStop= */ false);
     playbackInfo = playbackInfo.copyWithPlaybackError(error);
-  }
-
-  /**
-   * Blocks the current thread until a condition becomes true or the specified amount of time has
-   * elapsed.
-   *
-   * <p>If the current thread is interrupted while waiting for the condition to become true, this
-   * method will restore the interrupt <b>after</b> the condition became true or the operation times
-   * out.
-   *
-   * @param condition The condition.
-   * @param timeoutMs The time in milliseconds to wait for the condition to become true.
-   */
-  private synchronized void waitUninterruptibly(AtomicBoolean condition, long timeoutMs) {
-    long deadlineMs = clock.elapsedRealtime() + timeoutMs;
-    long remainingMs = timeoutMs;
-    boolean wasInterrupted = false;
-    while (!condition.get() && remainingMs > 0) {
-      try {
-        clock.onThreadBlocked();
-        wait(remainingMs);
-      } catch (InterruptedException e) {
-        wasInterrupted = true;
-      }
-      remainingMs = deadlineMs - clock.elapsedRealtime();
-    }
-    if (wasInterrupted) {
-      // Restore the interrupted status.
-      Thread.currentThread().interrupt();
-    }
   }
 
   private void setState(int state) {
@@ -1776,7 +1745,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
   }
 
   private void setForegroundModeInternal(
-      boolean foregroundMode, @Nullable AtomicBoolean processedFlag) {
+      boolean foregroundMode, @Nullable ConditionVariable processedCondition) {
     if (this.foregroundMode != foregroundMode) {
       this.foregroundMode = foregroundMode;
       if (!foregroundMode) {
@@ -1785,16 +1754,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
         }
       }
     }
-    if (processedFlag != null) {
-      synchronized (this) {
-        processedFlag.set(true);
-        notifyAll();
-      }
+    if (processedCondition != null) {
+      processedCondition.open();
     }
   }
 
   private void setVideoOutputInternal(
-      @Nullable Object videoOutput, @Nullable AtomicBoolean processedFlag)
+      @Nullable Object videoOutput, @Nullable ConditionVariable processedCondition)
       throws ExoPlaybackException {
     for (RendererHolder renderer : renderers) {
       renderer.setVideoOutput(videoOutput);
@@ -1803,11 +1769,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
         || playbackInfo.playbackState == Player.STATE_BUFFERING) {
       handler.sendEmptyMessage(MSG_DO_SOME_WORK);
     }
-    if (processedFlag != null) {
-      synchronized (this) {
-        processedFlag.set(true);
-        notifyAll();
-      }
+    if (processedCondition != null) {
+      processedCondition.open();
     }
   }
 
@@ -1823,7 +1786,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
     setState(Player.STATE_IDLE);
   }
 
-  private void releaseInternal(AtomicBoolean processedFlag) {
+  private void releaseInternal(ConditionVariable processedCondition) {
     try {
       resetInternal(
           /* resetRenderers= */ true,
@@ -1837,10 +1800,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
       setState(Player.STATE_IDLE);
     } finally {
       playbackLooperProvider.releaseLooper();
-      synchronized (this) {
-        processedFlag.set(true);
-        notifyAll();
-      }
+      processedCondition.open();
     }
   }
 
