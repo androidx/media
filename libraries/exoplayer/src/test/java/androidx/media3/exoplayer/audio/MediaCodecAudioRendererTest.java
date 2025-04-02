@@ -734,177 +734,6 @@ public class MediaCodecAudioRendererTest {
   }
 
   @Test
-  public void getDurationToProgressUs_usingWrittenDurationUs_returnsCalculatedDuration()
-      throws Exception {
-    FakeSampleStream fakeSampleStream =
-        new FakeSampleStream(
-            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
-            /* mediaSourceEventDispatcher= */ null,
-            DrmSessionManager.DRM_UNSUPPORTED,
-            new DrmSessionEventListener.EventDispatcher(),
-            /* initialFormat= */ AUDIO_AAC,
-            ImmutableList.of(
-                oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME),
-                oneByteSample(/* timeUs= */ 50_000, C.BUFFER_FLAG_KEY_FRAME),
-                oneByteSample(/* timeUs= */ 100_000, C.BUFFER_FLAG_KEY_FRAME),
-                oneByteSample(/* timeUs= */ 150_000, C.BUFFER_FLAG_KEY_FRAME),
-                oneByteSample(/* timeUs= */ 200_000, C.BUFFER_FLAG_KEY_FRAME),
-                oneByteSample(/* timeUs= */ 250_000, C.BUFFER_FLAG_KEY_FRAME),
-                END_OF_STREAM_ITEM));
-    fakeSampleStream.writeData(/* startPositionUs= */ 0);
-    mediaCodecAudioRenderer.enable(
-        RendererConfiguration.DEFAULT,
-        new Format[] {AUDIO_AAC},
-        fakeSampleStream,
-        /* positionUs= */ 0,
-        /* joining= */ false,
-        /* mayRenderStartOfStream= */ false,
-        /* startPositionUs= */ 0,
-        /* offsetUs= */ 0,
-        new MediaSource.MediaPeriodId(new Object()));
-    // Represents audio sink buffers being full when trying to write 150_000 us sample.
-    when(audioSink.handleBuffer(
-            any(), longThat(presentationTimeUs -> presentationTimeUs == 150_000), anyInt()))
-        .thenReturn(false);
-    when(audioSink.getPlaybackParameters()).thenReturn(PlaybackParameters.DEFAULT);
-    when(audioSink.getAudioTrackBufferSizeUs()).thenReturn(C.TIME_UNSET);
-    mediaCodecAudioRenderer.start();
-    for (int i = 0; i < 10; i++) {
-      mediaCodecAudioRenderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
-      maybeIdleAsynchronousMediaCodecAdapterThreads();
-    }
-
-    long durationToProgressUs =
-        mediaCodecAudioRenderer.getDurationToProgressUs(
-            /* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
-
-    assertThat(durationToProgressUs).isEqualTo(75_000L);
-  }
-
-  @Test
-  public void
-      getDurationToProgressUs_usingWrittenDurationUsWithDoublePlaybackSpeed_returnsCalculatedDuration()
-          throws Exception {
-    FakeSampleStream fakeSampleStream =
-        new FakeSampleStream(
-            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
-            /* mediaSourceEventDispatcher= */ null,
-            DrmSessionManager.DRM_UNSUPPORTED,
-            new DrmSessionEventListener.EventDispatcher(),
-            /* initialFormat= */ AUDIO_AAC,
-            ImmutableList.of(
-                oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME),
-                oneByteSample(/* timeUs= */ 50_000, C.BUFFER_FLAG_KEY_FRAME),
-                oneByteSample(/* timeUs= */ 100_000, C.BUFFER_FLAG_KEY_FRAME),
-                oneByteSample(/* timeUs= */ 150_000, C.BUFFER_FLAG_KEY_FRAME),
-                oneByteSample(/* timeUs= */ 200_000, C.BUFFER_FLAG_KEY_FRAME),
-                oneByteSample(/* timeUs= */ 250_000, C.BUFFER_FLAG_KEY_FRAME),
-                END_OF_STREAM_ITEM));
-    PlaybackParameters playbackParametersWithDoubleSpeed =
-        new PlaybackParameters(/* speed= */ 2.0f);
-    fakeSampleStream.writeData(/* startPositionUs= */ 0);
-    mediaCodecAudioRenderer.enable(
-        RendererConfiguration.DEFAULT,
-        new Format[] {AUDIO_AAC},
-        fakeSampleStream,
-        /* positionUs= */ 0,
-        /* joining= */ false,
-        /* mayRenderStartOfStream= */ false,
-        /* startPositionUs= */ 0,
-        /* offsetUs= */ 0,
-        new MediaSource.MediaPeriodId(new Object()));
-    // Represents audio sink buffers being full when trying to write 150_000 us sample.
-    when(audioSink.handleBuffer(
-            any(), longThat(presentationTimeUs -> presentationTimeUs == 150_000), anyInt()))
-        .thenReturn(false);
-    when(audioSink.getPlaybackParameters()).thenReturn(playbackParametersWithDoubleSpeed);
-    when(audioSink.getAudioTrackBufferSizeUs()).thenReturn(C.TIME_UNSET);
-    mediaCodecAudioRenderer.start();
-    for (int i = 0; i < 10; i++) {
-      mediaCodecAudioRenderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
-      maybeIdleAsynchronousMediaCodecAdapterThreads();
-    }
-
-    long durationToProgressUs =
-        mediaCodecAudioRenderer.getDurationToProgressUs(
-            /* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
-
-    assertThat(durationToProgressUs).isEqualTo(37_500L);
-  }
-
-  @Test
-  public void
-      getDurationToProgressUs_usingWrittenDurationUsWithPlaybackAdvancement_returnsCalculatedDuration()
-          throws Exception {
-    FakeClock fakeClock = new FakeClock(/* initialTimeMs= */ 100, /* isAutoAdvancing= */ true);
-    mediaCodecAudioRenderer =
-        new MediaCodecAudioRenderer(
-            ApplicationProvider.getApplicationContext(),
-            new DefaultMediaCodecAdapterFactory(
-                ApplicationProvider.getApplicationContext(),
-                () -> {
-                  callbackThread = new HandlerThread("MCARTest:MediaCodecAsyncAdapter");
-                  return callbackThread;
-                },
-                () -> {
-                  queueingThread = new HandlerThread("MCARTest:MediaCodecQueueingThread");
-                  return queueingThread;
-                }),
-            mediaCodecSelector,
-            /* enableDecoderFallback= */ false,
-            /* eventHandler= */ new Handler(Looper.getMainLooper()),
-            audioRendererEventListener,
-            audioSink);
-    mediaCodecAudioRenderer.init(/* index= */ 0, PlayerId.UNSET, fakeClock);
-    FakeSampleStream fakeSampleStream =
-        new FakeSampleStream(
-            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
-            /* mediaSourceEventDispatcher= */ null,
-            DrmSessionManager.DRM_UNSUPPORTED,
-            new DrmSessionEventListener.EventDispatcher(),
-            /* initialFormat= */ AUDIO_AAC,
-            ImmutableList.of(
-                oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME),
-                oneByteSample(/* timeUs= */ 50_000, C.BUFFER_FLAG_KEY_FRAME),
-                oneByteSample(/* timeUs= */ 100_000, C.BUFFER_FLAG_KEY_FRAME),
-                oneByteSample(/* timeUs= */ 150_000, C.BUFFER_FLAG_KEY_FRAME),
-                oneByteSample(/* timeUs= */ 200_000, C.BUFFER_FLAG_KEY_FRAME),
-                oneByteSample(/* timeUs= */ 250_000, C.BUFFER_FLAG_KEY_FRAME),
-                END_OF_STREAM_ITEM));
-    fakeSampleStream.writeData(/* startPositionUs= */ 0);
-    mediaCodecAudioRenderer.enable(
-        RendererConfiguration.DEFAULT,
-        new Format[] {AUDIO_AAC},
-        fakeSampleStream,
-        /* positionUs= */ 0,
-        /* joining= */ false,
-        /* mayRenderStartOfStream= */ false,
-        /* startPositionUs= */ 0,
-        /* offsetUs= */ 0,
-        new MediaSource.MediaPeriodId(new Object()));
-    // Represents audio sink buffers being full when trying to write 150_000 us sample.
-    when(audioSink.handleBuffer(
-            any(), longThat(presentationTimeUs -> presentationTimeUs == 150_000), anyInt()))
-        .thenReturn(false);
-    when(audioSink.getPlaybackParameters()).thenReturn(PlaybackParameters.DEFAULT);
-    when(audioSink.getAudioTrackBufferSizeUs()).thenReturn(C.TIME_UNSET);
-    mediaCodecAudioRenderer.start();
-    for (int i = 0; i < 10; i++) {
-      mediaCodecAudioRenderer.render(/* positionUs= */ 0, fakeClock.elapsedRealtime() * 1000);
-      maybeIdleAsynchronousMediaCodecAdapterThreads();
-    }
-
-    // Simulate playback progressing between render() and getDurationToProgressUs call
-    long rendererPositionElapsedRealtimeUs = fakeClock.elapsedRealtime() * 1000;
-    fakeClock.advanceTime(/* timeDiffMs= */ 10);
-    long durationToProgressUs =
-        mediaCodecAudioRenderer.getDurationToProgressUs(
-            /* positionUs= */ 0, rendererPositionElapsedRealtimeUs);
-
-    assertThat(durationToProgressUs).isEqualTo(65_000L);
-  }
-
-  @Test
   public void getDurationToProgressUs_usingAudioTrackBufferDurationUs_returnsCalculatedDuration()
       throws Exception {
     when(audioSink.getAudioTrackBufferSizeUs()).thenReturn(100_000L);
@@ -1076,8 +905,58 @@ public class MediaCodecAudioRendererTest {
   }
 
   @Test
-  public void getDurationToProgressUs_afterRenderToEndOfStream_returnsCalculatedDuration()
-      throws Exception {
+  public void
+      getDurationToProgressUs_withAudioTrackBufferDurationUsUnsupported_returnsDefaultDuration()
+          throws Exception {
+    when(audioSink.getAudioTrackBufferSizeUs()).thenReturn(C.TIME_UNSET);
+    FakeSampleStream fakeSampleStream =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* initialFormat= */ AUDIO_AAC,
+            ImmutableList.of(
+                oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME),
+                oneByteSample(/* timeUs= */ 50_000, C.BUFFER_FLAG_KEY_FRAME),
+                oneByteSample(/* timeUs= */ 100_000, C.BUFFER_FLAG_KEY_FRAME),
+                oneByteSample(/* timeUs= */ 150_000, C.BUFFER_FLAG_KEY_FRAME),
+                oneByteSample(/* timeUs= */ 200_000, C.BUFFER_FLAG_KEY_FRAME),
+                oneByteSample(/* timeUs= */ 250_000, C.BUFFER_FLAG_KEY_FRAME),
+                END_OF_STREAM_ITEM));
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+    mediaCodecAudioRenderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {AUDIO_AAC},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ false,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(new Object()));
+    // Represents audio sink buffers being full when trying to write 150_000 us sample.
+    when(audioSink.handleBuffer(
+            any(), longThat(presentationTimeUs -> presentationTimeUs == 150_000), anyInt()))
+        .thenReturn(false);
+    when(audioSink.getPlaybackParameters()).thenReturn(PlaybackParameters.DEFAULT);
+    mediaCodecAudioRenderer.start();
+    for (int i = 0; i < 10; i++) {
+      mediaCodecAudioRenderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
+      maybeIdleAsynchronousMediaCodecAdapterThreads();
+    }
+
+    long durationToProgressUs =
+        mediaCodecAudioRenderer.getDurationToProgressUs(
+            /* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
+
+    assertThat(durationToProgressUs).isEqualTo(10_000L);
+  }
+
+  @Test
+  public void
+      getDurationToProgressUs_withWrittenLessThanBufferDurationAfterRenderToEndOfStream_returnsCalculatedDuration()
+          throws Exception {
     AtomicBoolean hasCalledRenderToEndOfStream = new AtomicBoolean();
     mediaCodecAudioRenderer =
         new MediaCodecAudioRenderer(
@@ -1105,6 +984,78 @@ public class MediaCodecAudioRendererTest {
         };
     mediaCodecAudioRenderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
     when(audioSink.getAudioTrackBufferSizeUs()).thenReturn(100_000L);
+    when(audioSink.getPlaybackParameters()).thenReturn(PlaybackParameters.DEFAULT);
+    FakeSampleStream fakeSampleStream =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* initialFormat= */ AUDIO_AAC,
+            ImmutableList.of(
+                oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME),
+                oneByteSample(/* timeUs= */ 50_000, C.BUFFER_FLAG_KEY_FRAME),
+                oneByteSample(/* timeUs= */ 100_000, C.BUFFER_FLAG_KEY_FRAME),
+                oneByteSample(/* timeUs= */ 150_000, C.BUFFER_FLAG_KEY_FRAME),
+                oneByteSample(/* timeUs= */ 200_000, C.BUFFER_FLAG_KEY_FRAME),
+                oneByteSample(/* timeUs= */ 250_000, C.BUFFER_FLAG_KEY_FRAME),
+                END_OF_STREAM_ITEM));
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+    mediaCodecAudioRenderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {AUDIO_AAC},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ false,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(new Object()));
+    mediaCodecAudioRenderer.start();
+    mediaCodecAudioRenderer.setCurrentStreamFinal();
+    while (!hasCalledRenderToEndOfStream.get()) {
+      mediaCodecAudioRenderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
+      maybeIdleAsynchronousMediaCodecAdapterThreads();
+    }
+
+    long durationToProgressUs =
+        mediaCodecAudioRenderer.getDurationToProgressUs(
+            /* positionUs= */ 200_000L, SystemClock.elapsedRealtime() * 1000);
+
+    assertThat(durationToProgressUs).isEqualTo(25_000L);
+  }
+
+  @Test
+  public void
+      getDurationToProgressUs_withAudioTrackBufferDurationUnsupportedAfterRenderToEndOfStream_returnsCalculatedDuration()
+          throws Exception {
+    AtomicBoolean hasCalledRenderToEndOfStream = new AtomicBoolean();
+    mediaCodecAudioRenderer =
+        new MediaCodecAudioRenderer(
+            ApplicationProvider.getApplicationContext(),
+            new DefaultMediaCodecAdapterFactory(
+                ApplicationProvider.getApplicationContext(),
+                () -> {
+                  callbackThread = new HandlerThread("MCARTest:MediaCodecAsyncAdapter");
+                  return callbackThread;
+                },
+                () -> {
+                  queueingThread = new HandlerThread("MCARTest:MediaCodecQueueingThread");
+                  return queueingThread;
+                }),
+            mediaCodecSelector,
+            /* enableDecoderFallback= */ false,
+            new Handler(Looper.getMainLooper()),
+            audioRendererEventListener,
+            audioSink) {
+          @Override
+          protected void renderToEndOfStream() throws ExoPlaybackException {
+            super.renderToEndOfStream();
+            hasCalledRenderToEndOfStream.set(true);
+          }
+        };
+    mediaCodecAudioRenderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
+    when(audioSink.getAudioTrackBufferSizeUs()).thenReturn(C.TIME_UNSET);
     when(audioSink.getPlaybackParameters()).thenReturn(PlaybackParameters.DEFAULT);
     FakeSampleStream fakeSampleStream =
         new FakeSampleStream(
