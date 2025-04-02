@@ -629,6 +629,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     @Nullable
     @Override
     public SampleConsumer onOutputFormat(Format assetLoaderOutputFormat) throws ExportException {
+      if (released) {
+        return null;
+      }
       synchronized (assetLoaderLock) {
         if (!assetLoaderInputTracker.hasRegisteredAllTracks()) {
           return null;

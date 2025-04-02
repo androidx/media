@@ -520,6 +520,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
 
   private volatile @MonotonicNonNull FrameInfo nextInputFrameInfo;
   private volatile boolean inputStreamEnded;
+  private volatile boolean released;
 
   private DefaultVideoFrameProcessor(
       Context context,
@@ -613,7 +614,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
   @Override
   public boolean queueInputBitmap(Bitmap inputBitmap, TimestampIterator timestampIterator) {
     checkState(!inputStreamEnded);
-    if (!inputStreamRegisteredCondition.isOpen()) {
+    if (!inputStreamRegisteredCondition.isOpen() || released) {
       return false;
     }
     if (ColorInfo.isTransferHdr(outputColorInfo)) {
@@ -633,7 +634,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
   @Override
   public boolean queueInputTexture(int textureId, long presentationTimeUs) {
     checkState(!inputStreamEnded);
-    if (!inputStreamRegisteredCondition.isOpen()) {
+    if (!inputStreamRegisteredCondition.isOpen() || released) {
       return false;
     }
 
@@ -714,6 +715,9 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
   @Override
   public void registerInputStream(
       @InputType int inputType, Format format, List<Effect> effects, long offsetToAddUs) {
+    if (released) {
+      return;
+    }
     // This method is only called after all samples in the current input stream are registered or
     // queued.
     DebugTraceUtil.logEvent(
@@ -760,7 +764,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
     checkState(!inputStreamEnded);
     checkStateNotNull(
         nextInputFrameInfo, "registerInputStream must be called before registering input frames");
-    if (!inputStreamRegisteredCondition.isOpen()) {
+    if (!inputStreamRegisteredCondition.isOpen() || released) {
       return false;
     }
     inputSwitcher.activeTextureManager().registerInputFrame(nextInputFrameInfo);
@@ -808,6 +812,9 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
     DebugTraceUtil.logEvent(COMPONENT_VFP, EVENT_RECEIVE_END_OF_ALL_INPUT, C.TIME_END_OF_SOURCE);
     checkState(!inputStreamEnded);
     inputStreamEnded = true;
+    if (released) {
+      return;
+    }
     inputSwitcher.signalEndOfCurrentInputStream();
   }
 
@@ -849,6 +856,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
 
   @Override
   public void release() {
+    released = true;
     try {
       videoFrameProcessingTaskExecutor.release(/* releaseTask= */ this::releaseGlObjects);
     } catch (InterruptedException e) {
