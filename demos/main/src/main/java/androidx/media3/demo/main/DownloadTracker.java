@@ -16,16 +16,18 @@
 package androidx.media3.demo.main;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.content.Context;
 import android.content.DialogInterface;
 import android.net.Uri;
-import android.os.AsyncTask;
+import android.os.Handler;
+import android.os.Looper;
 import android.widget.Toast;
 import androidx.annotation.Nullable;
 import androidx.annotation.OptIn;
-import androidx.annotation.RequiresApi;
 import androidx.fragment.app.FragmentManager;
+import androidx.media3.common.C;
 import androidx.media3.common.DrmInitData;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
@@ -51,7 +53,11 @@ import androidx.media3.exoplayer.source.TrackGroupArray;
 import androidx.media3.exoplayer.trackselection.MappingTrackSelector.MappedTrackInfo;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 /** Tracks media that has been downloaded. */
 @OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)
@@ -162,6 +168,7 @@ public class DownloadTracker {
     private final DownloadHelper downloadHelper;
     private final MediaItem mediaItem;
 
+    private boolean tracksInfoAvailable;
     private TrackSelectionDialog trackSelectionDialog;
     private WidevineOfflineLicenseFetchTask widevineOfflineLicenseFetchTask;
     @Nullable private byte[] keySetId;
@@ -180,14 +187,15 @@ public class DownloadTracker {
         trackSelectionDialog.dismiss();
       }
       if (widevineOfflineLicenseFetchTask != null) {
-        widevineOfflineLicenseFetchTask.cancel(false);
+        widevineOfflineLicenseFetchTask.cancel();
       }
     }
 
     // DownloadHelper.Callback implementation.
 
     @Override
-    public void onPrepared(DownloadHelper helper) {
+    public void onPrepared(DownloadHelper helper, boolean tracksInfoAvailable) {
+      this.tracksInfoAvailable = tracksInfoAvailable;
       @Nullable Format format = getFirstFormatWithDrmInitData(helper);
       if (format == null) {
         onDownloadPrepared(helper);
@@ -195,14 +203,9 @@ public class DownloadTracker {
       }
 
       // The content is DRM protected. We need to acquire an offline license.
-      if (Util.SDK_INT < 18) {
-        Toast.makeText(context, R.string.error_drm_unsupported_before_api_18, Toast.LENGTH_LONG)
-            .show();
-        Log.e(TAG, "Downloading DRM protected content is not supported on API versions below 18");
-        return;
-      }
+
       // TODO(internal b/163107948): Support cases where DrmInitData are not in the manifest.
-      if (!hasSchemaData(format.drmInitData)) {
+      if (!hasNonNullWidevineSchemaData(format.drmInitData)) {
         Toast.makeText(context, R.string.download_start_error_offline_license, Toast.LENGTH_LONG)
             .show();
         Log.e(
@@ -236,6 +239,7 @@ public class DownloadTracker {
 
     @Override
     public void onTracksSelected(TrackSelectionParameters trackSelectionParameters) {
+      checkState(tracksInfoAvailable);
       for (int periodIndex = 0; periodIndex < downloadHelper.getPeriodCount(); periodIndex++) {
         downloadHelper.clearTrackSelections(periodIndex);
         downloadHelper.addTrackSelection(periodIndex, trackSelectionParameters);
@@ -264,6 +268,9 @@ public class DownloadTracker {
      */
     @Nullable
     private Format getFirstFormatWithDrmInitData(DownloadHelper helper) {
+      if (!tracksInfoAvailable) {
+        return null;
+      }
       for (int periodIndex = 0; periodIndex < helper.getPeriodCount(); periodIndex++) {
         MappedTrackInfo mappedTrackInfo = helper.getMappedTrackInfo(periodIndex);
         for (int rendererIndex = 0;
@@ -303,6 +310,13 @@ public class DownloadTracker {
         return;
       }
 
+      if (!tracksInfoAvailable) {
+        Log.d(TAG, "Tracks info is unavailable. Downloading entire stream.");
+        startDownload();
+        downloadHelper.release();
+        return;
+      }
+
       Tracks tracks = downloadHelper.getTracks(/* periodIndex= */ 0);
       if (!TrackSelectionDialog.willHaveContent(tracks)) {
         Log.d(TAG, "No dialog content. Downloading entire stream.");
@@ -314,7 +328,7 @@ public class DownloadTracker {
           TrackSelectionDialog.createForTracksAndParameters(
               /* titleId= */ R.string.exo_download_description,
               tracks,
-              DownloadHelper.getDefaultTrackSelectorParameters(context),
+              DownloadHelper.DEFAULT_TRACK_SELECTOR_PARAMETERS,
               /* allowAdaptiveSelections= */ false,
               /* allowMultipleOverrides= */ true,
               /* onTracksSelectedListener= */ this,
@@ -323,12 +337,14 @@ public class DownloadTracker {
     }
 
     /**
-     * Returns whether any the {@link DrmInitData.SchemeData} contained in {@code drmInitData} has
-     * non-null {@link DrmInitData.SchemeData#data}.
+     * Returns whether any {@link DrmInitData.SchemeData} that {@linkplain
+     * DrmInitData.SchemeData#matches(UUID) matches} {@link C#WIDEVINE_UUID} has non-null {@link
+     * DrmInitData.SchemeData#data}.
      */
-    private boolean hasSchemaData(DrmInitData drmInitData) {
+    private boolean hasNonNullWidevineSchemaData(DrmInitData drmInitData) {
       for (int i = 0; i < drmInitData.schemeDataCount; i++) {
-        if (drmInitData.get(i).hasData()) {
+        DrmInitData.SchemeData schemeData = drmInitData.get(i);
+        if (schemeData.matches(C.WIDEVINE_UUID) && schemeData.hasData()) {
           return true;
         }
       }
@@ -353,15 +369,16 @@ public class DownloadTracker {
   }
 
   /** Downloads a Widevine offline license in a background thread. */
-  @RequiresApi(18)
-  private static final class WidevineOfflineLicenseFetchTask extends AsyncTask<Void, Void, Void> {
+  private static final class WidevineOfflineLicenseFetchTask {
 
     private final Format format;
     private final MediaItem.DrmConfiguration drmConfiguration;
     private final DataSource.Factory dataSourceFactory;
     private final StartDownloadDialogHelper dialogHelper;
     private final DownloadHelper downloadHelper;
+    private final ExecutorService executorService;
 
+    @Nullable Future<?> future;
     @Nullable private byte[] keySetId;
     @Nullable private DrmSession.DrmSessionException drmSessionException;
 
@@ -371,6 +388,8 @@ public class DownloadTracker {
         DataSource.Factory dataSourceFactory,
         StartDownloadDialogHelper dialogHelper,
         DownloadHelper downloadHelper) {
+      checkState(drmConfiguration.scheme.equals(C.WIDEVINE_UUID));
+      this.executorService = Executors.newSingleThreadExecutor();
       this.format = format;
       this.drmConfiguration = drmConfiguration;
       this.dataSourceFactory = dataSourceFactory;
@@ -378,32 +397,41 @@ public class DownloadTracker {
       this.downloadHelper = downloadHelper;
     }
 
-    @Override
-    protected Void doInBackground(Void... voids) {
-      OfflineLicenseHelper offlineLicenseHelper =
-          OfflineLicenseHelper.newWidevineInstance(
-              drmConfiguration.licenseUri.toString(),
-              drmConfiguration.forceDefaultLicenseUri,
-              dataSourceFactory,
-              drmConfiguration.licenseRequestHeaders,
-              new DrmSessionEventListener.EventDispatcher());
-      try {
-        keySetId = offlineLicenseHelper.downloadLicense(format);
-      } catch (DrmSession.DrmSessionException e) {
-        drmSessionException = e;
-      } finally {
-        offlineLicenseHelper.release();
+    public void cancel() {
+      if (future != null) {
+        future.cancel(/* mayInterruptIfRunning= */ false);
       }
-      return null;
     }
 
-    @Override
-    protected void onPostExecute(Void aVoid) {
-      if (drmSessionException != null) {
-        dialogHelper.onOfflineLicenseFetchedError(drmSessionException);
-      } else {
-        dialogHelper.onOfflineLicenseFetched(downloadHelper, checkNotNull(keySetId));
-      }
+    public void execute() {
+      future =
+          executorService.submit(
+              () -> {
+                OfflineLicenseHelper offlineLicenseHelper =
+                    OfflineLicenseHelper.newWidevineInstance(
+                        drmConfiguration.licenseUri.toString(),
+                        drmConfiguration.forceDefaultLicenseUri,
+                        dataSourceFactory,
+                        drmConfiguration.licenseRequestHeaders,
+                        new DrmSessionEventListener.EventDispatcher());
+                try {
+                  keySetId = offlineLicenseHelper.downloadLicense(format);
+                } catch (DrmSession.DrmSessionException e) {
+                  drmSessionException = e;
+                } finally {
+                  offlineLicenseHelper.release();
+                  new Handler(Looper.getMainLooper())
+                      .post(
+                          () -> {
+                            if (drmSessionException != null) {
+                              dialogHelper.onOfflineLicenseFetchedError(drmSessionException);
+                            } else {
+                              dialogHelper.onOfflineLicenseFetched(
+                                  downloadHelper, checkNotNull(keySetId));
+                            }
+                          });
+                }
+              });
     }
   }
 }

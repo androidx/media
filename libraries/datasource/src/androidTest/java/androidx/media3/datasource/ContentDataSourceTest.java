@@ -34,6 +34,7 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public final class ContentDataSourceTest {
 
+  private static final String AUTHORITY = "androidx.media3.datasource.test.AssetContentProvider";
   private static final String DATA_PATH = "media/mp3/1024_incrementing_bytes.mp3";
 
   @Test
@@ -70,7 +71,7 @@ public final class ContentDataSourceTest {
   public void readInvalidUri() throws Exception {
     ContentDataSource dataSource =
         new ContentDataSource(ApplicationProvider.getApplicationContext());
-    Uri contentUri = AssetContentProvider.buildUri("does/not.exist", false);
+    Uri contentUri = AssetContentProvider.buildUri(AUTHORITY, "does/not.exist", false);
     DataSpec dataSpec = new DataSpec(contentUri);
     try {
       dataSource.open(dataSpec);
@@ -84,7 +85,7 @@ public final class ContentDataSourceTest {
   }
 
   private static void assertData(int offset, int length, boolean pipeMode) throws IOException {
-    Uri contentUri = AssetContentProvider.buildUri(DATA_PATH, pipeMode);
+    Uri contentUri = AssetContentProvider.buildUri(AUTHORITY, DATA_PATH, pipeMode);
     ContentDataSource dataSource =
         new ContentDataSource(ApplicationProvider.getApplicationContext());
     try {

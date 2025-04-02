@@ -92,8 +92,8 @@ public final class WavExtractor implements Extractor {
   public WavExtractor() {
     state = STATE_READING_FILE_TYPE;
     rf64SampleDataSize = C.LENGTH_UNSET;
-    dataStartPosition = C.POSITION_UNSET;
-    dataEndPosition = C.POSITION_UNSET;
+    dataStartPosition = C.INDEX_UNSET;
+    dataEndPosition = C.INDEX_UNSET;
   }
 
   @Override
@@ -153,7 +153,7 @@ public final class WavExtractor implements Extractor {
 
   private void readFileType(ExtractorInput input) throws IOException {
     Assertions.checkState(input.getPosition() == 0);
-    if (dataStartPosition != C.POSITION_UNSET) {
+    if (dataStartPosition != C.INDEX_UNSET) {
       input.skipFully(dataStartPosition);
       state = STATE_READING_SAMPLE_DATA;
       return;
@@ -228,7 +228,7 @@ public final class WavExtractor implements Extractor {
   }
 
   private @ReadResult int readSampleData(ExtractorInput input) throws IOException {
-    Assertions.checkState(dataEndPosition != C.POSITION_UNSET);
+    Assertions.checkState(dataEndPosition != C.INDEX_UNSET);
     long bytesLeft = dataEndPosition - input.getPosition();
     return Assertions.checkNotNull(outputWriter).sampleData(input, bytesLeft)
         ? RESULT_END_OF_INPUT
@@ -276,17 +276,20 @@ public final class WavExtractor implements Extractor {
     private final TrackOutput trackOutput;
     private final WavFormat wavFormat;
     private final Format format;
+
     /** The target size of each output sample, in bytes. */
     private final int targetSampleSizeBytes;
 
     /** The time at which the writer was last {@link #reset}. */
     private long startTimeUs;
+
     /**
      * The number of bytes that have been written to {@link #trackOutput} but have yet to be
      * included as part of a sample (i.e. the corresponding call to {@link
      * TrackOutput#sampleMetadata} has yet to be made).
      */
     private int pendingOutputBytes;
+
     /**
      * The total number of frames in samples that have been written to the trackOutput since the
      * last call to {@link #reset}.
@@ -317,6 +320,7 @@ public final class WavExtractor implements Extractor {
           max(bytesPerFrame, wavFormat.frameRateHz * bytesPerFrame / TARGET_SAMPLES_PER_SECOND);
       format =
           new Format.Builder()
+              .setContainerMimeType(MimeTypes.AUDIO_WAV)
               .setSampleMimeType(mimeType)
               .setAverageBitrate(constantBitrate)
               .setPeakBitrate(constantBitrate)
@@ -336,9 +340,11 @@ public final class WavExtractor implements Extractor {
 
     @Override
     public void init(int dataStartPosition, long dataEndPosition) {
-      extractorOutput.seekMap(
-          new WavSeekMap(wavFormat, /* framesPerBlock= */ 1, dataStartPosition, dataEndPosition));
+      WavSeekMap wavSeekMap =
+          new WavSeekMap(wavFormat, /* framesPerBlock= */ 1, dataStartPosition, dataEndPosition);
+      extractorOutput.seekMap(wavSeekMap);
       trackOutput.format(format);
+      trackOutput.durationUs(wavSeekMap.getDurationUs());
     }
 
     @Override
@@ -398,25 +404,32 @@ public final class WavExtractor implements Extractor {
 
     /** Number of frames per block of the input (yet to be decoded) data. */
     private final int framesPerBlock;
+
     /** Target for the input (yet to be decoded) data. */
     private final byte[] inputData;
+
     /** Target for decoded (yet to be output) data. */
     private final ParsableByteArray decodedData;
+
     /** The target size of each output sample, in frames. */
     private final int targetSampleSizeFrames;
+
     /** The output format. */
     private final Format format;
 
     /** The number of pending bytes in {@link #inputData}. */
     private int pendingInputBytes;
+
     /** The time at which the writer was last {@link #reset}. */
     private long startTimeUs;
+
     /**
      * The number of bytes that have been written to {@link #trackOutput} but have yet to be
      * included as part of a sample (i.e. the corresponding call to {@link
      * TrackOutput#sampleMetadata} has yet to be made).
      */
     private int pendingOutputBytes;
+
     /**
      * The total number of frames in samples that have been written to the trackOutput since the
      * last call to {@link #reset}.
@@ -483,9 +496,11 @@ public final class WavExtractor implements Extractor {
 
     @Override
     public void init(int dataStartPosition, long dataEndPosition) {
-      extractorOutput.seekMap(
-          new WavSeekMap(wavFormat, framesPerBlock, dataStartPosition, dataEndPosition));
+      WavSeekMap wavSeekMap =
+          new WavSeekMap(wavFormat, framesPerBlock, dataStartPosition, dataEndPosition);
+      extractorOutput.seekMap(wavSeekMap);
       trackOutput.format(format);
+      trackOutput.durationUs(wavSeekMap.getDurationUs());
     }
 
     @Override

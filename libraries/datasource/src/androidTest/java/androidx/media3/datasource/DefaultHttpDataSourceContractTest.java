@@ -15,11 +15,11 @@
  */
 package androidx.media3.datasource;
 
-import android.net.Uri;
 import androidx.media3.test.utils.DataSourceContractTest;
 import androidx.media3.test.utils.HttpDataSourceTestEnv;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import java.util.List;
 import org.junit.Rule;
 import org.junit.runner.RunWith;
 
@@ -31,7 +31,11 @@ public class DefaultHttpDataSourceContractTest extends DataSourceContractTest {
 
   @Override
   protected DataSource createDataSource() {
-    return new DefaultHttpDataSource.Factory().createDataSource();
+    return new DefaultHttpDataSource.Factory()
+        // Ensure that 'resource not found' tests fail fast (b/403179253).
+        .setConnectTimeoutMs(400)
+        .setReadTimeoutMs(400)
+        .createDataSource();
   }
 
   @Override
@@ -40,7 +44,7 @@ public class DefaultHttpDataSourceContractTest extends DataSourceContractTest {
   }
 
   @Override
-  protected Uri getNotFoundUri() {
-    return Uri.parse(httpDataSourceTestEnv.getNonexistentUrl());
+  protected List<TestResource> getNotFoundResources() {
+    return httpDataSourceTestEnv.getNotFoundResources();
   }
 }

@@ -130,6 +130,123 @@ public class DefaultHttpDataSourceTest {
   }
 
   @Test
+  public void open_redirectCrossProtocol_shouldNotAllowCrossProtocol() throws Exception {
+    byte[] postBody = new byte[] {1, 2, 3};
+    DefaultHttpDataSource defaultHttpDataSource =
+        new DefaultHttpDataSource.Factory()
+            .setConnectTimeoutMs(1000)
+            .setReadTimeoutMs(1000)
+            .setAllowCrossProtocolRedirects(false)
+            .createDataSource();
+
+    MockWebServer mockWebServer = new MockWebServer();
+    String newLocationUrl = mockWebServer.url("/redirect-path").toString();
+    String httpsUrl = newLocationUrl.replaceFirst("http", "https");
+    mockWebServer.enqueue(
+        new MockResponse()
+            .setResponseCode(HttpURLConnection.HTTP_MOVED_TEMP)
+            .addHeader("Location", httpsUrl));
+    mockWebServer.enqueue(new MockResponse().setResponseCode(HttpURLConnection.HTTP_OK));
+
+    DataSpec dataSpec =
+        new DataSpec.Builder()
+            .setUri(mockWebServer.url("/test-path").toString())
+            .setHttpMethod(DataSpec.HTTP_METHOD_POST)
+            .setHttpBody(postBody)
+            .build();
+
+    HttpDataSource.InvalidResponseCodeException exception =
+        assertThrows(
+            HttpDataSource.InvalidResponseCodeException.class,
+            () -> defaultHttpDataSource.open(dataSpec));
+
+    assertThat(exception.responseCode).isEqualTo(302);
+  }
+
+  @Test
+  public void open_redirectCrossProtocol_shouldForceOriginalProtocol()
+      throws HttpDataSourceException, InterruptedException {
+    byte[] postBody = new byte[] {1, 2, 3};
+    DefaultHttpDataSource defaultHttpDataSource =
+        new DefaultHttpDataSource.Factory()
+            .setConnectTimeoutMs(1000)
+            .setReadTimeoutMs(1000)
+            .setAllowCrossProtocolRedirects(false)
+            .setCrossProtocolRedirectsForceOriginal(true)
+            .createDataSource();
+
+    MockWebServer mockWebServer = new MockWebServer();
+    String newLocationUrl = mockWebServer.url("/redirect-path").toString();
+    String httpsUrl = newLocationUrl.replaceFirst("http", "https");
+    mockWebServer.enqueue(
+        new MockResponse()
+            .setResponseCode(HttpURLConnection.HTTP_MOVED_TEMP)
+            .addHeader("Location", httpsUrl));
+    mockWebServer.enqueue(new MockResponse().setResponseCode(HttpURLConnection.HTTP_OK));
+
+    DataSpec dataSpec =
+        new DataSpec.Builder()
+            .setUri(mockWebServer.url("/test-path").toString())
+            .setHttpMethod(DataSpec.HTTP_METHOD_POST)
+            .setHttpBody(postBody)
+            .build();
+
+    defaultHttpDataSource.open(dataSpec);
+
+    RecordedRequest request1 = mockWebServer.takeRequest(10, SECONDS);
+    assertThat(request1).isNotNull();
+    assertThat(request1.getPath()).isEqualTo("/test-path");
+    assertThat(request1.getMethod()).isEqualTo("POST");
+    assertThat(request1.getBodySize()).isEqualTo(postBody.length);
+    RecordedRequest request2 = mockWebServer.takeRequest(10, SECONDS);
+    assertThat(request2).isNotNull();
+    assertThat(request2.getPath()).isEqualTo("/redirect-path");
+    assertThat(request2.getMethod()).isEqualTo("GET");
+    assertThat(request2.getBodySize()).isEqualTo(0);
+  }
+
+  @Test
+  public void open_redirectSameProtocolWithRelativeReference_shouldFollowRedirect()
+      throws HttpDataSourceException, InterruptedException {
+    byte[] postBody = new byte[] {1, 2, 3};
+    DefaultHttpDataSource defaultHttpDataSource =
+        new DefaultHttpDataSource.Factory()
+            .setConnectTimeoutMs(1000)
+            .setReadTimeoutMs(1000)
+            .setAllowCrossProtocolRedirects(false)
+            .setCrossProtocolRedirectsForceOriginal(true)
+            .createDataSource();
+
+    MockWebServer mockWebServer = new MockWebServer();
+    String newLocationUrl = "https/redirect-path";
+    mockWebServer.enqueue(
+        new MockResponse()
+            .setResponseCode(HttpURLConnection.HTTP_MOVED_TEMP)
+            .addHeader("Location", newLocationUrl));
+    mockWebServer.enqueue(new MockResponse().setResponseCode(HttpURLConnection.HTTP_OK));
+
+    DataSpec dataSpec =
+        new DataSpec.Builder()
+            .setUri(mockWebServer.url("/test-path").toString())
+            .setHttpMethod(DataSpec.HTTP_METHOD_POST)
+            .setHttpBody(postBody)
+            .build();
+
+    defaultHttpDataSource.open(dataSpec);
+
+    RecordedRequest request1 = mockWebServer.takeRequest(10, SECONDS);
+    assertThat(request1).isNotNull();
+    assertThat(request1.getPath()).isEqualTo("/test-path");
+    assertThat(request1.getMethod()).isEqualTo("POST");
+    assertThat(request1.getBodySize()).isEqualTo(postBody.length);
+    RecordedRequest request2 = mockWebServer.takeRequest(10, SECONDS);
+    assertThat(request2).isNotNull();
+    assertThat(request2.getPath()).isEqualTo("/https/redirect-path");
+    assertThat(request2.getMethod()).isEqualTo("GET");
+    assertThat(request2.getBodySize()).isEqualTo(0);
+  }
+
+  @Test
   public void open_redirectChanges302PostToGet()
       throws HttpDataSourceException, InterruptedException {
     byte[] postBody = new byte[] {1, 2, 3};

@@ -41,12 +41,11 @@
     <item>1.5 ಪಟ್ಟು</item>
     <item>2 ಪಟ್ಟು</item>
   </string-array>
-  <string name="exo_track_selection_title_video">ವೀಡಿಯೊ</string>
   <string name="exo_track_selection_title_audio">ಆಡಿಯೋ</string>
-  <string name="exo_track_selection_title_text">ಪಠ್ಯ</string>
   <string name="exo_track_selection_none">ಯಾವುದೂ ಅಲ್ಲ</string>
   <string name="exo_track_selection_auto">ಸ್ವಯಂ</string>
   <string name="exo_track_unknown">ಅಪರಿಚಿತ</string>
+  <string name="exo_track_unknown_name">ಅಪರಿಚಿತ (%1$s)</string>
   <string name="exo_track_resolution">%1$d × %2$d</string>
   <string name="exo_track_mono">ಮೊನೊ</string>
   <string name="exo_track_stereo">ಸ್ಟೀರಿಯೊ</string>

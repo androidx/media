@@ -10,6 +10,7 @@ track 0:
     averageBitrate = 384000
     peakBitrate = 384000
     id = 0
+    containerMimeType = audio/ac3
     sampleMimeType = audio/ac3
     channelCount = 6
     sampleRate = 48000

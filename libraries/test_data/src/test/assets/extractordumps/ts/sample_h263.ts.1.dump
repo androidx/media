@@ -8,9 +8,10 @@ seekMap:
 numberOfTracks = 1
 track 256:
   total output bytes = 27354
-  sample count = 18
+  sample count = 19
   format 0:
     id = 1/256
+    containerMimeType = video/mp2t
     sampleMimeType = video/mp4v-es
     width = 640
     height = 360
@@ -88,4 +89,8 @@ track 256:
     time = 920000
     flags = 0
     data = length 222, hash 7E77BF79
+  sample 18:
+    time = 960000
+    flags = 1
+    data = length 11769, hash D94C80C0
 tracksEnded = true

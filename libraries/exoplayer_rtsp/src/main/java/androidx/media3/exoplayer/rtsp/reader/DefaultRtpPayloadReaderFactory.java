@@ -25,8 +25,7 @@ import androidx.media3.exoplayer.rtsp.RtpPayloadFormat;
 
 /** Default {@link RtpPayloadReader.Factory} implementation. */
 @UnstableApi
-/* package */ public final class DefaultRtpPayloadReaderFactory
-    implements RtpPayloadReader.Factory {
+public final class DefaultRtpPayloadReaderFactory implements RtpPayloadReader.Factory {
 
   @Override
   @Nullable

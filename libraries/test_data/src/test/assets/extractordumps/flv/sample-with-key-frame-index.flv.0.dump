@@ -10,6 +10,7 @@ track 9:
   total output bytes = 28759
   sample count = 71
   format 0:
+    containerMimeType = video/x-flv
     sampleMimeType = video/avc
     codecs = avc1.64000C
     width = 320

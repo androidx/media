@@ -9,6 +9,7 @@ track 0:
   format 0:
     peakBitrate = 6000000
     id = 0
+    containerMimeType = audio/ac3
     sampleMimeType = audio/eac3
     channelCount = 6
     sampleRate = 48000

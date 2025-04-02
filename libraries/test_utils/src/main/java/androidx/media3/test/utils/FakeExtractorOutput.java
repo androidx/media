@@ -65,13 +65,9 @@ public final class FakeExtractorOutput implements ExtractorOutput, Dumper.Dumpab
   @Override
   public void seekMap(SeekMap seekMap) {
     if (seekMap.isSeekable()) {
-      SeekMap.SeekPoints seekPoints = seekMap.getSeekPoints(0);
-      if (!seekPoints.first.equals(seekPoints.second)) {
-        throw new IllegalStateException("SeekMap defines two seek points for t=0");
-      }
       long durationUs = seekMap.getDurationUs();
       if (durationUs != C.TIME_UNSET) {
-        seekPoints = seekMap.getSeekPoints(durationUs);
+        SeekMap.SeekPoints seekPoints = seekMap.getSeekPoints(durationUs);
         if (!seekPoints.first.equals(seekPoints.second)) {
           throw new IllegalStateException("SeekMap defines two seek points for t=durationUs");
         }

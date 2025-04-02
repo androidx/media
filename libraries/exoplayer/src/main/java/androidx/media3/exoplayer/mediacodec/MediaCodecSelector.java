@@ -31,6 +31,15 @@ public interface MediaCodecSelector {
   MediaCodecSelector DEFAULT = MediaCodecUtil::getDecoderInfos;
 
   /**
+   * Implementation of {@link MediaCodecSelector}, which returns the {@link #DEFAULT} list of
+   * decoders for the given format, giving higher priority to software decoders.
+   */
+  MediaCodecSelector PREFER_SOFTWARE =
+      (String mimeType, boolean requiresSecureDecoder, boolean requiresTunnelingDecoder) ->
+          MediaCodecUtil.getDecoderInfosSortedBySoftwareOnly(
+              DEFAULT.getDecoderInfos(mimeType, requiresSecureDecoder, requiresTunnelingDecoder));
+
+  /**
    * Returns a list of decoders that can decode media in the specified MIME type, in priority order.
    *
    * @param mimeType The MIME type for which a decoder is required.

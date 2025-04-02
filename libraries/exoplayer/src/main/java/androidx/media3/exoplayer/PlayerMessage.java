@@ -15,7 +15,6 @@
  */
 package androidx.media3.exoplayer;
 
-import android.os.Handler;
 import android.os.Looper;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
@@ -156,15 +155,6 @@ public final class PlayerMessage {
   @Nullable
   public Object getPayload() {
     return payload;
-  }
-
-  /**
-   * @deprecated Use {@link #setLooper(Looper)} instead.
-   */
-  @CanIgnoreReturnValue
-  @Deprecated
-  public PlayerMessage setHandler(Handler handler) {
-    return setLooper(handler.getLooper());
   }
 
   /**

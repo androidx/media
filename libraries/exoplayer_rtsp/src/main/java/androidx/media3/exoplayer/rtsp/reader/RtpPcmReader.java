@@ -34,7 +34,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  * details.
  */
 @UnstableApi
-/* package */ public final class RtpPcmReader implements RtpPayloadReader {
+public final class RtpPcmReader implements RtpPayloadReader {
 
   private static final String TAG = "RtpPcmReader";
   private final RtpPayloadFormat payloadFormat;

@@ -15,12 +15,9 @@
  */
 package androidx.media3.extractor.metadata.id3;
 
-import static androidx.media3.common.util.Util.castNonNull;
-
-import android.os.Parcel;
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
+import java.util.Objects;
 
 /** Internal ID3 frame that is intended for use by the player. */
 @UnstableApi
@@ -39,13 +36,6 @@ public final class InternalFrame extends Id3Frame {
     this.text = text;
   }
 
-  /* package */ InternalFrame(Parcel in) {
-    super(ID);
-    domain = castNonNull(in.readString());
-    description = castNonNull(in.readString());
-    text = castNonNull(in.readString());
-  }
-
   @Override
   public boolean equals(@Nullable Object obj) {
     if (this == obj) {
@@ -55,9 +45,9 @@ public final class InternalFrame extends Id3Frame {
       return false;
     }
     InternalFrame other = (InternalFrame) obj;
-    return Util.areEqual(description, other.description)
-        && Util.areEqual(domain, other.domain)
-        && Util.areEqual(text, other.text);
+    return Objects.equals(description, other.description)
+        && Objects.equals(domain, other.domain)
+        && Objects.equals(text, other.text);
   }
 
   @Override
@@ -73,27 +63,4 @@ public final class InternalFrame extends Id3Frame {
   public String toString() {
     return id + ": domain=" + domain + ", description=" + description;
   }
-
-  // Parcelable implementation.
-
-  @Override
-  public void writeToParcel(Parcel dest, int flags) {
-    dest.writeString(id);
-    dest.writeString(domain);
-    dest.writeString(text);
-  }
-
-  public static final Creator<InternalFrame> CREATOR =
-      new Creator<InternalFrame>() {
-
-        @Override
-        public InternalFrame createFromParcel(Parcel in) {
-          return new InternalFrame(in);
-        }
-
-        @Override
-        public InternalFrame[] newArray(int size) {
-          return new InternalFrame[size];
-        }
-      };
 }

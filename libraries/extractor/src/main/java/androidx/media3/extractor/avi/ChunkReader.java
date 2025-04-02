@@ -15,11 +15,13 @@
  */
 package androidx.media3.extractor.avi;
 
+import static androidx.media3.common.C.TRACK_TYPE_AUDIO;
+import static androidx.media3.common.C.TRACK_TYPE_VIDEO;
+import static androidx.media3.common.util.Assertions.checkArgument;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import androidx.annotation.IntDef;
 import androidx.media3.common.C;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Util;
 import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.SeekMap;
@@ -51,55 +53,61 @@ import java.util.Arrays;
   private static final int CHUNK_TYPE_VIDEO_UNCOMPRESSED = ('d' << 16) | ('b' << 24);
   private static final int CHUNK_TYPE_AUDIO = ('w' << 16) | ('b' << 24);
 
-  protected final TrackOutput trackOutput;
+  private final AviStreamHeaderChunk streamHeaderChunk;
+  private final TrackOutput trackOutput;
 
   /** The chunk id fourCC (example: `01wb`), as defined in the index and the movi. */
   private final int chunkId;
-  /** Secondary chunk id. Bad muxers sometimes use an uncompressed video id (db) for key frames */
+
+  /** Secondary chunk id. Bad muxers sometimes use an uncompressed video id (db) for key frames. */
   private final int alternativeChunkId;
 
   private final long durationUs;
-  private final int streamHeaderChunkCount;
 
+  private int chunkCount;
   private int currentChunkSize;
   private int bytesRemainingInCurrentChunk;
 
-  /** Number of chunks as calculated by the index */
+  /** Number of chunks as calculated by the index. */
   private int currentChunkIndex;
 
   private int indexChunkCount;
   private int indexSize;
+  private long firstIndexChunkOffset;
   private long[] keyFrameOffsets;
   private int[] keyFrameIndices;
 
-  public ChunkReader(
-      int id,
-      @C.TrackType int trackType,
-      long durationnUs,
-      int streamHeaderChunkCount,
-      TrackOutput trackOutput) {
-    Assertions.checkArgument(trackType == C.TRACK_TYPE_AUDIO || trackType == C.TRACK_TYPE_VIDEO);
-    this.durationUs = durationnUs;
-    this.streamHeaderChunkCount = streamHeaderChunkCount;
-    this.trackOutput = trackOutput;
+  public ChunkReader(int id, AviStreamHeaderChunk streamHeaderChunk, TrackOutput trackOutput) {
+    this.streamHeaderChunk = streamHeaderChunk;
+    @C.TrackType int trackType = streamHeaderChunk.getTrackType();
+    checkArgument(trackType == TRACK_TYPE_AUDIO || trackType == TRACK_TYPE_VIDEO);
     @ChunkType
-    int chunkType =
-        trackType == C.TRACK_TYPE_VIDEO ? CHUNK_TYPE_VIDEO_COMPRESSED : CHUNK_TYPE_AUDIO;
+    int chunkType = trackType == TRACK_TYPE_VIDEO ? CHUNK_TYPE_VIDEO_COMPRESSED : CHUNK_TYPE_AUDIO;
     chunkId = getChunkIdFourCc(id, chunkType);
+    durationUs = streamHeaderChunk.getDurationUs();
+    this.trackOutput = trackOutput;
     alternativeChunkId =
-        trackType == C.TRACK_TYPE_VIDEO ? getChunkIdFourCc(id, CHUNK_TYPE_VIDEO_UNCOMPRESSED) : -1;
+        trackType == TRACK_TYPE_VIDEO ? getChunkIdFourCc(id, CHUNK_TYPE_VIDEO_UNCOMPRESSED) : -1;
+    firstIndexChunkOffset = C.INDEX_UNSET;
     keyFrameOffsets = new long[INITIAL_INDEX_SIZE];
     keyFrameIndices = new int[INITIAL_INDEX_SIZE];
+    chunkCount = streamHeaderChunk.length;
   }
 
-  public void appendKeyFrameToIndex(long offset) {
-    if (indexSize == keyFrameIndices.length) {
-      keyFrameOffsets = Arrays.copyOf(keyFrameOffsets, keyFrameOffsets.length * 3 / 2);
-      keyFrameIndices = Arrays.copyOf(keyFrameIndices, keyFrameIndices.length * 3 / 2);
+  public void appendIndexChunk(long offset, boolean isKeyFrame) {
+    if (firstIndexChunkOffset == C.INDEX_UNSET) {
+      firstIndexChunkOffset = offset;
     }
-    keyFrameOffsets[indexSize] = offset;
-    keyFrameIndices[indexSize] = indexChunkCount;
-    indexSize++;
+    if (isKeyFrame) {
+      if (indexSize == keyFrameIndices.length) {
+        keyFrameOffsets = Arrays.copyOf(keyFrameOffsets, keyFrameOffsets.length * 3 / 2);
+        keyFrameIndices = Arrays.copyOf(keyFrameIndices, keyFrameIndices.length * 3 / 2);
+      }
+      keyFrameOffsets[indexSize] = offset;
+      keyFrameIndices[indexSize] = indexChunkCount;
+      indexSize++;
+    }
+    indexChunkCount++;
   }
 
   public void advanceCurrentChunk() {
@@ -114,13 +122,16 @@ import java.util.Arrays;
     return getChunkTimestampUs(/* chunkIndex= */ 1);
   }
 
-  public void incrementIndexChunkCount() {
-    indexChunkCount++;
-  }
-
-  public void compactIndex() {
+  public void commitIndex() {
     keyFrameOffsets = Arrays.copyOf(keyFrameOffsets, indexSize);
     keyFrameIndices = Arrays.copyOf(keyFrameIndices, indexSize);
+    if (isAudio() && streamHeaderChunk.sampleSize != 0 && indexSize > 0) {
+      // In some files the AVI stream header chunk for audio has the number of bytes of audio in
+      // dwLength instead of the number of chunks. Overwrite the chunk size to use the size of the
+      // index, which should match the number of chunks because we only support formats where every
+      // audio sample is a sync sample, and every sync sample should be in the index.
+      chunkCount = indexSize;
+    }
   }
 
   public boolean handlesChunkId(int chunkId) {
@@ -179,6 +190,11 @@ import java.util.Arrays;
   }
 
   public SeekMap.SeekPoints getSeekPoints(long timeUs) {
+    if (indexSize == 0) {
+      // Return the offset of the first chunk as there are no keyframes in the index.
+      return new SeekMap.SeekPoints(
+          new SeekPoint(/* timeUs= */ 0, /* position= */ firstIndexChunkOffset));
+    }
     int targetFrameIndex = (int) (timeUs / getFrameDurationUs());
     int keyFrameIndex =
         Util.binarySearchFloor(
@@ -196,7 +212,7 @@ import java.util.Arrays;
   }
 
   private long getChunkTimestampUs(int chunkIndex) {
-    return durationUs * chunkIndex / streamHeaderChunkCount;
+    return durationUs * chunkIndex / chunkCount;
   }
 
   private SeekPoint getSeekPoint(int keyFrameIndex) {

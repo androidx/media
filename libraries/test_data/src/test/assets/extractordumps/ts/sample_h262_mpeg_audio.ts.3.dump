@@ -11,6 +11,7 @@ track 256:
   sample count = 0
   format 0:
     id = 1/256
+    containerMimeType = video/mp2t
     sampleMimeType = video/mpeg2
     width = 640
     height = 426
@@ -21,6 +22,7 @@ track 257:
   sample count = 2
   format 0:
     id = 1/257
+    containerMimeType = video/mp2t
     sampleMimeType = audio/mpeg-L2
     maxInputSize = 4096
     channelCount = 1

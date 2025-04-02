@@ -15,9 +15,13 @@
  */
 package androidx.media3.common;
 
-import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
+import static androidx.media3.common.TrackSelectionParameters.AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_DISABLED;
+import static androidx.media3.common.TrackSelectionParameters.AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_ENABLED;
 import static com.google.common.truth.Truth.assertThat;
 
+import android.os.Bundle;
+import androidx.media3.common.TrackSelectionParameters.AudioOffloadPreferences;
+import androidx.media3.common.util.Util;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import org.junit.Test;
@@ -29,10 +33,13 @@ public final class TrackSelectionParametersTest {
 
   private static final TrackGroup AAC_TRACK_GROUP =
       new TrackGroup(new Format.Builder().setSampleMimeType(MimeTypes.AUDIO_AAC).build());
+  private static final String BUNDLE_FIELD_AUDIO_OFFLOAD_MODE_PREFERENCE =
+      Util.intToStringMaxRadix(27);
+  private static final String BUNDLE_FIELD_AUDIO_OFFLOAD_PREFERENCES = Util.intToStringMaxRadix(30);
 
   @Test
   public void defaultValue_withoutChange_isAsExpected() {
-    TrackSelectionParameters parameters = TrackSelectionParameters.DEFAULT_WITHOUT_CONTEXT;
+    TrackSelectionParameters parameters = TrackSelectionParameters.DEFAULT;
 
     // Video
     assertThat(parameters.maxVideoWidth).isEqualTo(Integer.MAX_VALUE);
@@ -45,6 +52,7 @@ public final class TrackSelectionParametersTest {
     assertThat(parameters.minVideoBitrate).isEqualTo(0);
     assertThat(parameters.viewportWidth).isEqualTo(Integer.MAX_VALUE);
     assertThat(parameters.viewportHeight).isEqualTo(Integer.MAX_VALUE);
+    assertThat(parameters.isViewportSizeLimitedByPhysicalDisplaySize).isTrue();
     assertThat(parameters.viewportOrientationMayChange).isTrue();
     assertThat(parameters.preferredVideoMimeTypes).isEmpty();
     // Audio
@@ -52,12 +60,19 @@ public final class TrackSelectionParametersTest {
     assertThat(parameters.preferredAudioRoleFlags).isEqualTo(0);
     assertThat(parameters.maxAudioChannelCount).isEqualTo(Integer.MAX_VALUE);
     assertThat(parameters.maxAudioBitrate).isEqualTo(Integer.MAX_VALUE);
+    assertThat(parameters.audioOffloadPreferences.audioOffloadMode)
+        .isEqualTo(AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_DISABLED);
+    assertThat(parameters.audioOffloadPreferences.isGaplessSupportRequired).isFalse();
+    assertThat(parameters.audioOffloadPreferences.isSpeedChangeSupportRequired).isFalse();
     // Text
     assertThat(parameters.preferredAudioMimeTypes).isEmpty();
     assertThat(parameters.preferredTextLanguages).isEmpty();
+    assertThat(parameters.usePreferredTextLanguagesAndRoleFlagsFromCaptioningManager).isTrue();
     assertThat(parameters.preferredTextRoleFlags).isEqualTo(0);
     assertThat(parameters.ignoredTextSelectionFlags).isEqualTo(0);
     assertThat(parameters.selectUndeterminedTextLanguage).isFalse();
+    // Image
+    assertThat(parameters.isPrioritizeImageOverVideoEnabled).isFalse();
     // General
     assertThat(parameters.forceLowestBitrate).isFalse();
     assertThat(parameters.forceHighestSupportedBitrate).isFalse();
@@ -76,7 +91,7 @@ public final class TrackSelectionParametersTest {
                 new Format.Builder().setId(4).build(), new Format.Builder().setId(5).build()),
             /* trackIndices= */ ImmutableList.of(1));
     TrackSelectionParameters parameters =
-        TrackSelectionParameters.DEFAULT_WITHOUT_CONTEXT
+        TrackSelectionParameters.DEFAULT
             .buildUpon()
             // Video
             .setMaxVideoSize(/* maxVideoWidth= */ 0, /* maxVideoHeight= */ 1)
@@ -96,11 +111,18 @@ public final class TrackSelectionParametersTest {
             .setMaxAudioChannelCount(10)
             .setMaxAudioBitrate(11)
             .setPreferredAudioMimeTypes(MimeTypes.AUDIO_AC3, MimeTypes.AUDIO_E_AC3)
+            .setAudioOffloadPreferences(
+                new AudioOffloadPreferences.Builder()
+                    .setAudioOffloadMode(AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_ENABLED)
+                    .setIsSpeedChangeSupportRequired(true)
+                    .build())
             // Text
             .setPreferredTextLanguages("de", "en")
             .setPreferredTextRoleFlags(C.ROLE_FLAG_CAPTION)
             .setIgnoredTextSelectionFlags(C.SELECTION_FLAG_AUTOSELECT)
             .setSelectUndeterminedTextLanguage(true)
+            // Image
+            .setPrioritizeImageOverVideoEnabled(true)
             // General
             .setForceLowestBitrate(false)
             .setForceHighestSupportedBitrate(true)
@@ -128,6 +150,7 @@ public final class TrackSelectionParametersTest {
     assertThat(parameters.minVideoBitrate).isEqualTo(7);
     assertThat(parameters.viewportWidth).isEqualTo(8);
     assertThat(parameters.viewportHeight).isEqualTo(9);
+    assertThat(parameters.isViewportSizeLimitedByPhysicalDisplaySize).isFalse();
     assertThat(parameters.viewportOrientationMayChange).isTrue();
     assertThat(parameters.preferredVideoMimeTypes)
         .containsExactly(MimeTypes.VIDEO_AV1, MimeTypes.VIDEO_H264)
@@ -140,11 +163,18 @@ public final class TrackSelectionParametersTest {
     assertThat(parameters.preferredAudioMimeTypes)
         .containsExactly(MimeTypes.AUDIO_AC3, MimeTypes.AUDIO_E_AC3)
         .inOrder();
+    assertThat(parameters.audioOffloadPreferences.audioOffloadMode)
+        .isEqualTo(AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_ENABLED);
+    assertThat(parameters.audioOffloadPreferences.isGaplessSupportRequired).isFalse();
+    assertThat(parameters.audioOffloadPreferences.isSpeedChangeSupportRequired).isTrue();
     // Text
     assertThat(parameters.preferredTextLanguages).containsExactly("de", "en").inOrder();
     assertThat(parameters.preferredTextRoleFlags).isEqualTo(C.ROLE_FLAG_CAPTION);
+    assertThat(parameters.usePreferredTextLanguagesAndRoleFlagsFromCaptioningManager).isFalse();
     assertThat(parameters.ignoredTextSelectionFlags).isEqualTo(C.SELECTION_FLAG_AUTOSELECT);
     assertThat(parameters.selectUndeterminedTextLanguage).isTrue();
+    // Image
+    assertThat(parameters.isPrioritizeImageOverVideoEnabled).isTrue();
     // General
     assertThat(parameters.forceLowestBitrate).isFalse();
     assertThat(parameters.forceHighestSupportedBitrate).isTrue();
@@ -158,7 +188,7 @@ public final class TrackSelectionParametersTest {
   @Test
   public void setMaxVideoSizeSd_defaultBuilder_parametersVideoSizeAreSd() {
     TrackSelectionParameters parameters =
-        new TrackSelectionParameters.Builder(getApplicationContext()).setMaxVideoSizeSd().build();
+        new TrackSelectionParameters.Builder().setMaxVideoSizeSd().build();
 
     assertThat(parameters.maxVideoWidth).isEqualTo(1279);
     assertThat(parameters.maxVideoHeight).isEqualTo(719);
@@ -167,7 +197,7 @@ public final class TrackSelectionParametersTest {
   @Test
   public void clearVideoSizeConstraints_withSdConstrains_clearConstrains() {
     TrackSelectionParameters parameters =
-        new TrackSelectionParameters.Builder(getApplicationContext())
+        new TrackSelectionParameters.Builder()
             .setMaxVideoSizeSd()
             .clearVideoSizeConstraints()
             .build();
@@ -179,16 +209,17 @@ public final class TrackSelectionParametersTest {
   @Test
   public void clearViewPortConstraints_withConstrains_clearConstrains() {
     TrackSelectionParameters parameters =
-        new TrackSelectionParameters.Builder(getApplicationContext())
+        new TrackSelectionParameters.Builder()
             .setViewportSize(
-                /*viewportWidth=*/ 1,
-                /*viewportHeight=*/ 2,
-                /*viewportOrientationMayChange=*/ false)
+                /* viewportWidth= */ 1,
+                /* viewportHeight= */ 2,
+                /* viewportOrientationMayChange= */ false)
             .clearViewportSizeConstraints()
             .build();
 
     assertThat(parameters.viewportWidth).isEqualTo(Integer.MAX_VALUE);
     assertThat(parameters.viewportHeight).isEqualTo(Integer.MAX_VALUE);
+    assertThat(parameters.isViewportSizeLimitedByPhysicalDisplaySize).isFalse();
     assertThat(parameters.viewportOrientationMayChange).isTrue();
   }
 
@@ -198,7 +229,7 @@ public final class TrackSelectionParametersTest {
         new TrackSelectionOverride(
             newTrackGroupWithIds(3, 4), /* trackIndices= */ ImmutableList.of(1));
     TrackSelectionParameters trackSelectionParameters =
-        new TrackSelectionParameters.Builder(getApplicationContext()).addOverride(override).build();
+        new TrackSelectionParameters.Builder().addOverride(override).build();
 
     TrackSelectionParameters fromBundle =
         TrackSelectionParameters.fromBundle(trackSelectionParameters.toBundle());
@@ -209,6 +240,29 @@ public final class TrackSelectionParametersTest {
   }
 
   @Test
+  public void roundTripViaBundle_withLegacyPreferenceFields_yieldsEqualInstance() {
+    TrackSelectionParameters trackSelectionParameters =
+        new TrackSelectionParameters.Builder()
+            .setAudioOffloadPreferences(
+                new AudioOffloadPreferences.Builder()
+                    .setAudioOffloadMode(AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_ENABLED)
+                    .setIsGaplessSupportRequired(true)
+                    .build())
+            .build();
+    Bundle bundle = trackSelectionParameters.toBundle();
+    // By removing AudioOffloadPreferences, bundle is a model of one initially created without
+    // AudioOffloadPreferences but containing AudioOffloadPreferences sub-fields(ex:
+    // isGaplessSupportRequired). Prod system should not be removing fields from the bundle.
+    bundle.remove(BUNDLE_FIELD_AUDIO_OFFLOAD_PREFERENCES);
+
+    TrackSelectionParameters trackSelectionParametersfromBundle =
+        TrackSelectionParameters.fromBundle(bundle);
+
+    assertThat(bundle.containsKey(BUNDLE_FIELD_AUDIO_OFFLOAD_MODE_PREFERENCE)).isTrue();
+    assertThat(trackSelectionParametersfromBundle).isEqualTo(trackSelectionParameters);
+  }
+
+  @Test
   public void addOverride_onDifferentGroups_addsOverride() {
     TrackSelectionOverride override1 =
         new TrackSelectionOverride(newTrackGroupWithIds(1), /* trackIndex= */ 0);
@@ -216,7 +270,7 @@ public final class TrackSelectionParametersTest {
         new TrackSelectionOverride(newTrackGroupWithIds(2), /* trackIndex= */ 0);
 
     TrackSelectionParameters trackSelectionParameters =
-        new TrackSelectionParameters.Builder(getApplicationContext())
+        new TrackSelectionParameters.Builder()
             .addOverride(override1)
             .addOverride(override2)
             .build();
@@ -235,7 +289,7 @@ public final class TrackSelectionParametersTest {
         new TrackSelectionOverride(trackGroup, /* trackIndices= */ ImmutableList.of(1));
 
     TrackSelectionParameters trackSelectionParameters =
-        new TrackSelectionParameters.Builder(getApplicationContext())
+        new TrackSelectionParameters.Builder()
             .addOverride(override1)
             .addOverride(override2)
             .build();
@@ -252,7 +306,7 @@ public final class TrackSelectionParametersTest {
         new TrackSelectionOverride(newTrackGroupWithIds(2), /* trackIndex= */ 0);
 
     TrackSelectionParameters trackSelectionParameters =
-        new TrackSelectionParameters.Builder(getApplicationContext())
+        new TrackSelectionParameters.Builder()
             .setOverrideForType(override1)
             .setOverrideForType(override2)
             .build();
@@ -268,7 +322,7 @@ public final class TrackSelectionParametersTest {
     TrackSelectionOverride override2 =
         new TrackSelectionOverride(newTrackGroupWithIds(1), /* trackIndex= */ 0);
     TrackSelectionParameters trackSelectionParameters =
-        new TrackSelectionParameters.Builder(getApplicationContext())
+        new TrackSelectionParameters.Builder()
             .addOverride(override1)
             .addOverride(override2)
             .clearOverridesOfType(C.TRACK_TYPE_AUDIO)
@@ -285,7 +339,7 @@ public final class TrackSelectionParametersTest {
     TrackSelectionOverride override2 =
         new TrackSelectionOverride(newTrackGroupWithIds(1), /* trackIndex= */ 0);
     TrackSelectionParameters trackSelectionParameters =
-        new TrackSelectionParameters.Builder(getApplicationContext())
+        new TrackSelectionParameters.Builder()
             .addOverride(override1)
             .addOverride(override2)
             .clearOverride(override2.mediaTrackGroup)
@@ -293,6 +347,29 @@ public final class TrackSelectionParametersTest {
 
     assertThat(trackSelectionParameters.overrides)
         .containsExactly(override1.mediaTrackGroup, override1);
+  }
+
+  @Test
+  public void audioOffloadPreferences_checkDefault_allFieldsAreDisabledOrFalse() {
+    AudioOffloadPreferences audioOffloadPreferences = AudioOffloadPreferences.DEFAULT;
+
+    assertThat(audioOffloadPreferences.audioOffloadMode).isEqualTo(AUDIO_OFFLOAD_MODE_DISABLED);
+    assertThat(audioOffloadPreferences.isGaplessSupportRequired).isFalse();
+    assertThat(audioOffloadPreferences.isSpeedChangeSupportRequired).isFalse();
+  }
+
+  @Test
+  public void audioOffloadPreferences_buildUponWithIndividualSetters_equalsToOriginal() {
+    AudioOffloadPreferences audioOffloadPreferences =
+        new AudioOffloadPreferences.Builder()
+            .setAudioOffloadMode(AUDIO_OFFLOAD_MODE_ENABLED)
+            .setIsGaplessSupportRequired(true)
+            .setIsSpeedChangeSupportRequired(false)
+            .build();
+
+    AudioOffloadPreferences copy = audioOffloadPreferences.buildUpon().build();
+
+    assertThat(copy).isEqualTo(audioOffloadPreferences);
   }
 
   private static TrackGroup newTrackGroupWithIds(int... ids) {

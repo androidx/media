@@ -12,6 +12,7 @@ track 1900:
   format 0:
     peakBitrate = 6000000
     id = 1/1900
+    containerMimeType = video/mp2t
     sampleMimeType = audio/eac3
     channelCount = 6
     sampleRate = 48000

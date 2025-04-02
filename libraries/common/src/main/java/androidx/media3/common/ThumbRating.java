@@ -21,7 +21,7 @@ import android.os.Bundle;
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
-import com.google.common.base.Objects;
+import java.util.Objects;
 
 /** A rating expressed as "thumbs up" or "thumbs down". */
 public final class ThumbRating extends Rating {
@@ -57,7 +57,7 @@ public final class ThumbRating extends Rating {
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(rated, isThumbsUp);
+    return Objects.hash(rated, isThumbsUp);
   }
 
   @Override
@@ -68,8 +68,6 @@ public final class ThumbRating extends Rating {
     ThumbRating other = (ThumbRating) obj;
     return isThumbsUp == other.isThumbsUp && rated == other.rated;
   }
-
-  // Bundleable implementation.
 
   private static final @RatingType int TYPE = RATING_TYPE_THUMB;
 
@@ -86,10 +84,9 @@ public final class ThumbRating extends Rating {
     return bundle;
   }
 
-  /** Object that can restore a {@link ThumbRating} from a {@link Bundle}. */
-  @UnstableApi public static final Creator<ThumbRating> CREATOR = ThumbRating::fromBundle;
-
-  private static ThumbRating fromBundle(Bundle bundle) {
+  /** Restores a {@code ThumbRating} from a {@link Bundle}. */
+  @UnstableApi
+  public static ThumbRating fromBundle(Bundle bundle) {
     checkArgument(bundle.getInt(FIELD_RATING_TYPE, /* defaultValue= */ RATING_TYPE_UNSET) == TYPE);
     boolean rated = bundle.getBoolean(FIELD_RATED, /* defaultValue= */ false);
     return rated

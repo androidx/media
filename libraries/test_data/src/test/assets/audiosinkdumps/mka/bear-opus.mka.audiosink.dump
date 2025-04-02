@@ -1,0 +1,555 @@
+AudioSink:
+  buffer count = 137
+  discontinuity:
+  config:
+    pcmEncoding = 2
+    channelCount = 2
+    sampleRate = 48000
+  buffer #0:
+    time = 1000000000000
+    channel[0] = -1803542625
+    channel[1] = -1803542625
+  buffer #1:
+    time = 1000000021000
+    channel[0] = -879855363
+    channel[1] = -879855363
+  buffer #2:
+    time = 1000000041000
+    channel[0] = -381046092
+    channel[1] = -381046092
+  buffer #3:
+    time = 1000000061000
+    channel[0] = -860610250
+    channel[1] = -860610250
+  buffer #4:
+    time = 1000000081000
+    channel[0] = -1424638308
+    channel[1] = -1424638308
+  buffer #5:
+    time = 1000000101000
+    channel[0] = 1431000422
+    channel[1] = 1715812551
+  buffer #6:
+    time = 1000000121000
+    channel[0] = 2066705420
+    channel[1] = 2066705420
+  buffer #7:
+    time = 1000000141000
+    channel[0] = -728680274
+    channel[1] = -728680274
+  buffer #8:
+    time = 1000000161000
+    channel[0] = -658812534
+    channel[1] = -658812534
+  buffer #9:
+    time = 1000000181000
+    channel[0] = 1934189478
+    channel[1] = 1934189478
+  buffer #10:
+    time = 1000000201000
+    channel[0] = 1395758702
+    channel[1] = 1395758702
+  buffer #11:
+    time = 1000000221000
+    channel[0] = -1276861931
+    channel[1] = -1276861931
+  buffer #12:
+    time = 1000000241000
+    channel[0] = 1688224419
+    channel[1] = 1688224419
+  buffer #13:
+    time = 1000000261000
+    channel[0] = -20060414
+    channel[1] = -20060414
+  buffer #14:
+    time = 1000000281000
+    channel[0] = -247023560
+    channel[1] = -247023560
+  buffer #15:
+    time = 1000000301000
+    channel[0] = -1806548411
+    channel[1] = -1806548411
+  buffer #16:
+    time = 1000000321000
+    channel[0] = 2016527085
+    channel[1] = 2016527085
+  buffer #17:
+    time = 1000000341000
+    channel[0] = 1467769637
+    channel[1] = 1467769637
+  buffer #18:
+    time = 1000000361000
+    channel[0] = -887610261
+    channel[1] = -887610261
+  buffer #19:
+    time = 1000000381000
+    channel[0] = -944966367
+    channel[1] = -944966367
+  buffer #20:
+    time = 1000000401000
+    channel[0] = -1670817032
+    channel[1] = -1670817032
+  buffer #21:
+    time = 1000000421000
+    channel[0] = -1551925513
+    channel[1] = -1551925513
+  buffer #22:
+    time = 1000000441000
+    channel[0] = -1593171963
+    channel[1] = 1557860130
+  buffer #23:
+    time = 1000000461000
+    channel[0] = 1292469449
+    channel[1] = -323659148
+  buffer #24:
+    time = 1000000481000
+    channel[0] = -1149008
+    channel[1] = -1149008
+  buffer #25:
+    time = 1000000501000
+    channel[0] = 1062435131
+    channel[1] = 1062435131
+  buffer #26:
+    time = 1000000521000
+    channel[0] = -1140833951
+    channel[1] = -1140833951
+  buffer #27:
+    time = 1000000541000
+    channel[0] = 895260844
+    channel[1] = 895260844
+  buffer #28:
+    time = 1000000561000
+    channel[0] = 332509915
+    channel[1] = 332509915
+  buffer #29:
+    time = 1000000581000
+    channel[0] = 37167574
+    channel[1] = 37167574
+  buffer #30:
+    time = 1000000601000
+    channel[0] = -1388825767
+    channel[1] = -1388825767
+  buffer #31:
+    time = 1000000621000
+    channel[0] = 1714945103
+    channel[1] = 1714945103
+  buffer #32:
+    time = 1000000641000
+    channel[0] = 1883368887
+    channel[1] = 1883368887
+  buffer #33:
+    time = 1000000661000
+    channel[0] = -473944544
+    channel[1] = -473944544
+  buffer #34:
+    time = 1000000681000
+    channel[0] = 629210841
+    channel[1] = 629210841
+  buffer #35:
+    time = 1000000701000
+    channel[0] = 609476653
+    channel[1] = 609476653
+  buffer #36:
+    time = 1000000721000
+    channel[0] = 270626626
+    channel[1] = 270626626
+  buffer #37:
+    time = 1000000741000
+    channel[0] = -735574302
+    channel[1] = -735574302
+  buffer #38:
+    time = 1000000761000
+    channel[0] = 202947246
+    channel[1] = 202947246
+  buffer #39:
+    time = 1000000781000
+    channel[0] = 103390524
+    channel[1] = 103390524
+  buffer #40:
+    time = 1000000801000
+    channel[0] = -1976936007
+    channel[1] = -1976936007
+  buffer #41:
+    time = 1000000821000
+    channel[0] = -2146096010
+    channel[1] = -2146096010
+  buffer #42:
+    time = 1000000841000
+    channel[0] = -1334054585
+    channel[1] = -1334054585
+  buffer #43:
+    time = 1000000861000
+    channel[0] = -19065999
+    channel[1] = -19065999
+  buffer #44:
+    time = 1000000881000
+    channel[0] = -182108638
+    channel[1] = -182108638
+  buffer #45:
+    time = 1000000901000
+    channel[0] = -2123676511
+    channel[1] = -2123676511
+  buffer #46:
+    time = 1000000921000
+    channel[0] = 1602448455
+    channel[1] = 1602448455
+  buffer #47:
+    time = 1000000941000
+    channel[0] = -673190528
+    channel[1] = -673190528
+  buffer #48:
+    time = 1000000961000
+    channel[0] = 1794858049
+    channel[1] = 1794858049
+  buffer #49:
+    time = 1000000981000
+    channel[0] = -2093850726
+    channel[1] = -2093850726
+  buffer #50:
+    time = 1000001001000
+    channel[0] = -1940556514
+    channel[1] = -1940556514
+  buffer #51:
+    time = 1000001021000
+    channel[0] = 1523060281
+    channel[1] = 1523060281
+  buffer #52:
+    time = 1000001041000
+    channel[0] = -571997275
+    channel[1] = -571997275
+  buffer #53:
+    time = 1000001061000
+    channel[0] = 262324549
+    channel[1] = 262324549
+  buffer #54:
+    time = 1000001081000
+    channel[0] = 91541691
+    channel[1] = 91541691
+  buffer #55:
+    time = 1000001101000
+    channel[0] = -1296184482
+    channel[1] = -1296184482
+  buffer #56:
+    time = 1000001121000
+    channel[0] = -1717986085
+    channel[1] = -1717986085
+  buffer #57:
+    time = 1000001141000
+    channel[0] = -2117340839
+    channel[1] = 132222377
+  buffer #58:
+    time = 1000001161000
+    channel[0] = -1809783621
+    channel[1] = -1809783621
+  buffer #59:
+    time = 1000001181000
+    channel[0] = 9725731
+    channel[1] = 9725731
+  buffer #60:
+    time = 1000001201000
+    channel[0] = -1878836834
+    channel[1] = -1878836834
+  buffer #61:
+    time = 1000001221000
+    channel[0] = -964780096
+    channel[1] = -964780096
+  buffer #62:
+    time = 1000001241000
+    channel[0] = -464136197
+    channel[1] = -464136197
+  buffer #63:
+    time = 1000001261000
+    channel[0] = 16358988
+    channel[1] = 16358988
+  buffer #64:
+    time = 1000001281000
+    channel[0] = -1327631964
+    channel[1] = -1327631964
+  buffer #65:
+    time = 1000001301000
+    channel[0] = -271889984
+    channel[1] = -271889984
+  buffer #66:
+    time = 1000001321000
+    channel[0] = 695763832
+    channel[1] = 695763832
+  buffer #67:
+    time = 1000001341000
+    channel[0] = -764923744
+    channel[1] = -764923744
+  buffer #68:
+    time = 1000001361000
+    channel[0] = -37789606
+    channel[1] = -37789606
+  buffer #69:
+    time = 1000001381000
+    channel[0] = 1220931140
+    channel[1] = 1220931140
+  buffer #70:
+    time = 1000001401000
+    channel[0] = -924283727
+    channel[1] = 1738539090
+  buffer #71:
+    time = 1000001421000
+    channel[0] = -850993044
+    channel[1] = -850993044
+  buffer #72:
+    time = 1000001441000
+    channel[0] = 2069251182
+    channel[1] = 2069251182
+  buffer #73:
+    time = 1000001461000
+    channel[0] = -1107596529
+    channel[1] = -1107596529
+  buffer #74:
+    time = 1000001481000
+    channel[0] = 1210661929
+    channel[1] = 1210661929
+  buffer #75:
+    time = 1000001501000
+    channel[0] = -284226374
+    channel[1] = -284226374
+  buffer #76:
+    time = 1000001521000
+    channel[0] = 1393048572
+    channel[1] = 1393048572
+  buffer #77:
+    time = 1000001541000
+    channel[0] = -2082045493
+    channel[1] = -2082045493
+  buffer #78:
+    time = 1000001561000
+    channel[0] = 430219789
+    channel[1] = 430219789
+  buffer #79:
+    time = 1000001581000
+    channel[0] = 301657666
+    channel[1] = 301657666
+  buffer #80:
+    time = 1000001601000
+    channel[0] = -636387915
+    channel[1] = -636387915
+  buffer #81:
+    time = 1000001621000
+    channel[0] = 1820301706
+    channel[1] = -1324863348
+  buffer #82:
+    time = 1000001641000
+    channel[0] = -2060114541
+    channel[1] = -2060114541
+  buffer #83:
+    time = 1000001661000
+    channel[0] = 79895239
+    channel[1] = 79895239
+  buffer #84:
+    time = 1000001681000
+    channel[0] = -1666207182
+    channel[1] = -1666207182
+  buffer #85:
+    time = 1000001701000
+    channel[0] = 1679644240
+    channel[1] = 1679644240
+  buffer #86:
+    time = 1000001721000
+    channel[0] = -1940623970
+    channel[1] = -1940623970
+  buffer #87:
+    time = 1000001741000
+    channel[0] = -1944276964
+    channel[1] = -1944276964
+  buffer #88:
+    time = 1000001761000
+    channel[0] = 1208848778
+    channel[1] = 1208848778
+  buffer #89:
+    time = 1000001781000
+    channel[0] = -762594070
+    channel[1] = -762594070
+  buffer #90:
+    time = 1000001801000
+    channel[0] = 1345228385
+    channel[1] = 1345228385
+  buffer #91:
+    time = 1000001821000
+    channel[0] = -232193100
+    channel[1] = -232193100
+  buffer #92:
+    time = 1000001841000
+    channel[0] = -1193537570
+    channel[1] = -1193537570
+  buffer #93:
+    time = 1000001861000
+    channel[0] = -136893102
+    channel[1] = -136893102
+  buffer #94:
+    time = 1000001881000
+    channel[0] = 411648992
+    channel[1] = 411648992
+  buffer #95:
+    time = 1000001901000
+    channel[0] = -181978091
+    channel[1] = -181978091
+  buffer #96:
+    time = 1000001921000
+    channel[0] = 1480786337
+    channel[1] = 1480786337
+  buffer #97:
+    time = 1000001941000
+    channel[0] = -667074617
+    channel[1] = -667074617
+  buffer #98:
+    time = 1000001961000
+    channel[0] = -428442573
+    channel[1] = -428442573
+  buffer #99:
+    time = 1000001981000
+    channel[0] = 1916669894
+    channel[1] = 1916669894
+  buffer #100:
+    time = 1000002001000
+    channel[0] = -1793353589
+    channel[1] = -1793353589
+  buffer #101:
+    time = 1000002021000
+    channel[0] = -815783346
+    channel[1] = -815783346
+  buffer #102:
+    time = 1000002041000
+    channel[0] = 116473090
+    channel[1] = 116473090
+  buffer #103:
+    time = 1000002061000
+    channel[0] = 702855571
+    channel[1] = 702855571
+  buffer #104:
+    time = 1000002081000
+    channel[0] = -1385863340
+    channel[1] = -1385863340
+  buffer #105:
+    time = 1000002101000
+    channel[0] = -791783446
+    channel[1] = -791783446
+  buffer #106:
+    time = 1000002121000
+    channel[0] = 1802986503
+    channel[1] = 1802986503
+  buffer #107:
+    time = 1000002141000
+    channel[0] = 749325005
+    channel[1] = 749325005
+  buffer #108:
+    time = 1000002161000
+    channel[0] = 1556823069
+    channel[1] = 1556823069
+  buffer #109:
+    time = 1000002181000
+    channel[0] = 1915545510
+    channel[1] = 1915545510
+  buffer #110:
+    time = 1000002201000
+    channel[0] = 278702947
+    channel[1] = 278702947
+  buffer #111:
+    time = 1000002221000
+    channel[0] = 488988576
+    channel[1] = 488988576
+  buffer #112:
+    time = 1000002241000
+    channel[0] = 667626601
+    channel[1] = 667626601
+  buffer #113:
+    time = 1000002261000
+    channel[0] = -228998683
+    channel[1] = -228998683
+  buffer #114:
+    time = 1000002281000
+    channel[0] = 90236622
+    channel[1] = 90236622
+  buffer #115:
+    time = 1000002301000
+    channel[0] = -1748064053
+    channel[1] = -1748064053
+  buffer #116:
+    time = 1000002321000
+    channel[0] = -1694019420
+    channel[1] = -1694019420
+  buffer #117:
+    time = 1000002341000
+    channel[0] = -817041294
+    channel[1] = -817041294
+  buffer #118:
+    time = 1000002361000
+    channel[0] = 1373570669
+    channel[1] = 1373570669
+  buffer #119:
+    time = 1000002381000
+    channel[0] = -515040180
+    channel[1] = -515040180
+  buffer #120:
+    time = 1000002401000
+    channel[0] = -1991989056
+    channel[1] = -1991989056
+  buffer #121:
+    time = 1000002421000
+    channel[0] = 1340021124
+    channel[1] = 1340021124
+  buffer #122:
+    time = 1000002441000
+    channel[0] = 1563303187
+    channel[1] = 1563303187
+  buffer #123:
+    time = 1000002461000
+    channel[0] = -1343784765
+    channel[1] = -1343784765
+  buffer #124:
+    time = 1000002481000
+    channel[0] = 129998161
+    channel[1] = 129998161
+  buffer #125:
+    time = 1000002501000
+    channel[0] = 322566621
+    channel[1] = 322566621
+  buffer #126:
+    time = 1000002521000
+    channel[0] = -472454491
+    channel[1] = -472454491
+  buffer #127:
+    time = 1000002541000
+    channel[0] = -589083224
+    channel[1] = -589083224
+  buffer #128:
+    time = 1000002561000
+    channel[0] = -509309932
+    channel[1] = -509309932
+  buffer #129:
+    time = 1000002581000
+    channel[0] = -1420806665
+    channel[1] = -1420806665
+  buffer #130:
+    time = 1000002601000
+    channel[0] = -1487423338
+    channel[1] = -361480788
+  buffer #131:
+    time = 1000002621000
+    channel[0] = 1339777804
+    channel[1] = 1992623035
+  buffer #132:
+    time = 1000002641000
+    channel[0] = 1891689265
+    channel[1] = 1891689265
+  buffer #133:
+    time = 1000002661000
+    channel[0] = -2083042483
+    channel[1] = -2083042483
+  buffer #134:
+    time = 1000002681000
+    channel[0] = -1926539306
+    channel[1] = -1926539306
+  buffer #135:
+    time = 1000002701000
+    channel[0] = 1547911885
+    channel[1] = 1547911885
+  buffer #136:
+    time = 1000002721000
+    channel[0] = 1454142017
+    channel[1] = 1454142017

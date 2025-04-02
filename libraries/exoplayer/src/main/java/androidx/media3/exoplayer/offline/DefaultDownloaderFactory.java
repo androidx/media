@@ -78,13 +78,16 @@ public class DefaultDownloaderFactory implements DownloaderFactory {
       case C.CONTENT_TYPE_SS:
         return createDownloader(request, contentType);
       case C.CONTENT_TYPE_OTHER:
+        @Nullable DownloadRequest.ByteRange byteRange = request.byteRange;
         return new ProgressiveDownloader(
             new MediaItem.Builder()
                 .setUri(request.uri)
                 .setCustomCacheKey(request.customCacheKey)
                 .build(),
             cacheDataSourceFactory,
-            executor);
+            executor,
+            (byteRange != null) ? byteRange.offset : 0,
+            (byteRange != null) ? byteRange.length : C.LENGTH_UNSET);
       default:
         throw new IllegalArgumentException("Unsupported type: " + contentType);
     }
@@ -109,6 +112,7 @@ public class DefaultDownloaderFactory implements DownloaderFactory {
     }
   }
 
+  // LINT.IfChange
   private static SparseArray<Constructor<? extends Downloader>> createDownloaderConstructors() {
     SparseArray<Constructor<? extends Downloader>> array = new SparseArray<>();
     try {
@@ -149,4 +153,5 @@ public class DefaultDownloaderFactory implements DownloaderFactory {
       throw new IllegalStateException("Downloader constructor missing", e);
     }
   }
+  // LINT.ThenChange(../../../../../../../proguard-rules.txt)
 }

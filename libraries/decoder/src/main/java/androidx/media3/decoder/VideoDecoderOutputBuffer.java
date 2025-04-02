@@ -25,21 +25,29 @@ import java.nio.ByteBuffer;
 @UnstableApi
 public class VideoDecoderOutputBuffer extends DecoderOutputBuffer {
 
+  // LINT.IfChange
   public static final int COLORSPACE_UNKNOWN = 0;
   public static final int COLORSPACE_BT601 = 1;
   public static final int COLORSPACE_BT709 = 2;
   public static final int COLORSPACE_BT2020 = 3;
+
+  // LINT.ThenChange(
+  //     ../../../../../../../decoder_av1/src/main/jni/gav1_jni.cc,
+  //     ../../../../../../../decoder_vp9/src/main/jni/vpx_jni.cc
+  // )
 
   /** Decoder private data. Used from native code. */
   public int decoderPrivate;
 
   /** Output mode. */
   public @C.VideoOutputMode int mode;
+
   /** RGB buffer for RGB mode. */
   @Nullable public ByteBuffer data;
 
   public int width;
   public int height;
+
   /** The format of the input from which this output buffer was decoded. */
   @Nullable public Format format;
 

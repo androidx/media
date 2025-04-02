@@ -40,8 +40,10 @@ public final class Track {
   @Target(TYPE_USE)
   @IntDef({TRANSFORMATION_NONE, TRANSFORMATION_CEA608_CDAT})
   public @interface Transformation {}
+
   /** A no-op sample transformation. */
   public static final int TRANSFORMATION_NONE = 0;
+
   /** A transformation for caption samples in cdat atoms. */
   public static final int TRANSFORMATION_CEA608_CDAT = 1;
 
@@ -62,6 +64,9 @@ public final class Track {
   /** The duration of the track in microseconds, or {@link C#TIME_UNSET} if unknown. */
   public final long durationUs;
 
+  /** The duration of the media in microseconds, or {@link C#TIME_UNSET} if unknown. */
+  public final long mediaDurationUs;
+
   /** The format. */
   public final Format format;
 
@@ -78,8 +83,8 @@ public final class Track {
   @Nullable public final long[] editListMediaTimes;
 
   /**
-   * For H264 video tracks, the length in bytes of the NALUnitLength field in each sample. 0 for
-   * other track types.
+   * The length in bytes of the NALUnitLength field in each sample. 0 for tracks that don't use
+   * length-delimited NAL units.
    */
   public final int nalUnitLengthFieldLength;
 
@@ -91,6 +96,7 @@ public final class Track {
       long timescale,
       long movieTimescale,
       long durationUs,
+      long mediaDurationUs,
       Format format,
       @Transformation int sampleTransformation,
       @Nullable TrackEncryptionBox[] sampleDescriptionEncryptionBoxes,
@@ -102,6 +108,7 @@ public final class Track {
     this.timescale = timescale;
     this.movieTimescale = movieTimescale;
     this.durationUs = durationUs;
+    this.mediaDurationUs = mediaDurationUs;
     this.format = format;
     this.sampleTransformation = sampleTransformation;
     this.sampleDescriptionEncryptionBoxes = sampleDescriptionEncryptionBoxes;
@@ -131,11 +138,28 @@ public final class Track {
         timescale,
         movieTimescale,
         durationUs,
+        mediaDurationUs,
         format,
         sampleTransformation,
         sampleDescriptionEncryptionBoxes,
         nalUnitLengthFieldLength,
         editListDurations,
         editListMediaTimes);
+  }
+
+  public Track copyWithoutEditLists() {
+    return new Track(
+        id,
+        type,
+        timescale,
+        movieTimescale,
+        durationUs,
+        mediaDurationUs,
+        format,
+        sampleTransformation,
+        sampleDescriptionEncryptionBoxes,
+        nalUnitLengthFieldLength,
+        /* editListDurations= */ null,
+        /* editListMediaTimes= */ null);
   }
 }

@@ -15,6 +15,7 @@
  */
 package androidx.media3.extractor.ts;
 
+import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.extractor.metadata.id3.Id3Decoder.ID3_HEADER_LENGTH;
 import static androidx.media3.extractor.ts.TsPayloadReader.FLAG_DATA_ALIGNMENT_INDICATOR;
 import static java.lang.Math.min;
@@ -37,6 +38,7 @@ public final class Id3Reader implements ElementaryStreamReader {
 
   private static final String TAG = "Id3Reader";
 
+  private final String containerMimeType;
   private final ParsableByteArray id3Header;
 
   private @MonotonicNonNull TrackOutput output;
@@ -49,7 +51,8 @@ public final class Id3Reader implements ElementaryStreamReader {
   private int sampleSize;
   private int sampleBytesRead;
 
-  public Id3Reader() {
+  public Id3Reader(String containerMimeType) {
+    this.containerMimeType = containerMimeType;
     id3Header = new ParsableByteArray(ID3_HEADER_LENGTH);
     sampleTimeUs = C.TIME_UNSET;
   }
@@ -67,6 +70,7 @@ public final class Id3Reader implements ElementaryStreamReader {
     output.format(
         new Format.Builder()
             .setId(idGenerator.getFormatId())
+            .setContainerMimeType(containerMimeType)
             .setSampleMimeType(MimeTypes.APPLICATION_ID3)
             .build());
   }
@@ -77,9 +81,7 @@ public final class Id3Reader implements ElementaryStreamReader {
       return;
     }
     writingSample = true;
-    if (pesTimeUs != C.TIME_UNSET) {
-      sampleTimeUs = pesTimeUs;
-    }
+    sampleTimeUs = pesTimeUs;
     sampleSize = 0;
     sampleBytesRead = 0;
   }
@@ -121,14 +123,14 @@ public final class Id3Reader implements ElementaryStreamReader {
   }
 
   @Override
-  public void packetFinished() {
+  public void packetFinished(boolean isEndOfInput) {
     Assertions.checkStateNotNull(output); // Asserts that createTracks has been called.
     if (!writingSample || sampleSize == 0 || sampleBytesRead != sampleSize) {
       return;
     }
-    if (sampleTimeUs != C.TIME_UNSET) {
-      output.sampleMetadata(sampleTimeUs, C.BUFFER_FLAG_KEY_FRAME, sampleSize, 0, null);
-    }
+    // packetStarted method must be called before consuming samples.
+    checkState(sampleTimeUs != C.TIME_UNSET);
+    output.sampleMetadata(sampleTimeUs, C.BUFFER_FLAG_KEY_FRAME, sampleSize, 0, null);
     writingSample = false;
   }
 }

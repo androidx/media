@@ -16,6 +16,7 @@
 package androidx.media3.session;
 
 import android.os.Bundle;
+import android.app.PendingIntent;
 import androidx.media3.session.IMediaSession;
 
 /**
@@ -23,12 +24,12 @@ import androidx.media3.session.IMediaSession;
  *
  * <p>It's for internal use only, not intended to be used by library users.
  */
-// TODO(b/191643508): Hide the generated classes from javadoc.
 // Note: Keep this interface oneway. Otherwise a malicious app may make a blocking call to make
 // controller frozen.
 oneway interface IMediaController {
 
   // Id < 3000 is reserved to avoid potential collision with media2 1.x.
+  // LINT.IfChange
   void onConnected(int seq, in Bundle connectionResult) = 3000;
   void onSessionResult(int seq, in Bundle sessionResult) = 3001;
   void onLibraryResult(int seq, in Bundle libraryResult) = 3002;
@@ -47,11 +48,15 @@ oneway interface IMediaController {
       int seq, in Bundle sessionCommandsBundle, in Bundle playerCommandsBundle) = 3009;
   void onRenderedFirstFrame(int seq) = 3010;
   void onExtrasChanged(int seq, in Bundle extras) = 3011;
-  // Next Id for MediaController: 3013
+  void onSessionActivityChanged(int seq, in @nullable PendingIntent pendingIntent) = 3013;
+  void onError(int seq, in Bundle sessionError) = 3014;
+  void onSetMediaButtonPreferences(int seq, in List<Bundle> commandButtonList) = 3015;
+  // Next Id for MediaController: 3016
 
   void onChildrenChanged(
       int seq, String parentId, int itemCount, in @nullable Bundle libraryParams) = 4000;
   void onSearchResultChanged(
       int seq, String query, int itemCount, in @nullable Bundle libraryParams) = 4001;
   // Next Id for MediaBrowser: 4002
+  // LINT.ThenChange( ../../../../java/androidx/media3/session/MediaControllerStub.java )
 }

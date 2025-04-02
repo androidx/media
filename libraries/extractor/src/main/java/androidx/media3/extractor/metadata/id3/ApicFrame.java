@@ -15,15 +15,11 @@
  */
 package androidx.media3.extractor.metadata.id3;
 
-import static androidx.media3.common.util.Util.castNonNull;
-
-import android.os.Parcel;
-import android.os.Parcelable;
 import androidx.annotation.Nullable;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import java.util.Arrays;
+import java.util.Objects;
 
 /** APIC (Attached Picture) ID3 frame. */
 @UnstableApi
@@ -45,14 +41,6 @@ public final class ApicFrame extends Id3Frame {
     this.pictureData = pictureData;
   }
 
-  /* package */ ApicFrame(Parcel in) {
-    super(ID);
-    mimeType = castNonNull(in.readString());
-    description = in.readString();
-    pictureType = in.readInt();
-    pictureData = castNonNull(in.createByteArray());
-  }
-
   @Override
   public void populateMediaMetadata(MediaMetadata.Builder builder) {
     builder.maybeSetArtworkData(pictureData, pictureType);
@@ -68,8 +56,8 @@ public final class ApicFrame extends Id3Frame {
     }
     ApicFrame other = (ApicFrame) obj;
     return pictureType == other.pictureType
-        && Util.areEqual(mimeType, other.mimeType)
-        && Util.areEqual(description, other.description)
+        && Objects.equals(mimeType, other.mimeType)
+        && Objects.equals(description, other.description)
         && Arrays.equals(pictureData, other.pictureData);
   }
 
@@ -87,28 +75,4 @@ public final class ApicFrame extends Id3Frame {
   public String toString() {
     return id + ": mimeType=" + mimeType + ", description=" + description;
   }
-
-  // Parcelable implementation.
-
-  @Override
-  public void writeToParcel(Parcel dest, int flags) {
-    dest.writeString(mimeType);
-    dest.writeString(description);
-    dest.writeInt(pictureType);
-    dest.writeByteArray(pictureData);
-  }
-
-  public static final Parcelable.Creator<ApicFrame> CREATOR =
-      new Parcelable.Creator<ApicFrame>() {
-
-        @Override
-        public ApicFrame createFromParcel(Parcel in) {
-          return new ApicFrame(in);
-        }
-
-        @Override
-        public ApicFrame[] newArray(int size) {
-          return new ApicFrame[size];
-        }
-      };
 }

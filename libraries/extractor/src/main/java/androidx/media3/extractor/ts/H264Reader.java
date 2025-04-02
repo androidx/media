@@ -20,6 +20,7 @@ import static androidx.media3.extractor.ts.TsPayloadReader.FLAG_RANDOM_ACCESS_IN
 import android.util.SparseArray;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Assertions;
@@ -27,10 +28,10 @@ import androidx.media3.common.util.CodecSpecificDataUtil;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import androidx.media3.container.NalUnitUtil;
+import androidx.media3.container.NalUnitUtil.SpsData;
+import androidx.media3.container.ParsableNalUnitBitArray;
 import androidx.media3.extractor.ExtractorOutput;
-import androidx.media3.extractor.NalUnitUtil;
-import androidx.media3.extractor.NalUnitUtil.SpsData;
-import androidx.media3.extractor.ParsableNalUnitBitArray;
 import androidx.media3.extractor.TrackOutput;
 import androidx.media3.extractor.ts.TsPayloadReader.TrackIdGenerator;
 import java.util.ArrayList;
@@ -47,6 +48,7 @@ public final class H264Reader implements ElementaryStreamReader {
   private final SeiReader seiReader;
   private final boolean allowNonIdrKeyframes;
   private final boolean detectAccessUnits;
+  private final String containerMimeType;
   private final NalUnitTargetBuffer sps;
   private final NalUnitTargetBuffer pps;
   private final NalUnitTargetBuffer sei;
@@ -75,15 +77,21 @@ public final class H264Reader implements ElementaryStreamReader {
    *     synchronization samples (key-frames).
    * @param detectAccessUnits Whether to split the input stream into access units (samples) based on
    *     slice headers. Pass {@code false} if the stream contains access unit delimiters (AUDs).
+   * @param containerMimeType The MIME type of the container holding the stream.
    */
-  public H264Reader(SeiReader seiReader, boolean allowNonIdrKeyframes, boolean detectAccessUnits) {
+  public H264Reader(
+      SeiReader seiReader,
+      boolean allowNonIdrKeyframes,
+      boolean detectAccessUnits,
+      String containerMimeType) {
     this.seiReader = seiReader;
     this.allowNonIdrKeyframes = allowNonIdrKeyframes;
     this.detectAccessUnits = detectAccessUnits;
+    this.containerMimeType = containerMimeType;
     prefixFlags = new boolean[3];
-    sps = new NalUnitTargetBuffer(NalUnitUtil.NAL_UNIT_TYPE_SPS, 128);
-    pps = new NalUnitTargetBuffer(NalUnitUtil.NAL_UNIT_TYPE_PPS, 128);
-    sei = new NalUnitTargetBuffer(NalUnitUtil.NAL_UNIT_TYPE_SEI, 128);
+    sps = new NalUnitTargetBuffer(NalUnitUtil.H264_NAL_UNIT_TYPE_SPS, 128);
+    pps = new NalUnitTargetBuffer(NalUnitUtil.H264_NAL_UNIT_TYPE_PPS, 128);
+    sei = new NalUnitTargetBuffer(NalUnitUtil.H264_NAL_UNIT_TYPE_SEI, 128);
     pesTimeUs = C.TIME_UNSET;
     seiWrapper = new ParsableByteArray();
   }
@@ -97,6 +105,7 @@ public final class H264Reader implements ElementaryStreamReader {
     sps.reset();
     pps.reset();
     sei.reset();
+    seiReader.clear();
     if (sampleReader != null) {
       sampleReader.reset();
     }
@@ -113,9 +122,7 @@ public final class H264Reader implements ElementaryStreamReader {
 
   @Override
   public void packetStarted(long pesTimeUs, @TsPayloadReader.Flags int flags) {
-    if (pesTimeUs != C.TIME_UNSET) {
-      this.pesTimeUs = pesTimeUs;
-    }
+    this.pesTimeUs = pesTimeUs;
     randomAccessIndicator |= (flags & FLAG_RANDOM_ACCESS_INDICATOR) != 0;
   }
 
@@ -144,6 +151,14 @@ public final class H264Reader implements ElementaryStreamReader {
       // We've seen the start of a NAL unit of the following type.
       int nalUnitType = NalUnitUtil.getNalUnitType(dataArray, nalUnitOffset);
 
+      // Case of a 4 byte start code prefix 0x00000001, recoil NAL unit offset by one byte
+      // to avoid previous byte being assigned to the previous access unit.
+      int prefixSize = 3;
+      if (nalUnitOffset > 0 && dataArray[nalUnitOffset - 1] == 0x00) {
+        nalUnitOffset--;
+        prefixSize = 4;
+      }
+
       // This is the number of bytes from the current offset to the start of the next NAL unit.
       // It may be negative if the NAL unit started in the previously consumed data.
       int lengthToNalUnit = nalUnitOffset - offset;
@@ -163,13 +178,20 @@ public final class H264Reader implements ElementaryStreamReader {
       // Indicate the start of the next NAL unit.
       startNalUnit(absolutePosition, nalUnitType, pesTimeUs);
       // Continue scanning the data.
-      offset = nalUnitOffset + 3;
+      offset = nalUnitOffset + prefixSize;
     }
   }
 
   @Override
-  public void packetFinished() {
-    // Do nothing.
+  public void packetFinished(boolean isEndOfInput) {
+    assertTracksCreated();
+    if (isEndOfInput) {
+      seiReader.flush();
+      // Simulate end of current NAL unit and start an AUD one to trigger output of current sample
+      endNalUnit(totalBytesWritten, 0, 0, pesTimeUs);
+      startNalUnit(totalBytesWritten, NalUnitUtil.H264_NAL_UNIT_TYPE_AUD, pesTimeUs);
+      endNalUnit(totalBytesWritten, 0, 0, pesTimeUs);
+    }
   }
 
   @RequiresNonNull("sampleReader")
@@ -179,7 +201,7 @@ public final class H264Reader implements ElementaryStreamReader {
       pps.startNalUnit(nalUnitType);
     }
     sei.startNalUnit(nalUnitType);
-    sampleReader.startNalUnit(position, nalUnitType, pesTimeUs);
+    sampleReader.startNalUnit(position, nalUnitType, pesTimeUs, randomAccessIndicator);
   }
 
   @RequiresNonNull("sampleReader")
@@ -212,14 +234,25 @@ public final class H264Reader implements ElementaryStreamReader {
           output.format(
               new Format.Builder()
                   .setId(formatId)
+                  .setContainerMimeType(containerMimeType)
                   .setSampleMimeType(MimeTypes.VIDEO_H264)
                   .setCodecs(codecs)
                   .setWidth(spsData.width)
                   .setHeight(spsData.height)
+                  .setColorInfo(
+                      new ColorInfo.Builder()
+                          .setColorSpace(spsData.colorSpace)
+                          .setColorRange(spsData.colorRange)
+                          .setColorTransfer(spsData.colorTransfer)
+                          .setLumaBitdepth(spsData.bitDepthLumaMinus8 + 8)
+                          .setChromaBitdepth(spsData.bitDepthChromaMinus8 + 8)
+                          .build())
                   .setPixelWidthHeightRatio(spsData.pixelWidthHeightRatio)
                   .setInitializationData(initializationData)
+                  .setMaxNumReorderSamples(spsData.maxNumReorderFrames)
                   .build());
           hasOutputFormat = true;
+          seiReader.setReorderingQueueSize(spsData.maxNumReorderFrames);
           sampleReader.putSps(spsData);
           sampleReader.putPps(ppsData);
           sps.reset();
@@ -227,6 +260,7 @@ public final class H264Reader implements ElementaryStreamReader {
         }
       } else if (sps.isCompleted()) {
         NalUnitUtil.SpsData spsData = NalUnitUtil.parseSpsNalUnit(sps.nalData, 3, sps.nalLength);
+        seiReader.setReorderingQueueSize(spsData.maxNumReorderFrames);
         sampleReader.putSps(spsData);
         sps.reset();
       } else if (pps.isCompleted()) {
@@ -241,8 +275,7 @@ public final class H264Reader implements ElementaryStreamReader {
       seiWrapper.setPosition(4); // NAL prefix and nal_unit() header.
       seiReader.consume(pesTimeUs, seiWrapper);
     }
-    boolean sampleIsKeyFrame =
-        sampleReader.endNalUnit(position, offset, hasOutputFormat, randomAccessIndicator);
+    boolean sampleIsKeyFrame = sampleReader.endNalUnit(position, offset, hasOutputFormat);
     if (sampleIsKeyFrame) {
       // This is either an IDR frame or the first I-frame since the random access indicator, so mark
       // it as a keyframe. Clear the flag so that subsequent non-IDR I-frames are not marked as
@@ -285,6 +318,7 @@ public final class H264Reader implements ElementaryStreamReader {
     private long samplePosition;
     private long sampleTimeUs;
     private boolean sampleIsKeyframe;
+    private boolean randomAccessIndicator;
 
     public SampleReader(
         TrackOutput output, boolean allowNonIdrKeyframes, boolean detectAccessUnits) {
@@ -318,15 +352,17 @@ public final class H264Reader implements ElementaryStreamReader {
       sliceHeader.clear();
     }
 
-    public void startNalUnit(long position, int type, long pesTimeUs) {
+    public void startNalUnit(
+        long position, int type, long pesTimeUs, boolean randomAccessIndicator) {
       nalUnitType = type;
       nalUnitTimeUs = pesTimeUs;
       nalUnitStartPosition = position;
-      if ((allowNonIdrKeyframes && nalUnitType == NalUnitUtil.NAL_UNIT_TYPE_NON_IDR)
+      this.randomAccessIndicator = randomAccessIndicator;
+      if ((allowNonIdrKeyframes && nalUnitType == NalUnitUtil.H264_NAL_UNIT_TYPE_NON_IDR)
           || (detectAccessUnits
-              && (nalUnitType == NalUnitUtil.NAL_UNIT_TYPE_IDR
-                  || nalUnitType == NalUnitUtil.NAL_UNIT_TYPE_NON_IDR
-                  || nalUnitType == NalUnitUtil.NAL_UNIT_TYPE_PARTITION_A))) {
+              && (nalUnitType == NalUnitUtil.H264_NAL_UNIT_TYPE_IDR
+                  || nalUnitType == NalUnitUtil.H264_NAL_UNIT_TYPE_NON_IDR
+                  || nalUnitType == NalUnitUtil.H264_NAL_UNIT_TYPE_PARTITION_A))) {
         // Store the previous header and prepare to populate the new one.
         SliceHeaderData newSliceHeader = previousSliceHeader;
         previousSliceHeader = sliceHeader;
@@ -416,7 +452,7 @@ public final class H264Reader implements ElementaryStreamReader {
           bottomFieldFlagPresent = true;
         }
       }
-      boolean idrPicFlag = nalUnitType == NalUnitUtil.NAL_UNIT_TYPE_IDR;
+      boolean idrPicFlag = nalUnitType == NalUnitUtil.H264_NAL_UNIT_TYPE_IDR;
       int idrPicId = 0;
       if (idrPicFlag) {
         if (!bitArray.canReadExpGolombCodedNum()) {
@@ -469,9 +505,8 @@ public final class H264Reader implements ElementaryStreamReader {
       isFilling = false;
     }
 
-    public boolean endNalUnit(
-        long position, int offset, boolean hasOutputFormat, boolean randomAccessIndicator) {
-      if (nalUnitType == NalUnitUtil.NAL_UNIT_TYPE_AUD
+    public boolean endNalUnit(long position, int offset, boolean hasOutputFormat) {
+      if (nalUnitType == NalUnitUtil.H264_NAL_UNIT_TYPE_AUD
           || (detectAccessUnits && sliceHeader.isFirstVclNalUnitOfPicture(previousSliceHeader))) {
         // If the NAL unit ending is the start of a new sample, output the previous one.
         if (hasOutputFormat && readingSample) {
@@ -483,16 +518,22 @@ public final class H264Reader implements ElementaryStreamReader {
         sampleIsKeyframe = false;
         readingSample = true;
       }
-      boolean treatIFrameAsKeyframe =
-          allowNonIdrKeyframes ? sliceHeader.isISlice() : randomAccessIndicator;
-      sampleIsKeyframe |=
-          nalUnitType == NalUnitUtil.NAL_UNIT_TYPE_IDR
-              || (treatIFrameAsKeyframe && nalUnitType == NalUnitUtil.NAL_UNIT_TYPE_NON_IDR);
+      setSampleIsKeyframe();
+      // Reset NAL unit type to avoid stale state
+      nalUnitType = NalUnitUtil.H264_NAL_UNIT_TYPE_UNSPECIFIED;
       return sampleIsKeyframe;
     }
 
+    private void setSampleIsKeyframe() {
+      boolean treatIFrameAsKeyframe =
+          allowNonIdrKeyframes ? sliceHeader.isISlice() : randomAccessIndicator;
+      sampleIsKeyframe |=
+          nalUnitType == NalUnitUtil.H264_NAL_UNIT_TYPE_IDR
+              || (treatIFrameAsKeyframe && nalUnitType == NalUnitUtil.H264_NAL_UNIT_TYPE_NON_IDR);
+    }
+
     private void outputSample(int offset) {
-      if (sampleTimeUs == C.TIME_UNSET) {
+      if (sampleTimeUs == C.TIME_UNSET || nalUnitStartPosition == samplePosition) {
         return;
       }
       @C.BufferFlags int flags = sampleIsKeyframe ? C.BUFFER_FLAG_KEY_FRAME : 0;

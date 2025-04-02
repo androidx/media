@@ -41,12 +41,11 @@
     <item>1.5x</item>
     <item>2x</item>
   </string-array>
-  <string name="exo_track_selection_title_video">วิดีโอ</string>
   <string name="exo_track_selection_title_audio">เสียง</string>
-  <string name="exo_track_selection_title_text">ข้อความ</string>
   <string name="exo_track_selection_none">ไม่มี</string>
   <string name="exo_track_selection_auto">อัตโนมัติ</string>
   <string name="exo_track_unknown">ไม่ทราบ</string>
+  <string name="exo_track_unknown_name">ไม่รู้จัก (%1$s)</string>
   <string name="exo_track_resolution">%1$d × %2$d</string>
   <string name="exo_track_mono">โมโน</string>
   <string name="exo_track_stereo">สเตอริโอ</string>

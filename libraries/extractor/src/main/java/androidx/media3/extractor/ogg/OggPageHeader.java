@@ -38,6 +38,7 @@ import java.io.IOException;
 
   public int revision;
   public int type;
+
   /**
    * The absolute granule position of the page. This is the total number of samples from the start
    * of the file up to the <em>end</em> of the page. Samples partially in the page that continue on
@@ -51,6 +52,7 @@ import java.io.IOException;
   public int pageSegmentCount;
   public int headerSize;
   public int bodySize;
+
   /**
    * Be aware that {@code laces.length} is always {@link #MAX_SEGMENT_COUNT}. Instead use {@link
    * #pageSegmentCount} to iterate.
@@ -79,7 +81,7 @@ import java.io.IOException;
    * *\/ C.POSITION_UNSET)}.
    */
   public boolean skipToNextPage(ExtractorInput input) throws IOException {
-    return skipToNextPage(input, /* limit= */ C.POSITION_UNSET);
+    return skipToNextPage(input, /* limit= */ C.INDEX_UNSET);
   }
 
   /**
@@ -94,7 +96,7 @@ import java.io.IOException;
    *
    * @param input The {@link ExtractorInput} to read from (must have {@code readPosition ==
    *     peekPosition}).
-   * @param limit The max position in {@code input} to peek to, or {@link C#POSITION_UNSET} to allow
+   * @param limit The max position in {@code input} to peek to, or {@link C#INDEX_UNSET} to allow
    *     peeking to the end.
    * @return True if a capture_pattern was found.
    * @throws IOException If reading data fails.
@@ -102,7 +104,7 @@ import java.io.IOException;
   public boolean skipToNextPage(ExtractorInput input, long limit) throws IOException {
     Assertions.checkArgument(input.getPosition() == input.getPeekPosition());
     scratch.reset(/* limit= */ CAPTURE_PATTERN_SIZE);
-    while ((limit == C.POSITION_UNSET || input.getPosition() + CAPTURE_PATTERN_SIZE < limit)
+    while ((limit == C.INDEX_UNSET || input.getPosition() + CAPTURE_PATTERN_SIZE < limit)
         && peekFullyQuietly(
             input, scratch.getData(), 0, CAPTURE_PATTERN_SIZE, /* allowEndOfInput= */ true)) {
       scratch.setPosition(0);
@@ -114,7 +116,7 @@ import java.io.IOException;
       input.skipFully(1);
     }
     // Move the read & peek positions to limit or end-of-input, whichever is closer.
-    while ((limit == C.POSITION_UNSET || input.getPosition() < limit)
+    while ((limit == C.INDEX_UNSET || input.getPosition() < limit)
         && input.skip(1) != C.RESULT_END_OF_INPUT) {}
     return false;
   }

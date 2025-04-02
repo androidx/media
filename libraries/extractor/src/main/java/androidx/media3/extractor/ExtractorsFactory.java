@@ -16,7 +16,12 @@
 package androidx.media3.extractor;
 
 import android.net.Uri;
+import androidx.media3.common.C;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.extractor.mp4.Mp4Extractor;
+import androidx.media3.extractor.text.SubtitleParser;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
 import java.util.Map;
 
@@ -29,6 +34,58 @@ public interface ExtractorsFactory {
    * Extractor Extractors} are not required.
    */
   ExtractorsFactory EMPTY = () -> new Extractor[] {};
+
+  /**
+   * Enables transcoding of text track samples to {@link MimeTypes#APPLICATION_MEDIA3_CUES} before
+   * the data is emitted to {@link TrackOutput}.
+   *
+   * <p>Transcoding is enabled by default.
+   *
+   * <p>This method is experimental and will be renamed or removed in a future release.
+   *
+   * @param textTrackTranscodingEnabled Whether to enable transcoding.
+   * @return The factory, for convenience.
+   * @deprecated This method (and all support for 'legacy' subtitle decoding during rendering) will
+   *     be removed in a future release.
+   */
+  @CanIgnoreReturnValue
+  @Deprecated
+  default ExtractorsFactory experimentalSetTextTrackTranscodingEnabled(
+      boolean textTrackTranscodingEnabled) {
+    return this;
+  }
+
+  /**
+   * Sets a {@link SubtitleParser.Factory} to use when transcoding text tracks.
+   *
+   * <p>This is only works if {@link #experimentalSetTextTrackTranscodingEnabled(boolean)} is
+   * enabled.
+   *
+   * @param subtitleParserFactory The factory for {@link SubtitleParser} instances.
+   * @return The factory, for convenience.
+   */
+  default ExtractorsFactory setSubtitleParserFactory(SubtitleParser.Factory subtitleParserFactory) {
+    return this;
+  }
+
+  /**
+   * Sets the set of video codecs for which within GOP sample dependency information should be
+   * parsed as part of extraction. Defaults to {@code 0} - empty set of codecs.
+   *
+   * <p>Having access to additional sample dependency information can speed up seeking. See {@link
+   * Mp4Extractor#FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES}.
+   *
+   * <p>This method is experimental and will be renamed or removed in a future release.
+   *
+   * @param codecsToParseWithinGopSampleDependencies The set of codecs for which to parse within GOP
+   *     sample dependency information.
+   * @return This factory, for convenience.
+   */
+  @CanIgnoreReturnValue
+  default ExtractorsFactory experimentalSetCodecsToParseWithinGopSampleDependencies(
+      @C.VideoCodecFlags int codecsToParseWithinGopSampleDependencies) {
+    return this;
+  }
 
   /** Returns an array of new {@link Extractor} instances. */
   Extractor[] createExtractors();

@@ -21,12 +21,11 @@ import static androidx.media3.common.util.Util.castNonNull;
 import android.net.Uri;
 import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
-import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.HashMap;
+import java.util.Objects;
 
 /**
  * Records all the information in a SDP message.
@@ -34,7 +33,6 @@ import java.util.HashMap;
  * <p>SDP messages encapsulate information on the media play back session, including session
  * configuration information, formats of each playable track, etc. SDP is defined in RFC4566.
  */
-@UnstableApi
 /* package */ final class SessionDescription {
 
   /** Builder class for {@link SessionDescription}. */
@@ -222,18 +220,25 @@ import java.util.HashMap;
 
   /** The only supported SDP version, will be checked against every SDP message received. */
   public static final String SUPPORTED_SDP_VERSION = "0";
+
   /** The control attribute name. */
   public static final String ATTR_CONTROL = "control";
+
   /** The format property attribute name. */
   public static final String ATTR_FMTP = "fmtp";
+
   /** The length property attribute name. */
   public static final String ATTR_LENGTH = "length";
+
   /** The range property attribute name. */
   public static final String ATTR_RANGE = "range";
+
   /** The RTP format mapping property attribute name. */
   public static final String ATTR_RTPMAP = "rtpmap";
+
   /** The tool property attribute name. */
   public static final String ATTR_TOOL = "tool";
+
   /** The type property attribute name. */
   public static final String ATTR_TYPE = "type";
 
@@ -242,28 +247,39 @@ import java.util.HashMap;
    * present.
    */
   public final ImmutableMap<String, String> attributes;
+
   /**
    * The {@link MediaDescription MediaDescriptions} for each media track included in the session.
    */
   public final ImmutableList<MediaDescription> mediaDescriptionList;
+
   /** The name of a session. */
   @Nullable public final String sessionName;
+
   /** The origin sender info. */
   @Nullable public final String origin;
+
   /** The timing info. */
   @Nullable public final String timing;
+
   /** The estimated bitrate in bits per seconds. */
   public final int bitrate;
+
   /** The uri of a linked content. */
   @Nullable public final Uri uri;
+
   /** The connection info. */
   @Nullable public final String connection;
+
   /** The encryption method and key info. */
   @Nullable public final String key;
+
   /** The email info. */
   @Nullable public final String emailAddress;
+
   /** The phone number info. */
   @Nullable public final String phoneNumber;
+
   /** The session info, a detailed description of the session. */
   @Nullable public final String sessionInfo;
 
@@ -295,15 +311,15 @@ import java.util.HashMap;
     return bitrate == that.bitrate
         && attributes.equals(that.attributes)
         && mediaDescriptionList.equals(that.mediaDescriptionList)
-        && Util.areEqual(origin, that.origin)
-        && Util.areEqual(sessionName, that.sessionName)
-        && Util.areEqual(timing, that.timing)
-        && Util.areEqual(sessionInfo, that.sessionInfo)
-        && Util.areEqual(uri, that.uri)
-        && Util.areEqual(emailAddress, that.emailAddress)
-        && Util.areEqual(phoneNumber, that.phoneNumber)
-        && Util.areEqual(connection, that.connection)
-        && Util.areEqual(key, that.key);
+        && Objects.equals(origin, that.origin)
+        && Objects.equals(sessionName, that.sessionName)
+        && Objects.equals(timing, that.timing)
+        && Objects.equals(sessionInfo, that.sessionInfo)
+        && Objects.equals(uri, that.uri)
+        && Objects.equals(emailAddress, that.emailAddress)
+        && Objects.equals(phoneNumber, that.phoneNumber)
+        && Objects.equals(connection, that.connection)
+        && Objects.equals(key, that.key);
   }
 
   @Override

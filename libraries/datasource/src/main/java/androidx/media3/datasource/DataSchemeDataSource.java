@@ -27,9 +27,9 @@ import androidx.media3.common.PlaybackException;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
-import com.google.common.base.Charsets;
 import java.io.IOException;
 import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 
 /** A {@link DataSource} for reading data URLs, as defined by RFC 2397. */
 @UnstableApi
@@ -50,7 +50,7 @@ public final class DataSchemeDataSource extends BaseDataSource {
   public long open(DataSpec dataSpec) throws IOException {
     transferInitializing(dataSpec);
     this.dataSpec = dataSpec;
-    Uri uri = dataSpec.uri;
+    Uri uri = dataSpec.uri.normalizeScheme();
     String scheme = uri.getScheme();
     Assertions.checkArgument(SCHEME_DATA.equals(scheme), "Unsupported scheme: " + scheme);
     String[] uriParts = Util.split(uri.getSchemeSpecificPart(), ",");
@@ -68,7 +68,7 @@ public final class DataSchemeDataSource extends BaseDataSource {
       }
     } else {
       // TODO: Add support for other charsets.
-      data = Util.getUtf8Bytes(URLDecoder.decode(dataString, Charsets.US_ASCII.name()));
+      data = Util.getUtf8Bytes(URLDecoder.decode(dataString, StandardCharsets.US_ASCII.name()));
     }
     if (dataSpec.position > data.length) {
       data = null;

@@ -23,6 +23,7 @@ import android.os.IBinder;
 import android.os.Parcel;
 import android.os.RemoteException;
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.common.collect.ImmutableList;
@@ -39,7 +40,7 @@ import java.util.List;
  *
  * <pre>{@code
  * // Sender
- * List<Bundle> list = ...;
+ * ImmutableList<Bundle> list = ...;
  * IBinder binder = new BundleListRetriever(list);
  * Bundle bundle = new Bundle();
  * bundle.putBinder("list", binder);
@@ -47,7 +48,7 @@ import java.util.List;
  * // Receiver
  * Bundle bundle = ...; // Received from the sender
  * IBinder binder = bundle.getBinder("list");
- * List<Bundle> list = BundleListRetriever.getList(binder);
+ * ImmutableList<Bundle> list = BundleListRetriever.getList(binder);
  * }</pre>
  */
 @UnstableApi
@@ -97,11 +98,18 @@ public final class BundleListRetriever extends Binder {
    * @return The list of {@link Bundle Bundles}.
    */
   public static ImmutableList<Bundle> getList(IBinder binder) {
-    ImmutableList.Builder<Bundle> builder = ImmutableList.builder();
+    if (binder instanceof BundleListRetriever) {
+      // In-process binder calls can return the list directly instead of using the transact method.
+      return ((BundleListRetriever) binder).list;
+    }
+    return getListFromRemoteBinder(binder);
+  }
 
+  @VisibleForTesting
+  /* package-private */ static ImmutableList<Bundle> getListFromRemoteBinder(IBinder binder) {
+    ImmutableList.Builder<Bundle> builder = ImmutableList.builder();
     int index = 0;
     int replyCode = REPLY_CONTINUE;
-
     while (replyCode != REPLY_END_OF_LIST) {
       Parcel data = Parcel.obtain();
       Parcel reply = Parcel.obtain();
@@ -121,7 +129,6 @@ public final class BundleListRetriever extends Binder {
         data.recycle();
       }
     }
-
     return builder.build();
   }
 }

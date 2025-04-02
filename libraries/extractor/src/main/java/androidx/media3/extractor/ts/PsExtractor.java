@@ -18,6 +18,7 @@ package androidx.media3.extractor.ts;
 import android.util.SparseArray;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.ParsableBitArray;
@@ -239,15 +240,15 @@ public final class PsExtractor implements Extractor {
           // Private stream, used for AC3 audio.
           // NOTE: This may need further parsing to determine if its DTS, but that's likely only
           // valid for DVDs.
-          elementaryStreamReader = new Ac3Reader();
+          elementaryStreamReader = new Ac3Reader(MimeTypes.VIDEO_PS);
           foundAudioTrack = true;
           lastTrackPosition = input.getPosition();
         } else if ((streamId & AUDIO_STREAM_MASK) == AUDIO_STREAM) {
-          elementaryStreamReader = new MpegAudioReader();
+          elementaryStreamReader = new MpegAudioReader(MimeTypes.VIDEO_PS);
           foundAudioTrack = true;
           lastTrackPosition = input.getPosition();
         } else if ((streamId & VIDEO_STREAM_MASK) == VIDEO_STREAM) {
-          elementaryStreamReader = new H262Reader();
+          elementaryStreamReader = new H262Reader(MimeTypes.VIDEO_PS);
           foundVideoTrack = true;
           lastTrackPosition = input.getPosition();
         }
@@ -357,7 +358,7 @@ public final class PsExtractor implements Extractor {
       pesPayloadReader.packetStarted(timeUs, TsPayloadReader.FLAG_DATA_ALIGNMENT_INDICATOR);
       pesPayloadReader.consume(data);
       // We always have complete PES packets with program stream.
-      pesPayloadReader.packetFinished();
+      pesPayloadReader.packetFinished(/* isEndOfInput= */ false);
     }
 
     private void parseHeader() {

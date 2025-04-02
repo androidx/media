@@ -15,10 +15,6 @@
  */
 package androidx.media3.extractor.metadata.id3;
 
-import static androidx.media3.common.util.Util.castNonNull;
-
-import android.os.Parcel;
-import android.os.Parcelable;
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import java.util.Arrays;
@@ -32,11 +28,6 @@ public final class BinaryFrame extends Id3Frame {
   public BinaryFrame(String id, byte[] data) {
     super(id);
     this.data = data;
-  }
-
-  /* package */ BinaryFrame(Parcel in) {
-    super(castNonNull(in.readString()));
-    data = castNonNull(in.createByteArray());
   }
 
   @Override
@@ -58,24 +49,4 @@ public final class BinaryFrame extends Id3Frame {
     result = 31 * result + Arrays.hashCode(data);
     return result;
   }
-
-  @Override
-  public void writeToParcel(Parcel dest, int flags) {
-    dest.writeString(id);
-    dest.writeByteArray(data);
-  }
-
-  public static final Parcelable.Creator<BinaryFrame> CREATOR =
-      new Parcelable.Creator<BinaryFrame>() {
-
-        @Override
-        public BinaryFrame createFromParcel(Parcel in) {
-          return new BinaryFrame(in);
-        }
-
-        @Override
-        public BinaryFrame[] newArray(int size) {
-          return new BinaryFrame[size];
-        }
-      };
 }

@@ -25,9 +25,12 @@ import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.NetworkInfo.DetailedState;
 import android.net.Uri;
+import android.os.Handler;
+import android.os.Looper;
 import android.telephony.TelephonyDisplayInfo;
 import android.telephony.TelephonyManager;
 import androidx.media3.common.C;
+import androidx.media3.common.util.BackgroundExecutor;
 import androidx.media3.common.util.NetworkTypeObserver;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSource;
@@ -52,7 +55,6 @@ import org.robolectric.shadows.ShadowTelephonyManager;
 @Config(sdk = Config.ALL_SDKS) // Test all SDKs because network detection logic changed over time.
 public final class DefaultBandwidthMeterTest {
 
-  private static final int SIMULATED_TRANSFER_COUNT = 100;
   private static final String FAST_COUNTRY_ISO = "TW";
   private static final String SLOW_COUNTRY_ISO = "PG";
 
@@ -134,11 +136,13 @@ public final class DefaultBandwidthMeterTest {
     setActiveNetworkInfo(networkInfoWifi);
     DefaultBandwidthMeter bandwidthMeterWifi =
         new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext()).build();
+    ShadowLooper.idleMainLooper();
     long initialEstimateWifi = bandwidthMeterWifi.getBitrateEstimate();
 
     setActiveNetworkInfo(networkInfo2g);
     DefaultBandwidthMeter bandwidthMeter2g =
         new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext()).build();
+    ShadowLooper.idleMainLooper();
     long initialEstimate2g = bandwidthMeter2g.getBitrateEstimate();
 
     assertThat(initialEstimateWifi).isGreaterThan(initialEstimate2g);
@@ -149,11 +153,13 @@ public final class DefaultBandwidthMeterTest {
     setActiveNetworkInfo(networkInfoWifi);
     DefaultBandwidthMeter bandwidthMeterWifi =
         new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext()).build();
+    ShadowLooper.idleMainLooper();
     long initialEstimateWifi = bandwidthMeterWifi.getBitrateEstimate();
 
     setActiveNetworkInfo(networkInfo3g);
     DefaultBandwidthMeter bandwidthMeter3g =
         new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext()).build();
+    ShadowLooper.idleMainLooper();
     long initialEstimate3g = bandwidthMeter3g.getBitrateEstimate();
 
     assertThat(initialEstimateWifi).isGreaterThan(initialEstimate3g);
@@ -164,11 +170,13 @@ public final class DefaultBandwidthMeterTest {
     setActiveNetworkInfo(networkInfoEthernet);
     DefaultBandwidthMeter bandwidthMeterEthernet =
         new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext()).build();
+    ShadowLooper.idleMainLooper();
     long initialEstimateEthernet = bandwidthMeterEthernet.getBitrateEstimate();
 
     setActiveNetworkInfo(networkInfo2g);
     DefaultBandwidthMeter bandwidthMeter2g =
         new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext()).build();
+    ShadowLooper.idleMainLooper();
     long initialEstimate2g = bandwidthMeter2g.getBitrateEstimate();
 
     assertThat(initialEstimateEthernet).isGreaterThan(initialEstimate2g);
@@ -179,11 +187,13 @@ public final class DefaultBandwidthMeterTest {
     setActiveNetworkInfo(networkInfoEthernet);
     DefaultBandwidthMeter bandwidthMeterEthernet =
         new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext()).build();
+    ShadowLooper.idleMainLooper();
     long initialEstimateEthernet = bandwidthMeterEthernet.getBitrateEstimate();
 
     setActiveNetworkInfo(networkInfo3g);
     DefaultBandwidthMeter bandwidthMeter3g =
         new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext()).build();
+    ShadowLooper.idleMainLooper();
     long initialEstimate3g = bandwidthMeter3g.getBitrateEstimate();
 
     assertThat(initialEstimateEthernet).isGreaterThan(initialEstimate3g);
@@ -194,11 +204,13 @@ public final class DefaultBandwidthMeterTest {
     setActiveNetworkInfo(networkInfo4g);
     DefaultBandwidthMeter bandwidthMeter4g =
         new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext()).build();
+    ShadowLooper.idleMainLooper();
     long initialEstimate4g = bandwidthMeter4g.getBitrateEstimate();
 
     setActiveNetworkInfo(networkInfo2g);
     DefaultBandwidthMeter bandwidthMeter2g =
         new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext()).build();
+    ShadowLooper.idleMainLooper();
     long initialEstimate2g = bandwidthMeter2g.getBitrateEstimate();
 
     assertThat(initialEstimate4g).isGreaterThan(initialEstimate2g);
@@ -209,11 +221,13 @@ public final class DefaultBandwidthMeterTest {
     setActiveNetworkInfo(networkInfo4g);
     DefaultBandwidthMeter bandwidthMeter4g =
         new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext()).build();
+    ShadowLooper.idleMainLooper();
     long initialEstimate4g = bandwidthMeter4g.getBitrateEstimate();
 
     setActiveNetworkInfo(networkInfo3g);
     DefaultBandwidthMeter bandwidthMeter3g =
         new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext()).build();
+    ShadowLooper.idleMainLooper();
     long initialEstimate3g = bandwidthMeter3g.getBitrateEstimate();
 
     assertThat(initialEstimate4g).isGreaterThan(initialEstimate3g);
@@ -224,11 +238,13 @@ public final class DefaultBandwidthMeterTest {
     setActiveNetworkInfo(networkInfo3g);
     DefaultBandwidthMeter bandwidthMeter3g =
         new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext()).build();
+    ShadowLooper.idleMainLooper();
     long initialEstimate3g = bandwidthMeter3g.getBitrateEstimate();
 
     setActiveNetworkInfo(networkInfo2g);
     DefaultBandwidthMeter bandwidthMeter2g =
         new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext()).build();
+    ShadowLooper.idleMainLooper();
     long initialEstimate2g = bandwidthMeter2g.getBitrateEstimate();
 
     assertThat(initialEstimate3g).isGreaterThan(initialEstimate2g);
@@ -240,11 +256,13 @@ public final class DefaultBandwidthMeterTest {
     setActiveNetworkInfo(networkInfo4g);
     DefaultBandwidthMeter bandwidthMeter4g =
         new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext()).build();
+    ShadowLooper.idleMainLooper();
     long initialEstimate4g = bandwidthMeter4g.getBitrateEstimate();
 
     setActiveNetworkInfo(networkInfo4g, TelephonyDisplayInfo.OVERRIDE_NETWORK_TYPE_NR_NSA);
     DefaultBandwidthMeter bandwidthMeter5gNsa =
         new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext()).build();
+    ShadowLooper.idleMainLooper();
     long initialEstimate5gNsa = bandwidthMeter5gNsa.getBitrateEstimate();
 
     assertThat(initialEstimate5gNsa).isGreaterThan(initialEstimate4g);
@@ -256,11 +274,13 @@ public final class DefaultBandwidthMeterTest {
     setActiveNetworkInfo(networkInfo3g);
     DefaultBandwidthMeter bandwidthMeter3g =
         new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext()).build();
+    ShadowLooper.idleMainLooper();
     long initialEstimate3g = bandwidthMeter3g.getBitrateEstimate();
 
     setActiveNetworkInfo(networkInfo5gSa);
     DefaultBandwidthMeter bandwidthMeter5gSa =
         new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext()).build();
+    ShadowLooper.idleMainLooper();
     long initialEstimate5gSa = bandwidthMeter5gSa.getBitrateEstimate();
 
     assertThat(initialEstimate5gSa).isGreaterThan(initialEstimate3g);
@@ -271,6 +291,7 @@ public final class DefaultBandwidthMeterTest {
     setActiveNetworkInfo(networkInfoOffline);
     DefaultBandwidthMeter bandwidthMeter =
         new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext()).build();
+    ShadowLooper.idleMainLooper();
     long initialEstimate = bandwidthMeter.getBitrateEstimate();
 
     assertThat(initialEstimate).isGreaterThan(100_000L);
@@ -284,11 +305,13 @@ public final class DefaultBandwidthMeterTest {
     setNetworkCountryIso(FAST_COUNTRY_ISO);
     DefaultBandwidthMeter bandwidthMeterFast =
         new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext()).build();
+    ShadowLooper.idleMainLooper();
     long initialEstimateFast = bandwidthMeterFast.getBitrateEstimate();
 
     setNetworkCountryIso(SLOW_COUNTRY_ISO);
     DefaultBandwidthMeter bandwidthMeterSlow =
         new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext()).build();
+    ShadowLooper.idleMainLooper();
     long initialEstimateSlow = bandwidthMeterSlow.getBitrateEstimate();
 
     assertThat(initialEstimateFast).isGreaterThan(initialEstimateSlow);
@@ -301,11 +324,13 @@ public final class DefaultBandwidthMeterTest {
     setNetworkCountryIso(FAST_COUNTRY_ISO);
     DefaultBandwidthMeter bandwidthMeterFast =
         new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext()).build();
+    ShadowLooper.idleMainLooper();
     long initialEstimateFast = bandwidthMeterFast.getBitrateEstimate();
 
     setNetworkCountryIso(SLOW_COUNTRY_ISO);
     DefaultBandwidthMeter bandwidthMeterSlow =
         new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext()).build();
+    ShadowLooper.idleMainLooper();
     long initialEstimateSlow = bandwidthMeterSlow.getBitrateEstimate();
 
     assertThat(initialEstimateFast).isGreaterThan(initialEstimateSlow);
@@ -318,11 +343,13 @@ public final class DefaultBandwidthMeterTest {
     setNetworkCountryIso(FAST_COUNTRY_ISO);
     DefaultBandwidthMeter bandwidthMeterFast =
         new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext()).build();
+    ShadowLooper.idleMainLooper();
     long initialEstimateFast = bandwidthMeterFast.getBitrateEstimate();
 
     setNetworkCountryIso(SLOW_COUNTRY_ISO);
     DefaultBandwidthMeter bandwidthMeterSlow =
         new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext()).build();
+    ShadowLooper.idleMainLooper();
     long initialEstimateSlow = bandwidthMeterSlow.getBitrateEstimate();
 
     assertThat(initialEstimateFast).isGreaterThan(initialEstimateSlow);
@@ -335,11 +362,13 @@ public final class DefaultBandwidthMeterTest {
     setNetworkCountryIso(FAST_COUNTRY_ISO);
     DefaultBandwidthMeter bandwidthMeterFast =
         new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext()).build();
+    ShadowLooper.idleMainLooper();
     long initialEstimateFast = bandwidthMeterFast.getBitrateEstimate();
 
     setNetworkCountryIso(SLOW_COUNTRY_ISO);
     DefaultBandwidthMeter bandwidthMeterSlow =
         new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext()).build();
+    ShadowLooper.idleMainLooper();
     long initialEstimateSlow = bandwidthMeterSlow.getBitrateEstimate();
 
     assertThat(initialEstimateFast).isGreaterThan(initialEstimateSlow);
@@ -352,11 +381,13 @@ public final class DefaultBandwidthMeterTest {
     setNetworkCountryIso(FAST_COUNTRY_ISO);
     DefaultBandwidthMeter bandwidthMeterFast =
         new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext()).build();
+    ShadowLooper.idleMainLooper();
     long initialEstimateFast = bandwidthMeterFast.getBitrateEstimate();
 
     setNetworkCountryIso(SLOW_COUNTRY_ISO);
     DefaultBandwidthMeter bandwidthMeterSlow =
         new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext()).build();
+    ShadowLooper.idleMainLooper();
     long initialEstimateSlow = bandwidthMeterSlow.getBitrateEstimate();
 
     assertThat(initialEstimateFast).isGreaterThan(initialEstimateSlow);
@@ -370,11 +401,13 @@ public final class DefaultBandwidthMeterTest {
     setNetworkCountryIso(FAST_COUNTRY_ISO);
     DefaultBandwidthMeter bandwidthMeterFast =
         new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext()).build();
+    ShadowLooper.idleMainLooper();
     long initialEstimateFast = bandwidthMeterFast.getBitrateEstimate();
 
     setNetworkCountryIso(SLOW_COUNTRY_ISO);
     DefaultBandwidthMeter bandwidthMeterSlow =
         new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext()).build();
+    ShadowLooper.idleMainLooper();
     long initialEstimateSlow = bandwidthMeterSlow.getBitrateEstimate();
 
     assertThat(initialEstimateFast).isGreaterThan(initialEstimateSlow);
@@ -389,11 +422,13 @@ public final class DefaultBandwidthMeterTest {
     setNetworkCountryIso(FAST_COUNTRY_ISO);
     DefaultBandwidthMeter bandwidthMeterFast =
         new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext()).build();
+    ShadowLooper.idleMainLooper();
     long initialEstimateFast = bandwidthMeterFast.getBitrateEstimate();
 
     setNetworkCountryIso(SLOW_COUNTRY_ISO);
     DefaultBandwidthMeter bandwidthMeterSlow =
         new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext()).build();
+    ShadowLooper.idleMainLooper();
     long initialEstimateSlow = bandwidthMeterSlow.getBitrateEstimate();
 
     assertThat(initialEstimateFast).isGreaterThan(initialEstimateSlow);
@@ -406,6 +441,7 @@ public final class DefaultBandwidthMeterTest {
         new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext())
             .setInitialBitrateEstimate(123456789)
             .build();
+    ShadowLooper.idleMainLooper();
     long initialEstimate = bandwidthMeter.getBitrateEstimate();
 
     assertThat(initialEstimate).isEqualTo(123456789);
@@ -418,6 +454,7 @@ public final class DefaultBandwidthMeterTest {
         new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext())
             .setInitialBitrateEstimate(123456789)
             .build();
+    ShadowLooper.idleMainLooper();
     long initialEstimate = bandwidthMeter.getBitrateEstimate();
 
     assertThat(initialEstimate).isEqualTo(123456789);
@@ -430,6 +467,7 @@ public final class DefaultBandwidthMeterTest {
         new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext())
             .setInitialBitrateEstimate(C.NETWORK_TYPE_WIFI, 123456789)
             .build();
+    ShadowLooper.idleMainLooper();
     long initialEstimate = bandwidthMeter.getBitrateEstimate();
 
     assertThat(initialEstimate).isEqualTo(123456789);
@@ -443,6 +481,7 @@ public final class DefaultBandwidthMeterTest {
         new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext())
             .setInitialBitrateEstimate(C.NETWORK_TYPE_WIFI, 123456789)
             .build();
+    ShadowLooper.idleMainLooper();
     long initialEstimate = bandwidthMeter.getBitrateEstimate();
 
     assertThat(initialEstimate).isNotEqualTo(123456789);
@@ -456,6 +495,7 @@ public final class DefaultBandwidthMeterTest {
         new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext())
             .setInitialBitrateEstimate(C.NETWORK_TYPE_ETHERNET, 123456789)
             .build();
+    ShadowLooper.idleMainLooper();
     long initialEstimate = bandwidthMeter.getBitrateEstimate();
 
     assertThat(initialEstimate).isEqualTo(123456789);
@@ -469,6 +509,7 @@ public final class DefaultBandwidthMeterTest {
         new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext())
             .setInitialBitrateEstimate(C.NETWORK_TYPE_WIFI, 123456789)
             .build();
+    ShadowLooper.idleMainLooper();
     long initialEstimate = bandwidthMeter.getBitrateEstimate();
 
     assertThat(initialEstimate).isNotEqualTo(123456789);
@@ -481,6 +522,7 @@ public final class DefaultBandwidthMeterTest {
         new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext())
             .setInitialBitrateEstimate(C.NETWORK_TYPE_2G, 123456789)
             .build();
+    ShadowLooper.idleMainLooper();
     long initialEstimate = bandwidthMeter.getBitrateEstimate();
 
     assertThat(initialEstimate).isEqualTo(123456789);
@@ -494,6 +536,7 @@ public final class DefaultBandwidthMeterTest {
         new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext())
             .setInitialBitrateEstimate(C.NETWORK_TYPE_2G, 123456789)
             .build();
+    ShadowLooper.idleMainLooper();
     long initialEstimate = bandwidthMeter.getBitrateEstimate();
 
     assertThat(initialEstimate).isNotEqualTo(123456789);
@@ -506,6 +549,7 @@ public final class DefaultBandwidthMeterTest {
         new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext())
             .setInitialBitrateEstimate(C.NETWORK_TYPE_3G, 123456789)
             .build();
+    ShadowLooper.idleMainLooper();
     long initialEstimate = bandwidthMeter.getBitrateEstimate();
 
     assertThat(initialEstimate).isEqualTo(123456789);
@@ -519,6 +563,7 @@ public final class DefaultBandwidthMeterTest {
         new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext())
             .setInitialBitrateEstimate(C.NETWORK_TYPE_3G, 123456789)
             .build();
+    ShadowLooper.idleMainLooper();
     long initialEstimate = bandwidthMeter.getBitrateEstimate();
 
     assertThat(initialEstimate).isNotEqualTo(123456789);
@@ -531,6 +576,7 @@ public final class DefaultBandwidthMeterTest {
         new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext())
             .setInitialBitrateEstimate(C.NETWORK_TYPE_4G, 123456789)
             .build();
+    ShadowLooper.idleMainLooper();
     long initialEstimate = bandwidthMeter.getBitrateEstimate();
 
     assertThat(initialEstimate).isEqualTo(123456789);
@@ -544,6 +590,7 @@ public final class DefaultBandwidthMeterTest {
         new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext())
             .setInitialBitrateEstimate(C.NETWORK_TYPE_4G, 123456789)
             .build();
+    ShadowLooper.idleMainLooper();
     long initialEstimate = bandwidthMeter.getBitrateEstimate();
 
     assertThat(initialEstimate).isNotEqualTo(123456789);
@@ -557,6 +604,7 @@ public final class DefaultBandwidthMeterTest {
         new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext())
             .setInitialBitrateEstimate(C.NETWORK_TYPE_5G_NSA, 123456789)
             .build();
+    ShadowLooper.idleMainLooper();
     long initialEstimate = bandwidthMeter.getBitrateEstimate();
 
     assertThat(initialEstimate).isEqualTo(123456789);
@@ -571,6 +619,7 @@ public final class DefaultBandwidthMeterTest {
         new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext())
             .setInitialBitrateEstimate(C.NETWORK_TYPE_5G_NSA, 123456789)
             .build();
+    ShadowLooper.idleMainLooper();
     long initialEstimate = bandwidthMeter.getBitrateEstimate();
 
     assertThat(initialEstimate).isNotEqualTo(123456789);
@@ -584,6 +633,7 @@ public final class DefaultBandwidthMeterTest {
         new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext())
             .setInitialBitrateEstimate(C.NETWORK_TYPE_5G_SA, 123456789)
             .build();
+    ShadowLooper.idleMainLooper();
     long initialEstimate = bandwidthMeter.getBitrateEstimate();
 
     assertThat(initialEstimate).isEqualTo(123456789);
@@ -598,6 +648,7 @@ public final class DefaultBandwidthMeterTest {
         new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext())
             .setInitialBitrateEstimate(C.NETWORK_TYPE_5G_SA, 123456789)
             .build();
+    ShadowLooper.idleMainLooper();
     long initialEstimate = bandwidthMeter.getBitrateEstimate();
 
     assertThat(initialEstimate).isNotEqualTo(123456789);
@@ -610,6 +661,7 @@ public final class DefaultBandwidthMeterTest {
         new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext())
             .setInitialBitrateEstimate(C.NETWORK_TYPE_OFFLINE, 123456789)
             .build();
+    ShadowLooper.idleMainLooper();
     long initialEstimate = bandwidthMeter.getBitrateEstimate();
 
     assertThat(initialEstimate).isEqualTo(123456789);
@@ -623,6 +675,7 @@ public final class DefaultBandwidthMeterTest {
         new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext())
             .setInitialBitrateEstimate(C.NETWORK_TYPE_OFFLINE, 123456789)
             .build();
+    ShadowLooper.idleMainLooper();
     long initialEstimate = bandwidthMeter.getBitrateEstimate();
 
     assertThat(initialEstimate).isNotEqualTo(123456789);
@@ -633,6 +686,7 @@ public final class DefaultBandwidthMeterTest {
     setNetworkCountryIso(SLOW_COUNTRY_ISO);
     DefaultBandwidthMeter bandwidthMeterSlow =
         new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext()).build();
+    ShadowLooper.idleMainLooper();
     long initialEstimateSlow = bandwidthMeterSlow.getBitrateEstimate();
 
     setNetworkCountryIso(FAST_COUNTRY_ISO);
@@ -640,6 +694,7 @@ public final class DefaultBandwidthMeterTest {
         new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext())
             .setInitialBitrateEstimate(SLOW_COUNTRY_ISO)
             .build();
+    ShadowLooper.idleMainLooper();
     long initialEstimateFastWithSlowOverwrite =
         bandwidthMeterFastWithSlowOverwrite.getBitrateEstimate();
 
@@ -651,9 +706,11 @@ public final class DefaultBandwidthMeterTest {
     setActiveNetworkInfo(networkInfoEthernet);
     DefaultBandwidthMeter bandwidthMeter =
         new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext()).build();
+    ShadowLooper.idleMainLooper();
     long initialEstimateEthernet = bandwidthMeter.getBitrateEstimate();
 
     bandwidthMeter.setNetworkTypeOverride(C.NETWORK_TYPE_2G);
+    ShadowLooper.idleMainLooper();
     long initialEstimate2g = bandwidthMeter.getBitrateEstimate();
 
     assertThat(initialEstimateEthernet).isGreaterThan(initialEstimate2g);
@@ -668,7 +725,8 @@ public final class DefaultBandwidthMeterTest {
         new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext())
             .setClock(clock)
             .build();
-    long[] bitrateEstimatesWithNewInstance = simulateTransfers(bandwidthMeter, clock);
+    long[] bitrateEstimatesWithNewInstance =
+        simulateTransfers(bandwidthMeter, clock, /* simulatedTransferCount= */ 100);
 
     // Create a new instance and seed with some transfers.
     setActiveNetworkInfo(networkInfo2g);
@@ -676,11 +734,12 @@ public final class DefaultBandwidthMeterTest {
         new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext())
             .setClock(clock)
             .build();
-    simulateTransfers(bandwidthMeter, clock);
+    simulateTransfers(bandwidthMeter, clock, /* simulatedTransferCount= */ 100);
 
     // Override the network type to ethernet and simulate transfers again.
     bandwidthMeter.setNetworkTypeOverride(C.NETWORK_TYPE_ETHERNET);
-    long[] bitrateEstimatesAfterReset = simulateTransfers(bandwidthMeter, clock);
+    long[] bitrateEstimatesAfterReset =
+        simulateTransfers(bandwidthMeter, clock, /* simulatedTransferCount= */ 100);
 
     // If overriding the network type fully reset the bandwidth meter, we expect the bitrate
     // estimates generated during simulation to be the same.
@@ -688,26 +747,52 @@ public final class DefaultBandwidthMeterTest {
   }
 
   @Test
-  @SuppressWarnings("deprecation")
   public void defaultInitialBitrateEstimate_withoutContext_isReasonable() {
-    DefaultBandwidthMeter bandwidthMeterWithBuilder =
+    DefaultBandwidthMeter bandwidthMeter =
         new DefaultBandwidthMeter.Builder(/* context= */ null).build();
-    long initialEstimateWithBuilder = bandwidthMeterWithBuilder.getBitrateEstimate();
+    ShadowLooper.idleMainLooper();
+    long initialEstimate = bandwidthMeter.getBitrateEstimate();
 
-    DefaultBandwidthMeter bandwidthMeterWithoutBuilder = new DefaultBandwidthMeter();
-    long initialEstimateWithoutBuilder = bandwidthMeterWithoutBuilder.getBitrateEstimate();
+    assertThat(initialEstimate).isGreaterThan(100_000L);
+    assertThat(initialEstimate).isLessThan(50_000_000L);
+  }
 
-    assertThat(initialEstimateWithBuilder).isGreaterThan(100_000L);
-    assertThat(initialEstimateWithBuilder).isLessThan(50_000_000L);
-    assertThat(initialEstimateWithoutBuilder).isGreaterThan(100_000L);
-    assertThat(initialEstimateWithoutBuilder).isLessThan(50_000_000L);
+  @Test
+  public void getBitrateEstimate_withSimultaneousTransferEvents_receivesUpdatedValues() {
+    FakeClock clock = new FakeClock(/* initialTimeMs= */ 0);
+    DefaultBandwidthMeter bandwidthMeter =
+        new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext())
+            .setClock(clock)
+            .build();
+
+    Thread thread =
+        new Thread("backgroundTransfers") {
+          @Override
+          public void run() {
+            simulateTransfers(bandwidthMeter, clock, /* simulatedTransferCount= */ 10000);
+          }
+        };
+    thread.start();
+
+    long currentBitrateEstimate = bandwidthMeter.getBitrateEstimate();
+    boolean bitrateEstimateUpdated = false;
+    while (thread.isAlive()) {
+      long newBitrateEstimate = bandwidthMeter.getBitrateEstimate();
+      if (newBitrateEstimate != currentBitrateEstimate) {
+        currentBitrateEstimate = newBitrateEstimate;
+        bitrateEstimateUpdated = true;
+      }
+    }
+
+    assertThat(bitrateEstimateUpdated).isTrue();
   }
 
   private void setActiveNetworkInfo(NetworkInfo networkInfo) {
     setActiveNetworkInfo(networkInfo, TelephonyDisplayInfo.OVERRIDE_NETWORK_TYPE_NONE);
   }
 
-  @SuppressWarnings("StickyBroadcast")
+  // Adding the permission to the test AndroidManifest.xml doesn't work to appease lint.
+  @SuppressWarnings({"StickyBroadcast", "MissingPermission"})
   private void setActiveNetworkInfo(NetworkInfo networkInfo, int networkTypeOverride) {
     // Set network info in ConnectivityManager and TelephonyDisplayInfo in TelephonyManager.
     Shadows.shadowOf(connectivityManager).setActiveNetworkInfo(networkInfo);
@@ -721,9 +806,10 @@ public final class DefaultBandwidthMeterTest {
     // the current network state if a receiver for this intent is registered.
     ApplicationProvider.getApplicationContext()
         .sendStickyBroadcast(new Intent(ConnectivityManager.CONNECTIVITY_ACTION));
-    // Trigger initialization of static network type observer.
+    // Trigger initialization of static network type observer using the main handler to ensure we
+    // can wait for the initialization to be done.
+    BackgroundExecutor.set(new Handler(Looper.getMainLooper())::post);
     NetworkTypeObserver.getInstance(ApplicationProvider.getApplicationContext());
-    // Wait until all pending messages are handled and the network initialization is done.
     ShadowLooper.idleMainLooper();
   }
 
@@ -731,12 +817,13 @@ public final class DefaultBandwidthMeterTest {
     Shadows.shadowOf(telephonyManager).setNetworkCountryIso(countryIso);
   }
 
-  private static long[] simulateTransfers(DefaultBandwidthMeter bandwidthMeter, FakeClock clock) {
-    long[] bitrateEstimates = new long[SIMULATED_TRANSFER_COUNT];
+  private static long[] simulateTransfers(
+      DefaultBandwidthMeter bandwidthMeter, FakeClock clock, int simulatedTransferCount) {
+    long[] bitrateEstimates = new long[simulatedTransferCount];
     Random random = new Random(/* seed= */ 0);
     DataSource dataSource = new FakeDataSource();
     DataSpec dataSpec = new DataSpec(Uri.parse("https://test.com"));
-    for (int i = 0; i < SIMULATED_TRANSFER_COUNT; i++) {
+    for (int i = 0; i < simulatedTransferCount; i++) {
       bandwidthMeter.onTransferStart(dataSource, dataSpec, /* isNetwork= */ true);
       clock.advanceTime(random.nextInt(/* bound= */ 5000));
       bandwidthMeter.onBytesTransferred(

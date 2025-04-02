@@ -44,6 +44,7 @@ import java.util.List;
 public class FakeRenderer extends BaseRenderer {
 
   private static final String TAG = "FakeRenderer";
+
   /**
    * The amount of time ahead of the current playback position that the renderer reads from the
    * source. A real renderer will typically read ahead by a small amount due to pipelining through
@@ -60,7 +61,9 @@ public class FakeRenderer extends BaseRenderer {
   private boolean hasPendingBuffer;
   private List<Format> formatsRead;
 
+  public boolean isInitialized;
   public boolean isEnded;
+  public boolean isReleased;
   public int positionResetCount;
   public int sampleBufferReadCount;
   public int enabledCount;
@@ -80,6 +83,10 @@ public class FakeRenderer extends BaseRenderer {
 
   @Override
   protected void onPositionReset(long positionUs, boolean joining) throws ExoPlaybackException {
+    if (playbackPositionUs == positionUs && lastSamplePositionUs == Long.MIN_VALUE && !isEnded) {
+      // Nothing change, ignore reset operation.
+      return;
+    }
     playbackPositionUs = positionUs;
     lastSamplePositionUs = Long.MIN_VALUE;
     hasPendingBuffer = false;
@@ -113,6 +120,7 @@ public class FakeRenderer extends BaseRenderer {
                 getIndex(),
                 format,
                 C.FORMAT_UNSUPPORTED_TYPE,
+                getMediaPeriodId(),
                 /* isRecoverable= */ false,
                 PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED);
           }
@@ -194,5 +202,15 @@ public class FakeRenderer extends BaseRenderer {
    */
   protected boolean shouldProcessBuffer(long bufferTimeUs, long playbackPositionUs) {
     return bufferTimeUs < playbackPositionUs + SOURCE_READAHEAD_US;
+  }
+
+  @Override
+  protected void onInit() {
+    isInitialized = true;
+  }
+
+  @Override
+  protected void onRelease() {
+    isReleased = true;
   }
 }

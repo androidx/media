@@ -253,6 +253,8 @@ public final class TrackSelectionDialogBuilder {
 
     // Inflate with the builder's context to ensure the correct style is used.
     LayoutInflater dialogInflater = LayoutInflater.from(builder.getContext());
+    // TODO: b/301602565 - See if there's a reasonable non-null root view group we could use here.
+    @SuppressWarnings("InflateParams")
     View dialogView = dialogInflater.inflate(R.layout.exo_track_selection_dialog, /* root= */ null);
     Dialog.OnClickListener okClickListener = setUpDialogView(dialogView);
 
@@ -271,6 +273,7 @@ public final class TrackSelectionDialogBuilder {
     try {
       // This method uses reflection to avoid a dependency on AndroidX appcompat that adds 800KB to
       // the APK size even with shrinking. See https://issuetracker.google.com/161514204.
+      // LINT.IfChange
       Class<?> builderClazz = Class.forName("androidx.appcompat.app.AlertDialog$Builder");
       Constructor<?> builderConstructor = builderClazz.getConstructor(Context.class, int.class);
       Object builder = builderConstructor.newInstance(context, themeResId);
@@ -278,6 +281,8 @@ public final class TrackSelectionDialogBuilder {
       // Inflate with the builder's context to ensure the correct style is used.
       Context builderContext = (Context) builderClazz.getMethod("getContext").invoke(builder);
       LayoutInflater dialogInflater = LayoutInflater.from(builderContext);
+      // TODO: b/301602565 - See if there's a reasonable non-null root view group we could use here.
+      @SuppressWarnings("InflateParams")
       View dialogView =
           dialogInflater.inflate(R.layout.exo_track_selection_dialog, /* root= */ null);
       Dialog.OnClickListener okClickListener = setUpDialogView(dialogView);
@@ -291,6 +296,7 @@ public final class TrackSelectionDialogBuilder {
           .getMethod("setNegativeButton", int.class, DialogInterface.OnClickListener.class)
           .invoke(builder, android.R.string.cancel, null);
       return (Dialog) builderClazz.getMethod("create").invoke(builder);
+      // LINT.ThenChange(../../../../../../proguard-rules.txt)
     } catch (ClassNotFoundException e) {
       // Expected if the AndroidX compat library is not available.
       return null;

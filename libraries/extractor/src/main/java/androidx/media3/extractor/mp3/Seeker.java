@@ -34,10 +34,22 @@ import androidx.media3.extractor.SeekMap;
   long getTimeUs(long position);
 
   /**
+   * Returns the position (byte offset) in the stream that is immediately before audio data, or 0 if
+   * not known.
+   */
+  long getDataStartPosition();
+
+  /**
    * Returns the position (byte offset) in the stream that is immediately after audio data, or
-   * {@link C#POSITION_UNSET} if not known.
+   * {@link C#INDEX_UNSET} if not known.
    */
   long getDataEndPosition();
+
+  /**
+   * Returns the average bitrate (usually derived from the duration and length of the file), or
+   * {@link C#RATE_UNSET_INT} if not known.
+   */
+  int getAverageBitrate();
 
   /** A {@link Seeker} that does not support seeking through audio data. */
   /* package */ class UnseekableSeeker extends SeekMap.Unseekable implements Seeker {
@@ -52,9 +64,19 @@ import androidx.media3.extractor.SeekMap;
     }
 
     @Override
+    public long getDataStartPosition() {
+      return 0;
+    }
+
+    @Override
     public long getDataEndPosition() {
       // Position unset as we do not know the data end position. Note that returning 0 doesn't work.
-      return C.POSITION_UNSET;
+      return C.INDEX_UNSET;
+    }
+
+    @Override
+    public int getAverageBitrate() {
+      return C.RATE_UNSET_INT;
     }
   }
 }

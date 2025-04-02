@@ -17,7 +17,6 @@ package androidx.media3.extractor.metadata.flac;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import android.os.Parcel;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
@@ -28,21 +27,6 @@ import org.junit.runner.RunWith;
 /** Test for {@link PictureFrame}. */
 @RunWith(AndroidJUnit4.class)
 public final class PictureFrameTest {
-
-  @Test
-  public void parcelable() {
-    PictureFrame pictureFrameToParcel = new PictureFrame(0, "", "", 0, 0, 0, 0, new byte[0]);
-
-    Parcel parcel = Parcel.obtain();
-    pictureFrameToParcel.writeToParcel(parcel, 0);
-    parcel.setDataPosition(0);
-
-    PictureFrame pictureFrameFromParcel = PictureFrame.CREATOR.createFromParcel(parcel);
-    assertThat(pictureFrameFromParcel).isEqualTo(pictureFrameToParcel);
-
-    parcel.recycle();
-  }
-
   @Test
   public void populateMediaMetadata_setsBuilderValues() {
     byte[] pictureData = new byte[] {-12, 52, 33, 85, 34, 22, 1, -55};

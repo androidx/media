@@ -16,6 +16,7 @@
 package androidx.media3.exoplayer.offline;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
+import static androidx.media3.common.util.Util.percent;
 
 import android.net.Uri;
 import androidx.annotation.Nullable;
@@ -43,6 +44,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 
@@ -100,24 +102,6 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
   private final ArrayList<RunnableFutureTask<?, ?>> activeRunnables;
 
   private volatile boolean isCanceled;
-
-  /**
-   * @deprecated Use {@link SegmentDownloader#SegmentDownloader(MediaItem, Parser,
-   *     CacheDataSource.Factory, Executor, long)} instead.
-   */
-  @Deprecated
-  public SegmentDownloader(
-      MediaItem mediaItem,
-      Parser<M> manifestParser,
-      CacheDataSource.Factory cacheDataSourceFactory,
-      Executor executor) {
-    this(
-        mediaItem,
-        manifestParser,
-        cacheDataSourceFactory,
-        executor,
-        DEFAULT_MAX_MERGED_SEGMENT_START_TIME_DIFF_MS);
-  }
 
   /**
    * @param mediaItem The {@link MediaItem} to be downloaded.
@@ -475,7 +459,7 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
     return dataSpec1.uri.equals(dataSpec2.uri)
         && dataSpec1.length != C.LENGTH_UNSET
         && (dataSpec1.position + dataSpec1.length == dataSpec2.position)
-        && Util.areEqual(dataSpec1.key, dataSpec2.key)
+        && Objects.equals(dataSpec1.key, dataSpec2.key)
         && dataSpec1.flags == dataSpec2.flags
         && dataSpec1.httpMethod == dataSpec2.httpMethod
         && dataSpec1.httpRequestHeaders.equals(dataSpec2.httpRequestHeaders);
@@ -553,9 +537,9 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
 
     private float getPercentDownloaded() {
       if (contentLength != C.LENGTH_UNSET && contentLength != 0) {
-        return (bytesDownloaded * 100f) / contentLength;
+        return percent(bytesDownloaded, contentLength);
       } else if (totalSegments != 0) {
-        return (segmentsDownloaded * 100f) / totalSegments;
+        return percent(segmentsDownloaded, totalSegments);
       } else {
         return C.PERCENTAGE_UNSET;
       }

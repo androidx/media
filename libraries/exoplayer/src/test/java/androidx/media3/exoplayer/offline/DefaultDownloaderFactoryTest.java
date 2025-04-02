@@ -18,6 +18,7 @@ package androidx.media3.exoplayer.offline;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.net.Uri;
+import androidx.media3.common.C;
 import androidx.media3.datasource.PlaceholderDataSource;
 import androidx.media3.datasource.cache.Cache;
 import androidx.media3.datasource.cache.CacheDataSource;
@@ -31,7 +32,28 @@ import org.mockito.Mockito;
 public final class DefaultDownloaderFactoryTest {
 
   @Test
-  public void createProgressiveDownloader() throws Exception {
+  public void createProgressiveDownloader_downloadRequestWithByteRange() throws Exception {
+    CacheDataSource.Factory cacheDataSourceFactory =
+        new CacheDataSource.Factory()
+            .setCache(Mockito.mock(Cache.class))
+            .setUpstreamDataSourceFactory(PlaceholderDataSource.FACTORY);
+    DownloaderFactory factory =
+        new DefaultDownloaderFactory(cacheDataSourceFactory, /* executor= */ Runnable::run);
+
+    Downloader downloader =
+        factory.createDownloader(
+            new DownloadRequest.Builder(/* id= */ "id", Uri.parse("https://www.test.com/download"))
+                .setByteRange(/* offset= */ 10, /* length= */ 20)
+                .build());
+
+    assertThat(downloader).isInstanceOf(ProgressiveDownloader.class);
+    ProgressiveDownloader progressiveDownloader = (ProgressiveDownloader) downloader;
+    assertThat(progressiveDownloader.dataSpec.position).isEqualTo(10);
+    assertThat(progressiveDownloader.dataSpec.length).isEqualTo(20);
+  }
+
+  @Test
+  public void createProgressiveDownloader_downloadRequestWithoutByteRange() throws Exception {
     CacheDataSource.Factory cacheDataSourceFactory =
         new CacheDataSource.Factory()
             .setCache(Mockito.mock(Cache.class))
@@ -43,6 +65,10 @@ public final class DefaultDownloaderFactoryTest {
         factory.createDownloader(
             new DownloadRequest.Builder(/* id= */ "id", Uri.parse("https://www.test.com/download"))
                 .build());
+
     assertThat(downloader).isInstanceOf(ProgressiveDownloader.class);
+    ProgressiveDownloader progressiveDownloader = (ProgressiveDownloader) downloader;
+    assertThat(progressiveDownloader.dataSpec.position).isEqualTo(0);
+    assertThat(progressiveDownloader.dataSpec.length).isEqualTo(C.LENGTH_UNSET);
   }
 }

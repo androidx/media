@@ -89,10 +89,21 @@ public interface AnalyticsCollector
   void updateMediaPeriodQueueInfo(List<MediaPeriodId> queue, @Nullable MediaPeriodId readingPeriod);
 
   /**
-   * Notify analytics collector that a seek operation will start. Should be called before the player
-   * adjusts its state and position to the seek.
+   * Notifies the analytics collector that a seek operation will start. Should be called before the
+   * player adjusts its state and position to the seek.
    */
   void notifySeekStarted();
+
+  /**
+   * Called each time a renderer starts or stops allowing playback to be ready.
+   *
+   * @param rendererIndex The index of the renderer in the {@link
+   *     androidx.media3.exoplayer.ExoPlayer} instance.
+   * @param rendererTrackType The {@link C.TrackType} of the renderer.
+   * @param isRendererReady Whether the renderer allows playback to be ready.
+   */
+  void onRendererReadyChanged(
+      int rendererIndex, @C.TrackType int rendererTrackType, boolean isRendererReady);
 
   // Audio events.
 
@@ -178,6 +189,22 @@ public interface AnalyticsCollector
    *     {@link MediaCodec}, or a {@link DecoderException} if the renderer uses a software decoder.
    */
   void onAudioCodecError(Exception audioCodecError);
+
+  /**
+   * Called when an {@link AudioTrack} has been initialized.
+   *
+   * @param audioTrackConfig The {@link AudioSink.AudioTrackConfig} of the initialized {@link
+   *     AudioTrack}.
+   */
+  void onAudioTrackInitialized(AudioSink.AudioTrackConfig audioTrackConfig);
+
+  /**
+   * Called when an {@link AudioTrack} has been released.
+   *
+   * @param audioTrackConfig The {@link AudioSink.AudioTrackConfig} of the released {@link
+   *     AudioTrack}.
+   */
+  void onAudioTrackReleased(AudioSink.AudioTrackConfig audioTrackConfig);
 
   // Video events.
 

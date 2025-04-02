@@ -15,10 +15,7 @@
  */
 package androidx.media3.extractor.metadata.dvbsi;
 
-import android.os.Parcel;
-import android.os.Parcelable;
 import androidx.media3.common.Metadata;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 
 /**
@@ -35,6 +32,7 @@ public final class AppInfoTable implements Metadata.Entry {
    * already running.
    */
   public static final int CONTROL_CODE_AUTOSTART = 0x01;
+
   /**
    * The application is allowed to run while the service is selected, however it shall not start
    * automatically when the service becomes selected.
@@ -53,30 +51,4 @@ public final class AppInfoTable implements Metadata.Entry {
   public String toString() {
     return "Ait(controlCode=" + controlCode + ",url=" + url + ")";
   }
-
-  @Override
-  public int describeContents() {
-    return 0;
-  }
-
-  @Override
-  public void writeToParcel(Parcel parcel, int i) {
-    parcel.writeString(url);
-    parcel.writeInt(controlCode);
-  }
-
-  public static final Parcelable.Creator<AppInfoTable> CREATOR =
-      new Parcelable.Creator<AppInfoTable>() {
-        @Override
-        public AppInfoTable createFromParcel(Parcel in) {
-          String url = Assertions.checkNotNull(in.readString());
-          int controlCode = in.readInt();
-          return new AppInfoTable(controlCode, url);
-        }
-
-        @Override
-        public AppInfoTable[] newArray(int size) {
-          return new AppInfoTable[size];
-        }
-      };
 }

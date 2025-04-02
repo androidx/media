@@ -8,6 +8,7 @@ track 256:
   sample count = 2
   format 0:
     id = 1/256
+    containerMimeType = video/mp2t
     sampleMimeType = video/mpeg2
     width = 640
     height = 426
@@ -26,6 +27,7 @@ track 257:
   sample count = 4
   format 0:
     id = 1/257
+    containerMimeType = video/mp2t
     sampleMimeType = audio/mpeg-L2
     maxInputSize = 4096
     channelCount = 1
@@ -51,6 +53,7 @@ track 600:
   total output bytes = 105
   sample count = 3
   format 0:
+    containerMimeType = video/mp2t
     sampleMimeType = application/x-scte35
     subsampleOffsetUs = -1400000
   sample 0:

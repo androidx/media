@@ -41,12 +41,11 @@
     <item>1,5-fach</item>
     <item>2-fach</item>
   </string-array>
-  <string name="exo_track_selection_title_video">Video</string>
   <string name="exo_track_selection_title_audio">Audio</string>
-  <string name="exo_track_selection_title_text">Text</string>
   <string name="exo_track_selection_none">Ohne</string>
   <string name="exo_track_selection_auto">Automatisch</string>
   <string name="exo_track_unknown">Unbekannt</string>
+  <string name="exo_track_unknown_name">Unbekannt (%1$s)</string>
   <string name="exo_track_resolution">%1$d × %2$d</string>
   <string name="exo_track_mono">Mono</string>
   <string name="exo_track_stereo">Stereo</string>

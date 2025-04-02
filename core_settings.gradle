@@ -21,10 +21,14 @@ if (gradle.ext.has('androidxMediaModulePrefix')) {
     modulePrefix += gradle.ext.androidxMediaModulePrefix
 }
 
-rootProject.name = gradle.ext.androidxMediaProjectName
-
 include modulePrefix + 'lib-common'
 project(modulePrefix + 'lib-common').projectDir = new File(rootDir, 'libraries/common')
+
+include modulePrefix + 'lib-common-ktx'
+project(modulePrefix + 'lib-common-ktx').projectDir = new File(rootDir, 'libraries/common_ktx')
+
+include modulePrefix + 'lib-container'
+project(modulePrefix + 'lib-container').projectDir = new File(rootDir, 'libraries/container')
 
 include modulePrefix + 'lib-session'
 project(modulePrefix + 'lib-session').projectDir = new File(rootDir, 'libraries/session')
@@ -48,6 +52,8 @@ include modulePrefix + 'lib-ui'
 project(modulePrefix + 'lib-ui').projectDir = new File(rootDir, 'libraries/ui')
 include modulePrefix + 'lib-ui-leanback'
 project(modulePrefix + 'lib-ui-leanback').projectDir = new File(rootDir, 'libraries/ui_leanback')
+include modulePrefix + 'lib-ui-compose'
+project(modulePrefix + 'lib-ui-compose').projectDir = new File(rootDir, 'libraries/ui_compose')
 
 include modulePrefix + 'lib-database'
 project(modulePrefix + 'lib-database').projectDir = new File(rootDir, 'libraries/database')
@@ -56,6 +62,8 @@ include modulePrefix + 'lib-datasource'
 project(modulePrefix + 'lib-datasource').projectDir = new File(rootDir, 'libraries/datasource')
 include modulePrefix + 'lib-datasource-cronet'
 project(modulePrefix + 'lib-datasource-cronet').projectDir = new File(rootDir, 'libraries/datasource_cronet')
+include modulePrefix + 'lib-datasource-httpengine'
+project(modulePrefix + 'lib-datasource-httpengine').projectDir = new File(rootDir, 'libraries/datasource_httpengine')
 include modulePrefix + 'lib-datasource-rtmp'
 project(modulePrefix + 'lib-datasource-rtmp').projectDir = new File(rootDir, 'libraries/datasource_rtmp')
 include modulePrefix + 'lib-datasource-okhttp'
@@ -69,6 +77,14 @@ include modulePrefix + 'lib-decoder-ffmpeg'
 project(modulePrefix + 'lib-decoder-ffmpeg').projectDir = new File(rootDir, 'libraries/decoder_ffmpeg')
 include modulePrefix + 'lib-decoder-flac'
 project(modulePrefix + 'lib-decoder-flac').projectDir = new File(rootDir, 'libraries/decoder_flac')
+include modulePrefix + 'lib-decoder-iamf'
+project(modulePrefix + 'lib-decoder-iamf').projectDir = new File(rootDir, 'libraries/decoder_iamf')
+if (gradle.ext.has('androidxMediaEnableMidiModule') && gradle.ext.androidxMediaEnableMidiModule) {
+    include modulePrefix + 'lib-decoder-midi'
+    project(modulePrefix + 'lib-decoder-midi').projectDir = new File(rootDir, 'libraries/decoder_midi')
+}
+include modulePrefix + 'lib-decoder-mpegh'
+project(modulePrefix + 'lib-decoder-mpegh').projectDir = new File(rootDir, 'libraries/decoder_mpegh')
 include modulePrefix + 'lib-decoder-opus'
 project(modulePrefix + 'lib-decoder-opus').projectDir = new File(rootDir, 'libraries/decoder_opus')
 include modulePrefix + 'lib-decoder-vp9'
@@ -83,6 +99,9 @@ project(modulePrefix + 'lib-cast').projectDir = new File(rootDir, 'libraries/cas
 include modulePrefix + 'lib-effect'
 project(modulePrefix + 'lib-effect').projectDir = new File(rootDir, 'libraries/effect')
 
+include modulePrefix + 'lib-muxer'
+project(modulePrefix + 'lib-muxer').projectDir = new File(rootDir, 'libraries/muxer')
+
 include modulePrefix + 'lib-transformer'
 project(modulePrefix + 'lib-transformer').projectDir = new File(rootDir, 'libraries/transformer')
 
@@ -92,7 +111,3 @@ include modulePrefix + 'test-data'
 project(modulePrefix + 'test-data').projectDir = new File(rootDir, 'libraries/test_data')
 include modulePrefix + 'test-utils'
 project(modulePrefix + 'test-utils').projectDir = new File(rootDir, 'libraries/test_utils')
-include modulePrefix + 'test-session-common'
-project(modulePrefix + 'test-session-common').projectDir = new File(rootDir, 'libraries/test_session_common')
-include modulePrefix + 'test-session-current'
-project(modulePrefix + 'test-session-current').projectDir = new File(rootDir, 'libraries/test_session_current')

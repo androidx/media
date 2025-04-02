@@ -15,13 +15,10 @@
  */
 package androidx.media3.extractor.metadata.id3;
 
-import static androidx.media3.common.util.Util.castNonNull;
-
-import android.os.Parcel;
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import java.util.Arrays;
+import java.util.Objects;
 
 /** Chapter table of contents ID3 frame. */
 @UnstableApi
@@ -49,19 +46,6 @@ public final class ChapterTocFrame extends Id3Frame {
     this.subFrames = subFrames;
   }
 
-  /* package */ ChapterTocFrame(Parcel in) {
-    super(ID);
-    this.elementId = castNonNull(in.readString());
-    this.isRoot = in.readByte() != 0;
-    this.isOrdered = in.readByte() != 0;
-    this.children = castNonNull(in.createStringArray());
-    int subFrameCount = in.readInt();
-    subFrames = new Id3Frame[subFrameCount];
-    for (int i = 0; i < subFrameCount; i++) {
-      subFrames[i] = in.readParcelable(Id3Frame.class.getClassLoader());
-    }
-  }
-
   /** Returns the number of sub-frames. */
   public int getSubFrameCount() {
     return subFrames.length;
@@ -83,7 +67,7 @@ public final class ChapterTocFrame extends Id3Frame {
     ChapterTocFrame other = (ChapterTocFrame) obj;
     return isRoot == other.isRoot
         && isOrdered == other.isOrdered
-        && Util.areEqual(elementId, other.elementId)
+        && Objects.equals(elementId, other.elementId)
         && Arrays.equals(children, other.children)
         && Arrays.equals(subFrames, other.subFrames);
   }
@@ -96,30 +80,4 @@ public final class ChapterTocFrame extends Id3Frame {
     result = 31 * result + (elementId != null ? elementId.hashCode() : 0);
     return result;
   }
-
-  @Override
-  public void writeToParcel(Parcel dest, int flags) {
-    dest.writeString(elementId);
-    dest.writeByte((byte) (isRoot ? 1 : 0));
-    dest.writeByte((byte) (isOrdered ? 1 : 0));
-    dest.writeStringArray(children);
-    dest.writeInt(subFrames.length);
-    for (Id3Frame subFrame : subFrames) {
-      dest.writeParcelable(subFrame, 0);
-    }
-  }
-
-  public static final Creator<ChapterTocFrame> CREATOR =
-      new Creator<ChapterTocFrame>() {
-
-        @Override
-        public ChapterTocFrame createFromParcel(Parcel in) {
-          return new ChapterTocFrame(in);
-        }
-
-        @Override
-        public ChapterTocFrame[] newArray(int size) {
-          return new ChapterTocFrame[size];
-        }
-      };
 }

@@ -7,6 +7,7 @@ track 0:
   total output bytes = 85933
   sample count = 30
   format 0:
+    containerMimeType = video/mp4
     sampleMimeType = video/avc
   sample 0:
     time = 66733

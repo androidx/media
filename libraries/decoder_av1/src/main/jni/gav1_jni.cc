@@ -19,12 +19,23 @@
 #include <android/native_window_jni.h>
 
 #include "cpu_features_macros.h"  // NOLINT
+
+// For ARMv7, we use `cpu_feature` to detect availability of NEON at runtime.
 #ifdef CPU_FEATURES_ARCH_ARM
 #include "cpuinfo_arm.h"  // NOLINT
 #endif                    // CPU_FEATURES_ARCH_ARM
-#ifdef CPU_FEATURES_COMPILED_ANY_ARM_NEON
-#include <arm_neon.h>
+
+// For ARM in general (v7/v8) we detect compile time availability of NEON.
+#ifdef CPU_FEATURES_ARCH_ANY_ARM
+#if CPU_FEATURES_COMPILED_ANY_ARM_NEON  // always defined to 0 or 1.
+#define HAS_COMPILE_TIME_NEON_SUPPORT
 #endif  // CPU_FEATURES_COMPILED_ANY_ARM_NEON
+#endif  // CPU_FEATURES_ARCH_ANY_ARM
+
+#ifdef HAS_COMPILE_TIME_NEON_SUPPORT
+#include <arm_neon.h>
+#endif
+
 #include <jni.h>
 
 #include <cstdint>
@@ -67,16 +78,22 @@ const int kMaxPlanes = 3;
 // https://developer.android.com/reference/android/graphics/ImageFormat.html#YV12.
 const int kImageFormatYV12 = 0x32315659;
 
+// LINT.IfChange
 // Output modes.
 const int kOutputModeYuv = 0;
 const int kOutputModeSurfaceYuv = 1;
+// LINT.ThenChange(../../../../common/src/main/java/androidx/media3/common/C.java)
 
+// LINT.IfChange
 const int kColorSpaceUnknown = 0;
+// LINT.ThenChange(../../../../decoder/src/main/java/androidx/media3/decoder/VideoDecoderOutputBuffer.java)
 
+// LINT.IfChange
 // Return codes for jni methods.
 const int kStatusError = 0;
 const int kStatusOk = 1;
 const int kStatusDecodeOnly = 2;
+// LINT.ThenChange(../java/androidx/media3/decoder/av1/Gav1Decoder.java)
 
 // Status codes specific to the JNI wrapper code.
 enum JniStatusCode {
@@ -400,7 +417,7 @@ void Convert10BitFrameTo8BitDataBuffer(
   }
 }
 
-#ifdef CPU_FEATURES_COMPILED_ANY_ARM_NEON
+#ifdef HAS_COMPILE_TIME_NEON_SUPPORT
 void Convert10BitFrameTo8BitDataBufferNeon(
     const libgav1::DecoderBuffer* decoder_buffer, jbyte* data) {
   uint32x2_t lcg_value = vdup_n_u32(random());
@@ -497,7 +514,7 @@ void Convert10BitFrameTo8BitDataBufferNeon(
     }
   }
 }
-#endif  // CPU_FEATURES_COMPILED_ANY_ARM_NEON
+#endif  // HAS_COMPILE_TIME_NEON_SUPPORT
 
 }  // namespace
 
@@ -507,20 +524,19 @@ DECODER_FUNC(jlong, gav1Init, jint threads) {
     return kStatusError;
   }
 
-#ifdef CPU_FEATURES_ARCH_ARM
-  // Libgav1 requires NEON with arm ABIs.
-#ifdef CPU_FEATURES_COMPILED_ANY_ARM_NEON
-  const cpu_features::ArmFeatures arm_features =
-      cpu_features::GetArmInfo().features;
-  if (!arm_features.neon) {
+#ifdef CPU_FEATURES_ARCH_ANY_ARM       // Arm v7/v8
+#ifndef HAS_COMPILE_TIME_NEON_SUPPORT  // no compile time NEON support
+#ifdef CPU_FEATURES_ARCH_ARM           // check runtime support for ARMv7
+  if (cpu_features::GetArmInfo().features.neon == false) {
     context->jni_status_code = kJniStatusNeonNotSupported;
     return reinterpret_cast<jlong>(context);
   }
-#else
+#else   // Unexpected case of an ARMv8 with no NEON support.
   context->jni_status_code = kJniStatusNeonNotSupported;
   return reinterpret_cast<jlong>(context);
-#endif  // CPU_FEATURES_COMPILED_ANY_ARM_NEON
 #endif  // CPU_FEATURES_ARCH_ARM
+#endif  // HAS_COMPILE_TIME_NEON_SUPPORT
+#endif  // CPU_FEATURES_ARCH_ANY_ARM
 
   libgav1::DecoderSettings settings;
   settings.threads = threads;
@@ -613,11 +629,11 @@ DECODER_FUNC(jint, gav1GetFrame, jlong jContext, jobject jOutputBuffer,
         CopyFrameToDataBuffer(decoder_buffer, data);
         break;
       case 10:
-#ifdef CPU_FEATURES_COMPILED_ANY_ARM_NEON
+#ifdef HAS_COMPILE_TIME_NEON_SUPPORT
         Convert10BitFrameTo8BitDataBufferNeon(decoder_buffer, data);
 #else
         Convert10BitFrameTo8BitDataBuffer(decoder_buffer, data);
-#endif  // CPU_FEATURES_COMPILED_ANY_ARM_NEON
+#endif  // HAS_COMPILE_TIME_NEON_SUPPORT
         break;
       default:
         context->jni_status_code = kJniStatusBitDepth12NotSupportedWithYuv;

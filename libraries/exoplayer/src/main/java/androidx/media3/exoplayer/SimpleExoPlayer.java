@@ -15,8 +15,6 @@
  */
 package androidx.media3.exoplayer;
 
-import static androidx.annotation.VisibleForTesting.PROTECTED;
-
 import android.content.Context;
 import android.media.AudioDeviceInfo;
 import android.os.Looper;
@@ -33,6 +31,7 @@ import androidx.media3.common.AuxEffectInfo;
 import androidx.media3.common.BasePlayer;
 import androidx.media3.common.C;
 import androidx.media3.common.DeviceInfo;
+import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
@@ -50,6 +49,7 @@ import androidx.media3.common.util.Size;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.analytics.AnalyticsCollector;
 import androidx.media3.exoplayer.analytics.AnalyticsListener;
+import androidx.media3.exoplayer.image.ImageOutput;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.ShuffleOrder;
@@ -68,12 +68,7 @@ import java.util.List;
  */
 @UnstableApi
 @Deprecated
-public class SimpleExoPlayer extends BasePlayer
-    implements ExoPlayer,
-        ExoPlayer.AudioComponent,
-        ExoPlayer.VideoComponent,
-        ExoPlayer.TextComponent,
-        ExoPlayer.DeviceComponent {
+public class SimpleExoPlayer extends BasePlayer implements ExoPlayer {
 
   /**
    * @deprecated Use {@link ExoPlayer.Builder} instead.
@@ -428,6 +423,7 @@ public class SimpleExoPlayer extends BasePlayer
   /**
    * @param builder The {@link Builder} to obtain all construction parameters.
    */
+  @SuppressWarnings("deprecation") // Supporting deprecated builder.
   protected SimpleExoPlayer(Builder builder) {
     this(builder.wrappedBuilder);
   }
@@ -445,59 +441,9 @@ public class SimpleExoPlayer extends BasePlayer
   }
 
   @Override
-  public void experimentalSetOffloadSchedulingEnabled(boolean offloadSchedulingEnabled) {
+  public boolean isSleepingForOffload() {
     blockUntilConstructorFinished();
-    player.experimentalSetOffloadSchedulingEnabled(offloadSchedulingEnabled);
-  }
-
-  @Override
-  public boolean experimentalIsSleepingForOffload() {
-    blockUntilConstructorFinished();
-    return player.experimentalIsSleepingForOffload();
-  }
-
-  /**
-   * @deprecated Use {@link ExoPlayer}, as the {@link AudioComponent} methods are defined by that
-   *     interface.
-   */
-  @Deprecated
-  @Override
-  @Nullable
-  public AudioComponent getAudioComponent() {
-    return this;
-  }
-
-  /**
-   * @deprecated Use {@link ExoPlayer}, as the {@link VideoComponent} methods are defined by that
-   *     interface.
-   */
-  @Deprecated
-  @Override
-  @Nullable
-  public VideoComponent getVideoComponent() {
-    return this;
-  }
-
-  /**
-   * @deprecated Use {@link Player}, as the {@link TextComponent} methods are defined by that
-   *     interface.
-   */
-  @Deprecated
-  @Override
-  @Nullable
-  public TextComponent getTextComponent() {
-    return this;
-  }
-
-  /**
-   * @deprecated Use {@link Player}, as the {@link DeviceComponent} methods are defined by that
-   *     interface.
-   */
-  @Deprecated
-  @Override
-  @Nullable
-  public DeviceComponent getDeviceComponent() {
-    return this;
+    return player.isSleepingForOffload();
   }
 
   @Override
@@ -665,6 +611,12 @@ public class SimpleExoPlayer extends BasePlayer
   }
 
   @Override
+  public void setVideoEffects(List<Effect> videoEffects) {
+    blockUntilConstructorFinished();
+    player.setVideoEffects(videoEffects);
+  }
+
+  @Override
   public void setSkipSilenceEnabled(boolean skipSilenceEnabled) {
     blockUntilConstructorFinished();
     player.setSkipSilenceEnabled(skipSilenceEnabled);
@@ -692,6 +644,12 @@ public class SimpleExoPlayer extends BasePlayer
   public void setHandleAudioBecomingNoisy(boolean handleAudioBecomingNoisy) {
     blockUntilConstructorFinished();
     player.setHandleAudioBecomingNoisy(handleAudioBecomingNoisy);
+  }
+
+  @Override
+  public void setPriority(@C.Priority int priority) {
+    blockUntilConstructorFinished();
+    player.setPriority(priority);
   }
 
   @Override
@@ -807,17 +765,6 @@ public class SimpleExoPlayer extends BasePlayer
   public ExoPlaybackException getPlayerError() {
     blockUntilConstructorFinished();
     return player.getPlayerError();
-  }
-
-  /**
-   * @deprecated Use {@link #prepare()} instead.
-   */
-  @Deprecated
-  @Override
-  @SuppressWarnings("deprecation") // Calling deprecated method.
-  public void retry() {
-    blockUntilConstructorFinished();
-    player.retry();
   }
 
   @Override
@@ -941,6 +888,12 @@ public class SimpleExoPlayer extends BasePlayer
   }
 
   @Override
+  public void replaceMediaItems(int fromIndex, int toIndex, List<MediaItem> mediaItems) {
+    blockUntilConstructorFinished();
+    player.replaceMediaItems(fromIndex, toIndex, mediaItems);
+  }
+
+  @Override
   public void removeMediaItems(int fromIndex, int toIndex) {
     blockUntilConstructorFinished();
     player.removeMediaItems(fromIndex, toIndex);
@@ -989,6 +942,18 @@ public class SimpleExoPlayer extends BasePlayer
   }
 
   @Override
+  public void setPreloadConfiguration(PreloadConfiguration preloadConfiguration) {
+    blockUntilConstructorFinished();
+    player.setPreloadConfiguration(preloadConfiguration);
+  }
+
+  @Override
+  public PreloadConfiguration getPreloadConfiguration() {
+    blockUntilConstructorFinished();
+    return player.getPreloadConfiguration();
+  }
+
+  @Override
   public void setShuffleModeEnabled(boolean shuffleModeEnabled) {
     blockUntilConstructorFinished();
     player.setShuffleModeEnabled(shuffleModeEnabled);
@@ -1008,8 +973,7 @@ public class SimpleExoPlayer extends BasePlayer
 
   @SuppressWarnings("ForOverride") // Forwarding to ForOverride method in ExoPlayerImpl.
   @Override
-  @VisibleForTesting(otherwise = PROTECTED)
-  public void seekTo(
+  protected void seekTo(
       int mediaItemIndex,
       long positionMs,
       @Player.Command int seekCommand,
@@ -1070,18 +1034,6 @@ public class SimpleExoPlayer extends BasePlayer
   public void stop() {
     blockUntilConstructorFinished();
     player.stop();
-  }
-
-  /**
-   * @deprecated Use {@link #stop()} and {@link #clearMediaItems()} (if {@code reset} is true) or
-   *     just {@link #stop()} (if {@code reset} is false). Any player error will be cleared when
-   *     {@link #prepare() re-preparing} the player.
-   */
-  @Deprecated
-  @Override
-  public void stop(boolean reset) {
-    blockUntilConstructorFinished();
-    player.stop(reset);
   }
 
   @Override
@@ -1248,16 +1200,6 @@ public class SimpleExoPlayer extends BasePlayer
     return player.getContentBufferedPosition();
   }
 
-  /**
-   * @deprecated Use {@link #setWakeMode(int)} instead.
-   */
-  @Deprecated
-  @Override
-  public void setHandleWakeLock(boolean handleWakeLock) {
-    blockUntilConstructorFinished();
-    player.setHandleWakeLock(handleWakeLock);
-  }
-
   @Override
   public void setWakeMode(@C.WakeMode int wakeMode) {
     blockUntilConstructorFinished();
@@ -1282,34 +1224,89 @@ public class SimpleExoPlayer extends BasePlayer
     return player.isDeviceMuted();
   }
 
+  /**
+   * @deprecated Use {@link #setDeviceVolume(int, int)} instead.
+   */
+  @Deprecated
   @Override
+  @SuppressWarnings("deprecation") // Forwarding deprecated method.
   public void setDeviceVolume(int volume) {
     blockUntilConstructorFinished();
     player.setDeviceVolume(volume);
   }
 
   @Override
+  public void setDeviceVolume(int volume, @C.VolumeFlags int flags) {
+    blockUntilConstructorFinished();
+    player.setDeviceVolume(volume, flags);
+  }
+
+  /**
+   * @deprecated Use {@link #increaseDeviceVolume(int)} instead.
+   */
+  @Deprecated
+  @Override
+  @SuppressWarnings("deprecation") // Forwarding deprecated method.
   public void increaseDeviceVolume() {
     blockUntilConstructorFinished();
     player.increaseDeviceVolume();
   }
 
   @Override
+  public void increaseDeviceVolume(@C.VolumeFlags int flags) {
+    blockUntilConstructorFinished();
+    player.increaseDeviceVolume(flags);
+  }
+
+  /**
+   * @deprecated Use {@link #decreaseDeviceVolume(int)} instead.
+   */
+  @Deprecated
+  @Override
+  @SuppressWarnings("deprecation") // Forwarding deprecated method.
   public void decreaseDeviceVolume() {
     blockUntilConstructorFinished();
     player.decreaseDeviceVolume();
   }
 
   @Override
+  public void decreaseDeviceVolume(@C.VolumeFlags int flags) {
+    blockUntilConstructorFinished();
+    player.decreaseDeviceVolume(flags);
+  }
+
+  /**
+   * @deprecated Use {@link #setDeviceMuted(boolean, int)} instead.
+   */
+  @Deprecated
+  @Override
+  @SuppressWarnings("deprecation") // Forwarding deprecated method.
   public void setDeviceMuted(boolean muted) {
     blockUntilConstructorFinished();
     player.setDeviceMuted(muted);
   }
 
   @Override
+  public void setDeviceMuted(boolean muted, @C.VolumeFlags int flags) {
+    blockUntilConstructorFinished();
+    player.setDeviceMuted(muted, flags);
+  }
+
+  @Override
   public boolean isTunnelingEnabled() {
     blockUntilConstructorFinished();
     return player.isTunnelingEnabled();
+  }
+
+  @Override
+  public boolean isReleased() {
+    return player.isReleased();
+  }
+
+  @Override
+  public void setImageOutput(@Nullable ImageOutput imageOutput) {
+    blockUntilConstructorFinished();
+    player.setImageOutput(imageOutput);
   }
 
   /* package */ void setThrowsWhenUsingWrongThread(boolean throwsWhenUsingWrongThread) {

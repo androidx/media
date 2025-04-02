@@ -35,7 +35,7 @@ import org.junit.runner.RunWith;
 public class AdPlaybackStateTest {
 
   private static final long[] TEST_AD_GROUP_TIMES_US = new long[] {0, 5_000_000, 10_000_000};
-  private static final Uri TEST_URI = Uri.parse("http://www.google.com");
+  private static final MediaItem TEST_MEDIA_ITEM = MediaItem.fromUri("http://www.google.com");
   private static final Object TEST_ADS_ID = new Object();
 
   @Test
@@ -44,22 +44,33 @@ public class AdPlaybackStateTest {
         new AdPlaybackState(TEST_ADS_ID, TEST_AD_GROUP_TIMES_US).withRemovedAdGroupCount(1);
 
     assertThat(state.getAdGroup(1).count).isEqualTo(C.LENGTH_UNSET);
-    state = state.withAdCount(/* adGroupIndex= */ 1, /* adCount= */ 1);
+    assertThat(state.getAdGroup(1).states).hasLength(0);
+    assertThat(state.getAdGroup(1).mediaItems).hasLength(0);
+    assertThat(state.getAdGroup(1).durationsUs).hasLength(0);
+    assertThat(state.getAdGroup(1).ids).hasLength(0);
 
-    assertThat(state.getAdGroup(1).count).isEqualTo(1);
+    state = state.withAdCount(/* adGroupIndex= */ 1, /* adCount= */ 4);
+
+    assertThat(state.getAdGroup(1).count).isEqualTo(4);
+    assertThat(state.getAdGroup(1).states).hasLength(4);
+    assertThat(state.getAdGroup(1).mediaItems).hasLength(4);
+    assertThat(state.getAdGroup(1).durationsUs).hasLength(4);
+    assertThat(state.getAdGroup(1).ids).hasLength(4);
   }
 
   @Test
-  public void setAdUriBeforeAdCount() {
+  public void setAdMediaItemBeforeAdCount() {
     AdPlaybackState state =
         new AdPlaybackState(TEST_ADS_ID, TEST_AD_GROUP_TIMES_US).withRemovedAdGroupCount(1);
 
-    state = state.withAvailableAdUri(/* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 1, TEST_URI);
+    state =
+        state.withAvailableAdMediaItem(
+            /* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 1, TEST_MEDIA_ITEM);
     state = state.withAdCount(/* adGroupIndex= */ 1, /* adCount= */ 2);
 
-    assertThat(state.getAdGroup(1).uris[0]).isNull();
+    assertThat(state.getAdGroup(1).mediaItems[0]).isNull();
     assertThat(state.getAdGroup(1).states[0]).isEqualTo(AdPlaybackState.AD_STATE_UNAVAILABLE);
-    assertThat(state.getAdGroup(1).uris[1]).isSameInstanceAs(TEST_URI);
+    assertThat(state.getAdGroup(1).mediaItems[1]).isSameInstanceAs(TEST_MEDIA_ITEM);
     assertThat(state.getAdGroup(1).states[1]).isEqualTo(AdPlaybackState.AD_STATE_AVAILABLE);
   }
 
@@ -71,7 +82,7 @@ public class AdPlaybackStateTest {
     state = state.withAdLoadError(/* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 0);
     state = state.withAdCount(/* adGroupIndex= */ 1, /* adCount= */ 2);
 
-    assertThat(state.getAdGroup(1).uris[0]).isNull();
+    assertThat(state.getAdGroup(1).mediaItems[0]).isNull();
     assertThat(state.getAdGroup(1).states[0]).isEqualTo(AdPlaybackState.AD_STATE_ERROR);
     assertThat(state.isAdInErrorState(/* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 0)).isTrue();
     assertThat(state.getAdGroup(1).states[1]).isEqualTo(AdPlaybackState.AD_STATE_UNAVAILABLE);
@@ -101,7 +112,8 @@ public class AdPlaybackStateTest {
             .withRemovedAdGroupCount(1)
             .withAdCount(/* adGroupIndex= */ 1, /* adCount= */ 2)
             .withAdCount(/* adGroupIndex= */ 2, /* adCount= */ 1)
-            .withAvailableAdUri(/* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 1, TEST_URI)
+            .withAvailableAdMediaItem(
+                /* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 1, TEST_MEDIA_ITEM)
             .withSkippedAd(/* adGroupIndex= */ 2, /* adIndexInAdGroup= */ 0);
 
     state =
@@ -113,7 +125,7 @@ public class AdPlaybackStateTest {
     assertThat(state.adGroupCount).isEqualTo(6);
     assertThat(state.getAdGroup(1).count).isEqualTo(C.INDEX_UNSET);
     assertThat(state.getAdGroup(2).count).isEqualTo(2);
-    assertThat(state.getAdGroup(2).uris[1]).isSameInstanceAs(TEST_URI);
+    assertThat(state.getAdGroup(2).mediaItems[1]).isSameInstanceAs(TEST_MEDIA_ITEM);
     assertThat(state.getAdGroup(3).count).isEqualTo(C.INDEX_UNSET);
     assertThat(state.getAdGroup(4).count).isEqualTo(1);
     assertThat(state.getAdGroup(4).states[0]).isEqualTo(AdPlaybackState.AD_STATE_SKIPPED);
@@ -141,8 +153,12 @@ public class AdPlaybackStateTest {
     AdPlaybackState state =
         new AdPlaybackState(TEST_ADS_ID, TEST_AD_GROUP_TIMES_US).withRemovedAdGroupCount(1);
     state = state.withAdCount(/* adGroupIndex= */ 1, /* adCount= */ 3);
-    state = state.withAvailableAdUri(/* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 0, TEST_URI);
-    state = state.withAvailableAdUri(/* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 2, TEST_URI);
+    state =
+        state.withAvailableAdMediaItem(
+            /* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 0, TEST_MEDIA_ITEM);
+    state =
+        state.withAvailableAdMediaItem(
+            /* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 2, TEST_MEDIA_ITEM);
 
     assertThat(state.getAdGroup(1).getFirstAdIndexToPlay()).isEqualTo(0);
   }
@@ -152,8 +168,12 @@ public class AdPlaybackStateTest {
     AdPlaybackState state =
         new AdPlaybackState(TEST_ADS_ID, TEST_AD_GROUP_TIMES_US).withRemovedAdGroupCount(1);
     state = state.withAdCount(/* adGroupIndex= */ 1, /* adCount= */ 3);
-    state = state.withAvailableAdUri(/* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 0, TEST_URI);
-    state = state.withAvailableAdUri(/* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 2, TEST_URI);
+    state =
+        state.withAvailableAdMediaItem(
+            /* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 0, TEST_MEDIA_ITEM);
+    state =
+        state.withAvailableAdMediaItem(
+            /* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 2, TEST_MEDIA_ITEM);
 
     state = state.withPlayedAd(/* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 0);
 
@@ -167,8 +187,12 @@ public class AdPlaybackStateTest {
     AdPlaybackState state =
         new AdPlaybackState(TEST_ADS_ID, TEST_AD_GROUP_TIMES_US).withRemovedAdGroupCount(1);
     state = state.withAdCount(/* adGroupIndex= */ 1, /* adCount= */ 3);
-    state = state.withAvailableAdUri(/* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 0, TEST_URI);
-    state = state.withAvailableAdUri(/* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 2, TEST_URI);
+    state =
+        state.withAvailableAdMediaItem(
+            /* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 0, TEST_MEDIA_ITEM);
+    state =
+        state.withAvailableAdMediaItem(
+            /* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 2, TEST_MEDIA_ITEM);
 
     state = state.withSkippedAd(/* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 0);
 
@@ -182,8 +206,12 @@ public class AdPlaybackStateTest {
     AdPlaybackState state =
         new AdPlaybackState(TEST_ADS_ID, TEST_AD_GROUP_TIMES_US).withRemovedAdGroupCount(1);
     state = state.withAdCount(/* adGroupIndex= */ 1, /* adCount= */ 3);
-    state = state.withAvailableAdUri(/* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 0, TEST_URI);
-    state = state.withAvailableAdUri(/* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 2, TEST_URI);
+    state =
+        state.withAvailableAdMediaItem(
+            /* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 0, TEST_MEDIA_ITEM);
+    state =
+        state.withAvailableAdMediaItem(
+            /* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 2, TEST_MEDIA_ITEM);
 
     state = state.withPlayedAd(/* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 0);
     state = state.withAdLoadError(/* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 1);
@@ -196,7 +224,9 @@ public class AdPlaybackStateTest {
     AdPlaybackState state =
         new AdPlaybackState(TEST_ADS_ID, TEST_AD_GROUP_TIMES_US).withRemovedAdGroupCount(1);
     state = state.withAdCount(/* adGroupIndex= */ 1, /* adCount= */ 3);
-    state = state.withAvailableAdUri(/* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 1, TEST_URI);
+    state =
+        state.withAvailableAdMediaItem(
+            /* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 1, TEST_MEDIA_ITEM);
 
     state = state.withAdLoadError(/* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 1);
 
@@ -209,9 +239,15 @@ public class AdPlaybackStateTest {
         new AdPlaybackState(TEST_ADS_ID, TEST_AD_GROUP_TIMES_US).withRemovedAdGroupCount(1);
     state = state.withIsServerSideInserted(/* adGroupIndex= */ 1, /* isServerSideInserted= */ true);
     state = state.withAdCount(/* adGroupIndex= */ 1, /* adCount= */ 3);
-    state = state.withAvailableAdUri(/* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 0, TEST_URI);
-    state = state.withAvailableAdUri(/* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 1, TEST_URI);
-    state = state.withAvailableAdUri(/* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 2, TEST_URI);
+    state =
+        state.withAvailableAdMediaItem(
+            /* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 0, TEST_MEDIA_ITEM);
+    state =
+        state.withAvailableAdMediaItem(
+            /* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 1, TEST_MEDIA_ITEM);
+    state =
+        state.withAvailableAdMediaItem(
+            /* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 2, TEST_MEDIA_ITEM);
 
     state = state.withPlayedAd(/* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 0);
 
@@ -224,9 +260,15 @@ public class AdPlaybackStateTest {
         new AdPlaybackState(TEST_ADS_ID, TEST_AD_GROUP_TIMES_US).withRemovedAdGroupCount(1);
     state = state.withIsServerSideInserted(/* adGroupIndex= */ 1, /* isServerSideInserted= */ true);
     state = state.withAdCount(/* adGroupIndex= */ 1, /* adCount= */ 3);
-    state = state.withAvailableAdUri(/* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 0, TEST_URI);
-    state = state.withAvailableAdUri(/* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 1, TEST_URI);
-    state = state.withAvailableAdUri(/* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 2, TEST_URI);
+    state =
+        state.withAvailableAdMediaItem(
+            /* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 0, TEST_MEDIA_ITEM);
+    state =
+        state.withAvailableAdMediaItem(
+            /* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 1, TEST_MEDIA_ITEM);
+    state =
+        state.withAvailableAdMediaItem(
+            /* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 2, TEST_MEDIA_ITEM);
 
     state = state.withPlayedAd(/* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 0);
     state = state.withPlayedAd(/* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 1);
@@ -265,9 +307,9 @@ public class AdPlaybackStateTest {
         .asList()
         .containsExactly(AD_STATE_UNAVAILABLE, AD_STATE_UNAVAILABLE, AD_STATE_AVAILABLE)
         .inOrder();
-    assertThat(state.getAdGroup(adGroupIndex).uris)
+    assertThat(state.getAdGroup(adGroupIndex).mediaItems)
         .asList()
-        .containsExactly(null, null, Uri.EMPTY)
+        .containsExactly(null, null, MediaItem.fromUri(Uri.EMPTY))
         .inOrder();
 
     state =
@@ -280,6 +322,61 @@ public class AdPlaybackStateTest {
         .asList()
         .containsExactly(AD_STATE_AVAILABLE, AD_STATE_AVAILABLE, AD_STATE_AVAILABLE)
         .inOrder();
+  }
+
+  @Test
+  public void withRemovedAdGroupCountBefore() {
+    AdPlaybackState adPlaybackState =
+        new AdPlaybackState("adsId", 6_000_000L, 18_000_000L)
+            .withAdCount(/* adGroupIndex= */ 1, /* adCount= */ 1)
+            .withAdId(1, 0, "ad1-0")
+            .withAvailableAdMediaItem(
+                /* adGroupIndex= */ 1,
+                /* adIndexInAdGroup= */ 0,
+                new MediaItem.Builder()
+                    .setUri("http://example.com/media-1-0.m3u8")
+                    .setMimeType(MimeTypes.APPLICATION_M3U8)
+                    .build());
+
+    assertThat(adPlaybackState.withRemovedAdGroupCountBefore(/* timeUs= */ 6_000_000L))
+        .isEqualTo(adPlaybackState);
+    assertThat(adPlaybackState.withRemovedAdGroupCountBefore(/* timeUs= */ 6_000_001L))
+        .isEqualTo(adPlaybackState.withRemovedAdGroupCount(/* removedAdGroupCount= */ 1));
+    assertThat(adPlaybackState.withRemovedAdGroupCountBefore(/* timeUs= */ 18_000_000L))
+        .isEqualTo(adPlaybackState.withRemovedAdGroupCount(/* removedAdGroupCount= */ 1));
+    assertThat(adPlaybackState.withRemovedAdGroupCountBefore(/* timeUs= */ 18_000_001L))
+        .isEqualTo(adPlaybackState.withRemovedAdGroupCount(/* removedAdGroupCount= */ 2));
+    assertThat(
+            adPlaybackState.withRemovedAdGroupCountBefore(/* timeUs= */ 18_000_001L).adGroupCount)
+        .isEqualTo(2);
+  }
+
+  @Test
+  public void withRemovedAdGroupCountBefore_withLivePlaceholder() {
+    AdPlaybackState adPlaybackState =
+        new AdPlaybackState("adsId", 6_000_000L, 18_000_000L)
+            .withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ false)
+            .withAdCount(/* adGroupIndex= */ 1, /* adCount= */ 1)
+            .withAdId(1, 0, "ad1-0")
+            .withAvailableAdMediaItem(
+                /* adGroupIndex= */ 1,
+                /* adIndexInAdGroup= */ 0,
+                new MediaItem.Builder()
+                    .setUri("http://example.com/media-1-0.m3u8")
+                    .setMimeType(MimeTypes.APPLICATION_M3U8)
+                    .build());
+
+    assertThat(adPlaybackState.withRemovedAdGroupCountBefore(/* timeUs= */ 6_000_000L))
+        .isEqualTo(adPlaybackState);
+    assertThat(adPlaybackState.withRemovedAdGroupCountBefore(/* timeUs= */ 6_000_001L))
+        .isEqualTo(adPlaybackState.withRemovedAdGroupCount(/* removedAdGroupCount= */ 1));
+    assertThat(adPlaybackState.withRemovedAdGroupCountBefore(/* timeUs= */ 18_000_000L))
+        .isEqualTo(adPlaybackState.withRemovedAdGroupCount(/* removedAdGroupCount= */ 1));
+    assertThat(adPlaybackState.withRemovedAdGroupCountBefore(/* timeUs= */ 18_000_001L))
+        .isEqualTo(adPlaybackState.withRemovedAdGroupCount(/* removedAdGroupCount= */ 2));
+    assertThat(
+            adPlaybackState.withRemovedAdGroupCountBefore(/* timeUs= */ 18_000_001L).adGroupCount)
+        .isEqualTo(3);
   }
 
   @Test
@@ -364,10 +461,18 @@ public class AdPlaybackStateTest {
     state =
         state.withAdDurationsUs(
             /* adGroupIndex= */ 1, /* adDurationsUs...= */ 1_000L, 2_000L, 3_000L, 4_000L, 5_000L);
-    state = state.withAvailableAdUri(/* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 1, TEST_URI);
-    state = state.withAvailableAdUri(/* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 2, TEST_URI);
-    state = state.withAvailableAdUri(/* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 3, TEST_URI);
-    state = state.withAvailableAdUri(/* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 4, TEST_URI);
+    state =
+        state.withAvailableAdMediaItem(
+            /* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 1, TEST_MEDIA_ITEM);
+    state =
+        state.withAvailableAdMediaItem(
+            /* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 2, TEST_MEDIA_ITEM);
+    state =
+        state.withAvailableAdMediaItem(
+            /* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 3, TEST_MEDIA_ITEM);
+    state =
+        state.withAvailableAdMediaItem(
+            /* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 4, TEST_MEDIA_ITEM);
     state = state.withPlayedAd(/* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 2);
     state = state.withSkippedAd(/* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 3);
     state = state.withAdLoadError(/* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 4);
@@ -393,9 +498,9 @@ public class AdPlaybackStateTest {
             AD_STATE_AVAILABLE,
             AD_STATE_AVAILABLE)
         .inOrder();
-    assertThat(state.getAdGroup(/* adGroupIndex= */ 1).uris)
+    assertThat(state.getAdGroup(/* adGroupIndex= */ 1).mediaItems)
         .asList()
-        .containsExactly(null, TEST_URI, TEST_URI, TEST_URI, TEST_URI)
+        .containsExactly(null, TEST_MEDIA_ITEM, TEST_MEDIA_ITEM, TEST_MEDIA_ITEM, TEST_MEDIA_ITEM)
         .inOrder();
     assertThat(state.getAdGroup(/* adGroupIndex= */ 1).durationsUs)
         .asList()
@@ -425,7 +530,7 @@ public class AdPlaybackStateTest {
     assertThat(adPlaybackStateWithNoAdsBundle.keySet()).isEmpty();
 
     AdPlaybackState adPlaybackStateWithNoAdsFromBundle =
-        AdPlaybackState.CREATOR.fromBundle(adPlaybackStateWithNoAdsBundle);
+        AdPlaybackState.fromBundle(adPlaybackStateWithNoAdsBundle);
 
     assertThat(adPlaybackStateWithNoAdsFromBundle.adsId).isEqualTo(adPlaybackStateWithNoAds.adsId);
     assertThat(adPlaybackStateWithNoAdsFromBundle.adGroupCount)
@@ -445,12 +550,18 @@ public class AdPlaybackStateTest {
             .withRemovedAdGroupCount(1)
             .withAdCount(/* adGroupIndex= */ 1, /* adCount= */ 1)
             .withPlayedAd(/* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 0)
-            .withAvailableAdUri(/* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 0, TEST_URI)
+            .withAvailableAdMediaItem(
+                /* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 0, TEST_MEDIA_ITEM)
+            .withAdId(/* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 0, "ad-1-0")
             .withAdCount(/* adGroupIndex= */ 2, /* adCount= */ 2)
             .withSkippedAd(/* adGroupIndex= */ 2, /* adIndexInAdGroup= */ 0)
             .withPlayedAd(/* adGroupIndex= */ 2, /* adIndexInAdGroup= */ 1)
-            .withAvailableAdUri(/* adGroupIndex= */ 2, /* adIndexInAdGroup= */ 0, TEST_URI)
-            .withAvailableAdUri(/* adGroupIndex= */ 2, /* adIndexInAdGroup= */ 1, TEST_URI)
+            .withAdId(/* adGroupIndex= */ 2, /* adIndexInAdGroup= */ 0, "ad-2-0")
+            .withAdId(/* adGroupIndex= */ 2, /* adIndexInAdGroup= */ 1, "ad-2-1")
+            .withAvailableAdMediaItem(
+                /* adGroupIndex= */ 2, /* adIndexInAdGroup= */ 0, TEST_MEDIA_ITEM)
+            .withAvailableAdMediaItem(
+                /* adGroupIndex= */ 2, /* adIndexInAdGroup= */ 1, TEST_MEDIA_ITEM)
             .withContentResumeOffsetUs(/* adGroupIndex= */ 1, /* contentResumeOffsetUs= */ 4444)
             .withContentResumeOffsetUs(/* adGroupIndex= */ 2, /* contentResumeOffsetUs= */ 3333)
             .withIsServerSideInserted(/* adGroupIndex= */ 1, /* isServerSideInserted= */ true)
@@ -460,7 +571,7 @@ public class AdPlaybackStateTest {
             .withAdResumePositionUs(123)
             .withContentDurationUs(456);
 
-    AdPlaybackState restoredState = AdPlaybackState.CREATOR.fromBundle(originalState.toBundle());
+    AdPlaybackState restoredState = AdPlaybackState.fromBundle(originalState.toBundle());
 
     assertThat(restoredState.adsId).isNull();
     assertThat(restoredState.adGroupCount).isEqualTo(originalState.adGroupCount);
@@ -478,13 +589,187 @@ public class AdPlaybackStateTest {
             .withAdCount(2)
             .withAdState(AD_STATE_AVAILABLE, /* index= */ 0)
             .withAdState(AD_STATE_PLAYED, /* index= */ 1)
-            .withAdUri(Uri.parse("https://www.google.com"), /* index= */ 0)
-            .withAdUri(Uri.EMPTY, /* index= */ 1)
+            .withAdMediaItem(
+                new MediaItem.Builder().setUri("https://www.google.com").setMediaId("id").build(),
+                /* index= */ 0)
+            .withAdMediaItem(new MediaItem.Builder().setUri(Uri.EMPTY).build(), /* index= */ 1)
+            .withAdDurationsUs(new long[] {1234, 5678})
+            .withContentResumeOffsetUs(4444)
+            .withIsServerSideInserted(true)
+            .withAdId("id-0", 0)
+            .withAdId("id-1", 1);
+
+    assertThat(AdPlaybackState.AdGroup.fromBundle(adGroup.toBundle())).isEqualTo(adGroup);
+  }
+
+  @Test
+  public void fromBundle_ofAdGroupWithOnlyUris_yieldsCorrectInstance() {
+    AdPlaybackState.AdGroup adGroup =
+        new AdPlaybackState.AdGroup(/* timeUs= */ 42)
+            .withAdCount(2)
+            .withAdState(AD_STATE_AVAILABLE, /* index= */ 0)
+            .withAdState(AD_STATE_PLAYED, /* index= */ 1)
+            .withAdId("ad-0", /* index= */ 1)
+            .withAdId("ad-1", /* index= */ 1)
+            .withAdMediaItem(
+                new MediaItem.Builder().setUri("https://www.google.com").build(), /* index= */ 0)
+            .withAdMediaItem(new MediaItem.Builder().setUri(Uri.EMPTY).build(), /* index= */ 1)
             .withAdDurationsUs(new long[] {1234, 5678})
             .withContentResumeOffsetUs(4444)
             .withIsServerSideInserted(true);
+    Bundle bundle = adGroup.toBundle();
+    bundle.remove(AdPlaybackState.AdGroup.FIELD_MEDIA_ITEMS);
 
-    assertThat(AdPlaybackState.AdGroup.CREATOR.fromBundle(adGroup.toBundle())).isEqualTo(adGroup);
+    assertThat(AdPlaybackState.AdGroup.fromBundle(bundle)).isEqualTo(adGroup);
+  }
+
+  @SuppressWarnings({"deprecation", "InlineMeInliner"}) // testing deprecated API
+  @Test
+  public void withLivePostrollPlaceholderAppended_emptyAdPlaybackState_insertsPlaceholder() {
+    AdPlaybackState emptyAdPlaybackState = new AdPlaybackState("adsId");
+
+    assertThat(
+            emptyAdPlaybackState.withLivePostrollPlaceholderAppended(
+                /* isServerSideInserted= */ true))
+        .isEqualTo(
+            new AdPlaybackState("adsId", C.TIME_END_OF_SOURCE)
+                .withIsPlaceholder(
+                    /* adGroupIndex= */ 0,
+                    /* isPlaceholder= */ true,
+                    /* isServerSideInserted= */ true));
+    assertThat(emptyAdPlaybackState.withLivePostrollPlaceholderAppended())
+        .isEqualTo(
+            new AdPlaybackState("adsId", C.TIME_END_OF_SOURCE)
+                .withIsPlaceholder(
+                    /* adGroupIndex= */ 0,
+                    /* isPlaceholder= */ true,
+                    /* isServerSideInserted= */ true));
+    assertThat(
+            emptyAdPlaybackState.withLivePostrollPlaceholderAppended(
+                /* isServerSideInserted= */ false))
+        .isEqualTo(
+            new AdPlaybackState("adsId", C.TIME_END_OF_SOURCE)
+                .withIsPlaceholder(
+                    /* adGroupIndex= */ 0,
+                    /* isPlaceholder= */ true,
+                    /* isServerSideInserted= */ false));
+  }
+
+  @SuppressWarnings({"deprecation", "InlineMeInliner"}) // testing deprecated API
+  @Test
+  public void endsWithLivePostrollPlaceHolder_emptyAdPlaybackState_insertsPlaceholder() {
+    AdPlaybackState emptyAdPlaybackState = new AdPlaybackState("adsId");
+
+    assertThat(
+            emptyAdPlaybackState
+                .withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ true)
+                .endsWithLivePostrollPlaceHolder())
+        .isTrue();
+    assertThat(
+            emptyAdPlaybackState
+                .withLivePostrollPlaceholderAppended()
+                .endsWithLivePostrollPlaceHolder(/* isServerSideInserted= */ true))
+        .isTrue();
+    assertThat(
+            emptyAdPlaybackState
+                .withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ false)
+                .endsWithLivePostrollPlaceHolder())
+        .isTrue();
+    assertThat(
+            emptyAdPlaybackState
+                .withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ false)
+                .endsWithLivePostrollPlaceHolder(/* isServerSideInserted= */ false))
+        .isTrue();
+  }
+
+  @SuppressWarnings({"deprecation", "InlineMeInliner"}) // testing deprecated API
+  @Test
+  public void withLivePostrollPlaceholderAppended_withExistingAdGroups_appendsPlaceholder() {
+    AdPlaybackState adPlaybackState =
+        new AdPlaybackState("state", /* adGroupTimesUs...= */ 0L, 10_000_000L)
+            .withIsServerSideInserted(/* adGroupIndex= */ 0, true)
+            .withIsServerSideInserted(/* adGroupIndex= */ 1, true)
+            .withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 1)
+            .withAdCount(/* adGroupIndex= */ 1, /* adCount= */ 1)
+            .withAdDurationsUs(/* adGroupIndex= */ 0, /* adDurationsUs...= */ 10_000_000L)
+            .withAdDurationsUs(/* adGroupIndex= */ 1, /* adDurationsUs...= */ 5_000_000L);
+
+    assertThat(
+            adPlaybackState.withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ true))
+        .isEqualTo(
+            adPlaybackState
+                .withNewAdGroup(/* adGroupIndex= */ 2, C.TIME_END_OF_SOURCE)
+                .withIsPlaceholder(
+                    /* adGroupIndex= */ 2,
+                    /* isPlaceholder= */ true,
+                    /* isServerSideInserted= */ true));
+    assertThat(adPlaybackState.withLivePostrollPlaceholderAppended())
+        .isEqualTo(
+            adPlaybackState
+                .withNewAdGroup(/* adGroupIndex= */ 2, C.TIME_END_OF_SOURCE)
+                .withIsPlaceholder(
+                    /* adGroupIndex= */ 2,
+                    /* isPlaceholder= */ true,
+                    /* isServerSideInserted= */ true));
+    assertThat(
+            adPlaybackState.withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ false))
+        .isEqualTo(
+            adPlaybackState
+                .withNewAdGroup(/* adGroupIndex= */ 2, C.TIME_END_OF_SOURCE)
+                .withIsPlaceholder(
+                    /* adGroupIndex= */ 2,
+                    /* isPlaceholder= */ true,
+                    /* isServerSideInserted= */ false));
+  }
+
+  @Test
+  public void endsWithLivePostrollPlaceHolder_withExistingAdGroups_postrollDetected() {
+    AdPlaybackState adPlaybackState =
+        new AdPlaybackState("adsId", /* adGroupTimesUs...= */ 0L, 10_000_000L)
+            .withIsServerSideInserted(/* adGroupIndex= */ 0, true)
+            .withIsServerSideInserted(/* adGroupIndex= */ 1, true)
+            .withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 1)
+            .withAdCount(/* adGroupIndex= */ 1, /* adCount= */ 1)
+            .withAdDurationsUs(/* adGroupIndex= */ 0, /* adDurationsUs...= */ 10_000_000L)
+            .withAdDurationsUs(/* adGroupIndex= */ 1, /* adDurationsUs...= */ 5_000_000L);
+
+    assertThat(
+            adPlaybackState
+                .withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ true)
+                .endsWithLivePostrollPlaceHolder())
+        .isTrue();
+    assertThat(
+            adPlaybackState
+                .withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ true)
+                .endsWithLivePostrollPlaceHolder(/* isServerSideInserted= */ true))
+        .isTrue();
+    assertThat(
+            adPlaybackState
+                .withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ true)
+                .endsWithLivePostrollPlaceHolder(/* isServerSideInserted= */ false))
+        .isFalse();
+
+    assertThat(
+            adPlaybackState
+                .withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ false)
+                .endsWithLivePostrollPlaceHolder())
+        .isTrue();
+    assertThat(
+            adPlaybackState
+                .withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ false)
+                .endsWithLivePostrollPlaceHolder(/* isServerSideInserted= */ false))
+        .isTrue();
+    assertThat(
+            adPlaybackState
+                .withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ false)
+                .endsWithLivePostrollPlaceHolder(/* isServerSideInserted= */ true))
+        .isFalse();
+  }
+
+  @Test
+  public void endsWithLivePostrollPlaceHolder_emptyAdPlaybackState_postrollNotDetected() {
+    assertThat(AdPlaybackState.NONE.endsWithLivePostrollPlaceHolder()).isFalse();
+    assertThat(new AdPlaybackState("adsId").endsWithLivePostrollPlaceHolder()).isFalse();
   }
 
   @Test
@@ -633,5 +918,177 @@ public class AdPlaybackStateTest {
             state.getAdGroupIndexAfterPositionUs(
                 /* positionUs= */ C.TIME_END_OF_SOURCE, /* periodDurationUs= */ 5000))
         .isEqualTo(C.INDEX_UNSET);
+  }
+
+  @Test
+  public void
+      getAdGroupIndexAfterPositionUs_withServerSidePostrollPlaceholderForLive_placeholderAsNextAdGroupIndex() {
+    AdPlaybackState state =
+        new AdPlaybackState(/* adsId= */ new Object(), /* adGroupTimesUs...= */ 2000)
+            .withIsServerSideInserted(/* adGroupIndex= */ 0, /* isServerSideInserted= */ true)
+            .withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 1)
+            .withPlayedAd(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0)
+            .withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ true);
+
+    assertThat(
+            state.getAdGroupIndexAfterPositionUs(
+                /* positionUs= */ 1999, /* periodDurationUs= */ 5000))
+        .isEqualTo(0);
+    assertThat(
+            state.getAdGroupIndexAfterPositionUs(
+                /* positionUs= */ 2000, /* periodDurationUs= */ C.TIME_UNSET))
+        .isEqualTo(1);
+    assertThat(
+            state.getAdGroupIndexAfterPositionUs(
+                /* positionUs= */ 2000, /* periodDurationUs= */ 5000))
+        .isEqualTo(1);
+    assertThat(
+            state.getAdGroupIndexAfterPositionUs(
+                /* positionUs= */ C.TIME_END_OF_SOURCE, /* periodDurationUs= */ C.TIME_UNSET))
+        .isEqualTo(C.INDEX_UNSET);
+    assertThat(
+            state.getAdGroupIndexAfterPositionUs(
+                /* positionUs= */ C.TIME_END_OF_SOURCE, /* periodDurationUs= */ 5000))
+        .isEqualTo(C.INDEX_UNSET);
+  }
+
+  @Test
+  public void
+      getAdGroupIndexForPositionUs_withServerSidePostrollPlaceholderForLive_ignoresPlaceholder() {
+    AdPlaybackState state =
+        new AdPlaybackState("adsId", /* adGroupTimesUs...= */ 0L, 5_000_000L)
+            .withIsServerSideInserted(/* adGroupIndex= */ 0, /* isServerSideInserted= */ true)
+            .withIsServerSideInserted(/* adGroupIndex= */ 1, /* isServerSideInserted= */ true)
+            .withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 1)
+            .withAdCount(/* adGroupIndex= */ 1, /* adCount= */ 1)
+            .withPlayedAd(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0)
+            .withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ true);
+
+    assertThat(
+            state.getAdGroupIndexForPositionUs(
+                /* positionUs= */ 4_999_999L, /* periodDurationUs= */ 10_000_000L))
+        .isEqualTo(C.INDEX_UNSET);
+    assertThat(
+            state.getAdGroupIndexForPositionUs(
+                /* positionUs= */ 4_999_999L, /* periodDurationUs= */ C.TIME_UNSET))
+        .isEqualTo(C.INDEX_UNSET);
+    assertThat(
+            state.getAdGroupIndexForPositionUs(
+                /* positionUs= */ 5_000_000L, /* periodDurationUs= */ 10_000_000L))
+        .isEqualTo(1);
+    assertThat(
+            state.getAdGroupIndexForPositionUs(
+                /* positionUs= */ 5_000_000L, /* periodDurationUs= */ C.TIME_UNSET))
+        .isEqualTo(1);
+    assertThat(
+            state.getAdGroupIndexForPositionUs(
+                /* positionUs= */ C.TIME_END_OF_SOURCE, /* periodDurationUs= */ 10_000_000L))
+        .isEqualTo(1);
+    assertThat(
+            state.getAdGroupIndexForPositionUs(
+                /* positionUs= */ C.TIME_END_OF_SOURCE, /* periodDurationUs= */ C.TIME_UNSET))
+        .isEqualTo(1);
+  }
+
+  @Test
+  public void
+      getAdGroupIndexForPositionUs_withClientSidePostrollPlaceholderForLive_ignoresPlaceholder() {
+    AdPlaybackState state =
+        new AdPlaybackState("adsId", /* adGroupTimesUs...= */ 0L, 5_000_000L)
+            .withIsServerSideInserted(/* adGroupIndex= */ 0, /* isServerSideInserted= */ true)
+            .withIsServerSideInserted(/* adGroupIndex= */ 1, /* isServerSideInserted= */ true)
+            .withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 1)
+            .withAdCount(/* adGroupIndex= */ 1, /* adCount= */ 1)
+            .withPlayedAd(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0)
+            .withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ false);
+
+    assertThat(
+            state.getAdGroupIndexForPositionUs(
+                /* positionUs= */ 4_999_999L, /* periodDurationUs= */ 10_000_000L))
+        .isEqualTo(C.INDEX_UNSET);
+    assertThat(
+            state.getAdGroupIndexForPositionUs(
+                /* positionUs= */ 4_999_999L, /* periodDurationUs= */ C.TIME_UNSET))
+        .isEqualTo(C.INDEX_UNSET);
+    assertThat(
+            state.getAdGroupIndexForPositionUs(
+                /* positionUs= */ 5_000_000L, /* periodDurationUs= */ 10_000_000L))
+        .isEqualTo(1);
+    assertThat(
+            state.getAdGroupIndexForPositionUs(
+                /* positionUs= */ 5_000_000L, /* periodDurationUs= */ C.TIME_UNSET))
+        .isEqualTo(1);
+    assertThat(
+            state.getAdGroupIndexForPositionUs(
+                /* positionUs= */ C.TIME_END_OF_SOURCE, /* periodDurationUs= */ 10_000_000L))
+        .isEqualTo(1);
+    assertThat(
+            state.getAdGroupIndexForPositionUs(
+                /* positionUs= */ C.TIME_END_OF_SOURCE, /* periodDurationUs= */ C.TIME_UNSET))
+        .isEqualTo(1);
+  }
+
+  @Test
+  public void
+      getAdGroupIndexForPositionUs_withOnlyServerSidePostrollPlaceholderForLive_ignoresPlaceholder() {
+    AdPlaybackState state =
+        new AdPlaybackState("adsId")
+            .withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ true);
+
+    assertThat(
+            state.getAdGroupIndexForPositionUs(
+                /* positionUs= */ 5_000_000L, /* periodDurationUs= */ 10_000_000L))
+        .isEqualTo(C.INDEX_UNSET);
+    assertThat(
+            state.getAdGroupIndexForPositionUs(
+                /* positionUs= */ 5_000_000L, /* periodDurationUs= */ C.TIME_UNSET))
+        .isEqualTo(C.INDEX_UNSET);
+    assertThat(
+            state.getAdGroupIndexForPositionUs(
+                /* positionUs= */ 10_000_001L, /* periodDurationUs= */ 10_000_000L))
+        .isEqualTo(C.INDEX_UNSET);
+    assertThat(
+            state.getAdGroupIndexForPositionUs(
+                /* positionUs= */ C.TIME_END_OF_SOURCE, /* periodDurationUs= */ 10_000_000L))
+        .isEqualTo(C.INDEX_UNSET);
+    assertThat(
+            state.getAdGroupIndexForPositionUs(
+                /* positionUs= */ C.TIME_END_OF_SOURCE, /* periodDurationUs= */ C.TIME_UNSET))
+        .isEqualTo(C.INDEX_UNSET);
+  }
+
+  @Test
+  public void getAdIndexOfAdId() {
+    AdPlaybackState state =
+        new AdPlaybackState("adsId", /* adGroupTimesUs...= */ 0L, 1L, 2L)
+            .withAdCount(0, 1)
+            .withAdCount(1, 3)
+            .withAdCount(2, 2)
+            .withAdId(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0, "ad-0-0")
+            .withAdId(/* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 0, "ad-1-0")
+            .withAdId(/* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 2, "ad-1-2")
+            .withAdId(/* adGroupIndex= */ 2, /* adIndexInAdGroup= */ 0, "ad-2-0")
+            .withAdId(/* adGroupIndex= */ 2, /* adIndexInAdGroup= */ 1, "ad-2-1")
+            .withRemovedAdGroupCount(/* removedAdGroupCount= */ 1);
+
+    assertThat(state.getAdIndexOfAdId(/* adGroupIndex= */ 0, "ad-0-0")).isEqualTo(C.INDEX_UNSET);
+    assertThat(state.getAdIndexOfAdId(/* adGroupIndex= */ 1, "ad-1-0")).isEqualTo(0);
+    assertThat(state.getAdIndexOfAdId(/* adGroupIndex= */ 1, "ad-1-1")).isEqualTo(C.INDEX_UNSET);
+    assertThat(state.getAdIndexOfAdId(/* adGroupIndex= */ 1, "ad-1-2")).isEqualTo(2);
+    assertThat(state.getAdIndexOfAdId(/* adGroupIndex= */ 2, "ad-2-0")).isEqualTo(0);
+    assertThat(state.getAdIndexOfAdId(/* adGroupIndex= */ 2, "ad-2-1")).isEqualTo(1);
+  }
+
+  @Test
+  public void fromBundle_withNullElements_correctlyBundledUnbundled() {
+    AdPlaybackState.AdGroup adGroup =
+        new AdPlaybackState.AdGroup(/* timeUs= */ 0L)
+            .withAdCount(3)
+            .withAdId(/* adId= */ "0", /* index= */ 0)
+            .withAdId(/* adId= */ "2", /* index= */ 2);
+
+    // Asserts that the missing @NullableType in fromBundle() isn't harmful.
+    assertThat(AdPlaybackState.AdGroup.fromBundle(adGroup.toBundle()).ids[1]).isNull();
+    assertThat(AdPlaybackState.AdGroup.fromBundle(adGroup.toBundle())).isEqualTo(adGroup);
   }
 }

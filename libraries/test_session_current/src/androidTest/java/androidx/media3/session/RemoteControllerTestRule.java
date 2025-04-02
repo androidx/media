@@ -76,7 +76,7 @@ public final class RemoteControllerTestRule extends ExternalResource {
    */
   public RemoteMediaController createRemoteController(SessionToken token) throws RemoteException {
     return createRemoteController(
-        token, /* waitForConnection= */ true, /* connectionHints= */ null);
+        token, /* waitForConnection= */ true, /* connectionHints= */ Bundle.EMPTY);
   }
 
   /** Creates {@link RemoteMediaController} from {@link SessionToken}. */
@@ -93,10 +93,10 @@ public final class RemoteControllerTestRule extends ExternalResource {
    * Creates {@link RemoteMediaBrowser} from {@link SessionToken} with default options waiting for
    * connection.
    */
-  public RemoteMediaBrowser createRemoteBrowser(SessionToken token) throws RemoteException {
+  public RemoteMediaBrowser createRemoteBrowser(SessionToken token, Bundle connectionHints)
+      throws RemoteException {
     RemoteMediaBrowser browser =
-        new RemoteMediaBrowser(
-            context, token, /* waitForConnection= */ true, /* connectionHints= */ null);
+        new RemoteMediaBrowser(context, token, /* waitForConnection= */ true, connectionHints);
     controllers.add(browser);
     return browser;
   }

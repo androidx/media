@@ -15,11 +15,22 @@
  */
 package androidx.media3.exoplayer.source;
 
+import androidx.annotation.Nullable;
 import androidx.media3.common.Player;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.UnstableApi;
 
-/** An overridable {@link Timeline} implementation forwarding all methods to another timeline. */
+/**
+ * An overridable {@link Timeline} implementation forwarding methods to another timeline.
+ *
+ * <p>The following methods call through to {@code super} instead of the {@code timeline} delegate:
+ *
+ * <ul>
+ *   <li>{@link #getPeriodByUid(Object, Period)}
+ *   <li>{@link #equals(Object)}
+ *   <li>{@link #hashCode()}
+ * </ul>
+ */
 @UnstableApi
 public abstract class ForwardingTimeline extends Timeline {
 
@@ -67,6 +78,11 @@ public abstract class ForwardingTimeline extends Timeline {
   }
 
   @Override
+  public final Period getPeriodByUid(Object periodUid, Period period) {
+    return super.getPeriodByUid(periodUid, period);
+  }
+
+  @Override
   public Period getPeriod(int periodIndex, Period period, boolean setIds) {
     return timeline.getPeriod(periodIndex, period, setIds);
   }
@@ -79,5 +95,15 @@ public abstract class ForwardingTimeline extends Timeline {
   @Override
   public Object getUidOfPeriod(int periodIndex) {
     return timeline.getUidOfPeriod(periodIndex);
+  }
+
+  @Override
+  public final boolean equals(@Nullable Object obj) {
+    return super.equals(obj);
+  }
+
+  @Override
+  public final int hashCode() {
+    return super.hashCode();
   }
 }

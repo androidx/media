@@ -17,9 +17,9 @@ package androidx.media3.exoplayer.drm;
 
 import android.media.MediaCodec;
 import android.media.MediaCrypto;
+import android.os.Build;
 import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import androidx.media3.decoder.CryptoConfig;
 import java.util.UUID;
 
@@ -36,26 +36,39 @@ public final class FrameworkCryptoConfig implements CryptoConfig {
    * configuration.
    */
   public static final boolean WORKAROUND_DEVICE_NEEDS_KEYS_TO_CONFIGURE_CODEC =
-      "Amazon".equals(Util.MANUFACTURER)
-          && ("AFTM".equals(Util.MODEL) // Fire TV Stick Gen 1
-              || "AFTB".equals(Util.MODEL)); // Fire TV Gen 1
+      "Amazon".equals(Build.MANUFACTURER)
+          && ("AFTM".equals(Build.MODEL) // Fire TV Stick Gen 1
+              || "AFTB".equals(Build.MODEL)); // Fire TV Gen 1
 
   /** The DRM scheme UUID. */
   public final UUID uuid;
+
   /** The DRM session id. */
   public final byte[] sessionId;
-  /**
-   * Whether to allow use of insecure decoder components even if the underlying platform says
-   * otherwise.
-   */
-  public final boolean forceAllowInsecureDecoderComponents;
 
   /**
+   * @deprecated Use {@link ExoMediaDrm#requiresSecureDecoder} instead, which incorporates this
+   *     logic.
+   */
+  @Deprecated public final boolean forceAllowInsecureDecoderComponents;
+
+  /**
+   * Constructs an instance.
+   *
    * @param uuid The DRM scheme UUID.
    * @param sessionId The DRM session id.
-   * @param forceAllowInsecureDecoderComponents Whether to allow use of insecure decoder components
-   *     even if the underlying platform says otherwise.
    */
+  @SuppressWarnings("deprecation") // Delegating to deprecated constructor
+  public FrameworkCryptoConfig(UUID uuid, byte[] sessionId) {
+    this(uuid, sessionId, /* forceAllowInsecureDecoderComponents= */ false);
+  }
+
+  /**
+   * @deprecated Use {@link FrameworkCryptoConfig#FrameworkCryptoConfig(UUID, byte[])} instead, and
+   *     {@link ExoMediaDrm#requiresSecureDecoder} for the secure decoder handling logic.
+   */
+  @SuppressWarnings("deprecation") // Setting deprecated field
+  @Deprecated
   public FrameworkCryptoConfig(
       UUID uuid, byte[] sessionId, boolean forceAllowInsecureDecoderComponents) {
     this.uuid = uuid;

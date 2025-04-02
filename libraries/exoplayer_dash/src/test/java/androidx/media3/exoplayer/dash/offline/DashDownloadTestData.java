@@ -16,15 +16,15 @@
 package androidx.media3.exoplayer.dash.offline;
 
 import android.net.Uri;
-import com.google.common.base.Charsets;
+import java.nio.charset.StandardCharsets;
 
 /** Data for DASH downloading tests. */
-/* package */ interface DashDownloadTestData {
+/* package */ final class DashDownloadTestData {
 
-  String TEST_ID = "test.mpd";
-  Uri TEST_MPD_URI = Uri.parse(TEST_ID);
+  public static final String TEST_ID = "test.mpd";
+  public static final Uri TEST_MPD_URI = Uri.parse(TEST_ID);
 
-  byte[] TEST_MPD =
+  public static final byte[] TEST_MPD =
       ("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
               + "<MPD xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" type=\"static\" "
               + "    mediaPresentationDuration=\"PT31S\">\n"
@@ -86,9 +86,9 @@ import com.google.common.base.Charsets;
               + "        </AdaptationSet>\n"
               + "    </Period>\n"
               + "</MPD>")
-          .getBytes(Charsets.UTF_8);
+          .getBytes(StandardCharsets.UTF_8);
 
-  byte[] TEST_MPD_NO_INDEX =
+  public static final byte[] TEST_MPD_NO_INDEX =
       ("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
               + "<MPD xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" type=\"dynamic\">\n"
               + "    <Period start=\"PT6462826.784S\" >\n"
@@ -99,5 +99,7 @@ import com.google.common.base.Charsets;
               + "        </AdaptationSet>\n"
               + "    </Period>\n"
               + "</MPD>")
-          .getBytes(Charsets.UTF_8);
+          .getBytes(StandardCharsets.UTF_8);
+
+  private DashDownloadTestData() {}
 }

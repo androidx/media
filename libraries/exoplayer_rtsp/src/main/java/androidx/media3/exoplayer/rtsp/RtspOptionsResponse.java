@@ -15,15 +15,14 @@
  */
 package androidx.media3.exoplayer.rtsp;
 
-import androidx.media3.common.util.UnstableApi;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
 
 /** Represents an RTSP OPTIONS response. */
-@UnstableApi
 /* package */ final class RtspOptionsResponse {
   /** The response's status code. */
   public final int status;
+
   /**
    * A list of methods supported by the RTSP server, encoded as {@link RtspRequest.Method}; or an
    * empty list if the server does not disclose the supported methods.

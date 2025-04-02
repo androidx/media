@@ -18,6 +18,7 @@ package androidx.media3.exoplayer.trackselection;
 import static java.lang.Math.max;
 
 import android.os.SystemClock;
+import androidx.annotation.CallSuper;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -35,20 +36,27 @@ public abstract class BaseTrackSelection implements ExoTrackSelection {
 
   /** The selected {@link TrackGroup}. */
   protected final TrackGroup group;
+
   /** The number of selected tracks within the {@link TrackGroup}. Always greater than zero. */
   protected final int length;
+
   /** The indices of the selected tracks in {@link #group}, in order of decreasing bandwidth. */
   protected final int[] tracks;
 
   /** The type of the selection. */
   private final @Type int type;
+
   /** The {@link Format}s of the selected tracks, in order of decreasing bandwidth. */
   private final Format[] formats;
+
   /** Selected track exclusion timestamps, in order of decreasing bandwidth. */
   private final long[] excludeUntilTimes;
 
   // Lazily initialized hashcode.
   private int hashCode;
+
+  /** The current value of whether playback will proceed when ready. */
+  private boolean playWhenReady;
 
   /**
    * @param group The {@link TrackGroup}. Must not be null.
@@ -83,6 +91,7 @@ public abstract class BaseTrackSelection implements ExoTrackSelection {
       this.tracks[i] = group.indexOf(formats[i]);
     }
     excludeUntilTimes = new long[length];
+    playWhenReady = false;
   }
 
   // TrackSelection implementation.
@@ -166,11 +175,11 @@ public abstract class BaseTrackSelection implements ExoTrackSelection {
   }
 
   @Override
-  public boolean blacklist(int index, long exclusionDurationMs) {
+  public boolean excludeTrack(int index, long exclusionDurationMs) {
     long nowMs = SystemClock.elapsedRealtime();
-    boolean canExclude = isBlacklisted(index, nowMs);
+    boolean canExclude = isTrackExcluded(index, nowMs);
     for (int i = 0; i < length && !canExclude; i++) {
-      canExclude = i != index && !isBlacklisted(i, nowMs);
+      canExclude = i != index && !isTrackExcluded(i, nowMs);
     }
     if (!canExclude) {
       return false;
@@ -183,8 +192,19 @@ public abstract class BaseTrackSelection implements ExoTrackSelection {
   }
 
   @Override
-  public boolean isBlacklisted(int index, long nowMs) {
+  public boolean isTrackExcluded(int index, long nowMs) {
     return excludeUntilTimes[index] > nowMs;
+  }
+
+  @CallSuper
+  @Override
+  public void onPlayWhenReadyChanged(boolean playWhenReady) {
+    this.playWhenReady = playWhenReady;
+  }
+
+  /** Returns whether the playback using this track selection will proceed when ready. */
+  protected final boolean getPlayWhenReady() {
+    return playWhenReady;
   }
 
   // Object overrides.
@@ -197,9 +217,7 @@ public abstract class BaseTrackSelection implements ExoTrackSelection {
     return hashCode;
   }
 
-  // Track groups are compared by identity not value, as distinct groups may have the same value.
   @Override
-  @SuppressWarnings({"ReferenceEquality", "EqualsGetClass"})
   public boolean equals(@Nullable Object obj) {
     if (this == obj) {
       return true;
@@ -208,6 +226,6 @@ public abstract class BaseTrackSelection implements ExoTrackSelection {
       return false;
     }
     BaseTrackSelection other = (BaseTrackSelection) obj;
-    return group == other.group && Arrays.equals(tracks, other.tracks);
+    return group.equals(other.group) && Arrays.equals(tracks, other.tracks);
   }
 }

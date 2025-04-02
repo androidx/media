@@ -62,8 +62,8 @@ public final class MainActivity extends Activity {
 
   private boolean isOwner;
   @Nullable private LegacyPlayerControlView playerControlView;
-  @Nullable private SurfaceView fullScreenView;
-  @Nullable private SurfaceView nonFullScreenView;
+  @Nullable private SurfaceView fullscreenView;
+  @Nullable private SurfaceView nonFullscreenView;
   @Nullable private SurfaceView currentOutputView;
 
   @Nullable private static ExoPlayer player;
@@ -75,13 +75,13 @@ public final class MainActivity extends Activity {
     super.onCreate(savedInstanceState);
     setContentView(R.layout.main_activity);
     playerControlView = findViewById(R.id.player_control_view);
-    fullScreenView = findViewById(R.id.full_screen_view);
-    fullScreenView.setOnClickListener(
+    fullscreenView = findViewById(R.id.full_screen_view);
+    fullscreenView.setOnClickListener(
         v -> {
-          setCurrentOutputView(nonFullScreenView);
-          Assertions.checkNotNull(fullScreenView).setVisibility(View.GONE);
+          setCurrentOutputView(nonFullscreenView);
+          Assertions.checkNotNull(fullscreenView).setVisibility(View.GONE);
         });
-    attachSurfaceListener(fullScreenView);
+    attachSurfaceListener(fullscreenView);
     isOwner = getIntent().getBooleanExtra(OWNER_EXTRA, /* defaultValue= */ true);
     GridLayout gridLayout = findViewById(R.id.grid_layout);
     for (int i = 0; i < 9; i++) {
@@ -97,8 +97,8 @@ public final class MainActivity extends Activity {
         button.setText(getString(R.string.full_screen_label));
         button.setOnClickListener(
             v -> {
-              setCurrentOutputView(fullScreenView);
-              Assertions.checkNotNull(fullScreenView).setVisibility(View.VISIBLE);
+              setCurrentOutputView(fullscreenView);
+              Assertions.checkNotNull(fullscreenView).setVisibility(View.VISIBLE);
             });
       } else if (i == 2) {
         Button button = new Button(/* context= */ this);
@@ -116,10 +116,10 @@ public final class MainActivity extends Activity {
         surfaceView.setOnClickListener(
             v -> {
               setCurrentOutputView(surfaceView);
-              nonFullScreenView = surfaceView;
+              nonFullscreenView = surfaceView;
             });
-        if (nonFullScreenView == null) {
-          nonFullScreenView = surfaceView;
+        if (nonFullscreenView == null) {
+          nonFullscreenView = surfaceView;
         }
       }
       gridLayout.addView(view);
@@ -144,7 +144,7 @@ public final class MainActivity extends Activity {
       initializePlayer();
     }
 
-    setCurrentOutputView(nonFullScreenView);
+    setCurrentOutputView(nonFullscreenView);
 
     LegacyPlayerControlView playerControlView = Assertions.checkNotNull(this.playerControlView);
     playerControlView.setPlayer(player);

@@ -9,14 +9,17 @@ numberOfTracks = 1
 track 0:
   total output bytes = 163840
   sample count = 64
+  track duration = 2048000
   format 0:
     peakBitrate = 640000
     id = 1
+    containerMimeType = audio/mp4
     sampleMimeType = audio/eac3-joc
     maxInputSize = 2590
     channelCount = 6
     sampleRate = 48000
     language = und
+    metadata = entries=[Mp4Timestamp: creation time=3662086940, modification time=3662086940, timescale=48000]
   sample 0:
     time = 0
     flags = 1

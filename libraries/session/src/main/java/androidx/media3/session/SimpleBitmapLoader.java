@@ -17,11 +17,13 @@ package androidx.media3.session;
 
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
+import static androidx.media3.common.util.Util.isBitmapFactorySupportedMimeType;
 
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
 import androidx.annotation.Nullable;
+import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
@@ -38,17 +40,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * A simple bitmap loader that delegates all tasks to an executor and supports fetching images from
- * URIs with {@code file}, {@code http} and {@code https} schemes.
- *
- * <p>Loading tasks are delegated to an {@link ExecutorService} (or {@link
- * ListeningExecutorService}) defined during construction. If no executor service is defined, all
- * tasks are delegated to a single-thread executor service that is shared between instances of this
- * class.
- *
- * <p>For HTTP(S) transfers, this class reads a resource only when the endpoint responds with an
- * {@code HTTP 200} after sending the HTTP request.
+ * @deprecated Use {@link androidx.media3.datasource.DataSourceBitmapLoader} instead.
  */
+@Deprecated
 @UnstableApi
 public final class SimpleBitmapLoader implements BitmapLoader {
 
@@ -71,6 +65,11 @@ public final class SimpleBitmapLoader implements BitmapLoader {
   /** Creates an instance that delegates loading tasks to the {@code executorService}. */
   public SimpleBitmapLoader(ExecutorService executorService) {
     this.executorService = MoreExecutors.listeningDecorator(executorService);
+  }
+
+  @Override
+  public boolean supportsMimeType(String mimeType) {
+    return isBitmapFactorySupportedMimeType(mimeType);
   }
 
   @Override
