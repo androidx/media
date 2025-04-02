@@ -1560,7 +1560,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
     }
     this.scrubbingModeEnabled = scrubbingModeEnabled;
     internalPlayer.setScrubbingModeEnabled(scrubbingModeEnabled);
-    updatePlayWhenReady(playbackInfo.playWhenReady, playbackInfo.playWhenReadyChangeReason);
+    maybeUpdatePlaybackSuppressionReason();
   }
 
   @Override
@@ -2740,6 +2740,10 @@ import java.util.concurrent.CopyOnWriteArraySet;
     }
   }
 
+  private void maybeUpdatePlaybackSuppressionReason() {
+    updatePlayWhenReady(playbackInfo.playWhenReady, playbackInfo.playWhenReadyChangeReason);
+  }
+
   private void updatePlayWhenReady(
       boolean playWhenReady, @Player.PlayWhenReadyChangeReason int playWhenReadyChangeReason) {
     @PlaybackSuppressionReason
@@ -2901,10 +2905,10 @@ import java.util.concurrent.CopyOnWriteArraySet;
     if (isSelectedOutputSuitableForPlayback) {
       if (playbackInfo.playbackSuppressionReason
           == Player.PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT) {
-        updatePlayWhenReady(playbackInfo.playWhenReady, PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST);
+        maybeUpdatePlaybackSuppressionReason();
       }
     } else {
-      updatePlayWhenReady(playbackInfo.playWhenReady, PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST);
+      maybeUpdatePlaybackSuppressionReason();
     }
   }
 
