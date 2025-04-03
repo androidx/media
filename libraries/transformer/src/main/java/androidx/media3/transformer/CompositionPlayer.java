@@ -77,6 +77,7 @@ import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.util.EventLogger;
 import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
+import androidx.media3.exoplayer.video.VideoFrameMetadataListener;
 import androidx.media3.exoplayer.video.VideoFrameReleaseControl;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -320,6 +321,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
   private @MonotonicNonNull Composition composition;
   private @MonotonicNonNull Size videoOutputSize;
   private @MonotonicNonNull PlaybackVideoGraphWrapper playbackVideoGraphWrapper;
+  private @MonotonicNonNull VideoFrameMetadataListener pendingVideoFrameMetadatListener;
 
   private long compositionDurationUs;
   private boolean playWhenReady;
@@ -606,6 +608,15 @@ public final class CompositionPlayer extends SimpleBasePlayer
     return Futures.immediateVoidFuture();
   }
 
+  /** Sets the {@link VideoFrameMetadataListener}. */
+  public void setVideoFrameMetadataListener(VideoFrameMetadataListener videoFrameMetadataListener) {
+    if (players.isEmpty()) {
+      pendingVideoFrameMetadatListener = videoFrameMetadataListener;
+      return;
+    }
+    players.get(0).setVideoFrameMetadataListener(videoFrameMetadataListener);
+  }
+
   // CompositionPlayerInternal.Listener methods
 
   @Override
@@ -770,6 +781,9 @@ public final class CompositionPlayer extends SimpleBasePlayer
 
       if (i == 0) {
         setPrimaryPlayerSequence(player, editedMediaItemSequence);
+        if (pendingVideoFrameMetadatListener != null) {
+          player.setVideoFrameMetadataListener(pendingVideoFrameMetadatListener);
+        }
       } else {
         setSecondaryPlayerSequence(player, editedMediaItemSequence, primarySequenceDurationUs);
       }
