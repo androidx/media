@@ -756,8 +756,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     private void createEncodedSampleExporter(@C.TrackType int trackType) {
       checkState(assetLoaderInputTracker.getSampleExporter(trackType) == null);
       checkArgument(
-          trackType != TRACK_TYPE_AUDIO || !composition.sequences.get(sequenceIndex).hasGaps(),
-          "Gaps can not be transmuxed.");
+          !composition.sequences.get(sequenceIndex).hasGaps(), "Gaps can not be transmuxed.");
       assetLoaderInputTracker.registerSampleExporter(
           trackType,
           new EncodedSampleExporter(

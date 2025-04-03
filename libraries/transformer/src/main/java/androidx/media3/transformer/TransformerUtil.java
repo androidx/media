@@ -18,7 +18,6 @@ package androidx.media3.transformer;
 
 import static androidx.media3.common.ColorInfo.SDR_BT709_LIMITED;
 import static androidx.media3.common.ColorInfo.isTransferHdr;
-import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.exoplayer.mediacodec.MediaCodecUtil.getAlternativeCodecMimeType;
 import static androidx.media3.transformer.Composition.HDR_MODE_KEEP_HDR;
 import static androidx.media3.transformer.Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL;
@@ -91,8 +90,6 @@ public final class TransformerUtil {
       MuxerWrapper muxerWrapper) {
     if (composition.sequences.size() > 1
         || composition.sequences.get(sequenceIndex).editedMediaItems.size() > 1) {
-      checkArgument(
-          !composition.hasGaps() || !composition.transmuxAudio, "Gaps can not be transmuxed.");
       return !composition.transmuxAudio;
     }
     if (composition.hasGaps()) {
