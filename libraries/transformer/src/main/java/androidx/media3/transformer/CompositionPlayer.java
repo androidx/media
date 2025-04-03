@@ -336,7 +336,6 @@ public final class CompositionPlayer extends SimpleBasePlayer
   private LivePositionSupplier positionSupplier;
   private LivePositionSupplier bufferedPositionSupplier;
   private LivePositionSupplier totalBufferedDurationSupplier;
-  private boolean isSeeking;
 
   // "this" reference for position suppliers.
   @SuppressWarnings("initialization:methodref.receiver.bound.invalid")
@@ -506,9 +505,9 @@ public final class CompositionPlayer extends SimpleBasePlayer
     playWhenReadyChangeReason = PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST;
     if (playbackState == STATE_READY) {
       if (playWhenReady) {
-        finalAudioSink.play();
+        checkStateNotNull(compositionPlayerInternal).startRendering();
       } else {
-        finalAudioSink.pause();
+        checkStateNotNull(compositionPlayerInternal).stopRendering();
       }
       for (int i = 0; i < players.size(); i++) {
         players.get(i).setPlayWhenReady(playWhenReady);
@@ -587,7 +586,9 @@ public final class CompositionPlayer extends SimpleBasePlayer
   @Override
   protected ListenableFuture<?> handleSetVolume(float volume) {
     this.volume = Util.constrainValue(volume, /* min= */ 0.0f, /* max= */ 1.0f);
-    finalAudioSink.setVolume(this.volume);
+    if (compositionPlayerInternal != null) {
+      compositionPlayerInternal.setVolume(this.volume);
+    }
     return Futures.immediateVoidFuture();
   }
 
@@ -597,7 +598,6 @@ public final class CompositionPlayer extends SimpleBasePlayer
     resetLivePositionSuppliers();
     CompositionPlayerInternal compositionPlayerInternal =
         checkStateNotNull(this.compositionPlayerInternal);
-    isSeeking = true;
     compositionPlayerInternal.startSeek(positionMs);
     for (int i = 0; i < players.size(); i++) {
       players.get(i).seekTo(positionMs);
@@ -683,22 +683,17 @@ public final class CompositionPlayer extends SimpleBasePlayer
         for (int i = 0; i < players.size(); i++) {
           players.get(i).setPlayWhenReady(false);
         }
-        if (!isSeeking) {
-          // The finalAudioSink cannot be paused more than once. The audio pipeline pauses it during
-          // a seek, so don't pause here when seeking.
-          finalAudioSink.pause();
-        }
+        checkStateNotNull(compositionPlayerInternal).stopRendering();
       }
     } else if (endedCount == players.size()) {
       playbackState = STATE_ENDED;
     } else {
       playbackState = STATE_READY;
-      isSeeking = false;
       if (oldPlaybackState != STATE_READY && playWhenReady) {
         for (int i = 0; i < players.size(); i++) {
           players.get(i).setPlayWhenReady(true);
         }
-        finalAudioSink.play();
+        checkStateNotNull(compositionPlayerInternal).startRendering();
       }
     }
   }
@@ -799,6 +794,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
             playbackVideoGraphWrapper,
             /* listener= */ this,
             compositionInternalListenerHandler);
+    compositionPlayerInternal.setVolume(volume);
   }
 
   private void setPrimaryPlayerSequence(ExoPlayer player, EditedMediaItemSequence sequence) {

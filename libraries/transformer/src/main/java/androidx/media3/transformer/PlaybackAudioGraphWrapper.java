@@ -47,6 +47,7 @@ import java.util.Objects;
   private AudioFormat outputAudioFormat;
   private long outputFramesWritten;
   private long seekPositionUs;
+  private boolean isRenderingStarted;
 
   /**
    * Creates an instance.
@@ -135,6 +136,24 @@ import java.util.Objects;
         + sampleCountToDurationUs(outputFramesWritten, outputAudioFormat.sampleRate);
   }
 
+  public void startRendering() {
+    finalAudioSink.play();
+    isRenderingStarted = true;
+  }
+
+  public void stopRendering() {
+    if (!isRenderingStarted) {
+      // The finalAudioSink cannot be paused more than once.
+      return;
+    }
+    finalAudioSink.pause();
+    isRenderingStarted = false;
+  }
+
+  public void setVolume(float volume) {
+    finalAudioSink.setVolume(volume);
+  }
+
   /**
    * Handles the steps that need to be executed for a seek before seeking the upstream players.
    *
@@ -144,7 +163,7 @@ import java.util.Objects;
     if (positionUs == C.TIME_UNSET) {
       positionUs = 0;
     }
-    finalAudioSink.pause();
+    stopRendering();
     audioGraph.blockInput();
     audioGraph.setPendingStartTimeUs(positionUs);
     audioGraph.flush();
