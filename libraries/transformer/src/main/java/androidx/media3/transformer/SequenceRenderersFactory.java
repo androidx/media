@@ -576,7 +576,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     @Override
     protected void onStarted() throws ExoPlaybackException {
       super.onStarted();
-      videoSink.onStarted();
+      videoSink.startRendering();
     }
 
     @Override
@@ -595,7 +595,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     @Override
     protected void onStopped() {
       super.onStopped();
-      videoSink.onStopped();
+      videoSink.stopRendering();
     }
 
     @Override

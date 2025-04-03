@@ -139,11 +139,11 @@ public interface VideoSink {
    */
   int RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED = 2;
 
-  /** Called when rendering starts. */
-  void onStarted();
+  /** Starts rendering to the output surface. */
+  void startRendering();
 
-  /** Called when rendering stops. */
-  void onStopped();
+  /** Stops rendering to the output surface. */
+  void stopRendering();
 
   /**
    * Sets a {@link Listener} on this sink. Callbacks are triggered on the supplied {@link Executor}.
@@ -263,8 +263,8 @@ public interface VideoSink {
       List<Effect> videoEffects);
 
   /**
-   * Allows the sink to release the first frame even if rendering is not {@linkplain #onStarted()
-   * started}.
+   * Allows the sink to release the first frame even if rendering is not {@linkplain
+   * #startRendering() started}.
    *
    * <p>This is used to update the {@link FirstFrameReleaseInstruction} of the {@linkplain
    * #onInputStreamChanged(int, Format, long, int, List) stream} that is currently being processed.

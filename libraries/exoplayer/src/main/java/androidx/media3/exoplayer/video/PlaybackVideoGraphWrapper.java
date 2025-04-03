@@ -701,13 +701,13 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     }
 
     @Override
-    public void onStarted() {
-      defaultVideoSink.onStarted();
+    public void startRendering() {
+      defaultVideoSink.startRendering();
     }
 
     @Override
-    public void onStopped() {
-      defaultVideoSink.onStopped();
+    public void stopRendering() {
+      defaultVideoSink.stopRendering();
     }
 
     @Override

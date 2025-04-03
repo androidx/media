@@ -78,12 +78,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   @Override
-  public void onStarted() {
+  public void startRendering() {
     videoFrameReleaseControl.onStarted();
   }
 
   @Override
-  public void onStopped() {
+  public void stopRendering() {
     videoFrameReleaseControl.onStopped();
   }
 

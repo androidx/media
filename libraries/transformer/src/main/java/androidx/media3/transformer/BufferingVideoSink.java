@@ -81,13 +81,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   @Override
-  public void onStarted() {
-    executeOrDelay(VideoSink::onStarted);
+  public void startRendering() {
+    executeOrDelay(VideoSink::startRendering);
   }
 
   @Override
-  public void onStopped() {
-    executeOrDelay(VideoSink::onStopped);
+  public void stopRendering() {
+    executeOrDelay(VideoSink::stopRendering);
   }
 
   @Override
