@@ -102,6 +102,11 @@ public final class DefaultAudioSink implements AudioSink {
     /** Returns a new {@link AudioTrack} for the given parameters. */
     AudioTrack getAudioTrack(
         AudioTrackConfig audioTrackConfig, AudioAttributes audioAttributes, int audioSessionId);
+
+    /** Returns the channel mask config for the given channel count. */
+    default int getAudioTrackChannelConfig(int channelCount) {
+      return Util.getAudioTrackChannelConfig(channelCount);
+    }
   }
 
   /**
@@ -731,7 +736,10 @@ public final class DefaultAudioSink implements AudioSink {
       outputMode = OUTPUT_MODE_PCM;
       outputEncoding = outputFormat.encoding;
       outputSampleRate = outputFormat.sampleRate;
-      outputChannelConfig = Util.getAudioTrackChannelConfig(outputFormat.channelCount);
+
+      outputChannelConfig =
+          audioTrackProvider.getAudioTrackChannelConfig(outputFormat.channelCount);
+
       outputPcmFrameSize = Util.getPcmFrameSize(outputEncoding, outputFormat.channelCount);
       enableAudioTrackPlaybackParams = preferAudioTrackPlaybackParams;
     } else {
@@ -748,7 +756,10 @@ public final class DefaultAudioSink implements AudioSink {
         outputMode = OUTPUT_MODE_OFFLOAD;
         outputEncoding =
             MimeTypes.getEncoding(checkNotNull(inputFormat.sampleMimeType), inputFormat.codecs);
-        outputChannelConfig = Util.getAudioTrackChannelConfig(inputFormat.channelCount);
+
+        outputChannelConfig =
+            audioTrackProvider.getAudioTrackChannelConfig(inputFormat.channelCount);
+
         // Offload requires AudioTrack playback parameters to apply speed changes quickly.
         enableAudioTrackPlaybackParams = true;
         enableOffloadGapless = audioOffloadSupport.isGaplessSupported;
