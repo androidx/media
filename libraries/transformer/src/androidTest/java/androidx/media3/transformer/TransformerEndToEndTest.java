@@ -501,6 +501,8 @@ public class TransformerEndToEndTest {
             .build()
             .run(testId, editedMediaItem);
 
+    Format format = retrieveTrackFormat(context, result.filePath, C.TRACK_TYPE_VIDEO);
+    assertThat(format.rotationDegrees).isEqualTo(90);
     assertThat(result.exportResult.width).isEqualTo(outputFormat.width);
   }
 
@@ -527,6 +529,8 @@ public class TransformerEndToEndTest {
             .build()
             .run(testId, editedMediaItem);
 
+    Format format = retrieveTrackFormat(context, result.filePath, C.TRACK_TYPE_VIDEO);
+    assertThat(format.rotationDegrees).isEqualTo(0);
     assertThat(result.exportResult.width).isEqualTo(inputFormat.width);
   }
 

@@ -148,7 +148,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final Object setMaxSequenceDurationUsLock;
   private final Object progressLock;
   private final ProgressHolder internalProgressHolder;
-  private final boolean portraitEncodingEnabled;
+  private final ImmutableList<Integer> allowedEncodingRotationDegrees;
   private final int maxFramesInEncoder;
 
   private boolean isDrainingExporters;
@@ -194,7 +194,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       AudioMixer.Factory audioMixerFactory,
       VideoFrameProcessor.Factory videoFrameProcessorFactory,
       Codec.EncoderFactory encoderFactory,
-      boolean portraitEncodingEnabled,
+      ImmutableList<Integer> allowedEncodingRotationDegrees,
       int maxFramesInEncoder,
       MuxerWrapper muxerWrapper,
       Listener listener,
@@ -207,7 +207,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.context = context;
     this.composition = composition;
     this.encoderFactory = new CapturingEncoderFactory(encoderFactory);
-    this.portraitEncodingEnabled = portraitEncodingEnabled;
+    this.allowedEncodingRotationDegrees = allowedEncodingRotationDegrees;
     this.maxFramesInEncoder = maxFramesInEncoder;
     this.listener = listener;
     this.applicationHandler = applicationHandler;
@@ -746,7 +746,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                 debugViewProvider,
                 videoSampleTimestampOffsetUs,
                 /* hasMultipleInputs= */ assetLoaderInputTracker.hasMultipleConcurrentVideoTracks(),
-                portraitEncodingEnabled,
+                allowedEncodingRotationDegrees,
                 maxFramesInEncoder,
                 logSessionId));
       }

@@ -97,6 +97,9 @@ public final class Transformer {
   /** A builder for {@link Transformer} instances. */
   public static final class Builder {
 
+    private static final ImmutableList<Integer> ALL_ROTATION_DEGREES =
+        ImmutableList.of(0, 90, 180, 270);
+
     // Mandatory field.
     private final Context context;
 
@@ -109,7 +112,7 @@ public final class Transformer {
     private boolean removeAudio;
     private boolean removeVideo;
     private boolean trimOptimizationEnabled;
-    private boolean portraitEncodingEnabled;
+    private ImmutableList<Integer> allowedEncodingRotationDegrees;
     private boolean fileStartsOnVideoFrameEnabled;
     private boolean usePlatformDiagnostics;
     private long maxDelayBetweenMuxerSamplesMs;
@@ -150,6 +153,7 @@ public final class Transformer {
         metricsReporterFactory =
             new EditingMetricsCollector.DefaultMetricsReporter.Factory(context);
       }
+      allowedEncodingRotationDegrees = ALL_ROTATION_DEGREES;
     }
 
     /** Creates a builder with the values of the provided {@link Transformer}. */
@@ -163,7 +167,7 @@ public final class Transformer {
       this.removeAudio = transformer.removeAudio;
       this.removeVideo = transformer.removeVideo;
       this.trimOptimizationEnabled = transformer.trimOptimizationEnabled;
-      this.portraitEncodingEnabled = transformer.portraitEncodingEnabled;
+      this.allowedEncodingRotationDegrees = transformer.allowedEncodingRotationDegrees;
       this.fileStartsOnVideoFrameEnabled = transformer.fileStartsOnVideoFrameEnabled;
       this.usePlatformDiagnostics = transformer.usePlatformDiagnostics;
       this.maxDelayBetweenMuxerSamplesMs = transformer.maxDelayBetweenMuxerSamplesMs;
@@ -286,7 +290,7 @@ public final class Transformer {
      */
     @CanIgnoreReturnValue
     public Builder setPortraitEncodingEnabled(boolean enabled) {
-      portraitEncodingEnabled = enabled;
+      allowedEncodingRotationDegrees = enabled ? ImmutableList.of(0) : ALL_ROTATION_DEGREES;
       return this;
     }
 
@@ -597,7 +601,7 @@ public final class Transformer {
           removeAudio,
           removeVideo,
           trimOptimizationEnabled,
-          portraitEncodingEnabled,
+          allowedEncodingRotationDegrees,
           fileStartsOnVideoFrameEnabled,
           usePlatformDiagnostics,
           maxDelayBetweenMuxerSamplesMs,
@@ -783,7 +787,7 @@ public final class Transformer {
   private final boolean removeAudio;
   private final boolean removeVideo;
   private final boolean trimOptimizationEnabled;
-  private final boolean portraitEncodingEnabled;
+  private final ImmutableList<Integer> allowedEncodingRotationDegrees;
   private final boolean fileStartsOnVideoFrameEnabled;
   private final boolean usePlatformDiagnostics;
   private final long maxDelayBetweenMuxerSamplesMs;
@@ -825,7 +829,7 @@ public final class Transformer {
       boolean removeAudio,
       boolean removeVideo,
       boolean trimOptimizationEnabled,
-      boolean portraitEncodingEnabled,
+      ImmutableList<Integer> allowedEncodingRotationDegrees,
       boolean fileStartsOnVideoFrameEnabled,
       boolean usePlatformDiagnostics,
       long maxDelayBetweenMuxerSamplesMs,
@@ -848,7 +852,7 @@ public final class Transformer {
     this.removeAudio = removeAudio;
     this.removeVideo = removeVideo;
     this.trimOptimizationEnabled = trimOptimizationEnabled;
-    this.portraitEncodingEnabled = portraitEncodingEnabled;
+    this.allowedEncodingRotationDegrees = allowedEncodingRotationDegrees;
     this.fileStartsOnVideoFrameEnabled = fileStartsOnVideoFrameEnabled;
     this.usePlatformDiagnostics = usePlatformDiagnostics;
     this.maxDelayBetweenMuxerSamplesMs = maxDelayBetweenMuxerSamplesMs;
@@ -1639,7 +1643,7 @@ public final class Transformer {
             audioMixerFactory,
             videoFrameProcessorFactory,
             encoderFactory,
-            portraitEncodingEnabled,
+            allowedEncodingRotationDegrees,
             maxFramesInEncoder,
             muxerWrapper,
             componentListener,
