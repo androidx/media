@@ -154,6 +154,17 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   private static final long OFFSET_FROM_PERIOD_END_TO_TREAT_AS_LAST_US = 100_000L;
 
   /**
+   * The offset from {@link #getLastResetPositionUs()} in microseconds, before which input buffers
+   * are not allowed to be dropped.
+   *
+   * <p>This value must be greater than the pre-roll distance used by common audio codecs, such as
+   * 80ms used by Opus <a
+   * href="https://opus-codec.org/docs/opus_in_isobmff.html#4.3.6.2">Encapsulation of Opus in ISO
+   * Base Media File Format</a>
+   */
+  private static final long OFFSET_FROM_RESET_POSITION_TO_ALLOW_INPUT_BUFFER_DROPPING_US = 200_000L;
+
+  /**
    * The maximum number of consecutive dropped input buffers that allow discarding frame headers.
    *
    * <p>Discarding input buffers of type {@link ObuParser#OBU_FRAME_HEADER} speeds up decoding by
@@ -644,7 +655,16 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       boolean treatDroppedBuffersAsSkipped)
       throws ExoPlaybackException {
     if (minEarlyUsToDropDecoderInput != C.TIME_UNSET) {
-      shouldDropDecoderInputBuffers = earlyUs < minEarlyUsToDropDecoderInput;
+      // TODO: b/161996553 - Remove the isAwayFromLastResetPosition check when audio pre-rolling
+      // is implemented correctly. Audio codecs such as Opus require pre-roll samples to be decoded
+      // and discarded on a seek. Depending on the audio decoder, the positionUs may jump forward
+      // by the pre-roll duration. Do not drop more frames than necessary when this happens.
+      boolean isAwayFromLastResetPosition =
+          positionUs
+              > getLastResetPositionUs()
+                  + OFFSET_FROM_RESET_POSITION_TO_ALLOW_INPUT_BUFFER_DROPPING_US;
+      shouldDropDecoderInputBuffers =
+          isAwayFromLastResetPosition && earlyUs < minEarlyUsToDropDecoderInput;
     }
     return shouldDropBuffersToKeyframe(earlyUs, elapsedRealtimeUs, isLastFrame)
         && maybeDropBuffersToKeyframe(positionUs, treatDroppedBuffersAsSkipped);
