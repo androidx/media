@@ -2820,6 +2820,10 @@ import java.util.Objects;
   private void maybeUpdateOffloadScheduling() {
     // If playing period is audio-only with offload mode preference to enable, then offload
     // scheduling should be enabled.
+    if (queue.getPlayingPeriod() != queue.getReadingPeriod()) {
+      // Do not enable offload scheduling when starting to process the next media item.
+      return;
+    }
     @Nullable MediaPeriodHolder playingPeriodHolder = queue.getPlayingPeriod();
     if (playingPeriodHolder != null) {
       TrackSelectorResult trackSelectorResult = playingPeriodHolder.getTrackSelectorResult();

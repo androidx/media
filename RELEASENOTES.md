@@ -36,6 +36,9 @@
 *   DataSource:
 *   Audio:
     *   Allow constant power upmixing/downmixing in DefaultAudioMixer.
+    *   Fix offload issue where position might get stuck when playing a playlist
+        of short content
+        ([#1920](https://github.com/androidx/media/issues/1920)).
 *   Video:
     *   Add experimental `ExoPlayer` API to include the
         `MediaCodec.BUFFER_FLAG_DECODE_ONLY` flag when queuing decode-only input

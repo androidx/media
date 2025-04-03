@@ -11788,6 +11788,54 @@ public final class ExoPlayerTest {
   }
 
   @Test
+  public void enablingOffload_withFastReadingPeriodAdvancement_playerDoesNotSleep()
+      throws Exception {
+    FakeSleepRenderer sleepRenderer = new FakeSleepRenderer(C.TRACK_TYPE_AUDIO);
+    AtomicInteger sleepingForOffloadCounter = new AtomicInteger();
+    ExoPlayer player =
+        parameterizeTestExoPlayerBuilder(
+                new TestExoPlayerBuilder(context).setRenderers(sleepRenderer))
+            .build();
+    ExoPlayer.AudioOffloadListener listener =
+        new ExoPlayer.AudioOffloadListener() {
+          @Override
+          public void onSleepingForOffloadChanged(boolean sleepingForOffload) {
+            if (sleepingForOffload) {
+              sleepingForOffloadCounter.getAndIncrement();
+            }
+          }
+        };
+    player.addAudioOffloadListener(listener);
+    // Set a playlist of multiple, short audio-only items such that the reading period quickly
+    // advances past the playing period.
+    Timeline timeline = new FakeTimeline();
+    player.setMediaSources(
+        ImmutableList.of(
+            new FakeMediaSource(timeline, ExoPlayerTestRunner.AUDIO_FORMAT),
+            new FakeMediaSource(timeline, ExoPlayerTestRunner.AUDIO_FORMAT),
+            new FakeMediaSource(timeline, ExoPlayerTestRunner.AUDIO_FORMAT)));
+    player.setTrackSelectionParameters(
+        player
+            .getTrackSelectionParameters()
+            .buildUpon()
+            .setAudioOffloadPreferences(
+                new AudioOffloadPreferences.Builder()
+                    .setAudioOffloadMode(AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_REQUIRED)
+                    .build())
+            .build());
+    player.prepare();
+    player.play();
+    advance(player).untilStartOfMediaItem(/* mediaItemIndex= */ 1);
+
+    sleepRenderer.sleepOnNextRender();
+    runUntilPlaybackState(player, Player.STATE_ENDED);
+
+    assertThat(sleepingForOffloadCounter.get()).isEqualTo(0);
+
+    player.release();
+  }
+
+  @Test
   public void wakeupListenerWhileSleepingForOffload_isWokenUp_renderingResumes() throws Exception {
     FakeSleepRenderer sleepRenderer = new FakeSleepRenderer(C.TRACK_TYPE_AUDIO).sleepOnNextRender();
     ExoPlayer player =
