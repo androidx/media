@@ -106,7 +106,7 @@ public class TransformerGapsTest {
         new Composition.Builder(
                 new EditedMediaItemSequence.Builder(
                         AUDIO_ONLY_MEDIA_ITEM, AUDIO_VIDEO_MEDIA_ITEM, AUDIO_VIDEO_MEDIA_ITEM)
-                    .setForceVideoTrack(true)
+                    .experimentalSetForceVideoTrack(true)
                     .build())
             .setEffects(
                 new Effects(
@@ -214,7 +214,7 @@ public class TransformerGapsTest {
                     .addGap(/* durationUs= */ 1_000_000)
                     .addItem(VIDEO_ONLY_MEDIA_ITEM)
                     .addItem(VIDEO_ONLY_MEDIA_ITEM)
-                    .setForceVideoTrack(true)
+                    .experimentalSetForceVideoTrack(true)
                     .build())
             .setEffects(
                 new Effects(
@@ -326,7 +326,7 @@ public class TransformerGapsTest {
                     .addGap(/* durationUs= */ 1_000_000)
                     .addItem(AUDIO_VIDEO_MEDIA_ITEM)
                     .addItem(AUDIO_VIDEO_MEDIA_ITEM)
-                    .setForceAudioTrack(true)
+                    .experimentalSetForceAudioTrack(true)
                     .build())
             .build();
     TransformerAndroidTestRunner transformerAndroidTestRunner =
@@ -361,8 +361,8 @@ public class TransformerGapsTest {
                     .addGap(/* durationUs= */ 1_000_000)
                     .addItem(AUDIO_VIDEO_MEDIA_ITEM)
                     .addItem(AUDIO_VIDEO_MEDIA_ITEM)
-                    .setForceAudioTrack(true)
-                    .setForceVideoTrack(true)
+                    .experimentalSetForceAudioTrack(true)
+                    .experimentalSetForceVideoTrack(true)
                     .build())
             .setEffects(
                 new Effects(

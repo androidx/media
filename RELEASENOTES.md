@@ -21,7 +21,7 @@
         ([#2267](https://github.com/androidx/media/issues/2267)).
 *   Transformer:
     *   Filling an initial gap (added via `addGap()`) with silent audio now
-        requires explicitly setting `setForceAudioTrack(true)` in
+        requires explicitly setting `experimentalSetForceAudioTrack(true)` in
         `EditedMediaItemSequence.Builder`. If the gap is in the middle of the
         sequence, then this flag is not required.
 *   Track Selection:

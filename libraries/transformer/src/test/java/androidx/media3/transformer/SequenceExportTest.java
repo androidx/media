@@ -255,7 +255,7 @@ public final class SequenceExportTest {
     Composition composition =
         new Composition.Builder(
                 new EditedMediaItemSequence.Builder(audioVideoMediaItem, videoOnlyMediaItem)
-                    .setForceAudioTrack(true)
+                    .experimentalSetForceAudioTrack(true)
                     .build())
             .setTransmuxVideo(true)
             .build();
@@ -285,7 +285,7 @@ public final class SequenceExportTest {
     Composition composition =
         new Composition.Builder(
                 new EditedMediaItemSequence.Builder(videoOnlyMediaItem, audioVideoMediaItem)
-                    .setForceAudioTrack(true)
+                    .experimentalSetForceAudioTrack(true)
                     .build())
             .setTransmuxVideo(true)
             .build();
@@ -321,7 +321,7 @@ public final class SequenceExportTest {
     Composition composition =
         new Composition.Builder(
                 new EditedMediaItemSequence.Builder(audioEditedMediaItem, noAudioEditedMediaItem)
-                    .setForceAudioTrack(true)
+                    .experimentalSetForceAudioTrack(true)
                     .build())
             .setTransmuxVideo(true)
             .build();
@@ -357,7 +357,7 @@ public final class SequenceExportTest {
     Composition composition =
         new Composition.Builder(
                 new EditedMediaItemSequence.Builder(silenceEditedMediaItem, audioEditedMediaItem)
-                    .setForceAudioTrack(true)
+                    .experimentalSetForceAudioTrack(true)
                     .build())
             .setTransmuxVideo(true)
             .build();
@@ -386,7 +386,7 @@ public final class SequenceExportTest {
     Composition composition =
         new Composition.Builder(
                 new EditedMediaItemSequence.Builder(videoOnlyMediaItem, videoOnlyMediaItem)
-                    .setForceAudioTrack(true)
+                    .experimentalSetForceAudioTrack(true)
                     .build())
             .setTransmuxVideo(true)
             .build();
@@ -420,7 +420,7 @@ public final class SequenceExportTest {
     Composition composition =
         new Composition.Builder(
                 new EditedMediaItemSequence.Builder(silenceWithEffectsItem, silenceItem)
-                    .setForceAudioTrack(true)
+                    .experimentalSetForceAudioTrack(true)
                     .build())
             .setTransmuxVideo(true)
             .build();
@@ -454,7 +454,7 @@ public final class SequenceExportTest {
     Composition composition =
         new Composition.Builder(
                 new EditedMediaItemSequence.Builder(silenceItem, silenceWithEffectsItem)
-                    .setForceAudioTrack(true)
+                    .experimentalSetForceAudioTrack(true)
                     .build())
             .setTransmuxVideo(true)
             .build();
@@ -491,7 +491,7 @@ public final class SequenceExportTest {
     Composition composition =
         new Composition.Builder(
                 new EditedMediaItemSequence.Builder(firstItem, secondItem)
-                    .setForceAudioTrack(true)
+                    .experimentalSetForceAudioTrack(true)
                     .build())
             .setTransmuxVideo(true)
             .build();
@@ -554,7 +554,7 @@ public final class SequenceExportTest {
         new EditedMediaItemSequence.Builder()
             .addGap(500_000)
             .addItem(audioVideoItem)
-            .setForceAudioTrack(true)
+            .experimentalSetForceAudioTrack(true)
             .build();
     Composition composition = new Composition.Builder(sequence).build();
 
@@ -574,7 +574,7 @@ public final class SequenceExportTest {
         new EditedMediaItemSequence.Builder()
             .addGap(300_000)
             .addGap(200_000)
-            .setForceAudioTrack(true)
+            .experimentalSetForceAudioTrack(true)
             .build();
     Composition composition = new Composition.Builder(sequence).build();
 
@@ -622,7 +622,7 @@ public final class SequenceExportTest {
             .addGap(200_000)
             .addGap(500_000)
             .addItem(audioItem)
-            .setForceAudioTrack(true)
+            .experimentalSetForceAudioTrack(true)
             .build();
     Composition composition = new Composition.Builder(sequence).build();
 
@@ -718,7 +718,7 @@ public final class SequenceExportTest {
             .addItem(firstAudioItem)
             .addGap(200_000)
             .addItem(secondAudioItem)
-            .setForceAudioTrack(true)
+            .experimentalSetForceAudioTrack(true)
             .build();
     Composition composition = new Composition.Builder(sequence).build();
 

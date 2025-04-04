@@ -148,7 +148,10 @@ public final class MediaItemExportTest {
         new TestTransformerBuilder(context).setMuxerFactory(muxerFactory).build();
 
     EditedMediaItemSequence gapSequence =
-        new EditedMediaItemSequence.Builder().addGap(500_000).setForceAudioTrack(true).build();
+        new EditedMediaItemSequence.Builder()
+            .addGap(500_000)
+            .experimentalSetForceAudioTrack(true)
+            .build();
 
     transformer.start(new Composition.Builder(gapSequence).build(), outputDir.newFile().getPath());
     ExportResult result = TransformerTestRunner.runLooper(transformer);
@@ -403,7 +406,7 @@ public final class MediaItemExportTest {
     Composition composition =
         new Composition.Builder(
                 new EditedMediaItemSequence.Builder(editedMediaItem)
-                    .setForceAudioTrack(true)
+                    .experimentalSetForceAudioTrack(true)
                     .build())
             .build();
 
@@ -424,7 +427,7 @@ public final class MediaItemExportTest {
     Composition composition =
         new Composition.Builder(
                 new EditedMediaItemSequence.Builder(editedMediaItem)
-                    .setForceAudioTrack(true)
+                    .experimentalSetForceAudioTrack(true)
                     .build())
             .build();
 
@@ -451,7 +454,7 @@ public final class MediaItemExportTest {
     Composition composition =
         new Composition.Builder(
                 new EditedMediaItemSequence.Builder(editedMediaItem)
-                    .setForceAudioTrack(true)
+                    .experimentalSetForceAudioTrack(true)
                     .build())
             .build();
 
@@ -479,7 +482,7 @@ public final class MediaItemExportTest {
     Composition composition =
         new Composition.Builder(
                 new EditedMediaItemSequence.Builder(editedMediaItem)
-                    .setForceAudioTrack(true)
+                    .experimentalSetForceAudioTrack(true)
                     .build())
             .build();
 
@@ -502,7 +505,7 @@ public final class MediaItemExportTest {
     Composition composition =
         new Composition.Builder(
                 new EditedMediaItemSequence.Builder(editedMediaItem)
-                    .setForceAudioTrack(true)
+                    .experimentalSetForceAudioTrack(true)
                     .build())
             .build();
 

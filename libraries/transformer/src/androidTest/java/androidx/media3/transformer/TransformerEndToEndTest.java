@@ -1357,7 +1357,7 @@ public class TransformerEndToEndTest {
     Composition composition =
         new Composition.Builder(
                 new EditedMediaItemSequence.Builder(editedMediaItem)
-                    .setForceAudioTrack(true)
+                    .experimentalSetForceAudioTrack(true)
                     .build())
             .build();
     ExportTestResult result =
@@ -1451,7 +1451,7 @@ public class TransformerEndToEndTest {
     Composition composition =
         new Composition.Builder(
                 new EditedMediaItemSequence.Builder(editedMediaItem, editedMediaItem)
-                    .setForceAudioTrack(true)
+                    .experimentalSetForceAudioTrack(true)
                     .build())
             .build();
     ExportTestResult result =
@@ -1891,7 +1891,7 @@ public class TransformerEndToEndTest {
                 new EditedMediaItemSequence.Builder()
                     .addGap(100_000)
                     .addItem(editedMediaItem)
-                    .setForceAudioTrack(true)
+                    .experimentalSetForceAudioTrack(true)
                     .build(),
                 new EditedMediaItemSequence.Builder(editedMediaItem).build())
             .build();

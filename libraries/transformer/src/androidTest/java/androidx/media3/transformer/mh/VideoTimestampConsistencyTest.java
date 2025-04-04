@@ -399,7 +399,7 @@ public class VideoTimestampConsistencyTest {
                 /* testId= */ testName.getMethodName(),
                 new Composition.Builder(
                         new EditedMediaItemSequence.Builder(timestampRecordingEditedMediaItems)
-                            .setForceAudioTrack(true)
+                            .experimentalSetForceAudioTrack(true)
                             .build())
                     .build());
 
@@ -427,7 +427,7 @@ public class VideoTimestampConsistencyTest {
           compositionPlayer.setComposition(
               new Composition.Builder(
                       new EditedMediaItemSequence.Builder(timestampRecordingEditedMediaItems)
-                          .setForceAudioTrack(true)
+                          .experimentalSetForceAudioTrack(true)
                           .build())
                   .build());
           compositionPlayer.prepare();

@@ -136,7 +136,9 @@ public final class ParameterizedItemExportTest {
             .build();
     Composition composition =
         new Composition.Builder(
-                new EditedMediaItemSequence.Builder(item).setForceAudioTrack(true).build())
+                new EditedMediaItemSequence.Builder(item)
+                    .experimentalSetForceAudioTrack(true)
+                    .build())
             .build();
 
     transformer.start(composition, outputDir.newFile().getPath());

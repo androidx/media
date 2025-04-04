@@ -120,7 +120,8 @@ public final class Composition {
     }
 
     /**
-     * @deprecated Use {@link EditedMediaItemSequence.Builder#setForceAudioTrack(boolean)} instead.
+     * @deprecated Use {@link
+     *     EditedMediaItemSequence.Builder#experimentalSetForceAudioTrack(boolean)} instead.
      */
     @Deprecated
     @CanIgnoreReturnValue
@@ -234,7 +235,7 @@ public final class Composition {
             new ImmutableList.Builder<>();
         for (int i = 0; i < sequences.size(); i++) {
           updatedSequencesBuilder.add(
-              sequences.get(i).buildUpon().setForceAudioTrack(forceAudioTrack).build());
+              sequences.get(i).buildUpon().experimentalSetForceAudioTrack(forceAudioTrack).build());
         }
         updatedSequences = updatedSequencesBuilder.build();
       } else {
@@ -359,8 +360,8 @@ public final class Composition {
   public final Effects effects;
 
   /**
-   * @deprecated Use {@link EditedMediaItemSequence.Builder#setForceAudioTrack(boolean)} to set the
-   *     flag and {@link EditedMediaItemSequence#forceAudioTrack} to read the flag.
+   * @deprecated Use {@link EditedMediaItemSequence.Builder#experimentalSetForceAudioTrack(boolean)}
+   *     to set the flag and {@link EditedMediaItemSequence#forceAudioTrack} to read the flag.
    */
   @Deprecated public final boolean forceAudioTrack;
 

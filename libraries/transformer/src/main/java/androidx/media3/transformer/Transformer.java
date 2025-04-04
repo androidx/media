@@ -942,7 +942,7 @@ public final class Transformer {
    *       C.TrackType track}, so must all items in that sequence.
    *       <ul>
    *         <li>For audio, this condition can be removed by setting {@link
-   *             EditedMediaItemSequence.Builder#setForceAudioTrack(boolean)} flag.
+   *             EditedMediaItemSequence.Builder#experimentalSetForceAudioTrack(boolean)} flag.
    *       </ul>
    *   <li>If a sequence starts with an HDR {@link EditedMediaItem}, all the following items in the
    *       sequence must be HDR.

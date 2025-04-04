@@ -173,7 +173,9 @@ public final class ParameterizedAudioExportTest {
       }
 
       return new Composition.Builder(
-              new EditedMediaItemSequence.Builder(items.build()).setForceAudioTrack(true).build())
+              new EditedMediaItemSequence.Builder(items.build())
+                  .experimentalSetForceAudioTrack(true)
+                  .build())
           .setTransmuxVideo(true)
           .build();
     }

@@ -483,7 +483,7 @@ public class CompositionExportTest {
         new Composition.Builder(
                 new EditedMediaItemSequence.Builder()
                     .addGap(1_000_000)
-                    .setForceAudioTrack(true)
+                    .experimentalSetForceAudioTrack(true)
                     .build(),
                 new EditedMediaItemSequence.Builder(audioItem1000ms).build())
             .build();
@@ -515,7 +515,7 @@ public class CompositionExportTest {
                 new EditedMediaItemSequence.Builder()
                     .addGap(100_000)
                     .addItem(audioEditedMediaItem)
-                    .setForceAudioTrack(true)
+                    .experimentalSetForceAudioTrack(true)
                     .build(),
                 new EditedMediaItemSequence.Builder(otherAudioEditedMediaItem).build())
             .build();
@@ -595,7 +595,7 @@ public class CompositionExportTest {
                 new EditedMediaItemSequence.Builder()
                     .addGap(200_000)
                     .addItem(audioEditedMediaItem)
-                    .setForceAudioTrack(true)
+                    .experimentalSetForceAudioTrack(true)
                     .build())
             .setTransmuxVideo(true)
             .build();
@@ -723,7 +723,7 @@ public class CompositionExportTest {
                 new EditedMediaItemSequence.Builder(audioItem1000ms).build(),
                 new EditedMediaItemSequence.Builder()
                     .addGap(1_000_000)
-                    .setForceAudioTrack(true)
+                    .experimentalSetForceAudioTrack(true)
                     .build())
             .build();
 
@@ -743,11 +743,11 @@ public class CompositionExportTest {
         new Composition.Builder(
                 new EditedMediaItemSequence.Builder()
                     .addGap(500_000)
-                    .setForceAudioTrack(true)
+                    .experimentalSetForceAudioTrack(true)
                     .build(),
                 new EditedMediaItemSequence.Builder()
                     .addGap(500_000)
-                    .setForceAudioTrack(true)
+                    .experimentalSetForceAudioTrack(true)
                     .build())
             .build();
 

@@ -469,7 +469,7 @@ public final class TransformerActivity extends AppCompatActivity {
     EditedMediaItemSequence.Builder editedMediaItemSequenceBuilder =
         new EditedMediaItemSequence.Builder(editedMediaItemBuilder.build());
     if (bundle != null) {
-      editedMediaItemSequenceBuilder.setForceAudioTrack(
+      editedMediaItemSequenceBuilder.experimentalSetForceAudioTrack(
           bundle.getBoolean(ConfigurationActivity.FORCE_AUDIO_TRACK));
     }
     Composition.Builder compositionBuilder =

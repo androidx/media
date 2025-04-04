@@ -102,8 +102,8 @@ public final class EditedMediaItemSequence {
      * <p>A gap is a period of time with no media.
      *
      * <p>If the gap is added at the start of the sequence, then {@linkplain
-     * #setForceAudioTrack(boolean) force audio track} or/and {@linkplain
-     * #setForceVideoTrack(boolean) force video track} flag must be set appropriately.
+     * #experimentalSetForceAudioTrack(boolean) force audio track} or/and {@linkplain
+     * #experimentalSetForceVideoTrack(boolean) force video track} flag must be set appropriately.
      *
      * @param durationUs The duration of the gap, in milliseconds.
      * @return This builder, for convenience.
@@ -159,10 +159,12 @@ public final class EditedMediaItemSequence {
      *
      * <p>The default value is {@code false}.
      *
+     * <p>This method is experimental and will be renamed or removed in a future release.
+     *
      * @param forceAudioTrack Whether to force audio track.
      */
     @CanIgnoreReturnValue
-    public Builder setForceAudioTrack(boolean forceAudioTrack) {
+    public Builder experimentalSetForceAudioTrack(boolean forceAudioTrack) {
       this.forceAudioTrack = forceAudioTrack;
       return this;
     }
@@ -196,10 +198,12 @@ public final class EditedMediaItemSequence {
      *
      * <p>The default value is {@code false}.
      *
+     * <p>This method is experimental and will be renamed or removed in a future release.
+     *
      * @param forceVideoTrack Whether to force video track.
      */
     @CanIgnoreReturnValue
-    public Builder setForceVideoTrack(boolean forceVideoTrack) {
+    public Builder experimentalSetForceVideoTrack(boolean forceVideoTrack) {
       this.forceVideoTrack = forceVideoTrack;
       return this;
     }
