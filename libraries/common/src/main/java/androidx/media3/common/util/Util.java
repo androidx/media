@@ -3689,7 +3689,7 @@ public final class Util {
    */
   @EnsuresNonNullIf(result = false, expression = "#1")
   public static boolean shouldShowPlayButton(@Nullable Player player) {
-    return shouldShowPlayButton(player, /* playIfSuppressed= */ true);
+    return shouldShowPlayButton(player, /* shouldShowPlayIfSuppressed= */ true);
   }
 
   /**
@@ -3700,17 +3700,18 @@ public final class Util {
    * #handlePauseButtonAction} to handle the interaction with the play or pause button UI element.
    *
    * @param player The {@link Player}. May be {@code null}.
-   * @param playIfSuppressed Whether to show a play button if playback is {@linkplain
+   * @param shouldShowPlayIfSuppressed Whether to show a play button if playback is {@linkplain
    *     Player#getPlaybackSuppressionReason() suppressed}.
    */
   @UnstableApi
   @EnsuresNonNullIf(result = false, expression = "#1")
-  public static boolean shouldShowPlayButton(@Nullable Player player, boolean playIfSuppressed) {
+  public static boolean shouldShowPlayButton(
+      @Nullable Player player, boolean shouldShowPlayIfSuppressed) {
     return player == null
         || !player.getPlayWhenReady()
         || player.getPlaybackState() == Player.STATE_IDLE
         || player.getPlaybackState() == Player.STATE_ENDED
-        || (playIfSuppressed
+        || (shouldShowPlayIfSuppressed
             && player.getPlaybackSuppressionReason() != Player.PLAYBACK_SUPPRESSION_REASON_NONE);
   }
 
