@@ -238,6 +238,7 @@ public interface ExoPlayer extends Player {
     @C.VideoChangeFrameRateStrategy /* package */ int videoChangeFrameRateStrategy;
     /* package */ boolean useLazyPreparation;
     /* package */ SeekParameters seekParameters;
+    /* package */ ScrubbingModeParameters scrubbingModeParameters;
     /* package */ long seekBackIncrementMs;
     /* package */ long seekForwardIncrementMs;
     /* package */ long maxSeekToPreviousPositionMs;
@@ -452,6 +453,7 @@ public interface ExoPlayer extends Player {
       seekBackIncrementMs = C.DEFAULT_SEEK_BACK_INCREMENT_MS;
       seekForwardIncrementMs = C.DEFAULT_SEEK_FORWARD_INCREMENT_MS;
       maxSeekToPreviousPositionMs = C.DEFAULT_MAX_SEEK_TO_PREVIOUS_POSITION_MS;
+      scrubbingModeParameters = ScrubbingModeParameters.DEFAULT;
       livePlaybackSpeedControl = new DefaultLivePlaybackSpeedControl.Builder().build();
       clock = Clock.DEFAULT;
       releaseTimeoutMs = DEFAULT_RELEASE_TIMEOUT_MS;
@@ -894,6 +896,22 @@ public interface ExoPlayer extends Player {
       checkArgument(maxSeekToPreviousPositionMs >= 0L);
       checkState(!buildCalled);
       this.maxSeekToPreviousPositionMs = maxSeekToPreviousPositionMs;
+      return this;
+    }
+
+    /**
+     * Sets the parameters that control the behavior in {@linkplain #setScrubbingModeEnabled
+     * scrubbing mode}.
+     *
+     * @param scrubbingModeParameters The {@link ScrubbingModeParameters}.
+     * @return This builder.
+     * @throws IllegalStateException If {@link #build()} has already been called.
+     */
+    @CanIgnoreReturnValue
+    @UnstableApi
+    public Builder setScrubbingModeParameters(ScrubbingModeParameters scrubbingModeParameters) {
+      checkState(!buildCalled);
+      this.scrubbingModeParameters = checkNotNull(scrubbingModeParameters);
       return this;
     }
 
@@ -1465,6 +1483,20 @@ public interface ExoPlayer extends Player {
    */
   @UnstableApi
   void setScrubbingModeEnabled(boolean scrubbingModeEnabled);
+
+  /**
+   * Sets the parameters that control behavior in {@linkplain #setScrubbingModeEnabled scrubbing
+   * mode}.
+   */
+  @UnstableApi
+  void setScrubbingModeParameters(ScrubbingModeParameters scrubbingModeParameters);
+
+  /**
+   * Gets the parameters that control behavior in {@linkplain #setScrubbingModeEnabled scrubbing
+   * mode}.
+   */
+  @UnstableApi
+  ScrubbingModeParameters getScrubbingModeParameters();
 
   /**
    * Sets a {@link List} of {@linkplain Effect video effects} that will be applied to each video

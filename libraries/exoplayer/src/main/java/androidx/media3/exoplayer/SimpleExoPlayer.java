@@ -629,6 +629,18 @@ public class SimpleExoPlayer extends BasePlayer implements ExoPlayer {
   }
 
   @Override
+  public void setScrubbingModeParameters(ScrubbingModeParameters scrubbingModeParameters) {
+    blockUntilConstructorFinished();
+    player.setScrubbingModeParameters(scrubbingModeParameters);
+  }
+
+  @Override
+  public ScrubbingModeParameters getScrubbingModeParameters() {
+    blockUntilConstructorFinished();
+    return player.getScrubbingModeParameters();
+  }
+
+  @Override
   public AnalyticsCollector getAnalyticsCollector() {
     blockUntilConstructorFinished();
     return player.getAnalyticsCollector();

@@ -14,7 +14,9 @@
         ([#2229](https://github.com/androidx/media/issues/2229)).
     *   Add `ExoPlayer.setScrubbingModeEnabled(boolean)` method. This optimizes
         the player for many frequent seeks (for example, from a user dragging a
-        scrubber bar around).
+        scrubber bar around). The behavior of scrubbing mode can be customized
+        with `setScrubbingModeParameters(..)` on `ExoPlayer` and
+        `ExoPlayer.Builder`.
     *   `AdPlaybackState.withAdDurationsUs(long[][])` can be used after ad
         groups have been removed. The user still needs to pass in an array of
         durations for removed ad groups which can be empty or null
