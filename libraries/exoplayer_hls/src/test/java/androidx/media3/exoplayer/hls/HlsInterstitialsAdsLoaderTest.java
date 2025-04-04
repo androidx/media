@@ -1916,6 +1916,8 @@ public class HlsInterstitialsAdsLoaderTest {
             + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:00:00.000Z\n"
             + "#EXTINF:9,\n"
             + "main0.0.ts\n"
+            + "#EXTINF:81,\n"
+            + "main1.0.ts\n"
             + "#EXT-X-ENDLIST"
             + "\n"
             + "#EXT-X-DATERANGE:"
@@ -2953,6 +2955,8 @@ public class HlsInterstitialsAdsLoaderTest {
     windowsAfterTimelineChange[windowIndex] =
         contentWindowDefinition
             .buildUpon()
+            .setDurationUs(contentMediaPlaylist.durationUs)
+            .setWindowStartTimeUs(contentMediaPlaylist.startTimeUs)
             .setAdPlaybackStates(ImmutableList.of(adPlaybackState.getValue()))
             .build();
     when(mockPlayer.getCurrentTimeline()).thenReturn(new FakeTimeline(windowsAfterTimelineChange));
