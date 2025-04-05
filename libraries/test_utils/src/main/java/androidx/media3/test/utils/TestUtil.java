@@ -15,6 +15,7 @@
  */
 package androidx.media3.test.utils;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static com.google.common.truth.Truth.assertThat;
@@ -949,7 +950,7 @@ public class TestUtil {
    * created on a non-Looper thread.
    */
   public static SurfaceView createSurfaceView(Context context) {
-    if (Util.SDK_INT >= 26 || Looper.myLooper() != null) {
+    if (SDK_INT >= 26 || Looper.myLooper() != null) {
       return new SurfaceView(context);
     }
     AtomicReference<SurfaceView> surfaceView = new AtomicReference<>();

@@ -15,6 +15,7 @@
  */
 package androidx.media3.ui;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.Player.COMMAND_CHANGE_MEDIA_ITEMS;
 import static androidx.media3.common.Player.COMMAND_GET_CURRENT_MEDIA_ITEM;
 import static androidx.media3.common.Player.COMMAND_GET_TIMELINE;
@@ -1520,7 +1521,7 @@ public class PlayerNotificationManager {
     intent.putExtra(EXTRA_INSTANCE_ID, instanceId);
 
     int pendingFlags;
-    if (Util.SDK_INT >= 23) {
+    if (SDK_INT >= 23) {
       pendingFlags = PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE;
     } else {
       pendingFlags = PendingIntent.FLAG_UPDATE_CURRENT;

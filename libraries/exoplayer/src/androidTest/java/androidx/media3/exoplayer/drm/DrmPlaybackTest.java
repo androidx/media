@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.drm;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assume.assumeTrue;
@@ -25,7 +26,6 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.ConditionVariable;
-import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.DecoderCounters;
 import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.ExoPlayer;
@@ -110,7 +110,7 @@ public final class DrmPlaybackTest {
     // The API 21 emulator doesn't have a secure decoder. Due to b/18678462 MediaCodecUtil pretends
     // that there is a secure decoder so we must only run this test on API 21 - i.e. we cannot
     // assumeTrue() on getDecoderInfos.
-    assumeTrue(Util.SDK_INT > 21);
+    assumeTrue(SDK_INT > 21);
     Context context = getInstrumentation().getContext();
     MockWebServer mockWebServer = new MockWebServer();
     mockWebServer.enqueue(new MockResponse().setResponseCode(200).setBody(CLEARKEY_RESPONSE));

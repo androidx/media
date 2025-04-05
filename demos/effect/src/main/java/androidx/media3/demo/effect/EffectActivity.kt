@@ -17,6 +17,7 @@ package androidx.media3.demo.effect
 
 import android.Manifest
 import android.net.Uri
+import android.os.Build.VERSION.SDK_INT
 import android.os.Bundle
 import android.text.Spannable
 import android.text.SpannableString
@@ -81,7 +82,6 @@ import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.Effect
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.common.util.Util.SDK_INT
 import androidx.media3.effect.Contrast
 import androidx.media3.effect.OverlayEffect
 import androidx.media3.effect.StaticOverlaySettings

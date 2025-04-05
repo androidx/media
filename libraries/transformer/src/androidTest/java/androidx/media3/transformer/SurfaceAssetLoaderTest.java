@@ -15,6 +15,7 @@
  */
 package androidx.media3.transformer;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.junit.Assume.assumeTrue;
@@ -33,7 +34,6 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.ConditionVariable;
-import androidx.media3.common.util.Util;
 import androidx.media3.test.utils.BitmapPixelTestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -67,7 +67,7 @@ public class SurfaceAssetLoaderTest {
 
   @Test
   public void encodingFromSurface_succeeds() throws Exception {
-    assumeTrue("ImageWriter with pixel format set requires API 29", Util.SDK_INT >= 29);
+    assumeTrue("ImageWriter with pixel format set requires API 29", SDK_INT >= 29);
 
     SettableFuture<SurfaceAssetLoader> surfaceAssetLoaderSettableFuture = SettableFuture.create();
     SettableFuture<Surface> surfaceSettableFuture = SettableFuture.create();
@@ -138,7 +138,7 @@ public class SurfaceAssetLoaderTest {
 
   @Test
   public void encodingFromSurface_withLargeTimestamps_succeeds() throws Exception {
-    assumeTrue("ImageWriter with pixel format set requires API 29", Util.SDK_INT >= 29);
+    assumeTrue("ImageWriter with pixel format set requires API 29", SDK_INT >= 29);
 
     SettableFuture<SurfaceAssetLoader> surfaceAssetLoaderSettableFuture = SettableFuture.create();
     SettableFuture<Surface> surfaceSettableFuture = SettableFuture.create();

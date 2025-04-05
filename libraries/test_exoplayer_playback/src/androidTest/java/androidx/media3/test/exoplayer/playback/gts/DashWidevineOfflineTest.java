@@ -15,6 +15,7 @@
  */
 package androidx.media3.test.exoplayer.playback.gts;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.test.exoplayer.playback.gts.GtsTestUtil.shouldSkipWidevineTest;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
@@ -29,7 +30,6 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.Player;
-import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DefaultHttpDataSource;
 import androidx.media3.exoplayer.dash.DashUtil;
@@ -105,7 +105,7 @@ public final class DashWidevineOfflineTest {
       "Needs to be reconfigured/rewritten with an offline-compatible licence [internal"
           + " b/176960595].")
   public void widevineOfflineLicenseV22() throws Exception {
-    assumeTrue(Util.SDK_INT >= 22);
+    assumeTrue(SDK_INT >= 22);
 
     downloadLicense();
     testRunner.run();
@@ -120,7 +120,7 @@ public final class DashWidevineOfflineTest {
       "Needs to be reconfigured/rewritten with an offline-compatible licence [internal"
           + " b/176960595].")
   public void widevineOfflineReleasedLicenseV22() throws Throwable {
-    assumeTrue(Util.SDK_INT >= 22 && Util.SDK_INT <= 28);
+    assumeTrue(SDK_INT >= 22 && SDK_INT <= 28);
 
     downloadLicense();
     releaseLicense(); // keySetId no longer valid.
@@ -145,7 +145,7 @@ public final class DashWidevineOfflineTest {
       "Needs to be reconfigured/rewritten with an offline-compatible licence [internal"
           + " b/176960595].")
   public void widevineOfflineReleasedLicenseV29() throws Throwable {
-    assumeTrue(Util.SDK_INT >= 29);
+    assumeTrue(SDK_INT >= 29);
 
     downloadLicense();
     releaseLicense(); // keySetId no longer valid.
@@ -170,7 +170,7 @@ public final class DashWidevineOfflineTest {
       "Needs to be reconfigured/rewritten with an offline-compatible licence [internal"
           + " b/176960595].")
   public void widevineOfflineExpiredLicenseV22() throws Exception {
-    assumeTrue(Util.SDK_INT >= 22);
+    assumeTrue(SDK_INT >= 22);
 
     downloadLicense();
 
@@ -202,7 +202,7 @@ public final class DashWidevineOfflineTest {
       "Needs to be reconfigured/rewritten with an offline-compatible licence [internal"
           + " b/176960595].")
   public void widevineOfflineLicenseExpiresOnPauseV22() throws Exception {
-    assumeTrue(Util.SDK_INT >= 22);
+    assumeTrue(SDK_INT >= 22);
 
     downloadLicense();
 
