@@ -16,7 +16,6 @@
 
 package androidx.media3.transformer;
 
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.usToMs;
 
 import android.content.Context;
@@ -102,8 +101,7 @@ import java.util.List;
 
     @Override
     public void reportMetrics(EditingEndedEvent editingEndedEvent) {
-      checkState(!metricsReported, "Metrics have already been reported.");
-      if (editingSession != null) {
+      if (!metricsReported && editingSession != null) {
         editingSession.reportEditingEndedEvent(editingEndedEvent);
         metricsReported = true;
       }

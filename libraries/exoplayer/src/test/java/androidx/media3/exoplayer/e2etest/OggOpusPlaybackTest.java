@@ -145,6 +145,7 @@ public final class OggOpusPlaybackTest {
     }
   }
 
+  // TODO: b/406216855 - Remove this and use CapturingAudioSink instead.
   private static final class DumpingAudioSink extends ForwardingAudioSink
       implements Dumper.Dumpable {
     /** All handleBuffer interactions recorded with this audio sink. */

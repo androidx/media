@@ -82,6 +82,7 @@ public class ConditionVariable {
    */
   public synchronized void block() throws InterruptedException {
     while (!isOpen) {
+      clock.onThreadBlocked();
       wait();
     }
   }
@@ -105,6 +106,7 @@ public class ConditionVariable {
       block();
     } else {
       while (!isOpen && nowMs < endMs) {
+        clock.onThreadBlocked();
         wait(endMs - nowMs);
         nowMs = clock.elapsedRealtime();
       }
@@ -113,14 +115,17 @@ public class ConditionVariable {
   }
 
   /**
-   * Blocks until the condition is open. Unlike {@link #block}, this method will continue to block
-   * if the calling thread is interrupted. If the calling thread was interrupted then its {@link
-   * Thread#isInterrupted() interrupted status} will be set when the method returns.
+   * Blocks until the condition is open.
+   *
+   * <p>Unlike {@link #block}, this method will continue to block if the calling thread is
+   * interrupted. If the calling thread was interrupted then its {@link Thread#isInterrupted()
+   * interrupted status} will be set when the method returns.
    */
   public synchronized void blockUninterruptible() {
     boolean wasInterrupted = false;
     while (!isOpen) {
       try {
+        clock.onThreadBlocked();
         wait();
       } catch (InterruptedException e) {
         wasInterrupted = true;
@@ -130,6 +135,45 @@ public class ConditionVariable {
       // Restore the interrupted status.
       Thread.currentThread().interrupt();
     }
+  }
+
+  /**
+   * Blocks until the condition is open or until {@code timeoutMs} have passed.
+   *
+   * <p>Unlike {@link #block}, this method will continue to block if the calling thread is
+   * interrupted. If the calling thread was interrupted then its {@link Thread#isInterrupted()
+   * interrupted status} will be set when the method returns.
+   *
+   * @param timeoutMs The maximum time to wait in milliseconds. If {@code timeoutMs <= 0} then the
+   *     call will return immediately without blocking.
+   * @return True if the condition was opened, false if the call returns because of the timeout.
+   */
+  public synchronized boolean blockUninterruptible(long timeoutMs) {
+    if (timeoutMs <= 0) {
+      return isOpen;
+    }
+    long nowMs = clock.elapsedRealtime();
+    long endMs = nowMs + timeoutMs;
+    if (endMs < nowMs) {
+      // timeoutMs is large enough for (nowMs + timeoutMs) to rollover. Block indefinitely.
+      blockUninterruptible();
+    } else {
+      boolean wasInterrupted = false;
+      while (!isOpen && nowMs < endMs) {
+        try {
+          clock.onThreadBlocked();
+          wait(endMs - nowMs);
+        } catch (InterruptedException e) {
+          wasInterrupted = true;
+        }
+        nowMs = clock.elapsedRealtime();
+      }
+      if (wasInterrupted) {
+        // Restore the interrupted status.
+        Thread.currentThread().interrupt();
+      }
+    }
+    return isOpen;
   }
 
   /** Returns whether the condition is opened. */

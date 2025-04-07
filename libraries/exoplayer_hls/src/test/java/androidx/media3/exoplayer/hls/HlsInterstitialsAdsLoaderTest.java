@@ -16,11 +16,14 @@
 package androidx.media3.exoplayer.hls;
 
 import static androidx.media3.common.Player.DISCONTINUITY_REASON_AUTO_TRANSITION;
+import static androidx.media3.common.Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED;
+import static androidx.media3.test.utils.robolectric.RobolectricUtil.runMainLooperUntil;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNotNull;
 import static org.mockito.Mockito.atMost;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
@@ -32,6 +35,8 @@ import static org.mockito.Mockito.when;
 
 import android.content.Context;
 import android.net.Uri;
+import android.os.Looper;
+import androidx.annotation.Nullable;
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.AdViewProvider;
 import androidx.media3.common.C;
@@ -39,8 +44,16 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.Player;
+import androidx.media3.common.Timeline;
+import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.Util;
+import androidx.media3.datasource.ByteArrayDataSource;
 import androidx.media3.datasource.DataSpec;
+import androidx.media3.exoplayer.ExoPlaybackException;
+import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.exoplayer.PlayerMessage;
+import androidx.media3.exoplayer.hls.HlsInterstitialsAdsLoader.Asset;
+import androidx.media3.exoplayer.hls.HlsInterstitialsAdsLoader.AssetList;
 import androidx.media3.exoplayer.hls.playlist.HlsMediaPlaylist;
 import androidx.media3.exoplayer.hls.playlist.HlsPlaylistParser;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
@@ -54,7 +67,12 @@ import com.google.common.collect.ImmutableList;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.Charset;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -66,33 +84,61 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
 /** Unit tests for {@link HlsInterstitialsAdsLoaderTest}. */
+@SuppressWarnings({"DataFlowIssue", "TextBlockMigration", "EnhancedSwitchMigration"})
 @RunWith(AndroidJUnit4.class)
 public class HlsInterstitialsAdsLoaderTest {
 
+  private static final long TIMEOUT_MS = 1_000L;
+
   @Rule public final MockitoRule mockito = MockitoJUnit.rule();
 
-  @Mock private AdsLoader.EventListener mockEventListener;
   @Mock private HlsInterstitialsAdsLoader.Listener mockAdsLoaderListener;
+  @Mock private AdsLoader.EventListener mockEventListener;
+  @Mock private ExoPlayer mockPlayer;
   @Mock private AdViewProvider mockAdViewProvider;
-  @Mock private Player mockPlayer;
 
   private HlsInterstitialsAdsLoader adsLoader;
+  private AssetListLoadingListener assetListLoadingListener;
+  private MediaItem.AdsConfiguration adsConfiguration;
   private MediaItem contentMediaItem;
+  private TimelineWindowDefinition contentWindowDefinition;
   private DataSpec adTagDataSpec;
   private AdsMediaSource adsMediaSource;
-  private TimelineWindowDefinition contentWindowDefinition;
-  private TimelineWindowDefinition adsMediaSourceWindowDefinition;
 
   @Before
   public void setUp() {
-    adsLoader = new HlsInterstitialsAdsLoader();
+    adsLoader =
+        new HlsInterstitialsAdsLoader(
+            /* dataSourceFactory= */ () ->
+                new ByteArrayDataSource(
+                    uri -> {
+                      switch (uri.toString()) {
+                        case "http://invalid":
+                          return "]".getBytes(Charset.defaultCharset());
+                        case "http://empty":
+                          return getJsonAssetList(/* assetCount= */ 0);
+                        case "http://three-assets":
+                          return getJsonAssetList(/* assetCount= */ 3);
+                        default:
+                          return getJsonAssetList(/* assetCount= */ 1);
+                      }
+                    }));
     adsLoader.addListener(mockAdsLoaderListener);
-    // The HLS URI to play
+    assetListLoadingListener = new AssetListLoadingListener();
+    adsLoader.addListener(assetListLoadingListener);
+    adsConfiguration = new MediaItem.AdsConfiguration.Builder(Uri.EMPTY).setAdsId("adsId").build();
+    // The HLS media item to play.
     contentMediaItem =
         new MediaItem.Builder()
             .setUri("http://example.com/media.m3u8")
-            .setAdsConfiguration(
-                new MediaItem.AdsConfiguration.Builder(Uri.EMPTY).setAdsId("adsId").build())
+            .setAdsConfiguration(adsConfiguration)
+            .build();
+    // The content timeline with AdPlaybackState.NONE.
+    contentWindowDefinition =
+        new TimelineWindowDefinition.Builder()
+            .setDurationUs(90_000_000L)
+            .setWindowPositionInFirstPeriodUs(0L)
+            .setMediaItem(contentMediaItem)
             .build();
     adTagDataSpec = new DataSpec(Uri.EMPTY);
     // The ads media source using the ads loader.
@@ -103,19 +149,6 @@ public class HlsInterstitialsAdsLoaderTest {
                     mockAdViewProvider,
                     (Context) ApplicationProvider.getApplicationContext())
                 .createMediaSource(contentMediaItem);
-    // The content timeline with empty ad playback state.
-    contentWindowDefinition =
-        new TimelineWindowDefinition.Builder()
-            .setDurationUs(90_000_000L)
-            .setMediaItem(contentMediaItem)
-            .build();
-    // The ads timeline with a minimal ad playback state with the ads ID.
-    adsMediaSourceWindowDefinition =
-        new TimelineWindowDefinition.Builder()
-            .setDurationUs(90_000_000L)
-            .setMediaItem(contentMediaItem)
-            .setAdPlaybackStates(ImmutableList.of(new AdPlaybackState("adsId")))
-            .build();
   }
 
   @Test
@@ -152,7 +185,6 @@ public class HlsInterstitialsAdsLoaderTest {
             defaultMediaSourceFactory,
             adsLoader,
             mockAdViewProvider);
-
     when(mockPlayer.getCurrentTimeline())
         .thenReturn(
             new FakeTimeline(
@@ -255,7 +287,8 @@ public class HlsInterstitialsAdsLoaderTest {
             + "X-ASSET-URI=\"http://example.com/media-2-0.m3u8\"\n";
 
     AdPlaybackState actual =
-        callHandleContentTimelineChangedAndCaptureAdPlaybackState(playlistString, adsLoader);
+        callHandleContentTimelineChangedAndCaptureAdPlaybackState(
+            playlistString, adsLoader, /* windowIndex= */ 1);
     AdPlaybackState expected =
         new AdPlaybackState("adsId", 0L, 15_000_000L, C.TIME_END_OF_SOURCE)
             .withAdDurationsUs(/* adGroupIndex= */ 0, C.TIME_UNSET)
@@ -325,7 +358,9 @@ public class HlsInterstitialsAdsLoaderTest {
             + "X-ASSET-URI=\"http://example.com/media-0-2.m3u8\""
             + "\n";
 
-    assertThat(callHandleContentTimelineChangedAndCaptureAdPlaybackState(playlistString, adsLoader))
+    assertThat(
+            callHandleContentTimelineChangedAndCaptureAdPlaybackState(
+                playlistString, adsLoader, /* windowIndex= */ 3))
         .isEqualTo(
             new AdPlaybackState("adsId", 0L)
                 .withAdDurationsUs(/* adGroupIndex= */ 0, C.TIME_UNSET, C.TIME_UNSET, C.TIME_UNSET)
@@ -387,7 +422,9 @@ public class HlsInterstitialsAdsLoaderTest {
             + "X-ASSET-URI=\"http://example.com/media-0-2.m3u8\""
             + "\n";
 
-    assertThat(callHandleContentTimelineChangedAndCaptureAdPlaybackState(playlistString, adsLoader))
+    assertThat(
+            callHandleContentTimelineChangedAndCaptureAdPlaybackState(
+                playlistString, adsLoader, /* windowIndex= */ 0))
         .isEqualTo(
             new AdPlaybackState("adsId", /* adGroupTimesUs...= */ 4_000_000L)
                 .withAdDurationsUs(/* adGroupIndex= */ 0, C.TIME_UNSET, C.TIME_UNSET, C.TIME_UNSET)
@@ -455,7 +492,9 @@ public class HlsInterstitialsAdsLoaderTest {
             + "X-ASSET-URI=\"http://example.com/media-0-2.m3u8\""
             + "\n";
 
-    assertThat(callHandleContentTimelineChangedAndCaptureAdPlaybackState(playlistString, adsLoader))
+    assertThat(
+            callHandleContentTimelineChangedAndCaptureAdPlaybackState(
+                playlistString, adsLoader, /* windowIndex= */ 0))
         .isEqualTo(
             new AdPlaybackState("adsId", /* adGroupTimesUs...= */ C.TIME_END_OF_SOURCE)
                 .withAdDurationsUs(/* adGroupIndex= */ 0, 1_000_000L, 1_100_000L, 1_200_000L)
@@ -521,7 +560,9 @@ public class HlsInterstitialsAdsLoaderTest {
             + "X-ASSET-URI=\"http://example.com/media-0-0.m3u8\""
             + "\n";
 
-    assertThat(callHandleContentTimelineChangedAndCaptureAdPlaybackState(playlistString, adsLoader))
+    assertThat(
+            callHandleContentTimelineChangedAndCaptureAdPlaybackState(
+                playlistString, adsLoader, /* windowIndex= */ 0))
         .isEqualTo(
             new AdPlaybackState(
                     "adsId", /* adGroupTimesUs...= */ 1_000_000L, 2_000_000L, C.TIME_END_OF_SOURCE)
@@ -589,7 +630,9 @@ public class HlsInterstitialsAdsLoaderTest {
             + "X-ASSET-URI=\"http://example.com/media-0-1.m3u8\""
             + "\n";
 
-    assertThat(callHandleContentTimelineChangedAndCaptureAdPlaybackState(playlistString, adsLoader))
+    assertThat(
+            callHandleContentTimelineChangedAndCaptureAdPlaybackState(
+                playlistString, adsLoader, /* windowIndex= */ 0))
         .isEqualTo(
             new AdPlaybackState("adsId", /* adGroupTimesUs...= */ 0L)
                 .withAdDurationsUs(/* adGroupIndex= */ 0, 1_000_000L, 1_000_000L)
@@ -641,7 +684,9 @@ public class HlsInterstitialsAdsLoaderTest {
             + "X-ASSET-URI=\"http://example.com/media-0-1.m3u8\""
             + "\n";
 
-    assertThat(callHandleContentTimelineChangedAndCaptureAdPlaybackState(playlistString, adsLoader))
+    assertThat(
+            callHandleContentTimelineChangedAndCaptureAdPlaybackState(
+                playlistString, adsLoader, /* windowIndex= */ 0))
         .isEqualTo(
             new AdPlaybackState("adsId", /* adGroupTimesUs...= */ 0L)
                 .withAdDurationsUs(/* adGroupIndex= */ 0, 1_000_000L, C.TIME_UNSET)
@@ -687,7 +732,9 @@ public class HlsInterstitialsAdsLoaderTest {
             + "X-ASSET-URI=\"http://example.com/media-0-0.m3u8\""
             + "\n";
 
-    assertThat(callHandleContentTimelineChangedAndCaptureAdPlaybackState(playlistString, adsLoader))
+    assertThat(
+            callHandleContentTimelineChangedAndCaptureAdPlaybackState(
+                playlistString, adsLoader, /* windowIndex= */ 0))
         .isEqualTo(
             new AdPlaybackState("adsId", /* adGroupTimesUs...= */ 1_123_000L)
                 .withAdDurationsUs(/* adGroupIndex= */ 0, 4_000_000L)
@@ -724,7 +771,9 @@ public class HlsInterstitialsAdsLoaderTest {
             + "X-ASSET-URI=\"http://example.com/media-0-0.m3u8\""
             + "\n";
 
-    assertThat(callHandleContentTimelineChangedAndCaptureAdPlaybackState(playlistString, adsLoader))
+    assertThat(
+            callHandleContentTimelineChangedAndCaptureAdPlaybackState(
+                playlistString, adsLoader, /* windowIndex= */ 0))
         .isEqualTo(
             new AdPlaybackState("adsId", /* adGroupTimesUs...= */ 1_123_000L)
                 .withAdDurationsUs(/* adGroupIndex= */ 0, 3_456_000L)
@@ -759,7 +808,9 @@ public class HlsInterstitialsAdsLoaderTest {
             + "X-ASSET-URI=\"http://example.com/media-0-0.m3u8\""
             + "\n";
 
-    assertThat(callHandleContentTimelineChangedAndCaptureAdPlaybackState(playlistString, adsLoader))
+    assertThat(
+            callHandleContentTimelineChangedAndCaptureAdPlaybackState(
+                playlistString, adsLoader, /* windowIndex= */ 0))
         .isEqualTo(
             new AdPlaybackState("adsId", /* adGroupTimesUs...= */ 1_123_000L)
                 .withAdDurationsUs(/* adGroupIndex= */ 0, 1_123_000L)
@@ -794,7 +845,9 @@ public class HlsInterstitialsAdsLoaderTest {
             + "X-ASSET-URI=\"http://example.com/media-0-0.m3u8\""
             + "\n";
 
-    assertThat(callHandleContentTimelineChangedAndCaptureAdPlaybackState(playlistString, adsLoader))
+    assertThat(
+            callHandleContentTimelineChangedAndCaptureAdPlaybackState(
+                playlistString, adsLoader, /* windowIndex= */ 0))
         .isEqualTo(
             new AdPlaybackState("adsId", /* adGroupTimesUs...= */ 1_123_000L)
                 .withAdDurationsUs(/* adGroupIndex= */ 0, 2_234_000L)
@@ -827,7 +880,9 @@ public class HlsInterstitialsAdsLoaderTest {
             + "X-ASSET-URI=\"http://example.com/media-0-0.m3u8\""
             + "\n";
 
-    assertThat(callHandleContentTimelineChangedAndCaptureAdPlaybackState(playlistString, adsLoader))
+    assertThat(
+            callHandleContentTimelineChangedAndCaptureAdPlaybackState(
+                playlistString, adsLoader, /* windowIndex= */ 0))
         .isEqualTo(
             new AdPlaybackState("adsId", /* adGroupTimesUs...= */ 1_123_000L)
                 .withAdDurationsUs(/* adGroupIndex= */ 0, C.TIME_UNSET)
@@ -1199,7 +1254,8 @@ public class HlsInterstitialsAdsLoaderTest {
                     new MediaItem.Builder()
                         .setUri("http://example.com/media-1-0.m3u8")
                         .setMimeType(MimeTypes.APPLICATION_M3U8)
-                        .build()));
+                        .build()))
+        .inOrder();
   }
 
   @Test
@@ -1284,12 +1340,939 @@ public class HlsInterstitialsAdsLoaderTest {
         .containsExactly(
             new AdPlaybackState("adsId")
                 .withAdResumePositionUs(0)
-                .withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ false))
+                .withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ false));
+  }
+
+  @Test
+  public void handleContentTimelineChanged_preRollWithAssetList_resolveAssetListImmediately()
+      throws IOException, TimeoutException {
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:9\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:00:00.000Z\n"
+            + "#EXTINF:9,\n"
+            + "main0.0.ts\n"
+            + "#EXT-X-ENDLIST"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad0-0\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T22:00:00.000Z\","
+            + "CUE=\"PRE\","
+            + "X-ASSET-LIST=\"http://example.com/assetlist-0-0.json\""
+            + "\n";
+    when(mockPlayer.getContentPosition()).thenReturn(0L);
+    AdPlaybackState expectedAdPlaybackStateAtTimelineChange =
+        new AdPlaybackState("adsId", 0L)
+            .withAdCount(/* adGroupIndex= */ 0, 1)
+            .withAdId(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0, "ad0-0");
+
+    callHandleContentTimelineChangedAndCaptureAdPlaybackState(
+        playlistString, adsLoader, /* windowIndex= */ 0);
+
+    runMainLooperUntil(assetListLoadingListener::completed, TIMEOUT_MS, Clock.DEFAULT);
+    verify(mockAdsLoaderListener)
+        .onAssetListLoadCompleted(
+            contentMediaItem,
+            "adsId",
+            /* adGroupIndex= */ 0,
+            /* adIndexInAdGroup= */ 0,
+            new AssetList(
+                ImmutableList.of(new Asset(Uri.parse("http://0"), /* durationUs= */ 10_123_000L)),
+                ImmutableList.of()));
+    ArgumentCaptor<AdPlaybackState> adPlaybackStateCaptor =
+        ArgumentCaptor.forClass(AdPlaybackState.class);
+    verify(mockEventListener, times(2)).onAdPlaybackState(adPlaybackStateCaptor.capture());
+    assertThat(adPlaybackStateCaptor.getAllValues())
+        .containsExactly(
+            expectedAdPlaybackStateAtTimelineChange,
+            expectedAdPlaybackStateAtTimelineChange
+                .withAdDurationsUs(/* adGroupIndex= */ 0, 10_123_000L)
+                .withAvailableAdMediaItem(
+                    /* adGroupIndex= */ 0,
+                    /* adIndexInAdGroup= */ 0,
+                    new MediaItem.Builder()
+                        .setUri("http://0")
+                        .setMimeType(MimeTypes.APPLICATION_M3U8)
+                        .build())
+                .withContentResumeOffsetUs(/* adGroupIndex= */ 0, 10_123_000L))
+        .inOrder();
+    InOrder inOrder = inOrder(mockPlayer);
+    inOrder.verify(mockPlayer).addListener(any());
+    verifyTimelineUpdate(inOrder, mockPlayer, /* verifyMessageScheduled= */ false);
+    verifyAssetListLoadCompleted(inOrder, mockPlayer, /* verifyMessageScheduled= */ false);
+    inOrder.verifyNoMoreInteractions();
+  }
+
+  @Test
+  public void
+      handleContentTimelineChanged_preRollWithAssetList_resolvesAndSchedulesNextPlayerMessage()
+          throws IOException, TimeoutException {
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:9\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:00:00.000Z\n"
+            + "#EXTINF:9,\n"
+            + "main0.ts\n"
+            + "#EXT-X-ENDLIST"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad0-0\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T22:00:00.000Z\","
+            + "CUE=\"PRE\","
+            + "X-ASSET-LIST=\"http://example.com/assetlist-0-0.json\""
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad1-0\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T21:00:30.000Z\","
+            + "X-ASSET-LIST=\"http://example.com/assetlist-1-0.json\""
+            + "\n";
+    when(mockPlayer.getContentPosition()).thenReturn(0L);
+    PlayerMessage midRollPlayerMessage =
+        new PlayerMessage(
+            mock(PlayerMessage.Sender.class),
+            mock(PlayerMessage.Target.class),
+            Timeline.EMPTY,
+            /* defaultMediaItemIndex= */ 0,
+            /* Clock ignored */ null,
+            /* Looper ignored */ null);
+    when(mockPlayer.createMessage(any())).thenReturn(midRollPlayerMessage);
+
+    callHandleContentTimelineChangedAndCaptureAdPlaybackState(
+        playlistString, adsLoader, /* windowIndex= */ 0);
+
+    runMainLooperUntil(assetListLoadingListener::completed, TIMEOUT_MS, Clock.DEFAULT);
+    verify(mockAdsLoaderListener)
+        .onAssetListLoadCompleted(eq(contentMediaItem), eq("adsId"), eq(0), eq(0), any());
+    assertThat(midRollPlayerMessage.getPositionMs()).isEqualTo(12_000L);
+    assertThat(midRollPlayerMessage.getPayload()).isEqualTo(contentMediaItem);
+    assertThat(midRollPlayerMessage.getLooper()).isEqualTo(Looper.myLooper());
+    InOrder inOrder = inOrder(mockPlayer);
+    inOrder.verify(mockPlayer).addListener(any());
+    verifyTimelineUpdate(inOrder, mockPlayer, /* verifyMessageScheduled= */ false);
+    verifyAssetListLoadCompleted(inOrder, mockPlayer, /* verifyMessageScheduled= */ true);
+    inOrder.verifyNoMoreInteractions();
+  }
+
+  @Test
+  public void handleContentTimelineChanged_assetListWithMultipleAssets_resolvesAndExpandsAdGroup()
+      throws IOException, TimeoutException {
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:9\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:00:00.000Z\n"
+            + "#EXTINF:9,\n"
+            + "main0.ts\n"
+            + "#EXT-X-ENDLIST"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad0-0\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T22:00:00.000Z\","
+            + "CUE=\"PRE\","
+            + "X-ASSET-LIST=\"http://three-assets\""
+            + "\n";
+
+    when(mockPlayer.getContentPosition()).thenReturn(0L);
+    AdPlaybackState expectedAdPlaybackStateAtTimelineChange =
+        new AdPlaybackState("adsId", 0L)
+            .withAdCount(/* adGroupIndex= */ 0, 1)
+            .withAdId(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0, "ad0-0");
+
+    assertThat(
+            callHandleContentTimelineChangedAndCaptureAdPlaybackState(
+                playlistString, adsLoader, /* windowIndex= */ 0))
+        .isEqualTo(expectedAdPlaybackStateAtTimelineChange);
+
+    runMainLooperUntil(assetListLoadingListener::completed, TIMEOUT_MS, Clock.DEFAULT);
+    ArgumentCaptor<AdPlaybackState> adPlaybackStateCaptor =
+        ArgumentCaptor.forClass(AdPlaybackState.class);
+    verify(mockEventListener, times(2)).onAdPlaybackState(adPlaybackStateCaptor.capture());
+    assertThat(adPlaybackStateCaptor.getAllValues())
+        .containsExactly(
+            expectedAdPlaybackStateAtTimelineChange,
+            expectedAdPlaybackStateAtTimelineChange
+                .withAdCount(/* adGroupIndex= */ 0, 3)
+                .withAdDurationsUs(/* adGroupIndex= */ 0, 10_123_000L, 11_123_000L, 12_123_000L)
+                .withAvailableAdMediaItem(
+                    /* adGroupIndex= */ 0,
+                    /* adIndexInAdGroup= */ 0,
+                    new MediaItem.Builder()
+                        .setUri("http://0")
+                        .setMimeType(MimeTypes.APPLICATION_M3U8)
+                        .build())
+                .withAvailableAdMediaItem(
+                    /* adGroupIndex= */ 0,
+                    /* adIndexInAdGroup= */ 1,
+                    new MediaItem.Builder()
+                        .setUri("http://1")
+                        .setMimeType(MimeTypes.APPLICATION_M3U8)
+                        .build())
+                .withAvailableAdMediaItem(
+                    /* adGroupIndex= */ 0,
+                    /* adIndexInAdGroup= */ 2,
+                    new MediaItem.Builder()
+                        .setUri("http://2")
+                        .setMimeType(MimeTypes.APPLICATION_M3U8)
+                        .build())
+                .withContentResumeOffsetUs(
+                    /* adGroupIndex= */ 0, 10_123_000L + 11_123_000L + 12_123_000L))
+        .inOrder();
+    InOrder inOrder = inOrder(mockPlayer);
+    inOrder.verify(mockPlayer).addListener(any());
+    verifyTimelineUpdate(inOrder, mockPlayer, /* verifyMessageScheduled= */ false);
+    verifyAssetListLoadCompleted(inOrder, mockPlayer, /* verifyMessageScheduled= */ false);
+    inOrder.verifyNoMoreInteractions();
+  }
+
+  @Test
+  public void handleContentTimelineChanged_loadingAssetListFails_marksAdAndSchedulesNextMessage()
+      throws IOException, TimeoutException {
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:9\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:00:00.000Z\n"
+            + "#EXTINF:9,\n"
+            + "main0.0.ts\n"
+            + "#EXT-X-ENDLIST"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad0-0\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T22:00:00.000Z\","
+            + "CUE=\"PRE\","
+            + "X-ASSET-LIST=\"http://invalid\""
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad1-0\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T21:00:25.000Z\","
+            + "X-ASSET-LIST=\"http://example.com/assetlist-1-0.json\""
+            + "\n";
+    when(mockPlayer.getContentPosition()).thenReturn(0L);
+    PlayerMessage midRollPlayerMessage =
+        new PlayerMessage(
+            mock(PlayerMessage.Sender.class),
+            mock(PlayerMessage.Target.class),
+            Timeline.EMPTY,
+            /* defaultMediaItemIndex= */ 0,
+            /* Clock ignored */ null,
+            /* Looper ignored */ null);
+    when(mockPlayer.createMessage(any())).thenReturn(midRollPlayerMessage);
+    AdPlaybackState expectedAdPlaybackStateAtTimelineChange =
+        new AdPlaybackState("adsId", 0L, 25_000_000L)
+            .withAdCount(/* adGroupIndex= */ 0, 1)
+            .withAdCount(/* adGroupIndex= */ 1, 1)
+            .withAdId(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0, "ad0-0")
+            .withAdId(/* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 0, "ad1-0");
+
+    callHandleContentTimelineChangedAndCaptureAdPlaybackState(
+        playlistString, adsLoader, /* windowIndex= */ 1);
+
+    runMainLooperUntil(assetListLoadingListener::failed, TIMEOUT_MS, Clock.DEFAULT);
+    ArgumentCaptor<AdPlaybackState> adPlaybackStateCaptor =
+        ArgumentCaptor.forClass(AdPlaybackState.class);
+    verify(mockEventListener, times(2)).onAdPlaybackState(adPlaybackStateCaptor.capture());
+    assertThat(adPlaybackStateCaptor.getAllValues())
+        .containsExactly(
+            expectedAdPlaybackStateAtTimelineChange,
+            expectedAdPlaybackStateAtTimelineChange.withAdLoadError(
+                /* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0))
+        .inOrder();
+    assertThat(midRollPlayerMessage.getPositionMs()).isEqualTo(7_000L);
+    InOrder inOrder = inOrder(mockPlayer);
+    inOrder.verify(mockPlayer).addListener(any());
+    verifyTimelineUpdate(inOrder, mockPlayer, /* verifyMessageScheduled= */ false);
+    verifyAssetListLoadCompleted(inOrder, mockPlayer, /* verifyMessageScheduled= */ true);
+    inOrder.verifyNoMoreInteractions();
+  }
+
+  @Test
+  public void handleContentTimelineChanged_emptyAssetList_marksAdAsFailedAndSchedulesNextMessage()
+      throws IOException, TimeoutException {
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:9\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:00:00.000Z\n"
+            + "#EXTINF:9,\n"
+            + "main0.0.ts\n"
+            + "#EXT-X-ENDLIST"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad0-0\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T22:00:00.000Z\","
+            + "CUE=\"PRE\","
+            + "X-ASSET-LIST=\"http://example.com/assetlist-0-0.json\""
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad1-0\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T21:00:21.000Z\","
+            + "X-ASSET-LIST=\"http://empty\""
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad2-0\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T21:00:51.000Z\","
+            + "X-ASSET-LIST=\"http://example.com/assetlist-2-0.json\""
+            + "\n";
+    when(mockPlayer.getContentPosition()).thenReturn(0L);
+    PlayerMessage midRollPlayerMessage =
+        new PlayerMessage(
+            mock(PlayerMessage.Sender.class),
+            mock(PlayerMessage.Target.class),
+            Timeline.EMPTY,
+            /* defaultMediaItemIndex= */ 0,
+            /* Clock ignored */ null,
+            /* Looper ignored */ null);
+    when(mockPlayer.createMessage(any())).thenReturn(midRollPlayerMessage);
+    AdPlaybackState expectedAdPlaybackStateAtTimelineChange =
+        new AdPlaybackState("adsId", 0L, 21_000_000L, 51_000_000L)
+            .withAdCount(/* adGroupIndex= */ 0, 1)
+            .withAdCount(/* adGroupIndex= */ 1, 1)
+            .withAdCount(/* adGroupIndex= */ 2, 1)
+            .withAdId(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0, "ad0-0")
+            .withAdId(/* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 0, "ad1-0")
+            .withAdId(/* adGroupIndex= */ 2, /* adIndexInAdGroup= */ 0, "ad2-0");
+    when(mockPlayer.getContentPosition()).thenReturn(21_000L);
+
+    callHandleContentTimelineChangedAndCaptureAdPlaybackState(
+        playlistString, adsLoader, /* windowIndex= */ 1);
+
+    runMainLooperUntil(assetListLoadingListener::failed, TIMEOUT_MS, Clock.DEFAULT);
+    verify(mockAdsLoaderListener)
+        .onAssetListLoadFailed(any(), eq("adsId"), eq(1), eq(0), isNotNull(), eq(false));
+    ArgumentCaptor<AdPlaybackState> adPlaybackStateCaptor =
+        ArgumentCaptor.forClass(AdPlaybackState.class);
+    verify(mockEventListener, times(2)).onAdPlaybackState(adPlaybackStateCaptor.capture());
+    assertThat(adPlaybackStateCaptor.getAllValues())
+        .containsExactly(
+            expectedAdPlaybackStateAtTimelineChange,
+            expectedAdPlaybackStateAtTimelineChange.withAdLoadError(
+                /* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 0))
+        .inOrder();
+    assertThat(midRollPlayerMessage.getPositionMs()).isEqualTo(33_000L);
+    InOrder inOrder = inOrder(mockPlayer);
+    inOrder.verify(mockPlayer).addListener(any());
+    verifyTimelineUpdate(inOrder, mockPlayer, /* verifyMessageScheduled= */ false);
+    verifyAssetListLoadCompleted(inOrder, mockPlayer, /* verifyMessageScheduled= */ true);
+    inOrder.verifyNoMoreInteractions();
+  }
+
+  @Test
+  public void
+      handleContentTimelineChanged_publicPlaceholderPeriod_useDefaultPositionToScheduleMessage()
+          throws IOException, TimeoutException {
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:9\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad0-0\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T21:00:00.000Z\","
+            + "X-ASSET-LIST=\"http://example.com/assetlist-0-0.json\""
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad1-0\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "DURATION=3.246,"
+            + "START-DATE=\"2020-01-02T21:00:30.000Z\","
+            + "X-ASSET-LIST=\"http://example.com/assetlist-1-0.json\""
+            + "\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:00:00.000Z\n"
+            + "#EXTINF:9,\n"
+            + "main0.0.ts\n";
+    when(mockPlayer.getContentPosition()).thenReturn(0L);
+    contentWindowDefinition =
+        contentWindowDefinition
+            .buildUpon()
+            .setPlaceholder(true)
+            .setDynamic(true)
+            .setLive(true)
+            .setDefaultPositionUs(29_999_999L)
+            .build();
+
+    callHandleContentTimelineChangedAndCaptureAdPlaybackState(
+        playlistString, adsLoader, /* windowIndex= */ 0);
+
+    runMainLooperUntil(assetListLoadingListener::completed, TIMEOUT_MS, Clock.DEFAULT);
+    verify(mockAdsLoaderListener)
+        .onAssetListLoadCompleted(eq(contentMediaItem), eq("adsId"), eq(1), eq(0), isNotNull());
+    verify(mockEventListener, times(2)).onAdPlaybackState(any());
+    InOrder inOrder = inOrder(mockPlayer);
+    inOrder.verify(mockPlayer).addListener(any());
+    // Timeline change immediately starts asset list resolution using the default position instead
+    // of the current content position.
+    inOrder.verify(mockPlayer).getCurrentMediaItem();
+    inOrder.verify(mockPlayer).getCurrentPeriodIndex();
+    inOrder.verify(mockPlayer).getCurrentTimeline();
+    verifyAssetListLoadCompleted(inOrder, mockPlayer, /* verifyMessageScheduled= */ false);
+    inOrder.verifyNoMoreInteractions();
+  }
+
+  @Test
+  public void
+      handleContentTimelineChanged_assetListAndAssetUriMixture_adPlaybackStateCorrectlyPopulated()
+          throws IOException, TimeoutException {
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:9\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:00:00.000Z\n"
+            + "#EXTINF:9,\n"
+            + "main0.0.ts\n"
+            + "#EXT-X-ENDLIST"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad0-0\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T22:00:00.000Z\","
+            + "CUE=\"PRE\","
+            + "X-ASSET-LIST=\"http://three-assets\""
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad1-0\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "DURATION=3.246,"
+            + "START-DATE=\"2020-01-02T22:00:00.000Z\","
+            + "CUE=\"PRE\","
+            + "X-ASSET-URI=\"http://example.com/media-1-0.ts\""
+            + "\n";
+    when(mockPlayer.getContentPosition()).thenReturn(0L);
+    when(mockPlayer.createMessage(any()))
+        .thenReturn(
+            new PlayerMessage(
+                mock(PlayerMessage.Sender.class),
+                mock(PlayerMessage.Target.class),
+                Timeline.EMPTY,
+                /* defaultMediaItemIndex= */ 0,
+                /* Clock ignored */ null,
+                /* Looper ignored */ null));
+    AdPlaybackState expectedAdPlaybackStateAtTimelineChange =
+        new AdPlaybackState("adsId", 0L)
+            .withAdCount(/* adGroupIndex= */ 0, 2)
+            .withAdId(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0, "ad0-0")
+            .withAdId(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 1, "ad1-0")
+            .withAdDurationsUs(/* adGroupIndex= */ 0, C.TIME_UNSET, 3_246_000L)
+            .withContentResumeOffsetUs(/* adGroupIndex= */ 0, 3_246_000L)
+            .withAvailableAdMediaItem(
+                /* adGroupIndex= */ 0,
+                /* adIndexInAdGroup= */ 1,
+                new MediaItem.Builder()
+                    .setUri("http://example.com/media-1-0.ts")
+                    .setMimeType("application/x-mpegURL")
+                    .build());
+
+    callHandleContentTimelineChangedAndCaptureAdPlaybackState(
+        playlistString, adsLoader, /* windowIndex= */ 0);
+
+    runMainLooperUntil(assetListLoadingListener::completed, TIMEOUT_MS, Clock.DEFAULT);
+    ArgumentCaptor<AdPlaybackState> adPlaybackStateCaptor =
+        ArgumentCaptor.forClass(AdPlaybackState.class);
+    verify(mockEventListener, times(2)).onAdPlaybackState(adPlaybackStateCaptor.capture());
+    assertThat(adPlaybackStateCaptor.getAllValues())
+        .containsExactly(
+            expectedAdPlaybackStateAtTimelineChange,
+            expectedAdPlaybackStateAtTimelineChange
+                .withAdCount(/* adGroupIndex= */ 0, 4)
+                .withAdDurationsUs(
+                    /* adGroupIndex= */ 0, 10_123_000L, 3_246_000L, 11_123_000L, 12_123_000L)
+                .withAvailableAdMediaItem(
+                    /* adGroupIndex= */ 0,
+                    /* adIndexInAdGroup= */ 0,
+                    new MediaItem.Builder()
+                        .setUri("http://0")
+                        .setMimeType(MimeTypes.APPLICATION_M3U8)
+                        .build())
+                .withAvailableAdMediaItem(
+                    /* adGroupIndex= */ 0,
+                    /* adIndexInAdGroup= */ 2,
+                    new MediaItem.Builder()
+                        .setUri("http://1")
+                        .setMimeType(MimeTypes.APPLICATION_M3U8)
+                        .build())
+                .withAvailableAdMediaItem(
+                    /* adGroupIndex= */ 0,
+                    /* adIndexInAdGroup= */ 3,
+                    new MediaItem.Builder()
+                        .setUri("http://2")
+                        .setMimeType(MimeTypes.APPLICATION_M3U8)
+                        .build())
+                .withContentResumeOffsetUs(
+                    /* adGroupIndex= */ 0, 3_246_000L + 10_123_000L + 11_123_000L + 12_123_000L))
         .inOrder();
   }
 
   @Test
-  public void onPositionDiscontinuity_marksAdAsPlayed() throws IOException {
+  public void timelineChange_mediaItemsClearedWithoutPositionDiscontinuity_cancelsPendingMessage()
+      throws IOException {
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:9\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:00:00.000Z\n"
+            + "#EXTINF:9,\n"
+            + "main0.0.ts\n"
+            + "#EXT-X-ENDLIST"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad0-0\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T21:00:21.000Z\","
+            + "X-ASSET-LIST=\"http://example.com/assetlist-0-0.json\""
+            + "\n";
+    when(mockPlayer.getContentPosition()).thenReturn(0L);
+    PlayerMessage playerMessage =
+        new PlayerMessage(
+            mock(PlayerMessage.Sender.class),
+            mock(PlayerMessage.Target.class),
+            Timeline.EMPTY,
+            /* defaultMediaItemIndex= */ 0,
+            /* Clock ignored */ null,
+            /* Looper ignored */ null);
+    when(mockPlayer.createMessage(any())).thenReturn(playerMessage);
+    callHandleContentTimelineChangedAndCaptureAdPlaybackState(
+        playlistString, adsLoader, /* windowIndex= */ 0);
+    ArgumentCaptor<Player.Listener> listener = ArgumentCaptor.forClass(Player.Listener.class);
+    InOrder inOrder = inOrder(mockPlayer);
+    inOrder.verify(mockPlayer).addListener(listener.capture());
+    verifyTimelineUpdate(inOrder, mockPlayer, /* verifyMessageScheduled= */ true);
+
+    listener.getValue().onTimelineChanged(Timeline.EMPTY, TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED);
+
+    assertThat(playerMessage.isCanceled()).isTrue();
+    inOrder.verifyNoMoreInteractions();
+  }
+
+  @Test
+  public void handleMessage_playerMessageExecuted_resolvesAssetListAndSchedulesNextMessage()
+      throws IOException, TimeoutException, ExoPlaybackException {
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:9\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:00:00.000Z\n"
+            + "#EXTINF:9,\n"
+            + "main0.0.ts\n"
+            + "#EXT-X-ENDLIST"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad0-0\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T21:00:30.000Z\","
+            + "X-ASSET-LIST=\"http://example.com/assetlist-0-0.json\""
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad1-0\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T21:00:54.000Z\","
+            + "X-ASSET-LIST=\"http://example.com/assetlist-1-0.json\""
+            + "\n";
+    PlayerMessage midRoll2PlayerMessage =
+        new PlayerMessage(
+            mock(PlayerMessage.Sender.class),
+            mock(PlayerMessage.Target.class),
+            Timeline.EMPTY,
+            /* defaultMediaItemIndex= */ 0,
+            /* Clock ignored */ null,
+            /* Looper ignored */ null);
+    when(mockPlayer.getContentPosition()).thenReturn(0L);
+    when(mockPlayer.createMessage(any()))
+        .thenReturn(
+            new PlayerMessage(
+                mock(PlayerMessage.Sender.class),
+                mock(PlayerMessage.Target.class),
+                Timeline.EMPTY,
+                /* defaultMediaItemIndex= */ 0,
+                /* Clock ignored */ null,
+                /* Looper ignored */ null));
+    callHandleContentTimelineChangedAndCaptureAdPlaybackState(
+        playlistString, adsLoader, /* windowIndex= */ 2);
+    when(mockPlayer.getCurrentPeriodIndex()).thenReturn(2);
+    when(mockPlayer.getCurrentMediaItemIndex()).thenReturn(2);
+    InOrder inOrder = inOrder(mockPlayer);
+    // Timeline change schedules asset list resolution.
+    verifyTimelineUpdate(inOrder, mockPlayer, /* verifyMessageScheduled= */ false);
+    ArgumentCaptor<PlayerMessage.Target> targetCaptor =
+        ArgumentCaptor.forClass(PlayerMessage.Target.class);
+    inOrder.verify(mockPlayer).createMessage(targetCaptor.capture());
+    when(mockPlayer.createMessage(any())).thenReturn(midRoll2PlayerMessage);
+
+    targetCaptor.getValue().handleMessage(/* ignored */ -1, contentMediaItem);
+
+    runMainLooperUntil(assetListLoadingListener::completed, TIMEOUT_MS, Clock.DEFAULT);
+    assertThat(midRoll2PlayerMessage.isCanceled()).isFalse();
+    assertThat(midRoll2PlayerMessage.getPositionMs()).isEqualTo(36_000L);
+    assertThat(midRoll2PlayerMessage.getPayload()).isEqualTo(contentMediaItem);
+    assertThat(midRoll2PlayerMessage.getLooper()).isEqualTo(Looper.myLooper());
+  }
+
+  @Test
+  public void positionDiscontinuity_reasonSeek_immediatelyResolvesAndSchedulesNextMessages()
+      throws IOException, TimeoutException {
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:9\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:00:00.000Z\n"
+            + "#EXTINF:9,\n"
+            + "main0.0.ts\n"
+            + "#EXTINF:81,\n"
+            + "main1.0.ts\n"
+            + "#EXT-X-ENDLIST"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad0-0\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T22:00:00.000Z\","
+            + "CUE=\"PRE\","
+            + "X-ASSET-LIST=\"http://example.com/assetlist-0-0.json\""
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad1-0\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T21:00:30.000Z\","
+            + "X-ASSET-LIST=\"http://example.com/assetlist-1-0.json\""
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad2-0\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T21:00:54.000Z\","
+            + "X-ASSET-LIST=\"http://example.com/assetlist-2-0.json\""
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad3-0\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T20:00:00.000Z\","
+            + "CUE=\"POST\","
+            + "X-ASSET-LIST=\"http://example.com/assetlist-3-0.json\""
+            + "\n";
+    Object windowUid = new Object();
+    Object periodUid = new Object();
+    PlayerMessage midRoll1PlayerMessage =
+        new PlayerMessage(
+            mock(PlayerMessage.Sender.class),
+            mock(PlayerMessage.Target.class),
+            Timeline.EMPTY,
+            0,
+            /* Clock ignored */ null,
+            /* Looper ignored */ null);
+    PlayerMessage midRoll2PlayerMessage =
+        new PlayerMessage(
+            mock(PlayerMessage.Sender.class),
+            mock(PlayerMessage.Target.class),
+            Timeline.EMPTY,
+            0,
+            /* Clock ignored */ null,
+            /* Looper ignored */ null);
+    PlayerMessage postRollPlayerMessage =
+        new PlayerMessage(
+            mock(PlayerMessage.Sender.class),
+            mock(PlayerMessage.Target.class),
+            Timeline.EMPTY,
+            0,
+            /* Clock ignored */ null,
+            /* Looper ignored */ null);
+    Player.PositionInfo positionZero =
+        new Player.PositionInfo(
+            windowUid,
+            /* mediaItemIndex= */ 1,
+            contentMediaItem,
+            periodUid,
+            /* periodIndex= */ 1,
+            /* positionMs= */ 0L,
+            /* contentPositionMs= */ 0L,
+            /* adGroupIndex= */ -1,
+            /* adIndexInAdGroup= */ -1);
+    when(mockPlayer.getContentPosition()).thenReturn(0L);
+    when(mockPlayer.createMessage(any())).thenReturn(midRoll1PlayerMessage);
+    callHandleContentTimelineChangedAndCaptureAdPlaybackState(
+        playlistString, adsLoader, /* windowIndex= */ 1);
+    ArgumentCaptor<Player.Listener> listener = ArgumentCaptor.forClass(Player.Listener.class);
+    InOrder inOrder = inOrder(mockPlayer);
+    inOrder.verify(mockPlayer).addListener(listener.capture());
+    // This call must be a no-op because the loader is loading.
+    listener
+        .getValue()
+        .onPositionDiscontinuity(
+            /* oldPosition= */ positionZero,
+            /* newPosition= */ new Player.PositionInfo(
+                windowUid,
+                /* mediaItemIndex= */ 1,
+                contentMediaItem,
+                periodUid,
+                /* periodIndex= */ 1,
+                /* positionMs= */ 30_001L,
+                /* contentPositionMs= */ 30_001L,
+                /* adGroupIndex= */ -1,
+                /* adIndexInAdGroup= */ -1),
+            Player.DISCONTINUITY_REASON_SEEK);
+    runMainLooperUntil(assetListLoadingListener::completed, TIMEOUT_MS, Clock.DEFAULT);
+    when(mockPlayer.createMessage(any())).thenReturn(midRoll2PlayerMessage);
+
+    // A seek beyond the ad group at 30_000_000 with an unresolved asset list. The asset list for
+    // 30_000_000 is immediately loaded and the player message for the next mid roll is scheduled.
+    listener
+        .getValue()
+        .onPositionDiscontinuity(
+            /* oldPosition= */ positionZero,
+            /* newPosition= */ new Player.PositionInfo(
+                windowUid,
+                /* mediaItemIndex= */ 1,
+                contentMediaItem,
+                periodUid,
+                /* periodIndex= */ 1,
+                /* positionMs= */ 30_001L,
+                /* contentPositionMs= */ 30_001L,
+                /* adGroupIndex= */ -1,
+                /* adIndexInAdGroup= */ -1),
+            Player.DISCONTINUITY_REASON_SEEK);
+
+    runMainLooperUntil(
+        () -> assetListLoadingListener.assetListLoadCompletedCounter.get() == 2,
+        TIMEOUT_MS,
+        Clock.DEFAULT);
+    when(mockPlayer.createMessage(any())).thenReturn(postRollPlayerMessage);
+    // A seek beyond the ad group at 54_000_000 with an unresolved asset list. The asset list for
+    // 54_000_000 is immediately loaded and the player message for the post roll is scheduled.
+    listener
+        .getValue()
+        .onPositionDiscontinuity(
+            /* oldPosition= */ positionZero,
+            /* newPosition= */ new Player.PositionInfo(
+                windowUid,
+                /* mediaItemIndex= */ 1,
+                contentMediaItem,
+                periodUid,
+                /* periodIndex= */ 1,
+                /* positionMs= */ 54_001L,
+                /* contentPositionMs= */ 54_001L,
+                /* adGroupIndex= */ -1,
+                /* adIndexInAdGroup= */ -1),
+            Player.DISCONTINUITY_REASON_SEEK);
+
+    runMainLooperUntil(
+        () -> assetListLoadingListener.assetListLoadCompletedCounter.get() == 3,
+        TIMEOUT_MS,
+        Clock.DEFAULT);
+    assertThat(midRoll1PlayerMessage.isCanceled()).isTrue();
+    assertThat(midRoll1PlayerMessage.getPositionMs()).isEqualTo(12_000L);
+    assertThat(midRoll1PlayerMessage.getPayload()).isEqualTo(contentMediaItem);
+    assertThat(midRoll1PlayerMessage.getLooper()).isEqualTo(Looper.myLooper());
+    assertThat(midRoll2PlayerMessage.isCanceled()).isTrue();
+    assertThat(midRoll2PlayerMessage.getPositionMs()).isEqualTo(36_000L);
+    assertThat(midRoll2PlayerMessage.getPayload()).isEqualTo(contentMediaItem);
+    assertThat(midRoll1PlayerMessage.getLooper()).isEqualTo(Looper.myLooper());
+    assertThat(postRollPlayerMessage.isCanceled()).isFalse();
+    assertThat(postRollPlayerMessage.getPositionMs()).isEqualTo(72_000L);
+    assertThat(postRollPlayerMessage.getPayload()).isEqualTo(contentMediaItem);
+    assertThat(midRoll1PlayerMessage.getLooper()).isEqualTo(Looper.myLooper());
+    ArgumentCaptor<AssetList> argumentCaptor = ArgumentCaptor.forClass(AssetList.class);
+    verify(mockAdsLoaderListener, times(3))
+        .onAssetListLoadCompleted(
+            eq(contentMediaItem), eq("adsId"), anyInt(), anyInt(), argumentCaptor.capture());
+    assertThat(argumentCaptor.getAllValues())
+        .containsExactly(
+            new AssetList(
+                ImmutableList.of(new Asset(Uri.parse("http://0"), 10_123_000L)),
+                ImmutableList.of()),
+            new AssetList(
+                ImmutableList.of(new Asset(Uri.parse("http://0"), 10_123_000L)),
+                ImmutableList.of()),
+            new AssetList(
+                ImmutableList.of(new Asset(Uri.parse("http://0"), 10_123_000L)),
+                ImmutableList.of()))
+        .inOrder();
+    // Timeline change immediately starts asset list resolution.
+    verifyTimelineUpdate(inOrder, mockPlayer, /* verifyMessageScheduled= */ false);
+    // Position discontinuity during asset list loading.
+    inOrder.verify(mockPlayer).getCurrentTimeline();
+    verifyAssetListLoadCompleted(inOrder, mockPlayer, /* verifyMessageScheduled= */ true);
+    // Position discontinuity immediately starts asset list resolution.
+    inOrder.verify(mockPlayer).getCurrentTimeline();
+    verifyAssetListLoadCompleted(inOrder, mockPlayer, /* verifyMessageScheduled= */ true);
+    // Position discontinuity immediately starts asset list resolution.
+    inOrder.verify(mockPlayer).getCurrentTimeline();
+    verifyAssetListLoadCompleted(inOrder, mockPlayer, /* verifyMessageScheduled= */ true);
+    inOrder.verifyNoMoreInteractions();
+  }
+
+  @Test
+  public void positionDiscontinuity_reasonSeek_adPlaybackStatePopulatedCorrectly()
+      throws IOException, TimeoutException {
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:9\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:00:00.000Z\n"
+            + "#EXTINF:9,\n"
+            + "main0.0.ts\n"
+            + "#EXT-X-ENDLIST"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad0-0\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T21:00:21.000Z\","
+            + "X-ASSET-LIST=\"http://example.com/assetlist-0-0.json\""
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad1-0\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T21:00:51.000Z\","
+            + "X-ASSET-LIST=\"http://example.com/assetlist-1-0.json\""
+            + "\n";
+    Object windowUid = new Object();
+    Object periodUid = new Object();
+    when(mockPlayer.getContentPosition()).thenReturn(0L);
+    AdPlaybackState expectedAdPlaybackStateAtTimelineChange =
+        new AdPlaybackState("adsId", 21_000_000L, 51_000_000L)
+            .withAdCount(/* adGroupIndex= */ 0, 1)
+            .withAdCount(/* adGroupIndex= */ 1, 1)
+            .withAdId(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0, "ad0-0")
+            .withAdId(/* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 0, "ad1-0");
+    PlayerMessage midRoll1PlayerMessage =
+        new PlayerMessage(
+            mock(PlayerMessage.Sender.class),
+            mock(PlayerMessage.Target.class),
+            Timeline.EMPTY,
+            /* defaultMediaItemIndex= */ 0,
+            /* Clock ignored */ null,
+            /* Looper ignored */ null);
+    when(mockPlayer.createMessage(any())).thenReturn(midRoll1PlayerMessage);
+    callHandleContentTimelineChangedAndCaptureAdPlaybackState(
+        playlistString, adsLoader, /* windowIndex= */ 0);
+    // Emulate position discontinuity.
+    ArgumentCaptor<Player.Listener> listener = ArgumentCaptor.forClass(Player.Listener.class);
+    verify(mockPlayer).addListener(listener.capture());
+    PlayerMessage midRoll2PlayerMessage =
+        new PlayerMessage(
+            mock(PlayerMessage.Sender.class),
+            mock(PlayerMessage.Target.class),
+            Timeline.EMPTY,
+            /* defaultMediaItemIndex= */ 0,
+            /* Clock ignored */ null,
+            /* Looper ignored */ null);
+    when(mockPlayer.createMessage(any())).thenReturn(midRoll2PlayerMessage);
+
+    listener
+        .getValue()
+        .onPositionDiscontinuity(
+            /* oldPosition= */ new Player.PositionInfo(
+                windowUid,
+                /* mediaItemIndex= */ 0,
+                contentMediaItem,
+                periodUid,
+                /* periodIndex= */ 0,
+                /* positionMs= */ 0L,
+                /* contentPositionMs= */ 0L,
+                /* adGroupIndex= */ -1,
+                /* adIndexInAdGroup= */ -1),
+            /* newPosition= */ new Player.PositionInfo(
+                windowUid,
+                /* mediaItemIndex= */ 0,
+                contentMediaItem,
+                periodUid,
+                /* periodIndex= */ 0,
+                /* positionMs= */ 20_000L,
+                /* contentPositionMs= */ 20_000L,
+                /* adGroupIndex= */ -1,
+                /* adIndexInAdGroup= */ -1),
+            Player.DISCONTINUITY_REASON_SEEK);
+
+    runMainLooperUntil(assetListLoadingListener::completed, TIMEOUT_MS, Clock.DEFAULT);
+    assertThat(midRoll1PlayerMessage.isCanceled()).isTrue();
+    assertThat(midRoll1PlayerMessage.getPositionMs()).isEqualTo(3_000L);
+    assertThat(midRoll1PlayerMessage.getPayload()).isEqualTo(contentMediaItem);
+    assertThat(midRoll2PlayerMessage.isCanceled()).isFalse();
+    assertThat(midRoll2PlayerMessage.getPositionMs()).isEqualTo(33_000L);
+    assertThat(midRoll2PlayerMessage.getPayload()).isEqualTo(contentMediaItem);
+    ArgumentCaptor<AdPlaybackState> adPlaybackStateCaptor =
+        ArgumentCaptor.forClass(AdPlaybackState.class);
+    verify(mockEventListener, times(2)).onAdPlaybackState(adPlaybackStateCaptor.capture());
+    assertThat(adPlaybackStateCaptor.getAllValues())
+        .containsExactly(
+            expectedAdPlaybackStateAtTimelineChange,
+            expectedAdPlaybackStateAtTimelineChange
+                .withAdDurationsUs(/* adGroupIndex= */ 0, 10_123_000L)
+                .withAvailableAdMediaItem(
+                    /* adGroupIndex= */ 0,
+                    /* adIndexInAdGroup= */ 0,
+                    new MediaItem.Builder()
+                        .setUri("http://0")
+                        .setMimeType(MimeTypes.APPLICATION_M3U8)
+                        .build())
+                .withContentResumeOffsetUs(/* adGroupIndex= */ 0, 10_123_000L))
+        .inOrder();
+  }
+
+  @Test
+  public void
+      positionDiscontinuity_reasonSeekToMediaItemWithoutAd_cancelsPendingAssetListResolutionMessage()
+          throws IOException {
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:9\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:00:00.000Z\n"
+            + "#EXTINF:9,\n"
+            + "main0.0.ts\n"
+            + "#EXT-X-ENDLIST"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad0-0\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T21:00:21.000Z\","
+            + "X-ASSET-LIST=\"http://example.com/assetlist-0-0.json\""
+            + "\n";
+    when(mockPlayer.getContentPosition()).thenReturn(0L);
+    PlayerMessage playerMessage =
+        new PlayerMessage(
+            mock(PlayerMessage.Sender.class),
+            mock(PlayerMessage.Target.class),
+            Timeline.EMPTY,
+            /* defaultMediaItemIndex= */ 0,
+            /* Clock ignored */ null,
+            /* Looper ignored */ null);
+    when(mockPlayer.createMessage(any())).thenReturn(playerMessage);
+    callHandleContentTimelineChangedAndCaptureAdPlaybackState(
+        playlistString, adsLoader, /* windowIndex= */ 1);
+    // Emulate position discontinuity to a non-ad media item.
+    MediaItem nonAdMediaItem = MediaItem.fromUri(Uri.parse("http://example.com/no-ad"));
+    ArgumentCaptor<Player.Listener> listener = ArgumentCaptor.forClass(Player.Listener.class);
+    InOrder inOrder = inOrder(mockPlayer);
+    inOrder.verify(mockPlayer).addListener(listener.capture());
+
+    listener
+        .getValue()
+        .onPositionDiscontinuity(
+            /* oldPosition= */ new Player.PositionInfo(
+                /* windowUid= */ new Object(),
+                /* mediaItemIndex= */ 1,
+                contentMediaItem,
+                /* periodUid= */ new Object(),
+                /* periodIndex= */ 1,
+                /* positionMs= */ 0L,
+                /* contentPositionMs= */ 0L,
+                /* adGroupIndex= */ -1,
+                /* adIndexInAdGroup= */ -1),
+            /* newPosition= */ new Player.PositionInfo(
+                /* windowUid= */ new Object(),
+                /* mediaItemIndex= */ 0,
+                nonAdMediaItem,
+                /* periodUid= */ new Object(),
+                /* periodIndex= */ 0,
+                /* positionMs= */ 20_000L,
+                /* contentPositionMs= */ 20_000L,
+                /* adGroupIndex= */ -1,
+                /* adIndexInAdGroup= */ -1),
+            Player.DISCONTINUITY_REASON_SEEK);
+
+    assertThat(playerMessage.isCanceled()).isTrue();
+    verifyTimelineUpdate(inOrder, mockPlayer, /* verifyMessageScheduled= */ true);
+    // Position discontinuity to next media item cancels pending message.
+    inOrder.verify(mockPlayer).getCurrentTimeline();
+    inOrder.verifyNoMoreInteractions();
+  }
+
+  @Test
+  public void positionDiscontinuity_reasonAutoTransition_marksAdAsPlayed() throws IOException {
     String playlistString =
         "#EXTM3U\n"
             + "#EXT-X-TARGETDURATION:6\n"
@@ -1310,7 +2293,8 @@ public class HlsInterstitialsAdsLoaderTest {
             + "START-DATE=\"2020-01-02T21:55:40.000Z\","
             + "X-ASSET-URI=\"http://example.com/media-0-1.m3u8\""
             + "\n";
-    callHandleContentTimelineChangedAndCaptureAdPlaybackState(playlistString, adsLoader);
+    callHandleContentTimelineChangedAndCaptureAdPlaybackState(
+        playlistString, adsLoader, /* windowIndex= */ 0);
     ArgumentCaptor<Player.Listener> listener = ArgumentCaptor.forClass(Player.Listener.class);
     verify(mockPlayer).addListener(listener.capture());
     Object windowUid = new Object();
@@ -1420,14 +2404,11 @@ public class HlsInterstitialsAdsLoaderTest {
             + "CUE=\"POST\","
             + "X-ASSET-URI=\"http://example.com/media-0-0.m3u8\""
             + "\n";
-    callHandleContentTimelineChangedAndCaptureAdPlaybackState(playlistString, adsLoader);
+    callHandleContentTimelineChangedAndCaptureAdPlaybackState(
+        playlistString, adsLoader, /* windowIndex= */ 0);
     reset(mockEventListener);
     ArgumentCaptor<Player.Listener> listener = ArgumentCaptor.forClass(Player.Listener.class);
-    when(mockPlayer.getCurrentTimeline())
-        .thenReturn(new FakeTimeline(adsMediaSourceWindowDefinition));
     when(mockPlayer.isPlayingAd()).thenReturn(true);
-    when(mockPlayer.getCurrentPeriodIndex()).thenReturn(0);
-    when(mockPlayer.getCurrentMediaItem()).thenReturn(contentMediaItem);
     when(mockPlayer.getCurrentAdGroupIndex()).thenReturn(0);
     when(mockPlayer.getCurrentAdIndexInAdGroup()).thenReturn(0);
     verify(mockPlayer).addListener(listener.capture());
@@ -1479,7 +2460,8 @@ public class HlsInterstitialsAdsLoaderTest {
             + "START-DATE=\"2020-01-02T21:55:41.123Z\","
             + "X-ASSET-URI=\"http://example.com/media-0-1.m3u8\""
             + "\n";
-    callHandleContentTimelineChangedAndCaptureAdPlaybackState(playlistString, adsLoader);
+    callHandleContentTimelineChangedAndCaptureAdPlaybackState(
+        playlistString, adsLoader, /* windowIndex= */ 0);
 
     adsLoader.handlePrepareError(adsMediaSource, 0, 1, new IOException());
     adsLoader.handlePrepareError(adsMediaSource, 0, 0, new IOException());
@@ -1503,7 +2485,13 @@ public class HlsInterstitialsAdsLoaderTest {
     when(mockPlayer.getCurrentAdGroupIndex()).thenReturn(1);
     when(mockPlayer.getCurrentAdIndexInAdGroup()).thenReturn(2);
     when(mockPlayer.getCurrentTimeline())
-        .thenReturn(new FakeTimeline(adsMediaSourceWindowDefinition));
+        .thenReturn(
+            new FakeTimeline(
+                contentWindowDefinition
+                    .buildUpon()
+                    .setAdPlaybackStates(
+                        ImmutableList.of(new AdPlaybackState(adsConfiguration.adsId)))
+                    .build()));
     adsLoader.setPlayer(mockPlayer);
     adsLoader.start(adsMediaSource, adTagDataSpec, "adsId", mockAdViewProvider, mockEventListener);
     ArgumentCaptor<Player.Listener> listener = ArgumentCaptor.forClass(Player.Listener.class);
@@ -1687,7 +2675,8 @@ public class HlsInterstitialsAdsLoaderTest {
             + "DURATION=15,"
             + "X-ASSET-URI=\"http://example.com/media-0-0.m3u8\""
             + "\n";
-    callHandleContentTimelineChangedAndCaptureAdPlaybackState(playlistString, adsLoader);
+    callHandleContentTimelineChangedAndCaptureAdPlaybackState(
+        playlistString, adsLoader, /* windowIndex= */ 0);
     reset(mockPlayer);
     reset(mockEventListener);
     reset(mockAdsLoaderListener);
@@ -1719,12 +2708,12 @@ public class HlsInterstitialsAdsLoaderTest {
     adsLoader.setPlayer(mockPlayer);
     adsLoader.start(adsMediaSource, adTagDataSpec, "adsId", mockAdViewProvider, mockEventListener);
 
-    assertThrows(IllegalStateException.class, () -> adsLoader.setPlayer(secondMockPlayer));
+    assertThrows(IllegalArgumentException.class, () -> adsLoader.setPlayer(secondMockPlayer));
   }
 
   @Test
   public void setPlayer_playerAlreadySetWithoutActiveListeners_playerSet() {
-    Player secondMockPlayer = mock(Player.class);
+    Player secondMockPlayer = mock(ExoPlayer.class);
     when(mockPlayer.getCurrentTimeline()).thenReturn(new FakeTimeline(contentWindowDefinition));
     adsLoader.setPlayer(mockPlayer);
 
@@ -1785,7 +2774,6 @@ public class HlsInterstitialsAdsLoaderTest {
       throws IOException {
     Metadata metadata = new Metadata(/* presentationTimeUs= */ 0L);
     when(mockPlayer.isPlayingAd()).thenReturn(true);
-    when(mockPlayer.getCurrentMediaItem()).thenReturn(contentMediaItem);
     when(mockPlayer.getCurrentAdGroupIndex()).thenReturn(0);
     when(mockPlayer.getCurrentAdIndexInAdGroup()).thenReturn(1);
     String playlistString =
@@ -1813,7 +2801,8 @@ public class HlsInterstitialsAdsLoaderTest {
     IOException exception = new IOException();
     ArgumentCaptor<Player.Listener> listener = ArgumentCaptor.forClass(Player.Listener.class);
 
-    callHandleContentTimelineChangedAndCaptureAdPlaybackState(playlistString, adsLoader);
+    callHandleContentTimelineChangedAndCaptureAdPlaybackState(
+        playlistString, adsLoader, /* windowIndex= */ 0);
     adsLoader.handlePrepareError(
         adsMediaSource, /* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0, exception);
     adsLoader.handlePrepareComplete(
@@ -1890,6 +2879,8 @@ public class HlsInterstitialsAdsLoaderTest {
 
     HlsPlaylistParser hlsPlaylistParser = new HlsPlaylistParser();
     long firstPlaylistStartTimeUs = C.TIME_UNSET;
+    ArgumentCaptor<AdPlaybackState> adPlaybackState =
+        ArgumentCaptor.forClass(AdPlaybackState.class);
     for (String playlistString : playlistStrings) {
       InputStream inputStream = new ByteArrayInputStream(Util.getUtf8Bytes(playlistString));
       HlsMediaPlaylist mediaPlaylist =
@@ -1898,37 +2889,48 @@ public class HlsInterstitialsAdsLoaderTest {
         firstPlaylistStartTimeUs = mediaPlaylist.startTimeUs;
       }
       HlsManifest hlsManifest = new HlsManifest(/* multivariantPlaylist= */ null, mediaPlaylist);
+      TimelineWindowDefinition timelineWindowDefinition =
+          new TimelineWindowDefinition.Builder()
+              .setDynamic(true)
+              .setLive(true)
+              .setDurationUs(mediaPlaylist.durationUs)
+              .setDefaultPositionUs(mediaPlaylist.durationUs / 2)
+              .setWindowStartTimeUs(mediaPlaylist.startTimeUs)
+              .setWindowPositionInFirstPeriodUs(
+                  windowOffsetInFirstPeriodUs
+                      + (mediaPlaylist.startTimeUs - firstPlaylistStartTimeUs))
+              .setMediaItem(contentMediaItem)
+              .build();
       adsLoader.handleContentTimelineChanged(
-          adsMediaSource,
-          new FakeTimeline(
-              new Object[] {hlsManifest},
-              new TimelineWindowDefinition.Builder()
-                  .setDynamic(true)
-                  .setLive(true)
-                  .setDurationUs(mediaPlaylist.durationUs)
-                  .setDefaultPositionUs(mediaPlaylist.durationUs / 2)
-                  .setWindowStartTimeUs(mediaPlaylist.startTimeUs)
-                  .setWindowPositionInFirstPeriodUs(
-                      windowOffsetInFirstPeriodUs
-                          + (mediaPlaylist.startTimeUs - firstPlaylistStartTimeUs))
-                  .setMediaItem(contentMediaItem)
-                  .build()));
+          adsMediaSource, new FakeTimeline(new Object[] {hlsManifest}, timelineWindowDefinition));
+      verify(mockEventListener, atMost(playlistStrings.length))
+          .onAdPlaybackState(adPlaybackState.capture());
+      when(mockPlayer.getCurrentTimeline())
+          .thenReturn(
+              new FakeTimeline(
+                  timelineWindowDefinition
+                      .buildUpon()
+                      .setAdPlaybackStates(ImmutableList.of(adPlaybackState.getValue()))
+                      .build()));
     }
-    ArgumentCaptor<AdPlaybackState> adPlaybackState =
-        ArgumentCaptor.forClass(AdPlaybackState.class);
-    verify(mockEventListener, atMost(playlistStrings.length))
-        .onAdPlaybackState(adPlaybackState.capture());
-    when(mockPlayer.getCurrentTimeline())
-        .thenReturn(new FakeTimeline(adsMediaSourceWindowDefinition));
     return adPlaybackState.getAllValues();
   }
 
   private AdPlaybackState callHandleContentTimelineChangedAndCaptureAdPlaybackState(
-      String playlistString, HlsInterstitialsAdsLoader adsLoader) throws IOException {
+      String playlistString, HlsInterstitialsAdsLoader adsLoader, int windowIndex)
+      throws IOException {
     InputStream inputStream = new ByteArrayInputStream(Util.getUtf8Bytes(playlistString));
     HlsMediaPlaylist contentMediaPlaylist =
         (HlsMediaPlaylist) new HlsPlaylistParser().parse(Uri.EMPTY, inputStream);
-    when(mockPlayer.getCurrentTimeline()).thenReturn(new FakeTimeline(contentWindowDefinition));
+    TimelineWindowDefinition[] initialWindows = new TimelineWindowDefinition[windowIndex + 1];
+    Arrays.fill(
+        initialWindows,
+        new TimelineWindowDefinition.Builder()
+            .setMediaItem(MediaItem.fromUri("http://example.com/"))
+            .build());
+    initialWindows[windowIndex] = contentWindowDefinition;
+    when(mockPlayer.getCurrentTimeline()).thenReturn(new FakeTimeline(initialWindows));
+    when(mockPlayer.getCurrentMediaItem()).thenReturn(contentWindowDefinition.mediaItem);
     // Set the player.
     adsLoader.setPlayer(mockPlayer);
     // Start the ad.
@@ -1943,8 +2945,101 @@ public class HlsInterstitialsAdsLoaderTest {
     ArgumentCaptor<AdPlaybackState> adPlaybackState =
         ArgumentCaptor.forClass(AdPlaybackState.class);
     verify(mockEventListener).onAdPlaybackState(adPlaybackState.capture());
-    when(mockPlayer.getCurrentTimeline())
-        .thenReturn(new FakeTimeline(adsMediaSourceWindowDefinition));
+    TimelineWindowDefinition[] windowsAfterTimelineChange =
+        new TimelineWindowDefinition[windowIndex + 1];
+    Arrays.fill(
+        windowsAfterTimelineChange,
+        new TimelineWindowDefinition.Builder()
+            .setMediaItem(MediaItem.fromUri("http://example.com/"))
+            .build());
+    windowsAfterTimelineChange[windowIndex] =
+        contentWindowDefinition
+            .buildUpon()
+            .setDurationUs(contentMediaPlaylist.durationUs)
+            .setWindowStartTimeUs(contentMediaPlaylist.startTimeUs)
+            .setAdPlaybackStates(ImmutableList.of(adPlaybackState.getValue()))
+            .build();
+    when(mockPlayer.getCurrentTimeline()).thenReturn(new FakeTimeline(windowsAfterTimelineChange));
+    when(mockPlayer.getCurrentMediaItemIndex()).thenReturn(windowIndex);
+    when(mockPlayer.getCurrentPeriodIndex()).thenReturn(windowIndex);
     return adPlaybackState.getValue();
+  }
+
+  private static void verifyTimelineUpdate(
+      InOrder inOrder, ExoPlayer mockPlayer, boolean verifyMessageScheduled) {
+    inOrder.verify(mockPlayer).getCurrentMediaItem();
+    inOrder.verify(mockPlayer).getContentPosition();
+    if (verifyMessageScheduled) {
+      inOrder.verify(mockPlayer).createMessage(any());
+    }
+  }
+
+  private static void verifyAssetListLoadCompleted(
+      InOrder inOrder, ExoPlayer mockPlayer, boolean verifyMessageScheduled) {
+    inOrder.verify(mockPlayer).getCurrentMediaItem();
+    inOrder.verify(mockPlayer).getContentPosition();
+    inOrder.verify(mockPlayer).getCurrentTimeline();
+    inOrder.verify(mockPlayer).getCurrentPeriodIndex();
+    inOrder.verify(mockPlayer).getCurrentMediaItemIndex();
+    if (verifyMessageScheduled) {
+      inOrder.verify(mockPlayer).createMessage(any());
+    }
+  }
+
+  private byte[] getJsonAssetList(int assetCount) {
+    StringBuilder assetList = new StringBuilder("{\"ASSETS\": [");
+    for (int i = 0; i < assetCount; i++) {
+      assetList.append(getJsonAsset(/* uri= */ "http://" + i, /* durationSec= */ 10.123d + i));
+      if (i < assetCount - 1) {
+        assetList.append(",");
+      }
+    }
+    return assetList.append("]}\n").toString().getBytes(Charset.defaultCharset());
+  }
+
+  private static String getJsonAsset(String uri, double durationSec) {
+    return String.format(Locale.US, "{\"URI\": \"%s\", \"DURATION\": %f}", uri, durationSec);
+  }
+
+  @SuppressWarnings("NewClassNamingConvention")
+  private static final class AssetListLoadingListener
+      implements HlsInterstitialsAdsLoader.Listener {
+
+    private final AtomicInteger assetListLoadCompletedCounter;
+    private final AtomicInteger assetListLoadFailedCounter;
+
+    private AssetListLoadingListener() {
+      this.assetListLoadCompletedCounter = new AtomicInteger();
+      this.assetListLoadFailedCounter = new AtomicInteger();
+    }
+
+    public boolean completed() {
+      return assetListLoadCompletedCounter.get() > 0;
+    }
+
+    public boolean failed() {
+      return assetListLoadFailedCounter.get() > 0;
+    }
+
+    @Override
+    public void onAssetListLoadCompleted(
+        MediaItem mediaItem,
+        Object adsId,
+        int adGroupIndex,
+        int adIndexInAdGroup,
+        AssetList assetList) {
+      assetListLoadCompletedCounter.incrementAndGet();
+    }
+
+    @Override
+    public void onAssetListLoadFailed(
+        MediaItem mediaItem,
+        Object adsId,
+        int adGroupIndex,
+        int adIndexInAdGroup,
+        @Nullable IOException ioException,
+        boolean cancelled) {
+      assetListLoadFailedCounter.incrementAndGet();
+    }
   }
 }

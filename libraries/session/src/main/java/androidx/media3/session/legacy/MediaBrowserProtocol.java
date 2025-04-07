@@ -50,13 +50,6 @@ public class MediaBrowserProtocol {
   public static final String EXTRA_SESSION_BINDER = "extra_session_binder";
 
   /**
-   * MediaBrowserCompat will check the version of the connected MediaBrowserServiceCompat, and it
-   * will not send messages if they are introduced in the higher version of the
-   * MediaBrowserServiceCompat.
-   */
-  public static final int SERVICE_VERSION_1 = 1;
-
-  /**
    * To prevent ClassNotFoundException from Parcelables, MediaBrowser(Service)Compat tries to avoid
    * using framework code as much as possible (b/62648808). For backward compatibility, service v2
    * is introduced so that the browser can distinguish whether the service supports subscribing

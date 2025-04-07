@@ -118,6 +118,9 @@ public abstract class Mp4Box {
   public static final int TYPE_dvvC = 0x64767643;
 
   @SuppressWarnings("ConstantCaseForConstants")
+  public static final int TYPE_dvwC = 0x64767743;
+
+  @SuppressWarnings("ConstantCaseForConstants")
   public static final int TYPE_s263 = 0x73323633;
 
   public static final int TYPE_H263 = 0x48323633;
@@ -244,6 +247,9 @@ public abstract class Mp4Box {
 
   @SuppressWarnings("ConstantCaseForConstants")
   public static final int TYPE_esds = 0x65736473;
+
+  @SuppressWarnings("ConstantCaseForConstants")
+  public static final int TYPE_btrt = 0x62747274;
 
   @SuppressWarnings("ConstantCaseForConstants")
   public static final int TYPE_moof = 0x6d6f6f66;

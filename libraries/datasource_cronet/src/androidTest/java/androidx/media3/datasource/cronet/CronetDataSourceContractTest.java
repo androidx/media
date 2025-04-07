@@ -54,7 +54,11 @@ public class CronetDataSourceContractTest extends DataSourceContractTest {
       }
       CronetEngine cronetEngine = provider.createBuilder().setUserAgent("test-agent").build();
       dataSources.add(
-          new CronetDataSource.Factory(cronetEngine, executorService).createDataSource());
+          new CronetDataSource.Factory(cronetEngine, executorService)
+              // Ensure that 'resource not found' tests fail fast (b/403179253).
+              .setConnectionTimeoutMs(400)
+              .setReadTimeoutMs(400)
+              .createDataSource());
     }
     return dataSources.build();
   }

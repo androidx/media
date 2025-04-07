@@ -54,6 +54,7 @@ public class Mp4MuxerEndToEndTest {
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
   private static final String H265_HDR10_MP4 = "hdr10-720p.mp4";
+  private static final String AV1_MP4 = "sample_av1.mp4";
   private final Context context = ApplicationProvider.getApplicationContext();
 
   @Test
@@ -116,6 +117,30 @@ public class Mp4MuxerEndToEndTest {
 
     byte[] outputFileBytes = TestUtil.getByteArrayFromFilePath(outputFilePath);
     assertThat(outputFileBytes).isEmpty();
+  }
+
+  @Test
+  public void createAv1Mp4File_withoutCsd_matchesExpected() throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+    Mp4Muxer mp4Muxer = new Mp4Muxer.Builder(new FileOutputStream(outputFilePath)).build();
+
+    try {
+      mp4Muxer.addMetadataEntry(
+          new Mp4TimestampData(
+              /* creationTimestampSeconds= */ 100_000_000L,
+              /* modificationTimestampSeconds= */ 500_000_000L));
+      feedInputDataToMp4Muxer(context, mp4Muxer, AV1_MP4, /* removeInitializationData= */ true);
+    } finally {
+      if (mp4Muxer != null) {
+        mp4Muxer.close();
+      }
+    }
+
+    FakeExtractorOutput fakeExtractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(
+            new Mp4Extractor(new DefaultSubtitleParserFactory()), checkNotNull(outputFilePath));
+    DumpFileAsserts.assertOutput(
+        context, fakeExtractorOutput, MuxerTestUtil.getExpectedDumpFilePath(AV1_MP4));
   }
 
   @Test

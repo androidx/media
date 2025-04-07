@@ -21,6 +21,7 @@ import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.decoder.DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_DISABLED;
 import static java.lang.Math.min;
 
+import android.media.metrics.LogSessionId;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -58,7 +59,8 @@ import org.checkerframework.dataflow.qual.Pure;
       AudioMixer.Factory mixerFactory,
       Codec.EncoderFactory encoderFactory,
       MuxerWrapper muxerWrapper,
-      FallbackListener fallbackListener)
+      FallbackListener fallbackListener,
+      @Nullable LogSessionId logSessionId)
       throws ExportException {
     super(firstAssetLoaderTrackFormat, muxerWrapper);
     SonicAudioProcessor outputResampler = new SonicAudioProcessor();
@@ -96,7 +98,8 @@ import org.checkerframework.dataflow.qual.Pure;
                     findSupportedMimeTypeForEncoderAndMuxer(
                         requestedEncoderFormat,
                         muxerWrapper.getSupportedSampleMimeTypes(C.TRACK_TYPE_AUDIO)))
-                .build());
+                .build(),
+            logSessionId);
 
     AudioFormat actualEncoderAudioFormat = new AudioFormat(encoder.getInputFormat());
     // This occurs when the encoder does not support the requested format. In this case, the audio

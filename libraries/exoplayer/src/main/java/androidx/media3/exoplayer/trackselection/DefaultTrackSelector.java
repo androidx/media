@@ -668,12 +668,8 @@ public class DefaultTrackSelector extends MappingTrackSelector
       return this;
     }
 
-    /**
-     * @deprecated Use {@link #setTrackTypeDisabled(int, boolean)}.
-     */
     @CanIgnoreReturnValue
     @Override
-    @Deprecated
     @SuppressWarnings("deprecation") // Intentionally returning deprecated type
     public ParametersBuilder setDisabledTrackTypes(Set<@C.TrackType Integer> disabledTrackTypes) {
       delegate.setDisabledTrackTypes(disabledTrackTypes);
@@ -1527,13 +1523,8 @@ public class DefaultTrackSelector extends MappingTrackSelector
         return this;
       }
 
-      /**
-       * @deprecated Use {@link #setTrackTypeDisabled(int, boolean)}.
-       */
       @CanIgnoreReturnValue
       @Override
-      @Deprecated
-      @SuppressWarnings("deprecation")
       public Builder setDisabledTrackTypes(Set<@C.TrackType Integer> disabledTrackTypes) {
         super.setDisabledTrackTypes(disabledTrackTypes);
         return this;

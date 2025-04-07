@@ -15,6 +15,7 @@
  */
 package androidx.media3.transformer;
 
+import android.media.metrics.LogSessionId;
 import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 
@@ -30,15 +31,17 @@ import androidx.media3.common.Format;
   }
 
   @Override
-  public Codec createForAudioEncoding(Format format) throws ExportException {
-    Codec audioEncoder = encoderFactory.createForAudioEncoding(format);
+  public Codec createForAudioEncoding(Format format, @Nullable LogSessionId logSessionId)
+      throws ExportException {
+    Codec audioEncoder = encoderFactory.createForAudioEncoding(format, logSessionId);
     audioEncoderName = audioEncoder.getName();
     return audioEncoder;
   }
 
   @Override
-  public Codec createForVideoEncoding(Format format) throws ExportException {
-    Codec videoEncoder = encoderFactory.createForVideoEncoding(format);
+  public Codec createForVideoEncoding(Format format, @Nullable LogSessionId logSessionId)
+      throws ExportException {
+    Codec videoEncoder = encoderFactory.createForVideoEncoding(format, logSessionId);
     videoEncoderName = videoEncoder.getName();
     return videoEncoder;
   }

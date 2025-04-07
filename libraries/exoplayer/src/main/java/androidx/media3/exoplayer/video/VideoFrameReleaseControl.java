@@ -17,6 +17,9 @@ package androidx.media3.exoplayer.video;
 
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Util.msToUs;
+import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_IMMEDIATELY;
+import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED;
+import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_WHEN_STARTED;
 import static java.lang.Math.min;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
@@ -41,37 +44,8 @@ import java.lang.annotation.Target;
 public final class VideoFrameReleaseControl {
 
   /**
-   * The instruction provided to {@link #onStreamChanged(int)} for releasing the first frame.
-   *
-   * <p>One of {@link #RELEASE_FIRST_FRAME_IMMEDIATELY}, {@link #RELEASE_FIRST_FRAME_WHEN_STARTED}
-   * or {@link #RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED}.
-   */
-  @Documented
-  @Retention(RetentionPolicy.SOURCE)
-  @Target(TYPE_USE)
-  @UnstableApi
-  @IntDef({
-    RELEASE_FIRST_FRAME_IMMEDIATELY,
-    RELEASE_FIRST_FRAME_WHEN_STARTED,
-    RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED
-  })
-  public @interface FirstFrameReleaseInstruction {}
-
-  /** Instructs to release the first frame as soon as possible. */
-  public static final int RELEASE_FIRST_FRAME_IMMEDIATELY = 0;
-
-  /** Instructs to release the first frame when rendering starts. */
-  public static final int RELEASE_FIRST_FRAME_WHEN_STARTED = 1;
-
-  /**
-   * Instructs to release the first frame when the playback position reaches the stream start
-   * position.
-   */
-  public static final int RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED = 2;
-
-  /**
    * The frame release action returned by {@link #getFrameReleaseAction(long, long, long, long,
-   * boolean, FrameReleaseInfo)}.
+   * boolean, boolean, FrameReleaseInfo)}.
    *
    * <p>One of {@link #FRAME_RELEASE_IMMEDIATELY}, {@link #FRAME_RELEASE_SCHEDULED}, {@link
    * #FRAME_RELEASE_DROP}, {@link #FRAME_RELEASE_IGNORE}, {@link ##FRAME_RELEASE_SKIP} or {@link
@@ -208,14 +182,16 @@ public final class VideoFrameReleaseControl {
   private boolean joiningRenderNextFrameImmediately;
   private float playbackSpeed;
   private Clock clock;
+  private boolean hasOutputSurface;
+  private boolean frameReadyWithoutSurface;
 
   /**
    * Creates an instance.
    *
    * @param applicationContext The application context.
    * @param frameTimingEvaluator The {@link FrameTimingEvaluator} that will assist in {@linkplain
-   *     #getFrameReleaseAction(long, long, long, long, boolean, FrameReleaseInfo) frame release
-   *     actions}.
+   *     #getFrameReleaseAction(long, long, long, long, boolean, boolean, FrameReleaseInfo) frame
+   *     release actions}.
    * @param allowedJoiningTimeMs The maximum duration in milliseconds for which the caller can
    *     attempt to seamlessly join an ongoing playback.
    */
@@ -239,7 +215,8 @@ public final class VideoFrameReleaseControl {
    *
    * <p>Must also be called for the first stream.
    */
-  public void onStreamChanged(@FirstFrameReleaseInstruction int firstFrameReleaseInstruction) {
+  public void onStreamChanged(
+      @VideoSink.FirstFrameReleaseInstruction int firstFrameReleaseInstruction) {
     switch (firstFrameReleaseInstruction) {
       case RELEASE_FIRST_FRAME_IMMEDIATELY:
         firstFrameState = C.FIRST_FRAME_NOT_RENDERED;
@@ -271,6 +248,8 @@ public final class VideoFrameReleaseControl {
 
   /** Called when the display surface changed. */
   public void setOutputSurface(@Nullable Surface outputSurface) {
+    hasOutputSurface = outputSurface != null;
+    frameReadyWithoutSurface = false;
     frameReleaseHelper.onSurfaceChanged(outputSurface);
     lowerFirstFrameState(C.FIRST_FRAME_NOT_RENDERED);
   }
@@ -314,7 +293,9 @@ public final class VideoFrameReleaseControl {
    * @return Whether the release control is ready.
    */
   public boolean isReady(boolean otherwiseReady) {
-    if (otherwiseReady && firstFrameState == C.FIRST_FRAME_RENDERED) {
+    if (otherwiseReady
+        && (firstFrameState == C.FIRST_FRAME_RENDERED
+            || (!hasOutputSurface && frameReadyWithoutSurface))) {
       // Ready. If we were joining then we've now joined, so clear the joining deadline.
       joiningDeadlineMs = C.TIME_UNSET;
       return true;
@@ -355,6 +336,8 @@ public final class VideoFrameReleaseControl {
    * @param elapsedRealtimeUs {@link android.os.SystemClock#elapsedRealtime()} in microseconds,
    *     taken approximately at the time the playback position was {@code positionUs}.
    * @param outputStreamStartPositionUs The stream's start position, in microseconds.
+   * @param isDecodeOnlyFrame Whether the frame is decode-only because its presentation time is
+   *     before the intended start time.
    * @param isLastFrame Whether the frame is known to contain the last frame of the current stream.
    * @param frameReleaseInfo A {@link FrameReleaseInfo} that will be filled with detailed data only
    *     if the method returns {@link #FRAME_RELEASE_IMMEDIATELY} or {@link
@@ -367,6 +350,7 @@ public final class VideoFrameReleaseControl {
       long positionUs,
       long elapsedRealtimeUs,
       long outputStreamStartPositionUs,
+      boolean isDecodeOnlyFrame,
       boolean isLastFrame,
       FrameReleaseInfo frameReleaseInfo)
       throws ExoPlaybackException {
@@ -383,6 +367,24 @@ public final class VideoFrameReleaseControl {
     frameReleaseInfo.earlyUs =
         calculateEarlyTimeUs(positionUs, elapsedRealtimeUs, presentationTimeUs);
 
+    if (isDecodeOnlyFrame && !isLastFrame) {
+      return FRAME_RELEASE_SKIP;
+    }
+    if (!hasOutputSurface) {
+      frameReadyWithoutSurface = true;
+      // Skip frames in sync with playback, so we'll be at the right frame if a surface is set.
+      if (frameTimingEvaluator.shouldIgnoreFrame(
+          frameReleaseInfo.earlyUs,
+          positionUs,
+          elapsedRealtimeUs,
+          isLastFrame,
+          /* treatDroppedBuffersAsSkipped= */ true)) {
+        return FRAME_RELEASE_IGNORE;
+      }
+      return started && frameReleaseInfo.earlyUs < 30_000
+          ? FRAME_RELEASE_SKIP
+          : FRAME_RELEASE_TRY_AGAIN_LATER;
+    }
     if (shouldForceRelease(positionUs, frameReleaseInfo.earlyUs, outputStreamStartPositionUs)) {
       return FRAME_RELEASE_IMMEDIATELY;
     }

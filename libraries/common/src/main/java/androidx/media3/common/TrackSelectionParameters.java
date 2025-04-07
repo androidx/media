@@ -849,10 +849,8 @@ public class TrackSelectionParameters {
      *
      * @param disabledTrackTypes The track types to disable.
      * @return This builder.
-     * @deprecated Use {@link #setTrackTypeDisabled(int, boolean)}.
      */
     @CanIgnoreReturnValue
-    @Deprecated
     @UnstableApi
     public Builder setDisabledTrackTypes(Set<@C.TrackType Integer> disabledTrackTypes) {
       this.disabledTrackTypes.clear();

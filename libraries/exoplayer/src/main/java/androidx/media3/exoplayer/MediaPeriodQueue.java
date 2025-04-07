@@ -590,10 +590,10 @@ import java.util.List;
           newPeriodInfo.copyWithRequestedContentPositionUs(
               oldPeriodInfo.requestedContentPositionUs);
 
-      if (!areDurationsCompatible(oldPeriodInfo.durationUs, newPeriodInfo.durationUs)) {
-        // The period duration changed. Remove all subsequent periods and check whether we read
-        // beyond the new duration.
+      if (oldPeriodInfo.durationUs != newPeriodInfo.durationUs) {
+        // The period duration changed.
         periodHolder.updateClipping();
+        // Check whether we've read beyond the new duration.
         long newDurationInRendererTime =
             newPeriodInfo.durationUs == C.TIME_UNSET
                 ? Long.MAX_VALUE
@@ -607,12 +607,19 @@ import java.util.List;
             periodHolder == prewarming
                 && (maxRendererPrewarmingPositionUs == C.TIME_END_OF_SOURCE
                     || maxRendererPrewarmingPositionUs >= newDurationInRendererTime);
+        // Remove all subsequent periods.
         @MediaPeriodQueue.UpdatePeriodQueueResult int removeAfterResult = removeAfter(periodHolder);
         if (removeAfterResult != 0) {
           return removeAfterResult;
         }
+        boolean isLivePeriodClippedForAd =
+            oldPeriodInfo.durationUs == C.TIME_UNSET
+                && oldPeriodInfo.endPositionUs == C.TIME_END_OF_SOURCE
+                && newPeriodInfo.endPositionUs != C.TIME_UNSET
+                && newPeriodInfo.endPositionUs != C.TIME_END_OF_SOURCE;
         int result = 0;
-        if (isReadingAndReadBeyondNewDuration) {
+        if (isReadingAndReadBeyondNewDuration
+            && (oldPeriodInfo.durationUs != C.TIME_UNSET || isLivePeriodClippedForAd)) {
           result |= UPDATE_PERIOD_QUEUE_ALTERED_READING_PERIOD;
         }
         if (isPrewarmingAndReadBeyondNewDuration) {
@@ -667,7 +674,7 @@ import java.util.List;
         isFollowedByTransitionToSameStream,
         isLastInPeriod,
         isLastInWindow,
-        isLastInTimeline);
+        /* isFinal= */ isLastInTimeline);
   }
 
   /**
@@ -1225,8 +1232,6 @@ import java.util.List;
       boolean isPrecededByTransitionFromSameStream) {
     timeline.getPeriodByUid(periodUid, period);
     int nextAdGroupIndex = period.getAdGroupIndexAfterPositionUs(startPositionUs);
-    boolean isNextAdGroupPostrollPlaceholder =
-        nextAdGroupIndex != C.INDEX_UNSET && period.isLivePostrollPlaceholder(nextAdGroupIndex);
     boolean clipPeriodAtContentDuration = false;
     if (nextAdGroupIndex == C.INDEX_UNSET) {
       // Clip SSAI streams when at the end of the period.
@@ -1248,9 +1253,13 @@ import java.util.List;
     boolean isFollowedByTransitionToSameStream =
         nextAdGroupIndex != C.INDEX_UNSET
             && period.isServerSideInsertedAdGroup(nextAdGroupIndex)
-            && !isNextAdGroupPostrollPlaceholder;
+            && !period.isLivePostrollPlaceholder(nextAdGroupIndex);
+    boolean isFollowedByServerSidePostRollPlaceholder =
+        nextAdGroupIndex != C.INDEX_UNSET
+            && period.isLivePostrollPlaceholder(nextAdGroupIndex)
+            && period.isServerSideInsertedAdGroup(nextAdGroupIndex);
     long endPositionUs =
-        nextAdGroupIndex != C.INDEX_UNSET && !isNextAdGroupPostrollPlaceholder
+        nextAdGroupIndex != C.INDEX_UNSET && !isFollowedByServerSidePostRollPlaceholder
             ? period.getAdGroupTimeUs(nextAdGroupIndex)
             : clipPeriodAtContentDuration ? period.durationUs : C.TIME_UNSET;
     long durationUs =

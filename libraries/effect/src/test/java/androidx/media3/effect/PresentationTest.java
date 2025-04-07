@@ -92,4 +92,60 @@ public final class PresentationTest {
     assertThat(outputSize.getWidth()).isEqualTo(requestedWidth);
     assertThat(outputSize.getHeight()).isEqualTo(requestedHeight);
   }
+
+  @Test
+  public void configure_createForShortSideWithPortraitInput_changesDimension() {
+    int inputWidth = 720;
+    int inputHeight = 1280;
+    Presentation presentation = Presentation.createForShortSide(1080);
+
+    Size outputSize = presentation.configure(inputWidth, inputHeight);
+    boolean isNoOp = presentation.isNoOp(inputWidth, inputHeight);
+
+    assertThat(isNoOp).isFalse();
+    assertThat(outputSize.getWidth()).isEqualTo(1080);
+    assertThat(outputSize.getHeight()).isEqualTo(1920);
+  }
+
+  @Test
+  public void configure_createForShortSideWithPortraitInputNoEdit_leavesFramesUnchanged() {
+    int inputWidth = 720;
+    int inputHeight = 1280;
+    Presentation presentation = Presentation.createForShortSide(inputWidth);
+
+    Size outputSize = presentation.configure(inputWidth, inputHeight);
+    boolean isNoOp = presentation.isNoOp(inputWidth, inputHeight);
+
+    assertThat(isNoOp).isTrue();
+    assertThat(outputSize.getWidth()).isEqualTo(inputWidth);
+    assertThat(outputSize.getHeight()).isEqualTo(inputHeight);
+  }
+
+  @Test
+  public void configure_createForShortSideWithLandscapeInput_changesDimension() {
+    int inputWidth = 1280;
+    int inputHeight = 720;
+    Presentation presentation = Presentation.createForShortSide(1080);
+
+    Size outputSize = presentation.configure(inputWidth, inputHeight);
+    boolean isNoOp = presentation.isNoOp(inputWidth, inputHeight);
+
+    assertThat(isNoOp).isFalse();
+    assertThat(outputSize.getWidth()).isEqualTo(1920);
+    assertThat(outputSize.getHeight()).isEqualTo(1080);
+  }
+
+  @Test
+  public void configure_createForShortSideWithLandscapeInputNoEdit_leavesFramesUnchanged() {
+    int inputWidth = 1280;
+    int inputHeight = 720;
+    Presentation presentation = Presentation.createForShortSide(720);
+
+    Size outputSize = presentation.configure(inputWidth, inputHeight);
+    boolean isNoOp = presentation.isNoOp(inputWidth, inputHeight);
+
+    assertThat(isNoOp).isTrue();
+    assertThat(outputSize.getWidth()).isEqualTo(1280);
+    assertThat(outputSize.getHeight()).isEqualTo(720);
+  }
 }

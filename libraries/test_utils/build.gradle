@@ -41,6 +41,7 @@ dependencies {
     implementation 'com.squareup.okhttp3:mockwebserver:' + okhttpVersion
     api project(modulePrefix + 'lib-exoplayer')
     api project(modulePrefix + 'lib-transformer')
+    testImplementation project(modulePrefix + 'test-utils-robolectric')
     testImplementation 'androidx.test.espresso:espresso-core:' + androidxTestEspressoVersion
     testImplementation 'org.robolectric:robolectric:' + robolectricVersion
 }

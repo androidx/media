@@ -225,13 +225,14 @@ public class DefaultVideoFrameProcessorTest {
               }
 
               @Override
-              public void onOutputFrameAvailableForRendering(long presentationTimeUs) {
+              public void onOutputFrameAvailableForRendering(
+                  long presentationTimeUs, boolean isRedrawnFrame) {
                 outputFrameCount++;
                 if (outputFrameCount == 30) {
                   firstStreamLastFrameAvailableTimeMs.set(SystemClock.DEFAULT.elapsedRealtime());
                 }
                 defaultVideoFrameProcessor.renderOutputFrame(
-                    VideoFrameProcessor.RENDER_OUTPUT_FRAME_IMMEDIATELY);
+                    /* renderTimeNs= */ SystemClock.DEFAULT.nanoTime());
               }
 
               @Override
@@ -312,7 +313,8 @@ public class DefaultVideoFrameProcessorTest {
               }
 
               @Override
-              public void onOutputFrameAvailableForRendering(long presentationTimeUs) {
+              public void onOutputFrameAvailableForRendering(
+                  long presentationTimeUs, boolean isRedrawnFrame) {
                 outputFrameAvailableConditionVariable.open();
               }
 

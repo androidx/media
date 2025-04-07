@@ -74,7 +74,10 @@ public final class TestTransformerBuilder {
     maxDelayBetweenMuxerSamplesMs = Transformer.DEFAULT_MAX_DELAY_BETWEEN_MUXER_SAMPLES_MS;
     assetLoaderFactory =
         new DefaultAssetLoaderFactory(
-            context, new DefaultDecoderFactory.Builder(context).build(), clock);
+            context,
+            new DefaultDecoderFactory.Builder(context).build(),
+            clock,
+            /* logSessionId= */ null);
     muxerFactory = new DefaultMuxer.Factory();
     looper = Util.getCurrentOrMainLooper();
   }

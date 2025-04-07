@@ -22,10 +22,7 @@ import androidx.media3.common.util.Util;
 import androidx.media3.extractor.flac.FlacConstants;
 import java.io.IOException;
 
-/**
- * Reads and peeks FLAC frame elements according to the <a
- * href="https://xiph.org/flac/format.html">FLAC format specification</a>.
- */
+/** Reads and peeks FLAC frame elements according to RFC 9639. */
 @UnstableApi
 public final class FlacFrameReader {
 

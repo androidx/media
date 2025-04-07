@@ -12,7 +12,6 @@ track 0:
     sampleMimeType = audio/opus
     channelCount = 6
     sampleRate = 48000
-    language = ```
     initializationData:
       data = length 27, hash 9EE6F879
       data = length 8, hash CA22068C

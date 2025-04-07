@@ -161,6 +161,11 @@ public final class TrackGroup {
     return id.equals(other.id) && Arrays.equals(formats, other.formats);
   }
 
+  @Override
+  public String toString() {
+    return id + ": " + Arrays.toString(formats);
+  }
+
   private static final String FIELD_FORMATS = Util.intToStringMaxRadix(0);
   private static final String FIELD_ID = Util.intToStringMaxRadix(1);
 

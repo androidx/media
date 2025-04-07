@@ -437,91 +437,91 @@ AudioSink:
     sampleRate = 44100
   buffer #0:
     time = 1000000000000
-    data = 1
+    data = empty
   buffer #1:
     time = 1000000034829
-    data = 1
+    data = empty
   buffer #2:
     time = 1000000069659
-    data = 1
+    data = empty
   buffer #3:
     time = 1000000104489
-    data = 1
+    data = empty
   buffer #4:
     time = 1000000139319
-    data = 1
+    data = empty
   buffer #5:
     time = 1000000174149
-    data = 1
+    data = empty
   buffer #6:
     time = 1000000208979
-    data = 1
+    data = empty
   buffer #7:
     time = 1000000243809
-    data = 1
+    data = empty
   buffer #8:
     time = 1000000279000
-    data = 1
+    data = empty
   buffer #9:
     time = 1000000313829
-    data = 1
+    data = empty
   buffer #10:
     time = 1000000348659
-    data = 1
+    data = empty
   buffer #11:
     time = 1000000383489
-    data = 1
+    data = empty
   buffer #12:
     time = 1000000418319
-    data = 1
+    data = empty
   buffer #13:
     time = 1000000453149
-    data = 1
+    data = empty
   buffer #14:
     time = 1000000487979
-    data = 1
+    data = empty
   buffer #15:
     time = 1000000522809
-    data = 1
+    data = empty
   buffer #16:
     time = 1000000557000
-    data = 1
+    data = empty
   buffer #17:
     time = 1000000591829
-    data = 1
+    data = empty
   buffer #18:
     time = 1000000626659
-    data = 1
+    data = empty
   buffer #19:
     time = 1000000661489
-    data = 1
+    data = empty
   buffer #20:
     time = 1000000696319
-    data = 1
+    data = empty
   buffer #21:
     time = 1000000731149
-    data = 1
+    data = empty
   buffer #22:
     time = 1000000765979
-    data = 1
+    data = empty
   buffer #23:
     time = 1000000800809
-    data = 1
+    data = empty
   buffer #24:
     time = 1000000836000
-    data = 1
+    data = empty
   buffer #25:
     time = 1000000870829
-    data = 1
+    data = empty
   buffer #26:
     time = 1000000905659
-    data = 1
+    data = empty
   buffer #27:
     time = 1000000940489
-    data = 1
+    data = empty
   buffer #28:
     time = 1000000975319
-    data = 1
+    data = empty
 TextOutput:
   Subtitle[0]:
     presentationTimeUs = 0

@@ -1487,6 +1487,18 @@ public final class HttpEngineDataSourceTest {
   }
 
   @Test
+  public void getCookieHeader_cookieHandlerCustomHandler() throws Exception {
+    CookieManager cm = new CookieManager();
+    cm.put(
+        new URI(TEST_URL),
+        ImmutableMap.of(
+            "Set-Cookie", ImmutableList.of(TEST_RESPONSE_SET_COOKIE, TEST_RESPONSE_SET_COOKIE_2)));
+
+    assertThat(HttpEngineDataSource.getCookieHeader(TEST_URL, cm))
+        .isEqualTo(TEST_REQUEST_COOKIE + "; " + TEST_REQUEST_COOKIE_2 + ";");
+  }
+
+  @Test
   public void getCookieHeader_cookieHandlerCookie2() throws Exception {
     CookieManager cm = new CookieManager();
     cm.put(

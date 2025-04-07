@@ -228,6 +228,16 @@ public final class GlUtil {
     return glExtensions != null && glExtensions.contains(EXTENSION_YUV_TARGET);
   }
 
+  /** Returns whether the given {@link C.ColorTransfer} is supported. */
+  public static boolean isColorTransferSupported(@C.ColorTransfer int colorTransfer) {
+    if (colorTransfer == C.COLOR_TRANSFER_ST2084) {
+      return GlUtil.isBt2020PqExtensionSupported();
+    } else if (colorTransfer == C.COLOR_TRANSFER_HLG) {
+      return GlUtil.isBt2020HlgExtensionSupported();
+    }
+    return true;
+  }
+
   /** Returns whether {@link #EXTENSION_COLORSPACE_BT2020_PQ} is supported. */
   public static boolean isBt2020PqExtensionSupported() {
     // On API<33, the system cannot display PQ content correctly regardless of whether BT2020 PQ

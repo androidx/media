@@ -27,6 +27,7 @@ import java.math.RoundingMode;
   @VisibleForTesting
   /* package */ static final long MIN_TIME_BETWEEN_POINTS_US = C.MICROS_PER_SECOND / 10;
 
+  private final long dataStartPosition;
   private final long dataEndPosition;
   private final int averageBitrate;
   private final IndexSeekMap indexSeekMap;
@@ -37,6 +38,7 @@ import java.math.RoundingMode;
             /* positions= */ new long[] {dataStartPosition},
             /* timesUs= */ new long[] {0L},
             durationUs);
+    this.dataStartPosition = dataStartPosition;
     this.dataEndPosition = dataEndPosition;
     if (durationUs != C.TIME_UNSET) {
       long bitrate =
@@ -52,6 +54,11 @@ import java.math.RoundingMode;
   @Override
   public long getTimeUs(long position) {
     return indexSeekMap.getTimeUs(position);
+  }
+
+  @Override
+  public long getDataStartPosition() {
+    return dataStartPosition;
   }
 
   @Override

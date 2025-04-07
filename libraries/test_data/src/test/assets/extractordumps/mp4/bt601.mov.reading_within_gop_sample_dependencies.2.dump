@@ -20,7 +20,7 @@ track 0:
     channelCount = 1
     sampleRate = 44100
     language = und
-    metadata = entries=[TSSE: description=null: values=[Lavf56.1.0], Mp4Timestamp: creation time=3790610215, modification time=3790610215, timescale=30000]
+    metadata = entries=[Mp4AlternateGroup: 1, TSSE: description=null: values=[Lavf56.1.0], Mp4Timestamp: creation time=3790610215, modification time=3790610215, timescale=30000]
     initializationData:
       data = length 2, hash 5F7
   sample 0:
@@ -107,6 +107,7 @@ track 1:
       colorTransfer = 3
       lumaBitdepth = 8
       chromaBitdepth = 8
+    language = und
     metadata = entries=[TSSE: description=null: values=[Lavf56.1.0], Mp4Timestamp: creation time=3790610215, modification time=3790610215, timescale=30000]
     initializationData:
       data = length 19, hash D3863A4C

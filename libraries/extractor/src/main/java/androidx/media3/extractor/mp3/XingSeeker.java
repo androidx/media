@@ -42,11 +42,6 @@ import androidx.media3.extractor.SeekPoint;
     if (durationUs == C.TIME_UNSET) {
       return null;
     }
-    if (xingFrame.dataSize == C.LENGTH_UNSET || xingFrame.tableOfContents == null) {
-      // If the size in bytes or table of contents is missing, the stream is not seekable.
-      return new XingSeeker(
-          position, xingFrame.header.frameSize, durationUs, xingFrame.header.bitrate);
-    }
     return new XingSeeker(
         position,
         xingFrame.header.frameSize,
@@ -71,16 +66,6 @@ import androidx.media3.extractor.SeekPoint;
    * table of contents was missing from the header, in which case seeking is not be supported.
    */
   @Nullable private final long[] tableOfContents;
-
-  private XingSeeker(long dataStartPosition, int xingFrameSize, long durationUs, int bitrate) {
-    this(
-        dataStartPosition,
-        xingFrameSize,
-        durationUs,
-        bitrate,
-        /* dataSize= */ C.LENGTH_UNSET,
-        /* tableOfContents= */ null);
-  }
 
   private XingSeeker(
       long dataStartPosition,
@@ -155,6 +140,11 @@ import androidx.media3.extractor.SeekPoint;
   @Override
   public long getDurationUs() {
     return durationUs;
+  }
+
+  @Override
+  public long getDataStartPosition() {
+    return dataStartPosition + xingFrameSize;
   }
 
   @Override

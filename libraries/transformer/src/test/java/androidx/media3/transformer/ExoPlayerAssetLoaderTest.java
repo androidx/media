@@ -173,7 +173,12 @@ public class ExoPlayerAssetLoaderTest {
     Codec.DecoderFactory decoderFactory = new DefaultDecoderFactory.Builder(context).build();
     EditedMediaItem editedMediaItem = new EditedMediaItem.Builder(MediaItem.fromUri(uri)).build();
     return new ExoPlayerAssetLoader.Factory(
-            context, decoderFactory, clock, /* mediaSourceFactory= */ null, trackSelectorFactory)
+            context,
+            decoderFactory,
+            clock,
+            /* mediaSourceFactory= */ null,
+            trackSelectorFactory,
+            /* logSessionId= */ null)
         .createAssetLoader(
             editedMediaItem,
             Looper.myLooper(),

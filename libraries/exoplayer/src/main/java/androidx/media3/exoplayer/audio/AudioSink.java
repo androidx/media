@@ -593,7 +593,7 @@ public interface AudioSink {
 
   /**
    * Returns the size of the underlying {@link AudioTrack} buffer in microseconds. If unsupported or
-   * the {@link AudioTrack} is not initialized then return {@link C#TIME_UNSET};
+   * the {@link AudioTrack} is not initialized then return {@link C#TIME_UNSET}.
    *
    * <p>If the {@link AudioTrack} is configured with a compressed encoding, then the returned
    * duration is an estimated minimum based on the encoding's maximum encoded byte rate.

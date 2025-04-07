@@ -260,6 +260,11 @@ public final class Mp4ExtractorParameterizedTest {
     assertExtractorBehavior("media/mp4/sample_2_byte_NAL_length.mp4");
   }
 
+  @Test
+  public void mp4SampleWithBtrt() throws Exception {
+    assertExtractorBehavior("media/mp4/sample_with_btrt.mp4");
+  }
+
   private void assertExtractorBehavior(String file) throws IOException {
     ExtractorAsserts.AssertionConfig.Builder assertionConfigBuilder =
         new ExtractorAsserts.AssertionConfig.Builder();

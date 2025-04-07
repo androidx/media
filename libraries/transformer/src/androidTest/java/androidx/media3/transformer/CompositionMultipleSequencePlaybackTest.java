@@ -165,6 +165,7 @@ public class CompositionMultipleSequencePlaybackTest {
   }
 
   @Test
+  @Ignore("TODO: b/391349011 - Re-enable after adapting rendering logic for multiple sequences")
   public void playback_sequencesOfImages_effectsReceiveCorrectTimestamps() throws Exception {
     Composition composition =
         new Composition.Builder(

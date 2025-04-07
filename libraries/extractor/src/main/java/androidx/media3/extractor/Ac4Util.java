@@ -163,14 +163,17 @@ public final class Ac4Util {
    *
    * @param data The AC4SpecificBox to parse.
    * @param trackId The track identifier to set on the format.
-   * @param language The language to set on the format.
+   * @param language The language to set on the format, or {@code null} if unset.
    * @param drmInitData {@link DrmInitData} to be included in the format.
    * @return The AC-4 format parsed from data in the header.
    * @throws ParserException If an unsupported container feature is encountered while parsing AC-4
    *     Annex E.
    */
   public static Format parseAc4AnnexEFormat(
-      ParsableByteArray data, String trackId, String language, @Nullable DrmInitData drmInitData)
+      ParsableByteArray data,
+      String trackId,
+      @Nullable String language,
+      @Nullable DrmInitData drmInitData)
       throws ParserException {
     ParsableBitArray dataBitArray = new ParsableBitArray();
     dataBitArray.reset(data);

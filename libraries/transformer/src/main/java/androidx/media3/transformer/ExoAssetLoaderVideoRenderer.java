@@ -20,6 +20,7 @@ import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.transformer.TransformerUtil.getDecoderOutputColor;
 
 import android.media.MediaCodec;
+import android.media.metrics.LogSessionId;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
@@ -39,6 +40,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   private final Codec.DecoderFactory decoderFactory;
   private final @Composition.HdrMode int hdrMode;
   private final List<Long> decodeOnlyPresentationTimestamps;
+  @Nullable private final LogSessionId logSessionId;
 
   private @MonotonicNonNull SefSlowMotionFlattener sefVideoSlowMotionFlattener;
   private int maxDecoderPendingFrameCount;
@@ -48,11 +50,13 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       Codec.DecoderFactory decoderFactory,
       @Composition.HdrMode int hdrMode,
       TransformerMediaClock mediaClock,
-      AssetLoader.Listener assetLoaderListener) {
+      AssetLoader.Listener assetLoaderListener,
+      @Nullable LogSessionId logSessionId) {
     super(C.TRACK_TYPE_VIDEO, mediaClock, assetLoaderListener);
     this.flattenForSlowMotion = flattenForSlowMotion;
     this.decoderFactory = decoderFactory;
     this.hdrMode = hdrMode;
+    this.logSessionId = logSessionId;
     decodeOnlyPresentationTimestamps = new ArrayList<>();
     maxDecoderPendingFrameCount = C.INDEX_UNSET;
   }
@@ -118,7 +122,8 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
         decoderFactory.createForVideoDecoding(
             inputFormat,
             checkNotNull(sampleConsumer.getInputSurface()),
-            isDecoderToneMappingRequired);
+            isDecoderToneMappingRequired,
+            logSessionId);
     maxDecoderPendingFrameCount = decoder.getMaxPendingFrameCount();
   }
 

@@ -6,16 +6,21 @@ AudioSink:
     sampleRate = 48000
   buffer #0:
     time = 0
-    data = 988837530
+    channel[0] = 1129340288
+    channel[1] = 486207579
   buffer #1:
     time = 99979
-    data = 584655364
+    channel[0] = 2054343151
+    channel[1] = -1130108778
   buffer #2:
     time = 199979
-    data = 808326696
+    channel[0] = -45077160
+    channel[1] = -1069719407
   buffer #3:
     time = 299979
-    data = 483499140
+    channel[0] = 1667791168
+    channel[1] = -624002747
   buffer #4:
     time = 348625
-    data = -1450203053
+    channel[0] = 1508938058
+    channel[1] = 1508938058

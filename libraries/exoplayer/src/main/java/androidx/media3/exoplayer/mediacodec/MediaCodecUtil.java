@@ -323,6 +323,18 @@ public final class MediaCodecUtil {
   }
 
   /**
+   * Returns a {@link CodecProfileLevel} configured with the provided {@code profile} and {@code
+   * level}.
+   */
+  @UnstableApi
+  public static CodecProfileLevel createCodecProfileLevel(int profile, int level) {
+    CodecProfileLevel profileLevel = new CodecProfileLevel();
+    profileLevel.profile = profile;
+    profileLevel.level = level;
+    return profileLevel;
+  }
+
+  /**
    * @deprecated Use {@link CodecSpecificDataUtil#getCodecProfileAndLevel(Format)}.
    */
   @InlineMe(

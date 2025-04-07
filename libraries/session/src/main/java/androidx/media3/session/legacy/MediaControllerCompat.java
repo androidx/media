@@ -18,7 +18,6 @@ package androidx.media3.session.legacy;
 import static androidx.annotation.RestrictTo.Scope.LIBRARY;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 
-import android.app.Activity;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.media.AudioManager;
@@ -44,11 +43,9 @@ import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.RestrictTo;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.session.R;
 import androidx.media3.session.legacy.MediaSessionCompat.QueueItem;
 import androidx.media3.session.legacy.PlaybackStateCompat.CustomAction;
 import androidx.versionedparcelable.ParcelUtils;
-import androidx.versionedparcelable.VersionedParcelable;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -124,50 +121,6 @@ public final class MediaControllerCompat {
   public static final String COMMAND_ARGUMENT_INDEX =
       "android.support.v4.media.session.command.ARGUMENT_INDEX";
 
-  /**
-   * Sets a {@link MediaControllerCompat} in the {@code activity} for later retrieval via {@link
-   * #getMediaController(Activity)}.
-   *
-   * <p>On API 21 and later, {@link Activity#setMediaController(MediaController)} will also be
-   * called.
-   *
-   * @param activity The activity to set the {@code mediaController} in, must not be null.
-   * @param mediaController The controller for the session which should receive media keys and
-   *     volume changes on API 21 and later.
-   * @see #getMediaController(Activity)
-   * @see Activity#setMediaController(android.media.session.MediaController)
-   */
-  public static void setMediaController(Activity activity, MediaControllerCompat mediaController) {
-    activity
-        .getWindow()
-        .getDecorView()
-        .setTag(R.id.media_controller_compat_view_tag, mediaController);
-    if (android.os.Build.VERSION.SDK_INT >= 21) {
-      MediaControllerImplApi21.setMediaController(activity, mediaController);
-    }
-  }
-
-  /**
-   * Retrieves the {@link MediaControllerCompat} set in the activity by {@link
-   * #setMediaController(Activity, MediaControllerCompat)} for sending media key and volume events.
-   *
-   * <p>This is compatible with {@link Activity#getMediaController()}.
-   *
-   * @param activity The activity to get the media controller from, must not be null.
-   * @return The controller which should receive events.
-   * @see #setMediaController(Activity, MediaControllerCompat)
-   */
-  @Nullable
-  public static MediaControllerCompat getMediaController(Activity activity) {
-    Object tag = activity.getWindow().getDecorView().getTag(R.id.media_controller_compat_view_tag);
-    if (tag instanceof MediaControllerCompat) {
-      return (MediaControllerCompat) tag;
-    } else if (android.os.Build.VERSION.SDK_INT >= 21) {
-      return MediaControllerImplApi21.getMediaController(activity);
-    }
-    return null;
-  }
-
   @SuppressWarnings("WeakerAccess") /* synthetic access */
   static void validateCustomAction(@Nullable String action, @Nullable Bundle args) {
     if (action == null) {
@@ -213,18 +166,13 @@ public final class MediaControllerCompat {
    * @param sessionToken The token of the session to be controlled.
    */
   public MediaControllerCompat(Context context, MediaSessionCompat.Token sessionToken) {
-    if (sessionToken == null) {
-      throw new IllegalArgumentException("sessionToken must not be null");
-    }
     mRegisteredCallbacks = Collections.synchronizedSet(new HashSet<>());
     mToken = sessionToken;
 
     if (Build.VERSION.SDK_INT >= 29) {
       mImpl = new MediaControllerImplApi29(context, sessionToken);
-    } else if (Build.VERSION.SDK_INT >= 21) {
-      mImpl = new MediaControllerImplApi21(context, sessionToken);
     } else {
-      mImpl = new MediaControllerImplBase(sessionToken);
+      mImpl = new MediaControllerImplApi21(context, sessionToken);
     }
   }
 
@@ -477,17 +425,6 @@ public final class MediaControllerCompat {
   }
 
   /**
-   * Gets the SessionToken in media2 as VersionedParcelable for the session that this controller is
-   * connected to.
-   *
-   * @return The session's token as VersionedParcelable.
-   */
-  @Nullable
-  public VersionedParcelable getSession2Token() {
-    return mToken.getSession2Token();
-  }
-
-  /**
    * Sets the volume of the output this session is playing on. The command will be ignored if it
    * does not support {@link VolumeProviderCompat#VOLUME_CONTROL_ABSOLUTE}. The flags in {@link
    * AudioManager} may be used to affect the handling.
@@ -517,27 +454,13 @@ public final class MediaControllerCompat {
   }
 
   /**
-   * Adds a callback to receive updates from the Session. Updates will be posted on the caller's
-   * thread.
-   *
-   * @param callback The callback object, must not be null.
-   */
-  public void registerCallback(Callback callback) {
-    registerCallback(callback, null);
-  }
-
-  /**
    * Adds a callback to receive updates from the session. Updates will be posted on the specified
    * handler's thread.
    *
    * @param callback The callback object, must not be null.
    * @param handler The handler to post updates on. If null the callers thread will be used.
    */
-  @SuppressWarnings("deprecation")
   public void registerCallback(Callback callback, @Nullable Handler handler) {
-    if (callback == null) {
-      throw new IllegalArgumentException("callback must not be null");
-    }
     if (!mRegisteredCallbacks.add(callback)) {
       Log.w(TAG, "the callback has already been registered");
       return;
@@ -556,9 +479,6 @@ public final class MediaControllerCompat {
    * @param callback The callback to remove
    */
   public void unregisterCallback(Callback callback) {
-    if (callback == null) {
-      throw new IllegalArgumentException("callback must not be null");
-    }
     if (!mRegisteredCallbacks.remove(callback)) {
       Log.w(TAG, "the callback has never been registered");
       return;
@@ -656,12 +576,7 @@ public final class MediaControllerCompat {
     // Sharing this in constructor
     @SuppressWarnings({"assignment.type.incompatible", "argument.type.incompatible"})
     public Callback() {
-      if (android.os.Build.VERSION.SDK_INT >= 21) {
-        mCallbackFwk = new MediaControllerCallbackApi21(this);
-      } else {
-        mCallbackFwk = null;
-        mIControllerCallback = new StubCompat(this);
-      }
+      mCallbackFwk = new MediaControllerCallback(this);
     }
 
     /**
@@ -789,11 +704,10 @@ public final class MediaControllerCompat {
     }
 
     // Callback methods in this class are run on handler which was given to registerCallback().
-    @RequiresApi(21)
-    private static class MediaControllerCallbackApi21 extends MediaController.Callback {
+    private static class MediaControllerCallback extends MediaController.Callback {
       private final WeakReference<MediaControllerCompat.Callback> mCallback;
 
-      MediaControllerCallbackApi21(MediaControllerCompat.Callback callback) {
+      MediaControllerCallback(MediaControllerCompat.Callback callback) {
         mCallback = new WeakReference<>(callback);
       }
 
@@ -870,7 +784,7 @@ public final class MediaControllerCompat {
           callback.onAudioInfoChanged(
               new PlaybackInfo(
                   info.getPlaybackType(),
-                  checkNotNull(AudioAttributesCompat.wrap(info.getAudioAttributes())),
+                  AudioAttributesCompat.wrap(info.getAudioAttributes()),
                   info.getVolumeControl(),
                   info.getMaxVolume(),
                   info.getCurrentVolume()));
@@ -886,7 +800,7 @@ public final class MediaControllerCompat {
       }
 
       @Override
-      public void onEvent(@Nullable String event, @Nullable Bundle extras) throws RemoteException {
+      public void onEvent(@Nullable String event, @Nullable Bundle extras) {
         MediaControllerCompat.Callback callback = mCallback.get();
         if (callback != null) {
           callback.postToHandler(MessageHandler.MSG_EVENT, event, extras);
@@ -894,7 +808,7 @@ public final class MediaControllerCompat {
       }
 
       @Override
-      public void onSessionDestroyed() throws RemoteException {
+      public void onSessionDestroyed() {
         MediaControllerCompat.Callback callback = mCallback.get();
         if (callback != null) {
           callback.postToHandler(MessageHandler.MSG_DESTROYED, null, null);
@@ -902,8 +816,7 @@ public final class MediaControllerCompat {
       }
 
       @Override
-      public void onPlaybackStateChanged(@Nullable PlaybackStateCompat state)
-          throws RemoteException {
+      public void onPlaybackStateChanged(@Nullable PlaybackStateCompat state) {
         MediaControllerCompat.Callback callback = mCallback.get();
         if (callback != null) {
           callback.postToHandler(MessageHandler.MSG_UPDATE_PLAYBACK_STATE, state, null);
@@ -911,7 +824,7 @@ public final class MediaControllerCompat {
       }
 
       @Override
-      public void onMetadataChanged(@Nullable MediaMetadataCompat metadata) throws RemoteException {
+      public void onMetadataChanged(@Nullable MediaMetadataCompat metadata) {
         MediaControllerCompat.Callback callback = mCallback.get();
         if (callback != null) {
           callback.postToHandler(MessageHandler.MSG_UPDATE_METADATA, metadata, null);
@@ -919,7 +832,7 @@ public final class MediaControllerCompat {
       }
 
       @Override
-      public void onQueueChanged(@Nullable List<QueueItem> queue) throws RemoteException {
+      public void onQueueChanged(@Nullable List<QueueItem> queue) {
         MediaControllerCompat.Callback callback = mCallback.get();
         if (callback != null) {
           callback.postToHandler(MessageHandler.MSG_UPDATE_QUEUE, queue, null);
@@ -927,7 +840,7 @@ public final class MediaControllerCompat {
       }
 
       @Override
-      public void onQueueTitleChanged(@Nullable CharSequence title) throws RemoteException {
+      public void onQueueTitleChanged(@Nullable CharSequence title) {
         MediaControllerCompat.Callback callback = mCallback.get();
         if (callback != null) {
           callback.postToHandler(MessageHandler.MSG_UPDATE_QUEUE_TITLE, title, null);
@@ -935,7 +848,7 @@ public final class MediaControllerCompat {
       }
 
       @Override
-      public void onCaptioningEnabledChanged(boolean enabled) throws RemoteException {
+      public void onCaptioningEnabledChanged(boolean enabled) {
         MediaControllerCompat.Callback callback = mCallback.get();
         if (callback != null) {
           callback.postToHandler(MessageHandler.MSG_UPDATE_CAPTIONING_ENABLED, enabled, null);
@@ -943,7 +856,7 @@ public final class MediaControllerCompat {
       }
 
       @Override
-      public void onRepeatModeChanged(int repeatMode) throws RemoteException {
+      public void onRepeatModeChanged(int repeatMode) {
         MediaControllerCompat.Callback callback = mCallback.get();
         if (callback != null) {
           callback.postToHandler(MessageHandler.MSG_UPDATE_REPEAT_MODE, repeatMode, null);
@@ -951,12 +864,12 @@ public final class MediaControllerCompat {
       }
 
       @Override
-      public void onShuffleModeChangedRemoved(boolean enabled) throws RemoteException {
+      public void onShuffleModeChangedRemoved(boolean enabled) {
         // Do nothing.
       }
 
       @Override
-      public void onShuffleModeChanged(int shuffleMode) throws RemoteException {
+      public void onShuffleModeChanged(int shuffleMode) {
         MediaControllerCompat.Callback callback = mCallback.get();
         if (callback != null) {
           callback.postToHandler(MessageHandler.MSG_UPDATE_SHUFFLE_MODE, shuffleMode, null);
@@ -964,7 +877,7 @@ public final class MediaControllerCompat {
       }
 
       @Override
-      public void onExtrasChanged(@Nullable Bundle extras) throws RemoteException {
+      public void onExtrasChanged(@Nullable Bundle extras) {
         MediaControllerCompat.Callback callback = mCallback.get();
         if (callback != null) {
           callback.postToHandler(MessageHandler.MSG_UPDATE_EXTRAS, extras, null);
@@ -972,7 +885,7 @@ public final class MediaControllerCompat {
       }
 
       @Override
-      public void onVolumeInfoChanged(@Nullable ParcelableVolumeInfo info) throws RemoteException {
+      public void onVolumeInfoChanged(@Nullable ParcelableVolumeInfo info) {
         MediaControllerCompat.Callback callback = mCallback.get();
         if (callback != null) {
           PlaybackInfo pi = null;
@@ -990,7 +903,7 @@ public final class MediaControllerCompat {
       }
 
       @Override
-      public void onSessionReady() throws RemoteException {
+      public void onSessionReady() {
         MediaControllerCompat.Callback callback = mCallback.get();
         if (callback != null) {
           callback.postToHandler(MessageHandler.MSG_SESSION_READY, null, null);
@@ -1232,13 +1145,6 @@ public final class MediaControllerCompat {
     public void setPlaybackSpeed(float speed) {}
 
     /**
-     * Enables/disables captioning for this session.
-     *
-     * @param enabled {@code true} to enable captioning, {@code false} to disable.
-     */
-    public abstract void setCaptioningEnabled(boolean enabled);
-
-    /**
      * Sets the repeat mode for this session.
      *
      * @param repeatMode The repeat mode. Must be one of the following: {@link
@@ -1448,533 +1354,6 @@ public final class MediaControllerCompat {
     Object getMediaController();
   }
 
-  static class MediaControllerImplBase implements MediaControllerImpl {
-    private IMediaSession mBinder;
-    @Nullable private TransportControls mTransportControls;
-    @Nullable private Bundle mSessionInfo;
-
-    MediaControllerImplBase(MediaSessionCompat.Token token) {
-      mBinder = IMediaSession.Stub.asInterface((IBinder) token.getToken());
-    }
-
-    @Override
-    public void registerCallback(Callback callback, Handler handler) {
-      if (callback == null) {
-        throw new IllegalArgumentException("callback may not be null.");
-      }
-      try {
-        mBinder.asBinder().linkToDeath(callback, 0);
-        mBinder.registerCallbackListener(checkNotNull(callback.mIControllerCallback));
-        callback.postToHandler(Callback.MessageHandler.MSG_SESSION_READY, null, null);
-      } catch (RemoteException e) {
-        Log.e(TAG, "Dead object in registerCallback.", e);
-        callback.postToHandler(Callback.MessageHandler.MSG_DESTROYED, null, null);
-      }
-    }
-
-    @Override
-    public void unregisterCallback(Callback callback) {
-      if (callback == null) {
-        throw new IllegalArgumentException("callback may not be null.");
-      }
-      try {
-        mBinder.unregisterCallbackListener(checkNotNull(callback.mIControllerCallback));
-        mBinder.asBinder().unlinkToDeath(callback, 0);
-      } catch (RemoteException e) {
-        Log.e(TAG, "Dead object in unregisterCallback.", e);
-      }
-    }
-
-    @Override
-    public boolean dispatchMediaButtonEvent(KeyEvent event) {
-      if (event == null) {
-        throw new IllegalArgumentException("event may not be null.");
-      }
-      try {
-        mBinder.sendMediaButton(event);
-      } catch (RemoteException e) {
-        Log.e(TAG, "Dead object in dispatchMediaButtonEvent.", e);
-      }
-      return false;
-    }
-
-    @Override
-    public TransportControls getTransportControls() {
-      if (mTransportControls == null) {
-        mTransportControls = new TransportControlsBase(mBinder);
-      }
-
-      return mTransportControls;
-    }
-
-    @Nullable
-    @Override
-    public PlaybackStateCompat getPlaybackState() {
-      try {
-        return mBinder.getPlaybackState();
-      } catch (RemoteException e) {
-        Log.e(TAG, "Dead object in getPlaybackState.", e);
-      }
-      return null;
-    }
-
-    @Nullable
-    @Override
-    public MediaMetadataCompat getMetadata() {
-      try {
-        return mBinder.getMetadata();
-      } catch (RemoteException e) {
-        Log.e(TAG, "Dead object in getMetadata.", e);
-      }
-      return null;
-    }
-
-    @Nullable
-    @Override
-    public List<QueueItem> getQueue() {
-      try {
-        return mBinder.getQueue();
-      } catch (RemoteException e) {
-        Log.e(TAG, "Dead object in getQueue.", e);
-      }
-      return null;
-    }
-
-    @Override
-    public void addQueueItem(MediaDescriptionCompat description) {
-      try {
-        long flags = mBinder.getFlags();
-        if ((flags & MediaSessionCompat.FLAG_HANDLES_QUEUE_COMMANDS) == 0) {
-          throw new UnsupportedOperationException(
-              "This session doesn't support queue management operations");
-        }
-        mBinder.addQueueItem(description);
-      } catch (RemoteException e) {
-        Log.e(TAG, "Dead object in addQueueItem.", e);
-      }
-    }
-
-    @Override
-    public void addQueueItem(MediaDescriptionCompat description, int index) {
-      try {
-        long flags = mBinder.getFlags();
-        if ((flags & MediaSessionCompat.FLAG_HANDLES_QUEUE_COMMANDS) == 0) {
-          throw new UnsupportedOperationException(
-              "This session doesn't support queue management operations");
-        }
-        mBinder.addQueueItemAt(description, index);
-      } catch (RemoteException e) {
-        Log.e(TAG, "Dead object in addQueueItemAt.", e);
-      }
-    }
-
-    @Override
-    public void removeQueueItem(MediaDescriptionCompat description) {
-      try {
-        long flags = mBinder.getFlags();
-        if ((flags & MediaSessionCompat.FLAG_HANDLES_QUEUE_COMMANDS) == 0) {
-          throw new UnsupportedOperationException(
-              "This session doesn't support queue management operations");
-        }
-        mBinder.removeQueueItem(description);
-      } catch (RemoteException e) {
-        Log.e(TAG, "Dead object in removeQueueItem.", e);
-      }
-    }
-
-    @Nullable
-    @Override
-    public CharSequence getQueueTitle() {
-      try {
-        return mBinder.getQueueTitle();
-      } catch (RemoteException e) {
-        Log.e(TAG, "Dead object in getQueueTitle.", e);
-      }
-      return null;
-    }
-
-    @Nullable
-    @Override
-    public Bundle getExtras() {
-      try {
-        return mBinder.getExtras();
-      } catch (RemoteException e) {
-        Log.e(TAG, "Dead object in getExtras.", e);
-      }
-      return null;
-    }
-
-    @Override
-    public int getRatingType() {
-      try {
-        return mBinder.getRatingType();
-      } catch (RemoteException e) {
-        Log.e(TAG, "Dead object in getRatingType.", e);
-      }
-      return 0;
-    }
-
-    @Override
-    public boolean isCaptioningEnabled() {
-      try {
-        return mBinder.isCaptioningEnabled();
-      } catch (RemoteException e) {
-        Log.e(TAG, "Dead object in isCaptioningEnabled.", e);
-      }
-      return false;
-    }
-
-    @Override
-    public int getRepeatMode() {
-      try {
-        return mBinder.getRepeatMode();
-      } catch (RemoteException e) {
-        Log.e(TAG, "Dead object in getRepeatMode.", e);
-      }
-      return PlaybackStateCompat.REPEAT_MODE_INVALID;
-    }
-
-    @Override
-    public int getShuffleMode() {
-      try {
-        return mBinder.getShuffleMode();
-      } catch (RemoteException e) {
-        Log.e(TAG, "Dead object in getShuffleMode.", e);
-      }
-      return PlaybackStateCompat.SHUFFLE_MODE_INVALID;
-    }
-
-    @Override
-    public long getFlags() {
-      try {
-        return mBinder.getFlags();
-      } catch (RemoteException e) {
-        Log.e(TAG, "Dead object in getFlags.", e);
-      }
-      return 0;
-    }
-
-    @Nullable
-    @Override
-    public PlaybackInfo getPlaybackInfo() {
-      try {
-        ParcelableVolumeInfo info = mBinder.getVolumeAttributes();
-        if (info == null) {
-          return null;
-        }
-        PlaybackInfo pi =
-            new PlaybackInfo(
-                info.volumeType,
-                info.audioStream,
-                info.controlType,
-                info.maxVolume,
-                info.currentVolume);
-        return pi;
-      } catch (RemoteException e) {
-        Log.e(TAG, "Dead object in getPlaybackInfo.", e);
-      }
-      return null;
-    }
-
-    @Nullable
-    @Override
-    public PendingIntent getSessionActivity() {
-      try {
-        return mBinder.getLaunchPendingIntent();
-      } catch (RemoteException e) {
-        Log.e(TAG, "Dead object in getSessionActivity.", e);
-      }
-      return null;
-    }
-
-    @Override
-    public void setVolumeTo(int value, int flags) {
-      try {
-        mBinder.setVolumeTo(value, flags, null);
-      } catch (RemoteException e) {
-        Log.e(TAG, "Dead object in setVolumeTo.", e);
-      }
-    }
-
-    @Override
-    public void adjustVolume(int direction, int flags) {
-      try {
-        mBinder.adjustVolume(direction, flags, null);
-      } catch (RemoteException e) {
-        Log.e(TAG, "Dead object in adjustVolume.", e);
-      }
-    }
-
-    @Override
-    public void sendCommand(String command, @Nullable Bundle params, @Nullable ResultReceiver cb) {
-      try {
-        mBinder.sendCommand(
-            command, params, cb == null ? null : new MediaSessionCompat.ResultReceiverWrapper(cb));
-      } catch (RemoteException e) {
-        Log.e(TAG, "Dead object in sendCommand.", e);
-      }
-    }
-
-    @Override
-    public boolean isSessionReady() {
-      return true;
-    }
-
-    @Nullable
-    @Override
-    public String getPackageName() {
-      try {
-        return mBinder.getPackageName();
-      } catch (RemoteException e) {
-        Log.e(TAG, "Dead object in getPackageName.", e);
-      }
-      return null;
-    }
-
-    @Override
-    public Bundle getSessionInfo() {
-      try {
-        mSessionInfo = mBinder.getSessionInfo();
-      } catch (RemoteException e) {
-        Log.d(TAG, "Dead object in getSessionInfo.", e);
-      }
-
-      mSessionInfo = MediaSessionCompat.unparcelWithClassLoader(mSessionInfo);
-      return mSessionInfo == null ? Bundle.EMPTY : new Bundle(mSessionInfo);
-    }
-
-    @Nullable
-    @Override
-    public Object getMediaController() {
-      return null;
-    }
-  }
-
-  static class TransportControlsBase extends TransportControls {
-    private IMediaSession mBinder;
-
-    public TransportControlsBase(IMediaSession binder) {
-      mBinder = binder;
-    }
-
-    @Override
-    public void prepare() {
-      try {
-        mBinder.prepare();
-      } catch (RemoteException e) {
-        Log.e(TAG, "Dead object in prepare.", e);
-      }
-    }
-
-    @Override
-    public void prepareFromMediaId(String mediaId, @Nullable Bundle extras) {
-      try {
-        mBinder.prepareFromMediaId(mediaId, extras);
-      } catch (RemoteException e) {
-        Log.e(TAG, "Dead object in prepareFromMediaId.", e);
-      }
-    }
-
-    @Override
-    public void prepareFromSearch(String query, @Nullable Bundle extras) {
-      try {
-        mBinder.prepareFromSearch(query, extras);
-      } catch (RemoteException e) {
-        Log.e(TAG, "Dead object in prepareFromSearch.", e);
-      }
-    }
-
-    @Override
-    public void prepareFromUri(Uri uri, @Nullable Bundle extras) {
-      try {
-        mBinder.prepareFromUri(uri, extras);
-      } catch (RemoteException e) {
-        Log.e(TAG, "Dead object in prepareFromUri.", e);
-      }
-    }
-
-    @Override
-    public void play() {
-      try {
-        mBinder.play();
-      } catch (RemoteException e) {
-        Log.e(TAG, "Dead object in play.", e);
-      }
-    }
-
-    @Override
-    public void playFromMediaId(String mediaId, @Nullable Bundle extras) {
-      try {
-        mBinder.playFromMediaId(mediaId, extras);
-      } catch (RemoteException e) {
-        Log.e(TAG, "Dead object in playFromMediaId.", e);
-      }
-    }
-
-    @Override
-    public void playFromSearch(String query, @Nullable Bundle extras) {
-      try {
-        mBinder.playFromSearch(query, extras);
-      } catch (RemoteException e) {
-        Log.e(TAG, "Dead object in playFromSearch.", e);
-      }
-    }
-
-    @Override
-    public void playFromUri(Uri uri, @Nullable Bundle extras) {
-      try {
-        mBinder.playFromUri(uri, extras);
-      } catch (RemoteException e) {
-        Log.e(TAG, "Dead object in playFromUri.", e);
-      }
-    }
-
-    @Override
-    public void skipToQueueItem(long id) {
-      try {
-        mBinder.skipToQueueItem(id);
-      } catch (RemoteException e) {
-        Log.e(TAG, "Dead object in skipToQueueItem.", e);
-      }
-    }
-
-    @Override
-    public void pause() {
-      try {
-        mBinder.pause();
-      } catch (RemoteException e) {
-        Log.e(TAG, "Dead object in pause.", e);
-      }
-    }
-
-    @Override
-    public void stop() {
-      try {
-        mBinder.stop();
-      } catch (RemoteException e) {
-        Log.e(TAG, "Dead object in stop.", e);
-      }
-    }
-
-    @Override
-    public void seekTo(long pos) {
-      try {
-        mBinder.seekTo(pos);
-      } catch (RemoteException e) {
-        Log.e(TAG, "Dead object in seekTo.", e);
-      }
-    }
-
-    @Override
-    public void fastForward() {
-      try {
-        mBinder.fastForward();
-      } catch (RemoteException e) {
-        Log.e(TAG, "Dead object in fastForward.", e);
-      }
-    }
-
-    @Override
-    public void skipToNext() {
-      try {
-        mBinder.next();
-      } catch (RemoteException e) {
-        Log.e(TAG, "Dead object in skipToNext.", e);
-      }
-    }
-
-    @Override
-    public void rewind() {
-      try {
-        mBinder.rewind();
-      } catch (RemoteException e) {
-        Log.e(TAG, "Dead object in rewind.", e);
-      }
-    }
-
-    @Override
-    public void skipToPrevious() {
-      try {
-        mBinder.previous();
-      } catch (RemoteException e) {
-        Log.e(TAG, "Dead object in skipToPrevious.", e);
-      }
-    }
-
-    @Override
-    public void setRating(RatingCompat rating) {
-      try {
-        mBinder.rate(rating);
-      } catch (RemoteException e) {
-        Log.e(TAG, "Dead object in setRating.", e);
-      }
-    }
-
-    @Override
-    public void setRating(RatingCompat rating, @Nullable Bundle extras) {
-      try {
-        mBinder.rateWithExtras(rating, extras);
-      } catch (RemoteException e) {
-        Log.e(TAG, "Dead object in setRating.", e);
-      }
-    }
-
-    @Override
-    public void setPlaybackSpeed(float speed) {
-      if (speed == 0.0f) {
-        throw new IllegalArgumentException("speed must not be zero");
-      }
-      try {
-        mBinder.setPlaybackSpeed(speed);
-      } catch (RemoteException e) {
-        Log.e(TAG, "Dead object in setPlaybackSpeed.", e);
-      }
-    }
-
-    @Override
-    public void setCaptioningEnabled(boolean enabled) {
-      try {
-        mBinder.setCaptioningEnabled(enabled);
-      } catch (RemoteException e) {
-        Log.e(TAG, "Dead object in setCaptioningEnabled.", e);
-      }
-    }
-
-    @Override
-    public void setRepeatMode(@PlaybackStateCompat.RepeatMode int repeatMode) {
-      try {
-        mBinder.setRepeatMode(repeatMode);
-      } catch (RemoteException e) {
-        Log.e(TAG, "Dead object in setRepeatMode.", e);
-      }
-    }
-
-    @Override
-    public void setShuffleMode(@PlaybackStateCompat.ShuffleMode int shuffleMode) {
-      try {
-        mBinder.setShuffleMode(shuffleMode);
-      } catch (RemoteException e) {
-        Log.e(TAG, "Dead object in setShuffleMode.", e);
-      }
-    }
-
-    @Override
-    public void sendCustomAction(CustomAction customAction, @Nullable Bundle args) {
-      sendCustomAction(customAction.getAction(), args);
-    }
-
-    @Override
-    public void sendCustomAction(String action, @Nullable Bundle args) {
-      validateCustomAction(action, args);
-      try {
-        mBinder.sendCustomAction(action, args);
-      } catch (RemoteException e) {
-        Log.e(TAG, "Dead object in sendCustomAction.", e);
-      }
-    }
-  }
-
-  @RequiresApi(21)
   static class MediaControllerImplApi21 implements MediaControllerImpl {
     protected final MediaController mControllerFwk;
 
@@ -1983,7 +1362,7 @@ public final class MediaControllerCompat {
     @GuardedBy("mLock")
     private final List<Callback> mPendingCallbacks = new ArrayList<>();
 
-    private HashMap<Callback, ExtraCallback> mCallbackMap = new HashMap<>();
+    private final HashMap<Callback, ExtraCallback> mCallbackMap = new HashMap<>();
 
     @Nullable protected Bundle mSessionInfo;
 
@@ -1993,8 +1372,7 @@ public final class MediaControllerCompat {
     @SuppressWarnings({"assignment.type.incompatible", "method.invocation.invalid"})
     MediaControllerImplApi21(Context context, MediaSessionCompat.Token sessionToken) {
       mSessionToken = sessionToken;
-      mControllerFwk =
-          new MediaController(context, (MediaSession.Token) checkNotNull(mSessionToken.getToken()));
+      mControllerFwk = new MediaController(context, mSessionToken.getToken());
       if (mSessionToken.getExtraBinder() == null) {
         requestExtraBinder();
       }
@@ -2215,7 +1593,7 @@ public final class MediaControllerCompat {
       return volumeInfoFwk != null
           ? new PlaybackInfo(
               volumeInfoFwk.getPlaybackType(),
-              checkNotNull(AudioAttributesCompat.wrap(volumeInfoFwk.getAudioAttributes())),
+              AudioAttributesCompat.wrap(volumeInfoFwk.getAudioAttributes()),
               volumeInfoFwk.getVolumeControl(),
               volumeInfoFwk.getMaxVolume(),
               volumeInfoFwk.getCurrentVolume())
@@ -2304,29 +1682,8 @@ public final class MediaControllerCompat {
       mPendingCallbacks.clear();
     }
 
-    @SuppressWarnings("argument.type.incompatible") // Activity.setMediaController is not annotated
-    static void setMediaController(Activity activity, MediaControllerCompat mediaControllerCompat) {
-      MediaController controllerFwk = null;
-      if (mediaControllerCompat != null) {
-        Object sessionTokenObj = mediaControllerCompat.getSessionToken().getToken();
-        controllerFwk = new MediaController(activity, (MediaSession.Token) sessionTokenObj);
-      }
-      activity.setMediaController(controllerFwk);
-    }
-
-    @Nullable
-    static MediaControllerCompat getMediaController(Activity activity) {
-      MediaController controllerFwk = activity.getMediaController();
-      if (controllerFwk == null) {
-        return null;
-      }
-      MediaSession.Token sessionTokenFwk = controllerFwk.getSessionToken();
-      return new MediaControllerCompat(
-          activity, MediaSessionCompat.Token.fromToken(sessionTokenFwk));
-    }
-
     private static class ExtraBinderRequestResultReceiver extends ResultReceiver {
-      private WeakReference<MediaControllerImplApi21> mMediaControllerImpl;
+      private final WeakReference<MediaControllerImplApi21> mMediaControllerImpl;
 
       ExtraBinderRequestResultReceiver(MediaControllerImplApi21 mediaControllerImpl) {
         super(null /* handler */);
@@ -2357,37 +1714,37 @@ public final class MediaControllerCompat {
       }
 
       @Override
-      public void onSessionDestroyed() throws RemoteException {
+      public void onSessionDestroyed() {
         // Will not be called.
         throw new AssertionError();
       }
 
       @Override
-      public void onMetadataChanged(@Nullable MediaMetadataCompat metadata) throws RemoteException {
+      public void onMetadataChanged(@Nullable MediaMetadataCompat metadata) {
         // Will not be called.
         throw new AssertionError();
       }
 
       @Override
-      public void onQueueChanged(@Nullable List<QueueItem> queue) throws RemoteException {
+      public void onQueueChanged(@Nullable List<QueueItem> queue) {
         // Will not be called.
         throw new AssertionError();
       }
 
       @Override
-      public void onQueueTitleChanged(@Nullable CharSequence title) throws RemoteException {
+      public void onQueueTitleChanged(@Nullable CharSequence title) {
         // Will not be called.
         throw new AssertionError();
       }
 
       @Override
-      public void onExtrasChanged(@Nullable Bundle extras) throws RemoteException {
+      public void onExtrasChanged(@Nullable Bundle extras) {
         // Will not be called.
         throw new AssertionError();
       }
 
       @Override
-      public void onVolumeInfoChanged(@Nullable ParcelableVolumeInfo info) throws RemoteException {
+      public void onVolumeInfoChanged(@Nullable ParcelableVolumeInfo info) {
         // Will not be called.
         throw new AssertionError();
       }
@@ -2411,7 +1768,6 @@ public final class MediaControllerCompat {
     }
   }
 
-  @RequiresApi(21)
   static class TransportControlsApi21 extends TransportControls {
     protected final MediaController.TransportControls mControlsFwk;
 
@@ -2491,7 +1847,7 @@ public final class MediaControllerCompat {
     @SuppressWarnings("argument.type.incompatible") // Platform controller accepts null rating
     @Override
     public void setRating(RatingCompat rating) {
-      mControlsFwk.setRating(rating != null ? (Rating) rating.getRating() : null);
+      mControlsFwk.setRating((Rating) rating.getRating());
     }
 
     @Override
@@ -2512,13 +1868,6 @@ public final class MediaControllerCompat {
       Bundle bundle = new Bundle();
       bundle.putFloat(MediaSessionCompat.ACTION_ARGUMENT_PLAYBACK_SPEED, speed);
       sendCustomAction(MediaSessionCompat.ACTION_SET_PLAYBACK_SPEED, bundle);
-    }
-
-    @Override
-    public void setCaptioningEnabled(boolean enabled) {
-      Bundle bundle = new Bundle();
-      bundle.putBoolean(MediaSessionCompat.ACTION_ARGUMENT_CAPTIONING_ENABLED, enabled);
-      sendCustomAction(MediaSessionCompat.ACTION_SET_CAPTIONING_ENABLED, bundle);
     }
 
     @Override
@@ -2549,7 +1898,7 @@ public final class MediaControllerCompat {
 
     @Override
     public void playFromUri(Uri uri, @Nullable Bundle extras) {
-      if (uri == null || Uri.EMPTY.equals(uri)) {
+      if (Uri.EMPTY.equals(uri)) {
         throw new IllegalArgumentException("You must specify a non-empty Uri for playFromUri.");
       }
       Bundle bundle = new Bundle();

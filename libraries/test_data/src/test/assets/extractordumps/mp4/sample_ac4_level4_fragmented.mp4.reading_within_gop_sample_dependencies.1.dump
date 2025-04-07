@@ -17,6 +17,7 @@ track 0:
     channelCount = 21
     sampleRate = 48000
     language = und
+    metadata = entries=[Mp4AlternateGroup: 2]
   sample 0:
     time = 0
     flags = 1

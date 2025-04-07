@@ -43,6 +43,9 @@ public final class ObuParser {
   /** OBU type frame header. */
   public static final int OBU_FRAME_HEADER = 3;
 
+  /** OBU type metadata. */
+  public static final int OBU_METADATA = 5;
+
   /** OBU type frame. */
   public static final int OBU_FRAME = 6;
 
@@ -136,6 +139,48 @@ public final class ObuParser {
     /** See {@code OrderHintBits}. */
     public final int orderHintBits;
 
+    /** See {@code seq_profile}. */
+    public final int seqProfile;
+
+    /** See {@code seq_level_idx}. */
+    public final int seqLevelIdx0;
+
+    /** See {@code seq_tier}. */
+    public final int seqTier0;
+
+    /** See {@code initial_display_delay_present}. */
+    public final boolean initialDisplayDelayPresentFlag;
+
+    /** See {@code initial_display_delay_minus_one}. */
+    public final int initialDisplayDelayMinus1;
+
+    /** See {@code high_bitdepth}. */
+    public final boolean highBitdepth;
+
+    /** See {@code twelve_bit}. */
+    public final boolean twelveBit;
+
+    /** See {@code mono_chrome}. */
+    public final boolean monochrome;
+
+    /** See {@code subsampling_x}. */
+    public final boolean subsamplingX;
+
+    /** See {@code subsampling_Y}. */
+    public final boolean subsamplingY;
+
+    /** See {@code chroma_sample_position}. */
+    public final int chromaSamplePosition;
+
+    /** See {@code color_primaries}. */
+    public final byte colorPrimaries;
+
+    /** See {@code transfer_characteristics}. */
+    public final byte transferCharacteristics;
+
+    /** See {@code matrix_coefficients}. */
+    public final byte matrixCoefficients;
+
     /**
      * Returns a {@link SequenceHeader} parsed from the input OBU, or {@code null} if the AV1
      * bitstream is not yet supported.
@@ -153,38 +198,60 @@ public final class ObuParser {
 
     /** Parses a {@link #OBU_SEQUENCE_HEADER} and creates an instance. */
     private SequenceHeader(Obu obu) throws NotYetImplementedException {
+      int seqLevelIdx0 = 0;
+      int seqTier0 = 0;
+      int initialDisplayDelayMinus1 = 0;
       checkArgument(obu.type == OBU_SEQUENCE_HEADER);
       byte[] data = new byte[obu.payload.remaining()];
       // Do not modify obu.payload while reading it.
       obu.payload.asReadOnlyBuffer().get(data);
       ParsableBitArray obuData = new ParsableBitArray(data);
-      obuData.skipBits(4); // seq_profile and still_picture
+      seqProfile = obuData.readBits(3);
+      obuData.skipBit(); // still_picture
       reducedStillPictureHeader = obuData.readBit();
-      throwWhenFeatureRequired(reducedStillPictureHeader);
-      boolean timingInfoPresentFlag = obuData.readBit();
-      if (timingInfoPresentFlag) {
-        skipTimingInfo(obuData);
-        decoderModelInfoPresentFlag = obuData.readBit();
-        if (decoderModelInfoPresentFlag) {
-          // skip decoder_model_info()
-          obuData.skipBits(47);
-        }
-      } else {
+      if (reducedStillPictureHeader) {
+        seqLevelIdx0 = obuData.readBits(5);
         decoderModelInfoPresentFlag = false;
-      }
-      boolean initialDisplayDelayPresentFlag = obuData.readBit();
-      int operatingPointsCntMinus1 = obuData.readBits(5);
-      for (int i = 0; i <= operatingPointsCntMinus1; i++) {
-        obuData.skipBits(12); // operating_point_idc[ i ]
-        int seqLevelIdx = obuData.readBits(5);
-        if (seqLevelIdx > 7) {
-          obuData.skipBit(); // seq_tier[ i ]
+        initialDisplayDelayPresentFlag = false;
+      } else {
+        boolean timingInfoPresentFlag = obuData.readBit();
+        if (timingInfoPresentFlag) {
+          skipTimingInfo(obuData);
+          decoderModelInfoPresentFlag = obuData.readBit();
+          if (decoderModelInfoPresentFlag) {
+            // skip decoder_model_info()
+            obuData.skipBits(47);
+          }
+        } else {
+          decoderModelInfoPresentFlag = false;
         }
-        throwWhenFeatureRequired(decoderModelInfoPresentFlag);
-        if (initialDisplayDelayPresentFlag) {
-          boolean initialDisplayDelayPresentForThisOpFlag = obuData.readBit();
-          if (initialDisplayDelayPresentForThisOpFlag) {
-            obuData.skipBits(4); // initial_display_delay_minus_1[ i ]
+        initialDisplayDelayPresentFlag = obuData.readBit();
+        int operatingPointsCntMinus1 = obuData.readBits(5);
+        for (int i = 0; i <= operatingPointsCntMinus1; i++) {
+          obuData.skipBits(12); // operating_point_idc[ i ]
+          if (i == 0) {
+            seqLevelIdx0 = obuData.readBits(5);
+            if (seqLevelIdx0 > 7) {
+              seqTier0 = obuData.readBit() ? 1 : 0;
+            }
+          } else {
+            int seqLevelIdx = obuData.readBits(5);
+            if (seqLevelIdx > 7) {
+              obuData.skipBit(); // seq_tier[ i ]
+            }
+          }
+          if (decoderModelInfoPresentFlag) {
+            obuData.skipBit(); // decoder_model_present_for_this_op
+          }
+          if (initialDisplayDelayPresentFlag) {
+            boolean initialDisplayDelayPresentForThisOpFlag = obuData.readBit();
+            if (initialDisplayDelayPresentForThisOpFlag) {
+              if (i == 0) {
+                initialDisplayDelayMinus1 = obuData.readBits(4);
+              } else {
+                obuData.skipBits(4); // initial_display_delay_minus_1[ i ]
+              }
+            }
           }
         }
       }
@@ -192,39 +259,119 @@ public final class ObuParser {
       int frameHeightBitsMinus1 = obuData.readBits(4);
       obuData.skipBits(frameWidthBitsMinus1 + 1); // max_frame_width_minus_1
       obuData.skipBits(frameHeightBitsMinus1 + 1); // max_frame_height_minus_1
-      frameIdNumbersPresentFlag = obuData.readBit();
-      throwWhenFeatureRequired(frameIdNumbersPresentFlag);
+      if (!reducedStillPictureHeader) {
+        frameIdNumbersPresentFlag = obuData.readBit();
+      } else {
+        frameIdNumbersPresentFlag = false;
+      }
+      if (frameIdNumbersPresentFlag) {
+        obuData.skipBits(4); // delta_frame_id_length_minus_2
+        obuData.skipBits(3); // additional_frame_id_length_minus_1
+      }
       // use_128x128_superblock, enable_filter_intra, and enable_intra_edge_filter
       obuData.skipBits(3);
-      // enable_interintra_compound, enable_masked_compound, enable_warped_motion, and
-      // enable_dual_filter
-      obuData.skipBits(4);
-      boolean enableOrderHint = obuData.readBit();
-      if (enableOrderHint) {
-        obuData.skipBits(2); // enable_jnt_comp and enable_ref_frame_mvs
-      }
-      boolean seqChooseScreenContentTools = obuData.readBit();
-      if (seqChooseScreenContentTools) {
-        seqForceScreenContentTools = true;
-      } else {
-        seqForceScreenContentTools = obuData.readBit();
-      }
-      if (seqForceScreenContentTools) {
-        boolean seqChooseIntegerMv = obuData.readBit();
-        if (seqChooseIntegerMv) {
-          seqForceIntegerMv = true;
-        } else {
-          seqForceIntegerMv = obuData.readBit();
-        }
-      } else {
+      if (reducedStillPictureHeader) {
         seqForceIntegerMv = true;
-      }
-      if (enableOrderHint) {
-        int orderHintBitsMinus1 = obuData.readBits(3);
-        orderHintBits = orderHintBitsMinus1 + 1;
-      } else {
+        seqForceScreenContentTools = true;
         orderHintBits = 0;
+      } else {
+        // enable_interintra_compound, enable_masked_compound, enable_warped_motion, and
+        // enable_dual_filter
+        obuData.skipBits(4);
+        boolean enableOrderHint = obuData.readBit();
+        if (enableOrderHint) {
+          obuData.skipBits(2); // enable_jnt_comp and enable_ref_frame_mvs
+        }
+        boolean seqChooseScreenContentTools = obuData.readBit();
+        if (seqChooseScreenContentTools) {
+          seqForceScreenContentTools = true;
+        } else {
+          seqForceScreenContentTools = obuData.readBit();
+        }
+        if (seqForceScreenContentTools) {
+          boolean seqChooseIntegerMv = obuData.readBit();
+          if (seqChooseIntegerMv) {
+            seqForceIntegerMv = true;
+          } else {
+            seqForceIntegerMv = obuData.readBit();
+          }
+        } else {
+          seqForceIntegerMv = true;
+        }
+        if (enableOrderHint) {
+          int orderHintBitsMinus1 = obuData.readBits(3);
+          orderHintBits = orderHintBitsMinus1 + 1;
+        } else {
+          orderHintBits = 0;
+        }
       }
+      this.seqLevelIdx0 = seqLevelIdx0;
+      this.seqTier0 = seqTier0;
+      this.initialDisplayDelayMinus1 = initialDisplayDelayMinus1;
+      // enable_superres, enable_cdef, enable_restoration
+      obuData.skipBits(3);
+      // Begin Color Config
+      highBitdepth = obuData.readBit();
+      if (seqProfile == 2 && highBitdepth) {
+        twelveBit = obuData.readBit();
+      } else {
+        twelveBit = false;
+      }
+      if (seqProfile != 1) {
+        monochrome = obuData.readBit();
+      } else {
+        monochrome = false;
+      }
+      boolean colorDescriptionPresent = obuData.readBit();
+      if (colorDescriptionPresent) {
+        colorPrimaries = (byte) obuData.readBits(8);
+        transferCharacteristics = (byte) obuData.readBits(8);
+        matrixCoefficients = (byte) obuData.readBits(8);
+      } else {
+        colorPrimaries = 0;
+        transferCharacteristics = 0;
+        matrixCoefficients = 0;
+      }
+      if (monochrome) {
+        obuData.skipBit(); // color_range
+        subsamplingX = false;
+        subsamplingY = false;
+        chromaSamplePosition = 0;
+      } else if (colorPrimaries == 0x1 /* CP_BT_709 */
+          && transferCharacteristics == 13 /* TC_SRGB */
+          && matrixCoefficients == 0x0 /* MC_IDENTITY */) {
+        // Nothing to read from obu.
+        subsamplingX = false;
+        subsamplingY = false;
+        chromaSamplePosition = 0;
+      } else {
+        obuData.skipBit(); // color_range
+        if (seqProfile == 0) {
+          subsamplingX = true;
+          subsamplingY = true;
+        } else if (seqProfile == 1) {
+          subsamplingX = false;
+          subsamplingY = false;
+        } else {
+          if (twelveBit) {
+            subsamplingX = obuData.readBit();
+            if (subsamplingX) {
+              subsamplingY = obuData.readBit();
+            } else {
+              subsamplingY = false;
+            }
+          } else {
+            subsamplingX = true;
+            subsamplingY = false;
+          }
+        }
+        if (subsamplingX && subsamplingY) {
+          chromaSamplePosition = obuData.readBits(2);
+        } else {
+          chromaSamplePosition = 0;
+        }
+      }
+      obuData.skipBit(); // separate_uv_delta_q
     }
 
     /** Advances the bit array by skipping the {@code timing_info()} syntax element. */

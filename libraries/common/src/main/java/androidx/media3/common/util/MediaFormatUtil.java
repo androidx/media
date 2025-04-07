@@ -128,6 +128,10 @@ public final class MediaFormatUtil {
 
     formatBuilder.setInitializationData(csdBuffers.build());
 
+    if (mediaFormat.containsKey(MediaFormat.KEY_TRACK_ID)) {
+      formatBuilder.setId(mediaFormat.getInteger(MediaFormat.KEY_TRACK_ID));
+    }
+
     return formatBuilder.build();
   }
 
@@ -175,6 +179,10 @@ public final class MediaFormatUtil {
     result.setInteger(MediaFormat.KEY_ENCODER_PADDING, format.encoderPadding);
 
     maybeSetPixelAspectRatio(result, format.pixelWidthHeightRatio);
+
+    if (format.id != null) {
+      result.setInteger(MediaFormat.KEY_TRACK_ID, Integer.parseInt(format.id));
+    }
     return result;
   }
 

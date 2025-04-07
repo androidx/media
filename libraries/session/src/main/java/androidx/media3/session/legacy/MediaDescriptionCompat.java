@@ -16,7 +16,6 @@
 package androidx.media3.session.legacy;
 
 import static androidx.annotation.RestrictTo.Scope.LIBRARY;
-import static androidx.media3.common.util.Assertions.checkNotNull;
 
 import android.annotation.SuppressLint;
 import android.graphics.Bitmap;
@@ -26,7 +25,6 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Parcel;
 import android.os.Parcelable;
-import android.text.TextUtils;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.RestrictTo;
@@ -34,13 +32,12 @@ import androidx.media3.common.util.UnstableApi;
 
 /**
  * A simple set of metadata for a media item suitable for display. This can be created using the
- * Builder or retrieved from existing metadata using {@link MediaMetadataCompat#getDescription()}.
+ * Builder.
  */
 @UnstableApi
 @RestrictTo(LIBRARY)
 @SuppressLint("BanParcelableUsage")
 public final class MediaDescriptionCompat implements Parcelable {
-  private static final String TAG = "MediaDescriptionCompat";
 
   /**
    * Used as a long extra field to indicate the bluetooth folder type of the media item as specified
@@ -60,7 +57,8 @@ public final class MediaDescriptionCompat implements Parcelable {
    *
    * @see #getExtras()
    */
-  public static final String EXTRA_BT_FOLDER_TYPE = "android.media.extra.BT_FOLDER_TYPE";
+  @SuppressLint("InlinedApi") // Inlined compile time constant
+  public static final String EXTRA_BT_FOLDER_TYPE = MediaDescription.EXTRA_BT_FOLDER_TYPE;
 
   /**
    * The type of folder that is unknown or contains media elements of mixed types as specified in
@@ -196,20 +194,6 @@ public final class MediaDescriptionCompat implements Parcelable {
     mMediaUri = mediaUri;
   }
 
-  @SuppressWarnings("deprecation")
-  MediaDescriptionCompat(Parcel in) {
-    mMediaId = in.readString();
-    mTitle = TextUtils.CHAR_SEQUENCE_CREATOR.createFromParcel(in);
-    mSubtitle = TextUtils.CHAR_SEQUENCE_CREATOR.createFromParcel(in);
-    mDescription = TextUtils.CHAR_SEQUENCE_CREATOR.createFromParcel(in);
-
-    ClassLoader loader = getClass().getClassLoader();
-    mIcon = in.readParcelable(loader);
-    mIconUri = in.readParcelable(loader);
-    mExtras = in.readBundle(loader);
-    mMediaUri = in.readParcelable(loader);
-  }
-
   /** Returns the media id or null. See {@link MediaMetadataCompat#METADATA_KEY_MEDIA_ID}. */
   @Nullable
   public String getMediaId() {
@@ -293,18 +277,7 @@ public final class MediaDescriptionCompat implements Parcelable {
 
   @Override
   public void writeToParcel(Parcel dest, int flags) {
-    if (Build.VERSION.SDK_INT < 21) {
-      dest.writeString(mMediaId);
-      TextUtils.writeToParcel(mTitle, dest, flags);
-      TextUtils.writeToParcel(mSubtitle, dest, flags);
-      TextUtils.writeToParcel(mDescription, dest, flags);
-      dest.writeParcelable(mIcon, flags);
-      dest.writeParcelable(mIconUri, flags);
-      dest.writeBundle(mExtras);
-      dest.writeParcelable(mMediaUri, flags);
-    } else {
-      ((MediaDescription) getMediaDescription()).writeToParcel(dest, flags);
-    }
+    getMediaDescription().writeToParcel(dest, flags);
   }
 
   @Override
@@ -315,22 +288,19 @@ public final class MediaDescriptionCompat implements Parcelable {
   /**
    * Gets the underlying framework {@link android.media.MediaDescription} object.
    *
-   * <p>This method is only supported on {@link android.os.Build.VERSION_CODES#LOLLIPOP} and later.
-   *
-   * @return An equivalent {@link android.media.MediaDescription} object, or null if none.
+   * @return An equivalent {@link android.media.MediaDescription} object.
    */
-  @RequiresApi(21)
-  public Object getMediaDescription() {
+  public MediaDescription getMediaDescription() {
     if (mDescriptionFwk != null) {
       return mDescriptionFwk;
     }
-    MediaDescription.Builder bob = Api21Impl.createBuilder();
-    Api21Impl.setMediaId(bob, mMediaId);
-    Api21Impl.setTitle(bob, mTitle);
-    Api21Impl.setSubtitle(bob, mSubtitle);
-    Api21Impl.setDescription(bob, mDescription);
-    Api21Impl.setIconBitmap(bob, mIcon);
-    Api21Impl.setIconUri(bob, mIconUri);
+    MediaDescription.Builder bob = new MediaDescription.Builder();
+    bob.setMediaId(mMediaId);
+    bob.setTitle(mTitle);
+    bob.setSubtitle(mSubtitle);
+    bob.setDescription(mDescription);
+    bob.setIconBitmap(mIcon);
+    bob.setIconUri(mIconUri);
     // Media URI was not added until API 23, so add it to the Bundle of extras to
     // ensure the data is not lost - this ensures that
     // fromMediaDescription(getMediaDescription(mediaDescriptionCompat)) returns
@@ -344,14 +314,14 @@ public final class MediaDescriptionCompat implements Parcelable {
         extras = new Bundle(mExtras);
       }
       extras.putParcelable(DESCRIPTION_KEY_MEDIA_URI, mMediaUri);
-      Api21Impl.setExtras(bob, extras);
+      bob.setExtras(extras);
     } else {
-      Api21Impl.setExtras(bob, mExtras);
+      bob.setExtras(mExtras);
     }
     if (Build.VERSION.SDK_INT >= 23) {
       Api23Impl.setMediaUri(bob, mMediaUri);
     }
-    mDescriptionFwk = Api21Impl.build(bob);
+    mDescriptionFwk = bob.build();
 
     return mDescriptionFwk;
   }
@@ -359,71 +329,56 @@ public final class MediaDescriptionCompat implements Parcelable {
   /**
    * Creates an instance from a framework {@link android.media.MediaDescription} object.
    *
-   * <p>This method is only supported on API 21+.
-   *
-   * @param descriptionObj A {@link android.media.MediaDescription} object, or null if none.
-   * @return An equivalent {@link MediaMetadataCompat} object, or null if none.
+   * @param description A {@link android.media.MediaDescription} object.
+   * @return An equivalent {@link MediaMetadataCompat} object.
    */
-  @Nullable
-  @SuppressWarnings("deprecation")
-  public static MediaDescriptionCompat fromMediaDescription(Object descriptionObj) {
-    if (descriptionObj != null && Build.VERSION.SDK_INT >= 21) {
-      Builder bob = new Builder();
-      MediaDescription description = (MediaDescription) descriptionObj;
-      bob.setMediaId(Api21Impl.getMediaId(description));
-      bob.setTitle(Api21Impl.getTitle(description));
-      bob.setSubtitle(Api21Impl.getSubtitle(description));
-      bob.setDescription(Api21Impl.getDescription(description));
-      bob.setIconBitmap(Api21Impl.getIconBitmap(description));
-      bob.setIconUri(Api21Impl.getIconUri(description));
-      Bundle extras = Api21Impl.getExtras(description);
-      extras = MediaSessionCompat.unparcelWithClassLoader(extras);
-      if (extras != null) {
-        extras = new Bundle(extras);
-      }
-      Uri mediaUri = null;
-      if (extras != null) {
-        mediaUri = extras.getParcelable(DESCRIPTION_KEY_MEDIA_URI);
-        if (mediaUri != null) {
-          if (extras.containsKey(DESCRIPTION_KEY_NULL_BUNDLE_FLAG) && extras.size() == 2) {
-            // The extras were only created for the media URI, so we set it back to null to
-            // ensure mediaDescriptionCompat.getExtras() equals
-            // fromMediaDescription(getMediaDescription(mediaDescriptionCompat)).getExtras()
-            extras = null;
-          } else {
-            // Remove media URI keys to ensure mediaDescriptionCompat.getExtras().keySet()
-            // equals fromMediaDescription(getMediaDescription(mediaDescriptionCompat))
-            // .getExtras().keySet()
-            extras.remove(DESCRIPTION_KEY_MEDIA_URI);
-            extras.remove(DESCRIPTION_KEY_NULL_BUNDLE_FLAG);
-          }
+  public static MediaDescriptionCompat fromMediaDescription(MediaDescription description) {
+    Builder bob = new Builder();
+    bob.setMediaId(description.getMediaId());
+    bob.setTitle(description.getTitle());
+    bob.setSubtitle(description.getSubtitle());
+    bob.setDescription(description.getDescription());
+    bob.setIconBitmap(description.getIconBitmap());
+    bob.setIconUri(description.getIconUri());
+    Bundle extras = description.getExtras();
+    extras = MediaSessionCompat.unparcelWithClassLoader(extras);
+    if (extras != null) {
+      extras = new Bundle(extras);
+    }
+    Uri mediaUri = null;
+    if (extras != null) {
+      mediaUri = extras.getParcelable(DESCRIPTION_KEY_MEDIA_URI);
+      if (mediaUri != null) {
+        if (extras.containsKey(DESCRIPTION_KEY_NULL_BUNDLE_FLAG) && extras.size() == 2) {
+          // The extras were only created for the media URI, so we set it back to null to
+          // ensure mediaDescriptionCompat.getExtras() equals
+          // fromMediaDescription(getMediaDescription(mediaDescriptionCompat)).getExtras()
+          extras = null;
+        } else {
+          // Remove media URI keys to ensure mediaDescriptionCompat.getExtras().keySet()
+          // equals fromMediaDescription(getMediaDescription(mediaDescriptionCompat))
+          // .getExtras().keySet()
+          extras.remove(DESCRIPTION_KEY_MEDIA_URI);
+          extras.remove(DESCRIPTION_KEY_NULL_BUNDLE_FLAG);
         }
       }
-      bob.setExtras(extras);
-      if (mediaUri != null) {
-        bob.setMediaUri(mediaUri);
-      } else if (Build.VERSION.SDK_INT >= 23) {
-        bob.setMediaUri(Api23Impl.getMediaUri(description));
-      }
-      MediaDescriptionCompat descriptionCompat = bob.build();
-      descriptionCompat.mDescriptionFwk = description;
-
-      return descriptionCompat;
-    } else {
-      return null;
     }
+    bob.setExtras(extras);
+    if (mediaUri != null) {
+      bob.setMediaUri(mediaUri);
+    } else if (Build.VERSION.SDK_INT >= 23) {
+      bob.setMediaUri(Api23Impl.getMediaUri(description));
+    }
+    MediaDescriptionCompat descriptionCompat = bob.build();
+    descriptionCompat.mDescriptionFwk = description;
+    return descriptionCompat;
   }
 
   public static final Parcelable.Creator<MediaDescriptionCompat> CREATOR =
       new Parcelable.Creator<MediaDescriptionCompat>() {
         @Override
         public MediaDescriptionCompat createFromParcel(Parcel in) {
-          if (Build.VERSION.SDK_INT < 21) {
-            return new MediaDescriptionCompat(in);
-          } else {
-            return checkNotNull(
-                fromMediaDescription(MediaDescription.CREATOR.createFromParcel(in)));
-          }
+          return fromMediaDescription(MediaDescription.CREATOR.createFromParcel(in));
         }
 
         @Override
@@ -542,83 +497,6 @@ public final class MediaDescriptionCompat implements Parcelable {
     public MediaDescriptionCompat build() {
       return new MediaDescriptionCompat(
           mMediaId, mTitle, mSubtitle, mDescription, mIcon, mIconUri, mExtras, mMediaUri);
-    }
-  }
-
-  @RequiresApi(21)
-  private static class Api21Impl {
-    private Api21Impl() {}
-
-    static MediaDescription.Builder createBuilder() {
-      return new MediaDescription.Builder();
-    }
-
-    static void setMediaId(MediaDescription.Builder builder, @Nullable String mediaId) {
-      builder.setMediaId(mediaId);
-    }
-
-    static void setTitle(MediaDescription.Builder builder, @Nullable CharSequence title) {
-      builder.setTitle(title);
-    }
-
-    static void setSubtitle(MediaDescription.Builder builder, @Nullable CharSequence subtitle) {
-      builder.setSubtitle(subtitle);
-    }
-
-    static void setDescription(
-        MediaDescription.Builder builder, @Nullable CharSequence description) {
-      builder.setDescription(description);
-    }
-
-    static void setIconBitmap(MediaDescription.Builder builder, @Nullable Bitmap icon) {
-      builder.setIconBitmap(icon);
-    }
-
-    static void setIconUri(MediaDescription.Builder builder, @Nullable Uri iconUri) {
-      builder.setIconUri(iconUri);
-    }
-
-    static void setExtras(MediaDescription.Builder builder, @Nullable Bundle extras) {
-      builder.setExtras(extras);
-    }
-
-    static MediaDescription build(MediaDescription.Builder builder) {
-      return builder.build();
-    }
-
-    @Nullable
-    static String getMediaId(MediaDescription description) {
-      return description.getMediaId();
-    }
-
-    @Nullable
-    static CharSequence getTitle(MediaDescription description) {
-      return description.getTitle();
-    }
-
-    @Nullable
-    static CharSequence getSubtitle(MediaDescription description) {
-      return description.getSubtitle();
-    }
-
-    @Nullable
-    static CharSequence getDescription(MediaDescription description) {
-      return description.getDescription();
-    }
-
-    @Nullable
-    static Bitmap getIconBitmap(MediaDescription description) {
-      return description.getIconBitmap();
-    }
-
-    @Nullable
-    static Uri getIconUri(MediaDescription description) {
-      return description.getIconUri();
-    }
-
-    @Nullable
-    static Bundle getExtras(MediaDescription description) {
-      return description.getExtras();
     }
   }
 

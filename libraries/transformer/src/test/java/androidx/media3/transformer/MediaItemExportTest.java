@@ -148,7 +148,10 @@ public final class MediaItemExportTest {
         new TestTransformerBuilder(context).setMuxerFactory(muxerFactory).build();
 
     EditedMediaItemSequence gapSequence =
-        new EditedMediaItemSequence.Builder().addGap(500_000).build();
+        new EditedMediaItemSequence.Builder()
+            .addGap(500_000)
+            .experimentalSetForceAudioTrack(true)
+            .build();
 
     transformer.start(new Composition.Builder(gapSequence).build(), outputDir.newFile().getPath());
     ExportResult result = TransformerTestRunner.runLooper(transformer);
@@ -401,8 +404,10 @@ public final class MediaItemExportTest {
     MediaItem mediaItem = MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_AMR_NB);
     EditedMediaItem editedMediaItem = new EditedMediaItem.Builder(mediaItem).build();
     Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence.Builder(editedMediaItem).build())
-            .experimentalSetForceAudioTrack(true)
+        new Composition.Builder(
+                new EditedMediaItemSequence.Builder(editedMediaItem)
+                    .experimentalSetForceAudioTrack(true)
+                    .build())
             .build();
 
     transformer.start(composition, outputDir.newFile().getPath());
@@ -420,8 +425,10 @@ public final class MediaItemExportTest {
     MediaItem mediaItem = MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_VIDEO);
     EditedMediaItem editedMediaItem = new EditedMediaItem.Builder(mediaItem).build();
     Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence.Builder(editedMediaItem).build())
-            .experimentalSetForceAudioTrack(true)
+        new Composition.Builder(
+                new EditedMediaItemSequence.Builder(editedMediaItem)
+                    .experimentalSetForceAudioTrack(true)
+                    .build())
             .build();
 
     transformer.start(composition, outputDir.newFile().getPath());
@@ -445,8 +452,10 @@ public final class MediaItemExportTest {
             .setEffects(createAudioEffects(sonicAudioProcessor))
             .build();
     Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence.Builder(editedMediaItem).build())
-            .experimentalSetForceAudioTrack(true)
+        new Composition.Builder(
+                new EditedMediaItemSequence.Builder(editedMediaItem)
+                    .experimentalSetForceAudioTrack(true)
+                    .build())
             .build();
 
     transformer.start(composition, outputDir.newFile().getPath());
@@ -471,8 +480,10 @@ public final class MediaItemExportTest {
             .setRemoveVideo(true)
             .build();
     Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence.Builder(editedMediaItem).build())
-            .experimentalSetForceAudioTrack(true)
+        new Composition.Builder(
+                new EditedMediaItemSequence.Builder(editedMediaItem)
+                    .experimentalSetForceAudioTrack(true)
+                    .build())
             .build();
 
     transformer.start(composition, outputDir.newFile().getPath());
@@ -492,8 +503,10 @@ public final class MediaItemExportTest {
     MediaItem mediaItem = MediaItem.fromUri(ASSET_URI_PREFIX + FILE_VIDEO_ONLY);
     EditedMediaItem editedMediaItem = new EditedMediaItem.Builder(mediaItem).build();
     Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence.Builder(editedMediaItem).build())
-            .experimentalSetForceAudioTrack(true)
+        new Composition.Builder(
+                new EditedMediaItemSequence.Builder(editedMediaItem)
+                    .experimentalSetForceAudioTrack(true)
+                    .build())
             .build();
 
     transformer.start(composition, outputDir.newFile().getPath());

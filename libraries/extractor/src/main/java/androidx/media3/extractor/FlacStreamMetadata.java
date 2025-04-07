@@ -33,17 +33,14 @@ import java.util.List;
 /**
  * Holder for FLAC metadata.
  *
- * <p>See the following spec references:
+ * <p>See the following sections of RFC 9639:
  *
  * <ul>
- *   <li><a href="https://xiph.org/flac/format.html#metadata_block_streaminfo">FLAC format
- *       METADATA_BLOCK_STREAMINFO</a>
- *   <li><a href="https://xiph.org/flac/format.html#metadata_block_seektable">FLAC format
- *       METADATA_BLOCK_SEEKTABLE</a>
- *   <li><a href="https://xiph.org/flac/format.html#metadata_block_vorbis_comment">FLAC format
- *       METADATA_BLOCK_VORBIS_COMMENT</a>
- *   <li><a href="https://xiph.org/flac/format.html#metadata_block_picture">FLAC format
- *       METADATA_BLOCK_PICTURE</a>
+ *   <li><a href="https://www.rfc-editor.org/rfc/rfc9639.html#name-streaminfo">8.2 Streaminfo</a>
+ *   <li><a href="https://www.rfc-editor.org/rfc/rfc9639.html#name-seek-table">8.5 Seek Table</a>
+ *   <li><a href="https://www.rfc-editor.org/rfc/rfc9639.html#name-vorbis-comment">8.6 Vorbis
+ *       Comment</a>
+ *   <li><a href="https://www.rfc-editor.org/rfc/rfc9639.html#name-picture">8.8 Picture</a>
  * </ul>
  */
 @UnstableApi
@@ -365,6 +362,7 @@ public final class FlacStreamMetadata {
     }
   }
 
+  /** Return the frame header representation of bit depth, as defined in RFC 9639 section 9.1.4. */
   private static int getBitsPerSampleLookupKey(int bitsPerSample) {
     switch (bitsPerSample) {
       case 8:
@@ -377,6 +375,8 @@ public final class FlacStreamMetadata {
         return 5;
       case 24:
         return 6;
+      case 32:
+        return 7;
       default:
         return NOT_IN_LOOKUP_TABLE;
     }

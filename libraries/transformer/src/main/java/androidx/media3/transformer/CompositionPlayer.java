@@ -77,6 +77,7 @@ import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.util.EventLogger;
 import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
+import androidx.media3.exoplayer.video.VideoFrameMetadataListener;
 import androidx.media3.exoplayer.video.VideoFrameReleaseControl;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -239,7 +240,6 @@ public final class CompositionPlayer extends SimpleBasePlayer
      * @param videoGraphFactory The {@link VideoGraph.Factory}.
      * @return This builder, for convenience.
      */
-    @VisibleForTesting
     @CanIgnoreReturnValue
     public Builder setVideoGraphFactory(VideoGraph.Factory videoGraphFactory) {
       this.videoGraphFactory = videoGraphFactory;
@@ -321,6 +321,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
   private @MonotonicNonNull Composition composition;
   private @MonotonicNonNull Size videoOutputSize;
   private @MonotonicNonNull PlaybackVideoGraphWrapper playbackVideoGraphWrapper;
+  private @MonotonicNonNull VideoFrameMetadataListener pendingVideoFrameMetadatListener;
 
   private long compositionDurationUs;
   private boolean playWhenReady;
@@ -337,7 +338,6 @@ public final class CompositionPlayer extends SimpleBasePlayer
   private LivePositionSupplier positionSupplier;
   private LivePositionSupplier bufferedPositionSupplier;
   private LivePositionSupplier totalBufferedDurationSupplier;
-  private boolean isSeeking;
 
   // "this" reference for position suppliers.
   @SuppressWarnings("initialization:methodref.receiver.bound.invalid")
@@ -409,7 +409,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
   // PlaybackVideoGraphWrapper.Listener methods. Called on playback thread.
 
   @Override
-  public void onFirstFrameRendered(PlaybackVideoGraphWrapper playbackVideoGraphWrapper) {
+  public void onFirstFrameRendered() {
     applicationHandler.post(
         () -> {
           CompositionPlayer.this.renderedFirstFrame = true;
@@ -418,21 +418,18 @@ public final class CompositionPlayer extends SimpleBasePlayer
   }
 
   @Override
-  public void onFrameDropped(PlaybackVideoGraphWrapper playbackVideoGraphWrapper) {
+  public void onFrameDropped() {
     // Do not post to application thread on each dropped frame, because onFrameDropped
     // may be called frequently when resources are already scarce.
   }
 
   @Override
-  public void onVideoSizeChanged(
-      PlaybackVideoGraphWrapper playbackVideoGraphWrapper, VideoSize videoSize) {
+  public void onVideoSizeChanged(VideoSize videoSize) {
     // TODO: b/328219481 - Report video size change to app.
   }
 
   @Override
-  public void onError(
-      PlaybackVideoGraphWrapper playbackVideoGraphWrapper,
-      VideoFrameProcessingException videoFrameProcessingException) {
+  public void onError(VideoFrameProcessingException videoFrameProcessingException) {
     // The error will also be surfaced from the underlying ExoPlayer instance via
     // PlayerListener.onPlayerError, and it will arrive to the composition player twice.
     applicationHandler.post(
@@ -510,9 +507,9 @@ public final class CompositionPlayer extends SimpleBasePlayer
     playWhenReadyChangeReason = PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST;
     if (playbackState == STATE_READY) {
       if (playWhenReady) {
-        finalAudioSink.play();
+        checkStateNotNull(compositionPlayerInternal).startRendering();
       } else {
-        finalAudioSink.pause();
+        checkStateNotNull(compositionPlayerInternal).stopRendering();
       }
       for (int i = 0; i < players.size(); i++) {
         players.get(i).setPlayWhenReady(playWhenReady);
@@ -591,7 +588,9 @@ public final class CompositionPlayer extends SimpleBasePlayer
   @Override
   protected ListenableFuture<?> handleSetVolume(float volume) {
     this.volume = Util.constrainValue(volume, /* min= */ 0.0f, /* max= */ 1.0f);
-    finalAudioSink.setVolume(this.volume);
+    if (compositionPlayerInternal != null) {
+      compositionPlayerInternal.setVolume(this.volume);
+    }
     return Futures.immediateVoidFuture();
   }
 
@@ -601,13 +600,21 @@ public final class CompositionPlayer extends SimpleBasePlayer
     resetLivePositionSuppliers();
     CompositionPlayerInternal compositionPlayerInternal =
         checkStateNotNull(this.compositionPlayerInternal);
-    isSeeking = true;
     compositionPlayerInternal.startSeek(positionMs);
     for (int i = 0; i < players.size(); i++) {
       players.get(i).seekTo(positionMs);
     }
     compositionPlayerInternal.endSeek();
     return Futures.immediateVoidFuture();
+  }
+
+  /** Sets the {@link VideoFrameMetadataListener}. */
+  public void setVideoFrameMetadataListener(VideoFrameMetadataListener videoFrameMetadataListener) {
+    if (players.isEmpty()) {
+      pendingVideoFrameMetadatListener = videoFrameMetadataListener;
+      return;
+    }
+    players.get(0).setVideoFrameMetadataListener(videoFrameMetadataListener);
   }
 
   // CompositionPlayerInternal.Listener methods
@@ -687,22 +694,17 @@ public final class CompositionPlayer extends SimpleBasePlayer
         for (int i = 0; i < players.size(); i++) {
           players.get(i).setPlayWhenReady(false);
         }
-        if (!isSeeking) {
-          // The finalAudioSink cannot be paused more than once. The audio pipeline pauses it during
-          // a seek, so don't pause here when seeking.
-          finalAudioSink.pause();
-        }
+        checkStateNotNull(compositionPlayerInternal).stopRendering();
       }
     } else if (endedCount == players.size()) {
       playbackState = STATE_ENDED;
     } else {
       playbackState = STATE_READY;
-      isSeeking = false;
       if (oldPlaybackState != STATE_READY && playWhenReady) {
         for (int i = 0; i < players.size(); i++) {
           players.get(i).setPlayWhenReady(true);
         }
-        finalAudioSink.play();
+        checkStateNotNull(compositionPlayerInternal).startRendering();
       }
     }
   }
@@ -779,6 +781,9 @@ public final class CompositionPlayer extends SimpleBasePlayer
 
       if (i == 0) {
         setPrimaryPlayerSequence(player, editedMediaItemSequence);
+        if (pendingVideoFrameMetadatListener != null) {
+          player.setVideoFrameMetadataListener(pendingVideoFrameMetadatListener);
+        }
       } else {
         setSecondaryPlayerSequence(player, editedMediaItemSequence, primarySequenceDurationUs);
       }
@@ -803,6 +808,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
             playbackVideoGraphWrapper,
             /* listener= */ this,
             compositionInternalListenerHandler);
+    compositionPlayerInternal.setVolume(volume);
   }
 
   private void setPrimaryPlayerSequence(ExoPlayer player, EditedMediaItemSequence sequence) {
@@ -1097,8 +1103,11 @@ public final class CompositionPlayer extends SimpleBasePlayer
     checkState(!composition.sequences.isEmpty());
     long longestSequenceDurationUs = Integer.MIN_VALUE;
     for (int i = 0; i < composition.sequences.size(); i++) {
-      longestSequenceDurationUs =
-          max(longestSequenceDurationUs, getSequenceDurationUs(composition.sequences.get(i)));
+      EditedMediaItemSequence sequence = composition.sequences.get(i);
+      if (sequence.isLooping) {
+        continue;
+      }
+      longestSequenceDurationUs = max(longestSequenceDurationUs, getSequenceDurationUs(sequence));
     }
     return longestSequenceDurationUs;
   }

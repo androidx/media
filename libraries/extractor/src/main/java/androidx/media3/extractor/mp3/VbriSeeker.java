@@ -51,7 +51,8 @@ import androidx.media3.extractor.SeekPoint;
       ParsableByteArray frame) {
     frame.skipBytes(6);
     int bytes = frame.readInt();
-    long endOfMp3Data = position + mpegAudioHeader.frameSize + bytes;
+    long startOfMp3Data = position + mpegAudioHeader.frameSize;
+    long endOfMp3Data = startOfMp3Data + bytes;
     int numFrames = frame.readInt();
     if (numFrames <= 0) {
       return null;
@@ -105,20 +106,28 @@ import androidx.media3.extractor.SeekPoint;
       endOfMp3Data = max(endOfMp3Data, position);
     }
 
-    return new VbriSeeker(timesUs, positions, durationUs, endOfMp3Data, mpegAudioHeader.bitrate);
+    return new VbriSeeker(
+        timesUs, positions, durationUs, startOfMp3Data, endOfMp3Data, mpegAudioHeader.bitrate);
   }
 
   private final long[] timesUs;
   private final long[] positions;
   private final long durationUs;
+  private final long dataStartPosition;
   private final long dataEndPosition;
   private final int bitrate;
 
   private VbriSeeker(
-      long[] timesUs, long[] positions, long durationUs, long dataEndPosition, int bitrate) {
+      long[] timesUs,
+      long[] positions,
+      long durationUs,
+      long dataStartPosition,
+      long dataEndPosition,
+      int bitrate) {
     this.timesUs = timesUs;
     this.positions = positions;
     this.durationUs = durationUs;
+    this.dataStartPosition = dataStartPosition;
     this.dataEndPosition = dataEndPosition;
     this.bitrate = bitrate;
   }
@@ -148,6 +157,11 @@ import androidx.media3.extractor.SeekPoint;
   @Override
   public long getDurationUs() {
     return durationUs;
+  }
+
+  @Override
+  public long getDataStartPosition() {
+    return dataStartPosition;
   }
 
   @Override

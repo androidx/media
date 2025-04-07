@@ -139,7 +139,8 @@ import java.util.concurrent.atomic.AtomicReference;
                         }
 
                         @Override
-                        public void onOutputFrameAvailableForRendering(long presentationTimeUs) {
+                        public void onOutputFrameAvailableForRendering(
+                            long presentationTimeUs, boolean isRedrawnFrame) {
                           actualPresentationTimesUs.add(presentationTimeUs);
                         }
 

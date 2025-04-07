@@ -181,7 +181,7 @@ import java.util.List;
         ? 0
         : durationMs == 0
             ? 100
-            : Util.constrainValue((int) ((bufferedPositionMs * 100) / durationMs), 0, 100);
+            : Util.constrainValue(Util.percentInt(bufferedPositionMs, durationMs), 0, 100);
   }
 
   /**

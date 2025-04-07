@@ -13,7 +13,6 @@ track 0:
     sampleMimeType = audio/vorbis
     channelCount = 1
     sampleRate = 16000
-    language = ```
     initializationData:
       data = length 30, hash C22462B1
       data = length 3539, hash F8106892

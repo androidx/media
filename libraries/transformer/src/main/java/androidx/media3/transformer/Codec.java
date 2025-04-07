@@ -17,6 +17,7 @@
 package androidx.media3.transformer;
 
 import android.media.MediaCodec.BufferInfo;
+import android.media.metrics.LogSessionId;
 import android.view.Surface;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
@@ -41,10 +42,13 @@ public interface Codec {
      *
      * @param format The {@link Format} (of the input data) used to determine the underlying decoder
      *     and its configuration values.
+     * @param logSessionId The optional {@link LogSessionId} of the {@link
+     *     android.media.metrics.EditingSession}.
      * @return A {@link Codec} for audio decoding.
      * @throws ExportException If no suitable {@link Codec} can be created.
      */
-    Codec createForAudioDecoding(Format format) throws ExportException;
+    Codec createForAudioDecoding(Format format, @Nullable LogSessionId logSessionId)
+        throws ExportException;
 
     /**
      * Returns a {@link Codec} for video decoding.
@@ -53,11 +57,17 @@ public interface Codec {
      *     and its configuration values.
      * @param outputSurface The {@link Surface} to which the decoder output is rendered.
      * @param requestSdrToneMapping Whether to request tone-mapping to SDR.
+     * @param logSessionId The optional {@link LogSessionId} of the {@link
+     *     android.media.metrics.EditingSession}.
      * @return A {@link Codec} for video decoding.
      * @throws ExportException If no suitable {@link Codec} can be created.
      */
     Codec createForVideoDecoding(
-        Format format, Surface outputSurface, boolean requestSdrToneMapping) throws ExportException;
+        Format format,
+        Surface outputSurface,
+        boolean requestSdrToneMapping,
+        @Nullable LogSessionId logSessionId)
+        throws ExportException;
   }
 
   /** A factory for {@linkplain Codec encoder} instances. */
@@ -77,11 +87,14 @@ public interface Codec {
      *     encoder and its configuration values. {@link Format#sampleMimeType}, {@link
      *     Format#sampleRate}, {@link Format#channelCount} and {@link Format#bitrate} are set to
      *     those of the desired output video format.
+     * @param logSessionId The optional {@link LogSessionId} of the {@link
+     *     android.media.metrics.EditingSession}.
      * @return A {@link Codec} for encoding audio to the requested {@link Format#sampleMimeType MIME
      *     type}.
      * @throws ExportException If no suitable {@link Codec} can be created.
      */
-    Codec createForAudioEncoding(Format format) throws ExportException;
+    Codec createForAudioEncoding(Format format, @Nullable LogSessionId logSessionId)
+        throws ExportException;
 
     /**
      * Returns a {@link Codec} for video encoding.
@@ -100,11 +113,14 @@ public interface Codec {
      *     Format#frameRate} is set to the requested output frame rate, if available. {@link
      *     Format#colorInfo} is set to the requested output color characteristics, if available.
      *     {@link Format#rotationDegrees} is always 0.
+     * @param logSessionId The optional {@link LogSessionId} of the {@link
+     *     android.media.metrics.EditingSession}.
      * @return A {@link Codec} for encoding video to the requested {@linkplain Format#sampleMimeType
      *     MIME type}.
      * @throws ExportException If no suitable {@link Codec} can be created.
      */
-    Codec createForVideoEncoding(Format format) throws ExportException;
+    Codec createForVideoEncoding(Format format, @Nullable LogSessionId logSessionId)
+        throws ExportException;
 
     /** Returns whether the audio needs to be encoded because of encoder specific configuration. */
     default boolean audioNeedsEncoding() {

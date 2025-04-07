@@ -26,7 +26,6 @@ import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Parcelable;
-import android.service.media.MediaBrowserService;
 import androidx.annotation.RestrictTo;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.session.legacy.MediaBrowserCompat.ConnectionCallback;
@@ -36,43 +35,6 @@ import java.util.ArrayList;
 @UnstableApi
 @RestrictTo(LIBRARY)
 public final class MediaConstants {
-  /**
-   * Bundle key used for the account name in {@link MediaSessionCompat session} extras.
-   *
-   * <p>TYPE: String
-   *
-   * @see MediaControllerCompat#getExtras
-   * @see MediaSessionCompat#setExtras
-   */
-  @SuppressLint("IntentName")
-  public static final String SESSION_EXTRAS_KEY_ACCOUNT_NAME =
-      "androidx.media.MediaSessionCompat.Extras.KEY_ACCOUNT_NAME";
-
-  /**
-   * Bundle key used for the account type in {@link MediaSessionCompat session} extras. The value
-   * would vary across media applications.
-   *
-   * <p>TYPE: String
-   *
-   * @see MediaControllerCompat#getExtras
-   * @see MediaSessionCompat#setExtras
-   */
-  @SuppressLint("IntentName")
-  public static final String SESSION_EXTRAS_KEY_ACCOUNT_TYPE =
-      "androidx.media.MediaSessionCompat.Extras.KEY_ACCOUNT_TYPE";
-
-  /**
-   * Bundle key used for the account auth token value in {@link MediaSessionCompat session} extras.
-   * The value would vary across media applications.
-   *
-   * <p>TYPE: byte[]
-   *
-   * @see MediaControllerCompat#getExtras
-   * @see MediaSessionCompat#setExtras
-   */
-  @SuppressLint("IntentName")
-  public static final String SESSION_EXTRAS_KEY_AUTHTOKEN =
-      "androidx.media.MediaSessionCompat.Extras.KEY_AUTHTOKEN";
 
   /**
    * Bundle key passed from {@link MediaSessionCompat} to the hosting {@link MediaControllerCompat}
@@ -107,76 +69,10 @@ public final class MediaConstants {
       "android.media.playback.ALWAYS_RESERVE_SPACE_FOR.ACTION_SKIP_TO_PREVIOUS";
 
   /**
-   * Bundle key used for media content id in {@link MediaMetadataCompat metadata}, should contain
-   * the same ID provided to <a href="https://developers.google.com/actions/media">Media Actions
-   * Catalog</a> in reference to this title (e.g., episode, movie). This key can contain the content
-   * ID of the currently playing episode or movie and can be used to help users continue watching
-   * after this session is paused or stopped.
-   *
-   * <p>TYPE: String
-   *
-   * @see MediaMetadataCompat
-   */
-  @SuppressLint("IntentName")
-  public static final String METADATA_KEY_CONTENT_ID =
-      "androidx.media.MediaMetadatCompat.METADATA_KEY_CONTENT_ID";
-
-  /**
-   * Bundle key used for next episode's media content ID in {@link MediaMetadataCompat metadata},
-   * following the same ID and format provided to <a
-   * href="https://developers.google.com/actions/media">Media Actions Catalog</a> in reference to
-   * the next episode of the current title episode. This key can contain the content ID of the
-   * episode immediately following the currently playing episode and can be used to help users
-   * continue watching after this episode is over. This value is only valid for TV Episode content
-   * type and should be left blank for other content.
-   *
-   * <p>TYPE: String
-   *
-   * @see MediaMetadataCompat
-   */
-  @SuppressLint("IntentName")
-  public static final String METADATA_KEY_NEXT_EPISODE_CONTENT_ID =
-      "androidx.media.MediaMetadatCompat.METADATA_KEY_NEXT_EPISODE_CONTENT_ID";
-
-  /**
-   * Bundle key used for the TV series's media content ID in {@link MediaMetadataCompat metadata},
-   * following the same ID and format provided to <a
-   * href="https://developers.google.com/actions/media">Media Actions Catalog</a> in reference to
-   * the TV series of the current title episode. This value is only valid for TV Episode content
-   * type and should be left blank for other content.
-   *
-   * <p>TYPE: String
-   *
-   * @see MediaMetadataCompat
-   */
-  @SuppressLint("IntentName")
-  public static final String METADATA_KEY_SERIES_CONTENT_ID =
-      "androidx.media.MediaMetadatCompat.METADATA_KEY_SERIES_CONTENT_ID";
-
-  /**
-   * Key sent through a key-value mapping in {@link MediaMetadataCompat#getLong(String)} or in the
-   * {@link MediaDescriptionCompat#getExtras()} bundle to the hosting {@link MediaBrowserCompat} to
-   * indicate that the corresponding {@link MediaMetadataCompat} or {@link
-   * MediaBrowserCompat.MediaItem} has explicit content (i.e. user discretion is advised when
-   * viewing or listening to this content).
-   *
-   * <p>TYPE: long (to enable, use value {@link #METADATA_VALUE_ATTRIBUTE_PRESENT})
-   *
-   * @see MediaMetadataCompat#getLong(String)
-   * @see MediaMetadataCompat.Builder#putLong(String, long)
-   * @see MediaDescriptionCompat#getExtras()
-   * @see MediaDescriptionCompat.Builder#setExtras(Bundle)
-   */
-  @SuppressLint("IntentName")
-  public static final String METADATA_KEY_IS_EXPLICIT = "android.media.IS_EXPLICIT";
-
-  /**
    * Key sent through a key-value mapping in {@link MediaMetadataCompat#getLong(String)} or in the
    * {@link MediaDescriptionCompat#getExtras()} bundle to the hosting {@link MediaBrowserCompat} to
    * indicate that the corresponding {@link MediaMetadataCompat} or {@link
    * MediaBrowserCompat.MediaItem} is an advertisement.
-   *
-   * <p>TYPE: long (to enable, use value {@link #METADATA_VALUE_ATTRIBUTE_PRESENT})
    *
    * @see MediaMetadataCompat#getLong(String)
    * @see MediaMetadataCompat.Builder#putLong(String, long)
@@ -185,16 +81,6 @@ public final class MediaConstants {
    */
   @SuppressLint("IntentName")
   public static final String METADATA_KEY_IS_ADVERTISEMENT = "android.media.metadata.ADVERTISEMENT";
-
-  /**
-   * Value sent through a key-value mapping of {@link MediaMetadataCompat}, or through {@link
-   * Bundle} extras on a different data type, to indicate the presence of an attribute described by
-   * its corresponding key.
-   *
-   * @see MediaMetadataCompat#getLong(String)
-   * @see MediaMetadataCompat.Builder#putLong(String, long)
-   */
-  public static final long METADATA_VALUE_ATTRIBUTE_PRESENT = 1L;
 
   /**
    * Bundle key passed through root hints to the {@link MediaBrowserServiceCompat} to indicate the
@@ -287,28 +173,6 @@ public final class MediaConstants {
   @SuppressLint("IntentName")
   public static final String BROWSER_SERVICE_EXTRAS_KEY_SEARCH_SUPPORTED =
       "android.media.browse.SEARCH_SUPPORTED";
-
-  /**
-   * Bundle key used to pass a browseable {@link android.media.browse.MediaBrowser.MediaItem} that
-   * represents 'Favorite' content or some other notion of preset/pinned content.
-   *
-   * <p>Use this key to indicate to consumers (e.g. Auto and Automotive) that they can display
-   * and/or subscribe to this item.
-   *
-   * <p>When this item is subscribed to, it is expected that the {@link MediaBrowserService} or
-   * {@link MediaBrowserServiceCompat} loads content that the user has marked for easy or quick
-   * access - e.g. favorite radio stations, pinned playlists, etc.
-   *
-   * <p>TYPE: MediaBrowser.MediaItem - note this should not be a {@link
-   * MediaBrowserCompat.MediaItem}
-   *
-   * @see MediaBrowserCompat#getExtras()
-   * @see MediaBrowserServiceCompat#onGetRoot(String, int, Bundle)
-   * @see MediaBrowserServiceCompat.BrowserRoot#BrowserRoot(String, Bundle)
-   */
-  @SuppressLint("IntentName")
-  public static final String BROWSER_SERVICE_EXTRAS_KEY_FAVORITES_MEDIA_ITEM =
-      "androidx.media.BrowserRoot.Extras.FAVORITES_MEDIA_ITEM";
 
   /**
    * Bundle key passed from the {@link MediaBrowserServiceCompat} to the hosting {@link
@@ -688,111 +552,6 @@ public final class MediaConstants {
       "androidx.media.utils.extras.KEY_CUSTOM_BROWSER_ACTION_MEDIA_ITEM_ID";
 
   /**
-   * {@link Bundle} key set in {@link MediaBrowserServiceCompat.Result} to indicate which browse
-   * node should be displayed next.
-   *
-   * <p>A {@link MediaBrowserServiceCompat} that supports custom browser actions can set this key in
-   * the {@link MediaBrowserServiceCompat.Result} passed in {@link
-   * MediaBrowserServiceCompat#onCustomAction(String, Bundle, MediaBrowserServiceCompat.Result)}.
-   *
-   * <p>If this key is present in a {@link MediaBrowserCompat.CustomActionCallback} data {@link
-   * Bundle} the {@link MediaBrowserCompat} will update the current browse node when {@link
-   * MediaBrowserCompat.CustomActionCallback#onResult(String, Bundle, Bundle)} is called by the
-   * {@link MediaBrowserServiceCompat}. The new browse node will be fetched by {@link
-   * MediaBrowserCompat#getItem(String, MediaBrowserCompat.ItemCallback)}.
-   *
-   * <p>A {@link MediaBrowserServiceCompat} that supports custom browser actions must implement
-   * {@link MediaBrowserServiceCompat#onLoadItem(String, MediaBrowserServiceCompat.Result)} to use
-   * this feature.
-   *
-   * <p>TYPE: string, string {@link MediaBrowserCompat.MediaItem} ID to set as new browse node.
-   *
-   * @see MediaBrowserCompat#sendCustomAction(String, Bundle,
-   *     MediaBrowserCompat.CustomActionCallback)
-   * @see MediaBrowserCompat.CustomActionCallback
-   * @see MediaBrowserServiceCompat#onCustomAction(String, Bundle, MediaBrowserServiceCompat.Result)
-   */
-  public static final String EXTRAS_KEY_CUSTOM_BROWSER_ACTION_RESULT_BROWSE_NODE =
-      "androidx.media.utils.extras.KEY_CUSTOM_BROWSER_ACTION_RESULT_BROWSE_NODE";
-
-  /**
-   * {@link Bundle} key set in {@link MediaBrowserServiceCompat.Result} to show the currently
-   * playing item.
-   *
-   * <p>A {@link MediaBrowserServiceCompat} that supports custom browser actions can set this key in
-   * the {@link MediaBrowserServiceCompat.Result} passed in {@link
-   * MediaBrowserServiceCompat#onCustomAction(String, Bundle, MediaBrowserServiceCompat.Result)}.
-   *
-   * <p>If this key is present and the value is true in {@link
-   * MediaBrowserCompat.CustomActionCallback} {@link MediaBrowserServiceCompat.Result}, the
-   * currently playing item will be shown when {@link
-   * MediaBrowserCompat.CustomActionCallback#onResult(String, Bundle, Bundle)} is called by the
-   * {@link MediaBrowserServiceCompat}.
-   *
-   * <p>TYPE: boolean, boolean value of true will show currently playing item.
-   *
-   * @see MediaBrowserCompat#sendCustomAction(String, Bundle,
-   *     MediaBrowserCompat.CustomActionCallback)
-   * @see MediaBrowserCompat.CustomActionCallback
-   * @see MediaBrowserServiceCompat#onCustomAction(String, Bundle, MediaBrowserServiceCompat.Result)
-   */
-  public static final String EXTRAS_KEY_CUSTOM_BROWSER_ACTION_RESULT_SHOW_PLAYING_ITEM =
-      "androidx.media.utils.extras.KEY_CUSTOM_BROWSER_ACTION_RESULT_SHOW_PLAYING_ITEM";
-
-  /**
-   * {@link Bundle} key set in {@link MediaBrowserServiceCompat.Result} to refresh a {@link
-   * MediaBrowserCompat.MediaItem} in the browse tree.
-   *
-   * <p>A {@link MediaBrowserServiceCompat} that supports custom browser actions can set this key in
-   * the {@link MediaBrowserServiceCompat.Result} passed in {@link
-   * MediaBrowserServiceCompat#onCustomAction(String, Bundle, MediaBrowserServiceCompat.Result)}.
-   *
-   * <p>If this key is present in {@link MediaBrowserCompat.CustomActionCallback} {@link
-   * MediaBrowserServiceCompat.Result}, the item will be refreshed with {@link
-   * MediaBrowserCompat#getItem(String, MediaBrowserCompat.ItemCallback)} when {@link
-   * MediaBrowserCompat.CustomActionCallback#onProgressUpdate(String, Bundle, Bundle)} or {@link
-   * MediaBrowserCompat.CustomActionCallback#onResult(String, Bundle, Bundle)} is called by the
-   * {@link MediaBrowserServiceCompat}.
-   *
-   * <p>A {@link MediaBrowserServiceCompat} that supports custom browser actions must implement
-   * {@link MediaBrowserServiceCompat#onLoadItem(String, MediaBrowserServiceCompat.Result)} in order
-   * to update the state of the item.
-   *
-   * <p>TYPE: string, string {@link MediaBrowserCompat.MediaItem} ID to refresh.
-   *
-   * @see MediaBrowserCompat#sendCustomAction(String, Bundle,
-   *     MediaBrowserCompat.CustomActionCallback)
-   * @see MediaBrowserCompat.CustomActionCallback
-   * @see MediaBrowserServiceCompat#onCustomAction(String, Bundle, MediaBrowserServiceCompat.Result)
-   */
-  public static final String EXTRAS_KEY_CUSTOM_BROWSER_ACTION_RESULT_REFRESH_ITEM =
-      "androidx.media.utils.extras.KEY_CUSTOM_BROWSER_ACTION_RESULT_REFRESH_ITEM";
-
-  /**
-   * {@link Bundle} key set in {@link MediaBrowserServiceCompat.Result} to set a message for the
-   * user.
-   *
-   * <p>A {@link MediaBrowserServiceCompat} that supports custom browser actions can set this key in
-   * the {@link MediaBrowserServiceCompat.Result} passed in {@link
-   * MediaBrowserServiceCompat#onCustomAction(String, Bundle, MediaBrowserServiceCompat.Result)}.
-   *
-   * <p>If this key is present in {@link MediaBrowserCompat.CustomActionCallback} {@link
-   * MediaBrowserServiceCompat.Result}, the message will be shown to the user when {@link
-   * MediaBrowserCompat.CustomActionCallback#onProgressUpdate(String, Bundle, Bundle)} or {@link
-   * MediaBrowserCompat.CustomActionCallback#onResult(String, Bundle, Bundle)} is called by the
-   * {@link MediaBrowserServiceCompat}.
-   *
-   * <p>TYPE: string, localized message string to show the user.
-   *
-   * @see MediaBrowserCompat#sendCustomAction(String, Bundle,
-   *     MediaBrowserCompat.CustomActionCallback)
-   * @see MediaBrowserCompat.CustomActionCallback
-   * @see MediaBrowserServiceCompat#onCustomAction(String, Bundle, MediaBrowserServiceCompat.Result)
-   */
-  public static final String EXTRAS_KEY_CUSTOM_BROWSER_ACTION_RESULT_MESSAGE =
-      "androidx.media.utils.extras.KEY_CUSTOM_BROWSER_ACTION_RESULT_MESSAGE";
-
-  /**
    * Bundle key used for the media ID in {@link PlaybackStateCompat playback state} extras. It's for
    * associating the playback state with the media being played so the value is expected to be same
    * with {@link MediaMetadataCompat#METADATA_KEY_MEDIA_ID media id} of the current metadata.
@@ -896,31 +655,6 @@ public final class MediaConstants {
   @SuppressLint("IntentName")
   public static final String TRANSPORT_CONTROLS_EXTRAS_KEY_LEGACY_STREAM_TYPE =
       "android.media.session.extra.LEGACY_STREAM_TYPE";
-
-  /**
-   * Bundle key passed through the {@code extras} of {@link
-   * MediaControllerCompat.TransportControls#prepareFromMediaId(String, Bundle)}, {@link
-   * MediaControllerCompat.TransportControls#prepareFromSearch(String, Bundle)}, {@link
-   * MediaControllerCompat.TransportControls#prepareFromUri(Uri, Bundle)}, {@link
-   * MediaControllerCompat.TransportControls#playFromMediaId(String, Bundle)}, {@link
-   * MediaControllerCompat.TransportControls#playFromSearch(String, Bundle)}, or {@link
-   * MediaControllerCompat.TransportControls#playFromUri(Uri, Bundle)} to indicate whether the
-   * session should shuffle the media to be played or not. The extra parameter is limited to the
-   * current request and doesn't affect the {@link MediaSessionCompat#setShuffleMode(int) shuffle
-   * mode}.
-   *
-   * <p>TYPE: boolean
-   *
-   * @see MediaControllerCompat.TransportControls#prepareFromMediaId(String, Bundle)
-   * @see MediaControllerCompat.TransportControls#prepareFromSearch(String, Bundle)
-   * @see MediaControllerCompat.TransportControls#prepareFromUri(Uri, Bundle)
-   * @see MediaControllerCompat.TransportControls#playFromMediaId(String, Bundle)
-   * @see MediaControllerCompat.TransportControls#playFromSearch(String, Bundle)
-   * @see MediaControllerCompat.TransportControls#playFromUri(Uri, Bundle)
-   */
-  @SuppressLint("IntentName")
-  public static final String TRANSPORT_CONTROLS_EXTRAS_KEY_SHUFFLE =
-      "androidx.media.MediaControllerCompat.TransportControls.extras.KEY_SHUFFLE";
 
   private MediaConstants() {}
 }

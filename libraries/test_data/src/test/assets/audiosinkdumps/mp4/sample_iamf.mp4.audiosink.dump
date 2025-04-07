@@ -7,376 +7,501 @@ AudioSink:
     sampleRate = 48000
   buffer #0:
     time = 1000000000000
-    data = -1112365151
+    channel[0] = 1303596737
+    channel[1] = 17085665
   buffer #1:
     time = 1000000004000
-    data = -1667344575
+    channel[0] = 1497255521
+    channel[1] = 1047181537
   buffer #2:
     time = 1000000008000
-    data = -1973614204
+    channel[0] = -7283050
+    channel[1] = -363649425
   buffer #3:
     time = 1000000012000
-    data = 1093907329
+    channel[0] = -350030880
+    channel[1] = -1400499358
   buffer #4:
     time = 1000000016000
-    data = 1166333761
+    channel[0] = -1356180383
+    channel[1] = -394349855
   buffer #5:
     time = 1000000020000
-    data = -1080159356
+    channel[0] = 703457150
+    channel[1] = 1642057607
   buffer #6:
     time = 1000000024000
-    data = 399031681
+    channel[0] = 481819192
+    channel[1] = 2062617866
   buffer #7:
     time = 1000000028000
-    data = -1744152767
+    channel[0] = 1294842977
+    channel[1] = 1249594081
   buffer #8:
     time = 1000000032000
-    data = -1965613692
+    channel[0] = -821862298
+    channel[1] = -1885337441
   buffer #9:
     time = 1000000036000
-    data = 595533569
+    channel[0] = 1169007570
+    channel[1] = 1375429488
   buffer #10:
     time = 1000000040000
-    data = 1026981825
+    channel[0] = -1999507169
+    channel[1] = 248976931
   buffer #11:
     time = 1000000044000
-    data = -1945622652
+    channel[0] = -881768114
+    channel[1] = -1628188233
   buffer #12:
     time = 1000000048000
-    data = 699779201
+    channel[0] = -370989620
+    channel[1] = -1379540618
   buffer #13:
     time = 1000000052000
-    data = -1931845567
+    channel[0] = 1818713469
+    channel[1] = 725723589
   buffer #14:
     time = 1000000056000
-    data = 1664168324
+    channel[0] = -1143496138
+    channel[1] = -80008497
   buffer #15:
     time = 1000000060000
-    data = -19505471
+    channel[0] = 659485347
+    channel[1] = 1884951711
   buffer #16:
     time = 1000000064000
-    data = -1395371007
+    channel[0] = 839253758
+    channel[1] = 1705183300
   buffer #17:
     time = 1000000068000
-    data = -1336788092
+    channel[0] = -53056738
+    channel[1] = 1339429863
   buffer #18:
     time = 1000000072000
-    data = -302449791
+    channel[0] = -1345651840
+    channel[1] = -404878398
   buffer #19:
     time = 1000000076000
-    data = -164347583
+    channel[0] = -794389383
+    channel[1] = -956140855
   buffer #20:
     time = 1000000080000
-    data = 325797252
+    channel[0] = -1425169402
+    channel[1] = -2010870529
   buffer #21:
     time = 1000000084000
-    data = -1215027391
+    channel[0] = -2099860703
+    channel[1] = 349330465
   buffer #22:
     time = 1000000088000
-    data = 783523713
+    channel[0] = 434590512
+    channel[1] = 2109846546
   buffer #23:
     time = 1000000092000
-    data = 746344324
+    channel[0] = -1558360850
+    channel[1] = -813263337
   buffer #24:
     time = 1000000096000
-    data = 1618650945
+    channel[0] = -658329311
+    channel[1] = -1092200927
   buffer #25:
     time = 1000000100000
-    data = -1158174335
+    channel[0] = -1529504888
+    channel[1] = -221025350
   buffer #26:
     time = 1000000104000
-    data = -1667344575
+    channel[0] = 1497255521
+    channel[1] = 1047181537
   buffer #27:
     time = 1000000108000
-    data = -1973614204
+    channel[0] = -7283050
+    channel[1] = -363649425
   buffer #28:
     time = 1000000112000
-    data = 1093907329
+    channel[0] = -350030880
+    channel[1] = -1400499358
   buffer #29:
     time = 1000000116000
-    data = 1166333761
+    channel[0] = -1356180383
+    channel[1] = -394349855
   buffer #30:
     time = 1000000120000
-    data = -1080159356
+    channel[0] = 703457150
+    channel[1] = 1642057607
   buffer #31:
     time = 1000000124000
-    data = 399031681
+    channel[0] = 481819192
+    channel[1] = 2062617866
   buffer #32:
     time = 1000000128000
-    data = -1744152767
+    channel[0] = 1294842977
+    channel[1] = 1249594081
   buffer #33:
     time = 1000000132000
-    data = -1965613692
+    channel[0] = -821862298
+    channel[1] = -1885337441
   buffer #34:
     time = 1000000136000
-    data = 595533569
+    channel[0] = 1169007570
+    channel[1] = 1375429488
   buffer #35:
     time = 1000000140000
-    data = 1026981825
+    channel[0] = -1999507169
+    channel[1] = 248976931
   buffer #36:
     time = 1000000144000
-    data = -1945622652
+    channel[0] = -881768114
+    channel[1] = -1628188233
   buffer #37:
     time = 1000000148000
-    data = 699779201
+    channel[0] = -370989620
+    channel[1] = -1379540618
   buffer #38:
     time = 1000000152000
-    data = -1931845567
+    channel[0] = 1818713469
+    channel[1] = 725723589
   buffer #39:
     time = 1000000156000
-    data = 1664168324
+    channel[0] = -1143496138
+    channel[1] = -80008497
   buffer #40:
     time = 1000000160000
-    data = -19505471
+    channel[0] = 659485347
+    channel[1] = 1884951711
   buffer #41:
     time = 1000000164000
-    data = -1395371007
+    channel[0] = 839253758
+    channel[1] = 1705183300
   buffer #42:
     time = 1000000168000
-    data = -1336788092
+    channel[0] = -53056738
+    channel[1] = 1339429863
   buffer #43:
     time = 1000000172000
-    data = -302449791
+    channel[0] = -1345651840
+    channel[1] = -404878398
   buffer #44:
     time = 1000000176000
-    data = -164347583
+    channel[0] = -794389383
+    channel[1] = -956140855
   buffer #45:
     time = 1000000180000
-    data = 325797252
+    channel[0] = -1425169402
+    channel[1] = -2010870529
   buffer #46:
     time = 1000000184000
-    data = -1215027391
+    channel[0] = -2099860703
+    channel[1] = 349330465
   buffer #47:
     time = 1000000188000
-    data = 783523713
+    channel[0] = 434590512
+    channel[1] = 2109846546
   buffer #48:
     time = 1000000192000
-    data = 746344324
+    channel[0] = -1558360850
+    channel[1] = -813263337
   buffer #49:
     time = 1000000196000
-    data = 1618650945
+    channel[0] = -658329311
+    channel[1] = -1092200927
   buffer #50:
     time = 1000000200000
-    data = -1158174335
+    channel[0] = -1529504888
+    channel[1] = -221025350
   buffer #51:
     time = 1000000204000
-    data = -1667344575
+    channel[0] = 1497255521
+    channel[1] = 1047181537
   buffer #52:
     time = 1000000208000
-    data = -1973614204
+    channel[0] = -7283050
+    channel[1] = -363649425
   buffer #53:
     time = 1000000212000
-    data = 1093907329
+    channel[0] = -350030880
+    channel[1] = -1400499358
   buffer #54:
     time = 1000000216000
-    data = 1166333761
+    channel[0] = -1356180383
+    channel[1] = -394349855
   buffer #55:
     time = 1000000220000
-    data = -1080159356
+    channel[0] = 703457150
+    channel[1] = 1642057607
   buffer #56:
     time = 1000000224000
-    data = 399031681
+    channel[0] = 481819192
+    channel[1] = 2062617866
   buffer #57:
     time = 1000000228000
-    data = -1744152767
+    channel[0] = 1294842977
+    channel[1] = 1249594081
   buffer #58:
     time = 1000000232000
-    data = -1965613692
+    channel[0] = -821862298
+    channel[1] = -1885337441
   buffer #59:
     time = 1000000236000
-    data = 595533569
+    channel[0] = 1169007570
+    channel[1] = 1375429488
   buffer #60:
     time = 1000000240000
-    data = 1026981825
+    channel[0] = -1999507169
+    channel[1] = 248976931
   buffer #61:
     time = 1000000244000
-    data = -1945622652
+    channel[0] = -881768114
+    channel[1] = -1628188233
   buffer #62:
     time = 1000000248000
-    data = 699779201
+    channel[0] = -370989620
+    channel[1] = -1379540618
   buffer #63:
     time = 1000000252000
-    data = -1931845567
+    channel[0] = 1818713469
+    channel[1] = 725723589
   buffer #64:
     time = 1000000256000
-    data = 1664168324
+    channel[0] = -1143496138
+    channel[1] = -80008497
   buffer #65:
     time = 1000000260000
-    data = -19505471
+    channel[0] = 659485347
+    channel[1] = 1884951711
   buffer #66:
     time = 1000000264000
-    data = -1395371007
+    channel[0] = 839253758
+    channel[1] = 1705183300
   buffer #67:
     time = 1000000268000
-    data = -1336788092
+    channel[0] = -53056738
+    channel[1] = 1339429863
   buffer #68:
     time = 1000000272000
-    data = -302449791
+    channel[0] = -1345651840
+    channel[1] = -404878398
   buffer #69:
     time = 1000000276000
-    data = -164347583
+    channel[0] = -794389383
+    channel[1] = -956140855
   buffer #70:
     time = 1000000280000
-    data = 325797252
+    channel[0] = -1425169402
+    channel[1] = -2010870529
   buffer #71:
     time = 1000000284000
-    data = -1215027391
+    channel[0] = -2099860703
+    channel[1] = 349330465
   buffer #72:
     time = 1000000288000
-    data = 783523713
+    channel[0] = 434590512
+    channel[1] = 2109846546
   buffer #73:
     time = 1000000292000
-    data = 746344324
+    channel[0] = -1558360850
+    channel[1] = -813263337
   buffer #74:
     time = 1000000296000
-    data = 1618650945
+    channel[0] = -658329311
+    channel[1] = -1092200927
   buffer #75:
     time = 1000000300000
-    data = -1158174335
+    channel[0] = -1529504888
+    channel[1] = -221025350
   buffer #76:
     time = 1000000304000
-    data = -1667344575
+    channel[0] = 1497255521
+    channel[1] = 1047181537
   buffer #77:
     time = 1000000308000
-    data = -1973614204
+    channel[0] = -7283050
+    channel[1] = -363649425
   buffer #78:
     time = 1000000312000
-    data = 1093907329
+    channel[0] = -350030880
+    channel[1] = -1400499358
   buffer #79:
     time = 1000000316000
-    data = 1166333761
+    channel[0] = -1356180383
+    channel[1] = -394349855
   buffer #80:
     time = 1000000320000
-    data = -1080159356
+    channel[0] = 703457150
+    channel[1] = 1642057607
   buffer #81:
     time = 1000000324000
-    data = 399031681
+    channel[0] = 481819192
+    channel[1] = 2062617866
   buffer #82:
     time = 1000000328000
-    data = -1744152767
+    channel[0] = 1294842977
+    channel[1] = 1249594081
   buffer #83:
     time = 1000000332000
-    data = -1965613692
+    channel[0] = -821862298
+    channel[1] = -1885337441
   buffer #84:
     time = 1000000336000
-    data = 595533569
+    channel[0] = 1169007570
+    channel[1] = 1375429488
   buffer #85:
     time = 1000000340000
-    data = 1026981825
+    channel[0] = -1999507169
+    channel[1] = 248976931
   buffer #86:
     time = 1000000344000
-    data = -1945622652
+    channel[0] = -881768114
+    channel[1] = -1628188233
   buffer #87:
     time = 1000000348000
-    data = 699779201
+    channel[0] = -370989620
+    channel[1] = -1379540618
   buffer #88:
     time = 1000000352000
-    data = -1931845567
+    channel[0] = 1818713469
+    channel[1] = 725723589
   buffer #89:
     time = 1000000356000
-    data = 1664168324
+    channel[0] = -1143496138
+    channel[1] = -80008497
   buffer #90:
     time = 1000000360000
-    data = -19505471
+    channel[0] = 659485347
+    channel[1] = 1884951711
   buffer #91:
     time = 1000000364000
-    data = -1395371007
+    channel[0] = 839253758
+    channel[1] = 1705183300
   buffer #92:
     time = 1000000368000
-    data = -1336788092
+    channel[0] = -53056738
+    channel[1] = 1339429863
   buffer #93:
     time = 1000000372000
-    data = -302449791
+    channel[0] = -1345651840
+    channel[1] = -404878398
   buffer #94:
     time = 1000000376000
-    data = -164347583
+    channel[0] = -794389383
+    channel[1] = -956140855
   buffer #95:
     time = 1000000380000
-    data = 325797252
+    channel[0] = -1425169402
+    channel[1] = -2010870529
   buffer #96:
     time = 1000000384000
-    data = -1215027391
+    channel[0] = -2099860703
+    channel[1] = 349330465
   buffer #97:
     time = 1000000388000
-    data = 783523713
+    channel[0] = 434590512
+    channel[1] = 2109846546
   buffer #98:
     time = 1000000392000
-    data = 746344324
+    channel[0] = -1558360850
+    channel[1] = -813263337
   buffer #99:
     time = 1000000396000
-    data = 1618650945
+    channel[0] = -658329311
+    channel[1] = -1092200927
   buffer #100:
     time = 1000000400000
-    data = -1158174335
+    channel[0] = -1529504888
+    channel[1] = -221025350
   buffer #101:
     time = 1000000404000
-    data = -1667344575
+    channel[0] = 1497255521
+    channel[1] = 1047181537
   buffer #102:
     time = 1000000408000
-    data = -1973614204
+    channel[0] = -7283050
+    channel[1] = -363649425
   buffer #103:
     time = 1000000412000
-    data = 1093907329
+    channel[0] = -350030880
+    channel[1] = -1400499358
   buffer #104:
     time = 1000000416000
-    data = 1166333761
+    channel[0] = -1356180383
+    channel[1] = -394349855
   buffer #105:
     time = 1000000420000
-    data = -1080159356
+    channel[0] = 703457150
+    channel[1] = 1642057607
   buffer #106:
     time = 1000000424000
-    data = 399031681
+    channel[0] = 481819192
+    channel[1] = 2062617866
   buffer #107:
     time = 1000000428000
-    data = -1744152767
+    channel[0] = 1294842977
+    channel[1] = 1249594081
   buffer #108:
     time = 1000000432000
-    data = -1965613692
+    channel[0] = -821862298
+    channel[1] = -1885337441
   buffer #109:
     time = 1000000436000
-    data = 595533569
+    channel[0] = 1169007570
+    channel[1] = 1375429488
   buffer #110:
     time = 1000000440000
-    data = 1026981825
+    channel[0] = -1999507169
+    channel[1] = 248976931
   buffer #111:
     time = 1000000444000
-    data = -1945622652
+    channel[0] = -881768114
+    channel[1] = -1628188233
   buffer #112:
     time = 1000000448000
-    data = 699779201
+    channel[0] = -370989620
+    channel[1] = -1379540618
   buffer #113:
     time = 1000000452000
-    data = -1931845567
+    channel[0] = 1818713469
+    channel[1] = 725723589
   buffer #114:
     time = 1000000456000
-    data = 1664168324
+    channel[0] = -1143496138
+    channel[1] = -80008497
   buffer #115:
     time = 1000000460000
-    data = -19505471
+    channel[0] = 659485347
+    channel[1] = 1884951711
   buffer #116:
     time = 1000000464000
-    data = -1395371007
+    channel[0] = 839253758
+    channel[1] = 1705183300
   buffer #117:
     time = 1000000468000
-    data = -1336788092
+    channel[0] = -53056738
+    channel[1] = 1339429863
   buffer #118:
     time = 1000000472000
-    data = -302449791
+    channel[0] = -1345651840
+    channel[1] = -404878398
   buffer #119:
     time = 1000000476000
-    data = -164347583
+    channel[0] = -794389383
+    channel[1] = -956140855
   buffer #120:
     time = 1000000480000
-    data = 325797252
+    channel[0] = -1425169402
+    channel[1] = -2010870529
   buffer #121:
     time = 1000000484000
-    data = -1215027391
+    channel[0] = -2099860703
+    channel[1] = 349330465
   buffer #122:
     time = 1000000488000
-    data = 783523713
+    channel[0] = 434590512
+    channel[1] = 2109846546
   buffer #123:
     time = 1000000492000
-    data = 746344324
+    channel[0] = -1558360850
+    channel[1] = -813263337
   buffer #124:
     time = 1000000496000
-    data = 1026348167
+    channel[0] = -566345070
+    channel[1] = 1508198646

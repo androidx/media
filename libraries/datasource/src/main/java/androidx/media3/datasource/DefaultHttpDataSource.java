@@ -103,7 +103,6 @@ public class DefaultHttpDataSource extends BaseDataSource implements HttpDataSou
      * @return This factory.
      */
     @CanIgnoreReturnValue
-    @UnstableApi
     public Factory setUserAgent(@Nullable String userAgent) {
       this.userAgent = userAgent;
       return this;

@@ -30,10 +30,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 
-/**
- * Reads and peeks FLAC stream metadata elements according to the <a
- * href="https://xiph.org/flac/format.html">FLAC format specification</a>.
- */
+/** Reads and peeks FLAC stream metadata elements according to RFC 9639. */
 @UnstableApi
 public final class FlacMetadataReader {
 

@@ -43,8 +43,9 @@ public final class LanczosResample implements GlEffect {
   private static final float NO_OP_THRESHOLD = 0.01f;
 
   private final float radius;
-  private final int width;
-  private final int height;
+  private final int longSide;
+  private final int shortSide;
+  private final boolean assumeLandscapeOrientation;
 
   /**
    * Creates an instance.
@@ -56,20 +57,56 @@ public final class LanczosResample implements GlEffect {
       @IntRange(from = 1) int width, @IntRange(from = 1) int height) {
     checkArgument(width > 0);
     checkArgument(height > 0);
-    return new LanczosResample(DEFAULT_RADIUS, width, height);
+    return new LanczosResample(
+        DEFAULT_RADIUS, width, height, /* assumeLandscapeOrientation= */ true);
   }
 
-  private LanczosResample(float radius, int width, int height) {
+  /**
+   * Creates an instance.
+   *
+   * <p>The output resolution will be either {@code firstDimension} x {@code secondDimension} or
+   * {@code secondDimension} x {@code firstDimension}. The longer of {@code firstDimension} or
+   * {@code secondDimension} will have the same orientation as the longer side of the {@link Size}
+   * passed in to {@link LanczosResampleScaledFunctionProvider#configure}.
+   *
+   * @param firstDimension The first dimension of the output contents.
+   * @param secondDimension The second dimension of the output contents.
+   */
+  public static LanczosResample scaleToFitWithFlexibleOrientation(
+      @IntRange(from = 1) int firstDimension, @IntRange(from = 1) int secondDimension) {
+    checkArgument(firstDimension > 0);
+    checkArgument(secondDimension > 0);
+    if (firstDimension > secondDimension) {
+      return new LanczosResample(
+          DEFAULT_RADIUS,
+          /* longSide= */ firstDimension,
+          /* shortSide= */ secondDimension,
+          /* assumeLandscapeOrientation= */ false);
+    } else {
+      return new LanczosResample(
+          DEFAULT_RADIUS,
+          /* longSide= */ secondDimension,
+          /* shortSide= */ firstDimension,
+          /* assumeLandscapeOrientation= */ false);
+    }
+  }
+
+  private LanczosResample(
+      float radius, int longSide, int shortSide, boolean assumeLandscapeOrientation) {
     this.radius = radius;
-    this.width = width;
-    this.height = height;
+    this.longSide = longSide;
+    this.shortSide = shortSide;
+    this.assumeLandscapeOrientation = assumeLandscapeOrientation;
   }
 
   @Override
   public GlShaderProgram toGlShaderProgram(Context context, boolean useHdr)
       throws VideoFrameProcessingException {
     return new SeparableConvolutionShaderProgram(
-        context, useHdr, new LanczosResampleScaledFunctionProvider(radius, width, height));
+        context,
+        useHdr,
+        new LanczosResampleScaledFunctionProvider(
+            radius, longSide, shortSide, assumeLandscapeOrientation));
   }
 
   /**
@@ -80,7 +117,13 @@ public final class LanczosResample implements GlEffect {
    */
   @Override
   public boolean isNoOp(int inputWidth, int inputHeight) {
-    return abs(scalingFactorToFit(inputWidth, inputHeight, width, height) - 1f) < NO_OP_THRESHOLD;
+    Size targetSize =
+        getTargetSize(inputWidth, inputHeight, longSide, shortSide, assumeLandscapeOrientation);
+    return abs(
+            scalingFactorToFit(
+                    inputWidth, inputHeight, targetSize.getWidth(), targetSize.getHeight())
+                - 1f)
+        < NO_OP_THRESHOLD;
   }
 
   /**
@@ -108,21 +151,24 @@ public final class LanczosResample implements GlEffect {
     // Note: We deliberately don't use Float.MIN_VALUE because it's positive & very close to zero.
     private static final float SCALE_UNSET = -Float.MAX_VALUE;
     private final float radius;
-    private final int width;
-    private final int height;
+    private final int longSide;
+    private final int shortSide;
+    private final boolean assumeLandscapeOrientation;
 
     private float scale;
 
     private LanczosResampleScaledFunctionProvider(
         @FloatRange(from = 0, fromInclusive = false) float radius,
-        @IntRange(from = 1) int width,
-        @IntRange(from = 1) int height) {
+        @IntRange(from = 1) int longSide,
+        @IntRange(from = 1) int shortSide,
+        boolean assumeLandscapeOrientation) {
       checkArgument(radius > 0);
-      checkArgument(width > 0);
-      checkArgument(height > 0);
+      checkArgument(longSide > 0);
+      checkArgument(shortSide > 0);
       this.radius = radius;
-      this.width = width;
-      this.height = height;
+      this.longSide = longSide;
+      this.shortSide = shortSide;
+      this.assumeLandscapeOrientation = assumeLandscapeOrientation;
       scale = SCALE_UNSET;
     }
 
@@ -136,8 +182,33 @@ public final class LanczosResample implements GlEffect {
 
     @Override
     public Size configure(Size inputSize) {
-      scale = scalingFactorToFit(inputSize.getWidth(), inputSize.getHeight(), width, height);
+      Size targetSize =
+          LanczosResample.getTargetSize(
+              inputSize.getWidth(),
+              inputSize.getHeight(),
+              longSide,
+              shortSide,
+              assumeLandscapeOrientation);
+      scale =
+          scalingFactorToFit(
+              inputSize.getWidth(),
+              inputSize.getHeight(),
+              targetSize.getWidth(),
+              targetSize.getHeight());
       return new Size(round(inputSize.getWidth() * scale), round(inputSize.getHeight() * scale));
+    }
+  }
+
+  private static Size getTargetSize(
+      int inputWidth,
+      int inputHeight,
+      int longSide,
+      int shortSide,
+      boolean assumeLandscapeOrientation) {
+    if (assumeLandscapeOrientation || inputWidth > inputHeight) {
+      return new Size(longSide, shortSide);
+    } else {
+      return new Size(shortSide, longSide);
     }
   }
 }

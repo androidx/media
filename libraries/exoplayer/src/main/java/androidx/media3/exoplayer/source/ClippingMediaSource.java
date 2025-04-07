@@ -456,6 +456,10 @@ public final class ClippingMediaSource extends WrappingMediaSource {
         Timeline timeline, long startUs, long endUs, boolean allowUnseekableMedia)
         throws IllegalClippingException {
       super(timeline);
+      if (endUs != C.TIME_END_OF_SOURCE && endUs < startUs) {
+        throw new IllegalClippingException(
+            IllegalClippingException.REASON_START_EXCEEDS_END, startUs, endUs);
+      }
       if (timeline.getPeriodCount() != 1) {
         throw new IllegalClippingException(IllegalClippingException.REASON_INVALID_PERIOD_COUNT);
       }
@@ -464,25 +468,22 @@ public final class ClippingMediaSource extends WrappingMediaSource {
       if (!allowUnseekableMedia && !window.isPlaceholder && startUs != 0 && !window.isSeekable) {
         throw new IllegalClippingException(IllegalClippingException.REASON_NOT_SEEKABLE_TO_START);
       }
-      long resolvedEndUs = endUs == C.TIME_END_OF_SOURCE ? window.durationUs : max(0, endUs);
+      endUs = endUs == C.TIME_END_OF_SOURCE ? window.durationUs : max(0, endUs);
       if (window.durationUs != C.TIME_UNSET) {
-        if (resolvedEndUs > window.durationUs) {
-          resolvedEndUs = window.durationUs;
+        if (endUs > window.durationUs) {
+          endUs = window.durationUs;
         }
-        if (startUs > resolvedEndUs) {
-          throw new IllegalClippingException(
-              IllegalClippingException.REASON_START_EXCEEDS_END,
-              startUs,
-              /* endUs= */ resolvedEndUs);
+        if (startUs > endUs) {
+          startUs = endUs;
         }
       }
       this.startUs = startUs;
-      this.endUs = resolvedEndUs;
-      durationUs = resolvedEndUs == C.TIME_UNSET ? C.TIME_UNSET : (resolvedEndUs - startUs);
+      this.endUs = endUs;
+      durationUs = endUs == C.TIME_UNSET ? C.TIME_UNSET : (endUs - startUs);
       isDynamic =
           window.isDynamic
-              && (resolvedEndUs == C.TIME_UNSET
-                  || (window.durationUs != C.TIME_UNSET && resolvedEndUs == window.durationUs));
+              && (endUs == C.TIME_UNSET
+                  || (window.durationUs != C.TIME_UNSET && endUs == window.durationUs));
     }
 
     @Override

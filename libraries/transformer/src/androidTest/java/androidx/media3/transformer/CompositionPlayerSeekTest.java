@@ -1072,8 +1072,9 @@ public class CompositionPlayerSeekTest {
             }
 
             @Override
-            public void onOutputFrameAvailableForRendering(long framePresentationTimeUs) {
-              listener.onOutputFrameAvailableForRendering(framePresentationTimeUs);
+            public void onOutputFrameAvailableForRendering(
+                long framePresentationTimeUs, boolean isRedrawnFrame) {
+              listener.onOutputFrameAvailableForRendering(framePresentationTimeUs, isRedrawnFrame);
             }
 
             @Override

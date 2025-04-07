@@ -16,6 +16,9 @@
 
 package androidx.media3.transformer;
 
+import static android.media.MediaCodecInfo.CodecProfileLevel.AVCLevel4;
+import static android.media.MediaCodecInfo.CodecProfileLevel.AVCProfileHigh;
+import static androidx.media3.exoplayer.mediacodec.MediaCodecUtil.createCodecProfileLevel;
 import static androidx.media3.transformer.ExportException.ERROR_CODE_ENCODING_FORMAT_UNSUPPORTED;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.truth.Truth.assertThat;
@@ -23,6 +26,7 @@ import static org.junit.Assert.assertThrows;
 
 import android.content.Context;
 import android.media.MediaCodecInfo;
+import android.media.MediaCodecInfo.CodecProfileLevel;
 import android.media.MediaFormat;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -58,11 +62,9 @@ public class DefaultEncoderFactoryTest {
   private static void createShadowH264Encoder() {
     MediaFormat avcFormat = new MediaFormat();
     avcFormat.setString(MediaFormat.KEY_MIME, MediaFormat.MIMETYPE_VIDEO_AVC);
-    MediaCodecInfo.CodecProfileLevel profileLevel = new MediaCodecInfo.CodecProfileLevel();
-    profileLevel.profile = MediaCodecInfo.CodecProfileLevel.AVCProfileHigh;
     // Using Level4 gives us 8192 16x16 blocks. If using width 1920 uses 120 blocks, 8192 / 120 = 68
     // blocks will be left for encoding height 1088.
-    profileLevel.level = MediaCodecInfo.CodecProfileLevel.AVCLevel4;
+    CodecProfileLevel profileLevel = createCodecProfileLevel(AVCProfileHigh, AVCLevel4);
 
     createShadowVideoEncoder(avcFormat, profileLevel, "test.transformer.avc.encoder");
   }
@@ -79,16 +81,14 @@ public class DefaultEncoderFactoryTest {
   }
 
   private static void createShadowVideoEncoder(
-      MediaFormat supportedFormat,
-      MediaCodecInfo.CodecProfileLevel supportedProfileLevel,
-      String name) {
+      MediaFormat supportedFormat, CodecProfileLevel supportedProfileLevel, String name) {
     MediaCodecInfo.CodecCapabilities capabilities =
         MediaCodecInfoBuilder.CodecCapabilitiesBuilder.newBuilder()
             .setMediaFormat(supportedFormat)
             .setIsEncoder(true)
             .setColorFormats(
                 new int[] {MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible})
-            .setProfileLevels(new MediaCodecInfo.CodecProfileLevel[] {supportedProfileLevel})
+            .setProfileLevels(new CodecProfileLevel[] {supportedProfileLevel})
             .build();
     createShadowEncoder(name, capabilities);
   }
@@ -111,7 +111,7 @@ public class DefaultEncoderFactoryTest {
     Format actualVideoFormat =
         new DefaultEncoderFactory.Builder(context)
             .build()
-            .createForVideoEncoding(requestedVideoFormat)
+            .createForVideoEncoding(requestedVideoFormat, /* logSessionId= */ null)
             .getConfigurationFormat();
 
     assertThat(actualVideoFormat.sampleMimeType).isEqualTo(MimeTypes.VIDEO_H264);
@@ -129,7 +129,9 @@ public class DefaultEncoderFactoryTest {
     ExportException exportException =
         assertThrows(
             ExportException.class,
-            () -> encoderFactory.createForVideoEncoding(requestedVideoFormat));
+            () ->
+                encoderFactory.createForVideoEncoding(
+                    requestedVideoFormat, /* logSessionId= */ null));
     assertThat(exportException.errorCode).isEqualTo(ERROR_CODE_ENCODING_FORMAT_UNSUPPORTED);
   }
 
@@ -140,7 +142,7 @@ public class DefaultEncoderFactoryTest {
     Format actualVideoFormat =
         new DefaultEncoderFactory.Builder(context)
             .build()
-            .createForVideoEncoding(requestedVideoFormat)
+            .createForVideoEncoding(requestedVideoFormat, /* logSessionId= */ null)
             .getConfigurationFormat();
 
     assertThat(actualVideoFormat.width).isEqualTo(1920);
@@ -158,7 +160,7 @@ public class DefaultEncoderFactoryTest {
         new DefaultEncoderFactory.Builder(context)
             .setRequestedVideoEncoderSettings(VideoEncoderSettings.DEFAULT)
             .build()
-            .createForVideoEncoding(requestedVideoFormat)
+            .createForVideoEncoding(requestedVideoFormat, /* logSessionId= */ null)
             .getConfigurationFormat();
 
     assertThat(actualVideoFormat.sampleMimeType).isEqualTo(MimeTypes.VIDEO_H264);
@@ -175,7 +177,7 @@ public class DefaultEncoderFactoryTest {
     Format actualVideoFormat =
         new DefaultEncoderFactory.Builder(context)
             .build()
-            .createForVideoEncoding(requestedVideoFormat)
+            .createForVideoEncoding(requestedVideoFormat, /* logSessionId= */ null)
             .getConfigurationFormat();
 
     assertThat(actualVideoFormat.sampleMimeType).isEqualTo(MimeTypes.VIDEO_H264);
@@ -198,7 +200,7 @@ public class DefaultEncoderFactoryTest {
             .setRequestedVideoEncoderSettings(
                 new VideoEncoderSettings.Builder().setBitrate(10_000_000).build())
             .build()
-            .createForVideoEncoding(requestedVideoFormat)
+            .createForVideoEncoding(requestedVideoFormat, /* logSessionId= */ null)
             .getConfigurationFormat();
 
     assertThat(actualVideoFormat.sampleMimeType).isEqualTo(MimeTypes.VIDEO_H264);
@@ -216,7 +218,7 @@ public class DefaultEncoderFactoryTest {
     Codec videoEncoder =
         new DefaultEncoderFactory.Builder(context)
             .build()
-            .createForVideoEncoding(requestedVideoFormat);
+            .createForVideoEncoding(requestedVideoFormat, /* logSessionId= */ null);
 
     assertThat(videoEncoder).isInstanceOf(DefaultCodec.class);
     MediaFormat configurationMediaFormat =
@@ -241,7 +243,7 @@ public class DefaultEncoderFactoryTest {
                     .setEncoderPerformanceParameters(/* operatingRate= */ -1, /* priority= */ 1)
                     .build())
             .build()
-            .createForVideoEncoding(requestedVideoFormat);
+            .createForVideoEncoding(requestedVideoFormat, /* logSessionId= */ null);
 
     assertThat(videoEncoder).isInstanceOf(DefaultCodec.class);
     MediaFormat configurationMediaFormat =
@@ -266,7 +268,7 @@ public class DefaultEncoderFactoryTest {
                         /* operatingRate= */ VideoEncoderSettings.RATE_UNSET, /* priority= */ 1)
                     .build())
             .build()
-            .createForVideoEncoding(requestedVideoFormat);
+            .createForVideoEncoding(requestedVideoFormat, /* logSessionId= */ null);
 
     assertThat(videoEncoder).isInstanceOf(DefaultCodec.class);
     MediaFormat configurationMediaFormat =
@@ -290,7 +292,7 @@ public class DefaultEncoderFactoryTest {
                         VideoEncoderSettings.RATE_UNSET, VideoEncoderSettings.RATE_UNSET)
                     .build())
             .build()
-            .createForVideoEncoding(requestedVideoFormat);
+            .createForVideoEncoding(requestedVideoFormat, /* logSessionId= */ null);
 
     assertThat(videoEncoder).isInstanceOf(DefaultCodec.class);
     MediaFormat configurationMediaFormat =
@@ -309,7 +311,7 @@ public class DefaultEncoderFactoryTest {
             .setRequestedVideoEncoderSettings(
                 new VideoEncoderSettings.Builder().setRepeatPreviousFrameIntervalUs(33_333).build())
             .build()
-            .createForVideoEncoding(requestedVideoFormat);
+            .createForVideoEncoding(requestedVideoFormat, /* logSessionId= */ null);
 
     assertThat(
             videoEncoder
@@ -326,7 +328,7 @@ public class DefaultEncoderFactoryTest {
     DefaultCodec videoEncoder =
         new DefaultEncoderFactory.Builder(context)
             .build()
-            .createForVideoEncoding(requestedVideoFormat);
+            .createForVideoEncoding(requestedVideoFormat, /* logSessionId= */ null);
 
     assertThat(
             videoEncoder
@@ -344,7 +346,7 @@ public class DefaultEncoderFactoryTest {
             new DefaultEncoderFactory.Builder(context)
                 .setVideoEncoderSelector((mimeType) -> ImmutableList.of())
                 .build()
-                .createForVideoEncoding(requestedVideoFormat));
+                .createForVideoEncoding(requestedVideoFormat, /* logSessionId= */ null));
   }
 
   @Test
@@ -357,7 +359,7 @@ public class DefaultEncoderFactoryTest {
         new DefaultEncoderFactory.Builder(context)
             .setEnableFallback(true)
             .build()
-            .createForAudioEncoding(requestedAudioFormat);
+            .createForAudioEncoding(requestedAudioFormat, /* logSessionId= */ null);
 
     Format inputFormat = codec.getInputFormat();
     Format configurationFormat = codec.getConfigurationFormat();

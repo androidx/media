@@ -466,14 +466,16 @@ public final class TransformerActivity extends AppCompatActivity {
               bundle.getBoolean(ConfigurationActivity.SHOULD_FLATTEN_FOR_SLOW_MOTION))
           .setEffects(new Effects(audioProcessors, videoEffects));
     }
-    Composition.Builder compositionBuilder =
-        new Composition.Builder(
-            new EditedMediaItemSequence.Builder(editedMediaItemBuilder.build()).build());
+    EditedMediaItemSequence.Builder editedMediaItemSequenceBuilder =
+        new EditedMediaItemSequence.Builder(editedMediaItemBuilder.build());
     if (bundle != null) {
-      compositionBuilder
-          .setHdrMode(bundle.getInt(ConfigurationActivity.HDR_MODE))
-          .experimentalSetForceAudioTrack(
-              bundle.getBoolean(ConfigurationActivity.FORCE_AUDIO_TRACK));
+      editedMediaItemSequenceBuilder.experimentalSetForceAudioTrack(
+          bundle.getBoolean(ConfigurationActivity.FORCE_AUDIO_TRACK));
+    }
+    Composition.Builder compositionBuilder =
+        new Composition.Builder(editedMediaItemSequenceBuilder.build());
+    if (bundle != null) {
+      compositionBuilder.setHdrMode(bundle.getInt(ConfigurationActivity.HDR_MODE));
     }
     return compositionBuilder.build();
   }
@@ -677,8 +679,8 @@ public final class TransformerActivity extends AppCompatActivity {
     int resolutionHeight =
         bundle.getInt(ConfigurationActivity.RESOLUTION_HEIGHT, /* defaultValue= */ C.LENGTH_UNSET);
     if (resolutionHeight != C.LENGTH_UNSET) {
-      effects.add(LanczosResample.scaleToFit(10000, resolutionHeight));
-      effects.add(Presentation.createForHeight(resolutionHeight));
+      effects.add(LanczosResample.scaleToFitWithFlexibleOrientation(10000, resolutionHeight));
+      effects.add(Presentation.createForShortSide(resolutionHeight));
     }
 
     return effects.build();

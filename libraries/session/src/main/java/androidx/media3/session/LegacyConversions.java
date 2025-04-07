@@ -104,10 +104,6 @@ import java.util.concurrent.TimeoutException;
 
   private static final String TAG = "LegacyConversions";
 
-  // Stub BrowserRoot for accepting any connection here.
-  public static final BrowserRoot defaultBrowserRoot =
-      new BrowserRoot(MediaLibraryService.SERVICE_INTERFACE, null);
-
   public static final ImmutableSet<String> KNOWN_METADATA_COMPAT_KEYS =
       ImmutableSet.of(
           MediaMetadataCompat.METADATA_KEY_TITLE,
@@ -1476,13 +1472,11 @@ import java.util.concurrent.TimeoutException;
 
     if (state != null) {
       List<PlaybackStateCompat.CustomAction> customActions = state.getCustomActions();
-      if (customActions != null) {
-        for (CustomAction customAction : customActions) {
-          String action = customAction.getAction();
-          @Nullable Bundle extras = customAction.getExtras();
-          sessionCommandsBuilder.add(
-              new SessionCommand(action, extras == null ? Bundle.EMPTY : extras));
-        }
+      for (CustomAction customAction : customActions) {
+        String action = customAction.getAction();
+        @Nullable Bundle extras = customAction.getExtras();
+        sessionCommandsBuilder.add(
+            new SessionCommand(action, extras == null ? Bundle.EMPTY : extras));
       }
     }
     return sessionCommandsBuilder.build();
@@ -1504,9 +1498,6 @@ import java.util.concurrent.TimeoutException;
       return ImmutableList.of();
     }
     List<PlaybackStateCompat.CustomAction> customActions = state.getCustomActions();
-    if (customActions == null) {
-      return ImmutableList.of();
-    }
     ImmutableList.Builder<CommandButton> customLayout = new ImmutableList.Builder<>();
     for (CustomAction customAction : customActions) {
       String action = customAction.getAction();

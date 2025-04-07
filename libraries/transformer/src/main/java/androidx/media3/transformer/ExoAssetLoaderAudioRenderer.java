@@ -18,6 +18,7 @@ package androidx.media3.transformer;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 
 import android.media.MediaCodec;
+import android.media.metrics.LogSessionId;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -30,15 +31,18 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   private static final String TAG = "ExoAssetLoaderAudioRenderer";
 
   private final Codec.DecoderFactory decoderFactory;
+  @Nullable private final LogSessionId logSessionId;
 
   private boolean hasPendingConsumerInput;
 
   public ExoAssetLoaderAudioRenderer(
       Codec.DecoderFactory decoderFactory,
       TransformerMediaClock mediaClock,
-      AssetLoader.Listener assetLoaderListener) {
+      AssetLoader.Listener assetLoaderListener,
+      @Nullable LogSessionId logSessionId) {
     super(C.TRACK_TYPE_AUDIO, mediaClock, assetLoaderListener);
     this.decoderFactory = decoderFactory;
+    this.logSessionId = logSessionId;
   }
 
   @Override
@@ -48,7 +52,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
   @Override
   protected void initDecoder(Format inputFormat) throws ExportException {
-    decoder = decoderFactory.createForAudioDecoding(inputFormat);
+    decoder = decoderFactory.createForAudioDecoding(inputFormat, logSessionId);
   }
 
   @Override

@@ -60,7 +60,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.media.browse.MediaBrowser;
-import android.media.session.MediaSession;
 import android.os.Binder;
 import android.os.Build;
 import android.os.Bundle;
@@ -130,8 +129,6 @@ public abstract class MediaBrowserServiceCompat extends Service {
   static final String TAG = "MBServiceCompat";
   static final boolean DEBUG = Log.isLoggable(TAG, Log.DEBUG);
 
-  private static final float EPSILON = 0.00001f;
-
   private @MonotonicNonNull MediaBrowserServiceImpl mImpl;
 
   /** The {@link Intent} that must be declared as handled by the service. */
@@ -176,7 +173,7 @@ public abstract class MediaBrowserServiceCompat extends Service {
   @SuppressWarnings({
     "argument.type.incompatible",
     "assignment.type.incompatible"
-  }) // Using this before construtor completes
+  }) // Using this before constructor completes
   final ServiceHandler mHandler = new ServiceHandler(/* service= */ this);
 
   @Nullable MediaSessionCompat.Token mSession;
@@ -199,115 +196,6 @@ public abstract class MediaBrowserServiceCompat extends Service {
     RemoteUserInfo getCurrentBrowserInfo();
   }
 
-  class MediaBrowserServiceImplBase implements MediaBrowserServiceImpl {
-    private @MonotonicNonNull Messenger mMessenger;
-
-    @Override
-    public void onCreate() {
-      mMessenger = new Messenger(mHandler);
-    }
-
-    @Nullable
-    @Override
-    public IBinder onBind(Intent intent) {
-      if (SERVICE_INTERFACE.equals(intent.getAction())) {
-        return checkNotNull(mMessenger).getBinder();
-      }
-      return null;
-    }
-
-    @Override
-    public void setSessionToken(final MediaSessionCompat.Token token) {
-      mHandler.post(
-          new Runnable() {
-            @Override
-            public void run() {
-              Iterator<ConnectionRecord> iter = mConnections.values().iterator();
-              while (iter.hasNext()) {
-                ConnectionRecord connection = iter.next();
-                try {
-                  BrowserRoot root = checkNotNull(connection.root);
-                  checkNotNull(connection.callbacks)
-                      .onConnect(root.getRootId(), token, root.getExtras());
-                } catch (RemoteException e) {
-                  Log.w(TAG, "Connection for " + connection.pkg + " is no longer valid.");
-                  iter.remove();
-                }
-              }
-            }
-          });
-    }
-
-    @Override
-    public void notifyChildrenChanged(String parentId, @Nullable Bundle options) {
-      mHandler.post(
-          new Runnable() {
-            @Override
-            public void run() {
-              for (IBinder binder : mConnections.keySet()) {
-                ConnectionRecord connection = checkNotNull(mConnections.get(binder));
-                notifyChildrenChangedOnHandler(connection, parentId, options);
-              }
-            }
-          });
-    }
-
-    @Override
-    public void notifyChildrenChanged(
-        final RemoteUserInfo remoteUserInfo, final String parentId, final Bundle options) {
-      mHandler.post(
-          new Runnable() {
-            @Override
-            public void run() {
-              for (int i = 0; i < mConnections.size(); i++) {
-                ConnectionRecord connection = mConnections.valueAt(i);
-                if (connection.browserInfo.equals(remoteUserInfo)) {
-                  notifyChildrenChangedOnHandler(connection, parentId, options);
-                  break;
-                }
-              }
-            }
-          });
-    }
-
-    @SuppressWarnings("WeakerAccess") /* synthetic access */
-    void notifyChildrenChangedOnHandler(
-        ConnectionRecord connection, String parentId, @Nullable Bundle options) {
-      List<Pair<@NullableType IBinder, @NullableType Bundle>> callbackList =
-          connection.subscriptions.get(parentId);
-      if (callbackList != null) {
-        for (Pair<@NullableType IBinder, @NullableType Bundle> callback : callbackList) {
-          if (MediaBrowserCompatUtils.hasDuplicatedItems(options, callback.second)) {
-            performLoadChildren(parentId, connection, callback.second, options);
-          }
-        }
-      }
-      // Don't break, because multiple remoteUserInfo may match.
-    }
-
-    @Nullable
-    @Override
-    public Bundle getBrowserRootHints() {
-      if (mCurConnection == null) {
-        throw new IllegalStateException(
-            "This should be called inside of onLoadChildren,"
-                + " onLoadItem, onSearch, or onCustomAction methods");
-      }
-      return mCurConnection.rootHints == null ? null : new Bundle(mCurConnection.rootHints);
-    }
-
-    @Override
-    public RemoteUserInfo getCurrentBrowserInfo() {
-      if (mCurConnection == null) {
-        throw new IllegalStateException(
-            "This should be called inside of onLoadChildren,"
-                + " onLoadItem, onSearch, or onCustomAction methods");
-      }
-      return mCurConnection.browserInfo;
-    }
-  }
-
-  @RequiresApi(21)
   class MediaBrowserServiceImplApi21 implements MediaBrowserServiceImpl {
     final List<Bundle> mRootExtrasList = new ArrayList<>();
     @MonotonicNonNull MediaBrowserService mServiceFwk;
@@ -345,8 +233,7 @@ public abstract class MediaBrowserServiceCompat extends Service {
         }
         mRootExtrasList.clear();
       }
-      checkNotNull(mServiceFwk)
-          .setSessionToken(checkNotNull((MediaSession.Token) token.getToken()));
+      checkNotNull(mServiceFwk).setSessionToken(token.getToken());
     }
 
     @Override
@@ -520,7 +407,6 @@ public abstract class MediaBrowserServiceCompat extends Service {
       return mCurConnection.browserInfo;
     }
 
-    @RequiresApi(21)
     class MediaBrowserServiceApi21 extends MediaBrowserService {
       @SuppressWarnings("method.invocation.invalid") // Calling base method from constructor
       MediaBrowserServiceApi21(Context context) {
@@ -543,8 +429,7 @@ public abstract class MediaBrowserServiceCompat extends Service {
 
       @Override
       public void onLoadChildren(String parentId, Result<List<MediaBrowser.MediaItem>> result) {
-        MediaBrowserServiceImplApi21.this.onLoadChildren(
-            parentId, new ResultWrapper<List<Parcel>>(result));
+        MediaBrowserServiceImplApi21.this.onLoadChildren(parentId, new ResultWrapper<>(result));
       }
     }
   }
@@ -588,7 +473,7 @@ public abstract class MediaBrowserServiceCompat extends Service {
 
       @Override
       public void onLoadItem(String itemId, Result<MediaBrowser.MediaItem> result) {
-        MediaBrowserServiceImplApi23.this.onLoadItem(itemId, new ResultWrapper<Parcel>(result));
+        MediaBrowserServiceImplApi23.this.onLoadItem(itemId, new ResultWrapper<>(result));
       }
     }
   }
@@ -672,7 +557,7 @@ public abstract class MediaBrowserServiceCompat extends Service {
         MediaSessionCompat.ensureClassLoader(options);
         mCurConnection = mConnectionFromFwk;
         MediaBrowserServiceImplApi26.this.onLoadChildren(
-            parentId, new ResultWrapper<List<Parcel>>(result), options);
+            parentId, new ResultWrapper<>(result), options);
         mCurConnection = null;
       }
     }
@@ -794,10 +679,6 @@ public abstract class MediaBrowserServiceCompat extends Service {
    * #sendError} when they are done. If {@link #sendResult}, {@link #sendError}, or {@link #detach}
    * is called twice, an exception will be thrown.
    *
-   * <p>Those functions might also want to call {@link #sendProgressUpdate} to send interim updates
-   * to the caller. If it is called after calling {@link #sendResult} or {@link #sendError}, an
-   * exception will be thrown.
-   *
    * @see MediaBrowserServiceCompat#onLoadChildren
    * @see MediaBrowserServiceCompat#onLoadItem
    * @see MediaBrowserServiceCompat#onSearch
@@ -824,23 +705,6 @@ public abstract class MediaBrowserServiceCompat extends Service {
       }
       mSendResultCalled = true;
       onResultSent(result);
-    }
-
-    /**
-     * Send an interim update to the caller. This method is supported only when it is used in {@link
-     * #onCustomAction}.
-     *
-     * @param extras A bundle that contains extra data.
-     */
-    public void sendProgressUpdate(@Nullable Bundle extras) {
-      if (mSendResultCalled || mSendErrorCalled) {
-        throw new IllegalStateException(
-            "sendProgressUpdate() called when either "
-                + "sendResult() or sendError() had already been called for: "
-                + mDebug);
-      }
-      checkExtraFields(extras);
-      onProgressUpdateSent(extras);
     }
 
     /**
@@ -897,31 +761,11 @@ public abstract class MediaBrowserServiceCompat extends Service {
      */
     void onResultSent(@Nullable T result) {}
 
-    /** Called when an interim update is sent. */
-    void onProgressUpdateSent(@Nullable Bundle extras) {
-      throw new UnsupportedOperationException(
-          "It is not supported to send an interim update " + "for " + mDebug);
-    }
-
     /**
      * Called when an error is sent, after assertions about not being called twice have happened.
      */
     void onErrorSent(@Nullable Bundle extras) {
       throw new UnsupportedOperationException("It is not supported to send an error for " + mDebug);
-    }
-
-    private void checkExtraFields(@Nullable Bundle extras) {
-      if (extras == null) {
-        return;
-      }
-      if (extras.containsKey(MediaBrowserCompat.EXTRA_DOWNLOAD_PROGRESS)) {
-        float value = extras.getFloat(MediaBrowserCompat.EXTRA_DOWNLOAD_PROGRESS);
-        if (value < -EPSILON || value > 1.0f + EPSILON) {
-          throw new IllegalArgumentException(
-              "The value of the EXTRA_DOWNLOAD_PROGRESS "
-                  + "field must be a float number within [0.0, 1.0]");
-        }
-      }
     }
   }
 
@@ -968,7 +812,7 @@ public abstract class MediaBrowserServiceCompat extends Service {
                   mConnections.put(b, connection);
                   b.linkToDeath(connection, 0);
                   if (mSession != null) {
-                    callbacks.onConnect(root.getRootId(), mSession, root.getExtras());
+                    callbacks.onConnect(root.getRootId(), checkNotNull(mSession), root.getExtras());
                   }
                 } catch (RemoteException ex) {
                   Log.w(TAG, "Calling onConnect() failed. Dropping client. " + "pkg=" + pkg);
@@ -1188,7 +1032,7 @@ public abstract class MediaBrowserServiceCompat extends Service {
   private interface ServiceCallbacks {
     IBinder asBinder();
 
-    void onConnect(String root, @Nullable MediaSessionCompat.Token session, @Nullable Bundle extras)
+    void onConnect(String root, MediaSessionCompat.Token session, @Nullable Bundle extras)
         throws RemoteException;
 
     void onConnectFailed() throws RemoteException;
@@ -1214,8 +1058,7 @@ public abstract class MediaBrowserServiceCompat extends Service {
     }
 
     @Override
-    public void onConnect(
-        String root, @Nullable MediaSessionCompat.Token session, @Nullable Bundle extras)
+    public void onConnect(String root, MediaSessionCompat.Token session, @Nullable Bundle extras)
         throws RemoteException {
       if (extras == null) {
         extras = new Bundle();
@@ -1236,7 +1079,6 @@ public abstract class MediaBrowserServiceCompat extends Service {
       sendRequest(SERVICE_MSG_ON_CONNECT_FAILED, null);
     }
 
-    @SuppressWarnings({"rawtypes", "unchecked"})
     @Override
     public void onLoadChildren(
         @Nullable String mediaId,
@@ -1268,7 +1110,6 @@ public abstract class MediaBrowserServiceCompat extends Service {
     }
   }
 
-  @RequiresApi(21)
   @SuppressWarnings({"rawtypes", "unchecked"})
   static class ResultWrapper<T> {
     MediaBrowserService.Result mResultFwk;
@@ -1331,10 +1172,8 @@ public abstract class MediaBrowserServiceCompat extends Service {
       mImpl = new MediaBrowserServiceImplApi26();
     } else if (Build.VERSION.SDK_INT >= 23) {
       mImpl = new MediaBrowserServiceImplApi23();
-    } else if (Build.VERSION.SDK_INT >= 21) {
-      mImpl = new MediaBrowserServiceImplApi21();
     } else {
-      mImpl = new MediaBrowserServiceImplBase();
+      mImpl = new MediaBrowserServiceImplApi21();
     }
     mImpl.onCreate();
   }
@@ -1437,7 +1276,7 @@ public abstract class MediaBrowserServiceCompat extends Service {
   /**
    * Called when a {@link MediaBrowserCompat#unsubscribe} is called.
    *
-   * @param id
+   * @param id The id to unsubscribe.
    */
   public void onUnsubscribe(@Nullable String id) {}
 
@@ -1494,8 +1333,7 @@ public abstract class MediaBrowserServiceCompat extends Service {
    * <p>Implementations must call either {@link Result#sendResult} or {@link Result#sendError}. If
    * the requested custom action will be an expensive operation {@link Result#detach} may be called
    * before returning from this function, and then the service can send the result later when the
-   * custom action is completed. Implementation can also call {@link Result#sendProgressUpdate} to
-   * send an interim update to the requester.
+   * custom action is completed.
    *
    * <p>If the requested custom action is not supported by this service, call {@link
    * Result#sendError}. The default implementation will invoke {@link Result#sendError}.
@@ -1959,11 +1797,6 @@ public abstract class MediaBrowserServiceCompat extends Service {
           @Override
           void onResultSent(@Nullable Bundle result) {
             receiver.send(RESULT_OK, result);
-          }
-
-          @Override
-          void onProgressUpdateSent(@Nullable Bundle data) {
-            receiver.send(RESULT_PROGRESS_UPDATE, data);
           }
 
           @Override

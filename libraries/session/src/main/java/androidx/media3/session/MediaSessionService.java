@@ -481,6 +481,9 @@ public abstract class MediaSessionService extends Service {
    * Sets the timeout for a session to stay in a foreground service state after it paused, stopped,
    * failed or ended.
    *
+   * <p>Can only be called once the {@link Context} of the service is initialized in {@link
+   * #onCreate()}.
+   *
    * <p>Has no effect on already running timeouts.
    *
    * <p>The default and maximum value is {@link #DEFAULT_FOREGROUND_SERVICE_TIMEOUT_MS}. If a larger
@@ -679,6 +682,7 @@ public abstract class MediaSessionService extends Service {
     synchronized (lock) {
       if (mediaNotificationManager == null) {
         if (mediaNotificationProvider == null) {
+          checkStateNotNull(getBaseContext(), "Accessing service context before onCreate()");
           mediaNotificationProvider =
               new DefaultMediaNotificationProvider.Builder(getApplicationContext()).build();
         }

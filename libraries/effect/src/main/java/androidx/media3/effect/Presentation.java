@@ -131,7 +131,8 @@ public final class Presentation implements MatrixTransformation {
         /* height= */ C.LENGTH_UNSET,
         aspectRatio,
         layout,
-        TEXTURE_MIN_FILTER_LINEAR);
+        TEXTURE_MIN_FILTER_LINEAR,
+        /* preservePortraitWhenApplicable= */ false);
   }
 
   /**
@@ -148,7 +149,8 @@ public final class Presentation implements MatrixTransformation {
         height,
         ASPECT_RATIO_UNSET,
         LAYOUT_SCALE_TO_FIT,
-        TEXTURE_MIN_FILTER_LINEAR);
+        TEXTURE_MIN_FILTER_LINEAR,
+        /* preservePortraitWhenApplicable= */ false);
   }
 
   /**
@@ -166,7 +168,33 @@ public final class Presentation implements MatrixTransformation {
     checkArgument(width > 0, "width " + width + " must be positive");
     checkArgument(height > 0, "height " + height + " must be positive");
     checkLayout(layout);
-    return new Presentation(width, height, ASPECT_RATIO_UNSET, layout, TEXTURE_MIN_FILTER_LINEAR);
+    return new Presentation(
+        width,
+        height,
+        ASPECT_RATIO_UNSET,
+        layout,
+        TEXTURE_MIN_FILTER_LINEAR,
+        /* preservePortraitWhenApplicable= */ false);
+  }
+
+  /**
+   * Creates a new {@link Presentation} instance.
+   *
+   * <p>The output frame will have a short side matching the given value. The longest side will
+   * scale to preserve the input aspect * ratio. For example, passing a shortSide of 480 will scale
+   * a 1440x1920 video to 480x640 or a 1920x1440 video to 640x480.
+   *
+   * @param shortSide The length of the short side of the output frame, in pixels.
+   */
+  public static Presentation createForShortSide(int shortSide) {
+    checkArgument(shortSide > 0, "shortSide " + shortSide + " must be positive");
+    return new Presentation(
+        /* width= */ C.LENGTH_UNSET,
+        /* height= */ shortSide,
+        ASPECT_RATIO_UNSET,
+        LAYOUT_SCALE_TO_FIT,
+        TEXTURE_MIN_FILTER_LINEAR,
+        /* preservePortraitWhenApplicable= */ true);
   }
 
   private final int requestedWidthPixels;
@@ -174,6 +202,7 @@ public final class Presentation implements MatrixTransformation {
   private float requestedAspectRatio;
   private final @Layout int layout;
   private final @C.TextureMinFilter int textureMinFilter;
+  private final boolean preservePortraitWhenApplicable;
 
   private float outputWidth;
   private float outputHeight;
@@ -184,7 +213,8 @@ public final class Presentation implements MatrixTransformation {
       int height,
       float aspectRatio,
       @Layout int layout,
-      @C.TextureMinFilter int textureMinFilter) {
+      @C.TextureMinFilter int textureMinFilter,
+      boolean preservePortraitWhenApplicable) {
     checkArgument(
         (aspectRatio == ASPECT_RATIO_UNSET) || (width == C.LENGTH_UNSET),
         "width and aspect ratio should not both be set");
@@ -194,6 +224,7 @@ public final class Presentation implements MatrixTransformation {
     this.requestedAspectRatio = aspectRatio;
     this.layout = layout;
     this.textureMinFilter = textureMinFilter;
+    this.preservePortraitWhenApplicable = preservePortraitWhenApplicable;
 
     outputWidth = C.LENGTH_UNSET;
     outputHeight = C.LENGTH_UNSET;
@@ -214,7 +245,8 @@ public final class Presentation implements MatrixTransformation {
         requestedHeightPixels,
         requestedAspectRatio,
         layout,
-        textureMinFilter);
+        textureMinFilter,
+        preservePortraitWhenApplicable);
   }
 
   @Override
@@ -243,10 +275,15 @@ public final class Presentation implements MatrixTransformation {
     if (requestedHeightPixels != C.LENGTH_UNSET) {
       if (requestedWidthPixels != C.LENGTH_UNSET) {
         outputWidth = requestedWidthPixels;
+        outputHeight = requestedHeightPixels;
+      } else if (preservePortraitWhenApplicable && inputHeight > inputWidth) {
+        // Swap width and height if the input orientation should be respected.
+        outputHeight = requestedHeightPixels * outputHeight / outputWidth;
+        outputWidth = requestedHeightPixels;
       } else {
         outputWidth = requestedHeightPixels * outputWidth / outputHeight;
+        outputHeight = requestedHeightPixels;
       }
-      outputHeight = requestedHeightPixels;
     }
     return new Size(Math.round(outputWidth), Math.round(outputHeight));
   }

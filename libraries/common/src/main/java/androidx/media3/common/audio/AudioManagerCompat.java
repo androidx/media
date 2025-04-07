@@ -220,10 +220,7 @@ public final class AudioManagerCompat {
     try {
       return audioManager.getStreamVolume(streamType);
     } catch (RuntimeException e) {
-      Log.w(
-          "AudioManagerCompat",
-          "Could not retrieve stream volume for stream type " + streamType,
-          e);
+      Log.w(TAG, "Could not retrieve stream volume for stream type " + streamType, e);
       return audioManager.getStreamMaxVolume(streamType);
     }
   }

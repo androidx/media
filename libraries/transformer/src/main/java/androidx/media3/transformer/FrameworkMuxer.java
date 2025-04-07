@@ -321,6 +321,9 @@ import java.util.Locale;
     if (SDK_INT >= 34) {
       supportedMimeTypes.add(MimeTypes.VIDEO_AV1);
     }
+    if (SDK_INT >= 36) {
+      supportedMimeTypes.add(MimeTypes.VIDEO_APV);
+    }
     return supportedMimeTypes.build();
   }
 

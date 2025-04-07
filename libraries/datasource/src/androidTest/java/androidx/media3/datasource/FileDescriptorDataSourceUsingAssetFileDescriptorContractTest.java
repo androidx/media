@@ -21,6 +21,7 @@ import androidx.media3.test.utils.DataSourceContractTest;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.filters.SdkSuppress;
 import com.google.common.collect.ImmutableList;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -30,6 +31,8 @@ import org.junit.runner.RunWith;
  * {@link DataSource} contract tests for {@link FileDescriptorDataSource} using {@link
  * AssetFileDescriptor}.
  */
+// TODO: b/407727748 - Run this on lower API levels when it's no longer flaky.
+@SdkSuppress(minSdkVersion = 29)
 @RunWith(AndroidJUnit4.class)
 public class FileDescriptorDataSourceUsingAssetFileDescriptorContractTest
     extends DataSourceContractTest {

@@ -37,6 +37,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.media.MediaCodec;
+import android.media.metrics.LogSessionId;
 import android.util.Pair;
 import android.view.Surface;
 import androidx.annotation.Nullable;
@@ -59,6 +60,7 @@ import androidx.media3.common.util.TimestampIterator;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.effect.MultipleInputVideoGraph;
 import androidx.media3.effect.SingleInputVideoGraph;
+import com.google.common.collect.ImmutableList;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Objects;
@@ -98,8 +100,9 @@ import org.checkerframework.dataflow.qual.Pure;
       DebugViewProvider debugViewProvider,
       long initialTimestampOffsetUs,
       boolean hasMultipleInputs,
-      boolean portraitEncodingEnabled,
-      int maxFramesInEncoder)
+      ImmutableList<Integer> allowedEncodingRotationDegrees,
+      int maxFramesInEncoder,
+      @Nullable LogSessionId logSessionId)
       throws ExportException {
     // TODO: b/278259383 - Consider delaying configuration of VideoSampleExporter to use the decoder
     //  output format instead of the extractor output format, to match AudioSampleExporter behavior.
@@ -134,10 +137,11 @@ import org.checkerframework.dataflow.qual.Pure;
         new EncoderWrapper(
             encoderFactory,
             firstInputFormat.buildUpon().setColorInfo(videoGraphOutputColor).build(),
-            portraitEncodingEnabled,
+            allowedEncodingRotationDegrees,
             muxerWrapper.getSupportedSampleMimeTypes(C.TRACK_TYPE_VIDEO),
             transformationRequest,
-            fallbackListener);
+            fallbackListener,
+            logSessionId);
     encoderOutputBuffer =
         new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_DISABLED);
 
@@ -246,12 +250,13 @@ import org.checkerframework.dataflow.qual.Pure;
 
     private final Codec.EncoderFactory encoderFactory;
     private final Format inputFormat;
-    private final boolean portraitEncodingEnabled;
+    private final ImmutableList<Integer> allowedEncodingRotationDegrees;
     private final List<String> muxerSupportedMimeTypes;
     private final TransformationRequest transformationRequest;
     private final FallbackListener fallbackListener;
     private final String requestedOutputMimeType;
     private final @Composition.HdrMode int hdrModeAfterFallback;
+    @Nullable private final LogSessionId logSessionId;
 
     private @MonotonicNonNull SurfaceInfo encoderSurfaceInfo;
 
@@ -262,17 +267,19 @@ import org.checkerframework.dataflow.qual.Pure;
     public EncoderWrapper(
         Codec.EncoderFactory encoderFactory,
         Format inputFormat,
-        boolean portraitEncodingEnabled,
+        ImmutableList<Integer> allowedEncodingRotationDegrees,
         List<String> muxerSupportedMimeTypes,
         TransformationRequest transformationRequest,
-        FallbackListener fallbackListener) {
+        FallbackListener fallbackListener,
+        @Nullable LogSessionId logSessionId) {
       checkArgument(inputFormat.colorInfo != null);
       this.encoderFactory = encoderFactory;
       this.inputFormat = inputFormat;
-      this.portraitEncodingEnabled = portraitEncodingEnabled;
+      this.allowedEncodingRotationDegrees = allowedEncodingRotationDegrees;
       this.muxerSupportedMimeTypes = muxerSupportedMimeTypes;
       this.transformationRequest = transformationRequest;
       this.fallbackListener = fallbackListener;
+      this.logSessionId = logSessionId;
       Pair<String, Integer> outputMimeTypeAndHdrModeAfterFallback =
           getRequestedOutputMimeTypeAndHdrModeAfterFallback(inputFormat, transformationRequest);
       requestedOutputMimeType = outputMimeTypeAndHdrModeAfterFallback.first;
@@ -313,7 +320,7 @@ import org.checkerframework.dataflow.qual.Pure;
       // frame before encoding, so the encoded frame's width >= height. In this case, the VideoGraph
       // rotates the decoded video frames counter-clockwise, and the muxer adds a clockwise rotation
       // to the metadata.
-      if (requestedWidth < requestedHeight && !portraitEncodingEnabled) {
+      if (requestedWidth < requestedHeight) {
         int temp = requestedWidth;
         requestedWidth = requestedHeight;
         requestedHeight = temp;
@@ -325,6 +332,22 @@ import org.checkerframework.dataflow.qual.Pure;
       // is not guaranteed to work when effects are applied.
       if (inputFormat.rotationDegrees % 180 == outputRotationDegrees % 180) {
         outputRotationDegrees = inputFormat.rotationDegrees;
+      }
+
+      if (!allowedEncodingRotationDegrees.contains(outputRotationDegrees)) {
+        int alternativeOutputRotationDegreesWithSameWidthAndHeight =
+            (outputRotationDegrees + 180) % 360;
+        if (allowedEncodingRotationDegrees.contains(
+            alternativeOutputRotationDegreesWithSameWidthAndHeight)) {
+          outputRotationDegrees = alternativeOutputRotationDegreesWithSameWidthAndHeight;
+        } else {
+          // No allowed rotation of the same orientation. Swap width and height, and use any allowed
+          // orientation.
+          int temp = requestedWidth;
+          requestedWidth = requestedHeight;
+          requestedHeight = temp;
+          outputRotationDegrees = allowedEncodingRotationDegrees.get(0);
+        }
       }
 
       // Rotation is handled by this class. The encoder must see a video with zero degrees rotation.
@@ -347,7 +370,8 @@ import org.checkerframework.dataflow.qual.Pure;
                   .setSampleMimeType(
                       findSupportedMimeTypeForEncoderAndMuxer(
                           requestedEncoderFormat, muxerSupportedMimeTypes))
-                  .build());
+                  .build(),
+              logSessionId);
 
       Format actualEncoderFormat = encoder.getConfigurationFormat();
 
@@ -563,7 +587,8 @@ import org.checkerframework.dataflow.qual.Pure;
     }
 
     @Override
-    public void onOutputFrameAvailableForRendering(long framePresentationTimeUs) {
+    public void onOutputFrameAvailableForRendering(
+        long framePresentationTimeUs, boolean isRedrawnFrame) {
       if (!renderFramesAutomatically) {
         synchronized (lock) {
           framesAvailableToRender += 1;

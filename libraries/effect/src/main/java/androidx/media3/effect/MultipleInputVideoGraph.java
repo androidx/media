@@ -229,14 +229,17 @@ public final class MultipleInputVideoGraph implements VideoGraph {
               }
 
               @Override
-              public void onOutputFrameAvailableForRendering(long presentationTimeUs) {
+              public void onOutputFrameAvailableForRendering(
+                  long presentationTimeUs, boolean isRedrawnFrame) {
                 if (presentationTimeUs == 0) {
                   hasProducedFrameWithTimestampZero = true;
                 }
                 lastRenderedPresentationTimeUs = presentationTimeUs;
 
                 listenerExecutor.execute(
-                    () -> listener.onOutputFrameAvailableForRendering(presentationTimeUs));
+                    () ->
+                        listener.onOutputFrameAvailableForRendering(
+                            presentationTimeUs, isRedrawnFrame));
               }
 
               @Override
@@ -403,7 +406,6 @@ public final class MultipleInputVideoGraph implements VideoGraph {
     for (int i = 0; i < preProcessors.size(); i++) {
       preProcessors.get(preProcessors.keyAt(i)).release();
     }
-    preProcessors.clear();
 
     if (videoCompositor != null) {
       videoCompositor.release();

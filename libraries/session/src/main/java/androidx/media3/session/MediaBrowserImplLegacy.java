@@ -422,6 +422,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
     return options;
   }
 
+  @Nullable
   private static Bundle getExtras(@Nullable LibraryParams params) {
     return params != null ? params.extras : null;
   }

@@ -73,13 +73,13 @@ AudioSink:
     sampleRate = 44100
   buffer #0:
     time = 1000000066733
-    data = 1
+    data = empty
   buffer #1:
     time = 1000000092855
-    data = 1
+    data = empty
   buffer #2:
     time = 1000000118977
-    data = 1
+    data = empty
   buffer #3:
     time = 1000000145099
-    data = 1
+    data = empty

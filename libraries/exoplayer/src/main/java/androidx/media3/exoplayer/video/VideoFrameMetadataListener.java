@@ -17,6 +17,7 @@ package androidx.media3.exoplayer.video;
 
 import android.media.MediaFormat;
 import androidx.annotation.Nullable;
+import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.UnstableApi;
 
@@ -28,7 +29,8 @@ public interface VideoFrameMetadataListener {
    *
    * @param presentationTimeUs The presentation time of the frame, in microseconds.
    * @param releaseTimeNs The system time at which the frame should be displayed, in nanoseconds.
-   *     Can be compared to {@link System#nanoTime()}.
+   *     Can be compared to {@link System#nanoTime()}. It will be {@link C#TIME_UNSET}, if the frame
+   *     is rendered immediately automatically, this is typically the last frame that is rendered.
    * @param format The format associated with the frame.
    * @param mediaFormat The framework media format associated with the frame, or {@code null} if not
    *     known or not applicable (e.g., because the frame was not output by a {@link

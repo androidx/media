@@ -19,6 +19,7 @@ import static android.media.MediaCodecInfo.CodecProfileLevel.AACObjectHE;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.MediaFormatUtil.createFormatFromMediaFormat;
+import static androidx.media3.common.util.Util.SDK_INT;
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.test.utils.TestUtil.retrieveTrackFormat;
 import static androidx.media3.transformer.AndroidTestUtil.JPG_ASSET;
@@ -46,7 +47,7 @@ import static androidx.media3.transformer.AndroidTestUtil.createFrameCountingEff
 import static androidx.media3.transformer.AndroidTestUtil.createOpenGlObjects;
 import static androidx.media3.transformer.AndroidTestUtil.generateTextureFromBitmap;
 import static androidx.media3.transformer.AndroidTestUtil.getMuxerFactoryBasedOnApi;
-import static androidx.media3.transformer.AndroidTestUtil.getVideoTrackOutput;
+import static androidx.media3.transformer.AndroidTestUtil.getTrackOutput;
 import static androidx.media3.transformer.AndroidTestUtil.recordTestSkipped;
 import static androidx.media3.transformer.ExportResult.CONVERSION_PROCESS_NA;
 import static androidx.media3.transformer.ExportResult.CONVERSION_PROCESS_TRANSCODED;
@@ -64,6 +65,7 @@ import static org.junit.Assume.assumeTrue;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.media.MediaFormat;
+import android.media.metrics.LogSessionId;
 import android.net.Uri;
 import android.opengl.EGLContext;
 import android.os.Handler;
@@ -71,6 +73,7 @@ import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Message;
 import android.util.Pair;
+import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
@@ -498,6 +501,8 @@ public class TransformerEndToEndTest {
             .build()
             .run(testId, editedMediaItem);
 
+    Format format = retrieveTrackFormat(context, result.filePath, C.TRACK_TYPE_VIDEO);
+    assertThat(format.rotationDegrees).isEqualTo(90);
     assertThat(result.exportResult.width).isEqualTo(outputFormat.width);
   }
 
@@ -524,6 +529,8 @@ public class TransformerEndToEndTest {
             .build()
             .run(testId, editedMediaItem);
 
+    Format format = retrieveTrackFormat(context, result.filePath, C.TRACK_TYPE_VIDEO);
+    assertThat(format.rotationDegrees).isEqualTo(0);
     assertThat(result.exportResult.width).isEqualTo(inputFormat.width);
   }
 
@@ -1054,7 +1061,7 @@ public class TransformerEndToEndTest {
         TestUtil.extractAllSamplesFromFilePath(mp4Extractor, checkNotNull(result.filePath));
     assertThat(result.exportResult.fileSizeBytes).isGreaterThan(0);
     List<Long> videoTimestampsUs =
-        checkNotNull(getVideoTrackOutput(fakeExtractorOutput)).getSampleTimesUs();
+        checkNotNull(getTrackOutput(fakeExtractorOutput, C.TRACK_TYPE_VIDEO)).getSampleTimesUs();
     assertThat(videoTimestampsUs).hasSize(270);
     assertThat(videoTimestampsUs.get(0)).isEqualTo(0);
     // The second sample is originally at 1_033_333, clipping at 100_000 results in 933_333.
@@ -1083,7 +1090,7 @@ public class TransformerEndToEndTest {
         TestUtil.extractAllSamplesFromFilePath(mp4Extractor, checkNotNull(result.filePath));
     assertThat(result.exportResult.fileSizeBytes).isGreaterThan(0);
     List<Long> videoTimestampsUs =
-        checkNotNull(getVideoTrackOutput(fakeExtractorOutput)).getSampleTimesUs();
+        checkNotNull(getTrackOutput(fakeExtractorOutput, C.TRACK_TYPE_VIDEO)).getSampleTimesUs();
     assertThat(videoTimestampsUs).hasSize(270);
     assertThat(videoTimestampsUs.get(0)).isEqualTo(0);
     // The second sample is originally at 1_033_333, clipping at 100_000 results in 933_333.
@@ -1348,8 +1355,10 @@ public class TransformerEndToEndTest {
             .setRemoveAudio(true)
             .build();
     Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence.Builder(editedMediaItem).build())
-            .experimentalSetForceAudioTrack(true)
+        new Composition.Builder(
+                new EditedMediaItemSequence.Builder(editedMediaItem)
+                    .experimentalSetForceAudioTrack(true)
+                    .build())
             .build();
     ExportTestResult result =
         new TransformerAndroidTestRunner.Builder(context, transformer)
@@ -1441,8 +1450,9 @@ public class TransformerEndToEndTest {
             .build();
     Composition composition =
         new Composition.Builder(
-                new EditedMediaItemSequence.Builder(editedMediaItem, editedMediaItem).build())
-            .experimentalSetForceAudioTrack(true)
+                new EditedMediaItemSequence.Builder(editedMediaItem, editedMediaItem)
+                    .experimentalSetForceAudioTrack(true)
+                    .build())
             .build();
     ExportTestResult result =
         new TransformerAndroidTestRunner.Builder(context, transformer)
@@ -1881,6 +1891,7 @@ public class TransformerEndToEndTest {
                 new EditedMediaItemSequence.Builder()
                     .addGap(100_000)
                     .addItem(editedMediaItem)
+                    .experimentalSetForceAudioTrack(true)
                     .build(),
                 new EditedMediaItemSequence.Builder(editedMediaItem).build())
             .build();
@@ -2531,6 +2542,45 @@ public class TransformerEndToEndTest {
     assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
+  @Test
+  public void composition_withOneLoopingSequence_throwsIllegalArgumentException() throws Exception {
+    EditedMediaItem item = new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri)).build();
+    EditedMediaItemSequence sequence =
+        new EditedMediaItemSequence.Builder(item).setIsLooping(true).build();
+    assertThrows(IllegalArgumentException.class, () -> new Composition.Builder(sequence).build());
+  }
+
+  @Test
+  public void composition_withMultipleLoopingSequences_throwsIllegalArgumentException()
+      throws Exception {
+    EditedMediaItem item = new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri)).build();
+    EditedMediaItemSequence firstSequence =
+        new EditedMediaItemSequence.Builder(item).setIsLooping(true).build();
+    EditedMediaItemSequence secondSequence =
+        new EditedMediaItemSequence.Builder(item).setIsLooping(true).build();
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> new Composition.Builder(firstSequence, secondSequence).build());
+  }
+
+  @Test
+  public void transmux_apvFile_transmuxesSuccessfully() throws Exception {
+    // MediaMuxer supports APV from API 36.
+    assumeTrue(SDK_INT >= 36);
+    String apvFile = "asset:///media/mp4/sample_with_apvc.mp4";
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(apvFile))).build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, new Transformer.Builder(context).build())
+            .build()
+            .run(testId, editedMediaItem);
+
+    Format format = retrieveTrackFormat(context, result.filePath, C.TRACK_TYPE_VIDEO);
+    assertThat(format.sampleMimeType).isEqualTo(MimeTypes.VIDEO_APV);
+    assertThat(result.exportResult.videoConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSMUXED);
+  }
+
   private static boolean shouldSkipDeviceForAacObjectHeProfileEncoding() {
     return Util.SDK_INT < 29;
   }
@@ -2595,12 +2645,14 @@ public class TransformerEndToEndTest {
     }
 
     @Override
-    public Codec createForAudioEncoding(Format format) throws ExportException {
-      return encoderFactory.createForAudioEncoding(format);
+    public Codec createForAudioEncoding(Format format, @Nullable LogSessionId logSessionId)
+        throws ExportException {
+      return encoderFactory.createForAudioEncoding(format, logSessionId);
     }
 
     @Override
-    public Codec createForVideoEncoding(Format format) throws ExportException {
+    public Codec createForVideoEncoding(Format format, @Nullable LogSessionId logSessionId)
+        throws ExportException {
       throw ExportException.createForCodec(
           new IllegalArgumentException(),
           ExportException.ERROR_CODE_ENCODER_INIT_FAILED,

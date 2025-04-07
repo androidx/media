@@ -76,6 +76,11 @@ import androidx.media3.extractor.MpegAudioUtil;
   }
 
   @Override
+  public long getDataStartPosition() {
+    return firstFramePosition;
+  }
+
+  @Override
   public long getDataEndPosition() {
     return dataEndPosition;
   }

@@ -169,12 +169,15 @@ public final class Ac3Util {
    *
    * @param data The AC3SpecificBox to parse.
    * @param trackId The track identifier to set on the format.
-   * @param language The language to set on the format.
+   * @param language The language to set on the format, or {@code null} if unset.
    * @param drmInitData {@link DrmInitData} to be included in the format.
    * @return The AC-3 format parsed from data in the header.
    */
   public static Format parseAc3AnnexFFormat(
-      ParsableByteArray data, String trackId, String language, @Nullable DrmInitData drmInitData) {
+      ParsableByteArray data,
+      String trackId,
+      @Nullable String language,
+      @Nullable DrmInitData drmInitData) {
     ParsableBitArray dataBitArray = new ParsableBitArray();
     dataBitArray.reset(data);
 
@@ -208,12 +211,15 @@ public final class Ac3Util {
    *
    * @param data The EC3SpecificBox to parse.
    * @param trackId The track identifier to set on the format.
-   * @param language The language to set on the format.
+   * @param language The language to set on the format, or {@code null} if unset.
    * @param drmInitData {@link DrmInitData} to be included in the format.
    * @return The E-AC-3 format parsed from data in the header.
    */
   public static Format parseEAc3AnnexFFormat(
-      ParsableByteArray data, String trackId, String language, @Nullable DrmInitData drmInitData) {
+      ParsableByteArray data,
+      String trackId,
+      @Nullable String language,
+      @Nullable DrmInitData drmInitData) {
     ParsableBitArray dataBitArray = new ParsableBitArray();
     dataBitArray.reset(data);
 

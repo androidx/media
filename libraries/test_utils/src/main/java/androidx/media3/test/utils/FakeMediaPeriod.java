@@ -47,7 +47,9 @@ import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
+import com.google.common.math.DoubleMath;
 import java.io.IOException;
+import java.math.RoundingMode;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
@@ -79,6 +81,33 @@ public class FakeMediaPeriod implements MediaPeriod {
       return (unusedFormat, unusedMediaPeriodId) ->
           ImmutableList.of(
               oneByteSample(sampleTimeUs, C.BUFFER_FLAG_KEY_FRAME), END_OF_STREAM_ITEM);
+    }
+
+    /**
+     * Creates a {@code TrackDataFactory} which generates samples at the given rate to cover the
+     * provided duration, with a specified key frame interval.
+     *
+     * @param initialSampleTimeUs The time of the initial sample, in microseconds.
+     * @param sampleRate The number of samples per second.
+     * @param durationUs The duration of samples to generate, in microseconds.
+     * @param keyFrameInterval The number of samples between each keyframe (inclusive).
+     * @return The {@code TrackDataFactory}.
+     */
+    static TrackDataFactory samplesWithRateDurationAndKeyframeInterval(
+        long initialSampleTimeUs, float sampleRate, long durationUs, int keyFrameInterval) {
+      return (unusedFormat, unusedMediaPeriodId) -> {
+        ImmutableList.Builder<FakeSampleStreamItem> samples = ImmutableList.builder();
+        for (int frameIndex = 0; frameIndex < durationUs / 33_333; frameIndex++) {
+          long frameTimeUs =
+              initialSampleTimeUs
+                  + DoubleMath.roundToLong(
+                      (frameIndex * C.MICROS_PER_SECOND) / sampleRate, RoundingMode.DOWN);
+          samples.add(
+              FakeSampleStreamItem.oneByteSample(
+                  frameTimeUs, frameIndex % keyFrameInterval == 0 ? C.BUFFER_FLAG_KEY_FRAME : 0));
+        }
+        return samples.add(END_OF_STREAM_ITEM).build();
+      };
     }
   }
 

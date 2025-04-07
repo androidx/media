@@ -17,6 +17,7 @@ package androidx.media3.muxer;
 
 import static androidx.media3.common.util.Assertions.checkArgument;
 
+import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -37,6 +38,7 @@ import java.util.List;
   public final Deque<BufferInfo> pendingSamplesBufferInfo;
   public final Deque<ByteBuffer> pendingSamplesByteBuffer;
   public boolean hadKeyframe;
+  @Nullable public byte[] parsedCsd;
   public long endOfStreamTimestampUs;
 
   private final boolean sampleCopyEnabled;

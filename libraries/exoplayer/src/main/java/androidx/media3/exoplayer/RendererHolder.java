@@ -38,6 +38,7 @@ import androidx.media3.exoplayer.source.SampleStream;
 import androidx.media3.exoplayer.text.TextRenderer;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import androidx.media3.exoplayer.trackselection.TrackSelectorResult;
+import androidx.media3.exoplayer.video.VideoFrameMetadataListener;
 import java.io.IOException;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
@@ -781,6 +782,19 @@ import java.util.Objects;
       checkNotNull(secondaryRenderer).handleMessage(Renderer.MSG_SET_VIDEO_OUTPUT, videoOutput);
     } else {
       primaryRenderer.handleMessage(Renderer.MSG_SET_VIDEO_OUTPUT, videoOutput);
+    }
+  }
+
+  public void setVideoFrameMetadataListener(VideoFrameMetadataListener videoFrameMetadataListener)
+      throws ExoPlaybackException {
+    if (getTrackType() != TRACK_TYPE_VIDEO) {
+      return;
+    }
+    primaryRenderer.handleMessage(
+        Renderer.MSG_SET_VIDEO_FRAME_METADATA_LISTENER, videoFrameMetadataListener);
+    if (secondaryRenderer != null) {
+      secondaryRenderer.handleMessage(
+          Renderer.MSG_SET_VIDEO_FRAME_METADATA_LISTENER, videoFrameMetadataListener);
     }
   }
 

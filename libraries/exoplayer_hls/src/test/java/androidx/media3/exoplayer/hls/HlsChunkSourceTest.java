@@ -163,7 +163,66 @@ public class HlsChunkSourceTest {
   }
 
   @Test
-  public void getAdjustedSeekPositionUs_noIndependentSegments() throws IOException {
+  public void getAdjustedSeekPositionUsNoIndependentSegments_tryPreviousSync() throws IOException {
+    HlsChunkSource testChunkSource = createHlsChunkSource(/* cmcdConfiguration= */ null);
+
+    InputStream inputStream =
+        TestUtil.getInputStream(ApplicationProvider.getApplicationContext(), PLAYLIST);
+    HlsMediaPlaylist playlist =
+        (HlsMediaPlaylist) new HlsPlaylistParser().parse(PLAYLIST_URI, inputStream);
+    when(mockPlaylistTracker.getPlaylistSnapshot(eq(PLAYLIST_URI), anyBoolean()))
+        .thenReturn(playlist);
+
+    long adjustedPositionUs =
+        testChunkSource.getAdjustedSeekPositionUs(
+            playlistTimeToPeriodTimeUs(17_000_000), SeekParameters.PREVIOUS_SYNC);
+
+    assertThat(periodTimeToPlaylistTimeUs(adjustedPositionUs)).isEqualTo(16_000_000);
+  }
+
+  @Test
+  public void getAdjustedSeekPositionUsNoIndependentSegments_notTryNextSync() throws IOException {
+    HlsChunkSource testChunkSource = createHlsChunkSource(/* cmcdConfiguration= */ null);
+
+    InputStream inputStream =
+        TestUtil.getInputStream(ApplicationProvider.getApplicationContext(), PLAYLIST);
+    HlsMediaPlaylist playlist =
+        (HlsMediaPlaylist) new HlsPlaylistParser().parse(PLAYLIST_URI, inputStream);
+    when(mockPlaylistTracker.getPlaylistSnapshot(eq(PLAYLIST_URI), anyBoolean()))
+        .thenReturn(playlist);
+
+    long adjustedPositionUs =
+        testChunkSource.getAdjustedSeekPositionUs(
+            playlistTimeToPeriodTimeUs(17_000_000), SeekParameters.NEXT_SYNC);
+
+    assertThat(periodTimeToPlaylistTimeUs(adjustedPositionUs)).isEqualTo(17_000_000);
+  }
+
+  @Test
+  public void getAdjustedSeekPositionUsNoIndependentSegments_alwaysTryClosestSyncBefore()
+      throws IOException {
+    HlsChunkSource testChunkSource = createHlsChunkSource(/* cmcdConfiguration= */ null);
+
+    InputStream inputStream =
+        TestUtil.getInputStream(ApplicationProvider.getApplicationContext(), PLAYLIST);
+    HlsMediaPlaylist playlist =
+        (HlsMediaPlaylist) new HlsPlaylistParser().parse(PLAYLIST_URI, inputStream);
+    when(mockPlaylistTracker.getPlaylistSnapshot(eq(PLAYLIST_URI), anyBoolean()))
+        .thenReturn(playlist);
+
+    long adjustedPositionUs1 =
+        testChunkSource.getAdjustedSeekPositionUs(
+            playlistTimeToPeriodTimeUs(17_000_000), SeekParameters.CLOSEST_SYNC);
+    long adjustedPositionUs2 =
+        testChunkSource.getAdjustedSeekPositionUs(
+            playlistTimeToPeriodTimeUs(19_000_000), SeekParameters.CLOSEST_SYNC);
+
+    assertThat(periodTimeToPlaylistTimeUs(adjustedPositionUs1)).isEqualTo(16_000_000);
+    assertThat(periodTimeToPlaylistTimeUs(adjustedPositionUs2)).isEqualTo(16_000_000);
+  }
+
+  @Test
+  public void getAdjustedSeekPositionUsNoIndependentSegments_exact() throws IOException {
     HlsChunkSource testChunkSource = createHlsChunkSource(/* cmcdConfiguration= */ null);
 
     InputStream inputStream =

@@ -40,6 +40,7 @@ import androidx.media3.exoplayer.source.MediaSourceFactory;
 import androidx.media3.exoplayer.source.SinglePeriodTimeline;
 import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
+import com.google.common.base.Ascii;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import javax.net.SocketFactory;
@@ -182,12 +183,20 @@ public final class RtspMediaSource extends BaseMediaSource {
       checkNotNull(mediaItem.localConfiguration);
       return new RtspMediaSource(
           mediaItem,
-          forceUseRtpTcp
+          shouldForceUseRtpTcp(mediaItem)
               ? new TransferRtpDataChannelFactory(timeoutMs)
               : new UdpDataSourceRtpDataChannelFactory(timeoutMs),
           userAgent,
           socketFactory,
           debugLoggingEnabled);
+    }
+
+    private boolean shouldForceUseRtpTcp(MediaItem mediaItem) {
+      if (forceUseRtpTcp) {
+        return true;
+      }
+      @Nullable String scheme = checkNotNull(mediaItem.localConfiguration).uri.getScheme();
+      return scheme != null && Ascii.equalsIgnoreCase("rtspt", scheme);
     }
   }
 
@@ -237,7 +246,7 @@ public final class RtspMediaSource extends BaseMediaSource {
     this.mediaItem = mediaItem;
     this.rtpDataChannelFactory = rtpDataChannelFactory;
     this.userAgent = userAgent;
-    this.uri = checkNotNull(mediaItem.localConfiguration).uri;
+    this.uri = maybeConvertRtsptUriScheme(checkNotNull(mediaItem.localConfiguration).uri);
     this.socketFactory = socketFactory;
     this.debugLoggingEnabled = debugLoggingEnabled;
     this.timelineDurationUs = C.TIME_UNSET;
@@ -262,7 +271,8 @@ public final class RtspMediaSource extends BaseMediaSource {
   @Override
   public boolean canUpdateMediaItem(MediaItem mediaItem) {
     @Nullable MediaItem.LocalConfiguration newConfiguration = mediaItem.localConfiguration;
-    return newConfiguration != null && newConfiguration.uri.equals(this.uri);
+    return newConfiguration != null
+        && maybeConvertRtsptUriScheme(newConfiguration.uri).equals(this.uri);
   }
 
   @Override
@@ -308,6 +318,14 @@ public final class RtspMediaSource extends BaseMediaSource {
   }
 
   // Internal methods.
+
+  private static Uri maybeConvertRtsptUriScheme(Uri uri) {
+    @Nullable String scheme = uri.getScheme();
+    if (scheme == null || !Ascii.equalsIgnoreCase("rtspt", scheme)) {
+      return uri;
+    }
+    return Uri.parse("rtsp" + uri.toString().substring(5));
+  }
 
   private void notifySourceInfoRefreshed() {
     Timeline timeline =

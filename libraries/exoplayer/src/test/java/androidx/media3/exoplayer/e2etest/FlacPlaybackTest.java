@@ -42,6 +42,7 @@ public class FlacPlaybackTest {
   public static ImmutableList<String> mediaSamples() {
     return ImmutableList.of(
         "bear.flac",
+        "bear_32bit.flac",
         "bear_no_min_max_frame_size.flac",
         "bear_no_num_samples.flac",
         "bear_no_seek_table_no_num_samples.flac",
