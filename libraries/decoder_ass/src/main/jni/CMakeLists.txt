@@ -16,8 +16,8 @@
 
 cmake_minimum_required(VERSION 3.21.0 FATAL_ERROR)
 
-# Enable C++11 features.
-set(CMAKE_CXX_STANDARD 14)
+# Enable C++17 features.
+set(CMAKE_CXX_STANDARD 17)
 
 # Define project name for your JNI module
 project(libassJNI C CXX)

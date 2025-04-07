@@ -16,6 +16,8 @@
 package androidx.media3.decoder.ass;
 
 import androidx.annotation.Nullable;
+import androidx.media3.common.C;
+import androidx.media3.common.Format;
 import androidx.media3.common.util.Log;
 import androidx.media3.extractor.text.ssa.SsaParser;
 import java.nio.charset.StandardCharsets;
@@ -34,6 +36,9 @@ public class LibassJNI {
   @Nullable
   private Integer frame_height = null;
 
+  private @C.ColorSpace int videoColorSpace;
+  private @C.ColorRange int videoColorRange;
+
   public LibassJNI() {
     if (!AssLibrary.isAvailable()) {
       throw new RuntimeException("Libass native library is not available");
@@ -48,6 +53,9 @@ public class LibassJNI {
     if (assRendererPtr == 0) {
       throw new RuntimeException("Failed to initialize ASS_Renderer");
     }
+
+    this.videoColorSpace = Format.NO_VALUE;
+    this.videoColorRange = Format.NO_VALUE;
   }
 
   /**
@@ -70,6 +78,18 @@ public class LibassJNI {
    */
   public void setStorageSize(int width, int height) {
     assSetStorageSize(assRendererPtr, width, height);
+  }
+
+  /**
+   * Sets the video color space and color range
+   * that will be used for the alpha blending.
+   *
+   * @param videoColorSpace The video color space.
+   * @param videoColorRange The video color range.
+   */
+  public void setVideoColorProperties(@C.ColorSpace int videoColorSpace, @C.ColorRange int videoColorRange) {
+    this.videoColorSpace = videoColorSpace;
+    this.videoColorRange = videoColorRange;
   }
 
   /**
@@ -187,7 +207,8 @@ public class LibassJNI {
     if (frame_width == null || frame_height == null) {
       throw new RuntimeException("Frame size has not been set");
     }
-    return assRenderFrame(assRendererPtr, trackPtr, frame_width, frame_height, timeMs);
+    return assRenderFrame(assRendererPtr, trackPtr, frame_width, frame_height, timeMs,
+        videoColorSpace, videoColorRange);
   }
 
   /**
@@ -307,7 +328,7 @@ public class LibassJNI {
 
 
   private native AssRenderResult assRenderFrame(long assRendererPtr, long assTrackPtr,
-      int frame_width, int frame_height, long timeMs);
+      int frame_width, int frame_height, long timeMs, int colorSpace, int colorRange);
 
 
   /**
