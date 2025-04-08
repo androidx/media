@@ -61,6 +61,8 @@
 *   Cronet extension:
 *   RTMP extension:
 *   HLS extension:
+    *   Prevent excessive reloads by waiting for half the part target duration
+        when `CAN-BLOCK-RELOAD=YES` is not honored.
 *   DASH extension:
 *   Smooth Streaming extension:
 *   RTSP extension:
