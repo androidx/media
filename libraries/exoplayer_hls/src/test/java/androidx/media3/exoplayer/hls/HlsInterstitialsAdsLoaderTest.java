@@ -17,6 +17,7 @@ package androidx.media3.exoplayer.hls;
 
 import static androidx.media3.common.Player.DISCONTINUITY_REASON_AUTO_TRANSITION;
 import static androidx.media3.common.Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED;
+import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.test.utils.robolectric.RobolectricUtil.runMainLooperUntil;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
@@ -288,7 +289,11 @@ public class HlsInterstitialsAdsLoaderTest {
 
     AdPlaybackState actual =
         callHandleContentTimelineChangedAndCaptureAdPlaybackState(
-            playlistString, adsLoader, /* windowIndex= */ 1);
+            playlistString,
+            adsLoader,
+            /* windowIndex= */ 1,
+            /* windowPositionInPeriodUs= */ 0,
+            /* windowEndPositionInPeriodUs= */ C.TIME_END_OF_SOURCE);
     AdPlaybackState expected =
         new AdPlaybackState("adsId", 0L, 15_000_000L, C.TIME_END_OF_SOURCE)
             .withAdDurationsUs(/* adGroupIndex= */ 0, C.TIME_UNSET)
@@ -360,7 +365,11 @@ public class HlsInterstitialsAdsLoaderTest {
 
     assertThat(
             callHandleContentTimelineChangedAndCaptureAdPlaybackState(
-                playlistString, adsLoader, /* windowIndex= */ 3))
+                playlistString,
+                adsLoader,
+                /* windowIndex= */ 3,
+                /* windowPositionInPeriodUs= */ 0,
+                /* windowEndPositionInPeriodUs= */ C.TIME_END_OF_SOURCE))
         .isEqualTo(
             new AdPlaybackState("adsId", 0L)
                 .withAdDurationsUs(/* adGroupIndex= */ 0, C.TIME_UNSET, C.TIME_UNSET, C.TIME_UNSET)
@@ -424,7 +433,11 @@ public class HlsInterstitialsAdsLoaderTest {
 
     assertThat(
             callHandleContentTimelineChangedAndCaptureAdPlaybackState(
-                playlistString, adsLoader, /* windowIndex= */ 0))
+                playlistString,
+                adsLoader,
+                /* windowIndex= */ 0,
+                /* windowPositionInPeriodUs= */ 0,
+                /* windowEndPositionInPeriodUs= */ C.TIME_END_OF_SOURCE))
         .isEqualTo(
             new AdPlaybackState("adsId", /* adGroupTimesUs...= */ 4_000_000L)
                 .withAdDurationsUs(/* adGroupIndex= */ 0, C.TIME_UNSET, C.TIME_UNSET, C.TIME_UNSET)
@@ -494,7 +507,11 @@ public class HlsInterstitialsAdsLoaderTest {
 
     assertThat(
             callHandleContentTimelineChangedAndCaptureAdPlaybackState(
-                playlistString, adsLoader, /* windowIndex= */ 0))
+                playlistString,
+                adsLoader,
+                /* windowIndex= */ 0,
+                /* windowPositionInPeriodUs= */ 0,
+                /* windowEndPositionInPeriodUs= */ C.TIME_END_OF_SOURCE))
         .isEqualTo(
             new AdPlaybackState("adsId", /* adGroupTimesUs...= */ C.TIME_END_OF_SOURCE)
                 .withAdDurationsUs(/* adGroupIndex= */ 0, 1_000_000L, 1_100_000L, 1_200_000L)
@@ -562,7 +579,11 @@ public class HlsInterstitialsAdsLoaderTest {
 
     assertThat(
             callHandleContentTimelineChangedAndCaptureAdPlaybackState(
-                playlistString, adsLoader, /* windowIndex= */ 0))
+                playlistString,
+                adsLoader,
+                /* windowIndex= */ 0,
+                /* windowPositionInPeriodUs= */ 0,
+                /* windowEndPositionInPeriodUs= */ C.TIME_END_OF_SOURCE))
         .isEqualTo(
             new AdPlaybackState(
                     "adsId", /* adGroupTimesUs...= */ 1_000_000L, 2_000_000L, C.TIME_END_OF_SOURCE)
@@ -632,7 +653,11 @@ public class HlsInterstitialsAdsLoaderTest {
 
     assertThat(
             callHandleContentTimelineChangedAndCaptureAdPlaybackState(
-                playlistString, adsLoader, /* windowIndex= */ 0))
+                playlistString,
+                adsLoader,
+                /* windowIndex= */ 0,
+                /* windowPositionInPeriodUs= */ 0,
+                /* windowEndPositionInPeriodUs= */ C.TIME_END_OF_SOURCE))
         .isEqualTo(
             new AdPlaybackState("adsId", /* adGroupTimesUs...= */ 0L)
                 .withAdDurationsUs(/* adGroupIndex= */ 0, 1_000_000L, 1_000_000L)
@@ -686,7 +711,11 @@ public class HlsInterstitialsAdsLoaderTest {
 
     assertThat(
             callHandleContentTimelineChangedAndCaptureAdPlaybackState(
-                playlistString, adsLoader, /* windowIndex= */ 0))
+                playlistString,
+                adsLoader,
+                /* windowIndex= */ 0,
+                /* windowPositionInPeriodUs= */ 0,
+                /* windowEndPositionInPeriodUs= */ C.TIME_END_OF_SOURCE))
         .isEqualTo(
             new AdPlaybackState("adsId", /* adGroupTimesUs...= */ 0L)
                 .withAdDurationsUs(/* adGroupIndex= */ 0, 1_000_000L, C.TIME_UNSET)
@@ -734,7 +763,11 @@ public class HlsInterstitialsAdsLoaderTest {
 
     assertThat(
             callHandleContentTimelineChangedAndCaptureAdPlaybackState(
-                playlistString, adsLoader, /* windowIndex= */ 0))
+                playlistString,
+                adsLoader,
+                /* windowIndex= */ 0,
+                /* windowPositionInPeriodUs= */ 0,
+                /* windowEndPositionInPeriodUs= */ C.TIME_END_OF_SOURCE))
         .isEqualTo(
             new AdPlaybackState("adsId", /* adGroupTimesUs...= */ 1_123_000L)
                 .withAdDurationsUs(/* adGroupIndex= */ 0, 4_000_000L)
@@ -773,7 +806,11 @@ public class HlsInterstitialsAdsLoaderTest {
 
     assertThat(
             callHandleContentTimelineChangedAndCaptureAdPlaybackState(
-                playlistString, adsLoader, /* windowIndex= */ 0))
+                playlistString,
+                adsLoader,
+                /* windowIndex= */ 0,
+                /* windowPositionInPeriodUs= */ 0,
+                /* windowEndPositionInPeriodUs= */ C.TIME_END_OF_SOURCE))
         .isEqualTo(
             new AdPlaybackState("adsId", /* adGroupTimesUs...= */ 1_123_000L)
                 .withAdDurationsUs(/* adGroupIndex= */ 0, 3_456_000L)
@@ -810,7 +847,11 @@ public class HlsInterstitialsAdsLoaderTest {
 
     assertThat(
             callHandleContentTimelineChangedAndCaptureAdPlaybackState(
-                playlistString, adsLoader, /* windowIndex= */ 0))
+                playlistString,
+                adsLoader,
+                /* windowIndex= */ 0,
+                /* windowPositionInPeriodUs= */ 0,
+                /* windowEndPositionInPeriodUs= */ C.TIME_END_OF_SOURCE))
         .isEqualTo(
             new AdPlaybackState("adsId", /* adGroupTimesUs...= */ 1_123_000L)
                 .withAdDurationsUs(/* adGroupIndex= */ 0, 1_123_000L)
@@ -847,7 +888,11 @@ public class HlsInterstitialsAdsLoaderTest {
 
     assertThat(
             callHandleContentTimelineChangedAndCaptureAdPlaybackState(
-                playlistString, adsLoader, /* windowIndex= */ 0))
+                playlistString,
+                adsLoader,
+                /* windowIndex= */ 0,
+                /* windowPositionInPeriodUs= */ 0,
+                /* windowEndPositionInPeriodUs= */ C.TIME_END_OF_SOURCE))
         .isEqualTo(
             new AdPlaybackState("adsId", /* adGroupTimesUs...= */ 1_123_000L)
                 .withAdDurationsUs(/* adGroupIndex= */ 0, 2_234_000L)
@@ -882,7 +927,11 @@ public class HlsInterstitialsAdsLoaderTest {
 
     assertThat(
             callHandleContentTimelineChangedAndCaptureAdPlaybackState(
-                playlistString, adsLoader, /* windowIndex= */ 0))
+                playlistString,
+                adsLoader,
+                /* windowIndex= */ 0,
+                /* windowPositionInPeriodUs= */ 0,
+                /* windowEndPositionInPeriodUs= */ C.TIME_END_OF_SOURCE))
         .isEqualTo(
             new AdPlaybackState("adsId", /* adGroupTimesUs...= */ 1_123_000L)
                 .withAdDurationsUs(/* adGroupIndex= */ 0, C.TIME_UNSET)
@@ -1368,7 +1417,11 @@ public class HlsInterstitialsAdsLoaderTest {
             .withAdId(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0, "ad0-0");
 
     callHandleContentTimelineChangedAndCaptureAdPlaybackState(
-        playlistString, adsLoader, /* windowIndex= */ 0);
+        playlistString,
+        adsLoader,
+        /* windowIndex= */ 0,
+        /* windowPositionInPeriodUs= */ 0,
+        /* windowEndPositionInPeriodUs= */ C.TIME_END_OF_SOURCE);
 
     runMainLooperUntil(assetListLoadingListener::completed, TIMEOUT_MS, Clock.DEFAULT);
     verify(mockAdsLoaderListener)
@@ -1441,7 +1494,11 @@ public class HlsInterstitialsAdsLoaderTest {
     when(mockPlayer.createMessage(any())).thenReturn(midRollPlayerMessage);
 
     callHandleContentTimelineChangedAndCaptureAdPlaybackState(
-        playlistString, adsLoader, /* windowIndex= */ 0);
+        playlistString,
+        adsLoader,
+        /* windowIndex= */ 0,
+        /* windowPositionInPeriodUs= */ 0,
+        /* windowEndPositionInPeriodUs= */ C.TIME_END_OF_SOURCE);
 
     runMainLooperUntil(assetListLoadingListener::completed, TIMEOUT_MS, Clock.DEFAULT);
     verify(mockAdsLoaderListener)
@@ -1483,7 +1540,11 @@ public class HlsInterstitialsAdsLoaderTest {
 
     assertThat(
             callHandleContentTimelineChangedAndCaptureAdPlaybackState(
-                playlistString, adsLoader, /* windowIndex= */ 0))
+                playlistString,
+                adsLoader,
+                /* windowIndex= */ 0,
+                /* windowPositionInPeriodUs= */ 0,
+                /* windowEndPositionInPeriodUs= */ C.TIME_END_OF_SOURCE))
         .isEqualTo(expectedAdPlaybackStateAtTimelineChange);
 
     runMainLooperUntil(assetListLoadingListener::completed, TIMEOUT_MS, Clock.DEFAULT);
@@ -1569,7 +1630,11 @@ public class HlsInterstitialsAdsLoaderTest {
             .withAdId(/* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 0, "ad1-0");
 
     callHandleContentTimelineChangedAndCaptureAdPlaybackState(
-        playlistString, adsLoader, /* windowIndex= */ 1);
+        playlistString,
+        adsLoader,
+        /* windowIndex= */ 1,
+        /* windowPositionInPeriodUs= */ 0,
+        /* windowEndPositionInPeriodUs= */ C.TIME_END_OF_SOURCE);
 
     runMainLooperUntil(assetListLoadingListener::failed, TIMEOUT_MS, Clock.DEFAULT);
     ArgumentCaptor<AdPlaybackState> adPlaybackStateCaptor =
@@ -1640,7 +1705,11 @@ public class HlsInterstitialsAdsLoaderTest {
     when(mockPlayer.getContentPosition()).thenReturn(21_000L);
 
     callHandleContentTimelineChangedAndCaptureAdPlaybackState(
-        playlistString, adsLoader, /* windowIndex= */ 1);
+        playlistString,
+        adsLoader,
+        /* windowIndex= */ 1,
+        /* windowPositionInPeriodUs= */ 0,
+        /* windowEndPositionInPeriodUs= */ C.TIME_END_OF_SOURCE);
 
     runMainLooperUntil(assetListLoadingListener::failed, TIMEOUT_MS, Clock.DEFAULT);
     verify(mockAdsLoaderListener)
@@ -1696,7 +1765,11 @@ public class HlsInterstitialsAdsLoaderTest {
             .build();
 
     callHandleContentTimelineChangedAndCaptureAdPlaybackState(
-        playlistString, adsLoader, /* windowIndex= */ 0);
+        playlistString,
+        adsLoader,
+        /* windowIndex= */ 0,
+        /* windowPositionInPeriodUs= */ 0,
+        /* windowEndPositionInPeriodUs= */ C.TIME_END_OF_SOURCE);
 
     runMainLooperUntil(assetListLoadingListener::completed, TIMEOUT_MS, Clock.DEFAULT);
     verify(mockAdsLoaderListener)
@@ -1766,7 +1839,11 @@ public class HlsInterstitialsAdsLoaderTest {
                     .build());
 
     callHandleContentTimelineChangedAndCaptureAdPlaybackState(
-        playlistString, adsLoader, /* windowIndex= */ 0);
+        playlistString,
+        adsLoader,
+        /* windowIndex= */ 0,
+        /* windowPositionInPeriodUs= */ 0,
+        /* windowEndPositionInPeriodUs= */ C.TIME_END_OF_SOURCE);
 
     runMainLooperUntil(assetListLoadingListener::completed, TIMEOUT_MS, Clock.DEFAULT);
     ArgumentCaptor<AdPlaybackState> adPlaybackStateCaptor =
@@ -1833,7 +1910,11 @@ public class HlsInterstitialsAdsLoaderTest {
             /* Looper ignored */ null);
     when(mockPlayer.createMessage(any())).thenReturn(playerMessage);
     callHandleContentTimelineChangedAndCaptureAdPlaybackState(
-        playlistString, adsLoader, /* windowIndex= */ 0);
+        playlistString,
+        adsLoader,
+        /* windowIndex= */ 0,
+        /* windowPositionInPeriodUs= */ 0,
+        /* windowEndPositionInPeriodUs= */ C.TIME_END_OF_SOURCE);
     ArgumentCaptor<Player.Listener> listener = ArgumentCaptor.forClass(Player.Listener.class);
     InOrder inOrder = inOrder(mockPlayer);
     inOrder.verify(mockPlayer).addListener(listener.capture());
@@ -1887,7 +1968,11 @@ public class HlsInterstitialsAdsLoaderTest {
                 /* Clock ignored */ null,
                 /* Looper ignored */ null));
     callHandleContentTimelineChangedAndCaptureAdPlaybackState(
-        playlistString, adsLoader, /* windowIndex= */ 2);
+        playlistString,
+        adsLoader,
+        /* windowIndex= */ 2,
+        /* windowPositionInPeriodUs= */ 0,
+        /* windowEndPositionInPeriodUs= */ C.TIME_END_OF_SOURCE);
     when(mockPlayer.getCurrentPeriodIndex()).thenReturn(2);
     when(mockPlayer.getCurrentMediaItemIndex()).thenReturn(2);
     InOrder inOrder = inOrder(mockPlayer);
@@ -1986,7 +2071,11 @@ public class HlsInterstitialsAdsLoaderTest {
     when(mockPlayer.getContentPosition()).thenReturn(0L);
     when(mockPlayer.createMessage(any())).thenReturn(midRoll1PlayerMessage);
     callHandleContentTimelineChangedAndCaptureAdPlaybackState(
-        playlistString, adsLoader, /* windowIndex= */ 1);
+        playlistString,
+        adsLoader,
+        /* windowIndex= */ 1,
+        /* windowPositionInPeriodUs= */ 0,
+        /* windowEndPositionInPeriodUs= */ C.TIME_END_OF_SOURCE);
     ArgumentCaptor<Player.Listener> listener = ArgumentCaptor.forClass(Player.Listener.class);
     InOrder inOrder = inOrder(mockPlayer);
     inOrder.verify(mockPlayer).addListener(listener.capture());
@@ -2138,7 +2227,11 @@ public class HlsInterstitialsAdsLoaderTest {
             /* Looper ignored */ null);
     when(mockPlayer.createMessage(any())).thenReturn(midRoll1PlayerMessage);
     callHandleContentTimelineChangedAndCaptureAdPlaybackState(
-        playlistString, adsLoader, /* windowIndex= */ 0);
+        playlistString,
+        adsLoader,
+        /* windowIndex= */ 0,
+        /* windowPositionInPeriodUs= */ 0,
+        /* windowEndPositionInPeriodUs= */ C.TIME_END_OF_SOURCE);
     // Emulate position discontinuity.
     ArgumentCaptor<Player.Listener> listener = ArgumentCaptor.forClass(Player.Listener.class);
     verify(mockPlayer).addListener(listener.capture());
@@ -2232,7 +2325,11 @@ public class HlsInterstitialsAdsLoaderTest {
             /* Looper ignored */ null);
     when(mockPlayer.createMessage(any())).thenReturn(playerMessage);
     callHandleContentTimelineChangedAndCaptureAdPlaybackState(
-        playlistString, adsLoader, /* windowIndex= */ 1);
+        playlistString,
+        adsLoader,
+        /* windowIndex= */ 1,
+        /* windowPositionInPeriodUs= */ 0,
+        /* windowEndPositionInPeriodUs= */ C.TIME_END_OF_SOURCE);
     // Emulate position discontinuity to a non-ad media item.
     MediaItem nonAdMediaItem = MediaItem.fromUri(Uri.parse("http://example.com/no-ad"));
     ArgumentCaptor<Player.Listener> listener = ArgumentCaptor.forClass(Player.Listener.class);
@@ -2294,7 +2391,11 @@ public class HlsInterstitialsAdsLoaderTest {
             + "X-ASSET-URI=\"http://example.com/media-0-1.m3u8\""
             + "\n";
     callHandleContentTimelineChangedAndCaptureAdPlaybackState(
-        playlistString, adsLoader, /* windowIndex= */ 0);
+        playlistString,
+        adsLoader,
+        /* windowIndex= */ 0,
+        /* windowPositionInPeriodUs= */ 0,
+        /* windowEndPositionInPeriodUs= */ C.TIME_END_OF_SOURCE);
     ArgumentCaptor<Player.Listener> listener = ArgumentCaptor.forClass(Player.Listener.class);
     verify(mockPlayer).addListener(listener.capture());
     Object windowUid = new Object();
@@ -2405,7 +2506,11 @@ public class HlsInterstitialsAdsLoaderTest {
             + "X-ASSET-URI=\"http://example.com/media-0-0.m3u8\""
             + "\n";
     callHandleContentTimelineChangedAndCaptureAdPlaybackState(
-        playlistString, adsLoader, /* windowIndex= */ 0);
+        playlistString,
+        adsLoader,
+        /* windowIndex= */ 0,
+        /* windowPositionInPeriodUs= */ 0,
+        /* windowEndPositionInPeriodUs= */ C.TIME_END_OF_SOURCE);
     reset(mockEventListener);
     ArgumentCaptor<Player.Listener> listener = ArgumentCaptor.forClass(Player.Listener.class);
     when(mockPlayer.isPlayingAd()).thenReturn(true);
@@ -2461,7 +2566,11 @@ public class HlsInterstitialsAdsLoaderTest {
             + "X-ASSET-URI=\"http://example.com/media-0-1.m3u8\""
             + "\n";
     callHandleContentTimelineChangedAndCaptureAdPlaybackState(
-        playlistString, adsLoader, /* windowIndex= */ 0);
+        playlistString,
+        adsLoader,
+        /* windowIndex= */ 0,
+        /* windowPositionInPeriodUs= */ 0,
+        /* windowEndPositionInPeriodUs= */ C.TIME_END_OF_SOURCE);
 
     adsLoader.handlePrepareError(adsMediaSource, 0, 1, new IOException());
     adsLoader.handlePrepareError(adsMediaSource, 0, 0, new IOException());
@@ -2676,7 +2785,11 @@ public class HlsInterstitialsAdsLoaderTest {
             + "X-ASSET-URI=\"http://example.com/media-0-0.m3u8\""
             + "\n";
     callHandleContentTimelineChangedAndCaptureAdPlaybackState(
-        playlistString, adsLoader, /* windowIndex= */ 0);
+        playlistString,
+        adsLoader,
+        /* windowIndex= */ 0,
+        /* windowPositionInPeriodUs= */ 0,
+        /* windowEndPositionInPeriodUs= */ C.TIME_END_OF_SOURCE);
     reset(mockPlayer);
     reset(mockEventListener);
     reset(mockAdsLoaderListener);
@@ -2802,7 +2915,11 @@ public class HlsInterstitialsAdsLoaderTest {
     ArgumentCaptor<Player.Listener> listener = ArgumentCaptor.forClass(Player.Listener.class);
 
     callHandleContentTimelineChangedAndCaptureAdPlaybackState(
-        playlistString, adsLoader, /* windowIndex= */ 0);
+        playlistString,
+        adsLoader,
+        /* windowIndex= */ 0,
+        /* windowPositionInPeriodUs= */ 0,
+        /* windowEndPositionInPeriodUs= */ C.TIME_END_OF_SOURCE);
     adsLoader.handlePrepareError(
         adsMediaSource, /* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0, exception);
     adsLoader.handlePrepareComplete(
@@ -2917,8 +3034,16 @@ public class HlsInterstitialsAdsLoaderTest {
   }
 
   private AdPlaybackState callHandleContentTimelineChangedAndCaptureAdPlaybackState(
-      String playlistString, HlsInterstitialsAdsLoader adsLoader, int windowIndex)
+      String playlistString,
+      HlsInterstitialsAdsLoader adsLoader,
+      int windowIndex,
+      long windowPositionInPeriodUs,
+      long windowEndPositionInPeriodUs)
       throws IOException {
+    checkArgument(
+        windowPositionInPeriodUs >= 0
+            && (windowEndPositionInPeriodUs == C.TIME_END_OF_SOURCE
+                || windowPositionInPeriodUs < windowEndPositionInPeriodUs));
     InputStream inputStream = new ByteArrayInputStream(Util.getUtf8Bytes(playlistString));
     HlsMediaPlaylist contentMediaPlaylist =
         (HlsMediaPlaylist) new HlsPlaylistParser().parse(Uri.EMPTY, inputStream);
@@ -2928,7 +3053,17 @@ public class HlsInterstitialsAdsLoaderTest {
         new TimelineWindowDefinition.Builder()
             .setMediaItem(MediaItem.fromUri("http://example.com/"))
             .build());
-    initialWindows[windowIndex] = contentWindowDefinition;
+    long durationUs =
+        (windowEndPositionInPeriodUs != C.TIME_END_OF_SOURCE
+                ? windowEndPositionInPeriodUs
+                : contentMediaPlaylist.durationUs)
+            - windowPositionInPeriodUs;
+    initialWindows[windowIndex] =
+        contentWindowDefinition
+            .buildUpon()
+            .setDurationUs(durationUs)
+            .setWindowPositionInFirstPeriodUs(windowPositionInPeriodUs)
+            .build();
     when(mockPlayer.getCurrentTimeline()).thenReturn(new FakeTimeline(initialWindows));
     when(mockPlayer.getCurrentMediaItem()).thenReturn(contentWindowDefinition.mediaItem);
     // Set the player.
@@ -2940,7 +3075,7 @@ public class HlsInterstitialsAdsLoaderTest {
     HlsManifest hlsManifest =
         new HlsManifest(/* multivariantPlaylist= */ null, contentMediaPlaylist);
     adsLoader.handleContentTimelineChanged(
-        adsMediaSource, new FakeTimeline(new Object[] {hlsManifest}, contentWindowDefinition));
+        adsMediaSource, new FakeTimeline(new Object[] {hlsManifest}, initialWindows[windowIndex]));
 
     ArgumentCaptor<AdPlaybackState> adPlaybackState =
         ArgumentCaptor.forClass(AdPlaybackState.class);
@@ -2955,8 +3090,9 @@ public class HlsInterstitialsAdsLoaderTest {
     windowsAfterTimelineChange[windowIndex] =
         contentWindowDefinition
             .buildUpon()
-            .setDurationUs(contentMediaPlaylist.durationUs)
+            .setDurationUs(durationUs)
             .setWindowStartTimeUs(contentMediaPlaylist.startTimeUs)
+            .setWindowPositionInFirstPeriodUs(windowPositionInPeriodUs)
             .setAdPlaybackStates(ImmutableList.of(adPlaybackState.getValue()))
             .build();
     when(mockPlayer.getCurrentTimeline()).thenReturn(new FakeTimeline(windowsAfterTimelineChange));
