@@ -56,6 +56,8 @@ public class VideoDecoderOutputBuffer extends DecoderOutputBuffer {
 
   @Nullable public int[] yuvStrides;
   public int colorspace;
+  public int yStride;
+  public int uvStride;
 
   /**
    * Supplemental data related to the output frame, if {@link #hasSupplementalData()} returns true.
@@ -117,6 +119,8 @@ public class VideoDecoderOutputBuffer extends DecoderOutputBuffer {
     this.width = width;
     this.height = height;
     this.colorspace = colorspace;
+    this.yStride = yStride;
+    this.uvStride = uvStride;
     int uvHeight = (int) (((long) height + 1) / 2);
     if (!isSafeToMultiply(yStride, height) || !isSafeToMultiply(uvStride, uvHeight)) {
       return false;
