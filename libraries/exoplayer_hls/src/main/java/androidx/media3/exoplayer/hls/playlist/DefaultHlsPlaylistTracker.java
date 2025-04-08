@@ -853,6 +853,13 @@ public final class DefaultHlsPlaylistTracker
             playlistSnapshot != oldPlaylist
                 ? playlistSnapshot.targetDurationUs
                 : (playlistSnapshot.targetDurationUs / 2);
+      } else if (
+          playlistSnapshot == oldPlaylist && playlistSnapshot.partTargetDurationUs != C.TIME_UNSET
+      ) {
+        // To prevent infinite requests when the server responds with CAN-BLOCK-RELOAD=YES but does
+        // not actually block until the playlist updates, wait for half the part target duration
+        // before retrying.
+        durationUntilNextLoadUs = playlistSnapshot.partTargetDurationUs / 2;
       }
       earliestNextLoadTimeMs =
           currentTimeMs + Util.usToMs(durationUntilNextLoadUs) - loadEventInfo.loadDurationMs;
