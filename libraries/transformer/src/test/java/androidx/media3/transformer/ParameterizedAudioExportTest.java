@@ -172,9 +172,11 @@ public final class ParameterizedAudioExportTest {
         items.add(itemConfig.asItem());
       }
 
-      return new Composition.Builder(new EditedMediaItemSequence.Builder(items.build()).build())
+      return new Composition.Builder(
+              new EditedMediaItemSequence.Builder(items.build())
+                  .experimentalSetForceAudioTrack(true)
+                  .build())
           .setTransmuxVideo(true)
-          .experimentalSetForceAudioTrack(true)
           .build();
     }
 

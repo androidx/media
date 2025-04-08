@@ -23,7 +23,6 @@ import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.TimestampIterator;
-import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.video.PlaceholderSurface;
 import androidx.media3.exoplayer.video.VideoFrameMetadataListener;
 import androidx.media3.exoplayer.video.VideoSink;
@@ -82,18 +81,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   @Override
-  public void onRendererEnabled(boolean mayRenderStartOfStream) {
-    executeOrDelay(videoSink -> videoSink.onRendererEnabled(mayRenderStartOfStream));
+  public void startRendering() {
+    executeOrDelay(VideoSink::startRendering);
   }
 
   @Override
-  public void onRendererStarted() {
-    executeOrDelay(VideoSink::onRendererStarted);
-  }
-
-  @Override
-  public void onRendererStopped() {
-    executeOrDelay(VideoSink::onRendererStopped);
+  public void stopRendering() {
+    executeOrDelay(VideoSink::stopRendering);
   }
 
   @Override
@@ -138,10 +132,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * is {@code null}.
    */
   @Override
-  public boolean isReady(boolean rendererOtherwiseReady) {
+  public boolean isReady(boolean otherwiseReady) {
     // Return true if the VideoSink is null to indicate that the renderer can be started. Indeed,
     // for prewarming, a VideoSink is set on the BufferingVideoSink when the renderer is started.
-    return videoSink == null || videoSink.isReady(rendererOtherwiseReady);
+    return videoSink == null || videoSink.isReady(otherwiseReady);
   }
 
   @Override
@@ -214,16 +208,21 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   @Override
-  public void enableMayRenderStartOfStream() {
-    executeOrDelay(VideoSink::enableMayRenderStartOfStream);
+  public void onInputStreamChanged(
+      @InputType int inputType,
+      Format format,
+      long startPositionUs,
+      @FirstFrameReleaseInstruction int firstFrameReleaseInstruction,
+      List<Effect> videoEffects) {
+    executeOrDelay(
+        videoSink ->
+            videoSink.onInputStreamChanged(
+                inputType, format, startPositionUs, firstFrameReleaseInstruction, videoEffects));
   }
 
   @Override
-  public void onInputStreamChanged(
-      @InputType int inputType, Format format, long startPositionUs, List<Effect> videoEffects) {
-    executeOrDelay(
-        videoSink ->
-            videoSink.onInputStreamChanged(inputType, format, startPositionUs, videoEffects));
+  public void allowReleaseFirstFrameBeforeStarted() {
+    executeOrDelay(VideoSink::allowReleaseFirstFrameBeforeStarted);
   }
 
   /**
@@ -234,9 +233,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    */
   @Override
   public boolean handleInputFrame(
-      long framePresentationTimeUs, boolean isLastFrame, VideoFrameHandler videoFrameHandler) {
+      long framePresentationTimeUs, VideoFrameHandler videoFrameHandler) {
     return videoSink != null
-        && videoSink.handleInputFrame(framePresentationTimeUs, isLastFrame, videoFrameHandler);
+        && videoSink.handleInputFrame(framePresentationTimeUs, videoFrameHandler);
   }
 
   /**
@@ -261,11 +260,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     if (videoSink != null) {
       videoSink.render(positionUs, elapsedRealtimeUs);
     }
-  }
-
-  @Override
-  public void setWakeupListener(Renderer.WakeupListener wakeupListener) {
-    executeOrDelay(videoSink -> videoSink.setWakeupListener(wakeupListener));
   }
 
   @Override

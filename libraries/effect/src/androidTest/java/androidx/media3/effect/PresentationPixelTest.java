@@ -61,6 +61,8 @@ public final class PresentationPixelTest {
 
   private static final String ORIGINAL_PNG_ASSET_PATH =
       "test-generated-goldens/sample_mp4_first_frame/electrical_colors/original.png";
+  private static final String ORIGINAL_PORTRAIT_PNG_ASSET_PATH =
+      "test-generated-goldens/sample_mp4_first_frame/electrical_colors/original_portrait.png";
   private static final String ASPECT_RATIO_SCALE_TO_FIT_NARROW_PNG_ASSET_PATH =
       "test-generated-goldens/sample_mp4_first_frame/electrical_colors/aspect_ratio_scale_to_fit_narrow.png";
   private static final String ASPECT_RATIO_SCALE_TO_FIT_WIDE_PNG_ASSET_PATH =
@@ -76,6 +78,8 @@ public final class PresentationPixelTest {
   private static final String HIGH_RESOLUTION_JPG_ASSET_PATH = "media/jpeg/ultraHDR.jpg";
   private static final String DOWNSCALED_6X_PNG_ASSET_PATH =
       "test-generated-goldens/PresentationPixelTest/ultraHDR_mipmap_512x680.png";
+  private static final String UPSCALED_2X_PORTRAIT_PNG_ASSET_PATH =
+      "test-generated-goldens/sample_mp4_first_frame/electrical_colors/upscale_2x_portrait.png";
 
   private final Context context = getApplicationContext();
 
@@ -268,6 +272,95 @@ public final class PresentationPixelTest {
     presentationShaderProgram =
         Presentation.createForWidthAndHeight(
                 inputWidth / 6, inputHeight / 6, Presentation.LAYOUT_SCALE_TO_FIT)
+            .copyWithTextureMinFilter(C.TEXTURE_MIN_FILTER_LINEAR_MIPMAP_LINEAR)
+            .toGlShaderProgram(context, /* useHdr= */ false);
+    Size outputSize = presentationShaderProgram.configure(inputWidth, inputHeight);
+    setupOutputTexture(outputSize.getWidth(), outputSize.getHeight());
+    Bitmap expectedBitmap = readBitmap(DOWNSCALED_6X_PNG_ASSET_PATH);
+
+    presentationShaderProgram.drawFrame(inputTexId, /* presentationTimeUs= */ 0);
+    Bitmap actualBitmap =
+        createArgb8888BitmapFromFocusedGlFramebuffer(outputSize.getWidth(), outputSize.getHeight());
+
+    maybeSaveTestBitmap(testId, /* bitmapLabel= */ "actual", actualBitmap, /* path= */ null);
+    assertBitmapsAreSimilar(expectedBitmap, actualBitmap, PSNR_THRESHOLD);
+  }
+
+  @Test
+  public void drawFrame_createForShortSide_landscape_noEdits_matchesGoldenFile() throws Exception {
+    presentationShaderProgram =
+        Presentation.createForShortSide(inputHeight)
+            .toGlShaderProgram(context, /* useHdr= */ false);
+    Size outputSize = presentationShaderProgram.configure(inputWidth, inputHeight);
+    setupOutputTexture(outputSize.getWidth(), outputSize.getHeight());
+    Bitmap expectedBitmap = readBitmap(ORIGINAL_PNG_ASSET_PATH);
+
+    presentationShaderProgram.drawFrame(inputTexId, /* presentationTimeUs= */ 0);
+    Bitmap actualBitmap =
+        createArgb8888BitmapFromFocusedGlFramebuffer(outputSize.getWidth(), outputSize.getHeight());
+
+    maybeSaveTestBitmap(testId, /* bitmapLabel= */ "actual", actualBitmap, /* path= */ null);
+    // TODO(b/207848601): Switch to using proper tooling for testing against golden data.
+    float averagePixelAbsoluteDifference =
+        getBitmapAveragePixelAbsoluteDifferenceArgb8888(expectedBitmap, actualBitmap, testId);
+    assertThat(averagePixelAbsoluteDifference).isAtMost(MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE);
+  }
+
+  @Test
+  public void drawFrame_createForShortSide_portrait_noEdits_matchesGoldenFile() throws Exception {
+    Bitmap inputBitmap = readBitmap(ORIGINAL_PORTRAIT_PNG_ASSET_PATH);
+    inputWidth = inputBitmap.getWidth();
+    inputHeight = inputBitmap.getHeight();
+    inputTexId = createGlTextureFromBitmap(inputBitmap);
+    presentationShaderProgram =
+        Presentation.createForShortSide(inputWidth).toGlShaderProgram(context, /* useHdr= */ false);
+    Size outputSize = presentationShaderProgram.configure(inputWidth, inputHeight);
+    setupOutputTexture(outputSize.getWidth(), outputSize.getHeight());
+
+    presentationShaderProgram.drawFrame(inputTexId, /* presentationTimeUs= */ 0);
+    Bitmap actualBitmap =
+        createArgb8888BitmapFromFocusedGlFramebuffer(outputSize.getWidth(), outputSize.getHeight());
+
+    maybeSaveTestBitmap(testId, /* bitmapLabel= */ "actual", actualBitmap, /* path= */ null);
+    // TODO(b/207848601): Switch to using proper tooling for testing against golden data.
+    float averagePixelAbsoluteDifference =
+        getBitmapAveragePixelAbsoluteDifferenceArgb8888(inputBitmap, actualBitmap, testId);
+    assertThat(averagePixelAbsoluteDifference).isAtMost(MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE);
+  }
+
+  @Test
+  public void drawFrame_createForShortSide_portrait_upscale_matchesGoldenFile() throws Exception {
+    Bitmap inputBitmap = readBitmap(ORIGINAL_PORTRAIT_PNG_ASSET_PATH);
+    inputWidth = inputBitmap.getWidth();
+    inputHeight = inputBitmap.getHeight();
+    inputTexId = createGlTextureFromBitmap(inputBitmap);
+    presentationShaderProgram =
+        Presentation.createForShortSide(inputWidth * 2)
+            .toGlShaderProgram(context, /* useHdr= */ false);
+    Size outputSize = presentationShaderProgram.configure(inputWidth, inputHeight);
+    setupOutputTexture(outputSize.getWidth(), outputSize.getHeight());
+    Bitmap expectedBitmap = readBitmap(UPSCALED_2X_PORTRAIT_PNG_ASSET_PATH);
+
+    presentationShaderProgram.drawFrame(inputTexId, /* presentationTimeUs= */ 0);
+    Bitmap actualBitmap =
+        createArgb8888BitmapFromFocusedGlFramebuffer(outputSize.getWidth(), outputSize.getHeight());
+
+    maybeSaveTestBitmap(testId, /* bitmapLabel= */ "actual", actualBitmap, /* path= */ null);
+    // TODO(b/207848601): Switch to using proper tooling for testing against golden data.
+    float averagePixelAbsoluteDifference =
+        getBitmapAveragePixelAbsoluteDifferenceArgb8888(expectedBitmap, actualBitmap, testId);
+    assertThat(averagePixelAbsoluteDifference).isAtMost(MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE);
+  }
+
+  @Test
+  public void drawFrame_createForShortSide_portrait_downscaleWithLinearMipmap_matchesGoldenFile()
+      throws Exception {
+    Bitmap inputBitmap = readBitmap(HIGH_RESOLUTION_JPG_ASSET_PATH);
+    inputWidth = inputBitmap.getWidth();
+    inputHeight = inputBitmap.getHeight();
+    inputTexId = createGlTextureFromBitmap(inputBitmap);
+    presentationShaderProgram =
+        Presentation.createForShortSide(inputWidth / 6)
             .copyWithTextureMinFilter(C.TEXTURE_MIN_FILTER_LINEAR_MIPMAP_LINEAR)
             .toGlShaderProgram(context, /* useHdr= */ false);
     Size outputSize = presentationShaderProgram.configure(inputWidth, inputHeight);

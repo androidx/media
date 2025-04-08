@@ -20,6 +20,7 @@ import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.GlUtil.getDefaultEglDisplay;
+import static androidx.media3.common.util.Util.castNonNull;
 import static androidx.media3.effect.DebugTraceUtil.COMPONENT_VFP;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_RECEIVE_END_OF_ALL_INPUT;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_REGISTER_NEW_INPUT_STREAM;
@@ -157,6 +158,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
       private @MonotonicNonNull GlObjectsProvider glObjectsProvider;
       private GlTextureProducer.@MonotonicNonNull Listener textureOutputListener;
       private int textureOutputCapacity;
+      private boolean enableReplayableCache;
       private boolean requireRegisteringAllInputFrames;
       private boolean experimentalAdjustSurfaceTextureTransformationMatrix;
       private boolean experimentalRepeatInputBitmapWithoutResampling;
@@ -175,6 +177,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
         glObjectsProvider = factory.glObjectsProvider;
         textureOutputListener = factory.textureOutputListener;
         textureOutputCapacity = factory.textureOutputCapacity;
+        enableReplayableCache = factory.enableReplayableCache;
         requireRegisteringAllInputFrames = !factory.repeatLastRegisteredFrame;
         experimentalAdjustSurfaceTextureTransformationMatrix =
             factory.experimentalAdjustSurfaceTextureTransformationMatrix;
@@ -266,6 +269,22 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
       }
 
       /**
+       * Sets whether to use a frame cache to {@link DefaultVideoFrameProcessor#redraw} frames.
+       *
+       * <p>The default value is {@code false}, in this case calling {@link
+       * VideoFrameProcessor#redraw} throws {@link UnsupportedOperationException}.
+       *
+       * <p>Using a frame cache enables precise redrawing, but increases resource and power usages.
+       *
+       * @param enableReplayableCache Whether to use a frame cache.
+       */
+      @CanIgnoreReturnValue
+      public Builder setEnableReplayableCache(boolean enableReplayableCache) {
+        this.enableReplayableCache = enableReplayableCache;
+        return this;
+      }
+
+      /**
        * Sets texture output settings.
        *
        * <p>If set, the {@link VideoFrameProcessor} will output to OpenGL textures, accessible via
@@ -340,6 +359,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
             executorService,
             textureOutputListener,
             textureOutputCapacity,
+            enableReplayableCache,
             experimentalAdjustSurfaceTextureTransformationMatrix,
             experimentalRepeatInputBitmapWithoutResampling);
       }
@@ -351,6 +371,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
     @Nullable private final ExecutorService executorService;
     @Nullable private final GlTextureProducer.Listener textureOutputListener;
     private final int textureOutputCapacity;
+    private final boolean enableReplayableCache;
     private final boolean experimentalAdjustSurfaceTextureTransformationMatrix;
     private final boolean experimentalRepeatInputBitmapWithoutResampling;
 
@@ -361,6 +382,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
         @Nullable ExecutorService executorService,
         @Nullable GlTextureProducer.Listener textureOutputListener,
         int textureOutputCapacity,
+        boolean enableReplayableCache,
         boolean experimentalAdjustSurfaceTextureTransformationMatrix,
         boolean experimentalRepeatInputBitmapWithoutResampling) {
       this.sdrWorkingColorSpace = sdrWorkingColorSpace;
@@ -369,6 +391,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
       this.executorService = executorService;
       this.textureOutputListener = textureOutputListener;
       this.textureOutputCapacity = textureOutputCapacity;
+      this.enableReplayableCache = enableReplayableCache;
       this.experimentalAdjustSurfaceTextureTransformationMatrix =
           experimentalAdjustSurfaceTextureTransformationMatrix;
       this.experimentalRepeatInputBitmapWithoutResampling =
@@ -437,6 +460,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
                       listener,
                       instanceGlObjectsProvider,
                       shouldReleaseGlObjectsProvider,
+                      enableReplayableCache,
                       textureOutputListener,
                       textureOutputCapacity,
                       repeatLastRegisteredFrame,
@@ -492,9 +516,11 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
   private final Object lock;
   private final ColorInfo outputColorInfo;
   private final DebugViewProvider debugViewProvider;
+  @Nullable private final ReplayableFrameCacheGlShaderProgram frameCache;
 
   private volatile @MonotonicNonNull FrameInfo nextInputFrameInfo;
   private volatile boolean inputStreamEnded;
+  private volatile boolean released;
 
   private DefaultVideoFrameProcessor(
       Context context,
@@ -508,7 +534,8 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
       FinalShaderProgramWrapper finalShaderProgramWrapper,
       boolean renderFramesAutomatically,
       ColorInfo outputColorInfo,
-      DebugViewProvider debugViewProvider) {
+      DebugViewProvider debugViewProvider,
+      @Nullable ReplayableFrameCacheGlShaderProgram frameCache) {
     this.context = context;
     this.glObjectsProvider = glObjectsProvider;
     this.shouldReleaseGlObjectsProvider = shouldReleaseGlObjectsProvider;
@@ -521,18 +548,30 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
     this.activeEffects = new ArrayList<>();
     this.lock = new Object();
     this.outputColorInfo = outputColorInfo;
+    this.frameCache = frameCache;
     this.debugViewProvider = debugViewProvider;
     this.finalShaderProgramWrapper = finalShaderProgramWrapper;
     this.intermediateGlShaderPrograms = new ArrayList<>();
     this.inputStreamRegisteredCondition = new ConditionVariable();
     inputStreamRegisteredCondition.open();
     this.finalShaderProgramWrapper.setListener(
-        () -> {
-          if (inputStreamEnded) {
-            listenerExecutor.execute(listener::onEnded);
-            DebugTraceUtil.logEvent(COMPONENT_VFP, EVENT_SIGNAL_ENDED, C.TIME_END_OF_SOURCE);
-          } else {
-            submitPendingInputStream();
+        new FinalShaderProgramWrapper.Listener() {
+          @Override
+          public void onInputStreamProcessed() {
+            if (inputStreamEnded) {
+              listenerExecutor.execute(listener::onEnded);
+              DebugTraceUtil.logEvent(COMPONENT_VFP, EVENT_SIGNAL_ENDED, C.TIME_END_OF_SOURCE);
+            } else {
+              DefaultVideoFrameProcessor.this.submitPendingInputStream();
+            }
+          }
+
+          @Override
+          public void onFrameRendered(long presentationTimeUs) {
+            if (frameCache == null) {
+              return;
+            }
+            frameCache.onFrameRendered(presentationTimeUs);
           }
         });
   }
@@ -575,7 +614,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
   @Override
   public boolean queueInputBitmap(Bitmap inputBitmap, TimestampIterator timestampIterator) {
     checkState(!inputStreamEnded);
-    if (!inputStreamRegisteredCondition.isOpen()) {
+    if (!inputStreamRegisteredCondition.isOpen() || released) {
       return false;
     }
     if (ColorInfo.isTransferHdr(outputColorInfo)) {
@@ -595,7 +634,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
   @Override
   public boolean queueInputTexture(int textureId, long presentationTimeUs) {
     checkState(!inputStreamEnded);
-    if (!inputStreamRegisteredCondition.isOpen()) {
+    if (!inputStreamRegisteredCondition.isOpen() || released) {
       return false;
     }
 
@@ -624,9 +663,31 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
     return inputSwitcher.getInputSurface();
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>{@code DefaultVideoFrameProcessor} keeps track of the redraw requests received. If a call to
+   * redraw is made when another redraw request is ongoing, the new request will be performed later
+   * when the ongoing redraw completes, and this method will return immediately.
+   */
   @Override
   public void redraw() {
-    throw new UnsupportedOperationException();
+    if (frameCache == null) {
+      throw new UnsupportedOperationException(
+          "Replaying when enableReplayableCache is set to false");
+    }
+    // TODO: b/391109644 - Call listener method in VideoFrameMetadataListener and debounce
+    //  accordingly.
+    if (frameCache.isEmpty()) {
+      // Don't redraw right after flush, because the frame cache is also be flushed and it's empty.
+      return;
+    }
+    videoFrameProcessingTaskExecutor.submit(
+        () -> {
+          finalShaderProgramWrapper.prepareToRedraw(
+              castNonNull(frameCache).getReplayFramePresentationTimeUs());
+          frameCache.replayFrame();
+        });
   }
 
   /**
@@ -654,6 +715,9 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
   @Override
   public void registerInputStream(
       @InputType int inputType, Format format, List<Effect> effects, long offsetToAddUs) {
+    if (released) {
+      return;
+    }
     // This method is only called after all samples in the current input stream are registered or
     // queued.
     DebugTraceUtil.logEvent(
@@ -700,7 +764,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
     checkState(!inputStreamEnded);
     checkStateNotNull(
         nextInputFrameInfo, "registerInputStream must be called before registering input frames");
-    if (!inputStreamRegisteredCondition.isOpen()) {
+    if (!inputStreamRegisteredCondition.isOpen() || released) {
       return false;
     }
     inputSwitcher.activeTextureManager().registerInputFrame(nextInputFrameInfo);
@@ -748,6 +812,9 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
     DebugTraceUtil.logEvent(COMPONENT_VFP, EVENT_RECEIVE_END_OF_ALL_INPUT, C.TIME_END_OF_SOURCE);
     checkState(!inputStreamEnded);
     inputStreamEnded = true;
+    if (released) {
+      return;
+    }
     inputSwitcher.signalEndOfCurrentInputStream();
   }
 
@@ -789,6 +856,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
 
   @Override
   public void release() {
+    released = true;
     try {
       videoFrameProcessingTaskExecutor.release(/* releaseTask= */ this::releaseGlObjects);
     } catch (InterruptedException e) {
@@ -853,6 +921,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
       Listener listener,
       GlObjectsProvider glObjectsProvider,
       boolean shouldReleaseGlObjectsProvider,
+      boolean enableReplayableCache,
       @Nullable GlTextureProducer.Listener textureOutputListener,
       int textureOutputCapacity,
       boolean repeatLastRegisteredFrame,
@@ -860,8 +929,9 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
       boolean experimentalRepeatInputBitmapWithoutResampling)
       throws GlUtil.GlException, VideoFrameProcessingException {
     EGLDisplay eglDisplay = getDefaultEglDisplay();
+    boolean isOutputTransferHdr = ColorInfo.isTransferHdr(outputColorInfo);
     int[] configAttributes =
-        ColorInfo.isTransferHdr(outputColorInfo)
+        isOutputTransferHdr
             ? GlUtil.EGL_CONFIG_ATTRIBUTES_RGBA_1010102
             : GlUtil.EGL_CONFIG_ATTRIBUTES_RGBA_8888;
     Pair<EGLContext, EGLSurface> eglContextAndPlaceholderSurface =
@@ -874,7 +944,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
             .setHdrStaticInfo(null)
             .build();
     ColorInfo intermediateColorInfo =
-        ColorInfo.isTransferHdr(outputColorInfo)
+        isOutputTransferHdr
             ? linearColorInfo
             : sdrWorkingColorSpace == WORKING_COLOR_SPACE_LINEAR
                 ? linearColorInfo
@@ -919,7 +989,10 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
         finalShaderProgramWrapper,
         renderFramesAutomatically,
         outputColorInfo,
-        debugViewProvider);
+        debugViewProvider,
+        enableReplayableCache
+            ? new ReplayableFrameCacheGlShaderProgram(context, /* useHdr= */ isOutputTransferHdr)
+            : null);
   }
 
   /**
@@ -1042,10 +1115,16 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
 
     if (forceReconfigure || !activeEffects.equals(inputStreamInfo.effects)) {
       if (!intermediateGlShaderPrograms.isEmpty()) {
-        for (int i = 0; i < intermediateGlShaderPrograms.size(); i++) {
+        // If frameCache is present, it's the first item in the list, skip releasing it.
+        int startIndex = frameCache == null ? 0 : 1;
+        for (int i = startIndex; i < intermediateGlShaderPrograms.size(); i++) {
           intermediateGlShaderPrograms.get(i).release();
         }
         intermediateGlShaderPrograms.clear();
+      }
+
+      if (frameCache != null) {
+        intermediateGlShaderPrograms.add(frameCache);
       }
 
       ImmutableList.Builder<Effect> effectsListBuilder =
@@ -1053,7 +1132,8 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
       if (debugViewProvider != DebugViewProvider.NONE) {
         effectsListBuilder.add(new DebugViewEffect(debugViewProvider, outputColorInfo));
       }
-      // The GlShaderPrograms that should be inserted in between InputSwitcher and
+
+      // The GlShaderPrograms that should be inserted in between the frame cache and
       // FinalShaderProgramWrapper.
       intermediateGlShaderPrograms.addAll(
           createGlShaderPrograms(

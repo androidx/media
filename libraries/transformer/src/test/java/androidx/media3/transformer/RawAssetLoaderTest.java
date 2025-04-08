@@ -18,8 +18,6 @@ package androidx.media3.transformer;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_AVAILABLE;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_UNAVAILABLE;
 import static com.google.common.truth.Truth.assertThat;
-import static java.lang.Math.min;
-import static java.lang.Math.round;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
@@ -118,8 +116,7 @@ public class RawAssetLoaderTest {
 
     assertThat(queuedAudioData).isTrue();
     assertThat(progressState).isEqualTo(PROGRESS_STATE_AVAILABLE);
-    assertThat(progressHolder.progress)
-        .isEqualTo(round(audioSamplePresentationTimeUs * 100 / (float) audioDurationUs));
+    assertThat(progressHolder.progress).isEqualTo(10);
   }
 
   @Test
@@ -168,8 +165,7 @@ public class RawAssetLoaderTest {
 
     assertThat(queuedInputTexture).isTrue();
     assertThat(progressState).isEqualTo(PROGRESS_STATE_AVAILABLE);
-    assertThat(progressHolder.progress)
-        .isEqualTo(round(videoSamplePresentationTimeUs * 100 / (float) videoDurationUs));
+    assertThat(progressHolder.progress).isEqualTo(10);
   }
 
   @Test
@@ -199,12 +195,7 @@ public class RawAssetLoaderTest {
     assertThat(queuedAudioData).isTrue();
     assertThat(queuedInputTexture).isTrue();
     assertThat(progressState).isEqualTo(PROGRESS_STATE_AVAILABLE);
-    assertThat(progressHolder.progress)
-        .isEqualTo(
-            round(
-                min(audioSamplePresentationTimeUs, videoSamplePresentationTimeUs)
-                    * 100
-                    / (float) mediaDurationUs));
+    assertThat(progressHolder.progress).isEqualTo(10);
   }
 
   private static EditedMediaItem getEditedMediaItem(long mediaDurationUs) {

@@ -1284,11 +1284,17 @@ public interface Player {
   int PLAY_WHEN_READY_CHANGE_REASON_SUPPRESSED_TOO_LONG = 6;
 
   /**
-   * Reason why playback is suppressed even though {@link #getPlayWhenReady()} is {@code true}. One
-   * of {@link #PLAYBACK_SUPPRESSION_REASON_NONE}, {@link
-   * #PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS}, {@link
-   * #PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_ROUTE} or {@link
-   * #PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT}.
+   * Reason why playback is suppressed even though {@link #getPlayWhenReady()} is {@code true}.
+   *
+   * <p>One of:
+   *
+   * <ul>
+   *   <li>{@link #PLAYBACK_SUPPRESSION_REASON_NONE}
+   *   <li>{@link #PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS}
+   *   <li>{@link #PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_ROUTE}
+   *   <li>{@link #PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT}
+   *   <li>{@link #PLAYBACK_SUPPRESSION_REASON_SCRUBBING}
+   * </ul>
    */
   // @Target list includes both 'default' targets and TYPE_USE, to ensure backwards compatibility
   // with Kotlin usages from before TYPE_USE was added.
@@ -1300,7 +1306,8 @@ public interface Player {
     PLAYBACK_SUPPRESSION_REASON_NONE,
     PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS,
     PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_ROUTE,
-    PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT
+    PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT,
+    PLAYBACK_SUPPRESSION_REASON_SCRUBBING
   })
   @interface PlaybackSuppressionReason {}
 
@@ -1320,6 +1327,9 @@ public interface Player {
    * play on built-in speaker on a Wear OS device).
    */
   int PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT = 3;
+
+  /** Playback is suppressed because the player is currently scrubbing. */
+  int PLAYBACK_SUPPRESSION_REASON_SCRUBBING = 4;
 
   /**
    * Repeat modes for playback. One of {@link #REPEAT_MODE_OFF}, {@link #REPEAT_MODE_ONE} or {@link

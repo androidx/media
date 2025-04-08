@@ -41,6 +41,7 @@ import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.LongArrayQueue;
 import androidx.media3.common.util.Size;
+import androidx.media3.common.util.SystemClock;
 import androidx.media3.effect.DefaultVideoFrameProcessor.WorkingColorSpace;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
@@ -72,6 +73,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
      * #signalEndOfCurrentInputStream()}.
      */
     void onInputStreamProcessed();
+
+    /** Called when a frame is rendered to the output surface. */
+    void onFrameRendered(long presentationTimeUs);
   }
 
   private static final String TAG = "FinalShaderWrapper";
@@ -112,6 +116,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private boolean outputSurfaceInfoChanged;
   @Nullable private SurfaceInfo outputSurfaceInfo;
 
+  private long redrawFramePresentationTimeUs;
+
   /** Wraps the {@link Surface} in {@link #outputSurfaceInfo}. */
   @Nullable private EGLSurface outputEglSurface;
 
@@ -149,6 +155,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     outputTexturePool = new TexturePool(useHighPrecisionColorComponents, textureOutputCapacity);
     outputTextureTimestamps = new LongArrayQueue(textureOutputCapacity);
     syncObjects = new LongArrayQueue(textureOutputCapacity);
+    redrawFramePresentationTimeUs = C.TIME_UNSET;
   }
 
   // GlTextureProducer interface. Can be called on any thread.
@@ -213,8 +220,15 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   public void queueInputFrame(
       GlObjectsProvider glObjectsProvider, GlTextureInfo inputTexture, long presentationTimeUs) {
     videoFrameProcessingTaskExecutor.verifyVideoFrameProcessingThread();
-    videoFrameProcessorListenerExecutor.execute(
-        () -> videoFrameProcessorListener.onOutputFrameAvailableForRendering(presentationTimeUs));
+
+    if (!isWaitingForRedrawFrame()) {
+      // Don't report output available when redrawing - the redrawn frames are released immediately.
+      videoFrameProcessorListenerExecutor.execute(
+          () ->
+              videoFrameProcessorListener.onOutputFrameAvailableForRendering(
+                  presentationTimeUs, /* isRedrawnFrame= */ false));
+    }
+
     if (textureOutputListener == null) {
       if (renderFramesAutomatically) {
         renderFrame(
@@ -224,6 +238,26 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             /* renderTimeNs= */ presentationTimeUs * 1000);
       } else {
         availableFrames.add(new TimedGlTextureInfo(inputTexture, presentationTimeUs));
+        if (isWaitingForRedrawFrame()) {
+          if (presentationTimeUs == redrawFramePresentationTimeUs) {
+            redrawFramePresentationTimeUs = C.TIME_UNSET;
+            videoFrameProcessorListenerExecutor.execute(
+                () ->
+                    videoFrameProcessorListener.onOutputFrameAvailableForRendering(
+                        presentationTimeUs, /* isRedrawnFrame= */ true));
+            renderFrame(
+                glObjectsProvider,
+                inputTexture,
+                presentationTimeUs,
+                /* renderTimeNs= */ SystemClock.DEFAULT.nanoTime());
+            availableFrames.clear();
+          } else {
+            // Skip other frames when waiting for the replay frame to arrive, so that the producer
+            // can continue processing, but keep it in the availableFrames for the player to call
+            // renderFrame.
+            inputListener.onInputFrameProcessed(inputTexture);
+          }
+        }
       }
       inputListener.onReadyToAcceptInputFrame();
     } else {
@@ -309,6 +343,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       return;
     }
     checkState(!renderFramesAutomatically);
+    if (availableFrames.isEmpty()) {
+      // This only happens with redrawn frame. The available output frame notification on the player
+      // side runs on another thread and when redrawing rapidly, the player could receive an output
+      // frame from a previous redraw.
+      return;
+    }
+
     TimedGlTextureInfo oldestAvailableFrame = availableFrames.remove();
     renderFrame(
         glObjectsProvider,
@@ -334,6 +375,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       Thread.currentThread().interrupt();
       videoFrameProcessorListenerExecutor.execute(
           () -> videoFrameProcessorListener.onError(VideoFrameProcessingException.from(e)));
+    }
+  }
+
+  /* package */ void prepareToRedraw(long redrawFramePresentationTimeUs) {
+    this.redrawFramePresentationTimeUs = redrawFramePresentationTimeUs;
+    for (int i = 0; i < availableFrames.size(); i++) {
+      TimedGlTextureInfo availableFrame = availableFrames.remove();
+      inputListener.onInputFrameProcessed(availableFrame.glTextureInfo);
     }
   }
 
@@ -391,6 +440,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
   }
 
+  private boolean isWaitingForRedrawFrame() {
+    return redrawFramePresentationTimeUs != C.TIME_UNSET;
+  }
+
   private void renderFrame(
       GlObjectsProvider glObjectsProvider,
       GlTextureInfo inputTexture,
@@ -398,8 +451,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       long renderTimeNs) {
     try {
       if (renderTimeNs == VideoFrameProcessor.DROP_OUTPUT_FRAME
-          || !ensureConfigured(glObjectsProvider, inputTexture.width, inputTexture.height)) {
+          || !ensureConfigured(glObjectsProvider, inputTexture.width, inputTexture.height)
+          || (isWaitingForRedrawFrame() && presentationTimeUs != redrawFramePresentationTimeUs)) {
         inputListener.onInputFrameProcessed(inputTexture);
+        if (renderTimeNs == VideoFrameProcessor.DROP_OUTPUT_FRAME) {
+          checkNotNull(listener).onFrameRendered(presentationTimeUs);
+        }
         return; // Drop frames when requested, or there is no output surface and output texture.
       }
       if (outputSurfaceInfo != null) {
@@ -445,6 +502,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     EGLExt.eglPresentationTimeANDROID(eglDisplay, outputEglSurface, eglPresentationTimeNs);
     EGL14.eglSwapBuffers(eglDisplay, outputEglSurface);
+    checkNotNull(listener).onFrameRendered(presentationTimeUs);
     DebugTraceUtil.logEvent(COMPONENT_VFP, EVENT_RENDERED_TO_OUTPUT_SURFACE, presentationTimeUs);
   }
 

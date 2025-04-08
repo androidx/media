@@ -22,7 +22,6 @@ import static java.lang.annotation.RetentionPolicy.SOURCE;
 import androidx.annotation.IntDef;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.VideoCompositorSettings;
-import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -121,40 +120,10 @@ public final class Composition {
     }
 
     /**
-     * Sets whether the output file should always contain an audio track.
-     *
-     * <p>The default value is {@code false}.
-     *
-     * <ul>
-     *   <li>If {@code false}:
-     *       <ul>
-     *         <li>If the {@link Composition} export doesn't produce any audio at timestamp 0, but
-     *             produces audio later on, the export is {@linkplain
-     *             Transformer.Listener#onError(Composition, ExportResult, ExportException)
-     *             aborted}.
-     *         <li>If the {@link Composition} doesn't produce any audio during the entire export,
-     *             the output won't contain any audio.
-     *         <li>If the {@link Composition} export produces audio at timestamp 0, the output will
-     *             contain an audio track.
-     *       </ul>
-     *   <li>If {@code true}, the output will always contain an audio track.
-     * </ul>
-     *
-     * If the output contains an audio track, silent audio will be generated for the segments where
-     * the {@link Composition} export doesn't produce any audio.
-     *
-     * <p>The MIME type of the output's audio track can be set using {@link
-     * Transformer.Builder#setAudioMimeType(String)}. The sample rate and channel count can be set
-     * by passing relevant {@link AudioProcessor} instances to the {@link Composition}.
-     *
-     * <p>Forcing an audio track and {@linkplain #setTransmuxAudio(boolean) requesting audio
-     * transmuxing} are not allowed together because generating silence requires transcoding.
-     *
-     * <p>This method is experimental and may be removed or changed without warning.
-     *
-     * @param forceAudioTrack Whether to force an audio track in the output.
-     * @return This builder.
+     * @deprecated Use {@link
+     *     EditedMediaItemSequence.Builder#experimentalSetForceAudioTrack(boolean)} instead.
      */
+    @Deprecated
     @CanIgnoreReturnValue
     public Builder experimentalSetForceAudioTrack(boolean forceAudioTrack) {
       this.forceAudioTrack = forceAudioTrack;
@@ -260,8 +229,20 @@ public final class Composition {
 
     /** Builds a {@link Composition} instance. */
     public Composition build() {
+      ImmutableList<EditedMediaItemSequence> updatedSequences;
+      if (forceAudioTrack) {
+        ImmutableList.Builder<EditedMediaItemSequence> updatedSequencesBuilder =
+            new ImmutableList.Builder<>();
+        for (int i = 0; i < sequences.size(); i++) {
+          updatedSequencesBuilder.add(
+              sequences.get(i).buildUpon().experimentalSetForceAudioTrack(forceAudioTrack).build());
+        }
+        updatedSequences = updatedSequencesBuilder.build();
+      } else {
+        updatedSequences = sequences;
+      }
       return new Composition(
-          sequences,
+          updatedSequences,
           videoCompositorSettings,
           effects,
           forceAudioTrack,
@@ -379,11 +360,10 @@ public final class Composition {
   public final Effects effects;
 
   /**
-   * Whether the output file should always contain an audio track.
-   *
-   * <p>For more information, see {@link Builder#experimentalSetForceAudioTrack(boolean)}.
+   * @deprecated Use {@link EditedMediaItemSequence.Builder#experimentalSetForceAudioTrack(boolean)}
+   *     to set the flag and {@link EditedMediaItemSequence#forceAudioTrack} to read the flag.
    */
-  public final boolean forceAudioTrack;
+  @Deprecated public final boolean forceAudioTrack;
 
   /**
    * Whether to transmux the {@linkplain MediaItem media items'} audio tracks.
@@ -431,6 +411,9 @@ public final class Composition {
     checkArgument(
         !transmuxAudio || !forceAudioTrack,
         "Audio transmuxing and audio track forcing are not allowed together.");
+    checkArgument(
+        hasNonLoopingSequence(sequences),
+        "Composition must have at least one non-looping sequence.");
     this.sequences = ImmutableList.copyOf(sequences);
     this.videoCompositorSettings = videoCompositorSettings;
     this.effects = effects;
@@ -448,6 +431,15 @@ public final class Composition {
   /* package */ boolean hasGaps() {
     for (int i = 0; i < sequences.size(); i++) {
       if (sequences.get(i).hasGaps()) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private static boolean hasNonLoopingSequence(List<EditedMediaItemSequence> sequences) {
+    for (EditedMediaItemSequence sequence : sequences) {
+      if (!sequence.isLooping) {
         return true;
       }
     }

@@ -20,6 +20,7 @@ import static androidx.media3.common.util.Assertions.checkState;
 
 import android.content.Context;
 import android.media.MediaCodec.BufferInfo;
+import android.media.metrics.LogSessionId;
 import android.view.Surface;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
@@ -93,12 +94,12 @@ public final class ExperimentalAnalyzerModeFactory {
       }
 
       @Override
-      public Codec createForAudioEncoding(Format format) {
+      public Codec createForAudioEncoding(Format format, @Nullable LogSessionId logSessionId) {
         return new DroppingEncoder(context, format);
       }
 
       @Override
-      public Codec createForVideoEncoding(Format format) {
+      public Codec createForVideoEncoding(Format format, @Nullable LogSessionId logSessionId) {
         return new DroppingEncoder(context, format);
       }
     }

@@ -1224,6 +1224,33 @@ public final class Util {
   }
 
   /**
+   * Returns the integer percentage of {@code numerator} divided by {@code denominator}. This uses
+   * integer arithmetic (round down).
+   */
+  @UnstableApi
+  public static int percentInt(long numerator, long denominator) {
+    long numeratorTimes100 = LongMath.saturatedMultiply(numerator, 100);
+    long result =
+        numeratorTimes100 != Long.MAX_VALUE && numeratorTimes100 != Long.MIN_VALUE
+            ? numeratorTimes100 / denominator
+            : (numerator / (denominator / 100));
+    return Ints.checkedCast(result);
+  }
+
+  /**
+   * Returns the floating point percentage of {@code numerator} divided by {@code denominator}. Note
+   * that this may return {@link Float#POSITIVE_INFINITY}, {@link Float#NEGATIVE_INFINITY} or {@link
+   * Float#NaN} if the denominator is zero.
+   */
+  @UnstableApi
+  public static float percentFloat(long numerator, long denominator) {
+    if (denominator != 0 && numerator == denominator) {
+      return 100f;
+    }
+    return ((float) numerator / denominator) * 100;
+  }
+
+  /**
    * Returns the index of the first occurrence of {@code value} in {@code array}, or {@link
    * C#INDEX_UNSET} if {@code value} is not contained in {@code array}.
    *
@@ -2059,7 +2086,6 @@ public final class Util {
    * @param applicationName String that will be prefix'ed to the generated user agent.
    * @return A user agent string generated using the applicationName and the library version.
    */
-  @UnstableApi
   public static String getUserAgent(Context context, String applicationName) {
     String versionName;
     try {
@@ -2570,7 +2596,8 @@ public final class Util {
    */
   public static @ContentType int inferContentType(Uri uri) {
     @Nullable String scheme = uri.getScheme();
-    if (scheme != null && Ascii.equalsIgnoreCase("rtsp", scheme)) {
+    if (scheme != null
+        && (Ascii.equalsIgnoreCase("rtsp", scheme) || Ascii.equalsIgnoreCase("rtspt", scheme))) {
       return C.CONTENT_TYPE_RTSP;
     }
 
@@ -3662,7 +3689,7 @@ public final class Util {
    */
   @EnsuresNonNullIf(result = false, expression = "#1")
   public static boolean shouldShowPlayButton(@Nullable Player player) {
-    return shouldShowPlayButton(player, /* playIfSuppressed= */ true);
+    return shouldShowPlayButton(player, /* shouldShowPlayIfSuppressed= */ true);
   }
 
   /**
@@ -3673,17 +3700,18 @@ public final class Util {
    * #handlePauseButtonAction} to handle the interaction with the play or pause button UI element.
    *
    * @param player The {@link Player}. May be {@code null}.
-   * @param playIfSuppressed Whether to show a play button if playback is {@linkplain
+   * @param shouldShowPlayIfSuppressed Whether to show a play button if playback is {@linkplain
    *     Player#getPlaybackSuppressionReason() suppressed}.
    */
   @UnstableApi
   @EnsuresNonNullIf(result = false, expression = "#1")
-  public static boolean shouldShowPlayButton(@Nullable Player player, boolean playIfSuppressed) {
+  public static boolean shouldShowPlayButton(
+      @Nullable Player player, boolean shouldShowPlayIfSuppressed) {
     return player == null
         || !player.getPlayWhenReady()
         || player.getPlaybackState() == Player.STATE_IDLE
         || player.getPlaybackState() == Player.STATE_ENDED
-        || (playIfSuppressed
+        || (shouldShowPlayIfSuppressed
             && player.getPlaybackSuppressionReason() != Player.PLAYBACK_SUPPRESSION_REASON_NONE);
   }
 

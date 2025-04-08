@@ -126,12 +126,9 @@ class CompositionPreviewViewModel(application: Application, val compositionLayou
         val universalVideoEffects = mutableListOf<Effect>()
         if (SAME_AS_INPUT_OPTION != outputResolution) {
             val resolutionHeight = outputResolution.toInt()
-            universalVideoEffects.add(LanczosResample.scaleToFit(10000, resolutionHeight))
-            universalVideoEffects.add(Presentation.createForHeight(resolutionHeight))
+            universalVideoEffects.add(LanczosResample.scaleToFitWithFlexibleOrientation(10000, resolutionHeight))
+            universalVideoEffects.add(Presentation.createForShortSide(resolutionHeight))
         }
-        // Preview requires all sequences to be the same duration, so calculate main sequence duration
-        // and limit background sequence duration to match.
-        var videoSequenceDurationUs = 0L
         for (i in selectedMediaItems.indices) {
             if (selectedMediaItems[i]) {
                 val mediaItem = MediaItem.Builder().setUri(mediaItemUris[i])
@@ -145,7 +142,6 @@ class CompositionPreviewViewModel(application: Application, val compositionLayou
                         /* videoEffects= */allVideoEffects
                     )
                 ).setDurationUs(mediaItemDurationsUs[i].toLong())
-                videoSequenceDurationUs += mediaItemDurationsUs[i].toLong()
                 mediaItems.add(itemBuilder.build())
             }
         }
@@ -169,7 +165,7 @@ class CompositionPreviewViewModel(application: Application, val compositionLayou
             }
         }
         if (includeBackgroundAudioTrack) {
-            videoSequences.add(getAudioBackgroundSequence(Util.usToMs(videoSequenceDurationUs)))
+            videoSequences.add(getAudioBackgroundSequence())
         }
         // TODO(nevmital): Do we want a checkbox for this AudioProcessor?
         val sampleRateChanger = SonicAudioProcessor()
@@ -184,16 +180,6 @@ class CompositionPreviewViewModel(application: Application, val compositionLayou
             .setVideoCompositorSettings(getVideoCompositorSettings())
             .setHdrMode(outputHdrMode)
             .build()
-    }
-
-    fun getAudioBackgroundSequence(durationMs: Long): EditedMediaItemSequence {
-        val audioMediaItem: MediaItem =
-            MediaItem.Builder().setUri(AUDIO_URI).setClippingConfiguration(
-                ClippingConfiguration.Builder().setStartPositionMs(0)
-                    .setEndPositionMs(durationMs).build()
-            ).build()
-        val audioItem = EditedMediaItem.Builder(audioMediaItem).setDurationUs(durationMs).build()
-        return EditedMediaItemSequence.Builder(audioItem).build()
     }
 
     fun getVideoCompositorSettings() : VideoCompositorSettings {
@@ -457,6 +443,12 @@ class CompositionPreviewViewModel(application: Application, val compositionLayou
             "2x2 grid",
             "PiP overlay"
         )
+
+        fun getAudioBackgroundSequence(): EditedMediaItemSequence {
+            val audioMediaItem: MediaItem = MediaItem.Builder().setUri(AUDIO_URI).build()
+            val audioItem = EditedMediaItem.Builder(audioMediaItem).setDurationUs(59_000_000).build()
+            return EditedMediaItemSequence.Builder(audioItem).setIsLooping(true).build()
+        }
     }
 }
 

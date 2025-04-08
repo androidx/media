@@ -22,7 +22,6 @@ import android.net.Uri;
 import android.os.Bundle;
 import androidx.media3.test.session.common.TestUtils;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import androidx.test.filters.SdkSuppress;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -30,7 +29,6 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public class MediaDescriptionCompatTest {
 
-  @SdkSuppress(minSdkVersion = 21)
   @Test
   public void roundTripViaFrameworkObject_returnsEqualMediaUriAndExtras() {
     Uri mediaUri = Uri.parse("androidx://media/uri");
@@ -54,7 +52,6 @@ public class MediaDescriptionCompatTest {
     TestUtils.equals(createExtras(), restoredDescription2.getExtras());
   }
 
-  @SdkSuppress(minSdkVersion = 21)
   @Test
   public void getMediaDescription_withMediaUri_doesNotTouchExtras() {
     MediaDescriptionCompat originalDescription =

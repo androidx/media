@@ -26,7 +26,6 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorInput;
-import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.extractor.PositionHolder;
 import androidx.media3.extractor.SeekMap;
 import androidx.media3.test.utils.FakeExtractorInput.SimulatedIOException;
@@ -203,142 +202,6 @@ public final class ExtractorAsserts {
   }
 
   /**
-   * Asserts that an extractor behaves correctly given valid input data.
-   *
-   * <ul>
-   *   <li>Calls {@link Extractor#seek(long, long)} and {@link Extractor#release()} without calling
-   *       {@link Extractor#init(ExtractorOutput)} to check these calls do not fail.
-   *   <li>Calls {@link #assertOutput(Extractor, String, byte[], Context, boolean, boolean, boolean,
-   *       boolean, boolean)} with all possible combinations of "simulate" parameters.
-   * </ul>
-   *
-   * @param factory An {@link ExtractorFactory} which creates instances of the {@link Extractor}
-   *     class which is to be tested.
-   * @param file The path to the input sample.
-   * @throws IOException If reading from the input fails.
-   */
-  public static void assertAllBehaviors(ExtractorFactory factory, String file) throws IOException {
-    assertAllBehaviors(factory, file, file);
-  }
-
-  /**
-   * Asserts that an extractor behaves correctly given valid input data:
-   *
-   * <ul>
-   *   <li>Calls {@link Extractor#seek(long, long)} and {@link Extractor#release()} without calling
-   *       {@link Extractor#init(ExtractorOutput)} to check these calls do not fail.
-   *   <li>Calls {@link #assertOutput(Extractor, String, byte[], Context, boolean, boolean, boolean,
-   *       boolean, boolean)} with all possible combinations of "simulate" parameters.
-   * </ul>
-   *
-   * @param factory An {@link ExtractorFactory} which creates instances of the {@link Extractor}
-   *     class which is to be tested.
-   * @param file The path to the input sample.
-   * @param dumpFilesPrefix The dump files prefix appended to the dump files path.
-   * @throws IOException If reading from the input fails.
-   */
-  public static void assertAllBehaviors(
-      ExtractorFactory factory, String file, String dumpFilesPrefix) throws IOException {
-    // Check behavior prior to initialization.
-    Extractor extractor = factory.create();
-    extractor.seek(0, 0);
-    extractor.release();
-    // Assert output.
-    Context context = ApplicationProvider.getApplicationContext();
-    byte[] fileData = TestUtil.getByteArray(context, file);
-    assertOutput(
-        factory.create(),
-        dumpFilesPrefix,
-        fileData,
-        context,
-        /* deduplicateConsecutiveFormats= */ false,
-        /* sniffFirst= */ true,
-        /* simulateIOErrors= */ false,
-        /* simulateUnknownLength= */ false,
-        /* simulatePartialReads= */ false);
-    assertOutput(
-        factory.create(),
-        dumpFilesPrefix,
-        fileData,
-        context,
-        /* deduplicateConsecutiveFormats= */ false,
-        /* sniffFirst= */ true,
-        /* simulateIOErrors= */ false,
-        /* simulateUnknownLength= */ false,
-        /* simulatePartialReads= */ true);
-    assertOutput(
-        factory.create(),
-        dumpFilesPrefix,
-        fileData,
-        context,
-        /* deduplicateConsecutiveFormats= */ false,
-        /* sniffFirst= */ true,
-        /* simulateIOErrors= */ false,
-        /* simulateUnknownLength= */ true,
-        /* simulatePartialReads= */ false);
-    assertOutput(
-        factory.create(),
-        dumpFilesPrefix,
-        fileData,
-        context,
-        /* deduplicateConsecutiveFormats= */ false,
-        /* sniffFirst= */ true,
-        /* simulateIOErrors= */ false,
-        /* simulateUnknownLength= */ true,
-        /* simulatePartialReads= */ true);
-    assertOutput(
-        factory.create(),
-        dumpFilesPrefix,
-        fileData,
-        context,
-        /* deduplicateConsecutiveFormats= */ false,
-        /* sniffFirst= */ true,
-        /* simulateIOErrors= */ true,
-        /* simulateUnknownLength= */ false,
-        /* simulatePartialReads= */ false);
-    assertOutput(
-        factory.create(),
-        dumpFilesPrefix,
-        fileData,
-        context,
-        /* deduplicateConsecutiveFormats= */ false,
-        /* sniffFirst= */ true,
-        /* simulateIOErrors= */ true,
-        /* simulateUnknownLength= */ false,
-        /* simulatePartialReads= */ true);
-    assertOutput(
-        factory.create(),
-        dumpFilesPrefix,
-        fileData,
-        context,
-        /* deduplicateConsecutiveFormats= */ false,
-        /* sniffFirst= */ true,
-        /* simulateIOErrors= */ true,
-        /* simulateUnknownLength= */ true,
-        /* simulatePartialReads= */ false);
-    assertOutput(
-        factory.create(),
-        dumpFilesPrefix,
-        fileData,
-        context,
-        /* deduplicateConsecutiveFormats= */ false,
-        /* sniffFirst= */ true,
-        /* simulateIOErrors= */ true,
-        /* simulateUnknownLength= */ true,
-        /* simulatePartialReads= */ true);
-    assertOutput(
-        factory.create(),
-        dumpFilesPrefix,
-        fileData,
-        context,
-        /* deduplicateConsecutiveFormats= */ false,
-        /* sniffFirst= */ false,
-        /* simulateIOErrors= */ false,
-        /* simulateUnknownLength= */ false,
-        /* simulatePartialReads= */ false);
-  }
-
-  /**
    * Asserts that an extractor consumes valid input data successfully under the conditions specified
    * by {@code simulationConfig}.
    *
@@ -401,8 +264,9 @@ public final class ExtractorAsserts {
       path[0] = "extractordumps";
       dumpFilesPrefix = Joiner.on('/').join(path);
     }
+    extractor = factory.create();
     assertOutput(
-        factory.create(),
+        extractor,
         dumpFilesPrefix,
         fileData,
         context,
@@ -411,6 +275,7 @@ public final class ExtractorAsserts {
         simulationConfig.simulateIOErrors,
         simulationConfig.simulateUnknownLength,
         simulationConfig.simulatePartialReads);
+    extractor.release();
   }
 
   /**

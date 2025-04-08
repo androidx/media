@@ -86,9 +86,19 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
    * @param context The {@link Context}.
    */
   public CapturingRenderersFactory(Context context) {
+    this(context, CapturingAudioSink.create());
+  }
+
+  /**
+   * Creates an instance.
+   *
+   * @param context The {@link Context}.
+   * @param capturingAudioSink The audio sink to use for capturing audio output.
+   */
+  public CapturingRenderersFactory(Context context, CapturingAudioSink capturingAudioSink) {
     this.context = context;
     this.mediaCodecAdapterFactory = new CapturingMediaCodecAdapter.Factory(context);
-    this.audioSink = CapturingAudioSink.create();
+    this.audioSink = capturingAudioSink;
     this.imageOutput = new CapturingImageOutput();
     this.imageDecoderFactory = ImageDecoder.Factory.DEFAULT;
     this.textRendererFactory = TextRenderer::new;
@@ -262,12 +272,6 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
     @Override
     protected boolean shouldSkipBuffersWithIdenticalReleaseTime() {
       // Do not skip buffers with identical vsync times as we can't control this from tests.
-      return false;
-    }
-
-    @Override
-    protected boolean shouldSkipLateBuffersWhileUsingPlaceholderSurface() {
-      // Do not skip buffers while using placeholder surface due to slow processing.
       return false;
     }
   }

@@ -24,6 +24,7 @@ import android.net.Uri;
 import android.util.Pair;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.MediaFormatUtil;
 import androidx.media3.exoplayer.MediaExtractorCompat;
 import com.google.common.collect.ImmutableList;
@@ -81,14 +82,23 @@ import java.util.List;
 
   public static void feedInputDataToMp4Muxer(Context context, Mp4Muxer muxer, String inputFileName)
       throws IOException, MuxerException {
+    feedInputDataToMp4Muxer(context, muxer, inputFileName, /* removeInitializationData= */ false);
+  }
+
+  public static void feedInputDataToMp4Muxer(
+      Context context, Mp4Muxer muxer, String inputFileName, boolean removeInitializationData)
+      throws IOException, MuxerException {
     MediaExtractorCompat extractor = new MediaExtractorCompat(context);
     Uri fileUri = Uri.parse(MP4_FILE_ASSET_DIRECTORY + inputFileName);
     extractor.setDataSource(fileUri, /* offset= */ 0);
 
     List<Integer> addedTracks = new ArrayList<>();
     for (int i = 0; i < extractor.getTrackCount(); i++) {
-      int trackId =
-          muxer.addTrack(MediaFormatUtil.createFormatFromMediaFormat(extractor.getTrackFormat(i)));
+      Format format = MediaFormatUtil.createFormatFromMediaFormat(extractor.getTrackFormat(i));
+      if (removeInitializationData && MimeTypes.isVideo(format.sampleMimeType)) {
+        format = format.buildUpon().setInitializationData(null).build();
+      }
+      int trackId = muxer.addTrack(format);
       addedTracks.add(trackId);
       extractor.selectTrack(i);
     }

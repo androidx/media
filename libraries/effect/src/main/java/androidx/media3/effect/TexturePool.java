@@ -17,18 +17,19 @@ package androidx.media3.effect;
 
 import static androidx.media3.common.util.Assertions.checkState;
 
+import androidx.annotation.Nullable;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.util.GlUtil;
 import com.google.common.collect.Iterables;
 import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.Iterator;
-import java.util.Queue;
 
 /** Holds {@code capacity} textures, to re-use textures. */
 /* package */ final class TexturePool {
-  private final Queue<GlTextureInfo> freeTextures;
-  private final Queue<GlTextureInfo> inUseTextures;
+  private final Deque<GlTextureInfo> freeTextures;
+  private final Deque<GlTextureInfo> inUseTextures;
   private final int capacity;
   private final boolean useHighPrecisionColorComponents;
 
@@ -92,6 +93,15 @@ import java.util.Queue;
     GlTextureInfo texture = freeTextures.remove();
     inUseTextures.add(texture);
     return texture;
+  }
+
+  /** Returns the {@link GlTextureInfo} that is most recently {@linkplain #useTexture used}. */
+  @Nullable
+  public GlTextureInfo getMostRecentlyUsedTexture() {
+    if (inUseTextures.isEmpty()) {
+      return null;
+    }
+    return inUseTextures.getLast();
   }
 
   /**

@@ -27,6 +27,7 @@ import static androidx.media3.common.util.Util.maxValue;
 import static androidx.media3.common.util.Util.minValue;
 import static androidx.media3.common.util.Util.parseXsDateTime;
 import static androidx.media3.common.util.Util.parseXsDuration;
+import static androidx.media3.common.util.Util.percentFloat;
 import static androidx.media3.common.util.Util.unescapeFileName;
 import static androidx.media3.test.utils.TestUtil.buildTestData;
 import static androidx.media3.test.utils.TestUtil.buildTestString;
@@ -145,6 +146,56 @@ public class UtilTest {
 
     res = Util.subtractWithOverflowDefault(Long.MAX_VALUE, -1, /* overflowResult= */ 12345);
     assertThat(res).isEqualTo(12345);
+  }
+
+  @Test
+  public void percentInt_smallValues() {
+    assertThat(Util.percentInt(3, 9)).isEqualTo(33);
+    assertThat(Util.percentInt(3, 3)).isEqualTo(100);
+  }
+
+  @Test
+  public void percentInt_smallNegativeValues() {
+    assertThat(Util.percentInt(-3, -9)).isEqualTo(33);
+    assertThat(Util.percentInt(-3, -3)).isEqualTo(100);
+  }
+
+  @Test
+  public void percentInt_largeValuesDontOverflow() {
+    assertThat(Util.percentInt(Long.MAX_VALUE / 4, Long.MAX_VALUE / 2)).isEqualTo(50);
+  }
+
+  @Test
+  public void percentInt_largeNegativeValuesDontOverflow() {
+    assertThat(Util.percentInt(Long.MIN_VALUE / 4, Long.MIN_VALUE / 2)).isEqualTo(50);
+  }
+
+  @Test
+  public void percentFloat_numeratorEqualToDenominator_returnsOneHundred() {
+    // With numerator and denominator both being 812345L, the percentage calculated in another way
+    // (numerator * 100f / denominator) will be 99.99999f. We then use this value to verify that
+    // this doesn't happen for Util.percent() method.
+    assertThat(percentFloat(812345L, 812345L)).isEqualTo(100f);
+  }
+
+  @Test
+  public void percentFloat_numeratorNotEqualToDenominator_returnsCorrectValue() {
+    assertThat(percentFloat(500L, 2000L)).isEqualTo(25f);
+  }
+
+  @Test
+  public void percentFloat_positiveNumeratorAndZeroDenominator_returnsPositiveInfinity() {
+    assertThat(percentFloat(1L, 0L)).isPositiveInfinity();
+  }
+
+  @Test
+  public void percentFloat_negativeNumeratorAndZeroDenominator_returnsNegativeInfinity() {
+    assertThat(percentFloat(-1L, 0L)).isNegativeInfinity();
+  }
+
+  @Test
+  public void percentFloat_numeratorAndDenominatorAreBothZero_returnsNaN() {
+    assertThat(percentFloat(0L, 0L)).isNaN();
   }
 
   @Test

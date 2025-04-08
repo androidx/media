@@ -196,6 +196,32 @@ public class CompositionExportTest {
   }
 
   @Test
+  public void start_longerLoopingSequence_hasNonLoopingSequenceDuration() throws Exception {
+    Transformer transformer = new TestTransformerBuilder(context).build();
+    EditedMediaItem audioEditedMediaItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_ONLY)).build();
+    EditedMediaItemSequence loopingAudioSequence =
+        new EditedMediaItemSequence.Builder(audioEditedMediaItem, audioEditedMediaItem)
+            .setIsLooping(true)
+            .build();
+    EditedMediaItem videoEditedMediaItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_VIDEO_ONLY)).build();
+    EditedMediaItemSequence videoSequence =
+        new EditedMediaItemSequence.Builder(videoEditedMediaItem).build();
+    Composition composition =
+        new Composition.Builder(loopingAudioSequence, videoSequence)
+            .setTransmuxAudio(true)
+            .setTransmuxVideo(true)
+            .build();
+
+    transformer.start(composition, outputDir.newFile().getPath());
+    ExportResult exportResult = TransformerTestRunner.runLooper(transformer);
+
+    // Video file duration is 1001 ms and audio file duration is 1044 ms.
+    assertThat(exportResult.durationMs).isLessThan(1_001);
+  }
+
+  @Test
   public void start_compositionOfConcurrentAudio_isCorrect() throws Exception {
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
     Transformer transformer =
@@ -455,7 +481,10 @@ public class CompositionExportTest {
         new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)).build();
     Composition composition =
         new Composition.Builder(
-                new EditedMediaItemSequence.Builder().addGap(1_000_000).build(),
+                new EditedMediaItemSequence.Builder()
+                    .addGap(1_000_000)
+                    .experimentalSetForceAudioTrack(true)
+                    .build(),
                 new EditedMediaItemSequence.Builder(audioItem1000ms).build())
             .build();
 
@@ -486,6 +515,7 @@ public class CompositionExportTest {
                 new EditedMediaItemSequence.Builder()
                     .addGap(100_000)
                     .addItem(audioEditedMediaItem)
+                    .experimentalSetForceAudioTrack(true)
                     .build(),
                 new EditedMediaItemSequence.Builder(otherAudioEditedMediaItem).build())
             .build();
@@ -565,6 +595,7 @@ public class CompositionExportTest {
                 new EditedMediaItemSequence.Builder()
                     .addGap(200_000)
                     .addItem(audioEditedMediaItem)
+                    .experimentalSetForceAudioTrack(true)
                     .build())
             .setTransmuxVideo(true)
             .build();
@@ -690,7 +721,10 @@ public class CompositionExportTest {
     Composition composition =
         new Composition.Builder(
                 new EditedMediaItemSequence.Builder(audioItem1000ms).build(),
-                new EditedMediaItemSequence.Builder().addGap(1_000_000).build())
+                new EditedMediaItemSequence.Builder()
+                    .addGap(1_000_000)
+                    .experimentalSetForceAudioTrack(true)
+                    .build())
             .build();
 
     transformer.start(composition, outputDir.newFile().getPath());
@@ -707,8 +741,14 @@ public class CompositionExportTest {
         new TestTransformerBuilder(context).setMuxerFactory(muxerFactory).build();
     Composition composition =
         new Composition.Builder(
-                new EditedMediaItemSequence.Builder().addGap(500_000).build(),
-                new EditedMediaItemSequence.Builder().addGap(500_000).build())
+                new EditedMediaItemSequence.Builder()
+                    .addGap(500_000)
+                    .experimentalSetForceAudioTrack(true)
+                    .build(),
+                new EditedMediaItemSequence.Builder()
+                    .addGap(500_000)
+                    .experimentalSetForceAudioTrack(true)
+                    .build())
             .build();
 
     transformer.start(composition, outputDir.newFile().getPath());

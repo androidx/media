@@ -35,7 +35,6 @@ import static androidx.media3.exoplayer.Renderer.MSG_SET_PRIORITY;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_SCALING_MODE;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_SKIP_SILENCE_ENABLED;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_VIDEO_EFFECTS;
-import static androidx.media3.exoplayer.Renderer.MSG_SET_VIDEO_FRAME_METADATA_LISTENER;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_VIDEO_OUTPUT_RESOLUTION;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -59,6 +58,7 @@ import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.AuxEffectInfo;
 import androidx.media3.common.BasePlayer;
 import androidx.media3.common.C;
+import androidx.media3.common.C.TrackType;
 import androidx.media3.common.DeviceInfo;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
@@ -117,6 +117,7 @@ import androidx.media3.exoplayer.video.VideoRendererEventListener;
 import androidx.media3.exoplayer.video.spherical.CameraMotionListener;
 import androidx.media3.exoplayer.video.spherical.SphericalGLSurfaceView;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -182,6 +183,9 @@ import java.util.concurrent.CopyOnWriteArraySet;
   private @DiscontinuityReason int pendingDiscontinuityReason;
   private boolean pendingDiscontinuity;
   private boolean foregroundMode;
+  private boolean scrubbingModeEnabled;
+  @Nullable private ImmutableSet<@TrackType Integer> disabledTrackTypesWithoutScrubbingMode;
+  private ScrubbingModeParameters scrubbingModeParameters;
   private SeekParameters seekParameters;
   private ShuffleOrder shuffleOrder;
   private PreloadConfiguration preloadConfiguration;
@@ -284,6 +288,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
       this.seekBackIncrementMs = builder.seekBackIncrementMs;
       this.seekForwardIncrementMs = builder.seekForwardIncrementMs;
       this.maxSeekToPreviousPositionMs = builder.maxSeekToPreviousPositionMs;
+      this.scrubbingModeParameters = builder.scrubbingModeParameters;
       this.pauseAtEndOfMediaItems = builder.pauseAtEndOfMediaItems;
       this.applicationLooper = builder.looper;
       this.clock = builder.clock;
@@ -370,7 +375,8 @@ import java.util.concurrent.CopyOnWriteArraySet;
               playbackInfoUpdateListener,
               playerId,
               builder.playbackLooperProvider,
-              preloadConfiguration);
+              preloadConfiguration,
+              frameMetadataListener);
       Looper playbackLooper = internalPlayer.getPlaybackLooper();
 
       volume = 1;
@@ -447,8 +453,6 @@ import java.util.concurrent.CopyOnWriteArraySet;
       sendRendererMessage(
           TRACK_TYPE_VIDEO, MSG_SET_CHANGE_FRAME_RATE_STRATEGY, videoChangeFrameRateStrategy);
       sendRendererMessage(TRACK_TYPE_AUDIO, MSG_SET_SKIP_SILENCE_ENABLED, skipSilenceEnabled);
-      sendRendererMessage(
-          TRACK_TYPE_VIDEO, MSG_SET_VIDEO_FRAME_METADATA_LISTENER, frameMetadataListener);
       sendRendererMessage(
           TRACK_TYPE_CAMERA_MOTION, MSG_SET_CAMERA_MOTION_LISTENER, frameMetadataListener);
       sendRendererMessage(MSG_SET_PRIORITY, priority);
@@ -1225,20 +1229,38 @@ import java.util.concurrent.CopyOnWriteArraySet;
   @Override
   public TrackSelectionParameters getTrackSelectionParameters() {
     verifyApplicationThread();
-    return trackSelector.getParameters();
+    TrackSelectionParameters parameters = trackSelector.getParameters();
+    return scrubbingModeEnabled
+        ? parameters
+            .buildUpon()
+            .setDisabledTrackTypes(disabledTrackTypesWithoutScrubbingMode)
+            .build()
+        : parameters;
   }
 
   @Override
   public void setTrackSelectionParameters(TrackSelectionParameters parameters) {
     verifyApplicationThread();
-    if (!trackSelector.isSetParametersSupported()
-        || parameters.equals(trackSelector.getParameters())) {
+    if (!trackSelector.isSetParametersSupported()) {
       return;
     }
-    trackSelector.setParameters(parameters);
-    listeners.sendEvent(
-        EVENT_TRACK_SELECTION_PARAMETERS_CHANGED,
-        listener -> listener.onTrackSelectionParametersChanged(parameters));
+    TrackSelectionParameters publicParametersBeforeUpdate = getTrackSelectionParameters();
+    TrackSelectionParameters internalParameters;
+    if (scrubbingModeEnabled) {
+      this.disabledTrackTypesWithoutScrubbingMode = parameters.disabledTrackTypes;
+      internalParameters =
+          addDisabledTrackTypes(parameters, scrubbingModeParameters.disabledTrackTypes);
+    } else {
+      internalParameters = parameters;
+    }
+    if (!internalParameters.equals(trackSelector.getParameters())) {
+      trackSelector.setParameters(internalParameters);
+    }
+    if (!publicParametersBeforeUpdate.equals(parameters)) {
+      listeners.sendEvent(
+          EVENT_TRACK_SELECTION_PARAMETERS_CHANGED,
+          listener -> listener.onTrackSelectionParametersChanged(parameters));
+    }
   }
 
   @Override
@@ -1551,6 +1573,71 @@ import java.util.concurrent.CopyOnWriteArraySet;
     listeners.sendEvent(
         EVENT_SKIP_SILENCE_ENABLED_CHANGED,
         listener -> listener.onSkipSilenceEnabledChanged(newSkipSilenceEnabled));
+  }
+
+  @Override
+  public void setScrubbingModeEnabled(boolean scrubbingModeEnabled) {
+    verifyApplicationThread();
+    if (scrubbingModeEnabled == this.scrubbingModeEnabled) {
+      return;
+    }
+    this.scrubbingModeEnabled = scrubbingModeEnabled;
+    if (!scrubbingModeParameters.disabledTrackTypes.isEmpty()
+        && trackSelector.isSetParametersSupported()) {
+      TrackSelectionParameters previousTrackSelectionParameters = trackSelector.getParameters();
+      TrackSelectionParameters newTrackSelectionParameters;
+      if (scrubbingModeEnabled) {
+        this.disabledTrackTypesWithoutScrubbingMode =
+            previousTrackSelectionParameters.disabledTrackTypes;
+        newTrackSelectionParameters =
+            addDisabledTrackTypes(
+                previousTrackSelectionParameters, scrubbingModeParameters.disabledTrackTypes);
+      } else {
+        newTrackSelectionParameters =
+            previousTrackSelectionParameters
+                .buildUpon()
+                .setDisabledTrackTypes(disabledTrackTypesWithoutScrubbingMode)
+                .build();
+        this.disabledTrackTypesWithoutScrubbingMode = null;
+      }
+      // Set the parameters directly, to avoid firing onTrackSelectionParametersChanged (because
+      // the return value of getTrackSelectionParameters won't change).
+      if (!newTrackSelectionParameters.equals(previousTrackSelectionParameters)) {
+        trackSelector.setParameters(newTrackSelectionParameters);
+      }
+    }
+    internalPlayer.setScrubbingModeEnabled(scrubbingModeEnabled);
+    maybeUpdatePlaybackSuppressionReason();
+  }
+
+  @Override
+  public void setScrubbingModeParameters(ScrubbingModeParameters scrubbingModeParameters) {
+    verifyApplicationThread();
+    if (this.scrubbingModeParameters.equals(scrubbingModeParameters)) {
+      return;
+    }
+    ScrubbingModeParameters previousParameters = this.scrubbingModeParameters;
+    this.scrubbingModeParameters = scrubbingModeParameters;
+    if (scrubbingModeEnabled
+        && trackSelector.isSetParametersSupported()
+        && !previousParameters.disabledTrackTypes.equals(
+            scrubbingModeParameters.disabledTrackTypes)) {
+      // We are already in scrubbing mode, but the tracks we should disable while scrubbing have
+      // changed, so we need to re-calculate the track selection parameters.
+      TrackSelectionParameters trackSelectionParameters =
+          addDisabledTrackTypes(
+              getTrackSelectionParameters(), scrubbingModeParameters.disabledTrackTypes);
+      if (!trackSelectionParameters.equals(trackSelector.getParameters())) {
+        // Set the parameters directly, to avoid firing onTrackSelectionParametersChanged.
+        trackSelector.setParameters(trackSelectionParameters);
+      }
+    }
+  }
+
+  @Override
+  public ScrubbingModeParameters getScrubbingModeParameters() {
+    verifyApplicationThread();
+    return scrubbingModeParameters;
   }
 
   @Override
@@ -2730,6 +2817,10 @@ import java.util.concurrent.CopyOnWriteArraySet;
     }
   }
 
+  private void maybeUpdatePlaybackSuppressionReason() {
+    updatePlayWhenReady(playbackInfo.playWhenReady, playbackInfo.playWhenReadyChangeReason);
+  }
+
   private void updatePlayWhenReady(
       boolean playWhenReady, @Player.PlayWhenReadyChangeReason int playWhenReadyChangeReason) {
     @PlaybackSuppressionReason
@@ -2761,6 +2852,9 @@ import java.util.concurrent.CopyOnWriteArraySet;
   }
 
   private @PlaybackSuppressionReason int computePlaybackSuppressionReason(boolean playWhenReady) {
+    if (scrubbingModeEnabled) {
+      return Player.PLAYBACK_SUPPRESSION_REASON_SCRUBBING;
+    }
     if (suitableOutputChecker != null
         && !suitableOutputChecker.isSelectedOutputSuitableForPlayback()) {
       return Player.PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT;
@@ -2888,10 +2982,10 @@ import java.util.concurrent.CopyOnWriteArraySet;
     if (isSelectedOutputSuitableForPlayback) {
       if (playbackInfo.playbackSuppressionReason
           == Player.PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT) {
-        updatePlayWhenReady(playbackInfo.playWhenReady, PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST);
+        maybeUpdatePlaybackSuppressionReason();
       }
     } else {
-      updatePlayWhenReady(playbackInfo.playWhenReady, PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST);
+      maybeUpdatePlaybackSuppressionReason();
     }
   }
 
@@ -2908,6 +3002,15 @@ import java.util.concurrent.CopyOnWriteArraySet;
         .setMinVolume(streamVolumeManager != null ? streamVolumeManager.getMinVolume() : 0)
         .setMaxVolume(streamVolumeManager != null ? streamVolumeManager.getMaxVolume() : 0)
         .build();
+  }
+
+  private static TrackSelectionParameters addDisabledTrackTypes(
+      TrackSelectionParameters parameters, ImmutableSet<@C.TrackType Integer> trackTypesToDisable) {
+    TrackSelectionParameters.Builder parametersBuilder = parameters.buildUpon();
+    for (@C.TrackType Integer trackType : trackTypesToDisable) {
+      parametersBuilder.setTrackTypeDisabled(trackType, true);
+    }
+    return parametersBuilder.build();
   }
 
   private static final class MediaSourceHolderSnapshot implements MediaSourceInfoHolder {

@@ -17,13 +17,13 @@ package androidx.media3.transformer;
 
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
+import static androidx.media3.common.util.Util.percentInt;
 import static androidx.media3.transformer.ExportException.ERROR_CODE_UNSPECIFIED;
 import static androidx.media3.transformer.SampleConsumer.INPUT_RESULT_END_OF_STREAM;
 import static androidx.media3.transformer.SampleConsumer.INPUT_RESULT_TRY_AGAIN_LATER;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_AVAILABLE;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_NOT_STARTED;
 import static androidx.media3.transformer.TransformerUtil.getValidColor;
-import static java.lang.Math.round;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
@@ -106,7 +106,7 @@ public final class TextureAssetLoader implements AssetLoader {
   public @Transformer.ProgressState int getProgress(ProgressHolder progressHolder) {
     if (progressState == PROGRESS_STATE_AVAILABLE) {
       progressHolder.progress =
-          round((lastQueuedPresentationTimeUs / (float) editedMediaItem.durationUs) * 100);
+          percentInt(lastQueuedPresentationTimeUs, editedMediaItem.durationUs);
     }
     return progressState;
   }

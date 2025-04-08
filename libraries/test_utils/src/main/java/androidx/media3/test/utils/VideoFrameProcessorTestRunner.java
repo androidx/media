@@ -306,7 +306,8 @@ public final class VideoFrameProcessorTestRunner {
               }
 
               @Override
-              public void onOutputFrameAvailableForRendering(long presentationTimeUs) {
+              public void onOutputFrameAvailableForRendering(
+                  long presentationTimeUs, boolean isRedrawnFrame) {
                 // Do nothing as frames are rendered automatically.
                 onOutputFrameAvailableForRenderingListener.onFrameAvailableForRendering(
                     presentationTimeUs);

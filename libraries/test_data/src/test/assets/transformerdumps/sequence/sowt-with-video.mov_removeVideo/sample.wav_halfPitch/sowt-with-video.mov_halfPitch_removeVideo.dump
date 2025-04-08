@@ -4,8 +4,9 @@ format audio:
   channelCount = 2
   sampleRate = 48000
   pcmEncoding = 2
-  metadata = entries=[Mp4Timestamp: creation time=0, modification time=0, timescale=1000]
+  metadata = entries=[Mp4AlternateGroup: 1, Mp4Timestamp: creation time=0, modification time=0, timescale=1000]
 container metadata:
+  entry = Mp4AlternateGroup: 1
   entry = Mp4Timestamp: creation time=0, modification time=0, timescale=1000
 sample:
   trackType = audio

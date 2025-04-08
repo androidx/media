@@ -18,6 +18,7 @@ package androidx.media3.muxer;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.muxer.AnnexBUtils.doesSampleContainAnnexBNalUnits;
+import static androidx.media3.muxer.Av1ConfigUtil.createAv1CodecConfigurationRecord;
 import static androidx.media3.muxer.Boxes.BOX_HEADER_SIZE;
 import static androidx.media3.muxer.Boxes.LARGE_SIZE_BOX_HEADER_SIZE;
 import static androidx.media3.muxer.Boxes.getAxteBoxHeader;
@@ -28,6 +29,7 @@ import static java.lang.Math.max;
 import static java.lang.Math.min;
 
 import androidx.media3.common.Format;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.MdtaMetadataEntry;
 import com.google.common.collect.Range;
@@ -37,6 +39,7 @@ import java.nio.channels.FileChannel;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /** Writes all media samples into a single mdat box. */
@@ -151,6 +154,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
    */
   public void writeSampleData(Track track, ByteBuffer byteBuffer, BufferInfo bufferInfo)
       throws IOException {
+    if (Objects.equals(track.format.sampleMimeType, MimeTypes.VIDEO_AV1)
+        && track.format.initializationData.isEmpty()
+        && track.parsedCsd == null) {
+      track.parsedCsd = createAv1CodecConfigurationRecord(byteBuffer.duplicate());
+    }
     track.writeSampleData(byteBuffer, bufferInfo);
     if (sampleBatchingEnabled) {
       doInterleave();

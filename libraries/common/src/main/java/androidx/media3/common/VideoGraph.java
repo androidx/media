@@ -93,8 +93,12 @@ public interface VideoGraph {
      * for rendering.
      *
      * @param framePresentationTimeUs The presentation time of the frame, in microseconds.
+     * @param isRedrawnFrame Whether the frame is a frame that is {@linkplain #redraw redrawn},
+     *     redrawn frames are rendered directly thus {@link #renderOutputFrame} must not be called
+     *     on such frames.
      */
-    default void onOutputFrameAvailableForRendering(long framePresentationTimeUs) {}
+    default void onOutputFrameAvailableForRendering(
+        long framePresentationTimeUs, boolean isRedrawnFrame) {}
 
     /**
      * Called after the {@link VideoGraph} has rendered its final output frame.
@@ -224,8 +228,8 @@ public interface VideoGraph {
    * Renders the output frame from the {@code VideoGraph}.
    *
    * <p>This method must be called only for frames that have become {@linkplain
-   * Listener#onOutputFrameAvailableForRendering(long) available}, calling the method renders the
-   * frame that becomes available the earliest but not yet rendered.
+   * Listener#onOutputFrameAvailableForRendering available}, calling the method renders the frame
+   * that becomes available the earliest but not yet rendered.
    *
    * @see VideoFrameProcessor#renderOutputFrame(long)
    */

@@ -716,13 +716,9 @@ public final class ExperimentalFrameExtractor {
     public boolean isReady() {
       // When using FrameReadingGlShaderProgram, frames will not be rendered to the output surface,
       // and VideoFrameRenderControl.onFrameAvailableForRendering will not be called. The base class
-      // never becomes ready.
-      if (frameRenderedSinceLastPositionReset) {
-        // Treat this renderer as ready if a frame has been rendered into the effects pipeline.
-        // The renderer needs to become ready for ExoPlayer to enter STATE_READY.
-        return true;
-      }
-      return super.isReady();
+      // never becomes ready. Treat this renderer as ready if a frame has been rendered into the
+      // effects pipeline. The renderer needs to become ready for ExoPlayer to enter STATE_READY.
+      return frameRenderedSinceLastPositionReset;
     }
 
     @Override

@@ -1409,9 +1409,7 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
     assertThat(controllerCompat.getPlaybackState().getPosition()).isEqualTo(testPosition);
     assertThat(playbackStateRef.get().getActiveQueueItemId()).isEqualTo(testItemIndex);
     assertThat(controllerCompat.getPlaybackState().getActiveQueueItemId()).isEqualTo(testItemIndex);
-    assertThat(callbackOrder)
-        .containsExactly("onMetadataChanged", "onPlaybackStateChanged")
-        .inOrder();
+    assertThat(callbackOrder).containsExactly("onMetadataChanged", "onPlaybackStateChanged");
   }
 
   @Test

@@ -17,6 +17,7 @@ package androidx.media3.exoplayer.offline;
 
 import static androidx.annotation.VisibleForTesting.PRIVATE;
 import static androidx.media3.common.util.Assertions.checkNotNull;
+import static androidx.media3.common.util.Util.percentFloat;
 
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
@@ -216,7 +217,7 @@ public final class ProgressiveDownloader implements Downloader {
     float percentDownloaded =
         contentLength == C.LENGTH_UNSET || contentLength == 0
             ? C.PERCENTAGE_UNSET
-            : ((bytesCached * 100f) / contentLength);
-    progressListener.onProgress(contentLength, bytesCached, percentDownloaded);
+            : percentFloat(bytesCached, contentLength);
+    checkNotNull(progressListener).onProgress(contentLength, bytesCached, percentDownloaded);
   }
 }

@@ -225,7 +225,8 @@ public class DefaultVideoFrameProcessorTest {
               }
 
               @Override
-              public void onOutputFrameAvailableForRendering(long presentationTimeUs) {
+              public void onOutputFrameAvailableForRendering(
+                  long presentationTimeUs, boolean isRedrawnFrame) {
                 outputFrameCount++;
                 if (outputFrameCount == 30) {
                   firstStreamLastFrameAvailableTimeMs.set(SystemClock.DEFAULT.elapsedRealtime());
@@ -312,7 +313,8 @@ public class DefaultVideoFrameProcessorTest {
               }
 
               @Override
-              public void onOutputFrameAvailableForRendering(long presentationTimeUs) {
+              public void onOutputFrameAvailableForRendering(
+                  long presentationTimeUs, boolean isRedrawnFrame) {
                 outputFrameAvailableConditionVariable.open();
               }
 
