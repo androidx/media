@@ -77,6 +77,9 @@
 *   Cronet extension:
 *   RTMP extension:
 *   HLS extension:
+    *   Fix issue where chunk duration wasn't set in `CmcdData` for HLS media,
+        causing an assertion failure when processing encrypted media segments
+        ([#2312](https://github.com/androidx/media/issues/2312)).
 *   DASH extension:
 *   Smooth Streaming extension:
 *   RTSP extension:
