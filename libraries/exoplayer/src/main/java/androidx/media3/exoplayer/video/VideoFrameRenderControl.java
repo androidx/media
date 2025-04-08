@@ -209,6 +209,13 @@ import androidx.media3.exoplayer.ExoPlaybackException;
    * this method, the end of input signal is ignored.
    */
   public void signalEndOfInput() {
+    if (latestInputPresentationTimeUs == C.TIME_UNSET) {
+      // If EOS is signalled right after a flush without receiving a frame (could happen with frame
+      // replaying as available frame is not reported to the render control), set the latest input
+      // and output timestamp to end of source to ensure isEnded() returns true.
+      latestInputPresentationTimeUs = C.TIME_END_OF_SOURCE;
+      latestOutputPresentationTimeUs = C.TIME_END_OF_SOURCE;
+    }
     lastPresentationTimeUs = latestInputPresentationTimeUs;
   }
 

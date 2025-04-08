@@ -69,6 +69,9 @@ import androidx.media3.effect.ScaleAndRotateTransformation;
 import androidx.media3.effect.SingleInputVideoGraph;
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
 import androidx.media3.exoplayer.mediacodec.MediaCodecUtil;
+import androidx.media3.exoplayer.video.MediaCodecVideoRenderer;
+import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
+import androidx.media3.exoplayer.video.VideoFrameReleaseControl;
 import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.muxer.MuxerException;
 import androidx.media3.test.utils.BitmapPixelTestUtil;
@@ -98,6 +101,24 @@ import org.junit.AssumptionViolatedException;
 
 /** Utilities for instrumentation tests. */
 public final class AndroidTestUtil {
+
+  /** A {@link MediaCodecVideoRenderer} subclass that supports replaying a frame. */
+  public static class ReplayVideoRenderer extends MediaCodecVideoRenderer {
+
+    public ReplayVideoRenderer(Context context) {
+      super(new Builder(context).setMediaCodecSelector(MediaCodecSelector.DEFAULT));
+    }
+
+    @Override
+    protected PlaybackVideoGraphWrapper createPlaybackVideoGraphWrapper(
+        Context context, VideoFrameReleaseControl videoFrameReleaseControl) {
+      return new PlaybackVideoGraphWrapper.Builder(context, videoFrameReleaseControl)
+          .setClock(getClock())
+          .setEnableReplayableCache(true)
+          .build();
+    }
+  }
+
   private static final String TAG = "AndroidTestUtil";
 
   /** An {@link Effects} instance that forces video transcoding. */

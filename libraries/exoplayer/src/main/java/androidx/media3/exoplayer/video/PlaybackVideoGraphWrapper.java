@@ -731,8 +731,15 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     @Override
     public void redraw() {
       checkState(isInitialized());
+      // Resignal EOS only for the last item.
+      boolean needsResignalEndOfCurrentInputStream = signaledEndOfStream;
+      long replayedPresentationTimeUs = lastOutputBufferPresentationTimeUs;
       PlaybackVideoGraphWrapper.this.flush(/* resetPosition= */ false);
       checkNotNull(videoGraph).redraw();
+      lastOutputBufferPresentationTimeUs = replayedPresentationTimeUs;
+      if (needsResignalEndOfCurrentInputStream) {
+        signalEndOfCurrentInputStream();
+      }
     }
 
     @Override

@@ -66,6 +66,17 @@ import androidx.media3.common.VideoFrameProcessingException;
     super.flush();
   }
 
+  @Override
+  public void signalEndOfCurrentInputStream() {
+    // TODO: b/391109625 - Support mixed size buffers in the output texture pool to allow
+    //  replaying the last frame in a sequence.
+    for (int i = 0; i < cacheSize; i++) {
+      super.releaseOutputFrame(cachedFrames[i].glTextureInfo);
+    }
+    cacheSize = 0;
+    super.signalEndOfCurrentInputStream();
+  }
+
   /** Returns whether there is no cached frame. */
   public boolean isEmpty() {
     return cacheSize == 0;
