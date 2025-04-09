@@ -35,7 +35,6 @@ import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.TextureView;
 import androidx.annotation.IntRange;
-import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
@@ -798,7 +797,7 @@ public final class CastPlayer extends BasePlayer {
     this.volume.pendingResultCallback =
         new ResultCallback<MediaChannelResult>() {
           @Override
-          public void onResult(@NonNull MediaChannelResult result) {
+          public void onResult(MediaChannelResult result) {
             if (remoteMediaClient != null) {
               updateVolumeAndNotifyIfChanged(this);
               listeners.flushEvents();
