@@ -32,9 +32,11 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackException;
+import androidx.media3.common.Player;
 import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.Contrast;
+import androidx.media3.effect.GlEffect;
 import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.Renderer;
@@ -43,6 +45,12 @@ import androidx.media3.exoplayer.util.EventLogger;
 import androidx.media3.exoplayer.video.VideoFrameMetadataListener;
 import androidx.media3.exoplayer.video.VideoRendererEventListener;
 import androidx.media3.transformer.AndroidTestUtil.ReplayVideoRenderer;
+import androidx.media3.transformer.Composition;
+import androidx.media3.transformer.CompositionPlayer;
+import androidx.media3.transformer.EditedMediaItem;
+import androidx.media3.transformer.EditedMediaItemSequence;
+import androidx.media3.transformer.Effects;
+import androidx.media3.transformer.InputTimestampRecordingShaderProgram;
 import androidx.media3.transformer.PlayerTestListener;
 import androidx.media3.transformer.SurfaceTestActivity;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
@@ -64,8 +72,11 @@ public class ReplayCacheTest {
   private static final long TEST_TIMEOUT_MS = isRunningOnEmulator() ? 20_000 : 10_000;
 
   private static final MediaItem VIDEO_MEDIA_ITEM_1 = MediaItem.fromUri(MP4_ASSET.uri);
+  private static final long VIDEO_MEDIA_ITEM_1_DURATION_US = MP4_ASSET.videoDurationUs;
   private static final MediaItem VIDEO_MEDIA_ITEM_2 =
       MediaItem.fromUri(MP4_ASSET_WITH_INCREASING_TIMESTAMPS.uri);
+  private static final long VIDEO_MEDIA_ITEM_2_DURATION_US =
+      MP4_ASSET_WITH_INCREASING_TIMESTAMPS.videoDurationUs;
 
   @Rule
   public ActivityScenarioRule<SurfaceTestActivity> rule =
@@ -74,6 +85,7 @@ public class ReplayCacheTest {
   private final Context context = getInstrumentation().getContext().getApplicationContext();
   private final Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
 
+  private CompositionPlayer compositionPlayer;
   private ExoPlayer exoPlayer;
   private SurfaceView surfaceView;
 
@@ -88,6 +100,9 @@ public class ReplayCacheTest {
     getInstrumentation()
         .runOnMainSync(
             () -> {
+              if (compositionPlayer != null) {
+                compositionPlayer.release();
+              }
               if (exoPlayer != null) {
                 exoPlayer.release();
               }
@@ -158,5 +173,109 @@ public class ReplayCacheTest {
     // VIDEO_1 has size 30, VIDEO_2 has size 30, every frame is replayed once, minus one frame that
     // we don't currently replay (the frame at media item transition).
     assertThat(playedFrameTimestampsUs).hasSize(119);
+  }
+
+  @Test
+  public void enableReplay_withCompositionPlayerSingleSequence_playsSequence() throws Exception {
+    assumeTrue(
+        "The MediaCodec decoder's output surface is sometimes dropping frames on emulator despite"
+            + " using MediaFormat.KEY_ALLOW_FRAME_DROP.",
+        !Util.isRunningOnEmulator());
+    PlayerTestListener playerTestListener = new PlayerTestListener(TEST_TIMEOUT_MS * 1000);
+    InputTimestampRecordingShaderProgram inputTimestampRecordingShaderProgram =
+        new InputTimestampRecordingShaderProgram();
+
+    instrumentation.runOnMainSync(
+        () -> {
+          compositionPlayer =
+              new CompositionPlayer.Builder(context)
+                  .experimentalSetEnableReplayableCache(true)
+                  .build();
+          compositionPlayer.setVideoSurfaceView(surfaceView);
+          compositionPlayer.addListener(playerTestListener);
+          compositionPlayer.addListener(
+              new Player.Listener() {
+                @Override
+                public void onRenderedFirstFrame() {
+                  compositionPlayer.experimentalRedrawLastFrame();
+                  compositionPlayer.play();
+                }
+              });
+          compositionPlayer.setComposition(
+              new Composition.Builder(
+                      new EditedMediaItemSequence.Builder(
+                              new EditedMediaItem.Builder(VIDEO_MEDIA_ITEM_1)
+                                  .setDurationUs(VIDEO_MEDIA_ITEM_1_DURATION_US)
+                                  .build(),
+                              new EditedMediaItem.Builder(VIDEO_MEDIA_ITEM_2)
+                                  .setDurationUs(VIDEO_MEDIA_ITEM_2_DURATION_US)
+                                  .build())
+                          .build())
+                  .setEffects(
+                      new Effects(
+                          /* audioProcessors= */ ImmutableList.of(),
+                          /* videoEffects= */ ImmutableList.of(
+                              new Contrast(0.5f),
+                              (GlEffect)
+                                  (context, useHdr) -> inputTimestampRecordingShaderProgram)))
+                  .build());
+          compositionPlayer.prepare();
+        });
+
+    playerTestListener.waitUntilPlayerEnded();
+
+    int countOfFirstFrameRendered = 0;
+    for (long timestampUs : inputTimestampRecordingShaderProgram.getInputTimestampsUs()) {
+      if (timestampUs == 0) {
+        countOfFirstFrameRendered++;
+      }
+    }
+    assertThat(countOfFirstFrameRendered).isEqualTo(2);
+  }
+
+  @Test
+  public void rapidReplay_withCompositionPlayerSingleSequence_playsSequence() throws Exception {
+    assumeTrue(
+        "The MediaCodec decoder's output surface is sometimes dropping frames on emulator despite"
+            + " using MediaFormat.KEY_ALLOW_FRAME_DROP.",
+        !Util.isRunningOnEmulator());
+    PlayerTestListener playerTestListener = new PlayerTestListener(TEST_TIMEOUT_MS);
+    Handler mainHandler = new Handler(instrumentation.getTargetContext().getMainLooper());
+
+    instrumentation.runOnMainSync(
+        () -> {
+          compositionPlayer =
+              new CompositionPlayer.Builder(context)
+                  .experimentalSetEnableReplayableCache(true)
+                  .build();
+          compositionPlayer.setVideoSurfaceView(surfaceView);
+          compositionPlayer.addListener(playerTestListener);
+          compositionPlayer.setComposition(
+              new Composition.Builder(
+                      new EditedMediaItemSequence.Builder(
+                              new EditedMediaItem.Builder(VIDEO_MEDIA_ITEM_1)
+                                  .setDurationUs(VIDEO_MEDIA_ITEM_1_DURATION_US)
+                                  .build(),
+                              new EditedMediaItem.Builder(VIDEO_MEDIA_ITEM_2)
+                                  .setDurationUs(VIDEO_MEDIA_ITEM_2_DURATION_US)
+                                  .build())
+                          .build())
+                  .setEffects(
+                      new Effects(
+                          /* audioProcessors= */ ImmutableList.of(),
+                          /* videoEffects= */ ImmutableList.of(new Contrast(0.5f))))
+                  .build());
+          compositionPlayer.prepare();
+          compositionPlayer.play();
+        });
+
+    playerTestListener.waitUntilPlayerReady();
+    for (int i = 0; i < 180; i++) {
+      // Replaying every 10 ms.
+      mainHandler.postDelayed(
+          compositionPlayer::experimentalRedrawLastFrame, /* delayMillis= */ 10 * i);
+    }
+
+    playerTestListener.waitUntilPlayerEnded();
   }
 }

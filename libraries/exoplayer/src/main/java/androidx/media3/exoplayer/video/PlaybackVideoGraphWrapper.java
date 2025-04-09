@@ -366,7 +366,9 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
 
   @Override
   public VideoSink getSink(int inputIndex) {
-    checkState(!contains(inputVideoSinks, inputIndex));
+    if (contains(inputVideoSinks, inputIndex)) {
+      return inputVideoSinks.get(inputIndex);
+    }
     InputVideoSink inputVideoSink = new InputVideoSink(context, inputIndex);
     if (inputIndex == PRIMARY_SEQUENCE_INDEX) {
       addListener(inputVideoSink);
@@ -730,7 +732,9 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
 
     @Override
     public void redraw() {
-      checkState(isInitialized());
+      if (!isInitialized()) {
+        return;
+      }
       // Resignal EOS only for the last item.
       boolean needsResignalEndOfCurrentInputStream = signaledEndOfStream;
       long replayedPresentationTimeUs = lastOutputBufferPresentationTimeUs;

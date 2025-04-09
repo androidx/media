@@ -53,6 +53,7 @@ import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.effect.SingleInputVideoGraph;
 import androidx.media3.effect.TimestampAdjustment;
 import androidx.media3.exoplayer.ExoPlaybackException;
@@ -125,6 +126,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
     private boolean videoPrewarmingEnabled;
     private Clock clock;
     private VideoGraph.@MonotonicNonNull Factory videoGraphFactory;
+    private boolean enableReplayableCache;
     private boolean built;
 
     /**
@@ -247,6 +249,21 @@ public final class CompositionPlayer extends SimpleBasePlayer
     }
 
     /**
+     * Sets whether to enable replayable cache.
+     *
+     * <p>By default, the replayable cache is not enabled. Enable it to achieve accurate effect
+     * update, at the cost of using more power and computing resources.
+     *
+     * @param enableReplayableCache Whether replayable cache is enabled.
+     * @return This builder, for convenience.
+     */
+    @CanIgnoreReturnValue
+    public Builder experimentalSetEnableReplayableCache(boolean enableReplayableCache) {
+      this.enableReplayableCache = enableReplayableCache;
+      return this;
+    }
+
+    /**
      * Builds the {@link CompositionPlayer} instance. Must be called at most once.
      *
      * <p>If no {@link Looper} has been called with {@link #setLooper(Looper)}, then this method
@@ -262,7 +279,11 @@ public final class CompositionPlayer extends SimpleBasePlayer
         audioSink = new DefaultAudioSink.Builder(context).build();
       }
       if (videoGraphFactory == null) {
-        videoGraphFactory = new SingleInputVideoGraph.Factory();
+        videoGraphFactory =
+            new SingleInputVideoGraph.Factory(
+                new DefaultVideoFrameProcessor.Factory.Builder()
+                    .setEnableReplayableCache(enableReplayableCache)
+                    .build());
       }
       CompositionPlayer compositionPlayer = new CompositionPlayer(this);
       built = true;
@@ -311,11 +332,13 @@ public final class CompositionPlayer extends SimpleBasePlayer
   private final VideoGraph.Factory videoGraphFactory;
   private final boolean videoPrewarmingEnabled;
   private final HandlerWrapper compositionInternalListenerHandler;
+  private final boolean enableReplayableCache;
 
   /** Maps from input index to whether the video track is selected in that sequence. */
   private final SparseBooleanArray videoTracksSelected;
 
   private @MonotonicNonNull HandlerThread playbackThread;
+  private @MonotonicNonNull HandlerWrapper playbackThreadHandler;
   private @MonotonicNonNull CompositionPlayerInternal compositionPlayerInternal;
   private @MonotonicNonNull ImmutableList<MediaItemData> playlist;
   private @MonotonicNonNull Composition composition;
@@ -352,6 +375,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
     videoGraphFactory = checkNotNull(builder.videoGraphFactory);
     videoPrewarmingEnabled = builder.videoPrewarmingEnabled;
     compositionInternalListenerHandler = clock.createHandler(builder.looper, /* callback= */ null);
+    this.enableReplayableCache = builder.enableReplayableCache;
     videoTracksSelected = new SparseBooleanArray();
     players = new ArrayList<>();
     compositionDurationUs = C.TIME_UNSET;
@@ -396,6 +420,21 @@ public final class CompositionPlayer extends SimpleBasePlayer
     }
     // Update the composition field at the end after everything else has been set.
     this.composition = composition;
+  }
+
+  /**
+   * Forces the effect pipeline to redraw the effects immediately.
+   *
+   * <p>The player must be {@linkplain Builder#experimentalSetEnableReplayableCache built with
+   * replayable cache support}.
+   */
+  public void experimentalRedrawLastFrame() {
+    checkState(enableReplayableCache);
+    if (playbackThreadHandler == null || playbackVideoGraphWrapper == null) {
+      // Ignore replays before setting a composition.
+      return;
+    }
+    playbackThreadHandler.post(() -> checkNotNull(playbackVideoGraphWrapper).getSink(0).redraw());
   }
 
   /** Sets the {@link Surface} and {@link Size} to render to. */
@@ -714,6 +753,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
     compositionDurationUs = getCompositionDurationUs(composition);
     playbackThread = new HandlerThread("CompositionPlaybackThread", Process.THREAD_PRIORITY_AUDIO);
     playbackThread.start();
+    playbackThreadHandler = clock.createHandler(playbackThread.getLooper(), /* callback= */ null);
     // Create the audio and video composition components now in order to setup the audio and video
     // pipelines. Once this method returns, further access to the audio and video graph wrappers
     // must done on the playback thread only, to ensure related components are accessed from one
@@ -734,6 +774,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
             .setClock(clock)
             .setRequestOpenGlToneMapping(
                 composition.hdrMode == Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL)
+            .setEnableReplayableCache(enableReplayableCache)
             .build();
     playbackVideoGraphWrapper.addListener(this);
 

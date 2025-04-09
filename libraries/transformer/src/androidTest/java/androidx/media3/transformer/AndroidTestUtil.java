@@ -481,6 +481,7 @@ public final class AndroidTestUtil {
                   .setFrameRate(30.00f)
                   .setCodecs("avc1.42C033")
                   .build())
+          .setVideoDurationUs(1_000_000L)
           .build();
 
   public static final AssetInfo MP4_LONG_ASSET_WITH_INCREASING_TIMESTAMPS =
