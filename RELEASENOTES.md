@@ -62,6 +62,9 @@
         instead of `MediaCodec.BufferInfo`.
 *   IMA extension:
 *   Session:
+    *   Lower aggregation timeout for platform `MediaSession` callbacks from 500
+        to 100 milliseconds and add an experimental setter to allow apps to
+        configure this value.
 *   UI:
     *   Enable `PlayerSurface` to work with `ExoPlayer.setVideoEffects` and
         `CompositionPlayer`.
