@@ -58,6 +58,7 @@ import androidx.media3.extractor.TrackOutput;
 import androidx.media3.extractor.TrueHdSampleRechunker;
 import androidx.media3.extractor.text.SubtitleParser;
 import androidx.media3.extractor.text.SubtitleTranscodingExtractorOutput;
+import androidx.media3.extractor.text.SubtitleTranscodingTrackOutput;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.lang.annotation.Documented;
@@ -70,10 +71,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -272,6 +275,12 @@ public class MatroskaExtractor implements Extractor {
   private static final int ID_WHITE_POINT_CHROMATICITY_Y = 0x55D8;
   private static final int ID_LUMNINANCE_MAX = 0x55D9;
   private static final int ID_LUMNINANCE_MIN = 0x55DA;
+  private static final int ID_ATTACHMENTS = 0x1941A469;
+  private static final int ID_ATTACHED_FILE = 0x61A7;
+  private static final int ID_FILE_NAME = 0x466E;
+  private static final int ID_FILE_MEDIA_TYPE = 0x4660;
+  private static final int ID_FILE_DATA = 0x465C;
+  private static final int ID_FILE_UID = 0x46AE;
 
   /**
    * BlockAddID value for ITU T.35 metadata in a VP9 track. See also
@@ -491,6 +500,13 @@ public class MatroskaExtractor implements Extractor {
   private byte sampleSignalByte;
   private boolean sampleInitializationVectorRead;
 
+  // Attachment-related variables
+  private String attachmentFileName;
+  private String attachmentMediaType;
+  private byte[] attachmentFileData;
+  private long attachmentFileUid;
+  private List<FontMetadataEntry> fontAttachments = new ArrayList<>();
+
   // Extractor outputs.
   private @MonotonicNonNull ExtractorOutput extractorOutput;
 
@@ -641,6 +657,8 @@ public class MatroskaExtractor implements Extractor {
       case ID_PROJECTION:
       case ID_COLOUR:
       case ID_MASTERING_METADATA:
+      case ID_ATTACHMENTS:
+      case ID_ATTACHED_FILE:
         return EbmlProcessor.ELEMENT_TYPE_MASTER;
       case ID_EBML_READ_VERSION:
       case ID_DOC_TYPE_READ_VERSION:
@@ -682,11 +700,14 @@ public class MatroskaExtractor implements Extractor {
       case ID_MAX_FALL:
       case ID_PROJECTION_TYPE:
       case ID_BLOCK_ADD_ID:
+      case ID_FILE_UID:
         return EbmlProcessor.ELEMENT_TYPE_UNSIGNED_INT;
       case ID_DOC_TYPE:
       case ID_NAME:
       case ID_CODEC_ID:
       case ID_LANGUAGE:
+      case ID_FILE_NAME:
+      case ID_FILE_MEDIA_TYPE:
         return EbmlProcessor.ELEMENT_TYPE_STRING;
       case ID_SEEK_ID:
       case ID_BLOCK_ADD_ID_EXTRA_DATA:
@@ -697,6 +718,7 @@ public class MatroskaExtractor implements Extractor {
       case ID_CODEC_PRIVATE:
       case ID_PROJECTION_PRIVATE:
       case ID_BLOCK_ADDITIONAL:
+      case ID_FILE_DATA:
         return EbmlProcessor.ELEMENT_TYPE_BINARY;
       case ID_DURATION:
       case ID_SAMPLING_FREQUENCY:
@@ -726,7 +748,7 @@ public class MatroskaExtractor implements Extractor {
    */
   @CallSuper
   protected boolean isLevel1Element(int id) {
-    return id == ID_SEGMENT_INFO || id == ID_CLUSTER || id == ID_CUES || id == ID_TRACKS;
+    return id == ID_SEGMENT_INFO || id == ID_CLUSTER || id == ID_CUES || id == ID_TRACKS || id == ID_ATTACHMENTS;
   }
 
   /**
@@ -785,6 +807,13 @@ public class MatroskaExtractor implements Extractor {
       case ID_TRACK_ENTRY:
         currentTrack = new Track();
         currentTrack.isWebm = isWebm;
+        break;
+      case ID_ATTACHED_FILE:
+        Log.d("Sonny - mkvStartElem: ", "We have Attachments!");
+        attachmentFileName = null;
+        attachmentMediaType = null;
+        attachmentFileData = null;
+        attachmentFileUid = Format.NO_VALUE;
         break;
       case ID_MASTERING_METADATA:
         getCurrentTrack(id).hasColorInfo = true;
@@ -905,6 +934,40 @@ public class MatroskaExtractor implements Extractor {
               "No valid tracks were found", /* cause= */ null);
         }
         extractorOutput.endTracks();
+        break;
+      case ID_ATTACHED_FILE:
+        Set<String> FONT_MIME_TYPES = new HashSet<>(Set.of(
+            "application/x-truetype-font",
+            "application/vnd.ms-opentype",
+            "application/x-font-otf",
+            "application/x-font-ttf",
+            "application/x-font",
+            "application/font-sfnt",
+            "font/collection",
+            "font/otf",
+            "font/sfnt",
+            "font/ttf"
+        ));
+        Set<String> FONT_FILE_EXTENSION = new HashSet<>(Set.of(
+            "ttf",
+            "ttc",
+            "otf",
+            "otc"
+        ));
+
+        String attachmentFileExtension = attachmentFileName.substring(attachmentFileName.lastIndexOf(".") + 1).toLowerCase();
+        if (FONT_MIME_TYPES.contains(attachmentMediaType) || (attachmentMediaType.equals("application/octet-stream") && FONT_FILE_EXTENSION.contains(attachmentFileExtension))) {
+          fontAttachments.add(new FontMetadataEntry(attachmentFileName, attachmentFileData, attachmentFileUid));
+        }
+        break;
+      case ID_ATTACHMENTS:
+        for (int i = 0; i < tracks.size(); i++) {
+          Track attachmentTrack = tracks.valueAt(i);
+          // Check if this is any kind of subtitle track
+          if (attachmentTrack.output instanceof SubtitleTranscodingTrackOutput) {
+            ((SubtitleTranscodingTrackOutput) attachmentTrack.output).setFonts(fontAttachments);
+          }
+        }
         break;
       default:
         break;
@@ -1131,6 +1194,9 @@ public class MatroskaExtractor implements Extractor {
       case ID_BLOCK_ADD_ID:
         blockAdditionalId = (int) value;
         break;
+      case ID_FILE_UID:
+        attachmentFileUid = value;
+        break;
       default:
         break;
     }
@@ -1218,6 +1284,10 @@ public class MatroskaExtractor implements Extractor {
         break;
       case ID_LANGUAGE:
         getCurrentTrack(id).language = value;
+      case ID_FILE_NAME:
+        attachmentFileName = value;
+      case ID_FILE_MEDIA_TYPE:
+        attachmentMediaType = value;
         break;
       default:
         break;
@@ -1415,6 +1485,10 @@ public class MatroskaExtractor implements Extractor {
         }
         handleBlockAdditionalData(
             tracks.get(blockTrackNumber), blockAdditionalId, input, contentSize);
+        break;
+      case ID_FILE_DATA:
+        attachmentFileData = new byte[contentSize];
+        input.readFully(attachmentFileData, 0, contentSize);
         break;
       default:
         throw ParserException.createForMalformedContainer(

@@ -25,13 +25,16 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.DataReader;
 import androidx.media3.common.Format;
+import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.Util;
 import androidx.media3.extractor.TrackOutput;
+import androidx.media3.extractor.mkv.FontMetadataEntry;
 import java.io.EOFException;
 import java.io.IOException;
+import java.util.List;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
@@ -39,7 +42,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  * MimeTypes#APPLICATION_SUBRIP} to ExoPlayer's internal binary cue representation ({@link
  * MimeTypes#APPLICATION_MEDIA3_CUES}).
  */
-/* package */ final class SubtitleTranscodingTrackOutput implements TrackOutput {
+public final class SubtitleTranscodingTrackOutput implements TrackOutput {
 
   private static final String TAG = "SubtitleTranscodingTO";
 
@@ -95,20 +98,23 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               ? subtitleParserFactory.create(format)
               : null;
     }
+
+    // Ensure currentFormat always matches what is sent to the delegate,
+    // as it's used later in setFonts().
     if (currentSubtitleParser == null) {
-      delegate.format(format);
+      currentFormat = format;
     } else {
-      delegate.format(
-          format
-              .buildUpon()
-              .setSampleMimeType(MimeTypes.APPLICATION_MEDIA3_CUES)
-              .setCodecs(format.sampleMimeType)
-              // Reset this value to the default. All non-default timestamp adjustments are done
-              // below in sampleMetadata() and there are no 'subsamples' after transcoding.
-              .setSubsampleOffsetUs(Format.OFFSET_SAMPLE_RELATIVE)
-              .setCueReplacementBehavior(subtitleParserFactory.getCueReplacementBehavior(format))
-              .build());
+      currentFormat = format
+                          .buildUpon()
+                          .setSampleMimeType(MimeTypes.APPLICATION_MEDIA3_CUES)
+                          .setCodecs(format.sampleMimeType)
+                          // Reset this value to the default. All non-default timestamp adjustments are done
+                          // below in sampleMetadata() and there are no 'subsamples' after transcoding.
+                          .setSubsampleOffsetUs(Format.OFFSET_SAMPLE_RELATIVE)
+                          .setCueReplacementBehavior(subtitleParserFactory.getCueReplacementBehavior(format))
+                          .build();
     }
+    delegate.format(currentFormat);
   }
 
   @Override
@@ -178,6 +184,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       sampleDataStart = 0;
       sampleDataEnd = 0;
     }
+  }
+
+  public void setFonts(List<FontMetadataEntry> fonts) {
+    checkStateNotNull(currentFormat); // format() must be called before addFont()
+
+    Format.Builder formatBuilder = currentFormat.buildUpon();
+    formatBuilder.setMetadata(new Metadata(fonts));
+    currentFormat = formatBuilder.build();
+
+    delegate.format(currentFormat);
   }
 
   private void outputSample(CuesWithTiming cuesWithTiming, long timeUs, @C.BufferFlags int flags) {
