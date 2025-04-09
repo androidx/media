@@ -76,6 +76,7 @@
         correspondingly.
     *   Add `DownloadHelper.Factory` with which the static
         `DownloadHelper.forMediaItem()` methods are replaced.
+    *   Add `Factory` for `SegmentDownloader` implementations.
 *   OkHttp extension:
 *   Cronet extension:
 *   RTMP extension:

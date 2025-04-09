@@ -29,6 +29,7 @@ import androidx.media3.exoplayer.hls.playlist.HlsPlaylist;
 import androidx.media3.exoplayer.hls.playlist.HlsPlaylistParser;
 import androidx.media3.exoplayer.offline.SegmentDownloader;
 import androidx.media3.exoplayer.upstream.ParsingLoadable.Parser;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -48,14 +49,13 @@ import java.util.concurrent.Executor;
  *         .setUpstreamDataSourceFactory(new DefaultHttpDataSource.Factory());
  * // Create a downloader for the first variant in a multivariant playlist.
  * HlsDownloader hlsDownloader =
- *     new HlsDownloader(
- *         new MediaItem.Builder()
+ *     new HlsDownloader.Factory(cacheDataSourceFactory)
+ *            .create(new MediaItem.Builder()
  *             .setUri(playlistUri)
- *             .setStreamKeys(
- *                 Collections.singletonList(
- *                     new StreamKey(HlsMultivariantPlaylist.GROUP_INDEX_VARIANT, 0)))
- *             .build(),
- *         Collections.singletonList();
+ *              .setStreamKeys(
+ *                 ImmutableList.of(
+ *                    new StreamKey(HlsMultivariantPlaylist.GROUP_INDEX_VARIANT, 0)))
+ *               .build());
  * // Perform the download.
  * hlsDownloader.download(progressListener);
  * // Use the downloaded data for playback.
@@ -66,27 +66,79 @@ import java.util.concurrent.Executor;
 @UnstableApi
 public final class HlsDownloader extends SegmentDownloader<HlsPlaylist> {
 
+  /** A factory for {@linkplain HlsDownloader HLS downloaders}. */
+  public static final class Factory extends BaseFactory<HlsPlaylist> {
+
+    /**
+     * Creates a factory for {@link HlsDownloader}.
+     *
+     * @param cacheDataSourceFactory A {@link CacheDataSource.Factory} for the cache into which the
+     *     download will be written.
+     */
+    public Factory(CacheDataSource.Factory cacheDataSourceFactory) {
+      super(cacheDataSourceFactory, new HlsPlaylistParser());
+    }
+
+    /**
+     * Sets a parser for HLS playlists.
+     *
+     * @return This factory, for convenience.
+     */
+    @CanIgnoreReturnValue
+    public Factory setManifestParser(HlsPlaylistParser manifestParser) {
+      this.manifestParser = manifestParser;
+      return this;
+    }
+
+    /**
+     * Sets the {@link Executor} used to make requests for the media being downloaded. Providing an
+     * {@link Executor} that uses multiple threads will speed up the download by allowing parts of
+     * it to be executed in parallel.
+     *
+     * @return This factory, for convenience.
+     */
+    @Override
+    @CanIgnoreReturnValue
+    public Factory setExecutor(Executor executor) {
+      return (Factory) super.setExecutor(executor);
+    }
+
+    /**
+     * Sets the maximum difference of the start time of two segments, up to which the segments (of
+     * the same URI) should be merged into a single download segment, in milliseconds.
+     *
+     * @return This factory, for convenience.
+     */
+    @Override
+    @CanIgnoreReturnValue
+    public Factory setMaxMergedSegmentStartTimeDiffMs(long maxMergedSegmentStartTimeDiffMs) {
+      return (Factory) super.setMaxMergedSegmentStartTimeDiffMs(maxMergedSegmentStartTimeDiffMs);
+    }
+
+    /** Creates {@linkplain HlsDownloader HLS downloaders}. */
+    @Override
+    public HlsDownloader create(MediaItem mediaItem) {
+      return new HlsDownloader(
+          mediaItem,
+          manifestParser,
+          cacheDataSourceFactory,
+          executor,
+          maxMergedSegmentStartTimeDiffMs);
+    }
+  }
+
   /**
-   * Creates a new instance.
-   *
-   * @param mediaItem The {@link MediaItem} to be downloaded.
-   * @param cacheDataSourceFactory A {@link CacheDataSource.Factory} for the cache into which the
-   *     download will be written.
+   * @deprecated Use {@link HlsDownloader.Factory#create(MediaItem)} instead.
    */
+  @Deprecated
   public HlsDownloader(MediaItem mediaItem, CacheDataSource.Factory cacheDataSourceFactory) {
     this(mediaItem, cacheDataSourceFactory, Runnable::run);
   }
 
   /**
-   * Creates a new instance.
-   *
-   * @param mediaItem The {@link MediaItem} to be downloaded.
-   * @param cacheDataSourceFactory A {@link CacheDataSource.Factory} for the cache into which the
-   *     download will be written.
-   * @param executor An {@link Executor} used to make requests for the media being downloaded.
-   *     Providing an {@link Executor} that uses multiple threads will speed up the download by
-   *     allowing parts of it to be executed in parallel.
+   * @deprecated Use {@link HlsDownloader.Factory#create(MediaItem)} instead.
    */
+  @Deprecated
   public HlsDownloader(
       MediaItem mediaItem, CacheDataSource.Factory cacheDataSourceFactory, Executor executor) {
     this(
@@ -111,7 +163,7 @@ public final class HlsDownloader extends SegmentDownloader<HlsPlaylist> {
    *     segments, up to which the segments (of the same URI) should be merged into a single
    *     download segment, in milliseconds.
    */
-  public HlsDownloader(
+  private HlsDownloader(
       MediaItem mediaItem,
       Parser<HlsPlaylist> manifestParser,
       CacheDataSource.Factory cacheDataSourceFactory,

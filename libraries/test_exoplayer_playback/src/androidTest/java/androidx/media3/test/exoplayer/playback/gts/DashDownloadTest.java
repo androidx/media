@@ -126,8 +126,7 @@ public final class DashDownloadTest {
         new CacheDataSource.Factory()
             .setCache(cache)
             .setUpstreamDataSourceFactory(httpDataSourceFactory);
-    return new DashDownloader(
-        new MediaItem.Builder().setUri(MANIFEST_URI).setStreamKeys(keys).build(),
-        cacheDataSourceFactory);
+    return new DashDownloader.Factory(cacheDataSourceFactory)
+        .create(new MediaItem.Builder().setUri(MANIFEST_URI).setStreamKeys(keys).build());
   }
 }

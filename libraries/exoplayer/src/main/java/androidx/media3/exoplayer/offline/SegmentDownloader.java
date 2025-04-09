@@ -38,6 +38,7 @@ import androidx.media3.datasource.cache.CacheWriter;
 import androidx.media3.datasource.cache.ContentMetadata;
 import androidx.media3.exoplayer.upstream.ParsingLoadable;
 import androidx.media3.exoplayer.upstream.ParsingLoadable.Parser;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -55,6 +56,37 @@ import java.util.concurrent.Executor;
  */
 @UnstableApi
 public abstract class SegmentDownloader<M extends FilterableManifest<M>> implements Downloader {
+
+  /** A base class of the factory of the concrete extension of {@link SegmentDownloader}. */
+  protected abstract static class BaseFactory<M extends FilterableManifest<M>>
+      implements SegmentDownloaderFactory {
+
+    protected final CacheDataSource.Factory cacheDataSourceFactory;
+    protected Parser<M> manifestParser;
+    protected Executor executor;
+    protected long maxMergedSegmentStartTimeDiffMs;
+
+    public BaseFactory(CacheDataSource.Factory cacheDataSourceFactory, Parser<M> manifestParser) {
+      this.cacheDataSourceFactory = cacheDataSourceFactory;
+      this.manifestParser = manifestParser;
+      this.executor = Runnable::run;
+      this.maxMergedSegmentStartTimeDiffMs = DEFAULT_MAX_MERGED_SEGMENT_START_TIME_DIFF_MS;
+    }
+
+    @Override
+    @CanIgnoreReturnValue
+    public BaseFactory<M> setExecutor(Executor executor) {
+      this.executor = executor;
+      return this;
+    }
+
+    @Override
+    @CanIgnoreReturnValue
+    public BaseFactory<M> setMaxMergedSegmentStartTimeDiffMs(long maxMergedSegmentStartTimeDiffMs) {
+      this.maxMergedSegmentStartTimeDiffMs = maxMergedSegmentStartTimeDiffMs;
+      return this;
+    }
+  }
 
   /** Smallest unit of content to be downloaded. */
   protected static class Segment implements Comparable<Segment> {
@@ -103,19 +135,7 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
 
   private volatile boolean isCanceled;
 
-  /**
-   * @param mediaItem The {@link MediaItem} to be downloaded.
-   * @param manifestParser A parser for manifests belonging to the media to be downloaded.
-   * @param cacheDataSourceFactory A {@link CacheDataSource.Factory} for the cache into which the
-   *     download will be written.
-   * @param executor An {@link Executor} used to make requests for the media being downloaded.
-   *     Providing an {@link Executor} that uses multiple threads will speed up the download by
-   *     allowing parts of it to be executed in parallel.
-   * @param maxMergedSegmentStartTimeDiffMs The maximum difference of the start time of two
-   *     segments, up to which the segments (of the same URI) should be merged into a single
-   *     download segment, in milliseconds.
-   */
-  public SegmentDownloader(
+  protected SegmentDownloader(
       MediaItem mediaItem,
       Parser<M> manifestParser,
       CacheDataSource.Factory cacheDataSourceFactory,
@@ -414,12 +434,14 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
     }
   }
 
+  @SuppressWarnings("FutureReturnValueIgnored")
   private void removeActiveRunnable(RunnableFutureTask<?, ?> runnable) {
     synchronized (activeRunnables) {
       activeRunnables.remove(runnable);
     }
   }
 
+  @SuppressWarnings("FutureReturnValueIgnored")
   private void removeActiveRunnable(int index) {
     synchronized (activeRunnables) {
       activeRunnables.remove(index);
