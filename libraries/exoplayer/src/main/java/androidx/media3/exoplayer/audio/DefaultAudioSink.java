@@ -1118,6 +1118,7 @@ public final class DefaultAudioSink implements AudioSink {
           audioTrackConfig.sampleRate,
           audioTrackConfig.channelConfig,
           audioTrackConfig.encoding,
+          audioTrackConfig.bufferSize,
           inputFormat,
           /* isRecoverable= */ audioTrackConfig.offload,
           e);
@@ -1136,6 +1137,7 @@ public final class DefaultAudioSink implements AudioSink {
           audioTrackConfig.sampleRate,
           audioTrackConfig.channelConfig,
           audioTrackConfig.encoding,
+          audioTrackConfig.bufferSize,
           inputFormat,
           /* isRecoverable= */ audioTrackConfig.offload,
           /* audioTrackException= */ null);
