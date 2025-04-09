@@ -898,6 +898,8 @@ import java.util.concurrent.TimeoutException;
         return metadata.writer;
       case MediaMetadataCompat.METADATA_KEY_COMPOSER:
         return metadata.composer;
+      case MediaMetadataCompat.METADATA_KEY_DISPLAY_SUBTITLE:
+        return metadata.subtitle;
       default:
         return null;
     }

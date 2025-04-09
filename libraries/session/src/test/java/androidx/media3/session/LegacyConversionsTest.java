@@ -267,74 +267,35 @@ public final class LegacyConversionsTest {
   }
 
   @Test
-  public void convertToMediaMetadataCompat_displayTitleAndTitleHandledCorrectly() {
-    MediaMetadata mediaMetadataWithTitleOnly =
-        new MediaMetadata.Builder()
-            .setTitle("title")
-            .setSubtitle("subtitle")
-            .setDescription("description")
-            .setArtist("artist")
-            .setAlbumArtist("albumArtist")
-            .build();
-    MediaMetadata mediaMetadataWithDisplayTitleOnly =
-        new MediaMetadata.Builder()
-            .setDisplayTitle("displayTitle")
-            .setSubtitle("subtitle")
-            .setDescription("description")
-            .setArtist("artist")
-            .setAlbumArtist("albumArtist")
-            .build();
-    MediaMetadata mediaMetadataWithDisplayTitleAndTitle =
-        new MediaMetadata.Builder()
-            .setTitle("title")
-            .setDisplayTitle("displayTitle")
-            .setSubtitle("subtitle")
-            .setDescription("description")
-            .setArtist("artist")
-            .setAlbumArtist("albumArtist")
-            .build();
+  public void
+      convertToMediaDescriptionCompat_withoutDisplayTitleWithSubtitle_subtitleUsedAsSubtitle() {
+    MediaMetadata metadata =
+        new MediaMetadata.Builder().setTitle("a_title").setSubtitle("a_subtitle").build();
+    MediaItem mediaItem =
+        new MediaItem.Builder().setMediaId("testId").setMediaMetadata(metadata).build();
 
-    MediaDescriptionCompat mediaDescriptionCompatFromDisplayTitleAndTitle =
-        LegacyConversions.convertToMediaMetadataCompat(
-                mediaMetadataWithDisplayTitleAndTitle,
-                "mediaId",
-                /* mediaUri= */ null,
-                /* durationMs= */ 10_000L,
-                /* artworkBitmap= */ null)
-            .getDescription();
-    MediaDescriptionCompat mediaDescriptionCompatFromDisplayTitleOnly =
-        LegacyConversions.convertToMediaMetadataCompat(
-                mediaMetadataWithDisplayTitleOnly,
-                "mediaId",
-                /* mediaUri= */ null,
-                /* durationMs= */ 10_000L,
-                /* artworkBitmap= */ null)
-            .getDescription();
-    MediaDescriptionCompat mediaDescriptionCompatFromTitleOnly =
-        LegacyConversions.convertToMediaMetadataCompat(
-                mediaMetadataWithTitleOnly,
-                "mediaId",
-                /* mediaUri= */ null,
-                /* durationMs= */ 10_000L,
-                /* artworkBitmap= */ null)
-            .getDescription();
+    MediaDescriptionCompat descriptionCompat =
+        LegacyConversions.convertToMediaDescriptionCompat(mediaItem, /* artworkBitmap= */ null);
 
-    assertThat(mediaDescriptionCompatFromDisplayTitleAndTitle.getTitle().toString())
-        .isEqualTo("displayTitle");
-    assertThat(mediaDescriptionCompatFromDisplayTitleAndTitle.getSubtitle().toString())
-        .isEqualTo("subtitle");
-    assertThat(mediaDescriptionCompatFromDisplayTitleAndTitle.getDescription().toString())
-        .isEqualTo("description");
-    assertThat(mediaDescriptionCompatFromDisplayTitleOnly.getTitle().toString())
-        .isEqualTo("displayTitle");
-    assertThat(mediaDescriptionCompatFromDisplayTitleOnly.getSubtitle().toString())
-        .isEqualTo("subtitle");
-    assertThat(mediaDescriptionCompatFromDisplayTitleOnly.getDescription().toString())
-        .isEqualTo("description");
-    assertThat(mediaDescriptionCompatFromTitleOnly.getTitle().toString()).isEqualTo("title");
-    assertThat(mediaDescriptionCompatFromTitleOnly.getSubtitle().toString()).isEqualTo("artist");
-    assertThat(mediaDescriptionCompatFromTitleOnly.getDescription().toString())
-        .isEqualTo("albumArtist");
+    assertThat(descriptionCompat.getTitle().toString()).isEqualTo("a_title");
+    assertThat(descriptionCompat.getSubtitle().toString()).isEqualTo("a_subtitle");
+  }
+
+  @Test
+  public void convertToMediaDescriptionCompat_withDisplayTitleAndSubtitle_subtitleUsedAsSubtitle() {
+    MediaMetadata metadata =
+        new MediaMetadata.Builder()
+            .setDisplayTitle("a_display_title")
+            .setSubtitle("a_subtitle")
+            .build();
+    MediaItem mediaItem =
+        new MediaItem.Builder().setMediaId("testId").setMediaMetadata(metadata).build();
+
+    MediaDescriptionCompat descriptionCompat =
+        LegacyConversions.convertToMediaDescriptionCompat(mediaItem, /* artworkBitmap= */ null);
+
+    assertThat(descriptionCompat.getTitle().toString()).isEqualTo("a_display_title");
+    assertThat(descriptionCompat.getSubtitle().toString()).isEqualTo("a_subtitle");
   }
 
   @Test
