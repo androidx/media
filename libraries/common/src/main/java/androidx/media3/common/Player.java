@@ -1623,7 +1623,7 @@ public interface Player {
   /** {@link #getDeviceInfo()} changed. */
   int EVENT_DEVICE_INFO_CHANGED = 29;
 
-  /** {@link #getDeviceVolume()} changed. */
+  /** {@link #getDeviceVolume()} or {@link #isDeviceMuted()} changed. */
   int EVENT_DEVICE_VOLUME_CHANGED = 30;
 
   /**
