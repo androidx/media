@@ -34,6 +34,7 @@ import androidx.media3.extractor.TrackOutput;
 import androidx.media3.extractor.mkv.FontMetadataEntry;
 import java.io.EOFException;
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
 import java.util.List;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
@@ -93,10 +94,34 @@ public final class SubtitleTranscodingTrackOutput implements TrackOutput {
     checkArgument(MimeTypes.getTrackType(format.sampleMimeType) == C.TRACK_TYPE_TEXT);
     if (!format.equals(currentFormat)) {
       currentFormat = format;
-      currentSubtitleParser =
-          subtitleParserFactory.supportsFormat(format)
-              ? subtitleParserFactory.create(format)
-              : null;
+      switch (format.sampleMimeType) {
+        case MimeTypes.TEXT_SSA:
+          // TODO Remove hack. We suppose that when extensionRendererMode is NOT EXTENSION_RENDERER_MODE_OFF,
+          // we suppose it is EXTENSION_RENDERER_MODE_PREFER (but it may be EXTENSION_RENDERER_MODE_ON), so the renderer may be TextRenderer (not AssRenderer).
+          // This means we may send the ass file to TextRenderer instead of Cues.
+          // This also depends on the hack in the method `buildTextRenderers` of DefaultRenderersFactory.java
+          boolean isAssNativeLibraryAvailable = false;
+          try {
+            isAssNativeLibraryAvailable =
+                Boolean.TRUE.equals(
+                    Class.forName("androidx.media3.decoder.ass.AssLibrary")
+                        .getMethod("isAvailable")
+                        .invoke(/* obj= */ null));
+          } catch (ClassNotFoundException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e){
+          }
+
+          if (isAssNativeLibraryAvailable || !subtitleParserFactory.supportsFormat(format)) {
+            currentSubtitleParser = null;
+          } else {
+            currentSubtitleParser = subtitleParserFactory.create(format);
+          }
+          break;
+        default:
+          currentSubtitleParser =
+              subtitleParserFactory.supportsFormat(format)
+                  ? subtitleParserFactory.create(format)
+                  : null;
+      }
     }
 
     // Ensure currentFormat always matches what is sent to the delegate,

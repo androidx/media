@@ -367,7 +367,7 @@ public final class SsaParser implements SubtitleParser {
    * @param timeString The string to parse.
    * @return The parsed timestamp in microseconds.
    */
-  private static long parseTimecodeUs(String timeString) {
+  public static long parseTimecodeUs(String timeString) {
     Matcher matcher = SSA_TIMECODE_PATTERN.matcher(timeString.trim());
     if (!matcher.matches()) {
       return C.TIME_UNSET;

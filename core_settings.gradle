@@ -71,6 +71,8 @@ project(modulePrefix + 'lib-datasource-okhttp').projectDir = new File(rootDir, '
 
 include modulePrefix + 'lib-decoder'
 project(modulePrefix + 'lib-decoder').projectDir = new File(rootDir, 'libraries/decoder')
+include modulePrefix + 'lib-decoder-ass'
+project(modulePrefix + 'lib-decoder-ass').projectDir = new File(rootDir, 'libraries/decoder_ass')
 include modulePrefix + 'lib-decoder-av1'
 project(modulePrefix + 'lib-decoder-av1').projectDir = new File(rootDir, 'libraries/decoder_av1')
 include modulePrefix + 'lib-decoder-ffmpeg'
