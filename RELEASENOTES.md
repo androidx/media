@@ -66,6 +66,8 @@
     *   Lower aggregation timeout for platform `MediaSession` callbacks from 500
         to 100 milliseconds and add an experimental setter to allow apps to
         configure this value.
+    *   Fix issue where notifications reappear after they have been dismissed by
+        the user ([#2302](https://github.com/androidx/media/issues/2302)).
 *   UI:
     *   Enable `PlayerSurface` to work with `ExoPlayer.setVideoEffects` and
         `CompositionPlayer`.
