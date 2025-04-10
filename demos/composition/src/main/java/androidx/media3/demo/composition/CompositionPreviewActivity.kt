@@ -31,14 +31,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.defaultMinSize
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeContentPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
@@ -47,16 +43,17 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.outlined.Star
+import androidx.compose.material.icons.twotone.Delete
 import androidx.compose.material.icons.twotone.Star
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ElevatedButton
-import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -79,12 +76,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -101,9 +96,9 @@ import androidx.media3.demo.composition.ui.DropDownSpinner
 import androidx.media3.demo.composition.ui.theme.CompositionDemoTheme
 import androidx.media3.transformer.Composition
 import androidx.media3.ui.PlayerView
-import androidx.media3.ui.compose.PlayerSurface
-import androidx.media3.ui.compose.SURFACE_TYPE_SURFACE_VIEW
-import androidx.media3.ui.compose.SURFACE_TYPE_TEXTURE_VIEW
+import java.util.Locale
+import kotlin.time.DurationUnit
+import kotlin.time.toDuration
 
 /**
  * An [Activity] that previews compositions, using [ ].
@@ -117,10 +112,13 @@ class CompositionPreviewActivity : AppCompatActivity() {
             window.setColorMode(ActivityInfo.COLOR_MODE_HDR)
         }
 
-
         val compositionLayout = intent.getStringExtra(LAYOUT_EXTRA) ?: COMPOSITION_LAYOUT[0]
-        Log.d("CPVMF", "Received layout of $compositionLayout")
-        val viewModel: CompositionPreviewViewModel by viewModels { CompositionPreviewViewModelFactory(application, compositionLayout) }
+        Log.d(TAG, "Received layout of $compositionLayout")
+        val viewModel: CompositionPreviewViewModel by viewModels {
+            CompositionPreviewViewModelFactory(
+                application, compositionLayout
+            )
+        }
 
         // TODO(nevmital): Update to follow https://developer.android.com/topic/architecture/ui-layer/events#consuming-trigger-updates
         viewModel.toastMessage.observe(this) { newMessage ->
@@ -146,9 +144,7 @@ class CompositionPreviewActivity : AppCompatActivity() {
                             CompositionPreviewPane(
                                 shouldShowSupportingPaneButton = navigator.scaffoldValue.secondary == PaneAdaptedValue.Hidden,
                                 onNavigateToSupportingPane = {
-                                    navigator.navigateTo(
-                                        ThreePaneScaffoldRole.Secondary
-                                    )
+                                    navigator.navigateTo(ThreePaneScaffoldRole.Secondary)
                                 },
                                 viewModel
                             )
@@ -157,8 +153,7 @@ class CompositionPreviewActivity : AppCompatActivity() {
                             ExportOptionsPane(
                                 viewModel,
                                 shouldShowBackButton = navigator.scaffoldValue.primary == PaneAdaptedValue.Hidden,
-                                onBack = { navigator.navigateBack() }
-                            )
+                                onBack = { navigator.navigateBack() })
                         },
                         modifier = Modifier.padding(innerPadding).padding(16.dp, 8.dp)
                     )
@@ -178,17 +173,20 @@ class CompositionPreviewActivity : AppCompatActivity() {
         AnimatedPane {
             // Main pane content
             val scrollState = rememberScrollState()
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.fillMaxSize().verticalScroll(scrollState)) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+                modifier = Modifier.fillMaxSize().verticalScroll(scrollState)
+            ) {
                 Text(
                     text = "${viewModel.compositionLayout} ${stringResource(R.string.preview_composition)}",
                     fontWeight = FontWeight.Bold
                 )
-                val playerViewModifier = if(scrollState.canScrollForward || scrollState.canScrollBackward) {
-                    Modifier.heightIn(min = 250.dp)
-                } else {
-                    Modifier
-                    //Modifier.weight(1f)
-                }
+                val playerViewModifier =
+                    if (scrollState.canScrollForward || scrollState.canScrollBackward) {
+                        Modifier.heightIn(min = 250.dp)
+                    } else {
+                        Modifier
+                    }
                 AndroidView(
                     factory = { context -> PlayerView(context) },
                     update = { playerView ->
@@ -209,13 +207,14 @@ class CompositionPreviewActivity : AppCompatActivity() {
                         text = stringResource(R.string.add_background_audio),
                         modifier = Modifier.padding(0.dp, 0.dp, 8.dp, 0.dp)
                     )
-                    Switch(viewModel.includeBackgroundAudioTrack, { checked -> viewModel.includeBackgroundAudioTrack = checked })
+                    Switch(
+                        viewModel.includeBackgroundAudioTrack,
+                        { checked -> viewModel.includeBackgroundAudioTrack = checked }
+                    )
                 }
                 OutputSettings(viewModel)
                 HorizontalDivider(thickness = 2.dp, modifier = Modifier.padding(0.dp, 4.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(8.dp, 0.dp)
-                ) {
+                Row(modifier = Modifier.fillMaxWidth().padding(8.dp, 0.dp)) {
                     Button(onClick = { viewModel.previewComposition() }) {
                         Text(text = stringResource(R.string.preview))
                     }
@@ -243,10 +242,7 @@ class CompositionPreviewActivity : AppCompatActivity() {
 
         AnimatedPane {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(
-                    text = "Export settings",
-                    fontWeight = FontWeight.Bold
-                )
+                Text(text = "Export settings", fontWeight = FontWeight.Bold)
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -266,8 +262,7 @@ class CompositionPreviewActivity : AppCompatActivity() {
                             MimeTypes.AUDIO_AMR_WB
                         ),
                         { expanded -> isAudioTypeExpanded = expanded },
-                        { selection -> viewModel.outputAudioMimeType = selection }
-                    )
+                        { selection -> viewModel.outputAudioMimeType = selection })
                 }
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -290,8 +285,7 @@ class CompositionPreviewActivity : AppCompatActivity() {
                             MimeTypes.VIDEO_AV1
                         ),
                         { expanded -> isVideoTypeExpanded = expanded },
-                        { selection -> viewModel.outputVideoMimeType = selection }
-                    )
+                        { selection -> viewModel.outputVideoMimeType = selection })
                 }
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -303,11 +297,14 @@ class CompositionPreviewActivity : AppCompatActivity() {
                         modifier = Modifier.padding(0.dp, 0.dp, 8.dp, 0.dp)
                     )
                     val debugTracingEnabled by viewModel.enableDebugTracing.collectAsState()
-                    Switch(debugTracingEnabled, { checked -> viewModel.enableDebugTracing(checked) })
+                    Switch(
+                        debugTracingEnabled, { checked -> viewModel.enableDebugTracing(checked) }
+                    )
                 }
                 Column(Modifier.selectableGroup()) {
                     MUXER_OPTIONS.forEach { text ->
-                        Row(horizontalArrangement = Arrangement.SpaceBetween,
+                        Row(
+                            horizontalArrangement = Arrangement.SpaceBetween,
                             modifier = Modifier
                                 .selectable(
                                     selected = text == viewModel.muxerOption,
@@ -316,13 +313,9 @@ class CompositionPreviewActivity : AppCompatActivity() {
                                 )
                                 .fillMaxWidth()
                         ) {
-                            Text(
-                                text = text,
-                                modifier = Modifier.padding(0.dp, 0.dp, 8.dp, 0.dp)
-                            )
+                            Text(text = text, modifier = Modifier.padding(0.dp, 0.dp, 8.dp, 0.dp))
                             RadioButton(
-                                selected = (text == viewModel.muxerOption),
-                                onClick = null
+                                selected = (text == viewModel.muxerOption), onClick = null
                             )
                         }
                     }
@@ -331,7 +324,7 @@ class CompositionPreviewActivity : AppCompatActivity() {
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(8.dp, 0.dp)
                 ) {
-                    if(shouldShowBackButton) {
+                    if (shouldShowBackButton) {
                         OutlinedButton({ onBack() }) {
                             Text(text = stringResource(R.string.cancel))
                         }
@@ -353,18 +346,18 @@ class CompositionPreviewActivity : AppCompatActivity() {
     fun VideoSequenceList(viewModel: CompositionPreviewViewModel) {
         var showDialog by remember { mutableStateOf(false) }
 
-        if(showDialog) {
+        if (showDialog) {
             VideoSequenceDialog(
                 { showDialog = false },
-                viewModel.mediaItemTitles,
-                viewModel.selectedMediaItems,
-                { updatedSelections -> viewModel.updateSelectedItems(updatedSelections) }
+                viewModel.mediaItemOptions,
+                { index -> viewModel.addItem(index) }
             )
         }
 
-        Box(modifier = Modifier
-            .border(2.dp, MaterialTheme.colorScheme.secondary, RoundedCornerShape(16.dp))
-            .background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(16.dp))
+        Box(
+            modifier = Modifier
+                .border(2.dp, MaterialTheme.colorScheme.secondary, RoundedCornerShape(16.dp))
+                .background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(16.dp))
         ) {
             Column(
                 verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -384,32 +377,32 @@ class CompositionPreviewActivity : AppCompatActivity() {
                 LazyColumn(
                     modifier = Modifier.fillMaxWidth().heightIn(max = 200.dp) // Needs a defined max height since it's in a scrollable column
                 ) {
-                    viewModel.selectedMediaTitles.forEachIndexed { index, title ->
-                        item {
-                            Row (
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text(
-                                    text = "${index + 1}. $title",
-                                    modifier = Modifier.padding(0.dp, 0.dp, 8.dp, 0.dp).weight(1f)
-                                )
+                    itemsIndexed(viewModel.selectedMediaItems) { index, item ->
+                        Row(
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = "${index + 1}. ${item.title}",
+                                modifier = Modifier.padding(0.dp, 0.dp, 8.dp, 0.dp).weight(1f)
+                            )
+                            Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                                 IconToggleButton(
-                                    checked = viewModel.selectedMediaEffects[index],
-                                    onCheckedChange = { checked -> viewModel.updateEffects(index, checked) }
-                                ) {
-                                    if(viewModel.selectedMediaEffects[index]) {
-                                        Icon(
-                                            imageVector = Icons.Filled.Star,
-                                            contentDescription = "Apply effects to item ${index + 1}"
-                                        )
-                                    } else {
-                                        Icon(
-                                            imageVector = Icons.TwoTone.Star,
-                                            contentDescription = "Apply effects to item ${index + 1}"
-                                        )
-                                    }
+                                    checked = item.applyEffects.value,
+                                    onCheckedChange = { checked ->
+                                        viewModel.updateEffects(index, checked)
+                                    }) {
+                                    Icon(
+                                        imageVector = if (item.applyEffects.value) Icons.Filled.Star else Icons.TwoTone.Star,
+                                        contentDescription = "Apply effects to item ${index + 1}"
+                                    )
+                                }
+                                IconButton({ viewModel.removeItem(index) }) {
+                                    Icon(
+                                        Icons.TwoTone.Delete,
+                                        contentDescription = "Remove item ${index + 1}"
+                                    )
                                 }
                             }
                         }
@@ -427,19 +420,17 @@ class CompositionPreviewActivity : AppCompatActivity() {
     }
 
     @Composable
-    fun VideoSequenceDialog(onDismissRequest: () -> Unit, videoTitles: List<String>, selectedVideos: MutableList<Boolean>, updateSelectedVideos: (List<Boolean>) -> Unit) {
-        Dialog(
-            onDismissRequest
-        ) {
+    fun VideoSequenceDialog(
+        onDismissRequest: () -> Unit,
+        itemOptions: List<CompositionPreviewViewModel.Item>,
+        addSelectedVideo: (Int) -> Unit
+    ) {
+        Dialog(onDismissRequest) {
             Card(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(4.dp),
-                shape = RoundedCornerShape(16.dp)
+                modifier = Modifier.fillMaxSize().padding(4.dp), shape = RoundedCornerShape(16.dp)
             ) {
                 Column(
-                    modifier = Modifier
-                        .fillMaxSize(),
+                    modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
@@ -452,30 +443,27 @@ class CompositionPreviewActivity : AppCompatActivity() {
                         verticalArrangement = Arrangement.spacedBy(2.dp),
                         modifier = Modifier.weight(1f).padding(8.dp, 0.dp)
                     ) {
-                        itemsIndexed(videoTitles) { index, title ->
+                        itemsIndexed(itemOptions) { index, item ->
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(2.dp),
-                                modifier = Modifier.fillMaxWidth().selectable(
-                                    selected = selectedVideos[index],
-                                    onClick = { selectedVideos[index] = !selectedVideos[index] },
-                                    role = Role.Checkbox
-                                )
+                                modifier = Modifier.fillMaxWidth()
                             ) {
-                                Checkbox(
-                                    selectedVideos[index],
-                                    { isChecked -> selectedVideos[index] = isChecked })
-                                Text(text = title)
+                                FilledIconButton(onClick = { addSelectedVideo(index) }) {
+                                    Icon(Icons.Filled.Add, contentDescription = "Add item")
+                                }
+                                val duration = item.durationMs.toDuration(DurationUnit.MICROSECONDS)
+                                val durationString = String.format(
+                                    Locale.US,
+                                    "%02d:%02d",
+                                    duration.inWholeMinutes,
+                                    duration.inWholeSeconds % 60
+                                )
+                                Text(text = "${item.title} ($durationString)")
                             }
                         }
                     }
-                    Button(
-                        {
-                            updateSelectedVideos(selectedVideos)
-                            onDismissRequest()
-                        },
-                        modifier = Modifier.padding(0.dp, 4.dp)
-                    ) {
+                    Button({ onDismissRequest() }, modifier = Modifier.padding(0.dp, 4.dp)) {
                         Text(text = stringResource(R.string.ok))
                     }
                 }
@@ -504,8 +492,7 @@ class CompositionPreviewActivity : AppCompatActivity() {
                     viewModel.outputResolution,
                     RESOLUTION_HEIGHTS,
                     { newExpanded -> resolutionExpanded = newExpanded },
-                    { newSelection -> viewModel.outputResolution = newSelection }
-                )
+                    { newSelection -> viewModel.outputResolution = newSelection })
             }
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -523,7 +510,8 @@ class CompositionPreviewActivity : AppCompatActivity() {
                     { newExpanded -> hdrExpanded = newExpanded },
                     { newSelection ->
                         selectedHdrMode = newSelection
-                        viewModel.outputHdrMode = HDR_MODE_DESCRIPTIONS[newSelection] ?: Composition.HDR_MODE_KEEP_HDR
+                        viewModel.outputHdrMode =
+                            HDR_MODE_DESCRIPTIONS[newSelection] ?: Composition.HDR_MODE_KEEP_HDR
                     }
                 )
             }
