@@ -710,7 +710,9 @@ import java.util.List;
     if (isCommandAvailable(COMMAND_GET_TIMELINE)) {
       return getCurrentTimeline();
     } else if (isCommandAvailable(COMMAND_GET_CURRENT_MEDIA_ITEM)) {
-      return new CurrentMediaItemOnlyTimeline(this);
+      return getCurrentTimeline().isEmpty()
+          ? Timeline.EMPTY
+          : new CurrentMediaItemOnlyTimeline(this);
     }
     return Timeline.EMPTY;
   }

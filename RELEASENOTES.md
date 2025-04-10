@@ -67,6 +67,11 @@
         configure this value.
     *   Fix issue where notifications reappear after they have been dismissed by
         the user ([#2302](https://github.com/androidx/media/issues/2302)).
+    *   Fix a bug where the `PlayerWrapper` returned a single-item timeline when
+        the wrapped player is actually empty. This happened when the wrapped
+        player doesn't have `COMMAND_GET_TIMELINE` available while
+        `COMMAND_GET_CURRENT_MEDIA_ITEM` is available and the wrapped player is
+        empty ([#2320](https://github.com/androidx/media/issues/2320)).
 *   UI:
     *   Enable `PlayerSurface` to work with `ExoPlayer.setVideoEffects` and
         `CompositionPlayer`.
