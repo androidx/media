@@ -28,6 +28,7 @@ import androidx.media3.common.ParserException;
 import androidx.media3.common.util.ParsableBitArray;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.common.util.Util;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
@@ -240,6 +241,7 @@ public final class Ac4Util {
         presentationConfig = dataBitArray.readBits(5); // presentation_config
         isSingleSubstreamGroup = (presentationConfig == 0x1f);
       }
+      ac4Presentation.version = presentationVersion;
 
       boolean addEmdfSubstreams;
       if (!(isSingleSubstream || isSingleSubstreamGroup) && presentationConfig == 6) {
@@ -437,6 +439,11 @@ public final class Ac4Util {
           "Can't determine channel count of presentation.");
     }
 
+    String codecString = createCodecsString(
+        bitstreamVersion,
+        ac4Presentation.version,
+        ac4Presentation.level);
+
     return new Format.Builder()
         .setId(trackId)
         .setSampleMimeType(MimeTypes.AUDIO_AC4)
@@ -444,6 +451,7 @@ public final class Ac4Util {
         .setSampleRate(sampleRate)
         .setDrmInitData(drmInitData)
         .setLanguage(language)
+        .setCodecs(codecString)
         .build();
   }
 
@@ -632,6 +640,19 @@ public final class Ac4Util {
   }
 
   /**
+   * Create codec string based on bitstream version, presentation version and presentation level
+   * @param bitstreamVersion The bitstream version.
+   * @param presentationVersion The presentation version.
+   * @param mdcompat The mdcompat, i.e. presentation level.
+   * @return An AC-4 codec string built using the provided parameters.
+   */
+  private static String createCodecsString(
+      int bitstreamVersion, int presentationVersion, int mdcompat) {
+    return Util.formatInvariant(
+        "ac-4.%02d.%02d.%02d", bitstreamVersion, presentationVersion, mdcompat);
+  }
+
+  /**
    * Returns AC-4 format information given {@code data} containing a syncframe. The reading position
    * of {@code data} will be modified.
    *
@@ -767,6 +788,7 @@ public final class Ac4Util {
     public int numOfUmxObjects;
     public boolean hasBackChannels;
     public int topChannelPairs;
+    public int version;
     public int level;
 
     private Ac4Presentation() {
@@ -775,6 +797,7 @@ public final class Ac4Util {
       numOfUmxObjects = -1;
       hasBackChannels = true;
       topChannelPairs = 2;
+      version = 1;
       level = 0;
     }
   }
