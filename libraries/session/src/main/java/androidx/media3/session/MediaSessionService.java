@@ -169,19 +169,12 @@ public abstract class MediaSessionService extends Service {
 
   private final Object lock;
   private final Handler mainHandler;
+  @Nullable private MediaSessionServiceStub stub;
+  private @MonotonicNonNull MediaNotificationManager mediaNotificationManager;
+  private @MonotonicNonNull DefaultActionFactory actionFactory;
 
   @GuardedBy("lock")
   private final Map<String, MediaSession> sessions;
-
-  @GuardedBy("lock")
-  @Nullable
-  private MediaSessionServiceStub stub;
-
-  @GuardedBy("lock")
-  private @MonotonicNonNull MediaNotificationManager mediaNotificationManager;
-
-  @GuardedBy("lock")
-  private @MonotonicNonNull DefaultActionFactory actionFactory;
 
   @GuardedBy("lock")
   @Nullable
@@ -208,9 +201,7 @@ public abstract class MediaSessionService extends Service {
   @Override
   public void onCreate() {
     super.onCreate();
-    synchronized (lock) {
-      stub = new MediaSessionServiceStub(this);
-    }
+    stub = new MediaSessionServiceStub(this);
   }
 
   /**
@@ -274,11 +265,10 @@ public abstract class MediaSessionService extends Service {
     if (old == null) {
       // Session has returned for the first time. Register callbacks.
       // TODO(b/191644474): Check whether the session is registered to multiple services.
-      MediaNotificationManager notificationManager = getMediaNotificationManager();
       postOrRun(
           mainHandler,
           () -> {
-            notificationManager.addSession(session);
+            getMediaNotificationManager().addSession(session);
             session.setListener(new MediaSessionListener());
           });
     }
@@ -300,11 +290,10 @@ public abstract class MediaSessionService extends Service {
       checkArgument(sessions.containsKey(session.getId()), "session not found");
       sessions.remove(session.getId());
     }
-    MediaNotificationManager notificationManager = getMediaNotificationManager();
     postOrRun(
         mainHandler,
         () -> {
-          notificationManager.removeSession(session);
+          getMediaNotificationManager().removeSession(session);
           session.clearListener();
         });
   }
@@ -486,6 +475,8 @@ public abstract class MediaSessionService extends Service {
    * <p>The default and maximum value is {@link #DEFAULT_FOREGROUND_SERVICE_TIMEOUT_MS}. If a larger
    * value is provided, it will be clamped down to {@link #DEFAULT_FOREGROUND_SERVICE_TIMEOUT_MS}.
    *
+   * <p>This method must be called on the main thread.
+   *
    * @param foregroundServiceTimeoutMs The timeout in milliseconds.
    */
   @UnstableApi
@@ -509,6 +500,8 @@ public abstract class MediaSessionService extends Service {
    * {@linkplain #setForegroundServiceTimeoutMs foreground service timeout} after they paused,
    * stopped, failed or ended. Use {@link #pauseAllPlayersAndStopSelf()} to pause all ongoing
    * playbacks immediately and terminate the service.
+   *
+   * <p>This method must be called on the main thread.
    */
   @UnstableApi
   public boolean isPlaybackOngoing() {
@@ -521,6 +514,8 @@ public abstract class MediaSessionService extends Service {
    *
    * <p>This terminates the service lifecycle and triggers {@link #onDestroy()} that an app can
    * override to release the sessions and other resources.
+   *
+   * <p>This method must be called on the main thread.
    */
   @UnstableApi
   public void pauseAllPlayersAndStopSelf() {
@@ -580,11 +575,9 @@ public abstract class MediaSessionService extends Service {
   @Override
   public void onDestroy() {
     super.onDestroy();
-    synchronized (lock) {
-      if (stub != null) {
-        stub.release();
-        stub = null;
-      }
+    if (stub != null) {
+      stub.release();
+      stub = null;
     }
   }
 
@@ -640,16 +633,16 @@ public abstract class MediaSessionService extends Service {
   protected final void setMediaNotificationProvider(
       MediaNotification.Provider mediaNotificationProvider) {
     checkNotNull(mediaNotificationProvider);
-    synchronized (lock) {
-      getMediaNotificationManager(/* initialMediaNotificationProvider= */ mediaNotificationProvider)
-          .setMediaNotificationProvider(mediaNotificationProvider);
-    }
+    Util.postOrRun(
+        mainHandler,
+        () ->
+            getMediaNotificationManager(
+                    /* initialMediaNotificationProvider= */ mediaNotificationProvider)
+                .setMediaNotificationProvider(mediaNotificationProvider));
   }
 
   /* package */ IBinder getServiceBinder() {
-    synchronized (lock) {
-      return checkStateNotNull(stub).asBinder();
-    }
+    return checkStateNotNull(stub).asBinder();
   }
 
   /**
@@ -680,30 +673,26 @@ public abstract class MediaSessionService extends Service {
 
   private MediaNotificationManager getMediaNotificationManager(
       @Nullable MediaNotification.Provider initialMediaNotificationProvider) {
-    synchronized (lock) {
-      if (mediaNotificationManager == null) {
-        if (initialMediaNotificationProvider == null) {
-          checkStateNotNull(getBaseContext(), "Accessing service context before onCreate()");
-          initialMediaNotificationProvider =
-              new DefaultMediaNotificationProvider.Builder(getApplicationContext()).build();
-        }
-        mediaNotificationManager =
-            new MediaNotificationManager(
-                /* mediaSessionService= */ this,
-                initialMediaNotificationProvider,
-                getActionFactory());
+    if (mediaNotificationManager == null) {
+      if (initialMediaNotificationProvider == null) {
+        checkStateNotNull(getBaseContext(), "Accessing service context before onCreate()");
+        initialMediaNotificationProvider =
+            new DefaultMediaNotificationProvider.Builder(getApplicationContext()).build();
       }
-      return mediaNotificationManager;
+      mediaNotificationManager =
+          new MediaNotificationManager(
+              /* mediaSessionService= */ this,
+              initialMediaNotificationProvider,
+              getActionFactory());
     }
+    return mediaNotificationManager;
   }
 
   private DefaultActionFactory getActionFactory() {
-    synchronized (lock) {
-      if (actionFactory == null) {
-        actionFactory = new DefaultActionFactory(/* service= */ this);
-      }
-      return actionFactory;
+    if (actionFactory == null) {
+      actionFactory = new DefaultActionFactory(/* service= */ this);
     }
+    return actionFactory;
   }
 
   @Nullable
