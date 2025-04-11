@@ -1,0 +1,16 @@
+# Proguard rules specific to the libass extension.
+
+# This prevents the names of native methods from being obfuscated.
+-keepclasseswithmembernames class * {
+    native <methods>;
+}
+
+# Some members of these classes are being accessed from other modules via reflection. Keep them unobfuscated.
+-keep class androidx.media3.decoder.ass.AssLibrary {
+    *;
+}
+
+# Some members of this class are being accessed from native methods. Keep them unobfuscated.
+-keep class androidx.media3.decoder.ass.AssRenderResult {
+  *;
+}

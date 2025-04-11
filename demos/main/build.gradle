@@ -82,6 +82,7 @@ dependencies {
     implementation project(modulePrefix + 'lib-ui')
     implementation project(modulePrefix + 'lib-datasource-cronet')
     implementation project(modulePrefix + 'lib-exoplayer-ima')
+    withDecoderExtensionsImplementation project(modulePrefix + 'lib-decoder-ass')
     withDecoderExtensionsImplementation project(modulePrefix + 'lib-decoder-av1')
     withDecoderExtensionsImplementation project(modulePrefix + 'lib-decoder-ffmpeg')
     withDecoderExtensionsImplementation project(modulePrefix + 'lib-decoder-flac')
