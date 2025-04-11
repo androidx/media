@@ -100,6 +100,8 @@
     *   Fix issue where chunk duration wasn't set in `CmcdData` for HLS media,
         causing an assertion failure when processing encrypted media segments
         ([#2312](https://github.com/androidx/media/issues/2312)).
+    *   Prevent excessive reloads by waiting for half the part target duration
+        when `CAN-BLOCK-RELOAD=YES` is not honored.
 *   DASH extension:
 *   Smooth Streaming extension:
 *   RTSP extension:
