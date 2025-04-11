@@ -15,6 +15,7 @@
  */
 package androidx.media3.session;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.app.PendingIntent;
@@ -23,7 +24,6 @@ import android.content.Intent;
 import android.os.Bundle;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.Player;
-import androidx.media3.common.util.Util;
 import androidx.media3.test.utils.TestExoPlayerBuilder;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -53,7 +53,7 @@ public class ConnectionStateTest {
                 context,
                 /* requestCode= */ 0,
                 new Intent(),
-                /* flags= */ Util.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0),
+                /* flags= */ SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0),
             /* customLayout= */ ImmutableList.of(
                 new CommandButton.Builder(CommandButton.ICON_ARTIST)
                     .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)

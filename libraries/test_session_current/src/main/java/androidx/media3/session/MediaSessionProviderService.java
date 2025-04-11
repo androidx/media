@@ -15,6 +15,7 @@
  */
 package androidx.media3.session;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.Player.COMMAND_GET_TRACKS;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.session.MediaSession.ConnectionResult.accept;
@@ -101,7 +102,6 @@ import androidx.media3.common.Tracks;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.text.CueGroup;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.Util;
 import androidx.media3.session.MediaSession.ControllerInfo;
 import androidx.media3.test.session.common.IRemoteMediaSession;
 import androidx.media3.test.session.common.MediaBrowserConstants;
@@ -199,7 +199,7 @@ public class MediaSessionProviderService extends Service {
                     MediaSessionProviderService.this,
                     /* requestCode= */ 0,
                     sessionActivity,
-                    Util.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0);
+                    SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0);
             builder.setSessionActivity(pendingIntent);
             break;
           }

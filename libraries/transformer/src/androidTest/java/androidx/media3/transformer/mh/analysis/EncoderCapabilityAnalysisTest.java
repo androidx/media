@@ -20,6 +20,7 @@ import static android.media.MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR;
 import static android.media.MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR_FD;
 import static android.media.MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CQ;
 import static android.media.MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR;
+import static android.os.Build.VERSION.SDK_INT;
 
 import android.media.CamcorderProfile;
 import android.media.MediaCodecInfo;
@@ -151,23 +152,23 @@ public class EncoderCapabilityAnalysisTest {
 
         capabilities.put(
             "max_supported_instances",
-            Util.SDK_INT >= 23 ? EncoderUtil.getMaxSupportedInstances(encoderInfo, mimeType) : -1);
+            SDK_INT >= 23 ? EncoderUtil.getMaxSupportedInstances(encoderInfo, mimeType) : -1);
 
         capabilities.put(
             "supports_qp_bounds",
-            Util.SDK_INT >= 31
+            SDK_INT >= 31
                 && EncoderUtil.isFeatureSupported(
                     encoderInfo, mimeType, MediaCodecInfo.CodecCapabilities.FEATURE_QpBounds));
 
         capabilities.put(
             "supports_hdr_editing",
-            Util.SDK_INT >= 33
+            SDK_INT >= 33
                 && EncoderUtil.isFeatureSupported(
                     encoderInfo, mimeType, MediaCodecInfo.CodecCapabilities.FEATURE_HdrEditing));
 
         capabilities.put(
             "supports_encoding_statistics",
-            Util.SDK_INT >= 33
+            SDK_INT >= 33
                 && EncoderUtil.isFeatureSupported(
                     encoderInfo,
                     mimeType,

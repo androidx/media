@@ -15,6 +15,7 @@
  */
 package androidx.media3.session;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
@@ -657,7 +658,7 @@ public abstract class MediaSessionService extends Service {
           getMediaNotificationManager().shouldRunInForeground(startInForegroundWhenPaused);
       onUpdateNotification(session, startInForegroundRequired);
     } catch (/* ForegroundServiceStartNotAllowedException */ IllegalStateException e) {
-      if ((Util.SDK_INT >= 31) && Api31.instanceOfForegroundServiceStartNotAllowedException(e)) {
+      if ((SDK_INT >= 31) && Api31.instanceOfForegroundServiceStartNotAllowedException(e)) {
         Log.e(TAG, "Failed to start foreground", e);
         onForegroundServiceStartNotAllowedException();
         return false;
@@ -733,7 +734,7 @@ public abstract class MediaSessionService extends Service {
 
     @Override
     public boolean onPlayRequested(MediaSession session) {
-      if (Util.SDK_INT < 31 || Util.SDK_INT >= 33) {
+      if (SDK_INT < 31 || SDK_INT >= 33) {
         return true;
       }
       // Check if service can start foreground successfully on Android 12 and 12L.

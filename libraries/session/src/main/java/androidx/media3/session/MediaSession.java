@@ -15,6 +15,7 @@
  */
 package androidx.media3.session;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.annotation.VisibleForTesting.PRIVATE;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
@@ -798,7 +799,7 @@ public class MediaSession {
    */
   @UnstableApi
   public final void setSessionActivity(@Nullable PendingIntent activityPendingIntent) {
-    if (Util.SDK_INT >= 31 && activityPendingIntent != null) {
+    if (SDK_INT >= 31 && activityPendingIntent != null) {
       checkArgument(Api31.isActivity(activityPendingIntent));
     }
     impl.setSessionActivity(activityPendingIntent);
@@ -822,7 +823,7 @@ public class MediaSession {
   @UnstableApi
   public final void setSessionActivity(
       ControllerInfo controller, @Nullable PendingIntent activityPendingIntent) {
-    if (Util.SDK_INT >= 31 && activityPendingIntent != null) {
+    if (SDK_INT >= 31 && activityPendingIntent != null) {
       checkArgument(Api31.isActivity(activityPendingIntent));
     }
     impl.setSessionActivity(controller, activityPendingIntent);
@@ -2257,7 +2258,7 @@ public class MediaSession {
     @CanIgnoreReturnValue
     @SuppressWarnings("unchecked")
     public BuilderT setSessionActivity(PendingIntent pendingIntent) {
-      if (Util.SDK_INT >= 31) {
+      if (SDK_INT >= 31) {
         checkArgument(Api31.isActivity(pendingIntent));
       }
       sessionActivity = checkNotNull(pendingIntent);

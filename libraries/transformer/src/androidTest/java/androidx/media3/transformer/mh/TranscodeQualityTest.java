@@ -16,6 +16,7 @@
 
 package androidx.media3.transformer.mh;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assume.assumeFalse;
@@ -65,8 +66,8 @@ public final class TranscodeQualityTest {
             .setSampleMimeType(MimeTypes.VIDEO_H265)
             .build());
     assumeFalse(
-        (Util.SDK_INT < 33 && (Build.MODEL.equals("SM-F711U1") || Build.MODEL.equals("SM-F926U1")))
-            || (Util.SDK_INT == 33 && Build.MODEL.equals("LE2121")));
+        (SDK_INT < 33 && (Build.MODEL.equals("SM-F711U1") || Build.MODEL.equals("SM-F926U1")))
+            || (SDK_INT == 33 && Build.MODEL.equals("LE2121")));
     Transformer transformer =
         new Transformer.Builder(context).setVideoMimeType(MimeTypes.VIDEO_H265).build();
     MediaItem mediaItem =

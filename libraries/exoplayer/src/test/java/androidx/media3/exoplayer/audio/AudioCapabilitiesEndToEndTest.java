@@ -18,6 +18,7 @@ package androidx.media3.exoplayer.audio;
 import static android.media.AudioFormat.CHANNEL_OUT_5POINT1;
 import static android.media.AudioFormat.CHANNEL_OUT_STEREO;
 import static android.media.AudioFormat.ENCODING_AC3;
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig.CODEC_INFO_AAC;
 import static androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig.CODEC_INFO_AC3;
@@ -44,7 +45,6 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.Player;
 import androidx.media3.common.Tracks;
 import androidx.media3.common.Tracks.Group;
-import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.DecoderCounters;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.Renderer;
@@ -462,7 +462,7 @@ public class AudioCapabilitiesEndToEndTest {
             .setFlags(0)
             .build());
     directPlaybackDevice = createDirectPlaybackDevice(ENCODING_AC3, CHANNEL_OUT_5POINT1);
-    if (Util.SDK_INT >= 33) {
+    if (SDK_INT >= 33) {
       shadowOf(audioManager).addOutputDeviceWithDirectProfiles(checkNotNull(directPlaybackDevice));
     }
     shadowOf(audioManager)
@@ -474,7 +474,7 @@ public class AudioCapabilitiesEndToEndTest {
     ShadowAudioTrack.clearAllowedNonPcmEncodings();
     ShadowAudioTrack.clearDirectPlaybackSupportedFormats();
     if (directPlaybackDevice != null) {
-      if (Util.SDK_INT >= 33) {
+      if (SDK_INT >= 33) {
         shadowOf(audioManager).removeOutputDeviceWithDirectProfiles(directPlaybackDevice);
       }
       shadowOf(audioManager)
@@ -486,7 +486,7 @@ public class AudioCapabilitiesEndToEndTest {
   private void setupDefaultPcmSupport() {
     AudioDeviceInfoBuilder defaultDevice =
         AudioDeviceInfoBuilder.newBuilder().setType(AudioDeviceInfo.TYPE_BUILTIN_SPEAKER);
-    if (Util.SDK_INT >= 33) {
+    if (SDK_INT >= 33) {
       defaultDevice.setProfiles(ImmutableList.of(createPcmProfile()));
       shadowOf(audioManager).addOutputDeviceWithDirectProfiles(defaultDevice.build());
     } else {
@@ -510,7 +510,7 @@ public class AudioCapabilitiesEndToEndTest {
   private static AudioDeviceInfo createDirectPlaybackDevice(int encoding, int channelMask) {
     AudioDeviceInfoBuilder directPlaybackDevice =
         AudioDeviceInfoBuilder.newBuilder().setType(AudioDeviceInfo.TYPE_HDMI);
-    if (Util.SDK_INT >= 33) {
+    if (SDK_INT >= 33) {
       ImmutableList<AudioProfile> expectedProfiles =
           ImmutableList.of(
               AudioProfileBuilder.newBuilder()

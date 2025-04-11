@@ -17,6 +17,7 @@
 
 package androidx.media3.transformer.mh;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.test.utils.TestUtil.retrieveTrackFormat;
 import static androidx.media3.transformer.AndroidTestUtil.JPG_ULTRA_HDR_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_1080P_5_SECOND_HLG10;
@@ -35,7 +36,6 @@ import static com.google.common.truth.Truth.assertThat;
 import android.content.Context;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
-import androidx.media3.common.util.Util;
 import androidx.media3.transformer.Composition;
 import androidx.media3.transformer.EditedMediaItem;
 import androidx.media3.transformer.EditedMediaItemSequence;
@@ -160,7 +160,7 @@ public final class TransformerMhUltraHdrTest {
   }
 
   private void assumeDeviceSupportsUltraHdrEditing() throws JSONException, IOException {
-    if (Util.SDK_INT < 34) {
+    if (SDK_INT < 34) {
       recordTestSkipped(
           getApplicationContext(), testId, "Ultra HDR is not supported on this API level.");
       throw new AssumptionViolatedException("Ultra HDR is not supported on this API level.");
