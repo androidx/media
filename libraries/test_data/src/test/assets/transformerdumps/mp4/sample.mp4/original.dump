@@ -1,4 +1,5 @@
 format audio:
+  averageBitrate = 74502
   peakBitrate = 200000
   id = 2
   containerMimeType = video/mp4
@@ -12,6 +13,7 @@ format audio:
   initializationData:
     data = length 2, hash 5F7
 format video:
+  averageBitrate = 718290
   id = 1
   containerMimeType = video/mp4
   sampleMimeType = video/avc

@@ -6,6 +6,7 @@ format audio:
   pcmEncoding = 2
   metadata = entries=[Mp4AlternateGroup: 1, xyz: latitude=40.68, longitude=-74.5, Mp4Timestamp: creation time=0, modification time=0, timescale=1000]
 format video:
+  averageBitrate = 718290
   id = 1
   containerMimeType = video/mp4
   sampleMimeType = video/avc

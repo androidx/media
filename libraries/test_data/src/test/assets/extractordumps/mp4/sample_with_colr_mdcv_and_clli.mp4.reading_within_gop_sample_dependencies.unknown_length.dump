@@ -276,7 +276,7 @@ track 1:
   sample count = 44
   track duration = 1022000
   format 0:
-    averageBitrate = 130279
+    averageBitrate = 130280
     peakBitrate = 130279
     id = 2
     containerMimeType = video/mp4

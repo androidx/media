@@ -35,6 +35,7 @@ import androidx.media3.common.util.Util;
     public final long[] timestamps;
     public final int[] flags;
     public final long duration;
+    public final long totalSize;
 
     private Results(
         long[] offsets,
@@ -42,13 +43,15 @@ import androidx.media3.common.util.Util;
         int maximumSize,
         long[] timestamps,
         int[] flags,
-        long duration) {
+        long duration,
+        long totalSize) {
       this.offsets = offsets;
       this.sizes = sizes;
       this.maximumSize = maximumSize;
       this.timestamps = timestamps;
       this.flags = flags;
       this.duration = duration;
+      this.totalSize = totalSize;
     }
   }
 
@@ -81,6 +84,7 @@ import androidx.media3.common.util.Util;
     int maximumSize = 0;
     long[] timestamps = new long[rechunkedSampleCount];
     int[] flags = new int[rechunkedSampleCount];
+    int totalSize = 0;
 
     int originalSampleIndex = 0;
     int newSampleIndex = 0;
@@ -93,6 +97,7 @@ import androidx.media3.common.util.Util;
 
         offsets[newSampleIndex] = sampleOffset;
         sizes[newSampleIndex] = fixedSampleSize * bufferSampleCount;
+        totalSize += sizes[newSampleIndex];
         maximumSize = max(maximumSize, sizes[newSampleIndex]);
         timestamps[newSampleIndex] = (timestampDeltaInTimeUnits * originalSampleIndex);
         flags[newSampleIndex] = C.BUFFER_FLAG_KEY_FRAME;
@@ -106,7 +111,7 @@ import androidx.media3.common.util.Util;
     }
     long duration = timestampDeltaInTimeUnits * originalSampleIndex;
 
-    return new Results(offsets, sizes, maximumSize, timestamps, flags, duration);
+    return new Results(offsets, sizes, maximumSize, timestamps, flags, duration, totalSize);
   }
 
   private FixedSampleSizeRechunker() {
