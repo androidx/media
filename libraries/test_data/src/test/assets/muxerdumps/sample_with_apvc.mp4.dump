@@ -11,6 +11,7 @@ track 0:
   sample count = 125
   track duration = 4166600
   format 0:
+    averageBitrate = 16235575
     id = 1
     containerMimeType = video/mp4
     sampleMimeType = video/apv

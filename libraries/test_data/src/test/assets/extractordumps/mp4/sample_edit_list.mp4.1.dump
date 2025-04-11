@@ -11,6 +11,7 @@ track 0:
   sample count = 62
   track duration = 2548333
   format 0:
+    averageBitrate = 8413134
     id = 1
     containerMimeType = video/mp4
     sampleMimeType = video/dolby-vision
@@ -285,6 +286,7 @@ track 1:
   sample count = 76
   track duration = 2548333
   format 0:
+    averageBitrate = 140781
     peakBitrate = 192000
     id = 2
     containerMimeType = video/mp4

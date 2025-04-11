@@ -55,6 +55,7 @@ import androidx.media3.extractor.VorbisUtil;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
+import java.math.RoundingMode;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
@@ -527,6 +528,7 @@ public final class BoxParser {
     int[] flags;
     long timestampTimeUnits = 0;
     long duration;
+    long totalSize = 0;
 
     if (rechunkFixedSizeSamples) {
       long[] chunkOffsetsBytes = new long[chunkIterator.length];
@@ -544,6 +546,7 @@ public final class BoxParser {
       timestamps = rechunkedResults.timestamps;
       flags = rechunkedResults.flags;
       duration = rechunkedResults.duration;
+      totalSize = rechunkedResults.totalSize;
     } else {
       offsets = new long[sampleCount];
       sizes = new int[sampleCount];
@@ -586,6 +589,7 @@ public final class BoxParser {
 
         offsets[i] = offset;
         sizes[i] = sampleSizeBox.readNextSampleSize();
+        totalSize += sizes[i];
         if (sizes[i] > maximumSize) {
           maximumSize = sizes[i];
         }
@@ -657,6 +661,20 @@ public final class BoxParser {
                 + (!isCttsValid ? ", ctts invalid" : ""));
       }
     }
+
+    if (track.mediaDurationUs > 0) {
+      long averageBitrate =
+          Util.scaleLargeValue(
+              totalSize * C.BITS_PER_BYTE,
+              C.MICROS_PER_SECOND,
+              track.mediaDurationUs,
+              RoundingMode.HALF_DOWN);
+      if (averageBitrate > 0 && averageBitrate < Integer.MAX_VALUE) {
+        Format format = track.format.buildUpon().setAverageBitrate((int) averageBitrate).build();
+        track = track.copyWithFormat(format);
+      }
+    }
+
     long durationUs = Util.scaleLargeTimestamp(duration, C.MICROS_PER_SECOND, track.timescale);
 
     if (track.editListDurations == null) {
