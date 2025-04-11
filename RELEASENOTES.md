@@ -21,6 +21,10 @@
         groups have been removed. The user still needs to pass in an array of
         durations for removed ad groups which can be empty or null
         ([#2267](https://github.com/androidx/media/issues/2267)).
+    *   Fix issue where `ProgressiveMediaPeriod` throws an
+        `IllegalStateException` as `PreloadMediaSource` attempts to call its
+        `getBufferedDurationUs()` before it is prepared
+        ([#2315](https://github.com/androidx/media/issues/2315)).
 *   Transformer:
     *   Filling an initial gap (added via `addGap()`) with silent audio now
         requires explicitly setting `experimentalSetForceAudioTrack(true)` in

@@ -90,12 +90,13 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public final class PreloadMediaSourceTest {
 
-  private static final int LOADING_CHECK_INTERVAL_BYTES = 10 * 1024;
+  private static final int LOADING_CHECK_INTERVAL_BYTES = 32;
   private static final int TARGET_PRELOAD_DURATION_US = 10000;
 
   private Allocator allocator;
   private BandwidthMeter bandwidthMeter;
   private RenderersFactory renderersFactory;
+  private MediaItem mediaItem;
 
   @Before
   public void setUp() {
@@ -112,6 +113,10 @@ public final class PreloadMediaSourceTest {
                   SystemClock.DEFAULT.createHandler(handler.getLooper(), /* callback= */ null),
                   audioListener)
             };
+    mediaItem =
+        new MediaItem.Builder()
+            .setUri(Uri.parse("asset://android_asset/media/mp4/long_1080p_lowbitrate.mp4"))
+            .build();
   }
 
   @Test
@@ -146,11 +151,7 @@ public final class PreloadMediaSourceTest {
             getRendererCapabilities(renderersFactory),
             allocator,
             Util.getCurrentOrMainLooper());
-    PreloadMediaSource preloadMediaSource =
-        preloadMediaSourceFactory.createMediaSource(
-            new MediaItem.Builder()
-                .setUri(Uri.parse("asset://android_asset/media/mp4/sample.mp4"))
-                .build());
+    PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
 
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
     runMainLooperUntil(() -> preloadMediaSourceReference.get() != null);
@@ -191,11 +192,7 @@ public final class PreloadMediaSourceTest {
             getRendererCapabilities(renderersFactory),
             allocator,
             Util.getCurrentOrMainLooper());
-    PreloadMediaSource preloadMediaSource =
-        preloadMediaSourceFactory.createMediaSource(
-            new MediaItem.Builder()
-                .setUri(Uri.parse("asset://android_asset/media/mp4/sample.mp4"))
-                .build());
+    PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
 
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
     runMainLooperUntil(() -> preloadMediaSourceReference.get() != null);
@@ -235,11 +232,7 @@ public final class PreloadMediaSourceTest {
             getRendererCapabilities(renderersFactory),
             allocator,
             Util.getCurrentOrMainLooper());
-    PreloadMediaSource preloadMediaSource =
-        preloadMediaSourceFactory.createMediaSource(
-            new MediaItem.Builder()
-                .setUri(Uri.parse("asset://android_asset/media/mp4/sample.mp4"))
-                .build());
+    PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
 
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
     shadowOf(Looper.getMainLooper()).idle();
@@ -266,11 +259,7 @@ public final class PreloadMediaSourceTest {
             getRendererCapabilities(renderersFactory),
             allocator,
             Util.getCurrentOrMainLooper());
-    PreloadMediaSource preloadMediaSource =
-        preloadMediaSourceFactory.createMediaSource(
-            new MediaItem.Builder()
-                .setUri(Uri.parse("asset://android_asset/media/mp4/sample.mp4"))
-                .build());
+    PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
 
     AtomicReference<MediaSource> externalCallerMediaSourceReference = new AtomicReference<>();
     MediaSource.MediaSourceCaller externalCaller =
@@ -315,11 +304,7 @@ public final class PreloadMediaSourceTest {
             getRendererCapabilities(renderersFactory),
             allocator,
             Util.getCurrentOrMainLooper());
-    PreloadMediaSource preloadMediaSource =
-        preloadMediaSourceFactory.createMediaSource(
-            new MediaItem.Builder()
-                .setUri(Uri.parse("asset://android_asset/media/mp4/sample.mp4"))
-                .build());
+    PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
 
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
     runMainLooperUntil(() -> preloadMediaSourceReference.get() != null);
@@ -388,11 +373,7 @@ public final class PreloadMediaSourceTest {
             getRendererCapabilities(renderersFactory),
             allocator,
             Util.getCurrentOrMainLooper());
-    PreloadMediaSource preloadMediaSource =
-        preloadMediaSourceFactory.createMediaSource(
-            new MediaItem.Builder()
-                .setUri(Uri.parse("asset://android_asset/media/mp4/sample.mp4"))
-                .build());
+    PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
 
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
     runMainLooperUntil(() -> preloadExceptionReference.get() != null);
@@ -472,11 +453,7 @@ public final class PreloadMediaSourceTest {
             getRendererCapabilities(renderersFactory),
             allocator,
             Util.getCurrentOrMainLooper());
-    PreloadMediaSource preloadMediaSource =
-        preloadMediaSourceFactory.createMediaSource(
-            new MediaItem.Builder()
-                .setUri(Uri.parse("asset://android_asset/media/mp4/sample.mp4"))
-                .build());
+    PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
 
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
     runMainLooperUntil(() -> preloadExceptionReference.get() != null);
@@ -583,11 +560,7 @@ public final class PreloadMediaSourceTest {
             getRendererCapabilities(renderersFactory),
             allocator,
             Util.getCurrentOrMainLooper());
-    PreloadMediaSource preloadMediaSource =
-        preloadMediaSourceFactory.createMediaSource(
-            new MediaItem.Builder()
-                .setUri(Uri.parse("asset://android_asset/media/mp4/sample.mp4"))
-                .build());
+    PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
 
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
     runMainLooperUntil(() -> preloadExceptionReference.get() != null);
@@ -615,11 +588,7 @@ public final class PreloadMediaSourceTest {
             getRendererCapabilities(renderersFactory),
             allocator,
             Util.getCurrentOrMainLooper());
-    PreloadMediaSource preloadMediaSource =
-        preloadMediaSourceFactory.createMediaSource(
-            new MediaItem.Builder()
-                .setUri(Uri.parse("asset://android_asset/media/mp4/sample.mp4"))
-                .build());
+    PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
     FakeMediaSource wrappedMediaSource = mediaSourceFactory.getLastCreatedSource();
     wrappedMediaSource.setAllowPreparation(false);
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
@@ -653,11 +622,7 @@ public final class PreloadMediaSourceTest {
             getRendererCapabilities(renderersFactory),
             allocator,
             Util.getCurrentOrMainLooper());
-    PreloadMediaSource preloadMediaSource =
-        preloadMediaSourceFactory.createMediaSource(
-            new MediaItem.Builder()
-                .setUri(Uri.parse("asset://android_asset/media/mp4/sample.mp4"))
-                .build());
+    PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
 
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
     shadowOf(Looper.getMainLooper()).idle();
@@ -727,11 +692,7 @@ public final class PreloadMediaSourceTest {
             getRendererCapabilities(renderersFactory),
             allocator,
             Util.getCurrentOrMainLooper());
-    PreloadMediaSource preloadMediaSource =
-        preloadMediaSourceFactory.createMediaSource(
-            new MediaItem.Builder()
-                .setUri(Uri.parse("asset://android_asset/media/mp4/sample.mp4"))
-                .build());
+    PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
 
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
     shadowOf(Looper.getMainLooper()).idle();
@@ -808,11 +769,7 @@ public final class PreloadMediaSourceTest {
             getRendererCapabilities(renderersFactory),
             allocator,
             Util.getCurrentOrMainLooper());
-    PreloadMediaSource preloadMediaSource =
-        preloadMediaSourceFactory.createMediaSource(
-            new MediaItem.Builder()
-                .setUri(Uri.parse("asset://android_asset/media/mp4/sample.mp4"))
-                .build());
+    PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
 
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
     shadowOf(Looper.getMainLooper()).idle();
@@ -876,11 +833,7 @@ public final class PreloadMediaSourceTest {
             getRendererCapabilities(renderersFactory),
             allocator,
             Util.getCurrentOrMainLooper());
-    PreloadMediaSource preloadMediaSource =
-        preloadMediaSourceFactory.createMediaSource(
-            new MediaItem.Builder()
-                .setUri(Uri.parse("asset://android_asset/media/mp4/sample.mp4"))
-                .build());
+    PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
     shadowOf(Looper.getMainLooper()).idle();
 
@@ -923,11 +876,7 @@ public final class PreloadMediaSourceTest {
             getRendererCapabilities(renderersFactory),
             allocator,
             Util.getCurrentOrMainLooper());
-    PreloadMediaSource preloadMediaSource =
-        preloadMediaSourceFactory.createMediaSource(
-            new MediaItem.Builder()
-                .setUri(Uri.parse("asset://android_asset/media/mp4/sample.mp4"))
-                .build());
+    PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
     AtomicBoolean externalCallerSourceInfoRefreshedCalled = new AtomicBoolean();
     MediaSource.MediaSourceCaller externalCaller =
         (source, timeline) -> externalCallerSourceInfoRefreshedCalled.set(true);
@@ -976,11 +925,7 @@ public final class PreloadMediaSourceTest {
             getRendererCapabilities(renderersFactory),
             allocator,
             Util.getCurrentOrMainLooper());
-    PreloadMediaSource preloadMediaSource =
-        preloadMediaSourceFactory.createMediaSource(
-            new MediaItem.Builder()
-                .setUri(Uri.parse("asset://android_asset/media/mp4/sample.mp4"))
-                .build());
+    PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
     AtomicBoolean externalCallerSourceInfoRefreshedCalled = new AtomicBoolean();
     MediaSource.MediaSourceCaller externalCaller =
         (source, timeline) -> externalCallerSourceInfoRefreshedCalled.set(true);
@@ -1031,11 +976,7 @@ public final class PreloadMediaSourceTest {
             getRendererCapabilities(renderersFactory),
             allocator,
             Util.getCurrentOrMainLooper());
-    PreloadMediaSource preloadMediaSource =
-        preloadMediaSourceFactory.createMediaSource(
-            new MediaItem.Builder()
-                .setUri(Uri.parse("asset://android_asset/media/mp4/sample.mp4"))
-                .build());
+    PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
     AtomicBoolean externalCaller1SourceInfoRefreshedCalled = new AtomicBoolean();
     AtomicBoolean externalCaller2SourceInfoRefreshedCalled = new AtomicBoolean();
     MediaSource.MediaSourceCaller externalCaller1 =
@@ -1090,11 +1031,7 @@ public final class PreloadMediaSourceTest {
             getRendererCapabilities(renderersFactory),
             allocator,
             Util.getCurrentOrMainLooper());
-    PreloadMediaSource preloadMediaSource =
-        preloadMediaSourceFactory.createMediaSource(
-            new MediaItem.Builder()
-                .setUri(Uri.parse("asset://android_asset/media/mp4/sample.mp4"))
-                .build());
+    PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
     shadowOf(Looper.getMainLooper()).idle();
     preloadMediaSource.releasePreloadMediaSource();
@@ -1140,11 +1077,7 @@ public final class PreloadMediaSourceTest {
             getRendererCapabilities(renderersFactory),
             allocator,
             Util.getCurrentOrMainLooper());
-    PreloadMediaSource preloadMediaSource =
-        preloadMediaSourceFactory.createMediaSource(
-            new MediaItem.Builder()
-                .setUri(Uri.parse("asset://android_asset/media/mp4/sample.mp4"))
-                .build());
+    PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
     AtomicBoolean externalCallerSourceInfoRefreshedCalled = new AtomicBoolean();
     MediaSource.MediaSourceCaller externalCaller =
         (source, timeline) -> externalCallerSourceInfoRefreshedCalled.set(true);
