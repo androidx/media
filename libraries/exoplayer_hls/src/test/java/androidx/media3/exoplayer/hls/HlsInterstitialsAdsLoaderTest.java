@@ -2195,7 +2195,7 @@ public class HlsInterstitialsAdsLoaderTest {
     runMainLooperUntil(assetListLoadingListener::completed, TIMEOUT_MS, Clock.DEFAULT);
     verify(mockAdsLoaderListener)
         .onAssetListLoadCompleted(eq(contentMediaItem), eq("adsId"), eq(0), eq(0), any());
-    assertThat(midRollPlayerMessage.getPositionMs()).isEqualTo(12_000L);
+    assertThat(midRollPlayerMessage.getPositionMs()).isEqualTo(3_000L);
     assertThat(midRollPlayerMessage.getPayload()).isEqualTo(contentMediaItem);
     assertThat(midRollPlayerMessage.getLooper()).isEqualTo(Looper.myLooper());
     InOrder inOrder = inOrder(mockPlayer);
@@ -2289,8 +2289,12 @@ public class HlsInterstitialsAdsLoaderTest {
             + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:00:00.000Z\n"
             + "#EXTINF:9,\n"
             + "main0.0.ts\n"
-            + "#EXTINF:16.001,\n"
-            + "main0.0.ts\n"
+            + "#EXTINF:9,\n"
+            + "main1.0.ts\n"
+            + "#EXTINF:9,\n"
+            + "main2.0.ts\n"
+            + "#EXTINF:7.001,\n"
+            + "main3.0.ts\n"
             + "#EXT-X-ENDLIST"
             + "\n"
             + "#EXT-X-DATERANGE:"
@@ -2303,7 +2307,7 @@ public class HlsInterstitialsAdsLoaderTest {
             + "#EXT-X-DATERANGE:"
             + "ID=\"ad1-0\","
             + "CLASS=\"com.apple.hls.interstitial\","
-            + "START-DATE=\"2020-01-02T21:00:25.000Z\","
+            + "START-DATE=\"2020-01-02T21:00:34.000Z\","
             + "X-ASSET-LIST=\"http://example.com/assetlist-1-0.json\""
             + "\n";
     when(mockPlayer.getContentPosition()).thenReturn(0L);
@@ -2317,7 +2321,7 @@ public class HlsInterstitialsAdsLoaderTest {
             /* Looper ignored */ null);
     when(mockPlayer.createMessage(any())).thenReturn(midRollPlayerMessage);
     AdPlaybackState expectedAdPlaybackStateAtTimelineChange =
-        new AdPlaybackState("adsId", 0L, 25_000_000L)
+        new AdPlaybackState("adsId", 0L, 34_000_000L)
             .withAdCount(/* adGroupIndex= */ 0, 1)
             .withAdCount(/* adGroupIndex= */ 1, 1)
             .withAdId(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0, "ad0-0")
@@ -2419,7 +2423,7 @@ public class HlsInterstitialsAdsLoaderTest {
             expectedAdPlaybackStateAtTimelineChange.withAdLoadError(
                 /* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 0))
         .inOrder();
-    assertThat(midRollPlayerMessage.getPositionMs()).isEqualTo(33_000L);
+    assertThat(midRollPlayerMessage.getPositionMs()).isEqualTo(24_000L);
     InOrder inOrder = inOrder(mockPlayer);
     inOrder.verify(mockPlayer).addListener(any());
     verifyTimelineUpdate(inOrder, mockPlayer, /* verifyMessageScheduled= */ false);
@@ -2590,15 +2594,17 @@ public class HlsInterstitialsAdsLoaderTest {
             + "#EXTINF:9,\n"
             + "main0.0.ts\n"
             + "#EXTINF:9,\n"
-            + "main0.0.ts\n"
+            + "main1.0.ts\n"
             + "#EXTINF:9,\n"
-            + "main0.0.ts\n"
+            + "main2.0.ts\n"
+            + "#EXTINF:9,\n"
+            + "main3.0.ts\n"
             + "#EXT-X-ENDLIST"
             + "\n"
             + "#EXT-X-DATERANGE:"
             + "ID=\"ad0-0\","
             + "CLASS=\"com.apple.hls.interstitial\","
-            + "START-DATE=\"2020-01-02T21:00:21.000Z\","
+            + "START-DATE=\"2020-01-02T21:00:30.000Z\","
             + "X-ASSET-LIST=\"http://example.com/assetlist-0-0.json\""
             + "\n";
     when(mockPlayer.getContentPosition()).thenReturn(0L);
@@ -2691,7 +2697,7 @@ public class HlsInterstitialsAdsLoaderTest {
 
     runMainLooperUntil(assetListLoadingListener::completed, TIMEOUT_MS, Clock.DEFAULT);
     assertThat(midRoll2PlayerMessage.isCanceled()).isFalse();
-    assertThat(midRoll2PlayerMessage.getPositionMs()).isEqualTo(36_000L);
+    assertThat(midRoll2PlayerMessage.getPositionMs()).isEqualTo(27_000L);
     assertThat(midRoll2PlayerMessage.getPayload()).isEqualTo(contentMediaItem);
     assertThat(midRoll2PlayerMessage.getLooper()).isEqualTo(Looper.myLooper());
   }
@@ -2848,15 +2854,15 @@ public class HlsInterstitialsAdsLoaderTest {
         TIMEOUT_MS,
         Clock.DEFAULT);
     assertThat(midRoll1PlayerMessage.isCanceled()).isTrue();
-    assertThat(midRoll1PlayerMessage.getPositionMs()).isEqualTo(12_000L);
+    assertThat(midRoll1PlayerMessage.getPositionMs()).isEqualTo(3_000L);
     assertThat(midRoll1PlayerMessage.getPayload()).isEqualTo(contentMediaItem);
     assertThat(midRoll1PlayerMessage.getLooper()).isEqualTo(Looper.myLooper());
     assertThat(midRoll2PlayerMessage.isCanceled()).isTrue();
-    assertThat(midRoll2PlayerMessage.getPositionMs()).isEqualTo(36_000L);
+    assertThat(midRoll2PlayerMessage.getPositionMs()).isEqualTo(27_000L);
     assertThat(midRoll2PlayerMessage.getPayload()).isEqualTo(contentMediaItem);
     assertThat(midRoll1PlayerMessage.getLooper()).isEqualTo(Looper.myLooper());
     assertThat(postRollPlayerMessage.isCanceled()).isFalse();
-    assertThat(postRollPlayerMessage.getPositionMs()).isEqualTo(72_000L);
+    assertThat(postRollPlayerMessage.getPositionMs()).isEqualTo(63_000L);
     assertThat(postRollPlayerMessage.getPayload()).isEqualTo(contentMediaItem);
     assertThat(midRoll1PlayerMessage.getLooper()).isEqualTo(Looper.myLooper());
     ArgumentCaptor<AssetList> argumentCaptor = ArgumentCaptor.forClass(AssetList.class);
@@ -2907,7 +2913,7 @@ public class HlsInterstitialsAdsLoaderTest {
             + "#EXT-X-DATERANGE:"
             + "ID=\"ad0-0\","
             + "CLASS=\"com.apple.hls.interstitial\","
-            + "START-DATE=\"2020-01-02T21:00:21.000Z\","
+            + "START-DATE=\"2020-01-02T21:00:30.000Z\","
             + "X-ASSET-LIST=\"http://example.com/assetlist-0-0.json\""
             + "\n"
             + "#EXT-X-DATERANGE:"
@@ -2920,7 +2926,7 @@ public class HlsInterstitialsAdsLoaderTest {
     Object periodUid = new Object();
     when(mockPlayer.getContentPosition()).thenReturn(0L);
     AdPlaybackState expectedAdPlaybackStateAtTimelineChange =
-        new AdPlaybackState("adsId", 21_000_000L, 51_000_000L)
+        new AdPlaybackState("adsId", 30_000_000L, 51_000_000L)
             .withAdCount(/* adGroupIndex= */ 0, 1)
             .withAdCount(/* adGroupIndex= */ 1, 1)
             .withAdId(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0, "ad0-0")
@@ -2983,7 +2989,7 @@ public class HlsInterstitialsAdsLoaderTest {
     assertThat(midRoll1PlayerMessage.getPositionMs()).isEqualTo(3_000L);
     assertThat(midRoll1PlayerMessage.getPayload()).isEqualTo(contentMediaItem);
     assertThat(midRoll2PlayerMessage.isCanceled()).isFalse();
-    assertThat(midRoll2PlayerMessage.getPositionMs()).isEqualTo(33_000L);
+    assertThat(midRoll2PlayerMessage.getPositionMs()).isEqualTo(24_000L);
     assertThat(midRoll2PlayerMessage.getPayload()).isEqualTo(contentMediaItem);
     ArgumentCaptor<AdPlaybackState> adPlaybackStateCaptor =
         ArgumentCaptor.forClass(AdPlaybackState.class);
@@ -3015,15 +3021,17 @@ public class HlsInterstitialsAdsLoaderTest {
             + "#EXTINF:9,\n"
             + "main0.0.ts\n"
             + "#EXTINF:9,\n"
-            + "main0.0.ts\n"
+            + "main1.0.ts\n"
             + "#EXTINF:9,\n"
-            + "main0.0.ts\n"
+            + "main2.0.ts\n"
+            + "#EXTINF:9,\n"
+            + "main3.0.ts\n"
             + "#EXT-X-ENDLIST"
             + "\n"
             + "#EXT-X-DATERANGE:"
             + "ID=\"ad0-0\","
             + "CLASS=\"com.apple.hls.interstitial\","
-            + "START-DATE=\"2020-01-02T21:00:21.000Z\","
+            + "START-DATE=\"2020-01-02T21:00:30.000Z\","
             + "X-ASSET-LIST=\"http://example.com/assetlist-0-0.json\""
             + "\n";
     when(mockPlayer.getContentPosition()).thenReturn(0L);

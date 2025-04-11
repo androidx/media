@@ -786,11 +786,11 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
         nextAssetResolution.adStartTimeUs != Long.MAX_VALUE
             ? nextAssetResolution.adStartTimeUs
             : window.durationUs;
-    // Load 2 times the target duration before the ad starts.
+    // Load 3 times the target duration before the ad starts.
     resolutionStartTimeUs =
         max(
             currentPeriodPositionUs,
-            resolutionStartTimeUs - (2 * nextAssetResolution.targetDurationUs));
+            resolutionStartTimeUs - (3 * nextAssetResolution.targetDurationUs));
     if (resolutionStartTimeUs - currentPeriodPositionUs < 200_000L) {
       // Start loading immediately.
       nextAssetResolution.run();
@@ -923,9 +923,11 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
       }
       long positionInPlaylistWindowUs =
           resolveInterstitialStartTimeUs(interstitial, mediaPlaylist) - mediaPlaylist.startTimeUs;
-      if (positionInPlaylistWindowUs < 0 || mediaPlaylist.durationUs < positionInPlaylistWindowUs) {
+      if (positionInPlaylistWindowUs < 0
+          || mediaPlaylist.durationUs + (3 * mediaPlaylist.targetDurationUs)
+              < positionInPlaylistWindowUs) {
         // Ignore when behind the window including C.TIME_UNSET and C.TIME_END_OF_SOURCE.
-        // When not yet in the window we wait until the window advances.
+        // When far in the future before the window, we wait until the window advances.
         continue;
       }
       long timeUs = windowPositionInPeriodUs + positionInPlaylistWindowUs;
