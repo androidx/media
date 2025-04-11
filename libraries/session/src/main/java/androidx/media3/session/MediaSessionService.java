@@ -181,9 +181,6 @@ public abstract class MediaSessionService extends Service {
   private @MonotonicNonNull MediaNotificationManager mediaNotificationManager;
 
   @GuardedBy("lock")
-  private MediaNotification.@MonotonicNonNull Provider mediaNotificationProvider;
-
-  @GuardedBy("lock")
   private @MonotonicNonNull DefaultActionFactory actionFactory;
 
   @GuardedBy("lock")
@@ -637,8 +634,6 @@ public abstract class MediaSessionService extends Service {
   /**
    * Sets the {@link MediaNotification.Provider} to customize notifications.
    *
-   * <p>This should be called before {@link #onCreate()} returns.
-   *
    * <p>This method can be called from any thread.
    */
   @UnstableApi
@@ -646,7 +641,8 @@ public abstract class MediaSessionService extends Service {
       MediaNotification.Provider mediaNotificationProvider) {
     checkNotNull(mediaNotificationProvider);
     synchronized (lock) {
-      this.mediaNotificationProvider = mediaNotificationProvider;
+      getMediaNotificationManager(/* initialMediaNotificationProvider= */ mediaNotificationProvider)
+          .setMediaNotificationProvider(mediaNotificationProvider);
     }
   }
 
@@ -679,16 +675,23 @@ public abstract class MediaSessionService extends Service {
   }
 
   private MediaNotificationManager getMediaNotificationManager() {
+    return getMediaNotificationManager(/* initialMediaNotificationProvider= */ null);
+  }
+
+  private MediaNotificationManager getMediaNotificationManager(
+      @Nullable MediaNotification.Provider initialMediaNotificationProvider) {
     synchronized (lock) {
       if (mediaNotificationManager == null) {
-        if (mediaNotificationProvider == null) {
+        if (initialMediaNotificationProvider == null) {
           checkStateNotNull(getBaseContext(), "Accessing service context before onCreate()");
-          mediaNotificationProvider =
+          initialMediaNotificationProvider =
               new DefaultMediaNotificationProvider.Builder(getApplicationContext()).build();
         }
         mediaNotificationManager =
             new MediaNotificationManager(
-                /* mediaSessionService= */ this, mediaNotificationProvider, getActionFactory());
+                /* mediaSessionService= */ this,
+                initialMediaNotificationProvider,
+                getActionFactory());
       }
       return mediaNotificationManager;
     }

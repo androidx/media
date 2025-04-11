@@ -60,7 +60,7 @@ import java.util.concurrent.TimeoutException;
   private static final int MSG_USER_ENGAGED_TIMEOUT = 1;
 
   private final MediaSessionService mediaSessionService;
-  private final MediaNotification.Provider mediaNotificationProvider;
+
   private final MediaNotification.ActionFactory actionFactory;
   private final NotificationManagerCompat notificationManagerCompat;
   private final Handler mainHandler;
@@ -68,6 +68,7 @@ import java.util.concurrent.TimeoutException;
   private final Intent startSelfIntent;
   private final Map<MediaSession, ControllerInfo> controllerMap;
 
+  private MediaNotification.Provider mediaNotificationProvider;
   private int totalNotificationCount;
   @Nullable private MediaNotification mediaNotification;
   private boolean startedInForeground;
@@ -144,6 +145,15 @@ import java.util.concurrent.TimeoutException;
                 () -> sendCustomCommandIfCommandIsAvailable(mediaController, action, extras));
           }
         });
+  }
+
+  /**
+   * Updates the media notification provider.
+   *
+   * @param mediaNotificationProvider The {@link MediaNotification.Provider}.
+   */
+  public void setMediaNotificationProvider(MediaNotification.Provider mediaNotificationProvider) {
+    this.mediaNotificationProvider = mediaNotificationProvider;
   }
 
   /**

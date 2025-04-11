@@ -73,6 +73,11 @@
         player doesn't have `COMMAND_GET_TIMELINE` available while
         `COMMAND_GET_CURRENT_MEDIA_ITEM` is available and the wrapped player is
         empty ([#2320](https://github.com/androidx/media/issues/2320)).
+    *   Fix a bug where calling
+        `MediaSessionService.setMediaNotificationProvider` is silently ignored
+        after other interactions with the service like
+        `setForegroundServiceTimeoutMs`
+        ([#2305](https://github.com/androidx/media/issues/2305)).
 *   UI:
     *   Enable `PlayerSurface` to work with `ExoPlayer.setVideoEffects` and
         `CompositionPlayer`.
