@@ -41,6 +41,7 @@ import java.util.List;
 /* package */ final class MergingMediaPeriod implements MediaPeriod, MediaPeriod.Callback {
 
   private final MediaPeriod[] periods;
+  private final boolean[] periodsWithTimeOffsets;
   private final IdentityHashMap<SampleStream, Integer> streamPeriodIndices;
   private final CompositeSequenceableLoaderFactory compositeSequenceableLoaderFactory;
   private final ArrayList<MediaPeriod> childrenPendingPreparation;
@@ -62,8 +63,10 @@ import java.util.List;
     compositeSequenceableLoader = compositeSequenceableLoaderFactory.empty();
     streamPeriodIndices = new IdentityHashMap<>();
     enabledPeriods = new MediaPeriod[0];
+    periodsWithTimeOffsets = new boolean[periods.length];
     for (int i = 0; i < periods.length; i++) {
       if (periodTimeOffsetsUs[i] != 0) {
+        periodsWithTimeOffsets[i] = true;
         this.periods[i] = new TimeOffsetMediaPeriod(periods[i], periodTimeOffsetsUs[i]);
       }
     }
@@ -75,7 +78,7 @@ import java.util.List;
    * specified index.
    */
   public MediaPeriod getChildPeriod(int index) {
-    return periods[index] instanceof TimeOffsetMediaPeriod
+    return periodsWithTimeOffsets[index]
         ? ((TimeOffsetMediaPeriod) periods[index]).getWrappedMediaPeriod()
         : periods[index];
   }
