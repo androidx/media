@@ -1,15 +1,69 @@
 # Release notes
 
+## 1.6
+
+### 1.6.1 (2025-04-14)
+
+This release includes the following changes since the
+[1.6.0 release](#160-2025-03-26):
+
+*   Common Library:
+    *   Add `PlaybackParameters.withPitch(float)` method for easily copying a
+        `PlaybackParameters` with a new `pitch` value
+        ([#2257](https://github.com/androidx/media/issues/2257)).
 *   ExoPlayer:
+    *   Fix issue where media item transition fails due to recoverable renderer
+        error during initialization of the next media item
+        ([#2229](https://github.com/androidx/media/issues/2229)).
     *   Fix issue where `ProgressiveMediaPeriod` throws an
         `IllegalStateException` as `PreloadMediaSource` attempts to call its
         `getBufferedDurationUs()` before it is prepared
         ([#2315](https://github.com/androidx/media/issues/2315)).
+    *   Fix sending `CmcdData` in manifest requests for DASH, HLS, and
+        SmoothStreaming ([#2253](https://github.com/androidx/media/pull/2253)).
+    *   Ensure `AdPlaybackState.withAdDurationsUs(long[][])` can be used after
+        ad groups have been removed. The user still needs to pass in an array of
+        durations for removed ad groups which can be empty or null
+        ([#2267](https://github.com/androidx/media/issues/2267)).
+*   Extractors:
+    *   MP4: Parse `alternate_group` from the `tkhd` box and expose it as an
+        `Mp4AlternateGroupData` entry in each track's `Format.metadata`
+        ([#2242](https://github.com/androidx/media/issues/2242)).
+*   Audio:
+    *   Fix offload issue where the position might get stuck when playing a
+        playlist of short content
+        ([#1920](https://github.com/androidx/media/issues/1920)).
+*   Session:
+    *   Lower aggregation timeout for platform `MediaSession` callbacks from 500
+        to 100 milliseconds and add an experimental setter to allow apps to
+        configure this value.
+    *   Fix issue where notifications reappear after they have been dismissed by
+        the user ([#2302](https://github.com/androidx/media/issues/2302)).
+    *   Fix a bug where the session returned a single-item timeline when the
+        wrapped player is actually empty. This happened when the wrapped player
+        doesn't have `COMMAND_GET_TIMELINE` available while
+        `COMMAND_GET_CURRENT_MEDIA_ITEM` is available and the wrapped player is
+        empty ([#2320](https://github.com/androidx/media/issues/2320)).
+    *   Fix a bug where calling
+        `MediaSessionService.setMediaNotificationProvider` is silently ignored
+        after other interactions with the service like
+        `setForegroundServiceTimeoutMs`
+        ([#2305](https://github.com/androidx/media/issues/2305)).
+*   UI:
+    *   Enable `PlayerSurface` to work with `ExoPlayer.setVideoEffects` and
+        `CompositionPlayer`.
+    *   Fix bug where `PlayerSurface` can't be recomposed with a new `Player`.
+*   HLS extension:
+    *   Fix issue where chunk duration wasn't set in `CmcdData` for HLS media,
+        causing an assertion failure when processing encrypted media segments
+        ([#2312](https://github.com/androidx/media/issues/2312)).
+*   RTSP extension:
+    *   Add support for URI with RTSPT scheme as a way to configure the RTSP
+        session to use TCP
+        ([#1484](https://github.com/androidx/media/issues/1484)).
 *   Cast extension:
     *   Add support for playlist metadata
         ([#2235](https://github.com/androidx/media/pull/2235)).
-
-## 1.6
 
 ### 1.6.0 (2025-03-26)
 
