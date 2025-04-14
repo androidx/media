@@ -83,7 +83,7 @@ public class ExoPlayerWithPrewarmingRenderersTest {
 
   @Rule
   public ShadowMediaCodecConfig mediaCodecConfig =
-      ShadowMediaCodecConfig.forAllSupportedMimeTypes();
+      ShadowMediaCodecConfig.withAllDefaultSupportedCodecs();
 
   @Before
   public void setUp() {

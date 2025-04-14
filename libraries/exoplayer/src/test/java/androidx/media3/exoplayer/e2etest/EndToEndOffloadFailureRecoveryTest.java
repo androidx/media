@@ -57,7 +57,7 @@ public class EndToEndOffloadFailureRecoveryTest {
 
   @Rule
   public ShadowMediaCodecConfig mediaCodecConfig =
-      ShadowMediaCodecConfig.forAllSupportedMimeTypes();
+      ShadowMediaCodecConfig.withAllDefaultSupportedCodecs();
 
   public FakeClock fakeClock;
   public DefaultTrackSelector trackSelector;

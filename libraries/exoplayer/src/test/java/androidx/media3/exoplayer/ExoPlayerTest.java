@@ -263,7 +263,7 @@ public final class ExoPlayerTest {
 
   @Rule
   public ShadowMediaCodecConfig mediaCodecConfig =
-      ShadowMediaCodecConfig.forAllSupportedMimeTypes();
+      ShadowMediaCodecConfig.withAllDefaultSupportedCodecs();
 
   // The explicit boolean parameter is only used to give clear test names.
   @Parameter(0)

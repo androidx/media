@@ -58,7 +58,7 @@ public class ParseAv1SampleDependenciesPlaybackTest {
 
   @Rule
   public ShadowMediaCodecConfig mediaCodecConfig =
-      ShadowMediaCodecConfig.forAllSupportedMimeTypes();
+      ShadowMediaCodecConfig.withAllDefaultSupportedCodecs();
 
   @Test
   public void playback_withClippedMediaItem_skipNonReferenceInputSamples() throws Exception {
