@@ -69,6 +69,11 @@
 *   Leanback extension:
 *   Cast extension:
 *   Test Utilities:
+    *   Removed `transformer.TestUtil.addAudioDecoders(String...)`,
+        `transformer.TestUtil.addAudioEncoders(String...)`, and
+        `transformer.TestUtil.addAudioEncoders(ShadowMediaCodec.CodecConfig,
+        String...)`. Use `ShadowMediaCodecConfig` to configure shadow encoders
+        and decoders instead.
 *   Demo app:
     *   Add `PlaybackSpeedPopUpButton` Composable UI element to be part of
         `ExtraControls` in `demo-compose`.
