@@ -277,7 +277,8 @@ import java.util.concurrent.TimeoutException;
       boolean startInForegroundRequired) {
     // Call Notification.MediaStyle#setMediaSession() indirectly.
     android.media.session.MediaSession.Token fwkToken =
-        session.getSessionCompat().getSessionToken().getToken();
+        (android.media.session.MediaSession.Token)
+            session.getSessionCompat().getSessionToken().getToken();
     mediaNotification.notification.extras.putParcelable(Notification.EXTRA_MEDIA_SESSION, fwkToken);
     this.mediaNotification = mediaNotification;
     if (startInForegroundRequired) {
