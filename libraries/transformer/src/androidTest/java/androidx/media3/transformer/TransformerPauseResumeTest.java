@@ -99,7 +99,10 @@ public class TransformerPauseResumeTest {
 
     ExportResult exportResult = result.exportResult;
     assertThat(exportResult.processedInputs).hasSize(4);
-    assertThat(exportResult.videoFrameCount).isEqualTo(MP4_ASSET_FRAME_COUNT);
+    // Rarely, MediaCodec decoders output frames in the wrong order.
+    // When the MediaCodec encoder sees frames in the wrong order, fewer output frames are produced.
+    // Use a tolerance when comparing frame counts. See b/343476417#comment5.
+    assertThat(exportResult.videoFrameCount).isWithin(2).of(MP4_ASSET_FRAME_COUNT);
     // The first processed media item corresponds to remuxing previous output video.
     assertThat(exportResult.processedInputs.get(0).audioDecoderName).isNull();
     assertThat(exportResult.processedInputs.get(0).videoDecoderName).isNull();
@@ -197,8 +200,12 @@ public class TransformerPauseResumeTest {
         .isEqualTo(exportResultWithoutResume.audioEncoderName);
     assertThat(exportResultWithResume.videoEncoderName)
         .isEqualTo(exportResultWithoutResume.videoEncoderName);
+    // Rarely, MediaCodec decoders output frames in the wrong order.
+    // When the MediaCodec encoder sees frames in the wrong order, fewer output frames are produced.
+    // Use a tolerance when comparing frame counts. See b/343476417#comment5.
     assertThat(exportResultWithResume.videoFrameCount)
-        .isEqualTo(exportResultWithoutResume.videoFrameCount);
+        .isWithin(2)
+        .of(exportResultWithoutResume.videoFrameCount);
     // TODO: b/306595508 - Remove this expected difference once inconsistent behaviour of audio
     //  encoder is fixed.
     int maxDiffExpectedInDurationMs = 2;
@@ -252,8 +259,12 @@ public class TransformerPauseResumeTest {
         .isEqualTo(exportResultWithoutResume.audioEncoderName);
     assertThat(exportResultWithResume.videoEncoderName)
         .isEqualTo(exportResultWithoutResume.videoEncoderName);
+    // Rarely, MediaCodec decoders output frames in the wrong order.
+    // When the MediaCodec encoder sees frames in the wrong order, fewer output frames are produced.
+    // Use a tolerance when comparing frame counts. See b/343476417#comment5.
     assertThat(exportResultWithResume.videoFrameCount)
-        .isEqualTo(exportResultWithoutResume.videoFrameCount);
+        .isWithin(2)
+        .of(exportResultWithoutResume.videoFrameCount);
     int maxDiffExpectedInDurationMs = 2;
     assertThat(exportResultWithResume.durationMs - exportResultWithoutResume.durationMs)
         .isLessThan(maxDiffExpectedInDurationMs);
@@ -293,7 +304,10 @@ public class TransformerPauseResumeTest {
     ExportResult exportResult = result.exportResult;
     assertThat(exportResult.processedInputs).hasSize(6);
     int expectedVideoFrameCount = 2 * MP4_ASSET_FRAME_COUNT;
-    assertThat(exportResult.videoFrameCount).isEqualTo(expectedVideoFrameCount);
+    // Rarely, MediaCodec decoders output frames in the wrong order.
+    // When the MediaCodec encoder sees frames in the wrong order, fewer output frames are produced.
+    // Use a tolerance when comparing frame counts. See b/343476417#comment5.
+    assertThat(exportResult.videoFrameCount).isWithin(2).of(expectedVideoFrameCount);
     // The first processed media item corresponds to remuxing previous output video.
     assertThat(exportResult.processedInputs.get(0).audioDecoderName).isNull();
     assertThat(exportResult.processedInputs.get(0).videoDecoderName).isNull();
@@ -358,8 +372,12 @@ public class TransformerPauseResumeTest {
         .isEqualTo(exportResultWithoutResume.audioEncoderName);
     assertThat(exportResultWithResume.videoEncoderName)
         .isEqualTo(exportResultWithoutResume.videoEncoderName);
+    // Rarely, MediaCodec decoders output frames in the wrong order.
+    // When the MediaCodec encoder sees frames in the wrong order, fewer output frames are produced.
+    // Use a tolerance when comparing frame counts. See b/343476417#comment5.
     assertThat(exportResultWithResume.videoFrameCount)
-        .isEqualTo(exportResultWithoutResume.videoFrameCount);
+        .isWithin(2)
+        .of(exportResultWithoutResume.videoFrameCount);
     int maxDiffExpectedInDurationMs = 2;
     assertThat(exportResultWithResume.durationMs - exportResultWithoutResume.durationMs)
         .isLessThan(maxDiffExpectedInDurationMs);
