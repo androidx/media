@@ -865,7 +865,10 @@ public final class AdPlaybackState {
             || !getAdGroup(index).shouldPlayAdGroup())) {
       index++;
     }
-    return index < adGroupCount ? index : C.INDEX_UNSET;
+    return index < adGroupCount
+            && (periodDurationUs == C.TIME_UNSET || getAdGroup(index).timeUs <= periodDurationUs)
+        ? index
+        : C.INDEX_UNSET;
   }
 
   /** Returns whether the specified ad has been marked as in {@link #AD_STATE_ERROR}. */

@@ -868,7 +868,7 @@ import java.util.Objects;
     }
 
     if (imaAdState == IMA_AD_STATE_NONE
-        && playbackState == Player.STATE_BUFFERING
+        && (playbackState == Player.STATE_BUFFERING || playbackState == Player.STATE_ENDED)
         && playWhenReady) {
       ensureSentContentCompleteIfAtEndOfStream();
     } else if (imaAdState != IMA_AD_STATE_NONE && playbackState == Player.STATE_ENDED) {
