@@ -679,9 +679,9 @@ public final class ExoPlayerTest {
   @Test
   public void renderersLifecycle_onlyRenderersThatAreEnabled_areSetToFinal() throws Exception {
     AtomicInteger videoStreamSetToFinalCount = new AtomicInteger();
-    final FakeRenderer videoRenderer = new FakeRenderer(C.TRACK_TYPE_VIDEO);
-    final FakeRenderer audioRenderer = new FakeRenderer(C.TRACK_TYPE_AUDIO);
-    final ForwardingRenderer forwardingVideoRenderer =
+    FakeRenderer videoRenderer = new FakeRenderer(C.TRACK_TYPE_VIDEO);
+    FakeRenderer audioRenderer = new FakeRenderer(C.TRACK_TYPE_AUDIO);
+    ForwardingRenderer forwardingVideoRenderer =
         new ForwardingRenderer(videoRenderer) {
           @Override
           public void setCurrentStreamFinal() {
@@ -694,18 +694,18 @@ public final class ExoPlayerTest {
                 new TestExoPlayerBuilder(context)
                     .setRenderers(forwardingVideoRenderer, audioRenderer))
             .build();
-    // Use media sources with discontinuities so that enabled streams are set to final.
+    // Use media sources with discontinuities so that enabled streams are set to final. Also ensure
+    // to use Formats that are not guaranteed to be only sync samples, so ClippingMediaSource
+    // maintains the initial discontinuity.
+    Format videoFormat = new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_AV1).build();
+    Format audioFormat = new Format.Builder().setSampleMimeType(MimeTypes.AUDIO_DTS).build();
     ClippingMediaSource clippedFakeAudioSource =
-        new ClippingMediaSource.Builder(
-                new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.AUDIO_FORMAT))
+        new ClippingMediaSource.Builder(new FakeMediaSource(new FakeTimeline(), audioFormat))
             .setEndPositionMs(300)
             .build();
     ClippingMediaSource clippedFakeAudioVideoSource =
         new ClippingMediaSource.Builder(
-                new FakeMediaSource(
-                    new FakeTimeline(),
-                    ExoPlayerTestRunner.VIDEO_FORMAT,
-                    ExoPlayerTestRunner.AUDIO_FORMAT))
+                new FakeMediaSource(new FakeTimeline(), videoFormat, audioFormat))
             .setEndPositionMs(300)
             .build();
     player.setMediaSources(
