@@ -1930,7 +1930,7 @@ public class CastPlayerTest {
 
     assertThat(castPlayer.getPlaylistMetadata()).isEqualTo(metadata);
 
-    verify(mockListener, times(1)).onPlaylistMetadataChanged(metadata);
+    verify(mockListener).onPlaylistMetadataChanged(metadata);
   }
 
   @Test
@@ -1948,7 +1948,7 @@ public class CastPlayerTest {
     castPlayer.addListener(mockListener);
     castPlayer.setDeviceVolume(volumeToSet, /* flags= */ 0);
 
-    verify(mockListener, times(1)).onDeviceVolumeChanged(volumeToSet, /* muted= */ false);
+    verify(mockListener).onDeviceVolumeChanged(volumeToSet, /* muted= */ false);
     verify(mockCastSession).setVolume((double) volumeToSet / maxVolume);
     assertThat(castPlayer.getDeviceVolume()).isEqualTo(volumeToSet);
 
@@ -1957,7 +1957,7 @@ public class CastPlayerTest {
     when(mockCastSession.getVolume()).thenReturn(newCastSessionVolume);
     castListener.onVolumeChanged();
     assertThat(castPlayer.getDeviceVolume()).isEqualTo(expectedDeviceVolume);
-    verify(mockListener, times(1)).onDeviceVolumeChanged(volumeToSet, /* muted= */ false);
+    verify(mockListener).onDeviceVolumeChanged(volumeToSet, /* muted= */ false);
   }
 
   @Test
@@ -1965,14 +1965,14 @@ public class CastPlayerTest {
     castPlayer.addListener(mockListener);
     castPlayer.setDeviceMuted(true, /* flags= */ 0);
 
-    verify(mockListener, times(1)).onDeviceVolumeChanged(0, /* muted= */ true);
+    verify(mockListener).onDeviceVolumeChanged(0, /* muted= */ true);
     verify(mockCastSession).setMute(true);
-    assertThat(castPlayer.isDeviceMuted()).isEqualTo(true);
+    assertThat(castPlayer.isDeviceMuted()).isTrue();
 
     when(mockCastSession.isMute()).thenReturn(false);
     castListener.onVolumeChanged();
-    assertThat(castPlayer.isDeviceMuted()).isEqualTo(false);
-    verify(mockListener, times(1)).onDeviceVolumeChanged(0, /* muted= */ false);
+    assertThat(castPlayer.isDeviceMuted()).isFalse();
+    verify(mockListener).onDeviceVolumeChanged(0, /* muted= */ false);
   }
 
   private int[] createMediaQueueItemIds(int numberOfIds) {
