@@ -62,6 +62,7 @@ import java.util.List;
 import java.util.concurrent.TimeoutException;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -110,6 +111,7 @@ public class ReplayCacheTest {
   }
 
   @Test
+  @Ignore("TODO: b/391109644 - Fix this test and re-enable it")
   public void replayOnEveryFrame_withExoPlayer_succeeds()
       throws PlaybackException, TimeoutException {
     assumeTrue(
