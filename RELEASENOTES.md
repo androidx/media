@@ -23,6 +23,9 @@
 *   DataSource:
 *   Audio:
     *   Allow constant power upmixing/downmixing in DefaultAudioMixer.
+    *   Make `ChannelMappingAudioProcessor`, `TrimmingAudioProcessor` and
+        `ToFloatPcmAudioProcessor` public
+        ([#2339](https://github.com/androidx/media/issues/2339)).
 *   Video:
     *   Add experimental `ExoPlayer` API to include the
         `MediaCodec.BUFFER_FLAG_DECODE_ONLY` flag when queuing decode-only input
