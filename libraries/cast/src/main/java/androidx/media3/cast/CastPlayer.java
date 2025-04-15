@@ -75,6 +75,7 @@ import com.google.android.gms.cast.framework.media.RemoteMediaClient.MediaChanne
 import com.google.android.gms.common.api.PendingResult;
 import com.google.android.gms.common.api.ResultCallback;
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.InlineMe;
 import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
@@ -867,6 +868,7 @@ public final class CastPlayer extends BasePlayer {
   /**
    * @deprecated Use {@link #setDeviceVolume(int, int)} instead.
    */
+  @InlineMe(replacement = "this.setDeviceVolume(volume, 0)")
   @Deprecated
   @Override
   public void setDeviceVolume(@IntRange(from = 0) int volume) {
@@ -894,6 +896,7 @@ public final class CastPlayer extends BasePlayer {
   /**
    * @deprecated Use {@link #increaseDeviceVolume(int)} instead.
    */
+  @InlineMe(replacement = "this.increaseDeviceVolume(0)")
   @Deprecated
   @Override
   public void increaseDeviceVolume() {
@@ -908,6 +911,7 @@ public final class CastPlayer extends BasePlayer {
   /**
    * @deprecated Use {@link #decreaseDeviceVolume(int)} (int)} instead.
    */
+  @InlineMe(replacement = "this.decreaseDeviceVolume(0)")
   @Deprecated
   @Override
   public void decreaseDeviceVolume() {
@@ -922,6 +926,7 @@ public final class CastPlayer extends BasePlayer {
   /**
    * @deprecated Use {@link #setDeviceMuted(boolean, int)} instead.
    */
+  @InlineMe(replacement = "this.setDeviceMuted(muted, 0)")
   @Deprecated
   @Override
   public void setDeviceMuted(boolean muted) {
