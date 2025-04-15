@@ -62,7 +62,7 @@ public final class DefaultAudioOffloadSupportProvider
    *     offload variable rate support.
    */
   public DefaultAudioOffloadSupportProvider(@Nullable Context context) {
-    this.context = context;
+    this.context = context == null ? null : context.getApplicationContext();
   }
 
   @Override

@@ -592,7 +592,7 @@ public final class DefaultAudioSink implements AudioSink {
 
   @RequiresNonNull("#1.audioProcessorChain")
   private DefaultAudioSink(Builder builder) {
-    context = builder.context;
+    context = builder.context == null ? null : builder.context.getApplicationContext();
     audioAttributes = AudioAttributes.DEFAULT;
     audioCapabilities = context != null ? null : builder.audioCapabilities;
     audioProcessorChain = builder.audioProcessorChain;
