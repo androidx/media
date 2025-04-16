@@ -47,6 +47,8 @@
     *   `writeSampleData()` API now uses muxer specific `BufferInfo` class
         instead of `MediaCodec.BufferInfo`.
 *   IMA extension:
+    *   Fix a bug where a load error in one ad may accidentally invalidate
+        another ad group.
 *   Session:
 *   UI:
 *   Downloads:

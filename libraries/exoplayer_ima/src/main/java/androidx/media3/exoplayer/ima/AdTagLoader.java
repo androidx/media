@@ -801,9 +801,9 @@ import java.util.Objects;
 
   private void resumeContentInternal() {
     if (imaAdInfo != null) {
-      // Remove any pending timeout tasks as CONTENT_RESUME_REQUESTED may occur instead of loadAd.
+      // Mark current ad group as skipped if it hasn't finished yet. This could for example happen
+      // after a load timeout where we receive CONTENT_RESUME_REQUESTED instead of loadAd.
       // See [Internal: b/330750756].
-      handler.removeCallbacks(adLoadTimeoutRunnable);
       adPlaybackState = adPlaybackState.withSkippedAdGroup(checkNotNull(imaAdInfo).adGroupIndex);
       updateAdPlaybackState();
     }
@@ -843,6 +843,9 @@ import java.util.Objects;
     int adGroupIndex = player.getCurrentAdGroupIndex();
     if (adGroupIndex == C.INDEX_UNSET) {
       return false;
+    }
+    if (adGroupIndex >= adPlaybackState.adGroupCount) {
+      return true;
     }
     AdPlaybackState.AdGroup adGroup = adPlaybackState.getAdGroup(adGroupIndex);
     int adIndexInAdGroup = player.getCurrentAdIndexInAdGroup();
@@ -971,12 +974,6 @@ import java.util.Objects;
       // We have already marked this ad as having failed to load, so ignore the request. IMA will
       // timeout after its media load timeout.
       return;
-    }
-    if (player != null
-        && player.getCurrentAdGroupIndex() == adGroupIndex
-        && player.getCurrentAdIndexInAdGroup() == adIndexInAdGroup) {
-      // Loaded ad info the player is currently waiting for.
-      handler.removeCallbacks(adLoadTimeoutRunnable);
     }
 
     // The ad count may increase on successive loads of ads in the same ad pod, for example, due to
@@ -1129,6 +1126,11 @@ import java.util.Objects;
   }
 
   private void handleAdLoadTimeout() {
+    // We started the timeout when we were first waiting for the current ad to load. Check if we are
+    // still waiting after the timeout before triggering the error event.
+    if (!isWaitingForCurrentAdToLoad()) {
+      return;
+    }
     // IMA got stuck and didn't load an ad in time, so skip the entire group.
     handleAdGroupLoadError(new IOException("Ad loading timed out"));
     maybeNotifyPendingAdLoadError();
