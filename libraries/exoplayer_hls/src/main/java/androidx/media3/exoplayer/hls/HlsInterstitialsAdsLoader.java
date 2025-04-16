@@ -591,7 +591,7 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
   }
 
   @Override
-  public void handleContentTimelineChanged(AdsMediaSource adsMediaSource, Timeline timeline) {
+  public boolean handleContentTimelineChanged(AdsMediaSource adsMediaSource, Timeline timeline) {
     Object adsId = adsMediaSource.getAdsId();
     if (isReleased) {
       EventListener eventListener = activeEventListeners.remove(adsId);
@@ -604,14 +604,14 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
           eventListener.onAdPlaybackState(new AdPlaybackState(adsId));
         }
       }
-      return;
+      return false;
     }
 
     AdPlaybackState adPlaybackState = checkNotNull(activeAdPlaybackStates.get(adsId));
     if (!adPlaybackState.equals(AdPlaybackState.NONE)
         && !adPlaybackState.endsWithLivePostrollPlaceHolder()) {
       // Multiple timeline updates for VOD not supported.
-      return;
+      return false;
     }
 
     if (adPlaybackState.equals(AdPlaybackState.NONE)) {
@@ -662,12 +662,13 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
             adsId, timeline, /* windowIndex= */ 0, contentPositionUs);
       }
     }
-    putAndNotifyAdPlaybackStateUpdate(adsId, adPlaybackState);
+    boolean adPlaybackStateUpdated = putAndNotifyAdPlaybackStateUpdate(adsId, adPlaybackState);
     if (!unsupportedAdsIds.contains(adsId)) {
       notifyListeners(
           listener ->
               listener.onContentTimelineChanged(adsMediaSource.getMediaItem(), adsId, timeline));
     }
+    return adPlaybackStateUpdated;
   }
 
   @Override
@@ -864,18 +865,20 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
     return loader;
   }
 
-  private void putAndNotifyAdPlaybackStateUpdate(Object adsId, AdPlaybackState adPlaybackState) {
+  private boolean putAndNotifyAdPlaybackStateUpdate(Object adsId, AdPlaybackState adPlaybackState) {
     @Nullable
     AdPlaybackState oldAdPlaybackState = activeAdPlaybackStates.put(adsId, adPlaybackState);
     if (!adPlaybackState.equals(oldAdPlaybackState)) {
       @Nullable EventListener eventListener = activeEventListeners.get(adsId);
       if (eventListener != null) {
         eventListener.onAdPlaybackState(adPlaybackState);
+        return true;
       } else {
         activeAdPlaybackStates.remove(adsId);
         insertedInterstitialIds.remove(adsId);
       }
     }
+    return false;
   }
 
   private void notifyAssetResolutionFailed(Object adsId, int adGroupIndex, int adIndexInAdGroup) {
