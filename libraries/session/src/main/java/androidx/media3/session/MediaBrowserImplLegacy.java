@@ -132,7 +132,8 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
       // Already connected with the given extras.
       result.set(LibraryResult.ofItem(createRootMediaItem(browserCompat), null));
     } else {
-      Bundle rootHints = LegacyConversions.convertToRootHints(params);
+      Bundle rootHints =
+          params == null ? new Bundle() : LegacyConversions.convertToRootHints(params);
       rootHints.putInt(
           androidx.media3.session.legacy.MediaConstants
               .BROWSER_ROOT_HINTS_KEY_CUSTOM_BROWSER_ACTION_LIMIT,

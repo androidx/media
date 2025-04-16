@@ -50,6 +50,9 @@
     *   Fix a bug where a load error in one ad may accidentally invalidate
         another ad group.
 *   Session:
+    *   Fix a bug where passing null into `getLibraryRoot` of a `MediaBrowser`
+        connected to a legacy `MediaBrowserServiceCompat` produced a
+        `NullPointerException`.
 *   UI:
 *   Downloads:
     *   Add partial download support for progressive streams. Apps can prepare a
