@@ -52,7 +52,7 @@ public final class PlaylistPlaybackTest {
 
   @Rule
   public ShadowMediaCodecConfig mediaCodecConfig =
-      ShadowMediaCodecConfig.forAllSupportedMimeTypes();
+      ShadowMediaCodecConfig.withAllDefaultSupportedCodecs();
 
   @Test
   public void test_bypassOnThenOff() throws Exception {

@@ -21,6 +21,7 @@ import androidx.compose.runtime.MutableIntState
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.media3.common.ForwardingPlayer
 import androidx.media3.common.Player
 import androidx.media3.ui.compose.utils.TestPlayer
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -28,6 +29,9 @@ import com.google.common.truth.Truth.assertThat
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.mockito.ArgumentMatchers.any
+import org.mockito.Mockito.inOrder
+import org.mockito.Mockito.spy
 
 /** Unit test for [PlayerSurface]. */
 @RunWith(AndroidJUnit4::class)
@@ -86,5 +90,31 @@ class PlayerSurfaceTest {
     composeTestRule.waitForIdle()
 
     assertThat(player.videoOutput).isInstanceOf(SurfaceView::class.java)
+  }
+
+  @Test
+  fun playerSurface_withNewPlayer_unsetsSurfaceOnOldPlayerFirst() {
+    val player0 = TestPlayer()
+    val player1 = TestPlayer()
+    val spyPlayer0 = spy(ForwardingPlayer(player0))
+    val spyPlayer1 = spy(ForwardingPlayer(player1))
+
+    lateinit var playerIndex: MutableIntState
+    composeTestRule.setContent {
+      playerIndex = remember { mutableIntStateOf(0) }
+      PlayerSurface(
+        player = if (playerIndex.intValue == 0) spyPlayer0 else spyPlayer1,
+        surfaceType = SURFACE_TYPE_SURFACE_VIEW,
+      )
+    }
+    composeTestRule.waitForIdle()
+    playerIndex.intValue = 1
+    composeTestRule.waitForIdle()
+
+    assertThat(player0.videoOutput).isNull()
+    assertThat(player1.videoOutput).isNotNull()
+    val inOrder = inOrder(spyPlayer0, spyPlayer1)
+    inOrder.verify(spyPlayer0).clearVideoSurfaceView(any())
+    inOrder.verify(spyPlayer1).setVideoSurfaceView(any())
   }
 }

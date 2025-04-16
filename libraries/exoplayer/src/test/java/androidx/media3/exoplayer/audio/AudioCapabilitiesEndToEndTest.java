@@ -88,7 +88,7 @@ public class AudioCapabilitiesEndToEndTest {
 
   @Rule
   public ShadowMediaCodecConfig shadowMediaCodecConfig =
-      ShadowMediaCodecConfig.withNoDefaultSupportedMimeTypes();
+      ShadowMediaCodecConfig.withNoDefaultSupportedCodecs();
 
   @Before
   public void setUp() {

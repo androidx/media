@@ -64,8 +64,16 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
       SessionToken token,
       Bundle connectionHints,
       Looper applicationLooper,
-      BitmapLoader bitmapLoader) {
-    super(context, instance, token, connectionHints, applicationLooper, bitmapLoader);
+      BitmapLoader bitmapLoader,
+      long platformSessionCallbackAggregationTimeoutMs) {
+    super(
+        context,
+        instance,
+        token,
+        connectionHints,
+        applicationLooper,
+        bitmapLoader,
+        platformSessionCallbackAggregationTimeoutMs);
     this.instance = instance;
     commandButtonsForMediaItems = ImmutableMap.of();
   }

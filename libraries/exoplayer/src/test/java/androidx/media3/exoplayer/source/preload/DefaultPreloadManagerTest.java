@@ -30,7 +30,6 @@ import static org.robolectric.Shadows.shadowOf;
 import android.content.Context;
 import android.net.Uri;
 import android.os.HandlerThread;
-import android.os.Looper;
 import androidx.annotation.Nullable;
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.C;
@@ -68,7 +67,9 @@ import com.google.common.collect.Iterables;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -81,6 +82,7 @@ public class DefaultPreloadManagerTest {
   private Context context;
   @Mock private TargetPreloadStatusControl<Integer> mockTargetPreloadStatusControl;
   private RenderersFactory renderersFactory;
+  private HandlerThread preloadThread;
 
   @Before
   public void setUp() {
@@ -95,6 +97,13 @@ public class DefaultPreloadManagerTest {
                   SystemClock.DEFAULT.createHandler(handler.getLooper(), /* callback= */ null),
                   audioListener)
             };
+    preloadThread = new HandlerThread("DefaultPreloadManagerTest");
+    preloadThread.start();
+  }
+
+  @After
+  public void tearDown() {
+    preloadThread.quit();
   }
 
   @Test
@@ -102,7 +111,7 @@ public class DefaultPreloadManagerTest {
     DefaultPreloadManager preloadManager =
         new DefaultPreloadManager.Builder(context, mockTargetPreloadStatusControl)
             .setRenderersFactory(renderersFactory)
-            .setPreloadLooper(Util.getCurrentOrMainLooper())
+            .setPreloadLooper(preloadThread.getLooper())
             .build();
     MediaItem.Builder mediaItemBuilder = new MediaItem.Builder();
     MediaItem mediaItem1 =
@@ -123,7 +132,7 @@ public class DefaultPreloadManagerTest {
     DefaultPreloadManager preloadManager =
         new DefaultPreloadManager.Builder(context, mockTargetPreloadStatusControl)
             .setRenderersFactory(renderersFactory)
-            .setPreloadLooper(Util.getCurrentOrMainLooper())
+            .setPreloadLooper(preloadThread.getLooper())
             .build();
     MediaItem.Builder mediaItemBuilder = new MediaItem.Builder();
     MediaItem mediaItem1 =
@@ -148,7 +157,7 @@ public class DefaultPreloadManagerTest {
     DefaultPreloadManager preloadManager =
         new DefaultPreloadManager.Builder(context, mockTargetPreloadStatusControl)
             .setRenderersFactory(renderersFactory)
-            .setPreloadLooper(Util.getCurrentOrMainLooper())
+            .setPreloadLooper(preloadThread.getLooper())
             .build();
     MediaItem mediaItem =
         new MediaItem.Builder()
@@ -178,8 +187,6 @@ public class DefaultPreloadManagerTest {
     ProgressiveMediaSource.Factory mediaSourceFactory =
         new ProgressiveMediaSource.Factory(
             new DefaultDataSource.Factory(ApplicationProvider.getApplicationContext()));
-    HandlerThread preloadThread = new HandlerThread("preload");
-    preloadThread.start();
     DefaultPreloadManager preloadManager =
         new DefaultPreloadManager.Builder(context, targetPreloadStatusControl)
             .setMediaSourceFactory(mediaSourceFactory)
@@ -216,8 +223,6 @@ public class DefaultPreloadManagerTest {
     assertThat(preloadManagerListener.onCompletedMediaItemRecords)
         .containsExactly(mediaItem0, mediaItem1, mediaItem2)
         .inOrder();
-
-    preloadThread.quit();
   }
 
   @Test
@@ -595,7 +600,7 @@ public class DefaultPreloadManagerTest {
         new DefaultPreloadManager.Builder(context, targetPreloadStatusControl)
             .setMediaSourceFactory(mockMediaSourceFactory)
             .setRenderersFactory(renderersFactory)
-            .setPreloadLooper(Util.getCurrentOrMainLooper())
+            .setPreloadLooper(preloadThread.getLooper())
             .build();
     MediaItem.Builder mediaItemBuilder = new MediaItem.Builder();
     MediaItem mediaItem0 =
@@ -667,7 +672,7 @@ public class DefaultPreloadManagerTest {
         new DefaultPreloadManager.Builder(context, targetPreloadStatusControl)
             .setMediaSourceFactory(mockMediaSourceFactory)
             .setRenderersFactory(renderersFactory)
-            .setPreloadLooper(Util.getCurrentOrMainLooper())
+            .setPreloadLooper(preloadThread.getLooper())
             .build();
     MediaItem.Builder mediaItemBuilder = new MediaItem.Builder();
     MediaItem mediaItem1 =
@@ -694,11 +699,11 @@ public class DefaultPreloadManagerTest {
             });
     preloadManager.add(mediaItem1, /* rankingData= */ 1);
     preloadManager.invalidate();
-    shadowOf(Looper.getMainLooper()).idle();
+    shadowOf(preloadThread.getLooper()).idle();
 
     boolean mediaItem1Removed = preloadManager.remove(mediaItem1);
     boolean mediaItem2Removed = preloadManager.remove(mediaItem2);
-    shadowOf(Looper.getMainLooper()).idle();
+    shadowOf(preloadThread.getLooper()).idle();
 
     assertThat(mediaItem1Removed).isTrue();
     assertThat(mediaItem2Removed).isFalse();
@@ -715,7 +720,7 @@ public class DefaultPreloadManagerTest {
         new DefaultPreloadManager.Builder(context, targetPreloadStatusControl)
             .setMediaSourceFactory(mockMediaSourceFactory)
             .setRenderersFactory(renderersFactory)
-            .setPreloadLooper(Util.getCurrentOrMainLooper())
+            .setPreloadLooper(preloadThread.getLooper())
             .build();
     MediaItem.Builder mediaItemBuilder = new MediaItem.Builder();
     MediaItem mediaItem1 =
@@ -742,7 +747,7 @@ public class DefaultPreloadManagerTest {
             });
     preloadManager.add(mediaItem1, /* rankingData= */ 1);
     preloadManager.invalidate();
-    shadowOf(Looper.getMainLooper()).idle();
+    shadowOf(preloadThread.getLooper()).idle();
     MediaSource mediaSource1 = preloadManager.getMediaSource(mediaItem1);
     DefaultMediaSourceFactory defaultMediaSourceFactory =
         new DefaultMediaSourceFactory((Context) ApplicationProvider.getApplicationContext());
@@ -752,7 +757,7 @@ public class DefaultPreloadManagerTest {
     boolean mediaSource1Removed = preloadManager.remove(mediaSource1);
     boolean mediaSource2Removed = preloadManager.remove(mediaSource2);
     boolean mediaSource3Removed = preloadManager.remove(mediaSource3);
-    shadowOf(Looper.getMainLooper()).idle();
+    shadowOf(preloadThread.getLooper()).idle();
 
     assertThat(mediaSource1Removed).isTrue();
     assertThat(mediaSource2Removed).isFalse();
@@ -762,7 +767,8 @@ public class DefaultPreloadManagerTest {
   }
 
   @Test
-  public void reset_returnZeroCount_sourcesButNotRendererCapabilitiesListReleased() {
+  public void reset_returnZeroCount_sourcesButNotRendererCapabilitiesListReleased()
+      throws TimeoutException {
     TargetPreloadStatusControl<Integer> targetPreloadStatusControl =
         rankingData -> new DefaultPreloadManager.Status(STAGE_SOURCE_PREPARED);
     MediaSource.Factory mockMediaSourceFactory = mock(MediaSource.Factory.class);
@@ -789,7 +795,7 @@ public class DefaultPreloadManagerTest {
         new DefaultPreloadManager.Builder(context, targetPreloadStatusControl)
             .setMediaSourceFactory(mockMediaSourceFactory)
             .setRenderersFactory(renderersFactory)
-            .setPreloadLooper(Util.getCurrentOrMainLooper())
+            .setPreloadLooper(preloadThread.getLooper())
             .build();
     MediaItem.Builder mediaItemBuilder = new MediaItem.Builder();
     MediaItem mediaItem1 =
@@ -817,10 +823,11 @@ public class DefaultPreloadManagerTest {
     preloadManager.add(mediaItem1, /* rankingData= */ 1);
     preloadManager.add(mediaItem2, /* rankingData= */ 2);
     preloadManager.invalidate();
-    shadowOf(Looper.getMainLooper()).idle();
+    shadowOf(preloadThread.getLooper()).idle();
+    shadowOf(Util.getCurrentOrMainLooper()).idle();
 
     preloadManager.reset();
-    shadowOf(Looper.getMainLooper()).idle();
+    shadowOf(preloadThread.getLooper()).idle();
 
     assertThat(preloadManager.getSourceCount()).isEqualTo(0);
     assertThat(internalSourceToReleaseReferenceByMediaId).containsExactly("mediaId1", "mediaId2");
@@ -888,7 +895,7 @@ public class DefaultPreloadManagerTest {
     preloadManager.add(mediaItem2, /* rankingData= */ 2);
     preloadManager.invalidate();
     shadowOf(preloadThread.getLooper()).idle();
-    shadowOf(Looper.getMainLooper()).idle();
+    shadowOf(Util.getCurrentOrMainLooper()).idle();
 
     preloadManager.release();
     shadowOf(preloadThread.getLooper()).idle();

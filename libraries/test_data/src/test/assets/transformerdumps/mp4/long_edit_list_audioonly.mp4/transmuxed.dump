@@ -1,5 +1,5 @@
 format audio:
-  averageBitrate = 140021
+  averageBitrate = 140022
   peakBitrate = 140781
   id = 1
   containerMimeType = audio/mp4

@@ -113,10 +113,7 @@ import androidx.media3.common.util.Util;
   public PendingIntent createMediaActionPendingIntent(
       MediaSession mediaSession, @Player.Command long command) {
     int keyCode = toKeyCode(command);
-    Intent intent = new Intent(Intent.ACTION_MEDIA_BUTTON);
-    intent.setData(mediaSession.getImpl().getUri());
-    intent.setComponent(new ComponentName(service, service.getClass()));
-    intent.putExtra(Intent.EXTRA_KEY_EVENT, new KeyEvent(KeyEvent.ACTION_DOWN, keyCode));
+    Intent intent = getMediaButtonIntent(mediaSession, keyCode);
     if (Util.SDK_INT >= 26
         && command == COMMAND_PLAY_PAUSE
         && !mediaSession.getPlayer().getPlayWhenReady()) {
@@ -128,6 +125,26 @@ import androidx.media3.common.util.Util;
           intent,
           Util.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0);
     }
+  }
+
+  @Override
+  public PendingIntent createNotificationDismissalIntent(MediaSession mediaSession) {
+    Intent intent =
+        getMediaButtonIntent(mediaSession, KEYCODE_MEDIA_STOP)
+            .putExtra(MediaNotification.NOTIFICATION_DISMISSED_EVENT_KEY, true);
+    return PendingIntent.getService(
+        service,
+        /* requestCode= */ KEYCODE_MEDIA_STOP,
+        intent,
+        Util.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0);
+  }
+
+  private Intent getMediaButtonIntent(MediaSession mediaSession, int mediaKeyCode) {
+    Intent intent = new Intent(Intent.ACTION_MEDIA_BUTTON);
+    intent.setData(mediaSession.getImpl().getUri());
+    intent.setComponent(new ComponentName(service, service.getClass()));
+    intent.putExtra(Intent.EXTRA_KEY_EVENT, new KeyEvent(KeyEvent.ACTION_DOWN, mediaKeyCode));
+    return intent;
   }
 
   private int toKeyCode(@Player.Command long action) {

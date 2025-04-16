@@ -263,6 +263,7 @@ public interface AudioSink {
      * @param audioTrackState The underlying {@link AudioTrack}'s state.
      * @param sampleRate The requested sample rate in Hz.
      * @param channelConfig The requested channel configuration.
+     * @param encoding The requested encoding.
      * @param bufferSize The requested buffer size in bytes.
      * @param format The input format of the sink when the error occurs.
      * @param isRecoverable Whether the exception can be recovered by recreating the sink.
@@ -272,6 +273,7 @@ public interface AudioSink {
         int audioTrackState,
         int sampleRate,
         int channelConfig,
+        int encoding,
         int bufferSize,
         Format format,
         boolean isRecoverable,
@@ -280,7 +282,15 @@ public interface AudioSink {
           "AudioTrack init failed "
               + audioTrackState
               + " "
-              + ("Config(" + sampleRate + ", " + channelConfig + ", " + bufferSize + ")")
+              + ("Config("
+                  + sampleRate
+                  + ", "
+                  + channelConfig
+                  + ", "
+                  + encoding
+                  + ", "
+                  + bufferSize
+                  + ")")
               + " "
               + format
               + (isRecoverable ? " (recoverable)" : ""),

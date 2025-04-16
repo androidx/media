@@ -22,6 +22,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.decoder.DecoderInputBuffer;
@@ -33,6 +34,7 @@ import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import androidx.media3.exoplayer.source.MediaSourceEventListener.EventDispatcher;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import androidx.media3.exoplayer.trackselection.FixedTrackSelection;
+import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.DefaultAllocator;
 import androidx.media3.test.utils.FakeMediaPeriod;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -268,6 +270,39 @@ public final class MergingMediaPeriodTest {
     assertThat(streams[0].readData(formatHolder, inputBuffer, /* readFlags= */ 0))
         .isEqualTo(C.RESULT_BUFFER_READ);
     assertThat(inputBuffer.timeUs).isEqualTo(456_000 - 3000);
+  }
+
+  @Test
+  public void
+      getChildPeriod_withTimeOffsetsAndTimeOffsetPeriodChildren_returnsCorrectChildPeriod() {
+    TrackGroupArray trackGroupArray =
+        new TrackGroupArray(
+            new TrackGroup(new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_AV1).build()));
+    Allocator allocator =
+        new DefaultAllocator(/* trimOnReset= */ false, /* individualAllocationSize= */ 1024);
+    MediaPeriod childPeriod0 =
+        new FakeMediaPeriod(
+            trackGroupArray, allocator, /* singleSampleTimeUs= */ 0, new EventDispatcher());
+    MediaPeriod childPeriod1 =
+        new TimeOffsetMediaPeriod(
+            new FakeMediaPeriod(
+                trackGroupArray, allocator, /* singleSampleTimeUs= */ 300, new EventDispatcher()),
+            /* timeOffsetUs= */ -300);
+    MediaPeriod childPeriod2 =
+        new FakeMediaPeriod(
+            trackGroupArray, allocator, /* singleSampleTimeUs= */ -500, new EventDispatcher());
+
+    MergingMediaPeriod mergingMediaPeriod =
+        new MergingMediaPeriod(
+            new DefaultCompositeSequenceableLoaderFactory(),
+            /* periodTimeOffsetsUs= */ new long[] {0, 0, 500},
+            childPeriod0,
+            childPeriod1,
+            childPeriod2);
+
+    assertThat(mergingMediaPeriod.getChildPeriod(0)).isEqualTo(childPeriod0);
+    assertThat(mergingMediaPeriod.getChildPeriod(1)).isEqualTo(childPeriod1);
+    assertThat(mergingMediaPeriod.getChildPeriod(2)).isEqualTo(childPeriod2);
   }
 
   private MergingMediaPeriod prepareMergingPeriod(MergingPeriodDefinition... definitions)

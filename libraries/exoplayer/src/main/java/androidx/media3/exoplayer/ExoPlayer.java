@@ -1057,12 +1057,13 @@ public interface ExoPlayer extends Player {
      *
      * @param playbackLooper A {@link Looper}.
      * @return This builder.
-     * @throws IllegalStateException If {@link #build()} has already been called.
+     * @throws IllegalStateException If {@link #build()} has already been called, or when the
+     *     {@linkplain Looper#getMainLooper() main looper} is passed in.
      */
     @CanIgnoreReturnValue
     @UnstableApi
     public Builder setPlaybackLooper(Looper playbackLooper) {
-      checkState(!buildCalled);
+      checkState(!buildCalled && playbackLooper != Looper.getMainLooper());
       this.playbackLooperProvider = new PlaybackLooperProvider(playbackLooper);
       return this;
     }

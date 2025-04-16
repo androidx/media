@@ -1,5 +1,5 @@
 format video:
-  averageBitrate = 29211
+  averageBitrate = 29212
   peakBitrate = 29211
   id = 1
   containerMimeType = video/mp4

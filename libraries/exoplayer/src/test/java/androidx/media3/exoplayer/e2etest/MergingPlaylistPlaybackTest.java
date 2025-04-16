@@ -86,7 +86,7 @@ public final class MergingPlaylistPlaybackTest {
 
   @Rule
   public ShadowMediaCodecConfig mediaCodecConfig =
-      ShadowMediaCodecConfig.forAllSupportedMimeTypes();
+      ShadowMediaCodecConfig.withAllDefaultSupportedCodecs();
 
   @Test
   public void transitionBetweenDifferentMergeConfigurations() throws Exception {

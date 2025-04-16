@@ -93,8 +93,6 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
 
   private static final String TAG = "MCImplLegacy";
 
-  private static final long AGGREGATES_CALLBACKS_WITHIN_TIMEOUT_MS = 500L;
-
   /* package */ final Context context;
   private final MediaController instance;
 
@@ -104,6 +102,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
   private final BitmapLoader bitmapLoader;
   private final ImmutableList<CommandButton> commandButtonsForMediaItems;
   private final Bundle connectionHints;
+  private final long platformSessionCallbackAggregationTimeoutMs;
 
   @Nullable private MediaControllerCompat controllerCompat;
   @Nullable private MediaBrowserCompat browserCompat;
@@ -122,7 +121,8 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
       SessionToken token,
       Bundle connectionHints,
       Looper applicationLooper,
-      BitmapLoader bitmapLoader) {
+      BitmapLoader bitmapLoader,
+      long platformSessionCallbackAggregationTimeoutMs) {
     // Initialize default values.
     legacyPlayerInfo = new LegacyPlayerInfo();
     pendingLegacyPlayerInfo = new LegacyPlayerInfo();
@@ -140,6 +140,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
     this.token = token;
     this.connectionHints = connectionHints;
     this.bitmapLoader = bitmapLoader;
+    this.platformSessionCallbackAggregationTimeoutMs = platformSessionCallbackAggregationTimeoutMs;
     currentPositionMs = C.TIME_UNSET;
     lastSetPlayWhenReadyCalledTimeMs = C.TIME_UNSET;
     // Always empty. Only supported for a MediaBrowser connected to a MediaBrowserServiceCompat.
@@ -1992,7 +1993,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
         return;
       }
       pendingChangesHandler.sendEmptyMessageDelayed(
-          MSG_HANDLE_PENDING_UPDATES, AGGREGATES_CALLBACKS_WITHIN_TIMEOUT_MS);
+          MSG_HANDLE_PENDING_UPDATES, platformSessionCallbackAggregationTimeoutMs);
     }
   }
 

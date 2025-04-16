@@ -593,7 +593,7 @@ public final class DefaultAudioSink implements AudioSink {
 
   @RequiresNonNull("#1.audioProcessorChain")
   private DefaultAudioSink(Builder builder) {
-    context = builder.context;
+    context = builder.context == null ? null : builder.context.getApplicationContext();
     audioAttributes = AudioAttributes.DEFAULT;
     audioCapabilities = context != null ? null : builder.audioCapabilities;
     audioProcessorChain = builder.audioProcessorChain;
@@ -1118,6 +1118,7 @@ public final class DefaultAudioSink implements AudioSink {
           audioTrackConfig.sampleRate,
           audioTrackConfig.channelConfig,
           audioTrackConfig.encoding,
+          audioTrackConfig.bufferSize,
           inputFormat,
           /* isRecoverable= */ audioTrackConfig.offload,
           e);
@@ -1136,6 +1137,7 @@ public final class DefaultAudioSink implements AudioSink {
           audioTrackConfig.sampleRate,
           audioTrackConfig.channelConfig,
           audioTrackConfig.encoding,
+          audioTrackConfig.bufferSize,
           inputFormat,
           /* isRecoverable= */ audioTrackConfig.offload,
           /* audioTrackException= */ null);

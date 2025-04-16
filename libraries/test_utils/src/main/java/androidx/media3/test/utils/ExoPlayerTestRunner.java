@@ -70,6 +70,7 @@ public final class ExoPlayerTestRunner implements Player.Listener, ActionSchedul
   public static final Format AUDIO_FORMAT =
       new Format.Builder()
           .setSampleMimeType(MimeTypes.AUDIO_AAC)
+          .setCodecs("mp4a.40.2")
           .setAverageBitrate(100_000)
           .setChannelCount(2)
           .setSampleRate(44100)

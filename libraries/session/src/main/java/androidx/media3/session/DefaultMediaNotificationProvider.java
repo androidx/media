@@ -22,7 +22,6 @@ import static androidx.media3.common.Player.COMMAND_SEEK_TO_NEXT;
 import static androidx.media3.common.Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM;
 import static androidx.media3.common.Player.COMMAND_SEEK_TO_PREVIOUS;
 import static androidx.media3.common.Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM;
-import static androidx.media3.common.Player.COMMAND_STOP;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 
@@ -379,8 +378,7 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
     Notification notification =
         builder
             .setContentIntent(mediaSession.getSessionActivity())
-            .setDeleteIntent(
-                actionFactory.createMediaActionPendingIntent(mediaSession, COMMAND_STOP))
+            .setDeleteIntent(actionFactory.createNotificationDismissalIntent(mediaSession))
             .setOnlyAlertOnce(true)
             .setSmallIcon(smallIconResourceId)
             .setStyle(mediaStyle)

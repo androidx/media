@@ -32,6 +32,17 @@ import com.google.common.collect.ImmutableList;
 public final class MediaNotification {
 
   /**
+   * Event key to indicate a media notification was dismissed.
+   *
+   * <p>This event key can be used as an extras key for a boolean extra on a media button pending
+   * intent, and as as custom session command action to inform the media notification controller
+   * that a notification was dismissed.
+   */
+  @UnstableApi
+  public static final String NOTIFICATION_DISMISSED_EVENT_KEY =
+      "androidx.media3.session.NOTIFICATION_DISMISSED_EVENT_KEY";
+
+  /**
    * Creates {@linkplain NotificationCompat.Action actions} and {@linkplain PendingIntent pending
    * intents} for notifications.
    *
@@ -99,10 +110,20 @@ public final class MediaNotification {
      * Creates a {@link PendingIntent} for a media action that will be handled by the library.
      *
      * @param mediaSession The media session to which the action will be sent.
-     * @param command The intent's command.
+     * @param command The {@link PendingIntent}.
      */
     PendingIntent createMediaActionPendingIntent(
         MediaSession mediaSession, @Player.Command long command);
+
+    /**
+     * Creates a {@link PendingIntent} triggered when the notification is dismissed.
+     *
+     * @param mediaSession The media session for which the intent is created.
+     * @return The {@link PendingIntent}.
+     */
+    default PendingIntent createNotificationDismissalIntent(MediaSession mediaSession) {
+      return createMediaActionPendingIntent(mediaSession, Player.COMMAND_STOP);
+    }
   }
 
   /**

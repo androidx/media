@@ -48,7 +48,7 @@ public class AnalyticsListenerPlaybackTest {
 
   @Rule
   public ShadowMediaCodecConfig mediaCodecConfig =
-      ShadowMediaCodecConfig.forAllSupportedMimeTypes();
+      ShadowMediaCodecConfig.withAllDefaultSupportedCodecs();
 
   @Test
   public void loadEventsReportedAsExpected() throws Exception {

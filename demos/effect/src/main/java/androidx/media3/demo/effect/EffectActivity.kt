@@ -90,6 +90,7 @@ import androidx.media3.effect.TextureOverlay
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import com.google.common.collect.ImmutableList
+import java.util.Locale
 import kotlinx.coroutines.launch
 
 class EffectActivity : ComponentActivity() {
@@ -364,7 +365,7 @@ class EffectActivity : ComponentActivity() {
             Slider(
               value = effectControlsState.contrastValue,
               onValueChange = { newContrastValue ->
-                val newRoundedContrastValue = "%.2f".format(newContrastValue).toFloat()
+                val newRoundedContrastValue = "%.2f".format(Locale.ROOT, newContrastValue).toFloat()
                 onEffectControlsStateChange(
                   effectControlsState.copy(
                     effectsChanged = true,
@@ -437,7 +438,7 @@ class EffectActivity : ComponentActivity() {
               Slider(
                 value = effectControlsState.textOverlayAlpha,
                 onValueChange = { newAlphaValue ->
-                  val newRoundedAlphaValue = "%.2f".format(newAlphaValue).toFloat()
+                  val newRoundedAlphaValue = "%.2f".format(Locale.ROOT, newAlphaValue).toFloat()
                   onEffectControlsStateChange(
                     effectControlsState.copy(
                       effectsChanged = effectControlsState.textOverlayText != null,

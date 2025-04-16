@@ -1322,10 +1322,14 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       return false;
     }
     // Send from media notification controller.
-    return applyMediaButtonKeyEvent(keyEvent, doubleTapCompleted);
+    boolean isDismissNotificationEvent =
+        intent.getBooleanExtra(
+            MediaNotification.NOTIFICATION_DISMISSED_EVENT_KEY, /* defaultValue= */ false);
+    return applyMediaButtonKeyEvent(keyEvent, doubleTapCompleted, isDismissNotificationEvent);
   }
 
-  private boolean applyMediaButtonKeyEvent(KeyEvent keyEvent, boolean doubleTapCompleted) {
+  private boolean applyMediaButtonKeyEvent(
+      KeyEvent keyEvent, boolean doubleTapCompleted, boolean isDismissNotificationEvent) {
     ControllerInfo controllerInfo = checkNotNull(instance.getMediaNotificationControllerInfo());
     Runnable command;
     int keyCode = keyEvent.getKeyCode();
@@ -1375,6 +1379,15 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     postOrRun(
         getApplicationHandler(),
         () -> {
+          if (isDismissNotificationEvent) {
+            ListenableFuture<SessionResult> ignored =
+                sendCustomCommand(
+                    controllerInfo,
+                    new SessionCommand(
+                        MediaNotification.NOTIFICATION_DISMISSED_EVENT_KEY,
+                        /* extras= */ Bundle.EMPTY),
+                    /* args= */ Bundle.EMPTY);
+          }
           command.run();
           sessionStub.getConnectedControllersManager().flushCommandQueue(controllerInfo);
         });
@@ -1902,7 +1915,10 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       playPauseTask =
           () -> {
             if (isMediaNotificationController(controllerInfo)) {
-              applyMediaButtonKeyEvent(keyEvent, /* doubleTapCompleted= */ false);
+              applyMediaButtonKeyEvent(
+                  keyEvent,
+                  /* doubleTapCompleted= */ false,
+                  /* isDismissNotificationEvent= */ false);
             } else {
               sessionLegacyStub.handleMediaPlayPauseOnHandler(
                   checkNotNull(controllerInfo.getRemoteUserInfo()));

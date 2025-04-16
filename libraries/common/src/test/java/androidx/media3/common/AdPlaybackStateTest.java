@@ -856,6 +856,10 @@ public class AdPlaybackStateTest {
             state.getAdGroupIndexAfterPositionUs(
                 /* positionUs= */ C.TIME_END_OF_SOURCE, /* periodDurationUs= */ 5000))
         .isEqualTo(C.INDEX_UNSET);
+    assertThat(
+            state.getAdGroupIndexAfterPositionUs(
+                /* positionUs= */ 1001, /* periodDurationUs= */ 1002))
+        .isEqualTo(C.INDEX_UNSET);
   }
 
   @Test

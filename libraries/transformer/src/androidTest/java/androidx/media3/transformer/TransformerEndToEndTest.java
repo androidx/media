@@ -556,8 +556,12 @@ public class TransformerEndToEndTest {
             .build()
             .run(testId, editedMediaItem);
 
+    // Rarely, MediaCodec decoders output frames in the wrong order.
+    // When the MediaCodec encoder sees frames in the wrong order, fewer output frames are produced.
+    // Use a tolerance when comparing frame counts. See b/343476417#comment5.
     assertThat(result.exportResult.videoFrameCount)
-        .isEqualTo(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.videoFrameCount);
+        .isWithin(2)
+        .of(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.videoFrameCount);
     assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
@@ -583,8 +587,12 @@ public class TransformerEndToEndTest {
             .build()
             .run(testId, editedMediaItem);
 
+    // Rarely, MediaCodec decoders output frames in the wrong order.
+    // When the MediaCodec encoder sees frames in the wrong order, fewer output frames are produced.
+    // Use a tolerance when comparing frame counts. See b/343476417#comment5.
     assertThat(result.exportResult.videoFrameCount)
-        .isEqualTo(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.videoFrameCount);
+        .isWithin(2)
+        .of(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.videoFrameCount);
     assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 

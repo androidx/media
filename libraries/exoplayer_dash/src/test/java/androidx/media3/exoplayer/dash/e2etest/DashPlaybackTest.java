@@ -75,7 +75,7 @@ public final class DashPlaybackTest {
 
   @Rule
   public ShadowMediaCodecConfig mediaCodecConfig =
-      ShadowMediaCodecConfig.forAllSupportedMimeTypes();
+      ShadowMediaCodecConfig.withAllDefaultSupportedCodecs();
 
   @Test
   public void webvttStandaloneFile() throws Exception {

@@ -70,7 +70,7 @@ public final class HlsPlaybackTest {
 
   @Rule
   public ShadowMediaCodecConfig mediaCodecConfig =
-      ShadowMediaCodecConfig.forAllSupportedMimeTypes();
+      ShadowMediaCodecConfig.withAllDefaultSupportedCodecs();
 
   @Test
   public void webvttStandaloneSubtitlesFile() throws Exception {

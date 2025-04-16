@@ -2651,7 +2651,8 @@ import java.util.Objects;
           hasSecondaryRenderers && !isPrewarmingDisabledUntilNextTransition;
       if (arePrewarmingRenderersHandlingDiscontinuity) {
         for (int i = 0; i < renderers.length; i++) {
-          if (!newTrackSelectorResult.isRendererEnabled(i)) {
+          if (!newTrackSelectorResult.isRendererEnabled(i)
+              || renderers[i].getTrackType() == C.TRACK_TYPE_NONE) {
             continue;
           }
           // TODO: This check should ideally be replaced by a per-stream discontinuity check

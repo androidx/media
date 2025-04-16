@@ -223,9 +223,8 @@ public class HlsDownloaderTest {
         new CacheDataSource.Factory()
             .setCache(cache)
             .setUpstreamDataSourceFactory(new FakeDataSource.Factory().setFakeDataSet(fakeDataSet));
-    return new HlsDownloader(
-        new MediaItem.Builder().setUri(mediaPlaylistUri).setStreamKeys(keys).build(),
-        cacheDataSourceFactory);
+    return new HlsDownloader.Factory(cacheDataSourceFactory)
+        .create(new MediaItem.Builder().setUri(mediaPlaylistUri).setStreamKeys(keys).build());
   }
 
   private static ArrayList<StreamKey> getKeys(int... variantIndices) {

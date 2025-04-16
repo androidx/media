@@ -56,7 +56,7 @@ public class PrewarmingRendererPlaybackTest {
 
   @Rule
   public ShadowMediaCodecConfig mediaCodecConfig =
-      ShadowMediaCodecConfig.forAllSupportedMimeTypes();
+      ShadowMediaCodecConfig.withAllDefaultSupportedCodecs();
 
   @Test
   public void playback_withTwoMediaItemsAndSecondaryVideoRenderer_dumpsCorrectOutput()
