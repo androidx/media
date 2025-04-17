@@ -147,8 +147,10 @@ public class MediaButtonReceiver extends BroadcastReceiver {
     for (String action : ACTIONS) {
       ComponentName mediaButtonServiceComponentName = getServiceComponentByAction(context, action);
       if (mediaButtonServiceComponentName != null) {
-        intent.setComponent(mediaButtonServiceComponentName);
-        if (!shouldStartForegroundService(context, intent)) {
+        Intent serviceIntent = new Intent();
+        serviceIntent.setComponent(mediaButtonServiceComponentName);
+        serviceIntent.fillIn(intent, 0);
+        if (!shouldStartForegroundService(context, serviceIntent)) {
           Log.i(
               TAG,
               "onReceive(Intent) does not start the media button event target service into the"
@@ -157,12 +159,12 @@ public class MediaButtonReceiver extends BroadcastReceiver {
           return;
         }
         try {
-          ContextCompat.startForegroundService(context, intent);
+          ContextCompat.startForegroundService(context, serviceIntent);
         } catch (/* ForegroundServiceStartNotAllowedException */ IllegalStateException e) {
           if (Build.VERSION.SDK_INT >= 31
               && Api31.instanceOfForegroundServiceStartNotAllowedException(e)) {
             onForegroundServiceStartNotAllowedException(
-                intent, Api31.castToForegroundServiceStartNotAllowedException(e));
+                serviceIntent, Api31.castToForegroundServiceStartNotAllowedException(e));
           } else {
             throw e;
           }
@@ -188,8 +190,8 @@ public class MediaButtonReceiver extends BroadcastReceiver {
    *
    * @param context The {@link Context} that {@linkplain #onReceive(Context, Intent) was received by
    *     the media button event receiver}.
-   * @param intent The intent that {@linkplain #onReceive(Context, Intent) was received by the media
-   *     button event receiver}.
+   * @param intent The intent that would be used {@linkplain Context#startForegroundService(Intent)
+   *     for starting the foreground service}.
    * @return true if the service should be {@linkplain ContextCompat#startForegroundService(Context,
    *     Intent) started as a foreground service}. If false is returned the service is not started
    *     and the receiver call is a no-op.
