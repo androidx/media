@@ -40,6 +40,7 @@ import static java.lang.Math.min;
 
 import android.content.Context;
 import android.net.Uri;
+import android.os.Bundle;
 import android.os.Looper;
 import androidx.annotation.Nullable;
 import androidx.media3.common.AdPlaybackState;
@@ -94,6 +95,7 @@ import java.util.TreeMap;
  * ads media sources}. These ad media source can be added to the same playlist as far as each of the
  * sources have a different ads IDs.
  */
+@SuppressWarnings("PatternMatchingInstanceof")
 @UnstableApi
 public final class HlsInterstitialsAdsLoader implements AdsLoader {
 
@@ -202,6 +204,67 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
     @Override
     public int hashCode() {
       return Objects.hash(name, value);
+    }
+  }
+
+  /**
+   * The state of the given ads ID to resume playback at the given {@link AdPlaybackState}.
+   *
+   * <p>This state object can be bundled and unbundled while preserving an {@link
+   * AdPlaybackState#adsId ads ID} of type {@link String}.
+   */
+  public static class AdsResumptionState {
+
+    private final AdPlaybackState adPlaybackState;
+
+    /** The ads ID */
+    public final String adsId;
+
+    /**
+     * Creates a new instance.
+     *
+     * @param adsId The ads ID of the playback state.
+     * @param adPlaybackState The {@link AdPlaybackState} with the given {@code adsId}.
+     * @throws IllegalArgumentException Thrown if the passed in adsId is not equal to {@link
+     *     AdPlaybackState#adsId}.
+     */
+    public AdsResumptionState(String adsId, AdPlaybackState adPlaybackState) {
+      checkArgument(adsId.equals(adPlaybackState.adsId));
+      this.adsId = adsId;
+      this.adPlaybackState = adPlaybackState;
+    }
+
+    @Override
+    public boolean equals(@Nullable Object o) {
+      if (!(o instanceof AdsResumptionState)) {
+        return false;
+      }
+      AdsResumptionState adsResumptionState = (AdsResumptionState) o;
+      return Objects.equals(adsId, adsResumptionState.adsId)
+          && Objects.equals(adPlaybackState, adsResumptionState.adPlaybackState);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(adsId, adPlaybackState);
+    }
+
+    private static final String FIELD_ADS_ID = Util.intToStringMaxRadix(0);
+    private static final String FIELD_AD_PLAYBACK_STATE = Util.intToStringMaxRadix(1);
+
+    public Bundle toBundle() {
+      Bundle bundle = new Bundle();
+      bundle.putString(FIELD_ADS_ID, adsId);
+      bundle.putBundle(FIELD_AD_PLAYBACK_STATE, adPlaybackState.toBundle());
+      return bundle;
+    }
+
+    public static AdsResumptionState fromBundle(Bundle bundle) {
+      String adsId = checkNotNull(bundle.getString(FIELD_ADS_ID));
+      AdPlaybackState adPlaybackState =
+          AdPlaybackState.fromBundle(checkNotNull(bundle.getBundle(FIELD_AD_PLAYBACK_STATE)))
+              .withAdsId(adsId);
+      return new AdsResumptionState(adsId, adPlaybackState);
     }
   }
 
@@ -474,6 +537,7 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
   private final Map<Object, AdPlaybackState> activeAdPlaybackStates;
   private final Map<Object, Set<String>> insertedInterstitialIds;
   private final Map<Object, TreeMap<Long, AssetListData>> unresolvedAssetLists;
+  private final Map<Object, AdPlaybackState> resumptionStates;
   private final List<Listener> listeners;
   private final Set<Object> unsupportedAdsIds;
 
@@ -504,6 +568,7 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
     activeAdPlaybackStates = new HashMap<>();
     insertedInterstitialIds = new HashMap<>();
     unresolvedAssetLists = new HashMap<>();
+    resumptionStates = new HashMap<>();
     listeners = new ArrayList<>();
     unsupportedAdsIds = new HashSet<>();
   }
@@ -553,6 +618,99 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
     throw new IllegalArgumentException();
   }
 
+  /**
+   * Returns the resumption states of the currently active {@link AdsMediaSource ads media sources}.
+   *
+   * <p>Call this method to get the resumption states before releasing the player and {@linkplain
+   * #addAdResumptionState(AdsResumptionState) resume at the same state later}.
+   *
+   * <p>Live streams and streams with an {@linkplain AdsMediaSource#getAdsId() ads ID} that are not
+   * of type string are ignored and are not included in the returned list of ad resumption state.
+   *
+   * <p>See {@link HlsInterstitialsAdsLoader.Listener#onStop(MediaItem, Object, AdPlaybackState)}
+   * and {@link #addAdResumptionState(Object, AdPlaybackState)} also.
+   */
+  public ImmutableList<AdsResumptionState> getAdsResumptionStates() {
+    ImmutableList.Builder<AdsResumptionState> resumptionStates = new ImmutableList.Builder<>();
+    for (AdPlaybackState adPlaybackState : activeAdPlaybackStates.values()) {
+      boolean isLiveStream = adPlaybackState.endsWithLivePostrollPlaceHolder();
+      if (!isLiveStream && adPlaybackState.adsId instanceof String) {
+        resumptionStates.add(
+            new AdsResumptionState((String) adPlaybackState.adsId, adPlaybackState.copy()));
+      } else {
+        Log.i(
+            TAG,
+            isLiveStream
+                ? "getAdsResumptionStates(): ignoring active ad playback state of live stream."
+                    + " adsId="
+                    + adPlaybackState.adsId
+                : "getAdsResumptionStates(): ignoring active ad playback state when creating"
+                    + " resumption states. `adsId` is not of type String: "
+                    + castNonNull(adPlaybackState.adsId).getClass());
+      }
+    }
+    return resumptionStates.build();
+  }
+
+  /**
+   * Adds the given {@link AdsResumptionState} to resume playback of the {@link AdsMediaSource} with
+   * {@linkplain AdsMediaSource#getAdsId() ads ID} at the provided ad playback state.
+   *
+   * <p>If added while the given ads ID is active, the resumption state is ignored. The resumption
+   * state for a given ads ID must be added before {@link #start(AdsMediaSource, DataSpec, Object,
+   * AdViewProvider, EventListener)} or after {@link #stop(AdsMediaSource, EventListener)} is called
+   * for that ads ID.
+   *
+   * @param adsResumptionState The state to resume with.
+   * @throws IllegalArgumentException Thrown if the ad playback state {@linkplain
+   *     AdPlaybackState#endsWithLivePostrollPlaceHolder() ends with a live placeholder}.
+   */
+  public void addAdResumptionState(AdsResumptionState adsResumptionState) {
+    addAdResumptionState(adsResumptionState.adsId, adsResumptionState.adPlaybackState);
+  }
+
+  /**
+   * Adds the given {@link AdPlaybackState} to resume playback of the {@link AdsMediaSource} with
+   * {@linkplain AdsMediaSource#getAdsId() ads ID} at the provided ad playback state.
+   *
+   * <p>If added while the given ads ID is active, the resumption state is ignored. The resumption
+   * state for a given ads ID must be added before {@link #start(AdsMediaSource, DataSpec, Object,
+   * AdViewProvider, EventListener)} or after {@link #stop(AdsMediaSource, EventListener)} is called
+   * for that ads ID.
+   *
+   * @param adsId The ads ID identifying the {@link AdsMediaSource} to resume with the given state.
+   * @param adPlaybackState The state to resume with.
+   * @throws IllegalArgumentException Thrown if the ad playback state {@linkplain
+   *     AdPlaybackState#endsWithLivePostrollPlaceHolder() ends with a live placeholder}.
+   */
+  public void addAdResumptionState(Object adsId, AdPlaybackState adPlaybackState) {
+    checkArgument(!adPlaybackState.endsWithLivePostrollPlaceHolder());
+    if (!activeAdPlaybackStates.containsKey(adsId)) {
+      resumptionStates.put(adsId, adPlaybackState.copy().withAdsId(adsId));
+    } else {
+      Log.w(
+          TAG,
+          "Attempting to add an ad resumption state for an adsId that is currently active. adsId="
+              + adsId);
+    }
+  }
+
+  /**
+   * Removes the {@link AdsResumptionState} for the given ads ID, or null if there is no active ad
+   * playback state for the given ads ID.
+   *
+   * @param adsId The ads ID for which to remove the resumption state.
+   * @return The removed resumption state or null.
+   */
+  public boolean removeAdResumptionState(Object adsId) {
+    return resumptionStates.remove(adsId) != null;
+  }
+
+  /** Clears all ad resumptions states. */
+  public void clearAllAdResumptionStates() {
+    resumptionStates.clear();
+  }
+
   @Override
   public void start(
       AdsMediaSource adsMediaSource,
@@ -578,14 +736,19 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
     activeEventListeners.put(adsId, eventListener);
     MediaItem mediaItem = adsMediaSource.getMediaItem();
     if (isHlsMediaItem(mediaItem)) {
-      // Mark with NONE. Update and notify later when timeline with interstitials arrives.
-      activeAdPlaybackStates.put(adsId, AdPlaybackState.NONE);
       insertedInterstitialIds.put(adsId, new HashSet<>());
       unresolvedAssetLists.put(adsId, new TreeMap<>());
+      if (adsId instanceof String && resumptionStates.containsKey(adsId)) {
+        // Use resumption playback state. Interstitials arriving with the timeline are ignored.
+        putAndNotifyAdPlaybackStateUpdate(adsId, checkNotNull(resumptionStates.remove(adsId)));
+      } else {
+        // Mark with NONE and wait for the timeline to get interstitials from the HLS playlist.
+        activeAdPlaybackStates.put(adsId, AdPlaybackState.NONE);
+      }
       notifyListeners(listener -> listener.onStart(mediaItem, adsId, adViewProvider));
     } else {
-      putAndNotifyAdPlaybackStateUpdate(adsId, new AdPlaybackState(adsId));
       Log.w(TAG, "Unsupported media item. Playing without ads for adsId=" + adsId);
+      putAndNotifyAdPlaybackStateUpdate(adsId, new AdPlaybackState(adsId));
       unsupportedAdsIds.add(adsId);
     }
   }
@@ -714,6 +877,12 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
       }
     }
     if (!isReleased && !unsupportedAdsIds.contains(adsId)) {
+      if (adPlaybackState != null
+          && adsId instanceof String
+          && resumptionStates.containsKey(adsId)) {
+        // Update the resumption state in case the user has added one.
+        resumptionStates.put(adsId, adPlaybackState);
+      }
       notifyListeners(
           listener ->
               listener.onStop(
@@ -740,6 +909,7 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
     if (activeEventListeners.isEmpty()) {
       player = null;
     }
+    clearAllAdResumptionStates();
     cancelPendingAssetListResolutionMessage();
     if (loader != null) {
       loader.release();

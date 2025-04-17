@@ -53,6 +53,7 @@ import androidx.media3.datasource.DataSpec;
 import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.PlayerMessage;
+import androidx.media3.exoplayer.hls.HlsInterstitialsAdsLoader.AdsResumptionState;
 import androidx.media3.exoplayer.hls.HlsInterstitialsAdsLoader.Asset;
 import androidx.media3.exoplayer.hls.HlsInterstitialsAdsLoader.AssetList;
 import androidx.media3.exoplayer.hls.playlist.HlsMediaPlaylist;
@@ -60,6 +61,7 @@ import androidx.media3.exoplayer.hls.playlist.HlsPlaylistParser;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.exoplayer.source.ads.AdsLoader;
 import androidx.media3.exoplayer.source.ads.AdsMediaSource;
+import androidx.media3.test.utils.FakeMediaSource;
 import androidx.media3.test.utils.FakeTimeline;
 import androidx.media3.test.utils.FakeTimeline.TimelineWindowDefinition;
 import androidx.test.core.app.ApplicationProvider;
@@ -254,6 +256,270 @@ public class HlsInterstitialsAdsLoaderTest {
                 adsMediaSource, adTagDataSpec, "adsId", mockAdViewProvider, mockEventListener));
 
     verifyNoMoreInteractions(mockAdsLoaderListener);
+  }
+
+  @Test
+  public void start_resumptionStateAvailable_resumptionStateUsedAndEventListenerCalled() {
+    AdPlaybackState adPlaybackState =
+        new AdPlaybackState("adsId", /* adGroupTimesUs...= */ 0, 10L, C.TIME_END_OF_SOURCE)
+            .withAdCount(/* adGroupIndex= */ 0, 1)
+            .withAdCount(/* adGroupIndex= */ 1, 2)
+            .withAdCount(/* adGroupIndex= */ 2, 3)
+            .withAvailableAdMediaItem(
+                /* adGroupIndex= */ 0,
+                /* adIndexInAdGroup= */ 0,
+                MediaItem.fromUri("http://example.com"));
+    adsLoader.addAdResumptionState(new AdsResumptionState("adsId", adPlaybackState));
+    adsLoader.setPlayer(mockPlayer);
+
+    adsLoader.start(adsMediaSource, adTagDataSpec, "adsId", mockAdViewProvider, mockEventListener);
+    adsLoader.stop(adsMediaSource, mockEventListener);
+
+    ArgumentCaptor<AdPlaybackState> adPlaybackStateArgumentCaptor =
+        ArgumentCaptor.forClass(AdPlaybackState.class);
+    verify(mockEventListener).onAdPlaybackState(adPlaybackStateArgumentCaptor.capture());
+    verify(mockAdsLoaderListener)
+        .onStop(any(), eq("adsId"), adPlaybackStateArgumentCaptor.capture());
+    assertThat(adPlaybackStateArgumentCaptor.getAllValues())
+        .containsExactly(adPlaybackState, adPlaybackState);
+    verify(mockAdsLoaderListener).onStart(eq(contentMediaItem), eq("adsId"), isNotNull());
+    assertThat(adsLoader.removeAdResumptionState("adsId")).isFalse();
+  }
+
+  @Test
+  public void addAdResumptionState_whileAdsIdIsActive_ignored() throws IOException {
+    callHandleContentTimelineChangedAndCaptureAdPlaybackState(
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:6\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:55:40.000Z\n"
+            + "#EXTINF:6,\n"
+            + "main1.0.ts\n"
+            + "#EXTINF:6,\n"
+            + "main2.0.ts\n"
+            + "#EXTINF:6,\n"
+            + "main3.0.ts\n"
+            + "#EXT-X-ENDLIST"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad0-0\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T21:55:44.000Z\","
+            + "CUE=\"PRE\","
+            + "X-ASSET-URI=\"http://example.com/media-0-0.m3u8\""
+            + "\n",
+        adsLoader,
+        /* windowIndex= */ 0,
+        /* windowPositionInPeriodUs= */ 0,
+        /* windowEndPositionInPeriodUs= */ C.TIME_END_OF_SOURCE);
+
+    adsLoader.addAdResumptionState(new AdsResumptionState("adsId", new AdPlaybackState("adsId")));
+
+    assertThat(adsLoader.getAdsResumptionStates())
+        .containsExactly(
+            new AdsResumptionState(
+                "adsId",
+                new AdPlaybackState("adsId", 0L)
+                    .withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 1)
+                    .withAdId(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0, "ad0-0")
+                    .withAvailableAdMediaItem(
+                        /* adGroupIndex= */ 0,
+                        /* adIndexInAdGroup= */ 0,
+                        new MediaItem.Builder()
+                            .setUri("http://example.com/media-0-0.m3u8")
+                            .setMimeType("application/x-mpegURL")
+                            .build())));
+    assertThat(adsLoader.removeAdResumptionState("adsId")).isFalse();
+  }
+
+  @Test
+  public void addAdResumptionState_withLivePostRollHolder_throwsIllegalArgumentException() {
+    AdsResumptionState adsResumptionState =
+        new AdsResumptionState(
+            "adsId",
+            new AdPlaybackState("adsId")
+                .withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ false));
+
+    assertThrows(
+        IllegalArgumentException.class, () -> adsLoader.addAdResumptionState(adsResumptionState));
+  }
+
+  @Test
+  public void getAdsResumptionStates_withLivePostRollPlaceholder_ignored() throws IOException {
+    List<AdPlaybackState> adPlaybackStates =
+        callHandleContentTimelineChangedForLiveAndCaptureAdPlaybackStates(
+            adsLoader,
+            /* startAdsLoader= */ true,
+            /* windowOffsetInFirstPeriodUs= */ 0L,
+            "#EXTM3U\n"
+                + "#EXT-X-TARGETDURATION:6\n"
+                + "#EXT-X-MEDIA-SEQUENCE:0\n"
+                + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:00:00.000Z\n"
+                + "#EXTINF:6,\nmain0.0.ts\n"
+                + "#EXTINF:6,\nmain1.0.ts\n"
+                + "#EXTINF:6,\nmain2.0.ts\n"
+                + "#EXTINF:6,\nmain3.0.ts\n"
+                + "#EXTINF:6,\nmain4.0.ts\n"
+                + "\n");
+
+    // active ad playback state with live post roll is ignored.
+    assertThat(adsLoader.getAdsResumptionStates()).isEmpty();
+
+    // Stop to verify that there was an active ad playback state when calling getAdResumptionStates.
+    adsLoader.stop(adsMediaSource, mockEventListener);
+    ArgumentCaptor<AdPlaybackState> adPlaybackState =
+        ArgumentCaptor.forClass(AdPlaybackState.class);
+    verify(mockAdsLoaderListener).onStop(any(), eq("adsId"), adPlaybackState.capture());
+    assertThat(adPlaybackState.getAllValues()).isEqualTo(adPlaybackStates);
+  }
+
+  @Test
+  public void getAdsResumptionStates_returnsResumptionStateOfActiveAdsIds() throws IOException {
+    String secondPlaylistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:6\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:55:40.000Z\n"
+            + "#EXTINF:6,\n"
+            + "main1.0.ts\n"
+            + "#EXTINF:6,\n"
+            + "main2.0.ts\n"
+            + "#EXTINF:6,\n"
+            + "main3.0.ts\n"
+            + "#EXT-X-ENDLIST"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad1-1\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T21:55:44.000Z\","
+            + "CUE=\"POST\","
+            + "X-ASSET-URI=\"http://example.com/media-1-1.m3u8\""
+            + "\n";
+    HlsMediaPlaylist secondMediaPlaylist =
+        (HlsMediaPlaylist)
+            new HlsPlaylistParser()
+                .parse(
+                    Uri.EMPTY, new ByteArrayInputStream(Util.getUtf8Bytes(secondPlaylistString)));
+    HlsManifest secondHlsManifest =
+        new HlsManifest(/* multivariantPlaylist= */ null, secondMediaPlaylist);
+    TimelineWindowDefinition secondInitialTimelineWindowDefinition =
+        new TimelineWindowDefinition.Builder()
+            .setPlaceholder(true)
+            .setDynamic(true)
+            .setDurationUs(C.TIME_UNSET)
+            .setWindowPositionInFirstPeriodUs(0)
+            .setMediaItem(MediaItem.fromUri("http://example.com/2.m3u8"))
+            .build();
+    AdsMediaSource secondAdsMediaSource =
+        new AdsMediaSource(
+            new FakeMediaSource(new FakeTimeline(secondInitialTimelineWindowDefinition)),
+            new DataSpec(secondInitialTimelineWindowDefinition.mediaItem.localConfiguration.uri),
+            "adsId2",
+            new DefaultMediaSourceFactory((Context) ApplicationProvider.getApplicationContext()),
+            adsLoader,
+            mockAdViewProvider);
+    AdsResumptionState firstAdsResumptionState =
+        new AdsResumptionState(
+            "adsId",
+            new AdPlaybackState("adsId", 0L)
+                .withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 1)
+                .withAdId(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0, "ad0-0")
+                .withAvailableAdMediaItem(
+                    /* adGroupIndex= */ 0,
+                    /* adIndexInAdGroup= */ 0,
+                    new MediaItem.Builder()
+                        .setUri("http://example.com/media-0-0.m3u8")
+                        .setMimeType("application/x-mpegURL")
+                        .build()));
+    AdsResumptionState secondAdsResumptionState =
+        new AdsResumptionState(
+            "adsId2",
+            new AdPlaybackState("adsId2", C.TIME_END_OF_SOURCE)
+                .withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 1)
+                .withAdId(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0, "ad1-1")
+                .withAvailableAdMediaItem(
+                    /* adGroupIndex= */ 0,
+                    /* adIndexInAdGroup= */ 0,
+                    new MediaItem.Builder()
+                        .setUri("http://example.com/media-1-1.m3u8")
+                        .setMimeType("application/x-mpegURL")
+                        .build()));
+
+    // Start the first adsId with a pre roll.
+    callHandleContentTimelineChangedAndCaptureAdPlaybackState(
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:6\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:55:40.000Z\n"
+            + "#EXTINF:6,\n"
+            + "main1.0.ts\n"
+            + "#EXTINF:6,\n"
+            + "main2.0.ts\n"
+            + "#EXTINF:6,\n"
+            + "main3.0.ts\n"
+            + "#EXT-X-ENDLIST"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad0-0\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T21:55:44.000Z\","
+            + "CUE=\"PRE\","
+            + "X-ASSET-URI=\"http://example.com/media-0-0.m3u8\""
+            + "\n",
+        adsLoader,
+        /* windowIndex= */ 0,
+        /* windowPositionInPeriodUs= */ 0,
+        /* windowEndPositionInPeriodUs= */ C.TIME_END_OF_SOURCE);
+
+    assertThat(adsLoader.getAdsResumptionStates()).containsExactly(firstAdsResumptionState);
+
+    // Start a second adsId with a post roll.
+    adsLoader.start(
+        secondAdsMediaSource,
+        new DataSpec(Uri.EMPTY),
+        "adsId2",
+        mockAdViewProvider,
+        mockEventListener);
+    adsLoader.handleContentTimelineChanged(
+        secondAdsMediaSource,
+        new FakeTimeline(
+            new Object[] {secondHlsManifest},
+            secondInitialTimelineWindowDefinition
+                .buildUpon()
+                .setDurationUs(secondMediaPlaylist.durationUs)
+                .setDynamic(false)
+                .setPlaceholder(false)
+                .build()));
+
+    assertThat(adsLoader.getAdsResumptionStates())
+        .containsExactly(firstAdsResumptionState, secondAdsResumptionState);
+
+    // Stop the first ads media source.
+    adsLoader.stop(adsMediaSource, mockEventListener);
+
+    assertThat(adsLoader.getAdsResumptionStates()).containsExactly(secondAdsResumptionState);
+
+    // Stop the second ads media source.
+    adsLoader.stop(secondAdsMediaSource, mockEventListener);
+
+    assertThat(adsLoader.getAdsResumptionStates()).isEmpty();
+  }
+
+  @Test
+  public void removeAdResumptionState_removesAvailableResumptionState() {
+    AdsResumptionState adsResumptionState =
+        new AdsResumptionState("adsId", new AdPlaybackState("adsId"));
+    adsLoader.addAdResumptionState(adsResumptionState);
+
+    assertThat(adsLoader.removeAdResumptionState("adsId")).isTrue();
+    assertThat(adsLoader.removeAdResumptionState("adsId")).isFalse();
+  }
+
+  @Test
+  public void clearAllAdResumptionStates_removesAvailableResumptionState() {
+    adsLoader.addAdResumptionState(new AdsResumptionState("adsId", new AdPlaybackState("adsId")));
+    adsLoader.addAdResumptionState("adsId2", new AdPlaybackState("adsId2"));
+
+    adsLoader.clearAllAdResumptionStates();
+
+    assertThat(adsLoader.removeAdResumptionState("adsId")).isFalse();
   }
 
   @Test
@@ -3410,6 +3676,16 @@ public class HlsInterstitialsAdsLoaderTest {
   }
 
   @Test
+  public void release_clearsResumptionStates() {
+    adsLoader.addAdResumptionState(
+        "adsId", new AdPlaybackState(/* adsId= */ "adsId", 0L, C.TIME_END_OF_SOURCE));
+
+    adsLoader.release();
+
+    assertThat(adsLoader.removeAdResumptionState("adsId")).isFalse();
+  }
+
+  @Test
   public void release_afterStartButBeforeStopped_playerListenerRemovedAfterAllSourcesStopped() {
     when(mockPlayer.getCurrentTimeline()).thenReturn(new FakeTimeline(contentWindowDefinition));
     adsLoader.setPlayer(mockPlayer);
@@ -3698,6 +3974,29 @@ public class HlsInterstitialsAdsLoaderTest {
     verifyNoMoreInteractions(mockAdsLoaderListener);
     verify(mockEventListener).onAdPlaybackState(new AdPlaybackState("adsId"));
     verifyNoMoreInteractions(mockEventListener);
+  }
+
+  @Test
+  public void state_bundleUnbundleRoundTrip_createsEqualInstance() {
+    AdPlaybackState adPlaybackState =
+        new AdPlaybackState(
+                /* adsId= */ "1234", /* adGroupTimesUs...= */ 0L, 10L, C.TIME_END_OF_SOURCE)
+            .withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ true)
+            .withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 1);
+    AdsResumptionState adsResumptionState = new AdsResumptionState("1234", adPlaybackState);
+
+    AdsResumptionState resultingAdsResumptionState =
+        AdsResumptionState.fromBundle(adsResumptionState.toBundle());
+
+    assertThat(resultingAdsResumptionState).isEqualTo(adsResumptionState);
+  }
+
+  @Test
+  public void state_constructorWithAdsIdsThatDoNotMatch_throwsIllegalArgumentException() {
+    AdPlaybackState adPlaybackState = new AdPlaybackState("1234");
+
+    assertThrows(
+        IllegalArgumentException.class, () -> new AdsResumptionState("5678", adPlaybackState));
   }
 
   private List<AdPlaybackState> callHandleContentTimelineChangedForLiveAndCaptureAdPlaybackStates(

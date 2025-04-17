@@ -69,6 +69,7 @@
 *   Cronet extension:
 *   RTMP extension:
 *   HLS extension:
+    *   Support X-ASSET-LIST and live streams with `HlsInterstitialsAdsLoader`.
 *   DASH extension:
 *   Smooth Streaming extension:
 *   RTSP extension:
