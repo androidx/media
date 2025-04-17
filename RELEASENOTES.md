@@ -20,6 +20,8 @@
         variable bitrate metadata when falling back to constant bitrate seeking
         due to `FLAG_ENABLE_CONSTANT_BITRATE_SEEKING(_ALWAYS)`
         ([#2194](https://github.com/androidx/media/issues/2194)).
+    *   Fix seek on fragmented mp4 with multiple sidx atoms.
+        ([#9373](https://github.com/google/ExoPlayer/issues/9373))
 *   DataSource:
 *   Audio:
     *   Allow constant power upmixing/downmixing in DefaultAudioMixer.
