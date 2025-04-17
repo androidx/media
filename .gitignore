@@ -55,6 +55,9 @@ tmp
 .externalNativeBuild
 .cxx
 
+# ASS decoder extension
+libraries/decoder_ass/src/main/jni/ass
+
 # VP9 decoder extension
 libraries/decoder_vp9/src/main/jni/libvpx
 libraries/decoder_vp9/src/main/jni/libvpx_android_configs

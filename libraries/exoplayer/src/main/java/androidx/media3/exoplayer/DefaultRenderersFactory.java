@@ -740,6 +740,35 @@ public class DefaultRenderersFactory implements RenderersFactory {
       @ExtensionRendererMode int extensionRendererMode,
       ArrayList<Renderer> out) {
     out.add(new TextRenderer(output, outputLooper));
+
+    if (extensionRendererMode == EXTENSION_RENDERER_MODE_OFF) {
+      return;
+    }
+    int extensionRendererIndex = out.size();
+    /*if (extensionRendererMode == EXTENSION_RENDERER_MODE_PREFER) {
+      extensionRendererIndex--;
+    }*/
+    // TODO Remove hack. We suppose that when EXTENSION_RENDERER_MODE_ON, we actually mean EXTENSION_RENDERER_MODE_PREFER
+    // This is necessary because
+    extensionRendererIndex--;
+
+    try {
+      Class<?> clazz = Class.forName("androidx.media3.decoder.ass.AssRenderer");
+      Constructor<?> constructor =
+          clazz.getConstructor(
+              TextOutput.class,
+              Looper.class);
+      // LINT.ThenChange(../../../../../../proguard-rules.txt)
+      Renderer renderer =
+          (Renderer) constructor.newInstance(output, outputLooper);
+      out.add(extensionRendererIndex++, renderer);
+      Log.i(TAG, "Loaded AssRenderer.");
+    } catch (ClassNotFoundException e) {
+      // Expected if the app was built without the extension.
+    } catch (Exception e) {
+      // The extension is present, but instantiation failed.
+      throw new IllegalStateException("Error instantiating ASS extension", e);
+    }
   }
 
   /**
