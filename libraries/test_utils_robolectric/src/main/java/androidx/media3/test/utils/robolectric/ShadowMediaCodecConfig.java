@@ -23,6 +23,7 @@ import android.media.MediaFormat;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.mediacodec.MediaCodecUtil;
+import androidx.media3.transformer.EncoderUtil;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Ints;
@@ -327,6 +328,7 @@ public final class ShadowMediaCodecConfig extends ExternalResource {
   @Override
   protected void after() {
     MediaCodecUtil.clearDecoderInfoCache();
+    EncoderUtil.clearCachedEncoders();
     ShadowMediaCodecList.reset();
     ShadowMediaCodec.clearCodecs();
   }

@@ -40,7 +40,6 @@ import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
-import org.junit.After;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -61,12 +60,6 @@ public class CompositionExportTest {
       ShadowMediaCodecConfig.withCodecs(
           /* decoders= */ ImmutableList.of(CODEC_INFO_RAW),
           /* encoders= */ ImmutableList.of(CODEC_INFO_AAC));
-
-  @After
-  public void tearDown() {
-    // TODO(b/406463016): Investigate moving this call to ShadowMediaCodecConfig#after() method.
-    EncoderUtil.clearCachedEncoders();
-  }
 
   @Test
   public void start_audioVideoTransmuxedFromDifferentSequences_matchesSingleSequenceResult()

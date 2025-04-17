@@ -38,7 +38,6 @@ import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
 import androidx.test.core.app.ApplicationProvider;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import org.junit.After;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -98,12 +97,6 @@ public final class ParameterizedItemExportTest {
       ShadowMediaCodecConfig.withCodecs(
           /* decoders= */ ImmutableList.of(CODEC_INFO_RAW),
           /* encoders= */ ImmutableList.of(CODEC_INFO_AAC));
-
-  @After
-  public void tearDown() {
-    // TODO(b/406463016): Investigate moving this call to ShadowMediaCodecConfig#after() method.
-    EncoderUtil.clearCachedEncoders();
-  }
 
   @Test
   public void export() throws Exception {

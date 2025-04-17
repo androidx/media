@@ -105,7 +105,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import org.junit.After;
 import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
@@ -151,12 +150,6 @@ public final class MediaItemExportTest {
   public ShadowMediaCodecConfig shadowMediaCodecConfig =
       ShadowMediaCodecConfig.withCodecs(
           /* decoders= */ ImmutableList.of(CODEC_INFO_RAW), /* encoders= */ ImmutableList.of());
-
-  @After
-  public void tearDown() {
-    // TODO(b/406463016): Investigate moving this call to ShadowMediaCodecConfig#after() method.
-    EncoderUtil.clearCachedEncoders();
-  }
 
   @Test
   public void start_gapOnlyExport_outputsSilence() throws Exception {

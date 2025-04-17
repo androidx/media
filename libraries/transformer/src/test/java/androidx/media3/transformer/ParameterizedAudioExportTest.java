@@ -44,7 +44,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import org.junit.After;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -136,12 +135,6 @@ public final class ParameterizedAudioExportTest {
 
   private final CapturingMuxer.Factory muxerFactory =
       new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
-
-  @After
-  public void tearDown() {
-    // TODO(b/406463016): Investigate moving this call to ShadowMediaCodecConfig#after() method.
-    EncoderUtil.clearCachedEncoders();
-  }
 
   @Test
   public void export() throws Exception {
