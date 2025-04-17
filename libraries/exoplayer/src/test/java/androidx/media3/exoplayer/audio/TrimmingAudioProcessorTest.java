@@ -15,8 +15,12 @@
  */
 package androidx.media3.exoplayer.audio;
 
+import static androidx.media3.test.utils.TestUtil.createByteArray;
 import static androidx.media3.test.utils.TestUtil.createByteBuffer;
 import static androidx.media3.test.utils.TestUtil.createFloatArray;
+import static androidx.media3.test.utils.TestUtil.createInt24Array;
+import static androidx.media3.test.utils.TestUtil.createInt24ByteBuffer;
+import static androidx.media3.test.utils.TestUtil.createIntArray;
 import static androidx.media3.test.utils.TestUtil.createShortArray;
 import static com.google.common.truth.Truth.assertThat;
 
@@ -32,8 +36,14 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public final class TrimmingAudioProcessorTest {
 
+  private static final AudioFormat STEREO_PCM8_FORMAT =
+      new AudioFormat(/* sampleRate= */ 44100, /* channelCount= */ 2, C.ENCODING_PCM_8BIT);
   private static final AudioFormat STEREO_PCM16_FORMAT =
       new AudioFormat(/* sampleRate= */ 44100, /* channelCount= */ 2, C.ENCODING_PCM_16BIT);
+  private static final AudioFormat STEREO_PCM24_FORMAT =
+      new AudioFormat(/* sampleRate= */ 44100, /* channelCount= */ 2, C.ENCODING_PCM_24BIT);
+  private static final AudioFormat STEREO_PCM32_FORMAT =
+      new AudioFormat(/* sampleRate= */ 44100, /* channelCount= */ 2, C.ENCODING_PCM_32BIT);
   private static final AudioFormat STEREO_PCM_FLOAT_FORMAT =
       new AudioFormat(/* sampleRate= */ 44100, /* channelCount= */ 2, C.ENCODING_PCM_FLOAT);
   private static final int TRACK_ONE_UNTRIMMED_FRAME_COUNT = 1024;
@@ -84,6 +94,31 @@ public final class TrimmingAudioProcessorTest {
   }
 
   @Test
+  public void trim_withPcm8Samples_removesExpectedSamples() throws Exception {
+    TrimmingAudioProcessor trimmingAudioProcessor = new TrimmingAudioProcessor();
+    ByteBuffer resultBuffer = ByteBuffer.allocateDirect(4).order(ByteOrder.nativeOrder());
+    trimmingAudioProcessor.setTrimFrameCount(1, 2);
+    trimmingAudioProcessor.configure(STEREO_PCM8_FORMAT);
+    trimmingAudioProcessor.flush();
+
+    ByteBuffer inputBuffer = createByteBuffer(new byte[] {1, 2, 3, 4, 5, 6, 7, 8, 9, 10});
+    while (!trimmingAudioProcessor.isEnded()) {
+      if (inputBuffer.hasRemaining()) {
+        trimmingAudioProcessor.queueInput(inputBuffer);
+        if (!inputBuffer.hasRemaining()) {
+          trimmingAudioProcessor.configure(STEREO_PCM8_FORMAT);
+          trimmingAudioProcessor.queueEndOfStream();
+        }
+      }
+      resultBuffer.put(trimmingAudioProcessor.getOutput());
+    }
+    resultBuffer.flip();
+
+    assertThat(trimmingAudioProcessor.getTrimmedFrameCount()).isEqualTo(3);
+    assertThat(createByteArray(resultBuffer)).isEqualTo(new byte[] {3, 4, 5, 6});
+  }
+
+  @Test
   public void trim_withPcm16Samples_removesExpectedSamples() throws Exception {
     TrimmingAudioProcessor trimmingAudioProcessor = new TrimmingAudioProcessor();
     ByteBuffer resultBuffer = ByteBuffer.allocateDirect(8).order(ByteOrder.nativeOrder());
@@ -106,6 +141,56 @@ public final class TrimmingAudioProcessorTest {
 
     assertThat(trimmingAudioProcessor.getTrimmedFrameCount()).isEqualTo(3);
     assertThat(createShortArray(resultBuffer)).isEqualTo(new short[] {3, 4, 5, 6});
+  }
+
+  @Test
+  public void trim_withPcm24Samples_removesExpectedSamples() throws Exception {
+    TrimmingAudioProcessor trimmingAudioProcessor = new TrimmingAudioProcessor();
+    ByteBuffer resultBuffer = ByteBuffer.allocateDirect(12).order(ByteOrder.nativeOrder());
+    trimmingAudioProcessor.setTrimFrameCount(1, 2);
+    trimmingAudioProcessor.configure(STEREO_PCM24_FORMAT);
+    trimmingAudioProcessor.flush();
+
+    ByteBuffer inputBuffer = createInt24ByteBuffer(new int[] {1, 2, 3, 4, 5, 6, 7, 8, 9, 10});
+    while (!trimmingAudioProcessor.isEnded()) {
+      if (inputBuffer.hasRemaining()) {
+        trimmingAudioProcessor.queueInput(inputBuffer);
+        if (!inputBuffer.hasRemaining()) {
+          trimmingAudioProcessor.configure(STEREO_PCM24_FORMAT);
+          trimmingAudioProcessor.queueEndOfStream();
+        }
+      }
+      resultBuffer.put(trimmingAudioProcessor.getOutput());
+    }
+    resultBuffer.flip();
+
+    assertThat(trimmingAudioProcessor.getTrimmedFrameCount()).isEqualTo(3);
+    assertThat(createInt24Array(resultBuffer)).isEqualTo(new int[] {3, 4, 5, 6});
+  }
+
+  @Test
+  public void trim_withPcm32Samples_removesExpectedSamples() throws Exception {
+    TrimmingAudioProcessor trimmingAudioProcessor = new TrimmingAudioProcessor();
+    ByteBuffer resultBuffer = ByteBuffer.allocateDirect(16).order(ByteOrder.nativeOrder());
+    trimmingAudioProcessor.setTrimFrameCount(1, 2);
+    trimmingAudioProcessor.configure(STEREO_PCM32_FORMAT);
+    trimmingAudioProcessor.flush();
+
+    ByteBuffer inputBuffer = createByteBuffer(new int[] {1, 2, 3, 4, 5, 6, 7, 8, 9, 10});
+    while (!trimmingAudioProcessor.isEnded()) {
+      if (inputBuffer.hasRemaining()) {
+        trimmingAudioProcessor.queueInput(inputBuffer);
+        if (!inputBuffer.hasRemaining()) {
+          trimmingAudioProcessor.configure(STEREO_PCM32_FORMAT);
+          trimmingAudioProcessor.queueEndOfStream();
+        }
+      }
+      resultBuffer.put(trimmingAudioProcessor.getOutput());
+    }
+    resultBuffer.flip();
+
+    assertThat(trimmingAudioProcessor.getTrimmedFrameCount()).isEqualTo(3);
+    assertThat(createIntArray(resultBuffer)).isEqualTo(new int[] {3, 4, 5, 6});
   }
 
   @Test
