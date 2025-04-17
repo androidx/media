@@ -16,6 +16,7 @@
 
 package androidx.media3.test.utils;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
@@ -136,7 +137,7 @@ public final class FakeExoMediaDrm implements ExoMediaDrm {
     public Builder throwNoSuchMethodErrorForProvisioningAndResourceBusy(
         boolean throwNoSuchMethodErrorForProvisioningAndResourceBusy) {
       checkState(
-          !throwNoSuchMethodErrorForProvisioningAndResourceBusy || Util.SDK_INT == 34,
+          !throwNoSuchMethodErrorForProvisioningAndResourceBusy || SDK_INT == 34,
           "The framework bug recreated by this method only exists on API 34.");
       this.throwNoSuchMethodErrorForProvisioningAndResourceBusy =
           throwNoSuchMethodErrorForProvisioningAndResourceBusy;

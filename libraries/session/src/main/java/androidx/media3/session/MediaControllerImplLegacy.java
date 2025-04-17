@@ -15,6 +15,7 @@
  */
 package androidx.media3.session;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
@@ -1232,7 +1233,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
 
   @Override
   public void setDeviceMuted(boolean muted, @C.VolumeFlags int flags) {
-    if (Util.SDK_INT < 23) {
+    if (SDK_INT < 23) {
       Log.w(TAG, "Session doesn't support setting mute state at API level less than 23");
       return;
     }
@@ -1812,7 +1813,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
 
   @Nullable
   private static String getRoutingControllerId(MediaControllerCompat controllerCompat) {
-    if (Util.SDK_INT < 30) {
+    if (SDK_INT < 30) {
       return null;
     }
     android.media.session.MediaController fwkController =

@@ -17,6 +17,7 @@ package androidx.media3.common.util;
 
 import static android.net.NetworkInfo.State.CONNECTED;
 import static android.net.NetworkInfo.State.DISCONNECTED;
+import static android.os.Build.VERSION.SDK_INT;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static org.mockito.Mockito.mock;
@@ -238,7 +239,7 @@ public class NetworkTypeObserverTest {
     ConnectivityManager connectivityManager =
         (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
     Shadows.shadowOf(connectivityManager).setActiveNetworkInfo(networkInfo);
-    if (Util.SDK_INT >= 31) {
+    if (SDK_INT >= 31) {
       TelephonyManager telephonyManager =
           (TelephonyManager) context.getSystemService(Context.TELEPHONY_SERVICE);
       Object displayInfo =

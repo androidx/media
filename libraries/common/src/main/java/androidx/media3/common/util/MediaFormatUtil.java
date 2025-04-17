@@ -15,7 +15,7 @@
  */
 package androidx.media3.common.util;
 
-import static androidx.media3.common.util.Util.SDK_INT;
+import static android.os.Build.VERSION.SDK_INT;
 
 import android.annotation.SuppressLint;
 import android.media.AudioFormat;

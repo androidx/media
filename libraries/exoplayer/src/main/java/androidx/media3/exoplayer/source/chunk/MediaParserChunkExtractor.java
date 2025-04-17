@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.source.chunk;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.exoplayer.source.mediaparser.MediaParserUtil.PARAMETER_EAGERLY_EXPOSE_TRACK_TYPE;
 import static androidx.media3.exoplayer.source.mediaparser.MediaParserUtil.PARAMETER_EXPOSE_CAPTION_FORMATS;
@@ -34,7 +35,6 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.source.mediaparser.InputReaderAdapterV30;
 import androidx.media3.exoplayer.source.mediaparser.MediaParserUtil;
@@ -196,7 +196,7 @@ public final class MediaParserChunkExtractor implements ChunkExtractor {
           MediaParserUtil.toCaptionsMediaFormat(closedCaptionFormats.get(i)));
     }
     mediaParser.setParameter(PARAMETER_EXPOSE_CAPTION_FORMATS, closedCaptionMediaFormats);
-    if (Util.SDK_INT >= 31) {
+    if (SDK_INT >= 31) {
       MediaParserUtil.setLogSessionIdOnMediaParser(mediaParser, playerId);
     }
     outputConsumerAdapter.setMuxedCaptionFormats(closedCaptionFormats);

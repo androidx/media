@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.audio;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.exoplayer.audio.AudioSink.SINK_FORMAT_SUPPORTED_DIRECTLY;
 import static androidx.media3.exoplayer.audio.AudioSink.SINK_FORMAT_SUPPORTED_WITH_TRANSCODING;
@@ -774,7 +775,7 @@ public final class DefaultAudioSinkTest {
   // Adding the permission to the test AndroidManifest.xml doesn't work to appease lint.
   @SuppressWarnings({"StickyBroadcast", "MissingPermission"})
   private void addHdmiDevice() {
-    if (Util.SDK_INT >= 23) {
+    if (SDK_INT >= 23) {
       // AudioFormat.getChannelIndexMask() in the implementation of
       // ShadowAudioTrack.addDirectPlaybackSupport requires API 23+.
       // https://cs.android.com/android/platform/superproject/main/+/main:external/robolectric/shadows/framework/src/main/java/org/robolectric/shadows/ShadowAudioTrack.java?q=format.getChannelIndexMask()
@@ -794,7 +795,7 @@ public final class DefaultAudioSinkTest {
       // https://cs.android.com/android/platform/superproject/main/+/main:external/robolectric/shadows/framework/src/main/java/org/robolectric/shadows/AudioDeviceInfoBuilder.java?q=VERSION_CODES.M
       AudioDeviceInfoBuilder hdmiDeviceBuilder =
           AudioDeviceInfoBuilder.newBuilder().setType(AudioDeviceInfo.TYPE_HDMI);
-      if (Util.SDK_INT >= 33) {
+      if (SDK_INT >= 33) {
         ImmutableList<AudioProfile> expectedProfiles =
             ImmutableList.of(
                 AudioProfileBuilder.newBuilder()
@@ -833,7 +834,7 @@ public final class DefaultAudioSinkTest {
   // Adding the permission to the test AndroidManifest.xml doesn't work to appease lint.
   @SuppressWarnings({"StickyBroadcast", "MissingPermission"})
   private void removeHdmiDevice() {
-    if (Util.SDK_INT >= 23 && hdmiDevice != null) {
+    if (SDK_INT >= 23 && hdmiDevice != null) {
       ShadowAudioTrack.clearAllowedNonPcmEncodings();
       ShadowAudioTrack.clearDirectPlaybackSupportedFormats();
       getShadowAudioManager().removeOutputDeviceWithDirectProfiles(hdmiDevice);
@@ -851,7 +852,7 @@ public final class DefaultAudioSinkTest {
   }
 
   private void addBluetoothDevice() {
-    if (Util.SDK_INT >= 23) {
+    if (SDK_INT >= 23) {
       // For API 33+, AudioManager.getDirectProfilesForAttributes returns the AudioProfile for the
       // routed device. To simulate the Bluetooth is connected and routed, we need to remove the
       // profile of the HDMI device, which means that the HDMI device is no longer routed, but
@@ -859,7 +860,7 @@ public final class DefaultAudioSinkTest {
       removeHdmiDevice();
       AudioDeviceInfoBuilder bluetoothDeviceBuilder =
           AudioDeviceInfoBuilder.newBuilder().setType(AudioDeviceInfo.TYPE_BLUETOOTH_A2DP);
-      if (Util.SDK_INT >= 33) {
+      if (SDK_INT >= 33) {
         bluetoothDeviceBuilder.setProfiles(ImmutableList.of(createPcmProfile()));
       }
       bluetoothDevice = bluetoothDeviceBuilder.build();
@@ -872,7 +873,7 @@ public final class DefaultAudioSinkTest {
   }
 
   private void removeBluetoothDevice() {
-    if (Util.SDK_INT >= 23 && bluetoothDevice != null) {
+    if (SDK_INT >= 23 && bluetoothDevice != null) {
       // Add back the HDMI device back as the routed device to simulate that the bluetooth device
       // has gone and is no longer routed.
       addHdmiDevice();

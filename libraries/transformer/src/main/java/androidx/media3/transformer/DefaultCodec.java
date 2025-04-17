@@ -16,11 +16,11 @@
 
 package androidx.media3.transformer;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
-import static androidx.media3.common.util.Util.SDK_INT;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_ACCEPTED_INPUT;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_INPUT_ENDED;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_INPUT_FORMAT;

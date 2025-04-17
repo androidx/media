@@ -15,6 +15,7 @@
  */
 package androidx.media3.session;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media.MediaSessionManager.RemoteUserInfo.LEGACY_CONTROLLER;
 import static androidx.media3.common.Player.COMMAND_PLAY_PAUSE;
 import static androidx.media3.common.Player.COMMAND_PREPARE;
@@ -55,7 +56,6 @@ import androidx.media3.common.Rating;
 import androidx.media3.common.StarRating;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.Util;
 import androidx.media3.session.MediaSession.ControllerInfo;
 import androidx.media3.test.session.common.HandlerThreadTestRule;
 import androidx.media3.test.session.common.MainLooperTestRule;
@@ -92,7 +92,7 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
 
   private static final String TEST_URI = "http://test.test";
   private static final String EXPECTED_CONTROLLER_PACKAGE_NAME =
-      Util.SDK_INT >= 24 ? SUPPORT_APP_PACKAGE_NAME : LEGACY_CONTROLLER;
+      SDK_INT >= 24 ? SUPPORT_APP_PACKAGE_NAME : LEGACY_CONTROLLER;
 
   @ClassRule public static MainLooperTestRule mainLooperTestRule = new MainLooperTestRule();
 

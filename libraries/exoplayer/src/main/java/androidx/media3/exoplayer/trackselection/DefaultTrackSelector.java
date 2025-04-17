@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.trackselection;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.TrackSelectionParameters.AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_DISABLED;
 import static androidx.media3.common.TrackSelectionParameters.AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_REQUIRED;
 import static androidx.media3.common.util.Assertions.checkNotNull;
@@ -2482,7 +2483,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
 
   @Override
   public void release() {
-    if (Util.SDK_INT >= 32 && spatializer != null) {
+    if (SDK_INT >= 32 && spatializer != null) {
       spatializer.release();
     }
     super.release();
@@ -2592,7 +2593,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
       parameters = this.parameters;
     }
     if (parameters.constrainAudioChannelCountToDeviceCapabilities
-        && Util.SDK_INT >= 32
+        && SDK_INT >= 32
         && spatializer == null) {
       spatializer = new SpatializerWrapperV32(context, /* defaultTrackSelector= */ this);
     }
@@ -2868,10 +2869,8 @@ public class DefaultTrackSelector extends MappingTrackSelector
     return !parameters.constrainAudioChannelCountToDeviceCapabilities
         || (format.channelCount == Format.NO_VALUE || format.channelCount <= 2)
         || (isDolbyAudio(format)
-            && (Util.SDK_INT < 32
-                || spatializer == null
-                || !spatializer.isSpatializationSupported()))
-        || (Util.SDK_INT >= 32
+            && (SDK_INT < 32 || spatializer == null || !spatializer.isSpatializationSupported()))
+        || (SDK_INT >= 32
             && spatializer != null
             && spatializer.isSpatializationSupported()
             && spatializer.isAvailable()
@@ -3065,7 +3064,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
     synchronized (lock) {
       shouldInvalidate =
           parameters.constrainAudioChannelCountToDeviceCapabilities
-              && Util.SDK_INT >= 32
+              && SDK_INT >= 32
               && spatializer != null
               && spatializer.isSpatializationSupported();
     }
