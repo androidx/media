@@ -63,6 +63,7 @@ import androidx.media3.extractor.AacUtil;
 import androidx.media3.extractor.Ac3Util;
 import androidx.media3.extractor.Ac4Util;
 import androidx.media3.extractor.DtsUtil;
+import androidx.media3.extractor.ExtractorUtil;
 import androidx.media3.extractor.MpegAudioUtil;
 import androidx.media3.extractor.OpusUtil;
 import com.google.common.collect.ImmutableList;
@@ -1479,8 +1480,7 @@ public final class DefaultAudioSink implements AudioSink {
     long byteRate =
         configuration.outputMode == OUTPUT_MODE_PCM
             ? (long) configuration.outputSampleRate * configuration.outputPcmFrameSize
-            : DefaultAudioTrackBufferSizeProvider.getMaximumEncodedRateBytesPerSecond(
-                configuration.outputEncoding);
+            : getNonPcmMaximumEncodedRateBytesPerSecond(configuration.outputEncoding);
     return Util.scaleLargeValue(
         configuration.bufferSize, C.MICROS_PER_SECOND, byteRate, RoundingMode.DOWN);
   }
@@ -2387,6 +2387,12 @@ public final class DefaultAudioSink implements AudioSink {
     }
   }
 
+  private static int getNonPcmMaximumEncodedRateBytesPerSecond(@C.Encoding int encoding) {
+    int rate = ExtractorUtil.getMaximumEncodedRateBytesPerSecond(encoding);
+    checkState(rate != C.RATE_UNSET_INT);
+    return rate;
+  }
+
   @RequiresApi(23)
   private static final class Api23 {
     private Api23() {}
@@ -2404,8 +2410,7 @@ public final class DefaultAudioSink implements AudioSink {
           : Util.scaleLargeValue(
               audioTrack.getBufferSizeInFrames(),
               C.MICROS_PER_SECOND,
-              DefaultAudioTrackBufferSizeProvider.getMaximumEncodedRateBytesPerSecond(
-                  configuration.outputEncoding),
+              getNonPcmMaximumEncodedRateBytesPerSecond(configuration.outputEncoding),
               RoundingMode.DOWN);
     }
   }
