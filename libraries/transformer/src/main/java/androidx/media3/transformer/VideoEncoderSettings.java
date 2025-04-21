@@ -81,6 +81,9 @@ public final class VideoEncoderSettings {
     private int operatingRate;
     private int priority;
     private long repeatPreviousFrameIntervalUs;
+    private int maxBFrames;
+    private int numNonBidirectionalTemporalLayers;
+    private int numBidirectionalTemporalLayers;
 
     /** Creates a new instance. */
     public Builder() {
@@ -92,6 +95,9 @@ public final class VideoEncoderSettings {
       this.operatingRate = NO_VALUE;
       this.priority = NO_VALUE;
       this.repeatPreviousFrameIntervalUs = NO_VALUE;
+      this.maxBFrames = NO_VALUE;
+      this.numNonBidirectionalTemporalLayers = NO_VALUE;
+      this.numBidirectionalTemporalLayers = NO_VALUE;
     }
 
     private Builder(VideoEncoderSettings videoEncoderSettings) {
@@ -103,6 +109,10 @@ public final class VideoEncoderSettings {
       this.operatingRate = videoEncoderSettings.operatingRate;
       this.priority = videoEncoderSettings.priority;
       this.repeatPreviousFrameIntervalUs = videoEncoderSettings.repeatPreviousFrameIntervalUs;
+      this.maxBFrames = videoEncoderSettings.maxBFrames;
+      this.numNonBidirectionalTemporalLayers =
+          videoEncoderSettings.numNonBidirectionalTemporalLayers;
+      this.numBidirectionalTemporalLayers = videoEncoderSettings.numBidirectionalTemporalLayers;
     }
 
     /**
@@ -201,6 +211,42 @@ public final class VideoEncoderSettings {
       return this;
     }
 
+    /**
+     * Sets the maximum number of B frames allowed between I or P frames in the produced video. The
+     * default value is {@link #NO_VALUE} which means that B frame encoding is disabled.
+     *
+     * @param maxBFrames the {@linkplain MediaFormat#KEY_MAX_B_FRAMES maximum number of B frames}
+     *     allowed.
+     * @return This builder.
+     */
+    @CanIgnoreReturnValue
+    public Builder setMaxBFrames(int maxBFrames) {
+      this.maxBFrames = maxBFrames;
+      return this;
+    }
+
+    /**
+     * Sets the number of temporal layers to request from the video encoder.
+     *
+     * <p>The default value for both parameters is {@link #NO_VALUE} which indicates that no
+     * {@linkplain MediaFormat#KEY_TEMPORAL_LAYERING temporal layering schema} will be set for the
+     * encoder.
+     *
+     * @param numNonBidirectionalLayers the number of predictive layers to have. This value must be
+     *     stricly positive. A value of '0' explicitly requests no temporal layers from the encoder,
+     *     regardless of the requested 'numBidirectionalLayers'.
+     * @param numBidirectionalLayers the number of bi-directional layers to have. This value must be
+     *     greater than or equal to zero. A value greater than 1 constructs a hierarchical-B coding
+     *     structure.
+     * @return This builder.
+     */
+    @CanIgnoreReturnValue
+    public Builder setTemporalLayers(int numNonBidirectionalLayers, int numBidirectionalLayers) {
+      this.numNonBidirectionalTemporalLayers = numNonBidirectionalLayers;
+      this.numBidirectionalTemporalLayers = numBidirectionalLayers;
+      return this;
+    }
+
     /** Builds the instance. */
     public VideoEncoderSettings build() {
       return new VideoEncoderSettings(
@@ -211,7 +257,10 @@ public final class VideoEncoderSettings {
           iFrameIntervalSeconds,
           operatingRate,
           priority,
-          repeatPreviousFrameIntervalUs);
+          repeatPreviousFrameIntervalUs,
+          maxBFrames,
+          numNonBidirectionalTemporalLayers,
+          numBidirectionalTemporalLayers);
     }
   }
 
@@ -242,6 +291,18 @@ public final class VideoEncoderSettings {
    */
   public final long repeatPreviousFrameIntervalUs;
 
+  /**
+   * The {@linkplain MediaFormat#KEY_MAX_B_FRAMES maximum number of B frames} allowed between I and
+   * P frames in the produced encoded video.
+   */
+  public final int maxBFrames;
+
+  /** The requested number of non-bidirectional temporal layers requested from the encoder. */
+  public final int numNonBidirectionalTemporalLayers;
+
+  /** The requested number of bidirectional temporal layers requested from the encoder. */
+  public final int numBidirectionalTemporalLayers;
+
   private VideoEncoderSettings(
       int bitrate,
       int bitrateMode,
@@ -250,7 +311,10 @@ public final class VideoEncoderSettings {
       float iFrameIntervalSeconds,
       int operatingRate,
       int priority,
-      long repeatPreviousFrameIntervalUs) {
+      long repeatPreviousFrameIntervalUs,
+      int maxBFrames,
+      int numNonBidirectionalTemporalLayers,
+      int numBidirectionalTemporalLayers) {
     this.bitrate = bitrate;
     this.bitrateMode = bitrateMode;
     this.profile = profile;
@@ -259,6 +323,9 @@ public final class VideoEncoderSettings {
     this.operatingRate = operatingRate;
     this.priority = priority;
     this.repeatPreviousFrameIntervalUs = repeatPreviousFrameIntervalUs;
+    this.maxBFrames = maxBFrames;
+    this.numNonBidirectionalTemporalLayers = numNonBidirectionalTemporalLayers;
+    this.numBidirectionalTemporalLayers = numBidirectionalTemporalLayers;
   }
 
   /**
@@ -273,10 +340,9 @@ public final class VideoEncoderSettings {
     if (this == o) {
       return true;
     }
-    if (!(o instanceof VideoEncoderSettings)) {
+    if (!(o instanceof VideoEncoderSettings that)) {
       return false;
     }
-    VideoEncoderSettings that = (VideoEncoderSettings) o;
     return bitrate == that.bitrate
         && bitrateMode == that.bitrateMode
         && profile == that.profile
@@ -284,7 +350,10 @@ public final class VideoEncoderSettings {
         && iFrameIntervalSeconds == that.iFrameIntervalSeconds
         && operatingRate == that.operatingRate
         && priority == that.priority
-        && repeatPreviousFrameIntervalUs == that.repeatPreviousFrameIntervalUs;
+        && repeatPreviousFrameIntervalUs == that.repeatPreviousFrameIntervalUs
+        && maxBFrames == that.maxBFrames
+        && numNonBidirectionalTemporalLayers == that.numNonBidirectionalTemporalLayers
+        && numBidirectionalTemporalLayers == that.numBidirectionalTemporalLayers;
   }
 
   @Override
@@ -300,6 +369,9 @@ public final class VideoEncoderSettings {
     result =
         31 * result
             + (int) (repeatPreviousFrameIntervalUs ^ (repeatPreviousFrameIntervalUs >>> 32));
+    result = 31 * result + maxBFrames;
+    result = 31 * result + numNonBidirectionalTemporalLayers;
+    result = 31 * result + numBidirectionalTemporalLayers;
     return result;
   }
 }
