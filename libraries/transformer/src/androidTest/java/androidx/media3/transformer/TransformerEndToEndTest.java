@@ -556,12 +556,8 @@ public class TransformerEndToEndTest {
             .build()
             .run(testId, editedMediaItem);
 
-    // Rarely, MediaCodec decoders output frames in the wrong order.
-    // When the MediaCodec encoder sees frames in the wrong order, fewer output frames are produced.
-    // Use a tolerance when comparing frame counts. See b/343476417#comment5.
     assertThat(result.exportResult.videoFrameCount)
-        .isWithin(2)
-        .of(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.videoFrameCount);
+        .isEqualTo(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.videoFrameCount);
     assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
@@ -587,12 +583,8 @@ public class TransformerEndToEndTest {
             .build()
             .run(testId, editedMediaItem);
 
-    // Rarely, MediaCodec decoders output frames in the wrong order.
-    // When the MediaCodec encoder sees frames in the wrong order, fewer output frames are produced.
-    // Use a tolerance when comparing frame counts. See b/343476417#comment5.
     assertThat(result.exportResult.videoFrameCount)
-        .isWithin(2)
-        .of(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.videoFrameCount);
+        .isEqualTo(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.videoFrameCount);
     assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
@@ -1837,7 +1829,7 @@ public class TransformerEndToEndTest {
   }
 
   @Test
-  public void dolbyVisionVideo_noEffects_withInAppMuxer_transmuxesToHevc() throws Exception {
+  public void dolbyVisionVideo_noEffects_withInAppMuxer_transmuxesSuccessfully() throws Exception {
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(MP4_ASSET_DOLBY_VISION_HDR.uri)))
             .setRemoveAudio(true)
@@ -1855,9 +1847,13 @@ public class TransformerEndToEndTest {
 
     MediaExtractorCompat mediaExtractor = new MediaExtractorCompat(context);
     mediaExtractor.setDataSource(Uri.parse(result.filePath), /* offset= */ 0);
-    checkState(mediaExtractor.getTrackCount() == 1);
+    checkState(mediaExtractor.getTrackCount() == 2);
     MediaFormat mediaFormat = mediaExtractor.getTrackFormat(/* trackIndex= */ 0);
     Format format = createFormatFromMediaFormat(mediaFormat);
+    assertThat(format.sampleMimeType).isEqualTo(MimeTypes.VIDEO_DOLBY_VISION);
+    // HEVC track is compatibility track of dolby vision codec.
+    mediaFormat = mediaExtractor.getTrackFormat(/* trackIndex= */ 1);
+    format = createFormatFromMediaFormat(mediaFormat);
     assertThat(format.sampleMimeType).isEqualTo(MimeTypes.VIDEO_H265);
     assertThat(result.exportResult.videoConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSMUXED);
   }

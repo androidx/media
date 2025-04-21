@@ -138,6 +138,40 @@ public final class CodecSpecificDataUtil {
   }
 
   /**
+   * Returns initialization data for Dolby Vision according to <a
+   * href="https://dolby.my.salesforce.com/sfc/p/#700000009YuG/a/4u000000l6FB/076wHYEmyEfz09m0V1bo85_25hlUJjaiWTbzorNmYY4">Dolby
+   * Vision ISO MediaFormat (section 2.2) specification</a>.
+   *
+   * @param profile The Dolby Vision codec profile.
+   * @param level The Dolby Vision codec level.
+   */
+  public static byte[] buildDolbyVisionInitializationData(int profile, int level) {
+    byte[] dolbyVisionCsd = new byte[24];
+    byte blCompatibilityId = 0x00;
+    // MD compression is not permitted for profile 7 and earlier. Only some devices
+    // support it from profile 8
+    byte mdCompression = 0x00;
+    if (profile == 8) {
+      blCompatibilityId = 0x04;
+    } else if (profile == 9) {
+      blCompatibilityId = 0x02;
+      mdCompression = 0x01;
+    }
+
+    dolbyVisionCsd[0] = 0x01; // dv_version_major
+    dolbyVisionCsd[1] = 0x00; // dv_version_minor
+    dolbyVisionCsd[2] = (byte) ((profile & 0x7f) << 1); // dv_profile
+    dolbyVisionCsd[2] = (byte) ((dolbyVisionCsd[2] | ((level >> 5) & 0x1)) & 0xff);
+    dolbyVisionCsd[3] = (byte) ((level & 0x1f) << 3); // dv_level
+    dolbyVisionCsd[3] = (byte) (dolbyVisionCsd[3] | (1 << 2)); // rpu_present_flag
+    dolbyVisionCsd[3] = (byte) (dolbyVisionCsd[3] | (0 << 1)); // el_present_flag
+    dolbyVisionCsd[3] = (byte) (dolbyVisionCsd[3] | 1); // bl_present_flag
+    dolbyVisionCsd[4] = (byte) (blCompatibilityId << 4); // dv_bl_signal_compatibility_id
+    dolbyVisionCsd[4] = (byte) (dolbyVisionCsd[4] | (mdCompression << 2)); // dv_md_compression
+    return dolbyVisionCsd;
+  }
+
+  /**
    * Parses an MPEG-4 Visual configuration information, as defined in ISO/IEC14496-2.
    *
    * @param videoSpecificConfig A byte array containing the MPEG-4 Visual configuration information
@@ -264,6 +298,23 @@ public final class CodecSpecificDataUtil {
   /** Builds an RFC 6381 H263 codec string using profile and level. */
   public static String buildH263CodecString(int profile, int level) {
     return Util.formatInvariant("s263.%d.%d", profile, level);
+  }
+
+  /**
+   * Builds a Dolby Vision codec string using profile and level.
+   *
+   * <p>Reference: <a>
+   * href="https://professionalsupport.dolby.com/s/article/What-is-Dolby-Vision-Profile?language=en_US">
+   * Dolby Vision Profile and Level (section 2.3)</a>
+   */
+  public static String buildDolbyVisionCodecString(int profile, int level) {
+    if (profile > 9) {
+      return Util.formatInvariant("dvh1.%02d.%02d", profile, level);
+    } else if (profile > 8) {
+      return Util.formatInvariant("dvav.%02d.%02d", profile, level);
+    } else {
+      return Util.formatInvariant("dvhe.%02d.%02d", profile, level);
+    }
   }
 
   /**
@@ -405,6 +456,83 @@ public final class CodecSpecificDataUtil {
       split[i] = nal;
     }
     return split;
+  }
+
+  /**
+   * Returns Dolby Vision level number corresponding to the level constant.
+   *
+   * @param levelConstant The Dolby Vision level constant.
+   * @return The Dolby Vision level number.
+   * @throws IllegalArgumentException if the level constant is not recognized.
+   */
+  public static int dolbyVisionConstantToLevelNumber(int levelConstant) {
+    switch (levelConstant) {
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelHd24:
+        return 1;
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelHd30:
+        return 2;
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelFhd24:
+        return 3;
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelFhd30:
+        return 4;
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelFhd60:
+        return 5;
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelUhd24:
+        return 6;
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelUhd30:
+        return 7;
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelUhd48:
+        return 8;
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelUhd60:
+        return 9;
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelUhd120:
+        return 10;
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionLevel8k30:
+        return 11;
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionLevel8k60:
+        return 12;
+      // TODO: b/179261323 - use framework constant for level 13.
+      case 0x1000:
+        return 13;
+      default:
+        throw new IllegalArgumentException("Unknown Dolby Vision level: " + levelConstant);
+    }
+  }
+
+  /**
+   * Returns Dolby Vision profile number corresponding to the profile constant.
+   *
+   * @param profileConstant The Dolby Vision profile constant.
+   * @return The Dolby Vision profile number.
+   * @throws IllegalArgumentException if the profile constant is not recognized.
+   */
+  public static int dolbyVisionConstantToProfileNumber(int profileConstant) {
+    switch (profileConstant) {
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionProfileDvavPer:
+        return 0;
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionProfileDvavPen:
+        return 1;
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionProfileDvheDer:
+        return 2;
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionProfileDvheDen:
+        return 3;
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionProfileDvheDtr:
+        return 4;
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionProfileDvheStn:
+        return 5;
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionProfileDvheDth:
+        return 6;
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionProfileDvheDtb:
+        return 7;
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionProfileDvheSt:
+        return 8;
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionProfileDvavSe:
+        return 9;
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionProfileDvav110:
+        return 10;
+      default:
+        throw new IllegalArgumentException("Unknown Dolby Vision profile: " + profileConstant);
+    }
   }
 
   /**
