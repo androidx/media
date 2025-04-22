@@ -86,9 +86,6 @@
         `transformer.TestUtil.addAudioEncoders(ShadowMediaCodec.CodecConfig,
         String...)`. Use `ShadowMediaCodecConfig` to configure shadow encoders
         and decoders instead.
-*   Demo app:
-    *   Add `PlaybackSpeedPopUpButton` Composable UI element to be part of
-        `ExtraControls` in `demo-compose`.
 *   Remove deprecated symbols:
     *   Removed deprecated `SegmentDownloader` constructor
         `SegmentDownloader(MediaItem, Parser<M>, CacheDataSource.Factory,
