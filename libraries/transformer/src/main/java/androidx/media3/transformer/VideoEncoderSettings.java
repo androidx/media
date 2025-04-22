@@ -340,9 +340,10 @@ public final class VideoEncoderSettings {
     if (this == o) {
       return true;
     }
-    if (!(o instanceof VideoEncoderSettings that)) {
+    if (!(o instanceof VideoEncoderSettings)) {
       return false;
     }
+    VideoEncoderSettings that = (VideoEncoderSettings) o;
     return bitrate == that.bitrate
         && bitrateMode == that.bitrateMode
         && profile == that.profile
