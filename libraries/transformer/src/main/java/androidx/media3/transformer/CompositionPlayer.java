@@ -743,6 +743,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
       }
     } else if (endedCount == players.size()) {
       playbackState = STATE_ENDED;
+      checkStateNotNull(compositionPlayerInternal).stopRendering();
     } else {
       playbackState = STATE_READY;
       if (oldPlaybackState != STATE_READY && playWhenReady) {

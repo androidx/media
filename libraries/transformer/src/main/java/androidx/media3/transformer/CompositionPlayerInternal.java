@@ -155,10 +155,10 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
     try {
       switch (message.what) {
         case MSG_START_RENDERING:
-          playbackAudioGraphWrapper.startRendering();
+          startRenderingInternal();
           break;
         case MSG_STOP_RENDERING:
-          playbackAudioGraphWrapper.stopRendering();
+          stopRenderingInternal();
           break;
         case MSG_SET_VOLUME:
           playbackAudioGraphWrapper.setVolume(/* volume= */ (float) message.obj);
@@ -208,6 +208,16 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
     } finally {
       conditionVariable.open();
     }
+  }
+
+  public void startRenderingInternal() {
+    playbackAudioGraphWrapper.startRendering();
+    playbackVideoGraphWrapper.startRendering();
+  }
+
+  public void stopRenderingInternal() {
+    playbackAudioGraphWrapper.stopRendering();
+    playbackVideoGraphWrapper.stopRendering();
   }
 
   private void clearOutputSurfaceInternal() {

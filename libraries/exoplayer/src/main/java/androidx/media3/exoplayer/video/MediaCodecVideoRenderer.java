@@ -983,6 +983,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       Context context, VideoFrameReleaseControl videoFrameReleaseControl) {
     // TODO: b/391109644 - Add a more explicit API to enable replaying.
     return new PlaybackVideoGraphWrapper.Builder(context, videoFrameReleaseControl)
+        .setEnablePlaylistMode(true)
         .setClock(getClock())
         .build();
   }

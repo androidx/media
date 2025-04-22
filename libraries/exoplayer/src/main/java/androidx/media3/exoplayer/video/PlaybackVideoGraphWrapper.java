@@ -115,6 +115,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     private VideoGraph.@MonotonicNonNull Factory videoGraphFactory;
     private List<Effect> compositionEffects;
     private VideoCompositorSettings compositorSettings;
+    private boolean enablePlaylistMode;
     private Clock clock;
     private boolean requestOpenGlToneMapping;
     private boolean built;
@@ -182,6 +183,36 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     @CanIgnoreReturnValue
     public Builder setCompositorSettings(VideoCompositorSettings compositorSettings) {
       this.compositorSettings = compositorSettings;
+      return this;
+    }
+
+    /**
+     * Sets whether to enable playlist mode.
+     *
+     * <p>The default value is {@code false}.
+     *
+     * <p>This should only be set to {@code true} if there is a single {@linkplain
+     * PlaybackVideoGraphWrapper#getSink(int) input sink}.
+     *
+     * <p>If {@code true}, the {@link VideoGraph} output is considered as a playlist of clips. In
+     * this case, {@link PlaybackVideoGraphWrapper#startRendering()} and {@link
+     * PlaybackVideoGraphWrapper#stopRendering()} are called internally, when the corresponding
+     * methods are caller on the sink.
+     *
+     * <p>If {@code false}, the {@link VideoGraph} output is considered as a single clip. In this
+     * case, the caller is responsible for calling {@link
+     * PlaybackVideoGraphWrapper#startRendering()} and {@link
+     * PlaybackVideoGraphWrapper#stopRendering()}.
+     *
+     * @param enablePlaylistMode Whether to enable playlist mode.
+     * @return This builder, for convenience.
+     */
+    @CanIgnoreReturnValue
+    public Builder setEnablePlaylistMode(boolean enablePlaylistMode) {
+      // This is set to true for ExoPlayer.setVideoEffects(). It's always false in
+      // CompositionPlayer, even if the Composition has a single sequence, because CompositionPlayer
+      // shouldn't behave differently for single and multi-sequence.
+      this.enablePlaylistMode = enablePlaylistMode;
       return this;
     }
 
@@ -271,6 +302,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
   private final SparseArray<InputVideoSink> inputVideoSinks;
   private final List<Effect> compositionEffects;
   private final VideoCompositorSettings compositorSettings;
+  private final boolean enablePlaylistMode;
   private final VideoSink defaultVideoSink;
   private final VideoSink.VideoFrameHandler videoFrameHandler;
   private final Clock clock;
@@ -321,6 +353,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     inputVideoSinks = new SparseArray<>();
     compositionEffects = builder.compositionEffects;
     compositorSettings = builder.compositorSettings;
+    enablePlaylistMode = builder.enablePlaylistMode;
     clock = builder.clock;
     defaultVideoSink = new DefaultVideoSink(builder.videoFrameReleaseControl, clock);
     videoFrameHandler =
@@ -361,6 +394,16 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
    */
   public void removeListener(PlaybackVideoGraphWrapper.Listener listener) {
     listeners.remove(listener);
+  }
+
+  /** Starts rendering to the output surface. */
+  public void startRendering() {
+    defaultVideoSink.startRendering();
+  }
+
+  /** Stops rendering to the output surface. */
+  public void stopRendering() {
+    defaultVideoSink.stopRendering();
   }
 
   // VideoSinkProvider methods
@@ -704,12 +747,16 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
 
     @Override
     public void startRendering() {
-      defaultVideoSink.startRendering();
+      if (enablePlaylistMode) {
+        PlaybackVideoGraphWrapper.this.startRendering();
+      }
     }
 
     @Override
     public void stopRendering() {
-      defaultVideoSink.stopRendering();
+      if (enablePlaylistMode) {
+        PlaybackVideoGraphWrapper.this.stopRendering();
+      }
     }
 
     @Override
