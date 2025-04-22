@@ -15,6 +15,7 @@
  */
 package androidx.media3.transformer;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Util.usToMs;
 import static androidx.media3.transformer.AndroidTestUtil.JPG_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
@@ -37,12 +38,12 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.Metadata;
-import androidx.media3.common.util.Util;
 import androidx.media3.muxer.MuxerException;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Range;
+import com.google.common.util.concurrent.SettableFuture;
 import java.nio.ByteBuffer;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeoutException;
@@ -75,7 +76,7 @@ public class EditingMetricsCollectorTest {
 
   @Test
   public void export_usePlatformDiagnosticsDisabled_doesNotCollectMetrics() throws Exception {
-    if (Util.SDK_INT < 35) {
+    if (SDK_INT < 35) {
       String reason = "Metrics collection is unsupported below API 35.";
       recordTestSkipped(context, testId, reason);
       throw new AssumptionViolatedException(reason);
@@ -107,13 +108,13 @@ public class EditingMetricsCollectorTest {
 
   @Test
   public void exportSuccess_populatesEditingEndedEvent() throws Exception {
-    assumeTrue("Reporting metrics requires API 35", Util.SDK_INT >= 35);
+    assumeTrue("Reporting metrics requires API 35", SDK_INT >= 35);
     assumeFormatsSupported(
         context,
         testId,
         /* inputFormat= */ MP4_ASSET.videoFormat,
         /* outputFormat= */ MP4_ASSET.videoFormat);
-    AtomicReference<EditingEndedEvent> editingEndedEventAtomicReference = new AtomicReference<>();
+    SettableFuture<EditingEndedEvent> editingEndedEventFuture = SettableFuture.create();
     Transformer transformer =
         new Transformer.Builder(context)
             .setUsePlatformDiagnostics(true)
@@ -124,7 +125,7 @@ public class EditingMetricsCollectorTest {
 
                       @Override
                       public void onMetricsReported(EditingEndedEvent editingEndedEvent) {
-                        editingEndedEventAtomicReference.set(editingEndedEvent);
+                        editingEndedEventFuture.set(editingEndedEvent);
                       }
                     }))
             .build();
@@ -150,7 +151,7 @@ public class EditingMetricsCollectorTest {
             .build()
             .run(testId, composition);
 
-    EditingEndedEvent editingEndedEvent = editingEndedEventAtomicReference.get();
+    EditingEndedEvent editingEndedEvent = editingEndedEventFuture.get();
     assertThat(editingEndedEvent.getFinalState())
         .isEqualTo(EditingEndedEvent.FINAL_STATE_SUCCEEDED);
     assertThat(editingEndedEvent.getTimeSinceCreatedMillis()).isAtLeast(0);
@@ -241,13 +242,13 @@ public class EditingMetricsCollectorTest {
 
   @Test
   public void exportError_populatesEditingEndedEvent() throws Exception {
-    assumeTrue("Reporting metrics requires API 35", Util.SDK_INT >= 35);
+    assumeTrue("Reporting metrics requires API 35", SDK_INT >= 35);
     assumeFormatsSupported(
         context,
         testId,
         /* inputFormat= */ MP4_ASSET.videoFormat,
         /* outputFormat= */ MP4_ASSET.videoFormat);
-    AtomicReference<EditingEndedEvent> editingEndedEventAtomicReference = new AtomicReference<>();
+    SettableFuture<EditingEndedEvent> editingEndedEventFuture = SettableFuture.create();
     Transformer transformer =
         new Transformer.Builder(context)
             .setUsePlatformDiagnostics(true)
@@ -258,7 +259,7 @@ public class EditingMetricsCollectorTest {
 
                       @Override
                       public void onMetricsReported(EditingEndedEvent editingEndedEvent) {
-                        editingEndedEventAtomicReference.set(editingEndedEvent);
+                        editingEndedEventFuture.set(editingEndedEvent);
                       }
                     }))
             .setMuxerFactory(new FailingMuxerFactory())
@@ -273,7 +274,7 @@ public class EditingMetricsCollectorTest {
                 .build()
                 .run(testId, audioVideoItem));
 
-    EditingEndedEvent editingEndedEvent = editingEndedEventAtomicReference.get();
+    EditingEndedEvent editingEndedEvent = editingEndedEventFuture.get();
     assertThat(editingEndedEvent.getFinalState()).isEqualTo(EditingEndedEvent.FINAL_STATE_ERROR);
     assertThat(editingEndedEvent.getTimeSinceCreatedMillis()).isAtLeast(0);
     assertThat(editingEndedEvent.getExporterName()).isEqualTo(EXPORTER_NAME);
@@ -284,13 +285,13 @@ public class EditingMetricsCollectorTest {
 
   @Test
   public void exportCancelled_populatesEditingEndedEvent() throws Exception {
-    assumeTrue("Reporting metrics requires API 35", Util.SDK_INT >= 35);
+    assumeTrue("Reporting metrics requires API 35", SDK_INT >= 35);
     assumeFormatsSupported(
         context,
         testId,
         /* inputFormat= */ MP4_ASSET.videoFormat,
         /* outputFormat= */ MP4_ASSET.videoFormat);
-    AtomicReference<EditingEndedEvent> editingEndedEventAtomicReference = new AtomicReference<>();
+    SettableFuture<EditingEndedEvent> editingEndedEventFuture = SettableFuture.create();
     CountDownLatch countDownLatch = new CountDownLatch(1);
     Transformer transformer =
         new Transformer.Builder(context)
@@ -302,7 +303,7 @@ public class EditingMetricsCollectorTest {
 
                       @Override
                       public void onMetricsReported(EditingEndedEvent editingEndedEvent) {
-                        editingEndedEventAtomicReference.set(editingEndedEvent);
+                        editingEndedEventFuture.set(editingEndedEvent);
                       }
                     }))
             .setMuxerFactory(
@@ -321,7 +322,7 @@ public class EditingMetricsCollectorTest {
     }
     InstrumentationRegistry.getInstrumentation().runOnMainSync(transformer::cancel);
 
-    EditingEndedEvent editingEndedEvent = editingEndedEventAtomicReference.get();
+    EditingEndedEvent editingEndedEvent = editingEndedEventFuture.get();
     assertThat(editingEndedEvent.getFinalState()).isEqualTo(EditingEndedEvent.FINAL_STATE_CANCELED);
     assertThat(editingEndedEvent.getTimeSinceCreatedMillis()).isAtLeast(0);
     assertThat(editingEndedEvent.getExporterName()).isEqualTo(EXPORTER_NAME);
@@ -330,7 +331,7 @@ public class EditingMetricsCollectorTest {
 
   @Test
   public void exportTwice_createsUniqueSessions() throws Exception {
-    assumeTrue("Reporting metrics requires API 35", Util.SDK_INT >= 35);
+    assumeTrue("Reporting metrics requires API 35", SDK_INT >= 35);
     assumeFormatsSupported(
         context,
         testId,

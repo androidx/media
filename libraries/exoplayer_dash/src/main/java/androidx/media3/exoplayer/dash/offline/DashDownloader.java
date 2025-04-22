@@ -41,6 +41,7 @@ import androidx.media3.exoplayer.offline.SegmentDownloader;
 import androidx.media3.exoplayer.upstream.ParsingLoadable.Parser;
 import androidx.media3.extractor.ChunkIndex;
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -60,12 +61,11 @@ import java.util.concurrent.Executor;
  * // Create a downloader for the first representation of the first adaptation set of the first
  * // period.
  * DashDownloader dashDownloader =
- *     new DashDownloader(
- *         new MediaItem.Builder()
- *             .setUri(manifestUrl)
- *             .setStreamKeys(Collections.singletonList(new StreamKey(0, 0, 0)))
- *             .build(),
- *         cacheDataSourceFactory);
+ *     new DashDownloader.Factory(cacheDataSourceFactory)
+ *             .create(new MediaItem.Builder()
+ *               .setUri(manifestUrl)
+ *               .setStreamKeys(ImmutableList.of(new StreamKey(0, 0, 0)))
+ *               .build());
  * // Perform the download.
  * dashDownloader.download(progressListener);
  * // Use the downloaded data for playback.
@@ -76,29 +76,81 @@ import java.util.concurrent.Executor;
 @UnstableApi
 public final class DashDownloader extends SegmentDownloader<DashManifest> {
 
+  /** A factory for {@linkplain DashDownloader DASH downloaders}. */
+  public static final class Factory extends BaseFactory<DashManifest> {
+
+    /**
+     * Creates a factory for {@link DashDownloader}.
+     *
+     * @param cacheDataSourceFactory A {@link CacheDataSource.Factory} for the cache into which the
+     *     download will be written.
+     */
+    public Factory(CacheDataSource.Factory cacheDataSourceFactory) {
+      super(cacheDataSourceFactory, new DashManifestParser());
+    }
+
+    /**
+     * Sets a parser for DASH manifests.
+     *
+     * @return This factory, for convenience.
+     */
+    @CanIgnoreReturnValue
+    public Factory setManifestParser(DashManifestParser manifestParser) {
+      this.manifestParser = manifestParser;
+      return this;
+    }
+
+    /**
+     * Sets the {@link Executor} used to make requests for the media being downloaded. Providing an
+     * {@link Executor} that uses multiple threads will speed up the download by allowing parts of
+     * it to be executed in parallel.
+     *
+     * @return This factory, for convenience.
+     */
+    @Override
+    @CanIgnoreReturnValue
+    public Factory setExecutor(Executor executor) {
+      return (Factory) super.setExecutor(executor);
+    }
+
+    /**
+     * Sets the maximum difference of the start time of two segments, up to which the segments (of
+     * the same URI) should be merged into a single download segment, in milliseconds.
+     *
+     * @return This factory, for convenience.
+     */
+    @Override
+    @CanIgnoreReturnValue
+    public Factory setMaxMergedSegmentStartTimeDiffMs(long maxMergedSegmentStartTimeDiffMs) {
+      return (Factory) super.setMaxMergedSegmentStartTimeDiffMs(maxMergedSegmentStartTimeDiffMs);
+    }
+
+    /** Creates {@linkplain DashDownloader DASH downloaders}. */
+    @Override
+    public DashDownloader create(MediaItem mediaItem) {
+      return new DashDownloader(
+          mediaItem,
+          manifestParser,
+          cacheDataSourceFactory,
+          executor,
+          maxMergedSegmentStartTimeDiffMs);
+    }
+  }
+
   private final BaseUrlExclusionList baseUrlExclusionList;
 
   /**
-   * Creates a new instance.
-   *
-   * @param mediaItem The {@link MediaItem} to be downloaded.
-   * @param cacheDataSourceFactory A {@link CacheDataSource.Factory} for the cache into which the
-   *     download will be written.
+   * @deprecated Use {@link DashDownloader.Factory#create(MediaItem)} instead.
    */
+  @Deprecated
   public DashDownloader(MediaItem mediaItem, CacheDataSource.Factory cacheDataSourceFactory) {
     this(mediaItem, cacheDataSourceFactory, Runnable::run);
   }
 
   /**
-   * Creates a new instance.
-   *
-   * @param mediaItem The {@link MediaItem} to be downloaded.
-   * @param cacheDataSourceFactory A {@link CacheDataSource.Factory} for the cache into which the
-   *     download will be written.
-   * @param executor An {@link Executor} used to make requests for the media being downloaded.
-   *     Providing an {@link Executor} that uses multiple threads will speed up the download by
-   *     allowing parts of it to be executed in parallel.
+   * @deprecated Use {@link DashDownloader.Factory#create(MediaItem)} instead.
    */
+  @Deprecated
   public DashDownloader(
       MediaItem mediaItem, CacheDataSource.Factory cacheDataSourceFactory, Executor executor) {
     this(
@@ -123,7 +175,7 @@ public final class DashDownloader extends SegmentDownloader<DashManifest> {
    *     segments, up to which the segments (of the same URI) should be merged into a single
    *     download segment, in milliseconds.
    */
-  public DashDownloader(
+  private DashDownloader(
       MediaItem mediaItem,
       Parser<DashManifest> manifestParser,
       CacheDataSource.Factory cacheDataSourceFactory,

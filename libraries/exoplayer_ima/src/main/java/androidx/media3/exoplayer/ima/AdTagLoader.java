@@ -143,6 +143,8 @@ import java.util.Objects;
   private final Timeline.Period period;
   private final Handler handler;
   private final ComponentListener componentListener;
+  private final ContentPlaybackAdapter contentPlaybackAdapter;
+  private final VideoAdPlayerImpl videoAdPlayerImpl;
   private final List<EventListener> eventListeners;
   private final List<VideoAdPlayer.VideoAdPlayerCallback> adCallbacks;
   private final Runnable updateAdProgressRunnable;
@@ -262,6 +264,8 @@ import java.util.Objects;
     period = new Timeline.Period();
     handler = Util.createHandler(getImaLooper(), /* callback= */ null);
     componentListener = new ComponentListener();
+    contentPlaybackAdapter = new ContentPlaybackAdapter();
+    videoAdPlayerImpl = new VideoAdPlayerImpl();
     eventListeners = new ArrayList<>();
     adCallbacks = new ArrayList<>(/* initialCapacity= */ 1);
     if (configuration.applicationVideoAdPlayerCallback != null) {
@@ -281,10 +285,10 @@ import java.util.Objects;
     adLoadTimeoutRunnable = this::handleAdLoadTimeout;
     if (adViewGroup != null) {
       adDisplayContainer =
-          imaFactory.createAdDisplayContainer(adViewGroup, /* player= */ componentListener);
+          imaFactory.createAdDisplayContainer(adViewGroup, /* player= */ videoAdPlayerImpl);
     } else {
       adDisplayContainer =
-          imaFactory.createAudioAdDisplayContainer(context, /* player= */ componentListener);
+          imaFactory.createAudioAdDisplayContainer(context, /* player= */ videoAdPlayerImpl);
     }
     if (configuration.companionAdSlots != null) {
       adDisplayContainer.setCompanionSlots(configuration.companionAdSlots);
@@ -578,7 +582,7 @@ import java.util.Objects;
     if (configuration.vastLoadTimeoutMs != TIMEOUT_UNSET) {
       request.setVastLoadTimeout(configuration.vastLoadTimeoutMs);
     }
-    request.setContentProgressProvider(componentListener);
+    request.setContentProgressProvider(contentPlaybackAdapter);
     adsLoader.requestAds(request);
     return adsLoader;
   }
@@ -797,9 +801,9 @@ import java.util.Objects;
 
   private void resumeContentInternal() {
     if (imaAdInfo != null) {
-      // Remove any pending timeout tasks as CONTENT_RESUME_REQUESTED may occur instead of loadAd.
+      // Mark current ad group as skipped if it hasn't finished yet. This could for example happen
+      // after a load timeout where we receive CONTENT_RESUME_REQUESTED instead of loadAd.
       // See [Internal: b/330750756].
-      handler.removeCallbacks(adLoadTimeoutRunnable);
       adPlaybackState = adPlaybackState.withSkippedAdGroup(checkNotNull(imaAdInfo).adGroupIndex);
       updateAdPlaybackState();
     }
@@ -840,6 +844,9 @@ import java.util.Objects;
     if (adGroupIndex == C.INDEX_UNSET) {
       return false;
     }
+    if (adGroupIndex >= adPlaybackState.adGroupCount) {
+      return true;
+    }
     AdPlaybackState.AdGroup adGroup = adPlaybackState.getAdGroup(adGroupIndex);
     int adIndexInAdGroup = player.getCurrentAdIndexInAdGroup();
     if (adGroup.count == C.LENGTH_UNSET || adGroup.count <= adIndexInAdGroup) {
@@ -864,7 +871,7 @@ import java.util.Objects;
     }
 
     if (imaAdState == IMA_AD_STATE_NONE
-        && playbackState == Player.STATE_BUFFERING
+        && (playbackState == Player.STATE_BUFFERING || playbackState == Player.STATE_ENDED)
         && playWhenReady) {
       ensureSentContentCompleteIfAtEndOfStream();
     } else if (imaAdState != IMA_AD_STATE_NONE && playbackState == Player.STATE_ENDED) {
@@ -967,12 +974,6 @@ import java.util.Objects;
       // We have already marked this ad as having failed to load, so ignore the request. IMA will
       // timeout after its media load timeout.
       return;
-    }
-    if (player != null
-        && player.getCurrentAdGroupIndex() == adGroupIndex
-        && player.getCurrentAdIndexInAdGroup() == adIndexInAdGroup) {
-      // Loaded ad info the player is currently waiting for.
-      handler.removeCallbacks(adLoadTimeoutRunnable);
     }
 
     // The ad count may increase on successive loads of ads in the same ad pod, for example, due to
@@ -1125,6 +1126,11 @@ import java.util.Objects;
   }
 
   private void handleAdLoadTimeout() {
+    // We started the timeout when we were first waiting for the current ad to load. Check if we are
+    // still waiting after the timeout before triggering the error event.
+    if (!isWaitingForCurrentAdToLoad()) {
+      return;
+    }
     // IMA got stuck and didn't load an ad in time, so skip the entire group.
     handleAdGroupLoadError(new IOException("Ad loading timed out"));
     maybeNotifyPendingAdLoadError();
@@ -1353,42 +1359,7 @@ import java.util.Objects;
     }
   }
 
-  private final class ComponentListener
-      implements AdsLoadedListener,
-          ContentProgressProvider,
-          AdEventListener,
-          AdErrorListener,
-          VideoAdPlayer {
-
-    // AdsLoader.AdsLoadedListener implementation.
-
-    @Override
-    public void onAdsManagerLoaded(AdsManagerLoadedEvent adsManagerLoadedEvent) {
-      AdsManager adsManager = adsManagerLoadedEvent.getAdsManager();
-      if (!Objects.equals(pendingAdRequestContext, adsManagerLoadedEvent.getUserRequestContext())) {
-        adsManager.destroy();
-        return;
-      }
-      pendingAdRequestContext = null;
-      AdTagLoader.this.adsManager = adsManager;
-      adsManager.addAdErrorListener(this);
-      if (configuration.applicationAdErrorListener != null) {
-        adsManager.addAdErrorListener(configuration.applicationAdErrorListener);
-      }
-      adsManager.addAdEventListener(this);
-      if (configuration.applicationAdEventListener != null) {
-        adsManager.addAdEventListener(configuration.applicationAdEventListener);
-      }
-      try {
-        adPlaybackState =
-            new AdPlaybackState(adsId, getAdGroupTimesUsForCuePoints(adsManager.getAdCuePoints()));
-        updateAdPlaybackState();
-      } catch (RuntimeException e) {
-        maybeNotifyInternalError("onAdsManagerLoaded", e);
-      }
-    }
-
-    // ContentProgressProvider implementation.
+  private final class ContentPlaybackAdapter implements ContentProgressProvider {
 
     @Override
     public VideoProgressUpdate getContentProgress() {
@@ -1418,6 +1389,38 @@ import java.util.Objects;
       }
 
       return videoProgressUpdate;
+    }
+  }
+
+  private final class ComponentListener
+      implements AdsLoadedListener, AdEventListener, AdErrorListener {
+
+    // AdsLoader.AdsLoadedListener implementation.
+
+    @Override
+    public void onAdsManagerLoaded(AdsManagerLoadedEvent adsManagerLoadedEvent) {
+      AdsManager adsManager = adsManagerLoadedEvent.getAdsManager();
+      if (!Objects.equals(pendingAdRequestContext, adsManagerLoadedEvent.getUserRequestContext())) {
+        adsManager.destroy();
+        return;
+      }
+      pendingAdRequestContext = null;
+      AdTagLoader.this.adsManager = adsManager;
+      adsManager.addAdErrorListener(this);
+      if (configuration.applicationAdErrorListener != null) {
+        adsManager.addAdErrorListener(configuration.applicationAdErrorListener);
+      }
+      adsManager.addAdEventListener(this);
+      if (configuration.applicationAdEventListener != null) {
+        adsManager.addAdEventListener(configuration.applicationAdEventListener);
+      }
+      try {
+        adPlaybackState =
+            new AdPlaybackState(adsId, getAdGroupTimesUsForCuePoints(adsManager.getAdCuePoints()));
+        updateAdPlaybackState();
+      } catch (RuntimeException e) {
+        maybeNotifyInternalError("onAdsManagerLoaded", e);
+      }
     }
 
     // AdEvent.AdEventListener implementation.
@@ -1460,8 +1463,9 @@ import java.util.Objects;
       }
       maybeNotifyPendingAdLoadError();
     }
+  }
 
-    // VideoAdPlayer implementation.
+  class VideoAdPlayerImpl implements VideoAdPlayer {
 
     @Override
     public void addCallback(VideoAdPlayerCallback videoAdPlayerCallback) {

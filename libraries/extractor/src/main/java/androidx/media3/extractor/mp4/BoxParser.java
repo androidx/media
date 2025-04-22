@@ -36,6 +36,8 @@ import androidx.media3.common.util.ParsableBitArray;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import androidx.media3.container.DolbyVisionConfig;
+import androidx.media3.container.Mp4AlternateGroupData;
 import androidx.media3.container.Mp4Box;
 import androidx.media3.container.Mp4Box.LeafBox;
 import androidx.media3.container.Mp4LocationData;
@@ -45,7 +47,6 @@ import androidx.media3.extractor.AacUtil;
 import androidx.media3.extractor.Ac3Util;
 import androidx.media3.extractor.Ac4Util;
 import androidx.media3.extractor.AvcConfig;
-import androidx.media3.extractor.DolbyVisionConfig;
 import androidx.media3.extractor.ExtractorUtil;
 import androidx.media3.extractor.GaplessInfoHolder;
 import androidx.media3.extractor.HevcConfig;
@@ -54,6 +55,7 @@ import androidx.media3.extractor.VorbisUtil;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
+import java.math.RoundingMode;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
@@ -380,21 +382,38 @@ public final class BoxParser {
         }
       }
     }
-    return stsdData.format == null
-        ? null
-        : new Track(
-            tkhdData.id,
-            trackType,
-            mdhdData.timescale,
-            movieTimescale,
-            durationUs,
-            mdhdData.mediaDurationUs,
-            stsdData.format,
-            stsdData.requiredSampleTransformation,
-            stsdData.trackEncryptionBoxes,
-            stsdData.nalUnitLengthFieldLength,
-            editListDurations,
-            editListMediaTimes);
+    if (stsdData.format == null) {
+      return null;
+    }
+    Format format;
+    if (tkhdData.alternateGroup != 0) {
+      Mp4AlternateGroupData alternateGroupEntry =
+          new Mp4AlternateGroupData(tkhdData.alternateGroup);
+      format =
+          stsdData
+              .format
+              .buildUpon()
+              .setMetadata(
+                  stsdData.format.metadata != null
+                      ? stsdData.format.metadata.copyWithAppendedEntries(alternateGroupEntry)
+                      : new Metadata(alternateGroupEntry))
+              .build();
+    } else {
+      format = stsdData.format;
+    }
+    return new Track(
+        tkhdData.id,
+        trackType,
+        mdhdData.timescale,
+        movieTimescale,
+        durationUs,
+        mdhdData.mediaDurationUs,
+        format,
+        stsdData.requiredSampleTransformation,
+        stsdData.trackEncryptionBoxes,
+        stsdData.nalUnitLengthFieldLength,
+        editListDurations,
+        editListMediaTimes);
   }
 
   /**
@@ -509,6 +528,7 @@ public final class BoxParser {
     int[] flags;
     long timestampTimeUnits = 0;
     long duration;
+    long totalSize = 0;
 
     if (rechunkFixedSizeSamples) {
       long[] chunkOffsetsBytes = new long[chunkIterator.length];
@@ -526,6 +546,7 @@ public final class BoxParser {
       timestamps = rechunkedResults.timestamps;
       flags = rechunkedResults.flags;
       duration = rechunkedResults.duration;
+      totalSize = rechunkedResults.totalSize;
     } else {
       offsets = new long[sampleCount];
       sizes = new int[sampleCount];
@@ -568,6 +589,7 @@ public final class BoxParser {
 
         offsets[i] = offset;
         sizes[i] = sampleSizeBox.readNextSampleSize();
+        totalSize += sizes[i];
         if (sizes[i] > maximumSize) {
           maximumSize = sizes[i];
         }
@@ -639,6 +661,20 @@ public final class BoxParser {
                 + (!isCttsValid ? ", ctts invalid" : ""));
       }
     }
+
+    if (track.mediaDurationUs > 0) {
+      long averageBitrate =
+          Util.scaleLargeValue(
+              totalSize * C.BITS_PER_BYTE,
+              C.MICROS_PER_SECOND,
+              track.mediaDurationUs,
+              RoundingMode.HALF_DOWN);
+      if (averageBitrate > 0 && averageBitrate < Integer.MAX_VALUE) {
+        Format format = track.format.buildUpon().setAverageBitrate((int) averageBitrate).build();
+        track = track.copyWithFormat(format);
+      }
+    }
+
     long durationUs = Util.scaleLargeTimestamp(duration, C.MICROS_PER_SECOND, track.timescale);
 
     if (track.editListDurations == null) {
@@ -913,7 +949,9 @@ public final class BoxParser {
       }
     }
 
-    tkhd.skipBytes(16);
+    tkhd.skipBytes(10);
+    int alternateGroup = tkhd.readUnsignedShort();
+    tkhd.skipBytes(4);
     int a00 = tkhd.readInt();
     int a01 = tkhd.readInt();
     tkhd.skipBytes(4);
@@ -933,7 +971,7 @@ public final class BoxParser {
       rotationDegrees = 0;
     }
 
-    return new TkhdData(trackId, duration, rotationDegrees);
+    return new TkhdData(trackId, duration, alternateGroup, rotationDegrees);
   }
 
   /**
@@ -997,13 +1035,25 @@ public final class BoxParser {
         mediaDurationUs = Util.scaleLargeTimestamp(mediaDuration, C.MICROS_PER_SECOND, timescale);
       }
     }
-    int languageCode = mdhd.readUnsignedShort();
-    String language =
-        ""
-            + (char) (((languageCode >> 10) & 0x1F) + 0x60)
-            + (char) (((languageCode >> 5) & 0x1F) + 0x60)
-            + (char) ((languageCode & 0x1F) + 0x60);
+
+    String language = getLanguageFromCode(/* languageCode= */ mdhd.readUnsignedShort());
     return new MdhdData(timescale, mediaDurationUs, language);
+  }
+
+  @Nullable
+  private static String getLanguageFromCode(int languageCode) {
+    char[] chars = {
+      (char) (((languageCode >> 10) & 0x1F) + 0x60),
+      (char) (((languageCode >> 5) & 0x1F) + 0x60),
+      (char) ((languageCode & 0x1F) + 0x60)
+    };
+
+    for (char c : chars) {
+      if (c < 'a' || c > 'z') {
+        return null;
+      }
+    }
+    return new String(chars);
   }
 
   /**
@@ -1012,7 +1062,7 @@ public final class BoxParser {
    * @param stsd The stsd atom to decode.
    * @param trackId The track's identifier in its container.
    * @param rotationDegrees The rotation of the track in degrees.
-   * @param language The language of the track.
+   * @param language The language of the track, or {@code null} if unset.
    * @param drmInitData {@link DrmInitData} to be included in the format, or {@code null}.
    * @param isQuickTime True for QuickTime media. False otherwise.
    * @return An object containing the parsed data.
@@ -1021,7 +1071,7 @@ public final class BoxParser {
       ParsableByteArray stsd,
       int trackId,
       int rotationDegrees,
-      String language,
+      @Nullable String language,
       @Nullable DrmInitData drmInitData,
       boolean isQuickTime)
       throws ParserException {
@@ -1057,6 +1107,7 @@ public final class BoxParser {
             childStartPosition,
             childAtomSize,
             trackId,
+            language,
             rotationDegrees,
             drmInitData,
             out,
@@ -1125,7 +1176,7 @@ public final class BoxParser {
       int position,
       int atomSize,
       int trackId,
-      String language,
+      @Nullable String language,
       StsdData out) {
     parent.setPosition(position + Mp4Box.HEADER_SIZE + StsdData.STSD_HEADER_SIZE);
 
@@ -1174,6 +1225,7 @@ public final class BoxParser {
       int position,
       int size,
       int trackId,
+      @Nullable String language,
       int rotationDegrees,
       @Nullable DrmInitData drmInitData,
       StsdData out,
@@ -1223,6 +1275,7 @@ public final class BoxParser {
     @Nullable byte[] projectionData = null;
     @C.StereoMode int stereoMode = Format.NO_VALUE;
     @Nullable EsdsData esdsData = null;
+    @Nullable BtrtData btrtData = null;
     int maxNumReorderSamples = Format.NO_VALUE;
     int maxSubLayers = Format.NO_VALUE;
     @Nullable NalUnitUtil.H265VpsData vpsData = null;
@@ -1352,7 +1405,24 @@ public final class BoxParser {
                     : C.STEREO_MODE_INTERLEAVED_LEFT_PRIMARY;
           }
         }
-      } else if (childAtomType == Mp4Box.TYPE_dvcC || childAtomType == Mp4Box.TYPE_dvvC) {
+      } else if (childAtomType == Mp4Box.TYPE_dvcC
+          || childAtomType == Mp4Box.TYPE_dvvC
+          || childAtomType == Mp4Box.TYPE_dvwC) {
+        int childAtomBodySize = childAtomSize - Mp4Box.HEADER_SIZE;
+        byte[] initializationDataChunk = new byte[childAtomBodySize];
+        parent.readBytes(initializationDataChunk, /* offset= */ 0, childAtomBodySize);
+        // Add the initialization data of Dolby Vision to the existing list of initialization data.
+        if (initializationData != null) {
+          initializationData =
+              ImmutableList.<byte[]>builder()
+                  .addAll(initializationData)
+                  .add(initializationDataChunk)
+                  .build();
+        } else {
+          ExtractorUtil.checkContainerInput(
+              false, "initializationData must already be set from hvcC or avcC atom");
+        }
+        parent.setPosition(childStartPosition + Mp4Box.HEADER_SIZE);
         @Nullable DolbyVisionConfig dolbyVisionConfig = DolbyVisionConfig.parse(parent);
         if (dolbyVisionConfig != null) {
           codecs = dolbyVisionConfig.codecs;
@@ -1446,6 +1516,8 @@ public final class BoxParser {
         if (initializationDataBytes != null) {
           initializationData = ImmutableList.of(initializationDataBytes);
         }
+      } else if (childAtomType == Mp4Box.TYPE_btrt) {
+        btrtData = parseBtrtFromParent(parent, childStartPosition);
       } else if (childAtomType == Mp4Box.TYPE_pasp) {
         pixelWidthHeightRatio = parsePaspFromParent(parent, childStartPosition);
         pixelWidthHeightRatioFromPasp = true;
@@ -1543,6 +1615,7 @@ public final class BoxParser {
             .setMaxNumReorderSamples(maxNumReorderSamples)
             .setMaxSubLayers(maxSubLayers)
             .setDrmInitData(drmInitData)
+            .setLanguage(language)
             // Note that if either mdcv or clli are missing, we leave the corresponding HDR static
             // metadata bytes with value zero. See [Internal ref: b/194535665].
             .setColorInfo(
@@ -1555,7 +1628,12 @@ public final class BoxParser {
                     .setChromaBitdepth(bitdepthChroma)
                     .build());
 
-    if (esdsData != null) {
+    // Prefer btrtData over esdsData for video track.
+    if (btrtData != null) {
+      formatBuilder
+          .setAverageBitrate(Ints.saturatedCast(btrtData.avgBitrate))
+          .setPeakBitrate(Ints.saturatedCast(btrtData.maxBitrate));
+    } else if (esdsData != null) {
       formatBuilder
           .setAverageBitrate(Ints.saturatedCast(esdsData.bitrate))
           .setPeakBitrate(Ints.saturatedCast(esdsData.peakBitrate));
@@ -1812,7 +1890,7 @@ public final class BoxParser {
       int position,
       int size,
       int trackId,
-      String language,
+      @Nullable String language,
       boolean isQuickTime,
       @Nullable DrmInitData drmInitData,
       StsdData out,
@@ -1834,6 +1912,7 @@ public final class BoxParser {
     @C.PcmEncoding int pcmEncoding = Format.NO_VALUE;
     @Nullable String codecs = null;
     @Nullable EsdsData esdsData = null;
+    @Nullable BtrtData btrtData = null;
 
     if (quickTimeSoundDescriptionVersion == 0 || quickTimeSoundDescriptionVersion == 1) {
       channelCount = parent.readUnsignedShort();
@@ -2040,6 +2119,8 @@ public final class BoxParser {
             }
           }
         }
+      } else if (childAtomType == Mp4Box.TYPE_btrt) {
+        btrtData = parseBtrtFromParent(parent, childPosition);
       } else if (childAtomType == Mp4Box.TYPE_dac3) {
         parent.setPosition(Mp4Box.HEADER_SIZE + childPosition);
         out.format =
@@ -2127,10 +2208,15 @@ public final class BoxParser {
               .setDrmInitData(drmInitData)
               .setLanguage(language);
 
+      // Prefer esdsData over btrtData for audio track.
       if (esdsData != null) {
         formatBuilder
             .setAverageBitrate(Ints.saturatedCast(esdsData.bitrate))
             .setPeakBitrate(Ints.saturatedCast(esdsData.peakBitrate));
+      } else if (btrtData != null) {
+        formatBuilder
+            .setAverageBitrate(Ints.saturatedCast(btrtData.avgBitrate))
+            .setPeakBitrate(Ints.saturatedCast(btrtData.maxBitrate));
       }
 
       out.format = formatBuilder.build();
@@ -2219,6 +2305,20 @@ public final class BoxParser {
         /* initializationData= */ initializationData,
         /* bitrate= */ bitrate > 0 ? bitrate : Format.NO_VALUE,
         /* peakBitrate= */ peakBitrate > 0 ? peakBitrate : Format.NO_VALUE);
+  }
+
+  /**
+   * Returns bitrate data contained in a btrt box, as specified by Section 8.5.2.2 in ISO/IEC
+   * 14496-12:2012(E).
+   */
+  private static BtrtData parseBtrtFromParent(ParsableByteArray parent, int position) {
+    parent.setPosition(position + Mp4Box.HEADER_SIZE);
+
+    parent.skipBytes(4); // bufferSizeDB
+    long maxBitrate = parent.readUnsignedInt();
+    long avgBitrate = parent.readUnsignedInt();
+
+    return new BtrtData(avgBitrate, maxBitrate);
   }
 
   /**
@@ -2481,11 +2581,13 @@ public final class BoxParser {
 
     private final int id;
     private final long duration;
+    private final int alternateGroup;
     private final int rotationDegrees;
 
-    public TkhdData(int id, long duration, int rotationDegrees) {
+    public TkhdData(int id, long duration, int alternateGroup, int rotationDegrees) {
       this.id = id;
       this.duration = duration;
+      this.alternateGroup = alternateGroup;
       this.rotationDegrees = rotationDegrees;
     }
   }
@@ -2526,6 +2628,17 @@ public final class BoxParser {
     }
   }
 
+  /** Data parsed from btrt box. */
+  private static final class BtrtData {
+    private final long avgBitrate;
+    private final long maxBitrate;
+
+    public BtrtData(long avgBitrate, long maxBitrate) {
+      this.avgBitrate = avgBitrate;
+      this.maxBitrate = maxBitrate;
+    }
+  }
+
   /** Data parsed from stri box. */
   private static final class StriData {
     private final boolean hasLeftEyeView;
@@ -2552,9 +2665,9 @@ public final class BoxParser {
   private static final class MdhdData {
     private final long timescale;
     private final long mediaDurationUs;
-    private final String language;
+    @Nullable private final String language;
 
-    public MdhdData(long timescale, long mediaDurationUs, String language) {
+    public MdhdData(long timescale, long mediaDurationUs, @Nullable String language) {
       this.timescale = timescale;
       this.mediaDurationUs = mediaDurationUs;
       this.language = language;

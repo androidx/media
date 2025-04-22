@@ -86,9 +86,19 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
    * @param context The {@link Context}.
    */
   public CapturingRenderersFactory(Context context) {
+    this(context, CapturingAudioSink.create());
+  }
+
+  /**
+   * Creates an instance.
+   *
+   * @param context The {@link Context}.
+   * @param capturingAudioSink The audio sink to use for capturing audio output.
+   */
+  public CapturingRenderersFactory(Context context, CapturingAudioSink capturingAudioSink) {
     this.context = context;
     this.mediaCodecAdapterFactory = new CapturingMediaCodecAdapter.Factory(context);
-    this.audioSink = CapturingAudioSink.create();
+    this.audioSink = capturingAudioSink;
     this.imageOutput = new CapturingImageOutput();
     this.imageDecoderFactory = ImageDecoder.Factory.DEFAULT;
     this.textRendererFactory = TextRenderer::new;
@@ -144,17 +154,7 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
       TextOutput textRendererOutput,
       MetadataOutput metadataRendererOutput) {
     ArrayList<Renderer> renderers = new ArrayList<>();
-    renderers.add(
-        new CapturingMediaCodecVideoRenderer(
-            context,
-            mediaCodecAdapterFactory,
-            MediaCodecSelector.DEFAULT,
-            DefaultRenderersFactory.DEFAULT_ALLOWED_VIDEO_JOINING_TIME_MS,
-            /* enableDecoderFallback= */ false,
-            eventHandler,
-            videoRendererEventListener,
-            DefaultRenderersFactory.MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY,
-            parseAv1SampleDependencies));
+    renderers.add(createMediaCodecVideoRenderer(eventHandler, videoRendererEventListener));
     renderers.add(
         new MediaCodecAudioRenderer(
             context,
@@ -209,7 +209,7 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
         eventHandler,
         videoRendererEventListener,
         DefaultRenderersFactory.MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY,
-        /* parseAv1SampleDependencies= */ false);
+        parseAv1SampleDependencies);
   }
 
   /**
@@ -262,12 +262,6 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
     @Override
     protected boolean shouldSkipBuffersWithIdenticalReleaseTime() {
       // Do not skip buffers with identical vsync times as we can't control this from tests.
-      return false;
-    }
-
-    @Override
-    protected boolean shouldSkipLateBuffersWhileUsingPlaceholderSurface() {
-      // Do not skip buffers while using placeholder surface due to slow processing.
       return false;
     }
   }

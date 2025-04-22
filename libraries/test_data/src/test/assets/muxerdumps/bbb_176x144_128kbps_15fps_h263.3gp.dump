@@ -11,6 +11,7 @@ track 0:
   sample count = 15
   track duration = 1000000
   format 0:
+    averageBitrate = 400800
     id = 1
     containerMimeType = video/mp4
     sampleMimeType = video/3gpp
@@ -21,6 +22,7 @@ track 0:
     colorInfo:
       lumaBitdepth = 8
       chromaBitdepth = 8
+    language = und
     metadata = entries=[Mp4Timestamp: creation time=100000000, modification time=500000000, timescale=10000]
   sample 0:
     time = 0

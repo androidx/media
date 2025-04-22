@@ -15,6 +15,7 @@
  */
 package androidx.media3.session;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.Player.COMMAND_CHANGE_MEDIA_ITEMS;
 import static androidx.media3.common.Player.COMMAND_PLAY_PAUSE;
 import static androidx.media3.common.Player.COMMAND_PREPARE;
@@ -111,7 +112,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   private static final String TAG = "MediaSessionLegacyStub";
 
   private static final int PENDING_INTENT_FLAG_MUTABLE =
-      Util.SDK_INT >= 31 ? PendingIntent.FLAG_MUTABLE : 0;
+      SDK_INT >= 31 ? PendingIntent.FLAG_MUTABLE : 0;
   private static final String DEFAULT_MEDIA_SESSION_TAG_PREFIX = "androidx.media3.session.id";
   private static final String DEFAULT_MEDIA_SESSION_TAG_DELIM = ".";
 
@@ -151,7 +152,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     broadcastReceiverComponentName = queryPackageManagerForMediaButtonReceiver(context);
     @Nullable ComponentName receiverComponentName = broadcastReceiverComponentName;
     boolean isReceiverComponentAService = false;
-    if (receiverComponentName == null || Util.SDK_INT < 31) {
+    if (receiverComponentName == null || SDK_INT < 31) {
       // Below API 26, media button events are sent to the receiver at runtime also. We always want
       // these to arrive at the service at runtime. release() then set the receiver for restart if
       // available.
@@ -185,7 +186,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       intent.setComponent(receiverComponentName);
       mediaButtonIntent =
           isReceiverComponentAService
-              ? (Util.SDK_INT >= 26
+              ? (SDK_INT >= 26
                   ? PendingIntent.getForegroundService(
                       context, /* requestCode= */ 0, intent, PENDING_INTENT_FLAG_MUTABLE)
                   : PendingIntent.getService(
@@ -203,10 +204,10 @@ import org.checkerframework.checker.initialization.qual.Initialized;
         new MediaSessionCompat(
             context,
             sessionCompatId,
-            Util.SDK_INT < 31 ? receiverComponentName : null,
-            Util.SDK_INT < 31 ? mediaButtonIntent : null,
+            SDK_INT < 31 ? receiverComponentName : null,
+            SDK_INT < 31 ? mediaButtonIntent : null,
             /* sessionInfo= */ tokenExtras);
-    if (Util.SDK_INT >= 31 && broadcastReceiverComponentName != null) {
+    if (SDK_INT >= 31 && broadcastReceiverComponentName != null) {
       Api31.setMediaButtonBroadcastReceiver(sessionCompat, broadcastReceiverComponentName);
     }
 
@@ -249,7 +250,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
 
   @SuppressWarnings("PendingIntentMutability") // We can't use SaferPendingIntent.
   public void release() {
-    if (Util.SDK_INT < 31) {
+    if (SDK_INT < 31) {
       if (broadcastReceiverComponentName == null) {
         // No broadcast receiver available. Playback resumption not supported.
         setMediaButtonReceiver(sessionCompat, /* mediaButtonReceiverIntent= */ null);

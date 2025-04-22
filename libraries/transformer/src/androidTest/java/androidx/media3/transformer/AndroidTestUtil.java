@@ -15,6 +15,7 @@
  */
 package androidx.media3.transformer;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.MimeTypes.IMAGE_JPEG;
 import static androidx.media3.common.MimeTypes.IMAGE_PNG;
 import static androidx.media3.common.MimeTypes.IMAGE_WEBP;
@@ -24,10 +25,10 @@ import static androidx.media3.common.MimeTypes.VIDEO_H264;
 import static androidx.media3.common.MimeTypes.VIDEO_H265;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
-import static androidx.media3.common.util.Util.SDK_INT;
 import static androidx.media3.test.utils.TestUtil.retrieveTrackFormat;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assume.assumeFalse;
 
 import android.content.Context;
@@ -36,20 +37,27 @@ import android.graphics.Bitmap.Config;
 import android.media.Image;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
+import android.media.metrics.LogSessionId;
 import android.opengl.EGLContext;
 import android.opengl.EGLDisplay;
 import android.os.Build;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
+import androidx.media3.common.DebugViewProvider;
+import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.VideoCompositorSettings;
+import androidx.media3.common.VideoGraph;
+import androidx.media3.common.VideoGraph.Listener;
 import androidx.media3.common.util.GlRect;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.Log;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.ByteBufferGlEffect;
@@ -58,13 +66,19 @@ import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.GlShaderProgram;
 import androidx.media3.effect.PassthroughShaderProgram;
 import androidx.media3.effect.ScaleAndRotateTransformation;
+import androidx.media3.effect.SingleInputVideoGraph;
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
 import androidx.media3.exoplayer.mediacodec.MediaCodecUtil;
+import androidx.media3.exoplayer.video.MediaCodecVideoRenderer;
+import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
+import androidx.media3.exoplayer.video.VideoFrameReleaseControl;
+import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.muxer.MuxerException;
 import androidx.media3.test.utils.BitmapPixelTestUtil;
 import androidx.media3.test.utils.FakeExtractorOutput;
 import androidx.media3.test.utils.FakeTrackOutput;
 import androidx.media3.test.utils.VideoDecodingWrapper;
+import androidx.test.platform.app.InstrumentationRegistry;
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -74,8 +88,12 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -83,6 +101,24 @@ import org.junit.AssumptionViolatedException;
 
 /** Utilities for instrumentation tests. */
 public final class AndroidTestUtil {
+
+  /** A {@link MediaCodecVideoRenderer} subclass that supports replaying a frame. */
+  public static class ReplayVideoRenderer extends MediaCodecVideoRenderer {
+
+    public ReplayVideoRenderer(Context context) {
+      super(new Builder(context).setMediaCodecSelector(MediaCodecSelector.DEFAULT));
+    }
+
+    @Override
+    protected PlaybackVideoGraphWrapper createPlaybackVideoGraphWrapper(
+        Context context, VideoFrameReleaseControl videoFrameReleaseControl) {
+      return new PlaybackVideoGraphWrapper.Builder(context, videoFrameReleaseControl)
+          .setClock(getClock())
+          .setEnableReplayableCache(true)
+          .build();
+    }
+  }
+
   private static final String TAG = "AndroidTestUtil";
 
   /** An {@link Effects} instance that forces video transcoding. */
@@ -445,6 +481,7 @@ public final class AndroidTestUtil {
                   .setFrameRate(30.00f)
                   .setCodecs("avc1.42C033")
                   .build())
+          .setVideoDurationUs(1_000_000L)
           .build();
 
   public static final AssetInfo MP4_LONG_ASSET_WITH_INCREASING_TIMESTAMPS =
@@ -479,7 +516,7 @@ public final class AndroidTestUtil {
                   .setSampleMimeType(VIDEO_H264)
                   .setWidth(320)
                   .setHeight(240)
-                  .setFrameRate(30.00f)
+                  .setFrameRate(60.00f)
                   .setCodecs("avc1.42C015")
                   .build())
           .setVideoFrameCount(932)
@@ -1089,6 +1126,87 @@ public final class AndroidTestUtil {
     }
   }
 
+  /** A {@link VideoGraph.Factory} that records test interactions. */
+  public static class TestVideoGraphFactory implements VideoGraph.Factory {
+
+    private final VideoGraph.Factory singleInputVideoGraphFactory;
+
+    @Nullable private ColorInfo outputColorInfo;
+
+    public TestVideoGraphFactory() {
+      singleInputVideoGraphFactory = new SingleInputVideoGraph.Factory();
+    }
+
+    @Override
+    public VideoGraph create(
+        Context context,
+        ColorInfo outputColorInfo,
+        DebugViewProvider debugViewProvider,
+        Listener listener,
+        Executor listenerExecutor,
+        VideoCompositorSettings videoCompositorSettings,
+        List<Effect> compositionEffects,
+        long initialTimestampOffsetUs,
+        boolean renderFramesAutomatically) {
+      this.outputColorInfo = outputColorInfo;
+      return singleInputVideoGraphFactory.create(
+          context,
+          outputColorInfo,
+          debugViewProvider,
+          listener,
+          listenerExecutor,
+          videoCompositorSettings,
+          compositionEffects,
+          initialTimestampOffsetUs,
+          renderFramesAutomatically);
+    }
+
+    /** Runs the given task and blocks until it completes, or timeoutSeconds has elapsed. */
+    public static void runAsyncTaskAndWait(ThrowingRunnable task, int timeoutSeconds)
+        throws TimeoutException, InterruptedException {
+      CountDownLatch countDownLatch = new CountDownLatch(1);
+      AtomicReference<@NullableType Exception> unexpectedExceptionReference =
+          new AtomicReference<>();
+      InstrumentationRegistry.getInstrumentation()
+          .runOnMainSync(
+              () -> {
+                try {
+                  task.run();
+                  // Catch all exceptions to report. Exceptions thrown here and not caught will NOT
+                  // propagate.
+                } catch (Exception e) {
+                  unexpectedExceptionReference.set(e);
+                } finally {
+                  countDownLatch.countDown();
+                }
+              });
+
+      // Block here until timeout reached or latch is counted down.
+      if (!countDownLatch.await(timeoutSeconds, SECONDS)) {
+        throw new TimeoutException("Timed out after " + timeoutSeconds + " seconds.");
+      }
+      @Nullable Exception unexpectedException = unexpectedExceptionReference.get();
+      if (unexpectedException != null) {
+        throw new IllegalStateException(unexpectedException);
+      }
+    }
+
+    @Override
+    public boolean supportsMultipleInputs() {
+      return singleInputVideoGraphFactory.supportsMultipleInputs();
+    }
+
+    @Nullable
+    public ColorInfo getOutputColorInfo() {
+      return outputColorInfo;
+    }
+  }
+
+  /** A type that can be used to succinctly wrap throwing {@link Runnable} objects. */
+  public interface ThrowingRunnable {
+    void run() throws Exception;
+  }
+
   /**
    * Creates the GL objects needed to set up a GL environment including an {@link EGLDisplay} and an
    * {@link EGLContext}.
@@ -1144,14 +1262,21 @@ public final class AndroidTestUtil {
   }
 
   /**
-   * Returns the {@linkplain FakeTrackOutput video track} from the {@link FakeExtractorOutput} or
-   * {@code null} if a video track is not found.
+   * Returns a {@link FakeTrackOutput} of given {@link C.TrackType} from the {@link
+   * FakeExtractorOutput}.
+   *
+   * @param extractorOutput The {@link ExtractorOutput} to get the {@link FakeTrackOutput} from.
+   * @param trackType The {@link C.TrackType}.
+   * @return The {@link FakeTrackOutput} or {@code null} if a track is not found.
    */
   @Nullable
-  public static FakeTrackOutput getVideoTrackOutput(FakeExtractorOutput extractorOutput) {
+  public static FakeTrackOutput getTrackOutput(
+      FakeExtractorOutput extractorOutput, @C.TrackType int trackType) {
     for (int i = 0; i < extractorOutput.numberOfTracks; i++) {
       FakeTrackOutput trackOutput = extractorOutput.trackOutputs.get(i);
-      if (MimeTypes.isVideo(checkNotNull(trackOutput.lastFormat).sampleMimeType)) {
+      String sampleMimeType = checkNotNull(trackOutput.lastFormat).sampleMimeType;
+      if ((trackType == C.TRACK_TYPE_AUDIO && MimeTypes.isAudio(sampleMimeType))
+          || (trackType == C.TRACK_TYPE_VIDEO && MimeTypes.isVideo(sampleMimeType))) {
         return trackOutput;
       }
     }
@@ -1168,7 +1293,7 @@ public final class AndroidTestUtil {
       throws IOException, InterruptedException {
     // b/298599172 - runUntilComparisonFrameOrEnded fails on this device because reading decoder
     //  output as a bitmap doesn't work.
-    assumeFalse(Util.SDK_INT == 21 && Ascii.toLowerCase(Build.MODEL).contains("nexus"));
+    assumeFalse(SDK_INT == 21 && Ascii.toLowerCase(Build.MODEL).contains("nexus"));
     ImmutableList.Builder<Bitmap> bitmaps = new ImmutableList.Builder<>();
     try (VideoDecodingWrapper decodingWrapper =
         new VideoDecodingWrapper(
@@ -1225,13 +1350,15 @@ public final class AndroidTestUtil {
     }
 
     @Override
-    public Codec createForAudioEncoding(Format format) throws ExportException {
-      return encoderFactory.createForAudioEncoding(format);
+    public Codec createForAudioEncoding(Format format, @Nullable LogSessionId logSessionId)
+        throws ExportException {
+      return encoderFactory.createForAudioEncoding(format, logSessionId);
     }
 
     @Override
-    public Codec createForVideoEncoding(Format format) throws ExportException {
-      return encoderFactory.createForVideoEncoding(format);
+    public Codec createForVideoEncoding(Format format, @Nullable LogSessionId logSessionId)
+        throws ExportException {
+      return encoderFactory.createForVideoEncoding(format, logSessionId);
     }
 
     @Override

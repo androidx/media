@@ -115,6 +115,11 @@ public final class TrackGroupArray {
     return length == other.length && trackGroups.equals(other.trackGroups);
   }
 
+  @Override
+  public String toString() {
+    return trackGroups.toString();
+  }
+
   private static final String FIELD_TRACK_GROUPS = Util.intToStringMaxRadix(0);
 
   public Bundle toBundle() {

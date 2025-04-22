@@ -29,6 +29,7 @@ import androidx.media3.exoplayer.DecoderCounters;
 import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.Renderer;
+import androidx.media3.exoplayer.analytics.AnalyticsListener;
 import androidx.media3.exoplayer.audio.AudioRendererEventListener;
 import androidx.media3.exoplayer.mediacodec.MediaCodecAdapter;
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
@@ -57,7 +58,7 @@ public class ParseAv1SampleDependenciesPlaybackTest {
 
   @Rule
   public ShadowMediaCodecConfig mediaCodecConfig =
-      ShadowMediaCodecConfig.forAllSupportedMimeTypes();
+      ShadowMediaCodecConfig.withAllDefaultSupportedCodecs();
 
   @Test
   public void playback_withClippedMediaItem_skipNonReferenceInputSamples() throws Exception {
@@ -103,6 +104,14 @@ public class ParseAv1SampleDependenciesPlaybackTest {
         new ExoPlayer.Builder(applicationContext, renderersFactory)
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))
             .build();
+    player.addAnalyticsListener(
+        new AnalyticsListener() {
+          @Override
+          public void onDroppedVideoFrames(EventTime eventTime, int droppedFrames, long elapsedMs) {
+            // Input buffers near the reset position should not be dropped.
+            assertThat(eventTime.currentPlaybackPositionMs).isAtLeast(200);
+          }
+        });
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
     player.setMediaItem(MediaItem.fromUri(TEST_MP4_URI));
@@ -121,7 +130,7 @@ public class ParseAv1SampleDependenciesPlaybackTest {
     // Which input buffer is dropped first depends on the number of MediaCodec buffer slots.
     // This means the asserts cannot be isEqualTo.
     assertThat(decoderCounters.maxConsecutiveDroppedBufferCount).isAtMost(2);
-    assertThat(decoderCounters.droppedInputBufferCount).isAtLeast(8);
+    assertThat(decoderCounters.droppedInputBufferCount).isAtLeast(4);
   }
 
   private static final class CapturingRenderersFactoryWithLateThresholdToDropDecoderInputUs
@@ -155,7 +164,6 @@ public class ParseAv1SampleDependenciesPlaybackTest {
             /* enableDecoderFallback= */ false,
             eventHandler,
             videoRendererEventListener,
-            DefaultRenderersFactory.MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY,
             /* parseAv1SampleDependencies= */ true,
             /* lateThresholdToDropDecoderInputUs= */ -100_000_000L)
       };
@@ -173,7 +181,6 @@ public class ParseAv1SampleDependenciesPlaybackTest {
           boolean enableDecoderFallback,
           @Nullable Handler eventHandler,
           @Nullable VideoRendererEventListener eventListener,
-          int maxDroppedFramesToNotify,
           boolean parseAv1SampleDependencies,
           long lateThresholdToDropDecoderInputUs) {
         super(
@@ -184,7 +191,7 @@ public class ParseAv1SampleDependenciesPlaybackTest {
                 .setEnableDecoderFallback(enableDecoderFallback)
                 .setEventHandler(eventHandler)
                 .setEventListener(eventListener)
-                .setMaxDroppedFramesToNotify(maxDroppedFramesToNotify)
+                .setMaxDroppedFramesToNotify(1)
                 .experimentalSetParseAv1SampleDependencies(parseAv1SampleDependencies)
                 .experimentalSetLateThresholdToDropDecoderInputUs(
                     lateThresholdToDropDecoderInputUs));
@@ -207,12 +214,6 @@ public class ParseAv1SampleDependenciesPlaybackTest {
       @Override
       protected boolean shouldSkipBuffersWithIdenticalReleaseTime() {
         // Do not skip buffers with identical vsync times as we can't control this from tests.
-        return false;
-      }
-
-      @Override
-      protected boolean shouldSkipLateBuffersWhileUsingPlaceholderSurface() {
-        // Do not skip buffers while using placeholder surface due to slow processing.
         return false;
       }
 

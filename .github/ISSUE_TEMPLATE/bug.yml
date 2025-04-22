@@ -19,6 +19,8 @@ body:
       options:
         - Media3 main branch
         - Media3 pre-release (alpha, beta or RC not in this list)
+        - Media3 1.6.1
+        - Media3 1.6.0
         - Media3 1.5.1
         - Media3 1.5.0
         - Media3 1.4.1
@@ -43,9 +45,6 @@ body:
         - ExoPlayer 2.16.0
         - ExoPlayer 2.15.1
         - ExoPlayer 2.15.0
-        - ExoPlayer 2.14.2
-        - ExoPlayer 2.14.1
-        - ExoPlayer 2.14.0
         - ExoPlayer dev-v2 branch
         - Older (unsupported)
     validations:

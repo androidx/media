@@ -16,6 +16,7 @@
 
 package androidx.media3.transformer;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.transformer.AndroidTestUtil.FORCE_TRANSCODE_VIDEO_EFFECTS;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S;
@@ -26,6 +27,7 @@ import static org.junit.Assume.assumeTrue;
 import android.content.Context;
 import android.media.MediaCodec;
 import android.media.MediaFormat;
+import android.media.metrics.LogSessionId;
 import android.view.Surface;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
@@ -74,7 +76,7 @@ public class ForceEndOfStreamTest {
   public void transcode_decoderDroppingLastFourFrames_exportSucceeds() throws Exception {
     // TODO: b/370050055 - Do we need API 29+, or the device list from
     //  Util.isFrameDropAllowedOnSurfaceInput?
-    assumeTrue(Util.SDK_INT >= 29);
+    assumeTrue(SDK_INT >= 29);
     assumeFormatsSupported(
         context,
         testId,
@@ -96,7 +98,7 @@ public class ForceEndOfStreamTest {
   public void transcode_decoderDroppingNoFrame_exportSucceeds() throws Exception {
     // TODO: b/370050055 - Do we need API 29+, or the device list from
     //  Util.isFrameDropAllowedOnSurfaceInput?
-    assumeTrue(Util.SDK_INT >= 29);
+    assumeTrue(SDK_INT >= 29);
     assumeFormatsSupported(
         context,
         testId,
@@ -118,7 +120,7 @@ public class ForceEndOfStreamTest {
       throws Exception {
     // TODO: b/370050055 - Do we need API 29+, or the device list from
     //  Util.isFrameDropAllowedOnSurfaceInput?
-    assumeTrue(Util.SDK_INT >= 29);
+    assumeTrue(SDK_INT >= 29);
     assumeFormatsSupported(
         context,
         testId,
@@ -166,7 +168,8 @@ public class ForceEndOfStreamTest {
             new DefaultAssetLoaderFactory(
                 context,
                 new FrameDroppingDecoderFactory(context, MP4_ASSET.videoFrameCount, framesToSkip),
-                Clock.DEFAULT))
+                Clock.DEFAULT,
+                /* logSessionId= */ null))
         .build();
   }
 
@@ -192,17 +195,21 @@ public class ForceEndOfStreamTest {
     }
 
     @Override
-    public Codec createForAudioDecoding(Format format) throws ExportException {
-      return defaultDecoderFactory.createForAudioDecoding(format);
+    public Codec createForAudioDecoding(Format format, @Nullable LogSessionId logSessionId)
+        throws ExportException {
+      return defaultDecoderFactory.createForAudioDecoding(format, logSessionId);
     }
 
     @Override
     public Codec createForVideoDecoding(
-        Format format, Surface outputSurface, boolean requestSdrToneMapping)
+        Format format,
+        Surface outputSurface,
+        boolean requestSdrToneMapping,
+        @Nullable LogSessionId logSessionId)
         throws ExportException {
       return new FrameDroppingDecoder(
           defaultDecoderFactory.createForVideoDecoding(
-              format, outputSurface, requestSdrToneMapping),
+              format, outputSurface, requestSdrToneMapping, logSessionId),
           sourceFrameCount,
           framesToDrop);
     }

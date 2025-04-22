@@ -15,13 +15,13 @@
  */
 package androidx.media3.session.legacy;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.annotation.RestrictTo.Scope.LIBRARY;
 
 import android.os.Parcel;
 import android.os.Parcelable;
 import androidx.annotation.RestrictTo;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import java.util.ArrayList;
 import java.util.List;
 import org.checkerframework.checker.nullness.qual.PolyNull;
@@ -88,7 +88,7 @@ public final class LegacyParcelableUtil {
   // TODO: b/335804969 - Remove this workaround once the bug fix is in the androidx.media dependency
   @SuppressWarnings("unchecked")
   private static <T> T maybeApplyMediaDescriptionParcelableBugWorkaround(T value) {
-    if (Util.SDK_INT < 21 || Util.SDK_INT >= 23) {
+    if (SDK_INT >= 23) {
       return value;
     }
     if (value instanceof android.support.v4.media.MediaBrowserCompat.MediaItem) {

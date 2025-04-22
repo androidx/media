@@ -16,10 +16,14 @@
 
 package androidx.media3.transformer;
 
+import static android.media.MediaCodecInfo.CodecProfileLevel.AVCLevel4;
+import static android.media.MediaCodecInfo.CodecProfileLevel.AVCProfileHigh;
 import static androidx.media3.common.MimeTypes.VIDEO_H264;
+import static androidx.media3.exoplayer.mediacodec.MediaCodecUtil.createCodecProfileLevel;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.media.MediaCodecInfo;
+import android.media.MediaCodecInfo.CodecProfileLevel;
 import android.media.MediaFormat;
 import android.util.Size;
 import androidx.annotation.Nullable;
@@ -48,11 +52,9 @@ public class EncoderUtilTest {
   public void setUp() {
     MediaFormat avcFormat = new MediaFormat();
     avcFormat.setString(MediaFormat.KEY_MIME, VIDEO_H264);
-    MediaCodecInfo.CodecProfileLevel profileLevel = new MediaCodecInfo.CodecProfileLevel();
-    profileLevel.profile = MediaCodecInfo.CodecProfileLevel.AVCProfileHigh;
     // Using Level4 gives us 8192 16x16 blocks. If using width 1920 uses 120 blocks, 8192 / 120 = 68
     // blocks will be left for encoding height 1088.
-    profileLevel.level = MediaCodecInfo.CodecProfileLevel.AVCLevel4;
+    CodecProfileLevel profileLevel = createCodecProfileLevel(AVCProfileHigh, AVCLevel4);
 
     ShadowMediaCodecList.addCodec(
         MediaCodecInfoBuilder.newBuilder()
@@ -64,7 +66,7 @@ public class EncoderUtilTest {
                     .setIsEncoder(true)
                     .setColorFormats(
                         new int[] {MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible})
-                    .setProfileLevels(new MediaCodecInfo.CodecProfileLevel[] {profileLevel})
+                    .setProfileLevels(new CodecProfileLevel[] {profileLevel})
                     .build())
             .build());
   }

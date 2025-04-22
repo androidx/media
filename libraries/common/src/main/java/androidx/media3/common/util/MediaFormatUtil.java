@@ -15,7 +15,7 @@
  */
 package androidx.media3.common.util;
 
-import static androidx.media3.common.util.Util.SDK_INT;
+import static android.os.Build.VERSION.SDK_INT;
 
 import android.annotation.SuppressLint;
 import android.media.AudioFormat;
@@ -128,6 +128,10 @@ public final class MediaFormatUtil {
 
     formatBuilder.setInitializationData(csdBuffers.build());
 
+    if (mediaFormat.containsKey(MediaFormat.KEY_TRACK_ID)) {
+      formatBuilder.setId(mediaFormat.getInteger(MediaFormat.KEY_TRACK_ID));
+    }
+
     return formatBuilder.build();
   }
 
@@ -175,6 +179,10 @@ public final class MediaFormatUtil {
     result.setInteger(MediaFormat.KEY_ENCODER_PADDING, format.encoderPadding);
 
     maybeSetPixelAspectRatio(result, format.pixelWidthHeightRatio);
+
+    if (format.id != null) {
+      result.setInteger(MediaFormat.KEY_TRACK_ID, Integer.parseInt(format.id));
+    }
     return result;
   }
 
@@ -329,8 +337,9 @@ public final class MediaFormatUtil {
   }
 
   /**
-   * Returns a {@code Codecs string} of {@link MediaFormat}. In case of an H263 codec string, builds
-   * and returns an RFC 6381 H263 codec string using profile and level.
+   * Returns a {@code Codecs string} of {@link MediaFormat}.
+   *
+   * <p>For H263 and Dolby Vision formats, builds a codec string using profile and level.
    */
   @Nullable
   @SuppressLint("InlinedApi") // Inlined MediaFormat keys.
@@ -342,6 +351,16 @@ public final class MediaFormatUtil {
       return CodecSpecificDataUtil.buildH263CodecString(
           mediaFormat.getInteger(MediaFormat.KEY_PROFILE),
           mediaFormat.getInteger(MediaFormat.KEY_LEVEL));
+    } else if (Objects.equals(
+            mediaFormat.getString(MediaFormat.KEY_MIME), MimeTypes.VIDEO_DOLBY_VISION)
+        && mediaFormat.containsKey(MediaFormat.KEY_PROFILE)
+        && mediaFormat.containsKey(MediaFormat.KEY_LEVEL)) {
+      // Add Dolby Vision profile and level to codec string as per Dolby Vision ISO media format.
+      return CodecSpecificDataUtil.buildDolbyVisionCodecString(
+          CodecSpecificDataUtil.dolbyVisionConstantToProfileNumber(
+              mediaFormat.getInteger(MediaFormat.KEY_PROFILE)),
+          CodecSpecificDataUtil.dolbyVisionConstantToLevelNumber(
+              mediaFormat.getInteger(MediaFormat.KEY_LEVEL)));
     } else {
       return getString(mediaFormat, MediaFormat.KEY_CODECS_STRING, /* defaultValue= */ null);
     }

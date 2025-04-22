@@ -321,7 +321,7 @@ public abstract class BasePlayer implements Player {
     long duration = getDuration();
     return position == C.TIME_UNSET || duration == C.TIME_UNSET
         ? 0
-        : duration == 0 ? 100 : Util.constrainValue((int) ((position * 100) / duration), 0, 100);
+        : duration == 0 ? 100 : Util.constrainValue(Util.percentInt(position, duration), 0, 100);
   }
 
   /**

@@ -11,6 +11,7 @@ track 0:
   sample count = 62
   track duration = 2772200
   format 0:
+    averageBitrate = 8365494
     id = 1
     containerMimeType = video/mp4
     sampleMimeType = video/hevc
@@ -28,6 +29,7 @@ track 0:
       colorTransfer = 7
       lumaBitdepth = 10
       chromaBitdepth = 10
+    language = und
     metadata = entries=[Mp4Timestamp: creation time=3820926047, modification time=3820926047, timescale=10000]
     initializationData:
       data = length 97, hash 32FB3D18
@@ -284,6 +286,7 @@ track 1:
   sample count = 61
   track duration = 2257700
   format 0:
+    averageBitrate = 139197
     peakBitrate = 192000
     id = 2
     containerMimeType = video/mp4

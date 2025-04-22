@@ -11,6 +11,7 @@ track 0:
   sample count = 120
   track duration = 4000000
   format 0:
+    averageBitrate = 611612
     id = 1
     containerMimeType = video/mp4
     sampleMimeType = video/x-vnd.on2.vp9
@@ -24,6 +25,7 @@ track 0:
       colorTransfer = 3
       lumaBitdepth = 8
       chromaBitdepth = 8
+    language = und
     metadata = entries=[Mp4Timestamp: creation time=100000000, modification time=500000000, timescale=10000]
     initializationData:
       data = length 12, hash 53AEAE9A

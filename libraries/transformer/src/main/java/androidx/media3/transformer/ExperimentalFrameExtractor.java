@@ -19,6 +19,7 @@ package androidx.media3.transformer;
 import static android.graphics.Bitmap.Config.ARGB_8888;
 import static android.graphics.Bitmap.Config.RGBA_1010102;
 import static android.graphics.ColorSpace.Named.BT2020_HLG;
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.C.COLOR_TRANSFER_HLG;
 import static androidx.media3.common.ColorInfo.SDR_BT709_LIMITED;
 import static androidx.media3.common.ColorInfo.isTransferHdr;
@@ -28,7 +29,6 @@ import static androidx.media3.common.PlaybackException.ERROR_CODE_SETUP_REQUIRED
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.GlUtil.createRgb10A2Texture;
-import static androidx.media3.common.util.Util.SDK_INT;
 import static androidx.media3.common.util.Util.usToMs;
 import static com.google.common.util.concurrent.Futures.immediateCancelledFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -716,13 +716,9 @@ public final class ExperimentalFrameExtractor {
     public boolean isReady() {
       // When using FrameReadingGlShaderProgram, frames will not be rendered to the output surface,
       // and VideoFrameRenderControl.onFrameAvailableForRendering will not be called. The base class
-      // never becomes ready.
-      if (frameRenderedSinceLastPositionReset) {
-        // Treat this renderer as ready if a frame has been rendered into the effects pipeline.
-        // The renderer needs to become ready for ExoPlayer to enter STATE_READY.
-        return true;
-      }
-      return super.isReady();
+      // never becomes ready. Treat this renderer as ready if a frame has been rendered into the
+      // effects pipeline. The renderer needs to become ready for ExoPlayer to enter STATE_READY.
+      return frameRenderedSinceLastPositionReset;
     }
 
     @Override

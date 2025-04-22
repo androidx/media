@@ -22,6 +22,7 @@ import static androidx.media3.transformer.TestUtil.createAudioEffects;
 import static androidx.media3.transformer.TestUtil.createChannelCountChangingAudioProcessor;
 import static androidx.media3.transformer.TestUtil.createSampleRateChangingAudioProcessor;
 import static androidx.media3.transformer.TestUtil.createVolumeScalingAudioProcessor;
+import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
 import androidx.media3.common.MediaItem;
@@ -340,6 +341,30 @@ public final class CompositionPlayerAudioPlaybackTest {
         capturingAudioSink,
         PREVIEW_DUMP_FILE_EXTENSION
             + "wav/compositionPlayback_withLongLoopingSequence_outputsCorrectSamples.dump");
+  }
+
+  @Test
+  public void playTwoSequences_withLongLoopingSequence_hasNonLoopingSequenceDuration() {
+    CompositionPlayer player = createCompositionPlayer(context, capturingAudioSink);
+    EditedMediaItemSequence primarySequence =
+        new EditedMediaItemSequence.Builder(
+                new EditedMediaItem.Builder(
+                        MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW_STEREO_48000KHZ))
+                    .setDurationUs(348_000L)
+                    .build())
+            .build();
+    EditedMediaItemSequence loopingSequence =
+        new EditedMediaItemSequence.Builder(
+                new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW))
+                    .setDurationUs(1_000_000L)
+                    .build())
+            .setIsLooping(true)
+            .build();
+    Composition composition = new Composition.Builder(primarySequence, loopingSequence).build();
+    player.setComposition(composition);
+    player.prepare();
+
+    assertThat(player.getDuration()).isEqualTo(348);
   }
 
   @Test

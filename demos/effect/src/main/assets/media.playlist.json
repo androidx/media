@@ -1,9 +1,9 @@
 [
   {
-    "name": "Cats -> Dogs",
+    "name": "Dogs Short -> Dogs",
     "playlist": [
       {
-        "uri": "https://html5demos.com/assets/dizzy.mp4"
+        "uri": "https://storage.googleapis.com/exoplayer-test-media-1/mp4/android-screens-10s.mp4"
       },
       {
         "uri": "https://storage.googleapis.com/exoplayer-test-media-1/mkv/android-screens-lavf-56.36.100-aac-avc-main-1280x720.mkv"

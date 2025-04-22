@@ -84,13 +84,22 @@ import com.google.common.collect.ImmutableList;
 
   private MetadataUtil() {}
 
-  /** Updates a {@link Format.Builder} to include metadata from the provided sources. */
+  /**
+   * Updates a {@link Format.Builder} to include metadata from the provided sources.
+   *
+   * @param trackType The {@link C.TrackType} of the track.
+   * @param mdtaMetadata The {@link Metadata} from the {@code mdta} box if present, otherwise null.
+   * @param formatBuilder A {@link Format.Builder} to append the metadata too.
+   * @param existingMetadata The {@link Format#metadata} from {@code formatBuilder}.
+   * @param additionalMetadata Additional metadata to append.
+   */
   public static void setFormatMetadata(
-      int trackType,
+      @C.TrackType int trackType,
       @Nullable Metadata mdtaMetadata,
       Format.Builder formatBuilder,
+      @Nullable Metadata existingMetadata,
       @NullableType Metadata... additionalMetadata) {
-    Metadata formatMetadata = new Metadata();
+    Metadata formatMetadata = existingMetadata != null ? existingMetadata : new Metadata();
 
     if (mdtaMetadata != null) {
       for (int i = 0; i < mdtaMetadata.length(); i++) {

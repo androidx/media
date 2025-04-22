@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.scheduler;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 
 import android.content.BroadcastReceiver;
@@ -88,7 +89,7 @@ public final class RequirementsWatcher {
 
     IntentFilter filter = new IntentFilter();
     if (requirements.isNetworkRequired()) {
-      if (Util.SDK_INT >= 24) {
+      if (SDK_INT >= 24) {
         registerNetworkCallbackV24();
       } else {
         filter.addAction(ConnectivityManager.CONNECTIVITY_ACTION);
@@ -99,7 +100,7 @@ public final class RequirementsWatcher {
       filter.addAction(Intent.ACTION_POWER_DISCONNECTED);
     }
     if (requirements.isIdleRequired()) {
-      if (Util.SDK_INT >= 23) {
+      if (SDK_INT >= 23) {
         filter.addAction(PowerManager.ACTION_DEVICE_IDLE_MODE_CHANGED);
       } else {
         filter.addAction(Intent.ACTION_SCREEN_ON);
@@ -119,7 +120,7 @@ public final class RequirementsWatcher {
   public void stop() {
     context.unregisterReceiver(checkNotNull(receiver));
     receiver = null;
-    if (Util.SDK_INT >= 24 && networkCallback != null) {
+    if (SDK_INT >= 24 && networkCallback != null) {
       unregisterNetworkCallbackV24();
     }
   }

@@ -224,7 +224,8 @@ public final class SequenceEffectTestUtil {
                     ImmutableList.of(decoderMediaCodecInfo))
             .build();
     AssetLoader.Factory assetLoaderFactory =
-        new DefaultAssetLoaderFactory(context, decoderFactory, Clock.DEFAULT);
+        new DefaultAssetLoaderFactory(
+            context, decoderFactory, Clock.DEFAULT, /* logSessionId= */ null);
     Codec.EncoderFactory encoderFactory =
         new DefaultEncoderFactory.Builder(context)
             .setRequestedVideoEncoderSettings(

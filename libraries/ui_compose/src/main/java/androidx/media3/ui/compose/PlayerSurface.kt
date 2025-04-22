@@ -16,24 +16,27 @@
 
 package androidx.media3.ui.compose
 
-import android.view.Surface
+import android.content.Context
+import android.view.SurfaceView
+import android.view.TextureView
+import android.view.View
 import androidx.annotation.IntDef
-import androidx.compose.foundation.AndroidEmbeddedExternalSurface
-import androidx.compose.foundation.AndroidExternalSurface
-import androidx.compose.foundation.AndroidExternalSurfaceScope
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 
 /**
  * Provides a dedicated drawing [Surface] for media playbacks using a [Player].
  *
- * The player's video output is displayed with either a
- * [android.view.SurfaceView]/[AndroidExternalSurface] or a
- * [android.view.TextureView]/[AndroidEmbeddedExternalSurface].
+ * The player's video output is displayed with either a [android.view.SurfaceView] or a
+ * [android.view.TextureView].
  *
  * [Player] takes care of attaching the rendered output to the [Surface] and clearing it, when it is
  * destroyed.
@@ -49,35 +52,55 @@ fun PlayerSurface(
   modifier: Modifier = Modifier,
   surfaceType: @SurfaceType Int = SURFACE_TYPE_SURFACE_VIEW,
 ) {
-  // Player might change between compositions,
-  // we need long-lived surface-related lambdas to always use the latest value
-  val currentPlayer by rememberUpdatedState(player)
-  val onSurfaceCreated: (Surface) -> Unit = { surface ->
-    if (currentPlayer.isCommandAvailable(Player.COMMAND_SET_VIDEO_SURFACE))
-      currentPlayer.setVideoSurface(surface)
-  }
-  val onSurfaceDestroyed: () -> Unit = {
-    if (currentPlayer.isCommandAvailable(Player.COMMAND_SET_VIDEO_SURFACE))
-      currentPlayer.clearVideoSurface()
-  }
-  val onSurfaceInitialized: AndroidExternalSurfaceScope.() -> Unit = {
-    onSurface { surface, _, _ ->
-      onSurfaceCreated(surface)
-      surface.onDestroyed { onSurfaceDestroyed() }
-    }
-  }
-
   when (surfaceType) {
     SURFACE_TYPE_SURFACE_VIEW ->
-      AndroidExternalSurface(modifier = modifier, onInit = onSurfaceInitialized)
+      PlayerSurfaceInternal(
+        player,
+        modifier,
+        createView = { SurfaceView(it) },
+        setViewOnPlayer = { player, view -> player.setVideoSurfaceView(view) },
+        clearViewFromPlayer = { player, view -> player.clearVideoSurfaceView(view) },
+      )
     SURFACE_TYPE_TEXTURE_VIEW ->
-      AndroidEmbeddedExternalSurface(modifier = modifier, onInit = onSurfaceInitialized)
+      PlayerSurfaceInternal(
+        player,
+        modifier,
+        createView = { TextureView(it) },
+        setViewOnPlayer = { player, view -> player.setVideoTextureView(view) },
+        clearViewFromPlayer = { player, view -> player.clearVideoTextureView(view) },
+      )
     else -> throw IllegalArgumentException("Unrecognized surface type: $surfaceType")
   }
 }
 
+@Composable
+private fun <T : View> PlayerSurfaceInternal(
+  player: Player,
+  modifier: Modifier,
+  createView: (Context) -> T,
+  setViewOnPlayer: (Player, T) -> Unit,
+  clearViewFromPlayer: (Player, T) -> Unit,
+) {
+  var view by remember { mutableStateOf<T?>(null) }
+  var registeredPlayer by remember { mutableStateOf<Player?>(null) }
+  AndroidView(factory = { createView(it).apply { view = this } }, onReset = {}, modifier = modifier)
+  view?.let { view ->
+    LaunchedEffect(view, player) {
+      registeredPlayer?.let { previousPlayer ->
+        if (previousPlayer.isCommandAvailable(Player.COMMAND_SET_VIDEO_SURFACE))
+          clearViewFromPlayer(previousPlayer, view)
+        registeredPlayer = null
+      }
+      if (player.isCommandAvailable(Player.COMMAND_SET_VIDEO_SURFACE)) {
+        setViewOnPlayer(player, view)
+        registeredPlayer = player
+      }
+    }
+  }
+}
+
 /**
- * The type of surface view used for media playbacks. One of [SURFACE_TYPE_SURFACE_VIEW] or
+ * The type of surface used for media playbacks. One of [SURFACE_TYPE_SURFACE_VIEW] or
  * [SURFACE_TYPE_TEXTURE_VIEW].
  */
 @UnstableApi
@@ -86,7 +109,7 @@ fun PlayerSurface(
 @IntDef(SURFACE_TYPE_SURFACE_VIEW, SURFACE_TYPE_TEXTURE_VIEW)
 annotation class SurfaceType
 
-/** Surface type equivalent to [android.view.SurfaceView]. */
+/** Surface type to create [android.view.SurfaceView]. */
 @UnstableApi const val SURFACE_TYPE_SURFACE_VIEW = 1
-/** Surface type equivalent to [android.view.TextureView]. */
+/** Surface type to create [android.view.TextureView]. */
 @UnstableApi const val SURFACE_TYPE_TEXTURE_VIEW = 2

@@ -407,6 +407,7 @@ public final class TsExtractorTest {
                 .setSampleMimeType("mime")
                 .setLanguage("und")
                 .build());
+    tsExtractor.release();
   }
 
   @Test
@@ -439,6 +440,7 @@ public final class TsExtractorTest {
       }
     }
     assertThat(factory.sdtReader.consumedSdts).isEqualTo(2);
+    tsExtractor.release();
   }
 
   private static ExtractorAsserts.ExtractorFactory getExtractorFactory(

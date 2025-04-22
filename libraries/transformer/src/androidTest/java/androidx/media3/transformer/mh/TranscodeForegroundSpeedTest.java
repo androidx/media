@@ -152,7 +152,8 @@ public class TranscodeForegroundSpeedTest {
             .setShouldConfigureOperatingRate(true)
             .build();
     AssetLoader.Factory assetLoaderFactory =
-        new DefaultAssetLoaderFactory(context, decoderFactory, Clock.DEFAULT);
+        new DefaultAssetLoaderFactory(
+            context, decoderFactory, Clock.DEFAULT, /* logSessionId= */ null);
     Transformer transformer =
         new Transformer.Builder(context)
             .setVideoMimeType(MimeTypes.VIDEO_H264)

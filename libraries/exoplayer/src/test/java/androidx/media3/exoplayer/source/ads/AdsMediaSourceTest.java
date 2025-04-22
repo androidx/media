@@ -242,6 +242,7 @@ public final class AdsMediaSourceTest {
         mock(Allocator.class),
         /* startPositionUs= */ 0);
 
+    shadowOf(Looper.getMainLooper()).idle();
     contentMediaSource.assertMediaPeriodCreated(
         new MediaPeriodId(CONTENT_PERIOD_UID, /* windowSequenceNumber= */ 0));
     ArgumentCaptor<Timeline> adsTimelineCaptor = ArgumentCaptor.forClass(Timeline.class);
@@ -396,9 +397,10 @@ public final class AdsMediaSourceTest {
           }
 
           @Override
-          public void handleContentTimelineChanged(
+          public boolean handleContentTimelineChanged(
               AdsMediaSource adsMediaSource, Timeline timeline) {
             contentTimelineChangedCalledLatch.countDown();
+            return false;
           }
         };
     MediaSource.Factory adMediaSourceFactory = mock(MediaSource.Factory.class);
@@ -573,9 +575,10 @@ public final class AdsMediaSourceTest {
           }
 
           @Override
-          public void handleContentTimelineChanged(
+          public boolean handleContentTimelineChanged(
               AdsMediaSource adsMediaSource, Timeline timeline) {
             contentTimelineChangedCallCount.incrementAndGet();
+            return false;
           }
         };
     MediaSource.Factory adMediaSourceFactory = mock(MediaSource.Factory.class);
@@ -966,9 +969,6 @@ public final class AdsMediaSourceTest {
         int adGroupIndex,
         int adIndexInAdGroup,
         IOException exception) {}
-
-    @Override
-    public void handleContentTimelineChanged(AdsMediaSource adsMediaSource, Timeline timeline) {}
   }
 
   private static MediaSource buildMediaSource(MediaItem mediaItem) {

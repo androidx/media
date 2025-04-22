@@ -18,12 +18,14 @@ package androidx.media3.transformer.mh;
 import static android.graphics.Bitmap.Config.RGBA_1010102;
 import static android.graphics.Bitmap.Config.RGBA_F16;
 import static android.graphics.ColorSpace.Named.BT2020_HLG;
-import static androidx.media3.common.util.Util.SDK_INT;
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.maybeSaveTestBitmap;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.readBitmap;
 import static androidx.media3.test.utils.TestUtil.assertBitmapsAreSimilar;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_COLOR_TEST_1080P_HLG10;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_TRIM_OPTIMIZATION_270;
+import static androidx.media3.transformer.mh.HdrCapabilitiesUtil.assumeDeviceDoesNotSupportHdrColorTransfer;
+import static androidx.media3.transformer.mh.HdrCapabilitiesUtil.assumeDeviceSupportsHdrColorTransfer;
 import static androidx.media3.transformer.mh.HdrCapabilitiesUtil.assumeDeviceSupportsOpenGlToneMapping;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -104,6 +106,7 @@ public class FrameExtractorHdrTest {
   @Test
   public void extractFrame_oneFrameHlgWithHdrOutput_returnsHlgFrame() throws Exception {
     assumeDeviceSupportsOpenGlToneMapping(testId, MP4_ASSET_COLOR_TEST_1080P_HLG10.videoFormat);
+    assumeDeviceSupportsHdrColorTransfer(testId, MP4_ASSET_COLOR_TEST_1080P_HLG10.videoFormat);
     // HLG Bitmaps are only supported on API 34+.
     assumeTrue(SDK_INT >= 34);
     frameExtractor =
@@ -131,6 +134,33 @@ public class FrameExtractorHdrTest {
     assertThat(frame.presentationTimeMs).isEqualTo(0);
     assertThat(actualBitmap.getConfig()).isEqualTo(RGBA_1010102);
     assertThat(actualBitmap.getColorSpace()).isEqualTo(ColorSpace.get(BT2020_HLG));
+    assertBitmapsAreSimilar(expectedBitmap, actualBitmap, PSNR_THRESHOLD);
+  }
+
+  @Test
+  public void extractFrame_oneFrameHlgWithHdrDisplayUnsupported_returnsSdrFrame() throws Exception {
+    assumeDeviceSupportsOpenGlToneMapping(testId, MP4_ASSET_COLOR_TEST_1080P_HLG10.videoFormat);
+    assumeDeviceDoesNotSupportHdrColorTransfer(
+        testId, MP4_ASSET_COLOR_TEST_1080P_HLG10.videoFormat);
+    // HLG Bitmaps are only supported on API 34+.
+    assumeTrue(SDK_INT >= 34);
+    frameExtractor =
+        new ExperimentalFrameExtractor(
+            context,
+            new ExperimentalFrameExtractor.Configuration.Builder()
+                .setExtractHdrFrames(true)
+                .build());
+    frameExtractor.setMediaItem(
+        MediaItem.fromUri(MP4_ASSET_COLOR_TEST_1080P_HLG10.uri), /* effects= */ ImmutableList.of());
+
+    ListenableFuture<ExperimentalFrameExtractor.Frame> frameFuture =
+        frameExtractor.getFrame(/* positionMs= */ 0);
+    ExperimentalFrameExtractor.Frame frame = frameFuture.get(TIMEOUT_SECONDS, SECONDS);
+    Bitmap actualBitmap = frame.bitmap;
+    Bitmap expectedBitmap = readBitmap(TONE_MAP_HLG_TO_SDR_PNG_ASSET_PATH);
+    maybeSaveTestBitmap(testId, /* bitmapLabel= */ "actual", actualBitmap, /* path= */ null);
+
+    assertThat(frame.presentationTimeMs).isEqualTo(0);
     assertBitmapsAreSimilar(expectedBitmap, actualBitmap, PSNR_THRESHOLD);
   }
 

@@ -15,6 +15,7 @@
  */
 package androidx.media3.transformer.mh;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.MimeTypes.VIDEO_H264;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.transformer.AndroidTestUtil.JPG_ULTRA_HDR_ASSET;
@@ -32,7 +33,6 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Clock;
-import androidx.media3.common.util.Util;
 import androidx.media3.effect.Presentation;
 import androidx.media3.transformer.AndroidTestUtil.ForceEncodeEncoderFactory;
 import androidx.media3.transformer.AssetLoader;
@@ -122,7 +122,7 @@ public class TranscodeSpeedTest {
                 || Ascii.toLowerCase(Build.MODEL).contains("8")
                 || Ascii.toLowerCase(Build.MODEL).contains("fold")
                 || Ascii.toLowerCase(Build.MODEL).contains("tablet"));
-    if (Util.SDK_INT == 33 && Ascii.toLowerCase(Build.MODEL).contains("pixel 6")) {
+    if (SDK_INT == 33 && Ascii.toLowerCase(Build.MODEL).contains("pixel 6")) {
       // Pixel 6 is usually quick, unless it's on API 33. See b/358519058.
       isHighPerformance = false;
     }
@@ -167,7 +167,7 @@ public class TranscodeSpeedTest {
                 || Ascii.toLowerCase(Build.MODEL).contains("fold")
                 || Ascii.toLowerCase(Build.MODEL).contains("tablet")));
     // Pixel 6 is usually quick, unless it's on API 33. See b/358519058.
-    assumeFalse(Util.SDK_INT == 33 && Ascii.toLowerCase(Build.MODEL).contains("pixel 6"));
+    assumeFalse(SDK_INT == 33 && Ascii.toLowerCase(Build.MODEL).contains("pixel 6"));
     AtomicInteger videoFramesSeen = new AtomicInteger(/* initialValue= */ 0);
     MediaItem mediaItem =
         MediaItem.fromUri(Uri.parse(MP4_LONG_ASSET_WITH_INCREASING_TIMESTAMPS.uri))
@@ -229,7 +229,8 @@ public class TranscodeSpeedTest {
     Codec.DecoderFactory decoderFactory =
         new DefaultDecoderFactory.Builder(context).setShouldConfigureOperatingRate(true).build();
     AssetLoader.Factory assetLoaderFactory =
-        new DefaultAssetLoaderFactory(context, decoderFactory, Clock.DEFAULT);
+        new DefaultAssetLoaderFactory(
+            context, decoderFactory, Clock.DEFAULT, /* logSessionId= */ null);
     Transformer transformer =
         ExperimentalAnalyzerModeFactory.buildAnalyzer(context)
             .buildUpon()

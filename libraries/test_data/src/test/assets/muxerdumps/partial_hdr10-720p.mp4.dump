@@ -11,6 +11,7 @@ track 0:
   sample count = 93
   track duration = 3103400
   format 0:
+    averageBitrate = 15063320
     id = 1
     containerMimeType = video/mp4
     sampleMimeType = video/hevc
@@ -407,7 +408,7 @@ track 1:
   sample count = 187
   track duration = 3989300
   format 0:
-    averageBitrate = 256000
+    averageBitrate = 256416
     peakBitrate = 256000
     id = 2
     containerMimeType = video/mp4
@@ -416,7 +417,6 @@ track 1:
     maxInputSize = 877
     channelCount = 2
     sampleRate = 48000
-    language = ```
     metadata = entries=[Mp4Timestamp: creation time=100000000, modification time=500000000, timescale=10000]
     initializationData:
       data = length 2, hash 560

@@ -16,6 +16,7 @@
 
 package androidx.media3.ui.compose.state
 
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.media3.common.Player
 import androidx.media3.ui.compose.utils.TestPlayer
@@ -95,5 +96,22 @@ class NextButtonStateTest {
     state.onClick()
 
     assertThat(player.currentMediaItemIndex).isEqualTo(1)
+  }
+
+  @Test
+  fun playerReachesLastItemWithDisabledNextButtonBeforeEventListenerRegisters_observeGetsTheLatestValues_uiIconInSync() {
+    val player = TestPlayer()
+
+    lateinit var state: NextButtonState
+    composeTestRule.setContent {
+      // Schedule LaunchedEffect to update player state before NextButtonState is created.
+      // This update could end up being executed *before* NextButtonState schedules the start of
+      // event listening and we don't want to lose it.
+      LaunchedEffect(player) { player.seekToNext() }
+      state = rememberNextButtonState(player = player)
+    }
+
+    // UI syncs up with the fact that we reached the last media item and NextButton is now disabled
+    assertThat(state.isEnabled).isFalse()
   }
 }

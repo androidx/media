@@ -11,6 +11,8 @@ track 0:
   sample count = 60
   track duration = 1001000
   format 0:
+    averageBitrate = 2126601
+    peakBitrate = 2514227
     id = 1
     containerMimeType = video/mp4
     sampleMimeType = video/av01
@@ -25,6 +27,7 @@ track 0:
       hdrStaticInfo = length 25, hash 423AFC35
       lumaBitdepth = 10
       chromaBitdepth = 10
+    language = und
     metadata = entries=[TSSE: description=null: values=[Lavf58.76.100], Mp4Timestamp: creation time=0, modification time=0, timescale=1000]
     initializationData:
       data = length 20, hash 4DF5B288
@@ -273,7 +276,7 @@ track 1:
   sample count = 15
   track duration = 1022000
   format 0:
-    averageBitrate = 130279
+    averageBitrate = 130280
     peakBitrate = 130279
     id = 2
     containerMimeType = video/mp4
@@ -283,7 +286,7 @@ track 1:
     channelCount = 2
     sampleRate = 44100
     language = und
-    metadata = entries=[TSSE: description=null: values=[Lavf58.76.100], Mp4Timestamp: creation time=0, modification time=0, timescale=1000]
+    metadata = entries=[Mp4AlternateGroup: 1, TSSE: description=null: values=[Lavf58.76.100], Mp4Timestamp: creation time=0, modification time=0, timescale=1000]
     initializationData:
       data = length 16, hash CAA21BBF
   sample 0:

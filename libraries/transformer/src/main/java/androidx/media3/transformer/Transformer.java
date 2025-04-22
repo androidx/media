@@ -16,10 +16,10 @@
 
 package androidx.media3.transformer;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
-import static androidx.media3.common.util.Util.SDK_INT;
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.extractor.AacUtil.AAC_LC_AUDIO_SAMPLE_COUNT;
 import static androidx.media3.transformer.ExportException.ERROR_CODE_MUXING_APPEND;
@@ -36,6 +36,7 @@ import static java.lang.Math.round;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.content.Context;
+import android.media.metrics.LogSessionId;
 import android.os.Looper;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
@@ -96,6 +97,9 @@ public final class Transformer {
   /** A builder for {@link Transformer} instances. */
   public static final class Builder {
 
+    private static final ImmutableList<Integer> ALL_ROTATION_DEGREES =
+        ImmutableList.of(0, 90, 180, 270);
+
     // Mandatory field.
     private final Context context;
 
@@ -108,7 +112,7 @@ public final class Transformer {
     private boolean removeAudio;
     private boolean removeVideo;
     private boolean trimOptimizationEnabled;
-    private boolean portraitEncodingEnabled;
+    private ImmutableList<Integer> allowedEncodingRotationDegrees;
     private boolean fileStartsOnVideoFrameEnabled;
     private boolean usePlatformDiagnostics;
     private long maxDelayBetweenMuxerSamplesMs;
@@ -149,6 +153,7 @@ public final class Transformer {
         metricsReporterFactory =
             new EditingMetricsCollector.DefaultMetricsReporter.Factory(context);
       }
+      allowedEncodingRotationDegrees = ALL_ROTATION_DEGREES;
     }
 
     /** Creates a builder with the values of the provided {@link Transformer}. */
@@ -162,7 +167,7 @@ public final class Transformer {
       this.removeAudio = transformer.removeAudio;
       this.removeVideo = transformer.removeVideo;
       this.trimOptimizationEnabled = transformer.trimOptimizationEnabled;
-      this.portraitEncodingEnabled = transformer.portraitEncodingEnabled;
+      this.allowedEncodingRotationDegrees = transformer.allowedEncodingRotationDegrees;
       this.fileStartsOnVideoFrameEnabled = transformer.fileStartsOnVideoFrameEnabled;
       this.usePlatformDiagnostics = transformer.usePlatformDiagnostics;
       this.maxDelayBetweenMuxerSamplesMs = transformer.maxDelayBetweenMuxerSamplesMs;
@@ -285,7 +290,7 @@ public final class Transformer {
      */
     @CanIgnoreReturnValue
     public Builder setPortraitEncodingEnabled(boolean enabled) {
-      portraitEncodingEnabled = enabled;
+      allowedEncodingRotationDegrees = enabled ? ImmutableList.of(0) : ALL_ROTATION_DEGREES;
       return this;
     }
 
@@ -596,7 +601,7 @@ public final class Transformer {
           removeAudio,
           removeVideo,
           trimOptimizationEnabled,
-          portraitEncodingEnabled,
+          allowedEncodingRotationDegrees,
           fileStartsOnVideoFrameEnabled,
           usePlatformDiagnostics,
           maxDelayBetweenMuxerSamplesMs,
@@ -782,7 +787,7 @@ public final class Transformer {
   private final boolean removeAudio;
   private final boolean removeVideo;
   private final boolean trimOptimizationEnabled;
-  private final boolean portraitEncodingEnabled;
+  private final ImmutableList<Integer> allowedEncodingRotationDegrees;
   private final boolean fileStartsOnVideoFrameEnabled;
   private final boolean usePlatformDiagnostics;
   private final long maxDelayBetweenMuxerSamplesMs;
@@ -824,7 +829,7 @@ public final class Transformer {
       boolean removeAudio,
       boolean removeVideo,
       boolean trimOptimizationEnabled,
-      boolean portraitEncodingEnabled,
+      ImmutableList<Integer> allowedEncodingRotationDegrees,
       boolean fileStartsOnVideoFrameEnabled,
       boolean usePlatformDiagnostics,
       long maxDelayBetweenMuxerSamplesMs,
@@ -847,7 +852,7 @@ public final class Transformer {
     this.removeAudio = removeAudio;
     this.removeVideo = removeVideo;
     this.trimOptimizationEnabled = trimOptimizationEnabled;
-    this.portraitEncodingEnabled = portraitEncodingEnabled;
+    this.allowedEncodingRotationDegrees = allowedEncodingRotationDegrees;
     this.fileStartsOnVideoFrameEnabled = fileStartsOnVideoFrameEnabled;
     this.usePlatformDiagnostics = usePlatformDiagnostics;
     this.maxDelayBetweenMuxerSamplesMs = maxDelayBetweenMuxerSamplesMs;
@@ -936,8 +941,8 @@ public final class Transformer {
    *   <li>If an {@link EditedMediaItem} in a sequence contains data of a given {@linkplain
    *       C.TrackType track}, so must all items in that sequence.
    *       <ul>
-   *         <li>For audio, this condition can be removed by setting an experimental {@link
-   *             Composition.Builder#experimentalSetForceAudioTrack(boolean) flag}.
+   *         <li>For audio, this condition can be removed by setting {@link
+   *             EditedMediaItemSequence.Builder#experimentalSetForceAudioTrack(boolean)} flag.
    *       </ul>
    *   <li>If a sequence starts with an HDR {@link EditedMediaItem}, all the following items in the
    *       sequence must be HDR.
@@ -1601,15 +1606,7 @@ public final class Transformer {
       transformationRequest =
           transformationRequest.buildUpon().setHdrMode(composition.hdrMode).build();
     }
-    FallbackListener fallbackListener =
-        new FallbackListener(composition, listeners, applicationHandler, transformationRequest);
-    AssetLoader.Factory assetLoaderFactory = this.assetLoaderFactory;
-    if (useDefaultAssetLoaderFactory || assetLoaderFactory == null) {
-      assetLoaderFactory =
-          new DefaultAssetLoaderFactory(
-              context, new DefaultDecoderFactory.Builder(context).build(), clock);
-    }
-    DebugTraceUtil.reset();
+    LogSessionId logSessionId = null;
     if (canCollectEditingMetrics()) {
       @Nullable String muxerName = null;
       if (muxerFactory instanceof InAppMp4Muxer.Factory) {
@@ -1619,10 +1616,24 @@ public final class Transformer {
       } else if (muxerFactory instanceof DefaultMuxer.Factory) {
         muxerName = DefaultMuxer.MUXER_NAME;
       }
+      EditingMetricsCollector.MetricsReporter metricsReporter =
+          checkNotNull(metricsReporterFactory).create();
+      if (metricsReporter instanceof EditingMetricsCollector.DefaultMetricsReporter) {
+        logSessionId =
+            ((EditingMetricsCollector.DefaultMetricsReporter) metricsReporter).getLogSessionId();
+      }
       editingMetricsCollector =
-          new EditingMetricsCollector(
-              checkNotNull(metricsReporterFactory).create(), EXPORTER_NAME, muxerName);
+          new EditingMetricsCollector(metricsReporter, EXPORTER_NAME, muxerName);
     }
+    FallbackListener fallbackListener =
+        new FallbackListener(composition, listeners, applicationHandler, transformationRequest);
+    AssetLoader.Factory assetLoaderFactory = this.assetLoaderFactory;
+    if (useDefaultAssetLoaderFactory || assetLoaderFactory == null) {
+      assetLoaderFactory =
+          new DefaultAssetLoaderFactory(
+              context, new DefaultDecoderFactory.Builder(context).build(), clock, logSessionId);
+    }
+    DebugTraceUtil.reset();
     transformerInternal =
         new TransformerInternal(
             context,
@@ -1632,7 +1643,7 @@ public final class Transformer {
             audioMixerFactory,
             videoFrameProcessorFactory,
             encoderFactory,
-            portraitEncodingEnabled,
+            allowedEncodingRotationDegrees,
             maxFramesInEncoder,
             muxerWrapper,
             componentListener,
@@ -1640,7 +1651,8 @@ public final class Transformer {
             applicationHandler,
             debugViewProvider,
             clock,
-            initialTimestampOffsetUs);
+            initialTimestampOffsetUs,
+            logSessionId);
     transformerInternal.start();
   }
 

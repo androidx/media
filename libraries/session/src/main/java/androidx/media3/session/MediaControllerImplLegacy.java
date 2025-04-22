@@ -15,6 +15,7 @@
  */
 package androidx.media3.session;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
@@ -93,8 +94,6 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
 
   private static final String TAG = "MCImplLegacy";
 
-  private static final long AGGREGATES_CALLBACKS_WITHIN_TIMEOUT_MS = 500L;
-
   /* package */ final Context context;
   private final MediaController instance;
 
@@ -104,6 +103,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
   private final BitmapLoader bitmapLoader;
   private final ImmutableList<CommandButton> commandButtonsForMediaItems;
   private final Bundle connectionHints;
+  private final long platformSessionCallbackAggregationTimeoutMs;
 
   @Nullable private MediaControllerCompat controllerCompat;
   @Nullable private MediaBrowserCompat browserCompat;
@@ -122,7 +122,8 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
       SessionToken token,
       Bundle connectionHints,
       Looper applicationLooper,
-      BitmapLoader bitmapLoader) {
+      BitmapLoader bitmapLoader,
+      long platformSessionCallbackAggregationTimeoutMs) {
     // Initialize default values.
     legacyPlayerInfo = new LegacyPlayerInfo();
     pendingLegacyPlayerInfo = new LegacyPlayerInfo();
@@ -140,6 +141,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
     this.token = token;
     this.connectionHints = connectionHints;
     this.bitmapLoader = bitmapLoader;
+    this.platformSessionCallbackAggregationTimeoutMs = platformSessionCallbackAggregationTimeoutMs;
     currentPositionMs = C.TIME_UNSET;
     lastSetPlayWhenReadyCalledTimeMs = C.TIME_UNSET;
     // Always empty. Only supported for a MediaBrowser connected to a MediaBrowserServiceCompat.
@@ -1231,7 +1233,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
 
   @Override
   public void setDeviceMuted(boolean muted, @C.VolumeFlags int flags) {
-    if (Util.SDK_INT < 23) {
+    if (SDK_INT < 23) {
       Log.w(TAG, "Session doesn't support setting mute state at API level less than 23");
       return;
     }
@@ -1811,7 +1813,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
 
   @Nullable
   private static String getRoutingControllerId(MediaControllerCompat controllerCompat) {
-    if (Util.SDK_INT < 30) {
+    if (SDK_INT < 30) {
       return null;
     }
     android.media.session.MediaController fwkController =
@@ -1992,7 +1994,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
         return;
       }
       pendingChangesHandler.sendEmptyMessageDelayed(
-          MSG_HANDLE_PENDING_UPDATES, AGGREGATES_CALLBACKS_WITHIN_TIMEOUT_MS);
+          MSG_HANDLE_PENDING_UPDATES, platformSessionCallbackAggregationTimeoutMs);
     }
   }
 

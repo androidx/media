@@ -22,10 +22,13 @@ import static androidx.media3.muxer.MuxerTestUtil.MP4_FILE_ASSET_DIRECTORY;
 import android.content.Context;
 import android.net.Uri;
 import androidx.annotation.Nullable;
+import androidx.media3.common.Format;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.MediaFormatUtil;
 import androidx.media3.container.Mp4TimestampData;
 import androidx.media3.exoplayer.MediaExtractorCompat;
 import androidx.media3.extractor.mp4.FragmentedMp4Extractor;
+import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.DumpableMp4Box;
 import androidx.media3.test.utils.FakeExtractorOutput;
@@ -60,6 +63,8 @@ public class FragmentedMp4MuxerEndToEndTest {
       "bbb_800x640_768kbps_30fps_avc_pyramid_3b.mp4";
   private static final String H264_WITH_FIRST_PTS_10_SEC =
       "bbb_800x640_768kbps_30fps_avc_2b_firstpts_10_sec.mp4";
+  private static final String H264_DOLBY_VISION = "video_dovi_1920x1080_60fps_dvav_09.mp4";
+  private static final String H265_DOLBY_VISION = "sample_edit_list.mp4";
   private static final String H265_HDR10_MP4 = "hdr10-720p.mp4";
   private static final String H265_WITH_METADATA_TRACK_MP4 = "h265_with_metadata_track.mp4";
   private static final String APV_MP4 = "sample_with_apvc.mp4";
@@ -85,6 +90,8 @@ public class FragmentedMp4MuxerEndToEndTest {
         H264_WITH_NON_REFERENCE_B_FRAMES_MP4,
         H264_WITH_PYRAMID_B_FRAMES_MP4,
         H264_WITH_FIRST_PTS_10_SEC,
+        H264_DOLBY_VISION,
+        H265_DOLBY_VISION,
         H265_HDR10_MP4,
         H265_WITH_METADATA_TRACK_MP4,
         APV_MP4,
@@ -199,8 +206,45 @@ public class FragmentedMp4MuxerEndToEndTest {
         MuxerTestUtil.getExpectedDumpFilePath(AUDIO_ONLY_MP4 + "_fragmented_box_structure"));
   }
 
+  @Test
+  public void createAv1FragmentedMp4File_withoutCsd_matchesExpected() throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+    FragmentedMp4Muxer mp4Muxer =
+        new FragmentedMp4Muxer.Builder(new FileOutputStream(outputFilePath)).build();
+
+    try {
+      mp4Muxer.addMetadataEntry(
+          new Mp4TimestampData(
+              /* creationTimestampSeconds= */ 100_000_000L,
+              /* modificationTimestampSeconds= */ 500_000_000L));
+      feedInputDataToMuxer(context, mp4Muxer, AV1_MP4, /* removeInitializationData= */ true);
+    } finally {
+      if (mp4Muxer != null) {
+        mp4Muxer.close();
+      }
+    }
+
+    FakeExtractorOutput fakeExtractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(
+            new FragmentedMp4Extractor(new DefaultSubtitleParserFactory()),
+            checkNotNull(outputFilePath));
+    DumpFileAsserts.assertOutput(
+        context,
+        fakeExtractorOutput,
+        MuxerTestUtil.getExpectedDumpFilePath(AV1_MP4 + "_fragmented"));
+  }
+
   private static void feedInputDataToMuxer(
       Context context, FragmentedMp4Muxer muxer, String inputFileName)
+      throws IOException, MuxerException {
+    feedInputDataToMuxer(context, muxer, inputFileName, /* removeInitializationData= */ false);
+  }
+
+  private static void feedInputDataToMuxer(
+      Context context,
+      FragmentedMp4Muxer muxer,
+      String inputFileName,
+      boolean removeInitializationData)
       throws IOException, MuxerException {
     MediaExtractorCompat extractor = new MediaExtractorCompat(context);
     Uri fileUri = Uri.parse(MP4_FILE_ASSET_DIRECTORY + inputFileName);
@@ -208,8 +252,11 @@ public class FragmentedMp4MuxerEndToEndTest {
 
     List<Integer> addedTracks = new ArrayList<>();
     for (int i = 0; i < extractor.getTrackCount(); i++) {
-      int trackId =
-          muxer.addTrack(MediaFormatUtil.createFormatFromMediaFormat(extractor.getTrackFormat(i)));
+      Format format = MediaFormatUtil.createFormatFromMediaFormat(extractor.getTrackFormat(i));
+      if (removeInitializationData && MimeTypes.isVideo(format.sampleMimeType)) {
+        format = format.buildUpon().setInitializationData(null).build();
+      }
+      int trackId = muxer.addTrack(format);
       addedTracks.add(trackId);
       extractor.selectTrack(i);
     }

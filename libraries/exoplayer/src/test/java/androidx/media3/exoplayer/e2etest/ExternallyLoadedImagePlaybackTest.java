@@ -161,7 +161,8 @@ public final class ExternallyLoadedImagePlaybackTest {
     MediaSource.Factory mediaSourceFactory =
         new DefaultMediaSourceFactory(applicationContext)
             .setExternalImageLoader(
-                unused -> listeningExecutorService.submit(loadingComplete::blockUninterruptible));
+                unused ->
+                    listeningExecutorService.submit(() -> loadingComplete.blockUninterruptible()));
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, renderersFactory)
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))

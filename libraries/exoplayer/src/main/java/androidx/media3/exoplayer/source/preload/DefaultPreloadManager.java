@@ -197,11 +197,12 @@ public final class DefaultPreloadManager extends BasePreloadManager<Integer> {
      * @param preloadLooper A {@link Looper}.
      * @return This builder.
      * @throws IllegalStateException If {@link #build()}, {@link #buildExoPlayer()} or {@link
-     *     #buildExoPlayer(ExoPlayer.Builder)} has already been called.
+     *     #buildExoPlayer(ExoPlayer.Builder)} has already been called, or when the {@linkplain
+     *     Looper#getMainLooper() main looper} is passed in.
      */
     @CanIgnoreReturnValue
     public Builder setPreloadLooper(Looper preloadLooper) {
-      checkState(!buildCalled && !buildExoPlayerCalled);
+      checkState(!buildCalled && !buildExoPlayerCalled && preloadLooper != Looper.getMainLooper());
       this.preloadLooperProvider = new PlaybackLooperProvider(preloadLooper);
       return this;
     }

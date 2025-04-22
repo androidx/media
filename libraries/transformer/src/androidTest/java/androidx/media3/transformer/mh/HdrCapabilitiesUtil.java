@@ -15,16 +15,19 @@
  */
 package androidx.media3.transformer.mh;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Assertions.checkState;
+import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
 import static androidx.media3.transformer.AndroidTestUtil.recordTestSkipped;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 
 import android.content.Context;
+import android.opengl.EGLDisplay;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.GlUtil;
-import androidx.media3.common.util.Util;
+import androidx.media3.common.util.GlUtil.GlException;
 import androidx.media3.exoplayer.mediacodec.MediaCodecUtil;
 import androidx.media3.transformer.EncoderUtil;
 import java.io.IOException;
@@ -45,7 +48,7 @@ public final class HdrCapabilitiesUtil {
   public static void assumeDeviceSupportsOpenGlToneMapping(String testId, Format inputFormat)
       throws JSONException, IOException, MediaCodecUtil.DecoderQueryException {
     Context context = getApplicationContext();
-    if (Util.SDK_INT < 29) {
+    if (SDK_INT < 29) {
       recordTestSkipped(context, testId, SKIP_REASON_NO_OPENGL_UNDER_API_29);
       throw new AssumptionViolatedException(SKIP_REASON_NO_OPENGL_UNDER_API_29);
     }
@@ -90,6 +93,50 @@ public final class HdrCapabilitiesUtil {
           "HDR editing supported for sample mime type "
               + format.sampleMimeType
               + " and color info "
+              + format.colorInfo;
+      recordTestSkipped(getApplicationContext(), testId, skipReason);
+      throw new AssumptionViolatedException(skipReason);
+    }
+  }
+
+  /**
+   * Assumes that the device supports HDR editing for the given {@code colorInfo}.
+   *
+   * @throws AssumptionViolatedException if the device does not support HDR editing.
+   */
+  public static void assumeDeviceSupportsHdrColorTransfer(String testId, Format format)
+      throws JSONException, IOException, GlException {
+    checkStateNotNull(format.colorInfo);
+    // Required to ensure EGL extensions are initialised.
+    @SuppressWarnings("unused")
+    EGLDisplay eglDisplay = GlUtil.getDefaultEglDisplay();
+    if (!GlUtil.isColorTransferSupported(format.colorInfo.colorTransfer)) {
+      String skipReason =
+          "HDR display not supported for sampleMimeType "
+              + format.sampleMimeType
+              + " and colorInfo "
+              + format.colorInfo;
+      recordTestSkipped(getApplicationContext(), testId, skipReason);
+      throw new AssumptionViolatedException(skipReason);
+    }
+  }
+
+  /**
+   * Assumes that the device does not support HDR editing for the given {@code colorInfo}.
+   *
+   * @throws AssumptionViolatedException if the device does support HDR editing.
+   */
+  public static void assumeDeviceDoesNotSupportHdrColorTransfer(String testId, Format format)
+      throws JSONException, IOException, GlException {
+    checkStateNotNull(format.colorInfo);
+    // Required to ensure EGL extensions are initialised.
+    @SuppressWarnings("unused")
+    EGLDisplay eglDisplay = GlUtil.getDefaultEglDisplay();
+    if (GlUtil.isColorTransferSupported(format.colorInfo.colorTransfer)) {
+      String skipReason =
+          "HDR display is supported for sampleMimeType "
+              + format.sampleMimeType
+              + " and colorInfo "
               + format.colorInfo;
       recordTestSkipped(getApplicationContext(), testId, skipReason);
       throw new AssumptionViolatedException(skipReason);

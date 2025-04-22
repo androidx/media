@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 The Android Open Source Project
+ * Copyright 2025 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,17 +15,20 @@
  */
 package androidx.media3.exoplayer;
 
+import static com.google.common.truth.Truth.assertThat;
+
+import androidx.media3.common.C;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import org.junit.Test;
 import org.junit.runner.RunWith;
 
-/** Unit test for {@link ExoPlayer} with playlist preloading enabled. */
-// TODO(issuetracker.google.com/316040980): Replace this class with a parameterized ExoPlayerTest
-//     when resolved.
+/** Tests for {@link ScrubbingModeParameters}. */
 @RunWith(AndroidJUnit4.class)
-public class ExoPlayerWithPreloadingEnabledTest extends ExoPlayerTest {
+public final class ScrubbingModeParametersTest {
 
-  @Override
-  protected long getTargetPreloadDurationUs() {
-    return 5_000_000L;
+  @Test
+  public void defaultValues() {
+    assertThat(ScrubbingModeParameters.DEFAULT.disabledTrackTypes)
+        .containsExactly(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_METADATA);
   }
 }

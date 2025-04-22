@@ -296,19 +296,23 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                 /* isForPlayback= */ true)
             : null;
 
-    if (mediaPlaylist == null
-        || mediaPlaylist.segments.isEmpty()
-        || !mediaPlaylist.hasIndependentSegments) {
+    if (mediaPlaylist == null || mediaPlaylist.segments.isEmpty()) {
       return positionUs;
     }
 
-    // Segments start with sync samples (i.e., EXT-X-INDEPENDENT-SEGMENTS is set) and the playlist
-    // is non-empty, so we can use segment start times as sync points. Note that in the rare case
-    // that (a) an adaptive quality switch occurs between the adjustment and the seek being
-    // performed, and (b) segment start times are not aligned across variants, it's possible that
-    // the adjusted position may not be at a sync point when it was intended to be. However, this is
-    // very much an edge case, and getting it wrong is worth it for getting the vast majority of
-    // cases right whilst keeping the implementation relatively simple.
+    // The playlist is non-empty, so we can use segment start times as sync points. We can always
+    // safely assume that the segment contains the positionUs starts with sync samples (even if it
+    // actually doesn't) and set the below firstSyncUs as the start time of that segment, as it
+    // doesn't harm the seeking performance if it is resolved to be the seek position. However, we
+    // should set the secondSyncUs as the start time of the segment after the positionUs only when
+    // we're sure that the segments start with sync samples (i.e., EXT-X-INDEPENDENT-SEGMENTS is
+    // set).
+    //
+    // Note that in the rare case that (a) an adaptive quality switch occurs between the adjustment
+    // and the seek being performed, and (b) segment start times are not aligned across variants,
+    // it's possible that the adjusted position may not be at a sync point when it was intended to
+    // be. However, this is very much an edge case, and getting it wrong is worth it for getting
+    // the vast majority of cases right whilst keeping the implementation relatively simple.
     long startOfPlaylistInPeriodUs =
         mediaPlaylist.startTimeUs - playlistTracker.getInitialStartTimeUs();
     long relativePositionUs = positionUs - startOfPlaylistInPeriodUs;
@@ -320,7 +324,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             /* stayInBounds= */ true);
     long firstSyncUs = mediaPlaylist.segments.get(segmentIndex).relativeStartTimeUs;
     long secondSyncUs = firstSyncUs;
-    if (segmentIndex != mediaPlaylist.segments.size() - 1) {
+    if (mediaPlaylist.hasIndependentSegments && segmentIndex != mediaPlaylist.segments.size() - 1) {
       secondSyncUs = mediaPlaylist.segments.get(segmentIndex + 1).relativeStartTimeUs;
     }
     return seekParameters.resolveSeekPositionUs(relativePositionUs, firstSyncUs, secondSyncUs)
@@ -513,7 +517,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               .setPlaybackRate(loadingInfo.playbackSpeed)
               .setIsLive(!playlist.hasEndTag)
               .setDidRebuffer(loadingInfo.rebufferedSince(lastChunkRequestRealtimeMs))
-              .setIsBufferEmpty(queue.isEmpty());
+              .setIsBufferEmpty(queue.isEmpty())
+              .setChunkDurationUs(segmentBaseHolder.segmentBase.durationUs);
       long nextMediaSequence =
           segmentBaseHolder.partIndex == C.INDEX_UNSET
               ? segmentBaseHolder.mediaSequence + 1

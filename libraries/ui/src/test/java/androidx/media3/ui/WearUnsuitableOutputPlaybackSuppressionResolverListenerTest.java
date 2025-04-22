@@ -15,6 +15,7 @@
  */
 package androidx.media3.ui;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.runUntilPlayWhenReady;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.runUntilPlaybackState;
@@ -38,7 +39,6 @@ import androidx.media3.common.FlagSet;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
 import androidx.media3.common.Player.PlayWhenReadyChangeReason;
-import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.test.utils.FakeClock;
 import androidx.media3.test.utils.FakeSuitableOutputChecker;
@@ -89,7 +89,7 @@ public class WearUnsuitableOutputPlaybackSuppressionResolverListenerTest {
     TestExoPlayerBuilder builder =
         new TestExoPlayerBuilder(ApplicationProvider.getApplicationContext())
             .setSuppressPlaybackOnUnsuitableOutput(true);
-    if (Util.SDK_INT >= 35) {
+    if (SDK_INT >= 35) {
       suitableMediaOutputChecker =
           new FakeSuitableOutputChecker.Builder()
               .setIsSuitableExternalOutputAvailable(/* isSuitableOutputAvailable= */ false)

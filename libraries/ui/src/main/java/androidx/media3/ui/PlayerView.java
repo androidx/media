@@ -15,6 +15,7 @@
  */
 package androidx.media3.ui;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.Player.COMMAND_GET_CURRENT_MEDIA_ITEM;
 import static androidx.media3.common.Player.COMMAND_GET_METADATA;
 import static androidx.media3.common.Player.COMMAND_GET_TEXT;
@@ -72,7 +73,6 @@ import androidx.media3.common.text.CueGroup;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.RepeatModeUtil;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import androidx.media3.ui.AspectRatioFrameLayout.ResizeMode;
 import com.google.common.collect.ImmutableList;
 import java.lang.annotation.Documented;
@@ -373,7 +373,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
       setImageOutputMethod = null;
       imageOutput = null;
       ImageView logo = new ImageView(context);
-      if (Util.SDK_INT >= 23) {
+      if (SDK_INT >= 23) {
         configureEditModeLogoV23(context, getResources(), logo);
       } else {
         configureEditModeLogo(context, getResources(), logo);
@@ -484,7 +484,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
           break;
         default:
           SurfaceView view = new SurfaceView(context);
-          if (Util.SDK_INT >= 34) {
+          if (SDK_INT >= 34) {
             Api34.setSurfaceLifecycleToFollowsAttachment(view);
           }
           surfaceView = view;
@@ -501,7 +501,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
       surfaceView = null;
     }
     this.surfaceViewIgnoresVideoAspectRatio = surfaceViewIgnoresVideoAspectRatio;
-    this.surfaceSyncGroupV34 = Util.SDK_INT == 34 ? new SurfaceSyncGroupCompatV34() : null;
+    this.surfaceSyncGroupV34 = SDK_INT == 34 ? new SurfaceSyncGroupCompatV34() : null;
 
     // Ad overlay frame layout.
     adOverlayFrameLayout = findViewById(R.id.exo_ad_overlay);
@@ -1795,7 +1795,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
   @Override
   protected void dispatchDraw(Canvas canvas) {
     super.dispatchDraw(canvas);
-    if (Util.SDK_INT == 34 && surfaceSyncGroupV34 != null && enableComposeSurfaceSyncWorkaround) {
+    if (SDK_INT == 34 && surfaceSyncGroupV34 != null && enableComposeSurfaceSyncWorkaround) {
       surfaceSyncGroupV34.maybeMarkSyncReadyAndClear();
     }
   }
@@ -1867,7 +1867,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
 
     @Override
     public void onSurfaceSizeChanged(int width, int height) {
-      if (Util.SDK_INT == 34
+      if (SDK_INT == 34
           && surfaceView instanceof SurfaceView
           && enableComposeSurfaceSyncWorkaround) {
         // Register a SurfaceSyncGroup to work around https://github.com/androidx/media/issues/1237

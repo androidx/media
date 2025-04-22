@@ -17,9 +17,6 @@ package androidx.media3.exoplayer.video;
 
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
-import static androidx.media3.exoplayer.video.VideoFrameReleaseControl.RELEASE_FIRST_FRAME_IMMEDIATELY;
-import static androidx.media3.exoplayer.video.VideoFrameReleaseControl.RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED;
-import static androidx.media3.exoplayer.video.VideoFrameReleaseControl.RELEASE_FIRST_FRAME_WHEN_STARTED;
 
 import android.graphics.Bitmap;
 import android.view.Surface;
@@ -33,7 +30,6 @@ import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.TimestampIterator;
 import androidx.media3.exoplayer.ExoPlaybackException;
-import androidx.media3.exoplayer.Renderer;
 import java.util.ArrayDeque;
 import java.util.List;
 import java.util.Queue;
@@ -49,7 +45,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  * <ul>
  *   <li>Applying video effects
  *   <li>Inputting bitmaps
- *   <li>Setting a WakeupListener
  * </ul>
  *
  * <p>The {@linkplain #getInputSurface() input} and {@linkplain #setOutputSurfaceInfo(Surface, Size)
@@ -83,19 +78,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   @Override
-  public void onRendererEnabled(boolean mayRenderStartOfStream) {
-    int firstFrameReleaseInstruction =
-        mayRenderStartOfStream ? RELEASE_FIRST_FRAME_IMMEDIATELY : RELEASE_FIRST_FRAME_WHEN_STARTED;
-    videoFrameRenderControl.onStreamChanged(firstFrameReleaseInstruction, streamStartPositionUs);
-  }
-
-  @Override
-  public void onRendererStarted() {
+  public void startRendering() {
     videoFrameReleaseControl.onStarted();
   }
 
   @Override
-  public void onRendererStopped() {
+  public void stopRendering() {
     videoFrameReleaseControl.onStopped();
   }
 
@@ -131,8 +119,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   @Override
-  public boolean isReady(boolean rendererOtherwiseReady) {
-    return videoFrameReleaseControl.isReady(rendererOtherwiseReady);
+  public boolean isReady(boolean otherwiseReady) {
+    return videoFrameReleaseControl.isReady(otherwiseReady);
   }
 
   @Override
@@ -197,11 +185,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     videoFrameReleaseControl.setChangeFrameRateStrategy(changeFrameRateStrategy);
   }
 
-  @Override
-  public void enableMayRenderStartOfStream() {
-    videoFrameReleaseControl.allowReleaseFirstFrameBeforeStarted();
-  }
-
   /**
    * {@inheritDoc}
    *
@@ -209,7 +192,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    */
   @Override
   public void onInputStreamChanged(
-      @InputType int inputType, Format format, long startPositionUs, List<Effect> videoEffects) {
+      @InputType int inputType,
+      Format format,
+      long startPositionUs,
+      @FirstFrameReleaseInstruction int firstFrameReleaseInstruction,
+      List<Effect> videoEffects) {
     checkState(videoEffects.isEmpty());
     if (format.width != inputFormat.width || format.height != inputFormat.height) {
       videoFrameRenderControl.onVideoSizeChanged(format.width, format.height);
@@ -219,18 +206,23 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
     inputFormat = format;
     if (startPositionUs != this.streamStartPositionUs) {
-      videoFrameRenderControl.onStreamChanged(
-          RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED, startPositionUs);
+      videoFrameRenderControl.onStreamChanged(firstFrameReleaseInstruction, startPositionUs);
       this.streamStartPositionUs = startPositionUs;
     }
   }
 
   @Override
+  public void allowReleaseFirstFrameBeforeStarted() {
+    videoFrameReleaseControl.allowReleaseFirstFrameBeforeStarted();
+  }
+
+  @Override
   public boolean handleInputFrame(
-      long framePresentationTimeUs, boolean isLastFrame, VideoFrameHandler videoFrameHandler) {
+      long framePresentationTimeUs, VideoFrameHandler videoFrameHandler) {
     videoFrameHandlers.add(videoFrameHandler);
     long bufferPresentationTimeUs = framePresentationTimeUs - bufferTimestampAdjustmentUs;
     videoFrameRenderControl.onFrameAvailableForRendering(bufferPresentationTimeUs);
+    listenerExecutor.execute(() -> listener.onFrameAvailableForRendering());
     return true;
   }
 
@@ -253,16 +245,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
   }
 
-  /**
-   * {@inheritDoc}
-   *
-   * <p>This method will always throw an {@link UnsupportedOperationException}.
-   */
-  @Override
-  public void setWakeupListener(Renderer.WakeupListener wakeupListener) {
-    throw new UnsupportedOperationException();
-  }
-
   @Override
   public void join(boolean renderNextFrameImmediately) {
     videoFrameReleaseControl.join(renderNextFrameImmediately);
@@ -283,14 +265,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               .setHeight(videoSize.height)
               .setSampleMimeType(MimeTypes.VIDEO_RAW)
               .build();
-      listenerExecutor.execute(() -> listener.onVideoSizeChanged(DefaultVideoSink.this, videoSize));
+      listenerExecutor.execute(() -> listener.onVideoSizeChanged(videoSize));
     }
 
     @Override
     public void renderFrame(
         long renderTimeNs, long bufferPresentationTimeUs, boolean isFirstFrame) {
       if (isFirstFrame && outputSurface != null) {
-        listenerExecutor.execute(() -> listener.onFirstFrameRendered(DefaultVideoSink.this));
+        listenerExecutor.execute(() -> listener.onFirstFrameRendered());
       }
       // TODO - b/292111083: outputFormat is initialized after the first frame is rendered because
       //  onVideoSizeChanged is announced after the first frame is available for rendering.
@@ -305,7 +287,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     @Override
     public void dropFrame() {
-      listenerExecutor.execute(() -> listener.onFrameDropped(DefaultVideoSink.this));
+      listenerExecutor.execute(() -> listener.onFrameDropped());
       videoFrameHandlers.remove().skip();
     }
   }

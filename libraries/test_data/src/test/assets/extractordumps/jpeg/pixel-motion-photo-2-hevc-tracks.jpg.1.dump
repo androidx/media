@@ -11,6 +11,7 @@ track 0:
   sample count = 44
   track duration = 2100700
   format 0:
+    averageBitrate = 12593505
     id = 1
     containerMimeType = video/mp4
     sampleMimeType = video/hevc
@@ -213,6 +214,7 @@ track 1:
   sample count = 1
   track duration = 466800
   format 0:
+    averageBitrate = 2593047
     id = 2
     containerMimeType = video/mp4
     sampleMimeType = video/hevc
@@ -243,6 +245,7 @@ track 2:
   sample count = 38
   track duration = 2100700
   format 0:
+    averageBitrate = 99395
     id = 3
     containerMimeType = video/mp4
     sampleMimeType = application/microvideo-meta-stream
@@ -405,6 +408,7 @@ track 3:
   sample count = 1
   track duration = 1133700
   format 0:
+    averageBitrate = 416
     id = 4
     containerMimeType = video/mp4
     sampleMimeType = application/motionphoto-image-meta

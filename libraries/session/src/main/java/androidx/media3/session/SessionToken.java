@@ -450,7 +450,7 @@ public final class SessionToken {
   private static MediaSessionCompat.Token createCompatToken(
       Parcelable platformOrLegacyCompatToken) {
     if (platformOrLegacyCompatToken instanceof Token) {
-      return MediaSessionCompat.Token.fromToken(platformOrLegacyCompatToken);
+      return MediaSessionCompat.Token.fromToken((Token) platformOrLegacyCompatToken);
     }
     // Assume this is an android.support.v4.media.session.MediaSessionCompat.Token.
     return LegacyParcelableUtil.convert(

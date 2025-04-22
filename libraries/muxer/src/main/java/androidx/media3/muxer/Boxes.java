@@ -32,11 +32,15 @@ import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.CodecSpecificDataUtil;
+import androidx.media3.common.util.Log;
+import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.Util;
+import androidx.media3.container.DolbyVisionConfig;
 import androidx.media3.container.MdtaMetadataEntry;
 import androidx.media3.container.Mp4LocationData;
 import androidx.media3.container.NalUnitUtil;
 import androidx.media3.muxer.FragmentedMp4Writer.SampleMetadata;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -50,6 +54,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.PolyNull;
 
 /** Writes out various types of boxes as per MP4 (ISO/IEC 14496-12) standards. */
@@ -89,6 +94,8 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
    * 1 (bit index 16)
    */
   private static final int TRUN_BOX_NON_SYNC_SAMPLE_FLAGS = 0b00000001_00000001_00000000_00000000;
+
+  private static final String TAG = "Boxes";
 
   private Boxes() {}
 
@@ -145,6 +152,14 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
         continue;
       }
       Format format = track.format;
+      if (Objects.equals(track.format.sampleMimeType, MimeTypes.VIDEO_AV1)
+          && format.initializationData.isEmpty()) {
+        format =
+            format
+                .buildUpon()
+                .setInitializationData(ImmutableList.of(checkNotNull(track.parsedCsd)))
+                .build();
+      }
       String languageCode = bcp47LanguageTagToIso3(format.language);
 
       // Generate the sample durations to calculate the total duration for tkhd box.
@@ -713,6 +728,8 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
         return esdsBox(format);
       case MimeTypes.VIDEO_VP9:
         return vpcCBox(format);
+      case MimeTypes.VIDEO_DOLBY_VISION:
+        return doviSpecificBox(format);
       default:
         throw new IllegalArgumentException("Unsupported format: " + mimeType);
     }
@@ -1533,13 +1550,37 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
   /** Returns the av1C box. */
   private static ByteBuffer av1CBox(Format format) {
     // For AV1, the entire codec-specific box is packed into csd-0.
-    checkArgument(
-        !format.initializationData.isEmpty(), "csd-0 is not found in the format for av1C box");
-
     byte[] csd0 = format.initializationData.get(0);
-    checkArgument(csd0.length > 0, "csd-0 is empty for av1C box.");
 
     return BoxUtils.wrapIntoBox("av1C", ByteBuffer.wrap(csd0));
+  }
+
+  /** Returns a dvcC/dvwC/dvvC vision box which will be included in dolby vision box. */
+  private static ByteBuffer doviBox(int profile, byte[] csd) {
+    checkArgument(csd.length > 0, "csd is empty for dovi box.");
+    if (profile <= 7) {
+      return BoxUtils.wrapIntoBox("dvcC", ByteBuffer.wrap(csd));
+    } else if (profile <= 10) {
+      return BoxUtils.wrapIntoBox("dvvC", ByteBuffer.wrap(csd));
+    } else if (profile <= 19) {
+      return BoxUtils.wrapIntoBox("dvwC", ByteBuffer.wrap(csd));
+    } else if (profile == 20) {
+      return BoxUtils.wrapIntoBox("dvcC", ByteBuffer.wrap(csd));
+    } else {
+      return BoxUtils.wrapIntoBox("dvwC", ByteBuffer.wrap(csd));
+    }
+  }
+
+  /** Returns a dolby vision box as per Dolby Vision ISO media format. */
+  private static ByteBuffer doviSpecificBox(Format format) {
+    checkArgument(
+        !format.initializationData.isEmpty(), "csd is not found in the format for dolby vision");
+    byte[] dolbyVisionCsd = Iterables.getLast(format.initializationData);
+    DolbyVisionConfig dolbyVisionConfig = getDolbyVisionConfig(format);
+    checkNotNull(dolbyVisionConfig, "Dolby vision codec is not supported.");
+    ByteBuffer avcHevcBox = dolbyVisionConfig.profile <= 8 ? hvcCBox(format) : avcCBox(format);
+    ByteBuffer dolbyBox = doviBox(dolbyVisionConfig.profile, dolbyVisionCsd);
+    return BoxUtils.concatenateBuffers(avcHevcBox, dolbyBox);
   }
 
   /** Returns the vpcC box as per VP Codec ISO Media File Format Binding v1.0. */
@@ -1685,6 +1726,45 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     return BoxUtils.wrapIntoBox("colr", contents);
   }
 
+  @Nullable
+  private static DolbyVisionConfig getDolbyVisionConfig(Format format) {
+    @Nullable
+    DolbyVisionConfig dolbyVisionConfig =
+        DolbyVisionConfig.parse(
+            new ParsableByteArray(Iterables.getLast(format.initializationData)));
+    if (dolbyVisionConfig == null && format.codecs != null) {
+      Pair<Integer, Integer> profileAndLevel = getDolbyVisionProfileAndLevel(format);
+      checkNotNull(profileAndLevel, "Dolby Vision profile and level is not found.");
+      byte[] dolbyVisionCsd =
+          CodecSpecificDataUtil.buildDolbyVisionInitializationData(
+              /* profile= */ profileAndLevel.first, /* level= */ profileAndLevel.second);
+      dolbyVisionConfig = DolbyVisionConfig.parse(new ParsableByteArray(dolbyVisionCsd));
+    }
+    return dolbyVisionConfig;
+  }
+
+  /** Returns codec specific fourcc for Dolby vision. */
+  private static String getDoviFourcc(Format format) {
+    @Nullable DolbyVisionConfig dolbyVisionConfig = getDolbyVisionConfig(format);
+    checkNotNull(
+        dolbyVisionConfig,
+        "Dolby Vision Initialization data is not found for format: %s" + format.sampleMimeType);
+    switch (dolbyVisionConfig.profile) {
+      case 5:
+        return "dvh1";
+      case 8:
+        return "hvc1";
+      case 9:
+        return "avc1";
+      default:
+        throw new IllegalArgumentException(
+            "Unsupported profile "
+                + dolbyVisionConfig.profile
+                + " for format: "
+                + format.sampleMimeType);
+    }
+  }
+
   /** Returns codec specific fourcc. */
   private static String codecSpecificFourcc(Format format) {
     String mimeType = checkNotNull(format.sampleMimeType);
@@ -1720,6 +1800,8 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
         return "mp4v-es";
       case MimeTypes.VIDEO_VP9:
         return "vp09";
+      case MimeTypes.VIDEO_DOLBY_VISION:
+        return getDoviFourcc(format);
       default:
         throw new IllegalArgumentException("Unsupported format: " + mimeType);
     }
@@ -1937,5 +2019,20 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
       }
     }
     return minInputPtsUs != Long.MAX_VALUE ? minInputPtsUs : C.TIME_UNSET;
+  }
+
+  /** Returns profile and level of dolby vision */
+  @Nullable
+  /* package */ static Pair<Integer, Integer> getDolbyVisionProfileAndLevel(Format format) {
+    checkNotNull(format.codecs, "Codec string is null for Dolby Vision format.");
+    List<String> parts = Splitter.on('.').splitToList(format.codecs);
+    if (parts.size() < 3) {
+      // The codec has fewer parts than required by the Dolby Vision codec string format.
+      Log.w(TAG, "Invalid Dolby Vision codec string: " + format.codecs);
+      return null;
+    }
+    int profile = Integer.parseInt(parts.get(1));
+    int level = Integer.parseInt(parts.get(2));
+    return Pair.create(profile, level);
   }
 }

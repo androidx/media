@@ -118,7 +118,7 @@ public final class PictureFrame implements Metadata.Entry {
    * Parses a {@code METADATA_BLOCK_PICTURE} into a {@code PictureFrame} instance.
    *
    * <p>{@code pictureBlock} may be read directly from a <a
-   * href="https://xiph.org/flac/format.html#metadata_block_picture">FLAC file</a>, or decoded from
+   * href="https://www.rfc-editor.org/rfc/rfc9639.html#name-picture">FLAC file</a>, or decoded from
    * the base64 content of a <a
    * href="https://wiki.xiph.org/VorbisComment#METADATA_BLOCK_PICTURE">Vorbis Comment</a>.
    *

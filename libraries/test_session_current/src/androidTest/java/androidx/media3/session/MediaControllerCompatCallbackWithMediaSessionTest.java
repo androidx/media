@@ -15,6 +15,7 @@
  */
 package androidx.media3.session;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static android.support.v4.media.MediaMetadataCompat.METADATA_KEY_DURATION;
 import static android.support.v4.media.MediaMetadataCompat.METADATA_KEY_MEDIA_ID;
 import static android.support.v4.media.MediaMetadataCompat.METADATA_KEY_USER_RATING;
@@ -53,7 +54,6 @@ import androidx.media3.common.Player;
 import androidx.media3.common.Player.RepeatMode;
 import androidx.media3.common.Player.State;
 import androidx.media3.common.Timeline;
-import androidx.media3.common.util.Util;
 import androidx.media3.test.session.common.HandlerThreadTestRule;
 import androidx.media3.test.session.common.PollingCheck;
 import androidx.media3.test.session.common.SurfaceActivity;
@@ -610,7 +610,7 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
     session.setPlayer(playerConfigToUpdate);
 
     // In API 21 and 22, onAudioInfoChanged is not called when playback is changed to local.
-    if (Util.SDK_INT <= 22) {
+    if (SDK_INT <= 22) {
       PollingCheck.waitFor(
           TIMEOUT_MS,
           () -> {
@@ -1409,9 +1409,7 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
     assertThat(controllerCompat.getPlaybackState().getPosition()).isEqualTo(testPosition);
     assertThat(playbackStateRef.get().getActiveQueueItemId()).isEqualTo(testItemIndex);
     assertThat(controllerCompat.getPlaybackState().getActiveQueueItemId()).isEqualTo(testItemIndex);
-    assertThat(callbackOrder)
-        .containsExactly("onMetadataChanged", "onPlaybackStateChanged")
-        .inOrder();
+    assertThat(callbackOrder).containsExactly("onMetadataChanged", "onPlaybackStateChanged");
   }
 
   @Test

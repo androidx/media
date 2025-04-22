@@ -95,6 +95,31 @@ public final class DashMediaPeriodTest {
   }
 
   @Test
+  public void
+      adaptationSetSwitchingProperty_withIncompatibleFormats_mergesOnlyCompatibleTrackGroups()
+          throws IOException {
+    DashManifest manifest = parseManifest("media/mpd/sample_mpd_switching_property_incompatible");
+    DashMediaPeriod dashMediaPeriod = createDashMediaPeriod(manifest, /* periodIndex= */ 0);
+    List<AdaptationSet> adaptationSets = manifest.getPeriod(0).adaptationSets;
+
+    // Only the two matching pairs of adaptation sets should be merged.
+    TrackGroupArray expectedTrackGroups =
+        new TrackGroupArray(
+            new TrackGroup(/* id= */ "0", adaptationSets.get(0).representations.get(0).format),
+            new TrackGroup(
+                /* id= */ "1",
+                adaptationSets.get(1).representations.get(0).format,
+                adaptationSets.get(3).representations.get(0).format),
+            new TrackGroup(
+                /* id= */ "2",
+                adaptationSets.get(2).representations.get(0).format,
+                adaptationSets.get(4).representations.get(0).format),
+            new TrackGroup(/* id= */ "5", adaptationSets.get(5).representations.get(0).format));
+
+    MediaPeriodAsserts.assertTrackGroups(dashMediaPeriod, expectedTrackGroups);
+  }
+
+  @Test
   public void trickPlayProperty_mergesTrackGroups() throws IOException {
     DashManifest manifest = parseManifest("media/mpd/sample_mpd_trick_play_property");
     DashMediaPeriod dashMediaPeriod = createDashMediaPeriod(manifest, 0);
@@ -208,7 +233,8 @@ public final class DashMediaPeriodTest {
   private static DashMediaPeriod createDashMediaPeriod(DashManifest manifest, int periodIndex) {
     MediaPeriodId mediaPeriodId = new MediaPeriodId(/* periodUid= */ new Object());
     DashChunkSource.Factory chunkSourceFactory = mock(DashChunkSource.Factory.class);
-    when(chunkSourceFactory.getOutputTextFormat(any())).thenCallRealMethod();
+    when(chunkSourceFactory.getOutputTextFormat(any()))
+        .then(invocation -> invocation.getArguments()[0]);
     return new DashMediaPeriod(
         /* id= */ periodIndex,
         manifest,

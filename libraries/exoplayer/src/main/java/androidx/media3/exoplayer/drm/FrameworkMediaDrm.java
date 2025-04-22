@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.drm;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 
 import android.annotation.SuppressLint;
@@ -39,7 +40,6 @@ import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.extractor.mp4.PsshAtomUtil;
 import androidx.media3.extractor.mp4.PsshAtomUtil.PsshAtom;
@@ -144,7 +144,7 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
   @RequiresApi(23)
   public void setOnKeyStatusChangeListener(
       @Nullable ExoMediaDrm.OnKeyStatusChangeListener listener) {
-    if (Util.SDK_INT < 23) {
+    if (SDK_INT < 23) {
       throw new UnsupportedOperationException();
     }
 
@@ -172,7 +172,7 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
   @Override
   @RequiresApi(23)
   public void setOnExpirationUpdateListener(@Nullable OnExpirationUpdateListener listener) {
-    if (Util.SDK_INT < 23) {
+    if (SDK_INT < 23) {
       throw new UnsupportedOperationException();
     }
 
@@ -199,7 +199,7 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
   @UnstableApi
   @Override
   public void setPlayerIdForSession(byte[] sessionId, PlayerId playerId) {
-    if (Util.SDK_INT >= 31) {
+    if (SDK_INT >= 31) {
       try {
         Api31.setLogSessionIdOnMediaDrmSession(mediaDrm, sessionId, playerId);
       } catch (UnsupportedOperationException e) {
@@ -238,8 +238,7 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
     }
 
     @KeyRequest.RequestType
-    int requestType =
-        Util.SDK_INT >= 23 ? request.getRequestType() : KeyRequest.REQUEST_TYPE_UNKNOWN;
+    int requestType = SDK_INT >= 23 ? request.getRequestType() : KeyRequest.REQUEST_TYPE_UNKNOWN;
 
     return new KeyRequest(requestData, licenseServerUrl, requestType);
   }
@@ -248,7 +247,7 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
     if (MOCK_LA_URL.equals(licenseServerUrl)) {
       return "";
     }
-    if (Util.SDK_INT >= 33 && "https://default.url".equals(licenseServerUrl)) {
+    if (SDK_INT >= 33 && "https://default.url".equals(licenseServerUrl)) {
       // Work around b/247808112
       String pluginVersion = getPropertyString("version");
       if (Objects.equals(pluginVersion, "1.2") || Objects.equals(pluginVersion, "aidl-1")) {
@@ -293,7 +292,7 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
   @Override
   public boolean requiresSecureDecoder(byte[] sessionId, String mimeType) {
     boolean result;
-    if (Util.SDK_INT >= 31 && isMediaDrmRequiresSecureDecoderImplemented()) {
+    if (SDK_INT >= 31 && isMediaDrmRequiresSecureDecoderImplemented()) {
       result =
           Api31.requiresSecureDecoder(mediaDrm, mimeType, mediaDrm.getSecurityLevel(sessionId));
     } else {
@@ -341,7 +340,7 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
   @UnstableApi
   @RequiresApi(29)
   public void removeOfflineLicense(byte[] keySetId) {
-    if (Util.SDK_INT < 29) {
+    if (SDK_INT < 29) {
       throw new UnsupportedOperationException();
     }
     mediaDrm.removeOfflineLicense(keySetId);
@@ -351,7 +350,7 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
   @UnstableApi
   @RequiresApi(29)
   public List<byte[]> getOfflineLicenseKeySetIds() {
-    if (Util.SDK_INT < 29) {
+    if (SDK_INT < 29) {
       throw new UnsupportedOperationException();
     }
     return mediaDrm.getOfflineLicenseKeySetIds();
@@ -361,7 +360,7 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
   @Override
   @Nullable
   public PersistableBundle getMetrics() {
-    if (Util.SDK_INT < 28) {
+    if (SDK_INT < 28) {
       return null;
     }
     return mediaDrm.getMetrics();
@@ -429,7 +428,7 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
       return schemeDatas.get(0);
     }
 
-    if (Util.SDK_INT >= 28 && schemeDatas.size() > 1) {
+    if (SDK_INT >= 28 && schemeDatas.size() > 1) {
       // For API level 28 and above, concatenate multiple PSSH scheme datas if possible.
       SchemeData firstSchemeData = schemeDatas.get(0);
       int concatenatedDataLength = 0;
@@ -466,9 +465,9 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
     for (int i = 0; i < schemeDatas.size(); i++) {
       SchemeData schemeData = schemeDatas.get(i);
       int version = PsshAtomUtil.parseVersion(Assertions.checkNotNull(schemeData.data));
-      if (Util.SDK_INT < 23 && version == 0) {
+      if (SDK_INT < 23 && version == 0) {
         return schemeData;
-      } else if (Util.SDK_INT >= 23 && version == 1) {
+      } else if (SDK_INT >= 23 && version == 1) {
         return schemeData;
       }
     }
@@ -508,7 +507,7 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
     // that only provides V1 PSSH atoms. API levels 23 and above understand V0 and V1 PSSH atoms,
     // and so we do not extract the data.
     // Some Amazon devices also require data to be extracted from the PSSH atom for PlayReady.
-    if ((Util.SDK_INT < 23 && C.WIDEVINE_UUID.equals(uuid))
+    if ((SDK_INT < 23 && C.WIDEVINE_UUID.equals(uuid))
         || (C.PLAYREADY_UUID.equals(uuid)
             && "Amazon".equals(Build.MANUFACTURER)
             && ("AFTB".equals(Build.MODEL) // Fire TV Gen 1
@@ -526,7 +525,7 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
 
   private static String adjustRequestMimeType(UUID uuid, String mimeType) {
     // Prior to API level 26 the ClearKey CDM only accepted "cenc" as the scheme for MP4.
-    if (Util.SDK_INT < 26
+    if (SDK_INT < 26
         && C.CLEARKEY_UUID.equals(uuid)
         && (MimeTypes.VIDEO_MP4.equals(mimeType) || MimeTypes.AUDIO_MP4.equals(mimeType))) {
       return CENC_SCHEME_MIME_TYPE;
@@ -543,7 +542,7 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
 
   private static boolean cdmRequiresCommonPsshUuid(UUID uuid) {
     // ClearKey had to be accessed using the Common PSSH UUID prior to API level 27.
-    return Util.SDK_INT < 27 && Objects.equals(uuid, C.CLEARKEY_UUID);
+    return SDK_INT < 27 && Objects.equals(uuid, C.CLEARKEY_UUID);
   }
 
   private static void forceWidevineL3(MediaDrm mediaDrm) {

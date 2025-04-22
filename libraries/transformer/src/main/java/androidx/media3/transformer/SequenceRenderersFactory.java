@@ -15,15 +15,19 @@
  */
 package androidx.media3.transformer;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.PlaybackException.ERROR_CODE_AUDIO_TRACK_WRITE_FAILED;
 import static androidx.media3.common.PlaybackException.ERROR_CODE_VIDEO_FRAME_PROCESSING_FAILED;
 import static androidx.media3.common.PlaybackException.ERROR_CODE_VIDEO_FRAME_PROCESSOR_INIT_FAILED;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
-import static androidx.media3.common.util.Util.SDK_INT;
 import static androidx.media3.exoplayer.DefaultRenderersFactory.DEFAULT_ALLOWED_VIDEO_JOINING_TIME_MS;
 import static androidx.media3.exoplayer.DefaultRenderersFactory.MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY;
+import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_IMMEDIATELY;
+import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED;
+import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_WHEN_STARTED;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -434,9 +438,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     @Override
     protected void changeVideoSinkInputStream(
-        VideoSink videoSink, @VideoSink.InputType int inputType, Format format) {
+        VideoSink videoSink,
+        @VideoSink.InputType int inputType,
+        Format format,
+        @VideoSink.FirstFrameReleaseInstruction int firstFrameReleaseInstruction) {
       videoSink.onInputStreamChanged(
-          inputType, format, getOutputStreamStartPositionUs(), pendingEffects);
+          inputType,
+          format,
+          getOutputStreamStartPositionUs(),
+          firstFrameReleaseInstruction,
+          pendingEffects);
     }
 
     private void activateBufferingVideoSink() {
@@ -488,7 +499,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     private boolean inputStreamPending;
     private long streamStartPositionUs;
     private boolean mayRenderStartOfStream;
+    private @VideoSink.FirstFrameReleaseInstruction int nextFirstFrameReleaseInstruction;
     private long offsetToCompositionTimeUs;
+    private @MonotonicNonNull WakeupListener wakeupListener;
 
     public SequenceImageRenderer(
         EditedMediaItemSequence sequence,
@@ -508,10 +521,21 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         throws ExoPlaybackException {
       super.onEnabled(joining, mayRenderStartOfStream);
       this.mayRenderStartOfStream = mayRenderStartOfStream;
-      videoSink.onRendererEnabled(mayRenderStartOfStream);
-      // TODO: b/328444280 - Do not set a listener on VideoSink, but MediaCodecVideoRenderer must
-      //  unregister itself as a listener too.
-      videoSink.setListener(VideoSink.Listener.NO_OP, /* executor= */ (runnable) -> {});
+      nextFirstFrameReleaseInstruction =
+          mayRenderStartOfStream
+              ? RELEASE_FIRST_FRAME_IMMEDIATELY
+              : RELEASE_FIRST_FRAME_WHEN_STARTED;
+      // TODO: b/328444280 - Unregister as a listener when the renderer is not used anymore
+      videoSink.setListener(
+          new VideoSink.Listener() {
+            @Override
+            public void onFrameAvailableForRendering() {
+              if (wakeupListener != null) {
+                wakeupListener.onWakeup();
+              }
+            }
+          },
+          directExecutor());
     }
 
     @Override
@@ -526,7 +550,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       if (mayRenderStartOfStream) {
         // The image renderer is not playing after a video. We must wait until the first frame is
         // rendered.
-        return videoSink.isReady(/* rendererOtherwiseReady= */ super.isReady());
+        return videoSink.isReady(/* otherwiseReady= */ super.isReady());
       } else {
         // The image renderer is playing after a video. We don't need to wait until the first frame
         // is rendered.
@@ -552,7 +576,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     @Override
     protected void onStarted() throws ExoPlaybackException {
       super.onStarted();
-      videoSink.onRendererStarted();
+      videoSink.startRendering();
     }
 
     @Override
@@ -571,7 +595,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     @Override
     protected void onStopped() {
       super.onStopped();
-      videoSink.onRendererStopped();
+      videoSink.stopRendering();
     }
 
     @Override
@@ -625,7 +649,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                 .setFrameRate(/* frameRate= */ DEFAULT_FRAME_RATE)
                 .build(),
             streamStartPositionUs,
+            nextFirstFrameReleaseInstruction,
             videoEffects);
+        nextFirstFrameReleaseInstruction = RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED;
         inputStreamPending = false;
       }
       if (!videoSink.handleInputBitmap(outputImage, checkStateNotNull(timestampIterator))) {
@@ -642,7 +668,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     public void handleMessage(@MessageType int messageType, @Nullable Object message)
         throws ExoPlaybackException {
       if (messageType == MSG_SET_WAKEUP_LISTENER) {
-        videoSink.setWakeupListener((WakeupListener) checkNotNull(message));
+        this.wakeupListener = (WakeupListener) checkNotNull(message);
       } else {
         super.handleMessage(messageType, message);
       }

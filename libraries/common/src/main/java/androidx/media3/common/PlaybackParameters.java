@@ -88,6 +88,18 @@ public final class PlaybackParameters {
     return new PlaybackParameters(speed, pitch);
   }
 
+  /**
+   * Returns a copy with the given pitch.
+   *
+   * @param pitch The new pitch. Must be greater than zero.
+   * @return The copied playback parameters.
+   */
+  @UnstableApi
+  @CheckResult
+  public PlaybackParameters withPitch(@FloatRange(from = 0, fromInclusive = false) float pitch) {
+    return new PlaybackParameters(speed, pitch);
+  }
+
   @Override
   public boolean equals(@Nullable Object obj) {
     if (this == obj) {

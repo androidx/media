@@ -17,6 +17,7 @@ package androidx.media3.extractor;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.Format;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.UnstableApi;
 import java.io.EOFException;
@@ -119,6 +120,59 @@ public final class ExtractorUtil {
       } else {
         throw e;
       }
+    }
+  }
+
+  /**
+   * Returns the maximum encoded rate for samples of the given encoding.
+   *
+   * @param encoding A {@link C.Encoding}.
+   * @return The maximum encoded rate for this encoding in bytes per second, or {@link
+   *     C#RATE_UNSET_INT} if unknown.
+   */
+  public static int getMaximumEncodedRateBytesPerSecond(@C.Encoding int encoding) {
+    switch (encoding) {
+      case C.ENCODING_MP3:
+        return MpegAudioUtil.MAX_RATE_BYTES_PER_SECOND;
+      case C.ENCODING_AAC_LC:
+        return AacUtil.AAC_LC_MAX_RATE_BYTES_PER_SECOND;
+      case C.ENCODING_AAC_HE_V1:
+        return AacUtil.AAC_HE_V1_MAX_RATE_BYTES_PER_SECOND;
+      case C.ENCODING_AAC_HE_V2:
+        return AacUtil.AAC_HE_V2_MAX_RATE_BYTES_PER_SECOND;
+      case C.ENCODING_AAC_XHE:
+        return AacUtil.AAC_XHE_MAX_RATE_BYTES_PER_SECOND;
+      case C.ENCODING_AAC_ELD:
+        return AacUtil.AAC_ELD_MAX_RATE_BYTES_PER_SECOND;
+      case C.ENCODING_AC3:
+        return Ac3Util.AC3_MAX_RATE_BYTES_PER_SECOND;
+      case C.ENCODING_E_AC3:
+      case C.ENCODING_E_AC3_JOC:
+        return Ac3Util.E_AC3_MAX_RATE_BYTES_PER_SECOND;
+      case C.ENCODING_AC4:
+        return Ac4Util.MAX_RATE_BYTES_PER_SECOND;
+      case C.ENCODING_DTS:
+        return DtsUtil.DTS_MAX_RATE_BYTES_PER_SECOND;
+      case C.ENCODING_DTS_HD:
+      case C.ENCODING_DTS_UHD_P2:
+        return DtsUtil.DTS_HD_MAX_RATE_BYTES_PER_SECOND;
+      case C.ENCODING_DOLBY_TRUEHD:
+        return Ac3Util.TRUEHD_MAX_RATE_BYTES_PER_SECOND;
+      case C.ENCODING_OPUS:
+        return OpusUtil.MAX_BYTES_PER_SECOND;
+      case C.ENCODING_PCM_16BIT:
+      case C.ENCODING_PCM_16BIT_BIG_ENDIAN:
+      case C.ENCODING_PCM_24BIT:
+      case C.ENCODING_PCM_24BIT_BIG_ENDIAN:
+      case C.ENCODING_PCM_32BIT:
+      case C.ENCODING_PCM_32BIT_BIG_ENDIAN:
+      case C.ENCODING_PCM_8BIT:
+      case C.ENCODING_PCM_FLOAT:
+      case C.ENCODING_AAC_ER_BSAC:
+      case C.ENCODING_INVALID:
+      case Format.NO_VALUE:
+      default:
+        return C.RATE_UNSET_INT;
     }
   }
 
