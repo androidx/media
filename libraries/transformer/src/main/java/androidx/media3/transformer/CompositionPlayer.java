@@ -59,6 +59,8 @@ import androidx.media3.effect.TimestampAdjustment;
 import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.RendererCapabilities;
+import androidx.media3.exoplayer.analytics.AnalyticsCollector;
+import androidx.media3.exoplayer.analytics.DefaultAnalyticsCollector;
 import androidx.media3.exoplayer.audio.AudioSink;
 import androidx.media3.exoplayer.audio.DefaultAudioSink;
 import androidx.media3.exoplayer.image.ImageDecoder;
@@ -286,6 +288,10 @@ public final class CompositionPlayer extends SimpleBasePlayer
                     .build());
       }
       CompositionPlayer compositionPlayer = new CompositionPlayer(this);
+      AnalyticsCollector analyticsCollector = new DefaultAnalyticsCollector(clock);
+      analyticsCollector.setPlayer(compositionPlayer, looper);
+      analyticsCollector.addListener(new EventLogger(TAG));
+      compositionPlayer.addListener(analyticsCollector);
       built = true;
       return compositionPlayer;
     }
@@ -817,7 +823,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
 
       ExoPlayer player = playerBuilder.build();
       player.addListener(new PlayerListener(i));
-      player.addAnalyticsListener(new EventLogger());
+      player.addAnalyticsListener(new EventLogger(TAG + "-" + i));
       player.setPauseAtEndOfMediaItems(true);
 
       if (i == 0) {
