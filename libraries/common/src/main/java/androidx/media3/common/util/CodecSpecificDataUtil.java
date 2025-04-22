@@ -62,6 +62,8 @@ public final class CodecSpecificDataUtil {
   private static final String CODEC_ID_AV01 = "av01";
   // MP4A AAC.
   private static final String CODEC_ID_MP4A = "mp4a";
+  // AC-4
+  private static final String CODEC_ID_AC4 = "ac-4";
 
   private static final Pattern PROFILE_PATTERN = Pattern.compile("^\\D?(\\d+)$");
 
@@ -350,6 +352,8 @@ public final class CodecSpecificDataUtil {
         return getAv1ProfileAndLevel(format.codecs, parts, format.colorInfo);
       case CODEC_ID_MP4A:
         return getAacCodecProfileAndLevel(format.codecs, parts);
+      case CODEC_ID_AC4:
+        return getAc4CodecProfileAndLevel(format.codecs, parts);
       default:
         return null;
     }
@@ -763,6 +767,41 @@ public final class CodecSpecificDataUtil {
     return null;
   }
 
+  @Nullable
+  private static Pair<Integer, Integer> getAc4CodecProfileAndLevel(String codec, String[] parts) {
+    if (parts.length != 4) {
+      Log.w(TAG, "Ignoring malformed AC-4 codec string: " + codec);
+      return null;
+    }
+    int bitstreamVersionInteger;
+    int presentationVersionInteger;
+    int levelInteger;
+    try {
+      bitstreamVersionInteger = Integer.parseInt(parts[1]);
+      presentationVersionInteger = Integer.parseInt(parts[2]);
+      levelInteger = Integer.parseInt(parts[3]);
+    } catch (NumberFormatException e) {
+      Log.w(TAG, "Ignoring malformed AC-4 codec string: " + codec);
+      return null;
+    }
+
+    int profile =
+        ac4BitstreamAndPresentationVersionsToProfileConst(
+            bitstreamVersionInteger, presentationVersionInteger);
+    if (profile == -1) {
+      Log.w(
+          TAG,
+          "Unknown AC-4 profile: " + bitstreamVersionInteger + "." + presentationVersionInteger);
+      return null;
+    }
+    int level = ac4LevelNumberToConst(levelInteger);
+    if (level == -1) {
+      Log.w(TAG, "Unknown AC-4 level: " + levelInteger);
+      return null;
+    }
+    return new Pair<>(profile, level);
+  }
+
   private static int avcProfileNumberToConst(int profileNumber) {
     switch (profileNumber) {
       case 66:
@@ -1089,6 +1128,52 @@ public final class CodecSpecificDataUtil {
         return MediaCodecInfo.CodecProfileLevel.AACObjectELD;
       case 42:
         return MediaCodecInfo.CodecProfileLevel.AACObjectXHE;
+      default:
+        return -1;
+    }
+  }
+
+  private static int ac4BitstreamAndPresentationVersionsToProfileConst(
+      int bitstreamVersionInteger, int presentationVersionInteger) {
+    int ac4Profile = -1;
+    switch (bitstreamVersionInteger) {
+      case 0:
+        if (presentationVersionInteger == 0) {
+          ac4Profile = MediaCodecInfo.CodecProfileLevel.AC4Profile00;
+        }
+        break;
+      case 1:
+        if (presentationVersionInteger == 0) {
+          ac4Profile = MediaCodecInfo.CodecProfileLevel.AC4Profile10;
+        } else if (presentationVersionInteger == 1) {
+          ac4Profile = MediaCodecInfo.CodecProfileLevel.AC4Profile11;
+        }
+        break;
+      case 2:
+        if (presentationVersionInteger == 1) {
+          ac4Profile = MediaCodecInfo.CodecProfileLevel.AC4Profile21;
+        } else if (presentationVersionInteger == 2) {
+          ac4Profile = MediaCodecInfo.CodecProfileLevel.AC4Profile22;
+        }
+        break;
+      default:
+        break;
+    }
+    return ac4Profile;
+  }
+
+  private static int ac4LevelNumberToConst(int levelNumber) {
+    switch (levelNumber) {
+      case 0:
+        return MediaCodecInfo.CodecProfileLevel.AC4Level0;
+      case 1:
+        return MediaCodecInfo.CodecProfileLevel.AC4Level1;
+      case 2:
+        return MediaCodecInfo.CodecProfileLevel.AC4Level2;
+      case 3:
+        return MediaCodecInfo.CodecProfileLevel.AC4Level3;
+      case 4:
+        return MediaCodecInfo.CodecProfileLevel.AC4Level4;
       default:
         return -1;
     }

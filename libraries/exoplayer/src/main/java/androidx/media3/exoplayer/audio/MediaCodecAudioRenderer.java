@@ -33,6 +33,7 @@ import android.media.MediaFormat;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
+import android.util.Pair;
 import androidx.annotation.CallSuper;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
@@ -44,6 +45,7 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.audio.AudioProcessor;
+import androidx.media3.common.util.CodecSpecificDataUtil;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.MediaFormatUtil;
 import androidx.media3.common.util.UnstableApi;
@@ -1020,10 +1022,17 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
         mediaFormat.setFloat(MediaFormat.KEY_OPERATING_RATE, codecOperatingRate);
       }
     }
-    if (SDK_INT <= 28 && MimeTypes.AUDIO_AC4.equals(format.sampleMimeType)) {
-      // On some older builds, the AC-4 decoder expects to receive samples formatted as raw frames
-      // not sync frames. Set a format key to override this.
-      mediaFormat.setInteger("ac4-is-sync", 1);
+    if (MimeTypes.AUDIO_AC4.equals(format.sampleMimeType)) {
+      Pair<Integer, Integer> profileLevel = CodecSpecificDataUtil.getCodecProfileAndLevel(format);
+      if (profileLevel != null) {
+        MediaFormatUtil.maybeSetInteger(mediaFormat, MediaFormat.KEY_PROFILE, profileLevel.first);
+        MediaFormatUtil.maybeSetInteger(mediaFormat, MediaFormat.KEY_LEVEL, profileLevel.second);
+      }
+      if (SDK_INT <= 28) {
+        // On some older builds, the AC-4 decoder expects to receive samples formatted as raw frames
+        // not sync frames. Set a format key to override this.
+        mediaFormat.setInteger("ac4-is-sync", 1);
+      }
     }
     if (SDK_INT >= 24
         && audioSink.getFormatSupport(
