@@ -16,6 +16,7 @@
 package androidx.media3.exoplayer.audio;
 
 import static android.media.AudioFormat.CHANNEL_OUT_5POINT1;
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.exoplayer.audio.AudioCapabilities.ALL_SURROUND_ENCODINGS_AND_MAX_CHANNELS;
 import static androidx.media3.exoplayer.audio.AudioCapabilities.getCapabilities;
@@ -37,7 +38,6 @@ import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
-import androidx.media3.common.util.Util;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
@@ -489,7 +489,7 @@ public class AudioCapabilitiesTest {
         audioAttributes.getAudioAttributesV21().audioAttributes);
     AudioDeviceInfoBuilder deviceInfoBuilder =
         AudioDeviceInfoBuilder.newBuilder().setType(AudioDeviceInfo.TYPE_HDMI);
-    if (Util.SDK_INT >= 33) {
+    if (SDK_INT >= 33) {
       ImmutableList<AudioProfile> expectedProfiles =
           ImmutableList.of(
               AudioProfileBuilder.newBuilder()

@@ -15,6 +15,7 @@
  */
 package androidx.media3.test.exoplayer.playback.gts;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.C.WIDEVINE_UUID;
 
 import android.media.MediaDrm;
@@ -28,7 +29,6 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DefaultDataSource;
 import androidx.media3.datasource.DefaultHttpDataSource;
@@ -73,7 +73,7 @@ import java.util.List;
 
   // Whether adaptive tests should enable video formats beyond those mandated by the Android CDD
   // if the device advertises support for them.
-  private static final boolean ALLOW_ADDITIONAL_VIDEO_FORMATS = Util.SDK_INT >= 24;
+  private static final boolean ALLOW_ADDITIONAL_VIDEO_FORMATS = SDK_INT >= 24;
 
   private static final String AUDIO_TAG_SUFFIX = ":Audio";
   private static final String VIDEO_TAG_SUFFIX = ":Video";

@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.video;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.VideoFrameProcessor.DROP_OUTPUT_FRAME;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
@@ -497,7 +498,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
       if (requestOpenGlToneMapping) {
         outputColorInfo = ColorInfo.SDR_BT709_LIMITED;
       } else if (inputColorInfo.colorTransfer == C.COLOR_TRANSFER_HLG
-          && Util.SDK_INT < 34
+          && SDK_INT < 34
           && GlUtil.isBt2020PqExtensionSupported()) {
         // PQ SurfaceView output is supported from API 33, but HLG output is supported from API
         // 34. Therefore, convert HLG to PQ if PQ is supported, so that HLG input can be displayed
@@ -506,8 +507,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
             inputColorInfo.buildUpon().setColorTransfer(C.COLOR_TRANSFER_ST2084).build();
         // Force OpenGL tone mapping if the GL extension required to output HDR colors is not
         // available. OpenGL tone mapping is only supported on API 29+.
-      } else if (!GlUtil.isColorTransferSupported(inputColorInfo.colorTransfer)
-          && Util.SDK_INT >= 29) {
+      } else if (!GlUtil.isColorTransferSupported(inputColorInfo.colorTransfer) && SDK_INT >= 29) {
         Log.w(
             TAG,
             Util.formatInvariant(

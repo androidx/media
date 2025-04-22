@@ -16,6 +16,7 @@
 
 package androidx.media3.transformer;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static java.lang.Math.floor;
 import static java.lang.Math.max;
@@ -38,7 +39,6 @@ import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import com.google.common.base.Ascii;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
@@ -84,7 +84,7 @@ public final class EncoderUtil {
    */
   public static ImmutableList<MediaCodecInfo> getSupportedEncodersForHdrEditing(
       String mimeType, @Nullable ColorInfo colorInfo) {
-    if (Util.SDK_INT < 33 || colorInfo == null) {
+    if (SDK_INT < 33 || colorInfo == null) {
       return ImmutableList.of();
     }
 
@@ -123,7 +123,7 @@ public final class EncoderUtil {
           isFeatureSupported(
                   mediaCodecInfo, mimeType, MediaCodecInfo.CodecCapabilities.FEATURE_HdrEditing)
               || (colorInfo.colorTransfer == C.COLOR_TRANSFER_HLG
-                  && Util.SDK_INT >= 35
+                  && SDK_INT >= 35
                   && isFeatureSupported(
                       mediaCodecInfo,
                       mimeType,
@@ -406,7 +406,7 @@ public final class EncoderUtil {
   /** Checks if a {@linkplain MediaCodecInfo codec} is hardware-accelerated. */
   public static boolean isHardwareAccelerated(MediaCodecInfo encoderInfo, String mimeType) {
     // TODO: b/214964116 - Merge into MediaCodecUtil.
-    if (Util.SDK_INT >= 29) {
+    if (SDK_INT >= 29) {
       return Api29.isHardwareAccelerated(encoderInfo);
     }
     // codecInfo.isHardwareAccelerated() == !codecInfo.isSoftwareOnly() is not necessarily true.
@@ -427,7 +427,7 @@ public final class EncoderUtil {
   }
 
   private static boolean isSoftwareOnly(MediaCodecInfo encoderInfo, String mimeType) {
-    if (Util.SDK_INT >= 29) {
+    if (SDK_INT >= 29) {
       return Api29.isSoftwareOnly(encoderInfo);
     }
 

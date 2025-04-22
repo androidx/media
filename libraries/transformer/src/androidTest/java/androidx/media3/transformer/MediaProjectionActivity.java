@@ -16,7 +16,7 @@
 package androidx.media3.transformer;
 
 import static android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION;
-import static androidx.media3.common.util.Util.SDK_INT;
+import static android.os.Build.VERSION.SDK_INT;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.app.Activity;

@@ -16,6 +16,7 @@
 
 package androidx.media3.transformer;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.transformer.AndroidTestUtil.FORCE_TRANSCODE_VIDEO_EFFECTS;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S;
@@ -75,7 +76,7 @@ public class ForceEndOfStreamTest {
   public void transcode_decoderDroppingLastFourFrames_exportSucceeds() throws Exception {
     // TODO: b/370050055 - Do we need API 29+, or the device list from
     //  Util.isFrameDropAllowedOnSurfaceInput?
-    assumeTrue(Util.SDK_INT >= 29);
+    assumeTrue(SDK_INT >= 29);
     assumeFormatsSupported(
         context,
         testId,
@@ -97,7 +98,7 @@ public class ForceEndOfStreamTest {
   public void transcode_decoderDroppingNoFrame_exportSucceeds() throws Exception {
     // TODO: b/370050055 - Do we need API 29+, or the device list from
     //  Util.isFrameDropAllowedOnSurfaceInput?
-    assumeTrue(Util.SDK_INT >= 29);
+    assumeTrue(SDK_INT >= 29);
     assumeFormatsSupported(
         context,
         testId,
@@ -119,7 +120,7 @@ public class ForceEndOfStreamTest {
       throws Exception {
     // TODO: b/370050055 - Do we need API 29+, or the device list from
     //  Util.isFrameDropAllowedOnSurfaceInput?
-    assumeTrue(Util.SDK_INT >= 29);
+    assumeTrue(SDK_INT >= 29);
     assumeFormatsSupported(
         context,
         testId,

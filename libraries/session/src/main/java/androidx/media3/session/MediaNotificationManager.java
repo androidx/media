@@ -17,6 +17,7 @@ package androidx.media3.session;
 
 import static android.app.Service.STOP_FOREGROUND_DETACH;
 import static android.app.Service.STOP_FOREGROUND_REMOVE;
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -443,7 +444,7 @@ import java.util.concurrent.TimeoutException;
   }
 
   private void stopForeground(boolean removeNotifications) {
-    if (Util.SDK_INT >= 24) {
+    if (SDK_INT >= 24) {
       Api24.stopForeground(mediaSessionService, removeNotifications);
     } else {
       mediaSessionService.stopForeground(removeNotifications);

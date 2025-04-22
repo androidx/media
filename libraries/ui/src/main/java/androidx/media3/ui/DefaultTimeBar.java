@@ -15,6 +15,8 @@
  */
 package androidx.media3.ui;
 
+import static android.os.Build.VERSION.SDK_INT;
+
 import android.animation.ValueAnimator;
 import android.content.Context;
 import android.content.res.Resources;
@@ -732,7 +734,7 @@ public class DefaultTimeBar extends View implements TimeBar {
         progressBarY,
         seekBounds.right - scrubberPadding,
         progressBarY + barHeight);
-    if (Util.SDK_INT >= 29) {
+    if (SDK_INT >= 29) {
       setSystemGestureExclusionRectsV29(width, height);
     }
     update();
@@ -983,11 +985,11 @@ public class DefaultTimeBar extends View implements TimeBar {
   }
 
   private boolean setDrawableLayoutDirection(Drawable drawable) {
-    return Util.SDK_INT >= 23 && setDrawableLayoutDirection(drawable, getLayoutDirection());
+    return SDK_INT >= 23 && setDrawableLayoutDirection(drawable, getLayoutDirection());
   }
 
   private static boolean setDrawableLayoutDirection(Drawable drawable, int layoutDirection) {
-    return Util.SDK_INT >= 23 && drawable.setLayoutDirection(layoutDirection);
+    return SDK_INT >= 23 && drawable.setLayoutDirection(layoutDirection);
   }
 
   private static int dpToPx(float density, int dps) {

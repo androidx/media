@@ -15,6 +15,7 @@
  */
 package androidx.media3.session;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.session.MediaConstants.EXTRAS_KEY_COMPLETION_STATUS;
 import static androidx.media3.session.MediaConstants.EXTRAS_KEY_ERROR_RESOLUTION_ACTION_INTENT_COMPAT;
@@ -80,7 +81,6 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.Util;
 import androidx.media3.session.MediaSession.ControllerInfo;
 import androidx.media3.test.session.common.CommonConstants;
 import androidx.media3.test.session.common.MediaBrowserConstants;
@@ -419,7 +419,7 @@ public class MockMediaLibraryService extends MediaLibraryService {
           || Objects.equals(parentId, PARENT_ID_SKIP_LIMIT_REACHED_ERROR)) {
         Bundle bundle = new Bundle();
         Intent signInIntent = new Intent("action");
-        int flags = Util.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0;
+        int flags = SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0;
         bundle.putParcelable(
             EXTRAS_KEY_ERROR_RESOLUTION_ACTION_INTENT_COMPAT,
             PendingIntent.getActivity(
@@ -445,7 +445,7 @@ public class MockMediaLibraryService extends MediaLibraryService {
       } else if (Objects.equals(parentId, PARENT_ID_AUTH_EXPIRED_ERROR_NON_FATAL)) {
         Bundle bundle = new Bundle();
         Intent signInIntent = new Intent("action");
-        int flags = Util.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0;
+        int flags = SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0;
         bundle.putParcelable(
             EXTRAS_KEY_ERROR_RESOLUTION_ACTION_INTENT_COMPAT,
             PendingIntent.getActivity(

@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.drm;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.ElementType.LOCAL_VARIABLE;
 import static java.lang.annotation.ElementType.METHOD;
@@ -90,7 +91,7 @@ public final class DrmUtil {
       String diagnosticsInfo = ((MediaDrm.MediaDrmStateException) exception).getDiagnosticInfo();
       int drmErrorCode = Util.getErrorCodeFromPlatformDiagnosticsInfo(diagnosticsInfo);
       return Util.getErrorCodeForMediaDrmErrorCode(drmErrorCode);
-    } else if (Util.SDK_INT >= 23 && Api23.isMediaDrmResetException(exception)) {
+    } else if (SDK_INT >= 23 && Api23.isMediaDrmResetException(exception)) {
       return PlaybackException.ERROR_CODE_DRM_SYSTEM_ERROR;
     } else if (exception instanceof NotProvisionedException
         || isFailureToConstructNotProvisionedException(exception)) {
@@ -122,7 +123,7 @@ public final class DrmUtil {
    * See b/291440132.
    */
   public static boolean isFailureToConstructNotProvisionedException(@Nullable Throwable e) {
-    return Util.SDK_INT == 34
+    return SDK_INT == 34
         && e instanceof NoSuchMethodError
         && e.getMessage() != null
         && e.getMessage().contains("Landroid/media/NotProvisionedException;.<init>(");
@@ -133,7 +134,7 @@ public final class DrmUtil {
    * See b/291440132.
    */
   public static boolean isFailureToConstructResourceBusyException(@Nullable Throwable e) {
-    return Util.SDK_INT == 34
+    return SDK_INT == 34
         && e instanceof NoSuchMethodError
         && e.getMessage() != null
         && e.getMessage().contains("Landroid/media/ResourceBusyException;.<init>(");

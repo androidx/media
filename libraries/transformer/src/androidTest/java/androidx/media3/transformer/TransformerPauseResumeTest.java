@@ -15,6 +15,7 @@
  */
 package androidx.media3.transformer;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S;
 import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
@@ -427,9 +428,9 @@ public class TransformerPauseResumeTest {
     // v26 emulators are not producing I-frames, due to which resuming export does not work as
     // expected.
     // On vivo 1820 and vivo 1906, the process crashes unexpectedly (see b/310566201).
-    return (Util.SDK_INT == 26 && Util.isRunningOnEmulator())
-        || (Util.SDK_INT == 27 && Ascii.equalsIgnoreCase(Build.MODEL, "vivo 1820"))
-        || (Util.SDK_INT == 28 && Ascii.equalsIgnoreCase(Build.MODEL, "vivo 1901"))
-        || (Util.SDK_INT == 28 && Ascii.equalsIgnoreCase(Build.MODEL, "vivo 1906"));
+    return (SDK_INT == 26 && Util.isRunningOnEmulator())
+        || (SDK_INT == 27 && Ascii.equalsIgnoreCase(Build.MODEL, "vivo 1820"))
+        || (SDK_INT == 28 && Ascii.equalsIgnoreCase(Build.MODEL, "vivo 1901"))
+        || (SDK_INT == 28 && Ascii.equalsIgnoreCase(Build.MODEL, "vivo 1906"));
   }
 }

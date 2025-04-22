@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.offline;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.exoplayer.offline.Download.STOP_REASON_NONE;
 
 import android.annotation.SuppressLint;
@@ -595,7 +596,7 @@ public abstract class DownloadService extends Service {
     if (downloadManagerHelper == null) {
       boolean foregroundAllowed = foregroundNotificationUpdater != null;
       // See https://developer.android.com/about/versions/12/foreground-services.
-      boolean canStartForegroundServiceFromBackground = Util.SDK_INT < 31;
+      boolean canStartForegroundServiceFromBackground = SDK_INT < 31;
       @Nullable
       Scheduler scheduler =
           foregroundAllowed && canStartForegroundServiceFromBackground ? getScheduler() : null;
@@ -683,7 +684,7 @@ public abstract class DownloadService extends Service {
         break;
     }
 
-    if (Util.SDK_INT >= 26 && startedInForeground && foregroundNotificationUpdater != null) {
+    if (SDK_INT >= 26 && startedInForeground && foregroundNotificationUpdater != null) {
       // From API level 26, services started in the foreground are required to show a notification.
       foregroundNotificationUpdater.showNotificationIfNotAlready();
     }
@@ -844,7 +845,7 @@ public abstract class DownloadService extends Service {
 
     // Stop the service, either because the DownloadManager is not waiting for requirements to be
     // met, or because we've scheduled the service to be restarted when they are.
-    if (Util.SDK_INT < 28 && taskRemoved) { // See [Internal: b/74248644].
+    if (SDK_INT < 28 && taskRemoved) { // See [Internal: b/74248644].
       stopSelf();
       isStopped = true;
     } else {

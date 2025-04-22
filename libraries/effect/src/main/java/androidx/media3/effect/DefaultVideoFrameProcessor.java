@@ -15,6 +15,7 @@
  */
 package androidx.media3.effect;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
@@ -619,7 +620,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
     }
     if (ColorInfo.isTransferHdr(outputColorInfo)) {
       checkArgument(
-          Util.SDK_INT >= 34 && inputBitmap.hasGainmap(),
+          SDK_INT >= 34 && inputBitmap.hasGainmap(),
           "VideoFrameProcessor configured for HDR output, but either received SDR input, or is on"
               + " an API level that doesn't support gainmaps. SDR to HDR tonemapping is not"
               + " supported.");

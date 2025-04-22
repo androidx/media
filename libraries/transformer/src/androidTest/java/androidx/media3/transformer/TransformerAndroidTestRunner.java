@@ -15,6 +15,7 @@
  */
 package androidx.media3.transformer;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -33,7 +34,6 @@ import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.SystemClock;
-import androidx.media3.common.util.Util;
 import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.test.utils.SsimHelper;
 import androidx.test.platform.app.InstrumentationRegistry;
@@ -466,7 +466,7 @@ public class TransformerAndroidTestRunner {
       // ExportTestResult.
       throw interruptedException;
     } catch (Throwable analysisFailure) {
-      if (Util.SDK_INT == 21 && Ascii.toLowerCase(Build.MODEL).contains("nexus")) {
+      if (SDK_INT == 21 && Ascii.toLowerCase(Build.MODEL).contains("nexus")) {
         // b/233584640, b/230093713
         Log.i(TAG, testId + ": Skipping SSIM calculation due to known device-specific issue");
       } else {
@@ -496,7 +496,7 @@ public class TransformerAndroidTestRunner {
     if (connectivityManager == null) {
       return false;
     }
-    if (Util.SDK_INT >= 23) {
+    if (SDK_INT >= 23) {
       // getActiveNetwork is available from API 23.
       NetworkCapabilities activeNetworkCapabilities =
           connectivityManager.getNetworkCapabilities(connectivityManager.getActiveNetwork());

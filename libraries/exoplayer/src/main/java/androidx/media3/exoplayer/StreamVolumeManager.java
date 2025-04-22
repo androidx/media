@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 
 import android.annotation.SuppressLint;
@@ -31,7 +32,6 @@ import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.BackgroundThreadStateHandler;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.Util;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** A manager that wraps {@link AudioManager} to control/listen audio stream volume. */
@@ -247,7 +247,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             return state;
           }
           checkNotNull(audioManager);
-          if (Util.SDK_INT >= 23) {
+          if (SDK_INT >= 23) {
             audioManager.adjustStreamVolume(
                 state.streamType,
                 muted ? AudioManager.ADJUST_MUTE : AudioManager.ADJUST_UNMUTE,

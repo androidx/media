@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.audio;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.constrainValue;
@@ -598,7 +599,7 @@ public final class DefaultAudioSink implements AudioSink {
     audioCapabilities = context != null ? null : builder.audioCapabilities;
     audioProcessorChain = builder.audioProcessorChain;
     enableFloatOutput = builder.enableFloatOutput;
-    preferAudioTrackPlaybackParams = Util.SDK_INT >= 23 && builder.enableAudioTrackPlaybackParams;
+    preferAudioTrackPlaybackParams = SDK_INT >= 23 && builder.enableAudioTrackPlaybackParams;
     offloadMode = OFFLOAD_MODE_DISABLED;
     audioTrackBufferSizeProvider = builder.audioTrackBufferSizeProvider;
     audioOffloadSupportProvider = checkNotNull(builder.audioOffloadSupportProvider);
@@ -851,7 +852,7 @@ public final class DefaultAudioSink implements AudioSink {
             configuration.inputFormat.encoderDelay, configuration.inputFormat.encoderPadding);
       }
     }
-    if (Util.SDK_INT >= 31 && playerId != null) {
+    if (SDK_INT >= 31 && playerId != null) {
       Api31.setLogSessionIdOnAudioTrack(audioTrack, playerId);
     }
     audioSessionId = audioTrack.getAudioSessionId();
@@ -867,13 +868,13 @@ public final class DefaultAudioSink implements AudioSink {
       audioTrack.attachAuxEffect(auxEffectInfo.effectId);
       audioTrack.setAuxEffectSendLevel(auxEffectInfo.sendLevel);
     }
-    if (preferredDevice != null && Util.SDK_INT >= 23) {
+    if (preferredDevice != null && SDK_INT >= 23) {
       Api23.setPreferredDeviceOnAudioTrack(audioTrack, preferredDevice);
       if (audioCapabilitiesReceiver != null) {
         audioCapabilitiesReceiver.setRoutedDevice(preferredDevice.audioDeviceInfo);
       }
     }
-    if (Util.SDK_INT >= 24 && audioCapabilitiesReceiver != null) {
+    if (SDK_INT >= 24 && audioCapabilitiesReceiver != null) {
       onRoutingChangedListener =
           new OnRoutingChangedListenerApi24(audioTrack, audioCapabilitiesReceiver);
     }
@@ -1358,7 +1359,7 @@ public final class DefaultAudioSink implements AudioSink {
   }
 
   private static boolean isAudioTrackDeadObject(int status) {
-    return (Util.SDK_INT >= 24 && status == AudioTrack.ERROR_DEAD_OBJECT)
+    return (SDK_INT >= 24 && status == AudioTrack.ERROR_DEAD_OBJECT)
         || status == ERROR_NATIVE_DEAD_OBJECT;
   }
 
@@ -1370,9 +1371,7 @@ public final class DefaultAudioSink implements AudioSink {
   @Override
   public boolean hasPendingData() {
     return isAudioTrackInitialized()
-        && (Util.SDK_INT < 29
-            || !audioTrack.isOffloadedPlayback()
-            || !handledOffloadOnPresentationEnded)
+        && (SDK_INT < 29 || !audioTrack.isOffloadedPlayback() || !handledOffloadOnPresentationEnded)
         && audioTrackPositionTracker.hasPendingData(getWrittenFrames());
   }
 
@@ -1474,7 +1473,7 @@ public final class DefaultAudioSink implements AudioSink {
     if (!isAudioTrackInitialized()) {
       return C.TIME_UNSET;
     }
-    if (Util.SDK_INT >= 23) {
+    if (SDK_INT >= 23) {
       return Api23.getAudioTrackBufferSizeUs(audioTrack, configuration);
     }
     long byteRate =
@@ -1505,7 +1504,7 @@ public final class DefaultAudioSink implements AudioSink {
   @RequiresApi(29)
   @Override
   public void setOffloadMode(@OffloadMode int offloadMode) {
-    Assertions.checkState(Util.SDK_INT >= 29);
+    Assertions.checkState(SDK_INT >= 29);
     this.offloadMode = offloadMode;
   }
 
@@ -1560,7 +1559,7 @@ public final class DefaultAudioSink implements AudioSink {
         pendingConfiguration = null;
       }
       audioTrackPositionTracker.reset();
-      if (Util.SDK_INT >= 24 && onRoutingChangedListener != null) {
+      if (SDK_INT >= 24 && onRoutingChangedListener != null) {
         onRoutingChangedListener.release();
         onRoutingChangedListener = null;
       }
@@ -1735,9 +1734,7 @@ public final class DefaultAudioSink implements AudioSink {
   }
 
   private boolean useAudioTrackPlaybackParams() {
-    return configuration != null
-        && configuration.enableAudioTrackPlaybackParams
-        && Util.SDK_INT >= 23;
+    return configuration != null && configuration.enableAudioTrackPlaybackParams && SDK_INT >= 23;
   }
 
   /**
@@ -1841,7 +1838,7 @@ public final class DefaultAudioSink implements AudioSink {
   }
 
   private static boolean isOffloadedPlayback(AudioTrack audioTrack) {
-    return Util.SDK_INT >= 29 && audioTrack.isOffloadedPlayback();
+    return SDK_INT >= 29 && audioTrack.isOffloadedPlayback();
   }
 
   private static int getFramesPerEncodedSample(@C.Encoding int encoding, ByteBuffer buffer) {
@@ -1902,7 +1899,7 @@ public final class DefaultAudioSink implements AudioSink {
 
   private int writeNonBlockingWithAvSync(
       AudioTrack audioTrack, ByteBuffer buffer, int size, long presentationTimeUs) {
-    if (Util.SDK_INT >= 26) {
+    if (SDK_INT >= 26) {
       // The underlying platform AudioTrack writes AV sync headers directly.
       return audioTrack.write(
           buffer, size, AudioTrack.WRITE_NON_BLOCKING, presentationTimeUs * 1000);
