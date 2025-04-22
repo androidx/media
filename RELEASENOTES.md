@@ -73,6 +73,9 @@
 *   DASH extension:
 *   Smooth Streaming extension:
 *   RTSP extension:
+    *   Add parsing support for SessionDescriptions containing lines with
+        trailing whitespace characters
+        ([#2357](https://github.com/androidx/media/issues/2357)).
 *   Decoder extensions (FFmpeg, VP9, AV1, etc.):
 *   MIDI extension:
 *   Leanback extension:
