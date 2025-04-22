@@ -81,7 +81,9 @@ class PlayPauseButtonState(private val player: Player) {
    * * [Player.EVENT_AVAILABLE_COMMANDS_CHANGED] in order to determine whether the button should be
    *   enabled, i.e. respond to user input.
    */
-  suspend fun observe(): Nothing =
+  suspend fun observe(): Nothing {
+    showPlay = shouldShowPlayButton(player)
+    isEnabled = shouldEnablePlayPauseButton(player)
     player.listen { events ->
       if (
         events.containsAny(
@@ -94,4 +96,5 @@ class PlayPauseButtonState(private val player: Player) {
         isEnabled = shouldEnablePlayPauseButton(this)
       }
     }
+  }
 }

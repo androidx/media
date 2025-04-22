@@ -49,7 +49,7 @@ fun rememberPreviousButtonState(player: Player): PreviousButtonState {
  */
 @UnstableApi
 class PreviousButtonState(private val player: Player) {
-  var isEnabled by mutableStateOf(player.isCommandAvailable(Player.COMMAND_SEEK_TO_PREVIOUS))
+  var isEnabled by mutableStateOf(isPreviousEnabled(player))
     private set
 
   fun onClick() {
@@ -61,10 +61,15 @@ class PreviousButtonState(private val player: Player) {
    * [Player.EVENT_AVAILABLE_COMMANDS_CHANGED] in order to determine whether the button should be
    * enabled, i.e. respond to user input.
    */
-  suspend fun observe(): Nothing =
+  suspend fun observe(): Nothing {
+    isEnabled = isPreviousEnabled(player)
     player.listen { events ->
       if (events.contains(Player.EVENT_AVAILABLE_COMMANDS_CHANGED)) {
-        isEnabled = isCommandAvailable(Player.COMMAND_SEEK_TO_PREVIOUS)
+        isEnabled = isPreviousEnabled(this)
       }
     }
+  }
+
+  private fun isPreviousEnabled(player: Player) =
+    player.isCommandAvailable(Player.COMMAND_SEEK_TO_PREVIOUS)
 }

@@ -54,6 +54,11 @@
         connected to a legacy `MediaBrowserServiceCompat` produced a
         `NullPointerException`.
 *   UI:
+    *   Fix a Compose bug which resulted in a gap between setting the initial
+        button states and observing the change in state (e.g. icon shapes or
+        being enabled). Any changes made to the Player outside of the
+        observation period are now picked up
+        ([#2313](https://github.com/androidx/media/issues/2313)).
 *   Downloads:
     *   Add partial download support for progressive streams. Apps can prepare a
         progressive stream with `DownloadHelper`, and request a

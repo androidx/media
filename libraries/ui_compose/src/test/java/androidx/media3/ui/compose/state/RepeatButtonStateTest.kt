@@ -16,6 +16,7 @@
 
 package androidx.media3.ui.compose.state
 
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.media3.common.Player
 import androidx.media3.ui.compose.utils.TestPlayer
@@ -102,5 +103,22 @@ class RepeatButtonStateTest {
     assertThat(player.repeatMode).isEqualTo(Player.REPEAT_MODE_ALL)
     assertThat(state.repeatModeState)
       .isEqualTo(Player.REPEAT_MODE_ALL) // UI state synchronises with Player, icon jumps 2 steps
+  }
+
+  @Test
+  fun playerChangesRepeatModeCommandsBeforeEventListenerRegisters_observeGetsTheLatestValues_uiIconInSync() {
+    val player = TestPlayer()
+
+    lateinit var state: RepeatButtonState
+    composeTestRule.setContent {
+      // Schedule LaunchedEffect to update player state before RepeatButtonState is created.
+      // This update could end up being executed *before* RepeatButtonState schedules the start of
+      // event listening and we don't want to lose it.
+      LaunchedEffect(player) { player.repeatMode = (player.repeatMode + 1) % 3 }
+      state = rememberRepeatButtonState(player)
+    }
+
+    // UI syncs up with the fact that repeat mode moved from REPEAT_MODE_OFF to ONE
+    assertThat(state.repeatModeState).isEqualTo(Player.REPEAT_MODE_ONE)
   }
 }

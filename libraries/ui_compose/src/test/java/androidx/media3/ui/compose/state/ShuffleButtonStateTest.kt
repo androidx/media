@@ -16,6 +16,7 @@
 
 package androidx.media3.ui.compose.state
 
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.media3.ui.compose.utils.TestPlayer
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -92,5 +93,22 @@ class ShuffleButtonStateTest {
 
     assertThat(player.shuffleModeEnabled).isFalse()
     assertThat(state.shuffleOn).isFalse() // UI state synchronises with Player
+  }
+
+  @Test
+  fun playerChangesShuffleModeCommandsBeforeEventListenerRegisters_observeGetsTheLatestValues_uiIconInSync() {
+    val player = TestPlayer()
+
+    lateinit var state: ShuffleButtonState
+    composeTestRule.setContent {
+      // Schedule LaunchedEffect to update player state before ShuffleButtonState is created.
+      // This update could end up being executed *before* ShuffleButtonState schedules the start of
+      // event listening and we don't want to lose it.
+      LaunchedEffect(player) { player.shuffleModeEnabled = !player.shuffleModeEnabled }
+      state = rememberShuffleButtonState(player)
+    }
+
+    // UI syncs up with the fact that shuffle mode got flipped to true
+    assertThat(state.shuffleOn).isTrue()
   }
 }
