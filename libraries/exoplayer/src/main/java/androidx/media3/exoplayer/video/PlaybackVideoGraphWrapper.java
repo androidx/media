@@ -668,6 +668,10 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     checkStateNotNull(handler).post(() -> pendingFlushCount--);
   }
 
+  private void joinPlayback(boolean renderNextFrameImmediately) {
+    defaultVideoSink.join(renderNextFrameImmediately);
+  }
+
   private void setVideoFrameMetadataListener(
       VideoFrameMetadataListener videoFrameMetadataListener) {
     this.videoFrameMetadataListener = videoFrameMetadataListener;
@@ -1023,7 +1027,9 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
 
     @Override
     public void join(boolean renderNextFrameImmediately) {
-      defaultVideoSink.join(renderNextFrameImmediately);
+      if (enablePlaylistMode) {
+        PlaybackVideoGraphWrapper.this.joinPlayback(renderNextFrameImmediately);
+      }
     }
 
     @Override
