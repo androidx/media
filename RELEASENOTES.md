@@ -11,6 +11,9 @@
         `ExoPlayer.Builder`.
     *   Fix bug where prepare errors in the content of `AdsMediaSource` may be
         never reported ([#2337](https://github.com/androidx/media/issues/2337)).
+    *   Fix memory leak in `MergingMediaSource`, for example used when
+        sideloading subtitles
+        ([#2338](https://github.com/androidx/media/issues/2338)).
 *   Transformer:
     *   Filling an initial gap (added via `addGap()`) with silent audio now
         requires explicitly setting `experimentalSetForceAudioTrack(true)` in
