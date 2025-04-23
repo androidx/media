@@ -9,6 +9,8 @@
         scrubber bar around). The behavior of scrubbing mode can be customized
         with `setScrubbingModeParameters(..)` on `ExoPlayer` and
         `ExoPlayer.Builder`.
+    *   Fix bug where prepare errors in the content of `AdsMediaSource` may be
+        never reported ([#2337](https://github.com/androidx/media/issues/2337)).
 *   Transformer:
     *   Filling an initial gap (added via `addGap()`) with silent audio now
         requires explicitly setting `experimentalSetForceAudioTrack(true)` in

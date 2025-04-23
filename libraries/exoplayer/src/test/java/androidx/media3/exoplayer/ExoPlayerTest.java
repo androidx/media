@@ -16818,6 +16818,27 @@ public final class ExoPlayerTest {
     assertThat(shouldRendererThrowRecoverableError.get()).isFalse();
   }
 
+  @Test
+  public void prepareMaskingMediaSource_withRealSourcePrepareError_reportsPlaybackException()
+      throws Exception {
+    ExoPlayer player = new TestExoPlayerBuilder(context).build();
+    FakeMediaSource realSourceWithPrepareFailure =
+        new FakeMediaSource() {
+          @Override
+          public void maybeThrowSourceInfoRefreshError() throws IOException {
+            throw new IOException();
+          }
+        };
+    realSourceWithPrepareFailure.setAllowPreparation(false);
+    MediaSource maskingMediaSource =
+        new MaskingMediaSource(realSourceWithPrepareFailure, /* useLazyPreparation= */ false);
+    player.setMediaSource(maskingMediaSource);
+
+    player.prepare();
+    // Assert the prepare error is reported.
+    advance(player).untilPlayerError();
+  }
+
   // Internal methods.
 
   private void addWatchAsSystemFeature() {
