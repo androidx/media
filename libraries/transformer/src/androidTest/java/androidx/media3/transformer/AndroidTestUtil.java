@@ -113,6 +113,7 @@ public final class AndroidTestUtil {
     protected PlaybackVideoGraphWrapper createPlaybackVideoGraphWrapper(
         Context context, VideoFrameReleaseControl videoFrameReleaseControl) {
       return new PlaybackVideoGraphWrapper.Builder(context, videoFrameReleaseControl)
+          .setEnablePlaylistMode(true)
           .setClock(getClock())
           .setEnableReplayableCache(true)
           .build();
