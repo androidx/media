@@ -574,12 +574,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
 
     @Override
-    protected void onStarted() throws ExoPlaybackException {
-      super.onStarted();
-      videoSink.startRendering();
-    }
-
-    @Override
     protected boolean maybeInitializeProcessingPipeline() throws ExoPlaybackException {
       if (videoSink.isInitialized()) {
         return true;
@@ -590,12 +584,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       } catch (VideoSink.VideoSinkException e) {
         throw createRendererException(e, format, ERROR_CODE_VIDEO_FRAME_PROCESSOR_INIT_FAILED);
       }
-    }
-
-    @Override
-    protected void onStopped() {
-      super.onStopped();
-      videoSink.stopRendering();
     }
 
     @Override
