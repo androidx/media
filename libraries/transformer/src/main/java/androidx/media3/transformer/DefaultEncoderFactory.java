@@ -46,6 +46,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
 /** A default implementation of {@link Codec.EncoderFactory}. */
@@ -393,6 +394,33 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
       if (logSessionId != null) {
         TransformerUtil.Api35.setLogSessionIdToMediaCodecFormat(mediaFormat, logSessionId);
       }
+    }
+
+    int maxBFrames = supportedVideoEncoderSettings.maxBFrames;
+    if (SDK_INT >= 29 && maxBFrames != VideoEncoderSettings.NO_VALUE) {
+      mediaFormat.setInteger(MediaFormat.KEY_MAX_B_FRAMES, maxBFrames);
+    }
+
+    int numNonBidirectionalTemporalLayers =
+        supportedVideoEncoderSettings.numNonBidirectionalTemporalLayers;
+    int numBidirectionalTemporalLayers =
+        supportedVideoEncoderSettings.numBidirectionalTemporalLayers;
+    if (SDK_INT >= 25 && numNonBidirectionalTemporalLayers >= 0) {
+      String temporalSchema;
+      if (numNonBidirectionalTemporalLayers == 0) {
+        temporalSchema = "none";
+      } else if (numBidirectionalTemporalLayers > 0) {
+        temporalSchema =
+            String.format(
+                Locale.ROOT,
+                "android.generic.%d+%d",
+                numNonBidirectionalTemporalLayers,
+                numBidirectionalTemporalLayers);
+      } else {
+        temporalSchema =
+            String.format(Locale.ROOT, "android.generic.%d", numNonBidirectionalTemporalLayers);
+      }
+      mediaFormat.setString(MediaFormat.KEY_TEMPORAL_LAYERING, temporalSchema);
     }
 
     return new DefaultCodec(
