@@ -171,7 +171,6 @@ public abstract class DecoderAudioRenderer<
   private long largestQueuedPresentationTimeUs;
   private long lastBufferInStreamPresentationTimeUs;
   private long nextBufferToWritePresentationTimeUs;
-  private boolean isRendereringToEndOfStream;
 
   public DecoderAudioRenderer() {
     this(/* eventHandler= */ null, /* eventListener= */ null);
@@ -250,17 +249,13 @@ public abstract class DecoderAudioRenderer<
       return super.getDurationToProgressUs(positionUs, elapsedRealtimeUs);
     }
     long audioTrackBufferDurationUs = audioSink.getAudioTrackBufferSizeUs();
-    // Return default if getAudioTrackBufferSizeUs is unsupported and not in the midst of rendering
-    // to end of stream.
-    if (!isRendereringToEndOfStream && audioTrackBufferDurationUs == C.TIME_UNSET) {
+    // Return default if getAudioTrackBufferSizeUs is unsupported.
+    if (audioTrackBufferDurationUs == C.TIME_UNSET) {
       return super.getDurationToProgressUs(positionUs, elapsedRealtimeUs);
     }
     // Compare written, yet-to-play content duration against the audio track buffer size.
     long writtenDurationUs = (nextBufferToWritePresentationTimeUs - positionUs);
-    long bufferedDurationUs =
-        audioTrackBufferDurationUs != C.TIME_UNSET
-            ? min(audioTrackBufferDurationUs, writtenDurationUs)
-            : writtenDurationUs;
+    long bufferedDurationUs = min(audioTrackBufferDurationUs, writtenDurationUs);
     bufferedDurationUs =
         (long)
             (bufferedDurationUs
@@ -319,7 +314,6 @@ public abstract class DecoderAudioRenderer<
       try {
         audioSink.playToEndOfStream();
         nextBufferToWritePresentationTimeUs = lastBufferInStreamPresentationTimeUs;
-        isRendereringToEndOfStream = true;
       } catch (AudioSink.WriteException e) {
         throw createRendererException(
             e, e.format, e.isRecoverable, PlaybackException.ERROR_CODE_AUDIO_TRACK_WRITE_FAILED);
@@ -601,7 +595,6 @@ public abstract class DecoderAudioRenderer<
     outputStreamEnded = true;
     audioSink.playToEndOfStream();
     nextBufferToWritePresentationTimeUs = lastBufferInStreamPresentationTimeUs;
-    isRendereringToEndOfStream = true;
   }
 
   private void flushDecoder() throws ExoPlaybackException {
@@ -677,7 +670,6 @@ public abstract class DecoderAudioRenderer<
 
     currentPositionUs = positionUs;
     nextBufferToWritePresentationTimeUs = C.TIME_UNSET;
-    isRendereringToEndOfStream = false;
     hasPendingReportedSkippedSilence = false;
     allowPositionDiscontinuity = true;
     inputStreamEnded = false;
@@ -707,7 +699,6 @@ public abstract class DecoderAudioRenderer<
     setOutputStreamOffsetUs(C.TIME_UNSET);
     hasPendingReportedSkippedSilence = false;
     nextBufferToWritePresentationTimeUs = C.TIME_UNSET;
-    isRendereringToEndOfStream = false;
     try {
       setSourceDrmSession(null);
       releaseDecoder();

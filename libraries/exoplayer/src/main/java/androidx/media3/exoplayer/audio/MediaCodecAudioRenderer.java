@@ -129,7 +129,6 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
   private int rendererPriority;
   private boolean isStarted;
   private long nextBufferToWritePresentationTimeUs;
-  private boolean isRendereringToEndOfStream;
 
   /**
    * @param context A context.
@@ -528,18 +527,14 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
           positionUs, elapsedRealtimeUs, isOnBufferAvailableListenerRegistered);
     }
     long audioTrackBufferDurationUs = audioSink.getAudioTrackBufferSizeUs();
-    // Return default if getAudioTrackBufferSizeUs is unsupported and not in the midst of rendering
-    // to end of stream.
-    if (!isRendereringToEndOfStream && audioTrackBufferDurationUs == C.TIME_UNSET) {
+    // Return default if getAudioTrackBufferSizeUs is unsupported.
+    if (audioTrackBufferDurationUs == C.TIME_UNSET) {
       return super.getDurationToProgressUs(
           positionUs, elapsedRealtimeUs, isOnBufferAvailableListenerRegistered);
     }
     // Compare written, yet-to-play content duration against the audio track buffer size.
     long writtenDurationUs = (nextBufferToWritePresentationTimeUs - positionUs);
-    long bufferedDurationUs =
-        audioTrackBufferDurationUs != C.TIME_UNSET
-            ? min(audioTrackBufferDurationUs, writtenDurationUs)
-            : writtenDurationUs;
+    long bufferedDurationUs = min(audioTrackBufferDurationUs, writtenDurationUs);
     bufferedDurationUs =
         (long)
             (bufferedDurationUs
@@ -697,7 +692,6 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
 
     currentPositionUs = positionUs;
     nextBufferToWritePresentationTimeUs = C.TIME_UNSET;
-    isRendereringToEndOfStream = false;
     hasPendingReportedSkippedSilence = false;
     allowPositionDiscontinuity = true;
   }
@@ -722,7 +716,6 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
     audioSinkNeedsReset = true;
     inputFormat = null;
     nextBufferToWritePresentationTimeUs = C.TIME_UNSET;
-    isRendereringToEndOfStream = false;
     try {
       audioSink.flush();
     } finally {
@@ -738,7 +731,6 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
   protected void onReset() {
     hasPendingReportedSkippedSilence = false;
     nextBufferToWritePresentationTimeUs = C.TIME_UNSET;
-    isRendereringToEndOfStream = false;
     try {
       super.onReset();
     } finally {
@@ -878,7 +870,6 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
       if (getLastBufferInStreamPresentationTimeUs() != C.TIME_UNSET) {
         nextBufferToWritePresentationTimeUs = getLastBufferInStreamPresentationTimeUs();
       }
-      isRendereringToEndOfStream = true;
     } catch (AudioSink.WriteException e) {
       throw createRendererException(
           e,
