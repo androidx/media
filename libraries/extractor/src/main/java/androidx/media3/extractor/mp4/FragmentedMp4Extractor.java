@@ -47,12 +47,12 @@ import androidx.media3.container.ReorderingSeiMessageQueue;
 import androidx.media3.extractor.Ac4Util;
 import androidx.media3.extractor.CeaUtil;
 import androidx.media3.extractor.ChunkIndex;
-import androidx.media3.extractor.ChunkIndicesWrapper;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.extractor.ExtractorsFactory;
 import androidx.media3.extractor.GaplessInfoHolder;
+import androidx.media3.extractor.MergedChunkIndex;
 import androidx.media3.extractor.PositionHolder;
 import androidx.media3.extractor.SeekMap;
 import androidx.media3.extractor.SniffFailure;
@@ -92,8 +92,8 @@ public class FragmentedMp4Extractor implements Extractor {
    * Flags controlling the behavior of the extractor. Possible flag values are {@link
    * #FLAG_WORKAROUND_EVERY_VIDEO_FRAME_IS_SYNC_FRAME}, {@link #FLAG_WORKAROUND_IGNORE_TFDT_BOX},
    * {@link #FLAG_ENABLE_EMSG_TRACK}, {@link #FLAG_WORKAROUND_IGNORE_EDIT_LISTS}, {@link
-   * #FLAG_EMIT_RAW_SUBTITLE_DATA}, {@link #FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES} and {@link
-   * #FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES_H265}.
+   * #FLAG_EMIT_RAW_SUBTITLE_DATA}, {@link #FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES}, {@link
+   * #FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES_H265} and {@link #FLAG_MERGE_FRAGMENTED_SIDX}.
    */
   @Documented
   @Retention(RetentionPolicy.SOURCE)
@@ -107,7 +107,8 @@ public class FragmentedMp4Extractor implements Extractor {
         FLAG_WORKAROUND_IGNORE_EDIT_LISTS,
         FLAG_EMIT_RAW_SUBTITLE_DATA,
         FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES,
-        FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES_H265
+        FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES_H265,
+        FLAG_MERGE_FRAGMENTED_SIDX
       })
   public @interface Flags {}
 
@@ -159,6 +160,9 @@ public class FragmentedMp4Extractor implements Extractor {
    * <p>See {@link #FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES}.
    */
   public static final int FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES_H265 = 1 << 7;
+
+  /** Flag to enables reading and merging of all sidx boxes before continuing extraction. */
+  public static final int FLAG_MERGE_FRAGMENTED_SIDX = 1 << 8;
 
   /**
    * @deprecated Use {@link #newFactory(SubtitleParser.Factory)} instead.
@@ -220,6 +224,8 @@ public class FragmentedMp4Extractor implements Extractor {
   private final ReorderingSeiMessageQueue reorderingSeiMessageQueue;
   @Nullable private final TrackOutput additionalEmsgTrackOutput;
 
+  private final MergedChunkIndex mergedChunkIndex;
+
   private ImmutableList<SniffFailure> lastSniffFailures;
   private int parserState;
   private int atomType;
@@ -248,9 +254,8 @@ public class FragmentedMp4Extractor implements Extractor {
   private boolean haveOutputSeekMap;
 
   // Whether a fragmented sidx has been fully collected and output.
-  private boolean haveOutputSeekMapComplete;
-  private final ChunkIndicesWrapper wrappingSegmentIndex = new ChunkIndicesWrapper();
-  private long resetCallerSeekTo;
+  private boolean haveOutputCompleteSeekMap;
+  private long seekPositionBeforeSidxProcessing;
 
   /**
    * @deprecated Use {@link #FragmentedMp4Extractor(SubtitleParser.Factory)} instead
@@ -434,6 +439,8 @@ public class FragmentedMp4Extractor implements Extractor {
         new ReorderingSeiMessageQueue(
             (presentationTimeUs, seiBuffer) ->
                 CeaUtil.consume(presentationTimeUs, seiBuffer, ceaTrackOutputs));
+    mergedChunkIndex = new MergedChunkIndex();
+    seekPositionBeforeSidxProcessing = C.INDEX_UNSET;
   }
 
   /**
@@ -515,56 +522,32 @@ public class FragmentedMp4Extractor implements Extractor {
     // Do nothing
   }
 
-  private void readRemainingSidxAtomsIntoTrack(ExtractorInput input) throws IOException {
-    enterReadingAtomHeaderState();
-    while (readAtomHeader(input, true)) {
-      if (atomType == Mp4Box.TYPE_sidx) {
-        ParsableByteArray inputArray = new ParsableByteArray((int) atomSize);
-        System.arraycopy(atomHeader.getData(), 0, inputArray.getData(), 0, Mp4Box.HEADER_SIZE);
-        input.readFully(
-            inputArray.getData(), Mp4Box.HEADER_SIZE, (int) (atomSize - atomHeaderBytesRead));
-        LeafBox leafBox = new LeafBox(Mp4Box.TYPE_sidx, inputArray);
-        Pair<Long, ChunkIndex> sidxCur = parseSidx(leafBox.data, input.getPeekPosition());
-        wrappingSegmentIndex.merge(sidxCur.second);
-      } else {
-        input.skipFully((int) atomSize - atomHeaderBytesRead, true);
-      }
-      enterReadingAtomHeaderState();
-    }
-  }
-
   @Override
   public int read(ExtractorInput input, PositionHolder seekPosition) throws IOException {
-    try {
-      while (true) {
-        switch (parserState) {
-          case STATE_READING_ATOM_HEADER:
-            if (!readAtomHeader(input, false)) {
-              if (resetCallerSeekTo > 0) {
-                seekPosition.position = resetCallerSeekTo;
-                return Extractor.RESULT_SEEK;
-              } else {
-                reorderingSeiMessageQueue.flush();
-                return Extractor.RESULT_END_OF_INPUT;
-              }
+    while (true) {
+      switch (parserState) {
+        case STATE_READING_ATOM_HEADER:
+          if (!readAtomHeader(input, /* skipPayloadParsing= */ false)) {
+            if (seekPositionBeforeSidxProcessing != C.INDEX_UNSET) {
+              seekPosition.position = seekPositionBeforeSidxProcessing;
+              seekPositionBeforeSidxProcessing = C.INDEX_UNSET;
+              return Extractor.RESULT_SEEK;
+            } else {
+              reorderingSeiMessageQueue.flush();
+              return Extractor.RESULT_END_OF_INPUT;
             }
-            break;
-          case STATE_READING_ATOM_PAYLOAD:
-            readAtomPayload(input);
-            break;
-          case STATE_READING_ENCRYPTION_DATA:
-            readEncryptionData(input);
-            break;
-          default:
-            if (readSample(input)) {
-              return RESULT_CONTINUE;
-            }
-        }
-      }
-    } finally {
-      if (resetCallerSeekTo > 0) {
-        seekPosition.position = resetCallerSeekTo;
-        resetCallerSeekTo = 0;
+          }
+          break;
+        case STATE_READING_ATOM_PAYLOAD:
+          readAtomPayload(input);
+          break;
+        case STATE_READING_ENCRYPTION_DATA:
+          readEncryptionData(input);
+          break;
+        default:
+          if (readSample(input)) {
+            return RESULT_CONTINUE;
+          }
       }
     }
   }
@@ -574,7 +557,8 @@ public class FragmentedMp4Extractor implements Extractor {
     atomHeaderBytesRead = 0;
   }
 
-  private boolean readAtomHeader(ExtractorInput input, boolean skipAtomParse) throws IOException {
+  private boolean readAtomHeader(ExtractorInput input, boolean skipPayloadParsing)
+      throws IOException {
     if (atomHeaderBytesRead == 0) {
       // Read the standard length atom header.
       if (!input.readFully(atomHeader.getData(), 0, Mp4Box.HEADER_SIZE, true)) {
@@ -609,7 +593,7 @@ public class FragmentedMp4Extractor implements Extractor {
           "Atom size less than header length (unsupported).");
     }
 
-    if (skipAtomParse) {
+    if (skipPayloadParsing) {
       return true;
     }
 
@@ -679,7 +663,7 @@ public class FragmentedMp4Extractor implements Extractor {
     @Nullable ParsableByteArray atomData = this.atomData;
     if (atomData != null) {
       input.readFully(atomData.getData(), Mp4Box.HEADER_SIZE, atomPayloadSize);
-      onLeafAtomRead(new LeafBox(atomType, atomData), input.getPosition(), input);
+      onLeafAtomRead(new LeafBox(atomType, atomData), input);
     } else {
       input.skipFully(atomPayloadSize);
     }
@@ -693,29 +677,44 @@ public class FragmentedMp4Extractor implements Extractor {
     enterReadingAtomHeaderState();
   }
 
-  private void onLeafAtomRead(LeafBox leaf, long inputPosition, ExtractorInput input)
-      throws ParserException, IOException {
+  private void onLeafAtomRead(LeafBox leaf, ExtractorInput input) throws IOException {
     if (!containerAtoms.isEmpty()) {
       containerAtoms.peek().add(leaf);
     } else if (leaf.type == Mp4Box.TYPE_sidx) {
+      long inputPosition = input.getPosition();
       Pair<Long, ChunkIndex> result = parseSidx(leaf.data, inputPosition);
-
-      wrappingSegmentIndex.merge(result.second);
+      mergedChunkIndex.merge(result.second);
       if (!haveOutputSeekMap) {
         segmentIndexEarliestPresentationTimeUs = result.first;
         extractorOutput.seekMap(result.second);
         haveOutputSeekMap = true;
-      } else if (!haveOutputSeekMapComplete && wrappingSegmentIndex.size() > 1) {
-        resetCallerSeekTo = inputPosition;
-        try {
-          readRemainingSidxAtomsIntoTrack(input);
-          haveOutputSeekMapComplete = true;
-        } finally {
-          extractorOutput.seekMap(wrappingSegmentIndex.toChunkIndex());
-        }
+      } else if (!haveOutputCompleteSeekMap && mergedChunkIndex.size() > 1) {
+        seekPositionBeforeSidxProcessing = inputPosition;
+        processRemainingSidxAtoms(input);
+        extractorOutput.seekMap(mergedChunkIndex.toChunkIndex());
+        haveOutputCompleteSeekMap = true;
       }
     } else if (leaf.type == Mp4Box.TYPE_emsg) {
       onEmsgLeafAtomRead(leaf.data);
+    }
+  }
+
+  private void processRemainingSidxAtoms(ExtractorInput input) throws IOException {
+    enterReadingAtomHeaderState();
+    while (readAtomHeader(input, /* skipPayloadParsing= */ true)) {
+      if (atomType == Mp4Box.TYPE_sidx) {
+        ParsableByteArray inputArray = new ParsableByteArray((int) atomSize);
+        System.arraycopy(atomHeader.getData(), 0, inputArray.getData(), 0, Mp4Box.HEADER_SIZE);
+        input.readFully(
+            inputArray.getData(), Mp4Box.HEADER_SIZE, (int) (atomSize - atomHeaderBytesRead));
+
+        LeafBox sidxBox = new LeafBox(Mp4Box.TYPE_sidx, inputArray);
+        Pair<Long, ChunkIndex> result = parseSidx(sidxBox.data, input.getPeekPosition());
+        mergedChunkIndex.merge(result.second);
+      } else {
+        input.skipFully((int) (atomSize - atomHeaderBytesRead), /* allowEndOfInput= */ true);
+      }
+      enterReadingAtomHeaderState();
     }
   }
 

@@ -704,6 +704,54 @@ public final class Util {
   }
 
   /**
+   * Creates a new array containing the concatenation of multiple non-null {@code int[]} arrays.
+   *
+   * @param arrays A list of non-null {@code int[]} arrays to concatenate.
+   * @return The concatenated result.
+   */
+  @UnstableApi
+  public static int[] nullSafeIntArraysConcatenation(List<int[]> arrays) {
+    int totalLength = 0;
+    for (int[] array : arrays) {
+      totalLength += array.length;
+    }
+
+    int[] concatenation = new int[totalLength];
+
+    int offset = 0;
+    for (int[] array : arrays) {
+      System.arraycopy(array, 0, concatenation, offset, array.length);
+      offset += array.length;
+    }
+
+    return concatenation;
+  }
+
+  /**
+   * Creates a new array containing the concatenation of multiple non-null {@code long[]} arrays.
+   *
+   * @param arrays A list of non-null {@code long[]} arrays to concatenate.
+   * @return The concatenated result.
+   */
+  @UnstableApi
+  public static long[] nullSafeLongArraysConcatenation(List<long[]> arrays) {
+    int totalLength = 0;
+    for (long[] array : arrays) {
+      totalLength += array.length;
+    }
+
+    long[] res = new long[totalLength];
+
+    int offset = 0;
+    for (long[] array : arrays) {
+      System.arraycopy(array, 0, res, offset, array.length);
+      offset += array.length;
+    }
+
+    return res;
+  }
+
+  /**
    * Creates a {@link Handler} on the current {@link Looper} thread.
    *
    * @throws IllegalStateException If the current thread doesn't have a {@link Looper}.
