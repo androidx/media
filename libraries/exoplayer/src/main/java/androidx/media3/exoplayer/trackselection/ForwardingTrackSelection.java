@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 The Android Open Source Project
+ * Copyright 2025 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,12 +25,23 @@ import androidx.media3.exoplayer.source.chunk.MediaChunk;
 import androidx.media3.exoplayer.source.chunk.MediaChunkIterator;
 import java.util.List;
 
+/** An {@link ExoTrackSelection} forwarding all calls to a wrapped instance. */
 @UnstableApi
 public class ForwardingTrackSelection implements ExoTrackSelection {
   private final ExoTrackSelection trackSelection;
 
+  /**
+   * Creates the forwarding track selection.
+   *
+   * @param trackSelection The wrapped {@link ExoTrackSelection}.
+   */
   public ForwardingTrackSelection(ExoTrackSelection trackSelection) {
     this.trackSelection = trackSelection;
+  }
+
+  /** Returns the wrapped {@link ExoTrackSelection}. */
+  public ExoTrackSelection getWrappedInstance() {
+    return trackSelection;
   }
 
   @Override
@@ -90,11 +101,14 @@ public class ForwardingTrackSelection implements ExoTrackSelection {
   }
 
   @Override
-  public void updateSelectedTrack(long playbackPositionUs, long bufferedDurationUs,
-      long availableDurationUs, List<? extends MediaChunk> queue,
+  public void updateSelectedTrack(
+      long playbackPositionUs,
+      long bufferedDurationUs,
+      long availableDurationUs,
+      List<? extends MediaChunk> queue,
       MediaChunkIterator[] mediaChunkIterators) {
-    trackSelection.updateSelectedTrack(playbackPositionUs, bufferedDurationUs,
-        availableDurationUs, queue, mediaChunkIterators);
+    trackSelection.updateSelectedTrack(
+        playbackPositionUs, bufferedDurationUs, availableDurationUs, queue, mediaChunkIterators);
   }
 
   @Override
@@ -103,8 +117,8 @@ public class ForwardingTrackSelection implements ExoTrackSelection {
   }
 
   @Override
-  public boolean shouldCancelChunkLoad(long playbackPositionUs, Chunk loadingChunk,
-      List<? extends MediaChunk> queue) {
+  public boolean shouldCancelChunkLoad(
+      long playbackPositionUs, Chunk loadingChunk, List<? extends MediaChunk> queue) {
     return trackSelection.shouldCancelChunkLoad(playbackPositionUs, loadingChunk, queue);
   }
 
@@ -158,12 +172,9 @@ public class ForwardingTrackSelection implements ExoTrackSelection {
     return trackSelection.indexOf(indexInTrackGroup);
   }
 
-  public ExoTrackSelection getWrappedInstance() {
-    return trackSelection;
-  }
-
+  @Override
   public int hashCode() {
-    return getWrappedInstance().hashCode();
+    return trackSelection.hashCode();
   }
 
   @Override
@@ -171,11 +182,10 @@ public class ForwardingTrackSelection implements ExoTrackSelection {
     if (this == obj) {
       return true;
     }
-    if (obj == null || getClass() != obj.getClass()) {
+    if (!(obj instanceof ForwardingTrackSelection)) {
       return false;
     }
     ForwardingTrackSelection other = (ForwardingTrackSelection) obj;
-
-    return getWrappedInstance().equals(other.getWrappedInstance());
+    return trackSelection.equals(other.trackSelection);
   }
 }

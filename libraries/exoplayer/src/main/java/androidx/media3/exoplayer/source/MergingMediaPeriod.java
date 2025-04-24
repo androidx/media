@@ -25,9 +25,6 @@ import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.exoplayer.LoadingInfo;
 import androidx.media3.exoplayer.SeekParameters;
-import androidx.media3.exoplayer.source.chunk.Chunk;
-import androidx.media3.exoplayer.source.chunk.MediaChunk;
-import androidx.media3.exoplayer.source.chunk.MediaChunkIterator;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import androidx.media3.exoplayer.trackselection.ForwardingTrackSelection;
 import com.google.common.collect.Lists;
@@ -36,7 +33,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
-import java.util.List;
 
 /** Merges multiple {@link MediaPeriod}s. */
 /* package */ final class MergingMediaPeriod implements MediaPeriod, MediaPeriod.Callback {
@@ -141,7 +137,8 @@ import java.util.List;
           TrackGroup mergedTrackGroup = mergedTrackSelection.getTrackGroup();
           TrackGroup childTrackGroup =
               checkNotNull(childTrackGroupByMergedTrackGroup.get(mergedTrackGroup));
-          childSelections[j] = new MergingMediaPeriodTrackSelection(mergedTrackSelection, childTrackGroup);
+          childSelections[j] =
+              new MergingMediaPeriodTrackSelection(mergedTrackSelection, childTrackGroup);
         } else {
           childSelections[j] = null;
         }
@@ -317,14 +314,10 @@ import java.util.List;
   private static final class MergingMediaPeriodTrackSelection extends ForwardingTrackSelection {
     private final TrackGroup trackGroup;
 
-    public MergingMediaPeriodTrackSelection(ExoTrackSelection trackSelection, TrackGroup trackGroup) {
+    public MergingMediaPeriodTrackSelection(
+        ExoTrackSelection trackSelection, TrackGroup trackGroup) {
       super(trackSelection);
       this.trackGroup = trackGroup;
-    }
-
-    @Override
-    public @Type int getType() {
-      return getWrappedInstance().getType();
     }
 
     @Override
@@ -333,18 +326,8 @@ import java.util.List;
     }
 
     @Override
-    public int length() {
-      return getWrappedInstance().length();
-    }
-
-    @Override
     public Format getFormat(int index) {
       return trackGroup.getFormat(getWrappedInstance().getIndexInTrackGroup(index));
-    }
-
-    @Override
-    public int getIndexInTrackGroup(int index) {
-      return getWrappedInstance().getIndexInTrackGroup(index);
     }
 
     @Override
@@ -353,121 +336,22 @@ import java.util.List;
     }
 
     @Override
-    public int indexOf(int indexInTrackGroup) {
-      return getWrappedInstance().indexOf(indexInTrackGroup);
-    }
-
-    @Override
-    public void enable() {
-      getWrappedInstance().enable();
-    }
-
-    @Override
-    public void disable() {
-      getWrappedInstance().disable();
-    }
-
-    @Override
     public Format getSelectedFormat() {
       return trackGroup.getFormat(getWrappedInstance().getSelectedIndexInTrackGroup());
     }
 
     @Override
-    public int getSelectedIndexInTrackGroup() {
-      return getWrappedInstance().getSelectedIndexInTrackGroup();
-    }
-
-    @Override
-    public int getSelectedIndex() {
-      return getWrappedInstance().getSelectedIndex();
-    }
-
-    @Override
-    public @C.SelectionReason int getSelectionReason() {
-      return getWrappedInstance().getSelectionReason();
-    }
-
-    @Nullable
-    @Override
-    public Object getSelectionData() {
-      return getWrappedInstance().getSelectionData();
-    }
-
-    @Override
-    public void onPlaybackSpeed(float playbackSpeed) {
-      getWrappedInstance().onPlaybackSpeed(playbackSpeed);
-    }
-
-    @Override
-    public void onDiscontinuity() {
-      getWrappedInstance().onDiscontinuity();
-    }
-
-    @Override
-    public void onRebuffer() {
-      getWrappedInstance().onRebuffer();
-    }
-
-    @Override
-    public void onPlayWhenReadyChanged(boolean playWhenReady) {
-      getWrappedInstance().onPlayWhenReadyChanged(playWhenReady);
-    }
-
-    @Override
-    public void updateSelectedTrack(
-        long playbackPositionUs,
-        long bufferedDurationUs,
-        long availableDurationUs,
-        List<? extends MediaChunk> queue,
-        MediaChunkIterator[] mediaChunkIterators) {
-      getWrappedInstance().updateSelectedTrack(
-          playbackPositionUs, bufferedDurationUs, availableDurationUs, queue, mediaChunkIterators);
-    }
-
-    @Override
-    public int evaluateQueueSize(long playbackPositionUs, List<? extends MediaChunk> queue) {
-      return getWrappedInstance().evaluateQueueSize(playbackPositionUs, queue);
-    }
-
-    @Override
-    public boolean shouldCancelChunkLoad(
-        long playbackPositionUs, Chunk loadingChunk, List<? extends MediaChunk> queue) {
-      return getWrappedInstance().shouldCancelChunkLoad(playbackPositionUs, loadingChunk, queue);
-    }
-
-    @Override
-    public boolean excludeTrack(int index, long exclusionDurationMs) {
-      return getWrappedInstance().excludeTrack(index, exclusionDurationMs);
-    }
-
-    @Override
-    public boolean isTrackExcluded(int index, long nowMs) {
-      return getWrappedInstance().isTrackExcluded(index, nowMs);
-    }
-
-    @Override
-    public long getLatestBitrateEstimate() {
-      return getWrappedInstance().getLatestBitrateEstimate();
-    }
-
-    @Override
-    public boolean equals(@Nullable Object o) {
-      if (this == o) {
-        return true;
-      }
-      if (!(o instanceof MergingMediaPeriodTrackSelection)) {
+    public boolean equals(@Nullable Object other) {
+      if (!super.equals(other) || !(other instanceof MergingMediaPeriodTrackSelection)) {
         return false;
       }
-      MergingMediaPeriodTrackSelection that = (MergingMediaPeriodTrackSelection) o;
-      return getWrappedInstance().equals(that.getWrappedInstance()) && trackGroup.equals(that.trackGroup);
+      MergingMediaPeriodTrackSelection that = (MergingMediaPeriodTrackSelection) other;
+      return trackGroup.equals(that.trackGroup);
     }
 
     @Override
     public int hashCode() {
-      int result = 17;
-      result = 31 * result + trackGroup.hashCode();
-      result = 31 * result + getWrappedInstance().hashCode();
-      return result;
+      return 31 * super.hashCode() + trackGroup.hashCode();
     }
   }
 }
