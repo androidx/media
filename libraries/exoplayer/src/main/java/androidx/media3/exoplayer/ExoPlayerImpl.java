@@ -1612,6 +1612,12 @@ import java.util.concurrent.CopyOnWriteArraySet;
   }
 
   @Override
+  public boolean isScrubbingModeEnabled() {
+    verifyApplicationThread();
+    return scrubbingModeEnabled;
+  }
+
+  @Override
   public void setScrubbingModeParameters(ScrubbingModeParameters scrubbingModeParameters) {
     verifyApplicationThread();
     if (this.scrubbingModeParameters.equals(scrubbingModeParameters)) {

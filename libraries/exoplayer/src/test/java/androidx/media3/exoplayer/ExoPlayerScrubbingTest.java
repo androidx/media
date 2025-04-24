@@ -64,6 +64,21 @@ import org.mockito.InOrder;
 public final class ExoPlayerScrubbingTest {
 
   @Test
+  public void scrubbingMode_getterWorks() throws Exception {
+    ExoPlayer player =
+        new TestExoPlayerBuilder(ApplicationProvider.getApplicationContext()).build();
+    player.setMediaSource(new FakeMediaSource());
+    player.prepare();
+
+    assertThat(player.isScrubbingModeEnabled()).isFalse();
+    player.setScrubbingModeEnabled(true);
+    assertThat(player.isScrubbingModeEnabled()).isTrue();
+    player.setScrubbingModeEnabled(false);
+    assertThat(player.isScrubbingModeEnabled()).isFalse();
+    player.release();
+  }
+
+  @Test
   public void scrubbingMode_suppressesPlayback() throws Exception {
     ExoPlayer player =
         new TestExoPlayerBuilder(ApplicationProvider.getApplicationContext()).build();

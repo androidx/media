@@ -222,6 +222,11 @@ public class StubExoPlayer extends StubPlayer implements ExoPlayer {
   }
 
   @Override
+  public boolean isScrubbingModeEnabled() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
   public void setScrubbingModeParameters(ScrubbingModeParameters scrubbingModeParameters) {
     throw new UnsupportedOperationException();
   }

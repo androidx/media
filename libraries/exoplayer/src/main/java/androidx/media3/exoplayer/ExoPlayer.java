@@ -1486,6 +1486,14 @@ public interface ExoPlayer extends Player {
   void setScrubbingModeEnabled(boolean scrubbingModeEnabled);
 
   /**
+   * Returns whether the player is optimized for scrubbing (many frequent seeks).
+   *
+   * <p>See {@link #setScrubbingModeEnabled(boolean)}.
+   */
+  @UnstableApi
+  boolean isScrubbingModeEnabled();
+
+  /**
    * Sets the parameters that control behavior in {@linkplain #setScrubbingModeEnabled scrubbing
    * mode}.
    */
