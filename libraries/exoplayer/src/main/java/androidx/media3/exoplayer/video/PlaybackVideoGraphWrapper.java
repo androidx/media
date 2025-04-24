@@ -334,7 +334,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
   /** The buffer presentation time, in microseconds, of the final frame in the stream. */
   private long finalBufferPresentationTimeUs;
 
-  private boolean hasSignaledEndOfCurrentInputStream;
+  private boolean hasSignaledEndOfVideoGraphOutputStream;
 
   /**
    * Converts the buffer timestamp (the player position, with renderer offset) to the composition
@@ -394,6 +394,10 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
    */
   public void removeListener(PlaybackVideoGraphWrapper.Listener listener) {
     listeners.remove(listener);
+  }
+
+  public void setTotalVideoInputCount(int totalVideoInputCount) {
+    this.totalVideoInputCount = totalVideoInputCount;
   }
 
   /** Starts rendering to the output surface. */
@@ -512,9 +516,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
         finalBufferPresentationTimeUs != C.TIME_UNSET
             && bufferPresentationTimeUs >= finalBufferPresentationTimeUs;
     if (isLastFrame) {
-      // TODO b/257464707 - Support extensively modified media.
-      defaultVideoSink.signalEndOfCurrentInputStream();
-      hasSignaledEndOfCurrentInputStream = true;
+      signalEndOfVideoGraphOutputStream();
     }
   }
 
@@ -605,10 +607,6 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     return state == STATE_INITIALIZED;
   }
 
-  public void setTotalVideoInputCount(int totalVideoInputCount) {
-    this.totalVideoInputCount = totalVideoInputCount;
-  }
-
   private void maybeSetOutputSurfaceInfo(@Nullable Surface surface, int width, int height) {
     if (videoGraph == null) {
       return;
@@ -627,9 +625,15 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     return defaultVideoSink.isReady(/* otherwiseReady= */ otherwiseReady && pendingFlushCount == 0);
   }
 
+  private void signalEndOfVideoGraphOutputStream() {
+    // TODO: b/257464707 - Support extensively modified media.
+    defaultVideoSink.signalEndOfCurrentInputStream();
+    hasSignaledEndOfVideoGraphOutputStream = true;
+  }
+
   private boolean isEnded() {
     return pendingFlushCount == 0
-        && hasSignaledEndOfCurrentInputStream
+        && hasSignaledEndOfVideoGraphOutputStream
         && defaultVideoSink.isEnded();
   }
 
@@ -662,7 +666,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     }
     lastOutputBufferPresentationTimeUs = C.TIME_UNSET;
     finalBufferPresentationTimeUs = C.TIME_UNSET;
-    hasSignaledEndOfCurrentInputStream = false;
+    hasSignaledEndOfVideoGraphOutputStream = false;
     // Handle pending video graph callbacks to ensure video size changes reach the video render
     // control.
     checkStateNotNull(handler).post(() -> pendingFlushCount--);
@@ -670,6 +674,10 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
 
   private void joinPlayback(boolean renderNextFrameImmediately) {
     defaultVideoSink.join(renderNextFrameImmediately);
+  }
+
+  private void allowReleaseFirstFrameBeforeStarted() {
+    defaultVideoSink.allowReleaseFirstFrameBeforeStarted();
   }
 
   private void setVideoFrameMetadataListener(
@@ -821,8 +829,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     public void signalEndOfCurrentInputStream() {
       finalBufferPresentationTimeUs = lastBufferPresentationTimeUs;
       if (lastOutputBufferPresentationTimeUs >= finalBufferPresentationTimeUs) {
-        defaultVideoSink.signalEndOfCurrentInputStream();
-        hasSignaledEndOfCurrentInputStream = true;
+        PlaybackVideoGraphWrapper.this.signalEndOfVideoGraphOutputStream();
       }
     }
 
@@ -854,7 +861,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
       this.inputType = inputType;
       this.inputFormat = format;
       finalBufferPresentationTimeUs = C.TIME_UNSET;
-      hasSignaledEndOfCurrentInputStream = false;
+      hasSignaledEndOfVideoGraphOutputStream = false;
       registerInputStream(format);
       // Input timestamps should always be positive because they are offset by ExoPlayer. Adding a
       // stream change info to the queue with timestamp 0 should therefore always apply it as long
@@ -880,7 +887,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
       if (pendingStreamChanges.size() == 0) {
         // All the stream changes have already been processed by the VideoGraph. Delegate to the
         // downstream component.
-        defaultVideoSink.allowReleaseFirstFrameBeforeStarted();
+        PlaybackVideoGraphWrapper.this.allowReleaseFirstFrameBeforeStarted();
         return;
       }
       TimedValueQueue<StreamChangeInfo> newPendingStreamChanges = new TimedValueQueue<>();
@@ -900,7 +907,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
           } else {
             // The first stream change has already been processed by the VideoGraph. Delegate to the
             // downstream component.
-            defaultVideoSink.allowReleaseFirstFrameBeforeStarted();
+            PlaybackVideoGraphWrapper.this.allowReleaseFirstFrameBeforeStarted();
           }
           isFirstStreamChange = false;
         }
