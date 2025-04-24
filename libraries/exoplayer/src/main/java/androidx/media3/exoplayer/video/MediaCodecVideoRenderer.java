@@ -2473,6 +2473,22 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     }
   }
 
+  @Override
+  protected boolean flushOrReleaseCodec() {
+    MediaCodecInfo codecInfo = getCodecInfo();
+    if (videoSink != null
+        && codecInfo != null
+        && (codecInfo.name.equals("c2.mtk.avc.decoder")
+            || codecInfo.name.equals("c2.mtk.hevc.decoder"))) {
+      // Flushing a c2.mtk decoder that outputs to a SurfaceTexture often fails and leaves
+      // the SurfaceTexture's BufferQueue in an unrecoverable state. Release the codec instead.
+      // See b/362904942 for more details.
+      releaseCodec();
+      return true;
+    }
+    return super.flushOrReleaseCodec();
+  }
+
   /**
    * Returns whether the device is known to do post processing by default that isn't compatible with
    * ExoPlayer.
