@@ -89,7 +89,7 @@ public final class ShadowMediaCodecConfig extends ExternalResource {
 
   public static final CodecInfo CODEC_INFO_AVC =
       new CodecInfo(
-          /* codecName= */ "exotest.video.avc",
+          /* codecName= */ "media3.video.avc",
           MimeTypes.VIDEO_H264,
           /* profileLevels= */ ImmutableList.of(
               createCodecProfileLevel(
@@ -98,7 +98,7 @@ public final class ShadowMediaCodecConfig extends ExternalResource {
               MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible));
   public static final CodecInfo CODEC_INFO_HEVC =
       new CodecInfo(
-          /* codecName= */ "exotest.video.hevc",
+          /* codecName= */ "media3.video.hevc",
           MimeTypes.VIDEO_H265,
           /* profileLevels= */ ImmutableList.of(
               createCodecProfileLevel(
@@ -107,7 +107,7 @@ public final class ShadowMediaCodecConfig extends ExternalResource {
               MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible));
   public static final CodecInfo CODEC_INFO_MPEG2 =
       new CodecInfo(
-          /* codecName= */ "exotest.video.mpeg2",
+          /* codecName= */ "media3.video.mpeg2",
           MimeTypes.VIDEO_MPEG2,
           /* profileLevels= */ ImmutableList.of(
               createCodecProfileLevel(
@@ -116,44 +116,44 @@ public final class ShadowMediaCodecConfig extends ExternalResource {
               MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible));
   public static final CodecInfo CODEC_INFO_VP9 =
       new CodecInfo(
-          /* codecName= */ "exotest.video.vp9",
+          /* codecName= */ "media3.video.vp9",
           MimeTypes.VIDEO_VP9,
           /* profileLevels= */ ImmutableList.of(),
           /* colorFormats= */ ImmutableList.of(
               MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible));
   public static final CodecInfo CODEC_INFO_AV1 =
       new CodecInfo(
-          /* codecName= */ "exotest.video.av1",
+          /* codecName= */ "media3.video.av1",
           MimeTypes.VIDEO_AV1,
           /* profileLevels= */ ImmutableList.of(),
           /* colorFormats= */ ImmutableList.of(
               MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible));
   public static final CodecInfo CODEC_INFO_AAC =
-      new CodecInfo(/* codecName= */ "exotest.audio.aac", MimeTypes.AUDIO_AAC);
+      new CodecInfo(/* codecName= */ "media3.audio.aac", MimeTypes.AUDIO_AAC);
   public static final CodecInfo CODEC_INFO_AC3 =
-      new CodecInfo(/* codecName= */ "exotest.audio.ac3", MimeTypes.AUDIO_AC3);
+      new CodecInfo(/* codecName= */ "media3.audio.ac3", MimeTypes.AUDIO_AC3);
   public static final CodecInfo CODEC_INFO_AC4 =
-      new CodecInfo(/* codecName= */ "exotest.audio.ac4", MimeTypes.AUDIO_AC4);
+      new CodecInfo(/* codecName= */ "media3.audio.ac4", MimeTypes.AUDIO_AC4);
   public static final CodecInfo CODEC_INFO_AMR_NB =
-      new CodecInfo(/* codecName= */ "exotest.audio.amrnb", MimeTypes.AUDIO_AMR_NB);
+      new CodecInfo(/* codecName= */ "media3.audio.amrnb", MimeTypes.AUDIO_AMR_NB);
   public static final CodecInfo CODEC_INFO_E_AC3 =
-      new CodecInfo(/* codecName= */ "exotest.audio.eac3", MimeTypes.AUDIO_E_AC3);
+      new CodecInfo(/* codecName= */ "media3.audio.eac3", MimeTypes.AUDIO_E_AC3);
   public static final CodecInfo CODEC_INFO_E_AC3_JOC =
-      new CodecInfo(/* codecName= */ "exotest.audio.eac3joc", MimeTypes.AUDIO_E_AC3_JOC);
+      new CodecInfo(/* codecName= */ "media3.audio.eac3joc", MimeTypes.AUDIO_E_AC3_JOC);
   public static final CodecInfo CODEC_INFO_FLAC =
-      new CodecInfo(/* codecName= */ "exotest.audio.flac", MimeTypes.AUDIO_FLAC);
+      new CodecInfo(/* codecName= */ "media3.audio.flac", MimeTypes.AUDIO_FLAC);
   public static final CodecInfo CODEC_INFO_MPEG =
-      new CodecInfo(/* codecName= */ "exotest.audio.mpeg", MimeTypes.AUDIO_MPEG);
+      new CodecInfo(/* codecName= */ "media3.audio.mpeg", MimeTypes.AUDIO_MPEG);
   public static final CodecInfo CODEC_INFO_MPEG_L2 =
-      new CodecInfo(/* codecName= */ "exotest.audio.mpegl2", MimeTypes.AUDIO_MPEG_L2);
+      new CodecInfo(/* codecName= */ "media3.audio.mpegl2", MimeTypes.AUDIO_MPEG_L2);
   public static final CodecInfo CODEC_INFO_OPUS =
-      new CodecInfo(/* codecName= */ "exotest.audio.opus", MimeTypes.AUDIO_OPUS);
+      new CodecInfo(/* codecName= */ "media3.audio.opus", MimeTypes.AUDIO_OPUS);
   public static final CodecInfo CODEC_INFO_VORBIS =
-      new CodecInfo(/* codecName= */ "exotest.audio.vorbis", MimeTypes.AUDIO_VORBIS);
+      new CodecInfo(/* codecName= */ "media3.audio.vorbis", MimeTypes.AUDIO_VORBIS);
   // In ExoPlayer, raw audio should use a bypass mode and never need this codec. However, to easily
   // assert failures of the bypass mode we want to detect when the raw audio is decoded by this
   public static final CodecInfo CODEC_INFO_RAW =
-      new CodecInfo(/* codecName= */ "exotest.audio.raw", MimeTypes.AUDIO_RAW);
+      new CodecInfo(/* codecName= */ "media3.audio.raw", MimeTypes.AUDIO_RAW);
 
   private static final ImmutableSet<CodecInfo> ALL_SUPPORTED_CODECS =
       ImmutableSet.of(

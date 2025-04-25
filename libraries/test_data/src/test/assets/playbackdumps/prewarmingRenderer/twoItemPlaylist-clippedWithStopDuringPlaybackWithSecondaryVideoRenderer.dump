@@ -1,4 +1,4 @@
-MediaCodecAdapter (exotest.video.avc):
+MediaCodecAdapter (media3.video.avc):
   inputBuffers:
     count = 2
     input buffer #0:
@@ -14,7 +14,7 @@ MediaCodecAdapter (exotest.video.avc):
       timeUs = 1000000000000
       size = 36692
       rendered = true
-MediaCodecAdapter (exotest.video.avc):
+MediaCodecAdapter (media3.video.avc):
   inputBuffers:
     count = 1
     input buffer #0:
@@ -26,7 +26,7 @@ MediaCodecAdapter (exotest.video.avc):
       timeUs = 1000000025000
       size = 36692
       rendered = true
-MediaCodecAdapter (exotest.video.avc):
+MediaCodecAdapter (media3.video.avc):
   inputBuffers:
     count = 2
     input buffer #0:

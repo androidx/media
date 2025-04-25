@@ -99,6 +99,8 @@
         `transformer.TestUtil.addAudioEncoders(ShadowMediaCodec.CodecConfig,
         String...)`. Use `ShadowMediaCodecConfig` to configure shadow encoders
         and decoders instead.
+    *   Replaced the "exotest" prefix with "media3" in codec names reported by
+        `ShadowMediaCodecConfig`.
 *   Remove deprecated symbols:
     *   Removed deprecated `SegmentDownloader` constructor
         `SegmentDownloader(MediaItem, Parser<M>, CacheDataSource.Factory,
