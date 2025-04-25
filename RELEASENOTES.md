@@ -40,6 +40,8 @@
     *   Improve codec performance checks for software video codecs. This may
         lead to some additional tracks being marked as `EXCEEDS_CAPABILITIES`.
 *   Text:
+    *   Fix SSA and SubRip to display an in-progress cue when enabling subtitles
+        ([#2309](https://github.com/androidx/media/issues/2309)).
 *   Metadata:
 *   Image:
 *   DataSource:

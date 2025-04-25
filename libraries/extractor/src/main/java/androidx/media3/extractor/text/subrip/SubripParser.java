@@ -166,7 +166,7 @@ public final class SubripParser implements SubtitleParser {
           break;
         }
       }
-      if (outputOptions.startTimeUs == C.TIME_UNSET || startTimeUs >= outputOptions.startTimeUs) {
+      if (outputOptions.startTimeUs == C.TIME_UNSET || endTimeUs >= outputOptions.startTimeUs) {
         output.accept(
             new CuesWithTiming(
                 ImmutableList.of(buildCue(text, alignmentTag)),
