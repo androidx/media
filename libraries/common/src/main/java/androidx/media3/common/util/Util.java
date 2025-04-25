@@ -47,6 +47,7 @@ import android.app.Service;
 import android.app.UiModeManager;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
@@ -419,7 +420,8 @@ public final class Util {
   }
 
   private static boolean isMediaStoreExternalContentUri(Uri uri) {
-    if (!"content".equals(uri.getScheme()) || !MediaStore.AUTHORITY.equals(uri.getAuthority())) {
+    if (!Objects.equals(uri.getScheme(), ContentResolver.SCHEME_CONTENT)
+        || !Objects.equals(uri.getAuthority(), MediaStore.AUTHORITY)) {
       return false;
     }
     List<String> pathSegments = uri.getPathSegments();
@@ -467,7 +469,7 @@ public final class Util {
   @UnstableApi
   public static boolean isLocalFileUri(Uri uri) {
     String scheme = uri.getScheme();
-    return TextUtils.isEmpty(scheme) || "file".equals(scheme);
+    return TextUtils.isEmpty(scheme) || Objects.equals(scheme, ContentResolver.SCHEME_FILE);
   }
 
   /** Returns true if the code path is currently running on an emulator. */

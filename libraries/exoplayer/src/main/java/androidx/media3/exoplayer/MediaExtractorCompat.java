@@ -46,6 +46,7 @@ import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.MediaFormatUtil;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DataSourceUtil;
 import androidx.media3.datasource.DataSpec;
@@ -287,11 +288,8 @@ public final class MediaExtractorCompat {
    */
   public void setDataSource(Context context, Uri uri, @Nullable Map<String, String> headers)
       throws IOException {
-    String scheme = uri.getScheme();
-    String path = uri.getPath();
-    if ((scheme == null || scheme.equals("file")) && path != null) {
-      // If the URI scheme is null or file, treat it as a local file path
-      setDataSource(path);
+    if (Util.isLocalFileUri(uri)) {
+      setDataSource(checkNotNull(uri.getPath()));
       return;
     }
 
