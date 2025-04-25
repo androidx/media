@@ -58,16 +58,16 @@ fun PlayerSurface(
         player,
         modifier,
         createView = { SurfaceView(it) },
-        setViewOnPlayer = { player, view -> player.setVideoSurfaceView(view) },
-        clearViewFromPlayer = { player, view -> player.clearVideoSurfaceView(view) },
+        setViewOnPlayer = { setVideoSurfaceView(it) },
+        clearViewFromPlayer = { clearVideoSurfaceView(it) },
       )
     SURFACE_TYPE_TEXTURE_VIEW ->
       PlayerSurfaceInternal(
         player,
         modifier,
         createView = { TextureView(it) },
-        setViewOnPlayer = { player, view -> player.setVideoTextureView(view) },
-        clearViewFromPlayer = { player, view -> player.clearVideoTextureView(view) },
+        setViewOnPlayer = { setVideoTextureView(it) },
+        clearViewFromPlayer = { clearVideoTextureView(it) },
       )
     else -> throw IllegalArgumentException("Unrecognized surface type: $surfaceType")
   }
@@ -78,8 +78,8 @@ private fun <T : View> PlayerSurfaceInternal(
   player: Player,
   modifier: Modifier,
   createView: (Context) -> T,
-  setViewOnPlayer: (Player, T) -> Unit,
-  clearViewFromPlayer: (Player, T) -> Unit,
+  setViewOnPlayer: Player.(T) -> Unit,
+  clearViewFromPlayer: Player.(T) -> Unit,
 ) {
   var view by remember { mutableStateOf<T?>(null) }
   var registeredPlayer by remember { mutableStateOf<Player?>(null) }
@@ -88,11 +88,11 @@ private fun <T : View> PlayerSurfaceInternal(
     LaunchedEffect(view, player) {
       registeredPlayer?.let { previousPlayer ->
         if (previousPlayer.isCommandAvailable(Player.COMMAND_SET_VIDEO_SURFACE))
-          clearViewFromPlayer(previousPlayer, view)
+          previousPlayer.clearViewFromPlayer(view)
         registeredPlayer = null
       }
       if (player.isCommandAvailable(Player.COMMAND_SET_VIDEO_SURFACE)) {
-        setViewOnPlayer(player, view)
+        player.setViewOnPlayer(view)
         registeredPlayer = player
       }
     }
