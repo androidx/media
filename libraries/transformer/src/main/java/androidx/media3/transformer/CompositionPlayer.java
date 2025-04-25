@@ -400,6 +400,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
    * @param composition The {@link Composition} to play. Every {@link EditedMediaItem} in the {@link
    *     Composition} must have its {@link EditedMediaItem#durationUs} set.
    */
+  @SuppressWarnings("FutureReturnValueIgnored")
   public void setComposition(Composition composition) {
     verifyApplicationThread();
     checkArgument(!composition.sequences.isEmpty());
@@ -412,20 +413,9 @@ public final class CompositionPlayer extends SimpleBasePlayer
     }
 
     setCompositionInternal(composition);
-    if (videoOutput != null) {
-      if (videoOutput instanceof SurfaceHolder) {
-        setVideoSurfaceHolderInternal((SurfaceHolder) videoOutput);
-      } else if (videoOutput instanceof SurfaceView) {
-        SurfaceView surfaceView = (SurfaceView) videoOutput;
-        setVideoSurfaceHolderInternal(surfaceView.getHolder());
-      } else if (videoOutput instanceof Surface) {
-        setVideoSurfaceInternal((Surface) videoOutput, checkNotNull(videoOutputSize));
-      } else {
-        throw new IllegalStateException(videoOutput.getClass().toString());
-      }
-    }
     // Update the composition field at the end after everything else has been set.
     this.composition = composition;
+    maybeSetVideoOutput();
   }
 
   /**
@@ -444,7 +434,6 @@ public final class CompositionPlayer extends SimpleBasePlayer
   }
 
   /** Sets the {@link Surface} and {@link Size} to render to. */
-  @VisibleForTesting
   public void setVideoSurface(Surface surface, Size videoOutputSize) {
     videoOutput = surface;
     this.videoOutputSize = videoOutputSize;
@@ -616,18 +605,12 @@ public final class CompositionPlayer extends SimpleBasePlayer
   @Override
   protected ListenableFuture<?> handleSetVideoOutput(Object videoOutput) {
     if (!(videoOutput instanceof SurfaceHolder || videoOutput instanceof SurfaceView)) {
-      throw new UnsupportedOperationException(videoOutput.getClass().toString());
+      throw new UnsupportedOperationException(
+          videoOutput.getClass().toString()
+              + ". Use CompositionPlayer.setVideoSurface() for Surface output.");
     }
     this.videoOutput = videoOutput;
-    if (composition == null) {
-      return Futures.immediateVoidFuture();
-    }
-    if (videoOutput instanceof SurfaceHolder) {
-      setVideoSurfaceHolderInternal((SurfaceHolder) videoOutput);
-    } else {
-      setVideoSurfaceHolderInternal(((SurfaceView) videoOutput).getHolder());
-    }
-    return Futures.immediateVoidFuture();
+    return maybeSetVideoOutput();
   }
 
   @Override
@@ -1010,6 +993,25 @@ public final class CompositionPlayer extends SimpleBasePlayer
         super.onChildSourceInfoRefreshed(timeline);
       }
     };
+  }
+
+  private ListenableFuture<?> maybeSetVideoOutput() {
+    if (videoOutput == null || composition == null) {
+      return Futures.immediateVoidFuture();
+    }
+    if (videoOutput instanceof SurfaceHolder) {
+      setVideoSurfaceHolderInternal((SurfaceHolder) videoOutput);
+    } else if (videoOutput instanceof SurfaceView) {
+      SurfaceView surfaceView = (SurfaceView) videoOutput;
+      setVideoSurfaceHolderInternal(surfaceView.getHolder());
+    } else if (videoOutput instanceof Surface) {
+      setVideoSurfaceInternal(
+          (Surface) videoOutput,
+          checkNotNull(videoOutputSize, "VideoOutputSize must be set when using Surface output"));
+    } else {
+      throw new IllegalStateException(videoOutput.getClass().toString());
+    }
+    return Futures.immediateVoidFuture();
   }
 
   private long getContentPositionMs() {
