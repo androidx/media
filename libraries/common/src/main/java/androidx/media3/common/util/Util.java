@@ -3713,7 +3713,9 @@ public final class Util {
         || player.getPlaybackState() == Player.STATE_IDLE
         || player.getPlaybackState() == Player.STATE_ENDED
         || (shouldShowPlayIfSuppressed
-            && player.getPlaybackSuppressionReason() != Player.PLAYBACK_SUPPRESSION_REASON_NONE);
+            && player.getPlaybackSuppressionReason() != Player.PLAYBACK_SUPPRESSION_REASON_NONE
+            && player.getPlaybackSuppressionReason()
+                != Player.PLAYBACK_SUPPRESSION_REASON_SCRUBBING);
   }
 
   /**

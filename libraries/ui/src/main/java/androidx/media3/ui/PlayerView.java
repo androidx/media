@@ -1284,6 +1284,19 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
   }
 
   /**
+   * Sets whether the time bar should {@linkplain Player#seekTo seek} immediately as the user drags
+   * the scrubber around (true), or only seek when the user releases the scrubber (false).
+   *
+   * <p>This can only be used if the {@linkplain #setPlayer connected player} is an instance of
+   * {@code androidx.media3.exoplayer.ExoPlayer}.
+   */
+  @UnstableApi
+  public void setTimeBarScrubbingEnabled(boolean timeBarScrubbingEnabled) {
+    Assertions.checkStateNotNull(controller);
+    controller.setTimeBarScrubbingEnabled(timeBarScrubbingEnabled);
+  }
+
+  /**
    * Sets whether a play button is shown if playback is {@linkplain
    * Player#getPlaybackSuppressionReason() suppressed}.
    *

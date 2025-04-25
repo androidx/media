@@ -79,12 +79,15 @@ import androidx.media3.common.TrackSelectionOverride;
 import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.Tracks;
 import androidx.media3.common.util.Assertions;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.RepeatModeUtil;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import com.google.common.collect.ImmutableList;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -92,6 +95,7 @@ import java.util.Formatter;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.CopyOnWriteArrayList;
+import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
 
 /**
  * A view for controlling {@link Player} instances.
@@ -155,6 +159,14 @@ import java.util.concurrent.CopyOnWriteArrayList;
  *       <ul>
  *         <li>Corresponding method: {@link #setAnimationEnabled(boolean)}
  *         <li>Default: true
+ *       </ul>
+ *   <li><b>{@code time_bar_scrubbing_enabled}</b> - Whether the time bar should {@linkplain
+ *       Player#seekTo seek} immediately as the user drags the scrubber around (true), or only seek
+ *       when the user releases the scrubber (false). This can only be used if the {@linkplain
+ *       #setPlayer connected player} is an instance of {@code androidx.media3.exoplayer.ExoPlayer}.
+ *       <ul>
+ *         <li>Corresponding method: {@link #setTimeBarScrubbingEnabled(boolean)}
+ *         <li>Default: {@code false}
  *       </ul>
  *   <li><b>{@code time_bar_min_update_interval}</b> - Specifies the minimum interval between time
  *       bar position updates.
@@ -352,6 +364,8 @@ public class PlayerControlView extends FrameLayout {
   /** The maximum number of windows that can be shown in a multi-window time bar. */
   public static final int MAX_WINDOWS_FOR_MULTI_WINDOW_TIME_BAR = 100;
 
+  private static final String TAG = "PlayerControlView";
+
   /** The maximum interval between time bar position updates. */
   private static final int MAX_UPDATE_INTERVAL_MS = 1_000;
 
@@ -366,6 +380,9 @@ public class PlayerControlView extends FrameLayout {
   private final PlayerControlViewLayoutManager controlViewLayoutManager;
   private final Resources resources;
   private final ComponentListener componentListener;
+  @Nullable private final Class<?> exoplayerClazz;
+  @Nullable private final Method setScrubbingModeEnabledMethod;
+  @Nullable private final Method isScrubbingModeEnabledMethod;
 
   @SuppressWarnings("deprecation") // Using the deprecated type for now.
   private final CopyOnWriteArrayList<VisibilityListener> visibilityListeners;
@@ -442,6 +459,7 @@ public class PlayerControlView extends FrameLayout {
   private boolean multiWindowTimeBar;
   private boolean scrubbing;
   private int showTimeoutMs;
+  private boolean timeBarScrubbingEnabled;
   private int timeBarMinUpdateIntervalMs;
   private @RepeatModeUtil.RepeatToggleModes int repeatToggleModes;
   private long[] adGroupTimesMs;
@@ -572,6 +590,8 @@ public class PlayerControlView extends FrameLayout {
         showSubtitleButton =
             a.getBoolean(R.styleable.PlayerControlView_show_subtitle_button, showSubtitleButton);
         showVrButton = a.getBoolean(R.styleable.PlayerControlView_show_vr_button, showVrButton);
+        timeBarScrubbingEnabled =
+            a.getBoolean(R.styleable.PlayerControlView_time_bar_scrubbing_enabled, false);
         setTimeBarMinUpdateInterval(
             a.getInt(
                 R.styleable.PlayerControlView_time_bar_min_update_interval,
@@ -597,6 +617,21 @@ public class PlayerControlView extends FrameLayout {
     extraAdGroupTimesMs = new long[0];
     extraPlayedAdGroups = new boolean[0];
     updateProgressAction = this::updateProgress;
+
+    Class<?> exoplayerClazz = null;
+    Method setScrubbingModeEnabledMethod = null;
+    Method isScrubbingModeEnabledMethod = null;
+    try {
+      exoplayerClazz = Class.forName("androidx.media3.exoplayer.ExoPlayer");
+      setScrubbingModeEnabledMethod =
+          exoplayerClazz.getMethod("setScrubbingModeEnabled", boolean.class);
+      isScrubbingModeEnabledMethod = exoplayerClazz.getMethod("isScrubbingModeEnabled");
+    } catch (ClassNotFoundException | NoSuchMethodException e) {
+      // Expected if ExoPlayer module not available.
+    }
+    this.exoplayerClazz = exoplayerClazz;
+    this.setScrubbingModeEnabledMethod = setScrubbingModeEnabledMethod;
+    this.isScrubbingModeEnabledMethod = isScrubbingModeEnabledMethod;
 
     durationView = findViewById(R.id.exo_duration);
     positionView = findViewById(R.id.exo_position);
@@ -1086,6 +1121,17 @@ public class PlayerControlView extends FrameLayout {
   /** Returns whether an animation is used to show and hide the playback controls. */
   public boolean isAnimationEnabled() {
     return controlViewLayoutManager.isAnimationEnabled();
+  }
+
+  /**
+   * Sets whether the time bar should {@linkplain Player#seekTo seek} immediately as the user drags
+   * the scrubber around (true), or only seek when the user releases the scrubber (false).
+   *
+   * <p>This can only be used if the {@linkplain #setPlayer connected player} is an instance of
+   * {@code androidx.media3.exoplayer.ExoPlayer}.
+   */
+  public void setTimeBarScrubbingEnabled(boolean timeBarScrubbingEnabled) {
+    this.timeBarScrubbingEnabled = timeBarScrubbingEnabled;
   }
 
   /**
@@ -1852,6 +1898,21 @@ public class PlayerControlView extends FrameLayout {
         positionView.setText(Util.getStringForTime(formatBuilder, formatter, position));
       }
       controlViewLayoutManager.removeHideCallbacks();
+      if (player != null && timeBarScrubbingEnabled) {
+        if (isExoPlayer(player)) {
+          try {
+            checkNotNull(setScrubbingModeEnabledMethod).invoke(player, true);
+          } catch (IllegalAccessException | InvocationTargetException e) {
+            throw new RuntimeException(e);
+          }
+        } else {
+          Log.w(
+              TAG,
+              "Time bar scrubbing is enabled, but player is not an ExoPlayer instance, so ignoring"
+                  + " (because we can't enable scrubbing mode). player.class="
+                  + checkNotNull(player).getClass());
+        }
+      }
     }
 
     @Override
@@ -1859,15 +1920,43 @@ public class PlayerControlView extends FrameLayout {
       if (positionView != null) {
         positionView.setText(Util.getStringForTime(formatBuilder, formatter, position));
       }
+      boolean isScrubbingModeEnabled;
+      try {
+        isScrubbingModeEnabled =
+            isExoPlayer(player)
+                && (boolean)
+                    checkNotNull(checkNotNull(isScrubbingModeEnabledMethod).invoke(player));
+      } catch (IllegalAccessException | InvocationTargetException e) {
+        throw new RuntimeException(e);
+      }
+      if (isScrubbingModeEnabled) {
+        seekToTimeBarPosition(checkNotNull(player), position);
+      }
     }
 
     @Override
     public void onScrubStop(TimeBar timeBar, long position, boolean canceled) {
       scrubbing = false;
-      if (!canceled && player != null) {
-        seekToTimeBarPosition(player, position);
+      if (player != null) {
+        if (!canceled) {
+          seekToTimeBarPosition(player, position);
+        }
+        if (isExoPlayer(player)) {
+          try {
+            checkNotNull(setScrubbingModeEnabledMethod).invoke(player, false);
+          } catch (IllegalAccessException | InvocationTargetException e) {
+            throw new RuntimeException(e);
+          }
+        }
       }
       controlViewLayoutManager.resetHideCallbacks();
+    }
+
+    @EnsuresNonNullIf(result = true, expression = "#1")
+    private boolean isExoPlayer(@Nullable Player player) {
+      return player != null
+          && exoplayerClazz != null
+          && exoplayerClazz.isAssignableFrom(player.getClass());
     }
 
     @Override
