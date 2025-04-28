@@ -349,9 +349,8 @@ public class EffectPlaybackPixelTest {
                 }
               });
           player.setVideoFrameMetadataListener(
-              (bufferPresentationTimeUs, releaseTimeNs, format, mediaFormat) -> {
-                // The buffer presentation time is offset with rendererOffset.
-                if (bufferPresentationTimeUs != 1_000_000_000_000L) {
+              (presentationTimeUs, releaseTimeNs, format, mediaFormat) -> {
+                if (presentationTimeUs != 0) {
                   return;
                 }
 
@@ -359,7 +358,7 @@ public class EffectPlaybackPixelTest {
                   // Render the current frame, and redraw a frame with some delay. This is to ensure
                   // that the first frame is rendered with the original effect, and the second
                   // frame is rendered with the new effect. Following this call, the first frame
-                  // will be rendered twicw.
+                  // will be rendered twice.
                   mainHandler.postDelayed(
                       () -> {
                         contrast.changeContrast(-0.8f);
