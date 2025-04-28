@@ -76,7 +76,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  */
 @UnstableApi
 @RestrictTo({Scope.LIBRARY_GROUP})
-public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, VideoGraph.Listener {
+public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
 
   /** Listener for {@link PlaybackVideoGraphWrapper} events. */
   public interface Listener {
@@ -400,19 +400,12 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     this.totalVideoInputCount = totalVideoInputCount;
   }
 
-  /** Starts rendering to the output surface. */
-  public void startRendering() {
-    defaultVideoSink.startRendering();
-  }
-
-  /** Stops rendering to the output surface. */
-  public void stopRendering() {
-    defaultVideoSink.stopRendering();
-  }
-
-  // VideoSinkProvider methods
-
-  @Override
+  /**
+   * Returns the {@link VideoSink} to forward video frames for processing.
+   *
+   * @param inputIndex The index of the {@link VideoSink}.
+   * @return The {@link VideoSink} at the given index.
+   */
   public VideoSink getSink(int inputIndex) {
     if (contains(inputVideoSinks, inputIndex)) {
       return inputVideoSinks.get(inputIndex);
@@ -425,7 +418,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     return inputVideoSink;
   }
 
-  @Override
+  /** Sets the output surface info. */
   public void setOutputSurfaceInfo(Surface outputSurface, Size outputResolution) {
     if (currentSurfaceAndSize != null
         && currentSurfaceAndSize.first.equals(outputSurface)
@@ -437,7 +430,7 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
         outputSurface, outputResolution.getWidth(), outputResolution.getHeight());
   }
 
-  @Override
+  /** Clears the set output surface info. */
   public void clearOutputSurfaceInfo() {
     maybeSetOutputSurfaceInfo(
         /* surface= */ null,
@@ -446,7 +439,17 @@ public final class PlaybackVideoGraphWrapper implements VideoSinkProvider, Video
     currentSurfaceAndSize = null;
   }
 
-  @Override
+  /** Starts rendering to the output surface. */
+  public void startRendering() {
+    defaultVideoSink.startRendering();
+  }
+
+  /** Stops rendering to the output surface. */
+  public void stopRendering() {
+    defaultVideoSink.stopRendering();
+  }
+
+  /** Releases the sink provider. */
   public void release() {
     if (state == STATE_RELEASED) {
       return;

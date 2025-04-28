@@ -125,6 +125,10 @@
         `Player.seekToNextMediaItem()` instead.
     *   Removed deprecated `BaseAudioProcessor` in `exoplayer` module. Use
         `BaseAudioProcessor` under `common` module.
+    *   Remove deprecated `MediaCodecVideoRenderer` constructor
+        `MediaCodecVideoRenderer(Context, MediaCodecAdapter.Factor,
+        MediaCodecSelector, long, boolean, @Nullable Handler, @Nullable
+        VideoRendererEventListener, int, float, @Nullable VideoSinkProvider)`.
 
 ## 1.6
 

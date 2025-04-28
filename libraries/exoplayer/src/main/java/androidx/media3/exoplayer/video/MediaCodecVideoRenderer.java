@@ -551,35 +551,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       @Nullable VideoRendererEventListener eventListener,
       int maxDroppedFramesToNotify,
       float assumedMinimumCodecOperatingRate,
-      @Nullable VideoSinkProvider videoSinkProvider) {
-    this(
-        new Builder(context)
-            .setMediaCodecSelector(mediaCodecSelector)
-            .setCodecAdapterFactory(codecAdapterFactory)
-            .setAllowedJoiningTimeMs(allowedJoiningTimeMs)
-            .setEnableDecoderFallback(enableDecoderFallback)
-            .setEventHandler(eventHandler)
-            .setEventListener(eventListener)
-            .setMaxDroppedFramesToNotify(maxDroppedFramesToNotify)
-            .setAssumedMinimumCodecOperatingRate(assumedMinimumCodecOperatingRate)
-            .setVideoSink(
-                videoSinkProvider == null ? null : videoSinkProvider.getSink(/* inputIndex= */ 0)));
-  }
-
-  /**
-   * @deprecated Use {@link Builder} instead.
-   */
-  @Deprecated
-  public MediaCodecVideoRenderer(
-      Context context,
-      MediaCodecAdapter.Factory codecAdapterFactory,
-      MediaCodecSelector mediaCodecSelector,
-      long allowedJoiningTimeMs,
-      boolean enableDecoderFallback,
-      @Nullable Handler eventHandler,
-      @Nullable VideoRendererEventListener eventListener,
-      int maxDroppedFramesToNotify,
-      float assumedMinimumCodecOperatingRate,
       @Nullable VideoSink videoSink) {
     this(
         new Builder(context)
