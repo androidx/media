@@ -71,7 +71,7 @@ public class DashManifestParser extends DefaultHandler
     implements ParsingLoadable.Parser<DashManifest> {
 
   private static final String TAG = "MpdParser";
-
+  public String defaultKid_value = "";
   private static final Pattern FRAME_RATE_PATTERN = Pattern.compile("(\\d+)(?:/(\\d+))?");
 
   private static final Pattern CEA_608_ACCESSIBILITY_PATTERN = Pattern.compile("CC([1-4])=.*");
@@ -584,6 +584,10 @@ public class DashManifestParser extends DefaultHandler
                         : C.TRACK_TYPE_UNKNOWN;
   }
 
+  public void set_default_kid(String default_kid) {
+     this.defaultKid_value = default_kid;
+   }
+   
   /**
    * Parses a ContentProtection element.
    *
@@ -606,6 +610,9 @@ public class DashManifestParser extends DefaultHandler
         case "urn:mpeg:dash:mp4protection:2011":
           schemeType = xpp.getAttributeValue(null, "value");
           String defaultKid = XmlPullParserUtil.getAttributeValueIgnorePrefix(xpp, "default_KID");
+          if (!TextUtils.isEmpty(defaultKid){
+              defaultKid = defaultKid_value;
+          }
           if (!TextUtils.isEmpty(defaultKid)
               && !"00000000-0000-0000-0000-000000000000".equals(defaultKid)) {
             String[] defaultKidStrings = defaultKid.split("\\s+");
