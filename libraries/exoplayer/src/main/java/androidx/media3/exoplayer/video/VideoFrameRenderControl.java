@@ -185,8 +185,12 @@ import androidx.media3.exoplayer.ExoPlaybackException;
       videoFrameReleaseControl.onStreamChanged(firstFrameReleaseInstruction);
       outputStreamStartPositionUs = streamStartPositionUs;
     } else {
+      // Add a start position to the queue with a large negative timestamp to always apply it as
+      // long as it is the only one in the queue.
       streamStartPositionsUs.add(
-          latestInputPresentationTimeUs == C.TIME_UNSET ? 0 : latestInputPresentationTimeUs + 1,
+          latestInputPresentationTimeUs == C.TIME_UNSET
+              ? Long.MIN_VALUE / 2
+              : latestInputPresentationTimeUs + 1,
           streamStartPositionUs);
     }
   }

@@ -277,12 +277,12 @@ public interface VideoSink {
    * <p>Must be called after the corresponding stream is {@linkplain #onInputStreamChanged(int,
    * Format, long, int, List) signaled}.
    *
-   * @param framePresentationTimeUs The frame's presentation time, in microseconds.
+   * @param bufferPresentationTimeUs The buffer presentation time, in microseconds.
    * @param videoFrameHandler The {@link VideoFrameHandler} used to handle the input frame.
    * @return Whether the frame was handled successfully. If {@code false}, the caller can try again
    *     later.
    */
-  boolean handleInputFrame(long framePresentationTimeUs, VideoFrameHandler videoFrameHandler);
+  boolean handleInputFrame(long bufferPresentationTimeUs, VideoFrameHandler videoFrameHandler);
 
   /**
    * Handles an input {@link Bitmap}.
@@ -291,12 +291,12 @@ public interface VideoSink {
    * Format, long, int, List) signaled}.
    *
    * @param inputBitmap The {@link Bitmap} to queue to the video sink.
-   * @param timestampIterator The times within the current stream that the bitmap should be shown
-   *     at. The timestamps should be monotonically increasing.
+   * @param bufferTimestampIterator The buffer presentation times within the current stream that the
+   *     bitmap should be shown at. The timestamps should be monotonically increasing.
    * @return Whether the bitmap was queued successfully. If {@code false}, the caller can try again
    *     later.
    */
-  boolean handleInputBitmap(Bitmap inputBitmap, TimestampIterator timestampIterator);
+  boolean handleInputBitmap(Bitmap inputBitmap, TimestampIterator bufferTimestampIterator);
 
   /**
    * Incrementally renders processed video frames to the output surface.

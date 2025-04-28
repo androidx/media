@@ -626,6 +626,11 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       boolean isLastFrame,
       boolean treatDroppedBuffersAsSkipped)
       throws ExoPlaybackException {
+    if (videoSink != null && ownsVideoSink) {
+      // When using PlaybackVideoGraphWrapper, positionUs is shifted by the buffer timestamp
+      // adjustment. Shift it back to the player position.
+      positionUs -= getBufferTimestampAdjustmentUs();
+    }
     if (minEarlyUsToDropDecoderInput != C.TIME_UNSET) {
       // TODO: b/161996553 - Remove the isAwayFromLastResetPosition check when audio pre-rolling
       // is implemented correctly. Audio codecs such as Opus require pre-roll samples to be decoded
@@ -1734,9 +1739,8 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         skipOutputBuffer(codec, bufferIndex, presentationTimeUs);
         return true;
       }
-      long framePresentationTimeUs = bufferPresentationTimeUs + getBufferTimestampAdjustmentUs();
       return videoSink.handleInputFrame(
-          framePresentationTimeUs,
+          bufferPresentationTimeUs,
           new VideoSink.VideoFrameHandler() {
             @Override
             public void render(long renderTimestampNs) {

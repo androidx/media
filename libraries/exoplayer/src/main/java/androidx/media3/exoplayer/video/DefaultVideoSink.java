@@ -45,6 +45,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  * <ul>
  *   <li>Applying video effects
  *   <li>Inputting bitmaps
+ *   <li>Redrawing
+ *   <li>Setting a buffer timestamp adjustment
  * </ul>
  *
  * <p>The {@linkplain #getInputSurface() input} and {@linkplain #setOutputSurfaceInfo(Surface, Size)
@@ -59,7 +61,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   @Nullable private Surface outputSurface;
   private Format inputFormat;
   private long streamStartPositionUs;
-  private long bufferTimestampAdjustmentUs;
   private Listener listener;
   private Executor listenerExecutor;
   private VideoFrameMetadataListener videoFrameMetadataListener;
@@ -104,6 +105,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     return true;
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>This method will always throw an {@link UnsupportedOperationException}.
+   */
   @Override
   public void redraw() {
     throw new UnsupportedOperationException();
@@ -163,9 +169,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     throw new UnsupportedOperationException();
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>This method will always throw an {@link UnsupportedOperationException}.
+   */
   @Override
   public void setBufferTimestampAdjustmentUs(long bufferTimestampAdjustmentUs) {
-    this.bufferTimestampAdjustmentUs = bufferTimestampAdjustmentUs;
+    throw new UnsupportedOperationException();
   }
 
   @Override
@@ -220,8 +231,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   public boolean handleInputFrame(
       long framePresentationTimeUs, VideoFrameHandler videoFrameHandler) {
     videoFrameHandlers.add(videoFrameHandler);
-    long bufferPresentationTimeUs = framePresentationTimeUs - bufferTimestampAdjustmentUs;
-    videoFrameRenderControl.onFrameAvailableForRendering(bufferPresentationTimeUs);
+    videoFrameRenderControl.onFrameAvailableForRendering(framePresentationTimeUs);
     listenerExecutor.execute(() -> listener.onFrameAvailableForRendering());
     return true;
   }
@@ -232,7 +242,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * <p>This method will always throw an {@link UnsupportedOperationException}.
    */
   @Override
-  public boolean handleInputBitmap(Bitmap inputBitmap, TimestampIterator timestampIterator) {
+  public boolean handleInputBitmap(Bitmap inputBitmap, TimestampIterator bufferTimestampIterator) {
     throw new UnsupportedOperationException();
   }
 
@@ -269,8 +279,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
 
     @Override
-    public void renderFrame(
-        long renderTimeNs, long bufferPresentationTimeUs, boolean isFirstFrame) {
+    public void renderFrame(long renderTimeNs, long framePresentationTimeUs, boolean isFirstFrame) {
       if (isFirstFrame && outputSurface != null) {
         listenerExecutor.execute(() -> listener.onFirstFrameRendered());
       }
@@ -278,7 +287,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       //  onVideoSizeChanged is announced after the first frame is available for rendering.
       Format format = outputFormat == null ? new Format.Builder().build() : outputFormat;
       videoFrameMetadataListener.onVideoFrameAboutToBeRendered(
-          /* presentationTimeUs= */ bufferPresentationTimeUs,
+          /* presentationTimeUs= */ framePresentationTimeUs,
           /* releaseTimeNs= */ renderTimeNs,
           format,
           /* mediaFormat= */ null);

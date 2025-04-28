@@ -500,7 +500,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     private long streamStartPositionUs;
     private boolean mayRenderStartOfStream;
     private @VideoSink.FirstFrameReleaseInstruction int nextFirstFrameReleaseInstruction;
-    private long offsetToCompositionTimeUs;
     private @MonotonicNonNull WakeupListener wakeupListener;
 
     public SequenceImageRenderer(
@@ -598,7 +597,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       // The media item might have been repeated in the sequence.
       int mediaItemIndex = getTimeline().getIndexOfPeriod(mediaPeriodId.periodUid);
       currentEditedMediaItem = sequence.editedMediaItems.get(mediaItemIndex);
-      offsetToCompositionTimeUs = getOffsetToCompositionTimeUs(sequence, mediaItemIndex, offsetUs);
+      long offsetToCompositionTimeUs =
+          getOffsetToCompositionTimeUs(sequence, mediaItemIndex, offsetUs);
       videoSink.setBufferTimestampAdjustmentUs(offsetToCompositionTimeUs);
       timestampIterator = createTimestampIterator(/* positionUs= */ startPositionUs);
       videoEffects = currentEditedMediaItem.effects.videoEffects;
@@ -663,14 +663,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
 
     private ConstantRateTimestampIterator createTimestampIterator(long positionUs) {
-      long streamOffsetUs = getStreamOffsetUs();
-      long imageBaseTimestampUs = streamOffsetUs + offsetToCompositionTimeUs;
-      long positionWithinImage = positionUs - streamOffsetUs;
-      long firstBitmapTimeUs = imageBaseTimestampUs + positionWithinImage;
       long lastBitmapTimeUs =
-          imageBaseTimestampUs + checkNotNull(currentEditedMediaItem).getPresentationDurationUs();
+          getStreamOffsetUs() + checkNotNull(currentEditedMediaItem).getPresentationDurationUs();
       return new ConstantRateTimestampIterator(
-          /* startPositionUs= */ firstBitmapTimeUs,
+          /* startPositionUs= */ positionUs,
           /* endPositionUs= */ lastBitmapTimeUs,
           DEFAULT_FRAME_RATE);
     }

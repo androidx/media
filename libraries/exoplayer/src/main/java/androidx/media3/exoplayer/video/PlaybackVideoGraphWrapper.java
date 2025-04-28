@@ -326,22 +326,15 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
   private @State int state;
 
   /**
-   * The buffer presentation time of the frame most recently output by the video graph, in
+   * The frame presentation time of the frame most recently output by the video graph, in
    * microseconds.
    */
-  private long lastOutputBufferPresentationTimeUs;
+  private long lastOutputFramePresentationTimeUs;
 
-  /** The buffer presentation time, in microseconds, of the final frame in the stream. */
-  private long finalBufferPresentationTimeUs;
+  /** The frame presentation time, in microseconds, of the final frame in the stream. */
+  private long finalFramePresentationTimeUs;
 
   private boolean hasSignaledEndOfVideoGraphOutputStream;
-
-  /**
-   * Converts the buffer timestamp (the player position, with renderer offset) to the composition
-   * timestamp, in microseconds. The composition time starts from zero, add this adjustment to
-   * buffer timestamp to get the composition time.
-   */
-  private long bufferTimestampAdjustmentUs;
 
   private int totalVideoInputCount;
   private int registeredVideoInputCount;
@@ -372,8 +365,8 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
     requestOpenGlToneMapping = builder.requestOpenGlToneMapping;
     videoGraphOutputFormat = new Format.Builder().build();
     outputStreamStartPositionUs = C.TIME_UNSET;
-    lastOutputBufferPresentationTimeUs = C.TIME_UNSET;
-    finalBufferPresentationTimeUs = C.TIME_UNSET;
+    lastOutputFramePresentationTimeUs = C.TIME_UNSET;
+    finalFramePresentationTimeUs = C.TIME_UNSET;
     totalVideoInputCount = C.LENGTH_UNSET;
     state = STATE_CREATED;
   }
@@ -492,12 +485,11 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
       listener.onFrameAvailableForRendering();
     }
 
-    long bufferPresentationTimeUs = framePresentationTimeUs - bufferTimestampAdjustmentUs;
     if (isRedrawnFrame) {
       // Redrawn frames are rendered directly in the processing pipeline.
       if (videoFrameMetadataListener != null) {
         videoFrameMetadataListener.onVideoFrameAboutToBeRendered(
-            /* presentationTimeUs= */ bufferPresentationTimeUs,
+            /* presentationTimeUs= */ framePresentationTimeUs,
             /* releaseTimeNs= */ C.TIME_UNSET,
             videoGraphOutputFormat,
             /* mediaFormat= */ null);
@@ -507,8 +499,8 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
 
     // The frame presentation time is relative to the start of the Composition and without the
     // renderer offset
-    lastOutputBufferPresentationTimeUs = bufferPresentationTimeUs;
-    StreamChangeInfo streamChangeInfo = pendingStreamChanges.pollFloor(bufferPresentationTimeUs);
+    lastOutputFramePresentationTimeUs = framePresentationTimeUs;
+    StreamChangeInfo streamChangeInfo = pendingStreamChanges.pollFloor(framePresentationTimeUs);
     if (streamChangeInfo != null) {
       outputStreamStartPositionUs = streamChangeInfo.startPositionUs;
       outputStreamFirstFrameReleaseInstruction = streamChangeInfo.firstFrameReleaseInstruction;
@@ -516,8 +508,8 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
     }
     defaultVideoSink.handleInputFrame(framePresentationTimeUs, videoFrameHandler);
     boolean isLastFrame =
-        finalBufferPresentationTimeUs != C.TIME_UNSET
-            && bufferPresentationTimeUs >= finalBufferPresentationTimeUs;
+        finalFramePresentationTimeUs != C.TIME_UNSET
+            && framePresentationTimeUs >= finalFramePresentationTimeUs;
     if (isLastFrame) {
       signalEndOfVideoGraphOutputStream();
     }
@@ -667,8 +659,8 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
       outputStreamFirstFrameReleaseInstruction = streamChangeInfo.firstFrameReleaseInstruction;
       onOutputStreamChanged();
     }
-    lastOutputBufferPresentationTimeUs = C.TIME_UNSET;
-    finalBufferPresentationTimeUs = C.TIME_UNSET;
+    lastOutputFramePresentationTimeUs = C.TIME_UNSET;
+    finalFramePresentationTimeUs = C.TIME_UNSET;
     hasSignaledEndOfVideoGraphOutputStream = false;
     // Handle pending video graph callbacks to ensure video size changes reach the video render
     // control.
@@ -691,11 +683,6 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
 
   private void setPlaybackSpeed(float speed) {
     defaultVideoSink.setPlaybackSpeed(speed);
-  }
-
-  private void setBufferTimestampAdjustment(long bufferTimestampAdjustmentUs) {
-    this.bufferTimestampAdjustmentUs = bufferTimestampAdjustmentUs;
-    defaultVideoSink.setBufferTimestampAdjustmentUs(bufferTimestampAdjustmentUs);
   }
 
   private void setChangeFrameRateStrategy(
@@ -736,10 +723,8 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
     private @InputType int inputType;
     private long inputBufferTimestampAdjustmentUs;
 
-    /**
-     * The buffer presentation timestamp, in microseconds, of the most recently registered frame.
-     */
-    private long lastBufferPresentationTimeUs;
+    /** The frame presentation timestamp, in microseconds, of the most recently registered frame. */
+    private long lastFramePresentationTimeUs;
 
     private VideoSink.Listener listener;
     private Executor listenerExecutor;
@@ -755,7 +740,7 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
       videoFrameProcessorMaxPendingFrameCount =
           getMaxPendingFramesCountForMediaCodecDecoders(context);
       videoEffects = ImmutableList.of();
-      lastBufferPresentationTimeUs = C.TIME_UNSET;
+      lastFramePresentationTimeUs = C.TIME_UNSET;
       listener = VideoSink.Listener.NO_OP;
       listenerExecutor = NO_OP_EXECUTOR;
     }
@@ -799,10 +784,10 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
       }
       // Resignal EOS only for the last item.
       boolean needsResignalEndOfCurrentInputStream = signaledEndOfStream;
-      long replayedPresentationTimeUs = lastOutputBufferPresentationTimeUs;
+      long replayedPresentationTimeUs = lastOutputFramePresentationTimeUs;
       PlaybackVideoGraphWrapper.this.flush(/* resetPosition= */ false);
       checkNotNull(videoGraph).redraw();
-      lastOutputBufferPresentationTimeUs = replayedPresentationTimeUs;
+      lastOutputFramePresentationTimeUs = replayedPresentationTimeUs;
       if (needsResignalEndOfCurrentInputStream) {
         signalEndOfCurrentInputStream();
       }
@@ -813,7 +798,7 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
       if (isInitialized()) {
         checkNotNull(videoGraph).flush();
       }
-      lastBufferPresentationTimeUs = C.TIME_UNSET;
+      lastFramePresentationTimeUs = C.TIME_UNSET;
       PlaybackVideoGraphWrapper.this.flush(resetPosition);
       signaledEndOfStream = false;
       // Don't change input stream start position or reset the pending input stream timestamp info
@@ -830,8 +815,8 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
 
     @Override
     public void signalEndOfCurrentInputStream() {
-      finalBufferPresentationTimeUs = lastBufferPresentationTimeUs;
-      if (lastOutputBufferPresentationTimeUs >= finalBufferPresentationTimeUs) {
+      finalFramePresentationTimeUs = lastFramePresentationTimeUs;
+      if (lastOutputFramePresentationTimeUs >= finalFramePresentationTimeUs) {
         PlaybackVideoGraphWrapper.this.signalEndOfVideoGraphOutputStream();
       }
     }
@@ -863,17 +848,23 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
       this.videoEffects = ImmutableList.copyOf(videoEffects);
       this.inputType = inputType;
       this.inputFormat = format;
-      finalBufferPresentationTimeUs = C.TIME_UNSET;
+      finalFramePresentationTimeUs = C.TIME_UNSET;
       hasSignaledEndOfVideoGraphOutputStream = false;
       registerInputStream(format);
-      // Input timestamps should always be positive because they are offset by ExoPlayer. Adding a
-      // stream change info to the queue with timestamp 0 should therefore always apply it as long
-      // as it is the only one in the queue.
-      long fromTimestampUs =
-          lastBufferPresentationTimeUs == C.TIME_UNSET ? 0 : lastBufferPresentationTimeUs + 1;
+      long fromTimestampUs;
+      if (lastFramePresentationTimeUs == C.TIME_UNSET) {
+        // Add a stream change info to the queue with a large negative timestamp to always apply it
+        // as long as it is the only one in the queue.
+        fromTimestampUs = Long.MIN_VALUE / 2;
+      } else {
+        fromTimestampUs = lastFramePresentationTimeUs + 1;
+      }
       pendingStreamChanges.add(
           fromTimestampUs,
-          new StreamChangeInfo(startPositionUs, firstFrameReleaseInstruction, fromTimestampUs));
+          new StreamChangeInfo(
+              /* startPositionUs= */ startPositionUs + inputBufferTimestampAdjustmentUs,
+              firstFrameReleaseInstruction,
+              fromTimestampUs));
     }
 
     @Override
@@ -954,11 +945,6 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
     @Override
     public void setBufferTimestampAdjustmentUs(long bufferTimestampAdjustmentUs) {
       inputBufferTimestampAdjustmentUs = bufferTimestampAdjustmentUs;
-      // The buffer timestamp adjustment is only allowed to change after a flush to make sure that
-      // the buffer timestamps are increasing. We can update the buffer timestamp adjustment
-      // directly at the output of the VideoGraph because no frame has been input yet following the
-      // flush.
-      PlaybackVideoGraphWrapper.this.setBufferTimestampAdjustment(inputBufferTimestampAdjustmentUs);
     }
 
     @Override
@@ -981,7 +967,7 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
 
     @Override
     public boolean handleInputFrame(
-        long framePresentationTimeUs, VideoFrameHandler videoFrameHandler) {
+        long bufferPresentationTimeUs, VideoFrameHandler videoFrameHandler) {
       checkState(isInitialized());
 
       if (!shouldRenderToInputVideoSink()) {
@@ -1002,10 +988,11 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
       // duration of the first video. Thus this correction is needed to account for the different
       // handling of presentation timestamps in ExoPlayer and VideoFrameProcessor.
       //
-      // inputBufferTimestampAdjustmentUs adjusts the frame presentation time (which is relative to
-      // the start of a composition) to the buffer timestamp (that corresponds to the player
-      // position).
-      lastBufferPresentationTimeUs = framePresentationTimeUs - inputBufferTimestampAdjustmentUs;
+      // inputBufferTimestampAdjustmentUs adjusts the buffer timestamp (that corresponds to the
+      // player position) to the frame presentation time (which is relative to the start of a
+      // composition).
+      long framePresentationTimeUs = bufferPresentationTimeUs + inputBufferTimestampAdjustmentUs;
+      lastFramePresentationTimeUs = framePresentationTimeUs;
       // Use the frame presentation time as render time so that the SurfaceTexture is accompanied
       // by this timestamp. Setting a realtime based release time is only relevant when rendering to
       // a SurfaceView, but we render to a surface in this case.
@@ -1014,25 +1001,29 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
     }
 
     @Override
-    public boolean handleInputBitmap(Bitmap inputBitmap, TimestampIterator timestampIterator) {
+    public boolean handleInputBitmap(
+        Bitmap inputBitmap, TimestampIterator bufferTimestampIterator) {
       checkState(isInitialized());
-      if (!shouldRenderToInputVideoSink()
-          || !checkNotNull(videoGraph)
-              .queueInputBitmap(inputIndex, inputBitmap, timestampIterator)) {
+      if (!shouldRenderToInputVideoSink()) {
+        return false;
+      }
+      TimestampIterator frameTimestampIterator =
+          new ShiftingTimestampIterator(bufferTimestampIterator, inputBufferTimestampAdjustmentUs);
+      if (!checkNotNull(videoGraph)
+          .queueInputBitmap(inputIndex, inputBitmap, frameTimestampIterator)) {
         return false;
       }
 
-      // TimestampIterator generates frame time.
-      long lastBufferPresentationTimeUs =
-          timestampIterator.getLastTimestampUs() - inputBufferTimestampAdjustmentUs;
-      checkState(lastBufferPresentationTimeUs != C.TIME_UNSET);
-      this.lastBufferPresentationTimeUs = lastBufferPresentationTimeUs;
+      long lastFramePresentationTimeUs = frameTimestampIterator.getLastTimestampUs();
+      checkState(lastFramePresentationTimeUs != C.TIME_UNSET);
+      this.lastFramePresentationTimeUs = lastFramePresentationTimeUs;
       return true;
     }
 
     @Override
     public void render(long positionUs, long elapsedRealtimeUs) throws VideoSinkException {
-      PlaybackVideoGraphWrapper.this.render(positionUs, elapsedRealtimeUs);
+      PlaybackVideoGraphWrapper.this.render(
+          /* positionUs= */ positionUs + inputBufferTimestampAdjustmentUs, elapsedRealtimeUs);
     }
 
     @Override
@@ -1149,6 +1140,40 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
       this.startPositionUs = startPositionUs;
       this.firstFrameReleaseInstruction = firstFrameReleaseInstruction;
       this.fromTimestampUs = fromTimestampUs;
+    }
+  }
+
+  private static final class ShiftingTimestampIterator implements TimestampIterator {
+
+    private final TimestampIterator timestampIterator;
+    private final long shift;
+
+    public ShiftingTimestampIterator(TimestampIterator timestampIterator, long shift) {
+      this.timestampIterator = timestampIterator;
+      this.shift = shift;
+    }
+
+    @Override
+    public boolean hasNext() {
+      return timestampIterator.hasNext();
+    }
+
+    @Override
+    public long next() {
+      return timestampIterator.next() + shift;
+    }
+
+    @Override
+    public TimestampIterator copyOf() {
+      return new ShiftingTimestampIterator(timestampIterator.copyOf(), shift);
+    }
+
+    @Override
+    public long getLastTimestampUs() {
+      long unshiftedLastTimestampUs = timestampIterator.getLastTimestampUs();
+      return unshiftedLastTimestampUs == C.TIME_UNSET
+          ? C.TIME_UNSET
+          : unshiftedLastTimestampUs + shift;
     }
   }
 

@@ -233,9 +233,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    */
   @Override
   public boolean handleInputFrame(
-      long framePresentationTimeUs, VideoFrameHandler videoFrameHandler) {
+      long bufferPresentationTimeUs, VideoFrameHandler videoFrameHandler) {
     return videoSink != null
-        && videoSink.handleInputFrame(framePresentationTimeUs, videoFrameHandler);
+        && videoSink.handleInputFrame(bufferPresentationTimeUs, videoFrameHandler);
   }
 
   /**
@@ -245,8 +245,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * sink} is {@code null}.
    */
   @Override
-  public boolean handleInputBitmap(Bitmap inputBitmap, TimestampIterator timestampIterator) {
-    return videoSink != null && videoSink.handleInputBitmap(inputBitmap, timestampIterator);
+  public boolean handleInputBitmap(Bitmap inputBitmap, TimestampIterator bufferTimestampIterator) {
+    return videoSink != null && videoSink.handleInputBitmap(inputBitmap, bufferTimestampIterator);
   }
 
   /**
