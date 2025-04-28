@@ -47,12 +47,12 @@ import androidx.media3.container.ReorderingSeiMessageQueue;
 import androidx.media3.extractor.Ac4Util;
 import androidx.media3.extractor.CeaUtil;
 import androidx.media3.extractor.ChunkIndex;
+import androidx.media3.extractor.ChunkIndexMerger;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.extractor.ExtractorsFactory;
 import androidx.media3.extractor.GaplessInfoHolder;
-import androidx.media3.extractor.MergedChunkIndex;
 import androidx.media3.extractor.PositionHolder;
 import androidx.media3.extractor.SeekMap;
 import androidx.media3.extractor.SniffFailure;
@@ -224,7 +224,7 @@ public class FragmentedMp4Extractor implements Extractor {
   private final ReorderingSeiMessageQueue reorderingSeiMessageQueue;
   @Nullable private final TrackOutput additionalEmsgTrackOutput;
 
-  private final MergedChunkIndex mergedChunkIndex;
+  private final ChunkIndexMerger chunkIndexMerger;
 
   private ImmutableList<SniffFailure> lastSniffFailures;
   private int parserState;
@@ -439,7 +439,7 @@ public class FragmentedMp4Extractor implements Extractor {
         new ReorderingSeiMessageQueue(
             (presentationTimeUs, seiBuffer) ->
                 CeaUtil.consume(presentationTimeUs, seiBuffer, ceaTrackOutputs));
-    mergedChunkIndex = new MergedChunkIndex();
+    chunkIndexMerger = new ChunkIndexMerger();
     seekPositionBeforeSidxProcessing = C.INDEX_UNSET;
   }
 
@@ -524,30 +524,37 @@ public class FragmentedMp4Extractor implements Extractor {
 
   @Override
   public int read(ExtractorInput input, PositionHolder seekPosition) throws IOException {
-    while (true) {
-      switch (parserState) {
-        case STATE_READING_ATOM_HEADER:
-          if (!readAtomHeader(input, /* skipPayloadParsing= */ false)) {
-            if (seekPositionBeforeSidxProcessing != C.INDEX_UNSET) {
-              seekPosition.position = seekPositionBeforeSidxProcessing;
-              seekPositionBeforeSidxProcessing = C.INDEX_UNSET;
-              return Extractor.RESULT_SEEK;
-            } else {
-              reorderingSeiMessageQueue.flush();
-              return Extractor.RESULT_END_OF_INPUT;
+    try {
+      while (true) {
+        switch (parserState) {
+          case STATE_READING_ATOM_HEADER:
+            if (!readAtomHeader(input, /* skipPayloadParsing= */ false)) {
+              if (seekPositionBeforeSidxProcessing != C.INDEX_UNSET) {
+                seekPosition.position = seekPositionBeforeSidxProcessing;
+                seekPositionBeforeSidxProcessing = C.INDEX_UNSET;
+                return Extractor.RESULT_SEEK;
+              } else {
+                reorderingSeiMessageQueue.flush();
+                return Extractor.RESULT_END_OF_INPUT;
+              }
             }
-          }
-          break;
-        case STATE_READING_ATOM_PAYLOAD:
-          readAtomPayload(input);
-          break;
-        case STATE_READING_ENCRYPTION_DATA:
-          readEncryptionData(input);
-          break;
-        default:
-          if (readSample(input)) {
-            return RESULT_CONTINUE;
-          }
+            break;
+          case STATE_READING_ATOM_PAYLOAD:
+            readAtomPayload(input);
+            break;
+          case STATE_READING_ENCRYPTION_DATA:
+            readEncryptionData(input);
+            break;
+          default:
+            if (readSample(input)) {
+              return RESULT_CONTINUE;
+            }
+        }
+      }
+    } finally {
+      if (seekPositionBeforeSidxProcessing != C.INDEX_UNSET) {
+        seekPosition.position = seekPositionBeforeSidxProcessing;
+        seekPositionBeforeSidxProcessing = C.INDEX_UNSET;
       }
     }
   }
@@ -683,16 +690,21 @@ public class FragmentedMp4Extractor implements Extractor {
     } else if (leaf.type == Mp4Box.TYPE_sidx) {
       long inputPosition = input.getPosition();
       Pair<Long, ChunkIndex> result = parseSidx(leaf.data, inputPosition);
-      mergedChunkIndex.merge(result.second);
+      chunkIndexMerger.add(result.second);
       if (!haveOutputSeekMap) {
         segmentIndexEarliestPresentationTimeUs = result.first;
         extractorOutput.seekMap(result.second);
         haveOutputSeekMap = true;
-      } else if (!haveOutputCompleteSeekMap && mergedChunkIndex.size() > 1) {
+      } else if ((flags & FLAG_MERGE_FRAGMENTED_SIDX) != 0
+          && !haveOutputCompleteSeekMap
+          && chunkIndexMerger.size() > 1) {
         seekPositionBeforeSidxProcessing = inputPosition;
-        processRemainingSidxAtoms(input);
-        extractorOutput.seekMap(mergedChunkIndex.toChunkIndex());
-        haveOutputCompleteSeekMap = true;
+        try {
+          processRemainingSidxAtoms(input);
+          haveOutputCompleteSeekMap = true;
+        } finally {
+          extractorOutput.seekMap(chunkIndexMerger.merge());
+        }
       }
     } else if (leaf.type == Mp4Box.TYPE_emsg) {
       onEmsgLeafAtomRead(leaf.data);
@@ -703,14 +715,14 @@ public class FragmentedMp4Extractor implements Extractor {
     enterReadingAtomHeaderState();
     while (readAtomHeader(input, /* skipPayloadParsing= */ true)) {
       if (atomType == Mp4Box.TYPE_sidx) {
-        ParsableByteArray inputArray = new ParsableByteArray((int) atomSize);
-        System.arraycopy(atomHeader.getData(), 0, inputArray.getData(), 0, Mp4Box.HEADER_SIZE);
+        scratch.reset((int) atomSize);
+        System.arraycopy(atomHeader.getData(), 0, scratch.getData(), 0, Mp4Box.HEADER_SIZE);
         input.readFully(
-            inputArray.getData(), Mp4Box.HEADER_SIZE, (int) (atomSize - atomHeaderBytesRead));
+            scratch.getData(), Mp4Box.HEADER_SIZE, (int) (atomSize - atomHeaderBytesRead));
 
-        LeafBox sidxBox = new LeafBox(Mp4Box.TYPE_sidx, inputArray);
+        LeafBox sidxBox = new LeafBox(Mp4Box.TYPE_sidx, scratch);
         Pair<Long, ChunkIndex> result = parseSidx(sidxBox.data, input.getPeekPosition());
-        mergedChunkIndex.merge(result.second);
+        chunkIndexMerger.add(result.second);
       } else {
         input.skipFully((int) (atomSize - atomHeaderBytesRead), /* allowEndOfInput= */ true);
       }

@@ -16,11 +16,12 @@
 package androidx.media3.extractor;
 
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
+import com.google.common.primitives.Ints;
+import com.google.common.primitives.Longs;
 import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 
 /**
  * A utility class for merging multiple {@link ChunkIndex} instances into a single {@link
@@ -30,18 +31,14 @@ import java.util.Set;
  * unified index is needed for seeking or playback.
  */
 @UnstableApi
-public class MergedChunkIndex {
+public final class ChunkIndexMerger {
 
-  /** The individual {@link ChunkIndex} entries being merged. */
-  private final List<ChunkIndex> chunks;
-
-  /** The set of first start times seen so far across added {@link ChunkIndex} instances. */
-  private final Set<Long> uniqueStartTimes;
+  /** Start time in microseconds to {@link ChunkIndex} mapping. Maintains insertion order. */
+  private final Map<Long, ChunkIndex> chunkMap;
 
   /** Creates an instance. */
-  public MergedChunkIndex() {
-    this.chunks = new ArrayList<>();
-    this.uniqueStartTimes = new HashSet<>();
+  public ChunkIndexMerger() {
+    this.chunkMap = new LinkedHashMap<>();
   }
 
   /**
@@ -51,21 +48,20 @@ public class MergedChunkIndex {
    *
    * @param chunk The {@link ChunkIndex} to add.
    */
-  public void merge(ChunkIndex chunk) {
-    if (chunk.timesUs.length > 0 && !uniqueStartTimes.contains(chunk.timesUs[0])) {
-      chunks.add(chunk);
-      uniqueStartTimes.add(chunk.timesUs[0]);
+  public void add(ChunkIndex chunk) {
+    if (chunk.timesUs.length > 0 && !chunkMap.containsKey(chunk.timesUs[0])) {
+      chunkMap.put(chunk.timesUs[0], chunk);
     }
   }
 
-  /** Returns a single {@link ChunkIndex} that combines all added chunk indices. */
-  public ChunkIndex toChunkIndex() {
+  /** Returns a single {@link ChunkIndex} that merges all added chunk indices. */
+  public ChunkIndex merge() {
     List<int[]> sizesList = new ArrayList<>();
     List<long[]> offsetsList = new ArrayList<>();
     List<long[]> durationsList = new ArrayList<>();
     List<long[]> timesList = new ArrayList<>();
 
-    for (ChunkIndex chunk : chunks) {
+    for (ChunkIndex chunk : chunkMap.values()) {
       sizesList.add(chunk.sizes);
       offsetsList.add(chunk.offsets);
       durationsList.add(chunk.durationsUs);
@@ -73,20 +69,19 @@ public class MergedChunkIndex {
     }
 
     return new ChunkIndex(
-        Util.nullSafeIntArraysConcatenation(sizesList),
-        Util.nullSafeLongArraysConcatenation(offsetsList),
-        Util.nullSafeLongArraysConcatenation(durationsList),
-        Util.nullSafeLongArraysConcatenation(timesList));
+        Ints.concat(sizesList.toArray(new int[sizesList.size()][])),
+        Longs.concat(offsetsList.toArray(new long[offsetsList.size()][])),
+        Longs.concat(durationsList.toArray(new long[durationsList.size()][])),
+        Longs.concat(timesList.toArray(new long[timesList.size()][])));
   }
 
   /** Clears all added chunk indices and internal state. */
   public void clear() {
-    chunks.clear();
-    uniqueStartTimes.clear();
+    chunkMap.clear();
   }
 
   /** Returns the number of chunk indices added so far. */
   public int size() {
-    return chunks.size();
+    return chunkMap.size();
   }
 }
