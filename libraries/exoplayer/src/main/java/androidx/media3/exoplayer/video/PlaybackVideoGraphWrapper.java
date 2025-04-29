@@ -828,20 +828,23 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
       finalFramePresentationTimeUs = C.TIME_UNSET;
       hasSignaledEndOfVideoGraphOutputStream = false;
       registerInputStream(format);
-      long fromTimestampUs;
-      if (lastFramePresentationTimeUs == C.TIME_UNSET) {
-        // Add a stream change info to the queue with a large negative timestamp to always apply it
-        // as long as it is the only one in the queue.
-        fromTimestampUs = Long.MIN_VALUE / 2;
-      } else {
-        fromTimestampUs = lastFramePresentationTimeUs + 1;
+      boolean isFirstStream = lastFramePresentationTimeUs == C.TIME_UNSET;
+      if (enablePlaylistMode || (inputIndex == PRIMARY_SEQUENCE_INDEX && isFirstStream)) {
+        long fromTimestampUs;
+        if (isFirstStream) {
+          // Add a stream change info to the queue with a large negative timestamp to always apply
+          // it as long as it is the only one in the queue.
+          fromTimestampUs = Long.MIN_VALUE / 2;
+        } else {
+          fromTimestampUs = lastFramePresentationTimeUs + 1;
+        }
+        pendingStreamChanges.add(
+            fromTimestampUs,
+            new StreamChangeInfo(
+                /* startPositionUs= */ startPositionUs + inputBufferTimestampAdjustmentUs,
+                firstFrameReleaseInstruction,
+                fromTimestampUs));
       }
-      pendingStreamChanges.add(
-          fromTimestampUs,
-          new StreamChangeInfo(
-              /* startPositionUs= */ startPositionUs + inputBufferTimestampAdjustmentUs,
-              firstFrameReleaseInstruction,
-              fromTimestampUs));
     }
 
     @Override
