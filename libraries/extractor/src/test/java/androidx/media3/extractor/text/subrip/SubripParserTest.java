@@ -105,7 +105,8 @@ public final class SubripParserTest {
     byte[] bytes = TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), TYPICAL_FILE);
 
     List<CuesWithTiming> cues = new ArrayList<>();
-    parser.parse(bytes, OutputOptions.onlyCuesAfter(/* startTimeUs= */ 1_000_000), cues::add);
+    // Choose a start time halfway through the second cue, and expect it to be included.
+    parser.parse(bytes, OutputOptions.onlyCuesAfter(/* startTimeUs= */ 3_000_000), cues::add);
 
     assertThat(cues).hasSize(2);
     assertTypicalCue2(cues.get(0));
@@ -118,9 +119,10 @@ public final class SubripParserTest {
     byte[] bytes = TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), TYPICAL_FILE);
 
     List<CuesWithTiming> cues = new ArrayList<>();
+    // Choose a start time halfway through the second cue, and expect it to be considered 'after'.
     parser.parse(
         bytes,
-        OutputOptions.cuesAfterThenRemainingCuesBefore(/* startTimeUs= */ 1_000_000),
+        OutputOptions.cuesAfterThenRemainingCuesBefore(/* startTimeUs= */ 3_000_000),
         cues::add);
 
     assertThat(cues).hasSize(3);

@@ -15,6 +15,8 @@
  */
 package androidx.media3.transformer;
 
+import static androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig.CODEC_INFO_AAC;
+import static androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig.CODEC_INFO_RAW;
 import static androidx.media3.transformer.TestUtil.ASSET_URI_PREFIX;
 import static androidx.media3.transformer.TestUtil.FILE_AUDIO_ONLY;
 import static androidx.media3.transformer.TestUtil.FILE_AUDIO_RAW;
@@ -23,25 +25,21 @@ import static androidx.media3.transformer.TestUtil.FILE_AUDIO_RAW_VIDEO;
 import static androidx.media3.transformer.TestUtil.FILE_AUDIO_VIDEO;
 import static androidx.media3.transformer.TestUtil.FILE_AUDIO_VIDEO_INCREASING_TIMESTAMPS_15S;
 import static androidx.media3.transformer.TestUtil.FILE_VIDEO_ONLY;
-import static androidx.media3.transformer.TestUtil.addAudioDecoders;
-import static androidx.media3.transformer.TestUtil.addAudioEncoders;
 import static androidx.media3.transformer.TestUtil.createAudioEffects;
 import static androidx.media3.transformer.TestUtil.createVolumeScalingAudioProcessor;
 import static androidx.media3.transformer.TestUtil.getCompositionDumpFilePath;
 import static androidx.media3.transformer.TestUtil.getDumpFileName;
-import static androidx.media3.transformer.TestUtil.removeEncodersAndDecoders;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
 import androidx.media3.common.MediaItem;
-import androidx.media3.common.MimeTypes;
 import androidx.media3.common.audio.SonicAudioProcessor;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.TestTransformerBuilder;
+import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import org.junit.After;
-import org.junit.Before;
+import com.google.common.collect.ImmutableList;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -57,16 +55,11 @@ public class CompositionExportTest {
 
   private final Context context = ApplicationProvider.getApplicationContext();
 
-  @Before
-  public void setUp() {
-    addAudioDecoders(MimeTypes.AUDIO_RAW);
-    addAudioEncoders(MimeTypes.AUDIO_AAC);
-  }
-
-  @After
-  public void tearDown() {
-    removeEncodersAndDecoders();
-  }
+  @Rule
+  public ShadowMediaCodecConfig shadowMediaCodecConfig =
+      ShadowMediaCodecConfig.withCodecs(
+          /* decoders= */ ImmutableList.of(CODEC_INFO_RAW),
+          /* encoders= */ ImmutableList.of(CODEC_INFO_AAC));
 
   @Test
   public void start_audioVideoTransmuxedFromDifferentSequences_matchesSingleSequenceResult()
@@ -481,7 +474,10 @@ public class CompositionExportTest {
         new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)).build();
     Composition composition =
         new Composition.Builder(
-                new EditedMediaItemSequence.Builder().addGap(1_000_000).build(),
+                new EditedMediaItemSequence.Builder()
+                    .addGap(1_000_000)
+                    .experimentalSetForceAudioTrack(true)
+                    .build(),
                 new EditedMediaItemSequence.Builder(audioItem1000ms).build())
             .build();
 
@@ -512,6 +508,7 @@ public class CompositionExportTest {
                 new EditedMediaItemSequence.Builder()
                     .addGap(100_000)
                     .addItem(audioEditedMediaItem)
+                    .experimentalSetForceAudioTrack(true)
                     .build(),
                 new EditedMediaItemSequence.Builder(otherAudioEditedMediaItem).build())
             .build();
@@ -591,6 +588,7 @@ public class CompositionExportTest {
                 new EditedMediaItemSequence.Builder()
                     .addGap(200_000)
                     .addItem(audioEditedMediaItem)
+                    .experimentalSetForceAudioTrack(true)
                     .build())
             .setTransmuxVideo(true)
             .build();
@@ -716,7 +714,10 @@ public class CompositionExportTest {
     Composition composition =
         new Composition.Builder(
                 new EditedMediaItemSequence.Builder(audioItem1000ms).build(),
-                new EditedMediaItemSequence.Builder().addGap(1_000_000).build())
+                new EditedMediaItemSequence.Builder()
+                    .addGap(1_000_000)
+                    .experimentalSetForceAudioTrack(true)
+                    .build())
             .build();
 
     transformer.start(composition, outputDir.newFile().getPath());
@@ -733,8 +734,14 @@ public class CompositionExportTest {
         new TestTransformerBuilder(context).setMuxerFactory(muxerFactory).build();
     Composition composition =
         new Composition.Builder(
-                new EditedMediaItemSequence.Builder().addGap(500_000).build(),
-                new EditedMediaItemSequence.Builder().addGap(500_000).build())
+                new EditedMediaItemSequence.Builder()
+                    .addGap(500_000)
+                    .experimentalSetForceAudioTrack(true)
+                    .build(),
+                new EditedMediaItemSequence.Builder()
+                    .addGap(500_000)
+                    .experimentalSetForceAudioTrack(true)
+                    .build())
             .build();
 
     transformer.start(composition, outputDir.newFile().getPath());

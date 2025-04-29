@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.mediacodec;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.exoplayer.DecoderReuseEvaluation.DISCARD_REASON_AUDIO_CHANNEL_COUNT_CHANGED;
 import static androidx.media3.exoplayer.DecoderReuseEvaluation.DISCARD_REASON_AUDIO_ENCODING_CHANGED;
 import static androidx.media3.exoplayer.DecoderReuseEvaluation.DISCARD_REASON_AUDIO_SAMPLE_RATE_CHANGED;
@@ -247,7 +248,7 @@ public final class MediaCodecInfo {
    * @see CodecCapabilities#getMaxSupportedInstances()
    */
   public int getMaxSupportedInstances() {
-    if (Util.SDK_INT < 23 || capabilities == null) {
+    if (SDK_INT < 23 || capabilities == null) {
       return MAX_SUPPORTED_INSTANCES_UNKNOWN;
     }
     return getMaxSupportedInstancesV23(capabilities);
@@ -355,7 +356,7 @@ public final class MediaCodecInfo {
     }
 
     CodecProfileLevel[] profileLevels = getProfileLevels();
-    if (Util.SDK_INT <= 23 && MimeTypes.VIDEO_VP9.equals(mimeType) && profileLevels.length == 0) {
+    if (SDK_INT <= 23 && MimeTypes.VIDEO_VP9.equals(mimeType) && profileLevels.length == 0) {
       // Some older devices don't report profile levels for VP9. Estimate them using other data in
       // the codec capabilities.
       profileLevels = estimateLegacyVp9ProfileLevels(capabilities);
@@ -379,13 +380,13 @@ public final class MediaCodecInfo {
     // exists.
     return !Objects.equals(format.sampleMimeType, MimeTypes.AUDIO_FLAC)
         || format.pcmEncoding != C.ENCODING_PCM_32BIT
-        || Util.SDK_INT >= 34
+        || SDK_INT >= 34
         || !name.equals("c2.android.flac.decoder");
   }
 
   /** Whether the codec handles HDR10+ out-of-band metadata. */
   public boolean isHdr10PlusOutOfBandMetadataSupported() {
-    if (Util.SDK_INT >= 29 && MimeTypes.VIDEO_VP9.equals(mimeType)) {
+    if (SDK_INT >= 29 && MimeTypes.VIDEO_VP9.equals(mimeType)) {
       for (CodecProfileLevel capabilities : getProfileLevels()) {
         if (capabilities.profile == CodecProfileLevel.VP9Profile2HDR10Plus) {
           return true;
@@ -531,7 +532,7 @@ public final class MediaCodecInfo {
       return false;
     }
 
-    if (Util.SDK_INT >= 29) {
+    if (SDK_INT >= 29) {
       @MediaCodecPerformancePointCoverageProvider.PerformancePointCoverageResult
       int evaluation =
           MediaCodecPerformancePointCoverageProvider.areResolutionAndFrameRateCovered(
@@ -657,7 +658,7 @@ public final class MediaCodecInfo {
   }
 
   private static int adjustMaxInputChannelCount(String name, String mimeType, int maxChannelCount) {
-    if (maxChannelCount > 1 || (Util.SDK_INT >= 26 && maxChannelCount > 0)) {
+    if (maxChannelCount > 1 || (SDK_INT >= 26 && maxChannelCount > 0)) {
       // The maximum channel count looks like it's been set correctly.
       return maxChannelCount;
     }
@@ -710,7 +711,7 @@ public final class MediaCodecInfo {
   }
 
   private static boolean isDetachedSurfaceSupported(@Nullable CodecCapabilities capabilities) {
-    return Util.SDK_INT >= 35
+    return SDK_INT >= 35
         && capabilities != null
         && capabilities.isFeatureSupported(CodecCapabilities.FEATURE_DetachedSurface)
         && !needsDetachedSurfaceUnsupportedWorkaround();
@@ -735,7 +736,7 @@ public final class MediaCodecInfo {
       if (!capabilities.areSizeAndRateSupported(width, height, floorFrameRate)) {
         return false;
       }
-      if (Util.SDK_INT < 24) {
+      if (SDK_INT < 24) {
         return true;
       }
       @Nullable
@@ -761,8 +762,8 @@ public final class MediaCodecInfo {
   }
 
   /**
-   * Called on devices with {@link Util#SDK_INT} 23 and below, for VP9 decoders whose {@link
-   * CodecCapabilities} do not correctly report profile levels. The returned {@link
+   * Called on devices with {@link Build.VERSION#SDK_INT} 23 and below, for VP9 decoders whose
+   * {@link CodecCapabilities} do not correctly report profile levels. The returned {@link
    * CodecProfileLevel CodecProfileLevels} are estimated based on other data in the {@link
    * CodecCapabilities}.
    *
@@ -818,7 +819,7 @@ public final class MediaCodecInfo {
    * @return True if the decoder is known to fail when adapting.
    */
   private static boolean needsDisableAdaptationWorkaround(String name) {
-    return Util.SDK_INT <= 22
+    return SDK_INT <= 22
         && ("ODROID-XU3".equals(Build.MODEL) || "Nexus 10".equals(Build.MODEL))
         && ("OMX.Exynos.AVC.Decoder".equals(name) || "OMX.Exynos.AVC.Decoder.secure".equals(name));
   }

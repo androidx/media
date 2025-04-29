@@ -23,7 +23,6 @@ import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.TimestampIterator;
-import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.video.PlaceholderSurface;
 import androidx.media3.exoplayer.video.VideoFrameMetadataListener;
 import androidx.media3.exoplayer.video.VideoSink;
@@ -82,13 +81,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   @Override
-  public void onStarted() {
-    executeOrDelay(VideoSink::onStarted);
+  public void startRendering() {
+    executeOrDelay(VideoSink::startRendering);
   }
 
   @Override
-  public void onStopped() {
-    executeOrDelay(VideoSink::onStopped);
+  public void stopRendering() {
+    executeOrDelay(VideoSink::stopRendering);
   }
 
   @Override
@@ -234,9 +233,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    */
   @Override
   public boolean handleInputFrame(
-      long framePresentationTimeUs, boolean isLastFrame, VideoFrameHandler videoFrameHandler) {
+      long bufferPresentationTimeUs, VideoFrameHandler videoFrameHandler) {
     return videoSink != null
-        && videoSink.handleInputFrame(framePresentationTimeUs, isLastFrame, videoFrameHandler);
+        && videoSink.handleInputFrame(bufferPresentationTimeUs, videoFrameHandler);
   }
 
   /**
@@ -246,8 +245,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * sink} is {@code null}.
    */
   @Override
-  public boolean handleInputBitmap(Bitmap inputBitmap, TimestampIterator timestampIterator) {
-    return videoSink != null && videoSink.handleInputBitmap(inputBitmap, timestampIterator);
+  public boolean handleInputBitmap(Bitmap inputBitmap, TimestampIterator bufferTimestampIterator) {
+    return videoSink != null && videoSink.handleInputBitmap(inputBitmap, bufferTimestampIterator);
   }
 
   /**
@@ -261,11 +260,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     if (videoSink != null) {
       videoSink.render(positionUs, elapsedRealtimeUs);
     }
-  }
-
-  @Override
-  public void setWakeupListener(Renderer.WakeupListener wakeupListener) {
-    executeOrDelay(videoSink -> videoSink.setWakeupListener(wakeupListener));
   }
 
   @Override

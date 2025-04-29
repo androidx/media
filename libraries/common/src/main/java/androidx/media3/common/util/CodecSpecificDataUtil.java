@@ -62,6 +62,8 @@ public final class CodecSpecificDataUtil {
   private static final String CODEC_ID_AV01 = "av01";
   // MP4A AAC.
   private static final String CODEC_ID_MP4A = "mp4a";
+  // AC-4
+  private static final String CODEC_ID_AC4 = "ac-4";
 
   private static final Pattern PROFILE_PATTERN = Pattern.compile("^\\D?(\\d+)$");
 
@@ -135,6 +137,40 @@ public final class CodecSpecificDataUtil {
           bitDepthId, length, bitDepth,
           chromaSubsamplingId, length, chromaSubsampling
         });
+  }
+
+  /**
+   * Returns initialization data for Dolby Vision according to <a
+   * href="https://dolby.my.salesforce.com/sfc/p/#700000009YuG/a/4u000000l6FB/076wHYEmyEfz09m0V1bo85_25hlUJjaiWTbzorNmYY4">Dolby
+   * Vision ISO MediaFormat (section 2.2) specification</a>.
+   *
+   * @param profile The Dolby Vision codec profile.
+   * @param level The Dolby Vision codec level.
+   */
+  public static byte[] buildDolbyVisionInitializationData(int profile, int level) {
+    byte[] dolbyVisionCsd = new byte[24];
+    byte blCompatibilityId = 0x00;
+    // MD compression is not permitted for profile 7 and earlier. Only some devices
+    // support it from profile 8
+    byte mdCompression = 0x00;
+    if (profile == 8) {
+      blCompatibilityId = 0x04;
+    } else if (profile == 9) {
+      blCompatibilityId = 0x02;
+      mdCompression = 0x01;
+    }
+
+    dolbyVisionCsd[0] = 0x01; // dv_version_major
+    dolbyVisionCsd[1] = 0x00; // dv_version_minor
+    dolbyVisionCsd[2] = (byte) ((profile & 0x7f) << 1); // dv_profile
+    dolbyVisionCsd[2] = (byte) ((dolbyVisionCsd[2] | ((level >> 5) & 0x1)) & 0xff);
+    dolbyVisionCsd[3] = (byte) ((level & 0x1f) << 3); // dv_level
+    dolbyVisionCsd[3] = (byte) (dolbyVisionCsd[3] | (1 << 2)); // rpu_present_flag
+    dolbyVisionCsd[3] = (byte) (dolbyVisionCsd[3] | (0 << 1)); // el_present_flag
+    dolbyVisionCsd[3] = (byte) (dolbyVisionCsd[3] | 1); // bl_present_flag
+    dolbyVisionCsd[4] = (byte) (blCompatibilityId << 4); // dv_bl_signal_compatibility_id
+    dolbyVisionCsd[4] = (byte) (dolbyVisionCsd[4] | (mdCompression << 2)); // dv_md_compression
+    return dolbyVisionCsd;
   }
 
   /**
@@ -267,6 +303,23 @@ public final class CodecSpecificDataUtil {
   }
 
   /**
+   * Builds a Dolby Vision codec string using profile and level.
+   *
+   * <p>Reference: <a>
+   * href="https://professionalsupport.dolby.com/s/article/What-is-Dolby-Vision-Profile?language=en_US">
+   * Dolby Vision Profile and Level (section 2.3)</a>
+   */
+  public static String buildDolbyVisionCodecString(int profile, int level) {
+    if (profile > 9) {
+      return Util.formatInvariant("dvh1.%02d.%02d", profile, level);
+    } else if (profile > 8) {
+      return Util.formatInvariant("dvav.%02d.%02d", profile, level);
+    } else {
+      return Util.formatInvariant("dvhe.%02d.%02d", profile, level);
+    }
+  }
+
+  /**
    * Returns profile and level (as defined by {@link MediaCodecInfo.CodecProfileLevel})
    * corresponding to the codec description string (as defined by RFC 6381) of the given format.
    *
@@ -299,6 +352,8 @@ public final class CodecSpecificDataUtil {
         return getAv1ProfileAndLevel(format.codecs, parts, format.colorInfo);
       case CODEC_ID_MP4A:
         return getAacCodecProfileAndLevel(format.codecs, parts);
+      case CODEC_ID_AC4:
+        return getAc4CodecProfileAndLevel(format.codecs, parts);
       default:
         return null;
     }
@@ -405,6 +460,83 @@ public final class CodecSpecificDataUtil {
       split[i] = nal;
     }
     return split;
+  }
+
+  /**
+   * Returns Dolby Vision level number corresponding to the level constant.
+   *
+   * @param levelConstant The Dolby Vision level constant.
+   * @return The Dolby Vision level number.
+   * @throws IllegalArgumentException if the level constant is not recognized.
+   */
+  public static int dolbyVisionConstantToLevelNumber(int levelConstant) {
+    switch (levelConstant) {
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelHd24:
+        return 1;
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelHd30:
+        return 2;
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelFhd24:
+        return 3;
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelFhd30:
+        return 4;
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelFhd60:
+        return 5;
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelUhd24:
+        return 6;
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelUhd30:
+        return 7;
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelUhd48:
+        return 8;
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelUhd60:
+        return 9;
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelUhd120:
+        return 10;
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionLevel8k30:
+        return 11;
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionLevel8k60:
+        return 12;
+      // TODO: b/179261323 - use framework constant for level 13.
+      case 0x1000:
+        return 13;
+      default:
+        throw new IllegalArgumentException("Unknown Dolby Vision level: " + levelConstant);
+    }
+  }
+
+  /**
+   * Returns Dolby Vision profile number corresponding to the profile constant.
+   *
+   * @param profileConstant The Dolby Vision profile constant.
+   * @return The Dolby Vision profile number.
+   * @throws IllegalArgumentException if the profile constant is not recognized.
+   */
+  public static int dolbyVisionConstantToProfileNumber(int profileConstant) {
+    switch (profileConstant) {
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionProfileDvavPer:
+        return 0;
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionProfileDvavPen:
+        return 1;
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionProfileDvheDer:
+        return 2;
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionProfileDvheDen:
+        return 3;
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionProfileDvheDtr:
+        return 4;
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionProfileDvheStn:
+        return 5;
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionProfileDvheDth:
+        return 6;
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionProfileDvheDtb:
+        return 7;
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionProfileDvheSt:
+        return 8;
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionProfileDvavSe:
+        return 9;
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionProfileDvav110:
+        return 10;
+      default:
+        throw new IllegalArgumentException("Unknown Dolby Vision profile: " + profileConstant);
+    }
   }
 
   /**
@@ -633,6 +765,41 @@ public final class CodecSpecificDataUtil {
       Log.w(TAG, "Ignoring malformed MP4A codec string: " + codec);
     }
     return null;
+  }
+
+  @Nullable
+  private static Pair<Integer, Integer> getAc4CodecProfileAndLevel(String codec, String[] parts) {
+    if (parts.length != 4) {
+      Log.w(TAG, "Ignoring malformed AC-4 codec string: " + codec);
+      return null;
+    }
+    int bitstreamVersionInteger;
+    int presentationVersionInteger;
+    int levelInteger;
+    try {
+      bitstreamVersionInteger = Integer.parseInt(parts[1]);
+      presentationVersionInteger = Integer.parseInt(parts[2]);
+      levelInteger = Integer.parseInt(parts[3]);
+    } catch (NumberFormatException e) {
+      Log.w(TAG, "Ignoring malformed AC-4 codec string: " + codec);
+      return null;
+    }
+
+    int profile =
+        ac4BitstreamAndPresentationVersionsToProfileConst(
+            bitstreamVersionInteger, presentationVersionInteger);
+    if (profile == -1) {
+      Log.w(
+          TAG,
+          "Unknown AC-4 profile: " + bitstreamVersionInteger + "." + presentationVersionInteger);
+      return null;
+    }
+    int level = ac4LevelNumberToConst(levelInteger);
+    if (level == -1) {
+      Log.w(TAG, "Unknown AC-4 level: " + levelInteger);
+      return null;
+    }
+    return new Pair<>(profile, level);
   }
 
   private static int avcProfileNumberToConst(int profileNumber) {
@@ -961,6 +1128,52 @@ public final class CodecSpecificDataUtil {
         return MediaCodecInfo.CodecProfileLevel.AACObjectELD;
       case 42:
         return MediaCodecInfo.CodecProfileLevel.AACObjectXHE;
+      default:
+        return -1;
+    }
+  }
+
+  private static int ac4BitstreamAndPresentationVersionsToProfileConst(
+      int bitstreamVersionInteger, int presentationVersionInteger) {
+    int ac4Profile = -1;
+    switch (bitstreamVersionInteger) {
+      case 0:
+        if (presentationVersionInteger == 0) {
+          ac4Profile = MediaCodecInfo.CodecProfileLevel.AC4Profile00;
+        }
+        break;
+      case 1:
+        if (presentationVersionInteger == 0) {
+          ac4Profile = MediaCodecInfo.CodecProfileLevel.AC4Profile10;
+        } else if (presentationVersionInteger == 1) {
+          ac4Profile = MediaCodecInfo.CodecProfileLevel.AC4Profile11;
+        }
+        break;
+      case 2:
+        if (presentationVersionInteger == 1) {
+          ac4Profile = MediaCodecInfo.CodecProfileLevel.AC4Profile21;
+        } else if (presentationVersionInteger == 2) {
+          ac4Profile = MediaCodecInfo.CodecProfileLevel.AC4Profile22;
+        }
+        break;
+      default:
+        break;
+    }
+    return ac4Profile;
+  }
+
+  private static int ac4LevelNumberToConst(int levelNumber) {
+    switch (levelNumber) {
+      case 0:
+        return MediaCodecInfo.CodecProfileLevel.AC4Level0;
+      case 1:
+        return MediaCodecInfo.CodecProfileLevel.AC4Level1;
+      case 2:
+        return MediaCodecInfo.CodecProfileLevel.AC4Level2;
+      case 3:
+        return MediaCodecInfo.CodecProfileLevel.AC4Level3;
+      case 4:
+        return MediaCodecInfo.CodecProfileLevel.AC4Level4;
       default:
         return -1;
     }

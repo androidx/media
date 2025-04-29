@@ -15,6 +15,7 @@
  */
 package androidx.media3.transformer;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S;
 import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
@@ -99,7 +100,10 @@ public class TransformerPauseResumeTest {
 
     ExportResult exportResult = result.exportResult;
     assertThat(exportResult.processedInputs).hasSize(4);
-    assertThat(exportResult.videoFrameCount).isEqualTo(MP4_ASSET_FRAME_COUNT);
+    // Rarely, MediaCodec decoders output frames in the wrong order.
+    // When the MediaCodec encoder sees frames in the wrong order, fewer output frames are produced.
+    // Use a tolerance when comparing frame counts. See b/343476417#comment5.
+    assertThat(exportResult.videoFrameCount).isWithin(2).of(MP4_ASSET_FRAME_COUNT);
     // The first processed media item corresponds to remuxing previous output video.
     assertThat(exportResult.processedInputs.get(0).audioDecoderName).isNull();
     assertThat(exportResult.processedInputs.get(0).videoDecoderName).isNull();
@@ -197,8 +201,12 @@ public class TransformerPauseResumeTest {
         .isEqualTo(exportResultWithoutResume.audioEncoderName);
     assertThat(exportResultWithResume.videoEncoderName)
         .isEqualTo(exportResultWithoutResume.videoEncoderName);
+    // Rarely, MediaCodec decoders output frames in the wrong order.
+    // When the MediaCodec encoder sees frames in the wrong order, fewer output frames are produced.
+    // Use a tolerance when comparing frame counts. See b/343476417#comment5.
     assertThat(exportResultWithResume.videoFrameCount)
-        .isEqualTo(exportResultWithoutResume.videoFrameCount);
+        .isWithin(2)
+        .of(exportResultWithoutResume.videoFrameCount);
     // TODO: b/306595508 - Remove this expected difference once inconsistent behaviour of audio
     //  encoder is fixed.
     int maxDiffExpectedInDurationMs = 2;
@@ -252,8 +260,12 @@ public class TransformerPauseResumeTest {
         .isEqualTo(exportResultWithoutResume.audioEncoderName);
     assertThat(exportResultWithResume.videoEncoderName)
         .isEqualTo(exportResultWithoutResume.videoEncoderName);
+    // Rarely, MediaCodec decoders output frames in the wrong order.
+    // When the MediaCodec encoder sees frames in the wrong order, fewer output frames are produced.
+    // Use a tolerance when comparing frame counts. See b/343476417#comment5.
     assertThat(exportResultWithResume.videoFrameCount)
-        .isEqualTo(exportResultWithoutResume.videoFrameCount);
+        .isWithin(2)
+        .of(exportResultWithoutResume.videoFrameCount);
     int maxDiffExpectedInDurationMs = 2;
     assertThat(exportResultWithResume.durationMs - exportResultWithoutResume.durationMs)
         .isLessThan(maxDiffExpectedInDurationMs);
@@ -293,7 +305,10 @@ public class TransformerPauseResumeTest {
     ExportResult exportResult = result.exportResult;
     assertThat(exportResult.processedInputs).hasSize(6);
     int expectedVideoFrameCount = 2 * MP4_ASSET_FRAME_COUNT;
-    assertThat(exportResult.videoFrameCount).isEqualTo(expectedVideoFrameCount);
+    // Rarely, MediaCodec decoders output frames in the wrong order.
+    // When the MediaCodec encoder sees frames in the wrong order, fewer output frames are produced.
+    // Use a tolerance when comparing frame counts. See b/343476417#comment5.
+    assertThat(exportResult.videoFrameCount).isWithin(2).of(expectedVideoFrameCount);
     // The first processed media item corresponds to remuxing previous output video.
     assertThat(exportResult.processedInputs.get(0).audioDecoderName).isNull();
     assertThat(exportResult.processedInputs.get(0).videoDecoderName).isNull();
@@ -358,8 +373,12 @@ public class TransformerPauseResumeTest {
         .isEqualTo(exportResultWithoutResume.audioEncoderName);
     assertThat(exportResultWithResume.videoEncoderName)
         .isEqualTo(exportResultWithoutResume.videoEncoderName);
+    // Rarely, MediaCodec decoders output frames in the wrong order.
+    // When the MediaCodec encoder sees frames in the wrong order, fewer output frames are produced.
+    // Use a tolerance when comparing frame counts. See b/343476417#comment5.
     assertThat(exportResultWithResume.videoFrameCount)
-        .isEqualTo(exportResultWithoutResume.videoFrameCount);
+        .isWithin(2)
+        .of(exportResultWithoutResume.videoFrameCount);
     int maxDiffExpectedInDurationMs = 2;
     assertThat(exportResultWithResume.durationMs - exportResultWithoutResume.durationMs)
         .isLessThan(maxDiffExpectedInDurationMs);
@@ -409,9 +428,9 @@ public class TransformerPauseResumeTest {
     // v26 emulators are not producing I-frames, due to which resuming export does not work as
     // expected.
     // On vivo 1820 and vivo 1906, the process crashes unexpectedly (see b/310566201).
-    return (Util.SDK_INT == 26 && Util.isRunningOnEmulator())
-        || (Util.SDK_INT == 27 && Ascii.equalsIgnoreCase(Build.MODEL, "vivo 1820"))
-        || (Util.SDK_INT == 28 && Ascii.equalsIgnoreCase(Build.MODEL, "vivo 1901"))
-        || (Util.SDK_INT == 28 && Ascii.equalsIgnoreCase(Build.MODEL, "vivo 1906"));
+    return (SDK_INT == 26 && Util.isRunningOnEmulator())
+        || (SDK_INT == 27 && Ascii.equalsIgnoreCase(Build.MODEL, "vivo 1820"))
+        || (SDK_INT == 28 && Ascii.equalsIgnoreCase(Build.MODEL, "vivo 1901"))
+        || (SDK_INT == 28 && Ascii.equalsIgnoreCase(Build.MODEL, "vivo 1906"));
   }
 }

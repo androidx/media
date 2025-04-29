@@ -15,8 +15,11 @@
  */
 package androidx.media3.muxer;
 
+import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
+import static androidx.media3.muxer.Boxes.getDolbyVisionProfileAndLevel;
 
+import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import com.google.common.collect.ImmutableList;
 import java.nio.ByteBuffer;
@@ -105,7 +108,16 @@ import java.nio.ByteOrder;
    * Returns whether the sample of the given MIME type will contain NAL units in Annex-B format
    * (ISO/IEC 14496-10 Annex B, which uses start codes to delineate NAL units).
    */
-  public static boolean doesSampleContainAnnexBNalUnits(String sampleMimeType) {
+  public static boolean doesSampleContainAnnexBNalUnits(Format format) {
+    String sampleMimeType = format.sampleMimeType;
+    checkNotNull(sampleMimeType);
+    if (sampleMimeType.equals(MimeTypes.VIDEO_DOLBY_VISION)) {
+      // Dolby vision with AV1 profile does not contain Nal units.
+      int profile = checkNotNull(getDolbyVisionProfileAndLevel(format)).first;
+      // Dolby vision with Profile 10 is equivalent to DolbyVisionProfileDvav110 of framework
+      // media codec constants.
+      return profile != 10;
+    }
     return sampleMimeType.equals(MimeTypes.VIDEO_H264)
         || sampleMimeType.equals(MimeTypes.VIDEO_H265);
   }

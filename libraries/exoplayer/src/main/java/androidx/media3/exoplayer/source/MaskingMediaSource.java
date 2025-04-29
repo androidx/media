@@ -103,13 +103,6 @@ public final class MaskingMediaSource extends WrappingMediaSource {
   }
 
   @Override
-  @SuppressWarnings("MissingSuperCall")
-  public void maybeThrowSourceInfoRefreshError() {
-    // Do nothing. Source info refresh errors will be thrown when calling
-    // MaskingMediaPeriod.maybeThrowPrepareError.
-  }
-
-  @Override
   public MaskingMediaPeriod createPeriod(
       MediaPeriodId id, Allocator allocator, long startPositionUs) {
     MaskingMediaPeriod mediaPeriod = new MaskingMediaPeriod(id, allocator, startPositionUs);

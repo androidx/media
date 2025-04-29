@@ -73,7 +73,7 @@ public final class VideoEncoderWrapperTest {
               .setSampleMimeType(MimeTypes.VIDEO_H264)
               .setColorInfo(ColorInfo.SDR_BT709_LIMITED)
               .build(),
-          /* portraitEncodingEnabled= */ false,
+          /* allowedEncodingRotationDegrees= */ ImmutableList.of(0, 90, 180, 270),
           /* muxerSupportedMimeTypes= */ ImmutableList.of(MimeTypes.VIDEO_H264),
           emptyTransformationRequest,
           fallbackListener,

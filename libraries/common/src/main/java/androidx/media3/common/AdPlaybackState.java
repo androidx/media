@@ -596,6 +596,21 @@ public final class AdPlaybackState {
       return C.INDEX_UNSET;
     }
 
+    /** Returns a safe copy with all array fields copied into the new instance as new arrays. */
+    public AdGroup copy() {
+      return new AdGroup(
+          timeUs,
+          count,
+          originalCount,
+          Arrays.copyOf(states, states.length),
+          Arrays.copyOf(mediaItems, mediaItems.length),
+          Arrays.copyOf(durationsUs, durationsUs.length),
+          contentResumeOffsetUs,
+          isServerSideInserted,
+          Arrays.copyOf(ids, ids.length),
+          isPlaceholder);
+    }
+
     @CheckResult
     private static @AdState int[] copyStatesWithSpaceForAdCount(@AdState int[] states, int count) {
       int oldStateCount = states.length;
@@ -865,7 +880,10 @@ public final class AdPlaybackState {
             || !getAdGroup(index).shouldPlayAdGroup())) {
       index++;
     }
-    return index < adGroupCount ? index : C.INDEX_UNSET;
+    return index < adGroupCount
+            && (periodDurationUs == C.TIME_UNSET || getAdGroup(index).timeUs <= periodDurationUs)
+        ? index
+        : C.INDEX_UNSET;
   }
 
   /** Returns whether the specified ad has been marked as in {@link #AD_STATE_ERROR}. */
@@ -937,6 +955,20 @@ public final class AdPlaybackState {
     }
     AdGroup[] adGroups = Util.nullSafeArrayCopy(this.adGroups, this.adGroups.length);
     adGroups[adjustedIndex] = this.adGroups[adjustedIndex].withAdCount(adCount);
+    return new AdPlaybackState(
+        adsId, adGroups, adResumePositionUs, contentDurationUs, removedAdGroupCount);
+  }
+
+  /**
+   * Returns an new instance that is a safe deep copy of this instance in case an immutable object
+   * is used for {@link #adsId}.
+   */
+  @CheckResult
+  public AdPlaybackState copy() {
+    AdGroup[] adGroups = new AdGroup[this.adGroups.length];
+    for (int i = 0; i < adGroups.length; i++) {
+      adGroups[i] = this.adGroups[i].copy();
+    }
     return new AdPlaybackState(
         adsId, adGroups, adResumePositionUs, contentDurationUs, removedAdGroupCount);
   }
@@ -1072,14 +1104,23 @@ public final class AdPlaybackState {
   /**
    * Returns an instance with the specified ad durations, in microseconds.
    *
-   * <p>Must only be used if {@link #removedAdGroupCount} is 0.
+   * <p>The number of arrays of durations ({@code adDurations.length}) must always be equal to
+   * {@link #adGroupCount}. This is required even on an instance created with {@link
+   * #withRemovedAdGroupCount(int)}. The array of durations at the index of a removed ad group can
+   * be null or empty.
+   *
+   * @throws IllegalArgumentException if {@code adDurations.length != adGroupCount}.
    */
   @CheckResult
   public AdPlaybackState withAdDurationsUs(long[][] adDurationUs) {
-    checkState(removedAdGroupCount == 0);
+    checkArgument(adDurationUs.length == adGroupCount);
     AdGroup[] adGroups = Util.nullSafeArrayCopy(this.adGroups, this.adGroups.length);
-    for (int adGroupIndex = 0; adGroupIndex < adGroupCount; adGroupIndex++) {
-      adGroups[adGroupIndex] = adGroups[adGroupIndex].withAdDurationsUs(adDurationUs[adGroupIndex]);
+    for (int correctedAdGroupIndex = 0;
+        correctedAdGroupIndex < adGroupCount - removedAdGroupCount;
+        correctedAdGroupIndex++) {
+      adGroups[correctedAdGroupIndex] =
+          adGroups[correctedAdGroupIndex].withAdDurationsUs(
+              adDurationUs[removedAdGroupCount + correctedAdGroupIndex]);
     }
     return new AdPlaybackState(
         adsId, adGroups, adResumePositionUs, contentDurationUs, removedAdGroupCount);

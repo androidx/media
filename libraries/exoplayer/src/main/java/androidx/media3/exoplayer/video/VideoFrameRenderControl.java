@@ -185,8 +185,12 @@ import androidx.media3.exoplayer.ExoPlaybackException;
       videoFrameReleaseControl.onStreamChanged(firstFrameReleaseInstruction);
       outputStreamStartPositionUs = streamStartPositionUs;
     } else {
+      // Add a start position to the queue with a large negative timestamp to always apply it as
+      // long as it is the only one in the queue.
       streamStartPositionsUs.add(
-          latestInputPresentationTimeUs == C.TIME_UNSET ? 0 : latestInputPresentationTimeUs + 1,
+          latestInputPresentationTimeUs == C.TIME_UNSET
+              ? Long.MIN_VALUE / 2
+              : latestInputPresentationTimeUs + 1,
           streamStartPositionUs);
     }
   }
@@ -209,6 +213,13 @@ import androidx.media3.exoplayer.ExoPlaybackException;
    * this method, the end of input signal is ignored.
    */
   public void signalEndOfInput() {
+    if (latestInputPresentationTimeUs == C.TIME_UNSET) {
+      // If EOS is signalled right after a flush without receiving a frame (could happen with frame
+      // replaying as available frame is not reported to the render control), set the latest input
+      // and output timestamp to end of source to ensure isEnded() returns true.
+      latestInputPresentationTimeUs = C.TIME_END_OF_SOURCE;
+      latestOutputPresentationTimeUs = C.TIME_END_OF_SOURCE;
+    }
     lastPresentationTimeUs = latestInputPresentationTimeUs;
   }
 

@@ -25,6 +25,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.Util;
+import androidx.media3.container.ReorderingBufferQueue.OutputConsumer;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.util.ArrayList;
@@ -33,17 +34,17 @@ import java.util.Objects;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-/** Tests for {@link ReorderingSeiMessageQueue}. */
+/** Tests for {@link ReorderingBufferQueue}. */
 @RunWith(AndroidJUnit4.class)
-public final class ReorderingSeiMessageQueueTest {
+public final class ReorderingBufferQueueTest {
 
   @Test
   public void noMaxSize_queueOnlyEmitsOnExplicitFlushCall() {
-    ArrayList<SeiMessage> emittedMessages = new ArrayList<>();
-    ReorderingSeiMessageQueue reorderingQueue =
-        new ReorderingSeiMessageQueue(
-            (presentationTimeUs, seiBuffer) ->
-                emittedMessages.add(new SeiMessage(presentationTimeUs, seiBuffer)));
+    ArrayList<Buffer> emittedMessages = new ArrayList<>();
+    ReorderingBufferQueue reorderingQueue =
+        new ReorderingBufferQueue(
+            (presentationTimeUs, buffer) ->
+                emittedMessages.add(new Buffer(presentationTimeUs, buffer)));
 
     // Deliberately re-use a single ParsableByteArray instance to ensure the implementation is
     // making copies as required.
@@ -61,18 +62,18 @@ public final class ReorderingSeiMessageQueueTest {
 
     assertThat(emittedMessages)
         .containsExactly(
-            new SeiMessage(/* presentationTimeUs= */ 123, data2),
-            new SeiMessage(/* presentationTimeUs= */ 345, data1))
+            new Buffer(/* presentationTimeUs= */ 123, data2),
+            new Buffer(/* presentationTimeUs= */ 345, data1))
         .inOrder();
   }
 
   @Test
   public void setMaxSize_emitsImmediatelyIfQueueIsOversized() {
-    ArrayList<SeiMessage> emittedMessages = new ArrayList<>();
-    ReorderingSeiMessageQueue reorderingQueue =
-        new ReorderingSeiMessageQueue(
-            (presentationTimeUs, seiBuffer) ->
-                emittedMessages.add(new SeiMessage(presentationTimeUs, seiBuffer)));
+    ArrayList<Buffer> emittedMessages = new ArrayList<>();
+    ReorderingBufferQueue reorderingQueue =
+        new ReorderingBufferQueue(
+            (presentationTimeUs, buffer) ->
+                emittedMessages.add(new Buffer(presentationTimeUs, buffer)));
     ParsableByteArray scratchData = new ParsableByteArray();
     byte[] data1 = TestUtil.buildTestData(5);
     scratchData.reset(data1);
@@ -85,17 +86,16 @@ public final class ReorderingSeiMessageQueueTest {
 
     reorderingQueue.setMaxSize(1);
 
-    assertThat(emittedMessages)
-        .containsExactly(new SeiMessage(/* presentationTimeUs= */ 123, data2));
+    assertThat(emittedMessages).containsExactly(new Buffer(/* presentationTimeUs= */ 123, data2));
   }
 
   @Test
   public void withMaxSize_addEmitsWhenQueueIsFull() {
-    ArrayList<SeiMessage> emittedMessages = new ArrayList<>();
-    ReorderingSeiMessageQueue reorderingQueue =
-        new ReorderingSeiMessageQueue(
-            (presentationTimeUs, seiBuffer) ->
-                emittedMessages.add(new SeiMessage(presentationTimeUs, seiBuffer)));
+    ArrayList<Buffer> emittedMessages = new ArrayList<>();
+    ReorderingBufferQueue reorderingQueue =
+        new ReorderingBufferQueue(
+            (presentationTimeUs, buffer) ->
+                emittedMessages.add(new Buffer(presentationTimeUs, buffer)));
     reorderingQueue.setMaxSize(1);
 
     // Deliberately re-use a single ParsableByteArray instance to ensure the implementation is
@@ -111,17 +111,16 @@ public final class ReorderingSeiMessageQueueTest {
     scratchData.reset(data2);
     reorderingQueue.add(/* presentationTimeUs= */ -123, scratchData);
 
-    assertThat(emittedMessages)
-        .containsExactly(new SeiMessage(/* presentationTimeUs= */ -123, data2));
+    assertThat(emittedMessages).containsExactly(new Buffer(/* presentationTimeUs= */ -123, data2));
   }
 
   @Test
   public void withMaxSize_addEmitsWhenQueueIsFull_handlesDuplicateTimestamps() {
-    ArrayList<SeiMessage> emittedMessages = new ArrayList<>();
-    ReorderingSeiMessageQueue reorderingQueue =
-        new ReorderingSeiMessageQueue(
-            (presentationTimeUs, seiBuffer) ->
-                emittedMessages.add(new SeiMessage(presentationTimeUs, seiBuffer)));
+    ArrayList<Buffer> emittedMessages = new ArrayList<>();
+    ReorderingBufferQueue reorderingQueue =
+        new ReorderingBufferQueue(
+            (presentationTimeUs, buffer) ->
+                emittedMessages.add(new Buffer(presentationTimeUs, buffer)));
     reorderingQueue.setMaxSize(1);
 
     // Deliberately re-use a single ParsableByteArray instance to ensure the implementation is
@@ -144,9 +143,9 @@ public final class ReorderingSeiMessageQueueTest {
 
     assertThat(emittedMessages)
         .containsExactly(
-            new SeiMessage(/* presentationTimeUs= */ -123, data3),
-            new SeiMessage(/* presentationTimeUs= */ 345, data1),
-            new SeiMessage(/* presentationTimeUs= */ 345, data2))
+            new Buffer(/* presentationTimeUs= */ -123, data3),
+            new Buffer(/* presentationTimeUs= */ 345, data1),
+            new Buffer(/* presentationTimeUs= */ 345, data2))
         .inOrder();
   }
 
@@ -157,9 +156,8 @@ public final class ReorderingSeiMessageQueueTest {
    */
   @Test
   public void withMaxSize_addEmitsWhenQueueIsFull_skippingQueueReusesPbaInstance() {
-    ReorderingSeiMessageQueue.SeiConsumer mockSeiConsumer =
-        mock(ReorderingSeiMessageQueue.SeiConsumer.class);
-    ReorderingSeiMessageQueue reorderingQueue = new ReorderingSeiMessageQueue(mockSeiConsumer);
+    OutputConsumer mockOutputConsumer = mock(OutputConsumer.class);
+    ReorderingBufferQueue reorderingQueue = new ReorderingBufferQueue(mockOutputConsumer);
     reorderingQueue.setMaxSize(1);
 
     ParsableByteArray scratchData = new ParsableByteArray();
@@ -167,28 +165,28 @@ public final class ReorderingSeiMessageQueueTest {
     scratchData.reset(data1);
     reorderingQueue.add(/* presentationTimeUs= */ 345, scratchData);
 
-    verifyNoInteractions(mockSeiConsumer);
+    verifyNoInteractions(mockOutputConsumer);
 
     byte[] data2 = TestUtil.buildTestData(10);
     scratchData.reset(data2);
     reorderingQueue.add(/* presentationTimeUs= */ 123, scratchData);
 
-    verify(mockSeiConsumer).consume(eq(123L), same(scratchData));
+    verify(mockOutputConsumer).consume(eq(123L), same(scratchData));
   }
 
-  private static final class SeiMessage {
+  private static final class Buffer {
     public final long presentationTimeUs;
     public final byte[] data;
 
-    public SeiMessage(long presentationTimeUs, ParsableByteArray seiBuffer) {
+    public Buffer(long presentationTimeUs, ParsableByteArray bufferData) {
       this(
           presentationTimeUs,
-          Arrays.copyOfRange(seiBuffer.getData(), seiBuffer.getPosition(), seiBuffer.limit()));
+          Arrays.copyOfRange(bufferData.getData(), bufferData.getPosition(), bufferData.limit()));
     }
 
-    public SeiMessage(long presentationTimeUs, byte[] seiBuffer) {
+    public Buffer(long presentationTimeUs, byte[] bufferData) {
       this.presentationTimeUs = presentationTimeUs;
-      this.data = seiBuffer;
+      this.data = bufferData;
     }
 
     @Override
@@ -198,17 +196,17 @@ public final class ReorderingSeiMessageQueueTest {
 
     @Override
     public boolean equals(@Nullable Object obj) {
-      if (!(obj instanceof SeiMessage)) {
+      if (!(obj instanceof Buffer)) {
         return false;
       }
-      SeiMessage that = (SeiMessage) obj;
+      Buffer that = (Buffer) obj;
       return this.presentationTimeUs == that.presentationTimeUs
           && Arrays.equals(this.data, that.data);
     }
 
     @Override
     public String toString() {
-      return "SeiMessage { ts=" + presentationTimeUs + ",data=0x" + Util.toHexString(data) + " }";
+      return "Buffer { ts=" + presentationTimeUs + ",data=0x" + Util.toHexString(data) + " }";
     }
   }
 }

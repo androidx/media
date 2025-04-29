@@ -112,7 +112,6 @@ public class OkHttpDataSource extends BaseDataSource implements HttpDataSource {
      * @return This factory.
      */
     @CanIgnoreReturnValue
-    @UnstableApi
     public Factory setUserAgent(@Nullable String userAgent) {
       this.userAgent = userAgent;
       return this;

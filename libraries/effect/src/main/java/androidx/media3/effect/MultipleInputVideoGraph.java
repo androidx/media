@@ -406,7 +406,6 @@ public final class MultipleInputVideoGraph implements VideoGraph {
     for (int i = 0; i < preProcessors.size(); i++) {
       preProcessors.get(preProcessors.keyAt(i)).release();
     }
-    preProcessors.clear();
 
     if (videoCompositor != null) {
       videoCompositor.release();

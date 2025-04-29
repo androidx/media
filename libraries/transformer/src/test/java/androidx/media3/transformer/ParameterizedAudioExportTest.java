@@ -16,24 +16,23 @@
 
 package androidx.media3.transformer;
 
+import static androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig.CODEC_INFO_AAC;
+import static androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig.CODEC_INFO_RAW;
 import static androidx.media3.transformer.TestUtil.ASSET_URI_PREFIX;
 import static androidx.media3.transformer.TestUtil.FILE_AUDIO_RAW;
 import static androidx.media3.transformer.TestUtil.FILE_AUDIO_RAW_VIDEO;
-import static androidx.media3.transformer.TestUtil.addAudioDecoders;
-import static androidx.media3.transformer.TestUtil.addAudioEncoders;
 import static androidx.media3.transformer.TestUtil.createAudioEffects;
 import static androidx.media3.transformer.TestUtil.createPitchChangingAudioProcessor;
 import static androidx.media3.transformer.TestUtil.getSequenceDumpFilePath;
-import static androidx.media3.transformer.TestUtil.removeEncodersAndDecoders;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.stream.Collectors.toList;
 
 import android.content.Context;
 import androidx.media3.common.MediaItem;
-import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Util;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.TestTransformerBuilder;
+import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
 import androidx.test.core.app.ApplicationProvider;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
@@ -45,8 +44,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import org.junit.After;
-import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -126,23 +123,18 @@ public final class ParameterizedAudioExportTest {
 
   @Rule public final TemporaryFolder outputDir = new TemporaryFolder();
 
+  @Rule
+  public ShadowMediaCodecConfig shadowMediaCodecConfig =
+      ShadowMediaCodecConfig.withCodecs(
+          /* decoders= */ ImmutableList.of(CODEC_INFO_RAW),
+          /* encoders= */ ImmutableList.of(CODEC_INFO_AAC));
+
   @Parameter public SequenceConfig sequence;
 
   private final Context context = ApplicationProvider.getApplicationContext();
 
   private final CapturingMuxer.Factory muxerFactory =
       new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
-
-  @Before
-  public void setUp() {
-    addAudioDecoders(MimeTypes.AUDIO_RAW);
-    addAudioEncoders(MimeTypes.AUDIO_AAC);
-  }
-
-  @After
-  public void tearDown() {
-    removeEncodersAndDecoders();
-  }
 
   @Test
   public void export() throws Exception {
@@ -172,9 +164,11 @@ public final class ParameterizedAudioExportTest {
         items.add(itemConfig.asItem());
       }
 
-      return new Composition.Builder(new EditedMediaItemSequence.Builder(items.build()).build())
+      return new Composition.Builder(
+              new EditedMediaItemSequence.Builder(items.build())
+                  .experimentalSetForceAudioTrack(true)
+                  .build())
           .setTransmuxVideo(true)
-          .experimentalSetForceAudioTrack(true)
           .build();
     }
 

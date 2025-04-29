@@ -1,4 +1,4 @@
-MediaCodecAdapter (exotest.audio.vorbis):
+MediaCodecAdapter (media3.audio.vorbis):
   inputBuffers:
     count = 181
     input buffer #0:

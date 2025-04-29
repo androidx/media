@@ -154,17 +154,7 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
       TextOutput textRendererOutput,
       MetadataOutput metadataRendererOutput) {
     ArrayList<Renderer> renderers = new ArrayList<>();
-    renderers.add(
-        new CapturingMediaCodecVideoRenderer(
-            context,
-            mediaCodecAdapterFactory,
-            MediaCodecSelector.DEFAULT,
-            DefaultRenderersFactory.DEFAULT_ALLOWED_VIDEO_JOINING_TIME_MS,
-            /* enableDecoderFallback= */ false,
-            eventHandler,
-            videoRendererEventListener,
-            DefaultRenderersFactory.MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY,
-            parseAv1SampleDependencies));
+    renderers.add(createMediaCodecVideoRenderer(eventHandler, videoRendererEventListener));
     renderers.add(
         new MediaCodecAudioRenderer(
             context,
@@ -219,7 +209,7 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
         eventHandler,
         videoRendererEventListener,
         DefaultRenderersFactory.MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY,
-        /* parseAv1SampleDependencies= */ false);
+        parseAv1SampleDependencies);
   }
 
   /**

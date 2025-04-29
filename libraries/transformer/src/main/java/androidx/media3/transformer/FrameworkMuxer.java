@@ -15,10 +15,10 @@
  */
 package androidx.media3.transformer;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.CodecSpecificDataUtil.getCodecProfileAndLevel;
-import static androidx.media3.common.util.Util.SDK_INT;
 import static androidx.media3.common.util.Util.castNonNull;
 import static java.lang.Integer.max;
 
@@ -183,7 +183,7 @@ import java.util.Locale;
       return;
     }
     if (!isStarted) {
-      if (Util.SDK_INT < 30 && presentationTimeUs < 0) {
+      if (SDK_INT < 30 && presentationTimeUs < 0) {
         trackIdToPresentationTimeOffsetUs.put(trackId, -presentationTimeUs);
       }
       startMuxer();
@@ -199,7 +199,7 @@ import java.util.Locale;
             : 0;
     // writeSampleData blocks on old API versions, so check here to avoid calling the method.
     checkState(
-        Util.SDK_INT > 24 || presentationTimeUs >= lastSamplePresentationTimeUs,
+        SDK_INT > 24 || presentationTimeUs >= lastSamplePresentationTimeUs,
         "Samples not in presentation order ("
             + presentationTimeUs
             + " < "
@@ -320,6 +320,9 @@ import java.util.Locale;
     }
     if (SDK_INT >= 34) {
       supportedMimeTypes.add(MimeTypes.VIDEO_AV1);
+    }
+    if (SDK_INT >= 36) {
+      supportedMimeTypes.add(MimeTypes.VIDEO_APV);
     }
     return supportedMimeTypes.build();
   }

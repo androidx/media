@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.video;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 
 import android.content.Context;
@@ -297,7 +298,7 @@ public final class VideoFrameReleaseHelper {
    * called to update the surface.
    */
   private void updateSurfaceMediaFrameRate() {
-    if (Util.SDK_INT < 30 || surface == null) {
+    if (SDK_INT < 30 || surface == null) {
       return;
     }
 
@@ -345,7 +346,7 @@ public final class VideoFrameReleaseHelper {
    *     unchanged.
    */
   private void updateSurfacePlaybackFrameRate(boolean forceUpdate) {
-    if (Util.SDK_INT < 30
+    if (SDK_INT < 30
         || surface == null
         || changeFrameRateStrategy == C.VIDEO_CHANGE_FRAME_RATE_STRATEGY_OFF) {
       return;
@@ -371,7 +372,7 @@ public final class VideoFrameReleaseHelper {
    * C#VIDEO_CHANGE_FRAME_RATE_STRATEGY_OFF}.
    */
   private void clearSurfaceFrameRate() {
-    if (Util.SDK_INT < 30
+    if (SDK_INT < 30
         || surface == null
         || changeFrameRateStrategy == C.VIDEO_CHANGE_FRAME_RATE_STRATEGY_OFF
         || surfacePlaybackFrameRate == 0) {

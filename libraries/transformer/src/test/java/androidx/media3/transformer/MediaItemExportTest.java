@@ -17,6 +17,9 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.test.utils.robolectric.RobolectricUtil.runLooperUntil;
+import static androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig.CODEC_INFO_AAC;
+import static androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig.CODEC_INFO_AMR_NB;
+import static androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig.CODEC_INFO_RAW;
 import static androidx.media3.transformer.AssetLoader.SUPPORTED_OUTPUT_TYPE_DECODED;
 import static androidx.media3.transformer.AssetLoader.SUPPORTED_OUTPUT_TYPE_ENCODED;
 import static androidx.media3.transformer.ExportResult.CONVERSION_PROCESS_NA;
@@ -36,12 +39,9 @@ import static androidx.media3.transformer.TestUtil.FILE_VIDEO_ELST_TRIM_IDR_DURA
 import static androidx.media3.transformer.TestUtil.FILE_VIDEO_ONLY;
 import static androidx.media3.transformer.TestUtil.FILE_WITH_SEF_SLOW_MOTION;
 import static androidx.media3.transformer.TestUtil.FILE_WITH_SUBTITLES;
-import static androidx.media3.transformer.TestUtil.addAudioDecoders;
-import static androidx.media3.transformer.TestUtil.addAudioEncoders;
 import static androidx.media3.transformer.TestUtil.createAudioEffects;
 import static androidx.media3.transformer.TestUtil.createPitchChangingAudioProcessor;
 import static androidx.media3.transformer.TestUtil.getDumpFileName;
-import static androidx.media3.transformer.TestUtil.removeEncodersAndDecoders;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_AVAILABLE;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_NOT_STARTED;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_UNAVAILABLE;
@@ -89,6 +89,7 @@ import androidx.media3.extractor.PositionHolder;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.FakeClock;
 import androidx.media3.test.utils.TestTransformerBuilder;
+import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
@@ -104,8 +105,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import org.junit.After;
-import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
@@ -125,30 +124,45 @@ import org.robolectric.shadows.ShadowMediaCodec;
 public final class MediaItemExportTest {
 
   private static final long TEST_TIMEOUT_SECONDS = 10;
+  private static final String EXPECTED_CODEC_EXCEPTION_MESSAGE = "Unexpected format!";
+  private static final ShadowMediaCodec.CodecConfig THROWING_CODEC_CONFIG =
+      new ShadowMediaCodec.CodecConfig(
+          /* inputBufferSize= */ 100_000,
+          /* outputBufferSize= */ 100_000,
+          new ShadowMediaCodec.CodecConfig.Codec() {
+            @Override
+            public void process(ByteBuffer byteBuffer, ByteBuffer byteBuffer1) {
+              throw new IllegalStateException();
+            }
+
+            @Override
+            public void onConfigured(
+                MediaFormat format, Surface surface, MediaCrypto crypto, int flags) {
+              throw new IllegalArgumentException(EXPECTED_CODEC_EXCEPTION_MESSAGE);
+            }
+          });
 
   @Rule public final TemporaryFolder outputDir = new TemporaryFolder();
 
   private final Context context = ApplicationProvider.getApplicationContext();
 
-  @Before
-  public void setUp() {
-    addAudioDecoders(MimeTypes.AUDIO_RAW);
-    addAudioEncoders(MimeTypes.AUDIO_AAC);
-  }
-
-  @After
-  public void tearDown() {
-    removeEncodersAndDecoders();
-  }
+  @Rule
+  public ShadowMediaCodecConfig shadowMediaCodecConfig =
+      ShadowMediaCodecConfig.withCodecs(
+          /* decoders= */ ImmutableList.of(CODEC_INFO_RAW), /* encoders= */ ImmutableList.of());
 
   @Test
   public void start_gapOnlyExport_outputsSilence() throws Exception {
+    shadowMediaCodecConfig.addEncoders(CODEC_INFO_AAC);
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
     Transformer transformer =
         new TestTransformerBuilder(context).setMuxerFactory(muxerFactory).build();
 
     EditedMediaItemSequence gapSequence =
-        new EditedMediaItemSequence.Builder().addGap(500_000).build();
+        new EditedMediaItemSequence.Builder()
+            .addGap(500_000)
+            .experimentalSetForceAudioTrack(true)
+            .build();
 
     transformer.start(new Composition.Builder(gapSequence).build(), outputDir.newFile().getPath());
     ExportResult result = TransformerTestRunner.runLooper(transformer);
@@ -272,6 +286,7 @@ public final class MediaItemExportTest {
 
   @Test
   public void start_trimOptimizationEnabled_fileNotMp4_fallbackToNormalExport() throws Exception {
+    shadowMediaCodecConfig.addEncoders(CODEC_INFO_AAC);
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
     Transformer transformer =
         new TestTransformerBuilder(context)
@@ -401,8 +416,10 @@ public final class MediaItemExportTest {
     MediaItem mediaItem = MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_AMR_NB);
     EditedMediaItem editedMediaItem = new EditedMediaItem.Builder(mediaItem).build();
     Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence.Builder(editedMediaItem).build())
-            .experimentalSetForceAudioTrack(true)
+        new Composition.Builder(
+                new EditedMediaItemSequence.Builder(editedMediaItem)
+                    .experimentalSetForceAudioTrack(true)
+                    .build())
             .build();
 
     transformer.start(composition, outputDir.newFile().getPath());
@@ -420,8 +437,10 @@ public final class MediaItemExportTest {
     MediaItem mediaItem = MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_VIDEO);
     EditedMediaItem editedMediaItem = new EditedMediaItem.Builder(mediaItem).build();
     Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence.Builder(editedMediaItem).build())
-            .experimentalSetForceAudioTrack(true)
+        new Composition.Builder(
+                new EditedMediaItemSequence.Builder(editedMediaItem)
+                    .experimentalSetForceAudioTrack(true)
+                    .build())
             .build();
 
     transformer.start(composition, outputDir.newFile().getPath());
@@ -434,6 +453,7 @@ public final class MediaItemExportTest {
   @Test
   public void start_forceAudioTrackAndRemoveAudioWithEffects_generatesSilentAudio()
       throws Exception {
+    shadowMediaCodecConfig.addEncoders(CODEC_INFO_AAC);
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
     Transformer transformer =
         new TestTransformerBuilder(context).setMuxerFactory(muxerFactory).build();
@@ -445,8 +465,10 @@ public final class MediaItemExportTest {
             .setEffects(createAudioEffects(sonicAudioProcessor))
             .build();
     Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence.Builder(editedMediaItem).build())
-            .experimentalSetForceAudioTrack(true)
+        new Composition.Builder(
+                new EditedMediaItemSequence.Builder(editedMediaItem)
+                    .experimentalSetForceAudioTrack(true)
+                    .build())
             .build();
 
     transformer.start(composition, outputDir.newFile().getPath());
@@ -471,8 +493,10 @@ public final class MediaItemExportTest {
             .setRemoveVideo(true)
             .build();
     Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence.Builder(editedMediaItem).build())
-            .experimentalSetForceAudioTrack(true)
+        new Composition.Builder(
+                new EditedMediaItemSequence.Builder(editedMediaItem)
+                    .experimentalSetForceAudioTrack(true)
+                    .build())
             .build();
 
     transformer.start(composition, outputDir.newFile().getPath());
@@ -486,14 +510,17 @@ public final class MediaItemExportTest {
 
   @Test
   public void start_forceAudioTrackOnVideoOnly_generatesSilentAudio() throws Exception {
+    shadowMediaCodecConfig.addEncoders(CODEC_INFO_AAC);
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
     Transformer transformer =
         new TestTransformerBuilder(context).setMuxerFactory(muxerFactory).build();
     MediaItem mediaItem = MediaItem.fromUri(ASSET_URI_PREFIX + FILE_VIDEO_ONLY);
     EditedMediaItem editedMediaItem = new EditedMediaItem.Builder(mediaItem).build();
     Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence.Builder(editedMediaItem).build())
-            .experimentalSetForceAudioTrack(true)
+        new Composition.Builder(
+                new EditedMediaItemSequence.Builder(editedMediaItem)
+                    .experimentalSetForceAudioTrack(true)
+                    .build())
             .build();
 
     transformer.start(composition, outputDir.newFile().getPath());
@@ -508,6 +535,7 @@ public final class MediaItemExportTest {
 
   @Test
   public void exportAudio_muxerReceivesExpectedNumberOfBytes() throws Exception {
+    shadowMediaCodecConfig.addEncoders(CODEC_INFO_AAC);
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
     AtomicInteger bytesSeenByEffect = new AtomicInteger();
     Transformer transformer =
@@ -527,6 +555,7 @@ public final class MediaItemExportTest {
 
   @Test
   public void start_adjustSampleRate_completesSuccessfully() throws Exception {
+    shadowMediaCodecConfig.addEncoders(CODEC_INFO_AAC);
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
     SonicAudioProcessor sonicAudioProcessor = new SonicAudioProcessor();
     sonicAudioProcessor.setOutputSampleRateHz(48000);
@@ -556,6 +585,7 @@ public final class MediaItemExportTest {
 
   @Test
   public void adjustAudioSpeed_toDoubleSpeed_returnsExpectedNumberOfSamples() throws Exception {
+    shadowMediaCodecConfig.addEncoders(CODEC_INFO_AAC);
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
     SonicAudioProcessor sonicAudioProcessor = new SonicAudioProcessor();
     sonicAudioProcessor.setSpeed(2f);
@@ -586,6 +616,7 @@ public final class MediaItemExportTest {
 
   @Test
   public void start_withRawBigEndianAudioInput_completesSuccessfully() throws Exception {
+    shadowMediaCodecConfig.addEncoders(CODEC_INFO_AAC);
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
     ToInt16PcmAudioProcessor toInt16PcmAudioProcessor = new ToInt16PcmAudioProcessor();
     Transformer transformer =
@@ -609,6 +640,7 @@ public final class MediaItemExportTest {
 
   @Test
   public void start_singleMediaItemAndTransmux_ignoresTransmux() throws Exception {
+    shadowMediaCodecConfig.addEncoders(CODEC_INFO_AAC);
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
     SonicAudioProcessor sonicAudioProcessor = new SonicAudioProcessor();
     sonicAudioProcessor.setOutputSampleRateHz(48000);
@@ -689,6 +721,7 @@ public final class MediaItemExportTest {
 
   @Test
   public void start_withMultipleListeners_callsEachOnFallback() throws Exception {
+    shadowMediaCodecConfig.addEncoders(CODEC_INFO_AAC);
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ false);
     ArgumentCaptor<Composition> compositionArgumentCaptor =
         ArgumentCaptor.forClass(Composition.class);
@@ -791,29 +824,11 @@ public final class MediaItemExportTest {
 
   @Test
   public void start_whenCodecFailsToConfigure_completesWithError() throws Exception {
-    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ false);
-    String expectedFailureMessage = "Format not valid. AMR NB (3gpp)";
-    ShadowMediaCodec.CodecConfig throwOnConfigureCodecConfig =
-        new ShadowMediaCodec.CodecConfig(
-            /* inputBufferSize= */ 100_000,
-            /* outputBufferSize= */ 100_000,
-            /* codec= */ new ShadowMediaCodec.CodecConfig.Codec() {
-              @Override
-              public void process(ByteBuffer in, ByteBuffer out) {
-                out.put(in);
-              }
-
-              @Override
-              public void onConfigured(
-                  MediaFormat format, Surface surface, MediaCrypto crypto, int flags) {
-                // MediaCodec#configure documented to throw IAE if format is invalid.
-                throw new IllegalArgumentException(expectedFailureMessage);
-              }
-            });
-
+    shadowMediaCodecConfig.addEncoders(CODEC_INFO_AAC);
     // Add the AMR_NB encoder that throws when configured.
-    addAudioEncoders(throwOnConfigureCodecConfig, MimeTypes.AUDIO_AMR_NB);
-
+    shadowMediaCodecConfig.addCodec(
+        CODEC_INFO_AMR_NB, /* isEncoder= */ true, THROWING_CODEC_CONFIG);
+    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ false);
     Transformer transformer =
         new TestTransformerBuilder(context)
             .setMuxerFactory(muxerFactory)
@@ -828,7 +843,10 @@ public final class MediaItemExportTest {
     assertThat(exception.errorCode)
         .isEqualTo(ExportException.ERROR_CODE_ENCODING_FORMAT_UNSUPPORTED);
     assertThat(exception).hasCauseThat().isInstanceOf(IllegalArgumentException.class);
-    assertThat(exception).hasCauseThat().hasMessageThat().isEqualTo(expectedFailureMessage);
+    assertThat(exception)
+        .hasCauseThat()
+        .hasMessageThat()
+        .isEqualTo(EXPECTED_CODEC_EXCEPTION_MESSAGE);
   }
 
   @Test
@@ -853,11 +871,9 @@ public final class MediaItemExportTest {
   public void
       start_withAudioFormatUnsupportedByMuxer_ignoresDisabledFallbackAndCompletesSuccessfully()
           throws Exception {
-    removeEncodersAndDecoders();
-    addAudioDecoders(MimeTypes.AUDIO_RAW);
     // RAW supported by encoder, unsupported by muxer.
     // AAC supported by encoder and muxer.
-    addAudioEncoders(MimeTypes.AUDIO_RAW, MimeTypes.AUDIO_AAC);
+    shadowMediaCodecConfig.addEncoders(CODEC_INFO_RAW, CODEC_INFO_AAC);
 
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
     Transformer.Listener mockListener = mock(Transformer.Listener.class);
@@ -888,11 +904,9 @@ public final class MediaItemExportTest {
   @Test
   public void start_withAudioFormatUnsupportedByMuxer_fallsBackAndCompletesSuccessfully()
       throws Exception {
-    removeEncodersAndDecoders();
-    addAudioDecoders(MimeTypes.AUDIO_RAW);
     // RAW supported by encoder, unsupported by muxer.
     // AAC supported by encoder and muxer.
-    addAudioEncoders(MimeTypes.AUDIO_RAW, MimeTypes.AUDIO_AAC);
+    shadowMediaCodecConfig.addEncoders(CODEC_INFO_RAW, CODEC_INFO_AAC);
 
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
     Transformer.Listener mockListener = mock(Transformer.Listener.class);
@@ -1185,9 +1199,7 @@ public final class MediaItemExportTest {
 
   @Test
   public void analyze_audioOnlyWithItemEffect_completesSuccessfully() throws Exception {
-    removeEncodersAndDecoders();
-    addAudioDecoders(MimeTypes.AUDIO_RAW);
-    addThrowingAudioEncoder(MimeTypes.AUDIO_AAC);
+    shadowMediaCodecConfig.addCodec(CODEC_INFO_AAC, /* isEncoder= */ true, THROWING_CODEC_CONFIG);
     Transformer transformer =
         ExperimentalAnalyzerModeFactory.buildAnalyzer(
             getApplicationContext(), new TestTransformerBuilder(getApplicationContext()).build());
@@ -1207,9 +1219,7 @@ public final class MediaItemExportTest {
 
   @Test
   public void analyze_audioOnlyWithCompositionEffect_completesSuccessfully() throws Exception {
-    removeEncodersAndDecoders();
-    addAudioDecoders(MimeTypes.AUDIO_RAW);
-    addThrowingAudioEncoder(MimeTypes.AUDIO_AAC);
+    shadowMediaCodecConfig.addCodec(CODEC_INFO_AAC, /* isEncoder= */ true, THROWING_CODEC_CONFIG);
     Transformer transformer =
         ExperimentalAnalyzerModeFactory.buildAnalyzer(
             getApplicationContext(), new TestTransformerBuilder(getApplicationContext()).build());
@@ -1234,9 +1244,7 @@ public final class MediaItemExportTest {
 
   @Test
   public void analyze_audioOnly_itemAndMixerOutputMatch() throws Exception {
-    removeEncodersAndDecoders();
-    addAudioDecoders(MimeTypes.AUDIO_RAW);
-    addThrowingAudioEncoder(MimeTypes.AUDIO_AAC);
+    shadowMediaCodecConfig.addCodec(CODEC_INFO_AAC, /* isEncoder= */ true, THROWING_CODEC_CONFIG);
     Transformer transformer =
         ExperimentalAnalyzerModeFactory.buildAnalyzer(
             getApplicationContext(), new TestTransformerBuilder(getApplicationContext()).build());
@@ -1552,27 +1560,6 @@ public final class MediaItemExportTest {
         getDumpFileName(
             /* originalFileName= */ FILE_VIDEO_ELST_TRIM_IDR_DURATION,
             /* modifications...= */ "transmuxed"));
-  }
-
-  private static void addThrowingAudioEncoder(String mimeType) {
-    ShadowMediaCodec.CodecConfig.Codec codec =
-        new ShadowMediaCodec.CodecConfig.Codec() {
-          @Override
-          public void process(ByteBuffer byteBuffer, ByteBuffer byteBuffer1) {
-            throw new IllegalStateException();
-          }
-
-          @Override
-          public void onConfigured(
-              MediaFormat format, Surface surface, MediaCrypto crypto, int flags) {
-            throw new IllegalStateException();
-          }
-        };
-
-    addAudioEncoders(
-        new ShadowMediaCodec.CodecConfig(
-            /* inputBufferSize= */ 100_000, /* outputBufferSize= */ 100_000, codec),
-        mimeType);
   }
 
   private static AudioProcessor createByteCountingAudioProcessor(AtomicInteger byteCount) {

@@ -53,7 +53,7 @@ fun rememberPlaybackSpeedState(player: Player): PlaybackSpeedState {
  */
 @UnstableApi
 class PlaybackSpeedState(private val player: Player) {
-  var isEnabled by mutableStateOf(player.isCommandAvailable(Player.COMMAND_SET_SPEED_AND_PITCH))
+  var isEnabled by mutableStateOf(arePlaybackParametersEnabled(player))
     private set
 
   var playbackSpeed by mutableFloatStateOf(player.playbackParameters.speed)
@@ -70,7 +70,9 @@ class PlaybackSpeedState(private val player: Player) {
    * * [Player.EVENT_AVAILABLE_COMMANDS_CHANGED] in order to determine whether the UI element
    *   responsible for setting the playback speed should be enabled, i.e. respond to user input.
    */
-  suspend fun observe(): Nothing =
+  suspend fun observe(): Nothing {
+    playbackSpeed = player.playbackParameters.speed
+    isEnabled = arePlaybackParametersEnabled(player)
     player.listen { events ->
       if (
         events.containsAny(
@@ -79,7 +81,11 @@ class PlaybackSpeedState(private val player: Player) {
         )
       ) {
         playbackSpeed = playbackParameters.speed
-        isEnabled = isCommandAvailable(Player.COMMAND_SET_SPEED_AND_PITCH)
+        isEnabled = arePlaybackParametersEnabled(this)
       }
     }
+  }
+
+  private fun arePlaybackParametersEnabled(player: Player) =
+    player.isCommandAvailable(Player.COMMAND_SET_SPEED_AND_PITCH)
 }

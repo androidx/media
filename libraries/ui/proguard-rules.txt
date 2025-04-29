@@ -12,6 +12,8 @@
 -keepnames class androidx.media3.exoplayer.ExoPlayer {}
 -keepclassmembers class androidx.media3.exoplayer.ExoPlayer {
   void setImageOutput(androidx.media3.exoplayer.image.ImageOutput);
+  void setScrubbingModeEnabled(boolean);
+  boolean isScrubbingModeEnabled();
 }
 -keepclasseswithmembers class androidx.media3.exoplayer.image.ImageOutput {
   void onImageAvailable(long, android.graphics.Bitmap);

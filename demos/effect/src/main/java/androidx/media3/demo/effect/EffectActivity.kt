@@ -17,6 +17,7 @@ package androidx.media3.demo.effect
 
 import android.Manifest
 import android.net.Uri
+import android.os.Build.VERSION.SDK_INT
 import android.os.Bundle
 import android.text.Spannable
 import android.text.SpannableString
@@ -81,7 +82,6 @@ import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.Effect
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.common.util.Util.SDK_INT
 import androidx.media3.effect.Contrast
 import androidx.media3.effect.OverlayEffect
 import androidx.media3.effect.StaticOverlaySettings
@@ -90,6 +90,7 @@ import androidx.media3.effect.TextureOverlay
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import com.google.common.collect.ImmutableList
+import java.util.Locale
 import kotlinx.coroutines.launch
 
 class EffectActivity : ComponentActivity() {
@@ -364,7 +365,7 @@ class EffectActivity : ComponentActivity() {
             Slider(
               value = effectControlsState.contrastValue,
               onValueChange = { newContrastValue ->
-                val newRoundedContrastValue = "%.2f".format(newContrastValue).toFloat()
+                val newRoundedContrastValue = "%.2f".format(Locale.ROOT, newContrastValue).toFloat()
                 onEffectControlsStateChange(
                   effectControlsState.copy(
                     effectsChanged = true,
@@ -437,7 +438,7 @@ class EffectActivity : ComponentActivity() {
               Slider(
                 value = effectControlsState.textOverlayAlpha,
                 onValueChange = { newAlphaValue ->
-                  val newRoundedAlphaValue = "%.2f".format(newAlphaValue).toFloat()
+                  val newRoundedAlphaValue = "%.2f".format(Locale.ROOT, newAlphaValue).toFloat()
                   onEffectControlsStateChange(
                     effectControlsState.copy(
                       effectsChanged = effectControlsState.textOverlayText != null,

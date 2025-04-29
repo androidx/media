@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.annotation.VisibleForTesting.NONE;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
@@ -287,11 +288,8 @@ public final class MediaExtractorCompat {
    */
   public void setDataSource(Context context, Uri uri, @Nullable Map<String, String> headers)
       throws IOException {
-    String scheme = uri.getScheme();
-    String path = uri.getPath();
-    if ((scheme == null || scheme.equals("file")) && path != null) {
-      // If the URI scheme is null or file, treat it as a local file path
-      setDataSource(path);
+    if (Util.isLocalFileUri(uri)) {
+      setDataSource(checkNotNull(uri.getPath()));
       return;
     }
 
@@ -1003,7 +1001,7 @@ public final class MediaExtractorCompat {
       Format format = getFormat(scratchFormatHolder, scratchNoDataDecoderInputBuffer);
       MediaFormat mediaFormatResult = MediaFormatUtil.createMediaFormatFromFormat(format);
       if (compatibilityTrackMimeType != null) {
-        if (Util.SDK_INT >= 29) {
+        if (SDK_INT >= 29) {
           mediaFormatResult.removeKey(MediaFormat.KEY_CODECS_STRING);
         }
         mediaFormatResult.setString(MediaFormat.KEY_MIME, compatibilityTrackMimeType);

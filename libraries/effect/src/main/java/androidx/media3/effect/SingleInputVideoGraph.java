@@ -301,10 +301,8 @@ public class SingleInputVideoGraph implements VideoGraph {
     if (released) {
       return;
     }
-
     if (videoFrameProcessor != null) {
       videoFrameProcessor.release();
-      videoFrameProcessor = null;
     }
     released = true;
   }

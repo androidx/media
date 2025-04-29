@@ -23,6 +23,7 @@ import androidx.media3.common.Format;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.BaseAudioProcessor;
 import androidx.media3.common.util.Assertions;
+import androidx.media3.common.util.UnstableApi;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 
@@ -30,7 +31,8 @@ import java.util.Arrays;
  * An {@link AudioProcessor} that applies a mapping from input channels onto specified output
  * channels. This can be used to reorder, duplicate or discard channels.
  */
-/* package */ final class ChannelMappingAudioProcessor extends BaseAudioProcessor {
+@UnstableApi
+public final class ChannelMappingAudioProcessor extends BaseAudioProcessor {
 
   @Nullable private int[] pendingOutputChannels;
   @Nullable private int[] outputChannels;

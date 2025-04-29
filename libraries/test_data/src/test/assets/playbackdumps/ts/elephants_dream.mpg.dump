@@ -1,4 +1,4 @@
-MediaCodecAdapter (exotest.audio.mpegl2):
+MediaCodecAdapter (media3.audio.mpegl2):
   inputBuffers:
     count = 1150
     input buffer #0:
@@ -8050,7 +8050,7 @@ MediaCodecAdapter (exotest.audio.mpegl2):
       timeUs = 1000000000000
       size = 0
       rendered = false
-MediaCodecAdapter (exotest.video.mpeg2):
+MediaCodecAdapter (media3.video.mpeg2):
   inputBuffers:
     count = 898
     input buffer #0:

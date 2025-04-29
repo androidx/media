@@ -11,7 +11,7 @@ track 0:
   sample count = 30
   track duration = 1001000
   format 0:
-    averageBitrate = 718289
+    averageBitrate = 718290
     peakBitrate = 718289
     id = 1
     containerMimeType = video/mp4
@@ -165,7 +165,7 @@ track 1:
     channelCount = 1
     sampleRate = 44100
     language = und
-    metadata = entries=[TSSE: description=null: values=[Lavf61.7.100], Mp4Timestamp: creation time=0, modification time=0, timescale=1000]
+    metadata = entries=[Mp4AlternateGroup: 1, TSSE: description=null: values=[Lavf61.7.100], Mp4Timestamp: creation time=0, modification time=0, timescale=1000]
     initializationData:
       data = length 2, hash 5F7
   sample 0:

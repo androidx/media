@@ -16,6 +16,7 @@
 
 package androidx.media3.ui.compose.state
 
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.media3.common.Player
 import androidx.media3.ui.compose.utils.TestPlayer
@@ -90,5 +91,22 @@ class PlaybackSpeedStateTest {
     state.updatePlaybackSpeed(2.7f)
 
     assertThat(player.playbackParameters.speed).isEqualTo(2.7f)
+  }
+
+  @Test
+  fun playerIncreasesPlaybackSpeedBeforeEventListenerRegisters_observeGetsTheLatestValues_uiIconInSync() {
+    val player = TestPlayer()
+
+    lateinit var state: PlaybackSpeedState
+    composeTestRule.setContent {
+      // Schedule LaunchedEffect to update player state before PlaybackSpeedState is created.
+      // This update could end up being executed *before* PlaybackSpeedState schedules the start of
+      // event listening and we don't want to lose it.
+      LaunchedEffect(player) { player.setPlaybackSpeed(player.playbackParameters.speed + 1f) }
+      state = rememberPlaybackSpeedState(player = player)
+    }
+
+    // UI syncs up with the fact that we increased playback speed
+    assertThat(state.playbackSpeed).isEqualTo(2f)
   }
 }

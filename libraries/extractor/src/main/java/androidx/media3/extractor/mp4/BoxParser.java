@@ -36,6 +36,8 @@ import androidx.media3.common.util.ParsableBitArray;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import androidx.media3.container.DolbyVisionConfig;
+import androidx.media3.container.Mp4AlternateGroupData;
 import androidx.media3.container.Mp4Box;
 import androidx.media3.container.Mp4Box.LeafBox;
 import androidx.media3.container.Mp4LocationData;
@@ -45,7 +47,6 @@ import androidx.media3.extractor.AacUtil;
 import androidx.media3.extractor.Ac3Util;
 import androidx.media3.extractor.Ac4Util;
 import androidx.media3.extractor.AvcConfig;
-import androidx.media3.extractor.DolbyVisionConfig;
 import androidx.media3.extractor.ExtractorUtil;
 import androidx.media3.extractor.GaplessInfoHolder;
 import androidx.media3.extractor.HevcConfig;
@@ -54,6 +55,7 @@ import androidx.media3.extractor.VorbisUtil;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
+import java.math.RoundingMode;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
@@ -380,21 +382,38 @@ public final class BoxParser {
         }
       }
     }
-    return stsdData.format == null
-        ? null
-        : new Track(
-            tkhdData.id,
-            trackType,
-            mdhdData.timescale,
-            movieTimescale,
-            durationUs,
-            mdhdData.mediaDurationUs,
-            stsdData.format,
-            stsdData.requiredSampleTransformation,
-            stsdData.trackEncryptionBoxes,
-            stsdData.nalUnitLengthFieldLength,
-            editListDurations,
-            editListMediaTimes);
+    if (stsdData.format == null) {
+      return null;
+    }
+    Format format;
+    if (tkhdData.alternateGroup != 0) {
+      Mp4AlternateGroupData alternateGroupEntry =
+          new Mp4AlternateGroupData(tkhdData.alternateGroup);
+      format =
+          stsdData
+              .format
+              .buildUpon()
+              .setMetadata(
+                  stsdData.format.metadata != null
+                      ? stsdData.format.metadata.copyWithAppendedEntries(alternateGroupEntry)
+                      : new Metadata(alternateGroupEntry))
+              .build();
+    } else {
+      format = stsdData.format;
+    }
+    return new Track(
+        tkhdData.id,
+        trackType,
+        mdhdData.timescale,
+        movieTimescale,
+        durationUs,
+        mdhdData.mediaDurationUs,
+        format,
+        stsdData.requiredSampleTransformation,
+        stsdData.trackEncryptionBoxes,
+        stsdData.nalUnitLengthFieldLength,
+        editListDurations,
+        editListMediaTimes);
   }
 
   /**
@@ -509,6 +528,7 @@ public final class BoxParser {
     int[] flags;
     long timestampTimeUnits = 0;
     long duration;
+    long totalSize = 0;
 
     if (rechunkFixedSizeSamples) {
       long[] chunkOffsetsBytes = new long[chunkIterator.length];
@@ -526,6 +546,7 @@ public final class BoxParser {
       timestamps = rechunkedResults.timestamps;
       flags = rechunkedResults.flags;
       duration = rechunkedResults.duration;
+      totalSize = rechunkedResults.totalSize;
     } else {
       offsets = new long[sampleCount];
       sizes = new int[sampleCount];
@@ -568,6 +589,7 @@ public final class BoxParser {
 
         offsets[i] = offset;
         sizes[i] = sampleSizeBox.readNextSampleSize();
+        totalSize += sizes[i];
         if (sizes[i] > maximumSize) {
           maximumSize = sizes[i];
         }
@@ -639,6 +661,20 @@ public final class BoxParser {
                 + (!isCttsValid ? ", ctts invalid" : ""));
       }
     }
+
+    if (track.mediaDurationUs > 0) {
+      long averageBitrate =
+          Util.scaleLargeValue(
+              totalSize * C.BITS_PER_BYTE,
+              C.MICROS_PER_SECOND,
+              track.mediaDurationUs,
+              RoundingMode.HALF_DOWN);
+      if (averageBitrate > 0 && averageBitrate < Integer.MAX_VALUE) {
+        Format format = track.format.buildUpon().setAverageBitrate((int) averageBitrate).build();
+        track = track.copyWithFormat(format);
+      }
+    }
+
     long durationUs = Util.scaleLargeTimestamp(duration, C.MICROS_PER_SECOND, track.timescale);
 
     if (track.editListDurations == null) {
@@ -913,7 +949,9 @@ public final class BoxParser {
       }
     }
 
-    tkhd.skipBytes(16);
+    tkhd.skipBytes(10);
+    int alternateGroup = tkhd.readUnsignedShort();
+    tkhd.skipBytes(4);
     int a00 = tkhd.readInt();
     int a01 = tkhd.readInt();
     tkhd.skipBytes(4);
@@ -933,7 +971,7 @@ public final class BoxParser {
       rotationDegrees = 0;
     }
 
-    return new TkhdData(trackId, duration, rotationDegrees);
+    return new TkhdData(trackId, duration, alternateGroup, rotationDegrees);
   }
 
   /**
@@ -1367,7 +1405,24 @@ public final class BoxParser {
                     : C.STEREO_MODE_INTERLEAVED_LEFT_PRIMARY;
           }
         }
-      } else if (childAtomType == Mp4Box.TYPE_dvcC || childAtomType == Mp4Box.TYPE_dvvC) {
+      } else if (childAtomType == Mp4Box.TYPE_dvcC
+          || childAtomType == Mp4Box.TYPE_dvvC
+          || childAtomType == Mp4Box.TYPE_dvwC) {
+        int childAtomBodySize = childAtomSize - Mp4Box.HEADER_SIZE;
+        byte[] initializationDataChunk = new byte[childAtomBodySize];
+        parent.readBytes(initializationDataChunk, /* offset= */ 0, childAtomBodySize);
+        // Add the initialization data of Dolby Vision to the existing list of initialization data.
+        if (initializationData != null) {
+          initializationData =
+              ImmutableList.<byte[]>builder()
+                  .addAll(initializationData)
+                  .add(initializationDataChunk)
+                  .build();
+        } else {
+          ExtractorUtil.checkContainerInput(
+              false, "initializationData must already be set from hvcC or avcC atom");
+        }
+        parent.setPosition(childStartPosition + Mp4Box.HEADER_SIZE);
         @Nullable DolbyVisionConfig dolbyVisionConfig = DolbyVisionConfig.parse(parent);
         if (dolbyVisionConfig != null) {
           codecs = dolbyVisionConfig.codecs;
@@ -2526,11 +2581,13 @@ public final class BoxParser {
 
     private final int id;
     private final long duration;
+    private final int alternateGroup;
     private final int rotationDegrees;
 
-    public TkhdData(int id, long duration, int rotationDegrees) {
+    public TkhdData(int id, long duration, int alternateGroup, int rotationDegrees) {
       this.id = id;
       this.duration = duration;
+      this.alternateGroup = alternateGroup;
       this.rotationDegrees = rotationDegrees;
     }
   }

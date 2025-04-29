@@ -153,6 +153,7 @@ track 1:
     channelCount = 1
     sampleRate = 44100
     language = und
+    metadata = entries=[Mp4AlternateGroup: 1]
     initializationData:
       data = length 5, hash 2B7623A
   sample 0:

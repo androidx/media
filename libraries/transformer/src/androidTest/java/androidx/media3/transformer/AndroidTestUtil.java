@@ -15,6 +15,7 @@
  */
 package androidx.media3.transformer;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.MimeTypes.IMAGE_JPEG;
 import static androidx.media3.common.MimeTypes.IMAGE_PNG;
 import static androidx.media3.common.MimeTypes.IMAGE_WEBP;
@@ -24,7 +25,6 @@ import static androidx.media3.common.MimeTypes.VIDEO_H264;
 import static androidx.media3.common.MimeTypes.VIDEO_H265;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
-import static androidx.media3.common.util.Util.SDK_INT;
 import static androidx.media3.test.utils.TestUtil.retrieveTrackFormat;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
@@ -69,6 +69,10 @@ import androidx.media3.effect.ScaleAndRotateTransformation;
 import androidx.media3.effect.SingleInputVideoGraph;
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
 import androidx.media3.exoplayer.mediacodec.MediaCodecUtil;
+import androidx.media3.exoplayer.video.MediaCodecVideoRenderer;
+import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
+import androidx.media3.exoplayer.video.VideoFrameReleaseControl;
+import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.muxer.MuxerException;
 import androidx.media3.test.utils.BitmapPixelTestUtil;
 import androidx.media3.test.utils.FakeExtractorOutput;
@@ -97,6 +101,25 @@ import org.junit.AssumptionViolatedException;
 
 /** Utilities for instrumentation tests. */
 public final class AndroidTestUtil {
+
+  /** A {@link MediaCodecVideoRenderer} subclass that supports replaying a frame. */
+  public static class ReplayVideoRenderer extends MediaCodecVideoRenderer {
+
+    public ReplayVideoRenderer(Context context) {
+      super(new Builder(context).setMediaCodecSelector(MediaCodecSelector.DEFAULT));
+    }
+
+    @Override
+    protected PlaybackVideoGraphWrapper createPlaybackVideoGraphWrapper(
+        Context context, VideoFrameReleaseControl videoFrameReleaseControl) {
+      return new PlaybackVideoGraphWrapper.Builder(context, videoFrameReleaseControl)
+          .setEnablePlaylistMode(true)
+          .setClock(getClock())
+          .setEnableReplayableCache(true)
+          .build();
+    }
+  }
+
   private static final String TAG = "AndroidTestUtil";
 
   /** An {@link Effects} instance that forces video transcoding. */
@@ -459,6 +482,7 @@ public final class AndroidTestUtil {
                   .setFrameRate(30.00f)
                   .setCodecs("avc1.42C033")
                   .build())
+          .setVideoDurationUs(1_000_000L)
           .build();
 
   public static final AssetInfo MP4_LONG_ASSET_WITH_INCREASING_TIMESTAMPS =
@@ -1239,14 +1263,21 @@ public final class AndroidTestUtil {
   }
 
   /**
-   * Returns the {@linkplain FakeTrackOutput video track} from the {@link FakeExtractorOutput} or
-   * {@code null} if a video track is not found.
+   * Returns a {@link FakeTrackOutput} of given {@link C.TrackType} from the {@link
+   * FakeExtractorOutput}.
+   *
+   * @param extractorOutput The {@link ExtractorOutput} to get the {@link FakeTrackOutput} from.
+   * @param trackType The {@link C.TrackType}.
+   * @return The {@link FakeTrackOutput} or {@code null} if a track is not found.
    */
   @Nullable
-  public static FakeTrackOutput getVideoTrackOutput(FakeExtractorOutput extractorOutput) {
+  public static FakeTrackOutput getTrackOutput(
+      FakeExtractorOutput extractorOutput, @C.TrackType int trackType) {
     for (int i = 0; i < extractorOutput.numberOfTracks; i++) {
       FakeTrackOutput trackOutput = extractorOutput.trackOutputs.get(i);
-      if (MimeTypes.isVideo(checkNotNull(trackOutput.lastFormat).sampleMimeType)) {
+      String sampleMimeType = checkNotNull(trackOutput.lastFormat).sampleMimeType;
+      if ((trackType == C.TRACK_TYPE_AUDIO && MimeTypes.isAudio(sampleMimeType))
+          || (trackType == C.TRACK_TYPE_VIDEO && MimeTypes.isVideo(sampleMimeType))) {
         return trackOutput;
       }
     }
@@ -1263,7 +1294,7 @@ public final class AndroidTestUtil {
       throws IOException, InterruptedException {
     // b/298599172 - runUntilComparisonFrameOrEnded fails on this device because reading decoder
     //  output as a bitmap doesn't work.
-    assumeFalse(Util.SDK_INT == 21 && Ascii.toLowerCase(Build.MODEL).contains("nexus"));
+    assumeFalse(SDK_INT == 21 && Ascii.toLowerCase(Build.MODEL).contains("nexus"));
     ImmutableList.Builder<Bitmap> bitmaps = new ImmutableList.Builder<>();
     try (VideoDecodingWrapper decodingWrapper =
         new VideoDecodingWrapper(

@@ -27,6 +27,7 @@ import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.robolectric.Shadows.shadowOf;
@@ -95,6 +96,7 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.mockito.stubbing.Answer;
+import org.robolectric.shadows.ShadowLooper;
 import org.robolectric.shadows.ShadowSystemClock;
 
 /** Tests for {@link ImaAdsLoader}. */
@@ -451,6 +453,40 @@ public final class ImaAdsLoaderTest {
   }
 
   @Test
+  public void playback_withAdErrorWhileWaitingForPreload_doesNotReportAdLoadErrorAfterTimeout() {
+    // Simulate an ad group at 0 seconds and another at 10 seconds.
+    when(mockAdsManager.getAdCuePoints()).thenReturn(ImmutableList.of(0f, 10.0f));
+    AdEvent mockMidrollFetchErrorAdEvent = mock(AdEvent.class);
+    when(mockMidrollFetchErrorAdEvent.getType()).thenReturn(AdEventType.AD_BREAK_FETCH_ERROR);
+    when(mockMidrollFetchErrorAdEvent.getAdData())
+        .thenReturn(ImmutableMap.of("adBreakTime", "0.0"));
+    AdEvent mockContentResumeAdEvent = mock(AdEvent.class);
+    when(mockContentResumeAdEvent.getType()).thenReturn(AdEventType.CONTENT_RESUME_REQUESTED);
+    AdsLoader.EventListener mockEventListener =
+        spy(new TestAdsLoaderListener(/* periodIndex= */ 0));
+    // Advance playback to the start of the ad and simulate buffering.
+    imaAdsLoader.start(
+        adsMediaSource, TEST_DATA_SPEC, TEST_ADS_ID, adViewProvider, mockEventListener);
+    videoAdPlayer.loadAd(TEST_AD_MEDIA_INFO, mockAdPodInfo);
+    fakePlayer.setState(Player.STATE_BUFFERING, /* playWhenReady= */ true);
+    fakePlayer.setPlayingAdPosition(
+        /* periodIndex= */ 0,
+        /* adGroupIndex= */ 0,
+        /* adIndexInAdGroup= */ 0,
+        /* positionMs= */ 0,
+        /* contentPositionMs= */ 0);
+
+    // Simulate an ad load error and request to resume content from the Ads SDK.
+    adEventListener.onAdEvent(mockMidrollFetchErrorAdEvent);
+    adEventListener.onAdEvent(mockContentResumeAdEvent);
+    // Wait beyond the timeout to see if any error events from the timeout arrive after this point.
+    ShadowSystemClock.advanceBy(Duration.ofSeconds(10));
+    ShadowLooper.idleMainLooper();
+
+    verify(mockEventListener, never()).onAdLoadError(any(), any());
+  }
+
+  @Test
   public void playback_withAdNotPreloadingAfterTimeout_hasErrorAdGroup() {
     // Simulate an ad at 2 seconds.
     long adGroupPositionInWindowUs = 2 * C.MICROS_PER_SECOND;
@@ -607,7 +643,7 @@ public final class ImaAdsLoaderTest {
         /* contentPositionMs= */ 0);
     shadowOf(Looper.getMainLooper()).runToEndOfTasks();
 
-    verify(mockVideoAdPlayerCallback)
+    verify(mockVideoAdPlayerCallback, atLeastOnce())
         .onAdProgress(
             TEST_AD_MEDIA_INFO,
             new VideoProgressUpdate(newPlayerPositionMs, Util.usToMs(TEST_AD_DURATION_US)));
@@ -1438,7 +1474,7 @@ public final class ImaAdsLoaderTest {
   }
 
   /** Ad loader event listener that forwards ad playback state to a fake player. */
-  private final class TestAdsLoaderListener implements AdsLoader.EventListener {
+  private class TestAdsLoaderListener implements AdsLoader.EventListener {
 
     private final int periodIndex;
 

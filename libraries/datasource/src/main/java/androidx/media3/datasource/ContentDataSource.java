@@ -32,6 +32,7 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.channels.FileChannel;
+import java.util.Objects;
 
 /** A {@link DataSource} for reading from a content URI. */
 @UnstableApi
@@ -81,7 +82,7 @@ public final class ContentDataSource extends BaseDataSource {
       transferInitializing(dataSpec);
 
       AssetFileDescriptor assetFileDescriptor;
-      if ("content".equals(uri.getScheme())) {
+      if (Objects.equals(uri.getScheme(), ContentResolver.SCHEME_CONTENT)) {
         Bundle providerOptions = new Bundle();
         // We don't want compatible media transcoding.
         providerOptions.putBoolean(MediaStore.EXTRA_ACCEPT_ORIGINAL_MEDIA_FORMAT, true);

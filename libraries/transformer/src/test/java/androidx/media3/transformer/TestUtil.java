@@ -15,20 +15,14 @@
  */
 package androidx.media3.transformer;
 
-import static androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig.configureShadowMediaCodec;
-
-import androidx.media3.common.MimeTypes;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.ChannelMixingAudioProcessor;
 import androidx.media3.common.audio.ChannelMixingMatrix;
 import androidx.media3.common.audio.SonicAudioProcessor;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.StringJoiner;
-import org.robolectric.shadows.ShadowMediaCodec;
-import org.robolectric.shadows.ShadowMediaCodecList;
 
 /** Utility class for {@link Transformer} unit tests */
 @UnstableApi
@@ -141,84 +135,5 @@ public final class TestUtil {
         + compositionSummary
         + "."
         + DUMP_FILE_EXTENSION;
-  }
-
-  /**
-   * Adds an audio decoder for each {@linkplain MimeTypes mime type}.
-   *
-   * <p>Input buffers are copied directly to the output.
-   *
-   * <p>When adding codecs, {@link #removeEncodersAndDecoders()} should be called in the test class
-   * {@link org.junit.After @After} method.
-   */
-  public static void addAudioDecoders(String... mimeTypes) {
-    for (String mimeType : mimeTypes) {
-      addCodec(
-          mimeType,
-          new ShadowMediaCodec.CodecConfig(
-              /* inputBufferSize= */ 150_000,
-              /* outputBufferSize= */ 150_000,
-              /* codec= */ (in, out) -> out.put(in)),
-          /* colorFormats= */ ImmutableList.of(),
-          /* isDecoder= */ true);
-    }
-  }
-
-  /**
-   * Adds an audio encoder for each {@linkplain MimeTypes mime type}.
-   *
-   * <p>Input buffers are copied directly to the output.
-   *
-   * <p>When adding codecs, {@link #removeEncodersAndDecoders()} should be called in the test class
-   * {@link org.junit.After @After} method.
-   */
-  public static void addAudioEncoders(String... mimeTypes) {
-    addAudioEncoders(
-        new ShadowMediaCodec.CodecConfig(
-            /* inputBufferSize= */ 150_000,
-            /* outputBufferSize= */ 150_000,
-            /* codec= */ (in, out) -> out.put(in)),
-        mimeTypes);
-  }
-
-  /**
-   * Adds an audio encoder for each {@linkplain MimeTypes mime type}.
-   *
-   * <p>Input buffers are handled according to the {@link
-   * org.robolectric.shadows.ShadowMediaCodec.CodecConfig} provided.
-   *
-   * <p>When adding codecs, {@link #removeEncodersAndDecoders()} should be called in the test's
-   * {@link org.junit.After @After} method.
-   */
-  public static void addAudioEncoders(
-      ShadowMediaCodec.CodecConfig codecConfig, String... mimeTypes) {
-    for (String mimeType : mimeTypes) {
-      addCodec(
-          mimeType, codecConfig, /* colorFormats= */ ImmutableList.of(), /* isDecoder= */ false);
-    }
-  }
-
-  /** Clears all cached codecs. */
-  public static void removeEncodersAndDecoders() {
-    ShadowMediaCodec.clearCodecs();
-    ShadowMediaCodecList.reset();
-    EncoderUtil.clearCachedEncoders();
-  }
-
-  private static void addCodec(
-      String mimeType,
-      ShadowMediaCodec.CodecConfig codecConfig,
-      ImmutableList<Integer> colorFormats,
-      boolean isDecoder) {
-    String codecName =
-        Util.formatInvariant(
-            isDecoder ? "exo.%s.decoder" : "exo.%s.encoder", mimeType.replace('/', '-'));
-    configureShadowMediaCodec(
-        codecName,
-        mimeType,
-        !isDecoder,
-        /* profileLevels= */ ImmutableList.of(),
-        colorFormats,
-        codecConfig);
   }
 }

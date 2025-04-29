@@ -49,7 +49,7 @@ fun rememberNextButtonState(player: Player): NextButtonState {
  */
 @UnstableApi
 class NextButtonState(private val player: Player) {
-  var isEnabled by mutableStateOf(player.isCommandAvailable(Player.COMMAND_SEEK_TO_NEXT))
+  var isEnabled by mutableStateOf(isNextEnabled(player))
     private set
 
   fun onClick() {
@@ -61,10 +61,14 @@ class NextButtonState(private val player: Player) {
    * [Player.EVENT_AVAILABLE_COMMANDS_CHANGED] in order to determine whether the button should be
    * enabled, i.e. respond to user input.
    */
-  suspend fun observe(): Nothing =
+  suspend fun observe(): Nothing {
+    isEnabled = isNextEnabled(player)
     player.listen { events ->
       if (events.contains(Player.EVENT_AVAILABLE_COMMANDS_CHANGED)) {
-        isEnabled = isCommandAvailable(Player.COMMAND_SEEK_TO_NEXT)
+        isEnabled = isNextEnabled(this)
       }
     }
+  }
+
+  private fun isNextEnabled(player: Player) = player.isCommandAvailable(Player.COMMAND_SEEK_TO_NEXT)
 }

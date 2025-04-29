@@ -90,6 +90,7 @@
   <attr name="subtitle_off_icon" format="reference"/>
   <attr name="show_vr_button" format="boolean"/>
   <attr name="vr_icon" format="reference"/>
+  <attr name="time_bar_scrubbing_enabled" format="boolean"/>
   <attr name="time_bar_min_update_interval" format="integer"/>
   <attr name="controller_layout_id" format="reference"/>
   <attr name="animation_enabled" format="boolean"/>
@@ -146,6 +147,7 @@
     <attr name="subtitle_on_icon"/>
     <attr name="show_vr_button"/>
     <attr name="vr_icon"/>
+    <attr name="time_bar_scrubbing_enabled"/>
     <attr name="time_bar_min_update_interval"/>
     <attr name="controller_layout_id"/>
     <attr name="animation_enabled"/>
@@ -227,6 +229,7 @@
     <attr name="subtitle_off_icon"/>
     <attr name="show_vr_button"/>
     <attr name="vr_icon"/>
+    <attr name="time_bar_scrubbing_enabled"/>
     <attr name="time_bar_min_update_interval"/>
     <attr name="controller_layout_id"/>
     <attr name="animation_enabled"/>

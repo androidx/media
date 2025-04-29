@@ -15,6 +15,7 @@
  */
 package androidx.media3.session;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.C.INDEX_UNSET;
 import static androidx.media3.common.Player.COMMAND_INVALID;
 import static androidx.media3.common.Player.COMMAND_PLAY_PAUSE;
@@ -22,7 +23,6 @@ import static androidx.media3.common.Player.COMMAND_SEEK_TO_NEXT;
 import static androidx.media3.common.Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM;
 import static androidx.media3.common.Player.COMMAND_SEEK_TO_PREVIOUS;
 import static androidx.media3.common.Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM;
-import static androidx.media3.common.Player.COMMAND_STOP;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 
@@ -372,15 +372,14 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
         .setShowWhen(displayElapsedTimeWithChronometer)
         .setUsesChronometer(displayElapsedTimeWithChronometer);
 
-    if (Util.SDK_INT >= 31) {
+    if (SDK_INT >= 31) {
       Api31.setForegroundServiceBehavior(builder);
     }
 
     Notification notification =
         builder
             .setContentIntent(mediaSession.getSessionActivity())
-            .setDeleteIntent(
-                actionFactory.createMediaActionPendingIntent(mediaSession, COMMAND_STOP))
+            .setDeleteIntent(actionFactory.createNotificationDismissalIntent(mediaSession))
             .setOnlyAlertOnce(true)
             .setSmallIcon(smallIconResourceId)
             .setStyle(mediaStyle)
@@ -623,7 +622,7 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
   }
 
   private void ensureNotificationChannel() {
-    if (Util.SDK_INT < 26 || notificationManager.getNotificationChannel(channelId) != null) {
+    if (SDK_INT < 26 || notificationManager.getNotificationChannel(channelId) != null) {
       return;
     }
     Api26.createNotificationChannel(
@@ -684,7 +683,7 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
         NotificationManager notificationManager, String channelId, String channelName) {
       NotificationChannel channel =
           new NotificationChannel(channelId, channelName, NotificationManager.IMPORTANCE_LOW);
-      if (Util.SDK_INT <= 27) {
+      if (SDK_INT <= 27) {
         // API 28+ will automatically hide the app icon 'badge' for notifications using
         // Notification.MediaStyle, but we have to manually hide it for APIs 26 (when badges were
         // added) and 27.

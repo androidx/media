@@ -167,13 +167,14 @@ public final class SsaParser implements SubtitleParser {
       }
       long startTimeUs = startTimesUs.get(i);
       // It's safe to inspect element i+1, because we already exited the loop above if i=size()-1.
-      long durationUs = startTimesUs.get(i + 1) - startTimesUs.get(i);
-      if (outputOptions.startTimeUs == C.TIME_UNSET || startTimeUs >= outputOptions.startTimeUs) {
-        output.accept(new CuesWithTiming(cuesForThisStartTime, startTimeUs, durationUs));
-
+      long endTimeUs = startTimesUs.get(i + 1);
+      CuesWithTiming cuesWithTiming =
+          new CuesWithTiming(
+              cuesForThisStartTime, startTimeUs, /* durationUs= */ endTimeUs - startTimeUs);
+      if (outputOptions.startTimeUs == C.TIME_UNSET || endTimeUs >= outputOptions.startTimeUs) {
+        output.accept(cuesWithTiming);
       } else if (cuesWithTimingBeforeRequestedStartTimeUs != null) {
-        cuesWithTimingBeforeRequestedStartTimeUs.add(
-            new CuesWithTiming(cuesForThisStartTime, startTimeUs, durationUs));
+        cuesWithTimingBeforeRequestedStartTimeUs.add(cuesWithTiming);
       }
     }
     if (cuesWithTimingBeforeRequestedStartTimeUs != null) {

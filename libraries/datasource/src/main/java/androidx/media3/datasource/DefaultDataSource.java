@@ -122,7 +122,7 @@ public final class DefaultDataSource implements DataSource {
   private static final String TAG = "DefaultDataSource";
 
   private static final String SCHEME_ASSET = "asset";
-  private static final String SCHEME_CONTENT = "content";
+  private static final String SCHEME_CONTENT = ContentResolver.SCHEME_CONTENT;
   private static final String SCHEME_RTMP = "rtmp";
   private static final String SCHEME_UDP = "udp";
   private static final String SCHEME_DATA = DataSchemeDataSource.SCHEME_DATA;

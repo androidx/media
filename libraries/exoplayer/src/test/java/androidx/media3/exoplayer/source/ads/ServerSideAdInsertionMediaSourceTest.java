@@ -104,7 +104,7 @@ public final class ServerSideAdInsertionMediaSourceTest {
 
   @Rule
   public ShadowMediaCodecConfig mediaCodecConfig =
-      ShadowMediaCodecConfig.forAllSupportedMimeTypes();
+      ShadowMediaCodecConfig.withAllDefaultSupportedCodecs();
 
   private static final String TEST_ASSET = "asset:///media/mp4/sample.mp4";
 

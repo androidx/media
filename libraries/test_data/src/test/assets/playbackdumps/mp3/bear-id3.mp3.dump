@@ -1,4 +1,4 @@
-MediaCodecAdapter (exotest.audio.mpeg):
+MediaCodecAdapter (media3.audio.mpeg):
   inputBuffers:
     count = 118
     input buffer #0:

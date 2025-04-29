@@ -11,6 +11,7 @@ track 0:
   sample count = 1
   track duration = 1460000
   format 0:
+    averageBitrate = 20745
     id = 1
     containerMimeType = audio/mp4
     sampleMimeType = audio/opus
@@ -18,7 +19,7 @@ track 0:
     channelCount = 2
     sampleRate = 48000
     language = und
-    metadata = entries=[TSSE: description=null: values=[Lavf58.29.100], Mp4Timestamp: creation time=0, modification time=0, timescale=1000]
+    metadata = entries=[Mp4AlternateGroup: 1, TSSE: description=null: values=[Lavf58.29.100], Mp4Timestamp: creation time=0, modification time=0, timescale=1000]
     initializationData:
       data = length 19, hash 86852AE2
       data = length 8, hash 72CBCBF5

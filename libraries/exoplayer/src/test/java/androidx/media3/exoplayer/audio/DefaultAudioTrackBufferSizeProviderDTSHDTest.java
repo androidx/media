@@ -17,7 +17,7 @@ package androidx.media3.exoplayer.audio;
 
 import static androidx.media3.common.C.MICROS_PER_SECOND;
 import static androidx.media3.exoplayer.audio.DefaultAudioSink.OUTPUT_MODE_PASSTHROUGH;
-import static androidx.media3.exoplayer.audio.DefaultAudioTrackBufferSizeProvider.getMaximumEncodedRateBytesPerSecond;
+import static androidx.media3.extractor.ExtractorUtil.getMaximumEncodedRateBytesPerSecond;
 import static com.google.common.truth.Truth.assertThat;
 
 import androidx.media3.common.C;

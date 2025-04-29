@@ -16,6 +16,7 @@
 
 package androidx.media3.transformer;
 
+import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.PNG_ASSET;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
@@ -40,7 +41,7 @@ import org.junit.runner.RunWith;
 /** Playback test of {@link CompositionPlayer} using {@link MultipleInputVideoGraph}. */
 @RunWith(AndroidJUnit4.class)
 public class CompositionMultipleSequencePlaybackTest {
-  private static final long TEST_TIMEOUT_MS = 20_000;
+  private static final long TEST_TIMEOUT_MS = isRunningOnEmulator() ? 30_000 : 20_000;
   private static final MediaItem VIDEO_MEDIA_ITEM = MediaItem.fromUri(MP4_ASSET.uri);
   private static final long VIDEO_DURATION_US = MP4_ASSET.videoDurationUs;
   private static final EditedMediaItem VIDEO_EDITED_MEDIA_ITEM =
@@ -134,7 +135,7 @@ public class CompositionMultipleSequencePlaybackTest {
   }
 
   @Test
-  @Ignore("TODO: b/391349011 - Re-enable after propagating an EOS signal after each MediaItem")
+  @Ignore("TODO: b/405966202 - Re-enable after propagating an EOS signal after each MediaItem")
   public void playback_sequencesOfVideos_effectsReceiveCorrectTimestamps() throws Exception {
     Composition composition =
         new Composition.Builder(
@@ -165,7 +166,6 @@ public class CompositionMultipleSequencePlaybackTest {
   }
 
   @Test
-  @Ignore("TODO: b/391349011 - Re-enable after adapting rendering logic for multiple sequences")
   public void playback_sequencesOfImages_effectsReceiveCorrectTimestamps() throws Exception {
     Composition composition =
         new Composition.Builder(

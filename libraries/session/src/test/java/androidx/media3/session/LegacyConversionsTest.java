@@ -267,6 +267,38 @@ public final class LegacyConversionsTest {
   }
 
   @Test
+  public void
+      convertToMediaDescriptionCompat_withoutDisplayTitleWithSubtitle_subtitleUsedAsSubtitle() {
+    MediaMetadata metadata =
+        new MediaMetadata.Builder().setTitle("a_title").setSubtitle("a_subtitle").build();
+    MediaItem mediaItem =
+        new MediaItem.Builder().setMediaId("testId").setMediaMetadata(metadata).build();
+
+    MediaDescriptionCompat descriptionCompat =
+        LegacyConversions.convertToMediaDescriptionCompat(mediaItem, /* artworkBitmap= */ null);
+
+    assertThat(descriptionCompat.getTitle().toString()).isEqualTo("a_title");
+    assertThat(descriptionCompat.getSubtitle().toString()).isEqualTo("a_subtitle");
+  }
+
+  @Test
+  public void convertToMediaDescriptionCompat_withDisplayTitleAndSubtitle_subtitleUsedAsSubtitle() {
+    MediaMetadata metadata =
+        new MediaMetadata.Builder()
+            .setDisplayTitle("a_display_title")
+            .setSubtitle("a_subtitle")
+            .build();
+    MediaItem mediaItem =
+        new MediaItem.Builder().setMediaId("testId").setMediaMetadata(metadata).build();
+
+    MediaDescriptionCompat descriptionCompat =
+        LegacyConversions.convertToMediaDescriptionCompat(mediaItem, /* artworkBitmap= */ null);
+
+    assertThat(descriptionCompat.getTitle().toString()).isEqualTo("a_display_title");
+    assertThat(descriptionCompat.getSubtitle().toString()).isEqualTo("a_subtitle");
+  }
+
+  @Test
   public void convertToQueueItemId() {
     assertThat(LegacyConversions.convertToQueueItemId(C.INDEX_UNSET))
         .isEqualTo(MediaSessionCompat.QueueItem.UNKNOWN_ID);

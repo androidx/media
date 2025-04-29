@@ -44,8 +44,8 @@ internal fun MinimalControls(player: Player, modifier: Modifier = Modifier) {
     horizontalArrangement = Arrangement.SpaceEvenly,
     verticalAlignment = Alignment.CenterVertically,
   ) {
-    PreviousButton(player, modifierForIconButton)
-    PlayPauseButton(player, modifierForIconButton)
-    NextButton(player, modifierForIconButton)
+    PreviousButton(player, Modifier.weight(1f).then(modifierForIconButton))
+    PlayPauseButton(player, Modifier.weight(1f).then(modifierForIconButton))
+    NextButton(player, Modifier.weight(1f).then(modifierForIconButton))
   }
 }

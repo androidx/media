@@ -16,6 +16,7 @@
 package androidx.media3.exoplayer.source;
 
 import static androidx.media3.test.utils.robolectric.RobolectricUtil.DEFAULT_TIMEOUT_MS;
+import static androidx.media3.test.utils.robolectric.RobolectricUtil.runMainLooperUntil;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.junit.Assert.assertThrows;
@@ -24,8 +25,11 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.Util;
+import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import androidx.media3.exoplayer.source.MergingMediaSource.IllegalMergeException;
+import androidx.media3.exoplayer.upstream.Allocator;
+import androidx.media3.exoplayer.upstream.DefaultAllocator;
 import androidx.media3.test.utils.FakeMediaPeriod;
 import androidx.media3.test.utils.FakeMediaSource;
 import androidx.media3.test.utils.FakeTimeline;
@@ -36,7 +40,10 @@ import com.google.common.collect.ConcurrentHashMultiset;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multiset;
 import java.io.IOException;
+import java.lang.ref.WeakReference;
+import java.util.ArrayList;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -217,6 +224,57 @@ public class MergingMediaSourceTest {
     } finally {
       testRunner.release();
     }
+  }
+
+  @Test
+  public void createAndReleasePeriods_cleansUpReferences() throws Exception {
+    ArrayList<WeakReference<MediaPeriod>> createdChildPeriods = new ArrayList<>();
+    FakeMediaSource childSource =
+        new FakeMediaSource() {
+          @Override
+          public MediaPeriod createPeriod(
+              MediaPeriodId id, Allocator allocator, long startPositionUs) {
+            MediaPeriod period = super.createPeriod(id, allocator, startPositionUs);
+            createdChildPeriods.add(new WeakReference<>(period));
+            return period;
+          }
+        };
+    Allocator allocator =
+        new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024);
+    MergingMediaSource mergingMediaSource =
+        new MergingMediaSource(
+            /* adjustPeriodTimeOffsets= */ true,
+            /* clipDurations= */ true,
+            childSource,
+            childSource);
+    AtomicReference<Timeline> timelineReference = new AtomicReference<>();
+    mergingMediaSource.prepareSource(
+        (source, timeline) -> timelineReference.set(timeline),
+        /* mediaTransferListener= */ null,
+        PlayerId.UNSET);
+    runMainLooperUntil(() -> timelineReference.get() != null);
+    Object periodUid = timelineReference.get().getUidOfPeriod(/* periodIndex= */ 0);
+
+    // Create 20 periods.
+    ArrayList<MediaPeriod> createdMergedPeriods = new ArrayList<>();
+    for (int i = 0; i < 20; i++) {
+      createdMergedPeriods.add(
+          mergingMediaSource.createPeriod(
+              new MediaPeriodId(periodUid, /* windowSequenceNumber= */ i),
+              allocator,
+              /* startPositionUs= */ 0));
+    }
+    // Release 19 periods.
+    for (int i = 0; i < 19; i++) {
+      mergingMediaSource.releasePeriod(createdMergedPeriods.remove(0));
+    }
+    // Ensure all pending references are garbage collected
+    Runtime.getRuntime().gc();
+
+    // Assert that only 2 child periods remain in memory.
+    long nonNullChildPeriodReferences =
+        createdChildPeriods.stream().filter(reference -> reference.get() != null).count();
+    assertThat(nonNullChildPeriodReferences).isEqualTo(2);
   }
 
   /**

@@ -11,6 +11,7 @@ track 0:
   sample count = 43
   track duration = 2048000
   format 0:
+    averageBitrate = 640000
     peakBitrate = 640000
     id = 1
     containerMimeType = audio/mp4

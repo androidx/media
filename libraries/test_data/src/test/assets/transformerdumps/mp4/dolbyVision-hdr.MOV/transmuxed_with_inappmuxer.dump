@@ -11,10 +11,11 @@ track 0:
   sample count = 5
   track duration = 166700
   format 0:
+    averageBitrate = 2690171
     id = 1
     containerMimeType = video/mp4
-    sampleMimeType = video/hevc
-    codecs = hvc1.2.4.L93.B0
+    sampleMimeType = video/dolby-vision
+    codecs = dvhe.08.02
     maxInputSize = 30755
     maxNumReorderSamples = 2
     width = 1280
@@ -32,6 +33,7 @@ track 0:
     metadata = entries=[mdta: key=com.apple.quicktime.location.accuracy.horizontal, value=35.000000, mdta: key=com.apple.quicktime.location.ISO6709, value=+51.5334-000.1255+026.756/, mdta: key=com.apple.quicktime.software, value=16.4.1, mdta: key=com.apple.quicktime.creationdate, value=2023-05-09T12:41:46+0100, mdta: key=com.apple.quicktime.make, value=Apple, mdta: key=com.apple.quicktime.model, value=iPhone 14 Pro, Mp4Timestamp: creation time=3000000000, modification time=4000000000, timescale=10000]
     initializationData:
       data = length 97, hash 71D67547
+      data = length 24, hash D98F4125
   sample 0:
     time = 0
     flags = 1
@@ -57,6 +59,7 @@ track 1:
   sample count = 7
   track duration = 162600
   format 0:
+    averageBitrate = 131559
     peakBitrate = 192000
     id = 2
     containerMimeType = video/mp4

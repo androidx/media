@@ -16,18 +16,20 @@
 
 package androidx.media3.test.utils;
 
+import static androidx.media3.common.util.Assertions.checkNotNull;
+
 import android.os.SystemClock;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.VideoSize;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.DecoderCounters;
 import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.source.MediaSource;
+import androidx.media3.exoplayer.video.VideoFrameMetadataListener;
 import androidx.media3.exoplayer.video.VideoRendererEventListener;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
@@ -43,6 +45,7 @@ public class FakeVideoRenderer extends FakeRenderer {
   private final AtomicReference<VideoSize> videoSizeRef = new AtomicReference<>();
   private @MonotonicNonNull Format format;
   @Nullable private Object output;
+  @Nullable private VideoFrameMetadataListener videoFrameMetadataListener;
   private boolean renderedFirstFrameAfterReset;
   private boolean mayRenderFirstFrameAfterEnableIfNotStarted;
   private boolean renderedFirstFrameAfterEnable;
@@ -123,7 +126,9 @@ public class FakeVideoRenderer extends FakeRenderer {
         output = message;
         renderedFirstFrameAfterReset = false;
         break;
-
+      case Renderer.MSG_SET_VIDEO_FRAME_METADATA_LISTENER:
+        this.videoFrameMetadataListener = (VideoFrameMetadataListener) message;
+        break;
       case Renderer.MSG_SET_AUDIO_ATTRIBUTES:
       case Renderer.MSG_SET_AUDIO_SESSION_ID:
       case Renderer.MSG_SET_AUX_EFFECT_INFO:
@@ -131,7 +136,6 @@ public class FakeVideoRenderer extends FakeRenderer {
       case Renderer.MSG_SET_CHANGE_FRAME_RATE_STRATEGY:
       case Renderer.MSG_SET_SCALING_MODE:
       case Renderer.MSG_SET_SKIP_SILENCE_ENABLED:
-      case Renderer.MSG_SET_VIDEO_FRAME_METADATA_LISTENER:
       case Renderer.MSG_SET_VOLUME:
       case Renderer.MSG_SET_WAKEUP_LISTENER:
       default:
@@ -141,32 +145,44 @@ public class FakeVideoRenderer extends FakeRenderer {
 
   @Override
   protected boolean shouldProcessBuffer(long bufferTimeUs, long playbackPositionUs) {
-    boolean shouldProcess = super.shouldProcessBuffer(bufferTimeUs, playbackPositionUs);
     boolean shouldRenderFirstFrame =
         output != null
             && (!renderedFirstFrameAfterEnable
                 ? (getState() == Renderer.STATE_STARTED
                     || mayRenderFirstFrameAfterEnableIfNotStarted)
                 : !renderedFirstFrameAfterReset);
-    shouldProcess |= shouldRenderFirstFrame && playbackPositionUs >= getStreamOffsetUs();
+    // Process a buffer if it's due within one 60Hz vsync, or it's the first frame.
+    boolean shouldProcess =
+        bufferTimeUs < playbackPositionUs + 16_666
+            || (shouldRenderFirstFrame && playbackPositionUs >= getStreamOffsetUs());
     @Nullable Object output = this.output;
-    if (shouldProcess && !renderedFirstFrameAfterReset && output != null) {
-      @MonotonicNonNull Format format = Assertions.checkNotNull(this.format);
-      handler.post(
-          () -> {
-            VideoSize videoSize =
-                new VideoSize(format.width, format.height, format.pixelWidthHeightRatio);
-            if (!Objects.equals(videoSize, videoSizeRef.get())) {
-              eventListener.onVideoSizeChanged(videoSize);
-              videoSizeRef.set(videoSize);
-            }
-          });
-      handler.post(
-          () ->
-              eventListener.onRenderedFirstFrame(
-                  output, /* renderTimeMs= */ SystemClock.elapsedRealtime()));
-      renderedFirstFrameAfterReset = true;
-      renderedFirstFrameAfterEnable = true;
+    if (shouldProcess && bufferTimeUs >= getLastResetPositionUs()) {
+      checkNotNull(format);
+      if (videoFrameMetadataListener != null) {
+        videoFrameMetadataListener.onVideoFrameAboutToBeRendered(
+            bufferTimeUs - getStreamOffsetUs(),
+            /* releaseTimeNs= */ System.nanoTime(),
+            format,
+            /* mediaFormat= */ null);
+      }
+      if (!renderedFirstFrameAfterReset && output != null) {
+        Format format = this.format;
+        handler.post(
+            () -> {
+              VideoSize videoSize =
+                  new VideoSize(format.width, format.height, format.pixelWidthHeightRatio);
+              if (!Objects.equals(videoSize, videoSizeRef.get())) {
+                eventListener.onVideoSizeChanged(videoSize);
+                videoSizeRef.set(videoSize);
+              }
+            });
+        handler.post(
+            () ->
+                eventListener.onRenderedFirstFrame(
+                    output, /* renderTimeMs= */ SystemClock.elapsedRealtime()));
+        renderedFirstFrameAfterReset = true;
+        renderedFirstFrameAfterEnable = true;
+      }
     }
     return shouldProcess;
   }

@@ -57,7 +57,7 @@ public class EndToEndOffloadFailureRecoveryTest {
 
   @Rule
   public ShadowMediaCodecConfig mediaCodecConfig =
-      ShadowMediaCodecConfig.forAllSupportedMimeTypes();
+      ShadowMediaCodecConfig.withAllDefaultSupportedCodecs();
 
   public FakeClock fakeClock;
   public DefaultTrackSelector trackSelector;
@@ -334,6 +334,7 @@ public class EndToEndOffloadFailureRecoveryTest {
             AudioTrack.STATE_UNINITIALIZED,
             /* sampleRate= */ 48_000,
             /* channelConfig= */ 0,
+            /* encoding= */ Format.NO_VALUE,
             /* bufferSize= */ C.LENGTH_UNSET,
             inputFormat,
             /* isRecoverable= */ true,

@@ -467,7 +467,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
       // Convert the H.264/H.265 samples from Annex-B format (output by MediaCodec) to
       // Avcc format (required by MP4 container).
-      if (doesSampleContainAnnexBNalUnits(checkNotNull(track.format.sampleMimeType))) {
+      if (doesSampleContainAnnexBNalUnits(track.format)) {
         currentSampleByteBuffer =
             annexBToAvccConverter.process(currentSampleByteBuffer, linearByteBufferAllocator);
         currentSampleBufferInfo =

@@ -15,6 +15,7 @@
  */
 package androidx.media3.session;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 
 import android.app.ForegroundServiceStartNotAllowedException;
@@ -25,14 +26,12 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
-import android.os.Build;
 import android.view.KeyEvent;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.core.content.ContextCompat;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
@@ -125,7 +124,7 @@ public class MediaButtonReceiver extends BroadcastReceiver {
       // Only handle the intent once with the earliest key event that arrives.
       return;
     }
-    if (Util.SDK_INT >= 26) {
+    if (SDK_INT >= 26) {
       if (keyEvent.getKeyCode() != KeyEvent.KEYCODE_MEDIA_PLAY
           && keyEvent.getKeyCode() != KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE
           && keyEvent.getKeyCode() != KeyEvent.KEYCODE_HEADSETHOOK) {
@@ -159,8 +158,7 @@ public class MediaButtonReceiver extends BroadcastReceiver {
         try {
           ContextCompat.startForegroundService(context, intent);
         } catch (/* ForegroundServiceStartNotAllowedException */ IllegalStateException e) {
-          if (Build.VERSION.SDK_INT >= 31
-              && Api31.instanceOfForegroundServiceStartNotAllowedException(e)) {
+          if (SDK_INT >= 31 && Api31.instanceOfForegroundServiceStartNotAllowedException(e)) {
             onForegroundServiceStartNotAllowedException(
                 intent, Api31.castToForegroundServiceStartNotAllowedException(e));
           } else {

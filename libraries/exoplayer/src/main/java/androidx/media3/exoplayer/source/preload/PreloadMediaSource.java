@@ -505,17 +505,18 @@ public final class PreloadMediaSource extends WrappingMediaSource {
               return;
             }
             PreloadMediaPeriod preloadMediaPeriod = (PreloadMediaPeriod) mediaPeriod;
-            long bufferedPositionUs = mediaPeriod.getBufferedPositionUs();
-            if (prepared && bufferedPositionUs == C.TIME_END_OF_SOURCE) {
-              preloadControl.onLoadedToTheEndOfSource(PreloadMediaSource.this);
-              stopPreloading();
-              return;
-            }
-            if (prepared
-                && !preloadControl.onContinueLoadingRequested(
-                    PreloadMediaSource.this, bufferedPositionUs - periodStartPositionUs)) {
-              stopPreloading();
-              return;
+            if (prepared) {
+              long bufferedPositionUs = mediaPeriod.getBufferedPositionUs();
+              if (bufferedPositionUs == C.TIME_END_OF_SOURCE) {
+                preloadControl.onLoadedToTheEndOfSource(PreloadMediaSource.this);
+                stopPreloading();
+                return;
+              }
+              if (!preloadControl.onContinueLoadingRequested(
+                  PreloadMediaSource.this, bufferedPositionUs - periodStartPositionUs)) {
+                stopPreloading();
+                return;
+              }
             }
             preloadMediaPeriod.continueLoading(
                 new LoadingInfo.Builder().setPlaybackPositionUs(periodStartPositionUs).build());

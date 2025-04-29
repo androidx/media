@@ -67,6 +67,7 @@ import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -83,7 +84,7 @@ public class ExoPlayerWithPrewarmingRenderersTest {
 
   @Rule
   public ShadowMediaCodecConfig mediaCodecConfig =
-      ShadowMediaCodecConfig.forAllSupportedMimeTypes();
+      ShadowMediaCodecConfig.withAllDefaultSupportedCodecs();
 
   @Before
   public void setUp() {
@@ -1609,6 +1610,56 @@ public class ExoPlayerWithPrewarmingRenderersTest {
     assertThat(secondaryVideoState3).isEqualTo(Renderer.STATE_STARTED);
   }
 
+  @Test
+  public void
+      play_withNoSampleRendererAndInitialDiscontinuity_usesPrewarmingAndTransitionsWithoutError()
+          throws Exception {
+    Clock fakeClock = new FakeClock(/* isAutoAdvancing= */ true);
+    RenderersFactory renderersFactoryWithNoSampleRenderer =
+        new FakeRenderersFactorySupportingSecondaryVideoRenderer(
+            fakeClock, /* includeNoSampleRenderer= */ true);
+    ExoPlayer player =
+        new TestExoPlayerBuilder(context)
+            .setClock(fakeClock)
+            .setRenderersFactory(renderersFactoryWithNoSampleRenderer)
+            .build();
+    Renderer secondaryVideoRenderer = player.getSecondaryRenderer(/* index= */ 0);
+    Renderer noSampleRenderer = player.getRenderer(/* index= */ 2);
+    assertThat(secondaryVideoRenderer.getTrackType()).isEqualTo(C.TRACK_TYPE_VIDEO);
+    assertThat(noSampleRenderer.getTrackType()).isEqualTo(C.TRACK_TYPE_NONE);
+    // Set a playlist that allows a new renderer to be enabled early and uses an initial
+    // discontinuity.
+    player.setMediaSources(
+        ImmutableList.of(
+            new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT),
+            new FakeMediaSource(
+                new FakeTimeline(),
+                ExoPlayerTestRunner.VIDEO_FORMAT,
+                ExoPlayerTestRunner.AUDIO_FORMAT) {
+              @Override
+              public MediaPeriod createPeriod(
+                  MediaPeriodId id, Allocator allocator, long startPositionUs) {
+                FakeMediaPeriod fakeMediaPeriod =
+                    (FakeMediaPeriod) super.createPeriod(id, allocator, startPositionUs);
+                fakeMediaPeriod.setDiscontinuityPositionUs(100);
+                return fakeMediaPeriod;
+              }
+            }));
+    player.prepare();
+
+    // Play until secondary video renderer item is started, verifying its being used for prewarming.
+    // This step should not have any influence on the NoSampleRenderer and it should not throw.
+    player.play();
+    advance(player)
+        .untilBackgroundThreadCondition(
+            () -> secondaryVideoRenderer.getState() == Renderer.STATE_STARTED);
+    @Renderer.State int noSampleRendererState = noSampleRenderer.getState();
+    advance(player).untilState(Player.STATE_ENDED);
+    player.release();
+
+    assertThat(noSampleRendererState).isEqualTo(Renderer.STATE_STARTED);
+  }
+
   /** {@link FakeMediaSource} that prevents any reading of samples off the sample queue. */
   private static final class FakeBlockingMediaSource extends FakeMediaSource {
 
@@ -1670,9 +1721,16 @@ public class ExoPlayerWithPrewarmingRenderersTest {
   private static class FakeRenderersFactorySupportingSecondaryVideoRenderer
       implements RenderersFactory {
     protected final Clock clock;
+    private final boolean includeNoSampleRenderer;
 
     public FakeRenderersFactorySupportingSecondaryVideoRenderer(Clock clock) {
+      this(clock, /* includeNoSampleRenderer= */ false);
+    }
+
+    public FakeRenderersFactorySupportingSecondaryVideoRenderer(
+        Clock clock, boolean includeNoSampleRenderer) {
       this.clock = clock;
+      this.includeNoSampleRenderer = includeNoSampleRenderer;
     }
 
     @Override
@@ -1684,10 +1742,25 @@ public class ExoPlayerWithPrewarmingRenderersTest {
         MetadataOutput metadataRendererOutput) {
       HandlerWrapper clockAwareHandler =
           clock.createHandler(eventHandler.getLooper(), /* callback= */ null);
-      return new Renderer[] {
-        new FakeVideoRenderer(clockAwareHandler, videoRendererEventListener),
-        new FakeAudioRenderer(clockAwareHandler, audioRendererEventListener)
-      };
+      Renderer[] renderers =
+          new Renderer[] {
+            new FakeVideoRenderer(clockAwareHandler, videoRendererEventListener),
+            new FakeAudioRenderer(clockAwareHandler, audioRendererEventListener)
+          };
+      if (includeNoSampleRenderer) {
+        renderers = Arrays.copyOf(renderers, renderers.length + 1);
+        renderers[renderers.length - 1] =
+            new NoSampleRenderer() {
+              @Override
+              public String getName() {
+                return "NoSampleRenderer";
+              }
+
+              @Override
+              public void render(long positionUs, long elapsedRealtimeUs) {}
+            };
+      }
+      return renderers;
     }
 
     @Override

@@ -259,7 +259,7 @@ public class SubtitleExtractor implements Extractor {
                     cuesWithTiming.startTimeUs,
                     cueEncoder.encode(cuesWithTiming.cues, cuesWithTiming.durationUs));
             samples.add(sample);
-            if (seekTimeUs == C.TIME_UNSET || cuesWithTiming.startTimeUs >= seekTimeUs) {
+            if (seekTimeUs == C.TIME_UNSET || cuesWithTiming.endTimeUs >= seekTimeUs) {
               writeToOutput(sample);
             }
           });

@@ -134,6 +134,12 @@ public interface AdsLoader {
   /**
    * Starts using the ads loader for playback. Called on the main thread by {@link AdsMediaSource}.
    *
+   * <p>Requests the ads loader to start loading ad data from the provided {@link DataSpec
+   * adTagDataSpec}. Publishing an initial {@link AdPlaybackState} to provided {@link
+   * EventListener#onAdPlaybackState(AdPlaybackState) eventListener} is required to start playback.
+   * In the case of a pre roll, this ensures that the player doesn't briefly start playing content
+   * before ad data is available.
+   *
    * @param adsMediaSource The ads media source requesting to start loading ads.
    * @param adTagDataSpec A data spec for the ad tag to load.
    * @param adsId An opaque identifier for the ad playback state across start/stop calls.
@@ -162,18 +168,39 @@ public interface AdsLoader {
    * Notifies the ads loader when the content source has changed its timeline. Called on the main
    * thread by {@link AdsMediaSource}.
    *
-   * <p>If you override this callback for the purpose of reading ad data from the timeline to
-   * populate the {@link AdPlaybackState} with, you need to pass true to the constructor of {@link
+   * <p>The default implementation returns false which makes the content timeline immediately being
+   * reported to the player.
+   *
+   * <p>When overriding this method for the purpose of reading ad data from the timeline to populate
+   * the {@link AdPlaybackState} with, false needs to be passed to the constructor of {@link
    * AdsMediaSource#AdsMediaSource(MediaSource, DataSpec, Object, MediaSource.Factory, AdsLoader,
-   * AdViewProvider, boolean) AdsMediaSource} to indicate the content source needs to be prepared
-   * upfront.
+   * AdViewProvider, boolean) AdsMediaSource} to indicate that the content source needs to be
+   * prepared upfront. This way an ads loader can defer calling {@link
+   * EventListener#onAdPlaybackState(AdPlaybackState)} until the ad data from the timeline is
+   * available and populate the initial ad playback state with that data before publishing.
+   *
+   * <p>For live streams, this method is called additional times when the content source reports an
+   * advancing {@linkplain Timeline live window} with new available media and/or new ad data in the
+   * manifest. If in such a case, the ads loader as a result calls {@link
+   * EventListener#onAdPlaybackState(AdPlaybackState)}, true must be returned. This prevents the
+   * timeline being reported with stale ad data. Conversely, when the ad playback state is not
+   * passed into {@link EventListener#onAdPlaybackState(AdPlaybackState)}, false must be returned to
+   * not drop a timeline update that needs to be published to the player.
+   *
+   * <p>Generally, if the timeline is not required to populate the ad playback state, {@link
+   * #start(AdsMediaSource, DataSpec, Object, AdViewProvider, EventListener)} should be used to
+   * initiate loading ad data and publish the first ad playback state as early as possible. This
+   * method can still be overridden for informational or other purpose. In this case, false is
+   * returned here and the {@link AdsMediaSource} is used with lazy preparation enabled.
    *
    * @param adsMediaSource The ads media source for which the content timeline changed.
    * @param timeline The timeline of the content source.
+   * @return true If {@link EventListener#onAdPlaybackState(AdPlaybackState)} is or will be called,
+   *     false otherwise.
    */
   @UnstableApi
-  default void handleContentTimelineChanged(AdsMediaSource adsMediaSource, Timeline timeline) {
-    // Do nothing.
+  default boolean handleContentTimelineChanged(AdsMediaSource adsMediaSource, Timeline timeline) {
+    return false;
   }
 
   /**
