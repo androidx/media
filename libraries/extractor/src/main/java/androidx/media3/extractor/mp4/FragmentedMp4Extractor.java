@@ -253,8 +253,10 @@ public class FragmentedMp4Extractor implements Extractor {
   // Whether extractorOutput.seekMap has been called.
   private boolean haveOutputSeekMap;
 
-  // Whether a fragmented sidx has been fully collected and output.
-  private boolean haveOutputCompleteSeekMap;
+  // Whether we've encountered and merged multiple sidx boxes with different start times and
+  // extractorOutput.seekMap has been called.
+  private boolean haveOutputSeekMapFromMultipleSidx;
+
   private long seekPositionBeforeSidxProcessing;
 
   /**
@@ -696,12 +698,12 @@ public class FragmentedMp4Extractor implements Extractor {
         extractorOutput.seekMap(result.second);
         haveOutputSeekMap = true;
       } else if ((flags & FLAG_MERGE_FRAGMENTED_SIDX) != 0
-          && !haveOutputCompleteSeekMap
+          && !haveOutputSeekMapFromMultipleSidx
           && chunkIndexMerger.size() > 1) {
         seekPositionBeforeSidxProcessing = inputPosition;
         try {
           processRemainingSidxAtoms(input);
-          haveOutputCompleteSeekMap = true;
+          haveOutputSeekMapFromMultipleSidx = true;
         } finally {
           extractorOutput.seekMap(chunkIndexMerger.merge());
         }
