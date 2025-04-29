@@ -45,6 +45,8 @@
     *   Fix playback getting stuck when switching from a stream with a subtitle
         error to a live stream with an empty subtitle track
         ([#2328](https://github.com/androidx/media/issues/2328)).
+    *   Fix garbled CEA-608 subtitles when playing H.262 streams containing
+        B-frames ([#2372](https://github.com/androidx/media/issues/2372)).
 *   Metadata:
 *   Image:
 *   DataSource:

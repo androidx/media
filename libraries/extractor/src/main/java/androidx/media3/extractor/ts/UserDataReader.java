@@ -21,6 +21,7 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.ParsableByteArray;
+import androidx.media3.container.ReorderingBufferQueue;
 import androidx.media3.extractor.CeaUtil;
 import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.extractor.TrackOutput;
@@ -34,11 +35,19 @@ import java.util.List;
   private final List<Format> closedCaptionFormats;
   private final String containerMimeType;
   private final TrackOutput[] outputs;
+  private final ReorderingBufferQueue reorderingBufferQueue;
 
   public UserDataReader(List<Format> closedCaptionFormats, String containerMimeType) {
     this.closedCaptionFormats = closedCaptionFormats;
     this.containerMimeType = containerMimeType;
     outputs = new TrackOutput[closedCaptionFormats.size()];
+    reorderingBufferQueue =
+        new ReorderingBufferQueue(
+            (presentationTimeUs, seiBuffer) ->
+                CeaUtil.consumeCcData(presentationTimeUs, seiBuffer, outputs));
+    // H.262 doesn't provide a convenient 'max reordering queue size' value, so we hard-code 3
+    // as it seems unlikely to see more consecutive B-frames than this.
+    reorderingBufferQueue.setMaxSize(3);
   }
 
   public void createTracks(
@@ -76,7 +85,7 @@ import java.util.List;
     if (userDataStartCode == USER_DATA_START_CODE
         && userDataIdentifier == CeaUtil.USER_DATA_IDENTIFIER_GA94
         && userDataTypeCode == CeaUtil.USER_DATA_TYPE_CODE_MPEG_CC) {
-      CeaUtil.consumeCcData(pesTimeUs, userDataPayload, outputs);
+      reorderingBufferQueue.add(pesTimeUs, userDataPayload);
     }
   }
 }
