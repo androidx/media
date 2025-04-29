@@ -29,9 +29,11 @@ import com.google.common.truth.Truth.assertThat
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.inOrder
 import org.mockito.Mockito.spy
+import org.mockito.Mockito.verify
 
 /** Unit test for [PlayerSurface]. */
 @RunWith(AndroidJUnit4::class)
@@ -116,5 +118,106 @@ class PlayerSurfaceTest {
     val inOrder = inOrder(spyPlayer0, spyPlayer1)
     inOrder.verify(spyPlayer0).clearVideoSurfaceView(any())
     inOrder.verify(spyPlayer1).setVideoSurfaceView(any())
+  }
+
+  @Test
+  fun playerSurface_withNullPlayer_createsStandaloneAndroidSurface() {
+    composeTestRule.setContent { PlayerSurface(player = null) }
+    composeTestRule.waitForIdle()
+  }
+
+  @Test
+  fun playerSurface_fromPlayerToNull_unsetsSurfaceOnOldPlayer() {
+    val nonNullPlayer = TestPlayer()
+    val spyPlayer = spy(ForwardingPlayer(nonNullPlayer))
+
+    lateinit var playerIndex: MutableIntState
+    composeTestRule.setContent {
+      playerIndex = remember { mutableIntStateOf(0) }
+      PlayerSurface(
+        player = if (playerIndex.intValue == 0) spyPlayer else null,
+        surfaceType = SURFACE_TYPE_SURFACE_VIEW,
+      )
+    }
+    composeTestRule.waitForIdle()
+    playerIndex.intValue = 1
+    composeTestRule.waitForIdle()
+
+    assertThat(nonNullPlayer.videoOutput).isNull()
+    verify(spyPlayer).clearVideoSurfaceView(any())
+  }
+
+  @Test
+  fun twoPlayerSurfaces_exchangePlayers_onlyOnePlayerClearsTheSurfaceNotBoth() {
+    val player0 = TestPlayer()
+    val player1 = TestPlayer()
+    val spyPlayer0 = spy(ForwardingPlayer(player0))
+    val spyPlayer1 = spy(ForwardingPlayer(player1))
+    val argCaptor = ArgumentCaptor.forClass(SurfaceView::class.java)
+
+    lateinit var playerIndex: MutableIntState
+    composeTestRule.setContent {
+      playerIndex = remember { mutableIntStateOf(0) }
+      PlayerSurface(player = if (playerIndex.intValue == 0) spyPlayer0 else spyPlayer1)
+      PlayerSurface(player = if (playerIndex.intValue == 0) spyPlayer1 else spyPlayer0)
+    }
+    composeTestRule.waitForIdle()
+    playerIndex.intValue = 1
+    composeTestRule.waitForIdle()
+
+    assertThat(player0.videoOutput).isNotNull()
+    assertThat(player1.videoOutput).isNotNull()
+
+    val inOrder = inOrder(spyPlayer0, spyPlayer1)
+    // Original setup
+    inOrder.verify(spyPlayer0).setVideoSurfaceView(argCaptor.capture())
+    val surfaceView0 = argCaptor.value
+    inOrder.verify(spyPlayer1).setVideoSurfaceView(argCaptor.capture())
+    val surfaceView1 = argCaptor.value
+
+    // Stages of exchanging players
+    inOrder.verify(spyPlayer0).clearVideoSurfaceView(surfaceView0)
+    inOrder.verify(spyPlayer1).setVideoSurfaceView(surfaceView0)
+    inOrder.verify(spyPlayer1).clearVideoSurfaceView(surfaceView1) // no-op, not the current surface
+    inOrder.verify(spyPlayer0).setVideoSurfaceView(surfaceView1)
+    inOrder.verifyNoMoreInteractions()
+  }
+
+  @Test
+  fun twoPlayerSurfaces_passPlayerFromOneToAnotherAndBack_avoidsIntermediateUnnecessaryClearing() {
+    val player = TestPlayer()
+    val spyPlayer = spy(ForwardingPlayer(player))
+    val argCaptor = ArgumentCaptor.forClass(SurfaceView::class.java)
+
+    lateinit var playerIndex: MutableIntState
+    composeTestRule.setContent {
+      playerIndex = remember { mutableIntStateOf(0) }
+      PlayerSurface(player = if (playerIndex.intValue == 0) spyPlayer else null)
+      PlayerSurface(player = if (playerIndex.intValue == 0) null else spyPlayer)
+    }
+    composeTestRule.waitForIdle()
+    val inOrder = inOrder(spyPlayer)
+    inOrder.verify(spyPlayer).setVideoSurfaceView(argCaptor.capture())
+    val originalSurface = argCaptor.value
+
+    playerIndex.intValue = 1
+    composeTestRule.waitForIdle()
+
+    assertThat(player.videoOutput).isNotNull()
+    inOrder.verify(spyPlayer).setVideoSurfaceView(argCaptor.capture())
+    val newSurface1 = argCaptor.value
+    assertThat(originalSurface).isNotEqualTo(newSurface1)
+    inOrder.verify(spyPlayer).clearVideoSurfaceView(originalSurface) // no-op, wrong surface
+    inOrder.verifyNoMoreInteractions()
+
+    playerIndex.intValue = 0
+    composeTestRule.waitForIdle()
+
+    assertThat(player.videoOutput).isNotNull()
+    inOrder.verify(spyPlayer).setVideoSurfaceView(argCaptor.capture())
+    val newSurface0 = argCaptor.value
+    assertThat(originalSurface).isEqualTo(newSurface0)
+    inOrder.verify(spyPlayer).clearVideoSurfaceView(newSurface1) // no-op, wrong surface
+    inOrder.verifyNoMoreInteractions()
   }
 }

@@ -81,6 +81,7 @@
         the screen. This integration can be enabled with either
         `time_bar_scrubbing_enabled = true` in XML or the
         `setTimeBarScrubbingEnabled(boolean)` method from Java/Kotlin.
+    *   Make `PlayerSurface` accept a nullable `Player` argument.
 *   Downloads:
     *   Add partial download support for progressive streams. Apps can prepare a
         progressive stream with `DownloadHelper`, and request a
