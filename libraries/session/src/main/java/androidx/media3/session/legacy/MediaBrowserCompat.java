@@ -1486,7 +1486,8 @@ public final class MediaBrowserCompat {
         throws RemoteException {
       Bundle data = new Bundle();
       data.putString(DATA_MEDIA_ITEM_ID, mediaId);
-      data.putParcelable(DATA_RESULT_RECEIVER, receiver);
+      data.putParcelable(
+          DATA_RESULT_RECEIVER, LegacyParcelableUtil.convert(receiver, ResultReceiver.CREATOR));
       sendRequest(CLIENT_MSG_GET_MEDIA_ITEM, data, callbacksMessenger);
     }
 
@@ -1512,7 +1513,8 @@ public final class MediaBrowserCompat {
       Bundle data = new Bundle();
       data.putString(DATA_SEARCH_QUERY, query);
       data.putBundle(DATA_SEARCH_EXTRAS, extras);
-      data.putParcelable(DATA_RESULT_RECEIVER, receiver);
+      data.putParcelable(
+          DATA_RESULT_RECEIVER, LegacyParcelableUtil.convert(receiver, ResultReceiver.CREATOR));
       sendRequest(CLIENT_MSG_SEARCH, data, callbacksMessenger);
     }
 
@@ -1525,7 +1527,8 @@ public final class MediaBrowserCompat {
       Bundle data = new Bundle();
       data.putString(DATA_CUSTOM_ACTION, action);
       data.putBundle(DATA_CUSTOM_ACTION_EXTRAS, extras);
-      data.putParcelable(DATA_RESULT_RECEIVER, receiver);
+      data.putParcelable(
+          DATA_RESULT_RECEIVER, LegacyParcelableUtil.convert(receiver, ResultReceiver.CREATOR));
       sendRequest(CLIENT_MSG_SEND_CUSTOM_ACTION, data, callbacksMessenger);
     }
 

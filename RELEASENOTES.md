@@ -65,6 +65,9 @@
     *   Fix a bug where passing null into `getLibraryRoot` of a `MediaBrowser`
         connected to a legacy `MediaBrowserServiceCompat` produced a
         `NullPointerException`.
+    *   Fix a bug where where sending custom actions, a search result or a
+        getItem request crashed the legacy session app with a
+        `ClassNotFoundException`.
 *   UI:
     *   Fix a Compose bug which resulted in a gap between setting the initial
         button states and observing the change in state (e.g. icon shapes or
