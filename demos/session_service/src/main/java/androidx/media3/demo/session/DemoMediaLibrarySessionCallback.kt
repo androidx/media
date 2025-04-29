@@ -15,7 +15,6 @@
  */
 package androidx.media3.demo.session
 
-import android.content.Context
 import android.os.Bundle
 import androidx.annotation.OptIn
 import androidx.media3.common.MediaItem
@@ -32,23 +31,26 @@ import androidx.media3.session.SessionResult
 import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.guava.future
 
 /** A [MediaLibraryService.MediaLibrarySession.Callback] implementation. */
-open class DemoMediaLibrarySessionCallback(context: Context) :
+open class DemoMediaLibrarySessionCallback(val service: DemoPlaybackService) :
   MediaLibraryService.MediaLibrarySession.Callback {
 
   init {
-    MediaItemTree.initialize(context.assets)
+    MediaItemTree.initialize(service.assets)
   }
 
   private val commandButtons: List<CommandButton> =
     listOf(
       CommandButton.Builder(CommandButton.ICON_SHUFFLE_OFF)
-        .setDisplayName(context.getString(R.string.exo_controls_shuffle_on_description))
+        .setDisplayName(service.getString(R.string.exo_controls_shuffle_on_description))
         .setSessionCommand(SessionCommand(CUSTOM_COMMAND_TOGGLE_SHUFFLE_MODE_ON, Bundle.EMPTY))
         .build(),
       CommandButton.Builder(CommandButton.ICON_SHUFFLE_ON)
-        .setDisplayName(context.getString(R.string.exo_controls_shuffle_off_description))
+        .setDisplayName(service.getString(R.string.exo_controls_shuffle_off_description))
         .setSessionCommand(SessionCommand(CUSTOM_COMMAND_TOGGLE_SHUFFLE_MODE_OFF, Bundle.EMPTY))
         .build(),
     )
@@ -177,6 +179,26 @@ open class DemoMediaLibrarySessionCallback(context: Context) :
     return Futures.immediateFuture(
       MediaItemsWithStartPosition(resolveMediaItems(mediaItems), startIndex, startPositionMs)
     )
+  }
+
+  @OptIn(UnstableApi::class) // onPlaybackResumption callback + MediaItemsWithStartPosition
+  override fun onPlaybackResumption(
+    mediaSession: MediaSession,
+    controller: MediaSession.ControllerInfo,
+  ): ListenableFuture<MediaItemsWithStartPosition> {
+    return CoroutineScope(Dispatchers.Unconfined).future {
+      service.retrieveLastStoredMediaUidAndPosition()?.let {
+        maybeExpandSingleItemToPlaylist(
+            mediaItem = MediaItem.Builder().setMediaId(it.mediaId).build(),
+            startIndex = 0,
+            startPositionMs = it.positionMs,
+          )
+          ?.let {
+            return@future it
+          }
+      }
+      throw IllegalStateException("previous media id not found")
+    }
   }
 
   private fun resolveMediaItems(mediaItems: List<MediaItem>): List<MediaItem> {
