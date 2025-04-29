@@ -1387,6 +1387,8 @@ package androidx.media3.exoplayer {
     method public androidx.media3.exoplayer.ExoPlayer.Builder setAudioAttributes(androidx.media3.common.AudioAttributes, boolean);
     method public androidx.media3.exoplayer.ExoPlayer.Builder setHandleAudioBecomingNoisy(boolean);
     method public androidx.media3.exoplayer.ExoPlayer.Builder setMediaSourceFactory(androidx.media3.exoplayer.source.MediaSource.Factory);
+    method public androidx.media3.exoplayer.ExoPlayer.Builder setSeekBackIncrementMs(@IntRange(from=1) long);
+    method public androidx.media3.exoplayer.ExoPlayer.Builder setSeekForwardIncrementMs(@IntRange(from=1) long);
     method public androidx.media3.exoplayer.ExoPlayer.Builder setWakeMode(@androidx.media3.common.C.WakeMode int);
   }
 

@@ -855,7 +855,6 @@ public interface ExoPlayer extends Player {
      * @throws IllegalStateException If {@link #build()} has already been called.
      */
     @CanIgnoreReturnValue
-    @UnstableApi
     public Builder setSeekBackIncrementMs(@IntRange(from = 1) long seekBackIncrementMs) {
       checkArgument(seekBackIncrementMs > 0);
       checkState(!buildCalled);
@@ -872,7 +871,6 @@ public interface ExoPlayer extends Player {
      * @throws IllegalStateException If {@link #build()} has already been called.
      */
     @CanIgnoreReturnValue
-    @UnstableApi
     public Builder setSeekForwardIncrementMs(@IntRange(from = 1) long seekForwardIncrementMs) {
       checkArgument(seekForwardIncrementMs > 0);
       checkState(!buildCalled);
