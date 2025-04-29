@@ -43,7 +43,7 @@ import androidx.media3.container.Mp4Box;
 import androidx.media3.container.Mp4Box.ContainerBox;
 import androidx.media3.container.Mp4Box.LeafBox;
 import androidx.media3.container.NalUnitUtil;
-import androidx.media3.container.ReorderingSeiMessageQueue;
+import androidx.media3.container.ReorderingBufferQueue;
 import androidx.media3.extractor.Ac4Util;
 import androidx.media3.extractor.CeaUtil;
 import androidx.media3.extractor.ChunkIndex;
@@ -216,7 +216,7 @@ public class FragmentedMp4Extractor implements Extractor {
   private final ParsableByteArray atomHeader;
   private final ArrayDeque<ContainerBox> containerAtoms;
   private final ArrayDeque<MetadataSampleInfo> pendingMetadataSampleInfos;
-  private final ReorderingSeiMessageQueue reorderingSeiMessageQueue;
+  private final ReorderingBufferQueue reorderingBufferQueue;
   @Nullable private final TrackOutput additionalEmsgTrackOutput;
 
   private ImmutableList<SniffFailure> lastSniffFailures;
@@ -424,10 +424,10 @@ public class FragmentedMp4Extractor implements Extractor {
     extractorOutput = ExtractorOutput.PLACEHOLDER;
     emsgTrackOutputs = new TrackOutput[0];
     ceaTrackOutputs = new TrackOutput[0];
-    reorderingSeiMessageQueue =
-        new ReorderingSeiMessageQueue(
-            (presentationTimeUs, seiBuffer) ->
-                CeaUtil.consume(presentationTimeUs, seiBuffer, ceaTrackOutputs));
+    reorderingBufferQueue =
+        new ReorderingBufferQueue(
+            (presentationTimeUs, buffer) ->
+                CeaUtil.consume(presentationTimeUs, buffer, ceaTrackOutputs));
   }
 
   /**
@@ -498,7 +498,7 @@ public class FragmentedMp4Extractor implements Extractor {
     }
     pendingMetadataSampleInfos.clear();
     pendingMetadataSampleBytes = 0;
-    reorderingSeiMessageQueue.clear();
+    reorderingBufferQueue.clear();
     pendingSeekTimeUs = timeUs;
     containerAtoms.clear();
     enterReadingAtomHeaderState();
@@ -515,7 +515,7 @@ public class FragmentedMp4Extractor implements Extractor {
       switch (parserState) {
         case STATE_READING_ATOM_HEADER:
           if (!readAtomHeader(input)) {
-            reorderingSeiMessageQueue.flush();
+            reorderingBufferQueue.flush();
             return Extractor.RESULT_END_OF_INPUT;
           }
           break;
@@ -1680,17 +1680,16 @@ public class FragmentedMp4Extractor implements Extractor {
             nalUnitWithoutHeaderBuffer.setLimit(unescapedLength);
 
             if (track.format.maxNumReorderSamples == Format.NO_VALUE) {
-              if (reorderingSeiMessageQueue.getMaxSize() != 0) {
-                reorderingSeiMessageQueue.setMaxSize(0);
+              if (reorderingBufferQueue.getMaxSize() != 0) {
+                reorderingBufferQueue.setMaxSize(0);
               }
-            } else if (reorderingSeiMessageQueue.getMaxSize()
-                != track.format.maxNumReorderSamples) {
-              reorderingSeiMessageQueue.setMaxSize(track.format.maxNumReorderSamples);
+            } else if (reorderingBufferQueue.getMaxSize() != track.format.maxNumReorderSamples) {
+              reorderingBufferQueue.setMaxSize(track.format.maxNumReorderSamples);
             }
-            reorderingSeiMessageQueue.add(sampleTimeUs, nalUnitWithoutHeaderBuffer);
+            reorderingBufferQueue.add(sampleTimeUs, nalUnitWithoutHeaderBuffer);
 
             if ((trackBundle.getCurrentSampleFlags() & C.BUFFER_FLAG_END_OF_STREAM) != 0) {
-              reorderingSeiMessageQueue.flush();
+              reorderingBufferQueue.flush();
             }
           } else {
             // Write the payload of the NAL unit.
