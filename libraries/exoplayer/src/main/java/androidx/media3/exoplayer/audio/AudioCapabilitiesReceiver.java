@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.audio;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 
 import android.content.BroadcastReceiver;
@@ -91,7 +92,7 @@ public final class AudioCapabilitiesReceiver {
         context,
         listener,
         audioAttributes,
-        Util.SDK_INT >= 23 && routedDevice != null ? new AudioDeviceInfoApi23(routedDevice) : null);
+        SDK_INT >= 23 && routedDevice != null ? new AudioDeviceInfoApi23(routedDevice) : null);
   }
 
   /* package */ AudioCapabilitiesReceiver(
@@ -105,7 +106,7 @@ public final class AudioCapabilitiesReceiver {
     this.audioAttributes = audioAttributes;
     this.routedDevice = routedDevice;
     handler = Util.createHandlerForCurrentOrMainLooper();
-    audioDeviceCallback = Util.SDK_INT >= 23 ? new AudioDeviceCallbackV23() : null;
+    audioDeviceCallback = SDK_INT >= 23 ? new AudioDeviceCallbackV23() : null;
     hdmiAudioPlugBroadcastReceiver = new HdmiAudioPlugBroadcastReceiver();
     Uri externalSurroundSoundUri = AudioCapabilities.getExternalSurroundSoundGlobalSettingUri();
     externalSurroundSoundSettingObserver =
@@ -159,7 +160,7 @@ public final class AudioCapabilitiesReceiver {
     if (externalSurroundSoundSettingObserver != null) {
       externalSurroundSoundSettingObserver.register();
     }
-    if (Util.SDK_INT >= 23 && audioDeviceCallback != null) {
+    if (SDK_INT >= 23 && audioDeviceCallback != null) {
       Api23.registerAudioDeviceCallback(context, audioDeviceCallback, handler);
     }
     Intent stickyIntent =
@@ -183,7 +184,7 @@ public final class AudioCapabilitiesReceiver {
       return;
     }
     audioCapabilities = null;
-    if (Util.SDK_INT >= 23 && audioDeviceCallback != null) {
+    if (SDK_INT >= 23 && audioDeviceCallback != null) {
       Api23.unregisterAudioDeviceCallback(context, audioDeviceCallback);
     }
     context.unregisterReceiver(hdmiAudioPlugBroadcastReceiver);

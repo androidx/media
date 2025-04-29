@@ -7,6 +7,7 @@ track 0:
   total output bytes = 9529
   sample count = 45
   format 0:
+    averageBitrate = 70009
     id = 1
     containerMimeType = video/mp4
     sampleMimeType = audio/mp4a-latm

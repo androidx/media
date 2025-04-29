@@ -16,36 +16,33 @@
 
 package androidx.media3.transformer;
 
+import static androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig.CODEC_INFO_AAC;
+import static androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig.CODEC_INFO_RAW;
 import static androidx.media3.transformer.TestUtil.ASSET_URI_PREFIX;
 import static androidx.media3.transformer.TestUtil.FILE_AUDIO_RAW;
 import static androidx.media3.transformer.TestUtil.FILE_AUDIO_RAW_STEREO_48000KHZ;
 import static androidx.media3.transformer.TestUtil.FILE_AUDIO_RAW_VIDEO;
 import static androidx.media3.transformer.TestUtil.FILE_AUDIO_VIDEO;
 import static androidx.media3.transformer.TestUtil.FILE_AUDIO_VIDEO_INCREASING_TIMESTAMPS_15S;
-import static androidx.media3.transformer.TestUtil.addAudioDecoders;
-import static androidx.media3.transformer.TestUtil.addAudioEncoders;
 import static androidx.media3.transformer.TestUtil.createAudioEffects;
 import static androidx.media3.transformer.TestUtil.createChannelCountChangingAudioProcessor;
 import static androidx.media3.transformer.TestUtil.createPitchChangingAudioProcessor;
 import static androidx.media3.transformer.TestUtil.getDumpFileName;
 import static androidx.media3.transformer.TestUtil.getSequenceDumpFilePath;
-import static androidx.media3.transformer.TestUtil.removeEncodersAndDecoders;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import android.content.Context;
 import androidx.annotation.Nullable;
 import androidx.media3.common.MediaItem;
-import androidx.media3.common.MimeTypes;
 import androidx.media3.common.audio.SonicAudioProcessor;
 import androidx.media3.effect.RgbFilter;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.TestTransformerBuilder;
+import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
-import org.junit.After;
-import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
@@ -69,16 +66,11 @@ public final class SequenceExportTest {
 
   private final Context context = ApplicationProvider.getApplicationContext();
 
-  @Before
-  public void setUp() {
-    addAudioDecoders(MimeTypes.AUDIO_RAW);
-    addAudioEncoders(MimeTypes.AUDIO_AAC);
-  }
-
-  @After
-  public void tearDown() {
-    removeEncodersAndDecoders();
-  }
+  @Rule
+  public ShadowMediaCodecConfig shadowMediaCodecConfig =
+      ShadowMediaCodecConfig.withCodecs(
+          /* decoders= */ ImmutableList.of(CODEC_INFO_RAW),
+          /* encoders= */ ImmutableList.of(CODEC_INFO_AAC));
 
   @Test
   public void start_concatenateSameMediaItemWithTransmux_completesSuccessfully() throws Exception {
@@ -255,8 +247,8 @@ public final class SequenceExportTest {
     Composition composition =
         new Composition.Builder(
                 new EditedMediaItemSequence.Builder(audioVideoMediaItem, videoOnlyMediaItem)
+                    .experimentalSetForceAudioTrack(true)
                     .build())
-            .experimentalSetForceAudioTrack(true)
             .setTransmuxVideo(true)
             .build();
 
@@ -285,8 +277,8 @@ public final class SequenceExportTest {
     Composition composition =
         new Composition.Builder(
                 new EditedMediaItemSequence.Builder(videoOnlyMediaItem, audioVideoMediaItem)
+                    .experimentalSetForceAudioTrack(true)
                     .build())
-            .experimentalSetForceAudioTrack(true)
             .setTransmuxVideo(true)
             .build();
 
@@ -321,8 +313,8 @@ public final class SequenceExportTest {
     Composition composition =
         new Composition.Builder(
                 new EditedMediaItemSequence.Builder(audioEditedMediaItem, noAudioEditedMediaItem)
+                    .experimentalSetForceAudioTrack(true)
                     .build())
-            .experimentalSetForceAudioTrack(true)
             .setTransmuxVideo(true)
             .build();
 
@@ -357,8 +349,8 @@ public final class SequenceExportTest {
     Composition composition =
         new Composition.Builder(
                 new EditedMediaItemSequence.Builder(silenceEditedMediaItem, audioEditedMediaItem)
+                    .experimentalSetForceAudioTrack(true)
                     .build())
-            .experimentalSetForceAudioTrack(true)
             .setTransmuxVideo(true)
             .build();
 
@@ -385,8 +377,9 @@ public final class SequenceExportTest {
         new EditedMediaItem.Builder(mediaItem).setRemoveAudio(true).build();
     Composition composition =
         new Composition.Builder(
-                new EditedMediaItemSequence.Builder(videoOnlyMediaItem, videoOnlyMediaItem).build())
-            .experimentalSetForceAudioTrack(true)
+                new EditedMediaItemSequence.Builder(videoOnlyMediaItem, videoOnlyMediaItem)
+                    .experimentalSetForceAudioTrack(true)
+                    .build())
             .setTransmuxVideo(true)
             .build();
 
@@ -418,8 +411,9 @@ public final class SequenceExportTest {
         new EditedMediaItem.Builder(mediaItem).setRemoveAudio(true).build();
     Composition composition =
         new Composition.Builder(
-                new EditedMediaItemSequence.Builder(silenceWithEffectsItem, silenceItem).build())
-            .experimentalSetForceAudioTrack(true)
+                new EditedMediaItemSequence.Builder(silenceWithEffectsItem, silenceItem)
+                    .experimentalSetForceAudioTrack(true)
+                    .build())
             .setTransmuxVideo(true)
             .build();
 
@@ -451,8 +445,9 @@ public final class SequenceExportTest {
             .build();
     Composition composition =
         new Composition.Builder(
-                new EditedMediaItemSequence.Builder(silenceItem, silenceWithEffectsItem).build())
-            .experimentalSetForceAudioTrack(true)
+                new EditedMediaItemSequence.Builder(silenceItem, silenceWithEffectsItem)
+                    .experimentalSetForceAudioTrack(true)
+                    .build())
             .setTransmuxVideo(true)
             .build();
 
@@ -486,8 +481,10 @@ public final class SequenceExportTest {
             .setEffects(createAudioEffects(createPitchChangingAudioProcessor(/* pitch= */ 2f)))
             .build();
     Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence.Builder(firstItem, secondItem).build())
-            .experimentalSetForceAudioTrack(true)
+        new Composition.Builder(
+                new EditedMediaItemSequence.Builder(firstItem, secondItem)
+                    .experimentalSetForceAudioTrack(true)
+                    .build())
             .setTransmuxVideo(true)
             .build();
 
@@ -546,7 +543,11 @@ public final class SequenceExportTest {
         new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW_VIDEO))
             .build();
     EditedMediaItemSequence sequence =
-        new EditedMediaItemSequence.Builder().addGap(500_000).addItem(audioVideoItem).build();
+        new EditedMediaItemSequence.Builder()
+            .addGap(500_000)
+            .addItem(audioVideoItem)
+            .experimentalSetForceAudioTrack(true)
+            .build();
     Composition composition = new Composition.Builder(sequence).build();
 
     transformer.start(composition, outputDir.newFile().getPath());
@@ -562,7 +563,11 @@ public final class SequenceExportTest {
     Transformer transformer =
         new TestTransformerBuilder(context).setMuxerFactory(muxerFactory).build();
     EditedMediaItemSequence sequence =
-        new EditedMediaItemSequence.Builder().addGap(300_000).addGap(200_000).build();
+        new EditedMediaItemSequence.Builder()
+            .addGap(300_000)
+            .addGap(200_000)
+            .experimentalSetForceAudioTrack(true)
+            .build();
     Composition composition = new Composition.Builder(sequence).build();
 
     transformer.start(composition, outputDir.newFile().getPath());
@@ -609,6 +614,7 @@ public final class SequenceExportTest {
             .addGap(200_000)
             .addGap(500_000)
             .addItem(audioItem)
+            .experimentalSetForceAudioTrack(true)
             .build();
     Composition composition = new Composition.Builder(sequence).build();
 
@@ -704,6 +710,7 @@ public final class SequenceExportTest {
             .addItem(firstAudioItem)
             .addGap(200_000)
             .addItem(secondAudioItem)
+            .experimentalSetForceAudioTrack(true)
             .build();
     Composition composition = new Composition.Builder(sequence).build();
 

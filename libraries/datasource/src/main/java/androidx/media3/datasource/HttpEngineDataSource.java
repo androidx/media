@@ -127,7 +127,6 @@ public final class HttpEngineDataSource extends BaseDataSource implements HttpDa
      * @return This factory.
      */
     @CanIgnoreReturnValue
-    @UnstableApi
     public Factory setUserAgent(@Nullable String userAgent) {
       this.userAgent = userAgent;
       return this;

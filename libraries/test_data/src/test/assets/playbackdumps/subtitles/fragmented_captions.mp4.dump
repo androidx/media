@@ -1,4 +1,4 @@
-MediaCodecAdapter (exotest.video.avc):
+MediaCodecAdapter (media3.video.avc):
   inputBuffers:
     count = 61
     input buffer #0:

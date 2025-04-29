@@ -16,6 +16,7 @@
 package androidx.media3.exoplayer.audio;
 
 import static android.media.AudioFormat.CHANNEL_OUT_STEREO;
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static java.lang.Math.max;
 
@@ -121,7 +122,7 @@ public final class AudioCapabilities {
       Context context, AudioAttributes audioAttributes, @Nullable AudioDeviceInfo routedDevice) {
     @Nullable
     AudioDeviceInfoApi23 routedDeviceApi23 =
-        Util.SDK_INT >= 23 && routedDevice != null ? new AudioDeviceInfoApi23(routedDevice) : null;
+        SDK_INT >= 23 && routedDevice != null ? new AudioDeviceInfoApi23(routedDevice) : null;
     return getCapabilitiesInternal(context, audioAttributes, routedDeviceApi23);
   }
 
@@ -147,11 +148,11 @@ public final class AudioCapabilities {
     AudioDeviceInfoApi23 currentDevice =
         routedDevice != null
             ? routedDevice
-            : Util.SDK_INT >= 33
+            : SDK_INT >= 33
                 ? Api33.getDefaultRoutedDeviceForAttributes(audioManager, audioAttributes)
                 : null;
 
-    if (Util.SDK_INT >= 33 && (Util.isTv(context) || Util.isAutomotive(context))) {
+    if (SDK_INT >= 33 && (Util.isTv(context) || Util.isAutomotive(context))) {
       // TV or automotive devices generally shouldn't support audio offload for surround encodings,
       // so the encodings we get from AudioManager.getDirectProfilesForAttributes should include
       // the PCM encodings and surround encodings for passthrough mode.
@@ -160,7 +161,7 @@ public final class AudioCapabilities {
 
     // If a connection to Bluetooth device is detected, we only return the minimum capabilities that
     // is supported by all the devices.
-    if (Util.SDK_INT >= 23 && Api23.isBluetoothConnected(audioManager, currentDevice)) {
+    if (SDK_INT >= 23 && Api23.isBluetoothConnected(audioManager, currentDevice)) {
       return DEFAULT_AUDIO_CAPABILITIES;
     }
 
@@ -171,7 +172,7 @@ public final class AudioCapabilities {
     // offload, as well as for encodings we want to list for passthrough mode. Therefore we only use
     // it on TV and automotive devices, which generally shouldn't support audio offload for surround
     // encodings.
-    if (Util.SDK_INT >= 29 && (Util.isTv(context) || Util.isAutomotive(context))) {
+    if (SDK_INT >= 29 && (Util.isTv(context) || Util.isAutomotive(context))) {
       supportedEncodings.addAll(Api29.getDirectPlaybackSupportedEncodings(audioAttributes));
       return new AudioCapabilities(
           getAudioProfiles(Ints.toArray(supportedEncodings.build()), DEFAULT_MAX_CHANNEL_COUNT));
@@ -325,7 +326,7 @@ public final class AudioCapabilities {
           audioProfile.getMaxSupportedChannelCountForPassthrough(sampleRate, audioAttributes);
     } else {
       channelCount = format.channelCount;
-      if (format.sampleMimeType.equals(MimeTypes.AUDIO_DTS_X) && Util.SDK_INT < 33) {
+      if (format.sampleMimeType.equals(MimeTypes.AUDIO_DTS_X) && SDK_INT < 33) {
         // Some DTS:X TVs reports ACTION_HDMI_AUDIO_PLUG.EXTRA_MAX_CHANNEL_COUNT as 8
         // instead of 10. See https://github.com/androidx/media/issues/396
         if (channelCount > 10) {
@@ -374,7 +375,7 @@ public final class AudioCapabilities {
   }
 
   private static int getChannelConfigForPassthrough(int channelCount) {
-    if (Util.SDK_INT <= 28) {
+    if (SDK_INT <= 28) {
       // In passthrough mode the channel count used to configure the audio track doesn't affect how
       // the stream is handled, except that some devices do overly-strict channel configuration
       // checks. Therefore we override the channel count so that a known-working channel
@@ -388,7 +389,7 @@ public final class AudioCapabilities {
 
     // Workaround for Nexus Player not reporting support for mono passthrough. See
     // [Internal: b/34268671].
-    if (Util.SDK_INT <= 26 && "fugu".equals(Build.DEVICE) && channelCount == 1) {
+    if (SDK_INT <= 26 && "fugu".equals(Build.DEVICE) && channelCount == 1) {
       channelCount = 2;
     }
 
@@ -448,7 +449,7 @@ public final class AudioCapabilities {
   private static final class AudioProfile {
 
     public static final AudioProfile DEFAULT_AUDIO_PROFILE =
-        (Util.SDK_INT >= 33)
+        (SDK_INT >= 33)
             ? new AudioProfile(
                 C.ENCODING_PCM_16BIT,
                 getAllChannelMasksForMaxChannelCount(DEFAULT_MAX_CHANNEL_COUNT))
@@ -492,7 +493,7 @@ public final class AudioCapabilities {
       if (channelMasks != null) {
         // We built the AudioProfile on API 33.
         return maxChannelCount;
-      } else if (Util.SDK_INT >= 29) {
+      } else if (SDK_INT >= 29) {
         return Api29.getMaxSupportedChannelCountForPassthrough(
             encoding, sampleRate, audioAttributes);
       }
@@ -574,11 +575,11 @@ public final class AudioCapabilities {
       ImmutableSet.Builder<Integer> allBluetoothDeviceTypes =
           new ImmutableSet.Builder<Integer>()
               .add(AudioDeviceInfo.TYPE_BLUETOOTH_A2DP, AudioDeviceInfo.TYPE_BLUETOOTH_SCO);
-      if (Util.SDK_INT >= 31) {
+      if (SDK_INT >= 31) {
         allBluetoothDeviceTypes.add(
             AudioDeviceInfo.TYPE_BLE_HEADSET, AudioDeviceInfo.TYPE_BLE_SPEAKER);
       }
-      if (Util.SDK_INT >= 33) {
+      if (SDK_INT >= 33) {
         allBluetoothDeviceTypes.add(AudioDeviceInfo.TYPE_BLE_BROADCAST);
       }
       return allBluetoothDeviceTypes.build();
@@ -594,7 +595,7 @@ public final class AudioCapabilities {
         AudioAttributes audioAttributes) {
       ImmutableList.Builder<Integer> supportedEncodingsListBuilder = ImmutableList.builder();
       for (int encoding : ALL_SURROUND_ENCODINGS_AND_MAX_CHANNELS.keySet()) {
-        if (Util.SDK_INT < Util.getApiLevelThatAudioFormatIntroducedAudioEncoding(encoding)) {
+        if (SDK_INT < Util.getApiLevelThatAudioFormatIntroducedAudioEncoding(encoding)) {
           // Example: AudioFormat.ENCODING_DTS_UHD_P2 is supported only from API 34.
           continue;
         }

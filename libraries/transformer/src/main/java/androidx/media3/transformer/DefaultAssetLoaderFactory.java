@@ -16,6 +16,7 @@
 
 package androidx.media3.transformer;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.transformer.TransformerUtil.isImage;
 
@@ -31,7 +32,6 @@ import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSourceBitmapLoader;
 import androidx.media3.datasource.DefaultDataSource;
 import androidx.media3.exoplayer.source.MediaSource;
@@ -92,7 +92,7 @@ public final class DefaultAssetLoaderFactory implements AssetLoader.Factory {
     this.trackSelectorFactory = null;
     this.logSessionId = logSessionId;
     @Nullable BitmapFactory.Options options = null;
-    if (Util.SDK_INT >= 26) {
+    if (SDK_INT >= 26) {
       options = new BitmapFactory.Options();
       options.inPreferredColorSpace = ColorSpace.get(ColorSpace.Named.SRGB);
     }

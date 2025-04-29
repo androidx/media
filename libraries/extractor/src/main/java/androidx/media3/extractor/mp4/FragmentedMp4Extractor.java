@@ -43,7 +43,7 @@ import androidx.media3.container.Mp4Box;
 import androidx.media3.container.Mp4Box.ContainerBox;
 import androidx.media3.container.Mp4Box.LeafBox;
 import androidx.media3.container.NalUnitUtil;
-import androidx.media3.container.ReorderingSeiMessageQueue;
+import androidx.media3.container.ReorderingBufferQueue;
 import androidx.media3.extractor.Ac4Util;
 import androidx.media3.extractor.CeaUtil;
 import androidx.media3.extractor.ChunkIndex;
@@ -221,7 +221,7 @@ public class FragmentedMp4Extractor implements Extractor {
   private final ParsableByteArray atomHeader;
   private final ArrayDeque<ContainerBox> containerAtoms;
   private final ArrayDeque<MetadataSampleInfo> pendingMetadataSampleInfos;
-  private final ReorderingSeiMessageQueue reorderingSeiMessageQueue;
+  private final ReorderingBufferQueue reorderingBufferQueue;
   @Nullable private final TrackOutput additionalEmsgTrackOutput;
 
   private final ChunkIndexMerger chunkIndexMerger;
@@ -437,10 +437,10 @@ public class FragmentedMp4Extractor implements Extractor {
     extractorOutput = ExtractorOutput.PLACEHOLDER;
     emsgTrackOutputs = new TrackOutput[0];
     ceaTrackOutputs = new TrackOutput[0];
-    reorderingSeiMessageQueue =
-        new ReorderingSeiMessageQueue(
-            (presentationTimeUs, seiBuffer) ->
-                CeaUtil.consume(presentationTimeUs, seiBuffer, ceaTrackOutputs));
+    reorderingBufferQueue =
+        new ReorderingBufferQueue(
+            (presentationTimeUs, buffer) ->
+                CeaUtil.consume(presentationTimeUs, buffer, ceaTrackOutputs));
     chunkIndexMerger = new ChunkIndexMerger();
     seekPositionBeforeSidxProcessing = C.INDEX_UNSET;
   }
@@ -513,7 +513,7 @@ public class FragmentedMp4Extractor implements Extractor {
     }
     pendingMetadataSampleInfos.clear();
     pendingMetadataSampleBytes = 0;
-    reorderingSeiMessageQueue.clear();
+    reorderingBufferQueue.clear();
     pendingSeekTimeUs = timeUs;
     containerAtoms.clear();
     enterReadingAtomHeaderState();
@@ -526,37 +526,30 @@ public class FragmentedMp4Extractor implements Extractor {
 
   @Override
   public int read(ExtractorInput input, PositionHolder seekPosition) throws IOException {
-    try {
-      while (true) {
-        switch (parserState) {
-          case STATE_READING_ATOM_HEADER:
-            if (!readAtomHeader(input, /* skipPayloadParsing= */ false)) {
-              if (seekPositionBeforeSidxProcessing != C.INDEX_UNSET) {
-                seekPosition.position = seekPositionBeforeSidxProcessing;
-                seekPositionBeforeSidxProcessing = C.INDEX_UNSET;
-                return Extractor.RESULT_SEEK;
-              } else {
-                reorderingSeiMessageQueue.flush();
-                return Extractor.RESULT_END_OF_INPUT;
-              }
+    while (true) {
+      switch (parserState) {
+        case STATE_READING_ATOM_HEADER:
+          if (!readAtomHeader(input, /* skipPayloadParsing= */ false)) {
+            if (seekPositionBeforeSidxProcessing != C.INDEX_UNSET) {
+              seekPosition.position = seekPositionBeforeSidxProcessing;
+              seekPositionBeforeSidxProcessing = C.INDEX_UNSET;
+              return Extractor.RESULT_SEEK;
+            } else {
+              reorderingBufferQueue.flush();
+              return Extractor.RESULT_END_OF_INPUT;
             }
-            break;
-          case STATE_READING_ATOM_PAYLOAD:
-            readAtomPayload(input);
-            break;
-          case STATE_READING_ENCRYPTION_DATA:
-            readEncryptionData(input);
-            break;
-          default:
-            if (readSample(input)) {
-              return RESULT_CONTINUE;
-            }
-        }
-      }
-    } finally {
-      if (seekPositionBeforeSidxProcessing != C.INDEX_UNSET) {
-        seekPosition.position = seekPositionBeforeSidxProcessing;
-        seekPositionBeforeSidxProcessing = C.INDEX_UNSET;
+          }
+          break;
+        case STATE_READING_ATOM_PAYLOAD:
+          readAtomPayload(input);
+          break;
+        case STATE_READING_ENCRYPTION_DATA:
+          readEncryptionData(input);
+          break;
+        default:
+          if (readSample(input)) {
+            return RESULT_CONTINUE;
+          }
       }
     }
   }
@@ -700,9 +693,9 @@ public class FragmentedMp4Extractor implements Extractor {
       } else if ((flags & FLAG_MERGE_FRAGMENTED_SIDX) != 0
           && !haveOutputSeekMapFromMultipleSidx
           && chunkIndexMerger.size() > 1) {
-        seekPositionBeforeSidxProcessing = inputPosition;
         try {
           processRemainingSidxAtoms(input);
+          seekPositionBeforeSidxProcessing = inputPosition;
           haveOutputSeekMapFromMultipleSidx = true;
         } finally {
           extractorOutput.seekMap(chunkIndexMerger.merge());
@@ -1746,17 +1739,16 @@ public class FragmentedMp4Extractor implements Extractor {
             nalUnitWithoutHeaderBuffer.setLimit(unescapedLength);
 
             if (track.format.maxNumReorderSamples == Format.NO_VALUE) {
-              if (reorderingSeiMessageQueue.getMaxSize() != 0) {
-                reorderingSeiMessageQueue.setMaxSize(0);
+              if (reorderingBufferQueue.getMaxSize() != 0) {
+                reorderingBufferQueue.setMaxSize(0);
               }
-            } else if (reorderingSeiMessageQueue.getMaxSize()
-                != track.format.maxNumReorderSamples) {
-              reorderingSeiMessageQueue.setMaxSize(track.format.maxNumReorderSamples);
+            } else if (reorderingBufferQueue.getMaxSize() != track.format.maxNumReorderSamples) {
+              reorderingBufferQueue.setMaxSize(track.format.maxNumReorderSamples);
             }
-            reorderingSeiMessageQueue.add(sampleTimeUs, nalUnitWithoutHeaderBuffer);
+            reorderingBufferQueue.add(sampleTimeUs, nalUnitWithoutHeaderBuffer);
 
             if ((trackBundle.getCurrentSampleFlags() & C.BUFFER_FLAG_END_OF_STREAM) != 0) {
-              reorderingSeiMessageQueue.flush();
+              reorderingBufferQueue.flush();
             }
           } else {
             // Write the payload of the NAL unit.

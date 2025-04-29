@@ -595,6 +595,40 @@ public class BoxesTest {
 
   @Test
   public void
+      convertPresentationTimestampsToDurationsVu_withNegativeSampleTimestampsAndZero_returnsExpectedDurations() {
+    List<BufferInfo> sampleBufferInfos =
+        createBufferInfoListWithSamplePresentationTimestamps(
+            -1_000L, 0L, 10_000L, 1_000L, 2_000L, 11_000L);
+
+    List<Integer> durationsVu =
+        Boxes.convertPresentationTimestampsToDurationsVu(
+            sampleBufferInfos,
+            VU_TIMEBASE,
+            LAST_SAMPLE_DURATION_BEHAVIOR_SET_TO_ZERO,
+            C.TIME_UNSET);
+
+    assertThat(durationsVu).containsExactly(100, 100, 100, 800, 100, 0);
+  }
+
+  @Test
+  public void
+      convertPresentationTimestampsToDurationsVu_withNegativeSampleTimestamps_returnsExpectedDurations() {
+    List<BufferInfo> sampleBufferInfos =
+        createBufferInfoListWithSamplePresentationTimestamps(
+            -1_000L, 10_000L, 1_000L, 2_000L, 11_000L);
+
+    List<Integer> durationsVu =
+        Boxes.convertPresentationTimestampsToDurationsVu(
+            sampleBufferInfos,
+            VU_TIMEBASE,
+            LAST_SAMPLE_DURATION_BEHAVIOR_SET_TO_ZERO,
+            C.TIME_UNSET);
+
+    assertThat(durationsVu).containsExactly(200, 100, 800, 100, 0);
+  }
+
+  @Test
+  public void
       convertPresentationTimestampsToDurationsVu_withLastSampleDurationBehaviorUsingEndOfStreamFlag_returnsExpectedDurations() {
     List<BufferInfo> sampleBufferInfos =
         createBufferInfoListWithSamplePresentationTimestamps(0L, 1_000L, 2_000L, 3_000L, 4_000L);

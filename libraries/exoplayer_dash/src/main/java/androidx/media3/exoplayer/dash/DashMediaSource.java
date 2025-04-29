@@ -1122,7 +1122,7 @@ public final class DashMediaSource extends BaseMediaSource {
       if (manifest != null) {
         cmcdDataFactory.setIsLive(manifest.dynamic);
       }
-      cmcdDataFactory.createCmcdData().addToDataSpec(dataSpec);
+      dataSpec = cmcdDataFactory.createCmcdData().addToDataSpec(dataSpec);
     }
     startLoading(
         new ParsingLoadable<>(dataSource, dataSpec, C.DATA_TYPE_MANIFEST, manifestParser),

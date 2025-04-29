@@ -315,7 +315,8 @@ public final class MediaMetadataCompat implements Parcelable {
     METADATA_KEY_ALBUM_ARTIST,
     METADATA_KEY_WRITER,
     METADATA_KEY_AUTHOR,
-    METADATA_KEY_COMPOSER
+    METADATA_KEY_COMPOSER,
+    METADATA_KEY_DISPLAY_SUBTITLE
   };
 
   final Bundle mBundle;

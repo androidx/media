@@ -23,10 +23,12 @@ import android.media.MediaFormat;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.mediacodec.MediaCodecUtil;
+import androidx.media3.transformer.EncoderUtil;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Ints;
 import java.nio.ByteBuffer;
+import java.util.List;
 import org.junit.rules.ExternalResource;
 import org.robolectric.shadows.MediaCodecInfoBuilder;
 import org.robolectric.shadows.ShadowMediaCodec;
@@ -87,7 +89,7 @@ public final class ShadowMediaCodecConfig extends ExternalResource {
 
   public static final CodecInfo CODEC_INFO_AVC =
       new CodecInfo(
-          /* codecName= */ "exotest.video.avc",
+          /* codecName= */ "media3.video.avc",
           MimeTypes.VIDEO_H264,
           /* profileLevels= */ ImmutableList.of(
               createCodecProfileLevel(
@@ -96,7 +98,7 @@ public final class ShadowMediaCodecConfig extends ExternalResource {
               MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible));
   public static final CodecInfo CODEC_INFO_HEVC =
       new CodecInfo(
-          /* codecName= */ "exotest.video.hevc",
+          /* codecName= */ "media3.video.hevc",
           MimeTypes.VIDEO_H265,
           /* profileLevels= */ ImmutableList.of(
               createCodecProfileLevel(
@@ -105,7 +107,7 @@ public final class ShadowMediaCodecConfig extends ExternalResource {
               MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible));
   public static final CodecInfo CODEC_INFO_MPEG2 =
       new CodecInfo(
-          /* codecName= */ "exotest.video.mpeg2",
+          /* codecName= */ "media3.video.mpeg2",
           MimeTypes.VIDEO_MPEG2,
           /* profileLevels= */ ImmutableList.of(
               createCodecProfileLevel(
@@ -114,42 +116,44 @@ public final class ShadowMediaCodecConfig extends ExternalResource {
               MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible));
   public static final CodecInfo CODEC_INFO_VP9 =
       new CodecInfo(
-          /* codecName= */ "exotest.video.vp9",
+          /* codecName= */ "media3.video.vp9",
           MimeTypes.VIDEO_VP9,
           /* profileLevels= */ ImmutableList.of(),
           /* colorFormats= */ ImmutableList.of(
               MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible));
   public static final CodecInfo CODEC_INFO_AV1 =
       new CodecInfo(
-          /* codecName= */ "exotest.video.av1",
+          /* codecName= */ "media3.video.av1",
           MimeTypes.VIDEO_AV1,
           /* profileLevels= */ ImmutableList.of(),
           /* colorFormats= */ ImmutableList.of(
               MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible));
   public static final CodecInfo CODEC_INFO_AAC =
-      new CodecInfo(/* codecName= */ "exotest.audio.aac", MimeTypes.AUDIO_AAC);
+      new CodecInfo(/* codecName= */ "media3.audio.aac", MimeTypes.AUDIO_AAC);
   public static final CodecInfo CODEC_INFO_AC3 =
-      new CodecInfo(/* codecName= */ "exotest.audio.ac3", MimeTypes.AUDIO_AC3);
+      new CodecInfo(/* codecName= */ "media3.audio.ac3", MimeTypes.AUDIO_AC3);
   public static final CodecInfo CODEC_INFO_AC4 =
-      new CodecInfo(/* codecName= */ "exotest.audio.ac4", MimeTypes.AUDIO_AC4);
+      new CodecInfo(/* codecName= */ "media3.audio.ac4", MimeTypes.AUDIO_AC4);
+  public static final CodecInfo CODEC_INFO_AMR_NB =
+      new CodecInfo(/* codecName= */ "media3.audio.amrnb", MimeTypes.AUDIO_AMR_NB);
   public static final CodecInfo CODEC_INFO_E_AC3 =
-      new CodecInfo(/* codecName= */ "exotest.audio.eac3", MimeTypes.AUDIO_E_AC3);
+      new CodecInfo(/* codecName= */ "media3.audio.eac3", MimeTypes.AUDIO_E_AC3);
   public static final CodecInfo CODEC_INFO_E_AC3_JOC =
-      new CodecInfo(/* codecName= */ "exotest.audio.eac3joc", MimeTypes.AUDIO_E_AC3_JOC);
+      new CodecInfo(/* codecName= */ "media3.audio.eac3joc", MimeTypes.AUDIO_E_AC3_JOC);
   public static final CodecInfo CODEC_INFO_FLAC =
-      new CodecInfo(/* codecName= */ "exotest.audio.flac", MimeTypes.AUDIO_FLAC);
+      new CodecInfo(/* codecName= */ "media3.audio.flac", MimeTypes.AUDIO_FLAC);
   public static final CodecInfo CODEC_INFO_MPEG =
-      new CodecInfo(/* codecName= */ "exotest.audio.mpeg", MimeTypes.AUDIO_MPEG);
+      new CodecInfo(/* codecName= */ "media3.audio.mpeg", MimeTypes.AUDIO_MPEG);
   public static final CodecInfo CODEC_INFO_MPEG_L2 =
-      new CodecInfo(/* codecName= */ "exotest.audio.mpegl2", MimeTypes.AUDIO_MPEG_L2);
+      new CodecInfo(/* codecName= */ "media3.audio.mpegl2", MimeTypes.AUDIO_MPEG_L2);
   public static final CodecInfo CODEC_INFO_OPUS =
-      new CodecInfo(/* codecName= */ "exotest.audio.opus", MimeTypes.AUDIO_OPUS);
+      new CodecInfo(/* codecName= */ "media3.audio.opus", MimeTypes.AUDIO_OPUS);
   public static final CodecInfo CODEC_INFO_VORBIS =
-      new CodecInfo(/* codecName= */ "exotest.audio.vorbis", MimeTypes.AUDIO_VORBIS);
+      new CodecInfo(/* codecName= */ "media3.audio.vorbis", MimeTypes.AUDIO_VORBIS);
   // In ExoPlayer, raw audio should use a bypass mode and never need this codec. However, to easily
   // assert failures of the bypass mode we want to detect when the raw audio is decoded by this
   public static final CodecInfo CODEC_INFO_RAW =
-      new CodecInfo(/* codecName= */ "exotest.audio.raw", MimeTypes.AUDIO_RAW);
+      new CodecInfo(/* codecName= */ "media3.audio.raw", MimeTypes.AUDIO_RAW);
 
   private static final ImmutableSet<CodecInfo> ALL_SUPPORTED_CODECS =
       ImmutableSet.of(
@@ -173,7 +177,7 @@ public final class ShadowMediaCodecConfig extends ExternalResource {
   /**
    * @deprecated Use {@link ShadowMediaCodecConfig#withAllDefaultSupportedCodecs()} instead.
    */
-  // TODO(b/399861060): Remove in Media3 1.8.
+  // TODO(b/406437316): Remove in Media3 1.8.
   @Deprecated
   public static ShadowMediaCodecConfig forAllSupportedMimeTypes() {
     return withAllDefaultSupportedCodecs();
@@ -194,7 +198,7 @@ public final class ShadowMediaCodecConfig extends ExternalResource {
   /**
    * @deprecated Use {@link ShadowMediaCodecConfig#withNoDefaultSupportedCodecs()} instead.
    */
-  // TODO(b/399861060): Remove in Media3 1.8.
+  // TODO(b/406437316): Remove in Media3 1.8.
   @Deprecated
   public static ShadowMediaCodecConfig withNoDefaultSupportedMimeTypes() {
     return withNoDefaultSupportedCodecs();
@@ -203,6 +207,20 @@ public final class ShadowMediaCodecConfig extends ExternalResource {
   /** Returns a {@link ShadowMediaCodecConfig} instance populated with no shadow codecs. */
   public static ShadowMediaCodecConfig withNoDefaultSupportedCodecs() {
     return new ShadowMediaCodecConfig(ImmutableSet.of());
+  }
+
+  /**
+   * Returns a {@link ShadowMediaCodecConfig} instance configured with the provided {@code decoders}
+   * and {@code encoders}.
+   *
+   * <p>All codecs will work as passthrough, regardless of type.
+   */
+  public static ShadowMediaCodecConfig withCodecs(
+      List<CodecInfo> decoders, List<CodecInfo> encoders) {
+    ImmutableSet.Builder<CodecImpl> codecs = new ImmutableSet.Builder<>();
+    codecs.addAll(createDecoders(decoders, /* forcePassthrough= */ true));
+    codecs.addAll(createEncoders(encoders));
+    return new ShadowMediaCodecConfig(codecs.build());
   }
 
   private final ImmutableSet<CodecImpl> defaultCodecs;
@@ -267,6 +285,39 @@ public final class ShadowMediaCodecConfig extends ExternalResource {
     }
   }
 
+  /**
+   * Configures and publishes {@linkplain ShadowMediaCodec shadow encoders} based on {@code
+   * encoders}.
+   *
+   * <p>This method configures pass-through encoders.
+   */
+  public void addEncoders(CodecInfo... encoders) {
+    for (CodecInfo encoderInfo : encoders) {
+      CodecImpl encoder = CodecImpl.createEncoder(encoderInfo);
+      encoder.configure();
+    }
+  }
+
+  /**
+   * Configures and publishes a {@link ShadowMediaCodec} codec.
+   *
+   * <p>Input buffers are handled according to the {@link ShadowMediaCodec.CodecConfig} provided.
+   *
+   * @param codecInfo Basic codec information.
+   * @param isEncoder Whether the codecs registered are encoders or decoders.
+   * @param codecConfig Codec configuration implementation of the shadow.
+   */
+  public void addCodec(
+      CodecInfo codecInfo, boolean isEncoder, ShadowMediaCodec.CodecConfig codecConfig) {
+    configureShadowMediaCodec(
+        codecInfo.codecName,
+        codecInfo.mimeType,
+        isEncoder,
+        codecInfo.profileLevels,
+        codecInfo.colorFormats,
+        codecConfig);
+  }
+
   @Override
   protected void before() throws Throwable {
     for (CodecImpl codec : this.defaultCodecs) {
@@ -277,12 +328,13 @@ public final class ShadowMediaCodecConfig extends ExternalResource {
   @Override
   protected void after() {
     MediaCodecUtil.clearDecoderInfoCache();
+    EncoderUtil.clearCachedEncoders();
     ShadowMediaCodecList.reset();
     ShadowMediaCodec.clearCodecs();
   }
 
   private static ImmutableSet<CodecImpl> createDecoders(
-      ImmutableList<CodecInfo> decoderInfos, boolean forcePassthrough) {
+      List<CodecInfo> decoderInfos, boolean forcePassthrough) {
     ImmutableSet.Builder<CodecImpl> builder = new ImmutableSet.Builder<>();
     for (CodecInfo info : decoderInfos) {
       if (!forcePassthrough && MimeTypes.isAudio(info.mimeType)) {
@@ -290,6 +342,14 @@ public final class ShadowMediaCodecConfig extends ExternalResource {
       } else {
         builder.add(CodecImpl.createPassthroughDecoder(info));
       }
+    }
+    return builder.build();
+  }
+
+  private static ImmutableSet<CodecImpl> createEncoders(List<CodecInfo> encoderInfos) {
+    ImmutableSet.Builder<CodecImpl> builder = new ImmutableSet.Builder<>();
+    for (CodecInfo info : encoderInfos) {
+      builder.add(CodecImpl.createEncoder(info));
     }
     return builder.build();
   }
@@ -310,6 +370,10 @@ public final class ShadowMediaCodecConfig extends ExternalResource {
 
     public static CodecImpl createPassthroughDecoder(CodecInfo codecInfo) {
       return new CodecImpl(codecInfo, /* isPassthrough= */ true, /* isEncoder= */ false);
+    }
+
+    public static CodecImpl createEncoder(CodecInfo codecInfo) {
+      return new CodecImpl(codecInfo, /* isPassthrough= */ true, /* isEncoder= */ true);
     }
 
     /**

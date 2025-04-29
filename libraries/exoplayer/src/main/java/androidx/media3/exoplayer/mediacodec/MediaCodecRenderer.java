@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.mediacodec;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
@@ -839,7 +840,6 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
       throws ExoPlaybackException {
     if (messageType == MSG_SET_WAKEUP_LISTENER) {
       wakeupListener = checkNotNull((WakeupListener) message);
-      onWakeupListenerSet(wakeupListener);
     } else {
       super.handleMessage(messageType, message);
     }
@@ -946,9 +946,9 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
       return true;
     }
     if (codecDrainAction == DRAIN_ACTION_FLUSH_AND_UPDATE_DRM_SESSION) {
-      checkState(Util.SDK_INT >= 23); // Implied by DRAIN_ACTION_FLUSH_AND_UPDATE_DRM_SESSION
+      checkState(SDK_INT >= 23); // Implied by DRAIN_ACTION_FLUSH_AND_UPDATE_DRM_SESSION
       // Needed to keep lint happy (it doesn't understand the checkState call alone)
-      if (Util.SDK_INT >= 23) {
+      if (SDK_INT >= 23) {
         try {
           updateDrmSessionV23();
         } catch (ExoPlaybackException e) {
@@ -1216,7 +1216,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     long codecInitializedTimestamp;
     String codecName = codecInfo.name;
     float codecOperatingRate =
-        Util.SDK_INT < 23
+        SDK_INT < 23
             ? CODEC_OPERATING_RATE_UNSET
             : getCodecOperatingRateV23(targetPlaybackSpeed, inputFormat, getStreamFormats());
     if (codecOperatingRate <= assumedMinimumCodecOperatingRate) {
@@ -1225,7 +1225,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     codecInitializingTimestamp = getClock().elapsedRealtime();
     MediaCodecAdapter.Configuration configuration =
         getMediaCodecConfiguration(codecInfo, inputFormat, crypto, codecOperatingRate);
-    if (Util.SDK_INT >= 31) {
+    if (SDK_INT >= 31) {
       Api31.setLogSessionIdToMediaCodecFormat(configuration, getPlayerId());
     }
     try {
@@ -1547,17 +1547,6 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   }
 
   /**
-   * Called when a {@link WakeupListener} is set.
-   *
-   * <p>The default implementation is a no-op.
-   *
-   * @param wakeupListener The {@link WakeupListener}.
-   */
-  protected void onWakeupListenerSet(WakeupListener wakeupListener) {
-    // Do nothing.
-  }
-
-  /**
    * Called when a new {@link Format} is read from the upstream {@link MediaPeriod}.
    *
    * @param formatHolder A {@link FormatHolder} that holds the new {@link Format}.
@@ -1622,7 +1611,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
           DISCARD_REASON_DRM_SESSION_CHANGED);
     }
     boolean drainAndUpdateCodecDrmSession = sourceDrmSession != codecDrmSession;
-    Assertions.checkState(!drainAndUpdateCodecDrmSession || Util.SDK_INT >= 23);
+    Assertions.checkState(!drainAndUpdateCodecDrmSession || SDK_INT >= 23);
 
     DecoderReuseEvaluation evaluation = canReuseCodec(codecInfo, oldFormat, newFormat);
     @DecoderDiscardReasons int overridingDiscardReasons = 0;
@@ -1911,7 +1900,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
    * @return False if codec release and re-initialization was triggered. True in all other cases.
    */
   private boolean updateCodecOperatingRate(@Nullable Format format) throws ExoPlaybackException {
-    if (Util.SDK_INT < 23) {
+    if (SDK_INT < 23) {
       return true;
     }
 
@@ -2335,7 +2324,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
       return true;
     }
 
-    if (Util.SDK_INT < 23) {
+    if (SDK_INT < 23) {
       // MediaCrypto.setMediaDrmSession is only available from API level 23, so re-initialization is
       // required to switch to newSession on older API levels.
       return true;
@@ -2584,14 +2573,14 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
    * @return The mode specifying when the adaptation workaround should be enabled.
    */
   private @AdaptationWorkaroundMode int codecAdaptationWorkaroundMode(String name) {
-    if (Util.SDK_INT <= 25
+    if (SDK_INT <= 25
         && "OMX.Exynos.avc.dec.secure".equals(name)
         && (Build.MODEL.startsWith("SM-T585")
             || Build.MODEL.startsWith("SM-A510")
             || Build.MODEL.startsWith("SM-A520")
             || Build.MODEL.startsWith("SM-J700"))) {
       return ADAPTATION_WORKAROUND_MODE_ALWAYS;
-    } else if (Util.SDK_INT < 24
+    } else if (SDK_INT < 24
         && ("OMX.Nvidia.h264.decode".equals(name) || "OMX.Nvidia.h264.decode.secure".equals(name))
         && ("flounder".equals(Build.DEVICE)
             || "flounder_lte".equals(Build.DEVICE)
@@ -2617,7 +2606,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
    *     {@link MediaFormat}. False otherwise.
    */
   private static boolean codecNeedsSosFlushWorkaround(String name) {
-    return Util.SDK_INT == 29 && "c2.android.aac.decoder".equals(name);
+    return SDK_INT == 29 && "c2.android.aac.decoder".equals(name);
   }
 
   /**
@@ -2634,8 +2623,8 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
    */
   private static boolean codecNeedsEosPropagationWorkaround(MediaCodecInfo codecInfo) {
     String name = codecInfo.name;
-    return (Util.SDK_INT <= 25 && "OMX.rk.video_decoder.avc".equals(name))
-        || (Util.SDK_INT <= 29
+    return (SDK_INT <= 25 && "OMX.rk.video_decoder.avc".equals(name))
+        || (SDK_INT <= 29
             && ("OMX.broadcom.video_decoder.tunnel".equals(name)
                 || "OMX.broadcom.video_decoder.tunnel.secure".equals(name)
                 || "OMX.bcm.vdec.avc.tunnel".equals(name)
@@ -2659,7 +2648,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
    *     buffer with {@link MediaCodec#BUFFER_FLAG_END_OF_STREAM} set. False otherwise.
    */
   private static boolean codecNeedsEosFlushWorkaround(String name) {
-    return Util.SDK_INT <= 23 && "OMX.google.vorbis.decoder".equals(name);
+    return SDK_INT <= 23 && "OMX.google.vorbis.decoder".equals(name);
   }
 
   /**
@@ -2674,7 +2663,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
    * @return True if the decoder may throw an exception after receiving an end-of-stream buffer.
    */
   private static boolean codecNeedsEosOutputExceptionWorkaround(String name) {
-    return Util.SDK_INT == 21 && "OMX.google.aac.decoder".equals(name);
+    return SDK_INT == 21 && "OMX.google.aac.decoder".equals(name);
   }
 
   private static final class OutputStreamInfo {

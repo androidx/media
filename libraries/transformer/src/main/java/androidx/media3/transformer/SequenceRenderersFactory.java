@@ -15,18 +15,19 @@
  */
 package androidx.media3.transformer;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.PlaybackException.ERROR_CODE_AUDIO_TRACK_WRITE_FAILED;
 import static androidx.media3.common.PlaybackException.ERROR_CODE_VIDEO_FRAME_PROCESSING_FAILED;
 import static androidx.media3.common.PlaybackException.ERROR_CODE_VIDEO_FRAME_PROCESSOR_INIT_FAILED;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
-import static androidx.media3.common.util.Util.SDK_INT;
 import static androidx.media3.exoplayer.DefaultRenderersFactory.DEFAULT_ALLOWED_VIDEO_JOINING_TIME_MS;
 import static androidx.media3.exoplayer.DefaultRenderersFactory.MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY;
 import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_IMMEDIATELY;
 import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED;
 import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_WHEN_STARTED;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -499,7 +500,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     private long streamStartPositionUs;
     private boolean mayRenderStartOfStream;
     private @VideoSink.FirstFrameReleaseInstruction int nextFirstFrameReleaseInstruction;
-    private long offsetToCompositionTimeUs;
+    private @MonotonicNonNull WakeupListener wakeupListener;
 
     public SequenceImageRenderer(
         EditedMediaItemSequence sequence,
@@ -523,9 +524,17 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           mayRenderStartOfStream
               ? RELEASE_FIRST_FRAME_IMMEDIATELY
               : RELEASE_FIRST_FRAME_WHEN_STARTED;
-      // TODO: b/328444280 - Do not set a listener on VideoSink, but MediaCodecVideoRenderer must
-      //  unregister itself as a listener too.
-      videoSink.setListener(VideoSink.Listener.NO_OP, /* executor= */ (runnable) -> {});
+      // TODO: b/328444280 - Unregister as a listener when the renderer is not used anymore
+      videoSink.setListener(
+          new VideoSink.Listener() {
+            @Override
+            public void onFrameAvailableForRendering() {
+              if (wakeupListener != null) {
+                wakeupListener.onWakeup();
+              }
+            }
+          },
+          directExecutor());
     }
 
     @Override
@@ -564,12 +573,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
 
     @Override
-    protected void onStarted() throws ExoPlaybackException {
-      super.onStarted();
-      videoSink.onStarted();
-    }
-
-    @Override
     protected boolean maybeInitializeProcessingPipeline() throws ExoPlaybackException {
       if (videoSink.isInitialized()) {
         return true;
@@ -580,12 +583,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       } catch (VideoSink.VideoSinkException e) {
         throw createRendererException(e, format, ERROR_CODE_VIDEO_FRAME_PROCESSOR_INIT_FAILED);
       }
-    }
-
-    @Override
-    protected void onStopped() {
-      super.onStopped();
-      videoSink.onStopped();
     }
 
     @Override
@@ -600,7 +597,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       // The media item might have been repeated in the sequence.
       int mediaItemIndex = getTimeline().getIndexOfPeriod(mediaPeriodId.periodUid);
       currentEditedMediaItem = sequence.editedMediaItems.get(mediaItemIndex);
-      offsetToCompositionTimeUs = getOffsetToCompositionTimeUs(sequence, mediaItemIndex, offsetUs);
+      long offsetToCompositionTimeUs =
+          getOffsetToCompositionTimeUs(sequence, mediaItemIndex, offsetUs);
       videoSink.setBufferTimestampAdjustmentUs(offsetToCompositionTimeUs);
       timestampIterator = createTimestampIterator(/* positionUs= */ startPositionUs);
       videoEffects = currentEditedMediaItem.effects.videoEffects;
@@ -658,21 +656,17 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     public void handleMessage(@MessageType int messageType, @Nullable Object message)
         throws ExoPlaybackException {
       if (messageType == MSG_SET_WAKEUP_LISTENER) {
-        videoSink.setWakeupListener((WakeupListener) checkNotNull(message));
+        this.wakeupListener = (WakeupListener) checkNotNull(message);
       } else {
         super.handleMessage(messageType, message);
       }
     }
 
     private ConstantRateTimestampIterator createTimestampIterator(long positionUs) {
-      long streamOffsetUs = getStreamOffsetUs();
-      long imageBaseTimestampUs = streamOffsetUs + offsetToCompositionTimeUs;
-      long positionWithinImage = positionUs - streamOffsetUs;
-      long firstBitmapTimeUs = imageBaseTimestampUs + positionWithinImage;
       long lastBitmapTimeUs =
-          imageBaseTimestampUs + checkNotNull(currentEditedMediaItem).getPresentationDurationUs();
+          getStreamOffsetUs() + checkNotNull(currentEditedMediaItem).getPresentationDurationUs();
       return new ConstantRateTimestampIterator(
-          /* startPositionUs= */ firstBitmapTimeUs,
+          /* startPositionUs= */ positionUs,
           /* endPositionUs= */ lastBitmapTimeUs,
           DEFAULT_FRAME_RATE);
     }

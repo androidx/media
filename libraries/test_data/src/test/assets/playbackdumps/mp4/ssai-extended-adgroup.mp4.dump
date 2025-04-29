@@ -1,4 +1,4 @@
-MediaCodecAdapter (exotest.audio.aac):
+MediaCodecAdapter (media3.audio.aac):
   inputBuffers:
     count = 44
     input buffer #0:
@@ -308,7 +308,7 @@ MediaCodecAdapter (exotest.audio.aac):
       timeUs = 1000001019238
       size = 0
       rendered = false
-MediaCodecAdapter (exotest.video.avc):
+MediaCodecAdapter (media3.video.avc):
   inputBuffers:
     count = 31
     input buffer #0:

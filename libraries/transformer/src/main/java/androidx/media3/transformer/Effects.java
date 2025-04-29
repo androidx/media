@@ -68,9 +68,9 @@ public final class Effects {
    * <p>The {@linkplain AudioProcessor audio processor} and {@linkplain Effect video effect} are
    * interlinked to help maintain A/V sync. When using Transformer, if the input file doesn't have
    * audio, or audio is being removed, you may have to {@linkplain
-   * Composition.Builder#experimentalSetForceAudioTrack force an audio track} for the interlinked
-   * effects to function correctly. Alternatively, you can use {@link SpeedChangeEffect} when input
-   * has no audio.
+   * EditedMediaItemSequence.Builder#experimentalSetForceAudioTrack force an audio track} for the
+   * interlinked effects to function correctly. Alternatively, you can use {@link SpeedChangeEffect}
+   * when input has no audio.
    *
    * @param speedProvider The {@link SpeedProvider} determining the speed for the media at specific
    *     timestamps.

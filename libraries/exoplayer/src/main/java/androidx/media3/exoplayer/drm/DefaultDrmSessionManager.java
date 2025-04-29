@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.drm;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
@@ -593,7 +594,7 @@ public class DefaultDrmSessionManager implements DrmSessionManager {
     } else if (C.CENC_TYPE_cbcs.equals(schemeType)) {
       // Support for cbcs (AES-CBC with pattern encryption) was added in API 24. However, the
       // implementation was not stable until API 25.
-      return Util.SDK_INT >= 25;
+      return SDK_INT >= 25;
     } else if (C.CENC_TYPE_cbc1.equals(schemeType) || C.CENC_TYPE_cens.equals(schemeType)) {
       // Support for cbc1 (AES-CTR with pattern encryption) and cens (AES-CBC without pattern
       // encryption) was also added in API 24 and made stable from API 25, however support was

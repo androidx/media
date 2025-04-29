@@ -8,6 +8,7 @@ track 0:
   sample count = 30
   track duration = 134000
   format 0:
+    averageBitrate = 2939595
     id = 1
     containerMimeType = video/mp4
     sampleMimeType = video/avc
@@ -157,6 +158,7 @@ track 1:
     channelCount = 1
     sampleRate = 44100
     language = und
+    metadata = entries=[Mp4AlternateGroup: 1]
     initializationData:
       data = length 5, hash 2B7623A
   sample 0:

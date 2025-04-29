@@ -30,42 +30,42 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.PriorityQueue;
 
-/** A queue of SEI messages, ordered by presentation timestamp. */
+/** A queue of buffers, ordered by presentation timestamp. */
 @UnstableApi
 @RestrictTo(LIBRARY_GROUP)
-public final class ReorderingSeiMessageQueue {
+public final class ReorderingBufferQueue {
 
-  /** Functional interface to handle an SEI message that is being removed from the queue. */
-  public interface SeiConsumer {
-    /** Handles an SEI message that is being removed from the queue. */
-    void consume(long presentationTimeUs, ParsableByteArray seiBuffer);
+  /** Functional interface to handle a buffer that is being removed from the queue. */
+  public interface OutputConsumer {
+    /** Handles a buffer that is being removed from the queue. */
+    void consume(long presentationTimeUs, ParsableByteArray buffer);
   }
 
-  private final SeiConsumer seiConsumer;
+  private final OutputConsumer outputConsumer;
 
   /** Pool of re-usable {@link ParsableByteArray} objects to avoid repeated allocations. */
   private final ArrayDeque<ParsableByteArray> unusedParsableByteArrays;
 
-  /** Pool of re-usable {@link SampleSeiMessages} objects to avoid repeated allocations. */
-  private final ArrayDeque<SampleSeiMessages> unusedSampleSeiMessages;
+  /** Pool of re-usable {@link BuffersWithTimestamp} objects to avoid repeated allocations. */
+  private final ArrayDeque<BuffersWithTimestamp> unusedBuffersWithTimestamp;
 
-  private final PriorityQueue<SampleSeiMessages> pendingSeiMessages;
+  private final PriorityQueue<BuffersWithTimestamp> pendingBuffers;
 
   private int reorderingQueueSize;
-  @Nullable private SampleSeiMessages lastQueuedMessage;
+  @Nullable private BuffersWithTimestamp lastQueuedBuffer;
 
   /**
    * Creates an instance, initially with no max size.
    *
-   * @param seiConsumer Callback to invoke when SEI messages are removed from the head of queue,
+   * @param outputConsumer Callback to invoke when buffers are removed from the head of the queue,
    *     either due to exceeding the {@linkplain #setMaxSize(int) max queue size} during a call to
    *     {@link #add(long, ParsableByteArray)}, or due to {@link #flush()}.
    */
-  public ReorderingSeiMessageQueue(SeiConsumer seiConsumer) {
-    this.seiConsumer = seiConsumer;
+  public ReorderingBufferQueue(OutputConsumer outputConsumer) {
+    this.outputConsumer = outputConsumer;
     unusedParsableByteArrays = new ArrayDeque<>();
-    unusedSampleSeiMessages = new ArrayDeque<>();
-    pendingSeiMessages = new PriorityQueue<>();
+    unusedBuffersWithTimestamp = new ArrayDeque<>();
+    pendingBuffers = new PriorityQueue<>();
     reorderingQueueSize = C.LENGTH_UNSET;
   }
 
@@ -73,18 +73,18 @@ public final class ReorderingSeiMessageQueue {
    * Sets the max size of the re-ordering queue.
    *
    * <p>The size is defined in terms of the number of unique presentation timestamps, rather than
-   * the number of messages. This ensures that properties like H.264's {@code
+   * the number of buffers. This ensures that properties like H.264's {@code
    * max_number_reorder_frames} can be used to set this max size in the case of multiple SEI
    * messages per sample (where multiple SEI messages therefore have the same presentation
    * timestamp).
    *
    * <p>When the queue exceeds this size during a call to {@link #add(long, ParsableByteArray)}, the
-   * messages associated with the least timestamp are passed to the {@link SeiConsumer} provided
+   * buffers associated with the least timestamp are passed to the {@link OutputConsumer} provided
    * during construction.
    *
    * <p>If the new size is larger than the number of elements currently in the queue, items are
-   * removed from the head of the queue (least first) and passed to the {@link SeiConsumer} provided
-   * during construction.
+   * removed from the head of the queue (least first) and passed to the {@link OutputConsumer}
+   * provided during construction.
    */
   public void setMaxSize(int reorderingQueueSize) {
     checkState(reorderingQueueSize >= 0);
@@ -102,39 +102,41 @@ public final class ReorderingSeiMessageQueue {
   }
 
   /**
-   * Adds a message to the queue.
+   * Adds a buffer to the queue.
    *
-   * <p>If this causes the queue to exceed its {@linkplain #setMaxSize(int) max size}, messages
-   * associated with the least timestamp (which may be the message passed to this method) are passed
-   * to the {@link SeiConsumer} provided during construction.
+   * <p>If this causes the queue to exceed its {@linkplain #setMaxSize(int) max size}, buffers
+   * associated with the least timestamp (which may be the buffer passed to this method) are passed
+   * to the {@link OutputConsumer} provided during construction.
    *
-   * <p>Messages with matching timestamps must be added consecutively (this will naturally happen
-   * when parsing messages from a container).
+   * <p>buffers with matching timestamps must be added consecutively (this will naturally happen
+   * when parsing buffers from a container).
    *
-   * @param presentationTimeUs The presentation time of the SEI message.
-   * @param seiBuffer The SEI data. The data will be copied, so the provided object can be re-used
+   * @param presentationTimeUs The presentation time of the buffer.
+   * @param buffer The buffer data. The data will be copied, so the provided object can be re-used
    *     after this method returns.
    */
-  public void add(long presentationTimeUs, ParsableByteArray seiBuffer) {
+  public void add(long presentationTimeUs, ParsableByteArray buffer) {
     if (reorderingQueueSize == 0
         || (reorderingQueueSize != C.LENGTH_UNSET
-            && pendingSeiMessages.size() >= reorderingQueueSize
-            && presentationTimeUs < castNonNull(pendingSeiMessages.peek()).presentationTimeUs)) {
-      seiConsumer.consume(presentationTimeUs, seiBuffer);
+            && pendingBuffers.size() >= reorderingQueueSize
+            && presentationTimeUs < castNonNull(pendingBuffers.peek()).presentationTimeUs)) {
+      outputConsumer.consume(presentationTimeUs, buffer);
       return;
     }
-    // Make a local copy of the SEI data so we can store it in the queue and allow the seiBuffer
+    // Make a local copy of the buffer data so we can store it in the queue and allow the buffer
     // parameter to be safely re-used after this add() method returns.
-    ParsableByteArray seiBufferCopy = copy(seiBuffer);
-    if (lastQueuedMessage != null && presentationTimeUs == lastQueuedMessage.presentationTimeUs) {
-      lastQueuedMessage.nalBuffers.add(seiBufferCopy);
+    ParsableByteArray bufferCopy = copy(buffer);
+    if (lastQueuedBuffer != null && presentationTimeUs == lastQueuedBuffer.presentationTimeUs) {
+      lastQueuedBuffer.nalBuffers.add(bufferCopy);
       return;
     }
-    SampleSeiMessages sampleSeiMessages =
-        unusedSampleSeiMessages.isEmpty() ? new SampleSeiMessages() : unusedSampleSeiMessages.pop();
-    sampleSeiMessages.init(presentationTimeUs, seiBufferCopy);
-    pendingSeiMessages.add(sampleSeiMessages);
-    lastQueuedMessage = sampleSeiMessages;
+    BuffersWithTimestamp buffersWithTimestamp =
+        unusedBuffersWithTimestamp.isEmpty()
+            ? new BuffersWithTimestamp()
+            : unusedBuffersWithTimestamp.pop();
+    buffersWithTimestamp.init(presentationTimeUs, bufferCopy);
+    pendingBuffers.add(buffersWithTimestamp);
+    lastQueuedBuffer = buffersWithTimestamp;
     if (reorderingQueueSize != C.LENGTH_UNSET) {
       flushQueueDownToSize(reorderingQueueSize);
     }
@@ -159,13 +161,13 @@ public final class ReorderingSeiMessageQueue {
     return result;
   }
 
-  /** Empties the queue, discarding all previously {@linkplain #add added} messages. */
+  /** Empties the queue, discarding all previously {@linkplain #add added} buffers. */
   public void clear() {
-    pendingSeiMessages.clear();
+    pendingBuffers.clear();
   }
 
   /**
-   * Empties the queue, passing all messages (least first) to the {@link SeiConsumer} provided
+   * Empties the queue, passing all buffers (least first) to the {@link OutputConsumer} provided
    * during construction.
    */
   public void flush() {
@@ -173,29 +175,29 @@ public final class ReorderingSeiMessageQueue {
   }
 
   private void flushQueueDownToSize(int targetSize) {
-    while (pendingSeiMessages.size() > targetSize) {
-      SampleSeiMessages sampleSeiMessages = castNonNull(pendingSeiMessages.poll());
-      for (int i = 0; i < sampleSeiMessages.nalBuffers.size(); i++) {
-        seiConsumer.consume(
-            sampleSeiMessages.presentationTimeUs, sampleSeiMessages.nalBuffers.get(i));
-        unusedParsableByteArrays.push(sampleSeiMessages.nalBuffers.get(i));
+    while (pendingBuffers.size() > targetSize) {
+      BuffersWithTimestamp buffersWithTimestamp = castNonNull(pendingBuffers.poll());
+      for (int i = 0; i < buffersWithTimestamp.nalBuffers.size(); i++) {
+        outputConsumer.consume(
+            buffersWithTimestamp.presentationTimeUs, buffersWithTimestamp.nalBuffers.get(i));
+        unusedParsableByteArrays.push(buffersWithTimestamp.nalBuffers.get(i));
       }
-      sampleSeiMessages.nalBuffers.clear();
-      if (lastQueuedMessage != null
-          && lastQueuedMessage.presentationTimeUs == sampleSeiMessages.presentationTimeUs) {
-        lastQueuedMessage = null;
+      buffersWithTimestamp.nalBuffers.clear();
+      if (lastQueuedBuffer != null
+          && lastQueuedBuffer.presentationTimeUs == buffersWithTimestamp.presentationTimeUs) {
+        lastQueuedBuffer = null;
       }
-      unusedSampleSeiMessages.push(sampleSeiMessages);
+      unusedBuffersWithTimestamp.push(buffersWithTimestamp);
     }
   }
 
-  /** Holds the presentation timestamp of a sample and the data from associated SEI messages. */
-  private static final class SampleSeiMessages implements Comparable<SampleSeiMessages> {
+  /** Holds the presentation timestamp of a sample and its associated buffers. */
+  private static final class BuffersWithTimestamp implements Comparable<BuffersWithTimestamp> {
 
     public final List<ParsableByteArray> nalBuffers;
     public long presentationTimeUs;
 
-    public SampleSeiMessages() {
+    public BuffersWithTimestamp() {
       presentationTimeUs = C.TIME_UNSET;
       nalBuffers = new ArrayList<>();
     }
@@ -208,7 +210,7 @@ public final class ReorderingSeiMessageQueue {
     }
 
     @Override
-    public int compareTo(SampleSeiMessages other) {
+    public int compareTo(BuffersWithTimestamp other) {
       return Long.compare(this.presentationTimeUs, other.presentationTimeUs);
     }
   }

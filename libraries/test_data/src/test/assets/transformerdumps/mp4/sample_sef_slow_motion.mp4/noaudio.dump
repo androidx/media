@@ -1,4 +1,5 @@
 format video:
+  averageBitrate = 118406
   id = 2
   containerMimeType = video/mp4
   sampleMimeType = video/avc

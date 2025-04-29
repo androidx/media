@@ -17,6 +17,7 @@ package androidx.media3.common.util;
 
 import static android.opengl.EGL14.EGL_CONTEXT_CLIENT_VERSION;
 import static android.opengl.GLU.gluErrorString;
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkState;
 
@@ -169,18 +170,17 @@ public final class GlUtil {
    * <p>If {@code true}, the device supports a protected output path for DRM content when using GL.
    */
   public static boolean isProtectedContentExtensionSupported(Context context) {
-    if (Util.SDK_INT < 24) {
+    if (SDK_INT < 24) {
       return false;
     }
-    if (Util.SDK_INT < 26
-        && ("samsung".equals(Build.MANUFACTURER) || "XT1650".equals(Build.MODEL))) {
+    if (SDK_INT < 26 && ("samsung".equals(Build.MANUFACTURER) || "XT1650".equals(Build.MODEL))) {
       // Samsung devices running Nougat are known to be broken. See
       // https://github.com/google/ExoPlayer/issues/3373 and [Internal: b/37197802].
       // Moto Z XT1650 is also affected. See
       // https://github.com/google/ExoPlayer/issues/3215.
       return false;
     }
-    if (Util.SDK_INT < 26
+    if (SDK_INT < 26
         && !context
             .getPackageManager()
             .hasSystemFeature(PackageManager.FEATURE_VR_MODE_HIGH_PERFORMANCE)) {
@@ -242,7 +242,7 @@ public final class GlUtil {
   public static boolean isBt2020PqExtensionSupported() {
     // On API<33, the system cannot display PQ content correctly regardless of whether BT2020 PQ
     // GL extension is supported. Context: http://b/252537203#comment5.
-    return Util.SDK_INT >= 33 && isExtensionSupported(EXTENSION_COLORSPACE_BT2020_PQ);
+    return SDK_INT >= 33 && isExtensionSupported(EXTENSION_COLORSPACE_BT2020_PQ);
   }
 
   /** Returns whether {@link #EXTENSION_COLORSPACE_BT2020_HLG} is supported. */

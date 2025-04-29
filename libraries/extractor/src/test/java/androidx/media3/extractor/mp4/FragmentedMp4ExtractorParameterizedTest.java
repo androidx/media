@@ -89,7 +89,27 @@ public final class FragmentedMp4ExtractorParameterizedTest {
   }
 
   @Test
-  public void sampleSeekableWithMultipleSidx() throws Exception {
+  public void sampleSeekable_multipleSidx_noMerging() throws Exception {
+    String file = "media/mp4/sample_fragmented_seekable_multiple_sidx.mp4";
+    ExtractorAsserts.assertBehavior(
+        () ->
+            new FragmentedMp4Extractor(
+                /* subtitleParserFactory= */ new DefaultSubtitleParserFactory(),
+                /* flags= */ 0,
+                /* timestampAdjuster= */ null,
+                /* sideloadedTrack= */ null,
+                /* closedCaptionFormats= */ ImmutableList.of(),
+                /* additionalEmsgTrackOutput= */ null),
+        file,
+        new ExtractorAsserts.AssertionConfig.Builder()
+            .setDumpFilesPrefix(
+                file.replaceFirst("media", "extractordumps") + ".no-merge-fragmented-sidx")
+            .build(),
+        simulationConfig);
+  }
+
+  @Test
+  public void sampleSeekable_multipleSidx_mergingEnabled() throws Exception {
     String file = "media/mp4/sample_fragmented_seekable_multiple_sidx.mp4";
     ExtractorAsserts.assertBehavior(
         () ->
@@ -101,6 +121,10 @@ public final class FragmentedMp4ExtractorParameterizedTest {
                 /* closedCaptionFormats= */ ImmutableList.of(),
                 /* additionalEmsgTrackOutput= */ null),
         file,
+        new ExtractorAsserts.AssertionConfig.Builder()
+            .setDumpFilesPrefix(
+                file.replaceFirst("media", "extractordumps") + ".merge-fragmented-sidx")
+            .build(),
         simulationConfig);
   }
 

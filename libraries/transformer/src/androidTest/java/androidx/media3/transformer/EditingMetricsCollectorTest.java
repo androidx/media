@@ -15,6 +15,7 @@
  */
 package androidx.media3.transformer;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Util.usToMs;
 import static androidx.media3.transformer.AndroidTestUtil.JPG_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
@@ -37,7 +38,6 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.Metadata;
-import androidx.media3.common.util.Util;
 import androidx.media3.muxer.MuxerException;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
@@ -76,7 +76,7 @@ public class EditingMetricsCollectorTest {
 
   @Test
   public void export_usePlatformDiagnosticsDisabled_doesNotCollectMetrics() throws Exception {
-    if (Util.SDK_INT < 35) {
+    if (SDK_INT < 35) {
       String reason = "Metrics collection is unsupported below API 35.";
       recordTestSkipped(context, testId, reason);
       throw new AssumptionViolatedException(reason);
@@ -108,7 +108,7 @@ public class EditingMetricsCollectorTest {
 
   @Test
   public void exportSuccess_populatesEditingEndedEvent() throws Exception {
-    assumeTrue("Reporting metrics requires API 35", Util.SDK_INT >= 35);
+    assumeTrue("Reporting metrics requires API 35", SDK_INT >= 35);
     assumeFormatsSupported(
         context,
         testId,
@@ -242,7 +242,7 @@ public class EditingMetricsCollectorTest {
 
   @Test
   public void exportError_populatesEditingEndedEvent() throws Exception {
-    assumeTrue("Reporting metrics requires API 35", Util.SDK_INT >= 35);
+    assumeTrue("Reporting metrics requires API 35", SDK_INT >= 35);
     assumeFormatsSupported(
         context,
         testId,
@@ -285,7 +285,7 @@ public class EditingMetricsCollectorTest {
 
   @Test
   public void exportCancelled_populatesEditingEndedEvent() throws Exception {
-    assumeTrue("Reporting metrics requires API 35", Util.SDK_INT >= 35);
+    assumeTrue("Reporting metrics requires API 35", SDK_INT >= 35);
     assumeFormatsSupported(
         context,
         testId,
@@ -331,7 +331,7 @@ public class EditingMetricsCollectorTest {
 
   @Test
   public void exportTwice_createsUniqueSessions() throws Exception {
-    assumeTrue("Reporting metrics requires API 35", Util.SDK_INT >= 35);
+    assumeTrue("Reporting metrics requires API 35", SDK_INT >= 35);
     assumeFormatsSupported(
         context,
         testId,

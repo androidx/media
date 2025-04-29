@@ -72,6 +72,7 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
  *         <li>H.265 (HEVC)
  *         <li>VP9
  *         <li>APV
+ *         <li>Dolby Vision
  *       </ul>
  *   <li>Audio Codecs:
  *       <ul>
@@ -354,7 +355,8 @@ public final class Mp4Muxer implements AutoCloseable {
           MimeTypes.VIDEO_H265,
           MimeTypes.VIDEO_MP4V,
           MimeTypes.VIDEO_VP9,
-          MimeTypes.VIDEO_APV);
+          MimeTypes.VIDEO_APV,
+          MimeTypes.VIDEO_DOLBY_VISION);
 
   /** A list of supported audio {@linkplain MimeTypes sample MIME types}. */
   public static final ImmutableList<String> SUPPORTED_AUDIO_SAMPLE_MIME_TYPES =

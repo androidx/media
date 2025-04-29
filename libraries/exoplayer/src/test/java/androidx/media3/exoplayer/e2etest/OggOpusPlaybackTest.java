@@ -52,7 +52,7 @@ public final class OggOpusPlaybackTest {
 
   @Rule
   public ShadowMediaCodecConfig mediaCodecConfig =
-      ShadowMediaCodecConfig.forAllSupportedMimeTypes();
+      ShadowMediaCodecConfig.withAllDefaultSupportedCodecs();
 
   public FakeClock fakeClock;
   public OffloadRenderersFactory offloadRenderersFactory;

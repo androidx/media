@@ -17,6 +17,7 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
+import static androidx.media3.common.util.Util.percentInt;
 import static androidx.media3.exoplayer.DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS;
 import static androidx.media3.exoplayer.DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_MS;
 import static androidx.media3.exoplayer.DefaultLoadControl.DEFAULT_MAX_BUFFER_MS;
@@ -272,8 +273,10 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
   public @Transformer.ProgressState int getProgress(ProgressHolder progressHolder) {
     if (progressState == PROGRESS_STATE_AVAILABLE) {
       long durationMs = player.getDuration();
-      long positionMs = player.getCurrentPosition();
-      progressHolder.progress = min((int) (positionMs * 100 / durationMs), 99);
+      // The player position can become greater than the duration. This happens if the player is
+      // using a StandaloneMediaClock because the renderers have ended.
+      long positionMs = min(player.getCurrentPosition(), durationMs);
+      progressHolder.progress = percentInt(positionMs, durationMs);
     }
     return progressState;
   }

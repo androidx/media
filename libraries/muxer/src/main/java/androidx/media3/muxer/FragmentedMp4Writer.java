@@ -352,7 +352,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     ImmutableList.Builder<ByteBuffer> pendingSamplesByteBuffer = new ImmutableList.Builder<>();
     ImmutableList.Builder<BufferInfo> pendingSamplesBufferInfoBuilder =
         new ImmutableList.Builder<>();
-    if (doesSampleContainAnnexBNalUnits(checkNotNull(track.format.sampleMimeType))) {
+    if (doesSampleContainAnnexBNalUnits(track.format)) {
       while (!track.pendingSamplesByteBuffer.isEmpty()) {
         ByteBuffer currentSampleByteBuffer = track.pendingSamplesByteBuffer.removeFirst();
         currentSampleByteBuffer =

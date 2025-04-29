@@ -16,6 +16,7 @@
 
 package androidx.media3.transformer;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE_LUMA;
@@ -236,7 +237,7 @@ public final class TransformerMultiSequenceCompositionTest {
   public void export_completesWithConsistentFrameCount() throws Exception {
     assumeFalse(
         "Skipped due to failing video decoder on API 31 emulator",
-        isRunningOnEmulator() && Util.SDK_INT == 31);
+        isRunningOnEmulator() && SDK_INT == 31);
     assumeFormatsSupported(
         context,
         testId,

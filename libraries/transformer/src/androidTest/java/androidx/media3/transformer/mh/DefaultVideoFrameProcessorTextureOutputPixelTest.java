@@ -15,6 +15,7 @@
  */
 package androidx.media3.transformer.mh;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.ColorInfo.SDR_BT709_LIMITED;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE_DIFFERENT_DEVICE;
@@ -49,7 +50,6 @@ import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.GlUtil;
-import androidx.media3.common.util.Util;
 import androidx.media3.effect.BitmapOverlay;
 import androidx.media3.effect.DefaultGlObjectsProvider;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
@@ -946,7 +946,7 @@ public final class DefaultVideoFrameProcessorTextureOutputPixelTest {
   }
 
   private void assumeDeviceSupportsUltraHdrEditing() throws JSONException, IOException {
-    if (Util.SDK_INT < 34) {
+    if (SDK_INT < 34) {
       recordTestSkipped(
           getApplicationContext(), testId, "Ultra HDR is not supported on this API level.");
       throw new AssumptionViolatedException("Ultra HDR is not supported on this API level.");

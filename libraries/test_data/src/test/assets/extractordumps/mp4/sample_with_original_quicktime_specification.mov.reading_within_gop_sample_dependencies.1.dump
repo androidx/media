@@ -11,6 +11,7 @@ track 0:
   sample count = 66
   track duration = 2741666
   format 0:
+    averageBitrate = 12902622
     id = 1
     containerMimeType = video/mp4
     sampleMimeType = video/hevc
@@ -300,6 +301,7 @@ track 1:
   sample count = 20
   track duration = 2633333
   format 0:
+    averageBitrate = 705600
     id = 2
     containerMimeType = video/mp4
     sampleMimeType = audio/raw

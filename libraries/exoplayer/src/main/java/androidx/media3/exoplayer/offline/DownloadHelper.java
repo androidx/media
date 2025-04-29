@@ -830,7 +830,6 @@ public final class DownloadHelper {
    *     to, or {@link C#TIME_UNSET} if the download should cover to the end of the media. If the
    *     {@code endPositionMs} is larger than the duration of the media, then the download will
    *     cover to the end of the media.
-   * @throws IllegalStateException If the media item is of type DASH, HLS or SmoothStreaming.
    */
   public DownloadRequest getDownloadRequest(
       @Nullable byte[] data, long startPositionMs, long durationMs) {
@@ -863,15 +862,11 @@ public final class DownloadHelper {
    *     {@link C#TIME_UNSET} if the download should cover to the end of the media. If the end
    *     position resolved from {@code startPositionMs} and {@code durationMs} is beyond the
    *     duration of the media, then the download will just cover to the end of the media.
-   * @throws IllegalStateException If the media item is of type DASH, HLS or SmoothStreaming.
    */
   public DownloadRequest getDownloadRequest(
       String id, @Nullable byte[] data, long startPositionMs, long durationMs) {
-    checkState(
-        mode == MODE_PREPARE_PROGRESSIVE_SOURCE,
-        "Partial download is only supported for progressive streams");
     DownloadRequest.Builder builder = getDownloadRequestBuilder(id, data);
-    assertPreparedWithProgressiveSource();
+    assertPreparedWithMedia();
     populateDownloadRequestBuilderWithDownloadRange(builder, startPositionMs, durationMs);
     return builder.build();
   }
@@ -906,13 +901,22 @@ public final class DownloadHelper {
 
   private void populateDownloadRequestBuilderWithDownloadRange(
       DownloadRequest.Builder requestBuilder, long startPositionMs, long durationMs) {
+    switch (mode) {
+      case MODE_PREPARE_PROGRESSIVE_SOURCE:
+        populateDownloadRequestBuilderWithByteRange(requestBuilder, startPositionMs, durationMs);
+        break;
+      case MODE_PREPARE_NON_PROGRESSIVE_SOURCE_AND_SELECT_TRACKS:
+        populateDownloadRequestBuilderWithTimeRange(requestBuilder, startPositionMs, durationMs);
+        break;
+      default:
+        break;
+    }
+  }
+
+  private void populateDownloadRequestBuilderWithByteRange(
+      DownloadRequest.Builder requestBuilder, long startPositionMs, long durationMs) {
     assertPreparedWithProgressiveSource();
     Timeline timeline = mediaPreparer.timeline;
-    if (mediaPreparer.mediaPeriods.length > 1) {
-      Log.w(TAG, "Partial download is only supported for single period.");
-      return;
-    }
-
     Timeline.Window window = new Timeline.Window();
     Timeline.Period period = new Timeline.Period();
     long periodStartPositionUs =
@@ -955,6 +959,25 @@ public final class DownloadHelper {
     } else {
       Log.w(TAG, "Cannot set download byte range for progressive stream that is unseekable");
     }
+  }
+
+  private void populateDownloadRequestBuilderWithTimeRange(
+      DownloadRequest.Builder requestBuilder, long startPositionMs, long durationMs) {
+    assertPreparedWithNonProgressiveSourceAndTracksSelected();
+    Timeline timeline = mediaPreparer.timeline;
+    Timeline.Window window = timeline.getWindow(0, new Timeline.Window());
+
+    long startPositionUs =
+        startPositionMs == C.TIME_UNSET
+            ? window.getDefaultPositionUs()
+            : Util.msToUs(startPositionMs);
+    long windowDurationUs = window.getDurationUs();
+    long durationUs = durationMs == C.TIME_UNSET ? windowDurationUs : Util.msToUs(durationMs);
+    if (windowDurationUs != C.TIME_UNSET) {
+      startPositionUs = min(startPositionUs, windowDurationUs);
+      durationUs = min(durationUs, windowDurationUs - startPositionUs);
+    }
+    requestBuilder.setTimeRange(startPositionUs, durationUs);
   }
 
   @RequiresNonNull({

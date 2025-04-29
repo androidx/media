@@ -26,6 +26,7 @@ import android.os.IBinder;
 import android.os.SystemClock;
 import android.util.Pair;
 import androidx.annotation.Nullable;
+import androidx.media3.common.MediaItem.LocalConfiguration;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.BundleCollectionUtil;
 import androidx.media3.common.util.UnstableApi;
@@ -175,14 +176,22 @@ public abstract class Timeline {
     public Object uid;
 
     /**
-     * @deprecated Use {@link #mediaItem} instead.
+     * @deprecated Use {@link LocalConfiguration#tag} of {@link #mediaItem} instead.
      */
     @UnstableApi @Deprecated @Nullable public Object tag;
 
     /** The {@link MediaItem} associated to the window. Not necessarily unique. */
     public MediaItem mediaItem;
 
-    /** The manifest of the window. May be {@code null}. */
+    /**
+     * The manifest of the window. May be {@code null}.
+     *
+     * <p>The concrete type depends on the media sources producing the timeline window. Examples
+     * provided by Media3 media source modules are {@code
+     * androidx.media3.exoplayer.dash.manifest.DashManifest}, {@code
+     * androidx.media3.exoplayer.hls.HlsManifest} and {@code
+     * androidx.media3.exoplayer.smoothstreaming.SSManifest}.
+     */
     @Nullable public Object manifest;
 
     /**
@@ -263,7 +272,7 @@ public abstract class Timeline {
     /** Sets the data held by this window. */
     @CanIgnoreReturnValue
     @UnstableApi
-    @SuppressWarnings("deprecation")
+    @SuppressWarnings("deprecation") // Using Window.tag for backwards compatibility
     public Window set(
         Object uid,
         @Nullable MediaItem mediaItem,

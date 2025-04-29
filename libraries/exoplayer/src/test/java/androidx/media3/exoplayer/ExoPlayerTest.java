@@ -148,6 +148,7 @@ import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.audio.AudioRendererEventListener;
 import androidx.media3.exoplayer.drm.DrmSessionEventListener;
 import androidx.media3.exoplayer.drm.DrmSessionManager;
+import androidx.media3.exoplayer.mediacodec.MediaCodecRenderer;
 import androidx.media3.exoplayer.metadata.MetadataOutput;
 import androidx.media3.exoplayer.source.ClippingMediaSource;
 import androidx.media3.exoplayer.source.ConcatenatingMediaSource;
@@ -262,7 +263,7 @@ public final class ExoPlayerTest {
 
   @Rule
   public ShadowMediaCodecConfig mediaCodecConfig =
-      ShadowMediaCodecConfig.forAllSupportedMimeTypes();
+      ShadowMediaCodecConfig.withAllDefaultSupportedCodecs();
 
   // The explicit boolean parameter is only used to give clear test names.
   @Parameter(0)
@@ -678,9 +679,9 @@ public final class ExoPlayerTest {
   @Test
   public void renderersLifecycle_onlyRenderersThatAreEnabled_areSetToFinal() throws Exception {
     AtomicInteger videoStreamSetToFinalCount = new AtomicInteger();
-    final FakeRenderer videoRenderer = new FakeRenderer(C.TRACK_TYPE_VIDEO);
-    final FakeRenderer audioRenderer = new FakeRenderer(C.TRACK_TYPE_AUDIO);
-    final ForwardingRenderer forwardingVideoRenderer =
+    FakeRenderer videoRenderer = new FakeRenderer(C.TRACK_TYPE_VIDEO);
+    FakeRenderer audioRenderer = new FakeRenderer(C.TRACK_TYPE_AUDIO);
+    ForwardingRenderer forwardingVideoRenderer =
         new ForwardingRenderer(videoRenderer) {
           @Override
           public void setCurrentStreamFinal() {
@@ -693,18 +694,18 @@ public final class ExoPlayerTest {
                 new TestExoPlayerBuilder(context)
                     .setRenderers(forwardingVideoRenderer, audioRenderer))
             .build();
-    // Use media sources with discontinuities so that enabled streams are set to final.
+    // Use media sources with discontinuities so that enabled streams are set to final. Also ensure
+    // to use Formats that are not guaranteed to be only sync samples, so ClippingMediaSource
+    // maintains the initial discontinuity.
+    Format videoFormat = new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_AV1).build();
+    Format audioFormat = new Format.Builder().setSampleMimeType(MimeTypes.AUDIO_DTS).build();
     ClippingMediaSource clippedFakeAudioSource =
-        new ClippingMediaSource.Builder(
-                new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.AUDIO_FORMAT))
+        new ClippingMediaSource.Builder(new FakeMediaSource(new FakeTimeline(), audioFormat))
             .setEndPositionMs(300)
             .build();
     ClippingMediaSource clippedFakeAudioVideoSource =
         new ClippingMediaSource.Builder(
-                new FakeMediaSource(
-                    new FakeTimeline(),
-                    ExoPlayerTestRunner.VIDEO_FORMAT,
-                    ExoPlayerTestRunner.AUDIO_FORMAT))
+                new FakeMediaSource(new FakeTimeline(), videoFormat, audioFormat))
             .setEndPositionMs(300)
             .build();
     player.setMediaSources(
@@ -10594,7 +10595,6 @@ public final class ExoPlayerTest {
     player.release();
   }
 
-  @SuppressWarnings("deprecation") // Checking old volume commands
   @Test
   public void isCommandAvailable_isTrueForAvailableCommands() {
     ExoPlayer player = parameterizeTestExoPlayerBuilder(new TestExoPlayerBuilder(context)).build();
@@ -11783,6 +11783,54 @@ public final class ExoPlayerTest {
     runUntilSleepingForOffload(player, /* expectedSleepForOffload= */ false);
     assertThat(player.isSleepingForOffload()).isFalse();
     runUntilPlaybackState(player, Player.STATE_ENDED);
+
+    player.release();
+  }
+
+  @Test
+  public void enablingOffload_withFastReadingPeriodAdvancement_playerDoesNotSleep()
+      throws Exception {
+    FakeSleepRenderer sleepRenderer = new FakeSleepRenderer(C.TRACK_TYPE_AUDIO);
+    AtomicInteger sleepingForOffloadCounter = new AtomicInteger();
+    ExoPlayer player =
+        parameterizeTestExoPlayerBuilder(
+                new TestExoPlayerBuilder(context).setRenderers(sleepRenderer))
+            .build();
+    ExoPlayer.AudioOffloadListener listener =
+        new ExoPlayer.AudioOffloadListener() {
+          @Override
+          public void onSleepingForOffloadChanged(boolean sleepingForOffload) {
+            if (sleepingForOffload) {
+              sleepingForOffloadCounter.getAndIncrement();
+            }
+          }
+        };
+    player.addAudioOffloadListener(listener);
+    // Set a playlist of multiple, short audio-only items such that the reading period quickly
+    // advances past the playing period.
+    Timeline timeline = new FakeTimeline();
+    player.setMediaSources(
+        ImmutableList.of(
+            new FakeMediaSource(timeline, ExoPlayerTestRunner.AUDIO_FORMAT),
+            new FakeMediaSource(timeline, ExoPlayerTestRunner.AUDIO_FORMAT),
+            new FakeMediaSource(timeline, ExoPlayerTestRunner.AUDIO_FORMAT)));
+    player.setTrackSelectionParameters(
+        player
+            .getTrackSelectionParameters()
+            .buildUpon()
+            .setAudioOffloadPreferences(
+                new AudioOffloadPreferences.Builder()
+                    .setAudioOffloadMode(AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_REQUIRED)
+                    .build())
+            .build());
+    player.prepare();
+    player.play();
+    advance(player).untilStartOfMediaItem(/* mediaItemIndex= */ 1);
+
+    sleepRenderer.sleepOnNextRender();
+    runUntilPlaybackState(player, Player.STATE_ENDED);
+
+    assertThat(sleepingForOffloadCounter.get()).isEqualTo(0);
 
     player.release();
   }
@@ -14138,35 +14186,24 @@ public final class ExoPlayerTest {
             .build();
     // Live stream timeline with unassigned next ad group.
     AdPlaybackState initialAdPlaybackState =
-        new AdPlaybackState(
-                /* adsId= */ new Object(), /* adGroupTimesUs...= */ C.TIME_END_OF_SOURCE)
-            .withIsServerSideInserted(/* adGroupIndex= */ 0, /* isServerSideInserted= */ true)
-            .withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 1)
-            .withAdDurationsUs(new long[][] {new long[] {10 * C.MICROS_PER_SECOND}});
+        new AdPlaybackState(/* adsId= */ new Object())
+            .withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ true);
     // Updated timeline with ad group at 18 seconds.
     long firstSampleTimeUs = TimelineWindowDefinition.DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US;
-    Timeline initialTimeline =
-        new FakeTimeline(
-            new TimelineWindowDefinition(
-                /* periodCount= */ 1,
-                /* id= */ 0,
-                /* isSeekable= */ true,
-                /* isDynamic= */ true,
-                /* durationUs= */ C.TIME_UNSET,
-                initialAdPlaybackState));
+    TimelineWindowDefinition initialTimelineWindowDefinition =
+        new TimelineWindowDefinition.Builder()
+            .setDynamic(true)
+            .setDurationUs(C.TIME_UNSET)
+            .setUid(0)
+            .setAdPlaybackStates(ImmutableList.of(initialAdPlaybackState))
+            .build();
+    Timeline initialTimeline = new FakeTimeline(initialTimelineWindowDefinition);
     AdPlaybackState updatedAdPlaybackState =
-        initialAdPlaybackState.withAdGroupTimeUs(
-            /* adGroupIndex= */ 0,
-            /* adGroupTimeUs= */ firstSampleTimeUs + 18 * C.MICROS_PER_SECOND);
-    Timeline updatedTimeline =
-        new FakeTimeline(
-            new TimelineWindowDefinition(
-                /* periodCount= */ 1,
-                /* id= */ 0,
-                /* isSeekable= */ true,
-                /* isDynamic= */ true,
-                /* durationUs= */ C.TIME_UNSET,
-                updatedAdPlaybackState));
+        initialAdPlaybackState
+            .withNewAdGroup(0, firstSampleTimeUs + 18 * C.MICROS_PER_SECOND)
+            .withIsServerSideInserted(/* adGroupIndex= */ 0, /* isServerSideInserted= */ true)
+            .withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 1)
+            .withAdDurationsUs(/* adGroupIndex= */ 0, new long[] {10 * C.MICROS_PER_SECOND});
     // Add samples to allow player to load and start playing (but no EOS as this is a live stream).
     FakeMediaSource mediaSource =
         new FakeMediaSource(
@@ -14180,16 +14217,26 @@ public final class ExoPlayerTest {
 
     // Set updated ad group once we reach 20 seconds, and then continue playing until 40 seconds.
     player
-        .createMessage((message, payload) -> mediaSource.setNewSourceInfo(updatedTimeline))
-        .setPosition(20_000)
+        .createMessage(
+            (message, payload) ->
+                mediaSource.setNewSourceInfo(
+                    new FakeTimeline(
+                        initialTimelineWindowDefinition
+                            .buildUpon()
+                            .setAdPlaybackStates(ImmutableList.of(updatedAdPlaybackState))
+                            .build())))
+        .setPosition(20_000L)
         .send();
     player.setMediaSource(mediaSource);
     player.prepare();
-    playUntilPosition(player, /* mediaItemIndex= */ 0, /* positionMs= */ 40_000);
+    playUntilPosition(player, /* mediaItemIndex= */ 0, /* positionMs= */ 40_000L);
+    Timeline timeline = player.getCurrentTimeline();
     player.release();
 
     // Assert that the renderer hasn't been reset despite the inserted ad group.
     assertThat(videoRenderer.get().positionResetCount).isEqualTo(1);
+    assertThat(timeline.getPeriod(0, new Timeline.Period()).adPlaybackState.adGroupCount)
+        .isEqualTo(2);
   }
 
   @Test
@@ -16691,6 +16738,105 @@ public final class ExoPlayerTest {
     assertThat(videoScalingSetOnVideoRenderer2.get()).isTrue();
     assertThat(videoScalingSetOnSecondaryAudioRenderer.get()).isFalse();
     assertThat(videoScalingSetOnSecondaryVideoRenderer.get()).isTrue();
+  }
+
+  @Test
+  public void
+      play_withRecoverableErrorAfterAdvancingReadingPeriod_advancesPlayingPeriodWhileErrorHandling()
+          throws Exception {
+    Clock fakeClock = new FakeClock(/* isAutoAdvancing= */ true);
+    AtomicBoolean shouldRendererThrowRecoverableError = new AtomicBoolean(false);
+    AtomicInteger onStreamChangedCount = new AtomicInteger(0);
+    ExoPlayer player =
+        new TestExoPlayerBuilder(context)
+            .setClock(fakeClock)
+            .setRenderersFactory(
+                new RenderersFactory() {
+                  @Override
+                  public Renderer[] createRenderers(
+                      Handler eventHandler,
+                      VideoRendererEventListener videoRendererEventListener,
+                      AudioRendererEventListener audioRendererEventListener,
+                      TextOutput textRendererOutput,
+                      MetadataOutput metadataRendererOutput) {
+                    return new Renderer[] {
+                      new FakeVideoRenderer(
+                          SystemClock.DEFAULT.createHandler(
+                              eventHandler.getLooper(), /* callback= */ null),
+                          videoRendererEventListener) {
+                        @Override
+                        protected void onStreamChanged(
+                            Format[] formats,
+                            long startPositionUs,
+                            long offsetUs,
+                            MediaSource.MediaPeriodId mediaPeriodId)
+                            throws ExoPlaybackException {
+                          super.onStreamChanged(formats, startPositionUs, offsetUs, mediaPeriodId);
+                          onStreamChangedCount.getAndIncrement();
+                        }
+
+                        @Override
+                        public void render(long positionUs, long elapsedRealtimeUs)
+                            throws ExoPlaybackException {
+                          if (!shouldRendererThrowRecoverableError.get()) {
+                            super.render(positionUs, elapsedRealtimeUs);
+                          } else {
+                            shouldRendererThrowRecoverableError.set(false);
+                            throw createRendererException(
+                                new MediaCodecRenderer.DecoderInitializationException(
+                                    new Format.Builder().build(),
+                                    new IllegalArgumentException(),
+                                    false,
+                                    0),
+                                this.getFormatHolder().format,
+                                true,
+                                PlaybackException.ERROR_CODE_DECODER_INIT_FAILED);
+                          }
+                        }
+                      }
+                    };
+                  }
+                })
+            .build();
+    player.setMediaSources(
+        ImmutableList.of(
+            new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT),
+            new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT)));
+    player.prepare();
+
+    // Play a bit until the reading period has advanced.
+    player.play();
+    advance(player).untilBackgroundThreadCondition(() -> onStreamChangedCount.get() == 2);
+    shouldRendererThrowRecoverableError.set(true);
+    runUntilPlaybackState(player, Player.STATE_ENDED);
+
+    player.release();
+
+    // onStreamChanged should occur thrice;
+    // 1 during first enable, 2 during replace stream, 3 during error recovery
+    assertThat(onStreamChangedCount.get()).isEqualTo(3);
+    assertThat(shouldRendererThrowRecoverableError.get()).isFalse();
+  }
+
+  @Test
+  public void prepareMaskingMediaSource_withRealSourcePrepareError_reportsPlaybackException()
+      throws Exception {
+    ExoPlayer player = new TestExoPlayerBuilder(context).build();
+    FakeMediaSource realSourceWithPrepareFailure =
+        new FakeMediaSource() {
+          @Override
+          public void maybeThrowSourceInfoRefreshError() throws IOException {
+            throw new IOException();
+          }
+        };
+    realSourceWithPrepareFailure.setAllowPreparation(false);
+    MediaSource maskingMediaSource =
+        new MaskingMediaSource(realSourceWithPrepareFailure, /* useLazyPreparation= */ false);
+    player.setMediaSource(maskingMediaSource);
+
+    player.prepare();
+    // Assert the prepare error is reported.
+    advance(player).untilPlayerError();
   }
 
   // Internal methods.

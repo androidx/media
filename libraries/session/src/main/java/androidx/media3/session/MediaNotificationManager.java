@@ -17,6 +17,8 @@ package androidx.media3.session;
 
 import static android.app.Service.STOP_FOREGROUND_DETACH;
 import static android.app.Service.STOP_FOREGROUND_REMOVE;
+import static android.os.Build.VERSION.SDK_INT;
+import static androidx.media3.common.util.Assertions.checkNotNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.annotation.SuppressLint;
@@ -59,14 +61,15 @@ import java.util.concurrent.TimeoutException;
   private static final int MSG_USER_ENGAGED_TIMEOUT = 1;
 
   private final MediaSessionService mediaSessionService;
-  private final MediaNotification.Provider mediaNotificationProvider;
+
   private final MediaNotification.ActionFactory actionFactory;
   private final NotificationManagerCompat notificationManagerCompat;
   private final Handler mainHandler;
   private final Executor mainExecutor;
   private final Intent startSelfIntent;
-  private final Map<MediaSession, ListenableFuture<MediaController>> controllerMap;
+  private final Map<MediaSession, ControllerInfo> controllerMap;
 
+  private MediaNotification.Provider mediaNotificationProvider;
   private int totalNotificationCount;
   @Nullable private MediaNotification mediaNotification;
   private boolean startedInForeground;
@@ -104,7 +107,7 @@ import java.util.concurrent.TimeoutException;
             .setListener(listener)
             .setApplicationLooper(Looper.getMainLooper())
             .buildAsync();
-    controllerMap.put(session, controllerFuture);
+    controllerMap.put(session, new ControllerInfo(controllerFuture));
     controllerFuture.addListener(
         () -> {
           try {
@@ -123,9 +126,9 @@ import java.util.concurrent.TimeoutException;
   }
 
   public void removeSession(MediaSession session) {
-    @Nullable ListenableFuture<MediaController> future = controllerMap.remove(session);
-    if (future != null) {
-      MediaController.releaseFuture(future);
+    @Nullable ControllerInfo controllerInfo = controllerMap.remove(session);
+    if (controllerInfo != null) {
+      MediaController.releaseFuture(controllerInfo.controllerFuture);
     }
   }
 
@@ -146,6 +149,15 @@ import java.util.concurrent.TimeoutException;
   }
 
   /**
+   * Updates the media notification provider.
+   *
+   * @param mediaNotificationProvider The {@link MediaNotification.Provider}.
+   */
+  public void setMediaNotificationProvider(MediaNotification.Provider mediaNotificationProvider) {
+    this.mediaNotificationProvider = mediaNotificationProvider;
+  }
+
+  /**
    * Updates the notification.
    *
    * @param session A session that needs notification update.
@@ -158,19 +170,8 @@ import java.util.concurrent.TimeoutException;
     }
 
     int notificationSequence = ++totalNotificationCount;
-    MediaController mediaNotificationController = null;
-    ListenableFuture<MediaController> controller = controllerMap.get(session);
-    if (controller != null && controller.isDone()) {
-      try {
-        mediaNotificationController = Futures.getDone(controller);
-      } catch (ExecutionException e) {
-        // Ignore.
-      }
-    }
     ImmutableList<CommandButton> mediaButtonPreferences =
-        mediaNotificationController != null
-            ? mediaNotificationController.getMediaButtonPreferences()
-            : ImmutableList.of();
+        checkNotNull(getConnectedControllerForSession(session)).getMediaButtonPreferences();
     MediaNotification.Provider.Callback callback =
         notification ->
             mainExecutor.execute(
@@ -261,6 +262,13 @@ import java.util.concurrent.TimeoutException;
     }
   }
 
+  private void onNotificationDismissed(MediaSession session) {
+    @Nullable ControllerInfo controllerInfo = controllerMap.get(session);
+    if (controllerInfo != null) {
+      controllerInfo.wasNotificationDismissed = true;
+    }
+  }
+
   // POST_NOTIFICATIONS permission is not required for media session related notifications.
   // https://developer.android.com/develop/ui/views/notifications/notification-permission#exemptions-media-sessions
   @SuppressLint("MissingPermission")
@@ -270,8 +278,7 @@ import java.util.concurrent.TimeoutException;
       boolean startInForegroundRequired) {
     // Call Notification.MediaStyle#setMediaSession() indirectly.
     android.media.session.MediaSession.Token fwkToken =
-        (android.media.session.MediaSession.Token)
-            session.getSessionCompat().getSessionToken().getToken();
+        session.getSessionCompat().getSessionToken().getToken();
     mediaNotification.notification.extras.putParcelable(Notification.EXTRA_MEDIA_SESSION, fwkToken);
     this.mediaNotification = mediaNotification;
     if (startInForegroundRequired) {
@@ -301,17 +308,25 @@ import java.util.concurrent.TimeoutException;
 
   private boolean shouldShowNotification(MediaSession session) {
     MediaController controller = getConnectedControllerForSession(session);
-    return controller != null && !controller.getCurrentTimeline().isEmpty();
+    if (controller == null || controller.getCurrentTimeline().isEmpty()) {
+      return false;
+    }
+    ControllerInfo controllerInfo = checkNotNull(controllerMap.get(session));
+    if (controller.getPlaybackState() != Player.STATE_IDLE) {
+      // Playback restarted, reset previous notification dismissed flag.
+      controllerInfo.wasNotificationDismissed = false;
+    }
+    return !controllerInfo.wasNotificationDismissed;
   }
 
   @Nullable
   private MediaController getConnectedControllerForSession(MediaSession session) {
-    ListenableFuture<MediaController> controller = controllerMap.get(session);
-    if (controller == null || !controller.isDone()) {
+    @Nullable ControllerInfo controllerInfo = controllerMap.get(session);
+    if (controllerInfo == null || !controllerInfo.controllerFuture.isDone()) {
       return null;
     }
     try {
-      return Futures.getDone(controller);
+      return Futures.getDone(controllerInfo.controllerFuture);
     } catch (ExecutionException exception) {
       // We should never reach this.
       throw new IllegalStateException(exception);
@@ -350,8 +365,7 @@ import java.util.concurrent.TimeoutException;
     }
   }
 
-  private static final class MediaControllerListener
-      implements MediaController.Listener, Player.Listener {
+  private final class MediaControllerListener implements MediaController.Listener, Player.Listener {
     private final MediaSessionService mediaSessionService;
     private final MediaSession session;
 
@@ -379,6 +393,17 @@ import java.util.concurrent.TimeoutException;
         MediaController controller, SessionCommands commands) {
       mediaSessionService.onUpdateNotificationInternal(
           session, /* startInForegroundWhenPaused= */ false);
+    }
+
+    @Override
+    public ListenableFuture<SessionResult> onCustomCommand(
+        MediaController controller, SessionCommand command, Bundle args) {
+      @SessionResult.Code int resultCode = SessionError.ERROR_NOT_SUPPORTED;
+      if (command.customAction.equals(MediaNotification.NOTIFICATION_DISMISSED_EVENT_KEY)) {
+        onNotificationDismissed(session);
+        resultCode = SessionResult.RESULT_SUCCESS;
+      }
+      return Futures.immediateFuture(new SessionResult(resultCode));
     }
 
     @Override
@@ -419,12 +444,24 @@ import java.util.concurrent.TimeoutException;
   }
 
   private void stopForeground(boolean removeNotifications) {
-    if (Util.SDK_INT >= 24) {
+    if (SDK_INT >= 24) {
       Api24.stopForeground(mediaSessionService, removeNotifications);
     } else {
       mediaSessionService.stopForeground(removeNotifications);
     }
     startedInForeground = false;
+  }
+
+  private static final class ControllerInfo {
+
+    public final ListenableFuture<MediaController> controllerFuture;
+
+    /** Indicates whether the user actively dismissed the notification. */
+    public boolean wasNotificationDismissed;
+
+    public ControllerInfo(ListenableFuture<MediaController> controllerFuture) {
+      this.controllerFuture = controllerFuture;
+    }
   }
 
   @RequiresApi(24)

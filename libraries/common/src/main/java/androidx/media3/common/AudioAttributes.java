@@ -15,6 +15,8 @@
  */
 package androidx.media3.common;
 
+import static android.os.Build.VERSION.SDK_INT;
+
 import android.os.Bundle;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
@@ -45,10 +47,10 @@ public final class AudioAttributes {
               .setContentType(audioAttributes.contentType)
               .setFlags(audioAttributes.flags)
               .setUsage(audioAttributes.usage);
-      if (Util.SDK_INT >= 29) {
+      if (SDK_INT >= 29) {
         Api29.setAllowedCapturePolicy(builder, audioAttributes.allowedCapturePolicy);
       }
-      if (Util.SDK_INT >= 32) {
+      if (SDK_INT >= 32) {
         Api32.setSpatializationBehavior(builder, audioAttributes.spatializationBehavior);
       }
       this.audioAttributes = builder.build();

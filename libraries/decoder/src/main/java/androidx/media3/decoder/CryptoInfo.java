@@ -15,12 +15,13 @@
  */
 package androidx.media3.decoder;
 
+import static android.os.Build.VERSION.SDK_INT;
+
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 
 /**
  * Metadata describing the structure of an encrypted input sample.
@@ -90,7 +91,7 @@ public final class CryptoInfo {
 
   public CryptoInfo() {
     frameworkCryptoInfo = new android.media.MediaCodec.CryptoInfo();
-    patternHolder = Util.SDK_INT >= 24 ? new PatternHolderV24(frameworkCryptoInfo) : null;
+    patternHolder = SDK_INT >= 24 ? new PatternHolderV24(frameworkCryptoInfo) : null;
   }
 
   /**
@@ -121,7 +122,7 @@ public final class CryptoInfo {
     frameworkCryptoInfo.key = key;
     frameworkCryptoInfo.iv = iv;
     frameworkCryptoInfo.mode = mode;
-    if (Util.SDK_INT >= 24) {
+    if (SDK_INT >= 24) {
       Assertions.checkNotNull(patternHolder).set(encryptedBlocks, clearBlocks);
     }
   }

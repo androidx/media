@@ -517,7 +517,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               .setPlaybackRate(loadingInfo.playbackSpeed)
               .setIsLive(!playlist.hasEndTag)
               .setDidRebuffer(loadingInfo.rebufferedSince(lastChunkRequestRealtimeMs))
-              .setIsBufferEmpty(queue.isEmpty());
+              .setIsBufferEmpty(queue.isEmpty())
+              .setChunkDurationUs(segmentBaseHolder.segmentBase.durationUs);
       long nextMediaSequence =
           segmentBaseHolder.partIndex == C.INDEX_UNSET
               ? segmentBaseHolder.mediaSequence + 1

@@ -15,13 +15,14 @@
  */
 package androidx.media3.test.exoplayer.playback.gts;
 
+import static android.os.Build.VERSION.SDK_INT;
+
 import android.media.MediaCodecInfo.AudioCapabilities;
 import android.media.MediaCodecInfo.CodecCapabilities;
 import android.media.MediaCodecInfo.CodecProfileLevel;
 import android.media.MediaCodecInfo.VideoCapabilities;
 import androidx.annotation.Nullable;
 import androidx.media3.common.MimeTypes;
-import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.mediacodec.MediaCodecInfo;
 import androidx.media3.exoplayer.mediacodec.MediaCodecUtil;
 import androidx.media3.exoplayer.mediacodec.MediaCodecUtil.DecoderQueryException;
@@ -118,7 +119,7 @@ public class EnumerateDecodersTest {
     result.append(", mimeType=").append(codecCapabilities.getMimeType());
     result.append(", profileLevels=");
     appendProfileLevels(codecCapabilities.profileLevels, result);
-    if (Util.SDK_INT >= 23) {
+    if (SDK_INT >= 23) {
       result
           .append(", maxSupportedInstances=")
           .append(codecCapabilities.getMaxSupportedInstances());
@@ -138,7 +139,7 @@ public class EnumerateDecodersTest {
     if (isVideo && codecCapabilities.isFeatureSupported(CodecCapabilities.FEATURE_SecurePlayback)) {
       result.append(", FEATURE_SecurePlayback");
     }
-    if (Util.SDK_INT >= 26
+    if (SDK_INT >= 26
         && isVideo
         && codecCapabilities.isFeatureSupported(CodecCapabilities.FEATURE_PartialFrame)) {
       result.append(", FEATURE_PartialFrame");

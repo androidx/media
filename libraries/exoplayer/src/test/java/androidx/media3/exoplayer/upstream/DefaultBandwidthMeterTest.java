@@ -17,6 +17,7 @@ package androidx.media3.exoplayer.upstream;
 
 import static android.net.NetworkInfo.State.CONNECTED;
 import static android.net.NetworkInfo.State.DISCONNECTED;
+import static android.os.Build.VERSION.SDK_INT;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
@@ -32,7 +33,6 @@ import android.telephony.TelephonyManager;
 import androidx.media3.common.C;
 import androidx.media3.common.util.BackgroundExecutor;
 import androidx.media3.common.util.NetworkTypeObserver;
-import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DataSpec;
 import androidx.media3.test.utils.FakeClock;
@@ -796,7 +796,7 @@ public final class DefaultBandwidthMeterTest {
   private void setActiveNetworkInfo(NetworkInfo networkInfo, int networkTypeOverride) {
     // Set network info in ConnectivityManager and TelephonyDisplayInfo in TelephonyManager.
     Shadows.shadowOf(connectivityManager).setActiveNetworkInfo(networkInfo);
-    if (Util.SDK_INT >= 31) {
+    if (SDK_INT >= 31) {
       Object displayInfo =
           ShadowTelephonyManager.createTelephonyDisplayInfo(
               networkInfo.getType(), networkTypeOverride);

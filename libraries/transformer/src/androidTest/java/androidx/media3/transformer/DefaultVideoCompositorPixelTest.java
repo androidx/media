@@ -15,7 +15,7 @@
  */
 package androidx.media3.transformer;
 
-import static androidx.media3.common.util.Util.SDK_INT;
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.maybeSaveTestBitmap;

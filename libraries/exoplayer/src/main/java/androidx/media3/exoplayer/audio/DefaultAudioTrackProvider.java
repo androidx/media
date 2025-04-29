@@ -15,6 +15,8 @@
  */
 package androidx.media3.exoplayer.audio;
 
+import static android.os.Build.VERSION.SDK_INT;
+
 import android.media.AudioFormat;
 import android.media.AudioTrack;
 import androidx.annotation.RequiresApi;
@@ -37,7 +39,7 @@ public class DefaultAudioTrackProvider implements DefaultAudioSink.AudioTrackPro
       AudioSink.AudioTrackConfig audioTrackConfig,
       AudioAttributes audioAttributes,
       int audioSessionId) {
-    if (Util.SDK_INT >= 23) {
+    if (SDK_INT >= 23) {
       return createAudioTrackV23(audioTrackConfig, audioAttributes, audioSessionId);
     } else {
       return createAudioTrackV21(audioTrackConfig, audioAttributes, audioSessionId);
@@ -61,7 +63,7 @@ public class DefaultAudioTrackProvider implements DefaultAudioSink.AudioTrackPro
             .setTransferMode(AudioTrack.MODE_STREAM)
             .setBufferSizeInBytes(audioTrackConfig.bufferSize)
             .setSessionId(audioSessionId);
-    if (Util.SDK_INT >= 29) {
+    if (SDK_INT >= 29) {
       setOffloadedPlaybackV29(audioTrackBuilder, audioTrackConfig.offload);
     }
     return customizeAudioTrackBuilder(audioTrackBuilder).build();

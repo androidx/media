@@ -72,6 +72,7 @@ import androidx.media3.common.Player.Listener;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.Assertions;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.android.gms.cast.Cast;
 import com.google.android.gms.cast.MediaInfo;
 import com.google.android.gms.cast.MediaQueueItem;
 import com.google.android.gms.cast.MediaStatus;
@@ -83,6 +84,7 @@ import com.google.android.gms.cast.framework.media.RemoteMediaClient;
 import com.google.android.gms.common.api.PendingResult;
 import com.google.android.gms.common.api.ResultCallback;
 import com.google.common.collect.ImmutableList;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -102,6 +104,7 @@ public class CastPlayerTest {
 
   private CastPlayer castPlayer;
   private DefaultMediaItemConverter mediaItemConverter;
+  private Cast.Listener castListener;
   private RemoteMediaClient.Callback remoteMediaClientCallback;
 
   @Mock private RemoteMediaClient mockRemoteMediaClient;
@@ -117,6 +120,7 @@ public class CastPlayerTest {
   private ArgumentCaptor<ResultCallback<RemoteMediaClient.MediaChannelResult>>
       setResultCallbackArgumentCaptor;
 
+  @Captor private ArgumentCaptor<Cast.Listener> castListenerArgumentCaptor;
   @Captor private ArgumentCaptor<RemoteMediaClient.Callback> callbackArgumentCaptor;
   @Captor private ArgumentCaptor<MediaQueueItem[]> queueItemsArgumentCaptor;
   @Captor private ArgumentCaptor<MediaItem> mediaItemCaptor;
@@ -139,6 +143,8 @@ public class CastPlayerTest {
     mediaItemConverter = new DefaultMediaItemConverter();
     castPlayer = new CastPlayer(mockCastContext, mediaItemConverter);
     castPlayer.addListener(mockListener);
+    verify(mockCastSession).addCastListener(castListenerArgumentCaptor.capture());
+    castListener = castListenerArgumentCaptor.getValue();
     verify(mockRemoteMediaClient).registerCallback(callbackArgumentCaptor.capture());
     remoteMediaClientCallback = callbackArgumentCaptor.getValue();
   }
@@ -1398,10 +1404,10 @@ public class CastPlayerTest {
     assertThat(castPlayer.isCommandAvailable(COMMAND_SET_MEDIA_ITEM)).isTrue();
     assertThat(castPlayer.isCommandAvailable(COMMAND_GET_AUDIO_ATTRIBUTES)).isFalse();
     assertThat(castPlayer.isCommandAvailable(COMMAND_GET_VOLUME)).isFalse();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_GET_DEVICE_VOLUME)).isFalse();
+    assertThat(castPlayer.isCommandAvailable(COMMAND_GET_DEVICE_VOLUME)).isTrue();
     assertThat(castPlayer.isCommandAvailable(COMMAND_SET_VOLUME)).isFalse();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_SET_DEVICE_VOLUME)).isFalse();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_ADJUST_DEVICE_VOLUME)).isFalse();
+    assertThat(castPlayer.isCommandAvailable(COMMAND_SET_DEVICE_VOLUME)).isTrue();
+    assertThat(castPlayer.isCommandAvailable(COMMAND_ADJUST_DEVICE_VOLUME)).isTrue();
     assertThat(castPlayer.isCommandAvailable(COMMAND_SET_VIDEO_SURFACE)).isFalse();
     assertThat(castPlayer.isCommandAvailable(COMMAND_GET_TEXT)).isFalse();
     assertThat(castPlayer.isCommandAvailable(Player.COMMAND_RELEASE)).isTrue();
@@ -1924,7 +1930,7 @@ public class CastPlayerTest {
 
     assertThat(castPlayer.getPlaylistMetadata()).isEqualTo(metadata);
 
-    verify(mockListener, times(1)).onPlaylistMetadataChanged(metadata);
+    verify(mockListener).onPlaylistMetadataChanged(metadata);
   }
 
   @Test
@@ -1933,6 +1939,40 @@ public class CastPlayerTest {
 
     assertThat(deviceInfo).isEqualTo(CastPlayer.DEVICE_INFO_REMOTE_EMPTY);
     assertThat(deviceInfo.playbackType).isEqualTo(DeviceInfo.PLAYBACK_TYPE_REMOTE);
+  }
+
+  @Test
+  public void setDeviceVolume_updatesCastSessionVolume() throws IOException {
+    int maxVolume = castPlayer.getDeviceInfo().maxVolume;
+    int volumeToSet = 10;
+    castPlayer.addListener(mockListener);
+    castPlayer.setDeviceVolume(volumeToSet, /* flags= */ 0);
+
+    verify(mockListener).onDeviceVolumeChanged(volumeToSet, /* muted= */ false);
+    verify(mockCastSession).setVolume((double) volumeToSet / maxVolume);
+    assertThat(castPlayer.getDeviceVolume()).isEqualTo(volumeToSet);
+
+    double newCastSessionVolume = .25;
+    int expectedDeviceVolume = (int) (newCastSessionVolume * maxVolume);
+    when(mockCastSession.getVolume()).thenReturn(newCastSessionVolume);
+    castListener.onVolumeChanged();
+    assertThat(castPlayer.getDeviceVolume()).isEqualTo(expectedDeviceVolume);
+    verify(mockListener).onDeviceVolumeChanged(volumeToSet, /* muted= */ false);
+  }
+
+  @Test
+  public void setDeviceMuted_mutesCastSession() throws IOException {
+    castPlayer.addListener(mockListener);
+    castPlayer.setDeviceMuted(true, /* flags= */ 0);
+
+    verify(mockListener).onDeviceVolumeChanged(0, /* muted= */ true);
+    verify(mockCastSession).setMute(true);
+    assertThat(castPlayer.isDeviceMuted()).isTrue();
+
+    when(mockCastSession.isMute()).thenReturn(false);
+    castListener.onVolumeChanged();
+    assertThat(castPlayer.isDeviceMuted()).isFalse();
+    verify(mockListener).onDeviceVolumeChanged(0, /* muted= */ false);
   }
 
   private int[] createMediaQueueItemIds(int numberOfIds) {

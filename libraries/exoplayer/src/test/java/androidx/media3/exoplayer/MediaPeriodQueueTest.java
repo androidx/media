@@ -27,7 +27,9 @@ import static androidx.media3.test.utils.FakeTimeline.TimelineWindowDefinition.D
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.fail;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.robolectric.Shadows.shadowOf;
 
 import android.os.Looper;
@@ -49,7 +51,9 @@ import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.source.MediaPeriod;
 import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import androidx.media3.exoplayer.source.MediaSource.MediaSourceCaller;
+import androidx.media3.exoplayer.source.SampleStream;
 import androidx.media3.exoplayer.source.SinglePeriodTimeline;
+import androidx.media3.exoplayer.source.TrackGroupArray;
 import androidx.media3.exoplayer.source.ads.ServerSideAdInsertionMediaSource;
 import androidx.media3.exoplayer.source.ads.SinglePeriodAdTimeline;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
@@ -486,6 +490,38 @@ public final class MediaPeriodQueueTest {
         /* isLastInWindow= */ true,
         /* isFinal= */ true,
         /* nextAdGroupIndex= */ C.INDEX_UNSET);
+  }
+
+  @Test
+  public void
+      getNextMediaPeriodInfo_singlePeriodLiveTimelineWithPostRollPlaceholder_returnsCorrectMediaPeriodInfo() {
+    SinglePeriodTimeline liveContentTimeline =
+        new SinglePeriodTimeline(
+            C.TIME_UNSET,
+            /* isSeekable= */ true,
+            /* isDynamic= */ true,
+            /* useLiveConfiguration= */ true,
+            /* manifest= */ null,
+            AD_MEDIA_ITEM);
+    adPlaybackState =
+        new AdPlaybackState(/* adsId= */ new Object())
+            .withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ false);
+    SinglePeriodAdTimeline adTimeline =
+        new SinglePeriodAdTimeline(liveContentTimeline, adPlaybackState);
+    setupTimelines(adTimeline);
+
+    assertGetNextMediaPeriodInfoReturnsContentMediaPeriod(
+        /* periodUid= */ firstPeriodUid,
+        /* startPositionUs= */ 0,
+        /* requestedContentPositionUs= */ C.TIME_UNSET,
+        /* endPositionUs= */ C.TIME_END_OF_SOURCE,
+        /* durationUs= */ C.TIME_UNSET,
+        /* isPrecededByTransitionFromSameStream= */ false,
+        /* isFollowedByTransitionToSameStream= */ false,
+        /* isLastInPeriod= */ false,
+        /* isLastInWindow= */ false,
+        /* isFinal= */ false,
+        /* nextAdGroupIndex= */ 0);
   }
 
   @Test
@@ -1192,6 +1228,92 @@ public final class MediaPeriodQueueTest {
 
     assertThat(updateQueuedPeriodsResult).isEqualTo(UPDATE_PERIOD_QUEUE_ALTERED_PREWARMING_PERIOD);
     assertThat(getQueueLength()).isEqualTo(3);
+  }
+
+  @Test
+  public void
+      updateQueuedPeriods_adInsertedIntoPeriodWithUnsetDuration_bufferedPositionEndOfSource()
+          throws InterruptedException, ExoPlaybackException {
+    // Initial setup enqueues the live period with only the placeholder ad in place.
+    adPlaybackState =
+        new AdPlaybackState(/* adsId= */ new Object())
+            .withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ false);
+    SinglePeriodTimeline liveTimeline =
+        new SinglePeriodTimeline(
+            /* durationUs= */ C.TIME_UNSET,
+            /* isSeekable= */ true,
+            /* isDynamic= */ true,
+            /* useLiveConfiguration= */ true,
+            /* manifest= */ null,
+            AD_MEDIA_ITEM);
+    setupTimelines(new SinglePeriodAdTimeline(liveTimeline, adPlaybackState));
+    enqueueNext();
+    // The period needs to be prepared to get the actual buffered position from it.
+    mediaPeriodQueue
+        .getLoadingPeriod()
+        .mediaPeriod
+        .prepare(
+            new MediaPeriod.Callback() {
+              @Override
+              public void onPrepared(MediaPeriod mediaPeriod) {
+                TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
+                ExoTrackSelection[] selection = new ExoTrackSelection[trackGroups.length];
+                SampleStream[] streams = new SampleStream[trackGroups.length];
+                for (int i = 0; i < streams.length; i++) {
+                  streams[i] = mock(SampleStream.class);
+                }
+                try {
+                  when(trackSelector.selectTracks(any(), any(), any(), any()))
+                      .thenReturn(
+                          new TrackSelectorResult(
+                              new RendererConfiguration[0],
+                              selection,
+                              Tracks.EMPTY,
+                              /* info= */ null));
+                } catch (ExoPlaybackException e) {
+                  throw new RuntimeException(e);
+                }
+                mediaPeriod.selectTracks(
+                    selection,
+                    new boolean[trackGroups.length],
+                    streams,
+                    new boolean[trackGroups.length],
+                    /* positionUs= */ 0L);
+              }
+
+              @Override
+              public void onContinueLoadingRequested(MediaPeriod source) {}
+            },
+            0L);
+    // Ad inserted into timeline.
+    adPlaybackState =
+        adPlaybackState
+            .withNewAdGroup(/* adGroupIndex= */ 0, /* adGroupTimeUs= */ 30_000_123L)
+            .withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 1);
+    updateAdTimeline(/* mediaSourceIndex= */ 0);
+    Timeline playlistTimeline = mediaSourceList.createTimeline();
+    mediaPeriodQueue
+        .getLoadingPeriod()
+        .handlePrepared(/* playbackSpeed= */ 1.0f, playlistTimeline, /* playWhenReady= */ false);
+    // Assume renderers have not yet read beyond the ad group timeUs.
+    long maxRendererReadPositionUs = Renderer.DEFAULT_DURATION_TO_PROGRESS_US + 30_000_122L;
+
+    @MediaPeriodQueue.UpdatePeriodQueueResult
+    int updateQueuedPeriodsResult =
+        mediaPeriodQueue.updateQueuedPeriods(
+            playlistTimeline,
+            /* rendererPositionUs= */ MediaPeriodQueue.INITIAL_RENDERER_POSITION_OFFSET_US,
+            /* maxRendererReadPositionUs= */ maxRendererReadPositionUs,
+            /* maxRendererPrewarmingPositionUs= */ maxRendererReadPositionUs);
+
+    assertThat(mediaPeriodQueue.getLoadingPeriod().mediaPeriod.getBufferedPositionUs())
+        .isEqualTo(C.TIME_END_OF_SOURCE);
+    assertThat(mediaPeriodQueue.getLoadingPeriod().info.durationUs).isEqualTo(30_000_123L);
+    assertThat(mediaPeriodQueue.getLoadingPeriod().info.startPositionUs).isEqualTo(0);
+    assertThat(mediaPeriodQueue.getLoadingPeriod().info.endPositionUs).isEqualTo(30_000_123L);
+    assertThat(mediaPeriodQueue.getLoadingPeriod().getBufferedPositionUs()).isEqualTo(30_000_123L);
+    assertThat(updateQueuedPeriodsResult).isEqualTo(0);
+    assertThat(getQueueLength()).isEqualTo(1);
   }
 
   @Test

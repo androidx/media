@@ -48,7 +48,7 @@ fun rememberShuffleButtonState(player: Player): ShuffleButtonState {
  */
 @UnstableApi
 class ShuffleButtonState(private val player: Player) {
-  var isEnabled by mutableStateOf(player.isCommandAvailable(Player.COMMAND_SET_SHUFFLE_MODE))
+  var isEnabled by mutableStateOf(isShuffleEnabled(player))
     private set
 
   var shuffleOn by mutableStateOf(player.shuffleModeEnabled)
@@ -65,7 +65,9 @@ class ShuffleButtonState(private val player: Player) {
    * * [Player.EVENT_AVAILABLE_COMMANDS_CHANGED] in order to determine whether the button should be
    *   enabled, i.e. respond to user input.
    */
-  suspend fun observe(): Nothing =
+  suspend fun observe(): Nothing {
+    shuffleOn = player.shuffleModeEnabled
+    isEnabled = isShuffleEnabled(player)
     player.listen { events ->
       if (
         events.containsAny(
@@ -74,7 +76,11 @@ class ShuffleButtonState(private val player: Player) {
         )
       ) {
         shuffleOn = shuffleModeEnabled
-        isEnabled = isCommandAvailable(Player.COMMAND_SET_SHUFFLE_MODE)
+        isEnabled = isShuffleEnabled(player)
       }
     }
+  }
+
+  private fun isShuffleEnabled(player: Player) =
+    player.isCommandAvailable(Player.COMMAND_SET_SHUFFLE_MODE)
 }

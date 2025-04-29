@@ -28,7 +28,6 @@ import androidx.media3.common.VideoSize;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.TimestampIterator;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.exoplayer.Renderer;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -56,37 +55,28 @@ public interface VideoSink {
 
   /** Listener for {@link VideoSink} events. */
   interface Listener {
+
+    /** Called when an output frame is available for rendering. */
+    default void onFrameAvailableForRendering() {}
+
     /** Called when the sink renders the first frame on the output surface. */
-    void onFirstFrameRendered(VideoSink videoSink);
+    default void onFirstFrameRendered() {}
 
     /** Called when the sink dropped a frame. */
-    void onFrameDropped(VideoSink videoSink);
+    default void onFrameDropped() {}
 
     /**
      * Called before a frame is rendered for the first time after setting the output surface, and
      * each time there's a change in the size, rotation or pixel aspect ratio of the video being
      * rendered.
      */
-    void onVideoSizeChanged(VideoSink videoSink, VideoSize videoSize);
+    default void onVideoSizeChanged(VideoSize videoSize) {}
 
     /** Called when the {@link VideoSink} encountered an error. */
-    void onError(VideoSink videoSink, VideoSinkException videoSinkException);
+    default void onError(VideoSinkException videoSinkException) {}
 
     /** A no-op listener implementation. */
-    Listener NO_OP =
-        new Listener() {
-          @Override
-          public void onFirstFrameRendered(VideoSink videoSink) {}
-
-          @Override
-          public void onFrameDropped(VideoSink videoSink) {}
-
-          @Override
-          public void onVideoSizeChanged(VideoSink videoSink, VideoSize videoSize) {}
-
-          @Override
-          public void onError(VideoSink videoSink, VideoSinkException videoSinkException) {}
-        };
+    Listener NO_OP = new Listener() {};
   }
 
   /** Handler for a video frame. */
@@ -149,11 +139,11 @@ public interface VideoSink {
    */
   int RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED = 2;
 
-  /** Called when rendering starts. */
-  void onStarted();
+  /** Starts rendering to the output surface. */
+  void startRendering();
 
-  /** Called when rendering stops. */
-  void onStopped();
+  /** Stops rendering to the output surface. */
+  void stopRendering();
 
   /**
    * Sets a {@link Listener} on this sink. Callbacks are triggered on the supplied {@link Executor}.
@@ -273,8 +263,8 @@ public interface VideoSink {
       List<Effect> videoEffects);
 
   /**
-   * Allows the sink to release the first frame even if rendering is not {@linkplain #onStarted()
-   * started}.
+   * Allows the sink to release the first frame even if rendering is not {@linkplain
+   * #startRendering() started}.
    *
    * <p>This is used to update the {@link FirstFrameReleaseInstruction} of the {@linkplain
    * #onInputStreamChanged(int, Format, long, int, List) stream} that is currently being processed.
@@ -287,16 +277,12 @@ public interface VideoSink {
    * <p>Must be called after the corresponding stream is {@linkplain #onInputStreamChanged(int,
    * Format, long, int, List) signaled}.
    *
-   * @param framePresentationTimeUs The frame's presentation time, in microseconds.
-   * @param isLastFrame Whether this is the last frame of the video stream. This flag is set on a
-   *     best effort basis, and any logic relying on it should degrade gracefully to handle cases
-   *     where it's not set.
+   * @param bufferPresentationTimeUs The buffer presentation time, in microseconds.
    * @param videoFrameHandler The {@link VideoFrameHandler} used to handle the input frame.
    * @return Whether the frame was handled successfully. If {@code false}, the caller can try again
    *     later.
    */
-  boolean handleInputFrame(
-      long framePresentationTimeUs, boolean isLastFrame, VideoFrameHandler videoFrameHandler);
+  boolean handleInputFrame(long bufferPresentationTimeUs, VideoFrameHandler videoFrameHandler);
 
   /**
    * Handles an input {@link Bitmap}.
@@ -305,12 +291,12 @@ public interface VideoSink {
    * Format, long, int, List) signaled}.
    *
    * @param inputBitmap The {@link Bitmap} to queue to the video sink.
-   * @param timestampIterator The times within the current stream that the bitmap should be shown
-   *     at. The timestamps should be monotonically increasing.
+   * @param bufferTimestampIterator The buffer presentation times within the current stream that the
+   *     bitmap should be shown at. The timestamps should be monotonically increasing.
    * @return Whether the bitmap was queued successfully. If {@code false}, the caller can try again
    *     later.
    */
-  boolean handleInputBitmap(Bitmap inputBitmap, TimestampIterator timestampIterator);
+  boolean handleInputBitmap(Bitmap inputBitmap, TimestampIterator bufferTimestampIterator);
 
   /**
    * Incrementally renders processed video frames to the output surface.
@@ -321,9 +307,6 @@ public interface VideoSink {
    * @throws VideoSinkException If an error occurs during rendering.
    */
   void render(long positionUs, long elapsedRealtimeUs) throws VideoSinkException;
-
-  /** Sets a {@link Renderer.WakeupListener} on the {@code VideoSink}. */
-  void setWakeupListener(Renderer.WakeupListener wakeupListener);
 
   /**
    * Joins the video sink to a new stream.

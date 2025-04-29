@@ -338,6 +338,164 @@ public class DefaultEncoderFactoryTest {
   }
 
   @Test
+  @Config(sdk = 29)
+  public void createForVideoEncoding_withMaxBFrames_configuresEncoderWithMaxBFrames()
+      throws Exception {
+    Format requestedVideoFormat = createVideoFormat(MimeTypes.VIDEO_H264, 1920, 1080, 30);
+
+    DefaultCodec videoEncoder =
+        new DefaultEncoderFactory.Builder(context)
+            .setRequestedVideoEncoderSettings(
+                new VideoEncoderSettings.Builder().setMaxBFrames(3).build())
+            .build()
+            .createForVideoEncoding(requestedVideoFormat, /* logSessionId= */ null);
+
+    assertThat(videoEncoder.getConfigurationMediaFormat().getInteger(MediaFormat.KEY_MAX_B_FRAMES))
+        .isEqualTo(3);
+  }
+
+  @Test
+  @Config(sdk = 23)
+  public void createForVideoEncoding_withMaxBFramesOnApi23_doesNotConfigureMaxBFrames()
+      throws Exception {
+    Format requestedVideoFormat = createVideoFormat(MimeTypes.VIDEO_H264, 1920, 1080, 30);
+
+    DefaultCodec videoEncoder =
+        new DefaultEncoderFactory.Builder(context)
+            .setRequestedVideoEncoderSettings(
+                new VideoEncoderSettings.Builder().setMaxBFrames(3).build())
+            .build()
+            .createForVideoEncoding(requestedVideoFormat, /* logSessionId= */ null);
+
+    assertThat(videoEncoder.getConfigurationMediaFormat().containsKey(MediaFormat.KEY_MAX_B_FRAMES))
+        .isFalse();
+  }
+
+  @Test
+  @Config(sdk = 29)
+  public void createForVideoEncoding_withDefaultEncoderSettings_doesNotConfigureMaxBFrames()
+      throws Exception {
+    Format requestedVideoFormat = createVideoFormat(MimeTypes.VIDEO_H264, 1920, 1080, 30);
+
+    DefaultCodec videoEncoder =
+        new DefaultEncoderFactory.Builder(context)
+            .build()
+            .createForVideoEncoding(requestedVideoFormat, /* logSessionId= */ null);
+
+    assertThat(videoEncoder.getConfigurationMediaFormat().containsKey(MediaFormat.KEY_MAX_B_FRAMES))
+        .isFalse();
+  }
+
+  @Config(sdk = 29)
+  @Test
+  public void
+      createForVideoEncoding_withTemporalLayeringSchemaWithZeroLayers_configuresEncoderWithTemporalLayeringSchema()
+          throws Exception {
+    Format requestedVideoFormat = createVideoFormat(MimeTypes.VIDEO_H264, 1920, 1080, 30);
+
+    DefaultCodec videoEncoder =
+        new DefaultEncoderFactory.Builder(context)
+            .setRequestedVideoEncoderSettings(
+                new VideoEncoderSettings.Builder()
+                    .setTemporalLayers(
+                        /* numNonBidirectionalLayers= */ 0, /* numBidirectionalLayers= */ 0)
+                    .build())
+            .build()
+            .createForVideoEncoding(requestedVideoFormat, /* logSessionId= */ null);
+
+    assertThat(
+            videoEncoder.getConfigurationMediaFormat().getString(MediaFormat.KEY_TEMPORAL_LAYERING))
+        .isEqualTo("none");
+  }
+
+  @Config(sdk = 29)
+  @Test
+  public void
+      createForVideoEncoding_withTemporalLayeringSchemaWithoutBidirectionalLayers_configuresEncoderWithTemporalLayeringSchema()
+          throws Exception {
+    Format requestedVideoFormat = createVideoFormat(MimeTypes.VIDEO_H264, 1920, 1080, 30);
+
+    DefaultCodec videoEncoder =
+        new DefaultEncoderFactory.Builder(context)
+            .setRequestedVideoEncoderSettings(
+                new VideoEncoderSettings.Builder()
+                    .setTemporalLayers(
+                        /* numNonBidirectionalLayers= */ 1, /* numBidirectionalLayers= */ 0)
+                    .build())
+            .build()
+            .createForVideoEncoding(requestedVideoFormat, /* logSessionId= */ null);
+
+    assertThat(
+            videoEncoder.getConfigurationMediaFormat().getString(MediaFormat.KEY_TEMPORAL_LAYERING))
+        .isEqualTo("android.generic.1");
+  }
+
+  @Config(sdk = 29)
+  @Test
+  public void
+      createForVideoEncoding_withTemporalLayeringSchemaWithBidirectionalLayers_configuresEncoderWithTemporalLayeringSchema()
+          throws Exception {
+    Format requestedVideoFormat = createVideoFormat(MimeTypes.VIDEO_H264, 1920, 1080, 30);
+
+    DefaultCodec videoEncoder =
+        new DefaultEncoderFactory.Builder(context)
+            .setRequestedVideoEncoderSettings(
+                new VideoEncoderSettings.Builder()
+                    .setTemporalLayers(
+                        /* numNonBidirectionalLayers= */ 1, /* numBidirectionalLayers= */ 2)
+                    .build())
+            .build()
+            .createForVideoEncoding(requestedVideoFormat, /* logSessionId= */ null);
+
+    assertThat(
+            videoEncoder.getConfigurationMediaFormat().getString(MediaFormat.KEY_TEMPORAL_LAYERING))
+        .isEqualTo("android.generic.1+2");
+  }
+
+  @Config(sdk = 23)
+  @Test
+  public void
+      createForVideoEncoding_withTemporalLayeringSchemaOnApi23_doesNotConfigureTemporalLayeringSchema()
+          throws Exception {
+    Format requestedVideoFormat = createVideoFormat(MimeTypes.VIDEO_H264, 1920, 1080, 30);
+
+    DefaultCodec videoEncoder =
+        new DefaultEncoderFactory.Builder(context)
+            .setRequestedVideoEncoderSettings(
+                new VideoEncoderSettings.Builder()
+                    .setTemporalLayers(
+                        /* numNonBidirectionalLayers= */ 1, /* numBidirectionalLayers= */ 2)
+                    .build())
+            .build()
+            .createForVideoEncoding(requestedVideoFormat, /* logSessionId= */ null);
+
+    assertThat(
+            videoEncoder
+                .getConfigurationMediaFormat()
+                .containsKey(MediaFormat.KEY_TEMPORAL_LAYERING))
+        .isFalse();
+  }
+
+  @Config(sdk = 29)
+  @Test
+  public void
+      createForVideoEncoding_withDefaultEncoderSettings_doesNotConfigureTemporalLayeringSchema()
+          throws Exception {
+    Format requestedVideoFormat = createVideoFormat(MimeTypes.VIDEO_H264, 1920, 1080, 30);
+
+    DefaultCodec videoEncoder =
+        new DefaultEncoderFactory.Builder(context)
+            .build()
+            .createForVideoEncoding(requestedVideoFormat, /* logSessionId= */ null);
+
+    assertThat(
+            videoEncoder
+                .getConfigurationMediaFormat()
+                .containsKey(MediaFormat.KEY_TEMPORAL_LAYERING))
+        .isFalse();
+  }
+
+  @Test
   public void createForVideoEncoding_withNoAvailableEncoderFromEncoderSelector_throws() {
     Format requestedVideoFormat = createVideoFormat(MimeTypes.VIDEO_H264, 1920, 1080, 30);
     assertThrows(

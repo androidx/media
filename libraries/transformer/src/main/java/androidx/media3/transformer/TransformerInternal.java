@@ -148,7 +148,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final Object setMaxSequenceDurationUsLock;
   private final Object progressLock;
   private final ProgressHolder internalProgressHolder;
-  private final boolean portraitEncodingEnabled;
+  private final ImmutableList<Integer> allowedEncodingRotationDegrees;
   private final int maxFramesInEncoder;
 
   private boolean isDrainingExporters;
@@ -194,7 +194,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       AudioMixer.Factory audioMixerFactory,
       VideoFrameProcessor.Factory videoFrameProcessorFactory,
       Codec.EncoderFactory encoderFactory,
-      boolean portraitEncodingEnabled,
+      ImmutableList<Integer> allowedEncodingRotationDegrees,
       int maxFramesInEncoder,
       MuxerWrapper muxerWrapper,
       Listener listener,
@@ -207,7 +207,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.context = context;
     this.composition = composition;
     this.encoderFactory = new CapturingEncoderFactory(encoderFactory);
-    this.portraitEncodingEnabled = portraitEncodingEnabled;
+    this.allowedEncodingRotationDegrees = allowedEncodingRotationDegrees;
     this.maxFramesInEncoder = maxFramesInEncoder;
     this.listener = listener;
     this.applicationHandler = applicationHandler;
@@ -248,7 +248,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       sequenceAssetLoaders.add(
           new SequenceAssetLoader(
               sequence,
-              composition.forceAudioTrack,
               assetLoaderFactory,
               new CompositionSettings(
                   transformationRequest.hdrMode, composition.retainHdrFromUltraHdrImage),
@@ -630,6 +629,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     @Nullable
     @Override
     public SampleConsumer onOutputFormat(Format assetLoaderOutputFormat) throws ExportException {
+      if (released) {
+        return null;
+      }
       synchronized (assetLoaderLock) {
         if (!assetLoaderInputTracker.hasRegisteredAllTracks()) {
           return null;
@@ -744,7 +746,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                 debugViewProvider,
                 videoSampleTimestampOffsetUs,
                 /* hasMultipleInputs= */ assetLoaderInputTracker.hasMultipleConcurrentVideoTracks(),
-                portraitEncodingEnabled,
+                allowedEncodingRotationDegrees,
                 maxFramesInEncoder,
                 logSessionId));
       }
@@ -754,8 +756,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     private void createEncodedSampleExporter(@C.TrackType int trackType) {
       checkState(assetLoaderInputTracker.getSampleExporter(trackType) == null);
       checkArgument(
-          trackType != TRACK_TYPE_AUDIO || !composition.sequences.get(sequenceIndex).hasGaps(),
-          "Gaps can not be transmuxed.");
+          !composition.sequences.get(sequenceIndex).hasGaps(), "Gaps can not be transmuxed.");
       assetLoaderInputTracker.registerSampleExporter(
           trackType,
           new EncodedSampleExporter(

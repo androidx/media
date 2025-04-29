@@ -340,9 +340,8 @@ public class DashDownloaderTest {
         new CacheDataSource.Factory()
             .setCache(cache)
             .setUpstreamDataSourceFactory(upstreamDataSourceFactory);
-    return new DashDownloader(
-        new MediaItem.Builder().setUri(TEST_MPD_URI).setStreamKeys(keysList(keys)).build(),
-        cacheDataSourceFactory);
+    return new DashDownloader.Factory(cacheDataSourceFactory)
+        .create(new MediaItem.Builder().setUri(TEST_MPD_URI).setStreamKeys(keysList(keys)).build());
   }
 
   private static ArrayList<StreamKey> keysList(StreamKey... keys) {

@@ -15,6 +15,8 @@
  */
 package androidx.media3.exoplayer.workmanager;
 
+import static android.os.Build.VERSION.SDK_INT;
+
 import android.content.Context;
 import android.content.Intent;
 import androidx.annotation.RequiresApi;
@@ -49,7 +51,7 @@ public final class WorkManagerScheduler implements Scheduler {
   private static final int SUPPORTED_REQUIREMENTS =
       Requirements.NETWORK
           | Requirements.NETWORK_UNMETERED
-          | (Util.SDK_INT >= 23 ? Requirements.DEVICE_IDLE : 0)
+          | (SDK_INT >= 23 ? Requirements.DEVICE_IDLE : 0)
           | Requirements.DEVICE_CHARGING
           | Requirements.DEVICE_STORAGE_NOT_LOW;
 
@@ -105,7 +107,7 @@ public final class WorkManagerScheduler implements Scheduler {
     } else {
       builder.setRequiredNetworkType(NetworkType.NOT_REQUIRED);
     }
-    if (Util.SDK_INT >= 23 && requirements.isIdleRequired()) {
+    if (SDK_INT >= 23 && requirements.isIdleRequired()) {
       setRequiresDeviceIdle(builder);
     }
     if (requirements.isChargingRequired()) {
