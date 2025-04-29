@@ -110,8 +110,6 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
   public static final class Builder {
     private final Context context;
     private final VideoFrameReleaseControl videoFrameReleaseControl;
-
-    private VideoFrameProcessor.@MonotonicNonNull Factory videoFrameProcessorFactory;
     private VideoGraph.@MonotonicNonNull Factory videoGraphFactory;
     private List<Effect> compositionEffects;
     private VideoCompositorSettings compositorSettings;
@@ -128,23 +126,6 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
       compositionEffects = ImmutableList.of();
       compositorSettings = VideoCompositorSettings.DEFAULT;
       clock = Clock.DEFAULT;
-    }
-
-    /**
-     * Sets the {@link VideoFrameProcessor.Factory} that will be used for creating {@link
-     * VideoFrameProcessor} instances.
-     *
-     * <p>By default, the {@code DefaultVideoFrameProcessor.Factory} with its default values will be
-     * used.
-     *
-     * @param videoFrameProcessorFactory The {@link VideoFrameProcessor.Factory}.
-     * @return This builder, for convenience.
-     */
-    @CanIgnoreReturnValue
-    public Builder setVideoFrameProcessorFactory(
-        VideoFrameProcessor.Factory videoFrameProcessorFactory) {
-      this.videoFrameProcessorFactory = videoFrameProcessorFactory;
-      return this;
     }
 
     /**
@@ -269,11 +250,7 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
       checkState(!built);
 
       if (videoGraphFactory == null) {
-        if (videoFrameProcessorFactory == null) {
-          videoFrameProcessorFactory =
-              new ReflectiveDefaultVideoFrameProcessorFactory(enableReplayableCache);
-        }
-        videoGraphFactory = new ReflectiveSingleInputVideoGraphFactory(videoFrameProcessorFactory);
+        videoGraphFactory = new ReflectiveSingleInputVideoGraphFactory(enableReplayableCache);
       }
       PlaybackVideoGraphWrapper playbackVideoGraphWrapper = new PlaybackVideoGraphWrapper(this);
       built = true;
@@ -1182,9 +1159,9 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
 
     private final VideoFrameProcessor.Factory videoFrameProcessorFactory;
 
-    public ReflectiveSingleInputVideoGraphFactory(
-        VideoFrameProcessor.Factory videoFrameProcessorFactory) {
-      this.videoFrameProcessorFactory = videoFrameProcessorFactory;
+    public ReflectiveSingleInputVideoGraphFactory(boolean enableReplayableCache) {
+      this.videoFrameProcessorFactory =
+          new ReflectiveDefaultVideoFrameProcessorFactory(enableReplayableCache);
     }
 
     @Override
