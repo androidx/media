@@ -42,6 +42,9 @@
 *   Text:
     *   Fix SSA and SubRip to display an in-progress cue when enabling subtitles
         ([#2309](https://github.com/androidx/media/issues/2309)).
+    *   Fix playback getting stuck when switching from a stream with a subtitle
+        error to a live stream with an empty subtitle track
+        ([#2328](https://github.com/androidx/media/issues/2328)).
 *   Metadata:
 *   Image:
 *   DataSource:

@@ -208,6 +208,7 @@ public final class TextRenderer extends BaseRenderer implements Callback {
       long offsetUs,
       MediaSource.MediaPeriodId mediaPeriodId) {
     streamFormat = formats[0];
+    streamError = null;
     if (!isCuesWithTiming(streamFormat)) {
       assertLegacyDecodingEnabledIfRequired();
       if (subtitleDecoder != null) {
@@ -460,6 +461,7 @@ public final class TextRenderer extends BaseRenderer implements Callback {
   @Override
   protected void onDisabled() {
     streamFormat = null;
+    streamError = null;
     finalStreamEndPositionUs = C.TIME_UNSET;
     clearOutput();
     lastRendererPositionUs = C.TIME_UNSET;
