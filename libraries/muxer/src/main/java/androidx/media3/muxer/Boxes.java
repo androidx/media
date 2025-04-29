@@ -162,7 +162,8 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
       }
       String languageCode = bcp47LanguageTagToIso3(format.language);
 
-      // Generate the sample durations to calculate the total duration for tkhd box.
+      // Generate the sample durations to calculate the total duration for tkhd, elst and mvhd
+      // boxes.
       List<Integer> sampleDurationsVu =
           convertPresentationTimestampsToDurationsVu(
               track.writtenSamples,
@@ -178,6 +179,8 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
       long firstInputPtsUs =
           track.writtenSamples.isEmpty() ? 0 : track.writtenSamples.get(0).presentationTimeUs;
       long trackDurationUs = usFromVu(trackDurationInTrackUnitsVu, track.videoUnitTimebase());
+      long presentationTrackDurationUs =
+          firstInputPtsUs < 0 ? trackDurationUs - abs(firstInputPtsUs) : trackDurationUs;
 
       @C.TrackType int trackType = MimeTypes.getTrackType(format.sampleMimeType);
       ByteBuffer stts = stts(sampleDurationsVu);
@@ -232,7 +235,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
           trak(
               tkhd(
                   nextTrackId,
-                  trackDurationUs,
+                  presentationTrackDurationUs,
                   creationTimestampSeconds,
                   modificationTimestampSeconds,
                   metadataCollector.orientationData.orientation,
@@ -240,7 +243,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
               edts(
                   firstInputPtsUs,
                   minInputPtsUs,
-                  trackDurationUs,
+                  presentationTrackDurationUs,
                   MVHD_TIMEBASE,
                   track.videoUnitTimebase()),
               mdia(
@@ -254,7 +257,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
                   minf(mhdBox, dinf(dref(localUrl())), stblBox)));
 
       trakBoxes.add(trakBox);
-      videoDurationUs = max(videoDurationUs, trackDurationUs);
+      videoDurationUs = max(videoDurationUs, presentationTrackDurationUs);
       trexBoxes.add(trex(nextTrackId));
       nextTrackId++;
     }
@@ -853,8 +856,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
       elstContent.putInt(1); // Entry count
       elstContent.put(
           elstEntry(
-              /* editDurationVu= */ vuFromUs(
-                  trackDurationUs - abs(firstSamplePtsUs), mvhdTimescale),
+              /* editDurationVu= */ vuFromUs(trackDurationUs, mvhdTimescale),
               /* mediaTimeVu= */ vuFromUs(abs(firstSamplePtsUs), trackTimescale),
               /* mediaRateInt= */ 1,
               /* mediaRateFraction= */ 0));

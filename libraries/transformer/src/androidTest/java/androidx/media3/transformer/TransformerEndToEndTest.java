@@ -2153,8 +2153,7 @@ public class TransformerEndToEndTest {
     Mp4Extractor mp4Extractor = new Mp4Extractor(new DefaultSubtitleParserFactory());
     FakeExtractorOutput fakeExtractorOutput =
         TestUtil.extractAllSamplesFromFilePath(mp4Extractor, exportTestResult.filePath);
-    // TODO: b/324903070 - The generated output file has incorrect duration.
-    assertThat(fakeExtractorOutput.seekMap.getDurationUs()).isEqualTo(1_579_600);
+    assertThat(fakeExtractorOutput.seekMap.getDurationUs()).isEqualTo(1_562_800);
     assertThat(fakeExtractorOutput.numberOfTracks).isEqualTo(1);
     FakeTrackOutput audioTrack = fakeExtractorOutput.trackOutputs.get(0);
     int expectedSampleCount = 68;
