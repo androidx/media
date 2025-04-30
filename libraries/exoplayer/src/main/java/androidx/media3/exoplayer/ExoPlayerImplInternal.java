@@ -3886,7 +3886,7 @@ import java.util.Objects;
       if (comparePeriodIndex != 0) {
         return comparePeriodIndex;
       }
-      return Util.compareLong(resolvedPeriodTimeUs, other.resolvedPeriodTimeUs);
+      return Long.compare(resolvedPeriodTimeUs, other.resolvedPeriodTimeUs);
     }
   }
 

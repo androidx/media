@@ -1278,7 +1278,7 @@ public final class DownloadManager {
     }
 
     private static int compareStartTimes(Download first, Download second) {
-      return Util.compareLong(first.startTimeMs, second.startTimeMs);
+      return Long.compare(first.startTimeMs, second.startTimeMs);
     }
   }
 

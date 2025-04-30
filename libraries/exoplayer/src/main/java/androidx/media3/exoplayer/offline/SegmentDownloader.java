@@ -105,7 +105,7 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
 
     @Override
     public int compareTo(Segment other) {
-      return Util.compareLong(startTimeUs, other.startTimeUs);
+      return Long.compare(startTimeUs, other.startTimeUs);
     }
   }
 
