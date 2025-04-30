@@ -83,7 +83,9 @@ class PresentationState(private val player: Player) {
    * * [Player.EVENT_RENDERED_FIRST_FRAME] and [Player.EVENT_TRACKS_CHANGED]to determine whether the
    *   surface is ready to be shown
    */
-  suspend fun observe(): Nothing =
+  suspend fun observe() {
+    videoSizeDp = getVideoSizeDp(player)
+    coverSurface = true
     player.listen { events ->
       if (events.contains(Player.EVENT_VIDEO_SIZE_CHANGED)) {
         if (videoSize != VideoSize.UNKNOWN && playbackState != Player.STATE_IDLE) {
@@ -98,6 +100,7 @@ class PresentationState(private val player: Player) {
         maybeHideSurface(player)
       }
     }
+  }
 
   @Nullable
   private fun getVideoSizeDp(player: Player): Size? {

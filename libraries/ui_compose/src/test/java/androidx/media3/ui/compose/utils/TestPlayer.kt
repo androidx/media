@@ -20,6 +20,7 @@ import android.os.Looper
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.SimpleBasePlayer
+import androidx.media3.common.VideoSize
 import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
@@ -121,6 +122,11 @@ internal class TestPlayer : SimpleBasePlayer(Looper.myLooper()!!) {
 
   fun setPosition(positionMs: Long) {
     state = state.buildUpon().setContentPositionMs(positionMs).build()
+    invalidateState()
+  }
+
+  fun setVideoSize(videoSize: VideoSize) {
+    state = state.buildUpon().setVideoSize(videoSize).build()
     invalidateState()
   }
 
