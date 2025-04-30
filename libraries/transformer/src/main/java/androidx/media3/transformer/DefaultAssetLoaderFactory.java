@@ -30,7 +30,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.common.util.Clock;
-import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.DataSourceBitmapLoader;
 import androidx.media3.datasource.DefaultDataSource;
@@ -190,14 +189,8 @@ public final class DefaultAssetLoaderFactory implements AssetLoader.Factory {
       AssetLoader.Listener listener,
       CompositionSettings compositionSettings) {
     MediaItem mediaItem = editedMediaItem.mediaItem;
-    boolean isImage = isImage(context, mediaItem);
-    // TODO: b/350499931 - Use the MediaItem's imageDurationMs instead of the EditedMediaItem's
-    //  durationUs to export motion photos as video
-    boolean exportVideoFromMotionPhoto = isImage && editedMediaItem.durationUs == C.TIME_UNSET;
-    if (isImage && !exportVideoFromMotionPhoto) {
-      if (checkNotNull(mediaItem.localConfiguration).imageDurationMs == C.TIME_UNSET) {
-        Log.w(TAG, "The imageDurationMs field must be set on image MediaItems.");
-      }
+    if (isImage(context, mediaItem)
+        && checkNotNull(mediaItem.localConfiguration).imageDurationMs != C.TIME_UNSET) {
       if (imageAssetLoaderFactory == null) {
         imageAssetLoaderFactory = new ImageAssetLoader.Factory(context, bitmapLoader);
       }
