@@ -24,7 +24,7 @@ import androidx.media3.common.util.UnstableApi;
 import com.google.common.collect.ImmutableList;
 import java.nio.ByteBuffer;
 
-/** The muxer for producing media container files. */
+/** A muxer for producing media container files. */
 @UnstableApi
 public interface Muxer {
   /** Factory for muxers. */
@@ -46,6 +46,8 @@ public interface Muxer {
 
   /**
    * Adds a track of the given media format.
+   *
+   * <p>All tracks must be added before any samples are written to any track.
    *
    * @param format The {@link Format} of the track.
    * @return A track id for this track, which should be passed to {@link #writeSampleData}.
