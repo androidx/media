@@ -3302,7 +3302,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
    */
   @ForOverride
   protected ListenableFuture<?> handleSetDeviceVolume(
-      @IntRange(from = 0) int deviceVolume, int flags) {
+      @IntRange(from = 0) int deviceVolume, @C.VolumeFlags int flags) {
     throw new IllegalStateException(
         "Missing implementation to handle COMMAND_SET_DEVICE_VOLUME or"
             + " COMMAND_SET_DEVICE_VOLUME_WITH_FLAGS");
