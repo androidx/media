@@ -73,6 +73,7 @@ import androidx.media3.exoplayer.video.MediaCodecVideoRenderer;
 import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
 import androidx.media3.exoplayer.video.VideoFrameReleaseControl;
 import androidx.media3.extractor.ExtractorOutput;
+import androidx.media3.muxer.Muxer;
 import androidx.media3.muxer.MuxerException;
 import androidx.media3.test.utils.BitmapPixelTestUtil;
 import androidx.media3.test.utils.FakeExtractorOutput;

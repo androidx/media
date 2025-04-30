@@ -19,6 +19,7 @@
         requires explicitly setting `experimentalSetForceAudioTrack(true)` in
         `EditedMediaItemSequence.Builder`. If the gap is in the middle of the
         sequence, then this flag is not required.
+    *   Move `Muxer` interface from `media3-transformer` to `media3-muxer`.
 *   Track Selection:
 *   Extractors:
     *   MP3: Use duration and data size from unseekable Xing, VBRI and similar

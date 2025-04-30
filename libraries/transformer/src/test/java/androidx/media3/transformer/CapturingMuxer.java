@@ -26,6 +26,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.util.Util;
+import androidx.media3.muxer.Muxer;
 import androidx.media3.muxer.MuxerException;
 import androidx.media3.test.utils.DumpableFormat;
 import androidx.media3.test.utils.Dumper;

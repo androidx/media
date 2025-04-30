@@ -27,6 +27,7 @@ import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.container.Mp4OrientationData;
 import androidx.media3.muxer.FragmentedMp4Muxer;
+import androidx.media3.muxer.Muxer;
 import androidx.media3.muxer.MuxerException;
 import androidx.media3.muxer.MuxerUtil;
 import com.google.common.collect.ImmutableList;

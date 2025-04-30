@@ -21,6 +21,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.muxer.Muxer;
 import com.google.common.collect.ImmutableList;
 import java.nio.ByteBuffer;
 
