@@ -127,8 +127,9 @@ public final class CmcdConfiguration {
      * Creates a {@link CmcdConfiguration} based on the provided {@link MediaItem}.
      *
      * @param mediaItem The {@link MediaItem} from which to create the CMCD configuration.
-     * @return A {@link CmcdConfiguration} instance.
+     * @return A {@link CmcdConfiguration} instance, or {@code null} to disable CMCD logging.
      */
+    @Nullable
     CmcdConfiguration createCmcdConfiguration(MediaItem mediaItem);
 
     /**

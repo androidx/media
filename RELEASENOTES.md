@@ -14,6 +14,9 @@
     *   Fix memory leak in `MergingMediaSource`, for example used when
         sideloading subtitles
         ([#2338](https://github.com/androidx/media/issues/2338)).
+    *   Allow `CmcdConfiguration.Factory` to return `null` to disable CMCD
+        logging for specific media items
+        ([#2386](https://github.com/androidx/media/pull/2386)).
 *   Transformer:
     *   Filling an initial gap (added via `addGap()`) with silent audio now
         requires explicitly setting `experimentalSetForceAudioTrack(true)` in
