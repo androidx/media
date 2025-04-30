@@ -21,6 +21,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
 import android.os.Build
 import androidx.annotation.OptIn
 import androidx.core.app.NotificationCompat
@@ -40,11 +41,13 @@ import androidx.media3.session.MediaConstants
 import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSession.ControllerInfo
+import com.google.protobuf.ByteString
 import java.io.InputStream
 import java.io.OutputStream
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.guava.await
 import kotlinx.coroutines.launch
 
 open class DemoPlaybackService : MediaLibraryService() {
@@ -167,15 +170,30 @@ open class DemoPlaybackService : MediaLibraryService() {
         }
   }
 
+  @OptIn(UnstableApi::class) // BitmapLoader
   private fun storeCurrentMediaUidAndPosition() {
     val mediaID = mediaLibrarySession.player.currentMediaItem?.mediaId
     if (mediaID == null) {
       return
     }
+    val artworkUri = mediaLibrarySession.player.currentMediaItem?.mediaMetadata?.artworkUri
     val positionMs = mediaLibrarySession.player.currentPosition
     CoroutineScope(Dispatchers.IO).launch {
-      PreferenceDataStore.get(this@DemoPlaybackService).updateData { _ ->
-        Preferences.newBuilder().setMediaId(mediaID).setPositionMs(positionMs).build()
+      PreferenceDataStore.get(this@DemoPlaybackService).updateData { preferences ->
+        val builder = preferences.toBuilder().setMediaId(mediaID).setPositionMs(positionMs)
+        val artworkUriString = artworkUri?.toString() ?: ""
+        if (artworkUriString != preferences.artworkOriginalUri) {
+          builder.setArtworkOriginalUri(artworkUriString)
+          if (artworkUri == null) {
+            builder.setArtworkData(ByteString.EMPTY)
+          } else {
+            val bitmap = mediaLibrarySession.bitmapLoader.loadBitmap(artworkUri).await()
+            val outputStream = ByteString.newOutput()
+            bitmap.compress(Bitmap.CompressFormat.PNG, /* quality= */ 90, outputStream)
+            builder.setArtworkData(outputStream.toByteString())
+          }
+        }
+        builder.build()
       }
     }
   }

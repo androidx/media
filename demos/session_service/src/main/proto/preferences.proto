@@ -25,4 +25,8 @@ message Preferences {
   string media_id = 1;
   // The position in the last played item in milliseconds.
   int64 position_ms = 2;
+  // The original artwork URI of the last played item.
+  string artwork_original_uri = 3;
+  // The artwork image data of the last played item.
+  bytes artwork_data = 4;
 }

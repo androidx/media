@@ -17,7 +17,9 @@ package androidx.media3.demo.session
 
 import android.os.Bundle
 import androidx.annotation.OptIn
+import androidx.core.net.toUri
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.demo.session.service.R
 import androidx.media3.session.CommandButton
@@ -189,7 +191,16 @@ open class DemoMediaLibrarySessionCallback(val service: DemoPlaybackService) :
     return CoroutineScope(Dispatchers.Unconfined).future {
       service.retrieveLastStoredMediaUidAndPosition()?.let {
         maybeExpandSingleItemToPlaylist(
-            mediaItem = MediaItem.Builder().setMediaId(it.mediaId).build(),
+            mediaItem =
+              MediaItem.Builder()
+                .setMediaId(it.mediaId)
+                .setMediaMetadata(
+                  MediaMetadata.Builder()
+                    .setArtworkUri(it.artworkOriginalUri.toUri())
+                    .setArtworkData(it.artworkData.toByteArray(), MediaMetadata.PICTURE_TYPE_MEDIA)
+                    .build()
+                )
+                .build(),
             startIndex = 0,
             startPositionMs = it.positionMs,
           )
@@ -229,8 +240,8 @@ open class DemoMediaLibrarySessionCallback(val service: DemoPlaybackService) :
         // Try to get the parent and its children.
         MediaItemTree.getParentId(mediaId)?.let {
           playlist =
-            MediaItemTree.getChildren(it).map { mediaItem ->
-              if (mediaItem.mediaId == mediaId) MediaItemTree.expandItem(mediaItem)!! else mediaItem
+            MediaItemTree.getChildren(it).map { childItem ->
+              if (childItem.mediaId == mediaId) MediaItemTree.expandItem(mediaItem)!! else childItem
             }
           indexInPlaylist = MediaItemTree.getIndexInMediaItems(mediaId, playlist)
         }
