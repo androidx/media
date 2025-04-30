@@ -87,11 +87,33 @@ public final class MatroskaExtractorTest {
         simulationConfig);
   }
 
+  /**
+   * Test with CodecId = S_TEST/SSA (https://github.com/androidx/media/issues/2384)
+   *
+   * <p>The subtitle data is identical to {@code sample_with_ass_subtitles.mkv} so the same dump
+   * files are used.
+   */
   @Test
   public void mkvSample_withSsaSubtitles() throws Exception {
     ExtractorAsserts.assertBehavior(
         getExtractorFactory(subtitlesParsedDuringExtraction),
         "media/mkv/sample_with_ssa_subtitles.mkv",
+        getAssertionConfigWithPrefix(
+            "media/mkv/sample_with_ssa_subtitles.mkv", subtitlesParsedDuringExtraction),
+        simulationConfig);
+  }
+
+  /**
+   * Test with CodecId = S_TEST/ASS
+   *
+   * <p>The subtitle data is identical to {@code sample_with_ssa_subtitles.mkv} so the same dump
+   * files are used.
+   */
+  @Test
+  public void mkvSample_withAssSubtitles() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        getExtractorFactory(subtitlesParsedDuringExtraction),
+        "media/mkv/sample_with_ass_subtitles.mkv",
         getAssertionConfigWithPrefix(
             "media/mkv/sample_with_ssa_subtitles.mkv", subtitlesParsedDuringExtraction),
         simulationConfig);

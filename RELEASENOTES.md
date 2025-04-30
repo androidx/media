@@ -48,6 +48,12 @@
         ([#2328](https://github.com/androidx/media/issues/2328)).
     *   Fix garbled CEA-608 subtitles when playing H.262 streams containing
         B-frames ([#2372](https://github.com/androidx/media/issues/2372)).
+    *   Add support for SSA subtitles with `CodecId = S_TEXT/SSA` in Matroska
+        files. Previously `MatroskaExtractor` only supported `CodecId =
+        S_TEXT/ASS` which is meant to represent the 'advanced' (v4+) variant of
+        SubStation Alpha subtitles (but ExoPlayer's parsing logic is the same
+        for both variants)
+        ([#2384](https://github.com/androidx/media/issues/2384)).
 *   Metadata:
 *   Image:
 *   DataSource:
