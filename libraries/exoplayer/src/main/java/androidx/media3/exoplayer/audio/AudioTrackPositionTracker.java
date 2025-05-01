@@ -29,6 +29,7 @@ import android.media.AudioTimestamp;
 import android.media.AudioTrack;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.Util;
@@ -175,6 +176,7 @@ import java.lang.reflect.Method;
   private long bufferSizeUs;
   private float audioTrackPlaybackSpeed;
   private boolean notifiedPositionIncreasing;
+  private int lastUnderrunCount;
 
   private long smoothedPlayheadOffsetUs;
   private long lastPlayheadSampleTimeUs;
@@ -273,6 +275,7 @@ import java.lang.reflect.Method;
     lastLatencySampleTimeUs = 0;
     latencyUs = 0;
     audioTrackPlaybackSpeed = 1f;
+    lastUnderrunCount = 0;
   }
 
   public void setAudioTrackPlaybackSpeed(float audioTrackPlaybackSpeed) {
@@ -408,9 +411,17 @@ import java.lang.reflect.Method;
       }
     }
 
-    boolean hadData = hasData;
-    hasData = hasPendingData(writtenFrames);
-    if (hadData && !hasData && playState != PLAYSTATE_STOPPED) {
+    boolean emitUnderrun;
+    if (SDK_INT >= 24) {
+      emitUnderrun = hasPendingAudioTrackUnderruns();
+    } else {
+      boolean hadData = hasData;
+      hasData = hasPendingData(writtenFrames);
+      // For API 23- AudioTrack has no underrun API so we need to infer underruns heuristically.
+      emitUnderrun = hadData && !hasData && playState != PLAYSTATE_STOPPED;
+    }
+
+    if (emitUnderrun) {
       listener.onUnderrun(bufferSize, Util.usToMs(bufferSizeUs));
     }
 
@@ -508,6 +519,21 @@ import java.lang.reflect.Method;
    */
   public void setClock(Clock clock) {
     this.clock = clock;
+  }
+
+  /**
+   * Returns whether {@link #audioTrack} has reported one or more underruns since the last call to
+   * this method.
+   */
+  @RequiresApi(24)
+  private boolean hasPendingAudioTrackUnderruns() {
+    int underrunCount = checkNotNull(audioTrack).getUnderrunCount();
+    boolean result = underrunCount > lastUnderrunCount;
+
+    // If the AudioTrack unexpectedly resets the underrun count, we should update it silently.
+    lastUnderrunCount = underrunCount;
+
+    return result;
   }
 
   private void maybeSampleSyncParams() {

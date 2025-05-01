@@ -35,6 +35,9 @@
     *   Make `ChannelMappingAudioProcessor`, `TrimmingAudioProcessor` and
         `ToFloatPcmAudioProcessor` public
         ([#2339](https://github.com/androidx/media/issues/2339)).
+    *   Use `AudioTrack#getUnderrunCount()` in `AudioTrackPositionTracker` to
+        detect underruns in `DefaultAudioSink` instead of best-effort
+        estimation.
 *   Video:
     *   Add experimental `ExoPlayer` API to include the
         `MediaCodec.BUFFER_FLAG_DECODE_ONLY` flag when queuing decode-only input
