@@ -20,11 +20,14 @@ import static androidx.media3.common.C.AUDIO_SESSION_ID_UNSET;
 import static androidx.media3.common.C.TRACK_TYPE_AUDIO;
 import static androidx.media3.common.C.TRACK_TYPE_CAMERA_MOTION;
 import static androidx.media3.common.C.TRACK_TYPE_IMAGE;
+import static androidx.media3.common.C.TRACK_TYPE_TEXT;
 import static androidx.media3.common.C.TRACK_TYPE_VIDEO;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.castNonNull;
+import static androidx.media3.exoplayer.Renderer.MSG_EVENT_VIDEO_FORMAT_CHANGED;
+import static androidx.media3.exoplayer.Renderer.MSG_EVENT_VIDEO_SIZE_CHANGED;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_AUDIO_ATTRIBUTES;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_AUDIO_SESSION_ID;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_AUX_EFFECT_INFO;
@@ -2819,8 +2822,11 @@ import java.util.concurrent.CopyOnWriteArraySet;
       surfaceSize = new Size(width, height);
       listeners.sendEvent(
           EVENT_SURFACE_SIZE_CHANGED, listener -> listener.onSurfaceSizeChanged(width, height));
+      Size size = new Size(width, height);
       sendRendererMessage(
-          TRACK_TYPE_VIDEO, MSG_SET_VIDEO_OUTPUT_RESOLUTION, new Size(width, height));
+          TRACK_TYPE_VIDEO, MSG_SET_VIDEO_OUTPUT_RESOLUTION, size);
+      sendRendererMessage(
+          TRACK_TYPE_TEXT, MSG_SET_VIDEO_OUTPUT_RESOLUTION, size);
     }
   }
 
@@ -3080,6 +3086,8 @@ import java.util.concurrent.CopyOnWriteArraySet;
         Format format, @Nullable DecoderReuseEvaluation decoderReuseEvaluation) {
       videoFormat = format;
       analyticsCollector.onVideoInputFormatChanged(format, decoderReuseEvaluation);
+      sendRendererMessage(
+          TRACK_TYPE_TEXT, MSG_EVENT_VIDEO_FORMAT_CHANGED, format);
     }
 
     @Override
@@ -3092,6 +3100,8 @@ import java.util.concurrent.CopyOnWriteArraySet;
       videoSize = newVideoSize;
       listeners.sendEvent(
           EVENT_VIDEO_SIZE_CHANGED, listener -> listener.onVideoSizeChanged(newVideoSize));
+      sendRendererMessage(
+          TRACK_TYPE_TEXT, MSG_EVENT_VIDEO_SIZE_CHANGED, newVideoSize);
     }
 
     @Override
