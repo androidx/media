@@ -26,7 +26,7 @@ import java.nio.ByteBuffer;
 
 /** A muxer for producing media container files. */
 @UnstableApi
-public interface Muxer {
+public interface Muxer extends AutoCloseable {
   /** Factory for muxers. */
   interface Factory {
     /**
@@ -76,5 +76,6 @@ public interface Muxer {
    *
    * @throws MuxerException If the muxer fails to finish writing the output.
    */
+  @Override
   void close() throws MuxerException;
 }
