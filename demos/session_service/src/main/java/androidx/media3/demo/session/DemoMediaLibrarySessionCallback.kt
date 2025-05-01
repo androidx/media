@@ -18,12 +18,14 @@ package androidx.media3.demo.session
 import android.os.Bundle
 import androidx.annotation.OptIn
 import androidx.core.net.toUri
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.demo.session.service.R
 import androidx.media3.session.CommandButton
 import androidx.media3.session.LibraryResult
+import androidx.media3.session.MediaConstants
 import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSession.MediaItemsWithStartPosition
@@ -33,6 +35,8 @@ import androidx.media3.session.SessionResult
 import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
+import kotlin.math.max
+import kotlin.math.min
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.guava.future
@@ -189,7 +193,19 @@ open class DemoMediaLibrarySessionCallback(val service: DemoPlaybackService) :
     controller: MediaSession.ControllerInfo,
   ): ListenableFuture<MediaItemsWithStartPosition> {
     return CoroutineScope(Dispatchers.Unconfined).future {
-      service.retrieveLastStoredMediaUidAndPosition()?.let {
+      service.retrieveLastStoredMediaItem()?.let {
+        var extras: Bundle? = null
+        if (it.durationMs != C.TIME_UNSET) {
+          extras = Bundle()
+          extras.putInt(
+            MediaConstants.EXTRAS_KEY_COMPLETION_STATUS,
+            MediaConstants.EXTRAS_VALUE_COMPLETION_STATUS_PARTIALLY_PLAYED,
+          )
+          extras.putDouble(
+            MediaConstants.EXTRAS_KEY_COMPLETION_PERCENTAGE,
+            max(0.0, min(1.0, it.positionMs.toDouble() / it.durationMs)),
+          )
+        }
         maybeExpandSingleItemToPlaylist(
             mediaItem =
               MediaItem.Builder()
@@ -198,6 +214,7 @@ open class DemoMediaLibrarySessionCallback(val service: DemoPlaybackService) :
                   MediaMetadata.Builder()
                     .setArtworkUri(it.artworkOriginalUri.toUri())
                     .setArtworkData(it.artworkData.toByteArray(), MediaMetadata.PICTURE_TYPE_MEDIA)
+                    .setExtras(extras)
                     .build()
                 )
                 .build(),

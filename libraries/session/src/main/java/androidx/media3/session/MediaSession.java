@@ -1704,6 +1704,10 @@ public class MediaSession {
      * device. Note that network access may not be available when this method is called during boot
      * time.
      *
+     * <p>Use {@link MediaConstants#EXTRAS_KEY_COMPLETION_STATUS} and {@link
+     * MediaConstants#EXTRAS_KEY_COMPLETION_PERCENTAGE} to statically indicate the completion
+     * status.
+     *
      * <p>The method will only be called if the {@link Player} has {@link
      * Player#COMMAND_GET_CURRENT_MEDIA_ITEM} and either {@link Player#COMMAND_SET_MEDIA_ITEM} or
      * {@link Player#COMMAND_CHANGE_MEDIA_ITEMS} available.

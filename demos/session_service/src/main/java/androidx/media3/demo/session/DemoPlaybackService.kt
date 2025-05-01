@@ -148,7 +148,7 @@ open class DemoPlaybackService : MediaLibraryService() {
         if (
           events.containsAny(Player.EVENT_IS_PLAYING_CHANGED, Player.EVENT_MEDIA_ITEM_TRANSITION)
         ) {
-          storeCurrentMediaUidAndPosition()
+          storeCurrentMediaItem()
         }
       }
     }
@@ -171,16 +171,22 @@ open class DemoPlaybackService : MediaLibraryService() {
   }
 
   @OptIn(UnstableApi::class) // BitmapLoader
-  private fun storeCurrentMediaUidAndPosition() {
+  private fun storeCurrentMediaItem() {
     val mediaID = mediaLibrarySession.player.currentMediaItem?.mediaId
     if (mediaID == null) {
       return
     }
     val artworkUri = mediaLibrarySession.player.currentMediaItem?.mediaMetadata?.artworkUri
     val positionMs = mediaLibrarySession.player.currentPosition
+    val durationMs = mediaLibrarySession.player.duration
     CoroutineScope(Dispatchers.IO).launch {
       PreferenceDataStore.get(this@DemoPlaybackService).updateData { preferences ->
-        val builder = preferences.toBuilder().setMediaId(mediaID).setPositionMs(positionMs)
+        val builder =
+          preferences
+            .toBuilder()
+            .setMediaId(mediaID)
+            .setPositionMs(positionMs)
+            .setDurationMs(durationMs)
         val artworkUriString = artworkUri?.toString() ?: ""
         if (artworkUriString != preferences.artworkOriginalUri) {
           builder.setArtworkOriginalUri(artworkUriString)
@@ -198,7 +204,7 @@ open class DemoPlaybackService : MediaLibraryService() {
     }
   }
 
-  suspend fun retrieveLastStoredMediaUidAndPosition(): Preferences? {
+  suspend fun retrieveLastStoredMediaItem(): Preferences? {
     val preferences = PreferenceDataStore.get(this).data.first()
     return if (preferences != Preferences.getDefaultInstance()) preferences else null
   }
