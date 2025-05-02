@@ -81,6 +81,10 @@
     *   Fix a bug where where sending custom actions, a search result or a
         getItem request crashed the legacy session app with a
         `ClassNotFoundException`.
+    *   Fix a bug where `MediaItem.LocalConfiguration.uri` was shared to the
+        platform sessions's `MediaMetadata`. To intentionally share a URI to
+        allow controllers to re-request the media, set
+        `MediaItem.RequestMetadata.mediaUri` instead.
 *   UI:
     *   Fix a Compose bug which resulted in a gap between setting the initial
         button states and observing the change in state (e.g. icon shapes or
