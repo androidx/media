@@ -210,7 +210,8 @@ public interface Renderer extends PlayerMessage.Target {
         MSG_SET_VIDEO_OUTPUT_RESOLUTION,
         MSG_SET_IMAGE_OUTPUT,
         MSG_SET_PRIORITY,
-        MSG_TRANSFER_RESOURCES
+        MSG_TRANSFER_RESOURCES,
+        MSG_SET_SCRUBBING_MODE
       })
   public @interface MessageType {}
 
@@ -354,6 +355,13 @@ public interface Renderer extends PlayerMessage.Target {
    * Renderer} type as the renderer being passed the message.
    */
   int MSG_TRANSFER_RESOURCES = 17;
+
+  /**
+   * The type of message that can be passed to a renderer to direct it to enable or disable
+   * scrubbing mode. The message payload should be a {@link ScrubbingModeParameters} instance to
+   * enable or {@code null} to disable scrubbing mode.
+   */
+  int MSG_SET_SCRUBBING_MODE = 18;
 
   /**
    * Applications or extensions may define custom {@code MSG_*} constants that can be passed to

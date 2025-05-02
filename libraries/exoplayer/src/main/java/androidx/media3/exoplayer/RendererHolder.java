@@ -540,6 +540,24 @@ import java.util.Objects;
   }
 
   /**
+   * Enables or disables scrubbing mode through a {@link Renderer#handleMessage} with {@link
+   * Renderer#MSG_SET_SCRUBBING_MODE}.
+   *
+   * <p>If {@code scrubbingModeParameters} is {@code null} then scrubbing mode will be disabled.
+   *
+   * @param scrubbingModeParameters The {@link ScrubbingModeParameters} to set unto the {@link
+   *     Renderer}.
+   * @see Renderer#MSG_SET_SCRUBBING_MODE
+   */
+  public void setScrubbingMode(@Nullable ScrubbingModeParameters scrubbingModeParameters)
+      throws ExoPlaybackException {
+    primaryRenderer.handleMessage(Renderer.MSG_SET_SCRUBBING_MODE, scrubbingModeParameters);
+    if (secondaryRenderer != null) {
+      secondaryRenderer.handleMessage(Renderer.MSG_SET_SCRUBBING_MODE, scrubbingModeParameters);
+    }
+  }
+
+  /**
    * Stops and disables all {@link Renderer renderers}.
    *
    * @param mediaClock To call {@link DefaultMediaClock#onRendererDisabled} if disabling a {@link

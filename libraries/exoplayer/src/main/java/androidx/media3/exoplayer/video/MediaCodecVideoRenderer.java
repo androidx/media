@@ -75,6 +75,7 @@ import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.FormatHolder;
 import androidx.media3.exoplayer.PlayerMessage.Target;
 import androidx.media3.exoplayer.RendererCapabilities;
+import androidx.media3.exoplayer.ScrubbingModeParameters;
 import androidx.media3.exoplayer.mediacodec.MediaCodecAdapter;
 import androidx.media3.exoplayer.mediacodec.MediaCodecDecoderException;
 import androidx.media3.exoplayer.mediacodec.MediaCodecInfo;
@@ -214,6 +215,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   private int droppedFrames;
   private int consecutiveDroppedFrameCount;
   private int buffersInCodecCount;
+  @Nullable private ScrubbingModeParameters scrubbingModeParameters;
   private long totalVideoFrameProcessingOffsetUs;
   private int videoFrameProcessingOffsetCount;
   private long lastFrameReleaseTimeNs;
@@ -604,6 +606,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
             ? -builder.lateThresholdToDropDecoderInputUs
             : C.TIME_UNSET;
     enableMediaCodecBufferDecodeOnlyFlag = builder.enableMediaCodecBufferDecodeOnlyFlag;
+    scrubbingModeParameters = null;
   }
 
   // FrameTimingEvaluator methods
@@ -1170,6 +1173,9 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
           ((MediaCodecVideoRenderer) checkNotNull(message))
               .handleMessage(MSG_SET_VIDEO_OUTPUT, surface);
         }
+        break;
+      case MSG_SET_SCRUBBING_MODE:
+        scrubbingModeParameters = (ScrubbingModeParameters) message;
         break;
       default:
         super.handleMessage(messageType, message);

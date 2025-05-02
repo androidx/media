@@ -173,6 +173,7 @@ import java.util.Objects;
   private static final int MSG_SET_VIDEO_FRAME_METADATA_LISTENER = 35;
   private static final int MSG_SET_SCRUBBING_MODE_ENABLED = 36;
   private static final int MSG_SEEK_COMPLETED_IN_SCRUBBING_MODE = 37;
+  private static final int MSG_SET_SCRUBBING_MODE_PARAMETERS = 38;
 
   private static final long BUFFERING_MAXIMUM_INTERVAL_MS =
       Util.usToMs(Renderer.DEFAULT_DURATION_TO_PROGRESS_US);
@@ -221,6 +222,7 @@ import java.util.Objects;
   private final boolean hasSecondaryRenderers;
   private final AudioFocusManager audioFocusManager;
   private SeekParameters seekParameters;
+  private ScrubbingModeParameters scrubbingModeParameters;
   private boolean scrubbingModeEnabled;
   private boolean seekIsPendingWhileScrubbing;
   @Nullable private SeekPosition queuedSeekWhileScrubbing;
@@ -293,6 +295,7 @@ import java.util.Objects;
     this.preloadConfiguration = preloadConfiguration;
     this.analyticsCollector = analyticsCollector;
     this.volume = 1f;
+    this.scrubbingModeParameters = ScrubbingModeParameters.DEFAULT;
 
     playbackMaybeBecameStuckAtMs = C.TIME_UNSET;
     lastRebufferRealtimeMs = C.TIME_UNSET;
@@ -425,6 +428,12 @@ import java.util.Objects;
 
   public void setScrubbingModeEnabled(boolean scrubbingModeEnabled) {
     handler.obtainMessage(MSG_SET_SCRUBBING_MODE_ENABLED, scrubbingModeEnabled).sendToTarget();
+  }
+
+  public void setScrubbingModeParameters(ScrubbingModeParameters scrubbingModeParameters) {
+    handler
+        .obtainMessage(MSG_SET_SCRUBBING_MODE_PARAMETERS, scrubbingModeParameters)
+        .sendToTarget();
   }
 
   public void stop() {
@@ -701,6 +710,9 @@ import java.util.Objects;
           break;
         case MSG_SET_SCRUBBING_MODE_ENABLED:
           setScrubbingModeEnabledInternal((Boolean) msg.obj);
+          break;
+        case MSG_SET_SCRUBBING_MODE_PARAMETERS:
+          setScrubbingModeParametersInternal((ScrubbingModeParameters) msg.obj);
           break;
         case MSG_SET_FOREGROUND_MODE:
           setForegroundModeInternal(
@@ -1733,6 +1745,7 @@ import java.util.Objects;
   private void setScrubbingModeEnabledInternal(boolean scrubbingModeEnabled)
       throws ExoPlaybackException {
     this.scrubbingModeEnabled = scrubbingModeEnabled;
+    applyScrubbingModeParameters();
     if (!scrubbingModeEnabled) {
       seekIsPendingWhileScrubbing = false;
       handler.removeMessages(MSG_SEEK_COMPLETED_IN_SCRUBBING_MODE);
@@ -1741,6 +1754,18 @@ import java.util.Objects;
         seekToInternal(queuedSeekWhileScrubbing, /* incrementAcks= */ false);
         queuedSeekWhileScrubbing = null;
       }
+    }
+  }
+
+  private void setScrubbingModeParametersInternal(ScrubbingModeParameters scrubbingModeParameters)
+      throws ExoPlaybackException {
+    this.scrubbingModeParameters = scrubbingModeParameters;
+    applyScrubbingModeParameters();
+  }
+
+  private void applyScrubbingModeParameters() throws ExoPlaybackException {
+    for (RendererHolder renderer : renderers) {
+      renderer.setScrubbingMode(scrubbingModeEnabled ? scrubbingModeParameters : null);
     }
   }
 
