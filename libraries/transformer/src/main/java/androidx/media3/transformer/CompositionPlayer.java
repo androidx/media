@@ -350,6 +350,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
   private @MonotonicNonNull Composition composition;
   private @MonotonicNonNull Size videoOutputSize;
   private @MonotonicNonNull PlaybackVideoGraphWrapper playbackVideoGraphWrapper;
+  private @MonotonicNonNull PlaybackAudioGraphWrapper playbackAudioGraphWrapper;
   private @MonotonicNonNull VideoFrameMetadataListener pendingVideoFrameMetadatListener;
 
   private long compositionDurationUs;
@@ -367,6 +368,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
   private LivePositionSupplier positionSupplier;
   private LivePositionSupplier bufferedPositionSupplier;
   private LivePositionSupplier totalBufferedDurationSupplier;
+  private boolean compositionPlayerInternalPrepared;
 
   // "this" reference for position suppliers.
   @SuppressWarnings("initialization:methodref.receiver.bound.invalid")
@@ -738,36 +740,53 @@ public final class CompositionPlayer extends SimpleBasePlayer
     }
   }
 
-  @SuppressWarnings("VisibleForTests") // Calls ExoPlayer.Builder.setClock()
-  private void setCompositionInternal(Composition composition) {
-    compositionDurationUs = getCompositionDurationUs(composition);
+  private void prepareCompositionPlayerInternal() {
+    if (compositionPlayerInternalPrepared) {
+      return;
+    }
+
     playbackThread = new HandlerThread("CompositionPlaybackThread", Process.THREAD_PRIORITY_AUDIO);
     playbackThread.start();
     playbackThreadHandler = clock.createHandler(playbackThread.getLooper(), /* callback= */ null);
+
     // Create the audio and video composition components now in order to setup the audio and video
     // pipelines. Once this method returns, further access to the audio and video graph wrappers
     // must done on the playback thread only, to ensure related components are accessed from one
     // thread only.
-    PlaybackAudioGraphWrapper playbackAudioGraphWrapper =
+    playbackAudioGraphWrapper =
         new PlaybackAudioGraphWrapper(
-            new DefaultAudioMixer.Factory(),
-            composition.effects.audioProcessors,
-            checkNotNull(finalAudioSink));
+            new DefaultAudioMixer.Factory(), checkNotNull(finalAudioSink));
     VideoFrameReleaseControl videoFrameReleaseControl =
         new VideoFrameReleaseControl(
             context, new CompositionFrameTimingEvaluator(), /* allowedJoiningTimeMs= */ 0);
     playbackVideoGraphWrapper =
         new PlaybackVideoGraphWrapper.Builder(context, videoFrameReleaseControl)
             .setVideoGraphFactory(checkNotNull(videoGraphFactory))
-            .setCompositorSettings(composition.videoCompositorSettings)
-            .setCompositionEffects(composition.effects.videoEffects)
             .setClock(clock)
-            .setRequestOpenGlToneMapping(
-                composition.hdrMode == Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL)
             .setEnableReplayableCache(enableReplayableCache)
             .build();
     playbackVideoGraphWrapper.addListener(this);
 
+    // From here after, composition player accessed the audio and video pipelines via the internal
+    // player. The internal player ensures access to the components is done on the playback thread.
+    compositionPlayerInternal =
+        new CompositionPlayerInternal(
+            playbackThread.getLooper(),
+            clock,
+            playbackAudioGraphWrapper,
+            playbackVideoGraphWrapper,
+            /* listener= */ this,
+            compositionInternalListenerHandler);
+    compositionPlayerInternal.setVolume(volume);
+    compositionPlayerInternalPrepared = true;
+  }
+
+  @SuppressWarnings("VisibleForTests") // Calls ExoPlayer.Builder.setClock()
+  private void setCompositionInternal(Composition composition) {
+    prepareCompositionPlayerInternal();
+    checkNotNull(compositionPlayerInternal).setComposition(composition);
+
+    compositionDurationUs = getCompositionDurationUs(composition);
     long primarySequenceDurationUs =
         getSequenceDurationUs(checkNotNull(composition.sequences.get(0)));
     for (int i = 0; i < composition.sequences.size(); i++) {
@@ -776,8 +795,8 @@ public final class CompositionPlayer extends SimpleBasePlayer
           SequenceRenderersFactory.create(
               context,
               editedMediaItemSequence,
-              playbackAudioGraphWrapper,
-              playbackVideoGraphWrapper.getSink(/* inputIndex= */ i),
+              checkNotNull(playbackAudioGraphWrapper),
+              checkNotNull(playbackVideoGraphWrapper).getSink(/* inputIndex= */ i),
               imageDecoderFactory,
               /* inputIndex= */ i,
               /* requestToneMapping= */ composition.hdrMode
@@ -787,7 +806,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
       ExoPlayer.Builder playerBuilder =
           new ExoPlayer.Builder(context)
               .setLooper(getApplicationLooper())
-              .setPlaybackLooper(playbackThread.getLooper())
+              .setPlaybackLooper(checkNotNull(playbackThread).getLooper())
               .setRenderersFactory(sequenceRenderersFactory)
               .setHandleAudioBecomingNoisy(true)
               .setClock(clock)
@@ -829,17 +848,6 @@ public final class CompositionPlayer extends SimpleBasePlayer
         playlist = createPlaylist();
       }
     }
-    // From here after, composition player accessed the audio and video pipelines via the internal
-    // player. The internal player ensures access to the components is done on the playback thread.
-    compositionPlayerInternal =
-        new CompositionPlayerInternal(
-            playbackThread.getLooper(),
-            clock,
-            playbackAudioGraphWrapper,
-            playbackVideoGraphWrapper,
-            /* listener= */ this,
-            compositionInternalListenerHandler);
-    compositionPlayerInternal.setVolume(volume);
   }
 
   private void setPrimaryPlayerSequence(ExoPlayer player, EditedMediaItemSequence sequence) {
