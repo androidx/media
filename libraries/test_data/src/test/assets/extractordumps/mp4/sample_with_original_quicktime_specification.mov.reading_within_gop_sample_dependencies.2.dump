@@ -20,6 +20,8 @@ track 0:
     maxNumReorderSamples = 2
     width = 1920
     height = 1440
+    decodedWidth = 1920
+    decodedHeight = 1440
     frameRate = 28.81
     rotationDegrees = 90
     maxSubLayers = 1

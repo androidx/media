@@ -1279,6 +1279,8 @@ public final class BoxParser {
     int maxNumReorderSamples = Format.NO_VALUE;
     int maxSubLayers = Format.NO_VALUE;
     @Nullable NalUnitUtil.H265VpsData vpsData = null;
+    int decodedWidth = Format.NO_VALUE;
+    int decodedHeight = Format.NO_VALUE;
 
     // HDR related metadata.
     @C.ColorSpace int colorSpace = Format.NO_VALUE;
@@ -1331,6 +1333,8 @@ public final class BoxParser {
           // HEVCDecoderConfigurationRecord may include 3D reference displays information SEI.
           stereoMode = hevcConfig.stereoMode;
         }
+        decodedWidth = hevcConfig.decodedWidth;
+        decodedHeight = hevcConfig.decodedHeight;
         colorSpace = hevcConfig.colorSpace;
         colorRange = hevcConfig.colorRange;
         colorTransfer = hevcConfig.colorTransfer;
@@ -1607,6 +1611,8 @@ public final class BoxParser {
             .setCodecs(codecs)
             .setWidth(width)
             .setHeight(height)
+            .setDecodedWidth(decodedWidth)
+            .setDecodedHeight(decodedHeight)
             .setPixelWidthHeightRatio(pixelWidthHeightRatio)
             .setRotationDegrees(rotationDegrees)
             .setProjectionData(projectionData)

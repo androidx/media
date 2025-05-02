@@ -14,6 +14,8 @@ track 0:
     maxNumReorderSamples = 2
     width = 416
     height = 234
+    decodedWidth = 416
+    decodedHeight = 240
     maxSubLayers = 1
     colorInfo:
       colorSpace = 2

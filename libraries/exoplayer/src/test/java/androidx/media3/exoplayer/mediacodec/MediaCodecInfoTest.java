@@ -24,6 +24,7 @@ import static androidx.media3.exoplayer.DecoderReuseEvaluation.DISCARD_REASON_MI
 import static androidx.media3.exoplayer.DecoderReuseEvaluation.DISCARD_REASON_VIDEO_COLOR_INFO_CHANGED;
 import static androidx.media3.exoplayer.DecoderReuseEvaluation.DISCARD_REASON_VIDEO_RESOLUTION_CHANGED;
 import static androidx.media3.exoplayer.DecoderReuseEvaluation.DISCARD_REASON_VIDEO_ROTATION_CHANGED;
+import static androidx.media3.exoplayer.DecoderReuseEvaluation.DISCARD_REASON_WORKAROUND;
 import static androidx.media3.exoplayer.DecoderReuseEvaluation.REUSE_RESULT_NO;
 import static androidx.media3.exoplayer.DecoderReuseEvaluation.REUSE_RESULT_YES_WITH_FLUSH;
 import static androidx.media3.exoplayer.DecoderReuseEvaluation.REUSE_RESULT_YES_WITH_RECONFIGURATION;
@@ -297,6 +298,24 @@ public final class MediaCodecInfoTest {
                 stereoVariantFormat,
                 REUSE_RESULT_NO,
                 DISCARD_REASON_INITIALIZATION_DATA_CHANGED));
+  }
+
+  @Test
+  public void canReuseCodec_differentVideoCrop_returnsNo() {
+    MediaCodecInfo codecInfo = buildH264CodecInfo(/* adaptive= */ true);
+    Format hdCodedAs4K =
+        FORMAT_H264_HD.buildUpon().setDecodedWidth(3840).setDecodedHeight(2160).build();
+    Format uhdCodedAs4K =
+        FORMAT_H264_4K.buildUpon().setDecodedWidth(3840).setDecodedHeight(2160).build();
+
+    assertThat(codecInfo.canReuseCodec(hdCodedAs4K, uhdCodedAs4K))
+        .isEqualTo(
+            new DecoderReuseEvaluation(
+                codecInfo.name,
+                hdCodedAs4K,
+                uhdCodedAs4K,
+                REUSE_RESULT_NO,
+                DISCARD_REASON_WORKAROUND));
   }
 
   private static MediaCodecInfo buildH264CodecInfo(boolean adaptive) {

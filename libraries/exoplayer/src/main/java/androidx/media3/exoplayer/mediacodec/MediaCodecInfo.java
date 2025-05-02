@@ -436,8 +436,9 @@ public final class MediaCodecInfo {
       if (oldFormat.rotationDegrees != newFormat.rotationDegrees) {
         discardReasons |= DISCARD_REASON_VIDEO_ROTATION_CHANGED;
       }
-      if (!adaptive
-          && (oldFormat.width != newFormat.width || oldFormat.height != newFormat.height)) {
+      boolean resolutionChanged =
+          oldFormat.width != newFormat.width || oldFormat.height != newFormat.height;
+      if (!adaptive && resolutionChanged) {
         discardReasons |= DISCARD_REASON_VIDEO_RESOLUTION_CHANGED;
       }
       if ((!ColorInfo.isEquivalentToAssumedSdrDefault(oldFormat.colorInfo)
@@ -448,6 +449,17 @@ public final class MediaCodecInfo {
       }
       if (needsAdaptationReconfigureWorkaround(name)
           && !oldFormat.initializationDataEquals(newFormat)) {
+        discardReasons |= DISCARD_REASON_WORKAROUND;
+      }
+
+      if (oldFormat.decodedWidth != Format.NO_VALUE
+          && oldFormat.decodedHeight != Format.NO_VALUE
+          && oldFormat.decodedWidth == newFormat.decodedWidth
+          && oldFormat.decodedHeight == newFormat.decodedHeight
+          && resolutionChanged) {
+        // Work around a bug where MediaCodec fails to adapt between formats if the compressed
+        // picture dimensions match but the cropped region for display differs.
+        // See b/409036359.
         discardReasons |= DISCARD_REASON_WORKAROUND;
       }
 

@@ -21,6 +21,8 @@ track 0:
     maxNumReorderSamples = 2
     width = 854
     height = 480
+    decodedWidth = 856
+    decodedHeight = 480
     frameRate = 30.00
     maxSubLayers = 1
     colorInfo:
