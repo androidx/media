@@ -17,6 +17,8 @@ track 256:
     maxNumReorderSamples = 2
     width = 854
     height = 480
+    decodedWidth = 856
+    decodedHeight = 480
     maxSubLayers = 1
     colorInfo:
       colorRange = 2
