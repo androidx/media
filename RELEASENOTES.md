@@ -38,6 +38,8 @@
     *   Use `AudioTrack#getUnderrunCount()` in `AudioTrackPositionTracker` to
         detect underruns in `DefaultAudioSink` instead of best-effort
         estimation.
+    *   Improve audio timestamp smoothing for unexpected position drift from the
+        audio output device.
 *   Video:
     *   Add experimental `ExoPlayer` API to include the
         `MediaCodec.BUFFER_FLAG_DECODE_ONLY` flag when queuing decode-only input
