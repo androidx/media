@@ -40,6 +40,8 @@
         estimation.
     *   Improve audio timestamp smoothing for unexpected position drift from the
         audio output device.
+    *   Fix bug where A/V sync is broken for the first 10 seconds after resuming
+        from pause when connected to Bluetooth devices.
 *   Video:
     *   Add experimental `ExoPlayer` API to include the
         `MediaCodec.BUFFER_FLAG_DECODE_ONLY` flag when queuing decode-only input

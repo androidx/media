@@ -88,6 +88,18 @@ import java.lang.annotation.Target;
   private static final int INITIALIZING_DURATION_US = 500_000;
 
   /**
+   * The maximum difference in calculated current position between two reported timestamps to
+   * consider the timestamps advancing correctly.
+   */
+  private static final long MAX_POSITION_DRIFT_ADVANCING_TIMESTAMP_US = 1000;
+
+  /**
+   * The minimum duration to remain in {@link #STATE_INITIALIZING} and {@link #STATE_TIMESTAMP} if
+   * no correctly advancing timestamp is returned before transitioning to {@link #STATE_ERROR}.
+   */
+  private static final int WAIT_FOR_ADVANCE_DURATION_US = 2_000_000;
+
+  /**
    * AudioTrack timestamps are deemed spurious if they are offset from the system clock by more than
    * this amount.
    *
@@ -104,6 +116,7 @@ import java.lang.annotation.Target;
   private long sampleIntervalUs;
   private long lastTimestampSampleTimeUs;
   private long initialTimestampPositionFrames;
+  private long initialTimestampSystemTimeUs;
 
   /**
    * Creates a new audio timestamp poller.
@@ -146,6 +159,7 @@ import java.lang.annotation.Target;
           if (audioTimestamp.getTimestampSystemTimeUs() >= initializeSystemTimeUs) {
             // We have an initial timestamp, but don't know if it's advancing yet.
             initialTimestampPositionFrames = audioTimestamp.getTimestampPositionFrames();
+            initialTimestampSystemTimeUs = audioTimestamp.getTimestampSystemTimeUs();
             updateState(STATE_TIMESTAMP);
           }
         } else if (systemTimeUs - initializeSystemTimeUs > INITIALIZING_DURATION_US) {
@@ -158,9 +172,16 @@ import java.lang.annotation.Target;
         break;
       case STATE_TIMESTAMP:
         if (updatedTimestamp) {
-          long timestampPositionFrames = audioTimestamp.getTimestampPositionFrames();
-          if (timestampPositionFrames > initialTimestampPositionFrames) {
+          if (isTimestampAdvancingFromInitialTimestamp(systemTimeUs, audioTrackPlaybackSpeed)) {
             updateState(STATE_TIMESTAMP_ADVANCING);
+          } else if (systemTimeUs - initializeSystemTimeUs > WAIT_FOR_ADVANCE_DURATION_US) {
+            // Failed to find a correctly advancing timestamp. Only try again later after waiting
+            // for SLOW_POLL_INTERVAL_US.
+            updateState(STATE_NO_TIMESTAMP);
+          } else {
+            // Not yet advancing, try again with the latest timestamp as the initial one.
+            initialTimestampPositionFrames = audioTimestamp.getTimestampPositionFrames();
+            initialTimestampSystemTimeUs = audioTimestamp.getTimestampSystemTimeUs();
           }
         } else {
           reset();
@@ -225,6 +246,7 @@ import java.lang.annotation.Target;
         // Force polling a timestamp immediately, and poll quickly.
         lastTimestampSampleTimeUs = 0;
         initialTimestampPositionFrames = C.INDEX_UNSET;
+        initialTimestampSystemTimeUs = C.TIME_UNSET;
         initializeSystemTimeUs = System.nanoTime() / 1000;
         sampleIntervalUs = FAST_POLL_INTERVAL_US;
         break;
@@ -243,10 +265,40 @@ import java.lang.annotation.Target;
     }
   }
 
+  private boolean isTimestampAdvancingFromInitialTimestamp(
+      long systemTimeUs, float audioTrackPlaybackSpeed) {
+    if (audioTimestamp.getTimestampPositionFrames() <= initialTimestampPositionFrames) {
+      // Reported timestamp hasn't been updated.
+      return false;
+    }
+    long positionEstimateUsingInitialTimestampUs =
+        computeTimestampPositionUs(
+            initialTimestampPositionFrames,
+            initialTimestampSystemTimeUs,
+            systemTimeUs,
+            audioTrackPlaybackSpeed);
+    long positionEstimateUsingCurrentTimestampUs =
+        computeTimestampPositionUs(systemTimeUs, audioTrackPlaybackSpeed);
+    long positionDriftUs =
+        Math.abs(positionEstimateUsingCurrentTimestampUs - positionEstimateUsingInitialTimestampUs);
+    return positionDriftUs < MAX_POSITION_DRIFT_ADVANCING_TIMESTAMP_US;
+  }
+
   private long computeTimestampPositionUs(long systemTimeUs, float audioTrackPlaybackSpeed) {
-    long timestampPositionFrames = audioTimestamp.getTimestampPositionFrames();
+    return computeTimestampPositionUs(
+        audioTimestamp.getTimestampPositionFrames(),
+        audioTimestamp.getTimestampSystemTimeUs(),
+        systemTimeUs,
+        audioTrackPlaybackSpeed);
+  }
+
+  private long computeTimestampPositionUs(
+      long timestampPositionFrames,
+      long timestampSystemTimeUs,
+      long systemTimeUs,
+      float audioTrackPlaybackSpeed) {
     long timestampPositionUs = sampleCountToDurationUs(timestampPositionFrames, sampleRate);
-    long elapsedSinceTimestampUs = systemTimeUs - audioTimestamp.getTimestampSystemTimeUs();
+    long elapsedSinceTimestampUs = systemTimeUs - timestampSystemTimeUs;
     elapsedSinceTimestampUs =
         Util.getMediaDurationForPlayoutDuration(elapsedSinceTimestampUs, audioTrackPlaybackSpeed);
     return timestampPositionUs + elapsedSinceTimestampUs;
