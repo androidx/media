@@ -236,6 +236,7 @@ public final class ExperimentalFrameExtractor {
     }
   }
 
+  private final Configuration configuration;
   private final ExoPlayer player;
   private final Handler playerApplicationThreadHandler;
 
@@ -275,6 +276,7 @@ public final class ExperimentalFrameExtractor {
    * @param configuration The {@link Configuration} for this frame extractor.
    */
   public ExperimentalFrameExtractor(Context context, Configuration configuration) {
+    this.configuration = configuration;
     MediaSource.Factory mediaSourceFactory =
         new DefaultMediaSourceFactory(context, new DefaultExtractorsFactory())
             .experimentalSetCodecsToParseWithinGopSampleDependencies(
@@ -336,12 +338,27 @@ public final class ExperimentalFrameExtractor {
   }
 
   /**
-   * Extracts a representative {@link Frame} for the specified video position.
+   * Extracts a representative {@link Frame} for the specified video position using the {@link
+   * SeekParameters} specified in the {@link Configuration}.
    *
-   * @param positionMs The time position in the {@link MediaItem} for which a frame is extracted.
+   * @param positionMs The time position in the {@link MediaItem} for which a frame is extracted, in
+   *     milliseconds.
    * @return A {@link ListenableFuture} of the result.
    */
   public ListenableFuture<Frame> getFrame(long positionMs) {
+    return getFrame(positionMs, configuration.seekParameters);
+  }
+
+  /**
+   * Extracts a representative {@link Frame} for the specified video position using the requested
+   * {@link SeekParameters}.
+   *
+   * @param positionMs The time position in the {@link MediaItem} for which a frame is extracted, in
+   *     milliseconds.
+   * @param seekParameters The {@link SeekParameters}.
+   * @return A {@link ListenableFuture} of the result.
+   */
+  public ListenableFuture<Frame> getFrame(long positionMs, SeekParameters seekParameters) {
     ListenableFuture<Frame> previousRequestedFrame = lastRequestedFrameFuture;
     ListenableFuture<Frame> frameListenableFuture =
         CallbackToFutureAdapter.getFuture(
@@ -352,12 +369,12 @@ public final class ExperimentalFrameExtractor {
                     @Override
                     public void onSuccess(Frame result) {
                       lastExtractedFrame = result;
-                      processNext(positionMs, completer);
+                      processNext(positionMs, seekParameters, completer);
                     }
 
                     @Override
                     public void onFailure(Throwable t) {
-                      processNext(positionMs, completer);
+                      processNext(positionMs, seekParameters, completer);
                     }
                   },
                   playerApplicationThreadHandler::post);
@@ -369,7 +386,10 @@ public final class ExperimentalFrameExtractor {
     return frameListenableFuture;
   }
 
-  private void processNext(long positionMs, CallbackToFutureAdapter.Completer<Frame> completer) {
+  private void processNext(
+      long positionMs,
+      SeekParameters seekParameters,
+      CallbackToFutureAdapter.Completer<Frame> completer) {
     // Cancellation listener is invoked instantaneously if the returned future is already cancelled.
     AtomicBoolean cancelled = new AtomicBoolean(false);
     completer.addCancellationListener(() -> cancelled.set(true), directExecutor());
@@ -395,6 +415,7 @@ public final class ExperimentalFrameExtractor {
     } else {
       checkState(frameBeingExtractedCompleterAtomicReference.compareAndSet(null, completer));
       extractedFrameNeedsRendering.set(false);
+      player.setSeekParameters(seekParameters);
       player.seekTo(positionMs);
     }
   }
