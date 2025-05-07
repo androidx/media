@@ -15,7 +15,6 @@
  */
 package androidx.media3.effect;
 
-import static androidx.media3.common.VideoFrameProcessor.RENDER_OUTPUT_FRAME_IMMEDIATELY;
 import static androidx.media3.common.VideoFrameProcessor.RENDER_OUTPUT_FRAME_WITH_PRESENTATION_TIME;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
@@ -491,9 +490,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     defaultShaderProgram.drawFrame(inputTexture.texId, presentationTimeUs);
 
     long eglPresentationTimeNs;
-    if (renderTimeNs == RENDER_OUTPUT_FRAME_IMMEDIATELY) {
-      eglPresentationTimeNs = System.nanoTime();
-    } else if (renderTimeNs == RENDER_OUTPUT_FRAME_WITH_PRESENTATION_TIME) {
+    if (renderTimeNs == RENDER_OUTPUT_FRAME_WITH_PRESENTATION_TIME) {
       checkState(presentationTimeUs != C.TIME_UNSET);
       eglPresentationTimeNs = presentationTimeUs * 1000;
     } else {
