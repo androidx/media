@@ -37,7 +37,7 @@ public class VideoDecoderOutputBuffer extends DecoderOutputBuffer {
   // )
 
   /** Decoder private data. Used from native code. */
-  public int decoderPrivate;
+  public long decoderPrivate;
 
   /** Output mode. */
   public @C.VideoOutputMode int mode;
