@@ -472,7 +472,12 @@ public class EventLogger implements AnalyticsListener {
   @UnstableApi
   @Override
   public void onVideoSizeChanged(EventTime eventTime, VideoSize videoSize) {
-    logd(eventTime, "videoSize", videoSize.width + ", " + videoSize.height);
+    StringBuilder description =
+        new StringBuilder("w=" + videoSize.width + ", h=" + videoSize.height);
+    if (videoSize.pixelWidthHeightRatio != 1.0f) {
+      description.append(", par=" + videoSize.pixelWidthHeightRatio);
+    }
+    logd(eventTime, "videoSize", description.toString());
   }
 
   @UnstableApi
@@ -489,7 +494,7 @@ public class EventLogger implements AnalyticsListener {
   @UnstableApi
   @Override
   public void onSurfaceSizeChanged(EventTime eventTime, int width, int height) {
-    logd(eventTime, "surfaceSize", width + ", " + height);
+    logd(eventTime, "surfaceSize", "w=" + width + ", h=" + height);
   }
 
   @UnstableApi
