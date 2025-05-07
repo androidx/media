@@ -319,16 +319,16 @@ public final class MediaMetadataCompat implements Parcelable {
     METADATA_KEY_DISPLAY_SUBTITLE
   };
 
-  final Bundle mBundle;
-  @Nullable private MediaMetadata mMetadataFwk;
+  final Bundle bundle;
+  @Nullable private MediaMetadata metadataFwk;
 
   MediaMetadataCompat(Bundle bundle) {
-    mBundle = new Bundle(bundle);
-    MediaSessionCompat.ensureClassLoader(mBundle);
+    this.bundle = new Bundle(bundle);
+    MediaSessionCompat.ensureClassLoader(this.bundle);
   }
 
   MediaMetadataCompat(Parcel in) {
-    mBundle = checkNotNull(in.readBundle(MediaSessionCompat.class.getClassLoader()));
+    bundle = checkNotNull(in.readBundle(MediaSessionCompat.class.getClassLoader()));
   }
 
   /**
@@ -338,7 +338,7 @@ public final class MediaMetadataCompat implements Parcelable {
    * @return true if the key exists in this metadata, false otherwise
    */
   public boolean containsKey(String key) {
-    return mBundle.containsKey(key);
+    return bundle.containsKey(key);
   }
 
   /**
@@ -350,7 +350,7 @@ public final class MediaMetadataCompat implements Parcelable {
    */
   @Nullable
   public CharSequence getText(@TextKey String key) {
-    return mBundle.getCharSequence(key);
+    return bundle.getCharSequence(key);
   }
 
   /**
@@ -362,7 +362,7 @@ public final class MediaMetadataCompat implements Parcelable {
    */
   @Nullable
   public String getString(@TextKey String key) {
-    CharSequence text = mBundle.getCharSequence(key);
+    CharSequence text = bundle.getCharSequence(key);
     if (text != null) {
       return text.toString();
     }
@@ -376,7 +376,7 @@ public final class MediaMetadataCompat implements Parcelable {
    * @return a long value
    */
   public long getLong(@LongKey String key) {
-    return mBundle.getLong(key, 0);
+    return bundle.getLong(key, 0);
   }
 
   /**
@@ -389,9 +389,9 @@ public final class MediaMetadataCompat implements Parcelable {
   public RatingCompat getRating(@RatingKey String key) {
     RatingCompat rating = null;
     try {
-      // On platform version 19 or higher, mBundle stores a Rating object. Convert it to
+      // On platform version 19 or higher, bundle stores a Rating object. Convert it to
       // RatingCompat.
-      rating = RatingCompat.fromRating(mBundle.getParcelable(key));
+      rating = RatingCompat.fromRating(bundle.getParcelable(key));
     } catch (Exception e) {
       // ignore, value was not a Rating
       Log.w(TAG, "Failed to retrieve a key as Rating.", e);
@@ -409,7 +409,7 @@ public final class MediaMetadataCompat implements Parcelable {
   public Bitmap getBitmap(@BitmapKey String key) {
     Bitmap bmp = null;
     try {
-      bmp = mBundle.getParcelable(key);
+      bmp = bundle.getParcelable(key);
     } catch (Exception e) {
       // ignore, value was not a bitmap
       Log.w(TAG, "Failed to retrieve a key as Bitmap.", e);
@@ -424,7 +424,7 @@ public final class MediaMetadataCompat implements Parcelable {
 
   @Override
   public void writeToParcel(Parcel dest, int flags) {
-    dest.writeBundle(mBundle);
+    dest.writeBundle(bundle);
   }
 
   /**
@@ -433,7 +433,7 @@ public final class MediaMetadataCompat implements Parcelable {
    * @return The number of fields in the metadata.
    */
   public int size() {
-    return mBundle.size();
+    return bundle.size();
   }
 
   /**
@@ -443,7 +443,7 @@ public final class MediaMetadataCompat implements Parcelable {
    * @return A copy of the bundle for this metadata object.
    */
   public Bundle getBundle() {
-    return new Bundle(mBundle);
+    return new Bundle(bundle);
   }
 
   /**
@@ -462,7 +462,7 @@ public final class MediaMetadataCompat implements Parcelable {
       p.setDataPosition(0);
       MediaMetadataCompat metadata = MediaMetadataCompat.CREATOR.createFromParcel(p);
       p.recycle();
-      metadata.mMetadataFwk = (MediaMetadata) metadataObj;
+      metadata.metadataFwk = (MediaMetadata) metadataObj;
       return metadata;
     } else {
       return null;
@@ -475,18 +475,18 @@ public final class MediaMetadataCompat implements Parcelable {
    * @return An equivalent {@link android.media.MediaMetadata} object.
    */
   public MediaMetadata getMediaMetadata() {
-    if (mMetadataFwk == null) {
+    if (metadataFwk == null) {
       Parcel p = Parcel.obtain();
       try {
         writeToParcel(p, 0);
         p.setDataPosition(0);
-        mMetadataFwk = MediaMetadata.CREATOR.createFromParcel(p);
-        return mMetadataFwk;
+        metadataFwk = MediaMetadata.CREATOR.createFromParcel(p);
+        return metadataFwk;
       } finally {
         p.recycle();
       }
     }
-    return mMetadataFwk;
+    return metadataFwk;
   }
 
   public static final Parcelable.Creator<MediaMetadataCompat> CREATOR =
@@ -507,14 +507,14 @@ public final class MediaMetadataCompat implements Parcelable {
    * data type.
    */
   public static final class Builder {
-    private final Bundle mBundle;
+    private final Bundle bundle;
 
     /**
      * Create an empty Builder. Any field that should be included in the {@link MediaMetadataCompat}
      * must be added.
      */
     public Builder() {
-      mBundle = new Bundle();
+      bundle = new Bundle();
     }
 
     /**
@@ -549,7 +549,7 @@ public final class MediaMetadataCompat implements Parcelable {
         throw new IllegalArgumentException(
             "The " + key + " key cannot be used to put a CharSequence");
       }
-      mBundle.putCharSequence(key, value);
+      bundle.putCharSequence(key, value);
       return this;
     }
 
@@ -584,7 +584,7 @@ public final class MediaMetadataCompat implements Parcelable {
       if (type != null && type != METADATA_TYPE_TEXT) {
         throw new IllegalArgumentException("The " + key + " key cannot be used to put a String");
       }
-      mBundle.putCharSequence(key, value);
+      bundle.putCharSequence(key, value);
       return this;
     }
 
@@ -612,7 +612,7 @@ public final class MediaMetadataCompat implements Parcelable {
       if (type != null && type != METADATA_TYPE_LONG) {
         throw new IllegalArgumentException("The " + key + " key cannot be used to put a long");
       }
-      mBundle.putLong(key, value);
+      bundle.putLong(key, value);
       return this;
     }
 
@@ -634,9 +634,9 @@ public final class MediaMetadataCompat implements Parcelable {
       if (type != null && type != METADATA_TYPE_RATING) {
         throw new IllegalArgumentException("The " + key + " key cannot be used to put a Rating");
       }
-      // On platform version 19 or higher, use Rating instead of RatingCompat so mBundle
+      // On platform version 19 or higher, use Rating instead of RatingCompat so bundle
       // can be unmarshalled.
-      mBundle.putParcelable(key, (Parcelable) value.getRating());
+      bundle.putParcelable(key, (Parcelable) value.getRating());
       return this;
     }
 
@@ -663,7 +663,7 @@ public final class MediaMetadataCompat implements Parcelable {
       if (type != null && type != METADATA_TYPE_BITMAP) {
         throw new IllegalArgumentException("The " + key + " key cannot be used to put a Bitmap");
       }
-      mBundle.putParcelable(key, value);
+      bundle.putParcelable(key, value);
       return this;
     }
 
@@ -673,7 +673,7 @@ public final class MediaMetadataCompat implements Parcelable {
      * @return The new MediaMetadata instance
      */
     public MediaMetadataCompat build() {
-      return new MediaMetadataCompat(mBundle);
+      return new MediaMetadataCompat(bundle);
     }
   }
 }

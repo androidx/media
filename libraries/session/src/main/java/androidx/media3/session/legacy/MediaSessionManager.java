@@ -46,10 +46,10 @@ public final class MediaSessionManager {
   static final String TAG = "MediaSessionManager";
   static final boolean DEBUG = Log.isLoggable(TAG, Log.DEBUG);
 
-  private static final Object sLock = new Object();
-  @Nullable private static volatile MediaSessionManager sSessionManager;
+  private static final Object lock = new Object();
+  @Nullable private static volatile MediaSessionManager sessionManager;
 
-  MediaSessionManagerImpl mImpl;
+  MediaSessionManagerImpl impl;
 
   /**
    * Gets an instance of the media session manager associated with the context.
@@ -57,16 +57,16 @@ public final class MediaSessionManager {
    * @return The MediaSessionManager instance for this context.
    */
   public static MediaSessionManager getSessionManager(Context context) {
-    synchronized (sLock) {
-      if (sSessionManager == null) {
-        sSessionManager = new MediaSessionManager(context.getApplicationContext());
+    synchronized (lock) {
+      if (sessionManager == null) {
+        sessionManager = new MediaSessionManager(context.getApplicationContext());
       }
-      return sSessionManager;
+      return sessionManager;
     }
   }
 
   private MediaSessionManager(Context context) {
-    mImpl = new MediaSessionManagerImpl(context);
+    impl = new MediaSessionManagerImpl(context);
   }
 
   /**
@@ -82,7 +82,7 @@ public final class MediaSessionManager {
    *     {@code false} otherwise.
    */
   public boolean isTrustedForMediaControl(RemoteUserInfo userInfo) {
-    return mImpl.isTrustedForMediaControl(userInfo.mImpl);
+    return impl.isTrustedForMediaControl(userInfo.impl);
   }
 
   interface RemoteUserInfoImpl {
@@ -116,7 +116,7 @@ public final class MediaSessionManager {
     /** Represents an unknown uid of an application. */
     public static final int UNKNOWN_UID = -1;
 
-    RemoteUserInfoImpl mImpl;
+    RemoteUserInfoImpl impl;
 
     /**
      * Public constructor.
@@ -135,10 +135,10 @@ public final class MediaSessionManager {
         throw new IllegalArgumentException("packageName should be nonempty");
       }
       if (Build.VERSION.SDK_INT >= 28) {
-        mImpl = new RemoteUserInfoImplApi28(packageName, pid, uid);
+        impl = new RemoteUserInfoImplApi28(packageName, pid, uid);
       } else {
         // Note: We need to include IBinder to distinguish controllers in a process.
-        mImpl = new RemoteUserInfoImplBase(packageName, pid, uid);
+        impl = new RemoteUserInfoImplBase(packageName, pid, uid);
       }
     }
 
@@ -161,7 +161,7 @@ public final class MediaSessionManager {
       } else if (TextUtils.isEmpty(packageName)) {
         throw new IllegalArgumentException("packageName should be nonempty");
       }
-      mImpl = new RemoteUserInfoImplApi28(remoteUserInfo);
+      impl = new RemoteUserInfoImplApi28(remoteUserInfo);
     }
 
     /**
@@ -169,21 +169,21 @@ public final class MediaSessionManager {
      *     cannot be obtained.
      */
     public String getPackageName() {
-      return mImpl.getPackageName();
+      return impl.getPackageName();
     }
 
     /**
      * @return pid of the controller. Can be a negative value if the pid cannot be obtained.
      */
     public int getPid() {
-      return mImpl.getPid();
+      return impl.getPid();
     }
 
     /**
      * @return uid of the controller. Can be a negative value if the uid cannot be obtained.
      */
     public int getUid() {
-      return mImpl.getUid();
+      return impl.getUid();
     }
 
     /**
@@ -209,12 +209,12 @@ public final class MediaSessionManager {
       if (!(obj instanceof RemoteUserInfo)) {
         return false;
       }
-      return mImpl.equals(((RemoteUserInfo) obj).mImpl);
+      return impl.equals(((RemoteUserInfo) obj).impl);
     }
 
     @Override
     public int hashCode() {
-      return mImpl.hashCode();
+      return impl.hashCode();
     }
   }
 
@@ -228,12 +228,12 @@ public final class MediaSessionManager {
         "android.permission.MEDIA_CONTENT_CONTROL";
     private static final String ENABLED_NOTIFICATION_LISTENERS = "enabled_notification_listeners";
 
-    Context mContext;
-    ContentResolver mContentResolver;
+    Context context;
+    ContentResolver contentResolver;
 
     MediaSessionManagerImpl(Context context) {
-      mContext = context;
-      mContentResolver = mContext.getContentResolver();
+      this.context = context;
+      contentResolver = this.context.getContentResolver();
     }
 
     public boolean isTrustedForMediaControl(MediaSessionManager.RemoteUserInfoImpl userInfo) {
@@ -251,7 +251,7 @@ public final class MediaSessionManager {
       }
       try {
         ApplicationInfo applicationInfo =
-            mContext.getPackageManager().getApplicationInfo(userInfo.getPackageName(), 0);
+            context.getPackageManager().getApplicationInfo(userInfo.getPackageName(), 0);
         if (applicationInfo == null) {
           return false;
         }
@@ -269,7 +269,7 @@ public final class MediaSessionManager {
 
     /** Checks the caller has android.Manifest.permission.MEDIA_CONTENT_CONTROL permission. */
     private boolean hasMediaControlPermission(MediaSessionManager.RemoteUserInfoImpl userInfo) {
-      return mContext.checkPermission(
+      return context.checkPermission(
               android.Manifest.permission.MEDIA_CONTENT_CONTROL,
               userInfo.getPid(),
               userInfo.getUid())
@@ -280,10 +280,10 @@ public final class MediaSessionManager {
         MediaSessionManager.RemoteUserInfoImpl userInfo, String permission) {
       if (userInfo.getPid() < 0) {
         // This may happen for the MediaBrowserServiceCompat#onGetRoot().
-        return mContext.getPackageManager().checkPermission(permission, userInfo.getPackageName())
+        return context.getPackageManager().checkPermission(permission, userInfo.getPackageName())
             == PackageManager.PERMISSION_GRANTED;
       }
-      return mContext.checkPermission(permission, userInfo.getPid(), userInfo.getUid())
+      return context.checkPermission(permission, userInfo.getPid(), userInfo.getUid())
           == PackageManager.PERMISSION_GRANTED;
     }
 
@@ -296,7 +296,7 @@ public final class MediaSessionManager {
     @SuppressWarnings("StringSplitter")
     boolean isEnabledNotificationListener(MediaSessionManager.RemoteUserInfoImpl userInfo) {
       final String enabledNotifListeners =
-          Settings.Secure.getString(mContentResolver, ENABLED_NOTIFICATION_LISTENERS);
+          Settings.Secure.getString(contentResolver, ENABLED_NOTIFICATION_LISTENERS);
       if (enabledNotifListeners != null) {
         final String[] components = enabledNotifListeners.split(":");
         for (int i = 0; i < components.length; i++) {
@@ -313,29 +313,29 @@ public final class MediaSessionManager {
   }
 
   private static class RemoteUserInfoImplBase implements MediaSessionManager.RemoteUserInfoImpl {
-    private final String mPackageName;
-    private final int mPid;
-    private final int mUid;
+    private final String packageName;
+    private final int pid;
+    private final int uid;
 
     RemoteUserInfoImplBase(String packageName, int pid, int uid) {
-      mPackageName = packageName;
-      mPid = pid;
-      mUid = uid;
+      this.packageName = packageName;
+      this.pid = pid;
+      this.uid = uid;
     }
 
     @Override
     public String getPackageName() {
-      return mPackageName;
+      return packageName;
     }
 
     @Override
     public int getPid() {
-      return mPid;
+      return pid;
     }
 
     @Override
     public int getUid() {
-      return mUid;
+      return uid;
     }
 
     @Override
@@ -347,19 +347,18 @@ public final class MediaSessionManager {
         return false;
       }
       RemoteUserInfoImplBase otherUserInfo = (RemoteUserInfoImplBase) obj;
-      if (mPid < 0 || otherUserInfo.mPid < 0) {
+      if (pid < 0 || otherUserInfo.pid < 0) {
         // Only compare package name and UID when PID is unknown.
-        return TextUtils.equals(mPackageName, otherUserInfo.mPackageName)
-            && mUid == otherUserInfo.mUid;
+        return TextUtils.equals(packageName, otherUserInfo.packageName) && uid == otherUserInfo.uid;
       }
-      return TextUtils.equals(mPackageName, otherUserInfo.mPackageName)
-          && mPid == otherUserInfo.mPid
-          && mUid == otherUserInfo.mUid;
+      return TextUtils.equals(packageName, otherUserInfo.packageName)
+          && pid == otherUserInfo.pid
+          && uid == otherUserInfo.uid;
     }
 
     @Override
     public int hashCode() {
-      return ObjectsCompat.hash(mPackageName, mUid);
+      return ObjectsCompat.hash(packageName, uid);
     }
   }
 

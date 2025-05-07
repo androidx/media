@@ -215,10 +215,10 @@ public class AudioAttributesCompat {
   static final int FLAG_SCO = 0x1 << 2;
   static final int INVALID_STREAM_TYPE = -1; // AudioSystem.STREAM_DEFAULT
 
-  private final AudioAttributesImpl mImpl;
+  private final AudioAttributesImpl impl;
 
   AudioAttributesCompat(AudioAttributesImpl impl) {
-    mImpl = impl;
+    this.impl = impl;
   }
 
   // public API unique to AudioAttributesCompat
@@ -231,7 +231,7 @@ public class AudioAttributesCompat {
    */
   @Nullable
   public Object unwrap() {
-    return mImpl.getAudioAttributes();
+    return impl.getAudioAttributes();
   }
 
   /**
@@ -241,7 +241,7 @@ public class AudioAttributesCompat {
    * @return the stream type {@see AudioManager}
    */
   public int getLegacyStreamType() {
-    return mImpl.getLegacyStreamType();
+    return impl.getLegacyStreamType();
   }
 
   /**
@@ -266,7 +266,7 @@ public class AudioAttributesCompat {
    * @return one of the values that can be set in {@link Builder#setContentType(int)}
    */
   public int getContentType() {
-    return mImpl.getContentType();
+    return impl.getContentType();
   }
 
   /**
@@ -275,7 +275,7 @@ public class AudioAttributesCompat {
    * @return one of the values that can be set in {@link Builder#setUsage(int)}
    */
   public @AttributeUsage int getUsage() {
-    return mImpl.getUsage();
+    return impl.getUsage();
   }
 
   /**
@@ -284,7 +284,7 @@ public class AudioAttributesCompat {
    * @return a combined mask of all flags
    */
   public int getFlags() {
-    return mImpl.getFlags();
+    return impl.getFlags();
   }
 
   /**
@@ -306,7 +306,7 @@ public class AudioAttributesCompat {
    * AudioAttributesCompat#USAGE_MEDIA}. See also {@link AudioAttributes.Builder}.
    */
   public static class Builder {
-    final AudioAttributesImpl.Builder mBuilderImpl;
+    final AudioAttributesImpl.Builder builderImpl;
 
     /**
      * Constructs a new Builder with the defaults. By default, usage and content type are
@@ -318,9 +318,9 @@ public class AudioAttributesCompat {
      */
     public Builder() {
       if (Build.VERSION.SDK_INT >= 26) {
-        mBuilderImpl = new AudioAttributesImplApi26.Builder();
+        builderImpl = new AudioAttributesImplApi26.Builder();
       } else {
-        mBuilderImpl = new AudioAttributesImplApi21.Builder();
+        builderImpl = new AudioAttributesImplApi21.Builder();
       }
     }
 
@@ -331,9 +331,9 @@ public class AudioAttributesCompat {
      */
     public Builder(AudioAttributesCompat aa) {
       if (Build.VERSION.SDK_INT >= 26) {
-        mBuilderImpl = new AudioAttributesImplApi26.Builder(checkNotNull(aa.unwrap()));
+        builderImpl = new AudioAttributesImplApi26.Builder(checkNotNull(aa.unwrap()));
       } else {
-        mBuilderImpl = new AudioAttributesImplApi21.Builder(checkNotNull(aa.unwrap()));
+        builderImpl = new AudioAttributesImplApi21.Builder(checkNotNull(aa.unwrap()));
       }
     }
 
@@ -344,7 +344,7 @@ public class AudioAttributesCompat {
      * @return a new {@link AudioAttributesCompat} object
      */
     public AudioAttributesCompat build() {
-      return new AudioAttributesCompat(mBuilderImpl.build());
+      return new AudioAttributesCompat(builderImpl.build());
     }
 
     /**
@@ -369,7 +369,7 @@ public class AudioAttributesCompat {
      * @return the same Builder instance.
      */
     public Builder setUsage(@AttributeUsage int usage) {
-      mBuilderImpl.setUsage(usage);
+      builderImpl.setUsage(usage);
       return this;
     }
 
@@ -385,7 +385,7 @@ public class AudioAttributesCompat {
      * @return the same Builder instance.
      */
     public Builder setContentType(@AttributeContentType int contentType) {
-      mBuilderImpl.setContentType(contentType);
+      builderImpl.setContentType(contentType);
       return this;
     }
 
@@ -398,7 +398,7 @@ public class AudioAttributesCompat {
      * @return The same Builder instance.
      */
     public Builder setFlags(int flags) {
-      mBuilderImpl.setFlags(flags);
+      builderImpl.setFlags(flags);
       return this;
     }
 
@@ -418,19 +418,19 @@ public class AudioAttributesCompat {
      * @return this same Builder instance.
      */
     public Builder setLegacyStreamType(int streamType) {
-      mBuilderImpl.setLegacyStreamType(streamType);
+      builderImpl.setLegacyStreamType(streamType);
       return this;
     }
   }
 
   @Override
   public int hashCode() {
-    return mImpl.hashCode();
+    return impl.hashCode();
   }
 
   @Override
   public String toString() {
-    return mImpl.toString();
+    return impl.toString();
   }
 
   abstract static class AudioManagerHidden {
@@ -481,7 +481,7 @@ public class AudioAttributesCompat {
       return false;
     }
     AudioAttributesCompat that = (AudioAttributesCompat) o;
-    return this.mImpl.equals(that.mImpl);
+    return this.impl.equals(that.impl);
   }
 
   @IntDef({
@@ -546,51 +546,51 @@ public class AudioAttributesCompat {
 
   private static class AudioAttributesImplApi21 implements AudioAttributesImpl {
 
-    @Nullable public AudioAttributes mAudioAttributes;
+    @Nullable public AudioAttributes audioAttributes;
 
-    public final int mLegacyStreamType;
+    public final int legacyStreamType;
 
     AudioAttributesImplApi21(AudioAttributes audioAttributes) {
       this(audioAttributes, INVALID_STREAM_TYPE);
     }
 
     AudioAttributesImplApi21(AudioAttributes audioAttributes, int explicitLegacyStream) {
-      mAudioAttributes = audioAttributes;
-      mLegacyStreamType = explicitLegacyStream;
+      this.audioAttributes = audioAttributes;
+      legacyStreamType = explicitLegacyStream;
     }
 
     @Override
     @Nullable
     public Object getAudioAttributes() {
-      return mAudioAttributes;
+      return audioAttributes;
     }
 
     @Override
     public int getLegacyStreamType() {
-      if (mLegacyStreamType != INVALID_STREAM_TYPE) {
-        return mLegacyStreamType;
+      if (legacyStreamType != INVALID_STREAM_TYPE) {
+        return legacyStreamType;
       }
       return AudioAttributesCompat.toVolumeStreamType(getFlags(), getUsage());
     }
 
     @Override
     public int getContentType() {
-      return checkNotNull(mAudioAttributes).getContentType();
+      return checkNotNull(audioAttributes).getContentType();
     }
 
     @Override
     public @AudioAttributesCompat.AttributeUsage int getUsage() {
-      return checkNotNull(mAudioAttributes).getUsage();
+      return checkNotNull(audioAttributes).getUsage();
     }
 
     @Override
     public int getFlags() {
-      return checkNotNull(mAudioAttributes).getFlags();
+      return checkNotNull(audioAttributes).getFlags();
     }
 
     @Override
     public int hashCode() {
-      return checkNotNull(mAudioAttributes).hashCode();
+      return checkNotNull(audioAttributes).hashCode();
     }
 
     @Override
@@ -599,28 +599,28 @@ public class AudioAttributesCompat {
         return false;
       }
       final AudioAttributesImplApi21 that = (AudioAttributesImplApi21) o;
-      return Objects.equals(mAudioAttributes, that.mAudioAttributes);
+      return Objects.equals(audioAttributes, that.audioAttributes);
     }
 
     @Override
     public String toString() {
-      return "AudioAttributesCompat: audioattributes=" + mAudioAttributes;
+      return "AudioAttributesCompat: audioattributes=" + audioAttributes;
     }
 
     static class Builder implements AudioAttributesImpl.Builder {
-      final AudioAttributes.Builder mFwkBuilder;
+      final AudioAttributes.Builder fwkBuilder;
 
       Builder() {
-        mFwkBuilder = new AudioAttributes.Builder();
+        fwkBuilder = new AudioAttributes.Builder();
       }
 
       Builder(Object aa) {
-        mFwkBuilder = new AudioAttributes.Builder((AudioAttributes) aa);
+        fwkBuilder = new AudioAttributes.Builder((AudioAttributes) aa);
       }
 
       @Override
       public AudioAttributesImpl build() {
-        return new AudioAttributesImplApi21(mFwkBuilder.build());
+        return new AudioAttributesImplApi21(fwkBuilder.build());
       }
 
       @Override
@@ -630,25 +630,25 @@ public class AudioAttributesCompat {
           // TODO: shouldn't we keep the origin usage?
           usage = AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE;
         }
-        mFwkBuilder.setUsage(usage);
+        fwkBuilder.setUsage(usage);
         return this;
       }
 
       @Override
       public Builder setContentType(int contentType) {
-        mFwkBuilder.setContentType(contentType);
+        fwkBuilder.setContentType(contentType);
         return this;
       }
 
       @Override
       public Builder setFlags(int flags) {
-        mFwkBuilder.setFlags(flags);
+        fwkBuilder.setFlags(flags);
         return this;
       }
 
       @Override
       public Builder setLegacyStreamType(int streamType) {
-        mFwkBuilder.setLegacyStreamType(streamType);
+        fwkBuilder.setLegacyStreamType(streamType);
         return this;
       }
     }
@@ -673,12 +673,12 @@ public class AudioAttributesCompat {
 
       @Override
       public AudioAttributesImpl build() {
-        return new AudioAttributesImplApi26(mFwkBuilder.build());
+        return new AudioAttributesImplApi26(fwkBuilder.build());
       }
 
       @Override
       public Builder setUsage(int usage) {
-        mFwkBuilder.setUsage(usage);
+        fwkBuilder.setUsage(usage);
         return this;
       }
     }
