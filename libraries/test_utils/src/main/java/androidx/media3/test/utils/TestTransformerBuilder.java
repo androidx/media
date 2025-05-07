@@ -16,7 +16,6 @@
 package androidx.media3.test.utils;
 
 import android.content.Context;
-import android.media.MediaCodec;
 import android.os.Looper;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -25,6 +24,7 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import androidx.media3.muxer.BufferInfo;
 import androidx.media3.muxer.Muxer;
 import androidx.media3.muxer.MuxerException;
 import androidx.media3.transformer.AssetLoader;
@@ -267,8 +267,7 @@ public final class TestTransformerBuilder {
     }
 
     @Override
-    public void writeSampleData(
-        int trackId, ByteBuffer byteBuffer, MediaCodec.BufferInfo bufferInfo)
+    public void writeSampleData(int trackId, ByteBuffer byteBuffer, BufferInfo bufferInfo)
         throws MuxerException {
       throw new MuxerException("Failed to write sample data", new RuntimeException());
     }

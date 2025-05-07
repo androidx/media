@@ -15,7 +15,6 @@
  */
 package androidx.media3.muxer;
 
-import android.media.MediaCodec.BufferInfo;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;

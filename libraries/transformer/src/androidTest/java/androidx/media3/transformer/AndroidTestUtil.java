@@ -35,7 +35,6 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
 import android.media.Image;
-import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.metrics.LogSessionId;
 import android.opengl.EGLContext;
@@ -73,6 +72,7 @@ import androidx.media3.exoplayer.video.MediaCodecVideoRenderer;
 import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
 import androidx.media3.exoplayer.video.VideoFrameReleaseControl;
 import androidx.media3.extractor.ExtractorOutput;
+import androidx.media3.muxer.BufferInfo;
 import androidx.media3.muxer.Muxer;
 import androidx.media3.muxer.MuxerException;
 import androidx.media3.test.utils.BitmapPixelTestUtil;
@@ -1431,7 +1431,7 @@ public final class AndroidTestUtil {
     }
 
     @Override
-    public void writeSampleData(int trackId, ByteBuffer data, MediaCodec.BufferInfo bufferInfo)
+    public void writeSampleData(int trackId, ByteBuffer data, BufferInfo bufferInfo)
         throws MuxerException {
       if (trackId == videoTrackId
           && bufferInfo.presentationTimeUs >= presentationTimeUsToBlockFrame) {

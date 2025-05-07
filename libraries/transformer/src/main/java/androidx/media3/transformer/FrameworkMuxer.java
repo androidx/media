@@ -20,10 +20,11 @@ import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.CodecSpecificDataUtil.getCodecProfileAndLevel;
 import static androidx.media3.common.util.Util.castNonNull;
+import static androidx.media3.transformer.TransformerUtil.getMediaCodecFlags;
 import static java.lang.Integer.max;
 
 import android.annotation.SuppressLint;
-import android.media.MediaCodec.BufferInfo;
+import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaFormat;
 import android.media.MediaMuxer;
@@ -38,6 +39,7 @@ import androidx.media3.common.util.Log;
 import androidx.media3.common.util.MediaFormatUtil;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.Mp4LocationData;
+import androidx.media3.muxer.BufferInfo;
 import androidx.media3.muxer.Muxer;
 import androidx.media3.muxer.MuxerException;
 import com.google.common.collect.ImmutableList;
@@ -216,11 +218,13 @@ import java.util.Locale;
                 + " sample has the smallest timestamp when using the negative PTS workaround.",
             presentationTimeUs - presentationTimeOffsetUs,
             -presentationTimeOffsetUs));
-    bufferInfo.set(bufferInfo.offset, bufferInfo.size, presentationTimeUs, bufferInfo.flags);
+    MediaCodec.BufferInfo mediaCodecBufferinfo = new MediaCodec.BufferInfo();
+    mediaCodecBufferinfo.set(
+        data.position(), bufferInfo.size, presentationTimeUs, getMediaCodecFlags(bufferInfo.flags));
 
     try {
 
-      mediaMuxer.writeSampleData(trackId, data, bufferInfo);
+      mediaMuxer.writeSampleData(trackId, data, mediaCodecBufferinfo);
     } catch (RuntimeException e) {
       throw new MuxerException(
           "Failed to write sample for presentationTimeUs="
@@ -252,12 +256,11 @@ import java.util.Locale;
     }
 
     if (videoDurationUs != C.TIME_UNSET && videoTrackId != TRACK_ID_UNSET) {
-      BufferInfo bufferInfo = new BufferInfo();
-      bufferInfo.set(
-          /* newOffset= */ 0,
-          /* newSize= */ 0,
-          videoDurationUs,
-          TransformerUtil.getMediaCodecFlags(C.BUFFER_FLAG_END_OF_STREAM));
+      BufferInfo bufferInfo =
+          new BufferInfo(
+              /* presentationTimeUs= */ videoDurationUs,
+              /* size= */ 0,
+              C.BUFFER_FLAG_END_OF_STREAM);
       writeSampleData(videoTrackId, ByteBuffer.allocateDirect(0), bufferInfo);
     }
 

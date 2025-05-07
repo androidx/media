@@ -27,7 +27,6 @@ import static org.junit.Assert.assertThrows;
 import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
-import android.media.MediaCodec;
 import android.media.metrics.EditingEndedEvent;
 import android.media.metrics.LogSessionId;
 import android.media.metrics.MediaItemInfo;
@@ -38,6 +37,7 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.Metadata;
+import androidx.media3.muxer.BufferInfo;
 import androidx.media3.muxer.Muxer;
 import androidx.media3.muxer.MuxerException;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -455,8 +455,7 @@ public class EditingMetricsCollectorTest {
     }
 
     @Override
-    public void writeSampleData(
-        int trackId, ByteBuffer byteBuffer, MediaCodec.BufferInfo bufferInfo)
+    public void writeSampleData(int trackId, ByteBuffer byteBuffer, BufferInfo bufferInfo)
         throws MuxerException {
       if (firstSampleWritten) {
         throw new MuxerException("Failed to write sample data", new RuntimeException());

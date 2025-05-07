@@ -32,7 +32,6 @@ import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
-import android.media.MediaCodec.BufferInfo;
 import android.util.SparseArray;
 import androidx.annotation.IntDef;
 import androidx.annotation.IntRange;
@@ -46,6 +45,7 @@ import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.NalUnitUtil;
 import androidx.media3.effect.DebugTraceUtil;
+import androidx.media3.muxer.BufferInfo;
 import androidx.media3.muxer.Muxer;
 import androidx.media3.muxer.MuxerException;
 import com.google.common.collect.ImmutableList;
@@ -150,7 +150,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final boolean dropSamplesBeforeFirstVideoSample;
   private final SparseArray<TrackInfo> trackTypeToInfo;
   @Nullable private final Format appendVideoFormat;
-  private final BufferInfo bufferInfo;
 
   private boolean isReady;
   private boolean isEnded;
@@ -205,7 +204,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     previousTrackType = C.TRACK_TYPE_NONE;
     firstVideoPresentationTimeUs = C.TIME_UNSET;
     minEndedTrackTimeUs = Long.MAX_VALUE;
-    bufferInfo = new BufferInfo();
   }
 
   /**
@@ -573,11 +571,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     trackInfo.timeUs = max(trackInfo.timeUs, presentationTimeUs);
     listener.onSampleWrittenOrDropped();
     checkStateNotNull(muxer);
-    bufferInfo.set(
-        data.position(),
-        data.remaining(),
-        presentationTimeUs,
-        TransformerUtil.getMediaCodecFlags(isKeyFrame ? C.BUFFER_FLAG_KEY_FRAME : 0));
+    BufferInfo bufferInfo =
+        new BufferInfo(
+            presentationTimeUs,
+            /* size= */ data.remaining(),
+            /* flags= */ isKeyFrame ? C.BUFFER_FLAG_KEY_FRAME : 0);
     muxer.writeSampleData(trackInfo.trackId, data, bufferInfo);
 
     DebugTraceUtil.logEvent(
