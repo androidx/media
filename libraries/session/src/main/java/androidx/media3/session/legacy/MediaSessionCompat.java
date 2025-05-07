@@ -71,7 +71,6 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Allows interaction with media controllers, volume keys, media buttons, and transport controls.
@@ -2185,16 +2184,15 @@ public class MediaSessionCompat {
 
     private static class ExtraSession extends IMediaSession.Stub {
 
-      private final AtomicReference<@NullableType MediaSessionImplApi21> mMediaSessionImplRef;
+      private final WeakReference<@NullableType MediaSessionImplApi21> mMediaSessionImplRef;
 
       ExtraSession(MediaSessionImplApi21 mediaSessionImpl) {
-        mMediaSessionImplRef = new AtomicReference<>(mediaSessionImpl);
+        mMediaSessionImplRef = new WeakReference<>(mediaSessionImpl);
       }
 
       /** Clears the reference to the containing component in order to enable garbage collection. */
-      @SuppressWarnings("argument.type.incompatible") // Resetting variable to null
       public void release() {
-        mMediaSessionImplRef.set(null);
+        mMediaSessionImplRef.clear();
       }
 
       @Override

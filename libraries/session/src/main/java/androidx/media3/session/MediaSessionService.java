@@ -749,14 +749,12 @@ public abstract class MediaSessionService extends Service {
 
     private final WeakReference<MediaSessionService> serviceReference;
     private final Handler handler;
-    private final MediaSessionManager mediaSessionManager;
     private final Set<IMediaController> pendingControllers;
 
     public MediaSessionServiceStub(MediaSessionService serviceReference) {
       this.serviceReference = new WeakReference<>(serviceReference);
       Context context = serviceReference.getApplicationContext();
       handler = new Handler(context.getMainLooper());
-      mediaSessionManager = MediaSessionManager.getSessionManager(context);
       // ConcurrentHashMap has a bug in APIs 21-22 that can result in lost updates.
       pendingControllers = Collections.synchronizedSet(new HashSet<>());
     }
@@ -778,7 +776,8 @@ public abstract class MediaSessionService extends Service {
         Log.w(TAG, "Ignoring malformed Bundle for ConnectionRequest", e);
         return;
       }
-      if (serviceReference.get() == null) {
+      @Nullable MediaSessionService mediaSessionService = serviceReference.get();
+      if (mediaSessionService == null) {
         try {
           caller.onDisconnected(/* seq= */ 0);
         } catch (RemoteException e) {
@@ -793,7 +792,9 @@ public abstract class MediaSessionService extends Service {
       int pid = (callingPid != 0) ? callingPid : request.pid;
       MediaSessionManager.RemoteUserInfo remoteUserInfo =
           new MediaSessionManager.RemoteUserInfo(request.packageName, pid, uid);
-      boolean isTrusted = mediaSessionManager.isTrustedForMediaControl(remoteUserInfo);
+      boolean isTrusted =
+          MediaSessionManager.getSessionManager(mediaSessionService.getApplicationContext())
+              .isTrustedForMediaControl(remoteUserInfo);
       pendingControllers.add(caller);
       try {
         handler.post(
@@ -858,6 +859,7 @@ public abstract class MediaSessionService extends Service {
           // Ignore. We're releasing.
         }
       }
+      pendingControllers.clear();
     }
   }
 
