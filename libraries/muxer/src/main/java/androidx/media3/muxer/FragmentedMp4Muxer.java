@@ -84,7 +84,7 @@ import java.nio.ByteBuffer;
  * </ul>
  */
 @UnstableApi
-public final class FragmentedMp4Muxer implements AutoCloseable {
+public final class FragmentedMp4Muxer implements Muxer {
   /** The default fragment duration. */
   public static final long DEFAULT_FRAGMENT_DURATION_MS = 2_000;
 
@@ -186,14 +186,7 @@ public final class FragmentedMp4Muxer implements AutoCloseable {
     trackIdToTrack = new SparseArray<>();
   }
 
-  /**
-   * Adds a track of the given media format.
-   *
-   * <p>All tracks must be added before {@linkplain #writeSampleData writing any samples}.
-   *
-   * @param format The {@link Format} of the track.
-   * @return A track id for this track, which should be passed to {@link #writeSampleData}.
-   */
+  @Override
   public int addTrack(Format format) {
     Track track = fragmentedMp4Writer.addTrack(/* sortKey= */ 1, format);
     trackIdToTrack.append(track.id, track);
@@ -201,7 +194,7 @@ public final class FragmentedMp4Muxer implements AutoCloseable {
   }
 
   /**
-   * Writes encoded sample data.
+   * {@inheritDoc}
    *
    * <p>Samples are written to the disk in batches. If {@link
    * Builder#setSampleCopyingEnabled(boolean) sample copying} is disabled, the {@code byteBuffer}
@@ -217,6 +210,7 @@ public final class FragmentedMp4Muxer implements AutoCloseable {
    * @param bufferInfo The {@link BufferInfo} related to this sample.
    * @throws MuxerException If there is any error while writing data to the disk.
    */
+  @Override
   public void writeSampleData(int trackId, ByteBuffer byteBuffer, BufferInfo bufferInfo)
       throws MuxerException {
     try {
@@ -232,7 +226,7 @@ public final class FragmentedMp4Muxer implements AutoCloseable {
   }
 
   /**
-   * Adds {@linkplain Metadata.Entry metadata} about the output file.
+   * {@inheritDoc}
    *
    * <p>List of supported {@linkplain Metadata.Entry metadata entries}:
    *
@@ -250,18 +244,12 @@ public final class FragmentedMp4Muxer implements AutoCloseable {
    *     IllegalArgumentException} is thrown if the {@linkplain Metadata.Entry metadata} is not
    *     supported.
    */
+  @Override
   public void addMetadataEntry(Metadata.Entry metadataEntry) {
     checkArgument(MuxerUtil.isMetadataSupported(metadataEntry), "Unsupported metadata");
     metadataCollector.addMetadata(metadataEntry);
   }
 
-  /**
-   * Closes the file.
-   *
-   * <p>The muxer cannot be used anymore once this method returns.
-   *
-   * @throws MuxerException If the muxer fails to finish writing the output.
-   */
   @Override
   public void close() throws MuxerException {
     try {
