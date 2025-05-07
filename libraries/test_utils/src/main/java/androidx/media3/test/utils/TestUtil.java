@@ -96,6 +96,7 @@ import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.NonNull;
+import org.junit.function.ThrowingRunnable;
 import org.mockito.Mockito;
 
 /** Utility methods for tests. */
@@ -957,6 +958,29 @@ public class TestUtil {
     InstrumentationRegistry.getInstrumentation()
         .runOnMainSync(() -> surfaceView.set(new SurfaceView(context)));
     return surfaceView.get();
+  }
+
+  /**
+   * Repeats the potentially flaky test multiple times if needed.
+   *
+   * <p>Only use this method for tests with inherent randomness or systems-under-test that are not
+   * fully controllable, and where the reason for the the flakiness can be explained. Don't use this
+   * method if the test should always pass reliably.
+   *
+   * @param maxRepetitions The maximum number of repetitions before failing the test.
+   * @param testImpl The test implementation.
+   */
+  public static void repeatFlakyTest(int maxRepetitions, ThrowingRunnable testImpl) {
+    for (int i = 0; i < maxRepetitions; i++) {
+      try {
+        testImpl.run();
+        break;
+      } catch (Throwable e) {
+        if (i == maxRepetitions - 1) {
+          Util.sneakyThrow(e);
+        }
+      }
+    }
   }
 
   private static final class NoUidOrShufflingTimeline extends Timeline {

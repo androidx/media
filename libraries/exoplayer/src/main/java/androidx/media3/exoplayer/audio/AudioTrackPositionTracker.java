@@ -173,7 +173,7 @@ import java.lang.reflect.Method;
   private boolean needsPassthroughWorkarounds;
   private long bufferSizeUs;
   private float audioTrackPlaybackSpeed;
-  private boolean notifiedPositionIncreasing;
+  private long onPositionAdvancingFromPositionUs;
   private int lastUnderrunCount;
 
   private long smoothedPlayheadOffsetUs;
@@ -270,6 +270,7 @@ import java.lang.reflect.Method;
     latencyUs = 0;
     audioTrackPlaybackSpeed = 1f;
     lastUnderrunCount = 0;
+    onPositionAdvancingFromPositionUs = C.TIME_UNSET;
   }
 
   public void setAudioTrackPlaybackSpeed(float audioTrackPlaybackSpeed) {
@@ -299,6 +300,21 @@ import java.lang.reflect.Method;
             : getPlaybackHeadPositionEstimateUs(systemTimeUs);
 
     if (audioTrack.getPlayState() == PLAYSTATE_PLAYING) {
+      if (onPositionAdvancingFromPositionUs != C.TIME_UNSET
+          && positionUs >= onPositionAdvancingFromPositionUs
+          && (useGetTimestampMode || !audioTimestampPoller.isWaitingForAdvancingTimestamp())) {
+        // Assume the new position is reliable to estimate the playout start time once we have an
+        // advancing timestamp from the AudioTimestampPoller, or we stopped waiting for it.
+        long mediaDurationSinceResumeUs = positionUs - onPositionAdvancingFromPositionUs;
+        long playoutDurationSinceLastPositionUs =
+            Util.getPlayoutDurationForMediaDuration(
+                mediaDurationSinceResumeUs, audioTrackPlaybackSpeed);
+        long playoutStartSystemTimeMs =
+            clock.currentTimeMillis() - Util.usToMs(playoutDurationSinceLastPositionUs);
+        onPositionAdvancingFromPositionUs = C.TIME_UNSET;
+        listener.onPositionAdvancing(playoutStartSystemTimeMs);
+      }
+
       if (lastSystemTimeUs != C.TIME_UNSET) {
         // Only try to smooth if actively playing and having a previous sample to compare with.
         long elapsedSystemTimeUs = systemTimeUs - lastSystemTimeUs;
@@ -321,19 +337,6 @@ import java.lang.reflect.Method;
         }
       }
 
-      if (!notifiedPositionIncreasing
-          && lastPositionUs != C.TIME_UNSET
-          && positionUs > lastPositionUs) {
-        notifiedPositionIncreasing = true;
-        long mediaDurationSinceLastPositionUs = Util.usToMs(positionUs - lastPositionUs);
-        long playoutDurationSinceLastPositionUs =
-            Util.getPlayoutDurationForMediaDuration(
-                mediaDurationSinceLastPositionUs, audioTrackPlaybackSpeed);
-        long playoutStartSystemTimeMs =
-            clock.currentTimeMillis() - Util.usToMs(playoutDurationSinceLastPositionUs);
-        listener.onPositionAdvancing(playoutStartSystemTimeMs);
-      }
-
       lastSystemTimeUs = systemTimeUs;
       lastPositionUs = positionUs;
     }
@@ -346,6 +349,7 @@ import java.lang.reflect.Method;
     if (stopTimestampUs != C.TIME_UNSET) {
       stopTimestampUs = msToUs(clock.elapsedRealtime());
     }
+    onPositionAdvancingFromPositionUs = getPlaybackHeadPositionUs();
     checkNotNull(audioTimestampPoller).reset();
   }
 
@@ -585,7 +589,6 @@ import java.lang.reflect.Method;
     lastPlayheadSampleTimeUs = 0;
     lastPositionUs = C.TIME_UNSET;
     lastSystemTimeUs = C.TIME_UNSET;
-    notifiedPositionIncreasing = false;
   }
 
   /**

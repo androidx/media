@@ -215,6 +215,15 @@ import java.lang.annotation.Target;
     return state == STATE_TIMESTAMP_ADVANCING;
   }
 
+  /**
+   * Returns whether this instance is waiting for an advancing timestamp. If {@code false}, there
+   * either won't be a timestamp, an error occurred or there already is an {@linkplain
+   * #hasAdvancingTimestamp() advancing timestamp}.
+   */
+  public boolean isWaitingForAdvancingTimestamp() {
+    return state == STATE_INITIALIZING || state == STATE_TIMESTAMP;
+  }
+
   /** Resets polling. Should be called whenever the audio track is paused or resumed. */
   public void reset() {
     updateState(STATE_INITIALIZING);

@@ -42,6 +42,9 @@
         audio output device.
     *   Fix bug where A/V sync is broken for the first 10 seconds after resuming
         from pause when connected to Bluetooth devices.
+    *   Fix bug that `AnalyticsListener.onAudioPositionAdvancing` was not
+        reporting the time when the audio started advancing but the time of the
+        first measurement.
 *   Video:
     *   Add experimental `ExoPlayer` API to include the
         `MediaCodec.BUFFER_FLAG_DECODE_ONLY` flag when queuing decode-only input

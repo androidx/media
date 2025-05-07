@@ -424,6 +424,17 @@ public class EventLogger implements AnalyticsListener {
 
   @UnstableApi
   @Override
+  public void onAudioPositionAdvancing(EventTime eventTime, long playoutStartSystemTimeMs) {
+    long playoutStartTimeInElapsedRealtimeMs =
+        playoutStartSystemTimeMs - System.currentTimeMillis() + SystemClock.elapsedRealtime();
+    logd(
+        eventTime,
+        "audioPositionAdvancing",
+        "since " + getTimeString(playoutStartTimeInElapsedRealtimeMs - startTimeMs));
+  }
+
+  @UnstableApi
+  @Override
   public void onVideoEnabled(EventTime eventTime, DecoderCounters decoderCounters) {
     logd(eventTime, "videoEnabled");
   }

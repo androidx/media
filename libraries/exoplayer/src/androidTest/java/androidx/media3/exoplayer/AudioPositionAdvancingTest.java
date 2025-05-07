@@ -15,9 +15,11 @@
  */
 package androidx.media3.exoplayer;
 
+import static androidx.media3.test.utils.TestUtil.repeatFlakyTest;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 import static com.google.common.truth.Truth.assertThat;
 
+import android.os.Looper;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.util.ConditionVariable;
@@ -141,5 +143,61 @@ public class AudioPositionAdvancingTest {
     assertThat(playoutStartSystemTimeMs).isAtMost(currentTimeMs);
 
     getInstrumentation().runOnMainSync(() -> player.get().release());
+  }
+
+  @Test
+  public void playFromStart_reportedStartTimeEventuallyMatchesPlaybackPosition() throws Exception {
+    // Try up to two times as the audio track behavior is not fully reliable and can't be
+    // controlled, which results in a 1-2% flakiness rate.
+    repeatFlakyTest(
+        /* maxRepetitions= */ 2,
+        () -> {
+          MediaItem mediaItem = MediaItem.fromUri("asset:///media/mp3/bear-id3.mp3");
+          AtomicLong reportedStartSystemTimeMs = new AtomicLong();
+          ConditionVariable onAdvancingCalled = new ConditionVariable();
+          AnalyticsListener analyticsListener =
+              new AnalyticsListener() {
+                @Override
+                public void onAudioPositionAdvancing(
+                    EventTime eventTime, long playoutStartSystemTimeMs) {
+                  reportedStartSystemTimeMs.set(playoutStartSystemTimeMs);
+                  onAdvancingCalled.open();
+                }
+              };
+          AtomicReference<ExoPlayer> playerRef = new AtomicReference<>();
+          AtomicLong calculatedStartSystemTimeMs = new AtomicLong();
+          ConditionVariable calculationMessageHandled = new ConditionVariable();
+          getInstrumentation()
+              .runOnMainSync(
+                  () -> {
+                    ExoPlayer player =
+                        new ExoPlayer.Builder(getInstrumentation().getContext()).build();
+                    playerRef.set(player);
+                    player.addAnalyticsListener(analyticsListener);
+                    player.setMediaItem(mediaItem);
+                    player.prepare();
+                    // Assume that after 1 second, the playback position is reliable enough to
+                    // calculate the actual start time manually.
+                    player
+                        .createMessage(
+                            (type, message) -> {
+                              calculatedStartSystemTimeMs.set(
+                                  System.currentTimeMillis() - player.getCurrentPosition());
+                              calculationMessageHandled.open();
+                            })
+                        .setLooper(Looper.getMainLooper())
+                        .setPosition(1000)
+                        .send();
+                    player.play();
+                  });
+
+          assertThat(onAdvancingCalled.block(TIMEOUT_MS)).isTrue();
+          assertThat(calculationMessageHandled.block(TIMEOUT_MS)).isTrue();
+          assertThat(reportedStartSystemTimeMs.get())
+              .isWithin(10)
+              .of(calculatedStartSystemTimeMs.get());
+
+          getInstrumentation().runOnMainSync(() -> playerRef.get().release());
+        });
   }
 }
