@@ -70,43 +70,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 @UnstableApi
 public final class MultipleInputVideoGraph implements VideoGraph {
 
-  private static final String TAG = "MultiInputVG";
-  private static final String SHARED_EXECUTOR_NAME = "Effect:MultipleInputVideoGraph:Thread";
-
-  private static final long RELEASE_WAIT_TIME_MS = 1_000;
-  private static final int PRE_COMPOSITOR_TEXTURE_OUTPUT_CAPACITY = 2;
-  private static final int COMPOSITOR_TEXTURE_OUTPUT_CAPACITY = 1;
-
-  private final Context context;
-
-  private final ColorInfo outputColorInfo;
-  private final GlObjectsProvider glObjectsProvider;
-  private final DebugViewProvider debugViewProvider;
-  private final VideoGraph.Listener listener;
-  private final Executor listenerExecutor;
-  private final VideoCompositorSettings videoCompositorSettings;
-  private final List<Effect> compositionEffects;
-  private final SparseArray<VideoFrameProcessor> preProcessors;
-
-  private final ExecutorService sharedExecutorService;
-
-  private final DefaultVideoFrameProcessor.Factory videoFrameProcessorFactory;
-  private final Queue<TimedGlTextureInfo> compositorOutputTextures;
-  private final SparseArray<CompositorOutputTextureRelease> compositorOutputTextureReleases;
-
-  private final boolean renderFramesAutomatically;
-
-  @Nullable private VideoFrameProcessor compositionVideoFrameProcessor;
-  @Nullable private VideoCompositor videoCompositor;
-
-  private boolean compositionVideoFrameProcessorInputStreamRegistered;
-  private boolean compositionVideoFrameProcessorInputStreamRegistrationCompleted;
-  private boolean compositorEnded;
-  private boolean released;
-  private long lastRenderedPresentationTimeUs;
-
-  private volatile boolean hasProducedFrameWithTimestampZero;
-
   /** A {@link VideoGraph.Factory} for {@link MultipleInputVideoGraph}. */
   public static final class Factory implements VideoGraph.Factory {
     private final VideoFrameProcessor.Factory videoFrameProcessorFactory;
@@ -151,6 +114,42 @@ public final class MultipleInputVideoGraph implements VideoGraph {
       return true;
     }
   }
+
+  private static final String TAG = "MultiInputVG";
+  private static final String SHARED_EXECUTOR_NAME = "Effect:MultipleInputVideoGraph:Thread";
+
+  private static final long RELEASE_WAIT_TIME_MS = 1_000;
+  private static final int PRE_COMPOSITOR_TEXTURE_OUTPUT_CAPACITY = 2;
+  private static final int COMPOSITOR_TEXTURE_OUTPUT_CAPACITY = 1;
+
+  private final Context context;
+
+  private final ColorInfo outputColorInfo;
+  private final GlObjectsProvider glObjectsProvider;
+  private final DebugViewProvider debugViewProvider;
+  private final VideoGraph.Listener listener;
+  private final Executor listenerExecutor;
+  private final VideoCompositorSettings videoCompositorSettings;
+  private final List<Effect> compositionEffects;
+  private final SparseArray<VideoFrameProcessor> preProcessors;
+
+  private final ExecutorService sharedExecutorService;
+
+  private final DefaultVideoFrameProcessor.Factory videoFrameProcessorFactory;
+  private final Queue<TimedGlTextureInfo> compositorOutputTextures;
+  private final SparseArray<CompositorOutputTextureRelease> compositorOutputTextureReleases;
+
+  private final boolean renderFramesAutomatically;
+
+  @Nullable private VideoFrameProcessor compositionVideoFrameProcessor;
+  @Nullable private VideoCompositor videoCompositor;
+
+  private boolean compositionVideoFrameProcessorInputStreamRegistered;
+  private boolean compositorEnded;
+  private boolean released;
+  private long lastRenderedPresentationTimeUs;
+
+  private volatile boolean hasProducedFrameWithTimestampZero;
 
   private MultipleInputVideoGraph(
       Context context,
@@ -214,7 +213,6 @@ public final class MultipleInputVideoGraph implements VideoGraph {
                   @VideoFrameProcessor.InputType int inputType,
                   Format format,
                   List<Effect> effects) {
-                compositionVideoFrameProcessorInputStreamRegistrationCompleted = true;
                 queueCompositionOutputInternal();
               }
 
@@ -466,7 +464,6 @@ public final class MultipleInputVideoGraph implements VideoGraph {
       GlTextureInfo outputTexture,
       long presentationTimeUs,
       long syncObject) {
-    checkStateNotNull(compositionVideoFrameProcessor);
     checkState(!compositorEnded);
     DebugTraceUtil.logEvent(
         COMPONENT_COMPOSITOR, EVENT_OUTPUT_TEXTURE_RENDERED, presentationTimeUs);
@@ -477,7 +474,7 @@ public final class MultipleInputVideoGraph implements VideoGraph {
         new CompositorOutputTextureRelease(textureProducer, presentationTimeUs));
 
     if (!compositionVideoFrameProcessorInputStreamRegistered) {
-      checkNotNull(compositionVideoFrameProcessor)
+      checkStateNotNull(compositionVideoFrameProcessor)
           .registerInputStream(
               INPUT_TYPE_TEXTURE_ID,
               // Pre-processing VideoFrameProcessors have converted the inputColor to outputColor
@@ -523,23 +520,19 @@ public final class MultipleInputVideoGraph implements VideoGraph {
 
   // This method is called on the sharedExecutorService.
   private void queueCompositionOutputInternal() {
-    checkStateNotNull(compositionVideoFrameProcessor);
-    if (!compositionVideoFrameProcessorInputStreamRegistrationCompleted) {
-      return;
-    }
-
     @Nullable TimedGlTextureInfo outputTexture = compositorOutputTextures.peek();
     if (outputTexture == null) {
       return;
     }
-
-    checkState(
-        checkNotNull(compositionVideoFrameProcessor)
-            .queueInputTexture(
-                outputTexture.glTextureInfo.texId, outputTexture.presentationTimeUs));
+    VideoFrameProcessor compositionVideoFrameProcessor =
+        checkStateNotNull(this.compositionVideoFrameProcessor);
+    if (!compositionVideoFrameProcessor.queueInputTexture(
+        outputTexture.glTextureInfo.texId, outputTexture.presentationTimeUs)) {
+      return;
+    }
     compositorOutputTextures.remove();
     if (compositorEnded && compositorOutputTextures.isEmpty()) {
-      checkNotNull(compositionVideoFrameProcessor).signalEndOfInput();
+      compositionVideoFrameProcessor.signalEndOfInput();
     }
   }
 
