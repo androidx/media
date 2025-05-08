@@ -330,9 +330,10 @@ public final class SsaParser implements SubtitleParser {
 
     int layer = 0;
     if (format.layerIndex != C.INDEX_UNSET) {
-      layer = parseInt(lineValues[format.layerIndex]);
-      if (layer == C.LENGTH_UNSET) {
-        layer = 0;
+      try {
+        layer = Integer.parseInt(lineValues[format.layerIndex].trim());
+      } catch (Exception exception) {
+        Log.w(TAG, "Fail to parse layer: " + lineValues[format.layerIndex]);
       }
     }
 
@@ -367,19 +368,6 @@ public final class SsaParser implements SubtitleParser {
     // Iterate on cues from startTimeIndex until endTimeIndex, adding the current cue.
     for (int i = startTimeIndex; i < endTimeIndex; i++) {
       cues.get(i).add(cue);
-    }
-  }
-
-  /**
-   * Parse int in SSA.
-   * @param intString The string to parse.
-   * @return The parsed int.
-   */
-  private static int parseInt(String intString) {
-    try {
-      return Integer.parseInt(intString.trim());
-    } catch (Exception exception) {
-      return C.LENGTH_UNSET;
     }
   }
 
