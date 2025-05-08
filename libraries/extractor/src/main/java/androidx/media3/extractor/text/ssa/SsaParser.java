@@ -332,7 +332,7 @@ public final class SsaParser implements SubtitleParser {
     if (format.layerIndex != C.INDEX_UNSET) {
       try {
         layer = Integer.parseInt(lineValues[format.layerIndex].trim());
-      } catch (Exception exception) {
+      } catch (RuntimeException exception) {
         Log.w(TAG, "Fail to parse layer: " + lineValues[format.layerIndex]);
       }
     }
