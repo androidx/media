@@ -26,6 +26,7 @@ import java.util.List;
 /** A list of {@link Cue} instances with a start time and duration. */
 @UnstableApi
 public class CuesWithTiming {
+
   /** The cues to show on screen. */
   public final ImmutableList<Cue> cues;
 

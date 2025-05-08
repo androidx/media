@@ -431,7 +431,8 @@ public final class SsaParserTest {
   @Test
   public void parseInvalidLayer() throws IOException {
     SsaParser parser = new SsaParser();
-    byte[] bytes = TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), INVALID_LAYERS);
+    byte[] bytes =
+        TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), INVALID_LAYERS);
     ImmutableList<CuesWithTiming> allCues = parseAllCues(parser, bytes);
 
     // Check empty layer.

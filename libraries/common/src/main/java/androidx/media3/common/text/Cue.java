@@ -309,9 +309,7 @@ public final class Cue {
    */
   public final float shearDegrees;
 
-  /**
-   * The z index for cue, the larger index will render above the smaller index.
-   */
+  /** The z index for cue, the larger index will render above the smaller index. */
   public final int zIndex;
 
   private Cue(
@@ -824,9 +822,7 @@ public final class Cue {
       return this;
     }
 
-    /**
-     * Gets the zIndex for this Cue.
-     */
+    /** Gets the zIndex for this Cue. */
     @Pure
     public int getZIndex() {
       return zIndex;

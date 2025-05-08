@@ -30,9 +30,7 @@ import java.util.List;
 /** Class to represent the state of active {@link Cue Cues} at a particular time. */
 public final class CueGroup {
 
-  /**
-   * An {@link Ordering} which sorts cues in ascending zIndex priority
-   */
+  /** An {@link Ordering} which sorts cues in ascending zIndex priority */
   private static final Ordering<Cue> CUES_PRIORITY_COMPARATOR =
       Ordering.<Integer>natural().onResultOf(c -> c.zIndex);
 

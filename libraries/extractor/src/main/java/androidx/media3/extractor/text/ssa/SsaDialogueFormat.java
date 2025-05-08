@@ -40,7 +40,12 @@ import com.google.common.base.Ascii;
   public final int length;
 
   private SsaDialogueFormat(
-      int layerIndex, int startTimeIndex, int endTimeIndex, int styleIndex, int textIndex, int length) {
+      int layerIndex,
+      int startTimeIndex,
+      int endTimeIndex,
+      int styleIndex,
+      int textIndex,
+      int length) {
     this.layerIndex = layerIndex;
     this.startTimeIndex = startTimeIndex;
     this.endTimeIndex = endTimeIndex;
@@ -85,7 +90,8 @@ import com.google.common.base.Ascii;
     return (startTimeIndex != C.INDEX_UNSET
             && endTimeIndex != C.INDEX_UNSET
             && textIndex != C.INDEX_UNSET)
-        ? new SsaDialogueFormat(layerIndex, startTimeIndex, endTimeIndex, styleIndex, textIndex, keys.length)
+        ? new SsaDialogueFormat(
+            layerIndex, startTimeIndex, endTimeIndex, styleIndex, textIndex, keys.length)
         : null;
   }
 }
