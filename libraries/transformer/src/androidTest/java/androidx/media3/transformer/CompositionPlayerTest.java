@@ -20,10 +20,14 @@ import static androidx.media3.transformer.AndroidTestUtil.JPG_SINGLE_PIXEL_ASSET
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static org.junit.Assert.assertThrows;
 
 import android.app.Instrumentation;
 import android.content.Context;
 import android.graphics.BitmapFactory;
+import android.opengl.EGLContext;
+import android.opengl.EGLDisplay;
+import android.opengl.EGLSurface;
 import android.util.Pair;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
@@ -33,8 +37,11 @@ import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DebugViewProvider;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
+import androidx.media3.common.GlObjectsProvider;
+import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.PlaybackException;
 import androidx.media3.common.VideoCompositorSettings;
 import androidx.media3.common.VideoGraph;
 import androidx.media3.common.audio.AudioProcessor;
@@ -447,6 +454,66 @@ public class CompositionPlayerTest {
         });
 
     listener.waitUntilPlayerEnded();
+  }
+
+  @Test
+  public void setGlObjectsProvider_withFailingImplementation_throws() {
+    PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
+    EditedMediaItem video =
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
+            .setDurationUs(MP4_ASSET.videoDurationUs)
+            .build();
+
+    instrumentation.runOnMainSync(
+        () -> {
+          compositionPlayer =
+              new CompositionPlayer.Builder(applicationContext)
+                  .setGlObjectsProvider(
+                      new GlObjectsProvider() {
+                        @Override
+                        public EGLContext createEglContext(
+                            EGLDisplay eglDisplay, int openGlVersion, int[] configAttributes) {
+                          throw new UnsupportedOperationException();
+                        }
+
+                        @Override
+                        public EGLSurface createEglSurface(
+                            EGLDisplay eglDisplay,
+                            Object surface,
+                            @C.ColorTransfer int colorTransfer,
+                            boolean isEncoderInputSurface) {
+                          throw new UnsupportedOperationException();
+                        }
+
+                        @Override
+                        public EGLSurface createFocusedPlaceholderEglSurface(
+                            EGLContext eglContext, EGLDisplay eglDisplay) {
+                          throw new UnsupportedOperationException();
+                        }
+
+                        @Override
+                        public GlTextureInfo createBuffersForTexture(
+                            int texId, int width, int height) {
+                          throw new UnsupportedOperationException();
+                        }
+
+                        @Override
+                        public void release(EGLDisplay eglDisplay) {
+                          throw new UnsupportedOperationException();
+                        }
+                      })
+                  .build();
+          // Set a surface on the player even though there is no UI on this test. We need a surface
+          // otherwise the player will skip/drop video frames.
+          compositionPlayer.setVideoSurfaceView(surfaceView);
+          compositionPlayer.addListener(listener);
+          compositionPlayer.setComposition(
+              new Composition.Builder(new EditedMediaItemSequence.Builder(video).build()).build());
+          compositionPlayer.prepare();
+          compositionPlayer.play();
+        });
+
+    assertThrows(PlaybackException.class, listener::waitUntilPlayerEnded);
   }
 
   @Test

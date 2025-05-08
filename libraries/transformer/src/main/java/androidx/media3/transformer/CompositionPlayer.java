@@ -38,6 +38,7 @@ import androidx.annotation.RestrictTo;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.Effect;
+import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
@@ -53,6 +54,7 @@ import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import androidx.media3.effect.DefaultGlObjectsProvider;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.effect.SingleInputVideoGraph;
 import androidx.media3.effect.TimestampAdjustment;
@@ -128,6 +130,8 @@ public final class CompositionPlayer extends SimpleBasePlayer
     private boolean videoPrewarmingEnabled;
     private Clock clock;
     private VideoGraph.@MonotonicNonNull Factory videoGraphFactory;
+
+    private @MonotonicNonNull GlObjectsProvider glObjectsProvider;
     private boolean enableReplayableCache;
     private boolean built;
 
@@ -251,6 +255,22 @@ public final class CompositionPlayer extends SimpleBasePlayer
     }
 
     /**
+     * Sets the {@link GlObjectsProvider} to be used by the effect processing pipeline.
+     *
+     * <p>Setting a {@link GlObjectsProvider} is no-op if a {@link VideoGraph.Factory} is
+     * {@linkplain #setVideoGraphFactory set}. By default, a {@link DefaultGlObjectsProvider} is
+     * used.
+     *
+     * @param glObjectsProvider The {@link GlObjectsProvider}.
+     * @return This builder, for convenience.
+     */
+    @CanIgnoreReturnValue
+    public Builder setGlObjectsProvider(GlObjectsProvider glObjectsProvider) {
+      this.glObjectsProvider = glObjectsProvider;
+      return this;
+    }
+
+    /**
      * Sets whether to enable replayable cache.
      *
      * <p>By default, the replayable cache is not enabled. Enable it to achieve accurate effect
@@ -281,11 +301,14 @@ public final class CompositionPlayer extends SimpleBasePlayer
         audioSink = new DefaultAudioSink.Builder(context).build();
       }
       if (videoGraphFactory == null) {
+        DefaultVideoFrameProcessor.Factory.Builder videoFrameProcessorFactoryBuilder =
+            new DefaultVideoFrameProcessor.Factory.Builder()
+                .setEnableReplayableCache(enableReplayableCache);
+        if (glObjectsProvider != null) {
+          videoFrameProcessorFactoryBuilder.setGlObjectsProvider(glObjectsProvider);
+        }
         videoGraphFactory =
-            new SingleInputVideoGraph.Factory(
-                new DefaultVideoFrameProcessor.Factory.Builder()
-                    .setEnableReplayableCache(enableReplayableCache)
-                    .build());
+            new SingleInputVideoGraph.Factory(videoFrameProcessorFactoryBuilder.build());
       }
       CompositionPlayer compositionPlayer = new CompositionPlayer(this);
       AnalyticsCollector analyticsCollector = new DefaultAnalyticsCollector(clock);
