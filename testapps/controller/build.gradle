@@ -65,4 +65,7 @@ dependencies {
     implementation 'androidx.media:media:' + androidxMediaVersion
     implementation project(modulePrefix + 'lib-session')
     implementation project(modulePrefix + 'lib-datasource')
+
+    testImplementation project(modulePrefix + 'test-utils')
+    testImplementation 'org.robolectric:robolectric:' + robolectricVersion
 }
