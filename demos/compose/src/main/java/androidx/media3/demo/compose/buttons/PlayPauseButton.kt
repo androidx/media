@@ -16,11 +16,11 @@
 
 package androidx.media3.demo.compose.buttons
 
+import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -35,7 +35,9 @@ internal fun PlayPauseButton(player: Player, modifier: Modifier = Modifier) {
   val contentDescription =
     if (state.showPlay) stringResource(R.string.playpause_button_play)
     else stringResource(R.string.playpause_button_pause)
-  IconButton(onClick = state::onClick, modifier = modifier, enabled = state.isEnabled) {
-    Icon(icon, contentDescription = contentDescription, modifier = modifier)
-  }
+  Icon(
+    icon,
+    contentDescription = contentDescription,
+    modifier = modifier.clickable(enabled = state.isEnabled, onClick = state::onClick),
+  )
 }

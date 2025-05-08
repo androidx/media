@@ -16,10 +16,10 @@
 
 package androidx.media3.demo.compose.buttons
 
+import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -30,11 +30,9 @@ import androidx.media3.ui.compose.state.rememberNextButtonState
 @Composable
 internal fun NextButton(player: Player, modifier: Modifier = Modifier) {
   val state = rememberNextButtonState(player)
-  IconButton(onClick = state::onClick, modifier = modifier, enabled = state.isEnabled) {
-    Icon(
-      Icons.Default.SkipNext,
-      contentDescription = stringResource(R.string.next_button),
-      modifier = modifier,
-    )
-  }
+  Icon(
+    Icons.Default.SkipNext,
+    contentDescription = stringResource(R.string.next_button),
+    modifier = modifier.clickable(enabled = state.isEnabled, onClick = state::onClick),
+  )
 }

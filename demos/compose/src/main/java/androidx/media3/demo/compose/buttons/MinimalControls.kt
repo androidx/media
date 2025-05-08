@@ -17,9 +17,8 @@
 package androidx.media3.demo.compose.buttons
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
@@ -38,14 +37,14 @@ import androidx.media3.common.Player
 internal fun MinimalControls(player: Player, modifier: Modifier = Modifier) {
   val graySemiTransparentBackground = Color.Gray.copy(alpha = 0.1f)
   val modifierForIconButton =
-    modifier.size(80.dp).background(graySemiTransparentBackground, CircleShape)
-  Row(
-    modifier = modifier.fillMaxWidth(),
-    horizontalArrangement = Arrangement.SpaceEvenly,
-    verticalAlignment = Alignment.CenterVertically,
-  ) {
+    modifier.size(40.dp).background(graySemiTransparentBackground, CircleShape)
+  Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
+    Spacer(Modifier.weight(1f))
     PreviousButton(player, Modifier.weight(1f).then(modifierForIconButton))
+    Spacer(Modifier.weight(1f))
     PlayPauseButton(player, Modifier.weight(1f).then(modifierForIconButton))
+    Spacer(Modifier.weight(1f))
     NextButton(player, Modifier.weight(1f).then(modifierForIconButton))
+    Spacer(Modifier.weight(1f))
   }
 }
