@@ -148,6 +148,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final Object setMaxSequenceDurationUsLock;
   private final Object progressLock;
   private final ProgressHolder internalProgressHolder;
+  private final Object releaseLock;
   private final ImmutableList<Integer> allowedEncodingRotationDegrees;
   private final int maxFramesInEncoder;
 
@@ -181,10 +182,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   /**
    * The boolean tracking if this component has been released.
    *
-   * <p>Modified on the internal thread. Accessed on the application thread (in {@link #getProgress}
-   * and {@link #cancel()}).
+   * <p>Modified on the internal thread. Accessed on multiple threads. Writes on the internal thread
+   * and reads on other threads are guarded by releaseLock.
    */
-  private volatile boolean released;
+  private boolean released;
 
   public TransformerInternal(
       Context context,
@@ -266,6 +267,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     canceledConditionVariable = new ConditionVariable();
     progressLock = new Object();
     internalProgressHolder = new ProgressHolder();
+    releaseLock = new Object();
     sampleExporters = new ArrayList<>();
 
     // It's safe to use "this" because we don't send a message before exiting the constructor.
@@ -300,13 +302,15 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   public void cancel() {
-    if (released) {
-      return;
+    synchronized (releaseLock) {
+      if (released) {
+        return;
+      }
+      verifyInternalThreadAlive();
+      internalHandler
+          .obtainMessage(MSG_END, END_REASON_CANCELLED, /* unused */ 0, /* exportException */ null)
+          .sendToTarget();
     }
-    verifyInternalThreadAlive();
-    internalHandler
-        .obtainMessage(MSG_END, END_REASON_CANCELLED, /* unused */ 0, /* exportException */ null)
-        .sendToTarget();
     clock.onThreadBlocked();
     canceledConditionVariable.blockUninterruptible();
     canceledConditionVariable.close();
@@ -323,10 +327,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   public void endWithException(ExportException exportException) {
-    verifyInternalThreadAlive();
-    internalHandler
-        .obtainMessage(MSG_END, END_REASON_ERROR, /* unused */ 0, exportException)
-        .sendToTarget();
+    synchronized (releaseLock) {
+      if (released) {
+        Log.w(TAG, "Export error after export ended", exportException);
+        return;
+      }
+      verifyInternalThreadAlive();
+      internalHandler
+          .obtainMessage(MSG_END, END_REASON_ERROR, /* unused */ 0, exportException)
+          .sendToTarget();
+    }
   }
 
   // Private methods.
@@ -405,7 +415,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     @Nullable ExportException releaseExportException = null;
     boolean releasedPreviously = released;
     if (!released) {
-      released = true;
+      synchronized (releaseLock) {
+        released = true;
+      }
 
       Log.i(
           TAG,
@@ -629,9 +641,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     @Nullable
     @Override
     public SampleConsumer onOutputFormat(Format assetLoaderOutputFormat) throws ExportException {
-      if (released) {
-        return null;
-      }
       synchronized (assetLoaderLock) {
         if (!assetLoaderInputTracker.hasRegisteredAllTracks()) {
           return null;
