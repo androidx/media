@@ -88,7 +88,7 @@ public final class ExoPlayerScrubbingTest {
         new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT));
     player.prepare();
     player.play();
-    advance(player).untilPosition(0, 2000);
+    advance(player).untilPosition(/* mediaItemIndex= */ 0, /* positionMs= */ 2000);
 
     player.setScrubbingModeEnabled(true);
     verify(mockListener)
@@ -124,7 +124,7 @@ public final class ExoPlayerScrubbingTest {
             ExoPlayerTestRunner.VIDEO_FORMAT));
     player.prepare();
     player.play();
-    advance(player).untilPosition(0, 1000);
+    advance(player).untilPosition(/* mediaItemIndex= */ 0, /* positionMs= */ 1000);
     VideoFrameMetadataListener mockVideoFrameMetadataListener =
         mock(VideoFrameMetadataListener.class);
     player.setVideoFrameMetadataListener(mockVideoFrameMetadataListener);
@@ -180,7 +180,7 @@ public final class ExoPlayerScrubbingTest {
             timeline, ExoPlayerTestRunner.VIDEO_FORMAT, ExoPlayerTestRunner.AUDIO_FORMAT));
     player.prepare();
     player.play();
-    advance(player).untilPosition(0, 1000);
+    advance(player).untilPosition(/* mediaItemIndex= */ 0, /* positionMs= */ 1000);
     TrackSelectionParameters trackSelectionParametersBeforeScrubbingMode =
         player.getTrackSelectionParameters();
     AnalyticsListener mockAnalyticsListener = mock(AnalyticsListener.class);
@@ -225,7 +225,7 @@ public final class ExoPlayerScrubbingTest {
             timeline, ExoPlayerTestRunner.VIDEO_FORMAT, ExoPlayerTestRunner.AUDIO_FORMAT));
     player.prepare();
     player.play();
-    advance(player).untilPosition(0, 1000);
+    advance(player).untilPosition(/* mediaItemIndex= */ 0, /* positionMs= */ 1000);
     AnalyticsListener mockAnalyticsListener = mock(AnalyticsListener.class);
     player.addAnalyticsListener(mockAnalyticsListener);
 
@@ -306,7 +306,7 @@ public final class ExoPlayerScrubbingTest {
             textFormat));
     player.prepare();
     player.play();
-    advance(player).untilPosition(0, 1000);
+    advance(player).untilPosition(/* mediaItemIndex= */ 0, /* positionMs= */ 1000);
     AnalyticsListener mockAnalyticsListener = mock(AnalyticsListener.class);
     player.addAnalyticsListener(mockAnalyticsListener);
 
@@ -365,7 +365,7 @@ public final class ExoPlayerScrubbingTest {
             timeline, ExoPlayerTestRunner.VIDEO_FORMAT, ExoPlayerTestRunner.AUDIO_FORMAT));
     player.prepare();
     player.play();
-    advance(player).untilPosition(0, 1000);
+    advance(player).untilPosition(/* mediaItemIndex= */ 0, /* positionMs= */ 1000);
     AnalyticsListener mockAnalyticsListener = mock(AnalyticsListener.class);
     player.addAnalyticsListener(mockAnalyticsListener);
 
@@ -392,7 +392,7 @@ public final class ExoPlayerScrubbingTest {
             timeline, ExoPlayerTestRunner.VIDEO_FORMAT, ExoPlayerTestRunner.AUDIO_FORMAT));
     player.prepare();
     player.play();
-    advance(player).untilPosition(0, 1000);
+    advance(player).untilPosition(/* mediaItemIndex= */ 0, /* positionMs= */ 1000);
     AnalyticsListener mockAnalyticsListener = mock(AnalyticsListener.class);
     player.addAnalyticsListener(mockAnalyticsListener);
 
