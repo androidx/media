@@ -23,6 +23,8 @@
         `EditedMediaItemSequence.Builder`. If the gap is in the middle of the
         sequence, then this flag is not required.
     *   Move `Muxer` interface from `media3-transformer` to `media3-muxer`.
+    *   Make setting `MediaItem.Builder().setImageDuration(long)` mandatory to
+        import a media item as an image.
 *   Track Selection:
 *   Extractors:
     *   MP3: Use duration and data size from unseekable Xing, VBRI and similar

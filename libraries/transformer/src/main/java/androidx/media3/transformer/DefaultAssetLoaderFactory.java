@@ -191,6 +191,9 @@ public final class DefaultAssetLoaderFactory implements AssetLoader.Factory {
     MediaItem mediaItem = editedMediaItem.mediaItem;
     if (isImage(context, mediaItem)
         && checkNotNull(mediaItem.localConfiguration).imageDurationMs != C.TIME_UNSET) {
+      // Checks that mediaItem.localConfiguration.imageDurationMs is explicitly set.
+      // This is particularly important for motion photos, where setting imageDurationMs ensures
+      // that the motion photo is handled as an image.
       if (imageAssetLoaderFactory == null) {
         imageAssetLoaderFactory = new ImageAssetLoader.Factory(context, bitmapLoader);
       }
