@@ -19,7 +19,7 @@ import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.muxer.Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER_OR_DUPLICATE_PREVIOUS;
 import static androidx.media3.muxer.MuxerTestUtil.FAKE_VIDEO_FORMAT;
 import static androidx.media3.muxer.MuxerTestUtil.XMP_SAMPLE_DATA;
-import static androidx.media3.muxer.MuxerTestUtil.feedInputDataToMp4Muxer;
+import static androidx.media3.muxer.MuxerTestUtil.feedInputDataToMuxer;
 import static androidx.media3.muxer.MuxerTestUtil.getFakeSampleAndSampleInfo;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
@@ -129,7 +129,7 @@ public class Mp4MuxerEndToEndTest {
           new Mp4TimestampData(
               /* creationTimestampSeconds= */ 100_000_000L,
               /* modificationTimestampSeconds= */ 500_000_000L));
-      feedInputDataToMp4Muxer(context, mp4Muxer, AV1_MP4, /* removeInitializationData= */ true);
+      feedInputDataToMuxer(context, mp4Muxer, AV1_MP4, /* removeInitializationData= */ true);
     } finally {
       if (mp4Muxer != null) {
         mp4Muxer.close();
@@ -151,7 +151,7 @@ public class Mp4MuxerEndToEndTest {
         new Mp4TimestampData(
             /* creationTimestampSeconds= */ 100_000_000L,
             /* modificationTimestampSeconds= */ 500_000_000L));
-    feedInputDataToMp4Muxer(context, mp4Muxer, H265_HDR10_MP4);
+    feedInputDataToMuxer(context, mp4Muxer, H265_HDR10_MP4);
 
     // Muxer not closed.
 
@@ -877,7 +877,7 @@ public class Mp4MuxerEndToEndTest {
             /* creationTimestampSeconds= */ 100_000_000L,
             /* modificationTimestampSeconds= */ 500_000_000L));
     try {
-      feedInputDataToMp4Muxer(context, mp4Muxer, checkNotNull(H265_HDR10_MP4));
+      feedInputDataToMuxer(context, mp4Muxer, checkNotNull(H265_HDR10_MP4));
     } finally {
       mp4Muxer.close();
     }
@@ -906,7 +906,7 @@ public class Mp4MuxerEndToEndTest {
             /* creationTimestampSeconds= */ 100_000_000L,
             /* modificationTimestampSeconds= */ 500_000_000L));
     try {
-      feedInputDataToMp4Muxer(context, mp4Muxer, checkNotNull(H265_HDR10_MP4));
+      feedInputDataToMuxer(context, mp4Muxer, checkNotNull(H265_HDR10_MP4));
     } finally {
       mp4Muxer.close();
     }

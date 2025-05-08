@@ -16,17 +16,11 @@
 package androidx.media3.muxer;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Util.getBufferFlagsFromMediaCodecFlags;
-import static androidx.media3.muxer.MuxerTestUtil.MP4_FILE_ASSET_DIRECTORY;
+import static androidx.media3.muxer.MuxerTestUtil.feedInputDataToMuxer;
 
 import android.content.Context;
-import android.net.Uri;
 import androidx.annotation.Nullable;
-import androidx.media3.common.Format;
-import androidx.media3.common.MimeTypes;
-import androidx.media3.common.util.MediaFormatUtil;
 import androidx.media3.container.Mp4TimestampData;
-import androidx.media3.exoplayer.MediaExtractorCompat;
 import androidx.media3.extractor.mp4.FragmentedMp4Extractor;
 import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
 import androidx.media3.test.utils.DumpFileAsserts;
@@ -38,8 +32,6 @@ import com.google.common.collect.ImmutableList;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.List;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.After;
 import org.junit.Before;
@@ -232,52 +224,5 @@ public class FragmentedMp4MuxerEndToEndTest {
         context,
         fakeExtractorOutput,
         MuxerTestUtil.getExpectedDumpFilePath(AV1_MP4 + "_fragmented"));
-  }
-
-  private static void feedInputDataToMuxer(
-      Context context, FragmentedMp4Muxer muxer, String inputFileName)
-      throws IOException, MuxerException {
-    feedInputDataToMuxer(context, muxer, inputFileName, /* removeInitializationData= */ false);
-  }
-
-  private static void feedInputDataToMuxer(
-      Context context,
-      FragmentedMp4Muxer muxer,
-      String inputFileName,
-      boolean removeInitializationData)
-      throws IOException, MuxerException {
-    MediaExtractorCompat extractor = new MediaExtractorCompat(context);
-    Uri fileUri = Uri.parse(MP4_FILE_ASSET_DIRECTORY + inputFileName);
-    extractor.setDataSource(fileUri, /* offset= */ 0);
-
-    List<Integer> addedTracks = new ArrayList<>();
-    for (int i = 0; i < extractor.getTrackCount(); i++) {
-      Format format = MediaFormatUtil.createFormatFromMediaFormat(extractor.getTrackFormat(i));
-      if (removeInitializationData && MimeTypes.isVideo(format.sampleMimeType)) {
-        format = format.buildUpon().setInitializationData(null).build();
-      }
-      int trackId = muxer.addTrack(format);
-      addedTracks.add(trackId);
-      extractor.selectTrack(i);
-    }
-
-    do {
-      int sampleSize = (int) extractor.getSampleSize();
-      BufferInfo bufferInfo =
-          new BufferInfo(
-              extractor.getSampleTime(),
-              sampleSize,
-              getBufferFlagsFromMediaCodecFlags(extractor.getSampleFlags()));
-
-      ByteBuffer sampleBuffer = ByteBuffer.allocateDirect(sampleSize);
-      extractor.readSampleData(sampleBuffer, /* offset= */ 0);
-
-      sampleBuffer.rewind();
-
-      muxer.writeSampleData(
-          addedTracks.get(extractor.getSampleTrackIndex()), sampleBuffer, bufferInfo);
-    } while (extractor.advance());
-
-    extractor.release();
   }
 }

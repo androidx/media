@@ -80,13 +80,13 @@ import java.util.List;
     return new Pair<>(sampleDirectBuffer, bufferInfo);
   }
 
-  public static void feedInputDataToMp4Muxer(Context context, Mp4Muxer muxer, String inputFileName)
+  public static void feedInputDataToMuxer(Context context, Muxer muxer, String inputFileName)
       throws IOException, MuxerException {
-    feedInputDataToMp4Muxer(context, muxer, inputFileName, /* removeInitializationData= */ false);
+    feedInputDataToMuxer(context, muxer, inputFileName, /* removeInitializationData= */ false);
   }
 
-  public static void feedInputDataToMp4Muxer(
-      Context context, Mp4Muxer muxer, String inputFileName, boolean removeInitializationData)
+  public static void feedInputDataToMuxer(
+      Context context, Muxer muxer, String inputFileName, boolean removeInitializationData)
       throws IOException, MuxerException {
     MediaExtractorCompat extractor = new MediaExtractorCompat(context);
     Uri fileUri = Uri.parse(MP4_FILE_ASSET_DIRECTORY + inputFileName);
