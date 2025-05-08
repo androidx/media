@@ -135,14 +135,14 @@ public final class ExoPlayerScrubbingTest {
     player.seekTo(3000);
     player.seekTo(3500);
     // Allow the 2500 and 3500 seeks to complete (the 3000 seek should be dropped).
-    advance(player).untilPendingCommandsAreFullyHandled();
+    advance(player).untilPosition(/* mediaItemIndex= */ 0, /* positionMs= */ 3500);
 
     player.seekTo(4000);
     player.seekTo(4500);
     // Disabling scrubbing mode should immediately execute the last received seek (pre-empting a
     // previous one), so we expect the 4500 seek to be resolved and the 4000 seek to be dropped.
     player.setScrubbingModeEnabled(false);
-    advance(player).untilPendingCommandsAreFullyHandled();
+    advance(player).untilPosition(/* mediaItemIndex= */ 0, /* positionMs= */ 4500);
     player.clearVideoFrameMetadataListener(mockVideoFrameMetadataListener);
     advance(player).untilState(Player.STATE_ENDED);
     player.release();
