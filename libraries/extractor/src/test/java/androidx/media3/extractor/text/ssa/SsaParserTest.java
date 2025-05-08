@@ -419,17 +419,13 @@ public final class SsaParserTest {
     byte[] bytes = TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), LAYERS);
     ImmutableList<CuesWithTiming> allCues = parseAllCues(parser, bytes);
 
-    // Check default layer.
-    Cue firstCue = Iterables.getOnlyElement(allCues.get(0).cues);
-    assertThat(firstCue.zIndex).isEqualTo(0);
-
     // Check positive layer.
-    Cue secondCue = Iterables.getOnlyElement(allCues.get(1).cues);
-    assertThat(secondCue.zIndex).isEqualTo(1);
+    Cue firstCue = Iterables.getOnlyElement(allCues.get(0).cues);
+    assertThat(firstCue.zIndex).isEqualTo(1);
 
     // Check negative layer.
-    Cue thirdCue = Iterables.getOnlyElement(allCues.get(2).cues);
-    assertThat(thirdCue.zIndex).isEqualTo(-1);
+    Cue secondCue = Iterables.getOnlyElement(allCues.get(1).cues);
+    assertThat(secondCue.zIndex).isEqualTo(-1);
   }
 
   @Test
@@ -438,15 +434,15 @@ public final class SsaParserTest {
     byte[] bytes = TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), INVALID_LAYERS);
     ImmutableList<CuesWithTiming> allCues = parseAllCues(parser, bytes);
 
-    // Check default layer.
+    // Check empty layer.
     Cue firstCue = Iterables.getOnlyElement(allCues.get(0).cues);
     assertThat(firstCue.zIndex).isEqualTo(0);
 
-    // Check empty layer.
+    // Check non-numeric layer.
     Cue secondCue = Iterables.getOnlyElement(allCues.get(1).cues);
     assertThat(secondCue.zIndex).isEqualTo(0);
 
-    // Check invalid layer.
+    // Check non-integer layer.
     Cue thirdCue = Iterables.getOnlyElement(allCues.get(2).cues);
     assertThat(thirdCue.zIndex).isEqualTo(0);
   }
