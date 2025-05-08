@@ -56,6 +56,8 @@ public final class SsaParserTest {
   private static final String INVALID_TIMECODES = "media/ssa/invalid_timecodes";
   private static final String INVALID_POSITIONS = "media/ssa/invalid_positioning";
   private static final String POSITIONS_WITHOUT_PLAYRES = "media/ssa/positioning_without_playres";
+  private static final String LAYERS = "media/ssa/layer";
+  private static final String INVALID_LAYERS = "media/ssa/invalid_layer";
   private static final String STYLE_PRIMARY_COLOR = "media/ssa/style_primary_color";
   private static final String STYLE_OUTLINE_COLOR = "media/ssa/style_outline_color";
   private static final String STYLE_FONT_SIZE = "media/ssa/style_font_size";
@@ -409,6 +411,44 @@ public final class SsaParserTest {
     assertThat(fourthCue.position).isEqualTo(0.05f);
     assertThat(fourthCue.lineType).isEqualTo(Cue.LINE_TYPE_FRACTION);
     assertThat(fourthCue.line).isEqualTo(0.5f);
+  }
+
+  @Test
+  public void parseLayer() throws IOException {
+    SsaParser parser = new SsaParser();
+    byte[] bytes = TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), LAYERS);
+    ImmutableList<CuesWithTiming> allCues = parseAllCues(parser, bytes);
+
+    // Check default layer.
+    Cue firstCue = Iterables.getOnlyElement(allCues.get(0).cues);
+    assertThat(firstCue.zIndex).isEqualTo(0);
+
+    // Check positive layer.
+    Cue secondCue = Iterables.getOnlyElement(allCues.get(1).cues);
+    assertThat(secondCue.zIndex).isEqualTo(1);
+
+    // Check negative layer.
+    Cue thirdCue = Iterables.getOnlyElement(allCues.get(2).cues);
+    assertThat(thirdCue.zIndex).isEqualTo(-1);
+  }
+
+  @Test
+  public void parseInvalidLayer() throws IOException {
+    SsaParser parser = new SsaParser();
+    byte[] bytes = TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), INVALID_LAYERS);
+    ImmutableList<CuesWithTiming> allCues = parseAllCues(parser, bytes);
+
+    // Check default layer.
+    Cue firstCue = Iterables.getOnlyElement(allCues.get(0).cues);
+    assertThat(firstCue.zIndex).isEqualTo(0);
+
+    // Check empty layer.
+    Cue secondCue = Iterables.getOnlyElement(allCues.get(1).cues);
+    assertThat(secondCue.zIndex).isEqualTo(0);
+
+    // Check invalid layer.
+    Cue thirdCue = Iterables.getOnlyElement(allCues.get(2).cues);
+    assertThat(thirdCue.zIndex).isEqualTo(0);
   }
 
   @Test
