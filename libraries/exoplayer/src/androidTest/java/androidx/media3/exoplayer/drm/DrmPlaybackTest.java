@@ -31,6 +31,7 @@ import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.collect.ImmutableList;
 import java.util.concurrent.atomic.AtomicReference;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
@@ -159,7 +160,12 @@ public final class DrmPlaybackTest {
                           playbackComplete.open();
                         }
                       });
-              player.get().setMediaItem(mediaItem);
+              // One copy of this mediaItem is around 1-second long which is close to
+              // MediaCodecVideoRenderer's
+              // OFFSET_FROM_RESET_POSITION_TO_ALLOW_INPUT_BUFFER_DROPPING_US. Play two copies of
+              // the media item to artificially increase the duration of the played media.
+              // TODO: b/161996553 - change this test to play only one copy of the media item.
+              player.get().setMediaItems(ImmutableList.of(mediaItem, mediaItem));
               player.get().prepare();
               player.get().play();
             });
