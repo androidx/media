@@ -54,6 +54,7 @@ import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.VideoGraph;
 import androidx.media3.common.util.GlUtil.GlException;
 import androidx.media3.common.util.Log;
+import androidx.media3.common.util.Size;
 import androidx.media3.common.util.TimestampIterator;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -143,8 +144,8 @@ public final class MultipleInputVideoGraph implements VideoGraph {
 
   @Nullable private VideoFrameProcessor compositionVideoFrameProcessor;
   @Nullable private VideoCompositor videoCompositor;
+  private Size compositorOutputSize;
 
-  private boolean compositionVideoFrameProcessorInputStreamRegistered;
   private boolean compositorEnded;
   private boolean released;
   private long lastRenderedPresentationTimeUs;
@@ -183,6 +184,7 @@ public final class MultipleInputVideoGraph implements VideoGraph {
             .build();
     compositorOutputTextures = new ArrayDeque<>();
     compositorOutputTextureReleases = new SparseArray<>();
+    compositorOutputSize = Size.UNKNOWN;
   }
 
   /**
@@ -472,25 +474,6 @@ public final class MultipleInputVideoGraph implements VideoGraph {
     compositorOutputTextureReleases.put(
         outputTexture.texId,
         new CompositorOutputTextureRelease(textureProducer, presentationTimeUs));
-
-    if (!compositionVideoFrameProcessorInputStreamRegistered) {
-      checkStateNotNull(compositionVideoFrameProcessor)
-          .registerInputStream(
-              INPUT_TYPE_TEXTURE_ID,
-              // Pre-processing VideoFrameProcessors have converted the inputColor to outputColor
-              // already, so use outputColorInfo for the input color to the
-              // compositionVideoFrameProcessor.
-              new Format.Builder()
-                  .setColorInfo(outputColorInfo)
-                  .setWidth(outputTexture.width)
-                  .setHeight(outputTexture.height)
-                  .build(),
-              compositionEffects,
-              /* offsetToAddUs= */ 0);
-      compositionVideoFrameProcessorInputStreamRegistered = true;
-      // Return as the VideoFrameProcessor rejects input textures until the input is registered.
-      return;
-    }
     queueCompositionOutputInternal();
   }
 
@@ -526,6 +509,23 @@ public final class MultipleInputVideoGraph implements VideoGraph {
     }
     VideoFrameProcessor compositionVideoFrameProcessor =
         checkStateNotNull(this.compositionVideoFrameProcessor);
+    int width = outputTexture.glTextureInfo.width;
+    int height = outputTexture.glTextureInfo.height;
+    if (width != compositorOutputSize.getWidth() || height != compositorOutputSize.getHeight()) {
+      compositionVideoFrameProcessor.registerInputStream(
+          INPUT_TYPE_TEXTURE_ID,
+          // Pre-processing VideoFrameProcessors have converted the inputColor to outputColor
+          // already, so use outputColorInfo for the input color to the
+          // compositionVideoFrameProcessor.
+          new Format.Builder()
+              .setColorInfo(outputColorInfo)
+              .setWidth(width)
+              .setHeight(height)
+              .build(),
+          compositionEffects,
+          /* offsetToAddUs= */ 0);
+      compositorOutputSize = new Size(width, height);
+    }
     if (!compositionVideoFrameProcessor.queueInputTexture(
         outputTexture.glTextureInfo.texId, outputTexture.presentationTimeUs)) {
       return;
