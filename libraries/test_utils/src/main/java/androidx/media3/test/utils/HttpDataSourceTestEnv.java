@@ -134,7 +134,12 @@ public class HttpDataSourceTestEnv extends ExternalResource {
             .build(),
         new DataSourceContractTest.TestResource.Builder()
             .setName("no-connection")
-            .setUri(Uri.parse("http://not-a-real-server.test/path"))
+            // We use an IP address in order to bypass slow DNS timeouts in some test environments
+            // (b/413664259#comment2). This is an IPv4 address that shouldn't resolve to an HTTP
+            // server because
+            //   a) It is in a block reserved for documentation by RFC 5737.
+            //   b) It is using the SSH port (HTTP would conventionally be on 80).
+            .setUri(Uri.parse("http://192.0.2.1:22/path"))
             .setUnexpectedResponseHeaderKeys(ImmutableSet.of(HttpHeaders.CONTENT_LENGTH))
             .build());
   }
