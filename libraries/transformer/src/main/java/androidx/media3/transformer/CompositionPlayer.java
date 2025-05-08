@@ -28,7 +28,6 @@ import android.content.Context;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Process;
-import android.util.Pair;
 import android.util.SparseBooleanArray;
 import android.view.Surface;
 import android.view.SurfaceHolder;
@@ -58,9 +57,7 @@ import androidx.media3.effect.DefaultGlObjectsProvider;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.effect.SingleInputVideoGraph;
 import androidx.media3.effect.TimestampAdjustment;
-import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.ExoPlayer;
-import androidx.media3.exoplayer.RendererCapabilities;
 import androidx.media3.exoplayer.analytics.AnalyticsCollector;
 import androidx.media3.exoplayer.analytics.DefaultAnalyticsCollector;
 import androidx.media3.exoplayer.audio.AudioSink;
@@ -69,23 +66,18 @@ import androidx.media3.exoplayer.image.ImageDecoder;
 import androidx.media3.exoplayer.source.ClippingMediaSource;
 import androidx.media3.exoplayer.source.ConcatenatingMediaSource2;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
-import androidx.media3.exoplayer.source.FilteringMediaSource;
 import androidx.media3.exoplayer.source.ForwardingTimeline;
 import androidx.media3.exoplayer.source.MediaPeriod;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.MergingMediaSource;
 import androidx.media3.exoplayer.source.SilenceMediaSource;
-import androidx.media3.exoplayer.source.TrackGroupArray;
 import androidx.media3.exoplayer.source.WrappingMediaSource;
-import androidx.media3.exoplayer.trackselection.DefaultTrackSelector;
-import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.util.EventLogger;
 import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
 import androidx.media3.exoplayer.video.VideoFrameMetadataListener;
 import androidx.media3.exoplayer.video.VideoFrameReleaseControl;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -844,8 +836,14 @@ public final class CompositionPlayer extends SimpleBasePlayer
           break;
         }
       }
-      playerBuilder.setTrackSelector(
-          new CompositionTrackSelector(context, /* sequenceIndex= */ i, disableVideoPlayback));
+      CompositionTrackSelector compositionTrackSelector =
+          new CompositionTrackSelector(
+              context,
+              /* listener= */ this::onVideoTrackSelection,
+              /* sequenceIndex= */ i,
+              disableVideoPlayback);
+      compositionTrackSelector.setSequence(editedMediaItemSequence);
+      playerBuilder.setTrackSelector(compositionTrackSelector);
 
       ExoPlayer player = playerBuilder.build();
       player.addListener(new PlayerListener(i));
@@ -897,12 +895,6 @@ public final class CompositionPlayer extends SimpleBasePlayer
       MediaSource.Factory mediaSourceFactory, EditedMediaItem editedMediaItem) {
     // The MediaSource that loads the MediaItem
     MediaSource mainMediaSource = mediaSourceFactory.createMediaSource(editedMediaItem.mediaItem);
-    if (editedMediaItem.removeAudio) {
-      mainMediaSource =
-          new FilteringMediaSource(
-              mainMediaSource, ImmutableSet.of(C.TRACK_TYPE_VIDEO, C.TRACK_TYPE_IMAGE));
-    }
-
     MediaSource silenceMediaSource =
         new ClippingMediaSource.Builder(new SilenceMediaSource(editedMediaItem.durationUs))
             .setStartPositionUs(editedMediaItem.mediaItem.clippingConfiguration.startPositionUs)
@@ -1302,116 +1294,6 @@ public final class CompositionPlayer extends SimpleBasePlayer
       }
 
       checkNotNull(playbackVideoGraphWrapper).setTotalVideoInputCount(selectedVideoTracks);
-    }
-  }
-
-  /**
-   * A {@link DefaultTrackSelector} extension to de-select generated audio when the audio from the
-   * media is playable.
-   */
-  private final class CompositionTrackSelector extends DefaultTrackSelector {
-
-    private static final String SILENCE_AUDIO_TRACK_GROUP_ID = "1:";
-    private final int sequenceIndex;
-    private final boolean disableVideoPlayback;
-
-    public CompositionTrackSelector(
-        Context context, int sequenceIndex, boolean disableVideoPlayback) {
-      super(context);
-      this.sequenceIndex = sequenceIndex;
-      this.disableVideoPlayback = disableVideoPlayback;
-    }
-
-    @Nullable
-    @Override
-    protected Pair<ExoTrackSelection.Definition, Integer> selectAudioTrack(
-        MappedTrackInfo mappedTrackInfo,
-        @RendererCapabilities.Capabilities int[][][] rendererFormatSupports,
-        @RendererCapabilities.AdaptiveSupport int[] rendererMixedMimeTypeAdaptationSupports,
-        Parameters params)
-        throws ExoPlaybackException {
-      int audioRenderIndex = C.INDEX_UNSET;
-      for (int i = 0; i < mappedTrackInfo.getRendererCount(); i++) {
-        if (mappedTrackInfo.getRendererType(i) == C.TRACK_TYPE_AUDIO) {
-          audioRenderIndex = i;
-          break;
-        }
-      }
-      checkState(audioRenderIndex != C.INDEX_UNSET);
-
-      TrackGroupArray audioTrackGroups = mappedTrackInfo.getTrackGroups(audioRenderIndex);
-      // If there's only one audio TrackGroup, it'll be silence, there's no need to override track
-      // selection.
-      if (audioTrackGroups.length > 1) {
-        boolean mediaAudioIsPlayable = false;
-        int silenceAudioTrackGroupIndex = C.INDEX_UNSET;
-        for (int i = 0; i < audioTrackGroups.length; i++) {
-          if (audioTrackGroups.get(i).id.startsWith(SILENCE_AUDIO_TRACK_GROUP_ID)) {
-            silenceAudioTrackGroupIndex = i;
-            continue;
-          }
-          // For non-silence tracks
-          for (int j = 0; j < audioTrackGroups.get(i).length; j++) {
-            mediaAudioIsPlayable |=
-                RendererCapabilities.getFormatSupport(
-                        rendererFormatSupports[audioRenderIndex][i][j])
-                    == C.FORMAT_HANDLED;
-          }
-        }
-        checkState(silenceAudioTrackGroupIndex != C.INDEX_UNSET);
-
-        if (mediaAudioIsPlayable) {
-          // Disable silence if the media's audio track is playable.
-          int silenceAudioTrackIndex = audioTrackGroups.length - 1;
-          rendererFormatSupports[audioRenderIndex][silenceAudioTrackIndex][0] =
-              RendererCapabilities.create(C.FORMAT_UNSUPPORTED_TYPE);
-        }
-      }
-
-      return super.selectAudioTrack(
-          mappedTrackInfo, rendererFormatSupports, rendererMixedMimeTypeAdaptationSupports, params);
-    }
-
-    @Nullable
-    @Override
-    protected Pair<ExoTrackSelection.Definition, Integer> selectVideoTrack(
-        MappedTrackInfo mappedTrackInfo,
-        @RendererCapabilities.Capabilities int[][][] rendererFormatSupports,
-        @RendererCapabilities.AdaptiveSupport int[] mixedMimeTypeSupports,
-        Parameters params,
-        @Nullable String selectedAudioLanguage)
-        throws ExoPlaybackException {
-      @Nullable
-      Pair<ExoTrackSelection.Definition, Integer> trackSelection =
-          super.selectVideoTrack(
-              mappedTrackInfo,
-              rendererFormatSupports,
-              mixedMimeTypeSupports,
-              params,
-              selectedAudioLanguage);
-      if (disableVideoPlayback) {
-        trackSelection = null;
-      }
-      onVideoTrackSelection(/* selected= */ trackSelection != null, sequenceIndex);
-      return trackSelection;
-    }
-
-    @Nullable
-    @Override
-    protected Pair<ExoTrackSelection.Definition, Integer> selectImageTrack(
-        MappedTrackInfo mappedTrackInfo,
-        @RendererCapabilities.Capabilities int[][][] rendererFormatSupports,
-        Parameters params)
-        throws ExoPlaybackException {
-      @Nullable
-      Pair<ExoTrackSelection.Definition, Integer> trackSelection =
-          super.selectImageTrack(mappedTrackInfo, rendererFormatSupports, params);
-      if (disableVideoPlayback) {
-        trackSelection = null;
-      }
-      // Images are treated as video tracks.
-      onVideoTrackSelection(/* selected= */ trackSelection != null, sequenceIndex);
-      return trackSelection;
     }
   }
 }

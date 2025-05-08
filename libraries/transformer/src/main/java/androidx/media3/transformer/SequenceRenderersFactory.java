@@ -27,6 +27,7 @@ import static androidx.media3.exoplayer.DefaultRenderersFactory.MAX_DROPPED_VIDE
 import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_IMMEDIATELY;
 import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED;
 import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_WHEN_STARTED;
+import static androidx.media3.transformer.EditedMediaItemSequence.getRepeatedEditedMediaItem;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import android.content.Context;
@@ -198,20 +199,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       Timeline timeline, EditedMediaItemSequence sequence, EditedMediaItem mediaItem) {
     int lastEditedMediaItemIndex = timeline.getPeriodCount() - 1;
     return mediaItem == getRepeatedEditedMediaItem(sequence, lastEditedMediaItemIndex);
-  }
-
-  /**
-   * Gets the {@link EditedMediaItem} of a given {@code index}.
-   *
-   * <p>The index could be greater than {@link EditedMediaItemSequence#editedMediaItems} because the
-   * sequence might be {@linkplain EditedMediaItemSequence#isLooping looping}.
-   */
-  private static EditedMediaItem getRepeatedEditedMediaItem(
-      EditedMediaItemSequence sequence, int index) {
-    if (sequence.isLooping) {
-      index %= sequence.editedMediaItems.size();
-    }
-    return sequence.editedMediaItems.get(index);
   }
 
   @ChecksSdkIntAtLeast(api = 23)
