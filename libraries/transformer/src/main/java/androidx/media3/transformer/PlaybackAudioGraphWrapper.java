@@ -221,5 +221,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     public long getCurrentPositionUs(boolean sourceEnded) {
       return finalAudioSink.getCurrentPositionUs(sourceEnded);
     }
+
+    @Override
+    public boolean hasPendingData() {
+      return finalAudioSink.hasPendingData();
+    }
   }
 }
