@@ -309,7 +309,7 @@ public final class Cue {
    */
   public final float shearDegrees;
 
-  /** The z index for cue, the larger index will render above the smaller index. */
+  /** The Z index for cue, the larger index will render above the smaller index. May be negative. */
   @UnstableApi
   public final int zIndex;
 
