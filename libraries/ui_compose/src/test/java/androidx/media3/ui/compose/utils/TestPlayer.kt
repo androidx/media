@@ -130,6 +130,12 @@ internal class TestPlayer : SimpleBasePlayer(Looper.myLooper()!!) {
     invalidateState()
   }
 
+  fun renderFirstFrame(newlyRenderedFirstFrame: Boolean) {
+    state = state.buildUpon().setNewlyRenderedFirstFrame(newlyRenderedFirstFrame).build()
+    invalidateState() // flushes EVENT_RENDERED_FIRST_FRAME
+    state = state.buildUpon().setNewlyRenderedFirstFrame(false).build()
+  }
+
   fun removeCommands(vararg commands: @Player.Command Int) {
     // It doesn't seem possible to propagate the @IntDef annotation through Kotlin's spread operator
     // in a way that lint understands.
