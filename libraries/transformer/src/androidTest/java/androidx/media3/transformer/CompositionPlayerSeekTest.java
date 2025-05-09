@@ -95,12 +95,13 @@ public class CompositionPlayerSeekTest {
 
   private final Context applicationContext =
       getInstrumentation().getContext().getApplicationContext();
-  private final PlayerTestListener playerTestListener = new PlayerTestListener(TEST_TIMEOUT_MS);
 
+  private PlayerTestListener playerTestListener;
   private SurfaceView surfaceView;
 
   @Before
   public void setUp() {
+    playerTestListener = new PlayerTestListener(TEST_TIMEOUT_MS);
     rule.getScenario().onActivity(activity -> surfaceView = activity.getSurfaceView());
   }
 
