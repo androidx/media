@@ -67,7 +67,6 @@ object MediaIntToString {
     )
   val sessionCommandMap =
     mapOf(
-      SessionCommand.COMMAND_CODE_CUSTOM to "COMMAND_CUSTOM",
       SessionCommand.COMMAND_CODE_SESSION_SET_RATING to "COMMAND_SESSION_SET_RATING",
       SessionCommand.COMMAND_CODE_LIBRARY_GET_LIBRARY_ROOT to "COMMAND_LIBRARY_GET_LIBRARY_ROOT",
       SessionCommand.COMMAND_CODE_LIBRARY_SUBSCRIBE to "COMMAND_LIBRARY_SUBSCRIBE",

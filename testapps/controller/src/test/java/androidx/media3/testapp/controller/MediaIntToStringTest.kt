@@ -42,9 +42,9 @@ class MediaIntToStringTest {
   @Test
   fun getSessionCommandMap() {
     val expectedSessionCommandMap =
-      getValuesToFieldNameMap(SessionCommand::class.java, "COMMAND_").mapValues { (_, value) ->
-        value.replace("COMMAND_CODE_", "COMMAND_")
-      }
+      getValuesToFieldNameMap(SessionCommand::class.java, "COMMAND_")
+        .mapValues { (_, value) -> value.replace("COMMAND_CODE_", "COMMAND_") }
+        .filterValues { it != "COMMAND_CUSTOM" }
 
     assertThat(MediaIntToString.sessionCommandMap).isEqualTo(expectedSessionCommandMap)
   }
