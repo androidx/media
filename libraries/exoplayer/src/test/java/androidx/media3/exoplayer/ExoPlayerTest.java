@@ -10102,21 +10102,24 @@ public final class ExoPlayerTest {
             .build();
     long firstSampleTimeUs = 4_567_890 + 1_234_567;
     FakeMediaSource firstMediaSource =
-        new FakeMediaSource(
-            /* timeline= */ null,
-            DrmSessionManager.DRM_UNSUPPORTED,
-            (unusedFormat, unusedMediaPeriodId) ->
-                ImmutableList.of(
-                    oneByteSample(firstSampleTimeUs, C.BUFFER_FLAG_KEY_FRAME), END_OF_STREAM_ITEM),
-            ExoPlayerTestRunner.VIDEO_FORMAT);
+        new FakeMediaSource.Builder()
+            .setTrackDataFactory(
+                (unusedFormat, unusedMediaPeriodId) ->
+                    ImmutableList.of(
+                        oneByteSample(firstSampleTimeUs, C.BUFFER_FLAG_KEY_FRAME),
+                        END_OF_STREAM_ITEM))
+            .setFormats(ExoPlayerTestRunner.VIDEO_FORMAT)
+            .build();
     FakeMediaSource secondMediaSource =
-        new FakeMediaSource(
-            timelineWithOffsets,
-            DrmSessionManager.DRM_UNSUPPORTED,
-            (unusedFormat, unusedMediaPeriodId) ->
-                ImmutableList.of(
-                    oneByteSample(firstSampleTimeUs, C.BUFFER_FLAG_KEY_FRAME), END_OF_STREAM_ITEM),
-            ExoPlayerTestRunner.VIDEO_FORMAT);
+        new FakeMediaSource.Builder()
+            .setTimeline(timelineWithOffsets)
+            .setTrackDataFactory(
+                (unusedFormat, unusedMediaPeriodId) ->
+                    ImmutableList.of(
+                        oneByteSample(firstSampleTimeUs, C.BUFFER_FLAG_KEY_FRAME),
+                        END_OF_STREAM_ITEM))
+            .setFormats(ExoPlayerTestRunner.VIDEO_FORMAT)
+            .build();
     player.setMediaSources(ImmutableList.of(firstMediaSource, secondMediaSource));
 
     // Start playback and wait until player is idly waiting for an update of the first source.
@@ -14206,14 +14209,15 @@ public final class ExoPlayerTest {
             .withAdDurationsUs(/* adGroupIndex= */ 0, new long[] {10 * C.MICROS_PER_SECOND});
     // Add samples to allow player to load and start playing (but no EOS as this is a live stream).
     FakeMediaSource mediaSource =
-        new FakeMediaSource(
-            initialTimeline,
-            DrmSessionManager.DRM_UNSUPPORTED,
-            (format, mediaPeriodId) ->
-                ImmutableList.of(
-                    oneByteSample(firstSampleTimeUs, C.BUFFER_FLAG_KEY_FRAME),
-                    oneByteSample(firstSampleTimeUs + 40 * C.MICROS_PER_SECOND)),
-            ExoPlayerTestRunner.VIDEO_FORMAT);
+        new FakeMediaSource.Builder()
+            .setTimeline(initialTimeline)
+            .setTrackDataFactory(
+                (format, mediaPeriodId) ->
+                    ImmutableList.of(
+                        oneByteSample(firstSampleTimeUs, C.BUFFER_FLAG_KEY_FRAME),
+                        oneByteSample(firstSampleTimeUs + 40 * C.MICROS_PER_SECOND)))
+            .setFormats(ExoPlayerTestRunner.VIDEO_FORMAT)
+            .build();
 
     // Set updated ad group once we reach 20 seconds, and then continue playing until 40 seconds.
     player
@@ -16287,11 +16291,11 @@ public final class ExoPlayerTest {
     player.setPriority(C.PRIORITY_PLAYBACK);
     // Add a source without EOS so it loads indefinitely.
     player.setMediaSource(
-        new FakeMediaSource(
-            new FakeTimeline(),
-            DrmSessionManager.DRM_UNSUPPORTED,
-            (format, mediaPeriodId) -> ImmutableList.of(),
-            ExoPlayerTestRunner.VIDEO_FORMAT));
+        new FakeMediaSource.Builder()
+            .setTimeline(new FakeTimeline())
+            .setTrackDataFactory((format, mediaPeriodId) -> ImmutableList.of())
+            .setFormats(ExoPlayerTestRunner.VIDEO_FORMAT)
+            .build());
     player.prepare();
     advance(player).untilPendingCommandsAreFullyHandled();
     priorityTaskManager.add(C.PRIORITY_PLAYBACK + 1); // Higher priority than playback.
@@ -16317,11 +16321,11 @@ public final class ExoPlayerTest {
     player.setPriority(C.PRIORITY_PLAYBACK);
     // Add a source without EOS so it loads indefinitely.
     player.setMediaSource(
-        new FakeMediaSource(
-            new FakeTimeline(),
-            DrmSessionManager.DRM_UNSUPPORTED,
-            (format, mediaPeriodId) -> ImmutableList.of(),
-            ExoPlayerTestRunner.VIDEO_FORMAT));
+        new FakeMediaSource.Builder()
+            .setTimeline(new FakeTimeline())
+            .setTrackDataFactory((format, mediaPeriodId) -> ImmutableList.of())
+            .setFormats(ExoPlayerTestRunner.VIDEO_FORMAT)
+            .build());
     player.prepare();
     advance(player).untilPendingCommandsAreFullyHandled();
     priorityTaskManager.add(C.PRIORITY_PLAYBACK - 1); // Lower priority than playback.

@@ -40,7 +40,6 @@ import androidx.media3.common.Timeline;
 import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.exoplayer.analytics.AnalyticsListener;
-import androidx.media3.exoplayer.drm.DrmSessionManager;
 import androidx.media3.exoplayer.video.VideoFrameMetadataListener;
 import androidx.media3.test.utils.ExoPlayerTestRunner;
 import androidx.media3.test.utils.FakeAudioRenderer;
@@ -113,15 +112,16 @@ public final class ExoPlayerScrubbingTest {
     Player.Listener mockListener = mock(Player.Listener.class);
     player.addListener(mockListener);
     player.setMediaSource(
-        new FakeMediaSource(
-            timeline,
-            DrmSessionManager.DRM_UNSUPPORTED,
-            TrackDataFactory.samplesWithRateDurationAndKeyframeInterval(
-                /* initialSampleTimeUs= */ 0,
-                /* sampleRate= */ 30,
-                /* durationUs= */ DEFAULT_WINDOW_DURATION_US,
-                /* keyFrameInterval= */ 60),
-            ExoPlayerTestRunner.VIDEO_FORMAT));
+        new FakeMediaSource.Builder()
+            .setTimeline(timeline)
+            .setTrackDataFactory(
+                TrackDataFactory.samplesWithRateDurationAndKeyframeInterval(
+                    /* initialSampleTimeUs= */ 0,
+                    /* sampleRate= */ 30,
+                    /* durationUs= */ DEFAULT_WINDOW_DURATION_US,
+                    /* keyFrameInterval= */ 60))
+            .setFormats(ExoPlayerTestRunner.VIDEO_FORMAT)
+            .build());
     player.prepare();
     player.play();
     advance(player).untilPosition(/* mediaItemIndex= */ 0, /* positionMs= */ 1000);

@@ -1074,28 +1074,33 @@ public final class DefaultAnalyticsCollectorTest {
                 .setAdPlaybackStates(ImmutableList.of(adPlaybackState.get()))
                 .build());
     FakeMediaSource fakeMediaSource =
-        new FakeMediaSource(
-            adTimeline,
-            DrmSessionManager.DRM_UNSUPPORTED,
-            (unusedFormat, mediaPeriodId) -> {
-              if (mediaPeriodId.isAd()) {
-                return ImmutableList.of(
-                    oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME), END_OF_STREAM_ITEM);
-              } else {
-                // Provide a single sample before and after the midroll ad and another after the
-                // postroll.
-                return ImmutableList.of(
-                    oneByteSample(
-                        windowOffsetInFirstPeriodUs + C.MICROS_PER_SECOND, C.BUFFER_FLAG_KEY_FRAME),
-                    oneByteSample(
-                        windowOffsetInFirstPeriodUs + 6 * C.MICROS_PER_SECOND,
-                        C.BUFFER_FLAG_KEY_FRAME),
-                    oneByteSample(
-                        windowOffsetInFirstPeriodUs + contentDurationsUs, C.BUFFER_FLAG_KEY_FRAME),
-                    END_OF_STREAM_ITEM);
-              }
-            },
-            ExoPlayerTestRunner.VIDEO_FORMAT);
+        new FakeMediaSource.Builder()
+            .setTimeline(adTimeline)
+            .setDrmSessionManager(DrmSessionManager.DRM_UNSUPPORTED)
+            .setTrackDataFactory(
+                (unusedFormat, mediaPeriodId) -> {
+                  if (mediaPeriodId.isAd()) {
+                    return ImmutableList.of(
+                        oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME),
+                        END_OF_STREAM_ITEM);
+                  } else {
+                    // Provide a single sample before and after the midroll ad and another after the
+                    // postroll.
+                    return ImmutableList.of(
+                        oneByteSample(
+                            windowOffsetInFirstPeriodUs + C.MICROS_PER_SECOND,
+                            C.BUFFER_FLAG_KEY_FRAME),
+                        oneByteSample(
+                            windowOffsetInFirstPeriodUs + 6 * C.MICROS_PER_SECOND,
+                            C.BUFFER_FLAG_KEY_FRAME),
+                        oneByteSample(
+                            windowOffsetInFirstPeriodUs + contentDurationsUs,
+                            C.BUFFER_FLAG_KEY_FRAME),
+                        END_OF_STREAM_ITEM);
+                  }
+                })
+            .setFormats(ExoPlayerTestRunner.VIDEO_FORMAT)
+            .build();
     ExoPlayer player = setupPlayer();
     player.addListener(
         new Player.Listener() {
@@ -1312,25 +1317,29 @@ public final class DefaultAnalyticsCollectorTest {
                                 + 5 * C.MICROS_PER_SECOND)))
                 .build());
     FakeMediaSource fakeMediaSource =
-        new FakeMediaSource(
-            adTimeline,
-            DrmSessionManager.DRM_UNSUPPORTED,
-            (unusedFormat, mediaPeriodId) -> {
-              if (mediaPeriodId.isAd()) {
-                return ImmutableList.of(
-                    oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME), END_OF_STREAM_ITEM);
-              } else {
-                // Provide a sample before the midroll and another after the seek point below (6s).
-                return ImmutableList.of(
-                    oneByteSample(
-                        windowOffsetInFirstPeriodUs + C.MICROS_PER_SECOND, C.BUFFER_FLAG_KEY_FRAME),
-                    oneByteSample(
-                        windowOffsetInFirstPeriodUs + 7 * C.MICROS_PER_SECOND,
-                        C.BUFFER_FLAG_KEY_FRAME),
-                    END_OF_STREAM_ITEM);
-              }
-            },
-            ExoPlayerTestRunner.VIDEO_FORMAT);
+        new FakeMediaSource.Builder()
+            .setTimeline(adTimeline)
+            .setTrackDataFactory(
+                (unusedFormat, mediaPeriodId) -> {
+                  if (mediaPeriodId.isAd()) {
+                    return ImmutableList.of(
+                        oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME),
+                        END_OF_STREAM_ITEM);
+                  } else {
+                    // Provide a sample before the midroll and another after the seek point below
+                    // (6s).
+                    return ImmutableList.of(
+                        oneByteSample(
+                            windowOffsetInFirstPeriodUs + C.MICROS_PER_SECOND,
+                            C.BUFFER_FLAG_KEY_FRAME),
+                        oneByteSample(
+                            windowOffsetInFirstPeriodUs + 7 * C.MICROS_PER_SECOND,
+                            C.BUFFER_FLAG_KEY_FRAME),
+                        END_OF_STREAM_ITEM);
+                  }
+                })
+            .setFormats(ExoPlayerTestRunner.VIDEO_FORMAT)
+            .build();
     ExoPlayer player = setupPlayer();
     TestAnalyticsListener listener = new TestAnalyticsListener();
     player.addAnalyticsListener(listener);
@@ -1466,7 +1475,11 @@ public final class DefaultAnalyticsCollectorTest {
   @Test
   public void drmEvents_singlePeriod() throws Exception {
     MediaSource mediaSource =
-        new FakeMediaSource(SINGLE_PERIOD_TIMELINE, drmSessionManager, VIDEO_FORMAT_DRM_1);
+        new FakeMediaSource.Builder()
+            .setTimeline(SINGLE_PERIOD_TIMELINE)
+            .setDrmSessionManager(drmSessionManager)
+            .setFormats(VIDEO_FORMAT_DRM_1)
+            .build();
     ExoPlayer player = setupPlayer();
     TestAnalyticsListener listener = new TestAnalyticsListener();
     player.addAnalyticsListener(listener);
@@ -1497,9 +1510,17 @@ public final class DefaultAnalyticsCollectorTest {
             .setMultiSession(true)
             .build(mediaDrmCallback);
     MediaSource mediaSource1 =
-        new FakeMediaSource(SINGLE_PERIOD_TIMELINE, blockingDrmSessionManager, VIDEO_FORMAT_DRM_1);
+        new FakeMediaSource.Builder()
+            .setTimeline(SINGLE_PERIOD_TIMELINE)
+            .setDrmSessionManager(blockingDrmSessionManager)
+            .setFormats(VIDEO_FORMAT_DRM_1)
+            .build();
     MediaSource mediaSource2 =
-        new FakeMediaSource(SINGLE_PERIOD_TIMELINE, blockingDrmSessionManager, VIDEO_FORMAT_DRM_1);
+        new FakeMediaSource.Builder()
+            .setTimeline(SINGLE_PERIOD_TIMELINE)
+            .setDrmSessionManager(blockingDrmSessionManager)
+            .setFormats(VIDEO_FORMAT_DRM_1)
+            .build();
     ExoPlayer player = setupPlayer();
     TestAnalyticsListener listener = new TestAnalyticsListener();
     player.addAnalyticsListener(listener);
@@ -1532,12 +1553,17 @@ public final class DefaultAnalyticsCollectorTest {
   @Test
   public void drmEvents_periodWithDifferentDrmData_keysLoadedAgain() throws Exception {
     MediaSource mediaSource1 =
-        new FakeMediaSource(SINGLE_PERIOD_TIMELINE, drmSessionManager, VIDEO_FORMAT_DRM_1);
+        new FakeMediaSource.Builder()
+            .setTimeline(SINGLE_PERIOD_TIMELINE)
+            .setDrmSessionManager(drmSessionManager)
+            .setFormats(VIDEO_FORMAT_DRM_1)
+            .build();
     MediaSource mediaSource2 =
-        new FakeMediaSource(
-            SINGLE_PERIOD_TIMELINE,
-            drmSessionManager,
-            VIDEO_FORMAT_DRM_1.buildUpon().setDrmInitData(DRM_DATA_2).build());
+        new FakeMediaSource.Builder()
+            .setTimeline(SINGLE_PERIOD_TIMELINE)
+            .setDrmSessionManager(drmSessionManager)
+            .setFormats(VIDEO_FORMAT_DRM_1.buildUpon().setDrmInitData(DRM_DATA_2).build())
+            .build();
     ExoPlayer player = setupPlayer();
     TestAnalyticsListener listener = new TestAnalyticsListener();
     player.addAnalyticsListener(listener);
@@ -1574,7 +1600,11 @@ public final class DefaultAnalyticsCollectorTest {
             .setPlayClearSamplesWithoutKeys(false)
             .build(mediaDrmCallback);
     MediaSource mediaSource =
-        new FakeMediaSource(SINGLE_PERIOD_TIMELINE, failingDrmSessionManager, VIDEO_FORMAT_DRM_1);
+        new FakeMediaSource.Builder()
+            .setTimeline(SINGLE_PERIOD_TIMELINE)
+            .setDrmSessionManager(failingDrmSessionManager)
+            .setFormats(VIDEO_FORMAT_DRM_1)
+            .build();
     ExoPlayer player = setupPlayer();
     TestAnalyticsListener listener = new TestAnalyticsListener();
     player.addAnalyticsListener(listener);

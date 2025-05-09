@@ -48,6 +48,7 @@ public class FakeAdaptiveMediaSource extends FakeMediaSource {
         /* trackDataFactory= */ (unusedFormat, unusedMediaPeriodId) -> {
           throw new RuntimeException("Unused TrackDataFactory");
         },
+        /* syncSampleTimesUs= */ null,
         trackGroupArray);
     this.chunkSourceFactory = chunkSourceFactory;
   }

@@ -1541,6 +1541,17 @@ public final class Util {
     return stayInBounds ? min(list.size() - 1, index) : index;
   }
 
+  /** Returns whether {@code values} is sorted in ascending order. */
+  @UnstableApi
+  public static boolean isSorted(long[] values) {
+    for (int i = 0; i < values.length - 1; i++) {
+      if (values[i] > values[i + 1]) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   /**
    * @deprecated Use {@link Long#compare(long, long)}.
    */
