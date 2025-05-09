@@ -1390,7 +1390,7 @@ public final class MediaControllerCompat {
           try {
             extraBinder.registerCallbackListener(extraCallback);
             callback.postToHandler(Callback.MessageHandler.MSG_SESSION_READY, null, null);
-          } catch (RemoteException e) {
+          } catch (RemoteException | SecurityException e) {
             Log.e(TAG, "Dead object in registerCallback.", e);
           }
         } else {
@@ -1412,7 +1412,7 @@ public final class MediaControllerCompat {
               callback.iControllerCallback = null;
               extraBinder.unregisterCallbackListener(extraCallback);
             }
-          } catch (RemoteException e) {
+          } catch (RemoteException | SecurityException e) {
             Log.e(TAG, "Dead object in unregisterCallback.", e);
           }
         } else {
@@ -1447,7 +1447,7 @@ public final class MediaControllerCompat {
       if (extraBinder != null) {
         try {
           return extraBinder.getPlaybackState();
-        } catch (RemoteException e) {
+        } catch (RemoteException | SecurityException e) {
           Log.e(TAG, "Dead object in getPlaybackState.", e);
         }
       }
@@ -1535,7 +1535,7 @@ public final class MediaControllerCompat {
           if (extraBinder != null) {
             return extraBinder.getRatingType();
           }
-        } catch (RemoteException e) {
+        } catch (RemoteException | SecurityException e) {
           Log.e(TAG, "Dead object in getRatingType.", e);
         }
       }
@@ -1548,7 +1548,7 @@ public final class MediaControllerCompat {
       if (extraBinder != null) {
         try {
           return extraBinder.isCaptioningEnabled();
-        } catch (RemoteException e) {
+        } catch (RemoteException | SecurityException e) {
           Log.e(TAG, "Dead object in isCaptioningEnabled.", e);
         }
       }
@@ -1561,7 +1561,7 @@ public final class MediaControllerCompat {
       if (extraBinder != null) {
         try {
           return extraBinder.getRepeatMode();
-        } catch (RemoteException e) {
+        } catch (RemoteException | SecurityException e) {
           Log.e(TAG, "Dead object in getRepeatMode.", e);
         }
       }
@@ -1574,7 +1574,7 @@ public final class MediaControllerCompat {
       if (extraBinder != null) {
         try {
           return extraBinder.getShuffleMode();
-        } catch (RemoteException e) {
+        } catch (RemoteException | SecurityException e) {
           Log.e(TAG, "Dead object in getShuffleMode.", e);
         }
       }
@@ -1641,7 +1641,7 @@ public final class MediaControllerCompat {
       if (extraBinder != null) {
         try {
           sessionInfo = extraBinder.getSessionInfo();
-        } catch (RemoteException e) {
+        } catch (RemoteException | SecurityException e) {
           Log.e(TAG, "Dead object in getSessionInfo.", e);
           sessionInfo = Bundle.EMPTY;
         }
@@ -1673,7 +1673,7 @@ public final class MediaControllerCompat {
         callback.iControllerCallback = extraCallback;
         try {
           extraBinder.registerCallbackListener(extraCallback);
-        } catch (RemoteException e) {
+        } catch (RemoteException | SecurityException e) {
           Log.e(TAG, "Dead object in registerCallback.", e);
           break;
         }

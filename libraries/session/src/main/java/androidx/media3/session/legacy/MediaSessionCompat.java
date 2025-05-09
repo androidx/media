@@ -1995,7 +1995,8 @@ public class MediaSessionCompat {
             IMediaControllerCallback cb = extraControllerCallbacks.getBroadcastItem(i);
             try {
               cb.onEvent(event, extras);
-            } catch (RemoteException e) {
+            } catch (RemoteException | SecurityException e) {
+              Log.e(TAG, "Dead object in sendSessionEvent.", e);
             }
           }
           extraControllerCallbacks.finishBroadcast();
@@ -2042,7 +2043,8 @@ public class MediaSessionCompat {
           IMediaControllerCallback cb = extraControllerCallbacks.getBroadcastItem(i);
           try {
             cb.onPlaybackStateChanged(state);
-          } catch (RemoteException e) {
+          } catch (RemoteException | SecurityException e) {
+            Log.e(TAG, "Dead object in setPlaybackState.", e);
           }
         }
         extraControllerCallbacks.finishBroadcast();
@@ -2106,7 +2108,8 @@ public class MediaSessionCompat {
             IMediaControllerCallback cb = extraControllerCallbacks.getBroadcastItem(i);
             try {
               cb.onRepeatModeChanged(repeatMode);
-            } catch (RemoteException e) {
+            } catch (RemoteException | SecurityException e) {
+              Log.e(TAG, "Dead object in setRepeatMode.", e);
             }
           }
           extraControllerCallbacks.finishBroadcast();
@@ -2124,7 +2127,8 @@ public class MediaSessionCompat {
             IMediaControllerCallback cb = extraControllerCallbacks.getBroadcastItem(i);
             try {
               cb.onShuffleModeChanged(shuffleMode);
-            } catch (RemoteException e) {
+            } catch (RemoteException | SecurityException e) {
+              Log.e(TAG, "Dead object in setShuffleMode.", e);
             }
           }
           extraControllerCallbacks.finishBroadcast();
