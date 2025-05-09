@@ -328,6 +328,15 @@ public final class SsaParser implements SubtitleParser {
       return;
     }
 
+    int layer = 0;
+    if (format.layerIndex != C.INDEX_UNSET) {
+      try {
+        layer = Integer.parseInt(lineValues[format.layerIndex].trim());
+      } catch (RuntimeException exception) {
+        Log.w(TAG, "Fail to parse layer: " + lineValues[format.layerIndex]);
+      }
+    }
+
     long startTimeUs = parseTimecodeUs(lineValues[format.startTimeIndex]);
     if (startTimeUs == C.TIME_UNSET) {
       Log.w(TAG, "Skipping invalid timing: " + dialogueLine);
@@ -352,7 +361,7 @@ public final class SsaParser implements SubtitleParser {
             .replace("\\N", "\n")
             .replace("\\n", "\n")
             .replace("\\h", "\u00A0");
-    Cue cue = createCue(text, style, styleOverrides, screenWidth, screenHeight);
+    Cue cue = createCue(text, layer, style, styleOverrides, screenWidth, screenHeight);
 
     int startTimeIndex = addCuePlacerholderByTime(startTimeUs, cueTimesUs, cues);
     int endTimeIndex = addCuePlacerholderByTime(endTimeUs, cueTimesUs, cues);
@@ -383,12 +392,13 @@ public final class SsaParser implements SubtitleParser {
 
   private static Cue createCue(
       String text,
+      int layer,
       @Nullable SsaStyle style,
       SsaStyle.Overrides styleOverrides,
       float screenWidth,
       float screenHeight) {
     SpannableString spannableText = new SpannableString(text);
-    Cue.Builder cue = new Cue.Builder().setText(spannableText);
+    Cue.Builder cue = new Cue.Builder().setText(spannableText).setZIndex(layer);
 
     if (style != null) {
       if (style.primaryColor != null) {

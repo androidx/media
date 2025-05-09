@@ -69,6 +69,10 @@
         SubStation Alpha subtitles (but ExoPlayer's parsing logic is the same
         for both variants)
         ([#2384](https://github.com/androidx/media/issues/2384)).
+    *   Add support for the `layer` property in SubStation Alpha (SSA) subtitle
+        files which is used to define the z-order of cues when more than one is
+        shown on screen at the same time
+        ([#2124](https://github.com/androidx/media/issues/2124)).
 *   Metadata:
 *   Image:
 *   DataSource:
