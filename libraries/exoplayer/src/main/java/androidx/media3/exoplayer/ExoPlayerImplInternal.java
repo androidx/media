@@ -76,7 +76,9 @@ import androidx.media3.exoplayer.trackselection.TrackSelectorResult;
 import androidx.media3.exoplayer.upstream.BandwidthMeter;
 import androidx.media3.exoplayer.video.VideoFrameMetadataListener;
 import com.google.common.collect.ImmutableList;
+import com.google.common.math.DoubleMath;
 import java.io.IOException;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -223,6 +225,7 @@ import java.util.Objects;
   private final AudioFocusManager audioFocusManager;
   private SeekParameters seekParameters;
   private ScrubbingModeParameters scrubbingModeParameters;
+  @Nullable private SeekParameters scrubbingModeSeekParameters;
   private boolean scrubbingModeEnabled;
   private boolean seekIsPendingWhileScrubbing;
   @Nullable private SeekPosition queuedSeekWhileScrubbing;
@@ -1601,7 +1604,7 @@ import java.util.Objects;
               && newPeriodPositionUs != 0) {
             newPeriodPositionUs =
                 playingPeriodHolder.mediaPeriod.getAdjustedSeekPositionUs(
-                    newPeriodPositionUs, seekParameters);
+                    newPeriodPositionUs, getSeekParameters(window.durationUs));
           }
           if (Util.usToMs(newPeriodPositionUs) == Util.usToMs(playbackInfo.positionUs)
               && (playbackInfo.playbackState == Player.STATE_BUFFERING
@@ -1637,6 +1640,27 @@ import java.util.Objects;
               /* reportDiscontinuity= */ seekPositionAdjusted,
               Player.DISCONTINUITY_REASON_SEEK_ADJUSTMENT);
     }
+  }
+
+  private SeekParameters getSeekParameters(long durationUs) {
+    if (!scrubbingModeEnabled
+        || durationUs == C.TIME_UNSET
+        || scrubbingModeParameters.fractionalSeekToleranceBefore == null
+        || scrubbingModeParameters.fractionalSeekToleranceAfter == null) {
+      return seekParameters;
+    }
+    long toleranceBeforeUs =
+        DoubleMath.roundToLong(
+            scrubbingModeParameters.fractionalSeekToleranceBefore * durationUs, RoundingMode.FLOOR);
+    long toleranceAfterUs =
+        DoubleMath.roundToLong(
+            scrubbingModeParameters.fractionalSeekToleranceAfter * durationUs, RoundingMode.FLOOR);
+    if (scrubbingModeSeekParameters == null
+        || scrubbingModeSeekParameters.toleranceBeforeUs != toleranceBeforeUs
+        || scrubbingModeSeekParameters.toleranceAfterUs != toleranceAfterUs) {
+      scrubbingModeSeekParameters = new SeekParameters(toleranceBeforeUs, toleranceAfterUs);
+    }
+    return scrubbingModeSeekParameters;
   }
 
   private long seekToPeriodPosition(
@@ -1744,8 +1768,6 @@ import java.util.Objects;
 
   private void setScrubbingModeEnabledInternal(boolean scrubbingModeEnabled)
       throws ExoPlaybackException {
-    this.scrubbingModeEnabled = scrubbingModeEnabled;
-    applyScrubbingModeParameters();
     if (!scrubbingModeEnabled) {
       seekIsPendingWhileScrubbing = false;
       handler.removeMessages(MSG_SEEK_COMPLETED_IN_SCRUBBING_MODE);
@@ -1755,6 +1777,8 @@ import java.util.Objects;
         queuedSeekWhileScrubbing = null;
       }
     }
+    this.scrubbingModeEnabled = scrubbingModeEnabled;
+    applyScrubbingModeParameters();
   }
 
   private void setScrubbingModeParametersInternal(ScrubbingModeParameters scrubbingModeParameters)

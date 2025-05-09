@@ -349,7 +349,7 @@ public final class ExoPlayerScrubbingTest {
   }
 
   @Test
-  public void customizeParameters_beforeScrubbingModeEnabled() throws Exception {
+  public void customizeDisabledTracks_beforeScrubbingModeEnabled() throws Exception {
     Timeline timeline = new FakeTimeline();
     ExoPlayer player =
         new TestExoPlayerBuilder(ApplicationProvider.getApplicationContext()).build();
@@ -381,7 +381,7 @@ public final class ExoPlayerScrubbingTest {
   }
 
   @Test
-  public void customizeParameters_duringScrubbingMode() throws Exception {
+  public void customizeDisabledTracks_duringScrubbingMode() throws Exception {
     Timeline timeline = new FakeTimeline();
     ExoPlayer player =
         new TestExoPlayerBuilder(ApplicationProvider.getApplicationContext()).build();
@@ -411,5 +411,53 @@ public final class ExoPlayerScrubbingTest {
 
     player.release();
     surface.release();
+  }
+
+  @Test
+  public void fractionalSeekTolerance_isPropagated() throws Exception {
+    Timeline timeline =
+        new FakeTimeline(
+            new TimelineWindowDefinition.Builder().setWindowPositionInFirstPeriodUs(0).build());
+    ExoPlayer player =
+        new TestExoPlayerBuilder(ApplicationProvider.getApplicationContext()).build();
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
+    Player.Listener mockListener = mock(Player.Listener.class);
+    player.addListener(mockListener);
+    player.setScrubbingModeParameters(
+        new ScrubbingModeParameters.Builder()
+            .setFractionalSeekTolerance(/* toleranceBefore= */ 0.1, /* toleranceAfter= */ 0.1)
+            .build());
+    player.setMediaSource(
+        new FakeMediaSource.Builder()
+            .setTimeline(timeline)
+            .setTrackDataFactory(
+                TrackDataFactory.samplesWithRateDurationAndKeyframeInterval(
+                    /* initialSampleTimeUs= */ 0,
+                    /* sampleRate= */ 30,
+                    /* durationUs= */ DEFAULT_WINDOW_DURATION_US,
+                    /* keyFrameInterval= */ 60))
+            .setSyncSampleTimesUs(new long[] {0, 2_000_000, 4_000_000, 6_000_000, 8_000_000})
+            .setFormats(ExoPlayerTestRunner.VIDEO_FORMAT)
+            .build());
+    player.prepare();
+    player.play();
+    advance(player).untilPosition(/* mediaItemIndex= */ 0, /* positionMs= */ 1000);
+    VideoFrameMetadataListener mockVideoFrameMetadataListener =
+        mock(VideoFrameMetadataListener.class);
+    player.setVideoFrameMetadataListener(mockVideoFrameMetadataListener);
+
+    player.setScrubbingModeEnabled(true);
+    advance(player).untilPendingCommandsAreFullyHandled();
+    player.seekTo(2500);
+    advance(player).untilPosition(/* mediaItemIndex= */ 0, /* positionMs= */ 2000);
+    player.setScrubbingModeEnabled(false);
+    player.clearVideoFrameMetadataListener(mockVideoFrameMetadataListener);
+    advance(player).untilState(Player.STATE_ENDED);
+    player.release();
+    surface.release();
+
+    verify(mockVideoFrameMetadataListener)
+        .onVideoFrameAboutToBeRendered(eq(2_000_000L), anyLong(), any(), any());
   }
 }
