@@ -140,8 +140,11 @@
 *   Leanback extension:
 *   Cast extension:
     *   Add support for `getDeviceVolume()`, `setDeviceVolume()`,
-        `getDeviceMuted()`, and `setDeviceMuted()`
+        `increaseDeviceVolume()`, `decreaseDeviceVolume()`,
+        `isDeviceMuted()`, and `setDeviceMuted()`
         ([#2089](https://github.com/androidx/media/issues/2089)).
+    *   Add support for `setVolume()`, and `getVolume()`
+        ([#2279](https://github.com/androidx/media/pull/2279)).
 *   Test Utilities:
     *   Removed `transformer.TestUtil.addAudioDecoders(String...)`,
         `transformer.TestUtil.addAudioEncoders(String...)`, and
