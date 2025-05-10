@@ -89,6 +89,22 @@ public final class FragmentedMp4ExtractorParameterizedTest {
   }
 
   @Test
+  public void sampleSeekableWithMultipleSidx() throws Exception {
+    String file = "media/mp4/sample_fragmented_seekable_multiple_sidx.mp4";
+    ExtractorAsserts.assertBehavior(
+        () ->
+            new FragmentedMp4Extractor(
+                /* subtitleParserFactory= */ new DefaultSubtitleParserFactory(),
+                /* flags= */ FragmentedMp4Extractor.FLAG_MERGE_FRAGMENTED_SIDX,
+                /* timestampAdjuster= */ null,
+                /* sideloadedTrack= */ null,
+                /* closedCaptionFormats= */ ImmutableList.of(),
+                /* additionalEmsgTrackOutput= */ null),
+        file,
+        simulationConfig);
+  }
+
+  @Test
   public void sampleWithSeiPayloadInputHasNoCaptions() throws Exception {
     // Enabling the CEA-608 track enables SEI payload parsing.
     List<Format> closedCaptions =
