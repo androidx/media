@@ -82,6 +82,7 @@ import java.lang.reflect.Modifier;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
+import java.nio.IntBuffer;
 import java.nio.ShortBuffer;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -182,11 +183,35 @@ public class TestUtil {
     return content;
   }
 
+  /** Gets the underlying data of the {@link ByteBuffer} as a {@code int[]}. */
+  public static int[] createIntArray(ByteBuffer byteBuffer) {
+    IntBuffer buffer = byteBuffer.asIntBuffer();
+    int[] content = new int[buffer.remaining()];
+    buffer.get(content);
+    return content;
+  }
+
+  /** Gets the underlying data of the {@link ByteBuffer} as int24 values in {@code int[]}. */
+  public static int[] createInt24Array(ByteBuffer byteBuffer) {
+    int[] content = new int[byteBuffer.remaining() / 3];
+    for (int i = 0; i < content.length; i++) {
+      content[i] = Util.getInt24(byteBuffer, byteBuffer.position() + i * 3) & 0xffffff;
+    }
+    return content;
+  }
+
   /** Gets the underlying data of the {@link ByteBuffer} as a {@code short[]}. */
   public static short[] createShortArray(ByteBuffer byteBuffer) {
     ShortBuffer buffer = byteBuffer.asShortBuffer();
     short[] content = new short[buffer.remaining()];
     buffer.get(content);
+    return content;
+  }
+
+  /** Gets the underlying data of the {@link ByteBuffer} as a {@code byte[]}. */
+  public static byte[] createByteArray(ByteBuffer byteBuffer) {
+    byte[] content = new byte[byteBuffer.remaining()];
+    byteBuffer.get(content);
     return content;
   }
 
@@ -199,9 +224,34 @@ public class TestUtil {
   }
 
   /** Creates a {@link ByteBuffer} containing the {@code data}. */
+  public static ByteBuffer createByteBuffer(int[] data) {
+    ByteBuffer buffer = ByteBuffer.allocateDirect(data.length * 4).order(ByteOrder.nativeOrder());
+    buffer.asIntBuffer().put(data);
+    return buffer;
+  }
+
+  /** Creates a {@link ByteBuffer} containing the {@code data}. */
+  public static ByteBuffer createInt24ByteBuffer(int[] data) {
+    ByteBuffer buffer = ByteBuffer.allocateDirect(data.length * 3).order(ByteOrder.nativeOrder());
+    for (int i : data) {
+      Util.putInt24(buffer, i);
+    }
+    buffer.rewind();
+    return buffer;
+  }
+
+  /** Creates a {@link ByteBuffer} containing the {@code data}. */
   public static ByteBuffer createByteBuffer(short[] data) {
     ByteBuffer buffer = ByteBuffer.allocateDirect(data.length * 2).order(ByteOrder.nativeOrder());
     buffer.asShortBuffer().put(data);
+    return buffer;
+  }
+
+  /** Creates a {@link ByteBuffer} containing the {@code data}. */
+  public static ByteBuffer createByteBuffer(byte[] data) {
+    ByteBuffer buffer = ByteBuffer.allocateDirect(data.length).order(ByteOrder.nativeOrder());
+    buffer.put(data);
+    buffer.rewind();
     return buffer;
   }
 
