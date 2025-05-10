@@ -1,5 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- Copyright 2024 The Android Open Source Project
+<?xml version="1.0" encoding="utf-8"?><!-- Copyright 2024 The Android Open Source Project
 
      Licensed under the Apache License, Version 2.0 (the "License");
      you may not use this file except in compliance with the License.
@@ -28,4 +27,6 @@
     <item name="android:statusBarColor">?attr/colorPrimaryVariant</item>
     <!-- Customize your theme here. -->
   </style>
+
+  <style name="Theme.AppCompat" parent="android:Theme.Material.Light.NoActionBar" />
 </resources>
