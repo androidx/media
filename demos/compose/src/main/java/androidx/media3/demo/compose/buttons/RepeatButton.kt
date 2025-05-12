@@ -27,7 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.media3.common.Player
-import androidx.media3.demo.compose.R
+import androidx.media3.ui.compose.R
 import androidx.media3.ui.compose.state.rememberRepeatButtonState
 
 @Composable
@@ -51,8 +51,8 @@ private fun repeatModeIcon(repeatMode: @Player.RepeatMode Int): ImageVector {
 @Composable
 private fun repeatModeContentDescription(repeatMode: @Player.RepeatMode Int): String {
   return when (repeatMode) {
-    Player.REPEAT_MODE_OFF -> stringResource(R.string.repeat_button_repeat_off_description)
-    Player.REPEAT_MODE_ONE -> stringResource(R.string.repeat_button_repeat_one_description)
-    else -> stringResource(R.string.repeat_button_repeat_all_description)
+    Player.REPEAT_MODE_OFF -> stringResource(R.string.repeat_button_repeat_off)
+    Player.REPEAT_MODE_ONE -> stringResource(R.string.repeat_button_repeat_one)
+    else -> stringResource(R.string.repeat_button_repeat_all)
   }
 }

@@ -25,7 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.media3.common.Player
-import androidx.media3.demo.compose.R
+import androidx.media3.ui.compose.R
 import androidx.media3.ui.compose.state.rememberShuffleButtonState
 
 @Composable
@@ -34,9 +34,9 @@ internal fun ShuffleButton(player: Player, modifier: Modifier = Modifier) {
   val icon = if (state.shuffleOn) Icons.Default.ShuffleOn else Icons.Default.Shuffle
   val contentDescription =
     if (state.shuffleOn) {
-      stringResource(R.string.shuffle_button_shuffle_on_description)
+      stringResource(R.string.shuffle_button_shuffle_on)
     } else {
-      stringResource(R.string.shuffle_button_shuffle_off_description)
+      stringResource(R.string.shuffle_button_shuffle_off)
     }
   IconButton(onClick = state::onClick, modifier = modifier, enabled = state.isEnabled) {
     Icon(icon, contentDescription = contentDescription, modifier = modifier)
