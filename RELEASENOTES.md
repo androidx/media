@@ -10,6 +10,7 @@
         with `setScrubbingModeParameters(..)` on `ExoPlayer` and
         `ExoPlayer.Builder`.
     *   Allow customizing fractional seek tolerance in scrubbing mode.
+    *   Increase codec operating rate in scrubbing mode.
     *   Fix bug where prepare errors in the content of `AdsMediaSource` may be
         never reported ([#2337](https://github.com/androidx/media/issues/2337)).
     *   Fix memory leak in `MergingMediaSource`, for example used when

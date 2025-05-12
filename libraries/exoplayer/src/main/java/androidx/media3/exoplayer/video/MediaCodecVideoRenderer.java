@@ -1175,7 +1175,16 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         }
         break;
       case MSG_SET_SCRUBBING_MODE:
+        boolean codecRateAlreadyIncreasedForScrubbing =
+            scrubbingModeParameters != null
+                && scrubbingModeParameters.shouldIncreaseCodecOperatingRate;
         scrubbingModeParameters = (ScrubbingModeParameters) message;
+        boolean shouldIncreaseCodecOperatingRate =
+            scrubbingModeParameters != null
+                && scrubbingModeParameters.shouldIncreaseCodecOperatingRate;
+        if (codecRateAlreadyIncreasedForScrubbing != shouldIncreaseCodecOperatingRate) {
+          updateCodecOperatingRate();
+        }
         break;
       default:
         super.handleMessage(messageType, message);
@@ -1421,7 +1430,19 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         maxFrameRate = max(maxFrameRate, streamFrameRate);
       }
     }
-    return maxFrameRate == -1 ? CODEC_OPERATING_RATE_UNSET : (maxFrameRate * targetPlaybackSpeed);
+    float operatingRate =
+        maxFrameRate == -1 ? CODEC_OPERATING_RATE_UNSET : (maxFrameRate * targetPlaybackSpeed);
+    if (scrubbingModeParameters != null) {
+      MediaCodecInfo codecInfo = getCodecInfo();
+      if (codecInfo != null) {
+        float maxSupportedFrameRate =
+            codecInfo.getMaxSupportedFrameRate(format.width, format.height);
+        return operatingRate != CODEC_OPERATING_RATE_UNSET
+            ? max(operatingRate, maxSupportedFrameRate)
+            : maxSupportedFrameRate;
+      }
+    }
+    return operatingRate;
   }
 
   @CallSuper

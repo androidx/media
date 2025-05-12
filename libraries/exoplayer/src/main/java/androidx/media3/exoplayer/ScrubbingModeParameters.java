@@ -17,6 +17,8 @@ package androidx.media3.exoplayer;
 
 import static androidx.media3.common.util.Assertions.checkArgument;
 
+import android.media.MediaCodec;
+import android.media.MediaFormat;
 import androidx.annotation.FloatRange;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
@@ -48,16 +50,20 @@ public final class ScrubbingModeParameters {
     private ImmutableSet<@TrackType Integer> disabledTrackTypes;
     @Nullable private Double fractionalSeekToleranceBefore;
     @Nullable private Double fractionalSeekToleranceAfter;
+    private boolean shouldIncreaseCodecOperatingRate;
 
     /** Creates an instance. */
     public Builder() {
       this.disabledTrackTypes = ImmutableSet.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_METADATA);
+      shouldIncreaseCodecOperatingRate = true;
     }
 
     private Builder(ScrubbingModeParameters scrubbingModeParameters) {
       this.disabledTrackTypes = scrubbingModeParameters.disabledTrackTypes;
       this.fractionalSeekToleranceBefore = scrubbingModeParameters.fractionalSeekToleranceBefore;
       this.fractionalSeekToleranceAfter = scrubbingModeParameters.fractionalSeekToleranceAfter;
+      this.shouldIncreaseCodecOperatingRate =
+          scrubbingModeParameters.shouldIncreaseCodecOperatingRate;
     }
 
     /**
@@ -108,6 +114,23 @@ public final class ScrubbingModeParameters {
       return this;
     }
 
+    /**
+     * Sets whether the codec operating rate should be increased in scrubbing mode.
+     *
+     * <p>Defaults to {@code true} (this may change in a future release).
+     *
+     * <p>See {@link ScrubbingModeParameters#shouldIncreaseCodecOperatingRate}.
+     *
+     * @param shouldIncreaseCodecOperatingRate whether the codec operating rate should be increased
+     *     in scrubbing mode.
+     * @return This builder for convenience.
+     */
+    @CanIgnoreReturnValue
+    public Builder setShouldIncreaseCodecOperatingRate(boolean shouldIncreaseCodecOperatingRate) {
+      this.shouldIncreaseCodecOperatingRate = shouldIncreaseCodecOperatingRate;
+      return this;
+    }
+
     /** Returns the built {@link ScrubbingModeParameters}. */
     public ScrubbingModeParameters build() {
       return new ScrubbingModeParameters(this);
@@ -139,10 +162,19 @@ public final class ScrubbingModeParameters {
   @FloatRange(from = 0, to = 1)
   public final Double fractionalSeekToleranceAfter;
 
+  /**
+   * Whether the codec operating rate should be increased in scrubbing mode.
+   *
+   * <p>If using {@link MediaCodec} for video decoding, {@link MediaFormat#KEY_OPERATING_RATE} will
+   * be set to an increased value in scrubbing mode.
+   */
+  public final boolean shouldIncreaseCodecOperatingRate;
+
   private ScrubbingModeParameters(Builder builder) {
     this.disabledTrackTypes = builder.disabledTrackTypes;
     this.fractionalSeekToleranceBefore = builder.fractionalSeekToleranceBefore;
     this.fractionalSeekToleranceAfter = builder.fractionalSeekToleranceAfter;
+    this.shouldIncreaseCodecOperatingRate = builder.shouldIncreaseCodecOperatingRate;
   }
 
   /** Returns a {@link Builder} initialized with the values from this instance. */
@@ -158,12 +190,16 @@ public final class ScrubbingModeParameters {
     ScrubbingModeParameters that = (ScrubbingModeParameters) o;
     return disabledTrackTypes.equals(that.disabledTrackTypes)
         && Objects.equals(fractionalSeekToleranceBefore, that.fractionalSeekToleranceBefore)
-        && Objects.equals(fractionalSeekToleranceAfter, that.fractionalSeekToleranceAfter);
+        && Objects.equals(fractionalSeekToleranceAfter, that.fractionalSeekToleranceAfter)
+        && shouldIncreaseCodecOperatingRate == that.shouldIncreaseCodecOperatingRate;
   }
 
   @Override
   public int hashCode() {
     return Objects.hash(
-        disabledTrackTypes, fractionalSeekToleranceBefore, fractionalSeekToleranceAfter);
+        disabledTrackTypes,
+        fractionalSeekToleranceBefore,
+        fractionalSeekToleranceAfter,
+        shouldIncreaseCodecOperatingRate);
   }
 }

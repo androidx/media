@@ -1779,6 +1779,7 @@ import java.util.Objects;
     }
     this.scrubbingModeEnabled = scrubbingModeEnabled;
     applyScrubbingModeParameters();
+    // TODO: b/351775500 - Work out how to keep the boosted op rate until the final seek completes.
   }
 
   private void setScrubbingModeParametersInternal(ScrubbingModeParameters scrubbingModeParameters)

@@ -1211,6 +1211,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   }
 
   private void initCodec(MediaCodecInfo codecInfo, @Nullable MediaCrypto crypto) throws Exception {
+    this.codecInfo = codecInfo;
     Format inputFormat = checkNotNull(this.inputFormat);
     long codecInitializingTimestamp;
     long codecInitializedTimestamp;
@@ -1246,7 +1247,6 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
               Format.toLogString(inputFormat), codecName));
     }
 
-    this.codecInfo = codecInfo;
     this.codecOperatingRate = codecOperatingRate;
     codecInputFormat = inputFormat;
     codecAdaptationWorkaroundMode = codecAdaptationWorkaroundMode(codecName);
