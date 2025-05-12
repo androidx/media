@@ -112,6 +112,8 @@
         being enabled). Any changes made to the Player outside of the
         observation period are now picked up
         ([#2313](https://github.com/androidx/media/issues/2313)).
+    *   Add state holders and composables to the `media3-ui-compose` module for
+        `SeekBackButtonState` and `SeekForwardButtonState`.
     *   Add support for ExoPlayer's scrubbing mode to `PlayerControlView`. When
         enabled, this puts the player into scrubbing mode when the user starts
         dragging the scrubber bar, issues a `player.seekTo` call for every

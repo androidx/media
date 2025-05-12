@@ -35,8 +35,8 @@ internal class TestPlayer : SimpleBasePlayer(Looper.myLooper()!!) {
       .setAvailableCommands(Player.Commands.Builder().addAllCommands().build())
       .setPlaylist(
         ImmutableList.of(
-          MediaItemData.Builder(/* uid= */ "First").build(),
-          MediaItemData.Builder(/* uid= */ "Second").build(),
+          MediaItemData.Builder(/* uid= */ "First").setDurationUs(1_000_000L).build(),
+          MediaItemData.Builder(/* uid= */ "Second").setDurationUs(2_000_000L).build(),
         )
       )
       .setPlayWhenReady(true, PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
@@ -127,6 +127,16 @@ internal class TestPlayer : SimpleBasePlayer(Looper.myLooper()!!) {
 
   fun setVideoSize(videoSize: VideoSize) {
     state = state.buildUpon().setVideoSize(videoSize).build()
+    invalidateState()
+  }
+
+  fun setSeekBackIncrementMs(seekBackIncrementMs: Long) {
+    state = state.buildUpon().setSeekBackIncrementMs(seekBackIncrementMs).build()
+    invalidateState()
+  }
+
+  fun setSeekForwardIncrementMs(seekForwardIncrementMs: Long) {
+    state = state.buildUpon().setSeekForwardIncrementMs(seekForwardIncrementMs).build()
     invalidateState()
   }
 
