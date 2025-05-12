@@ -51,11 +51,9 @@ import android.media.MediaCodec;
 import android.media.MediaCodecInfo.CodecCapabilities;
 import android.media.MediaCodecInfo.CodecProfileLevel;
 import android.media.MediaFormat;
-import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
-import android.os.PersistableBundle;
 import android.os.SystemClock;
 import android.view.Display;
 import android.view.Surface;
@@ -66,7 +64,6 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.util.Clock;
-import androidx.media3.decoder.CryptoInfo;
 import androidx.media3.exoplayer.DecoderCounters;
 import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.LoadingInfo;
@@ -78,6 +75,7 @@ import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.drm.DrmSessionEventListener;
 import androidx.media3.exoplayer.drm.DrmSessionManager;
 import androidx.media3.exoplayer.mediacodec.DefaultMediaCodecAdapterFactory;
+import androidx.media3.exoplayer.mediacodec.ForwardingMediaCodecAdapter;
 import androidx.media3.exoplayer.mediacodec.MediaCodecAdapter;
 import androidx.media3.exoplayer.mediacodec.MediaCodecInfo;
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
@@ -100,7 +98,6 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -2117,7 +2114,7 @@ public class MediaCodecVideoRendererTest {
     ArrayList<Surface> surfacesSet = new ArrayList<>();
     MediaCodecAdapter.Factory codecAdapterFactory =
         configuration ->
-            new ForwardingSynchronousMediaCodecAdapter(
+            new ForwardingMediaCodecAdapter(
                 new SynchronousMediaCodecAdapter.Factory().createAdapter(configuration)) {
               @Override
               public void setOutputSurface(Surface surface) {
@@ -2559,7 +2556,7 @@ public class MediaCodecVideoRendererTest {
   }
 
   private static final class ForwardingSynchronousMediaCodecAdapterWithReordering
-      extends ForwardingSynchronousMediaCodecAdapter {
+      extends ForwardingMediaCodecAdapter {
     /** A factory for {@link ForwardingSynchronousMediaCodecAdapterWithReordering} instances. */
     public static final class Factory implements MediaCodecAdapter.Factory {
       @Override
@@ -2609,7 +2606,7 @@ public class MediaCodecVideoRendererTest {
   }
 
   private static final class ForwardingSynchronousMediaCodecAdapterWithBufferLimit
-      extends ForwardingSynchronousMediaCodecAdapter {
+      extends ForwardingMediaCodecAdapter {
     /** A factory for {@link ForwardingSynchronousMediaCodecAdapterWithBufferLimit} instances. */
     public static final class Factory implements MediaCodecAdapter.Factory {
       private final int bufferLimit;
@@ -2649,109 +2646,6 @@ public class MediaCodecVideoRendererTest {
         bufferCounter++;
       }
       return outputIndex;
-    }
-  }
-
-  private abstract static class ForwardingSynchronousMediaCodecAdapter
-      implements MediaCodecAdapter {
-    private final MediaCodecAdapter adapter;
-
-    ForwardingSynchronousMediaCodecAdapter(MediaCodecAdapter adapter) {
-      this.adapter = adapter;
-    }
-
-    @Override
-    public int dequeueInputBufferIndex() {
-      return adapter.dequeueInputBufferIndex();
-    }
-
-    @Override
-    public int dequeueOutputBufferIndex(MediaCodec.BufferInfo bufferInfo) {
-      return adapter.dequeueOutputBufferIndex(bufferInfo);
-    }
-
-    @Override
-    public MediaFormat getOutputFormat() {
-      return adapter.getOutputFormat();
-    }
-
-    @Nullable
-    @Override
-    public ByteBuffer getInputBuffer(int index) {
-      return adapter.getInputBuffer(index);
-    }
-
-    @Nullable
-    @Override
-    public ByteBuffer getOutputBuffer(int index) {
-      return adapter.getOutputBuffer(index);
-    }
-
-    @Override
-    public void queueInputBuffer(
-        int index, int offset, int size, long presentationTimeUs, int flags) {
-      adapter.queueInputBuffer(index, offset, size, presentationTimeUs, flags);
-    }
-
-    @Override
-    public void queueSecureInputBuffer(
-        int index, int offset, CryptoInfo info, long presentationTimeUs, int flags) {
-      adapter.queueSecureInputBuffer(index, offset, info, presentationTimeUs, flags);
-    }
-
-    @Override
-    public void releaseOutputBuffer(int index, boolean render) {
-      adapter.releaseOutputBuffer(index, render);
-    }
-
-    @Override
-    public void releaseOutputBuffer(int index, long renderTimeStampNs) {
-      adapter.releaseOutputBuffer(index, renderTimeStampNs);
-    }
-
-    @Override
-    public void flush() {
-      adapter.flush();
-    }
-
-    @Override
-    public void release() {
-      adapter.release();
-    }
-
-    @Override
-    public void setOnFrameRenderedListener(OnFrameRenderedListener listener, Handler handler) {
-      adapter.setOnFrameRenderedListener(listener, handler);
-    }
-
-    @Override
-    public void setOutputSurface(Surface surface) {
-      adapter.setOutputSurface(surface);
-    }
-
-    @Override
-    public void detachOutputSurface() {
-      adapter.detachOutputSurface();
-    }
-
-    @Override
-    public void setParameters(Bundle params) {
-      adapter.setParameters(params);
-    }
-
-    @Override
-    public void setVideoScalingMode(int scalingMode) {
-      adapter.setVideoScalingMode(scalingMode);
-    }
-
-    @Override
-    public boolean needsReconfiguration() {
-      return adapter.needsReconfiguration();
-    }
-
-    @Override
-    public PersistableBundle getMetrics() {
-      return adapter.getMetrics();
     }
   }
 }
