@@ -37,14 +37,14 @@ import androidx.media3.common.Player
 internal fun MinimalControls(player: Player, modifier: Modifier = Modifier) {
   val graySemiTransparentBackground = Color.Gray.copy(alpha = 0.1f)
   val modifierForIconButton =
-    modifier.size(40.dp).background(graySemiTransparentBackground, CircleShape)
+    Modifier.size(40.dp).background(graySemiTransparentBackground, CircleShape)
   Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
     Spacer(Modifier.weight(1f))
-    PreviousButton(player, Modifier.weight(1f).then(modifierForIconButton))
-    Spacer(Modifier.weight(1f))
-    PlayPauseButton(player, Modifier.weight(1f).then(modifierForIconButton))
-    Spacer(Modifier.weight(1f))
-    NextButton(player, Modifier.weight(1f).then(modifierForIconButton))
+    PreviousButton(player, modifierForIconButton)
+    Spacer(Modifier.weight(0.5f))
+    PlayPauseButton(player, modifierForIconButton)
+    Spacer(Modifier.weight(0.5f))
+    NextButton(player, modifierForIconButton)
     Spacer(Modifier.weight(1f))
   }
 }
