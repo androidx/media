@@ -122,6 +122,11 @@ public final class InAppMp4Muxer implements Muxer {
       }
       return ImmutableList.of();
     }
+
+    @Override
+    public boolean supportsWritingNegativeTimestampsInEditList() {
+      return true;
+    }
   }
 
   public static final String MUXER_NAME =

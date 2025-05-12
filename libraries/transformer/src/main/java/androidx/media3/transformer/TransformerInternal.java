@@ -151,6 +151,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final Object releaseLock;
   private final ImmutableList<Integer> allowedEncodingRotationDegrees;
   private final int maxFramesInEncoder;
+  private final boolean applyMp4EditListTrim;
 
   private boolean isDrainingExporters;
 
@@ -204,7 +205,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       DebugViewProvider debugViewProvider,
       Clock clock,
       long videoSampleTimestampOffsetUs,
-      @Nullable LogSessionId logSessionId) {
+      @Nullable LogSessionId logSessionId,
+      boolean applyMp4EditListTrim) {
     this.context = context;
     this.composition = composition;
     this.encoderFactory = new CapturingEncoderFactory(encoderFactory);
@@ -215,6 +217,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.clock = clock;
     this.videoSampleTimestampOffsetUs = videoSampleTimestampOffsetUs;
     this.muxerWrapper = muxerWrapper;
+    this.applyMp4EditListTrim = applyMp4EditListTrim;
 
     // It's safe to use "this" because the reference won't change.
     @SuppressWarnings("nullness:argument.type.incompatible")
@@ -853,15 +856,24 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                     encoderFactory,
                     muxerWrapper)
                 || clippingRequiresTranscode(firstEditedMediaItem.mediaItem);
+        checkState(
+            !applyMp4EditListTrim || !shouldTranscode,
+            String.format(
+                "Transcoding is required for track %s but MP4 edit list trimming is enabled."
+                    + " Disable mp4EditListTrimEnabled or ensure this track does not require"
+                    + " transcoding.",
+                inputFormat));
       }
-
       checkState(!shouldTranscode || assetLoaderCanOutputDecoded);
 
       return shouldTranscode;
     }
   }
 
-  private static boolean clippingRequiresTranscode(MediaItem mediaItem) {
+  private boolean clippingRequiresTranscode(MediaItem mediaItem) {
+    if (applyMp4EditListTrim) {
+      return false;
+    }
     return mediaItem.clippingConfiguration.startPositionMs > 0
         && !mediaItem.clippingConfiguration.startsAtKeyFrame;
   }

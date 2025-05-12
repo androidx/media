@@ -41,6 +41,14 @@ public interface Muxer extends AutoCloseable {
      * C.TrackType}.
      */
     ImmutableList<String> getSupportedSampleMimeTypes(@C.TrackType int trackType);
+
+    /**
+     * Whether the muxer supports writing negative timestamps into an edit list to instruct players
+     * to ignore these samples.
+     */
+    default boolean supportsWritingNegativeTimestampsInEditList() {
+      return false;
+    }
   }
 
   /**

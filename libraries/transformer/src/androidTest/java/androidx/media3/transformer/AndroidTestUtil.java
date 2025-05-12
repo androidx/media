@@ -312,15 +312,19 @@ public final class AndroidTestUtil {
                   .build())
           .build();
 
-  /** This file contains an edit lists that subtacts 1 second to all video frames. */
-  public static final AssetInfo MP4_NEGATIVE_SHIFT_EDIT_LIST =
-      new AssetInfo.Builder("asset:///media/mp4/edit_list_negative_shift.mp4")
+  /**
+   * This file has been edited to show a visual stopwatch to make it easier to know when frames were
+   * presented in the original video.
+   */
+  public static final AssetInfo MP4_VISUAL_TIMESTAMPS =
+      new AssetInfo.Builder(
+              "asset:///media/mp4/internal_emulator_transformer_output_visual_timestamps.mp4")
           .setVideoFormat(
               new Format.Builder()
                   .setSampleMimeType(VIDEO_H264)
-                  .setWidth(1920)
-                  .setHeight(1080)
-                  .setFrameRate(30.f)
+                  .setWidth(1280)
+                  .setHeight(720)
+                  .setFrameRate(29.97f)
                   .build())
           .build();
 

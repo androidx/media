@@ -26,6 +26,11 @@
     *   Move `Muxer` interface from `media3-transformer` to `media3-muxer`.
     *   Make setting `MediaItem.Builder().setImageDuration(long)` mandatory to
         import a media item as an image.
+    *   Add
+        `Transformer.Builder().experimentalSetMp4EditListTrimEnabled(boolean)`
+        which includes an MP4 edit list when trimming to instruct players to
+        ignore samples between the key frame before the trim start point, and
+        the trim start point.
 *   Track Selection:
 *   Extractors:
     *   MP3: Use duration and data size from unseekable Xing, VBRI and similar
@@ -85,6 +90,8 @@
 *   Muxers:
     *   `writeSampleData()` API now uses muxer specific `BufferInfo` class
         instead of `MediaCodec.BufferInfo`.
+    *   Add `Muxer.Factory#supportsWritingNegativeTimestampsInEditList` which
+        defaults to false.
 *   IMA extension:
     *   Fix a bug where a load error in one ad may accidentally invalidate
         another ad group.

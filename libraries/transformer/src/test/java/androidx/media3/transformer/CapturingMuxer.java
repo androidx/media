@@ -61,8 +61,19 @@ public final class CapturingMuxer implements Muxer, Dumpable {
      *     dumping}, where PCM audio is captured in batches of a fixed size.
      */
     public Factory(boolean handleAudioAsPcm) {
+      this(handleAudioAsPcm, new DefaultMuxer.Factory());
+    }
+
+    /**
+     * Creates an instance.
+     *
+     * @param handleAudioAsPcm Whether audio should be treated as PCM for {@linkplain Dumpable
+     *     dumping}, where PCM audio is captured in batches of a fixed size.
+     * @param wrappedFactory The {@link Muxer.Factory} to wrap.
+     */
+    public Factory(boolean handleAudioAsPcm, Muxer.Factory wrappedFactory) {
       this.handleAudioAsPcm = handleAudioAsPcm;
-      this.wrappedFactory = new DefaultMuxer.Factory();
+      this.wrappedFactory = wrappedFactory;
     }
 
     /** Returns the most recently {@linkplain #create created} {@code TestMuxer}. */
@@ -79,6 +90,11 @@ public final class CapturingMuxer implements Muxer, Dumpable {
     @Override
     public ImmutableList<String> getSupportedSampleMimeTypes(@C.TrackType int trackType) {
       return wrappedFactory.getSupportedSampleMimeTypes(trackType);
+    }
+
+    @Override
+    public boolean supportsWritingNegativeTimestampsInEditList() {
+      return wrappedFactory.supportsWritingNegativeTimestampsInEditList();
     }
   }
 

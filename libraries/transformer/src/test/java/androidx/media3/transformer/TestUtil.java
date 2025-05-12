@@ -15,12 +15,24 @@
  */
 package androidx.media3.transformer;
 
+import static androidx.media3.common.util.Assertions.checkNotNull;
+import static androidx.media3.test.utils.TestUtil.extractAllSamplesFromFilePath;
+
+import androidx.annotation.Nullable;
+import androidx.media3.common.C;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.ChannelMixingAudioProcessor;
 import androidx.media3.common.audio.ChannelMixingMatrix;
 import androidx.media3.common.audio.SonicAudioProcessor;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.extractor.ExtractorOutput;
+import androidx.media3.extractor.mp4.Mp4Extractor;
+import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
+import androidx.media3.test.utils.FakeExtractorOutput;
+import androidx.media3.test.utils.FakeTrackOutput;
 import com.google.common.collect.ImmutableList;
+import java.io.IOException;
 import java.util.List;
 import java.util.StringJoiner;
 
@@ -48,7 +60,15 @@ public final class TestUtil {
   public static final String FILE_AUDIO_ELST_SKIP_500MS = "mp4/long_edit_list_audioonly.mp4";
   public static final String FILE_VIDEO_ELST_TRIM_IDR_DURATION =
       "mp4/iibbibb_editlist_videoonly.mp4";
-
+  public static final String FILE_MP4_POSITIVE_SHIFT_EDIT_LIST = "mp4/edit_list_positive_shift.mp4";
+  public static final String FILE_MP4_VISUAL_TIMESTAMPS =
+      "mp4/internal_emulator_transformer_output_visual_timestamps.mp4";
+  public static final String FILE_JPG_PIXEL_MOTION_PHOTO =
+      "jpeg/pixel-motion-photo-2-hevc-tracks.jpg";
+  public static final String FILE_MP4_TRIM_OPTIMIZATION_270 =
+      "mp4/internal_emulator_transformer_output_270_rotated.mp4";
+  public static final String FILE_MP4_TRIM_OPTIMIZATION_180 =
+      "mp4/internal_emulator_transformer_output_180_rotated.mp4";
   private static final String DUMP_FILE_OUTPUT_DIRECTORY = "transformerdumps";
   private static final String DUMP_FILE_EXTENSION = "dump";
 
@@ -135,5 +155,53 @@ public final class TestUtil {
         + compositionSummary
         + "."
         + DUMP_FILE_EXTENSION;
+  }
+
+  /**
+   * Returns the video timestamps of the given file from the {@link FakeTrackOutput}.
+   *
+   * @param filePath The {@link String filepath} to get video timestamps for.
+   * @return The {@link List} of video timestamps.
+   */
+  public static List<Long> getVideoSampleTimesUs(String filePath) throws IOException {
+    Mp4Extractor mp4Extractor = new Mp4Extractor(new DefaultSubtitleParserFactory());
+    FakeExtractorOutput fakeExtractorOutput =
+        extractAllSamplesFromFilePath(mp4Extractor, checkNotNull(filePath));
+    return checkNotNull(getTrackOutput(fakeExtractorOutput, C.TRACK_TYPE_VIDEO)).getSampleTimesUs();
+  }
+
+  /**
+   * Returns the audio timestamps of the given file from the {@link FakeTrackOutput}.
+   *
+   * @param filePath The {@link String filepath} to get audio timestamps for.
+   * @return The {@link List} of audio timestamps.
+   */
+  public static List<Long> getAudioSampleTimesUs(String filePath) throws IOException {
+    Mp4Extractor mp4Extractor = new Mp4Extractor(new DefaultSubtitleParserFactory());
+    FakeExtractorOutput fakeExtractorOutput =
+        extractAllSamplesFromFilePath(mp4Extractor, checkNotNull(filePath));
+    return checkNotNull(getTrackOutput(fakeExtractorOutput, C.TRACK_TYPE_AUDIO)).getSampleTimesUs();
+  }
+
+  /**
+   * Returns a {@link FakeTrackOutput} of given {@link C.TrackType} from the {@link
+   * FakeExtractorOutput}.
+   *
+   * @param extractorOutput The {@link ExtractorOutput} to get the {@link FakeTrackOutput} from.
+   * @param trackType The {@link C.TrackType}.
+   * @return The {@link FakeTrackOutput} or {@code null} if a track is not found.
+   */
+  @Nullable
+  public static FakeTrackOutput getTrackOutput(
+      FakeExtractorOutput extractorOutput, @C.TrackType int trackType) {
+    for (int i = 0; i < extractorOutput.numberOfTracks; i++) {
+      FakeTrackOutput trackOutput = extractorOutput.trackOutputs.get(i);
+      String sampleMimeType = checkNotNull(trackOutput.lastFormat).sampleMimeType;
+      if ((trackType == C.TRACK_TYPE_AUDIO && MimeTypes.isAudio(sampleMimeType))
+          || (trackType == C.TRACK_TYPE_VIDEO && MimeTypes.isVideo(sampleMimeType))) {
+        return trackOutput;
+      }
+    }
+    return null;
   }
 }
