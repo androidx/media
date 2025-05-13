@@ -62,6 +62,8 @@
         `DefaultRenderersFactory.experimentalSetEnableMediaCodecBufferDecodeOnlyFlag`.
     *   Improve codec performance checks for software video codecs. This may
         lead to some additional tracks being marked as `EXCEEDS_CAPABILITIES`.
+    *   Fix VP9 Widevine playback errors on some devices
+        ([#2408](https://github.com/androidx/media/issues/2408)).
 *   Text:
     *   Fix SSA and SubRip to display an in-progress cue when enabling subtitles
         ([#2309](https://github.com/androidx/media/issues/2309)).

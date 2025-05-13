@@ -1569,10 +1569,13 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
           PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED);
     }
 
-    // Remove the initialization data from the format if present when dealing with AV1, as it is not
-    // required for playing AV1 video.
-    // Reference: https://developer.android.com/reference/android/media/MediaCodec#CSD
-    if (Objects.equals(newFormat.sampleMimeType, MimeTypes.VIDEO_AV1)
+    // Remove the initialization data (CSD) when decoding AV1 or VP9, as it is not required by
+    // MediaCodec for these encodings, and some codec implementations fail if it's present.
+    // * https://developer.android.com/reference/android/media/MediaCodec#CSD
+    // * b/229399008#comment9
+    // * https://github.com/androidx/media/issues/2408
+    if ((Objects.equals(newFormat.sampleMimeType, MimeTypes.VIDEO_AV1)
+            || Objects.equals(newFormat.sampleMimeType, MimeTypes.VIDEO_VP9))
         && !newFormat.initializationData.isEmpty()) {
       newFormat = newFormat.buildUpon().setInitializationData(null).build();
     }
