@@ -97,7 +97,7 @@ public class DefaultLoadControl implements LoadControl {
   public static final int DEFAULT_CAMERA_MOTION_BUFFER_SIZE = 2 * C.DEFAULT_BUFFER_SEGMENT_SIZE;
 
   /** A default size in bytes for an image buffer. */
-  public static final int DEFAULT_IMAGE_BUFFER_SIZE = 2 * C.DEFAULT_BUFFER_SEGMENT_SIZE;
+  public static final int DEFAULT_IMAGE_BUFFER_SIZE = 400 * C.DEFAULT_BUFFER_SEGMENT_SIZE;
 
   /** A default size in bytes for a muxed buffer (e.g. containing video, audio and text). */
   public static final int DEFAULT_MUXED_BUFFER_SIZE =
