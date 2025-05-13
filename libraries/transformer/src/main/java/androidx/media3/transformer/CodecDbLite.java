@@ -432,6 +432,20 @@ public final class CodecDbLite {
 
   private CodecDbLite() {}
 
+  /** Returns the MIME type recommended for video encoding on the runtime device. */
+  public static String getRecommendedVideoMimeType() {
+    Chipset chipset = Chipset.current();
+    if (chipset.equals(Chipset.UNKNOWN)) {
+      return ENCODER_DEFAULT.mimeType;
+    }
+
+    if (!ENCODER_DATASET.containsKey(chipset)) {
+      return ENCODER_DEFAULT.mimeType;
+    }
+
+    return ENCODER_DATASET.get(chipset).get(0).mimeType;
+  }
+
   /** Dataclass for chipset identifiers. */
   private static final class Chipset {
 
