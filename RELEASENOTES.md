@@ -35,6 +35,9 @@
         which includes an MP4 edit list when trimming to instruct players to
         ignore samples between the key frame before the trim start point, and
         the trim start point.
+    *   Update Composition Demo app to use Kotlin and Jetpack Compose, and add a
+        custom `VideoCompositorSettings` to arrange sequences into a 2x2 or PiP
+        layout.
 *   Track Selection:
 *   Extractors:
     *   MP3: Use duration and data size from unseekable Xing, VBRI and similar
