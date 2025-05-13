@@ -264,6 +264,24 @@
           android:layout_gravity="end|center_vertical"
           android:gravity="end" />
       </TableRow>
+      <TableRow
+          android:layout_weight="1">
+        <TextView
+            android:layout_gravity="center_vertical"
+            android:text="@string/enable_trim_optimization" />
+        <CheckBox
+            android:id="@+id/enable_trim_optimization"
+            android:layout_gravity="end"/>
+      </TableRow>
+      <TableRow
+          android:layout_weight="1">
+        <TextView
+            android:layout_gravity="center_vertical"
+            android:text="@string/enable_mp4_edit_list_trimming" />
+        <CheckBox
+            android:id="@+id/enable_mp4_edit_list_trimming"
+            android:layout_gravity="end"/>
+      </TableRow>
     </TableLayout>
   </androidx.core.widget.NestedScrollView>
   <Button
