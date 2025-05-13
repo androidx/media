@@ -122,7 +122,7 @@ public final class DownloadRequest implements Parcelable {
      * @param startPositionUs The start position in microseconds that the download should start
      *     from.
      * @param durationUs The duration in microseconds from the {@code startPositionUs} to be
-     *     downloaded, or @link C#TIME_UNSET} if the media should be downloaded to the end.
+     *     downloaded, or {@link C#TIME_UNSET} if the media should be downloaded to the end.
      */
     @CanIgnoreReturnValue
     public Builder setTimeRange(long startPositionUs, long durationUs) {

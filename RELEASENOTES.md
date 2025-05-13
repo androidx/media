@@ -139,6 +139,13 @@
     *   Add `DownloadHelper.Factory` with which the static
         `DownloadHelper.forMediaItem()` methods are replaced.
     *   Add `Factory` for `SegmentDownloader` implementations.
+    *   Add partial download support for adaptive streams. Apps can prepare an
+        adaptive stream with `DownloadHelper`, and request a `DownloadRequest`
+        from the helper with specifying the time-based media start and end
+        positions that the download should cover. The returned `DownloadRequest`
+        carries the resolved time range, with which a concrete
+        `SegmentDownloader` can be created and download the content
+        correspondingly.
 *   OkHttp extension:
 *   Cronet extension:
 *   RTMP extension:
