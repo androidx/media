@@ -58,11 +58,6 @@ public final class GlUtil {
     public GlException(String message) {
       super(message);
     }
-
-    /** Creates an instance with the specified error message and cause. */
-    public GlException(String message, Throwable cause) {
-      super(message, cause);
-    }
   }
 
   /** Number of elements in a 3d homogeneous coordinate vector describing a vertex. */
