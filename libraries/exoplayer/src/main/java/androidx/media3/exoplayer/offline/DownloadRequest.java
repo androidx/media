@@ -299,7 +299,17 @@ public final class DownloadRequest implements Parcelable {
 
   /** Returns a {@link MediaItem} for the content defined by the request. */
   public MediaItem toMediaItem() {
-    return new MediaItem.Builder()
+    return toMediaItem(new MediaItem.Builder());
+  }
+
+  /**
+   * Propagates the content information defined by the request to the {@link MediaItem.Builder} and
+   * returns a {@link MediaItem}.
+   *
+   * @param builder The {@link MediaItem.Builder} to be propagated.
+   */
+  public MediaItem toMediaItem(MediaItem.Builder builder) {
+    return builder
         .setMediaId(id)
         .setUri(uri)
         .setCustomCacheKey(customCacheKey)

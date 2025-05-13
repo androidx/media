@@ -22,6 +22,8 @@
     *   Increase default image buffer size from 128kB (copy-paste mistake from
         text tracks) to 26MB, which is large enough for 50MP Ultra HDR images
         ([#2417](https://github.com/androidx/media/issues/2417)).
+    *   Add `PreCacheHelper` that allows apps to pre-cache a single media with
+        specified start position and duration.
 *   Transformer:
     *   Filling an initial gap (added via `addGap()`) with silent audio now
         requires explicitly setting `experimentalSetForceAudioTrack(true)` in
