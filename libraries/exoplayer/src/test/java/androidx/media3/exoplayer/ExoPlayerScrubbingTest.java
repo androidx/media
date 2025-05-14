@@ -530,4 +530,55 @@ public final class ExoPlayerScrubbingTest {
         .isWithin(0.01f)
         .of(29.97f);
   }
+
+  @Test
+  public void operatingRateIncreaseDisabled() throws Exception {
+    AtomicReference<MediaCodecAdapter> spyVideoMediaCodecAdapter = new AtomicReference<>();
+    DefaultRenderersFactory renderersFactory =
+        new DefaultRenderersFactory(ApplicationProvider.getApplicationContext()) {
+          @Override
+          protected MediaCodecAdapter.Factory getCodecAdapterFactory() {
+            MediaCodecAdapter.Factory codecAdapterFactory = super.getCodecAdapterFactory();
+            return configuration -> {
+              MediaCodecAdapter codecAdapter = codecAdapterFactory.createAdapter(configuration);
+              if (MimeTypes.isVideo(configuration.codecInfo.mimeType)) {
+                codecAdapter = spy(new ForwardingMediaCodecAdapter(codecAdapter));
+                checkState(
+                    spyVideoMediaCodecAdapter.compareAndSet(
+                        /* expectedValue= */ null, /* newValue= */ codecAdapter));
+              }
+              return codecAdapter;
+            };
+          }
+        };
+    // This test needs to include MCVR, so we don't use TestExoPlayerBuilder (which uses
+    // FakeVideoRenderer).
+    ExoPlayer player =
+        new ExoPlayer.Builder(ApplicationProvider.getApplicationContext(), renderersFactory)
+            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .build();
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
+    player.setMediaItem(MediaItem.fromUri("asset:///media/mp4/sample.mp4"));
+    player.setScrubbingModeParameters(
+        player
+            .getScrubbingModeParameters()
+            .buildUpon()
+            .setShouldIncreaseCodecOperatingRate(false)
+            .build());
+    player.prepare();
+    player.play();
+    advance(player).untilPosition(/* mediaItemIndex= */ 0, /* positionMs= */ 300);
+    player.setScrubbingModeEnabled(true);
+    advance(player).untilPendingCommandsAreFullyHandled();
+    player.seekTo(/* mediaItemIndex= */ 0, /* positionMs= */ 800);
+    advance(player).untilPosition(0, 800);
+    player.setScrubbingModeEnabled(false);
+    advance(player).untilPendingCommandsAreFullyHandled();
+    player.release();
+    surface.release();
+
+    verify(spyVideoMediaCodecAdapter.get(), never())
+        .setParameters(argThat(b -> b.containsKey(MediaFormat.KEY_OPERATING_RATE)));
+  }
 }
