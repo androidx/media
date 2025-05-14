@@ -2,7 +2,7 @@
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
   <string name="exo_download_description">Жүктеп алу</string>
   <string name="exo_download_notification_channel_name">Жүктеп алынғандар</string>
-  <string name="exo_download_downloading">Жүктеп алынуда</string>
+  <string name="exo_download_downloading">Жүктеп алынып жатыр</string>
   <string name="exo_download_completed">Жүктеп алынды</string>
   <string name="exo_download_failed">Жүктеп алынбады</string>
   <string name="exo_download_removing">Жүктеп алынғандар өшірілуде</string>
