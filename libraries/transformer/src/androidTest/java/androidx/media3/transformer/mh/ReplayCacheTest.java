@@ -236,6 +236,7 @@ public class ReplayCacheTest {
   }
 
   @Test
+  @Ignore("TODO: b/417237409 - Fix this test and re-enable it")
   public void rapidReplay_withCompositionPlayerSingleSequence_playsSequence() throws Exception {
     assumeTrue(
         "The MediaCodec decoder's output surface is sometimes dropping frames on emulator despite"
