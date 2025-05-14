@@ -2,7 +2,7 @@
 <resources>
   <string name="default_notification_channel_name">Läuft gerade</string>
   <string name="media3_controls_play_description">Wiedergabe</string>
-  <string name="media3_controls_pause_description">Pause</string>
+  <string name="media3_controls_pause_description">Pausieren</string>
   <string name="media3_controls_seek_to_previous_description">Zum vorherigen Element</string>
   <string name="media3_controls_seek_to_next_description">Zum nächsten Element</string>
   <string name="media3_controls_seek_back_description">Zurückspulen</string>
