@@ -112,7 +112,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @Override
   public boolean isInitialized() {
-    return isInitialized;
+    return isInitialized || (videoSink != null && videoSink.isInitialized());
   }
 
   @Override

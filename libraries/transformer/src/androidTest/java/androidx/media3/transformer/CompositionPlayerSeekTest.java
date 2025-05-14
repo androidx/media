@@ -740,6 +740,29 @@ public class CompositionPlayerSeekTest {
   }
 
   @Test
+  public void seekToVideo_atTransitionBetweenImages_completes() throws Exception {
+    ImmutableList<MediaItemConfig> mediaItems =
+        ImmutableList.of(IMAGE_MEDIA_ITEM, IMAGE_MEDIA_ITEM, VIDEO_MEDIA_ITEM);
+    int numberOfFramesBeforeSeeking = 2;
+    long seekTimeMs = 2 * Util.usToMs(IMAGE_DURATION_US) + 200;
+    ImmutableList<Long> expectedTimestampsUs =
+        new ImmutableList.Builder<Long>()
+            // Play the first 2 frames of the first image
+            .addAll(
+                Iterables.limit(IMAGE_TIMESTAMPS_US, /* limitSize= */ numberOfFramesBeforeSeeking))
+            .addAll(
+                transform(
+                    Iterables.skip(VIDEO_TIMESTAMPS_US, /* numberToSkip= */ 6),
+                    timestampUs -> (2 * IMAGE_DURATION_US + timestampUs)))
+            .build();
+
+    ImmutableList<Long> actualTimestampsUs =
+        playSequenceAndGetTimestampsUs(mediaItems, numberOfFramesBeforeSeeking, seekTimeMs);
+
+    assertThat(actualTimestampsUs).isEqualTo(expectedTimestampsUs);
+  }
+
+  @Test
   public void seekToImage_duringPlayingFirstImageInSequenceOfVideoAndImage() throws Exception {
     assumeFalse(
         "Skipped due to failing audio decoder on API 31 emulator",
