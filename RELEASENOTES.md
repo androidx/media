@@ -27,6 +27,9 @@
 *   Cronet extension:
 *   RTMP extension:
 *   HLS extension:
+    *   Fix playlist parsing to accept `\f` (form feed) in quoted string
+        attribute values
+        ([#2420](https://github.com/androidx/media/issues/2420)).
 *   DASH extension:
 *   Smooth Streaming extension:
 *   RTSP extension:

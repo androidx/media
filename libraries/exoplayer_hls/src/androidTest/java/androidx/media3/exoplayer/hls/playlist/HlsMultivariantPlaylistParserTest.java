@@ -37,6 +37,8 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /** Test for {@link HlsMultivariantPlaylist}. */
+// This is an instrumentation test to provide realistic regex behaviour for regression tests for
+// https://github.com/androidx/media/issues/2420.
 @RunWith(AndroidJUnit4.class)
 public class HlsMultivariantPlaylistParserTest {
 
@@ -78,10 +80,11 @@ public class HlsMultivariantPlaylistParserTest {
           + "CODECS=\"mp4a.40.2,avc1.66.30\",RESOLUTION=304x128\n"
           + "http://example.com/low.m3u8\n";
 
+  // NAME contains \f as a regression test for https://github.com/androidx/media/issues/2420.
   private static final String PLAYLIST_WITH_CC =
       " #EXTM3U \n"
           + "#EXT-X-MEDIA:TYPE=CLOSED-CAPTIONS,GROUP-ID=\"cc1\","
-          + "LANGUAGE=\"es\",NAME=\"Eng\",INSTREAM-ID=\"SERVICE4\"\n"
+          + "LANGUAGE=\"es\",NAME=\"\fEng\",INSTREAM-ID=\"SERVICE4\"\n"
           + "#EXT-X-STREAM-INF:BANDWIDTH=1280000,"
           + "CODECS=\"mp4a.40.2,avc1.66.30\",RESOLUTION=304x128\n"
           + "http://example.com/low.m3u8\n";
@@ -353,7 +356,7 @@ public class HlsMultivariantPlaylistParserTest {
     HlsMultivariantPlaylist playlist = parseMultivariantPlaylist(PLAYLIST_URI, PLAYLIST_WITH_CC);
 
     Format firstTextFormat = playlist.muxedCaptionFormats.get(0);
-    assertThat(firstTextFormat.id).isEqualTo("cc1:Eng");
+    assertThat(firstTextFormat.id).isEqualTo("cc1:\fEng");
   }
 
   @Test
