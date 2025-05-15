@@ -18,6 +18,7 @@ package androidx.media3.session;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
+import android.annotation.SuppressLint;
 import android.os.Bundle;
 import android.os.SystemClock;
 import androidx.annotation.IntDef;
@@ -194,6 +195,7 @@ public final class SessionResult {
    *
    * @param sessionError The {@linkplain SessionError session error}.
    */
+  @SuppressLint("WrongConstant") // Using SessionError.Code for SessionResult.Code
   @UnstableApi
   public SessionResult(SessionError sessionError) {
     this(
@@ -210,6 +212,7 @@ public final class SessionResult {
    * @param sessionError The {@link SessionError}.
    * @param extras The extra {@link Bundle}.
    */
+  @SuppressLint("WrongConstant") // Using SessionError.Code for SessionResult.Code
   @UnstableApi
   public SessionResult(SessionError sessionError, Bundle extras) {
     this(

@@ -124,7 +124,9 @@ public class MediaSessionCompat {
    * @deprecated This flag is no longer used. All media sessions are expected to handle media button
    *     events now. For backward compatibility, this flag will be always set.
    */
-  @Deprecated public static final int FLAG_HANDLES_MEDIA_BUTTONS = 1 << 0;
+  @SuppressLint("WrongConstant")
+  @Deprecated
+  public static final int FLAG_HANDLES_MEDIA_BUTTONS = 1 << 0;
 
   /**
    * Sets this flag on the session to indicate that it handles transport control commands through
@@ -133,12 +135,15 @@ public class MediaSessionCompat {
    * @deprecated This flag is no longer used. All media sessions are expected to handle transport
    *     controls now. For backward compatibility, this flag will be always set.
    */
-  @Deprecated public static final int FLAG_HANDLES_TRANSPORT_CONTROLS = 1 << 1;
+  @SuppressLint("WrongConstant")
+  @Deprecated
+  public static final int FLAG_HANDLES_TRANSPORT_CONTROLS = 1 << 1;
 
   /**
    * Sets this flag on the session to indicate that it handles queue management commands through its
    * {@link Callback}.
    */
+  @SuppressLint("WrongConstant")
   public static final int FLAG_HANDLES_QUEUE_COMMANDS = 1 << 2;
 
   /**
