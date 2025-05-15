@@ -142,7 +142,7 @@ public class TrackSelectionView extends LinearLayout {
     disableView.setVisibility(View.GONE);
     addView(disableView);
     // Divider view.
-    addView(inflater.inflate(R.layout.exo_list_divider, this, false));
+    addView(inflater.inflate(R.layout.media3_exo_list_divider, this, false));
     // View for clearing the override to allow the selector to use its default selection logic.
     defaultView =
         (CheckedTextView)
@@ -290,7 +290,7 @@ public class TrackSelectionView extends LinearLayout {
 
       for (int trackIndex = 0; trackIndex < trackInfos.length; trackIndex++) {
         if (trackIndex == 0) {
-          addView(inflater.inflate(R.layout.exo_list_divider, this, false));
+          addView(inflater.inflate(R.layout.media3_exo_list_divider, this, false));
         }
         int trackViewLayoutId =
             enableMultipleChoiceForAdaptiveSelections || enableMultipleChoiceForMultipleOverrides

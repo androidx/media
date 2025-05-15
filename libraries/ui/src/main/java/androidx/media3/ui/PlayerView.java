@@ -384,7 +384,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
 
     boolean shutterColorSet = false;
     int shutterColor = 0;
-    int playerLayoutId = R.layout.exo_player_view;
+    int playerLayoutId = R.layout.media3_exo_player_view;
     boolean useArtwork = true;
     int artworkDisplayMode = ARTWORK_DISPLAY_MODE_FIT;
     int imageDisplayMode = IMAGE_DISPLAY_MODE_FIT;
