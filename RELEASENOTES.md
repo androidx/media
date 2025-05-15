@@ -4,6 +4,44 @@
 
 *   Common Library:
 *   ExoPlayer:
+*   Transformer:
+*   Track Selection:
+*   Extractors:
+*   DataSource:
+*   Audio:
+*   Video:
+*   Text:
+*   Metadata:
+*   Image:
+*   DataSource:
+*   DRM:
+*   Effect:
+*   Muxers:
+*   IMA extension:
+*   Session:
+*   UI:
+*   Downloads:
+*   OkHttp extension:
+*   Cronet extension:
+*   RTMP extension:
+*   HLS extension:
+*   DASH extension:
+*   Smooth Streaming extension:
+*   RTSP extension:
+*   Decoder extensions (FFmpeg, VP9, AV1, etc.):
+*   MIDI extension:
+*   Leanback extension:
+*   Cast extension:
+*   Test Utilities:
+*   Remove deprecated symbols:
+
+## 1.7
+
+### 1.7.0-alpha01 (2025-05-15)
+
+This release includes the following changes since [1.6.1](#161-2025-04-14):
+
+*   ExoPlayer:
     *   Add `ExoPlayer.setScrubbingModeEnabled(boolean)` method. This optimizes
         the player for many frequent seeks (for example, from a user dragging a
         scrubber bar around). The behavior of scrubbing mode can be customized
@@ -40,13 +78,11 @@
     *   Update Composition Demo app to use Kotlin and Jetpack Compose, and add a
         custom `VideoCompositorSettings` to arrange sequences into a 2x2 or PiP
         layout.
-*   Track Selection:
 *   Extractors:
     *   MP3: Use duration and data size from unseekable Xing, VBRI and similar
         variable bitrate metadata when falling back to constant bitrate seeking
         due to `FLAG_ENABLE_CONSTANT_BITRATE_SEEKING(_ALWAYS)`
         ([#2194](https://github.com/androidx/media/issues/2194)).
-*   DataSource:
 *   Audio:
     *   Allow constant power upmixing/downmixing in DefaultAudioMixer.
     *   Make `ChannelMappingAudioProcessor`, `TrimmingAudioProcessor` and
@@ -90,10 +126,6 @@
         files which is used to define the z-order of cues when more than one is
         shown on screen at the same time
         ([#2124](https://github.com/androidx/media/issues/2124)).
-*   Metadata:
-*   Image:
-*   DataSource:
-*   DRM:
 *   Effect:
     *   Add `Presentation.createForShortSide(int)` that creates a `Presentation`
         that ensures the shortest side always matches the given value,
@@ -151,20 +183,12 @@
         carries the resolved time range, with which a concrete
         `SegmentDownloader` can be created and download the content
         correspondingly.
-*   OkHttp extension:
-*   Cronet extension:
-*   RTMP extension:
 *   HLS extension:
     *   Support X-ASSET-LIST and live streams with `HlsInterstitialsAdsLoader`.
-*   DASH extension:
-*   Smooth Streaming extension:
 *   RTSP extension:
     *   Add parsing support for SessionDescriptions containing lines with
         trailing whitespace characters
         ([#2357](https://github.com/androidx/media/issues/2357)).
-*   Decoder extensions (FFmpeg, VP9, AV1, etc.):
-*   MIDI extension:
-*   Leanback extension:
 *   Cast extension:
     *   Add support for `getDeviceVolume()`, `setDeviceVolume()`,
         `getDeviceMuted()`, and `setDeviceMuted()`
