@@ -10,6 +10,8 @@
 *   DataSource:
 *   Audio:
 *   Video:
+    *   Improve smooth video frame release at startup when audio samples don't
+        start at exactly the requested position.
 *   Text:
 *   Metadata:
 *   Image:
@@ -108,8 +110,6 @@ This release includes the following changes since [1.6.1](#161-2025-04-14):
         lead to some additional tracks being marked as `EXCEEDS_CAPABILITIES`.
     *   Fix VP9 Widevine playback errors on some devices
         ([#2408](https://github.com/androidx/media/issues/2408)).
-    *   Improve smooth video frame release at startup when audio samples don't
-        start at exactly the requested position.
 *   Text:
     *   Fix SSA and SubRip to display an in-progress cue when enabling subtitles
         ([#2309](https://github.com/androidx/media/issues/2309)).
