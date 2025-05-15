@@ -92,7 +92,7 @@ public class ChannelMappingAudioProcessorTest {
 
     processor.queueInput(createInt24ByteBuffer(new int[] {0xff0001, 0x00ff02, 0x0300ff, 0x40ff00}));
     int[] output = createInt24Array(processor.getOutput());
-    assertThat(output).isEqualTo(new int[] {0x00ff02, 0xff0001, 0x40ff00, 0x0300ff});
+    assertThat(output).isEqualTo(new int[] {0x00ff02, 0xffff0001, 0x40ff00, 0x0300ff});
   }
 
   @Test

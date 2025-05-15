@@ -118,10 +118,8 @@ import java.io.InputStream;
 import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.nio.BufferOverflowException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.nio.ReadOnlyBufferException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -3462,21 +3460,16 @@ public final class Util {
   }
 
   /**
-   * Absolute <i>get</i> method for reading a sign-extended 24-bit integer value.
+   * Returns the sign-extended 24-bit integer value at {@code index}.
    *
-   * <p>Reads three bytes at the given index, composing them into a 24-bit integer value according
-   * to the current byte order.
-   *
-   * @param buf The buffer to operate on
-   * @param index The index from which the bytes will be read
-   * @return The 24-bit integer value at the given index
-   * @throws IndexOutOfBoundsException If {@code index} is negative or not smaller than the buffer's
-   *     limit, minus two
+   * @param buffer The buffer from which to read the 24-bit integer.
+   * @param index The index of the 24-bit integer.
    */
-  public static int getInt24(ByteBuffer buf, int index) {
-    byte component1 = buf.get(buf.order() == ByteOrder.BIG_ENDIAN ? index : index + 2);
-    byte component2 = buf.get(index + 1);
-    byte component3 = buf.get(buf.order() == ByteOrder.BIG_ENDIAN ? index + 2 : index);
+  @UnstableApi
+  public static int getInt24(ByteBuffer buffer, int index) {
+    byte component1 = buffer.get(buffer.order() == ByteOrder.BIG_ENDIAN ? index : index + 2);
+    byte component2 = buffer.get(index + 1);
+    byte component3 = buffer.get(buffer.order() == ByteOrder.BIG_ENDIAN ? index + 2 : index);
     return ((component1 << 24) & 0xff000000
             | (component2 << 16) & 0xff0000
             | (component3 << 8) & 0xff00)
@@ -3484,29 +3477,30 @@ public final class Util {
   }
 
   /**
-   * Relative <i>put</i> method for writing a 24-bit integer value.
+   * Writes a 24-bit integer value to a buffer at its current {@link ByteBuffer#position()}.
    *
-   * <p>Writes three bytes containing the given int value, in the current byte order, into this
-   * buffer at the current position, and then increments the position by three.
+   * <p>This is a relative operation that affects the buffer's position.
    *
-   * @param val The short value to be written
-   * @param buf The buffer to operate on
-   * @throws BufferOverflowException If there are fewer than two bytes remaining in this buffer
-   * @throws ReadOnlyBufferException If this buffer is read-only
-   * @throws IllegalArgumentException If the value is out of range for a 24-bit integer
+   * @param buffer The buffer on which to write the integer.
+   * @param value The integer value to write.
+   * @throws IllegalArgumentException If {@code value} is out of range for a 24-bit integer.
    */
-  public static void putInt24(ByteBuffer buf, int val) {
-    if ((val & ~0xffffff) != 0 && (val & ~0x7fffff) != 0xff800000) {
-      throw new IllegalArgumentException("value out of range: " + Integer.toHexString(val));
-    }
+  @UnstableApi
+  public static void putInt24(ByteBuffer buffer, int value) {
+    checkArgument(
+        (value & ~0xffffff) == 0 || (value & ~0x7fffff) == 0xff800000,
+        "Value out of range of 24-bit integer: " + Integer.toHexString(value));
+    checkArgument(buffer.remaining() >= 3);
     byte component1 =
-        buf.order() == ByteOrder.BIG_ENDIAN ? (byte) ((val & 0xFF0000) >> 16) : (byte) (val & 0xFF);
-    byte component2 = (byte) ((val & 0xFF00) >> 8);
+        buffer.order() == ByteOrder.BIG_ENDIAN
+            ? (byte) ((value & 0xFF0000) >> 16)
+            : (byte) (value & 0xFF);
+    byte component2 = (byte) ((value & 0xFF00) >> 8);
     byte component3 =
-        buf.order() == ByteOrder.BIG_ENDIAN ? (byte) (val & 0xFF) : (byte) ((val & 0xFF0000) >> 16);
-    buf.put(component1);
-    buf.put(component2);
-    buf.put(component3);
+        buffer.order() == ByteOrder.BIG_ENDIAN
+            ? (byte) (value & 0xFF)
+            : (byte) ((value & 0xFF0000) >> 16);
+    buffer.put(component1).put(component2).put(component3);
   }
 
   /**

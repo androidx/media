@@ -1680,49 +1680,55 @@ public class UtilTest {
   }
 
   @Test
-  public void putInt24_littleEndian() {
-    ByteBuffer buf = ByteBuffer.allocateDirect(2 * 3).order(ByteOrder.LITTLE_ENDIAN);
-    assertThrows(IllegalArgumentException.class, () -> putInt24(buf, 0xFF000000));
-    assertThrows(IllegalArgumentException.class, () -> putInt24(buf, 0x8FFFFFFF));
-    assertThrows(IllegalArgumentException.class, () -> putInt24(buf, 0x01FFFFFF));
-    putInt24(buf, -1);
-    putInt24(buf, 0x123456);
-    buf.rewind();
-    assertThat(createByteArray(buf))
-        .isEqualTo(new byte[] {(byte) 0xff, (byte) 0xff, (byte) 0xff, 0x56, 0x34, 0x12});
-    assertThat(getInt24(buf, 0)).isEqualTo(0xffffffff);
-    assertThat(getInt24(buf, 0) & 0xffffff).isEqualTo(0xffffff);
-    assertThat(getInt24(buf, 0)).isEqualTo(-1);
-    assertThat(getInt24(buf, 3)).isEqualTo(0x00123456);
-
-    buf.rewind();
-    putInt24(buf, 0xff0001);
-    putInt24(buf, 0x00ff02);
-    assertThat(getInt24(buf, 0) & 0xffffff).isEqualTo(0xff0001);
-    assertThat(getInt24(buf, 3) & 0xffffff).isEqualTo(0x00ff02);
+  public void putInt24_withOutOfRangeInts_throws() {
+    ByteBuffer buffer = ByteBuffer.allocateDirect(6).order(ByteOrder.LITTLE_ENDIAN);
+    assertThrows(IllegalArgumentException.class, () -> putInt24(buffer, 0xFF000000));
+    assertThrows(IllegalArgumentException.class, () -> putInt24(buffer, 0x8FFFFFFF));
+    assertThrows(IllegalArgumentException.class, () -> putInt24(buffer, 0x01FFFFFF));
   }
 
   @Test
-  public void putInt24_bigEndian() {
-    ByteBuffer buf = ByteBuffer.allocateDirect(2 * 3).order(ByteOrder.BIG_ENDIAN);
-    assertThrows(IllegalArgumentException.class, () -> putInt24(buf, 0xFF000000));
-    assertThrows(IllegalArgumentException.class, () -> putInt24(buf, 0x8FFFFFFF));
-    assertThrows(IllegalArgumentException.class, () -> putInt24(buf, 0x01FFFFFF));
-    putInt24(buf, -1);
-    putInt24(buf, 0x123456);
-    buf.rewind();
-    assertThat(createByteArray(buf))
-        .isEqualTo(new byte[] {(byte) 0xff, (byte) 0xff, (byte) 0xff, 0x12, 0x34, 0x56});
-    assertThat(getInt24(buf, 0)).isEqualTo(0xffffffff);
-    assertThat(getInt24(buf, 0) & 0xffffff).isEqualTo(0xffffff);
-    assertThat(getInt24(buf, 0)).isEqualTo(-1);
-    assertThat(getInt24(buf, 3)).isEqualTo(0x00123456);
+  public void putInt24_littleEndianBuffer_respectsOrdering() {
+    ByteBuffer buffer = ByteBuffer.allocateDirect(6).order(ByteOrder.LITTLE_ENDIAN);
+    putInt24(buffer, -1);
+    putInt24(buffer, 0x123456);
+    buffer.rewind();
+    assertThat(createByteArray(buffer))
+        .isEqualTo(new byte[] {(byte) 0xff, (byte) 0xff, (byte) 0xff, 0x56, 0x34, 0x12});
+  }
 
-    buf.rewind();
-    putInt24(buf, 0xff0001);
-    putInt24(buf, 0x00ff02);
-    assertThat(getInt24(buf, 0) & 0xffffff).isEqualTo(0xff0001);
-    assertThat(getInt24(buf, 3) & 0xffffff).isEqualTo(0x00ff02);
+  @Test
+  public void getInt24_littleEndianBuffer_returnsExpectedValues() {
+    ByteBuffer buffer = ByteBuffer.allocateDirect(9).order(ByteOrder.LITTLE_ENDIAN);
+    buffer.put(
+        new byte[] {
+          (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, 0x56, 0x34, 0x12, 0x01, 0x00, (byte) 0xFF
+        });
+    assertThat(getInt24(buffer, 0)).isEqualTo(-1);
+    assertThat(getInt24(buffer, 3)).isEqualTo(0x00123456);
+    assertThat(getInt24(buffer, 6)).isEqualTo(0xFFFF0001);
+  }
+
+  @Test
+  public void putInt24_bigEndianBuffer_respectsOrdering() {
+    ByteBuffer buffer = ByteBuffer.allocateDirect(6).order(ByteOrder.BIG_ENDIAN);
+    putInt24(buffer, -1);
+    putInt24(buffer, 0x123456);
+    buffer.rewind();
+    assertThat(createByteArray(buffer))
+        .isEqualTo(new byte[] {(byte) 0xff, (byte) 0xff, (byte) 0xff, 0x12, 0x34, 0x56});
+  }
+
+  @Test
+  public void getInt24_bigEndianBuffer_returnsExpectedValues() {
+    ByteBuffer buffer = ByteBuffer.allocateDirect(9).order(ByteOrder.BIG_ENDIAN);
+    buffer.put(
+        new byte[] {
+          (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, 0x12, 0x34, 0x56, (byte) 0xFF, 0x00, 0x01
+        });
+    assertThat(getInt24(buffer, 0)).isEqualTo(-1);
+    assertThat(getInt24(buffer, 3)).isEqualTo(0x00123456);
+    assertThat(getInt24(buffer, 6)).isEqualTo(0xFFFF0001);
   }
 
   private static void assertEscapeUnescapeFileName(String fileName, String escapedFileName) {
