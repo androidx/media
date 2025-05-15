@@ -51,6 +51,7 @@ public final class ScrubbingModeParameters {
     @Nullable private Double fractionalSeekToleranceBefore;
     @Nullable private Double fractionalSeekToleranceAfter;
     private boolean shouldIncreaseCodecOperatingRate;
+    private boolean isMediaCodecFlushEnabled;
 
     /** Creates an instance. */
     public Builder() {
@@ -64,6 +65,7 @@ public final class ScrubbingModeParameters {
       this.fractionalSeekToleranceAfter = scrubbingModeParameters.fractionalSeekToleranceAfter;
       this.shouldIncreaseCodecOperatingRate =
           scrubbingModeParameters.shouldIncreaseCodecOperatingRate;
+      this.isMediaCodecFlushEnabled = scrubbingModeParameters.isMediaCodecFlushEnabled;
     }
 
     /**
@@ -131,6 +133,23 @@ public final class ScrubbingModeParameters {
       return this;
     }
 
+    /**
+     * Sets whether the decoder is flushed in scrubbing mode.
+     *
+     * <p>Setting this to {@code false} will disable flushing the decoder when a new seek starts
+     * decoding from a key-frame.
+     *
+     * <p>Defaults to {@code false}.
+     *
+     * @param isMediaCodecFlushEnabled Whether to enable flushing of decoder in scrubbing mode.
+     * @return This builder for convenience.
+     */
+    @CanIgnoreReturnValue
+    public Builder setIsMediaCodecFlushEnabled(boolean isMediaCodecFlushEnabled) {
+      this.isMediaCodecFlushEnabled = isMediaCodecFlushEnabled;
+      return this;
+    }
+
     /** Returns the built {@link ScrubbingModeParameters}. */
     public ScrubbingModeParameters build() {
       return new ScrubbingModeParameters(this);
@@ -170,11 +189,19 @@ public final class ScrubbingModeParameters {
    */
   public final boolean shouldIncreaseCodecOperatingRate;
 
+  /**
+   * Whether the decoder is flushed in scrubbing mode.
+   *
+   * <p>Defaults to {@code false}.
+   */
+  public final boolean isMediaCodecFlushEnabled;
+
   private ScrubbingModeParameters(Builder builder) {
     this.disabledTrackTypes = builder.disabledTrackTypes;
     this.fractionalSeekToleranceBefore = builder.fractionalSeekToleranceBefore;
     this.fractionalSeekToleranceAfter = builder.fractionalSeekToleranceAfter;
     this.shouldIncreaseCodecOperatingRate = builder.shouldIncreaseCodecOperatingRate;
+    this.isMediaCodecFlushEnabled = builder.isMediaCodecFlushEnabled;
   }
 
   /** Returns a {@link Builder} initialized with the values from this instance. */
@@ -189,6 +216,7 @@ public final class ScrubbingModeParameters {
     }
     ScrubbingModeParameters that = (ScrubbingModeParameters) o;
     return disabledTrackTypes.equals(that.disabledTrackTypes)
+        && isMediaCodecFlushEnabled == that.isMediaCodecFlushEnabled
         && Objects.equals(fractionalSeekToleranceBefore, that.fractionalSeekToleranceBefore)
         && Objects.equals(fractionalSeekToleranceAfter, that.fractionalSeekToleranceAfter)
         && shouldIncreaseCodecOperatingRate == that.shouldIncreaseCodecOperatingRate;
@@ -200,6 +228,7 @@ public final class ScrubbingModeParameters {
         disabledTrackTypes,
         fractionalSeekToleranceBefore,
         fractionalSeekToleranceAfter,
-        shouldIncreaseCodecOperatingRate);
+        shouldIncreaseCodecOperatingRate,
+        isMediaCodecFlushEnabled);
   }
 }

@@ -208,6 +208,15 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
   }
 
   /**
+   * Returns the {@link Context} used to instantiate the {@link Renderer renderers} like for example
+   * a {@link CapturingMediaCodecVideoRenderer#CapturingMediaCodecVideoRenderer
+   * CapturingMediaCodecVideoRenderer}.
+   */
+  protected Context getContext() {
+    return context;
+  }
+
+  /**
    * Returns the {@link CapturingMediaCodecAdapter.Factory} as a {@link MediaCodecAdapter.Factory}.
    */
   protected MediaCodecAdapter.Factory getMediaCodecAdapterFactory() {
@@ -217,8 +226,8 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
   /**
    * A {@link MediaCodecVideoRenderer} that will not skip or drop buffers due to slow processing.
    */
-  private static class CapturingMediaCodecVideoRenderer extends MediaCodecVideoRenderer {
-    private CapturingMediaCodecVideoRenderer(
+  protected static class CapturingMediaCodecVideoRenderer extends MediaCodecVideoRenderer {
+    protected CapturingMediaCodecVideoRenderer(
         Context context,
         MediaCodecAdapter.Factory codecAdapterFactory,
         MediaCodecSelector mediaCodecSelector,

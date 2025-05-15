@@ -216,6 +216,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   private int consecutiveDroppedFrameCount;
   private int buffersInCodecCount;
   @Nullable private ScrubbingModeParameters scrubbingModeParameters;
+  private boolean isFlushRequired;
   private long totalVideoFrameProcessingOffsetUs;
   private int videoFrameProcessingOffsetCount;
   private long lastFrameReleaseTimeNs;
@@ -1028,6 +1029,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         videoFrameReleaseControl.join(/* renderNextFrameImmediately= */ false);
       }
     }
+
     maybeSetupTunnelingForFirstFrame();
     consecutiveDroppedFrameCount = 0;
   }
@@ -1084,6 +1086,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     maybeSetupTunnelingForFirstFrame();
     haveReportedFirstFrameRenderedForCurrentSurface = false;
     tunnelingOnFrameRenderedListener = null;
+    isFlushRequired = true;
     try {
       super.onDisabled();
     } finally {
@@ -1329,6 +1332,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     shouldDropDecoderInputBuffers = false;
     buffersInCodecCount = 0;
     consecutiveDroppedInputBufferCount = 0;
+    isFlushRequired = false;
     if (av1SampleDependencyParser != null) {
       av1SampleDependencyParser.reset();
     }
@@ -1500,6 +1504,31 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   }
 
   @Override
+  protected final boolean shouldReleaseCodecInsteadOfFlushing() {
+    MediaCodecInfo codecInfo = getCodecInfo();
+    if (videoSink != null
+        && codecInfo != null
+        && (codecInfo.name.equals("c2.mtk.avc.decoder")
+            || codecInfo.name.equals("c2.mtk.hevc.decoder"))) {
+      // Flushing a c2.mtk decoder that outputs to a SurfaceTexture often fails and leaves
+      // the SurfaceTexture's BufferQueue in an unrecoverable state. Release the codec instead.
+      // See b/362904942 for more details.
+      return true;
+    }
+    return super.shouldReleaseCodecInsteadOfFlushing();
+  }
+
+  @Override
+  protected final boolean shouldFlushCodec() {
+    return scrubbingModeParameters == null
+        ? super.shouldFlushCodec()
+        : scrubbingModeParameters.isMediaCodecFlushEnabled
+            || isFlushRequired
+            || hasSkippedFlushAndWaitingForEarlierFrame()
+            || getLastBufferInStreamPresentationTimeUs() != C.TIME_UNSET;
+  }
+
+  @Override
   @Nullable
   protected DecoderReuseEvaluation onInputFormatChanged(FormatHolder formatHolder)
       throws ExoPlaybackException {
@@ -1527,7 +1556,8 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     consecutiveDroppedInputBufferCount = 0;
     // In tunneling mode the device may do frame rate conversion, so in general we can't keep track
     // of the number of buffers in the codec.
-    if (!tunneling) {
+    int flags = getCodecBufferFlags(buffer);
+    if ((SDK_INT < 34 || (flags & MediaCodec.BUFFER_FLAG_DECODE_ONLY) == 0) && !tunneling) {
       buffersInCodecCount++;
     }
     if (SDK_INT < 23 && tunneling) {
@@ -2477,22 +2507,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     } else {
       return getCodecMaxInputSize(codecInfo, format);
     }
-  }
-
-  @Override
-  protected boolean flushOrReleaseCodec() {
-    MediaCodecInfo codecInfo = getCodecInfo();
-    if (videoSink != null
-        && codecInfo != null
-        && (codecInfo.name.equals("c2.mtk.avc.decoder")
-            || codecInfo.name.equals("c2.mtk.hevc.decoder"))) {
-      // Flushing a c2.mtk decoder that outputs to a SurfaceTexture often fails and leaves
-      // the SurfaceTexture's BufferQueue in an unrecoverable state. Release the codec instead.
-      // See b/362904942 for more details.
-      releaseCodec();
-      return true;
-    }
-    return super.flushOrReleaseCodec();
   }
 
   /**

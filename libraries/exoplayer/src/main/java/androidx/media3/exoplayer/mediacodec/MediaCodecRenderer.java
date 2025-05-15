@@ -400,6 +400,11 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   private long lastProcessedOutputBufferTimeUs;
   private boolean needToNotifyOutputFormatChangeAfterStreamChange;
   private boolean experimentalEnableProcessedStreamChangedAtStart;
+  private boolean skippedFlushAndWaitingForEarlierFrame;
+  private long skippedFlushLastOutputBufferPresentationTimeUs;
+  // Largest queued presentation time expected to be received as an output buffer (ex: not tunneling
+  // or decode_only).
+  private long largestQueuedPresentationTimeOfExpectedOutputBufferUs;
 
   /**
    * @param trackType The {@link C.TrackType track type} that the renderer handles.
@@ -455,6 +460,8 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     codecDrainState = DRAIN_STATE_NONE;
     codecDrainAction = DRAIN_ACTION_NONE;
     decoderCounters = new DecoderCounters();
+    skippedFlushLastOutputBufferPresentationTimeUs = C.TIME_UNSET;
+    largestQueuedPresentationTimeOfExpectedOutputBufferUs = C.TIME_UNSET;
   }
 
   /**
@@ -930,19 +937,35 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   }
 
   /**
-   * Flushes the codec. If flushing is not possible, the codec will be released. This method is a
-   * no-op if the codec is {@code null}.
+   * Attempts to flush or release the codec. If flushing is not possible, then the codec will be
+   * released. This method is a no-op if the codec is {@code null}.
    *
    * @return Whether the codec was released.
    */
-  protected boolean flushOrReleaseCodec() {
+  private boolean flushOrReleaseCodec() {
     if (codec == null) {
       return false;
     }
+    if (shouldReleaseCodecInsteadOfFlushing()) {
+      releaseCodec();
+      return true;
+    } else if (shouldFlushCodec()) {
+      flushCodec();
+    } else {
+      onSkippedFlushCodec();
+    }
+    return false;
+  }
+
+  /**
+   * Returns whether the codec should be released rather than flushed.
+   *
+   * @see #flushOrReleaseCodec
+   */
+  protected boolean shouldReleaseCodecInsteadOfFlushing() {
     if (codecDrainAction == DRAIN_ACTION_REINITIALIZE
         || (codecNeedsSosFlushWorkaround && !codecHasOutputMediaFormat)
         || (codecNeedsEosFlushWorkaround && codecReceivedEos)) {
-      releaseCodec();
       return true;
     }
     if (codecDrainAction == DRAIN_ACTION_FLUSH_AND_UPDATE_DRM_SESSION) {
@@ -953,13 +976,44 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
           updateDrmSessionV23();
         } catch (ExoPlaybackException e) {
           Log.w(TAG, "Failed to update the DRM session, releasing the codec instead.", e);
-          releaseCodec();
           return true;
         }
       }
     }
-    flushCodec();
     return false;
+  }
+
+  /**
+   * Returns whether the codec should be flushed in cases such that the codec was not released.
+   *
+   * <p>Default is {@code true}.
+   *
+   * @see #flushOrReleaseCodec
+   */
+  protected boolean shouldFlushCodec() {
+    return true;
+  }
+
+  /** Called when the renderer skips flushing the codec. */
+  private void onSkippedFlushCodec() {
+    if (largestQueuedPresentationTimeOfExpectedOutputBufferUs != C.TIME_UNSET
+        && getLastResetPositionUs() <= largestQueuedPresentationTimeOfExpectedOutputBufferUs
+        && lastProcessedOutputBufferTimeUs
+            < largestQueuedPresentationTimeOfExpectedOutputBufferUs) {
+      skippedFlushAndWaitingForEarlierFrame = true;
+      largestQueuedPresentationTimeOfExpectedOutputBufferUs = C.TIME_UNSET;
+    }
+  }
+
+  /**
+   * Returns whether the renderer has skipped flushing the codec and is waiting to process an
+   * earlier frame.
+   *
+   * @see #shouldFlushCodec
+   * @see #onSkippedFlushCodec
+   */
+  protected boolean hasSkippedFlushAndWaitingForEarlierFrame() {
+    return skippedFlushAndWaitingForEarlierFrame;
   }
 
   /** Flushes the codec. */
@@ -994,6 +1048,9 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     // guarantee that it's processed.
     codecReconfigurationState =
         codecReconfigured ? RECONFIGURATION_STATE_WRITE_PENDING : RECONFIGURATION_STATE_NONE;
+    skippedFlushAndWaitingForEarlierFrame = false;
+    skippedFlushLastOutputBufferPresentationTimeUs = C.TIME_UNSET;
+    largestQueuedPresentationTimeOfExpectedOutputBufferUs = C.TIME_UNSET;
   }
 
   /**
@@ -1468,6 +1525,11 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
 
     onQueueInputBuffer(buffer);
     int flags = getCodecBufferFlags(buffer);
+    if ((SDK_INT < 34 || (flags & MediaCodec.BUFFER_FLAG_DECODE_ONLY) == 0)
+        && !getConfiguration().tunneling) {
+      largestQueuedPresentationTimeOfExpectedOutputBufferUs =
+          max(largestQueuedPresentationTimeOfExpectedOutputBufferUs, buffer.timeUs);
+    }
     if (bufferEncrypted) {
       checkNotNull(codec)
           .queueSecureInputBuffer(
@@ -2065,14 +2127,27 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
         outputBuffer.position(outputBufferInfo.offset);
         outputBuffer.limit(outputBufferInfo.offset + outputBufferInfo.size);
       }
-      isDecodeOnlyOutputBuffer = outputBufferInfo.presentationTimeUs < getLastResetPositionUs();
-      isLastOutputBuffer =
-          lastBufferInStreamPresentationTimeUs != C.TIME_UNSET
-              && lastBufferInStreamPresentationTimeUs <= outputBufferInfo.presentationTimeUs;
       updateOutputFormatForTime(outputBufferInfo.presentationTimeUs);
     }
 
-    boolean processedOutputBuffer;
+    isDecodeOnlyOutputBuffer = outputBufferInfo.presentationTimeUs < getLastResetPositionUs();
+    isLastOutputBuffer =
+        lastBufferInStreamPresentationTimeUs != C.TIME_UNSET
+            && lastBufferInStreamPresentationTimeUs <= outputBufferInfo.presentationTimeUs;
+
+    boolean processedOutputBuffer = false;
+    if (skippedFlushAndWaitingForEarlierFrame) {
+      if (skippedFlushLastOutputBufferPresentationTimeUs != C.TIME_UNSET
+          && outputBufferInfo.presentationTimeUs
+              <= skippedFlushLastOutputBufferPresentationTimeUs) {
+        skippedFlushAndWaitingForEarlierFrame = false;
+        skippedFlushLastOutputBufferPresentationTimeUs = C.TIME_UNSET;
+      } else {
+        skippedFlushLastOutputBufferPresentationTimeUs = outputBufferInfo.presentationTimeUs;
+        isDecodeOnlyOutputBuffer = true;
+        isLastOutputBuffer = false;
+      }
+    }
     if (codecNeedsEosOutputExceptionWorkaround && codecReceivedEos) {
       try {
         processedOutputBuffer =
@@ -2111,7 +2186,6 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
               isLastOutputBuffer,
               checkNotNull(outputFormat));
     }
-
     if (processedOutputBuffer) {
       onProcessedOutputBuffer(outputBufferInfo.presentationTimeUs);
       boolean isEndOfStream = (outputBufferInfo.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0;
