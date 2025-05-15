@@ -1700,7 +1700,8 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
     if (!MediaUtils.areEqualError(
         oldLegacyPlayerInfo.playbackStateCompat, newLegacyPlayerInfo.playbackStateCompat)) {
       PlaybackException error =
-          LegacyConversions.convertToPlaybackException(newLegacyPlayerInfo.playbackStateCompat);
+          LegacyConversions.convertToPlaybackException(
+              newLegacyPlayerInfo.playbackStateCompat, context);
       listeners.queueEvent(
           Player.EVENT_PLAYER_ERROR, (listener) -> listener.onPlayerErrorChanged(error));
       if (error != null) {
@@ -2131,7 +2132,8 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
     }
 
     PlaybackException playerError =
-        LegacyConversions.convertToPlaybackException(newLegacyPlayerInfo.playbackStateCompat);
+        LegacyConversions.convertToPlaybackException(
+            newLegacyPlayerInfo.playbackStateCompat, context);
     SessionError sessionError =
         LegacyConversions.convertToSessionError(newLegacyPlayerInfo.playbackStateCompat, context);
 

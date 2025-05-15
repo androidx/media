@@ -1375,6 +1375,102 @@ public final class LegacyConversionsTest {
                 .getString(R.string.error_message_authentication_expired));
   }
 
+  @Test
+  public void convertToPlaybackException_populatesUnsetMessageFromErrorCode() {
+    assertThat(
+            LegacyConversions.convertToPlaybackException(
+                createErrorPlaybackStateCompatWithoutMessage(
+                    PlaybackStateCompat.ERROR_CODE_ACTION_ABORTED),
+                ApplicationProvider.getApplicationContext()))
+        .hasMessageThat()
+        .isNotEmpty();
+    assertThat(
+            LegacyConversions.convertToPlaybackException(
+                createErrorPlaybackStateCompatWithoutMessage(
+                    PlaybackStateCompat.ERROR_CODE_APP_ERROR),
+                ApplicationProvider.getApplicationContext()))
+        .hasMessageThat()
+        .isNotEmpty();
+    assertThat(
+            LegacyConversions.convertToPlaybackException(
+                createErrorPlaybackStateCompatWithoutMessage(
+                    PlaybackStateCompat.ERROR_CODE_AUTHENTICATION_EXPIRED),
+                ApplicationProvider.getApplicationContext()))
+        .hasMessageThat()
+        .isNotEmpty();
+    assertThat(
+            LegacyConversions.convertToPlaybackException(
+                createErrorPlaybackStateCompatWithoutMessage(
+                    PlaybackStateCompat.ERROR_CODE_CONCURRENT_STREAM_LIMIT),
+                ApplicationProvider.getApplicationContext()))
+        .hasMessageThat()
+        .isNotEmpty();
+    assertThat(
+            LegacyConversions.convertToPlaybackException(
+                createErrorPlaybackStateCompatWithoutMessage(
+                    PlaybackStateCompat.ERROR_CODE_CONTENT_ALREADY_PLAYING),
+                ApplicationProvider.getApplicationContext()))
+        .hasMessageThat()
+        .isNotEmpty();
+    assertThat(
+            LegacyConversions.convertToPlaybackException(
+                createErrorPlaybackStateCompatWithoutMessage(
+                    PlaybackStateCompat.ERROR_CODE_END_OF_QUEUE),
+                ApplicationProvider.getApplicationContext()))
+        .hasMessageThat()
+        .isNotEmpty();
+    assertThat(
+            LegacyConversions.convertToPlaybackException(
+                createErrorPlaybackStateCompatWithoutMessage(
+                    PlaybackStateCompat.ERROR_CODE_NOT_AVAILABLE_IN_REGION),
+                ApplicationProvider.getApplicationContext()))
+        .hasMessageThat()
+        .isNotEmpty();
+    assertThat(
+            LegacyConversions.convertToPlaybackException(
+                createErrorPlaybackStateCompatWithoutMessage(
+                    PlaybackStateCompat.ERROR_CODE_NOT_SUPPORTED),
+                ApplicationProvider.getApplicationContext()))
+        .hasMessageThat()
+        .isNotEmpty();
+    assertThat(
+            LegacyConversions.convertToPlaybackException(
+                createErrorPlaybackStateCompatWithoutMessage(
+                    PlaybackStateCompat.ERROR_CODE_PARENTAL_CONTROL_RESTRICTED),
+                ApplicationProvider.getApplicationContext()))
+        .hasMessageThat()
+        .isNotEmpty();
+    assertThat(
+            LegacyConversions.convertToPlaybackException(
+                createErrorPlaybackStateCompatWithoutMessage(
+                    PlaybackStateCompat.ERROR_CODE_PREMIUM_ACCOUNT_REQUIRED),
+                ApplicationProvider.getApplicationContext()))
+        .hasMessageThat()
+        .isNotEmpty();
+    assertThat(
+            LegacyConversions.convertToPlaybackException(
+                createErrorPlaybackStateCompatWithoutMessage(
+                    PlaybackStateCompat.ERROR_CODE_SKIP_LIMIT_REACHED),
+                ApplicationProvider.getApplicationContext()))
+        .hasMessageThat()
+        .isNotEmpty();
+    assertThat(
+            LegacyConversions.convertToPlaybackException(
+                createErrorPlaybackStateCompatWithoutMessage(
+                    PlaybackStateCompat.ERROR_CODE_UNKNOWN_ERROR),
+                ApplicationProvider.getApplicationContext()))
+        .hasMessageThat()
+        .isNotEmpty();
+  }
+
+  private static PlaybackStateCompat createErrorPlaybackStateCompatWithoutMessage(
+      @PlaybackStateCompat.ErrorCode int errorCode) {
+    return new PlaybackStateCompat.Builder()
+        .setState(PlaybackStateCompat.STATE_ERROR, /* position= */ 0, /* playbackSpeed= */ 1.0f)
+        .setErrorMessage(errorCode, /* errorMessage= */ null)
+        .build();
+  }
+
   // TODO(b/254265256): Move this method to a central place.
   private static ImmutableList<@Player.Command Integer> getCommandsAsList(
       Player.Commands commands) {
