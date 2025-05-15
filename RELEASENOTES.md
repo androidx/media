@@ -1,40 +1,5 @@
 # Release notes
 
-### Unreleased changes
-
-*   Common Library:
-*   ExoPlayer:
-*   Transformer:
-*   Track Selection:
-*   Extractors:
-*   DataSource:
-*   Audio:
-*   Video:
-*   Text:
-*   Metadata:
-*   Image:
-*   DataSource:
-*   DRM:
-*   Effect:
-*   Muxers:
-*   IMA extension:
-*   Session:
-*   UI:
-*   Downloads:
-*   OkHttp extension:
-*   Cronet extension:
-*   RTMP extension:
-*   HLS extension:
-*   DASH extension:
-*   Smooth Streaming extension:
-*   RTSP extension:
-*   Decoder extensions (FFmpeg, VP9, AV1, etc.):
-*   MIDI extension:
-*   Leanback extension:
-*   Cast extension:
-*   Test Utilities:
-*   Remove deprecated symbols:
-
 ## 1.7
 
 ### 1.7.0-alpha01 (2025-05-15)
