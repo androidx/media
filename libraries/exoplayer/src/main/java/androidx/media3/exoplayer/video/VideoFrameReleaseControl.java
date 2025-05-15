@@ -184,6 +184,7 @@ public final class VideoFrameReleaseControl {
   private Clock clock;
   private boolean hasOutputSurface;
   private boolean frameReadyWithoutSurface;
+  private boolean disableAdvancingTimestampChecks;
 
   /**
    * Creates an instance.
@@ -356,7 +357,7 @@ public final class VideoFrameReleaseControl {
       throws ExoPlaybackException {
     frameReleaseInfo.reset();
 
-    if (initialPositionUs == C.TIME_UNSET) {
+    if (started && initialPositionUs == C.TIME_UNSET) {
       initialPositionUs = positionUs;
     }
     if (lastPresentationTimeUs != presentationTimeUs) {
@@ -443,6 +444,15 @@ public final class VideoFrameReleaseControl {
     frameReleaseHelper.onPlaybackSpeed(speed);
   }
 
+  /**
+   * Experimental setter to ignore the checks for advancing timestamps before checking whether a
+   * late frame needs to be force released.
+   */
+  // TODO: b/417646815 - Remove this workaround method once it's no longer needed
+  /* package */ void experimentalDisableAdvancingTimestampChecks() {
+    this.disableAdvancingTimestampChecks = true;
+  }
+
   private void lowerFirstFrameState(@C.FirstFrameState int firstFrameState) {
     this.firstFrameState = min(this.firstFrameState, firstFrameState);
   }
@@ -490,6 +500,8 @@ public final class VideoFrameReleaseControl {
         long elapsedTimeSinceLastReleaseUs =
             msToUs(clock.elapsedRealtime()) - lastReleaseRealtimeUs;
         return started
+            && (disableAdvancingTimestampChecks
+                || (initialPositionUs != C.TIME_UNSET && initialPositionUs != positionUs))
             && frameTimingEvaluator.shouldForceReleaseFrame(earlyUs, elapsedTimeSinceLastReleaseUs);
       default:
         throw new IllegalStateException();

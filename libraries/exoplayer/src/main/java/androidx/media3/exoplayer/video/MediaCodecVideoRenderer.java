@@ -1820,6 +1820,15 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   }
 
   /**
+   * Experimental setter to ignore the checks for advancing timestamps before checking whether a
+   * late frame needs to be force released.
+   */
+  // TODO: b/417646815 - Remove this workaround method once it's no longer needed
+  protected void experimentalDisableAdvancingTimestampChecksInVideoFrameReleaseControl() {
+    videoFrameReleaseControl.experimentalDisableAdvancingTimestampChecks();
+  }
+
+  /**
    * Returns the timestamp that is added to the buffer presentation time (the player decoding
    * position) to get the frame presentation time, in microseconds.
    */
