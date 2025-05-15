@@ -17,15 +17,20 @@ package androidx.media3.extractor.text.webvtt;
 
 import static androidx.media3.test.utils.truth.SpannedSubject.assertThat;
 import static com.google.common.truth.Truth.assertThat;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import android.graphics.Color;
 import android.text.Spanned;
+import androidx.media3.common.util.ParsableByteArray;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.collect.ImmutableList;
 import java.util.Collections;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /** Unit test for {@link WebvttCueParser}. */
+// This is an instrumentation test to provide realistic regex behaviour for regression tests for
+// https://github.com/androidx/media/issues/2420.
 @RunWith(AndroidJUnit4.class)
 public final class WebvttCueParserTest {
 
@@ -279,6 +284,16 @@ public final class WebvttCueParserTest {
     assertThat(text)
         .hasVoiceSpanBetween("Text with ".length(), "Text with multiple voice spans".length())
         .withName("Mary");
+  }
+
+  // https://github.com/androidx/media/issues/2420
+  @Test
+  public void parseCueSettingsWithFormFeed() {
+    ParsableByteArray webvttData =
+        new ParsableByteArray("00:00:01.000 --> 00:00:02.000\f\nCue text".getBytes(UTF_8));
+    WebvttCueInfo webvttCueInfo =
+        WebvttCueParser.parseCue(webvttData, /* styles= */ ImmutableList.of());
+    assertThat(webvttCueInfo.cue.text.toString()).isEqualTo("Cue text");
   }
 
   private static Spanned parseCueText(String string) {

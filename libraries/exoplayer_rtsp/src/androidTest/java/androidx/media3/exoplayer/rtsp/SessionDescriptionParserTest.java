@@ -34,16 +34,20 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-/** Unit test for {@link SessionDescription}. */
+/** Unit test for {@link SessionDescriptionParser}. */
+// This is an instrumentation test to provide realistic regex behaviour for regression tests for
+// https://github.com/androidx/media/issues/2420.
 @RunWith(AndroidJUnit4.class)
-public class SessionDescriptionTest {
+public class SessionDescriptionParserTest {
 
   @Test
   public void parse_sdpString_succeeds() throws Exception {
+    // The s= line and a=control lines contain \f as a regression test for
+    // https://github.com/androidx/media/issues/2420.
     String testMediaSdpInfo =
         "v=0\r\n"
             + "o=MNobody 2890844526 2890842807 IN IP4 192.0.2.46\r\n"
-            + "s=SDP Seminar\r\n"
+            + "s=SDP\f Seminar\r\n"
             + "i=A Seminar on the session description protocol\r\n"
             + "u=http://www.example.com/lectures/sdp.ps\r\n"
             + "e=seminar@example.com (Seminar Management)\r\n"
@@ -53,7 +57,7 @@ public class SessionDescriptionTest {
             + "m=audio 3456 RTP/AVP 0\r\n"
             + "a=control:audio\r\n"
             + "a=rtpmap:0 PCMU/8000\r\n"
-            + "a=3GPP-Adaption-Support:1\r\n"
+            + "a=3GPP-Adaption-Support:\f1\r\n"
             + "m=video 2232 RTP/AVP 31\r\n"
             + "a=control:video\r\n"
             + "a=rtpmap:31 H261/90000\r\n";
@@ -63,7 +67,7 @@ public class SessionDescriptionTest {
     SessionDescription expectedSession =
         new SessionDescription.Builder()
             .setOrigin("MNobody 2890844526 2890842807 IN IP4 192.0.2.46")
-            .setSessionName("SDP Seminar")
+            .setSessionName("SDP\f Seminar")
             .setSessionInfo("A Seminar on the session description protocol")
             .setUri(Uri.parse("http://www.example.com/lectures/sdp.ps"))
             .setEmailAddress("seminar@example.com (Seminar Management)")
@@ -74,7 +78,7 @@ public class SessionDescriptionTest {
                 new MediaDescription.Builder(MEDIA_TYPE_AUDIO, 3456, RTP_AVP_PROFILE, 0)
                     .addAttribute(ATTR_CONTROL, "audio")
                     .addAttribute(ATTR_RTPMAP, "0 PCMU/8000")
-                    .addAttribute("3GPP-Adaption-Support", "1")
+                    .addAttribute("3GPP-Adaption-Support", "\f1")
                     .build())
             .addMediaDescription(
                 new MediaDescription.Builder(MEDIA_TYPE_VIDEO, 2232, RTP_AVP_PROFILE, 31)
