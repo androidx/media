@@ -478,7 +478,7 @@ public class PlayerControlView extends FrameLayout {
       int defStyleAttr,
       @Nullable AttributeSet playbackAttrs) {
     super(context, attrs, defStyleAttr);
-    int controllerLayoutId = R.layout.exo_player_control_view;
+    int controllerLayoutId = R.layout.media3_exo_player_control_view;
     int playDrawableResId = R.drawable.exo_styled_controls_play;
     int pauseDrawableResId = R.drawable.exo_styled_controls_pause;
     int nextDrawableResId = R.drawable.exo_styled_controls_next;
@@ -740,7 +740,7 @@ public class PlayerControlView extends FrameLayout {
     settingsView =
         (RecyclerView)
             LayoutInflater.from(context)
-                .inflate(R.layout.exo_styled_settings_list, /* root= */ null);
+                .inflate(R.layout.media3_exo_styled_settings_list, /* root= */ null);
     settingsView.setAdapter(settingsAdapter);
     settingsView.setLayoutManager(new LinearLayoutManager(getContext()));
     settingsWindow =
@@ -1943,7 +1943,7 @@ public class PlayerControlView extends FrameLayout {
     public SettingViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
       View v =
           LayoutInflater.from(getContext())
-              .inflate(R.layout.exo_styled_settings_list_item, parent, /* attachToRoot= */ false);
+              .inflate(R.layout.media3_exo_styled_settings_list_item, parent, /* attachToRoot= */ false);
       return new SettingViewHolder(v);
     }
 
@@ -2059,7 +2059,7 @@ public class PlayerControlView extends FrameLayout {
       View v =
           LayoutInflater.from(getContext())
               .inflate(
-                  R.layout.exo_styled_sub_settings_list_item, parent, /* attachToRoot= */ false);
+                  R.layout.media3_exo_styled_sub_settings_list_item, parent, /* attachToRoot= */ false);
       return new SubSettingViewHolder(v);
     }
 
@@ -2264,7 +2264,7 @@ public class PlayerControlView extends FrameLayout {
       View v =
           LayoutInflater.from(getContext())
               .inflate(
-                  R.layout.exo_styled_sub_settings_list_item, parent, /* attachToRoot= */ false);
+                  R.layout.media3_exo_styled_sub_settings_list_item, parent, /* attachToRoot= */ false);
       return new SubSettingViewHolder(v);
     }
 

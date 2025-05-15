@@ -255,7 +255,7 @@ public final class TrackSelectionDialogBuilder {
     LayoutInflater dialogInflater = LayoutInflater.from(builder.getContext());
     // TODO: b/301602565 - See if there's a reasonable non-null root view group we could use here.
     @SuppressWarnings("InflateParams")
-    View dialogView = dialogInflater.inflate(R.layout.exo_track_selection_dialog, /* root= */ null);
+    View dialogView = dialogInflater.inflate(R.layout.media3_exo_track_selection_dialog, /* root= */ null);
     Dialog.OnClickListener okClickListener = setUpDialogView(dialogView);
 
     return builder
@@ -284,7 +284,7 @@ public final class TrackSelectionDialogBuilder {
       // TODO: b/301602565 - See if there's a reasonable non-null root view group we could use here.
       @SuppressWarnings("InflateParams")
       View dialogView =
-          dialogInflater.inflate(R.layout.exo_track_selection_dialog, /* root= */ null);
+          dialogInflater.inflate(R.layout.media3_exo_track_selection_dialog, /* root= */ null);
       Dialog.OnClickListener okClickListener = setUpDialogView(dialogView);
 
       builderClazz.getMethod("setTitle", CharSequence.class).invoke(builder, title);
