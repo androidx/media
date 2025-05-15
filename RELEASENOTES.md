@@ -11,6 +11,8 @@
 *   Extractors:
 *   DataSource:
 *   Audio:
+    *   Add support for all linear PCM sample formats in
+        `ChannelMappingAudioProcessor` and `TrimmingAudioProcessor`.
 *   Video:
     *   Improve smooth video frame release at startup when audio samples don't
         start at exactly the requested position.
@@ -112,8 +114,6 @@ This release includes the following changes since [1.6.1](#161-2025-04-14):
     *   Fix bug that `AnalyticsListener.onAudioPositionAdvancing` was not
         reporting the time when the audio started advancing but the time of the
         first measurement.
-    *   Add support for all linear PCM sample formats in
-        `ChannelMappingAudioProcessor` and `TrimmingAudioProcessor`.
 *   Video:
     *   Add experimental `ExoPlayer` API to include the
         `MediaCodec.BUFFER_FLAG_DECODE_ONLY` flag when queuing decode-only input

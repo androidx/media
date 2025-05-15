@@ -18,6 +18,7 @@ package androidx.media3.test.utils;
 import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
+import static androidx.media3.common.util.Util.putInt24;
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -175,6 +176,13 @@ public class TestUtil {
     return array;
   }
 
+  /** Gets the underlying data of the {@link ByteBuffer} as a {@code byte[]}. */
+  public static byte[] createByteArray(ByteBuffer byteBuffer) {
+    byte[] content = new byte[byteBuffer.remaining()];
+    byteBuffer.get(content);
+    return content;
+  }
+
   /** Gets the underlying data of the {@link ByteBuffer} as a {@code float[]}. */
   public static float[] createFloatArray(ByteBuffer byteBuffer) {
     FloatBuffer buffer = byteBuffer.asFloatBuffer();
@@ -191,11 +199,13 @@ public class TestUtil {
     return content;
   }
 
-  /** Gets the underlying data of the {@link ByteBuffer} as int24 values in {@code int[]}. */
+  /**
+   * Gets the underlying data of the {@link ByteBuffer} as 24-bit integer values in {@code int[]}.
+   */
   public static int[] createInt24Array(ByteBuffer byteBuffer) {
     int[] content = new int[byteBuffer.remaining() / 3];
     for (int i = 0; i < content.length; i++) {
-      content[i] = Util.getInt24(byteBuffer, byteBuffer.position() + i * 3) & 0xffffff;
+      content[i] = Util.getInt24(byteBuffer, byteBuffer.position() + i * 3);
     }
     return content;
   }
@@ -205,13 +215,6 @@ public class TestUtil {
     ShortBuffer buffer = byteBuffer.asShortBuffer();
     short[] content = new short[buffer.remaining()];
     buffer.get(content);
-    return content;
-  }
-
-  /** Gets the underlying data of the {@link ByteBuffer} as a {@code byte[]}. */
-  public static byte[] createByteArray(ByteBuffer byteBuffer) {
-    byte[] content = new byte[byteBuffer.remaining()];
-    byteBuffer.get(content);
     return content;
   }
 
@@ -231,16 +234,6 @@ public class TestUtil {
   }
 
   /** Creates a {@link ByteBuffer} containing the {@code data}. */
-  public static ByteBuffer createInt24ByteBuffer(int[] data) {
-    ByteBuffer buffer = ByteBuffer.allocateDirect(data.length * 3).order(ByteOrder.nativeOrder());
-    for (int i : data) {
-      Util.putInt24(buffer, i);
-    }
-    buffer.rewind();
-    return buffer;
-  }
-
-  /** Creates a {@link ByteBuffer} containing the {@code data}. */
   public static ByteBuffer createByteBuffer(short[] data) {
     ByteBuffer buffer = ByteBuffer.allocateDirect(data.length * 2).order(ByteOrder.nativeOrder());
     buffer.asShortBuffer().put(data);
@@ -251,6 +244,16 @@ public class TestUtil {
   public static ByteBuffer createByteBuffer(byte[] data) {
     ByteBuffer buffer = ByteBuffer.allocateDirect(data.length).order(ByteOrder.nativeOrder());
     buffer.put(data);
+    buffer.rewind();
+    return buffer;
+  }
+
+  /** Creates a {@link ByteBuffer} with the contents of {@code data} as 24-bit integers. */
+  public static ByteBuffer createInt24ByteBuffer(int[] data) {
+    ByteBuffer buffer = ByteBuffer.allocateDirect(data.length * 3).order(ByteOrder.nativeOrder());
+    for (int i : data) {
+      putInt24(buffer, i);
+    }
     buffer.rewind();
     return buffer;
   }

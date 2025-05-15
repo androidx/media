@@ -16,6 +16,9 @@
 package androidx.media3.exoplayer.audio;
 
 import static androidx.media3.common.util.Util.getByteDepth;
+import static androidx.media3.common.util.Util.getInt24;
+import static androidx.media3.common.util.Util.isEncodingLinearPcm;
+import static androidx.media3.common.util.Util.putInt24;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
@@ -24,7 +27,6 @@ import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.BaseAudioProcessor;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 
@@ -59,7 +61,7 @@ public final class ChannelMappingAudioProcessor extends BaseAudioProcessor {
       return AudioFormat.NOT_SET;
     }
 
-    if (!Util.isEncodingLinearPcm(inputAudioFormat.encoding)) {
+    if (!isEncodingLinearPcm(inputAudioFormat.encoding)) {
       throw new UnhandledAudioFormatException(inputAudioFormat);
     }
 
@@ -102,7 +104,7 @@ public final class ChannelMappingAudioProcessor extends BaseAudioProcessor {
             break;
           case C.ENCODING_PCM_24BIT:
           case C.ENCODING_PCM_24BIT_BIG_ENDIAN:
-            Util.putInt24(buffer, Util.getInt24(inputBuffer, inputIndex));
+            putInt24(buffer, getInt24(inputBuffer, inputIndex));
             break;
           case C.ENCODING_PCM_32BIT:
           case C.ENCODING_PCM_32BIT_BIG_ENDIAN:
