@@ -17,6 +17,7 @@ package androidx.media3.common;
 
 import static android.os.Build.VERSION.SDK_INT;
 
+import android.annotation.SuppressLint;
 import android.os.Bundle;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
@@ -42,6 +43,7 @@ public final class AudioAttributes {
     public final android.media.AudioAttributes audioAttributes;
 
     private AudioAttributesV21(AudioAttributes audioAttributes) {
+      @SuppressLint("WrongConstant") // Setting C.AudioContentType and C.AudioUsage to platform API.
       android.media.AudioAttributes.Builder builder =
           new android.media.AudioAttributes.Builder()
               .setContentType(audioAttributes.contentType)
@@ -278,6 +280,7 @@ public final class AudioAttributes {
 
   @RequiresApi(29)
   private static final class Api29 {
+    @SuppressLint("WrongConstant") // Setting C.AudioAllowedCapturePolicy to platform API.
     public static void setAllowedCapturePolicy(
         android.media.AudioAttributes.Builder builder,
         @C.AudioAllowedCapturePolicy int allowedCapturePolicy) {
@@ -287,6 +290,7 @@ public final class AudioAttributes {
 
   @RequiresApi(32)
   private static final class Api32 {
+    @SuppressLint("WrongConstant") // Setting C.SpatializationBehavior to platform API.
     public static void setSpatializationBehavior(
         android.media.AudioAttributes.Builder builder,
         @C.SpatializationBehavior int spatializationBehavior) {

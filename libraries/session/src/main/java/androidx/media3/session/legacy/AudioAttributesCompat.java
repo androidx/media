@@ -676,8 +676,9 @@ public class AudioAttributesCompat {
         return new AudioAttributesImplApi26(fwkBuilder.build());
       }
 
+      @SuppressLint("WrongConstant") // Setting AttributeUsage on platform API.
       @Override
-      public Builder setUsage(int usage) {
+      public Builder setUsage(@AttributeUsage int usage) {
         fwkBuilder.setUsage(usage);
         return this;
       }

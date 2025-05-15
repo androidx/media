@@ -118,6 +118,7 @@ public final class NotificationUtil {
       NotificationManager notificationManager =
           checkNotNull(
               (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE));
+      @SuppressLint("WrongConstant") // Setting NotificationUtil.Importance on platform API.
       NotificationChannel channel =
           new NotificationChannel(id, context.getString(nameResourceId), importance);
       if (descriptionResourceId != 0) {

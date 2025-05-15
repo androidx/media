@@ -25,6 +25,7 @@ import static androidx.media3.session.SessionError.ERROR_UNKNOWN;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
+import android.annotation.SuppressLint;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.os.Bundle;
@@ -391,6 +392,7 @@ import java.util.concurrent.Future;
   private boolean setLegacyErrorState(LibraryResult<?> result) {
     PlayerWrapper playerWrapper = getPlayerWrapper();
     if (isReplicationErrorCode(result.resultCode)) {
+      @SuppressLint("WrongConstant")
       @PlaybackStateCompat.ErrorCode
       int legacyErrorCode = LegacyConversions.convertToLegacyErrorCode(result.resultCode);
       @Nullable PlayerWrapper.LegacyError legacyError = playerWrapper.getLegacyError();
