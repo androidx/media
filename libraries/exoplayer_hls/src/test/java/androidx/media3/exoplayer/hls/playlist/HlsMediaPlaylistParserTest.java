@@ -1610,6 +1610,42 @@ public class HlsMediaPlaylistParserTest {
   }
 
   @Test
+  public void
+  parseMediaPlaylist_withInterstitialWithUpdatingDateRange()
+      throws IOException {
+    Uri playlistUri = Uri.parse("https://raw.githubusercontent.com/TomVarga/HLS-test-stream/refs/heads/main/ride/audio.m3u8");
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-VERSION:3\n"
+            + "#EXT-X-TARGETDURATION:10\n"
+            + "#EXT-X-MEDIA-SEQUENCE:0\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2024-09-20T15:29:20.000Z\n"
+            + "#EXTINF:10.007800,\n"
+            + "audio0000.ts\n"
+            + "#EXT-X-DATERANGE:ID=\"15943\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2024-09-20T15:29:24.006Z\",PLANNED-DURATION=25,"
+            + "X-ASSET-LIST=\"myapp://interstitial/req?_HLS_interstitial_id=15943\","
+            + "X-SNAP=\"OUT,IN\",X-TIMELINE-OCCUPIES=\"RANGE\","
+            + "X-TIMELINE-STYLE=\"HIGHLIGHT\",X-CONTENT-MAY-VARY=\"YES\"\n"
+            + "#EXTINF:10.007800,\n"
+            + "audio0001.ts\n"
+            + "#EXT-X-DATERANGE:ID=\"15943\",CLASS=\"com.apple.hls.interstitial\","
+            + "END-DATE=\"2024-09-20T15:29:49.006Z\",X-PLAYOUT-LIMIT=24.953741497,"
+            + "X-RESUME-OFFSET=24.953741497";
+
+    HlsMediaPlaylist playlist =
+        (HlsMediaPlaylist)
+            new HlsPlaylistParser()
+                .parse(playlistUri, new ByteArrayInputStream(Util.getUtf8Bytes(playlistString)));
+
+    assertThat(playlist.interstitials.get(0).id).isEqualTo("15943");
+    assertThat(playlist.interstitials.get(0).resumeOffsetUs).isEqualTo(24953741L);
+    assertThat(playlist.interstitials.get(0).endDateUnixUs).isEqualTo(1726846189006000L);
+    assertThat(playlist.interstitials.get(0).playoutLimitUs).isEqualTo(24953741L);
+  }
+
+  @Test
   public void multipleExtXKeysForSingleSegment() throws Exception {
     Uri playlistUri = Uri.parse("https://example.com/test.m3u8");
     String playlistString =
