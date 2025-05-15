@@ -103,6 +103,10 @@ This release includes the following changes since [1.6.1](#161-2025-04-14):
 *   IMA extension:
     *   Fix a bug where a load error in one ad may accidentally invalidate
         another ad group.
+    *   Fix bug where ad groups after the end of a VOD window stalled playback.
+        Ads groups with a start time after the window are not enqueued into the
+        `MediaPeriodQueue` anymore
+        ([#2215](https://github.com/androidx/media/issues/2215)).
 *   Session:
     *   Fix a bug where passing null into `getLibraryRoot` of a `MediaBrowser`
         connected to a legacy `MediaBrowserServiceCompat` produced a
@@ -3079,10 +3083,6 @@ This release corresponds to the
 *   Ad playback / IMA:
     *   Decrease ad polling rate from every 100ms to every 200ms, to line up
         with Media Rating Council (MRC) recommendations.
-    *   Fix bug where ad groups after the end of a VOD window stalled playback.
-        Ads groups with a start time after the window are not enqueued into the
-        `MediaPeriodQueue` anymore
-        ([#2215](https://github.com/androidx/media/issues/2215)).
 *   FFmpeg extension:
     *   Update CMake version to `3.21.0+` to avoid a CMake bug causing
         AndroidStudio's gradle sync to fail
