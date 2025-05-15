@@ -58,6 +58,8 @@
 *   MIDI extension:
 *   Leanback extension:
 *   Cast extension:
+    *   Add support for `setVolume()`, and `getVolume()`
+        ([#2279](https://github.com/androidx/media/pull/2279)).
 *   Test Utilities:
     *   Add `advance(player).untilPositionAtLeast` and `untilMediaItemIndex` to
         `TestPlayerRunHelper` in order to advance the player until a specified
@@ -230,8 +232,6 @@ This release includes the following changes since [1.6.1](#161-2025-04-14):
         `increaseDeviceVolume()`, `decreaseDeviceVolume()`,
         `isDeviceMuted()`, and `setDeviceMuted()`
         ([#2089](https://github.com/androidx/media/issues/2089)).
-    *   Add support for `setVolume()`, and `getVolume()`
-        ([#2279](https://github.com/androidx/media/pull/2279)).
 *   Test Utilities:
     *   Removed `transformer.TestUtil.addAudioDecoders(String...)`,
         `transformer.TestUtil.addAudioEncoders(String...)`, and
