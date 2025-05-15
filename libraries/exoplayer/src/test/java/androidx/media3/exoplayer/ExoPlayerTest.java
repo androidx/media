@@ -722,6 +722,62 @@ public final class ExoPlayerTest {
     assertThat(videoStreamSetToFinalCount.get()).isEqualTo(1);
   }
 
+  @Test
+  public void trackSelectorLifeCycle_whenReleasedFromApplicationThread_throwsIllegalStateException()
+      throws Exception {
+    DefaultTrackSelector trackSelector = new DefaultTrackSelector(context);
+    ExoPlayer player =
+        new ExoPlayer.Builder(context)
+            .setTrackSelector(trackSelector)
+            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .build();
+    player.setMediaSource(
+        new FakeMediaSource(
+            new FakeTimeline(),
+            ExoPlayerTestRunner.VIDEO_FORMAT,
+            ExoPlayerTestRunner.AUDIO_FORMAT));
+    player.prepare();
+    player.play();
+
+    runUntilPlaybackState(player, Player.STATE_READY);
+
+    assertThrows(IllegalStateException.class, trackSelector::release);
+  }
+
+  @Test
+  public void trackSelectorLifeCycle_usedBySecondPlayerBeforeRelease_throwsIllegalStateException() {
+    DefaultTrackSelector trackSelector = new DefaultTrackSelector(context);
+    new ExoPlayer.Builder(context)
+        .setTrackSelector(trackSelector)
+        .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+        .build();
+
+    assertThrows(
+        IllegalStateException.class,
+        () ->
+            new ExoPlayer.Builder(context)
+                .setTrackSelector(trackSelector)
+                .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+                .build());
+  }
+
+  @Test
+  public void trackSelectorLifeCycle_usedBySecondPlayerAfterRelease_worksAsExpected() {
+    DefaultTrackSelector trackSelector = new DefaultTrackSelector(context);
+    ExoPlayer player =
+        new ExoPlayer.Builder(context)
+            .setTrackSelector(trackSelector)
+            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .build();
+
+    player.release();
+
+    new ExoPlayer.Builder(context)
+        .setTrackSelector(trackSelector)
+        .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+        .build();
+  }
+
   /**
    * Tests that the player does not unnecessarily reset renderers when playing a multi-period
    * source.
