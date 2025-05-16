@@ -15,8 +15,12 @@
  */
 package androidx.media3.exoplayer.audio;
 
+import static androidx.media3.test.utils.TestUtil.createByteArray;
 import static androidx.media3.test.utils.TestUtil.createByteBuffer;
 import static androidx.media3.test.utils.TestUtil.createFloatArray;
+import static androidx.media3.test.utils.TestUtil.createInt24Array;
+import static androidx.media3.test.utils.TestUtil.createInt24ByteBuffer;
+import static androidx.media3.test.utils.TestUtil.createIntArray;
 import static androidx.media3.test.utils.TestUtil.createShortArray;
 import static com.google.common.truth.Truth.assertThat;
 
@@ -36,9 +40,21 @@ public class ChannelMappingAudioProcessorTest {
       new AudioFormat(
           /* sampleRate= */ 44100, /* channelCount= */ 3, /* encoding= */ C.ENCODING_PCM_FLOAT);
 
+  private static final AudioFormat PCM_32BIT_STEREO_FORMAT =
+      new AudioFormat(
+          /* sampleRate= */ 44100, /* channelCount= */ 2, /* encoding= */ C.ENCODING_PCM_32BIT);
+
+  private static final AudioFormat PCM_24BIT_STEREO_FORMAT =
+      new AudioFormat(
+          /* sampleRate= */ 44100, /* channelCount= */ 2, /* encoding= */ C.ENCODING_PCM_24BIT);
+
   private static final AudioFormat PCM_16BIT_STEREO_FORMAT =
       new AudioFormat(
           /* sampleRate= */ 44100, /* channelCount= */ 2, /* encoding= */ C.ENCODING_PCM_16BIT);
+
+  private static final AudioFormat PCM_8BIT_STEREO_FORMAT =
+      new AudioFormat(
+          /* sampleRate= */ 44100, /* channelCount= */ 2, /* encoding= */ C.ENCODING_PCM_8BIT);
 
   @Test
   public void channelMap_withPcmFloatSamples_mapsOutputCorrectly()
@@ -54,6 +70,32 @@ public class ChannelMappingAudioProcessorTest {
   }
 
   @Test
+  public void channelMap_withPcm32Samples_mapsOutputCorrectly()
+      throws AudioProcessor.UnhandledAudioFormatException {
+    ChannelMappingAudioProcessor processor = new ChannelMappingAudioProcessor();
+    processor.setChannelMap(new int[] {1, 0});
+    processor.configure(PCM_32BIT_STEREO_FORMAT);
+    processor.flush();
+
+    processor.queueInput(createByteBuffer(new int[] {1, 2, 3, 4, 5, 6}));
+    int[] output = createIntArray(processor.getOutput());
+    assertThat(output).isEqualTo(new int[] {2, 1, 4, 3, 6, 5});
+  }
+
+  @Test
+  public void channelMap_withPcm24Samples_mapsOutputCorrectly()
+      throws AudioProcessor.UnhandledAudioFormatException {
+    ChannelMappingAudioProcessor processor = new ChannelMappingAudioProcessor();
+    processor.setChannelMap(new int[] {1, 0});
+    processor.configure(PCM_24BIT_STEREO_FORMAT);
+    processor.flush();
+
+    processor.queueInput(createInt24ByteBuffer(new int[] {0xff0001, 0x00ff02, 0x0300ff, 0x40ff00}));
+    int[] output = createInt24Array(processor.getOutput());
+    assertThat(output).isEqualTo(new int[] {0x00ff02, 0xffff0001, 0x40ff00, 0x0300ff});
+  }
+
+  @Test
   public void channelMap_withPcm16Samples_mapsOutputCorrectly()
       throws AudioProcessor.UnhandledAudioFormatException {
     ChannelMappingAudioProcessor processor = new ChannelMappingAudioProcessor();
@@ -64,6 +106,19 @@ public class ChannelMappingAudioProcessorTest {
     processor.queueInput(createByteBuffer(new short[] {1, 2, 3, 4, 5, 6}));
     short[] output = createShortArray(processor.getOutput());
     assertThat(output).isEqualTo(new short[] {2, 1, 4, 3, 6, 5});
+  }
+
+  @Test
+  public void channelMap_withPcm8Samples_mapsOutputCorrectly()
+      throws AudioProcessor.UnhandledAudioFormatException {
+    ChannelMappingAudioProcessor processor = new ChannelMappingAudioProcessor();
+    processor.setChannelMap(new int[] {1, 0});
+    processor.configure(PCM_8BIT_STEREO_FORMAT);
+    processor.flush();
+
+    processor.queueInput(createByteBuffer(new byte[] {1, 2, 3, 4, 5, 6}));
+    byte[] output = createByteArray(processor.getOutput());
+    assertThat(output).isEqualTo(new byte[] {2, 1, 4, 3, 6, 5});
   }
 
   @Test

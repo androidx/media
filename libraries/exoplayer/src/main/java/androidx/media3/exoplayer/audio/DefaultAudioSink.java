@@ -538,8 +538,9 @@ public final class DefaultAudioSink implements AudioSink {
   private final boolean enableFloatOutput;
   private final ChannelMappingAudioProcessor channelMappingAudioProcessor;
   private final TrimmingAudioProcessor trimmingAudioProcessor;
-  private final ImmutableList<AudioProcessor> toIntPcmAvailableAudioProcessors;
-  private final ImmutableList<AudioProcessor> toFloatPcmAvailableAudioProcessors;
+  private final ToInt16PcmAudioProcessor toInt16PcmAudioProcessor;
+  private final ToFloatPcmAudioProcessor toFloatPcmAudioProcessor;
+  private final ImmutableList<AudioProcessor> availableAudioProcessors;
   private final AudioTrackPositionTracker audioTrackPositionTracker;
   private final ArrayDeque<MediaPositionParameters> mediaPositionParametersCheckpoints;
   private final boolean preferAudioTrackPlaybackParams;
@@ -620,12 +621,10 @@ public final class DefaultAudioSink implements AudioSink {
     audioTrackPositionTracker = new AudioTrackPositionTracker(new PositionTrackerListener());
     channelMappingAudioProcessor = new ChannelMappingAudioProcessor();
     trimmingAudioProcessor = new TrimmingAudioProcessor();
-    toIntPcmAvailableAudioProcessors =
-        ImmutableList.of(
-            new ToInt16PcmAudioProcessor(), channelMappingAudioProcessor, trimmingAudioProcessor);
-    toFloatPcmAvailableAudioProcessors =
-        ImmutableList.of(
-            new ToFloatPcmAudioProcessor(), channelMappingAudioProcessor, trimmingAudioProcessor);
+    toInt16PcmAudioProcessor = new ToInt16PcmAudioProcessor();
+    toFloatPcmAudioProcessor = new ToFloatPcmAudioProcessor();
+    availableAudioProcessors =
+        ImmutableList.of(trimmingAudioProcessor, channelMappingAudioProcessor);
     volume = 1f;
     audioSessionId = C.AUDIO_SESSION_ID_UNSET;
     auxEffectInfo = new AuxEffectInfo(AuxEffectInfo.NO_AUX_EFFECT_ID, 0f);
@@ -727,10 +726,11 @@ public final class DefaultAudioSink implements AudioSink {
       inputPcmFrameSize = Util.getPcmFrameSize(inputFormat.pcmEncoding, inputFormat.channelCount);
 
       ImmutableList.Builder<AudioProcessor> pipelineProcessors = new ImmutableList.Builder<>();
+      pipelineProcessors.addAll(availableAudioProcessors);
       if (shouldUseFloatOutput(inputFormat.pcmEncoding)) {
-        pipelineProcessors.addAll(toFloatPcmAvailableAudioProcessors);
+        pipelineProcessors.add(toFloatPcmAudioProcessor);
       } else {
-        pipelineProcessors.addAll(toIntPcmAvailableAudioProcessors);
+        pipelineProcessors.add(toInt16PcmAudioProcessor);
         pipelineProcessors.add(audioProcessorChain.getAudioProcessors());
       }
       audioProcessingPipeline = new AudioProcessingPipeline(pipelineProcessors.build());
@@ -1619,12 +1619,12 @@ public final class DefaultAudioSink implements AudioSink {
   @Override
   public void reset() {
     flush();
-    for (AudioProcessor audioProcessor : toIntPcmAvailableAudioProcessors) {
+    for (AudioProcessor audioProcessor : availableAudioProcessors) {
       audioProcessor.reset();
     }
-    for (AudioProcessor audioProcessor : toFloatPcmAvailableAudioProcessors) {
-      audioProcessor.reset();
-    }
+    toInt16PcmAudioProcessor.reset();
+    toFloatPcmAudioProcessor.reset();
+
     if (audioProcessingPipeline != null) {
       audioProcessingPipeline.reset();
     }
