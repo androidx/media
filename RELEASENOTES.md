@@ -21,6 +21,10 @@
 *   Muxers:
 *   IMA extension:
 *   Session:
+    *   Fix bug where calling `setSessionExtras` from the main thread when
+        running the player from a different application thread then the main
+        thread caused an `IllegalStateException`
+        ([#2265](https://github.com/androidx/media/pull/2265)).
 *   UI:
 *   Downloads:
 *   OkHttp extension:
