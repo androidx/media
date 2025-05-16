@@ -1,8 +1,8 @@
 # Release notes
 
-## 1.7
+## 1.8
 
-### 1.7.0-alpha01 (2025-05-15)
+### 1.8.0-alpha01 (2025-05-19)
 
 This release includes the following changes since [1.6.1](#161-2025-04-14):
 
@@ -189,6 +189,20 @@ This release includes the following changes since [1.6.1](#161-2025-04-14):
         `MediaCodecVideoRenderer(Context, MediaCodecAdapter.Factor,
         MediaCodecSelector, long, boolean, @Nullable Handler, @Nullable
         VideoRendererEventListener, int, float, @Nullable VideoSinkProvider)`.
+
+## 1.7
+
+### 1.7.1 (2025-05-16)
+
+This release has the same code as 1.6.1 and is being released to ensure it
+appears as a 'newer' release than 1.7.0, which was an alpha release accidentally
+tagged as stable (see below). Please avoid using either of these releases. Stay
+on 1.6.1 and wait for 1.8.0-alpha01.
+
+### 1.7.0 (2025-05-16)
+
+This release should have been `1.7.0-alpha01`, but was accidentally tagged
+`1.7.0` (i.e. stable) on maven.google.com.
 
 ## 1.6
 
