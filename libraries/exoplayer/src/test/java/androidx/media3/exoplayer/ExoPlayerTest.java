@@ -102,6 +102,7 @@ import android.content.pm.PackageManager;
 import android.graphics.SurfaceTexture;
 import android.media.AudioDeviceInfo;
 import android.media.AudioManager;
+import android.media.AudioTrack;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
@@ -146,6 +147,9 @@ import androidx.media3.exoplayer.ExoPlayer.PreloadConfiguration;
 import androidx.media3.exoplayer.analytics.AnalyticsListener;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.audio.AudioRendererEventListener;
+import androidx.media3.exoplayer.audio.AudioSink;
+import androidx.media3.exoplayer.audio.DefaultAudioSink;
+import androidx.media3.exoplayer.audio.DefaultAudioTrackProvider;
 import androidx.media3.exoplayer.drm.DrmSessionEventListener;
 import androidx.media3.exoplayer.drm.DrmSessionManager;
 import androidx.media3.exoplayer.mediacodec.MediaCodecRenderer;
@@ -16677,7 +16681,7 @@ public final class ExoPlayerTest {
 
   @Test
   public void setAudioSessionId_withUndefinedId_updatesGetterAndListener() throws Exception {
-    ExoPlayer player = new ExoPlayer.Builder(context).build();
+    ExoPlayer player = new TestExoPlayerBuilder(context).build();
     advance(player).untilPendingCommandsAreFullyHandled();
     Player.Listener listener = mock(Player.Listener.class);
     player.addListener(listener);
@@ -16690,6 +16694,68 @@ public final class ExoPlayerTest {
 
     assertThat(audioSessionId).isNotEqualTo(initialAudioSessionId);
     verify(listener).onAudioSessionIdChanged(audioSessionId);
+  }
+
+  @Test
+  public void audioSessionIdChangeInTheAudioSink_propagatesToOtherRenderersGetterAndListener()
+      throws Exception {
+    AtomicInteger lastConfiguredAudioSessionIdOnVideoRenderer = new AtomicInteger();
+    RenderersFactory renderersFactory =
+        new DefaultRenderersFactory(context) {
+          @Override
+          protected AudioSink buildAudioSink(
+              Context context, boolean enableFloatOutput, boolean enableAudioTrackPlaybackParams) {
+            return new DefaultAudioSink.Builder(context)
+                .setAudioTrackProvider(
+                    new DefaultAudioTrackProvider() {
+                      @Override
+                      protected AudioTrack.Builder customizeAudioTrackBuilder(
+                          AudioTrack.Builder audioTrackBuilder) {
+                        // Create an AudioTrackProvider that ignores the player-provided audio
+                        // session ID and always sets up playback with its own custom ID.
+                        return audioTrackBuilder.setSessionId(1234);
+                      }
+                    })
+                .build();
+          }
+
+          @Override
+          protected void buildMiscellaneousRenderers(
+              Context context,
+              Handler eventHandler,
+              @ExtensionRendererMode int extensionRendererMode,
+              ArrayList<Renderer> out) {
+            out.add(
+                new FakeRenderer(C.TRACK_TYPE_VIDEO) {
+                  @Override
+                  public void handleMessage(@MessageType int messageType, @Nullable Object message)
+                      throws ExoPlaybackException {
+                    if (messageType == Renderer.MSG_SET_AUDIO_SESSION_ID) {
+                      lastConfiguredAudioSessionIdOnVideoRenderer.set((int) message);
+                    }
+                    super.handleMessage(messageType, message);
+                  }
+                });
+          }
+        };
+    ExoPlayer player =
+        new TestExoPlayerBuilder(context).setRenderersFactory(renderersFactory).build();
+    MediaSource source =
+        new FakeMediaSource(
+            new FakeTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT, ExoPlayerTestRunner.AUDIO_FORMAT);
+    Player.Listener listener = mock(Player.Listener.class);
+    player.addListener(listener);
+    player.setMediaSource(source);
+
+    player.prepare();
+    advance(player)
+        .untilBackgroundThreadCondition(
+            () -> lastConfiguredAudioSessionIdOnVideoRenderer.get() == 1234);
+    int audioSessionIdAtEnd = player.getAudioSessionId();
+
+    assertThat(audioSessionIdAtEnd).isEqualTo(1234);
+    assertThat(lastConfiguredAudioSessionIdOnVideoRenderer.get()).isEqualTo(1234);
+    verify(listener).onAudioSessionIdChanged(1234);
   }
 
   @Test

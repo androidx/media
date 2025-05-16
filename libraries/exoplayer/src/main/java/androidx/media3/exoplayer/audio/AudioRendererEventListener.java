@@ -160,6 +160,13 @@ public interface AudioRendererEventListener {
    */
   default void onAudioTrackReleased(AudioSink.AudioTrackConfig audioTrackConfig) {}
 
+  /**
+   * Called when the audio session id changed.
+   *
+   * @param audioSessionId The new audio session ID.
+   */
+  default void onAudioSessionIdChanged(int audioSessionId) {}
+
   /** Dispatches events to an {@link AudioRendererEventListener}. */
   final class EventDispatcher {
 
@@ -277,6 +284,13 @@ public interface AudioRendererEventListener {
     public void audioTrackReleased(AudioSink.AudioTrackConfig audioTrackConfig) {
       if (handler != null) {
         handler.post(() -> castNonNull(listener).onAudioTrackReleased(audioTrackConfig));
+      }
+    }
+
+    /** Invokes {@link AudioRendererEventListener#onAudioSessionIdChanged}. */
+    public void audioSessionIdChanged(int audioSessionId) {
+      if (handler != null) {
+        handler.post(() -> castNonNull(listener).onAudioSessionIdChanged(audioSessionId));
       }
     }
   }

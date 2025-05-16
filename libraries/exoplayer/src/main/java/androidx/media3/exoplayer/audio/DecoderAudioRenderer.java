@@ -935,6 +935,11 @@ public abstract class DecoderAudioRenderer<
     public void onAudioTrackReleased(AudioSink.AudioTrackConfig audioTrackConfig) {
       eventDispatcher.audioTrackReleased(audioTrackConfig);
     }
+
+    @Override
+    public void onAudioSessionIdChanged(int audioSessionId) {
+      eventDispatcher.audioSessionIdChanged(audioSessionId);
+    }
   }
 
   @RequiresApi(23)

@@ -3201,6 +3201,13 @@ import java.util.concurrent.CopyOnWriteArraySet;
       analyticsCollector.onAudioTrackReleased(audioTrackConfig);
     }
 
+    @Override
+    public void onAudioSessionIdChanged(int audioSessionId) {
+      audioSessionIdState.updateStateAsync(
+          /* placeholderState= */ previousId -> audioSessionId,
+          /* backgroundStateUpdate= */ previousId -> audioSessionId);
+    }
+
     // TextOutput implementation
     @SuppressWarnings("deprecation") // Intentionally forwarding deprecating callback
     @Override

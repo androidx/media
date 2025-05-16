@@ -1173,6 +1173,14 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
     public void onAudioTrackReleased(AudioSink.AudioTrackConfig audioTrackConfig) {
       eventDispatcher.audioTrackReleased(audioTrackConfig);
     }
+
+    @Override
+    public void onAudioSessionIdChanged(int audioSessionId) {
+      if (SDK_INT >= 35 && loudnessCodecController != null) {
+        loudnessCodecController.setAudioSessionId(audioSessionId);
+      }
+      eventDispatcher.audioSessionIdChanged(audioSessionId);
+    }
   }
 
   @RequiresApi(23)

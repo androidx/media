@@ -29,6 +29,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import android.content.Context;
 import android.media.AudioDeviceInfo;
 import android.media.AudioFormat;
+import android.media.AudioManager;
 import android.media.AudioRouting;
 import android.media.AudioRouting.OnRoutingChangedListener;
 import android.media.AudioTrack;
@@ -101,9 +102,20 @@ public final class DefaultAudioSink implements AudioSink {
     /** The default provider for {@link AudioTrack} instances. */
     AudioTrackProvider DEFAULT = new DefaultAudioTrackProvider();
 
-    /** Returns a new {@link AudioTrack} for the given parameters. */
+    /**
+     * Returns a new {@link AudioTrack} for the given parameters.
+     *
+     * @param audioTrackConfig The {@link AudioTrackConfig}.
+     * @param audioAttributes The {@link AudioAttributes}.
+     * @param audioSessionId The audio session ID.
+     * @param context The {@link Context} to be used for the {@link AudioTrack} creation, or null to
+     *     not set a {@link Context}.
+     */
     AudioTrack getAudioTrack(
-        AudioTrackConfig audioTrackConfig, AudioAttributes audioAttributes, int audioSessionId);
+        AudioTrackConfig audioTrackConfig,
+        AudioAttributes audioAttributes,
+        int audioSessionId,
+        @Nullable Context context);
 
     /** Returns the channel mask config for the given channel count. */
     default int getAudioTrackChannelConfig(int channelCount) {
@@ -540,6 +552,7 @@ public final class DefaultAudioSink implements AudioSink {
   private final AudioOffloadSupportProvider audioOffloadSupportProvider;
   @Nullable private final AudioOffloadListener audioOffloadListener;
   private final AudioTrackProvider audioTrackProvider;
+  private final int contextDeviceId;
 
   @Nullable private PlayerId playerId;
   @Nullable private Listener listener;
@@ -591,6 +604,7 @@ public final class DefaultAudioSink implements AudioSink {
   private long skippedOutputFrameCountAtLastPosition;
   private long accumulatedSkippedSilenceDurationUs;
   private @MonotonicNonNull Handler reportSkippedSilenceHandler;
+  @Nullable private Context contextWithDeviceId;
 
   @RequiresNonNull("#1.audioProcessorChain")
   private DefaultAudioSink(Builder builder) {
@@ -625,6 +639,10 @@ public final class DefaultAudioSink implements AudioSink {
     writeExceptionPendingExceptionHolder = new PendingExceptionHolder<>();
     audioOffloadListener = builder.audioOffloadListener;
     audioTrackProvider = builder.audioTrackProvider;
+    contextDeviceId =
+        SDK_INT < 34 || builder.context == null
+            ? C.INDEX_UNSET
+            : getDeviceIdFromContext(builder.context);
   }
 
   // AudioSink implementation.
@@ -855,7 +873,9 @@ public final class DefaultAudioSink implements AudioSink {
     if (SDK_INT >= 31 && playerId != null) {
       Api31.setLogSessionIdOnAudioTrack(audioTrack, playerId);
     }
-    audioSessionId = audioTrack.getAudioSessionId();
+    int newAudioSessionId = audioTrack.getAudioSessionId();
+    boolean audioSessionIdChanged = newAudioSessionId != audioSessionId;
+    audioSessionId = newAudioSessionId;
     audioTrackPositionTracker.setAudioTrack(
         audioTrack,
         /* isPassthrough= */ configuration.outputMode == OUTPUT_MODE_PASSTHROUGH,
@@ -882,6 +902,9 @@ public final class DefaultAudioSink implements AudioSink {
 
     if (listener != null) {
       listener.onAudioTrackInitialized(configuration.buildAudioTrackConfig());
+      if (audioSessionIdChanged) {
+        listener.onAudioSessionIdChanged(audioSessionId);
+      }
     }
 
     return true;
@@ -1086,12 +1109,22 @@ public final class DefaultAudioSink implements AudioSink {
 
   private AudioTrack buildAudioTrack(Configuration configuration) throws InitializationException {
     try {
+      @Nullable Context contextForAudioTrack = null;
+      int audioSessionId = this.audioSessionId;
+      if (contextDeviceId != C.INDEX_UNSET && context != null && SDK_INT >= 34) {
+        if (contextWithDeviceId == null) {
+          contextWithDeviceId = context.createDeviceContext(contextDeviceId);
+        }
+        contextForAudioTrack = contextWithDeviceId;
+        audioSessionId = AudioManager.AUDIO_SESSION_ID_GENERATE;
+      }
       AudioTrack audioTrack =
           buildAudioTrack(
               configuration.buildAudioTrackConfig(),
               audioAttributes,
               audioSessionId,
-              configuration.inputFormat);
+              configuration.inputFormat,
+              contextForAudioTrack);
       if (audioOffloadListener != null) {
         audioOffloadListener.onOffloadedPlayback(isOffloadedPlayback(audioTrack));
       }
@@ -1108,12 +1141,14 @@ public final class DefaultAudioSink implements AudioSink {
       AudioTrackConfig audioTrackConfig,
       AudioAttributes audioAttributes,
       int audioSessionId,
-      Format inputFormat)
+      Format inputFormat,
+      @Nullable Context contextForAudioTrack)
       throws InitializationException {
     AudioTrack audioTrack;
     try {
       audioTrack =
-          audioTrackProvider.getAudioTrack(audioTrackConfig, audioAttributes, audioSessionId);
+          audioTrackProvider.getAudioTrack(
+              audioTrackConfig, audioAttributes, audioSessionId, contextForAudioTrack);
     } catch (UnsupportedOperationException | IllegalArgumentException e) {
       throw new InitializationException(
           AudioTrack.STATE_UNINITIALIZED,
@@ -1434,6 +1469,9 @@ public final class DefaultAudioSink implements AudioSink {
       this.audioSessionId = audioSessionId;
       externalAudioSessionIdProvided = audioSessionId != C.AUDIO_SESSION_ID_UNSET;
       flush();
+      if (listener != null) {
+        listener.onAudioSessionIdChanged(audioSessionId);
+      }
     }
   }
 
@@ -2015,6 +2053,14 @@ public final class DefaultAudioSink implements AudioSink {
     synchronized (releaseExecutorLock) {
       return pendingReleaseCount > 0;
     }
+  }
+
+  @RequiresApi(34)
+  private static int getDeviceIdFromContext(Context context) {
+    int deviceId = context.getDeviceId();
+    return deviceId != Context.DEVICE_ID_DEFAULT && deviceId != Context.DEVICE_ID_INVALID
+        ? deviceId
+        : C.INDEX_UNSET;
   }
 
   @RequiresApi(24)
