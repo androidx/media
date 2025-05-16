@@ -25,6 +25,9 @@
         running the player from a different application thread then the main
         thread caused an `IllegalStateException`
         ([#2265](https://github.com/androidx/media/pull/2265)).
+    *   Don't automatically show a notification if a player is set up with media
+        items without preparing or playing them
+        ([#2423]()https://github.com/androidx/media/issues/2423).
 *   UI:
 *   Downloads:
 *   OkHttp extension:
