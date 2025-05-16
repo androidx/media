@@ -1135,7 +1135,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       PlayerWrapper playerWrapper = sessionImpl.getPlayerWrapper();
       playerWrapper.setLegacyExtras(sessionExtras);
       sessionCompat.setExtras(playerWrapper.getLegacyExtras());
-      sessionCompat.setPlaybackState(sessionImpl.getPlayerWrapper().createPlaybackStateCompat());
+      updateLegacySessionPlaybackState(sessionImpl.getPlayerWrapper());
     }
 
     @Override
