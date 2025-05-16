@@ -62,6 +62,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -758,7 +759,7 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
     @Nullable Part preloadPart = null;
     List<RenditionReport> renditionReports = new ArrayList<>();
     List<String> tags = new ArrayList<>();
-    List<Interstitial> interstitials = new ArrayList<>();
+    LinkedHashMap<String, Interstitial> interstitialMap = new LinkedHashMap<>();
 
     long segmentDurationUs = 0;
     String segmentTitle = "";
@@ -1079,8 +1080,13 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
         if (assetListUriString != null) {
           assetListUri = Uri.parse(assetListUriString);
         }
-        long startDateUnixUs =
-            msToUs(parseXsDateTime(parseStringAttr(line, REGEX_START_DATE, variableDefinitions)));
+        long startDateUnixUs = C.TIME_UNSET;
+        @Nullable
+        String startDateUnixMsString =
+            parseOptionalStringAttr(line, REGEX_START_DATE, variableDefinitions);
+        if (startDateUnixMsString != null) {
+          startDateUnixUs = msToUs(parseXsDateTime(startDateUnixMsString));
+        }
         long endDateUnixUs = C.TIME_UNSET;
         @Nullable
         String endDateUnixMsString =
@@ -1185,24 +1191,50 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
               break;
           }
         }
-        if ((assetListUri == null && assetUri != null)
-            || (assetListUri != null && assetUri == null)) {
-          interstitials.add(
-              new Interstitial(
-                  id,
-                  assetUri,
-                  assetListUri,
-                  startDateUnixUs,
-                  endDateUnixUs,
-                  durationUs,
-                  plannedDurationUs,
-                  cue,
-                  endOnNext,
-                  resumeOffsetUs,
-                  playoutLimitUs,
-                  snapTypes,
-                  restrictions,
-                  clientDefinedAttributes.build()));
+
+        if (interstitialMap.containsKey(id)) {
+          Interstitial interstitial = interstitialMap.get(id);
+          interstitialMap.put(id, getUpdatedInterstitial(
+              interstitial,
+              assetUri,
+              assetListUri,
+              startDateUnixUs,
+              endDateUnixUs,
+              durationUs,
+              plannedDurationUs,
+              cue,
+              endOnNext,
+              resumeOffsetUs,
+              playoutLimitUs,
+              snapTypes,
+              restrictions,
+              clientDefinedAttributes.build()
+          ));
+        } else {
+          if ((assetListUri == null && assetUri != null)
+              || (assetListUri != null && assetUri == null)) {
+            if (startDateUnixUs == C.TIME_UNSET) {
+              throw ParserException.createForMalformedManifest(
+                  "Couldn't match " + REGEX_START_DATE.pattern() + " in " + line, /* cause= */
+                  null);
+            }
+            Interstitial interstitial = new Interstitial(
+                id,
+                assetUri,
+                assetListUri,
+                startDateUnixUs,
+                endDateUnixUs,
+                durationUs,
+                plannedDurationUs,
+                cue,
+                endOnNext,
+                resumeOffsetUs,
+                playoutLimitUs,
+                snapTypes,
+                restrictions,
+                clientDefinedAttributes.build());
+            interstitialMap.put(id, interstitial);
+          }
         }
       } else if (!line.startsWith("#")) {
         @Nullable
@@ -1310,7 +1342,71 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
         trailingParts,
         serverControl,
         renditionReportMap,
-        interstitials);
+        new ArrayList<>(interstitialMap.values()));
+  }
+
+  private static Interstitial getUpdatedInterstitial(
+      Interstitial oldInterstitial,
+      Uri assetUri,
+      Uri assetListUri,
+      long startDateUnixUs,
+      long endDateUnixUs,
+      long durationUs,
+      long plannedDurationUs,
+      List<String> cue,
+      boolean endOnNext,
+      long resumeOffsetUs,
+      long playoutLimitUs,
+      List<String> snapTypes,
+      List<String> restrictions,
+      ImmutableList<HlsMediaPlaylist.ClientDefinedAttribute> clientDefinedAttributes) {
+
+    // If a Playlist contains two EXT-X-DATERANGE tags with the same ID
+    // attribute value, then any AttributeName that appears in both tags
+    // MUST have the same AttributeValue.  A Server MAY augment a Date Range
+    // with additional attributes by adding subsequent EXT-X-DATERANGE tags
+    // with the same ID attribute to a Playlist.  The client is responsible
+    // for consolidating the tags.  The subsequent EXT-X-DATERANGE tags can
+    // appear in a subsequent playlist update, in the case of live or event
+    // streams.
+    Uri newAssetUri = (assetUri != null) ? assetUri : oldInterstitial.assetUri;
+    Uri newAssetListUri = (assetListUri != null) ? assetListUri : oldInterstitial.assetListUri;
+    long newStartDateUnixUs =
+        (startDateUnixUs != C.TIME_UNSET) ? startDateUnixUs : oldInterstitial.startDateUnixUs;
+    long newEndDateUnixUs =
+        (endDateUnixUs != C.TIME_UNSET) ? endDateUnixUs : oldInterstitial.endDateUnixUs;
+    long newDurationUs = (durationUs != C.TIME_UNSET) ? durationUs : oldInterstitial.durationUs;
+    long newPlannedDurationUs =
+        (plannedDurationUs != C.TIME_UNSET) ? plannedDurationUs : oldInterstitial.plannedDurationUs;
+    List<String> newCue = (cue != null && !cue.isEmpty()) ? cue : oldInterstitial.cue;
+    boolean newEndOnNext = oldInterstitial.endOnNext || endOnNext;
+    long newResumeOffsetUs =
+        (resumeOffsetUs != C.TIME_UNSET) ? resumeOffsetUs : oldInterstitial.resumeOffsetUs;
+    long newPlayoutLimitUs =
+        (playoutLimitUs != C.TIME_UNSET) ? playoutLimitUs : oldInterstitial.playoutLimitUs;
+    List<String> newSnapTypes =
+        (snapTypes != null && !snapTypes.isEmpty()) ? snapTypes : oldInterstitial.snapTypes;
+    List<String> newRestrictions = (restrictions != null && !restrictions.isEmpty()) ? restrictions
+        : oldInterstitial.restrictions;
+    ImmutableList<HlsMediaPlaylist.ClientDefinedAttribute> newClientDefinedAttributes =
+        (clientDefinedAttributes != null && !clientDefinedAttributes.isEmpty())
+            ? clientDefinedAttributes : oldInterstitial.clientDefinedAttributes;
+
+    return new Interstitial(
+        oldInterstitial.id,
+        newAssetUri,
+        newAssetListUri,
+        newStartDateUnixUs,
+        newEndDateUnixUs,
+        newDurationUs,
+        newPlannedDurationUs,
+        newCue,
+        newEndOnNext,
+        newResumeOffsetUs,
+        newPlayoutLimitUs,
+        newSnapTypes,
+        newRestrictions,
+        newClientDefinedAttributes);
   }
 
   private static DrmInitData getPlaylistProtectionSchemes(
