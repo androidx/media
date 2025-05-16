@@ -4,6 +4,8 @@
 
 *   Common Library:
 *   ExoPlayer:
+    *   Add support for using the virtual device ID from the `Context` passed to
+        `ExoPlayer.Builder`.
 *   Transformer:
 *   Track Selection:
 *   Extractors:
@@ -58,8 +60,6 @@ This release includes the following changes since [1.6.1](#161-2025-04-14):
         the player for many frequent seeks (for example, from a user dragging a
         scrubber bar around). The behavior of scrubbing mode can be customized
         with `setScrubbingModeParameters(..)` on `ExoPlayer` and
-        `ExoPlayer.Builder`.
-    *   Add support for using the virtual device ID from the `Context` passed to
         `ExoPlayer.Builder`.
     *   Allow customizing fractional seek tolerance in scrubbing mode.
     *   Increase codec operating rate in scrubbing mode.
