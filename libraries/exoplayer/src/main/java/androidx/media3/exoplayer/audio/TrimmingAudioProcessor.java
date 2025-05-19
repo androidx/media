@@ -15,9 +15,9 @@
  */
 package androidx.media3.exoplayer.audio;
 
+import static androidx.media3.common.util.Util.isEncodingLinearPcm;
 import static java.lang.Math.min;
 
-import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.audio.BaseAudioProcessor;
 import androidx.media3.common.util.UnstableApi;
@@ -80,8 +80,7 @@ public final class TrimmingAudioProcessor extends BaseAudioProcessor {
   @Override
   public AudioFormat onConfigure(AudioFormat inputAudioFormat)
       throws UnhandledAudioFormatException {
-    if (inputAudioFormat.encoding != C.ENCODING_PCM_16BIT
-        && inputAudioFormat.encoding != C.ENCODING_PCM_FLOAT) {
+    if (!isEncodingLinearPcm(inputAudioFormat.encoding)) {
       throw new UnhandledAudioFormatException(inputAudioFormat);
     }
     reconfigurationPending = true;
