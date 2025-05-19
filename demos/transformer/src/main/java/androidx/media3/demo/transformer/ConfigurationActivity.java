@@ -334,6 +334,9 @@ public final class ConfigurationActivity extends AppCompatActivity {
         (buttonView, isChecked) -> {
           if (isChecked) {
             enableTrimOptimization.setChecked(false);
+            // The experimentalSetMp4EditListTrimEnabled flag is required to be used together with
+            // Media3Mp4Muxer
+            useMedia3Mp4Muxer.setChecked(true);
           }
         });
 
