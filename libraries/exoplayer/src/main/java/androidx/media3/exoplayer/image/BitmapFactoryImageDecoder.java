@@ -15,7 +15,6 @@
  */
 package androidx.media3.exoplayer.image;
 
-import static androidx.annotation.VisibleForTesting.PRIVATE;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
@@ -49,8 +48,11 @@ public final class BitmapFactoryImageDecoder
     extends SimpleDecoder<DecoderInputBuffer, ImageOutputBuffer, ImageDecoderException>
     implements ImageDecoder {
 
-  /** A functional interface for turning byte arrays into bitmaps. */
-  @VisibleForTesting(otherwise = PRIVATE)
+  /**
+   * @deprecated Use {@link ExternallyLoadedImageDecoder} to control how images are decoded.
+   */
+  @Deprecated
+  @VisibleForTesting
   public interface BitmapDecoder {
 
     /**
@@ -67,20 +69,17 @@ public final class BitmapFactoryImageDecoder
   /** A factory for {@link BitmapFactoryImageDecoder} instances. */
   public static final class Factory implements ImageDecoder.Factory {
 
-    private final BitmapDecoder bitmapDecoder;
+    @Nullable private final BitmapDecoder bitmapDecoder;
 
-    /**
-     * Creates an instance using a {@link BitmapFactory} implementation of {@link BitmapDecoder}.
-     */
+    /** Creates an instance. */
     public Factory() {
-      this.bitmapDecoder = BitmapFactoryImageDecoder::decode;
+      this.bitmapDecoder = null;
     }
 
     /**
-     * Creates an instance.
-     *
-     * @param bitmapDecoder The {@link BitmapDecoder} used to turn a byte arrays into a bitmap.
+     * @deprecated Use {@link ExternallyLoadedImageDecoder} to control how images are decoded.
      */
+    @Deprecated
     public Factory(BitmapDecoder bitmapDecoder) {
       this.bitmapDecoder = bitmapDecoder;
     }
@@ -101,9 +100,9 @@ public final class BitmapFactoryImageDecoder
     }
   }
 
-  private final BitmapDecoder bitmapDecoder;
+  @Nullable private final BitmapDecoder bitmapDecoder;
 
-  private BitmapFactoryImageDecoder(BitmapDecoder bitmapDecoder) {
+  private BitmapFactoryImageDecoder(@Nullable BitmapDecoder bitmapDecoder) {
     super(new DecoderInputBuffer[1], new ImageOutputBuffer[1]);
     this.bitmapDecoder = bitmapDecoder;
   }
@@ -137,40 +136,30 @@ public final class BitmapFactoryImageDecoder
   @Override
   protected ImageDecoderException decode(
       DecoderInputBuffer inputBuffer, ImageOutputBuffer outputBuffer, boolean reset) {
-    try {
-      ByteBuffer inputData = checkNotNull(inputBuffer.data);
-      checkState(inputData.hasArray());
-      checkArgument(inputData.arrayOffset() == 0);
-      outputBuffer.bitmap = bitmapDecoder.decode(inputData.array(), inputData.remaining());
-      outputBuffer.timeUs = inputBuffer.timeUs;
-      return null;
-    } catch (ImageDecoderException e) {
-      return e;
+    ByteBuffer inputData = checkNotNull(inputBuffer.data);
+    checkState(inputData.hasArray());
+    checkArgument(inputData.arrayOffset() == 0);
+    if (bitmapDecoder != null) {
+      try {
+        outputBuffer.bitmap = bitmapDecoder.decode(inputData.array(), inputData.remaining());
+      } catch (ImageDecoderException e) {
+        return e;
+      }
+    } else {
+      try {
+        outputBuffer.bitmap =
+            BitmapUtil.decode(
+                inputData.array(),
+                inputData.remaining(),
+                /* options= */ null,
+                /* maximumOutputDimension= */ C.LENGTH_UNSET);
+      } catch (ParserException e) {
+        return new ImageDecoderException("Could not decode image data with BitmapFactory.", e);
+      } catch (IOException e) {
+        return new ImageDecoderException(e);
+      }
     }
-  }
-
-  /**
-   * Decodes data into a {@link Bitmap}.
-   *
-   * @param data An array holding the data to be decoded, starting at position 0.
-   * @param length The length of the input to be decoded.
-   * @return The decoded {@link Bitmap}.
-   * @throws ImageDecoderException If a decoding error occurs.
-   */
-  private static Bitmap decode(byte[] data, int length) throws ImageDecoderException {
-    try {
-      return BitmapUtil.decode(
-          data, length, /* options= */ null, /* maximumOutputDimension= */ C.LENGTH_UNSET);
-    } catch (ParserException e) {
-      throw new ImageDecoderException(
-          "Could not decode image data with BitmapFactory. (data.length = "
-              + data.length
-              + ", input length = "
-              + length
-              + ")",
-          e);
-    } catch (IOException e) {
-      throw new ImageDecoderException(e);
-    }
+    outputBuffer.timeUs = inputBuffer.timeUs;
+    return null;
   }
 }
