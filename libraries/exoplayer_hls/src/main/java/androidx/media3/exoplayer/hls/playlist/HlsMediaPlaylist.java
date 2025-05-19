@@ -29,6 +29,7 @@ import androidx.annotation.StringDef;
 import androidx.media3.common.C;
 import androidx.media3.common.DrmInitData;
 import androidx.media3.common.StreamKey;
+import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -610,6 +611,205 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
           snapTypes,
           restrictions,
           clientDefinedAttributes);
+    }
+
+    // If a Playlist contains two EXT-X-DATERANGE tags with the same ID
+    // attribute value, then any AttributeName that appears in both tags
+    // MUST have the same AttributeValue.  A Server MAY augment a Date Range
+    // with additional attributes by adding subsequent EXT-X-DATERANGE tags
+    // with the same ID attribute to a Playlist.  The client is responsible
+    // for consolidating the tags.  The subsequent EXT-X-DATERANGE tags can
+    // appear in a subsequent playlist update, in the case of live or event
+    // streams.
+    /** Builder for {@link Interstitial}. */
+    public static final class Builder {
+
+      private final String id;
+      @Nullable private Uri assetUri;
+      @Nullable private Uri assetListUri;
+      private long startDateUnixUs = C.TIME_UNSET;
+      private long endDateUnixUs = C.TIME_UNSET;
+      private long durationUs = C.TIME_UNSET;
+      private long plannedDurationUs = C.TIME_UNSET;
+      private List<@Interstitial.CueTriggerType String> cue = new ArrayList<>();
+      private boolean endOnNext;
+      private long resumeOffsetUs = C.TIME_UNSET;
+      private long playoutLimitUs = C.TIME_UNSET;
+      private List<@Interstitial.SnapType String> snapTypes = new ArrayList<>();
+      private List<@Interstitial.NavigationRestriction String> restrictions = new ArrayList<>();
+      private List<ClientDefinedAttribute> clientDefinedAttributes = new ArrayList<>();
+
+      /**
+       * Creates the builder.
+       *
+       * @param id The id.
+       */
+      public Builder(String id) {
+        this.id = id;
+      }
+
+      /** Sets the {@code assetUri}. */
+      public Builder setAssetUri(@Nullable Uri assetUri) {
+        if (assetUri == null) return this;
+        if (this.assetUri != null) {
+          Assertions.checkArgument(!this.assetUri.equals(assetUri),
+              "Can't change assetUri from " + this.assetUri + " to " + assetUri);
+        }
+        this.assetUri = assetUri;
+        return this;
+      }
+
+      /** Sets the {@code assetListUri}. */
+      public Builder setAssetListUri(@Nullable Uri assetListUri) {
+        if (assetListUri == null) return this;
+        if (this.assetListUri != null) {
+          Assertions.checkArgument(!this.assetListUri.equals(assetListUri),
+              "Can't change assetListUri from " + this.assetListUri + " to " + assetListUri);
+        }
+        this.assetListUri = assetListUri;
+        return this;
+      }
+
+      /** Sets the {@code startDateUnixUs}. */
+      public Builder setStartDateUnixUs(long startDateUnixUs) {
+        if (startDateUnixUs == C.TIME_UNSET) return this;
+        if (this.startDateUnixUs != C.TIME_UNSET) {
+          Assertions.checkArgument(this.startDateUnixUs != startDateUnixUs,
+              "Can't change startDateUnixUs from " + this.startDateUnixUs + " to " + startDateUnixUs);
+        }
+        this.startDateUnixUs = startDateUnixUs;
+        return this;
+      }
+
+      /** Sets the {@code endDateUnixUs}. */
+      public Builder setEndDateUnixUs(long endDateUnixUs) {
+        if (endDateUnixUs == C.TIME_UNSET) return this;
+        if (this.endDateUnixUs != C.TIME_UNSET) {
+          Assertions.checkArgument(this.endDateUnixUs != endDateUnixUs,
+              "Can't change endDateUnixUs from " + this.endDateUnixUs + " to " + endDateUnixUs);
+        }
+        this.endDateUnixUs = endDateUnixUs;
+        return this;
+      }
+
+      /** Sets the {@code durationUs}. */
+      public Builder setDurationUs(long durationUs) {
+        if (durationUs == C.TIME_UNSET) return this;
+        if (this.durationUs != C.TIME_UNSET) {
+          Assertions.checkArgument(this.durationUs != durationUs,
+              "Can't change durationUs from " + this.durationUs + " to " + durationUs);
+        }
+        this.durationUs = durationUs;
+        return this;
+      }
+
+      /** Sets the {@code plannedDurationUs}. */
+      public Builder setPlannedDurationUs(long plannedDurationUs) {
+        if (plannedDurationUs == C.TIME_UNSET) return this;
+        if (this.plannedDurationUs != C.TIME_UNSET) {
+          Assertions.checkArgument(this.plannedDurationUs != plannedDurationUs,
+              "Can't change plannedDurationUs from " + this.plannedDurationUs + " to " + plannedDurationUs);
+        }
+        this.plannedDurationUs = plannedDurationUs;
+        return this;
+      }
+
+      /** Sets the trigger {@code cue} types. */
+      public Builder setCue(List<@Interstitial.CueTriggerType String> cue) {
+        if (cue.isEmpty()) return this;
+        if (!this.cue.isEmpty()) {
+          Assertions.checkArgument(!this.cue.equals(cue),
+              "Can't change cue from " + String.join(", ", this.cue) + " to " + String.join(", ", cue));
+        }
+        this.cue = cue;
+        return this;
+      }
+
+      /** Sets whether the interstitial {@code endOnNext}. */
+      public Builder setEndOnNext(boolean endOnNext) {
+        if (!endOnNext) return this;
+        this.endOnNext = endOnNext;
+        return this;
+      }
+
+      /** Sets the {@code resumeOffsetUs}. */
+      public Builder setResumeOffsetUs(long resumeOffsetUs) {
+        if (resumeOffsetUs == C.TIME_UNSET) return this;
+        if (this.resumeOffsetUs != C.TIME_UNSET) {
+          Assertions.checkArgument(this.resumeOffsetUs != resumeOffsetUs,
+              "Can't change resumeOffsetUs from " + this.resumeOffsetUs + " to " + resumeOffsetUs);
+        }
+        this.resumeOffsetUs = resumeOffsetUs;
+        return this;
+      }
+
+      /** Sets the {@code playoutLimitUs}. */
+      public Builder setPlayoutLimitUs(long playoutLimitUs) {
+        if (playoutLimitUs == C.TIME_UNSET) return this;
+        if (this.playoutLimitUs != C.TIME_UNSET) {
+          Assertions.checkArgument(this.playoutLimitUs != playoutLimitUs,
+              "Can't change playoutLimitUs from " + this.playoutLimitUs + " to " + playoutLimitUs);
+        }
+        this.playoutLimitUs = playoutLimitUs;
+        return this;
+      }
+
+      /** Sets the {@code snapTypes}. */
+      public Builder setSnapTypes(List<@Interstitial.SnapType String> snapTypes) {
+        if (snapTypes.isEmpty()) return this;
+        if (!this.snapTypes.isEmpty()) {
+          Assertions.checkArgument(!this.snapTypes.equals(snapTypes),
+              "Can't change snapTypes from " + String.join(", ", this.snapTypes) + " to " + String.join(", ", snapTypes));
+        }
+        this.snapTypes = snapTypes;
+        return this;
+      }
+
+      /** Sets the {@code NavigationRestriction}. */
+      public Builder setRestrictions(List<@Interstitial.NavigationRestriction String> restrictions) {
+        if (restrictions.isEmpty()) return this;
+        if (!this.restrictions.isEmpty()) {
+          Assertions.checkArgument(!this.restrictions.equals(restrictions),
+              "Can't change restrictions from " + String.join(", ", this.restrictions) + " to " + String.join(", ", restrictions));
+        }
+        this.restrictions = restrictions;
+        return this;
+      }
+
+      /** Sets the {@code clientDefinedAttributes}. */
+      public Builder setClientDefinedAttributes(
+          List<HlsMediaPlaylist.ClientDefinedAttribute> clientDefinedAttributes) {
+        if (clientDefinedAttributes.isEmpty()) return this;
+        if (!this.clientDefinedAttributes.isEmpty()) {
+          Assertions.checkArgument(!this.clientDefinedAttributes.equals(clientDefinedAttributes));
+        }
+        this.clientDefinedAttributes = clientDefinedAttributes;
+        return this;
+      }
+
+      public @Nullable Interstitial build() {
+        if ((assetListUri == null && assetUri != null)
+            || (assetListUri != null && assetUri == null)
+            && startDateUnixUs != C.TIME_UNSET) {
+          return new Interstitial(
+              this.id,
+              this.assetUri,
+              this.assetListUri,
+              this.startDateUnixUs,
+              this.endDateUnixUs,
+              this.durationUs,
+              this.plannedDurationUs,
+              this.cue,
+              this.endOnNext,
+              this.resumeOffsetUs,
+              this.playoutLimitUs,
+              this.snapTypes,
+              this.restrictions,
+              this.clientDefinedAttributes
+          );
+        }
+        return null;
+      }
     }
   }
 

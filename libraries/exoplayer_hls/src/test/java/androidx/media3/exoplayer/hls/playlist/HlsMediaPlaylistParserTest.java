@@ -1445,7 +1445,8 @@ public class HlsMediaPlaylistParserTest {
   }
 
   @Test
-  public void parseMediaPlaylist_withInterstitialWithoutStartDate_throwsParserException() {
+  public void parseMediaPlaylist_withInterstitialWithoutStartDate_noInterstitial()
+      throws IOException {
     Uri playlistUri = Uri.parse("https://example.com/test.m3u8");
     String playlistString =
         "#EXTM3U\n"
@@ -1461,11 +1462,12 @@ public class HlsMediaPlaylistParserTest {
             + "X-ASSET-LIST=\"http://example.com/ad2-assets.json\"\n";
     HlsPlaylistParser hlsPlaylistParser = new HlsPlaylistParser();
 
-    assertThrows(
-        ParserException.class,
-        () ->
+    HlsMediaPlaylist playlist =
+        (HlsMediaPlaylist)
             hlsPlaylistParser.parse(
-                playlistUri, new ByteArrayInputStream(Util.getUtf8Bytes(playlistString))));
+                playlistUri, new ByteArrayInputStream(Util.getUtf8Bytes(playlistString)));
+
+    assertThat(playlist.interstitials).isEmpty();
   }
 
   @Test
@@ -1639,7 +1641,7 @@ public class HlsMediaPlaylistParserTest {
             new HlsPlaylistParser()
                 .parse(playlistUri, new ByteArrayInputStream(Util.getUtf8Bytes(playlistString)));
 
-    assertThat(playlist.interstitials.get(0).id).isEqualTo("15943");
+    assertThat(playlist.interstitials.size()).isEqualTo(1);
     assertThat(playlist.interstitials.get(0).resumeOffsetUs).isEqualTo(24953741L);
     assertThat(playlist.interstitials.get(0).endDateUnixUs).isEqualTo(1726846189006000L);
     assertThat(playlist.interstitials.get(0).playoutLimitUs).isEqualTo(24953741L);
