@@ -24,7 +24,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.media3.common.Player
-import androidx.media3.ui.compose.R
+import androidx.media3.demo.compose.R
 import androidx.media3.ui.compose.state.rememberSeekBackButtonState
 
 @Composable
