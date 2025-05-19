@@ -682,7 +682,7 @@ public final class ServerSideAdInsertionMediaSourceTest {
     player.prepare();
     player.play();
     // Play to the first content part, then seek past the midroll.
-    advance(player).untilBackgroundThreadCondition(() -> player.getContentPosition() >= 150);
+    advance(player).untilPositionAtLeast(150);
     player.seekTo(/* positionMs= */ 1_600);
     advance(player).untilPendingCommandsAreFullyHandled();
     long positionAfterSeekMs = player.getCurrentPosition();

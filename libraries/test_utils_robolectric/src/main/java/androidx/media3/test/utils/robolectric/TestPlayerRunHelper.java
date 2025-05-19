@@ -367,8 +367,70 @@ public final class TestPlayerRunHelper {
     }
 
     /**
-     * Runs tasks of the main {@link Looper} until playback reaches the specified position or an
-     * error occurs.
+     * Runs tasks of the main {@link Looper} until {@link Player#getCurrentMediaItemIndex()} equals
+     * the specified index or an error occurs.
+     *
+     * <p>Use {@link #untilStartOfMediaItem(int)} instead if the test needs to advance the player
+     * until the internal playback thread reaches the start of the media item exactly.
+     *
+     * @throws PlaybackException If a playback error occurs.
+     * @throws IllegalStateException If non-fatal playback errors occur, and aren't {@linkplain
+     *     #ignoringNonFatalErrors() ignored} (the non-fatal exceptions will be attached with {@link
+     *     Throwable#addSuppressed(Throwable)}).
+     * @throws TimeoutException If the {@link RobolectricUtil#DEFAULT_TIMEOUT_MS default timeout} is
+     *     exceeded.
+     */
+    public void untilMediaItemIndex(int mediaItemIndex) throws PlaybackException, TimeoutException {
+      untilPositionAtLeast(mediaItemIndex, /* positionMs= */ 0);
+    }
+
+    /**
+     * Runs tasks of the main {@link Looper} until {@link Player#getContentPosition()} reaches at
+     * least the specified position in the current media item, or an error occurs.
+     *
+     * <p>Use {@link #untilPosition(int, long)} instead if the test needs to advance the player
+     * until the internal playback thread reaches a specific position exactly.
+     *
+     * @throws PlaybackException If a playback error occurs.
+     * @throws IllegalStateException If non-fatal playback errors occur, and aren't {@linkplain
+     *     #ignoringNonFatalErrors() ignored} (the non-fatal exceptions will be attached with {@link
+     *     Throwable#addSuppressed(Throwable)}).
+     * @throws TimeoutException If the {@link RobolectricUtil#DEFAULT_TIMEOUT_MS default timeout} is
+     *     exceeded.
+     */
+    public void untilPositionAtLeast(long positionMs) throws PlaybackException, TimeoutException {
+      untilPositionAtLeast(player.getCurrentMediaItemIndex(), positionMs);
+    }
+
+    /**
+     * Runs tasks of the main {@link Looper} until {@link Player#getCurrentMediaItemIndex()} equals
+     * the specified index and {@link Player#getContentPosition()} reaches at least the specified
+     * position, or an error occurs.
+     *
+     * <p>Use {@link #untilPosition(int, long)} instead if the test needs to advance the player
+     * until the internal playback thread reaches a specific position exactly.
+     *
+     * @throws PlaybackException If a playback error occurs.
+     * @throws IllegalStateException If non-fatal playback errors occur, and aren't {@linkplain
+     *     #ignoringNonFatalErrors() ignored} (the non-fatal exceptions will be attached with {@link
+     *     Throwable#addSuppressed(Throwable)}).
+     * @throws TimeoutException If the {@link RobolectricUtil#DEFAULT_TIMEOUT_MS default timeout} is
+     *     exceeded.
+     */
+    public void untilPositionAtLeast(int mediaItemIndex, long positionMs)
+        throws PlaybackException, TimeoutException {
+      untilBackgroundThreadCondition(
+          () ->
+              player.getCurrentMediaItemIndex() == mediaItemIndex
+                  && player.getContentPosition() >= positionMs);
+    }
+
+    /**
+     * Runs tasks of the main {@link Looper} until the internal playback thread reaches the
+     * specified position or an error occurs.
+     *
+     * <p>Use {@link #untilPositionAtLeast} instead if the test needs to advance the player until
+     * the publicly visible position reaches a specified value.
      *
      * <p>The playback thread is automatically blocked from making further progress after reaching
      * this position and will only be unblocked by other {@code run()/play().untilXXX(...)} method
@@ -417,8 +479,11 @@ public final class TestPlayerRunHelper {
     }
 
     /**
-     * Runs tasks of the main {@link Looper} until playback reaches the specified media item or a
-     * playback error occurs.
+     * Runs tasks of the main {@link Looper} until the internal playback thread reaches the start of
+     * the specified media item or a playback error occurs.
+     *
+     * <p>Use {@link #untilMediaItemIndex(int)} instead if the test needs to advance the player
+     * until the publicly visible media item index reaches a specified value.
      *
      * <p>The playback thread is automatically blocked from making further progress after reaching
      * the media item and will only be unblocked by other {@code run()/play().untilXXX(...)} method
@@ -818,8 +883,12 @@ public final class TestPlayerRunHelper {
   }
 
   /**
-   * Calls {@link Player#play()} then runs tasks of the main {@link Looper} until the {@code player}
-   * reaches the specified position or an error occurs.
+   * Calls {@link Player#play()} then runs tasks of the main {@link Looper} until the internal
+   * playback thread of the {@code player} reaches the specified position or an error occurs.
+   *
+   * <p>Use {@link #advance(ExoPlayer)} and {@link ExoPlayerRunResult#untilPositionAtLeast} instead
+   * if the test needs to advance the player until the publicly visible position reaches a specified
+   * value.
    *
    * <p>The playback thread is automatically blocked from making further progress after reaching
    * this position and will only be unblocked by other {@code runUntil/playUntil...} methods, custom
@@ -848,8 +917,13 @@ public final class TestPlayerRunHelper {
   }
 
   /**
-   * Calls {@link Player#play()} then runs tasks of the main {@link Looper} until the {@code player}
-   * reaches the specified media item or a playback error occurs.
+   * Calls {@link Player#play()} then runs tasks of the main {@link Looper} until the internal
+   * playback thread of the {@code player} reaches the start of the specified media item or a
+   * playback error occurs.
+   *
+   * <p>Use {@link #advance(ExoPlayer)} and {@link ExoPlayerRunResult#untilMediaItemIndex(int)}
+   * instead if the test needs to advance the player until the publicly visible media item index
+   * reaches a specified value.
    *
    * <p>The playback thread is automatically blocked from making further progress after reaching the
    * media item and will only be unblocked by other {@code runUntil/playUntil...} methods, custom

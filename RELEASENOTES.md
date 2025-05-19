@@ -49,6 +49,10 @@
 *   Leanback extension:
 *   Cast extension:
 *   Test Utilities:
+    *   Add `advance(player).untilPositionAtLeast` and `untilMediaItemIndex` to
+        `TestPlayerRunHelper` in order to advance the player until a specified
+        position is reached. In most cases, these methods are more reliable than
+        the existing `untilPosition` and `untilStartOfMediaItem` methods.
 *   Remove deprecated symbols:
 
 ## 1.8
