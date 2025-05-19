@@ -178,45 +178,41 @@ class CompositionPreviewActivity : AppCompatActivity() {
   ) {
     AnimatedPane {
       val scrollState = rememberScrollState()
-      Column(
-        verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.mini),
-        modifier = modifier.fillMaxSize().verticalScroll(scrollState),
-      ) {
+      Column {
         Text(
           text = "${viewModel.compositionLayout} ${stringResource(R.string.preview_composition)}",
           fontWeight = FontWeight.Bold,
         )
-        val playerViewModifier =
-          if (scrollState.canScrollForward || scrollState.canScrollBackward) {
-            Modifier.heightIn(min = 250.dp)
-          } else {
-            Modifier.weight(1f)
-          }
         AndroidView(
           factory = { context -> PlayerView(context) },
           update = { playerView -> playerView.player = viewModel.compositionPlayer },
-          modifier = playerViewModifier,
+          modifier = Modifier.heightIn(max = 250.dp),
         )
         HorizontalDivider(
           thickness = 2.dp,
           modifier = Modifier.padding(0.dp, MaterialTheme.spacing.mini),
         )
-        VideoSequenceList(viewModel)
-        Row(
-          verticalAlignment = Alignment.CenterVertically,
-          horizontalArrangement = Arrangement.SpaceBetween,
-          modifier = Modifier.fillMaxWidth(),
+        Column(
+          verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.mini),
+          modifier = modifier.weight(1f).verticalScroll(scrollState),
         ) {
-          Text(
-            text = stringResource(R.string.add_background_audio),
-            modifier = Modifier.textPadding(),
-          )
-          Switch(
-            viewModel.includeBackgroundAudioTrack,
-            { checked -> viewModel.includeBackgroundAudioTrack = checked },
-          )
+          VideoSequenceList(viewModel)
+          Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+            modifier = Modifier.fillMaxWidth(),
+          ) {
+            Text(
+              text = stringResource(R.string.add_background_audio),
+              modifier = Modifier.textPadding(),
+            )
+            Switch(
+              viewModel.includeBackgroundAudioTrack,
+              { checked -> viewModel.includeBackgroundAudioTrack = checked },
+            )
+          }
+          OutputSettings(viewModel)
         }
-        OutputSettings(viewModel)
         HorizontalDivider(
           thickness = 2.dp,
           modifier = Modifier.padding(0.dp, MaterialTheme.spacing.mini),
