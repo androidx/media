@@ -454,7 +454,7 @@ class CompositionPreviewActivity : AppCompatActivity() {
                 FilledIconButton(onClick = { addSelectedVideo(index) }) {
                   Icon(Icons.Filled.Add, contentDescription = "Add item")
                 }
-                val duration = item.durationMs.toDuration(DurationUnit.MICROSECONDS)
+                val duration = item.durationUs.toDuration(DurationUnit.MICROSECONDS)
                 val durationString =
                   String.format(
                     getLocale(),

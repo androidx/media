@@ -38,6 +38,7 @@ import androidx.media3.common.util.Clock
 import androidx.media3.common.util.Log
 import androidx.media3.common.util.Size
 import androidx.media3.common.util.Util
+import androidx.media3.common.util.Util.usToMs
 import androidx.media3.demo.composition.MatrixTransformationFactory.createDizzyCropEffect
 import androidx.media3.effect.DebugTraceUtil
 import androidx.media3.effect.LanczosResample
@@ -74,7 +75,7 @@ class CompositionPreviewViewModel(application: Application, val compositionLayou
   data class Item(
     val title: String,
     val uri: String,
-    val durationMs: Long,
+    val durationUs: Long,
     var applyEffects: MutableState<Boolean>,
   )
 
@@ -264,7 +265,7 @@ class CompositionPreviewViewModel(application: Application, val compositionLayou
       val mediaItem =
         MediaItem.Builder()
           .setUri(item.uri)
-          .setImageDurationMs(Util.usToMs(item.durationMs)) // Ignored for audio/video
+          .setImageDurationMs(usToMs(item.durationUs)) // Ignored for audio/video
           .build()
       val finalVideoEffects =
         globalVideoEffects + if (item.applyEffects.value) perItemVideoEffects else emptyList()
@@ -275,7 +276,7 @@ class CompositionPreviewViewModel(application: Application, val compositionLayou
           )
           // Setting duration explicitly is only required for preview with CompositionPlayer, and
           // is not needed for export with Transformer.
-          .setDurationUs(item.durationMs)
+          .setDurationUs(item.durationUs)
       editedMediaItems.add(itemBuilder.build())
     }
     val numSequences =
