@@ -196,13 +196,13 @@ This release includes the following changes since [1.6.1](#161-2025-04-14):
 
 This release has the same code as 1.6.1 and is being released to ensure it
 appears as a 'newer' release than 1.7.0, which was an alpha release accidentally
-tagged as stable (see below). Please avoid using either of these releases. Stay
-on 1.6.1 and wait for 1.8.0-alpha01.
+tagged as stable (see below).
 
 ### 1.7.0 (2025-05-16)
 
 This release should have been `1.7.0-alpha01`, but was accidentally tagged
-`1.7.0` (i.e. stable) on maven.google.com.
+`1.7.0` (i.e. stable) on maven.google.com. **Please do not use it.** Stay on
+1.6.1 or upgrade to 1.7.1 (which has the same code as 1.6.1).
 
 ## 1.6
 
