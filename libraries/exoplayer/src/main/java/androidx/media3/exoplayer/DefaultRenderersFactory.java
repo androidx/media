@@ -110,6 +110,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
   private long allowedVideoJoiningTimeMs;
   private boolean enableDecoderFallback;
   private MediaCodecSelector mediaCodecSelector;
+  private boolean pcmEncodingRestrictionLifted;
   private boolean enableFloatOutput;
   private boolean enableAudioTrackPlaybackParams;
   private boolean enableMediaCodecVideoRendererPrewarming;
@@ -225,12 +226,35 @@ public class DefaultRenderersFactory implements RenderersFactory {
    *
    * <p>The default value is {@code false}.
    *
+   * @deprecated Use {@link #setPcmEncodingRestrictionLifted} instead to allow any encoding, not
+   *     just 32-bit float.
    * @param enableFloatOutput Whether to enable use of floating point audio output, if available.
    * @return This factory, for convenience.
    */
   @CanIgnoreReturnValue
+  @Deprecated
   public final DefaultRenderersFactory setEnableAudioFloatOutput(boolean enableFloatOutput) {
     this.enableFloatOutput = enableFloatOutput;
+    return this;
+  }
+
+  /**
+   * Sets whether to enable outputting samples in any platform-supported format (such as 32-bit
+   * float, 32-bit integer, 24-bit integer, 16-bit integer or 8-bit integer) instead of restricting
+   * output to 16-bit integers. Where possible, the input sample format will be used, otherwise
+   * high-resolution formats will be output as 32-bit float. Parts of the default audio processing
+   * chain (for example, speed adjustment) will not be available when output formats other than
+   * 16-bit integer are in use.
+   *
+   * <p>The default value is {@code false}.
+   *
+   * @param pcmEncodingRestrictionLifted Whether to lift any restriction of output sample format.
+   * @return This factory, for convenience.
+   */
+  @CanIgnoreReturnValue
+  public final DefaultRenderersFactory setPcmEncodingRestrictionLifted(
+      boolean pcmEncodingRestrictionLifted) {
+    this.pcmEncodingRestrictionLifted = pcmEncodingRestrictionLifted;
     return this;
   }
 
@@ -377,7 +401,11 @@ public class DefaultRenderersFactory implements RenderersFactory {
         renderersList);
     @Nullable
     AudioSink audioSink =
-        buildAudioSink(context, enableFloatOutput, enableAudioTrackPlaybackParams);
+        buildAudioSink(
+            context,
+            pcmEncodingRestrictionLifted,
+            enableFloatOutput,
+            enableAudioTrackPlaybackParams);
     if (audioSink != null) {
       buildAudioRenderers(
           context,
@@ -854,11 +882,17 @@ public class DefaultRenderersFactory implements RenderersFactory {
    */
   @Nullable
   protected AudioSink buildAudioSink(
-      Context context, boolean enableFloatOutput, boolean enableAudioTrackPlaybackParams) {
-    return new DefaultAudioSink.Builder(context)
-        .setEnableFloatOutput(enableFloatOutput)
-        .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
-        .build();
+      Context context,
+      boolean pcmEncodingRestrictionLifted,
+      boolean enableFloatOutput,
+      boolean enableAudioTrackPlaybackParams) {
+    DefaultAudioSink.Builder builder = new DefaultAudioSink.Builder(context);
+    if (pcmEncodingRestrictionLifted || !enableFloatOutput) {
+      builder.setPcmEncodingRestrictionLifted(pcmEncodingRestrictionLifted);
+    } else {
+      builder.setEnableFloatOutput(true);
+    }
+    return builder.setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams).build();
   }
 
   @Override
