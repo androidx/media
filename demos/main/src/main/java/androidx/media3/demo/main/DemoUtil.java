@@ -19,6 +19,7 @@ import android.content.Context;
 import android.net.http.HttpEngine;
 import android.os.Build;
 import android.os.ext.SdkExtensions;
+import androidx.annotation.Nullable;
 import androidx.annotation.OptIn;
 import androidx.media3.database.DatabaseProvider;
 import androidx.media3.database.StandaloneDatabaseProvider;
@@ -42,7 +43,6 @@ import java.net.CookieManager;
 import java.net.CookiePolicy;
 import java.util.concurrent.Executors;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
-import org.checkerframework.checker.nullness.qual.Nullable;
 import org.chromium.net.CronetEngine;
 
 /** Utility methods for the demo app. */

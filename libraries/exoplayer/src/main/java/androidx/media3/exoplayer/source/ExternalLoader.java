@@ -18,7 +18,6 @@ package androidx.media3.exoplayer.source;
 import android.net.Uri;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.util.concurrent.ListenableFuture;
-import org.checkerframework.checker.nullness.qual.Nullable;
 
 /** An object for loading media outside of ExoPlayer's loading mechanism. */
 @UnstableApi
@@ -42,5 +41,5 @@ public interface ExternalLoader {
    * @param loadRequest The load request.
    * @return The {@link ListenableFuture} tracking the completion of the loading work.
    */
-  ListenableFuture<@Nullable ?> load(LoadRequest loadRequest);
+  ListenableFuture<?> load(LoadRequest loadRequest);
 }
