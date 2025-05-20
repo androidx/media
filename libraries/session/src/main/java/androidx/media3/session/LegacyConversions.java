@@ -574,15 +574,37 @@ import java.util.concurrent.TimeoutException;
 
     MediaMetadata.Builder builder = new MediaMetadata.Builder();
 
-    CharSequence title = metadataCompat.getText(MediaMetadataCompat.METADATA_KEY_TITLE);
+    @Nullable
     CharSequence displayTitle =
         metadataCompat.getText(MediaMetadataCompat.METADATA_KEY_DISPLAY_TITLE);
+    CharSequence displaySubtitle;
+    CharSequence displayDescription;
+    if (displayTitle != null) {
+      displaySubtitle = metadataCompat.getText(MediaMetadataCompat.METADATA_KEY_DISPLAY_SUBTITLE);
+      displayDescription =
+          metadataCompat.getText(MediaMetadataCompat.METADATA_KEY_DISPLAY_DESCRIPTION);
+    } else {
+      CharSequence[] texts = new CharSequence[3];
+      int textIndex = 0;
+      int keyIndex = 0;
+      while (textIndex < texts.length && keyIndex < PREFERRED_DESCRIPTION_ORDER.length) {
+        CharSequence next = metadataCompat.getText(PREFERRED_DESCRIPTION_ORDER[keyIndex++]);
+        if (!TextUtils.isEmpty(next)) {
+          // Fill in the next empty bit of text
+          texts[textIndex++] = next;
+        }
+      }
+      displayTitle = texts[0];
+      displaySubtitle = texts[1];
+      displayDescription = texts[2];
+    }
+
+    CharSequence title = metadataCompat.getText(MediaMetadataCompat.METADATA_KEY_TITLE);
     builder
         .setTitle(title != null ? title : displayTitle)
-        .setDisplayTitle(title != null ? displayTitle : null)
-        .setSubtitle(metadataCompat.getText(MediaMetadataCompat.METADATA_KEY_DISPLAY_SUBTITLE))
-        .setDescription(
-            metadataCompat.getText(MediaMetadataCompat.METADATA_KEY_DISPLAY_DESCRIPTION))
+        .setDisplayTitle(displayTitle)
+        .setSubtitle(displaySubtitle)
+        .setDescription(displayDescription)
         .setArtist(metadataCompat.getText(MediaMetadataCompat.METADATA_KEY_ARTIST))
         .setAlbumTitle(metadataCompat.getText(MediaMetadataCompat.METADATA_KEY_ALBUM))
         .setAlbumArtist(metadataCompat.getText(MediaMetadataCompat.METADATA_KEY_ALBUM_ARTIST))

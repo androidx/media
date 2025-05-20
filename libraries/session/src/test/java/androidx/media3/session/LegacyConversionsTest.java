@@ -373,7 +373,45 @@ public final class LegacyConversionsTest {
         LegacyConversions.convertToMediaMetadata(testMediaMetadataCompat, RatingCompat.RATING_NONE);
 
     assertThat(mediaMetadata.title.toString()).isEqualTo("displayTitle");
-    assertThat(mediaMetadata.displayTitle).isNull();
+    assertThat(mediaMetadata.displayTitle).isEqualTo("displayTitle");
+  }
+
+  @Test
+  public void convertToMediaMetadata_displayTitleSet_usesDisplayTitleDisplayDescriptionAnd() {
+    MediaMetadataCompat testMediaMetadataCompat =
+        new MediaMetadataCompat.Builder()
+            .putString(MediaMetadataCompat.METADATA_KEY_DISPLAY_TITLE, "displayTitle")
+            .putString(MediaMetadataCompat.METADATA_KEY_DISPLAY_DESCRIPTION, "displayDescription")
+            .putString(MediaMetadataCompat.METADATA_KEY_DISPLAY_SUBTITLE, "displaySubtitle")
+            .build();
+
+    MediaMetadata mediaMetadata =
+        LegacyConversions.convertToMediaMetadata(testMediaMetadataCompat, RatingCompat.RATING_NONE);
+
+    assertThat(mediaMetadata.title.toString()).isEqualTo("displayTitle");
+    assertThat(mediaMetadata.description.toString()).isEqualTo("displayDescription");
+    assertThat(mediaMetadata.subtitle.toString()).isEqualTo("displaySubtitle");
+    assertThat(mediaMetadata.displayTitle).isEqualTo("displayTitle");
+  }
+
+  @Test
+  public void convertToMediaMetadata_displayTitleNotSet_usesPreferredDescriptionOrder() {
+    MediaMetadataCompat testMediaMetadataCompat =
+        new MediaMetadataCompat.Builder()
+            .putString(MediaMetadataCompat.METADATA_KEY_TITLE, "title")
+            .putString(MediaMetadataCompat.METADATA_KEY_DISPLAY_DESCRIPTION, "displayDescription")
+            .putString(MediaMetadataCompat.METADATA_KEY_DISPLAY_SUBTITLE, "displaySubtitle")
+            .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, "artist")
+            .putString(MediaMetadataCompat.METADATA_KEY_ALBUM, "album")
+            .build();
+
+    MediaMetadata mediaMetadata =
+        LegacyConversions.convertToMediaMetadata(testMediaMetadataCompat, RatingCompat.RATING_NONE);
+
+    assertThat(mediaMetadata.title.toString()).isEqualTo("title");
+    assertThat(mediaMetadata.subtitle.toString()).isEqualTo("artist");
+    assertThat(mediaMetadata.description.toString()).isEqualTo("album");
+    assertThat(mediaMetadata.displayTitle).isEqualTo("title");
   }
 
   @Test

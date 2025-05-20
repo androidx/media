@@ -978,8 +978,8 @@ public class MediaControllerWithMediaSessionCompatTest {
 
     MediaMetadata mediaMetadata =
         threadTestRule.getHandler().postAndSync(controller::getMediaMetadata);
-    assertThat(TextUtils.equals(mediaMetadata.description, testMediaMetadataCompatDescription))
-        .isTrue();
+
+    assertThat(mediaMetadata.description.toString()).isEqualTo(testMediaMetadataCompatDescription);
     assertThat(TextUtils.equals(mediaMetadata.artist, METADATA_ARTIST)).isTrue();
     assertThat(TextUtils.equals(mediaMetadata.albumTitle, METADATA_ALBUM_TITLE)).isTrue();
   }

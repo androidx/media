@@ -111,8 +111,10 @@ public class MediaControllerMediaSessionCompatCallbackAggregationTest {
     @RatingCompat.Style int testRatingType = RatingCompat.RATING_HEART;
     MediaMetadata testMediaMetadata =
         new MediaMetadata.Builder()
-            .setArtist("artist")
             .setTitle("title")
+            .setDisplayTitle("title")
+            .setArtist("artist")
+            .setSubtitle("artist")
             .setUserRating(new HeartRating())
             .setMediaType(MEDIA_TYPE_PLAYLIST)
             .setIsBrowsable(false)
@@ -236,8 +238,10 @@ public class MediaControllerMediaSessionCompatCallbackAggregationTest {
     @RatingCompat.Style int testRatingType = RatingCompat.RATING_HEART;
     MediaMetadata testMediaMetadata =
         new MediaMetadata.Builder()
-            .setArtist("artist")
             .setTitle("title")
+            .setDisplayTitle("title")
+            .setArtist("artist")
+            .setSubtitle("artist")
             .setUserRating(new HeartRating())
             .setIsBrowsable(false)
             .setIsPlayable(true)
@@ -439,8 +443,10 @@ public class MediaControllerMediaSessionCompatCallbackAggregationTest {
     @RatingCompat.Style int testRatingType = RatingCompat.RATING_HEART;
     MediaMetadata testMediaMetadata =
         new MediaMetadata.Builder()
-            .setArtist("artist")
             .setTitle("title")
+            .setDisplayTitle("title")
+            .setArtist("artist")
+            .setSubtitle("artist")
             .setUserRating(new HeartRating())
             .setIsBrowsable(false)
             .setIsPlayable(true)
