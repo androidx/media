@@ -375,4 +375,32 @@ public final class VideoEncoderSettings {
     result = 31 * result + numBidirectionalTemporalLayers;
     return result;
   }
+
+  @Override
+  public String toString() {
+    return "VideoEncoderSettings{"
+        + "bitrate="
+        + bitrate
+        + ", bitrateMode="
+        + bitrateMode
+        + ", profile="
+        + profile
+        + ", level="
+        + level
+        + ", iFrameIntervalSeconds="
+        + iFrameIntervalSeconds
+        + ", operatingRate="
+        + operatingRate
+        + ", priority="
+        + priority
+        + ", repeatPreviousFrameIntervalUs="
+        + repeatPreviousFrameIntervalUs
+        + ", maxBFrames="
+        + maxBFrames
+        + ", numNonBidirectionalTemporalLayers="
+        + numNonBidirectionalTemporalLayers
+        + ", numBidirectionalTemporalLayers="
+        + numBidirectionalTemporalLayers
+        + '}';
+  }
 }

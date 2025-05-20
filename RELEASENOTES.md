@@ -7,6 +7,8 @@
     *   Add support for using the virtual device ID from the `Context` passed to
         `ExoPlayer.Builder`.
 *   Transformer:
+    *   Add `CodecDbLite` that enables chipset specific optimizations of video
+        encoding settings.
 *   Track Selection:
 *   Extractors:
     *   Add support for seeking in fragmented MP4 with multiple `sidx` atoms.

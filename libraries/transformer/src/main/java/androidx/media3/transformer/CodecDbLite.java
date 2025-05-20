@@ -16,13 +16,18 @@
 package androidx.media3.transformer;
 
 import static android.os.Build.VERSION.SDK_INT;
+import static androidx.media3.common.util.Assertions.checkArgument;
+import static java.lang.Math.round;
 
 import android.os.Build;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
+import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.UnstableApi;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.primitives.Ints;
 import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -444,6 +449,57 @@ public final class CodecDbLite {
     }
 
     return ENCODER_DATASET.get(chipset).get(0).mimeType;
+  }
+
+  /**
+   * Returns the recommended {@link VideoEncoderSettings} for the provided format.
+   *
+   * @param format the video format to recommend settings for which must include {@link
+   *     Format#sampleMimeType} to identify the codec. For best results, {@link Format#width},
+   *     {@link Format#height}, {@link Format#frameRate} should be set since some optimizations are
+   *     resolution dependent.
+   */
+  public static VideoEncoderSettings getRecommendedVideoEncoderSettings(Format format) {
+    checkArgument(MimeTypes.isVideo(format.sampleMimeType), "MIME must be a video MIME type.");
+
+    Chipset chipset = Chipset.current();
+    if (!ENCODER_DATASET.containsKey(chipset)) {
+      return VideoEncoderSettings.DEFAULT;
+    }
+
+    VideoEncoderSettings.Builder settingsBuilder = new VideoEncoderSettings.Builder();
+
+    @Nullable VideoEncoderEntry entryForCodec = null;
+    ImmutableList<VideoEncoderEntry> chipsetEntries = ENCODER_DATASET.get(chipset);
+    for (int i = 0; i < chipsetEntries.size(); i++) {
+      if (chipsetEntries.get(i).mimeType.equals(format.sampleMimeType)) {
+        entryForCodec = chipsetEntries.get(i);
+        break;
+      }
+    }
+    if (entryForCodec == null) {
+      return settingsBuilder.build();
+    }
+
+    int pixelsPerSecond = Integer.MAX_VALUE;
+    if (format.getPixelCount() != Format.NO_VALUE && format.frameRate != Format.NO_VALUE) {
+      pixelsPerSecond = Ints.saturatedCast(round(format.getPixelCount() * format.frameRate));
+    }
+
+    if (pixelsPerSecond < entryForCodec.bFrameResolutionCutoff) {
+      settingsBuilder.setMaxBFrames(entryForCodec.maxBFrames);
+      if ((entryForCodec.formatOptimizations
+              & VideoEncoderEntry.FormatOptimization
+                  .FORMAT_OPTIMIZATION_SET_TEMPORAL_LAYERING_FOR_B_FRAMES)
+          != 0) {
+        // Workaround to enable B-Frame encoding on certain QTI chipsets, which corresponds to a
+        // temporal-schema of android.generic.1+2 and must be set in addition to KEY_MAX_B_FRAMES.
+        settingsBuilder.setTemporalLayers(
+            /* numNonBidirectionalLayers= */ 1, /* numBidirectionalLayers= */ 2);
+      }
+    }
+
+    return settingsBuilder.build();
   }
 
   /** Dataclass for chipset identifiers. */
