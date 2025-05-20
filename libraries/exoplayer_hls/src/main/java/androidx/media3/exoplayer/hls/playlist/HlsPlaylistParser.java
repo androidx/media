@@ -1166,8 +1166,7 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
           }
         }
 
-        Map<String, HlsMediaPlaylist.ClientDefinedAttribute> clientDefinedAttributes =
-            new HashMap<>();
+        List<HlsMediaPlaylist.ClientDefinedAttribute> clientDefinedAttributes = new ArrayList<>();
         String attributes = line.substring("#EXT-X-DATERANGE:".length());
         Matcher matcher = REGEX_CLIENT_DEFINED_ATTRIBUTE_PREFIX.matcher(attributes);
         while (matcher.find()) {
@@ -1182,8 +1181,7 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
               // ignore interstitial attributes
               break;
             default:
-              clientDefinedAttributes.put(
-                  attributePrefix,
+              clientDefinedAttributes.add(
                   parseClientDefinedAttribute(
                       attributes,
                       attributePrefix.substring(0, attributePrefix.length() - 1),

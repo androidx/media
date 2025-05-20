@@ -567,7 +567,10 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
       this.playoutLimitUs = playoutLimitUs;
       this.snapTypes = ImmutableList.copyOf(snapTypes);
       this.restrictions = ImmutableList.copyOf(restrictions);
-      this.clientDefinedAttributes = ImmutableList.copyOf(clientDefinedAttributes);
+      // Sort to ensure equality decoupled from how exactly parsing is implemented.
+      this.clientDefinedAttributes =
+          ImmutableList.sortedCopyOf(
+              (o1, o2) -> o1.name.compareTo(o2.name), clientDefinedAttributes);
     }
 
     @Override
@@ -851,33 +854,29 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
       /** Sets the {@code clientDefinedAttributes}. */
       @CanIgnoreReturnValue
       public Builder setClientDefinedAttributes(
-          Map<String, HlsMediaPlaylist.ClientDefinedAttribute> clientDefinedAttributes) {
+          List<HlsMediaPlaylist.ClientDefinedAttribute> clientDefinedAttributes) {
         if (clientDefinedAttributes.isEmpty()) {
           return this;
         }
-        for (Map.Entry<String, HlsMediaPlaylist.ClientDefinedAttribute> newEntry :
-            clientDefinedAttributes.entrySet()) {
-          String newKey = newEntry.getKey();
-          HlsMediaPlaylist.ClientDefinedAttribute newValue = newEntry.getValue();
-          if (this.clientDefinedAttributes.containsKey(newKey)) {
-            HlsMediaPlaylist.ClientDefinedAttribute existingValue =
-                this.clientDefinedAttributes.get(newKey);
-            if (existingValue != null) {
-              checkArgument(
-                  existingValue.equals(newValue),
-                  "Can't change "
-                      + newKey
-                      + " from "
-                      + existingValue.textValue
-                      + " "
-                      + existingValue.doubleValue
-                      + " to "
-                      + newValue.textValue
-                      + " "
-                      + newValue.doubleValue);
-            }
+        for (int i = 0; i < clientDefinedAttributes.size(); i++) {
+          ClientDefinedAttribute newAttribute = clientDefinedAttributes.get(i);
+          String newName = newAttribute.name;
+          ClientDefinedAttribute existingAttribute = this.clientDefinedAttributes.get(newName);
+          if (existingAttribute != null) {
+            checkArgument(
+                existingAttribute.equals(newAttribute),
+                "Can't change "
+                    + newName
+                    + " from "
+                    + existingAttribute.textValue
+                    + " "
+                    + existingAttribute.doubleValue
+                    + " to "
+                    + newAttribute.textValue
+                    + " "
+                    + newAttribute.doubleValue);
           }
-          this.clientDefinedAttributes.put(newKey, newValue);
+          this.clientDefinedAttributes.put(newName, newAttribute);
         }
         return this;
       }

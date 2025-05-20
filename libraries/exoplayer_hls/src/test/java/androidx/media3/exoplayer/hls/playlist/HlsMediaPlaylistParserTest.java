@@ -1197,12 +1197,12 @@ public class HlsMediaPlaylistParserTest {
             /* snapTypes= */ ImmutableList.of(),
             /* restrictions= */ ImmutableList.of(),
             /* clientDefinedAttributes= */ ImmutableList.of(
+                new HlsMediaPlaylist.ClientDefinedAttribute("X-GOOGLE-TEST-DOUBLE1", 12.123d),
+                new HlsMediaPlaylist.ClientDefinedAttribute("X-GOOGLE-TEST-DOUBLE2", 1d),
                 new HlsMediaPlaylist.ClientDefinedAttribute(
                     "X-GOOGLE-TEST-HEX",
                     "0XAB10A",
-                    HlsMediaPlaylist.ClientDefinedAttribute.TYPE_HEX_TEXT),
-                new HlsMediaPlaylist.ClientDefinedAttribute("X-GOOGLE-TEST-DOUBLE1", 12.123d),
-                new HlsMediaPlaylist.ClientDefinedAttribute("X-GOOGLE-TEST-DOUBLE2", 1d)));
+                    HlsMediaPlaylist.ClientDefinedAttribute.TYPE_HEX_TEXT)));
     InputStream inputStream = new ByteArrayInputStream(Util.getUtf8Bytes(playlistString));
 
     HlsMediaPlaylist playlist =
